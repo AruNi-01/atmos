@@ -164,20 +164,11 @@ function takeMentionResults(ranked: RankedMentionFile[]): MentionFileCandidate[]
   }
 
   const reservedForContains = Math.min(MENTION_CONTAINS_RESERVE, contains.length);
-  const preferredTake = Math.min(
-    preferred.length,
-    MENTION_FILE_RESULT_LIMIT - reservedForContains,
-  );
-  const containsTake = Math.min(
-    contains.length,
-    MENTION_FILE_RESULT_LIMIT - preferredTake,
-  );
+  const preferredTake = Math.min(preferred.length, MENTION_FILE_RESULT_LIMIT - reservedForContains);
+  const containsTake = Math.min(contains.length, MENTION_FILE_RESULT_LIMIT - preferredTake);
 
   // Keep display order: exact/prefix first, then best contains.
-  return [
-    ...preferred.slice(0, preferredTake),
-    ...contains.slice(0, containsTake),
-  ].map(stripRank);
+  return [...preferred.slice(0, preferredTake), ...contains.slice(0, containsTake)].map(stripRank);
 }
 
 /**

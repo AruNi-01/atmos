@@ -43,8 +43,8 @@ Events that only mean “refetch” may use `RefreshNotification` (`unknown`).
 ## Call-site rules (apps)
 
 ```ts
-await wsRequest("git_get_status", { path });           // inferred input + output
-session.requestUnchecked(dynamicName, data);           // runtime-dynamic name only
+await wsRequest("git_get_status", { path }); // inferred input + output
+session.requestUnchecked(dynamicName, data); // runtime-dynamic name only
 session.onNotification("agent_notification", (p) => p.session_id);
 ```
 

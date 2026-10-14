@@ -22,13 +22,10 @@ type Box = {
  * Inverse of a transform-origin `0 0` pose. `rootVisual / rootLayout` is the
  * scale currently on screen, including a transition that has not settled.
  */
-export function layoutClientRect(input: {
-  rootVisual: Box;
-  rootLayout: Box;
-  visual: Box;
-}): Box {
+export function layoutClientRect(input: { rootVisual: Box; rootLayout: Box; visual: Box }): Box {
   const scaleX = input.rootLayout.width > 0 ? input.rootVisual.width / input.rootLayout.width : 0;
-  const scaleY = input.rootLayout.height > 0 ? input.rootVisual.height / input.rootLayout.height : 0;
+  const scaleY =
+    input.rootLayout.height > 0 ? input.rootVisual.height / input.rootLayout.height : 0;
   if (!(scaleX > 0) || !(scaleY > 0) || !Number.isFinite(scaleX) || !Number.isFinite(scaleY)) {
     return {
       left: input.visual.left,

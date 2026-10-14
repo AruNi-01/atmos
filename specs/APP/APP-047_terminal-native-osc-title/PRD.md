@@ -12,7 +12,7 @@ Developers run multiple agent sessions (Codex, Claude Code, Grok Build, …) in 
 
 ## 2. User stories
 
-- As a user, when an agent sets a native terminal title, I see it **after** the Atmos auto title, separated by ` | `.
+- As a user, when an agent sets a native terminal title, I see it **after** the Atmos auto title, separated by `|`.
 - As a user, the pane still shows the correct **agent icon / brand** from Atmos detection; OSC text never rebrands the pane as a different agent.
 - As a user, if I set a **custom pane title** (APP-033), OSC suffixes are hidden so my label stays clean.
 - As a user, when the agent exits (shell returns to prompt) or the process clears the title, the OSC suffix disappears.
@@ -29,6 +29,7 @@ Developers run multiple agent sessions (Codex, Claude Code, Grok Build, …) in 
   ```
 
   If `autoDisplayTitle` is empty, show only `{oscTitle}`.
+
 - **M3 — Agent detection unchanged.** `resolveAgentForTitle` / `setPaneAgent` continue to use only shim `dynamicTitle` (and existing base/agent fields). Native OSC text is never used for agent matching.
 - **M4 — Custom title suppresses OSC.** A non-empty pane `customLabel` means OSC is not appended (regardless of Keep Agent Name / Keep CWD).
 - **M5 — Clear rules.** `oscTitle` is cleared when:
@@ -39,7 +40,7 @@ Developers run multiple agent sessions (Codex, Claude Code, Grok Build, …) in 
 - **M8 — Filter noisy / redundant OSC.** Do **not** append OSC when it is:
   - shell noise: `user@host:cwd`, host-prefixed paths, or path-only titles (Atmos already shows path via shim);
   - agent-redundant: equals the detected agent's command / aliases / label / id (e.g. OSC `claude` while the toolbar already shows the Claude brand), or equals the current shim `dynamicTitle`.
-  Meaningful session topics (e.g. `debugging auth`) still append.
+    Meaningful session topics (e.g. `debugging auth`) still append.
 
 ### Should have
 

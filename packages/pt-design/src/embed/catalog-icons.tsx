@@ -267,13 +267,7 @@ export function catalogVariantIconName(variant: string): string {
   return variant in VARIANT_ICONS ? variant : "default";
 }
 
-export function CatalogVariantIcon({
-  variant,
-  size = 14,
-}: {
-  variant: string;
-  size?: number;
-}) {
+export function CatalogVariantIcon({ variant, size = 14 }: { variant: string; size?: number }) {
   const Icon = VARIANT_ICONS[catalogVariantIconName(variant)] ?? Circle;
   return <Icon size={size} strokeWidth={2} aria-hidden />;
 }

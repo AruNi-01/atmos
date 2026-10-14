@@ -8,21 +8,21 @@ Addresses **M1–M13**. N1–N5 deferred. Three slices: rebase serve-sim to `0.1
 
 ## Frozen decisions
 
-| Decision | Rule |
-|----------|------|
-| Lifecycle owner | **`core-engine` `host_devices` + `DevicePreviewService`.** `platform` selects `simctl` vs `avdmanager`/`emulator`/`adb`. Helpers do not grow catalog UI or HTTP. |
-| Appearance | **`xcrun simctl ui <udid> appearance`** (iOS) and **`adb -s <serial> shell cmd uimode night`** (Android). Not helper `/exec` / `/api/uimode` as the product path. |
-| Android camera | **Emulator `imagefile:` cameras.** At Atmos boot: seed per-serial PNG files, then pass `-camera-front imagefile:<path>` and `-camera-back imagefile:<path>`. Inject = atomically rewrite that file. The emulator re-reads it the next time the guest **opens** the camera. No qemu restart, no gRPC, no console poster, no serve-emu `/api/camera`. |
-| Preview | One exclusive `DeviceClaim` per workspace, iframe helper. Inventory lists many. |
-| Boot vs Preview | `simulator_boot` = power on VM. `simulator_start` = claim + helper (Atmos-boot first if Shutdown). `simulator_stop` = helper + claim only. `simulator_shutdown` = power off VM (stops our claim first). |
-| Android qemu owner | Atmos launches `emulator`. serve-emu **attaches** with `-s <serial>`. Never pass `--avd` to serve-emu when we just booted that AVD (that would spawn a second qemu). |
-| Create | Does **not** auto-boot or auto-claim. |
-| Create catalogs | Installed only. iOS types come from the selected runtime’s `supportedDeviceTypes`. Android: `avdmanager list device` + `sdkmanager --list_installed`. |
-| Images on the wire | Camera PNG: `path` (CLI) or `png_base64` (UI), **32 MiB** decoded cap, PNG only. Never log payload. No REST. |
-| Wire names | Stay `simulator_*`. New per-verb actions. |
-| Delete | If another workspace claimed it → refuse. Else stop our helper if any, shutdown (already-off is ok), then delete. |
-| `simcam` | Still omitted from the serve-sim archive. |
-| Hosts | macOS 14+ arm64, same as APP-070. |
+| Decision           | Rule                                                                                                                                                                                                                                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lifecycle owner    | **`core-engine` `host_devices` + `DevicePreviewService`.** `platform` selects `simctl` vs `avdmanager`/`emulator`/`adb`. Helpers do not grow catalog UI or HTTP.                                                                                                                                                                                    |
+| Appearance         | **`xcrun simctl ui <udid> appearance`** (iOS) and **`adb -s <serial> shell cmd uimode night`** (Android). Not helper `/exec` / `/api/uimode` as the product path.                                                                                                                                                                                   |
+| Android camera     | **Emulator `imagefile:` cameras.** At Atmos boot: seed per-serial PNG files, then pass `-camera-front imagefile:<path>` and `-camera-back imagefile:<path>`. Inject = atomically rewrite that file. The emulator re-reads it the next time the guest **opens** the camera. No qemu restart, no gRPC, no console poster, no serve-emu `/api/camera`. |
+| Preview            | One exclusive `DeviceClaim` per workspace, iframe helper. Inventory lists many.                                                                                                                                                                                                                                                                     |
+| Boot vs Preview    | `simulator_boot` = power on VM. `simulator_start` = claim + helper (Atmos-boot first if Shutdown). `simulator_stop` = helper + claim only. `simulator_shutdown` = power off VM (stops our claim first).                                                                                                                                             |
+| Android qemu owner | Atmos launches `emulator`. serve-emu **attaches** with `-s <serial>`. Never pass `--avd` to serve-emu when we just booted that AVD (that would spawn a second qemu).                                                                                                                                                                                |
+| Create             | Does **not** auto-boot or auto-claim.                                                                                                                                                                                                                                                                                                               |
+| Create catalogs    | Installed only. iOS types come from the selected runtime’s `supportedDeviceTypes`. Android: `avdmanager list device` + `sdkmanager --list_installed`.                                                                                                                                                                                               |
+| Images on the wire | Camera PNG: `path` (CLI) or `png_base64` (UI), **32 MiB** decoded cap, PNG only. Never log payload. No REST.                                                                                                                                                                                                                                        |
+| Wire names         | Stay `simulator_*`. New per-verb actions.                                                                                                                                                                                                                                                                                                           |
+| Delete             | If another workspace claimed it → refuse. Else stop our helper if any, shutdown (already-off is ok), then delete.                                                                                                                                                                                                                                   |
+| `simcam`           | Still omitted from the serve-sim archive.                                                                                                                                                                                                                                                                                                           |
+| Hosts              | macOS 14+ arm64, same as APP-070.                                                                                                                                                                                                                                                                                                                   |
 
 ## Architecture overview
 
@@ -65,13 +65,13 @@ These are the only shells `host_devices` / `device_control` run for this spec. P
 
 ### Catalogs
 
-| Need | Command | Parse |
-|------|---------|--------|
-| iOS runtimes + valid device types | `xcrun simctl list runtimes --json` | `runtimes[]`. Keep `isAvailable == true` and iOS only (`platform` / `identifier` contains `iOS`, drop watchOS/tvOS). Each runtime’s `supportedDeviceTypes[]` has `identifier` + `name`. Create **must** pair a type that appears on that runtime. |
-| iOS devices (existing) | `xcrun simctl list devices -j` | Already in `parse_simctl_devices`. |
-| Android device profiles | `avdmanager list device` | After `Available devices definitions:`, split on `---` blocks. `id: <n> or "<id>"` → profile `id` (quoted string, e.g. `pixel_6`). `Name:`, `OEM:`, `Tag:`. Skip blocks with no id. |
-| Android system images | `sdkmanager --list_installed` | Rows of `Path \| Version \| Description \| Location`. Keep paths starting `system-images;`. Split path on `;` → `{package, apiLevel, tag, abi}`. That `package` is `avdmanager --package`. |
-| Android AVDs (existing) | `emulator -list-avds` + `adb devices -l` | Already in `host_devices`. |
+| Need                              | Command                                  | Parse                                                                                                                                                                                                                                             |
+| --------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| iOS runtimes + valid device types | `xcrun simctl list runtimes --json`      | `runtimes[]`. Keep `isAvailable == true` and iOS only (`platform` / `identifier` contains `iOS`, drop watchOS/tvOS). Each runtime’s `supportedDeviceTypes[]` has `identifier` + `name`. Create **must** pair a type that appears on that runtime. |
+| iOS devices (existing)            | `xcrun simctl list devices -j`           | Already in `parse_simctl_devices`.                                                                                                                                                                                                                |
+| Android device profiles           | `avdmanager list device`                 | After `Available devices definitions:`, split on `---` blocks. `id: <n> or "<id>"` → profile `id` (quoted string, e.g. `pixel_6`). `Name:`, `OEM:`, `Tag:`. Skip blocks with no id.                                                               |
+| Android system images             | `sdkmanager --list_installed`            | Rows of `Path \| Version \| Description \| Location`. Keep paths starting `system-images;`. Split path on `;` → `{package, apiLevel, tag, abi}`. That `package` is `avdmanager --package`.                                                        |
+| Android AVDs (existing)           | `emulator -list-avds` + `adb devices -l` | Already in `host_devices`.                                                                                                                                                                                                                        |
 
 Resolve `avdmanager` / `sdkmanager` / `emulator` / `adb` from `ANDROID_HOME` / `ANDROID_SDK_ROOT` / `~/Library/Android/sdk` (same as `resolve_android_toolchain_from`).
 
@@ -128,10 +128,10 @@ After policy (below): **iOS** `xcrun simctl delete <udid>`. **Android** `avdmana
 
 ### Appearance (claimed + booted only)
 
-| | Read | Write Light | Write Dark |
-|--|------|-------------|------------|
-| iOS | `xcrun simctl ui <udid> appearance` | `… appearance light` | `… appearance dark` |
-| Android | `adb -s <serial> shell cmd uimode night` | `… night no` | `… night yes` |
+|         | Read                                     | Write Light          | Write Dark          |
+| ------- | ---------------------------------------- | -------------------- | ------------------- |
+| iOS     | `xcrun simctl ui <udid> appearance`      | `… appearance light` | `… appearance dark` |
+| Android | `adb -s <serial> shell cmd uimode night` | `… night no`         | `… night yes`       |
 
 Parse Android stdout `Night mode: yes\|no\|auto`. Map `yes` → dark; `no` and `auto` → light.
 
@@ -139,10 +139,10 @@ Parse Android stdout `Night mode: yes\|no\|auto`. Map `yes` → dark; `no` and `
 
 Directory: `~/.atmos/state/simulator/camera/` (`runtime-manager`: `simulator_camera_dir()`).
 
-| Facing | Path |
-|--------|------|
-| front | `<dir>/<serial>-front.png` |
-| back | `<dir>/<serial>-back.png` |
+| Facing | Path                       |
+| ------ | -------------------------- |
+| front  | `<dir>/<serial>-front.png` |
+| back   | `<dir>/<serial>-back.png`  |
 
 Sanitize serial for the filename: keep `[A-Za-z0-9._-]`, replace other chars with `_`.
 
@@ -281,13 +281,13 @@ Thin WS + extract + CLI invoke. Same PR as the Rust enum.
 
 `apps/web/src/features/simulator/`:
 
-| Piece | File (indicative) |
-|-------|-------------------|
-| Inventory + Add / Boot / Shut down / Delete / Preview | `SimulatorInventoryPanel.tsx` |
+| Piece                                                    | File (indicative)                 |
+| -------------------------------------------------------- | --------------------------------- |
+| Inventory + Add / Boot / Shut down / Delete / Preview    | `SimulatorInventoryPanel.tsx`     |
 | Add dialog: iOS runtime → types; Android profile + image | `SimulatorCreateDeviceDialog.tsx` |
-| Light / Dark | `SimulatorAppearanceControl.tsx` |
-| Front/Back + file picker + “reopen camera to apply” | `SimulatorCameraControl.tsx` |
-| iframe | unchanged |
+| Light / Dark                                             | `SimulatorAppearanceControl.tsx`  |
+| Front/Back + file picker + “reopen camera to apply”      | `SimulatorCameraControl.tsx`      |
+| iframe                                                   | unchanged                         |
 
 Wrappers in `apps/web/src/api/ws/simulator-api.ts` — `wsRequest("simulator_create", { … })`, no `<T>`. i18n `features.simulator.*` en+zh. Relay: existing needs-this-Mac card.
 
@@ -322,17 +322,17 @@ Extend `SimulatorReason` with PRD M13 (`snake_case`). No SQLite.
 
 WebSocket only.
 
-| Action | Input | Output |
-|--------|--------|--------|
-| `simulator_inventory` | `{ workspace_id? }` | `SimulatorInventory` |
-| `simulator_create` | `{ platform, device_type, runtime, name? }` | `{ device: SimulatorDevice }` |
-| `simulator_boot` | `{ workspace_id, udid, platform }` | `{ device: SimulatorDevice }` |
-| `simulator_shutdown` | `{ workspace_id, udid, platform }` | `{ device: SimulatorDevice }` |
-| `simulator_delete` | `{ workspace_id, udid, platform }` | `{ deleted: true, udid }` |
-| `simulator_appearance_get` | `{ workspace_id, udid?, platform? }` | `{ appearance, udid, platform }` |
-| `simulator_appearance_set` | `{ workspace_id, appearance, udid?, platform? }` | same as get |
-| `simulator_camera_inject` | `{ workspace_id, lens, path?, png_base64?, udid?, platform? }` | `{ ok, lens, udid }` |
-| `simulator_camera_clear` | `{ workspace_id, lens, udid?, platform? }` | `{ ok, lens, udid }` |
+| Action                     | Input                                                          | Output                           |
+| -------------------------- | -------------------------------------------------------------- | -------------------------------- |
+| `simulator_inventory`      | `{ workspace_id? }`                                            | `SimulatorInventory`             |
+| `simulator_create`         | `{ platform, device_type, runtime, name? }`                    | `{ device: SimulatorDevice }`    |
+| `simulator_boot`           | `{ workspace_id, udid, platform }`                             | `{ device: SimulatorDevice }`    |
+| `simulator_shutdown`       | `{ workspace_id, udid, platform }`                             | `{ device: SimulatorDevice }`    |
+| `simulator_delete`         | `{ workspace_id, udid, platform }`                             | `{ deleted: true, udid }`        |
+| `simulator_appearance_get` | `{ workspace_id, udid?, platform? }`                           | `{ appearance, udid, platform }` |
+| `simulator_appearance_set` | `{ workspace_id, appearance, udid?, platform? }`               | same as get                      |
+| `simulator_camera_inject`  | `{ workspace_id, lens, path?, png_base64?, udid?, platform? }` | `{ ok, lens, udid }`             |
+| `simulator_camera_clear`   | `{ workspace_id, lens, udid?, platform? }`                     | `{ ok, lens, udid }`             |
 
 `simulator_camera_inject`: exactly one of `path` or `png_base64`. Existing `simulator_list` stays **live claims** (APP-071). Event `simulator_devices_changed` `{ platform? }` after create/boot/shutdown/delete.
 

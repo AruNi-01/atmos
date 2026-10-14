@@ -1,24 +1,21 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { create } from 'zustand';
-import { toastManager } from '@workspace/ui';
-import { useTranslations } from 'next-intl';
+import * as React from "react";
+import { create } from "zustand";
+import { toastManager } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 
-import { functionSettingsApi } from '@/api/ws-api';
-import {
-  getComputerQueryScope,
-  type ComputerQueryScope,
-} from '@/api/query/query-scope';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
-import type { TerminalAgentRunConfigInput } from '@/features/agent/lib/terminal-agent-run-config';
-import { TERMINAL_AGENT_DEFINITIONS } from '@/features/agent/lib/terminal-agent-definitions';
+import { functionSettingsApi } from "@/api/ws-api";
+import { getComputerQueryScope, type ComputerQueryScope } from "@/api/query/query-scope";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
+import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
 import {
   DEFAULT_TERMINAL_SPLIT_PREFS,
   TERMINAL_DEFAULT_SPLIT_AGENT_KEYS,
   parseTerminalSplitPrefsFromSettings,
   type TerminalSplitPrefs,
-} from '@/features/terminal/lib/terminal-split-prefs';
+} from "@/features/terminal/lib/terminal-split-prefs";
 
 interface TerminalSplitPrefsState extends TerminalSplitPrefs {
   loaded: boolean;
@@ -54,29 +51,25 @@ function scopesMatch(a: ComputerQueryScope, b: ComputerQueryScope): boolean {
 }
 
 function defaultAgentId(): string {
-  return TERMINAL_AGENT_DEFINITIONS[0]?.id ?? 'claude';
+  return TERMINAL_AGENT_DEFINITIONS[0]?.id ?? "claude";
 }
 
 function storeText(
-  key:
-    | 'syncFailedTitle'
-    | 'enabledFailed'
-    | 'agentFailed'
-    | 'runConfigFailed',
+  key: "syncFailedTitle" | "enabledFailed" | "agentFailed" | "runConfigFailed",
 ): string {
   if (terminalSplitPrefsTranslator) {
     return terminalSplitPrefsTranslator(key);
   }
 
   switch (key) {
-    case 'syncFailedTitle':
-      return 'Settings Sync Failed';
-    case 'enabledFailed':
-      return 'Failed to update Default split agent.';
-    case 'agentFailed':
-      return 'Failed to update the default split agent.';
-    case 'runConfigFailed':
-      return 'Failed to update the default split agent run config.';
+    case "syncFailedTitle":
+      return "Settings Sync Failed";
+    case "enabledFailed":
+      return "Failed to update Default split agent.";
+    case "agentFailed":
+      return "Failed to update the default split agent.";
+    case "runConfigFailed":
+      return "Failed to update the default split agent run config.";
   }
 }
 
@@ -104,7 +97,7 @@ async function persistTerminalKey(
   value: unknown,
   expectedScope = getComputerQueryScope(),
 ): Promise<void> {
-  await functionSettingsApi.update('terminal', key, value, expectedScope);
+  await functionSettingsApi.update("terminal", key, value, expectedScope);
 }
 
 function isWriteStillCurrent(
@@ -162,7 +155,10 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
           loading: false,
         });
       } catch {
-        if (loadRequestToken === requestToken && scopesMatch(getComputerQueryScope(), expectedScope)) {
+        if (
+          loadRequestToken === requestToken &&
+          scopesMatch(getComputerQueryScope(), expectedScope)
+        ) {
           // Keep defaults visible but leave loaded=false so a later mount can retry.
           set({
             ...DEFAULT_TERMINAL_SPLIT_PREFS,
@@ -189,7 +185,7 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
     const requestToken = ++enabledRequestToken;
     const expectedScope = getComputerQueryScope();
     const current = get();
-    const nextAgentId = enabled ? current.agentId ?? defaultAgentId() : current.agentId;
+    const nextAgentId = enabled ? (current.agentId ?? defaultAgentId()) : current.agentId;
     const snapshot: TerminalSplitPrefs = {
       enabled: current.enabled,
       agentId: current.agentId,
@@ -233,9 +229,9 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
         if (isWriteStillCurrent(requestToken, enabledRequestToken, expectedScope)) {
           set({ ...lastPersisted });
           toastManager.add({
-            title: storeText('syncFailedTitle'),
-            description: storeText('enabledFailed'),
-            type: 'error',
+            title: storeText("syncFailedTitle"),
+            description: storeText("enabledFailed"),
+            type: "error",
           });
         }
       }
@@ -292,9 +288,9 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
             runConfig: lastPersisted.runConfig,
           });
           toastManager.add({
-            title: storeText('syncFailedTitle'),
-            description: storeText('agentFailed'),
-            type: 'error',
+            title: storeText("syncFailedTitle"),
+            description: storeText("agentFailed"),
+            type: "error",
           });
         }
       }
@@ -347,30 +343,26 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
             runConfig: lastPersisted.runConfig,
           });
           toastManager.add({
-            title: storeText('syncFailedTitle'),
-            description: storeText('runConfigFailed'),
-            type: 'error',
+            title: storeText("syncFailedTitle"),
+            description: storeText("runConfigFailed"),
+            type: "error",
           });
         }
       }
     }
   },
-
 }));
 
-export const useTerminalSplitPrefsStore = Object.assign(
-  function useTerminalSplitPrefsStore(
-    ...args: Parameters<typeof terminalSplitPrefsStore>
-  ) {
-    const t = useTranslations('settings.terminalSplitPrefsStore');
+export const useTerminalSplitPrefsStore = Object.assign(function useTerminalSplitPrefsStore(
+  ...args: Parameters<typeof terminalSplitPrefsStore>
+) {
+  const t = useTranslations("settings.terminalSplitPrefsStore");
 
-    React.useEffect(() => {
-      // Keep the newest translator; never null out on unmount so long-lived
-      // terminal consumers still get localized setter toasts after Settings closes.
-      terminalSplitPrefsTranslator = t;
-    }, [t]);
+  React.useEffect(() => {
+    // Keep the newest translator; never null out on unmount so long-lived
+    // terminal consumers still get localized setter toasts after Settings closes.
+    terminalSplitPrefsTranslator = t;
+  }, [t]);
 
-    return terminalSplitPrefsStore(...args);
-  },
-  terminalSplitPrefsStore,
-) as typeof terminalSplitPrefsStore;
+  return terminalSplitPrefsStore(...args);
+}, terminalSplitPrefsStore) as typeof terminalSplitPrefsStore;

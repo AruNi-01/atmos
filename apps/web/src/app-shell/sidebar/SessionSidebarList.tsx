@@ -36,10 +36,7 @@ import {
   type SidebarSessionRow,
 } from "@/app-shell/sidebar/session-grouping";
 import { sessionAgentStatusView } from "@/app-shell/sidebar/session-live-group";
-import {
-  resolveSessionPrLifecycle,
-  sessionBranchPrTargets,
-} from "@/app-shell/sidebar/session-pr";
+import { resolveSessionPrLifecycle, sessionBranchPrTargets } from "@/app-shell/sidebar/session-pr";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { AgentStatusMarkView } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import {
@@ -59,7 +56,10 @@ import {
   navigateToAgentStatusSession,
 } from "@/features/agent/lib/agent-status-navigation";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { parseStandaloneScope, standaloneJobHref } from "@/features/automations/lib/automation-run-landing";
+import {
+  parseStandaloneScope,
+  standaloneJobHref,
+} from "@/features/automations/lib/automation-run-landing";
 import { parseAgentChatTabValue } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 import { getScopeKey } from "@/features/terminal/store/terminal-store-helpers";
@@ -95,15 +95,15 @@ function toStatusRecord(
   row: SidebarSessionRow,
   live: AgentStatusRecord | undefined,
 ): AgentStatusRecord {
-  const chatId = row.surface === "chat"
-    ? row.surfaceId?.trim() ||
-      (row.sessionId.startsWith("chat:") ? row.sessionId.slice("chat:".length) : null)
-    : null;
-  const paneId = row.surface === "terminal"
-    ? live?.pane_id ??
-      row.surfaceId ??
-      (row.sessionId.includes(":") ? row.sessionId : null)
-    : live?.pane_id ?? null;
+  const chatId =
+    row.surface === "chat"
+      ? row.surfaceId?.trim() ||
+        (row.sessionId.startsWith("chat:") ? row.sessionId.slice("chat:".length) : null)
+      : null;
+  const paneId =
+    row.surface === "terminal"
+      ? (live?.pane_id ?? row.surfaceId ?? (row.sessionId.includes(":") ? row.sessionId : null))
+      : (live?.pane_id ?? null);
   return {
     session_id: row.sessionId,
     tool: live?.tool ?? asAgentTool(row.tool),
@@ -113,7 +113,7 @@ function toStatusRecord(
     context_id: row.contextId,
     pane_id: paneId,
     surface: row.surface,
-    surface_id: row.surface === "chat" ? chatId : row.surfaceId ?? live?.surface_id ?? null,
+    surface_id: row.surface === "chat" ? chatId : (row.surfaceId ?? live?.surface_id ?? null),
     space_id: live?.space_id ?? null,
     provider_id: live?.provider_id ?? row.tool,
     side_chat_id: live?.side_chat_id ?? null,
@@ -122,10 +122,7 @@ function toStatusRecord(
   };
 }
 
-function openSessionContext(
-  row: SidebarSessionRow,
-  router: { push: (path: string) => void },
-) {
+function openSessionContext(row: SidebarSessionRow, router: { push: (path: string) => void }) {
   if (row.workspace) {
     const jobGuid = parseStandaloneScope(row.workspace.id);
     router.push(jobGuid ? standaloneJobHref(jobGuid) : `/workspace?id=${row.workspace.id}`);
@@ -140,10 +137,9 @@ function activateSidebarSessionRow(
   projects: Project[],
 ) {
   if (row.draftTab) {
-    useAgentChatCenterTabsStore.getState().requestActivate(
-      row.draftTab.contextId,
-      row.draftTab.value,
-    );
+    useAgentChatCenterTabsStore
+      .getState()
+      .requestActivate(row.draftTab.contextId, row.draftTab.value);
     openSessionContext(row, router);
     return;
   }
@@ -361,7 +357,7 @@ function SessionSidebarRow({
               event.stopPropagation();
               onTogglePin(row.sessionId);
             }}
-            className="absolute left-1/2 top-1/2 z-10 hidden size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:cursor-pointer hover:bg-sidebar-border/50 hover:text-foreground group-hover/session:flex"
+            className="absolute top-1/2 left-1/2 z-10 hidden size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground group-hover/session:flex hover:cursor-pointer hover:bg-sidebar-border/50 hover:text-foreground"
           >
             <Pin className={cn("size-3.5", !isPinned && "rotate-45")} />
           </button>
@@ -374,7 +370,7 @@ function SessionSidebarRow({
         </span>
         <span
           className={cn(
-            "shrink-0 text-[11px] tabular-nums text-muted-foreground",
+            "shrink-0 text-[11px] text-muted-foreground tabular-nums",
             chatId && "group-hover/session:hidden",
           )}
         >
@@ -431,9 +427,7 @@ function SessionSidebarRow({
                     label={deleteT("includeSource")}
                     onCheckedChange={setIncludeSource}
                   />
-                  {actionError ? (
-                    <p className="text-xs text-destructive">{actionError}</p>
-                  ) : null}
+                  {actionError ? <p className="text-xs text-destructive">{actionError}</p> : null}
                   <HoldToConfirmButton
                     size="sm"
                     className="mt-1 w-full"
@@ -517,7 +511,7 @@ function SessionGroupSection({
           <button
             type="button"
             onClick={onToggle}
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 py-2 pr-2 pl-3 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
           >
             {leading ?? <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />}
             <span className="truncate">{group.label}</span>
@@ -527,7 +521,7 @@ function SessionGroupSection({
                 !isCollapsed && "rotate-90",
               )}
             />
-            <span className="ml-auto inline-flex size-6 shrink-0 items-center justify-center text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
+            <span className="ml-auto inline-flex size-6 shrink-0 items-center justify-center text-[10px] font-medium tracking-normal text-muted-foreground/80 normal-case">
               {group.items.length}
             </span>
           </button>
@@ -540,7 +534,7 @@ function SessionGroupSection({
         )}
       >
         <div className="min-w-0 overflow-hidden">
-          <div className="flex min-w-0 flex-col gap-1 pl-3 pt-0.5">
+          <div className="flex min-w-0 flex-col gap-1 pt-0.5 pl-3">
             <SidebarMotionList>
               {group.items.map((row) => {
                 const owner = row.workspace?.githubPr?.owner?.trim();
@@ -595,24 +589,17 @@ export function SessionSidebarList({
   const t = useTranslations("appShell.task");
   const { pinnedIds, togglePin } = usePinnedSessionIds();
   const pinnedIdSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
-  const split = useMemo(
-    () => splitPinnedSessionGroups(groups, pinnedIds),
-    [groups, pinnedIds],
-  );
+  const split = useMemo(() => splitPinnedSessionGroups(groups, pinnedIds), [groups, pinnedIds]);
   const rows = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const prsByKey = useSessionBranchPrMap(rows);
   const activeSession = useActiveSidebarSession();
 
   if (!sessionsLoaded && catalogCount === 0) return null;
   if (sessionsLoaded && catalogCount === 0) {
-    return (
-      <div className="px-3 py-6 text-sm text-muted-foreground">{t("view.empty")}</div>
-    );
+    return <div className="px-3 py-6 text-sm text-muted-foreground">{t("view.empty")}</div>;
   }
   if (split.groups.length === 0 && split.pinned.length === 0) {
-    return (
-      <div className="px-3 py-6 text-sm text-muted-foreground">{t("view.noMatches")}</div>
-    );
+    return <div className="px-3 py-6 text-sm text-muted-foreground">{t("view.noMatches")}</div>;
   }
 
   const pinnedGroup: SidebarSessionGroup | null =
@@ -621,8 +608,17 @@ export function SessionSidebarList({
       : null;
 
   return (
-    <ScrollArea scrollFade className="h-full overflow-x-hidden" viewportClassName="overflow-x-hidden">
-      <SidebarMotionScope className={cn("flex min-w-0 flex-col gap-0.5 overflow-x-clip pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
+    <ScrollArea
+      scrollFade
+      className="h-full overflow-x-hidden"
+      viewportClassName="overflow-x-hidden"
+    >
+      <SidebarMotionScope
+        className={cn(
+          "flex min-w-0 flex-col gap-0.5 overflow-x-clip pl-2",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         <SidebarMotionList>
           {pinnedGroup ? (
             <SidebarMotionItem key="session-pinned">

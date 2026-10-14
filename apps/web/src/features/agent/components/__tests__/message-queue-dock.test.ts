@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const dock = readFileSync(
-  join(import.meta.dir, "../MessageQueueDock.tsx"),
-  "utf8",
-);
+const dock = readFileSync(join(import.meta.dir, "../MessageQueueDock.tsx"), "utf8");
 
 describe("message queue dock", () => {
   it("edits queued messages from the prompt input instead of a popover", () => {
@@ -13,7 +10,7 @@ describe("message queue dock", () => {
     expect(dock).not.toContain("textarea");
     expect(dock).toContain("onToggleEdit");
     expect(dock).toContain("editingPromptId");
-    expect(dock).toContain('aria-pressed={isEditing}');
+    expect(dock).toContain("aria-pressed={isEditing}");
   });
 
   it("keeps the queue item chrome normal while editing (highlight stays on main prompt)", () => {

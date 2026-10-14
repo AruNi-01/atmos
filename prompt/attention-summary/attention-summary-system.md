@@ -8,11 +8,12 @@ The user may not be coding; summarize whatever the transcript shows (Q&A, debug,
 
 Respond with ONLY a single JSON object (no markdown fences) matching:
 {
-  "summary": "one sentence",
-  "next_steps": ["short action 1", "short action 2"],
-  "can_close_session": true
+"summary": "one sentence",
+"next_steps": ["short action 1", "short action 2"],
+"can_close_session": true
 }
 Rules:
+
 - summary: one clear sentence about what happened in the recent terminal turn (max ~160 chars).
 - next_steps: 2-4 short imperative actions the user might take next, grounded in the transcript.
 - can_close_session: true only if work looks complete with no obvious unfinished blockers.

@@ -13,14 +13,8 @@ import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { CanvasAgentBus, type CanvasAgentDispatchInput } from "../lib/canvas-agent-bus";
 import { CanvasAgentActivityStore } from "../lib/canvas-agent-activity";
 import { CanvasAgentFeedStore } from "../lib/canvas-agent-feed";
-import {
-  shapeIdsFromAgentResult,
-  type CanvasAgentBounds,
-} from "../lib/canvas-agent-view-bounds";
-import {
-  centerCameraOnPageBounds,
-  focusCanvasShapes,
-} from "../lib/canvas-shape-focus";
+import { shapeIdsFromAgentResult, type CanvasAgentBounds } from "../lib/canvas-agent-view-bounds";
+import { centerCameraOnPageBounds, focusCanvasShapes } from "../lib/canvas-shape-focus";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 
 const DISPATCH_EVENT = "canvas_agent_dispatch";
@@ -36,12 +30,14 @@ function loadOrCreateClientId(): string {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `client-${Math.random().toString(36).slice(2, 10)}`;
-  useUiPrefStore.getState().patchSlice(
-    instanceId,
-    "canvas",
-    prev => ({ ...prev, agentClientId: generated }),
-    DEFAULT_CANVAS_PREFS,
-  );
+  useUiPrefStore
+    .getState()
+    .patchSlice(
+      instanceId,
+      "canvas",
+      (prev) => ({ ...prev, agentClientId: generated }),
+      DEFAULT_CANVAS_PREFS,
+    );
   return generated;
 }
 
@@ -85,9 +81,7 @@ export function useCanvasAgentBridge(
   const onEvent = useWebSocketStore((s) => s.onEvent);
 
   const [clientId] = React.useState(() => loadOrCreateClientId());
-  const [acceptsCommands, setAcceptsCommandsState] = React.useState(() =>
-    loadAcceptsCommands(),
-  );
+  const [acceptsCommands, setAcceptsCommandsState] = React.useState(() => loadAcceptsCommands());
   const [agentFollow, setAgentFollowState] = React.useState(() => loadAgentFollow());
 
   const [activity] = React.useState(() => new CanvasAgentActivityStore());
@@ -128,12 +122,7 @@ export function useCanvasAgentBridge(
           accepts_commands: acceptsCommands,
           // Advertise what this tab's CanvasAgentBus actually implements so
           // agents can avoid script/exec against stale clients (canvas.v1 only).
-          capabilities: [
-            "canvas.v1",
-            "canvas-documents.1",
-            "document-scripts.1",
-            "exec.1",
-          ],
+          capabilities: ["canvas.v1", "canvas-documents.1", "document-scripts.1", "exec.1"],
           active_document_file_name: activeDocumentFileName,
         });
       } catch (err) {
@@ -175,14 +164,10 @@ export function useCanvasAgentBridge(
         inflightRequestIdRef.current = payload.request_id;
         activity.beginWork(editor, payload.command);
         feed.begin(payload.request_id, payload.command, payload.args ?? null);
-        let result:
-          | Awaited<ReturnType<CanvasAgentBus["handleDispatch"]>>
-          | undefined;
+        let result: Awaited<ReturnType<CanvasAgentBus["handleDispatch"]>> | undefined;
         let success = false;
         /** Captured in try, attached via finalizeRequest in finally (HMR-safe). */
-        let screenshotForFeed:
-          | { dataUrl: string; width: number; height: number }
-          | undefined;
+        let screenshotForFeed: { dataUrl: string; width: number; height: number } | undefined;
         try {
           try {
             result = await bus.handleDispatch(payload);
@@ -261,18 +246,13 @@ export function useCanvasAgentBridge(
             error_code: result.success ? undefined : result.error_code,
             error_message: result.success ? undefined : result.error_message,
             recoverable: result.success ? undefined : result.recoverable,
-            data: result.success ? result.data : result.data ?? null,
+            data: result.success ? result.data : (result.data ?? null),
           });
         } catch (err) {
-          console.warn(
-            `[canvas-agent] failed to deliver result for ${payload.request_id}`,
-            err,
-          );
+          console.warn(`[canvas-agent] failed to deliver result for ${payload.request_id}`, err);
         }
         if (Date.now() - start > 1_000) {
-          console.debug(
-            `[canvas-agent] ${payload.command} took ${Date.now() - start}ms`,
-          );
+          console.debug(`[canvas-agent] ${payload.command} took ${Date.now() - start}ms`);
         }
         if (inflightRequestIdRef.current === payload.request_id) {
           inflightRequestIdRef.current = null;
@@ -311,24 +291,28 @@ export function useCanvasAgentBridge(
   const setAcceptsCommands = React.useCallback((value: boolean) => {
     setAcceptsCommandsState(value);
     const instanceId = resolveCanvasPrefsInstanceId();
-    useUiPrefStore.getState().patchSlice(
-      instanceId,
-      "canvas",
-      prev => ({ ...prev, acceptsCommands: value }),
-      DEFAULT_CANVAS_PREFS,
-    );
+    useUiPrefStore
+      .getState()
+      .patchSlice(
+        instanceId,
+        "canvas",
+        (prev) => ({ ...prev, acceptsCommands: value }),
+        DEFAULT_CANVAS_PREFS,
+      );
   }, []);
 
   const setAgentFollow = React.useCallback((value: boolean) => {
     setAgentFollowState(value);
     agentFollowRef.current = value;
     const instanceId = resolveCanvasPrefsInstanceId();
-    useUiPrefStore.getState().patchSlice(
-      instanceId,
-      "canvas",
-      prev => ({ ...prev, agentFollow: value }),
-      DEFAULT_CANVAS_PREFS,
-    );
+    useUiPrefStore
+      .getState()
+      .patchSlice(
+        instanceId,
+        "canvas",
+        (prev) => ({ ...prev, agentFollow: value }),
+        DEFAULT_CANVAS_PREFS,
+      );
   }, []);
 
   return {
@@ -360,7 +344,6 @@ function highlightAgentTouchedShapes(
     select: false,
     animateCamera: options.followCamera,
     getFocusPulseShapeIds: () => useCanvasRuntimeStore.getState().focusPulseShapeIds,
-    setFocusPulseShapeIds: (next) =>
-      useCanvasRuntimeStore.getState().setFocusPulseShapeIds(next),
+    setFocusPulseShapeIds: (next) => useCanvasRuntimeStore.getState().setFocusPulseShapeIds(next),
   });
 }

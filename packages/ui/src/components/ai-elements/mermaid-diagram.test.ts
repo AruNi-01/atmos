@@ -20,7 +20,7 @@ describe("streamdown mermaid diagrams", () => {
     expect(diagram).toContain("overflow-hidden");
     expect(diagram).not.toContain("overflow-x-auto");
     expect(runtime).toContain("mermaid-diagram.worker.ts");
-    expect(runtime).toContain("type: \"module\"");
+    expect(runtime).toContain('type: "module"');
     expect(runtime).toContain("isPlausibleMermaidSvgSize");
     expect(runtime).not.toContain("attempt < 8");
     expect(diagram).not.toContain("contentVisibility");

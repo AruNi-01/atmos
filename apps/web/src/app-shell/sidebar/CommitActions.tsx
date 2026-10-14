@@ -1,13 +1,6 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import {
@@ -32,14 +25,13 @@ import {
   toastManager,
 } from "@workspace/ui";
 import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
-import {
-  CloudSync,
-  MessageCircleReply,
-  Sparkles,
-} from "lucide-react";
+import { CloudSync, MessageCircleReply, Sparkles } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
-import { useEditorStore, EDITOR_CONFLICT_RESOLVE_ALL_PATH } from "@/features/editor/store/use-editor-store";
+import {
+  useEditorStore,
+  EDITOR_CONFLICT_RESOLVE_ALL_PATH,
+} from "@/features/editor/store/use-editor-store";
 import {
   formatGitActionErrorForDisplay,
   isConflictActionError,
@@ -161,11 +153,8 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
   const beamTheme = resolvedTheme === "light" ? "light" : "dark";
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const [isGeneratingCommitMessage, setIsGeneratingCommitMessage] =
-    useState(false);
-  const [gitCommitLlmProviderLabel, setGitCommitLlmProviderLabel] = useState<
-    string | null
-  >(null);
+  const [isGeneratingCommitMessage, setIsGeneratingCommitMessage] = useState(false);
+  const [gitCommitLlmProviderLabel, setGitCommitLlmProviderLabel] = useState<string | null>(null);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
   const [acpNewSession, setAcpNewSession] = useState(false);
   const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
@@ -211,9 +200,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
 
   const handleAcpNewSessionToggle = useCallback((checked: boolean) => {
     setAcpNewSession(checked);
-    functionSettingsApi
-      .update("git_commit", "acp_new_session_switch", checked)
-      .catch(() => {});
+    functionSettingsApi.update("git_commit", "acp_new_session_switch", checked).catch(() => {});
   }, []);
 
   useLayoutEffect(() => {
@@ -229,9 +216,12 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     return () => cancelAnimationFrame(frameId);
   }, [commitMessage, isGeneratingCommitMessage]);
 
-  const formatActionError = useCallback((error: unknown) => {
-    return formatGitActionErrorForDisplay(error) || t("commitActions.unknownError");
-  }, [t]);
+  const formatActionError = useCallback(
+    (error: unknown) => {
+      return formatGitActionErrorForDisplay(error) || t("commitActions.unknownError");
+    },
+    [t],
+  );
 
   const shouldSilenceConflictError = useCallback(
     (error: unknown) => {
@@ -287,11 +277,9 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       return;
     }
 
-    await openEditorFile(
-      EDITOR_CONFLICT_RESOLVE_ALL_PATH,
-      workspaceId || undefined,
-      { preview: false },
-    );
+    await openEditorFile(EDITOR_CONFLICT_RESOLVE_ALL_PATH, workspaceId || undefined, {
+      preview: false,
+    });
   }, [conflictedFiles.length, openEditorFile, t, workspaceId]);
 
   const handleCopyConflictPrompt = useCallback(async () => {
@@ -336,10 +324,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     }
   };
 
-  const handleGlobalAction = async (
-    action: () => Promise<void>,
-    errorTitle: string,
-  ) => {
+  const handleGlobalAction = async (action: () => Promise<void>, errorTitle: string) => {
     setIsGlobalActionLoading(true);
     try {
       await action();
@@ -467,8 +452,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     }
 
     try {
-      const skillInstalled =
-        await skillsApi.isGitCommitSkillInstalledInSystem();
+      const skillInstalled = await skillsApi.isGitCommitSkillInstalledInSystem();
       if (!skillInstalled) {
         const toastId = toastManager.add({
           title: t("commitActions.gitCommitSkillNotFoundTitle"),
@@ -564,11 +548,9 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     (gitStatus.upstream_behind_count ?? 0) === 0 &&
     stagedFiles.length === 0 &&
     !commitMessage.trim();
-  const hasPrimaryGitAction =
-    showPublishButton || showSyncPushButton || showPushButton;
+  const hasPrimaryGitAction = showPublishButton || showSyncPushButton || showPushButton;
   const isCommitDisabled =
-    !commitMessage.trim() ||
-    (stagedFiles.length === 0 && unstagedFiles.length === 0);
+    !commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0);
   const isPrimaryButtonDisabled =
     isCommitting ||
     isGeneratingCommitMessage ||
@@ -600,9 +582,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
 
       <div
         className={cn(
-          isPanel
-            ? "flex min-h-0 flex-1 gap-4 overflow-hidden px-4 pb-4"
-            : "space-y-3",
+          isPanel ? "flex min-h-0 flex-1 gap-4 overflow-hidden px-4 pb-4" : "space-y-3",
         )}
       >
         <div
@@ -628,11 +608,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
               <textarea
                 ref={commitMessageTextareaRef}
                 rows={3}
-                placeholder={
-                  isGeneratingCommitMessage
-                    ? ""
-                    : t("commitActions.messagePlaceholder")
-                }
+                placeholder={isGeneratingCommitMessage ? "" : t("commitActions.messagePlaceholder")}
                 value={
                   isGeneratingCommitMessage && !commitMessage.trim()
                     ? t("commitActions.generatingCommitMessage")
@@ -658,7 +634,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                 className={cn(
                   // Fixed height + internal scroll: streaming/long messages never
                   // grow the beam frame (field-sizing-fixed disables content sizing).
-                  "box-border field-sizing-fixed w-full resize-none overflow-y-auto focus:outline-none focus:ring-0",
+                  "box-border field-sizing-fixed w-full resize-none overflow-y-auto focus:ring-0 focus:outline-none",
                   isPanel
                     ? "h-full min-h-[220px] rounded-lg border border-border/70 bg-muted/30 p-3 pr-10 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:border-border focus:bg-background"
                     : "h-full rounded-md border border-transparent bg-sidebar-accent/50 p-2.5 pr-8 text-xs leading-snug text-sidebar-foreground placeholder:text-muted-foreground/50 focus:border-sidebar-border/50 focus:bg-sidebar-accent",
@@ -672,30 +648,23 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                   onClick={handleGenerateCommitMessage}
                   onMouseEnter={() => {
                     refreshGitCommitLlmProvider();
-                    if (aiPopoverTimer.current)
-                      clearTimeout(aiPopoverTimer.current);
-                    aiPopoverTimer.current = setTimeout(
-                      () => setAiPopoverOpen(true),
-                      400,
-                    );
+                    if (aiPopoverTimer.current) clearTimeout(aiPopoverTimer.current);
+                    aiPopoverTimer.current = setTimeout(() => setAiPopoverOpen(true), 400);
                   }}
                   onMouseLeave={() => {
                     if (aiPopoverTimer.current) {
                       clearTimeout(aiPopoverTimer.current);
                       aiPopoverTimer.current = null;
                     }
-                    aiPopoverTimer.current = setTimeout(
-                      () => setAiPopoverOpen(false),
-                      300,
-                    );
+                    aiPopoverTimer.current = setTimeout(() => setAiPopoverOpen(false), 300);
                   }}
                   disabled={!hasChanges || isGeneratingCommitMessage}
                   className={cn(
                     "absolute rounded-sm",
-                    isPanel ? "right-2.5 top-2.5 p-1.5" : "right-1.5 top-1.5 p-1",
+                    isPanel ? "top-2.5 right-2.5 p-1.5" : "top-1.5 right-1.5 p-1",
                     hasChanges && !isGeneratingCommitMessage
-                      ? "text-muted-foreground hover:text-foreground cursor-pointer"
-                      : "text-muted-foreground/30 cursor-not-allowed",
+                      ? "cursor-pointer text-muted-foreground hover:text-foreground"
+                      : "cursor-not-allowed text-muted-foreground/30",
                   )}
                 >
                   <Sparkles
@@ -717,10 +686,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                   }
                 }}
                 onMouseLeave={() => {
-                  aiPopoverTimer.current = setTimeout(
-                    () => setAiPopoverOpen(false),
-                    300,
-                  );
+                  aiPopoverTimer.current = setTimeout(() => setAiPopoverOpen(false), 300);
                 }}
                 onOpenAutoFocus={(e) => e.preventDefault()}
               >
@@ -741,22 +707,19 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                         {t("commitActions.noLlmProviderEnabledDescription")}
                       </span>
                     </p>
-                    <div className="border-t border-border mx-1.5 my-1" />
+                    <div className="mx-1.5 my-1 border-t border-border" />
                     <div className="flex items-center justify-between gap-3 rounded-sm px-2.5 py-2 hover:bg-muted">
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <label
                               htmlFor="acp-new-session"
-                              className="text-xs font-medium text-popover-foreground cursor-help select-none"
+                              className="cursor-help text-xs font-medium text-popover-foreground select-none"
                             >
                               {t("commitActions.newAcpSession")}
                             </label>
                           </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            className="max-w-[200px] text-xs"
-                          >
+                          <TooltipContent side="top" className="max-w-[200px] text-xs">
                             {t("commitActions.newAcpSessionTooltip")}
                           </TooltipContent>
                         </Tooltip>
@@ -765,10 +728,10 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                         id="acp-new-session"
                         checked={acpNewSession}
                         onCheckedChange={handleAcpNewSessionToggle}
-                        className="scale-80 shrink-0"
+                        className="shrink-0 scale-80"
                       />
                     </div>
-                    <div className="border-t border-border mx-1.5 my-1" />
+                    <div className="mx-1.5 my-1 border-t border-border" />
                     <p className="px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
                       {t("commitActions.fallbackModeDescription")}
                     </p>
@@ -778,28 +741,32 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
             </Popover>
           </div>
 
-          <div className={cn("flex w-full items-stretch shadow-sm group", isPanel ? "h-10" : "h-8")}>
+          <div
+            className={cn("group flex w-full items-stretch shadow-sm", isPanel ? "h-10" : "h-8")}
+          >
             <button
               onClick={
                 hasMergeConflicts
                   ? () => void handleOpenConflictResolver()
                   : showPublishButton
-                  ? handlePublish
-                  : showSyncPushButton
-                    ? () => handleGlobalAction(syncChanges, t("commitActions.failedToSyncAndPush"))
-                    : showPushButton
-                    ? () => handleGlobalAction(pushChanges, t("commitActions.failedToPushChanges"))
-                    : handleCommit
+                    ? handlePublish
+                    : showSyncPushButton
+                      ? () =>
+                          handleGlobalAction(syncChanges, t("commitActions.failedToSyncAndPush"))
+                      : showPushButton
+                        ? () =>
+                            handleGlobalAction(pushChanges, t("commitActions.failedToPushChanges"))
+                        : handleCommit
               }
               disabled={isPrimaryButtonDisabled}
               className={cn(
-                "flex flex-1 items-center justify-center gap-2 transition-all font-semibold select-none",
+                "flex flex-1 items-center justify-center gap-2 font-semibold transition-all select-none",
                 isPanel ? "rounded-l-lg text-sm" : "rounded-l-md text-xs",
                 isPrimaryButtonDisabled
-                  ? "bg-muted text-muted-foreground cursor-not-allowed"
+                  ? "cursor-not-allowed bg-muted text-muted-foreground"
                   : showSyncPushButton || showPushButton
-                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border border-r-sidebar-border/40"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90 border-r border-r-primary-foreground/20",
+                    ? "border border-sidebar-border border-r-sidebar-border/40 bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    : "border-r border-r-primary-foreground/20 bg-primary text-primary-foreground hover:bg-primary/90",
               )}
             >
               {(isCommitting || isGlobalActionLoading) && (
@@ -809,28 +776,32 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                 {hasMergeConflicts
                   ? t("commitActions.needResolveConflicts")
                   : showPublishButton
-                  ? isGlobalActionLoading
-                    ? t("commitActions.publishing")
-                    : t("commitActions.publishBranch")
-                  : showSyncPushButton
                     ? isGlobalActionLoading
-                      ? t("commitActions.syncing")
-                      : t("commitActions.syncAndPush", {
-                          unpushedSuffix: gitStatus?.unpushed_count ? ` ↑${gitStatus.unpushed_count}` : "",
-                          behindSuffix:
-                            (gitStatus?.upstream_behind_count ?? 0) > 0
-                              ? ` ↓${gitStatus?.upstream_behind_count}`
+                      ? t("commitActions.publishing")
+                      : t("commitActions.publishBranch")
+                    : showSyncPushButton
+                      ? isGlobalActionLoading
+                        ? t("commitActions.syncing")
+                        : t("commitActions.syncAndPush", {
+                            unpushedSuffix: gitStatus?.unpushed_count
+                              ? ` ↑${gitStatus.unpushed_count}`
                               : "",
-                        })
-                  : showPushButton
-                    ? isGlobalActionLoading
-                      ? t("commitActions.pushing")
-                      : t("commitActions.push", {
-                          suffix: gitStatus?.unpushed_count ? ` ↑${gitStatus.unpushed_count}` : "",
-                        })
-                    : isCommitting
-                      ? t("commitActions.committing")
-                      : t("common.commit")}
+                            behindSuffix:
+                              (gitStatus?.upstream_behind_count ?? 0) > 0
+                                ? ` ↓${gitStatus?.upstream_behind_count}`
+                                : "",
+                          })
+                      : showPushButton
+                        ? isGlobalActionLoading
+                          ? t("commitActions.pushing")
+                          : t("commitActions.push", {
+                              suffix: gitStatus?.unpushed_count
+                                ? ` ↑${gitStatus.unpushed_count}`
+                                : "",
+                            })
+                        : isCommitting
+                          ? t("commitActions.committing")
+                          : t("common.commit")}
               </span>
             </button>
 
@@ -864,7 +835,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                       isPrimaryButtonDisabled
                         ? "bg-muted text-muted-foreground"
                         : showSyncPushButton || showPushButton
-                          ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border"
+                          ? "border-y border-r border-sidebar-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
                           : "bg-primary text-primary-foreground hover:bg-primary/90",
                     )}
                     disabled={isPrimaryButtonDisabled}
@@ -873,16 +844,32 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges, t("commitActions.failedToPullChanges"))}>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      handleGlobalAction(pullChanges, t("commitActions.failedToPullChanges"))
+                    }
+                  >
                     <ArrowDown className="mr-2 size-4" /> {t("common.pull")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges, t("commitActions.failedToPushChanges"))}>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      handleGlobalAction(pushChanges, t("commitActions.failedToPushChanges"))
+                    }
+                  >
                     <Upload className="mr-2 size-4" /> {t("common.push")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, t("commitActions.failedToFetchChanges"))}>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      handleGlobalAction(fetchChanges, t("commitActions.failedToFetchChanges"))
+                    }
+                  >
                     <RotateCw className="mr-2 size-4" /> {t("common.fetch")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, t("commitActions.failedToSyncWithRemote"))}>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      handleGlobalAction(syncChanges, t("commitActions.failedToSyncWithRemote"))
+                    }
+                  >
                     <CloudSync className="mr-2 size-4" /> {t("commitActions.syncWithRemote")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>

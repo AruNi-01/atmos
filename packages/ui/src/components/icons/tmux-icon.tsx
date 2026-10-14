@@ -28,7 +28,7 @@ const TmuxIcon = forwardRef<SVGSVGElement, TmuxIconProps>(
         />
       </svg>
     );
-  }
+  },
 );
 
 TmuxIcon.displayName = "TmuxIcon";

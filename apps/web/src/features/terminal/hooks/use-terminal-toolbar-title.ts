@@ -9,7 +9,10 @@ import {
   useTerminalStore,
   FIXED_TERMINAL_TAB_VALUE,
 } from "@/features/terminal/store/use-terminal-store";
-import { getTerminalDisplayMeta, resolveAgentForTitle } from "@/features/terminal/components/terminal-title";
+import {
+  getTerminalDisplayMeta,
+  resolveAgentForTitle,
+} from "@/features/terminal/components/terminal-title";
 import {
   isPathLikeTitle,
   isTmuxIndexTitle,
@@ -22,7 +25,12 @@ import { useContestedCliOwners } from "./use-contested-cli-owners";
 /** Where OSC title updates should be persisted (center terminal pane vs canvas pin). */
 export type TerminalToolbarStoreWrite =
   | { kind: "terminal-pane"; workspaceId: string; paneId: string; terminalTabId?: string }
-  | { kind: "tmux-window"; workspaceId: string; tmuxWindowName: string; contextScope: "workspace" | "project" }
+  | {
+      kind: "tmux-window";
+      workspaceId: string;
+      tmuxWindowName: string;
+      contextScope: "workspace" | "project";
+    }
   | { kind: "none" };
 
 /**
@@ -43,7 +51,15 @@ export function useTerminalToolbarTitle(options: {
   const [localShimDynamicTitle, setLocalShimDynamicTitle] = useState<string | undefined>();
   // Native OSC 0/2 window titles (display suffix only; never drives agent detection).
   const [localNativeOscTitle, setLocalNativeOscTitle] = useState<string | undefined>();
-  const { storeWrite, configuredAgents, baseTitle, pinnedAgent, customLabel, keepAgentName, keepCwd } = options;
+  const {
+    storeWrite,
+    configuredAgents,
+    baseTitle,
+    pinnedAgent,
+    customLabel,
+    keepAgentName,
+    keepCwd,
+  } = options;
   const contestedOwners = useContestedCliOwners();
 
   const storeLive = useTerminalStore(
@@ -64,7 +80,11 @@ export function useTerminalToolbarTitle(options: {
             agent: undefined as TerminalPaneAgent | undefined,
           };
         }
-        return getWorkspacePaneLiveFieldsByTmuxWindow(s, storeWrite.workspaceId, storeWrite.tmuxWindowName);
+        return getWorkspacePaneLiveFieldsByTmuxWindow(
+          s,
+          storeWrite.workspaceId,
+          storeWrite.tmuxWindowName,
+        );
       }
       return {};
     }),
@@ -97,7 +117,8 @@ export function useTerminalToolbarTitle(options: {
         return;
       }
       if (storeWrite.kind === "tmux-window") {
-        if (storeWrite.contextScope !== "workspace" && storeWrite.contextScope !== "project") return;
+        if (storeWrite.contextScope !== "workspace" && storeWrite.contextScope !== "project")
+          return;
         const hit = findWorkspacePaneIdsByTmuxWindowName(
           useTerminalStore.getState(),
           storeWrite.workspaceId,
@@ -138,7 +159,8 @@ export function useTerminalToolbarTitle(options: {
         return;
       }
       if (storeWrite.kind === "tmux-window") {
-        if (storeWrite.contextScope !== "workspace" && storeWrite.contextScope !== "project") return;
+        if (storeWrite.contextScope !== "workspace" && storeWrite.contextScope !== "project")
+          return;
         const hit = findWorkspacePaneIdsByTmuxWindowName(
           useTerminalStore.getState(),
           storeWrite.workspaceId,
@@ -193,11 +215,7 @@ export function useTerminalToolbarTitle(options: {
             : mergedDynamic
         : undefined;
 
-    const displayTitle = [
-      custom,
-      showAgentLabel ? auto.toolbarAgent!.label : undefined,
-      cwdSuffix,
-    ]
+    const displayTitle = [custom, showAgentLabel ? auto.toolbarAgent!.label : undefined, cwdSuffix]
       .filter(Boolean)
       .join(" · ");
 

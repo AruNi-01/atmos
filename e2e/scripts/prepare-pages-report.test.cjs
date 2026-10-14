@@ -61,12 +61,8 @@ describe("prepare-pages-report", () => {
     });
 
     expect(result.reportPath).toBe("e2e-reports/pr-160/run-200");
-    expect(result.reportUrl).toBe(
-      "https://aruni-01.github.io/atmos/e2e-reports/pr-160/run-200/",
-    );
-    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-200/index.html"))).toBe(
-      true,
-    );
+    expect(result.reportUrl).toBe("https://aruni-01.github.io/atmos/e2e-reports/pr-160/run-200/");
+    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-200/index.html"))).toBe(true);
     expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-200/data/keep.png"))).toBe(
       true,
     );
@@ -76,20 +72,12 @@ describe("prepare-pages-report", () => {
     expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-200/data/drop.zip"))).toBe(
       false,
     );
-    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-100/index.html"))).toBe(
-      true,
-    );
-    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-100/trace.zip"))).toBe(
-      false,
-    );
+    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-100/index.html"))).toBe(true);
+    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-100/trace.zip"))).toBe(false);
     expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-50/index.html"))).toBe(true);
     // Current run + 2 priors = RETAIN_RUNS_PER_GROUP (3). Older priors are dropped.
-    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-40/index.html"))).toBe(
-      false,
-    );
-    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-10/index.html"))).toBe(
-      false,
-    );
+    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-40/index.html"))).toBe(false);
+    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-10/index.html"))).toBe(false);
 
     const retainedRuns = fs
       .readdirSync(path.join(siteRoot, "e2e-reports/pr-160"))

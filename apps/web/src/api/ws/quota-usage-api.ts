@@ -36,7 +36,8 @@ export const quotaUsageApi = {
     refresh = false,
     providerId?: string | null,
   ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_get_overview",
+    const overview = await wsRequest(
+      "quota_get_overview",
       {
         refresh,
         provider_id: providerId ?? null,
@@ -56,7 +57,8 @@ export const quotaUsageApi = {
     providerId: string,
     enabled: boolean,
   ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_set_provider_switch",
+    const overview = await wsRequest(
+      "quota_set_provider_switch",
       {
         provider_id: providerId,
         enabled,
@@ -71,7 +73,8 @@ export const quotaUsageApi = {
     providerId: string,
     enabled: boolean,
   ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_set_provider_footer_carousel",
+    const overview = await wsRequest(
+      "quota_set_provider_footer_carousel",
       {
         provider_id: providerId,
         enabled,
@@ -82,13 +85,8 @@ export const quotaUsageApi = {
     return overview;
   },
 
-  setAllProvidersSwitch: async (
-    enabled: boolean,
-  ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_set_all_providers_switch",
-      { enabled },
-      45_000,
-    );
+  setAllProvidersSwitch: async (enabled: boolean): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest("quota_set_all_providers_switch", { enabled }, 45_000);
     emitQuotaOverviewUpdated(overview);
     return overview;
   },
@@ -104,10 +102,7 @@ export const quotaUsageApi = {
       footer_carousel_show: boolean;
     }>,
   ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_apply_provider_visibility",
-      { providers },
-      45_000,
-    );
+    const overview = await wsRequest("quota_apply_provider_visibility", { providers }, 45_000);
     emitQuotaOverviewUpdated(overview);
     return overview;
   },
@@ -117,7 +112,8 @@ export const quotaUsageApi = {
     region: string | null,
     apiKey?: string | null,
   ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_set_provider_manual_setup",
+    const overview = await wsRequest(
+      "quota_set_provider_manual_setup",
       {
         provider_id: providerId,
         region,
@@ -134,7 +130,8 @@ export const quotaUsageApi = {
     region: string | null,
     apiKey: string,
   ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_add_provider_api_key",
+    const overview = await wsRequest(
+      "quota_add_provider_api_key",
       {
         provider_id: providerId,
         region,
@@ -150,7 +147,8 @@ export const quotaUsageApi = {
     providerId: string,
     keyId: string,
   ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_delete_provider_api_key",
+    const overview = await wsRequest(
+      "quota_delete_provider_api_key",
       {
         provider_id: providerId,
         key_id: keyId,
@@ -161,10 +159,9 @@ export const quotaUsageApi = {
     return overview;
   },
 
-  setAutoRefresh: async (
-    intervalMinutes?: number | null,
-  ): Promise<QuotaOverviewResponse> => {
-    const overview = await wsRequest("quota_set_auto_refresh",
+  setAutoRefresh: async (intervalMinutes?: number | null): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest(
+      "quota_set_auto_refresh",
       {
         interval_minutes: intervalMinutes ?? null,
       },

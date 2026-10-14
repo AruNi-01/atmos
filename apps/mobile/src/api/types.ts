@@ -25,10 +25,7 @@ export type {
   ProjectModel,
   ProjectWorkspaceBootstrapResponse,
 } from "@atmos/api-types/ws/dto/project";
-export type {
-  WorkspaceLabelModel,
-  WorkspaceModel,
-} from "@atmos/api-types/ws/dto/workspace";
+export type { WorkspaceLabelModel, WorkspaceModel } from "@atmos/api-types/ws/dto/workspace";
 export type { GroupMemberModel, GroupModel } from "@atmos/api-types/ws/dto/group";
 export type {
   GithubIssueLabelPayload,

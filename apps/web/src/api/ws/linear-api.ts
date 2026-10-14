@@ -43,12 +43,9 @@ function withLinearAuth<T extends Record<string, unknown>>(
   const linearApiKey =
     opts && "linearApiKey" in opts
       ? opts.linearApiKey
-      : getActiveLinearApiKeyForRequest() ?? null;
+      : (getActiveLinearApiKeyForRequest() ?? null);
   const client_id = linearOauthClientId() || undefined;
-  return withHubAuth(
-    client_id ? { ...data, client_id } : data,
-    { linearApiKey },
-  );
+  return withHubAuth(client_id ? { ...data, client_id } : data, { linearApiKey });
 }
 
 export const wsLinearApi = {
@@ -59,10 +56,7 @@ export const wsLinearApi = {
 
   /** Validate a personal API key (does not store on Hub). */
   connectApiKey: (api_key: string): Promise<LinearStatusPayload> =>
-    wsRequest(
-      "linear_connect_api_key",
-      withLinearAuth({ api_key }, { linearApiKey: null }),
-    ),
+    wsRequest("linear_connect_api_key", withLinearAuth({ api_key }, { linearApiKey: null })),
 
   oauthStart: (shell: "desktop" | "web", web_origin?: string) => {
     const client_id = linearOauthClientId();
@@ -84,24 +78,17 @@ export const wsLinearApi = {
     const client_id = linearOauthClientId();
     return wsRequest(
       "linear_oauth_finish",
-      withLinearAuth(
-        { code, state, client_id: client_id || undefined },
-        { linearApiKey: null },
-      ),
+      withLinearAuth({ code, state, client_id: client_id || undefined }, { linearApiKey: null }),
     );
   },
 
   disconnect: (): Promise<LinearStatusPayload> =>
     wsRequest("linear_disconnect", withLinearAuth({}, { linearApiKey: null })),
 
-  rateLimit: (opts?: {
-    linearApiKey?: string | null;
-  }): Promise<LinearRateLimitPayload> =>
+  rateLimit: (opts?: { linearApiKey?: string | null }): Promise<LinearRateLimitPayload> =>
     wsRequest("linear_rate_limit", withLinearAuth({}, opts)),
 
-  issueList: (
-    params: LinearIssueListParams = {},
-  ): Promise<LinearIssueListPagePayload> =>
+  issueList: (params: LinearIssueListParams = {}): Promise<LinearIssueListPagePayload> =>
     wsRequest("linear_issue_list", withLinearAuth({ ...params })),
 
   filterOptions: (): Promise<{
@@ -114,8 +101,7 @@ export const wsLinearApi = {
   linkIssue: (
     workspace_guid: string,
     issue: LinearLinkIssueRequest["issue"],
-  ): Promise<LinearLinkPayload> =>
-    wsRequest("linear_link_issue", { workspace_guid, issue }),
+  ): Promise<LinearLinkPayload> => wsRequest("linear_link_issue", { workspace_guid, issue }),
 
   unlinkIssue: (workspace_guid: string, external_id: string) =>
     wsRequest("linear_unlink_issue", {

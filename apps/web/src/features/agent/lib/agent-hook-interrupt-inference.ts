@@ -40,9 +40,7 @@ type CreateDeps = {
   clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
 };
 
-function isActiveHookState(
-  state: string
-): state is "running" | "permission_request" {
+function isActiveHookState(state: string): state is "running" | "permission_request" {
   return state === "running" || state === "permission_request";
 }
 
@@ -64,7 +62,7 @@ export function isPlainEscapeInput(data: string): boolean {
 
 function captureBaseline(
   session: AgentHookInterruptSession,
-  intent: AgentHookInterruptIntent
+  intent: AgentHookInterruptIntent,
 ): AgentHookInterruptBaseline | null {
   if (!isActiveHookState(session.state)) {
     return null;

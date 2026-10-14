@@ -2,18 +2,9 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const items = readFileSync(
-  join(import.meta.dir, "../global-search-app-items.tsx"),
-  "utf8",
-);
-const parts = readFileSync(
-  join(import.meta.dir, "../global-search-parts.tsx"),
-  "utf8",
-);
-const content = readFileSync(
-  join(import.meta.dir, "../global-search-content.tsx"),
-  "utf8",
-);
+const items = readFileSync(join(import.meta.dir, "../global-search-app-items.tsx"), "utf8");
+const parts = readFileSync(join(import.meta.dir, "../global-search-parts.tsx"), "utf8");
+const content = readFileSync(join(import.meta.dir, "../global-search-content.tsx"), "utf8");
 
 describe("global search app items", () => {
   it("uses the shared Quick Open catalog instead of a forked APP_MAP", () => {

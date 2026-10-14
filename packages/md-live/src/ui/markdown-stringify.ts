@@ -29,8 +29,7 @@ export const MD_LIVE_REMARK_GFM_OPTIONS = {
 const FENCE_RE = /^[ \t]*(`{3,}|~{3,})/;
 const STANDALONE_BR_RE = /^[ \t]*<br\s*\/?>[ \t]*$/i;
 const LIST_BR_RE = /^([ \t]*(?:[-*+]|\d+\.)[ \t]*)<br\s*\/?>[ \t]*$/i;
-const TABLE_ALIGN_ROW_RE =
-  /^[ \t]*\|?[ \t]*:?-{1,}:?[ \t]*(?:\|[ \t]*:?-{1,}:?[ \t]*)+\|?[ \t]*$/;
+const TABLE_ALIGN_ROW_RE = /^[ \t]*\|?[ \t]*:?-{1,}:?[ \t]*(?:\|[ \t]*:?-{1,}:?[ \t]*)+\|?[ \t]*$/;
 
 function fenceMarker(line: string): string | null {
   const match = line.match(FENCE_RE);
@@ -90,7 +89,10 @@ export function formatMdLiveSerializedMarkdown(markdown: string): string {
     out.push(formatted);
   }
 
-  return out.join("\n").replace(/`\u200B+`/g, "").replaceAll("\u200B", "");
+  return out
+    .join("\n")
+    .replace(/`\u200B+`/g, "")
+    .replaceAll("\u200B", "");
 }
 
 type MdastLike = { type: string; children?: MdastLike[]; value?: string };

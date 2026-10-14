@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import * as React from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Button,
   DropdownMenu,
@@ -10,35 +10,28 @@ import {
   DropdownMenuTrigger,
   Input,
   Switch,
-} from '@workspace/ui';
-import {
-  Check,
-  ChevronDown,
-  Gauge,
-  Keyboard,
-  Link2,
-  MessageSquareText,
-} from 'lucide-react';
-import type { TerminalFileLinkOpenMode } from '@/features/settings/store/terminal-link-settings-store';
+} from "@workspace/ui";
+import { Check, ChevronDown, Gauge, Keyboard, Link2, MessageSquareText } from "lucide-react";
+import type { TerminalFileLinkOpenMode } from "@/features/settings/store/terminal-link-settings-store";
 import {
   MAX_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES,
   MIN_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES,
   TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_STEP_BYTES,
   normalizeTerminalSideContextPromptBudgetBytes,
-} from '@/features/settings/store/terminal-side-chat-settings-store';
+} from "@/features/settings/store/terminal-side-chat-settings-store";
 import {
   QUICK_OPEN_APP_MAP,
   QUICK_OPEN_APP_OPTIONS,
   QuickOpenAppIcon,
   type QuickOpenAppName,
-} from '@/app-shell/quick-open-apps';
+} from "@/app-shell/quick-open-apps";
 import {
   SettingsGroupCard,
   SettingsGroupRow,
-} from '@/features/settings/components/settings/SettingsGroupCard';
-import { AgentSelect, AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
-import { useTerminalSplitPrefsStore } from '@/features/settings/store/terminal-split-prefs-store';
-import { TerminalCursorAppearanceSettings } from '@/features/settings/components/TerminalCursorAppearanceSettings';
+} from "@/features/settings/components/settings/SettingsGroupCard";
+import { AgentSelect, AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
+import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
+import { TerminalCursorAppearanceSettings } from "@/features/settings/components/TerminalCursorAppearanceSettings";
 
 export function TerminalSettingsSection({
   fileLinkOpenMode,
@@ -71,7 +64,7 @@ export function TerminalSettingsSection({
   setMaxWarmWorkspaces: (size: number) => Promise<void> | void;
   setMaxGlobalTerminalPanes: (panels: number) => Promise<void> | void;
 }) {
-  const t = useTranslations('settings.terminalSection');
+  const t = useTranslations("settings.terminalSection");
   const locale = useLocale();
   const {
     enabled: defaultSplitAgentEnabled,
@@ -86,26 +79,30 @@ export function TerminalSettingsSection({
   const [richInputExpanded, setRichInputExpanded] = React.useState(true);
   const [sideChatExpanded, setSideChatExpanded] = React.useState(true);
   const [performanceExpanded, setPerformanceExpanded] = React.useState(true);
-  const [localTerminalCacheMaxSize, setLocalTerminalCacheMaxSize] = React.useState(maxWarmWorkspaces.toString());
-  const [localTerminalCacheMaxPanels, setLocalTerminalCacheMaxPanels] = React.useState(maxGlobalTerminalPanes.toString());
+  const [localTerminalCacheMaxSize, setLocalTerminalCacheMaxSize] = React.useState(
+    maxWarmWorkspaces.toString(),
+  );
+  const [localTerminalCacheMaxPanels, setLocalTerminalCacheMaxPanels] = React.useState(
+    maxGlobalTerminalPanes.toString(),
+  );
   const [localSideContextBudget, setLocalSideContextBudget] = React.useState(
     sideContextPromptBudgetBytes.toString(),
   );
   const terminalLinkModeOptions = [
     {
-      value: 'atmos',
-      label: t('linkModes.atmos.label'),
-      description: t('linkModes.atmos.description'),
+      value: "atmos",
+      label: t("linkModes.atmos.label"),
+      description: t("linkModes.atmos.description"),
     },
     {
-      value: 'finder',
-      label: t('linkModes.finder.label'),
-      description: t('linkModes.finder.description'),
+      value: "finder",
+      label: t("linkModes.finder.label"),
+      description: t("linkModes.finder.description"),
     },
     {
-      value: 'app',
-      label: t('linkModes.app.label'),
-      description: t('linkModes.app.description'),
+      value: "app",
+      label: t("linkModes.app.label"),
+      description: t("linkModes.app.description"),
     },
   ] as const;
   const activeTerminalLinkMode =
@@ -135,13 +132,13 @@ export function TerminalSettingsSection({
 
   const agentIdInOptions =
     !!defaultSplitAgentId && AGENT_OPTIONS.some((agent) => agent.id === defaultSplitAgentId);
-  const fallbackAgentId = AGENT_OPTIONS[0]?.id ?? 'claude';
+  const fallbackAgentId = AGENT_OPTIONS[0]?.id ?? "claude";
   // Prefer empty/disabled over showing the first agent while an invalid id is still active.
   // Auto-correct the store once options are known so launch resolution and UI stay aligned.
   const resolvedDefaultAgentId = agentIdInOptions
     ? (defaultSplitAgentId as string)
     : defaultSplitAgentId
-      ? ''
+      ? ""
       : fallbackAgentId;
 
   React.useEffect(() => {
@@ -150,12 +147,7 @@ export function TerminalSettingsSection({
     if (AGENT_OPTIONS.some((agent) => agent.id === defaultSplitAgentId)) return;
     if (!fallbackAgentId) return;
     void setDefaultSplitAgentId(fallbackAgentId);
-  }, [
-    defaultSplitAgentEnabled,
-    defaultSplitAgentId,
-    fallbackAgentId,
-    setDefaultSplitAgentId,
-  ]);
+  }, [defaultSplitAgentEnabled, defaultSplitAgentId, fallbackAgentId, setDefaultSplitAgentId]);
 
   const handleTerminalCacheMaxSizeCommit = async (value: string) => {
     const parsed = Number.parseInt(value, 10);
@@ -199,16 +191,16 @@ export function TerminalSettingsSection({
         open={behaviorExpanded}
         onOpenChange={setBehaviorExpanded}
         icon={Link2}
-        title={t('groups.behavior.title')}
-        description={t('groups.behavior.description')}
+        title={t("groups.behavior.title")}
+        description={t("groups.behavior.description")}
       >
         <SettingsGroupRow
-          title={t('fileLinkOpenMode.title')}
-          description={t('fileLinkOpenMode.description')}
+          title={t("fileLinkOpenMode.title")}
+          description={t("fileLinkOpenMode.description")}
           wide
         >
           <div className="flex items-center justify-end gap-3">
-            {fileLinkOpenMode === 'app' && activeQuickOpenApp && (
+            {fileLinkOpenMode === "app" && activeQuickOpenApp && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="min-w-44 justify-between">
@@ -254,7 +246,9 @@ export function TerminalSettingsSection({
                   <DropdownMenuItem
                     key={option.value}
                     className="cursor-pointer items-start"
-                    onClick={() => void setFileLinkOpenMode(option.value as TerminalFileLinkOpenMode)}
+                    onClick={() =>
+                      void setFileLinkOpenMode(option.value as TerminalFileLinkOpenMode)
+                    }
                   >
                     <div className="flex-1 pr-3">
                       <p className="text-sm font-medium text-foreground">{option.label}</p>
@@ -262,7 +256,9 @@ export function TerminalSettingsSection({
                         {option.description}
                       </p>
                     </div>
-                    {fileLinkOpenMode === option.value && <Check className="mt-0.5 size-4 shrink-0" />}
+                    {fileLinkOpenMode === option.value && (
+                      <Check className="mt-0.5 size-4 shrink-0" />
+                    )}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -270,20 +266,20 @@ export function TerminalSettingsSection({
           </div>
         </SettingsGroupRow>
         <SettingsGroupRow
-          title={t('defaultSplitAgent.title')}
-          description={t('defaultSplitAgent.description')}
+          title={t("defaultSplitAgent.title")}
+          description={t("defaultSplitAgent.description")}
         >
           <Switch
             checked={defaultSplitAgentEnabled}
             onCheckedChange={(value) => void setDefaultSplitAgentEnabled(!!value)}
-            aria-label={t('defaultSplitAgent.title')}
+            aria-label={t("defaultSplitAgent.title")}
           />
         </SettingsGroupRow>
         {defaultSplitAgentEnabled ? (
           <>
             <SettingsGroupRow
-              title={t('defaultSplitAgent.agent.title')}
-              description={t('defaultSplitAgent.agent.description')}
+              title={t("defaultSplitAgent.agent.title")}
+              description={t("defaultSplitAgent.agent.description")}
               wide
             >
               <div className="w-full max-w-xs">
@@ -308,28 +304,28 @@ export function TerminalSettingsSection({
         open={richInputExpanded}
         onOpenChange={setRichInputExpanded}
         icon={Keyboard}
-        title={t('groups.richInput.title')}
-        description={t('groups.richInput.description')}
+        title={t("groups.richInput.title")}
+        description={t("groups.richInput.description")}
       >
         <SettingsGroupRow
-          title={t('richInputEnabled.title')}
-          description={t('richInputEnabled.description')}
+          title={t("richInputEnabled.title")}
+          description={t("richInputEnabled.description")}
         >
           <Switch
             checked={richInputEnabled}
             onCheckedChange={(value) => void setRichInputEnabled(!!value)}
-            aria-label={t('richInputEnabled.title')}
+            aria-label={t("richInputEnabled.title")}
           />
         </SettingsGroupRow>
         <SettingsGroupRow
-          title={t('richInputTriggerBar.title')}
-          description={t('richInputTriggerBar.description')}
+          title={t("richInputTriggerBar.title")}
+          description={t("richInputTriggerBar.description")}
         >
           <Switch
             checked={richInputTriggerBarVisible}
             disabled={!richInputEnabled}
             onCheckedChange={(value) => void setRichInputTriggerBarVisible(!!value)}
-            aria-label={t('richInputTriggerBar.title')}
+            aria-label={t("richInputTriggerBar.title")}
           />
         </SettingsGroupRow>
       </SettingsGroupCard>
@@ -338,12 +334,12 @@ export function TerminalSettingsSection({
         open={sideChatExpanded}
         onOpenChange={setSideChatExpanded}
         icon={MessageSquareText}
-        title={t('groups.sideChat.title')}
-        description={t('groups.sideChat.description')}
+        title={t("groups.sideChat.title")}
+        description={t("groups.sideChat.description")}
       >
         <SettingsGroupRow
-          title={t('sideContextBudget.title')}
-          description={t('sideContextBudget.description', {
+          title={t("sideContextBudget.title")}
+          description={t("sideContextBudget.description", {
             min: formattedMinSideContextBudget,
             max: formattedMaxSideContextBudget,
           })}
@@ -359,13 +355,13 @@ export function TerminalSettingsSection({
               onChange={(event) => setLocalSideContextBudget(event.target.value)}
               onBlur={(event) => void handleSideContextBudgetCommit(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') {
+                if (event.key === "Enter") {
                   void handleSideContextBudgetCommit(localSideContextBudget);
                 }
               }}
               className="w-32"
             />
-            <span className="text-sm text-muted-foreground">{t('sideContextBudget.bytes')}</span>
+            <span className="text-sm text-muted-foreground">{t("sideContextBudget.bytes")}</span>
           </div>
         </SettingsGroupRow>
       </SettingsGroupCard>
@@ -374,12 +370,12 @@ export function TerminalSettingsSection({
         open={performanceExpanded}
         onOpenChange={setPerformanceExpanded}
         icon={Gauge}
-        title={t('groups.performance.title')}
-        description={t('groups.performance.description')}
+        title={t("groups.performance.title")}
+        description={t("groups.performance.description")}
       >
         <SettingsGroupRow
-          title={t('cacheWorkspaces.title')}
-          description={t('cacheWorkspaces.description')}
+          title={t("cacheWorkspaces.title")}
+          description={t("cacheWorkspaces.description")}
           wide
         >
           <div className="flex items-center gap-2">
@@ -392,18 +388,18 @@ export function TerminalSettingsSection({
               onChange={(event) => setLocalTerminalCacheMaxSize(event.target.value)}
               onBlur={(event) => void handleTerminalCacheMaxSizeCommit(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') {
+                if (event.key === "Enter") {
                   void handleTerminalCacheMaxSizeCommit(localTerminalCacheMaxSize);
                 }
               }}
               className="w-24"
             />
-            <span className="text-sm text-muted-foreground">{t('cacheWorkspaces.contexts')}</span>
+            <span className="text-sm text-muted-foreground">{t("cacheWorkspaces.contexts")}</span>
           </div>
         </SettingsGroupRow>
         <SettingsGroupRow
-          title={t('cachePanels.title')}
-          description={t('cachePanels.description')}
+          title={t("cachePanels.title")}
+          description={t("cachePanels.description")}
           wide
         >
           <div className="flex items-center gap-2">
@@ -416,13 +412,13 @@ export function TerminalSettingsSection({
               onChange={(event) => setLocalTerminalCacheMaxPanels(event.target.value)}
               onBlur={(event) => void handleTerminalCacheMaxPanelsCommit(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') {
+                if (event.key === "Enter") {
                   void handleTerminalCacheMaxPanelsCommit(localTerminalCacheMaxPanels);
                 }
               }}
               className="w-24"
             />
-            <span className="text-sm text-muted-foreground">{t('cachePanels.panels')}</span>
+            <span className="text-sm text-muted-foreground">{t("cachePanels.panels")}</span>
           </div>
         </SettingsGroupRow>
       </SettingsGroupCard>

@@ -6,7 +6,7 @@ This is a `QUALITY-*` spec with no `PRD.md`, so the coverage map is keyed to TEC
 
 ## Test strategy
 
-The governing invariant — *every event is idempotent by construction* — is a **property**, not an example. So the backbone of this plan is property tests over generated event sequences, plus fixture replays of real vendor streams. Example-based tests cover the specific defects that motivated the spec, so a regression reproduces as a named failure rather than as a probabilistic one.
+The governing invariant — _every event is idempotent by construction_ — is a **property**, not an example. So the backbone of this plan is property tests over generated event sequences, plus fixture replays of real vendor streams. Example-based tests cover the specific defects that motivated the spec, so a regression reproduces as a named failure rather than as a probabilistic one.
 
 - **Rust property tests** (`crates/core-service`): duplicate, reorder, and truncate-replay a generated event sequence and assert the folded state is identical. This is the only level that can prove the invariant rather than sample it.
 - **Rust fixture tests** (`crates/agent`): each provider's committed `testdata/*.jsonl` replays a real vendor stream. The load-bearing assertion is that reassembling emitted chunks at their stated offsets reproduces the vendor's text byte-for-byte — this is what catches an adapter forgetting to count synthesized bytes.
@@ -21,45 +21,45 @@ No backward-compatibility scenarios exist by design — TECH forbids compatibili
 
 ## Coverage map
 
-| TECH item | Scenario IDs |
-|-----------|--------------|
-| Idempotency invariant (all milestones) | S1, S2, S3 |
-| Append-only text + byte offsets (M1) | S4, S5, S6 |
-| Part identity recovered from vendor index (M1) | S6, S7 |
-| Part lifecycle and turn edge cases (M1) | S8, S9, S10 |
-| One shared fold, no drift (M1) | S11 |
-| Log equals wire, O(n) persistence (M2) | S12, S13 |
-| Non-text idempotency, tool status lattice (M3) | S14, S15 |
-| Optimistic user echo by id (M3) | S16 |
-| Precise per-part backfill (M4) | S17, S18 |
-| Commit cadence, bounded render rate (M5) | S19, S20 |
-| Cross-layer reload during stream | S21 |
+| TECH item                                      | Scenario IDs |
+| ---------------------------------------------- | ------------ |
+| Idempotency invariant (all milestones)         | S1, S2, S3   |
+| Append-only text + byte offsets (M1)           | S4, S5, S6   |
+| Part identity recovered from vendor index (M1) | S6, S7       |
+| Part lifecycle and turn edge cases (M1)        | S8, S9, S10  |
+| One shared fold, no drift (M1)                 | S11          |
+| Log equals wire, O(n) persistence (M2)         | S12, S13     |
+| Non-text idempotency, tool status lattice (M3) | S14, S15     |
+| Optimistic user echo by id (M3)                | S16          |
+| Precise per-part backfill (M4)                 | S17, S18     |
+| Commit cadence, bounded render rate (M5)       | S19, S20     |
+| Cross-layer reload during stream               | S21          |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust property | `cargo test` | `cargo test -p core-service idempotent_` | generated event sequence | folded state equal under duplication | covered |
-| S2 | Rust property | `cargo test` | `cargo test -p core-service idempotent_` | generated sequence, shuffled | folded state equal under reorder | covered |
-| S3 | Rust property | `cargo test` | `cargo test -p core-service idempotent_` | generated sequence, replayed from arbitrary prefix | folded state equal under partial replay | covered |
-| S4 | Rust unit | `cargo test` | `cargo test -p core-service offset_` | two chunks of identical text | both applied; text is the concatenation | covered |
-| S5 | Rust unit | `cargo test` | `cargo test -p core-service offset_` | overlapping and contained chunks | only the tail beyond current length is appended | covered |
-| S6 | Rust fixture | `cargo test` | `cargo test -p agent` | every `providers/*/testdata/*.jsonl` | reassembled part text equals vendor text, byte-exact | covered |
-| S7 | Rust fixture | `cargo test` | `cargo test -p agent claude` | Claude stream with two content blocks | two parts, distinct `part_id` from `event.index` | covered |
-| S8 | Rust integration | `cargo test` | `cargo test -p core-service lifecycle_` | turn settled with open parts | every part of the turn has `closed_at` | covered |
-| S9 | Rust integration | `cargo test` | `cargo test -p core-service lifecycle_` | chunk whose `turn_id` has no turn row | turn is created; chunk lands | covered |
-| S10 | Rust integration | `cargo test` | `cargo test -p core-service lifecycle_` | usage/goal event with no open turn | event applies; not dropped | covered |
-| S11 | Bun + Rust | `bun test`, `cargo test` | `bun test packages/api-client`, `cargo test -p core-service fold_corpus` | shared fixture corpus | both folds produce the same part map | covered |
-| S12 | Rust integration | `cargo test` | `cargo test -p core-service transcript_` | streamed turn then completion | one `PartFinished` per part; `live.jsonl` truncated | covered |
-| S13 | Rust integration | `cargo test` | `cargo test -p core-service transcript_` | 10 KB answer streamed in many chunks | durable bytes are O(n), not O(n²) | covered |
-| S14 | Rust unit | `cargo test` | `cargo test -p core-service tool_status` | `Completed` then replayed `Running` | status stays `Completed` | covered |
-| S15 | Rust unit | `cargo test` | `cargo test -p core-service tool_upsert` | patch with absent optional fields | absent fields keep prior values | covered |
-| S16 | Bun test | `bun test` | `bun test apps/web/src/features/agent` | same prompt sent twice | each optimistic row settles against its own id | covered |
-| S17 | Rust integration | `cargo test` | `cargo test -p core-service backfill_` | client cursor behind part length | server streams exactly the missing suffix | covered |
-| S18 | Bun test | `bun test` | `bun test packages/api-client` | chunk arriving at offset beyond current length | one backfill request, no duplicate text | covered |
-| S19 | Bun test | `bun test` | `bun test apps/web/src/features/agent` | 200 events inside one flush window | commit count bounded by the interval | covered |
-| S20 | Bun test | `bun test` | `bun test apps/web/src/features/agent` | every event kind, one at a time | each high-frequency kind marks the buffer, none flushes immediately | covered |
-| S21 | E2E | Playwright | `just test-e2e -- tests/specs/QUALITY-006_agent-event-identity.e2e.ts` | local API + web, scripted fake provider | transcript complete, no duplicate or missing text after reload | deferred |
+| Scenario | Level            | Expected tool            | Target command / method                                                  | Fixture / data                                     | Signals                                                             | Status   |
+| -------- | ---------------- | ------------------------ | ------------------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------- | -------- |
+| S1       | Rust property    | `cargo test`             | `cargo test -p core-service idempotent_`                                 | generated event sequence                           | folded state equal under duplication                                | covered  |
+| S2       | Rust property    | `cargo test`             | `cargo test -p core-service idempotent_`                                 | generated sequence, shuffled                       | folded state equal under reorder                                    | covered  |
+| S3       | Rust property    | `cargo test`             | `cargo test -p core-service idempotent_`                                 | generated sequence, replayed from arbitrary prefix | folded state equal under partial replay                             | covered  |
+| S4       | Rust unit        | `cargo test`             | `cargo test -p core-service offset_`                                     | two chunks of identical text                       | both applied; text is the concatenation                             | covered  |
+| S5       | Rust unit        | `cargo test`             | `cargo test -p core-service offset_`                                     | overlapping and contained chunks                   | only the tail beyond current length is appended                     | covered  |
+| S6       | Rust fixture     | `cargo test`             | `cargo test -p agent`                                                    | every `providers/*/testdata/*.jsonl`               | reassembled part text equals vendor text, byte-exact                | covered  |
+| S7       | Rust fixture     | `cargo test`             | `cargo test -p agent claude`                                             | Claude stream with two content blocks              | two parts, distinct `part_id` from `event.index`                    | covered  |
+| S8       | Rust integration | `cargo test`             | `cargo test -p core-service lifecycle_`                                  | turn settled with open parts                       | every part of the turn has `closed_at`                              | covered  |
+| S9       | Rust integration | `cargo test`             | `cargo test -p core-service lifecycle_`                                  | chunk whose `turn_id` has no turn row              | turn is created; chunk lands                                        | covered  |
+| S10      | Rust integration | `cargo test`             | `cargo test -p core-service lifecycle_`                                  | usage/goal event with no open turn                 | event applies; not dropped                                          | covered  |
+| S11      | Bun + Rust       | `bun test`, `cargo test` | `bun test packages/api-client`, `cargo test -p core-service fold_corpus` | shared fixture corpus                              | both folds produce the same part map                                | covered  |
+| S12      | Rust integration | `cargo test`             | `cargo test -p core-service transcript_`                                 | streamed turn then completion                      | one `PartFinished` per part; `live.jsonl` truncated                 | covered  |
+| S13      | Rust integration | `cargo test`             | `cargo test -p core-service transcript_`                                 | 10 KB answer streamed in many chunks               | durable bytes are O(n), not O(n²)                                   | covered  |
+| S14      | Rust unit        | `cargo test`             | `cargo test -p core-service tool_status`                                 | `Completed` then replayed `Running`                | status stays `Completed`                                            | covered  |
+| S15      | Rust unit        | `cargo test`             | `cargo test -p core-service tool_upsert`                                 | patch with absent optional fields                  | absent fields keep prior values                                     | covered  |
+| S16      | Bun test         | `bun test`               | `bun test apps/web/src/features/agent`                                   | same prompt sent twice                             | each optimistic row settles against its own id                      | covered  |
+| S17      | Rust integration | `cargo test`             | `cargo test -p core-service backfill_`                                   | client cursor behind part length                   | server streams exactly the missing suffix                           | covered  |
+| S18      | Bun test         | `bun test`               | `bun test packages/api-client`                                           | chunk arriving at offset beyond current length     | one backfill request, no duplicate text                             | covered  |
+| S19      | Bun test         | `bun test`               | `bun test apps/web/src/features/agent`                                   | 200 events inside one flush window                 | commit count bounded by the interval                                | covered  |
+| S20      | Bun test         | `bun test`               | `bun test apps/web/src/features/agent`                                   | every event kind, one at a time                    | each high-frequency kind marks the buffer, none flushes immediately | covered  |
+| S21      | E2E              | Playwright               | `just test-e2e -- tests/specs/QUALITY-006_agent-event-identity.e2e.ts`   | local API + web, scripted fake provider            | transcript complete, no duplicate or missing text after reload      | deferred |
 
 ## Scenarios
 
@@ -82,7 +82,7 @@ No backward-compatibility scenarios exist by design — TECH forbids compatibili
 ### S3 — Replay from an arbitrary prefix converges
 
 - **Level**: Rust property test
-- **Given**: a folded state built from the first *k* events.
+- **Given**: a folded state built from the first _k_ events.
 - **When**: the full sequence is replayed from event zero onto that state, simulating a runtime that restarted and re-sent.
 - **Then**: the final state equals the full-sequence result.
 - **Signals**: equality; no duplicated text. This is the property that makes `epoch` unnecessary.

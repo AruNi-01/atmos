@@ -63,7 +63,13 @@ type Props = {
   dom?: DOMProps;
 };
 
-type DomJsonValue = boolean | number | string | null | DomJsonValue[] | { [key: string]: DomJsonValue | undefined };
+type DomJsonValue =
+  | boolean
+  | number
+  | string
+  | null
+  | DomJsonValue[]
+  | { [key: string]: DomJsonValue | undefined };
 
 function scrollTerminalToBottom(terminal: Terminal) {
   window.requestAnimationFrame(() => {
@@ -129,7 +135,10 @@ function attachTerminalPointerGestures({
   let gesture: Gesture | null = null;
   let range: { start: Cell; end: Cell } | null = null;
   let toolbarEdge: "start" | "end" = "end";
-  let anchors: { end: TerminalSelectionChrome["end"]; start: TerminalSelectionChrome["start"] } | null = null;
+  let anchors: {
+    end: TerminalSelectionChrome["end"];
+    start: TerminalSelectionChrome["start"];
+  } | null = null;
 
   const publish = (chrome: TerminalSelectionChrome | null) => {
     anchors = chrome;
@@ -250,7 +259,12 @@ function attachTerminalPointerGestures({
     applyRange([span.start, cell[1]], [Math.max(span.start, span.end - 1), cell[1]]);
   };
 
-  const dispatchApplicationWheels = (clientX: number, clientY: number, count: number, deltaY: -1 | 1) => {
+  const dispatchApplicationWheels = (
+    clientX: number,
+    clientY: number,
+    count: number,
+    deltaY: -1 | 1,
+  ) => {
     for (let index = 0; index < count; index += 1) {
       element.dispatchEvent(
         new WheelEvent("wheel", {
@@ -364,7 +378,8 @@ function attachTerminalPointerGestures({
       return;
     }
     if (gesture.kind === "pending") {
-      if (!pointerMovedFarEnough(event.clientX - gesture.startX, event.clientY - gesture.startY)) return;
+      if (!pointerMovedFarEnough(event.clientX - gesture.startX, event.clientY - gesture.startY))
+        return;
       window.clearTimeout(gesture.timer);
       gesture = { kind: "scroll", lastY: event.clientY, pointerId: event.pointerId, remainder: 0 };
     }
@@ -442,7 +457,15 @@ export default function TerminalDomView({
   const mountRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const callbacksRef = useRef({ onInput, onReady, onRendererError, onResize, onSelectionChrome, onTitleChange, onOscTitleChange });
+  const callbacksRef = useRef({
+    onInput,
+    onReady,
+    onRendererError,
+    onResize,
+    onSelectionChrome,
+    onTitleChange,
+    onOscTitleChange,
+  });
   const dismissSelectionRef = useRef<(() => void) | null>(null);
   const cmdStartTimerRef = useRef<number | null>(null);
   const connectedRef = useRef(connected);
@@ -452,7 +475,15 @@ export default function TerminalDomView({
   const suppressResizeReportRef = useRef(false);
 
   connectedRef.current = connected;
-  callbacksRef.current = { onInput, onReady, onRendererError, onResize, onSelectionChrome, onTitleChange, onOscTitleChange };
+  callbacksRef.current = {
+    onInput,
+    onReady,
+    onRendererError,
+    onResize,
+    onSelectionChrome,
+    onTitleChange,
+    onOscTitleChange,
+  };
 
   useEffect(() => {
     let isDisposed = false;
@@ -787,7 +818,9 @@ export default function TerminalDomView({
         return true;
       },
       writeBase64: (...args: DomJsonValue[]) => {
-        const chunks = Array.isArray(args[0]) ? args[0].filter((chunk): chunk is string => typeof chunk === "string") : [];
+        const chunks = Array.isArray(args[0])
+          ? args[0].filter((chunk): chunk is string => typeof chunk === "string")
+          : [];
         const terminal = terminalRef.current;
         if (!terminal) return true;
         for (const [index, chunk] of chunks.entries()) {

@@ -1,5 +1,5 @@
-import { DocsLayoutShell } from '@/components/docs-layout-shell';
-import { source } from '@/lib/source';
+import { DocsLayoutShell } from "@/components/docs-layout-shell";
+import { source } from "@/lib/source";
 
 export default async function Layout({
   children,
@@ -9,7 +9,5 @@ export default async function Layout({
   params: Promise<{ lang: string }>;
 }) {
   const { lang } = await params;
-  return (
-    <DocsLayoutShell tree={source.getPageTree(lang)}>{children}</DocsLayoutShell>
-  );
+  return <DocsLayoutShell tree={source.getPageTree(lang)}>{children}</DocsLayoutShell>;
 }

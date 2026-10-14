@@ -3,11 +3,7 @@
 import * as React from "react";
 import { cn, ditherInk } from "@workspace/ui";
 
-export type TokenUsageStatIllustrationKind =
-  | "messages"
-  | "activeDays"
-  | "cost"
-  | "tokens";
+export type TokenUsageStatIllustrationKind = "messages" | "activeDays" | "cost" | "tokens";
 
 /**
  * Soft-stat card: muted label → large number top-left, ordered-dither monochrome
@@ -31,15 +27,13 @@ export function TokenUsageStatChip({
     <div
       className={cn(
         "relative flex h-full min-h-[4.75rem] flex-col overflow-hidden rounded-[16px] border px-3.5 pt-4 pb-2.5",
-        isDark
-          ? "border-white/[0.05] bg-[#1a1a1a]"
-          : "border-black/[0.06] bg-[#f0f0f0]",
+        isDark ? "border-white/[0.05] bg-[#1a1a1a]" : "border-black/[0.06] bg-[#f0f0f0]",
       )}
       title={note}
     >
       <div
         className={cn(
-          "relative z-[1] text-[13px] font-normal leading-none tracking-tight",
+          "relative z-[1] text-[13px] leading-none font-normal tracking-tight",
           isDark ? "text-white/[0.36]" : "text-black/[0.36]",
         )}
       >
@@ -47,7 +41,7 @@ export function TokenUsageStatChip({
       </div>
       <div
         className={cn(
-          "relative z-[1] mt-4 text-[1.5rem] font-semibold leading-none tracking-tight tabular-nums sm:mt-4.5 sm:text-[1.625rem]",
+          "relative z-[1] mt-4 text-[1.5rem] leading-none font-semibold tracking-tight tabular-nums sm:mt-4.5 sm:text-[1.625rem]",
           isDark ? "text-white/[0.72]" : "text-black/[0.72]",
         )}
       >
@@ -90,10 +84,7 @@ function roundRectPath(
  * Silhouette in 0..80 space — keep shapes bold and few so dither still reads
  * at ~72px. Detail is optional punch-outs only.
  */
-function fillSilhouette(
-  ctx: CanvasRenderingContext2D,
-  kind: TokenUsageStatIllustrationKind,
-) {
+function fillSilhouette(ctx: CanvasRenderingContext2D, kind: TokenUsageStatIllustrationKind) {
   ctx.fillStyle = "#fff";
   switch (kind) {
     case "messages": {

@@ -12,13 +12,13 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-037**). |
-| **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
-| **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
+| **Entry id**    | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-037**).                                           |
+| **Status**      | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason).                                  |
+| **Do not**      | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status.       |
+| **Fix proof**   | Each fixed item should name the code change and the verification command or manual check.                      |
 
 ---
 
@@ -36,56 +36,56 @@ A third architecture pass (2026-08-28, quality review against current tree) foun
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-010 | P0 | backend | ACP v2 resume never clears replay gate; live events dropped | fixed |
-| REV-011 | P0 | backend | No turn mutex; concurrent send/queue can double-prompt | fixed |
-| REV-001 | P1 | frontend | M12 followup_policy has no settings UI | fixed |
-| REV-002 | P1 | frontend | Live transcript reloads snapshot instead of folding deltas | fixed |
-| REV-003 | P1 | frontend | Old ACP AgentChatPanel still mounted against deleted APIs | fixed |
-| REV-013 | P1 | backend | Permission option_id collapsed to allow/reject + first/last ACP option | fixed |
-| REV-014 | P1 | backend | Prompt/queue failure leaves RunningTurn or drops the queued item | fixed |
-| REV-015 | P1 | backend | Agent process death never completes the in-flight turn | fixed |
-| REV-016 | P1 | backend | Catalog get blocks the WS request; UI ignores catalog_updated | fixed |
-| REV-017 | P1 | api | cwd/attachments not bounded to workspace/project | fixed |
-| REV-004 | P2 | test | S15 ACP-schema guard only scans the new modules | fixed |
-| REV-005 | P2 | test | TEST Coverage Status overstates S2/S6/S12/S16 levels | fixed |
-| REV-006 | P2 | backend | TECH module split (projector/queue) not done; AgentChatService is one file | fixed |
-| REV-007 | P2 | backend | Terminal model catalog is still a second parser/cache | fixed |
-| REV-008 | P2 | api | `agent_chat_subscribe.after_sequence` and `agent_chat_messages` pagination ignored | fixed |
-| REV-012 | P2 | backend | `next_seq` rewrites meta.json + index.json on every token delta | fixed |
-| REV-009 | P3 | frontend | Rename/queue edit use `window.prompt`; list is unscoped | fixed |
-| REV-018 | P0 | backend | Stop cannot interrupt live ACP `session/prompt`; queue still fires | fixed |
-| REV-019 | P1 | frontend | Live fold ignores tool/plan events | fixed |
-| REV-020 | P1 | backend | Assistant snapshot clobbers tool/plan parts on restore | fixed |
-| REV-021 | P1 | frontend | Settings Steer + ACP `supports_steer=false` drops busy Enter | fixed |
-| REV-022 | P1 | backend | Attachment paths never become ACP prompt content | fixed |
-| REV-023 | P1 | backend | Dead ACP control still accepts `prompt`; next send can ghost-run | fixed |
-| REV-024 | P1 | api | Subscribe inserts then replays; client appends duplicate deltas | fixed |
-| REV-025 | P1 | frontend | `AgentChatPanel` creates a new Conversation on every mount | fixed |
-| REV-026 | P2 | frontend | Standalone list is unscoped; no pop-out of the open conversation | fixed |
-| REV-027 | P2 | backend | Catalog prefetch is static builtins, not user-enabled Chat agents | fixed |
-| REV-028 | P2 | backend | Queue dispatch omits live `UserMessage` and can lose concurrent adds | fixed |
-| REV-029 | P1 | backend | Conversation ACP processes never idle-unload; archive closes the wrong map | fixed |
-| REV-030 | P1 | backend | Pump teardown can drop a replacement runtime | fixed |
-| REV-031 | P1 | api | Live agent_chat_event fan-out silently drops on broadcast lag | fixed |
-| REV-032 | P1 | frontend | Canvas/automation still mint orphan conversations | fixed |
-| REV-033 | P2 | backend | Dual host: AgentSessionService + crates/agent public ACP API | fixed |
-| REV-034 | P2 | frontend | ACP session façade and dead chat stack still in the tree | fixed |
-| REV-035 | P2 | backend | next_seq still fsyncs meta.json per delta; messages pagination incomplete | fixed |
-| REV-036 | P2 | frontend | Cross-feature prompt inject and subscribe effect churn | fixed |
+| Id      | Severity | Area     | Title                                                                              | Status |
+| ------- | -------- | -------- | ---------------------------------------------------------------------------------- | ------ |
+| REV-010 | P0       | backend  | ACP v2 resume never clears replay gate; live events dropped                        | fixed  |
+| REV-011 | P0       | backend  | No turn mutex; concurrent send/queue can double-prompt                             | fixed  |
+| REV-001 | P1       | frontend | M12 followup_policy has no settings UI                                             | fixed  |
+| REV-002 | P1       | frontend | Live transcript reloads snapshot instead of folding deltas                         | fixed  |
+| REV-003 | P1       | frontend | Old ACP AgentChatPanel still mounted against deleted APIs                          | fixed  |
+| REV-013 | P1       | backend  | Permission option_id collapsed to allow/reject + first/last ACP option             | fixed  |
+| REV-014 | P1       | backend  | Prompt/queue failure leaves RunningTurn or drops the queued item                   | fixed  |
+| REV-015 | P1       | backend  | Agent process death never completes the in-flight turn                             | fixed  |
+| REV-016 | P1       | backend  | Catalog get blocks the WS request; UI ignores catalog_updated                      | fixed  |
+| REV-017 | P1       | api      | cwd/attachments not bounded to workspace/project                                   | fixed  |
+| REV-004 | P2       | test     | S15 ACP-schema guard only scans the new modules                                    | fixed  |
+| REV-005 | P2       | test     | TEST Coverage Status overstates S2/S6/S12/S16 levels                               | fixed  |
+| REV-006 | P2       | backend  | TECH module split (projector/queue) not done; AgentChatService is one file         | fixed  |
+| REV-007 | P2       | backend  | Terminal model catalog is still a second parser/cache                              | fixed  |
+| REV-008 | P2       | api      | `agent_chat_subscribe.after_sequence` and `agent_chat_messages` pagination ignored | fixed  |
+| REV-012 | P2       | backend  | `next_seq` rewrites meta.json + index.json on every token delta                    | fixed  |
+| REV-009 | P3       | frontend | Rename/queue edit use `window.prompt`; list is unscoped                            | fixed  |
+| REV-018 | P0       | backend  | Stop cannot interrupt live ACP `session/prompt`; queue still fires                 | fixed  |
+| REV-019 | P1       | frontend | Live fold ignores tool/plan events                                                 | fixed  |
+| REV-020 | P1       | backend  | Assistant snapshot clobbers tool/plan parts on restore                             | fixed  |
+| REV-021 | P1       | frontend | Settings Steer + ACP `supports_steer=false` drops busy Enter                       | fixed  |
+| REV-022 | P1       | backend  | Attachment paths never become ACP prompt content                                   | fixed  |
+| REV-023 | P1       | backend  | Dead ACP control still accepts `prompt`; next send can ghost-run                   | fixed  |
+| REV-024 | P1       | api      | Subscribe inserts then replays; client appends duplicate deltas                    | fixed  |
+| REV-025 | P1       | frontend | `AgentChatPanel` creates a new Conversation on every mount                         | fixed  |
+| REV-026 | P2       | frontend | Standalone list is unscoped; no pop-out of the open conversation                   | fixed  |
+| REV-027 | P2       | backend  | Catalog prefetch is static builtins, not user-enabled Chat agents                  | fixed  |
+| REV-028 | P2       | backend  | Queue dispatch omits live `UserMessage` and can lose concurrent adds               | fixed  |
+| REV-029 | P1       | backend  | Conversation ACP processes never idle-unload; archive closes the wrong map         | fixed  |
+| REV-030 | P1       | backend  | Pump teardown can drop a replacement runtime                                       | fixed  |
+| REV-031 | P1       | api      | Live agent_chat_event fan-out silently drops on broadcast lag                      | fixed  |
+| REV-032 | P1       | frontend | Canvas/automation still mint orphan conversations                                  | fixed  |
+| REV-033 | P2       | backend  | Dual host: AgentSessionService + crates/agent public ACP API                       | fixed  |
+| REV-034 | P2       | frontend | ACP session façade and dead chat stack still in the tree                           | fixed  |
+| REV-035 | P2       | backend  | next_seq still fsyncs meta.json per delta; messages pagination incomplete          | fixed  |
+| REV-036 | P2       | frontend | Cross-feature prompt inject and subscribe effect churn                             | fixed  |
 
 ---
 
 ## REV-001 · M12 followup_policy has no settings UI
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -118,13 +118,13 @@ Add Queue/Steer to Agent Behaviour settings (en+zh). Composer already routes on 
 
 ## REV-002 · Live transcript reloads snapshot instead of folding deltas
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -156,13 +156,13 @@ Fold `user_message` / `assistant_message_delta` / `thinking_delta` / tool/permis
 
 ## REV-003 · Old ACP AgentChatPanel still mounted on canvas/automation
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -194,13 +194,13 @@ Either (a) point those embeds at Conversation (later N5) and stop importing the 
 
 ## REV-004 · S15 ACP-schema guard only scans the new modules
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -228,13 +228,13 @@ Scan `apps/web/src/features/agent/**` (or an explicit allowlist of deleted-adapt
 
 ## REV-005 · TEST Coverage Status overstates S2/S6/S12 levels
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -265,13 +265,13 @@ Align Coverage Status with the declared level, or add the missing tests. Mark S2
 
 ## REV-006 · TECH module split not done; AgentChatService is one file
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -299,13 +299,13 @@ Extract `apply_event` / snapshot flush and queue dispatch from `AgentChatService
 
 ## REV-007 · Terminal model catalog is still a second parser/cache
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -334,13 +334,13 @@ Route APP-024 catalog get through `OptionsProbe` / `OptionsCache` (shape-map at 
 
 ## REV-008 · subscribe after_sequence and messages pagination ignored
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | api |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | api             |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -371,13 +371,13 @@ Honor `after_sequence` (replay or document that clients must get-then-subscribe 
 
 ## REV-009 · Rename/queue edit use window.prompt; list is unscoped
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P3 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P3              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -407,13 +407,13 @@ Inline rename; scope list to current workspace/project (plus cwd groups). Reuse 
 
 ## REV-010 · ACP v2 resume never clears replay gate; live events dropped
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P0 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P0              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -444,13 +444,13 @@ Clear `replaying` on `SessionReady` when history was not replayed, or always emi
 
 ## REV-011 · No turn mutex; concurrent send/queue can double-prompt
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P0 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P0              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -479,13 +479,13 @@ One per-conversation async mutex covering idle-check → persist → set `curren
 
 ## REV-012 · next_seq rewrites meta.json + index.json on every token delta
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -514,13 +514,13 @@ Keep `last_event_seq` in memory or a tiny seq file. Flush seq with the 100ms sna
 
 ## REV-013 · Permission option_id collapsed to allow/reject + first/last ACP option
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -552,13 +552,13 @@ Forward the selected ACP `option_id`. Do not boolean-collapse. Persist resolved 
 
 ## REV-014 · Prompt/queue failure leaves RunningTurn or drops the queued item
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -586,13 +586,13 @@ On prompt error, append `TurnCompleted { Failed }`, set Ready/Detached, restore 
 
 ## REV-015 · Agent process death never completes the in-flight turn
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -621,13 +621,13 @@ On pump end, complete any in-flight turn as failed/canceled. Use `Closed` when t
 
 ## REV-016 · Catalog get blocks the WS request; UI ignores catalog_updated
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -658,13 +658,13 @@ Return cache or `probing` immediately; probe in the worker; emit `agent_options_
 
 ## REV-017 · cwd/attachments not bounded to workspace/project
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | api |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | api             |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -697,13 +697,13 @@ Resolve cwd from workspace/project then `path_within_root`. Reject create/send/u
 
 ## REV-018 · Stop cannot interrupt live ACP `session/prompt`
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P0 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P0              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -734,13 +734,13 @@ Send `session/cancel` (and close/config) while `session/prompt` is in flight. Ma
 
 ## REV-019 · Live fold ignores tool/plan events
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -769,13 +769,13 @@ Fold host `tool_call_*` / `plan_updated` into the current assistant message. Do 
 
 ## REV-020 · Assistant snapshot clobbers tool/plan parts on restore
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -804,13 +804,13 @@ Merge snapshot text into existing parts; never drop tool/plan/attachment parts a
 
 ## REV-021 · Settings Steer + ACP `supports_steer=false` drops busy Enter
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -840,13 +840,13 @@ When `!supports_steer`, force Queue for Enter and one-shot. Do not let the setti
 
 ## REV-022 · Attachment paths never become ACP prompt content
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -876,13 +876,13 @@ Map attachment paths to ACP content blocks in the mapper only. Wire Chat compose
 
 ## REV-023 · Dead ACP control still accepts `prompt`
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -911,13 +911,13 @@ Treat a closed command channel as prompt failure. Do not return a dead runtime f
 
 ## REV-024 · Subscribe inserts then replays; client appends duplicate deltas
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | api |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | api             |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -947,13 +947,13 @@ Replay first, then insert; and/or skip events with `sequence <= lastSeq` on the 
 
 ## REV-025 · `AgentChatPanel` creates a new Conversation on every mount
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -983,13 +983,13 @@ Persist and reopen `chat_id`. Do not create on every mount. Until N5, do not min
 
 ## REV-026 · Standalone list is unscoped; no pop-out of the open conversation
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1019,13 +1019,13 @@ Distinguish “no filter” from “only null workspace.” Pop-out must pass th
 
 ## REV-027 · Catalog prefetch is static builtins, not user-enabled Chat agents
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1054,13 +1054,13 @@ Prefetch installed, not-disabled Chat providers only. Do not default unknown ids
 
 ## REV-028 · Queue dispatch omits live `UserMessage` and can lose concurrent adds
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1089,13 +1089,13 @@ Emit `UserMessage` like `send`. Make queue read-modify-write atomic with dispatc
 
 ## REV-029 · Conversation ACP processes never idle-unload; archive closes the wrong map
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1128,13 +1128,13 @@ Drive process lifetime from `AgentChatService.runtimes`. On idle timeout and wor
 
 ## REV-030 · Pump teardown can drop a replacement runtime
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1163,13 +1163,13 @@ Remove only the runtime generation that this pump owns (token / `Arc` identity).
 
 ## REV-031 · Live agent_chat_event fan-out silently drops on broadcast lag
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | api |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | api             |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1199,13 +1199,13 @@ On lag, replay from `events_after(last_sent_seq)` (or per-connection seq) instea
 
 ## REV-032 · Canvas/automation still mint orphan conversations
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1236,13 +1236,13 @@ Persist canvas `chatId` from `onChatStarted`. Until N5, automation should bind a
 
 ## REV-033 · Dual host: AgentSessionService + crates/agent public ACP API
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1276,13 +1276,13 @@ Make `domain::{AgentProvider, AgentSession, AgentEvent}` the only Chat-facing cr
 
 ## REV-034 · ACP session façade and dead chat stack still in the tree
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1317,13 +1317,13 @@ Delete or quarantine the unused ACP chat island. Shrink the session contract to 
 
 ## REV-035 · next_seq still fsyncs meta.json per delta; messages pagination incomplete
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1354,13 +1354,13 @@ Keep `last_event_seq` in memory (or a tiny seq file) and flush with the 100ms sn
 
 ## REV-036 · Cross-feature prompt inject and subscribe effect churn
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -1387,4 +1387,3 @@ Inject by creating/sending on a Conversation (or drain the context key without i
 
 - 2026-08-28 - opened in APP-067 architecture quality review.
 - 2026-08-28 - implemented: idle reaper + `AgentChatService::close_workspace`; pump generation token; fan-out lag replay; canvas/automation bind `onChatStarted`; WS dropped `AgentSessionService`; deleted unused ACP chat files; in-memory `next_seq` + dropped `before_seq`; inject drains context key and hydrate no longer depends on `providerId`. Verified `cargo test -p core-service --lib conversation` (28 passed), `cargo check -p api`, bun Agent Chat unit tests (18 passed).
-

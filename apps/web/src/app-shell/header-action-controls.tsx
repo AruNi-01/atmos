@@ -30,7 +30,10 @@ import {
   RotateCcw,
 } from "lucide-react";
 
-import type { ProviderKind, TunnelConnectorStatus } from "@/features/connection/hooks/use-tunnel-connector";
+import type {
+  ProviderKind,
+  TunnelConnectorStatus,
+} from "@/features/connection/hooks/use-tunnel-connector";
 import {
   activateCurrentLocalConnection,
   activateHostedRemoteConnection,
@@ -39,16 +42,12 @@ import {
   activeComputerRows,
   isCurrentLocalComputer,
 } from "@/features/connection/lib/computer-list";
-import {
-  loadLocalComputerStatus,
-} from "@/features/connection/lib/atmos-computer-local";
+import { loadLocalComputerStatus } from "@/features/connection/lib/atmos-computer-local";
 import {
   createHostedRemoteSession,
   listHostedRemoteComputers,
 } from "@/features/connection/lib/hosted-connection";
-import {
-  ensureComputerClientSettingsHydrated,
-} from "@/features/connection/lib/sync-computer-client-settings";
+import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
@@ -140,9 +139,7 @@ function RemoteAccessPopover({
       <div className="flex items-center justify-between gap-3 px-1">
         <div>
           <p className="text-sm font-medium text-popover-foreground">{t("remoteAccess.title")}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {t("remoteAccess.subtitle")}
-          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t("remoteAccess.subtitle")}</p>
         </div>
         {isTunnelConnectorRunning ? (
           <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -211,10 +208,7 @@ function AtmosComputerPopoverContent({
   const [error, setError] = React.useState<string | null>(null);
 
   const hasAccessToken = accessToken.trim().length >= 32;
-  const activeComputers = React.useMemo(
-    () => activeComputerRows(computers),
-    [computers],
-  );
+  const activeComputers = React.useMemo(() => activeComputerRows(computers), [computers]);
   const connectedServerId =
     connectionMode === "relay" && relayWebSocketUrl ? selectedServerId : null;
 
@@ -319,7 +313,9 @@ function AtmosComputerPopoverContent({
   if (!hasAccessToken) {
     return (
       <div className="rounded-md border border-border bg-muted/20 px-4 py-4">
-        <p className="text-sm font-medium text-popover-foreground">{t("remoteAccess.accessKeyRequired")}</p>
+        <p className="text-sm font-medium text-popover-foreground">
+          {t("remoteAccess.accessKeyRequired")}
+        </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           {t("remoteAccess.accessKeyRequiredDescription")}
         </p>
@@ -334,12 +330,19 @@ function AtmosComputerPopoverContent({
   if (activeComputers.length === 0 && !isRefreshing) {
     return (
       <div className="rounded-md border border-border bg-muted/20 px-4 py-4">
-        <p className="text-sm font-medium text-popover-foreground">{t("remoteAccess.noComputers")}</p>
+        <p className="text-sm font-medium text-popover-foreground">
+          {t("remoteAccess.noComputers")}
+        </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           {t("remoteAccess.noComputersDescription")}
         </p>
         <div className="mt-3 flex gap-2">
-          <Button variant="outline" size="sm" className="flex-1 cursor-pointer" onClick={() => void refreshComputers()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 cursor-pointer"
+            onClick={() => void refreshComputers()}
+          >
             <RotateCcw className="mr-1.5 size-3.5" />
             {t("remoteAccess.refresh")}
           </Button>
@@ -352,16 +355,15 @@ function AtmosComputerPopoverContent({
     );
   }
 
-  const computerCountLabel = activeComputers.length === 1
-    ? t("remoteAccess.computerCountOne", { count: activeComputers.length })
-    : t("remoteAccess.computerCountMany", { count: activeComputers.length });
+  const computerCountLabel =
+    activeComputers.length === 1
+      ? t("remoteAccess.computerCountOne", { count: activeComputers.length })
+      : t("remoteAccess.computerCountMany", { count: activeComputers.length });
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 px-1">
-        <p className="text-xs text-muted-foreground">
-          {computerCountLabel}
-        </p>
+        <p className="text-xs text-muted-foreground">{computerCountLabel}</p>
         <Button
           variant="ghost"
           size="sm"
@@ -381,7 +383,10 @@ function AtmosComputerPopoverContent({
           </div>
         ) : (
           activeComputers.map((computer) => {
-            const name = (computer.display_name ?? t("remoteAccess.computerDefaultName")).slice(0, 64);
+            const name = (computer.display_name ?? t("remoteAccess.computerDefaultName")).slice(
+              0,
+              64,
+            );
             const isLocal = isCurrentLocalComputer(computer, localServerId);
             const isUsingLocal = isLocal && connectionMode === "local";
             const isConnected = !isLocal && connectedServerId === computer.server_id;
@@ -401,7 +406,9 @@ function AtmosComputerPopoverContent({
                       <span
                         className={cn(
                           "inline-flex items-center gap-1",
-                          computer.online ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+                          computer.online
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-muted-foreground",
                         )}
                       >
                         <span
@@ -410,11 +417,17 @@ function AtmosComputerPopoverContent({
                             computer.online ? "bg-emerald-500" : "bg-muted-foreground/50",
                           )}
                         />
-                        {computer.online ? t("remoteAccess.computerOnline") : t("remoteAccess.computerOffline")}
+                        {computer.online
+                          ? t("remoteAccess.computerOnline")
+                          : t("remoteAccess.computerOffline")}
                       </span>
                       {isLocal ? <span>{t("remoteAccess.currentMachine")}</span> : null}
                       {computer.last_seen_at ? (
-                        <span>{t("remoteAccess.seen", { value: formatComputerSeenAt(computer.last_seen_at, locale, t) })}</span>
+                        <span>
+                          {t("remoteAccess.seen", {
+                            value: formatComputerSeenAt(computer.last_seen_at, locale, t),
+                          })}
+                        </span>
                       ) : null}
                     </div>
                   </div>
@@ -518,7 +531,7 @@ function TunnelConnectorPopoverContent({
               : t("remoteAccess.browserViaSidecar")}
           </p>
         </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           {desktopWebStatus === "ready"
             ? t("remoteAccess.browserReadyDescription")
             : t("remoteAccess.browserViaSidecarDescription")}
@@ -526,18 +539,14 @@ function TunnelConnectorPopoverContent({
       </div>
 
       {browserUrl ? (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] break-all text-muted-foreground">
           {browserUrl}
         </div>
       ) : null}
 
       <div className="flex items-center gap-2">
         {!isTunnelConnectorRunning && (
-          <Button
-            variant="outline"
-            onClick={onOpenSettings}
-            className="cursor-pointer"
-          >
+          <Button variant="outline" onClick={onOpenSettings} className="cursor-pointer">
             {t("remoteAccess.tunnelConnector")}
           </Button>
         )}
@@ -618,7 +627,7 @@ export function HeaderActionControls({
   }, [loadLayoutSettings]);
 
   return (
-    <div className="relative z-10 desktop-no-drag flex shrink-0 items-center justify-end space-x-3">
+    <div className="desktop-no-drag relative z-10 flex shrink-0 items-center justify-end space-x-3">
       {isDesktopRuntime && showAppshot ? <AppshotCapturePreview /> : null}
       <LocalModelDownloadProgress />
       {showGlobalSearch ? (
@@ -633,7 +642,7 @@ export function HeaderActionControls({
         >
           <Search className="size-3.5" />
           <span className="flex-1 text-left">{t("searchPlaceholder")}</span>
-          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+          <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
             <Command className="size-3" />
             <span className="text-xs">K</span>
           </kbd>
@@ -657,65 +666,65 @@ export function HeaderActionControls({
         ) : null}
         {isDesktopRuntime && showRemoteAccess ? (
           <>
-          <Popover
-            open={desktopWebPopoverOpen}
-            onOpenChange={(open) => {
-              if (!open && hubSignInOpen) {
-                return;
-              }
-              setDesktopWebPopoverOpen(open);
-              if (open) {
-                void refreshDesktopWebStatus();
-                void refreshTunnelConnectorStatus();
-              }
-            }}
-          >
-            <PopoverTrigger asChild>
-              <button
-                aria-label={t("menu.openInWeb")}
-                className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                title={t("menu.remoteAccess")}
-              >
-                <Globe className="size-4" />
-                {isTunnelConnectorRunning && (
-                  <span
-                    className={cn(
-                      "absolute right-1 top-1 size-2 rounded-full ring-1 ring-background",
-                      tunnelConnectorDotColor,
-                    )}
-                  />
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              sideOffset={8}
-              className="w-[420px] max-w-[calc(100vw-24px)] max-h-[76vh] overflow-y-auto p-3 bg-popover border border-border shadow-md"
-              onInteractOutside={(event) => {
-                if (hubSignInOpen) {
-                  event.preventDefault();
+            <Popover
+              open={desktopWebPopoverOpen}
+              onOpenChange={(open) => {
+                if (!open && hubSignInOpen) {
+                  return;
                 }
-              }}
-              onFocusOutside={(event) => {
-                if (hubSignInOpen) {
-                  event.preventDefault();
+                setDesktopWebPopoverOpen(open);
+                if (open) {
+                  void refreshDesktopWebStatus();
+                  void refreshTunnelConnectorStatus();
                 }
               }}
             >
-              <RemoteAccessPopover
-                activeTunnelConnectors={activeTunnelConnectors}
-                browserUrl={browserUrl}
-                desktopWebStatus={desktopWebStatus}
-                isOpeningDesktopWeb={isOpeningDesktopWeb}
-                isTunnelConnectorRunning={isTunnelConnectorRunning}
-                onOpenDesktopWeb={onOpenDesktopWeb}
-                onOpenHubSignIn={() => setHubSignInOpen(true)}
-                renewTunnelConnector={renewTunnelConnector}
-                setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
-              />
-            </PopoverContent>
-          </Popover>
-          <HubSignInDialog open={hubSignInOpen} onOpenChange={setHubSignInOpen} />
+              <PopoverTrigger asChild>
+                <button
+                  aria-label={t("menu.openInWeb")}
+                  className="relative flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  title={t("menu.remoteAccess")}
+                >
+                  <Globe className="size-4" />
+                  {isTunnelConnectorRunning && (
+                    <span
+                      className={cn(
+                        "absolute top-1 right-1 size-2 rounded-full ring-1 ring-background",
+                        tunnelConnectorDotColor,
+                      )}
+                    />
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                sideOffset={8}
+                className="max-h-[76vh] w-[420px] max-w-[calc(100vw-24px)] overflow-y-auto border border-border bg-popover p-3 shadow-md"
+                onInteractOutside={(event) => {
+                  if (hubSignInOpen) {
+                    event.preventDefault();
+                  }
+                }}
+                onFocusOutside={(event) => {
+                  if (hubSignInOpen) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                <RemoteAccessPopover
+                  activeTunnelConnectors={activeTunnelConnectors}
+                  browserUrl={browserUrl}
+                  desktopWebStatus={desktopWebStatus}
+                  isOpeningDesktopWeb={isOpeningDesktopWeb}
+                  isTunnelConnectorRunning={isTunnelConnectorRunning}
+                  onOpenDesktopWeb={onOpenDesktopWeb}
+                  onOpenHubSignIn={() => setHubSignInOpen(true)}
+                  renewTunnelConnector={renewTunnelConnector}
+                  setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
+                />
+              </PopoverContent>
+            </Popover>
+            <HubSignInDialog open={hubSignInOpen} onOpenChange={setHubSignInOpen} />
           </>
         ) : null}
 
@@ -728,16 +737,15 @@ export function HeaderActionControls({
             />
           </TooltipTrigger>
           <TooltipContent>
-              <div className="flex items-center gap-2">
-                <span>{t("menu.quotaUsage")}</span>
-              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+            <div className="flex items-center gap-2">
+              <span>{t("menu.quotaUsage")}</span>
+              <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
                 <Command className="size-3" />
                 <span className="text-xs">U</span>
               </kbd>
             </div>
           </TooltipContent>
         </Tooltip>
-
       </div>
     </div>
   );

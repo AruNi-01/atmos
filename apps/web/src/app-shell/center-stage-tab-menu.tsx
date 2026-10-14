@@ -104,20 +104,14 @@ export function CenterStageTabContextMenu({
 
   const closeMenu = () => setTabContextMenu(null);
 
-  const orderedTabs =
-    tabContextMenu?.orderedTabs?.length
-      ? tabContextMenu.orderedTabs
-      : orderedTabsProp;
+  const orderedTabs = tabContextMenu?.orderedTabs?.length
+    ? tabContextMenu.orderedTabs
+    : orderedTabsProp;
 
-  const targetIndex = target
-    ? orderedTabs.findIndex((tab) => tab.id === target.id)
-    : -1;
+  const targetIndex = target ? orderedTabs.findIndex((tab) => tab.id === target.id) : -1;
   const leftTabs = targetIndex >= 0 ? orderedTabs.slice(0, targetIndex) : [];
   const rightTabs = targetIndex >= 0 ? orderedTabs.slice(targetIndex + 1) : [];
-  const otherTabs =
-    targetIndex >= 0
-      ? orderedTabs.filter((tab) => tab.id !== target!.id)
-      : [];
+  const otherTabs = targetIndex >= 0 ? orderedTabs.filter((tab) => tab.id !== target!.id) : [];
 
   const commitRename = () => {
     if (!target || !onRenameTerminalTab) return;
@@ -148,9 +142,7 @@ export function CenterStageTabContextMenu({
   }, []);
 
   const relativePath =
-    fileTarget && basePath
-      ? getRelativePath(fileTarget.path, basePath)
-      : fileTarget?.path ?? "";
+    fileTarget && basePath ? getRelativePath(fileTarget.path, basePath) : (fileTarget?.path ?? "");
 
   const menu = (
     <DropdownMenu
@@ -164,7 +156,7 @@ export function CenterStageTabContextMenu({
           type="button"
           aria-hidden
           tabIndex={-1}
-          className="fixed size-0 pointer-events-none"
+          className="pointer-events-none fixed size-0"
           style={{
             left: tabContextMenu?.x ?? -9999,
             top: tabContextMenu?.y ?? -9999,

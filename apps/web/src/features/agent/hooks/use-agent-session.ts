@@ -90,7 +90,7 @@ export interface UseAgentSessionReturn {
   sendPermissionResponse: (
     requestId: string,
     allowed: boolean,
-    rememberForSession?: boolean
+    rememberForSession?: boolean,
   ) => void;
   sendCancel: () => void;
   startSession: (override?: StartSessionOverride) => Promise<void>;
@@ -144,25 +144,16 @@ export function useAgentSession({
     onMessageRef.current = onMessage;
   }, [onMessage]);
 
-  const sendPrompt = useCallback(
-    (message: string): boolean => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({ type: "prompt", message })
-        );
-        return true;
-      }
-      return false;
-    },
-    []
-  );
+  const sendPrompt = useCallback((message: string): boolean => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "prompt", message }));
+      return true;
+    }
+    return false;
+  }, []);
 
   const sendPermissionResponse = useCallback(
-    (
-      requestId: string,
-      allowed: boolean,
-      rememberForSession = false
-    ) => {
+    (requestId: string, allowed: boolean, rememberForSession = false) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({
@@ -170,40 +161,28 @@ export function useAgentSession({
             request_id: requestId,
             allowed,
             remember_for_session: rememberForSession,
-          })
+          }),
         );
       }
     },
-    []
+    [],
   );
 
-  const sendCancel = useCallback(
-    () => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({ type: "cancel" })
-        );
-      }
-    },
-    []
-  );
+  const sendCancel = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "cancel" }));
+    }
+  }, []);
 
-  const setConfigOption = useCallback(
-    (configId: string, value: string) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({ type: "set_config_option", option_id: configId, value })
-        );
-      }
-      // Optimistically update local state so UI responds immediately
-      setConfigOptions(prevOpts => 
-        prevOpts.map(opt => 
-          opt.id === configId ? { ...opt, currentValue: value } : opt
-        )
-      );
-    },
-    []
-  );
+  const setConfigOption = useCallback((configId: string, value: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "set_config_option", option_id: configId, value }));
+    }
+    // Optimistically update local state so UI responds immediately
+    setConfigOptions((prevOpts) =>
+      prevOpts.map((opt) => (opt.id === configId ? { ...opt, currentValue: value } : opt)),
+    );
+  }, []);
 
   const setAgentDefaultConfig = useCallback(
     (configId: string, value: string) => {
@@ -214,11 +193,11 @@ export function useAgentSession({
             config_id: configId,
             value,
             registry_id: registryId,
-          })
+          }),
         );
       }
     },
-    [registryId]
+    [registryId],
   );
 
   // Ref that always reflects the latest state values so stable callbacks can
@@ -290,22 +269,10 @@ export function useAgentSession({
     [disconnect, onError, registryId, sessionCwd, t],
   );
 
-  const stashSession = useCallback((key: string) => {
-    const ws = wsRef.current;
-    const {
-      sessionId: sid,
-      acpSessionId: acpSid,
-      cwd,
-      title,
-      agentInfo: info,
-      capabilities: caps,
-      configOptions: opts,
-      sessionUsage: usage,
-    } = latestRef.current;
-
-    if (ws && ws.readyState === WebSocket.OPEN && sid) {
-      stashedRef.current.set(key, {
-        ws,
+  const stashSession = useCallback(
+    (key: string) => {
+      const ws = wsRef.current;
+      const {
         sessionId: sid,
         acpSessionId: acpSid,
         cwd,
@@ -314,18 +281,33 @@ export function useAgentSession({
         capabilities: caps,
         configOptions: opts,
         sessionUsage: usage,
-      });
-      // Detach without closing – the WS stays alive in the background.
-      // Existing onmessage/onclose handlers check `wsRef.current !== ws`
-      // and will no-op while the session is stashed.
-      wsRef.current = null;
-    } else if (ws) {
-      closeAgentWebSocket(ws);
-      wsRef.current = null;
-    }
+      } = latestRef.current;
 
-    clearActiveState();
-  }, [clearActiveState]);
+      if (ws && ws.readyState === WebSocket.OPEN && sid) {
+        stashedRef.current.set(key, {
+          ws,
+          sessionId: sid,
+          acpSessionId: acpSid,
+          cwd,
+          title,
+          agentInfo: info,
+          capabilities: caps,
+          configOptions: opts,
+          sessionUsage: usage,
+        });
+        // Detach without closing – the WS stays alive in the background.
+        // Existing onmessage/onclose handlers check `wsRef.current !== ws`
+        // and will no-op while the session is stashed.
+        wsRef.current = null;
+      } else if (ws) {
+        closeAgentWebSocket(ws);
+        wsRef.current = null;
+      }
+
+      clearActiveState();
+    },
+    [clearActiveState],
+  );
 
   const unstashSession = useCallback((key: string): string | null => {
     const stashed = stashedRef.current.get(key);
@@ -492,7 +474,7 @@ export function useAgentSession({
         onError?.(msg);
       }
     },
-    [attachRuntimeSessionSocket, workspaceId, projectId, registryId, onError, t]
+    [attachRuntimeSessionSocket, workspaceId, projectId, registryId, onError, t],
   );
 
   const resumeSession = useCallback(
@@ -539,7 +521,7 @@ export function useAgentSession({
         return false;
       }
     },
-    [attachRuntimeSessionSocket, onError, projectId, workspaceId, t]
+    [attachRuntimeSessionSocket, onError, projectId, workspaceId, t],
   );
 
   useEffect(() => {

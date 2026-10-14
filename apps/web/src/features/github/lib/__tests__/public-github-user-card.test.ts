@@ -19,9 +19,7 @@ describe("formatContributionDate", () => {
   it("formats calendar days in the app locale, not the browser locale", () => {
     expect(formatContributionDate("2026-06-28", "en")).toBe("Jun 28, 2026");
     expect(formatContributionDate("2026-06-28", "zh")).toMatch(/2026/);
-    expect(formatContributionDate("2026-06-28", "zh")).not.toBe(
-      "Jun 28, 2026",
-    );
+    expect(formatContributionDate("2026-06-28", "zh")).not.toBe("Jun 28, 2026");
   });
 });
 
@@ -105,18 +103,13 @@ describe("parsePublicGithubUserCard", () => {
       level: 4,
     });
 
-    const card = parsePublicGithubUserCard(
-      { total: { lastYear: 130 }, contributions },
-      "builder",
-    );
+    const card = parsePublicGithubUserCard({ total: { lastYear: 130 }, contributions }, "builder");
     expect(card.login).toBe("builder");
     expect(card.contributions).toHaveLength(119);
     expect(card.contributions[0]?.date).toBe("2026-01-12");
-    expect(
-      card.contributions.some(
-        (day) => day.date === future.toISOString().slice(0, 10),
-      ),
-    ).toBe(false);
+    expect(card.contributions.some((day) => day.date === future.toISOString().slice(0, 10))).toBe(
+      false,
+    );
   });
 });
 
@@ -135,20 +128,14 @@ describe("fetchPublicGithubUserCard", () => {
     }) as typeof fetch;
 
     const card = await fetchPublicGithubUserCard("@octocat");
-    expect(calls).toEqual([
-      `${PUBLIC_GITHUB_CONTRIBUTIONS_API}/octocat?y=last`,
-    ]);
+    expect(calls).toEqual([`${PUBLIC_GITHUB_CONTRIBUTIONS_API}/octocat?y=last`]);
     expect(card.login).toBe("octocat");
     expect(card.total_contributions).toBe(7);
-    expect(card.contributions).toEqual([
-      { date: "2026-08-01", count: 7, level: 2 },
-    ]);
+    expect(card.contributions).toEqual([{ date: "2026-08-01", count: 7, level: 2 }]);
   });
 
   it("rejects blank or path-like logins", async () => {
-    await expect(fetchPublicGithubUserCard("")).rejects.toThrow(
-      "GitHub username is required",
-    );
+    await expect(fetchPublicGithubUserCard("")).rejects.toThrow("GitHub username is required");
     await expect(fetchPublicGithubUserCard("foo/bar")).rejects.toThrow(
       "GitHub username is required",
     );

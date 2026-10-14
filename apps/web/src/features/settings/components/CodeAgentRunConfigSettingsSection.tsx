@@ -121,20 +121,32 @@ export function CodeAgentRunConfigSettingsSection({
 
     await onSaveRunConfigs(nextRunConfigs);
     resetEditor();
-  }, [draftAgentId, draftConfig, draftName, editingId, onSaveRunConfigs, resetEditor, runConfigs, t]);
+  }, [
+    draftAgentId,
+    draftConfig,
+    draftName,
+    editingId,
+    onSaveRunConfigs,
+    resetEditor,
+    runConfigs,
+    t,
+  ]);
 
-  const handleDelete = React.useCallback(async (id: string) => {
-    setDeletingId(id);
-    try {
-      await onSaveRunConfigs(runConfigs.filter((item) => item.id !== id));
-      setConfirmingDeleteId((current) => (current === id ? null : current));
-      if (editingId === id) {
-        resetEditor();
+  const handleDelete = React.useCallback(
+    async (id: string) => {
+      setDeletingId(id);
+      try {
+        await onSaveRunConfigs(runConfigs.filter((item) => item.id !== id));
+        setConfirmingDeleteId((current) => (current === id ? null : current));
+        if (editingId === id) {
+          resetEditor();
+        }
+      } finally {
+        setDeletingId(null);
       }
-    } finally {
-      setDeletingId(null);
-    }
-  }, [editingId, onSaveRunConfigs, resetEditor, runConfigs]);
+    },
+    [editingId, onSaveRunConfigs, resetEditor, runConfigs],
+  );
 
   const selectedAgentLabel = agentLabelById.get(draftAgentId) ?? draftAgentId;
   const groupedConfigs = React.useMemo(() => {
@@ -148,32 +160,32 @@ export function CodeAgentRunConfigSettingsSection({
       .map((agent) => ({
         agentId: agent.id,
         agentLabel: agent.label,
-        configs: (groups.get(agent.id) ?? []).sort((left, right) => left.name.localeCompare(right.name)),
+        configs: (groups.get(agent.id) ?? []).sort((left, right) =>
+          left.name.localeCompare(right.name),
+        ),
       }))
       .filter((group) => group.configs.length > 0);
   }, [agentOptions, runConfigs]);
 
   return (
     <>
-    <SettingsGroupCard
-      open={expanded}
-      onOpenChange={setExpanded}
-      title={t("title")}
-      description={t("description")}
-      headerEnd={
-        <Button variant="outline" onClick={openCreate}>
-          <Plus className="mr-2 size-4" />
-          {t("actions.addConfig")}
-        </Button>
-      }
-    >
-      <div className="py-3">
+      <SettingsGroupCard
+        open={expanded}
+        onOpenChange={setExpanded}
+        title={t("title")}
+        description={t("description")}
+        headerEnd={
+          <Button variant="outline" onClick={openCreate}>
+            <Plus className="mr-2 size-4" />
+            {t("actions.addConfig")}
+          </Button>
+        }
+      >
+        <div className="py-3">
           {loading ? (
             <p className="text-sm text-muted-foreground">{t("loading")}</p>
           ) : runConfigs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("empty")}
-            </p>
+            <p className="text-sm text-muted-foreground">{t("empty")}</p>
           ) : (
             <div className="space-y-5">
               {groupedConfigs.map((group) => (
@@ -191,24 +203,38 @@ export function CodeAgentRunConfigSettingsSection({
                           className="flex items-center justify-between gap-4 rounded-2xl border border-border px-4 py-3"
                         >
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-foreground">{config.name}</p>
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {config.name}
+                            </p>
                             <p className="mt-1 truncate text-xs text-muted-foreground">
                               {buildRunConfigSummary(group.agentLabel, config.config)}
                             </p>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(config)}>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(config)}
+                            >
                               <Pencil className="mr-2 size-4" />
                               {t("actions.edit")}
                             </Button>
                             <Popover
                               open={confirmingDeleteId === config.id}
-                              onOpenChange={(nextOpen) => setConfirmingDeleteId(nextOpen ? config.id : null)}
+                              onOpenChange={(nextOpen) =>
+                                setConfirmingDeleteId(nextOpen ? config.id : null)
+                              }
                             >
                               <PopoverTrigger asChild>
-                                <Button type="button" variant="ghost" size="sm" disabled={isDeleting}>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={isDeleting}
+                                >
                                   {isDeleting ? (
-                                    <LoaderCircle className="size-4 animate-spin-reverse" />
+                                    <LoaderCircle className="animate-spin-reverse size-4" />
                                   ) : (
                                     <Trash2 className="size-4" />
                                   )}
@@ -216,11 +242,17 @@ export function CodeAgentRunConfigSettingsSection({
                               </PopoverTrigger>
                               <PopoverContent align="end" className="w-72 space-y-3">
                                 <div className="space-y-1">
-                                  <p className="text-sm font-medium text-foreground">{t("deleteConfirm.title")}</p>
+                                  <p className="text-sm font-medium text-foreground">
+                                    {t("deleteConfirm.title")}
+                                  </p>
                                   <p className="text-xs leading-5 text-muted-foreground">
                                     {t.rich("deleteConfirm.description", {
                                       name: config.name,
-                                      strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                                      strong: (chunks) => (
+                                        <span className="font-medium text-foreground">
+                                          {chunks}
+                                        </span>
+                                      ),
                                     })}
                                   </p>
                                 </div>
@@ -254,20 +286,23 @@ export function CodeAgentRunConfigSettingsSection({
               ))}
             </div>
           )}
-      </div>
-    </SettingsGroupCard>
+        </div>
+      </SettingsGroupCard>
 
-      <Dialog open={editorOpen} onOpenChange={(nextOpen) => (!nextOpen ? resetEditor() : setEditorOpen(true))}>
+      <Dialog
+        open={editorOpen}
+        onOpenChange={(nextOpen) => (!nextOpen ? resetEditor() : setEditorOpen(true))}
+      >
         <DialogContent className="sm:max-w-[640px]">
           <DialogTitle>{editingId ? t("editor.editTitle") : t("editor.addTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("editor.description")}
-          </DialogDescription>
+          <DialogDescription>{t("editor.description")}</DialogDescription>
 
           <div className="space-y-4 pt-2">
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">{t("fields.name")}</label>
+                <label className="mb-1 block text-xs text-muted-foreground">
+                  {t("fields.name")}
+                </label>
                 <Input
                   value={draftName}
                   placeholder={t("editor.namePlaceholder")}
@@ -275,7 +310,9 @@ export function CodeAgentRunConfigSettingsSection({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">{t("fields.agent")}</label>
+                <label className="mb-1 block text-xs text-muted-foreground">
+                  {t("fields.agent")}
+                </label>
                 <Select value={draftAgentId} onValueChange={setDraftAgentId}>
                   <SelectTrigger>
                     <SelectValue placeholder={t("editor.selectAgent")} />
@@ -313,11 +350,15 @@ export function CodeAgentRunConfigSettingsSection({
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             <div className="flex items-center justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={resetEditor}>
+              <Button type="button" variant="ghost" onClick={resetEditor}>
                 {t("actions.cancel")}
               </Button>
               <Button type="button" disabled={saving} onClick={() => void handleSave()}>
-                {saving ? <LoaderCircle className="size-4 animate-spin-reverse" /> : t("actions.save")}
+                {saving ? (
+                  <LoaderCircle className="animate-spin-reverse size-4" />
+                ) : (
+                  t("actions.save")
+                )}
               </Button>
             </div>
           </div>

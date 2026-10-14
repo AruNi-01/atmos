@@ -19,9 +19,29 @@ const LANG_ALIASES: Record<string, string> = {
 };
 
 const SUPPORTED_LANGS = new Set([
-  "html", "javascript", "typescript", "tsx", "jsx", "css", "json",
-  "bash", "shellscript", "markdown", "python", "rust", "go", "java",
-  "yaml", "toml", "sql", "dockerfile", "c", "cpp", "plaintext", "text", "txt",
+  "html",
+  "javascript",
+  "typescript",
+  "tsx",
+  "jsx",
+  "css",
+  "json",
+  "bash",
+  "shellscript",
+  "markdown",
+  "python",
+  "rust",
+  "go",
+  "java",
+  "yaml",
+  "toml",
+  "sql",
+  "dockerfile",
+  "c",
+  "cpp",
+  "plaintext",
+  "text",
+  "txt",
 ]);
 
 function normalizeLang(lang: string): string {
@@ -29,16 +49,14 @@ function normalizeLang(lang: string): string {
   return LANG_ALIASES[lower] ?? lower;
 }
 
-function HighlightedCode({
-  code,
-  language,
-}: {
-  code: string;
-  language: string;
-}) {
+function HighlightedCode({ code, language }: { code: string; language: string }) {
   const [html, setHtml] = useState<string | null>(null);
   const normalized = normalizeLang(language);
-  const canHighlight = SUPPORTED_LANGS.has(normalized) && normalized !== "plaintext" && normalized !== "text" && normalized !== "txt";
+  const canHighlight =
+    SUPPORTED_LANGS.has(normalized) &&
+    normalized !== "plaintext" &&
+    normalized !== "text" &&
+    normalized !== "txt";
 
   useEffect(() => {
     if (!canHighlight) {
@@ -53,12 +71,14 @@ function HighlightedCode({
         const result = highlighter.codeToHtml(code, {
           lang: normalized as Languages,
           themes: DualThemes,
-          transformers: [{
-            name: "add-line-numbers",
-            pre(node) {
-              node.properties.class = `${node.properties.class ?? ""} shiki-line-numbers`;
+          transformers: [
+            {
+              name: "add-line-numbers",
+              pre(node) {
+                node.properties.class = `${node.properties.class ?? ""} shiki-line-numbers`;
+              },
             },
-          }],
+          ],
         });
         setHtml(result);
       })
@@ -124,12 +144,9 @@ export function AgentToolCodePreview({
         ["--shiki-line-offset" as string]: Math.max(0, startLine - 1),
       }}
     >
-      {(hasOverflow || expanded) ? (
-        <div className="absolute right-2 top-1.5 z-10">
-          <ExpandButton
-            expanded={expanded}
-            onToggle={() => setExpanded((value) => !value)}
-          />
+      {hasOverflow || expanded ? (
+        <div className="absolute top-1.5 right-2 z-10">
+          <ExpandButton expanded={expanded} onToggle={() => setExpanded((value) => !value)} />
         </div>
       ) : null}
       <div

@@ -13,10 +13,5 @@ export const WikiToc: React.FC<WikiTocProps> = ({ contextId }) => {
 
   if (!activeContent) return null;
 
-  return (
-    <MarkdownToc
-      markdown={activeContent}
-      scrollContainerId="wiki-content-root"
-    />
-  );
+  return <MarkdownToc markdown={activeContent} scrollContainerId="wiki-content-root" />;
 };

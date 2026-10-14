@@ -4,7 +4,7 @@ A deep, research-grade project documentation generator for ATMOS. Empowers any C
 
 ## What Makes This Different
 
-Unlike documentation generators that skim README files, this skill instructs agents to **deeply explore all source code** — reading entry points, core types, implementations, tests, and configuration — before writing any documentation. The result is a Wiki that explains not just *what* the code does, but *how* it works and *why* it was designed that way.
+Unlike documentation generators that skim README files, this skill instructs agents to **deeply explore all source code** — reading entry points, core types, implementations, tests, and configuration — before writing any documentation. The result is a Wiki that explains not just _what_ the code does, but _how_ it works and _why_ it was designed that way.
 
 ## Key Features
 
@@ -85,6 +85,7 @@ python3 scripts/validate_frontmatter.py .atmos/wiki/
 **Important:** Metadata MUST use strict YAML frontmatter. Never use markdown blockquotes (`> **Reading Time:**`) or inline text — the frontend parser requires YAML only.
 
 Example output:
+
 ```
 ✅ Catalog is valid!
    Version: 2.0
@@ -99,14 +100,14 @@ Example output:
 
 Each article must meet minimum quality thresholds:
 
-| Metric | Getting Started | Deep Dive |
-|--------|----------------|-----------|
-| **Word Count** | 800+ words | 1500+ words |
-| **Source Files** | 3+ referenced | 5+ referenced |
-| **Code Snippets** | 0–1 (only when essential) | 0–2 (only when essential) |
-| **Mermaid Diagrams** | 2+ | 3+ |
-| **Reading Time** | 5-8 minutes | 8-15 minutes |
-| **Cross-references** | 2+ links | 4+ links |
+| Metric               | Getting Started           | Deep Dive                 |
+| -------------------- | ------------------------- | ------------------------- |
+| **Word Count**       | 800+ words                | 1500+ words               |
+| **Source Files**     | 3+ referenced             | 5+ referenced             |
+| **Code Snippets**    | 0–1 (only when essential) | 0–2 (only when essential) |
+| **Mermaid Diagrams** | 2+                        | 3+                        |
+| **Reading Time**     | 5-8 minutes               | 8-15 minutes              |
+| **Cross-references** | 2+ links                  | 4+ links                  |
 
 ## Skill Package Contents
 
@@ -133,11 +134,11 @@ Each article includes frontmatter with:
 ```yaml
 ---
 title: WebSocket Service Architecture
-section: deep-dive          # getting-started or deep-dive
-level: advanced             # beginner, intermediate, or advanced
-reading_time: 13            # estimated minutes
+section: deep-dive # getting-started or deep-dive
+level: advanced # beginner, intermediate, or advanced
+reading_time: 13 # estimated minutes
 path: deep-dive/infra/websocket
-sources:                    # actual source files researched
+sources: # actual source files researched
   - crates/infra/src/websocket/manager.rs
   - crates/infra/src/websocket/connection.rs
   - apps/api/src/api/ws/handlers.rs
@@ -157,28 +158,28 @@ This produces documentation that reflects actual code behavior, not just surface
 
 ## Design Advantages
 
-| Feature | Description |
-|---------|-------------|
-| **Research-Grade** | Agents read source code, not just README files |
-| **Two-Part Structure** | Progressive disclosure from beginner to advanced |
-| **Depth Enforced** | Minimum quality standards per article type |
-| **Traceable** | Key Source Files table; any code snippet must link to its source |
-| **Connected** | Cross-references and "Next Steps" link articles together |
-| **Git-Friendly** | Full version control support |
-| **Frontend-Friendly** | JSON + Markdown with rich metadata |
-| **Validated** | JSON Schema with v2.0 field support |
+| Feature                | Description                                                      |
+| ---------------------- | ---------------------------------------------------------------- |
+| **Research-Grade**     | Agents read source code, not just README files                   |
+| **Two-Part Structure** | Progressive disclosure from beginner to advanced                 |
+| **Depth Enforced**     | Minimum quality standards per article type                       |
+| **Traceable**          | Key Source Files table; any code snippet must link to its source |
+| **Connected**          | Cross-references and "Next Steps" link articles together         |
+| **Git-Friendly**       | Full version control support                                     |
+| **Frontend-Friendly**  | JSON + Markdown with rich metadata                               |
+| **Validated**          | JSON Schema with v2.0 field support                              |
 
 ## Comparison with Alternatives
 
-| Dimension | Zread/OpenDeepWiki | ATMOS Project Wiki |
-|-----------|-------------------|-------------------|
-| **Storage** | Database / Cloud | Local File System |
-| **Generation** | Built-in AI | User's Code Agent + Skill |
-| **Research Depth** | README-focused | Full source code exploration |
-| **Structure** | Auto-generated chapters | Two-part: Getting Started + Deep Dive |
-| **Metadata** | Basic | Section, level, reading_time, sources |
-| **Version Control** | Cloud versioning | Git |
-| **Flexibility** | Fixed process | Agent freedom with quality guardrails |
+| Dimension           | Zread/OpenDeepWiki      | ATMOS Project Wiki                    |
+| ------------------- | ----------------------- | ------------------------------------- |
+| **Storage**         | Database / Cloud        | Local File System                     |
+| **Generation**      | Built-in AI             | User's Code Agent + Skill             |
+| **Research Depth**  | README-focused          | Full source code exploration          |
+| **Structure**       | Auto-generated chapters | Two-part: Getting Started + Deep Dive |
+| **Metadata**        | Basic                   | Section, level, reading_time, sources |
+| **Version Control** | Cloud versioning        | Git                                   |
+| **Flexibility**     | Fixed process           | Agent freedom with quality guardrails |
 
 ## Troubleshooting
 
@@ -189,6 +190,7 @@ The skill enforces minimum depth standards. If articles don't meet them, re-run 
 ### Agent generates invalid `_catalog.json`
 
 Run the validation script to see detailed errors:
+
 ```bash
 python3 scripts/validate_catalog.py .atmos/wiki/_catalog.json
 ```

@@ -19,15 +19,9 @@ const drawerCloseReserveClass = "pr-11";
 
 const DrawerCloseReserveContext = React.createContext(false);
 
-function DrawerCloseReserveProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function DrawerCloseReserveProvider({ children }: { children: React.ReactNode }) {
   return (
-    <DrawerCloseReserveContext.Provider value={true}>
-      {children}
-    </DrawerCloseReserveContext.Provider>
+    <DrawerCloseReserveContext.Provider value={true}>{children}</DrawerCloseReserveContext.Provider>
   );
 }
 
@@ -35,11 +29,7 @@ function useDrawerCloseReserve() {
   return React.useContext(DrawerCloseReserveContext);
 }
 
-function DrawerCloseButton({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<"button">) {
+function DrawerCloseButton({ className, children, ...props }: React.ComponentProps<"button">) {
   return (
     <button
       type="button"
@@ -82,21 +72,15 @@ function DrawerNested({
   );
 }
 
-function DrawerTrigger({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Trigger>) {
+function DrawerTrigger({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Trigger>) {
   return <DrawerPrimitive.Trigger data-slot="drawer-trigger" {...props} />;
 }
 
-function DrawerPortal({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Portal>) {
+function DrawerPortal({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Portal>) {
   return <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />;
 }
 
-function DrawerClose({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Close>) {
+function DrawerClose({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Close>) {
   return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />;
 }
 
@@ -152,24 +136,23 @@ function DrawerContent({
  * custom overlay opacity / layout insets (e.g. Task GitHub side drawer).
  * Typed as a `div` so the public `.d.ts` does not name vaul/radix internals.
  */
-const DrawerContentBare = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentPropsWithoutRef<"div">
->(function DrawerContentBare({ className, children, ...props }, ref) {
-  return (
-    <DrawerPrimitive.Content
-      ref={ref}
-      data-slot="drawer-content"
-      className={cn(
-        "group/drawer-content fixed z-50 flex flex-col bg-background outline-none",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </DrawerPrimitive.Content>
-  );
-});
+const DrawerContentBare = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<"div">>(
+  function DrawerContentBare({ className, children, ...props }, ref) {
+    return (
+      <DrawerPrimitive.Content
+        ref={ref}
+        data-slot="drawer-content"
+        className={cn(
+          "group/drawer-content fixed z-50 flex flex-col bg-background outline-none",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </DrawerPrimitive.Content>
+    );
+  },
+);
 DrawerContentBare.displayName = "DrawerContentBare";
 
 function DrawerHandle({
@@ -179,10 +162,7 @@ function DrawerHandle({
   return (
     <DrawerPrimitive.Handle
       data-slot="drawer-handle"
-      className={cn(
-        "mx-auto mt-4 hidden h-1.5 w-12 shrink-0 rounded-full bg-muted",
-        className,
-      )}
+      className={cn("mx-auto mt-4 hidden h-1.5 w-12 shrink-0 rounded-full bg-muted", className)}
       {...props}
     />
   );
@@ -208,14 +188,11 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function DrawerTitle({
-  className,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Title>) {
+function DrawerTitle({ className, ...props }: React.ComponentProps<typeof DrawerPrimitive.Title>) {
   return (
     <DrawerPrimitive.Title
       data-slot="drawer-title"
-      className={cn("text-foreground font-semibold", className)}
+      className={cn("font-semibold text-foreground", className)}
       {...props}
     />
   );
@@ -228,7 +205,7 @@ function DrawerDescription({
   return (
     <DrawerPrimitive.Description
       data-slot="drawer-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />
   );

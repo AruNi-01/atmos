@@ -1,13 +1,7 @@
 "use client";
 
 import { cn } from "../../lib/utils";
-import {
-  motion,
-  stagger,
-  useAnimate,
-  useInView,
-  useReducedMotion,
-} from "motion/react";
+import { motion, stagger, useAnimate, useInView, useReducedMotion } from "motion/react";
 import { useEffect, useId, useMemo, useState, type ElementType, type ReactNode } from "react";
 
 const CHAR_SELECTOR = "[data-typewriter-char]";
@@ -94,9 +88,7 @@ export function TypewriterEffect({
     };
   }, [animate, isInView, prefersReducedMotion, wordsSignature]);
 
-  const hiddenCharClass = prefersReducedMotion
-    ? "inline-flex"
-    : "hidden opacity-0";
+  const hiddenCharClass = prefersReducedMotion ? "inline-flex" : "hidden opacity-0";
 
   return (
     <Component
@@ -130,11 +122,7 @@ export function TypewriterEffect({
                   data-typewriter-char=""
                   initial={{}}
                   key={`char-${charIndex}`}
-                  className={cn(
-                    hiddenCharClass,
-                    "items-center text-foreground",
-                    word.className,
-                  )}
+                  className={cn(hiddenCharClass, "items-center text-foreground", word.className)}
                 >
                   {char === " " ? "\u00A0" : char}
                 </motion.span>
@@ -218,15 +206,17 @@ export function TypewriterEffectSmooth({
           {wordsArray.map((word, wordIndex) => (
             <span key={`word-${wordIndex}`} className="inline-block align-baseline">
               {word.node ? (
-                <span className={cn("inline-flex items-end align-baseline text-foreground", word.className)}>
+                <span
+                  className={cn(
+                    "inline-flex items-end align-baseline text-foreground",
+                    word.className,
+                  )}
+                >
                   {word.node}
                 </span>
               ) : (
                 word.chars.map((char, charIndex) => (
-                  <span
-                    key={`char-${charIndex}`}
-                    className={cn("text-foreground", word.className)}
-                  >
+                  <span key={`char-${charIndex}`} className={cn("text-foreground", word.className)}>
                     {char}
                   </span>
                 ))
@@ -251,10 +241,7 @@ export function TypewriterEffectSmooth({
                   repeatType: "reverse",
                 }
         }
-        className={cn(
-          "block h-4 w-[4px] rounded-sm bg-primary sm:h-6 xl:h-12",
-          cursorClassName,
-        )}
+        className={cn("block h-4 w-[4px] rounded-sm bg-primary sm:h-6 xl:h-12", cursorClassName)}
       />
     </Component>
   );

@@ -19,15 +19,10 @@ import { join } from "node:path";
 const root = join(import.meta.dir, "..");
 const isCi = process.env.CI === "true" || process.env.CI === "1";
 
-const checkers = Number(
-  process.env.ATMOS_TSC_CHECKERS ?? (isCi ? "2" : "8"),
-);
-const builders = Number(
-  process.env.ATMOS_TSC_BUILDERS ?? (isCi ? "2" : "4"),
-);
+const checkers = Number(process.env.ATMOS_TSC_CHECKERS ?? (isCi ? "2" : "8"));
+const builders = Number(process.env.ATMOS_TSC_BUILDERS ?? (isCi ? "2" : "4"));
 const singleThreaded =
-  process.env.ATMOS_TSC_SINGLE_THREADED === "1" ||
-  process.env.ATMOS_TSC_SINGLE_THREADED === "true";
+  process.env.ATMOS_TSC_SINGLE_THREADED === "1" || process.env.ATMOS_TSC_SINGLE_THREADED === "true";
 const filter = process.env.ATMOS_TSC_FILTER?.trim() ?? "";
 
 type Workspace = {
@@ -60,7 +55,12 @@ const workspaces: Workspace[] = [
   { name: "shared", cwd: "packages/shared", args: ["--noEmit"] },
   { name: "i18n", cwd: "packages/i18n", args: ["--noEmit"] },
   { name: "api-types", cwd: "packages/api-types", args: ["--noEmit"], script: "typecheck" },
-  { name: "agent-transcript", cwd: "packages/agent-transcript", args: ["--noEmit"], script: "typecheck" },
+  {
+    name: "agent-transcript",
+    cwd: "packages/agent-transcript",
+    args: ["--noEmit"],
+    script: "typecheck",
+  },
   { name: "api-client", cwd: "packages/api-client", args: ["--noEmit"], script: "typecheck" },
   { name: "hub-client", cwd: "packages/hub-client", args: ["--noEmit"], script: "typecheck" },
   { name: "relay-client", cwd: "packages/relay-client", args: ["--noEmit"], script: "typecheck" },
@@ -71,9 +71,7 @@ const workspaces: Workspace[] = [
 ];
 
 function resolveTscBin(): string {
-  const candidates = [
-    join(root, "node_modules", "@typescript", "native", "bin", "tsc"),
-  ];
+  const candidates = [join(root, "node_modules", "@typescript", "native", "bin", "tsc")];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
@@ -98,11 +96,7 @@ function buildArgs(extra: string[]): string[] {
   return args;
 }
 
-function run(
-  command: string,
-  args: string[],
-  cwd: string,
-): Promise<{ code: number; ms: number }> {
+function run(command: string, args: string[], cwd: string): Promise<{ code: number; ms: number }> {
   const started = performance.now();
   return new Promise((resolve) => {
     const child = spawn(command, args, {
@@ -132,9 +126,7 @@ async function main() {
   );
 
   if (!versionOut.includes("7.")) {
-    console.error(
-      `[typecheck-all] ERROR: expected TypeScript 7.x, got: ${versionOut.trim()}`,
-    );
+    console.error(`[typecheck-all] ERROR: expected TypeScript 7.x, got: ${versionOut.trim()}`);
     process.exit(1);
   }
 

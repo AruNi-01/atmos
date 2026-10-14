@@ -65,11 +65,14 @@ export function useTerminalWebSocket({
     }
   }, []);
 
-  const sendMessage = useCallback((message: WsTerminalRequest) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
-    }
-  }, [sessionId]);
+  const sendMessage = useCallback(
+    (message: WsTerminalRequest) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(message));
+      }
+    },
+    [sessionId],
+  );
 
   const sendInput = useCallback(
     (data: string) => {
@@ -79,18 +82,15 @@ export function useTerminalWebSocket({
         data,
       });
     },
-    [sessionId, sendMessage]
+    [sessionId, sendMessage],
   );
 
-  const sendEnter = useCallback(
-    () => {
-      sendMessage({
-        type: "terminal_enter",
-        session_id: sessionId,
-      });
-    },
-    [sessionId, sendMessage]
-  );
+  const sendEnter = useCallback(() => {
+    sendMessage({
+      type: "terminal_enter",
+      session_id: sessionId,
+    });
+  }, [sessionId, sendMessage]);
 
   const sendTerminalReport = useCallback(
     (data: string) => {
@@ -100,7 +100,7 @@ export function useTerminalWebSocket({
         data,
       });
     },
-    [sessionId, sendMessage]
+    [sessionId, sendMessage],
   );
 
   const sendResize = useCallback(
@@ -112,7 +112,7 @@ export function useTerminalWebSocket({
         rows: size.rows,
       });
     },
-    [sessionId, sendMessage]
+    [sessionId, sendMessage],
   );
 
   const sendCreate = useCallback(
@@ -122,7 +122,7 @@ export function useTerminalWebSocket({
         workspace_id: workspaceId,
       });
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const sendAttach = useCallback(
@@ -133,7 +133,7 @@ export function useTerminalWebSocket({
         tmux_window_name: tmuxWindowName,
       });
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const sendDestroy = useCallback(() => {
@@ -160,154 +160,159 @@ export function useTerminalWebSocket({
   // Store the effective URL for reconnections (may include cols/rows from initial connect)
   const effectiveUrlRef = useRef(url);
 
-  const connect = useCallback((urlOverride?: string) => {
-    // Guard against both OPEN and CONNECTING states to prevent duplicate connections.
-    // In desktop (Tauri) mode, getRuntimeApiConfig() is async (~50ms IPC round-trip).
-    // React Strict Mode double-mounts the component, launching two async IIFEs. Both
-    // complete after the cleanup runs (which only nulls wsRef when no socket exists yet),
-    // so both call connect() — the second one sees the first socket still CONNECTING and
-    // would create a second connection, causing every PTY character to arrive twice.
-    if (wsRef.current &&
+  const connect = useCallback(
+    (urlOverride?: string) => {
+      // Guard against both OPEN and CONNECTING states to prevent duplicate connections.
+      // In desktop (Tauri) mode, getRuntimeApiConfig() is async (~50ms IPC round-trip).
+      // React Strict Mode double-mounts the component, launching two async IIFEs. Both
+      // complete after the cleanup runs (which only nulls wsRef when no socket exists yet),
+      // so both call connect() — the second one sees the first socket still CONNECTING and
+      // would create a second connection, causing every PTY character to arrive twice.
+      if (
+        wsRef.current &&
         (wsRef.current.readyState === WebSocket.OPEN ||
-         wsRef.current.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
+          wsRef.current.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
 
-    // If a URL override is provided (e.g. with cols/rows), store it for reconnections
-    const connectUrl = urlOverride || effectiveUrlRef.current;
-    if (urlOverride) {
-      effectiveUrlRef.current = urlOverride;
-    }
+      // If a URL override is provided (e.g. with cols/rows), store it for reconnections
+      const connectUrl = urlOverride || effectiveUrlRef.current;
+      if (urlOverride) {
+        effectiveUrlRef.current = urlOverride;
+      }
 
-    try {
-      // Reset disconnected flag since connect() is always an intentional call.
-      // The flag only prevents stale onclose handlers from triggering reconnection.
-      disconnectedRef.current = false;
-      reconnectCountRef.current = 0;
-      const ws = new WebSocket(connectUrl);
-      ws.binaryType = "arraybuffer";
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setIsConnected(true);
-        setIsReconnecting(false);
+      try {
+        // Reset disconnected flag since connect() is always an intentional call.
+        // The flag only prevents stale onclose handlers from triggering reconnection.
+        disconnectedRef.current = false;
         reconnectCountRef.current = 0;
-        onConnected?.();
-      };
+        const ws = new WebSocket(connectUrl);
+        ws.binaryType = "arraybuffer";
+        wsRef.current = ws;
 
-      ws.onmessage = (event) => {
-        if (typeof event.data !== "string") {
-          const bytes = readBinaryMessage(event.data);
-          if (bytes?.length) {
-            onOutput(bytes);
-          } else if (typeof Blob !== "undefined" && event.data instanceof Blob) {
-            void event.data.arrayBuffer().then((buffer) => {
-              const blobBytes = new Uint8Array(buffer);
-              if (blobBytes.length) {
-                onOutput(blobBytes);
-              }
-            });
-          }
-          return;
-        }
-
-        try {
-          const message: WsTerminalResponse = JSON.parse(event.data);
-
-          switch (message.type) {
-            case "terminal_output":
-              if (message.session_id === sessionId) {
-                onOutput(message.data);
-              }
-              break;
-            case "terminal_created":
-              if (message.session_id === sessionId) {
-                onAttached?.(message.snapshot);
-              }
-              break;
-            case "terminal_attached":
-              // Session attached (reconnected)
-              if (message.session_id === sessionId) {
-                onAttached?.(message.snapshot);
-              }
-              break;
-            case "terminal_closed":
-              if (message.session_id === sessionId) {
-                // Session closed (detached) - could reconnect
-                disconnect();
-              }
-              break;
-            case "terminal_destroyed":
-              if (message.session_id === sessionId) {
-                // Session destroyed - no reconnect possible
-                reconnectCountRef.current = reconnectAttempts; // Prevent reconnect
-                disconnect();
-              }
-              break;
-            case "terminal_error":
-              // Fatal for this connection: attach/create already exhausted
-              // server-side retries. Do not auto-reconnect — onopen resets the
-              // reconnect counter, so reconnecting would loop forever and wipe
-              // the error UI. User can Retry manually.
-              reconnectCountRef.current = reconnectAttempts;
-              clearReconnectTimeout();
-              onError?.(message.error);
-              break;
-          }
-        } catch {
-          // Handle non-JSON messages (raw terminal output)
-          onOutput(event.data);
-        }
-      };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        onDisconnected?.();
-
-        // Do NOT reconnect if disconnect() was called (permanent teardown)
-        if (disconnectedRef.current) {
+        ws.onopen = () => {
+          setIsConnected(true);
           setIsReconnecting(false);
-          return;
-        }
+          reconnectCountRef.current = 0;
+          onConnected?.();
+        };
 
-        // Attempt to reconnect
-        if (reconnectCountRef.current < reconnectAttempts) {
-          reconnectCountRef.current++;
-          setIsReconnecting(true);
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connectRef.current?.();
-          }, reconnectDelay * reconnectCountRef.current);
-        } else {
-          setIsReconnecting(false);
-        }
-      };
+        ws.onmessage = (event) => {
+          if (typeof event.data !== "string") {
+            const bytes = readBinaryMessage(event.data);
+            if (bytes?.length) {
+              onOutput(bytes);
+            } else if (typeof Blob !== "undefined" && event.data instanceof Blob) {
+              void event.data.arrayBuffer().then((buffer) => {
+                const blobBytes = new Uint8Array(buffer);
+                if (blobBytes.length) {
+                  onOutput(blobBytes);
+                }
+              });
+            }
+            return;
+          }
 
-      ws.onerror = () => {
-        // Ignore errors from sockets we intentionally closed/replaced during
-        // terminal teardown or remounts. These are expected and should not
-        // surface as user-facing errors in the parent dialog.
-        if (disconnectedRef.current || wsRef.current !== ws) {
-          return;
-        }
-        onError?.("WebSocket connection error");
-      };
-    } catch (err) {
-      onError?.(`Failed to connect: ${err}`);
-    }
-  }, [
-    url,
-    sessionId,
-    onOutput,
-    onConnected,
-    onDisconnected,
-    onError,
-    onAttached,
-    workspaceId,
-    reconnectAttempts,
-    reconnectDelay,
-    clearReconnectTimeout,
-    disconnect,
-  ]);
+          try {
+            const message: WsTerminalResponse = JSON.parse(event.data);
+
+            switch (message.type) {
+              case "terminal_output":
+                if (message.session_id === sessionId) {
+                  onOutput(message.data);
+                }
+                break;
+              case "terminal_created":
+                if (message.session_id === sessionId) {
+                  onAttached?.(message.snapshot);
+                }
+                break;
+              case "terminal_attached":
+                // Session attached (reconnected)
+                if (message.session_id === sessionId) {
+                  onAttached?.(message.snapshot);
+                }
+                break;
+              case "terminal_closed":
+                if (message.session_id === sessionId) {
+                  // Session closed (detached) - could reconnect
+                  disconnect();
+                }
+                break;
+              case "terminal_destroyed":
+                if (message.session_id === sessionId) {
+                  // Session destroyed - no reconnect possible
+                  reconnectCountRef.current = reconnectAttempts; // Prevent reconnect
+                  disconnect();
+                }
+                break;
+              case "terminal_error":
+                // Fatal for this connection: attach/create already exhausted
+                // server-side retries. Do not auto-reconnect — onopen resets the
+                // reconnect counter, so reconnecting would loop forever and wipe
+                // the error UI. User can Retry manually.
+                reconnectCountRef.current = reconnectAttempts;
+                clearReconnectTimeout();
+                onError?.(message.error);
+                break;
+            }
+          } catch {
+            // Handle non-JSON messages (raw terminal output)
+            onOutput(event.data);
+          }
+        };
+
+        ws.onclose = () => {
+          setIsConnected(false);
+          onDisconnected?.();
+
+          // Do NOT reconnect if disconnect() was called (permanent teardown)
+          if (disconnectedRef.current) {
+            setIsReconnecting(false);
+            return;
+          }
+
+          // Attempt to reconnect
+          if (reconnectCountRef.current < reconnectAttempts) {
+            reconnectCountRef.current++;
+            setIsReconnecting(true);
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connectRef.current?.();
+            }, reconnectDelay * reconnectCountRef.current);
+          } else {
+            setIsReconnecting(false);
+          }
+        };
+
+        ws.onerror = () => {
+          // Ignore errors from sockets we intentionally closed/replaced during
+          // terminal teardown or remounts. These are expected and should not
+          // surface as user-facing errors in the parent dialog.
+          if (disconnectedRef.current || wsRef.current !== ws) {
+            return;
+          }
+          onError?.("WebSocket connection error");
+        };
+      } catch (err) {
+        onError?.(`Failed to connect: ${err}`);
+      }
+    },
+    [
+      url,
+      sessionId,
+      onOutput,
+      onConnected,
+      onDisconnected,
+      onError,
+      onAttached,
+      workspaceId,
+      reconnectAttempts,
+      reconnectDelay,
+      clearReconnectTimeout,
+      disconnect,
+    ],
+  );
 
   useEffect(() => {
     connectRef.current = connect;

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 import {
   Popover,
   PopoverContent,
@@ -9,17 +9,17 @@ import {
   TooltipContent,
   TooltipTrigger,
   cn,
-} from '@workspace/ui';
-import { ChevronRight, GitCommit, ListTodo, PanelTop, StickyNote } from 'lucide-react';
+} from "@workspace/ui";
+import { ChevronRight, GitCommit, ListTodo, PanelTop, StickyNote } from "lucide-react";
 import {
   TaskListPanel,
   type TaskListPanelTask,
-} from '@/features/workspace/components/TaskListPanel';
-import { NotePanel } from '@/features/workspace/components/NotePanel';
-import { useWorkspaceContextStore } from '@/features/workspace/hooks/use-workspace-context';
-import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
-import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
-import { CommitActionsContainer } from '@/app-shell/sidebar/CommitActionsContainer';
+} from "@/features/workspace/components/TaskListPanel";
+import { NotePanel } from "@/features/workspace/components/NotePanel";
+import { useWorkspaceContextStore } from "@/features/workspace/hooks/use-workspace-context";
+import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
+import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
 import { useTranslations } from "next-intl";
 
 const EMPTY_TASKS: TaskListPanelTask[] = [];
@@ -41,7 +41,7 @@ function formatWorkspaceLabel(displayName?: string | null, name?: string | null)
 
 function useHeaderTasks(contextId: string | null, effectivePath?: string | null, enabled = true) {
   const tasks = useWorkspaceContextStore((state) =>
-    contextId ? state.workspaceStates[contextId]?.tasks ?? EMPTY_TASKS : EMPTY_TASKS,
+    contextId ? (state.workspaceStates[contextId]?.tasks ?? EMPTY_TASKS) : EMPTY_TASKS,
   );
   const tasksLoading = useWorkspaceContextStore((state) => state.tasksLoading);
   const loadTasks = useWorkspaceContextStore((state) => state.loadTasks);
@@ -59,24 +59,32 @@ function useHeaderTasks(contextId: string | null, effectivePath?: string | null,
   return {
     tasks,
     tasksLoading,
-    addTask: React.useCallback((path: string, content: string) => (
-      contextId ? addTask(contextId, path, content) : Promise.resolve()
-    ), [addTask, contextId]),
-    updateTaskStatus: React.useCallback((path: string, idx: number, status: Parameters<typeof updateTaskStatus>[3]) => (
-      contextId ? updateTaskStatus(contextId, path, idx, status) : Promise.resolve()
-    ), [contextId, updateTaskStatus]),
-    updateTaskContent: React.useCallback((path: string, idx: number, content: string) => (
-      contextId ? updateTaskContent(contextId, path, idx, content) : Promise.resolve()
-    ), [contextId, updateTaskContent]),
-    deleteTask: React.useCallback((path: string, idx: number) => (
-      contextId ? deleteTask(contextId, path, idx) : Promise.resolve()
-    ), [contextId, deleteTask]),
+    addTask: React.useCallback(
+      (path: string, content: string) =>
+        contextId ? addTask(contextId, path, content) : Promise.resolve(),
+      [addTask, contextId],
+    ),
+    updateTaskStatus: React.useCallback(
+      (path: string, idx: number, status: Parameters<typeof updateTaskStatus>[3]) =>
+        contextId ? updateTaskStatus(contextId, path, idx, status) : Promise.resolve(),
+      [contextId, updateTaskStatus],
+    ),
+    updateTaskContent: React.useCallback(
+      (path: string, idx: number, content: string) =>
+        contextId ? updateTaskContent(contextId, path, idx, content) : Promise.resolve(),
+      [contextId, updateTaskContent],
+    ),
+    deleteTask: React.useCallback(
+      (path: string, idx: number) =>
+        contextId ? deleteTask(contextId, path, idx) : Promise.resolve(),
+      [contextId, deleteTask],
+    ),
   };
 }
 
 function useHeaderNote(contextId: string | null, effectivePath?: string | null, enabled = true) {
   const note = useWorkspaceContextStore((state) =>
-    contextId ? state.workspaceStates[contextId]?.note ?? null : null,
+    contextId ? (state.workspaceStates[contextId]?.note ?? null) : null,
   );
   const noteLoading = useWorkspaceContextStore((state) => state.noteLoading);
   const loadNote = useWorkspaceContextStore((state) => state.loadNote);
@@ -91,9 +99,11 @@ function useHeaderNote(contextId: string | null, effectivePath?: string | null, 
   return {
     note,
     noteLoading,
-    saveNote: React.useCallback((path: string, content: string, expectedContent?: string) => (
-      contextId ? saveNote(contextId, path, content, expectedContent) : Promise.resolve(false)
-    ), [contextId, saveNote]),
+    saveNote: React.useCallback(
+      (path: string, content: string, expectedContent?: string) =>
+        contextId ? saveNote(contextId, path, content, expectedContent) : Promise.resolve(false),
+      [contextId, saveNote],
+    ),
   };
 }
 
@@ -103,9 +113,13 @@ function formatNoteMeta(
   labels: { loading: string; empty: string },
 ) {
   if (noteLoading && note == null) return labels.loading;
-  const trimmed = note?.trim() ?? '';
+  const trimmed = note?.trim() ?? "";
   if (!trimmed) return labels.empty;
-  const firstLine = trimmed.split('\n').find((line) => line.trim())?.trim() ?? trimmed;
+  const firstLine =
+    trimmed
+      .split("\n")
+      .find((line) => line.trim())
+      ?.trim() ?? trimmed;
   return firstLine.length > 64 ? `${firstLine.slice(0, 64)}…` : firstLine;
 }
 
@@ -118,16 +132,7 @@ type SummaryRowProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const SummaryRow = React.forwardRef<HTMLButtonElement, SummaryRowProps>(function SummaryRow(
-  {
-    className,
-    disabled,
-    icon,
-    label,
-    meta,
-    onClick,
-    title,
-    ...buttonProps
-  },
+  { className, disabled, icon, label, meta, onClick, title, ...buttonProps },
   ref,
 ) {
   const content = (
@@ -144,11 +149,7 @@ const SummaryRow = React.forwardRef<HTMLButtonElement, SummaryRowProps>(function
   );
 
   if (!onClick) {
-    return (
-      <div className="flex items-center gap-3 rounded-md px-2 py-2">
-        {content}
-      </div>
-    );
+    return <div className="flex items-center gap-3 rounded-md px-2 py-2">{content}</div>;
   }
 
   return (
@@ -159,10 +160,10 @@ const SummaryRow = React.forwardRef<HTMLButtonElement, SummaryRowProps>(function
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-3 rounded-md px-2 py-2 text-left',
+        "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left",
         disabled
-          ? 'cursor-not-allowed opacity-50'
-          : 'cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          ? "cursor-not-allowed opacity-50"
+          : "cursor-pointer hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         className,
       )}
     >
@@ -182,14 +183,12 @@ function NestedSummaryPopover({
 }) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        {row}
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{row}</PopoverTrigger>
       <PopoverContent
         align="start"
         side="left"
         sideOffset={10}
-        className={cn('max-w-[calc(100vw-24px)] p-0', widthClassName)}
+        className={cn("max-w-[calc(100vw-24px)] p-0", widthClassName)}
       >
         {children}
       </PopoverContent>
@@ -216,35 +215,31 @@ export function HeaderWorkspaceSummaryButton({
   const hasUnpushedCommits = statusQuery.data?.has_unpushed_commits ?? false;
   const uncommittedCount = statusQuery.data?.uncommitted_count ?? 0;
   const unpushedCount = statusQuery.data?.unpushed_count ?? 0;
-  const {
-    tasks,
-    tasksLoading,
-    addTask,
-    updateTaskStatus,
-    updateTaskContent,
-    deleteTask,
-  } = useHeaderTasks(contextId, effectivePath, showTask);
-  const {
-    note,
-    noteLoading,
-    saveNote,
-  } = useHeaderNote(contextId, effectivePath, showNote);
+  const { tasks, tasksLoading, addTask, updateTaskStatus, updateTaskContent, deleteTask } =
+    useHeaderTasks(contextId, effectivePath, showTask);
+  const { note, noteLoading, saveNote } = useHeaderNote(contextId, effectivePath, showNote);
 
   if (!contextId || !effectivePath) return null;
 
   const workspaceLabel = formatWorkspaceLabel(currentWorkspaceDisplayName, currentWorkspaceName);
-  const contextTitle = workspaceLabel && currentProjectName
-    ? `${currentProjectName} - ${workspaceLabel}`
-    : currentProjectName || workspaceLabel || t("summary.fallbackWorkspace");
+  const contextTitle =
+    workspaceLabel && currentProjectName
+      ? `${currentProjectName} - ${workspaceLabel}`
+      : currentProjectName || workspaceLabel || t("summary.fallbackWorkspace");
   const contextMeta = workspaceLabel ? workspaceLabel : effectivePath;
 
-  const progressCount = tasks.filter((task) => task.status === 'progress').length;
-  const todoCount = tasks.filter((task) => task.status === 'todo').length;
-  const doneCount = tasks.filter((task) => task.status === 'done').length;
+  const progressCount = tasks.filter((task) => task.status === "progress").length;
+  const todoCount = tasks.filter((task) => task.status === "todo").length;
+  const doneCount = tasks.filter((task) => task.status === "done").length;
   const activeTaskCount = progressCount + todoCount;
-  const taskMeta = tasksLoading && tasks.length === 0
-    ? t("summary.loadingTasks")
-    : t("summary.taskMeta", { activeCount: activeTaskCount, doneCount, totalCount: tasks.length });
+  const taskMeta =
+    tasksLoading && tasks.length === 0
+      ? t("summary.loadingTasks")
+      : t("summary.taskMeta", {
+          activeCount: activeTaskCount,
+          doneCount,
+          totalCount: tasks.length,
+        });
   const noteMeta = formatNoteMeta(note, noteLoading, {
     loading: t("summary.loadingNote"),
     empty: t("summary.emptyNote"),
@@ -252,13 +247,14 @@ export function HeaderWorkspaceSummaryButton({
   const commitMeta = hasMergeConflicts
     ? t("summary.mergeConflictsNeedAttention")
     : [
-      hasUncommittedChanges ? t("summary.changed", { count: uncommittedCount }) : null,
-      hasUnpushedCommits ? t("summary.unpushed", { count: unpushedCount }) : null,
-    ].filter(Boolean).join(' · ') || t("summary.clean");
+        hasUncommittedChanges ? t("summary.changed", { count: uncommittedCount }) : null,
+        hasUnpushedCommits ? t("summary.unpushed", { count: unpushedCount }) : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || t("summary.clean");
 
-  const currentProject = projectId && currentProjectName
-    ? { id: projectId, name: currentProjectName }
-    : undefined;
+  const currentProject =
+    projectId && currentProjectName ? { id: projectId, name: currentProjectName } : undefined;
   const currentWorkspace = workspaceId
     ? {
         id: workspaceId,
@@ -275,7 +271,7 @@ export function HeaderWorkspaceSummaryButton({
             <button
               type="button"
               aria-label={t("summary.openWorkspaceSummary")}
-              className="desktop-no-drag flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="desktop-no-drag flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <PanelTop className="size-4" />
             </button>
@@ -285,11 +281,7 @@ export function HeaderWorkspaceSummaryButton({
           <span>{t("summary.workspaceSummary")}</span>
         </TooltipContent>
       </Tooltip>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="w-[360px] max-w-[calc(100vw-24px)] p-2"
-      >
+      <PopoverContent align="end" sideOffset={8} className="w-[360px] max-w-[calc(100vw-24px)] p-2">
         <div className="space-y-1">
           <SummaryRow
             icon={<PanelTop className="size-4" />}
@@ -301,18 +293,18 @@ export function HeaderWorkspaceSummaryButton({
           {showTask ? (
             <NestedSummaryPopover
               widthClassName="w-[430px]"
-              row={(
+              row={
                 <SummaryRow
                   icon={<ListTodo className="size-4" />}
                   label={taskMeta}
                   meta={taskMeta}
                   title={t("summary.task")}
                 />
-              )}
+              }
             >
               <div className="flex h-[min(560px,76vh)] flex-col overflow-hidden rounded-xl bg-popover">
                 <div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                     <ListTodo className="size-4" />
                     {t("summary.task")}
                   </div>
@@ -336,14 +328,14 @@ export function HeaderWorkspaceSummaryButton({
           {showNote ? (
             <NestedSummaryPopover
               widthClassName="w-[430px]"
-              row={(
+              row={
                 <SummaryRow
                   icon={<StickyNote className="size-4" />}
                   label={noteMeta}
                   meta={noteMeta}
                   title={t("summary.note")}
                 />
-              )}
+              }
             >
               <div className="flex h-[min(560px,76vh)] flex-col overflow-hidden rounded-xl bg-popover">
                 <NotePanel
@@ -361,14 +353,14 @@ export function HeaderWorkspaceSummaryButton({
           {showCommit ? (
             <NestedSummaryPopover
               widthClassName="w-[420px]"
-              row={(
+              row={
                 <SummaryRow
                   icon={<GitCommit className="size-4" />}
                   label={commitMeta}
                   meta={commitMeta}
                   title={t("summary.commitPush")}
                 />
-              )}
+              }
             >
               <CommitActionsContainer
                 currentProjectPath={effectivePath}

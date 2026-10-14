@@ -9,12 +9,7 @@ import type {
   GithubSecurityPolicyPayload,
 } from "@/api/ws/github-api";
 
-export type IssueFormFieldType =
-  | "markdown"
-  | "input"
-  | "textarea"
-  | "dropdown"
-  | "checkboxes";
+export type IssueFormFieldType = "markdown" | "input" | "textarea" | "dropdown" | "checkboxes";
 
 export type IssueFormField = {
   type: IssueFormFieldType;
@@ -120,10 +115,7 @@ function parseFormField(raw: unknown, index: number): IssueFormField | null {
     obj.validations && typeof obj.validations === "object"
       ? (obj.validations as Record<string, unknown>)
       : {};
-  const id =
-    typeof obj.id === "string" && obj.id.trim()
-      ? obj.id.trim()
-      : `field_${index}`;
+  const id = typeof obj.id === "string" && obj.id.trim() ? obj.id.trim() : `field_${index}`;
   const required = Boolean(validations.required);
 
   if (type === "markdown") {
@@ -143,8 +135,7 @@ function parseFormField(raw: unknown, index: number): IssueFormField | null {
       type,
       id,
       label: attributes.label != null ? String(attributes.label) : id,
-      description:
-        attributes.description != null ? String(attributes.description) : undefined,
+      description: attributes.description != null ? String(attributes.description) : undefined,
       required,
       options,
       multiple: Boolean(attributes.multiple),
@@ -169,8 +160,7 @@ function parseFormField(raw: unknown, index: number): IssueFormField | null {
       type,
       id,
       label: attributes.label != null ? String(attributes.label) : id,
-      description:
-        attributes.description != null ? String(attributes.description) : undefined,
+      description: attributes.description != null ? String(attributes.description) : undefined,
       required,
       checkboxOptions,
     };
@@ -181,19 +171,14 @@ function parseFormField(raw: unknown, index: number): IssueFormField | null {
     type,
     id,
     label: attributes.label != null ? String(attributes.label) : id,
-    description:
-      attributes.description != null ? String(attributes.description) : undefined,
-    placeholder:
-      attributes.placeholder != null ? String(attributes.placeholder) : undefined,
+    description: attributes.description != null ? String(attributes.description) : undefined,
+    placeholder: attributes.placeholder != null ? String(attributes.placeholder) : undefined,
     value: attributes.value != null ? String(attributes.value) : undefined,
     required,
   };
 }
 
-function parseYamlForm(
-  filename: string,
-  content: string,
-): ParsedIssueTemplate | null {
+function parseYamlForm(filename: string, content: string): ParsedIssueTemplate | null {
   let doc: Record<string, unknown>;
   try {
     doc = parseYaml(content) as Record<string, unknown>;
@@ -231,10 +216,7 @@ function parseYamlForm(
   };
 }
 
-function parseMarkdownTemplate(
-  filename: string,
-  content: string,
-): ParsedIssueTemplate {
+function parseMarkdownTemplate(filename: string, content: string): ParsedIssueTemplate {
   const { meta, body } = parseFrontmatterMarkdown(content);
   const name =
     (meta.name != null ? String(meta.name) : null) ||
@@ -244,7 +226,12 @@ function parseMarkdownTemplate(
     id: filename,
     filename,
     name,
-    description: meta.about != null ? String(meta.about) : meta.description != null ? String(meta.description) : "",
+    description:
+      meta.about != null
+        ? String(meta.about)
+        : meta.description != null
+          ? String(meta.description)
+          : "",
     title: meta.title != null ? String(meta.title) : "",
     labels: asStringArray(meta.labels),
     assignees: asStringArray(meta.assignees),
@@ -257,7 +244,7 @@ function parseConfig(content: string): ParsedIssueTemplateConfig {
   try {
     const doc = parseYaml(content) as Record<string, unknown>;
     const contactLinks = Array.isArray(doc?.contact_links)
-      ? doc.contact_links
+      ? (doc.contact_links
           .map((link) => {
             if (!link || typeof link !== "object") return null;
             const row = link as Record<string, unknown>;
@@ -270,7 +257,7 @@ function parseConfig(content: string): ParsedIssueTemplateConfig {
               about: row.about != null ? String(row.about) : undefined,
             };
           })
-          .filter(Boolean) as Array<{ name: string; url: string; about?: string }>
+          .filter(Boolean) as Array<{ name: string; url: string; about?: string }>)
       : [];
     return {
       // Default true when config missing; explicit false when disabled.
@@ -337,31 +324,25 @@ export function parseGithubIssueTemplates(
   }));
 
   // GitHub shows SECURITY.md as a non-issue chooser entry (opens policy, not create form).
-  const security: ParsedIssueTemplate | null =
-    securityPolicy?.content?.trim()
-      ? {
-          id: SECURITY_TEMPLATE_META.id,
-          filename: securityPolicy.path || "SECURITY.md",
-          name: SECURITY_TEMPLATE_META.name,
-          description: SECURITY_TEMPLATE_META.description,
-          title: "",
-          labels: [],
-          assignees: [],
-          kind: "security",
-          bodyMarkdown: securityPolicy.content,
-          htmlUrl: securityPolicy.html_url ?? null,
-        }
-      : null;
+  const security: ParsedIssueTemplate | null = securityPolicy?.content?.trim()
+    ? {
+        id: SECURITY_TEMPLATE_META.id,
+        filename: securityPolicy.path || "SECURITY.md",
+        name: SECURITY_TEMPLATE_META.name,
+        description: SECURITY_TEMPLATE_META.description,
+        title: "",
+        labels: [],
+        assignees: [],
+        kind: "security",
+        bodyMarkdown: securityPolicy.content,
+        htmlUrl: securityPolicy.html_url ?? null,
+      }
+    : null;
 
   return {
     config,
     // Match GitHub chooser order: templates → blank → contact links → security policy.
-    templates: [
-      ...templates,
-      blank,
-      ...contactTemplates,
-      ...(security ? [security] : []),
-    ],
+    templates: [...templates, blank, ...contactTemplates, ...(security ? [security] : [])],
   };
 }
 

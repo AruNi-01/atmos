@@ -52,31 +52,31 @@ describe("resolveAgentChatWorkspaceFile", () => {
     expect(resolveAgentChatWorkspaceFile("contextTokensUsed", cwd)).toBeNull();
     expect(resolveAgentChatWorkspaceFile("_meta.totalTokens", cwd)).toBeNull();
     expect(resolveAgentChatWorkspaceFile("/context", cwd)).toBeNull();
-    expect(resolveAgentChatWorkspaceFile(
-      "signals.json",
-      "/Users/me/.grok/sessions/abc",
-      [cwd],
-    )).toBeNull();
-    expect(resolveAgentChatWorkspaceFile(
-      "chat_history.jsonl",
-      "/Users/me/.grok/sessions/abc",
-      [cwd],
-    )).toBeNull();
+    expect(
+      resolveAgentChatWorkspaceFile("signals.json", "/Users/me/.grok/sessions/abc", [cwd]),
+    ).toBeNull();
+    expect(
+      resolveAgentChatWorkspaceFile("chat_history.jsonl", "/Users/me/.grok/sessions/abc", [cwd]),
+    ).toBeNull();
   });
 
   it("allows files under an extra project or workspace root", () => {
-    expect(resolveAgentChatWorkspaceFile(
-      `${workspace}/crates/agent/src/lib.rs`,
-      `${workspace}/apps/web`,
-      [workspace],
-    )).toEqual({
+    expect(
+      resolveAgentChatWorkspaceFile(
+        `${workspace}/crates/agent/src/lib.rs`,
+        `${workspace}/apps/web`,
+        [workspace],
+      ),
+    ).toEqual({
       path: `${workspace}/crates/agent/src/lib.rs`,
     });
-    expect(resolveAgentChatOpenableFile(
-      `${workspace}/crates/agent/src/lib.rs`,
-      `${workspace}/apps/web`,
-      [workspace],
-    )).toEqual({
+    expect(
+      resolveAgentChatOpenableFile(
+        `${workspace}/crates/agent/src/lib.rs`,
+        `${workspace}/apps/web`,
+        [workspace],
+      ),
+    ).toEqual({
       path: `${workspace}/crates/agent/src/lib.rs`,
     });
   });
@@ -131,11 +131,9 @@ describe("resolveAgentChatOpenableFile", () => {
 describe("resolveAgentChatPreviewPath", () => {
   it("allows absolute paths outside the workspace for expand preview", () => {
     expect(resolveAgentChatPreviewPath("/tmp/app.ts", cwd)).toBe("/tmp/app.ts");
-    expect(resolveAgentChatPreviewPath(
-      "/Users/me/.grok/sessions/abc/plan.md",
-      cwd,
-      [workspace],
-    )).toBe("/Users/me/.grok/sessions/abc/plan.md");
+    expect(
+      resolveAgentChatPreviewPath("/Users/me/.grok/sessions/abc/plan.md", cwd, [workspace]),
+    ).toBe("/Users/me/.grok/sessions/abc/plan.md");
   });
 
   it("still resolves relative paths under cwd", () => {
@@ -148,21 +146,23 @@ describe("displayAgentChatFilePath", () => {
     expect(displayAgentChatFilePath("src/app.ts", cwd)).toBe("src/app.ts");
     expect(displayAgentChatFilePath(`${cwd}/src/app.ts`, cwd)).toBe("src/app.ts");
     expect(displayAgentChatFilePath(`${cwd}/package.json`, cwd)).toBe("package.json");
-    expect(displayAgentChatFilePath(
-      `${workspace}/crates/agent/src/lib.rs`,
-      `${workspace}/apps/web`,
-      [workspace],
-    )).toBe("crates/agent/src/lib.rs");
-    expect(displayAgentChatFilePath(
-      `${workspace}/apps/web/src/app.ts`,
-      `${workspace}/apps/web`,
-      [workspace],
-    )).toBe("src/app.ts");
+    expect(
+      displayAgentChatFilePath(`${workspace}/crates/agent/src/lib.rs`, `${workspace}/apps/web`, [
+        workspace,
+      ]),
+    ).toBe("crates/agent/src/lib.rs");
+    expect(
+      displayAgentChatFilePath(`${workspace}/apps/web/src/app.ts`, `${workspace}/apps/web`, [
+        workspace,
+      ]),
+    ).toBe("src/app.ts");
   });
 
   it("shows an absolute path for files outside the current project or workspace", () => {
     expect(displayAgentChatFilePath("/etc/passwd", cwd)).toBe("/etc/passwd");
-    expect(displayAgentChatFilePath("/Users/me/other/src/app.ts", cwd)).toBe("/Users/me/other/src/app.ts");
+    expect(displayAgentChatFilePath("/Users/me/other/src/app.ts", cwd)).toBe(
+      "/Users/me/other/src/app.ts",
+    );
     expect(displayAgentChatFilePath("file:///tmp/app.ts", cwd)).toBe("/tmp/app.ts");
   });
 });
@@ -189,7 +189,9 @@ describe("agentChatOpenNeedsKindProbe", () => {
   it("probes extensionless paths that are not already known", () => {
     expect(agentChatOpenNeedsKindProbe("src/features/agent")).toBe(true);
     expect(agentChatOpenNeedsKindProbe("src/features/agent", { cachedKind: null })).toBe(true);
-    expect(agentChatOpenNeedsKindProbe("src/features/agent", { cachedKind: "directory" })).toBe(false);
+    expect(agentChatOpenNeedsKindProbe("src/features/agent", { cachedKind: "directory" })).toBe(
+      false,
+    );
     expect(agentChatOpenNeedsKindProbe("src/features/agent", { isDir: true })).toBe(false);
   });
 });
@@ -267,7 +269,7 @@ describe("agent chat file-link wiring", () => {
     expect(preview).toContain("rounded-xl");
     expect(preview).toContain("cursor-zoom-in");
     expect(preview).toContain("leading-none");
-    expect(preview).toContain("className=\"block h-auto w-full\"");
+    expect(preview).toContain('className="block h-auto w-full"');
     expect(block).toContain('body={imagePreview ? "plain"');
     expect(block).toContain("isImageToolPath(path)");
     expect(preview).not.toContain("max-h-32");
@@ -374,10 +376,7 @@ describe("agent chat file-link wiring", () => {
     const probeAt = hook.indexOf("agentChatOpenNeedsKindProbe");
     expect(probeAt).toBeGreaterThan(-1);
     expect(openAt).toBeGreaterThan(probeAt);
-    const kindSource = readFileSync(
-      join(import.meta.dir, "../agent-chat-path-kind.ts"),
-      "utf8",
-    );
+    const kindSource = readFileSync(join(import.meta.dir, "../agent-chat-path-kind.ts"), "utf8");
     expect(kindSource).toContain("findPathInFileTrees");
     expect(kindSource).toContain("collectCachedFileTrees");
     expect(kindSource).not.toContain("fsApi");

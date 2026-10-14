@@ -50,16 +50,16 @@
 
 ## Key forks (resolved)
 
-| Fork | Decision |
-|------|----------|
-| Job library in v1 | **No apalis**; local Tokio-based adapter |
-| Queue implementation | **In-process bounded memory**; not external MQ; not apalis |
-| Automation schedule | **One interval job** `automation.schedule_tick` + domain `next_run_at` |
-| Manual run | **Direct service**; never jobs/queue |
-| GitHub / external events | **`infra::queue`** then consumer → domain |
-| Cloud later | **Adapter/trait seam only**; no full distributed semantics in v1 |
-| AI usage retry | **Parity first** (`RetryPolicy::none` default); optional later |
-| Automation first tick | **`fire_immediately: true`** (match today’s interval) |
+| Fork                     | Decision                                                               |
+| ------------------------ | ---------------------------------------------------------------------- |
+| Job library in v1        | **No apalis**; local Tokio-based adapter                               |
+| Queue implementation     | **In-process bounded memory**; not external MQ; not apalis             |
+| Automation schedule      | **One interval job** `automation.schedule_tick` + domain `next_run_at` |
+| Manual run               | **Direct service**; never jobs/queue                                   |
+| GitHub / external events | **`infra::queue`** then consumer → domain                              |
+| Cloud later              | **Adapter/trait seam only**; no full distributed semantics in v1       |
+| AI usage retry           | **Parity first** (`RetryPolicy::none` default); optional later         |
+| Automation first tick    | **`fire_immediately: true`** (match today’s interval)                  |
 
 ## Open questions
 

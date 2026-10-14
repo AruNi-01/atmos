@@ -42,13 +42,7 @@ function looksBinary(text: string): boolean {
  * Text files (including `.md`) always use the code preview — never Markdown
  * document preview. PlanDocument / permission plan cards own that affordance.
  */
-export function AgentToolPathPreviewBody({
-  path,
-  status,
-}: {
-  path: string;
-  status?: string;
-}) {
+export function AgentToolPathPreviewBody({ path, status }: { path: string; status?: string }) {
   const t = useTranslations("Agent.components.toolResults");
   const cwd = useAgentChatCwd();
   const roots = useAgentChatPathRoots();
@@ -102,9 +96,8 @@ export function AgentToolPathPreviewBody({
           setState({ kind: "missing" });
           return;
         }
-        const clipped = text.length > PREVIEW_MAX_CHARS
-          ? `${text.slice(0, PREVIEW_MAX_CHARS)}\n\n…`
-          : text;
+        const clipped =
+          text.length > PREVIEW_MAX_CHARS ? `${text.slice(0, PREVIEW_MAX_CHARS)}\n\n…` : text;
         setState({
           kind: "text",
           text: clipped,
@@ -123,9 +116,7 @@ export function AgentToolPathPreviewBody({
     return <AgentToolEmptyBody status={status} />;
   }
   if (state.kind === "loading") {
-    return (
-      <p className="px-3 py-2 text-xs text-muted-foreground">{t("processing")}</p>
-    );
+    return <p className="px-3 py-2 text-xs text-muted-foreground">{t("processing")}</p>;
   }
   if (state.kind === "image") {
     return (

@@ -38,10 +38,7 @@ export function matchesAutomationListFilters(
   automation: AutomationSummary,
   filters: AutomationListFilters,
 ) {
-  if (
-    filters.environments.length > 0 &&
-    !filters.environments.includes(automation.target_kind)
-  ) {
+  if (filters.environments.length > 0 && !filters.environments.includes(automation.target_kind)) {
     return false;
   }
   if (filters.triggers.length > 0) {

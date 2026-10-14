@@ -48,10 +48,10 @@ export function htmlToPlainText(html: string): string {
 function htmlBlob(node: Mdast): string | null {
   if (node.type === "html" && typeof node.value === "string") return node.value;
   if (
-    node.type === "paragraph"
-    && node.children?.length === 1
-    && node.children[0]?.type === "html"
-    && typeof node.children[0].value === "string"
+    node.type === "paragraph" &&
+    node.children?.length === 1 &&
+    node.children[0]?.type === "html" &&
+    typeof node.children[0].value === "string"
   ) {
     return node.children[0].value;
   }

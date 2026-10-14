@@ -14,7 +14,6 @@
     "./terminal/*": "./src/terminal/*.ts"
   },
   "scripts": {
-
     "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit"
   },
   "devDependencies": {

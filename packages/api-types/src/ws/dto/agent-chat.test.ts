@@ -36,7 +36,11 @@ type UnexpectedDescriptor = Exclude<
 type _DescriptorClosed = AssertNever<UnexpectedDescriptor>;
 type ForbiddenMeta = Extract<
   keyof AgentChatMeta,
-  "session_config_options" | "supports_steer" | "selected_model" | "selected_thinking" | "selected_mode"
+  | "session_config_options"
+  | "supports_steer"
+  | "selected_model"
+  | "selected_thinking"
+  | "selected_mode"
 >;
 type _NoLegacyMeta = AssertNever<ForbiddenMeta>;
 type ForbiddenTool = Extract<keyof AgentTool, "input" | "output" | "content" | "native">;

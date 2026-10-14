@@ -23,10 +23,8 @@ export const CENTER_STAGE_GUTTER_CLASS = "px-1 py-px";
  * Collapsed sidebar hover peek. `position:fixed` is viewport-relative, so pin
  * to the center-stage band — not over the header or the footer strip.
  */
-export const SIDEBAR_PEEK_INSET_TOP_PX =
-  APP_HEADER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX;
-export const SIDEBAR_PEEK_INSET_BOTTOM_PX =
-  APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX;
+export const SIDEBAR_PEEK_INSET_TOP_PX = APP_HEADER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX;
+export const SIDEBAR_PEEK_INSET_BOTTOM_PX = APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX;
 
 /**
  * Inner top inset of the peek card. Matches Launchpad's `ml-2.5` so the

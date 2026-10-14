@@ -34,9 +34,7 @@ export async function pushBrowserUseUserPicks(input: {
   annotations: PreviewSelectionAnnotation[];
 }): Promise<void> {
   if (!isDesktopRuntime() || !input.sessionId.trim()) return;
-  const current = input.current
-    ? selectionInfoToBrowserUsePick(input.current)
-    : null;
+  const current = input.current ? selectionInfoToBrowserUsePick(input.current) : null;
   const annotations = input.annotations
     .map((annotation) =>
       selectionInfoToBrowserUsePick(annotation.info, {

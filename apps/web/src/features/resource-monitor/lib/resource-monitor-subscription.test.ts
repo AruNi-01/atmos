@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
-import { testHostMetrics, testSnapshot } from "@/features/resource-monitor/lib/resource-monitor-test-host";
+import {
+  testHostMetrics,
+  testSnapshot,
+} from "@/features/resource-monitor/lib/resource-monitor-test-host";
 import { createResourceMonitorSubscriptionController } from "@/features/resource-monitor/lib/resource-monitor-subscription";
 
 const localScope: ComputerQueryScope = {

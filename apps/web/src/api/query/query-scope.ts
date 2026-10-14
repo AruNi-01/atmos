@@ -55,8 +55,5 @@ export function useComputerQueryScope(): ComputerQueryScope {
 export function useRelayQueryScope(): RelayQueryScope {
   const relayUrl = useAtmosComputerStore((s) => resolveRelayUrl(s.relayUrl));
   const authRevision = useAtmosComputerStore((s) => s.relayAuthRevision);
-  return useMemo(
-    () => ({ relayUrl, authRevision }),
-    [relayUrl, authRevision],
-  );
+  return useMemo(() => ({ relayUrl, authRevision }), [relayUrl, authRevision]);
 }

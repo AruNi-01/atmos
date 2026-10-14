@@ -9,12 +9,7 @@ import {
   useDroppable,
 } from "@workspace/ui";
 import { formatRelativeTime } from "@atmos/shared";
-import {
-  Archive,
-  MoreHorizontal,
-  Pin,
-  Trash2,
-} from "lucide-react";
+import { Archive, MoreHorizontal, Pin, Trash2 } from "lucide-react";
 import { AutomationChip } from "@/features/automations/components/AutomationChip";
 import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import { WorkspacePrSummary } from "@/features/github/components/WorkspacePrSummary";
@@ -39,10 +34,7 @@ import {
   WorkspacePrioritySelect,
   WorkspaceStatusSelect,
 } from "@/app-shell/sidebar/workspace-metadata-controls";
-import type {
-  DragItem,
-  KanbanCardProperties,
-} from "@/app-shell/sidebar/WorkspaceKanbanTypes";
+import type { DragItem, KanbanCardProperties } from "@/app-shell/sidebar/WorkspaceKanbanTypes";
 import { resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
 import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
 import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
@@ -112,7 +104,10 @@ export function KanbanWorkspaceCard({
   onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => Promise<void> | void;
   onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
   onCreateLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
-  onUpdateLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
   onUpdateLabels: (
     projectId: string,
     workspaceId: string,
@@ -175,13 +170,7 @@ export function KanbanWorkspaceCard({
       branch: workspace.branch,
       contextId: workspace.id,
     });
-  }, [
-    managedPr,
-    openActionRunTab,
-    openPullRequestTab,
-    workspace.branch,
-    workspace.id,
-  ]);
+  }, [managedPr, openActionRunTab, openPullRequestTab, workspace.branch, workspace.id]);
   const labelsToRender = workspace.labels;
   const handlePinClick = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -225,11 +214,14 @@ export function KanbanWorkspaceCard({
       }}
     >
       {shortcutDigit != null ? (
-        <div className="absolute right-2 top-2 z-10">
+        <div className="absolute top-2 right-2 z-10">
           <SidebarHeldShortcutBadge targetKey={workspaceShortcutKey} />
         </div>
       ) : null}
-      {cardProperties.project || cardProperties.priority || cardProperties.status || !cardProperties.workspace_name ? (
+      {cardProperties.project ||
+      cardProperties.priority ||
+      cardProperties.status ||
+      !cardProperties.workspace_name ? (
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             {cardProperties.priority ? (
@@ -327,12 +319,9 @@ export function KanbanWorkspaceCard({
             {isAutomation && !cardProperties.project ? (
               <AutomationChip compact className="mt-0.5" />
             ) : null}
-            <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3>
+            <h3 className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold">{workspaceTitle}</h3>
             {cardProperties.agent_status ? (
-              <WorkspaceAgentStatusMark
-                contextId={workspace.id}
-                className="mt-0.5"
-              />
+              <WorkspaceAgentStatusMark contextId={workspace.id} className="mt-0.5" />
             ) : null}
           </div>
           {cardProperties.group ? (
@@ -419,11 +408,7 @@ export function KanbanWorkspaceCard({
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => event.stopPropagation()}
             >
-              <WorkspaceLinearSummary
-                links={workspace.linearLinks!}
-                compact
-                className="-mx-1"
-              />
+              <WorkspaceLinearSummary links={workspace.linearLinks!} compact className="-mx-1" />
             </div>
           ) : null}
         </div>
@@ -433,33 +418,34 @@ export function KanbanWorkspaceCard({
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <WorkspaceLinearSummary
-            links={workspace.linearLinks!}
-            compact
-            className="-mx-1"
-          />
+          <WorkspaceLinearSummary links={workspace.linearLinks!} compact className="-mx-1" />
         </div>
       ) : null}
     </div>
   );
 }
 
-export function DraggableWorkspaceCard(props: React.ComponentProps<typeof KanbanWorkspaceCard> & {
-  isRecentlyDropped?: boolean;
-  sourceColumnKey: string;
-}) {
+export function DraggableWorkspaceCard(
+  props: React.ComponentProps<typeof KanbanWorkspaceCard> & {
+    isRecentlyDropped?: boolean;
+    sourceColumnKey: string;
+  },
+) {
   const { isRecentlyDropped, sourceColumnKey, dragDisabled, ...cardProps } = props;
-  const dragItem = React.useMemo<DragItem>(() => ({
-    id: cardProps.workspace.id,
-    projectId: cardProps.projectId,
-    status: cardProps.workspace.workflowStatus,
-    priority: cardProps.workspace.priority,
-    sourceColumnKey,
-    preview: {
-      projectName: cardProps.projectName,
-      workspace: cardProps.workspace,
-    },
-  }), [cardProps.projectId, cardProps.projectName, cardProps.workspace, sourceColumnKey]);
+  const dragItem = React.useMemo<DragItem>(
+    () => ({
+      id: cardProps.workspace.id,
+      projectId: cardProps.projectId,
+      status: cardProps.workspace.workflowStatus,
+      priority: cardProps.workspace.priority,
+      sourceColumnKey,
+      preview: {
+        projectName: cardProps.projectName,
+        workspace: cardProps.workspace,
+      },
+    }),
+    [cardProps.projectId, cardProps.projectName, cardProps.workspace, sourceColumnKey],
+  );
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `workspace:${cardProps.workspace.id}:${sourceColumnKey}`,
     data: { item: dragItem },
@@ -492,10 +478,7 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
       }}
       {...attributes}
       {...(dragDisabled ? {} : listeners)}
-      className={cn(
-        "relative z-0 cursor-pointer",
-        isDragging && "z-50 cursor-grabbing",
-      )}
+      className={cn("relative z-0 cursor-pointer", isDragging && "z-50 cursor-grabbing")}
       style={{ opacity: isDragging ? 0.3 : 1 }}
       onClickCapture={(event) => {
         if (!suppressClickRef.current) return;
@@ -504,10 +487,13 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
         event.stopPropagation();
       }}
     >
-      <div className={cn(
-        "rounded-2xl",
-        isRecentlyDropped && "bg-primary/20 ring-2 ring-primary animate-pulse transition-all duration-500 ease-out",
-      )}>
+      <div
+        className={cn(
+          "rounded-2xl",
+          isRecentlyDropped &&
+            "animate-pulse bg-primary/20 ring-2 ring-primary transition-all duration-500 ease-out",
+        )}
+      >
         <KanbanWorkspaceCard
           {...cardProps}
           sourceColumnKey={sourceColumnKey}
@@ -591,15 +577,10 @@ export function DroppableColumn({
     data: { columnKey },
     disabled: dropDisabled,
   });
-  const isValidTarget =
-    !dropDisabled && isOver && activeDragItem?.sourceColumnKey !== columnKey;
+  const isValidTarget = !dropDisabled && isOver && activeDragItem?.sourceColumnKey !== columnKey;
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn("relative", className)}
-    >
+    <div ref={setNodeRef} style={style} className={cn("relative", className)}>
       {/*
         Always mounted so opacity can fade. Column uses inline backgroundColor
         for status tint, so a Tailwind bg-* on the root would lose to that.
@@ -612,9 +593,7 @@ export function DroppableColumn({
           isValidTarget ? "opacity-100" : "opacity-0",
         )}
       />
-      <div className="relative z-[1] flex h-full min-h-0 flex-1 flex-col">
-        {children}
-      </div>
+      <div className="relative z-[1] flex h-full min-h-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }

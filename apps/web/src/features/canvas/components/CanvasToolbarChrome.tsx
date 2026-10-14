@@ -17,12 +17,7 @@ import {
   useTldrawUiComponents,
   useValue,
 } from "tldraw";
-import {
-  PanelBottomClose,
-  PanelBottomOpen,
-  PanelLeft,
-  PanelRight,
-} from "lucide-react";
+import { PanelBottomClose, PanelBottomOpen, PanelLeft, PanelRight } from "lucide-react";
 
 import { cn } from "@workspace/ui";
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
@@ -140,7 +135,7 @@ function CanvasCollapsibleMenuPanel({
           "origin-left transition-[opacity,transform,filter] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
           isCollapsed
             ? "translate-x-3 scale-x-95 opacity-0 blur-[1px]"
-            : "translate-x-0 scale-x-100 opacity-100 blur-0",
+            : "blur-0 translate-x-0 scale-x-100 opacity-100",
         )}
       >
         {children}
@@ -159,7 +154,9 @@ export function CanvasMenuPanel() {
 
   const { MainMenu, QuickActions, ActionsMenu, PageMenu } = useTldrawUiComponents();
   const editor = useEditor();
-  const isSinglePageMode = useValue("isSinglePageMode", () => editor.options.maxPages <= 1, [editor]);
+  const isSinglePageMode = useValue("isSinglePageMode", () => editor.options.maxPages <= 1, [
+    editor,
+  ]);
 
   const showQuickActions =
     editor.options.actionShortcutsLocation === "menu"
@@ -202,9 +199,7 @@ export function CanvasMenuPanel() {
 function CanvasTopLeftToolbarToggle() {
   const t = useTranslations("canvas.toolbarChrome");
   const { isCollapsed, toggle } = React.useContext(CanvasTopLeftToolbarContext);
-  const label = isCollapsed
-    ? t("topLeftToggle.expand")
-    : t("topLeftToggle.collapse");
+  const label = isCollapsed ? t("topLeftToggle.expand") : t("topLeftToggle.collapse");
 
   return (
     <TldrawUiButton
@@ -218,18 +213,12 @@ function CanvasTopLeftToolbarToggle() {
         panelFoldCursorClass("left", isCollapsed),
       )}
     >
-      <TldrawUiButtonIcon
-        icon={<CanvasToolbarCollapseIcon side="left" />}
-      />
+      <TldrawUiButtonIcon icon={<CanvasToolbarCollapseIcon side="left" />} />
     </TldrawUiButton>
   );
 }
 
-export function CanvasToolbarCollapseIcon({
-  side = "left",
-}: {
-  side?: "left" | "right";
-}) {
+export function CanvasToolbarCollapseIcon({ side = "left" }: { side?: "left" | "right" }) {
   const Icon = side === "right" ? PanelRight : PanelLeft;
 
   return (
@@ -352,9 +341,7 @@ export function CanvasBottomToolbarPeek() {
     };
   }, []);
 
-  const bottomToolbarLabel = isDocked
-    ? t("bottomToggle.expand")
-    : t("bottomToggle.collapse");
+  const bottomToolbarLabel = isDocked ? t("bottomToggle.expand") : t("bottomToggle.collapse");
 
   return (
     <div className="pointer-events-auto flex justify-center pb-3">
@@ -371,13 +358,8 @@ export function CanvasBottomToolbarPeek() {
                 : "pointer-events-auto opacity-100 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",
             )}
           >
-            <div className="absolute left-1/2 top-full h-4 w-24 -translate-x-1/2" />
-            <DefaultToolbar
-              minItems={8}
-              minSizePx={470}
-              maxItems={13}
-              maxSizePx={980}
-            >
+            <div className="absolute top-full left-1/2 h-4 w-24 -translate-x-1/2" />
+            <DefaultToolbar minItems={8} minSizePx={470} maxItems={13} maxSizePx={980}>
               <DefaultToolbarContent />
               <TldrawUiButton
                 type="tool"
@@ -391,12 +373,12 @@ export function CanvasBottomToolbarPeek() {
                     <span className="relative flex size-[18px] items-center justify-center">
                       {isDocked ? (
                         <PanelBottomOpen
-                          className="absolute left-1/2 top-1/2 size-[18px] -translate-x-1/2 -translate-y-1/2"
+                          className="absolute top-1/2 left-1/2 size-[18px] -translate-x-1/2 -translate-y-1/2"
                           strokeWidth={1.8}
                         />
                       ) : (
                         <PanelBottomClose
-                          className="absolute left-1/2 top-1/2 size-[18px] -translate-x-1/2 -translate-y-1/2"
+                          className="absolute top-1/2 left-1/2 size-[18px] -translate-x-1/2 -translate-y-1/2"
                           strokeWidth={1.8}
                         />
                       )}

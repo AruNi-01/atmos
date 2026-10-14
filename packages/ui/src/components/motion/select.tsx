@@ -1,12 +1,7 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import {
-  motion,
-  type Transition,
-  useReducedMotion,
-  type Variants,
-} from "motion/react";
+import { motion, type Transition, useReducedMotion, type Variants } from "motion/react";
 import {
   createContext,
   type ReactNode,
@@ -151,10 +146,7 @@ export function Select({
     },
     [baseId],
   );
-  const getSelectAnchor = useCallback(
-    () => document.getElementById(`${baseId}-trigger`),
-    [baseId],
-  );
+  const getSelectAnchor = useCallback(() => document.getElementById(`${baseId}-trigger`), [baseId]);
   useOverlayDismiss({
     open,
     onDismiss: dismissSelect,
@@ -243,7 +235,7 @@ export function SelectTrigger({ className, children }: SelectTriggerProps) {
         borderBottomRightRadius: isTop ? INSTANT_TRANSITION : kfT,
       }}
       className={cn(
-        "relative z-10 flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors",
+        "relative z-10 flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors outline-none",
         "hover:border-(--color-border-strong) focus-visible:ring-2 focus-visible:ring-foreground/20",
         "disabled:pointer-events-none disabled:opacity-50",
         className,
@@ -271,9 +263,7 @@ export function SelectValue({ placeholder, className }: SelectValueProps) {
   const ctx = useSelectContext("SelectValue");
   const label = ctx.labelFor(ctx.value);
   return (
-    <span
-      className={cn(label ? "text-foreground" : "text-muted-foreground", className)}
-    >
+    <span className={cn(label ? "text-foreground" : "text-muted-foreground", className)}>
       {label ?? placeholder ?? "Select"}
     </span>
   );
@@ -291,7 +281,12 @@ export function SelectContent({ className, header, children }: SelectContentProp
   const innerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
   const [portalReady, setPortalReady] = useState(false);
-  const [frame, setFrame] = useState<{ left: number; width: number; top?: number; bottom?: number } | null>(null);
+  const [frame, setFrame] = useState<{
+    left: number;
+    width: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
   const open = ctx.open;
   const { setPlacement } = ctx;
 
@@ -319,10 +314,7 @@ export function SelectContent({ className, header, children }: SelectContentProp
       const nextPlacement = below < Math.max(h, 96) + 16 && above > below ? "top" : "bottom";
       setPlacement(nextPlacement);
       const width = Math.max(rect.width, 208);
-      const left = Math.min(
-        Math.max(8, rect.right - width),
-        window.innerWidth - width - 8,
-      );
+      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
       setFrame(
         nextPlacement === "top"
           ? { left, width, bottom: window.innerHeight - rect.top + 8 }
@@ -444,7 +436,7 @@ export function SelectItem({
         disabled={disabled}
         onClick={() => ctx.select(value, { close: closeOnSelect })}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm outline-none transition-colors",
+          "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors outline-none",
           selected
             ? "bg-muted text-foreground"
             : "text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:bg-muted",

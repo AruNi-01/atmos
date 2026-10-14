@@ -97,12 +97,12 @@
 
 ## Milestones
 
-| Phase | Content |
-|-------|---------|
-| **0** | APP-048 Phase 1 available |
+| Phase | Content                                                                                                     |
+| ----- | ----------------------------------------------------------------------------------------------------------- |
+| **0** | APP-048 Phase 1 available                                                                                   |
 | **1** | Package + kernel implementing **union of hard behaviors** as options + unit tests (not mobile-minimal only) |
-| **2** | Mobile cutover + port tests into package |
-| **3** | Web thin store + `requestWhenReady` + provider no double-loop |
-| **4** | Optional N1–N5 |
+| **2** | Mobile cutover + port tests into package                                                                    |
+| **3** | Web thin store + `requestWhenReady` + provider no double-loop                                               |
+| **4** | Optional N1–N5                                                                                              |
 
 Joint global order with 048/050: see APP-050 TECH sequencing (050 docs → 048 P1 → 049 P1 → …).

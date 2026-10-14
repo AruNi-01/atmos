@@ -75,7 +75,10 @@ export function AutomationPageShell({
   onViewRuns: (guid: string) => void;
   onCloseRun: () => void;
   onCloseStandaloneChat: () => void;
-  onRunAction: (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => Promise<void>;
+  onRunAction: (
+    action: "run" | "pause" | "resume" | "delete",
+    automation: AutomationSummary,
+  ) => Promise<void>;
   onToggleEnabled: (automation: AutomationSummary, enabled: boolean) => Promise<void>;
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;

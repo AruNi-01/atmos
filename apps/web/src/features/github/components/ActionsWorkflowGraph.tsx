@@ -21,14 +21,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useTranslations } from "next-intl";
 import { parse } from "yaml";
-import {
-  CheckCircle2,
-  ChevronDown,
-  CircleDashed,
-  Clock,
-  Loader2,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, ChevronDown, CircleDashed, Clock, Loader2, XCircle } from "lucide-react";
 import type { GithubActionsJobPayload } from "@atmos/api-types/ws/dto/github";
 import { cn } from "@/shared/lib/utils";
 
@@ -80,12 +73,11 @@ function parseWorkflowJobs(content: string): WorkflowJobDefinition[] {
     return Object.entries(workflow.jobs).map(([id, job]) => ({
       id,
       name: typeof job?.name === "string" ? job.name : id,
-      needs: (
-        Array.isArray(job?.needs)
-          ? job.needs.filter((value): value is string => typeof value === "string")
-          : typeof job?.needs === "string"
-            ? [job.needs]
-            : []
+      needs: (Array.isArray(job?.needs)
+        ? job.needs.filter((value): value is string => typeof value === "string")
+        : typeof job?.needs === "string"
+          ? [job.needs]
+          : []
       )
         .map((need) => need.trim())
         .filter((need) => need.length > 0 && need !== id),
@@ -105,10 +97,7 @@ function isJobMatch(definition: WorkflowJobDefinition, job: GithubActionsJobPayl
 }
 
 /** Stable key shared with ActionsJobsList rows. */
-export function getActionsJobListKey(
-  job: GithubActionsJobPayload,
-  index: number,
-): string {
+export function getActionsJobListKey(job: GithubActionsJobPayload, index: number): string {
   return String(job.databaseId ?? job.id ?? `${job.name ?? "job"}-${index}`);
 }
 
@@ -126,8 +115,7 @@ function getDuration(jobs: GithubActionsJobPayload[]) {
     const startedAt = job.startedAt ?? job.started_at;
     const completedAt = job.completedAt ?? job.completed_at;
     if (!startedAt || !completedAt) return total;
-    const milliseconds =
-      new Date(completedAt).getTime() - new Date(startedAt).getTime();
+    const milliseconds = new Date(completedAt).getTime() - new Date(startedAt).getTime();
     return Number.isFinite(milliseconds) ? total + Math.max(0, milliseconds) : total;
   }, 0);
   if (duration === 0) return null;
@@ -138,11 +126,7 @@ function getDuration(jobs: GithubActionsJobPayload[]) {
   return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
-function getNodeWidth(
-  label: string,
-  duration: string | null,
-  isMatrix: boolean,
-) {
+function getNodeWidth(label: string, duration: string | null, isMatrix: boolean) {
   if (isMatrix) return 360;
   return Math.min(360, Math.max(180, 68 + label.length * 8 + (duration?.length ?? 0) * 7));
 }
@@ -159,9 +143,11 @@ function layoutNodes(definitions: WorkflowJobDefinition[], jobs: GithubActionsJo
     const definition = definitions.find((candidate) => candidate.id === id);
     const level = Math.max(
       0,
-      ...(definition?.needs
-        .filter((need) => definitionIds.has(need))
-        .map((need) => getLevel(need, visiting)) ?? []).map((value) => value + 1),
+      ...(
+        definition?.needs
+          .filter((need) => definitionIds.has(need))
+          .map((need) => getLevel(need, visiting)) ?? []
+      ).map((value) => value + 1),
     );
     visiting.delete(id);
     levelById.set(id, level);
@@ -176,9 +162,7 @@ function layoutNodes(definitions: WorkflowJobDefinition[], jobs: GithubActionsJo
       .map((job, index) => ({ job, index }))
       .filter(({ job }) => isJobMatch(definition, job));
     const matchedJobs = matchedEntries.map(({ job }) => job);
-    const jobKeys = matchedEntries.map(({ job, index }) =>
-      getActionsJobListKey(job, index),
-    );
+    const jobKeys = matchedEntries.map(({ job, index }) => getActionsJobListKey(job, index));
     const level = levelById.get(definition.id) ?? 0;
     const row = rowsByLevel.get(level) ?? 0;
     rowsByLevel.set(level, row + 1);
@@ -259,10 +243,9 @@ function layoutNodes(definitions: WorkflowJobDefinition[], jobs: GithubActionsJo
   return { nodes, edges };
 }
 
-const WorkflowJobSelectContext =
-  React.createContext<((payload: ActionsWorkflowJobSelectPayload) => void) | null>(
-    null,
-  );
+const WorkflowJobSelectContext = React.createContext<
+  ((payload: ActionsWorkflowJobSelectPayload) => void) | null
+>(null);
 
 function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
   const onSelectJobs = React.useContext(WorkflowJobSelectContext);
@@ -303,9 +286,7 @@ function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
         <WorkflowStatusIcon status={data.status} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{data.label}</span>
         {data.duration && (
-          <span className="shrink-0 font-mono text-xs text-muted-foreground">
-            {data.duration}
-          </span>
+          <span className="shrink-0 font-mono text-xs text-muted-foreground">{data.duration}</span>
         )}
       </div>
       {isMatrix ? (
@@ -454,7 +435,7 @@ export function ActionsWorkflowGraph({
     [jobs, workflowFile],
   );
 
-if (!workflowFile || nodes.length === 0) return null;
+  if (!workflowFile || nodes.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3">

@@ -75,7 +75,7 @@ const TimerIcon = forwardRef<TimerIconHandle, TimerIconProps>(
           controls.start("animate");
         }
       },
-      [controls, onMouseEnter]
+      [controls, onMouseEnter],
     );
 
     const handleMouseLeave = useCallback(
@@ -86,7 +86,7 @@ const TimerIcon = forwardRef<TimerIconHandle, TimerIconProps>(
           controls.start("normal");
         }
       },
-      [controls, onMouseLeave]
+      [controls, onMouseLeave],
     );
 
     return (
@@ -128,7 +128,7 @@ const TimerIcon = forwardRef<TimerIconHandle, TimerIconProps>(
         </svg>
       </div>
     );
-  }
+  },
 );
 
 TimerIcon.displayName = "TimerIcon";

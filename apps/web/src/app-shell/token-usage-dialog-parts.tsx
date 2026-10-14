@@ -272,35 +272,32 @@ export function HeatmapHoverPopover({
         transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
         opacity: 1,
       }}
-      >
-        <div className="w-60 rounded-xl border border-background/12 bg-foreground p-3 text-background shadow-xl">
-          <div className="space-y-2 text-xs">
-            <div className="font-medium text-background">{formatHeatmapDate(cell.date, locale)}</div>
-            <HeatmapPopoverRow label={t("heatmap.popover.tokens")} value={cell.count ?? 0} />
-            <HeatmapPopoverRow
-              label={t("heatmap.popover.messages")}
-              value={detail.message_count}
-            />
-            <div className="h-px bg-background/18" />
-            <HeatmapPopoverRow
-              label={t("heatmap.popover.input")}
-              value={detail.breakdown.input_tokens}
-            />
-            <HeatmapPopoverRow
-              label={t("heatmap.popover.output")}
-              value={detail.breakdown.output_tokens}
-            />
-            <HeatmapPopoverRow
-              label={t("heatmap.popover.cache")}
-              value={detail.breakdown.cache_read_tokens + detail.breakdown.cache_write_tokens}
-            />
-            <HeatmapPopoverRow
-              label={t("heatmap.popover.reasoning")}
-              value={detail.breakdown.reasoning_tokens}
-            />
-          </div>
+    >
+      <div className="w-60 rounded-xl border border-background/12 bg-foreground p-3 text-background shadow-xl">
+        <div className="space-y-2 text-xs">
+          <div className="font-medium text-background">{formatHeatmapDate(cell.date, locale)}</div>
+          <HeatmapPopoverRow label={t("heatmap.popover.tokens")} value={cell.count ?? 0} />
+          <HeatmapPopoverRow label={t("heatmap.popover.messages")} value={detail.message_count} />
+          <div className="h-px bg-background/18" />
+          <HeatmapPopoverRow
+            label={t("heatmap.popover.input")}
+            value={detail.breakdown.input_tokens}
+          />
+          <HeatmapPopoverRow
+            label={t("heatmap.popover.output")}
+            value={detail.breakdown.output_tokens}
+          />
+          <HeatmapPopoverRow
+            label={t("heatmap.popover.cache")}
+            value={detail.breakdown.cache_read_tokens + detail.breakdown.cache_write_tokens}
+          />
+          <HeatmapPopoverRow
+            label={t("heatmap.popover.reasoning")}
+            value={detail.breakdown.reasoning_tokens}
+          />
         </div>
-      </div>,
+      </div>
+    </div>,
     document.body,
   );
 }

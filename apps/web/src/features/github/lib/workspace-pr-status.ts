@@ -61,7 +61,9 @@ export function normalizePrLifecycleState(
 }
 
 /** Map a single GitHub status check to ring/icon buckets. */
-export function toneForStatusCheck(check: StatusCheck): "success" | "running" | "neutral" | "failure" {
+export function toneForStatusCheck(
+  check: StatusCheck,
+): "success" | "running" | "neutral" | "failure" {
   const state = (check.state || "").toUpperCase();
   const conclusion = (check.conclusion || "").toUpperCase();
   const status = (check.status || "").toUpperCase();
@@ -157,8 +159,7 @@ export function resolveWorkspacePrPresentation(input: {
   const stateSource = detail?.state ?? branchPr?.state ?? managed.state;
   const titleSource = detail?.title ?? branchPr?.title ?? managed.title;
   const urlSource = detail?.url ?? branchPr?.url ?? managed.url;
-  const draftSource =
-    detail?.isDraft ?? branchPr?.isDraft ?? managed.is_draft ?? false;
+  const draftSource = detail?.isDraft ?? branchPr?.isDraft ?? managed.is_draft ?? false;
   const isDraft = Boolean(draftSource);
 
   return {
@@ -219,9 +220,6 @@ export function resolvePrStateChipClassName(state: WorkspacePrLifecycleState): s
 }
 
 /** @deprecated Prefer resolvePrIconColorClass for lifecycle-aware colors. */
-export function checksToneClassName(
-  tone: WorkspacePrChecksTone,
-  fallback: string,
-): string {
+export function checksToneClassName(tone: WorkspacePrChecksTone, fallback: string): string {
   return resolvePrIconColorClass("open", tone, fallback);
 }

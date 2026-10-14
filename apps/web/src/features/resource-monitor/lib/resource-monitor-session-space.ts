@@ -28,7 +28,6 @@ export function resolveResourceMonitorSessionSpaceBadge(args: {
   if (!space) return null;
   return {
     spaceId: space.id,
-    name:
-      space.id === DEFAULT_CENTER_SPACE_ID ? args.defaultSpaceName : space.name,
+    name: space.id === DEFAULT_CENTER_SPACE_ID ? args.defaultSpaceName : space.name,
   };
 }

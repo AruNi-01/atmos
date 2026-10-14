@@ -45,8 +45,8 @@ function scheduleHoldExpiry(contextId: string, until: number) {
   );
 }
 
-export const useWorkspaceAgentGroupingHoldStore =
-  create<WorkspaceAgentGroupingHoldStore>((set, get) => ({
+export const useWorkspaceAgentGroupingHoldStore = create<WorkspaceAgentGroupingHoldStore>(
+  (set, get) => ({
     untilByContextId: new Map(),
     revision: 0,
 
@@ -106,4 +106,5 @@ export const useWorkspaceAgentGroupingHoldStore =
       const until = get().untilByContextId.get(id);
       return until != null && until > now;
     },
-  }));
+  }),
+);

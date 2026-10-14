@@ -182,10 +182,7 @@ function joinEqual(ids: CenterPaneTree[], direction: "row" | "column"): CenterPa
 }
 
 /** Build a tiling tree from row-major order so leftover cells still fill the stage. */
-export function treeFromReadingOrder(
-  order: string[],
-  columnCount = 2,
-): CenterPaneTree {
+export function treeFromReadingOrder(order: string[], columnCount = 2): CenterPaneTree {
   if (order.length === 0) return DEFAULT_PANE_ID;
   if (order.length === 1) return order[0]!;
   const cols = Math.max(1, Math.min(order.length, Math.floor(columnCount) || 2));
@@ -199,10 +196,7 @@ export function treeFromReadingOrder(
   );
 }
 
-function treeLeavesMatchPanes(
-  tree: CenterPaneTree,
-  paneIds: ReadonlySet<string>,
-): boolean {
+function treeLeavesMatchPanes(tree: CenterPaneTree, paneIds: ReadonlySet<string>): boolean {
   const leaves = getLeaves(tree);
   if (leaves.length !== paneIds.size) return false;
   const seen = new Set<string>();
@@ -359,9 +353,7 @@ export function pruneEmptySecondaryPanes(
     if (!live || live.tabIds.length > 0) continue;
     // Preserve empty launchers created by split (were already empty).
     const wasEmpty =
-      previous != null
-        ? (getPane(previous, pane.id)?.tabIds.length ?? 0) === 0
-        : false;
+      previous != null ? (getPane(previous, pane.id)?.tabIds.length ?? 0) === 0 : false;
     if (wasEmpty) continue;
     next = closePane(next, pane.id);
   }
@@ -437,9 +429,7 @@ export function buildPaneActiveTabById(layout: CenterPaneLayout): Record<string,
 }
 
 export function layoutOwnsTab(layout: CenterPaneLayout, tabId: string): boolean {
-  return layout.panes.some(
-    (pane) => pane.tabIds.includes(tabId) || pane.activeTabId === tabId,
-  );
+  return layout.panes.some((pane) => pane.tabIds.includes(tabId) || pane.activeTabId === tabId);
 }
 
 function addTabToPane(pane: CenterPane, tabId: string): CenterPane {
@@ -546,7 +536,11 @@ export function applyCenterPaneTree(
   return normalizeCenterPaneLayout({ ...layout, tree });
 }
 
-export function reorderPanes(layout: CenterPaneLayout, fromIndex: number, toIndex: number): CenterPaneLayout {
+export function reorderPanes(
+  layout: CenterPaneLayout,
+  fromIndex: number,
+  toIndex: number,
+): CenterPaneLayout {
   if (
     fromIndex === toIndex ||
     fromIndex < 0 ||
@@ -667,10 +661,9 @@ export function closePane(layout: CenterPaneLayout, paneId: string): CenterPaneL
   );
   const order = tree ? getLeaves(tree) : layout.order.filter((id) => id !== paneId);
   const primaryId = getPrimaryPaneId(layout);
-  const neighborId =
-    order.includes(primaryId)
-      ? primaryId
-      : (order[Math.max(0, layout.order.indexOf(paneId) - 1)] ?? order[0]!);
+  const neighborId = order.includes(primaryId)
+    ? primaryId
+    : (order[Math.max(0, layout.order.indexOf(paneId) - 1)] ?? order[0]!);
 
   // Merge closed pane tabs into the neighbor (dedupe, append).
   const panes = remainingPanes.map((p) => {
@@ -682,8 +675,7 @@ export function closePane(layout: CenterPaneLayout, paneId: string): CenterPaneL
     return { ...p, tabIds: pinOverviewFront(merged) };
   });
 
-  const focusedPaneId =
-    layout.focusedPaneId === paneId ? neighborId : layout.focusedPaneId;
+  const focusedPaneId = layout.focusedPaneId === paneId ? neighborId : layout.focusedPaneId;
 
   let columnCount = layout.columnCount;
   if (order.length === 1) columnCount = 1;
@@ -729,9 +721,7 @@ export function setPaneActiveTab(
   }
 
   const shareable = isShareableCenterTabId(tabId);
-  const ownedElsewhere = layout.panes.some(
-    (p) => p.id !== paneId && p.tabIds.includes(tabId),
-  );
+  const ownedElsewhere = layout.panes.some((p) => p.id !== paneId && p.tabIds.includes(tabId));
   if (!shareable && ownedElsewhere) {
     return layout.focusedPaneId === paneId ? layout : focusPane(layout, paneId);
   }
@@ -810,9 +800,7 @@ export function shouldAttachActiveTabToFocusedPane(
   return !layout.panes.some((pane) => pane.tabIds.includes(tabId));
 }
 
-export type CenterTabAttachPlan =
-  | { action: "open" }
-  | { action: "reveal"; paneId: string };
+export type CenterTabAttachPlan = { action: "open" } | { action: "reveal"; paneId: string };
 
 export type CenterTabAttachPlacement = "reveal" | "focused";
 
@@ -853,18 +841,12 @@ export function offerTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): 
   if (focused.tabIds.includes(tabId)) return layout;
 
   const shareable = isShareableCenterTabId(tabId);
-  const ownedElsewhere = layout.panes.some(
-    (p) => p.id !== focusedId && p.tabIds.includes(tabId),
-  );
+  const ownedElsewhere = layout.panes.some((p) => p.id !== focusedId && p.tabIds.includes(tabId));
   if (!shareable && ownedElsewhere) return layout;
 
   const tabIds =
-    tabId === OVERVIEW_TAB_ID
-      ? addPinnedOverview(focused.tabIds)
-      : [...focused.tabIds, tabId];
-  const panes = layout.panes.map((p) =>
-    p.id === focusedId ? { ...p, tabIds } : p,
-  );
+    tabId === OVERVIEW_TAB_ID ? addPinnedOverview(focused.tabIds) : [...focused.tabIds, tabId];
+  const panes = layout.panes.map((p) => (p.id === focusedId ? { ...p, tabIds } : p));
   const next = withCanonicalTabStrip({ ...layout, panes });
   return centerPaneLayoutsEqual(layout, next) ? layout : next;
 }
@@ -879,16 +861,12 @@ export function openTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): C
   }
 
   const shareable = isShareableCenterTabId(tabId);
-  const ownedElsewhere = layout.panes.some(
-    (p) => p.id !== focusedId && p.tabIds.includes(tabId),
-  );
+  const ownedElsewhere = layout.panes.some((p) => p.id !== focusedId && p.tabIds.includes(tabId));
   if (!shareable && ownedElsewhere) {
     return layout;
   }
 
-  const panes = layout.panes.map((p) =>
-    p.id === focusedId ? addTabToPane(p, tabId) : p,
-  );
+  const panes = layout.panes.map((p) => (p.id === focusedId ? addTabToPane(p, tabId) : p));
   let next: CenterPaneLayout = { ...layout, panes, focusedPaneId: focusedId };
   next = pruneEmptySecondaryPanes(next, layout);
   next = enforceOverviewPrimaryOnly(next);

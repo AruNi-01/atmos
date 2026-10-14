@@ -12,10 +12,7 @@ import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-la
 import { useOverviewCenterTabStore } from "@/app-shell/center-overview-tab";
 import { recordCenterTabActivation } from "@/app-shell/center-stage-tab-activation-stack";
 import { FIXED_TABS } from "@/app-shell/center-stage-fixed-tabs";
-import {
-  isCenterToolTabValue,
-  useToolCenterTabsStore,
-} from "@/app-shell/center-tool-tabs";
+import { isCenterToolTabValue, useToolCenterTabsStore } from "@/app-shell/center-tool-tabs";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
@@ -88,19 +85,13 @@ export function activateCenterChromeTab(
   let resolvedTab = tab;
   let boundChatId: string | null = null;
   if (parsedChatId) {
-    const activation = agentChatTabActivationOnContext(
-      chatStore.tabsByContext,
-      contextId,
-      tab,
-    );
+    const activation = agentChatTabActivationOnContext(chatStore.tabsByContext, contextId, tab);
     if (activation.ignore) return;
     if (!activation.existing && !createIfMissing) return;
     if (parsedChatId.startsWith("draft:")) {
       boundChatId = activation.existing?.chatId?.trim() || null;
     } else {
-      const opened =
-        activation.existing ??
-        chatStore.openTab({ contextId, chatId: parsedChatId });
+      const opened = activation.existing ?? chatStore.openTab({ contextId, chatId: parsedChatId });
       if (opened.contextId !== contextId) return;
       resolvedTab = opened.value;
       boundChatId = opened.chatId ?? parsedChatId;
@@ -126,10 +117,7 @@ export function activateCenterChromeTab(
     ) {
       return;
     }
-    if (
-      resolvedTab === "overview" &&
-      !useOverviewCenterTabStore.getState().isOpen(contextId)
-    ) {
+    if (resolvedTab === "overview" && !useOverviewCenterTabStore.getState().isOpen(contextId)) {
       return;
     }
     if (

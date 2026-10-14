@@ -51,9 +51,7 @@ export async function hubGetUsagePage(): Promise<HubUsagePage | null> {
   return res.json() as Promise<HubUsagePage>;
 }
 
-export async function hubPutUsagePage(
-  body: HubUsagePagePut,
-): Promise<HubUsagePagePutResult> {
+export async function hubPutUsagePage(body: HubUsagePagePut): Promise<HubUsagePagePutResult> {
   const res = await hubFetch("/v1/me/usage-page", {
     method: "PUT",
     body: JSON.stringify(body),

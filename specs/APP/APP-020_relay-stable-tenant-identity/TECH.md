@@ -29,15 +29,15 @@ Touched areas:
 
 ## Decisions resolved in TECH
 
-| Fork | Decision |
-|------|----------|
-| Tenant primary key | Use generated stable ids, e.g. `tn_` + high-entropy base64url. |
-| Access Token role | Credential only; store `access_token_hash` as a unique value on `tenants`. |
-| Rotation auth | `Authorization: Bearer <current_token>` plus body `new_token`. |
-| Old token behavior | Old token stops authenticating immediately after rotation. |
-| Registered Computers | Keep `server_id` and `server_secret` valid; no re-registration. |
-| Short-lived sessions | Revoke register tokens, client sessions, and setup sessions on rotation. |
-| Lost token | No transfer. User creates a new tenant identity. |
+| Fork                 | Decision                                                                   |
+| -------------------- | -------------------------------------------------------------------------- |
+| Tenant primary key   | Use generated stable ids, e.g. `tn_` + high-entropy base64url.             |
+| Access Token role    | Credential only; store `access_token_hash` as a unique value on `tenants`. |
+| Rotation auth        | `Authorization: Bearer <current_token>` plus body `new_token`.             |
+| Old token behavior   | Old token stops authenticating immediately after rotation.                 |
+| Registered Computers | Keep `server_id` and `server_secret` valid; no re-registration.            |
+| Short-lived sessions | Revoke register tokens, client sessions, and setup sessions on rotation.   |
+| Lost token           | No transfer. User creates a new tenant identity.                           |
 
 ## Module-by-module design
 
@@ -153,7 +153,9 @@ async function tenantFromRequest(request: Request, env: Env): Promise<string | n
   const accessTokenHash = await secretHash(token);
   const row = await env.CP_DB.prepare(
     "SELECT tenant_id FROM tenants WHERE access_token_hash = ? LIMIT 1",
-  ).bind(accessTokenHash).first<{ tenant_id: string }>();
+  )
+    .bind(accessTokenHash)
+    .first<{ tenant_id: string }>();
   return row?.tenant_id ?? null;
 }
 ```
@@ -287,11 +289,11 @@ tenant_id is stable and is the only value referenced by tenant-owned rows.
 
 Relay uses REST because this is the public relay, not an Atmos app business WebSocket flow.
 
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
-| `POST` | `/v1/tenants` | none, rate-limited | Create a tenant with stable `tenant_id` and Access Token credential. |
-| `POST` | `/v1/tenants/rotate_token` | Bearer current Access Token | Replace the tenant Access Token credential. |
-| Existing | `/v1/register_tokens`, `/v1/computers`, `/v1/computers/:id/*` | Bearer Access Token | Same behavior, but tenant lookup returns stable `tenant_id`. |
+| Method   | Path                                                          | Auth                        | Purpose                                                              |
+| -------- | ------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------- |
+| `POST`   | `/v1/tenants`                                                 | none, rate-limited          | Create a tenant with stable `tenant_id` and Access Token credential. |
+| `POST`   | `/v1/tenants/rotate_token`                                    | Bearer current Access Token | Replace the tenant Access Token credential.                          |
+| Existing | `/v1/register_tokens`, `/v1/computers`, `/v1/computers/:id/*` | Bearer Access Token         | Same behavior, but tenant lookup returns stable `tenant_id`.         |
 
 Error codes:
 

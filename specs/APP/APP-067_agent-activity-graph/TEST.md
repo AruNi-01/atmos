@@ -13,54 +13,54 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2, S3, S4, S12, S23, S24, S25 |
-| M2 | S5, S6, S7, S8, S9, S26, S30 |
-| M3 | S10 |
-| M4 | S11, S13, S14, S27 |
-| M5 | S15, S16, S28 |
-| M6 | S17 |
-| M7 | S18, S19 |
-| M8 | S20 |
-| M9 | S10 |
-| M10 | S21, S22, S29 |
-| N1–N5 | deferred |
+| PRD item | Scenario IDs                       |
+| -------- | ---------------------------------- |
+| M1       | S1, S2, S3, S4, S12, S23, S24, S25 |
+| M2       | S5, S6, S7, S8, S9, S26, S30       |
+| M3       | S10                                |
+| M4       | S11, S13, S14, S27                 |
+| M5       | S15, S16, S28                      |
+| M6       | S17                                |
+| M7       | S18, S19                           |
+| M8       | S20                                |
+| M9       | S10                                |
+| M10      | S21, S22, S29                      |
+| N1–N5    | deferred                           |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust | `cargo test` | Pre then Post tool on open turn | Claude PreToolUse then PostToolUse | `current_tool` pending then tools on current turn + current null | planned |
-| S2 | Rust | `cargo test` | consecutive same-name tools | 3× Bash within 8s | one slot, `repeat === 3` | planned |
-| S3 | Rust | `cargo test` | TodoWrite replace | todos array | session `todos` + current turn snapshot replaced | planned |
-| S4 | Rust | `cargo test` | child start/stop | SubagentStart + child Pre + SubagentStop | live `children`; after stop child gone; `spawned_child_ids` remains on turn | planned |
-| S5 | Rust | `cargo test` | Claude fixture | `fixtures/claude_code/*.json` including UserPromptSubmit **with prompt** | turn prompt + tools + child | planned |
-| S6 | Rust | `cargo test` | Codex fixture | stdin Pre/Post + prompt | tools + turn prompt; children empty | planned |
-| S7 | Rust | `cargo test` | Grok aliases | `pre_tool_use`, `user_prompt_submit` | same fold as Claude for tools/prompt | planned |
-| S8 | Rust | `cargo test` | OpenCode `chat.message` + `tool.execute.*` | vendor `output.parts` + `input.tool`/`output.args` | turn prompt + tool line | planned |
-| S9 | Rust | `cargo test` | Pi before_agent_start then agent_start | vendor sequence, prompt on before_agent_start only | one turn with prompt; AgentStart does not append | planned |
-| S10 | Bun + E2E | `bun test` / Playwright | launchpad id + `/agent-observer` | connected Computer, no members | item `agent-observer`; empty-state copy; no blank xyflow | planned |
-| S11 | Bun | `bun test` | `buildActivityGraph` | 1 project, 2 workspaces, 2 agents | root→project→ws→agents | planned |
-| S12 | Rust | `cargo test` | idle sweep vs activity | idle row older than TTL, activity has turns | session gone; activity **present**; no cleared event | planned |
-| S13 | Bun | `bun test` | two agents same workspace | two session ids | two sibling agent nodes | planned |
-| S14 | Bun | `bun test` | missing catalog | session path unknown | parent `project:unassigned` | planned |
-| S15 | Bun | `bun test` | collapse workspace | collapsedIds has ws | agent nodes omitted | planned |
-| S16 | Bun | `bun test` | expand agent children | default vs expandedAgentIds | child nodes only when Agent expanded | planned |
-| S17 | Bun | `bun test` | compact card data | activity with 2 turns, todos, current tool | collapsed: one line + turn count; no turn rows | planned |
-| S18 | Rust | `cargo test` | no emit if unchanged | duplicate PostToolUse | no second broadcast | planned |
-| S19 | Bun | `bun test` | patch current_tool | same sessions | node id set stable | planned |
-| S20 | Bun | `bun test` | navigate helper | existing nav tests | pane target unchanged; child uses lead | planned |
-| S21 | Rust + Bun | tests | state notification shape | existing APP-058 tests | still pass; no new required fields | planned |
-| S22 | Rust | `cargo test` | late PostToolUse after idle | suppress window | state stays idle; `current_tool` cleared; last turn may gain the finish | planned |
-| S23 | Rust | `cargo test` | second prompt | turn 1 idle then UserPromptSubmit | `turns.length === 2`; turn 1 prompt intact | planned |
-| S24 | Rust | `cargo test` | Stop keeps activity | TerminalIdle | `ended_at` set; record remains | planned |
-| S25 | Rust | `cargo test` | explicit clear vs sweep | Clear idle vs `clear_idle_older_than` | Clear idle emits `cleared`; sweep does not | planned |
-| S26 | Rust | `cargo test` | v4 empty UserPromptSubmit | fixed-body `{hook_event_name}` | turn opens with `prompt === ""`; HTTP ok | planned |
-| S27 | Bun | `bun test` | membership union | activity with turns, session row missing | Agent node still present, `last_state` idle | planned |
-| S28 | Bun | `bun test` | in-node turn fold | 10 turns, Agent expanded, no turn expanded | 8 rows + “+N earlier”; expand one turn shows tools | planned |
-| S29 | Bun | `bun test` | Computer switch | resetForConnectionChange | activity map empty until rehydrate | planned |
-| S30 | Rust | `cargo test` | v5 install templates | generated Claude/Codex/OpenCode/Pi/Grok hook text | UserPromptSubmit stdin or extras; Codex PreToolUse not Bash-only; OpenCode `chat.message` + `tool.execute` hooks; Pi `before_agent_start` prompt | planned |
+| Scenario | Level      | Expected tool           | Target command / method                    | Fixture / data                                                           | Signals                                                                                                                                          | Status  |
+| -------- | ---------- | ----------------------- | ------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| S1       | Rust       | `cargo test`            | Pre then Post tool on open turn            | Claude PreToolUse then PostToolUse                                       | `current_tool` pending then tools on current turn + current null                                                                                 | planned |
+| S2       | Rust       | `cargo test`            | consecutive same-name tools                | 3× Bash within 8s                                                        | one slot, `repeat === 3`                                                                                                                         | planned |
+| S3       | Rust       | `cargo test`            | TodoWrite replace                          | todos array                                                              | session `todos` + current turn snapshot replaced                                                                                                 | planned |
+| S4       | Rust       | `cargo test`            | child start/stop                           | SubagentStart + child Pre + SubagentStop                                 | live `children`; after stop child gone; `spawned_child_ids` remains on turn                                                                      | planned |
+| S5       | Rust       | `cargo test`            | Claude fixture                             | `fixtures/claude_code/*.json` including UserPromptSubmit **with prompt** | turn prompt + tools + child                                                                                                                      | planned |
+| S6       | Rust       | `cargo test`            | Codex fixture                              | stdin Pre/Post + prompt                                                  | tools + turn prompt; children empty                                                                                                              | planned |
+| S7       | Rust       | `cargo test`            | Grok aliases                               | `pre_tool_use`, `user_prompt_submit`                                     | same fold as Claude for tools/prompt                                                                                                             | planned |
+| S8       | Rust       | `cargo test`            | OpenCode `chat.message` + `tool.execute.*` | vendor `output.parts` + `input.tool`/`output.args`                       | turn prompt + tool line                                                                                                                          | planned |
+| S9       | Rust       | `cargo test`            | Pi before_agent_start then agent_start     | vendor sequence, prompt on before_agent_start only                       | one turn with prompt; AgentStart does not append                                                                                                 | planned |
+| S10      | Bun + E2E  | `bun test` / Playwright | launchpad id + `/agent-observer`           | connected Computer, no members                                           | item `agent-observer`; empty-state copy; no blank xyflow                                                                                         | planned |
+| S11      | Bun        | `bun test`              | `buildActivityGraph`                       | 1 project, 2 workspaces, 2 agents                                        | root→project→ws→agents                                                                                                                           | planned |
+| S12      | Rust       | `cargo test`            | idle sweep vs activity                     | idle row older than TTL, activity has turns                              | session gone; activity **present**; no cleared event                                                                                             | planned |
+| S13      | Bun        | `bun test`              | two agents same workspace                  | two session ids                                                          | two sibling agent nodes                                                                                                                          | planned |
+| S14      | Bun        | `bun test`              | missing catalog                            | session path unknown                                                     | parent `project:unassigned`                                                                                                                      | planned |
+| S15      | Bun        | `bun test`              | collapse workspace                         | collapsedIds has ws                                                      | agent nodes omitted                                                                                                                              | planned |
+| S16      | Bun        | `bun test`              | expand agent children                      | default vs expandedAgentIds                                              | child nodes only when Agent expanded                                                                                                             | planned |
+| S17      | Bun        | `bun test`              | compact card data                          | activity with 2 turns, todos, current tool                               | collapsed: one line + turn count; no turn rows                                                                                                   | planned |
+| S18      | Rust       | `cargo test`            | no emit if unchanged                       | duplicate PostToolUse                                                    | no second broadcast                                                                                                                              | planned |
+| S19      | Bun        | `bun test`              | patch current_tool                         | same sessions                                                            | node id set stable                                                                                                                               | planned |
+| S20      | Bun        | `bun test`              | navigate helper                            | existing nav tests                                                       | pane target unchanged; child uses lead                                                                                                           | planned |
+| S21      | Rust + Bun | tests                   | state notification shape                   | existing APP-058 tests                                                   | still pass; no new required fields                                                                                                               | planned |
+| S22      | Rust       | `cargo test`            | late PostToolUse after idle                | suppress window                                                          | state stays idle; `current_tool` cleared; last turn may gain the finish                                                                          | planned |
+| S23      | Rust       | `cargo test`            | second prompt                              | turn 1 idle then UserPromptSubmit                                        | `turns.length === 2`; turn 1 prompt intact                                                                                                       | planned |
+| S24      | Rust       | `cargo test`            | Stop keeps activity                        | TerminalIdle                                                             | `ended_at` set; record remains                                                                                                                   | planned |
+| S25      | Rust       | `cargo test`            | explicit clear vs sweep                    | Clear idle vs `clear_idle_older_than`                                    | Clear idle emits `cleared`; sweep does not                                                                                                       | planned |
+| S26      | Rust       | `cargo test`            | v4 empty UserPromptSubmit                  | fixed-body `{hook_event_name}`                                           | turn opens with `prompt === ""`; HTTP ok                                                                                                         | planned |
+| S27      | Bun        | `bun test`              | membership union                           | activity with turns, session row missing                                 | Agent node still present, `last_state` idle                                                                                                      | planned |
+| S28      | Bun        | `bun test`              | in-node turn fold                          | 10 turns, Agent expanded, no turn expanded                               | 8 rows + “+N earlier”; expand one turn shows tools                                                                                               | planned |
+| S29      | Bun        | `bun test`              | Computer switch                            | resetForConnectionChange                                                 | activity map empty until rehydrate                                                                                                               | planned |
+| S30      | Rust       | `cargo test`            | v5 install templates                       | generated Claude/Codex/OpenCode/Pi/Grok hook text                        | UserPromptSubmit stdin or extras; Codex PreToolUse not Bash-only; OpenCode `chat.message` + `tool.execute` hooks; Pi `before_agent_start` prompt | planned |
 
 ## Scenarios
 

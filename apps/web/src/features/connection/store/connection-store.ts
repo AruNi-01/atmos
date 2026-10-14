@@ -1,16 +1,13 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   instanceIdFromRelaySelection,
   parseConnectionInstanceId,
   type ConnectionInstanceId,
-} from '@/features/connection/lib/connection-instance';
-import {
-  readActiveInstanceIdRaw,
-  writeActiveInstanceIdRaw,
-} from '@/shared/lib/browser-store';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+} from "@/features/connection/lib/connection-instance";
+import { readActiveInstanceIdRaw, writeActiveInstanceIdRaw } from "@/shared/lib/browser-store";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 
 interface ConnectionStoreState {
   activeInstanceId: ConnectionInstanceId;
@@ -23,11 +20,11 @@ interface ConnectionStoreState {
 
 export const useConnectionStore = create<ConnectionStoreState>((set, get) => ({
   activeInstanceId: parseConnectionInstanceId(
-    typeof window !== 'undefined' ? readActiveInstanceIdRaw() : null,
+    typeof window !== "undefined" ? readActiveInstanceIdRaw() : null,
   ),
   connectionEpoch: 0,
 
-  setActiveInstanceId: id => {
+  setActiveInstanceId: (id) => {
     writeActiveInstanceIdRaw(id);
     set({ activeInstanceId: id });
   },
@@ -40,10 +37,7 @@ export const useConnectionStore = create<ConnectionStoreState>((set, get) => ({
 
   syncActiveInstanceFromComputer: () => {
     const computer = useAtmosComputerStore.getState();
-    const id = instanceIdFromRelaySelection(
-      computer.connectionMode,
-      computer.selectedServerId,
-    );
+    const id = instanceIdFromRelaySelection(computer.connectionMode, computer.selectedServerId);
     get().setActiveInstanceId(id);
   },
 }));

@@ -3,10 +3,7 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "./button";
 
-export function Pagination({
-  className,
-  ...props
-}: React.ComponentProps<"nav">) {
+export function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
       role="navigation"
@@ -17,16 +14,8 @@ export function Pagination({
   );
 }
 
-export function PaginationContent({
-  className,
-  ...props
-}: React.ComponentProps<"ul">) {
-  return (
-    <ul
-      className={cn("flex flex-row items-center gap-1", className)}
-      {...props}
-    />
-  );
+export function PaginationContent({ className, ...props }: React.ComponentProps<"ul">) {
+  return <ul className={cn("flex flex-row items-center gap-1", className)} {...props} />;
 }
 
 export function PaginationItem(props: React.ComponentProps<"li">) {
@@ -37,11 +26,7 @@ type PaginationLinkProps = {
   isActive?: boolean;
 } & React.ComponentProps<"button">;
 
-export function PaginationLink({
-  className,
-  isActive,
-  ...props
-}: PaginationLinkProps) {
+export function PaginationLink({ className, isActive, ...props }: PaginationLinkProps) {
   return (
     <button
       type="button"
@@ -80,11 +65,7 @@ export function PaginationPrevious({
   );
 }
 
-export function PaginationNext({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<"button">) {
+export function PaginationNext({ className, children, ...props }: React.ComponentProps<"button">) {
   return (
     <button
       type="button"
@@ -102,10 +83,7 @@ export function PaginationNext({
   );
 }
 
-export function PaginationEllipsis({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
+export function PaginationEllipsis({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       aria-hidden

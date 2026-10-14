@@ -19,24 +19,24 @@ no longer has `SKILL.md`.
 
 ## Must Have
 
-| ID | Requirement |
-|----|-------------|
-| M1 | PromptComposer exposes Dynamic Skills via the `/` slash command for manageable skills visible in the current project context. |
-| M2 | Terminal AI Input exposes the same `/` Dynamic Skills command. In a project terminal it uses project disable; in a workspace terminal it uses workplace-rooted disable. |
-| M3 | Project disable/enable uses Skills Manager move into `project/.atmos/skills/.disabled/...`, stays consistent with the Skills management page, and leaves `SKILL_DISABLED.md` at the original skill directory while disabled. |
-| M4 | Workspace disable/enable reuses the same move logic with storage under `workplace/.atmos/skills/.disabled/...`, and the same live-path `SKILL_DISABLED.md` marker under the workplace. |
-| M5 | Sync-dir symlink and copy placements can both be disabled by moving the workplace-visible skill entry into `.disabled` so Agents no longer discover `SKILL.md`. Parent compensated symlinks are materialized as needed so the move does not mutate the project tree. |
-| M6 | UI copy describes **dynamic skill visibility** that takes effect for the **current session** (entrypoint / discovery), not “new session only”. Tip may still note that Agents do not provide a Runtime API and residual in-memory catalogs are best-effort. |
-| M7 | Global skills remain toggleable where `can_toggle` is true (same as Skills page). System / InsideTheProject skills stay non-toggleable. |
-| M8 | Enable removes the live-path `SKILL_DISABLED.md` marker (and empty placeholder directory) before restoring the skill from `.disabled`. |
+| ID  | Requirement                                                                                                                                                                                                                                                          |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1  | PromptComposer exposes Dynamic Skills via the `/` slash command for manageable skills visible in the current project context.                                                                                                                                        |
+| M2  | Terminal AI Input exposes the same `/` Dynamic Skills command. In a project terminal it uses project disable; in a workspace terminal it uses workplace-rooted disable.                                                                                              |
+| M3  | Project disable/enable uses Skills Manager move into `project/.atmos/skills/.disabled/...`, stays consistent with the Skills management page, and leaves `SKILL_DISABLED.md` at the original skill directory while disabled.                                         |
+| M4  | Workspace disable/enable reuses the same move logic with storage under `workplace/.atmos/skills/.disabled/...`, and the same live-path `SKILL_DISABLED.md` marker under the workplace.                                                                               |
+| M5  | Sync-dir symlink and copy placements can both be disabled by moving the workplace-visible skill entry into `.disabled` so Agents no longer discover `SKILL.md`. Parent compensated symlinks are materialized as needed so the move does not mutate the project tree. |
+| M6  | UI copy describes **dynamic skill visibility** that takes effect for the **current session** (entrypoint / discovery), not “new session only”. Tip may still note that Agents do not provide a Runtime API and residual in-memory catalogs are best-effort.          |
+| M7  | Global skills remain toggleable where `can_toggle` is true (same as Skills page). System / InsideTheProject skills stay non-toggleable.                                                                                                                              |
+| M8  | Enable removes the live-path `SKILL_DISABLED.md` marker (and empty placeholder directory) before restoring the skill from `.disabled`.                                                                                                                               |
 
 ## Nice to Have
 
-| ID | Requirement |
-|----|-------------|
-| N1 | Show disabled skills in the Dynamic Skills popover so they can be re-enabled without visiting Skills. |
-| N2 | After a toggle, refresh slash-command skill lists that are already open. |
-| N3 | Disabled skills may still appear in the `/` skill-insert list, but are not selectable and show a Disabled badge. |
+| ID  | Requirement                                                                                                      |
+| --- | ---------------------------------------------------------------------------------------------------------------- |
+| N1  | Show disabled skills in the Dynamic Skills popover so they can be re-enabled without visiting Skills.            |
+| N2  | After a toggle, refresh slash-command skill lists that are already open.                                         |
+| N3  | Disabled skills may still appear in the `/` skill-insert list, but are not selectable and show a Disabled badge. |
 
 ## Success metrics
 

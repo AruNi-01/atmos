@@ -1,6 +1,6 @@
-import { globalKey, readJson, writeJson } from '@/shared/lib/browser-store';
+import { globalKey, readJson, writeJson } from "@/shared/lib/browser-store";
 
-const CANVAS_CHROME_PREFS_KEY = globalKey('canvasChrome');
+const CANVAS_CHROME_PREFS_KEY = globalKey("canvasChrome");
 
 export type CanvasChromePrefs = {
   isStylePanelEnabled: boolean;
@@ -19,7 +19,10 @@ export const DEFAULT_CANVAS_CHROME_PREFS: CanvasChromePrefs = {
 };
 
 export function readCanvasChromePrefs(): CanvasChromePrefs {
-  const raw = readJson<Partial<CanvasChromePrefs>>(CANVAS_CHROME_PREFS_KEY, DEFAULT_CANVAS_CHROME_PREFS);
+  const raw = readJson<Partial<CanvasChromePrefs>>(
+    CANVAS_CHROME_PREFS_KEY,
+    DEFAULT_CANVAS_CHROME_PREFS,
+  );
   return {
     isStylePanelEnabled: raw.isStylePanelEnabled === true,
     isTopLeftToolbarCollapsed: raw.isTopLeftToolbarCollapsed === true,

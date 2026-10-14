@@ -92,10 +92,19 @@ function RadioGroupRenderer({ node, mode, onCommit, onAction }: PtRendererProps)
       <div
         role="radiogroup"
         aria-label={propText(node, "label", "Options")}
-        style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, height: "100%" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: 6,
+          height: "100%",
+        }}
       >
         {(node.options ?? []).map((opt) => (
-          <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <label
+            key={opt.value}
+            style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+          >
             <input
               type="radio"
               name={name}
@@ -124,7 +133,8 @@ export const radioGroupModule: PtComponentModule = {
       options: pairOptions(),
     }),
   Renderer: RadioGroupRenderer,
-  agentDescription: "Radio group. options are {value,label}. props.name groups the radios. value is the selected option.",
+  agentDescription:
+    "Radio group. options are {value,label}. props.name groups the radios. value is the selected option.",
   xmlExample: `<radio-group id="plan" label="Plan" name="plan" value="a" x="0" y="0" width="200" height="88">
   <option value="a">Option A</option>
   <option value="b">Option B</option>
@@ -154,7 +164,12 @@ function ToggleGroupRenderer({ node, mode, onCommit, onAction }: PtRendererProps
       <div
         role="group"
         aria-label={propText(node, "label", "Toggles")}
-        style={{ display: "flex", height: "100%", overflow: "hidden", borderRadius: SKETCH_RADIUS_CSS }}
+        style={{
+          display: "flex",
+          height: "100%",
+          overflow: "hidden",
+          borderRadius: SKETCH_RADIUS_CSS,
+        }}
       >
         {options.map((opt, index) => {
           const pressed = node.value === opt.value;
@@ -192,7 +207,8 @@ export const toggleGroupModule: PtComponentModule = {
       options: pairOptions(),
     }),
   Renderer: ToggleGroupRenderer,
-  agentDescription: "Single-select toggle group. options are {value,label}. value is the pressed option.",
+  agentDescription:
+    "Single-select toggle group. options are {value,label}. value is the pressed option.",
   xmlExample: `<toggle-group id="align" label="Align" value="a" x="0" y="0" width="220" height="36">
   <option value="a">Option A</option>
   <option value="b">Option B</option>

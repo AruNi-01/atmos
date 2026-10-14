@@ -16,6 +16,8 @@ import type {
 } from "./resource-monitor";
 
 type OptionalKeys<T> = {
+  // `{} extends Pick<T, K>` is the standard "is K optional?" check.
+  // oxlint-disable-next-line typescript/no-empty-object-type
   [K in keyof T]-?: {} extends Pick<T, K> ? K : never;
 }[keyof T];
 type AssertNever<T extends never> = T;
@@ -42,37 +44,24 @@ type _HostCoresMemoryRequired = AssertNever<
 >;
 type _CoreFieldsRequired = AssertNever<OptionalKeys<ResourceHostCpuCore>>;
 type _MemoryFieldsRequired = AssertNever<OptionalKeys<ResourceHostMemoryMetrics>>;
-type _CachedNullable = AssertTrue<
-  Same<ResourceHostMemoryMetrics["cached_bytes"], number | null>
->;
+type _CachedNullable = AssertTrue<Same<ResourceHostMemoryMetrics["cached_bytes"], number | null>>;
 type _AccountingUnion = AssertTrue<
   Same<
     ResourceMemoryAccounting,
-    | "btop_mach"
-    | "linux_memavailable"
-    | "windows_avail_phys"
-    | "fallback_total_minus_available"
+    "btop_mach" | "linux_memavailable" | "windows_avail_phys" | "fallback_total_minus_available"
   >
 >;
-type _GetSnapshot = AssertTrue<
-  Same<WsOutput<"resource_monitor_get">, ResourceMonitorSnapshot>
->;
+type _GetSnapshot = AssertTrue<Same<WsOutput<"resource_monitor_get">, ResourceMonitorSnapshot>>;
 type _SubscribeSnapshot = AssertTrue<
   Same<WsOutput<"resource_monitor_subscribe">, ResourceMonitorSnapshot>
 >;
-type _UnsubscribeEmpty = AssertTrue<
-  Same<WsOutput<"resource_monitor_unsubscribe">, WsEmpty>
->;
+type _UnsubscribeEmpty = AssertTrue<Same<WsOutput<"resource_monitor_unsubscribe">, WsEmpty>>;
 type _UpdatedSnapshot = AssertTrue<
   Same<WsEventPayload<"resource_monitor_updated">, ResourceMonitorSnapshot>
 >;
 type _DiskFieldsRequired = AssertNever<OptionalKeys<ResourceDiskMetrics>>;
-type _SnapshotDisksRequired = AssertNever<
-  Extract<OptionalKeys<ResourceMonitorSnapshot>, "disks">
->;
-type _DisksAreArray = AssertTrue<
-  Same<ResourceMonitorSnapshot["disks"], ResourceDiskMetrics[]>
->;
+type _SnapshotDisksRequired = AssertNever<Extract<OptionalKeys<ResourceMonitorSnapshot>, "disks">>;
+type _DisksAreArray = AssertTrue<Same<ResourceMonitorSnapshot["disks"], ResourceDiskMetrics[]>>;
 
 const usage = { cpu_percent: 1.5, memory_rss_bytes: 20, process_count: 2 };
 
@@ -85,9 +74,7 @@ function processMetrics(): ResourceProcessMetrics {
   };
 }
 
-function hostMemory(
-  overrides: Partial<ResourceHostMemoryMetrics> = {},
-): ResourceHostMemoryMetrics {
+function hostMemory(overrides: Partial<ResourceHostMemoryMetrics> = {}): ResourceHostMemoryMetrics {
   return {
     total_bytes: 3,
     used_bytes: 2,
@@ -102,9 +89,7 @@ function hostMemory(
   };
 }
 
-function diskMetrics(
-  overrides: Partial<ResourceDiskMetrics> = {},
-): ResourceDiskMetrics {
+function diskMetrics(overrides: Partial<ResourceDiskMetrics> = {}): ResourceDiskMetrics {
   return {
     name: "root",
     mount_point: "/",
@@ -117,9 +102,7 @@ function diskMetrics(
   };
 }
 
-function hostMetrics(
-  overrides: Partial<ResourceHostMetrics> = {},
-): ResourceHostMetrics {
+function hostMetrics(overrides: Partial<ResourceHostMetrics> = {}): ResourceHostMetrics {
   const memory = overrides.memory ?? hostMemory();
   return {
     cpu_percent: 1.5,
@@ -205,9 +188,7 @@ describe("@atmos/api-types resource-monitor dto", () => {
     expect(snapshot.projects[0]?.sessions[0]?.processes).toHaveLength(1);
     expect(snapshot.host.cores).toHaveLength(1);
     expect(snapshot.host.memory.cached_bytes).toBeNull();
-    expect(snapshot.host.memory.accounting).toBe(
-      "fallback_total_minus_available",
-    );
+    expect(snapshot.host.memory.accounting).toBe("fallback_total_minus_available");
   });
 
   test("host cores, nullable cached, and accounting stay snake_case", () => {
@@ -245,10 +226,7 @@ describe("@atmos/api-types resource-monitor dto", () => {
       "memory_total_bytes",
       "memory_used_bytes",
     ]);
-    expect(Object.keys(host.cores[0] ?? {}).sort()).toEqual([
-      "cpu_percent",
-      "index",
-    ]);
+    expect(Object.keys(host.cores[0] ?? {}).sort()).toEqual(["cpu_percent", "index"]);
     expect(Object.keys(host.memory).sort()).toEqual([
       "accounting",
       "available_bytes",

@@ -27,16 +27,7 @@
       "scroll_height": 174204,
       "client_height": 720,
       "raw_frame_dts_ms_count": 111,
-      "raw_frame_dts_ms_sample": [
-        16.6,
-        16.7,
-        16.6,
-        16.7,
-        16.7,
-        16.7,
-        16.7,
-        16.6
-      ]
+      "raw_frame_dts_ms_sample": [16.6, 16.7, 16.6, 16.7, 16.7, 16.7, 16.7, 16.6]
     },
     "tokens": {
       "token_count": 40,
@@ -60,16 +51,7 @@
       "scroll_height": 174359,
       "client_height": 720,
       "raw_frame_dts_ms_count": 110,
-      "raw_frame_dts_ms_sample": [
-        16.7,
-        16.6,
-        16.7,
-        16.7,
-        33.3,
-        16.7,
-        33.3,
-        16.6
-      ]
+      "raw_frame_dts_ms_sample": [16.7, 16.6, 16.7, 16.7, 33.3, 16.7, 33.3, 16.6]
     },
     "tokens": {
       "token_count": 40,

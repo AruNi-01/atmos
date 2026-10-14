@@ -29,18 +29,12 @@ function latch(reason: PaneAttention["reason"]): PaneAttention {
 
 describe("session live group", () => {
   test("cleared attention drops a stale snapshot back to done", () => {
-    expect(
-      sessionLiveGroupKey("ws:1", "attention", new Map(), new Map(), true),
-    ).toBe("done");
-    expect(
-      sessionLiveGroupKey("ws:1", "permission", new Map(), new Map(), true),
-    ).toBe("done");
+    expect(sessionLiveGroupKey("ws:1", "attention", new Map(), new Map(), true)).toBe("done");
+    expect(sessionLiveGroupKey("ws:1", "permission", new Map(), new Map(), true)).toBe("done");
   });
 
   test("keeps the snapshot until agent state has hydrated", () => {
-    expect(
-      sessionLiveGroupKey("ws:1", "attention", new Map(), new Map(), false),
-    ).toBe("attention");
+    expect(sessionLiveGroupKey("ws:1", "attention", new Map(), new Map(), false)).toBe("attention");
   });
 
   test("keeps need attention during the same post-click hold as agent status", () => {
@@ -57,13 +51,7 @@ describe("session live group", () => {
   });
   test("live idle with no latch overrides a stale attention snapshot", () => {
     expect(
-      sessionLiveGroupKey(
-        "ws:1",
-        "attention",
-        new Map([["ws:1", live("idle")]]),
-        new Map(),
-        true,
-      ),
+      sessionLiveGroupKey("ws:1", "attention", new Map([["ws:1", live("idle")]]), new Map(), true),
     ).toBe("done");
   });
 
@@ -81,13 +69,7 @@ describe("session live group", () => {
 
   test("live running wins over a done snapshot", () => {
     expect(
-      sessionLiveGroupKey(
-        "ws:1",
-        "done",
-        new Map([["ws:1", live("running")]]),
-        new Map(),
-        true,
-      ),
+      sessionLiveGroupKey("ws:1", "done", new Map([["ws:1", live("running")]]), new Map(), true),
     ).toBe("running");
   });
 
@@ -98,12 +80,7 @@ describe("session live group", () => {
     record.surface = "chat";
     record.surface_id = "chat-1";
     expect(
-      sessionAgentStatusView(
-        "chat:chat-1",
-        new Map([["provider-run", record]]),
-        new Map(),
-        false,
-      ),
+      sessionAgentStatusView("chat:chat-1", new Map([["provider-run", record]]), new Map(), false),
     ).toEqual({ kind: "running", state: "running" });
   });
 
@@ -127,12 +104,8 @@ describe("session live group", () => {
       ["ws:2", running],
     ]);
     const panes = new Map([["ws:1", latch("task_complete")]]);
-    expect(
-      sessionMatchesAttentionFilter("ws:1", "attention", sessions, panes, true),
-    ).toBe(true);
-    expect(
-      sessionMatchesAttentionFilter("ws:2", "running", sessions, panes, true),
-    ).toBe(false);
+    expect(sessionMatchesAttentionFilter("ws:1", "attention", sessions, panes, true)).toBe(true);
+    expect(sessionMatchesAttentionFilter("ws:2", "running", sessions, panes, true)).toBe(false);
     expect(
       sessionMatchesAttentionFilter(
         "ws:1",
@@ -145,11 +118,11 @@ describe("session live group", () => {
   });
 
   test("attention filter trusts a snapshot only before hydrate", () => {
-    expect(
-      sessionMatchesAttentionFilter("ws:1", "permission", new Map(), new Map(), false),
-    ).toBe(true);
-    expect(
-      sessionMatchesAttentionFilter("ws:1", "attention", new Map(), new Map(), true),
-    ).toBe(false);
+    expect(sessionMatchesAttentionFilter("ws:1", "permission", new Map(), new Map(), false)).toBe(
+      true,
+    );
+    expect(sessionMatchesAttentionFilter("ws:1", "attention", new Map(), new Map(), true)).toBe(
+      false,
+    );
   });
 });

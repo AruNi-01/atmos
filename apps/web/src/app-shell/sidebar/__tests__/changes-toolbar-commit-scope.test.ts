@@ -2,10 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const toolbar = readFileSync(
-  join(import.meta.dir, "../ChangesToolbar.tsx"),
-  "utf8",
-);
+const toolbar = readFileSync(join(import.meta.dir, "../ChangesToolbar.tsx"), "utf8");
 const panel = readFileSync(
   join(import.meta.dir, "../../../features/git/components/ChangesPanel.tsx"),
   "utf8",

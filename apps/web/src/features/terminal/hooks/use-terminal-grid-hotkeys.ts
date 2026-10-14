@@ -3,7 +3,10 @@
 import React from "react";
 
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
-import { isTerminalAgentInputPinShortcut, isTerminalAgentInputShortcut } from "../lib/terminal-runtime-utils";
+import {
+  isTerminalAgentInputPinShortcut,
+  isTerminalAgentInputShortcut,
+} from "../lib/terminal-runtime-utils";
 
 type UseTerminalGridHotkeysOptions = {
   terminalHotkeyScopeRef: React.RefObject<HTMLDivElement | null>;
@@ -30,9 +33,7 @@ export function useTerminalGridHotkeys({
   toggleFocusedAgentInput,
   togglePinFocusedAgentInput,
 }: UseTerminalGridHotkeysOptions) {
-  const richInputEnabled = useTerminalRichInputSettingsStore(
-    (s) => s.loaded && s.enabled,
-  );
+  const richInputEnabled = useTerminalRichInputSettingsStore((s) => s.loaded && s.enabled);
 
   React.useEffect(() => {
     const handleTerminalNavigationHotkey = (event: KeyboardEvent) => {
@@ -46,7 +47,13 @@ export function useTerminalGridHotkeys({
       const isTerminalEventTarget =
         (eventTarget !== null && container.contains(eventTarget)) ||
         (activeTarget !== null && container.contains(activeTarget));
-      if (!isTerminalEventTarget || isSideChatTarget(eventTarget instanceof Element ? eventTarget : null) || isSideChatTarget(activeTarget) || !(event.metaKey || event.ctrlKey) || event.altKey) {
+      if (
+        !isTerminalEventTarget ||
+        isSideChatTarget(eventTarget instanceof Element ? eventTarget : null) ||
+        isSideChatTarget(activeTarget) ||
+        !(event.metaKey || event.ctrlKey) ||
+        event.altKey
+      ) {
         return;
       }
 

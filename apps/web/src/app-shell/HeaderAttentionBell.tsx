@@ -4,13 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowBigUp, Command } from "lucide-react";
-import {
-  cn,
-  NotificationBell,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui";
+import { cn, NotificationBell, Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui";
 import {
   selectAttentionCount,
   selectAttentionFilterMode,
@@ -91,7 +85,7 @@ export function HeaderAttentionBell() {
               animate={{ scale: 1 }}
               exit={reduced ? undefined : { scale: 0.45 }}
               transition={popTransition}
-              className="origin-center shrink-0"
+              className="shrink-0 origin-center"
             >
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -109,7 +103,7 @@ export function HeaderAttentionBell() {
                 <TooltipContent side="bottom">
                   <div className="flex items-center gap-2">
                     <span>{filterMode ? t("tooltipActive") : t("tooltip")}</span>
-                    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                    <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
                       <Command className="size-3" />
                       <ArrowBigUp className="size-3" />
                       <span className="text-xs">U</span>

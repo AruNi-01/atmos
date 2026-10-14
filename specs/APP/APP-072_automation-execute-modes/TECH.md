@@ -10,19 +10,19 @@ Does not replace Headless, does not insert a Project row, does not create a git 
 
 ## Frozen decisions
 
-| Decision | Rule |
-|----------|------|
-| Who starts runs | `AutomationService` owns the run. Calls `TerminalService` / `AgentChatService` directly. Never shells `atmos`. |
-| Mode persistence | `automation.execute_mode` = `headless` \| `terminal` \| `chat`. Default `headless`. Every trigger (manual, schedule, GitHub) reads this column (**M5**). |
-| Agent catalogs | Headless/Terminal = terminal-agent list (`resources/terminal-agents` + `agents.rs`). Chat = Agent Chat `installedAgents` (**M2–M4**). |
-| Chat spawn config | Discriminator in existing `agent_config_json`. Missing `kind` = terminal-agent `AutomationAgentRunConfig` (compat). Chat writes `{ "kind": "chat", "provider_id", model, thinking, mode, permission_mode, fast, context }`. One column already on create/update; no second JSON column. |
-| Standalone scope | Synthetic id `automation:{guid}`. Virtual sidebar group id `automation:standalone`. cwd / files home = `~/.atmos/data/automations/definitions/{guid}`. No Project row, no worktree. |
-| Project terminal | `workspace_id` = project guid (same as `/project?id=…&tab=terminal`). |
-| Terminal inject | Keep the in-process session until launch + prompt are sent, then detach. Do **not** `detach_after_create` then `send_input` (handle is gone). Extend `CreateSessionParams` / `terminal_session_create` with `origin`, `run_guid`, `initial_input`. Follow-up prompt is service-owned after TUI-ready (`resources/terminal-agents/tui_follow_up_agents.json`). |
-| Completion | Headless = process exit (**M6**). Terminal/Chat stay `running` until `automation_run_complete` / `--failed` / `automation_cancel_run`. Runner does not parse stdout. |
-| Stale >1h | Notify only. Set `stale_prompted_at`, emit event, show persistent in-app banner. Click → `automation_run_stale_dismiss` (clears prompt). **No** status change, no auto-fail/complete/cancel/interrupt. Headless unchanged. |
-| Chip | Sidebar group + job: visible sentence-case **Automation** chip (reuse `create_source = "automation"` chrome). Tabs: icon + tooltip `{job name} · {short run id}`; also the word `Automation` when tab chrome has room. |
-| Startup recovery | Headless running → existing `process_lost` interrupt. Terminal/Chat → leave `running` if the surface still exists; do not interrupt a live tab. |
+| Decision          | Rule                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Who starts runs   | `AutomationService` owns the run. Calls `TerminalService` / `AgentChatService` directly. Never shells `atmos`.                                                                                                                                                                                                                                                |
+| Mode persistence  | `automation.execute_mode` = `headless` \| `terminal` \| `chat`. Default `headless`. Every trigger (manual, schedule, GitHub) reads this column (**M5**).                                                                                                                                                                                                      |
+| Agent catalogs    | Headless/Terminal = terminal-agent list (`resources/terminal-agents` + `agents.rs`). Chat = Agent Chat `installedAgents` (**M2–M4**).                                                                                                                                                                                                                         |
+| Chat spawn config | Discriminator in existing `agent_config_json`. Missing `kind` = terminal-agent `AutomationAgentRunConfig` (compat). Chat writes `{ "kind": "chat", "provider_id", model, thinking, mode, permission_mode, fast, context }`. One column already on create/update; no second JSON column.                                                                       |
+| Standalone scope  | Synthetic id `automation:{guid}`. Virtual sidebar group id `automation:standalone`. cwd / files home = `~/.atmos/data/automations/definitions/{guid}`. No Project row, no worktree.                                                                                                                                                                           |
+| Project terminal  | `workspace_id` = project guid (same as `/project?id=…&tab=terminal`).                                                                                                                                                                                                                                                                                         |
+| Terminal inject   | Keep the in-process session until launch + prompt are sent, then detach. Do **not** `detach_after_create` then `send_input` (handle is gone). Extend `CreateSessionParams` / `terminal_session_create` with `origin`, `run_guid`, `initial_input`. Follow-up prompt is service-owned after TUI-ready (`resources/terminal-agents/tui_follow_up_agents.json`). |
+| Completion        | Headless = process exit (**M6**). Terminal/Chat stay `running` until `automation_run_complete` / `--failed` / `automation_cancel_run`. Runner does not parse stdout.                                                                                                                                                                                          |
+| Stale >1h         | Notify only. Set `stale_prompted_at`, emit event, show persistent in-app banner. Click → `automation_run_stale_dismiss` (clears prompt). **No** status change, no auto-fail/complete/cancel/interrupt. Headless unchanged.                                                                                                                                    |
+| Chip              | Sidebar group + job: visible sentence-case **Automation** chip (reuse `create_source = "automation"` chrome). Tabs: icon + tooltip `{job name} · {short run id}`; also the word `Automation` when tab chrome has room.                                                                                                                                        |
+| Startup recovery  | Headless running → existing `process_lost` interrupt. Terminal/Chat → leave `running` if the surface still exists; do not interrupt a live tab.                                                                                                                                                                                                               |
 
 ## Architecture overview
 
@@ -52,22 +52,22 @@ Touched: `crates/infra`, `crates/core-engine` (tmux metadata only), `crates/core
 
 ## PRD coverage map
 
-| Req | Coverage |
-|-----|----------|
-| **M1** | `execute_mode` on create/update/detail; Execute Agent tabs in `AutomationSetup.tsx` above Instructions. |
-| **M2** | Headless tab renders `AutomationAgentPicker.tsx` inline (`max-h` scroll). Replaces `WelcomeAgentSelector` popover for this tab. Unavailable agents keep `unavailable_reason`. |
-| **M3** | Terminal tab: `WelcomeAgentSelector` / `TerminalAgentSelectorWithRunConfig.tsx` + `resolve_interactive_automation_agent_with_config`. Interactive flags, not `--print`. |
-| **M4** | Chat tab: `installedAgents` from `use-agent-registry-query` / `AgentChatHistorySidebar.tsx` picker chrome. Not the terminal-agent list. |
-| **M5** | `start_run_from_model_claimed` branches on `automation.execute_mode`. Scheduler + GitHub already call this. |
-| **M6** | `process_runner.rs` unchanged when mode is headless. `tmux_*` stay `None`. |
-| **M7** | New `interactive_runner.rs`. Project → scope = project guid. Workspace / new_workspace → existing `resolve_target` then new terminal. Standalone → `automation:{guid}`, cwd = definition dir. New tab every run. |
-| **M8** | Same targeting; `agent_chat_create` + `agent_chat_send`. Standalone: `workspace_id = automation:{guid}` (extend cwd resolve). |
-| **M9** | Interactive prompt template below. Headless keeps `runner.rs` prompt. |
-| **M10** | Server metadata `origin=automation` + `run_guid` on tmux window and chat meta. Tab chip as frozen chip rule. |
-| **M11** | Synthesize group in `left-sidebar-derived.ts` + `LeftSidebar.tsx`. Route `/automation?id={guid}`. |
-| **M12 / M13** | `automation_run_now` returns surface fields. Headless → `/automations?run={guid}` (existing `run` nuqs). Terminal/Chat → project/workspace/automation route + tab. |
-| **M14** | Service-to-service only. CLI is invoke client. |
-| **M15** | `skills/atmos-automation/` + registry. CLI `complete` / `status` / `paths`. |
+| Req           | Coverage                                                                                                                                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **M1**        | `execute_mode` on create/update/detail; Execute Agent tabs in `AutomationSetup.tsx` above Instructions.                                                                                                          |
+| **M2**        | Headless tab renders `AutomationAgentPicker.tsx` inline (`max-h` scroll). Replaces `WelcomeAgentSelector` popover for this tab. Unavailable agents keep `unavailable_reason`.                                    |
+| **M3**        | Terminal tab: `WelcomeAgentSelector` / `TerminalAgentSelectorWithRunConfig.tsx` + `resolve_interactive_automation_agent_with_config`. Interactive flags, not `--print`.                                          |
+| **M4**        | Chat tab: `installedAgents` from `use-agent-registry-query` / `AgentChatHistorySidebar.tsx` picker chrome. Not the terminal-agent list.                                                                          |
+| **M5**        | `start_run_from_model_claimed` branches on `automation.execute_mode`. Scheduler + GitHub already call this.                                                                                                      |
+| **M6**        | `process_runner.rs` unchanged when mode is headless. `tmux_*` stay `None`.                                                                                                                                       |
+| **M7**        | New `interactive_runner.rs`. Project → scope = project guid. Workspace / new_workspace → existing `resolve_target` then new terminal. Standalone → `automation:{guid}`, cwd = definition dir. New tab every run. |
+| **M8**        | Same targeting; `agent_chat_create` + `agent_chat_send`. Standalone: `workspace_id = automation:{guid}` (extend cwd resolve).                                                                                    |
+| **M9**        | Interactive prompt template below. Headless keeps `runner.rs` prompt.                                                                                                                                            |
+| **M10**       | Server metadata `origin=automation` + `run_guid` on tmux window and chat meta. Tab chip as frozen chip rule.                                                                                                     |
+| **M11**       | Synthesize group in `left-sidebar-derived.ts` + `LeftSidebar.tsx`. Route `/automation?id={guid}`.                                                                                                                |
+| **M12 / M13** | `automation_run_now` returns surface fields. Headless → `/automations?run={guid}` (existing `run` nuqs). Terminal/Chat → project/workspace/automation route + tab.                                               |
+| **M14**       | Service-to-service only. CLI is invoke client.                                                                                                                                                                   |
+| **M15**       | `skills/atmos-automation/` + registry. CLI `complete` / `status` / `paths`.                                                                                                                                      |
 
 ## Module-by-module design
 
@@ -167,11 +167,11 @@ impl AutomationService {
 
 New actions:
 
-| Action | Input | Output |
-|--------|-------|--------|
-| `automation_run_complete` | `{ run_guid, failed?: bool, message?: string }` | `AutomationRunDetail` |
-| `automation_run_paths` | `{ run_guid }` | `AutomationRunPaths` |
-| `automation_run_stale_dismiss` | `{ run_guid }` | `AutomationRunDetail` |
+| Action                         | Input                                           | Output                |
+| ------------------------------ | ----------------------------------------------- | --------------------- |
+| `automation_run_complete`      | `{ run_guid, failed?: bool, message?: string }` | `AutomationRunDetail` |
+| `automation_run_paths`         | `{ run_guid }`                                  | `AutomationRunPaths`  |
+| `automation_run_stale_dismiss` | `{ run_guid }`                                  | `AutomationRunDetail` |
 
 Extend (no new action names): `automation_create` / `update` / `get` / `list` / `run_*` with `execute_mode` + run surface + stale fields. `automation_run_now` already returns `AutomationRunDetail` — add surface ids for navigation.
 
@@ -233,13 +233,13 @@ Synced path: `~/.atmos/skills/.system/atmos-automation/SKILL.md`. No new `~/.atm
 
 **Navigation (`apps/web/src/features/automations/lib/automation-run-landing.ts`)**
 
-| Mode | Route |
-|------|--------|
-| Headless | `/automations?run={run_guid}` |
-| Terminal project | `/project?id={scope}&tab=terminal-tab:auto-{short}` (new extra tab per run, not Term split) |
-| Terminal workspace | `/workspace?id={scope}&tab=terminal-tab:auto-{short}` |
-| Terminal standalone | `/automation?id={job_guid}&tab=terminal-tab:auto-{short}` |
-| Chat | same hosts with `tab=chat` |
+| Mode                | Route                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| Headless            | `/automations?run={run_guid}`                                                               |
+| Terminal project    | `/project?id={scope}&tab=terminal-tab:auto-{short}` (new extra tab per run, not Term split) |
+| Terminal workspace  | `/workspace?id={scope}&tab=terminal-tab:auto-{short}`                                       |
+| Terminal standalone | `/automation?id={job_guid}&tab=terminal-tab:auto-{short}`                                   |
+| Chat                | same hosts with `tab=chat`                                                                  |
 
 **Standalone center**
 
@@ -297,9 +297,9 @@ type AutomationRunPaths = {
   memory_path: string;
   run_dir: string;
   prompt_path: string;
-  result_path: string;      // …/final.md
+  result_path: string; // …/final.md
   run_json_path: string;
-  skill_path: string;       // ~/.atmos/skills/.system/atmos-automation/SKILL.md
+  skill_path: string; // ~/.atmos/skills/.system/atmos-automation/SKILL.md
   cwd: string;
 };
 ```

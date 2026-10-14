@@ -23,9 +23,7 @@ function prTab(overrides: Partial<Extract<GithubCenterTab, { kind: "github-pr" }
   };
 }
 
-function actionTab(
-  overrides: Partial<Extract<GithubCenterTab, { kind: "github-action" }>> = {},
-) {
+function actionTab(overrides: Partial<Extract<GithubCenterTab, { kind: "github-action" }>> = {}) {
   return {
     id: "run-1",
     value: "github-action:ws:9",
@@ -41,7 +39,10 @@ function actionTab(
   };
 }
 
-function props(tab: GithubCenterTab, extra: Partial<GithubKeptSurfaceProps> = {}): GithubKeptSurfaceProps {
+function props(
+  tab: GithubCenterTab,
+  extra: Partial<GithubKeptSurfaceProps> = {},
+): GithubKeptSurfaceProps {
   return { tab, active: true, ...extra };
 }
 
@@ -62,19 +63,16 @@ describe("githubKeptSurfacePropsAreEqual", () => {
 
   it("re-renders when workspace-active flips, not for a missing paneVisible prop", () => {
     const tab = prTab();
-    expect(githubKeptSurfacePropsAreEqual(props(tab, { active: true }), props(tab, { active: false }))).toBe(
-      false,
-    );
+    expect(
+      githubKeptSurfacePropsAreEqual(props(tab, { active: true }), props(tab, { active: false })),
+    ).toBe(false);
     expect("paneVisible" in props(tab)).toBe(false);
   });
 });
 
 describe("keep-alive center views source", () => {
   it("does not pass pane visibility into GitHub detail queries", () => {
-    const src = readFileSync(
-      join(import.meta.dir, "../keep-alive-center-views.tsx"),
-      "utf8",
-    );
+    const src = readFileSync(join(import.meta.dir, "../keep-alive-center-views.tsx"), "utf8");
     expect(src).toContain("active={active}");
     expect(src).not.toContain("paneVisible");
     expect(src).toContain("githubKeptSurfacePropsAreEqual");

@@ -38,9 +38,7 @@ function resolveHelperScript(): string | null {
   try {
     const appPath = app.getAppPath();
     if (appPath.endsWith(".asar")) {
-      candidates.push(
-        join(`${appPath}.unpacked`, "dist", "shift-helper-main.js"),
-      );
+      candidates.push(join(`${appPath}.unpacked`, "dist", "shift-helper-main.js"));
     }
     candidates.push(join(appPath, "dist", "shift-helper-main.js"));
   } catch {
@@ -48,29 +46,20 @@ function resolveHelperScript(): string | null {
   }
   if (typeof process.resourcesPath === "string" && process.resourcesPath) {
     candidates.push(
-      join(
-        process.resourcesPath,
-        "app.asar.unpacked",
-        "dist",
-        "shift-helper-main.js",
-      ),
+      join(process.resourcesPath, "app.asar.unpacked", "dist", "shift-helper-main.js"),
     );
   }
   try {
     const here = dirname(fileURLToPath(import.meta.url));
     if (here.includes(".asar")) {
-      candidates.push(
-        join(here.replace(".asar", ".asar.unpacked"), "shift-helper-main.js"),
-      );
+      candidates.push(join(here.replace(".asar", ".asar.unpacked"), "shift-helper-main.js"));
     }
     candidates.push(join(here, "shift-helper-main.js"));
   } catch {
     /* ignore */
   }
   candidates.push(join(process.cwd(), "dist", "shift-helper-main.js"));
-  candidates.push(
-    join(process.cwd(), "apps/desktop-electron/dist/shift-helper-main.js"),
-  );
+  candidates.push(join(process.cwd(), "apps/desktop-electron/dist/shift-helper-main.js"));
   for (const p of candidates) {
     if (existsSync(p)) return p;
   }
@@ -99,10 +88,7 @@ function startElectronShiftHelper(onChord: () => void): TapHandle | null {
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (e) {
-    mainLog(
-      `[appshot-tap] spawn failed: ${e instanceof Error ? e.message : String(e)}`,
-      "error",
-    );
+    mainLog(`[appshot-tap] spawn failed: ${e instanceof Error ? e.message : String(e)}`, "error");
     return null;
   }
 
@@ -118,7 +104,7 @@ function startElectronShiftHelper(onChord: () => void): TapHandle | null {
   }
 
   let buf = "";
-  let onChordRef = onChord;
+  const onChordRef = onChord;
 
   const handleLine = (line: string): void => {
     const trimmed = line.trim();

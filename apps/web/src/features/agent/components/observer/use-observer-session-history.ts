@@ -37,9 +37,10 @@ export function useObserverSessionHistory(
     if (switched) setMessages(null);
     let cancelled = false;
     setLoading(true);
-    const task = current.kind === "chat"
-      ? agentChatApi.get(current.chatId).then((snapshot) => snapshot.messages ?? [])
-      : hostSessionApi.get(current.key).then((response) => response.messages ?? []);
+    const task =
+      current.kind === "chat"
+        ? agentChatApi.get(current.chatId).then((snapshot) => snapshot.messages ?? [])
+        : hostSessionApi.get(current.key).then((response) => response.messages ?? []);
     void task
       .then((next) => {
         if (!cancelled) setMessages(next);

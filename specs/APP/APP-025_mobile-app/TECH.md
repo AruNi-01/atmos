@@ -17,23 +17,23 @@ Explicitly out of scope for M1:
 
 ## Decisions
 
-| Fork | Decision |
-|------|----------|
-| Product route | Option A: terminal-first Expo MVP. |
-| Standard UI | Use Expo UI native controls for app chrome, lists, forms, menus, sheets, dialogs, and settings where practical. |
-| Terminal renderer | M1 uses a local WebView/xterm terminal island inside the native app. The surrounding shell remains native Expo UI. |
-| Mobile terminal layout | Show exactly one active terminal at a time. Do not implement Web-style terminal tabs containing multiple mosaic windows. |
-| Terminal over Relay | Add a dedicated relay terminal stream. Do not rely on the existing `/ws/terminal/{session_id}` direct URL in remote mode. |
-| App data transport | Reuse APP-016 `/ws/client` for normal Atmos WS actions. Add no mobile-only business REST routes. |
-| Relay | Reuse existing Relay REST for Access Token registration, register tokens, Computer list, and client sessions. |
-| Token storage | Store long-lived Access Token in `expo-secure-store`; keep short-lived relay `client_token` in memory and recreate it on app launch. |
-| Workspace home | Workspace list is the first post-auth screen. Settings, Computer selection, and Access Token switching live in a settings drawer. |
-| Project import | Remote server filesystem path selection through existing FS/project validation actions. |
-| Mobile workspace create | Keep the default form short: Project, workspace title, and visible base branch. Put generated branch, GitHub Issue/PR import, priority, status, and labels behind advanced panels. |
-| Mobile Git surface | Include only the Web right sidebar's Changes/files diff/commit slice: changed-file list, single-file diff, whole-file stage/unstage, commit message, commit, push, and refresh. Exclude right-sidebar commit history, PR, notes, TODO, review, AI commit-message generation, chunk patch controls, and discard flows in M1. |
-| Settings Computer actions | M1 settings exposes Computer list/switching, rename, revoke, Access Token switch, and Access Token reset/rotation. |
-| Terminal socket ownership | React Native owns the terminal WebSocket and forwards batched terminal bytes/events into the WebView renderer. The WebView never opens relay sockets. |
-| Platform | M1 code targets iOS and Android from the start. Internal dogfood starts on iOS; Android still requires emulator smoke coverage before M1 acceptance. |
+| Fork                      | Decision                                                                                                                                                                                                                                                                                                                    |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product route             | Option A: terminal-first Expo MVP.                                                                                                                                                                                                                                                                                          |
+| Standard UI               | Use Expo UI native controls for app chrome, lists, forms, menus, sheets, dialogs, and settings where practical.                                                                                                                                                                                                             |
+| Terminal renderer         | M1 uses a local WebView/xterm terminal island inside the native app. The surrounding shell remains native Expo UI.                                                                                                                                                                                                          |
+| Mobile terminal layout    | Show exactly one active terminal at a time. Do not implement Web-style terminal tabs containing multiple mosaic windows.                                                                                                                                                                                                    |
+| Terminal over Relay       | Add a dedicated relay terminal stream. Do not rely on the existing `/ws/terminal/{session_id}` direct URL in remote mode.                                                                                                                                                                                                   |
+| App data transport        | Reuse APP-016 `/ws/client` for normal Atmos WS actions. Add no mobile-only business REST routes.                                                                                                                                                                                                                            |
+| Relay                     | Reuse existing Relay REST for Access Token registration, register tokens, Computer list, and client sessions.                                                                                                                                                                                                               |
+| Token storage             | Store long-lived Access Token in `expo-secure-store`; keep short-lived relay `client_token` in memory and recreate it on app launch.                                                                                                                                                                                        |
+| Workspace home            | Workspace list is the first post-auth screen. Settings, Computer selection, and Access Token switching live in a settings drawer.                                                                                                                                                                                           |
+| Project import            | Remote server filesystem path selection through existing FS/project validation actions.                                                                                                                                                                                                                                     |
+| Mobile workspace create   | Keep the default form short: Project, workspace title, and visible base branch. Put generated branch, GitHub Issue/PR import, priority, status, and labels behind advanced panels.                                                                                                                                          |
+| Mobile Git surface        | Include only the Web right sidebar's Changes/files diff/commit slice: changed-file list, single-file diff, whole-file stage/unstage, commit message, commit, push, and refresh. Exclude right-sidebar commit history, PR, notes, TODO, review, AI commit-message generation, chunk patch controls, and discard flows in M1. |
+| Settings Computer actions | M1 settings exposes Computer list/switching, rename, revoke, Access Token switch, and Access Token reset/rotation.                                                                                                                                                                                                          |
+| Terminal socket ownership | React Native owns the terminal WebSocket and forwards batched terminal bytes/events into the WebView renderer. The WebView never opens relay sockets.                                                                                                                                                                       |
+| Platform                  | M1 code targets iOS and Android from the start. Internal dogfood starts on iOS; Android still requires emulator smoke coverage before M1 acceptance.                                                                                                                                                                        |
 
 Why WebView for the terminal: terminal emulation is its own browser-grade rendering problem. xterm-style rendering already handles ANSI, selection, reflow, cursor behavior, and IME edge cases better than a fresh React Native renderer. The app still feels native because the terminal is isolated to one content surface and all controls around it are Expo UI.
 
@@ -305,10 +305,10 @@ interface RelayEnvelope {
   v: 1;
   stream: "app" | "http" | "system" | "terminal";
   kind: "frame" | "request" | "response" | "external_event" | "external_event_ack";
-  from?: string;       // "client:<sid>" | "server"
-  to?: string;         // "server" | "client:<sid>"
+  from?: string; // "client:<sid>" | "server"
+  to?: string; // "server" | "client:<sid>"
   request_id?: string;
-  body?: string;       // opaque JSON string for terminal stream
+  body?: string; // opaque JSON string for terminal stream
 }
 ```
 
@@ -498,15 +498,15 @@ Mobile import flow:
 
 Mobile create-workspace field layout:
 
-| Surface | Fields | Behavior |
-|---------|--------|----------|
-| Primary | `project_guid` | Required when the user is not already inside a project/workspace context. Defaults to the current project when scoped. |
-| Primary | Workspace title | Required in M1 manual mobile create. Sent as `display_name`; also used to generate the initial `name` / `branch` slug. |
-| Primary | `base_branch` | Visible compact selector, defaulted from remote branches with `main` preferred when available. The full branch search list can open from this control. |
-| Advanced · Git naming | `branch` / `name` | Auto-generated from title and editable only when the user expands advanced Git naming. |
-| Advanced · GitHub import | `github_issue`, `github_pr`, `auto_extract_todos` | Same functional capability as Web, but hidden by default because it is a slower mobile flow. |
-| Advanced · Metadata | `priority`, `workflow_status`, `label_guids` | Defaults to `no_priority`, `in_progress`, and empty labels. |
-| Not surfaced in M1 form | `initial_requirement`, `attachments`, `sidebar_order` | Send `null`, empty array, and `0` respectively. These remain API-compatible but are not useful enough for the first mobile form. |
+| Surface                  | Fields                                                | Behavior                                                                                                                                               |
+| ------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Primary                  | `project_guid`                                        | Required when the user is not already inside a project/workspace context. Defaults to the current project when scoped.                                 |
+| Primary                  | Workspace title                                       | Required in M1 manual mobile create. Sent as `display_name`; also used to generate the initial `name` / `branch` slug.                                 |
+| Primary                  | `base_branch`                                         | Visible compact selector, defaulted from remote branches with `main` preferred when available. The full branch search list can open from this control. |
+| Advanced · Git naming    | `branch` / `name`                                     | Auto-generated from title and editable only when the user expands advanced Git naming.                                                                 |
+| Advanced · GitHub import | `github_issue`, `github_pr`, `auto_extract_todos`     | Same functional capability as Web, but hidden by default because it is a slower mobile flow.                                                           |
+| Advanced · Metadata      | `priority`, `workflow_status`, `label_guids`          | Defaults to `no_priority`, `in_progress`, and empty labels.                                                                                            |
+| Not surfaced in M1 form  | `initial_requirement`, `attachments`, `sidebar_order` | Send `null`, empty array, and `0` respectively. These remain API-compatible but are not useful enough for the first mobile form.                       |
 
 This deliberately diverges from the Web dialog by requiring a title for manual mobile create. The backend shape is unchanged; the mobile client avoids an avoidable failed submit and keeps branch editing out of the first-run path.
 
@@ -628,8 +628,17 @@ type TerminalShortcut =
   | { id: "tab"; label: "Tab"; sequence: "\t" }
   | { id: "up" | "down" | "left" | "right"; label: string; sequence: string }
   | { id: "ctrl-c" | "ctrl-d" | "ctrl-l" | "ctrl-a" | "ctrl-e"; label: string; sequence: string }
-  | { id: "agent-continue" | "agent-yes" | "agent-no"; label: string; insertText: string; submit: boolean }
-  | { id: "workspace-new-terminal" | "workspace-switch-terminal" | "workspace-list"; label: string; action: string };
+  | {
+      id: "agent-continue" | "agent-yes" | "agent-no";
+      label: string;
+      insertText: string;
+      submit: boolean;
+    }
+  | {
+      id: "workspace-new-terminal" | "workspace-switch-terminal" | "workspace-list";
+      label: string;
+      action: string;
+    };
 ```
 
 Rules:
@@ -645,15 +654,15 @@ Rules:
 
 These are existing APP-016 relay routes, with one additive response field:
 
-| Method | Route | Mobile use |
-|--------|-------|------------|
-| `POST` | `/v1/tenants` | Create/register Access Token hash. |
-| `POST` | `/v1/tenants/rotate_token` | Access Token reset/rotation. |
-| `POST` | `/v1/register_tokens` | Generate command/env for registering an Atmos Server. |
-| `GET` | `/v1/computers` | Settings drawer Computer list. |
-| `PATCH` | `/v1/computers/:id` | Rename Computer from M1 settings. |
-| `POST` | `/v1/computers/:id/revoke` | Revoke Computer from M1 settings. |
-| `POST` | `/v1/computers/:id/client_sessions` | Create mobile relay client session. |
+| Method  | Route                               | Mobile use                                            |
+| ------- | ----------------------------------- | ----------------------------------------------------- |
+| `POST`  | `/v1/tenants`                       | Create/register Access Token hash.                    |
+| `POST`  | `/v1/tenants/rotate_token`          | Access Token reset/rotation.                          |
+| `POST`  | `/v1/register_tokens`               | Generate command/env for registering an Atmos Server. |
+| `GET`   | `/v1/computers`                     | Settings drawer Computer list.                        |
+| `PATCH` | `/v1/computers/:id`                 | Rename Computer from M1 settings.                     |
+| `POST`  | `/v1/computers/:id/revoke`          | Revoke Computer from M1 settings.                     |
+| `POST`  | `/v1/computers/:id/client_sessions` | Create mobile relay client session.                   |
 
 `client_sessions` response becomes:
 
@@ -697,15 +706,15 @@ Mobile client files:
 
 Changes & Commit actions use the same main app WS connection:
 
-| Action | Mobile payload | Mobile use |
-|--------|----------------|------------|
-| `git_get_status` | `{ path }` | Load branch/conflict/unpushed summary and drive commit/push affordances. |
-| `git_changed_files` | `{ path, base_branch?, use_preferred_compare? }` | Load staged, unstaged, and untracked file groups for the list. |
-| `git_file_diff` | `{ path, file_path, base_branch?, against_index? }` | Load one selected file diff. For staged files, pass `against_index=true` when matching Web semantics require the staged version. |
-| `git_stage` | `{ path, files }` | Stage whole files only. |
-| `git_unstage` | `{ path, files }` | Unstage whole files only. |
-| `git_commit` | `{ path, message }` | Commit through existing Atmos Git commit behavior. |
-| `git_push` | `{ path }` | Push committed changes. |
+| Action              | Mobile payload                                      | Mobile use                                                                                                                       |
+| ------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `git_get_status`    | `{ path }`                                          | Load branch/conflict/unpushed summary and drive commit/push affordances.                                                         |
+| `git_changed_files` | `{ path, base_branch?, use_preferred_compare? }`    | Load staged, unstaged, and untracked file groups for the list.                                                                   |
+| `git_file_diff`     | `{ path, file_path, base_branch?, against_index? }` | Load one selected file diff. For staged files, pass `against_index=true` when matching Web semantics require the staged version. |
+| `git_stage`         | `{ path, files }`                                   | Stage whole files only.                                                                                                          |
+| `git_unstage`       | `{ path, files }`                                   | Unstage whole files only.                                                                                                        |
+| `git_commit`        | `{ path, message }`                                 | Commit through existing Atmos Git commit behavior.                                                                               |
+| `git_push`          | `{ path }`                                          | Push committed changes.                                                                                                          |
 
 M1 intentionally does not call `git_stage_patch_chunk`, `git_restore_patch_chunk`, `git_discard_unstaged`, `git_discard_untracked`, or `git_generate_commit_message` from mobile UI. Those remain available to Web but are out of mobile MVP scope.
 
@@ -776,8 +785,8 @@ Batching keeps the bridge practical for terminal output bursts while preserving 
 
 Before opening a terminal stream, mobile asks the main app WS for candidates:
 
-| Action | Payload | Mobile use |
-|--------|---------|------------|
+| Action                          | Payload                                            | Mobile use                                                                               |
+| ------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `terminal_workspace_candidates` | `{ workspace_id, project_name?, workspace_name? }` | Return active terminal sessions plus attachable tmux windows for the selected workspace. |
 
 The response is:

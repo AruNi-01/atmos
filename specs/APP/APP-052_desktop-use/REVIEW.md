@@ -11,26 +11,26 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
-| **When to add** | After code implementation reaches review and findings need durable tracking. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-004**). |
-| **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
-| **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
+| Rule            | Detail                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| **When to add** | After code implementation reaches review and findings need durable tracking.                             |
+| **Entry id**    | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-004**).                                     |
+| **Status**      | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason).                            |
+| **Do not**      | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
+| **Fix proof**   | Each fixed item should name the code change and the verification command or manual check.                |
 
 ---
 
 ## Readiness summary (2026-08-04)
 
-| Gate | Result |
-|------|--------|
-| PRD Must Have M1–M18 | **Implemented** on branch (Settings, CLI, capture migration, engine pin 0.17.0, host rebrand, AppShot host route when installed) |
-| Automated unit tests | **Green** — `cargo test -p desktop-use` 26 passed; Electron host/frontmost tests 8 passed; web settings wiring 5 passed |
-| CLI offline smoke | **Green** — `atmos desktop-use --help/status`; `drive click` → `control_engine_not_installed`; help vendor-free |
-| CI on PR #202 | **Green** (backend format/clippy/test/build, web lint/typecheck/build, e2e smokes, desktop smoke, CodeQL) |
-| Live TCC dual-shift / real ensure download | **Not automated** (explicit non-coverage in TEST.md) — **required for manual acceptance** |
-| Ship / merge polish | Residual **P2/P3** items below; **not blockers for starting acceptance testing** |
+| Gate                                       | Result                                                                                                                           |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| PRD Must Have M1–M18                       | **Implemented** on branch (Settings, CLI, capture migration, engine pin 0.17.0, host rebrand, AppShot host route when installed) |
+| Automated unit tests                       | **Green** — `cargo test -p desktop-use` 26 passed; Electron host/frontmost tests 8 passed; web settings wiring 5 passed          |
+| CLI offline smoke                          | **Green** — `atmos desktop-use --help/status`; `drive click` → `control_engine_not_installed`; help vendor-free                  |
+| CI on PR #202                              | **Green** (backend format/clippy/test/build, web lint/typecheck/build, e2e smokes, desktop smoke, CodeQL)                        |
+| Live TCC dual-shift / real ensure download | **Not automated** (explicit non-coverage in TEST.md) — **required for manual acceptance**                                        |
+| Ship / merge polish                        | Residual **P2/P3** items below; **not blockers for starting acceptance testing**                                                 |
 
 **Verdict**: Implementation is complete enough to **enter manual / acceptance testing**. Do not treat unit CI alone as full product sign-off for host TCC + real engine download.
 
@@ -38,25 +38,25 @@
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P2 | docs | TECH §4/§8 still describe Electron as AppShot hot path | open |
-| REV-002 | P2 | frontend | Host metadata-only frontmost does a full screenshot | open |
-| REV-003 | P3 | test | TEST.md Coverage Status under-reports unit test count | open |
-| REV-004 | P1 | backend | Vendor permissions grant hardcodes CuaDriver; Screen Recording never wakes | fixed |
-| REV-005 | P1 | backend | Host app kept vendor Cua AppIcon | fixed |
+| Id      | Severity | Area     | Title                                                                      | Status |
+| ------- | -------- | -------- | -------------------------------------------------------------------------- | ------ |
+| REV-001 | P2       | docs     | TECH §4/§8 still describe Electron as AppShot hot path                     | open   |
+| REV-002 | P2       | frontend | Host metadata-only frontmost does a full screenshot                        | open   |
+| REV-003 | P3       | test     | TEST.md Coverage Status under-reports unit test count                      | open   |
+| REV-004 | P1       | backend  | Vendor permissions grant hardcodes CuaDriver; Screen Recording never wakes | fixed  |
+| REV-005 | P1       | backend  | Host app kept vendor Cua AppIcon                                           | fixed  |
 
 ---
 
 ## REV-001 · TECH §4/§8 still describe Electron as AppShot hot path
 
-| Field | Value |
-|-------|--------|
-| **Status** | open |
-| **Severity** | P2 |
-| **Area** | docs |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | open            |
+| **Severity**    | P2              |
+| **Area**        | docs            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -84,13 +84,13 @@ Rewrite §4 and §8 to match item 6: host-engine path after ensure; Electron `ca
 
 ## REV-002 · Host metadata-only frontmost does a full screenshot
 
-| Field | Value |
-|-------|--------|
-| **Status** | open |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value                        |
+| --------------- | ---------------------------- |
+| **Status**      | open                         |
+| **Severity**    | P2                           |
+| **Area**        | frontend                     |
 | **Reported by** | internal review + CodeRabbit |
-| **Owner** | unassigned |
+| **Owner**       | unassigned                   |
 
 ### Finding
 
@@ -119,13 +119,13 @@ Add a metadata-only host helper (`drive verify` / list windows → `pickFrontmos
 
 ## REV-003 · TEST.md Coverage Status under-reports unit test count
 
-| Field | Value |
-|-------|--------|
-| **Status** | open |
-| **Severity** | P3 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | open            |
+| **Severity**    | P3              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -153,13 +153,13 @@ Refresh Coverage Status and mark automated S* rows that are covered; leave live 
 
 ## REV-004 · Vendor permissions grant hardcodes CuaDriver; Screen Recording never wakes
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value        |
+| --------------- | ------------ |
+| **Status**      | fixed        |
+| **Severity**    | P1           |
+| **Area**        | backend      |
 | **Reported by** | user dogfood |
-| **Owner** | unassigned |
+| **Owner**       | unassigned   |
 
 ### Finding
 
@@ -188,13 +188,13 @@ Atmos-owned grant: open System Settings Privacy panes + host-identity capture pr
 
 ## REV-005 · Host app kept vendor Cua AppIcon
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value        |
+| --------------- | ------------ |
+| **Status**      | fixed        |
+| **Severity**    | P1           |
+| **Area**        | backend      |
 | **Reported by** | user dogfood |
-| **Owner** | unassigned |
+| **Owner**       | unassigned   |
 
 ### Finding
 

@@ -34,11 +34,7 @@ Function settings already store `grouping_mode` as an untyped JSON string.
 Add a grouping helper next to `resolveWorkspaceAgentStatusView`. **Do not** reuse the view helper’s `attentionFilterMode` override — grouping must follow PRD M2 even when the attention filter is on.
 
 ```ts
-export type WorkspaceAgentGroupKey =
-  | "permission"
-  | "attention"
-  | "running"
-  | "idle";
+export type WorkspaceAgentGroupKey = "permission" | "attention" | "running" | "idle";
 
 export const WORKSPACE_AGENT_GROUP_ORDER: WorkspaceAgentGroupKey[] = [
   "permission",
@@ -50,7 +46,7 @@ export const WORKSPACE_AGENT_GROUP_ORDER: WorkspaceAgentGroupKey[] = [
 export function resolveWorkspaceAgentGroupKey(input: {
   agentState: AgentHookState;
   attentionReason: AttentionReason | null;
-}): WorkspaceAgentGroupKey
+}): WorkspaceAgentGroupKey;
 ```
 
 Rules (M2):

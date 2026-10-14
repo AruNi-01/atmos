@@ -4,9 +4,7 @@ import React from "react";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
 import type { ComposerHandle } from "@/features/welcome/components/PromptComposer";
 
-export function useWelcomeComposerAttachments(
-  composerRef: React.RefObject<ComposerHandle | null>,
-) {
+export function useWelcomeComposerAttachments(composerRef: React.RefObject<ComposerHandle | null>) {
   const [attachments, setAttachments] = React.useState<ComposerAttachment[]>([]);
   const attachmentCounterRef = React.useRef(0);
   const [previewAttachment, setPreviewAttachment] = React.useState<ComposerAttachment | null>(null);

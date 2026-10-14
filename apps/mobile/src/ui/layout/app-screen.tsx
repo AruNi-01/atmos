@@ -59,8 +59,7 @@ export function AppScreen({
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
   // Prefer theme.colors for surfaces so dark mode stays correct even when
   // NativeWind CSS variables lag behind Appearance / form-sheet chrome.
-  const surfaceColor =
-    surface === "sheet" ? theme.colors.sheetBackground : theme.colors.background;
+  const surfaceColor = surface === "sheet" ? theme.colors.sheetBackground : theme.colors.background;
   const footerPaddingBottom = Math.max(insets.bottom, spacing.screenFooterBottom);
   const [footerHeight, setFooterHeight] = useState(0);
 
@@ -259,10 +258,7 @@ function ConnectionBanner({ message }: { message: string }) {
       >
         Disconnected
       </Text>
-      <Text
-        selectable
-        style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}
-      >
+      <Text selectable style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}>
         {message}
       </Text>
     </View>

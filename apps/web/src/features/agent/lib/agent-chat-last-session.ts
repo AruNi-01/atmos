@@ -1,12 +1,6 @@
 import type { AgentLastSession } from "@/shared/stores/use-ui-pref-hooks";
-import {
-  getSessionContextKey,
-  legacySessionContextKey,
-} from "@/features/agent/lib/chat-helpers";
-import {
-  readAgentLastSession,
-  writeAgentLastSession,
-} from "@/shared/stores/use-ui-pref-hooks";
+import { getSessionContextKey, legacySessionContextKey } from "@/features/agent/lib/chat-helpers";
+import { readAgentLastSession, writeAgentLastSession } from "@/shared/stores/use-ui-pref-hooks";
 
 export function agentChatFilterKey(
   workspaceId: string | null,

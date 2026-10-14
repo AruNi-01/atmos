@@ -3,12 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSpring } from "motion/react";
 import { cn } from "../../lib/utils";
-import {
-  clamp,
-  hash,
-  smoothstep,
-  type DitherTheme,
-} from "../../lib/dither/math";
+import { clamp, hash, smoothstep, type DitherTheme } from "../../lib/dither/math";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 
 type GaugeMeterProps = {
@@ -36,8 +31,7 @@ function GaugeMeter({
   const valueRef = useRef(value);
   const capacityRef = useRef(capacity);
   valueRef.current = Number.isFinite(value) && value > 0 ? value : 0;
-  capacityRef.current =
-    Number.isFinite(capacity) && capacity > 0 ? capacity : 100;
+  capacityRef.current = Number.isFinite(capacity) && capacity > 0 ? capacity : 100;
   const valueSpring = useSpring(valueRef.current, {
     stiffness: 120,
     damping: 20,
@@ -67,10 +61,7 @@ function GaugeMeter({
       time: number;
       reducedMotion: boolean;
     }) => {
-      const currentValue = Math.max(
-        0,
-        reducedMotion ? valueRef.current : valueSpring.get(),
-      );
+      const currentValue = Math.max(0, reducedMotion ? valueRef.current : valueSpring.get());
       if (valueTextRef.current) {
         valueTextRef.current.textContent = formatRef.current(currentValue);
       }
@@ -115,27 +106,19 @@ function GaugeMeter({
             const noise = hash(centerX, centerY);
             const waveRaw = reducedMotion
               ? 0
-              : Math.sin(centerX * 0.05 + time * 4) +
-                Math.sin(centerY * 0.05 + time * 2.8);
+              : Math.sin(centerX * 0.05 + time * 4) + Math.sin(centerY * 0.05 + time * 2.8);
             const wave = smoothstep(-1.5, 1.5, waveRaw);
-            const size =
-              cell * (0.42 + 0.38 * wave) * (0.82 + 0.34 * noise);
+            const size = cell * (0.42 + 0.38 * wave) * (0.82 + 0.34 * noise);
             ctx.globalAlpha = 0.9;
             ctx.fillStyle = colorRef.current;
-            ctx.fillRect(
-              x + (cell - size) / 2,
-              y + (cell - size) / 2,
-              size,
-              size,
-            );
+            ctx.fillRect(x + (cell - size) / 2, y + (cell - size) / 2, size, size);
           }
         }
         ctx.restore();
       }
       ctx.globalAlpha = 1;
       return {
-        busy:
-          !reducedMotion && Math.abs(currentValue - valueRef.current) > 0.08,
+        busy: !reducedMotion && Math.abs(currentValue - valueRef.current) > 0.08,
       };
     },
     [theme, valueSpring],
@@ -154,10 +137,7 @@ function GaugeMeter({
     >
       <canvas ref={canvasRef} className="block h-28 w-full" aria-hidden />
       <div className="pointer-events-none absolute inset-x-0 top-[52%] text-center">
-        <div
-          ref={valueTextRef}
-          className="text-sm font-semibold tabular-nums text-foreground"
-        >
+        <div ref={valueTextRef} className="text-sm font-semibold text-foreground tabular-nums">
           {formatValue(valueRef.current)}
         </div>
         <div className="text-[10px] text-muted-foreground">{label}</div>
@@ -198,13 +178,9 @@ export function ServerGauge({
   className,
   formatValue = (value) => `${Math.round(value)}%`,
 }: ServerGaugeProps) {
-  const resolvedTrack =
-    trackColor ?? (theme === "dark" ? "#47474C" : "#C3C3C9");
+  const resolvedTrack = trackColor ?? (theme === "dark" ? "#47474C" : "#C3C3C9");
   return (
-    <div
-      className={cn("grid min-w-0 grid-cols-2 gap-2", className)}
-      data-server-gauge=""
-    >
+    <div className={cn("grid min-w-0 grid-cols-2 gap-2", className)} data-server-gauge="">
       <GaugeMeter
         label={cpuLabel}
         value={cpuPercent}

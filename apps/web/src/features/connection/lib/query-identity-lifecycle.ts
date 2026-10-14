@@ -32,12 +32,12 @@ function removeRelayQueries(): Promise<void> {
 /**
  * Apply identity-bearing Relay/credential settings and clear related Query caches.
  */
-export async function applyIdentityBearingComputerSettings(
-  patch: IdentityPatch,
-): Promise<void> {
+export async function applyIdentityBearingComputerSettings(patch: IdentityPatch): Promise<void> {
   const store = useAtmosComputerStore.getState();
   const nextUrl =
-    patch.relayUrl !== undefined ? resolveRelayUrl(patch.relayUrl) : resolveRelayUrl(store.relayUrl);
+    patch.relayUrl !== undefined
+      ? resolveRelayUrl(patch.relayUrl)
+      : resolveRelayUrl(store.relayUrl);
   const nextSecret =
     patch.relaySecretKey !== undefined ? patch.relaySecretKey : store.relaySecretKey;
   const nextToken = patch.accessToken !== undefined ? patch.accessToken : store.accessToken;
@@ -60,9 +60,8 @@ export async function applyIdentityBearingComputerSettings(
     store.bumpRelayAuthRevision();
     await removeRelayQueries();
     await removeComputerQueries();
-    const { clearWebRelayClientCache } = await import(
-      "@/features/connection/lib/create-web-relay-client"
-    );
+    const { clearWebRelayClientCache } =
+      await import("@/features/connection/lib/create-web-relay-client");
     clearWebRelayClientCache();
   }
 }
@@ -70,9 +69,7 @@ export async function applyIdentityBearingComputerSettings(
 /**
  * Atomically apply Relay gateway/session transport and bump session revision once.
  */
-export async function applyRelaySessionTransport(
-  session: RelaySessionTransport,
-): Promise<void> {
+export async function applyRelaySessionTransport(session: RelaySessionTransport): Promise<void> {
   const store = useAtmosComputerStore.getState();
   const changed =
     store.relayWebSocketUrl !== session.relayWebSocketUrl ||
@@ -91,9 +88,8 @@ export async function clearQueryStateForLogout(): Promise<void> {
   store.bumpRelayAuthRevision();
   await removeRelayQueries();
   await removeComputerQueries();
-  const { clearWebRelayClientCache } = await import(
-    "@/features/connection/lib/create-web-relay-client"
-  );
+  const { clearWebRelayClientCache } =
+    await import("@/features/connection/lib/create-web-relay-client");
   clearWebRelayClientCache();
 }
 

@@ -64,11 +64,11 @@
   Freehand or launched `grok` resolves to Grok Build; `cursor-agent` resolves to Cursor Agent. Matching must not treat `cursor-agent` as a vague substring of `agent`. Prefer exact first-token matching and longer/more-specific tokens over broad substring includes.
 
 - **M7 — Contested freehand `agent` → real CLI**  
-  When the dynamic title’s first token is exactly `agent`, classify using the **real executable** the shell would run (PATH / realpath / version or help banner).  
-  - Grok binary → **Grok Build**  
-  - Cursor agent binary → **Cursor Agent**  
+  When the dynamic title’s first token is exactly `agent`, classify using the **real executable** the shell would run (PATH / realpath / version or help banner).
+  - Grok binary → **Grok Build**
+  - Cursor agent binary → **Cursor Agent**
   - Missing or unknown → show raw **`agent`**, never invent a brand.  
-  Classification must not hard-code “agent always means Cursor” or “always Grok”.
+    Classification must not hard-code “agent always means Cursor” or “always Grok”.
 
 - **M8 — Automations / headless streaming**  
   Grok Build is invocable as a non-interactive terminal agent for automations using headless single-turn mode and **`streaming-json`** output. Atmos must parse Grok’s NDJSON with a **dedicated Grok streaming parser** (not Cursor/Claude stream-json). Assistant **text** deltas are required; **thought** deltas must be handled safely (consume into existing thinking channel if the automation UI already supports it; otherwise do not break text delivery).
@@ -76,15 +76,15 @@
 - **M9 — Agent hooks status**  
   Atmos can install, check, and uninstall **status-only** hooks for Grok Build in Grok’s native hooks location (not via Claude/Cursor compat paths as the primary identity). Hook delivery updates Atmos agent session state:
 
-  | Grok lifecycle signal | Atmos state |
-  |-----------------------|-------------|
-  | Session start | Idle |
-  | User prompt / tool activity mid-turn | Running |
-  | Notification `permission_prompt` or `elicitation_dialog` | PermissionRequest |
-  | Other notification types (`agent_error`, `task_complete`, `idle_prompt`, …) | No state change |
-  | Permission denied (system deny) | No state change |
-  | Stop / stop failure / session end | Idle |
-  | Subagent / compact events | Ignore |
+  | Grok lifecycle signal                                                       | Atmos state       |
+  | --------------------------------------------------------------------------- | ----------------- |
+  | Session start                                                               | Idle              |
+  | User prompt / tool activity mid-turn                                        | Running           |
+  | Notification `permission_prompt` or `elicitation_dialog`                    | PermissionRequest |
+  | Other notification types (`agent_error`, `task_complete`, `idle_prompt`, …) | No state change   |
+  | Permission denied (system deny)                                             | No state change   |
+  | Stop / stop failure / session end                                           | Idle              |
+  | Subagent / compact events                                                   | Ignore            |
 
   Settings surfaces that show per-agent hook install status include Grok Build.
 
@@ -135,13 +135,13 @@
 
 ## Resolved BRAINSTORM decisions
 
-| Topic | Decision |
-|-------|----------|
-| Built-in id | `grok-build` |
-| Display label | `Grok Build` |
-| Canonical launch cmd | `grok` |
-| Cursor built-in cmd | `cursor-agent` |
-| Freehand bare `agent` | Real CLI identity; unknown → raw `agent` |
-| Automation output | `streaming-json` + dedicated Grok parser |
-| Hooks | In M1; status-only; PermissionRequest from `permission_prompt` and `elicitation_dialog` |
-| AI usage | In scope (M11): `quota-usage` Grok provider via CLI billing JSON + `~/.grok/auth.json` |
+| Topic                 | Decision                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| Built-in id           | `grok-build`                                                                            |
+| Display label         | `Grok Build`                                                                            |
+| Canonical launch cmd  | `grok`                                                                                  |
+| Cursor built-in cmd   | `cursor-agent`                                                                          |
+| Freehand bare `agent` | Real CLI identity; unknown → raw `agent`                                                |
+| Automation output     | `streaming-json` + dedicated Grok parser                                                |
+| Hooks                 | In M1; status-only; PermissionRequest from `permission_prompt` and `elicitation_dialog` |
+| AI usage              | In scope (M11): `quota-usage` Grok provider via CLI billing JSON + `~/.grok/auth.json`  |

@@ -630,12 +630,12 @@ typecheck-bench:
 
 # Format all code
 fmt:
-    bun run prettier --write .
+    bun run fmt
     cargo fmt --all
 
 # Check formatting without writing files
 fmt-check:
-    bun run prettier --check .
+    bun run fmt:check
     cargo fmt --all --check
 
 # ============================================

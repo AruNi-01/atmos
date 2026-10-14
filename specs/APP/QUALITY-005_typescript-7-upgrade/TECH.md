@@ -22,14 +22,14 @@ Out of scope:
 
 ## Quality target
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Primary typecheck binary | JS `tsc` (TS 5 / mobile TS 6) | Native Go `tsc` (TS 7) |
-| Workspace TypeScript versions | Mixed `^5` + mobile `~6.0.3` | Catalog-pinned TS 7 + TS 6 API alias |
-| `ignoreDeprecations` | Present in mobile | Removed |
-| Deprecated `baseUrl` | Present in mobile / docs / ui | Removed; paths rewritten relative to project root |
-| Typecheck wall time (full monorepo) | Baseline captured in TEST S8 | ≥ 3× faster than baseline on the same machine |
-| Product behavior | — | Unchanged (regression gates green) |
+| Metric                              | Before                        | After                                             |
+| ----------------------------------- | ----------------------------- | ------------------------------------------------- |
+| Primary typecheck binary            | JS `tsc` (TS 5 / mobile TS 6) | Native Go `tsc` (TS 7)                            |
+| Workspace TypeScript versions       | Mixed `^5` + mobile `~6.0.3`  | Catalog-pinned TS 7 + TS 6 API alias              |
+| `ignoreDeprecations`                | Present in mobile             | Removed                                           |
+| Deprecated `baseUrl`                | Present in mobile / docs / ui | Removed; paths rewritten relative to project root |
+| Typecheck wall time (full monorepo) | Baseline captured in TEST S8  | ≥ 3× faster than baseline on the same machine     |
+| Product behavior                    | —                             | Unchanged (regression gates green)                |
 
 ## Architecture overview
 
@@ -57,22 +57,22 @@ Decision: **optimal dual-package design**, not a single-package illusion.
 
 - TypeScript 7.0 does not ship a stable programmatic API.
 - Forcing every consumer onto the TS 7 package would break eslint and similar tools.
-- The optimal design therefore makes TS 7 the *user-facing* compiler everywhere, and pins TS 6 only as an explicit API compatibility package with a clear removal path when 7.1 lands.
+- The optimal design therefore makes TS 7 the _user-facing_ compiler everywhere, and pins TS 6 only as an explicit API compatibility package with a clear removal path when 7.1 lands.
 
 ## Current state (audit)
 
-| Package | Current `typescript` | Notes |
-|---------|----------------------|-------|
-| Root catalog | `^5` | Declared but packages mostly pin locally |
-| `apps/web` | `^5` | Next 16, `moduleResolution: bundler`, already `strict` |
-| `apps/landing` | `^5` | Same Next pattern |
-| `apps/docs` | `^5.9.3` | Uses `baseUrl` |
-| `apps/mobile` | `~6.0.3` | Uses `ignoreDeprecations: "6.0"` + `baseUrl` |
-| `e2e` | `^5.9.3` | Explicit `types: ["node", "@playwright/test"]` |
-| `packages/ui` | `^5` | Uses `baseUrl` + react path remaps |
-| `packages/shared` / `i18n` | `^5` | Library emit (`declaration`) |
-| `packages/relay` | `^5` | Explicit `types: ["@cloudflare/workers-types"]` |
-| `packages/config` | `^5` | Shared tsconfig bases underused today |
+| Package                    | Current `typescript` | Notes                                                  |
+| -------------------------- | -------------------- | ------------------------------------------------------ |
+| Root catalog               | `^5`                 | Declared but packages mostly pin locally               |
+| `apps/web`                 | `^5`                 | Next 16, `moduleResolution: bundler`, already `strict` |
+| `apps/landing`             | `^5`                 | Same Next pattern                                      |
+| `apps/docs`                | `^5.9.3`             | Uses `baseUrl`                                         |
+| `apps/mobile`              | `~6.0.3`             | Uses `ignoreDeprecations: "6.0"` + `baseUrl`           |
+| `e2e`                      | `^5.9.3`             | Explicit `types: ["node", "@playwright/test"]`         |
+| `packages/ui`              | `^5`                 | Uses `baseUrl` + react path remaps                     |
+| `packages/shared` / `i18n` | `^5`                 | Library emit (`declaration`)                           |
+| `packages/relay`           | `^5`                 | Explicit `types: ["@cloudflare/workers-types"]`        |
+| `packages/config`          | `^5`                 | Shared tsconfig bases underused today                  |
 
 Known TS 7 hard-error surfaces already present in-repo:
 
@@ -146,11 +146,11 @@ for each workspace with a typecheck script:
 
 Defaults:
 
-| Environment | `--checkers` | `--builders` | Notes |
-|-------------|--------------|--------------|-------|
-| Local developer machine (≥ 8 cores) | `8` | `4` | Favor wall-clock speed |
-| CI / constrained runners | `2` | `2` | Avoid memory thrash |
-| Debug / bisect | `--singleThreaded` | n/a | Deterministic, comparable to TS 6 |
+| Environment                         | `--checkers`       | `--builders` | Notes                             |
+| ----------------------------------- | ------------------ | ------------ | --------------------------------- |
+| Local developer machine (≥ 8 cores) | `8`                | `4`          | Favor wall-clock speed            |
+| CI / constrained runners            | `2`                | `2`          | Avoid memory thrash               |
+| Debug / bisect                      | `--singleThreaded` | n/a          | Deterministic, comparable to TS 6 |
 
 Expose via env:
 
@@ -203,16 +203,16 @@ Rules:
 
 #### App/package migration
 
-| Consumer | Extends | Package-specific deltas |
-|----------|---------|-------------------------|
-| `apps/web` | `nextjs.json` | Keep Next plugin + path aliases; no `baseUrl` |
-| `apps/landing` | `nextjs.json` | Same |
-| `apps/docs` | `nextjs.json` | Drop `baseUrl`; keep fumadocs path aliases as root-relative `paths` |
-| `apps/mobile` | `react-native.json` | Drop `ignoreDeprecations` + `baseUrl`; keep Expo extends if still required, then overlay TS 7-safe options |
-| `e2e` | `base.json` | Keep explicit `types: ["node", "@playwright/test"]` |
-| `packages/ui` | `base.json` | Drop `baseUrl`; rewrite `paths` for `@/*` and react type remaps |
-| `packages/shared` / `i18n` | `base.json` | Keep `declaration` / `declarationMap` |
-| `packages/relay` | `workers.json` | Keep `types: ["@cloudflare/workers-types"]` |
+| Consumer                   | Extends             | Package-specific deltas                                                                                    |
+| -------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `apps/web`                 | `nextjs.json`       | Keep Next plugin + path aliases; no `baseUrl`                                                              |
+| `apps/landing`             | `nextjs.json`       | Same                                                                                                       |
+| `apps/docs`                | `nextjs.json`       | Drop `baseUrl`; keep fumadocs path aliases as root-relative `paths`                                        |
+| `apps/mobile`              | `react-native.json` | Drop `ignoreDeprecations` + `baseUrl`; keep Expo extends if still required, then overlay TS 7-safe options |
+| `e2e`                      | `base.json`         | Keep explicit `types: ["node", "@playwright/test"]`                                                        |
+| `packages/ui`              | `base.json`         | Drop `baseUrl`; rewrite `paths` for `@/*` and react type remaps                                            |
+| `packages/shared` / `i18n` | `base.json`         | Keep `declaration` / `declarationMap`                                                                      |
+| `packages/relay`           | `workers.json`      | Keep `types: ["@cloudflare/workers-types"]`                                                                |
 
 ### Path / `baseUrl` rewrite rules
 
@@ -284,15 +284,15 @@ This is how we prove we are "using the new features," not merely bumping a versi
 
 ### Parallelization policy (using TS 7 features)
 
-| Feature | How Atmos uses it |
-|---------|-------------------|
-| Native Go `tsc` | Default typecheck binary for all packages |
-| `--checkers` | Tuned per environment via `ATMOS_TSC_CHECKERS` |
-| `--builders` | Enabled for any future project-references graph; today mostly N/A but wired in the orchestrator |
-| `--singleThreaded` | Escape hatch for debugging order-dependent diagnostics |
-| Improved `--watch` | Documented for local package typecheck loops |
-| Editor LSP multithreading | Documented editor enablement |
-| Side-by-side TS 6 API | Explicit `@typescript/api6` / aliased `typescript` for eslint |
+| Feature                   | How Atmos uses it                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| Native Go `tsc`           | Default typecheck binary for all packages                                                       |
+| `--checkers`              | Tuned per environment via `ATMOS_TSC_CHECKERS`                                                  |
+| `--builders`              | Enabled for any future project-references graph; today mostly N/A but wired in the orchestrator |
+| `--singleThreaded`        | Escape hatch for debugging order-dependent diagnostics                                          |
+| Improved `--watch`        | Documented for local package typecheck loops                                                    |
+| Editor LSP multithreading | Documented editor enablement                                                                    |
+| Side-by-side TS 6 API     | Explicit `@typescript/api6` / aliased `typescript` for eslint                                   |
 
 ## Data model
 
@@ -300,13 +300,13 @@ No database, WebSocket, or runtime schema changes.
 
 New durable artifacts:
 
-| Artifact | Purpose |
-|----------|---------|
-| `packages/config/typescript/*.json` | Shared TS 7-safe bases |
-| `scripts/typecheck-all.ts` | Unified native typecheck runner |
-| `scripts/typecheck-bench.ts` | Performance proof harness |
-| `specs/.../assets/typecheck-baseline.md` | Pre-upgrade timing baseline |
-| Root catalog / overrides | Single version source of truth |
+| Artifact                                 | Purpose                         |
+| ---------------------------------------- | ------------------------------- |
+| `packages/config/typescript/*.json`      | Shared TS 7-safe bases          |
+| `scripts/typecheck-all.ts`               | Unified native typecheck runner |
+| `scripts/typecheck-bench.ts`             | Performance proof harness       |
+| `specs/.../assets/typecheck-baseline.md` | Pre-upgrade timing baseline     |
+| Root catalog / overrides                 | Single version source of truth  |
 
 ## Transport
 
@@ -334,15 +334,15 @@ Ordered, mergeable steps. Prefer one PR for the full cutover if CI capacity allo
 
 ## Risks & tradeoffs
 
-| Risk | Mitigation |
-|------|------------|
-| ESLint / typescript-eslint breaks if `typescript` resolves to TS 7 API-less package | Keep TS 6 as the `typescript` package name for API consumers; native binary under `@typescript/native` |
-| Expo `tsconfig.base` reintroduces forbidden options | Overlay / replace with `react-native.json`; verify with mobile typecheck |
-| `types` default change hides ambient globals | Explicit `types` arrays in e2e / relay / any Node globals consumers |
-| Template literal Unicode inference changes rare type-level string utils | Grep for surrogate-pair / `Length` utilities; fix if typecheck fails |
-| Order-dependent diagnostics with varying `--checkers` | Pin checkers in CI; use `--singleThreaded` when bisecting |
-| Docs Fumadocs / Next plugin incompat | Keep `skipLibCheck`; fix only Atmos-owned errors; escalate upstream if blocker |
-| Dual-package confusion for contributors | Document clearly in config AGENTS + root notes; add script so humans never invent ad-hoc `tsc` invocations |
+| Risk                                                                                | Mitigation                                                                                                 |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| ESLint / typescript-eslint breaks if `typescript` resolves to TS 7 API-less package | Keep TS 6 as the `typescript` package name for API consumers; native binary under `@typescript/native`     |
+| Expo `tsconfig.base` reintroduces forbidden options                                 | Overlay / replace with `react-native.json`; verify with mobile typecheck                                   |
+| `types` default change hides ambient globals                                        | Explicit `types` arrays in e2e / relay / any Node globals consumers                                        |
+| Template literal Unicode inference changes rare type-level string utils             | Grep for surrogate-pair / `Length` utilities; fix if typecheck fails                                       |
+| Order-dependent diagnostics with varying `--checkers`                               | Pin checkers in CI; use `--singleThreaded` when bisecting                                                  |
+| Docs Fumadocs / Next plugin incompat                                                | Keep `skipLibCheck`; fix only Atmos-owned errors; escalate upstream if blocker                             |
+| Dual-package confusion for contributors                                             | Document clearly in config AGENTS + root notes; add script so humans never invent ad-hoc `tsc` invocations |
 
 **Tradeoff chosen:** dual-package now beats waiting for 7.1. Waiting would leave the monorepo on TS 5/6 and forfeit the only upgrade benefit that matters (native speed).
 

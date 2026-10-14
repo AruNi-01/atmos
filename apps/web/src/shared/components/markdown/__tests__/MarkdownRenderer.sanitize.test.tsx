@@ -40,10 +40,7 @@ function renderMarkdown(markdown: string): HTMLElement {
 
   act(() => {
     root.render(
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        rehypePlugins={[...REHYPE_PLUGINS]}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[...REHYPE_PLUGINS]}>
         {markdown}
       </ReactMarkdown>,
     );

@@ -3,10 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { autoConnectAfterAuth } from "@/lib/auto-connect";
 import { requireDeviceCredential } from "@/lib/device-credential";
-import {
-  signInWithHubProvider,
-  type HubSocialProvider,
-} from "@/lib/hub-auth-native";
+import { signInWithHubProvider, type HubSocialProvider } from "@/lib/hub-auth-native";
 import { claimPairFromScan } from "@/lib/mobile-pair-claim";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { useComputerStore } from "@/stores/computer-store";
@@ -19,12 +16,8 @@ type UseAuthSignInOptions = {
 export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
   const router = useRouter();
   const client = useRelayClient();
-  const setDeviceCredentialLoaded = useSessionStore(
-    (state) => state.setDeviceCredentialLoaded,
-  );
-  const hasDeviceCredential = useSessionStore(
-    (state) => state.hasDeviceCredential,
-  );
+  const setDeviceCredentialLoaded = useSessionStore((state) => state.setDeviceCredentialLoaded);
+  const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
   const relayUrl = useSessionStore((state) => state.relayUrl);
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
@@ -60,19 +53,12 @@ export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
       await finishAuth();
     },
     onError: (error) => {
-      setLocalError(
-        error instanceof Error ? error.message : "Could not claim pair code.",
-      );
+      setLocalError(error instanceof Error ? error.message : "Could not claim pair code.");
     },
   });
 
   const computersQuery = useQuery({
-    queryKey: [
-      "auth-sign-in-computers",
-      relayUrl,
-      relayAuthRevision,
-      hasDeviceCredential,
-    ],
+    queryKey: ["auth-sign-in-computers", relayUrl, relayAuthRevision, hasDeviceCredential],
     enabled: hasDeviceCredential,
     queryFn: async () => {
       const token = requireDeviceCredential();
@@ -99,14 +85,11 @@ export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
       router.replace("/");
     },
     onError: (error) => {
-      setLocalError(
-        error instanceof Error ? error.message : "Could not connect to Computer.",
-      );
+      setLocalError(error instanceof Error ? error.message : "Could not connect to Computer.");
     },
   });
 
-  const busy =
-    signIn.isPending || claimPair.isPending || createSession.isPending;
+  const busy = signIn.isPending || claimPair.isPending || createSession.isPending;
 
   return {
     busy,

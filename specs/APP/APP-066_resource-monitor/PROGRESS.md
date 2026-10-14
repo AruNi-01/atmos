@@ -64,22 +64,22 @@ No implementation deltas.
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Rust tests | targeted `cargo test` + strict Clippy | passed | engine, service, terminal, API, Relay lifecycle |
-| API types | extract/check/test/typecheck | passed | 280 actions, 31 events |
-| Web tests | 138 targeted `bun test` + typecheck + lint | passed | UI, history, sorting, exact deep links, locate generation |
-| Electron | full `bun test` + typecheck + build | passed | shell collector and IPC |
-| E2E | targeted Playwright | passed | 4 tests: Host/sort/chart + real Terminal locate on Chromium/mobile |
-| M10 process detail | Rust/api-types/Web/Playwright | passed | 30 RM + 22 LS + 17 DTO + 118 Web tests; real listener port E2E |
-| M11 Host details | Rust/api-types/Web/Playwright | passed | 15 engine + 34 RM + 17 API + 18 DTO + 126 Web tests; S20 E2E |
-| M12 Dither + Disk | UI/Rust/api-types/Web/Playwright | passed | 45 UI + 27 engine + 36 RM + 17 API + 19 DTO + 136 Web tests |
-| UI refinement | UI/Web/Playwright | passed | 40 Dither + 139 Web tests; Web typecheck/lint; Host/Disk/Atmos App flow passed on Chromium and mobile Chromium |
-| Gauge/Footer follow-up | UI/Web/Playwright | passed | 147 Bun tests; Web typecheck/lint; wide Gauge, hover transition, Footer order, and CPU/Memory alignment passed on Chromium and mobile Chromium |
-| Workspace/Footer polish | Web/Playwright | passed | localized Workspace badge tests + Web typecheck; compact-to-expanded Footer width passed on Chromium and mobile Chromium |
-| Session-row hover | Web typecheck + DOM test | passed | rendered session row has no locate icon; chevron sits on the padded hover surface and only highlights its icon |
-| Full repository | `just test` / `just typecheck` | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status |
-| Agent Browser/manual | exploratory | partial | Connect gate blocked Agent Browser; host-specific checks remain |
+| Area                    | Command / Method                           | Last result        | Notes                                                                                                                                          |
+| ----------------------- | ------------------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust tests              | targeted `cargo test` + strict Clippy      | passed             | engine, service, terminal, API, Relay lifecycle                                                                                                |
+| API types               | extract/check/test/typecheck               | passed             | 280 actions, 31 events                                                                                                                         |
+| Web tests               | 138 targeted `bun test` + typecheck + lint | passed             | UI, history, sorting, exact deep links, locate generation                                                                                      |
+| Electron                | full `bun test` + typecheck + build        | passed             | shell collector and IPC                                                                                                                        |
+| E2E                     | targeted Playwright                        | passed             | 4 tests: Host/sort/chart + real Terminal locate on Chromium/mobile                                                                             |
+| M10 process detail      | Rust/api-types/Web/Playwright              | passed             | 30 RM + 22 LS + 17 DTO + 118 Web tests; real listener port E2E                                                                                 |
+| M11 Host details        | Rust/api-types/Web/Playwright              | passed             | 15 engine + 34 RM + 17 API + 18 DTO + 126 Web tests; S20 E2E                                                                                   |
+| M12 Dither + Disk       | UI/Rust/api-types/Web/Playwright           | passed             | 45 UI + 27 engine + 36 RM + 17 API + 19 DTO + 136 Web tests                                                                                    |
+| UI refinement           | UI/Web/Playwright                          | passed             | 40 Dither + 139 Web tests; Web typecheck/lint; Host/Disk/Atmos App flow passed on Chromium and mobile Chromium                                 |
+| Gauge/Footer follow-up  | UI/Web/Playwright                          | passed             | 147 Bun tests; Web typecheck/lint; wide Gauge, hover transition, Footer order, and CPU/Memory alignment passed on Chromium and mobile Chromium |
+| Workspace/Footer polish | Web/Playwright                             | passed             | localized Workspace badge tests + Web typecheck; compact-to-expanded Footer width passed on Chromium and mobile Chromium                       |
+| Session-row hover       | Web typecheck + DOM test                   | passed             | rendered session row has no locate icon; chevron sits on the padded hover surface and only highlights its icon                                 |
+| Full repository         | `just test` / `just typecheck`             | unrelated failures | APP-066 surfaces pass; see `TEST.md` Coverage Status                                                                                           |
+| Agent Browser/manual    | exploratory                                | partial            | Connect gate blocked Agent Browser; host-specific checks remain                                                                                |
 
 ## Known Blockers
 

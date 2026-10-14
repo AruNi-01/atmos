@@ -23,7 +23,10 @@ export function settingsHeaderItem(onPress: () => void, tintColor: string): Nati
   };
 }
 
-export function workspaceFilterHeaderItem(onPress: () => void, tintColor: string): NativeStackHeaderItem {
+export function workspaceFilterHeaderItem(
+  onPress: () => void,
+  tintColor: string,
+): NativeStackHeaderItem {
   return {
     accessibilityLabel: "Filter",
     icon: { type: "sfSymbol", name: "line.3.horizontal.decrease" satisfies SFSymbol },

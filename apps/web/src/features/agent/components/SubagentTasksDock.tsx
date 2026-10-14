@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  MatrixOrb,
-} from "@workspace/ui";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, MatrixOrb } from "@workspace/ui";
 import { BotMessageSquare, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
@@ -71,7 +66,11 @@ export function SubagentTasksPanel({
       data-agent-subagent-tasks-panel=""
       className="flex min-h-0 w-full flex-col overflow-hidden rounded-3xl border border-border bg-background p-3 shadow-none"
     >
-      <Collapsible open={isOpen} onOpenChange={setIsOpen} className="flex min-h-0 flex-col overflow-hidden">
+      <Collapsible
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        className="flex min-h-0 flex-col overflow-hidden"
+      >
         <CollapsibleTrigger asChild>
           <button
             type="button"
@@ -127,7 +126,7 @@ export function SubagentTasksPanel({
                       {activity.busy ? (
                         <AgentActivityStatusText
                           activity={activity}
-                          className="min-w-0 max-w-full shrink-[9999] overflow-hidden text-muted-foreground"
+                          className="max-w-full min-w-0 shrink-[9999] overflow-hidden text-muted-foreground"
                         />
                       ) : null}
                     </span>

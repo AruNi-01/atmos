@@ -81,10 +81,7 @@ export function clockFromElapsedMs(elapsedMs: number, now = Date.now()): number 
 }
 
 /** User prompt sent → agent reply complete. Ignores missing or inverted clocks. */
-export function promptToCompleteMs(
-  start?: string | null,
-  end?: string | null,
-): number | undefined {
+export function promptToCompleteMs(start?: string | null, end?: string | null): number | undefined {
   if (!start || !end) return undefined;
   const from = Date.parse(start);
   const to = Date.parse(end);

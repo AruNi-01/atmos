@@ -30,9 +30,7 @@ mock.module("@workspace/ui", () => ({
     defaultOpen?: boolean;
     onOpenChange?: (open: boolean) => void;
     open?: boolean;
-  }) => (
-    <div {...props}>{children}</div>
-  ),
+  }) => <div {...props}>{children}</div>,
   CollapsibleContent: ({
     children,
     ...props
@@ -46,9 +44,7 @@ mock.module("@workspace/ui", () => ({
     <button {...props}>{children}</button>
   ),
   Popover: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-  PopoverContent: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  PopoverContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   PopoverTrigger: ({
     children,
     ...props
@@ -78,14 +74,11 @@ const spaceState: {
 } = { byHost: {} };
 
 mock.module("@/app-shell/center-space/center-space-store", () => ({
-  useCenterSpaceStore: (
-    selector: (state: typeof spaceState) => unknown,
-  ) => selector(spaceState),
+  useCenterSpaceStore: (selector: (state: typeof spaceState) => unknown) => selector(spaceState),
 }));
 
-const { ResourceMonitorHierarchy } = await import(
-  "@/features/resource-monitor/components/ResourceMonitorHierarchy"
-);
+const { ResourceMonitorHierarchy } =
+  await import("@/features/resource-monitor/components/ResourceMonitorHierarchy");
 
 const USAGE = {
   cpu_percent: 7.3,
@@ -135,10 +128,7 @@ const workspacePanes: LiveResourceSessionPanes = {
   },
 };
 
-function renderHierarchy(
-  root: Root | null,
-  panes: LiveResourceSessionPanes,
-) {
+function renderHierarchy(root: Root | null, panes: LiveResourceSessionPanes) {
   root?.render(
     <ResourceMonitorHierarchy
       sortKey="name"
@@ -227,9 +217,7 @@ describe("ResourceMonitorHierarchy session row hover", () => {
       `[data-resource-monitor-session][data-session-id="${SESSION_ID}"]`,
     );
     expect(session).not.toBeNull();
-    const row = session?.querySelector(
-      "[data-resource-monitor-session-row]",
-    ) as HTMLElement | null;
+    const row = session?.querySelector("[data-resource-monitor-session-row]") as HTMLElement | null;
     expect(row).not.toBeNull();
     expect(row?.className).toContain("hover:bg-accent");
     expect(row?.className).toContain("px-2");
@@ -262,22 +250,16 @@ describe("ResourceMonitorHierarchy session row hover", () => {
     expect(session?.querySelector("svg.lucide-locate")).toBeNull();
     expect(session?.innerHTML).not.toContain("lucide-locate");
     expect(session?.querySelector("[data-resource-monitor-space-badge]")).toBeNull();
-    expect(
-      session?.querySelector('[data-resource-monitor-session-kind="tui"]'),
-    ).not.toBeNull();
+    expect(session?.querySelector('[data-resource-monitor-session-kind="tui"]')).not.toBeNull();
     expect(session?.textContent).toContain("kindTui");
 
     await act(async () => {
-      trigger?.dispatchEvent(
-        new globalThis.window.Event("click", { bubbles: true }),
-      );
+      trigger?.dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
     });
     expect(onNavigate).not.toHaveBeenCalled();
 
     await act(async () => {
-      locate?.dispatchEvent(
-        new globalThis.window.Event("click", { bubbles: true }),
-      );
+      locate?.dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
     });
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
@@ -303,9 +285,7 @@ describe("ResourceMonitorHierarchy session row hover", () => {
       renderHierarchy(root, extraPanes);
     });
 
-    const badge = container.querySelector(
-      '[data-resource-monitor-space-badge="space-review"]',
-    );
+    const badge = container.querySelector('[data-resource-monitor-space-badge="space-review"]');
     expect(badge).not.toBeNull();
     expect(badge?.textContent).toContain("Review");
     expect(badge?.getAttribute("aria-label")).toContain("Review");
@@ -316,9 +296,7 @@ describe("ResourceMonitorHierarchy session row hover", () => {
     await act(async () => {
       renderHierarchy(root, extraPanes);
     });
-    expect(
-      container.querySelector("[data-resource-monitor-space-badge]"),
-    ).toBeNull();
+    expect(container.querySelector("[data-resource-monitor-space-badge]")).toBeNull();
   });
 
   it("lists a Chat UI session with a kind chip and jumps via agent status", async () => {
@@ -389,14 +367,10 @@ describe("ResourceMonitorHierarchy session row hover", () => {
     ) as HTMLButtonElement | null;
     expect(session).not.toBeNull();
     expect(session?.textContent).toContain("kindChatUi");
-    expect(
-      session?.querySelector('[data-resource-monitor-session-kind="chat"]'),
-    ).not.toBeNull();
+    expect(session?.querySelector('[data-resource-monitor-session-kind="chat"]')).not.toBeNull();
 
     await act(async () => {
-      session?.dispatchEvent(
-        new globalThis.window.Event("click", { bubbles: true }),
-      );
+      session?.dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
     });
     expect(onNavigate).toHaveBeenCalledTimes(1);
     const target = onNavigate.mock.calls[0]?.[0] as {

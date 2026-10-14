@@ -1,7 +1,4 @@
-import type {
-  WorkspacePriority,
-  WorkspaceWorkflowStatus,
-} from "@/shared/types/domain";
+import type { WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import {
   DEFAULT_KANBAN_CARD_PROPERTIES,
   resolveKanbanCardProperties,
@@ -12,10 +9,7 @@ import {
   type WorkspaceKanbanFilters,
 } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import { WORKSPACE_PRIORITY_OPTIONS } from "@/app-shell/sidebar/workspace-metadata-controls";
-import {
-  parseSidebarListView,
-  type SidebarListView,
-} from "@/app-shell/sidebar/sidebar-list-view";
+import { parseSidebarListView, type SidebarListView } from "@/app-shell/sidebar/sidebar-list-view";
 
 export { sidebarListViewToApply } from "@/app-shell/sidebar/sidebar-list-view";
 import { WORKSPACE_WORKFLOW_STATUS_OPTIONS } from "@/app-shell/sidebar/workspace-status";
@@ -69,16 +63,16 @@ export type { SidebarListView };
  * Sidebar list view only — do not read `workspace_kanban_view`.
  * Missing `workspace_sidebar.view` means the workspace list.
  */
-export function parseWorkspaceSidebarView(
-  settings: FunctionSettingsSnapshot,
-): SidebarListView {
+export function parseWorkspaceSidebarView(settings: FunctionSettingsSnapshot): SidebarListView {
   return parseSidebarListView(settings.workspace_sidebar?.view);
 }
 
 export function parseWorkspaceSidebarFilters(
   settings: FunctionSettingsSnapshot,
 ): WorkspaceKanbanFilters {
-  const availableStatusSet = new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value));
+  const availableStatusSet = new Set(
+    WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value),
+  );
   const availablePrioritySet = new Set(WORKSPACE_PRIORITY_OPTIONS.map((option) => option.value));
   const raw = settings.workspace_sidebar?.filters;
   const filters = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -110,7 +104,9 @@ export function parseWorkspaceSidebarFilters(
   };
 }
 
-export function parseWorkspaceKanbanCardProperties(settings: FunctionSettingsSnapshot): KanbanCardProperties {
+export function parseWorkspaceKanbanCardProperties(
+  settings: FunctionSettingsSnapshot,
+): KanbanCardProperties {
   return resolveKanbanCardProperties(workspaceKanbanViewState(settings));
 }
 

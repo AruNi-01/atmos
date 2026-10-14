@@ -16,13 +16,15 @@ Current workaround: external disk tools + manual `rm`/`trash`, with no Atmos pro
 ## Options
 
 ### Option A — Management Center module over Atmos Server WS
+
 Ship a `/disk-analyzer` view opened from Management Center. Rust in `core-engine` walks the filesystem (parallel disk-usage scan), API broadcasts progress over WebSocket, web renders Sunburst/Treemap with ECharts. Deletion goes through the same local server (trash-first).
 
 **Pros**: Works for Desktop and local Web the same way; reuses existing Management Center + WS patterns; project/workspace marking can use existing DB paths.
-**Cons**: Large trees need pruning/streaming; remote Relay use is awkward (scanning the *server* disk, not the browser machine).
+**Cons**: Large trees need pruning/streaming; remote Relay use is awkward (scanning the _server_ disk, not the browser machine).
 **Unknown**: How aggressive visualization pruning must be for multi-million-file homes.
 
 ### Option B — Tauri-only native commands
+
 Scan and delete only via Desktop Tauri `invoke` + events; skip web/API.
 
 **Pros**: Strongest local FS permissions story; no WS payload size concerns for remote clients.
@@ -30,6 +32,7 @@ Scan and delete only via Desktop Tauri `invoke` + events; skip web/API.
 **Unknown**: Whether Desktop fs scope alone is enough for home-directory scans.
 
 ### Option C — Thin wrapper around an external CLI (`dust` / `dua` / `ncdu`)
+
 Shell out, parse text/JSON, visualize in UI.
 
 **Pros**: Fast to prototype visualization.

@@ -1,17 +1,11 @@
-'use client';
+"use client";
 
-import { useTranslations } from 'next-intl';
-import { AnimatePresence, motion } from 'motion/react';
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  cn,
-} from '@workspace/ui';
-import { AlertCircle, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { useTranslations } from "next-intl";
+import { AnimatePresence, motion } from "motion/react";
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from "@workspace/ui";
+import { AlertCircle, ArrowRight, Loader2, RefreshCw } from "lucide-react";
 
-export type OnboardingStepId = 'intro' | 'check' | 'agents' | 'quota' | 'project';
+export type OnboardingStepId = "intro" | "check" | "agents" | "quota" | "project";
 
 export interface OnboardingStepActionsProps {
   step: OnboardingStepId;
@@ -55,7 +49,7 @@ export function OnboardingStepActions({
   isSubmitting,
   projectFormId,
 }: OnboardingStepActionsProps) {
-  const t = useTranslations('onboarding');
+  const t = useTranslations("onboarding");
 
   return (
     <div className="relative min-h-11 overflow-hidden">
@@ -66,50 +60,50 @@ export function OnboardingStepActions({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 4 }}
           transition={{
-            type: 'spring',
+            type: "spring",
             stiffness: 480,
             damping: 32,
             mass: 0.65,
             opacity: { duration: 0.12 },
           }}
-          className="flex flex-wrap items-center gap-3 origin-left"
+          className="flex origin-left flex-wrap items-center gap-3"
         >
-          {step === 'intro' && (
+          {step === "intro" && (
             <Button
-              onClick={() => onGoToStep('check')}
-              className="rounded-full px-6 font-medium gap-2 group cursor-pointer"
+              onClick={() => onGoToStep("check")}
+              className="group cursor-pointer gap-2 rounded-full px-6 font-medium"
             >
-              {t('intro.next')}
+              {t("intro.next")}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Button>
           )}
 
-          {step === 'check' && (
+          {step === "check" && (
             <>
               <Button
-                onClick={() => onGoToStep('agents')}
-                className="rounded-full px-6 font-medium cursor-pointer"
+                onClick={() => onGoToStep("agents")}
+                className="cursor-pointer rounded-full px-6 font-medium"
                 disabled={envChecking || hasMissingDeps}
               >
-                {t('check.next')}
+                {t("check.next")}
               </Button>
               <Button
                 variant="outline"
                 onClick={onRecheckEnv}
                 disabled={envChecking}
-                className="rounded-full px-6 font-medium gap-2 border-border/40 hover:bg-muted/20 cursor-pointer"
+                className="cursor-pointer gap-2 rounded-full border-border/40 px-6 font-medium hover:bg-muted/20"
               >
-                <RefreshCw className={cn('size-3.5', envChecking && 'animate-spin')} />
-                {t('check.recheck')}
+                <RefreshCw className={cn("size-3.5", envChecking && "animate-spin")} />
+                {t("check.recheck")}
               </Button>
               {hasMissingDeps && !envChecking ? (
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                      className="cursor-pointer rounded-full px-4 text-xs text-muted-foreground hover:text-foreground"
                     >
-                      {t('check.skip')}
+                      {t("check.skip")}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent
@@ -119,104 +113,104 @@ export function OnboardingStepActions({
                     <div className="space-y-1.5">
                       <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                         <AlertCircle className="size-3.5 shrink-0 text-amber-500" />
-                        {t('check.skipWarning.title')}
+                        {t("check.skipWarning.title")}
                       </p>
                       <p className="text-xs leading-relaxed text-muted-foreground">
-                        {t('check.skipWarning.description')}
+                        {t("check.skipWarning.description")}
                       </p>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => onGoToStep('agents')}
+                      onClick={() => onGoToStep("agents")}
                       className="w-full cursor-pointer rounded-full text-xs"
                     >
-                      {t('check.skipWarning.confirm')}
+                      {t("check.skipWarning.confirm")}
                     </Button>
                   </PopoverContent>
                 </Popover>
               ) : (
                 <Button
                   variant="ghost"
-                  onClick={() => onGoToStep('agents')}
+                  onClick={() => onGoToStep("agents")}
                   disabled={envChecking}
-                  className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                  className="cursor-pointer rounded-full px-4 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  {t('check.skip')}
+                  {t("check.skip")}
                 </Button>
               )}
             </>
           )}
 
-          {step === 'agents' && (
+          {step === "agents" && (
             <>
               <Button
                 onClick={onAgentsContinue}
                 disabled={agentsChecking || agentsSaving}
-                className="rounded-full px-6 font-medium cursor-pointer"
+                className="cursor-pointer rounded-full px-6 font-medium"
               >
                 {agentsSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                {t('agents.next')}
+                {t("agents.next")}
               </Button>
               <Button
                 variant="outline"
                 onClick={onRecheckAgents}
                 disabled={agentsChecking || agentsSaving}
-                className="rounded-full px-6 font-medium gap-2 border-border/40 hover:bg-muted/20 cursor-pointer"
+                className="cursor-pointer gap-2 rounded-full border-border/40 px-6 font-medium hover:bg-muted/20"
               >
-                <RefreshCw className={cn('size-3.5', agentsChecking && 'animate-spin')} />
-                {t('agents.recheck')}
+                <RefreshCw className={cn("size-3.5", agentsChecking && "animate-spin")} />
+                {t("agents.recheck")}
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => onGoToStep('quota')}
+                onClick={() => onGoToStep("quota")}
                 disabled={agentsSaving}
-                className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                className="cursor-pointer rounded-full px-4 text-xs text-muted-foreground hover:text-foreground"
               >
-                {t('agents.skip')}
+                {t("agents.skip")}
               </Button>
             </>
           )}
 
-          {step === 'quota' && (
+          {step === "quota" && (
             <>
               <Button
                 onClick={onQuotaContinue}
                 disabled={quotaSaving}
-                className="rounded-full px-6 font-medium cursor-pointer"
+                className="cursor-pointer rounded-full px-6 font-medium"
               >
                 {quotaSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                {t('quota.next')}
+                {t("quota.next")}
               </Button>
               <Button
                 variant="ghost"
                 onClick={onQuotaSkip}
                 disabled={quotaSaving}
-                className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                className="cursor-pointer rounded-full px-4 text-xs text-muted-foreground hover:text-foreground"
               >
-                {t('quota.skip')}
+                {t("quota.skip")}
               </Button>
             </>
           )}
 
-          {step === 'project' && (
+          {step === "project" && (
             <>
               <Button
                 type="submit"
                 form={projectFormId}
                 disabled={!canSubmitProject}
-                className="rounded-full px-6 font-medium cursor-pointer"
+                className="cursor-pointer rounded-full px-6 font-medium"
               >
                 {isSubmitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                {t('project.submit')}
+                {t("project.submit")}
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={onComplete}
-                className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                className="cursor-pointer rounded-full px-4 text-xs text-muted-foreground hover:text-foreground"
               >
-                {t('project.next')}
+                {t("project.next")}
               </Button>
             </>
           )}

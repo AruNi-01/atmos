@@ -73,22 +73,22 @@
 
 ### 分层设计
 
-| 层级           | 技术栈                                  | 职责              |
-| ------------ | ------------------------------------ | --------------- |
+| 层级            | 技术栈                               | 职责                        |
+| --------------- | ------------------------------------ | --------------------------- |
 | **表现层**      | React, Next.js, TypeScript           | UI 组件、状态管理、用户交互 |
-| **终端渲染**     | Xterm.js                          | 高性能终端模拟与渲染      |
-| **窗口管理**     | react-resizable-panels + @dnd-kit    | 灵活的面板布局与拖拽      |
-| **编辑与 Diff** | monaco-editor, diffs.com             | 文本编辑与代码审查       |
-| **通信层**      | WebSocket (Axum + tokio-tungstenite) | 实时双向通信          |
-| **业务逻辑**     | Rust (Axum)                          | 项目/工作区管理、Git 操作 |
-| **终端管理**     | PTY (portable-pty) + tmux            | 伪终端创建与会话持久化     |
-| **数据持久化**    | SQLite (SeaORM)                      | 本地元数据与配置存储      |
+| **终端渲染**    | Xterm.js                             | 高性能终端模拟与渲染        |
+| **窗口管理**    | react-resizable-panels + @dnd-kit    | 灵活的面板布局与拖拽        |
+| **编辑与 Diff** | monaco-editor, diffs.com             | 文本编辑与代码审查          |
+| **通信层**      | WebSocket (Axum + tokio-tungstenite) | 实时双向通信                |
+| **业务逻辑**    | Rust (Axum)                          | 项目/工作区管理、Git 操作   |
+| **终端管理**    | PTY (portable-pty) + tmux            | 伪终端创建与会话持久化      |
+| **数据持久化**  | SQLite (SeaORM)                      | 本地元数据与配置存储        |
 
 ### 项目目录结构
 
 所有项目组件统一组织在 Monorepo 中，便于版本管理、依赖协调和 AI Agent 访问：
 
-```
+````
 atmos/
 │
 ├── crates/                          # 🔧 Rust 共享包
@@ -530,7 +530,7 @@ atmos/
         └──────────┴──────────┴──────────┘
                    │
           (所有连接都在 WsManager 中)
-```
+````
 
 消息流向：
 

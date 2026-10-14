@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import { fsApi } from '@/api/ws-api';
+import { create } from "zustand";
+import { fsApi } from "@/api/ws-api";
 
-const LAYOUT_PATH = '~/.atmos/layout/agent_chat_panel.json';
+const LAYOUT_PATH = "~/.atmos/layout/agent_chat_panel.json";
 
 interface PanelLayout {
   x: number;
@@ -46,31 +46,35 @@ export const useAgentChatLayoutStore = create<AgentChatLayoutStore>((set, get) =
   loadLayout: () => {
     if (get().loaded || _layoutLoading) return;
     _layoutLoading = true;
-    fsApi.readFile(LAYOUT_PATH).then((res) => {
-      if (res.exists && res.content) {
-        try {
-          const parsed = JSON.parse(res.content) as Partial<PanelLayout>;
-          set({
-            layout: {
-              x: parsed.x ?? DEFAULT_LAYOUT.x,
-              y: parsed.y ?? DEFAULT_LAYOUT.y,
-              width: parsed.width ?? DEFAULT_LAYOUT.width,
-              height: parsed.height ?? DEFAULT_LAYOUT.height,
-              opacity: parsed.opacity ?? DEFAULT_LAYOUT.opacity,
-            },
-            loaded: true,
-          });
-        } catch {
+    fsApi
+      .readFile(LAYOUT_PATH)
+      .then((res) => {
+        if (res.exists && res.content) {
+          try {
+            const parsed = JSON.parse(res.content) as Partial<PanelLayout>;
+            set({
+              layout: {
+                x: parsed.x ?? DEFAULT_LAYOUT.x,
+                y: parsed.y ?? DEFAULT_LAYOUT.y,
+                width: parsed.width ?? DEFAULT_LAYOUT.width,
+                height: parsed.height ?? DEFAULT_LAYOUT.height,
+                opacity: parsed.opacity ?? DEFAULT_LAYOUT.opacity,
+              },
+              loaded: true,
+            });
+          } catch {
+            set({ loaded: true });
+          }
+        } else {
           set({ loaded: true });
         }
-      } else {
+      })
+      .catch(() => {
         set({ loaded: true });
-      }
-    }).catch(() => {
-      set({ loaded: true });
-    }).finally(() => {
-      _layoutLoading = false;
-    });
+      })
+      .finally(() => {
+        _layoutLoading = false;
+      });
   },
 
   updateLayout: (partial) => {

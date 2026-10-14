@@ -97,9 +97,7 @@ describe("host session filters", () => {
       }),
     ).toBe(1);
     expect(hostSessionFilterCount(EMPTY_HOST_SESSION_FILTERS)).toBe(0);
-    expect(
-      hostSessionFilterCount({ ...EMPTY_HOST_SESSION_FILTERS, showArchived: true }),
-    ).toBe(1);
+    expect(hostSessionFilterCount({ ...EMPTY_HOST_SESSION_FILTERS, showArchived: true })).toBe(1);
   });
 
   test("collects filter options and Atmos Chat tags", () => {
@@ -114,10 +112,10 @@ describe("host session filters", () => {
     expect(hostSessionHref("claude:a", { seq: -1 })).toBe("/agent-sessions?key=claude%3Aa");
     expect(hostSessionHref(null)).toBe("/agent-sessions");
     expect(
-      hostSessionMessageIndex(
-        [{ id: "a" }, { id: "u1" }, { id: "b" }],
-        { messageId: "u1", seq: 0 },
-      ),
+      hostSessionMessageIndex([{ id: "a" }, { id: "u1" }, { id: "b" }], {
+        messageId: "u1",
+        seq: 0,
+      }),
     ).toBe(1);
     expect(
       hostSessionMessageIndex([{ id: "a" }, { id: "b" }], { messageId: "missing", seq: 1 }),

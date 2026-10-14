@@ -1,4 +1,12 @@
-import { cpSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -147,7 +155,9 @@ function buildStaticWebExport(runtimeVersion) {
         BUILD_TARGET: "local-web",
         NEXT_PUBLIC_BUILD_TARGET: "local-web",
         NEXT_PUBLIC_APP_VERSION: runtimeVersion,
-        NEXT_PUBLIC_TLDRAW_LICENSE_KEY: process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ?? loadWebEnvVar("NEXT_PUBLIC_TLDRAW_LICENSE_KEY"),
+        NEXT_PUBLIC_TLDRAW_LICENSE_KEY:
+          process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ??
+          loadWebEnvVar("NEXT_PUBLIC_TLDRAW_LICENSE_KEY"),
         ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
       },
     });

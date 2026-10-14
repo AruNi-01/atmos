@@ -1,23 +1,9 @@
 "use client";
 
-import {
-  useCallback,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "../../lib/utils";
-import {
-  bandColor,
-  hash,
-  smoothstep,
-  type DitherTheme,
-} from "../../lib/dither/math";
-import {
-  createSeriesMorph,
-  seriesSignature,
-  type SeriesMorph,
-} from "../../lib/dither/morph";
+import { bandColor, hash, smoothstep, type DitherTheme } from "../../lib/dither/math";
+import { createSeriesMorph, seriesSignature, type SeriesMorph } from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
@@ -90,9 +76,7 @@ export function DitherShareBar({
 
   // Signature includes ids so reordering / membership changes retarget cleanly.
   // Retarget during render so the first paint already has morph state (ref-only).
-  const segsKey = segments
-    .map((s) => `${s.id}:${seriesSignature([s.value])}`)
-    .join("|");
+  const segsKey = segments.map((s) => `${s.id}:${seriesSignature([s.value])}`).join("|");
   if (sigRef.current !== segsKey) {
     const next = segments.map((s) => s.value);
     const prevLen = morphRef.current.current().length;
@@ -123,9 +107,7 @@ export function DitherShareBar({
       if (segs.length === 0 || w < 2 || h < 2) return;
 
       const n = Math.min(segs.length, values.length || segs.length);
-      const total = values
-        .slice(0, n)
-        .reduce((s, v) => s + Math.max(0, v), 0);
+      const total = values.slice(0, n).reduce((s, v) => s + Math.max(0, v), 0);
       if (total <= 0) return;
 
       const cell = Math.max(2, Math.round(w / 220));
@@ -138,11 +120,7 @@ export function DitherShareBar({
       }
       const target = targetIdxRef.current;
       for (let i = 0; i < n; i++) {
-        weightsRef.current[i] = smoothToward(
-          weightsRef.current[i]!,
-          target === i ? 1 : 0,
-          rate,
-        );
+        weightsRef.current[i] = smoothToward(weightsRef.current[i]!, target === i ? 1 : 0, rate);
       }
 
       // Track for hit-test: cumulative widths
@@ -183,8 +161,7 @@ export function DitherShareBar({
             const jx = bx + cell / 2;
             const jy = by + cell / 2;
             const jit = hash(jx, jy);
-            const waveRaw =
-              Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
+            const waveRaw = Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
             const mod = smoothstep(-1.5, 1.5, waveRaw);
             const sz = cell * (0.35 + 0.35 * mod) * (0.8 + 0.4 * jit);
             ctx.fillRect(bx + (cell - sz) / 2, by + (cell - sz) / 2, sz, sz);
@@ -200,10 +177,7 @@ export function DitherShareBar({
       if (target !== null && segs[target]) {
         const seg = segs[target]!;
         const displayVal = Math.max(0, seg.value);
-        const targetTotal = segs.reduce(
-          (sum, s) => sum + Math.max(0, s.value),
-          0,
-        );
+        const targetTotal = segs.reduce((sum, s) => sum + Math.max(0, s.value), 0);
         const share = targetTotal > 0 ? displayVal / targetTotal : 0;
         // Content identity only — pointer moves always refresh position.
         const contentKey = `${seg.id}:${displayVal}:${share}`;
@@ -245,9 +219,11 @@ export function DitherShareBar({
       }
 
       // Stash layout for pointer hit-test
-      (canvasRef.current as HTMLCanvasElement & {
-        __shareLayout?: typeof layout;
-      }).__shareLayout = layout;
+      (
+        canvasRef.current as HTMLCanvasElement & {
+          __shareLayout?: typeof layout;
+        }
+      ).__shareLayout = layout;
     },
     [theme],
   );
@@ -281,7 +257,7 @@ export function DitherShareBar({
   };
 
   return (
-    <div className={cn("relative h-full w-full min-h-0", className)}>
+    <div className={cn("relative h-full min-h-0 w-full", className)}>
       <canvas
         ref={canvasRef}
         className="block h-full max-h-full w-full touch-none"

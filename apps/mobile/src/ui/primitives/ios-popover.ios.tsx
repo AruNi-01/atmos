@@ -1,14 +1,18 @@
-import {
-  ArrowEdge,
-  Popover,
-  PopoverBackground,
-  TriggerType,
-} from "expo-ios-popover";
-import type { IosPopoverDirection, IosPopoverProps, IosPopoverTriggerKind } from "./ios-popover.types";
+import { ArrowEdge, Popover, PopoverBackground, TriggerType } from "expo-ios-popover";
+import type {
+  IosPopoverDirection,
+  IosPopoverProps,
+  IosPopoverTriggerKind,
+} from "./ios-popover.types";
 import { POPOVER_PRESENT_ANIMATION } from "./ios-popover.types";
 
 export { POPOVER_PRESENT_ANIMATION } from "./ios-popover.types";
-export type { IosPopoverBackground, IosPopoverDirection, IosPopoverProps, IosPopoverTriggerKind } from "./ios-popover.types";
+export type {
+  IosPopoverBackground,
+  IosPopoverDirection,
+  IosPopoverProps,
+  IosPopoverTriggerKind,
+} from "./ios-popover.types";
 
 const BACKGROUND: Record<NonNullable<IosPopoverProps["background"]>, PopoverBackground> = {
   blur: PopoverBackground.Blur,

@@ -40,7 +40,9 @@ export interface AutomationTriggerInput {
 
 const MAX_INT64 = "9223372036854775807";
 
-export function parseGithubTriggerConfig(raw: string | null | undefined): GithubTriggerConfig | null {
+export function parseGithubTriggerConfig(
+  raw: string | null | undefined,
+): GithubTriggerConfig | null {
   if (!raw) {
     return null;
   }
@@ -93,7 +95,8 @@ function normalizeGithubTriggerFilters(value: unknown): GithubTriggerFilters {
   const filters = value as GithubTriggerFilters;
   return {
     branch: typeof filters.branch === "string" ? filters.branch : null,
-    comment_contains: typeof filters.comment_contains === "string" ? filters.comment_contains : null,
+    comment_contains:
+      typeof filters.comment_contains === "string" ? filters.comment_contains : null,
     comment_contains_any: Array.isArray(filters.comment_contains_any)
       ? filters.comment_contains_any.filter((value): value is string => typeof value === "string")
       : [],
@@ -103,7 +106,9 @@ function normalizeGithubTriggerFilters(value: unknown): GithubTriggerFilters {
       : [],
     workflow_name: typeof filters.workflow_name === "string" ? filters.workflow_name : null,
     workflow_conclusions: Array.isArray(filters.workflow_conclusions)
-      ? filters.workflow_conclusions.filter((conclusion): conclusion is string => typeof conclusion === "string")
+      ? filters.workflow_conclusions.filter(
+          (conclusion): conclusion is string => typeof conclusion === "string",
+        )
       : [],
   };
 }

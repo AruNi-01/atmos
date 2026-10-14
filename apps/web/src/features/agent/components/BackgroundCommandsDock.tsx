@@ -32,15 +32,14 @@ function outputFor(part: AgentToolCallPart): string {
 }
 
 function lastOutputLine(output: string): string {
-  const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const lines = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
   return lines.at(-1) ?? "";
 }
 
-export function BackgroundCommandsDock({
-  tools,
-}: {
-  tools: AgentToolCallPart[];
-}) {
+export function BackgroundCommandsDock({ tools }: { tools: AgentToolCallPart[] }) {
   const t = useTranslations("Agent.components.backgroundCommands");
   const [isOpen, setIsOpen] = useState(true);
   if (tools.length === 0) return null;
@@ -76,12 +75,14 @@ export function BackgroundCommandsDock({
                       >
                         <span className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground">
                           <Terminal className="size-3.5" />
-                          <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-emerald-500" />
+                          <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-500" />
                         </span>
                         <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/80">
                           {preview ? `${label} · ${preview}` : label}
                         </span>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">{t("running")}</span>
+                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                          {t("running")}
+                        </span>
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
@@ -105,13 +106,15 @@ export function BackgroundCommandsDock({
                           >
                             <AcpTerminalContent
                               className={cn(
-                                "max-h-none overflow-visible p-0 px-3 pb-2.5 pt-1 text-[13px] leading-5 text-muted-foreground",
+                                "max-h-none overflow-visible p-0 px-3 pt-1 pb-2.5 text-[13px] leading-5 text-muted-foreground",
                                 !command && "pt-2.5",
                               )}
                             />
                           </AcpTerminal>
                         ) : (
-                          <p className="px-3 py-2 text-xs text-muted-foreground">{t("emptyOutput")}</p>
+                          <p className="px-3 py-2 text-xs text-muted-foreground">
+                            {t("emptyOutput")}
+                          </p>
                         )}
                       </div>
                     </PopoverContent>

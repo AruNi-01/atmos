@@ -21,9 +21,7 @@ export function CanvasAgentCrashProvider({
   children: React.ReactNode;
 }) {
   return (
-    <CanvasAgentCrashContext.Provider value={value}>
-      {children}
-    </CanvasAgentCrashContext.Provider>
+    <CanvasAgentCrashContext.Provider value={value}>{children}</CanvasAgentCrashContext.Provider>
   );
 }
 

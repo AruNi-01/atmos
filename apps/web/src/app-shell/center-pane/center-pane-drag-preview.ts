@@ -11,10 +11,7 @@ export function panePreviewBoxRelativeToLeaf(
   };
 }
 
-export function isUsablePreviewRect(rect: {
-  width: number;
-  height: number;
-}): boolean {
+export function isUsablePreviewRect(rect: { width: number; height: number }): boolean {
   return rect.width >= 8 && rect.height >= 8;
 }
 
@@ -42,9 +39,7 @@ function copyCanvasPixels(source: HTMLCanvasElement, dest: HTMLCanvasElement) {
 
 function sanitizePreviewClone(clone: HTMLElement) {
   clone.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
-  clone
-    .querySelectorAll("script, [data-center-pane-drag-handle]")
-    .forEach((node) => node.remove());
+  clone.querySelectorAll("script, [data-center-pane-drag-handle]").forEach((node) => node.remove());
   clone.style.pointerEvents = "none";
   clone.setAttribute("aria-hidden", "true");
 }
@@ -66,10 +61,7 @@ function cloneWithCanvasPixels(source: HTMLElement): HTMLElement {
  * leaf plus overlay content (terminal/editor/files) that actually paints
  * in the sibling panel host.
  */
-export function buildCenterPaneLivePreview(
-  leaf: HTMLElement,
-  paneId: string,
-): HTMLElement | null {
+export function buildCenterPaneLivePreview(leaf: HTMLElement, paneId: string): HTMLElement | null {
   if (typeof document === "undefined") return null;
   const leafRect = leaf.getBoundingClientRect();
   if (!isUsablePreviewRect(leafRect)) return null;
@@ -80,8 +72,7 @@ export function buildCenterPaneLivePreview(
   host.style.width = `${leafRect.width}px`;
   host.style.height = `${leafRect.height}px`;
   host.style.overflow = "hidden";
-  host.style.background =
-    getComputedStyle(leaf).backgroundColor || "var(--background)";
+  host.style.background = getComputedStyle(leaf).backgroundColor || "var(--background)";
   host.style.pointerEvents = "none";
 
   const leafClone = cloneWithCanvasPixels(leaf);

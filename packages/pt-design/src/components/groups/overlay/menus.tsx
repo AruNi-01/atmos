@@ -16,10 +16,7 @@ function itemsOf(node: PtNode, fallback: PtOption[]): PtOption[] {
   return node.options && node.options.length > 0 ? node.options : fallback;
 }
 
-function MenuButton(props: {
-  option: PtOption;
-  onPick: (value: string) => void;
-}): ReactElement {
+function MenuButton(props: { option: PtOption; onPick: (value: string) => void }): ReactElement {
   return (
     <button
       type="button"
@@ -45,7 +42,9 @@ function MenuButton(props: {
   );
 }
 
-function DropdownMenu(props: PtRendererProps & { heading: string; fallback: PtOption[] }): ReactElement {
+function DropdownMenu(
+  props: PtRendererProps & { heading: string; fallback: PtOption[] },
+): ReactElement {
   const [open, setOpen] = useOverlayOpen(props.mode);
   const visible = overlayVisible(props.mode, open);
   const heading = propString(props.node, "label", props.heading);
@@ -174,7 +173,8 @@ function BarMenu(props: PtRendererProps & { fallback: PtOption[]; role: string }
               padding: "6px 10px",
               fontSize: 13,
               fontWeight: 500,
-              background: option.value === (resolvedKey ?? selected) ? overlayTokens.mutedBg : "transparent",
+              background:
+                option.value === (resolvedKey ?? selected) ? overlayTokens.mutedBg : "transparent",
               color: overlayTokens.fg,
               fontFamily: overlayTokens.font,
               textTransform: "none",
@@ -225,8 +225,15 @@ export const dropdownMenuModule: PtComponentModule = {
   type: "dropdown-menu",
   defaultBBox: { width: 220, height: 180 },
   defaultNode: (id) =>
-    spatialNode("dropdown-menu", id, { width: 220, height: 180 }, { label: "File" }, { options: FILE_ITEMS, value: "open" }),
-  agentDescription: "In-place dropdown menu with clickable items. Expanded inside the overlay box; never an OS popup or document portal.",
+    spatialNode(
+      "dropdown-menu",
+      id,
+      { width: 220, height: 180 },
+      { label: "File" },
+      { options: FILE_ITEMS, value: "open" },
+    ),
+  agentDescription:
+    "In-place dropdown menu with clickable items. Expanded inside the overlay box; never an OS popup or document portal.",
   xmlExample: `<dropdown-menu id="file-menu" label="File" value="open" x="24" y="24" width="220" height="180">
   <option value="open">Open</option>
   <option value="save">Save</option>
@@ -247,7 +254,8 @@ export const contextMenuModule: PtComponentModule = {
       { label: "Context menu" },
       { options: CONTEXT_ITEMS, value: "copy" },
     ),
-  agentDescription: "In-place context menu with clickable items inside the overlay box. Never a document portal.",
+  agentDescription:
+    "In-place context menu with clickable items inside the overlay box. Never a document portal.",
   xmlExample: `<context-menu id="canvas-menu" label="Context menu" value="copy" x="24" y="24" width="220" height="180">
   <option value="cut">Cut</option>
   <option value="copy">Copy</option>
@@ -261,8 +269,15 @@ export const menubarModule: PtComponentModule = {
   type: "menubar",
   defaultBBox: { width: 420, height: 160 },
   defaultNode: (id) =>
-    spatialNode("menubar", id, { width: 420, height: 160 }, { label: "Menubar" }, { options: BAR_ITEMS, value: "file" }),
-  agentDescription: "In-place menubar with always-visible items. Clicking an item commits value. Never a document portal.",
+    spatialNode(
+      "menubar",
+      id,
+      { width: 420, height: 160 },
+      { label: "Menubar" },
+      { options: BAR_ITEMS, value: "file" },
+    ),
+  agentDescription:
+    "In-place menubar with always-visible items. Clicking an item commits value. Never a document portal.",
   xmlExample: `<menubar id="app-menu" label="Menubar" value="file" x="24" y="24" width="420" height="160">
   <option value="file">File</option>
   <option value="edit">Edit</option>
@@ -283,7 +298,8 @@ export const navigationMenuModule: PtComponentModule = {
       { label: "Navigation" },
       { options: NAV_ITEMS, value: "home" },
     ),
-  agentDescription: "In-place navigation menu with clickable links expanded inside the overlay box. Never a document portal.",
+  agentDescription:
+    "In-place navigation menu with clickable links expanded inside the overlay box. Never a document portal.",
   xmlExample: `<navigation-menu id="site-nav" label="Navigation" value="home" x="24" y="24" width="420" height="160">
   <option value="home">Home</option>
   <option value="docs">Docs</option>

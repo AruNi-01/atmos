@@ -1,19 +1,8 @@
 "use client";
 
 import { Check, Loader2, X } from "lucide-react";
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-  type Variants,
-} from "motion/react";
-import {
-  forwardRef,
-  type ReactNode,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
+import { forwardRef, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { EASE_OUT, SPRING_SWAP } from "../../../lib/ease";
 import { Button, type ButtonProps } from "./base";
 
@@ -84,13 +73,7 @@ function IconSlot({ keyId, children }: { keyId: string; children: ReactNode }) {
   );
 }
 
-function TextSlot({
-  value,
-  children,
-}: {
-  value: string;
-  children: ReactNode;
-}) {
+function TextSlot({ value, children }: { value: string; children: ReactNode }) {
   const reduce = useReducedMotion();
   const measureRef = useRef<HTMLSpanElement>(null);
   const [width, setWidth] = useState<number>();
@@ -111,13 +94,9 @@ function TextSlot({
       initial={false}
       animate={{ width }}
       transition={reduce ? { duration: 0 } : SPRING_SWAP}
-      className="relative inline-block overflow-hidden whitespace-nowrap align-bottom"
+      className="relative inline-block overflow-hidden align-bottom whitespace-nowrap"
     >
-      <span
-        ref={measureRef}
-        aria-hidden
-        className="invisible inline-block whitespace-nowrap"
-      >
+      <span ref={measureRef} aria-hidden className="invisible inline-block whitespace-nowrap">
         {cascade
           ? label.split("").map((char, index) => (
               <span
@@ -141,7 +120,7 @@ function TextSlot({
               initial="initial"
               animate="animate"
               exit="exit"
-              className="absolute left-0 top-0 inline-block whitespace-pre"
+              className="absolute top-0 left-0 inline-block whitespace-pre"
             >
               {label.split("").map((char, index) => (
                 <motion.span
@@ -165,7 +144,7 @@ function TextSlot({
             animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -14, filter: ROLL_BLUR }}
             transition={reduce ? { duration: 0.15 } : SPRING_SWAP}
-            className="absolute left-0 top-0 inline-block will-change-[opacity,filter,transform]"
+            className="absolute top-0 left-0 inline-block will-change-[opacity,filter,transform]"
           >
             {children}
           </motion.span>
@@ -175,63 +154,68 @@ function TextSlot({
   );
 }
 
-export const StatefulButton = forwardRef<HTMLButtonElement, StatefulButtonProps>(function StatefulButton(
-  {
-    state = "idle",
-    children,
-    loadingText = "Loading",
-    successText = "Done",
-    errorText = "Try again",
-    icon,
-    disabled,
-    ...rest
-  },
-  ref,
-) {
-  const isBusy = state === "loading";
-  const stateText =
-    state === "loading"
-      ? loadingText
-      : state === "success"
-        ? successText
-        : state === "error"
-        ? errorText
-        : children;
-  const textKey =
-    typeof stateText === "string" ? `${state}-${stateText}` : state;
+export const StatefulButton = forwardRef<HTMLButtonElement, StatefulButtonProps>(
+  function StatefulButton(
+    {
+      state = "idle",
+      children,
+      loadingText = "Loading",
+      successText = "Done",
+      errorText = "Try again",
+      icon,
+      disabled,
+      ...rest
+    },
+    ref,
+  ) {
+    const isBusy = state === "loading";
+    const stateText =
+      state === "loading"
+        ? loadingText
+        : state === "success"
+          ? successText
+          : state === "error"
+            ? errorText
+            : children;
+    const textKey = typeof stateText === "string" ? `${state}-${stateText}` : state;
 
-  return (
-    <Button ref={ref} disabled={disabled || isBusy} aria-busy={isBusy} whileHover={undefined} {...rest}>
-      <span
-        aria-live="polite"
-        className="relative inline-flex items-center justify-center overflow-hidden"
+    return (
+      <Button
+        ref={ref}
+        disabled={disabled || isBusy}
+        aria-busy={isBusy}
+        whileHover={undefined}
+        {...rest}
       >
-        <AnimatePresence initial={false}>
-          {state === "loading" ? (
-            <IconSlot keyId="loading-icon">
-              <Loader2 className="h-4 w-4 animate-spin" />
-            </IconSlot>
-          ) : null}
-          {state === "success" ? (
-            <IconSlot keyId="success-icon">
-              <Check className="h-4 w-4" />
-            </IconSlot>
-          ) : null}
-          {state === "error" ? (
-            <IconSlot keyId="error-icon">
-              <X className="h-4 w-4" />
-            </IconSlot>
-          ) : null}
-        </AnimatePresence>
+        <span
+          aria-live="polite"
+          className="relative inline-flex items-center justify-center overflow-hidden"
+        >
+          <AnimatePresence initial={false}>
+            {state === "loading" ? (
+              <IconSlot keyId="loading-icon">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </IconSlot>
+            ) : null}
+            {state === "success" ? (
+              <IconSlot keyId="success-icon">
+                <Check className="h-4 w-4" />
+              </IconSlot>
+            ) : null}
+            {state === "error" ? (
+              <IconSlot keyId="error-icon">
+                <X className="h-4 w-4" />
+              </IconSlot>
+            ) : null}
+          </AnimatePresence>
 
-        <TextSlot value={textKey}>{stateText}</TextSlot>
+          <TextSlot value={textKey}>{stateText}</TextSlot>
 
-        <AnimatePresence initial={false}>
-          {state === "idle" && icon ? (
-            <IconSlot keyId="idle-icon">{icon}</IconSlot>
-          ) : null}
-        </AnimatePresence>
-      </span>
-    </Button>
-  );
-});
+          <AnimatePresence initial={false}>
+            {state === "idle" && icon ? <IconSlot keyId="idle-icon">{icon}</IconSlot> : null}
+          </AnimatePresence>
+        </span>
+      </Button>
+    );
+  },
+);

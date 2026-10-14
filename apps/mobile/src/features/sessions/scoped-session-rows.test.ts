@@ -47,7 +47,9 @@ describe("scoped session rows", () => {
     ];
 
     expect(rowsInScope(rows, new Set(["ws"])).map((item) => item.id)).toEqual(["here"]);
-    expect(rowsInScope(rows, new Set(["missing"]), "proj-1").map((item) => item.id)).toEqual(["project"]);
+    expect(rowsInScope(rows, new Set(["missing"]), "proj-1").map((item) => item.id)).toEqual([
+      "project",
+    ]);
   });
 
   test("uses the terminal title and keeps session status", () => {

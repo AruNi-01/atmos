@@ -14,22 +14,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 describe("macos app permissions", () => {
   it("walks execPath up to the .app bundle on macOS", () => {
     expect(
-      resolveAtmosAppBundlePath(
-        "/Applications/Atmos.app/Contents/MacOS/Atmos",
-        "darwin",
-      ),
+      resolveAtmosAppBundlePath("/Applications/Atmos.app/Contents/MacOS/Atmos", "darwin"),
     ).toBe("/Applications/Atmos.app");
     expect(
-      resolveAtmosAppBundlePath(
-        "/tmp/dev-app/Atmos.app/Contents/MacOS/Electron",
-        "darwin",
-      ),
+      resolveAtmosAppBundlePath("/tmp/dev-app/Atmos.app/Contents/MacOS/Electron", "darwin"),
     ).toBe("/tmp/dev-app/Atmos.app");
     expect(
-      resolveAtmosAppBundlePath(
-        "/Applications/Atmos.app/Contents/MacOS/Atmos",
-        "linux",
-      ),
+      resolveAtmosAppBundlePath("/Applications/Atmos.app/Contents/MacOS/Atmos", "linux"),
     ).toBeNull();
   });
 
@@ -52,9 +43,10 @@ describe("macos app permissions", () => {
       x: Math.round(100 + 10 + 20 - 230),
       y: Math.round(200 + 20 + 8 - 64),
     });
-    expect(
-      leftSidebarGrantOrigin({ x: 80, y: 40, width: 1200, height: 800 }, 188),
-    ).toEqual({ x: 96, y: 128 });
+    expect(leftSidebarGrantOrigin({ x: 80, y: 40, width: 1200, height: 800 }, 188)).toEqual({
+      x: 96,
+      y: 128,
+    });
   });
 
   it("never uses the system Accessibility lock prompt", () => {

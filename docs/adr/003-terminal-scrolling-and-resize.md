@@ -27,10 +27,12 @@ Atmos 后端使用 `tmux attach-session` 连接到 tmux，通过 PTY 读取 tmux
 **描述**: 前端拦截滚轮事件，转换为 SGR mouse 序列 (`\x1b[<64;col;rowM`) 发送给 tmux，进入 tmux copy-mode 浏览历史。
 
 **优点**:
+
 - 可以利用 tmux 完整的 scrollback history（history-limit: 10000）
 - 滚动历史在 workspace 切换后仍然保留（tmux 持久化）
 
 **缺点**:
+
 - 没有原生滚动条，用户无法直观看到位置
 - tmux copy-mode 显示丑陋的状态条（如 `[5/135]`）
 - 需要复杂的 copy-mode 状态同步（前端 ↔ 后端）
@@ -45,12 +47,14 @@ Atmos 后端使用 `tmux attach-session` 连接到 tmux，通过 PTY 读取 tmux
 **描述**: 使用 tmux control mode 代替 `tmux attach-session`。control mode 通过结构化的 `%output` 协议传输数据，不使用 alternate screen buffer。
 
 **优点**:
+
 - terminal 输出直接进入 xterm.js normal buffer，scrollback 自然工作
 - 不需要 `smcup@:rmcup@` hack
 - TUI 应用（vim、htop）的 alternate screen 可以正确穿透到 xterm.js
 - 整体架构更干净
 
 **缺点**:
+
 - 需要大规模重构后端 PTY 架构（从 `attach-session` 改为 `-C` control mode）
 - 需要实现 `%output` 协议解析、`send-keys -H` 输入编码等
 - 需要处理 control mode 特有的 escape 序列解码（八进制转义）
@@ -65,12 +69,14 @@ Atmos 后端使用 `tmux attach-session` 连接到 tmux，通过 PTY 读取 tmux
 **描述**: 在 tmux 配置中禁用 alternate screen (`smcup@:rmcup@`) 和 mouse 模式，让 xterm.js 完全管理滚动。通过在 resize 时清除 scrollback 来解决 TUI 应用的帧残留问题。
 
 **优点**:
+
 - 原生滚动条，滚动体验与普通终端一致
 - 不需要 copy-mode 状态同步，大幅简化前端代码
 - 文本选择、滚轮交互等由 xterm.js 原生处理
 - 改动量小，不影响后端架构
 
 **缺点**:
+
 - Resize 时需要清除 scrollback（TUI 应用旧帧会泄漏到 scrollback）
 - xterm.js scrollback 在 WebSocket 重连后丢失（tmux 仍保留完整历史，重连时回放）
 
@@ -113,6 +119,7 @@ xterm.js 启用 10000 行本地 scrollback buffer，提供原生滚动条。
 ### 3. 前端 Terminal 组件 (`apps/web/src/components/terminal/Terminal.tsx`)
 
 **移除的代码**:
+
 - `stripMouseEnable()` — 不再需要过滤 mouse tracking 序列（tmux mouse 已关闭）
 - `enterCopyMode()` / `requestCopyModeCheck()` — 不再使用 tmux copy-mode
 - `attachCustomWheelEventHandler()` — 不再将滚轮转为 SGR mouse 序列
@@ -197,12 +204,12 @@ terminal.onScroll(() => {
 
 ### 风险和缓解措施 🛡️
 
-| 风险 | 严重程度 | 概率 | 缓解措施 |
-|------|---------|------|---------|
-| TUI 应用 resize 残留 | 低 | 中 | 后端检测 `#{alternate_on}` 后延迟发送 CSI 3J 清除 |
-| 非 TUI 场景 scrollback 丢失 | - | - | 已修复：仅在 alternate screen 活跃时清除 scrollback |
-| 重连后 scrollback 丢失 | 低 | 高 | tmux 保留完整历史，重连时通过 `capture-pane` 回放 |
-| TUI 应用 mouse 支持受影响 | 低 | 低 | `mouse off` 仅影响 tmux 本身，TUI 应用自行发送 mouse tracking 序列 |
+| 风险                        | 严重程度 | 概率 | 缓解措施                                                           |
+| --------------------------- | -------- | ---- | ------------------------------------------------------------------ |
+| TUI 应用 resize 残留        | 低       | 中   | 后端检测 `#{alternate_on}` 后延迟发送 CSI 3J 清除                  |
+| 非 TUI 场景 scrollback 丢失 | -        | -    | 已修复：仅在 alternate screen 活跃时清除 scrollback                |
+| 重连后 scrollback 丢失      | 低       | 高   | tmux 保留完整历史，重连时通过 `capture-pane` 回放                  |
+| TUI 应用 mouse 支持受影响   | 低       | 低   | `mouse off` 仅影响 tmux 本身，TUI 应用自行发送 mouse tracking 序列 |
 
 ## 后续演进
 
@@ -210,14 +217,14 @@ terminal.onScroll(() => {
 
 ## 相关文件
 
-| 文件 | 用途 |
-|------|------|
-| `crates/core-engine/src/tmux/mod.rs` | tmux 配置（mouse、terminal-overrides） |
-| `apps/web/src/components/terminal/Terminal.tsx` | 前端终端组件（滚动、resize、输出） |
-| `apps/web/src/components/terminal/theme.ts` | xterm.js 配置（scrollback） |
-| `apps/web/src/components/terminal/use-terminal-websocket.ts` | WebSocket 通信 |
-| `crates/core-service/src/service/terminal.rs` | 后端 PTY 管理、resize、alternate screen 检测 |
-| `apps/api/src/api/ws/terminal_handler.rs` | WebSocket 消息处理、按需清除 scrollback |
+| 文件                                                         | 用途                                         |
+| ------------------------------------------------------------ | -------------------------------------------- |
+| `crates/core-engine/src/tmux/mod.rs`                         | tmux 配置（mouse、terminal-overrides）       |
+| `apps/web/src/components/terminal/Terminal.tsx`              | 前端终端组件（滚动、resize、输出）           |
+| `apps/web/src/components/terminal/theme.ts`                  | xterm.js 配置（scrollback）                  |
+| `apps/web/src/components/terminal/use-terminal-websocket.ts` | WebSocket 通信                               |
+| `crates/core-service/src/service/terminal.rs`                | 后端 PTY 管理、resize、alternate screen 检测 |
+| `apps/api/src/api/ws/terminal_handler.rs`                    | WebSocket 消息处理、按需清除 scrollback      |
 
 ## 更新历史
 

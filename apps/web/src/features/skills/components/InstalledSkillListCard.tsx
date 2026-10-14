@@ -1,21 +1,7 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  cn,
-} from "@workspace/ui";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@workspace/ui";
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
-import {
-  CircleCheck,
-  CircleMinus,
-  CircleX,
-  Folder,
-  FolderOpen,
-  Globe,
-  Puzzle,
-} from "lucide-react";
+import { CircleCheck, CircleMinus, CircleX, Folder, FolderOpen, Globe, Puzzle } from "lucide-react";
 import {
   getAgentConfig,
   getAgentRegistryId,
@@ -116,7 +102,7 @@ export function InstalledSkillListCard({
     >
       <div className="flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex items-start gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <div
               className={cn(
                 "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border",
@@ -126,7 +112,11 @@ export function InstalledSkillListCard({
               )}
             >
               {primaryAgentRegistryId && primaryAgentConfig ? (
-                <AgentIcon registryId={primaryAgentRegistryId} name={primaryAgentConfig.name} size={20} />
+                <AgentIcon
+                  registryId={primaryAgentRegistryId}
+                  name={primaryAgentConfig.name}
+                  size={20}
+                />
               ) : (
                 <Puzzle className="size-5" />
               )}
@@ -140,13 +130,13 @@ export function InstalledSkillListCard({
               >
                 {skill.title || skill.name}
               </h3>
-              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
                         className={cn(
-                          "flex items-center gap-1 rounded px-1 py-0.5 text-[9px] font-medium cursor-default",
+                          "flex cursor-default items-center gap-1 rounded px-1 py-0.5 text-[9px] font-medium",
                           scopeMeta.className,
                         )}
                       >
@@ -154,11 +144,12 @@ export function InstalledSkillListCard({
                         {scopeMeta.label}
                       </span>
                     </TooltipTrigger>
-                    {(skill.scope === "project" || skill.scope === "inside_project") && skill.project_name && (
-                      <TooltipContent side="top">
-                        <p className="text-xs">From: {skill.project_name}</p>
-                      </TooltipContent>
-                    )}
+                    {(skill.scope === "project" || skill.scope === "inside_project") &&
+                      skill.project_name && (
+                        <TooltipContent side="top">
+                          <p className="text-xs">From: {skill.project_name}</p>
+                        </TooltipContent>
+                      )}
                   </Tooltip>
                 </TooltipProvider>
 
@@ -181,28 +172,32 @@ export function InstalledSkillListCard({
         {skill.description ? (
           <p
             className={cn(
-              "mt-4 flex-1 line-clamp-3 text-[13px] leading-relaxed text-pretty",
+              "mt-4 line-clamp-3 flex-1 text-[13px] leading-relaxed text-pretty",
               isDisabled ? "text-muted-foreground/75" : "text-muted-foreground",
             )}
           >
             {skill.description}
           </p>
         ) : (
-          <p className="mt-4 flex-1 text-[13px] italic leading-relaxed text-muted-foreground/50">No description</p>
+          <p className="mt-4 flex-1 text-[13px] leading-relaxed text-muted-foreground/50 italic">
+            No description
+          </p>
         )}
 
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {sortAgents(skill.agents).filter((agent) => agent !== "in-project").map((agent) => {
-            const agentStatus = getAgentStatus(skill, agent);
-            return (
-              <SkillAgentBadge
-                key={agent}
-                agent={agent}
-                status={agentStatus}
-                tooltip={agent === "unified" ? "From: .agents/skills" : undefined}
-              />
-            );
-          })}
+          {sortAgents(skill.agents)
+            .filter((agent) => agent !== "in-project")
+            .map((agent) => {
+              const agentStatus = getAgentStatus(skill, agent);
+              return (
+                <SkillAgentBadge
+                  key={agent}
+                  agent={agent}
+                  status={agentStatus}
+                  tooltip={agent === "unified" ? "From: .agents/skills" : undefined}
+                />
+              );
+            })}
         </div>
       </div>
     </div>

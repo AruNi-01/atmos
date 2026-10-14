@@ -1,7 +1,10 @@
 "use client";
 
 import React, { createContext, useContext, useMemo } from "react";
-import { useReviewContext, type ReviewContext } from "@/features/code-review/hooks/use-review-context";
+import {
+  useReviewContext,
+  type ReviewContext,
+} from "@/features/code-review/hooks/use-review-context";
 import type { ReviewTarget } from "@/api/ws-api";
 
 const ReviewCtx = createContext<ReviewContext | null>(null);
@@ -38,46 +41,49 @@ export const ReviewContextProvider: React.FC<ReviewContextProviderProps> = ({
   });
 
   // Memoize context value to avoid unnecessary re-renders
-  const contextValue = useMemo(() => ctx, [
-    ctx.sessions,
-    ctx.currentSession,
-    ctx.currentRevision,
-    ctx.currentFile,
-    ctx.comments,
-    ctx.canEdit,
-    ctx.isLoading,
-    ctx.isCreating,
-    ctx.isCreatingAgentRun,
-    ctx.isFinalizingRun,
-    ctx.latestSummaryRun,
-    ctx.artifactPreview,
-    ctx.artifactLoading,
-    ctx.selectedSessionGuid,
-    ctx.selectedRevisionGuid,
-    ctx.terminalAgentId,
-    ctx.terminalAgentRunConfigs,
-    ctx.terminalAgentRunConfig,
-    ctx.handleCreateSession,
-    ctx.handleCreateComment,
-    ctx.setTerminalAgentRunConfig,
-    ctx.handleCloseSession,
-    ctx.handleArchiveSession,
-    ctx.handleRenameSession,
-    ctx.handleToggleReviewed,
-    ctx.handleUpdateCommentStatus,
-    ctx.handleReplyToComment,
-    ctx.handleUpdateMessage,
-    ctx.handleDeleteMessage,
-    ctx.createAgentRun,
-    ctx.handleCopyAgentPrompt,
-    ctx.handleSendAgentRunToAgentChat,
-    ctx.handleRunAgentInTerminal,
-    ctx.handleRunAgentReview,
-    ctx.handleCopyAgentReviewPrompt,
-    ctx.handleMarkAgentRunFailed,
-    ctx.handleFinalizeRun,
-    ctx.handlePreviewArtifact,
-  ]);
+  const contextValue = useMemo(
+    () => ctx,
+    [
+      ctx.sessions,
+      ctx.currentSession,
+      ctx.currentRevision,
+      ctx.currentFile,
+      ctx.comments,
+      ctx.canEdit,
+      ctx.isLoading,
+      ctx.isCreating,
+      ctx.isCreatingAgentRun,
+      ctx.isFinalizingRun,
+      ctx.latestSummaryRun,
+      ctx.artifactPreview,
+      ctx.artifactLoading,
+      ctx.selectedSessionGuid,
+      ctx.selectedRevisionGuid,
+      ctx.terminalAgentId,
+      ctx.terminalAgentRunConfigs,
+      ctx.terminalAgentRunConfig,
+      ctx.handleCreateSession,
+      ctx.handleCreateComment,
+      ctx.setTerminalAgentRunConfig,
+      ctx.handleCloseSession,
+      ctx.handleArchiveSession,
+      ctx.handleRenameSession,
+      ctx.handleToggleReviewed,
+      ctx.handleUpdateCommentStatus,
+      ctx.handleReplyToComment,
+      ctx.handleUpdateMessage,
+      ctx.handleDeleteMessage,
+      ctx.createAgentRun,
+      ctx.handleCopyAgentPrompt,
+      ctx.handleSendAgentRunToAgentChat,
+      ctx.handleRunAgentInTerminal,
+      ctx.handleRunAgentReview,
+      ctx.handleCopyAgentReviewPrompt,
+      ctx.handleMarkAgentRunFailed,
+      ctx.handleFinalizeRun,
+      ctx.handlePreviewArtifact,
+    ],
+  );
 
   return <ReviewCtx.Provider value={contextValue}>{children}</ReviewCtx.Provider>;
 };

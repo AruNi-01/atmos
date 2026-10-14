@@ -1,8 +1,4 @@
-import type {
-  CleanupKind,
-  CleanupSuggestion,
-  DiskNode,
-} from "@/api/ws/disk-analyzer-api";
+import type { CleanupKind, CleanupSuggestion, DiskNode } from "@/api/ws/disk-analyzer-api";
 
 export type ChartMode = "sunburst" | "treemap";
 
@@ -174,10 +170,7 @@ export function friendlyDiskEntryPath(fsPath: string): string {
 }
 
 /** Product session label when known; otherwise a decoded short folder name. */
-export function displayDiskName(
-  name: string,
-  lookup: (key: string) => string | undefined,
-): string {
+export function displayDiskName(name: string, lookup: (key: string) => string | undefined): string {
   const { base } = agentSessionNameBase(name);
   if (AGENT_SESSION_NAME_KEYS.has(base)) {
     return localizeAgentSessionName(name, lookup);
@@ -186,16 +179,8 @@ export function displayDiskName(
 }
 
 /** Synthetic overview/group URIs and the scan root itself cannot be deleted. */
-export function canDeleteDiskPath(
-  path: string,
-  name: string,
-  scanPath: string,
-): boolean {
-  return (
-    name !== "__other__" &&
-    path !== scanPath &&
-    !isAtmosSyntheticPath(path)
-  );
+export function canDeleteDiskPath(path: string, name: string, scanPath: string): boolean {
+  return name !== "__other__" && path !== scanPath && !isAtmosSyntheticPath(path);
 }
 
 export function formatBytes(bytes: number): string {
@@ -217,10 +202,7 @@ function otherPathFor(parentPath: string): string {
 }
 
 /** True when this folder was pruned into `__other__` below `topN` — needs a wider fetch. */
-export function levelNeedsWiderTopN(
-  node: DiskNode | null | undefined,
-  topN: number,
-): boolean {
+export function levelNeedsWiderTopN(node: DiskNode | null | undefined, topN: number): boolean {
   if (!node?.children?.length) return false;
   const n = Math.max(1, topN);
   const real = node.children.filter((child) => !isOtherNode(child)).length;
@@ -247,9 +229,7 @@ export function takeTopChildren(
   maxDepthOrOptions: number | TakeTopOptions = SUNBURST_CHART_DEPTH,
 ): DiskNode {
   const options: TakeTopOptions =
-    typeof maxDepthOrOptions === "number"
-      ? { maxDepth: maxDepthOrOptions }
-      : maxDepthOrOptions;
+    typeof maxDepthOrOptions === "number" ? { maxDepth: maxDepthOrOptions } : maxDepthOrOptions;
   const maxDepth = options.maxDepth ?? SUNBURST_CHART_DEPTH;
   const preserveZero = options.preserveZeroSizeDirs === true;
   const n = Math.max(1, topN);
@@ -290,9 +270,7 @@ export function takeTopChildren(
   }
 
   const sized = real.filter((c) => c.size > 0);
-  const zeroDirs = preserveZero
-    ? real.filter((c) => c.size <= 0 && c.is_dir)
-    : [];
+  const zeroDirs = preserveZero ? real.filter((c) => c.size <= 0 && c.is_dir) : [];
   const zeroOther = preserveZero
     ? real.filter((c) => c.size <= 0 && !c.is_dir)
     : real.filter((c) => c.size <= 0);
@@ -378,7 +356,10 @@ export function filterTree(node: DiskNode, filters: DiskFilters): DiskNode | nul
     decodedName.includes(query) ||
     decodedPath.includes(query);
   const sizeMatch = node.size >= filters.minSize;
-  const projectMatch = !filters.projectsOnly || node.is_project || childResults.some((c) => c.is_project || hasProjectDescendant(c));
+  const projectMatch =
+    !filters.projectsOnly ||
+    node.is_project ||
+    childResults.some((c) => c.is_project || hasProjectDescendant(c));
 
   if (filters.projectsOnly && !node.is_project && childResults.length === 0) {
     return null;
@@ -657,12 +638,7 @@ export function suggestionTotalSize(items: CleanupSuggestion[]): number {
 /** Items smaller than this sort below everything else in Clear suggest. */
 export const SMALL_SUGGEST_BYTES = 1024 * 1024;
 
-const SUGGEST_KIND_ORDER: CleanupKind[] = [
-  "cache",
-  "worktree",
-  "workspace",
-  "session",
-];
+const SUGGEST_KIND_ORDER: CleanupKind[] = ["cache", "worktree", "workspace", "session"];
 
 export function suggestIdleDays(
   lastActivityMs: number | null | undefined,
@@ -673,10 +649,7 @@ export function suggestIdleDays(
 }
 
 /** Size first; idle time can boost a stale item up to 2×. */
-export function suggestCleanupScore(
-  item: CleanupSuggestion,
-  now = Date.now(),
-): number {
+export function suggestCleanupScore(item: CleanupSuggestion, now = Date.now()): number {
   const days = suggestIdleDays(item.last_activity_ms, now) ?? 0;
   return (item.size ?? 0) * (1 + Math.min(days, 180) / 180);
 }
@@ -717,10 +690,7 @@ export function suggestShortLocation(item: CleanupSuggestion): string {
   return loc.slice(idx + 1) || loc;
 }
 
-export function suggestionSurvivesDelete(
-  itemPath: string,
-  deletedPaths: string[],
-): boolean {
+export function suggestionSurvivesDelete(itemPath: string, deletedPaths: string[]): boolean {
   const item = normalizeSuggestPath(itemPath);
   return !deletedPaths.some((raw) => {
     const deleted = normalizeSuggestPath(raw);
@@ -767,16 +737,12 @@ export function groupClearSuggestions(
   }
   groups.sort(
     (a, b) =>
-      b.size - a.size ||
-      SUGGEST_KIND_ORDER.indexOf(a.kind) - SUGGEST_KIND_ORDER.indexOf(b.kind),
+      b.size - a.size || SUGGEST_KIND_ORDER.indexOf(a.kind) - SUGGEST_KIND_ORDER.indexOf(b.kind),
   );
   return groups;
 }
 
-function bucketSuggestionsByName(
-  items: CleanupSuggestion[],
-  now: number,
-): SuggestNameBucket[] {
+function bucketSuggestionsByName(items: CleanupSuggestion[], now: number): SuggestNameBucket[] {
   const map = new Map<string, SuggestNameBucket>();
   for (const item of items) {
     const key = item.name.toLowerCase();
@@ -897,17 +863,11 @@ export function toEChartsTree(
   const isGitWorktree =
     !isAtmosRuntime && !isWorkspace && !isProject && node.is_git_worktree === true;
   const isAgentData =
-    !isAtmosRuntime &&
-    !isWorkspace &&
-    !isProject &&
-    !isGitWorktree &&
-    node.is_agent_data === true;
+    !isAtmosRuntime && !isWorkspace && !isProject && !isGitWorktree && node.is_agent_data === true;
   // Always size-based hues so a folder full of workspaces still shows relative weight.
   // Kind identity is shown as chips in Details / tooltip, not tile color.
   // Prefer #rrggbb — canvas emphasis/repaint can drop hsl() to black.
-  const color = isOther
-    ? "#636b78"
-    : sizeToUsageColor(ratio, siblingIndex);
+  const color = isOther ? "#636b78" : sizeToUsageColor(ratio, siblingIndex);
   const displayName = isOther
     ? otherLabel
     : node.path === AGENT_DATA_GROUP_PATH
@@ -923,9 +883,7 @@ export function toEChartsTree(
 
   const children =
     childNodes.length > 0
-      ? childNodes.map((child, i) =>
-          toEChartsTree(child, rootSize, options, depth + 1, i),
-        )
+      ? childNodes.map((child, i) => toEChartsTree(child, rootSize, options, depth + 1, i))
       : undefined;
 
   const eased = layoutValue(bytes);
@@ -933,15 +891,8 @@ export function toEChartsTree(
   // Sunburst parents must sum children so outer rings stay inside the parent wedge
   // (sum of eased children ≠ ease(parent) when exponent < 1).
   let value = eased;
-  if (
-    valueMode === "hierarchical" &&
-    children &&
-    children.length > 0
-  ) {
-    value = children.reduce(
-      (sum, c) => sum + (typeof c.value === "number" ? c.value : 0),
-      0,
-    );
+  if (valueMode === "hierarchical" && children && children.length > 0) {
+    value = children.reduce((sum, c) => sum + (typeof c.value === "number" ? c.value : 0), 0);
   }
 
   return {
@@ -964,10 +915,7 @@ export function toEChartsTree(
 }
 
 /** `~/.atmos` (or any path whose basename is `.atmos`) — Atmos local runtime data. */
-export function isAtmosRuntimeDir(node: {
-  name?: string;
-  path?: string;
-}): boolean {
+export function isAtmosRuntimeDir(node: { name?: string; path?: string }): boolean {
   if (node.name === ".atmos") return true;
   const path = (node.path ?? "").replace(/\/+$/, "");
   return path === ".atmos" || path.endsWith("/.atmos");
@@ -994,7 +942,7 @@ export function sizeToUsageColor(ratio: number, siblingIndex = 0): string {
 /** HSL (h degrees, s/l 0–1) → #rrggbb */
 function hslToHex(h: number, s: number, l: number): string {
   const c = (1 - Math.abs(2 * l - 1)) * s;
-  const hp = ((h % 360) + 360) % 360 / 60;
+  const hp = (((h % 360) + 360) % 360) / 60;
   const x = c * (1 - Math.abs((hp % 2) - 1));
   let r = 0;
   let g = 0;
@@ -1126,10 +1074,7 @@ export function buildBreadcrumbs(
 
   const ancestors = [...known]
     .filter(
-      (path) =>
-        path !== currentPath &&
-        path !== root.path &&
-        isFsPathAncestor(path, currentPath),
+      (path) => path !== currentPath && path !== root.path && isFsPathAncestor(path, currentPath),
     )
     .sort((a, b) => a.length - b.length || a.localeCompare(b));
 

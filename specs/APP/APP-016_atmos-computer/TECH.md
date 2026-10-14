@@ -41,8 +41,6 @@ flowchart TB
   Desktop <-->|"客户端 WSS"| WK
 ```
 
-
-
 #### Relay 模式连接拓扑（与 §1.2 ASCII 对照）
 
 ```mermaid
@@ -56,8 +54,6 @@ flowchart LR
   C -->|"WSS"| WK
   WK --> DO
 ```
-
-
 
 #### 本地 loopback vs Relay（双模式对照）
 
@@ -85,15 +81,11 @@ flowchart TB
   end
 ```
 
-
-
-
-| 维度                        | 模式 A · 本地                                  | 模式 B · Relay                                             |
-| ------------------------- | ------------------------------------------ | -------------------------------------------------------- |
-| **WS 路径**                 | Client 直连 `ws://127.0.0.1:port/...`（或 LAN） | Client 仅连 `wss://…/ws/client?...`；**不**与 Server 公网 IP 建连 |
-| `**relay_identity.json`** | 无或忽略；不启 relay 出站任务                         | 有；Server 向 DO 附着                                         |
-| **典型场景**                  | 本机开发、Desktop 侧车、同一网段                       | Server 在 NAT/VPS、仅出站即可被 UI 访问                            |
-
+| 维度                      | 模式 A · 本地                                   | 模式 B · Relay                                                    |
+| ------------------------- | ----------------------------------------------- | ----------------------------------------------------------------- |
+| **WS 路径**               | Client 直连 `ws://127.0.0.1:port/...`（或 LAN） | Client 仅连 `wss://…/ws/client?...`；**不**与 Server 公网 IP 建连 |
+| `**relay_identity.json`** | 无或忽略；不启 relay 出站任务                   | 有；Server 向 DO 附着                                             |
+| **典型场景**              | 本机开发、Desktop 侧车、同一网段                | Server 在 NAT/VPS、仅出站即可被 UI 访问                           |
 
 #### 配对与注册（对照 §3）
 
@@ -114,8 +106,6 @@ sequenceDiagram
   R-->>S: 验证通过 · Hub READY
 ```
 
-
-
 #### 运行时信封路由（对照 §4）
 
 ```mermaid
@@ -131,8 +121,6 @@ sequenceDiagram
   DO->>C: 下行
 ```
 
-
-
 #### ServerHub 状态机摘要（对照 §5）
 
 ```mermaid
@@ -146,19 +134,15 @@ stateDiagram-v2
   DEGRADED --> SERVER_PENDING: 按策略清空或降级为待 Server
 ```
 
-
-
 ### 1.1 逻辑组件
 
-
-| 组件                 | 职责                                                                                          | 部署位置                            |
-| ------------------ | ------------------------------------------------------------------------------------------- | ------------------------------- |
-| **Atmos Computer** | 用户可选中的一台计算环境（产品对象）；由 `server_id` 标识；**一台 Computer 上运行一个 Atmos Server**                      | 用户本机 / **云端 VPS** / Desktop 侧车等 |
-| **Atmos Server**   | 现有 `apps/api`：HTTP + WS、业务逻辑、终端、Canvas relay 等                                              | 驻留在某台 **Computer** 内            |
-| **Relay**  | 账号、**Computer** 注册、配对码、访问令牌签发、**Computer** 元数据                                              | Cloudflare Worker + D1（或等价持久化）  |
-| **Relay Hub（DO）**  | 每个 `server_id` 一个 DO 实例：维护 **1 条 Server 出站 WS** + **N 条 Client WS**；路由、限流、（M2+）事件缓冲与 replay | Cloudflare Durable Object       |
-| **Client**         | `apps/web`、`apps/desktop`；可选「经 Relay 的 CLI」                                                 | 用户浏览器 / 本机应用                    |
-
+| 组件                | 职责                                                                                                                   | 部署位置                                 |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **Atmos Computer**  | 用户可选中的一台计算环境（产品对象）；由 `server_id` 标识；**一台 Computer 上运行一个 Atmos Server**                   | 用户本机 / **云端 VPS** / Desktop 侧车等 |
+| **Atmos Server**    | 现有 `apps/api`：HTTP + WS、业务逻辑、终端、Canvas relay 等                                                            | 驻留在某台 **Computer** 内               |
+| **Relay**           | 账号、**Computer** 注册、配对码、访问令牌签发、**Computer** 元数据                                                     | Cloudflare Worker + D1（或等价持久化）   |
+| **Relay Hub（DO）** | 每个 `server_id` 一个 DO 实例：维护 **1 条 Server 出站 WS** + **N 条 Client WS**；路由、限流、（M2+）事件缓冲与 replay | Cloudflare Durable Object                |
+| **Client**          | `apps/web`、`apps/desktop`；可选「经 Relay 的 CLI」                                                                    | 用户浏览器 / 本机应用                    |
 
 ### 1.2 连接拓扑
 
@@ -187,26 +171,24 @@ stateDiagram-v2
 
 ### 1.3 与现有 Atmos 代码的边界
 
-
-| 现有模块                      | Atmos Computer（本 spec）中的角色                                                                                                                                                                                                                          |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api` WS 层           | **不变语义**：对「已认证的本地 client」的处理逻辑复用；新增「来自 Relay 的虚拟 client」注入点（见 §6）。                                                                                                                                                                                  |
-| `apps/web` `useWebSocket` | **连接 URL 与握手参数**变化；消息编解码尽量不变。                                                                                                                                                                                                                       |
-| `apps/desktop`            | 启动时 **`runtime-manager::supervisor::ensure_running`**（与 CLI / shell-installed Local Runtime 共用同一 API 进程）；**不再**使用 Tauri sidecar + 每实例 `ATMOS_LOCAL_TOKEN`。退出 Desktop **不**终止共享 API。 |
-| `apps/cli`                | CLI 为 **client**：`canvas` / `review` 等 **HTTP 能力**的 **API 基址 = 当前所选 Atmos Computer**（与 Web/Desktop 同源，见 §8）；`atmos runtime ensure|stop|status` 管理本机 API；`atmos local` 为兼容别名。**Review** 不得以 CLI 内 `infra::DbConnection` + `ReviewService` 为数据平面（见 §8.2）。 |
+| 现有模块                  | Atmos Computer（本 spec）中的角色                                                                                                                                                                                                   |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api` WS 层          | **不变语义**：对「已认证的本地 client」的处理逻辑复用；新增「来自 Relay 的虚拟 client」注入点（见 §6）。                                                                                                                            |
+| `apps/web` `useWebSocket` | **连接 URL 与握手参数**变化；消息编解码尽量不变。                                                                                                                                                                                   |
+| `apps/desktop`            | 启动时 **`runtime-manager::supervisor::ensure_running`**（与 CLI / shell-installed Local Runtime 共用同一 API 进程）；**不再**使用 Tauri sidecar + 每实例 `ATMOS_LOCAL_TOKEN`。退出 Desktop **不**终止共享 API。                    |
+| `apps/cli`                | CLI 为 **client**：`canvas` / `review` 等 **HTTP 能力**的 **API 基址 = 当前所选 Atmos Computer**（与 Web/Desktop 同源，见 §8）；`atmos runtime ensure                                                                               | stop | status` 管理本机 API；`atmos local`为兼容别名。**Review** 不得以 CLI 内`infra::DbConnection`+`ReviewService` 为数据平面（见 §8.2）。 |
 | `crates/runtime-manager`  | **本机 Runtime 库**：`runtime_manifest.json`（仅 host/port/ws_url，**无 token**）、`relay_identity.json`、Relay `register_computer`；feature `supervisor` 供 CLI/Desktop 拉起 `~/.atmos/runtime/current` 或打包布局中的 `bin/api`。 |
-
 
 ### 1.4 统一本机 Runtime（M1 已实现）
 
 **目标**：Desktop、CLI、`local-web-runtime` 安装物、日常 `cargo run -p api` **同一类产品**——一个本机 **Atmos Server**（`apps/api`），多种入口；避免长期维护两套 sidecar / 双 token 模型。
 
-| 能力 | 落点 |
-|------|------|
-| 发现 | `~/.atmos/runtime_manifest.json`，由 API 在 bind 后写入（`source: "api"`）或 supervisor 在 `ensure` 后写入（`source: "runtime-manager"`） |
-| 拉起/健康检查 | `runtime-manager` feature `supervisor`：`apps/cli`（`atmos runtime`）、`apps/desktop`（`runtime.rs`） |
-| Relay 注册 | `register_computer` → `relay_identity.json`；`atmos computer start --token`、API `ATMOS_REGISTER_TOKEN` 一次性消费 |
-| 本机 HTTP 鉴权 | **默认无 manifest token**；loopback 上 `require_local_token` 仅在设置 `ATMOS_LOCAL_TOKEN` 时生效（可选加固，非默认路径） |
+| 能力           | 落点                                                                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 发现           | `~/.atmos/runtime_manifest.json`，由 API 在 bind 后写入（`source: "api"`）或 supervisor 在 `ensure` 后写入（`source: "runtime-manager"`） |
+| 拉起/健康检查  | `runtime-manager` feature `supervisor`：`apps/cli`（`atmos runtime`）、`apps/desktop`（`runtime.rs`）                                     |
+| Relay 注册     | `register_computer` → `relay_identity.json`；`atmos computer start --token`、API `ATMOS_REGISTER_TOKEN` 一次性消费                        |
+| 本机 HTTP 鉴权 | **默认无 manifest token**；loopback 上 `require_local_token` 仅在设置 `ATMOS_LOCAL_TOKEN` 时生效（可选加固，非默认路径）                  |
 
 **Desktop 打包布局**（`prepare-sidecar.sh` / `layout-runtime-bundle.sh`）：
 
@@ -223,16 +205,14 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 
 ### 2.1 标识符
 
-
-| 字段                  | 说明                                                                                |
-| ------------------- | --------------------------------------------------------------------------------- |
-| `server_id`         | UUID；全局唯一；**注册成功时**由 Relay 分配。 |
-| `server_secret`     | 高熵密钥；**仅注册响应中出现一次**；持久化于 Server 本机 `~/.atmos/relay_identity.json`；用于 Relay 出站 WS（§3.3）。 |
-| `register_token`    | 高熵、**单次**、短时效（§2.4）；仅用于 `POST /v1/computers/register`，**不得**长期存放在 Server。 |
-| `client_token`      | 高熵、短时效；由Relay签发；浏览器/Desktop 连 Relay 时使用（§2.4、§3.3）。 |
-| `client_session_id` | Relay 为每条 Client WS 分配；用于信封路由与审计。 |
+| 字段                | 说明                                                                                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server_id`         | UUID；全局唯一；**注册成功时**由 Relay 分配。                                                                                                             |
+| `server_secret`     | 高熵密钥；**仅注册响应中出现一次**；持久化于 Server 本机 `~/.atmos/relay_identity.json`；用于 Relay 出站 WS（§3.3）。                                     |
+| `register_token`    | 高熵、**单次**、短时效（§2.4）；仅用于 `POST /v1/computers/register`，**不得**长期存放在 Server。                                                         |
+| `client_token`      | 高熵、短时效；由Relay签发；浏览器/Desktop 连 Relay 时使用（§2.4、§3.3）。                                                                                 |
+| `client_session_id` | Relay 为每条 Client WS 分配；用于信封路由与审计。                                                                                                         |
 | `tenant_id`         | Relay租户键；**M1 实现**为 `sha256(user_access_token)`（用户在 Settings 创建 **Access Token**）。**M2+** 映射为 `user_id` / `workspace_id`（见 §2.4.6）。 |
-
 
 ### 2.2 本机文件（Computer / Server 侧）
 
@@ -270,23 +250,23 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 
 #### 2.4.1 设计原则
 
-| 原则 | 说明 |
-|------|------|
-| **职责分离** | **Relay密钥**只存在于「能管理 fleet 的客户端」（Web Settings、运维脚本）；**Server 永不长期持有**Relay密钥。 |
-| **注册凭证一次性** | Server 只用 **`register_token`**（高熵、单次、短 TTL）完成注册；不用 8 位码、不把Relay密钥写入 VPS。 |
-| **连接凭证短期** | Client 用 **`client_token`**（高熵、短 TTL）连 Relay；与 `server_secret` 生命周期分离。 |
-| **云端目录** | D1 维护 **`computers`** 表 = 权威 Computer 列表（产品对象）；Client **不**靠记 IP。 |
+| 原则               | 说明                                                                                                            |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- |
+| **职责分离**       | **Relay密钥**只存在于「能管理 fleet 的客户端」（Web Settings、运维脚本）；**Server 永不长期持有**Relay密钥。    |
+| **注册凭证一次性** | Server 只用 **`register_token`**（高熵、单次、短 TTL）完成注册；不用 8 位码、不把Relay密钥写入 VPS。            |
+| **连接凭证短期**   | Client 用 **`client_token`**（高熵、短 TTL）连 Relay；与 `server_secret` 生命周期分离。                         |
+| **云端目录**       | D1 维护 **`computers`** 表 = 权威 Computer 列表（产品对象）；Client **不**靠记 IP。                             |
 | **数据面最小暴露** | `POST /v1/computers/register` 可公网可达，但 **无有效 register_token 则无法注册**；对 register 做 **IP 限速**。 |
 
 #### 2.4.2 凭据一览
 
-| 凭据 | 谁持有 | 用途 | 寿命 |
-|------|--------|------|------|
-| **Access Token**（Bearer） | 用户在 Web Settings 创建；`tenant_id = sha256(token)` | 签发 `register_token`、列 Computer、吊销、`client_session` | 用户可轮换/吊销 |
-| **`RELAY_KEY`**（已废弃） | — | 原单租户运维密钥模型 | 由 Access Token 替代 |
-| **`register_token`** | 一次性交给 VPS（env/CLI） | 仅 `POST /v1/computers/register` | 建议 **15 分钟**、**单次** |
-| **`server_secret`** | 仅该 Server 本机 `relay_identity.json` | Relay 出站 `GET /ws/server` | 长期；可随吊销失效 |
-| **`client_token`** | 浏览器/Desktop 内存 | Relay `GET /ws/client` | 建议 **24h** 或可配置更短 |
+| 凭据                       | 谁持有                                                | 用途                                                       | 寿命                       |
+| -------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- | -------------------------- |
+| **Access Token**（Bearer） | 用户在 Web Settings 创建；`tenant_id = sha256(token)` | 签发 `register_token`、列 Computer、吊销、`client_session` | 用户可轮换/吊销            |
+| **`RELAY_KEY`**（已废弃）  | —                                                     | 原单租户运维密钥模型                                       | 由 Access Token 替代       |
+| **`register_token`**       | 一次性交给 VPS（env/CLI）                             | 仅 `POST /v1/computers/register`                           | 建议 **15 分钟**、**单次** |
+| **`server_secret`**        | 仅该 Server 本机 `relay_identity.json`                | Relay 出站 `GET /ws/server`                                | 长期；可随吊销失效         |
+| **`client_token`**         | 浏览器/Desktop 内存                                   | Relay `GET /ws/client`                                     | 建议 **24h** 或可配置更短  |
 
 `tenant_id`：M1 = `sha256(access_token)` 的定长十六进制（每用户 Access Token 一个租户）。**禁止**用 `RELAY_KEY` 计算用户 `tenant_id`；该密钥仅用于系统/运维管理面（若仍配置）。
 
@@ -319,13 +299,13 @@ sequenceDiagram
 
 基址：`https://relay.atmos.land`（生产）。所有 JSON；CORS 按现有 Worker。
 
-| 方法 | 路径 | 鉴权 | 请求体 | 响应（要点） |
-|------|------|------|--------|----------------|
-| `POST` | `/v1/register_tokens` | Bearer **Access Token** | `{}` 或 `{ "display_name_hint": "..." }` | `{ "register_token", "expires_at", "register_command" }` |
-| `POST` | `/v1/computers/register` | **无**（凭 token） | `{ "register_token", "display_name"?: string }` | `{ "server_id", "server_secret", "relay_ws_url", "relay_url", "display_name" }` |
-| `GET` | `/v1/computers` | Bearer **Access Token** | — | `{ "computers": [{ server_id, display_name, revoked, created_at, online? }] }` |
-| `POST` | `/v1/computers/{server_id}/revoke` | Bearer **Access Token** | `{}` | `{ "ok": true }`；Relay 断开该 hub |
-| `POST` | `/v1/computers/{server_id}/client_sessions` | Bearer **Access Token** | `{ "client_kind"?: "web" \| "desktop" \| "cli" }` | `{ "client_token", "expires_at", "ws_url" }` |
+| 方法   | 路径                                        | 鉴权                    | 请求体                                            | 响应（要点）                                                                    |
+| ------ | ------------------------------------------- | ----------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `POST` | `/v1/register_tokens`                       | Bearer **Access Token** | `{}` 或 `{ "display_name_hint": "..." }`          | `{ "register_token", "expires_at", "register_command" }`                        |
+| `POST` | `/v1/computers/register`                    | **无**（凭 token）      | `{ "register_token", "display_name"?: string }`   | `{ "server_id", "server_secret", "relay_ws_url", "relay_url", "display_name" }` |
+| `GET`  | `/v1/computers`                             | Bearer **Access Token** | —                                                 | `{ "computers": [{ server_id, display_name, revoked, created_at, online? }] }`  |
+| `POST` | `/v1/computers/{server_id}/revoke`          | Bearer **Access Token** | `{}`                                              | `{ "ok": true }`；Relay 断开该 hub                                              |
+| `POST` | `/v1/computers/{server_id}/client_sessions` | Bearer **Access Token** | `{ "client_kind"?: "web" \| "desktop" \| "cli" }` | `{ "client_token", "expires_at", "ws_url" }`                                    |
 
 `register_command` 示例（供 UI 展示）：
 
@@ -342,16 +322,16 @@ atmos computer start \
 
 #### 2.4.5 Relay WebSocket（定稿）
 
-| 角色 | URL | 鉴权 |
-|------|-----|------|
-| **Server 出站** | `wss://relay.atmos.land/ws/server?server_id=<uuid>` | `Authorization: Bearer <server_secret>`（禁止 query 传 secret） |
-| **Client** | `wss://relay.atmos.land/ws/client?server_id=<uuid>&token=<client_token>&client_type=web` | query `token`；CP 已校验 token 与 `server_id` 绑定 |
+| 角色            | URL                                                                                      | 鉴权                                                            |
+| --------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **Server 出站** | `wss://relay.atmos.land/ws/server?server_id=<uuid>`                                      | `Authorization: Bearer <server_secret>`（禁止 query 传 secret） |
+| **Client**      | `wss://relay.atmos.land/ws/client?server_id=<uuid>&token=<client_token>&client_type=web` | query `token`；CP 已校验 token 与 `server_id` 绑定              |
 
 Server 连接成功后，DO 登记 `active_server_transport`；Client 连接绑定 `client_session_id`；业务帧仍走 §4 信封。
 
 `online`（列表可选字段）：Relay 可查询 DO 或由 Server 心跳更新 `last_seen_at`（实现二选一，M1 可仅 `last_seen_at` 来自 relay 连接事件写 D1）。
 
-#### 2.4.6 D1  schema（定稿，替代 `pair_codes`）
+#### 2.4.6 D1 schema（定稿，替代 `pair_codes`）
 
 ```sql
 CREATE TABLE register_tokens (
@@ -389,21 +369,21 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 #### 2.4.7 与 Paseo 的定位（简）
 
-| | **本方案** | **Paseo** |
-|---|-----------|-----------|
-| 云端列表 | **有**（`GET /v1/computers`） | 无；客户端自维护连接 |
-| 注册信任 | **一次性 register_token**（高熵） | QR / link 内公钥（E2EE 信任锚） |
-| Server 上长期密钥 | 仅 **`server_secret`** | daemon 密钥对 + relay session |
-| 多机 | 每台 Server 各注册一次；Web 统一列表 | 每台 daemon 各添加一条连接 |
+|                   | **本方案**                           | **Paseo**                       |
+| ----------------- | ------------------------------------ | ------------------------------- |
+| 云端列表          | **有**（`GET /v1/computers`）        | 无；客户端自维护连接            |
+| 注册信任          | **一次性 register_token**（高熵）    | QR / link 内公钥（E2EE 信任锚） |
+| Server 上长期密钥 | 仅 **`server_secret`**               | daemon 密钥对 + relay session   |
+| 多机              | 每台 Server 各注册一次；Web 统一列表 | 每台 daemon 各添加一条连接      |
 
 #### 2.4.8 实现落点（仓库）
 
-| 组件 | 变更 |
-|------|------|
-| `packages/relay` | 新 REST + D1 迁移；删除 `pair_codes` / `client_ws_token` 旧路径；Wrangler secret 改名为 **`RELAY_KEY`** |
-| `apps/api` | 读 `relay_identity.json`；启动时可选消费 `ATMOS_REGISTER_TOKEN`；`relay/ingest` 用 `server_secret` 连 `/ws/server` |
-| `apps/web` | Settings：**Add computer** → `register_tokens` → 展示命令；选 Computer → `client_sessions` → `useWebSocket` 用返回的 `ws_url` |
-| `apps/cli`（可选 M1） | `atmos computer start --token`；若本机 API 已运行，则通过本机 API 注册 relay |
+| 组件                  | 变更                                                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `packages/relay`      | 新 REST + D1 迁移；删除 `pair_codes` / `client_ws_token` 旧路径；Wrangler secret 改名为 **`RELAY_KEY`**                       |
+| `apps/api`            | 读 `relay_identity.json`；启动时可选消费 `ATMOS_REGISTER_TOKEN`；`relay/ingest` 用 `server_secret` 连 `/ws/server`            |
+| `apps/web`            | Settings：**Add computer** → `register_tokens` → 展示命令；选 Computer → `client_sessions` → `useWebSocket` 用返回的 `ws_url` |
+| `apps/cli`（可选 M1） | `atmos computer start --token`；若本机 API 已运行，则通过本机 API 注册 relay                                                  |
 
 #### 2.4.9 明确不做（本阶段）
 
@@ -414,10 +394,10 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 #### 2.4.10 后续扩展（仅占位）
 
-| 阶段 | 变更 |
-|------|------|
+| 阶段            | 变更                                                          |
+| --------------- | ------------------------------------------------------------- |
 | **M2 用户登录** | Bearer 改为 Atmos JWT；`tenant_id := sub`（用户或 workspace） |
-| **M5 E2EE** | 在 §4 信封之上增加加密层；与注册/连接凭据正交 |
+| **M5 E2EE**     | 在 §4 信封之上增加加密层；与注册/连接凭据正交                 |
 
 ---
 
@@ -454,18 +434,16 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 ### 4.2 信封字段（建议最小集）
 
-
-| 字段           | 类型                 | 说明                                                          |
-| ------------ | ------------------ | ----------------------------------------------------------- |
-| `v`          | `uint`             | 信封协议版本；M1 固定 `1`。                                           |
-| `stream`     | `string`           | 逻辑子流：`app`（主应用 WS）/ `diag`（可选）；M1 可仅 `app`。                 |
-| `kind`       | `string`           | `frame` | `ctrl`；`ctrl` 用于 ping/pong、订阅确认。                  |
-| `from`       | `string`           | `server` | `client:<session_id>`。                           |
-| `to`         | `string`           | `server` | `client:<session_id>` | `broadcast_clients`（慎用）。 |
-| `request_id` | `string?`          | 透传业务关联；Relay 不解释。                                           |
-| `relay_seq`  | `uint64?`          | M2+ 单调递增，用于 replay 游标。                                      |
-| `body`       | `bytes` | `string` | **透明载荷**：即现有 WS 文本帧或二进制帧内容（实现二选一并在网关固定）。                    |
-
+| 字段         | 类型      | 说明                                                          |
+| ------------ | --------- | ------------------------------------------------------------- |
+| `v`          | `uint`    | 信封协议版本；M1 固定 `1`。                                   |
+| `stream`     | `string`  | 逻辑子流：`app`（主应用 WS）/ `diag`（可选）；M1 可仅 `app`。 |
+| `kind`       | `string`  | `frame`                                                       | `ctrl`；`ctrl` 用于 ping/pong、订阅确认。                                |
+| `from`       | `string`  | `server`                                                      | `client:<session_id>`。                                                  |
+| `to`         | `string`  | `server`                                                      | `client:<session_id>`                                                    | `broadcast_clients`（慎用）。 |
+| `request_id` | `string?` | 透传业务关联；Relay 不解释。                                  |
+| `relay_seq`  | `uint64?` | M2+ 单调递增，用于 replay 游标。                              |
+| `body`       | `bytes`   | `string`                                                      | **透明载荷**：即现有 WS 文本帧或二进制帧内容（实现二选一并在网关固定）。 |
 
 ### 4.3 路由规则（DO 内）
 
@@ -479,25 +457,21 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 ### 5.1 状态
 
-
-| 状态               | 含义                           |
-| ---------------- | ---------------------------- |
+| 状态             | 含义                                      |
+| ---------------- | ----------------------------------------- |
 | `EMPTY`          | 无 Server、无 Client；可休眠或延迟创建。  |
 | `SERVER_PENDING` | 有 Client 无 Server；可缓冲或拒绝业务帧。 |
-| `READY`          | Server 已连接；可双向路由。            |
-| `DEGRADED`       | Server 刚断；按策略缓冲或快速失败。        |
-
+| `READY`          | Server 已连接；可双向路由。               |
+| `DEGRADED`       | Server 刚断；按策略缓冲或快速失败。       |
 
 ### 5.2 存储（DO Storage）
 
-
-| 键                | 用途                                               |
-| ---------------- | ------------------------------------------------ |
-| `last_relay_seq` | 单调递增；replay 游标基准。                                |
+| 键               | 用途                                                                |
+| ---------------- | ------------------------------------------------------------------- |
+| `last_relay_seq` | 单调递增；replay 游标基准。                                         |
 | `ring`           | 可选：最近 N 条 **信封+body** 或仅 **信封+body hash**（合规驱动）。 |
-| `clients`        | `session_id → WebSocket` 映射。                     |
-| `server_ws`      | 单条 Server 连接引用。                                  |
-
+| `clients`        | `session_id → WebSocket` 映射。                                     |
+| `server_ws`      | 单条 Server 连接引用。                                              |
 
 ### 5.3 Replay（M2）
 
@@ -552,12 +526,10 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 **锚点**：CLI 的 **业务 HTTP 基址**与 Web/Desktop 一致，绑定 **用户当前所选 Atmos Computer**（`server_id` / 上下文），**不是**「跑在哪台笔记本上」或「是否 SSH 在 VPS 上」的隐含本机。
 
-
-| 上下文                                                                               | 默认行为（API 基址）                                                                                                                                                                                   |
-| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **当前所选 Computer = 本机进程**（常见：日常开发、SSH 到某台 **Computer**（VPS）且 UI 也指向该 **Computer**） | 可读 `runtime_manifest.json` 等得到 **该 Computer 上 Server 的** `http://127.0.0.1:<port>` 或等价 loopback；**零 `ATMOS_API_URL`** 的前提是「上下文已指向这台机器上的 **Computer**」，而非「CLI 进程所在机器一定是 API 宿主」。 |
-| **当前所选 Computer = 远程**（笔记本终端 + UI 已切到云端）                                          | 使用上下文中的 **远程 API 基址**；M1 可允许 `**ATMOS_API_URL` / `--api-url` 显式覆盖** 作为过渡；M2+ 目标为 **Relay HTTP gateway**、`atmos context use <server_id>` 等写入共享上下文，使 CLI 与 UI **免手抄 URL**（与 §9 里程碑一致）。           |
-
+| 上下文                                                                                                        | 默认行为（API 基址）                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **当前所选 Computer = 本机进程**（常见：日常开发、SSH 到某台 **Computer**（VPS）且 UI 也指向该 **Computer**） | 可读 `runtime_manifest.json` 等得到 **该 Computer 上 Server 的** `http://127.0.0.1:<port>` 或等价 loopback；**零 `ATMOS_API_URL`** 的前提是「上下文已指向这台机器上的 **Computer**」，而非「CLI 进程所在机器一定是 API 宿主」。         |
+| **当前所选 Computer = 远程**（笔记本终端 + UI 已切到云端）                                                    | 使用上下文中的 **远程 API 基址**；M1 可允许 `**ATMOS_API_URL` / `--api-url` 显式覆盖** 作为过渡；M2+ 目标为 **Relay HTTP gateway**、`atmos context use <server_id>` 等写入共享上下文，使 CLI 与 UI **免手抄 URL**（与 §9 里程碑一致）。 |
 
 M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer**」，但 **不得**再产品化「CLI 永远默认 127.0.0.1 而可与 UI 所选 **Computer** 脱钩」。
 
@@ -569,13 +541,11 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 
 ### 8.2 `atmos review` 重构要点（相对现状）
 
-
-| 项    | 现状（待废弃）                                                 | 目标                                                                                                  |
-| ---- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 数据平面 | CLI `main` 内 `DbConnection::new()` + `ReviewService`    | 解析 **当前所选 Atmos Computer 的 API base URL**（与 `canvas` **同源**的解析链），HTTP 调用 `apps/api` 上 **Review 契约** |
-| 事实来源 | 本机 `~/.atmos/db/atmos.db` 与 Server 上 API 使用的库 **可能不一致** | **仅** Server 进程内的 DB（由 API 迁移与服务层访问）                                                                |
-| 实现落点 | `apps/cli` 依赖 `core-service` + `infra` 做 review         | `apps/cli` **薄客户端**（HTTP + 序列化）；路由与 DTO 与 `apps/api` 对齐；缺失端点则在 `**apps/api` 增补**                    |
-
+| 项       | 现状（待废弃）                                                       | 目标                                                                                                                      |
+| -------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 数据平面 | CLI `main` 内 `DbConnection::new()` + `ReviewService`                | 解析 **当前所选 Atmos Computer 的 API base URL**（与 `canvas` **同源**的解析链），HTTP 调用 `apps/api` 上 **Review 契约** |
+| 事实来源 | 本机 `~/.atmos/db/atmos.db` 与 Server 上 API 使用的库 **可能不一致** | **仅** Server 进程内的 DB（由 API 迁移与服务层访问）                                                                      |
+| 实现落点 | `apps/cli` 依赖 `core-service` + `infra` 做 review                   | `apps/cli` **薄客户端**（HTTP + 序列化）；路由与 DTO 与 `apps/api` 对齐；缺失端点则在 `**apps/api` 增补**                 |
 
 **开放项（实现前定稿）**：具体路径/DTO 是 **新增 `/v1/review/...` 资源树** 还是合并进既有模块；是否与 Desktop/Web 共享同一 Rust/TS client crate 由实现选择，但 **契约唯一源为 `apps/api`**。
 
@@ -589,27 +559,23 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 
 ## 9. 分阶段落地（Rollout）
 
-
-| 阶段     | 交付物                                                                                                                                                                                                 |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 阶段   | 交付物                                                                                                                                                                                        |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **M1** | Relay **register_token + client_session** 流程（§2.4）；Relay Worker + `ServerHub` DO；Server 出站；Web 完成列表/注册/建连；`**atmos review` 经 API（§8.2）**（可与本项并行，PRD **M1-7**）。 |
-| **M2** | DO `ring` + `relay_seq` + replay；离线 Computer 策略；**用户登录**替换 `RELAY_KEY`（§2.4.10）。 |
-| **M3** | 多 Client 广播语义、Canvas/终端事件分类白名单。                                                                                                                                                                     |
-| **M4** | 云端拉起 **VPS/虚拟机** 与Relay对接；镜像内预置 `relay_identity.json` 或启动时 pair。                                                                                                                                      |
-| **M5** | 组织权限、审计、配额、E2EE 可选模块。                                                                                                                                                                               |
-
+| **M2** | DO `ring` + `relay_seq` + replay；离线 Computer 策略；**用户登录**替换 `RELAY_KEY`（§2.4.10）。                                                                                               |
+| **M3** | 多 Client 广播语义、Canvas/终端事件分类白名单。                                                                                                                                               |
+| **M4** | 云端拉起 **VPS/虚拟机** 与Relay对接；镜像内预置 `relay_identity.json` 或启动时 pair。                                                                                                         |
+| **M5** | 组织权限、审计、配额、E2EE 可选模块。                                                                                                                                                         |
 
 ---
 
 ## 10. 非功能需求
 
-
-| 类别       | 要求                                                 |
-| -------- | -------------------------------------------------- |
-| **延迟**   | Relay 增加一跳；目标 **P95 额外 RTT < 50ms**（同区域部署下，内测可调整）。 |
-| **可用性**  | Relay 故障时，客户端降级提示；**本机 Server 仍可 loopback**。       |
-| **可观测性** | DO 暴露聚合指标：连接数、帧率、丢弃数、replay 命中率。                   |
-
+| 类别         | 要求                                                                       |
+| ------------ | -------------------------------------------------------------------------- |
+| **延迟**     | Relay 增加一跳；目标 **P95 额外 RTT < 50ms**（同区域部署下，内测可调整）。 |
+| **可用性**   | Relay 故障时，客户端降级提示；**本机 Server 仍可 loopback**。              |
+| **可观测性** | DO 暴露聚合指标：连接数、帧率、丢弃数、replay 命中率。                     |
 
 ---
 
@@ -632,7 +598,7 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 
 ---
 
-*本文档随实现迭代；与 PRD 冲突时以 PRD 为准并回写本文。*
+_本文档随实现迭代；与 PRD 冲突时以 PRD 为准并回写本文。_
 
 ---
 

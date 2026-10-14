@@ -25,9 +25,9 @@ describe("Agent Sessions host wiring", () => {
     expect(params).toContain('firstSegment === "agent-sessions"');
 
     const items = readWeb("../../features/settings/lib/launchpad-items.ts");
-    expect(items).toContain("'agent-sessions'");
+    expect(items).toContain('"agent-sessions"');
     expect(items).toContain("ALWAYS_ON_DEFAULT_IDS");
-    expect(items).toMatch(/ALWAYS_ON_DEFAULT_IDS[\s\S]*'agent-sessions'/);
+    expect(items).toMatch(/ALWAYS_ON_DEFAULT_IDS[\s\S]*"agent-sessions"/);
 
     const launchpad = readWeb("../LeftSidebarLaunchpad.tsx");
     expect(launchpad).toContain('"agent-sessions"');
@@ -38,7 +38,7 @@ describe("Agent Sessions host wiring", () => {
     expect(launchpad).not.toMatch(/text-transform:\s*uppercase/);
 
     const settings = readWeb("../../features/settings/components/LaunchpadLayoutSettings.tsx");
-    expect(settings).toContain("'agent-sessions': Layers");
+    expect(settings).toContain('"agent-sessions": Layers');
 
     const page = readWeb("../../app/(app)/agent-sessions/page.tsx");
     expect(page).toContain("Agent Sessions");
@@ -50,7 +50,7 @@ describe("Agent Sessions host wiring", () => {
 
   test("LeftSidebar keeps the workspace tree on Agent Sessions", () => {
     const sidebar = readWeb("../LeftSidebar.tsx");
-    expect(sidebar).toContain('currentView === \'agent-sessions\'');
+    expect(sidebar).toContain('currentView === "agent-sessions"');
     expect(sidebar).not.toContain("HostSessionSidebar");
     expect(sidebar).not.toContain("isAgentSessionsView");
     expect(sidebar).toContain("LeftSidebarLaunchpadBlock");
@@ -133,7 +133,9 @@ describe("Agent Sessions host wiring", () => {
     expect(menu).toContain('sort.field === "started_at"');
     expect(menu).toContain('sort.field === "byte_size"');
     expect(menu).toContain("HostSessionDateMenuItem");
-    const dateFilter = readWeb("../../features/agent-sessions/components/HostSessionDateRangeFilter.tsx");
+    const dateFilter = readWeb(
+      "../../features/agent-sessions/components/HostSessionDateRangeFilter.tsx",
+    );
     expect(dateFilter).toContain("DateRangePickerPanel");
     expect(dateFilter).toContain("DropdownMenuSubTrigger");
     expect(dateFilter).toContain("onClose");
@@ -151,7 +153,9 @@ describe("Agent Sessions host wiring", () => {
     expect(list).toContain("isSyncing");
     const header = list.slice(list.indexOf("sticky top-0"), list.indexOf("searchPlaceholder"));
     expect(header).toContain('aria-label={t("refresh")}');
-    expect(header.indexOf("indexingProgress")).toBeLessThan(header.indexOf('aria-label={t("refresh")}'));
+    expect(header.indexOf("indexingProgress")).toBeLessThan(
+      header.indexOf('aria-label={t("refresh")}'),
+    );
     expect(header).not.toContain("LaunchpadPageTabs");
     const hook = readWeb("../../features/agent-sessions/hooks/use-host-session-list.ts");
     expect(hook).toContain("HOST_SESSION_PAGE_SIZE");
@@ -189,7 +193,9 @@ describe("Agent Sessions host wiring", () => {
     expect(detail).not.toContain("currentTurnSubagentTasks");
     expect(detail).toContain("data-agent-chat-column");
     expect(detail).toContain("[container-type:size]");
-    expect(detail).toContain("overflow-hidden [container-type:size]");
+    expect(detail).toContain(
+      "[container-type:size] flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden [container-name:agent-chat]",
+    );
     expect(detail).toContain("preview?.grok_goal");
     expect(detail).toContain("preview?.grok_workflow");
     expect(detail).toContain("SubagentConversationOverlay");

@@ -14,6 +14,7 @@ Goal: let a user bring their existing browser sessions into Atmos Browser with r
 one-click feel of ChatGPT Atlas's "Import from your browser" dialog.
 
 Secondary asks bundled into the same surface (browser toolbar is getting crowded):
+
 - Collapse the tab-bar chrome buttons into a `···` overflow menu; keep only **Favorites** and
   **Hide toolbar** outside.
 - Add **Clear Cookies** and **Clear Cache** (one-click wipe of the Atmos Browser store), each
@@ -44,6 +45,7 @@ Secondary asks bundled into the same surface (browser toolbar is getting crowded
 ## Options considered
 
 ### Extraction approach
+
 1. **File + decrypt (chosen for MVP).** Read SQLite + Keychain key. Simple, no source-browser
    changes. Requires source browser closed and one Keychain prompt. Blocked by ABE on Windows.
 2. Browser extension (`chrome.cookies`). Robust, survives ABE, but requires installing an
@@ -52,6 +54,7 @@ Secondary asks bundled into the same surface (browser toolbar is getting crowded
    Chrome 136+ blocks the default profile. Clunky. Rejected.
 
 ### Where the code lives
+
 - New capability crate `crates/browser-cookies` for discovery + decryption (pure, unit-testable).
 - Injection + data-store clearing stay in `apps/desktop/src-tauri` (needs native WKWebView / data
   store handles via `objc2` + `objc2-web-kit`).
@@ -59,10 +62,12 @@ Secondary asks bundled into the same surface (browser toolbar is getting crowded
   Cookies must never reach Atmos Server / relay. Consistent with the "desktop-native, local" rule.
 
 ### Sync model
+
 - **One-time, on-demand import** for MVP. Continuous/auto sync (file watching + re-decrypt +
   conflict handling) is much heavier — deferred.
 
 ### Scope selection
+
 - MVP imports **all** cookies for the chosen browser+profile. Per-domain / allowlist selection is
   a future enhancement (nice for privacy, not required to prove value).
 
@@ -86,7 +91,6 @@ Secondary asks bundled into the same surface (browser toolbar is getting crowded
 - Continuous / background sync.
 - Password / bookmark / history import.
 - Per-domain selective import.
-
 
 ---
 
@@ -119,6 +123,7 @@ implementation**. Findings verified against code and folded into PRD/TECH/TEST:
   `rookie`), pending the four spikes (TECH §11) before finalizing crate internals.
 
 ### Resolved open questions
+
 - Reuse vs `rookie` → reuse/refactor `quota-usage` primitives into `crates/browser-cookies`.
 - Passwords toggle → omitted (Cookies only).
 - Clear Cache scope → split Cache vs Site Data.

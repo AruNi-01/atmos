@@ -9,11 +9,7 @@ interface UseTerminalSearchArgs {
   terminalRef: React.RefObject<XTerm | null>;
 }
 
-export function useTerminalSearch({
-  isDark,
-  searchAddonRef,
-  terminalRef,
-}: UseTerminalSearchArgs) {
+export function useTerminalSearch({ isDark, searchAddonRef, terminalRef }: UseTerminalSearchArgs) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const terminalSearchInputId = useId();
   const [isSearchVisible, setIsSearchVisible] = useState(false);
@@ -24,38 +20,41 @@ export function useTerminalSearch({
     total: 0,
   });
 
-  const runSearch = useCallback((direction: "next" | "previous", queryOverride?: string) => {
-    const addon = searchAddonRef.current;
-    const query = queryOverride ?? searchQuery;
-    if (!addon || !query.trim()) {
-      setSearchHasMatch(null);
-      setSearchStats({ current: 0, total: 0 });
-      return false;
-    }
+  const runSearch = useCallback(
+    (direction: "next" | "previous", queryOverride?: string) => {
+      const addon = searchAddonRef.current;
+      const query = queryOverride ?? searchQuery;
+      if (!addon || !query.trim()) {
+        setSearchHasMatch(null);
+        setSearchStats({ current: 0, total: 0 });
+        return false;
+      }
 
-    const options: ISearchOptions = {
-      caseSensitive: false,
-      regex: false,
-      wholeWord: false,
-      incremental: true,
-      decorations: {
-        matchBackground: isDark ? "#27272a" : "#d4d4d8",
-        matchBorder: isDark ? "#3f3f46" : "#a1a1aa",
-        matchOverviewRuler: isDark ? "#52525b" : "#71717a",
-        activeMatchBackground: isDark ? "#f4f4f5" : "#18181b",
-        activeMatchBorder: isDark ? "#fafafa" : "#09090b",
-        activeMatchColorOverviewRuler: isDark ? "#fafafa" : "#18181b",
-      },
-    };
+      const options: ISearchOptions = {
+        caseSensitive: false,
+        regex: false,
+        wholeWord: false,
+        incremental: true,
+        decorations: {
+          matchBackground: isDark ? "#27272a" : "#d4d4d8",
+          matchBorder: isDark ? "#3f3f46" : "#a1a1aa",
+          matchOverviewRuler: isDark ? "#52525b" : "#71717a",
+          activeMatchBackground: isDark ? "#f4f4f5" : "#18181b",
+          activeMatchBorder: isDark ? "#fafafa" : "#09090b",
+          activeMatchColorOverviewRuler: isDark ? "#fafafa" : "#18181b",
+        },
+      };
 
-    const matched =
-      direction === "previous"
-        ? addon.findPrevious(query, options)
-        : addon.findNext(query, options);
+      const matched =
+        direction === "previous"
+          ? addon.findPrevious(query, options)
+          : addon.findNext(query, options);
 
-    setSearchHasMatch(matched);
-    return matched;
-  }, [isDark, searchAddonRef, searchQuery]);
+      setSearchHasMatch(matched);
+      return matched;
+    },
+    [isDark, searchAddonRef, searchQuery],
+  );
 
   const closeSearch = useCallback(() => {
     setIsSearchVisible(false);
@@ -73,16 +72,19 @@ export function useTerminalSearch({
     searchInputRef.current?.select();
   }, [isSearchVisible]);
 
-  const handleSearchQueryChange = useCallback((nextQuery: string) => {
-    setSearchQuery(nextQuery);
-    if (!nextQuery.trim()) {
-      setSearchHasMatch(null);
-      setSearchStats({ current: 0, total: 0 });
-      searchAddonRef.current?.clearDecorations();
-      return;
-    }
-    runSearch("next", nextQuery);
-  }, [runSearch, searchAddonRef]);
+  const handleSearchQueryChange = useCallback(
+    (nextQuery: string) => {
+      setSearchQuery(nextQuery);
+      if (!nextQuery.trim()) {
+        setSearchHasMatch(null);
+        setSearchStats({ current: 0, total: 0 });
+        searchAddonRef.current?.clearDecorations();
+        return;
+      }
+      runSearch("next", nextQuery);
+    },
+    [runSearch, searchAddonRef],
+  );
 
   const openSearch = useCallback(() => {
     const terminal = terminalRef.current;

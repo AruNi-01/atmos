@@ -32,13 +32,7 @@ export type AgentStatusClearedNotification = {
 
 export type AgentOccupancy = "idle" | "running" | "permission_request";
 
-export type AgentLiveKind =
-  | "idle"
-  | "thinking"
-  | "streaming"
-  | "working"
-  | "tool"
-  | "permission";
+export type AgentLiveKind = "idle" | "thinking" | "streaming" | "working" | "tool" | "permission";
 
 export type AgentPendingQuestion = {
   id: string;

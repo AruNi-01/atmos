@@ -23,10 +23,10 @@ ATMOS 作为一个面向开发者的本地工作台，其核心工作区域是�
 
 在确定最终方案之前，我们探讨了多种可能性，每种方案都有其优缺点。
 
-| 方案 | 核心思想 | 优点 | 缺点 |
-| :--- | :--- | :--- | :--- |
-| **Node.js (pi-mono)** | 在 Next.js 中集成一个完整的 Agent 框架 | 开发速度快，生态成熟 | 跨平台复用困难，架构复杂 |
-| **Rust (Rig 框架)** | 使用 Rust 原生 Agent 框架 | 全平台复用，技术栈统一 | 开发成本高，框架仍在快速迭代 |
+| 方案                  | 核心思想                                    | 优点                                 | 缺点                         |
+| :-------------------- | :------------------------------------------ | :----------------------------------- | :--------------------------- |
+| **Node.js (pi-mono)** | 在 Next.js 中集成一个完整的 Agent 框架      | 开发速度快，生态成熟                 | 跨平台复用困难，架构复杂     |
+| **Rust (Rig 框架)**   | 使用 Rust 原生 Agent 框架                   | 全平台复用，技术栈统一               | 开发成本高，框架仍在快速迭代 |
 | **ACP Client (Rust)** | 作为 ACP 协议的客户端，连接到外部 Agent CLI | **开发成本极低，完美复用，架构简洁** | 依赖外部 CLI 和 Node.js 环境 |
 
 经过综合评估，我们最终选择了 **ACP Client (Rust)** 方案，因为它完美地平衡了开发成本、用户体验和长期可扩展性。
@@ -53,35 +53,35 @@ ATMOS 作为一个面向开发者的本地工作台，其核心工作区域是�
 
 ### 3.3. ACP 协议成熟度
 
-| 指标 | 状态 |
-| :--- | :--- |
-| **Rust SDK 版本** | `agent-client-protocol` v0.9.4 (2026-02-04) |
-| **协议规范** | JSON-RPC 2.0, methods + notifications |
-| **已集成的编辑器** | Zed (原生)、JetBrains (内置)、Neovim、Emacs |
+| 指标               | 状态                                                          |
+| :----------------- | :------------------------------------------------------------ |
+| **Rust SDK 版本**  | `agent-client-protocol` v0.9.4 (2026-02-04)                   |
+| **协议规范**       | JSON-RPC 2.0, methods + notifications                         |
+| **已集成的编辑器** | Zed (原生)、JetBrains (内置)、Neovim、Emacs                   |
 | **已适配的 Agent** | Claude Code、Gemini CLI、Codex CLI、Copilot CLI、Cline、Goose |
-| **ACP Registry** | 2026-01 上线, 统一的 Agent 发现与分发平台 [4] |
+| **ACP Registry**   | 2026-01 上线, 统一的 Agent 发现与分发平台 [4]                 |
 
 ### 3.4. ACP 工具调用类型
 
 ACP 定义了以下标准工具调用类型，Agent 通过 `session/update` 通知 Client 工具执行状态：
 
-| 工具类型 | 说明 | ATMOS 现有能力 | 复用难度 |
-| :--- | :--- | :--- | :--- |
-| `read` | 读取文件内容 | `core-engine::fs` | 低 |
-| `edit` | 编辑文件内容 | `core-engine::fs` | 低 |
-| `delete` | 删除文件 | `core-engine::fs` | 低 |
-| `move` | 移动/重命名文件 | `core-engine::fs` | 低 |
-| `search` | 搜索文件内容 | `core-engine::search` | 低 |
-| `execute` | 执行 Shell 命令 | `core-service::TerminalService` | 中 |
-| `think` | Agent 内部思考 (无需执行) | — | 无 |
-| `fetch` | 网络请求 | 需新增 | 中 |
+| 工具类型  | 说明                      | ATMOS 现有能力                  | 复用难度 |
+| :-------- | :------------------------ | :------------------------------ | :------- |
+| `read`    | 读取文件内容              | `core-engine::fs`               | 低       |
+| `edit`    | 编辑文件内容              | `core-engine::fs`               | 低       |
+| `delete`  | 删除文件                  | `core-engine::fs`               | 低       |
+| `move`    | 移动/重命名文件           | `core-engine::fs`               | 低       |
+| `search`  | 搜索文件内容              | `core-engine::search`           | 低       |
+| `execute` | 执行 Shell 命令           | `core-service::TerminalService` | 中       |
+| `think`   | Agent 内部思考 (无需执行) | —                               | 无       |
+| `fetch`   | 网络请求                  | 需新增                          | 中       |
 
 此外，ACP 还支持终端相关方法 [5]：
 
-| 方法 | 说明 |
-| :--- | :--- |
-| `terminal/create` | 创建终端实例 |
-| `terminal/output` | 实时流式输出 |
+| 方法                     | 说明             |
+| :----------------------- | :--------------- |
+| `terminal/create`        | 创建终端实例     |
+| `terminal/output`        | 实时流式输出     |
 | `terminal/wait_for_exit` | 等待命令执行完成 |
 
 ## 4. 最终技术方案
@@ -172,14 +172,14 @@ atmos/
 
 **分层职责说明**:
 
-| 层级 | 模块 | 职责 | 依赖 |
-| :--- | :--- | :--- | :--- |
-| **crates/agent** | `acp_client` | ACP 协议通信、Agent 子进程管理 | `agent-client-protocol`, `tokio` |
-| | `registry` | Agent 发现、安装、版本管理 | `reqwest` (ACP Registry API) |
-| | `credential` | 凭证检测、存储、注入 | `keyring`, `dirs` |
-| **crates/core-service** | `AgentService` | 会话生命周期、工具调用路由到 core-engine | `agent`, `core-engine`, `infra` |
-| **apps/api** | WS handler | `/ws/agent/{session_id}` 流式 WebSocket | `core-service` |
-| **apps/web** | Chat UI | 聊天界面、权限确认、Agent 管理 | WebSocket |
+| 层级                    | 模块           | 职责                                     | 依赖                             |
+| :---------------------- | :------------- | :--------------------------------------- | :------------------------------- |
+| **crates/agent**        | `acp_client`   | ACP 协议通信、Agent 子进程管理           | `agent-client-protocol`, `tokio` |
+|                         | `registry`     | Agent 发现、安装、版本管理               | `reqwest` (ACP Registry API)     |
+|                         | `credential`   | 凭证检测、存储、注入                     | `keyring`, `dirs`                |
+| **crates/core-service** | `AgentService` | 会话生命周期、工具调用路由到 core-engine | `agent`, `core-engine`, `infra`  |
+| **apps/api**            | WS handler     | `/ws/agent/{session_id}` 流式 WebSocket  | `core-service`                   |
+| **apps/web**            | Chat UI        | 聊天界面、权限确认、Agent 管理           | WebSocket                        |
 
 ### 4.3. Agent 发现与安装
 
@@ -217,13 +217,14 @@ flowchart TD
 
 **三层凭证策略**:
 
-| 优先级 | 策略 | 说明 | 用户操作 |
-| :--- | :--- | :--- | :--- |
-| 1 | **检测已有认证** | 扫描 `~/.claude/`, `~/.config/gemini/` 等 CLI 自身的认证文件 | 无 (零配置) |
-| 2 | **系统 Keychain** | 使用 `keyring` crate 存储/读取 API Key (macOS Keychain, Windows Credential Manager, Linux Secret Service) | 首次输入一次 |
-| 3 | **环境变量注入** | 从 Keychain 读取后，以环境变量形式注入 Agent 子进程 | 无 |
+| 优先级 | 策略              | 说明                                                                                                      | 用户操作     |
+| :----- | :---------------- | :-------------------------------------------------------------------------------------------------------- | :----------- |
+| 1      | **检测已有认证**  | 扫描 `~/.claude/`, `~/.config/gemini/` 等 CLI 自身的认证文件                                              | 无 (零配置)  |
+| 2      | **系统 Keychain** | 使用 `keyring` crate 存储/读取 API Key (macOS Keychain, Windows Credential Manager, Linux Secret Service) | 首次输入一次 |
+| 3      | **环境变量注入**  | 从 Keychain 读取后，以环境变量形式注入 Agent 子进程                                                       | 无           |
 
 **安全保障**:
+
 - API Key **绝不**以明文形式存储在配置文件中
 - 启动 Agent 进程时通过进程级环境变量注入，不污染全局环境
 - 前端传输 API Key 时走 WebSocket 加密通道
@@ -234,12 +235,12 @@ ACP 协议支持 `session/request_permission` 方法——Agent 在执行危险�
 
 **权限分级**:
 
-| 操作类型 | 风险等级 | 默认策略 |
-| :--- | :--- | :--- |
-| `read`, `search`, `think` | 低 | 自动允许 |
-| `edit`, `move` | 中 | 首次确认，可设为"本次会话自动允许" |
-| `delete`, `execute` | 高 | 每次确认 |
-| `fetch` (网络请求) | 中 | 首次确认 |
+| 操作类型                  | 风险等级 | 默认策略                           |
+| :------------------------ | :------- | :--------------------------------- |
+| `read`, `search`, `think` | 低       | 自动允许                           |
+| `edit`, `move`            | 中       | 首次确认，可设为"本次会话自动允许" |
+| `delete`, `execute`       | 高       | 每次确认                           |
+| `fetch` (网络请求)        | 中       | 首次确认                           |
 
 **前端交互**:
 
@@ -355,23 +356,23 @@ Agent 的响应通常是长文本，需要流式推送到前端。我们为 Agen
 
 ### 4.7. 技术栈
 
-| 层级 | 技术栈 | 说明 |
-| :--- | :--- | :--- |
-| **crates/agent (Rust)** | `agent-client-protocol` v0.9, `keyring`, `tokio`, `reqwest` | ACP SDK、凭证管理、Registry 客户端 |
-| **crates/core-service (Rust)** | `agent` crate, `core-engine`, `infra` | Agent 会话管理、工具调用路由 |
-| **apps/api (Rust)** | `axum` (ws), `tokio` | Agent WebSocket endpoint |
-| **apps/web (React)** | WebSocket, Zustand | Chat UI、Agent 管理、权限确认 |
-| **外部依赖** | Node.js, npm, ACP Agent CLI | 可通过 ACP Registry 或 npm 安装 |
+| 层级                           | 技术栈                                                      | 说明                               |
+| :----------------------------- | :---------------------------------------------------------- | :--------------------------------- |
+| **crates/agent (Rust)**        | `agent-client-protocol` v0.9, `keyring`, `tokio`, `reqwest` | ACP SDK、凭证管理、Registry 客户端 |
+| **crates/core-service (Rust)** | `agent` crate, `core-engine`, `infra`                       | Agent 会话管理、工具调用路由       |
+| **apps/api (Rust)**            | `axum` (ws), `tokio`                                        | Agent WebSocket endpoint           |
+| **apps/web (React)**           | WebSocket, Zustand                                          | Chat UI、Agent 管理、权限确认      |
+| **外部依赖**                   | Node.js, npm, ACP Agent CLI                                 | 可通过 ACP Registry 或 npm 安装    |
 
 ### 4.8. 错误处理与恢复
 
-| 错误场景 | 处理策略 |
-| :--- | :--- |
-| Agent 进程崩溃 | 自动检测退出码，通知前端，提供"重新启动"按钮 |
-| WebSocket 断连 | 前端自动重连，恢复会话上下文（Agent 进程仍存活） |
-| ACP 通信超时 | 30s 超时后通知用户，可选择等待或取消 |
-| API Key 无效/过期 | 捕获 Agent 认证错误，引导用户重新配置凭证 |
-| Agent 安装失败 | 显示详细错误信息，提供手动安装指引 |
+| 错误场景          | 处理策略                                         |
+| :---------------- | :----------------------------------------------- |
+| Agent 进程崩溃    | 自动检测退出码，通知前端，提供"重新启动"按钮     |
+| WebSocket 断连    | 前端自动重连，恢复会话上下文（Agent 进程仍存活） |
+| ACP 通信超时      | 30s 超时后通知用户，可选择等待或取消             |
+| API Key 无效/过期 | 捕获 Agent 认证错误，引导用户重新配置凭证        |
+| Agent 安装失败    | 显示详细错误信息，提供手动安装指引               |
 
 ### 4.9. 未来扩展性
 
@@ -396,11 +397,11 @@ crates/agent/
 
 - **acp_servers.json**（`~/.atmos/agent/acp_servers.json`）：仅记录已安装的 registry_id、install_method、binary_path。package、launch_args、launch_env 等从 ACP registry 读取，不重复存储。
 
-| 字段 | 说明 |
-| :--- | :--- |
-| `registry_id` | ACP Registry 中的 Agent ID |
-| `install_method` | `npx` 或 `binary` |
-| `binary_path` | binary 时：可执行文件绝对路径（npx 时为空） |
+| 字段             | 说明                                        |
+| :--------------- | :------------------------------------------ |
+| `registry_id`    | ACP Registry 中的 Agent ID                  |
+| `install_method` | `npx` 或 `binary`                           |
+| `binary_path`    | binary 时：可执行文件绝对路径（npx 时为空） |
 
 - **acp_registry.json**（`~/.atmos/agent/acp_registry.json`）：ACP Registry 的本地缓存，服务启动时从 CDN 拉取并写入，读取时优先使用缓存避免频繁请求。
 
@@ -410,31 +411,31 @@ crates/agent/
 
 ## 5. 开发路线图
 
-| 里程碑 | 核心任务 | 预期产出 | 预估工期 |
-| :--- | :--- | :--- | :--- |
-| **M1: 核心框架** | `crates/agent` 搭建、ACP Client 实现、Agent 安装/凭证管理、`/ws/agent` endpoint、基础 Chat UI | Agent 进程管理、基础对话功能、权限控制 | 2 周 |
-| **M2: Wiki 智能问答** | 集成 Wiki 搜索工具、上下文注入、前端问答 UI | 基于项目 Wiki 的智能问答 | 1 周 |
-| **M3: 智能 Commit** | 集成 Git 工具、Commit Message 生成工作流 | 一键生成语义化 Commit Message | 1 周 |
-| **M4: 通用 AI 助手** | 可悬浮聊天窗口、多会话管理、上下文感知 | 随处可用的全局 AI 助手 | 2 周 |
+| 里程碑                | 核心任务                                                                                      | 预期产出                               | 预估工期 |
+| :-------------------- | :-------------------------------------------------------------------------------------------- | :------------------------------------- | :------- |
+| **M1: 核心框架**      | `crates/agent` 搭建、ACP Client 实现、Agent 安装/凭证管理、`/ws/agent` endpoint、基础 Chat UI | Agent 进程管理、基础对话功能、权限控制 | 2 周     |
+| **M2: Wiki 智能问答** | 集成 Wiki 搜索工具、上下文注入、前端问答 UI                                                   | 基于项目 Wiki 的智能问答               | 1 周     |
+| **M3: 智能 Commit**   | 集成 Git 工具、Commit Message 生成工作流                                                      | 一键生成语义化 Commit Message          | 1 周     |
+| **M4: 通用 AI 助手**  | 可悬浮聊天窗口、多会话管理、上下文感知                                                        | 随处可用的全局 AI 助手                 | 2 周     |
 
 ### 5.1. M1 核心框架 - 详细实施计划
 
 #### 5.1.1. 实施状态
 
-| 模块 | 任务 | 状态 | 说明 |
-| :--- | :--- | :--- | :--- |
-| **crates/agent** | 基础结构 | ✅ 已实现 | `lib.rs`, `models.rs`, `manager.rs` |
-| | ACP Registry 缓存 | ✅ 已实现 | `acp_registry.json`, `refresh_acp_registry_cache` |
-| | Install Manifest | ✅ 已实现 | `acp_servers.json`, npx/binary 安装 |
-| | 凭证管理 (keyring) | ✅ 已实现 | `get_agent_config`, `set_agent_api_key` |
-| | `get_registry_agent_launch_spec` | ✅ 已实现 | 用于 spawn Agent 进程 |
-| | **AcpClient（ACP 协议）** | ⬜ 待实现 | `acp_client/` 目前为占位，需接入 `agent-client-protocol` SDK |
-| **crates/core-service** | AgentService（列表/安装/配置） | ✅ 已实现 | `service/agent.rs` |
-| | **AgentSessionService（会话管理）** | ⬜ 待实现 | 会话生命周期、工具调用路由 |
-| **apps/api** | Agent WebSocket 消息（agent_list 等） | ✅ 已实现 | 通过 WsMessageService 处理 |
-| | **`/ws/agent/{session_id}`** | ⬜ 待实现 | 独立的 Agent 对话 WebSocket 端点 |
-| **apps/web** | Agent 管理页 | ✅ 已实现 | `AgentManagerView`, `/agents` |
-| | **Agent Chat UI** | ⬜ 待实现 | 聊天界面、流式输出、权限确认卡片 |
+| 模块                    | 任务                                  | 状态      | 说明                                                         |
+| :---------------------- | :------------------------------------ | :-------- | :----------------------------------------------------------- |
+| **crates/agent**        | 基础结构                              | ✅ 已实现 | `lib.rs`, `models.rs`, `manager.rs`                          |
+|                         | ACP Registry 缓存                     | ✅ 已实现 | `acp_registry.json`, `refresh_acp_registry_cache`            |
+|                         | Install Manifest                      | ✅ 已实现 | `acp_servers.json`, npx/binary 安装                          |
+|                         | 凭证管理 (keyring)                    | ✅ 已实现 | `get_agent_config`, `set_agent_api_key`                      |
+|                         | `get_registry_agent_launch_spec`      | ✅ 已实现 | 用于 spawn Agent 进程                                        |
+|                         | **AcpClient（ACP 协议）**             | ⬜ 待实现 | `acp_client/` 目前为占位，需接入 `agent-client-protocol` SDK |
+| **crates/core-service** | AgentService（列表/安装/配置）        | ✅ 已实现 | `service/agent.rs`                                           |
+|                         | **AgentSessionService（会话管理）**   | ⬜ 待实现 | 会话生命周期、工具调用路由                                   |
+| **apps/api**            | Agent WebSocket 消息（agent_list 等） | ✅ 已实现 | 通过 WsMessageService 处理                                   |
+|                         | **`/ws/agent/{session_id}`**          | ⬜ 待实现 | 独立的 Agent 对话 WebSocket 端点                             |
+| **apps/web**            | Agent 管理页                          | ✅ 已实现 | `AgentManagerView`, `/agents`                                |
+|                         | **Agent Chat UI**                     | ⬜ 待实现 | 聊天界面、流式输出、权限确认卡片                             |
 
 #### 5.1.2. 剩余任务清单（按依赖顺序）
 
@@ -517,28 +518,28 @@ apps/web/src/components/agent/
 
 **修改文件**
 
-| 文件 | 修改内容 |
-| :--- | :--- |
-| `crates/agent/Cargo.toml` | 添加 `agent-client-protocol` 依赖 |
-| `crates/agent/src/lib.rs` | 导出 `acp_client` 子模块 |
-| `crates/agent/src/acp_client/mod.rs` | 替换占位实现，导出 client、process、tools |
-| `crates/core-service/src/service/mod.rs` | 注册 `AgentSessionService` |
-| `crates/core-service/Cargo.toml` | 如需 agent 的 acp_client，添加依赖 |
-| `apps/api/src/api/ws/mod.rs` | 挂载 `agent::routes()` |
-| `apps/api/src/api/mod.rs` | 若 ws 路由需拆分，调整 |
-| `apps/web/src/app/[locale]/(app)/` | 新增或扩展 Agent Chat 路由/布局 |
-| `apps/web/src/api/ws-api.ts` | 新增 Agent 会话 WebSocket 连接与消息类型 |
+| 文件                                     | 修改内容                                  |
+| :--------------------------------------- | :---------------------------------------- |
+| `crates/agent/Cargo.toml`                | 添加 `agent-client-protocol` 依赖         |
+| `crates/agent/src/lib.rs`                | 导出 `acp_client` 子模块                  |
+| `crates/agent/src/acp_client/mod.rs`     | 替换占位实现，导出 client、process、tools |
+| `crates/core-service/src/service/mod.rs` | 注册 `AgentSessionService`                |
+| `crates/core-service/Cargo.toml`         | 如需 agent 的 acp_client，添加依赖        |
+| `apps/api/src/api/ws/mod.rs`             | 挂载 `agent::routes()`                    |
+| `apps/api/src/api/mod.rs`                | 若 ws 路由需拆分，调整                    |
+| `apps/web/src/app/[locale]/(app)/`       | 新增或扩展 Agent Chat 路由/布局           |
+| `apps/web/src/api/ws-api.ts`             | 新增 Agent 会话 WebSocket 连接与消息类型  |
 
 #### 5.1.4. 验收标准
 
-| 验收项 | 标准 |
-| :--- | :--- |
-| **Agent 进程启动** | 选择已安装 Agent，点击「启动 Chat」后，后端能成功 spawn 对应 CLI 进程，建立 stdio JSON-RPC 连接 |
-| **基础对话** | 用户输入 prompt，能收到 Agent 的流式文本回复，前端正确展示 |
-| **工具调用展示** | Agent 执行 read/edit/execute 时，前端能收到 `tool_call` 通知并展示（如 "正在编辑 src/lib.rs"） |
-| **权限请求** | 对 edit/delete/execute，前端弹出权限确认卡片，用户允许/拒绝后，后端能正确响应 ACP 的 `session/request_permission` |
-| **会话恢复** | WebSocket 断连后重连，能恢复到同一会话（Agent 进程仍在则继续；已退出则提示「会话已结束」） |
-| **错误处理** | Agent 进程崩溃时，前端收到 `error` 消息并展示「重新启动」入口 |
+| 验收项             | 标准                                                                                                              |
+| :----------------- | :---------------------------------------------------------------------------------------------------------------- |
+| **Agent 进程启动** | 选择已安装 Agent，点击「启动 Chat」后，后端能成功 spawn 对应 CLI 进程，建立 stdio JSON-RPC 连接                   |
+| **基础对话**       | 用户输入 prompt，能收到 Agent 的流式文本回复，前端正确展示                                                        |
+| **工具调用展示**   | Agent 执行 read/edit/execute 时，前端能收到 `tool_call` 通知并展示（如 "正在编辑 src/lib.rs"）                    |
+| **权限请求**       | 对 edit/delete/execute，前端弹出权限确认卡片，用户允许/拒绝后，后端能正确响应 ACP 的 `session/request_permission` |
+| **会话恢复**       | WebSocket 断连后重连，能恢复到同一会话（Agent 进程仍在则继续；已退出则提示「会话已结束」）                        |
+| **错误处理**       | Agent 进程崩溃时，前端收到 `error` 消息并展示「重新启动」入口                                                     |
 
 ## 6. 结论
 
@@ -571,14 +572,14 @@ apps/web/src/components/agent/
 
 **核心原则**：session 跟着 cwd 走，禁止跨 context 自动 resume。
 
-| 变更 | 说明 |
-| :--- | :--- |
-| **移除 localStorage session 映射** | 删除 `LAST_SESSION_STORAGE_KEY` 及相关函数（`readLastSessionMap`、`getLastSessionIdForContext`、`setLastSessionIdForContext`、`clearLastSessionIdForContext`），消除竞态根源 |
-| **改用 DB 查询恢复 session** | 自动恢复时通过 `listSessions({ context_type, context_guid, mode, limit: 1 })` 查询当前 context 最近的 session，替代 localStorage 查找 |
-| **内存映射加 isConnected 守卫** | `activeSessionByContext` effect 仅在 `isConnected` 时写入，防止 contextKey 变化时用旧 sessionId 污染新 context 的内存映射 |
-| **历史列表 context 提示** | Chat history popover 头部添加当前 context 标识（Workspace/Project/Temp），tooltip 显示完整路径 |
+| 变更                                  | 说明                                                                                                                                                                                                                                                                                                                         |
+| :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **移除 localStorage session 映射**    | 删除 `LAST_SESSION_STORAGE_KEY` 及相关函数（`readLastSessionMap`、`getLastSessionIdForContext`、`setLastSessionIdForContext`、`clearLastSessionIdForContext`），消除竞态根源                                                                                                                                                 |
+| **改用 DB 查询恢复 session**          | 自动恢复时通过 `listSessions({ context_type, context_guid, mode, limit: 1 })` 查询当前 context 最近的 session，替代 localStorage 查找                                                                                                                                                                                        |
+| **内存映射加 isConnected 守卫**       | `activeSessionByContext` effect 仅在 `isConnected` 时写入，防止 contextKey 变化时用旧 sessionId 污染新 context 的内存映射                                                                                                                                                                                                    |
+| **历史列表 context 提示**             | Chat history popover 头部添加当前 context 标识（Workspace/Project/Temp），tooltip 显示完整路径                                                                                                                                                                                                                               |
 | **Wiki Ask 模式使用 Project context** | Wiki 数据存储在 Project 的 `.atmos/` 目录中，不在 Workspace worktree 中。当在 Workspace 下使用 wiki_ask 模式时，session 的 context 自动切换为父 Project（`sessionWorkspaceId = null`, `sessionProjectId = parentProjectId`），确保 session 的 cwd 指向 Project 路径，且同一 Project 下的多个 Workspace 共享 wiki_ask session |
-| **特定 session 统一命名** | Wiki Ask session 标题格式为 `{ProjectName}_WikiAsk_{时间}`；Code Review 新建 session 格式为 `{ProjectName}_CodeReview_{时间}`；Git Commit 新建 session 格式为 `{ContextName}_GitCommit_{时间}`（复用已有 session 时不重命名）。通过 `pendingAgentChatPrompt` 的 `sessionTitle` 字段传递 |
+| **特定 session 统一命名**             | Wiki Ask session 标题格式为 `{ProjectName}_WikiAsk_{时间}`；Code Review 新建 session 格式为 `{ProjectName}_CodeReview_{时间}`；Git Commit 新建 session 格式为 `{ContextName}_GitCommit_{时间}`（复用已有 session 时不重命名）。通过 `pendingAgentChatPrompt` 的 `sessionTitle` 字段传递                                      |
 
 ### 7.4. 影响范围
 
@@ -590,10 +591,10 @@ apps/web/src/components/agent/
 
 ## 8. 参考文献
 
-[1] Agent Client Protocol. (2026). *ACP Official Website*. [https://agentclientprotocol.com/](https://agentclientprotocol.com/)
-[2] Zed. (2026). *Claude Code - ACP Agent*. [https://zed.dev/acp/agent/claude-code](https://zed.dev/acp/agent/claude-code)
-[3] Claude Help Center. (2026). *Managing API key environment variables in Claude Code*. [https://support.claude.com/en/articles/12304248-managing-api-key-environment-variables-in-claude-code](https://support.claude.com/en/articles/12304248-managing-api-key-environment-variables-in-claude-code)
-[4] Zed. (2026). *The ACP Registry is Live*. [https://zed.dev/blog/acp-registry](https://zed.dev/blog/acp-registry)
-[5] Agent Client Protocol. (2026). *Terminals*. [https://agentclientprotocol.com/protocol/terminals](https://agentclientprotocol.com/protocol/terminals)
-[6] Agent Client Protocol. (2026). *Tool Calls*. [https://agentclientprotocol.com/protocol/tool-calls](https://agentclientprotocol.com/protocol/tool-calls)
-[7] Agent Client Protocol. (2026). *Rust SDK*. [https://github.com/agentclientprotocol/rust-sdk](https://github.com/agentclientprotocol/rust-sdk)
+[1] Agent Client Protocol. (2026). _ACP Official Website_. [https://agentclientprotocol.com/](https://agentclientprotocol.com/)
+[2] Zed. (2026). _Claude Code - ACP Agent_. [https://zed.dev/acp/agent/claude-code](https://zed.dev/acp/agent/claude-code)
+[3] Claude Help Center. (2026). _Managing API key environment variables in Claude Code_. [https://support.claude.com/en/articles/12304248-managing-api-key-environment-variables-in-claude-code](https://support.claude.com/en/articles/12304248-managing-api-key-environment-variables-in-claude-code)
+[4] Zed. (2026). _The ACP Registry is Live_. [https://zed.dev/blog/acp-registry](https://zed.dev/blog/acp-registry)
+[5] Agent Client Protocol. (2026). _Terminals_. [https://agentclientprotocol.com/protocol/terminals](https://agentclientprotocol.com/protocol/terminals)
+[6] Agent Client Protocol. (2026). _Tool Calls_. [https://agentclientprotocol.com/protocol/tool-calls](https://agentclientprotocol.com/protocol/tool-calls)
+[7] Agent Client Protocol. (2026). _Rust SDK_. [https://github.com/agentclientprotocol/rust-sdk](https://github.com/agentclientprotocol/rust-sdk)

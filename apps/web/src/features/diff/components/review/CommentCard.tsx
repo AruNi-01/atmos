@@ -2,19 +2,11 @@
 
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Button,
-  Textarea,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui";
+import { Button, Textarea, Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { MessageBubble } from "./MessageBubble";
 import { ReviewMessageActionsMenu } from "./ReviewMessageActionsMenu";
-import {
-  statusTone,
-} from "./utils";
+import { statusTone } from "./utils";
 import {
   CheckCircle2,
   ChevronRight,
@@ -114,10 +106,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             aria-label={expanded ? t("comment.collapseAria") : t("comment.expandAria")}
           >
             <ChevronRight
-              className={cn(
-                "size-3.5 transition-transform",
-                expanded && "rotate-90",
-              )}
+              className={cn("size-3.5 transition-transform", expanded && "rotate-90")}
             />
           </button>
           <button
@@ -125,9 +114,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             onClick={() => onNavigate?.(comment)}
             className="min-w-0 flex-1 cursor-pointer text-left"
           >
-            <p className="truncate text-sm font-medium leading-5 text-foreground">
-              {title}
-            </p>
+            <p className="truncate text-sm leading-5 font-medium text-foreground">{title}</p>
           </button>
         </div>
         <span
@@ -161,18 +148,16 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   message={message}
                   onEdit={onUpdateMessage}
                   action={
-                    canEdit &&
-                    onDeleteMessage &&
-                    onUpdateMessage ? (
-                      ({ startEdit }) => (
-                        <ReviewMessageActionsMenu
-                          message={message}
-                          disabled={deletingMessageGuid === message.guid}
-                          onEdit={startEdit}
-                          onDelete={() => handleDeleteMessage(message)}
-                        />
-                      )
-                    ) : null
+                    canEdit && onDeleteMessage && onUpdateMessage
+                      ? ({ startEdit }) => (
+                          <ReviewMessageActionsMenu
+                            message={message}
+                            disabled={deletingMessageGuid === message.guid}
+                            onEdit={startEdit}
+                            onDelete={() => handleDeleteMessage(message)}
+                          />
+                        )
+                      : null
                   }
                 />
               </div>
@@ -228,7 +213,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   <TooltipContent>
                     <div className="flex items-center gap-2">
                       <span>{t("reply.tooltips.sendReply")}</span>
-                      <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                      <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
                         <Command className="size-3" />
                         <CornerDownLeft className="size-3" />
                       </kbd>

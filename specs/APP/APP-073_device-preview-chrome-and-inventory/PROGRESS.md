@@ -21,13 +21,13 @@
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID | Wave | Owns | Forbids | Depends | Status | Impl | Review | Verify |
-|----|------|------|---------|---------|--------|------|--------|--------|
-| S0 | 0 | `crates/core-engine/src/host_devices/**`, `crates/core-engine/src/lib.rs`, `crates/core-engine/AGENTS.md`, `crates/runtime-manager/src/layout.rs`, `crates/runtime-manager/src/lib.rs`, `agents/references/runtime/atmos-home-layout.md` | `crates/core-service/**`, `apps/**`, `packages/**`, `vendor/**` | — | done | ok | pass | `cargo test -p core-engine host_devices -- --nocapture` |
-| S1 | 1 | `crates/core-service/src/service/device_preview/**`, `crates/core-service/src/lib.rs`, `crates/core-service/AGENTS.md`, `crates/core-engine/src/device_control/**` | `vendor/**`, `apps/**`, `packages/api-types/**`, pin JSON | S0 | done | ok | pass | `cargo test -p core-service device_preview -- --nocapture` |
-| S2 | 1 | `vendor/serve-sim/**`, `scripts/serve-sim/**`, `crates/core-service/pins/serve-sim-requirement.json` | `crates/core-engine/**`, `apps/**`, `packages/**` | — | done | ok | pass | pin version + pack.sh omits simcam + ATMOS-PATCHES behaviors present |
-| S3 | 2 | `apps/api/src/api/ws/router/simulator.rs`, `apps/api/src/api/ws/router/mod.rs`, `apps/api/src/api/ws/message.rs`, `apps/api/src/api/cli/invoke.rs`, `packages/api-types/src/ws/**`, `packages/api-types/fixtures/**`, `apps/cli/src/commands/simulator.rs`, `apps/web/src/api/ws/simulator-api.ts` | `vendor/**`, `apps/web/src/features/**`, `apps/web/messages/**` | S1 | done | ok | pass | extract-actions + cargo test api/cli |
-| S4 | 3 | `apps/web/src/features/simulator/**`, `apps/web/messages/en.json`, `apps/web/messages/zh.json` | `crates/**`, `vendor/**`, `packages/api-types/**` | S3 | done | ok | pass | `bun test apps/web/src/features/simulator` |
+| ID  | Wave | Owns                                                                                                                                                                                                                                                                                               | Forbids                                                         | Depends | Status | Impl | Review | Verify                                                               |
+| --- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------- | ------ | ---- | ------ | -------------------------------------------------------------------- |
+| S0  | 0    | `crates/core-engine/src/host_devices/**`, `crates/core-engine/src/lib.rs`, `crates/core-engine/AGENTS.md`, `crates/runtime-manager/src/layout.rs`, `crates/runtime-manager/src/lib.rs`, `agents/references/runtime/atmos-home-layout.md`                                                           | `crates/core-service/**`, `apps/**`, `packages/**`, `vendor/**` | —       | done   | ok   | pass   | `cargo test -p core-engine host_devices -- --nocapture`              |
+| S1  | 1    | `crates/core-service/src/service/device_preview/**`, `crates/core-service/src/lib.rs`, `crates/core-service/AGENTS.md`, `crates/core-engine/src/device_control/**`                                                                                                                                 | `vendor/**`, `apps/**`, `packages/api-types/**`, pin JSON       | S0      | done   | ok   | pass   | `cargo test -p core-service device_preview -- --nocapture`           |
+| S2  | 1    | `vendor/serve-sim/**`, `scripts/serve-sim/**`, `crates/core-service/pins/serve-sim-requirement.json`                                                                                                                                                                                               | `crates/core-engine/**`, `apps/**`, `packages/**`               | —       | done   | ok   | pass   | pin version + pack.sh omits simcam + ATMOS-PATCHES behaviors present |
+| S3  | 2    | `apps/api/src/api/ws/router/simulator.rs`, `apps/api/src/api/ws/router/mod.rs`, `apps/api/src/api/ws/message.rs`, `apps/api/src/api/cli/invoke.rs`, `packages/api-types/src/ws/**`, `packages/api-types/fixtures/**`, `apps/cli/src/commands/simulator.rs`, `apps/web/src/api/ws/simulator-api.ts` | `vendor/**`, `apps/web/src/features/**`, `apps/web/messages/**` | S1      | done   | ok   | pass   | extract-actions + cargo test api/cli                                 |
+| S4  | 3    | `apps/web/src/features/simulator/**`, `apps/web/messages/en.json`, `apps/web/messages/zh.json`                                                                                                                                                                                                     | `crates/**`, `vendor/**`, `packages/api-types/**`               | S3      | done   | ok   | pass   | `bun test apps/web/src/features/simulator`                           |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -150,18 +150,18 @@
 
 ## Decisions Since TECH
 
-| ID | Decision | Why | Source update |
-|----|----------|-----|---------------|
-| — | none yet | — | — |
+| ID  | Decision | Why | Source update |
+| --- | -------- | --- | ------------- |
+| —   | none yet | —   | —             |
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Rust tests | `cargo test -p core-engine -p core-service` | not_run | |
-| Web tests | `bun test` simulator | not_run | |
-| Forbidden strings | worktree grep for the forbidden product name | pending clippy + vendor comment strip | |
-| PR | `gh pr create` | not_run | merge=false |
+| Area              | Command / Method                             | Last result                           | Notes       |
+| ----------------- | -------------------------------------------- | ------------------------------------- | ----------- |
+| Rust tests        | `cargo test -p core-engine -p core-service`  | not_run                               |             |
+| Web tests         | `bun test` simulator                         | not_run                               |             |
+| Forbidden strings | worktree grep for the forbidden product name | pending clippy + vendor comment strip |             |
+| PR                | `gh pr create`                               | not_run                               | merge=false |
 
 ## Known Blockers
 

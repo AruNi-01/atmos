@@ -34,10 +34,7 @@ assert(cmds.length >= 40, `expected full command surface, got ${cmds.length}`);
 // Guest inject source must exist after build (or be resolvable from monorepo in dev).
 const electronRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const distRuntime = join(electronRoot, "dist/browser-runtime.js");
-const monorepoRuntime = join(
-  electronRoot,
-  "../../packages/shared/browser/browser-runtime.js",
-);
+const monorepoRuntime = join(electronRoot, "../../packages/shared/browser/browser-runtime.js");
 assert(
   existsSync(distRuntime) || existsSync(monorepoRuntime),
   "browser-runtime.js missing (dist or packages/shared)",
@@ -59,27 +56,15 @@ assert(
   typeof (shell as { logical_cpu_count: number }).logical_cpu_count === "number",
   "shell logical_cpu_count",
 );
-assert(
-  Array.isArray((shell as { groups: unknown[] }).groups),
-  "shell groups",
-);
-assert(
-  !("pid" in (shell as object)),
-  "shell snapshot must not expose pid",
-);
+assert(Array.isArray((shell as { groups: unknown[] }).groups), "shell groups");
+assert(!("pid" in (shell as object)), "shell snapshot must not expose pid");
 
 const unsup = await router.invokeSafe("totally_unknown_cmd");
 assert(unsup.ok === false, "unsupported ok");
-assert(
-  !unsup.ok && unsup.error.code === DESKTOP_CMD_UNSUPPORTED,
-  "unsupported code",
-);
+assert(!unsup.ok && unsup.error.code === DESKTOP_CMD_UNSUPPORTED, "unsupported code");
 
 const detect = await router.invoke("tunnel_connector_detect");
-assert(
-  Array.isArray((detect as { providers: unknown[] }).providers),
-  "tunnel detect",
-);
+assert(Array.isArray((detect as { providers: unknown[] }).providers), "tunnel detect");
 
 // appshot_status — web contract uses `supported` (not available)
 const status = await router.invoke("appshot_status");
@@ -87,13 +72,7 @@ assert(
   typeof (status as { supported: boolean }).supported === "boolean",
   "appshot status.supported",
 );
-assert(
-  typeof (status as { platform: string }).platform === "string",
-  "appshot status.platform",
-);
-assert(
-  (status as { trigger?: unknown }).trigger != null,
-  "appshot status.trigger",
-);
+assert(typeof (status as { platform: string }).platform === "string", "appshot status.platform");
+assert((status as { trigger?: unknown }).trigger != null, "appshot status.trigger");
 
 console.log(`smoke-router: OK (${cmds.length} commands)`);

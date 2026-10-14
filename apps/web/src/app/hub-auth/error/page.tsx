@@ -15,10 +15,7 @@ import {
   parseOAuthCallbackProvider,
 } from "@/shared/components/oauth-callback-shell";
 import { useOAuthCallbackReturn } from "@/shared/hooks/use-oauth-callback-return";
-import {
-  HUB_AUTH_DONE_CHANNEL,
-  HUB_AUTH_DONE_MESSAGE,
-} from "@/app/hub-auth/hub-auth-channel";
+import { HUB_AUTH_DONE_CHANNEL, HUB_AUTH_DONE_MESSAGE } from "@/app/hub-auth/hub-auth-channel";
 
 function HubAuthErrorInner() {
   const t = useTranslations("hubAuthError");
@@ -67,20 +64,11 @@ function HubAuthErrorInner() {
   }, [code]);
 
   return (
-    <OAuthCallbackShell
-      provider={provider}
-      status="error"
-      title={title}
-      message={message}
-    >
+    <OAuthCallbackShell provider={provider} status="error" title={title} message={message}>
       {code ? (
-        <p className="font-mono text-xs text-muted-foreground">
-          {t("codeLabel", { code })}
-        </p>
+        <p className="font-mono text-xs text-muted-foreground">{t("codeLabel", { code })}</p>
       ) : null}
-      {description ? (
-        <p className="max-w-sm text-xs text-muted-foreground">{description}</p>
-      ) : null}
+      {description ? <p className="max-w-sm text-xs text-muted-foreground">{description}</p> : null}
       {code === "account_already_linked_to_different_user" ? (
         <p className="max-w-sm text-sm text-muted-foreground">
           {t("errors.accountAlreadyLinkedOtherUserHint")}
@@ -98,13 +86,7 @@ function HubAuthErrorInner() {
 
 function HubAuthErrorFallback() {
   const t = useTranslations("hubAuthError");
-  return (
-    <OAuthCallbackShell
-      status="error"
-      title={t("title")}
-      message={t("errors.generic")}
-    />
-  );
+  return <OAuthCallbackShell status="error" title={t("title")} message={t("errors.generic")} />;
 }
 
 export default function HubAuthErrorPage() {

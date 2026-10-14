@@ -13,14 +13,14 @@
 
 ## Channel matrix (scope of “unify”)
 
-| Channel | In APP-048 MVP? | Home |
-|---------|-----------------|------|
-| Main app `/ws` frames, `WsAction`, multi-client DTOs | **Yes** | `@atmos/api-types` (`ws/*`) |
-| Main `/ws` notification **event** name catalog | Nice (N2) | same package later |
-| Terminal stream protocol | **No** | `@atmos/shared/terminal` |
-| Relay REST multi-client DTOs | Nice (N1) | `@atmos/api-types/relay` when needed |
-| Desktop Electron IPC | **No** | `apps/desktop-electron` only |
-| Auth / WS URL construction | **No** | apps + APP-049 (URL injected) |
+| Channel                                              | In APP-048 MVP? | Home                                 |
+| ---------------------------------------------------- | --------------- | ------------------------------------ |
+| Main app `/ws` frames, `WsAction`, multi-client DTOs | **Yes**         | `@atmos/api-types` (`ws/*`)          |
+| Main `/ws` notification **event** name catalog       | Nice (N2)       | same package later                   |
+| Terminal stream protocol                             | **No**          | `@atmos/shared/terminal`             |
+| Relay REST multi-client DTOs                         | Nice (N1)       | `@atmos/api-types/relay` when needed |
+| Desktop Electron IPC                                 | **No**          | `apps/desktop-electron` only         |
+| Auth / WS URL construction                           | **No**          | apps + APP-049 (URL injected)        |
 
 **“Single TypeScript wire truth” means main `/ws` types only**, not every Atmos network surface.
 
@@ -99,12 +99,12 @@
 
 ## Milestones
 
-| Phase | Deliverables |
-|-------|----------------|
-| **1** | Package + canonical frames + server-based action catalog; web imports frames/actions; **extract-based action check runnable** (warn or hard-fail in package tests) |
-| **2** | Shared DTO modules + merge inventory; web + mobile import overlaps |
-| **3** | Mobile deletes local frame/action authorities; web finishes migrated DTOs |
-| **4** | Action drift hard-fail in CI on main |
-| **5 (optional)** | N1–N4 |
+| Phase            | Deliverables                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1**            | Package + canonical frames + server-based action catalog; web imports frames/actions; **extract-based action check runnable** (warn or hard-fail in package tests) |
+| **2**            | Shared DTO modules + merge inventory; web + mobile import overlaps                                                                                                 |
+| **3**            | Mobile deletes local frame/action authorities; web finishes migrated DTOs                                                                                          |
+| **4**            | Action drift hard-fail in CI on main                                                                                                                               |
+| **5 (optional)** | N1–N4                                                                                                                                                              |
 
 **Handoff**: Phase 1 is the hard gate for APP-049 typed `request`.

@@ -1,14 +1,13 @@
 import { join } from "node:path";
 
 const dir = import.meta.dir;
-const excalidrawCss = join(
-  dir,
-  "../node_modules/@excalidraw/excalidraw/dist/dev/index.css",
-);
+const excalidrawCss = join(dir, "../node_modules/@excalidraw/excalidraw/dist/dev/index.css");
 const themeCss = join(dir, "../src/embed/excalidraw-theme.css");
 const sketchCss = join(dir, "../src/embed/overlay/sketch-ui.css");
 
-export async function startPlayground(port = Number(process.env.PT_DESIGN_PLAYGROUND_PORT ?? 4173)) {
+export async function startPlayground(
+  port = Number(process.env.PT_DESIGN_PLAYGROUND_PORT ?? 4173),
+) {
   const built = await Bun.build({
     entrypoints: [join(dir, "main.tsx")],
     target: "browser",

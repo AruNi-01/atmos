@@ -50,10 +50,7 @@ type CenterPaneLayoutStore = {
     legacyStripOrder?: readonly string[],
   ) => CenterPaneLayout;
   setLayout: (contextId: string, layout: CenterPaneLayout) => void;
-  patchLayout: (
-    contextId: string,
-    updater: (layout: CenterPaneLayout) => CenterPaneLayout,
-  ) => void;
+  patchLayout: (contextId: string, updater: (layout: CenterPaneLayout) => CenterPaneLayout) => void;
   focus: (contextId: string, paneId: string) => void;
   split: (
     contextId: string,
@@ -69,11 +66,7 @@ type CenterPaneLayoutStore = {
   openTab: (contextId: string, tabId: string) => void;
   /** Append a tab to the focused pane strip without activating it. */
   offerTab: (contextId: string, tabId: string) => void;
-  removeTab: (
-    contextId: string,
-    tabId: string,
-    preferredNextActiveId?: string | null,
-  ) => void;
+  removeTab: (contextId: string, tabId: string, preferredNextActiveId?: string | null) => void;
   removeTabFromPane: (
     contextId: string,
     paneId: string,
@@ -114,9 +107,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
     }
     const existing = get().byContext[contextId];
     if (isExtraCenterSpaceKey(contextId)) {
-      const empty = existing
-        ? normalizeCenterPaneLayout(existing)
-        : createEmptyCenterLayout();
+      const empty = existing ? normalizeCenterPaneLayout(existing) : createEmptyCenterLayout();
       if (!existing || isFreshEmptyCenterLayout(empty)) {
         if (!existing) get().setLayout(contextId, empty);
         return get().byContext[contextId] ?? empty;
@@ -129,9 +120,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
         // Extra spaces already returned above. A host empty layout with live
         // membership is a wiped mosaic (e.g. Launchpad overlay reconcile) —
         // restore tabs as a single pane. Splits cannot be recovered.
-        const restored = withCanonicalTabStrip(
-          createDefaultLayout(openTabIds, activeTabId),
-        );
+        const restored = withCanonicalTabStrip(createDefaultLayout(openTabIds, activeTabId));
         get().setLayout(contextId, restored);
         return restored;
       }
@@ -140,15 +129,8 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
       if (openTabIds.length === 0) {
         return normalized;
       }
-      const reconciled = reconcileOpenTabs(
-        normalized,
-        openTabIds,
-        activeTabId,
-      );
-      const migrated = migrateLegacySinglePaneStripOrder(
-        reconciled,
-        legacyStripOrder,
-      );
+      const reconciled = reconcileOpenTabs(normalized, openTabIds, activeTabId);
+      const migrated = migrateLegacySinglePaneStripOrder(reconciled, legacyStripOrder);
       if (!centerPaneLayoutsEqual(existing, migrated)) {
         get().setLayout(contextId, migrated);
       }
@@ -159,9 +141,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
       get().setLayout(contextId, empty);
       return empty;
     }
-    const layout = withCanonicalTabStrip(
-      createDefaultLayout(openTabIds, activeTabId),
-    );
+    const layout = withCanonicalTabStrip(createDefaultLayout(openTabIds, activeTabId));
     get().setLayout(contextId, layout);
     return layout;
   },
@@ -181,8 +161,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
   },
 
   patchLayout: (contextId, updater) => {
-    const current =
-      get().byContext[contextId] ?? createEmptyCenterLayout();
+    const current = get().byContext[contextId] ?? createEmptyCenterLayout();
     const next = updater(current);
     if (next === current || centerPaneLayoutsEqual(current, next)) {
       return;
@@ -214,19 +193,13 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
   },
 
   reorderTabs: (contextId, paneId, orderedTabIds) => {
-    get().patchLayout(contextId, (layout) =>
-      reorderPaneTabIds(layout, paneId, orderedTabIds),
-    );
+    get().patchLayout(contextId, (layout) => reorderPaneTabIds(layout, paneId, orderedTabIds));
   },
 
   resizeColumns: (contextId, boundaryIndex, delta) => {
     get().patchLayout(contextId, (layout) => ({
       ...layout,
-      columnFractions: resizeAdjacentFractions(
-        layout.columnFractions,
-        boundaryIndex,
-        delta,
-      ),
+      columnFractions: resizeAdjacentFractions(layout.columnFractions, boundaryIndex, delta),
     }));
   },
 

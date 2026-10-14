@@ -12,17 +12,17 @@
 
 ## Initial Ideas
 
-- 
+-
 
 ## Options
 
-- **Option A**: 
-- **Option B**: 
+- **Option A**:
+- **Option B**:
 
 ## Open Questions
 
-- [ ] 
+- [ ]
 
 ## References
 
-- 
+-

@@ -92,9 +92,7 @@ describe("isNotificationClickAction", () => {
 
 describe("automationNotificationHref", () => {
   test("builds automations deep link with optional run", () => {
-    expect(automationNotificationHref("auto-1")).toBe(
-      "/automations?automationId=auto-1",
-    );
+    expect(automationNotificationHref("auto-1")).toBe("/automations?automationId=auto-1");
     expect(automationNotificationHref("auto-1", "run-9")).toBe(
       "/automations?automationId=auto-1&automationRun=run-9&automationTab=history",
     );
@@ -124,9 +122,7 @@ describe("parseDesktopNotificationResult", () => {
 describe("resolveAgentNotificationIconSrc", () => {
   test("maps known agent tools to public agent icon paths", async () => {
     const { resolveAgentNotificationIconSrc } = await import("../notifications");
-    expect(resolveAgentNotificationIconSrc("grok-build")).toBe(
-      "/agents/grok-build-light.svg",
-    );
+    expect(resolveAgentNotificationIconSrc("grok-build")).toBe("/agents/grok-build-light.svg");
     expect(resolveAgentNotificationIconSrc("claude-code")).toContain("/agents/");
     expect(resolveAgentNotificationIconSrc(null)).toBe("/notification-icon.png");
   });

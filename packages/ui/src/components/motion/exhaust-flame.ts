@@ -82,7 +82,13 @@ export function flameEnvelope(u: number, falloff: number): number {
 }
 
 /** Phase for a leftward-advecting wave. */
-export function advectPhase(u: number, t: number, freq: number, speed: number, seed: number): number {
+export function advectPhase(
+  u: number,
+  t: number,
+  freq: number,
+  speed: number,
+  seed: number,
+): number {
   return u * freq - t * speed + seed;
 }
 
@@ -238,22 +244,27 @@ function paintBody(data: Uint8ClampedArray, width: number, height: number, time:
     const nShift = fbm(advectPhase(uu, time, 2.1, 1.45, 19.4));
     const nWisp = fbm(advectPhase(uu, time, 6.8, 3.2, 11.2));
 
-    const radius =
-      Math.max(
-        0.7,
-        height *
-          0.56 *
-          env *
-          (1 + turb * ((nRadius - 0.38) * 1.15 + (nRadius2 - 0.5) * (0.55 + 0.7 * uu))),
-      );
+    const radius = Math.max(
+      0.7,
+      height *
+        0.56 *
+        env *
+        (1 + turb * ((nRadius - 0.38) * 1.15 + (nRadius2 - 0.5) * (0.55 + 0.7 * uu))),
+    );
     const yShift = (nShift - 0.5) * height * 0.34 * turb * env;
     const center = cy + yShift;
 
     const wispRadius = Math.max(0.45, height * 0.3 * env * (0.2 + turb * nWisp * 1.25));
     const wispCenter = cy + (nWisp - 0.46) * height * 0.5 * turb * env;
 
-    const y0 = Math.max(0, Math.floor(Math.min(center, wispCenter) - Math.max(radius, wispRadius) * 1.2));
-    const y1 = Math.min(height - 1, Math.ceil(Math.max(center, wispCenter) + Math.max(radius, wispRadius) * 1.2));
+    const y0 = Math.max(
+      0,
+      Math.floor(Math.min(center, wispCenter) - Math.max(radius, wispRadius) * 1.2),
+    );
+    const y1 = Math.min(
+      height - 1,
+      Math.ceil(Math.max(center, wispCenter) + Math.max(radius, wispRadius) * 1.2),
+    );
 
     for (let py = y0; py <= y1; py++) {
       const main = smoothstep(1.04, 0.32, Math.abs(py - center) / radius);
@@ -338,7 +349,14 @@ function drawSparks(
 function drawHotCore(ctx: CanvasRenderingContext2D, width: number, height: number): void {
   const originX = width * FLAME_ORIGIN;
   const cy = height * 0.5;
-  const glow = ctx.createRadialGradient(originX - width * 0.03, cy, 0, originX - width * 0.08, cy, height * 0.62);
+  const glow = ctx.createRadialGradient(
+    originX - width * 0.03,
+    cy,
+    0,
+    originX - width * 0.08,
+    cy,
+    height * 0.62,
+  );
   glow.addColorStop(0, "rgba(255,255,255,0.95)");
   glow.addColorStop(0.28, "rgba(210,242,255,0.5)");
   glow.addColorStop(0.7, "rgba(90,190,255,0.12)");

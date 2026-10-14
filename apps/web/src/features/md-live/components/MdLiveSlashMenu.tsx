@@ -139,26 +139,32 @@ export function MdLiveSlashMenu({
     [filtered],
   );
 
-  const enterNested = useCallback((next: "emoji" | MdLiveEmbedInsertKind) => {
-    onKeepSlash?.();
-    setMode(next);
-  }, [onKeepSlash]);
+  const enterNested = useCallback(
+    (next: "emoji" | MdLiveEmbedInsertKind) => {
+      onKeepSlash?.();
+      setMode(next);
+    },
+    [onKeepSlash],
+  );
 
-  const activateItem = useCallback(async (item: MdLiveSlashItem) => {
-    if (item.open === "emoji") {
-      enterNested("emoji");
-      return;
-    }
-    if (item.embed) {
-      enterNested(item.embed);
-      return;
-    }
-    if (item.open) {
-      onPick({ kind: "open", open: item.open });
-      return;
-    }
-    if (item.pick) onPick(item.pick);
-  }, [enterNested, onPick]);
+  const activateItem = useCallback(
+    async (item: MdLiveSlashItem) => {
+      if (item.open === "emoji") {
+        enterNested("emoji");
+        return;
+      }
+      if (item.embed) {
+        enterNested(item.embed);
+        return;
+      }
+      if (item.open) {
+        onPick({ kind: "open", open: item.open });
+        return;
+      }
+      if (item.pick) onPick(item.pick);
+    },
+    [enterNested, onPick],
+  );
 
   const selectedId = filtered[Math.min(selectedIndex, Math.max(filtered.length - 1, 0))]?.id ?? "";
 
@@ -222,62 +228,65 @@ export function MdLiveSlashMenu({
           <CommandList className="max-h-none overflow-visible">
             {grouped.length === 0 ? (
               <CommandEmpty>{label("slashNoResults")}</CommandEmpty>
-            ) : grouped.map((group) => (
-              <CommandGroup key={group.id} heading={label(group.label)}>
-                {group.items.map((item) => {
-                  const index = filtered.findIndex((entry) => entry.id === item.id);
-                  return (
-                    <CommandItem
-                      key={item.id}
-                      ref={(el) => {
-                        itemRefs.current[index] = el;
-                      }}
-                      value={item.id}
-                      data-selected={item.id === selectedId}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onSelect={() => void activateItem(item)}
-                    >
-                      <ItemIcon id={item.id} />
-                      <span className="min-w-0 truncate">{label(item.label)}</span>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            ))}
+            ) : (
+              grouped.map((group) => (
+                <CommandGroup key={group.id} heading={label(group.label)}>
+                  {group.items.map((item) => {
+                    const index = filtered.findIndex((entry) => entry.id === item.id);
+                    return (
+                      <CommandItem
+                        key={item.id}
+                        ref={(el) => {
+                          itemRefs.current[index] = el;
+                        }}
+                        value={item.id}
+                        data-selected={item.id === selectedId}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onSelect={() => void activateItem(item)}
+                      >
+                        <ItemIcon id={item.id} />
+                        <span className="min-w-0 truncate">{label(item.label)}</span>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              ))
+            )}
           </CommandList>
         </ScrollArea>
       </div>
     </Command>
   );
 
-  const nestedPanel = mode === "emoji" ? (
-    <div className="p-1">
-      <div className="px-1.5 pt-1">
-        <button
-          type="button"
-          className="inline-flex h-8 items-center rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setMode("list")}
-        >
-          ← {label("slashEmoji")}
-        </button>
+  const nestedPanel =
+    mode === "emoji" ? (
+      <div className="p-1">
+        <div className="px-1.5 pt-1">
+          <button
+            type="button"
+            className="inline-flex h-8 items-center rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setMode("list")}
+          >
+            ← {label("slashEmoji")}
+          </button>
+        </div>
+        <MdLiveEmojiPicker
+          loadingLabel={label("slashEmojiLoading")}
+          errorLabel={label("slashNoResults")}
+          onSelect={(native) => onPick({ kind: "text", text: native })}
+        />
       </div>
-      <MdLiveEmojiPicker
-        loadingLabel={label("slashEmojiLoading")}
-        errorLabel={label("slashNoResults")}
-        onSelect={(native) => onPick({ kind: "text", text: native })}
+    ) : mode === "github-issue" || mode === "github-pr" || mode === "path" ? (
+      <MdLiveEmbedPicker
+        embed={mode}
+        query={query}
+        workspaceRoot={workspaceRoot}
+        copy={copy}
+        onBack={() => setMode("list")}
+        onInsert={(markdown) => onPick({ kind: "markdown", markdown })}
       />
-    </div>
-  ) : mode === "github-issue" || mode === "github-pr" || mode === "path" ? (
-    <MdLiveEmbedPicker
-      embed={mode}
-      query={query}
-      workspaceRoot={workspaceRoot}
-      copy={copy}
-      onBack={() => setMode("list")}
-      onInsert={(markdown) => onPick({ kind: "markdown", markdown })}
-    />
-  ) : null;
+    ) : null;
 
   return (
     <motion.div
@@ -285,7 +294,7 @@ export function MdLiveSlashMenu({
       data-md-live-slash={mode === "list" ? "menu" : mode}
       data-state="open"
       data-side="bottom"
-      className="bg-popover text-popover-foreground z-50 origin-(--radix-popover-content-transform-origin) h-auto overflow-hidden rounded-2xl border border-border/70 text-sm shadow-md outline-none"
+      className="z-50 h-auto origin-(--radix-popover-content-transform-origin) overflow-hidden rounded-2xl border border-border/70 bg-popover text-sm text-popover-foreground shadow-md outline-none"
       animate={{ width: nested ? NESTED_WIDTH : LIST_WIDTH }}
       transition={reduce ? { duration: 0 } : { duration: 0.22, ease: EASE_OUT }}
     >

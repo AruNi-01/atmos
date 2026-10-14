@@ -82,7 +82,7 @@ describe("remarkMdLiveDetails", () => {
     expect(detailsHasOpenAttr("<details>")).toBe(false);
     expect(detailsHasOpenAttr("<details open>")).toBe(true);
     expect(detailsHasOpenAttr('<details open="">')).toBe(true);
-    expect(detailsHasOpenAttr("<details class=\"opened\">")).toBe(false);
+    expect(detailsHasOpenAttr('<details class="opened">')).toBe(false);
     const children = apply([
       { type: "html", value: "<details open>\n<summary>hello</summary>\n</details>" },
     ]);

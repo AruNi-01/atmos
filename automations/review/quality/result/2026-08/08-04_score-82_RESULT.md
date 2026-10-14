@@ -9,35 +9,35 @@
 
 被审查提交（27）：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `f79f7f4a6` | AarynLu | feat(local-services): escalate stop with process-tree confirmation |
-| `5ba4861e2` | AarynLu | feat(terminal): persist default split agent and apply to new tabs |
-| `fc894e958` | AarynLu | feat(web): unify right sidebar GitHub visibility under one tab |
-| `d9534f658` | AarynLu | fix(desktop): show correct version channel and Settings app version |
-| `092c86eba` | AarynLu | fix(web): lower GitHub detail toolbars and unify open label |
-| `36459b5ee` | AarynLu | fix(web): polish GitHub sidebar layout and discussion UI |
-| `d99d2a80b` | AarynLu | feat(web,desktop): agent need-attention UX and smarter notifications |
-| `5f66e0970` | AarynLu | feat(web): use thinking-orbs for footer agent status icon |
-| `19cfeabe8` | AarynLu | fix: address CI format and clippy failures |
-| `06882520b` | AarynLu | fix: restore Footer.tsx accidental thinking-orbs change |
-| `dcf5a0196` | AarynLu | chore(web): remove unused thinking-orbs dependency |
-| `3ba99ce52` | AarynLu | fix(web): fully restore footer agent status indicator |
-| `16f1cc45d` | AarynLu | fix: address cubic P1 review findings for process tree and attention |
-| `c7fdab751` | AarynLu | fix: gate unused Command import in scanner for Linux Clippy |
-| `b4f4bdd41` | AarynLu | fix: harden process-tree stop and address attention/a11y review P2s |
-| `2f57954bd` | AarynLu | fix: address valid PR review findings (settings, attention, local-services) |
-| `09fa97353` | AarynLu | fix(hooks): defer lead idle until child agents finish |
-| `8e5c1acfd` | AarynLu | fix(github): normalize PR list state casing so Open PRs show Open badge |
-| `1897e245b` | AarynLu | feat: local-services live refresh and GitHub timeline commits |
-| `7d0453995` | AarynLu | fix(github): add yellow running segment and smooth PR checks ring animation |
-| `55bcbf1e3` | AarynLu | fix: address CI failures — typecheck promise + clippy args |
-| `be5c51083` | AarynLu | fix: review thread safety — process group kill + agent child lifecycle |
-| `992120553` | AarynLu | chore: add husky pre-commit and conventional commit-msg hooks |
-| `a2df7d971` | AruNi_Lu | Merge pull request #195 from AruNi-01/atmos/muk |
-| `28f65326a` | AarynLu | fix(landing): hide mobile side rails and cap feature sphere height |
+| Hash        | Author   | Message                                                                      |
+| ----------- | -------- | ---------------------------------------------------------------------------- |
+| `f79f7f4a6` | AarynLu  | feat(local-services): escalate stop with process-tree confirmation           |
+| `5ba4861e2` | AarynLu  | feat(terminal): persist default split agent and apply to new tabs            |
+| `fc894e958` | AarynLu  | feat(web): unify right sidebar GitHub visibility under one tab               |
+| `d9534f658` | AarynLu  | fix(desktop): show correct version channel and Settings app version          |
+| `092c86eba` | AarynLu  | fix(web): lower GitHub detail toolbars and unify open label                  |
+| `36459b5ee` | AarynLu  | fix(web): polish GitHub sidebar layout and discussion UI                     |
+| `d99d2a80b` | AarynLu  | feat(web,desktop): agent need-attention UX and smarter notifications         |
+| `5f66e0970` | AarynLu  | feat(web): use thinking-orbs for footer agent status icon                    |
+| `19cfeabe8` | AarynLu  | fix: address CI format and clippy failures                                   |
+| `06882520b` | AarynLu  | fix: restore Footer.tsx accidental thinking-orbs change                      |
+| `dcf5a0196` | AarynLu  | chore(web): remove unused thinking-orbs dependency                           |
+| `3ba99ce52` | AarynLu  | fix(web): fully restore footer agent status indicator                        |
+| `16f1cc45d` | AarynLu  | fix: address cubic P1 review findings for process tree and attention         |
+| `c7fdab751` | AarynLu  | fix: gate unused Command import in scanner for Linux Clippy                  |
+| `b4f4bdd41` | AarynLu  | fix: harden process-tree stop and address attention/a11y review P2s          |
+| `2f57954bd` | AarynLu  | fix: address valid PR review findings (settings, attention, local-services)  |
+| `09fa97353` | AarynLu  | fix(hooks): defer lead idle until child agents finish                        |
+| `8e5c1acfd` | AarynLu  | fix(github): normalize PR list state casing so Open PRs show Open badge      |
+| `1897e245b` | AarynLu  | feat: local-services live refresh and GitHub timeline commits                |
+| `7d0453995` | AarynLu  | fix(github): add yellow running segment and smooth PR checks ring animation  |
+| `55bcbf1e3` | AarynLu  | fix: address CI failures — typecheck promise + clippy args                   |
+| `be5c51083` | AarynLu  | fix: review thread safety — process group kill + agent child lifecycle       |
+| `992120553` | AarynLu  | chore: add husky pre-commit and conventional commit-msg hooks                |
+| `a2df7d971` | AruNi_Lu | Merge pull request #195 from AruNi-01/atmos/muk                              |
+| `28f65326a` | AarynLu  | fix(landing): hide mobile side rails and cap feature sphere height           |
 | `0e0b52218` | AruNi_Lu | Merge pull request #197 from AruNi-01/fix/landing-mobile-rails-sphere-height |
-| `bf47ade70` | AarynLu | chore: add NOTICE for third-party assets and vendored code |
+| `bf47ade70` | AarynLu  | chore: add NOTICE for third-party assets and vendored code                   |
 
 ## 2. 一份好代码应该是什么样
 
@@ -55,13 +55,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 25/30 | process tree 分层清晰（engine 杀进程 / service 候选与安全 / UI 确认）；attention 独立 store 合理。`agent_hooks` 子生命周期状态机仍嵌在 1100+ 行服务实现中，仅抽了 payload helper（`09fa97353` 等）。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                                                                       |
+| -------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 25/30 | process tree 分层清晰（engine 杀进程 / service 候选与安全 / UI 确认）；attention 独立 store 合理。`agent_hooks` 子生命周期状态机仍嵌在 1100+ 行服务实现中，仅抽了 payload helper（`09fa97353` 等）。                                                           |
 | 可读性与复杂度 | 20/25 | `update_state` 多 `StateUpdateKind` 分支 + pending idle 竞态注释可读但长；`terminal-split-prefs-store` 五个 request token + hydrate generation 主路径难扫（`5ba4861e2`/`2f57954bd`）；`use-agent-notifications` 同时订 3 类事件并拼 toast JSX（`d99d2a80b`）。 |
-| 体量与内聚 | 15/20 | 日终 `agent_hooks.rs` ~1388 行（含测试）；`terminal-split-prefs-store.ts` 437 行；`use-agent-notifications.tsx` 349 行。进程树相关文件拆分尚可（`process.rs` 564、`process_tree.rs` 391、dialog 217）。 |
-| 可维护性与复用 | 13/15 | split prefs 多个 setter 重复乐观写/回滚/hydrate 模式；GitHub 时间线 commits 抽了 `timeline-commits.ts` 是正向。 |
-| 工程卫生 | 9/10 | 大量 review/CI 跟进与 child idle 单元测试扎实；同日 `thinking-orbs` 引入又完整撤回（`5f66e0970`→`dcf5a0196`/`3ba99ce52`）属过程抖动。 |
+| 体量与内聚     | 15/20 | 日终 `agent_hooks.rs` ~1388 行（含测试）；`terminal-split-prefs-store.ts` 437 行；`use-agent-notifications.tsx` 349 行。进程树相关文件拆分尚可（`process.rs` 564、`process_tree.rs` 391、dialog 217）。                                                        |
+| 可维护性与复用 | 13/15 | split prefs 多个 setter 重复乐观写/回滚/hydrate 模式；GitHub 时间线 commits 抽了 `timeline-commits.ts` 是正向。                                                                                                                                                |
+| 工程卫生       |  9/10 | 大量 review/CI 跟进与 child idle 单元测试扎实；同日 `thinking-orbs` 引入又完整撤回（`5f66e0970`→`dcf5a0196`/`3ba99ce52`）属过程抖动。                                                                                                                          |
 
 ## 6. 主要问题清单
 

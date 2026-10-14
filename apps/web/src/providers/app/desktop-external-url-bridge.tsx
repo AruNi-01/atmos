@@ -11,7 +11,9 @@ import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 function shouldOpenExternally(url: URL) {
   if (!isSupportedExternalProtocol(url.protocol)) return false;
-  return url.origin !== window.location.origin || url.protocol === "mailto:" || url.protocol === "tel:";
+  return (
+    url.origin !== window.location.origin || url.protocol === "mailto:" || url.protocol === "tel:"
+  );
 }
 
 function findAnchorFromEventTarget(event: MouseEvent) {

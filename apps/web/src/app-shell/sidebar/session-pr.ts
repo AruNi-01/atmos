@@ -23,10 +23,7 @@ export function resolveSessionPrLifecycle(
   if (!workspace) return null;
   const live = pickBranchHeadPr(branchPrs ? [...branchPrs] : [], workspace.branch);
   if (!live) return null;
-  return normalizePrLifecycleState(
-    live.state,
-    Boolean(live.is_draft ?? live.isDraft),
-  );
+  return normalizePrLifecycleState(live.state, Boolean(live.is_draft ?? live.isDraft));
 }
 
 export type SessionBranchPrTarget = {

@@ -15,7 +15,7 @@ describe("browser selection popover (Radix)", () => {
     expect(popover).toContain("PopoverContent");
     expect(popover).toContain("avoidCollisions");
     expect(popover).toContain("collisionPadding");
-    expect(popover).toContain("const isPreview = type === 'preview'");
+    expect(popover).toContain('const isPreview = type === "preview"');
     // Virtual fixed anchor on document.body (viewport coords).
     expect(popover).toContain("createPortal");
     expect(popover).toContain("document.body");

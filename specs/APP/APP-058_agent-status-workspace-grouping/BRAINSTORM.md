@@ -20,18 +20,18 @@ Existing list-surface agent marks (`WorkspaceAgentStatusMark`) already encode a 
 
 Live hook states (`AGENT_STATE` in `apps/web/src/features/agent/store/agent-hooks-store.ts`):
 
-| Wire value | Meaning |
-|------------|---------|
-| `idle` | No live generation |
-| `running` | Agent is generating |
+| Wire value           | Meaning                                 |
+| -------------------- | --------------------------------------- |
+| `idle`               | No live generation                      |
+| `running`            | Agent is generating                     |
 | `permission_request` | Agent is blocked on a permission prompt |
 
 Sticky attention reasons (`AttentionReason` in `agent-attention-store.ts`):
 
-| Reason | When it latches |
-|--------|-----------------|
+| Reason               | When it latches                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------- |
 | `permission_request` | Permission prompt raised (may remain after live state leaves `permission_request`) |
-| `task_complete` | Running → idle (“down”). User has not focused/acknowledged the pane yet |
+| `task_complete`      | Running → idle (“down”). User has not focused/acknowledged the pane yet            |
 
 List-surface view kinds (`WorkspaceAgentStatusView`): `none` / `running` / `permission` / `attention`.
 
@@ -40,6 +40,7 @@ No other first-class list statuses exist today (no connecting, error, paused, cr
 ## Options
 
 ### Option A — New grouping mode `agent` (“By Agent Status”)
+
 Add a seventh sidebar/kanban grouping mode. Four buckets derived from live hooks + sticky attention. Persist via existing `workspace_sidebar.grouping_mode`.
 
 **Pros**: Matches every other grouping mode; Task kanban already switches on the same enum; no backend schema.
@@ -47,12 +48,14 @@ Add a seventh sidebar/kanban grouping mode. Four buckets derived from live hooks
 **Unknown**: Empty-bucket policy; two-column layout toggle.
 
 ### Option B — Reuse / overload workflow “By Status”
+
 Map Agent activity onto existing workflow statuses (`in_progress`, `blocked`, …).
 
 **Pros**: No new mode.
 **Cons**: Workflow status is user-assignable and persisted; Agent status is live and derived. Dragging a kanban card would overwrite the wrong field. Rejected.
 
 ### Option C — Filter chips only (no grouping)
+
 Keep grouping as-is; add Agent-status filters next to workflow status filters.
 
 **Pros**: Smaller UI change.

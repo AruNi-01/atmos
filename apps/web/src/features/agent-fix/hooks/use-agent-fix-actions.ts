@@ -5,10 +5,7 @@ import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-launcher-store";
 import { resolveAgentFixPrompt } from "@/features/agent-fix/lib/agent-fix-prompt";
-import type {
-  AgentFixAgentOption,
-  AgentFixPromptSource,
-} from "@/features/agent-fix/types";
+import type { AgentFixAgentOption, AgentFixPromptSource } from "@/features/agent-fix/types";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 import {
   agentFixSourceToAiContextKind,

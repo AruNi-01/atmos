@@ -1,10 +1,6 @@
 import type { Project, Workspace } from "@/shared/types/domain";
 
-export type LinkedWorkspaceReason =
-  | "github_issue"
-  | "github_pr"
-  | "branch"
-  | "linear_issue";
+export type LinkedWorkspaceReason = "github_issue" | "github_pr" | "branch" | "linear_issue";
 
 export type LinkedWorkspaceMatch = {
   workspace: Workspace;
@@ -30,9 +26,7 @@ function sameRepo(
   owner: string,
   repo: string,
 ): boolean {
-  return (
-    (a.owner ?? "").toLowerCase() === owner && (a.repo ?? "").toLowerCase() === repo
-  );
+  return (a.owner ?? "").toLowerCase() === owner && (a.repo ?? "").toLowerCase() === repo;
 }
 
 function numbersEqual(a: unknown, b: unknown): boolean {
@@ -99,8 +93,7 @@ function workspaceMatchesPr(
   const issue = workspace.githubIssue;
   if (issue) {
     const issueUrl = issue.url ?? "";
-    const looksLikePull =
-      /\/pull\//i.test(issueUrl) || pullNumberFromUrl(issueUrl) != null;
+    const looksLikePull = /\/pull\//i.test(issueUrl) || pullNumberFromUrl(issueUrl) != null;
     if (looksLikePull && sameRepo(issue, owner, repo) && numbersEqual(issue.number, number)) {
       return true;
     }
@@ -263,9 +256,7 @@ export function findLinkedWorkspaceForLinearIssue(
   let best: ScoredMatch | null = null;
   for (const project of projects) {
     for (const workspace of project.workspaces) {
-      const hit = (workspace.linearLinks ?? []).some(
-        (link) => link.externalId === id,
-      );
+      const hit = (workspace.linearLinks ?? []).some((link) => link.externalId === id);
       if (!hit) continue;
       const score = 100 + (workspace.isArchived ? 0 : 5);
       if (!best || score > best.score) {

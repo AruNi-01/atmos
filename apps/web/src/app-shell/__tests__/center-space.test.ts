@@ -154,13 +154,9 @@ describe("center space keys", () => {
     const fromHost = resolveCenterStageProjectContext(projects, "ws-1");
     const fromSpace = resolveCenterStageProjectContext(projects, extra);
     expect(fromSpace.currentWorkspace?.id).toBe("ws-1");
-    expect(fromSpace.currentWorkspace?.localPath).toBe(
-      "/Users/me/atmos/worktrees/blastoise",
-    );
+    expect(fromSpace.currentWorkspace?.localPath).toBe("/Users/me/atmos/worktrees/blastoise");
     expect(fromSpace.currentProject?.id).toBe(fromHost.currentProject?.id);
-    expect(buildCenterHostTabHref("ws-1", projects, "files")).toBe(
-      "/workspace?id=ws-1&tab=files",
-    );
+    expect(buildCenterHostTabHref("ws-1", projects, "files")).toBe("/workspace?id=ws-1&tab=files");
     expect(buildCenterHostTabHref("proj-1", projects, "files")).toBe(
       "/project?id=proj-1&tab=files",
     );
@@ -210,9 +206,9 @@ describe("center space keys", () => {
     useCenterSpaceStore
       .getState()
       .setThumbnail(host, DEFAULT_CENTER_SPACE_ID, "data:image/jpeg;base64,qq");
-    expect(
-      useCenterSpaceStore.getState().list(host)[0]?.thumbnailDataUrl,
-    ).toBe("data:image/jpeg;base64,qq");
+    expect(useCenterSpaceStore.getState().list(host)[0]?.thumbnailDataUrl).toBe(
+      "data:image/jpeg;base64,qq",
+    );
     const stored = readJson<{
       spaces?: Record<string, { spaces?: { thumbnailDataUrl?: string | null }[] }>;
     } | null>(globalKey("center-layout"), null);
@@ -268,12 +264,17 @@ describe("center space keys", () => {
     expect(created?.id).toBeTruthy();
     useCenterSpaceStore.getState().renameSpace(host, DEFAULT_CENTER_SPACE_ID, "Renamed");
     expect(
-      useCenterSpaceStore.getState().list(host).find((space) => space.id === DEFAULT_CENTER_SPACE_ID)
-        ?.name,
+      useCenterSpaceStore
+        .getState()
+        .list(host)
+        .find((space) => space.id === DEFAULT_CENTER_SPACE_ID)?.name,
     ).toBe(DEFAULT_CENTER_SPACE_NAME);
     useCenterSpaceStore.getState().renameSpace(host, created!.id, "  Notes  ");
     expect(
-      useCenterSpaceStore.getState().list(host).find((space) => space.id === created!.id)?.name,
+      useCenterSpaceStore
+        .getState()
+        .list(host)
+        .find((space) => space.id === created!.id)?.name,
     ).toBe("Notes");
     useCenterSpaceStore.getState().setSpacePinned(host, created!.id, true);
     expect(useCenterSpaceStore.getState().list(host)[0]?.id).toBe(created!.id);
@@ -330,7 +331,9 @@ describe("center space wiring", () => {
     expect(switcherSrc).toContain("clearCenterDeepLinkUrl");
     expect(switcherSrc).toContain("invalidateCenterSpaceThumbnailCapture");
     expect(switcherSrc).not.toContain("useCenterSpaceSlideStore");
-    expect(switcherSrc).not.toContain("await captureActiveCenterSpaceThumbnail(hostId);\n  const outgoing");
+    expect(switcherSrc).not.toContain(
+      "await captureActiveCenterSpaceThumbnail(hostId);\n  const outgoing",
+    );
     const switcher = readFileSync(join(dir, "center-space/CenterSpaceSwitcher.tsx"), "utf8");
     expect(switcher).toContain("LayoutTemplate");
     expect(switcher).toContain("handleToggleOpen");
@@ -346,7 +349,7 @@ describe("center space wiring", () => {
     expect(switcher).not.toContain("captureCurrentPreview");
     expect(switcher).not.toContain("absolute left-1/2 top-1/2");
     expect(switcher).toContain("buttonCountAria");
-    expect(switcher).toContain("-right-1 -top-1");
+    expect(switcher).toContain("-top-1 -right-1");
     expect(switcher).toContain("h-3.5 min-w-3.5");
     expect(switcher).toContain("text-[9px]");
     expect(switcher).toContain("{spaces.length}");
@@ -392,10 +395,7 @@ describe("center space wiring", () => {
     expect(fanCss).toContain("will-change: transform, opacity");
     const storeSrc = readFileSync(join(dir, "center-space/center-space-store.ts"), "utf8");
     const persistSrc = readFileSync(join(dir, "center-layout/center-layout-persist.ts"), "utf8");
-    const documentSrc = readFileSync(
-      join(dir, "center-layout/center-layout-document.ts"),
-      "utf8",
-    );
+    const documentSrc = readFileSync(join(dir, "center-layout/center-layout-document.ts"), "utf8");
     expect(storeSrc).toContain("markCenterLayoutDirty");
     expect(storeSrc).not.toContain("function_settings");
     expect(documentSrc).toContain("omitCenterSpaceThumbnails");
@@ -433,10 +433,9 @@ describe("center space wiring", () => {
   });
 
   it("does not prune a live host mosaic when membership is temporarily empty", () => {
-    const live = splitPane(
-      createDefaultLayout(["terminal", "files"], "files"),
-      { direction: "right" },
-    );
+    const live = splitPane(createDefaultLayout(["terminal", "files"], "files"), {
+      direction: "right",
+    });
     useCenterPaneLayoutStore.setState({
       byContext: { "ws-1": live },
       hydrated: true,

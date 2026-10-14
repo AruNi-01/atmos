@@ -7,9 +7,9 @@ import { SEARCH_MATCH_BACKGROUND } from "@/shared/lib/search-highlight";
 const FindHighlightBoxesContext = createContext<FindHighlightBox[]>([]);
 const FindHighlightSetContext = createContext<((boxes: FindHighlightBox[]) => void) | null>(null);
 const FindSearchQueryContext = createContext<MarkdownFindQuery | null>(null);
-const SetFindSearchQueryContext = createContext<
-  ((query: MarkdownFindQuery | null) => void) | null
->(null);
+const SetFindSearchQueryContext = createContext<((query: MarkdownFindQuery | null) => void) | null>(
+  null,
+);
 const FindLayoutNonceContext = createContext(0);
 const RequestFindRelayoutContext = createContext<() => void>(() => {});
 

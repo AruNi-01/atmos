@@ -28,10 +28,7 @@ import {
   parseSchedule,
   type TriggerChoice,
 } from "@/features/automations/lib/automation-schedule";
-import {
-  flattenWorkspaces,
-  resolveTimezone,
-} from "@/features/automations/lib/automation-format";
+import { flattenWorkspaces, resolveTimezone } from "@/features/automations/lib/automation-format";
 import type { Project } from "@/shared/types/domain";
 
 import type { SetupMode } from "../components/AutomationSetup";
@@ -72,8 +69,7 @@ export function useAutomationSetupForm({
   const [chatThinking, setChatThinking] = React.useState("");
   const [chatFast, setChatFast] = React.useState("");
   const [chatContext, setChatContext] = React.useState("");
-  const [executeMode, setExecuteMode] =
-    React.useState<AutomationExecuteMode>("headless");
+  const [executeMode, setExecuteMode] = React.useState<AutomationExecuteMode>("headless");
   const agentId = resolveSetupAgentId({
     executeMode,
     terminalAgentId,
@@ -89,8 +85,7 @@ export function useAutomationSetupForm({
     },
     [executeMode],
   );
-  const [targetKind, setTargetKind] =
-    React.useState<AutomationTargetKind>("standalone");
+  const [targetKind, setTargetKind] = React.useState<AutomationTargetKind>("standalone");
   const [projectGuid, setProjectGuid] = React.useState("");
   const [workspaceGuid, setWorkspaceGuid] = React.useState("");
   const [trigger, setTrigger] = React.useState<TriggerChoice>("manual");
@@ -102,18 +97,14 @@ export function useAutomationSetupForm({
   const [agentRunConfigs, setAgentRunConfigs] = React.useState<
     Record<string, TerminalAgentRunConfigInput | null>
   >({});
-  const [preview, setPreview] =
-    React.useState<AutomationSchedulePreviewResponse | null>(null);
+  const [preview, setPreview] = React.useState<AutomationSchedulePreviewResponse | null>(null);
   const [previewError, setPreviewError] = React.useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [ready, setReady] = React.useState(mode === "create");
 
-  const workspaces = React.useMemo(
-    () => flattenWorkspaces(projects),
-    [projects],
-  );
+  const workspaces = React.useMemo(() => flattenWorkspaces(projects), [projects]);
   const supportedAgents = React.useMemo(
     () => agents.filter((agent) => agent.automation_supported),
     [agents],
@@ -127,10 +118,7 @@ export function useAutomationSetupForm({
       return projects.find((project) => project.id === projectGuid) ?? null;
     }
     if (targetKind === "workspace") {
-      return (
-        workspaces.find((item) => item.workspace.id === workspaceGuid)
-          ?.project ?? null
-      );
+      return workspaces.find((item) => item.workspace.id === workspaceGuid)?.project ?? null;
     }
     return null;
   }, [projectGuid, projects, targetKind, workspaceGuid, workspaces]);
@@ -141,14 +129,10 @@ export function useAutomationSetupForm({
       setInstructions(initialAutomation.instructions);
       setMemory(initialAutomation.memory ?? "");
       const nextMode = parseExecuteMode(initialAutomation.execute_mode);
-      const nextChatConfig = parseChatAgentConfig(
-        initialAutomation.agent_config_json,
-      );
+      const nextChatConfig = parseChatAgentConfig(initialAutomation.agent_config_json);
       setExecuteMode(nextMode);
       if (nextMode === "chat") {
-        setChatAgentId(
-          nextChatConfig?.provider_id || initialAutomation.agent_id,
-        );
+        setChatAgentId(nextChatConfig?.provider_id || initialAutomation.agent_id);
         setChatModel(nextChatConfig?.model?.trim() || "");
         setChatThinking(nextChatConfig?.thinking?.trim() || "");
         setChatFast(nextChatConfig?.fast?.trim() || "");
@@ -230,43 +214,26 @@ export function useAutomationSetupForm({
       return "Standalone";
     }
     if (targetKind === "project") {
-      return (
-        projects.find((project) => project.id === projectGuid)?.name ??
-        "Project"
-      );
+      return projects.find((project) => project.id === projectGuid)?.name ?? "Project";
     }
     if (targetKind === "new_workspace") {
-      const projectName = projects.find(
-        (project) => project.id === projectGuid,
-      )?.name;
+      const projectName = projects.find((project) => project.id === projectGuid)?.name;
       return projectName ? `New workspace / ${projectName}` : "New Workspace";
     }
-    const selectedWorkspace = workspaces.find(
-      ({ workspace }) => workspace.id === workspaceGuid,
-    );
+    const selectedWorkspace = workspaces.find(({ workspace }) => workspace.id === workspaceGuid);
     return selectedWorkspace
       ? `${selectedWorkspace.workspace.displayName || selectedWorkspace.workspace.name} / ${selectedWorkspace.project.name}`
       : "Workspace";
   }, [projectGuid, projects, targetKind, workspaceGuid, workspaces]);
 
   const scheduleInput = React.useMemo(
-    () =>
-      buildScheduleInput(
-        trigger,
-        timezone,
-        hour,
-        minute,
-        dayOfWeek,
-        dayOfMonth,
-        cronExpr,
-      ),
+    () => buildScheduleInput(trigger, timezone, hour, minute, dayOfWeek, dayOfMonth, cronExpr),
     [cronExpr, dayOfMonth, dayOfWeek, hour, minute, timezone, trigger],
   );
   const scheduleValid =
     trigger === "manual" ||
     trigger === "github" ||
-    (scheduleInput !== null &&
-      (trigger !== "cron" || cronExpr.trim().split(/\s+/).length === 5));
+    (scheduleInput !== null && (trigger !== "cron" || cronExpr.trim().split(/\s+/).length === 5));
 
   React.useEffect(() => {
     if (!scheduleInput || trigger === "manual") {
@@ -290,9 +257,7 @@ export function useAutomationSetupForm({
         .catch((error) => {
           if (previewRequestIdRef.current !== requestId) return;
           setPreview(null);
-          setPreviewError(
-            error instanceof Error ? error.message : "Invalid schedule",
-          );
+          setPreviewError(error instanceof Error ? error.message : "Invalid schedule");
         })
         .finally(() => {
           if (previewRequestIdRef.current === requestId) {
@@ -305,8 +270,7 @@ export function useAutomationSetupForm({
   }, [scheduleInput, schedulePreview, timezone, trigger]);
 
   const triggerValid =
-    scheduleValid &&
-    (!previewError || trigger === "manual" || trigger === "github");
+    scheduleValid && (!previewError || trigger === "manual" || trigger === "github");
   const formValid =
     displayName.trim().length > 0 &&
     instructions.trim().length > 0 &&
@@ -319,8 +283,7 @@ export function useAutomationSetupForm({
       : agentId.trim().length > 0 && !!selectedAgent?.automation_supported) &&
     targetValid &&
     triggerValid;
-  const requestSchedule =
-    trigger === "manual" || trigger === "github" ? null : scheduleInput;
+  const requestSchedule = trigger === "manual" || trigger === "github" ? null : scheduleInput;
   const triggerLabel = React.useMemo(
     () =>
       formatTriggerControlLabel({
@@ -453,17 +416,13 @@ function formatTriggerControlLabel({
     case "daily":
       return `daily at ${time} ${timezone}`;
     case "weekly": {
-      const dayLabel =
-        DAY_OPTIONS.find((option) => option.value === dayOfWeek)?.label ??
-        "weekday";
+      const dayLabel = DAY_OPTIONS.find((option) => option.value === dayOfWeek)?.label ?? "weekday";
       return `weekly on ${dayLabel} at ${time} ${timezone}`;
     }
     case "monthly":
       return `monthly on day ${dayOfMonth} at ${time} ${timezone}`;
     case "cron":
-      return cronExpr.trim()
-        ? `cron ${cronExpr.trim()} ${timezone}`
-        : `cron schedule ${timezone}`;
+      return cronExpr.trim() ? `cron ${cronExpr.trim()} ${timezone}` : `cron schedule ${timezone}`;
   }
 }
 

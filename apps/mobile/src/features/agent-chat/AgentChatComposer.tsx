@@ -1,9 +1,25 @@
 import { useEffect, useState, type ReactElement } from "react";
-import { Image, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
-import { ArrowUpIcon, ChevronDownIcon, PlusIcon, SquareIcon, XIcon } from "@/ui/icons/lucide-native";
+import {
+  ArrowUpIcon,
+  ChevronDownIcon,
+  PlusIcon,
+  SquareIcon,
+  XIcon,
+} from "@/ui/icons/lucide-native";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { AgentChatAddSheet } from "./AgentChatAddSheet";
 import { AgentChatModelSheet } from "./AgentChatModelSheet";
@@ -59,9 +75,19 @@ export function AgentChatComposer(props: {
   // Follow-up actions only. An empty field after send stays a normal composer.
   const showQueue = props.followUp === true && canSend;
   const showSteer = props.followUp === true && draftText.length > 0;
-  const stacked = keyboardVisible || modelsOpen || addOpen || showQueue || contentHeight > LINE_HEIGHT * 1.7 || props.text.includes("\n");
+  const stacked =
+    keyboardVisible ||
+    modelsOpen ||
+    addOpen ||
+    showQueue ||
+    contentHeight > LINE_HEIGHT * 1.7 ||
+    props.text.includes("\n");
   const sendReady = canSend && !props.busy;
-  const sendIcon = sendReady ? theme.colors.labelInverse : props.busy ? theme.colors.label : theme.colors.secondaryLabel;
+  const sendIcon = sendReady
+    ? theme.colors.labelInverse
+    : props.busy
+      ? theme.colors.label
+      : theme.colors.secondaryLabel;
   const modelLabel = props.picker.triggerLabel || props.picker.modelLabel || copy.model;
 
   useEffect(() => {
@@ -107,7 +133,11 @@ export function AgentChatComposer(props: {
         onPress={props.busy ? props.onStop : props.onSend}
         style={({ pressed }) => ({
           alignItems: "center",
-          backgroundColor: sendReady ? (pressed ? theme.colors.primaryPressed : theme.colors.label) : "transparent",
+          backgroundColor: sendReady
+            ? pressed
+              ? theme.colors.primaryPressed
+              : theme.colors.label
+            : "transparent",
           borderRadius: 18,
           height: 36,
           justifyContent: "center",
@@ -137,7 +167,9 @@ export function AgentChatComposer(props: {
       onPress={onPress}
       style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingHorizontal: 2 })}
     >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>{label}</Text>
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>
+        {label}
+      </Text>
     </Pressable>
   );
 
@@ -155,8 +187,15 @@ export function AgentChatComposer(props: {
         paddingRight: 8,
       })}
     >
-      <MobileAgentIcon agentId={props.picker.agentId} iconUrl={props.picker.agentIconUrl} size={16} />
-      <Text numberOfLines={1} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}>
+      <MobileAgentIcon
+        agentId={props.picker.agentId}
+        iconUrl={props.picker.agentIconUrl}
+        size={16}
+      />
+      <Text
+        numberOfLines={1}
+        style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}
+      >
         {modelLabel}
       </Text>
       <ChevronDownIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2.4} />
@@ -176,7 +215,15 @@ export function AgentChatComposer(props: {
             overflow: "hidden",
           }}
         >
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18, paddingHorizontal: 14, paddingTop: 10 }}>
+          <Text
+            style={{
+              color: theme.colors.secondaryLabel,
+              fontSize: 13,
+              lineHeight: 18,
+              paddingHorizontal: 14,
+              paddingTop: 10,
+            }}
+          >
             {props.suggestionTitle}
           </Text>
           <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 220 }}>
@@ -192,9 +239,19 @@ export function AgentChatComposer(props: {
                   paddingVertical: 10,
                 })}
               >
-                <Text numberOfLines={1} style={{ color: theme.colors.label, fontSize: 16, lineHeight: 21 }}>{row.title}</Text>
+                <Text
+                  numberOfLines={1}
+                  style={{ color: theme.colors.label, fontSize: 16, lineHeight: 21 }}
+                >
+                  {row.title}
+                </Text>
                 {row.detail.length > 0 && row.detail !== row.title ? (
-                  <Text numberOfLines={1} style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>{row.detail}</Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}
+                  >
+                    {row.detail}
+                  </Text>
                 ) : null}
               </Pressable>
             ))}
@@ -206,7 +263,10 @@ export function AgentChatComposer(props: {
           <View style={{ flexDirection: "row", gap: 8 }}>
             {props.photos.map((photo) => (
               <View key={photo.id}>
-                <Image source={{ uri: photo.uri }} style={{ borderRadius: 12, height: 64, width: 64 }} />
+                <Image
+                  source={{ uri: photo.uri }}
+                  style={{ borderRadius: 12, height: 64, width: 64 }}
+                />
                 <Pressable
                   accessibilityLabel={photo.filename}
                   accessibilityRole="button"
@@ -264,24 +324,26 @@ export function AgentChatComposer(props: {
           />
         </View>
         <View
-          style={stacked
-            ? {
-                alignItems: "center",
-                flexDirection: "row",
-                gap: 8,
-                minHeight: BUTTON_SIZE,
-                paddingBottom: 8,
-                paddingHorizontal: 8,
-              }
-            : {
-                alignItems: "center",
-                bottom: 0,
-                flexDirection: "row",
-                left: 8,
-                position: "absolute",
-                right: 8,
-                top: 0,
-              }}
+          style={
+            stacked
+              ? {
+                  alignItems: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                  minHeight: BUTTON_SIZE,
+                  paddingBottom: 8,
+                  paddingHorizontal: 8,
+                }
+              : {
+                  alignItems: "center",
+                  bottom: 0,
+                  flexDirection: "row",
+                  left: 8,
+                  position: "absolute",
+                  right: 8,
+                  top: 0,
+                }
+          }
         >
           {renderPlus()}
           {stacked ? renderModel() : null}

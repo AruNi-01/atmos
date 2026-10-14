@@ -13,12 +13,21 @@ import {
   type PtTheme,
 } from "../host/adapters";
 import { mergePtDesignMeta, ptDesignIdFromKey } from "../host/catalog";
-import { libraryFileStem, namedPersistForLibrarySave, shouldPromptLibraryName } from "../host/library-file";
+import {
+  libraryFileStem,
+  namedPersistForLibrarySave,
+  shouldPromptLibraryName,
+} from "../host/library-file";
 import { isLiveRasterPreview, contentBoundsFromPersist, previewNeedsRegen } from "../host/preview";
 import { persistPreviewImage } from "../host/preview-blob";
 import { parseRadiusToken, PT_RADIUS_DEFAULT, type PtRadiusToken } from "../components/radius";
 import { catalogListFromRegistry } from "../agent/session-tools";
-import { allToolDefs, liveBoardToolNames, unknownToolMessage, type ToolName } from "../agent/tool-defs";
+import {
+  allToolDefs,
+  liveBoardToolNames,
+  unknownToolMessage,
+  type ToolName,
+} from "../agent/tool-defs";
 import { PtDesignError, type HandleElement, type PtDocument } from "../protocol";
 import { REQUIRED_BLOCKS, COMPONENT_PALETTE_IDS } from "../catalog/shadcn-list";
 import { ModeToggle, Palette, buildChartPaletteGroups, type DesignMode } from "../editor";
@@ -129,7 +138,10 @@ function decoratePersistMeta(doc: Omit<PtPersistV2, "meta">, meta: PtDesignMeta)
   return { ...doc, meta: nextMeta };
 }
 
-function canvasDump(api: ExcalidrawHostApi): { elements: readonly unknown[]; appState: Record<string, unknown> } {
+function canvasDump(api: ExcalidrawHostApi): {
+  elements: readonly unknown[];
+  appState: Record<string, unknown>;
+} {
   const app = api.getAppState();
   return {
     elements: api.getSceneElementsIncludingDeleted(),
@@ -150,7 +162,12 @@ function asHandles(elements: readonly unknown[]): HandleElement[] {
 
 function errorCodeOf(error: unknown): string {
   if (error instanceof PtDesignError) return error.code;
-  if (error && typeof error === "object" && "code" in error && typeof (error as { code: unknown }).code === "string") {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as { code: unknown }).code === "string"
+  ) {
     return (error as { code: string }).code;
   }
   return "unknown_tool";
@@ -219,16 +236,19 @@ export function PtDesignApp({
   const chrome = chromeTokens(boardTheme);
   const shareLabels = resolveShareCopy(shareCopy);
 
-  const syncOverlay = React.useCallback((document: PtDocument, nextState: ReturnType<typeof emptyOverlayState>) => {
-    if (!sameOverlayDocument(overlayDocRef.current, document)) {
-      overlayDocRef.current = document;
-      setOverlayDoc(document);
-    }
-    if (!sameOverlayViewport(overlayStateRef.current, nextState)) {
-      overlayStateRef.current = nextState;
-      setOverlayState(nextState);
-    }
-  }, []);
+  const syncOverlay = React.useCallback(
+    (document: PtDocument, nextState: ReturnType<typeof emptyOverlayState>) => {
+      if (!sameOverlayDocument(overlayDocRef.current, document)) {
+        overlayDocRef.current = document;
+        setOverlayDoc(document);
+      }
+      if (!sameOverlayViewport(overlayStateRef.current, nextState)) {
+        overlayStateRef.current = nextState;
+        setOverlayState(nextState);
+      }
+    },
+    [],
+  );
 
   const attachHost = React.useCallback((api: ExcalidrawHostApi) => {
     apiRef.current = api;
@@ -289,7 +309,13 @@ export function PtDesignApp({
           requestAnimationFrame(() => {
             if (cancelled) return;
             const loadedDoc = loaded ?? { ptx: "" };
-            if (previewNeedsRegen(mergedMeta.preview, contentBoundsFromPersist(loadedDoc), mergedMeta.previewFit)) {
+            if (
+              previewNeedsRegen(
+                mergedMeta.preview,
+                contentBoundsFromPersist(loadedDoc),
+                mergedMeta.previewFit,
+              )
+            ) {
               schedulePreviewCaptureRef.current();
             }
           });
@@ -349,12 +375,15 @@ export function PtDesignApp({
 
   const fileSyncDebouncer = React.useMemo(
     () =>
-      createPersistDebouncer<PtPersistV2>((doc) => {
-        const bound = libraryFileRef.current;
-        const lib = libraryRef.current;
-        if (!bound || !lib) return;
-        void lib.save(bound, doc).catch(() => undefined);
-      }, { delay: 800 }),
+      createPersistDebouncer<PtPersistV2>(
+        (doc) => {
+          const bound = libraryFileRef.current;
+          const lib = libraryRef.current;
+          if (!bound || !lib) return;
+          void lib.save(bound, doc).catch(() => undefined);
+        },
+        { delay: 800 },
+      ),
     [],
   );
 
@@ -375,7 +404,10 @@ export function PtDesignApp({
     const latestMeta = metaRef.current;
     if (!live || !board || !latestMeta) return;
     try {
-      const shot = await captureLiveScreenshot(live, { maxEdge: PREVIEW_CAPTURE_MAX_EDGE, preview: true });
+      const shot = await captureLiveScreenshot(live, {
+        maxEdge: PREVIEW_CAPTURE_MAX_EDGE,
+        preview: true,
+      });
       if (!isLiveRasterPreview(shot.dataUrl) && !shot.blob) return;
       const stored = await persistPreviewImage(latestMeta.id, shot.dataUrl, shot.blob);
       if (!stored) return;
@@ -440,24 +472,27 @@ export function PtDesignApp({
     [capturePreviewNow, fileSyncDebouncer, persistDebouncer],
   );
 
-  const applyRemoteElements = React.useCallback((elements: readonly unknown[]) => {
-    const board = liveBoardRef.current;
-    const api = apiRef.current;
-    if (!board || !api) return;
-    loadingRef.current = true;
-    try {
-      const app = api.getAppState();
-      syncOverlay(board.extract(), {
-        scrollX: app.scrollX,
-        scrollY: app.scrollY,
-        zoom: app.zoom,
-        viewModeEnabled: app.viewModeEnabled ?? false,
-      });
-    } finally {
-      loadingRef.current = false;
-    }
-    void elements;
-  }, [syncOverlay]);
+  const applyRemoteElements = React.useCallback(
+    (elements: readonly unknown[]) => {
+      const board = liveBoardRef.current;
+      const api = apiRef.current;
+      if (!board || !api) return;
+      loadingRef.current = true;
+      try {
+        const app = api.getAppState();
+        syncOverlay(board.extract(), {
+          scrollX: app.scrollX,
+          scrollY: app.scrollY,
+          zoom: app.zoom,
+          viewModeEnabled: app.viewModeEnabled ?? false,
+        });
+      } finally {
+        loadingRef.current = false;
+      }
+      void elements;
+    },
+    [syncOverlay],
+  );
 
   const collab = useExcalidrawCollab({
     api: apiRef.current,
@@ -520,7 +555,13 @@ export function PtDesignApp({
         schedulePreviewCapture();
       }
     },
-    [collab.broadcastScene, persistDebouncer, schedulePreviewCapture, snapshotCurrentPersist, syncOverlay],
+    [
+      collab.broadcastScene,
+      persistDebouncer,
+      schedulePreviewCapture,
+      snapshotCurrentPersist,
+      syncOverlay,
+    ],
   );
 
   const onModeChange = React.useCallback((next: DesignMode) => {
@@ -531,50 +572,53 @@ export function PtDesignApp({
     setOverlayState(nextState);
   }, []);
 
-  const revealOnBoard = React.useCallback((ptIds: string[], kind: "catalog" | "agent" = "catalog") => {
-    const api = apiRef.current;
-    const board = liveBoardRef.current;
-    if (!api || ptIds.length === 0) return;
-    const fromScene = () => elementsForPtIds(api.getSceneElements(), ptIds);
-    const fromDoc = () => {
-      const nodes = board?.extract().pages[0]?.nodes ?? [];
-      return nodes
-        .filter((node) => ptIds.includes(node.id))
-        .map((node) => ({ x: node.x, y: node.y, width: node.width, height: node.height }));
-    };
-    const selectAndPan = (attempt = 0) => {
-      const targets = fromScene();
-      if (targets.length === 0 && attempt < 8) {
-        requestAnimationFrame(() => selectAndPan(attempt + 1));
-        return;
-      }
-      if (targets.length > 0) {
-        api.updateScene({
-          appState: { selectedElementIds: selectedIdsForElements(targets) },
-          captureUpdate: "NEVER",
-        });
-      }
-      const bounds = unionElementBounds(targets.length ? targets : fromDoc());
-      if (!bounds) return;
-      applySceneCameraNever(
-        {
-          getAppState: () => api.getAppState(),
-          updateScene: (opts) => {
-            api.updateScene({
-              ...(opts.appState ? { appState: opts.appState } : {}),
-              captureUpdate: opts.captureUpdate,
-            });
+  const revealOnBoard = React.useCallback(
+    (ptIds: string[], kind: "catalog" | "agent" = "catalog") => {
+      const api = apiRef.current;
+      const board = liveBoardRef.current;
+      if (!api || ptIds.length === 0) return;
+      const fromScene = () => elementsForPtIds(api.getSceneElements(), ptIds);
+      const fromDoc = () => {
+        const nodes = board?.extract().pages[0]?.nodes ?? [];
+        return nodes
+          .filter((node) => ptIds.includes(node.id))
+          .map((node) => ({ x: node.x, y: node.y, width: node.width, height: node.height }));
+      };
+      const selectAndPan = (attempt = 0) => {
+        const targets = fromScene();
+        if (targets.length === 0 && attempt < 8) {
+          requestAnimationFrame(() => selectAndPan(attempt + 1));
+          return;
+        }
+        if (targets.length > 0) {
+          api.updateScene({
+            appState: { selectedElementIds: selectedIdsForElements(targets) },
+            captureUpdate: "NEVER",
+          });
+        }
+        const bounds = unionElementBounds(targets.length ? targets : fromDoc());
+        if (!bounds) return;
+        applySceneCameraNever(
+          {
+            getAppState: () => api.getAppState(),
+            updateScene: (opts) => {
+              api.updateScene({
+                ...(opts.appState ? { appState: opts.appState } : {}),
+                captureUpdate: opts.captureUpdate,
+              });
+            },
           },
-        },
-        cameraToShowRect(bounds, api.getAppState()),
-      );
-      selectedNodeIdRef.current = ptIds[0] ?? null;
-      setSelectedNodeId(ptIds[0] ?? null);
-      setRevealKind(kind);
-      setRevealIds(ptIds);
-    };
-    selectAndPan();
-  }, []);
+          cameraToShowRect(bounds, api.getAppState()),
+        );
+        selectedNodeIdRef.current = ptIds[0] ?? null;
+        setSelectedNodeId(ptIds[0] ?? null);
+        setRevealKind(kind);
+        setRevealIds(ptIds);
+      };
+      selectAndPan();
+    },
+    [],
+  );
 
   React.useEffect(() => {
     if (!revealIds) {
@@ -586,7 +630,9 @@ export function PtDesignApp({
     const tick = () => {
       const api = apiRef.current;
       const board = liveBoardRef.current;
-      const sceneBounds = api ? unionElementBounds(elementsForPtIds(api.getSceneElements(), revealIds)) : null;
+      const sceneBounds = api
+        ? unionElementBounds(elementsForPtIds(api.getSceneElements(), revealIds))
+        : null;
       const docBounds =
         board &&
         unionElementBounds(
@@ -603,42 +649,45 @@ export function PtDesignApp({
     return () => cancelAnimationFrame(frame);
   }, [revealIds, revealKind]);
 
-  const onPaletteInsert = React.useCallback((
-    type: Parameters<typeof defaultNodeFor>[0],
-    variant?: string,
-  ) => {
-    const api = apiRef.current;
-    const board = liveBoardRef.current;
-    if (!api || !board) return;
-    const id = createId("pt");
-    const node = defaultNodeFor(type, id);
-    node.props = { ...node.props, ...(variant ? { variant } : {}), radius: "default" };
-    const current = board.extract();
-    const page = current.pages[0] ?? { id: "page", nodes: [] };
-    const at = catalogPlaceAt(
-      page.nodes,
-      { w: node.width, h: node.height },
-      sceneViewportRect(api.getAppState(), PLACE_VIEWPORT_CHROME),
-    );
-    node.x = at.x;
-    node.y = at.y;
-    board.applyDocument(
-      {
-        version: current.version,
-        pages: [{ id: page.id, nodes: [...page.nodes, node] }],
-      },
-      "IMMEDIATELY",
-    );
-    revealOnBoard([id], "catalog");
-  }, [revealOnBoard]);
+  const onPaletteInsert = React.useCallback(
+    (type: Parameters<typeof defaultNodeFor>[0], variant?: string) => {
+      const api = apiRef.current;
+      const board = liveBoardRef.current;
+      if (!api || !board) return;
+      const id = createId("pt");
+      const node = defaultNodeFor(type, id);
+      node.props = { ...node.props, ...(variant ? { variant } : {}), radius: "default" };
+      const current = board.extract();
+      const page = current.pages[0] ?? { id: "page", nodes: [] };
+      const at = catalogPlaceAt(
+        page.nodes,
+        { w: node.width, h: node.height },
+        sceneViewportRect(api.getAppState(), PLACE_VIEWPORT_CHROME),
+      );
+      node.x = at.x;
+      node.y = at.y;
+      board.applyDocument(
+        {
+          version: current.version,
+          pages: [{ id: page.id, nodes: [...page.nodes, node] }],
+        },
+        "IMMEDIATELY",
+      );
+      revealOnBoard([id], "catalog");
+    },
+    [revealOnBoard],
+  );
 
-  const onOverlayCommit = React.useCallback((doc: PtDocument, capture: "IMMEDIATELY" | "NEVER" = "NEVER") => {
-    if (capture === "IMMEDIATELY") {
-      liveBoardRef.current?.applyDocument(doc, "IMMEDIATELY");
-      return;
-    }
-    liveBoardRef.current?.applyDocument(doc, "NEVER");
-  }, []);
+  const onOverlayCommit = React.useCallback(
+    (doc: PtDocument, capture: "IMMEDIATELY" | "NEVER" = "NEVER") => {
+      if (capture === "IMMEDIATELY") {
+        liveBoardRef.current?.applyDocument(doc, "IMMEDIATELY");
+        return;
+      }
+      liveBoardRef.current?.applyDocument(doc, "NEVER");
+    },
+    [],
+  );
 
   const onOverlayAction = React.useCallback(
     (payload: PtDesignHostAction) => {
@@ -647,30 +696,41 @@ export function PtDesignApp({
     [onAction],
   );
 
-  const persistCurrent = React.useCallback((radius: PtRadiusToken) => {
-    const api = apiRef.current;
-    const board = liveBoardRef.current;
-    if (!api || !board) return;
-    persistDebouncer.schedule(
-      decoratePersistMeta(
-        {
-          ptx: board.extractPtx(),
-          canvas: canvasDump(api),
-          files: api.getFiles?.(),
-          settings: { radius },
-        },
-        metaRef.current ??
-          mergePtDesignMeta(undefined, documentMetaRef.current, persistIdFromKey(storageKey), null),
-      ),
-    );
-    persistDebouncer.flush();
-  }, [persistDebouncer, storageKey]);
+  const persistCurrent = React.useCallback(
+    (radius: PtRadiusToken) => {
+      const api = apiRef.current;
+      const board = liveBoardRef.current;
+      if (!api || !board) return;
+      persistDebouncer.schedule(
+        decoratePersistMeta(
+          {
+            ptx: board.extractPtx(),
+            canvas: canvasDump(api),
+            files: api.getFiles?.(),
+            settings: { radius },
+          },
+          metaRef.current ??
+            mergePtDesignMeta(
+              undefined,
+              documentMetaRef.current,
+              persistIdFromKey(storageKey),
+              null,
+            ),
+        ),
+      );
+      persistDebouncer.flush();
+    },
+    [persistDebouncer, storageKey],
+  );
 
-  const onGlobalRadiusChange = React.useCallback((radius: PtRadiusToken) => {
-    globalRadiusRef.current = radius;
-    setGlobalRadius(radius);
-    persistCurrent(radius);
-  }, [persistCurrent]);
+  const onGlobalRadiusChange = React.useCallback(
+    (radius: PtRadiusToken) => {
+      globalRadiusRef.current = radius;
+      setGlobalRadius(radius);
+      persistCurrent(radius);
+    },
+    [persistCurrent],
+  );
 
   const applySelectionPatch = React.useCallback((group: SelectionPropGroup, optionId: string) => {
     const board = liveBoardRef.current;
@@ -687,7 +747,9 @@ export function PtDesignApp({
         pages: [
           {
             id: page.id,
-            nodes: page.nodes.map((item) => (item.id === nodeId ? applySelectionNodePatch(item, patch) : item)),
+            nodes: page.nodes.map((item) =>
+              item.id === nodeId ? applySelectionNodePatch(item, patch) : item,
+            ),
           },
         ],
       },
@@ -874,7 +936,9 @@ export function PtDesignApp({
           {revealBox ? (
             <div
               data-testid="pt-design-place-reveal"
-              className={revealKind === "agent" ? "pt-design-agent-highlight" : "pt-design-place-reveal"}
+              className={
+                revealKind === "agent" ? "pt-design-agent-highlight" : "pt-design-place-reveal"
+              }
               style={{
                 left: revealBox.left,
                 top: revealBox.top,
@@ -898,8 +962,8 @@ export function PtDesignApp({
             theme={boardTheme}
             error={libraryError}
             defaultName={
-              metaRef.current?.name?.trim()
-              || (libraryFile ? libraryFileStem(libraryFile) : defaultDesignName())
+              metaRef.current?.name?.trim() ||
+              (libraryFile ? libraryFileStem(libraryFile) : defaultDesignName())
             }
             onSave={(name) => {
               void saveLibrary(name);
@@ -944,9 +1008,21 @@ export function PtDesignApp({
         color: chrome.fg,
       }}
     >
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: chrome.canvas }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          background: chrome.canvas,
+        }}
+      >
         <div style={{ flex: 1, minHeight: 0, background: chrome.canvas }}>
-          <React.Suspense fallback={<div style={{ padding: 16, fontSize: 13, color: chrome.mutedFg }}>Loading board…</div>}>
+          <React.Suspense
+            fallback={
+              <div style={{ padding: 16, fontSize: 13, color: chrome.mutedFg }}>Loading board…</div>
+            }
+          >
             <ExcalidrawBoard
               initialElements={[]}
               viewBackgroundColor={chrome.canvas}
@@ -956,10 +1032,18 @@ export function PtDesignApp({
               onChange={handleBoardChange}
               onBack={onBack ? handleBack : undefined}
               backLabel={backLabel}
-              topLeftChrome={<ModeToggle mode={mode} onModeChange={onModeChange} labels={modeLabels} />}
+              topLeftChrome={
+                <ModeToggle mode={mode} onModeChange={onModeChange} labels={modeLabels} />
+              }
               catalog={<Palette types={COMPONENT_PALETTE_IDS} onInsert={onPaletteInsert} />}
               blockCatalog={<Palette types={REQUIRED_BLOCKS} onInsert={onPaletteInsert} />}
-              chartCatalog={<Palette groups={buildChartPaletteGroups()} rootLabel="Charts" onInsert={onPaletteInsert} />}
+              chartCatalog={
+                <Palette
+                  groups={buildChartPaletteGroups()}
+                  rootLabel="Charts"
+                  onInsert={onPaletteInsert}
+                />
+              }
               catalogStyle={{ radius: globalRadius, onRadiusChange: onGlobalRadiusChange }}
               menuItems={menuItems}
               isCollaborating={collab.isCollaborating}

@@ -8,12 +8,12 @@ Missing package roles for api-types and api-client; risk of junk-drawer shared a
 
 ## Options considered
 
-| Option | Outcome |
-|--------|---------|
-| A Docs-only | Insufficient alone |
-| B Docs + cheap gate | **Chosen** (M11) |
-| C Merge api-types into shared | Rejected |
-| D Move terminal to api-types now | Deferred N2 |
+| Option                           | Outcome            |
+| -------------------------------- | ------------------ |
+| A Docs-only                      | Insufficient alone |
+| B Docs + cheap gate              | **Chosen** (M11)   |
+| C Merge api-types into shared    | Rejected           |
+| D Move terminal to api-types now | Deferred N2        |
 
 ## Settled decisions (post-review)
 

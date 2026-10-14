@@ -72,7 +72,13 @@ function QuotaMetricBlock({
   const t = useTranslations("appShell.usagePopover");
   return (
     <div
-      className={bordered ? (compact ? "border-t border-border/60 pt-2.5" : "border-t border-border/70 pt-5") : undefined}
+      className={
+        bordered
+          ? compact
+            ? "border-t border-border/60 pt-2.5"
+            : "border-t border-border/70 pt-5"
+          : undefined
+      }
     >
       <QuotaMetricUsage
         compact={compact}
@@ -162,13 +168,16 @@ export function AggregateDetail({
     if (leftOrder !== rightOrder) return leftOrder - rightOrder;
     return left.label.localeCompare(right.label);
   });
-  const allSwitchEnabled = providers.length > 0 && providers.every((provider) => provider.switch_enabled);
+  const allSwitchEnabled =
+    providers.length > 0 && providers.every((provider) => provider.switch_enabled);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="text-sm font-semibold tracking-tight text-foreground">{t("detail.allProviders")}</div>
+          <div className="text-sm font-semibold tracking-tight text-foreground">
+            {t("detail.allProviders")}
+          </div>
           <UsageSwitch
             checked={allSwitchEnabled}
             onCheckedChange={onToggleAllProviders}
@@ -177,7 +186,10 @@ export function AggregateDetail({
           />
         </div>
         <div className="text-sm font-medium text-foreground/90">
-          {t("detail.activeCount", { enabled: aggregate.enabled_count, total: aggregate.total_count })}
+          {t("detail.activeCount", {
+            enabled: aggregate.enabled_count,
+            total: aggregate.total_count,
+          })}
         </div>
       </div>
 
@@ -230,10 +242,12 @@ function AggregateProviderRow({
   const primaryMetric = metrics[0] ?? null;
   const creditsBalance = providerCreditsLabel(provider);
   const creditsState = firstRowValue(provider, "Credits", "State");
-  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, t("detail.notDetected"));
+  const { accountLabel, planLabel, periodLabel } = providerIdentity(
+    provider,
+    t("detail.notDetected"),
+  );
   const collapsedSubtitle =
-    planLabel ??
-    (accountLabel && accountLabel !== provider.label ? accountLabel : null);
+    planLabel ?? (accountLabel && accountLabel !== provider.label ? accountLabel : null);
   const detectHint =
     provider.auth_state.detail ??
     provider.warnings[0] ??
@@ -304,7 +318,10 @@ function AggregateProviderRow({
             </div>
           </div>
           <ChevronDown
-            className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
           />
         </div>
       </div>
@@ -337,11 +354,12 @@ function AggregateProviderRow({
                 />
               ) : (
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-foreground">{t("detail.detectionRequired")}</div>
+                  <div className="text-sm font-medium text-foreground">
+                    {t("detail.detectionRequired")}
+                  </div>
                   <div className="text-[11px] leading-5 text-foreground/90">{detectHint}</div>
                   <div className="rounded-[12px] bg-muted/35 px-3 py-2 text-[11px] leading-5 text-foreground/90">
-                    {provider.auth_state.setup_hint ??
-                      t("detail.detectSetupHint")}
+                    {provider.auth_state.setup_hint ?? t("detail.detectSetupHint")}
                   </div>
                   {provider.manual_setup ? (
                     <ProviderApiKeyManager
@@ -399,15 +417,9 @@ function DetectedProviderDetails({
         <div className="min-w-0">
           <div className="truncate text-xs text-foreground">{accountLabel}</div>
           {periodLabel ? (
-            <div className="mt-0.5 truncate text-[11px] text-foreground/90">
-              {periodLabel}
-            </div>
+            <div className="mt-0.5 truncate text-[11px] text-foreground/90">{periodLabel}</div>
           ) : null}
-          <UsagePortalLink
-            providerId={provider.id}
-            region={providerRegion}
-            className="mt-1"
-          />
+          <UsagePortalLink providerId={provider.id} region={providerRegion} className="mt-1" />
         </div>
         <div className="text-right text-[11px] text-foreground/90">
           {provider.fetch_state.status}
@@ -480,13 +492,18 @@ export function ProviderDetail({
   isSwitching: boolean;
 }) {
   const t = useTranslations("appShell.usagePopover");
-  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, t("detail.notDetected"));
+  const { accountLabel, planLabel, periodLabel } = providerIdentity(
+    provider,
+    t("detail.notDetected"),
+  );
   const metrics = quotaMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
   const creditsBalance = providerCreditsLabel(provider);
   const creditsState = firstRowValue(provider, "Credits", "State");
-  const warningText = provider.warnings[0] ?? (provider.fetch_state.status !== "ready" ? provider.fetch_state.message : null);
+  const warningText =
+    provider.warnings[0] ??
+    (provider.fetch_state.status !== "ready" ? provider.fetch_state.message : null);
   const showCredits = Boolean(creditsBalance || creditsState);
   const { modes, mode, setMode, windowMetrics, managedMetrics } = useFactoryUsageMode(metrics);
   const visibleMetrics = [...windowMetrics, ...managedMetrics];
@@ -497,7 +514,9 @@ export function ProviderDetail({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <div className="text-sm font-semibold tracking-tight text-foreground">{provider.label}</div>
+              <div className="text-sm font-semibold tracking-tight text-foreground">
+                {provider.label}
+              </div>
               <UsageSwitch
                 checked={provider.switch_enabled}
                 onCheckedChange={(checked) => onToggleProvider(provider.id, checked)}
@@ -508,17 +527,11 @@ export function ProviderDetail({
             {provider.id === "zed" && periodLabel ? (
               <div className="mt-1 text-xs text-foreground/90">{periodLabel}</div>
             ) : null}
-            <UsagePortalLink
-              providerId={provider.id}
-              region={providerRegion}
-              className="mt-1"
-            />
+            <UsagePortalLink providerId={provider.id} region={providerRegion} className="mt-1" />
           </div>
           <div className="text-right">
             <div className="text-xs text-foreground">{accountLabel}</div>
-            {planLabel ? (
-              <div className="mt-1 text-xs text-foreground/90">{planLabel}</div>
-            ) : null}
+            {planLabel ? <div className="mt-1 text-xs text-foreground/90">{planLabel}</div> : null}
           </div>
         </div>
       </div>
@@ -591,14 +604,28 @@ function ExtraDetailSections({
       {sections.map((section) => (
         <section
           key={section.title}
-          className={compact ? "border-t border-border/60 pt-2.5" : "border-t border-border/70 pt-5"}
+          className={
+            compact ? "border-t border-border/60 pt-2.5" : "border-t border-border/70 pt-5"
+          }
         >
           <div className="flex items-start justify-between gap-4">
-            <div className={compact ? "text-xs font-medium text-foreground" : "text-sm font-semibold tracking-tight text-foreground"}>
+            <div
+              className={
+                compact
+                  ? "text-xs font-medium text-foreground"
+                  : "text-sm font-semibold tracking-tight text-foreground"
+              }
+            >
               {section.title}
             </div>
             {sectionHeaderValue(provider, section) ? (
-              <div className={compact ? "text-right text-[11px] text-foreground/90" : "pt-1 text-right text-sm text-foreground/90"}>
+              <div
+                className={
+                  compact
+                    ? "text-right text-[11px] text-foreground/90"
+                    : "pt-1 text-right text-sm text-foreground/90"
+                }
+              >
                 {sectionHeaderValue(provider, section)}
               </div>
             ) : null}
@@ -612,7 +639,13 @@ function ExtraDetailSections({
                 : row.value;
               return (
                 <div key={`${section.title}:${row.label}`}>
-                  <div className={compact ? "flex items-start justify-between gap-4 text-[11px]" : "flex items-start justify-between gap-4 text-sm"}>
+                  <div
+                    className={
+                      compact
+                        ? "flex items-start justify-between gap-4 text-[11px]"
+                        : "flex items-start justify-between gap-4 text-sm"
+                    }
+                  >
                     <div className="text-foreground/90">{row.label}</div>
                     <div className="text-right text-foreground">{displayValue}</div>
                   </div>
@@ -622,7 +655,13 @@ function ExtraDetailSections({
                     </div>
                   ) : null}
                   {quotaMetricShowsBar(rowPercent) ? (
-                    <div className={compact ? "mt-0.5 flex items-center justify-between gap-4 text-[11px]" : "mt-1 flex items-center justify-between gap-4 text-[11px]"}>
+                    <div
+                      className={
+                        compact
+                          ? "mt-0.5 flex items-center justify-between gap-4 text-[11px]"
+                          : "mt-1 flex items-center justify-between gap-4 text-[11px]"
+                      }
+                    >
                       <div />
                       <div className="text-foreground/90">{rowResetText}</div>
                     </div>

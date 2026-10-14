@@ -103,16 +103,13 @@ export function useContestedCliOwners(): ContestedOwnersMap {
         return;
       }
       const requestKey = cacheKey;
-      void fetchAgentOwner(
-        requestKey,
-        session.gateway_url,
-        session.client_token,
-        force,
-      ).then((owner) => {
-        if (activeKeyRef.current === requestKey) {
-          setResolved({ key: requestKey, owner });
-        }
-      });
+      void fetchAgentOwner(requestKey, session.gateway_url, session.client_token, force).then(
+        (owner) => {
+          if (activeKeyRef.current === requestKey) {
+            setResolved({ key: requestKey, owner });
+          }
+        },
+      );
     },
     [cacheKey, session?.client_token, session?.gateway_url],
   );
@@ -124,11 +121,7 @@ export function useContestedCliOwners(): ContestedOwnersMap {
   }, [refresh]);
 
   const owner =
-    resolved?.key === cacheKey
-      ? resolved.owner
-      : cacheKey
-        ? cache.get(cacheKey)?.owner
-        : undefined;
+    resolved?.key === cacheKey ? resolved.owner : cacheKey ? cache.get(cacheKey)?.owner : undefined;
   return useMemo<ContestedOwnersMap>(() => {
     if (!owner) return {};
     return { agent: owner };

@@ -25,7 +25,8 @@ function compareByAttachTimeDesc(
   right: CanvasTerminalRenderShape,
 ) {
   const timestampDelta =
-    getSortableTimestamp(right.props.lastAttachedAt) - getSortableTimestamp(left.props.lastAttachedAt);
+    getSortableTimestamp(right.props.lastAttachedAt) -
+    getSortableTimestamp(left.props.lastAttachedAt);
   if (timestampDelta !== 0) {
     return timestampDelta;
   }
@@ -43,7 +44,8 @@ export function getRestoredRenderedShapeIds(
   return shapes
     .filter(
       (shape): shape is CanvasTerminalRenderShape & { props: { lastAttachedAt: number } } =>
-        typeof shape.props.lastAttachedAt === "number" && Number.isFinite(shape.props.lastAttachedAt),
+        typeof shape.props.lastAttachedAt === "number" &&
+        Number.isFinite(shape.props.lastAttachedAt),
     )
     .sort(compareByAttachTimeDesc)
     .slice(0, maxRenderedTerminals)

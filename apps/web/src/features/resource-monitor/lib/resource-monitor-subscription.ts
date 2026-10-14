@@ -26,9 +26,7 @@ type SubscriptionSlot = {
  * Captures the attach-time Computer scope so cleanup never talks to a newer connection.
  * Same-scope remounts (React StrictMode) skip unsubscribe so a replacement subscribe can take over.
  */
-export function createResourceMonitorSubscriptionController(
-  deps: ResourceMonitorSubscriptionDeps,
-) {
+export function createResourceMonitorSubscriptionController(deps: ResourceMonitorSubscriptionDeps) {
   let nextId = 0;
   let active: SubscriptionSlot | null = null;
 
@@ -55,11 +53,7 @@ export function createResourceMonitorSubscriptionController(
 
         queueMicrotask(() => {
           const current = active;
-          if (
-            current &&
-            current.id !== captured.id &&
-            scopesEqual(current.scope, captured.scope)
-          ) {
+          if (current && current.id !== captured.id && scopesEqual(current.scope, captured.scope)) {
             return;
           }
           if (!deps.isConnected()) return;

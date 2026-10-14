@@ -24,25 +24,25 @@ crates/infra (entities, migration, GroupRepo)
 
 **`item_group`** — named container (product copy: “Group”).
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `guid` | TEXT PK | UUID |
-| `created_at` / `updated_at` | DATETIME | base |
-| `is_deleted` | BOOL | soft delete |
-| `name` | TEXT NOT NULL | trimmed, non-empty |
-| `sidebar_order` | INTEGER NOT NULL | group list order |
+| Column                      | Type             | Notes              |
+| --------------------------- | ---------------- | ------------------ |
+| `guid`                      | TEXT PK          | UUID               |
+| `created_at` / `updated_at` | DATETIME         | base               |
+| `is_deleted`                | BOOL             | soft delete        |
+| `name`                      | TEXT NOT NULL    | trimmed, non-empty |
+| `sidebar_order`             | INTEGER NOT NULL | group list order   |
 
 **`item_group_member`** — exclusive membership.
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `guid` | TEXT PK | UUID |
-| `created_at` / `updated_at` | DATETIME | base |
-| `is_deleted` | BOOL | soft delete |
-| `group_guid` | TEXT NOT NULL | → item_group.guid |
-| `member_type` | TEXT NOT NULL | `"project"` \| `"workspace"` |
-| `member_guid` | TEXT NOT NULL | project or workspace guid |
-| `sort_order` | INTEGER NOT NULL | order within group |
+| Column                      | Type             | Notes                        |
+| --------------------------- | ---------------- | ---------------------------- |
+| `guid`                      | TEXT PK          | UUID                         |
+| `created_at` / `updated_at` | DATETIME         | base                         |
+| `is_deleted`                | BOOL             | soft delete                  |
+| `group_guid`                | TEXT NOT NULL    | → item_group.guid            |
+| `member_type`               | TEXT NOT NULL    | `"project"` \| `"workspace"` |
+| `member_guid`               | TEXT NOT NULL    | project or workspace guid    |
+| `sort_order`                | INTEGER NOT NULL | order within group           |
 
 Indexes / constraints:
 
@@ -119,16 +119,16 @@ pub groups: Vec<GroupDto>,
 
 Snake_case wire names (match existing style):
 
-| Action | Request | Response |
-|--------|---------|----------|
-| `group_list` | `{}` | `GroupDto[]` |
-| `group_create` | `{ name, sidebar_order? }` | `GroupDto` |
-| `group_update` | `{ guid, name? }` | `{ success: true }` |
-| `group_update_order` | `{ orders: [{ guid, order }] }` | `{ success: true }` |
-| `group_delete` | `{ guid }` | `{ success: true }` |
-| `group_set_member` | `{ group_guid, member_type, member_guid }` | `GroupMemberDto` |
-| `group_remove_member` | `{ member_type, member_guid }` | `{ success: true }` |
-| `group_update_member_order` | `{ group_guid, member_guids: string[] }` | `{ success: true }` |
+| Action                      | Request                                    | Response            |
+| --------------------------- | ------------------------------------------ | ------------------- |
+| `group_list`                | `{}`                                       | `GroupDto[]`        |
+| `group_create`              | `{ name, sidebar_order? }`                 | `GroupDto`          |
+| `group_update`              | `{ guid, name? }`                          | `{ success: true }` |
+| `group_update_order`        | `{ orders: [{ guid, order }] }`            | `{ success: true }` |
+| `group_delete`              | `{ guid }`                                 | `{ success: true }` |
+| `group_set_member`          | `{ group_guid, member_type, member_guid }` | `GroupMemberDto`    |
+| `group_remove_member`       | `{ member_type, member_guid }`             | `{ success: true }` |
+| `group_update_member_order` | `{ group_guid, member_guids: string[] }`   | `{ success: true }` |
 
 Wire enum locations:
 
@@ -147,9 +147,9 @@ No new push events required for v1; clients patch bootstrap cache optimistically
 export type GroupMemberType = "project" | "workspace";
 
 export interface GroupMember {
-  id: string;           // membership guid
+  id: string; // membership guid
   memberType: GroupMemberType;
-  memberId: string;     // project or workspace id
+  memberId: string; // project or workspace id
   sortOrder: number;
 }
 
@@ -187,10 +187,10 @@ Thin wrappers: `groupApi.create`, `rename`, `delete`, `setMember`, `removeMember
 
 ```ts
 type UserGroupView = {
-  key: string;          // group id or "__ungrouped__"
+  key: string; // group id or "__ungrouped__"
   label: string;
   groupId: string | null;
-  projects: Project[];           // projects whose membership is this group
+  projects: Project[]; // projects whose membership is this group
   workspaces: FlattenedWorkspaceEntry[]; // direct workspace members
 };
 ```

@@ -103,19 +103,28 @@
 /* Official dark inverts every swatch. We only restyle the first stroke
    top-pick so it matches the light default ink without flipping reds. */
 .excalidraw.theme--dark .color-picker__top-picks .color-picker__button:first-child,
-[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .color-picker__top-picks .color-picker__button:first-child {
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .color-picker__top-picks
+  .color-picker__button:first-child {
   --swatch-color: #fafafa !important;
 }
 
 .excalidraw.theme--dark .color-picker__button[title="#1e1e1e"],
 .excalidraw.theme--dark .color-picker__button[title="#000000"],
-[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .color-picker__button[title="#1e1e1e"],
-[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .color-picker__button[title="#000000"] {
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .color-picker__button[title="#1e1e1e"],
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .color-picker__button[title="#000000"] {
   --swatch-color: #fafafa !important;
 }
 
 .excalidraw.theme--dark .color-picker__button[title="#ffffff"],
-[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .color-picker__button[title="#ffffff"] {
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .color-picker__button[title="#ffffff"] {
   --swatch-color: #18181b !important;
 }
 
@@ -225,7 +234,9 @@
 [data-testid="pt-design-board"] > .pt-design-mode-toggle {
   position: absolute;
   top: calc(var(--editor-container-padding, 1rem) + var(--pt-island-pad, 0.25rem));
-  left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-chrome-size) + 8px);
+  left: calc(
+    var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-chrome-size) + 8px
+  );
   z-index: 8;
   display: inline-flex;
   align-items: center;
@@ -271,7 +282,10 @@
 }
 
 [data-testid="pt-design-board"][data-has-back="true"] .excalidraw .App-menu_top .main-menu-trigger,
-[data-testid="pt-design-board"][data-has-back="true"] .excalidraw .App-menu_top .main-menu-trigger.dropdown-menu-button {
+[data-testid="pt-design-board"][data-has-back="true"]
+  .excalidraw
+  .App-menu_top
+  .main-menu-trigger.dropdown-menu-button {
   margin-left: var(--pt-back-slot);
 }
 
@@ -452,13 +466,29 @@
   content: "Library";
 }
 
-:lang(zh) .excalidraw .pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(1)::after,
-html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(1)::after {
+:lang(zh)
+  .excalidraw
+  .pt-design-library-sidebar
+  .sidebar-triggers
+  .sidebar-tab-trigger:nth-child(1)::after,
+html[lang^="zh"]
+  .excalidraw
+  .pt-design-library-sidebar
+  .sidebar-triggers
+  .sidebar-tab-trigger:nth-child(1)::after {
   content: "搜索";
 }
 
-:lang(zh) .excalidraw .pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(2)::after,
-html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(2)::after {
+:lang(zh)
+  .excalidraw
+  .pt-design-library-sidebar
+  .sidebar-triggers
+  .sidebar-tab-trigger:nth-child(2)::after,
+html[lang^="zh"]
+  .excalidraw
+  .pt-design-library-sidebar
+  .sidebar-triggers
+  .sidebar-tab-trigger:nth-child(2)::after {
   content: "素材库";
 }
 
@@ -1175,8 +1205,16 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 
 .excalidraw.theme--dark .context-menu-item .context-menu-item__shortcut > kbd,
 .excalidraw.theme--dark .dropdown-menu .dropdown-menu-item__shortcut > kbd,
-[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .context-menu-item .context-menu-item__shortcut > kbd,
-[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .dropdown-menu .dropdown-menu-item__shortcut > kbd {
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .context-menu-item
+  .context-menu-item__shortcut
+  > kbd,
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .dropdown-menu
+  .dropdown-menu-item__shortcut
+  > kbd {
   border-color: color-mix(in srgb, var(--muted-foreground, #a1a1aa) 20%, transparent);
   background: var(--muted, #3f3f46);
   color: var(--foreground, #fafafa);
@@ -1227,7 +1265,10 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 }
 
 .excalidraw.theme--dark .dropdown-menu .dropdown-menu-container,
-[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .dropdown-menu .dropdown-menu-container {
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .dropdown-menu
+  .dropdown-menu-container {
   box-shadow:
     0 0 0 1px var(--default-border-color, var(--border, rgba(255, 255, 255, 0.1))),
     0 10px 24px -8px rgb(0 0 0 / 0.45);
@@ -1258,7 +1299,9 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   margin-top: var(--pt-island-pad, 0.25rem);
 }
 
-[data-testid="pt-design-board"][data-has-back="true"] .excalidraw.excalidraw--mobile .excalidraw-ui-top-left {
+[data-testid="pt-design-board"][data-has-back="true"]
+  .excalidraw.excalidraw--mobile
+  .excalidraw-ui-top-left {
   margin-left: var(--pt-back-slot);
 }
 

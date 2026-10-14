@@ -8,14 +8,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Button, cn } from "@workspace/ui";
-import {
-  Check,
-  Loader2,
-  MonitorUp,
-  MousePointer2,
-  RefreshCw,
-  ShieldCheck,
-} from "lucide-react";
+import { Check, Loader2, MonitorUp, MousePointer2, RefreshCw, ShieldCheck } from "lucide-react";
 
 import {
   getAppshotStatus,
@@ -30,10 +23,7 @@ import type {
   AppshotSettingsTarget,
 } from "../types";
 
-const PERMISSION_ORDER: AppshotPermissionName[] = [
-  "accessibility",
-  "screen_recording",
-];
+const PERMISSION_ORDER: AppshotPermissionName[] = ["accessibility", "screen_recording"];
 
 type Translator = ReturnType<typeof useTranslations>;
 
@@ -104,10 +94,7 @@ export function AppshotPermissionsPanel({
           // Host grant for Desktop Use capture/control. Main process also
           // prompts Atmos (Electron) Accessibility for dual-shift.
           await desktopInvoke("desktop_use_grant_permissions", {
-            target:
-              target === "screen_recording" || target === "accessibility"
-                ? target
-                : "all",
+            target: target === "screen_recording" || target === "accessibility" ? target : "all",
           });
         } else {
           await openAppshotPermissionTarget(target);
@@ -161,12 +148,7 @@ export function AppshotPermissionsPanel({
         ))}
       </div>
 
-      <div
-        className={cn(
-          "flex items-center justify-between gap-4",
-          embedded ? "pt-3" : "pt-5",
-        )}
-      >
+      <div className={cn("flex items-center justify-between gap-4", embedded ? "pt-3" : "pt-5")}>
         <div className="min-w-0">
           {error ? (
             <p className="text-sm text-destructive">{error}</p>
@@ -186,11 +168,7 @@ export function AppshotPermissionsPanel({
           disabled={loading}
           className="cursor-pointer"
         >
-          {loading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCw className="size-4" />
-          )}
+          {loading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
           {t("permissionsWindow.refresh")}
         </Button>
       </div>
@@ -227,19 +205,12 @@ function PermissionRow({
           compact ? "size-9" : "size-11",
         )}
       >
-        <Icon
-          className={cn(
-            "text-muted-foreground",
-            compact ? "size-4" : "size-5",
-          )}
-        />
+        <Icon className={cn("text-muted-foreground", compact ? "size-4" : "size-5")} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground">{copy.title}</p>
         {!compact ? (
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {copy.description}
-          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy.description}</p>
         ) : null}
       </div>
       {permission.granted ? (
@@ -264,9 +235,7 @@ function PermissionRow({
   );
 }
 
-function getPermissionCopy(
-  t: Translator,
-): Record<
+function getPermissionCopy(t: Translator): Record<
   AppshotPermissionName,
   {
     title: string;

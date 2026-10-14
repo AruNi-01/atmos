@@ -22,25 +22,25 @@ import { readCanvasSession } from "@/shared/stores/use-ui-pref-hooks";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import { toastManager } from "@workspace/ui";
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 import { getTerminalDisplayMeta } from "../components/terminal-title";
 import { useContestedCliOwners } from "./use-contested-cli-owners";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 
-let cachedLocale: 'en' | 'zh' | null = null;
+let cachedLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
 function runtimeT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'Terminal.chrome',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "Terminal.chrome",
     });
   }
   return cachedTranslator(key as never);
@@ -120,107 +120,110 @@ export function useTerminalGridCanvasPins({
     };
   }, []);
 
-  const pinPaneToCanvas = React.useCallback(async (id?: string | null) => {
-    if (!id) return;
+  const pinPaneToCanvas = React.useCallback(
+    async (id?: string | null) => {
+      if (!id) return;
 
-    const pane = panes[id];
-    if (!pane || !workspaceInfo?.localPath) {
-      return;
-    }
+      const pane = panes[id];
+      if (!pane || !workspaceInfo?.localPath) {
+        return;
+      }
 
-    if (!pane.tmuxWindowName || pane.isNewPane) {
-      toastManager.add({
-        title: "Canvas",
-        description: runtimeT("canvasPins.invalidTerminal"),
-        type: "error",
-      });
-      return;
-    }
+      if (!pane.tmuxWindowName || pane.isNewPane) {
+        toastManager.add({
+          title: "Canvas",
+          description: runtimeT("canvasPins.invalidTerminal"),
+          type: "error",
+        });
+        return;
+      }
 
-    const contextScope = isProjectContext ? "project" : "workspace";
-    const pinKey = buildCanvasTerminalPinKey(contextScope, workspaceId, pane.tmuxWindowName);
+      const contextScope = isProjectContext ? "project" : "workspace";
+      const pinKey = buildCanvasTerminalPinKey(contextScope, workspaceId, pane.tmuxWindowName);
 
-    if (pinnedPaneKeys.has(pinKey)) {
-      return;
-    }
+      if (pinnedPaneKeys.has(pinKey)) {
+        return;
+      }
 
-    try {
-      const { fileName, document } = await loadPinTargetDocument();
-      const result = pinCanvasTerminalShapeInSnapshot(
-        createCanvasSnapshot(
-          document.tldrawDocument,
-          readCanvasSession(fileName) ?? createDefaultCanvasSession(),
-        ),
-        createCanvasTerminalShapeProps({
-          contextScope,
-          workspaceId,
-          projectName: workspaceInfo.projectName,
-          workspaceName: workspaceInfo.workspaceName,
-          localPath: workspaceInfo.localPath,
-          terminalName: (() => {
-            const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
-              baseTitle: pane.label,
-              dynamicTitle: pane.dynamicTitle,
-              configuredAgents,
-              agent: pane.agent,
-              contestedOwners,
-              oscTitle: pane.oscTitle,
-              suppressOscTitle: !!pane.customLabel?.trim(),
-            });
-            // Contested freehand `agent` can pin before identity resolves. Prefer
-            // the pane's known launch agent over baking a raw `agent` label.
-            const firstToken = pane.dynamicTitle?.trim().split(/\s+/)[0]?.toLowerCase();
-            if (
-              firstToken === "agent" &&
-              !toolbarAgent &&
-              !contestedOwners.agent &&
-              pane.agent?.label
-            ) {
-              return pane.agent.label;
-            }
-            const trimmed = displayTitle.trim();
-            return trimmed || pane.label;
-          })(),
-          tmuxWindowName: pane.tmuxWindowName,
-          paneAgent: pane.agent,
-          sourceTerminalTabId: terminalTabId ?? FIXED_TERMINAL_TAB_VALUE,
-          isNewTerminal: false,
-          isPinned: true,
-          pinKey,
-        }),
-      );
+      try {
+        const { fileName, document } = await loadPinTargetDocument();
+        const result = pinCanvasTerminalShapeInSnapshot(
+          createCanvasSnapshot(
+            document.tldrawDocument,
+            readCanvasSession(fileName) ?? createDefaultCanvasSession(),
+          ),
+          createCanvasTerminalShapeProps({
+            contextScope,
+            workspaceId,
+            projectName: workspaceInfo.projectName,
+            workspaceName: workspaceInfo.workspaceName,
+            localPath: workspaceInfo.localPath,
+            terminalName: (() => {
+              const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
+                baseTitle: pane.label,
+                dynamicTitle: pane.dynamicTitle,
+                configuredAgents,
+                agent: pane.agent,
+                contestedOwners,
+                oscTitle: pane.oscTitle,
+                suppressOscTitle: !!pane.customLabel?.trim(),
+              });
+              // Contested freehand `agent` can pin before identity resolves. Prefer
+              // the pane's known launch agent over baking a raw `agent` label.
+              const firstToken = pane.dynamicTitle?.trim().split(/\s+/)[0]?.toLowerCase();
+              if (
+                firstToken === "agent" &&
+                !toolbarAgent &&
+                !contestedOwners.agent &&
+                pane.agent?.label
+              ) {
+                return pane.agent.label;
+              }
+              const trimmed = displayTitle.trim();
+              return trimmed || pane.label;
+            })(),
+            tmuxWindowName: pane.tmuxWindowName,
+            paneAgent: pane.agent,
+            sourceTerminalTabId: terminalTabId ?? FIXED_TERMINAL_TAB_VALUE,
+            isNewTerminal: false,
+            isPinned: true,
+            pinKey,
+          }),
+        );
 
-      await savePinTargetDocument(fileName, {
-        ...document,
-        tldrawDocument: result.snapshot.document as typeof document.tldrawDocument,
-      });
-      rememberLastPinnedTerminal(fileName, pinKey, result.shapeId);
-      dispatchCanvasTerminalPinStateChange(pinKey, true);
+        await savePinTargetDocument(fileName, {
+          ...document,
+          tldrawDocument: result.snapshot.document as typeof document.tldrawDocument,
+        });
+        rememberLastPinnedTerminal(fileName, pinKey, result.shapeId);
+        dispatchCanvasTerminalPinStateChange(pinKey, true);
 
-      toastManager.add({
-        title: "Canvas",
-        description: result.inserted
-          ? runtimeT("canvasPins.pinned")
-          : runtimeT("canvasPins.alreadyPinned"),
-        type: "success",
-      });
-    } catch (error) {
-      toastManager.add({
-        title: "Canvas",
-        description: error instanceof Error ? error.message : runtimeT("canvasPins.pinFailed"),
-        type: "error",
-      });
-    }
-  }, [
-    isProjectContext,
-    panes,
-    pinnedPaneKeys,
-    workspaceId,
-    workspaceInfo,
-    configuredAgents,
-    contestedOwners,
-    terminalTabId,
-  ]);
+        toastManager.add({
+          title: "Canvas",
+          description: result.inserted
+            ? runtimeT("canvasPins.pinned")
+            : runtimeT("canvasPins.alreadyPinned"),
+          type: "success",
+        });
+      } catch (error) {
+        toastManager.add({
+          title: "Canvas",
+          description: error instanceof Error ? error.message : runtimeT("canvasPins.pinFailed"),
+          type: "error",
+        });
+      }
+    },
+    [
+      isProjectContext,
+      panes,
+      pinnedPaneKeys,
+      workspaceId,
+      workspaceInfo,
+      configuredAgents,
+      contestedOwners,
+      terminalTabId,
+    ],
+  );
 
   return {
     pinnedPaneKeys,

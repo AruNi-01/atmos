@@ -1,37 +1,46 @@
-'use client';
+"use client";
 
-import React from 'react';
-import type { CodeAgentCustomEntry, LlmProvidersFile } from '@/api/ws-api';
-import type { UpdateStatus } from '@/features/settings/hooks/use-updater';
-import type { TerminalFileLinkOpenMode } from '@/features/settings/store/terminal-link-settings-store';
-import type { NotificationSettings, PushServerConfig } from '@/features/settings/store/notification-settings-store';
-import type { QuickOpenAppName } from '@/app-shell/quick-open-apps';
-import { AtmosComputerSection } from '@/features/atmos-computer/components/AtmosComputerSection';
-import { TunnelConnectorSection } from '@/features/tunnel-connector/components/TunnelConnectorSection';
-import { DesktopUseSettingsSection } from '@/features/settings/components/DesktopUseSettingsSection';
-import { BrowserSettingsSection } from '@/features/settings/components/BrowserSettingsSection';
-import { PermissionAccessSettingsSection } from '@/features/settings/components/PermissionAccessSettingsSection';
-import { CanvasSettingsSection } from '@/features/settings/components/CanvasSettingsSection';
-import { CodeAgentSettingsSection } from '@/features/settings/components/CodeAgentSettingsSection';
-import type { BehaviourSettingsValues } from '@/features/settings/components/CodeAgentBehaviourSettingsSection';
-import { EditorSettingsSection } from '@/features/settings/components/EditorSettingsSection';
-import { ExperimentSettingsSection } from '@/features/settings/components/ExperimentSettingsSection';
-import { AccountSettingsSection } from '@/features/settings/components/AccountSettingsSection';
-import { AppearanceSettingsSection } from '@/features/settings/components/AppearanceSettingsSection';
-import { IntegrationsSettingsSection } from '@/features/settings/components/IntegrationsSettingsSection';
-import { LabelSettingsSection } from '@/features/settings/components/LabelSettingsSection';
-import { LayoutSettingsSection } from '@/features/settings/components/LayoutSettingsSection';
-import { NotifySettingsSection } from '@/features/settings/components/NotifySettingsSection';
-import { ShortcutsSettingsSection } from '@/features/settings/components/ShortcutsSettingsSection';
-import { TerminalSettingsSection } from '@/features/settings/components/TerminalSettingsSection';
-import { WorkspaceSettingsSection } from '@/features/settings/components/WorkspaceSettingsSection';
-import { SettingsAboutSection } from '@/features/settings/components/SettingsAboutSection';
-import { SettingsAiSection, type ProviderTestState } from '@/features/settings/components/SettingsAiSection';
-import type { LocalAgentOption } from '@/app-shell/llm-providers-modal-utils';
-import { SettingsPageStack, SettingsSection } from '@/features/settings/components/settings/SettingsGroupCard';
-import type { SettingsSectionId } from '@/features/settings/components/settings-modal-data';
-import type { TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
-import type { SettingsGroupTabId } from '@/features/settings/lib/settings-section-group-tabs';
+import React from "react";
+import type { CodeAgentCustomEntry, LlmProvidersFile } from "@/api/ws-api";
+import type { UpdateStatus } from "@/features/settings/hooks/use-updater";
+import type { TerminalFileLinkOpenMode } from "@/features/settings/store/terminal-link-settings-store";
+import type {
+  NotificationSettings,
+  PushServerConfig,
+} from "@/features/settings/store/notification-settings-store";
+import type { QuickOpenAppName } from "@/app-shell/quick-open-apps";
+import { AtmosComputerSection } from "@/features/atmos-computer/components/AtmosComputerSection";
+import { TunnelConnectorSection } from "@/features/tunnel-connector/components/TunnelConnectorSection";
+import { DesktopUseSettingsSection } from "@/features/settings/components/DesktopUseSettingsSection";
+import { BrowserSettingsSection } from "@/features/settings/components/BrowserSettingsSection";
+import { PermissionAccessSettingsSection } from "@/features/settings/components/PermissionAccessSettingsSection";
+import { CanvasSettingsSection } from "@/features/settings/components/CanvasSettingsSection";
+import { CodeAgentSettingsSection } from "@/features/settings/components/CodeAgentSettingsSection";
+import type { BehaviourSettingsValues } from "@/features/settings/components/CodeAgentBehaviourSettingsSection";
+import { EditorSettingsSection } from "@/features/settings/components/EditorSettingsSection";
+import { ExperimentSettingsSection } from "@/features/settings/components/ExperimentSettingsSection";
+import { AccountSettingsSection } from "@/features/settings/components/AccountSettingsSection";
+import { AppearanceSettingsSection } from "@/features/settings/components/AppearanceSettingsSection";
+import { IntegrationsSettingsSection } from "@/features/settings/components/IntegrationsSettingsSection";
+import { LabelSettingsSection } from "@/features/settings/components/LabelSettingsSection";
+import { LayoutSettingsSection } from "@/features/settings/components/LayoutSettingsSection";
+import { NotifySettingsSection } from "@/features/settings/components/NotifySettingsSection";
+import { ShortcutsSettingsSection } from "@/features/settings/components/ShortcutsSettingsSection";
+import { TerminalSettingsSection } from "@/features/settings/components/TerminalSettingsSection";
+import { WorkspaceSettingsSection } from "@/features/settings/components/WorkspaceSettingsSection";
+import { SettingsAboutSection } from "@/features/settings/components/SettingsAboutSection";
+import {
+  SettingsAiSection,
+  type ProviderTestState,
+} from "@/features/settings/components/SettingsAiSection";
+import type { LocalAgentOption } from "@/app-shell/llm-providers-modal-utils";
+import {
+  SettingsPageStack,
+  SettingsSection,
+} from "@/features/settings/components/settings/SettingsGroupCard";
+import type { SettingsSectionId } from "@/features/settings/components/settings-modal-data";
+import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
+import type { SettingsGroupTabId } from "@/features/settings/lib/settings-section-group-tabs";
 
 type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;
 type AgentOption = { id: string; label: string };
@@ -110,9 +119,17 @@ interface SettingsModalSectionsProps {
   onYoloModeChange: (enabled: boolean) => void;
   onRestoreAllYoloMode: () => void;
   onAddCustomAgent: () => void;
-  onAgentSettingChange: (agentId: string, field: 'cmd' | 'flags' | 'interactiveFlags' | 'enabled', value: string | boolean) => void;
+  onAgentSettingChange: (
+    agentId: string,
+    field: "cmd" | "flags" | "interactiveFlags" | "enabled",
+    value: string | boolean,
+  ) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
-  onCustomAgentChange: (id: string, field: keyof CodeAgentCustomEntry, value: string | boolean) => void;
+  onCustomAgentChange: (
+    id: string,
+    field: keyof CodeAgentCustomEntry,
+    value: string | boolean,
+  ) => void;
   onCustomAgentEnabledChange: (id: string, enabled: boolean) => void;
   onRemoveCustomAgent: (id: string) => void;
   onSaveBuiltInAgent: (agentId: string) => void;
@@ -148,12 +165,14 @@ interface SettingsModalSectionsProps {
   routingSavingKey: string | null;
   runProviderTest: (
     providerId: string,
-    provider: NonNullable<LlmProvidersFile['providers'][string]>,
+    provider: NonNullable<LlmProvidersFile["providers"][string]>,
   ) => Promise<void>;
-  setProviderDialogState: React.Dispatch<React.SetStateAction<{
-    open: boolean;
-    providerId: string | null;
-  }>>;
+  setProviderDialogState: React.Dispatch<
+    React.SetStateAction<{
+      open: boolean;
+      providerId: string | null;
+    }>
+  >;
   setProviderTests: React.Dispatch<React.SetStateAction<ProviderTestState>>;
   setProvidersExpanded: (open: boolean) => void;
   setRoutingExpanded: (open: boolean) => void;
@@ -175,19 +194,13 @@ interface SettingsModalSectionsProps {
   onTestPushServer: (index: number) => Promise<{ ok: boolean; error?: string }>;
 }
 
-function TabbedSettingsSection({
-  id,
-  children,
-}: {
-  id: string;
-  children: React.ReactNode;
-}) {
+function TabbedSettingsSection({ id, children }: { id: string; children: React.ReactNode }) {
   return <SettingsSection id={id}>{children}</SettingsSection>;
 }
 
 export function SettingsModalSections(props: SettingsModalSectionsProps) {
   switch (props.activeSection) {
-    case 'general':
+    case "general":
       return (
         <SettingsPageStack>
           <AppearanceSettingsSection />
@@ -205,7 +218,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           <ExperimentSettingsSection />
         </SettingsPageStack>
       );
-    case 'terminal':
+    case "terminal":
       return (
         <TerminalSettingsSection
           fileLinkOpenMode={props.fileLinkOpenMode}
@@ -224,7 +237,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setMaxGlobalTerminalPanes={props.setMaxGlobalTerminalPanes}
         />
       );
-    case 'agents':
+    case "agents":
       return (
         <CodeAgentSettingsSection
           agentCustomSettings={props.agentCustomSettings}
@@ -294,8 +307,8 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setFollowupPolicy={props.setFollowupPolicy}
         />
       );
-    case 'workspace':
-      if (props.activeGroupTab === 'labels') {
+    case "workspace":
+      if (props.activeGroupTab === "labels") {
         return (
           <TabbedSettingsSection id="labels">
             <LabelSettingsSection />
@@ -307,9 +320,9 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           <WorkspaceSettingsSection />
         </TabbedSettingsSection>
       );
-    case 'account':
+    case "account":
       return <AccountSettingsSection />;
-    case 'models':
+    case "models":
       return (
         <SettingsAiSection
           handleLlmConfigUpdate={props.handleLlmConfigUpdate}
@@ -330,7 +343,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setRoutingExpanded={props.setRoutingExpanded}
         />
       );
-    case 'notifications':
+    case "notifications":
       return (
         <NotifySettingsSection
           settings={props.notifySettings}
@@ -348,8 +361,8 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           onTestPushServer={props.onTestPushServer}
         />
       );
-    case 'remote-access':
-      if (props.activeGroupTab === 'tunnel-connector') {
+    case "remote-access":
+      if (props.activeGroupTab === "tunnel-connector") {
         return (
           <TabbedSettingsSection id="tunnel-connector">
             <TunnelConnectorSection />
@@ -361,21 +374,21 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           <AtmosComputerSection />
         </TabbedSettingsSection>
       );
-    case 'integrations':
+    case "integrations":
       return <IntegrationsSettingsSection />;
-    case 'browser':
+    case "browser":
       return <BrowserSettingsSection />;
-    case 'desktop-use':
+    case "desktop-use":
       return <DesktopUseSettingsSection />;
-    case 'privacy':
+    case "privacy":
       return <PermissionAccessSettingsSection />;
-    case 'keyboard':
+    case "keyboard":
       return <ShortcutsSettingsSection />;
-    case 'interface':
+    case "interface":
       return <LayoutSettingsSection />;
-    case 'editor':
+    case "editor":
       return <EditorSettingsSection />;
-    case 'canvas':
+    case "canvas":
       return <CanvasSettingsSection />;
     default:
       return null;

@@ -3,10 +3,7 @@ import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion, useAnimate } from "motion/react";
 
 const InfoCircleIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
-  (
-    { size = 24, color = "currentColor", strokeWidth = 2, className = "" },
-    ref,
-  ) => {
+  ({ size = 24, color = "currentColor", strokeWidth = 2, className = "" }, ref) => {
     const [scope, animate] = useAnimate();
 
     const start = useCallback(async () => {
@@ -63,10 +60,7 @@ const InfoCircleIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         onHoverEnd={stop}
       >
         <motion.path stroke="none" d="M0 0h24v24H0z" fill="none" />
-        <motion.path
-          d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"
-          className="info-circle"
-        />
+        <motion.path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" className="info-circle" />
         <motion.path d="M12 9h.01" className="info-circle-i" />
         <motion.path d="M11 12h1v4h1" className="info-line-i" />
       </motion.svg>

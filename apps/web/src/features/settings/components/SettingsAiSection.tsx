@@ -21,7 +21,10 @@ import {
   FEATURE_LANGUAGE_OPTIONS,
   fallbackProviderLabel,
 } from "@/features/settings/components/settings/settings-modal-utils";
-import { LocalModelPanel, LocalModelRuntimeControl } from "@/features/settings/components/LocalModelPanel";
+import {
+  LocalModelPanel,
+  LocalModelRuntimeControl,
+} from "@/features/settings/components/LocalModelPanel";
 import type { LlmProvidersFile } from "@/api/ws-api";
 import { FeatureSelect } from "@/app-shell/llm-providers-modal-parts";
 import {
@@ -35,11 +38,14 @@ import {
   SettingsPageStack,
 } from "@/features/settings/components/settings/SettingsGroupCard";
 
-export type ProviderTestState = Record<string, {
-  open: boolean;
-  status: "idle" | "testing" | "pass" | "fail";
-  output: string;
-}>;
+export type ProviderTestState = Record<
+  string,
+  {
+    open: boolean;
+    status: "idle" | "testing" | "pass" | "fail";
+    output: string;
+  }
+>;
 
 type SettingsAiSectionProps = {
   handleLlmConfigUpdate: (
@@ -60,10 +66,12 @@ type SettingsAiSectionProps = {
     providerId: string,
     provider: NonNullable<LlmProvidersFile["providers"][string]>,
   ) => Promise<void>;
-  setProviderDialogState: React.Dispatch<React.SetStateAction<{
-    open: boolean;
-    providerId: string | null;
-  }>>;
+  setProviderDialogState: React.Dispatch<
+    React.SetStateAction<{
+      open: boolean;
+      providerId: string | null;
+    }>
+  >;
   setProviderTests: React.Dispatch<React.SetStateAction<ProviderTestState>>;
   setProvidersExpanded: (open: boolean) => void;
   setRoutingExpanded: (open: boolean) => void;
@@ -89,8 +97,7 @@ export function SettingsAiSection({
 }: SettingsAiSectionProps) {
   const t = useTranslations("settings.aiSection" as never);
   const tr = React.useCallback(
-    (key: string, fallback: string) =>
-      t.has(key as never) ? t(key as never) : fallback,
+    (key: string, fallback: string) => (t.has(key as never) ? t(key as never) : fallback),
     [t],
   );
   const providerEntries = React.useMemo(
@@ -170,7 +177,7 @@ export function SettingsAiSection({
               description={
                 provider.kind === "local-managed"
                   ? tr("providers.managedLocalModel", "Managed local model")
-                  : (provider.model || provider.kind)
+                  : provider.model || provider.kind
               }
             >
               <div className="flex items-center justify-end gap-2">
@@ -235,14 +242,8 @@ export function SettingsAiSection({
                       <pre className="max-h-64 overflow-auto rounded-lg bg-muted/40 p-3 text-xs whitespace-pre-wrap text-foreground">
                         {providerTests[provider.id]?.output ||
                           (providerTests[provider.id]?.status === "testing"
-                            ? tr(
-                                "providerTest.streaming",
-                                "Receiving response…",
-                              )
-                            : tr(
-                                "providerTest.startHint",
-                                "Click Test to start.",
-                              ))}
+                            ? tr("providerTest.streaming", "Receiving response…")
+                            : tr("providerTest.startHint", "Click Test to start."))}
                       </pre>
                     </div>
                   </PopoverContent>
@@ -251,9 +252,7 @@ export function SettingsAiSection({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() =>
-                      setProviderDialogState({ open: true, providerId: provider.id })
-                    }
+                    onClick={() => setProviderDialogState({ open: true, providerId: provider.id })}
                   >
                     {tr("providers.editButton", "Edit")}
                   </Button>
@@ -293,10 +292,7 @@ export function SettingsAiSection({
               title={tr("routing.gitCommit.title", "Git commit generation")}
               description={
                 llmConfig?.features?.git_commit_language?.trim() ||
-                tr(
-                  "routing.defaultLanguageSummary",
-                  "Use the prompt default language",
-                )
+                tr("routing.defaultLanguageSummary", "Use the prompt default language")
               }
             >
               <div className="flex items-center justify-end gap-2">
@@ -361,24 +357,16 @@ export function SettingsAiSection({
 
             <SettingsGroupRow
               wide
-              title={tr(
-                "routing.workspaceIssueTodo.title",
-                "Workspace issue TODO extraction",
-              )}
+              title={tr("routing.workspaceIssueTodo.title", "Workspace issue TODO extraction")}
               description={
                 llmConfig?.features?.workspace_issue_todo_language?.trim() ||
-                tr(
-                  "routing.defaultLanguageSummary",
-                  "Use the prompt default language",
-                )
+                tr("routing.defaultLanguageSummary", "Use the prompt default language")
               }
             >
               <div className="flex items-center justify-end gap-2">
                 <FeatureSelect
                   className="w-[220px]"
-                  value={normalizeRoutingValue(
-                    llmConfig?.features?.workspace_issue_todo,
-                  )}
+                  value={normalizeRoutingValue(llmConfig?.features?.workspace_issue_todo)}
                   providerOptions={providerOptions}
                   localAgentOptions={localAgentOptions}
                   noneLabel={tr("routing.disabled", "Disabled")}
@@ -418,13 +406,16 @@ export function SettingsAiSection({
                       <DropdownMenuItem
                         key={option.value}
                         onClick={() => {
-                          void handleLlmConfigUpdate("workspace_issue_todo_language", (current) => ({
-                            ...current,
-                            features: {
-                              ...current.features,
-                              workspace_issue_todo_language: option.label,
-                            },
-                          }));
+                          void handleLlmConfigUpdate(
+                            "workspace_issue_todo_language",
+                            (current) => ({
+                              ...current,
+                              features: {
+                                ...current.features,
+                                workspace_issue_todo_language: option.label,
+                              },
+                            }),
+                          );
                         }}
                       >
                         {option.label}

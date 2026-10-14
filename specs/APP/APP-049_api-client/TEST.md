@@ -4,57 +4,57 @@
 
 ## Test strategy
 
-| Level | Why |
-|-------|-----|
-| Package unit | Policy matrix, no-queue, scope guard, redaction, single-flight |
-| App unit | Mobile façade; web store tests added in PR3 |
-| Typecheck | api-types + api-client + apps |
-| Manual / smoke | Local + optional relay |
-| Joint cutover | Types import + one real request path |
+| Level          | Why                                                            |
+| -------------- | -------------------------------------------------------------- |
+| Package unit   | Policy matrix, no-queue, scope guard, redaction, single-flight |
+| App unit       | Mobile façade; web store tests added in PR3                    |
+| Typecheck      | api-types + api-client + apps                                  |
+| Manual / smoke | Local + optional relay                                         |
+| Joint cutover  | Types import + one real request path                           |
 
 ## Coverage map
 
-| PRD | Scenarios |
-|-----|-----------|
-| M1, M10 | T-DEP-01 |
+| PRD         | Scenarios                  |
+| ----------- | -------------------------- |
+| M1, M10     | T-DEP-01                   |
 | M2, M4, M12 | T-SES-01..04, T-REQ-01..03 |
-| M3, M13 | T-RCN-01..04 |
-| M5 | T-TYPE-01 |
-| M6, M14 | T-WEB-01..03 |
-| M7 | T-MOB-01..02 |
-| M8 | T-SCOPE-01..02 |
-| M9 | T-EVT-01, T-MSG-01 |
-| M11 | T-URL-01, T-AUTH-01 |
+| M3, M13     | T-RCN-01..04               |
+| M5          | T-TYPE-01                  |
+| M6, M14     | T-WEB-01..03               |
+| M7          | T-MOB-01..02               |
+| M8          | T-SCOPE-01..02             |
+| M9          | T-EVT-01, T-MSG-01         |
+| M11         | T-URL-01, T-AUTH-01        |
 
 ## Execution map
 
-| ID | Level | Focus | Status |
-|----|-------|-------|--------|
-| T-DEP-01 | static | no react/rn/zustand in package.json | pending |
-| T-SES-01 | unit | connect → connected | pending |
-| T-SES-02 | unit | request/response by request_id | pending |
-| T-SES-03 | unit | error frame rejects | pending |
-| T-SES-04 | unit | single-flight connect | pending |
-| T-REQ-01 | unit | request when not connected rejects (no send) | pending |
-| T-REQ-02 | unit | request timeout | pending |
-| T-REQ-03 | unit | close flushes pending | pending |
-| T-RCN-01 | unit | backoff delays | pending |
-| T-RCN-02 | unit | exhausted stop | pending |
-| T-RCN-03 | unit | exhausted slow_retry 60s | pending |
-| T-RCN-04 | unit | disconnect / clean close no reconnect | pending |
-| T-SCOPE-01 | unit | isValid false before wait | pending |
-| T-SCOPE-02 | unit | isValid false after wait before send | pending |
-| T-EVT-01 | unit | notification fan-out | pending |
-| T-MSG-01 | unit | onMessage raw | pending |
-| T-URL-01 | unit | url factory each attempt | pending |
-| T-AUTH-01 | unit | log redacts token=; no Authorization API | pending |
-| T-TYPE-01 | typecheck | WsAction from api-types | pending |
-| T-MOB-01 | app | mobile tests green | pending |
-| T-MOB-02 | app | raw message consumers still work | pending |
-| T-WEB-01 | app/manual | connect + one request | pending |
-| T-WEB-02 | app unit | store single-flight + intentional disconnect | pending |
-| T-WEB-03 | app | provider does not double-schedule timers | pending |
-| T-JOINT-01 | integration | api-types + kernel + mobile/web smoke | pending |
+| ID         | Level       | Focus                                        | Status  |
+| ---------- | ----------- | -------------------------------------------- | ------- |
+| T-DEP-01   | static      | no react/rn/zustand in package.json          | pending |
+| T-SES-01   | unit        | connect → connected                          | pending |
+| T-SES-02   | unit        | request/response by request_id               | pending |
+| T-SES-03   | unit        | error frame rejects                          | pending |
+| T-SES-04   | unit        | single-flight connect                        | pending |
+| T-REQ-01   | unit        | request when not connected rejects (no send) | pending |
+| T-REQ-02   | unit        | request timeout                              | pending |
+| T-REQ-03   | unit        | close flushes pending                        | pending |
+| T-RCN-01   | unit        | backoff delays                               | pending |
+| T-RCN-02   | unit        | exhausted stop                               | pending |
+| T-RCN-03   | unit        | exhausted slow_retry 60s                     | pending |
+| T-RCN-04   | unit        | disconnect / clean close no reconnect        | pending |
+| T-SCOPE-01 | unit        | isValid false before wait                    | pending |
+| T-SCOPE-02 | unit        | isValid false after wait before send         | pending |
+| T-EVT-01   | unit        | notification fan-out                         | pending |
+| T-MSG-01   | unit        | onMessage raw                                | pending |
+| T-URL-01   | unit        | url factory each attempt                     | pending |
+| T-AUTH-01  | unit        | log redacts token=; no Authorization API     | pending |
+| T-TYPE-01  | typecheck   | WsAction from api-types                      | pending |
+| T-MOB-01   | app         | mobile tests green                           | pending |
+| T-MOB-02   | app         | raw message consumers still work             | pending |
+| T-WEB-01   | app/manual  | connect + one request                        | pending |
+| T-WEB-02   | app unit    | store single-flight + intentional disconnect | pending |
+| T-WEB-03   | app         | provider does not double-schedule timers     | pending |
+| T-JOINT-01 | integration | api-types + kernel + mobile/web smoke        | pending |
 
 ## Scenarios (selected detail)
 

@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const source = readFileSync(
-  join(import.meta.dir, "../AgentActivityIndicator.tsx"),
-  "utf8",
-);
+const source = readFileSync(join(import.meta.dir, "../AgentActivityIndicator.tsx"), "utf8");
 
 describe("agent activity indicator", () => {
   it("swaps status copy with a vertical exit/enter while keeping shimmer", () => {
@@ -17,7 +14,9 @@ describe("agent activity indicator", () => {
     expect(source).toContain("y: -12");
     expect(source).toContain("TextShimmer");
     expect(source).toContain("<ActivityIndicator");
-    expect(source).toContain("const label = activity.trail === \"none\" ? activity.label : `${activity.label}...`");
+    expect(source).toContain(
+      'const label = activity.trail === "none" ? activity.label : `${activity.label}...`',
+    );
     expect(source).toContain("{label}");
     expect(source).not.toContain("TextEffect");
     expect(source).not.toContain("textEffectBlurSlideVariants");
@@ -25,7 +24,7 @@ describe("agent activity indicator", () => {
 
   it("keeps traveling shimmer on the status copy", () => {
     expect(source).toContain("TextShimmer");
-    expect(source).toContain('duration={1.5}');
+    expect(source).toContain("duration={1.5}");
   });
 
   it("matches session-lifecycle / tool-header icon + text chrome", () => {
@@ -39,16 +38,14 @@ describe("agent activity indicator", () => {
     expect(source).toContain("WorkDurationClock");
     expect(source).toContain("DurationUnit");
     expect(source).toContain(
-      'className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
+      'className="inline-flex max-w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
     );
     expect(source).toContain(
       'cn("relative inline-flex h-5 min-w-0 items-center overflow-hidden", className)',
     );
     expect(source).not.toContain("flex-1");
     expect(source).not.toContain("flex w-full");
-    expect(source).toContain(
-      'className="block max-w-full truncate text-sm leading-5"',
-    );
+    expect(source).toContain('className="block max-w-full truncate text-sm leading-5"');
     expect(source).toContain(
       '"inline-flex shrink-0 items-baseline font-mono text-sm tabular-nums leading-none text-muted-foreground"',
     );
@@ -58,19 +55,14 @@ describe("agent activity indicator", () => {
   });
 
   it("is mounted as the last virtual transcript row footer while streaming", () => {
-    const list = readFileSync(
-      join(import.meta.dir, "../AgentChatTranscriptList.tsx"),
-      "utf8",
-    );
-    const panel = readFileSync(
-      join(import.meta.dir, "../AgentChatPanel.tsx"),
-      "utf8",
-    );
+    const list = readFileSync(join(import.meta.dir, "../AgentChatTranscriptList.tsx"), "utf8");
+    const panel = readFileSync(join(import.meta.dir, "../AgentChatPanel.tsx"), "utf8");
     expect(list).toContain("activityStatus");
     expect(list).toContain("item.index === lastIndex");
     expect(list).toContain('className="mx-auto mt-2 w-[calc(100%-1rem)]"');
     expect(panel).toContain("activityStatus=");
-    expect(panel).toContain("<AgentActivityIndicator activity={agentActivity}");
+    expect(panel).toContain("<AgentActivityIndicator");
+    expect(panel).toContain("activity={agentActivity}");
     expect(panel).toContain('className="mx-auto w-[calc(100%-1rem)]"');
     const contentAt = panel.indexOf("<ConversationContent");
     const contentEndAt = panel.indexOf("</ConversationContent>");

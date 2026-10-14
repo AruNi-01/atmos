@@ -19,12 +19,8 @@ let cachedLocale: AutomationsLocale | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
-function automationsT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
-  const locale: AutomationsLocale =
-    currentAppLocale("en") === "zh" ? "zh" : "en";
+function automationsT(key: string, values?: Record<string, string | number>): string {
+  const locale: AutomationsLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({
@@ -184,7 +180,9 @@ export function formatShortId(value: string) {
   return value.length > 8 ? value.slice(0, 8) : value;
 }
 
-export function statusMeta(status: AutomationRunStatus | null): { status: AutomationRunStatus } | null {
+export function statusMeta(
+  status: AutomationRunStatus | null,
+): { status: AutomationRunStatus } | null {
   return status ? { status } : null;
 }
 
@@ -269,35 +267,265 @@ export interface TimezoneOption {
 }
 
 export const COMMON_TIMEZONE_OPTIONS: TimezoneOption[] = [
-  { value: "UTC", label: "UTC", get group() { return automationsT("format.timezoneGroups.universal"); } },
-  { value: "America/Los_Angeles", get label() { return automationsT("format.timezones.losAngeles"); }, get group() { return automationsT("format.timezoneGroups.americas"); } },
-  { value: "America/Denver", get label() { return automationsT("format.timezones.denver"); }, get group() { return automationsT("format.timezoneGroups.americas"); } },
-  { value: "America/Chicago", get label() { return automationsT("format.timezones.chicago"); }, get group() { return automationsT("format.timezoneGroups.americas"); } },
-  { value: "America/New_York", get label() { return automationsT("format.timezones.newYork"); }, get group() { return automationsT("format.timezoneGroups.americas"); } },
-  { value: "America/Toronto", get label() { return automationsT("format.timezones.toronto"); }, get group() { return automationsT("format.timezoneGroups.americas"); } },
-  { value: "America/Sao_Paulo", get label() { return automationsT("format.timezones.saoPaulo"); }, get group() { return automationsT("format.timezoneGroups.americas"); } },
-  { value: "Europe/London", get label() { return automationsT("format.timezones.london"); }, get group() { return automationsT("format.timezoneGroups.europe"); } },
-  { value: "Europe/Paris", get label() { return automationsT("format.timezones.paris"); }, get group() { return automationsT("format.timezoneGroups.europe"); } },
-  { value: "Europe/Berlin", get label() { return automationsT("format.timezones.berlin"); }, get group() { return automationsT("format.timezoneGroups.europe"); } },
-  { value: "Europe/Madrid", get label() { return automationsT("format.timezones.madrid"); }, get group() { return automationsT("format.timezoneGroups.europe"); } },
-  { value: "Europe/Amsterdam", get label() { return automationsT("format.timezones.amsterdam"); }, get group() { return automationsT("format.timezoneGroups.europe"); } },
-  { value: "Europe/Moscow", get label() { return automationsT("format.timezones.moscow"); }, get group() { return automationsT("format.timezoneGroups.europe"); } },
-  { value: "Africa/Cairo", get label() { return automationsT("format.timezones.cairo"); }, get group() { return automationsT("format.timezoneGroups.africa"); } },
-  { value: "Africa/Johannesburg", get label() { return automationsT("format.timezones.johannesburg"); }, get group() { return automationsT("format.timezoneGroups.africa"); } },
-  { value: "Asia/Dubai", get label() { return automationsT("format.timezones.dubai"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Karachi", get label() { return automationsT("format.timezones.karachi"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Kolkata", get label() { return automationsT("format.timezones.kolkata"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Dhaka", get label() { return automationsT("format.timezones.dhaka"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Bangkok", get label() { return automationsT("format.timezones.bangkok"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Singapore", get label() { return automationsT("format.timezones.singapore"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Shanghai", get label() { return automationsT("format.timezones.shanghai"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Hong_Kong", get label() { return automationsT("format.timezones.hongKong"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Taipei", get label() { return automationsT("format.timezones.taipei"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Tokyo", get label() { return automationsT("format.timezones.tokyo"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Asia/Seoul", get label() { return automationsT("format.timezones.seoul"); }, get group() { return automationsT("format.timezoneGroups.asia"); } },
-  { value: "Australia/Perth", get label() { return automationsT("format.timezones.perth"); }, get group() { return automationsT("format.timezoneGroups.oceania"); } },
-  { value: "Australia/Sydney", get label() { return automationsT("format.timezones.sydney"); }, get group() { return automationsT("format.timezoneGroups.oceania"); } },
-  { value: "Pacific/Auckland", get label() { return automationsT("format.timezones.auckland"); }, get group() { return automationsT("format.timezoneGroups.oceania"); } },
+  {
+    value: "UTC",
+    label: "UTC",
+    get group() {
+      return automationsT("format.timezoneGroups.universal");
+    },
+  },
+  {
+    value: "America/Los_Angeles",
+    get label() {
+      return automationsT("format.timezones.losAngeles");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.americas");
+    },
+  },
+  {
+    value: "America/Denver",
+    get label() {
+      return automationsT("format.timezones.denver");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.americas");
+    },
+  },
+  {
+    value: "America/Chicago",
+    get label() {
+      return automationsT("format.timezones.chicago");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.americas");
+    },
+  },
+  {
+    value: "America/New_York",
+    get label() {
+      return automationsT("format.timezones.newYork");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.americas");
+    },
+  },
+  {
+    value: "America/Toronto",
+    get label() {
+      return automationsT("format.timezones.toronto");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.americas");
+    },
+  },
+  {
+    value: "America/Sao_Paulo",
+    get label() {
+      return automationsT("format.timezones.saoPaulo");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.americas");
+    },
+  },
+  {
+    value: "Europe/London",
+    get label() {
+      return automationsT("format.timezones.london");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.europe");
+    },
+  },
+  {
+    value: "Europe/Paris",
+    get label() {
+      return automationsT("format.timezones.paris");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.europe");
+    },
+  },
+  {
+    value: "Europe/Berlin",
+    get label() {
+      return automationsT("format.timezones.berlin");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.europe");
+    },
+  },
+  {
+    value: "Europe/Madrid",
+    get label() {
+      return automationsT("format.timezones.madrid");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.europe");
+    },
+  },
+  {
+    value: "Europe/Amsterdam",
+    get label() {
+      return automationsT("format.timezones.amsterdam");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.europe");
+    },
+  },
+  {
+    value: "Europe/Moscow",
+    get label() {
+      return automationsT("format.timezones.moscow");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.europe");
+    },
+  },
+  {
+    value: "Africa/Cairo",
+    get label() {
+      return automationsT("format.timezones.cairo");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.africa");
+    },
+  },
+  {
+    value: "Africa/Johannesburg",
+    get label() {
+      return automationsT("format.timezones.johannesburg");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.africa");
+    },
+  },
+  {
+    value: "Asia/Dubai",
+    get label() {
+      return automationsT("format.timezones.dubai");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Karachi",
+    get label() {
+      return automationsT("format.timezones.karachi");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Kolkata",
+    get label() {
+      return automationsT("format.timezones.kolkata");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Dhaka",
+    get label() {
+      return automationsT("format.timezones.dhaka");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Bangkok",
+    get label() {
+      return automationsT("format.timezones.bangkok");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Singapore",
+    get label() {
+      return automationsT("format.timezones.singapore");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Shanghai",
+    get label() {
+      return automationsT("format.timezones.shanghai");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Hong_Kong",
+    get label() {
+      return automationsT("format.timezones.hongKong");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Taipei",
+    get label() {
+      return automationsT("format.timezones.taipei");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Tokyo",
+    get label() {
+      return automationsT("format.timezones.tokyo");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Asia/Seoul",
+    get label() {
+      return automationsT("format.timezones.seoul");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.asia");
+    },
+  },
+  {
+    value: "Australia/Perth",
+    get label() {
+      return automationsT("format.timezones.perth");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.oceania");
+    },
+  },
+  {
+    value: "Australia/Sydney",
+    get label() {
+      return automationsT("format.timezones.sydney");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.oceania");
+    },
+  },
+  {
+    value: "Pacific/Auckland",
+    get label() {
+      return automationsT("format.timezones.auckland");
+    },
+    get group() {
+      return automationsT("format.timezoneGroups.oceania");
+    },
+  },
 ];
 
 export function timezoneOptionsWithCurrent(timezone: string): TimezoneOption[] {

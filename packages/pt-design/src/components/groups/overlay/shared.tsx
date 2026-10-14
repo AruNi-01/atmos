@@ -149,7 +149,9 @@ export function OverlayFrame(props: {
 }
 
 /** Interact starts closed. Edit still shows overlay content via overlayVisible. */
-export function useOverlayOpen(_mode: "edit" | "interact"): [boolean, Dispatch<SetStateAction<boolean>>] {
+export function useOverlayOpen(
+  _mode: "edit" | "interact",
+): [boolean, Dispatch<SetStateAction<boolean>>] {
   return useState(false);
 }
 

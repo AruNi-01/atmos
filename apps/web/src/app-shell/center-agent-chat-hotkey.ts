@@ -5,10 +5,15 @@ export type CenterAgentChatHotkeyAction =
   | { action: "activate"; tabId: string }
   | { action: "create" };
 
-export function resolveCenterAgentChatHotkeyAction(pane: {
-  tabIds: readonly string[];
-  activeTabId: string;
-} | null | undefined): CenterAgentChatHotkeyAction {
+export function resolveCenterAgentChatHotkeyAction(
+  pane:
+    | {
+        tabIds: readonly string[];
+        activeTabId: string;
+      }
+    | null
+    | undefined,
+): CenterAgentChatHotkeyAction {
   if (!pane) return { action: "create" };
   if (isAgentChatTabValue(pane.activeTabId)) {
     return { action: "focus", tabId: pane.activeTabId };

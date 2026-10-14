@@ -31,15 +31,8 @@ import {
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
   type SidebarGroupingMode,
 } from "@/app-shell/sidebar/workspace-status";
-import {
-  WORKSPACE_PRIORITY_OPTIONS,
-} from "@/app-shell/sidebar/workspace-metadata-controls";
-import {
-  Check,
-  Folders,
-  ListFilter,
-  Timer,
-} from "lucide-react";
+import { WORKSPACE_PRIORITY_OPTIONS } from "@/app-shell/sidebar/workspace-metadata-controls";
+import { Check, Folders, ListFilter, Timer } from "lucide-react";
 import { resolveBoardColor, resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
 import { SidebarListViewTabs } from "@/app-shell/sidebar/SidebarListViewTabs";
 import type { SidebarListView } from "@/app-shell/sidebar/sidebar-list-view";
@@ -85,16 +78,18 @@ export function shouldApplyWorkspaceKanbanVisibilityFilter(filters: WorkspaceKan
   return getActiveWorkspaceKanbanFilterCount(filters) > 0 || !filters.showAutomationWorkspaces;
 }
 
-export function filterWorkspaceKanbanEntries<T extends {
-  projectId: string;
-  workspace: {
-    id: string;
-    workflowStatus: WorkspaceWorkflowStatus;
-    priority: WorkspacePriority;
-    labels: WorkspaceLabel[];
-    createSource?: WorkspaceCreateSource;
-  };
-}>(items: T[], filters: WorkspaceKanbanFilters, groups: Group[] = []): T[] {
+export function filterWorkspaceKanbanEntries<
+  T extends {
+    projectId: string;
+    workspace: {
+      id: string;
+      workflowStatus: WorkspaceWorkflowStatus;
+      priority: WorkspacePriority;
+      labels: WorkspaceLabel[];
+      createSource?: WorkspaceCreateSource;
+    };
+  },
+>(items: T[], filters: WorkspaceKanbanFilters, groups: Group[] = []): T[] {
   return items.filter((item) => {
     if (
       !filters.showAutomationWorkspaces &&
@@ -104,12 +99,15 @@ export function filterWorkspaceKanbanEntries<T extends {
       return false;
     }
     if (filters.projectIds.length > 0 && !filters.projectIds.includes(item.projectId)) return false;
-    if (filters.statuses.length > 0 && !filters.statuses.includes(item.workspace.workflowStatus)) return false;
-    if (filters.priorities.length > 0 && !filters.priorities.includes(item.workspace.priority)) return false;
+    if (filters.statuses.length > 0 && !filters.statuses.includes(item.workspace.workflowStatus))
+      return false;
+    if (filters.priorities.length > 0 && !filters.priorities.includes(item.workspace.priority))
+      return false;
     if (
       filters.labelIds.length > 0 &&
       !item.workspace.labels.some((label) => filters.labelIds.includes(label.id))
-    ) return false;
+    )
+      return false;
     if (filters.groupIds.length > 0) {
       const groupId = resolveWorkspaceGroupId(groups, item.projectId, item.workspace.id);
       const key = groupId ?? UNGROUPED_USER_GROUP_KEY;
@@ -301,7 +299,7 @@ export function WorkspaceKanbanFilterMenu({
             )}
           >
             {activeFilterCount > 0 ? (
-              <span className="absolute right-0 top-0 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+              <span className="absolute top-0 right-0 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
                 {activeFilterCount}
               </span>
             ) : null}
@@ -320,7 +318,7 @@ export function WorkspaceKanbanFilterMenu({
             )}
           >
             {activeFilterCount > 0 ? (
-              <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+              <span className="absolute -top-1 -right-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
                 {activeFilterCount}
               </span>
             ) : null}
@@ -387,7 +385,7 @@ export function WorkspaceKanbanFilterMenu({
             <ProjectIcon className="size-4" />
             <span className="min-w-0 flex-1 truncate">{t("filter.project")}</span>
             {filters.projectIds.length > 0 ? (
-              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                 {filters.projectIds.length}
               </span>
             ) : null}
@@ -402,7 +400,9 @@ export function WorkspaceKanbanFilterMenu({
               />
             </div>
             {filteredProjectOptions.length === 0 ? (
-              <div className="px-2 py-1.5 text-xs text-muted-foreground">{t("filter.noMatchingProjects")}</div>
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                {t("filter.noMatchingProjects")}
+              </div>
             ) : (
               filteredProjectOptions.map((project) => (
                 <DropdownMenuItem
@@ -418,7 +418,9 @@ export function WorkspaceKanbanFilterMenu({
                     style={{ backgroundColor: resolveBoardColor(project.borderColor) }}
                   />
                   <span className="truncate">{project.name}</span>
-                  {filters.projectIds.includes(project.id) ? <Check className="ml-auto size-4" /> : null}
+                  {filters.projectIds.includes(project.id) ? (
+                    <Check className="ml-auto size-4" />
+                  ) : null}
                 </DropdownMenuItem>
               ))
             )}
@@ -430,7 +432,7 @@ export function WorkspaceKanbanFilterMenu({
             <GroupIcon className="size-4" />
             <span className="min-w-0 flex-1 truncate">{t("filter.group")}</span>
             {filters.groupIds.length > 0 ? (
-              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                 {filters.groupIds.length}
               </span>
             ) : null}
@@ -458,7 +460,9 @@ export function WorkspaceKanbanFilterMenu({
               ) : null}
             </DropdownMenuItem>
             {filteredGroupOptions.length === 0 ? (
-              <div className="px-2 py-1.5 text-xs text-muted-foreground">{t("filter.noMatchingGroups")}</div>
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                {t("filter.noMatchingGroups")}
+              </div>
             ) : (
               filteredGroupOptions.map((group) => (
                 <DropdownMenuItem
@@ -471,7 +475,9 @@ export function WorkspaceKanbanFilterMenu({
                 >
                   <Folders className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate">{group.name}</span>
-                  {filters.groupIds.includes(group.id) ? <Check className="ml-auto size-4" /> : null}
+                  {filters.groupIds.includes(group.id) ? (
+                    <Check className="ml-auto size-4" />
+                  ) : null}
                 </DropdownMenuItem>
               ))
             )}
@@ -483,7 +489,7 @@ export function WorkspaceKanbanFilterMenu({
             <StatusIcon className="size-4" />
             <span className="min-w-0 flex-1 truncate">{t("filter.status")}</span>
             {filters.statuses.length > 0 ? (
-              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                 {filters.statuses.length}
               </span>
             ) : null}
@@ -500,7 +506,9 @@ export function WorkspaceKanbanFilterMenu({
               >
                 <option.icon className={cn("size-4", option.className)} />
                 <span>{t(option.labelKey)}</span>
-                {filters.statuses.includes(option.value) ? <Check className="ml-auto size-4" /> : null}
+                {filters.statuses.includes(option.value) ? (
+                  <Check className="ml-auto size-4" />
+                ) : null}
               </DropdownMenuItem>
             ))}
           </DropdownMenuSubContent>
@@ -511,7 +519,7 @@ export function WorkspaceKanbanFilterMenu({
             <PriorityIcon className="size-4" />
             <span className="min-w-0 flex-1 truncate">{t("filter.priority")}</span>
             {filters.priorities.length > 0 ? (
-              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                 {filters.priorities.length}
               </span>
             ) : null}
@@ -528,7 +536,9 @@ export function WorkspaceKanbanFilterMenu({
               >
                 <option.icon className={cn("size-4", option.className)} />
                 <span>{t(option.labelKey)}</span>
-                {filters.priorities.includes(option.value) ? <Check className="ml-auto size-4" /> : null}
+                {filters.priorities.includes(option.value) ? (
+                  <Check className="ml-auto size-4" />
+                ) : null}
               </DropdownMenuItem>
             ))}
           </DropdownMenuSubContent>
@@ -539,7 +549,7 @@ export function WorkspaceKanbanFilterMenu({
             <LabelIcon className="size-4" />
             <span className="min-w-0 flex-1 truncate">{t("filter.labels")}</span>
             {filters.labelIds.length > 0 ? (
-              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                 {filters.labelIds.length}
               </span>
             ) : null}
@@ -554,7 +564,9 @@ export function WorkspaceKanbanFilterMenu({
               />
             </div>
             {filteredLabelOptions.length === 0 ? (
-              <div className="px-2 py-1.5 text-xs text-muted-foreground">{t("filter.noMatchingLabels")}</div>
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                {t("filter.noMatchingLabels")}
+              </div>
             ) : (
               filteredLabelOptions.map((label) => (
                 <DropdownMenuItem
@@ -570,7 +582,9 @@ export function WorkspaceKanbanFilterMenu({
                     style={{ backgroundColor: resolveBoardColor(label.color) }}
                   />
                   <span className="truncate">{label.name}</span>
-                  {filters.labelIds.includes(label.id) ? <Check className="ml-auto size-4" /> : null}
+                  {filters.labelIds.includes(label.id) ? (
+                    <Check className="ml-auto size-4" />
+                  ) : null}
                 </DropdownMenuItem>
               ))
             )}

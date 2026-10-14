@@ -50,28 +50,28 @@ describe motion **behavior** (entering, settling, traveling, exiting, looping,
 cut companion), not layer type: a logo, hero, title, card, or accent each picks
 by what it is doing this beat. Bezier is `x1,y1,x2,y2`.
 
-| anchor | behavior | cubic-bezier | feel |
-| --- | --- | --- | --- |
-| `entrance-sharp` | entering, mask-wipe decel | `.20,.75,.34,.94` | fast in, soft land |
-| `settle-soft` | settling, count-up landing, logo lockup | `.00,.65,.51,.99` | deep ease-out, no bounce |
-| `kinetic-ui` | expressive small state move (toggle, accent) | `.85,.46,.14,.53` | lively — not every UI move |
-| `expressive-pop` | active kinetic word, brand flourish | `.94,.75,.34,.94` | fast-out + soft settle (overshoot opt-in) |
-| `travel-balanced` | object travel, camera, state-to-state | `1.00,.49,.00,.55` | S-curve ease-in-out |
-| `exit-accelerate` | exiting, hard-cut companion | `1.00,.02,.54,.42` | slow start, fast end |
-| `travel-cut` | only interrupted / masked / cut-before-settle | `.15,.85,.95,.05` | fast-slow-fast, never settles |
+| anchor            | behavior                                      | cubic-bezier       | feel                                      |
+| ----------------- | --------------------------------------------- | ------------------ | ----------------------------------------- |
+| `entrance-sharp`  | entering, mask-wipe decel                     | `.20,.75,.34,.94`  | fast in, soft land                        |
+| `settle-soft`     | settling, count-up landing, logo lockup       | `.00,.65,.51,.99`  | deep ease-out, no bounce                  |
+| `kinetic-ui`      | expressive small state move (toggle, accent)  | `.85,.46,.14,.53`  | lively — not every UI move                |
+| `expressive-pop`  | active kinetic word, brand flourish           | `.94,.75,.34,.94`  | fast-out + soft settle (overshoot opt-in) |
+| `travel-balanced` | object travel, camera, state-to-state         | `1.00,.49,.00,.55` | S-curve ease-in-out                       |
+| `exit-accelerate` | exiting, hard-cut companion                   | `1.00,.02,.54,.42` | slow start, fast end                      |
+| `travel-cut`      | only interrupted / masked / cut-before-settle | `.15,.85,.95,.05`  | fast-slow-fast, never settles             |
 
 - Derive, don't invent: start from the nearest anchor and adjust one quality —
   acceleration, coast, landing softness, exit speed, overshoot. Reach for a new
   curve only when no anchor fits.
-- Per-property orchestration: choose *how* properties coordinate, not just which
-  easing each uses — match the method to the motion character. *Locked*
+- Per-property orchestration: choose _how_ properties coordinate, not just which
+  easing each uses — match the method to the motion character. _Locked_
   (start/end together) for UI, panels, buttons, mechanical/synced state.
-  *Lead/follow* (one property leads a few frames, another follows) for
+  _Lead/follow_ (one property leads a few frames, another follows) for
   logo/hero/organic, where position, scale, rotation, opacity, masks, trim, or
   number changes may use different curves, start/end frames, or durations.
-  *Primary/secondary* (one property carries the motion, others support subtly).
-  *Early-opacity/late-settle* (opacity resolves fast while position/scale keeps
-  settling, for readability). *Single-property overshoot* (only scale or
+  _Primary/secondary_ (one property carries the motion, others support subtly).
+  _Early-opacity/late-settle_ (opacity resolves fast while position/scale keeps
+  settling, for readability). _Single-property overshoot_ (only scale or
   rotation overshoots, position stays controlled).
 - Hierarchy: only the focal element gets the strongest personality
   (`expressive-pop`, overshoot, snap); support uses quieter anchors

@@ -18,7 +18,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toContain("browser_bridge_update_bounds");
     expect(src).not.toContain("browser_bridge_show");
     expect(src).not.toContain("browser_bridge_hide");
-    expect(src).toContain("mode: 'desktop'");
+    expect(src).toContain('mode: "desktop"');
     expect(src).toContain("desktop-browser:viewport-changed");
     expect(src).toContain("desktop-browser:agent-activity");
     expect(src).toContain("browser_bridge_query_element_rects");
@@ -28,7 +28,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
   it("in-panel navigation is host-webview owned (no dual navigate+loadURL)", () => {
     const nav = read("apps/web/src/features/browser/hooks/use-browser-navigation.ts");
     // Desktop in-place nav must not call controller.navigate (races webview src).
-    expect(nav).toContain("preferredTransportMode === 'desktop'");
+    expect(nav).toContain('preferredTransportMode === "desktop"');
     expect(nav).toContain("setDesktopCommittedUrl");
     expect(nav).not.toMatch(
       /preferredTransportMode === ['"]desktop['"][\s\S]{0,400}controller\.navigate/,
@@ -36,9 +36,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
 
     const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
     expect(session).toContain("host webview owns load");
-    expect(session).not.toMatch(
-      /shouldNavigate[\s\S]{0,120}activeController\.navigate/,
-    );
+    expect(session).not.toMatch(/shouldNavigate[\s\S]{0,120}activeController\.navigate/);
 
     const surface = read("apps/desktop-electron/src/browser/surface-manager.ts");
     // open() must not loadURL when guest already bound; navigate is detached-only for load.
@@ -64,20 +62,14 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(surface).toContain("setPermissionCheckHandler");
     expect(surface).toContain("isAllowedBrowserGuestPermission");
 
-    const policy = read(
-      "apps/desktop-electron/src/browser/webview-attach-policy.ts",
-    );
+    const policy = read("apps/desktop-electron/src/browser/webview-attach-policy.ts");
     expect(policy).toContain("clipboard-sanitized-write");
     expect(policy).toContain("clipboard-read");
     expect(policy).toContain('"media"');
     expect(policy).toContain('"notifications"');
 
-    const viewport = read(
-      "apps/web/src/features/browser/components/BrowserViewport.tsx",
-    );
-    expect(viewport).toContain(
-      'allow="clipboard-read; clipboard-write; camera; microphone"',
-    );
+    const viewport = read("apps/web/src/features/browser/components/BrowserViewport.tsx");
+    expect(viewport).toContain('allow="clipboard-read; clipboard-write; camera; microphone"');
   });
 
   it("host SelectionPopover is used for desktop (no desktop-only null branch)", () => {
@@ -87,7 +79,9 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toContain('resolvedTransportMode !== "desktop" ? (');
     expect(src).not.toContain("isDesktopNativePreviewOccluded");
     // annotations not emptied for desktop
-    expect(src).not.toMatch(/annotationOverlays = resolvedTransportMode === ["']desktop["']\s*\?\s*\[\]/);
+    expect(src).not.toMatch(
+      /annotationOverlays = resolvedTransportMode === ["']desktop["']\s*\?\s*\[\]/,
+    );
   });
 
   it("desktop element select opens host SelectionPopover (does not hide on select)", () => {
@@ -111,7 +105,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(transport).toContain("browser_bridge_exit_pick_mode");
     expect(transport).toContain("browser_bridge_clear_selection");
     expect(transport).toMatch(
-      /async exitPickMode\(\) \{\s*if \(destroyed\) return;\s*await invokeDesktopBrowserBridge\('browser_bridge_exit_pick_mode'/,
+      /async exitPickMode\(\) \{\s*if \(destroyed\) return;\s*await invokeDesktopBrowserBridge\(["']browser_bridge_exit_pick_mode["']/,
     );
     expect(transport).toMatch(
       /async clearSelection\(\) \{\s*if \(destroyed\) return;[\s\S]*?browser_bridge_clear_selection/,
@@ -160,9 +154,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
   it("DesktopBrowserWebview keeps guest mounted across layoutHidden (tab switch)", () => {
     const src = read("apps/web/src/features/browser/components/DesktopBrowserWebview.tsx");
     // Extract shouldMountGuest expression — must not require !layoutHidden (that remounted).
-    const mountExpr = src.match(
-      /const shouldMountGuest =\s*([\s\S]*?);/,
-    )?.[1] ?? "";
+    const mountExpr = src.match(/const shouldMountGuest =\s*([\s\S]*?);/)?.[1] ?? "";
     expect(mountExpr).toContain("layoutReady");
     expect(mountExpr).not.toContain("layoutHidden");
     expect(src).toContain("onLoadingChange");
@@ -208,7 +200,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(build).toContain("browser-runtime.js");
     expect(build).toContain("copyFileSync");
     const policy = read("apps/desktop-electron/src/browser/webview-attach-policy.ts");
-    expect(policy).toContain('persist:atmos-browser');
+    expect(policy).toContain("persist:atmos-browser");
     const runtime = read("packages/shared/browser/browser-runtime.js");
     expect(runtime).toContain("showHoverLabel");
   });
@@ -235,7 +227,9 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
 
   it("open() preserves pickMode; package ships browser-runtime.js", () => {
     const surface = read("apps/desktop-electron/src/browser/surface-manager.ts");
-    expect(surface).not.toMatch(/s\.currentUrl = url;\s*s\.detached = false;\s*s\.pickMode = false/);
+    expect(surface).not.toMatch(
+      /s\.currentUrl = url;\s*s\.detached = false;\s*s\.pickMode = false/,
+    );
     expect(surface).toContain("Do NOT reset pickMode");
     const pkg = read("apps/desktop-electron/scripts/package.ts");
     expect(pkg).toContain("dist/browser-runtime.js");
@@ -261,7 +255,9 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
 
   it("APP-029 occlusion module is deleted", () => {
     expect(existsSync(join(feature, "hooks/use-native-preview-occlusion.ts"))).toBe(false);
-    expect(existsSync(join(feature, "hooks/__tests__/use-native-preview-occlusion.test.ts"))).toBe(false);
+    expect(existsSync(join(feature, "hooks/__tests__/use-native-preview-occlusion.test.ts"))).toBe(
+      false,
+    );
   });
 
   it("permanent tab slots keep all tabs mounted (BrowserPanel)", () => {

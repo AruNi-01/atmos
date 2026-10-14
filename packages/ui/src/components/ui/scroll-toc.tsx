@@ -26,8 +26,7 @@ function smoothScrollTo(container: HTMLElement, targetTop: number, duration = 60
   if (Math.abs(distance) < 1) return;
   let startTime: number | null = null;
 
-  const ease = (t: number) =>
-    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
   const step = (timestamp: number) => {
     if (!startTime) startTime = timestamp;
@@ -86,11 +85,7 @@ function ScrollToc({
   }, [activeId, scrollToActive]);
 
   return (
-    <div
-      className={cn("scroll-toc-wrapper-mask", className)}
-      style={style}
-      {...props}
-    >
+    <div className={cn("scroll-toc-wrapper-mask", className)} style={style} {...props}>
       <div
         ref={scrollerRef}
         className="scroll-toc-scroller-mask scroll-toc-scroller"
@@ -113,14 +108,14 @@ function ScrollToc({
             <div
               className={cn(
                 "scroll-toc-label",
-                scrollingLabelId === item.id && "scroll-toc-label-scrolling"
+                scrollingLabelId === item.id && "scroll-toc-label-scrolling",
               )}
               style={
                 scrollingLabelId === item.id && labelOverflows.current.has(item.id)
-                  ? {
+                  ? ({
                       "--scroll-toc-label-overflow": `-${labelOverflows.current.get(item.id)!.overflow}px`,
                       "--scroll-toc-label-duration": `${labelOverflows.current.get(item.id)!.duration}s`,
-                    } as React.CSSProperties
+                    } as React.CSSProperties)
                   : undefined
               }
               onMouseEnter={(e) => handleLabelEnter(item.id, e.currentTarget)}

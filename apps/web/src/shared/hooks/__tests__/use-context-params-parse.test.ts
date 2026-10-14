@@ -45,14 +45,14 @@ describe("parseContextParams", () => {
     expect(parseContextParams("/agent-observer", new URLSearchParams()).currentView).toBe(
       "agent-observer",
     );
-    expect(parseContextParams("/pt-design", new URLSearchParams()).currentView).toBe(
-      "pt-design",
-    );
+    expect(parseContextParams("/pt-design", new URLSearchParams()).currentView).toBe("pt-design");
     expect(parseContextParams("/pt-design", new URLSearchParams()).effectiveContextId).toBeNull();
     expect(parseContextParams("/agent-sessions", new URLSearchParams()).currentView).toBe(
       "agent-sessions",
     );
-    expect(parseContextParams("/agent-sessions", new URLSearchParams()).effectiveContextId).toBeNull();
+    expect(
+      parseContextParams("/agent-sessions", new URLSearchParams()).effectiveContextId,
+    ).toBeNull();
     expect(parseContextParams("/", new URLSearchParams()).currentView).toBe("welcome");
   });
 });

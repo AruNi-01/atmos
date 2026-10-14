@@ -20,7 +20,11 @@ describe("place reveal", () => {
 
   test("maps a scene rect onto the board overlay", () => {
     expect(
-      sceneRectToBoardBox({ x: 100, y: 50, w: 80, h: 40 }, { scrollX: 20, scrollY: 10, zoom: { value: 2 } }, 6),
+      sceneRectToBoardBox(
+        { x: 100, y: 50, w: 80, h: 40 },
+        { scrollX: 20, scrollY: 10, zoom: { value: 2 } },
+        6,
+      ),
     ).toEqual({ left: 234, top: 114, width: 172, height: 92 });
   });
 

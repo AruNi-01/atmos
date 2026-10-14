@@ -47,7 +47,8 @@ export function useGithubTriggerSetup({
   const [githubRepositories, setGithubRepositories] = React.useState<GithubRepository[]>([]);
   const [githubInstallationId, setGithubInstallationId] = React.useState<GithubInt64 | null>(null);
   const [githubRepositoryFullName, setGithubRepositoryFullName] = React.useState("");
-  const [githubEventFamily, setGithubEventFamily] = React.useState<GithubEventFamily>("pull_request");
+  const [githubEventFamily, setGithubEventFamily] =
+    React.useState<GithubEventFamily>("pull_request");
   const [githubIssueAction, setGithubIssueAction] = React.useState("labeled");
   const [githubIssueLabel, setGithubIssueLabel] = React.useState("");
   const [githubPullRequestAction, setGithubPullRequestAction] = React.useState("opened");
@@ -257,7 +258,10 @@ export function useGithubTriggerSetup({
     if (githubEventFamily === "workflow_run" && !githubWorkflowName.trim()) {
       return null;
     }
-    if (githubEventFamily === "push" && (!githubBranchFilter.trim() || isAnyGithubToken(githubBranchFilter))) {
+    if (
+      githubEventFamily === "push" &&
+      (!githubBranchFilter.trim() || isAnyGithubToken(githubBranchFilter))
+    ) {
       return null;
     }
     if (githubEventFamily === "pull_request_comment" && githubSenderLoginList.length === 0) {
@@ -266,8 +270,9 @@ export function useGithubTriggerSetup({
     const repositoryFullName = githubRepositoryFullName.trim();
     const preservedRepositoryId =
       initialGithubConfig?.installation_id === githubInstallationId &&
-      initialGithubConfig.repository_full_name.trim().toLowerCase() === repositoryFullName.toLowerCase()
-        ? initialGithubConfig.repository_id ?? null
+      initialGithubConfig.repository_full_name.trim().toLowerCase() ===
+        repositoryFullName.toLowerCase()
+        ? (initialGithubConfig.repository_id ?? null)
         : null;
     const filters: GithubTriggerConfig["filters"] = {};
     if (githubEventFamily === "push" && githubBranchFilter.trim()) {
@@ -332,50 +337,45 @@ export function useGithubTriggerSetup({
     initialGithubConfig,
   ]);
 
-  const startGithubSetup = React.useCallback(
-    async () => {
-      setGithubError(null);
-      setGithubLoading(true);
-      const reservedBrowserWindow =
-        typeof window !== "undefined" && !isTauriRuntime()
-          ? window.open("", "_blank")
-          : null;
-      if (reservedBrowserWindow) {
-        reservedBrowserWindow.opener = null;
-      }
+  const startGithubSetup = React.useCallback(async () => {
+    setGithubError(null);
+    setGithubLoading(true);
+    const reservedBrowserWindow =
+      typeof window !== "undefined" && !isTauriRuntime() ? window.open("", "_blank") : null;
+    if (reservedBrowserWindow) {
+      reservedBrowserWindow.opener = null;
+    }
 
-      try {
-        const returnUrl = githubSetupCompletionReturnUrl();
-        const session = await createGithubSetupSession(githubPrereqs, returnUrl);
-        const openedByDesktop = await openDesktopExternalUrl(session.install_url);
-        if (openedByDesktop) {
-          reservedBrowserWindow?.close();
-          setGithubSetupRefreshAvailable(true);
-          return;
-        }
-        if (reservedBrowserWindow && !reservedBrowserWindow.closed) {
-          reservedBrowserWindow.location.href = session.install_url;
-          setGithubSetupRefreshAvailable(true);
-          return;
-        }
-        if (typeof window === "undefined") {
-          return;
-        }
-        const openedWindow = window.open(session.install_url, "_blank");
-        if (!openedWindow) {
-          throw new Error(t("errors.popupBlocked"));
-        }
-        openedWindow.opener = null;
-        setGithubSetupRefreshAvailable(true);
-      } catch (err) {
+    try {
+      const returnUrl = githubSetupCompletionReturnUrl();
+      const session = await createGithubSetupSession(githubPrereqs, returnUrl);
+      const openedByDesktop = await openDesktopExternalUrl(session.install_url);
+      if (openedByDesktop) {
         reservedBrowserWindow?.close();
-        setGithubError(err instanceof Error ? err.message : t("errors.startSetupFailed"));
-      } finally {
-        setGithubLoading(false);
+        setGithubSetupRefreshAvailable(true);
+        return;
       }
-    },
-    [githubPrereqs, t],
-  );
+      if (reservedBrowserWindow && !reservedBrowserWindow.closed) {
+        reservedBrowserWindow.location.href = session.install_url;
+        setGithubSetupRefreshAvailable(true);
+        return;
+      }
+      if (typeof window === "undefined") {
+        return;
+      }
+      const openedWindow = window.open(session.install_url, "_blank");
+      if (!openedWindow) {
+        throw new Error(t("errors.popupBlocked"));
+      }
+      openedWindow.opener = null;
+      setGithubSetupRefreshAvailable(true);
+    } catch (err) {
+      reservedBrowserWindow?.close();
+      setGithubError(err instanceof Error ? err.message : t("errors.startSetupFailed"));
+    } finally {
+      setGithubLoading(false);
+    }
+  }, [githubPrereqs, t]);
 
   const resetGithubSetupButton = React.useCallback(() => {
     setGithubSetupRefreshAvailable(false);

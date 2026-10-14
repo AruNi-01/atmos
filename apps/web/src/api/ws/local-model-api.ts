@@ -53,7 +53,8 @@ export const localModelApi = {
     displayName?: string;
     ramFootprintMb?: number;
   }): Promise<{ ok: boolean; model: LocalModelEntry }> => {
-    return wsRequest("local_model_custom_add",
+    return wsRequest(
+      "local_model_custom_add",
       {
         url: input.url,
         display_name: input.displayName,

@@ -3,7 +3,17 @@ import { fail } from "./error";
 import { validatePtx } from "./ptx-validate";
 import type { PtAction, PtDocument, PtHandler, PtNode, PtOption } from "./schema";
 
-const RESERVED = new Set(["id", "x", "y", "width", "height", "rotation", "value", "checked", "label"]);
+const RESERVED = new Set([
+  "id",
+  "x",
+  "y",
+  "width",
+  "height",
+  "rotation",
+  "value",
+  "checked",
+  "label",
+]);
 
 type AttrValue = string | true;
 type XmlAttrs = Record<string, AttrValue>;
@@ -98,7 +108,8 @@ class PtxReader {
       this.i += 1;
       this.skipWs();
       const quote = this.peek();
-      if (quote !== '"' && quote !== "'") fail("invalid_ptx", `Attribute ${name} is missing quotes`);
+      if (quote !== '"' && quote !== "'")
+        fail("invalid_ptx", `Attribute ${name} is missing quotes`);
       this.i += 1;
       const end = this.xml.indexOf(quote, this.i);
       if (end < 0) fail("invalid_ptx", `Unterminated attribute ${name}`);
@@ -184,7 +195,8 @@ function parseChecked(attrs: XmlAttrs): boolean | undefined {
 function textOf(elem: XmlElem): string {
   let out = "";
   for (const child of elem.children) {
-    if (typeof child !== "string") fail("invalid_ptx", `<${elem.tag}> cannot contain nested elements`);
+    if (typeof child !== "string")
+      fail("invalid_ptx", `<${elem.tag}> cannot contain nested elements`);
     out += child;
   }
   return out;
@@ -205,13 +217,14 @@ function parseAction(elem: XmlElem): PtAction {
   if (textOf(elem).trim().length > 0) fail("invalid_ptx", "action cannot contain text");
   const type = attrString(elem.attrs, "type");
   const name = attrString(elem.attrs, "name");
-  if (type !== "agent" || !name) fail("invalid_ptx", "action must be type=\"agent\" with a name");
+  if (type !== "agent" || !name) fail("invalid_ptx", 'action must be type="agent" with a name');
   return { type: "agent", name };
 }
 
 function parseOn(elem: XmlElem): PtHandler {
   const event = attrString(elem.attrs, "event");
-  if (event !== "click" && event !== "change") fail("invalid_ptx", "on event must be click or change");
+  if (event !== "click" && event !== "change")
+    fail("invalid_ptx", "on event must be click or change");
   const actions: PtAction[] = [];
   for (const child of elem.children) {
     if (typeof child === "string") {
@@ -265,7 +278,10 @@ function parseNode(elem: XmlElem): PtNode {
     y: parseNumberAttr(elem.attrs, "y", id),
     width: parseNumberAttr(elem.attrs, "width", id),
     height: parseNumberAttr(elem.attrs, "height", id),
-    rotation: attrString(elem.attrs, "rotation") === undefined ? 0 : parseNumberAttr(elem.attrs, "rotation", id),
+    rotation:
+      attrString(elem.attrs, "rotation") === undefined
+        ? 0
+        : parseNumberAttr(elem.attrs, "rotation", id),
   };
   const value = attrString(elem.attrs, "value");
   if (value !== undefined) node.value = value;
@@ -283,7 +299,8 @@ function parsePage(elem: XmlElem): PtDocument {
   const version = attrString(elem.attrs, "version") ?? "ptx/1";
   if (version !== "ptx/1") fail("invalid_ptx", `Unsupported PTX version: ${version}`);
   for (const name of Object.keys(elem.attrs)) {
-    if (name !== "id" && name !== "version") fail("invalid_ptx", `Unexpected page attribute ${name}`);
+    if (name !== "id" && name !== "version")
+      fail("invalid_ptx", `Unexpected page attribute ${name}`);
   }
   const nodes: PtNode[] = [];
   for (const child of elem.children) {

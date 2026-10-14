@@ -42,9 +42,7 @@ function calculateArrowBindingAnchor(
     y: targetShapePageBounds.y + clamped.y * targetShapePageBounds.h,
   };
 
-  return geometryInPage.hitTestPoint(clampedInPage, 0, true)
-    ? clamped
-    : { x: 0.5, y: 0.5 };
+  return geometryInPage.hitTestPoint(clampedInPage, 0, true) ? clamped : { x: 0.5, y: 0.5 };
 }
 
 export function bindingPointForShape(
@@ -137,8 +135,7 @@ export function resolveArrowEndpoints(
   let y2 = args.y2;
 
   if (fromId) {
-    const toward =
-      x2 !== undefined && y2 !== undefined ? { x: x2, y: y2 } : undefined;
+    const toward = x2 !== undefined && y2 !== undefined ? { x: x2, y: y2 } : undefined;
     const pt = bindingPointForShape(editor, fromId, toward);
     if (pt) {
       x1 = pt.x;
@@ -146,8 +143,7 @@ export function resolveArrowEndpoints(
     }
   }
   if (toId) {
-    const toward =
-      x1 !== undefined && y1 !== undefined ? { x: x1, y: y1 } : undefined;
+    const toward = x1 !== undefined && y1 !== undefined ? { x: x1, y: y1 } : undefined;
     const pt = bindingPointForShape(editor, toId, toward);
     if (pt) {
       x2 = pt.x;
@@ -155,12 +151,7 @@ export function resolveArrowEndpoints(
     }
   }
 
-  if (
-    x1 === undefined ||
-    y1 === undefined ||
-    x2 === undefined ||
-    y2 === undefined
-  ) {
+  if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) {
     throw new Error(
       "create_arrow requires x1,y1,x2,y2 or from_id/to_id with resolvable shape bounds",
     );

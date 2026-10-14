@@ -66,6 +66,5 @@ export const useToolCenterTabsStore = create<ToolCenterTabStore>((set, get) => (
       };
     });
   },
-  isOpen: (contextId, tab) =>
-    Boolean(get().visibleByContext[contextId]?.[tab]),
+  isOpen: (contextId, tab) => Boolean(get().visibleByContext[contextId]?.[tab]),
 }));

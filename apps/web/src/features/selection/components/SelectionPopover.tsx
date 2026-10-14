@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { useTranslations } from 'next-intl';
-import { Copy, ChevronDown, Check, Paperclip } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
+import { Copy, ChevronDown, Check, Paperclip } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -12,21 +12,21 @@ import {
   Button,
   cn,
   toastManager,
-} from '@workspace/ui';
-import type { SelectionInfo } from '@/shared/lib/format-selection-for-ai';
+} from "@workspace/ui";
+import type { SelectionInfo } from "@/shared/lib/format-selection-for-ai";
 import {
   formatEditorSelectionForAI,
   formatDiffSelectionForAI,
   formatPreviewSelectionForAI,
   formatWikiSelectionForAI,
-} from '@/shared/lib/format-selection-for-ai';
+} from "@/shared/lib/format-selection-for-ai";
 import {
   selectionTypeToAiContextKind,
   wrapAiContextClipboard,
-} from '@/shared/lib/ai-context-protocol';
-import { SelectionPopoverDetails } from './SelectionPopoverDetails';
+} from "@/shared/lib/ai-context-protocol";
+import { SelectionPopoverDetails } from "./SelectionPopoverDetails";
 
-export type SelectionType = 'editor' | 'diff' | 'wiki' | 'preview';
+export type SelectionType = "editor" | "diff" | "wiki" | "preview";
 
 export interface SelectionCopiedPayload {
   type: SelectionType;
@@ -52,12 +52,12 @@ interface SelectionPopoverProps {
    * Legacy: absolute vs fixed for non-preview chrome.
    * Preview always uses Radix Popover portaled to body, anchored at `position`.
    */
-  positioning?: 'absolute' | 'fixed';
+  positioning?: "absolute" | "fixed";
   onCopied?: (payload: SelectionCopiedPayload) => void;
   onAttach?: (payload: SelectionAttachedPayload) => Promise<void> | void;
   onAddAnnotation?: (selectionInfo: SelectionInfo, note?: string) => void;
   onUpdateAnnotation?: (selectionInfo: SelectionInfo, note?: string) => void;
-  annotationMode?: 'add' | 'edit';
+  annotationMode?: "add" | "edit";
   initialNote?: string;
 }
 
@@ -71,25 +71,25 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   type,
   popoverRef,
   className,
-  positioning = 'absolute',
+  positioning = "absolute",
   onCopied,
   onAttach,
   onAddAnnotation,
   onUpdateAnnotation,
-  annotationMode = 'add',
-  initialNote = '',
+  annotationMode = "add",
+  initialNote = "",
 }) => {
-  const t = useTranslations('Selection.components');
-  const [userNote, setUserNote] = useState('');
+  const t = useTranslations("Selection.components");
+  const [userNote, setUserNote] = useState("");
   const [copied, setCopied] = useState(false);
   const [attaching, setAttaching] = useState(false);
   const [lastSelectionInfo, setLastSelectionInfo] = useState<SelectionInfo | null>(null);
   const [mounted, setMounted] = useState(false);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
-  const canAttach = type === 'wiki' && typeof onAttach === 'function';
-  const canAddPreviewAnnotation = type === 'preview' && typeof onAddAnnotation === 'function';
-  const isEditingPreviewAnnotation = type === 'preview' && annotationMode === 'edit';
-  const isPreview = type === 'preview';
+  const canAttach = type === "wiki" && typeof onAttach === "function";
+  const canAddPreviewAnnotation = type === "preview" && typeof onAddAnnotation === "function";
+  const isEditingPreviewAnnotation = type === "preview" && annotationMode === "edit";
+  const isPreview = type === "preview";
 
   const displayInfo = selectionInfo || lastSelectionInfo;
   const isActive = isVisible && !!selectionInfo;
@@ -113,76 +113,82 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     el.style.top = `${Math.round(position.y)}px`;
   }, [position.x, position.y, isActive]);
 
-  const buildFormattedText = useCallback((includeNote: boolean) => {
-    if (!displayInfo) return null;
+  const buildFormattedText = useCallback(
+    (includeNote: boolean) => {
+      if (!displayInfo) return null;
 
-    const note = includeNote ? userNote : undefined;
-    if (type === 'diff') return formatDiffSelectionForAI(displayInfo, note);
-    if (type === 'wiki') return formatWikiSelectionForAI(displayInfo, note);
-    if (type === 'preview') return formatPreviewSelectionForAI(displayInfo, note);
-    return formatEditorSelectionForAI(displayInfo, note);
-  }, [displayInfo, type, userNote]);
+      const note = includeNote ? userNote : undefined;
+      if (type === "diff") return formatDiffSelectionForAI(displayInfo, note);
+      if (type === "wiki") return formatWikiSelectionForAI(displayInfo, note);
+      if (type === "preview") return formatPreviewSelectionForAI(displayInfo, note);
+      return formatEditorSelectionForAI(displayInfo, note);
+    },
+    [displayInfo, type, userNote],
+  );
 
-  const handleCopy = useCallback(async (includeNote: boolean = false) => {
-    if (!displayInfo) return;
-    const formatted = buildFormattedText(includeNote);
-    if (!formatted) return;
-    const clipboardText = wrapAiContextClipboard(
-      selectionTypeToAiContextKind(type),
-      formatted,
-    );
+  const handleCopy = useCallback(
+    async (includeNote: boolean = false) => {
+      if (!displayInfo) return;
+      const formatted = buildFormattedText(includeNote);
+      if (!formatted) return;
+      const clipboardText = wrapAiContextClipboard(selectionTypeToAiContextKind(type), formatted);
 
-    try {
-      await navigator.clipboard.writeText(clipboardText);
-      setCopied(true);
-      toastManager.add({
-        title: t('popover.toast.copiedTitle'),
-        description: t('popover.toast.copiedDescription'),
-        type: 'success',
-      });
-      onCopied?.({
-        type,
-        selectionInfo: displayInfo,
-        formattedText: formatted,
-        includeNote,
-      });
+      try {
+        await navigator.clipboard.writeText(clipboardText);
+        setCopied(true);
+        toastManager.add({
+          title: t("popover.toast.copiedTitle"),
+          description: t("popover.toast.copiedDescription"),
+          type: "success",
+        });
+        onCopied?.({
+          type,
+          selectionInfo: displayInfo,
+          formattedText: formatted,
+          includeNote,
+        });
 
-      setTimeout(() => {
+        setTimeout(() => {
+          setCopied(false);
+          onDismiss();
+          setUserNote("");
+        }, 500);
+      } catch {
+        toastManager.add({
+          title: t("popover.toast.failedToCopyTitle"),
+          description: t("popover.toast.failedToCopyDescription"),
+          type: "error",
+        });
+      }
+    },
+    [buildFormattedText, displayInfo, onCopied, onDismiss, t, type],
+  );
+
+  const handleAttach = useCallback(
+    async (includeNote: boolean = false) => {
+      if (!displayInfo || !onAttach) return;
+      const formatted = buildFormattedText(includeNote);
+      if (!formatted) return;
+
+      setAttaching(true);
+      try {
+        await onAttach({
+          type,
+          selectionInfo: displayInfo,
+          formattedText: formatted,
+          includeNote,
+        });
         setCopied(false);
         onDismiss();
-        setUserNote('');
-      }, 500);
-    } catch {
-      toastManager.add({
-        title: t('popover.toast.failedToCopyTitle'),
-        description: t('popover.toast.failedToCopyDescription'),
-        type: 'error',
-      });
-    }
-  }, [buildFormattedText, displayInfo, onCopied, onDismiss, t, type]);
-
-  const handleAttach = useCallback(async (includeNote: boolean = false) => {
-    if (!displayInfo || !onAttach) return;
-    const formatted = buildFormattedText(includeNote);
-    if (!formatted) return;
-
-    setAttaching(true);
-    try {
-      await onAttach({
-        type,
-        selectionInfo: displayInfo,
-        formattedText: formatted,
-        includeNote,
-      });
-      setCopied(false);
-      onDismiss();
-      setUserNote('');
-    } catch {
-      // Swallow attach failures.
-    } finally {
-      setAttaching(false);
-    }
-  }, [buildFormattedText, displayInfo, onAttach, onDismiss, type]);
+        setUserNote("");
+      } catch {
+        // Swallow attach failures.
+      } finally {
+        setAttaching(false);
+      }
+    },
+    [buildFormattedText, displayInfo, onAttach, onDismiss, type],
+  );
 
   const handleQuickCopy = useCallback(() => {
     handleCopy(false);
@@ -196,14 +202,14 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     if (!displayInfo || !onAddAnnotation) return;
     onAddAnnotation(displayInfo, userNote);
     setCopied(false);
-    setUserNote('');
+    setUserNote("");
   }, [displayInfo, onAddAnnotation, userNote]);
 
   const handleUpdateAnnotation = useCallback(() => {
     if (!displayInfo || !onUpdateAnnotation) return;
     onUpdateAnnotation(displayInfo, userNote);
     setCopied(false);
-    setUserNote('');
+    setUserNote("");
   }, [displayInfo, onUpdateAnnotation, userNote]);
 
   if (!displayInfo || !isActive) {
@@ -233,7 +239,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   // viewport-space click coords match Floating UI measurements (no transform
   // ancestor skew). Key remounts positioning when the click point jumps.
   if (isPreview) {
-    if (!mounted || typeof document === 'undefined') return null;
+    if (!mounted || typeof document === "undefined") return null;
 
     return createPortal(
       <Popover
@@ -269,7 +275,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
             e.preventDefault();
             const root = e.currentTarget;
             if (!(root instanceof HTMLElement)) return;
-            const note = root.querySelector('textarea');
+            const note = root.querySelector("textarea");
             if (note instanceof HTMLTextAreaElement) {
               note.focus({ preventScroll: true });
             }
@@ -279,7 +285,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
           onMouseUp={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            'z-[10000] w-80 max-h-[min(420px,calc(100vh-24px))] overflow-y-auto p-3',
+            "z-[10000] max-h-[min(420px,calc(100vh-24px))] w-80 overflow-y-auto p-3",
             className,
           )}
         >
@@ -294,7 +300,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     <div
       ref={popoverRef}
       data-selection-popover
-      className={cn(positioning === 'fixed' ? 'fixed z-[9999]' : 'absolute z-50', className)}
+      className={cn(positioning === "fixed" ? "fixed z-[9999]" : "absolute z-50", className)}
       style={{
         left: position.x,
         top: position.y,
@@ -321,7 +327,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               size="icon"
               className="h-7 w-7"
               onClick={handleQuickCopy}
-              title={t('popover.actions.copyForAi')}
+              title={t("popover.actions.copyForAi")}
             >
               {copied ? (
                 <Check className="h-3.5 w-3.5 text-green-500" />
@@ -335,7 +341,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 size="icon"
                 className="h-7 w-7"
                 onClick={() => void handleAttach(false)}
-                title={t('popover.actions.attachToAgent')}
+                title={t("popover.actions.attachToAgent")}
                 disabled={attaching}
               >
                 <Paperclip className="h-3.5 w-3.5" />
@@ -346,9 +352,11 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
-                title={t('popover.actions.addNote')}
+                title={t("popover.actions.addNote")}
               >
-                <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-180')} />
+                <ChevronDown
+                  className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")}
+                />
               </Button>
             </PopoverTrigger>
           </div>

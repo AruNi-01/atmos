@@ -2,19 +2,13 @@
 
 import { createRef, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import {
-  ArrowLeftIcon,
-  List,
-} from "lucide-react";
+import { ArrowLeftIcon, List } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "@atmos/i18n/navigation";
 import { CTA1 } from "@workspace/ui/components/cta-1";
-import {
-  GithubIcon,
-  type GithubIconHandle,
-} from "@workspace/ui/components/icons/github-icon";
+import { GithubIcon, type GithubIconHandle } from "@workspace/ui/components/icons/github-icon";
 import {
   Accordion,
   AccordionContent,
@@ -30,14 +24,10 @@ import { changelogData } from "@/lib/changelog-data";
 import { cn, formatDate } from "@/lib/utils";
 
 const sectionBadgeClasses = {
-  features:
-    "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
-  improvements:
-    "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300",
-  fixes:
-    "bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300",
-  others:
-    "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-300",
+  features: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
+  improvements: "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300",
+  fixes: "bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300",
+  others: "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-300",
 } as const;
 
 const normalizeHashValue = (value: string) => {
@@ -54,7 +44,7 @@ export default function ChangelogPage() {
   const [isScrolling, setIsScrolling] = useState(false);
   const githubIconRef = useRef<GithubIconHandle>(null);
   const [releaseGithubIconRefs] = useState(() =>
-    changelogData.map(() => createRef<GithubIconHandle>())
+    changelogData.map(() => createRef<GithubIconHandle>()),
   );
 
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
@@ -74,7 +64,9 @@ export default function ChangelogPage() {
 
   useEffect(() => {
     if (!lightbox) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeLightbox(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeLightbox();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, closeLightbox]);
@@ -89,7 +81,7 @@ export default function ChangelogPage() {
           window.history.replaceState(
             null,
             "",
-            `${window.location.pathname}${window.location.search}#${hash}`
+            `${window.location.pathname}${window.location.search}#${hash}`,
           );
         }
 
@@ -124,7 +116,7 @@ export default function ChangelogPage() {
           }
         });
       },
-      { rootMargin: "-20% 0px -70% 0px" }
+      { rootMargin: "-20% 0px -70% 0px" },
     );
 
     changelogData.forEach((item) => {
@@ -144,7 +136,7 @@ export default function ChangelogPage() {
     window.history.pushState(
       null,
       "",
-      `${window.location.pathname}${window.location.search}#${id}`
+      `${window.location.pathname}${window.location.search}#${id}`,
     );
 
     const element = document.getElementById(id);
@@ -186,7 +178,7 @@ export default function ChangelogPage() {
                     "hover:bg-muted/50",
                     activeId === `v${item.version}`
                       ? "bg-primary/10 font-medium text-primary"
-                      : "text-muted-foreground"
+                      : "text-muted-foreground",
                   )}
                 >
                   <span className="mr-2 font-mono text-xs">v{item.version}</span>
@@ -228,11 +220,7 @@ export default function ChangelogPage() {
                     onBlur={() => githubIconRef.current?.stopAnimation()}
                   >
                     {t("changelog.viewOnGitHub")}
-                    <GithubIcon
-                      ref={githubIconRef}
-                      className="text-current"
-                      size={18}
-                    />
+                    <GithubIcon ref={githubIconRef} className="text-current" size={18} />
                   </a>
                 </Button>
               }
@@ -271,41 +259,37 @@ export default function ChangelogPage() {
 
         <LandingFrame>
           <div className="px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-            <div className="mx-auto min-w-0 max-w-4xl pr-2 xl:ml-0 xl:max-w-3xl">
+            <div className="mx-auto max-w-4xl min-w-0 pr-2 xl:ml-0 xl:max-w-3xl">
               <div className="relative">
                 {changelogData.map((item, itemIndex) => {
-              const date = new Date(item.date);
-              const formattedDate = formatDate(date, language);
-              const versionId = item.version ? `v${item.version}` : undefined;
-              const sections = [
-                {
-                  key: "features",
-                  label: t("changelog.features"),
-                  items: item.content[language].features,
-                },
-                {
-                  key: "improvements",
-                  label: t("changelog.improvements"),
-                  items: item.content[language].improvements,
-                },
-                {
-                  key: "fixes",
-                  label: t("changelog.fixes"),
-                  items: item.content[language].fixes,
-                },
-                {
-                  key: "others",
-                  label: t("changelog.others"),
-                  items: item.content[language].others,
-                },
-              ] as const;
+                  const date = new Date(item.date);
+                  const formattedDate = formatDate(date, language);
+                  const versionId = item.version ? `v${item.version}` : undefined;
+                  const sections = [
+                    {
+                      key: "features",
+                      label: t("changelog.features"),
+                      items: item.content[language].features,
+                    },
+                    {
+                      key: "improvements",
+                      label: t("changelog.improvements"),
+                      items: item.content[language].improvements,
+                    },
+                    {
+                      key: "fixes",
+                      label: t("changelog.fixes"),
+                      items: item.content[language].fixes,
+                    },
+                    {
+                      key: "others",
+                      label: t("changelog.others"),
+                      items: item.content[language].others,
+                    },
+                  ] as const;
 
                   return (
-                    <div
-                      key={item.id}
-                      id={versionId}
-                      className="relative scroll-mt-20"
-                    >
+                    <div key={item.id} id={versionId} className="relative scroll-mt-20">
                       <div className="flex flex-col gap-y-6 md:flex-row">
                         <div className="shrink-0 md:w-40">
                           <div className="pb-10 md:sticky md:top-26">
@@ -340,7 +324,7 @@ export default function ChangelogPage() {
                           <div className="space-y-6">
                             <div className="relative z-10 flex flex-col gap-2">
                               <div className="flex items-start gap-2">
-                                <h2 className="text-balance text-2xl font-semibold tracking-tight">
+                                <h2 className="text-2xl font-semibold tracking-tight text-balance">
                                   {item.title[language]}
                                 </h2>
 
@@ -358,24 +342,16 @@ export default function ChangelogPage() {
                                       aria-label={t("changelog.viewOnGitHub")}
                                       title={t("changelog.viewOnGitHub")}
                                       onMouseEnter={() =>
-                                        releaseGithubIconRefs[
-                                          itemIndex
-                                        ]?.current?.startAnimation()
+                                        releaseGithubIconRefs[itemIndex]?.current?.startAnimation()
                                       }
                                       onMouseLeave={() =>
-                                        releaseGithubIconRefs[
-                                          itemIndex
-                                        ]?.current?.stopAnimation()
+                                        releaseGithubIconRefs[itemIndex]?.current?.stopAnimation()
                                       }
                                       onFocus={() =>
-                                        releaseGithubIconRefs[
-                                          itemIndex
-                                        ]?.current?.startAnimation()
+                                        releaseGithubIconRefs[itemIndex]?.current?.startAnimation()
                                       }
                                       onBlur={() =>
-                                        releaseGithubIconRefs[
-                                          itemIndex
-                                        ]?.current?.stopAnimation()
+                                        releaseGithubIconRefs[itemIndex]?.current?.stopAnimation()
                                       }
                                     >
                                       <GithubIcon
@@ -402,7 +378,7 @@ export default function ChangelogPage() {
                               )}
                             </div>
 
-                            <div className="prose prose-sm max-w-none text-muted-foreground prose-p:my-0 prose-a:text-primary prose-a:underline dark:prose-invert [&_a]:underline">
+                            <div className="prose prose-sm prose-p:my-0 prose-a:text-primary prose-a:underline dark:prose-invert max-w-none text-muted-foreground [&_a]:underline">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                 {item.description[language]}
                               </ReactMarkdown>
@@ -412,7 +388,7 @@ export default function ChangelogPage() {
                               <button
                                 type="button"
                                 onClick={() => openLightbox(item.image!, item.title[language])}
-                                className="group w-full cursor-zoom-in overflow-hidden rounded-lg border bg-muted transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="group w-full cursor-zoom-in overflow-hidden rounded-lg border bg-muted transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
                               >
                                 <Image
                                   src={item.image}
@@ -437,7 +413,7 @@ export default function ChangelogPage() {
                                           variant="outline"
                                           className={cn(
                                             "rounded-md border-0 px-2.5 py-1 text-xs font-semibold shadow-none",
-                                            sectionBadgeClasses[section.key]
+                                            sectionBadgeClasses[section.key],
                                           )}
                                         >
                                           {section.label}
@@ -448,7 +424,7 @@ export default function ChangelogPage() {
                                           {section.items.map((entry, index) => (
                                             <li
                                               key={index}
-                                              className="prose prose-sm max-w-none prose-p:my-0 prose-a:text-primary prose-a:underline prose-strong:text-foreground dark:prose-invert [&_a]:underline"
+                                              className="prose prose-sm prose-p:my-0 prose-a:text-primary prose-a:underline prose-strong:text-foreground dark:prose-invert max-w-none [&_a]:underline"
                                             >
                                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                                 {entry}
@@ -458,7 +434,7 @@ export default function ChangelogPage() {
                                         </ul>
                                       </AccordionContent>
                                     </AccordionItem>
-                                  )
+                                  ),
                               )}
                             </Accordion>
                           </div>
@@ -481,13 +457,13 @@ export default function ChangelogPage() {
           onClick={closeLightbox}
           className={cn(
             "fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-300",
-            lightboxVisible ? "bg-black/80 backdrop-blur-sm" : "bg-black/0 backdrop-blur-none"
+            lightboxVisible ? "bg-black/80 backdrop-blur-sm" : "bg-black/0 backdrop-blur-none",
           )}
         >
           <div
             className={cn(
               "relative max-h-[90vh] max-w-[90vw] cursor-zoom-out overflow-hidden rounded-xl shadow-2xl transition-all duration-300",
-              lightboxVisible ? "scale-100 opacity-100" : "scale-90 opacity-0"
+              lightboxVisible ? "scale-100 opacity-100" : "scale-90 opacity-0",
             )}
             onClick={closeLightbox}
           >

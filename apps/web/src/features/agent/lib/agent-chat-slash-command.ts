@@ -13,11 +13,9 @@ export function composeAgentChatPrompt(
 
 export function expandAgentComposerText(text: string): string {
   return stripSkillDisableSession(
-    resolvePromptPlaceholders(
-      text.replace(/\u00A0/g, " ").replace(/\/cmd:([^\s]+)/g, "/$1"),
-      [],
-      { preserveFileMentions: true },
-    ),
+    resolvePromptPlaceholders(text.replace(/\u00A0/g, " ").replace(/\/cmd:([^\s]+)/g, "/$1"), [], {
+      preserveFileMentions: true,
+    }),
   ).trim();
 }
 

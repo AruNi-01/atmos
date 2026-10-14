@@ -1,21 +1,25 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { create } from 'zustand';
-import { toastManager } from '@workspace/ui';
-import { useTranslations } from 'next-intl';
+import * as React from "react";
+import { create } from "zustand";
+import { toastManager } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 
-import { functionSettingsApi } from '@/api/ws-api';
-import { getComputerQueryScope } from '@/api/query/query-scope';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
+import { functionSettingsApi } from "@/api/ws-api";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
 /** xterm.js cursorStyle presets. */
-export type TerminalCursorStyle = 'block' | 'underline' | 'bar';
+export type TerminalCursorStyle = "block" | "underline" | "bar";
 
-export const TERMINAL_CURSOR_STYLES = ['block', 'underline', 'bar'] as const satisfies readonly TerminalCursorStyle[];
+export const TERMINAL_CURSOR_STYLES = [
+  "block",
+  "underline",
+  "bar",
+] as const satisfies readonly TerminalCursorStyle[];
 
 /** Match historical defaultTerminalOptions (underline + blink). */
-export const DEFAULT_TERMINAL_CURSOR_STYLE: TerminalCursorStyle = 'underline';
+export const DEFAULT_TERMINAL_CURSOR_STYLE: TerminalCursorStyle = "underline";
 export const DEFAULT_TERMINAL_CURSOR_BLINK = true;
 
 interface TerminalAppearanceSettingsState {
@@ -42,29 +46,29 @@ let hydratedStyleFromServer = false;
 let hydratedBlinkFromServer = false;
 
 export function parseTerminalCursorStyle(value: unknown): TerminalCursorStyle {
-  return value === 'block' || value === 'underline' || value === 'bar'
+  return value === "block" || value === "underline" || value === "bar"
     ? value
     : DEFAULT_TERMINAL_CURSOR_STYLE;
 }
 
 function asBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === 'boolean' ? value : fallback;
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function terminalAppearanceSettingsText(
-  key: 'syncFailedTitle' | 'cursorStyleFailed' | 'cursorBlinkFailed',
+  key: "syncFailedTitle" | "cursorStyleFailed" | "cursorBlinkFailed",
 ): string {
   if (terminalAppearanceSettingsTranslator) {
     return terminalAppearanceSettingsTranslator(key);
   }
 
   switch (key) {
-    case 'syncFailedTitle':
-      return 'Settings Sync Failed';
-    case 'cursorStyleFailed':
-      return 'Failed to update the terminal cursor style.';
-    case 'cursorBlinkFailed':
-      return 'Failed to update terminal cursor blink.';
+    case "syncFailedTitle":
+      return "Settings Sync Failed";
+    case "cursorStyleFailed":
+      return "Failed to update the terminal cursor style.";
+    case "cursorBlinkFailed":
+      return "Failed to update terminal cursor blink.";
   }
 }
 
@@ -146,7 +150,7 @@ const terminalAppearanceSettingsStore = create<TerminalAppearanceSettingsState>(
     });
 
     try {
-      await functionSettingsApi.update('terminal', 'cursor_style', next, expectedScope);
+      await functionSettingsApi.update("terminal", "cursor_style", next, expectedScope);
       lastPersistedCursorStyle = next;
     } catch {
       if (styleRequestToken === requestToken) {
@@ -160,9 +164,9 @@ const terminalAppearanceSettingsStore = create<TerminalAppearanceSettingsState>(
         set({ cursorStyle: lastPersistedCursorStyle });
       }
       toastManager.add({
-        title: terminalAppearanceSettingsText('syncFailedTitle'),
-        description: terminalAppearanceSettingsText('cursorStyleFailed'),
-        type: 'error',
+        title: terminalAppearanceSettingsText("syncFailedTitle"),
+        description: terminalAppearanceSettingsText("cursorStyleFailed"),
+        type: "error",
       });
     }
   },
@@ -177,7 +181,7 @@ const terminalAppearanceSettingsStore = create<TerminalAppearanceSettingsState>(
     });
 
     try {
-      await functionSettingsApi.update('terminal', 'cursor_blink', blink, expectedScope);
+      await functionSettingsApi.update("terminal", "cursor_blink", blink, expectedScope);
       lastPersistedCursorBlink = blink;
     } catch {
       if (blinkRequestToken === requestToken) {
@@ -191,9 +195,9 @@ const terminalAppearanceSettingsStore = create<TerminalAppearanceSettingsState>(
         set({ cursorBlink: lastPersistedCursorBlink });
       }
       toastManager.add({
-        title: terminalAppearanceSettingsText('syncFailedTitle'),
-        description: terminalAppearanceSettingsText('cursorBlinkFailed'),
-        type: 'error',
+        title: terminalAppearanceSettingsText("syncFailedTitle"),
+        description: terminalAppearanceSettingsText("cursorBlinkFailed"),
+        type: "error",
       });
     }
   },
@@ -206,7 +210,7 @@ function useTerminalAppearanceSettingsStoreHook<T>(
 function useTerminalAppearanceSettingsStoreHook<T>(
   selector?: (state: TerminalAppearanceSettingsState) => T,
 ): T | TerminalAppearanceSettingsState {
-  const t = useTranslations('settings.terminalAppearanceSettingsStore');
+  const t = useTranslations("settings.terminalAppearanceSettingsStore");
 
   React.useEffect(() => {
     terminalAppearanceSettingsTranslator = t;

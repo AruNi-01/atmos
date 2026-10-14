@@ -36,10 +36,7 @@ export type AuthenticatedRelayClient = {
   readonly baseUrl: string;
   readonly deviceCredential: string;
   listComputers(): Promise<ComputerRow[]>;
-  renameComputer(
-    serverId: string,
-    displayName: string,
-  ): Promise<RenameComputerResponse>;
+  renameComputer(serverId: string, displayName: string): Promise<RenameComputerResponse>;
   revokeComputer(serverId: string): Promise<RevokeComputerResponse>;
   createRegisterToken(): Promise<RegisterTokenResponse>;
   createClientSession(
@@ -56,10 +53,7 @@ export type RelayClient = {
     serverId: string,
     displayName: string,
   ): Promise<RenameComputerResponse>;
-  revokeComputer(
-    deviceCredential: string,
-    serverId: string,
-  ): Promise<RevokeComputerResponse>;
+  revokeComputer(deviceCredential: string, serverId: string): Promise<RevokeComputerResponse>;
   createRegisterToken(deviceCredential: string): Promise<RegisterTokenResponse>;
   createClientSession(
     deviceCredential: string,
@@ -94,8 +88,7 @@ export function createRelayClient(config: RelayClientConfig): RelayClient {
       Authorization: `Bearer ${token}`,
       ...(relaySecretKey ? { [RELAY_SECRET_HEADER]: relaySecretKey } : {}),
     };
-    const body =
-      opts.body === undefined ? undefined : JSON.stringify(opts.body);
+    const body = opts.body === undefined ? undefined : JSON.stringify(opts.body);
 
     return relayRequestJson<T>(transport, {
       baseUrl,
@@ -117,14 +110,11 @@ export function createRelayClient(config: RelayClientConfig): RelayClient {
     },
 
     renameComputer(deviceCredential, serverId, displayName) {
-      return request<RenameComputerResponse>(
-        `/v1/computers/${encodeURIComponent(serverId)}`,
-        {
-          deviceCredential,
-          method: "PATCH",
-          body: { display_name: displayName },
-        },
-      );
+      return request<RenameComputerResponse>(`/v1/computers/${encodeURIComponent(serverId)}`, {
+        deviceCredential,
+        method: "PATCH",
+        body: { display_name: displayName },
+      });
     },
 
     revokeComputer(deviceCredential, serverId) {

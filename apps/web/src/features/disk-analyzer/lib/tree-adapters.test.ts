@@ -113,7 +113,11 @@ describe("disk analyzer tree adapters", () => {
       path: "/cache-home",
       children: sample.children,
     };
-    const parentMatch = filterTree(homeOnly, { query: "cache-home", minSize: 0, projectsOnly: false });
+    const parentMatch = filterTree(homeOnly, {
+      query: "cache-home",
+      minSize: 0,
+      projectsOnly: false,
+    });
     expect(parentMatch).not.toBeNull();
     expect(parentMatch!.children).toEqual([]);
   });
@@ -195,11 +199,13 @@ describe("disk analyzer tree adapters", () => {
     expect(isAtmosOverviewPath(ATMOS_OVERVIEW_PATH)).toBe(true);
     expect(isAtmosOverviewPath(GIT_WORKTREES_GROUP_PATH)).toBe(false);
     expect(isAtmosSyntheticPath(GIT_WORKTREES_GROUP_PATH)).toBe(true);
-    expect(localizedSyntheticName(AGENT_DATA_GROUP_PATH, {
-      atmosRoot: "Atmos",
-      agentData: "Agent data",
-      gitWorktrees: "Git worktrees",
-    })).toBe("Agent data");
+    expect(
+      localizedSyntheticName(AGENT_DATA_GROUP_PATH, {
+        atmosRoot: "Atmos",
+        agentData: "Agent data",
+        gitWorktrees: "Git worktrees",
+      }),
+    ).toBe("Agent data");
     const group: DiskNode = {
       name: "Git worktrees",
       path: GIT_WORKTREES_GROUP_PATH,
@@ -270,12 +276,11 @@ describe("disk analyzer tree adapters", () => {
   });
 
   test("percent-encoded session folders show a short decoded name", () => {
-    const encoded =
-      "%2FUsers%2Flurunrun%2Fown_spa%2F%E4%B8%AD%E6%96%87%E9%A1%B9%E7%9B%AE";
+    const encoded = "%2FUsers%2Flurunrun%2Fown_spa%2F%E4%B8%AD%E6%96%87%E9%A1%B9%E7%9B%AE";
     expect(friendlyDiskEntryName(encoded)).toBe("中文项目");
-    expect(
-      friendlyDiskEntryPath(`/Users/lurunrun/.grok/sessions/${encoded}`),
-    ).toBe("/Users/lurunrun/own_spa/中文项目");
+    expect(friendlyDiskEntryPath(`/Users/lurunrun/.grok/sessions/${encoded}`)).toBe(
+      "/Users/lurunrun/own_spa/中文项目",
+    );
     expect(friendlyDiskEntryName("src")).toBe("src");
     expect(friendlyDiskEntryPath("/Users/lurunrun/src")).toBe("/Users/lurunrun/src");
     expect(
@@ -287,9 +292,7 @@ describe("disk analyzer tree adapters", () => {
       friendlyDiskEntryPath(
         "/Users/lurunrun/.grok/sessions/%2FUsers%2Flurunrun%2Fown_space%2FOpen Source%2Fatmos/019fc5bb-c28c-7c73-aa3a-5d952100f71d",
       ),
-    ).toBe(
-      "/Users/lurunrun/own_space/Open Source/atmos/019fc5bb-c28c-7c73-aa3a-5d952100f71d",
-    );
+    ).toBe("/Users/lurunrun/own_space/Open Source/atmos/019fc5bb-c28c-7c73-aa3a-5d952100f71d");
     const chart = toEChartsTree(
       {
         name: encoded,
@@ -571,9 +574,7 @@ describe("disk analyzer tree adapters", () => {
   test("buildBreadcrumbs does not collapse to root while deep focus is loading", () => {
     const shallowRoot: DiskNode = {
       ...sample,
-      children: sample.children?.map((c) =>
-        c.path === "/home/proj" ? { ...c, children: [] } : c,
-      ),
+      children: sample.children?.map((c) => (c.path === "/home/proj" ? { ...c, children: [] } : c)),
     };
     const levelCache: Record<string, DiskNode> = {
       "/home/proj": {
@@ -969,9 +970,7 @@ describe("disk analyzer tree adapters", () => {
     // Only top-level visible tiles — nested src/target is ignored.
     const tips = collectCleanupSuggestions(children);
     expect(tips.map((t) => t.name).sort()).toEqual(["node_modules", "target"]);
-    expect(tips.every((t) => t.path.startsWith("/proj/") && !t.path.includes("/src/"))).toBe(
-      true,
-    );
+    expect(tips.every((t) => t.path.startsWith("/proj/") && !t.path.includes("/src/"))).toBe(true);
     // When user drills into src, only that level's children matter.
     const srcLevel = collectCleanupSuggestions(children[1].children);
     expect(srcLevel.map((t) => t.name)).toEqual(["target"]);
@@ -1063,11 +1062,7 @@ describe("disk analyzer suggestion helpers", () => {
       ],
       now,
     );
-    expect(groups.map((group) => group.kind)).toEqual([
-      "cache",
-      "worktree",
-      "session",
-    ]);
+    expect(groups.map((group) => group.kind)).toEqual(["cache", "worktree", "session"]);
     expect(groups[0].buckets).toHaveLength(1);
     expect(groups[0].buckets[0].items).toHaveLength(2);
     expect(groups[0].buckets[0].name).toBe("node_modules");
@@ -1156,9 +1151,7 @@ describe("disk analyzer suggestion helpers", () => {
     };
     expect(compareSuggestionsForCleanup(tiny, fresh, now)).toBeGreaterThan(0);
     expect(compareSuggestionsForCleanup(stale, fresh, now)).toBeLessThan(0);
-    expect(suggestCleanupScore(stale, now)).toBeGreaterThan(
-      suggestCleanupScore(fresh, now),
-    );
+    expect(suggestCleanupScore(stale, now)).toBeGreaterThan(suggestCleanupScore(fresh, now));
     expect(suggestIdleDays(undefined, now)).toBeNull();
     expect(suggestIdleDays(0, now)).toBeNull();
     expect(suggestIdleDays(now - 12 * 60 * 60 * 1000, now)).toBe(1);
@@ -1226,12 +1219,8 @@ describe("disk analyzer suggestion helpers", () => {
   });
 
   test("suggestionSurvivesDelete drops the path and its children", () => {
-    expect(suggestionSurvivesDelete("/a/node_modules", ["/a/node_modules"])).toBe(
-      false,
-    );
-    expect(suggestionSurvivesDelete("/a/node_modules/pkg", ["/a/node_modules"])).toBe(
-      false,
-    );
+    expect(suggestionSurvivesDelete("/a/node_modules", ["/a/node_modules"])).toBe(false);
+    expect(suggestionSurvivesDelete("/a/node_modules/pkg", ["/a/node_modules"])).toBe(false);
     expect(suggestionSurvivesDelete("/b/target", ["/a/node_modules"])).toBe(true);
   });
 });

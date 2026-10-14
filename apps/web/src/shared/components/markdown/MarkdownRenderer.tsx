@@ -1,30 +1,30 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
-import ReactMarkdown, { type Components } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSlug from 'rehype-slug';
-import rehypeRaw from 'rehype-raw';
-import rehypeSanitize from 'rehype-sanitize';
-import remarkBreaks from 'remark-breaks';
-import { useTheme } from 'next-themes';
-import { cn } from '@workspace/ui';
-import { FileDiff, Code } from 'lucide-react';
-import { isMarkdownPatchCode, MarkdownPatchDiff } from './MarkdownPatchDiff';
-import { MermaidBlock } from './MermaidBlock';
-import { isMermaidFenceLanguage } from './mermaid-view';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+import remarkBreaks from "remark-breaks";
+import { useTheme } from "next-themes";
+import { cn } from "@workspace/ui";
+import { FileDiff, Code } from "lucide-react";
+import { isMarkdownPatchCode, MarkdownPatchDiff } from "./MarkdownPatchDiff";
+import { MermaidBlock } from "./MermaidBlock";
+import { isMermaidFenceLanguage } from "./mermaid-view";
 import {
   CodeBlock,
   CodeBlockHeader,
   CodeBlockGroup,
   CodeBlockContent,
   CodeBlockIcon,
-} from '@/shared/components/code-block/code-block';
+} from "@/shared/components/code-block/code-block";
 import { resolveRelativeMarkdownPath } from "@/shared/lib/markdown-links";
-import { CopyButton } from '@/shared/components/code-block/copy-button';
-import { ExpandButton } from '@/shared/components/code-block/expand-button';
-import { highlight, DualThemes, type Languages } from '@/shared/utils/shiki';
+import { CopyButton } from "@/shared/components/code-block/copy-button";
+import { ExpandButton } from "@/shared/components/code-block/expand-button";
+import { highlight, DualThemes, type Languages } from "@/shared/utils/shiki";
 import {
   MARKDOWN_TABLE_CLASS,
   MARKDOWN_TABLE_HEAD_CLASS,
@@ -32,49 +32,70 @@ import {
   MARKDOWN_TABLE_TD_CLASS,
   MARKDOWN_TABLE_TH_CLASS,
   MARKDOWN_TABLE_WRAP_CLASS,
-} from '@/shared/components/markdown/markdown-table';
-import { useIsCodeFenceIncomplete } from 'streamdown';
+} from "@/shared/components/markdown/markdown-table";
+import { useIsCodeFenceIncomplete } from "streamdown";
 
 const LANG_ALIASES: Record<string, string> = {
-  sh: 'bash',
-  shell: 'bash',
-  zsh: 'bash',
-  js: 'javascript',
-  ts: 'typescript',
-  py: 'python',
-  rs: 'rust',
-  yml: 'yaml',
-  'c++': 'cpp',
-  md: 'markdown',
+  sh: "bash",
+  shell: "bash",
+  zsh: "bash",
+  js: "javascript",
+  ts: "typescript",
+  py: "python",
+  rs: "rust",
+  yml: "yaml",
+  "c++": "cpp",
+  md: "markdown",
 };
 
 const LANG_TO_EXT: Record<string, string> = {
-  javascript: 'js',
-  typescript: 'ts',
-  tsx: 'tsx',
-  jsx: 'jsx',
-  python: 'py',
-  rust: 'rs',
-  bash: 'sh',
-  shellscript: 'sh',
-  markdown: 'md',
-  yaml: 'yml',
-  toml: 'toml',
-  json: 'json',
-  html: 'html',
-  css: 'css',
-  go: 'go',
-  java: 'java',
-  sql: 'sql',
-  dockerfile: 'dockerfile',
-  c: 'c',
-  cpp: 'cpp',
+  javascript: "js",
+  typescript: "ts",
+  tsx: "tsx",
+  jsx: "jsx",
+  python: "py",
+  rust: "rs",
+  bash: "sh",
+  shellscript: "sh",
+  markdown: "md",
+  yaml: "yml",
+  toml: "toml",
+  json: "json",
+  html: "html",
+  css: "css",
+  go: "go",
+  java: "java",
+  sql: "sql",
+  dockerfile: "dockerfile",
+  c: "c",
+  cpp: "cpp",
 };
 
 const SUPPORTED_LANGS = new Set([
-  'html', 'javascript', 'typescript', 'tsx', 'jsx', 'css', 'json',
-  'bash', 'shellscript', 'markdown', 'python', 'rust', 'go', 'java',
-  'yaml', 'toml', 'sql', 'dockerfile', 'c', 'cpp', 'diff', 'plaintext', 'text', 'txt',
+  "html",
+  "javascript",
+  "typescript",
+  "tsx",
+  "jsx",
+  "css",
+  "json",
+  "bash",
+  "shellscript",
+  "markdown",
+  "python",
+  "rust",
+  "go",
+  "java",
+  "yaml",
+  "toml",
+  "sql",
+  "dockerfile",
+  "c",
+  "cpp",
+  "diff",
+  "plaintext",
+  "text",
+  "txt",
 ]);
 
 function normalizeLang(lang: string): string {
@@ -82,13 +103,7 @@ function normalizeLang(lang: string): string {
   return LANG_ALIASES[lower] ?? lower;
 }
 
-function ShikiCode({
-  code,
-  language,
-}: {
-  code: string;
-  language: string;
-}) {
+function ShikiCode({ code, language }: { code: string; language: string }) {
   const [html, setHtml] = useState<string | null>(null);
 
   useEffect(() => {
@@ -107,12 +122,14 @@ function ShikiCode({
         const result = highlighter.codeToHtml(code, {
           lang: normalized as Languages,
           themes: DualThemes,
-          transformers: [{
-            name: 'add-line-numbers',
-            pre(node) {
-              node.properties.class = `${node.properties.class ?? ''} shiki-line-numbers`;
+          transformers: [
+            {
+              name: "add-line-numbers",
+              pre(node) {
+                node.properties.class = `${node.properties.class ?? ""} shiki-line-numbers`;
+              },
             },
-          }],
+          ],
         });
         setHtml(result);
       })
@@ -137,14 +154,14 @@ function ShikiCode({
 }
 
 function PlainTextWithLineNumbers({ code }: { code: string }) {
-  const lines = code.split('\n');
+  const lines = code.split("\n");
 
   return (
     <pre className="shiki-line-numbers py-3">
       <code>
         {lines.map((line, idx) => (
           <span key={idx} className="line block px-3 py-0.5 text-[13px] leading-relaxed">
-            {line || ' '}
+            {line || " "}
           </span>
         ))}
       </code>
@@ -152,14 +169,18 @@ function PlainTextWithLineNumbers({ code }: { code: string }) {
   );
 }
 
-export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
+export function MarkdownCodeBlock({
+  className,
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<"code">) {
   const t = useTranslations("shared.markdownRenderer");
   const fenceIncomplete = useIsCodeFenceIncomplete();
-  const match = /language-(\w+)/.exec(className || '');
-  const language = match ? match[1] : '';
-  const codeText = String(children).replace(/\n$/, '');
+  const match = /language-(\w+)/.exec(className || "");
+  const language = match ? match[1] : "";
+  const codeText = String(children).replace(/\n$/, "");
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
+  const isDark = resolvedTheme === "dark";
   const [expanded, setExpanded] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -180,14 +201,20 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return () => observer.disconnect();
   }, [checkOverflow]);
 
-  const normalizedLang = language ? normalizeLang(language) : '';
-  const isDiffLang = normalizedLang === 'diff';
+  const normalizedLang = language ? normalizeLang(language) : "";
+  const isDiffLang = normalizedLang === "diff";
 
-  const isInline = !className && !String(children).includes('\n');
+  const isInline = !className && !String(children).includes("\n");
 
   if (isInline) {
     return (
-      <code className={cn(className, "px-1.5 py-0.5 rounded text-[13px] bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200")} {...props}>
+      <code
+        className={cn(
+          className,
+          "rounded bg-zinc-100 px-1.5 py-0.5 text-[13px] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200",
+        )}
+        {...props}
+      >
         {children}
       </code>
     );
@@ -203,7 +230,7 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
 
   const hasLang = !!language;
   const usePlainTextWithLineNumbers = !hasLang || !SUPPORTED_LANGS.has(normalizedLang);
-  const shikiLanguage = hasLang ? (normalizedLang || language) : 'plaintext';
+  const shikiLanguage = hasLang ? normalizedLang || language : "plaintext";
 
   return (
     <CodeBlock className="my-4">
@@ -212,28 +239,22 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
           {isDiffLang ? (
             <FileDiff className="size-4 shrink-0" />
           ) : hasLang ? (
-            <CodeBlockIcon language={LANG_TO_EXT[normalizedLang] || language || 'txt'} />
+            <CodeBlockIcon language={LANG_TO_EXT[normalizedLang] || language || "txt"} />
           ) : (
             <Code className="size-4 shrink-0" />
           )}
-          <span className="text-xs uppercase tracking-wider">
-            {isDiffLang ? t("common.diff") : (language || t("common.codeBlock"))}
+          <span className="text-xs tracking-wider uppercase">
+            {isDiffLang ? t("common.diff") : language || t("common.codeBlock")}
           </span>
         </CodeBlockGroup>
         <CodeBlockGroup>
           {(hasOverflow || expanded) && (
-            <ExpandButton
-              expanded={expanded}
-              onToggle={() => setExpanded((v) => !v)}
-            />
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((v) => !v)} />
           )}
           <CopyButton content={codeText} />
         </CodeBlockGroup>
       </CodeBlockHeader>
-      <CodeBlockContent
-        ref={contentRef}
-        expanded={expanded}
-      >
+      <CodeBlockContent ref={contentRef} expanded={expanded}>
         {usePlainTextWithLineNumbers ? (
           <PlainTextWithLineNumbers code={codeText} />
         ) : (
@@ -276,10 +297,7 @@ const DEFAULT_MARKDOWN_COMPONENTS: Components = {
   ),
   h3: ({ node: _node, className, children, ...props }) => (
     <h3
-      className={cn(
-        "mt-4 mb-2 text-lg font-semibold text-foreground first:mt-0",
-        className,
-      )}
+      className={cn("mt-4 mb-2 text-lg font-semibold text-foreground first:mt-0", className)}
       {...props}
     >
       {children}
@@ -287,10 +305,7 @@ const DEFAULT_MARKDOWN_COMPONENTS: Components = {
   ),
   h4: ({ node: _node, className, children, ...props }) => (
     <h4
-      className={cn(
-        "mt-3 mb-1.5 text-base font-semibold text-foreground first:mt-0",
-        className,
-      )}
+      className={cn("mt-3 mb-1.5 text-base font-semibold text-foreground first:mt-0", className)}
       {...props}
     >
       {children}
@@ -304,18 +319,18 @@ const DEFAULT_MARKDOWN_COMPONENTS: Components = {
       <table className={MARKDOWN_TABLE_CLASS}>{children}</table>
     </div>
   ),
-  thead: ({ children }) => (
-    <thead className={MARKDOWN_TABLE_HEAD_CLASS}>{children}</thead>
-  ),
+  thead: ({ children }) => <thead className={MARKDOWN_TABLE_HEAD_CLASS}>{children}</thead>,
   th: ({ children, style }) => (
-    <th className={MARKDOWN_TABLE_TH_CLASS} style={style}>{children}</th>
+    <th className={MARKDOWN_TABLE_TH_CLASS} style={style}>
+      {children}
+    </th>
   ),
   td: ({ children, style }) => (
-    <td className={MARKDOWN_TABLE_TD_CLASS} style={style}>{children}</td>
+    <td className={MARKDOWN_TABLE_TD_CLASS} style={style}>
+      {children}
+    </td>
   ),
-  tr: ({ children }) => (
-    <tr className={MARKDOWN_TABLE_ROW_CLASS}>{children}</tr>
-  ),
+  tr: ({ children }) => <tr className={MARKDOWN_TABLE_ROW_CLASS}>{children}</tr>,
 };
 
 interface MarkdownRendererProps {
@@ -361,10 +376,7 @@ export function MarkdownRenderer({
 
   const components = React.useMemo(() => {
     const details: Components["details"] = ({ children, open, ...props }) => (
-      <MarkdownDetails
-        {...props}
-        startOpen={detailsFileOpen(open) || detailsOpenByDefault}
-      >
+      <MarkdownDetails {...props} startOpen={detailsFileOpen(open) || detailsOpenByDefault}>
         {children}
       </MarkdownDetails>
     );
@@ -395,23 +407,29 @@ export function MarkdownRenderer({
             </a>
           );
         }
-        return <a href={href} {...props}>{children}</a>;
+        return (
+          <a href={href} {...props}>
+            {children}
+          </a>
+        );
       },
     };
   }, [wikiBasePath, onWikiLinkNavigate, detailsOpenByDefault]);
 
   return (
-    <div className={cn(
-      "prose prose-[14px] max-w-none prose-code:before:content-none prose-code:after:content-none",
-      "prose-img:inline-block prose-img:m-0 prose-p:my-2 prose-a:break-all",
-      "[&_ul.contains-task-list]:list-none [&_ul.contains-task-list]:pl-0",
-      "[&_li.task-list-item]:list-none [&_li.task-list-item]:pl-0",
-      "[&_li.task-list-item]:flex [&_li.task-list-item]:items-start [&_li.task-list-item]:gap-2",
-      "[&_li.task-list-item>input]:mt-1 [&_li.task-list-item>input]:shrink-0",
-      "[&_picture]:inline-block [&_img]:inline-block [&_img]:m-0 [&_svg]:inline-block [&_svg]:align-middle [&_svg]:m-0",
-      resolvedTheme === 'dark' && "prose-invert",
-      className,
-    )}>
+    <div
+      className={cn(
+        "prose prose-[14px] prose-code:before:content-none prose-code:after:content-none max-w-none",
+        "prose-img:inline-block prose-img:m-0 prose-p:my-2 prose-a:break-all",
+        "[&_ul.contains-task-list]:list-none [&_ul.contains-task-list]:pl-0",
+        "[&_li.task-list-item]:list-none [&_li.task-list-item]:pl-0",
+        "[&_li.task-list-item]:flex [&_li.task-list-item]:items-start [&_li.task-list-item]:gap-2",
+        "[&_li.task-list-item>input]:mt-1 [&_li.task-list-item>input]:shrink-0",
+        "[&_img]:m-0 [&_img]:inline-block [&_picture]:inline-block [&_svg]:m-0 [&_svg]:inline-block [&_svg]:align-middle",
+        resolvedTheme === "dark" && "prose-invert",
+        className,
+      )}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
         // rehype-raw enables limited HTML in GFM (e.g. <details>); rehype-sanitize

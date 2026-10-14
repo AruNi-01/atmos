@@ -73,7 +73,11 @@ describe("pt-design content-fit previews", () => {
     expect(isLiveRasterPreview(sketch)).toBe(false);
     expect(previewNeedsRegen(sketch, content, "content")).toBe(true);
     expect(
-      previewNeedsRegen("data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg viewBox="0 0 320 180"></svg>'), content),
+      previewNeedsRegen(
+        "data:image/svg+xml;charset=utf-8," +
+          encodeURIComponent('<svg viewBox="0 0 320 180"></svg>'),
+        content,
+      ),
     ).toBe(true);
     expect(previewNeedsRegen("data:image/png;base64,aaaa", content)).toBe(true);
     const livePng = `data:image/png;base64,${"A".repeat(120)}`;

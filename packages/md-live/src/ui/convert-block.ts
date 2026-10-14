@@ -4,10 +4,7 @@ import { lift, setBlockType, wrapIn } from "@milkdown/kit/prose/commands";
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { liftListItem } from "@milkdown/kit/prose/schema-list";
-import {
-  createCodeBlockCommand,
-  wrapInHeadingCommand,
-} from "@milkdown/kit/preset/commonmark";
+import { createCodeBlockCommand, wrapInHeadingCommand } from "@milkdown/kit/preset/commonmark";
 import type { MdLiveBlockAction } from "./types";
 import { mdLiveTaskMarkerOf } from "./task-list";
 import { insertMdLiveToggle } from "./toggle";
@@ -36,10 +33,10 @@ function ancestorName(state: EditorState, name: string): boolean {
 
 export function mdLiveVisibleConvertIds(state: EditorState): string[] {
   if (
-    ancestorName(state, "table")
-    || ancestorName(state, "table_cell")
-    || ancestorName(state, "table_header")
-    || ancestorName(state, "details_summary")
+    ancestorName(state, "table") ||
+    ancestorName(state, "table_cell") ||
+    ancestorName(state, "table_header") ||
+    ancestorName(state, "details_summary")
   ) {
     return [];
   }

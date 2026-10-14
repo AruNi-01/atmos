@@ -15,62 +15,62 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S3, S4 |
-| M3 | S2, S5 |
-| M4 | S6 |
-| M5 | S3, S7 |
-| M6 | S8 |
-| M7 | S8, S9 |
-| M8 | S10, S11, S16 |
-| M9 | S10, S16 |
-| M10 | S12 |
-| M11 | S9 |
-| M12 | S13 |
-| M13 | S14 |
-| M14 | S15 |
-| M15 | S17, S18, S19, S20, S24 |
-| M16 | S17, S18, S19, S20, S21, S22, S23 |
-| N1–N5 | deferred |
+| PRD item | Scenario IDs                      |
+| -------- | --------------------------------- |
+| M1       | S1, S2                            |
+| M2       | S3, S4                            |
+| M3       | S2, S5                            |
+| M4       | S6                                |
+| M5       | S3, S7                            |
+| M6       | S8                                |
+| M7       | S8, S9                            |
+| M8       | S10, S11, S16                     |
+| M9       | S10, S16                          |
+| M10      | S12                               |
+| M11      | S9                                |
+| M12      | S13                               |
+| M13      | S14                               |
+| M14      | S15                               |
+| M15      | S17, S18, S19, S20, S24           |
+| M16      | S17, S18, S19, S20, S21, S22, S23 |
+| N1–N5    | deferred                          |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust | `cargo test` | `cargo test -p agent descriptor` | catalog + live configOptions | one `AgentDescriptor`; no ACP snapshot on the struct | planned |
-| S2 | Bun | `bun test` | composer option tests | descriptor with/without thinking and modes | thinking control omitted when `thinking: none` | planned |
-| S3 | Rust | `cargo test` | `AgentAction::Steer` on unsupported ACP | generic ACP `steer: Unsupported` | `Unsupported`; no second `session/prompt` | planned |
-| S4 | Rust | `cargo test` | capabilities struct | fixture | no fork/compact fields | planned |
-| S5 | Rust | `cargo test` | catalog merge | models without thinking | `supported_options.thinking` is `None` | planned |
-| S6 | Rust + WS | `cargo test` | configure + meta | set model | `current_config.model` matches; picker not reading raw options list | planned |
-| S7 | Rust | `cargo test` | send/cancel still on core trait | runtime stub | send/cancel work without capability flags | planned |
-| S8 | Rust | `cargo test` | event_map | ACP tool_use fixture | Atmos `ToolCall*`; no `source` sidecar | planned |
-| S9 | Rust + Bun | `cargo test`, `bun test` | unknown tool name | weird vendor JSON | `kind: other`, params/result = vendor values, one generic card | planned |
-| S10 | Rust | `cargo test` | tool_map Claude bash + Codex command | two fixtures | both `params: Execute { command }` | planned |
-| S11 | Rust | `cargo test` | think/todo fold | think tool + TodoWrite | thinking/plan events, not tool kind | planned |
-| S12 | Bun | `bun test` | import/lint guard | `apps/web/src/features/agent` live path | no vendor `classifyTool` / background-command adapters as SOT | planned |
-| S13 | Rust | `cargo test` | get new jsonl | envelope with `params`/`result` | snapshot has those fields; no `input`/`output`/`native`; no spawn | planned |
-| S14 | Rust | `cargo test` | APP-067 gates | restore, queue, steer match, permission | existing agent_chat tests still pass | planned |
-| S15 | api-types | `bun test` | `@atmos/api-types` | extract + contract | still `agent_chat_*`; no new REST | planned |
-| S16 | Rust + Bun | `cargo test`, `bun test` | web_search + fetch maps | vendor web_search / webfetch fixtures | `kind: web_search` with links; `kind: fetch` with url/body; UI renders from result | planned |
-| S17 | Rust | `cargo test` | `providers/codex` codec + maps | recorded app-server JSONL (turn/start, item/commandExecution, webSearch, requestApproval, turn/steer) | execute/web_search/fetch/edit; steer supported; omit `jsonrpc` | planned |
-| S18 | Rust | `cargo test` | `providers/claude` codec + maps | recorded stream-json + `can_use_tool` | Bash→execute; WebSearch/WebFetch; permission event; steer unsupported | planned |
-| S19 | Rust | `cargo test` | `providers/pi` codec + maps | recorded `--mode rpc` JSONL | `steer` maps; tools from `tool_execution_*`; no Atmos queue via `follow_up` | planned |
-| S20 | Rust | `cargo test` | `providers/opencode` codec + maps | recorded SSE + `/doc` shapes | prompt_async path; permission.asked; steer unsupported; HTTP/1.1 note in spawn | planned |
-| S21 | Rust | `cargo test` | Codex/Claude/OpenCode/Pi permission answer | matching request fixtures | adapter emits Atmos permission then writes the vendor response dialect | planned |
-| S22 | Rust | `cargo test` | unknown vendor method/event | extra frame in fixture | session continues; skip or one Unknown; no panic | planned |
-| S23 | Rust | `cargo test` | framing | Codex without jsonrpc; Pi LF-only; Claude mixed control; OpenCode SSE `data:` | parse succeeds; Node-readline split is not used for Pi | planned |
-| S24 | Rust | `cargo test` | provider routing | ids claude/codex/opencode/pi vs grok | four native; grok ACP; Terminal builtin params unused by Chat spawn | planned |
-| S17 | Rust | `cargo test` | `providers/codex` codec + maps | recorded app-server JSONL | execute/fileChange/webSearch; steer requires `expectedTurnId`; approvals are server requests | planned |
-| S18 | Rust | `cargo test` | `providers/claude` codec + maps | recorded stream-json | Bash/Read/WebSearch/WebFetch; `can_use_tool` → permission; steer unsupported | planned |
-| S19 | Rust | `cargo test` | `providers/pi` codec + maps | recorded `--mode rpc` JSONL | prompt/steer/abort; tool_execution → execute; no Atmos queue via `follow_up` | planned |
-| S20 | Rust | `cargo test` | `providers/opencode` maps | recorded SSE + `/doc` shapes | prompt_async + part.updated; permission.asked; steer unsupported | planned |
-| S21 | Rust | `cargo test` | Codex approval reply | `item/commandExecution/requestApproval` fixture | adapter answers JSON-RPC request; turn does not stall | planned |
-| S22 | Rust | `cargo test` | unknown vendor method/event | extra frame in each fixture set | session continues; skip or one `Unknown`; no panic | planned |
-| S23 | Rust | `cargo test` | framing | Codex without `jsonrpc`; Pi LF-only; Claude mixed control | parsers accept official wire, reject wrong framing | planned |
-| S24 | Rust | `cargo test` | spawn routing | provider_id claude/codex/opencode/pi vs grok | native vs ACP; Terminal catalog argv unchanged | planned |
+| Scenario | Level      | Expected tool            | Target command / method                    | Fixture / data                                                                                        | Signals                                                                                      | Status  |
+| -------- | ---------- | ------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------- |
+| S1       | Rust       | `cargo test`             | `cargo test -p agent descriptor`           | catalog + live configOptions                                                                          | one `AgentDescriptor`; no ACP snapshot on the struct                                         | planned |
+| S2       | Bun        | `bun test`               | composer option tests                      | descriptor with/without thinking and modes                                                            | thinking control omitted when `thinking: none`                                               | planned |
+| S3       | Rust       | `cargo test`             | `AgentAction::Steer` on unsupported ACP    | generic ACP `steer: Unsupported`                                                                      | `Unsupported`; no second `session/prompt`                                                    | planned |
+| S4       | Rust       | `cargo test`             | capabilities struct                        | fixture                                                                                               | no fork/compact fields                                                                       | planned |
+| S5       | Rust       | `cargo test`             | catalog merge                              | models without thinking                                                                               | `supported_options.thinking` is `None`                                                       | planned |
+| S6       | Rust + WS  | `cargo test`             | configure + meta                           | set model                                                                                             | `current_config.model` matches; picker not reading raw options list                          | planned |
+| S7       | Rust       | `cargo test`             | send/cancel still on core trait            | runtime stub                                                                                          | send/cancel work without capability flags                                                    | planned |
+| S8       | Rust       | `cargo test`             | event_map                                  | ACP tool_use fixture                                                                                  | Atmos `ToolCall*`; no `source` sidecar                                                       | planned |
+| S9       | Rust + Bun | `cargo test`, `bun test` | unknown tool name                          | weird vendor JSON                                                                                     | `kind: other`, params/result = vendor values, one generic card                               | planned |
+| S10      | Rust       | `cargo test`             | tool_map Claude bash + Codex command       | two fixtures                                                                                          | both `params: Execute { command }`                                                           | planned |
+| S11      | Rust       | `cargo test`             | think/todo fold                            | think tool + TodoWrite                                                                                | thinking/plan events, not tool kind                                                          | planned |
+| S12      | Bun        | `bun test`               | import/lint guard                          | `apps/web/src/features/agent` live path                                                               | no vendor `classifyTool` / background-command adapters as SOT                                | planned |
+| S13      | Rust       | `cargo test`             | get new jsonl                              | envelope with `params`/`result`                                                                       | snapshot has those fields; no `input`/`output`/`native`; no spawn                            | planned |
+| S14      | Rust       | `cargo test`             | APP-067 gates                              | restore, queue, steer match, permission                                                               | existing agent_chat tests still pass                                                         | planned |
+| S15      | api-types  | `bun test`               | `@atmos/api-types`                         | extract + contract                                                                                    | still `agent_chat_*`; no new REST                                                            | planned |
+| S16      | Rust + Bun | `cargo test`, `bun test` | web_search + fetch maps                    | vendor web_search / webfetch fixtures                                                                 | `kind: web_search` with links; `kind: fetch` with url/body; UI renders from result           | planned |
+| S17      | Rust       | `cargo test`             | `providers/codex` codec + maps             | recorded app-server JSONL (turn/start, item/commandExecution, webSearch, requestApproval, turn/steer) | execute/web_search/fetch/edit; steer supported; omit `jsonrpc`                               | planned |
+| S18      | Rust       | `cargo test`             | `providers/claude` codec + maps            | recorded stream-json + `can_use_tool`                                                                 | Bash→execute; WebSearch/WebFetch; permission event; steer unsupported                        | planned |
+| S19      | Rust       | `cargo test`             | `providers/pi` codec + maps                | recorded `--mode rpc` JSONL                                                                           | `steer` maps; tools from `tool_execution_*`; no Atmos queue via `follow_up`                  | planned |
+| S20      | Rust       | `cargo test`             | `providers/opencode` codec + maps          | recorded SSE + `/doc` shapes                                                                          | prompt_async path; permission.asked; steer unsupported; HTTP/1.1 note in spawn               | planned |
+| S21      | Rust       | `cargo test`             | Codex/Claude/OpenCode/Pi permission answer | matching request fixtures                                                                             | adapter emits Atmos permission then writes the vendor response dialect                       | planned |
+| S22      | Rust       | `cargo test`             | unknown vendor method/event                | extra frame in fixture                                                                                | session continues; skip or one Unknown; no panic                                             | planned |
+| S23      | Rust       | `cargo test`             | framing                                    | Codex without jsonrpc; Pi LF-only; Claude mixed control; OpenCode SSE `data:`                         | parse succeeds; Node-readline split is not used for Pi                                       | planned |
+| S24      | Rust       | `cargo test`             | provider routing                           | ids claude/codex/opencode/pi vs grok                                                                  | four native; grok ACP; Terminal builtin params unused by Chat spawn                          | planned |
+| S17      | Rust       | `cargo test`             | `providers/codex` codec + maps             | recorded app-server JSONL                                                                             | execute/fileChange/webSearch; steer requires `expectedTurnId`; approvals are server requests | planned |
+| S18      | Rust       | `cargo test`             | `providers/claude` codec + maps            | recorded stream-json                                                                                  | Bash/Read/WebSearch/WebFetch; `can_use_tool` → permission; steer unsupported                 | planned |
+| S19      | Rust       | `cargo test`             | `providers/pi` codec + maps                | recorded `--mode rpc` JSONL                                                                           | prompt/steer/abort; tool_execution → execute; no Atmos queue via `follow_up`                 | planned |
+| S20      | Rust       | `cargo test`             | `providers/opencode` maps                  | recorded SSE + `/doc` shapes                                                                          | prompt_async + part.updated; permission.asked; steer unsupported                             | planned |
+| S21      | Rust       | `cargo test`             | Codex approval reply                       | `item/commandExecution/requestApproval` fixture                                                       | adapter answers JSON-RPC request; turn does not stall                                        | planned |
+| S22      | Rust       | `cargo test`             | unknown vendor method/event                | extra frame in each fixture set                                                                       | session continues; skip or one `Unknown`; no panic                                           | planned |
+| S23      | Rust       | `cargo test`             | framing                                    | Codex without `jsonrpc`; Pi LF-only; Claude mixed control                                             | parsers accept official wire, reject wrong framing                                           | planned |
+| S24      | Rust       | `cargo test`             | spawn routing                              | provider_id claude/codex/opencode/pi vs grok                                                          | native vs ACP; Terminal catalog argv unchanged                                               | planned |
 
 ## Scenarios
 

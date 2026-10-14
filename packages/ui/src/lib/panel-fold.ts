@@ -8,7 +8,6 @@ export function panelFoldCursorClass(
   side: PanelFoldSide,
   collapsed: boolean,
 ): "cursor-e-resize" | "cursor-w-resize" {
-  const movesWest =
-    (side === "left" && !collapsed) || (side === "right" && collapsed);
+  const movesWest = (side === "left" && !collapsed) || (side === "right" && collapsed);
   return movesWest ? "cursor-w-resize" : "cursor-e-resize";
 }

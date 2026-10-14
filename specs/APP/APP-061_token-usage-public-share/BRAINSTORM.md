@@ -20,6 +20,7 @@ Current workaround: screenshot / PNG share / “open my laptop.”
 ## Options
 
 ### Option A — Multi-share documents (`/s/sh_…`) as in APP-056
+
 Several snapshots per user; unlisted security via unguessable id.
 
 **Pros**: Many named reports; private links do not leak a handle.  
@@ -27,6 +28,7 @@ Several snapshots per user; unlisted security via unguessable id.
 **Unknown**: Whether anyone needs more than one live page.
 
 ### Option B — One vanity page per user (chosen)
+
 `/tok/@handle`, one latest snapshot, public or unlisted (`?k=`).
 
 **Pros**: Fits X/GitHub bios; simple mental model; one D1 row.  
@@ -34,19 +36,22 @@ Several snapshots per user; unlisted security via unguessable id.
 **Unknown**: How often people want to change a handle (settled: never).
 
 ### Option C — Live multi-machine sync
+
 Always-on ingest of local usage to Hub.
 
 **Pros**: Page is always current.  
 **Cons**: Privacy, merge rules, always-on dependency. Overkill for v1.
 
 ### Option D — New `packages/usage-share-view` or `packages/share`
+
 Extract charts (and later session traces) into a shared package for landing + web.
 
 **Pros**: Two apps can import one view.  
 **Cons**: Speculative layer; session-share UI will not reuse these charts; APP-050 says extract on a second real consumer.  
-**Unknown**: When a second share *type* actually ships.
+**Unknown**: When a second share _type_ actually ships.
 
 ### Option E — Render HTML inside `packages/hub`
+
 Worker serves the public page.
 
 **Pros**: One host.  
@@ -54,17 +59,17 @@ Worker serves the public page.
 
 ## Key forks in the road
 
-| Fork | Decision |
-|------|----------|
-| Host URL | **`https://atmos.land/tok/@handle`** (not `hub.atmos.land`) |
-| Cardinality | **One live page per user**; overwrite on manual refresh |
-| Update | **Manual only** (“Update page”) |
-| Handle | User-chosen; **claim once**; never rename |
-| Unlisted URL | May include the handle; gate with secret `k` |
-| Chart UI | Extract **inside `apps/web`**; no new package |
-| Public HTML owner | **`apps/web` `/tok/[handle]`**; Cloudflare rewrite keeps `atmos.land` |
-| Storage | Slim snapshot: daily totals + top 5 ranks + `other`; not raw tokscale |
-| Future share types | Same **host/shell** later; not a kitchen-sink share package now |
+| Fork               | Decision                                                              |
+| ------------------ | --------------------------------------------------------------------- |
+| Host URL           | **`https://atmos.land/tok/@handle`** (not `hub.atmos.land`)           |
+| Cardinality        | **One live page per user**; overwrite on manual refresh               |
+| Update             | **Manual only** (“Update page”)                                       |
+| Handle             | User-chosen; **claim once**; never rename                             |
+| Unlisted URL       | May include the handle; gate with secret `k`                          |
+| Chart UI           | Extract **inside `apps/web`**; no new package                         |
+| Public HTML owner  | **`apps/web` `/tok/[handle]`**; Cloudflare rewrite keeps `atmos.land` |
+| Storage            | Slim snapshot: daily totals + top 5 ranks + `other`; not raw tokscale |
+| Future share types | Same **host/shell** later; not a kitchen-sink share package now       |
 
 ## Open questions
 

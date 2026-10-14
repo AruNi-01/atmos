@@ -25,7 +25,13 @@ function terminalHeaderButton(
 
 /** Trailing edge, matching the home settings button. */
 export function newTerminalHeaderItem(onCreate: () => void, tintColor: string) {
-  return terminalHeaderButton(TERMINAL_NEW_HEADER_ITEM_ID, "New terminal", "plus", onCreate, tintColor);
+  return terminalHeaderButton(
+    TERMINAL_NEW_HEADER_ITEM_ID,
+    "New terminal",
+    "plus",
+    onCreate,
+    tintColor,
+  );
 }
 
 export function terminalHeaderRightItems(onCreate: () => void, tintColor: string) {

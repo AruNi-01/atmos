@@ -9,16 +9,16 @@
 
 被审查提交：
 
-| Commit | Author | Message |
-| --- | --- | --- |
-| `86e2054b` | AarynLu | `refactor: move cli update logic into runtime manager` |
-| `58b99192` | AarynLu | `fix: harden cli updater asset selection` |
+| Commit     | Author   | Message                                                              |
+| ---------- | -------- | -------------------------------------------------------------------- |
+| `86e2054b` | AarynLu  | `refactor: move cli update logic into runtime manager`               |
+| `58b99192` | AarynLu  | `fix: harden cli updater asset selection`                            |
 | `2341fc59` | AruNi_Lu | `Merge pull request #131 from AruNi-01/codex/quality-fix/2026-06-24` |
-| `0a1ae42e` | AarynLu | `Add multi-value GitHub trigger filters` |
-| `c6fb9af2` | AarynLu | `feat: harden relay automation limits` |
-| `ee4d6528` | AarynLu | `chore: publish local runtime under atmos-land scope` |
-| `ef4b891c` | AarynLu | `chore: remove local runtime npm installer` |
-| `f7b82b87` | AarynLu | `Handle manual-only desktop updates with GitHub links` |
+| `0a1ae42e` | AarynLu  | `Add multi-value GitHub trigger filters`                             |
+| `c6fb9af2` | AarynLu  | `feat: harden relay automation limits`                               |
+| `ee4d6528` | AarynLu  | `chore: publish local runtime under atmos-land scope`                |
+| `ef4b891c` | AarynLu  | `chore: remove local runtime npm installer`                          |
+| `f7b82b87` | AarynLu  | `Handle manual-only desktop updates with GitHub links`               |
 
 ## 2. 一份好代码应该是什么样
 
@@ -42,13 +42,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 26 / 30 | `86e2054b` 正确把 API 中的 CLI install 能力下沉到 `runtime-manager`，但 `58b99192` 之后 `apps/cli/src/commands/update.rs` 仍维护平行 release/update 能力，没有复用共享模块。 |
-| 可读性与复杂度 | 22 / 25 | CLI update 文件在当天仍有 729 行，混合命令输出、缓存、manifest 解析、GitHub fallback、Atom fallback、tar 解包、递归找二进制和 version compare；GitHub trigger 的多值输入也让多个大文件继续增长。 |
-| 体量与内聚 | 18 / 20 | `apps/cli/src/commands/update.rs`、`crates/runtime-manager/src/cli_update.rs` 分别承载相近能力；`packages/relay/src/event-routes.ts` 和 `crates/core-service/src/service/automation/github_trigger.rs` 已超过 1000 行，但本次新增仍基本围绕同一领域。 |
-| 可维护性与复用 | 13 / 15 | CLI updater 规则和 GitHub trigger policy 都需要跨文件手动保持一致；尤其 CLI updater 已经有共享归属层却仍复制实现，未来 release 命名或 target alias 变化容易分叉。 |
-| 工程卫生 | 9 / 10 | 未发现 token/secret 泄露或明显调试残留；release 文档和 workflow 大体同步，但 updater/GitHub policy 的重复测试位置增加了维护成本。 |
+| 维度           |    得分 | 扣分原因                                                                                                                                                                                                                                              |
+| -------------- | ------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 26 / 30 | `86e2054b` 正确把 API 中的 CLI install 能力下沉到 `runtime-manager`，但 `58b99192` 之后 `apps/cli/src/commands/update.rs` 仍维护平行 release/update 能力，没有复用共享模块。                                                                          |
+| 可读性与复杂度 | 22 / 25 | CLI update 文件在当天仍有 729 行，混合命令输出、缓存、manifest 解析、GitHub fallback、Atom fallback、tar 解包、递归找二进制和 version compare；GitHub trigger 的多值输入也让多个大文件继续增长。                                                      |
+| 体量与内聚     | 18 / 20 | `apps/cli/src/commands/update.rs`、`crates/runtime-manager/src/cli_update.rs` 分别承载相近能力；`packages/relay/src/event-routes.ts` 和 `crates/core-service/src/service/automation/github_trigger.rs` 已超过 1000 行，但本次新增仍基本围绕同一领域。 |
+| 可维护性与复用 | 13 / 15 | CLI updater 规则和 GitHub trigger policy 都需要跨文件手动保持一致；尤其 CLI updater 已经有共享归属层却仍复制实现，未来 release 命名或 target alias 变化容易分叉。                                                                                     |
+| 工程卫生       |  9 / 10 | 未发现 token/secret 泄露或明显调试残留；release 文档和 workflow 大体同步，但 updater/GitHub policy 的重复测试位置增加了维护成本。                                                                                                                     |
 
 ## 6. 主要问题清单
 

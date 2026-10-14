@@ -7,42 +7,42 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   ampcode: ["amp"],
   "antigravity-acp": ["antigravity"],
   "antigravity-cli": ["antigravity"],
-  "augment": ["auggie"],
+  augment: ["auggie"],
   "claude-acp": ["claude-code-acp", "claude-code"],
   "claude-code-acp": ["claude-code"],
-  "codebuddy": ["codebuddy-code"],
+  codebuddy: ["codebuddy-code"],
   "codex-acp": ["codex"],
-  "commandcode": ["command-code"],
+  commandcode: ["command-code"],
   "deepseek-harness": ["deepseek"],
   "devin-cli": ["devin"],
   "devin-desktop": ["devin"],
   "factory-droid": ["droid"],
   "github-copilot": ["copilot"],
-  "grok": ["grok-build"],
-  "hermes": ["hermes-agent"],
+  grok: ["grok-build"],
+  hermes: ["hermes-agent"],
   "junie-acp": ["junie"],
-  "qwen": ["qwen-code"],
-  "roocode": ["roo"],
-  "workbuddy": ["codebuddy-code"],
+  qwen: ["qwen-code"],
+  roocode: ["roo"],
+  workbuddy: ["codebuddy-code"],
 };
 
 const AGENT_ICON_REMAP: Record<string, string> = {
   "amp-acp": "amp",
   "antigravity-cli": "antigravity",
-  "augment": "auggie",
-  "claude": "claude-code",
-  "codebuddy": "codebuddy-code",
-  "commandcode": "command-code",
+  augment: "auggie",
+  claude: "claude-code",
+  codebuddy: "codebuddy-code",
+  commandcode: "command-code",
   "devin-cli": "devin",
   "devin-desktop": "devin",
-  "grok": "grok-build",
-  "hermes": "hermes-agent",
-  "kilocode": "kilo",
-  "kiro": "kiro-cli",
-  "openclaw": "openclaw",
-  "qwen": "qwen-code",
-  "roocode": "roo",
-  "workbuddy": "codebuddy-code",
+  grok: "grok-build",
+  hermes: "hermes-agent",
+  kilocode: "kilo",
+  kiro: "kiro-cli",
+  openclaw: "openclaw",
+  qwen: "qwen-code",
+  roocode: "roo",
+  workbuddy: "codebuddy-code",
 };
 
 /**
@@ -82,52 +82,45 @@ const LIGHT_GLYPHS = new Set([
 ]);
 
 /** Black line icons. Dark mode tints them light; light mode keeps them black. */
-const DARK_GLYPHS = new Set([
-  "cline",
-  "devin",
-  "grok",
-  "grok-build",
-  "junie",
-  "junie-acp",
-]);
+const DARK_GLYPHS = new Set(["cline", "devin", "grok", "grok-build", "junie", "junie-acp"]);
 
 const AGENT_ICON_ASSETS: Record<string, ImageSourcePropType> = {
-  "amp": require("../../../assets/agents/amp.png"),
-  "antigravity": require("../../../assets/agents/antigravity.png"),
-  "auggie": require("../../../assets/agents/auggie.png"),
+  amp: require("../../../assets/agents/amp.png"),
+  antigravity: require("../../../assets/agents/antigravity.png"),
+  auggie: require("../../../assets/agents/auggie.png"),
   "claude-acp": require("../../../assets/agents/claude-acp.png"),
   "claude-code": require("../../../assets/agents/claude-code.png"),
   "claude-code-acp": require("../../../assets/agents/claude-code-acp.png"),
-  "cline": require("../../../assets/agents/cline.png"),
+  cline: require("../../../assets/agents/cline.png"),
   "codebuddy-code": require("../../../assets/agents/codebuddy-code.png"),
-  "codex": require("../../../assets/agents/codex.png"),
+  codex: require("../../../assets/agents/codex.png"),
   "codex-acp": require("../../../assets/agents/codex-acp.png"),
   "command-code": require("../../../assets/agents/command-code.png"),
-  "copilot": require("../../../assets/agents/copilot.png"),
+  copilot: require("../../../assets/agents/copilot.png"),
   "corust-agent": require("../../../assets/agents/corust-agent.png"),
-  "cursor": require("../../../assets/agents/cursor.png"),
-  "devin": require("../../../assets/agents/devin.png"),
-  "droid": require("../../../assets/agents/droid.png"),
+  cursor: require("../../../assets/agents/cursor.png"),
+  devin: require("../../../assets/agents/devin.png"),
+  droid: require("../../../assets/agents/droid.png"),
   "factory-droid": require("../../../assets/agents/factory-droid.png"),
-  "gemini": require("../../../assets/agents/gemini.png"),
+  gemini: require("../../../assets/agents/gemini.png"),
   "github-copilot": require("../../../assets/agents/github-copilot.png"),
-  "goose": require("../../../assets/agents/goose.png"),
+  goose: require("../../../assets/agents/goose.png"),
   "grok-build": require("../../../assets/agents/grok-build.png"),
   "hermes-agent": require("../../../assets/agents/hermes-agent.png"),
-  "junie": require("../../../assets/agents/junie.png"),
-  "kilo": require("../../../assets/agents/kilo.png"),
-  "kimi": require("../../../assets/agents/kimi.png"),
+  junie: require("../../../assets/agents/junie.png"),
+  kilo: require("../../../assets/agents/kilo.png"),
+  kimi: require("../../../assets/agents/kimi.png"),
   "kiro-cli": require("../../../assets/agents/kiro-cli.png"),
   "mistral-vibe": require("../../../assets/agents/mistral-vibe.png"),
-  "openclaw": require("../../../assets/agents/openclaw.jpg"),
-  "opencode": require("../../../assets/agents/opencode.png"),
-  "pi": require("../../../assets/agents/pi.png"),
-  "qoder": require("../../../assets/agents/qoder.png"),
+  openclaw: require("../../../assets/agents/openclaw.jpg"),
+  opencode: require("../../../assets/agents/opencode.png"),
+  pi: require("../../../assets/agents/pi.png"),
+  qoder: require("../../../assets/agents/qoder.png"),
   "qwen-code": require("../../../assets/agents/qwen-code.png"),
-  "roo": require("../../../assets/agents/roo.png"),
-  "stakpak": require("../../../assets/agents/stakpak.png"),
-  "trae": require("../../../assets/agents/trae.png"),
-  "windsurf": require("../../../assets/agents/windsurf.png"),
+  roo: require("../../../assets/agents/roo.png"),
+  stakpak: require("../../../assets/agents/stakpak.png"),
+  trae: require("../../../assets/agents/trae.png"),
+  windsurf: require("../../../assets/agents/windsurf.png"),
 };
 
 /** Point size of an SF Symbol in a native menu row. */
@@ -138,17 +131,20 @@ const MENU_ICON_POINT_SIZE = 18;
  * draws at 96pt unless the source scale is raised. Keep the packager asset
  * flag so debug builds can still load the file.
  */
-export function mobileAgentMenuIcon(agentId: string): {
-  source: ImageSourcePropType;
-  tinted: boolean;
-  type: "image";
-} | undefined {
+export function mobileAgentMenuIcon(agentId: string):
+  | {
+      source: ImageSourcePropType;
+      tinted: boolean;
+      type: "image";
+    }
+  | undefined {
   const iconName = resolveAgentIconName(agentId);
   if (!iconName) return undefined;
   const asset = AGENT_ICON_ASSETS[iconName];
   const resolved = asset ? Image.resolveAssetSource(asset) : undefined;
   if (!resolved?.uri || !resolved.width) return undefined;
-  const tinted = matchesGlyph(agentId, iconName, LIGHT_GLYPHS) || matchesGlyph(agentId, iconName, DARK_GLYPHS);
+  const tinted =
+    matchesGlyph(agentId, iconName, LIGHT_GLYPHS) || matchesGlyph(agentId, iconName, DARK_GLYPHS);
   const pixels = resolved.width * (resolved.scale || 1);
   return {
     source: {
@@ -204,11 +200,7 @@ export function MobileAgentIcon({
     <Image
       accessibilityIgnoresInvertColors
       source={source}
-      style={[
-        styles.icon,
-        { height: size, width: size },
-        tint ? { tintColor: tint } : null,
-      ]}
+      style={[styles.icon, { height: size, width: size }, tint ? { tintColor: tint } : null]}
     />
   );
 }

@@ -36,10 +36,7 @@ export type ModalDraftState = {
 };
 
 export type SaveState = "idle" | "saving" | "saved";
-export type TranslateFn = (
-  key: string,
-  values?: Record<string, string | number>,
-) => string;
+export type TranslateFn = (key: string, values?: Record<string, string | number>) => string;
 
 export const EMPTY_ROUTING: RoutingDraft = {
   features: {
@@ -67,9 +64,7 @@ export const BUILT_IN_LOCAL_AGENT_OPTIONS: readonly LocalAgentOption[] =
     label: agent.label,
   }));
 
-const BUILT_IN_LOCAL_AGENT_IDS = new Set(
-  BUILT_IN_LOCAL_AGENT_OPTIONS.map((agent) => agent.id),
-);
+const BUILT_IN_LOCAL_AGENT_IDS = new Set(BUILT_IN_LOCAL_AGENT_OPTIONS.map((agent) => agent.id));
 
 export function buildLocalAgentOptions(
   configuredAgents: readonly CodeAgentCustomEntry[] = [],
@@ -115,9 +110,7 @@ export function agentCliRouteLabel(
   if (!agentId) return null;
 
   const label = localAgentLabel(agentId, localAgentOptions);
-  return t
-    ? t("appShell.llmProviders.featureSelect.localAgentCliValue", { agent: label })
-    : label;
+  return t ? t("appShell.llmProviders.featureSelect.localAgentCliValue", { agent: label }) : label;
 }
 
 export const KIND_OPTIONS: Array<{
@@ -148,10 +141,7 @@ export function normalizeFeatureLanguage(value?: string | null): string | null {
   return normalized ? normalized : null;
 }
 
-export function languageButtonLabel(
-  language: string | null | undefined,
-  t: TranslateFn,
-): string {
+export function languageButtonLabel(language: string | null | undefined, t: TranslateFn): string {
   return normalizeFeatureLanguage(language) ?? t("appShell.llmProviders.common.outputLanguage");
 }
 
@@ -161,16 +151,13 @@ export function resolveFeatureLanguagePreset(language?: string | null): string {
 
   const matched = FEATURE_LANGUAGE_OPTIONS.find(
     (option) =>
-      option.value.toLowerCase() === normalized ||
-      option.label.toLowerCase() === normalized,
+      option.value.toLowerCase() === normalized || option.label.toLowerCase() === normalized,
   );
   return matched?.value ?? "other";
 }
 
 export function defaultMaxOutputTokens(kind: LlmProviderKind): string {
-  return kind === "anthropic-compatible"
-    ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
-    : "";
+  return kind === "anthropic-compatible" ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS : "";
 }
 
 function nextProviderClientKey(existing: ProviderDraft[]): string {
@@ -204,8 +191,7 @@ function buildDraftIdMap(providers: ProviderDraft[]): Map<string, string> {
   const mapping = new Map<string, string>();
 
   for (const provider of providers) {
-    const baseId =
-      slugifyProviderId(provider.name) || provider.persistedId.trim();
+    const baseId = slugifyProviderId(provider.name) || provider.persistedId.trim();
     if (!baseId) continue;
 
     let candidate = baseId;
@@ -243,32 +229,21 @@ export function buildProviderNameIssues(
     providers.map((provider) => {
       const name = provider.name.trim();
       if (!name) {
-        return [
-          provider.clientKey,
-          t("appShell.llmProviders.validation.providerNameRequired"),
-        ];
+        return [provider.clientKey, t("appShell.llmProviders.validation.providerNameRequired")];
       }
       const generatedId = slugifyProviderId(name);
       if (!generatedId) {
-        return [
-          provider.clientKey,
-          t("appShell.llmProviders.validation.providerNameInvalid"),
-        ];
+        return [provider.clientKey, t("appShell.llmProviders.validation.providerNameInvalid")];
       }
       if (duplicates.has(generatedId)) {
-        return [
-          provider.clientKey,
-          t("appShell.llmProviders.validation.providerNameDuplicated"),
-        ];
+        return [provider.clientKey, t("appShell.llmProviders.validation.providerNameDuplicated")];
       }
       return [provider.clientKey, null];
     }),
   );
 }
 
-export function providerLabel(
-  provider: Pick<ProviderDraft, "name" | "persistedId">,
-): string {
+export function providerLabel(provider: Pick<ProviderDraft, "name" | "persistedId">): string {
   return provider.name.trim() || provider.persistedId;
 }
 
@@ -346,10 +321,7 @@ export function validateRouting(
 export function fileToModalState(config: LlmProvidersFile): ModalDraftState {
   // local-managed and agent-cli providers are not edited in this provider editor.
   const providers = Object.entries(config.providers ?? {})
-    .filter(
-      ([, provider]) =>
-        provider.kind !== "local-managed" && provider.kind !== "agent-cli",
-    )
+    .filter(([, provider]) => provider.kind !== "local-managed" && provider.kind !== "agent-cli")
     .map(([id, provider], index) => ({
       clientKey: `provider-${index + 1}-${id}`,
       persistedId: id,
@@ -359,8 +331,7 @@ export function fileToModalState(config: LlmProvidersFile): ModalDraftState {
       base_url: provider.base_url ?? "",
       api_key: provider.api_key ?? "",
       model: provider.model ?? "",
-      timeout_ms:
-        provider.timeout_ms == null ? "" : String(provider.timeout_ms),
+      timeout_ms: provider.timeout_ms == null ? "" : String(provider.timeout_ms),
       max_output_tokens:
         provider.max_output_tokens == null
           ? defaultMaxOutputTokens(provider.kind)
@@ -393,12 +364,8 @@ export function fileToModalState(config: LlmProvidersFile): ModalDraftState {
     routing: {
       features: {
         git_commit: featureBindingToDraftValue(config.features?.git_commit),
-        git_commit_language: normalizeFeatureLanguage(
-          config.features?.git_commit_language,
-        ),
-        workspace_issue_todo: featureBindingToDraftValue(
-          config.features?.workspace_issue_todo,
-        ),
+        git_commit_language: normalizeFeatureLanguage(config.features?.git_commit_language),
+        workspace_issue_todo: featureBindingToDraftValue(config.features?.workspace_issue_todo),
         workspace_issue_todo_language: normalizeFeatureLanguage(
           config.features?.workspace_issue_todo_language,
         ),
@@ -414,12 +381,9 @@ export function modalStateToFile(
   const providerIdMap = buildDraftIdMap(state.providers);
 
   // Preserve local-managed providers that were stripped from the editor state.
-  const localManagedProviders: Record<string, LlmProviderEntry> =
-    Object.fromEntries(
-      Object.entries(originalConfig?.providers ?? {}).filter(
-        ([, p]) => p.kind === "local-managed",
-      ),
-    );
+  const localManagedProviders: Record<string, LlmProviderEntry> = Object.fromEntries(
+    Object.entries(originalConfig?.providers ?? {}).filter(([, p]) => p.kind === "local-managed"),
+  );
 
   // Resolve a feature binding from the draft. When the draft has no value
   // and the original config bound this feature to a still-present
@@ -461,9 +425,7 @@ export function modalStateToFile(
         model: provider.model.trim(),
         agent_id: null,
         timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
-        max_output_tokens: trimmedMaxOutputTokens
-          ? parseInt(trimmedMaxOutputTokens, 10)
-          : null,
+        max_output_tokens: trimmedMaxOutputTokens ? parseInt(trimmedMaxOutputTokens, 10) : null,
       };
       return acc;
     },
@@ -478,9 +440,7 @@ export function modalStateToFile(
         state.routing.features.git_commit,
         originalConfig?.features?.git_commit,
       ),
-      git_commit_language: normalizeFeatureLanguage(
-        state.routing.features.git_commit_language,
-      ),
+      git_commit_language: normalizeFeatureLanguage(state.routing.features.git_commit_language),
       workspace_issue_todo: resolveFeatureBinding(
         state.routing.features.workspace_issue_todo,
         originalConfig?.features?.workspace_issue_todo,
@@ -506,9 +466,7 @@ export function providerDraftToEntry(provider: ProviderDraft): LlmProviderEntry 
     model: provider.model.trim(),
     agent_id: null,
     timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
-    max_output_tokens: trimmedMaxOutputTokens
-      ? parseInt(trimmedMaxOutputTokens, 10)
-      : null,
+    max_output_tokens: trimmedMaxOutputTokens ? parseInt(trimmedMaxOutputTokens, 10) : null,
   };
 }
 

@@ -1,5 +1,10 @@
 export { PtDesignApp } from "./embed/PtDesignApp";
-export type { AgentBridge, AgentBridgeDispatch, PtDesignAppProps, ShareCopy } from "./embed/PtDesignApp";
+export type {
+  AgentBridge,
+  AgentBridgeDispatch,
+  PtDesignAppProps,
+  ShareCopy,
+} from "./embed/PtDesignApp";
 export { runSessionTool } from "./agent/session-tools";
 export { listComponentTypes, getComponentModule, defaultNodeFor } from "./components/registry";
 export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS, CATALOG_VERSION } from "./catalog/shadcn-list";
@@ -45,7 +50,14 @@ export {
   setPtDesignPinned,
 } from "./host/catalog";
 export type { PtDesignFilterScope, PtDesignHostContext, PtDesignListed } from "./host/catalog";
-export { sketchPreviewFromPersist, parsePreviewViewBox, contentBoundsFromPersist, isSketchWireframePreview, isLiveRasterPreview, isPreviewBlobPointer } from "./host/preview";
+export {
+  sketchPreviewFromPersist,
+  parsePreviewViewBox,
+  contentBoundsFromPersist,
+  isSketchWireframePreview,
+  isLiveRasterPreview,
+  isPreviewBlobPointer,
+} from "./host/preview";
 export {
   deletePreviewBlob,
   getPreviewBlob,

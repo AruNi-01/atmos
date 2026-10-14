@@ -8,7 +8,10 @@ import { applyQuotaOverviewUpdated } from "@/features/quota-usage/lib/quota-quer
 import { invalidateTokenUsageQueries } from "@/features/quota-usage/lib/token-usage-query-options";
 import { applyLocalServicesUpdated } from "@/features/local-services/lib/local-services-query-events";
 import { invalidateLocalModelQueries } from "@/features/local-services/lib/local-model-query-options";
-import { invalidateAutomationDefinitionQueries, invalidateAutomationRunQueries } from "@/features/automations/lib/automations-query-options";
+import {
+  invalidateAutomationDefinitionQueries,
+  invalidateAutomationRunQueries,
+} from "@/features/automations/lib/automations-query-options";
 import { applyResourceMonitorUpdated } from "@/features/resource-monitor/lib/resource-monitor-query-events";
 
 let quotaOverviewSubscriberCount = 0;

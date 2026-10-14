@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
+import { create } from "zustand";
+import { functionSettingsApi } from "@/api/ws-api";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
-export type ProjectFilesSide = 'left' | 'right';
+export type ProjectFilesSide = "left" | "right";
 
 export interface FooterLayoutPrefs {
   showLocalServices: boolean;
@@ -78,11 +78,11 @@ function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLa
 
   return {
     showHeaderSummary:
-      typeof layout?.header_summary_enabled === 'boolean'
+      typeof layout?.header_summary_enabled === "boolean"
         ? layout.header_summary_enabled
         : legacySummaryEnabled,
     showHeaderSummaryTask:
-      typeof layout?.header_summary_show_task === 'boolean'
+      typeof layout?.header_summary_show_task === "boolean"
         ? layout.header_summary_show_task
         : legacyTodo !== false,
     showHeaderSummaryNote: layout?.header_summary_show_note !== false,
@@ -103,14 +103,14 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
   ) => {
     set(patch);
     try {
-      await functionSettingsApi.update('layout', key, value);
+      await functionSettingsApi.update("layout", key, value);
     } catch {
       await get().loadSettings(true);
     }
   };
 
   return {
-    projectFilesSide: 'right',
+    projectFilesSide: "right",
     workspaceSidebarTwoColumn: false,
     workspaceSidebarTwoColumnShowPinned: false,
     workspaceSidebarSecondColumnKanban: false,
@@ -147,10 +147,12 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
         const footer = readFooterLayout(layout);
         const header = readHeaderLayout(layout);
         set({
-          projectFilesSide: side === 'left' ? 'left' : 'right',
+          projectFilesSide: side === "left" ? "left" : "right",
           workspaceSidebarTwoColumn: layout?.workspace_sidebar_two_column === true,
-          workspaceSidebarTwoColumnShowPinned: layout?.workspace_sidebar_two_column_show_pinned === true,
-          workspaceSidebarSecondColumnKanban: layout?.workspace_sidebar_second_column_kanban === true,
+          workspaceSidebarTwoColumnShowPinned:
+            layout?.workspace_sidebar_two_column_show_pinned === true,
+          workspaceSidebarSecondColumnKanban:
+            layout?.workspace_sidebar_second_column_kanban === true,
           workspaceSidebarTimeTwoColumn: layout?.workspace_sidebar_time_two_column === true,
           workspaceSidebarStatusTwoColumn: layout?.workspace_sidebar_status_two_column === true,
           workspaceSidebarPriorityTwoColumn: layout?.workspace_sidebar_priority_two_column === true,
@@ -167,104 +169,108 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     },
 
     setProjectFilesSide: (value) =>
-      updateLayoutSetting({ projectFilesSide: value }, 'project_files_side', value),
+      updateLayoutSetting({ projectFilesSide: value }, "project_files_side", value),
 
     setWorkspaceSidebarTwoColumn: (value) =>
-      updateLayoutSetting({ workspaceSidebarTwoColumn: value }, 'workspace_sidebar_two_column', value),
+      updateLayoutSetting(
+        { workspaceSidebarTwoColumn: value },
+        "workspace_sidebar_two_column",
+        value,
+      ),
 
     setWorkspaceSidebarTwoColumnShowPinned: (value) =>
       updateLayoutSetting(
         { workspaceSidebarTwoColumnShowPinned: value },
-        'workspace_sidebar_two_column_show_pinned',
+        "workspace_sidebar_two_column_show_pinned",
         value,
       ),
 
     setWorkspaceSidebarSecondColumnKanban: (value) =>
       updateLayoutSetting(
         { workspaceSidebarSecondColumnKanban: value },
-        'workspace_sidebar_second_column_kanban',
+        "workspace_sidebar_second_column_kanban",
         value,
       ),
 
     setWorkspaceSidebarTimeTwoColumn: (value) =>
       updateLayoutSetting(
         { workspaceSidebarTimeTwoColumn: value },
-        'workspace_sidebar_time_two_column',
+        "workspace_sidebar_time_two_column",
         value,
       ),
 
     setWorkspaceSidebarStatusTwoColumn: (value) =>
       updateLayoutSetting(
         { workspaceSidebarStatusTwoColumn: value },
-        'workspace_sidebar_status_two_column',
+        "workspace_sidebar_status_two_column",
         value,
       ),
 
     setWorkspaceSidebarPriorityTwoColumn: (value) =>
       updateLayoutSetting(
         { workspaceSidebarPriorityTwoColumn: value },
-        'workspace_sidebar_priority_two_column',
+        "workspace_sidebar_priority_two_column",
         value,
       ),
 
     setWorkspaceSidebarLabelTwoColumn: (value) =>
       updateLayoutSetting(
         { workspaceSidebarLabelTwoColumn: value },
-        'workspace_sidebar_label_two_column',
+        "workspace_sidebar_label_two_column",
         value,
       ),
 
     setWorkspaceSidebarGroupTwoColumn: (value) =>
       updateLayoutSetting(
         { workspaceSidebarGroupTwoColumn: value },
-        'workspace_sidebar_group_two_column',
+        "workspace_sidebar_group_two_column",
         value,
       ),
 
     setWorkspaceSidebarAgentTwoColumn: (value) =>
       updateLayoutSetting(
         { workspaceSidebarAgentTwoColumn: value },
-        'workspace_sidebar_agent_two_column',
+        "workspace_sidebar_agent_two_column",
         value,
       ),
 
     setFooterShowLocalServices: (value) =>
-      updateLayoutSetting({ showLocalServices: value }, 'footer_show_local_services', value),
+      updateLayoutSetting({ showLocalServices: value }, "footer_show_local_services", value),
 
     setFooterShowResourceMonitor: (value) =>
-      updateLayoutSetting({ showResourceMonitor: value }, 'footer_show_resource_monitor', value),
+      updateLayoutSetting({ showResourceMonitor: value }, "footer_show_resource_monitor", value),
 
     setFooterShowUsageCarousel: (value) =>
-      updateLayoutSetting({ showUsageCarousel: value }, 'footer_show_usage_carousel', value),
+      updateLayoutSetting({ showUsageCarousel: value }, "footer_show_usage_carousel", value),
 
     setFooterShowAgentStatus: (value) =>
-      updateLayoutSetting({ showAgentStatus: value }, 'footer_show_agent_status', value),
+      updateLayoutSetting({ showAgentStatus: value }, "footer_show_agent_status", value),
 
     setHeaderShowSummary: (value) =>
-      updateLayoutSetting({ showHeaderSummary: value }, 'header_summary_enabled', value),
+      updateLayoutSetting({ showHeaderSummary: value }, "header_summary_enabled", value),
 
     setHeaderShowSummaryTask: (value) =>
-      updateLayoutSetting({ showHeaderSummaryTask: value }, 'header_summary_show_task', value),
+      updateLayoutSetting({ showHeaderSummaryTask: value }, "header_summary_show_task", value),
 
     setHeaderShowSummaryNote: (value) =>
-      updateLayoutSetting({ showHeaderSummaryNote: value }, 'header_summary_show_note', value),
+      updateLayoutSetting({ showHeaderSummaryNote: value }, "header_summary_show_note", value),
 
     setHeaderShowSummaryCommit: (value) =>
-      updateLayoutSetting({ showHeaderSummaryCommit: value }, 'header_summary_show_commit', value),
+      updateLayoutSetting({ showHeaderSummaryCommit: value }, "header_summary_show_commit", value),
 
     setHeaderShowQuickOpen: (value) =>
-      updateLayoutSetting({ showHeaderQuickOpen: value }, 'header_show_quick_open', value),
+      updateLayoutSetting({ showHeaderQuickOpen: value }, "header_show_quick_open", value),
 
     setHeaderShowGitToolbar: (value) =>
-      updateLayoutSetting({ showHeaderGitToolbar: value }, 'header_show_git_toolbar', value),
+      updateLayoutSetting({ showHeaderGitToolbar: value }, "header_show_git_toolbar", value),
 
     setHeaderShowGlobalSearch: (value) =>
-      updateLayoutSetting({ showHeaderGlobalSearch: value }, 'header_show_global_search', value),
+      updateLayoutSetting({ showHeaderGlobalSearch: value }, "header_show_global_search", value),
 
     setHeaderShowRemoteAccess: (value) =>
-      updateLayoutSetting({ showHeaderRemoteAccess: value }, 'header_show_remote_access', value),
+      updateLayoutSetting({ showHeaderRemoteAccess: value }, "header_show_remote_access", value),
 
     setHeaderShowAppshot: (value) =>
-      updateLayoutSetting({ showHeaderAppshot: value }, 'header_show_appshot', value),
+      updateLayoutSetting({ showHeaderAppshot: value }, "header_show_appshot", value),
   };
 });

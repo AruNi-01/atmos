@@ -14,10 +14,5 @@
     "stableTypeOrdering": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "playwright.config.ts",
-    "fixtures/**/*.ts",
-    "fixtures/**/*.d.ts",
-    "tests/**/*.ts"
-  ]
+  "include": ["playwright.config.ts", "fixtures/**/*.ts", "fixtures/**/*.d.ts", "tests/**/*.ts"]
 }

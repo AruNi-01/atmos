@@ -6,12 +6,12 @@
 
 ## Core model
 
-| Concept | Rule |
-|---------|------|
-| **Canonical CLI install** | One product path only: `~/.atmos/bin/atmos` (Windows: `%USERPROFILE%\.atmos\bin\atmos.exe`). ADR-005. |
+| Concept                                                                                                  | Rule                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Canonical CLI install**                                                                                | One product path only: `~/.atmos/bin/atmos` (Windows: `%USERPROFILE%\.atmos\bin\atmos.exe`). ADR-005.                                                    |
 | **Do not bundle the CLI binary** into Desktop / Local Runtime. Features **spawn** the canonical install. |
-| **Release channel “latest CLI”** | Used by **About**, install scripts, API startup self-heal, `atmos update`. Optional user upgrade path. |
-| **Feature-required CLI floor** | Used by **feature surfaces** (e.g. Desktop Use Settings, readiness). Pin **minimum** CLI version that this **app/package build** needs for that feature. |
+| **Release channel “latest CLI”**                                                                         | Used by **About**, install scripts, API startup self-heal, `atmos update`. Optional user upgrade path.                                                   |
+| **Feature-required CLI floor**                                                                           | Used by **feature surfaces** (e.g. Desktop Use Settings, readiness). Pin **minimum** CLI version that this **app/package build** needs for that feature. |
 
 **Do not** gate a feature on “there is a newer CLI on R2/GitHub”. That couples unrelated CLI releases to every feature entry.
 
@@ -42,12 +42,12 @@ Shape:
 }
 ```
 
-| Stage | Location |
-|-------|----------|
-| Monorepo source / default | `crates/desktop-use/manifest/cli-requirement.json` |
-| Tracked Desktop fallback | `apps/desktop-electron/resources/desktop-use/cli-requirement.json` (committed; **packaging must not overwrite**) |
-| Package time | `apps/desktop-electron/scripts/prepare-package.ts` writes pin from **`apps/cli/Cargo.toml` `version`** into gitignored `resources/desktop-use-stage/cli-requirement.json`. electron-builder `extraResources` copies that file to packaged `desktop-use/cli-requirement.json` and **excludes** the tracked pin from the `resources/desktop-use` copy (extraResources copies run in parallel) |
-| Runtime resolve | `apps/desktop-electron/src/desktop-use/client.ts` → `resolveCliRequirementPath` / `readCliRequirement` / `enrichCliStatusWithRequirement` |
+| Stage                     | Location                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monorepo source / default | `crates/desktop-use/manifest/cli-requirement.json`                                                                                                                                                                                                                                                                                                                                          |
+| Tracked Desktop fallback  | `apps/desktop-electron/resources/desktop-use/cli-requirement.json` (committed; **packaging must not overwrite**)                                                                                                                                                                                                                                                                            |
+| Package time              | `apps/desktop-electron/scripts/prepare-package.ts` writes pin from **`apps/cli/Cargo.toml` `version`** into gitignored `resources/desktop-use-stage/cli-requirement.json`. electron-builder `extraResources` copies that file to packaged `desktop-use/cli-requirement.json` and **excludes** the tracked pin from the `resources/desktop-use` copy (extraResources copies run in parallel) |
+| Runtime resolve           | `apps/desktop-electron/src/desktop-use/client.ts` → `resolveCliRequirementPath` / `readCliRequirement` / `enrichCliStatusWithRequirement`                                                                                                                                                                                                                                                   |
 
 Engine pin remains separate: `desktop-use/engine-manifest.json` (control engine version, not CLI).
 
@@ -83,13 +83,13 @@ When adding or changing a feature that shells out to `atmos …` (or assumes CLI
 
 ### Reference implementation (Desktop Use)
 
-| Concern | Where |
-|---------|--------|
-| Canonical path + probe + min floor | `apps/desktop-electron/src/desktop-use/client.ts` |
-| IPC probe (includes `meets_requirement` / `update_required`) | `atmos_cli_probe` |
-| Settings gate | `apps/web/.../DesktopUseSettingsSection.tsx` |
-| Readiness reasons | `cli_not_installed`, `cli_update_required` in desktop-use readiness |
-| Stage pin | `prepare-package.ts` → gitignored `resources/desktop-use-stage/cli-requirement.json` (extraResources copy; tracked pin excluded) |
+| Concern                                                      | Where                                                                                                                            |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Canonical path + probe + min floor                           | `apps/desktop-electron/src/desktop-use/client.ts`                                                                                |
+| IPC probe (includes `meets_requirement` / `update_required`) | `atmos_cli_probe`                                                                                                                |
+| Settings gate                                                | `apps/web/.../DesktopUseSettingsSection.tsx`                                                                                     |
+| Readiness reasons                                            | `cli_not_installed`, `cli_update_required` in desktop-use readiness                                                              |
+| Stage pin                                                    | `prepare-package.ts` → gitignored `resources/desktop-use-stage/cli-requirement.json` (extraResources copy; tracked pin excluded) |
 
 ---
 
@@ -122,13 +122,13 @@ Install / self-heal remain centralized: `crates/runtime-manager` (`cli_update.rs
 
 ## Anti-patterns
 
-| Don’t | Do |
-|-------|-----|
-| Bundle `atmos` into App Resources as the feature runner | Canonical `~/.atmos/bin/atmos` only |
-| Gate Desktop Use on R2 `cli/latest.json` | Gate on package `min_cli_version` |
-| Show `~/.atmos/bin/...` in Settings errors | “Atmos CLI is not installed” / “needs a newer Atmos CLI” |
+| Don’t                                                       | Do                                                                    |
+| ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| Bundle `atmos` into App Resources as the feature runner     | Canonical `~/.atmos/bin/atmos` only                                   |
+| Gate Desktop Use on R2 `cli/latest.json`                    | Gate on package `min_cli_version`                                     |
+| Show `~/.atmos/bin/...` in Settings errors                  | “Atmos CLI is not installed” / “needs a newer Atmos CLI”              |
 | Raise min on every monorepo CLI commit without product need | Bump min when the **feature** requires it (package pin reflects that) |
-| Silent spawn ENOENT | Soft status + Install/Update CTA |
+| Silent spawn ENOENT                                         | Soft status + Install/Update CTA                                      |
 
 ---
 

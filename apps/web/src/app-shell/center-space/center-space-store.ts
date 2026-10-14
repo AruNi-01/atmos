@@ -34,11 +34,7 @@ type CenterSpaceStore = {
   list: (hostId: string) => CenterSpaceRecord[];
   getActiveSpaceId: (hostId: string) => string;
   getPaintContextId: (hostId: string) => string;
-  createSpace: (
-    hostId: string,
-    name?: string,
-    spaceId?: string,
-  ) => CenterSpaceRecord | null;
+  createSpace: (hostId: string, name?: string, spaceId?: string) => CenterSpaceRecord | null;
   setActiveSpace: (hostId: string, spaceId: string) => void;
   setThumbnail: (hostId: string, spaceId: string, thumbnailDataUrl: string | null) => void;
   setThumbnails: (
@@ -111,7 +107,7 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
     const now = Date.now();
     const space: CenterSpaceRecord = {
       id,
-      name: (name?.trim() || nextSpaceName(current.spaces)),
+      name: name?.trim() || nextSpaceName(current.spaces),
       createdAt: now,
       updatedAt: now,
       thumbnailDataUrl: null,
@@ -193,6 +189,4 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
   },
 }));
 
-bindPaintContextIdReader((hostId) =>
-  useCenterSpaceStore.getState().getPaintContextId(hostId),
-);
+bindPaintContextIdReader((hostId) => useCenterSpaceStore.getState().getPaintContextId(hostId));

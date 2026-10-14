@@ -21,6 +21,7 @@ The request is to keep the list pages, send their detail tap into chat instead o
 ## Options
 
 ### Option A — Native chat behind the existing lists
+
 Keep Workspace home, Session inbox, buckets, and filters as they are. Change the tap that currently opens the terminal so it opens a per-workspace Agent Chat session list. That list offers New chat and existing chats. A chat screen reimplements the web transcript and draft composer in React Native, reusing the wire contract and pure fold logic. Buttons and the prompt use mobile glass/native chrome.
 
 **Pros**: Matches the request. One Computer, one chat history, no second protocol. Terminal code can stay off the primary path.
@@ -28,6 +29,7 @@ Keep Workspace home, Session inbox, buckets, and filters as they are. Change the
 **Unknown**: How much of `features/agent/lib` can move to a shared package versus being copied.
 
 ### Option B — WebView of the web chat page
+
 Load the existing web Agent Chat route inside the mobile workspace stack.
 
 **Pros**: Pixel match is free, including streaming and tools.
@@ -35,6 +37,7 @@ Load the existing web Agent Chat route inside the mobile workspace stack.
 **Unknown**: none worth pursuing; this fights mobile product rules.
 
 ### Option C — Full web shell on the phone
+
 Port center tabs, history sidebar, outline rail, find-in-transcript, subagent overlay, and Host Sessions (APP-075) together.
 
 **Pros**: No later parity gap.

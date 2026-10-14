@@ -3,43 +3,18 @@ import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion, useAnimate } from "motion/react";
 
 const TerminalIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
-  (
-    {
-      size = 24,
-      color = "currentColor",
-      strokeWidth = 2,
-      className = "",
-      ...props
-    },
-    ref,
-  ) => {
+  ({ size = 24, color = "currentColor", strokeWidth = 2, className = "", ...props }, ref) => {
     const [scope, animate] = useAnimate();
     const isControlledRef = useRef(false);
 
     const start = useCallback(async () => {
-      animate(
-        ".cursor-line",
-        { opacity: [1, 0, 1, 0, 1] },
-        { duration: 0.8, ease: "easeInOut" },
-      );
-      animate(
-        ".terminal-chevron",
-        { x: [0, 2, 0] },
-        { duration: 0.3, ease: "easeInOut" },
-      );
+      animate(".cursor-line", { opacity: [1, 0, 1, 0, 1] }, { duration: 0.8, ease: "easeInOut" });
+      animate(".terminal-chevron", { x: [0, 2, 0] }, { duration: 0.3, ease: "easeInOut" });
     }, [animate]);
 
     const stop = useCallback(() => {
-      animate(
-        ".cursor-line",
-        { opacity: 1 },
-        { duration: 0.2, ease: "easeOut" },
-      );
-      animate(
-        ".terminal-chevron",
-        { x: 0 },
-        { duration: 0.2, ease: "easeOut" },
-      );
+      animate(".cursor-line", { opacity: 1 }, { duration: 0.2, ease: "easeOut" });
+      animate(".terminal-chevron", { x: 0 }, { duration: 0.2, ease: "easeOut" });
     }, [animate]);
 
     useImperativeHandle(ref, () => {

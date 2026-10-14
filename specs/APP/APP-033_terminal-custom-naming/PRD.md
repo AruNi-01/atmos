@@ -14,8 +14,8 @@ Developers who split the terminal into multiple panes/tabs and run several agent
 
 - As a user, I right-click a **terminal tab** and choose **Rename Tab** to type a custom tab name.
 - As a user, I right-click a **terminal pane** and choose **Rename Title** to type a custom pane name.
-- As a user, I toggle **Keep Agent Name** on a pane so, when an agent is detected, its icon + name still appears *after* my custom name.
-- As a user, I toggle **Keep CWD** on a pane so the current directory still appears *after* my custom name.
+- As a user, I toggle **Keep Agent Name** on a pane so, when an agent is detected, its icon + name still appears _after_ my custom name.
+- As a user, I toggle **Keep CWD** on a pane so the current directory still appears _after_ my custom name.
 - As a user, I clear a custom name by saving an empty value, returning the tab/pane to its automatic name.
 - As a user, my custom names and toggles survive a browser refresh.
 

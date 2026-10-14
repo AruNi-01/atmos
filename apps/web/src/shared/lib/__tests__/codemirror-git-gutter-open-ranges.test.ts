@@ -17,18 +17,14 @@ describe("gitChunkIndicesForLineRanges", () => {
       chunk(doc.line(3).from, doc.line(4).to + 1),
       chunk(doc.line(5).from, doc.line(5).to + 1),
     ];
-    expect(
-      gitChunkIndicesForLineRanges(chunks, doc, [{ startLine: 3, endLine: 3 }]),
-    ).toEqual([1]);
+    expect(gitChunkIndicesForLineRanges(chunks, doc, [{ startLine: 3, endLine: 3 }])).toEqual([1]);
     expect(
       gitChunkIndicesForLineRanges(chunks, doc, [
         { startLine: 1, endLine: 1 },
         { startLine: 5, endLine: 5 },
       ]),
     ).toEqual([0, 2]);
-    expect(
-      gitChunkIndicesForLineRanges(chunks, doc, [{ startLine: 2, endLine: 2 }]),
-    ).toEqual([]);
+    expect(gitChunkIndicesForLineRanges(chunks, doc, [{ startLine: 2, endLine: 2 }])).toEqual([]);
   });
 
   test("opening every hunk includes pure deletions (triangle gutters)", () => {
@@ -36,9 +32,7 @@ describe("gitChunkIndicesForLineRanges", () => {
     const deleted = chunk(doc.line(1).from, doc.line(1).from);
     const added = chunk(doc.line(1).from, doc.line(1).to + 1);
     expect(deleted.fromB).toBe(deleted.toB);
-    expect(
-      [deleted, added].map((_, index) => index),
-    ).toEqual([0, 1]);
+    expect([deleted, added].map((_, index) => index)).toEqual([0, 1]);
   });
 });
 
@@ -48,10 +42,7 @@ describe("agent chat file jump opens git gutter hunks", () => {
       join(import.meta.dir, "../../../features/editor/components/BaseCodeMirrorEditor.tsx"),
       "utf8",
     );
-    const gutter = readFileSync(
-      join(import.meta.dir, "../codemirror-git-gutter.ts"),
-      "utf8",
-    );
+    const gutter = readFileSync(join(import.meta.dir, "../codemirror-git-gutter.ts"), "utf8");
     expect(base).toContain("openGitGutterChunksForLineRanges");
     expect(base).toContain("openAllGitGutterChunks");
     expect(base).toContain('kind: "all"');

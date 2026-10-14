@@ -47,12 +47,13 @@ export function ObserverHistory({
   const waiting = loading && messages == null && (activity.turns ?? []).length === 0;
 
   if (waiting) {
-    return loadingLabel
-      ? <p className="px-1 text-sm text-muted-foreground">{loadingLabel}</p>
-      : null;
+    return loadingLabel ? (
+      <p className="px-1 text-sm text-muted-foreground">{loadingLabel}</p>
+    ) : null;
   }
 
-  const knownChild = (id: string) => (activity.children ?? []).some((child) => child.child_id === id);
+  const knownChild = (id: string) =>
+    (activity.children ?? []).some((child) => child.child_id === id);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

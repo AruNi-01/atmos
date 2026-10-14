@@ -5,9 +5,7 @@ import { join } from "node:path";
 /** Loopback Atmos Server from `~/.atmos/state/runtime_manifest.json`. */
 export function resolveLocalCollabServer(): string | null {
   if (typeof process === "undefined") return null;
-  const fromEnv =
-    process.env.PT_DESIGN_COLLAB_URL?.trim() ||
-    process.env.ATMOS_API_URL?.trim();
+  const fromEnv = process.env.PT_DESIGN_COLLAB_URL?.trim() || process.env.ATMOS_API_URL?.trim();
   if (fromEnv) return fromEnv;
   try {
     const home = process.env.ATMOS_HOME?.trim() || join(homedir(), ".atmos");

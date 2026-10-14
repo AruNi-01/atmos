@@ -16,10 +16,7 @@
         },
         {
           "question": "Notify channel?",
-          "options": [
-            { "label": "Slack" },
-            { "label": "Email" }
-          ]
+          "options": [{ "label": "Slack" }, { "label": "Email" }]
         }
       ]
     },

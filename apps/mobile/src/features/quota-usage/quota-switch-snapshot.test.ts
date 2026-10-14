@@ -24,7 +24,11 @@ describe("mergeQuotaSwitchSnapshot", () => {
   });
 
   test("uses the server switch when this response is allowed to set it", () => {
-    const merged = mergeQuotaSwitchSnapshot(providers, [{ id: "a", switch_enabled: true }], () => true);
+    const merged = mergeQuotaSwitchSnapshot(
+      providers,
+      [{ id: "a", switch_enabled: true }],
+      () => true,
+    );
     expect(merged).toEqual([{ id: "a", switch_enabled: true }]);
   });
 });

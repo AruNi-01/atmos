@@ -106,7 +106,11 @@ export function mdLiveTableViewPlugin(getCopy: () => MdLiveCopyFn | undefined): 
     rowHandle.className = "md-live-table-handle md-live-table-handle--row";
     rowHandle.dataset.mdLiveTableChrome = "row";
     rowHandle.contentEditable = "false";
-    const rowBtn = createButton("md-live-table-handle-btn", DOTS_V, mdLiveLabel("tableRowMenu", getCopy()));
+    const rowBtn = createButton(
+      "md-live-table-handle-btn",
+      DOTS_V,
+      mdLiveLabel("tableRowMenu", getCopy()),
+    );
     const rowMenu = createMenu("row");
     rowHandle.append(rowBtn, rowMenu);
 
@@ -114,16 +118,28 @@ export function mdLiveTableViewPlugin(getCopy: () => MdLiveCopyFn | undefined): 
     colHandle.className = "md-live-table-handle md-live-table-handle--col";
     colHandle.dataset.mdLiveTableChrome = "col";
     colHandle.contentEditable = "false";
-    const colBtn = createButton("md-live-table-handle-btn", DOTS_H, mdLiveLabel("tableColMenu", getCopy()));
+    const colBtn = createButton(
+      "md-live-table-handle-btn",
+      DOTS_H,
+      mdLiveLabel("tableColMenu", getCopy()),
+    );
     const colMenu = createMenu("col");
     colHandle.append(colBtn, colMenu);
 
-    const addRow = createButton("md-live-table-add md-live-table-add--row", PLUS, mdLiveLabel("tableAddRow", getCopy()));
+    const addRow = createButton(
+      "md-live-table-add md-live-table-add--row",
+      PLUS,
+      mdLiveLabel("tableAddRow", getCopy()),
+    );
     addRow.dataset.mdLiveTableChrome = "add-row";
     addRow.dataset.op = "add-row";
     addRow.contentEditable = "false";
 
-    const addCol = createButton("md-live-table-add md-live-table-add--col", PLUS, mdLiveLabel("tableAddCol", getCopy()));
+    const addCol = createButton(
+      "md-live-table-add md-live-table-add--col",
+      PLUS,
+      mdLiveLabel("tableAddCol", getCopy()),
+    );
     addCol.dataset.mdLiveTableChrome = "add-col";
     addCol.dataset.op = "add-col";
     addCol.contentEditable = "false";
@@ -184,12 +200,10 @@ export function mdLiveTableViewPlugin(getCopy: () => MdLiveCopyFn | undefined): 
       addCol.style.left = `${tableBox.right - frameBox.left}px`;
       addCol.style.width = `${ADD}px`;
       const lastRow = hoverRow === rows.length - 1;
-      const lastCol = hoverCol === (row.childElementCount - 1);
-      const lastColInView = lastCol && mdLiveTableAtScrollEnd(
-        scroll.scrollLeft,
-        scroll.clientWidth,
-        scroll.scrollWidth,
-      );
+      const lastCol = hoverCol === row.childElementCount - 1;
+      const lastColInView =
+        lastCol &&
+        mdLiveTableAtScrollEnd(scroll.scrollLeft, scroll.clientWidth, scroll.scrollWidth);
       setShown(rowHandle, true);
       setShown(colHandle, true);
       setShown(addRow, lastRow);
@@ -218,7 +232,8 @@ export function mdLiveTableViewPlugin(getCopy: () => MdLiveCopyFn | undefined): 
       if (isChromeTarget(target, frame)) {
         cancelHide();
         if (hoverRow >= 0) {
-          const add = target instanceof Element ? target.closest("[data-md-live-table-chrome]") : null;
+          const add =
+            target instanceof Element ? target.closest("[data-md-live-table-chrome]") : null;
           if (add?.getAttribute("data-md-live-table-chrome") === "add-row") {
             const rows = table.querySelectorAll("tr");
             hoverRow = Math.max(0, rows.length - 1);
@@ -245,7 +260,9 @@ export function mdLiveTableViewPlugin(getCopy: () => MdLiveCopyFn | undefined): 
 
     const dispatchOp = (op: string) => {
       if (!view.editable) return;
-      const pos = (typeof getPos === "function" ? getPos() : undefined) ?? mdLiveFirstTablePos(view.state.doc);
+      const pos =
+        (typeof getPos === "function" ? getPos() : undefined) ??
+        mdLiveFirstTablePos(view.state.doc);
       if (pos == null) return;
       const indexFor = (axis: "row" | "col") => (axis === "row" ? hoverRow : hoverCol);
       const run = (fn: TableOp, index: number) => {
@@ -259,28 +276,46 @@ export function mdLiveTableViewPlugin(getCopy: () => MdLiveCopyFn | undefined): 
       const lastCol = Math.max(0, (table.querySelector("tr")?.childElementCount ?? 1) - 1);
       switch (op) {
         case "row-before":
-          run((state, tablePos, index) => mdLiveTableAddRow(state, tablePos, index, "before"), indexFor("row"));
+          run(
+            (state, tablePos, index) => mdLiveTableAddRow(state, tablePos, index, "before"),
+            indexFor("row"),
+          );
           break;
         case "row-after":
-          run((state, tablePos, index) => mdLiveTableAddRow(state, tablePos, index, "after"), indexFor("row"));
+          run(
+            (state, tablePos, index) => mdLiveTableAddRow(state, tablePos, index, "after"),
+            indexFor("row"),
+          );
           break;
         case "row-delete":
           run(mdLiveTableDeleteRow, indexFor("row"));
           break;
         case "col-before":
-          run((state, tablePos, index) => mdLiveTableAddCol(state, tablePos, index, "before"), indexFor("col"));
+          run(
+            (state, tablePos, index) => mdLiveTableAddCol(state, tablePos, index, "before"),
+            indexFor("col"),
+          );
           break;
         case "col-after":
-          run((state, tablePos, index) => mdLiveTableAddCol(state, tablePos, index, "after"), indexFor("col"));
+          run(
+            (state, tablePos, index) => mdLiveTableAddCol(state, tablePos, index, "after"),
+            indexFor("col"),
+          );
           break;
         case "col-delete":
           run(mdLiveTableDeleteCol, indexFor("col"));
           break;
         case "add-row":
-          run((state, tablePos, index) => mdLiveTableAddRow(state, tablePos, index, "after"), lastRow);
+          run(
+            (state, tablePos, index) => mdLiveTableAddRow(state, tablePos, index, "after"),
+            lastRow,
+          );
           break;
         case "add-col":
-          run((state, tablePos, index) => mdLiveTableAddCol(state, tablePos, index, "after"), lastCol);
+          run(
+            (state, tablePos, index) => mdLiveTableAddCol(state, tablePos, index, "after"),
+            lastCol,
+          );
           break;
       }
     };
@@ -294,11 +329,12 @@ export function mdLiveTableViewPlugin(getCopy: () => MdLiveCopyFn | undefined): 
     const onClick = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
-      const button = event.currentTarget instanceof Element
-        ? event.currentTarget
-        : event.target instanceof Element
-          ? event.target.closest("button[data-op]")
-          : null;
+      const button =
+        event.currentTarget instanceof Element
+          ? event.currentTarget
+          : event.target instanceof Element
+            ? event.target.closest("button[data-op]")
+            : null;
       const op = button instanceof HTMLElement ? button.dataset.op : undefined;
       if (op) dispatchOp(op);
     };

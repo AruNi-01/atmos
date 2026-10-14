@@ -9,13 +9,7 @@
  * theme-aware seeded colors instead of the upstream orange.
  */
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useSyncExternalStore,
-  type ComponentProps,
-} from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore, type ComponentProps } from "react";
 import { cn } from "@workspace/ui/lib/utils";
 import {
   matrixOrbColor,
@@ -71,13 +65,7 @@ const ORBITERS = [
   { radius: 0.8, speed: 1.15, phase: 4, spread: 0.34 },
 ];
 
-function intensityOf(
-  state: MatrixOrbState,
-  d: number,
-  nx: number,
-  ny: number,
-  t: number,
-): number {
+function intensityOf(state: MatrixOrbState, d: number, nx: number, ny: number, t: number): number {
   if (state === "thinking") {
     let heat = 0;
     for (const orbiter of ORBITERS) {
@@ -128,10 +116,7 @@ function readClientTheme(): MatrixOrbTheme {
     document.documentElement,
     window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
-  if (
-    themeSnapshot.scheme === next.scheme &&
-    themeSnapshot.palette === next.palette
-  ) {
+  if (themeSnapshot.scheme === next.scheme && themeSnapshot.palette === next.palette) {
     return themeSnapshot;
   }
   themeSnapshot = next;
@@ -285,12 +270,7 @@ export function MatrixOrb({
       aria-label={hidden || showLabel ? undefined : caption}
       {...props}
     >
-      <canvas
-        ref={canvasRef}
-        aria-hidden
-        className="block"
-        style={{ width: size, height: size }}
-      />
+      <canvas ref={canvasRef} aria-hidden className="block" style={{ width: size, height: size }} />
       {showLabel ? (
         <span role="status" aria-live="polite" className="text-sm text-foreground/70">
           {caption}

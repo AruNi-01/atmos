@@ -23,9 +23,7 @@ export const ICON_DMG_ICNS_REL = "resources/icons/dmg-icon.icns";
  */
 export const DMG_ICON_PLATE_INSET = 0.09;
 
-export type ActoolStatus =
-  | { ok: true; version: string }
-  | { ok: false; reason: string };
+export type ActoolStatus = { ok: true; version: string } | { ok: false; reason: string };
 
 /**
  * Require actool ≥ 26.0 (Xcode 26+) for Icon Composer compilation.
@@ -51,9 +49,8 @@ export function checkActool26(): ActoolStatus {
 
   // actool prints a short plist. Prefer the short-bundle-version string.
   const m =
-    out.match(
-      /short-bundle-version<\/key>\s*<string>([0-9]+(?:\.[0-9]+)*)<\/string>/i,
-    ) ?? out.match(/short-bundle-version["\s:=]+([0-9]+(?:\.[0-9]+)*)/i);
+    out.match(/short-bundle-version<\/key>\s*<string>([0-9]+(?:\.[0-9]+)*)<\/string>/i) ??
+    out.match(/short-bundle-version["\s:=]+([0-9]+(?:\.[0-9]+)*)/i);
   const version = m?.[1] ?? "";
   if (!version) {
     return {
@@ -91,16 +88,12 @@ export function verifyPackagedMacIcon(appPath: string): {
     return { ok: false, details: [`missing Info.plist: ${plistPath}`] };
   }
 
-  const name = spawnSync(
-    "plutil",
-    ["-extract", "CFBundleIconName", "raw", "-o", "-", plistPath],
-    { encoding: "utf8" },
-  );
-  const file = spawnSync(
-    "plutil",
-    ["-extract", "CFBundleIconFile", "raw", "-o", "-", plistPath],
-    { encoding: "utf8" },
-  );
+  const name = spawnSync("plutil", ["-extract", "CFBundleIconName", "raw", "-o", "-", plistPath], {
+    encoding: "utf8",
+  });
+  const file = spawnSync("plutil", ["-extract", "CFBundleIconFile", "raw", "-o", "-", plistPath], {
+    encoding: "utf8",
+  });
   // plutil -o - may write to stdout; some versions put value in stdout directly
   const iconName = (name.stdout ?? "").trim();
   const iconFile = (file.stdout ?? "").trim();
@@ -128,8 +121,7 @@ export function verifyPackagedMacIcon(appPath: string): {
     details.push("icon.icns missing");
   }
 
-  const hasName =
-    Boolean(iconName) && name.status === 0 && !iconName.includes("error");
+  const hasName = Boolean(iconName) && name.status === 0 && !iconName.includes("error");
   const ok = hasName && existsSync(car) && existsSync(icns);
   return { ok, details };
 }

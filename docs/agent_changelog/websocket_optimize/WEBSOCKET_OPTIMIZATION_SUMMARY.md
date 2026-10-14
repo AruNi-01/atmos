@@ -9,12 +9,14 @@
 ### 1. **infra 层 - WsService** (`crates/infra/src/websocket/service.rs`)
 
 **新增功能**：
+
 - ✅ 支持注入 `WsMessageHandler` 业务处理器
 - ✅ 新增 `with_message_handler()` 方法用于依赖注入
 - ✅ 新增 `handle_message()` 统一消息处理入口
 - ✅ 在 `register()` 和 `unregister()` 中调用处理器的生命周期钩子
 
 **核心代码**：
+
 ```rust
 pub struct WsService {
     manager: Arc<WsManager>,
@@ -27,11 +29,11 @@ impl WsService {
         self.message_handler = Some(handler);
         self
     }
-    
+
     pub async fn handle_message(&self, conn_id: &str, text: &str) -> Option<String> {
         // 1. 更新活跃时间
         self.manager.touch_connection(conn_id).await;
-        
+
         // 2. 处理控制消息 (ping/pong)
         match process_text_message(text, conn_id) {
             HandleResult::Reply(response) => Some(response),
@@ -53,11 +55,13 @@ impl WsService {
 ### 2. **core-service 层 - WsMessageService** (`crates/core-service/src/ws_message_service.rs`)
 
 **新增功能**：
+
 - ✅ 实现 `WsMessageHandler` trait
 - ✅ 实现 `handle_message()` 业务逻辑
 - ✅ 实现 `on_connect()` 和 `on_disconnect()` 生命周期钩子
 
 **核心代码**：
+
 ```rust
 use async_trait::async_trait;
 use infra::WsMessageHandler;
@@ -73,11 +77,11 @@ impl WsMessageHandler for WsMessageService {
             }
         }
     }
-    
+
     async fn on_connect(&self, conn_id: &str) {
         tracing::info!("WebSocket client connected: {}", conn_id);
     }
-    
+
     async fn on_disconnect(&self, conn_id: &str) {
         tracing::info!("WebSocket client disconnected: {}", conn_id);
     }
@@ -87,6 +91,7 @@ impl WsMessageHandler for WsMessageService {
 ### 3. **API 层 - 消息处理** (`apps/api/src/api/ws/handlers.rs`)
 
 **简化前**（60行）：
+
 ```rust
 async fn handle_incoming_message(...) -> bool {
     // 1. 判断是否控制消息
@@ -94,14 +99,14 @@ async fn handle_incoming_message(...) -> bool {
         let _ = tx.send(response).await;
         return true;
     }
-    
+
     // 2. 判断是否业务消息
     if !state.ws_service.is_control_message(text_str) {
         // 3. 调用 core-service
         if let Ok(result) = state.ws_message_service.process_ws_message(text_str).await {
             // 4. 更新推送服务
             state.message_push_service.update_latest_message(&result).await;
-            
+
             // 5. 构造响应
             let response = WsMessage::message(conn_id, result);
             if let Ok(json) = response.to_json() {
@@ -114,6 +119,7 @@ async fn handle_incoming_message(...) -> bool {
 ```
 
 **简化后**（16行）：
+
 ```rust
 async fn handle_incoming_message(...) -> bool {
     match msg {
@@ -136,6 +142,7 @@ async fn handle_incoming_message(...) -> bool {
 ### 4. **AppState 依赖注入** (`apps/api/src/app_state.rs`)
 
 **优化前**：
+
 ```rust
 pub struct AppState {
     pub ws_message_service: Arc<WsMessageService>,  // 直接暴露
@@ -144,6 +151,7 @@ pub struct AppState {
 ```
 
 **优化后**：
+
 ```rust
 pub struct AppState {
     pub message_push_service: Arc<MessagePushService>,  // 仅用于周期推送
@@ -160,7 +168,7 @@ impl AppState {
         // 依赖注入：将业务处理器注入到 WsService
         let ws_service = WsService::with_config(ws_service_config)
             .with_message_handler(ws_message_service);
-        
+
         Self {
             test_service,
             message_push_service,
@@ -173,6 +181,7 @@ impl AppState {
 ### 5. **main.rs 初始化** (`apps/api/src/main.rs`)
 
 **优化后**：
+
 ```rust
 // 创建服务
 let ws_message_service = Arc::new(WsMessageService::new(...));
@@ -194,18 +203,19 @@ let app_state = AppState::new(
 
 ## 📊 优化效果对比
 
-| 方面 | 优化前 | 优化后 |
-|------|--------|--------|
-| **消息处理逻辑** | 分散在 API 层（60行） | 统一在 infra 层（16行） |
-| **职责分离** | API 层需判断消息类型 | API 层只负责转发 |
-| **依赖方向** | API → core-service（直接） | infra → interface ← core-service |
-| **代码复杂度** | 高（多层if判断） | 低（单一入口） |
-| **可测试性** | 难（需真实依赖） | 易（可mock处理器） |
-| **扩展性** | 差（修改需改多处） | 好（只需实现trait） |
+| 方面             | 优化前                     | 优化后                           |
+| ---------------- | -------------------------- | -------------------------------- |
+| **消息处理逻辑** | 分散在 API 层（60行）      | 统一在 infra 层（16行）          |
+| **职责分离**     | API 层需判断消息类型       | API 层只负责转发                 |
+| **依赖方向**     | API → core-service（直接） | infra → interface ← core-service |
+| **代码复杂度**   | 高（多层if判断）           | 低（单一入口）                   |
+| **可测试性**     | 难（需真实依赖）           | 易（可mock处理器）               |
+| **扩展性**       | 差（修改需改多处）         | 好（只需实现trait）              |
 
 ## 🎯 架构优势
 
 ### 1. **职责清晰**
+
 ```
 infra 层：WebSocket 基础设施 + 消息分发中枢
 API 层：HTTP 升级 + 连接生命周期管理
@@ -213,6 +223,7 @@ core-service 层：纯业务逻辑实现
 ```
 
 ### 2. **依赖反转实现**
+
 ```mermaid
 graph LR
     API[API Layer] --> WsService[infra::WsService]
@@ -221,6 +232,7 @@ graph LR
 ```
 
 ### 3. **消息处理流程统一**
+
 ```
 Client → API → WsService.handle_message()
                  ├─ ping/pong (infra 处理)
@@ -230,6 +242,7 @@ Client → API → WsService.handle_message()
 ## 🔧 依赖变更
 
 **新增依赖**：
+
 - `crates/core-service/Cargo.toml`: `async-trait = "0.1"`
 
 ## ✅ 测试结果
@@ -247,6 +260,7 @@ $ cargo build --package api
 ## 🚀 后续可扩展场景
 
 ### 1. **多租户支持**
+
 ```rust
 struct TenantWsHandler {
     tenant_id: String,
@@ -261,6 +275,7 @@ impl WsMessageHandler for TenantWsHandler {
 ```
 
 ### 2. **A/B 测试**
+
 ```rust
 struct ABTestHandler {
     handler_a: Arc<dyn WsMessageHandler>,
@@ -279,6 +294,7 @@ impl WsMessageHandler for ABTestHandler {
 ```
 
 ### 3. **消息过滤器链**
+
 ```rust
 struct FilterChainHandler {
     filters: Vec<Box<dyn MessageFilter>>,

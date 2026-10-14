@@ -12,12 +12,12 @@ export type MobileTerminalAgent = TerminalTitleAgent & {
   iconType: "built-in" | "custom";
 };
 
-export const MOBILE_TERMINAL_AGENTS: MobileTerminalAgent[] = (terminalAgents as TerminalAgentManifestEntry[]).map(
-  (agent) => ({
-    command: agent.cmd,
-    iconType: "built-in",
-    id: agent.id,
-    label: agent.label,
-    pipeCommand: agent.useEcho ? agent.cmd : undefined,
-  }),
-);
+export const MOBILE_TERMINAL_AGENTS: MobileTerminalAgent[] = (
+  terminalAgents as TerminalAgentManifestEntry[]
+).map((agent) => ({
+  command: agent.cmd,
+  iconType: "built-in",
+  id: agent.id,
+  label: agent.label,
+  pipeCommand: agent.useEcho ? agent.cmd : undefined,
+}));

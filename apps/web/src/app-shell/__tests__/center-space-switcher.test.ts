@@ -29,10 +29,7 @@ const dir = join(import.meta.dir, "..");
 
 describe("center space switcher open path", () => {
   it("pops the header button in like the attention bell and does not screenshot", () => {
-    const switcher = readFileSync(
-      join(dir, "center-space/CenterSpaceSwitcher.tsx"),
-      "utf8",
-    );
+    const switcher = readFileSync(join(dir, "center-space/CenterSpaceSwitcher.tsx"), "utf8");
     expect(switcher).toContain('from "motion/react"');
     expect(switcher).toContain("AnimatePresence");
     expect(switcher).toContain("initial={false}");
@@ -48,10 +45,7 @@ describe("center space switcher open path", () => {
     expect(switcher).toContain("LayoutTemplate");
     expect(switcher).toContain("offActiveSpaceAttentionReason");
     expect(switcher).toContain("hostSpaceAttentionReasons");
-    const overview = readFileSync(
-      join(dir, "center-space/CenterSpaceOverview.tsx"),
-      "utf8",
-    );
+    const overview = readFileSync(join(dir, "center-space/CenterSpaceOverview.tsx"), "utf8");
     expect(overview).toContain("agent-attention-ring-card");
     expect(overview).not.toContain("thumbnailDataUrl");
     expect(overview).not.toContain("snapdom");
@@ -63,11 +57,8 @@ describe("center space switcher open path", () => {
   });
 
   it("captures the live frame with snapdom instead of cloning via html2canvas", () => {
-    const thumb = readFileSync(
-      join(dir, "center-space/center-space-thumbnail.ts"),
-      "utf8",
-    );
-    expect(thumb).toContain('@zumer/snapdom');
+    const thumb = readFileSync(join(dir, "center-space/center-space-thumbnail.ts"), "utf8");
+    expect(thumb).toContain("@zumer/snapdom");
     expect(thumb).toContain("snapdom.toCanvas");
     expect(thumb).toContain("burst: true");
     expect(thumb).toContain("queryCenterWorkArea");
@@ -89,16 +80,10 @@ describe("center space switcher open path", () => {
     expect(thumb).not.toContain("includeStyleProperties");
     expect(thumb).not.toContain("yieldToIdle");
     expect(thumb).not.toContain("THUMB_WIDTH = 96");
-    const preview = readFileSync(
-      join(dir, "center-space/CenterSpacePreview.tsx"),
-      "utf8",
-    );
+    const preview = readFileSync(join(dir, "center-space/CenterSpacePreview.tsx"), "utf8");
     expect(preview).toContain("paintCenterSpaceTerminalOverlay");
     expect(preview).toContain("setInterval");
-    const overview = readFileSync(
-      join(dir, "center-space/CenterSpaceOverview.tsx"),
-      "utf8",
-    );
+    const overview = readFileSync(join(dir, "center-space/CenterSpaceOverview.tsx"), "utf8");
     expect(overview).not.toContain("object-contain");
     expect(overview).not.toContain("thumbnailDataUrl");
     expect(overview).toContain("data-center-space-slot");
@@ -108,14 +93,9 @@ describe("center space switcher open path", () => {
     expect(overview).not.toContain("live={open && selected}");
     expect(overview).not.toContain('? "border-foreground"');
     const chrome = centerSpaceOverviewChromeTransition();
-    expect(chrome).toBe(
-      `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`,
-    );
+    expect(chrome).toBe(`opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`);
     expect(centerSpacePoseRingWidth(0.25)).toBe("8.00px");
-    const pose = readFileSync(
-      join(dir, "center-space/center-space-overview-pose.ts"),
-      "utf8",
-    );
+    const pose = readFileSync(join(dir, "center-space/center-space-overview-pose.ts"), "utf8");
     expect(pose).toContain('if (!el.hasAttribute("data-center-space-posed")) continue');
     expect(pose).toContain("data-center-space-pose-ring");
     expect(pose).toContain("centerSpacePoseRing");
@@ -123,10 +103,7 @@ describe("center space switcher open path", () => {
     expect(pose).not.toContain("place(active, activeSlot, animateActive, false, true)");
     const slotPoseAt = pose.indexOf("const pose = slotPose(el, slot);");
     const engageAt = pose.indexOf("engageCenterSpaceLayoutShield();", slotPoseAt);
-    const posedAttrAt = pose.indexOf(
-      'el.setAttribute("data-center-space-posed", "");',
-      engageAt,
-    );
+    const posedAttrAt = pose.indexOf('el.setAttribute("data-center-space-posed", "");', engageAt);
     expect(slotPoseAt).toBeGreaterThan(0);
     expect(engageAt).toBeGreaterThan(slotPoseAt);
     expect(posedAttrAt).toBeGreaterThan(engageAt);
@@ -165,17 +142,11 @@ describe("center space switcher open path", () => {
     const outsideLayerAt = css.indexOf("Kept outside @layer base");
     expect(outsideLayerAt).toBeGreaterThan(0);
     expect(css.indexOf(leafSelector)).toBeGreaterThan(outsideLayerAt);
-    expect(css.indexOf("@property --center-space-pose-scale")).toBeGreaterThan(
-      outsideLayerAt,
-    );
-    expect(css.slice(css.indexOf("@layer base"), outsideLayerAt)).not.toContain(
-      leafSelector,
-    );
+    expect(css.indexOf("@property --center-space-pose-scale")).toBeGreaterThan(outsideLayerAt);
+    expect(css.slice(css.indexOf("@layer base"), outsideLayerAt)).not.toContain(leafSelector);
     const leafRule = css.slice(css.indexOf(leafSelector), css.indexOf(leafSelector) + 420);
     expect(leafRule).toContain("background-color: transparent !important");
-    expect(pose).toContain(
-      'setProperty("background-color", "transparent", "important")',
-    );
+    expect(pose).toContain('setProperty("background-color", "transparent", "important")');
     expect(pose).toContain("centerSpaceLeafClipPath");
     expect(pose).toContain("restoreLiveSurface");
     expect(centerSpaceLeafClipPath(32.2, 0)).toBe("inset(0 0 calc(100% - 33px) 0)");
@@ -201,7 +172,9 @@ describe("center space switcher open path", () => {
     const shell = panels.slice(Math.max(0, shellAt - 700), shellAt);
     expect(shell).toContain("pointer-events-none absolute inset-0");
     expect(shell).not.toContain("relative flex-1");
-    expect(panels).toContain("overviewPaintIds.includes(contextId) && contextId !== displayContextId");
+    expect(panels).toContain(
+      "overviewPaintIds.includes(contextId) && contextId !== displayContextId",
+    );
     expect(panels).toContain("const passIdentity = isUrlSyncedActive || galleryPreview");
     expect(panels).toContain("currentRepoPath={passIdentity ? currentRepoPath : undefined}");
     const frame = readFileSync(join(dir, "workspace-center-frame.tsx"), "utf8");
@@ -216,10 +189,7 @@ describe("center space switcher open path", () => {
   });
 
   it("cascades space delete through pane, run, tmux, and chrome state", () => {
-    const cleanup = readFileSync(
-      join(dir, "center-space/center-space-cleanup.ts"),
-      "utf8",
-    );
+    const cleanup = readFileSync(join(dir, "center-space/center-space-cleanup.ts"), "utf8");
     expect(cleanup).toContain("killExtraSpaceTmuxWindows");
     expect(cleanup).toContain("extraCenterSpaceTmuxWindowPrefix");
     expect(cleanup).toContain("listTmuxWindows");
@@ -249,16 +219,13 @@ describe("center space switcher open path", () => {
   });
 
   it("asks for popover confirmation before deleting a space", () => {
-    const switcher = readFileSync(
-      join(dir, "center-space/CenterSpaceOverview.tsx"),
-      "utf8",
-    );
+    const switcher = readFileSync(join(dir, "center-space/CenterSpaceOverview.tsx"), "utf8");
     expect(switcher).toContain("confirmDeleteId");
     expect(switcher).toContain("deleteConfirmTitle");
     expect(switcher).toContain("deleteConfirmAction");
     expect(switcher).toContain("PopoverContent");
     expect(switcher).toContain("data-confirming");
-    const triggerAt = switcher.indexOf("aria-label={t(\"deleteSpace\"");
+    const triggerAt = switcher.indexOf('aria-label={t("deleteSpace"');
     const confirmAt = switcher.indexOf("void deleteCenterSpace(hostId, space.id)");
     expect(triggerAt).toBeGreaterThan(0);
     expect(confirmAt).toBeGreaterThan(triggerAt);
@@ -288,10 +255,7 @@ describe("center space switcher open path", () => {
   });
 
   it("crossfades the whole center card instead of per-frame push-page classes", () => {
-    const switcherSrc = readFileSync(
-      join(dir, "center-space/center-space-switch.ts"),
-      "utf8",
-    );
+    const switcherSrc = readFileSync(join(dir, "center-space/center-space-switch.ts"), "utf8");
     expect(switcherSrc).toContain("runCenterSpaceSlide");
     expect(switcherSrc).toContain("clearCenterDeepLinkUrl");
     expect(switcherSrc).toContain("!current.spaces.some((space) => space.id === spaceId)");
@@ -319,10 +283,7 @@ describe("center space switcher open path", () => {
     const frame = readFileSync(join(dir, "workspace-center-frame.tsx"), "utf8");
     expect(frame).not.toContain("push-page-slide-in-x");
     expect(frame).not.toContain("push-page-slide-out-x");
-    const css = readFileSync(
-      join(import.meta.dir, "../../app/globals.css"),
-      "utf8",
-    );
+    const css = readFileSync(join(import.meta.dir, "../../app/globals.css"), "utf8");
     expect(css).toContain("center-space-card");
     expect(css).toContain("center-space-incoming");
     expect(css).toContain("center-space-outgoing");
@@ -346,42 +307,34 @@ describe("center space switcher open path", () => {
     expect(slideSrc).toContain("OUTGOING_VT_NAME");
     expect(slideSrc).toContain("fromCard");
     expect(slideSrc).not.toContain("return start(update)");
-    const overview = readFileSync(
-      join(dir, "center-space/CenterSpaceOverview.tsx"),
-      "utf8",
-    );
+    const overview = readFileSync(join(dir, "center-space/CenterSpaceOverview.tsx"), "utf8");
     expect(overview).toContain("switchCenterSpace(hostId, spaceId, { animate: false })");
     expect(overview).toContain("openNewCenterSpace(hostId, undefined, { animate: false })");
     expect(overview).not.toContain("data-center-space-fan-card");
-    const spaces = [
-      { id: "main" },
-      { id: "space-1" },
-      { id: "space-2" },
-    ];
+    const spaces = [{ id: "main" }, { id: "space-1" }, { id: "space-2" }];
     expect(centerSpaceSlideDirection(spaces, "main", "space-2")).toBe("forward");
     expect(centerSpaceSlideDirection(spaces, "space-2", "main")).toBe("back");
-    expect(neighborSpaceIdAfterDelete(
-      [
-        {
-          id: DEFAULT_CENTER_SPACE_ID,
-          name: DEFAULT_CENTER_SPACE_NAME,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-        { id: "space-1", name: "Space 1", createdAt: 1, updatedAt: 1 },
-        { id: "space-2", name: "Space 2", createdAt: 1, updatedAt: 1 },
-      ],
-      "space-2",
-    )).toBe("space-1");
+    expect(
+      neighborSpaceIdAfterDelete(
+        [
+          {
+            id: DEFAULT_CENTER_SPACE_ID,
+            name: DEFAULT_CENTER_SPACE_NAME,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          { id: "space-1", name: "Space 1", createdAt: 1, updatedAt: 1 },
+          { id: "space-2", name: "Space 2", createdAt: 1, updatedAt: 1 },
+        ],
+        "space-2",
+      ),
+    ).toBe("space-1");
   });
 
   it("keeps jpeg thumbnails in the local cache and strips them for disk writes", () => {
     const storeSrc = readFileSync(join(dir, "center-space/center-space-store.ts"), "utf8");
     const persistSrc = readFileSync(join(dir, "center-layout/center-layout-persist.ts"), "utf8");
-    const documentSrc = readFileSync(
-      join(dir, "center-layout/center-layout-document.ts"),
-      "utf8",
-    );
+    const documentSrc = readFileSync(join(dir, "center-layout/center-layout-document.ts"), "utf8");
     expect(storeSrc).toContain("markCenterLayoutDirty({ disk: false })");
     expect(documentSrc).toContain("omitCenterSpaceThumbnails");
     expect(persistSrc).toContain("toCenterLayoutWire");
@@ -389,7 +342,9 @@ describe("center space switcher open path", () => {
     const setThumbAt = storeSrc.indexOf("setThumbnails: (hostId, thumbs)");
     const renameAt = storeSrc.indexOf("renameSpace: (hostId, spaceId, name)", setThumbAt);
     expect(setThumbAt).toBeGreaterThan(0);
-    expect(storeSrc.slice(setThumbAt, renameAt)).toContain("markCenterLayoutDirty({ disk: false })");
+    expect(storeSrc.slice(setThumbAt, renameAt)).toContain(
+      "markCenterLayoutDirty({ disk: false })",
+    );
 
     const stripped = omitCenterSpaceThumbnails({
       "ws-1": {

@@ -110,9 +110,7 @@ export function rankContributorLogins(logins) {
   }
   return [...byKey.values()]
     .sort(
-      (a, b) =>
-        b.count - a.count ||
-        a.login.localeCompare(b.login, "en", { sensitivity: "base" }),
+      (a, b) => b.count - a.count || a.login.localeCompare(b.login, "en", { sensitivity: "base" }),
     )
     .map((entry) => entry.login);
 }
@@ -171,10 +169,7 @@ export function stripDesktopContributorsSection(body) {
   );
 
   // Fallback: a trailing "Thanks to @…." line we may have injected without a marker.
-  text = text.replace(
-    /\n+Thanks to @[A-Za-z0-9-]+(?:,? (?:and )?@[A-Za-z0-9-]+)*\.?\s*$/u,
-    "\n",
-  );
+  text = text.replace(/\n+Thanks to @[A-Za-z0-9-]+(?:,? (?:and )?@[A-Za-z0-9-]+)*\.?\s*$/u, "\n");
 
   return text.replace(/\s+$/u, "") + "\n";
 }

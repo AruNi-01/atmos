@@ -85,7 +85,9 @@
 /* Backward-compatible alias */
 @font-face {
   font-family: "Hack Nerd Font";
-  src: local("Hack Nerd Font Mono"), url("/fonts/HackNerdFontMono-Regular.ttf") format("truetype");
+  src:
+    local("Hack Nerd Font Mono"),
+    url("/fonts/HackNerdFontMono-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -93,7 +95,9 @@
 
 @font-face {
   font-family: "Hack Nerd Font";
-  src: local("Hack Nerd Font Mono"), url("/fonts/HackNerdFontMono-Bold.ttf") format("truetype");
+  src:
+    local("Hack Nerd Font Mono"),
+    url("/fonts/HackNerdFontMono-Bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -142,56 +146,56 @@ pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
 }
 
 @layer base {
-/*
+  /*
  * Match the desktop window background (#06070b) before .dark lands.
  * :root tokens are light; without this the titlebar / rounded chrome
  * flashes white while the theme script (or hydration) catches up.
  */
-html {
-  background-color: #06070b;
-  color-scheme: dark;
-}
+  html {
+    background-color: #06070b;
+    color-scheme: dark;
+  }
 
-html.light {
-  background-color: #f3f3f3;
-  color-scheme: light;
-}
+  html.light {
+    background-color: #f3f3f3;
+    color-scheme: light;
+  }
 
-html:not([data-theme-ready="true"]) body {
-  visibility: hidden;
-}
+  html:not([data-theme-ready="true"]) body {
+    visibility: hidden;
+  }
 
-.desktop-drag-region {
-  -webkit-app-region: drag;
-  app-region: drag;
-}
+  .desktop-drag-region {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
 
-.desktop-drag-region button,
-.desktop-drag-region button *,
-.desktop-drag-region a,
-.desktop-drag-region a *,
-.desktop-drag-region input,
-.desktop-drag-region textarea,
-.desktop-drag-region select,
-.desktop-drag-region summary,
-.desktop-drag-region summary *,
-.desktop-drag-region [role="button"],
-.desktop-drag-region [role="button"] *,
-.desktop-drag-region [contenteditable="true"],
-.desktop-drag-region [contenteditable="true"] *,
-.desktop-drag-region .desktop-no-drag,
-.desktop-drag-region .desktop-no-drag * {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
+  .desktop-drag-region button,
+  .desktop-drag-region button *,
+  .desktop-drag-region a,
+  .desktop-drag-region a *,
+  .desktop-drag-region input,
+  .desktop-drag-region textarea,
+  .desktop-drag-region select,
+  .desktop-drag-region summary,
+  .desktop-drag-region summary *,
+  .desktop-drag-region [role="button"],
+  .desktop-drag-region [role="button"] *,
+  .desktop-drag-region [contenteditable="true"],
+  .desktop-drag-region [contenteditable="true"] *,
+  .desktop-drag-region .desktop-no-drag,
+  .desktop-drag-region .desktop-no-drag * {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
 
-.desktop-no-drag,
-.desktop-no-drag * {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
+  .desktop-no-drag,
+  .desktop-no-drag * {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
 
-/*
+  /*
  * APP-043 warm workspace frames: never use display:none / content-visibility:hidden
  * / visibility:hidden. Those discard or freeze WebGL terminal textures and cause
  * a full-frame flash (blank → repaint) when hopping back to a warm Grok/CLI TUI.
@@ -199,32 +203,32 @@ html:not([data-theme-ready="true"]) body {
  * Opacity stacking keeps the canvas composited while surfaceActive still pauses
  * ResizeObserver/fit. Active frame sits above warm at z-index 1.
  */
-[data-workspace-frame][data-tier="warm"] {
-  opacity: 0;
-  pointer-events: none;
-  z-index: 0;
-}
+  [data-workspace-frame][data-tier="warm"] {
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
 
-/*
+  /*
  * Opacity stacking keeps warm WebGL textures composited, so CSS/JS animations
  * inside those trees would otherwise keep ticking. Pause descendant CSS
  * animations; JS spinners listen for `atmos:surface-visual` / [inert].
  */
-[data-workspace-frame][data-tier="warm"] *,
-.atmos-terminal-panel-keepalive *,
-[inert] * {
-  animation-play-state: paused !important;
-}
+  [data-workspace-frame][data-tier="warm"] *,
+  .atmos-terminal-panel-keepalive *,
+  [inert] * {
+    animation-play-state: paused !important;
+  }
 
-/* Do not force pointer-events here. The frame fills the card, and this rule
+  /* Do not force pointer-events here. The frame fills the card, and this rule
    outranks the `pointer-events-none` class that lets tab-bar hits fall
    through to the mosaic. Panels opt back in on their own slot. */
-[data-workspace-frame][data-tier="active"] {
-  opacity: 1;
-  z-index: 1;
-}
+  [data-workspace-frame][data-tier="active"] {
+    opacity: 1;
+    z-index: 1;
+  }
 
-/*
+  /*
  * Keep-alive terminal panels (tab switch within a frame). Same WebGL rule:
  * stay mounted and sized without display:none so xterm does not blank.
  *
@@ -235,47 +239,49 @@ html:not([data-theme-ready="true"]) body {
  * Parent opacity:0 already hides maximized terminal pane children that force
  * visibility:visible — no need for a visibility override that re-opens leaks.
  */
-.atmos-terminal-panel-keepalive {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  opacity: 0;
-  pointer-events: none;
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-  /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
-  border-bottom-left-radius: var(--radius-xl);
-  border-bottom-right-radius: var(--radius-xl);
-}
+  .atmos-terminal-panel-keepalive {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0;
+    pointer-events: none;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
+    border-bottom-left-radius: var(--radius-xl);
+    border-bottom-right-radius: var(--radius-xl);
+  }
 
-.atmos-terminal-panel-keepalive .terminal-pane.is-maximized,
-.atmos-terminal-panel-keepalive .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized {
-  position: absolute !important;
-  inset: 0 !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
-}
+  .atmos-terminal-panel-keepalive .terminal-pane.is-maximized,
+  .atmos-terminal-panel-keepalive
+    .terminal-grid-container[data-maximized-id]
+    .terminal-pane.is-maximized {
+    position: absolute !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+  }
 
-.atmos-terminal-panel-active {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  opacity: 1;
-  pointer-events: auto;
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-  /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
-  border-bottom-left-radius: var(--radius-xl);
-  border-bottom-right-radius: var(--radius-xl);
-}
+  .atmos-terminal-panel-active {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 1;
+    pointer-events: auto;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
+    border-bottom-left-radius: var(--radius-xl);
+    border-bottom-right-radius: var(--radius-xl);
+  }
 
   html,
   body {
@@ -333,10 +339,8 @@ html:not([data-theme-ready="true"]) body {
    */
   .agent-chat-edge-fade {
     --agent-chat-fade-stops:
-      var(--background) 0%,
-      color-mix(in oklab, var(--background) 88%, transparent) 24%,
-      color-mix(in oklab, var(--background) 46%, transparent) 58%,
-      transparent 100%;
+      var(--background) 0%, color-mix(in oklab, var(--background) 88%, transparent) 24%,
+      color-mix(in oklab, var(--background) 46%, transparent) 58%, transparent 100%;
     pointer-events: none;
     position: absolute;
     inset-inline: 0;
@@ -402,18 +406,25 @@ html:not([data-theme-ready="true"]) body {
    from the pose, because this plate is what hides the live page. The leaf's
    own rounded-xl is not divided by the pose scale, so it would look square
    until the zoom settled. */
-[data-center-space-stage][data-overview="open"] [data-center-stage-mosaic][data-center-space-posed] [data-center-split-leaf] {
+[data-center-space-stage][data-overview="open"]
+  [data-center-stage-mosaic][data-center-space-posed]
+  [data-center-split-leaf] {
   background-color: transparent !important;
   box-shadow: none !important;
   border-radius: calc(var(--radius-xl) / var(--center-space-pose-scale, 1)) !important;
 }
 
-[data-center-space-stage][data-overview="open"] [data-center-stage-mosaic][data-center-space-posed] [data-center-split-leaf] > div {
+[data-center-space-stage][data-overview="open"]
+  [data-center-stage-mosaic][data-center-space-posed]
+  [data-center-split-leaf]
+  > div {
   background-color: transparent !important;
   border-radius: calc(var(--radius-xl) / var(--center-space-pose-scale, 1)) !important;
 }
 
-[data-center-space-stage][data-overview="open"] [data-workspace-frame][data-center-space-posed] > :not([data-center-space-pose-ring]) {
+[data-center-space-stage][data-overview="open"]
+  [data-workspace-frame][data-center-space-posed]
+  > :not([data-center-space-pose-ring]) {
   border-radius: 0;
 }
 
@@ -477,7 +488,8 @@ html[data-center-stage-plus-menu-open] iframe {
   @keyframes appshot-capture-card-enter {
     0% {
       opacity: 0;
-      transform: translate3d(var(--appshot-enter-x, 0), var(--appshot-enter-y, -18px), 0) scale(0.72);
+      transform: translate3d(var(--appshot-enter-x, 0), var(--appshot-enter-y, -18px), 0)
+        scale(0.72);
       filter: blur(2px);
     }
     62% {
@@ -675,10 +687,14 @@ html[data-center-stage-plus-menu-open] iframe {
 }
 
 @keyframes fade-out {
-  to { opacity: 0; }
+  to {
+    opacity: 0;
+  }
 }
 @keyframes fade-in {
-  from { opacity: 0; }
+  from {
+    opacity: 0;
+  }
 }
 
 /* Agent need-attention rings (tabs + panes). Soft pulse — avoid loud alerts. */
@@ -881,10 +897,7 @@ body.canvas-overlay-active
   z-index: 170 !important;
 }
 
-body.canvas-overlay-active
-  .tldraw-wrapper
-  .tl-container
-  [data-radix-popper-content-wrapper] {
+body.canvas-overlay-active .tldraw-wrapper .tl-container [data-radix-popper-content-wrapper] {
   z-index: calc(var(--tl-layer-header-footer) + 1) !important;
 }
 
@@ -898,42 +911,36 @@ body.canvas-overlay-active
   user-select: text;
 }
 
-.tldraw-wrapper [data-canvas-widget-surface] [data-canvas-selectable-text="true"] :is(
-  button,
-  [role="button"],
-  [data-slot="button"]
-) {
+.tldraw-wrapper
+  [data-canvas-widget-surface]
+  [data-canvas-selectable-text="true"]
+  :is(button, [role="button"], [data-slot="button"]) {
   -webkit-user-select: none;
   user-select: none;
 }
 
-.tldraw-wrapper [data-canvas-widget-surface] :is(
-  input,
-  textarea,
-  [contenteditable="true"],
-  [contenteditable="true"] *,
-  .cm-content,
-  .cm-line,
-  .cm-scroller
-) {
+.tldraw-wrapper
+  [data-canvas-widget-surface]
+  :is(
+    input,
+    textarea,
+    [contenteditable="true"],
+    [contenteditable="true"] *,
+    .cm-content,
+    .cm-line,
+    .cm-scroller
+  ) {
   -webkit-user-select: text;
   user-select: text;
   cursor: text;
 }
 
-.tldraw-wrapper [data-canvas-widget-surface] :is(
-  a,
-  button,
-  [data-slot="button"],
-  [role="button"]
-) {
+.tldraw-wrapper [data-canvas-widget-surface] :is(a, button, [data-slot="button"], [role="button"]) {
   cursor: pointer;
 }
 
-.tldraw-wrapper [data-canvas-widget-surface] :is(
-  button:disabled,
-  [aria-disabled="true"],
-  [data-disabled]
-) {
+.tldraw-wrapper
+  [data-canvas-widget-surface]
+  :is(button:disabled, [aria-disabled="true"], [data-disabled]) {
   cursor: default;
 }

@@ -5,10 +5,7 @@ import type { AgentBridge, AgentBridgeDispatch } from "@atmos/pt-design";
 import { ptDesignAgentBridgeWsApi } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { AgentSurfaceActivityStore } from "@/shared/lib/agent-surface-activity";
-import {
-  AgentSurfaceFeedStore,
-  screenshotFromToolData,
-} from "@/shared/lib/agent-surface-feed";
+import { AgentSurfaceFeedStore, screenshotFromToolData } from "@/shared/lib/agent-surface-feed";
 import { describePtDesignAgentCommand } from "./lib/pt-design-agent-feed-labels";
 import { instanceIdsFromToolData } from "./lib/pt-design-agent-targets";
 

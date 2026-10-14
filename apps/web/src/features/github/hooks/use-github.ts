@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useComputerQueryScope } from '@/api/query/query-scope';
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { useComputerQueryScope } from "@/api/query/query-scope";
 import {
   useBranchPrListQuery,
   useBranchPrPageQuery,
@@ -17,12 +17,12 @@ import {
   useGithubActionsDetailQuery,
   useGithubCiStatusQuery,
   useGithubCommitDetailQuery,
-} from '@/features/github/hooks/use-github-pr-query';
-import type { PrFile } from '@/features/github/lib/github-query-options';
-import { gitLogQueryOptions } from '@/features/git/lib/git-query-options';
-import { FORCE_REFETCH_OPTIONS } from '@/api/query/force-refetch';
-import { useSessionListQuery } from '@/features/workspace/hooks/use-session-list-query';
-import { sessionListKeys } from '@/features/workspace/store/session-list-snapshot-store';
+} from "@/features/github/hooks/use-github-pr-query";
+import type { PrFile } from "@/features/github/lib/github-query-options";
+import { gitLogQueryOptions } from "@/features/git/lib/git-query-options";
+import { FORCE_REFETCH_OPTIONS } from "@/api/query/force-refetch";
+import { useSessionListQuery } from "@/features/workspace/hooks/use-session-list-query";
+import { sessionListKeys } from "@/features/workspace/store/session-list-snapshot-store";
 
 export type { PrFile };
 
@@ -77,42 +77,93 @@ export function useGithubIssueList({
   repo,
   state,
   enabled = true,
-}: Pick<GithubContext, 'owner' | 'repo'> & { state: 'open' | 'closed'; enabled?: boolean }) {
+}: Pick<GithubContext, "owner" | "repo"> & { state: "open" | "closed"; enabled?: boolean }) {
   const query = useGithubIssueListQuery({
-    owner: owner ?? '', repo: repo ?? '', state, limit: 100,
+    owner: owner ?? "",
+    repo: repo ?? "",
+    state,
+    limit: 100,
     enabled: enabled && Boolean(owner && repo),
   });
   const refresh = useCallback(async () => {
     await query.refetch(FORCE_REFETCH_OPTIONS);
   }, [query.refetch]);
-  return { data: query.data ?? [], loading: query.isLoading, refreshing: query.isFetching && !query.isLoading, refresh };
+  return {
+    data: query.data ?? [],
+    loading: query.isLoading,
+    refreshing: query.isFetching && !query.isLoading,
+    refresh,
+  };
 }
 
 export function useGithubIssuePage({
-  owner, repo, state, page, enabled = true,
-}: Pick<GithubContext, 'owner' | 'repo'> & { state: 'open' | 'closed'; page: number; enabled?: boolean }) {
+  owner,
+  repo,
+  state,
+  page,
+  enabled = true,
+}: Pick<GithubContext, "owner" | "repo"> & {
+  state: "open" | "closed";
+  page: number;
+  enabled?: boolean;
+}) {
   const query = useGithubIssuePageQuery({
-    owner: owner ?? '', repo: repo ?? '', state, page, perPage: 20,
+    owner: owner ?? "",
+    repo: repo ?? "",
+    state,
+    page,
+    perPage: 20,
     enabled: enabled && Boolean(owner && repo),
   });
-  const refresh = useCallback(async () => { await query.refetch(FORCE_REFETCH_OPTIONS); }, [query.refetch]);
-  return { data: query.data ?? { items: [], has_more: false }, loading: query.isLoading, refreshing: query.isFetching && !query.isLoading, refresh };
+  const refresh = useCallback(async () => {
+    await query.refetch(FORCE_REFETCH_OPTIONS);
+  }, [query.refetch]);
+  return {
+    data: query.data ?? { items: [], has_more: false },
+    loading: query.isLoading,
+    refreshing: query.isFetching && !query.isLoading,
+    refresh,
+  };
 }
 
 export function useGithubPRPage({
-  owner, repo, branch, state, page, enabled = true,
+  owner,
+  repo,
+  branch,
+  state,
+  page,
+  enabled = true,
 }: GithubContext & { state: string; page: number; enabled?: boolean }) {
   const query = useBranchPrPageQuery({
-    owner: owner ?? '', repo: repo ?? '', branch: branch ?? '', state, page, perPage: 20,
+    owner: owner ?? "",
+    repo: repo ?? "",
+    branch: branch ?? "",
+    state,
+    page,
+    perPage: 20,
     enabled: enabled && Boolean(owner && repo && branch),
   });
-  const refresh = useCallback(async () => { await query.refetch(FORCE_REFETCH_OPTIONS); }, [query.refetch]);
-  return { data: query.data ?? { items: [], has_more: false }, loading: query.isLoading, refreshing: query.isFetching && !query.isLoading, refresh };
+  const refresh = useCallback(async () => {
+    await query.refetch(FORCE_REFETCH_OPTIONS);
+  }, [query.refetch]);
+  return {
+    data: query.data ?? { items: [], has_more: false },
+    loading: query.isLoading,
+    refreshing: query.isFetching && !query.isLoading,
+    refresh,
+  };
 }
 
-export function useGithubIssueDetail(issueNumber: number, owner?: string, repo?: string, enabled = true) {
+export function useGithubIssueDetail(
+  issueNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
   const query = useGithubIssueDetailQuery({
-    owner: owner ?? '', repo: repo ?? '', issueNumber,
+    owner: owner ?? "",
+    repo: repo ?? "",
+    issueNumber,
     enabled: enabled && Boolean(owner && repo && issueNumber),
   });
   const fetch = useCallback(async () => {
@@ -121,21 +172,40 @@ export function useGithubIssueDetail(issueNumber: number, owner?: string, repo?:
   return { data: query.data ?? null, loading: query.isLoading, fetch };
 }
 
-export function useGithubIssueTimeline(issueNumber: number, owner?: string, repo?: string, enabled = true) {
+export function useGithubIssueTimeline(
+  issueNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
   const query = useGithubIssueTimelineInfiniteQuery({
-    owner: owner ?? '', repo: repo ?? '', issueNumber,
+    owner: owner ?? "",
+    repo: repo ?? "",
+    issueNumber,
     enabled: enabled && Boolean(owner && repo && issueNumber),
   });
   const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
   const loadMore = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query.fetchNextPage, query.hasNextPage, query.isFetchingNextPage]);
-  return { items, isLoading: query.isLoading || query.isFetchingNextPage, hasMore: Boolean(query.hasNextPage), loadMore };
+  return {
+    items,
+    isLoading: query.isLoading || query.isFetchingNextPage,
+    hasMore: Boolean(query.hasNextPage),
+    loadMore,
+  };
 }
 
-export function useGithubIssueLinkedPrs(issueNumber: number, owner?: string, repo?: string, enabled = true) {
+export function useGithubIssueLinkedPrs(
+  issueNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
   const query = useGithubIssueLinkedPrsQuery({
-    owner: owner ?? "", repo: repo ?? "", issueNumber,
+    owner: owner ?? "",
+    repo: repo ?? "",
+    issueNumber,
     enabled: enabled && Boolean(owner && repo && issueNumber),
   });
   return { data: query.data ?? [], loading: query.isLoading, fetch: query.refetch };
@@ -151,7 +221,7 @@ export function useGithubCIStatus({ owner, repo, branch }: GithubContext) {
   });
 
   const status = query.data?.status;
-  const isPending = status === 'in_progress' || status === 'queued';
+  const isPending = status === "in_progress" || status === "queued";
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -164,17 +234,12 @@ export function useGithubCIStatus({ owner, repo, branch }: GithubContext) {
       if (timer) clearTimeout(timer);
     };
   }, [isPending, query.refetch]);
-  
+
   return query.data ?? null;
 }
 
 /** PR detail — TanStack Query (cached across center-tab close/reopen). */
-export function useGithubPRDetail(
-  prNumber: number,
-  owner?: string,
-  repo?: string,
-  enabled = true,
-) {
+export function useGithubPRDetail(prNumber: number, owner?: string, repo?: string, enabled = true) {
   const query = useGithubPrDetailQuery({
     owner: owner ?? "",
     repo: repo ?? "",
@@ -221,12 +286,7 @@ export function useGithubPRTimeline(
   };
 }
 
-export function useGithubPRFiles(
-  prNumber: number,
-  owner?: string,
-  repo?: string,
-  enabled = true,
-) {
+export function useGithubPRFiles(prNumber: number, owner?: string, repo?: string, enabled = true) {
   const query = useGithubPrFilesQuery({
     owner: owner ?? "",
     repo: repo ?? "",
@@ -266,7 +326,12 @@ export function useGithubPRDetailSidebar(
 }
 
 // Actions List
-export function useGithubActionsList({ owner, repo, branch, enabled = true }: GithubContext & { enabled?: boolean }) {
+export function useGithubActionsList({
+  owner,
+  repo,
+  branch,
+  enabled = true,
+}: GithubContext & { enabled?: boolean }) {
   const query = useGithubActionsListQuery({
     owner: owner ?? "",
     repo: repo ?? "",
@@ -275,7 +340,7 @@ export function useGithubActionsList({ owner, repo, branch, enabled = true }: Gi
   });
 
   const hasInProgress = useMemo(() => {
-    return query.data?.some(r => r.status === 'in_progress' || r.status === 'queued') ?? false;
+    return query.data?.some((r) => r.status === "in_progress" || r.status === "queued") ?? false;
   }, [query.data]);
 
   useEffect(() => {
@@ -308,7 +373,7 @@ export function useGithubActionsDetail(owner: string, repo: string, runId: numbe
 
   // Action detail has jobs, if the action is not complete, we should poll
   const status = query.data?.status;
-  const isPending = status === 'in_progress' || status === 'queued';
+  const isPending = status === "in_progress" || status === "queued";
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;

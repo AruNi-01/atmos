@@ -15,16 +15,10 @@ const MAX_STACK_SIZE = 64;
 const stacksByContext = new Map<string, string[]>();
 
 /** Record that `tabValue` became active in `contextId`. Moves it to the front. */
-export function recordCenterTabActivation(
-  contextId: string,
-  tabValue: string,
-): void {
+export function recordCenterTabActivation(contextId: string, tabValue: string): void {
   if (!contextId || !tabValue) return;
   const prev = stacksByContext.get(contextId) ?? [];
-  const next = [tabValue, ...prev.filter((value) => value !== tabValue)].slice(
-    0,
-    MAX_STACK_SIZE,
-  );
+  const next = [tabValue, ...prev.filter((value) => value !== tabValue)].slice(0, MAX_STACK_SIZE);
   stacksByContext.set(contextId, next);
 }
 
@@ -35,10 +29,7 @@ export function clearCenterTabActivationStack(contextId: string): void {
 }
 
 /** Drop a closed (or otherwise gone) tab from the stack. */
-export function removeCenterTabFromActivationStack(
-  contextId: string,
-  tabValue: string,
-): void {
+export function removeCenterTabFromActivationStack(contextId: string, tabValue: string): void {
   if (!contextId || !tabValue) return;
   const prev = stacksByContext.get(contextId);
   if (!prev?.length) return;
@@ -79,9 +70,7 @@ export function pickNextCenterTabFromActivationStack(
 }
 
 /** Snapshot for tests / debugging. */
-export function getCenterTabActivationStack(
-  contextId: string,
-): readonly string[] {
+export function getCenterTabActivationStack(contextId: string): readonly string[] {
   return stacksByContext.get(contextId) ?? [];
 }
 

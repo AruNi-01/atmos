@@ -1,10 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it, mock } from "bun:test";
 
-import {
-  centerCameraOnPageBounds,
-  fitZoomForPageBounds,
-} from "../lib/canvas-shape-focus";
+import { centerCameraOnPageBounds, fitZoomForPageBounds } from "../lib/canvas-shape-focus";
 
 function makeEditor(screen = { width: 1000, height: 800 }) {
   const setCamera = mock((...args: unknown[]) => args);

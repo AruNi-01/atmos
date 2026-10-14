@@ -20,12 +20,7 @@ import {
   upsertFileRecents,
 } from "@/shared/lib/center-file-recents";
 
-function node(
-  name: string,
-  path: string,
-  isDir: boolean,
-  children?: FileTreeNode[],
-): FileTreeNode {
+function node(name: string, path: string, isDir: boolean, children?: FileTreeNode[]): FileTreeNode {
   return {
     name,
     path,
@@ -69,12 +64,12 @@ describe("center explorer landing helpers", () => {
       ]),
       node("README.md", "/repo/README.md", false),
     ]);
-    expect(
-      filterExplorerSearchEntries(entries, ".gitignore").map((entry) => entry.name),
-    ).toEqual([".gitignore"]);
-    expect(
-      filterExplorerSearchEntries(entries, "agents").map((entry) => entry.path),
-    ).toContain("/repo/.agents");
+    expect(filterExplorerSearchEntries(entries, ".gitignore").map((entry) => entry.name)).toEqual([
+      ".gitignore",
+    ]);
+    expect(filterExplorerSearchEntries(entries, "agents").map((entry) => entry.path)).toContain(
+      "/repo/.agents",
+    );
     expect(
       filterExplorerSearchEntries(entries, "atmos-audio-gen").map((entry) => entry.name),
     ).toEqual(["SKILL.md"]);
@@ -84,12 +79,9 @@ describe("center explorer landing helpers", () => {
   });
 
   test("relative parent path is the directory under the workspace root", () => {
-    expect(
-      relativeParentPath(
-        "/repo/.agents/skills/atmos-audio-gen/SKILL.md",
-        "/repo",
-      ),
-    ).toBe(".agents/skills/atmos-audio-gen");
+    expect(relativeParentPath("/repo/.agents/skills/atmos-audio-gen/SKILL.md", "/repo")).toBe(
+      ".agents/skills/atmos-audio-gen",
+    );
     expect(relativeParentPath("/repo/README.md", "/repo")).toBe("");
     expect(relativeParentPath("/repo2/src/a.ts", "/repo")).toBe("/repo2/src");
   });
@@ -104,9 +96,7 @@ describe("center explorer landing helpers", () => {
     expect(isPersistableCenterFilePath("/repo/src/a.ts")).toBe(true);
     expect(isPersistableCenterFilePath("untitled:Untitled.md")).toBe(false);
     expect(isPersistableCenterFilePath("diff-group://unstaged")).toBe(false);
-    expect(isPersistableCenterFilePath("git-conflict-resolve://merge-conflicts")).toBe(
-      false,
-    );
+    expect(isPersistableCenterFilePath("git-conflict-resolve://merge-conflicts")).toBe(false);
     expect(
       fileRecentsFromOpenFiles([
         { path: "/repo/a.ts", name: "a.ts", lastOpenedAt: 1, lastFocusedAt: 4 },
@@ -138,7 +128,10 @@ describe("center file recents", () => {
     expect(next[1]).toEqual({ path: "/repo/7.ts", name: "7.ts", openedAt: 20 });
     expect(next.some((item) => item.path === "/repo/0.ts")).toBe(false);
     expect(
-      fileRecentsEqual(next, upsertFileRecents(next, [{ path: "/repo/new.ts", name: "new.ts", openedAt: 21 }])),
+      fileRecentsEqual(
+        next,
+        upsertFileRecents(next, [{ path: "/repo/new.ts", name: "new.ts", openedAt: 21 }]),
+      ),
     ).toBe(true);
   });
 });
@@ -176,10 +169,7 @@ describe("files landing MorphingSearch persistence", () => {
 });
 
 describe("center explorer landing UI", () => {
-  const source = readFileSync(
-    join(import.meta.dir, "../CenterExplorerLanding.tsx"),
-    "utf8",
-  );
+  const source = readFileSync(join(import.meta.dir, "../CenterExplorerLanding.tsx"), "utf8");
 
   test("files landing searches hidden entries; changes landing opens graph commits", () => {
     expect(source).toContain("searchPlaceholder");
@@ -193,7 +183,7 @@ describe("center explorer landing UI", () => {
     expect(source).toContain("writeFilesLandingSearch(contextId, { query, open: false })");
     // Files empty-state open replaces the landing tab (no stacked Files + file tab).
     expect(source).toContain("openFile(path, contextId, { preview: true })");
-    expect(source).toContain("activateCenterChromeTab(contextId, path, { placement: \"focused\" })");
+    expect(source).toContain('activateCenterChromeTab(contextId, path, { placement: "focused" })');
     expect(source).toContain("close(contextId, FILES_TAB_VALUE)");
     // Recent files stay visible while MorphingSearch has a query / results.
     expect(source).toContain('data-center-explorer-recents=""');
@@ -217,10 +207,8 @@ describe("center explorer landing UI", () => {
     expect(source).toContain("openChangeStatus");
     expect(source).toContain("buildDiffGroupPath");
     expect(source).toContain("requestChangesScope");
-    expect(source).toContain(
-      'setCenterExplorerCollapsed("changes", false, groupPath)',
-    );
-    expect(source).toContain("foldScopeId={kind === \"changes\" ? CHANGES_TAB_VALUE : undefined}");
+    expect(source).toContain('setCenterExplorerCollapsed("changes", false, groupPath)');
+    expect(source).toContain('foldScopeId={kind === "changes" ? CHANGES_TAB_VALUE : undefined}');
     const graphIdx = source.indexOf('testId="graph-history"');
     const commitsIdx = source.indexOf('testId="recent-commit"');
     expect(graphIdx).toBeGreaterThan(commitsIdx);

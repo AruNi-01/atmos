@@ -3,18 +3,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("FileTreePanel locate current file", () => {
-  const panel = readFileSync(
-    join(import.meta.dir, "../FileTreePanel.tsx"),
-    "utf8",
-  );
-  const row = readFileSync(
-    join(import.meta.dir, "../FileTreeRow.tsx"),
-    "utf8",
-  );
-  const tree = readFileSync(
-    join(import.meta.dir, "../FileTree.tsx"),
-    "utf8",
-  );
+  const panel = readFileSync(join(import.meta.dir, "../FileTreePanel.tsx"), "utf8");
+  const row = readFileSync(join(import.meta.dir, "../FileTreeRow.tsx"), "utf8");
+  const tree = readFileSync(join(import.meta.dir, "../FileTree.tsx"), "utf8");
 
   it("puts a Crosshair control after the project name that requests a tree reveal", () => {
     expect(panel).toContain("Crosshair");
@@ -53,10 +44,7 @@ describe("FileTreePanel locate current file", () => {
       "Keep those behind refs so this effect only runs once per reveal request.",
     );
     expect(revealEffectStart).toBeGreaterThan(-1);
-    const revealEffectBlock = tree.slice(
-      revealEffectStart,
-      revealEffectStart + 3500,
-    );
+    const revealEffectBlock = tree.slice(revealEffectStart, revealEffectStart + 3500);
     const depsClose = revealEffectBlock.indexOf("revealEnabled,");
     expect(depsClose).toBeGreaterThan(-1);
     const depsTail = revealEffectBlock.slice(depsClose, depsClose + 80);
@@ -66,9 +54,7 @@ describe("FileTreePanel locate current file", () => {
 
     // Full reveal-effect dependency list should omit unstable identities.
     expect(revealEffectBlock).toContain("fileTreeRevealTarget,");
-    expect(revealEffectBlock).not.toContain(
-      "loadDirectoryChildren,\n    revealEnabled",
-    );
+    expect(revealEffectBlock).not.toContain("loadDirectoryChildren,\n    revealEnabled");
     expect(revealEffectBlock).not.toContain("revealEnabled,\n    tree,");
 
     // resolveItem must not close over lazyItemsMap or each listDir write

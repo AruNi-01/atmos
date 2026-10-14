@@ -21,17 +21,9 @@ import {
 } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { slashFactory, SlashProvider } from "@milkdown/kit/plugin/slash";
-import {
-  abortStreamingCmd,
-  streaming,
-  streamingConfig,
-} from "@milkdown/kit/plugin/streaming";
+import { abortStreamingCmd, streaming, streamingConfig } from "@milkdown/kit/plugin/streaming";
 import { tooltipFactory, TooltipProvider } from "@milkdown/kit/plugin/tooltip";
-import {
-  codeBlockAttr,
-  headingIdGenerator,
-  inlineCodeAttr,
-} from "@milkdown/kit/preset/commonmark";
+import { codeBlockAttr, headingIdGenerator, inlineCodeAttr } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import {
   abortStream,
@@ -51,7 +43,11 @@ import {
 } from "./actions";
 import { cn } from "./cn";
 import { createMdLiveOnChangeGate } from "./onchange-gate";
-import { isMdLiveComposing, mdLiveCompositionDomHandlers, mdLiveComposingPlugin } from "./composing";
+import {
+  isMdLiveComposing,
+  mdLiveCompositionDomHandlers,
+  mdLiveComposingPlugin,
+} from "./composing";
 import { mdLiveCommonmark, mdLiveHeadingIdPlugin, slugMdLiveHeading } from "./heading-id";
 import {
   isMdLiveOverlayEventTarget,
@@ -59,14 +55,15 @@ import {
   shouldShowMdLiveSelectionToolbar,
 } from "./selection";
 import { mdLiveVisibleConvertIds } from "./convert-block";
-import {
-  applyMdLiveRemarkConfig,
-  formatMdLiveSerializedMarkdown,
-} from "./markdown-stringify";
+import { applyMdLiveRemarkConfig, formatMdLiveSerializedMarkdown } from "./markdown-stringify";
 import { mdLiveBlockBackspacePlugin } from "./block-backspace";
 import { mdLivePlaceholderPlugin } from "./placeholder";
 import { mdLiveInlineCodeDelete, mdLiveInlineCodePlugin } from "./inline-code";
-import { mdLiveDeleteTableSelection, mdLiveTableDeletePlugin, mdLiveTableViewPlugin } from "./table";
+import {
+  mdLiveDeleteTableSelection,
+  mdLiveTableDeletePlugin,
+  mdLiveTableViewPlugin,
+} from "./table";
 import { mdLiveTaskListPlugins } from "./task-list";
 import { mdLiveUnknownMdastPlugins } from "./unknown-mdast";
 import {
@@ -294,7 +291,11 @@ export function MdLiveEditor({
         });
         if (show) {
           renderToolbar(
-            mdLiveSelectionBlockKindId(view.state.doc, view.state.selection.from, view.state.selection.to),
+            mdLiveSelectionBlockKindId(
+              view.state.doc,
+              view.state.selection.from,
+              view.state.selection.to,
+            ),
             mdLiveVisibleConvertIds(view.state),
           );
         }
@@ -484,7 +485,9 @@ export function MdLiveEditor({
           event.preventDefault();
           return;
         }
-        const aborted = run((ctx) => ctx.get(commandsCtx).call(abortStreamingCmd.key, { keep: false }));
+        const aborted = run((ctx) =>
+          ctx.get(commandsCtx).call(abortStreamingCmd.key, { keep: false }),
+        );
         if (aborted) {
           event.preventDefault();
           onStreamAbortedRef.current?.();
@@ -532,7 +535,7 @@ export function MdLiveEditor({
         "md-live prose prose-[14px] dark:prose-invert max-w-none bg-background",
         embedded && "md-live--embedded",
         "prose-code:before:content-none prose-code:after:content-none prose-blockquote:before:content-none prose-blockquote:after:content-none prose-p:my-2 prose-a:break-all",
-        "[&_[data-show='false']]:hidden [&_.milkdown]:border-0 [&_.milkdown]:outline-none [&_.editor]:border-0 [&_.editor]:outline-none",
+        "[&_.editor]:border-0 [&_.editor]:outline-none [&_.milkdown]:border-0 [&_.milkdown]:outline-none [&_[data-show='false']]:hidden",
         className,
       )}
     />

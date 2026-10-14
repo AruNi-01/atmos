@@ -32,16 +32,13 @@ function findRoot(start: string): string {
 const root = findRoot(process.cwd());
 const bin = join(root, "node_modules", "@typescript", "native", "bin", "tsc");
 if (!existsSync(bin)) {
-  console.error(
-    "TypeScript 7 native binary missing. Run bun install (need @typescript/native).",
-  );
+  console.error("TypeScript 7 native binary missing. Run bun install (need @typescript/native).");
   process.exit(1);
 }
 
 const isCi = process.env.CI === "true" || process.env.CI === "1";
 const singleThreaded =
-  process.env.ATMOS_TSC_SINGLE_THREADED === "1" ||
-  process.env.ATMOS_TSC_SINGLE_THREADED === "true";
+  process.env.ATMOS_TSC_SINGLE_THREADED === "1" || process.env.ATMOS_TSC_SINGLE_THREADED === "true";
 const userArgs = process.argv.slice(2);
 const hasCheckers = userArgs.some((a) => a === "--checkers" || a.startsWith("--checkers="));
 const hasBuilders = userArgs.some((a) => a === "--builders" || a.startsWith("--builders="));
@@ -53,16 +50,10 @@ if (singleThreaded || hasSingle) {
   if (!hasSingle) args.push("--singleThreaded");
 } else {
   if (!hasCheckers) {
-    args.push(
-      "--checkers",
-      process.env.ATMOS_TSC_CHECKERS ?? (isCi ? "2" : "8"),
-    );
+    args.push("--checkers", process.env.ATMOS_TSC_CHECKERS ?? (isCi ? "2" : "8"));
   }
   if (isBuild && !hasBuilders) {
-    args.push(
-      "--builders",
-      process.env.ATMOS_TSC_BUILDERS ?? (isCi ? "2" : "4"),
-    );
+    args.push("--builders", process.env.ATMOS_TSC_BUILDERS ?? (isCi ? "2" : "4"));
   }
 }
 

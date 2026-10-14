@@ -29,25 +29,11 @@ export type AutomationChatAgentConfig = {
   context?: string | null;
 };
 
-export type AutomationRunStatus =
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "interrupted";
+export type AutomationRunStatus = "running" | "completed" | "failed" | "cancelled" | "interrupted";
 
-export type AutomationTargetKind =
-  | "project"
-  | "workspace"
-  | "new_workspace"
-  | "standalone";
+export type AutomationTargetKind = "project" | "workspace" | "new_workspace" | "standalone";
 
-export type AutomationScheduleKind =
-  | "hourly"
-  | "daily"
-  | "weekly"
-  | "monthly"
-  | "cron";
+export type AutomationScheduleKind = "hourly" | "daily" | "weekly" | "monthly" | "cron";
 
 export type AutomationArtifactKind = "prompt" | "final" | "run_json";
 

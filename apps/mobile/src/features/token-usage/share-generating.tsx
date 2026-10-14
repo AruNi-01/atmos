@@ -1,7 +1,21 @@
 import { useCallback } from "react";
 import { StyleSheet, View } from "react-native";
-import { Canvas, Circle, Group, Mask, Points, RadialGradient, Rect } from "@shopify/react-native-skia";
-import { useDerivedValue, useFrameCallback, useReducedMotion, useSharedValue, type DerivedValue } from "react-native-reanimated";
+import {
+  Canvas,
+  Circle,
+  Group,
+  Mask,
+  Points,
+  RadialGradient,
+  Rect,
+} from "@shopify/react-native-skia";
+import {
+  useDerivedValue,
+  useFrameCallback,
+  useReducedMotion,
+  useSharedValue,
+  type DerivedValue,
+} from "react-native-reanimated";
 
 /**
  * Phone port of the web share placeholder (`ImageGenerationCanvas`): a fixed
@@ -99,7 +113,11 @@ function asSkia<T>(value: DerivedValue<T>): T {
   return value as unknown as T;
 }
 
-function Glow({ rect }: { rect: DerivedValue<{ height: number; width: number; x: number; y: number }> }) {
+function Glow({
+  rect,
+}: {
+  rect: DerivedValue<{ height: number; width: number; x: number; y: number }>;
+}) {
   const origin = useDerivedValue(() => {
     const next = rect.get();
     return { x: next.x + next.width / 2, y: next.y + next.height / 2 };
@@ -145,16 +163,19 @@ export function UsageShareGenerating({ dark }: { dark: boolean }) {
   // timeSinceFirstFrame starts over whenever this callback is re-registered.
   // Parent renders during capture were restarting the glow from the first frame.
   const origin = useSharedValue(-1);
-  const onFrame = useCallback((frame: { timestamp: number }) => {
-    "worklet";
-    const started = origin.get();
-    if (started < 0) {
-      origin.set(frame.timestamp);
-      time.set(0);
-      return;
-    }
-    time.set(frame.timestamp - started);
-  }, [origin, time]);
+  const onFrame = useCallback(
+    (frame: { timestamp: number }) => {
+      "worklet";
+      const started = origin.get();
+      if (started < 0) {
+        origin.set(frame.timestamp);
+        time.set(0);
+        return;
+      }
+      time.set(frame.timestamp - started);
+    },
+    [origin, time],
+  );
   useFrameCallback(onFrame, !reduced);
   const points = useDerivedValue(() => {
     const next = size.get();
@@ -176,10 +197,26 @@ export function UsageShareGenerating({ dark }: { dark: boolean }) {
   const bright = dark ? "#f5f5f5" : "#0b0d12";
 
   return (
-    <View accessibilityLabel="Generating image" accessibilityState={{ busy: true }} style={[styles.frame, { backgroundColor: background }]}>
+    <View
+      accessibilityLabel="Generating image"
+      accessibilityState={{ busy: true }}
+      style={[styles.frame, { backgroundColor: background }]}
+    >
       <Canvas onSize={size} style={StyleSheet.absoluteFill}>
-        <Rect color={background} height={asSkia(plotHeight)} width={asSkia(plotWidth)} x={0} y={0} />
-        <Points color="rgba(161,161,161,0.22)" mode="points" points={asSkia(points)} strokeCap="round" strokeWidth={1.4} />
+        <Rect
+          color={background}
+          height={asSkia(plotHeight)}
+          width={asSkia(plotWidth)}
+          x={0}
+          y={0}
+        />
+        <Points
+          color="rgba(161,161,161,0.22)"
+          mode="points"
+          points={asSkia(points)}
+          strokeCap="round"
+          strokeWidth={1.4}
+        />
         <Group opacity={asSkia(opacity)}>
           <Mask
             mask={
@@ -190,7 +227,13 @@ export function UsageShareGenerating({ dark }: { dark: boolean }) {
             }
             mode="alpha"
           >
-            <Points color={bright} mode="points" points={asSkia(points)} strokeCap="round" strokeWidth={2.2} />
+            <Points
+              color={bright}
+              mode="points"
+              points={asSkia(points)}
+              strokeCap="round"
+              strokeWidth={2.2}
+            />
           </Mask>
         </Group>
       </Canvas>

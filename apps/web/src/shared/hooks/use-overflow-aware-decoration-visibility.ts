@@ -19,9 +19,7 @@ export function useOverflowAwareDecorationVisibility({
 
   useLayoutEffect(() => {
     const textElement = textRef.current;
-    const containerElement = measureWithinContainer
-      ? containerRef.current
-      : textElement;
+    const containerElement = measureWithinContainer ? containerRef.current : textElement;
     if (!containerElement || !textElement) return;
 
     const measureTextWidth = () => {
@@ -29,8 +27,7 @@ export function useOverflowAwareDecorationVisibility({
       if (!text) return 0;
 
       const style = window.getComputedStyle(textElement);
-      const canvas =
-        measurementCanvasRef.current ?? document.createElement("canvas");
+      const canvas = measurementCanvasRef.current ?? document.createElement("canvas");
       measurementCanvasRef.current = canvas;
       const context = canvas.getContext("2d");
       if (!context) return textElement.scrollWidth;
@@ -56,8 +53,7 @@ export function useOverflowAwareDecorationVisibility({
         ? visibleTextWidthWithin(containerElement, textElement)
         : textElement.getBoundingClientRect().width;
       const next =
-        textElement.scrollWidth > availableWidth + 1 ||
-        measureTextWidth() > availableWidth + 1;
+        textElement.scrollWidth > availableWidth + 1 || measureTextWidth() > availableWidth + 1;
 
       if (decorationElement) {
         decorationElement.style.display = previousDisplay ?? "";
@@ -83,9 +79,7 @@ export function useOverflowAwareDecorationVisibility({
     measure();
 
     const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(measure);
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     resizeObserver?.observe(containerElement);
     if (textElement !== containerElement) {
       resizeObserver?.observe(textElement);
@@ -117,15 +111,11 @@ export function useOverflowAwareDecorationVisibility({
   };
 }
 
-function visibleTextWidthWithin(
-  containerElement: HTMLElement,
-  textElement: HTMLElement,
-) {
+function visibleTextWidthWithin(containerElement: HTMLElement, textElement: HTMLElement) {
   const containerRect = containerElement.getBoundingClientRect();
   const textRect = textElement.getBoundingClientRect();
   return Math.max(
     0,
-    Math.min(textRect.right, containerRect.right) -
-      Math.max(textRect.left, containerRect.left),
+    Math.min(textRect.right, containerRect.right) - Math.max(textRect.left, containerRect.left),
   );
 }

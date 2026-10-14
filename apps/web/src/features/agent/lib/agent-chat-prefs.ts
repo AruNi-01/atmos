@@ -69,9 +69,7 @@ export function lastNewChatConfigForAgent(
   if (!id || !configs) return undefined;
   if (configs[id]) return configs[id];
   const folded = canonicalizeChatProviderId(id);
-  const match = Object.entries(configs).find(
-    ([key]) => canonicalizeChatProviderId(key) === folded,
-  );
+  const match = Object.entries(configs).find(([key]) => canonicalizeChatProviderId(key) === folded);
   return match?.[1];
 }
 

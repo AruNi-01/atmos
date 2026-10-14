@@ -22,13 +22,7 @@
  *   afterPack compiles icon.icon → Assets.car
  */
 import { spawnSync } from "node:child_process";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-} from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,21 +34,13 @@ const logoPath = join(appRoot, "resources/icons/icon.icon/Assets/Logo.png");
 const rimPath = join(appRoot, "resources/icons/icon.icon/Assets/Rim.png");
 const electronIcons = join(appRoot, "resources/icons");
 const tauriIcons = join(repoRoot, "apps/desktop/src-tauri/icons");
-const hostAppIcon = join(
-  repoRoot,
-  "crates/desktop-use/assets/host-app-icon.icns",
-);
-const notificationIcon = join(
-  repoRoot,
-  "apps/web/public/notification-icon.png",
-);
+const hostAppIcon = join(repoRoot, "crates/desktop-use/assets/host-app-icon.icns");
+const notificationIcon = join(repoRoot, "apps/web/public/notification-icon.png");
 
 function run(cmd: string, args: string[]) {
   const r = spawnSync(cmd, args, { encoding: "utf8" });
   if (r.status !== 0) {
-    throw new Error(
-      `${cmd} ${args.join(" ")} failed: ${r.stderr || r.stdout || r.status}`,
-    );
+    throw new Error(`${cmd} ${args.join(" ")} failed: ${r.stderr || r.stdout || r.status}`);
   }
   return r;
 }
@@ -152,9 +138,7 @@ print("ok")
 `;
   const pr = spawnSync("python3", ["-c", py], { encoding: "utf8" });
   if (pr.status !== 0) {
-    throw new Error(
-      `compose failed (need pillow): ${pr.stderr || pr.stdout}`,
-    );
+    throw new Error(`compose failed (need pillow): ${pr.stderr || pr.stdout}`);
   }
 }
 
@@ -175,12 +159,7 @@ print("ok")
   }
 }
 
-function buildIcns(
-  fullPng: string,
-  icnsOut: string,
-  tmp: string,
-  iconsetName = "Atmos.iconset",
-) {
+function buildIcns(fullPng: string, icnsOut: string, tmp: string, iconsetName = "Atmos.iconset") {
   const iconset = join(tmp, iconsetName);
   mkdirSync(iconset, { recursive: true });
   const pairs: [number, string][] = [
@@ -196,14 +175,7 @@ function buildIcns(
     [1024, "icon_512x512@2x.png"],
   ];
   for (const [px, name] of pairs) {
-    run("sips", [
-      "-z",
-      String(px),
-      String(px),
-      fullPng,
-      "--out",
-      join(iconset, name),
-    ]);
+    run("sips", ["-z", String(px), String(px), fullPng, "--out", join(iconset, name)]);
   }
   run("iconutil", ["-c", "icns", iconset, "-o", icnsOut]);
 }
@@ -231,49 +203,14 @@ function main() {
     mkdirSync(electronIcons, { recursive: true });
     copyFileSync(icnsOut, join(electronIcons, "icon.icns"));
     copyFileSync(dmgIcnsOut, join(electronIcons, "dmg-icon.icns"));
-    run("sips", [
-      "-z",
-      "512",
-      "512",
-      fullPng,
-      "--out",
-      join(electronIcons, "icon.png"),
-    ]);
-    run("sips", [
-      "-z",
-      "128",
-      "128",
-      fullPng,
-      "--out",
-      join(electronIcons, "128x128.png"),
-    ]);
-    run("sips", [
-      "-z",
-      "256",
-      "256",
-      fullPng,
-      "--out",
-      join(electronIcons, "128x128@2x.png"),
-    ]);
-    run("sips", [
-      "-z",
-      "32",
-      "32",
-      fullPng,
-      "--out",
-      join(electronIcons, "32x32.png"),
-    ]);
+    run("sips", ["-z", "512", "512", fullPng, "--out", join(electronIcons, "icon.png")]);
+    run("sips", ["-z", "128", "128", fullPng, "--out", join(electronIcons, "128x128.png")]);
+    run("sips", ["-z", "256", "256", fullPng, "--out", join(electronIcons, "128x128@2x.png")]);
+    run("sips", ["-z", "32", "32", fullPng, "--out", join(electronIcons, "32x32.png")]);
     writeIco(fullPng, join(electronIcons, "icon.ico"));
 
     if (existsSync(tauriIcons)) {
-      run("sips", [
-        "-z",
-        "64",
-        "64",
-        fullPng,
-        "--out",
-        join(tauriIcons, "64x64.png"),
-      ]);
+      run("sips", ["-z", "64", "64", fullPng, "--out", join(tauriIcons, "64x64.png")]);
       for (const name of [
         "icon.icns",
         "dmg-icon.icns",
@@ -295,14 +232,7 @@ function main() {
 
     // Default notification content icon (left side of banner)
     mkdirSync(dirname(notificationIcon), { recursive: true });
-    run("sips", [
-      "-z",
-      "256",
-      "256",
-      fullPng,
-      "--out",
-      notificationIcon,
-    ]);
+    run("sips", ["-z", "256", "256", fullPng, "--out", notificationIcon]);
     console.log(`[regen-legacy-icns] notification → ${notificationIcon}`);
 
     const siteIconPngs = [

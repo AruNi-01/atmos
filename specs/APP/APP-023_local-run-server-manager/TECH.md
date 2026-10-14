@@ -8,17 +8,17 @@ This design adds an on-demand, Project/Workspace-scoped Local Services inventory
 
 ## PRD coverage
 
-| PRD item | Technical coverage |
-|----------|--------------------|
-| M1 | OS listener scanner plus `core-service` Project/Workspace attribution. |
-| M2 | Descendant path matching and deepest-root ownership. |
-| M3 | Classification and default API filtering. |
-| M4 | Footer setting and `Footer.tsx` left-side integration. |
-| M5 | Footer popover grouping by owner DTO. |
-| M6 | Dynamic Preview home with current-context Local Services and refresh. |
-| M7 | Explicit open callback and Run terminal auto-detection removal. |
-| M8 | Stop revalidation, protected process registry, and same-user guardrails. |
-| M9 | Platform collectors with unsupported/low-confidence degradation. |
+| PRD item | Technical coverage                                                       |
+| -------- | ------------------------------------------------------------------------ |
+| M1       | OS listener scanner plus `core-service` Project/Workspace attribution.   |
+| M2       | Descendant path matching and deepest-root ownership.                     |
+| M3       | Classification and default API filtering.                                |
+| M4       | Footer setting and `Footer.tsx` left-side integration.                   |
+| M5       | Footer popover grouping by owner DTO.                                    |
+| M6       | Dynamic Preview home with current-context Local Services and refresh.    |
+| M7       | Explicit open callback and Run terminal auto-detection removal.          |
+| M8       | Stop revalidation, protected process registry, and same-user guardrails. |
+| M9       | Platform collectors with unsupported/low-confidence degradation.         |
 
 ## Architecture overview
 

@@ -36,20 +36,20 @@ No new REST route. No change to `agent_chat_prefs_get` or `~/.atmos/config/agent
 
 `builtin_agents.json` is the launch contract. `reasoningSupport.mode` stays `none | enum | manual | encoded_in_model`. Add one value style, `config`, next to the existing `value` and `flag_only`.
 
-| id | modelSupport | reasoningSupport |
-| --- | --- | --- |
-| claude | `manual` with no `modelList` (no catalog command) | already `enum` `--effort`: low, medium, high, xhigh, max. Do not add ultracode or auto |
-| codex | `catalog` unchanged | `enum`, `arg` `model_reasoning_effort`, `valueStyle` `config`, options minimal, low, medium, high, xhigh |
-| gemini | `manual`, no `modelList` | `none` |
-| antigravity | `catalog` unchanged | `enum` `--effort`: low, medium, high, xhigh, max |
-| devin, kimi, kiro, openclaw, hermes | leave as they are for this ship | leave as they are |
-| amp | `none` | `none`. Delete the manual `--effort` row |
-| droid | `catalog` unchanged | `enum` `--reasoning-effort`. Options are the fallback only: off, low, medium, high, xhigh, max. A model row's own list wins |
-| opencode, kilocode | `catalog` unchanged | `none` |
-| grok-build | `catalog` unchanged | `enum` `--reasoning-effort`: none, minimal, low, medium, high, xhigh, max. A model row's own list wins |
-| commandcode | `catalog` unchanged | `enum` `--effort`: low, medium, high |
-| pi | `catalog` unchanged | extend the existing `--thinking` enum with `max` |
-| cursor | `catalog` unchanged | keep `encoded_in_model` |
+| id                                  | modelSupport                                      | reasoningSupport                                                                                                            |
+| ----------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| claude                              | `manual` with no `modelList` (no catalog command) | already `enum` `--effort`: low, medium, high, xhigh, max. Do not add ultracode or auto                                      |
+| codex                               | `catalog` unchanged                               | `enum`, `arg` `model_reasoning_effort`, `valueStyle` `config`, options minimal, low, medium, high, xhigh                    |
+| gemini                              | `manual`, no `modelList`                          | `none`                                                                                                                      |
+| antigravity                         | `catalog` unchanged                               | `enum` `--effort`: low, medium, high, xhigh, max                                                                            |
+| devin, kimi, kiro, openclaw, hermes | leave as they are for this ship                   | leave as they are                                                                                                           |
+| amp                                 | `none`                                            | `none`. Delete the manual `--effort` row                                                                                    |
+| droid                               | `catalog` unchanged                               | `enum` `--reasoning-effort`. Options are the fallback only: off, low, medium, high, xhigh, max. A model row's own list wins |
+| opencode, kilocode                  | `catalog` unchanged                               | `none`                                                                                                                      |
+| grok-build                          | `catalog` unchanged                               | `enum` `--reasoning-effort`: none, minimal, low, medium, high, xhigh, max. A model row's own list wins                      |
+| commandcode                         | `catalog` unchanged                               | `enum` `--effort`: low, medium, high                                                                                        |
+| pi                                  | `catalog` unchanged                               | extend the existing `--thinking` enum with `max`                                                                            |
+| cursor                              | `catalog` unchanged                               | keep `encoded_in_model`                                                                                                     |
 
 Do not bump `builtin_agents.meta.json` for this change. The version bump rewrites user command overrides, and these edits do not change `cmd`, `params`, `interactiveParams`, `yoloParams`, or `yoloInteractiveParams`. Capability fields are read from the shipped manifest.
 

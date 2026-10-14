@@ -14,10 +14,7 @@ import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
 import { logSidebarLayout } from "@/app-shell/sidebar-layout-debug";
-import {
-  getSidebarPeekOverlayWidthPx,
-  SidebarPeekShell,
-} from "@/app-shell/SidebarPeekShell";
+import { getSidebarPeekOverlayWidthPx, SidebarPeekShell } from "@/app-shell/SidebarPeekShell";
 import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
 import {
   CENTER_STAGE_GUTTER_X_PX,
@@ -37,10 +34,7 @@ interface PanelLayoutProps {
   centerStage: React.ReactNode;
 }
 
-export function PanelLayout({
-  leftSidebar,
-  centerStage,
-}: PanelLayoutProps) {
+export function PanelLayout({ leftSidebar, centerStage }: PanelLayoutProps) {
   const storage = useAppStorage();
   const { currentView, effectiveContextId } = useContextParams();
   const paintContextId = useCenterPaintContextId();
@@ -142,11 +136,7 @@ export function PanelLayout({
     });
     group.setLayout([clampedSize, 100 - clampedSize]);
     setRequestedLeftSidebarSize(null);
-  }, [
-    leftSidebarSize,
-    requestedLeftSidebarSize,
-    setRequestedLeftSidebarSize,
-  ]);
+  }, [leftSidebarSize, requestedLeftSidebarSize, setRequestedLeftSidebarSize]);
 
   const handleDividerDragging = useCallback(
     (dragging: boolean) => {
@@ -219,10 +209,7 @@ export function PanelLayout({
     [setLeftSidebarSize, setLiveLeftSidebarSize],
   );
 
-  const leftOverlayWidthPx = getSidebarPeekOverlayWidthPx(
-    layoutRootWidth,
-    leftOverlaySize,
-  );
+  const leftOverlayWidthPx = getSidebarPeekOverlayWidthPx(layoutRootWidth, leftOverlaySize);
 
   return (
     <div
@@ -263,17 +250,13 @@ export function PanelLayout({
             setIsLeftCollapsed(false);
           }}
           className={cn(
-            "h-full flex flex-col",
+            "flex h-full flex-col",
             !isLeftCollapsed && "[contain:layout_paint]",
             !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
-            isLeftCollapsed && "min-w-0!"
+            isLeftCollapsed && "min-w-0!",
           )}
         >
-          <SidebarPeekShell
-            side="left"
-            collapsed={isLeftCollapsed}
-            widthPx={leftOverlayWidthPx}
-          >
+          <SidebarPeekShell side="left" collapsed={isLeftCollapsed} widthPx={leftOverlayWidthPx}>
             {leftSidebar}
           </SidebarPeekShell>
         </Panel>
@@ -338,8 +321,8 @@ function ResizeHandle({
       }}
       hitAreaMargins={hitAreaMargins}
       className={cn(
-        "relative z-20 w-3 -mx-1.5 overflow-visible bg-transparent touch-none",
-        className
+        "relative z-20 -mx-1.5 w-3 touch-none overflow-visible bg-transparent",
+        className,
       )}
     >
       {hideMark ? null : (

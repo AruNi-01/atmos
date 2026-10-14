@@ -101,7 +101,8 @@ function resultFor(line: AgentToolLine): AgentToolResult | undefined {
   if (line.diff && line.diff.trim()) return { type: "text", text: line.diff };
   if (!line.output) return undefined;
   if (line.kind === "execute") return { type: "execute", output: line.output };
-  if (line.state === "error" || line.state === "failed") return { type: "error", message: line.output };
+  if (line.state === "error" || line.state === "failed")
+    return { type: "error", message: line.output };
   return { type: "text", text: line.output };
 }
 
@@ -119,10 +120,15 @@ function lineToPart(line: AgentToolLine, id: string): AgentPart {
 }
 
 function sameLine(left: AgentToolLine, right: AgentToolLine): boolean {
-  return left.name === right.name && left.state === right.state && left.started_at === right.started_at;
+  return (
+    left.name === right.name && left.state === right.state && left.started_at === right.started_at
+  );
 }
 
-function withCurrent(lines: AgentToolLine[], current: AgentToolLine | null | undefined): AgentToolLine[] {
+function withCurrent(
+  lines: AgentToolLine[],
+  current: AgentToolLine | null | undefined,
+): AgentToolLine[] {
   if (!current || lines.some((line) => sameLine(line, current))) return lines;
   return [...lines, current];
 }
@@ -159,7 +165,9 @@ function rootChildren(children: AgentChildActivity[]): AgentChildActivity[] {
 }
 
 function kidsOf(children: AgentChildActivity[], parentId: string): AgentChildActivity[] {
-  return children.filter((child) => child.parent_child_id === parentId && child.child_id !== parentId);
+  return children.filter(
+    (child) => child.parent_child_id === parentId && child.child_id !== parentId,
+  );
 }
 
 function childSettled(child: AgentChildActivity): boolean {
@@ -200,9 +208,13 @@ function FilesCard({
           >
             <span className="min-w-0 flex-1 truncate text-foreground">{fileName(change.path)}</span>
             <span className="shrink-0 font-mono text-xs">
-              {change.additions > 0 ? <span className="text-green-500">+{change.additions}</span> : null}
+              {change.additions > 0 ? (
+                <span className="text-green-500">+{change.additions}</span>
+              ) : null}
               {change.additions > 0 && change.deletions > 0 ? " " : null}
-              {change.deletions > 0 ? <span className="text-red-500">-{change.deletions}</span> : null}
+              {change.deletions > 0 ? (
+                <span className="text-red-500">-{change.deletions}</span>
+              ) : null}
             </span>
           </li>
         ))}
@@ -252,10 +264,7 @@ function ObserverTool({ line, id }: { line: AgentToolLine; id: string }) {
 
 function childRowPart(child: AgentChildActivity): AgentToolCallPart {
   const description =
-    child.description?.trim() ||
-    child.name?.trim() ||
-    child.agent_type?.trim() ||
-    child.child_id;
+    child.description?.trim() || child.name?.trim() || child.agent_type?.trim() || child.child_id;
   const active = child.state === "running" || child.state === "permission_request";
   return {
     type: "tool_call",
@@ -358,14 +367,16 @@ export function ObserverEventPreview({
   const shownBodies = focus
     ? []
     : shown.flatMap((turn) => {
-      const lines = visibleLines(withCurrent(
-        turn.tools ?? [],
-        activity.current_turn_id === turn.turn_id ? activity.current_tool : undefined,
-      ));
-      const nested = childrenForTurn(turn, children, turns, turn.turn_id === latestId);
-      if (!bodyVisible(turn.prompt, turn.reply, lines, nested)) return [];
-      return [{ turn, lines, nested }];
-    });
+        const lines = visibleLines(
+          withCurrent(
+            turn.tools ?? [],
+            activity.current_turn_id === turn.turn_id ? activity.current_tool : undefined,
+          ),
+        );
+        const nested = childrenForTurn(turn, children, turns, turn.turn_id === latestId);
+        if (!bodyVisible(turn.prompt, turn.reply, lines, nested)) return [];
+        return [{ turn, lines, nested }];
+      });
   const hasBody = focus
     ? bodyVisible(focus.prompt, focus.reply, focusLines, focusNested)
     : shownBodies.length > 0;
@@ -396,7 +407,11 @@ export function ObserverEventPreview({
           />
         ) : (
           shownBodies.map((body) => (
-            <div key={body.turn.turn_id} data-observer-turn={body.turn.turn_id} className="flex flex-col gap-1">
+            <div
+              key={body.turn.turn_id}
+              data-observer-turn={body.turn.turn_id}
+              className="flex flex-col gap-1"
+            >
               <TurnBody
                 scope={`turn:${body.turn.turn_id}`}
                 prompt={body.turn.prompt}

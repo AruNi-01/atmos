@@ -10,10 +10,7 @@ function trackQueryFetches(): void {
   const proto = Query.prototype as Query & { __atmosFetchTracked?: boolean };
   if (proto.__atmosFetchTracked) return;
   const original = Query.prototype.fetch;
-  Query.prototype.fetch = function trackedFetch(
-    this: Query,
-    ...args: Parameters<Query["fetch"]>
-  ) {
+  Query.prototype.fetch = function trackedFetch(this: Query, ...args: Parameters<Query["fetch"]>) {
     const promise = original.apply(this, args);
     inFlightFetches.set(this, promise);
     return promise;

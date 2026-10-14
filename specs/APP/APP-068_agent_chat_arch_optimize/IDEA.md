@@ -69,8 +69,6 @@ Pi
 
 ---
 
-
-
 # 2. Runtime 应该非常小
 
 我甚至建议 Atmos 的核心 Runtime 只有：
@@ -100,8 +98,6 @@ model_switch
 
 ---
 
-
-
 # 3. 那其他能力怎么办？
 
 用：
@@ -116,11 +112,7 @@ Capability
 
 ```json
 {
-  "capabilities": [
-    "steer",
-    "permission",
-    "model_selection"
-  ]
+  "capabilities": ["steer", "permission", "model_selection"]
 }
 ```
 
@@ -145,8 +137,6 @@ Unsupported
 就完事。
 
 ---
-
-
 
 # 4. 甚至 Capability 不需要全部进入核心
 
@@ -191,8 +181,6 @@ AgentRuntime.steer()
 
 ---
 
-
-
 # 5. Event 则不一样
 
 Event 我认为可以比 Runtime **稍微宽一点**。
@@ -230,8 +218,6 @@ enum AgentEvent {
 ```
 
 ---
-
-
 
 # 6. 但 Event 也不要追求完全统一
 
@@ -290,8 +276,6 @@ enum EventSource {
 
 ---
 
-
-
 # 7. 这样就是“公共语义 + Native 扩展”
 
 例如 Claude：
@@ -342,8 +326,6 @@ Codex：
 kind = tool_call
 ```
 
-
-
 ### 高级 UI
 
 可以关心：
@@ -352,8 +334,6 @@ kind = tool_call
 source.provider = codex
 ```
 
-
-
 ### Persistence
 
 全部保存。
@@ -361,8 +341,6 @@ source.provider = codex
 不会丢。
 
 ---
-
-
 
 # 8. 所以不是“取并集”，而是三个集合
 
@@ -378,8 +356,6 @@ source.provider = codex
       Core Runtime     Capability       Adapter
 ```
 
-
-
 ### Common
 
 所有 Agent 都有：
@@ -393,8 +369,6 @@ events
 进入核心。
 
 ---
-
-
 
 ### Optional
 
@@ -410,8 +384,6 @@ resume
 进入 Capability。
 
 ---
-
-
 
 ### Native
 
@@ -429,8 +401,6 @@ Claude:
 留在 Adapter。
 
 ---
-
-
 
 # 9. Event 也可以这么处理
 
@@ -453,8 +423,6 @@ Claude:
 这个区别特别重要。
 
 ---
-
-
 
 # 10. 为什么我不建议“取并集”
 
@@ -497,8 +465,6 @@ Pi → unsupported 30
 
 ---
 
-
-
 # 11. 也不要取交集
 
 反过来：
@@ -529,8 +495,6 @@ model switching
 这些真正有价值的能力。
 
 ---
-
-
 
 # 12. 所以最好的其实是“交集 + Capability + Extension”
 
@@ -575,8 +539,6 @@ Native Extension
 ```
 
 ---
-
-
 
 # 13. 对你现在 Atmos，我甚至建议不要有 `Turn`
 
@@ -628,8 +590,6 @@ Session
 
 ---
 
-
-
 # 14. Message 甚至可以只是 EventData
 
 比如：
@@ -664,8 +624,6 @@ struct AgentEvent {
 这样极其简单。
 
 ---
-
-
 
 # 15. Persistence 也因此非常漂亮
 
@@ -722,8 +680,6 @@ Runtime → UI
 
 ---
 
-
-
 # 16. 最后一个非常关键的原则
 
 我会给 Atmos 的架构定一个规则：
@@ -766,8 +722,6 @@ native payload
 
 ---
 
-
-
 ## 所以最终我建议 Atmos 是这个形态
 
 ```text
@@ -802,8 +756,6 @@ native payload
 > **Runtime 取最小交集；产品需要的能力做 Capability；Agent 独有能力保留 Native Extension；Event 统一公共语义，但永远保留原始事件。**
 
 我觉得这已经非常接近 Atmos 目前真正应该落地的最终抽象了，而且比我们前面讨论的 `Conversation → ChatSession → AgentSession → Turn → Message → Part` 那套要干净很多。
-
-
 
 对 Atmos，我会进一步拆成 4 个概念
 
@@ -845,4 +797,3 @@ SupportedOptions = 它允许你怎么配置它
 Config = 现在实际选了什么
 
 我觉得这个比单纯做一个 AgentCapabilities 要合理得多，尤其适合你 Atmos 后面同时接 ACP、Codex 原生协议、CLI、HTTP Agent。
-

@@ -4,8 +4,7 @@ import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-sl
 export const DESKTOP_USE_SLASH_COMMAND_ID = "desktop-use";
 export const DESKTOP_USE_SKILL_NAME = "atmos-desktop-use";
 /** Fallback when skills_list has not synced the system skill yet. */
-export const DESKTOP_USE_SKILL_FALLBACK_PATH =
-  "~/.atmos/skills/.system/atmos-desktop-use";
+export const DESKTOP_USE_SKILL_FALLBACK_PATH = "~/.atmos/skills/.system/atmos-desktop-use";
 
 export function matchesDesktopUseSlashQuery(query: string): boolean {
   const q = query.trim().toLowerCase();

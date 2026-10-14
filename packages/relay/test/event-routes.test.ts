@@ -74,11 +74,13 @@ function captureDbEnv() {
   };
 }
 
-function captureQueryEnv(options: {
-  results?: unknown[];
-  first?: unknown | (() => unknown);
-  changes?: number;
-} = {}) {
+function captureQueryEnv(
+  options: {
+    results?: unknown[];
+    first?: unknown | (() => unknown);
+    changes?: number;
+  } = {},
+) {
   const calls: Array<{ sql: string; args: unknown[]; op?: "run" | "first" | "all" }> = [];
   return {
     calls,
@@ -102,7 +104,7 @@ function captureQueryEnv(options: {
                   call.op = "first";
                   return typeof options.first === "function"
                     ? options.first()
-                    : options.first ?? null;
+                    : (options.first ?? null);
                 },
                 async all() {
                   call.op = "all";
@@ -207,12 +209,16 @@ describe("GitHub event routes", () => {
     expect(validateGithubEventRoutePolicy("issue_comment", "created", {})).toBe(
       "github_trigger_comment_sender_required",
     );
-    expect(validateGithubEventRoutePolicy("issue_comment", "created", {
-      sender_logins: ["*"],
-    })).toBe("github_trigger_comment_sender_required");
-    expect(validateGithubEventRoutePolicy("issue_comment", "created", {
-      sender_logins: ["Alice", "dependabot[bot]"],
-    })).toBeNull();
+    expect(
+      validateGithubEventRoutePolicy("issue_comment", "created", {
+        sender_logins: ["*"],
+      }),
+    ).toBe("github_trigger_comment_sender_required");
+    expect(
+      validateGithubEventRoutePolicy("issue_comment", "created", {
+        sender_logins: ["Alice", "dependabot[bot]"],
+      }),
+    ).toBeNull();
   });
 
   test("requires push routes to include a concrete branch filter", () => {
@@ -227,9 +233,11 @@ describe("GitHub event routes", () => {
   });
 
   test("does not require a comment prefix for issue comment routes", () => {
-    expect(validateGithubEventRoutePolicy("issue_comment", "created", {
-      sender_logins: ["alice"],
-    })).toBeNull();
+    expect(
+      validateGithubEventRoutePolicy("issue_comment", "created", {
+        sender_logins: ["alice"],
+      }),
+    ).toBeNull();
   });
 
   test("matches any configured comment contains token", () => {
@@ -249,10 +257,12 @@ describe("GitHub event routes", () => {
     });
 
     expect(routeMatchesEvent(route, event)).toBe(true);
-    expect(routeMatchesEvent(route, {
-      ...event,
-      untrustedTextExcerpt: "/not-atmos",
-    })).toBe(false);
+    expect(
+      routeMatchesEvent(route, {
+        ...event,
+        untrustedTextExcerpt: "/not-atmos",
+      }),
+    ).toBe(false);
   });
 
   test("rejects low-value issue assigned and edited actions", () => {
@@ -278,23 +288,36 @@ describe("GitHub event routes", () => {
       repository_full_name: "Atmos/Renamed",
     });
 
-    expect(routeMatchesEvent(route, baseEvent({
-      repositoryId: "200",
-      repositoryFullName: "Atmos/Renamed",
-    }))).toBe(true);
-    expect(routeMatchesEvent(route, baseEvent({
-      repositoryId: "200",
-      repositoryFullName: "Atmos/Other",
-    }))).toBe(false);
+    expect(
+      routeMatchesEvent(
+        route,
+        baseEvent({
+          repositoryId: "200",
+          repositoryFullName: "Atmos/Renamed",
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      routeMatchesEvent(
+        route,
+        baseEvent({
+          repositoryId: "200",
+          repositoryFullName: "Atmos/Other",
+        }),
+      ),
+    ).toBe(false);
   });
 
   test("route query fetches repository id matches and full-name fallback routes", async () => {
     const route = baseRoute({ repository_full_name: "Atmos/OldName" });
     const { env, calls } = captureQueryEnv({ results: [route] });
 
-    const matches = await findMatchingGithubRoutes(env as never, baseEvent({
-      repositoryFullName: "Atmos/NewName",
-    }));
+    const matches = await findMatchingGithubRoutes(
+      env as never,
+      baseEvent({
+        repositoryFullName: "Atmos/NewName",
+      }),
+    );
 
     expect(matches).toHaveLength(1);
     expect(calls[0]?.sql).toContain("repository_id = ?");
@@ -328,10 +351,7 @@ describe("GitHub event routes", () => {
   });
 
   test("blocks active routes once a user reaches the active route limit", async () => {
-    const counts = [
-      { count: 0 },
-      { count: GITHUB_ROUTE_LIMITS.userActive },
-    ];
+    const counts = [{ count: 0 }, { count: GITHUB_ROUTE_LIMITS.userActive }];
     const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
 
     const error = await validateGithubEventRouteLimits(env as never, {
@@ -348,11 +368,7 @@ describe("GitHub event routes", () => {
   });
 
   test("blocks active routes once an installation reaches the active route limit", async () => {
-    const counts = [
-      { count: 0 },
-      { count: 0 },
-      { count: GITHUB_ROUTE_LIMITS.installationActive },
-    ];
+    const counts = [{ count: 0 }, { count: 0 }, { count: GITHUB_ROUTE_LIMITS.installationActive }];
     const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
 
     const error = await validateGithubEventRouteLimits(env as never, {
@@ -442,14 +458,18 @@ describe("GitHub event routes", () => {
       },
     };
 
-    expect(normalizeGithubEvent("issues", "delivery_1", {
-      ...basePayload,
-      action: "assigned",
-    })).toBeNull();
-    expect(normalizeGithubEvent("issues", "delivery_2", {
-      ...basePayload,
-      action: "edited",
-    })).toBeNull();
+    expect(
+      normalizeGithubEvent("issues", "delivery_1", {
+        ...basePayload,
+        action: "assigned",
+      }),
+    ).toBeNull();
+    expect(
+      normalizeGithubEvent("issues", "delivery_2", {
+        ...basePayload,
+        action: "edited",
+      }),
+    ).toBeNull();
   });
 
   test("setup session read is non-mutating before final claim", async () => {
@@ -522,7 +542,7 @@ describe("GitHub event routes", () => {
     });
 
     const response = await listGithubInstallations(env as never, "tenant_1");
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       installations: Array<{ installation_id: string }>;
     };
 
@@ -551,10 +571,7 @@ describe("GitHub event routes", () => {
   test("monthly dispatch limit blocks installation dispatches after user room remains", async () => {
     const now = Math.floor(Date.UTC(2026, 5, 24, 12, 0, 0) / 1000);
     const monthStart = Math.floor(Date.UTC(2026, 5, 1, 0, 0, 0) / 1000);
-    const counts = [
-      { count: 0 },
-      { count: GITHUB_DELIVERY_LIMITS.monthlyDispatches },
-    ];
+    const counts = [{ count: 0 }, { count: GITHUB_DELIVERY_LIMITS.monthlyDispatches }];
     const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
 
     const error = await githubMonthlyDispatchLimitExceeded(
@@ -648,15 +665,8 @@ describe("GitHub event routes", () => {
     );
 
     expect(calls[0]?.sql).toContain("status = 'matched'");
-    expect(calls[0]?.args).toEqual([
-      "dispatched",
-      123,
-      null,
-      "delivery_1",
-      "route_1",
-    ]);
+    expect(calls[0]?.args).toEqual(["dispatched", 123, null, "delivery_1", "route_1"]);
   });
-
 });
 
 describe("GitHub pagination", () => {

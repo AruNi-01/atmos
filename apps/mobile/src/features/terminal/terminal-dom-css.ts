@@ -1,5 +1,8 @@
 import type { TerminalThemeTokens } from "@atmos/shared/terminal";
-import { terminalFontBoldUrl, terminalFontRegularUrl } from "@/features/terminal/mobile-terminal-fonts";
+import {
+  terminalFontBoldUrl,
+  terminalFontRegularUrl,
+} from "@/features/terminal/mobile-terminal-fonts";
 import { terminalSurfaceColors } from "@/theme/colors";
 
 export function buildTerminalDomCss(theme: TerminalThemeTokens) {

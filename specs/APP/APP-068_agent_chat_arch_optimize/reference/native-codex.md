@@ -21,10 +21,10 @@ Record fixtures against a pinned `codex --version` in `testdata/README.md`. Sche
 
 ## Spawn OVERRIDE vs Terminal
 
-| Surface | Argv | Parser |
-|---------|------|--------|
+| Surface          | Argv                                                                                | Parser                            |
+| ---------------- | ----------------------------------------------------------------------------------- | --------------------------------- |
 | Terminal APP-024 | `codex exec --json` (`resources/terminal-agents/builtin_agents.json` `id: "codex"`) | `codex_jsonl` — **do not change** |
-| Chat native | `codex app-server` (default **stdio JSONL**, no `--listen`) | this adapter |
+| Chat native      | `codex app-server` (default **stdio JSONL**, no `--listen`)                         | this adapter                      |
 
 Resolve the binary the same way as today (`cmd` / PATH / provisioned). Ignore catalog `params`. Cwd = chat cwd. `kill_on_drop(true)` like `crates/agent/src/acp_client/process.rs`. Stderr is tracing (`RUST_LOG`); never parse it as protocol.
 
@@ -68,17 +68,17 @@ sequenceDiagram
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT (v1) |
-|------|----------------|
-| Stdio JSONL; omit `"jsonrpc":"2.0"` on **writes** | Treat `codex exec --json` as Chat; wrap Node SDK; `codex mcp-server` |
-| Classify frames structurally (below) | Require `jsonrpc` on reads; treat `id`+`method` as a notification |
-| Answer every **server request** or the turn stalls | Ignore `item/*/requestApproval` |
-| `turn/steer.expectedTurnId` = **vendor** turn id | Send Atmos `turn_id` UUID as `expectedTurnId` |
-| `persistence_handle` = Codex `thread.id` | Equal Atmos `chat_id`; hydrate history via `thread/read` into jsonl (duplicate) |
-| Ask always: `approvalsReviewer: "user"` so Chat sees prompts. Auto ("Approve for me"): `auto_review` | Send `auto_review` for Ask always (prompts never arrive) |
-| `experimentalApi: true` so `collaborationMode/list` and `turn/start.collaborationMode` work (APP-069). Still do **not** call `process/spawn`, queue, plugins, marketplace | Advertise experimental methods we will not implement |
-| Unknown **notification** → omit or one `Unknown` | Panic / fail the session (S22) |
-| Unknown **server request** → JSON-RPC error `-32601` | Leave it unanswered |
+| MUST                                                                                                                                                                      | MUST NOT (v1)                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Stdio JSONL; omit `"jsonrpc":"2.0"` on **writes**                                                                                                                         | Treat `codex exec --json` as Chat; wrap Node SDK; `codex mcp-server`            |
+| Classify frames structurally (below)                                                                                                                                      | Require `jsonrpc` on reads; treat `id`+`method` as a notification               |
+| Answer every **server request** or the turn stalls                                                                                                                        | Ignore `item/*/requestApproval`                                                 |
+| `turn/steer.expectedTurnId` = **vendor** turn id                                                                                                                          | Send Atmos `turn_id` UUID as `expectedTurnId`                                   |
+| `persistence_handle` = Codex `thread.id`                                                                                                                                  | Equal Atmos `chat_id`; hydrate history via `thread/read` into jsonl (duplicate) |
+| Ask always: `approvalsReviewer: "user"` so Chat sees prompts. Auto ("Approve for me"): `auto_review`                                                                      | Send `auto_review` for Ask always (prompts never arrive)                        |
+| `experimentalApi: true` so `collaborationMode/list` and `turn/start.collaborationMode` work (APP-069). Still do **not** call `process/spawn`, queue, plugins, marketplace | Advertise experimental methods we will not implement                            |
+| Unknown **notification** → omit or one `Unknown`                                                                                                                          | Panic / fail the session (S22)                                                  |
+| Unknown **server request** → JSON-RPC error `-32601`                                                                                                                      | Leave it unanswered                                                             |
 
 **v1 MUST NOT call:** `thread/fork`, `plugin/*`, `marketplace/*`, `process/spawn` (needs experimentalApi), `review/start`, `thread/queue/*`, `thread/compact/start` as Chat actions, `thread/realtime/*`. Compact `contextCompaction` items: omit or one status — **not** a composer button.
 
@@ -88,12 +88,12 @@ JSON-RPC 2.0 **shape**, `"jsonrpc":"2.0"` **omitted on the wire** ([docs](https:
 
 Classify **structurally** (do not look for `jsonrpc`):
 
-| Shape | Kind | Action |
-|-------|------|--------|
-| `id` + `result` or `error` | Response to **our** request | Complete pending client RPC |
-| `id` + `method` | **Server request** | Answer with `{id, result}` or `{id, error}` |
-| `method`, no `id` | Notification | `event_map` / `tool_map`; never reply |
-| anything else | Malformed | log debug; do not kill the session |
+| Shape                      | Kind                        | Action                                      |
+| -------------------------- | --------------------------- | ------------------------------------------- |
+| `id` + `result` or `error` | Response to **our** request | Complete pending client RPC                 |
+| `id` + `method`            | **Server request**          | Answer with `{id, result}` or `{id, error}` |
+| `method`, no `id`          | Notification                | `event_map` / `tool_map`; never reply       |
+| anything else              | Malformed                   | log debug; do not kill the session          |
 
 Inbound extra `jsonrpc` is ignored. Encoder must never emit it. Ids are number or string; stringify for Atmos `request_id`.
 
@@ -145,12 +145,12 @@ atmos_turn_id  →  vendor_turn_id   (from turn/start result and/or turn/started
 thread_id      →  persistence_handle
 ```
 
-| Atmos | Codex | Notes |
-|-------|-------|--------|
-| `send` | `turn/start` `{threadId, input, model?, effort?, collaborationMode?}` | `input: [{type:"text", text}]` + `localImage`/`image` from Chat attachments. `collaborationMode.settings.model` is required on 0.153 when the object is present. |
-| `cancel` | `turn/interrupt` `{threadId, turnId}` | `turnId` = **vendor** id; success `{}`; `turn/completed` `status: "interrupted"` |
-| `Steer` | `turn/steer` | `expectedTurnId` **required**; must equal the **active vendor** turn |
-| close | drop stdin + kill child | no v1 `thread/unsubscribe` requirement |
+| Atmos    | Codex                                                                 | Notes                                                                                                                                                            |
+| -------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `send`   | `turn/start` `{threadId, input, model?, effort?, collaborationMode?}` | `input: [{type:"text", text}]` + `localImage`/`image` from Chat attachments. `collaborationMode.settings.model` is required on 0.153 when the object is present. |
+| `cancel` | `turn/interrupt` `{threadId, turnId}`                                 | `turnId` = **vendor** id; success `{}`; `turn/completed` `status: "interrupted"`                                                                                 |
+| `Steer`  | `turn/steer`                                                          | `expectedTurnId` **required**; must equal the **active vendor** turn                                                                                             |
+| close    | drop stdin + kill child                                               | no v1 `thread/unsubscribe` requirement                                                                                                                           |
 
 ```json
 {"method":"turn/start","id":30,"params":{
@@ -186,12 +186,12 @@ Adapter **omits** vendor `userMessage` items (host already persisted send/steer)
 
 From [descriptor.md](./descriptor.md) `capabilities_for_provider("codex")`:
 
-| Capability | Value | Wire |
-|------------|-------|------|
-| steer | Supported | `turn/steer` + vendor `expectedTurnId` |
-| resume | Supported | `thread/resume` |
-| permission | Supported | server `item/*/requestApproval` |
-| configure | Supported | `model/list` + next `turn/start` `model`/`effort` |
+| Capability | Value     | Wire                                              |
+| ---------- | --------- | ------------------------------------------------- |
+| steer      | Supported | `turn/steer` + vendor `expectedTurnId`            |
+| resume     | Supported | `thread/resume`                                   |
+| permission | Supported | server `item/*/requestApproval`                   |
+| configure  | Supported | `model/list` + next `turn/start` `model`/`effort` |
 
 Send/cancel are core, not flags. `SetConfig` is **sticky for the next `turn/start`**. Do not call experimental `thread/settings/update` / `turn/settings/update`. Thinking ids = Codex `effort` values advertised by `model/list` (`none`…`max`). Empty pickers stay omitted (M3). Catalog `codex debug models` remains the **pre-spawn** probe; live `model/list` may overlay.
 
@@ -199,21 +199,21 @@ Send/cancel are core, not flags. `SetConfig` is **sticky for the next `turn/star
 
 Lifecycle: `item/started` → optional deltas → `item/completed` (authoritative). Envelope `turn_id` stays Atmos. `tool_call_id` = item `id` (fileChange: `{id}:{path}` when multiple `changes`).
 
-| Codex item / notify | Atmos |
-|---------------------|--------|
-| `agentMessage` + `item/agentMessage/delta` | `AssistantMessageDelta` / `Completed` (`message_id` = item id) |
-| `reasoning` + `item/reasoning/summaryTextDelta` / `textDelta` / `summaryPartAdded` | `ThinkingDelta` / `ThinkingCompleted` (not a tool) |
-| `plan` + `item/plan/delta` + `turn/plan/updated` | `PlanUpdated` (not a tool). `turn/plan/updated.plan[]` = `{step, status}` |
-| `commandExecution` + `outputDelta` | `execute` `{command, cwd, background:false}` → result `{output: aggregatedOutput, exit_code}` |
-| `fileChange` `{changes:[{path,kind,diff}]}` | `kind` add/update → `edit`; `kind` delete → `delete`. One tool per path. `turn/diff/updated` **folds** `DiffStats` onto those edits — do **not** dual-store the aggregated diff as another tool |
-| `webSearch` `action.type=search` | `web_search` `{query}` (`query` / `action.query` / `action.queries[0]`) |
-| `webSearch` `openPage` / `findInPage` | `fetch` `{url}`; `findInPage` pattern → result `text` if no body |
-| `imageView` `{path}` | `read` `{path}` |
-| `collabToolCall` / subagent-ish | `subagent` if prompt/description present, else `other` |
-| `mcpToolCall`, `dynamicToolCall`, unknown `item.type` | `other`; params/result **are** the vendor object once |
-| `contextCompaction`, `enteredReviewMode`, `exitedReviewMode` | omit |
-| `thread/tokenUsage/updated` | `UsageUpdated` (raw JSON; host parses) |
-| `thread/name/updated` | `SessionTitleUpdated` |
+| Codex item / notify                                                                | Atmos                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agentMessage` + `item/agentMessage/delta`                                         | `AssistantMessageDelta` / `Completed` (`message_id` = item id)                                                                                                                                  |
+| `reasoning` + `item/reasoning/summaryTextDelta` / `textDelta` / `summaryPartAdded` | `ThinkingDelta` / `ThinkingCompleted` (not a tool)                                                                                                                                              |
+| `plan` + `item/plan/delta` + `turn/plan/updated`                                   | `PlanUpdated` (not a tool). `turn/plan/updated.plan[]` = `{step, status}`                                                                                                                       |
+| `commandExecution` + `outputDelta`                                                 | `execute` `{command, cwd, background:false}` → result `{output: aggregatedOutput, exit_code}`                                                                                                   |
+| `fileChange` `{changes:[{path,kind,diff}]}`                                        | `kind` add/update → `edit`; `kind` delete → `delete`. One tool per path. `turn/diff/updated` **folds** `DiffStats` onto those edits — do **not** dual-store the aggregated diff as another tool |
+| `webSearch` `action.type=search`                                                   | `web_search` `{query}` (`query` / `action.query` / `action.queries[0]`)                                                                                                                         |
+| `webSearch` `openPage` / `findInPage`                                              | `fetch` `{url}`; `findInPage` pattern → result `text` if no body                                                                                                                                |
+| `imageView` `{path}`                                                               | `read` `{path}`                                                                                                                                                                                 |
+| `collabToolCall` / subagent-ish                                                    | `subagent` if prompt/description present, else `other`                                                                                                                                          |
+| `mcpToolCall`, `dynamicToolCall`, unknown `item.type`                              | `other`; params/result **are** the vendor object once                                                                                                                                           |
+| `contextCompaction`, `enteredReviewMode`, `exitedReviewMode`                       | omit                                                                                                                                                                                            |
+| `thread/tokenUsage/updated`                                                        | `UsageUpdated` (raw JSON; host parses)                                                                                                                                                          |
+| `thread/name/updated`                                                              | `SessionTitleUpdated`                                                                                                                                                                           |
 
 Partial map: typed params + `result: {type:"text", text}` if links/body missing ([tools.md](./tools.md)). Never `web_search` ↔ workspace `search`. Status: `inProgress` → running; `completed`/`failed`/`declined` → completed/failed (`declined` = failed + error text).
 
@@ -237,12 +237,12 @@ item/completed → ToolCallCompleted | Failed
 
 Show four options (names sentence case). `option_id` **is** the Codex decision string so the adapter does not invent a second table:
 
-| `option_id` | `kind` | Wire `result` |
-|-------------|--------|----------------|
-| `accept` | `allow_once` | `{"decision":"accept"}` |
+| `option_id`        | `kind`         | Wire `result`                     |
+| ------------------ | -------------- | --------------------------------- |
+| `accept`           | `allow_once`   | `{"decision":"accept"}`           |
 | `acceptForSession` | `allow_always` | `{"decision":"acceptForSession"}` |
-| `decline` | `reject_once` | `{"decision":"decline"}` |
-| `cancel` | `reject_once` | `{"decision":"cancel"}` |
+| `decline`          | `reject_once`  | `{"decision":"decline"}`          |
+| `cancel`           | `reject_once`  | `{"decision":"cancel"}`           |
 
 `tool` / `description` from `command` or first `changes[].path` + optional `reason`. `content_markdown` = command or unified diff when small; omit if huge. Do not implement `acceptWithExecpolicyAmendment` as a Chat button (N4). If `availableDecisions` is present, hide options not listed.
 
@@ -250,11 +250,11 @@ Show four options (names sentence case). `option_id` **is** the Codex decision s
 
 Result is a **grant subset**, not `decision` ([docs](https://learn.chatgpt.com/docs/app-server.md) § Permission requests):
 
-| `option_id` | Wire |
-|-------------|------|
-| `accept` | `{ "scope":"turn", "permissions": <requested> }` |
-| `acceptForSession` | `{ "scope":"session", "permissions": <requested> }` |
-| `decline` / `cancel` | `{ "permissions": {} }` (omit = deny) |
+| `option_id`          | Wire                                                |
+| -------------------- | --------------------------------------------------- |
+| `accept`             | `{ "scope":"turn", "permissions": <requested> }`    |
+| `acceptForSession`   | `{ "scope":"session", "permissions": <requested> }` |
+| `decline` / `cancel` | `{ "permissions": {} }` (omit = deny)               |
 
 v1 does not offer per-path checkboxes; allow grants the requested profile as a whole.
 
@@ -292,21 +292,21 @@ crates/agent/src/providers/codex/
 
 ## Fixtures (no live CLI on CI)
 
-| TEST | File / assertion |
-|------|------------------|
+| TEST    | File / assertion                                                                                                                                                                                                                                                                                                                                     |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **S17** | Handshake + `turn/start` + `commandExecution` / `fileChange` / `webSearch` search+openPage + `requestApproval` + `turn/steer`. Maps execute/edit/`web_search`/`fetch`. Writes omit `jsonrpc`. Steer JSON contains `"expectedTurnId":"turn_456"` **not** an Atmos UUID. `id`+`method` classified as server request. `capabilities.steer = Supported`. |
-| **S21** | Fixture `item/commandExecution/requestApproval` with `id: 61`. `RespondPermission { request_id: "61", option_id: "accept" }` writes `{"id":61,"result":{"decision":"accept"}}` (no `jsonrpc`). Turn does not stall (no unanswered pending). File + permissions dialects: one golden each. |
-| **S23** | Bytes without `jsonrpc` parse. Notification vs server-request vs response split. Encoder snapshot has no `"jsonrpc"` key. A frame with `jsonrpc` still classifies (tolerant read). |
+| **S21** | Fixture `item/commandExecution/requestApproval` with `id: 61`. `RespondPermission { request_id: "61", option_id: "accept" }` writes `{"id":61,"result":{"decision":"accept"}}` (no `jsonrpc`). Turn does not stall (no unanswered pending). File + permissions dialects: one golden each.                                                            |
+| **S23** | Bytes without `jsonrpc` parse. Notification vs server-request vs response split. Encoder snapshot has no `"jsonrpc"` key. A frame with `jsonrpc` still classifies (tolerant read).                                                                                                                                                                   |
 
 Also: S22 unknown notify; S24 Chat argv is `app-server` not `exec --json`. Cover `SetConfig` → next `turn/start` model/effort. Pin CLI version in `testdata/README.md`.
 
 ## How other hosts parse (copy this, not ACP)
 
-| Host | Behavior Atmos copies |
-|------|------------------------|
-| **VS Code** (`codex_vscode`) | Child `codex app-server`, stdio, `initialize` then `initialized`, approvals = reply to server request id ([blog](https://openai.com/index/unlocking-the-codex-harness/)) |
-| **Promptfoo** | Same stdio protocol; `experimental_api` default true **for evals** — Atmos stays false; WebSocket transport **off** |
-| **Origin / third-party REPL** | Structural classify; `respond(id, {decision})` |
+| Host                          | Behavior Atmos copies                                                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **VS Code** (`codex_vscode`)  | Child `codex app-server`, stdio, `initialize` then `initialized`, approvals = reply to server request id ([blog](https://openai.com/index/unlocking-the-codex-harness/)) |
+| **Promptfoo**                 | Same stdio protocol; `experimental_api` default true **for evals** — Atmos stays false; WebSocket transport **off**                                                      |
+| **Origin / third-party REPL** | Structural classify; `respond(id, {decision})`                                                                                                                           |
 
 Do **not** copy community ACP bridges.
 

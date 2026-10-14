@@ -29,9 +29,7 @@ function workspace(
   };
 }
 
-function project(
-  patch: Pick<Project, "id" | "mainFilePath"> & Partial<Project>,
-): Project {
+function project(patch: Pick<Project, "id" | "mainFilePath"> & Partial<Project>): Project {
   return {
     name: patch.id,
     isOpen: true,
@@ -61,9 +59,7 @@ describe("host session TUI command", () => {
         bin: "cursor-agent",
         args: ["--resume", "abc"],
       }),
-    ).toBe(
-      "cd '/Users/aarynlu/OpenSource/atmos' && 'cursor-agent' '--resume' 'abc'",
-    );
+    ).toBe("cd '/Users/aarynlu/OpenSource/atmos' && 'cursor-agent' '--resume' 'abc'");
     expect(shellSingleQuote("it's")).toBe(`'it'\\''s'`);
   });
 
@@ -132,7 +128,10 @@ describe("host session TUI command", () => {
       ),
     ).toEqual({ workspaceId: "ws-server", projectId: "p-server" });
     expect(
-      resolveHostSessionTuiTarget({ workspace_id: null, project_id: null, cwd: "/src/atmos" }, projects),
+      resolveHostSessionTuiTarget(
+        { workspace_id: null, project_id: null, cwd: "/src/atmos" },
+        projects,
+      ),
     ).toEqual({ workspaceId: "ws-atmos", projectId: "p-1" });
     expect(hostSessionTuiHref({ workspaceId: "ws-atmos", projectId: "p-1" })).toBe(
       "/workspace?tab=terminal&id=ws-atmos",

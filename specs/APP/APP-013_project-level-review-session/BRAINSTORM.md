@@ -23,15 +23,18 @@ The data layer already half-anticipates this: `review_session` stores both `work
 Add a logical `scope` to `review_session`: `Project` or `Workspace`. Storage-wise: make `workspace_guid` nullable; rely on `project_guid` (always set) plus `workspace_guid IS NULL` to mean "project scope". Service exposes a unified `create_session(scope: ReviewScope)`; WS messages carry `scope: { Project { project_guid } | Workspace { workspace_guid } }`.
 
 **Pros**
+
 - One code path for both modes after the scope is resolved into `(repo_path, base_ref, project_guid, workspace_guid?)`.
 - Cheap migration (nullability change + index tweak).
 - Obvious extension point if "aggregated" scope ever lands.
 
 **Cons**
+
 - Touches every WS message that takes `workspace_guid` today (≈12 messages). Lots of grep-and-replace.
 - Frontend `ReviewContextProvider` needs a `scope` prop instead of `workspaceId`, rippling into `useReviewContext`, `ReviewActions`, `ReviewView`.
 
 **Unknown**
+
 - Whether all downstream consumers (e.g. `CodeReviewDialog` auto-create flow, agent fix runs) cleanly accept "no workspace".
 
 ### Option B — separate `project_review_session` table
@@ -39,14 +42,17 @@ Add a logical `scope` to `review_session`: `Project` or `Workspace`. Storage-wis
 Mirror the full `review_*` schema for project scope, keep current tables untouched.
 
 **Pros**
+
 - Zero risk to existing workspace flow.
 - Clean conceptual split.
 
 **Cons**
+
 - Doubles repos, services, WS messages, frontend hooks. Maintenance nightmare.
 - Forces UI to merge two streams to show "all reviews for this project".
 
 **Unknown**
+
 - Whether the duplication is bounded enough to be worth the safety.
 
 ### Option C — synthesize a pseudo-workspace for the project
@@ -54,14 +60,17 @@ Mirror the full `review_*` schema for project scope, keep current tables untouch
 Auto-create a hidden `workspace` row pointing at `project.main_file_path` whenever a project session is requested.
 
 **Pros**
+
 - Smallest service-layer change.
 - WS protocol untouched.
 
 **Cons**
+
 - Pollutes workspace listings, terminal panes, agent chat, etc., with a phantom workspace. Almost certainly leaks into UI somewhere.
-- Inverts the data model: a workspace is supposed to *be* a worktree branch; pretending the main checkout is one breaks invariants in `core-engine/git`.
+- Inverts the data model: a workspace is supposed to _be_ a worktree branch; pretending the main checkout is one breaks invariants in `core-engine/git`.
 
 **Unknown**
+
 - How many places assume `workspace.branch != project default branch`.
 
 ## Key forks in the road

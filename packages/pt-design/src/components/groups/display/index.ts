@@ -7,7 +7,13 @@ import {
   scrollAreaModule,
   tableModule,
 } from "./content";
-import { alertModule, emptyModule, progressModule, skeletonModule, spinnerModule } from "./feedback";
+import {
+  alertModule,
+  emptyModule,
+  progressModule,
+  skeletonModule,
+  spinnerModule,
+} from "./feedback";
 import {
   attachmentModule,
   bubbleModule,

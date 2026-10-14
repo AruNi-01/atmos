@@ -10,12 +10,7 @@ import { childToolLine, isLeakedChildTurn } from "@/features/agent/lib/observer-
 import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 import type { Project } from "@/shared/types/domain";
 
-export type ObserverNodeKind =
-  | "atmos"
-  | "project"
-  | "workspace"
-  | "agent"
-  | "subagent";
+export type ObserverNodeKind = "atmos" | "project" | "workspace" | "agent" | "subagent";
 
 export type ObserverGraphNode = {
   id: string;
@@ -135,7 +130,12 @@ export function observerCardLastActiveAt(
   node: Pick<ObserverGraphNode, "kind" | "activity" | "session" | "child">,
 ): string | undefined {
   if (node.kind === "subagent") {
-    return node.child?.last_event_at || node.activity?.last_event_at || node.session?.timestamp || undefined;
+    return (
+      node.child?.last_event_at ||
+      node.activity?.last_event_at ||
+      node.session?.timestamp ||
+      undefined
+    );
   }
   if (node.kind === "agent") {
     return node.activity?.last_event_at || node.session?.timestamp || undefined;
@@ -167,7 +167,7 @@ export function toolLineText(activity: AgentActivity | undefined): string | unde
   if (!activity) return undefined;
   if (activity.current_tool) return formatToolLine(activity.current_tool);
   const tools = activity.turns?.length
-    ? activity.turns[activity.turns.length - 1]?.tools ?? []
+    ? (activity.turns[activity.turns.length - 1]?.tools ?? [])
     : [];
   const pending = [...tools].reverse().find((tool) => tool.state === "pending");
   if (pending) return formatToolLine(pending);
@@ -180,9 +180,7 @@ export function toolLineText(activity: AgentActivity | undefined): string | unde
 }
 
 export function latestTurnPrompt(activity: AgentActivity | undefined): string | undefined {
-  const turn = activity?.turns?.length
-    ? activity.turns[activity.turns.length - 1]
-    : undefined;
+  const turn = activity?.turns?.length ? activity.turns[activity.turns.length - 1] : undefined;
   const prompt = turn?.prompt?.trim();
   return prompt || undefined;
 }
@@ -420,13 +418,12 @@ export function buildObserverGraph({
       activity: record,
       latestPrompt: turns.at(-1)?.prompt.trim() || undefined,
       currentToolLine: toolLineText(record),
-      liveKind: leadRunning && (record?.live_kind == null || record.live_kind === "idle")
-        ? "working"
-        : record?.live_kind,
+      liveKind:
+        leadRunning && (record?.live_kind == null || record.live_kind === "idle")
+          ? "working"
+          : record?.live_kind,
       pendingPermission:
-        reported === "permission_request"
-          ? record?.pending_permission ?? undefined
-          : undefined,
+        reported === "permission_request" ? (record?.pending_permission ?? undefined) : undefined,
       todos: record?.todos ?? [],
       turnCount: turns.length,
       visibleTurns: expandedAgentIds.has(agentId) ? visibleTurns : [],
@@ -464,7 +461,7 @@ export function buildObserverGraph({
         liveKind: child.live_kind,
         pendingPermission:
           child.state === "permission_request"
-            ? record?.pending_permission ?? undefined
+            ? (record?.pending_permission ?? undefined)
             : undefined,
         todos: [],
         turnCount: 0,
@@ -544,8 +541,7 @@ export function observerNodeHeight(
   if (node.kind === "subagent") return 128;
   if (node.kind === "agent") {
     const extra = expandedAgentIds?.has(node.id)
-      ? Math.min(node.visibleTurns.length, 6) * 22 +
-        (node.extraTurns > 0 ? 18 : 0)
+      ? Math.min(node.visibleTurns.length, 6) * 22 + (node.extraTurns > 0 ? 18 : 0)
       : 0;
     const todos = node.todos.length > 0 ? 28 : 0;
     return 136 + extra + todos;
@@ -606,8 +602,7 @@ export function layoutObserverGraph(
   function subtreeHeight(id: string): number {
     const kids = children.get(id) ?? [];
     if (!kids.length) return height(id);
-    const sum =
-      kids.reduce((acc, kid) => acc + subtreeHeight(kid), 0) + GAP_Y * (kids.length - 1);
+    const sum = kids.reduce((acc, kid) => acc + subtreeHeight(kid), 0) + GAP_Y * (kids.length - 1);
     return Math.max(height(id), sum);
   }
 
@@ -756,10 +751,7 @@ export function subagentCardTitle(
   return node.child?.name?.trim() || node.label;
 }
 
-export function observerNodeTitle(
-  node: ObserverGraphNode,
-  sessionTitle?: string | null,
-): string {
+export function observerNodeTitle(node: ObserverGraphNode, sessionTitle?: string | null): string {
   if (node.kind === "agent") {
     const titled = sessionTitle?.trim();
     if (titled) return titled;

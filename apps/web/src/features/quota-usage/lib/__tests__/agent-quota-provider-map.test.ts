@@ -9,7 +9,13 @@ import {
 
 describe("usageProviderIdsForAgents", () => {
   test("maps known agents to usage providers", () => {
-    const ids = usageProviderIdsForAgents(["claude", "droid", "grok-build", "deepseek-harness", "grok"]);
+    const ids = usageProviderIdsForAgents([
+      "claude",
+      "droid",
+      "grok-build",
+      "deepseek-harness",
+      "grok",
+    ]);
     expect(ids.has("claude")).toBe(true);
     expect(ids.has("factory")).toBe(true);
     expect(ids.has("grok")).toBe(true);
@@ -26,9 +32,7 @@ describe("usageProviderIdsForAgents", () => {
     // Currently 1:1, but mapping values are arrays — ensure Set semantics.
     const agentIds = Object.keys(AGENT_TO_QUOTA_PROVIDER_IDS);
     const ids = usageProviderIdsForAgents([...agentIds, ...agentIds]);
-    expect(ids.size).toBe(
-      new Set(Object.values(AGENT_TO_QUOTA_PROVIDER_IDS).flat()).size,
-    );
+    expect(ids.size).toBe(new Set(Object.values(AGENT_TO_QUOTA_PROVIDER_IDS).flat()).size);
   });
 });
 

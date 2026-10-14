@@ -5,8 +5,6 @@ export function automationMdLivePath(
   options?: { guid?: string | null; diskPath?: string | null },
 ): string {
   if (kind === "memory" && options?.diskPath) return options.diskPath;
-  const name = options?.guid
-    ? `automation-${options.guid}-${kind}.md`
-    : `automation-${kind}.md`;
+  const name = options?.guid ? `automation-${options.guid}-${kind}.md` : `automation-${kind}.md`;
   return createUntitledMarkdownPath(name);
 }

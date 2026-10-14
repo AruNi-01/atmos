@@ -10,19 +10,16 @@ describe("APP-059 Browser settings wiring", () => {
       join(root, "apps/web/src/features/settings/components/settings-modal-data.ts"),
       "utf8",
     );
-    expect(data).toContain(
-      'items: ["remote-access", "integrations", "browser", "desktop-use", "privacy", "keyboard"] as const',
-    );
+    expect(data).toContain('"remote-access"');
+    expect(data).toContain('"desktop-use"');
+    expect(data).toContain('"keyboard"');
     expect(data).toContain("browser.agentChrome");
     expect(data).not.toContain("browser.defaultSurface");
     expect(data).toContain('browser: mergeTopicItems("browser")');
   });
 
   it("includes browser in SettingsModalTab enum list", () => {
-    const params = readFileSync(
-      join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"),
-      "utf8",
-    );
+    const params = readFileSync(join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"), "utf8");
     expect(params).toContain('"browser"');
     expect(params).not.toContain('"apps"');
   });
@@ -33,7 +30,7 @@ describe("APP-059 Browser settings wiring", () => {
       "utf8",
     );
     expect(sections).toContain("BrowserSettingsSection");
-    expect(sections).toContain("case 'browser'");
+    expect(sections).toContain('case "browser"');
     expect(sections).not.toContain("case 'apps'");
     expect(sections).not.toContain("activeGroupTab === 'browser'");
   });

@@ -6,10 +6,7 @@ const root = join(import.meta.dir, "../../../../../../..");
 
 describe("APP-059 experience kernel", () => {
   it("skill is one loop starting at state", () => {
-    const skill = readFileSync(
-      join(root, "skills/atmos-browser-use/SKILL.md"),
-      "utf8",
-    );
+    const skill = readFileSync(join(root, "skills/atmos-browser-use/SKILL.md"), "utf8");
     expect(skill).toContain("## One loop");
     expect(skill).toContain("atmos browser-use state");
     expect(skill).toContain("capability table");
@@ -20,10 +17,7 @@ describe("APP-059 experience kernel", () => {
     expect(skill).toContain("Placement is the user's Settings");
     expect(skill).toContain("bind-only is not a page");
     expect(skill).toContain("in-app Browser");
-    const cli = readFileSync(
-      join(root, "apps/cli/src/commands/browser_use.rs"),
-      "utf8",
-    );
+    const cli = readFileSync(join(root, "apps/cli/src/commands/browser_use.rs"), "utf8");
     expect(cli).not.toContain("surface");
   });
 
@@ -73,10 +67,7 @@ describe("APP-059 experience kernel", () => {
       join(root, "apps/web/src/features/welcome/components/WelcomePage.tsx"),
       "utf8",
     );
-    const layout = readFileSync(
-      join(root, "apps/web/src/app-shell/PanelLayout.tsx"),
-      "utf8",
-    );
+    const layout = readFileSync(join(root, "apps/web/src/app-shell/PanelLayout.tsx"), "utf8");
     expect(hook).toContain("ensureSurface");
     expect(welcome).toContain("ensureBrowserUseSlashSurface");
     expect(layout).toContain("currentContextId");

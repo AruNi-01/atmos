@@ -39,24 +39,14 @@ describe("capture animation frame math", () => {
   });
 
   it("rejects tiny windows", () => {
-    expect(
-      overlayFrameFromBounds({ x: 0, y: 0, width: 20, height: 20 }),
-    ).toBeNull();
+    expect(overlayFrameFromBounds({ x: 0, y: 0, width: 20, height: 20 })).toBeNull();
   });
 
   it("plays animation whenever bounds are usable (including Atmos self)", () => {
     const bounds = { x: 10, y: 10, width: 800, height: 600 };
-    expect(
-      shouldPlayCaptureAnimation({ appName: "Safari", bounds }),
-    ).toBe(true);
-    expect(
-      shouldPlayCaptureAnimation({ appName: "Atmos", bounds }),
-    ).toBe(true);
-    expect(
-      shouldPlayCaptureAnimation({ appName: "Electron", bounds }),
-    ).toBe(true);
-    expect(
-      shouldPlayCaptureAnimation({ appName: "Safari", bounds: null }),
-    ).toBe(false);
+    expect(shouldPlayCaptureAnimation({ appName: "Safari", bounds })).toBe(true);
+    expect(shouldPlayCaptureAnimation({ appName: "Atmos", bounds })).toBe(true);
+    expect(shouldPlayCaptureAnimation({ appName: "Electron", bounds })).toBe(true);
+    expect(shouldPlayCaptureAnimation({ appName: "Safari", bounds: null })).toBe(false);
   });
 });

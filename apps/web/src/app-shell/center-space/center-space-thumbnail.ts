@@ -25,7 +25,7 @@ const SNAP_EXCLUDE = [
   "canvas",
   "[data-atmos-guest-iframe]",
   "[data-center-space-switcher]",
-  "[data-tier=\"warm\"]",
+  '[data-tier="warm"]',
   "[data-center-pane-owner][aria-hidden='true']",
   "[data-center-pane-owner][inert]",
 ];
@@ -72,9 +72,7 @@ export function isRemoteSnapPreviewImage(node: Element): boolean {
   }
   if (typeof SVGImageElement !== "undefined" && node instanceof SVGImageElement) {
     return isRemoteSnapPreviewSrc(
-      node.getAttribute("href") ||
-        node.getAttribute("xlink:href") ||
-        node.href?.baseVal,
+      node.getAttribute("href") || node.getAttribute("xlink:href") || node.href?.baseVal,
     );
   }
   return false;
@@ -142,10 +140,7 @@ export function opaqueBackground(el: HTMLElement): string {
 }
 
 /** Skip keepalive / hidden surfaces, but not the warm frame itself (opacity 0). */
-export function isSkippedPreviewNode(
-  node: HTMLElement,
-  stop: HTMLElement,
-): boolean {
+export function isSkippedPreviewNode(node: HTMLElement, stop: HTMLElement): boolean {
   let current: HTMLElement | null = node;
   while (current && current !== stop) {
     const style = getComputedStyle(current);
@@ -159,10 +154,7 @@ export function isSkippedPreviewNode(
 function isCheapHiddenPane(node: HTMLElement): boolean {
   if (node.hasAttribute("inert")) return true;
   if (node.getAttribute("data-tier") === "warm") return true;
-  if (
-    node.hasAttribute("data-center-pane-owner") &&
-    node.getAttribute("aria-hidden") === "true"
-  ) {
+  if (node.hasAttribute("data-center-pane-owner") && node.getAttribute("aria-hidden") === "true") {
     return true;
   }
   const cls = node.classList;
@@ -177,10 +169,7 @@ function isCheapHiddenPane(node: HTMLElement): boolean {
  * Cheap keep-predicate: class/attr only. Do not call getComputedStyle here —
  * snapdom runs this per node and style reads hitch the click.
  */
-export function shouldKeepSnapPreviewNode(
-  node: Element,
-  root: HTMLElement,
-): boolean {
+export function shouldKeepSnapPreviewNode(node: Element, root: HTMLElement): boolean {
   if (node === root) return true;
   if (typeof HTMLElement === "undefined" || !(node instanceof HTMLElement)) {
     return true;
@@ -214,12 +203,7 @@ export function isVisibleInClip(
   );
 }
 
-export function containedDest(
-  srcW: number,
-  srcH: number,
-  boxW: number,
-  boxH: number,
-): ThumbDest {
+export function containedDest(srcW: number, srcH: number, boxW: number, boxH: number): ThumbDest {
   if (srcW <= 0 || srcH <= 0) return { x: 0, y: 0, w: boxW, h: boxH };
   const scale = Math.min(boxW / srcW, boxH / srcH);
   const w = srcW * scale;
@@ -233,12 +217,7 @@ export function containedDest(
 }
 
 /** Fill the card. Centered UI stays centered; no letterbox bars. */
-export function coverDest(
-  srcW: number,
-  srcH: number,
-  boxW: number,
-  boxH: number,
-): ThumbDest {
+export function coverDest(srcW: number, srcH: number, boxW: number, boxH: number): ThumbDest {
   if (srcW <= 0 || srcH <= 0) return { x: 0, y: 0, w: boxW, h: boxH };
   const scale = Math.max(boxW / srcW, boxH / srcH);
   const w = srcW * scale;
@@ -251,11 +230,7 @@ export function coverDest(
   };
 }
 
-export function mapInnerRectToDest(
-  inner: ThumbBox,
-  outer: ThumbBox,
-  dest: ThumbDest,
-): ThumbDest {
+export function mapInnerRectToDest(inner: ThumbBox, outer: ThumbBox, dest: ThumbDest): ThumbDest {
   if (outer.width <= 0 || outer.height <= 0) return dest;
   return {
     x: dest.x + ((inner.left - outer.left) / outer.width) * dest.w,
@@ -265,15 +240,10 @@ export function mapInnerRectToDest(
   };
 }
 
-export function queryCenterSpaceFrame(
-  hostId: string,
-  spaceId: string,
-): HTMLElement | null {
+export function queryCenterSpaceFrame(hostId: string, spaceId: string): HTMLElement | null {
   if (!canCapture() || !hostId) return null;
   const key = makeCenterSpaceKey(hostId, spaceId);
-  return document.querySelector(
-    `[data-workspace-frame="${CSS.escape(key)}"]`,
-  );
+  return document.querySelector(`[data-workspace-frame="${CSS.escape(key)}"]`);
 }
 
 function paintXtermHosts(
@@ -288,10 +258,7 @@ function paintXtermHosts(
     if (isSkippedPreviewNode(host, root)) continue;
     const rect = host.getBoundingClientRect();
     const mapped =
-      origin.width >= MIN_BOX &&
-      origin.height >= MIN_BOX &&
-      rect.width >= 2 &&
-      rect.height >= 2
+      origin.width >= MIN_BOX && origin.height >= MIN_BOX && rect.width >= 2 && rect.height >= 2
         ? mapInnerRectToDest(rect, origin, dest)
         : dest;
     if (mapped.w < 1 || mapped.h < 1) continue;
@@ -387,9 +354,7 @@ async function snapshotFrameToJpeg(
     }
 
     const paintedXterm = frame.isConnected
-      ? listXtermPreviewHosts(frame).some(
-          ({ host }) => !isSkippedPreviewNode(host, frame),
-        )
+      ? listXtermPreviewHosts(frame).some(({ host }) => !isSkippedPreviewNode(host, frame))
       : false;
     if (!canvas && !paintedXterm) return null;
 
@@ -457,9 +422,7 @@ export async function captureCenterSpaceThumbnail(): Promise<string | null> {
 }
 
 /** Decode so the fan's fallback <img> does not hitch on first paint. */
-export function decodeCenterSpaceThumbnail(
-  src: string | null | undefined,
-): Promise<void> {
+export function decodeCenterSpaceThumbnail(src: string | null | undefined): Promise<void> {
   if (!src || typeof Image === "undefined") return Promise.resolve();
   return new Promise((resolve) => {
     const img = new Image();

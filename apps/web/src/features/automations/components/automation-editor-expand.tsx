@@ -24,9 +24,7 @@ type ExpandContextValue = {
 
 type ExpandPhase = "idle" | "expanded" | "collapsing";
 
-const AutomationEditorExpandContext = React.createContext<ExpandContextValue | null>(
-  null,
-);
+const AutomationEditorExpandContext = React.createContext<ExpandContextValue | null>(null);
 
 function placeholderBox(placeholder: HTMLElement, clip: HTMLElement): AutomationEditorBox {
   return boxRelativeToClip(rectToEditorBox(placeholder.getBoundingClientRect()), clip);
@@ -43,14 +41,8 @@ export function AutomationEditorExpandHost({
   const [activeId, setActiveId] = React.useState<string | null>(null);
 
   return (
-    <div
-      ref={setHost}
-      data-automation-editor-expand-host=""
-      className={cn("relative", className)}
-    >
-      <AutomationEditorExpandContext.Provider
-        value={{ host, activeId, setActiveId }}
-      >
+    <div ref={setHost} data-automation-editor-expand-host="" className={cn("relative", className)}>
+      <AutomationEditorExpandContext.Provider value={{ host, activeId, setActiveId }}>
         {children}
       </AutomationEditorExpandContext.Provider>
     </div>
@@ -98,9 +90,7 @@ export function useAutomationEditorExpand(id: string, enabled: boolean) {
   const expand = React.useCallback(() => {
     if (!enabled || phase !== "idle" || !clip) return;
     const originEl = boxRef.current ?? placeholderRef.current;
-    originRef.current = originEl
-      ? rectToEditorBox(originEl.getBoundingClientRect())
-      : null;
+    originRef.current = originEl ? rectToEditorBox(originEl.getBoundingClientRect()) : null;
     expandPlayedRef.current = false;
     collapsePlayedRef.current = false;
     ctx?.setActiveId(id);

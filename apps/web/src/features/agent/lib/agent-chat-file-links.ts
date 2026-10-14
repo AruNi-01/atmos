@@ -94,9 +94,7 @@ function resolveAbsoluteUnderRoots(
 ): string | null {
   const joinBase = cwd ?? roots[0] ?? null;
   if (!joinBase) return null;
-  const absolute = normalized.startsWith("/")
-    ? normalized
-    : joinUnderCwd(joinBase, normalized);
+  const absolute = normalized.startsWith("/") ? normalized : joinUnderCwd(joinBase, normalized);
   if (!absolute) return null;
   for (const root of roots) {
     if (tryRelativePathUnderRoot(absolute, root) != null) return absolute;
@@ -253,8 +251,8 @@ export function classifyAgentChatHref(
 
   const normalized = normalizeFsPath(trimmed);
   if (
-    /^file:/i.test(trimmed)
-    || (normalized && (normalized.startsWith("/") || looksLikeFilePath(normalized)))
+    /^file:/i.test(trimmed) ||
+    (normalized && (normalized.startsWith("/") || looksLikeFilePath(normalized)))
   ) {
     return { kind: "plain" };
   }

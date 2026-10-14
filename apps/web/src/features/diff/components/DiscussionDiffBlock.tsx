@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * PR conversation / review-discussion code+diff chrome:
@@ -9,24 +9,21 @@
  * Callers that want Agent Fix pass it via `headerTrailing` — omit in agent chat.
  */
 
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import { ChevronRight } from 'lucide-react';
-import { getFileIconProps } from '@workspace/ui';
-import {
-  DEFAULT_VIRTUAL_FILE_METRICS,
-  type FileContents,
-} from '@pierre/diffs';
-import { MultiFileDiff } from '@pierre/diffs/react';
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { ChevronRight } from "lucide-react";
+import { getFileIconProps } from "@workspace/ui";
+import { DEFAULT_VIRTUAL_FILE_METRICS, type FileContents } from "@pierre/diffs";
+import { MultiFileDiff } from "@pierre/diffs/react";
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   getAtmosDiffThemeType,
-} from '@/features/diff/lib/diff-view-constants';
-import { diffSideCacheKey } from '@/features/diff/lib/diff-code-view-shared';
-import { cn } from '@/shared/lib/utils';
+} from "@/features/diff/lib/diff-view-constants";
+import { diffSideCacheKey } from "@/features/diff/lib/diff-code-view-shared";
+import { cn } from "@/shared/lib/utils";
 
 /**
  * Flush discussion embeds against Atmos header / container edge.
@@ -73,22 +70,22 @@ function buildFilesFromDiffHunk(
   path: string,
   diffHunk: string,
 ): { oldFile: FileContents; newFile: FileContents } | null {
-  const lines = diffHunk.split('\n');
+  const lines = diffHunk.split("\n");
   const oldLines: string[] = [];
   const newLines: string[] = [];
 
   for (const line of lines) {
-    if (!line || line.startsWith('@@')) continue;
-    if (line.startsWith('---') || line.startsWith('+++')) continue;
-    if (line.startsWith('-')) {
+    if (!line || line.startsWith("@@")) continue;
+    if (line.startsWith("---") || line.startsWith("+++")) continue;
+    if (line.startsWith("-")) {
       oldLines.push(line.slice(1));
       continue;
     }
-    if (line.startsWith('+')) {
+    if (line.startsWith("+")) {
       newLines.push(line.slice(1));
       continue;
     }
-    if (line.startsWith(' ')) {
+    if (line.startsWith(" ")) {
       const content = line.slice(1);
       oldLines.push(content);
       newLines.push(content);
@@ -99,10 +96,10 @@ function buildFilesFromDiffHunk(
     return null;
   }
 
-  const name = path.split('/').pop() || path;
+  const name = path.split("/").pop() || path;
   return {
-    oldFile: { name, contents: oldLines.join('\n') },
-    newFile: { name, contents: newLines.join('\n') },
+    oldFile: { name, contents: oldLines.join("\n") },
+    newFile: { name, contents: newLines.join("\n") },
   };
 }
 
@@ -111,7 +108,7 @@ function buildFilesFromContents(
   oldContent: string,
   newContent: string,
 ): { oldFile: FileContents; newFile: FileContents } {
-  const name = path.split('/').pop() || path;
+  const name = path.split("/").pop() || path;
   return {
     oldFile: {
       name,
@@ -152,7 +149,7 @@ function DiscussionMultiFileDiff({
 
   const diffFiles = useMemo(() => {
     if (oldContent != null || newContent != null) {
-      return buildFilesFromContents(path, oldContent ?? '', newContent ?? '');
+      return buildFilesFromContents(path, oldContent ?? "", newContent ?? "");
     }
     const hunk = diffHunk ?? patch;
     if (hunk) {
@@ -165,7 +162,7 @@ function DiscussionMultiFileDiff({
     const shared = buildSharedDiffViewOptions({
       theme: ATMOS_DIFF_THEME,
       themeType: getAtmosDiffThemeType(resolvedTheme),
-      diffStyle: 'unified' as const,
+      diffStyle: "unified" as const,
       wordWrap: true,
       lineNumbers: true,
       enableLineSelection: false,
@@ -189,13 +186,10 @@ function DiscussionMultiFileDiff({
 
   if (!isMounted || !diffFiles) {
     return (
-      <div
-        data-discussion-diff-body=""
-        className={cn('overflow-auto', maxHeightClass)}
-      >
+      <div data-discussion-diff-body="" className={cn("overflow-auto", maxHeightClass)}>
         {fallback ?? (
           <pre className="overflow-x-auto bg-muted/20 px-3 py-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
-            {diffHunk ?? patch ?? ''}
+            {diffHunk ?? patch ?? ""}
           </pre>
         )}
       </div>
@@ -203,20 +197,15 @@ function DiscussionMultiFileDiff({
   }
 
   return (
-    <div
-      data-discussion-diff-body=""
-      className={cn('overflow-auto', maxHeightClass)}
-    >
+    <div data-discussion-diff-body="" className={cn("overflow-auto", maxHeightClass)}>
       <MultiFileDiff
         oldFile={{
           ...diffFiles.oldFile,
-          cacheKey:
-            diffFiles.oldFile.cacheKey ?? `${diffFiles.oldFile.name}:old`,
+          cacheKey: diffFiles.oldFile.cacheKey ?? `${diffFiles.oldFile.name}:old`,
         }}
         newFile={{
           ...diffFiles.newFile,
-          cacheKey:
-            diffFiles.newFile.cacheKey ?? `${diffFiles.newFile.name}:new`,
+          cacheKey: diffFiles.newFile.cacheKey ?? `${diffFiles.newFile.name}:new`,
         }}
         options={options}
         metrics={DISCUSSION_DIFF_METRICS}
@@ -268,36 +257,33 @@ export function DiscussionDiffBlock({
   children,
   defaultExpanded = false,
   collapsible = true,
-  maxHeightClass = 'max-h-[180px]',
+  maxHeightClass = "max-h-[180px]",
   className,
   headerClassName,
   fallback,
 }: DiscussionDiffBlockProps) {
-  const t = useTranslations('diff.discussionDiff');
+  const t = useTranslations("diff.discussionDiff");
   const [expanded, setExpanded] = useState(defaultExpanded);
   const displayPath = displayPathProp || path;
   const baseName = displayPath.split(/[\\/]/).pop() || displayPath;
   const iconProps = getFileIconProps({
     name: baseName,
     isDir: false,
-    className: 'size-4 shrink-0',
+    className: "size-4 shrink-0",
   });
   const showBody = !collapsible || expanded;
   const hasDiff =
-    oldContent != null ||
-    newContent != null ||
-    Boolean(diffHunk?.trim()) ||
-    Boolean(patch?.trim());
+    oldContent != null || newContent != null || Boolean(diffHunk?.trim()) || Boolean(patch?.trim());
 
   const lineMeta = (() => {
     if (lineRange && lineRange.start > 0 && lineRange.end > 0) {
       if (lineRange.start === lineRange.end) {
-        return t('line', { line: lineRange.start });
+        return t("line", { line: lineRange.start });
       }
-      return t('lineRange', { start: lineRange.start, end: lineRange.end });
+      return t("lineRange", { start: lineRange.start, end: lineRange.end });
     }
     if (line != null && line > 0) {
-      return t('line', { line });
+      return t("line", { line });
     }
     return null;
   })();
@@ -305,28 +291,28 @@ export function DiscussionDiffBlock({
   return (
     <div
       data-discussion-diff-block=""
-      data-collapsible={collapsible ? 'true' : 'false'}
+      data-collapsible={collapsible ? "true" : "false"}
       className={cn(
         // No outer muted fill — it showed as a strip between header and body.
-        'overflow-hidden rounded-lg border border-border/60 shadow-sm',
+        "overflow-hidden rounded-lg border border-border/60 shadow-sm",
         className,
       )}
     >
       <div
         data-discussion-diff-header=""
-        role={collapsible ? 'button' : undefined}
+        role={collapsible ? "button" : undefined}
         tabIndex={collapsible ? 0 : undefined}
         className={cn(
           // No bottom margin/gap — body must sit flush under this header.
-          'flex w-full items-center gap-2 border-b border-border/40 bg-muted/30 px-3 py-2 text-left',
-          collapsible && 'cursor-pointer hover:bg-muted/50',
+          "flex w-full items-center gap-2 border-b border-border/40 bg-muted/30 px-3 py-2 text-left",
+          collapsible && "cursor-pointer hover:bg-muted/50",
           headerClassName,
         )}
         onClick={collapsible ? () => setExpanded((value) => !value) : undefined}
         onKeyDown={
           collapsible
             ? (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
+                if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   setExpanded((value) => !value);
                 }
@@ -336,13 +322,9 @@ export function DiscussionDiffBlock({
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- file icons from getFileIconProps */}
         <img {...iconProps} alt="" aria-hidden="true" />
-        <span className="truncate font-mono text-[12px] text-foreground/80">
-          {displayPath}
-        </span>
+        <span className="truncate font-mono text-[12px] text-foreground/80">{displayPath}</span>
         {lineMeta ? (
-          <span className="shrink-0 text-[10px] text-muted-foreground">
-            {lineMeta}
-          </span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">{lineMeta}</span>
         ) : null}
         {headerTrailing ? (
           <span className="relative ml-auto flex h-6 shrink-0 items-center justify-end">
@@ -352,9 +334,9 @@ export function DiscussionDiffBlock({
         {collapsible ? (
           <ChevronRight
             className={cn(
-              'size-3 shrink-0 text-muted-foreground transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]',
-              !headerTrailing && 'ml-auto',
-              expanded && 'rotate-90',
+              "size-3 shrink-0 text-muted-foreground transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              !headerTrailing && "ml-auto",
+              expanded && "rotate-90",
             )}
           />
         ) : null}
@@ -365,9 +347,9 @@ export function DiscussionDiffBlock({
           {showBody ? (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
+              animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               className="overflow-hidden"
             >
               {hasDiff ? (

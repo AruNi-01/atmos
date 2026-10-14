@@ -65,7 +65,7 @@
   - stable bare `componentType` (e.g. `button`, `input`, `card`);
   - **recognizable** grouped visual approximation (not empty unlabeled stubs);
   - registered in package with version pin.
-  Implementation may still ship in waves, but **product complete / v1 ship** requires full basic list, not only a high-frequency subset.
+    Implementation may still ship in waves, but **product complete / v1 ship** requires full basic list, not only a high-frequency subset.
 - **M6 · Self-built catalog**: Owned by PT Design; no third-party commercial wireframe packs as core.
 - **M7 · Semantic metadata**: `componentType`, optional variant/size, catalog-defined display props, frame membership, bbox; survives save/load/export.
 - **M8 · Design export**: Design IR + full scene document; optional image (aid only; failure must not fail IR/export/handoff).
@@ -152,17 +152,17 @@ Ship is **full product**, but engineering can still sequence:
 
 ## Resolved product forks
 
-| Fork | Decision |
-|------|----------|
-| Canvas engine | Excalidraw embed (MIT) |
-| Component model | Static wireframes + semantic metadata |
-| Public component ids | Bare catalog ids (`button`) |
-| Catalog completeness | **Full basic list required for ship** |
-| Blocks | **Required** small set (M19) |
-| Variant UX | **Required** (M20) |
-| Agent entry | MCP + CLI/Skill (Ink); not Atmos Rust CLI |
-| Atmos embed | **Required** — left sidebar → center stage (M18) |
+| Fork                  | Decision                                          |
+| --------------------- | ------------------------------------------------- |
+| Canvas engine         | Excalidraw embed (MIT)                            |
+| Component model       | Static wireframes + semantic metadata             |
+| Public component ids  | Bare catalog ids (`button`)                       |
+| Catalog completeness  | **Full basic list required for ship**             |
+| Blocks                | **Required** small set (M19)                      |
+| Variant UX            | **Required** (M20)                                |
+| Agent entry           | MCP + CLI/Skill (Ink); not Atmos Rust CLI         |
+| Atmos embed           | **Required** — left sidebar → center stage (M18)  |
 | MVP-only package ship | **Rejected** — full product including Atmos embed |
-| Relation to APP-014 | Separate product; no “Canvas” branding |
-| Code export | Out of scope |
-| File concurrency | Single-writer v1 |
+| Relation to APP-014   | Separate product; no “Canvas” branding            |
+| Code export           | Out of scope                                      |
+| File concurrency      | Single-writer v1                                  |

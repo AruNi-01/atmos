@@ -18,18 +18,24 @@ export function AgentChatWorkspace({
   paintContextId?: string | null;
   surfaceVisible?: boolean;
   resumeTranscript?: boolean;
-  onChatStarted?: (id: string, meta?: {
-    title?: string | null;
-    cwd?: string;
-    providerId?: string | null;
-    hasMessages?: boolean;
-  }) => void;
-  onChatUpdated?: (id: string, meta: {
-    title?: string | null;
-    providerId?: string | null;
-    cwd?: string;
-    hasMessages?: boolean;
-  }) => void;
+  onChatStarted?: (
+    id: string,
+    meta?: {
+      title?: string | null;
+      cwd?: string;
+      providerId?: string | null;
+      hasMessages?: boolean;
+    },
+  ) => void;
+  onChatUpdated?: (
+    id: string,
+    meta: {
+      title?: string | null;
+      providerId?: string | null;
+      cwd?: string;
+      hasMessages?: boolean;
+    },
+  ) => void;
   onOpenChat?: (id: string) => void;
   variant?: "sidebar" | "standalone" | "center";
 }) {
@@ -48,7 +54,7 @@ export function AgentChatWorkspace({
   );
   if (variant !== "center") return panel;
   return (
-    <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
       {panel}
     </div>
   );

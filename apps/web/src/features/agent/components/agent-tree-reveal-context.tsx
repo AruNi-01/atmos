@@ -12,9 +12,7 @@ export function AgentTreeRevealProvider({
   children: ReactNode;
 }) {
   return (
-    <AgentTreeRevealContext.Provider value={reveal}>
-      {children}
-    </AgentTreeRevealContext.Provider>
+    <AgentTreeRevealContext.Provider value={reveal}>{children}</AgentTreeRevealContext.Provider>
   );
 }
 

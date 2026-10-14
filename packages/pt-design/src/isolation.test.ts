@@ -54,7 +54,9 @@ describe("S20 package isolation", () => {
     const catalog = readFileSync(join(srcRoot, "host", "catalog.ts"), "utf8");
     expect(catalog).not.toContain("@excalidraw/excalidraw");
     const embed = readFileSync(join(srcRoot, "embed", "PtDesignApp.tsx"), "utf8");
-    expect(embed).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|node:fs|from ["']ink["']/);
+    expect(embed).not.toMatch(
+      /headless|cli\/bin|mcp\/server|core\/document|node:fs|from ["']ink["']/,
+    );
     expect(embed).toContain("ExcalidrawBoard");
     expect(embed).toContain("chrome.fg");
     expect(embed).toContain("ModeToggle");
@@ -99,7 +101,7 @@ describe("S20 package isolation", () => {
     expect(board).toContain("pt-design-library-trigger");
     expect(board).toContain("DefaultSidebar");
     expect(board).not.toContain("Sidebar.Trigger");
-    expect(board).toContain("data-testid=\"pt-design-board\"");
+    expect(board).toContain('data-testid="pt-design-board"');
     expect(board).toContain("viewModeEnabled");
     expect(board).toContain("captureUpdate");
     expect(board).toContain('captureUpdate: "NEVER"');

@@ -51,9 +51,7 @@ describe("useWorkspaceSurfaceCacheStore", () => {
     expect(s.visualActiveContextId).toBe("b");
     expect(s.warm.map((w) => w.contextId)).toEqual(["a"]);
     store.switchContext("b");
-    expect(useWorkspaceSurfaceCacheStore.getState().warm.map((w) => w.contextId)).toEqual([
-      "a",
-    ]);
+    expect(useWorkspaceSurfaceCacheStore.getState().warm.map((w) => w.contextId)).toEqual(["a"]);
   });
 
   it("beginVisualSwitch only updates paint target", () => {
@@ -92,7 +90,9 @@ describe("useWorkspaceSurfaceCacheStore", () => {
 
     const term = useTerminalStore.getState();
     expect(term.workspaceTerminalTabs["ws-freeze"]?.length).toBe(1);
-    expect(term.persistedTerminalLayouts[getTerminalWorkspaceScopeKey("ws-freeze", false)]).toBeTruthy();
+    expect(
+      term.persistedTerminalLayouts[getTerminalWorkspaceScopeKey("ws-freeze", false)],
+    ).toBeTruthy();
     expect(term.hydratedTerminalScopes.has("ws-freeze")).toBe(false);
     expect(
       useWorkspaceSurfaceCacheStore.getState().warm.find((w) => w.contextId === "ws-freeze"),
@@ -242,4 +242,3 @@ describe("useWorkspaceSurfaceCacheStore", () => {
     ).toBeTruthy();
   });
 });
-

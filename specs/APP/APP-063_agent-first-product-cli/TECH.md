@@ -44,27 +44,27 @@ Does **not** redesign WebSocket protocol for browsers, mobile clients, or termin
 
 **Layers touched**
 
-| Layer | Role |
-|-------|------|
-| `apps/api` | New `/api/cli/*` routes; shared dispatch into existing WS handlers |
-| `apps/cli` | Envelope, commands, RPC client; rewrite output path |
-| `packages/api-types` | Optional: document CLI envelope types for TS consumers later |
-| `crates/*` | Prefer **no** new business rules; only fix headless assumptions if handlers require a WS subscriber |
+| Layer                | Role                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `apps/api`           | New `/api/cli/*` routes; shared dispatch into existing WS handlers                                  |
+| `apps/cli`           | Envelope, commands, RPC client; rewrite output path                                                 |
+| `packages/api-types` | Optional: document CLI envelope types for TS consumers later                                        |
+| `crates/*`           | Prefer **no** new business rules; only fix headless assumptions if handlers require a WS subscriber |
 
 **External**: none required beyond existing Atmos Server auth (bearer / local token).
 
 ## Design decisions (locked)
 
-| Decision | Choice | Why |
-|----------|--------|-----|
-| Product transport | **HTTP RPC**, not CLI-as-WS-client | One-shot agent tool calls; no reconnect tax |
-| Handler reuse | Map `action` string → existing `WsAction` + `handle_*` | Single logic plane |
-| Agent UX | **Typed L1** resource verbs | Wire names are not agent vocabulary |
-| Escape hatch | `atmos call` | Full coverage without waiting for clap stubs |
-| Envelope assembly | **CLI always wraps** server data into `CliEnvelope` | One place for `command` string + `next_actions` policy; server returns raw result or structured error |
-| Framework | Rust + clap | Existing binary, release, native crates |
-| Compat | **None** | Drop product dual human output; host plane also envelope-only |
-| Dangerous ops | L1 requires `--yes`; RPC may accept deletes (agent passes flag at L1) | Prevent accidents from incomplete agent prompts |
+| Decision          | Choice                                                                | Why                                                                                                   |
+| ----------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Product transport | **HTTP RPC**, not CLI-as-WS-client                                    | One-shot agent tool calls; no reconnect tax                                                           |
+| Handler reuse     | Map `action` string → existing `WsAction` + `handle_*`                | Single logic plane                                                                                    |
+| Agent UX          | **Typed L1** resource verbs                                           | Wire names are not agent vocabulary                                                                   |
+| Escape hatch      | `atmos call`                                                          | Full coverage without waiting for clap stubs                                                          |
+| Envelope assembly | **CLI always wraps** server data into `CliEnvelope`                   | One place for `command` string + `next_actions` policy; server returns raw result or structured error |
+| Framework         | Rust + clap                                                           | Existing binary, release, native crates                                                               |
+| Compat            | **None**                                                              | Drop product dual human output; host plane also envelope-only                                         |
+| Dangerous ops     | L1 requires `--yes`; RPC may accept deletes (agent passes flag at L1) | Prevent accidents from incomplete agent prompts                                                       |
 
 ### Why REST/RPC is justified (WebSocket-first exception)
 
@@ -112,7 +112,7 @@ Server behavior:
 ```json
 {
   "success": true,
-  "data": { /* handler Value */ },
+  "data": {/* handler Value */},
   "action": "project_create",
   "request_id": "…"
 }
@@ -267,24 +267,24 @@ atmos actions list --filter project
 
 #### L1 mapping (selected)
 
-| CLI | WsAction (wire) | Notes |
-|-----|-----------------|-------|
-| `project list` | `project_list` | |
-| `project create --name --path` | `project_create` | Map `--path` → `main_file_path` |
-| `project update …` | `project_update` | |
-| `project delete --id --yes` | `project_delete` | |
-| `project validate-path --path` | `project_validate_path` | |
-| `workspace list [--project]` | `workspace_list` | |
-| `workspace create …` | `workspace_create` | |
-| `workspace delete --id --yes` | `workspace_delete` | |
-| `group *` | `group_*` | |
-| `settings bootstrap` | `settings_bootstrap_get` | |
-| `settings get --scope function` | `function_settings_get` | TECH may split subcommands |
-| `settings set …` | `function_settings_update` etc. | |
-| `terminal create …` | terminal-related create path | Align with actual terminal create API (may be WS terminal channel **or** a service method exposed via action — see Terminal section) |
-| `run logs …` | `run_log_resolve_latest` / start | APP-023/055 |
-| `git status` | `git_get_status` | |
-| `git commit` | `git_commit` | |
+| CLI                             | WsAction (wire)                  | Notes                                                                                                                                |
+| ------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `project list`                  | `project_list`                   |                                                                                                                                      |
+| `project create --name --path`  | `project_create`                 | Map `--path` → `main_file_path`                                                                                                      |
+| `project update …`              | `project_update`                 |                                                                                                                                      |
+| `project delete --id --yes`     | `project_delete`                 |                                                                                                                                      |
+| `project validate-path --path`  | `project_validate_path`          |                                                                                                                                      |
+| `workspace list [--project]`    | `workspace_list`                 |                                                                                                                                      |
+| `workspace create …`            | `workspace_create`               |                                                                                                                                      |
+| `workspace delete --id --yes`   | `workspace_delete`               |                                                                                                                                      |
+| `group *`                       | `group_*`                        |                                                                                                                                      |
+| `settings bootstrap`            | `settings_bootstrap_get`         |                                                                                                                                      |
+| `settings get --scope function` | `function_settings_get`          | TECH may split subcommands                                                                                                           |
+| `settings set …`                | `function_settings_update` etc.  |                                                                                                                                      |
+| `terminal create …`             | terminal-related create path     | Align with actual terminal create API (may be WS terminal channel **or** a service method exposed via action — see Terminal section) |
+| `run logs …`                    | `run_log_resolve_latest` / start | APP-023/055                                                                                                                          |
+| `git status`                    | `git_get_status`                 |                                                                                                                                      |
+| `git commit`                    | `git_commit`                     |                                                                                                                                      |
 
 Full matrix lives in implementation as a table in `commands/*.rs`; keep wire names 1:1 with `actions.server.json`.
 
@@ -355,11 +355,11 @@ CLI clap args map into these JSON shapes for `data`.
 
 ### CLI → Server (product)
 
-| Verb | Endpoint |
-|------|----------|
-| RPC | `POST /api/cli/invoke` |
-| List actions | `GET /api/cli/actions` |
-| Health | `GET /api/cli/health` (optional) |
+| Verb         | Endpoint                         |
+| ------------ | -------------------------------- |
+| RPC          | `POST /api/cli/invoke`           |
+| List actions | `GET /api/cli/actions`           |
+| Health       | `GET /api/cli/health` (optional) |
 
 ### Browser (unchanged)
 
@@ -455,16 +455,16 @@ Centralize builders so mapping stays consistent.
 
 ## Error codes (stable strings)
 
-| Code | Meaning |
-|------|---------|
-| `SERVER_UNREACHABLE` | Cannot connect / resolve API URL |
-| `UNAUTHORIZED` | 401 |
-| `CONFIRMATION_REQUIRED` | Missing `--yes` |
-| `INVALID_ARGUMENT` | clap/JSON parse |
-| `UNKNOWN_ACTION` | `call` with bad action |
-| `ACTION_FAILED` | generic domain failure (prefer more specific when mapped) |
-| `REQUIRES_UI` | canvas bridge / UI-only |
-| `CONTEXT_REQUIRED` | missing project/workspace context |
+| Code                    | Meaning                                                   |
+| ----------------------- | --------------------------------------------------------- |
+| `SERVER_UNREACHABLE`    | Cannot connect / resolve API URL                          |
+| `UNAUTHORIZED`          | 401                                                       |
+| `CONFIRMATION_REQUIRED` | Missing `--yes`                                           |
+| `INVALID_ARGUMENT`      | clap/JSON parse                                           |
+| `UNKNOWN_ACTION`        | `call` with bad action                                    |
+| `ACTION_FAILED`         | generic domain failure (prefer more specific when mapped) |
+| `REQUIRES_UI`           | canvas bridge / UI-only                                   |
+| `CONTEXT_REQUIRED`      | missing project/workspace context                         |
 
 `fix` is plain language, e.g. `"Start the server: atmos runtime ensure"`.
 
@@ -483,23 +483,23 @@ Each phase is independently shippable.
 
 ## Agent skill (`atmos-cli`) — M22
 
-Agent delivery is not only the binary: coding agents need a **system skill** that teaches *how to operate Atmos via CLI*. Design follows existing product skills (`atmos-canvas-agent`, `atmos-desktop-use`): short entry + progressive disclosure.
+Agent delivery is not only the binary: coding agents need a **system skill** that teaches _how to operate Atmos via CLI_. Design follows existing product skills (`atmos-canvas-agent`, `atmos-desktop-use`): short entry + progressive disclosure.
 
 ### Goals
 
-| Goal | Design |
-|------|--------|
+| Goal                       | Design                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Agents find the right tool | One skill id **`atmos-cli`** with a sharp `description` (project/workspace/terminal/run/settings/headless Atmos) |
-| Context stays small | Fat details live in `references/`; load on demand via decision table |
-| Align with product UX | Narrative prefers **L1** resource commands; **`call` is escape hatch** |
-| No second API surface | Skill documents shipped CLI only; live catalogs stay `atmos` / `actions list` / `--help` |
-| Clear boundaries | Point to canvas / desktop-use / browser-use skills; do not merge them |
+| Context stays small        | Fat details live in `references/`; load on demand via decision table                                             |
+| Align with product UX      | Narrative prefers **L1** resource commands; **`call` is escape hatch**                                           |
+| No second API surface      | Skill documents shipped CLI only; live catalogs stay `atmos` / `actions list` / `--help`                         |
+| Clear boundaries           | Point to canvas / desktop-use / browser-use skills; do not merge them                                            |
 
 ### Non-goals for the skill
 
 - Not a dump of all `WsAction` wire names.
 - Not a replacement for APP-063 TECH (no server/RPC internals for agents).
-- Not the `cli-design` skill (that is for *building* CLIs).
+- Not the `cli-design` skill (that is for _building_ CLIs).
 - Not UI automation instructions (that is desktop-use).
 
 ### Layout (source of truth)
@@ -554,18 +554,18 @@ Body sections (order):
 
 ### Decision tree (skill contract)
 
-| User / agent intent | Do | Load reference |
-|---------------------|----|----------------|
-| Is Server ready? | `atmos status` | `auth-and-runtime.md` |
-| Auth / token / runtime | `runtime ensure`, token flags | `auth-and-runtime.md` |
+| User / agent intent         | Do                                   | Load reference         |
+| --------------------------- | ------------------------------------ | ---------------------- |
+| Is Server ready?            | `atmos status`                       | `auth-and-runtime.md`  |
+| Auth / token / runtime      | `runtime ensure`, token flags        | `auth-and-runtime.md`  |
 | Project / workspace / group | L1 `project` / `workspace` / `group` | `project-workspace.md` |
-| Terminal / run / logs | L1 `terminal` / `run` | `terminal-run.md` |
-| Settings | L1 `settings` | `settings.md` |
-| Git | L1 `git` | `git.md` |
-| No typed command yet | `atmos call` / `actions list` | `call-escape-hatch.md` |
-| Canvas diagram | **other skill** | `atmos-canvas-agent` |
-| Screenshot / click OS UI | **other skill** | `atmos-desktop-use` |
-| Page DOM / CDP | **other skill** | `atmos-browser-use` |
+| Terminal / run / logs       | L1 `terminal` / `run`                | `terminal-run.md`      |
+| Settings                    | L1 `settings`                        | `settings.md`          |
+| Git                         | L1 `git`                             | `git.md`               |
+| No typed command yet        | `atmos call` / `actions list`        | `call-escape-hatch.md` |
+| Canvas diagram              | **other skill**                      | `atmos-canvas-agent`   |
+| Screenshot / click OS UI    | **other skill**                      | `atmos-desktop-use`    |
+| Page DOM / CDP              | **other skill**                      | `atmos-browser-use`    |
 
 ### Progressive disclosure rules
 
@@ -577,13 +577,13 @@ Body sections (order):
 
 ### Phase sync (skill vs CLI)
 
-| Phase | Skill must document |
-|-------|---------------------|
-| P0 | Envelope; `status`; `call` + `actions list` as secondary; host plane pointer; decision tree; anti-patterns; related skills |
-| P1 | Real `context` / `project` / `workspace` / `group` / `settings` examples in golden path + references |
-| P2 | `terminal` / `run` reference + golden path extension |
-| P3 | `git`; note re-enveloped review/canvas and link domain skills |
-| P4 | Extra domain references only as L1 lands |
+| Phase | Skill must document                                                                                                        |
+| ----- | -------------------------------------------------------------------------------------------------------------------------- |
+| P0    | Envelope; `status`; `call` + `actions list` as secondary; host plane pointer; decision tree; anti-patterns; related skills |
+| P1    | Real `context` / `project` / `workspace` / `group` / `settings` examples in golden path + references                       |
+| P2    | `terminal` / `run` reference + golden path extension                                                                       |
+| P3    | `git`; note re-enveloped review/canvas and link domain skills                                                              |
+| P4    | Extra domain references only as L1 lands                                                                                   |
 
 If a verb is not shipped, skill must not list it as available (or mark **not shipped** explicitly). Prefer omitting.
 
@@ -605,19 +605,19 @@ Optional later (N6): split a huge reference into its own skill only if it has di
 
 - Same PR that adds/changes an L1 command updates the matching skill reference (or golden path).
 - Version bump in skill frontmatter when behavior/docs change meaningfully.
-- `apps/cli/AGENTS.md` may link to the skill path for human developers; skill remains agent-facing source of truth for *usage*.
+- `apps/cli/AGENTS.md` may link to the skill path for human developers; skill remains agent-facing source of truth for _usage_.
 
 ## Risks & tradeoffs
 
-| Risk | Mitigation |
-|------|------------|
-| Handlers assume WS connection | Shared dispatch tests without `WsManager` subscribers; fix handlers that require it |
-| Terminal create not on WsAction | Add service-backed action in P2; do not fake via UI |
-| RPC becomes a second API | Forbid new business logic in CLI; forbid parallel REST resource trees |
-| Envelope bloat | Truncate lists; keep `next_actions` ≤ ~8 entries |
-| Agents use only `call` | Ship L1 early (P1); root tree highlights resource commands; skill narrative marks `call` secondary |
-| Skill drifts from CLI | Same-phase skill updates; omit unshipped verbs |
-| Skill context bloat | Short SKILL.md + references; no full action catalog |
+| Risk                            | Mitigation                                                                                         |
+| ------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Handlers assume WS connection   | Shared dispatch tests without `WsManager` subscribers; fix handlers that require it                |
+| Terminal create not on WsAction | Add service-backed action in P2; do not fake via UI                                                |
+| RPC becomes a second API        | Forbid new business logic in CLI; forbid parallel REST resource trees                              |
+| Envelope bloat                  | Truncate lists; keep `next_actions` ≤ ~8 entries                                                   |
+| Agents use only `call`          | Ship L1 early (P1); root tree highlights resource commands; skill narrative marks `call` secondary |
+| Skill drifts from CLI           | Same-phase skill updates; omit unshipped verbs                                                     |
+| Skill context bloat             | Short SKILL.md + references; no full action catalog                                                |
 
 **Tradeoff**: HTTP RPC vs pure WS — chosen for agent ergonomics; browsers stay WS.
 
@@ -632,12 +632,12 @@ Optional later (N6): split a huge reference into its own skill only if it has di
 
 ## Open questions (resolved defaults)
 
-| Question | Default |
-|----------|---------|
-| Envelope on server too? | **CLI-only** wrap; server keeps `success`/`data` |
-| Compact JSON? | Pretty default; env opt-in compact |
+| Question                | Default                                                        |
+| ----------------------- | -------------------------------------------------------------- |
+| Envelope on server too? | **CLI-only** wrap; server keeps `success`/`data`               |
+| Compact JSON?           | Pretty default; env opt-in compact                             |
 | `get` for project by id | `list` + filter or `call project_*` until dedicated get exists |
-| Allowlist RPC actions | All authenticated actions in P0; harden later if needed |
+| Allowlist RPC actions   | All authenticated actions in P0; harden later if needed        |
 
 ## File touch list (implementation checklist)
 

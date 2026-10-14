@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import {
-  isResizeClickGesture,
-  type ResizeClickAxis,
-} from "@/app-shell/resize-click-fold";
+import { isResizeClickGesture, type ResizeClickAxis } from "@/app-shell/resize-click-fold";
 
 /**
  * Click the seam to fold; moving past slop leaves the gesture to resize.
@@ -31,9 +28,7 @@ export function useResizeClickFold(
       const start = startRef.current;
       startRef.current = null;
       if (!start || event.button !== 0) return;
-      if (
-        isResizeClickGesture(start, { x: event.clientX, y: event.clientY }, axis)
-      ) {
+      if (isResizeClickGesture(start, { x: event.clientX, y: event.clientY }, axis)) {
         onFold();
       }
     };

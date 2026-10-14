@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Window } from "happy-dom";
-import {
-  Editor,
-  defaultValueCtx,
-  editorViewCtx,
-  rootCtx,
-} from "@milkdown/kit/core";
+import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import {
@@ -113,7 +108,9 @@ describe("md-live inline code", () => {
       return $from.marks().some((mark) => mark.type.name === "inlineCode");
     });
     expect(inside).toBe(true);
-    expect(formatMdLiveSerializedMarkdown(editor.action((ctx) => getEditorMarkdown(ctx)))).not.toContain(MD_LIVE_INLINE_CODE_ZWSP);
+    expect(
+      formatMdLiveSerializedMarkdown(editor.action((ctx) => getEditorMarkdown(ctx))),
+    ).not.toContain(MD_LIVE_INLINE_CODE_ZWSP);
     await editor.destroy();
   });
 

@@ -13,44 +13,44 @@ This is a TypeScript contract and package-boundary change with **no product wire
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S2 |
-| M3 | S3 |
-| M4 | S4, S5 |
-| M5 | S6, S7, S8 |
-| M6 | S5, S9 |
-| M7 | S7, S10 |
-| M8 | S8, S11 |
-| M9 | S12, S13 |
-| M10 | S14, S15 |
-| M11 | S16 |
-| N1 | S4, S5, S9 |
-| N2 | S14, S15 |
-| N3–N5 | S17 (deferred) |
+| PRD item | Scenario IDs   |
+| -------- | -------------- |
+| M1       | S1, S2         |
+| M2       | S2             |
+| M3       | S3             |
+| M4       | S4, S5         |
+| M5       | S6, S7, S8     |
+| M6       | S5, S9         |
+| M7       | S7, S10        |
+| M8       | S8, S11        |
+| M9       | S12, S13       |
+| M10      | S14, S15       |
+| M11      | S16            |
+| N1       | S4, S5, S9     |
+| N2       | S14, S15       |
+| N3–N5    | S17 (deferred) |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Static | rg / bun | `rg -l '"orpc"\\|@orpc\\|@trpc' package.json packages/*/package.json apps/*/package.json` | lockfiles | zero product deps | planned |
-| S2 | Static | rg + `scripts/check-package-boundaries.ts` | existing boundary script | monorepo | hub/relay/api-client edges unchanged | planned |
-| S3 | Static | rg | `rg "gitApi\\|workspaceApi" packages/api-client/src` | api-client src | no domain APIs on kernel | planned |
-| S4 | Bun type test | `bun test` | `@atmos/api-types` contract tests | sample mapped action | `WsContract` keys ⊆ `WsAction` | planned |
-| S5 | Bun type test | `bun test` | v1 domain completeness vs `WS_ACTIONS` prefixes | actions.ts + contract/* | fs/git/github/group/linear/project/workspace actions all mapped | planned |
-| S6 | Bun test | `bun test` | `@atmos/api-client` session.test.ts | mock socket | request still sends `{ type: request, payload: { action, data } }` | planned |
-| S7 | Typecheck | `bun run --filter @atmos/api-client typecheck` plus a `// @ts-expect-error` fixture | contract-assignability file | bad field / unknown action literal | mapped call infers output; bad input fails | planned |
-| S8 | Typecheck | `just typecheck` or web+mobile typecheck | apps using mapped `request` | workspace_create / git_get_status call sites | no required caller `T` | planned |
-| S9 | Typecheck | `bun run --filter @atmos/api-client typecheck` | `UnmappedWsAction` is `never`; `requestUnchecked` is the escape hatch | request-types.ts | no leftover `request<T>` | implemented |
-| S10 | Typecheck | ts-expect-error fixture | `request("not_an_action", {})` | string literal | type error; `requestUnchecked` allowed | planned |
-| S11 | Static | rg | `apps/mobile/src/api/ws-actions.ts` still exports wrappers | mobile | file exists; imports `request` not a second `WS_ACTIONS` | planned |
-| S12 | Typecheck + unit | `bun test` / typecheck | `WorkspaceAttachmentPayload` assignable to Rust JSON shape | filename/mime/data_base64 | web mapper still sends snake_case | planned |
-| S13 | Static | rg | `export type GitFileDiffResponse` under mobile | mobile types.ts | no local authoritative duplicate | planned |
-| S14 | Bun test | `bun run --filter @atmos/api-types check-events` (name TBD) | fixture vs `WS_EVENTS` | `events.server.json` | sets equal | planned |
-| S15 | Bun test | same as APP-048 drift-mismatch | drop one event from TS or fixture | non-zero exit naming the event | planned |
-| S16 | Review | rg + existing WS tests | no serde/JSON field renames in `message.rs` for this spec | git diff | wire structs unchanged | planned |
-| S17 | n/a | deferred | N3–N5 | — | OpenAPI / ts-rs / catalog derivation | planned |
+| Scenario | Level            | Expected tool                                                                       | Target command / method                                               | Fixture / data                               | Signals                                                            | Status                   |
+| -------- | ---------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------ | ------------------------ |
+| S1       | Static           | rg / bun                                                                            | `rg -l '"orpc"\\                                                      | @orpc\\                                      | @trpc' package.json packages/_/package.json apps/_/package.json`   | lockfiles                | zero product deps | planned |
+| S2       | Static           | rg + `scripts/check-package-boundaries.ts`                                          | existing boundary script                                              | monorepo                                     | hub/relay/api-client edges unchanged                               | planned                  |
+| S3       | Static           | rg                                                                                  | `rg "gitApi\\                                                         | workspaceApi" packages/api-client/src`       | api-client src                                                     | no domain APIs on kernel | planned           |
+| S4       | Bun type test    | `bun test`                                                                          | `@atmos/api-types` contract tests                                     | sample mapped action                         | `WsContract` keys ⊆ `WsAction`                                     | planned                  |
+| S5       | Bun type test    | `bun test`                                                                          | v1 domain completeness vs `WS_ACTIONS` prefixes                       | actions.ts + contract/*                      | fs/git/github/group/linear/project/workspace actions all mapped    | planned                  |
+| S6       | Bun test         | `bun test`                                                                          | `@atmos/api-client` session.test.ts                                   | mock socket                                  | request still sends `{ type: request, payload: { action, data } }` | planned                  |
+| S7       | Typecheck        | `bun run --filter @atmos/api-client typecheck` plus a `// @ts-expect-error` fixture | contract-assignability file                                           | bad field / unknown action literal           | mapped call infers output; bad input fails                         | planned                  |
+| S8       | Typecheck        | `just typecheck` or web+mobile typecheck                                            | apps using mapped `request`                                           | workspace_create / git_get_status call sites | no required caller `T`                                             | planned                  |
+| S9       | Typecheck        | `bun run --filter @atmos/api-client typecheck`                                      | `UnmappedWsAction` is `never`; `requestUnchecked` is the escape hatch | request-types.ts                             | no leftover `request<T>`                                           | implemented              |
+| S10      | Typecheck        | ts-expect-error fixture                                                             | `request("not_an_action", {})`                                        | string literal                               | type error; `requestUnchecked` allowed                             | planned                  |
+| S11      | Static           | rg                                                                                  | `apps/mobile/src/api/ws-actions.ts` still exports wrappers            | mobile                                       | file exists; imports `request` not a second `WS_ACTIONS`           | planned                  |
+| S12      | Typecheck + unit | `bun test` / typecheck                                                              | `WorkspaceAttachmentPayload` assignable to Rust JSON shape            | filename/mime/data_base64                    | web mapper still sends snake_case                                  | planned                  |
+| S13      | Static           | rg                                                                                  | `export type GitFileDiffResponse` under mobile                        | mobile types.ts                              | no local authoritative duplicate                                   | planned                  |
+| S14      | Bun test         | `bun run --filter @atmos/api-types check-events` (name TBD)                         | fixture vs `WS_EVENTS`                                                | `events.server.json`                         | sets equal                                                         | planned                  |
+| S15      | Bun test         | same as APP-048 drift-mismatch                                                      | drop one event from TS or fixture                                     | non-zero exit naming the event               | planned                                                            |
+| S16      | Review           | rg + existing WS tests                                                              | no serde/JSON field renames in `message.rs` for this spec             | git diff                                     | wire structs unchanged                                             | planned                  |
+| S17      | n/a              | deferred                                                                            | N3–N5                                                                 | —                                            | OpenAPI / ts-rs / catalog derivation                               | planned                  |
 
 ## Scenarios
 

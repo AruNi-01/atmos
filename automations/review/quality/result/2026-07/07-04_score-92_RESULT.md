@@ -9,23 +9,23 @@
 
 被审查提交：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `c2279d9` | AarynLu | Fix terminal agent input interactions |
-| `29afaed` | AarynLu | chore(desktop): release 2026.7.3-beta.2 |
-| `0f51e0f` | AarynLu | fix: scope terminal side chat status updates |
-| `0c96692` | AarynLu | refactor: split terminal side chat workflow |
-| `ec4e9d9` | AarynLu | fix: harden terminal side chat interactions |
-| `226e3dc` | AarynLu | fix: preserve terminal side chat local state |
-| `a56e816` | AarynLu | fix: scope terminal side chat record merges |
+| Hash      | Author   | Message                                                            |
+| --------- | -------- | ------------------------------------------------------------------ |
+| `c2279d9` | AarynLu  | Fix terminal agent input interactions                              |
+| `29afaed` | AarynLu  | chore(desktop): release 2026.7.3-beta.2                            |
+| `0f51e0f` | AarynLu  | fix: scope terminal side chat status updates                       |
+| `0c96692` | AarynLu  | refactor: split terminal side chat workflow                        |
+| `ec4e9d9` | AarynLu  | fix: harden terminal side chat interactions                        |
+| `226e3dc` | AarynLu  | fix: preserve terminal side chat local state                       |
+| `a56e816` | AarynLu  | fix: scope terminal side chat record merges                        |
 | `6c9d1fc` | AruNi_Lu | Merge pull request #147 from AruNi-01/codex/quality-fix/2026-07-02 |
-| `1d2f11a` | AarynLu | fix(desktop): stabilize startup and release checks |
-| `6fe8dd4` | AarynLu | feat: refine app interactions |
-| `0303823` | AarynLu | chore(desktop): release 2026.7.3-beta.3 |
-| `cb84ef5` | AarynLu | chore(desktop): release 2026.7.3 |
-| `0a31786` | AarynLu | Remove workspace notes surfaces |
-| `085e88e` | AarynLu | docs(landing): update changelog for 2026.7.3 |
-| `11a8cf1` | AarynLu | fix(web): correct prompt composer slash handling |
+| `1d2f11a` | AarynLu  | fix(desktop): stabilize startup and release checks                 |
+| `6fe8dd4` | AarynLu  | feat: refine app interactions                                      |
+| `0303823` | AarynLu  | chore(desktop): release 2026.7.3-beta.3                            |
+| `cb84ef5` | AarynLu  | chore(desktop): release 2026.7.3                                   |
+| `0a31786` | AarynLu  | Remove workspace notes surfaces                                    |
+| `085e88e` | AarynLu  | docs(landing): update changelog for 2026.7.3                       |
+| `11a8cf1` | AarynLu  | fix(web): correct prompt composer slash handling                   |
 
 ## 2. 一份好代码应该是什么样
 
@@ -43,13 +43,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 28/30 | `0c96692` 拆分 side chat 是正向改进，但 `TerminalSideChatModal` 的 props 同时承载 workspace、source pane、terminal refs、layout target 和生命周期回调，组件边界仍偏宽。 |
-| 可读性与复杂度 | 23/25 | `TerminalSideChatModal` 和 `use-side-chat-modal-layout` 都接近 400 行，主路径可读但交互事件、refs、tabs、terminal 生命周期仍需要跨文件联动理解。 |
-| 体量与内聚 | 18/20 | 前一日 1200+ 行 side chat hook 已被拆开，这是明显改善；但新增 modal/layout 两个文件仍超过体量关注阈值，后续可继续拆 header/content/geometry 纯逻辑。 |
-| 可维护性与复用 | 14/15 | `0a31786` 删除 workspace note surface 后，少量 note panel 翻译键仍留在 locale 文件中，搜索和后续文案维护会有轻微噪音。 |
-| 工程卫生 | 9/10 | 有针对性测试覆盖，未发现调试残留；主要扣分来自删除功能后的 unused i18n 清理未完全收口。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                |
+| -------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 28/30 | `0c96692` 拆分 side chat 是正向改进，但 `TerminalSideChatModal` 的 props 同时承载 workspace、source pane、terminal refs、layout target 和生命周期回调，组件边界仍偏宽。 |
+| 可读性与复杂度 | 23/25 | `TerminalSideChatModal` 和 `use-side-chat-modal-layout` 都接近 400 行，主路径可读但交互事件、refs、tabs、terminal 生命周期仍需要跨文件联动理解。                        |
+| 体量与内聚     | 18/20 | 前一日 1200+ 行 side chat hook 已被拆开，这是明显改善；但新增 modal/layout 两个文件仍超过体量关注阈值，后续可继续拆 header/content/geometry 纯逻辑。                    |
+| 可维护性与复用 | 14/15 | `0a31786` 删除 workspace note surface 后，少量 note panel 翻译键仍留在 locale 文件中，搜索和后续文案维护会有轻微噪音。                                                  |
+| 工程卫生       |  9/10 | 有针对性测试覆盖，未发现调试残留；主要扣分来自删除功能后的 unused i18n 清理未完全收口。                                                                                 |
 
 ## 6. 主要问题清单
 

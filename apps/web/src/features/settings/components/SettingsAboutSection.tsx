@@ -37,9 +37,7 @@ interface SettingsAboutSectionProps {
 function formatAppVersion(version: string): string {
   const trimmed = version.trim();
   if (!trimmed) return "";
-  return trimmed.startsWith("v") || trimmed.startsWith("V")
-    ? trimmed
-    : `v${trimmed}`;
+  return trimmed.startsWith("v") || trimmed.startsWith("V") ? trimmed : `v${trimmed}`;
 }
 
 export function SettingsAboutSection({
@@ -68,30 +66,19 @@ export function SettingsAboutSection({
   return (
     <SettingsSection id="about" title={sectionT("about.label")}>
       <SettingsGroup>
-        <SettingsGroupRow
-          wide
-          title={t("runtime.title")}
-          description={t("runtime.description")}
-        >
+        <SettingsGroupRow wide title={t("runtime.title")} description={t("runtime.description")}>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <span className="text-sm font-medium text-foreground">
-              {runtimeValue}
-            </span>
+            <span className="text-sm font-medium text-foreground">{runtimeValue}</span>
             {desktop ? (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onCheckForUpdate}
-                disabled={
-                  isCheckingDesktopUpdate ||
-                  isChecking ||
-                  isDownloading ||
-                  isInstalling
-                }
-                className="cursor-pointer shrink-0"
+                disabled={isCheckingDesktopUpdate || isChecking || isDownloading || isInstalling}
+                className="shrink-0 cursor-pointer"
               >
                 {isCheckingDesktopUpdate ? (
-                  <LoaderCircle className="size-4 animate-spin-reverse" />
+                  <LoaderCircle className="animate-spin-reverse size-4" />
                 ) : (
                   <RotateCcw className="size-4" />
                 )}
@@ -101,25 +88,19 @@ export function SettingsAboutSection({
           </div>
         </SettingsGroupRow>
 
-        <SettingsGroupRow
-          wide
-          title={t("cli.title")}
-          description={t("cli.description")}
-        >
+        <SettingsGroupRow wide title={t("cli.title")} description={t("cli.description")}>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {cliVersionInfo?.installed === false ? (
               <>
-                <span className="text-sm text-muted-foreground">
-                  {t("cli.notInstalled")}
-                </span>
+                <span className="text-sm text-muted-foreground">{t("cli.notInstalled")}</span>
                 <Button
                   size="sm"
                   onClick={onInstallCli}
                   disabled={isInstallingCli}
-                  className="cursor-pointer shrink-0"
+                  className="shrink-0 cursor-pointer"
                 >
                   {isInstallingCli ? (
-                    <LoaderCircle className="size-4 animate-spin-reverse" />
+                    <LoaderCircle className="animate-spin-reverse size-4" />
                   ) : (
                     <Download className="size-4" />
                   )}
@@ -137,10 +118,10 @@ export function SettingsAboutSection({
                   size="sm"
                   onClick={onInstallCli}
                   disabled={isInstallingCli}
-                  className="cursor-pointer shrink-0"
+                  className="shrink-0 cursor-pointer"
                 >
                   {isInstallingCli ? (
-                    <LoaderCircle className="size-4 animate-spin-reverse" />
+                    <LoaderCircle className="animate-spin-reverse size-4" />
                   ) : (
                     <Download className="size-4" />
                   )}
@@ -159,10 +140,10 @@ export function SettingsAboutSection({
                   size="sm"
                   onClick={onCheckCliVersion}
                   disabled={isCheckingCliVersion}
-                  className="cursor-pointer shrink-0"
+                  className="shrink-0 cursor-pointer"
                 >
                   {isCheckingCliVersion ? (
-                    <LoaderCircle className="size-4 animate-spin-reverse" />
+                    <LoaderCircle className="animate-spin-reverse size-4" />
                   ) : (
                     <RotateCcw className="size-4" />
                   )}
@@ -191,17 +172,11 @@ export function renderDesktopUpdateAvailableToast(
   if (info.manualDownloadOnly) {
     return (
       <div className="space-y-3">
-        <p className="text-xs text-muted-foreground">
-          {copy.manualDescription}
-        </p>
+        <p className="text-xs text-muted-foreground">{copy.manualDescription}</p>
         <Button
           size="sm"
           render={
-            <a
-              href={getUpdateReleaseNotesUrl(info)}
-              target="_blank"
-              rel="noopener noreferrer"
-            />
+            <a href={getUpdateReleaseNotesUrl(info)} target="_blank" rel="noopener noreferrer" />
           }
         >
           <ExternalLink className="mr-1.5 size-3.5" />
@@ -213,19 +188,13 @@ export function renderDesktopUpdateAvailableToast(
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
-        {copy.automaticDescription}
-      </p>
+      <p className="text-xs text-muted-foreground">{copy.automaticDescription}</p>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="sm"
           render={
-            <a
-              href={getUpdateReleaseNotesUrl(info)}
-              target="_blank"
-              rel="noopener noreferrer"
-            />
+            <a href={getUpdateReleaseNotesUrl(info)} target="_blank" rel="noopener noreferrer" />
           }
         >
           <ExternalLink className="mr-1.5 size-3.5" />

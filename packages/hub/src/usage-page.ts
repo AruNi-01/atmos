@@ -5,10 +5,7 @@
 import { eq } from "drizzle-orm";
 import type { HubDb } from "./db/client";
 import { userProfiles } from "./db/schema";
-import {
-  extractShareTotals,
-  refreshUsageLeaderboardsIfStale,
-} from "./usage-leaderboard";
+import { extractShareTotals, refreshUsageLeaderboardsIfStale } from "./usage-leaderboard";
 
 export const USAGE_PAGE_PUBLIC_ORIGIN = "https://atmos.land";
 export const MAX_SNAPSHOT_BYTES = 256 * 1024;
@@ -104,8 +101,7 @@ export function normalizeSocialUsername(
   value = value.replace(/^@+/, "").replace(/\/+$/, "").split("/")[0] ?? "";
   value = value.trim();
   if (!value) return { ok: true, username: null };
-  const pattern =
-    provider === "github" ? /^[A-Za-z0-9-]{1,39}$/ : /^[A-Za-z0-9_]{1,30}$/;
+  const pattern = provider === "github" ? /^[A-Za-z0-9-]{1,39}$/ : /^[A-Za-z0-9_]{1,30}$/;
   if (!pattern.test(value)) {
     return { ok: false, error: "invalid_social_username" };
   }
@@ -123,9 +119,7 @@ export function isUniqueViolation(error: unknown): boolean {
 async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function timingSafeEqualHex(a: string, b: string): boolean {
@@ -215,9 +209,7 @@ export function normalizeSharePayload(
   }
   const raw = input as Record<string, unknown>;
   const summaryIn =
-    raw.summary && typeof raw.summary === "object"
-      ? (raw.summary as Record<string, unknown>)
-      : {};
+    raw.summary && typeof raw.summary === "object" ? (raw.summary as Record<string, unknown>) : {};
   const mixIn =
     summaryIn.mix && typeof summaryIn.mix === "object"
       ? (summaryIn.mix as Record<string, unknown>)
@@ -232,20 +224,14 @@ export function normalizeSharePayload(
         total_tokens: asFiniteNumber(summaryIn.total_tokens),
         total_messages: asFiniteNumber(summaryIn.total_messages),
         active_days: asFiniteNumber(summaryIn.active_days),
-        range_start:
-          typeof summaryIn.range_start === "string" ? summaryIn.range_start : null,
+        range_start: typeof summaryIn.range_start === "string" ? summaryIn.range_start : null,
         range_end: typeof summaryIn.range_end === "string" ? summaryIn.range_end : null,
         client_count: asFiniteNumber(summaryIn.client_count),
         model_count: asFiniteNumber(summaryIn.model_count),
-        ...(opts.includeCost
-          ? { total_cost_usd: asFiniteNumber(summaryIn.total_cost_usd) }
-          : {}),
+        ...(opts.includeCost ? { total_cost_usd: asFiniteNumber(summaryIn.total_cost_usd) } : {}),
         ...(asFiniteNumber(summaryIn.computer_count) > 1
           ? {
-              computer_count: Math.min(
-                99,
-                Math.floor(asFiniteNumber(summaryIn.computer_count)),
-              ),
+              computer_count: Math.min(99, Math.floor(asFiniteNumber(summaryIn.computer_count))),
             }
           : {}),
         mix: {
@@ -271,9 +257,7 @@ export function normalizeSharePayload(
           date: asString(d.date),
           total_tokens: asFiniteNumber(d.total_tokens),
           message_count: asFiniteNumber(d.message_count),
-          ...(opts.includeCost
-            ? { total_cost_usd: asFiniteNumber(d.total_cost_usd) }
-            : {}),
+          ...(opts.includeCost ? { total_cost_usd: asFiniteNumber(d.total_cost_usd) } : {}),
           breakdown: {
             input: asFiniteNumber(br.input),
             output: asFiniteNumber(br.output),
@@ -355,7 +339,7 @@ export async function getOwnerUsagePage(db: HubDb, userId: string) {
     url: handle ? usagePageUrl(handle) : null,
     has_unlisted_secret: Boolean(profile.unlistedTokenHash),
     updated_at: profile.snapshotUpdatedAt
-      ? profile.snapshotUpdatedAt.getTime?.() ?? Number(profile.snapshotUpdatedAt)
+      ? (profile.snapshotUpdatedAt.getTime?.() ?? Number(profile.snapshotUpdatedAt))
       : null,
   };
 }
@@ -386,9 +370,7 @@ export async function putUsagePage(
   const profile = await getOrCreateProfile(db, owner.userId);
   const includeCost = Boolean(body.include_cost);
   const visibility: UsageVisibility =
-    body.visibility === "public" ||
-    body.visibility === "unlisted" ||
-    body.visibility === "off"
+    body.visibility === "public" || body.visibility === "unlisted" || body.visibility === "off"
       ? body.visibility
       : ((profile.usageVisibility as UsageVisibility) ?? "off");
 
@@ -583,26 +565,19 @@ export async function getPublicTok(
   db: HubDb,
   handleRaw: string,
   k: string | null,
-): Promise<
-  | {
-      handle: string;
-      avatar_url: string | null;
-      github_username: string | null;
-      x_username: string | null;
-      visibility: "public" | "unlisted";
-      include_cost: boolean;
-      generated_at: number;
-      snapshot: unknown;
-    }
-  | null
-> {
+): Promise<{
+  handle: string;
+  avatar_url: string | null;
+  github_username: string | null;
+  x_username: string | null;
+  visibility: "public" | "unlisted";
+  include_cost: boolean;
+  generated_at: number;
+  snapshot: unknown;
+} | null> {
   const handle = normalizeHandleInput(handleRaw);
   if (!handle) return null;
-  const rows = await db
-    .select()
-    .from(userProfiles)
-    .where(eq(userProfiles.handle, handle))
-    .limit(1);
+  const rows = await db.select().from(userProfiles).where(eq(userProfiles.handle, handle)).limit(1);
   const profile = rows[0];
   if (!profile?.handleClaimedAt || !profile.handle || !profile.snapshotJson) {
     return null;

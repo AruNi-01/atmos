@@ -25,15 +25,15 @@ vendor frame
 
 Touched paths:
 
-| Layer | Path |
-|-------|------|
-| Domain | `crates/agent/src/domain/event.rs`, `session.rs` (`next_event`) |
-| ACP map | `crates/agent/src/providers/acp/adapter.rs` → split `event_map.rs` |
-| Native maps | `crates/agent/src/providers/<id>/event_map.rs` (see native slices) |
-| Fold | `crates/core-service/src/service/agent_chat/apply_event.rs` |
-| Pump | `crates/core-service/src/service/agent_chat/service.rs` `pump_session` |
-| Wire DTO | `packages/api-types/src/ws/dto/agent-chat.ts` `AgentChatPayload` |
-| WS live | `crates/core-service/.../types.rs` `AgentChatEvent` / `AgentChatPayload` |
+| Layer       | Path                                                                     |
+| ----------- | ------------------------------------------------------------------------ |
+| Domain      | `crates/agent/src/domain/event.rs`, `session.rs` (`next_event`)          |
+| ACP map     | `crates/agent/src/providers/acp/adapter.rs` → split `event_map.rs`       |
+| Native maps | `crates/agent/src/providers/<id>/event_map.rs` (see native slices)       |
+| Fold        | `crates/core-service/src/service/agent_chat/apply_event.rs`              |
+| Pump        | `crates/core-service/src/service/agent_chat/service.rs` `pump_session`   |
+| Wire DTO    | `packages/api-types/src/ws/dto/agent-chat.ts` `AgentChatPayload`         |
+| WS live     | `crates/core-service/.../types.rs` `AgentChatEvent` / `AgentChatPayload` |
 
 ```mermaid
 sequenceDiagram
@@ -58,18 +58,18 @@ sequenceDiagram
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Persist and emit tagged Atmos kinds only | Store ACP `session/update` or vendor method names as the event `type` |
-| Mapped events: Atmos kind fields only | `source` / `native` / raw vendor sidecar on a mapped event |
-| Unmapped **events**: omit **or** one `Unknown` whose `payload` **is** the display data | `ToolCall*` plus a parallel vendor copy |
-| Unmapped **tools**: `ToolCall*` with `kind: other` ([tools.md](./tools.md)) | Treat an unknown tool as `Unknown` (that hides the card) |
-| Thinking / plan as `Thinking*` / `PlanUpdated` (or hide) | `AgentToolKind` for think / todo / plan |
-| Host stamps `sequence` in `emit_live` | A second sequence in `crates/agent` |
-| Envelope `turn_id` = Atmos control epoch from `send` | Vendor thread/turn ids on the envelope |
-| Unknown vendor methods: skip or `Unknown`; session continues | Panic / fail the turn because of an extra frame |
-| Keep `ASSISTANT_SNAPSHOT_INTERVAL` = 100ms | Persist every assistant delta |
-| Reuse adapter `event_id` on the WS/jsonl envelope | Mint a second id when the adapter already sent one |
+| MUST                                                                                   | MUST NOT                                                              |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Persist and emit tagged Atmos kinds only                                               | Store ACP `session/update` or vendor method names as the event `type` |
+| Mapped events: Atmos kind fields only                                                  | `source` / `native` / raw vendor sidecar on a mapped event            |
+| Unmapped **events**: omit **or** one `Unknown` whose `payload` **is** the display data | `ToolCall*` plus a parallel vendor copy                               |
+| Unmapped **tools**: `ToolCall*` with `kind: other` ([tools.md](./tools.md))            | Treat an unknown tool as `Unknown` (that hides the card)              |
+| Thinking / plan as `Thinking*` / `PlanUpdated` (or hide)                               | `AgentToolKind` for think / todo / plan                               |
+| Host stamps `sequence` in `emit_live`                                                  | A second sequence in `crates/agent`                                   |
+| Envelope `turn_id` = Atmos control epoch from `send`                                   | Vendor thread/turn ids on the envelope                                |
+| Unknown vendor methods: skip or `Unknown`; session continues                           | Panic / fail the turn because of an extra frame                       |
+| Keep `ASSISTANT_SNAPSHOT_INTERVAL` = 100ms                                             | Persist every assistant delta                                         |
+| Reuse adapter `event_id` on the WS/jsonl envelope                                      | Mint a second id when the adapter already sent one                    |
 
 ## AgentEventEnvelope
 
@@ -96,12 +96,12 @@ pub struct AgentEventEnvelope {     // conceptual; today AgentChatEvent + turn_i
 
 **Who fills what**
 
-| Field | Adapter | Host (`apply_event` / `emit_live`) |
-|-------|---------|-------------------------------------|
-| `event_id` | Required UUID | Reuse; mint only if missing |
-| `sequence` | Never | `store.next_seq(chat_id)` |
-| `turn_id` | Current Atmos `AgentTurnHandle.turn_id` when known | Fallback `RuntimeState.current_turn_id` |
-| `payload` | Mapped kind | May **reshape** (see fold table); never attach sidecar |
+| Field      | Adapter                                            | Host (`apply_event` / `emit_live`)                     |
+| ---------- | -------------------------------------------------- | ------------------------------------------------------ |
+| `event_id` | Required UUID                                      | Reuse; mint only if missing                            |
+| `sequence` | Never                                              | `store.next_seq(chat_id)`                              |
+| `turn_id`  | Current Atmos `AgentTurnHandle.turn_id` when known | Fallback `RuntimeState.current_turn_id`                |
+| `payload`  | Mapped kind                                        | May **reshape** (see fold table); never attach sidecar |
 
 `created_at` is a persist/live convenience on records and some WS fields (`turn_started`, `user_message`). It is not a second ordering key. Ordering is `sequence`.
 
@@ -122,23 +122,23 @@ Unknown {
 
 Recommended closed set (adapter-emitted):
 
-| `type` | Role |
-|--------|------|
-| `session_started` | Persistence handle + ready |
-| `turn_started` | Adapter may omit; **host** already emits on `send` |
-| `user_message` | Adapter must omit for the user's send (host wrote it) |
-| `assistant_message_delta` / `assistant_message_completed` | Answer stream |
-| `thinking_delta` / `thinking_completed` | Thought stream / think-tool fold |
+| `type`                                                      | Role                                                     |
+| ----------------------------------------------------------- | -------------------------------------------------------- |
+| `session_started`                                           | Persistence handle + ready                               |
+| `turn_started`                                              | Adapter may omit; **host** already emits on `send`       |
+| `user_message`                                              | Adapter must omit for the user's send (host wrote it)    |
+| `assistant_message_delta` / `assistant_message_completed`   | Answer stream                                            |
+| `thinking_delta` / `thinking_completed`                     | Thought stream / think-tool fold                         |
 | `tool_call_started` / `_updated` / `_completed` / `_failed` | Tools only; body is `AgentTool` ([tools.md](./tools.md)) |
-| `plan_updated` | Plan part, not a tool |
-| `permission_requested` / `permission_resolved` | Permission control |
-| `usage_updated` | Raw usage JSON; host parses session vs turn |
-| `config_changed` | Advertised options JSON; host folds to `config_updated` |
-| `turn_completed` / `turn_failed` / `turn_canceled` | Adapter stop; host emits one `turn_completed` |
-| `session_closed` | Runtime ended |
-| `session_title_updated` | Title |
-| `available_commands_updated` | Slash commands |
-| `unknown` | Last-resort display event |
+| `plan_updated`                                              | Plan part, not a tool                                    |
+| `permission_requested` / `permission_resolved`              | Permission control                                       |
+| `usage_updated`                                             | Raw usage JSON; host parses session vs turn              |
+| `config_changed`                                            | Advertised options JSON; host folds to `config_updated`  |
+| `turn_completed` / `turn_failed` / `turn_canceled`          | Adapter stop; host emits one `turn_completed`            |
+| `session_closed`                                            | Runtime ended                                            |
+| `session_title_updated`                                     | Title                                                    |
+| `available_commands_updated`                                | Slash commands                                           |
+| `unknown`                                                   | Last-resort display event                                |
 
 **Host-only** (stay on `AgentChatPayload`, never on adapter `AgentEvent`): `queue_updated`, `session_hint`, `session_config_change`, `session_lifecycle`, and most `runtime_status` transitions that the host already emits (`RunningTurn`, `WaitingPermission`, …).
 
@@ -146,18 +146,18 @@ Recommended closed set (adapter-emitted):
 
 `packages/api-types/src/ws/dto/agent-chat.ts` already aliases `export type AgentEvent = AgentChatPayload`. That TS name is the **WS payload**, not the Rust adapter enum. Keep the alias. Align tags; do not invent a second union.
 
-| Adapter `AgentEvent` | WS `AgentChatPayload` |
-|----------------------|------------------------|
-| Same snake_case tag | Same tag, pass through |
-| `SessionStarted` | `runtime_status` `{ status: ready, persistence_handle }` |
-| `SessionTitleUpdated` | `title_updated` |
-| `ConfigChanged { config }` | `config_updated` `{ model, thinking, mode, config_options }` after parse |
-| `UsageUpdated { usage }` | `usage_updated` `{ session, turn }` after parse; emit only if either is `Some` |
-| `TurnFailed` / `TurnCanceled` / `TurnCompleted { stop }` | `turn_completed` `{ status, worked_ms, thinking_ms, completed_at, usage }` |
-| `SessionClosed` | `runtime_status` `{ status: closed }` (today meta-only; emit it) |
-| `ThinkingCompleted` | add host `thinking_ms` |
-| `Unknown` | add `{ type: "unknown", event_type, payload }` |
-| `TurnStarted` / `UserMessage` | **no-op in `apply_event`** — `service.rs` already persisted + emitted on send/steer |
+| Adapter `AgentEvent`                                     | WS `AgentChatPayload`                                                               |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Same snake_case tag                                      | Same tag, pass through                                                              |
+| `SessionStarted`                                         | `runtime_status` `{ status: ready, persistence_handle }`                            |
+| `SessionTitleUpdated`                                    | `title_updated`                                                                     |
+| `ConfigChanged { config }`                               | `config_updated` `{ model, thinking, mode, config_options }` after parse            |
+| `UsageUpdated { usage }`                                 | `usage_updated` `{ session, turn }` after parse; emit only if either is `Some`      |
+| `TurnFailed` / `TurnCanceled` / `TurnCompleted { stop }` | `turn_completed` `{ status, worked_ms, thinking_ms, completed_at, usage }`          |
+| `SessionClosed`                                          | `runtime_status` `{ status: closed }` (today meta-only; emit it)                    |
+| `ThinkingCompleted`                                      | add host `thinking_ms`                                                              |
+| `Unknown`                                                | add `{ type: "unknown", event_type, payload }`                                      |
+| `TurnStarted` / `UserMessage`                            | **no-op in `apply_event`** — `service.rs` already persisted + emitted on send/steer |
 
 `tool_call.*` wire fields become `kind` / `params` / `result` in the tools slice. This slice only forbids `input`+`native` dual-write.
 
@@ -180,12 +180,12 @@ Replay/load noise (`AcpSessionEvent::LoadCompleted`, ACP replay while `replaying
 
 Move `ClassifiedTool::Thinking | Plan | Hide` **out of** `persist_tool` in `apply_event.rs` and into each adapter `event_map` (ACP already maps `Stream { kind: thinking }`; native slices map vendor think/todo items). After the move, `apply_event` must not call `classify_tool` to decide thinking.
 
-| Vendor observation | Emit |
-|--------------------|------|
+| Vendor observation              | Emit                                  |
+| ------------------------------- | ------------------------------------- |
 | Thought chunk / thinking stream | `ThinkingDelta` / `ThinkingCompleted` |
-| Todo / plan item | `PlanUpdated { plan }` |
-| Hide (e.g. mode-switch chrome) | omit |
-| Real tool | `ToolCall*` |
+| Todo / plan item                | `PlanUpdated { plan }`                |
+| Hide (e.g. mode-switch chrome)  | omit                                  |
+| Real tool                       | `ToolCall*`                           |
 
 `flush_open_thinking` **stays in the host**. ACP thought chunks often never send `done`; without a flush, a later tool collapses the turn into one thinking snapshot. Adapters should still emit `ThinkingCompleted` when the vendor marks done.
 
@@ -208,11 +208,11 @@ Fake runtime: `crates/agent/src/testing.rs` yields envelopes, not bare `AgentEve
 
 Keep `ASSISTANT_SNAPSHOT_INTERVAL` in `apply_event.rs` (`Duration::from_millis(100)`).
 
-| Observation | Live `/ws` | jsonl |
-|-------------|------------|-------|
-| `assistant_message_delta` | every delta | `AssistantSnapshot` at most every 100ms **and** on completed / turn end |
-| `thinking_delta` | every delta | `ThinkingSnapshot` on completed / `flush_open_thinking` / turn end — **not** 100ms |
-| everything else durable | every event | matching `TranscriptRecord` |
+| Observation               | Live `/ws`  | jsonl                                                                              |
+| ------------------------- | ----------- | ---------------------------------------------------------------------------------- |
+| `assistant_message_delta` | every delta | `AssistantSnapshot` at most every 100ms **and** on completed / turn end            |
+| `thinking_delta`          | every delta | `ThinkingSnapshot` on completed / `flush_open_thinking` / turn end — **not** 100ms |
+| everything else durable   | every event | matching `TranscriptRecord`                                                        |
 
 `emit_live` already skips `persist_seq` for assistant and thinking deltas. Do not persist delta text as its own jsonl type. Overlay unread buffers via `overlay_live_state` on `agent_chat_get`.
 
@@ -222,25 +222,25 @@ Do not throttle in the adapter. The adapter may emit a delta per vendor token; t
 
 `pump_session` calls `apply_event(chat_id, envelope, …)`. Match on `payload` (today: bare `AgentEvent`).
 
-| Incoming | Transcript | Live payload |
-|----------|------------|--------------|
-| `SessionStarted` | `meta.persistence_handle` + Ready | `runtime_status` |
-| `AssistantMessageDelta` | flush thinking; buffer text; snapshot if ≥100ms | delta (always) |
-| `AssistantMessageCompleted` | final `AssistantSnapshot`; drop buffer | completed |
-| `ThinkingDelta` | buffer; `mark_thinking` | delta |
-| `ThinkingCompleted` | `ThinkingSnapshot` + duration | completed + `thinking_ms` |
-| `ToolCall*` | `TranscriptRecord::ToolCall` with **one** `AgentTool`; flush thinking unless this *was* thinking (it must not be) | same tag |
-| `PlanUpdated` | `TranscriptRecord::Plan`; flush thinking | `plan_updated` |
-| `PermissionRequested` | `Permission` + WaitingPermission | `permission_requested` |
-| `PermissionResolved` | `Permission` resolved; clear pending | `permission_resolved` |
-| Turn stop variants | `finish_turn` → `TurnCompleted` + leftover snapshots | `turn_completed` |
-| `UsageUpdated` | optional `Usage` if turn parse hits | `usage_updated` if session or turn |
-| `ConfigChanged` | meta `current_config` / advertised options (descriptor slice) | `config_updated` or skip if empty |
-| `SessionTitleUpdated` | `meta.title` | `title_updated` |
-| `AvailableCommandsUpdated` | `meta.available_commands` | same |
-| `SessionClosed` | `RuntimeStatus::Closed`; clear permission | `runtime_status` closed |
-| `Unknown` | one jsonl envelope / part the UI can render | `unknown` |
-| `TurnStarted` / `UserMessage` | **ignore** (host already wrote them) | none |
+| Incoming                      | Transcript                                                                                                        | Live payload                       |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `SessionStarted`              | `meta.persistence_handle` + Ready                                                                                 | `runtime_status`                   |
+| `AssistantMessageDelta`       | flush thinking; buffer text; snapshot if ≥100ms                                                                   | delta (always)                     |
+| `AssistantMessageCompleted`   | final `AssistantSnapshot`; drop buffer                                                                            | completed                          |
+| `ThinkingDelta`               | buffer; `mark_thinking`                                                                                           | delta                              |
+| `ThinkingCompleted`           | `ThinkingSnapshot` + duration                                                                                     | completed + `thinking_ms`          |
+| `ToolCall*`                   | `TranscriptRecord::ToolCall` with **one** `AgentTool`; flush thinking unless this _was_ thinking (it must not be) | same tag                           |
+| `PlanUpdated`                 | `TranscriptRecord::Plan`; flush thinking                                                                          | `plan_updated`                     |
+| `PermissionRequested`         | `Permission` + WaitingPermission                                                                                  | `permission_requested`             |
+| `PermissionResolved`          | `Permission` resolved; clear pending                                                                              | `permission_resolved`              |
+| Turn stop variants            | `finish_turn` → `TurnCompleted` + leftover snapshots                                                              | `turn_completed`                   |
+| `UsageUpdated`                | optional `Usage` if turn parse hits                                                                               | `usage_updated` if session or turn |
+| `ConfigChanged`               | meta `current_config` / advertised options (descriptor slice)                                                     | `config_updated` or skip if empty  |
+| `SessionTitleUpdated`         | `meta.title`                                                                                                      | `title_updated`                    |
+| `AvailableCommandsUpdated`    | `meta.available_commands`                                                                                         | same                               |
+| `SessionClosed`               | `RuntimeStatus::Closed`; clear permission                                                                         | `runtime_status` closed            |
+| `Unknown`                     | one jsonl envelope / part the UI can render                                                                       | `unknown`                          |
+| `TurnStarted` / `UserMessage` | **ignore** (host already wrote them)                                                                              | none                               |
 
 `finish_turn` remains the single closer: timing, leftover assistant/thinking buffers, usage, `RuntimeStatus::Ready`.
 

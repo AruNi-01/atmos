@@ -1,14 +1,8 @@
-import React, { useMemo } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { createTranslator, useTranslations } from 'next-intl';
-import {
-  Button,
-  Skeleton,
-  TabsSubtle,
-  TabsSubtleItem,
-  Textarea,
-} from '@workspace/ui';
-import { GithubUserAvatar } from '@/features/github/components/GithubUserHoverCard';
+import React, { useMemo } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { createTranslator, useTranslations } from "next-intl";
+import { Button, Skeleton, TabsSubtle, TabsSubtleItem, Textarea } from "@workspace/ui";
+import { GithubUserAvatar } from "@/features/github/components/GithubUserHoverCard";
 import {
   AlertCircle,
   CheckCircle2,
@@ -23,24 +17,20 @@ import {
   XCircle,
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@workspace/ui';
-import { formatDistanceToNow } from 'date-fns';
-import { enUS, zhCN } from 'date-fns/locale';
-import { DiscussionDiffBlock } from '@/features/diff/components/DiscussionDiffBlock';
-import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
-import { cn } from '@/shared/lib/utils';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
-import type { CommitListItem } from '../components/CommitList';
-import type { ActionRun } from '../components/ActionsPanel';
-import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
-import type { AgentFixPromptSource } from '@/features/agent-fix/types';
-import { useOpenGithubCenterTab } from '../hooks/use-open-github-center-tab';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui";
+import { formatDistanceToNow } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
+import { DiscussionDiffBlock } from "@/features/diff/components/DiscussionDiffBlock";
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { cn } from "@/shared/lib/utils";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import type { CommitListItem } from "../components/CommitList";
+import type { ActionRun } from "../components/ActionsPanel";
+import { AgentFixButton } from "@/features/agent-fix/components/AgentFixButton";
+import type { AgentFixPromptSource } from "@/features/agent-fix/types";
+import { useOpenGithubCenterTab } from "../hooks/use-open-github-center-tab";
 
 export interface StatusCheck {
   state?: string;
@@ -132,30 +122,30 @@ export function buildActionRunFromChecks(
 ): ActionRun {
   const hasFailure = checks.some(
     (c) =>
-      c.state === 'FAILURE' ||
-      c.state === 'ERROR' ||
-      c.conclusion === 'FAILURE' ||
-      c.conclusion === 'ACTION_REQUIRED',
+      c.state === "FAILURE" ||
+      c.state === "ERROR" ||
+      c.conclusion === "FAILURE" ||
+      c.conclusion === "ACTION_REQUIRED",
   );
   const hasInProgress = checks.some(
     (c) =>
-      c.state === 'PENDING' ||
-      c.state === 'IN_PROGRESS' ||
-      c.state === 'EXPECTED' ||
-      (c.status && c.status !== 'COMPLETED'),
+      c.state === "PENDING" ||
+      c.state === "IN_PROGRESS" ||
+      c.state === "EXPECTED" ||
+      (c.status && c.status !== "COMPLETED"),
   );
   const first = checks[0];
   return {
     databaseId: runId,
     workflowName: groupName,
     displayTitle: first?.name || first?.context || groupName,
-    status: hasInProgress ? 'in_progress' : 'completed',
-    conclusion: hasFailure ? 'failure' : hasInProgress ? '' : 'success',
-    createdAt: first?.startedAt || first?.completedAt || '',
+    status: hasInProgress ? "in_progress" : "completed",
+    conclusion: hasFailure ? "failure" : hasInProgress ? "" : "success",
+    createdAt: first?.startedAt || first?.completedAt || "",
     url: `https://github.com/${owner}/${repo}/actions/runs/${runId}`,
-    event: '',
-    headBranch: '',
-    headSha: '',
+    event: "",
+    headBranch: "",
+    headSha: "",
   };
 }
 
@@ -163,7 +153,14 @@ export interface TimelineItem {
   event?: string;
   type?: string;
   actor?: Record<string, unknown>;
-  author?: { login?: string; name?: string; avatar_url?: string; avatarUrl?: string; is_bot?: boolean; date?: string };
+  author?: {
+    login?: string;
+    name?: string;
+    avatar_url?: string;
+    avatarUrl?: string;
+    is_bot?: boolean;
+    date?: string;
+  };
   user?: Record<string, unknown>;
   created_at?: string;
   submitted_at?: string;
@@ -301,18 +298,18 @@ export interface ConversationItem extends TimelineItem {
   reviewCommentThreads?: ReviewCommentThread[];
 }
 
-let cachedPrDetailLocale: 'en' | 'zh' | null = null;
+let cachedPrDetailLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedPrDetailTranslator: any = null;
 
 function prDetailT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedPrDetailTranslator || cachedPrDetailLocale !== locale) {
     cachedPrDetailLocale = locale;
     cachedPrDetailTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'github.prDetailParts',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "github.prDetailParts",
     });
   }
   return cachedPrDetailTranslator(key as never);
@@ -329,20 +326,33 @@ function CheckGroupItem({
   owner: string;
   repo: string;
 }) {
-  const t = useTranslations('github.prDetailParts');
+  const t = useTranslations("github.prDetailParts");
   const { openActionRunTab } = useOpenGithubCenterTab();
-  const hasFailure = checks.some(c => c.state === 'FAILURE' || c.state === 'ERROR' || c.conclusion === 'FAILURE' || c.conclusion === 'ACTION_REQUIRED');
-  const hasInProgress = checks.some(c => c.state === 'PENDING' || c.state === 'IN_PROGRESS' || c.state === 'EXPECTED' || (c.status && c.status !== 'COMPLETED'));
+  const hasFailure = checks.some(
+    (c) =>
+      c.state === "FAILURE" ||
+      c.state === "ERROR" ||
+      c.conclusion === "FAILURE" ||
+      c.conclusion === "ACTION_REQUIRED",
+  );
+  const hasInProgress = checks.some(
+    (c) =>
+      c.state === "PENDING" ||
+      c.state === "IN_PROGRESS" ||
+      c.state === "EXPECTED" ||
+      (c.status && c.status !== "COMPLETED"),
+  );
 
   const [isOpen, setIsOpen] = React.useState(hasFailure || hasInProgress);
-  const { runId, externalUrl } = React.useMemo(
-    () => pickGroupActionTarget(checks),
-    [checks],
-  );
+  const { runId, externalUrl } = React.useMemo(() => pickGroupActionTarget(checks), [checks]);
   const canOpen = runId != null || !!externalUrl;
 
   const GroupIcon = hasFailure ? XCircle : hasInProgress ? Loader2 : CheckCircle2;
-  const groupIconClass = hasFailure ? "text-red-500" : hasInProgress ? "text-amber-500 animate-spin" : "text-emerald-500";
+  const groupIconClass = hasFailure
+    ? "text-red-500"
+    : hasInProgress
+      ? "text-amber-500 animate-spin"
+      : "text-emerald-500";
 
   const handleOpen = React.useCallback(
     (e: React.MouseEvent) => {
@@ -358,15 +368,15 @@ function CheckGroupItem({
         return;
       }
       if (externalUrl) {
-        window.open(externalUrl, '_blank', 'noopener,noreferrer');
+        window.open(externalUrl, "_blank", "noopener,noreferrer");
       }
     },
     [checks, externalUrl, groupName, openActionRunTab, owner, repo, runId],
   );
 
   return (
-    <div className="flex flex-col border-b border-border/40 last:border-0 overflow-hidden bg-background">
-      <div className="group flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 w-full">
+    <div className="flex flex-col overflow-hidden border-b border-border/40 bg-background last:border-0">
+      <div className="group flex w-full items-center gap-2.5 px-4 py-3 hover:bg-muted/40">
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
@@ -375,14 +385,19 @@ function CheckGroupItem({
             setIsOpen(!isOpen);
           }}
         >
-          <div className={cn("shrink-0 flex items-center justify-center size-3 text-muted-foreground/50 transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]", isOpen ? "rotate-90" : "rotate-0")}>
+          <div
+            className={cn(
+              "flex size-3 shrink-0 items-center justify-center text-muted-foreground/50 transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              isOpen ? "rotate-90" : "rotate-0",
+            )}
+          >
             <ChevronRight className="size-3.5" />
           </div>
-          <div className="min-w-0 flex-1 font-medium text-[13px] text-foreground truncate">
+          <div className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
             {groupName}
           </div>
         </button>
-        <div className="relative shrink-0 size-3.5">
+        <div className="relative size-3.5 shrink-0">
           <GroupIcon
             className={cn(
               "absolute inset-0 size-3.5 transition-opacity duration-150",
@@ -399,12 +414,12 @@ function CheckGroupItem({
                   className={cn(
                     "absolute inset-0 flex items-center justify-center rounded-sm",
                     "opacity-0 transition-opacity duration-150 group-hover:opacity-100",
-                    "text-muted-foreground hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                    "text-muted-foreground hover:text-foreground focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none",
                   )}
                   aria-label={
                     runId != null
-                      ? t('checks.openAction', { name: groupName })
-                      : t('checks.openExternal', { name: groupName })
+                      ? t("checks.openAction", { name: groupName })
+                      : t("checks.openExternal", { name: groupName })
                   }
                 >
                   <SquareArrowOutUpRight className="size-3.5" />
@@ -412,8 +427,8 @@ function CheckGroupItem({
               </TooltipTrigger>
               <TooltipContent side="left" className="text-xs">
                 {runId != null
-                  ? t('checks.openAction', { name: groupName })
-                  : t('checks.openExternal', { name: groupName })}
+                  ? t("checks.openAction", { name: groupName })
+                  : t("checks.openExternal", { name: groupName })}
               </TooltipContent>
             </Tooltip>
           )}
@@ -424,21 +439,22 @@ function CheckGroupItem({
         {isOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="bg-muted/20 shadow-inner overflow-hidden"
+            className="overflow-hidden bg-muted/20 shadow-inner"
           >
-            <div className="flex flex-col pb-1.5 pt-0.5">
+            <div className="flex flex-col pt-0.5 pb-1.5">
               {checks.map((check, idx) => {
-                const isFailure = check.state === 'FAILURE' || check.state === 'ERROR' || check.conclusion === 'FAILURE';
-                const isSkipped = check.conclusion === 'SKIPPED' || check.conclusion === 'NEUTRAL';
-                const isSuccess = check.state === 'SUCCESS' || check.conclusion === 'SUCCESS';
+                const isFailure =
+                  check.state === "FAILURE" ||
+                  check.state === "ERROR" ||
+                  check.conclusion === "FAILURE";
+                const isSkipped = check.conclusion === "SKIPPED" || check.conclusion === "NEUTRAL";
+                const isSuccess = check.state === "SUCCESS" || check.conclusion === "SUCCESS";
                 const checkRunId = parseGithubActionsRunId(check.detailsUrl);
                 const checkExternalUrl =
-                  checkRunId == null
-                    ? check.detailsUrl || check.targetUrl || null
-                    : null;
+                  checkRunId == null ? check.detailsUrl || check.targetUrl || null : null;
                 const checkCanOpen = checkRunId != null || !!checkExternalUrl;
                 const checkLabel = check.name || check.context || groupName;
 
@@ -449,35 +465,39 @@ function CheckGroupItem({
                     openActionRunTab({
                       owner,
                       repo,
-                      run: buildActionRunFromChecks(
-                        groupName,
-                        [check],
-                        checkRunId,
-                        owner,
-                        repo,
-                      ),
+                      run: buildActionRunFromChecks(groupName, [check], checkRunId, owner, repo),
                       runId: checkRunId,
                     });
                     return;
                   }
                   if (checkExternalUrl) {
-                    window.open(checkExternalUrl, '_blank', 'noopener,noreferrer');
+                    window.open(checkExternalUrl, "_blank", "noopener,noreferrer");
                   }
                 };
 
                 return (
                   <div
                     key={idx}
-                    className="group/check flex items-center justify-between gap-2 text-[13px] px-4 py-2 pl-10 hover:bg-muted/40"
+                    className="group/check flex items-center justify-between gap-2 px-4 py-2 pl-10 text-[13px] hover:bg-muted/40"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="shrink-0 flex items-center justify-center">
-                        {isFailure ? <XCircle className="size-3.5 text-red-500" /> :
-                          isSuccess ? <CheckCircle2 className="size-3.5 text-emerald-500" /> :
-                            isSkipped ? <div className="size-3 rounded-full border-[1.5px] border-muted-foreground/40" /> :
-                              <Loader2 className="size-3.5 text-amber-500 animate-spin" />}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex shrink-0 items-center justify-center">
+                        {isFailure ? (
+                          <XCircle className="size-3.5 text-red-500" />
+                        ) : isSuccess ? (
+                          <CheckCircle2 className="size-3.5 text-emerald-500" />
+                        ) : isSkipped ? (
+                          <div className="size-3 rounded-full border-[1.5px] border-muted-foreground/40" />
+                        ) : (
+                          <Loader2 className="size-3.5 animate-spin text-amber-500" />
+                        )}
                       </div>
-                      <span className={cn("font-medium truncate", isFailure ? "text-red-500" : "text-foreground/80")}>
+                      <span
+                        className={cn(
+                          "truncate font-medium",
+                          isFailure ? "text-red-500" : "text-foreground/80",
+                        )}
+                      >
                         {checkLabel}
                       </span>
                     </div>
@@ -488,15 +508,15 @@ function CheckGroupItem({
                             type="button"
                             onClick={handleCheckOpen}
                             className={cn(
-                              "shrink-0 flex items-center justify-center size-5 rounded-sm",
+                              "flex size-5 shrink-0 items-center justify-center rounded-sm",
                               "opacity-0 transition-opacity duration-150 group-hover/check:opacity-100",
-                              "text-muted-foreground hover:text-foreground hover:bg-muted/60",
-                              "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                              "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                              "focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none",
                             )}
                             aria-label={
                               checkRunId != null
-                                ? t('checks.openAction', { name: checkLabel })
-                                : t('checks.openExternal', { name: checkLabel })
+                                ? t("checks.openAction", { name: checkLabel })
+                                : t("checks.openExternal", { name: checkLabel })
                             }
                           >
                             <SquareArrowOutUpRight className="size-3.5" />
@@ -504,8 +524,8 @@ function CheckGroupItem({
                         </TooltipTrigger>
                         <TooltipContent side="left" className="text-xs">
                           {checkRunId != null
-                            ? t('checks.openAction', { name: checkLabel })
-                            : t('checks.openExternal', { name: checkLabel })}
+                            ? t("checks.openAction", { name: checkLabel })
+                            : t("checks.openExternal", { name: checkLabel })}
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -522,8 +542,8 @@ function CheckGroupItem({
 
 export function PRDetailSkeleton() {
   return (
-    <div className="flex flex-col gap-4 animate-pulse">
-      <div className="border-b border-border/50 bg-background pb-3 pt-1">
+    <div className="flex animate-pulse flex-col gap-4">
+      <div className="border-b border-border/50 bg-background pt-1 pb-3">
         <div className="flex min-w-0 flex-col gap-2.5">
           <div className="min-w-0 space-y-2">
             <div className="flex items-center gap-2">
@@ -571,7 +591,10 @@ export function PRDetailSkeleton() {
 
         <div className="space-y-3 pt-1">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="flex items-center gap-3 rounded-md border border-border/40 px-3 py-2">
+            <div
+              key={item}
+              className="flex items-center gap-3 rounded-md border border-border/40 px-3 py-2"
+            >
               <Skeleton className="size-4 rounded-full" />
               <Skeleton className="h-3.5 w-36 rounded-md" />
               <Skeleton className="h-3.5 w-1/2 rounded-md" />
@@ -593,15 +616,23 @@ export function ChecksSection({
   owner: string;
   repo: string;
 }) {
-  const t = useTranslations('github.prDetailParts');
+  const t = useTranslations("github.prDetailParts");
   const [open, setOpen] = React.useState(false);
-  const allPassed = checks.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS');
-  const passedCount = checks.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length;
+  const allPassed = checks.every(
+    (c: StatusCheck) => c.state === "SUCCESS" || c.conclusion === "SUCCESS",
+  );
+  const passedCount = checks.filter(
+    (c: StatusCheck) => c.state === "SUCCESS" || c.conclusion === "SUCCESS",
+  ).length;
 
   const groups: Record<string, StatusCheck[]> = {};
   checks.forEach((c: StatusCheck) => {
     let g = c.workflowName;
-    if (!g) g = c.context && c.context.toLowerCase().includes('vercel') ? t('checks.groups.vercel') : t('checks.groups.other');
+    if (!g)
+      g =
+        c.context && c.context.toLowerCase().includes("vercel")
+          ? t("checks.groups.vercel")
+          : t("checks.groups.other");
     if (!groups[g]) groups[g] = [];
     groups[g].push(c);
   });
@@ -610,20 +641,29 @@ export function ChecksSection({
     <div className="flex flex-col gap-2">
       <button
         type="button"
-        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] tracking-wide w-full text-left group cursor-pointer"
-        onClick={() => setOpen(v => !v)}
+        className="group flex w-full cursor-pointer items-center gap-1.5 text-left text-[11px] font-semibold tracking-wide text-muted-foreground"
+        onClick={() => setOpen((v) => !v)}
       >
         <div className="relative size-3.5 shrink-0">
-          {allPassed
-            ? <CheckCircle2 className="absolute inset-0 size-3.5 text-emerald-500 transition-opacity duration-150 group-hover:opacity-0" />
-            : <AlertCircle className="absolute inset-0 size-3.5 text-amber-500 transition-opacity duration-150 group-hover:opacity-0" />}
-          <ChevronRight className={cn("absolute inset-0 size-3.5 opacity-0 transition-all duration-150 group-hover:opacity-100", open && "rotate-90")} />
+          {allPassed ? (
+            <CheckCircle2 className="absolute inset-0 size-3.5 text-emerald-500 transition-opacity duration-150 group-hover:opacity-0" />
+          ) : (
+            <AlertCircle className="absolute inset-0 size-3.5 text-amber-500 transition-opacity duration-150 group-hover:opacity-0" />
+          )}
+          <ChevronRight
+            className={cn(
+              "absolute inset-0 size-3.5 opacity-0 transition-all duration-150 group-hover:opacity-100",
+              open && "rotate-90",
+            )}
+          />
         </div>
-        <span>{t('checks.title')}</span>
-        <span className="ml-auto font-normal normal-case tracking-normal text-[10px]">{passedCount}/{checks.length}</span>
+        <span>{t("checks.title")}</span>
+        <span className="ml-auto text-[10px] font-normal tracking-normal normal-case">
+          {passedCount}/{checks.length}
+        </span>
       </button>
       {open && (
-        <div className="flex flex-col border rounded-lg overflow-hidden border-border/50">
+        <div className="flex flex-col overflow-hidden rounded-lg border border-border/50">
           {Object.entries(groups).map(([groupName, groupChecks]) => (
             <CheckGroupItem
               key={groupName}
@@ -640,50 +680,45 @@ export function ChecksSection({
 }
 
 function isCheckFailing(check: StatusCheck): boolean {
-  const tone = (check.state || check.conclusion || '').toUpperCase();
+  const tone = (check.state || check.conclusion || "").toUpperCase();
   return (
-    tone === 'FAILURE' ||
-    tone === 'ERROR' ||
-    tone === 'ACTION_REQUIRED' ||
-    tone === 'TIMED_OUT' ||
-    tone === 'STARTUP_FAILURE'
+    tone === "FAILURE" ||
+    tone === "ERROR" ||
+    tone === "ACTION_REQUIRED" ||
+    tone === "TIMED_OUT" ||
+    tone === "STARTUP_FAILURE"
   );
 }
 
 function isCheckSuccessful(check: StatusCheck): boolean {
   return (
-    (check.state || '').toUpperCase() === 'SUCCESS' ||
-    (check.conclusion || '').toUpperCase() === 'SUCCESS'
+    (check.state || "").toUpperCase() === "SUCCESS" ||
+    (check.conclusion || "").toUpperCase() === "SUCCESS"
   );
 }
 
 function isCheckSkipped(check: StatusCheck): boolean {
-  const tone = (check.conclusion || '').toUpperCase();
-  return (
-    tone === 'SKIPPED' ||
-    tone === 'NEUTRAL' ||
-    tone === 'CANCELLED' ||
-    tone === 'STALE'
-  );
+  const tone = (check.conclusion || "").toUpperCase();
+  return tone === "SKIPPED" || tone === "NEUTRAL" || tone === "CANCELLED" || tone === "STALE";
 }
 
 function isCheckPending(check: StatusCheck): boolean {
   if (isCheckFailing(check) || isCheckSuccessful(check) || isCheckSkipped(check)) {
     return false;
   }
-  const state = (check.state || '').toUpperCase();
-  const status = (check.status || '').toUpperCase();
+  const state = (check.state || "").toUpperCase();
+  const status = (check.status || "").toUpperCase();
   return (
-    state === 'PENDING' ||
-    state === 'IN_PROGRESS' ||
-    state === 'EXPECTED' ||
-    state === 'QUEUED' ||
-    (status !== '' && status !== 'COMPLETED')
+    state === "PENDING" ||
+    state === "IN_PROGRESS" ||
+    state === "EXPECTED" ||
+    state === "QUEUED" ||
+    (status !== "" && status !== "COMPLETED")
   );
 }
 
 function timelineCheckLabel(check: StatusCheck): string {
-  return check.name || check.context || check.workflowName || 'check';
+  return check.name || check.context || check.workflowName || "check";
 }
 
 /**
@@ -699,8 +734,8 @@ export function TimelineMergedChecks({
   owner: string;
   repo: string;
 }) {
-  const t = useTranslations('github.prDetail');
-  const tParts = useTranslations('github.prDetailParts');
+  const t = useTranslations("github.prDetail");
+  const tParts = useTranslations("github.prDetailParts");
   const { openActionRunTab } = useOpenGithubCenterTab();
 
   const hasFailure = checks.some(isCheckFailing);
@@ -708,16 +743,12 @@ export function TimelineMergedChecks({
   const passedCount = checks.filter(isCheckSuccessful).length;
   const [open, setOpen] = React.useState(hasFailure || hasPending);
 
-  const SummaryIcon = hasFailure
-    ? XCircle
-    : hasPending
-      ? Loader2
-      : CheckCircle2;
+  const SummaryIcon = hasFailure ? XCircle : hasPending ? Loader2 : CheckCircle2;
   const summaryIconClass = hasFailure
-    ? 'text-red-500'
+    ? "text-red-500"
     : hasPending
-      ? 'text-amber-500 animate-spin'
-      : 'text-emerald-500';
+      ? "text-amber-500 animate-spin"
+      : "text-emerald-500";
 
   const openCheck = React.useCallback(
     (check: StatusCheck) => {
@@ -727,20 +758,14 @@ export function TimelineMergedChecks({
         openActionRunTab({
           owner,
           repo,
-          run: buildActionRunFromChecks(
-            check.workflowName || label,
-            [check],
-            runId,
-            owner,
-            repo,
-          ),
+          run: buildActionRunFromChecks(check.workflowName || label, [check], runId, owner, repo),
           runId,
         });
         return;
       }
       const externalUrl = check.detailsUrl || check.targetUrl;
       if (externalUrl) {
-        window.open(externalUrl, '_blank', 'noopener,noreferrer');
+        window.open(externalUrl, "_blank", "noopener,noreferrer");
       }
     },
     [openActionRunTab, owner, repo],
@@ -751,9 +776,9 @@ export function TimelineMergedChecks({
   return (
     <div className="ml-11 flex w-[calc(100%-2.75rem)] min-w-0 flex-col overflow-hidden rounded-md border border-border/50 bg-muted/20">
       <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
-        <SummaryIcon className={cn('size-3.5 shrink-0', summaryIconClass)} />
+        <SummaryIcon className={cn("size-3.5 shrink-0", summaryIconClass)} />
         <span className="min-w-0 flex-1 text-[12px] font-medium text-foreground/90">
-          {t('activity.checksPassed', {
+          {t("activity.checksPassed", {
             passed: passedCount,
             total: checks.length,
           })}
@@ -763,7 +788,7 @@ export function TimelineMergedChecks({
           onClick={() => setOpen((v) => !v)}
           className="shrink-0 rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
         >
-          {open ? t('activity.hideDetails') : t('activity.showDetails')}
+          {open ? t("activity.hideDetails") : t("activity.showDetails")}
         </button>
       </div>
 
@@ -771,9 +796,9 @@ export function TimelineMergedChecks({
         {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             className="overflow-hidden"
           >
             <ul className="divide-y divide-border/40">
@@ -785,16 +810,11 @@ export function TimelineMergedChecks({
                 const pending = isCheckPending(check);
                 const runId = parseGithubActionsRunId(check.detailsUrl);
                 const externalUrl =
-                  runId == null
-                    ? check.detailsUrl || check.targetUrl || null
-                    : null;
+                  runId == null ? check.detailsUrl || check.targetUrl || null : null;
                 const canOpen = runId != null || !!externalUrl;
 
                 return (
-                  <li
-                    key={`${label}-${idx}`}
-                    className="flex items-center gap-2.5 px-3 py-2"
-                  >
+                  <li key={`${label}-${idx}`} className="flex items-center gap-2.5 px-3 py-2">
                     <span className="flex size-3.5 shrink-0 items-center justify-center">
                       {failing ? (
                         <XCircle className="size-3.5 text-red-500" />
@@ -810,8 +830,8 @@ export function TimelineMergedChecks({
                     </span>
                     <span
                       className={cn(
-                        'min-w-0 flex-1 truncate text-[12px]',
-                        failing ? 'font-medium text-red-500' : 'text-foreground/85',
+                        "min-w-0 flex-1 truncate text-[12px]",
+                        failing ? "font-medium text-red-500" : "text-foreground/85",
                       )}
                       title={
                         check.workflowName && check.workflowName !== label
@@ -828,11 +848,11 @@ export function TimelineMergedChecks({
                         className="shrink-0 rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label={
                           runId != null
-                            ? tParts('checks.openAction', { name: label })
-                            : tParts('checks.openExternal', { name: label })
+                            ? tParts("checks.openAction", { name: label })
+                            : tParts("checks.openExternal", { name: label })
                         }
                       >
-                        {t('activity.checkDetails')}
+                        {t("activity.checkDetails")}
                       </button>
                     )}
                   </li>
@@ -859,10 +879,10 @@ export function SidebarSection({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] tracking-wide">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground">
         {icon}
-        <span className="flex-1 min-w-0 truncate">{title}</span>
-        {action ? <div className="shrink-0 ml-auto">{action}</div> : null}
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        {action ? <div className="ml-auto shrink-0">{action}</div> : null}
       </div>
       <div className="flex flex-col gap-1">{children}</div>
     </div>
@@ -876,43 +896,42 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
   agentFixSource?: AgentFixPromptSource;
   thread: ReviewCommentThread;
 }) {
-  const t = useTranslations('github.prDetailParts');
+  const t = useTranslations("github.prDetailParts");
   const [agentFixSettingsOpen, setAgentFixSettingsOpen] = React.useState(false);
-  const relativeTimeLocale = currentAppLocale('en') === 'zh' ? zhCN : enUS;
+  const relativeTimeLocale = currentAppLocale("en") === "zh" ? zhCN : enUS;
 
   return (
     <DiscussionDiffBlock
       path={thread.path}
       line={thread.line}
       diffHunk={thread.diffHunk || undefined}
-      className="ml-12 mt-2"
+      className="mt-2 ml-12"
       headerClassName="group/thread"
       headerTrailing={
         <span
           className={cn(
-            'relative flex h-6 shrink-0 items-center justify-end',
-            agentFixSource ? 'w-[126px]' : 'w-auto',
+            "relative flex h-6 shrink-0 items-center justify-end",
+            agentFixSource ? "w-[126px]" : "w-auto",
           )}
         >
           <span
             className={cn(
-              'text-[10px] text-muted-foreground',
-              agentFixSource &&
-                'group-hover/thread:opacity-0 group-focus-visible/thread:opacity-0',
-              agentFixSettingsOpen && 'opacity-0',
+              "text-[10px] text-muted-foreground",
+              agentFixSource && "group-hover/thread:opacity-0 group-focus-visible/thread:opacity-0",
+              agentFixSettingsOpen && "opacity-0",
             )}
           >
             {thread.comments.length === 1
-              ? t('thread.commentCountOne')
-              : t('thread.commentCountOther', { count: thread.comments.length })}
+              ? t("thread.commentCountOne")
+              : t("thread.commentCountOther", { count: thread.comments.length })}
           </span>
           {agentFixSource ? (
             <span
               className={cn(
-                'invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0',
-                'group-hover/thread:visible group-hover/thread:pointer-events-auto group-hover/thread:opacity-100',
-                'group-focus-visible/thread:visible group-focus-visible/thread:pointer-events-auto group-focus-visible/thread:opacity-100',
-                agentFixSettingsOpen && 'visible pointer-events-auto opacity-100',
+                "pointer-events-none invisible absolute top-1/2 right-0 -translate-y-1/2 opacity-0",
+                "group-hover/thread:pointer-events-auto group-hover/thread:visible group-hover/thread:opacity-100",
+                "group-focus-visible/thread:pointer-events-auto group-focus-visible/thread:visible group-focus-visible/thread:opacity-100",
+                agentFixSettingsOpen && "pointer-events-auto visible opacity-100",
               )}
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
@@ -950,8 +969,8 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
                 </span>
               )}
             </div>
-            <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
-              {comment.body || ''}
+            <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1 max-w-none text-[13px] leading-relaxed">
+              {comment.body || ""}
             </MarkdownRenderer>
           </div>
         ))}
@@ -971,72 +990,126 @@ interface CommentBoxProps {
   onReopen: (body: string) => void;
 }
 
-export function CommentBox({ prState, isDraft, mergeable, actionLoading, onComment, onClose, onMerge, onReopen }: CommentBoxProps) {
-  const t = useTranslations('github.prDetailParts');
-  const [comment, setComment] = React.useState('');
-  const [tab, setTab] = React.useState<'write' | 'preview'>('write');
+export function CommentBox({
+  prState,
+  isDraft,
+  mergeable,
+  actionLoading,
+  onComment,
+  onClose,
+  onMerge,
+  onReopen,
+}: CommentBoxProps) {
+  const t = useTranslations("github.prDetailParts");
+  const [comment, setComment] = React.useState("");
+  const [tab, setTab] = React.useState<"write" | "preview">("write");
 
   return (
-    <div className="mt-8 border border-border rounded-lg overflow-hidden">
-      <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-        <span className="text-xs font-semibold flex items-center gap-2">
-          <MessageSquare className="size-3.5" /> {t('commentBox.title')}
+    <div className="mt-8 overflow-hidden rounded-lg border border-border">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
+        <span className="flex items-center gap-2 text-xs font-semibold">
+          <MessageSquare className="size-3.5" /> {t("commentBox.title")}
         </span>
         <TabsSubtle
           activeLabel
           idPrefix="pr-discussion-composer"
-          selectedIndex={tab === 'write' ? 0 : 1}
-          onSelect={(index) => setTab(index === 0 ? 'write' : 'preview')}
+          selectedIndex={tab === "write" ? 0 : 1}
+          onSelect={(index) => setTab(index === 0 ? "write" : "preview")}
         >
-          <TabsSubtleItem index={0} icon={PenLine} label={t('commentBox.tabs.write')} />
-          <TabsSubtleItem index={1} icon={Eye} label={t('commentBox.tabs.preview')} />
+          <TabsSubtleItem index={0} icon={PenLine} label={t("commentBox.tabs.write")} />
+          <TabsSubtleItem index={1} icon={Eye} label={t("commentBox.tabs.preview")} />
         </TabsSubtle>
       </div>
       <div className="p-0">
-        {tab === 'write' ? (
+        {tab === "write" ? (
           <Textarea
-            placeholder={t('commentBox.placeholder')}
-            className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px] bg-transparent dark:bg-transparent"
+            placeholder={t("commentBox.placeholder")}
+            className="min-h-[120px] w-full resize-y rounded-none border-none bg-transparent p-4 text-[13px] focus-visible:ring-0 dark:bg-transparent"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
           />
         ) : (
-          <div className="p-4 min-h-[120px]">
+          <div className="min-h-[120px] p-4">
             {comment.trim() ? (
-              <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">{comment}</MarkdownRenderer>
+              <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">
+                {comment}
+              </MarkdownRenderer>
             ) : (
-              <div className="text-muted-foreground italic text-xs">{t('commentBox.nothingToPreview')}</div>
+              <div className="text-xs text-muted-foreground italic">
+                {t("commentBox.nothingToPreview")}
+              </div>
             )}
           </div>
         )}
       </div>
-      <div className="px-4 py-2 border-t border-border flex items-center justify-between">
-        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-          <Github className="size-3" /> {t('commentBox.markdownSupported')}
+      <div className="flex items-center justify-between border-t border-border px-4 py-2">
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <Github className="size-3" /> {t("commentBox.markdownSupported")}
         </div>
         <div className="flex gap-2">
-          {prState === 'OPEN' && (
+          {prState === "OPEN" && (
             <>
-              <Button variant="outline" size="sm" className="h-8 text-xs font-medium" onClick={() => onClose(comment)} disabled={!!actionLoading}>
-                <XCircle className="mr-2 size-3.5" /> {comment.trim() ? t('commentBox.actions.commentAndClosePr') : t('commentBox.actions.closePr')}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-medium"
+                onClick={() => onClose(comment)}
+                disabled={!!actionLoading}
+              >
+                <XCircle className="mr-2 size-3.5" />{" "}
+                {comment.trim()
+                  ? t("commentBox.actions.commentAndClosePr")
+                  : t("commentBox.actions.closePr")}
               </Button>
               <Button
-                variant="default" size="sm"
-                className={cn("h-8 text-xs font-medium text-white", (isDraft || mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed opacity-70" : "bg-emerald-600 hover:bg-emerald-700")}
-                onClick={() => onMerge(comment)} disabled={!!actionLoading || isDraft || mergeable !== 'MERGEABLE'}
+                variant="default"
+                size="sm"
+                className={cn(
+                  "h-8 text-xs font-medium text-white",
+                  isDraft || mergeable !== "MERGEABLE"
+                    ? "cursor-not-allowed bg-muted text-muted-foreground opacity-70"
+                    : "bg-emerald-600 hover:bg-emerald-700",
+                )}
+                onClick={() => onMerge(comment)}
+                disabled={!!actionLoading || isDraft || mergeable !== "MERGEABLE"}
               >
-                <GitMerge className="mr-2 size-3.5" /> {comment.trim() ? t('commentBox.actions.commentAndMerge') : t('commentBox.actions.merge')}
+                <GitMerge className="mr-2 size-3.5" />{" "}
+                {comment.trim()
+                  ? t("commentBox.actions.commentAndMerge")
+                  : t("commentBox.actions.merge")}
               </Button>
             </>
           )}
-          {prState === 'CLOSED' && (
-            <Button variant="outline" size="sm" className="h-8 text-xs font-medium" onClick={() => onReopen(comment)} disabled={!!actionLoading}>
-              <RotateCw className="mr-2 size-3.5" /> {comment.trim() ? t('commentBox.actions.commentAndReopenPr') : t('commentBox.actions.reopenPr')}
+          {prState === "CLOSED" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs font-medium"
+              onClick={() => onReopen(comment)}
+              disabled={!!actionLoading}
+            >
+              <RotateCw className="mr-2 size-3.5" />{" "}
+              {comment.trim()
+                ? t("commentBox.actions.commentAndReopenPr")
+                : t("commentBox.actions.reopenPr")}
             </Button>
           )}
-          <Button variant="secondary" size="sm" className="h-8 text-xs font-medium" onClick={() => { onComment(comment); setComment(''); }} disabled={!comment.trim() || !!actionLoading}>
-            {actionLoading === 'comment' ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <MessageSquare className="mr-2 size-3.5" />}
-            {t('commentBox.actions.comment')}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-8 text-xs font-medium"
+            onClick={() => {
+              onComment(comment);
+              setComment("");
+            }}
+            disabled={!comment.trim() || !!actionLoading}
+          >
+            {actionLoading === "comment" ? (
+              <Loader2 className="mr-2 size-3.5 animate-spin" />
+            ) : (
+              <MessageSquare className="mr-2 size-3.5" />
+            )}
+            {t("commentBox.actions.comment")}
           </Button>
         </div>
       </div>
@@ -1045,17 +1118,25 @@ export function CommentBox({ prState, isDraft, mergeable, actionLoading, onComme
 }
 
 export function prCommitsToListItems(
-  commits: Array<{ oid: string; messageHeadline: string; messageBody?: string; authors?: Array<{ login?: string; avatarUrl?: string }>; committedDate?: string }>,
+  commits: Array<{
+    oid: string;
+    messageHeadline: string;
+    messageBody?: string;
+    authors?: Array<{ login?: string; avatarUrl?: string }>;
+    committedDate?: string;
+  }>,
   owner: string,
   repo: string,
 ): CommitListItem[] {
-  return commits.map(c => ({
+  return commits.map((c) => ({
     hash: c.oid,
     shortHash: c.oid.substring(0, 7),
     subject: c.messageHeadline,
     body: c.messageBody,
-    authorName: c.authors?.[0]?.login ?? prDetailT('commits.unknownAuthor'),
-    authorAvatarUrl: c.authors?.[0]?.avatarUrl ?? `https://github.com/${c.authors?.[0]?.login?.replace('[bot]', '')}.png?size=32`,
+    authorName: c.authors?.[0]?.login ?? prDetailT("commits.unknownAuthor"),
+    authorAvatarUrl:
+      c.authors?.[0]?.avatarUrl ??
+      `https://github.com/${c.authors?.[0]?.login?.replace("[bot]", "")}.png?size=32`,
     timestamp: c.committedDate ? new Date(c.committedDate) : new Date(0),
     isPushed: true,
     githubUrl: `https://github.com/${owner}/${repo}/commit/${c.oid}`,

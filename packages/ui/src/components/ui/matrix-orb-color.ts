@@ -83,14 +83,9 @@ export function readMatrixOrbTheme(
   };
 }
 
-export function matrixOrbColor(
-  seed: string,
-  options: MatrixOrbColorOptions = {},
-): string {
+export function matrixOrbColor(seed: string, options: MatrixOrbColorOptions = {}): string {
   const hash = hashString(seed);
-  const palette = options.palette && options.palette in PALETTE_HUE
-    ? options.palette
-    : "graphite";
+  const palette = options.palette && options.palette in PALETTE_HUE ? options.palette : "graphite";
   const raw = (hash * GOLDEN_ANGLE) % 360;
   const hue = mixHue(
     raw,

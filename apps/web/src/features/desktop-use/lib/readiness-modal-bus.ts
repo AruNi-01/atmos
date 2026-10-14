@@ -4,11 +4,7 @@
 
 import type { DesktopUseReadiness } from "./readiness";
 
-export type DesktopUseReadinessModalSource =
-  | "appshot"
-  | "slash"
-  | "browser"
-  | "generic";
+export type DesktopUseReadinessModalSource = "appshot" | "slash" | "browser" | "generic";
 
 export type DesktopUseReadinessModalState = {
   open: boolean;
@@ -156,22 +152,14 @@ export function gateDesktopUseFeature(
  * Host doctor can be fully granted while dual-shift still needs Atmos AX.
  * Fold appshot_status Accessibility into the readiness result for the gate.
  */
-async function refineAppshotReadiness(
-  base: DesktopUseReadiness,
-): Promise<DesktopUseReadiness> {
+async function refineAppshotReadiness(base: DesktopUseReadiness): Promise<DesktopUseReadiness> {
   try {
-    const { getAppshotStatus } = await import(
-      "@/features/appshot/lib/appshot-client"
-    );
+    const { getAppshotStatus } = await import("@/features/appshot/lib/appshot-client");
     const status = await getAppshotStatus();
     const ax =
-      status.permissions.find((p) => p.name === "accessibility")?.granted ===
-        true ||
-      status.trigger.permissions.find((p) => p.name === "accessibility")
-        ?.granted === true;
-    const screen =
-      status.permissions.find((p) => p.name === "screen_recording")
-        ?.granted === true;
+      status.permissions.find((p) => p.name === "accessibility")?.granted === true ||
+      status.trigger.permissions.find((p) => p.name === "accessibility")?.granted === true;
+    const screen = status.permissions.find((p) => p.name === "screen_recording")?.granted === true;
     if (ax && screen) {
       return {
         ...base,

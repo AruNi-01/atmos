@@ -74,8 +74,12 @@ describe("md-live task markers", () => {
     const items = tree.children[0]?.children ?? [];
     expect(items[0]?.taskMarker).toBe(" ");
     expect(items[1]?.taskMarker).toBe("/");
-    expect((items[1]?.children?.[0] as { children: Array<{ value: string }> }).children[0]?.value).toBe("doing");
+    expect(
+      (items[1]?.children?.[0] as { children: Array<{ value: string }> }).children[0]?.value,
+    ).toBe("doing");
     expect(items[2]?.taskMarker).toBe("-");
-    expect((items[2]?.children?.[0] as { children: Array<{ value: string }> }).children[0]?.value).toBe("dropped");
+    expect(
+      (items[2]?.children?.[0] as { children: Array<{ value: string }> }).children[0]?.value,
+    ).toBe("dropped");
   });
 });

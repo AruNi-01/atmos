@@ -167,9 +167,7 @@ function versionParts(version: string): number[] {
  * Does not hit the network. For Desktop Use update prompts use
  * {@link enrichCliStatusWithRequirement} (package min version), not R2 latest.
  */
-export async function probeAtmosCli(opts?: {
-  home?: string;
-}): Promise<AtmosCliProbe> {
+export async function probeAtmosCli(opts?: { home?: string }): Promise<AtmosCliProbe> {
   const path = canonicalAtmosCliPath(opts);
   if (!existsSync(path)) {
     return {
@@ -203,12 +201,12 @@ export async function probeAtmosCli(opts?: {
  * Resolve this Desktop build's min CLI version pin.
  * Prefer App Resources; then monorepo manifest; then staged package resources.
  */
-export function resolveCliRequirementPath(
-  opts?: { resourcesPath?: string; repoRoot?: string | null },
-): string | null {
+export function resolveCliRequirementPath(opts?: {
+  resourcesPath?: string;
+  repoRoot?: string | null;
+}): string | null {
   const resourcesPath =
-    opts?.resourcesPath ??
-    (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
+    opts?.resourcesPath ?? (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
   if (resourcesPath) {
     const packaged = join(resourcesPath, "desktop-use", "cli-requirement.json");
     if (existsSync(packaged)) return packaged;
@@ -216,26 +214,13 @@ export function resolveCliRequirementPath(
 
   const root = opts?.repoRoot !== undefined ? opts.repoRoot : repoRootFromHere();
   if (root) {
-    const monorepo = join(
-      root,
-      "crates",
-      "desktop-use",
-      "manifest",
-      "cli-requirement.json",
-    );
+    const monorepo = join(root, "crates", "desktop-use", "manifest", "cli-requirement.json");
     if (existsSync(monorepo)) return monorepo;
   }
 
   try {
     const here = dirname(fileURLToPath(import.meta.url));
-    const staged = join(
-      here,
-      "..",
-      "..",
-      "resources",
-      "desktop-use",
-      "cli-requirement.json",
-    );
+    const staged = join(here, "..", "..", "resources", "desktop-use", "cli-requirement.json");
     if (existsSync(staged)) return staged;
   } catch {
     /* ignore */
@@ -244,17 +229,15 @@ export function resolveCliRequirementPath(
   return null;
 }
 
-export function readCliRequirement(
-  opts?: { resourcesPath?: string; repoRoot?: string | null },
-): CliRequirementJson | null {
+export function readCliRequirement(opts?: {
+  resourcesPath?: string;
+  repoRoot?: string | null;
+}): CliRequirementJson | null {
   const path = resolveCliRequirementPath(opts);
   if (!path) return null;
   try {
     const raw = JSON.parse(readFileSync(path, "utf8")) as CliRequirementJson;
-    if (
-      typeof raw?.min_cli_version === "string" &&
-      raw.min_cli_version.trim().length > 0
-    ) {
+    if (typeof raw?.min_cli_version === "string" && raw.min_cli_version.trim().length > 0) {
       return {
         schema_version: raw.schema_version,
         min_cli_version: raw.min_cli_version.trim(),
@@ -298,8 +281,7 @@ export function enrichCliStatusWithRequirement(
 
   const installedV = probe.version;
   // Unreadable version or min > installed → need update.
-  const updateRequired =
-    !installedV || versionGt(min, installedV);
+  const updateRequired = !installedV || versionGt(min, installedV);
 
   return {
     ...probe,
@@ -324,10 +306,7 @@ function repoRootFromHere(): string | null {
   try {
     let dir = dirname(fileURLToPath(import.meta.url));
     for (let i = 0; i < 10; i++) {
-      if (
-        existsSync(join(dir, "Cargo.toml")) &&
-        existsSync(join(dir, "apps", "cli"))
-      ) {
+      if (existsSync(join(dir, "Cargo.toml")) && existsSync(join(dir, "apps", "cli"))) {
         return dir;
       }
       const parent = dirname(dir);
@@ -344,19 +323,16 @@ function repoRootFromHere(): string | null {
  * Authoritative engine pin for this Desktop process.
  * Prefer App Resources; then monorepo crates/desktop-use/manifest; then env.
  */
-export function resolveDesktopUseManifestPath(
-  opts?: { resourcesPath?: string; repoRoot?: string | null },
-): string | null {
-  if (
-    process.env[DESKTOP_USE_MANIFEST_ENV] &&
-    existsSync(process.env[DESKTOP_USE_MANIFEST_ENV]!)
-  ) {
+export function resolveDesktopUseManifestPath(opts?: {
+  resourcesPath?: string;
+  repoRoot?: string | null;
+}): string | null {
+  if (process.env[DESKTOP_USE_MANIFEST_ENV] && existsSync(process.env[DESKTOP_USE_MANIFEST_ENV]!)) {
     return process.env[DESKTOP_USE_MANIFEST_ENV]!;
   }
 
   const resourcesPath =
-    opts?.resourcesPath ??
-    (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
+    opts?.resourcesPath ?? (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
   if (resourcesPath) {
     const packaged = join(resourcesPath, "desktop-use", "engine-manifest.json");
     if (existsSync(packaged)) return packaged;
@@ -364,27 +340,14 @@ export function resolveDesktopUseManifestPath(
 
   const root = opts?.repoRoot !== undefined ? opts.repoRoot : repoRootFromHere();
   if (root) {
-    const monorepo = join(
-      root,
-      "crates",
-      "desktop-use",
-      "manifest",
-      "default.json",
-    );
+    const monorepo = join(root, "crates", "desktop-use", "manifest", "default.json");
     if (existsSync(monorepo)) return monorepo;
   }
 
   // Staged next to electron app resources during package prepare (dev package tree)
   try {
     const here = dirname(fileURLToPath(import.meta.url));
-    const staged = join(
-      here,
-      "..",
-      "..",
-      "resources",
-      "desktop-use",
-      "engine-manifest.json",
-    );
+    const staged = join(here, "..", "..", "resources", "desktop-use", "engine-manifest.json");
     if (existsSync(staged)) return staged;
   } catch {
     /* ignore */
@@ -417,9 +380,7 @@ function defaultDataDir(): string {
 
 /** Soft status when CLI is missing or below package min — no ENOENT red text. */
 function statusWhenCliUnavailable(cli: DesktopUseCliStatus): DesktopUseStatusJson {
-  const reason = cli.update_required
-    ? CLI_UPDATE_REQUIRED_CODE
-    : CLI_NOT_INSTALLED_CODE;
+  const reason = cli.update_required ? CLI_UPDATE_REQUIRED_CODE : CLI_NOT_INSTALLED_CODE;
   return {
     product: "Desktop Use",
     data_dir: defaultDataDir(),
@@ -456,8 +417,7 @@ export function desktopUseRuntimeUrl(
 ): string {
   const host = opts?.host ?? "127.0.0.1";
   const port =
-    opts?.port ??
-    (process.env.ATMOS_PORT ? parseInt(process.env.ATMOS_PORT, 10) : 30303);
+    opts?.port ?? (process.env.ATMOS_PORT ? parseInt(process.env.ATMOS_PORT, 10) : 30303);
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return `http://${host}:${port}${normalized}`;
 }
@@ -498,10 +458,7 @@ async function fetchDesktopUseRuntime(
   }
 }
 
-export async function runDesktopUseJson(
-  args: string[],
-  timeoutMs = 20_000,
-): Promise<unknown> {
+export async function runDesktopUseJson(args: string[], timeoutMs = 20_000): Promise<unknown> {
   const runtimePath = desktopUsePathForCliArgs(args);
   if (runtimePath) {
     const method = runtimePath.includes("/driver/") ? "POST" : "GET";
@@ -512,15 +469,11 @@ export async function runDesktopUseJson(
   if (!existsSync(cli)) {
     throw cliNotInstalledError(cli);
   }
-  const { stdout, stderr } = await execFileAsync(
-    cli,
-    ["desktop-use", ...args, "--json"],
-    {
-      timeout: timeoutMs,
-      maxBuffer: 32 * 1024 * 1024,
-      env: childEnv(),
-    },
-  );
+  const { stdout, stderr } = await execFileAsync(cli, ["desktop-use", ...args, "--json"], {
+    timeout: timeoutMs,
+    maxBuffer: 32 * 1024 * 1024,
+    env: childEnv(),
+  });
   const text = (stdout || "").trim() || (stderr || "").trim();
   if (!text) {
     throw new Error("Desktop Use returned empty output");
@@ -558,9 +511,7 @@ export async function desktopUseDriverEnsure(force = false): Promise<unknown> {
   // current app icon is the source of truth — re-apply after ensure.
   if (process.platform === "darwin") {
     try {
-      const { ensureDesktopUseHostBranding } = await import(
-        "./host-branding.js"
-      );
+      const { ensureDesktopUseHostBranding } = await import("./host-branding.js");
       await ensureDesktopUseHostBranding();
     } catch {
       /* branding is best-effort */
@@ -584,10 +535,7 @@ const DRIVER_RESTART_DEBOUNCE_MS = 5_000;
  */
 export async function desktopUseDriverRestart(): Promise<unknown> {
   const now = Date.now();
-  if (
-    driverRestartInFlight &&
-    now - driverRestartStartedAt < DRIVER_RESTART_DEBOUNCE_MS
-  ) {
+  if (driverRestartInFlight && now - driverRestartStartedAt < DRIVER_RESTART_DEBOUNCE_MS) {
     return driverRestartInFlight;
   }
   driverRestartStartedAt = now;
@@ -647,10 +595,7 @@ export async function desktopUseDoctor(): Promise<unknown> {
       notes: [CLI_UPDATE_REQUIRED_CODE],
     };
   }
-  const doctor = (await runDesktopUseJson(["doctor"])) as Record<
-    string,
-    unknown
-  >;
+  const doctor = (await runDesktopUseJson(["doctor"])) as Record<string, unknown>;
   return {
     ...doctor,
     cli_installed: true,
@@ -664,10 +609,7 @@ export async function desktopUseDoctor(): Promise<unknown> {
 export async function desktopUseGrantPermissions(
   target: "accessibility" | "screen_recording" | "all" = "all",
 ): Promise<unknown> {
-  return runDesktopUseJson(
-    ["driver", "grant-permissions", "--target", target],
-    30_000,
-  );
+  return runDesktopUseJson(["driver", "grant-permissions", "--target", target], 30_000);
 }
 
 export async function desktopUseDriveVerify(): Promise<unknown> {
@@ -708,9 +650,10 @@ export async function desktopUsePrefsSet(args: {
     highlight_idle_ms: args.highlightIdleMs ?? 8000,
   });
   if (via && typeof via === "object") {
-    const prefs = (via as DesktopUsePrefsJson).operation_border_enabled !== undefined
-      ? (via as DesktopUsePrefsJson)
-      : (via as { prefs: DesktopUsePrefsJson }).prefs;
+    const prefs =
+      (via as DesktopUsePrefsJson).operation_border_enabled !== undefined
+        ? (via as DesktopUsePrefsJson)
+        : (via as { prefs: DesktopUsePrefsJson }).prefs;
     if (prefs && typeof prefs.operation_border_enabled === "boolean") {
       return { ok: true, prefs };
     }

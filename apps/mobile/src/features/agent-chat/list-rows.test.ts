@@ -4,7 +4,9 @@ import type { AgentChatIndexEntry } from "@atmos/api-types/ws/dto/agent-chat";
 import { formatLocalDateTime } from "@atmos/shared/utils/time";
 import { historyPlaceLabel, historyTimeLabel, toChatListRows } from "./list-rows";
 
-function entry(partial: Partial<AgentChatIndexEntry> & Pick<AgentChatIndexEntry, "id">): AgentChatIndexEntry {
+function entry(
+  partial: Partial<AgentChatIndexEntry> & Pick<AgentChatIndexEntry, "id">,
+): AgentChatIndexEntry {
   return {
     title: partial.title ?? null,
     cwd: "/repo",
@@ -20,14 +22,34 @@ function entry(partial: Partial<AgentChatIndexEntry> & Pick<AgentChatIndexEntry,
 
 describe("toChatListRows", () => {
   test("hides deleted chats and replaces blank titles", () => {
-    expect(toChatListRows([
-      entry({ id: "blank", title: null, cwd: "/Users/me/.atmos/data/agent/scratch", provider_id: "codex", updated_at: "t1" }),
-      entry({ id: "spaces", title: "   ", cwd: "/Users/me/OpenSource/atmos", provider_id: "grok", updated_at: "t2" }),
-      entry({ id: "gone", title: "Keep", deleted: true, provider_id: "codex", updated_at: "t3" }),
-      entry({ id: "named", title: "  Named chat  ", provider_id: "claude", updated_at: "t4" }),
-    ])).toEqual([
+    expect(
+      toChatListRows([
+        entry({
+          id: "blank",
+          title: null,
+          cwd: "/Users/me/.atmos/data/agent/scratch",
+          provider_id: "codex",
+          updated_at: "t1",
+        }),
+        entry({
+          id: "spaces",
+          title: "   ",
+          cwd: "/Users/me/OpenSource/atmos",
+          provider_id: "grok",
+          updated_at: "t2",
+        }),
+        entry({ id: "gone", title: "Keep", deleted: true, provider_id: "codex", updated_at: "t3" }),
+        entry({ id: "named", title: "  Named chat  ", provider_id: "claude", updated_at: "t4" }),
+      ]),
+    ).toEqual([
       { id: "blank", title: "New chat", providerId: "codex", place: "Thread", updatedAt: "t1" },
-      { id: "spaces", title: "New chat", providerId: "grok", place: ".../OpenSource/atmos", updatedAt: "t2" },
+      {
+        id: "spaces",
+        title: "New chat",
+        providerId: "grok",
+        place: ".../OpenSource/atmos",
+        updatedAt: "t2",
+      },
       { id: "named", title: "Named chat", providerId: "claude", place: "/repo", updatedAt: "t4" },
     ]);
   });

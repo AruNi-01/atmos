@@ -45,7 +45,10 @@ function extractPercent(text: string): number | null {
 }
 
 function partsOf(text: string): string[] {
-  return text.split("·").map((part) => part.trim()).filter(Boolean);
+  return text
+    .split("·")
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 function isResetPart(part: string): boolean {
@@ -57,13 +60,23 @@ function extractResetText(text: string): string | null {
 }
 
 function extractDetail(text: string): string | null {
-  const details = partsOf(text).slice(1).filter((part) => !isResetPart(part));
+  const details = partsOf(text)
+    .slice(1)
+    .filter((part) => !isResetPart(part));
   return details[0] ?? null;
 }
 
-function firstRow(provider: QuotaProviderResponse, sectionTitle: string, rowLabel: string): string | null {
-  const section = provider.detail_sections.find((item) => item.title.toLowerCase() === sectionTitle.toLowerCase());
-  return section?.rows.find((row) => row.label.toLowerCase() === rowLabel.toLowerCase())?.value ?? null;
+function firstRow(
+  provider: QuotaProviderResponse,
+  sectionTitle: string,
+  rowLabel: string,
+): string | null {
+  const section = provider.detail_sections.find(
+    (item) => item.title.toLowerCase() === sectionTitle.toLowerCase(),
+  );
+  return (
+    section?.rows.find((row) => row.label.toLowerCase() === rowLabel.toLowerCase())?.value ?? null
+  );
 }
 
 function groupFor(provider: QuotaProviderResponse, title: string): string | null {
@@ -128,14 +141,20 @@ export function extraSections(provider: QuotaProviderResponse): ExtraSection[] {
   return provider.detail_sections
     .filter((section) => !HIDDEN_EXTRA.has(section.title.trim().toLowerCase()))
     .map((section) => {
-      const total = provider.id === "zai" && section.title.toLowerCase() === "mcp details"
-        ? section.rows.find((row) => row.label.toLowerCase() === "total")?.value ?? null
-        : null;
+      const total =
+        provider.id === "zai" && section.title.toLowerCase() === "mcp details"
+          ? (section.rows.find((row) => row.label.toLowerCase() === "total")?.value ?? null)
+          : null;
       const rows = section.rows
-        .filter((row) => row.value?.trim() && !(provider.id === "zai" && row.label.toLowerCase() === "total"))
+        .filter(
+          (row) =>
+            row.value?.trim() && !(provider.id === "zai" && row.label.toLowerCase() === "total"),
+        )
         .map((row) => {
           const resetText = extractResetText(row.value);
-          const value = resetText ? row.value.replace(/\s*·\s*resets in[^·]*/i, "").trim() : row.value;
+          const value = resetText
+            ? row.value.replace(/\s*·\s*resets in[^·]*/i, "").trim()
+            : row.value;
           return {
             key: `${section.title}:${row.label}`,
             label: row.label,
@@ -149,9 +168,13 @@ export function extraSections(provider: QuotaProviderResponse): ExtraSection[] {
     .filter((section) => section.rows.length > 0 || section.headerValue);
 }
 
-export function providerHeading(provider: QuotaProviderResponse): { account: string | null; plan: string | null } {
+export function providerHeading(provider: QuotaProviderResponse): {
+  account: string | null;
+  plan: string | null;
+} {
   const account = firstRow(provider, "Account", "Account");
-  const plan = firstRow(provider, "Account", "Plan") ?? provider.subscription_summary?.plan_label ?? null;
+  const plan =
+    firstRow(provider, "Account", "Plan") ?? provider.subscription_summary?.plan_label ?? null;
   const generic = !account || account.trim().toLowerCase() === provider.label.trim().toLowerCase();
   const usablePlan = plan && plan !== "No plan data" ? plan : null;
   return {

@@ -14,10 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui";
-import {
-  agentApi,
-  type CustomAgent,
-} from "@/api/ws-api";
+import { agentApi, type CustomAgent } from "@/api/ws-api";
 import { Loader2, AlertCircle, Plus, Terminal, FileCode, Pencil } from "lucide-react";
 
 const EMPTY_CUSTOM_FORM = { name: "", command: "", args: "", env: "" };
@@ -51,11 +48,7 @@ function parseCustomAgentArgs(
       return parsed;
     }
 
-    if (
-      parsed === null ||
-      typeof parsed === "number" ||
-      typeof parsed === "boolean"
-    ) {
+    if (parsed === null || typeof parsed === "number" || typeof parsed === "boolean") {
       return trimmed.split(/\s+/);
     }
   } catch (error) {
@@ -123,7 +116,8 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
     } catch (error) {
       toastManager.add({
         title: t("customAgentDialog.toast.failedToLoadJsonTitle"),
-        description: error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
+        description:
+          error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
         type: "error",
       });
     } finally {
@@ -136,7 +130,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
     try {
       JSON.parse(customJsonText);
     } catch (e) {
-      setCustomJsonError(e instanceof Error ? e.message : t("customAgentDialog.errors.invalidJsonFormat"));
+      setCustomJsonError(
+        e instanceof Error ? e.message : t("customAgentDialog.errors.invalidJsonFormat"),
+      );
       return;
     }
     setAddingCustom(true);
@@ -152,7 +148,8 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
     } catch (error) {
       toastManager.add({
         title: t("customAgentDialog.toast.failedToSaveTitle"),
-        description: error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
+        description:
+          error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
         type: "error",
       });
     } finally {
@@ -173,9 +170,8 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
       } catch (error) {
         toastManager.add({
           title: t("customAgentDialog.toast.invalidArgsTitle"),
-          description: error instanceof Error
-            ? error.message
-            : t("customAgentDialog.errors.argsFormat"),
+          description:
+            error instanceof Error ? error.message : t("customAgentDialog.errors.argsFormat"),
           type: "error",
         });
         return;
@@ -247,7 +243,8 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
         title: editingCustomAgentName
           ? t("customAgentDialog.toast.failedToUpdateTitle")
           : t("customAgentDialog.toast.failedToAddTitle"),
-        description: error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
+        description:
+          error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
         type: "error",
       });
     } finally {
@@ -264,12 +261,19 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
         }
       }}
     >
-      <DialogContent showCloseButton={true} className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-lg">
+      <DialogContent
+        showCloseButton={true}
+        className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-lg"
+      >
         <DialogHeader>
-          <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+          <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-primary/10">
             <Terminal className="size-5 text-primary" />
           </div>
-          <DialogTitle>{editingCustomAgentName ? t("customAgentDialog.editTitle") : t("customAgentDialog.addTitle")}</DialogTitle>
+          <DialogTitle>
+            {editingCustomAgentName
+              ? t("customAgentDialog.editTitle")
+              : t("customAgentDialog.addTitle")}
+          </DialogTitle>
           <DialogDescription className="text-pretty">
             {editingCustomAgentName
               ? t("customAgentDialog.editDescription")
@@ -281,7 +285,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
               href="https://agentclientprotocol.com/get-started/agents"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline underline-offset-4"
+              className="text-primary underline-offset-4 hover:underline"
             >
               {t("customAgentDialog.referenceLinkLabel")}
             </a>
@@ -292,7 +296,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
           <>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("customAgentDialog.fields.name")}</label>
+                <label className="text-sm font-medium text-foreground">
+                  {t("customAgentDialog.fields.name")}
+                </label>
                 <Input
                   value={customForm.name}
                   onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
@@ -301,7 +307,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("customAgentDialog.fields.command")}</label>
+                <label className="text-sm font-medium text-foreground">
+                  {t("customAgentDialog.fields.command")}
+                </label>
                 <Input
                   value={customForm.command}
                   onChange={(e) => setCustomForm((f) => ({ ...f, command: e.target.value }))}
@@ -312,7 +320,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
                   {t("customAgentDialog.fields.args")}{" "}
-                  <span className="text-muted-foreground font-normal">({t("customAgentDialog.fields.argsHint")})</span>
+                  <span className="font-normal text-muted-foreground">
+                    ({t("customAgentDialog.fields.argsHint")})
+                  </span>
                 </label>
                 <Input
                   value={customForm.args}
@@ -324,7 +334,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
                   {t("customAgentDialog.fields.env")}{" "}
-                  <span className="text-muted-foreground font-normal">({t("customAgentDialog.fields.envHint")})</span>
+                  <span className="font-normal text-muted-foreground">
+                    ({t("customAgentDialog.fields.envHint")})
+                  </span>
                 </label>
                 <Input
                   value={customForm.env}
@@ -334,7 +346,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 />
               </div>
             </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={() => void handleSwitchToJsonMode()}
@@ -348,11 +360,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 )}
                 {t("customAgentDialog.actions.editJson")}
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                className="cursor-pointer"
-              >
+              <Button variant="outline" onClick={handleClose} className="cursor-pointer">
                 {t("common.cancel")}
               </Button>
               <Button
@@ -363,7 +371,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 {addingCustom ? (
                   <>
                     <Loader2 className="mr-1 size-3 animate-spin" />
-                    {editingCustomAgentName ? t("customAgentDialog.actions.saving") : t("customAgentDialog.actions.adding")}
+                    {editingCustomAgentName
+                      ? t("customAgentDialog.actions.saving")
+                      : t("customAgentDialog.actions.adding")}
                   </>
                 ) : (
                   <>
@@ -372,7 +382,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                     ) : (
                       <Plus className="mr-1 size-3.5" />
                     )}
-                    {editingCustomAgentName ? t("customAgentDialog.actions.saveChanges") : t("customAgentDialog.actions.addAgent")}
+                    {editingCustomAgentName
+                      ? t("customAgentDialog.actions.saveChanges")
+                      : t("customAgentDialog.actions.addAgent")}
                   </>
                 )}
               </Button>
@@ -381,11 +393,13 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
         ) : (
           <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-2">
             <div className="min-h-0 space-y-3 overflow-hidden py-2">
-                <div className="flex h-full min-h-0 flex-col space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    {t("customAgentDialog.jsonEditor.label")}{" "}
-                    <span className="text-muted-foreground font-normal">({t("customAgentDialog.jsonEditor.fileHint")})</span>
-                  </label>
+              <div className="flex h-full min-h-0 flex-col space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  {t("customAgentDialog.jsonEditor.label")}{" "}
+                  <span className="font-normal text-muted-foreground">
+                    ({t("customAgentDialog.jsonEditor.fileHint")})
+                  </span>
+                </label>
                 <Textarea
                   value={customJsonText}
                   onChange={(e) => {
@@ -393,18 +407,18 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                     setCustomJsonError(null);
                   }}
                   placeholder={t("customAgentDialog.jsonEditor.placeholder")}
-                  className="field-sizing-fixed min-h-[260px] flex-1 overflow-y-auto font-mono text-sm leading-relaxed resize-none"
+                  className="field-sizing-fixed min-h-[260px] flex-1 resize-none overflow-y-auto font-mono text-sm leading-relaxed"
                   spellCheck={false}
                 />
                 {customJsonError && (
-                  <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
-                    <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
-                    <p className="text-xs text-destructive break-all">{customJsonError}</p>
+                  <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2">
+                    <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                    <p className="text-xs break-all text-destructive">{customJsonError}</p>
                   </div>
                 )}
               </div>
             </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -415,11 +429,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
               >
                 {t("customAgentDialog.actions.backToForm")}
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                className="cursor-pointer"
-              >
+              <Button variant="outline" onClick={handleClose} className="cursor-pointer">
                 {t("common.cancel")}
               </Button>
               <Button

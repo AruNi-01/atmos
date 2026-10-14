@@ -1,4 +1,9 @@
-import { getMobileThemeColors, lightColors, type MobileThemeColorScheme, type MobileThemeColors } from "./colors";
+import {
+  getMobileThemeColors,
+  lightColors,
+  type MobileThemeColorScheme,
+  type MobileThemeColors,
+} from "./colors";
 import { pressed } from "./pressed";
 import { radii } from "./radii";
 import { shadows } from "./shadows";
@@ -19,7 +24,10 @@ export const mobileColorCssVarKeys = Object.keys(lightColors).map((key) =>
 
 export function getMobileColorCssVariables(colors: MobileThemeColors) {
   return Object.fromEntries(
-    Object.entries(colors).map(([key, value]) => [mobileColorKeyToCssVar(key as keyof MobileThemeColors), value]),
+    Object.entries(colors).map(([key, value]) => [
+      mobileColorKeyToCssVar(key as keyof MobileThemeColors),
+      value,
+    ]),
   ) as Record<(typeof mobileColorCssVarKeys)[number], string>;
 }
 

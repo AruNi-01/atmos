@@ -96,7 +96,9 @@ describe("terminal dynamic title localStorage cache", () => {
 });
 
 describe("buildPersistedTerminalWorkspaceLayout dynamicTitle", () => {
-  const pane = (partial: Partial<TerminalPaneProps> & Pick<TerminalPaneProps, "id" | "label">): TerminalPaneProps => ({
+  const pane = (
+    partial: Partial<TerminalPaneProps> & Pick<TerminalPaneProps, "id" | "label">,
+  ): TerminalPaneProps => ({
     sessionId: `session-${partial.id}`,
     workspaceId: "ws-1",
     tmuxWindowName: partial.tmuxWindowName ?? partial.label,
@@ -161,7 +163,9 @@ describe("setDynamicTitle", () => {
     });
 
     useTerminalStore.getState().setDynamicTitle("ws-1", "pane-1", "1");
-    expect(useTerminalStore.getState().workspacePanes["ws-1"]?.["pane-1"]?.dynamicTitle).toBeUndefined();
+    expect(
+      useTerminalStore.getState().workspacePanes["ws-1"]?.["pane-1"]?.dynamicTitle,
+    ).toBeUndefined();
     expect(saveCalls).toEqual([]);
 
     useTerminalStore.getState().setDynamicTitle("ws-1", "pane-1", "OpenSource/atmos");
@@ -204,19 +208,15 @@ describe("setDynamicTitle", () => {
     expect(readCachedOscTitle("ws-1", "1")).toBe("debugging auth");
     expect(saveCalls).toEqual([]);
 
-    useTerminalStore.getState().setOscTitle(
-      "ws-1",
-      "pane-1",
-      "⠋ - Responding - Optimize Terminal Tab - grok",
-    );
+    useTerminalStore
+      .getState()
+      .setOscTitle("ws-1", "pane-1", "⠋ - Responding - Optimize Terminal Tab - grok");
     expect(readCachedOscTitle("ws-1", "1")).toBe("Optimize Terminal Tab");
     expect(saveCalls).toEqual([]);
   });
 
   it("treats an empty server title snapshot as no change", () => {
-    expect(
-      titlesFromServerSnapshot({ session_title: null, dynamic_title: null }),
-    ).toEqual({});
+    expect(titlesFromServerSnapshot({ session_title: null, dynamic_title: null })).toEqual({});
     expect(
       titlesFromServerSnapshot({
         session_title: "Start subagent to explore the project",

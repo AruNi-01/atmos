@@ -2,9 +2,7 @@ import { expect, test } from "../../../fixtures/test";
 import { expectHealthyRoute, stubOnboardingRelayNetwork } from "../support/app-smoke";
 
 test.describe("smoke onboarding remote", () => {
-  test("@smoke shows remote onboarding fields without writing settings", async ({
-    page,
-  }) => {
+  test("@smoke shows remote onboarding fields without writing settings", async ({ page }) => {
     await stubOnboardingRelayNetwork(page);
     await expectHealthyRoute(page, "/setup");
 
@@ -20,8 +18,6 @@ test.describe("smoke onboarding remote", () => {
     await expect(page.getByRole("button", { name: /^Sign in$/i })).toBeVisible();
     await expect(page.getByPlaceholder("Paste access key")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Use key/i })).toHaveCount(0);
-    await expect(
-      page.getByRole("heading", { name: /Available Computers/i }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Available Computers/i })).toBeVisible();
   });
 });

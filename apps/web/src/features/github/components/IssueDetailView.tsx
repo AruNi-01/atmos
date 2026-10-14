@@ -113,12 +113,7 @@ export function IssueDetailView({
   const reserveClose = useDrawerCloseReserve();
   const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
   const { openCommitTab } = useOpenGitCommitCenterTab();
-  const { data: issue, loading } = useGithubIssueDetail(
-    issueNumber,
-    owner,
-    repo,
-    active,
-  );
+  const { data: issue, loading } = useGithubIssueDetail(issueNumber, owner, repo, active);
   const [activeTab, setActiveTab] = React.useState<IssueMainTab>("description");
   const [visitedDiscussion, setVisitedDiscussion] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
@@ -151,26 +146,18 @@ export function IssueDetailView({
                   avatar_url: `https://github.com/${encodeURIComponent(rawAuthor.name ?? "ghost")}.png?size=32`,
                   avatarUrl: `https://github.com/${encodeURIComponent(rawAuthor.name ?? "ghost")}.png?size=32`,
                 }
-              : (actor as
-                  | { login?: string; avatar_url?: string; avatarUrl?: string }
-                  | undefined);
+              : (actor as { login?: string; avatar_url?: string; avatarUrl?: string } | undefined);
           return {
             ...item,
             author: user,
             createdAt:
-              item.created_at ??
-              item.author?.date ??
-              item.submitted_at ??
-              item.authoredDate ??
-              "",
+              item.created_at ?? item.author?.date ?? item.submitted_at ?? item.authoredDate ?? "",
             body: item.body ?? item.message ?? item.messageHeadline ?? "",
             isComment: item.event === "commented",
           };
         })
         .sort(
-          (left, right) =>
-            new Date(left.createdAt).getTime() -
-            new Date(right.createdAt).getTime(),
+          (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
         ),
     [items],
   );
@@ -189,18 +176,14 @@ export function IssueDetailView({
     <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-hidden px-6">
       <header
         className={cn(
-          "relative flex shrink-0 items-center gap-3 pb-4 pt-6",
+          "relative flex shrink-0 items-center gap-3 pt-6 pb-4",
           headerTrailing || reserveClose ? "pr-14" : "pr-12",
         )}
       >
         <Github className="size-4.5 text-muted-foreground/60" />
         <div className="flex min-w-0 items-center gap-2.5">
-          <h2 className="whitespace-nowrap text-base font-bold">
-            {t("header", { issueNumber })}
-          </h2>
-          <span className="select-none font-light text-muted-foreground/30">
-            |
-          </span>
+          <h2 className="text-base font-bold whitespace-nowrap">{t("header", { issueNumber })}</h2>
+          <span className="font-light text-muted-foreground/30 select-none">|</span>
           <p className="truncate pt-0.5 text-[11px] font-medium text-muted-foreground/60">
             {owner}/{repo}
           </p>
@@ -234,47 +217,43 @@ export function IssueDetailView({
         </div>
       ) : issue ? (
         <>
-        <div className="flex min-h-0 flex-1 gap-3 text-sm">
-          <div className="min-w-0 flex-1 overflow-hidden">
-            <ScrollArea scrollFade className="h-full" viewportClassName="pr-1 pb-16">
-              <div className="min-w-0 pt-1 pb-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <CircleDot
-                      className={cn(
-                        "size-4",
-                        issue.state.toLowerCase() === "closed"
-                          ? "text-purple-500"
-                          : "text-emerald-500",
-                      )}
-                    />
-                    <h3 className="truncate text-base font-semibold">
-                      {issue.title}
-                    </h3>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="font-mono">#{issue.number}</span>
-                    <span>
-                      {issue.state.toLowerCase() === "closed"
-                        ? t("closed")
-                        : t("open")}
-                    </span>
-                    {issue.updated_at ? (
+          <div className="flex min-h-0 flex-1 gap-3 text-sm">
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <ScrollArea scrollFade className="h-full" viewportClassName="pr-1 pb-16">
+                <div className="min-w-0 pt-1 pb-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <CircleDot
+                        className={cn(
+                          "size-4",
+                          issue.state.toLowerCase() === "closed"
+                            ? "text-purple-500"
+                            : "text-emerald-500",
+                        )}
+                      />
+                      <h3 className="truncate text-base font-semibold">{issue.title}</h3>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="font-mono">#{issue.number}</span>
                       <span>
-                        {t("updated", {
-                          time: formatDistanceToNow(
-                            new Date(issue.updated_at),
-                            { addSuffix: true, locale: relativeTimeLocale },
-                          ),
-                        })}
+                        {issue.state.toLowerCase() === "closed" ? t("closed") : t("open")}
                       </span>
-                    ) : null}
+                      {issue.updated_at ? (
+                        <span>
+                          {t("updated", {
+                            time: formatDistanceToNow(new Date(issue.updated_at), {
+                              addSuffix: true,
+                              locale: relativeTimeLocale,
+                            }),
+                          })}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-                <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
+                <div className="sticky top-0 z-20 border-t border-border/40 bg-background pt-3 pb-3">
                   <Tabs
-                    className="min-w-0 max-w-full"
+                    className="max-w-full min-w-0"
                     value={activeTab}
                     variant="pill"
                     onValueChange={(value) => {
@@ -283,7 +262,7 @@ export function IssueDetailView({
                       }
                     }}
                   >
-                    <TabsList className="h-8 max-w-full gap-0.5 overflow-x-auto p-0.5 scrollbar-hide">
+                    <TabsList className="scrollbar-hide h-8 max-w-full gap-0.5 overflow-x-auto p-0.5">
                       <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="description">
                         <FileText className="size-3.5 shrink-0" />
                         {t("tabs.description")}
@@ -298,114 +277,107 @@ export function IssueDetailView({
                   </Tabs>
                 </div>
 
-              <div
-                className={cn("pt-4", activeTab !== "description" && "hidden")}
-              >
-                {issue.body ? (
-                  <div className="rounded-md border border-border/50 p-4">
-                    <MarkdownRenderer className="prose prose-sm max-w-none text-[13px] leading-relaxed dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
-                      {issue.body}
-                    </MarkdownRenderer>
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-dashed border-border/50 px-4 py-8 text-center text-[12px] text-muted-foreground">
-                    {t("emptyDescription")}
-                  </div>
-                )}
-              </div>
-
-              {visitedDiscussion ? (
-                <div
-                  className={cn(
-                    "relative pt-4",
-                    activeTab !== "discussion" && "hidden",
-                  )}
-                >
-                  {isLoading && discussion.length === 0 ? (
-                    <div className="space-y-5">
-                      {[0, 1, 2].map((item) => (
-                        <Skeleton key={item} className="h-20 w-full" />
-                      ))}
-                    </div>
-                  ) : discussion.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-border/50 px-4 py-8 text-center text-[12px] text-muted-foreground">
-                      {t("emptyDiscussion")}
+                <div className={cn("pt-4", activeTab !== "description" && "hidden")}>
+                  {issue.body ? (
+                    <div className="rounded-md border border-border/50 p-4">
+                      <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 max-w-none text-[13px] leading-relaxed">
+                        {issue.body}
+                      </MarkdownRenderer>
                     </div>
                   ) : (
-                    <div className="relative">
-                      <div className="absolute bottom-0 left-4 top-4 w-0.5 bg-border/60" />
-                      <div className="relative flex flex-col gap-5">
-                        {groupedDiscussion.map((entry, index) => {
-                          if (entry.kind === "commits") {
-                            return (
-                              <TimelineCommitsGroup
-                                key={`commits-${entry.startIndex}`}
-                                commits={entry.commits}
-                                locale={relativeTimeLocale}
-                                onCommitClick={({ sha, subject, authorName }) => {
-                                  openCommitTab({
-                                    owner,
-                                    repo,
-                                    sha,
-                                    subject,
-                                    authorName,
-                                  });
-                                }}
-                              />
-                            );
-                          }
-                          if (entry.kind === "cross-referenced") {
-                            return (
-                              <TimelineReferencesEvent
-                                key={`cross-ref-${entry.startIndex}`}
-                                event="cross-referenced"
-                                items={entry.items}
-                                owner={owner}
-                                repo={repo}
-                                locale={relativeTimeLocale}
-                              />
-                            );
-                          }
-                          return (
-                            <IssueTimelineItem
-                              key={`${entry.item.createdAt}-${index}`}
-                              item={entry.item}
-                              locale={relativeTimeLocale}
-                              t={t}
-                              owner={owner}
-                              repo={repo}
-                            />
-                          );
-                        })}
-                      </div>
+                    <div className="rounded-md border border-dashed border-border/50 px-4 py-8 text-center text-[12px] text-muted-foreground">
+                      {t("emptyDescription")}
                     </div>
                   )}
-                  {hasMore && !isLoading ? (
-                    <div className="relative mt-6 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={loadMore}
-                        className="rounded-md border border-border/60 bg-muted/30 px-4 py-2 text-[12px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                      >
-                        {t("loadMore")}
-                      </button>
-                    </div>
-                  ) : null}
-                  <IssueDiscussionComposer issue={issue} t={t} />
                 </div>
-              ) : null}
-            </ScrollArea>
-          </div>
 
-          <IssueMetadataSidebar
-            issue={issue}
-            linkedPrs={linkedPrs}
-            linkedPrsLoading={linkedPrsLoading}
-            collapsed={sidebarCollapsed}
-            t={t}
-          />
-        </div>
-        <IssueActionToolbar issue={issue} t={t} />
+                {visitedDiscussion ? (
+                  <div className={cn("relative pt-4", activeTab !== "discussion" && "hidden")}>
+                    {isLoading && discussion.length === 0 ? (
+                      <div className="space-y-5">
+                        {[0, 1, 2].map((item) => (
+                          <Skeleton key={item} className="h-20 w-full" />
+                        ))}
+                      </div>
+                    ) : discussion.length === 0 ? (
+                      <div className="rounded-md border border-dashed border-border/50 px-4 py-8 text-center text-[12px] text-muted-foreground">
+                        {t("emptyDiscussion")}
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="absolute top-4 bottom-0 left-4 w-0.5 bg-border/60" />
+                        <div className="relative flex flex-col gap-5">
+                          {groupedDiscussion.map((entry, index) => {
+                            if (entry.kind === "commits") {
+                              return (
+                                <TimelineCommitsGroup
+                                  key={`commits-${entry.startIndex}`}
+                                  commits={entry.commits}
+                                  locale={relativeTimeLocale}
+                                  onCommitClick={({ sha, subject, authorName }) => {
+                                    openCommitTab({
+                                      owner,
+                                      repo,
+                                      sha,
+                                      subject,
+                                      authorName,
+                                    });
+                                  }}
+                                />
+                              );
+                            }
+                            if (entry.kind === "cross-referenced") {
+                              return (
+                                <TimelineReferencesEvent
+                                  key={`cross-ref-${entry.startIndex}`}
+                                  event="cross-referenced"
+                                  items={entry.items}
+                                  owner={owner}
+                                  repo={repo}
+                                  locale={relativeTimeLocale}
+                                />
+                              );
+                            }
+                            return (
+                              <IssueTimelineItem
+                                key={`${entry.item.createdAt}-${index}`}
+                                item={entry.item}
+                                locale={relativeTimeLocale}
+                                t={t}
+                                owner={owner}
+                                repo={repo}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {hasMore && !isLoading ? (
+                      <div className="relative mt-6 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={loadMore}
+                          className="rounded-md border border-border/60 bg-muted/30 px-4 py-2 text-[12px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                        >
+                          {t("loadMore")}
+                        </button>
+                      </div>
+                    ) : null}
+                    <IssueDiscussionComposer issue={issue} t={t} />
+                  </div>
+                ) : null}
+              </ScrollArea>
+            </div>
+
+            <IssueMetadataSidebar
+              issue={issue}
+              linkedPrs={linkedPrs}
+              linkedPrsLoading={linkedPrsLoading}
+              collapsed={sidebarCollapsed}
+              t={t}
+            />
+          </div>
+          <IssueActionToolbar issue={issue} t={t} />
         </>
       ) : (
         <div className="text-sm text-muted-foreground">{t("notFound")}</div>
@@ -496,15 +468,12 @@ function IssueActionToolbar({
   const act = async (action: "close" | "reopen") => {
     setPending(action);
     try {
-      await wsRequest(
-        action === "close" ? "github_issue_close" : "github_issue_reopen",
-        {
-          owner: issue.owner,
-          repo: issue.repo,
-          issue_number: issue.number,
-          body: null,
-        },
-      );
+      await wsRequest(action === "close" ? "github_issue_close" : "github_issue_reopen", {
+        owner: issue.owner,
+        repo: issue.repo,
+        issue_number: issue.number,
+        body: null,
+      });
       invalidate();
     } finally {
       setPending(null);
@@ -526,14 +495,14 @@ function IssueActionToolbar({
             onMouseLeave={closeToolbar}
             aria-hidden={!isOpen}
             className={cn(
-              "absolute bottom-full left-1/2 z-10 flex max-w-[calc(100vw-3rem)] -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-xl border border-dashed border-border/80 bg-background/90 px-4 py-2.5 shadow-xl backdrop-blur-md",
+              "absolute bottom-full left-1/2 z-10 flex max-w-[calc(100vw-3rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-dashed border-border/80 bg-background/90 px-4 py-2.5 whitespace-nowrap shadow-xl backdrop-blur-md",
               !isOpen
                 ? "pointer-events-none opacity-0 transition-opacity duration-220 ease-in"
                 : "pointer-events-auto opacity-100 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",
             )}
           >
             {/* Hit bridge so the pointer can move from the pill into the panel. */}
-            <div className="absolute left-1/2 top-full h-4 w-32 -translate-x-1/2" />
+            <div className="absolute top-full left-1/2 h-4 w-32 -translate-x-1/2" />
             <Button
               variant="outline"
               size="sm"
@@ -570,7 +539,7 @@ function IssueActionToolbar({
           onFocus={openToolbar}
           onMouseEnter={openToolbar}
           className={cn(
-            "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+            "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
             !isOpen
               ? "pointer-events-auto opacity-100 transition-opacity duration-220 ease-in"
               : "pointer-events-none opacity-0 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -654,16 +623,18 @@ function IssueDiscussionComposer({
           value={body}
           onChange={(event) => setBody(event.target.value)}
           placeholder={t("toolbar.commentPlaceholder")}
-          className="min-h-[120px] w-full resize-y rounded-none border-0 bg-transparent p-4 text-[13px] dark:bg-transparent focus-visible:ring-0"
+          className="min-h-[120px] w-full resize-y rounded-none border-0 bg-transparent p-4 text-[13px] focus-visible:ring-0 dark:bg-transparent"
         />
       ) : (
         <div className="min-h-[120px] p-4">
           {body.trim() ? (
-            <MarkdownRenderer className="prose prose-sm max-w-none text-[13px] dark:prose-invert">
+            <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">
               {body}
             </MarkdownRenderer>
           ) : (
-            <span className="text-xs italic text-muted-foreground">{t("composer.nothingToPreview")}</span>
+            <span className="text-xs text-muted-foreground italic">
+              {t("composer.nothingToPreview")}
+            </span>
           )}
         </div>
       )}
@@ -680,7 +651,13 @@ function IssueDiscussionComposer({
             disabled={pending}
             className="h-8 text-xs"
           >
-            {pending ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : isClosed ? <RotateCw className="mr-1.5 size-3.5" /> : <XCircle className="mr-1.5 size-3.5" />}
+            {pending ? (
+              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+            ) : isClosed ? (
+              <RotateCw className="mr-1.5 size-3.5" />
+            ) : (
+              <XCircle className="mr-1.5 size-3.5" />
+            )}
             {isClosed ? t("toolbar.reopen") : t("toolbar.close")}
           </Button>
           <Button
@@ -690,7 +667,11 @@ function IssueDiscussionComposer({
             disabled={!body.trim() || pending}
             className="h-8 text-xs"
           >
-            {pending ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Send className="mr-1.5 size-3.5" />}
+            {pending ? (
+              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+            ) : (
+              <Send className="mr-1.5 size-3.5" />
+            )}
             {t("toolbar.comment")}
           </Button>
         </div>
@@ -733,9 +714,7 @@ function IssueTimelineItem({
                 `https://github.com/${login}.png?size=64`
               }
             />
-            <AvatarFallback className="text-[10px]">
-              {login.slice(0, 2)}
-            </AvatarFallback>
+            <AvatarFallback className="text-[10px]">{login.slice(0, 2)}</AvatarFallback>
           </Avatar>
         </GithubUserHoverCard>
         <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-background">
@@ -745,7 +724,7 @@ function IssueTimelineItem({
             <span className="ml-auto opacity-60">{time}</span>
           </div>
           <div className="p-4">
-            <MarkdownRenderer className="prose prose-sm max-w-none text-[13px] leading-relaxed dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
+            <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 max-w-none text-[13px] leading-relaxed">
               {item.body}
             </MarkdownRenderer>
           </div>
@@ -809,64 +788,64 @@ function IssueMetadataSidebar({
       )}
     >
       <ScrollArea scrollFade className="h-full min-h-0">
-      <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
-        <SidebarSection
-          title={t("sidebar.assignees")}
-          icon={<User className="size-3.5" />}
-          action={
-            <AssigneesEditor
-              owner={issue.owner}
-              repo={issue.repo}
-              number={issue.number}
-              resource="issue"
+        <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
+          <SidebarSection
+            title={t("sidebar.assignees")}
+            icon={<User className="size-3.5" />}
+            action={
+              <AssigneesEditor
+                owner={issue.owner}
+                repo={issue.repo}
+                number={issue.number}
+                resource="issue"
+                assignees={issue.assignees.map((assignee) => ({
+                  login: assignee.login,
+                  avatar_url: assignee.avatar_url ?? undefined,
+                }))}
+              />
+            }
+          >
+            <AssigneesList
               assignees={issue.assignees.map((assignee) => ({
                 login: assignee.login,
                 avatar_url: assignee.avatar_url ?? undefined,
               }))}
             />
-          }
-        >
-          <AssigneesList
-            assignees={issue.assignees.map((assignee) => ({
-              login: assignee.login,
-              avatar_url: assignee.avatar_url ?? undefined,
-            }))}
-          />
-        </SidebarSection>
-        <SidebarSection
-          title={t("sidebar.labels")}
-          icon={<Tag className="size-3.5" />}
-          action={
-            <LabelsEditor
-              owner={issue.owner}
-              repo={issue.repo}
-              number={issue.number}
-              resource="issue"
+          </SidebarSection>
+          <SidebarSection
+            title={t("sidebar.labels")}
+            icon={<Tag className="size-3.5" />}
+            action={
+              <LabelsEditor
+                owner={issue.owner}
+                repo={issue.repo}
+                number={issue.number}
+                resource="issue"
+                labels={issue.labels.map((label) => ({
+                  name: label.name,
+                  color: label.color ?? undefined,
+                  description: label.description ?? undefined,
+                }))}
+              />
+            }
+          >
+            <LabelsList
               labels={issue.labels.map((label) => ({
                 name: label.name,
                 color: label.color ?? undefined,
                 description: label.description ?? undefined,
               }))}
             />
-          }
-        >
-          <LabelsList
-            labels={issue.labels.map((label) => ({
-              name: label.name,
-              color: label.color ?? undefined,
-              description: label.description ?? undefined,
-            }))}
+          </SidebarSection>
+          <LinkedPullRequests
+            owner={issue.owner}
+            repo={issue.repo}
+            issueNumber={issue.number}
+            linkedPrs={linkedPrs}
+            loading={linkedPrsLoading}
+            t={t}
           />
-        </SidebarSection>
-        <LinkedPullRequests
-          owner={issue.owner}
-          repo={issue.repo}
-          issueNumber={issue.number}
-          linkedPrs={linkedPrs}
-          loading={linkedPrsLoading}
-          t={t}
-        />
-      </div>
+        </div>
       </ScrollArea>
     </div>
   );
@@ -911,24 +890,28 @@ function LinkedPullRequests({
               key={pr.number}
               type="button"
               className="flex w-full min-w-0 items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/60"
-              onClick={() => openPullRequestTab({
-                owner,
-                repo,
-                prNumber: pr.number,
-                branch: pr.headRefName ?? "",
-                title: pr.title,
-              })}
+              onClick={() =>
+                openPullRequestTab({
+                  owner,
+                  repo,
+                  prNumber: pr.number,
+                  branch: pr.headRefName ?? "",
+                  title: pr.title,
+                })
+              }
             >
               <GitPullRequest className="mt-0.5 size-3.5 shrink-0 text-purple-500" />
               <span className="min-w-0">
-                <span className="line-clamp-2 block font-medium text-foreground/90">{pr.title}</span>
+                <span className="line-clamp-2 block font-medium text-foreground/90">
+                  {pr.title}
+                </span>
                 <span className="text-[10px] text-muted-foreground">#{pr.number}</span>
               </span>
             </button>
           ))}
         </div>
       ) : (
-        <span className="italic text-muted-foreground/60">{t("sidebar.none")}</span>
+        <span className="text-muted-foreground/60 italic">{t("sidebar.none")}</span>
       )}
     </SidebarSection>
   );
@@ -958,10 +941,7 @@ function LinkedPullRequestsEditor({
     limit: 100,
     enabled: open,
   });
-  const selected = React.useMemo(
-    () => new Set(linkedPrs.map((pr) => pr.number)),
-    [linkedPrs],
-  );
+  const selected = React.useMemo(() => new Set(linkedPrs.map((pr) => pr.number)), [linkedPrs]);
 
   const toggle = async (prNumber: number) => {
     if (pending) return;

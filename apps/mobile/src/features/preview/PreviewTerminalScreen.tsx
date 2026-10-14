@@ -43,7 +43,9 @@ export function PreviewTerminalScreen() {
   const router = useRouter();
   const setPreviewEnabled = usePreviewStore((state) => state.setEnabled);
   const [workspaceId, setWorkspaceId] = useState(FIRST_WORKSPACE_ID);
-  const [entriesByWorkspace, setEntriesByWorkspace] = useState<Record<string, MobileTerminalEntry[]>>(() => ({
+  const [entriesByWorkspace, setEntriesByWorkspace] = useState<
+    Record<string, MobileTerminalEntry[]>
+  >(() => ({
     [FIRST_WORKSPACE_ID]: previewEntriesForWorkspace(FIRST_WORKSPACE_ID),
   }));
   const [activeByWorkspace, setActiveByWorkspace] = useState<Record<string, string | null>>(() => ({
@@ -63,7 +65,10 @@ export function PreviewTerminalScreen() {
   const entries = entriesByWorkspace[workspaceId] ?? previewEntriesForWorkspace(workspaceId);
   const activeEntry = resolveActiveTerminalEntry(entries, activeByWorkspace[workspaceId]);
   const tabItems = useMemo(() => tabItemsFromEntries(entries), [entries]);
-  const sheetRows = useMemo(() => rowsForTerminalEntries(entries, [], (entry) => entry.label), [entries]);
+  const sheetRows = useMemo(
+    () => rowsForTerminalEntries(entries, [], (entry) => entry.label),
+    [entries],
+  );
   const transcript = previewTranscript(
     workspaceId,
     activeEntry?.id ?? "",

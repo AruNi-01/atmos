@@ -3,10 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { defaultTerminalOptions } from "../../lib/theme";
 
-const css = readFileSync(
-  join(import.meta.dir, "../terminal-grid.css"),
-  "utf8",
-);
+const css = readFileSync(join(import.meta.dir, "../terminal-grid.css"), "utf8");
 
 describe("terminal overlay scrollbar", () => {
   it("does not ease overlay thumb position or size", () => {

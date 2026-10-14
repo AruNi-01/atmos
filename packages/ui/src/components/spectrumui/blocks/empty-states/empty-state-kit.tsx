@@ -8,16 +8,16 @@
  * Source: https://ui.spectrumhq.in/r/project-empty.json
  */
 
-'use client';
+"use client";
 
-import * as React from 'react';
-import { motion, useInView, useReducedMotion, type Transition, type Variants } from 'motion/react';
-import { cn } from '@workspace/ui/lib/utils';
+import * as React from "react";
+import { motion, useInView, useReducedMotion, type Transition, type Variants } from "motion/react";
+import { cn } from "@workspace/ui/lib/utils";
 
-export const SPRING_TACTILE: Transition = { type: 'spring', stiffness: 400, damping: 25, mass: 1 };
-export const SPRING_FLUID: Transition = { type: 'spring', stiffness: 300, damping: 30 };
-export const SPRING_ENTRANCE: Transition = { type: 'spring', stiffness: 260, damping: 20 };
-export const SPRING_SNAPPY: Transition = { type: 'spring', stiffness: 500, damping: 28 };
+export const SPRING_TACTILE: Transition = { type: "spring", stiffness: 400, damping: 25, mass: 1 };
+export const SPRING_FLUID: Transition = { type: "spring", stiffness: 300, damping: 30 };
+export const SPRING_ENTRANCE: Transition = { type: "spring", stiffness: 260, damping: 20 };
+export const SPRING_SNAPPY: Transition = { type: "spring", stiffness: 500, damping: 28 };
 
 /**
  * Entrances fire when the panel reaches the viewport, not when the page mounts.
@@ -38,7 +38,7 @@ export const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const;
  * Inherit the host typeface. Spectrum ships Inter; Atmos already loads Geist
  * on the app shell, so forcing Inter here would fight the product.
  */
-export const EMPTY_FONT = 'antialiased';
+export const EMPTY_FONT = "antialiased";
 
 /* ── Icons ────────────────────────────────────────────────────────────────── */
 
@@ -507,13 +507,13 @@ export function IconUsers(props: IconProps) {
 
 /* ── Motion ───────────────────────────────────────────────────────────────── */
 
-export type EmptyTone = 'neutral' | 'positive' | 'caution' | 'critical';
+export type EmptyTone = "neutral" | "positive" | "caution" | "critical";
 
 const TONE_GLYPH: Record<EmptyTone, string> = {
-  neutral: 'text-foreground',
-  positive: 'text-success',
-  caution: 'text-warning',
-  critical: 'text-destructive',
+  neutral: "text-foreground",
+  positive: "text-success",
+  caution: "text-warning",
+  critical: "text-destructive",
 };
 
 /**
@@ -588,63 +588,63 @@ export function usePropState<T>(
  *     glyph in front of it, it is wrong.
  */
 export type MedallionBackdrop =
-  | 'none'
-  | 'rings'
-  | 'halo'
-  | 'grid'
-  | 'cells'
-  | 'scan'
-  | 'orbit'
-  | 'bars'
-  | 'rays'
-  | 'stack'
-  | 'ripple'
-  | 'beam'
-  | 'chime'
-  | 'comet'
-  | 'sparks'
-  | 'dashes'
-  | 'crosshair'
-  | 'wave'
-  | 'shards'
-  | 'trail'
-  | 'corners'
-  | 'drip'
-  | 'contour'
-  | 'sieve'
-  | 'spotlight'
-  | 'pulse';
+  | "none"
+  | "rings"
+  | "halo"
+  | "grid"
+  | "cells"
+  | "scan"
+  | "orbit"
+  | "bars"
+  | "rays"
+  | "stack"
+  | "ripple"
+  | "beam"
+  | "chime"
+  | "comet"
+  | "sparks"
+  | "dashes"
+  | "crosshair"
+  | "wave"
+  | "shards"
+  | "trail"
+  | "corners"
+  | "drip"
+  | "contour"
+  | "sieve"
+  | "spotlight"
+  | "pulse";
 
-const HAIRLINE = 'border-border/70';
-const HAIRLINE_SOFT = 'border-border/50';
-const HAIRLINE_FAINT = 'border-border/30';
+const HAIRLINE = "border-border/70";
+const HAIRLINE_SOFT = "border-border/50";
+const HAIRLINE_FAINT = "border-border/30";
 /**
  * EmptyPanel's own surface. Any backdrop whose parts overlap has to be filled
  * with it: an outlined-but-transparent shape turns into a lattice of crossing
  * hairlines the moment a second one lands on top of it.
  */
-const SURFACE = 'bg-card';
-const INK = 'bg-foreground/10';
-const INK_SOFT = 'bg-foreground/8';
-const FADE_DOWN = '[mask-image:linear-gradient(to_bottom,black_15%,transparent_95%)]';
-const FADE_EDGES = '[mask-image:radial-gradient(closest-side,black_55%,transparent_100%)]';
+const SURFACE = "bg-card";
+const INK = "bg-foreground/10";
+const INK_SOFT = "bg-foreground/8";
+const FADE_DOWN = "[mask-image:linear-gradient(to_bottom,black_15%,transparent_95%)]";
+const FADE_EDGES = "[mask-image:radial-gradient(closest-side,black_55%,transparent_100%)]";
 
-type Phase = 'hidden' | 'shown';
+type Phase = "hidden" | "shown";
 
 interface BackdropProps {
   kind: MedallionBackdrop;
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
 }
 
 /**
  * One IntersectionObserver per medallion, not one per moving part: the backdrop
  * flips a single phase and every child animates off the same variant.
  */
-export function MedallionBackdropLayer({ kind, size = 'md' }: BackdropProps) {
+export function MedallionBackdropLayer({ kind, size = "md" }: BackdropProps) {
   const reduced = useReducedMotion();
   const ref = React.useRef<HTMLDivElement>(null);
   const seen = useInView(ref, { once: true, amount: 0.4 });
-  const phase: Phase = seen ? 'shown' : 'hidden';
+  const phase: Phase = seen ? "shown" : "hidden";
 
   return (
     <div
@@ -652,7 +652,7 @@ export function MedallionBackdropLayer({ kind, size = 'md' }: BackdropProps) {
       aria-hidden
       className="pointer-events-none absolute inset-0 grid place-items-center"
     >
-      {kind !== 'none' && (
+      {kind !== "none" && (
         <Backdrop kind={kind} size={size} phase={phase} reduced={Boolean(reduced)} />
       )}
     </div>
@@ -664,57 +664,57 @@ interface PartProps {
   reduced: boolean;
 }
 
-function Backdrop({ kind, size = 'md', phase, reduced }: BackdropProps & PartProps) {
+function Backdrop({ kind, size = "md", phase, reduced }: BackdropProps & PartProps) {
   switch (kind) {
-    case 'rings':
+    case "rings":
       return <Rings phase={phase} reduced={reduced} />;
-    case 'halo':
+    case "halo":
       return <Halo phase={phase} reduced={reduced} />;
-    case 'grid':
+    case "grid":
       return <DotGrid phase={phase} reduced={reduced} />;
-    case 'cells':
+    case "cells":
       return <Cells phase={phase} reduced={reduced} />;
-    case 'scan':
+    case "scan":
       return <Scan phase={phase} reduced={reduced} />;
-    case 'orbit':
+    case "orbit":
       return <Orbit phase={phase} reduced={reduced} />;
-    case 'bars':
+    case "bars":
       return <Bars phase={phase} reduced={reduced} />;
-    case 'rays':
+    case "rays":
       return <Rays phase={phase} reduced={reduced} />;
-    case 'stack':
+    case "stack":
       return <Stack phase={phase} reduced={reduced} size={size} />;
-    case 'ripple':
+    case "ripple":
       return <Ripple phase={phase} reduced={reduced} />;
-    case 'beam':
+    case "beam":
       return <Beam phase={phase} reduced={reduced} />;
-    case 'chime':
+    case "chime":
       return <Chime phase={phase} reduced={reduced} />;
-    case 'comet':
+    case "comet":
       return <Comet phase={phase} reduced={reduced} />;
-    case 'sparks':
+    case "sparks":
       return <Sparks phase={phase} reduced={reduced} />;
-    case 'dashes':
+    case "dashes":
       return <Dashes phase={phase} reduced={reduced} />;
-    case 'crosshair':
+    case "crosshair":
       return <Crosshair phase={phase} reduced={reduced} />;
-    case 'wave':
+    case "wave":
       return <Wave phase={phase} reduced={reduced} />;
-    case 'shards':
+    case "shards":
       return <Shards phase={phase} reduced={reduced} />;
-    case 'trail':
+    case "trail":
       return <Trail phase={phase} reduced={reduced} />;
-    case 'corners':
+    case "corners":
       return <Corners phase={phase} reduced={reduced} />;
-    case 'drip':
+    case "drip":
       return <Drip phase={phase} reduced={reduced} />;
-    case 'contour':
+    case "contour":
       return <Contour phase={phase} reduced={reduced} />;
-    case 'sieve':
+    case "sieve":
       return <Sieve phase={phase} reduced={reduced} />;
-    case 'spotlight':
+    case "spotlight":
       return <Spotlight phase={phase} reduced={reduced} />;
-    case 'pulse':
+    case "pulse":
       return <Pulse reduced={reduced} />;
     default:
       return null;
@@ -742,7 +742,7 @@ function Rings({ phase, reduced }: PartProps) {
           }}
           style={{ width: diameter, height: diameter }}
           className={cn(
-            'absolute rounded-full border',
+            "absolute rounded-full border",
             index === 0 ? HAIRLINE : HAIRLINE_SOFT,
             FADE_DOWN,
           )}
@@ -780,7 +780,7 @@ function Halo({ phase, reduced }: PartProps) {
             transition: reduced ? { duration: 0.2 } : { ...SPRING_FLUID, delay: 0.14 },
           },
         }}
-        className={cn('absolute size-[96px] rounded-full border', HAIRLINE, FADE_DOWN)}
+        className={cn("absolute size-[96px] rounded-full border", HAIRLINE, FADE_DOWN)}
       />
     </>
   );
@@ -799,7 +799,7 @@ function DotGrid({ phase, reduced }: PartProps) {
   }, []);
 
   return (
-    <div className={cn('absolute size-[160px]', FADE_EDGES)}>
+    <div className={cn("absolute size-[160px]", FADE_EDGES)}>
       {cells.map((cell) => (
         <motion.span
           key={`${cell.x}:${cell.y}`}
@@ -819,7 +819,7 @@ function DotGrid({ phase, reduced }: PartProps) {
             left: `${50 + cell.x * 16}%`,
             top: `${50 + cell.y * 16}%`,
           }}
-          className={cn('absolute size-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full', INK)}
+          className={cn("absolute size-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full", INK)}
         />
       ))}
     </div>
@@ -829,7 +829,7 @@ function DotGrid({ phase, reduced }: PartProps) {
 /** Nine tiles filling in like a catalogue loading its rows. */
 function Cells({ phase, reduced }: PartProps) {
   return (
-    <div className={cn('absolute grid size-[156px] grid-cols-3 grid-rows-3 gap-2', FADE_EDGES)}>
+    <div className={cn("absolute grid size-[156px] grid-cols-3 grid-rows-3 gap-2", FADE_EDGES)}>
       {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((cell) => (
         <motion.span
           key={cell}
@@ -845,7 +845,7 @@ function Cells({ phase, reduced }: PartProps) {
                 : { ...SPRING_SNAPPY, delay: 0.03 * ((cell * 5) % 9) },
             },
           }}
-          className={cn('rounded-[9px] border', HAIRLINE)}
+          className={cn("rounded-[9px] border", HAIRLINE)}
         />
       ))}
     </div>
@@ -857,7 +857,7 @@ function Scan({ phase, reduced }: PartProps) {
   return (
     <div
       className={cn(
-        'absolute size-[150px] overflow-hidden rounded-[26px] border',
+        "absolute size-[150px] overflow-hidden rounded-[26px] border",
         HAIRLINE,
         FADE_DOWN,
       )}
@@ -883,7 +883,7 @@ function Scan({ phase, reduced }: PartProps) {
 function Orbit({ phase, reduced }: PartProps) {
   return (
     <>
-      <span className={cn('absolute size-[120px] rounded-full border', HAIRLINE_SOFT, FADE_DOWN)} />
+      <span className={cn("absolute size-[120px] rounded-full border", HAIRLINE_SOFT, FADE_DOWN)} />
       <motion.span
         initial="hidden"
         animate={phase}
@@ -897,7 +897,7 @@ function Orbit({ phase, reduced }: PartProps) {
         }}
         className="absolute size-[120px]"
       >
-        <span className="absolute left-1/2 top-0 size-[7px] -translate-x-1/2 rounded-full bg-black/[0.16] dark:bg-white/25" />
+        <span className="absolute top-0 left-1/2 size-[7px] -translate-x-1/2 rounded-full bg-black/[0.16] dark:bg-white/25" />
       </motion.span>
     </>
   );
@@ -907,7 +907,7 @@ function Orbit({ phase, reduced }: PartProps) {
 function Bars({ phase, reduced }: PartProps) {
   const heights = [0.34, 0.58, 0.44, 0.82, 0.5, 0.68, 0.38];
   return (
-    <div className={cn('absolute flex h-[120px] w-[168px] items-end gap-2', FADE_EDGES)}>
+    <div className={cn("absolute flex h-[120px] w-[168px] items-end gap-2", FADE_EDGES)}>
       {heights.map((height, index) => (
         <motion.span
           key={index}
@@ -921,7 +921,7 @@ function Bars({ phase, reduced }: PartProps) {
             },
           }}
           style={{ originY: 1 }}
-          className={cn('h-full flex-1 rounded-t-[4px]', INK_SOFT)}
+          className={cn("h-full flex-1 rounded-t-[4px]", INK_SOFT)}
         />
       ))}
     </div>
@@ -936,12 +936,12 @@ function Bars({ phase, reduced }: PartProps) {
  */
 function Rays({ phase, reduced }: PartProps) {
   return (
-    <div className={cn('absolute size-[160px]', FADE_DOWN)}>
+    <div className={cn("absolute size-[160px]", FADE_DOWN)}>
       {Array.from({ length: 12 }).map((_, index) => (
         <span
           key={index}
           style={{ transform: `rotate(${index * 30}deg)` }}
-          className="absolute left-1/2 top-1/2 h-[78px] w-px origin-top"
+          className="absolute top-1/2 left-1/2 h-[78px] w-px origin-top"
         >
           <motion.span
             initial="hidden"
@@ -957,7 +957,7 @@ function Rays({ phase, reduced }: PartProps) {
               },
             }}
             style={{ originY: 0 }}
-            className={cn('absolute bottom-0 block h-3.5 w-px', INK)}
+            className={cn("absolute bottom-0 block h-3.5 w-px", INK)}
           />
         </span>
       ))}
@@ -974,19 +974,15 @@ function Rays({ phase, reduced }: PartProps) {
  * little smaller than the one in front and filled with the panel surface, are
  * unmistakable — you see two slivers of paper and nothing else.
  */
-const STACK_TILE: Record<'sm' | 'md' | 'lg', string> = {
-  sm: 'size-10 rounded-xl',
-  md: 'size-14 rounded-2xl',
-  lg: 'size-16 rounded-3xl',
+const STACK_TILE: Record<"sm" | "md" | "lg", string> = {
+  sm: "size-10 rounded-xl",
+  md: "size-14 rounded-2xl",
+  lg: "size-16 rounded-3xl",
 };
 
-function Stack({
-  phase,
-  reduced,
-  size = 'md',
-}: PartProps & { size?: 'sm' | 'md' | 'lg' }) {
+function Stack({ phase, reduced, size = "md" }: PartProps & { size?: "sm" | "md" | "lg" }) {
   const cards =
-    size === 'sm'
+    size === "sm"
       ? [
           { y: -10, scale: 0.82, border: HAIRLINE_SOFT },
           { y: -5, scale: 0.91, border: HAIRLINE },
@@ -1015,7 +1011,7 @@ function Stack({
                 : { ...SPRING_FLUID, delay: 0.12 + index * 0.07 },
             },
           }}
-          className={cn('absolute border', STACK_TILE[size], SURFACE, card.border)}
+          className={cn("absolute border", STACK_TILE[size], SURFACE, card.border)}
         />
       ))}
     </>
@@ -1041,10 +1037,10 @@ function Ripple({ phase, reduced }: PartProps) {
                 : { duration: 1.5, delay: index * 0.22, ease: EASE_OUT },
             },
           }}
-          className={cn('absolute size-[150px] rounded-full border', HAIRLINE)}
+          className={cn("absolute size-[150px] rounded-full border", HAIRLINE)}
         />
       ))}
-      <span className={cn('absolute size-[92px] rounded-full border', HAIRLINE_SOFT)} />
+      <span className={cn("absolute size-[92px] rounded-full border", HAIRLINE_SOFT)} />
     </>
   );
 }
@@ -1083,7 +1079,7 @@ function Beam({ phase, reduced }: PartProps) {
             },
           }}
           style={{ left: `calc(50% + ${(index - 1) * 18}px)` }}
-          className={cn('absolute size-[3px] rounded-full', INK)}
+          className={cn("absolute size-[3px] rounded-full", INK)}
         />
       ))}
     </>
@@ -1099,10 +1095,10 @@ function Beam({ phase, reduced }: PartProps) {
  */
 function Chime({ phase, reduced }: PartProps) {
   const arcs = [
-    'M92.8 37 A40 40 0 0 1 92.8 83',
-    'M27.2 83 A40 40 0 0 1 27.2 37',
-    'M102.6 30.2 A52 52 0 0 1 102.6 89.8',
-    'M17.4 89.8 A52 52 0 0 1 17.4 30.2',
+    "M92.8 37 A40 40 0 0 1 92.8 83",
+    "M27.2 83 A40 40 0 0 1 27.2 37",
+    "M102.6 30.2 A52 52 0 0 1 102.6 89.8",
+    "M17.4 89.8 A52 52 0 0 1 17.4 30.2",
   ];
   return (
     <svg viewBox="0 0 120 120" className="absolute size-[128px] overflow-visible">
@@ -1140,7 +1136,7 @@ function Chime({ phase, reduced }: PartProps) {
 function Comet({ phase, reduced }: PartProps) {
   return (
     <>
-      <span className={cn('absolute size-[136px] rounded-full border', HAIRLINE_SOFT, FADE_DOWN)} />
+      <span className={cn("absolute size-[136px] rounded-full border", HAIRLINE_SOFT, FADE_DOWN)} />
       <motion.span
         initial="hidden"
         animate={phase}
@@ -1155,14 +1151,14 @@ function Comet({ phase, reduced }: PartProps) {
         className="absolute size-[136px]"
       >
         <span
-          className="absolute left-1/2 top-0 h-[7px] w-[34px] -translate-x-full rounded-full"
+          className="absolute top-0 left-1/2 h-[7px] w-[34px] -translate-x-full rounded-full"
           style={{
             background:
-              'linear-gradient(to right, transparent, color-mix(in oklab, currentColor 18%, transparent))',
+              "linear-gradient(to right, transparent, color-mix(in oklab, currentColor 18%, transparent))",
           }}
         />
         <span
-          className={cn('absolute left-1/2 top-0 size-[6px] -translate-x-1/2 rounded-full', INK)}
+          className={cn("absolute top-0 left-1/2 size-[6px] -translate-x-1/2 rounded-full", INK)}
         />
       </motion.span>
     </>
@@ -1191,10 +1187,10 @@ function Sparks({ phase, reduced }: PartProps) {
                 : { duration: 0.95, delay: 0.12 + index * 0.02, ease: EASE_OUT },
             },
           }}
-          className={cn('absolute size-[4px] rounded-full', INK)}
+          className={cn("absolute size-[4px] rounded-full", INK)}
         />
       ))}
-      <span className={cn('absolute size-[104px] rounded-full border', HAIRLINE_SOFT, FADE_DOWN)} />
+      <span className={cn("absolute size-[104px] rounded-full border", HAIRLINE_SOFT, FADE_DOWN)} />
     </>
   );
 }
@@ -1214,7 +1210,7 @@ function Dashes({ phase, reduced }: PartProps) {
           transition: reduced ? { duration: 0.2 } : { ...SPRING_FLUID, delay: 0.05 },
         },
       }}
-      className={cn('absolute size-[128px]', FADE_DOWN)}
+      className={cn("absolute size-[128px]", FADE_DOWN)}
     >
       <svg viewBox="0 0 100 100" className="size-full">
         <circle
@@ -1235,10 +1231,10 @@ function Dashes({ phase, reduced }: PartProps) {
 /** Four guides drawing out from the tile, the way a grid finds a slot. */
 function Crosshair({ phase, reduced }: PartProps) {
   const arms = [
-    { rotate: 0, key: 'up' },
-    { rotate: 90, key: 'right' },
-    { rotate: 180, key: 'down' },
-    { rotate: 270, key: 'left' },
+    { rotate: 0, key: "up" },
+    { rotate: 90, key: "right" },
+    { rotate: 180, key: "down" },
+    { rotate: 270, key: "left" },
   ];
   return (
     <>
@@ -1263,14 +1259,14 @@ function Crosshair({ phase, reduced }: PartProps) {
             }}
             style={{ originY: 1 }}
             className={cn(
-              'absolute inset-0 block w-px',
+              "absolute inset-0 block w-px",
               INK_SOFT,
-              '[mask-image:linear-gradient(to_top,black,transparent)]',
+              "[mask-image:linear-gradient(to_top,black,transparent)]",
             )}
           />
         </span>
       ))}
-      <span className={cn('absolute size-[78px] rounded-2xl border', HAIRLINE_SOFT)} />
+      <span className={cn("absolute size-[78px] rounded-2xl border", HAIRLINE_SOFT)} />
     </>
   );
 }
@@ -1278,7 +1274,7 @@ function Crosshair({ phase, reduced }: PartProps) {
 /** A slow signal drawn left to right. */
 function Wave({ phase, reduced }: PartProps) {
   return (
-    <svg viewBox="0 0 160 60" className={cn('absolute h-[60px] w-[168px]', FADE_EDGES)}>
+    <svg viewBox="0 0 160 60" className={cn("absolute h-[60px] w-[168px]", FADE_EDGES)}>
       <motion.path
         d="M0 30 Q 20 4 40 30 T 80 30 T 120 30 T 160 30"
         fill="none"
@@ -1304,7 +1300,7 @@ function Wave({ phase, reduced }: PartProps) {
 function Shards({ phase, reduced }: PartProps) {
   const lines = [-56, -28, 0, 28, 56];
   return (
-    <div className={cn('absolute size-[164px] overflow-hidden', FADE_EDGES)}>
+    <div className={cn("absolute size-[164px] overflow-hidden", FADE_EDGES)}>
       {lines.map((offset, index) => (
         <motion.span
           key={offset}
@@ -1319,7 +1315,7 @@ function Shards({ phase, reduced }: PartProps) {
             },
           }}
           style={{ left: `calc(50% + ${offset}px)` }}
-          className={cn('absolute -top-8 h-[220px] w-px rotate-[24deg]', INK_SOFT)}
+          className={cn("absolute -top-8 h-[220px] w-px rotate-[24deg]", INK_SOFT)}
         />
       ))}
     </div>
@@ -1357,7 +1353,7 @@ function Trail({ phase, reduced }: PartProps) {
                 : { ...SPRING_FLUID, delay: 0.06 + (3 - step) * 0.06 },
             },
           }}
-          className={cn('absolute size-14 rounded-2xl border', SURFACE, border)}
+          className={cn("absolute size-14 rounded-2xl border", SURFACE, border)}
         />
       ))}
     </>
@@ -1367,10 +1363,10 @@ function Trail({ phase, reduced }: PartProps) {
 /** Four brackets closing into a frame. */
 function Corners({ phase, reduced }: PartProps) {
   const corners = [
-    { className: 'left-0 top-0 border-l border-t rounded-tl-xl', x: -10, y: -10 },
-    { className: 'right-0 top-0 border-r border-t rounded-tr-xl', x: 10, y: -10 },
-    { className: 'left-0 bottom-0 border-b border-l rounded-bl-xl', x: -10, y: 10 },
-    { className: 'right-0 bottom-0 border-b border-r rounded-br-xl', x: 10, y: 10 },
+    { className: "left-0 top-0 border-l border-t rounded-tl-xl", x: -10, y: -10 },
+    { className: "right-0 top-0 border-r border-t rounded-tr-xl", x: 10, y: -10 },
+    { className: "left-0 bottom-0 border-b border-l rounded-bl-xl", x: -10, y: 10 },
+    { className: "right-0 bottom-0 border-b border-r rounded-br-xl", x: 10, y: 10 },
   ];
   return (
     <div className="absolute size-[132px]">
@@ -1390,7 +1386,7 @@ function Corners({ phase, reduced }: PartProps) {
                 : { ...SPRING_FLUID, delay: 0.05 + index * 0.05 },
             },
           }}
-          className={cn('absolute size-6', HAIRLINE, corner.className)}
+          className={cn("absolute size-6", HAIRLINE, corner.className)}
         />
       ))}
     </div>
@@ -1401,14 +1397,14 @@ function Corners({ phase, reduced }: PartProps) {
 function Drip({ phase, reduced }: PartProps) {
   const drops = [-48, -22, 4, 30, 54];
   return (
-    <div className={cn('absolute h-[160px] w-[150px] overflow-hidden', FADE_EDGES)}>
+    <div className={cn("absolute h-[160px] w-[150px] overflow-hidden", FADE_EDGES)}>
       {/* The drops pass through and are gone; the basin is what the panel is
           left looking at, so it is static. */}
       <span
         className={cn(
-          'absolute bottom-3 left-1/2 size-[112px] -translate-x-1/2 rounded-full border',
+          "absolute bottom-3 left-1/2 size-[112px] -translate-x-1/2 rounded-full border",
           HAIRLINE,
-          '[mask-image:linear-gradient(to_top,black_30%,transparent_85%)]',
+          "[mask-image:linear-gradient(to_top,black_30%,transparent_85%)]",
         )}
       />
       {drops.map((offset, index) => (
@@ -1427,7 +1423,7 @@ function Drip({ phase, reduced }: PartProps) {
             },
           }}
           style={{ left: `calc(50% + ${offset}px)` }}
-          className={cn('absolute top-0 h-3 w-px rounded-full', INK)}
+          className={cn("absolute top-0 h-3 w-px rounded-full", INK)}
         />
       ))}
     </div>
@@ -1454,7 +1450,7 @@ function Contour({ phase, reduced }: PartProps) {
             },
           }}
           style={{ width: size, height: size, borderRadius: 18 + index * 8 }}
-          className={cn('absolute border', index === 0 ? HAIRLINE : HAIRLINE_SOFT, FADE_DOWN)}
+          className={cn("absolute border", index === 0 ? HAIRLINE : HAIRLINE_SOFT, FADE_DOWN)}
         />
       ))}
     </>
@@ -1493,7 +1489,7 @@ function Sieve({ phase, reduced }: PartProps) {
                       },
                 },
               }}
-              className={cn('size-[3px] rounded-full', row === rows.length - 1 ? INK : INK_SOFT)}
+              className={cn("size-[3px] rounded-full", row === rows.length - 1 ? INK : INK_SOFT)}
             />
           ))}
         </div>
@@ -1518,7 +1514,7 @@ function Spotlight({ phase, reduced }: PartProps) {
       }}
       style={{
         originY: 0,
-        clipPath: 'polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%)',
+        clipPath: "polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%)",
       }}
       className="absolute -top-[46px] h-[150px] w-[168px] bg-[linear-gradient(to_bottom,rgba(0,0,0,0.07),transparent_85%)] dark:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.09),transparent_85%)]"
     />
@@ -1532,7 +1528,7 @@ function Spotlight({ phase, reduced }: PartProps) {
 function Pulse({ reduced }: { reduced: boolean }) {
   if (reduced) {
     return (
-      <span className={cn('absolute size-[120px] rounded-full border', HAIRLINE, FADE_DOWN)} />
+      <span className={cn("absolute size-[120px] rounded-full border", HAIRLINE, FADE_DOWN)} />
     );
   }
   return (
@@ -1543,10 +1539,10 @@ function Pulse({ reduced }: { reduced: boolean }) {
           initial={{ opacity: 0, scale: 0.42 }}
           animate={{ opacity: [0, 0.75, 0], scale: [0.42, 1.15] }}
           transition={{ duration: 2.6, repeat: Infinity, delay: index * 1.3, ease: EASE_OUT }}
-          className={cn('absolute size-[150px] rounded-full border', HAIRLINE)}
+          className={cn("absolute size-[150px] rounded-full border", HAIRLINE)}
         />
       ))}
-      <span className={cn('absolute size-[92px] rounded-full border', HAIRLINE_SOFT, FADE_DOWN)} />
+      <span className={cn("absolute size-[92px] rounded-full border", HAIRLINE_SOFT, FADE_DOWN)} />
     </>
   );
 }
@@ -1557,7 +1553,7 @@ export interface EmptyMedallionProps {
   /** An Iconly Bold glyph from this file. Sized by the medallion, not by you. */
   icon: React.ReactNode;
   tone?: EmptyTone;
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   /**
    * What happens behind the tile. Each block in this category picks a different
    * one; `none` is right whenever the panel already has a background of its own
@@ -1570,10 +1566,10 @@ export interface EmptyMedallionProps {
   className?: string;
 }
 
-const TILE: Record<'sm' | 'md' | 'lg', string> = {
-  sm: 'size-10 rounded-xl [&_svg]:size-[18px]',
-  md: 'size-14 rounded-2xl [&_svg]:size-6',
-  lg: 'size-16 rounded-3xl [&_svg]:size-7',
+const TILE: Record<"sm" | "md" | "lg", string> = {
+  sm: "size-10 rounded-xl [&_svg]:size-[18px]",
+  md: "size-14 rounded-2xl [&_svg]:size-6",
+  lg: "size-16 rounded-3xl [&_svg]:size-7",
 };
 
 /**
@@ -1583,36 +1579,36 @@ const TILE: Record<'sm' | 'md' | 'lg', string> = {
  */
 export function EmptyMedallion({
   icon,
-  tone = 'neutral',
-  size = 'md',
-  backdrop = 'rings',
+  tone = "neutral",
+  size = "md",
+  backdrop = "rings",
   badge,
   className,
 }: EmptyMedallionProps) {
   const reduced = useReducedMotion();
 
   return (
-    <div className={cn('relative grid place-items-center', className)}>
+    <div className={cn("relative grid place-items-center", className)}>
       <MedallionBackdropLayer kind={backdrop} size={size} />
 
       <motion.div
-        initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.84, filter: 'blur(6px)' }}
-        whileInView={reduced ? { opacity: 1 } : { opacity: 1, scale: 1, filter: 'blur(0px)' }}
+        initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.84, filter: "blur(6px)" }}
+        whileInView={reduced ? { opacity: 1 } : { opacity: 1, scale: 1, filter: "blur(0px)" }}
         viewport={VIEWPORT}
         transition={reduced ? { duration: 0.15 } : SPRING_ENTRANCE}
         className={cn(
           /* Opaque in both themes. A translucent tile lets whatever the backdrop
              is doing show straight through the glyph's own surface, which is how
              the stack behind it ended up drawing lines across the folder. */
-          'relative grid place-items-center border border-border bg-card',
-          'shadow-xs dark:shadow-none',
+          "relative grid place-items-center border border-border bg-card",
+          "shadow-xs dark:shadow-none",
           TILE[size],
           TONE_GLYPH[tone],
         )}
       >
         {icon}
         {badge && (
-          <span className="absolute -bottom-1.5 -right-1.5 flex items-center justify-center rounded-full bg-card p-px">
+          <span className="absolute -right-1.5 -bottom-1.5 flex items-center justify-center rounded-full bg-card p-px">
             {badge}
           </span>
         )}
@@ -1626,7 +1622,7 @@ export function EmptyMedallion({
 export interface EmptyStateProps {
   icon?: React.ReactNode;
   tone?: EmptyTone;
-  medallionSize?: 'sm' | 'md' | 'lg';
+  medallionSize?: "sm" | "md" | "lg";
   /** The block's own backdrop. See EmptyMedallionProps. */
   backdrop?: MedallionBackdrop;
   badge?: React.ReactNode;
@@ -1638,9 +1634,9 @@ export interface EmptyStateProps {
   actions?: React.ReactNode;
   /** The quiet line under the actions — a shortcut, a doc link, a limit. */
   footnote?: React.ReactNode;
-  align?: 'center' | 'start';
+  align?: "center" | "start";
   /** Sidebar / inline lists use `compact`: smaller type, tighter gaps. */
-  density?: 'default' | 'compact';
+  density?: "default" | "compact";
   className?: string;
 }
 
@@ -1650,9 +1646,9 @@ export interface EmptyStateProps {
  */
 export function EmptyState({
   icon,
-  tone = 'neutral',
-  medallionSize = 'md',
-  backdrop = 'rings',
+  tone = "neutral",
+  medallionSize = "md",
+  backdrop = "rings",
   badge,
   eyebrow,
   title,
@@ -1660,13 +1656,13 @@ export function EmptyState({
   children,
   actions,
   footnote,
-  align = 'center',
-  density = 'default',
+  align = "center",
+  density = "default",
   className,
 }: EmptyStateProps) {
   const { stack, item } = useReveal();
-  const centred = align === 'center';
-  const compact = density === 'compact';
+  const centred = align === "center";
+  const compact = density === "compact";
 
   return (
     <motion.div
@@ -1677,13 +1673,13 @@ export function EmptyState({
       data-slot="empty-state"
       className={cn(
         EMPTY_FONT,
-        'flex w-full flex-col',
-        centred ? 'items-center text-center' : 'items-start text-left',
+        "flex w-full flex-col",
+        centred ? "items-center text-center" : "items-start text-left",
         className,
       )}
     >
       {icon && (
-        <motion.div variants={item} className={compact ? 'mb-2.5' : 'mb-5'}>
+        <motion.div variants={item} className={compact ? "mb-2.5" : "mb-5"}>
           <EmptyMedallion
             icon={icon}
             tone={tone}
@@ -1698,8 +1694,8 @@ export function EmptyState({
         <motion.p
           variants={item}
           className={cn(
-            'font-medium leading-[1.4] tracking-[0.04em] text-muted-foreground',
-            compact ? 'mb-1 text-[11px]' : 'mb-2 text-[12px]',
+            "leading-[1.4] font-medium tracking-[0.04em] text-muted-foreground",
+            compact ? "mb-1 text-[11px]" : "mb-2 text-[12px]",
           )}
         >
           {eyebrow}
@@ -1709,10 +1705,8 @@ export function EmptyState({
       <motion.h3
         variants={item}
         className={cn(
-          'text-balance font-semibold leading-[1.3] text-foreground',
-          compact
-            ? 'text-[13px] tracking-[-0.01em]'
-            : 'text-[17px] tracking-[-0.014em]',
+          "leading-[1.3] font-semibold text-balance text-foreground",
+          compact ? "text-[13px] tracking-[-0.01em]" : "text-[17px] tracking-[-0.014em]",
         )}
       >
         {title}
@@ -1724,11 +1718,11 @@ export function EmptyState({
           className={cn(
             /* 46ch keeps the measure inside the 60–75 character band once the
                panel's own padding is taken off. */
-            'max-w-[46ch] text-pretty text-muted-foreground',
+            "max-w-[46ch] text-pretty text-muted-foreground",
             compact
-              ? 'mt-1.5 text-[12px] leading-[1.5] tracking-[-0.002em]'
-              : 'mt-2.5 text-[13.5px] leading-[1.62] tracking-[-0.003em]',
-            centred && 'mx-auto',
+              ? "mt-1.5 text-[12px] leading-[1.5] tracking-[-0.002em]"
+              : "mt-2.5 text-[13.5px] leading-[1.62] tracking-[-0.003em]",
+            centred && "mx-auto",
           )}
         >
           {description}
@@ -1736,7 +1730,10 @@ export function EmptyState({
       )}
 
       {children && (
-        <motion.div variants={item} className={cn(compact ? 'mt-3 w-full' : 'mt-5 w-full', centred && 'flex justify-center')}>
+        <motion.div
+          variants={item}
+          className={cn(compact ? "mt-3 w-full" : "mt-5 w-full", centred && "flex justify-center")}
+        >
           {children}
         </motion.div>
       )}
@@ -1745,9 +1742,9 @@ export function EmptyState({
         <motion.div
           variants={item}
           className={cn(
-            'flex flex-wrap items-center gap-2',
-            compact ? 'mt-3' : 'mt-6',
-            centred ? 'justify-center' : 'justify-start',
+            "flex flex-wrap items-center gap-2",
+            compact ? "mt-3" : "mt-6",
+            centred ? "justify-center" : "justify-start",
           )}
         >
           {actions}
@@ -1758,10 +1755,10 @@ export function EmptyState({
         <motion.div
           variants={item}
           className={cn(
-            'text-pretty text-muted-foreground',
+            "text-pretty text-muted-foreground",
             compact
-              ? 'mt-3 text-[12px] leading-[1.45] tracking-[-0.002em]'
-              : 'mt-5 text-[13px] leading-[1.55] tracking-[-0.002em]',
+              ? "mt-3 text-[12px] leading-[1.45] tracking-[-0.002em]"
+              : "mt-5 text-[13px] leading-[1.55] tracking-[-0.002em]",
           )}
         >
           {footnote}
@@ -1775,34 +1772,32 @@ export function EmptyState({
 
 export interface EmptyActionProps extends Omit<
   React.ButtonHTMLAttributes<HTMLButtonElement>,
-  | 'onDrag'
-  | 'onDragStart'
-  | 'onDragEnd'
-  | 'onAnimationStart'
-  | 'onAnimationEnd'
-  | 'onAnimationIteration'
+  | "onDrag"
+  | "onDragStart"
+  | "onDragEnd"
+  | "onAnimationStart"
+  | "onAnimationEnd"
+  | "onAnimationIteration"
 > {
-  emphasis?: 'primary' | 'secondary' | 'quiet';
+  emphasis?: "primary" | "secondary" | "quiet";
   /** Compact `sm` is for sidebar / inline lists. */
-  size?: 'sm' | 'md';
+  size?: "sm" | "md";
   /** Leading glyph. Sized to 15px so it sits on the label's cap height. */
   icon?: React.ReactNode;
   /** Trailing glyph, for actions that lead somewhere. */
   trailing?: React.ReactNode;
 }
 
-const EMPHASIS: Record<'primary' | 'secondary' | 'quiet', string> = {
-  primary:
-    'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground',
+const EMPHASIS: Record<"primary" | "secondary" | "quiet", string> = {
+  primary: "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
   secondary:
-    'border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
-  quiet:
-    'bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
+    "border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
+  quiet: "bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
 };
 
-const ACTION_SIZE: Record<'sm' | 'md', string> = {
-  sm: 'h-7 gap-1 rounded-lg px-2.5 text-[12px] tracking-[-0.004em] [&_svg]:size-[13px]',
-  md: 'h-9 gap-1.5 rounded-xl px-3.5 text-[14px] tracking-[-0.006em] [&_svg]:size-[15px]',
+const ACTION_SIZE: Record<"sm" | "md", string> = {
+  sm: "h-7 gap-1 rounded-lg px-2.5 text-[12px] tracking-[-0.004em] [&_svg]:size-[13px]",
+  md: "h-9 gap-1.5 rounded-xl px-3.5 text-[14px] tracking-[-0.006em] [&_svg]:size-[15px]",
 };
 
 /**
@@ -1813,13 +1808,13 @@ const ACTION_SIZE: Record<'sm' | 'md', string> = {
 export const EmptyAction = React.forwardRef<HTMLButtonElement, EmptyActionProps>(
   function EmptyAction(
     {
-      emphasis = 'primary',
-      size = 'md',
+      emphasis = "primary",
+      size = "md",
       icon,
       trailing,
       className,
       children,
-      type = 'button',
+      type = "button",
       ...props
     },
     ref,
@@ -1833,9 +1828,9 @@ export const EmptyAction = React.forwardRef<HTMLButtonElement, EmptyActionProps>
         whileTap={reduced ? undefined : { scale: 0.96 }}
         transition={SPRING_TACTILE}
         className={cn(
-          'inline-flex cursor-pointer items-center justify-center font-medium shadow-none',
-          'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
-          'disabled:pointer-events-none disabled:opacity-64',
+          "inline-flex cursor-pointer items-center justify-center font-medium shadow-none",
+          "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          "disabled:pointer-events-none disabled:opacity-64",
           ACTION_SIZE[size],
           EMPHASIS[emphasis],
           className,
@@ -1876,7 +1871,7 @@ export function EmptyPanel({
       data-slot="empty-panel"
       className={cn(
         EMPTY_FONT,
-        'w-full overflow-hidden rounded-2xl border border-border bg-card shadow-xs',
+        "w-full overflow-hidden rounded-2xl border border-border bg-card shadow-xs",
         className,
       )}
     >
@@ -1884,12 +1879,12 @@ export function EmptyPanel({
         <header className="flex min-w-0 items-center gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0 flex-1">
             {title && (
-              <p className="truncate text-[14px] font-semibold leading-[1.35] tracking-[-0.008em] text-foreground">
+              <p className="truncate text-[14px] leading-[1.35] font-semibold tracking-[-0.008em] text-foreground">
                 {title}
               </p>
             )}
             {meta && (
-              <p className="mt-0.5 truncate text-[12.5px] leading-[1.4] tracking-[-0.002em] tabular-nums text-muted-foreground">
+              <p className="mt-0.5 truncate text-[12.5px] leading-[1.4] tracking-[-0.002em] text-muted-foreground tabular-nums">
                 {meta}
               </p>
             )}
@@ -1897,7 +1892,7 @@ export function EmptyPanel({
           {toolbar && <div className="flex shrink-0 items-center gap-1.5">{toolbar}</div>}
         </header>
       )}
-      <div className={cn('px-5 py-8 sm:px-8 sm:py-12', bodyClassName)}>{children}</div>
+      <div className={cn("px-5 py-8 sm:px-8 sm:py-12", bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -1905,18 +1900,18 @@ export function EmptyPanel({
 export interface GhostRowsProps {
   rows?: number;
   /** Where the fade runs. `up` puts solid rows at the bottom of the stack. */
-  fade?: 'down' | 'up';
+  fade?: "down" | "up";
   className?: string;
 }
 
 /** The list that would have been here, drawn faint so the layout keeps its shape. */
-export function GhostRows({ rows = 4, fade = 'down', className }: GhostRowsProps) {
+export function GhostRows({ rows = 4, fade = "down", className }: GhostRowsProps) {
   const reduced = useReducedMotion();
 
   return (
-    <div aria-hidden className={cn('flex w-full flex-col gap-2', className)}>
+    <div aria-hidden className={cn("flex w-full flex-col gap-2", className)}>
       {Array.from({ length: rows }).map((_, index) => {
-        const depth = fade === 'down' ? index : rows - 1 - index;
+        const depth = fade === "down" ? index : rows - 1 - index;
         return (
           <motion.div
             key={index}
@@ -1940,8 +1935,8 @@ export function Kbd({ children, className }: { children: React.ReactNode; classN
   return (
     <kbd
       className={cn(
-        'inline-flex h-5 min-w-[20px] items-center justify-center rounded-[6px] border border-border bg-muted/50 px-1.5',
-        'font-mono text-[12px] font-medium text-muted-foreground',
+        "inline-flex h-5 min-w-[20px] items-center justify-center rounded-[6px] border border-border bg-muted/50 px-1.5",
+        "font-mono text-[12px] font-medium text-muted-foreground",
         className,
       )}
     >
@@ -1960,7 +1955,7 @@ export function EmptyHint({
   className?: string;
 }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 text-[13px]', className)}>
+    <span className={cn("inline-flex items-center gap-1.5 text-[13px]", className)}>
       {keys?.map((key) => (
         <Kbd key={key}>{key}</Kbd>
       ))}
@@ -1977,13 +1972,13 @@ export interface EmptyMeterProps {
 }
 
 const TONE_FILL: Record<EmptyTone, string> = {
-  neutral: 'bg-foreground',
-  positive: 'bg-success',
-  caution: 'bg-warning',
-  critical: 'bg-destructive',
+  neutral: "bg-foreground",
+  positive: "bg-success",
+  caution: "bg-warning",
+  critical: "bg-destructive",
 };
 
-export function EmptyMeter({ value, tone = 'neutral', className }: EmptyMeterProps) {
+export function EmptyMeter({ value, tone = "neutral", className }: EmptyMeterProps) {
   const reduced = useReducedMotion();
   const clamped = Math.min(1, Math.max(0, value));
 
@@ -1993,10 +1988,7 @@ export function EmptyMeter({ value, tone = 'neutral', className }: EmptyMeterPro
       aria-valuenow={Math.round(clamped * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={cn(
-        'h-1.5 w-full overflow-hidden rounded-full bg-muted',
-        className,
-      )}
+      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted", className)}
     >
       <motion.div
         initial={{ scaleX: reduced ? clamped : 0 }}
@@ -2004,14 +1996,14 @@ export function EmptyMeter({ value, tone = 'neutral', className }: EmptyMeterPro
         viewport={VIEWPORT}
         transition={reduced ? { duration: 0 } : { ...SPRING_FLUID, delay: 0.18 }}
         style={{ originX: 0 }}
-        className={cn('h-full rounded-full', TONE_FILL[tone])}
+        className={cn("h-full rounded-full", TONE_FILL[tone])}
       />
     </div>
   );
 }
 
 export function StatusDot({
-  tone = 'neutral',
+  tone = "neutral",
   className,
 }: {
   tone?: EmptyTone;
@@ -2020,7 +2012,7 @@ export function StatusDot({
   return (
     <span
       aria-hidden
-      className={cn('inline-block size-1.5 shrink-0 rounded-full', TONE_FILL[tone], className)}
+      className={cn("inline-block size-1.5 shrink-0 rounded-full", TONE_FILL[tone], className)}
     />
   );
 }
@@ -2035,8 +2027,8 @@ export function DropTarget({
   return (
     <div
       className={cn(
-        'rounded-2xl border border-dashed transition-colors duration-200',
-        active ? 'border-foreground/40 bg-accent' : 'border-border',
+        "rounded-2xl border border-dashed transition-colors duration-200",
+        active ? "border-foreground/40 bg-accent" : "border-border",
         className,
       )}
       {...props}

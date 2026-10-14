@@ -95,10 +95,7 @@ async function liveBoardEnvReady(): Promise<boolean> {
   return false;
 }
 
-async function invokeTool(
-  tool: string,
-  args: Record<string, unknown> = {},
-): Promise<InvokeResult> {
+async function invokeTool(tool: string, args: Record<string, unknown> = {}): Promise<InvokeResult> {
   const response = await fetch(`http://127.0.0.1:${apiPort}/api/pt-design/agent/invoke`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -161,7 +158,13 @@ function invokeHasPng(result: InvokeResult): boolean {
   const mimeOk = mime === "image/png" || dataUrl.startsWith("data:image/png");
   if (!mimeOk || raw.length < 32) return false;
   const bytes = Buffer.from(raw, "base64");
-  return bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  return (
+    bytes.length >= 4 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  );
 }
 
 async function openSeededPtDesign(page: Page, ptx = SEEDED_PTX): Promise<void> {
@@ -201,7 +204,10 @@ async function openSeededPtDesign(page: Page, ptx = SEEDED_PTX): Promise<void> {
     );
   }
 
-  const storedRaw = await page.evaluate((key) => window.localStorage.getItem(key), PT_DESIGN_STORAGE_KEY);
+  const storedRaw = await page.evaluate(
+    (key) => window.localStorage.getItem(key),
+    PT_DESIGN_STORAGE_KEY,
+  );
   let storedPtx = "";
   try {
     const parsed = JSON.parse(storedRaw ?? "") as { ptx?: unknown };
@@ -214,9 +220,9 @@ async function openSeededPtDesign(page: Page, ptx = SEEDED_PTX): Promise<void> {
   try {
     await expect(page.locator('[data-pt-overlay-id="run"]')).toBeVisible({ timeout: 30_000 });
   } catch (error) {
-    const overlayIds = await page.locator("[data-pt-overlay-id]").evaluateAll((els) =>
-      els.map((el) => el.getAttribute("data-pt-overlay-id")),
-    );
+    const overlayIds = await page
+      .locator("[data-pt-overlay-id]")
+      .evaluateAll((els) => els.map((el) => el.getAttribute("data-pt-overlay-id")));
     throw new Error(
       `Seeded PTX did not project overlay nodes. overlayIds=${JSON.stringify(overlayIds)} ptxHasRun=${storedPtx.includes('id="run"')}`,
       { cause: error },
@@ -331,7 +337,9 @@ test.describe("APP-075 PT Design interactive canvas", () => {
     await expect
       .poll(async () => {
         const ptx = await getPtx();
-        return Math.abs(buttonAttr(ptx, "x") - 300) > 20 || Math.abs(buttonAttr(ptx, "y") - 300) > 20;
+        return (
+          Math.abs(buttonAttr(ptx, "x") - 300) > 20 || Math.abs(buttonAttr(ptx, "y") - 300) > 20
+        );
       })
       .toBe(true);
     const moved = await getPtx();
@@ -392,7 +400,9 @@ test.describe("APP-075 PT Design interactive canvas", () => {
     await openSeededPtDesign(page);
     await switchMode(page, "Edit");
     await dragOverlay(page, "run", 90, 0);
-    await expect.poll(async () => Math.abs(buttonAttr(await getPtx(), "x") - 300)).toBeGreaterThan(20);
+    await expect
+      .poll(async () => Math.abs(buttonAttr(await getPtx(), "x") - 300))
+      .toBeGreaterThan(20);
     const movedX = buttonAttr(await getPtx(), "x");
     await switchMode(page, "Interact");
     await page.keyboard.press(UNDO);
@@ -414,12 +424,15 @@ test.describe("APP-075 PT Design interactive canvas", () => {
       shot.ok,
       `pt_screenshot failed: ${shot.error?.code ?? "not-ok"} ${shot.error?.message ?? JSON.stringify(shot)}`,
     ).toBe(true);
-    expect(invokeHasPng(shot), "pt_screenshot data is not a PNG (mime/mediaType + magic 89 50 4E 47)").toBe(
-      true,
-    );
+    expect(
+      invokeHasPng(shot),
+      "pt_screenshot data is not a PNG (mime/mediaType + magic 89 50 4E 47)",
+    ).toBe(true);
   });
 
-  test("@spec S5 — Interact representative overlay dialog and block.auth-form", async ({ page }) => {
+  test("@spec S5 — Interact representative overlay dialog and block.auth-form", async ({
+    page,
+  }) => {
     test.setTimeout(180_000);
     await openSeededPtDesign(page, S5_REPRESENTATIVE_PTX);
     await switchMode(page, "Interact");
@@ -427,7 +440,10 @@ test.describe("APP-075 PT Design interactive canvas", () => {
     const dlg = page.locator('[data-pt-overlay-id="dlg"]');
     await expect(dlg, "dialog overlay did not project").toBeVisible({ timeout: 30_000 });
     const dlgTrigger = dlg.locator("[data-pt-overlay-trigger]");
-    await expect(dlgTrigger, "Interact dialog starts closed; Confirm trigger must be visible").toBeVisible();
+    await expect(
+      dlgTrigger,
+      "Interact dialog starts closed; Confirm trigger must be visible",
+    ).toBeVisible();
     await dlgTrigger.click();
     await expect(dlg.locator('[role="dialog"]')).toBeVisible();
 
@@ -435,8 +451,12 @@ test.describe("APP-075 PT Design interactive canvas", () => {
       inOverlay: Boolean(el.closest("[data-pt-overlay]")),
       parentIsBody: el.parentElement === document.body,
     }));
-    expect(dlgPlacement.inOverlay, "dialog overlay node must live inside [data-pt-overlay]").toBe(true);
-    expect(dlgPlacement.parentIsBody, "dialog overlay must not be a document.body portal").toBe(false);
+    expect(dlgPlacement.inOverlay, "dialog overlay node must live inside [data-pt-overlay]").toBe(
+      true,
+    );
+    expect(dlgPlacement.parentIsBody, "dialog overlay must not be a document.body portal").toBe(
+      false,
+    );
 
     const escapedDialogs = await page.evaluate(() =>
       [...document.querySelectorAll('[role="dialog"]')]
@@ -446,7 +466,10 @@ test.describe("APP-075 PT Design interactive canvas", () => {
           parent: el.parentElement?.tagName ?? "",
         })),
     );
-    expect(escapedDialogs, "dialog role escaped outside [data-pt-overlay] (Radix body portal)").toEqual([]);
+    expect(
+      escapedDialogs,
+      "dialog role escaped outside [data-pt-overlay] (Radix body portal)",
+    ).toEqual([]);
 
     const auth = page.locator('[data-pt-overlay-id="auth"]');
     await expect(auth, "block.auth-form overlay did not project").toBeVisible({ timeout: 30_000 });

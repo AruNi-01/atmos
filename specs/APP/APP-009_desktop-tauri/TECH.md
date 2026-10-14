@@ -43,15 +43,15 @@
 
 下表对比了你熟悉的 Web 开发与 Tauri 桌面开发的概念映射：
 
-| Web 开发概念 | Tauri 桌面端对应概念 |
-| :--- | :--- |
-| 浏览器 | Tauri WebView（系统原生） |
-| 前端 JS/React 代码 | 同样的 JS/React 代码，运行在 WebView 中 |
-| 后端 HTTP API | Tauri Commands（通过 `invoke()` 调用的 Rust 函数） |
-| `fetch()` 调用后端 | `invoke()` 调用 Tauri Commands |
-| 服务器进程 | Tauri Core 进程（Rust） |
-| 浏览器标签页 | Tauri 窗口（Window） |
-| `localStorage` | Tauri 的 `store` 插件或原生文件系统 |
+| Web 开发概念       | Tauri 桌面端对应概念                               |
+| :----------------- | :------------------------------------------------- |
+| 浏览器             | Tauri WebView（系统原生）                          |
+| 前端 JS/React 代码 | 同样的 JS/React 代码，运行在 WebView 中            |
+| 后端 HTTP API      | Tauri Commands（通过 `invoke()` 调用的 Rust 函数） |
+| `fetch()` 调用后端 | `invoke()` 调用 Tauri Commands                     |
+| 服务器进程         | Tauri Core 进程（Rust）                            |
+| 浏览器标签页       | Tauri 窗口（Window）                               |
+| `localStorage`     | Tauri 的 `store` 插件或原生文件系统                |
 
 ---
 
@@ -73,14 +73,14 @@
 
 `atmos` 的后端 (`apps/api`) 已经相当成熟，包含了 PTY 终端管理、tmux 集成、Git 操作、WebSocket 服务等复杂功能。将这些全部重写为 Tauri Commands 既费时，又会引入不必要的风险。Sidecar 模式让我们以最小的代价完成桌面端的集成。
 
-| 对比维度 | Sidecar 模式（推荐） | 纯 Commands 模式 |
-| :--- | :--- | :--- |
-| **代码改动量** | 极小，后端几乎不变 | 大，需重写后端逻辑 |
-| **通信方式** | HTTP + WebSocket（熟悉） | IPC `invoke()`（需学习） |
-| **进程数量** | 2 个（Tauri + API） | 1 个（Tauri） |
-| **内存开销** | 略高（多一个进程） | 更低 |
-| **适用场景** | 已有复杂后端服务 | 新项目或简单后端 |
-| **与 Web 版本共享代码** | 完全共享 | 需要分叉维护 |
+| 对比维度                | Sidecar 模式（推荐）     | 纯 Commands 模式         |
+| :---------------------- | :----------------------- | :----------------------- |
+| **代码改动量**          | 极小，后端几乎不变       | 大，需重写后端逻辑       |
+| **通信方式**            | HTTP + WebSocket（熟悉） | IPC `invoke()`（需学习） |
+| **进程数量**            | 2 个（Tauri + API）      | 1 个（Tauri）            |
+| **内存开销**            | 略高（多一个进程）       | 更低                     |
+| **适用场景**            | 已有复杂后端服务         | 新项目或简单后端         |
+| **与 Web 版本共享代码** | 完全共享                 | 需要分叉维护             |
 
 ### 2.2 整体架构图
 
@@ -160,13 +160,13 @@ atmos/
 
 ### 4.1 必要依赖
 
-| 工具 | 用途 | 安装方式 |
-| :--- | :--- | :--- |
-| Rust (stable) | 编译 Tauri Core 和 Sidecar | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
-| Node.js / Bun | 前端构建（项目已使用 Bun） | 项目已有 |
-| Tauri CLI | 开发和构建命令 | `cargo install tauri-cli` 或 `bun add -D @tauri-apps/cli` |
-| **macOS 额外依赖** | Xcode Command Line Tools | `xcode-select --install` |
-| **Linux 额外依赖** | WebKit 等系统库 | `sudo apt-get install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf` |
+| 工具               | 用途                       | 安装方式                                                                                |
+| :----------------- | :------------------------- | :-------------------------------------------------------------------------------------- |
+| Rust (stable)      | 编译 Tauri Core 和 Sidecar | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh`                       |
+| Node.js / Bun      | 前端构建（项目已使用 Bun） | 项目已有                                                                                |
+| Tauri CLI          | 开发和构建命令             | `cargo install tauri-cli` 或 `bun add -D @tauri-apps/cli`                               |
+| **macOS 额外依赖** | Xcode Command Line Tools   | `xcode-select --install`                                                                |
+| **Linux 额外依赖** | WebKit 等系统库            | `sudo apt-get install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf` |
 
 ### 4.2 初始化 Tauri 项目
 
@@ -193,9 +193,9 @@ cargo tauri init
 ```toml
 [workspace]
 members = [
-    "apps/api",
-    "apps/desktop/src-tauri",  # 新增
-    "crates/*",
+  "apps/api",
+  "apps/desktop/src-tauri", # 新增
+  "crates/*",
 ]
 ```
 
@@ -264,10 +264,10 @@ export function DesktopI18nProvider({ children }: { children: React.ReactNode })
 
 ```javascript
 // apps/web/next.config.ts
-const isDesktop = process.env.BUILD_TARGET === 'desktop';
+const isDesktop = process.env.BUILD_TARGET === "desktop";
 
 const nextConfig = {
-  output: isDesktop ? 'export' : undefined,
+  output: isDesktop ? "export" : undefined,
   images: { unoptimized: isDesktop },
 };
 
@@ -291,6 +291,7 @@ export default isDesktop ? nextConfig : withNextIntl(nextConfig);
 **CORS 配置（必须修改 `apps/api`）**
 
 Tauri 桌面端 WebView 的 Origin 为：
+
 - macOS / Linux：`tauri://localhost`
 - Windows：`https://tauri.localhost`
 
@@ -316,7 +317,7 @@ let cors = CorsLayer::new()
 
 ```typescript
 // apps/web/src/lib/api-config.ts
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from "@tauri-apps/api/core";
 
 let apiConfig: { port: number; token: string } | null = null;
 
@@ -324,13 +325,13 @@ export async function getApiConfig() {
   if (apiConfig) return apiConfig;
 
   // 检测是否运行在 Tauri 环境
-  const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
   if (!isTauri) {
     // Web 环境：从环境变量读取
-    return { port: parseInt(process.env.NEXT_PUBLIC_API_PORT || '7777'), token: '' };
+    return { port: parseInt(process.env.NEXT_PUBLIC_API_PORT || "7777"), token: "" };
   }
 
-  apiConfig = await invoke<{ port: number; token: string }>('get_api_config');
+  apiConfig = await invoke<{ port: number; token: string }>("get_api_config");
   return apiConfig;
 }
 
@@ -344,7 +345,7 @@ export async function buildWsUrl(path: string) {
   const url = new URL(`ws://localhost:${port}${path}`);
   // 浏览器 WebSocket 无法像 fetch 一样稳定注入 Authorization header，
   // 桌面端推荐在 querystring 传递一次性 token，并在握手时校验。
-  if (token) url.searchParams.set('token', token);
+  if (token) url.searchParams.set("token", token);
   return url.toString();
 }
 ```
@@ -363,11 +364,14 @@ Sidecar 可能因异常重启，前端需要实现自动重连以恢复 WebSocke
 
 ```typescript
 // apps/web/src/lib/ws-client.ts
-export function createReconnectingWs(url: string, options = {
-  maxRetries: 10,
-  baseDelay: 1000,
-  maxDelay: 30000,
-}) {
+export function createReconnectingWs(
+  url: string,
+  options = {
+    maxRetries: 10,
+    baseDelay: 1000,
+    maxDelay: 30000,
+  },
+) {
   let ws: WebSocket | null = null;
   let retries = 0;
   let destroyed = false;
@@ -376,7 +380,9 @@ export function createReconnectingWs(url: string, options = {
     if (destroyed) return;
     ws = new WebSocket(url);
 
-    ws.onopen = () => { retries = 0; };
+    ws.onopen = () => {
+      retries = 0;
+    };
 
     ws.onclose = () => {
       if (destroyed || retries >= options.maxRetries) return;
@@ -388,8 +394,13 @@ export function createReconnectingWs(url: string, options = {
 
   connect();
   return {
-    get ws() { return ws; },
-    destroy() { destroyed = true; ws?.close(); },
+    get ws() {
+      return ws;
+    },
+    destroy() {
+      destroyed = true;
+      ws?.close();
+    },
   };
 }
 ```
@@ -422,9 +433,7 @@ pub struct AppState {
 ```json
 {
   "bundle": {
-    "externalBin": [
-      "binaries/api"
-    ]
+    "externalBin": ["binaries/api"]
   }
 }
 ```
@@ -790,20 +799,23 @@ TrayIconBuilder::new()
 
 ```json
 {
-  "windows": [{
-    "label": "main",
-    "title": "Atmos",
-    "width": 1400,
-    "height": 900,
-    "minWidth": 900,
-    "minHeight": 600,
-    "titleBarStyle": "overlay",
-    "hiddenTitle": true
-  }]
+  "windows": [
+    {
+      "label": "main",
+      "title": "Atmos",
+      "width": 1400,
+      "height": 900,
+      "minWidth": 900,
+      "minHeight": 600,
+      "titleBarStyle": "overlay",
+      "hiddenTitle": true
+    }
+  ]
 }
 ```
 
 `titleBarStyle: "overlay"` 的优势：
+
 - 保留 macOS 原生的红绿灯关闭/最小化/最大化按钮
 - 前端内容可延伸到标题栏区域
 - 拖拽行为与系统其他应用一致
@@ -821,7 +833,8 @@ TrayIconBuilder::new()
 }
 
 /* 可点击元素必须排除拖拽区域 */
-.titlebar button, .titlebar input {
+.titlebar button,
+.titlebar input {
   -webkit-app-region: no-drag;
 }
 ```
@@ -830,9 +843,9 @@ TrayIconBuilder::new()
 
 ```typescript
 // 前端通过 Tauri API 检测平台
-import { platform } from '@tauri-apps/plugin-os';
+import { platform } from "@tauri-apps/plugin-os";
 
-const isMac = await platform() === 'macos';
+const isMac = (await platform()) === "macos";
 // 根据平台渲染不同的标题栏组件
 ```
 
@@ -852,17 +865,17 @@ Tauri 2.0 引入了一套细粒度的权限控制系统，这是与 Tauri 1.0 �
 
 ### 8.2 常用权限速查
 
-| 需要的功能 | 需要添加的权限 |
-| :--- | :--- |
-| 执行 Sidecar | `shell:allow-execute` (with sidecar config) |
-| 读取文件 | `fs:allow-read-file` |
-| 写入文件 | `fs:allow-write-file` |
-| 打开文件对话框 | `dialog:allow-open` |
-| 发送系统通知 | `notification:allow-notify` |
-| 访问剪贴板 | `clipboard-manager:allow-read-text`, `clipboard-manager:allow-write-text` |
-| 打开外部 URL | `opener:allow-open-url` |
-| 窗口显示/隐藏 | `core:window:allow-show`, `core:window:allow-hide` |
-| 检测操作系统 | `os:allow-platform` |
+| 需要的功能     | 需要添加的权限                                                            |
+| :------------- | :------------------------------------------------------------------------ |
+| 执行 Sidecar   | `shell:allow-execute` (with sidecar config)                               |
+| 读取文件       | `fs:allow-read-file`                                                      |
+| 写入文件       | `fs:allow-write-file`                                                     |
+| 打开文件对话框 | `dialog:allow-open`                                                       |
+| 发送系统通知   | `notification:allow-notify`                                               |
+| 访问剪贴板     | `clipboard-manager:allow-read-text`, `clipboard-manager:allow-write-text` |
+| 打开外部 URL   | `opener:allow-open-url`                                                   |
+| 窗口显示/隐藏  | `core:window:allow-show`, `core:window:allow-hide`                        |
+| 检测操作系统   | `os:allow-platform`                                                       |
 
 ### 8.3 调试权限问题
 
@@ -890,14 +903,14 @@ dev-desktop:
     ATMOS_PORT=7777 ATMOS_LOCAL_TOKEN=dev-token cargo run --bin api &
     API_PID=$!
     echo "API started (PID: $API_PID)"
-    
+
     # 等待 API 就绪
     until curl -sf http://localhost:7777/health > /dev/null; do sleep 0.5; done
     echo "API is ready"
-    
+
     # 启动 Tauri 开发模式（包含 Next.js 热重载）
     cd apps/desktop && cargo tauri dev
-    
+
     # Tauri 退出后，清理 API 进程
     kill $API_PID 2>/dev/null || true
 ```
@@ -911,7 +924,7 @@ just dev-desktop
 
 ```typescript
 // 开发模式：直接使用固定端口，跳过 Tauri invoke
-const isTauriDev = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+const isTauriDev = process.env.NEXT_PUBLIC_DEV_MODE === "true";
 ```
 
 ### 9.2 调试技巧
@@ -956,7 +969,7 @@ name: Release Desktop App
 on:
   push:
     tags:
-      - 'desktop-v*'
+      - "desktop-v*"
 
 jobs:
   release:
@@ -967,19 +980,19 @@ jobs:
       matrix:
         include:
           # Apple Silicon (ARM64) - 必须在 ARM Runner 上原生编译
-          - platform: 'macos-14'
-            target: 'aarch64-apple-darwin'
-            args: '--target aarch64-apple-darwin'
+          - platform: "macos-14"
+            target: "aarch64-apple-darwin"
+            args: "--target aarch64-apple-darwin"
           # Intel Mac - 在标准 Runner 上编译
-          - platform: 'macos-13'
-            target: 'x86_64-apple-darwin'
-            args: '--target x86_64-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            target: 'x86_64-unknown-linux-gnu'
-            args: ''
-          - platform: 'windows-latest'
-            target: 'x86_64-pc-windows-msvc'
-            args: ''
+          - platform: "macos-13"
+            target: "x86_64-apple-darwin"
+            args: "--target x86_64-apple-darwin"
+          - platform: "ubuntu-22.04"
+            target: "x86_64-unknown-linux-gnu"
+            args: ""
+          - platform: "windows-latest"
+            target: "x86_64-pc-windows-msvc"
+            args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -1002,7 +1015,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: '. -> target'
+          workspaces: ". -> target"
           # 分平台缓存，避免缓存污染
           key: ${{ matrix.target }}
 
@@ -1037,7 +1050,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tagName: desktop-v__VERSION__
-          releaseName: 'Atmos Desktop v__VERSION__'
+          releaseName: "Atmos Desktop v__VERSION__"
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
@@ -1045,12 +1058,12 @@ jobs:
 
 **Runner 选择说明**：
 
-| 目标平台 | 使用的 Runner | 说明 |
-| :--- | :--- | :--- |
-| `aarch64-apple-darwin` | `macos-14` | GitHub 的 M1 Runner，原生 ARM 编译 |
-| `x86_64-apple-darwin` | `macos-13` | Intel Runner，原生 x86_64 编译 |
-| Linux | `ubuntu-22.04` | 标准 x86_64 |
-| Windows | `windows-latest` | 标准 x86_64 |
+| 目标平台               | 使用的 Runner    | 说明                               |
+| :--------------------- | :--------------- | :--------------------------------- |
+| `aarch64-apple-darwin` | `macos-14`       | GitHub 的 M1 Runner，原生 ARM 编译 |
+| `x86_64-apple-darwin`  | `macos-13`       | Intel Runner，原生 x86_64 编译     |
+| Linux                  | `ubuntu-22.04`   | 标准 x86_64                        |
+| Windows                | `windows-latest` | 标准 x86_64                        |
 
 ---
 
@@ -1062,11 +1075,11 @@ jobs:
 
 ### 11.2 三种发布方案对比
 
-| 方案 | 成本 | 用户体验 | 适用场景 |
-| :--- | :--- | :--- | :--- |
-| **无签名** | 免费 | 最差：Apple Silicon Mac 上**无法运行** | 不推荐 |
-| **Ad-hoc 签名** | 免费 | 较差：弹出"无法验证开发者"警告，右键可绕过 | 内测、早期用户 |
-| **Developer ID 签名 + 公证** | $99/年 | 最佳：双击直接打开，无任何警告 | 正式公开发布 |
+| 方案                         | 成本   | 用户体验                                   | 适用场景       |
+| :--------------------------- | :----- | :----------------------------------------- | :------------- |
+| **无签名**                   | 免费   | 最差：Apple Silicon Mac 上**无法运行**     | 不推荐         |
+| **Ad-hoc 签名**              | 免费   | 较差：弹出"无法验证开发者"警告，右键可绕过 | 内测、早期用户 |
+| **Developer ID 签名 + 公证** | $99/年 | 最佳：双击直接打开，无任何警告             | 正式公开发布   |
 
 > **注意**：无任何签名的应用在 Apple Silicon Mac 上完全无法运行（SIP 机制）；Ad-hoc 签名（使用 `-` 伪身份）可以在 Apple Silicon 上运行，但仍会触发 Gatekeeper 警告。
 
@@ -1116,9 +1129,7 @@ Tauri 内置了 `tauri-plugin-updater`，支持自动检查和安装更新。
   "plugins": {
     "updater": {
       "pubkey": "YOUR_PUBLIC_KEY",
-      "endpoints": [
-        "https://github.com/your-org/atmos/releases/latest/download/latest.json"
-      ]
+      "endpoints": ["https://github.com/your-org/atmos/releases/latest/download/latest.json"]
     }
   }
 }
@@ -1130,17 +1141,15 @@ Tauri 内置了 `tauri-plugin-updater`，支持自动检查和安装更新。
 
 ```typescript
 // apps/web/src/hooks/use-updater.ts（Tauri 环境专用）
-import { check } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 export async function checkAndUpdate() {
   const update = await check();
   if (!update) return;
 
   // 通知用户有新版本
-  const confirmed = await confirm(
-    `发现新版本 ${update.version}，是否立即更新？\n\n${update.body}`
-  );
+  const confirmed = await confirm(`发现新版本 ${update.version}，是否立即更新？\n\n${update.body}`);
   if (!confirmed) return;
 
   // 下载并安装
@@ -1204,7 +1213,7 @@ Sidecar 启动时的工作目录不是应用目录，而是系统临时目录。
 在 Tauri 中，`window.location.href` 的值是 `tauri://localhost/...` 而不是 `http://...`。如果你的代码中有基于 URL 的逻辑判断（如区分开发和生产环境），需要注意这个差异。检测 Tauri 环境的正确方法：
 
 ```typescript
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 ```
 
 **陷阱七：WebSocket 连接必须使用绝对地址**
@@ -1233,25 +1242,25 @@ Rust 在 Windows 上使用 `\` 作为路径分隔符，而 JavaScript 通常使�
 
 ## 14. 实施路线图
 
-| 阶段 | 主要任务 | 预计工作量 | 里程碑 | 风险项 |
-| :--- | :--- | :--- | :--- | :--- |
-| **阶段零：适配盘点（新增）** | 统计 `apps/web` 中所有 `localhost:8080`、`[locale]` 路由、WS 连接构造点；确定最小改造面与回滚策略 | 0.5-1 天 | 输出改造清单与准确排期 | 盘点不完整会导致后续返工 |
-| **阶段一：脚手架搭建** | 初始化 Tauri 项目结构；实现单实例锁；配置 Sidecar（含 Token 鉴权）；实现启动/关闭/崩溃恢复流程；接入 Splash Screen | 2-4 天 | 能够启动应用并看到前端 UI | Sidecar 生命周期细节较多 |
-| **阶段二：前端适配** | 解决 `next-intl` 兼容性；处理 CORS；实现 API URL/Token 动态配置；修复 `output: 'export'` 导致的问题；添加 WS 重连 | 5-10 天 | 前端功能与 Web 版本基本一致 | `[locale]` 路由结构若深度耦合，重构周期可能拉长至 2 周 |
-| **阶段三：原生能力集成** | 实现一键打开外部编辑器；添加系统托盘；适配 macOS overlay 标题栏；集成系统通知 | 2-3 天 | 桌面端体验优于 Web 版本 | 无 |
-| **阶段四：CI/CD 配置** | 配置 GitHub Actions 多平台构建（使用正确的 Runner）；设置 Ad-hoc 签名；测试安装包；配置自动更新签名密钥 | 1-2 天 | 能够自动化构建并发布安装包 | macOS Runner 类型选择容易出错 |
-| **阶段五：自动更新** | 集成 `tauri-plugin-updater`；实现前端更新提示 UI；配置更新端点；端到端测试更新流程 | 1-2 天 | 应用能够自动检测并安装更新 | 无 |
+| 阶段                         | 主要任务                                                                                                           | 预计工作量 | 里程碑                      | 风险项                                                 |
+| :--------------------------- | :----------------------------------------------------------------------------------------------------------------- | :--------- | :-------------------------- | :----------------------------------------------------- |
+| **阶段零：适配盘点（新增）** | 统计 `apps/web` 中所有 `localhost:8080`、`[locale]` 路由、WS 连接构造点；确定最小改造面与回滚策略                  | 0.5-1 天   | 输出改造清单与准确排期      | 盘点不完整会导致后续返工                               |
+| **阶段一：脚手架搭建**       | 初始化 Tauri 项目结构；实现单实例锁；配置 Sidecar（含 Token 鉴权）；实现启动/关闭/崩溃恢复流程；接入 Splash Screen | 2-4 天     | 能够启动应用并看到前端 UI   | Sidecar 生命周期细节较多                               |
+| **阶段二：前端适配**         | 解决 `next-intl` 兼容性；处理 CORS；实现 API URL/Token 动态配置；修复 `output: 'export'` 导致的问题；添加 WS 重连  | 5-10 天    | 前端功能与 Web 版本基本一致 | `[locale]` 路由结构若深度耦合，重构周期可能拉长至 2 周 |
+| **阶段三：原生能力集成**     | 实现一键打开外部编辑器；添加系统托盘；适配 macOS overlay 标题栏；集成系统通知                                      | 2-3 天     | 桌面端体验优于 Web 版本     | 无                                                     |
+| **阶段四：CI/CD 配置**       | 配置 GitHub Actions 多平台构建（使用正确的 Runner）；设置 Ad-hoc 签名；测试安装包；配置自动更新签名密钥            | 1-2 天     | 能够自动化构建并发布安装包  | macOS Runner 类型选择容易出错                          |
+| **阶段五：自动更新**         | 集成 `tauri-plugin-updater`；实现前端更新提示 UI；配置更新端点；端到端测试更新流程                                 | 1-2 天     | 应用能够自动检测并安装更新  | 无                                                     |
 
 ---
 
 ## 参考文献
 
-[1] Tauri Documentation. (2026). *Embedding External Binaries*. https://v2.tauri.app/develop/sidecar/
+[1] Tauri Documentation. (2026). _Embedding External Binaries_. https://v2.tauri.app/develop/sidecar/
 
-[2] Tauri Documentation. (2024). *Next.js Frontend Configuration*. https://v2.tauri.app/start/frontend/nextjs/
+[2] Tauri Documentation. (2024). _Next.js Frontend Configuration_. https://v2.tauri.app/start/frontend/nextjs/
 
-[3] GitHub Discussion. (2024). *Next-Intl + Tauri (or Electron, or generally `{ output: 'export' }`)*. https://github.com/amannn/next-intl/discussions/1637
+[3] GitHub Discussion. (2024). _Next-Intl + Tauri (or Electron, or generally `{ output: 'export' }`)_. https://github.com/amannn/next-intl/discussions/1637
 
-[4] Tauri Documentation. (2025). *GitHub Actions Pipeline*. https://v2.tauri.app/distribute/pipelines/github/
+[4] Tauri Documentation. (2025). _GitHub Actions Pipeline_. https://v2.tauri.app/distribute/pipelines/github/
 
-[5] Tauri Documentation. (2026). *macOS Code Signing*. https://v2.tauri.app/distribute/sign/macos/
+[5] Tauri Documentation. (2026). _macOS Code Signing_. https://v2.tauri.app/distribute/sign/macos/

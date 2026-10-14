@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
 import { toastManager } from "@workspace/ui";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -20,7 +20,11 @@ import type {
 } from "../lib/browser-bridge/types";
 import { connectSameOriginPreviewTransport } from "../lib/browser-transports/same-origin-transport";
 import { connectExtensionPreviewTransport } from "../lib/browser-transports/extension-transport";
-import { connectDesktopBrowserTransport, type DesktopBrowserAttachConfig, type DesktopBrowserBridgeController } from "../lib/browser-transports/desktop-transport";
+import {
+  connectDesktopBrowserTransport,
+  type DesktopBrowserAttachConfig,
+  type DesktopBrowserBridgeController,
+} from "../lib/browser-transports/desktop-transport";
 import { useOverlayDismissOnWebview } from "../hooks/use-overlay-dismiss-on-webview";
 import { useWebviewPointerPolicy } from "../hooks/use-webview-pointer-policy";
 import { BrowserContent } from "./BrowserContent";
@@ -92,7 +96,7 @@ export interface BrowserCanvasViewportController {
 }
 
 interface PreviewTransportState {
-  mode: BrowserTransportMode | 'unavailable';
+  mode: BrowserTransportMode | "unavailable";
   connected: boolean;
   message: string;
   capabilities: string[];
@@ -124,8 +128,8 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   requestUrlFocus = false,
 }) => {
   const previewToolbarT = useTranslations("browser.toolbar");
-  const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
-  const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
+  const headerHasOpenOverlay = useDialogStore((s) => s.headerHasOpenOverlay);
+  const isGlobalSearchOpen = useDialogStore((s) => s.isGlobalSearchOpen);
   const [iframeKey, setIframeKey] = useState(0);
   const [iframeSrc, setIframeSrc] = useState(activeUrl);
   const [requestedIframeUrl, setRequestedIframeUrl] = useState(activeUrl);
@@ -141,22 +145,20 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     y: number;
   } | null>(null);
   const [currentPageTitle, setCurrentPageTitle] = useState("");
-  const [isUrlInputFocused, setIsUrlInputFocused] = useState(
-    () => Boolean(isActive && requestUrlFocus),
+  const [isUrlInputFocused, setIsUrlInputFocused] = useState(() =>
+    Boolean(isActive && requestUrlFocus),
   );
   const [transportState, setTransportState] = useState<PreviewTransportState>({
-    mode: 'unavailable',
+    mode: "unavailable",
     connected: false,
-    message: '',
+    message: "",
     capabilities: [],
   });
-  const [{
-    pvView: viewModeParam,
-    pvToolbar: isToolbarHiddenParam,
-  }, setBrowserToolbarParams] = useQueryStates({
-    pvView: previewToolbarParams.pvView,
-    pvToolbar: previewToolbarParams.pvToolbar,
-  });
+  const [{ pvView: viewModeParam, pvToolbar: isToolbarHiddenParam }, setBrowserToolbarParams] =
+    useQueryStates({
+      pvView: previewToolbarParams.pvView,
+      pvToolbar: previewToolbarParams.pvToolbar,
+    });
   const viewMode: ViewMode = viewModeParam === "mobile" ? "mobile" : "desktop";
   const isToolbarHidden = isToolbarHiddenParam;
   // Element pick is per Preview instance (one per browser tab) — never shared via URL.
@@ -195,11 +197,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const onPageTitleChangeRef = useRef(onPageTitleChange);
   const onPageIconChangeRef = useRef(onPageIconChange);
   const onOpenPageInNewTabRef = useRef(onOpenPageInNewTab);
-  const {
-    isMaximized,
-    needsDesktopPreviewSafeInset,
-    setIsMaximized,
-  } = useBrowserWindowState({
+  const { isMaximized, needsDesktopPreviewSafeInset, setIsMaximized } = useBrowserWindowState({
     isMaximized: controlledIsMaximized,
     reserveDesktopWindowControlsInset: isStandaloneBrowserWindow,
     setIsMaximized: controlledSetIsMaximized,
@@ -223,9 +221,12 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     setIsPreviewLoadingState(nextIsPreviewLoading);
   }, []);
 
-  const setViewMode = useCallback((nextViewMode: ViewMode) => {
-    void setBrowserToolbarParams({ pvView: nextViewMode });
-  }, [setBrowserToolbarParams]);
+  const setViewMode = useCallback(
+    (nextViewMode: ViewMode) => {
+      void setBrowserToolbarParams({ pvView: nextViewMode });
+    },
+    [setBrowserToolbarParams],
+  );
 
   const setIsElementPickerEnabled = useCallback((nextIsElementPickerEnabled: boolean) => {
     isElementPickerEnabledRef.current = nextIsElementPickerEnabled;
@@ -244,7 +245,10 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const normalizedDraftUrl = useMemo(() => canonicalizeUrl(url ?? ""), [url]);
   const displayUrlParts = useMemo(() => splitDisplayUrl(url ?? ""), [url]);
   const displayPageTitle = useMemo(
-    () => (normalizedDraftUrl && normalizedDraftUrl === normalizedActiveUrl ? currentPageTitle.trim() : ""),
+    () =>
+      normalizedDraftUrl && normalizedDraftUrl === normalizedActiveUrl
+        ? currentPageTitle.trim()
+        : "",
     [currentPageTitle, normalizedActiveUrl, normalizedDraftUrl],
   );
   const {
@@ -271,33 +275,31 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     currentPageTitle,
     normalizedActiveUrl,
   });
-  const preferredTransportMode = useMemo<BrowserTransportMode | 'unavailable'>(() => {
-    if (!normalizedActiveUrl || typeof window === "undefined") return 'unavailable';
+  const preferredTransportMode = useMemo<BrowserTransportMode | "unavailable">(() => {
+    if (!normalizedActiveUrl || typeof window === "undefined") return "unavailable";
 
     try {
       if (isDesktopRuntime()) {
-        return 'desktop';
+        return "desktop";
       }
       const nextUrl = new URL(normalizedActiveUrl);
       if (nextUrl.origin === window.location.origin) {
-        return 'same-origin';
+        return "same-origin";
       }
-      return isLocalPreviewTarget(normalizedActiveUrl) ? 'extension' : 'unavailable';
+      return isLocalPreviewTarget(normalizedActiveUrl) ? "extension" : "unavailable";
     } catch {
-      return isDesktopRuntime() ? 'desktop' : 'unavailable';
+      return isDesktopRuntime() ? "desktop" : "unavailable";
     }
   }, [normalizedActiveUrl]);
   // In-DOM webview: overlays stack with z-index — do not hide the live guest for menus.
   // Only "suspend" layout when this tab is not the active surface (handled via CSS) or standalone handoff.
   const shouldSuspendDesktopPreview =
-      preferredTransportMode === 'desktop' && (
-        (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
-        (!isActive && !keepGuestPainted)
-      );
+    preferredTransportMode === "desktop" &&
+    ((!isStandaloneBrowserWindow && isPreviewStandaloneOpen) || (!isActive && !keepGuestPainted));
   // Pass viewport root so canvas (role=dialog) hosting this browser does not
   // trip the overlay policy and freeze the guest with pointer-events: none.
   const desktopPointerBlocked = useWebviewPointerPolicy(
-    preferredTransportMode === 'desktop' && isActive && !shouldSuspendDesktopPreview,
+    preferredTransportMode === "desktop" && isActive && !shouldSuspendDesktopPreview,
     desktopViewportRef,
   );
   const {
@@ -362,12 +364,11 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     () => {
       dismissSelectionPopover(false);
     },
-    preferredTransportMode === 'desktop' && isActive && !isElementPickerEnabled,
+    preferredTransportMode === "desktop" && isActive && !isElementPickerEnabled,
   );
 
-
   useLayoutEffect(() => {
-    if (preferredTransportMode === 'desktop') {
+    if (preferredTransportMode === "desktop") {
       return;
     }
 
@@ -379,27 +380,30 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     setIsPreviewLoading(true);
   }, [iframeSrc, iframeKey, preferredTransportMode, setIsPreviewLoading]);
 
-  const teardownTransport = useCallback((clearSelection = true) => {
-    const activeController = transportControllerRef.current;
-    transportControllerRef.current = null;
-    if (transportSessionIdRef.current) {
-      onSessionReadyRef.current?.(null);
-    }
-    transportSessionIdRef.current = null;
-    desktopPreviewUrlRef.current = null;
-    desktopPreviewViewportRef.current = null;
-    desktopPreviewVisibleRef.current = false;
+  const teardownTransport = useCallback(
+    (clearSelection = true) => {
+      const activeController = transportControllerRef.current;
+      transportControllerRef.current = null;
+      if (transportSessionIdRef.current) {
+        onSessionReadyRef.current?.(null);
+      }
+      transportSessionIdRef.current = null;
+      desktopPreviewUrlRef.current = null;
+      desktopPreviewViewportRef.current = null;
+      desktopPreviewVisibleRef.current = false;
       desktopAttachRef.current = null;
       setDesktopAttach(null);
-    extensionConnectingRef.current = false;
-    if (activeController) {
-      void Promise.resolve(activeController.destroy()).catch(() => undefined);
-    }
+      extensionConnectingRef.current = false;
+      if (activeController) {
+        void Promise.resolve(activeController.destroy()).catch(() => undefined);
+      }
 
-    if (clearSelection) {
-      dismissSelectionPopover(false);
-    }
-  }, [dismissSelectionPopover]);
+      if (clearSelection) {
+        dismissSelectionPopover(false);
+      }
+    },
+    [dismissSelectionPopover],
+  );
 
   const {
     canGoBack,
@@ -517,8 +521,8 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     setNormalizedCurrentPageTitle(title, access.frameWindow.location.href);
     setTransportState((previous) => ({
       ...previous,
-      mode: 'same-origin',
-      connected: previous.mode === 'same-origin' ? previous.connected : false,
+      mode: "same-origin",
+      connected: previous.mode === "same-origin" ? previous.connected : false,
       message: "",
     }));
 
@@ -532,286 +536,296 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     return `preview-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }, []);
 
-  const createTransportHandlers = useCallback((
-    mode: BrowserTransportMode,
-    extraHandlers?: BrowserBridgeEventHandlers,
-  ) => ({
-    onReady: (
-      capabilities: PreviewHelperCapability[],
-      extensionVersion?: string,
-      pageTitle?: string,
-      faviconUrl?: string,
-      pageUrl?: string,
-    ) => {
-      if (extensionVersion) {
-        extensionVersionRef.current = extensionVersion;
-      }
-      if (mode === 'extension') {
-        extensionConnectingRef.current = false;
-      }
-      if (pageTitle !== undefined) {
-        setNormalizedCurrentPageTitle(pageTitle, pageUrl);
-      }
-      if (faviconUrl !== undefined) {
-        onPageIconChangeRef.current?.(faviconUrl);
-      }
-      setPreviewLoadError(null);
-      setIsPreviewLoading(false);
-      setTransportState({
-        mode,
-        connected: true,
-        message: "",
-        capabilities,
-      });
-      extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle, faviconUrl, pageUrl);
-    },
-    onSelected: (payload: PreviewHelperPayload) => {
-      setHoverCursorLabel(null);
-      handleSelectedPayload(mode, payload);
-      extraHandlers?.onSelected?.(payload);
-    },
-    onHover: (payload: PreviewHoverPayload | null) => {
-      // Guest runtime draws hover chrome (desktop webview + extension/same-origin
-      // with showHoverLabel). Host NativeFollowCursor would double-draw labels.
-      setHoverCursorLabel(null);
-      extraHandlers?.onHover?.(payload);
-    },
-    onToolbarAction: (
-      action: 'copy' | 'add' | 'update' | 'delete',
-      note?: string,
-      annotationId?: string,
-      selectionSnapshot?: PreviewHelperPayload,
-    ) => {
-      if (mode === 'desktop' && action === 'copy') {
-        if (selectionSnapshot) {
-          handleSelectedPayload(mode, selectionSnapshot);
+  const createTransportHandlers = useCallback(
+    (mode: BrowserTransportMode, extraHandlers?: BrowserBridgeEventHandlers) => ({
+      onReady: (
+        capabilities: PreviewHelperCapability[],
+        extensionVersion?: string,
+        pageTitle?: string,
+        faviconUrl?: string,
+        pageUrl?: string,
+      ) => {
+        if (extensionVersion) {
+          extensionVersionRef.current = extensionVersion;
         }
-        void handleDesktopToolbarCopy(note);
-      } else if (mode === 'desktop' && action === 'add') {
-        if (selectionSnapshot) {
-          handleSelectedPayload(mode, selectionSnapshot);
+        if (mode === "extension") {
+          extensionConnectingRef.current = false;
         }
-        handleAddSelectionAnnotation(note, undefined, annotationId);
-      } else if (mode === 'desktop' && action === 'update') {
-        handleUpdateSelectionAnnotation(annotationId, note);
-      } else if (mode === 'desktop' && action === 'delete') {
-        handleDeleteSelectionAnnotation(annotationId);
-      }
-      extraHandlers?.onToolbarAction?.(action, note, annotationId, selectionSnapshot);
-    },
-    onCleared: () => {
-      setHoverCursorLabel(null);
-      dismissSelectionPopover(false);
-      extraHandlers?.onCleared?.();
-    },
-    onError: (message: string) => {
-      setHoverCursorLabel(null);
-      if (mode === 'extension') {
-        extensionConnectingRef.current = false;
-      }
-      if (mode === 'desktop') {
-        const loadError = parseTransportLoadError(
-          message,
-          desktopPreviewUrlRef.current ?? normalizedActiveUrlRef.current,
-        );
-        if (loadError) {
-          desktopCommittedUrlRef.current = "";
-          setDesktopCommittedUrl("");
-          setPreviewLoadError(loadError);
-          setIsPreviewLoading(false);
-          desktopPreviewVisibleRef.current = false;
+        if (pageTitle !== undefined) {
+          setNormalizedCurrentPageTitle(pageTitle, pageUrl);
         }
-      }
-      setTransportState((previous) => ({
-        ...previous,
-        mode,
-        connected: false,
-        message,
-      }));
-      extraHandlers?.onError?.(message);
-    },
-    onNavigationChanged: (nextUrl: string, pageTitle?: string, faviconUrl?: string) => {
-      setHoverCursorLabel(null);
-      if (mode === 'desktop') {
-        const canonicalUrl = canonicalizeUrl(nextUrl);
-        desktopPreviewUrlRef.current = canonicalUrl;
-        desktopCommittedUrlRef.current = canonicalUrl;
+        if (faviconUrl !== undefined) {
+          onPageIconChangeRef.current?.(faviconUrl);
+        }
+        setPreviewLoadError(null);
         setIsPreviewLoading(false);
+        setTransportState({
+          mode,
+          connected: true,
+          message: "",
+          capabilities,
+        });
+        extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle, faviconUrl, pageUrl);
+      },
+      onSelected: (payload: PreviewHelperPayload) => {
+        setHoverCursorLabel(null);
+        handleSelectedPayload(mode, payload);
+        extraHandlers?.onSelected?.(payload);
+      },
+      onHover: (payload: PreviewHoverPayload | null) => {
+        // Guest runtime draws hover chrome (desktop webview + extension/same-origin
+        // with showHoverLabel). Host NativeFollowCursor would double-draw labels.
+        setHoverCursorLabel(null);
+        extraHandlers?.onHover?.(payload);
+      },
+      onToolbarAction: (
+        action: "copy" | "add" | "update" | "delete",
+        note?: string,
+        annotationId?: string,
+        selectionSnapshot?: PreviewHelperPayload,
+      ) => {
+        if (mode === "desktop" && action === "copy") {
+          if (selectionSnapshot) {
+            handleSelectedPayload(mode, selectionSnapshot);
+          }
+          void handleDesktopToolbarCopy(note);
+        } else if (mode === "desktop" && action === "add") {
+          if (selectionSnapshot) {
+            handleSelectedPayload(mode, selectionSnapshot);
+          }
+          handleAddSelectionAnnotation(note, undefined, annotationId);
+        } else if (mode === "desktop" && action === "update") {
+          handleUpdateSelectionAnnotation(annotationId, note);
+        } else if (mode === "desktop" && action === "delete") {
+          handleDeleteSelectionAnnotation(annotationId);
+        }
+        extraHandlers?.onToolbarAction?.(action, note, annotationId, selectionSnapshot);
+      },
+      onCleared: () => {
+        setHoverCursorLabel(null);
+        dismissSelectionPopover(false);
+        extraHandlers?.onCleared?.();
+      },
+      onError: (message: string) => {
+        setHoverCursorLabel(null);
+        if (mode === "extension") {
+          extensionConnectingRef.current = false;
+        }
+        if (mode === "desktop") {
+          const loadError = parseTransportLoadError(
+            message,
+            desktopPreviewUrlRef.current ?? normalizedActiveUrlRef.current,
+          );
+          if (loadError) {
+            desktopCommittedUrlRef.current = "";
+            setDesktopCommittedUrl("");
+            setPreviewLoadError(loadError);
+            setIsPreviewLoading(false);
+            desktopPreviewVisibleRef.current = false;
+          }
+        }
+        setTransportState((previous) => ({
+          ...previous,
+          mode,
+          connected: false,
+          message,
+        }));
+        extraHandlers?.onError?.(message);
+      },
+      onNavigationChanged: (nextUrl: string, pageTitle?: string, faviconUrl?: string) => {
+        setHoverCursorLabel(null);
+        if (mode === "desktop") {
+          const canonicalUrl = canonicalizeUrl(nextUrl);
+          desktopPreviewUrlRef.current = canonicalUrl;
+          desktopCommittedUrlRef.current = canonicalUrl;
+          setIsPreviewLoading(false);
+          const viewport = desktopViewportRef.current;
+          if (viewport) viewport.style.cursor = "";
+          if (document.activeElement === urlInputRef.current) {
+            urlInputRef.current?.blur();
+          }
+        }
+        setPreviewUrl(nextUrl);
+        setPreviewActiveUrl(nextUrl);
+        if (pageTitle !== undefined) {
+          setNormalizedCurrentPageTitle(pageTitle, nextUrl);
+        }
+        if (faviconUrl !== undefined) {
+          onPageIconChangeRef.current?.(faviconUrl);
+        }
+        setPreviewLoadError(null);
+        setIsPreviewLoading(false);
+        if (skipExternalHistorySyncRef.current) {
+          skipExternalHistorySyncRef.current = false;
+        } else {
+          pushHistoryEntry(nextUrl);
+        }
+        extraHandlers?.onNavigationChanged?.(nextUrl, pageTitle, faviconUrl);
+      },
+      onTitleChanged: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => {
+        // Favicon-only native events may pass an empty title — do not wipe a good one.
+        if (pageTitle.trim()) {
+          setNormalizedCurrentPageTitle(pageTitle, pageUrl);
+        }
+        if (faviconUrl !== undefined) {
+          onPageIconChangeRef.current?.(faviconUrl);
+        }
+        extraHandlers?.onTitleChanged?.(pageTitle, faviconUrl, pageUrl);
+      },
+      onOpenTab: (targetUrl: string, sourceUrl?: string) => {
+        const normalizedTargetUrl = canonicalizeUrl(targetUrl) || targetUrl.trim();
+        if (!normalizedTargetUrl) return;
+        onOpenPageInNewTabRef.current?.(normalizedTargetUrl);
+        extraHandlers?.onOpenTab?.(normalizedTargetUrl, sourceUrl);
+      },
+      onCursorChange: (cursor: string) => {
         const viewport = desktopViewportRef.current;
-        if (viewport) viewport.style.cursor = '';
+        if (viewport) {
+          viewport.style.cursor = cursor;
+        }
         if (document.activeElement === urlInputRef.current) {
           urlInputRef.current?.blur();
         }
-      }
-      setPreviewUrl(nextUrl);
-      setPreviewActiveUrl(nextUrl);
-      if (pageTitle !== undefined) {
-        setNormalizedCurrentPageTitle(pageTitle, nextUrl);
-      }
-      if (faviconUrl !== undefined) {
-        onPageIconChangeRef.current?.(faviconUrl);
-      }
-      setPreviewLoadError(null);
-      setIsPreviewLoading(false);
-      if (skipExternalHistorySyncRef.current) {
-        skipExternalHistorySyncRef.current = false;
-      } else {
-        pushHistoryEntry(nextUrl);
-      }
-      extraHandlers?.onNavigationChanged?.(nextUrl, pageTitle, faviconUrl);
-    },
-    onTitleChanged: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => {
-      // Favicon-only native events may pass an empty title — do not wipe a good one.
-      if (pageTitle.trim()) {
-        setNormalizedCurrentPageTitle(pageTitle, pageUrl);
-      }
-      if (faviconUrl !== undefined) {
-        onPageIconChangeRef.current?.(faviconUrl);
-      }
-      extraHandlers?.onTitleChanged?.(pageTitle, faviconUrl, pageUrl);
-    },
-    onOpenTab: (targetUrl: string, sourceUrl?: string) => {
-      const normalizedTargetUrl = canonicalizeUrl(targetUrl) || targetUrl.trim();
-      if (!normalizedTargetUrl) return;
-      onOpenPageInNewTabRef.current?.(normalizedTargetUrl);
-      extraHandlers?.onOpenTab?.(normalizedTargetUrl, sourceUrl);
-    },
-    onCursorChange: (cursor: string) => {
-      const viewport = desktopViewportRef.current;
-      if (viewport) {
-        viewport.style.cursor = cursor;
-      }
-      if (document.activeElement === urlInputRef.current) {
-        urlInputRef.current?.blur();
-      }
-      extraHandlers?.onCursorChange?.(cursor);
-    },
-    onViewportChanged: () => {
-      handleDesktopViewportChanged();
-      extraHandlers?.onViewportChanged?.();
-    },
-  }), [
-    dismissSelectionPopover,
-    handleAddSelectionAnnotation,
-    handleDeleteSelectionAnnotation,
-    handleDesktopToolbarCopy,
-    handleDesktopViewportChanged,
-    handleSelectedPayload,
-    handleUpdateSelectionAnnotation,
-    pushHistoryEntry,
-    setPreviewActiveUrl,
-    setNormalizedCurrentPageTitle,
-    setIsPreviewLoading,
-    setPreviewUrl,
-    skipExternalHistorySyncRef,
-  ]);
+        extraHandlers?.onCursorChange?.(cursor);
+      },
+      onViewportChanged: () => {
+        handleDesktopViewportChanged();
+        extraHandlers?.onViewportChanged?.();
+      },
+    }),
+    [
+      dismissSelectionPopover,
+      handleAddSelectionAnnotation,
+      handleDeleteSelectionAnnotation,
+      handleDesktopToolbarCopy,
+      handleDesktopViewportChanged,
+      handleSelectedPayload,
+      handleUpdateSelectionAnnotation,
+      pushHistoryEntry,
+      setPreviewActiveUrl,
+      setNormalizedCurrentPageTitle,
+      setIsPreviewLoading,
+      setPreviewUrl,
+      skipExternalHistorySyncRef,
+    ],
+  );
 
-  const connectIframeTransport = useCallback(async (options?: {
-    enterPickMode?: boolean;
-    awaitHandshake?: boolean;
-  }) => {
-    if (!normalizedActiveUrlRef.current) return false;
+  const connectIframeTransport = useCallback(
+    async (options?: { enterPickMode?: boolean; awaitHandshake?: boolean }) => {
+      if (!normalizedActiveUrlRef.current) return false;
 
-    const sessionId = createPreviewSessionId();
-    const shouldEnterPickMode = options?.enterPickMode ?? true;
-    const shouldAwaitHandshake = options?.awaitHandshake ?? false;
+      const sessionId = createPreviewSessionId();
+      const shouldEnterPickMode = options?.enterPickMode ?? true;
+      const shouldAwaitHandshake = options?.awaitHandshake ?? false;
 
-    if (preferredTransportMode === 'same-origin') {
-      const handlers = createTransportHandlers('same-origin');
-      const access = syncSameOriginPreviewAccess();
-      if (!access) {
+      if (preferredTransportMode === "same-origin") {
+        const handlers = createTransportHandlers("same-origin");
+        const access = syncSameOriginPreviewAccess();
+        if (!access) {
+          setTransportState({
+            mode: "unavailable",
+            connected: false,
+            message: PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
+            capabilities: [],
+          });
+          return false;
+        }
+
+        teardownTransport(false);
+        transportSessionIdRef.current = sessionId;
         setTransportState({
-          mode: 'unavailable',
+          mode: "same-origin",
           connected: false,
-          message: PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
+          message: "",
           capabilities: [],
         });
+        transportControllerRef.current = connectSameOriginPreviewTransport(
+          access.frameWindow,
+          sessionId,
+          handlers,
+        );
+        if (shouldEnterPickMode) {
+          void Promise.resolve(transportControllerRef.current.enterPickMode());
+        }
+        return true;
+      }
+
+      const frameWindow = iframeRef.current?.contentWindow;
+      if (!frameWindow) {
         return false;
       }
 
+      let handshakeSettled = false;
+      let resolveHandshake: ((connected: boolean) => void) | null = null;
+      const settleHandshake = (connected: boolean) => {
+        if (!shouldAwaitHandshake || handshakeSettled) return;
+        handshakeSettled = true;
+        resolveHandshake?.(connected);
+      };
+      const handlers = createTransportHandlers(
+        "extension",
+        shouldAwaitHandshake
+          ? {
+              onReady: () => settleHandshake(true),
+              onError: () => settleHandshake(false),
+            }
+          : undefined,
+      );
+
       teardownTransport(false);
       transportSessionIdRef.current = sessionId;
-      setTransportState({
-        mode: 'same-origin',
-        connected: false,
-        message: '',
-        capabilities: [],
+      extensionConnectingRef.current = true;
+      transportControllerRef.current = connectExtensionPreviewTransport({
+        frameWindow,
+        pageUrl: normalizedActiveUrlRef.current,
+        sessionId,
+        parentOrigin: window.location.origin,
+        allowedOrigins: [window.location.origin, "http://localhost:3030", "http://127.0.0.1:3030"],
+        autoEnterPickMode: shouldEnterPickMode,
+        ...handlers,
       });
-      transportControllerRef.current = connectSameOriginPreviewTransport(access.frameWindow, sessionId, handlers);
-      if (shouldEnterPickMode) {
-        void Promise.resolve(transportControllerRef.current.enterPickMode());
+      setTransportState((previous) => ({
+        mode: "extension",
+        connected: previous.mode === "extension" ? previous.connected : false,
+        message:
+          previous.mode === "extension" && previous.connected
+            ? ""
+            : PREVIEW_EXTENSION_REQUIRED_MESSAGE,
+        capabilities: previous.mode === "extension" ? previous.capabilities : [],
+      }));
+      if (shouldAwaitHandshake) {
+        const result = await Promise.race([
+          new Promise<boolean>((resolve) => {
+            resolveHandshake = resolve;
+          }),
+          new Promise<boolean>((resolve) => {
+            window.setTimeout(() => resolve(false), 2_000);
+          }),
+        ]);
+        settleHandshake(result);
+        return result;
       }
       return true;
-    }
-
-    const frameWindow = iframeRef.current?.contentWindow;
-    if (!frameWindow) {
-      return false;
-    }
-
-    let handshakeSettled = false;
-    let resolveHandshake: ((connected: boolean) => void) | null = null;
-    const settleHandshake = (connected: boolean) => {
-      if (!shouldAwaitHandshake || handshakeSettled) return;
-      handshakeSettled = true;
-      resolveHandshake?.(connected);
-    };
-    const handlers = createTransportHandlers(
-      'extension',
-      shouldAwaitHandshake
-        ? {
-            onReady: () => settleHandshake(true),
-            onError: () => settleHandshake(false),
-          }
-        : undefined,
-    );
-
-    teardownTransport(false);
-    transportSessionIdRef.current = sessionId;
-    extensionConnectingRef.current = true;
-    transportControllerRef.current = connectExtensionPreviewTransport({
-      frameWindow,
-      pageUrl: normalizedActiveUrlRef.current,
-      sessionId,
-      parentOrigin: window.location.origin,
-      allowedOrigins: [window.location.origin, 'http://localhost:3030', 'http://127.0.0.1:3030'],
-      autoEnterPickMode: shouldEnterPickMode,
-      ...handlers,
-    });
-    setTransportState((previous) => ({
-      mode: 'extension',
-      connected: previous.mode === 'extension' ? previous.connected : false,
-      message:
-        previous.mode === 'extension' && previous.connected
-          ? ''
-          : PREVIEW_EXTENSION_REQUIRED_MESSAGE,
-      capabilities: previous.mode === 'extension' ? previous.capabilities : [],
-    }));
-    if (shouldAwaitHandshake) {
-      const result = await Promise.race([
-        new Promise<boolean>((resolve) => {
-          resolveHandshake = resolve;
-        }),
-        new Promise<boolean>((resolve) => {
-          window.setTimeout(() => resolve(false), 2_000);
-        }),
-      ]);
-      settleHandshake(result);
-      return result;
-    }
-    return true;
-  }, [createPreviewSessionId, createTransportHandlers, preferredTransportMode, syncSameOriginPreviewAccess, teardownTransport]);
+    },
+    [
+      createPreviewSessionId,
+      createTransportHandlers,
+      preferredTransportMode,
+      syncSameOriginPreviewAccess,
+      teardownTransport,
+    ],
+  );
 
   const syncDesktopPreview = useCallback(async () => {
     const committedUrl = desktopCommittedUrlRef.current;
-    if (preferredTransportMode !== 'desktop' || !committedUrl || !desktopViewportRef.current) {
-      if (transportControllerRef.current?.mode === 'desktop') {
+    if (preferredTransportMode !== "desktop" || !committedUrl || !desktopViewportRef.current) {
+      if (transportControllerRef.current?.mode === "desktop") {
         teardownTransport(false);
       }
       return;
     }
 
-    if (transportControllerRef.current?.mode === 'desktop' && transportSessionIdRef.current) {
+    if (transportControllerRef.current?.mode === "desktop" && transportSessionIdRef.current) {
       // Session already open: host webview owns load via desktopSrc=committedUrl.
       // Only bookkeep URL refs — never dual-call main navigate + webview loadURL.
       forceDesktopNavigationRef.current = false;
@@ -819,11 +833,11 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       setPreviewLoadError(null);
       // Loading flag is owned by webview did-start/stop-loading for desktop.
       setTransportState((previous) =>
-        previous.mode === 'desktop'
+        previous.mode === "desktop"
           ? previous
           : {
               ...previous,
-              mode: 'desktop',
+              mode: "desktop",
             },
       );
       return;
@@ -836,11 +850,11 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     const sessionId = createPreviewSessionId();
     transportSessionIdRef.current = sessionId;
     try {
-      const controller = await connectDesktopBrowserTransport({
+      const controller = (await connectDesktopBrowserTransport({
         sessionId,
         pageUrl: committedUrl,
-        ...createTransportHandlers('desktop'),
-      }) as DesktopBrowserBridgeController;
+        ...createTransportHandlers("desktop"),
+      })) as DesktopBrowserBridgeController;
       transportControllerRef.current = controller;
       desktopAttachRef.current = controller.attach;
       setDesktopAttach(controller.attach);
@@ -851,14 +865,14 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       // Keep host loading chrome until webview did-stop-loading / dom-ready.
       // Clearing here caused a white flash before the page painted.
       setTransportState({
-        mode: 'desktop',
+        mode: "desktop",
         connected: true,
-        message: '',
+        message: "",
         capabilities: [],
       });
       onSessionReadyRef.current?.(sessionId);
     } catch (error) {
-      console.error('[browser] desktop transport connect failed:', error);
+      console.error("[browser] desktop transport connect failed:", error);
       desktopCommittedUrlRef.current = "";
       setDesktopCommittedUrl("");
       setDesktopAttach(null);
@@ -866,11 +880,11 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       setPreviewLoadError(createPreviewNetworkError(committedUrl, error));
       setIsPreviewLoading(false);
       setTransportState({
-        mode: 'desktop',
+        mode: "desktop",
         connected: false,
         message: previewT(
-          'desktopTransport.openFailedMessage',
-          'Failed to open Browser window: {errorMessage}',
+          "desktopTransport.openFailedMessage",
+          "Failed to open Browser window: {errorMessage}",
           { errorMessage: error instanceof Error ? error.message : String(error) },
         ),
         capabilities: [],
@@ -878,11 +892,17 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     } finally {
       desktopConnectingRef.current = false;
     }
-  }, [createPreviewSessionId, createTransportHandlers, preferredTransportMode, setIsPreviewLoading, teardownTransport]);
+  }, [
+    createPreviewSessionId,
+    createTransportHandlers,
+    preferredTransportMode,
+    setIsPreviewLoading,
+    teardownTransport,
+  ]);
 
   const showDesktopPreview = useCallback(async () => {
-    if (preferredTransportMode !== 'desktop' || !desktopCommittedUrlRef.current) return;
-    if (transportControllerRef.current?.mode !== 'desktop') {
+    if (preferredTransportMode !== "desktop" || !desktopCommittedUrlRef.current) return;
+    if (transportControllerRef.current?.mode !== "desktop") {
       await syncDesktopPreview();
       return;
     }
@@ -896,9 +916,9 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
 
   const requestNativeSurfaceChromeBoundsSync = useCallback(() => {
     if (
-      preferredTransportMode !== 'desktop' ||
+      preferredTransportMode !== "desktop" ||
       shouldSuspendDesktopPreview ||
-      typeof window === 'undefined'
+      typeof window === "undefined"
     ) {
       return;
     }
@@ -931,23 +951,23 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   }, [canvasViewportControllerRef]);
 
   const handleOpenDeveloperTools = useCallback(async () => {
-    if (preferredTransportMode !== 'desktop') return;
+    if (preferredTransportMode !== "desktop") return;
 
     try {
-      if (transportControllerRef.current?.mode !== 'desktop') {
+      if (transportControllerRef.current?.mode !== "desktop") {
         await syncDesktopPreview();
       }
       const controller = transportControllerRef.current;
-      if (controller?.mode !== 'desktop' || !controller.openDevTools) {
-        throw new Error('Desktop Browser is not ready for developer tools.');
+      if (controller?.mode !== "desktop" || !controller.openDevTools) {
+        throw new Error("Desktop Browser is not ready for developer tools.");
       }
       await controller.openDevTools();
     } catch (error) {
-      console.error('[browser] failed to open developer tools:', error);
+      console.error("[browser] failed to open developer tools:", error);
       toastManager.add({
-        title: previewT('developerTools.openFailedTitle', 'Failed to open developer tools'),
+        title: previewT("developerTools.openFailedTitle", "Failed to open developer tools"),
         description: error instanceof Error ? error.message : String(error),
-        type: 'error',
+        type: "error",
       });
     }
   }, [preferredTransportMode, previewT, syncDesktopPreview]);
@@ -1017,7 +1037,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       isElementPickerEnabledRef.current = false;
       setIsElementPickerEnabled(false);
       const viewport = desktopViewportRef.current;
-      if (viewport) viewport.style.cursor = '';
+      if (viewport) viewport.style.cursor = "";
       await Promise.resolve(transportControllerRef.current?.exitPickMode());
       dismissSelectionPopover(false);
       return;
@@ -1027,7 +1047,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     isElementPickerEnabledRef.current = true;
     setIsElementPickerEnabled(true);
 
-    if (preferredTransportMode === 'desktop') {
+    if (preferredTransportMode === "desktop") {
       if (!transportControllerRef.current) {
         await syncDesktopPreview();
       }
@@ -1046,9 +1066,9 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       setIsElementPickerEnabled(false);
       toastManager.add({
         type: "error",
-        title: previewT('elementPicker.title.unavailable', 'Element picker unavailable'),
+        title: previewT("elementPicker.title.unavailable", "Element picker unavailable"),
         description:
-          preferredTransportMode === 'extension'
+          preferredTransportMode === "extension"
             ? PREVIEW_EXTENSION_REQUIRED_MESSAGE
             : PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
       });
@@ -1067,7 +1087,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   ]);
 
   const resolvedTransportMode =
-    transportState.mode === 'unavailable' && normalizedActiveUrl
+    transportState.mode === "unavailable" && normalizedActiveUrl
       ? preferredTransportMode
       : transportState.mode;
   const {
@@ -1107,9 +1127,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   // the dialog); here we only decide whether the menu items are eligible to show.
   const cookieToolsAvailable = useMemo(
     () =>
-      isDesktopRuntime() &&
-      typeof navigator !== "undefined" &&
-      /Mac/i.test(navigator.userAgent),
+      isDesktopRuntime() && typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent),
     [],
   );
   const [importCookiesDialogOpen, setImportCookiesDialogOpen] = useState(false);
@@ -1132,10 +1150,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   }, [handleRefresh]);
 
   const canOpenPreviewBrowserWindow = useMemo(
-    () =>
-      isDesktopRuntime() &&
-      !isStandaloneBrowserWindow &&
-      Boolean(onOpenPreviewBrowserWindow),
+    () => isDesktopRuntime() && !isStandaloneBrowserWindow && Boolean(onOpenPreviewBrowserWindow),
     [isStandaloneBrowserWindow, onOpenPreviewBrowserWindow],
   );
 
@@ -1150,10 +1165,11 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     onCloseStandalonePreviewWindow?.();
   }, [onCloseStandalonePreviewWindow, teardownTransport]);
 
-  const shouldShowExtensionInstall = resolvedTransportMode === 'extension' && !transportState.connected;
+  const shouldShowExtensionInstall =
+    resolvedTransportMode === "extension" && !transportState.connected;
 
   const handleRecheckExtension = useCallback(async () => {
-    if (preferredTransportMode !== 'extension' || isRecheckingExtension) return;
+    if (preferredTransportMode !== "extension" || isRecheckingExtension) return;
 
     setIsRecheckingExtension(true);
     try {
@@ -1171,50 +1187,55 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
 
       if (!connected) {
         toastManager.add({
-          type: 'info',
-          title: previewT('extension.notDetectedTitle', 'Extension not detected'),
+          type: "info",
+          title: previewT("extension.notDetectedTitle", "Extension not detected"),
           description: PREVIEW_EXTENSION_REQUIRED_MESSAGE,
         });
       }
     } finally {
       setIsRecheckingExtension(false);
     }
-  }, [connectIframeTransport, isRecheckingExtension, preferredTransportMode, setIsRecheckingExtension]);
+  }, [
+    connectIframeTransport,
+    isRecheckingExtension,
+    preferredTransportMode,
+    setIsRecheckingExtension,
+  ]);
 
   const elementPickerAction = isElementPickerEnabled
-    ? previewT('elementPicker.action.disable', 'Disable')
-    : previewT('elementPicker.action.enable', 'Enable');
+    ? previewT("elementPicker.action.disable", "Disable")
+    : previewT("elementPicker.action.enable", "Enable");
   const elementPickerTitle = !activeUrl
-    ? previewT('elementPicker.title.enterUrlFirst', 'Enter a URL first')
-    : preferredTransportMode === 'unavailable'
-      ? previewT('elementPicker.title.unavailable', 'Element picker unavailable')
-    : isElementPickerEnabled
-      ? previewT('elementPicker.title.disable', 'Disable element picker')
-      : previewT('elementPicker.title.enable', 'Enable element picker');
+    ? previewT("elementPicker.title.enterUrlFirst", "Enter a URL first")
+    : preferredTransportMode === "unavailable"
+      ? previewT("elementPicker.title.unavailable", "Element picker unavailable")
+      : isElementPickerEnabled
+        ? previewT("elementPicker.title.disable", "Disable element picker")
+        : previewT("elementPicker.title.enable", "Enable element picker");
   const elementPickerTooltip = !activeUrl
-    ? previewT('elementPicker.tooltip.enterUrlFirst', 'Enter a URL first.')
-    : preferredTransportMode === 'unavailable'
+    ? previewT("elementPicker.tooltip.enterUrlFirst", "Enter a URL first.")
+    : preferredTransportMode === "unavailable"
       ? previewT(
-          'elementPicker.tooltip.unavailable',
-          'Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.',
+          "elementPicker.tooltip.unavailable",
+          "Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.",
         )
-    : preferredTransportMode === 'desktop'
-      ? previewT(
-          'elementPicker.tooltip.desktop',
-          '{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.',
-          { action: elementPickerAction },
-        )
-      : preferredTransportMode === 'extension'
+      : preferredTransportMode === "desktop"
         ? previewT(
-            'elementPicker.tooltip.extension',
-            '{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.',
+            "elementPicker.tooltip.desktop",
+            "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
             { action: elementPickerAction },
           )
-        : previewT(
-            'elementPicker.tooltip.default',
-            '{action} element selection. Source component detection supports React, Vue, Angular, and Svelte.',
-            { action: elementPickerAction },
-          );
+        : preferredTransportMode === "extension"
+          ? previewT(
+              "elementPicker.tooltip.extension",
+              "{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.",
+              { action: elementPickerAction },
+            )
+          : previewT(
+              "elementPicker.tooltip.default",
+              "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte.",
+              { action: elementPickerAction },
+            );
   const isChromeManagedByTabBar = Boolean(browserTabBarProps);
   const toolbarProps: React.ComponentProps<typeof BrowserToolbar> = {
     activeFavorite,
@@ -1281,20 +1302,28 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     setViewMode,
   };
 
-  const handleOpenLocalServiceUrl = useCallback((nextUrl: string) => {
-    navigateToUrl(nextUrl);
-  }, [navigateToUrl]);
+  const handleOpenLocalServiceUrl = useCallback(
+    (nextUrl: string) => {
+      navigateToUrl(nextUrl);
+    },
+    [navigateToUrl],
+  );
 
   const viewportProps: React.ComponentProps<typeof BrowserViewport> = {
     activeUrl,
     desktopViewportRef,
     desktopAttach,
-    desktopSrc: desktopCommittedUrl || desktopPreviewUrlRef.current || '',
-    desktopPointerEventsNone: desktopPointerBlocked || favoritesListOpen || favoritePopoverOpen || headerHasOpenOverlay || isGlobalSearchOpen,
+    desktopSrc: desktopCommittedUrl || desktopPreviewUrlRef.current || "",
+    desktopPointerEventsNone:
+      desktopPointerBlocked ||
+      favoritesListOpen ||
+      favoritePopoverOpen ||
+      headerHasOpenOverlay ||
+      isGlobalSearchOpen,
     desktopLayoutHidden: shouldSuspendDesktopPreview,
     onDesktopBindGuest: (webContentsId: number) => {
       const c = transportControllerRef.current as DesktopBrowserBridgeController | null;
-      if (c && typeof c.bindGuest === 'function') {
+      if (c && typeof c.bindGuest === "function") {
         void c.bindGuest(webContentsId);
       }
     },
@@ -1318,10 +1347,12 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     selectionInfo,
     selectionAnnotations,
     editingAnnotationId,
-    onAddSelectionAnnotation: (selectionInfo, note) => handleAddSelectionAnnotation(note, selectionInfo),
+    onAddSelectionAnnotation: (selectionInfo, note) =>
+      handleAddSelectionAnnotation(note, selectionInfo),
     onDeleteSelectionAnnotation: handleDeleteSelectionAnnotation,
     onEditSelectionAnnotation: handleEditSelectionAnnotation,
-    onUpdateSelectionAnnotation: (_selectionInfo, note) => handleUpdateSelectionAnnotation(editingAnnotationId ?? undefined, note),
+    onUpdateSelectionAnnotation: (_selectionInfo, note) =>
+      handleUpdateSelectionAnnotation(editingAnnotationId ?? undefined, note),
     selectionPopoverExpanded,
     selectionPopoverPosition,
     selectionPopoverRef,
@@ -1337,69 +1368,63 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   return (
     <>
       <BrowserContent
-      browserTabBarProps={
-        browserTabBarProps
-          ? {
-              ...browserTabBarProps,
-              chromeControls: {
-                favoritesList: (
-                  <BrowserFavoritesListPopover
-                    favoriteSearch={favoriteSearch}
-                    favorites={favorites}
-                    favoritesListOpen={favoritesListOpen}
-                    filteredFavorites={filteredFavorites}
-                    renameDraft={renameDraft}
-                    renamingUrl={renamingUrl}
-                    handleDeleteFavorite={handleDeleteFavorite}
-                    handleRenameFavorite={handleRenameFavorite}
-                    navigateToUrl={navigateToUrl}
-                    setFavoriteSearch={setFavoriteSearch}
-                    setFavoritesListOpen={setFavoritesListOpen}
-                    setRenameDraft={setRenameDraft}
-                    setRenamingUrl={setRenamingUrl}
-                  />
-                ),
-                isMaximized,
-                isToolbarHidden: effectiveIsToolbarHidden,
-                needsDesktopPreviewSafeInset,
-                openInWindowTitle: previewToolbarT("actions.openBrowserWindow"),
-                returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
-                toolbarToggleTitle,
-                onOpenInWindow: canOpenPreviewBrowserWindow
-                  ? handleOpenPreviewBrowserWindow
-                  : undefined,
-                onReturnToEmbedded: isStandaloneBrowserWindow
-                  ? handleCloseStandalonePreviewWindow
-                  : undefined,
-                onToggleMaximized:
-                  allowMaximize && !isStandaloneBrowserWindow
-                    ? handleToggleMaximized
+        browserTabBarProps={
+          browserTabBarProps
+            ? {
+                ...browserTabBarProps,
+                chromeControls: {
+                  favoritesList: (
+                    <BrowserFavoritesListPopover
+                      favoriteSearch={favoriteSearch}
+                      favorites={favorites}
+                      favoritesListOpen={favoritesListOpen}
+                      filteredFavorites={filteredFavorites}
+                      renameDraft={renameDraft}
+                      renamingUrl={renamingUrl}
+                      handleDeleteFavorite={handleDeleteFavorite}
+                      handleRenameFavorite={handleRenameFavorite}
+                      navigateToUrl={navigateToUrl}
+                      setFavoriteSearch={setFavoriteSearch}
+                      setFavoritesListOpen={setFavoritesListOpen}
+                      setRenameDraft={setRenameDraft}
+                      setRenamingUrl={setRenamingUrl}
+                    />
+                  ),
+                  isMaximized,
+                  isToolbarHidden: effectiveIsToolbarHidden,
+                  needsDesktopPreviewSafeInset,
+                  openInWindowTitle: previewToolbarT("actions.openBrowserWindow"),
+                  returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
+                  toolbarToggleTitle,
+                  onOpenInWindow: canOpenPreviewBrowserWindow
+                    ? handleOpenPreviewBrowserWindow
                     : undefined,
-                onToggleToolbarHidden: handleToggleToolbarHidden,
-                cookieToolsAvailable,
-                onImportCookies: cookieToolsAvailable
-                  ? handleImportCookies
-                  : undefined,
-                onClearCache: cookieToolsAvailable ? handleClearCache : undefined,
-                onClearSiteData: cookieToolsAvailable
-                  ? handleClearSiteData
-                  : undefined,
-              },
-            }
-          : null
-      }
-      isChromeHidden={isChromeManagedByTabBar && effectiveIsToolbarHidden}
-      isMaximized={isMaximized}
-      isMaximizedLayoutManaged={isMaximizedLayoutManaged}
-      onNativeSurfaceChromeLayoutChange={requestNativeSurfaceChromeBoundsSync}
-      previewRootRef={previewRootRef}
-      reserveNativeSurfaceChromeSpace={
-        effectiveIsToolbarHidden && resolvedTransportMode === 'desktop'
-      }
-      toolbarProps={toolbarProps}
-      toolbarHoverSuppressed={toolbarHoverSuppressed}
-      viewportProps={viewportProps}
-    />
+                  onReturnToEmbedded: isStandaloneBrowserWindow
+                    ? handleCloseStandalonePreviewWindow
+                    : undefined,
+                  onToggleMaximized:
+                    allowMaximize && !isStandaloneBrowserWindow ? handleToggleMaximized : undefined,
+                  onToggleToolbarHidden: handleToggleToolbarHidden,
+                  cookieToolsAvailable,
+                  onImportCookies: cookieToolsAvailable ? handleImportCookies : undefined,
+                  onClearCache: cookieToolsAvailable ? handleClearCache : undefined,
+                  onClearSiteData: cookieToolsAvailable ? handleClearSiteData : undefined,
+                },
+              }
+            : null
+        }
+        isChromeHidden={isChromeManagedByTabBar && effectiveIsToolbarHidden}
+        isMaximized={isMaximized}
+        isMaximizedLayoutManaged={isMaximizedLayoutManaged}
+        onNativeSurfaceChromeLayoutChange={requestNativeSurfaceChromeBoundsSync}
+        previewRootRef={previewRootRef}
+        reserveNativeSurfaceChromeSpace={
+          effectiveIsToolbarHidden && resolvedTransportMode === "desktop"
+        }
+        toolbarProps={toolbarProps}
+        toolbarHoverSuppressed={toolbarHoverSuppressed}
+        viewportProps={viewportProps}
+      />
       {cookieToolsAvailable ? (
         <BrowserCookieImportDialog
           open={importCookiesDialogOpen}

@@ -134,9 +134,10 @@ export function buildResourceMonitorSessionTitleMap(
   workspacePanes: ResourceMonitorWorkspacePanes | null | undefined,
 ): Map<string, string> {
   return new Map(
-    [...buildResourceMonitorSessionDisplayMap(workspacePanes)].map(
-      ([sessionId, display]) => [sessionId, display.displayTitle],
-    ),
+    [...buildResourceMonitorSessionDisplayMap(workspacePanes)].map(([sessionId, display]) => [
+      sessionId,
+      display.displayTitle,
+    ]),
   );
 }
 

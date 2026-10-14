@@ -22,7 +22,9 @@ function layoutUnboundText(el: {
   if (el.containerId || el.verticalAlign === "top" || (el.text ?? "").includes("\n")) {
     return { y: el.y, height: el.height };
   }
-  const lineH = Math.round((el.fontSize ?? DEFAULT_FONT_SIZE) * (el.lineHeight ?? DEFAULT_LINE_HEIGHT));
+  const lineH = Math.round(
+    (el.fontSize ?? DEFAULT_FONT_SIZE) * (el.lineHeight ?? DEFAULT_LINE_HEIGHT),
+  );
   if (el.height <= lineH + 1) return { y: el.y, height: el.height };
   return { y: el.y + (el.height - lineH) / 2, height: lineH };
 }
@@ -123,7 +125,14 @@ function isHistoryShallowEqual(a: unknown, b: unknown): boolean {
   if (aKeys.length !== bKeys.length) return false;
   const recA = a as Record<string, unknown>;
   const recB = b as Record<string, unknown>;
-  return aKeys.every((key) => recA[key] === recB[key] || (Array.isArray(recA[key]) && Array.isArray(recB[key]) && recA[key].length === 0 && recB[key].length === 0));
+  return aKeys.every(
+    (key) =>
+      recA[key] === recB[key] ||
+      (Array.isArray(recA[key]) &&
+        Array.isArray(recB[key]) &&
+        recA[key].length === 0 &&
+        recB[key].length === 0),
+  );
 }
 
 /**
@@ -159,7 +168,9 @@ export function excalidrawDistinctElementKeys(
  * After `versionNonce` differs, History strips `id/updated/version/versionNonce/seed`.
  * Remaining keys are the visible `ElementsChange` partial.
  */
-export function stripIrrelevantHistoryProps(partial: Record<string, unknown>): Record<string, unknown> {
+export function stripIrrelevantHistoryProps(
+  partial: Record<string, unknown>,
+): Record<string, unknown> {
   const stripped: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(partial)) {
     if (HISTORY_STRIPPED_KEYS.has(key)) continue;
@@ -209,9 +220,9 @@ export function applyHistoryInversePartial<T extends Record<string, unknown>>(
  * to `versionNonce` so `isShallowEqual({ pt })` cannot skip `customData` when
  * `pt` still shares the Store snapshot ref.
  */
-export function cloneScenePtCustomData<T extends { versionNonce?: number; customData?: ScenePtCustomData }>(
-  el: T,
-): T {
+export function cloneScenePtCustomData<
+  T extends { versionNonce?: number; customData?: ScenePtCustomData },
+>(el: T): T {
   if (el.customData === undefined) return el;
   const pt = el.customData.pt === undefined ? undefined : structuredClone(el.customData.pt);
   const ptv = typeof el.versionNonce === "number" ? el.versionNonce : el.customData.ptv;
@@ -244,11 +255,13 @@ export function cloneScenePtCustomData<T extends { versionNonce?: number; custom
  * fills by nonce. `clearWitnesses` on load / `history.clear` so first hydrate
  * can fill missing `customData`.
  */
-export function fillMissingPtCustomData<T extends {
-  id: string;
-  versionNonce?: number;
-  customData?: ScenePtCustomData;
-}>(
+export function fillMissingPtCustomData<
+  T extends {
+    id: string;
+    versionNonce?: number;
+    customData?: ScenePtCustomData;
+  },
+>(
   live: readonly T[],
   source: readonly SceneCustomDataSource[],
   witnessedNonces?: Set<string>,
@@ -336,11 +349,13 @@ export function mergePtPayloadSource(
  * Clone `customData` (new `pt` + first-level `ptv`) so `Delta.calculate` cannot
  * skip the payload after `stripIrrelevantProps`.
  */
-export function bumpHandleVersions<T extends {
-  version?: number;
-  versionNonce?: number;
-  customData?: ScenePtCustomData;
-}>(elements: readonly T[]): T[] {
+export function bumpHandleVersions<
+  T extends {
+    version?: number;
+    versionNonce?: number;
+    customData?: ScenePtCustomData;
+  },
+>(elements: readonly T[]): T[] {
   return elements.map((el) =>
     cloneScenePtCustomData({
       ...el,
@@ -390,12 +405,15 @@ export function keepOverlayThroughEmptyLoad(
  * `customData`, then stamp `customData.pt` on. Window-free so bun tests can project
  * `{ ptx }` persist/load without `@excalidraw/excalidraw`.
  */
-export function toExcalidrawCompatElements(elements: readonly unknown[]): ExcalidrawCompatElement[] {
+export function toExcalidrawCompatElements(
+  elements: readonly unknown[],
+): ExcalidrawCompatElement[] {
   const converted = elements.map((raw): ExcalidrawCompatElement => {
     const el = raw as Record<string, unknown> & { id: string };
     const { customData: _dropped, ...rest } = el;
     void _dropped;
-    const type = typeof rest.type === "string" && KNOWN_TYPES.has(rest.type) ? rest.type : "rectangle";
+    const type =
+      typeof rest.type === "string" && KNOWN_TYPES.has(rest.type) ? rest.type : "rectangle";
     return {
       ...HANDLE_DEFAULTS,
       ...rest,
@@ -458,7 +476,10 @@ export type OverlayViewport = {
   viewModeEnabled?: boolean;
 };
 
-export function sameOverlayDocument(a: { version: string; pages: unknown }, b: { version: string; pages: unknown }): boolean {
+export function sameOverlayDocument(
+  a: { version: string; pages: unknown },
+  b: { version: string; pages: unknown },
+): boolean {
   return a === b || JSON.stringify(a) === JSON.stringify(b);
 }
 
@@ -527,7 +548,9 @@ function isPtHandle(el: { customData?: { pt?: unknown } }): boolean {
   return Boolean(el.customData?.pt);
 }
 
-function isCatalogElement(el: { customData?: { pt?: { instanceId?: string; componentType?: string } } }): boolean {
+function isCatalogElement(el: {
+  customData?: { pt?: { instanceId?: string; componentType?: string } };
+}): boolean {
   return Boolean(el.customData?.pt?.instanceId || el.customData?.pt?.componentType);
 }
 

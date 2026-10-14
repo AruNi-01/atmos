@@ -53,20 +53,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, action, o
     }
   };
 
-  const renderedAction =
-    typeof action === "function" ? action({ isEditing, startEdit }) : action;
+  const renderedAction = typeof action === "function" ? action({ isEditing, startEdit }) : action;
 
   return (
     <div
       className={cn(
         "relative rounded-md border px-3 py-2 font-sans text-sm whitespace-normal",
-        isUser
-          ? "border-border bg-muted/50"
-          : "border-sky-500/20 bg-sky-500/5",
+        isUser ? "border-border bg-muted/50" : "border-sky-500/20 bg-sky-500/5",
       )}
     >
       <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-medium tracking-wide text-muted-foreground">
-        <span className="capitalize flex items-center gap-1">
+        <span className="flex items-center gap-1 capitalize">
           {isUser ? <User className="size-3" /> : <Bot className="size-3" />}
           {isUser ? "you" : message.author_type}
         </span>
@@ -118,13 +115,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, action, o
             </div>
           </div>
         ) : (
-          <MarkdownRenderer className="min-w-0 flex-1 whitespace-normal text-sm leading-relaxed text-foreground prose-headings:my-2 prose-headings:font-semibold prose-h1:text-base prose-h2:text-base prose-h3:text-sm prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5">
+          <MarkdownRenderer className="prose-headings:my-2 prose-headings:font-semibold prose-h1:text-base prose-h2:text-base prose-h3:text-sm prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 min-w-0 flex-1 text-sm leading-relaxed whitespace-normal text-foreground">
             {message.body_full}
           </MarkdownRenderer>
         )}
       </div>
       {renderedAction && !isEditing && (
-        <div className="absolute right-2 top-8 z-20">{renderedAction}</div>
+        <div className="absolute top-8 right-2 z-20">{renderedAction}</div>
       )}
     </div>
   );

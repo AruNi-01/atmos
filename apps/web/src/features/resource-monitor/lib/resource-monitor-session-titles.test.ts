@@ -69,9 +69,9 @@ describe("buildResourceMonitorSessionTitleMap", () => {
       },
     });
     expect(titles.get("sess-dev")).toBe("npm run dev");
-    expect(
-      resolveResourceMonitorSessionTitle("sess-dev", "1", titles, "Unnamed session"),
-    ).toBe("npm run dev");
+    expect(resolveResourceMonitorSessionTitle("sess-dev", "1", titles, "Unnamed session")).toBe(
+      "npm run dev",
+    );
   });
 
   test("agent + OSC uses the canonical getTerminalDisplayMeta combination", () => {
@@ -96,9 +96,9 @@ describe("buildResourceMonitorSessionTitleMap", () => {
     expect(expected).toBe("Review the PR");
     expect(expected).not.toContain("|");
     expect(titles.get("sess-agent")).toBe(expected);
-    expect(
-      resolveResourceMonitorSessionTitle("sess-agent", "1", titles, "Unnamed session"),
-    ).toBe(expected);
+    expect(resolveResourceMonitorSessionTitle("sess-agent", "1", titles, "Unnamed session")).toBe(
+      expected,
+    );
 
     const displays = buildResourceMonitorSessionDisplayMap({
       "ws-a": { pane1: source },
@@ -108,12 +108,8 @@ describe("buildResourceMonitorSessionTitleMap", () => {
       toolbarAgent: claudeAgent,
     });
     expect(
-      resolveResourceMonitorSessionDisplay(
-        "sess-agent",
-        "1",
-        displays,
-        "Unnamed session",
-      ).toolbarAgent,
+      resolveResourceMonitorSessionDisplay("sess-agent", "1", displays, "Unnamed session")
+        .toolbarAgent,
     ).toBe(claudeAgent);
   });
 
@@ -142,12 +138,12 @@ describe("buildResourceMonitorSessionTitleMap", () => {
       },
     });
     expect(titles.has("sess-bare")).toBe(false);
-    expect(
-      resolveResourceMonitorSessionTitle("sess-bare", "1", titles, "Unnamed session"),
-    ).toBe("Unnamed session");
-    expect(
-      resolveResourceMonitorSessionTitle("sess-missing", "1", titles, "Unnamed session"),
-    ).toBe("Unnamed session");
+    expect(resolveResourceMonitorSessionTitle("sess-bare", "1", titles, "Unnamed session")).toBe(
+      "Unnamed session",
+    );
+    expect(resolveResourceMonitorSessionTitle("sess-missing", "1", titles, "Unnamed session")).toBe(
+      "Unnamed session",
+    );
   });
 
   test("keeps an ordinary server name when there is no live title", () => {

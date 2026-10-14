@@ -18,10 +18,7 @@ import {
 import { FolderGit2, GitBranch, Monitor } from "lucide-react";
 import { useTaskDrawerInsets } from "@/features/task/components/task-github-drawer/use-task-drawer-insets";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
-import {
-  AGENT_TOOL_ICON_IDS,
-  AGENT_TOOL_LABELS,
-} from "@/features/agent/store/agent-status-store";
+import { AGENT_TOOL_ICON_IDS, AGENT_TOOL_LABELS } from "@/features/agent/store/agent-status-store";
 import {
   observerNodeTitle,
   type ObserverGraphNode,
@@ -116,10 +113,7 @@ export function ObserverDrawer({
   const canOpen = Boolean(held && (held.kind === "agent" || held.kind === "subagent"));
   const todos = held?.kind === "agent" ? (held.activity?.todos ?? []) : [];
   const statusBucket = held
-    ? agentStatusBucket(
-        held,
-        held.kind === "subagent" ? null : attentionReason,
-      )
+    ? agentStatusBucket(held, held.kind === "subagent" ? null : attentionReason)
     : null;
   const showConversation = held?.kind === "agent" || held?.kind === "subagent";
 
@@ -141,7 +135,7 @@ export function ObserverDrawer({
       <DrawerPortal>
         <DrawerOverlay className="bg-black/40" style={{ zIndex: 50 }} />
         <DrawerContentBare
-          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background outline-none shadow-2xl"
+          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background shadow-2xl outline-none"
           style={contentStyle}
         >
           <DrawerTitle className="sr-only">{title}</DrawerTitle>
@@ -156,14 +150,14 @@ export function ObserverDrawer({
                         <DrawerGlyph node={held} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs text-muted-foreground">{kindLabel(t, held.kind)}</div>
-                        <h2 className="mt-1 text-lg font-semibold leading-snug text-foreground">
+                        <div className="text-xs text-muted-foreground">
+                          {kindLabel(t, held.kind)}
+                        </div>
+                        <h2 className="mt-1 text-lg leading-snug font-semibold text-foreground">
                           {title}
                         </h2>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                          {statusBucket ? (
-                            <FooterAgentStatusMark bucket={statusBucket} />
-                          ) : null}
+                          {statusBucket ? <FooterAgentStatusMark bucket={statusBucket} /> : null}
                           {held.chat ? <span>{t("chat")}</span> : null}
                           {held.sideChat ? <span>{t("sideChat")}</span> : null}
                           {held.kind !== "agent" && held.kind !== "subagent" ? (
@@ -191,7 +185,13 @@ export function ObserverDrawer({
                             className="flex gap-2 leading-5 text-muted-foreground"
                           >
                             <span className="mt-1.5 size-1 shrink-0 rounded-full bg-muted-foreground/70" />
-                            <span className={todo.status === "completed" || todo.status === "cancelled" ? "line-through" : "text-foreground"}>
+                            <span
+                              className={
+                                todo.status === "completed" || todo.status === "cancelled"
+                                  ? "line-through"
+                                  : "text-foreground"
+                              }
+                            >
                               {todo.content}
                             </span>
                           </li>

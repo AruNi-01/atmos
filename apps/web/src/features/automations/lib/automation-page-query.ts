@@ -1,8 +1,6 @@
 import type { AutomationsView } from "@/shared/lib/nuqs/searchParams";
 
-export function parseAutomationsView(
-  raw: string | null | undefined,
-): AutomationsView {
+export function parseAutomationsView(raw: string | null | undefined): AutomationsView {
   if (raw === "create" || raw === "edit" || raw === "history") return raw;
   return "list";
 }
@@ -22,9 +20,7 @@ export function resolveAutomationsPageView(
   return "list";
 }
 
-export function automationsViewFromLocation(
-  search: string | null | undefined,
-): AutomationsView {
+export function automationsViewFromLocation(search: string | null | undefined): AutomationsView {
   const query = search?.startsWith("?") ? search.slice(1) : (search ?? "");
   return parseAutomationsView(new URLSearchParams(query).get("automationView"));
 }

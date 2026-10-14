@@ -60,9 +60,7 @@ describe("sidebar shortcut targets", () => {
       id: "p1",
     });
     expect(parseSidebarShortcutTarget("group:g1")).toBeNull();
-    expect(serializeSidebarShortcutTarget({ kind: "project", id: "p1" })).toBe(
-      "project:p1",
-    );
+    expect(serializeSidebarShortcutTarget({ kind: "project", id: "p1" })).toBe("project:p1");
   });
 
   test("numbers visible items in the secondary column, skipping groups", () => {
@@ -256,12 +254,12 @@ describe("center region digit dispatch", () => {
 
 describe("held shortcut prefix", () => {
   test("cmd is tab prefix, cmd+shift is sidebar prefix, and both require center focus", () => {
-    expect(
-      heldShortcutPrefixFromModifiers({ mod: true, shift: false, centerFocused: true }),
-    ).toBe("mod");
-    expect(
-      heldShortcutPrefixFromModifiers({ mod: true, shift: true, centerFocused: true }),
-    ).toBe("mod-shift");
+    expect(heldShortcutPrefixFromModifiers({ mod: true, shift: false, centerFocused: true })).toBe(
+      "mod",
+    );
+    expect(heldShortcutPrefixFromModifiers({ mod: true, shift: true, centerFocused: true })).toBe(
+      "mod-shift",
+    );
     expect(
       heldShortcutPrefixFromModifiers({ mod: true, shift: true, centerFocused: false }),
     ).toBeNull();
@@ -282,10 +280,7 @@ describe("held shortcut prefix", () => {
 describe("shortcut prefix wiring", () => {
   test("sidebar maps cmd+shift+1-9 from the visible list, two-column uses the second pane", () => {
     const sidebar = readFileSync(join(import.meta.dir, "../LeftSidebar.tsx"), "utf8");
-    const controls = readFileSync(
-      join(import.meta.dir, "../left-sidebar-controls.tsx"),
-      "utf8",
-    );
+    const controls = readFileSync(join(import.meta.dir, "../left-sidebar-controls.tsx"), "utf8");
     expect(sidebar).toContain("SIDEBAR_STRIP_POSITION_HOTKEYS");
     expect(sidebar).toContain("collectSidebarShortcutTargets");
     expect(sidebar).toContain('data-sidebar-shortcut-scope": "list"');
@@ -303,20 +298,13 @@ describe("shortcut prefix wiring", () => {
   });
 
   test("workspace rows overlay shortcut hints so the list height does not jump", () => {
-    const content = readFileSync(
-      join(import.meta.dir, "../sidebar/WorkspaceContent.tsx"),
-      "utf8",
-    );
+    const content = readFileSync(join(import.meta.dir, "../sidebar/WorkspaceContent.tsx"), "utf8");
     expect(content).toContain('shortcutDigit != null && "invisible"');
-    expect(content).toContain("absolute right-0 top-1/2");
+    expect(content).toContain("pointer-events-none absolute top-1/2 right-0 z-10 -translate-y-1/2");
     expect(content).toContain("SidebarHeldShortcutBadge");
-    const badge = readFileSync(
-      join(import.meta.dir, "../HeldShortcutBadge.tsx"),
-      "utf8",
-    );
+    const badge = readFileSync(join(import.meta.dir, "../HeldShortcutBadge.tsx"), "utf8");
     expect(badge).toContain("leading-none");
     expect(badge).toContain("h-4");
     expect(badge).toContain("absolute inset-y-0 right-0");
   });
 });
-

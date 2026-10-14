@@ -18,11 +18,7 @@ import {
   cn,
   toastManager,
 } from "@workspace/ui";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import { motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 
@@ -39,10 +35,7 @@ import {
   tryNativeShare,
   type SocialPlatform,
 } from "@/app-shell/token-usage-share-card";
-import {
-  formatCompactNumber,
-  formatCurrencyCompact,
-} from "@/app-shell/token-usage-dialog-utils";
+import { formatCompactNumber, formatCurrencyCompact } from "@/app-shell/token-usage-dialog-utils";
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import { hubConfigured } from "@/api/hub-client";
 import { TokenUsagePublishControls } from "@/features/token-usage/TokenUsagePublishControls";
@@ -123,9 +116,7 @@ function SharePublishPanels({
           transition={{ duration: reduce ? 0 : 0.22, ease: TAB_EASE }}
           className={cn(
             "origin-top",
-            tab === "publish"
-              ? "relative"
-              : "pointer-events-none absolute inset-x-0 top-0",
+            tab === "publish" ? "relative" : "pointer-events-none absolute inset-x-0 top-0",
           )}
           aria-hidden={tab !== "publish"}
           inert={tab !== "publish" ? true : undefined}
@@ -142,9 +133,7 @@ function SharePublishPanels({
           transition={{ duration: reduce ? 0 : 0.22, ease: TAB_EASE }}
           className={cn(
             "origin-top",
-            tab === "share"
-              ? "relative"
-              : "pointer-events-none absolute inset-x-0 top-0",
+            tab === "share" ? "relative" : "pointer-events-none absolute inset-x-0 top-0",
           )}
           aria-hidden={tab !== "share"}
           inert={tab !== "share" ? true : undefined}
@@ -211,9 +200,7 @@ function ShareCardBody({
             </button>
           ) : captureFailed ? (
             <div className="absolute inset-0 flex items-center justify-center px-3 text-center">
-              <span className="text-[11px] text-muted-foreground">
-                {t("errors.capture")}
-              </span>
+              <span className="text-[11px] text-muted-foreground">{t("errors.capture")}</span>
             </div>
           ) : (
             <div className="absolute inset-0">
@@ -291,12 +278,9 @@ export function TokenUsageSharePopover({
   const lightboxActiveRef = React.useRef(false);
   const nestedDialogOpenRef = React.useRef(false);
 
-  const notify = React.useCallback(
-    (title: string, type: "success" | "error" | "info" = "info") => {
-      toastManager.add({ title, type });
-    },
-    [],
-  );
+  const notify = React.useCallback((title: string, type: "success" | "error" | "info" = "info") => {
+    toastManager.add({ title, type });
+  }, []);
 
   const primaryLine = React.useMemo(() => {
     const tokens = formatCompactNumber(totalTokens, locale);
@@ -488,10 +472,7 @@ export function TokenUsageSharePopover({
   const handlePopoverOpenChange = React.useCallback(
     (next: boolean) => {
       // While the full-size preview or nested sign-in dialog is open, keep the popover.
-      if (
-        !next &&
-        (lightboxOpen || lightboxActiveRef.current || nestedDialogOpenRef.current)
-      ) {
+      if (!next && (lightboxOpen || lightboxActiveRef.current || nestedDialogOpenRef.current)) {
         return;
       }
       setOpen(next);
@@ -501,8 +482,7 @@ export function TokenUsageSharePopover({
   );
 
   React.useLayoutEffect(() => {
-    const resume =
-      consumeTokenUsageShareQuery() ?? takeTokenUsageShareResume();
+    const resume = consumeTokenUsageShareQuery() ?? takeTokenUsageShareResume();
     if (!resume) return;
     setTab(resume);
     setOpen(true);
@@ -566,9 +546,9 @@ export function TokenUsageSharePopover({
     if (!(target instanceof Element)) return false;
     return Boolean(
       target.closest('[data-slot="dialog-content"]') ||
-        target.closest('[data-slot="dialog-overlay"]') ||
-        target.closest("[data-radix-dialog-content]") ||
-        target.closest("[role='dialog']"),
+      target.closest('[data-slot="dialog-overlay"]') ||
+      target.closest("[data-radix-dialog-content]") ||
+      target.closest("[role='dialog']"),
     );
   }, []);
 
@@ -606,11 +586,7 @@ export function TokenUsageSharePopover({
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onPointerDownOutside={(event) => {
-            if (
-              lightboxOpen ||
-              nestedDialogOpenRef.current ||
-              isDialogSurface(event.target)
-            ) {
+            if (lightboxOpen || nestedDialogOpenRef.current || isDialogSurface(event.target)) {
               event.preventDefault();
             }
           }}
@@ -625,22 +601,13 @@ export function TokenUsageSharePopover({
             }
           }}
           onInteractOutside={(event) => {
-            if (
-              lightboxOpen ||
-              nestedDialogOpenRef.current ||
-              isDialogSurface(event.target)
-            ) {
+            if (lightboxOpen || nestedDialogOpenRef.current || isDialogSurface(event.target)) {
               event.preventDefault();
             }
           }}
         >
           {canPublish ? (
-            <Tabs
-              value={tab}
-              onValueChange={setTab}
-              variant="pill"
-              className="flex flex-col"
-            >
+            <Tabs value={tab} onValueChange={setTab} variant="pill" className="flex flex-col">
               <div className="px-2.5 pt-2.5">
                 <TabsList className="h-8 gap-0.5 p-0.5">
                   <TabsTrigger value="share" className="h-7 gap-1.5 px-3 text-xs">

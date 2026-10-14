@@ -6,32 +6,32 @@
 - 审查基线：`e434148c..6191ce5d`，排除了 2026-06-26 晚间早于窗口的提交；本窗口内未发现仅修改 `automations/review/quality/result/` 的 automation 归档提交。
 - 被审查提交：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `aa0e0c01` | AarynLu | Preserve ACP chat session state |
-| `74df0b29` | AarynLu | Improve canvas widget placement |
-| `328d99bb` | AarynLu | Add message link safety modal |
-| `1f37a114` | AarynLu | Address canvas and ACP review findings |
-| `25d024a0` | AarynLu | Address remaining agent canvas review findings |
-| `c5bfca92` | AarynLu | Tune canvas focus pulse scale |
-| `5a1fe2df` | AarynLu | Address agent modal review findings |
-| `8afd0be9` | AarynLu | Make ACP chat history global |
-| `fd18c6f3` | AarynLu | Keep ACP cwd visible in chat history |
-| `fe2baa1f` | AarynLu | Compact ACP history metadata |
-| `d6de4c91` | AarynLu | Fix file tree context menu positioning in canvas overlays |
-| `072d9cf2` | AruNi_Lu | Merge pull request #138 from AruNi-01/aarynlu/agent-canvas-updates |
-| `c7ddc915` | AarynLu | Improve agent chat window layout |
-| `69ab575b` | AarynLu | Polish agent chat session persistence |
-| `fb942e0e` | AarynLu | Fix agent chat review feedback |
-| `18af87a7` | AarynLu | Fix agent chat follow-up review feedback |
-| `cf050743` | AruNi_Lu | Merge pull request #139 from AruNi-01/aarynlu/agent-chat-window-layout |
-| `a3ec46e1` | AarynLu | Refresh landing feature showcase |
-| `1a949b97` | AarynLu | Address feature showcase review comments |
-| `84097613` | AarynLu | Align feature showcase side rail width |
-| `1bdff0fc` | AarynLu | Adjust feature showcase max width |
+| Hash       | Author   | Message                                                                        |
+| ---------- | -------- | ------------------------------------------------------------------------------ |
+| `aa0e0c01` | AarynLu  | Preserve ACP chat session state                                                |
+| `74df0b29` | AarynLu  | Improve canvas widget placement                                                |
+| `328d99bb` | AarynLu  | Add message link safety modal                                                  |
+| `1f37a114` | AarynLu  | Address canvas and ACP review findings                                         |
+| `25d024a0` | AarynLu  | Address remaining agent canvas review findings                                 |
+| `c5bfca92` | AarynLu  | Tune canvas focus pulse scale                                                  |
+| `5a1fe2df` | AarynLu  | Address agent modal review findings                                            |
+| `8afd0be9` | AarynLu  | Make ACP chat history global                                                   |
+| `fd18c6f3` | AarynLu  | Keep ACP cwd visible in chat history                                           |
+| `fe2baa1f` | AarynLu  | Compact ACP history metadata                                                   |
+| `d6de4c91` | AarynLu  | Fix file tree context menu positioning in canvas overlays                      |
+| `072d9cf2` | AruNi_Lu | Merge pull request #138 from AruNi-01/aarynlu/agent-canvas-updates             |
+| `c7ddc915` | AarynLu  | Improve agent chat window layout                                               |
+| `69ab575b` | AarynLu  | Polish agent chat session persistence                                          |
+| `fb942e0e` | AarynLu  | Fix agent chat review feedback                                                 |
+| `18af87a7` | AarynLu  | Fix agent chat follow-up review feedback                                       |
+| `cf050743` | AruNi_Lu | Merge pull request #139 from AruNi-01/aarynlu/agent-chat-window-layout         |
+| `a3ec46e1` | AarynLu  | Refresh landing feature showcase                                               |
+| `1a949b97` | AarynLu  | Address feature showcase review comments                                       |
+| `84097613` | AarynLu  | Align feature showcase side rail width                                         |
+| `1bdff0fc` | AarynLu  | Adjust feature showcase max width                                              |
 | `160aed13` | AruNi_Lu | Merge pull request #140 from AruNi-01/aarynlu/landing-feature-showcase-actions |
-| `5ffa7bb2` | AarynLu | Add landing i18n and theme fixes |
-| `6191ce5d` | AarynLu | docs: center readme headers and use repo screenshot |
+| `5ffa7bb2` | AarynLu  | Add landing i18n and theme fixes                                               |
+| `6191ce5d` | AarynLu  | docs: center readme headers and use repo screenshot                            |
 
 ## 2. 一份好代码应该是什么样
 

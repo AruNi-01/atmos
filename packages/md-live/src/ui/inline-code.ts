@@ -50,9 +50,7 @@ export function mdLiveInlineCodeDelete(state: EditorState, direction: -1 | 1): T
   const markType = inlineCodeMarkType(state);
   if (!markType) return null;
   const { empty, from, to, $from } = state.selection;
-  const probe = empty
-    ? (direction < 0 ? Math.max($from.start(), from - 1) : from)
-    : from;
+  const probe = empty ? (direction < 0 ? Math.max($from.start(), from - 1) : from) : from;
   const range = mdLiveInlineCodeRange(state.doc, probe);
   if (!range) return null;
 
@@ -70,7 +68,11 @@ export function mdLiveInlineCodeDelete(state: EditorState, direction: -1 | 1): T
       );
       if (remaining.length === 0) {
         const mark = markType.create();
-        const tr = state.tr.replaceWith(range.from, range.to, state.schema.text(EMPTY_INLINE_CODE, [mark]));
+        const tr = state.tr.replaceWith(
+          range.from,
+          range.to,
+          state.schema.text(EMPTY_INLINE_CODE, [mark]),
+        );
         return tr.setSelection(TextSelection.create(tr.doc, range.from + 1)).setStoredMarks([mark]);
       }
     }
@@ -87,7 +89,11 @@ export function mdLiveInlineCodeDelete(state: EditorState, direction: -1 | 1): T
   if (direction > 0 && (from < range.from || from >= range.to)) return null;
   if (visible.length === 1) {
     const mark = markType.create();
-    const tr = state.tr.replaceWith(range.from, range.to, state.schema.text(EMPTY_INLINE_CODE, [mark]));
+    const tr = state.tr.replaceWith(
+      range.from,
+      range.to,
+      state.schema.text(EMPTY_INLINE_CODE, [mark]),
+    );
     return tr.setSelection(TextSelection.create(tr.doc, range.from + 1)).setStoredMarks([mark]);
   }
   return null;
@@ -109,7 +115,9 @@ export function mdLiveInlineCodeTypeOverPlaceholder(
   if (existing.length > 0) return null;
   const mark = markType.create();
   const tr = state.tr.replaceWith(range.from, range.to, state.schema.text(text, [mark]));
-  return tr.setSelection(TextSelection.create(tr.doc, range.from + text.length)).setStoredMarks([mark]);
+  return tr
+    .setSelection(TextSelection.create(tr.doc, range.from + text.length))
+    .setStoredMarks([mark]);
 }
 
 function stripZwspFromNonEmptyInlineCode(state: EditorState): Transaction | null {

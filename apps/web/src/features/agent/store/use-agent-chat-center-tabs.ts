@@ -134,8 +134,7 @@ export function agentChatTabActivationOnContext(
   const parsed = parseAgentChatTabValue(tab);
   if (!parsed) return { ignore: false, existing: null };
   if (parsed.startsWith("draft:")) {
-    const local =
-      (tabsByContext[contextId] ?? []).find((item) => item.value === tab) ?? null;
+    const local = (tabsByContext[contextId] ?? []).find((item) => item.value === tab) ?? null;
     return { ignore: !local, existing: local };
   }
   const existing = findAgentChatCenterTab(tabsByContext, parsed, contextId) ?? null;

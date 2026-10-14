@@ -17,22 +17,22 @@ description: 在 Atmos 中运行定时或事件触发的 Agent 工作。
 
 ## 触发器
 
-| 触发器 | 适合场景 |
-|--------|----------|
-| **Manual** | 你从 Automations 面板手动启动的任务 |
-| **Schedule** | 常规检查、清理、报告生成、周期性 Review |
-| **GitHub** | 由 PR、issue、push、评论、workflow 或 label 驱动的工作 |
+| 触发器       | 适合场景                                               |
+| ------------ | ------------------------------------------------------ |
+| **Manual**   | 你从 Automations 面板手动启动的任务                    |
+| **Schedule** | 常规检查、清理、报告生成、周期性 Review                |
+| **GitHub**   | 由 PR、issue、push、评论、workflow 或 label 驱动的工作 |
 
 GitHub 触发器需要一台已连接的 Atmos Computer，因为实际工作仍然运行在你的机器上，而不是 Relay 上。
 
 ## 运行环境
 
-| 环境 | 行为 |
-|------|------|
-| **Project** | 在已有项目中运行 |
-| **Workspace** | 在已有工作空间中运行 |
-| **New Workspace** | 为本次自动化创建一个工作空间 |
-| **Standalone** | 在归属电脑的 automation run 目录中运行 |
+| 环境              | 行为                                   |
+| ----------------- | -------------------------------------- |
+| **Project**       | 在已有项目中运行                       |
+| **Workspace**     | 在已有工作空间中运行                   |
+| **New Workspace** | 为本次自动化创建一个工作空间           |
+| **Standalone**    | 在归属电脑的 automation run 目录中运行 |
 
 选择能提供所需文件和上下文的最小环境。
 

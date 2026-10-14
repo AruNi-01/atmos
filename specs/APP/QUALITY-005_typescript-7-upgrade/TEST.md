@@ -18,40 +18,40 @@ Verification layers:
 
 ## Coverage map
 
-| Requirement (from TECH) | Scenario IDs |
-|-------------------------|--------------|
-| TS 7 is the primary typecheck binary | S1, S2, S8 |
-| TS 6 API remains available for eslint / programmatic tools | S3, S4 |
-| Catalog / workspace versions unified | S1, S5 |
-| TS 7 hard errors absorbed (`baseUrl`, `ignoreDeprecations`, etc.) | S5, S6 |
-| Shared `packages/config` bases adopted | S5, S7 |
-| Parallel checkers / orchestrator wired | S8, S9 |
-| Existing product behavior unchanged | S10–S16 |
-| Editor / contributor docs updated | S17 |
-| Rollback / dual-package clarity | S3, S18 |
+| Requirement (from TECH)                                           | Scenario IDs |
+| ----------------------------------------------------------------- | ------------ |
+| TS 7 is the primary typecheck binary                              | S1, S2, S8   |
+| TS 6 API remains available for eslint / programmatic tools        | S3, S4       |
+| Catalog / workspace versions unified                              | S1, S5       |
+| TS 7 hard errors absorbed (`baseUrl`, `ignoreDeprecations`, etc.) | S5, S6       |
+| Shared `packages/config` bases adopted                            | S5, S7       |
+| Parallel checkers / orchestrator wired                            | S8, S9       |
+| Existing product behavior unchanged                               | S10–S16      |
+| Editor / contributor docs updated                                 | S17          |
+| Rollback / dual-package clarity                                   | S3, S18      |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Toolchain | Shell | `bun pm ls typescript` + package.json inspection | clean `bun install` | TS 7 native + TS 6 API both present; no stray `^5` pins | planned |
-| S2 | Toolchain | Shell | `bunx @typescript/native --version` (or documented binary) | post-install | reports `7.x`; typecheck scripts invoke this binary | planned |
-| S3 | Toolchain | Shell / Node | resolve `require.resolve('typescript/package.json')` from eslint context | root + `apps/web` | resolves to `@typescript/typescript6` / 6.x API package | planned |
-| S4 | Integration | Bun | `bun --filter web lint` (and root `bun lint` if scoped) | default repo | eslint exits 0; no "typescript API missing" errors | planned |
-| S5 | Config audit | Shell / ripgrep | `rg` over `**/tsconfig*.json` + `**/package.json` | full tree | no `ignoreDeprecations`, no `baseUrl`, no `typescript: ^5` / mobile `~6.0.3` | planned |
-| S6 | Typecheck | Bun | `bun --filter @atmos/mobile typecheck` | mobile tsconfig without deprecations | exits 0 | planned |
-| S7 | Typecheck | Bun | `bun run typecheck` (root orchestrator) | all workspaces | every package typecheck exits 0 under TS 7 | planned |
-| S8 | Performance | Bench script | `bun run typecheck:bench` | baseline file in `assets/` | ≥ 3× faster full typecheck vs baseline; checkers > 1 in non-debug mode | planned |
-| S9 | Toolchain | Shell | inspect `scripts/typecheck-all.ts` + env | CI + local defaults | `--checkers` / `--builders` (or env) applied; `--singleThreaded` documented | planned |
-| S10 | Regression | Bun | `bun --filter web test` (or package test script) | existing fixtures | exit 0; no new failures vs main | planned |
-| S11 | Regression | Bun | `bun --filter @atmos/mobile test` | existing fixtures | exit 0 | planned |
-| S12 | Regression | Playwright | `just test-e2e-smoke` | e2e harness | smoke passes on Chromium | planned |
-| S13 | Build | Bun | `bun --filter web build` | production build env | Next build exits 0 | planned |
-| S14 | Build | Bun | `bun --filter landing build` | production build env | exits 0 | planned |
-| S15 | Build | Bun | `bun run --filter docs types:check` (and build if feasible) | docs env | exits 0 | planned |
-| S16 | Build / typecheck | Bun | `bun --filter @atmos/relay typecheck` | relay tsconfig | exits 0 with workers types | planned |
-| S17 | Docs | Review | read `packages/config/AGENTS.md` + root notes | n/a | dual-package + editor steps documented | planned |
-| S18 | Failure | Manual / Shell | temporarily point typecheck at wrong package | local only | failure mode is obvious; rollback = revert deps/tsconfig | planned |
+| Scenario | Level             | Expected tool   | Target command / method                                                  | Fixture / data                       | Signals                                                                      | Status  |
+| -------- | ----------------- | --------------- | ------------------------------------------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------- | ------- |
+| S1       | Toolchain         | Shell           | `bun pm ls typescript` + package.json inspection                         | clean `bun install`                  | TS 7 native + TS 6 API both present; no stray `^5` pins                      | planned |
+| S2       | Toolchain         | Shell           | `bunx @typescript/native --version` (or documented binary)               | post-install                         | reports `7.x`; typecheck scripts invoke this binary                          | planned |
+| S3       | Toolchain         | Shell / Node    | resolve `require.resolve('typescript/package.json')` from eslint context | root + `apps/web`                    | resolves to `@typescript/typescript6` / 6.x API package                      | planned |
+| S4       | Integration       | Bun             | `bun --filter web lint` (and root `bun lint` if scoped)                  | default repo                         | eslint exits 0; no "typescript API missing" errors                           | planned |
+| S5       | Config audit      | Shell / ripgrep | `rg` over `**/tsconfig*.json` + `**/package.json`                        | full tree                            | no `ignoreDeprecations`, no `baseUrl`, no `typescript: ^5` / mobile `~6.0.3` | planned |
+| S6       | Typecheck         | Bun             | `bun --filter @atmos/mobile typecheck`                                   | mobile tsconfig without deprecations | exits 0                                                                      | planned |
+| S7       | Typecheck         | Bun             | `bun run typecheck` (root orchestrator)                                  | all workspaces                       | every package typecheck exits 0 under TS 7                                   | planned |
+| S8       | Performance       | Bench script    | `bun run typecheck:bench`                                                | baseline file in `assets/`           | ≥ 3× faster full typecheck vs baseline; checkers > 1 in non-debug mode       | planned |
+| S9       | Toolchain         | Shell           | inspect `scripts/typecheck-all.ts` + env                                 | CI + local defaults                  | `--checkers` / `--builders` (or env) applied; `--singleThreaded` documented  | planned |
+| S10      | Regression        | Bun             | `bun --filter web test` (or package test script)                         | existing fixtures                    | exit 0; no new failures vs main                                              | planned |
+| S11      | Regression        | Bun             | `bun --filter @atmos/mobile test`                                        | existing fixtures                    | exit 0                                                                       | planned |
+| S12      | Regression        | Playwright      | `just test-e2e-smoke`                                                    | e2e harness                          | smoke passes on Chromium                                                     | planned |
+| S13      | Build             | Bun             | `bun --filter web build`                                                 | production build env                 | Next build exits 0                                                           | planned |
+| S14      | Build             | Bun             | `bun --filter landing build`                                             | production build env                 | exits 0                                                                      | planned |
+| S15      | Build             | Bun             | `bun run --filter docs types:check` (and build if feasible)              | docs env                             | exits 0                                                                      | planned |
+| S16      | Build / typecheck | Bun             | `bun --filter @atmos/relay typecheck`                                    | relay tsconfig                       | exits 0 with workers types                                                   | planned |
+| S17      | Docs              | Review          | read `packages/config/AGENTS.md` + root notes                            | n/a                                  | dual-package + editor steps documented                                       | planned |
+| S18      | Failure           | Manual / Shell  | temporarily point typecheck at wrong package                             | local only                           | failure mode is obvious; rollback = revert deps/tsconfig                     | planned |
 
 ## Scenarios
 
@@ -213,12 +213,12 @@ Verification layers:
 
 ## Performance & load budgets
 
-| Check | Budget |
-|-------|--------|
+| Check                             | Budget                                                                                                     |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Full monorepo typecheck wall time | ≥ **3×** faster than pre-upgrade baseline on the same machine (record absolute seconds in Coverage Status) |
-| `apps/web` typecheck alone | Clearly faster than baseline; log checkers used |
-| CI typecheck | Completes without OOM at `ATMOS_TSC_CHECKERS=2` (or documented CI default) |
-| ESLint on `apps/web` | No >2× regression vs pre-upgrade (API still TS 6; should be ~flat) |
+| `apps/web` typecheck alone        | Clearly faster than baseline; log checkers used                                                            |
+| CI typecheck                      | Completes without OOM at `ATMOS_TSC_CHECKERS=2` (or documented CI default)                                 |
+| ESLint on `apps/web`              | No >2× regression vs pre-upgrade (API still TS 6; should be ~flat)                                         |
 
 If the 3× full-monorepo budget is missed, do **not** waive silently: tune `--checkers`, confirm the native binary is in use (S2), and re-bench. Only then document a machine-specific exception in Coverage Status.
 
@@ -282,22 +282,22 @@ Automation cannot fully cover these:
 
 > Updated 2026-07-09 during QUALITY-005 implementation (pre `atmos-specs-test-run` formal pass).
 
-| Scenario | Result | Evidence |
-|----------|--------|----------|
-| S1 | ✅ | Root + workspaces pin `typescript@6.0.3`; root has `@typescript/native@7.0.2`; no `^5` / mobile `~6` left |
-| S2 | ✅ | `node_modules/@typescript/native/bin/tsc --version` → `7.0.2`; `bun run typecheck` refuses non-7 |
-| S3 | ✅ | `require("typescript").version` → `6.0.3`, `typeof createProgram === "function"` |
-| S4 | ⚠️ | `bun --filter web lint` runs typescript-eslint successfully (no missing-API crash). Pre-existing: 2× `@typescript-eslint/no-explicit-any` errors in `center-stage-support.tsx` + 143 warnings — not introduced by this upgrade |
-| S5 | ✅ | `rg ignoreDeprecations\|baseUrl` over tsconfigs → clean |
-| S6 | ✅ | `bun --filter @atmos/mobile typecheck` via `run-tsc7.ts` exits 0 |
-| S7 | ✅ | `bun run typecheck` all 9 workspaces green |
-| S8 | ✅ | Bench: web **26.14×** (19.23s → 0.74s), mobile **6.08×**, ui **1.60×**; web exceeds 3× budget |
-| S9 | ✅ | Orchestrator passes `--checkers`; `--builders` only with `-b`; env knobs documented |
-| S10 | ⚠️ | `bun test` in `apps/web`: 247 pass / 6 fail — failures are `next-intl` / Appshot mock issues, not TS 7 diagnostics |
-| S11 | ✅ | `bun --filter @atmos/mobile test` — 58 pass / 0 fail |
-| S12–S16 | planned | Builds / e2e smoke not re-run in this implementation session |
-| S17 | ✅ | `packages/config/AGENTS.md`, root `AGENTS.md` / `CLAUDE.md`, `just typecheck` documented |
-| S18 | planned | Manual wrong-binary / editor checks deferred |
+| Scenario | Result  | Evidence                                                                                                                                                                                                                       |
+| -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S1       | ✅      | Root + workspaces pin `typescript@6.0.3`; root has `@typescript/native@7.0.2`; no `^5` / mobile `~6` left                                                                                                                      |
+| S2       | ✅      | `node_modules/@typescript/native/bin/tsc --version` → `7.0.2`; `bun run typecheck` refuses non-7                                                                                                                               |
+| S3       | ✅      | `require("typescript").version` → `6.0.3`, `typeof createProgram === "function"`                                                                                                                                               |
+| S4       | ⚠️      | `bun --filter web lint` runs typescript-eslint successfully (no missing-API crash). Pre-existing: 2× `@typescript-eslint/no-explicit-any` errors in `center-stage-support.tsx` + 143 warnings — not introduced by this upgrade |
+| S5       | ✅      | `rg ignoreDeprecations\|baseUrl` over tsconfigs → clean                                                                                                                                                                        |
+| S6       | ✅      | `bun --filter @atmos/mobile typecheck` via `run-tsc7.ts` exits 0                                                                                                                                                               |
+| S7       | ✅      | `bun run typecheck` all 9 workspaces green                                                                                                                                                                                     |
+| S8       | ✅      | Bench: web **26.14×** (19.23s → 0.74s), mobile **6.08×**, ui **1.60×**; web exceeds 3× budget                                                                                                                                  |
+| S9       | ✅      | Orchestrator passes `--checkers`; `--builders` only with `-b`; env knobs documented                                                                                                                                            |
+| S10      | ⚠️      | `bun test` in `apps/web`: 247 pass / 6 fail — failures are `next-intl` / Appshot mock issues, not TS 7 diagnostics                                                                                                             |
+| S11      | ✅      | `bun --filter @atmos/mobile test` — 58 pass / 0 fail                                                                                                                                                                           |
+| S12–S16  | planned | Builds / e2e smoke not re-run in this implementation session                                                                                                                                                                   |
+| S17      | ✅      | `packages/config/AGENTS.md`, root `AGENTS.md` / `CLAUDE.md`, `just typecheck` documented                                                                                                                                       |
+| S18      | planned | Manual wrong-binary / editor checks deferred                                                                                                                                                                                   |
 
 Commands used:
 
@@ -310,4 +310,3 @@ bun --filter @atmos/mobile test
 (cd apps/web && bun test)
 (cd apps/web && bun run lint)
 ```
-

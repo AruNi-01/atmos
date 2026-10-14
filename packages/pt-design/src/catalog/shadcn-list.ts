@@ -83,4 +83,3 @@ export type RequiredBlockId = (typeof REQUIRED_BLOCKS)[number];
 
 /** Generic `chart` stub stays in PTX; the Charts tab owns gallery variants. */
 export const COMPONENT_PALETTE_IDS = SHADCN_BASIC_IDS.filter((id) => id !== "chart");
-

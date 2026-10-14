@@ -7,7 +7,10 @@ const root = join(import.meta.dir, "../../../../../../..");
 describe("tool call density settings", () => {
   it("reuses the effort range slider in the agents settings page", () => {
     const section = readFileSync(
-      join(root, "apps/web/src/features/settings/components/AgentToolCallDensitySettingsSection.tsx"),
+      join(
+        root,
+        "apps/web/src/features/settings/components/AgentToolCallDensitySettingsSection.tsx",
+      ),
       "utf8",
     );
     const agents = readFileSync(

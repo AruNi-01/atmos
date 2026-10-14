@@ -1,36 +1,31 @@
-'use client';
+"use client";
 
 import {
   prepareConnectionTargetChange,
   reloadActiveConnectionData,
-} from '@/app-shell/bootstrap/connection-target-lifecycle';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+} from "@/app-shell/bootstrap/connection-target-lifecycle";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import {
   applyRelaySessionTransport,
   resetRelaySessionForQuery,
-} from '@/features/connection/lib/query-identity-lifecycle';
-import {
-  setHostedRuntimeApiOverride,
-  type ApiConfig,
-} from '@/shared/lib/desktop-runtime';
+} from "@/features/connection/lib/query-identity-lifecycle";
+import { setHostedRuntimeApiOverride, type ApiConfig } from "@/shared/lib/desktop-runtime";
 import {
   syncClientSessionLocal,
   syncClientSessionRelay,
-} from '@/features/connection/lib/sync-client-session';
+} from "@/features/connection/lib/sync-client-session";
 import {
   writeHostedConnectionPreference,
   type HostedRemoteSession,
-} from '@/features/connection/lib/hosted-connection';
+} from "@/features/connection/lib/hosted-connection";
 
 export async function reconnectForCurrentTarget(): Promise<void> {
   useWebSocketStore.getState().disconnect();
   await prepareConnectionTargetChange();
   // connect() may resolve without connecting if a concurrent cancel races;
   // wait until the socket is actually up before reloading target data.
-  const { waitForWebSocketConnection } = await import(
-    '@/features/connection/hooks/use-websocket'
-  );
+  const { waitForWebSocketConnection } = await import("@/features/connection/hooks/use-websocket");
   // waitForWebSocketConnection already starts connect() and retries the shared
   // in-flight promise; an extra connect() only duplicates startup logs.
   await waitForWebSocketConnection();
@@ -39,8 +34,8 @@ export async function reconnectForCurrentTarget(): Promise<void> {
 
 export async function activateCurrentLocalConnection(): Promise<void> {
   await resetRelaySessionForQuery();
-  useAtmosComputerStore.getState().setConnectionMode('local');
-  writeHostedConnectionPreference('local');
+  useAtmosComputerStore.getState().setConnectionMode("local");
+  writeHostedConnectionPreference("local");
   await syncClientSessionLocal().catch(() => undefined);
   await reconnectForCurrentTarget();
 }
@@ -65,8 +60,8 @@ export async function activateHostedRemoteConnection(
     relayGatewayHttpBase: session.gateway_url,
     relayClientToken: session.client_token,
   });
-  store.setConnectionMode('relay');
-  writeHostedConnectionPreference('relay');
+  store.setConnectionMode("relay");
+  writeHostedConnectionPreference("relay");
   void syncClientSessionRelay(serverId, session.gateway_url, session.client_token).catch(
     () => undefined,
   );

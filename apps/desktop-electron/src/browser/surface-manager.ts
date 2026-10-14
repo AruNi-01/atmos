@@ -4,12 +4,7 @@
  * enforces attach policy, binds guest WebContents, injects runtime, and owns detach.
  */
 
-import {
-  BrowserWindow,
-  session,
-  type Session,
-  type WebContents,
-} from "electron";
+import { BrowserWindow, session, type Session, type WebContents } from "electron";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
@@ -27,10 +22,7 @@ import {
   toPreloadFileUrl,
   type RegisteredBrowserSession,
 } from "./webview-attach-policy.js";
-import {
-  browserPreloadPath,
-  buildBridgeInjection,
-} from "./webview-runtime.js";
+import { browserPreloadPath, buildBridgeInjection } from "./webview-runtime.js";
 import { applyGuestColorScheme as applyGuestColorSchemeToWebContents } from "./webview-color-scheme.js";
 import { systemDownloadsDir } from "./system-downloads.js";
 
@@ -71,9 +63,7 @@ export class BrowserSurfaceManager {
   private readonly attachQueue: string[] = [];
   /** Last guest the user or agent actually used — tab events go to this host. */
   private lastActiveSessionId: string | null = null;
-  private onBrowserUseNavigated:
-    | ((sessionId: string, url: string) => void)
-    | null = null;
+  private onBrowserUseNavigated: ((sessionId: string, url: string) => void) | null = null;
   private onBrowserUseClosed: ((sessionId: string) => void) | null = null;
 
   constructor(private readonly state: AppState) {
@@ -164,8 +154,7 @@ export class BrowserSurfaceManager {
 
   onGuestAttached(guestWc: WebContents): void {
     const fromArgs = this.sessionIdFromGuestWebContents(guestWc);
-    const sessionId =
-      fromArgs ?? this.attachQueue.shift() ?? this.findPendingSessionId();
+    const sessionId = fromArgs ?? this.attachQueue.shift() ?? this.findPendingSessionId();
     if (!sessionId) {
       console.warn("[browser] did-attach-webview with no pending session");
       return;
@@ -287,10 +276,7 @@ export class BrowserSurfaceManager {
    * Sync Atmos host theme into the guest so scrollbars / form controls / sites
    * that honor prefers-color-scheme behave like system Chrome.
    */
-  setPreferredColorScheme(
-    sessionId: string,
-    scheme: GuestColorScheme,
-  ): void {
+  setPreferredColorScheme(sessionId: string, scheme: GuestColorScheme): void {
     const s = this.surfaces.get(sessionId);
     if (!s) return;
     if (scheme !== "light" && scheme !== "dark") return;
@@ -304,11 +290,7 @@ export class BrowserSurfaceManager {
     await applyGuestColorSchemeToWebContents(wc, s.preferredColorScheme);
   }
 
-  private emitToApp(
-    channel: string,
-    payload: unknown,
-    host?: BrowserWindow | null,
-  ) {
+  private emitToApp(channel: string, payload: unknown, host?: BrowserWindow | null) {
     const targets = new Set<BrowserWindow>();
     if (host && !host.isDestroyed()) {
       targets.add(host);
@@ -334,9 +316,7 @@ export class BrowserSurfaceManager {
     });
   }
 
-  setOnBrowserUseNavigated(
-    cb: ((sessionId: string, url: string) => void) | null,
-  ): void {
+  setOnBrowserUseNavigated(cb: ((sessionId: string, url: string) => void) | null): void {
     this.onBrowserUseNavigated = cb;
   }
 
@@ -524,10 +504,7 @@ export class BrowserSurfaceManager {
     return out;
   }
 
-  private attachWebContentsListeners(
-    sessionId: string,
-    wc: WebContents,
-  ) {
+  private attachWebContentsListeners(sessionId: string, wc: WebContents) {
     wc.setWindowOpenHandler((details) => {
       const targetUrl = openTabTargetFromWindowOpenUrl(details.url);
       if (targetUrl) {
@@ -554,13 +531,7 @@ export class BrowserSurfaceManager {
       if (!s) return;
       const url = wc.getURL();
       s.currentUrl = url;
-      void this.onBrowserPageFinished(
-        wc,
-        sessionId,
-        url,
-        s.bridgeToken,
-        s.pickMode,
-      );
+      void this.onBrowserPageFinished(wc, sessionId, url, s.bridgeToken, s.pickMode);
     });
     wc.on("did-fail-load", (_e, code, desc, validatedURL) => {
       if (code === -3) return;
@@ -590,9 +561,7 @@ export class BrowserSurfaceManager {
       const s = this.surfaces.get(sessionId);
       if (!s) return;
       const faviconUrl =
-        Array.isArray(favicons) && typeof favicons[0] === "string"
-          ? favicons[0]
-          : undefined;
+        Array.isArray(favicons) && typeof favicons[0] === "string" ? favicons[0] : undefined;
       if (!faviconUrl) return;
       const pageTitle = (wc.getTitle() || "").trim();
       this.emitToSession(sessionId, "desktop-browser:title-changed", {
@@ -610,9 +579,7 @@ export class BrowserSurfaceManager {
       this.notifyBrowserUseNavigated(sessionId, url || wc.getURL());
     });
     wc.on("did-start-navigation", (...args: unknown[]) => {
-      const details = args[0] as
-        | { url?: string; isMainFrame?: boolean }
-        | undefined;
+      const details = args[0] as { url?: string; isMainFrame?: boolean } | undefined;
       const url =
         typeof details?.url === "string"
           ? details.url
@@ -620,9 +587,7 @@ export class BrowserSurfaceManager {
             ? args[1]
             : wc.getURL();
       const isMainFrame =
-        typeof details?.isMainFrame === "boolean"
-          ? details.isMainFrame
-          : args[3] !== false;
+        typeof details?.isMainFrame === "boolean" ? details.isMainFrame : args[3] !== false;
       if (!isMainFrame) return;
       this.notifyBrowserUseNavigated(sessionId, url);
     });
@@ -653,10 +618,7 @@ export class BrowserSurfaceManager {
     }
   }
 
-  private async injectBridge(
-    wc: WebContents,
-    bridgeToken: string,
-  ): Promise<boolean> {
+  private async injectBridge(wc: WebContents, bridgeToken: string): Promise<boolean> {
     try {
       await wc.executeJavaScript(buildBridgeInjection(bridgeToken), true);
       const ok = await wc.executeJavaScript(
@@ -733,12 +695,7 @@ export class BrowserSurfaceManager {
     pick: boolean,
     bridgeToken: string,
   ) {
-    await this.injectAndSync(
-      wc,
-      sessionId,
-      bridgeToken,
-      pick ? "enterPickMode" : "exitPickMode",
-    );
+    await this.injectAndSync(wc, sessionId, bridgeToken, pick ? "enterPickMode" : "exitPickMode");
   }
 
   /**
@@ -889,9 +846,7 @@ export class BrowserSurfaceManager {
     this.markLastActive(sessionId);
     s.currentUrl = url;
     if (s.detached && s.detachedWindow && !s.detachedWindow.isDestroyed()) {
-      void s.detachedWindow
-        .loadURL(url)
-        .catch((err) => this.emitLoadError(sessionId, url, err));
+      void s.detachedWindow.loadURL(url).catch((err) => this.emitLoadError(sessionId, url, err));
     }
     // In-panel: host <webview> src/loadURL is the sole navigation owner.
   }
@@ -917,14 +872,21 @@ export class BrowserSurfaceManager {
   async queryElementRects(
     sessionId: string,
     selectors: string[],
-  ): Promise<Array<{ selector: string; rect: { x: number; y: number; width: number; height: number } | null }>> {
+  ): Promise<
+    Array<{
+      selector: string;
+      rect: { x: number; y: number; width: number; height: number } | null;
+    }>
+  > {
     const s = this.surfaces.get(sessionId);
     if (!s) return selectors.map((selector) => ({ selector, rect: null }));
     const wc = this.webContentsFor(s);
     if (!wc || wc.isDestroyed()) {
       return selectors.map((selector) => ({ selector, rect: null }));
     }
-    const unique = [...new Set(selectors.filter((sel) => typeof sel === "string" && sel.length > 0))];
+    const unique = [
+      ...new Set(selectors.filter((sel) => typeof sel === "string" && sel.length > 0)),
+    ];
     if (unique.length === 0) return [];
     const script = `(() => {
       const selectors = ${JSON.stringify(unique)};
@@ -1059,28 +1021,19 @@ export class BrowserSurfaceManager {
         "",
     );
     const surface = sessionId ? this.surfaces.get(sessionId) : undefined;
-    const gated = gateAndRemapRuntimeEvent(
-      payload,
-      surface?.bridgeToken,
-      this.knownSessionIds(),
-    );
+    const gated = gateAndRemapRuntimeEvent(payload, surface?.bridgeToken, this.knownSessionIds());
     if (!gated) return;
 
     const eventType = String((payload as { type?: unknown }).type ?? "");
     if (
       surface &&
-      (eventType === "atmos-browser:ready" ||
-        eventType === "atmos-browser:navigation-changed")
+      (eventType === "atmos-browser:ready" || eventType === "atmos-browser:navigation-changed")
     ) {
       const pageUrl = gated.body.pageUrl;
       if (typeof pageUrl === "string") surface.currentUrl = pageUrl;
     }
 
-    this.emitToApp(
-      gated.channel,
-      gated.body,
-      surface ? this.surfaceHost(surface) : null,
-    );
+    this.emitToApp(gated.channel, gated.body, surface ? this.surfaceHost(surface) : null);
   }
 
   getBrowserSession(): Session {

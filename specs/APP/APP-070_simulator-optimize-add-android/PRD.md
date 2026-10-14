@@ -13,14 +13,14 @@
 
 BRAINSTORM forks resolved here (see [BRAINSTORM.md](./BRAINSTORM.md)):
 
-| Fork | Decision |
-|------|----------|
-| Scope | Device Preview + Workspace claim only |
-| Android helper | Vendor `expo/serve-emu` (not `serve-avd`) |
-| Preview UI | Iframe; serve-emu chrome matches vendored serve-sim |
-| Claim | Auto-claim free device; never steal; restore on workspace return |
-| Hosts | macOS arm64 Computer; Desktop **and** Web (loopback) |
-| Physical devices | Out |
+| Fork             | Decision                                                         |
+| ---------------- | ---------------------------------------------------------------- |
+| Scope            | Device Preview + Workspace claim only                            |
+| Android helper   | Vendor `expo/serve-emu` (not `serve-avd`)                        |
+| Preview UI       | Iframe; serve-emu chrome matches vendored serve-sim              |
+| Claim            | Auto-claim free device; never steal; restore on workspace return |
+| Hosts            | macOS arm64 Computer; Desktop **and** Web (loopback)             |
+| Physical devices | Out                                                              |
 
 ## Goals
 

@@ -14,24 +14,24 @@
 
 ## Coverage Map
 
-| Requirement | Scenario IDs |
-|-------------|--------------|
-| TEST.md has an execution-oriented structure | S1, S2 |
-| Implementation hands off to test-run after production code | S3 |
-| agent-browser is integrated but bounded | S4, S5 |
-| Existing repo test stack remains authoritative | S6 |
+| Requirement                                                | Scenario IDs |
+| ---------------------------------------------------------- | ------------ |
+| TEST.md has an execution-oriented structure                | S1, S2       |
+| Implementation hands off to test-run after production code | S3           |
+| agent-browser is integrated but bounded                    | S4, S5       |
+| Existing repo test stack remains authoritative             | S6           |
 
 ## Execution Map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Documentation audit | `rg` | `rg -n "Execution map|Coverage Status" specs/AGENTS.md .agents/skills/atmos-specs-test-plan/SKILL.md` | updated docs | both docs mention execution map and coverage status | planned |
-| S2 | Documentation audit | `rg` | `rg -n "Exploratory agent-browser checks" .agents/skills/atmos-specs-test-plan/SKILL.md` | updated skill | test-plan template includes exploratory checks | planned |
-| S3 | Skill contract audit | `rg` + manual review | `rg -n "test-run|implemented, awaiting test-run|Test hand-off" .agents/skills/atmos-specs-impl/SKILL.md` | updated impl skill | impl skill requires test-run hand-off after production code | planned |
-| S4 | Skill contract audit | `rg` + manual review | `rg -n "agent-browser|agent-browser skills get core --full" .agents/skills/atmos-specs-test-run/SKILL.md specs/AGENTS.md` | updated docs | Agent Browser is available through its skill or CLI-served instructions and recorded in Coverage Status | planned |
-| S5 | Documentation audit | `rg` | `rg -n "not a substitute|only proof|E2E coverage" specs/AGENTS.md .agents/skills/atmos-specs-test-*.md` | updated docs | docs warn against treating agent-browser as deterministic automated coverage | planned |
-| S7 | Documentation audit | `rg` | `rg -n "Agent Browser|agent-browser install|npx skills add vercel-labs/agent-browser|doctor" specs/references/agent-browser-setup.md` | setup reference | optional Agent Browser setup is documented separately | planned |
-| S6 | Documentation audit | `rg` | `rg -n "Bun|cargo test|Playwright" .agents/skills/atmos-specs-test-run/SKILL.md .agents/skills/atmos-specs-test-plan/SKILL.md` | updated skills | Bun/Rust are documented as active stack; Playwright is conditional on a harness | planned |
+| Scenario | Level                | Expected tool        | Target command / method                                                                  | Fixture / data                                                                                      | Signals                                                                                                 | Status                                                                                                  |
+| -------- | -------------------- | -------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| S1       | Documentation audit  | `rg`                 | `rg -n "Execution map                                                                    | Coverage Status" specs/AGENTS.md .agents/skills/atmos-specs-test-plan/SKILL.md`                     | updated docs                                                                                            | both docs mention execution map and coverage status                                                     | planned                                                                         |
+| S2       | Documentation audit  | `rg`                 | `rg -n "Exploratory agent-browser checks" .agents/skills/atmos-specs-test-plan/SKILL.md` | updated skill                                                                                       | test-plan template includes exploratory checks                                                          | planned                                                                                                 |
+| S3       | Skill contract audit | `rg` + manual review | `rg -n "test-run                                                                         | implemented, awaiting test-run                                                                      | Test hand-off" .agents/skills/atmos-specs-impl/SKILL.md`                                                | updated impl skill                                                                                      | impl skill requires test-run hand-off after production code                     | planned                                               |
+| S4       | Skill contract audit | `rg` + manual review | `rg -n "agent-browser                                                                    | agent-browser skills get core --full" .agents/skills/atmos-specs-test-run/SKILL.md specs/AGENTS.md` | updated docs                                                                                            | Agent Browser is available through its skill or CLI-served instructions and recorded in Coverage Status | planned                                                                         |
+| S5       | Documentation audit  | `rg`                 | `rg -n "not a substitute                                                                 | only proof                                                                                          | E2E coverage" specs/AGENTS.md .agents/skills/atmos-specs-test-*.md`                                     | updated docs                                                                                            | docs warn against treating agent-browser as deterministic automated coverage    | planned                                               |
+| S7       | Documentation audit  | `rg`                 | `rg -n "Agent Browser                                                                    | agent-browser install                                                                               | npx skills add vercel-labs/agent-browser                                                                | doctor" specs/references/agent-browser-setup.md`                                                        | setup reference                                                                 | optional Agent Browser setup is documented separately | planned |
+| S6       | Documentation audit  | `rg`                 | `rg -n "Bun                                                                              | cargo test                                                                                          | Playwright" .agents/skills/atmos-specs-test-run/SKILL.md .agents/skills/atmos-specs-test-plan/SKILL.md` | updated skills                                                                                          | Bun/Rust are documented as active stack; Playwright is conditional on a harness | planned                                               |
 
 ## Scenarios
 

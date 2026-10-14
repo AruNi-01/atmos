@@ -41,9 +41,7 @@ export function testHostCores(count: number, cpuPercent = 10): ResourceHostCpuCo
   }));
 }
 
-export function testDiskMetrics(
-  overrides: Partial<ResourceDiskMetrics> = {},
-): ResourceDiskMetrics {
+export function testDiskMetrics(overrides: Partial<ResourceDiskMetrics> = {}): ResourceDiskMetrics {
   const total = overrides.total_bytes ?? 1_000_000_000_000;
   const used = overrides.used_bytes ?? 400_000_000_000;
   return {
@@ -57,15 +55,11 @@ export function testDiskMetrics(
   };
 }
 
-export function testHostMetrics(
-  overrides: Partial<ResourceHostMetrics> = {},
-): ResourceHostMetrics {
+export function testHostMetrics(overrides: Partial<ResourceHostMetrics> = {}): ResourceHostMetrics {
   const memory =
     overrides.memory ??
     testHostMemory({
-      ...(overrides.memory_used_bytes != null
-        ? { used_bytes: overrides.memory_used_bytes }
-        : {}),
+      ...(overrides.memory_used_bytes != null ? { used_bytes: overrides.memory_used_bytes } : {}),
       ...(overrides.memory_total_bytes != null
         ? { total_bytes: overrides.memory_total_bytes }
         : {}),

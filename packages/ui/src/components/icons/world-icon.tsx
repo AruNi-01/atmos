@@ -3,10 +3,7 @@ import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion, useAnimate } from "motion/react";
 
 const WorldIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
-  (
-    { size = 24, color = "currentColor", strokeWidth = 2, className = "" },
-    ref,
-  ) => {
+  ({ size = 24, color = "currentColor", strokeWidth = 2, className = "" }, ref) => {
     const [scope, animate] = useAnimate();
 
     const start = useCallback(async () => {
@@ -67,20 +64,11 @@ const WorldIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         />
 
         {/* Horizontal lines and meridians */}
-        <motion.g
-          className="world-meridians"
-          style={{ transformOrigin: "50% 50%" }}
-        >
+        <motion.g className="world-meridians" style={{ transformOrigin: "50% 50%" }}>
           <motion.path d="M3.6 9h16.8" className="world-meridians" />
           <motion.path d="M3.6 15h16.8" className="world-meridians" />
-          <motion.path
-            d="M11.5 3a17 17 0 0 0 0 18"
-            className="world-meridians"
-          />
-          <motion.path
-            d="M12.5 3a17 17 0 0 1 0 18"
-            className="world-meridians"
-          />
+          <motion.path d="M11.5 3a17 17 0 0 0 0 18" className="world-meridians" />
+          <motion.path d="M12.5 3a17 17 0 0 1 0 18" className="world-meridians" />
         </motion.g>
       </motion.svg>
     );

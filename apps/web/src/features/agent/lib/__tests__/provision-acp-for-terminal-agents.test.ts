@@ -150,8 +150,8 @@ describe("acpOnboardingProvisionTargets", () => {
       }),
     ];
 
-    expect(acpOnboardingProvisionTargets(agents, ["claude", "gemini"]).map((item) => item.id)).toEqual(
-      ["gemini"],
-    );
+    expect(
+      acpOnboardingProvisionTargets(agents, ["claude", "gemini"]).map((item) => item.id),
+    ).toEqual(["gemini"]);
   });
 });

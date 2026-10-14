@@ -5,9 +5,7 @@ import type { EmojiMartData } from "@emoji-mart/data";
 
 type EmojiMartApi = typeof import("emoji-mart");
 
-let emojiLoadingPromise:
-  | Promise<{ emojiMart: EmojiMartApi; emojiData: EmojiMartData }>
-  | undefined;
+let emojiLoadingPromise: Promise<{ emojiMart: EmojiMartApi; emojiData: EmojiMartData }> | undefined;
 
 async function loadEmojiMart() {
   if (emojiLoadingPromise) return emojiLoadingPromise;
@@ -98,7 +96,9 @@ export function MdLiveEmojiPicker({
       }}
     >
       {status === "loading" ? (
-        <div className="px-2 py-6 text-center text-[13px] text-muted-foreground">{loadingLabel}</div>
+        <div className="px-2 py-6 text-center text-[13px] text-muted-foreground">
+          {loadingLabel}
+        </div>
       ) : null}
       {status === "error" ? (
         <div className="px-2 py-6 text-center text-[13px] text-muted-foreground">{errorLabel}</div>

@@ -36,11 +36,12 @@ import {
   useProjectsLoading,
 } from "@/features/project/hooks/use-project-bootstrap-query";
 import type { Project } from "@/shared/types/domain";
-import { listCanvasFrameTargets, type CanvasFrameTarget } from "@/features/canvas/lib/canvas-widget-frame";
-import { findCanvasWidgetPlacements } from "@/features/canvas/lib/canvas-widget-placement";
 import {
-  CANVAS_WIDGET_GROUPS,
-} from "@/features/canvas/lib/canvas-widget-registry";
+  listCanvasFrameTargets,
+  type CanvasFrameTarget,
+} from "@/features/canvas/lib/canvas-widget-frame";
+import { findCanvasWidgetPlacements } from "@/features/canvas/lib/canvas-widget-placement";
+import { CANVAS_WIDGET_GROUPS } from "@/features/canvas/lib/canvas-widget-registry";
 import {
   ADDABLE_CANVAS_ITEM_TYPES,
   CANVAS_TERMINAL_ADD_ITEM_TYPE,
@@ -109,7 +110,10 @@ function filterContextOptions(
 }
 
 function groupContextOptionsByProject(options: ContextOption[]) {
-  const groups = new Map<string, { projectId: string; projectName: string; options: ContextOption[] }>();
+  const groups = new Map<
+    string,
+    { projectId: string; projectName: string; options: ContextOption[] }
+  >();
 
   for (const option of options) {
     const group = groups.get(option.projectId);
@@ -229,7 +233,7 @@ function CanvasContextPicker({
           type="button"
           className={cn(
             "flex min-h-12 w-full items-center gap-3 rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-left",
-            "hover:border-foreground/30 hover:bg-accent/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+            "hover:border-foreground/30 hover:bg-accent/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none",
           )}
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/50">
@@ -248,9 +252,7 @@ function CanvasContextPicker({
                   : t("contextPicker.selectProjectOrWorkspace")}
             </span>
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-              {selectedOption
-                ? selectedOption.detail
-                : t("contextPicker.searchHint")}
+              {selectedOption ? selectedOption.detail : t("contextPicker.searchHint")}
             </span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
@@ -265,13 +267,13 @@ function CanvasContextPicker({
       >
         <div className="border-b border-border/70 p-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("contextPicker.searchPlaceholder")}
-              className="h-9 border-border/80 bg-muted/30 pl-8 pr-8 text-sm"
+              className="h-9 border-border/80 bg-muted/30 pr-8 pl-8 text-sm"
             />
             {query ? (
               <button
@@ -281,7 +283,7 @@ function CanvasContextPicker({
                   setQuery("");
                   searchInputRef.current?.focus();
                 }}
-                className="absolute right-2 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <X className="size-3.5" />
               </button>
@@ -349,7 +351,9 @@ function CanvasContextPicker({
                                 {option.label}
                               </span>
                               <span className="shrink-0 rounded border border-border/70 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                {option.kind === "project" ? t("contextPicker.projectKind") : t("contextPicker.workspaceKind")}
+                                {option.kind === "project"
+                                  ? t("contextPicker.projectKind")
+                                  : t("contextPicker.workspaceKind")}
                               </span>
                             </span>
                             <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
@@ -359,7 +363,11 @@ function CanvasContextPicker({
                                   <span className="truncate">{option.branch}</span>
                                 </span>
                               ) : option.workspaceCount != null ? (
-                                <span>{t("contextPicker.workspaceCount", { count: option.workspaceCount })}</span>
+                                <span>
+                                  {t("contextPicker.workspaceCount", {
+                                    count: option.workspaceCount,
+                                  })}
+                                </span>
                               ) : null}
                               <span className="min-w-0 truncate">{option.path}</span>
                             </span>
@@ -373,7 +381,9 @@ function CanvasContextPicker({
               ))
             ) : (
               <div className="rounded-md px-2.5 py-8 text-center">
-                <div className="text-sm font-medium text-foreground">{t("contextPicker.emptyTitle")}</div>
+                <div className="text-sm font-medium text-foreground">
+                  {t("contextPicker.emptyTitle")}
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {t("contextPicker.emptyDescription")}
                 </div>
@@ -432,7 +442,9 @@ export function CanvasAddAtmosWidgetPopover({
     selectedFrameValue === NO_FRAME_VALUE ? null : (selectedFrameValue as TLShapeId);
   const getEntryLabel = React.useCallback(
     (type: AddableCanvasItemType) =>
-      type === CANVAS_TERMINAL_ADD_ITEM_TYPE ? t("terminal.label") : getCanvasAddItemEntry(type).label,
+      type === CANVAS_TERMINAL_ADD_ITEM_TYPE
+        ? t("terminal.label")
+        : getCanvasAddItemEntry(type).label,
     [t],
   );
   const getEntryDescription = React.useCallback(
@@ -446,7 +458,9 @@ export function CanvasAddAtmosWidgetPopover({
     const entry = getCanvasAddItemEntry(type);
     return !entry.requiresContext || Boolean(selectedContext);
   });
-  const canAdd = Boolean(editor && selectedItemTypes.length > 0 && selectedItemsCanBeAdded && !isAdding);
+  const canAdd = Boolean(
+    editor && selectedItemTypes.length > 0 && selectedItemsCanBeAdded && !isAdding,
+  );
 
   const toggleItemType = (type: AddableCanvasItemType) => {
     setSelectedItemTypes((prev) =>
@@ -548,10 +562,10 @@ export function CanvasAddAtmosWidgetPopover({
         className="z-[1000] flex h-[min(54rem,var(--radix-popover-content-available-height))] max-h-[calc(100vh-1rem)] w-[min(42rem,calc(100vw-2rem))] flex-col overflow-hidden p-0"
       >
         <div className="shrink-0 border-b border-border/70 px-5 py-4">
-          <div className="text-base font-semibold leading-none text-foreground">{t("title")}</div>
+          <div className="text-base leading-none font-semibold text-foreground">{t("title")}</div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+        <div className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain">
           <div className="grid gap-5 p-5">
             <section className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground">
@@ -568,13 +582,17 @@ export function CanvasAddAtmosWidgetPopover({
 
             <section className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-medium text-muted-foreground">{t("sections.component")}</div>
+                <div className="text-xs font-medium text-muted-foreground">
+                  {t("sections.component")}
+                </div>
                 {selectedItemTypes.length > 0 ? (
                   <span className="text-xs text-muted-foreground">
                     {t("selectedCount", { count: selectedItemTypes.length })}
                   </span>
                 ) : !selectedContext ? (
-                  <span className="text-xs text-muted-foreground">{t("globalWidgetsAvailable")}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("globalWidgetsAvailable")}
+                  </span>
                 ) : null}
               </div>
               <div className="space-y-4 rounded-md border border-dashed border-border/80 p-3">
@@ -607,7 +625,7 @@ export function CanvasAddAtmosWidgetPopover({
                               onClick={() => toggleItemType(type)}
                               className={cn(
                                 "flex min-h-20 items-start gap-3 rounded-md bg-muted/35 p-3 text-left",
-                                "enabled:hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+                                "focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none enabled:hover:bg-accent/60",
                                 "disabled:cursor-not-allowed disabled:bg-muted/20 disabled:opacity-45",
                                 active && "bg-accent",
                               )}
@@ -616,7 +634,9 @@ export function CanvasAddAtmosWidgetPopover({
                               <span className="min-w-0 flex-1">
                                 <span className="flex min-w-0 items-center justify-between gap-3 text-sm font-medium text-foreground">
                                   <span className="min-w-0 truncate">{getEntryLabel(type)}</span>
-                                  {active ? <Check className="size-3.5 shrink-0 text-success" /> : null}
+                                  {active ? (
+                                    <Check className="size-3.5 shrink-0 text-success" />
+                                  ) : null}
                                 </span>
                                 <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                                   {getEntryDescription(type)}

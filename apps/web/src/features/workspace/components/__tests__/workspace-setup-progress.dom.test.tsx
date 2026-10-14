@@ -139,11 +139,7 @@ describe("WorkspaceSetupProgressView compact popover", () => {
   it("sizes the compact shell to content and keeps a bounded terminal", async () => {
     await act(async () => {
       root?.render(
-        <WorkspaceSetupProgressView
-          progress={setupProgress}
-          onFinish={() => undefined}
-          compact
-        />,
+        <WorkspaceSetupProgressView progress={setupProgress} onFinish={() => undefined} compact />,
       );
     });
 
@@ -174,7 +170,9 @@ describe("WorkspaceSetupProgressView compact popover", () => {
     const buttons = [...container.querySelectorAll("button")];
     expect(buttons.length).toBeGreaterThan(0);
     expect(buttons.some((button) => button.getAttribute("data-variant") === "outline")).toBe(true);
-    expect(buttons.some((button) => button.getAttribute("data-variant") === "destructive")).toBe(true);
+    expect(buttons.some((button) => button.getAttribute("data-variant") === "destructive")).toBe(
+      true,
+    );
     expect(buttons.every((button) => !button.className.includes("hover:scale"))).toBe(true);
     expect(buttons.every((button) => !button.className.includes("shadow-lg"))).toBe(true);
   });

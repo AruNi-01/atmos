@@ -7,12 +7,7 @@
  * Adapted for @workspace/ui import paths; langs expanded for Atmos file tools.
  */
 
-import {
-  Fragment,
-  useEffect,
-  useState,
-  type CSSProperties,
-} from "react";
+import { Fragment, useEffect, useState, type CSSProperties } from "react";
 import { createHighlighter, type Highlighter } from "shiki";
 import { cn } from "../../lib/utils";
 
@@ -124,10 +119,7 @@ export function resolveAgentCodeLanguage(language?: string | null): AgentCodeLan
   return AGENT_CODE_LANGS.includes(mapped) ? mapped : "text";
 }
 
-export function useAgentCodeTokens(
-  code: string,
-  language: AgentCodeLanguage,
-) {
+export function useAgentCodeTokens(code: string, language: AgentCodeLanguage) {
   const key = tokenCacheKey(code, language);
   const cached = tokenCache.get(key);
   const [result, setResult] = useState<{
@@ -187,11 +179,7 @@ export function useAgentCodeTokens(
   return null;
 }
 
-export function AgentCodeLine({
-  code,
-  tokens,
-  className,
-}: AgentCodeLineProps) {
+export function AgentCodeLine({ code, tokens, className }: AgentCodeLineProps) {
   return (
     <span className={className}>
       {tokens
@@ -214,11 +202,7 @@ export function AgentCodeLine({
   );
 }
 
-export function AgentCode({
-  code,
-  language = "bash",
-  className,
-}: AgentCodeProps) {
+export function AgentCode({ code, language = "bash", className }: AgentCodeProps) {
   const tokens = useAgentCodeTokens(code, language);
   let offset = 0;
   const lines = code.split("\n").map((content) => {
@@ -230,7 +214,7 @@ export function AgentCode({
   return (
     <pre
       className={cn(
-        "m-0 overflow-x-auto whitespace-pre font-mono text-xs leading-5 text-foreground/85",
+        "m-0 overflow-x-auto font-mono text-xs leading-5 whitespace-pre text-foreground/85",
         className,
       )}
     >

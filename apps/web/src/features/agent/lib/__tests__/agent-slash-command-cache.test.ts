@@ -41,8 +41,8 @@ describe("normalizeAgentSlashCommands", () => {
   });
 
   it("strips a leading slash so the composer does not render //fork", () => {
-    expect(normalizeAgentSlashCommands([{ name: "/fork", description: "Fork this session" }])).toEqual([
-      { name: "fork", description: "Fork this session", hint: null },
-    ]);
+    expect(
+      normalizeAgentSlashCommands([{ name: "/fork", description: "Fork this session" }]),
+    ).toEqual([{ name: "fork", description: "Fork this session", hint: null }]);
   });
 });

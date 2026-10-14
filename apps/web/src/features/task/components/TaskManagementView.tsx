@@ -4,11 +4,7 @@ import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "
 import { useTranslations } from "next-intl";
 import { useQueryState, useQueryStates } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import LogoSvg from "@workspace/ui/components/logo-svg";
 
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
@@ -34,18 +30,12 @@ import type { WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanban
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 import { TaskGithubPanel } from "@/features/task/components/TaskGithubPanel";
 import { TaskLinearPanel } from "@/features/task/components/TaskLinearPanel";
-import {
-  taskParams,
-  type TaskSourceTab,
-} from "@/shared/lib/nuqs/searchParams";
+import { taskParams, type TaskSourceTab } from "@/shared/lib/nuqs/searchParams";
 import {
   readStoredTaskSource,
   writeStoredTaskSource,
 } from "@/features/task/lib/task-source-preference";
-import type {
-  WorkspacePriority,
-  WorkspaceWorkflowStatus,
-} from "@/shared/types/domain";
+import type { WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 
 function isTaskSourceTab(value: unknown): value is TaskSourceTab {
   return value === "atmos" || value === "github" || value === "linear";
@@ -61,13 +51,7 @@ const WORKFLOW_STATUSES = new Set<WorkspaceWorkflowStatus>([
   "canceled",
 ]);
 
-const PRIORITIES = new Set<WorkspacePriority>([
-  "no_priority",
-  "urgent",
-  "high",
-  "medium",
-  "low",
-]);
+const PRIORITIES = new Set<WorkspacePriority>(["no_priority", "urgent", "high", "medium", "low"]);
 
 /** Atmos mark sized for beui TabsTrigger icon slots. */
 function AtmosTabIcon({ className }: { className?: string }) {
@@ -103,8 +87,7 @@ export function TaskManagementView() {
     })),
   );
 
-  const { activeInstanceId, connectionEpoch, relaySessionRevision } =
-    useComputerQueryScope();
+  const { activeInstanceId, connectionEpoch, relaySessionRevision } = useComputerQueryScope();
 
   const [sourceTab, setSourceTab] = useQueryState("taskSource", taskParams.taskSource);
   const [groupingMode, setGroupingMode] = useQueryState("taskGroupBy", taskParams.taskGroupBy);
@@ -165,12 +148,11 @@ export function TaskManagementView() {
 
   const filters = useMemo<WorkspaceKanbanFilters>(
     () => ({
-      statuses: atmosFilterParams.taskStatuses.filter(
-        (item): item is WorkspaceWorkflowStatus =>
-          WORKFLOW_STATUSES.has(item as WorkspaceWorkflowStatus),
+      statuses: atmosFilterParams.taskStatuses.filter((item): item is WorkspaceWorkflowStatus =>
+        WORKFLOW_STATUSES.has(item as WorkspaceWorkflowStatus),
       ),
-      priorities: atmosFilterParams.taskPriorities.filter(
-        (item): item is WorkspacePriority => PRIORITIES.has(item as WorkspacePriority),
+      priorities: atmosFilterParams.taskPriorities.filter((item): item is WorkspacePriority =>
+        PRIORITIES.has(item as WorkspacePriority),
       ),
       labelIds: atmosFilterParams.taskLabels,
       projectIds: atmosFilterParams.taskProjects,
@@ -213,17 +195,20 @@ export function TaskManagementView() {
     [activeInstanceId, connectionEpoch, relaySessionRevision, setGroupingMode],
   );
 
-  const handleSetWorkspaceGroup = useCallback(async (workspaceId: string, groupId: string | null) => {
-    if (!groupId) {
-      await removeGroupMember({ memberType: "workspace", memberId: workspaceId });
-      return;
-    }
-    await setGroupMember({
-      groupId,
-      memberType: "workspace",
-      memberId: workspaceId,
-    });
-  }, []);
+  const handleSetWorkspaceGroup = useCallback(
+    async (workspaceId: string, groupId: string | null) => {
+      if (!groupId) {
+        await removeGroupMember({ memberType: "workspace", memberId: workspaceId });
+        return;
+      }
+      await setGroupMember({
+        groupId,
+        memberType: "workspace",
+        memberId: workspaceId,
+      });
+    },
+    [],
+  );
 
   const handleCreateGroupNamed = useCallback(async (name: string) => {
     return createGroup(name);
@@ -257,9 +242,7 @@ export function TaskManagementView() {
     linear: sourceTab === "linear",
   }));
   useLayoutEffect(() => {
-    setVisitedSources((prev) =>
-      prev[sourceTab] ? prev : { ...prev, [sourceTab]: true },
-    );
+    setVisitedSources((prev) => (prev[sourceTab] ? prev : { ...prev, [sourceTab]: true }));
   }, [sourceTab]);
 
   // Native beui pill tabs (layoutId spring indicator).

@@ -11,6 +11,7 @@ ATMOS 项目的 Workspace CRUD 后端接口已全部实现并测试通过。
 ### 1. 数据访问层（infra）
 
 #### 新增文件
+
 - ✅ `crates/infra/src/db/repo/workspace_repo.rs` (156 行)
   - `list_by_project()` - 查询项目下的所有工作区
   - `find_by_guid()` - 根据 GUID 查询单个工作区
@@ -22,6 +23,7 @@ ATMOS 项目的 Workspace CRUD 后端接口已全部实现并测试通过。
   - `soft_delete()` - 软删除（可选）
 
 #### 修改文件
+
 - ✅ `crates/infra/src/db/entities/workspace.rs` - 移除 `is_active` 字段
 - ✅ `crates/infra/src/db/migration/m20260118_000002_create_project_tables.rs` - 更新表结构
 - ✅ `crates/infra/src/db/repo/mod.rs` - 导出 WorkspaceRepo
@@ -31,16 +33,19 @@ ATMOS 项目的 Workspace CRUD 后端接口已全部实现并测试通过。
 ### 2. 业务逻辑层（core-service）
 
 #### 新增文件
+
 - ✅ `crates/core-service/src/workspace_service.rs` (65 行)
   - 对应 repo 的所有方法
 
 #### 修改文件
+
 - ✅ `crates/core-service/src/lib.rs` - 导出 WorkspaceService
 - ✅ `crates/core-service/src/error.rs` - 添加 `From<InfraError>` 转换
 
 ### 3. API 处理层（apps/api）
 
 #### 新增文件
+
 - ✅ `apps/api/src/api/workspace/handlers.rs` (107 行)
   - 8 个 HTTP Handler 函数
   - 4 个 DTO 结构体
@@ -48,6 +53,7 @@ ATMOS 项目的 Workspace CRUD 后端接口已全部实现并测试通过。
   - 路由配置
 
 #### 修改文件
+
 - ✅ `apps/api/src/api/mod.rs` - 注册 workspace 路由
 - ✅ `apps/api/src/api/project/mod.rs` - 修复路由格式
 - ✅ `apps/api/src/app_state.rs` - 添加 WorkspaceService
@@ -56,6 +62,7 @@ ATMOS 项目的 Workspace CRUD 后端接口已全部实现并测试通过。
 ### 4. 文档
 
 #### 新增文件
+
 - ✅ `crates/infra/src/db/repo/README.md` - BaseRepo 使用指南
 
 ---
@@ -63,25 +70,27 @@ ATMOS 项目的 Workspace CRUD 后端接口已全部实现并测试通过。
 ## 🎯 API 接口文档
 
 ### Base URL
+
 ```
 http://localhost:8080/api/workspace
 ```
 
 ### 接口列表
 
-| 方法 | 路径 | 功能 | 请求体 |
-|------|------|------|--------|
-| GET | `/project/{project_guid}` | 获取项目下的所有工作区 | - |
-| GET | `/{guid}` | 获取单个工作区详情 | - |
-| POST | `/` | 创建新工作区 | CreateWorkspacePayload |
-| PUT | `/{guid}/name` | 更新工作区名称 | UpdateNamePayload |
-| PUT | `/{guid}/branch` | 更新工作区分支 | UpdateBranchPayload |
-| PUT | `/{guid}/order` | 更新工作区排序 | UpdateOrderPayload |
-| DELETE | `/{guid}` | 删除工作区 | - |
+| 方法   | 路径                      | 功能                   | 请求体                 |
+| ------ | ------------------------- | ---------------------- | ---------------------- |
+| GET    | `/project/{project_guid}` | 获取项目下的所有工作区 | -                      |
+| GET    | `/{guid}`                 | 获取单个工作区详情     | -                      |
+| POST   | `/`                       | 创建新工作区           | CreateWorkspacePayload |
+| PUT    | `/{guid}/name`            | 更新工作区名称         | UpdateNamePayload      |
+| PUT    | `/{guid}/branch`          | 更新工作区分支         | UpdateBranchPayload    |
+| PUT    | `/{guid}/order`           | 更新工作区排序         | UpdateOrderPayload     |
+| DELETE | `/{guid}`                 | 删除工作区             | -                      |
 
 ### 请求/响应示例
 
 #### 1. 创建工作区
+
 ```bash
 POST /api/workspace
 Content-Type: application/json
@@ -111,6 +120,7 @@ Content-Type: application/json
 ```
 
 #### 2. 查询项目的工作区列表
+
 ```bash
 GET /api/workspace/project/{project_guid}
 
@@ -134,6 +144,7 @@ GET /api/workspace/project/{project_guid}
 ```
 
 #### 3. 更新工作区名称
+
 ```bash
 PUT /api/workspace/{guid}/name
 Content-Type: application/json
@@ -153,6 +164,7 @@ Content-Type: application/json
 ```
 
 #### 4. 删除工作区
+
 ```bash
 DELETE /api/workspace/{guid}
 
@@ -192,6 +204,7 @@ api (HTTP 处理)
 ### 3. 关键决策
 
 #### 移除 `is_active` 字段
+
 - **原因**：频繁切换的 UI 状态不应持久化到数据库
 - **方案**：前端通过 URL 参数管理当前活动的 workspace
 - **优势**：
@@ -200,11 +213,13 @@ api (HTTP 处理)
   - 提升用户体验
 
 #### 外键级联删除
+
 ```sql
-FOREIGN KEY (project_guid) 
-REFERENCES project(guid) 
+FOREIGN KEY (project_guid)
+REFERENCES project(guid)
 ON DELETE CASCADE
 ```
+
 删除项目时自动清理关联的工作区。
 
 ---
@@ -214,6 +229,7 @@ ON DELETE CASCADE
 ### 完整 CRUD 测试通过
 
 ✅ **创建**：成功创建工作区，返回完整数据
+
 ```json
 {
   "success": true,
@@ -222,6 +238,7 @@ ON DELETE CASCADE
 ```
 
 ✅ **查询**：按项目查询返回排序列表
+
 ```json
 {
   "success": true,
@@ -230,6 +247,7 @@ ON DELETE CASCADE
 ```
 
 ✅ **更新**：名称、分支、排序都可正常更新
+
 ```json
 {
   "success": true,
@@ -242,30 +260,33 @@ ON DELETE CASCADE
 ### 外键约束验证
 
 ❌ 尝试创建不存在项目的工作区：
+
 ```json
 {
   "error": "Infrastructure error: Database error: FOREIGN KEY constraint failed"
 }
 ```
+
 外键约束正常工作。
 
 ---
 
 ## 📊 代码统计
 
-| 层级 | 新增文件 | 修改文件 | 代码行数 |
-|------|---------|---------|---------|
-| infra | 2 | 4 | ~350 行 |
-| core-service | 1 | 2 | ~70 行 |
-| api | 2 | 4 | ~130 行 |
-| 文档 | 1 | - | ~200 行 |
-| **总计** | **6** | **10** | **~750 行** |
+| 层级         | 新增文件 | 修改文件 | 代码行数    |
+| ------------ | -------- | -------- | ----------- |
+| infra        | 2        | 4        | ~350 行     |
+| core-service | 1        | 2        | ~70 行      |
+| api          | 2        | 4        | ~130 行     |
+| 文档         | 1        | -        | ~200 行     |
+| **总计**     | **6**    | **10**   | **~750 行** |
 
 ---
 
 ## 🔄 项目状态
 
 ### ✅ 已完成
+
 - Workspace 完整的 CRUD 接口
 - BaseRepo 设计模式和文档
 - 三层架构严格遵守
@@ -275,6 +296,7 @@ ON DELETE CASCADE
 ### 🚀 下一步建议
 
 #### 1. 前端集成
+
 ```typescript
 // 在前端实现 Workspace 管理
 // URL: /workspace/{workspaceId}
@@ -285,7 +307,9 @@ const { data: workspaces } = useWorkspaces(projectId);
 ```
 
 #### 2. Git Worktree 集成
+
 在 `core-engine` 层实现：
+
 ```rust
 // crates/core-engine/src/git/worktree.rs
 pub async fn create_worktree(
@@ -296,7 +320,9 @@ pub async fn create_worktree(
 ```
 
 #### 3. 终端关联
+
 为每个 workspace 创建和管理终端：
+
 ```rust
 // Terminal entity 需要关联 workspace_guid
 pub struct Terminal {
@@ -308,7 +334,9 @@ pub struct Terminal {
 ```
 
 #### 4. 脚本管理
+
 实现 Setup/Run/Purge 脚本功能：
+
 ```rust
 pub struct WorkspaceScript {
     guid: String,
@@ -323,18 +351,22 @@ pub struct WorkspaceScript {
 ## 📝 关键文件索引
 
 ### Repository 层
+
 - `crates/infra/src/db/repo/workspace_repo.rs`
 - `crates/infra/src/db/repo/base.rs`
 - `crates/infra/src/db/repo/README.md` ⭐ 使用指南
 
 ### Service 层
+
 - `crates/core-service/src/workspace_service.rs`
 
 ### API 层
+
 - `apps/api/src/api/workspace/handlers.rs`
 - `apps/api/src/api/workspace/mod.rs`
 
 ### 数据库
+
 - `crates/infra/src/db/entities/workspace.rs`
 - `crates/infra/src/db/migration/m20260118_000002_create_project_tables.rs`
 

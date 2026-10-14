@@ -61,11 +61,8 @@ export function GitCommitDiffView({
   const ownerName = owner?.trim() ?? "";
   const repoName = repo?.trim() ?? "";
 
-  const {
-    handleFilesCodeViewTopBoundaryWheel,
-    mainScrollRef,
-    resetPrContext,
-  } = usePrContextHeader();
+  const { handleFilesCodeViewTopBoundaryWheel, mainScrollRef, resetPrContext } =
+    usePrContextHeader();
   const titleRef = React.useRef<HTMLDivElement | null>(null);
   const handleFilesTabWheelCapture = React.useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
@@ -74,10 +71,7 @@ export function GitCommitDiffView({
       const titleHeight = titleRef.current?.offsetHeight ?? 0;
       if (!scrollRoot || titleHeight <= 0) return;
       if (scrollRoot.scrollTop >= titleHeight) return;
-      scrollRoot.scrollTop = Math.min(
-        titleHeight,
-        scrollRoot.scrollTop + event.deltaY,
-      );
+      scrollRoot.scrollTop = Math.min(titleHeight, scrollRoot.scrollTop + event.deltaY);
       event.preventDefault();
       event.stopPropagation();
     },
@@ -126,9 +120,7 @@ export function GitCommitDiffView({
   }, [fullMessage]);
 
   const githubUrl =
-    ownerName && repoName
-      ? `https://github.com/${ownerName}/${repoName}/commit/${sha}`
-      : null;
+    ownerName && repoName ? `https://github.com/${ownerName}/${repoName}/commit/${sha}` : null;
   const totalAdditions = useLocal
     ? (localQuery.data?.insertions ?? files.reduce((sum, f) => sum + (f.additions ?? 0), 0))
     : files.reduce((sum, f) => sum + (f.additions ?? 0), 0);
@@ -176,11 +168,8 @@ export function GitCommitDiffView({
           onWheelCapture: handleFilesTabWheelCapture,
         }}
       >
-        <div
-          ref={titleRef}
-          className={cn(reserveClose && drawerCloseReserveClass)}
-        >
-          <div className="flex min-w-0 items-center gap-2 py-2.5 pl-4 pr-4">
+        <div ref={titleRef} className={cn(reserveClose && drawerCloseReserveClass)}>
+          <div className="flex min-w-0 items-center gap-2 py-2.5 pr-4 pl-4">
             <GitCommit className="size-4 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">
               {messageParts.headline}
@@ -209,15 +198,13 @@ export function GitCommitDiffView({
 
           <div className="px-4 py-3">
             <div className="flex items-start gap-3">
-              <Avatar className="size-8 border border-border/50 shrink-0">
-                {author?.avatar_url && (
-                  <AvatarImage src={author.avatar_url} alt={authorName} />
-                )}
+              <Avatar className="size-8 shrink-0 border border-border/50">
+                {author?.avatar_url && <AvatarImage src={author.avatar_url} alt={authorName} />}
                 <AvatarFallback className="text-[10px]">
                   {authorName.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-medium text-foreground/90">
                     {author?.login ?? commit?.author?.name ?? authorName}
@@ -251,7 +238,7 @@ export function GitCommitDiffView({
 
             {messageParts.body && (
               <div className="mt-3">
-                <MarkdownRenderer className="prose prose-sm max-w-none text-sm dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5">
+                <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5 max-w-none text-sm">
                   {messageParts.body}
                 </MarkdownRenderer>
               </div>
@@ -261,7 +248,7 @@ export function GitCommitDiffView({
 
         <div
           className={cn(
-            "sticky top-0 z-10 min-h-[520px] overflow-hidden bg-background px-4 pb-4 pt-2",
+            "sticky top-0 z-10 min-h-[520px] overflow-hidden bg-background px-4 pt-2 pb-4",
             reserveClose && drawerCloseReserveClass,
           )}
           style={{ height: "100%" }}

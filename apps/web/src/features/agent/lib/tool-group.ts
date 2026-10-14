@@ -91,10 +91,10 @@ function isVisibleTextPart(part: AgentPart): boolean {
 
 function isSessionChromePart(part: AgentPart): boolean {
   return (
-    part.type === "session_lifecycle"
-    || part.type === "session_config_change"
-    || part.type === "session_hint"
-    || part.type === "permission"
+    part.type === "session_lifecycle" ||
+    part.type === "session_config_change" ||
+    part.type === "session_hint" ||
+    part.type === "permission"
   );
 }
 

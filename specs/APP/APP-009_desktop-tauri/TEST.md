@@ -8,18 +8,18 @@
 
 ## Key Scenarios
 
-- [ ] Happy path: 
-- [ ] Edge cases: 
-- [ ] Failure & recovery: 
+- [ ] Happy path:
+- [ ] Edge cases:
+- [ ] Failure & recovery:
 
 ## Performance & Load
 
-- 
+-
 
 ## Regression Checklist
 
-- [ ] 
+- [ ]
 
 ## Acceptance Criteria
 
-- 
+-

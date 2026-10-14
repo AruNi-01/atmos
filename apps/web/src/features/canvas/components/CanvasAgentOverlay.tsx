@@ -43,11 +43,7 @@ const RING_DURATION_MS = 2_400;
  * question the user needs answered is "did *I* do that?". A transient ring
  * answers it without any identity baggage.
  */
-export function CanvasAgentOverlay({
-  bridge,
-}: {
-  bridge: CanvasAgentBridgeState;
-}) {
+export function CanvasAgentOverlay({ bridge }: { bridge: CanvasAgentBridgeState }) {
   const editor = useEditor();
   const activity = useActivity(bridge.activity);
   const ringVisible = useTimeWindow(activity?.at ?? null, RING_DURATION_MS);
@@ -65,13 +61,7 @@ export function CanvasAgentOverlay({
   );
 }
 
-function ShapeRing({
-  shapeId,
-  editor,
-}: {
-  shapeId: string;
-  editor: ReturnType<typeof useEditor>;
-}) {
+function ShapeRing({ shapeId, editor }: { shapeId: string; editor: ReturnType<typeof useEditor> }) {
   // Subscribe to camera so the ring tracks pan/zoom. The value itself is
   // unused — we only need the subscription to trigger re-renders below.
   useValue(
@@ -173,24 +163,12 @@ export function CanvasAgentBridgeControls({
         )}
       >
         <Bot
-          className={cn(
-            "size-3.5",
-            status === "off" ? "text-muted-foreground" : "text-foreground",
-          )}
+          className={cn("size-3.5", status === "off" ? "text-muted-foreground" : "text-foreground")}
         />
         <StatusDot status={status} />
       </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={6}
-        className="z-[200] w-[320px] p-0"
-      >
-        <BridgePopoverBody
-          bridge={bridge}
-          activity={activity}
-          status={status}
-          onJump={onJump}
-        />
+      <PopoverContent align="end" sideOffset={6} className="z-[200] w-[320px] p-0">
+        <BridgePopoverBody bridge={bridge} activity={activity} status={status} onJump={onJump} />
       </PopoverContent>
     </Popover>
   );
@@ -199,7 +177,7 @@ export function CanvasAgentBridgeControls({
 function StatusDot({ status }: { status: "off" | "idle" | "active" }) {
   if (status === "off") return null;
   return (
-    <span className="pointer-events-none absolute right-1 top-1 flex size-1.5">
+    <span className="pointer-events-none absolute top-1 right-1 flex size-1.5">
       {status === "active" && (
         <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-75" />
       )}
@@ -238,9 +216,7 @@ function BridgePopoverBody({
 
   const handleCopy = React.useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(
-        wrapAiContextClipboard("canvas-agent", instructionBlurb),
-      );
+      await navigator.clipboard.writeText(wrapAiContextClipboard("canvas-agent", instructionBlurb));
       setIsCopied(true);
       toastManager.add({
         title: t("toast.title"),
@@ -296,9 +272,7 @@ function BridgePopoverBody({
       <div className="mx-4 border-t border-border" />
       <div className="px-4 py-3">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-xs font-medium text-muted-foreground">
-            {t("snippet.label")}
-          </div>
+          <div className="text-xs font-medium text-muted-foreground">{t("snippet.label")}</div>
           <Button
             variant="ghost"
             size="sm"
@@ -309,7 +283,7 @@ function BridgePopoverBody({
             {isCopied ? t("snippet.copied") : t("snippet.copy")}
           </Button>
         </div>
-        <pre className="max-h-44 overflow-auto rounded-md border border-border bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono text-muted-foreground">
+        <pre className="max-h-44 overflow-auto rounded-md border border-border bg-muted/40 p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
           {instructionBlurb}
         </pre>
       </div>
@@ -335,8 +309,7 @@ function LastActivityRow({
 }) {
   const t = useTranslations("canvas.agentBridge");
   const tr = React.useCallback(
-    (key: string, values?: Record<string, string | number>) =>
-      t(key as never, values as never),
+    (key: string, values?: Record<string, string | number>) => t(key as never, values as never),
     [t],
   );
   const lastChangeLabel = tr("activity.lastChange");
@@ -383,7 +356,12 @@ function LastActivityRow({
 
 function StatusPill({ status }: { status: "off" | "idle" | "active" }) {
   const t = useTranslations("canvas.agentBridge");
-  const label = status === "off" ? t("status.off") : status === "active" ? t("status.active") : t("status.listening");
+  const label =
+    status === "off"
+      ? t("status.off")
+      : status === "active"
+        ? t("status.active")
+        : t("status.listening");
   const tone =
     status === "off"
       ? "bg-muted text-muted-foreground"
@@ -463,8 +441,6 @@ function useTimeWindow(at: number | null, windowMs: number): boolean {
 // Re-exported for tests / callers who want to embed the blurb elsewhere.
 export const CANVAS_AGENT_SKILL_PATH = SKILL_PATH;
 
-export function buildCanvasAgentInstructionBlurb(
-  t: ReturnType<typeof useTranslations>,
-): string {
+export function buildCanvasAgentInstructionBlurb(t: ReturnType<typeof useTranslations>): string {
   return t("instructionBlurb", { skillPath: SKILL_PATH });
 }

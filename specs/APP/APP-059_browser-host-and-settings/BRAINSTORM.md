@@ -23,26 +23,33 @@ Hardening made Browser Use **correct**. It is still not **pleasant**:
 ## Options (experience kernel)
 
 ### Unify — A: Fake one snapshot format
+
 Map embedded DOM onto `semantic_v2`.
 
 **Rejected**: lies about engine contract; breaks continuation / roles.
 
 ### Unify — B: CLI envelope + capability_flags (locked)
+
 Same JSON shape for `state` on both backends: `elements[]`, `truncated`, `total_candidates`, `capability_flags`. Honest `snapshot_format`. Skill is one procedure.
 
 ### First success — A: Keep prepare + bind + snapshot
+
 **Rejected**: that is today’s ritual.
 
 ### First success — B: Resolvable host ⇒ snapshot now (locked)
+
 No target + last-active or unique guest → return a **snapshot**, not a bind list. Zero hosts → ensure default surface, then snapshot. `prepare` remains for external / capability probe only.
 
 ### Handoff — A: Teach `user_picks` in the skill
+
 **Rejected**: second channel, models miss it.
 
 ### Handoff — B: Picks are the snapshot (locked)
+
 On pick, mark last-active and refresh the snapshot cache. Next `state` prepends live highlights as normal refs. Skill never says “read `user_picks`”.
 
 ### Placement — user setting, not `--surface` (locked)
+
 See PRD M1–M7. Agent does not choose chrome.
 
 ## Key forks

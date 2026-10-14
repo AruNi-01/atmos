@@ -3,8 +3,7 @@ export const MCP_NPX_PACKAGE = "@atmos/pt-design";
 export const MCP_NPX_BIN = "pt-design-mcp";
 
 /** Synced to ~/.atmos/skills/.system/ on Atmos startup (same pattern as Canvas). */
-export const PT_DESIGN_AGENT_SKILL_PATH =
-  "~/.atmos/skills/.system/atmos-pt-design-agent/SKILL.md";
+export const PT_DESIGN_AGENT_SKILL_PATH = "~/.atmos/skills/.system/atmos-pt-design-agent/SKILL.md";
 
 export const PT_DESIGN_AGENT_CONTEXT_KIND = "pt-design-agent";
 

@@ -1,5 +1,12 @@
 import { useEffect } from "react";
-import { Easing, ReduceMotion, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
+import {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { METRIC_TWEEN_MS } from "@/features/token-usage/tween-series";
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
@@ -19,11 +26,13 @@ export function useMeterWidth(percent: number) {
       ratio.set(next);
       return;
     }
-    ratio.set(withTiming(next, {
-      duration: METRIC_TWEEN_MS,
-      easing: EASE_OUT,
-      reduceMotion: ReduceMotion.System,
-    }));
+    ratio.set(
+      withTiming(next, {
+        duration: METRIC_TWEEN_MS,
+        easing: EASE_OUT,
+        reduceMotion: ReduceMotion.System,
+      }),
+    );
   }, [percent, ratio, reduced]);
   return useAnimatedStyle(() => ({ width: `${ratio.get()}%` }));
 }

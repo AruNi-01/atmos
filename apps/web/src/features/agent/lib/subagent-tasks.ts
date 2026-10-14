@@ -29,9 +29,7 @@ function lastUserIndex(messages: AgentMessage[]): number {
 }
 
 function userMessageText(message: AgentMessage): string {
-  return message.parts
-    .flatMap((part) => (part.type === "text" ? [part.text] : []))
-    .join("\n");
+  return message.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n");
 }
 
 /** Claude injects this as a real user turn when a Task finishes; it is not a new prompt. */
@@ -64,10 +62,7 @@ export function titleCaseSubagentType(value: string): string {
     .join(" ");
 }
 
-export function displaySubagentType(
-  part: AgentToolCallPart,
-  fallbackType = "Subagent",
-): string {
+export function displaySubagentType(part: AgentToolCallPart, fallbackType = "Subagent"): string {
   const raw = subagentAgentType(part);
   if (!raw) return fallbackType;
   return titleCaseSubagentType(raw);
@@ -77,10 +72,7 @@ export function subagentTaskSummary(part: AgentToolCallPart): string {
   return subagentDescription(part) || part.title?.trim() || part.name.trim();
 }
 
-export function formatSubagentTaskLine(
-  part: AgentToolCallPart,
-  fallbackType = "Subagent",
-): string {
+export function formatSubagentTaskLine(part: AgentToolCallPart, fallbackType = "Subagent"): string {
   const type = displaySubagentType(part, fallbackType);
   const summary = subagentTaskSummary(part);
   return summary ? `${type} - ${summary}` : type;
@@ -91,12 +83,12 @@ export function isSubagentDispatchAckText(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
   return (
-    trimmed.startsWith("Async agent launched successfully.")
-    || trimmed.includes("This tool result is internal metadata")
-    || trimmed.includes("The agent is working in the background.")
-    || trimmed.startsWith("Subagent started in background.")
-    || trimmed.includes("moved to the background to keep the conversation responsive")
-    || trimmed.startsWith("The task is working in the background.")
+    trimmed.startsWith("Async agent launched successfully.") ||
+    trimmed.includes("This tool result is internal metadata") ||
+    trimmed.includes("The agent is working in the background.") ||
+    trimmed.startsWith("Subagent started in background.") ||
+    trimmed.includes("moved to the background to keep the conversation responsive") ||
+    trimmed.startsWith("The task is working in the background.")
   );
 }
 
@@ -126,9 +118,9 @@ function topLevelSubagentItems(
 ): AgentToolCallPart[] {
   return tools.filter(
     (part) =>
-      part.kind === "subagent"
-      && !isNestedSubagentChild(part, allTools)
-      && !isGrokChromeRosterSubagent(part, excludeIds),
+      part.kind === "subagent" &&
+      !isNestedSubagentChild(part, allTools) &&
+      !isGrokChromeRosterSubagent(part, excludeIds),
   );
 }
 
@@ -263,7 +255,9 @@ function hostAssistantForTool(
 ): AgentMessage | undefined {
   for (const message of messages) {
     if (message.role !== "assistant") continue;
-    if (message.parts.some((part) => part.type === "tool_call" && part.tool_call_id === toolCallId)) {
+    if (
+      message.parts.some((part) => part.type === "tool_call" && part.tool_call_id === toolCallId)
+    ) {
       return message;
     }
   }
@@ -304,7 +298,7 @@ export function messagesForSubagent(
   );
   const prompt = isGrokChromeSubagent(parent)
     ? subagentPrompt(parent)
-    : (subagentPrompt(parent) || subagentDescription(parent) || subagentTaskSummary(parent));
+    : subagentPrompt(parent) || subagentDescription(parent) || subagentTaskSummary(parent);
   const result = subagentResultText(parent);
   const running = subagentTaskStatus(parent) === "running";
   const parts: AgentPart[] = [];
@@ -319,7 +313,10 @@ export function messagesForSubagent(
         parts.push(stripSelectedParent(part, toolCallId));
         continue;
       }
-      if ((part.type === "text" || part.type === "thinking") && part.parent_tool_call_id === toolCallId) {
+      if (
+        (part.type === "text" || part.type === "thinking") &&
+        part.parent_tool_call_id === toolCallId
+      ) {
         if (part.type === "text" && isSubagentDispatchAckText(part.text)) continue;
         parts.push(stripSelectedParent(part, toolCallId));
       }
@@ -342,9 +339,7 @@ export function messagesForSubagent(
     : (usableTimestamp(host?.completed_at) ?? createdAt ?? "completed");
   const spanMs = running ? undefined : promptToCompleteMs(userAt ?? createdAt, completedAt);
   const hostWorked = host?.worked_ms != null && host.worked_ms > 0 ? host.worked_ms : undefined;
-  const workedMs = running
-    ? undefined
-    : (spanMs ?? (thinkingMs > 0 ? thinkingMs : hostWorked));
+  const workedMs = running ? undefined : (spanMs ?? (thinkingMs > 0 ? thinkingMs : hostWorked));
 
   const projected: AgentMessage[] = [];
   if (prompt.trim()) {
@@ -384,10 +379,7 @@ export function subagentElapsedMs(
   return promptToCompleteMs(user?.created_at, assistant?.completed_at) ?? 0;
 }
 
-export function subagentChildActivity(
-  messages: AgentMessage[],
-  toolCallId: string,
-): AgentActivity {
+export function subagentChildActivity(messages: AgentMessage[], toolCallId: string): AgentActivity {
   const parent = findSubagentToolCall(messages, toolCallId);
   const running = parent ? subagentTaskStatus(parent) === "running" : false;
   if (!running) return { busy: false };

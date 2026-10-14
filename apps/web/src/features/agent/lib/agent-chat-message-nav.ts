@@ -86,10 +86,7 @@ export function timelineRailItemSize(
 
   const maxHeight = Math.max(
     minSize,
-    Math.min(
-      containerHeight * TIMELINE_RAIL_MAX_RATIO,
-      containerHeight - Math.max(0, reservedPx),
-    ),
+    Math.min(containerHeight * TIMELINE_RAIL_MAX_RATIO, containerHeight - Math.max(0, reservedPx)),
   );
   const compressStart = Math.min(containerHeight * TIMELINE_RAIL_COMPRESS_RATIO, maxHeight);
   if (count * maxSize <= compressStart) return maxSize;

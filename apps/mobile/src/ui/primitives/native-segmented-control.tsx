@@ -17,7 +17,13 @@ export function NativeSegmentedControl<T extends string>({
   const selectedBorder = theme.colors.segmentedSelectedBorder;
 
   return (
-    <View style={[styles.root, { backgroundColor: rootBackground, borderColor: theme.colors.controlBorder }, style]}>
+    <View
+      style={[
+        styles.root,
+        { backgroundColor: rootBackground, borderColor: theme.colors.controlBorder },
+        style,
+      ]}
+    >
       {options.map((option) => {
         const selected = option.value === selectedValue;
         return (
@@ -33,7 +39,11 @@ export function NativeSegmentedControl<T extends string>({
                 borderColor: selected ? selectedBorder : "transparent",
                 opacity: pressed ? pressedTokens.controlOpacity : 1,
               },
-              selected ? (theme.isDark ? styles.selectedOptionDark : styles.selectedOptionLight) : null,
+              selected
+                ? theme.isDark
+                  ? styles.selectedOptionDark
+                  : styles.selectedOptionLight
+                : null,
             ]}
           >
             <Text

@@ -102,7 +102,6 @@ Set `ATMOS_DESKTOP_SKIP_WEB_BUILD=1` to reuse an existing `apps/web/out` when on
 - Desktop shows an old UI after code changes  
   You need a new static export — run `just dev-desktop` again (or `node scripts/desktop/build-web-static.mjs`). Do not rely on `apps/web/out` from days ago; `prepare-sidecar` now rebuilds it by default.
 
-
 - `command not found: bun`  
   Install Bun and ensure it is in `PATH`.
 

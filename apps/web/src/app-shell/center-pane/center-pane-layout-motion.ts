@@ -65,11 +65,8 @@ function collapseAgainstNeighbors(
  * When the mosaic first opens from a single pane, treat the primary tile as
  * having occupied the full stage so the split can widen/narrow instead of pop.
  */
-export function seedFullStagePrevious(
-  next: TerminalLeafBox[],
-): TerminalLeafBox[] {
-  const primary =
-    next.find((leaf) => leaf.id === DEFAULT_PANE_ID) ?? next[0];
+export function seedFullStagePrevious(next: TerminalLeafBox[]): TerminalLeafBox[] {
+  const primary = next.find((leaf) => leaf.id === DEFAULT_PANE_ID) ?? next[0];
   if (!primary) return [];
   return [{ id: primary.id, left: 0, top: 0, width: 1, height: 1 }];
 }

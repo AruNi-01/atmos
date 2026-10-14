@@ -31,9 +31,7 @@ describe("clampSelectionToolbarPosition", () => {
 
     expect(result.align).toBe("end");
     expect(result.left).toBe(360 - 180);
-    expect(result.left + toolbar.toolbarWidth).toBeLessThanOrEqual(
-      container.containerWidth - 8,
-    );
+    expect(result.left + toolbar.toolbarWidth).toBeLessThanOrEqual(container.containerWidth - 8);
   });
 
   it("clamps when expanding right would overflow the pane", () => {

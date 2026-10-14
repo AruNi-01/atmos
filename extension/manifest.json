@@ -31,17 +31,12 @@
       ],
       "all_frames": true,
       "run_at": "document_start",
-      "js": [
-        "content.js"
-      ]
+      "js": ["content.js"]
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": [
-        "browser-runtime.js",
-        "injected.js"
-      ],
+      "resources": ["browser-runtime.js", "injected.js"],
       "matches": [
         "http://localhost/*",
         "http://*.localhost/*",

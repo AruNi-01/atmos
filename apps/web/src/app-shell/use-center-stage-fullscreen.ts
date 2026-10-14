@@ -4,9 +4,7 @@ import { useEffect, useLayoutEffect, type RefObject } from "react";
 import { create } from "zustand";
 
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
-import {
-  CENTER_STAGE_FULLSCREEN_ATTR,
-} from "@/app-shell/center-stage-fullscreen";
+import { CENTER_STAGE_FULLSCREEN_ATTR } from "@/app-shell/center-stage-fullscreen";
 
 type CenterStageFullscreenState = {
   isFullscreen: boolean;
@@ -72,9 +70,7 @@ function markFullscreen(element: HTMLElement, active: boolean): void {
   document.documentElement.removeAttribute(CENTER_STAGE_FULLSCREEN_ATTR);
 }
 
-export function useCenterStageFullscreenMotion(
-  stageRef: RefObject<HTMLElement | null>,
-): void {
+export function useCenterStageFullscreenMotion(stageRef: RefObject<HTMLElement | null>): void {
   const isFullscreen = useCenterStageFullscreenStore((state) => state.isFullscreen);
   const setFullscreen = useCenterStageFullscreenStore((state) => state.setFullscreen);
 

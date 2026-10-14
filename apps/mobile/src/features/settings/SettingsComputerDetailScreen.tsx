@@ -16,8 +16,7 @@ export function SettingsComputerDetailScreen() {
   const params = useLocalSearchParams<{ serverId?: string }>();
   const settings = useMobileSettingsController();
   const serverId = typeof params.serverId === "string" ? params.serverId : null;
-  const computer =
-    settings.activeComputers.find((row) => row.server_id === serverId) ?? null;
+  const computer = settings.activeComputers.find((row) => row.server_id === serverId) ?? null;
   const [name, setName] = useState(computer?.display_name ?? "");
   const prefilledServerId = useRef<string | null>(null);
   const trimmed = name.trim();
@@ -45,7 +44,12 @@ export function SettingsComputerDetailScreen() {
         <FieldBlock label="Name">
           <NativeTextInput onChangeText={setName} placeholder="Computer name" value={name} />
         </FieldBlock>
-        <Text style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel, paddingHorizontal: 4 }]}>
+        <Text
+          style={[
+            typography.rowSubtitle,
+            { color: theme.colors.secondaryLabel, paddingHorizontal: 4 },
+          ]}
+        >
           {computer.server_id}
         </Text>
         <Host
@@ -76,7 +80,14 @@ export function SettingsComputerDetailScreen() {
               pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
             }
           >
-            <View style={{ alignItems: "center", justifyContent: "center", minHeight: 52, paddingHorizontal: 16 }}>
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 52,
+                paddingHorizontal: 16,
+              }}
+            >
               <Text style={[typography.rowTitle, { color: theme.colors.red }]}>
                 {settings.revokeComputer.isPending ? "Revoking..." : "Revoke Computer"}
               </Text>

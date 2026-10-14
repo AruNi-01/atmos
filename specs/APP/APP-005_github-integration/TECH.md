@@ -18,14 +18,14 @@
 
 ## Rollout Plan
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## Risks & Tradeoffs
 
-- 
+-
 
 ## Dependencies & Compatibility
 
-- 
+-

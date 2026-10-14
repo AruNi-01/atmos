@@ -48,15 +48,11 @@ describe("standalone-sidebar", () => {
     expect(project?.workspaces).toHaveLength(1);
     expect(project?.workspaces[0]?.id).toBe("automation:job-1");
     expect(project?.workspaces[0]?.createSource).toBe("automation");
-    expect(project?.workspaces[0]?.localPath).toBe(
-      "~/.atmos/data/automations/definitions/job-1",
-    );
+    expect(project?.workspaces[0]?.localPath).toBe("~/.atmos/data/automations/definitions/job-1");
   });
 
   it("returns null when there are no standalone jobs", () => {
-    expect(
-      buildStandaloneAutomationProject([job({ target_kind: "project" })]),
-    ).toBeNull();
+    expect(buildStandaloneAutomationProject([job({ target_kind: "project" })])).toBeNull();
   });
 
   it("treats synthetic job rows as sidebar jobs, not hidden worktrees", () => {

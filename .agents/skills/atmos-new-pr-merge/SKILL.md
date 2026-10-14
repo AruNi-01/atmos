@@ -50,13 +50,13 @@ clean and every product change leaves a PR archive.
 
 ## Defaults
 
-| Item | Default |
-|------|---------|
-| Base / merge target | `main` (override with `base`) |
-| Merge after PR | **yes** (`merge=true`) |
-| Merge strategy | `gh pr merge --merge` (merge commit; keeps PR node in history) |
+| Item                             | Default                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| Base / merge target              | `main` (override with `base`)                                            |
+| Merge after PR                   | **yes** (`merge=true`)                                                   |
+| Merge strategy                   | `gh pr merge --merge` (merge commit; keeps PR node in history)           |
 | Delete remote branch after merge | **no** (keep the feature branch; use `delete_branch=true` only if asked) |
-| End state | local `main` (or `base`) checked out + `git pull` |
+| End state                        | local `main` (or `base`) checked out + `git pull`                        |
 
 ## Hard rules
 
@@ -94,15 +94,15 @@ Use a **professional type prefix** that matches the change — **never** persona
 <type>/<optional-area>-<short-kebab-summary>
 ```
 
-| Prefix | Use when |
-|--------|----------|
-| `fix/` | Bugfix, incorrect behavior, regression |
-| `feat/` | New user-facing capability |
+| Prefix      | Use when                                              |
+| ----------- | ----------------------------------------------------- |
+| `fix/`      | Bugfix, incorrect behavior, regression                |
+| `feat/`     | New user-facing capability                            |
 | `refactor/` | Internal restructure without intended behavior change |
-| `chore/` | Tooling, deps, non-product housekeeping |
-| `docs/` | Documentation-only |
-| `perf/` | Performance improvement |
-| `test/` | Tests only |
+| `chore/`    | Tooling, deps, non-product housekeeping               |
+| `docs/`     | Documentation-only                                    |
+| `perf/`     | Performance improvement                               |
+| `test/`     | Tests only                                            |
 
 Examples:
 
@@ -185,7 +185,7 @@ Fill every section with real content (checkboxes marked for what is true). Struc
 
 ## Related Issue
 
-Closes #<n>   # or N/A
+Closes #<n> # or N/A
 
 ## Type of Change
 
@@ -268,17 +268,17 @@ Always tell the user:
 
 ## Decision matrix
 
-| Situation | Action |
-|-----------|--------|
-| Diff is **only** `.agents/skills/**` (skill publish) | commit + `git push origin main` — **no PR** |
-| On `main`, dirty with a **product** fix | `checkout -b` feature branch → commit → push → PR → merge → back to `main` |
-| On feature branch, uncommitted product work | commit on that branch → push → PR → merge → back to base |
-| On feature branch, already committed, not pushed | push → PR → merge → back to base |
-| PR already open for this branch | skip create; merge if requested; then pull base |
-| User says “only open PR” | `merge=false` |
-| User says “don’t touch remote yet” | stop after local branch + commit (or dry-run) |
-| User says “delete the branch after merge” | `delete_branch=true` → add `--delete-branch` |
-| User says “直接 main / 不用 PR” for a skill-only change | direct main path |
+| Situation                                               | Action                                                                     |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Diff is **only** `.agents/skills/**` (skill publish)    | commit + `git push origin main` — **no PR**                                |
+| On `main`, dirty with a **product** fix                 | `checkout -b` feature branch → commit → push → PR → merge → back to `main` |
+| On feature branch, uncommitted product work             | commit on that branch → push → PR → merge → back to base                   |
+| On feature branch, already committed, not pushed        | push → PR → merge → back to base                                           |
+| PR already open for this branch                         | skip create; merge if requested; then pull base                            |
+| User says “only open PR”                                | `merge=false`                                                              |
+| User says “don’t touch remote yet”                      | stop after local branch + commit (or dry-run)                              |
+| User says “delete the branch after merge”               | `delete_branch=true` → add `--delete-branch`                               |
+| User says “直接 main / 不用 PR” for a skill-only change | direct main path                                                           |
 
 ## Anti-patterns (never)
 

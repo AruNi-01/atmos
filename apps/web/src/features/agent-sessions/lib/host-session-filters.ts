@@ -36,7 +36,11 @@ export function hostSessionProjectLabel(session: {
   project_name?: string | null;
 }): string {
   const cwd = session.cwd.trim().replace(/[\\/]+$/, "");
-  const last = cwd.split(/[\\/]+/).filter(Boolean).at(-1)?.trim();
+  const last = cwd
+    .split(/[\\/]+/)
+    .filter(Boolean)
+    .at(-1)
+    ?.trim();
   if (last) return last;
   return session.project_name?.trim() || "";
 }
@@ -99,11 +103,7 @@ export function parseLocalDateKey(key: string): Date | null {
   const month = Number(match[2]);
   const day = Number(match[3]);
   const date = new Date(year, month - 1, day);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
     return null;
   }
   return date;
@@ -114,9 +114,7 @@ export function hostSessionDateBounds(filters: HostSessionFilters): {
   updatedBefore: string | null;
 } {
   const from = filters.dateFrom ? parseLocalDateKey(filters.dateFrom) : null;
-  const to = filters.dateTo
-    ? parseLocalDateKey(filters.dateTo)
-    : from;
+  const to = filters.dateTo ? parseLocalDateKey(filters.dateTo) : from;
   if (!from && !to) {
     return { updatedAfter: null, updatedBefore: null };
   }

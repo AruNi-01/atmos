@@ -20,11 +20,13 @@ const REFRESH_OPTIONS = [
 
 export function QuotaSettingsScreen() {
   const theme = useMobileTheme();
-  const { actionError, autoRefresh, overview, overviewQuery, providers, toggleAll, toggleOne } = useQuotaOverview({
-    fetch: false,
-  });
+  const { actionError, autoRefresh, overview, overviewQuery, providers, toggleAll, toggleOne } =
+    useQuotaOverview({
+      fetch: false,
+    });
   const allOn = providers.length > 0 && providers.every((provider) => provider.switch_enabled);
-  const errorMessage = overviewQuery.error instanceof Error ? overviewQuery.error.message : actionError;
+  const errorMessage =
+    overviewQuery.error instanceof Error ? overviewQuery.error.message : actionError;
 
   return (
     <AppScreen surface="sheet">
@@ -39,7 +41,9 @@ export function QuotaSettingsScreen() {
           <View key={provider.id}>
             <Separator />
             <QuotaSwitchRow
-              leading={<ProviderGlyph color={theme.colors.label} providerId={provider.id} size={22} />}
+              leading={
+                <ProviderGlyph color={theme.colors.label} providerId={provider.id} size={22} />
+              }
               onValueChange={(enabled) => toggleOne.mutate({ enabled, providerId: provider.id })}
               title={provider.label}
               value={provider.switch_enabled}
@@ -49,7 +53,10 @@ export function QuotaSettingsScreen() {
       </Section>
       <Section>
         <View style={styles.row}>
-          <Text numberOfLines={1} style={[typography.rowTitle, styles.label, { color: theme.colors.label }]}>
+          <Text
+            numberOfLines={1}
+            style={[typography.rowTitle, styles.label, { color: theme.colors.label }]}
+          >
             Refresh
           </Text>
           <View style={styles.trailing}>
@@ -81,7 +88,10 @@ function QuotaSwitchRow({
   return (
     <View style={styles.row}>
       {leading}
-      <Text numberOfLines={1} style={[typography.rowTitle, styles.label, { color: theme.colors.label }]}>
+      <Text
+        numberOfLines={1}
+        style={[typography.rowTitle, styles.label, { color: theme.colors.label }]}
+      >
         {title}
       </Text>
       <QuotaSwitch onValueChange={onValueChange} value={value} />

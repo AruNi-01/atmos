@@ -4,17 +4,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AuthView } from "@daveyplate/better-auth-ui";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui";
-import {
-  HUB_AUTH_DONE_CHANNEL,
-  HUB_AUTH_DONE_MESSAGE,
-} from "@/app/hub-auth/hub-auth-channel";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@workspace/ui";
+import { HUB_AUTH_DONE_CHANNEL, HUB_AUTH_DONE_MESSAGE } from "@/app/hub-auth/hub-auth-channel";
 import {
   getStoredDeviceCredential,
   hubConfigured,
@@ -57,9 +48,7 @@ function HubSignInDialogBody({
 }) {
   const t = useTranslations("settings.accountSection");
   const qc = useQueryClient();
-  const desktop =
-    isDesktopRuntime() ||
-    process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop";
+  const desktop = isDesktopRuntime() || process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop";
   const [waitingBrowser, setWaitingBrowser] = React.useState(false);
 
   const sessionQuery = useQuery({
@@ -76,9 +65,7 @@ function HubSignInDialogBody({
     staleTime: 15_000,
     retry: false,
   });
-  const signedIn = Boolean(
-    sessionQuery.data?.user?.id || meQuery.data?.user_id,
-  );
+  const signedIn = Boolean(sessionQuery.data?.user?.id || meQuery.data?.user_id);
 
   React.useEffect(() => {
     const onStarted = () => setWaitingBrowser(true);
@@ -91,9 +78,7 @@ function HubSignInDialogBody({
   React.useEffect(() => {
     const onDone = () => {
       void qc.invalidateQueries({ queryKey: ["hub"] });
-      void ensureLocalHubDevice().then(() =>
-        qc.invalidateQueries({ queryKey: ["hub"] }),
-      );
+      void ensureLocalHubDevice().then(() => qc.invalidateQueries({ queryKey: ["hub"] }));
     };
     let bc: BroadcastChannel | null = null;
     try {
@@ -123,11 +108,7 @@ function HubSignInDialogBody({
       try {
         if (desktop) {
           const disk = await loadComputerClientSettingsFromDisk();
-          const cred = (
-            disk?.device_credential ||
-            disk?.access_token ||
-            ""
-          ).trim();
+          const cred = (disk?.device_credential || disk?.access_token || "").trim();
           if (cred.length >= 32 && !cancelled) {
             storeDeviceCredential({
               device_id: disk?.device_id ?? "device",
@@ -188,9 +169,7 @@ function HubSignInDialogBody({
         <DialogHeader className="sr-only">
           <DialogTitle>{t("signInDialogTitle")}</DialogTitle>
           <DialogDescription>
-            {desktop
-              ? t("signInDialogDescriptionDesktop")
-              : t("signInDialogDescriptionWeb")}
+            {desktop ? t("signInDialogDescriptionDesktop") : t("signInDialogDescriptionWeb")}
           </DialogDescription>
         </DialogHeader>
         <div className="overflow-hidden rounded-xl border border-border bg-background shadow-lg">
@@ -198,9 +177,7 @@ function HubSignInDialogBody({
             view="SIGN_IN"
             socialLayout="vertical"
             className="w-full max-w-none"
-            redirectTo={
-              typeof window !== "undefined" ? window.location.origin : "/"
-            }
+            redirectTo={typeof window !== "undefined" ? window.location.origin : "/"}
             localization={{
               SIGN_IN: t("signInDialogTitle"),
               DISABLED_CREDENTIALS_DESCRIPTION: desktop

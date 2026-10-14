@@ -20,14 +20,14 @@ Pin disambiguation: `--client-id` from `status` when multiple tabs accept comman
 
 ## Diagnostics
 
-| Verb | Args | Notes |
-|------|------|-------|
-| `status` | — | Bridge + `documents` |
-| `get-state` | `--page-id`? | shapes, bounds, text_preview, lints |
-| `extract-text` | `--ids`? | Full text / tmux capture for terminals |
-| `lint` | `--fix-suggestions` | Smart lints + optional CLI-ready fixes |
-| `screenshot` | see below | JPEG; Island thumb |
-| `skill-dir` / `skill-path` | — | Skill install directory |
+| Verb                       | Args                | Notes                                  |
+| -------------------------- | ------------------- | -------------------------------------- |
+| `status`                   | —                   | Bridge + `documents`                   |
+| `get-state`                | `--page-id`?        | shapes, bounds, text_preview, lints    |
+| `extract-text`             | `--ids`?            | Full text / tmux capture for terminals |
+| `lint`                     | `--fix-suggestions` | Smart lints + optional CLI-ready fixes |
+| `screenshot`               | see below           | JPEG; Island thumb                     |
+| `skill-dir` / `skill-path` | —                   | Skill install directory                |
 
 ### Screenshot / agent view
 
@@ -44,13 +44,13 @@ Sizes: `small` \| `medium` \| `large`.
 
 ## Create
 
-| Verb | Required | Optional |
-|------|----------|----------|
-| `create-note` | `--text` | `--x --y --w --color` (**no `--h`**) |
-| `create-frame` | `--w --h` | `--title --x --y` |
-| `create-geo` | `--kind --w --h` | `--x --y --text --color --fill --size` |
+| Verb           | Required               | Optional                                                      |
+| -------------- | ---------------------- | ------------------------------------------------------------- |
+| `create-note`  | `--text`               | `--x --y --w --color` (**no `--h`**)                          |
+| `create-frame` | `--w --h`              | `--title --x --y`                                             |
+| `create-geo`   | `--kind --w --h`       | `--x --y --text --color --fill --size`                        |
 | `create-arrow` | coords **or** bindings | `--from-id --to-id --x1 --y1 --x2 --y2 --color --size --text` |
-| `create-draw` | `--points` | `--color --size --closed` |
+| `create-draw`  | `--points`             | `--color --size --closed`                                     |
 
 Create may return `warnings: ["text_may_overflow"]` — grow box or shorten text.
 
@@ -58,27 +58,27 @@ Create may return `warnings: ["text_may_overflow"]` — grow box or shorten text
 
 ## Selection / transform / layout
 
-| Verb | Args |
-|------|------|
-| `select` | `--ids` |
-| `clear-selection` | — |
-| `move` | `--ids --dx --dy` |
-| `delete` | `--ids --confirm` |
-| `align` | `--ids --alignment top\|bottom\|left\|right\|center-horizontal\|center-vertical` |
-| `stack` | `--ids --direction horizontal\|vertical [--gap 24]` |
-| `distribute` | `--ids --direction` (≥3) |
-| `place` | `--id --reference-id --side …` |
-| `layout-row` / `layout-column` / `layout-grid` | packing |
-| `update-shape` | allow-listed prop patch |
-| `viewport` | pan / zoom / center |
-| `apply` | `--commands` JSON array or `--commands-file` · max 64 |
+| Verb                                           | Args                                                                             |
+| ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `select`                                       | `--ids`                                                                          |
+| `clear-selection`                              | —                                                                                |
+| `move`                                         | `--ids --dx --dy`                                                                |
+| `delete`                                       | `--ids --confirm`                                                                |
+| `align`                                        | `--ids --alignment top\|bottom\|left\|right\|center-horizontal\|center-vertical` |
+| `stack`                                        | `--ids --direction horizontal\|vertical [--gap 24]`                              |
+| `distribute`                                   | `--ids --direction` (≥3)                                                         |
+| `place`                                        | `--id --reference-id --side …`                                                   |
+| `layout-row` / `layout-column` / `layout-grid` | packing                                                                          |
+| `update-shape`                                 | allow-listed prop patch                                                          |
+| `viewport`                                     | pan / zoom / center                                                              |
+| `apply`                                        | `--commands` JSON array or `--commands-file` · max 64                            |
 
 ---
 
 ## Session
 
-| Verb | Args |
-|------|------|
+| Verb         | Args                    |
+| ------------ | ----------------------- |
 | `set-status` | `--status idle\|active` |
 
 Send **`idle` once** at end of the full canvas turn (after final lint/screenshot). Never after an intermediate lint only.
@@ -87,20 +87,20 @@ Send **`idle` once** at end of the full canvas turn (after final lint/screenshot
 
 ## Documents & scripts (summaries)
 
-| Area | Verbs | Detail |
-|------|-------|--------|
-| Files | `docs`, `doc-get`, `doc-put`, `doc-delete`, `doc-rename`, `doc-duplicate`, `doc-sanitize` | [`documents.md`](documents.md) |
-| Scripts | `script-get`, `script-status`, `script-put`, `script-clear`, `exec` | [`document-scripts.md`](document-scripts.md) |
+| Area    | Verbs                                                                                     | Detail                                       |
+| ------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Files   | `docs`, `doc-get`, `doc-put`, `doc-delete`, `doc-rename`, `doc-duplicate`, `doc-sanitize` | [`documents.md`](documents.md)               |
+| Scripts | `script-get`, `script-status`, `script-put`, `script-clear`, `exec`                       | [`document-scripts.md`](document-scripts.md) |
 
 ---
 
 ## Lint semantics
 
-| type | severity | Meaning |
-|------|----------|---------|
-| `overlap` | error | Two content shapes collide (not parent/child/containment; chrome ignored) |
-| `text_overflow` | error if collides else warn | Geo label likely exceeds box |
-| `unbound_arrow` | warn | Missing binding — fix for diagrams; OK decorative |
+| type            | severity                    | Meaning                                                                   |
+| --------------- | --------------------------- | ------------------------------------------------------------------------- |
+| `overlap`       | error                       | Two content shapes collide (not parent/child/containment; chrome ignored) |
+| `text_overflow` | error if collides else warn | Geo label likely exceeds box                                              |
+| `unbound_arrow` | warn                        | Missing binding — fix for diagrams; OK decorative                         |
 
 `summary.clean === true` ⇔ zero errors (warns OK).
 
@@ -118,15 +118,15 @@ Do not invent tokens (e.g. no `light-orange`).
 
 ## Errors
 
-| Code | Recovery |
-|------|----------|
-| `CANVAS_BRIDGE_OFFLINE` | Open Canvas |
-| `BRIDGE_DISABLED` | Enable bridge |
-| `STALE_SHAPE_ID` | `get-state` |
-| `VALIDATION_ARG` | Fix args |
-| `RELAY_TIMEOUT` | `get-state`, careful retry |
-| `EDITOR_NOT_READY` | Wait for Canvas mount |
-| `UNSUPPORTED_COMMAND` | Check verb spelling |
+| Code                    | Recovery                   |
+| ----------------------- | -------------------------- |
+| `CANVAS_BRIDGE_OFFLINE` | Open Canvas                |
+| `BRIDGE_DISABLED`       | Enable bridge              |
+| `STALE_SHAPE_ID`        | `get-state`                |
+| `VALIDATION_ARG`        | Fix args                   |
+| `RELAY_TIMEOUT`         | `get-state`, careful retry |
+| `EDITOR_NOT_READY`      | Wait for Canvas mount      |
+| `UNSUPPORTED_COMMAND`   | Check verb spelling        |
 
 ---
 

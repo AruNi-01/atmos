@@ -12,10 +12,7 @@ import {
   splitTextWithHttpUrls,
   splitTextWithUrlTokens,
 } from "@/shared/lib/link-preview";
-import {
-  ConversationHttpUrl,
-  HttpTextLink,
-} from "@/shared/components/link-preview-chip";
+import { ConversationHttpUrl, HttpTextLink } from "@/shared/components/link-preview-chip";
 
 export function UrlAwareText({
   text,
@@ -127,9 +124,7 @@ type MarkdownTagProps = {
   node?: unknown;
 } & Record<string, unknown>;
 
-export function withLinkifiedMarkdownComponents<T extends Record<string, unknown>>(
-  base: T,
-): T {
+export function withLinkifiedMarkdownComponents<T extends Record<string, unknown>>(base: T): T {
   const next: Record<string, unknown> = { ...base };
   for (const tag of LINKIFY_TAGS) {
     const Inner = (next[tag] as React.ElementType | undefined) ?? tag;

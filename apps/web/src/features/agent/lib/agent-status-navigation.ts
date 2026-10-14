@@ -29,18 +29,18 @@ import type { Project } from "@/shared/types/domain";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 
-let cachedAgentLocale: 'en' | 'zh' | null = null;
+let cachedAgentLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedAgentTranslator: any = null;
 
 function agentT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedAgentTranslator || cachedAgentLocale !== locale) {
     cachedAgentLocale = locale;
     cachedAgentTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'Agent.chrome',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "Agent.chrome",
     });
   }
   return cachedAgentTranslator(key as never);
@@ -61,9 +61,7 @@ export function chatStatusSessionId(chatId: string): string {
   return `chat:${chatId.trim()}`;
 }
 
-export function parseChatStatusSessionId(
-  sessionId: string | null | undefined,
-): string | null {
+export function parseChatStatusSessionId(sessionId: string | null | undefined): string | null {
   const id = sessionId?.trim() ?? "";
   if (!id.startsWith("chat:")) return null;
   return id.slice("chat:".length) || null;
@@ -91,9 +89,7 @@ export function resolveAgentStatusNavigationTarget(session: {
 }): AgentStatusNavigationTarget {
   const chatId =
     session.surface === "chat"
-      ? session.surface_id?.trim() ||
-        session.session_id?.replace(/^chat:/, "").trim() ||
-        null
+      ? session.surface_id?.trim() || session.session_id?.replace(/^chat:/, "").trim() || null
       : null;
   if (chatId) {
     return {
@@ -108,12 +104,9 @@ export function resolveAgentStatusNavigationTarget(session: {
   }
   const sideChatId = session.side_chat_id?.trim() || null;
   const isSideChat = isAgentStatusSideChatSession(session);
-  const paneId = (
-    isSideChat ? session.source_pane_id ?? session.pane_id : session.pane_id
-  )?.trim() || null;
-  const tmuxWindowName = paneId
-    ? paneId.split(":").slice(1).join(":") || null
-    : null;
+  const paneId =
+    (isSideChat ? (session.source_pane_id ?? session.pane_id) : session.pane_id)?.trim() || null;
+  const tmuxWindowName = paneId ? paneId.split(":").slice(1).join(":") || null : null;
   return {
     contextId: session.context_id?.trim() || null,
     spaceId: spaceIdFromTmuxWindowName(tmuxWindowName),
@@ -130,10 +123,7 @@ function currentHostIdFromLocation(): string | null {
   return new URLSearchParams(window.location.search).get("id")?.trim() || null;
 }
 
-function routeKindForContext(
-  contextId: string,
-  projects: Project[],
-): "project" | "workspace" {
+function routeKindForContext(contextId: string, projects: Project[]): "project" | "workspace" {
   for (const project of projects) {
     if (project.id === contextId) return "project";
     if (project.workspaces.some((workspace) => workspace.id === contextId)) {
@@ -171,9 +161,7 @@ export function buildAgentStatusSessionPath(
   if (target.surface === "chat") {
     if (!target.chatId) return null;
     const basePath =
-      routeKindForContext(target.contextId, projects) === "project"
-        ? "/project"
-        : "/workspace";
+      routeKindForContext(target.contextId, projects) === "project" ? "/project" : "/workspace";
     const params = new URLSearchParams();
     params.set("id", target.contextId);
     params.set("tab", chatTabValue?.trim() || buildAgentChatTabValue(target.chatId));
@@ -184,9 +172,7 @@ export function buildAgentStatusSessionPath(
   }
 
   const basePath =
-    routeKindForContext(target.contextId, projects) === "project"
-      ? "/project"
-      : "/workspace";
+    routeKindForContext(target.contextId, projects) === "project" ? "/project" : "/workspace";
 
   const params = new URLSearchParams();
   params.set("id", target.contextId);
@@ -246,9 +232,7 @@ export function navigateToAgentStatusSession(
         routeKind === "project",
       )
     : null;
-  const pane = hit
-    ? state.getPanes(paintContextId, hit.terminalTabId)[hit.paneId]
-    : undefined;
+  const pane = hit ? state.getPanes(paintContextId, hit.terminalTabId)[hit.paneId] : undefined;
 
   void (async () => {
     if (target.surface === "chat" && target.chatId) {
@@ -269,16 +253,13 @@ export function navigateToAgentStatusSession(
       );
       if (!path) return;
 
-      const { useCenterSpaceStore } = await import(
-        "@/app-shell/center-space/center-space-store"
-      );
+      const { useCenterSpaceStore } = await import("@/app-shell/center-space/center-space-store");
       const store = useCenterSpaceStore.getState();
       if (!store.hydrated) store.hydrate();
       store.ensureHost(destHost);
 
       const sameHost = currentHostIdFromLocation() === destHost;
-      const alreadyOnDestSpace =
-        sameHost && store.getActiveSpaceId(destHost) === destSpace;
+      const alreadyOnDestSpace = sameHost && store.getActiveSpaceId(destHost) === destSpace;
 
       if (!sameHost) {
         store.setActiveSpace(destHost, destSpace);
@@ -296,9 +277,7 @@ export function navigateToAgentStatusSession(
       });
       if (!committed) return;
 
-      const { switchCenterSpace } = await import(
-        "@/app-shell/center-space/center-space-switch"
-      );
+      const { switchCenterSpace } = await import("@/app-shell/center-space/center-space-switch");
       await switchCenterSpace(destHost, destSpace, {
         preserveDeepLink: true,
       });
@@ -309,9 +288,7 @@ export function navigateToAgentStatusSession(
     if (!path) return;
 
     if (hit && pane?.sessionId && !target.sideChatId) {
-      const paneCount = Object.keys(
-        state.getPanes(paintContextId, hit.terminalTabId),
-      ).length;
+      const paneCount = Object.keys(state.getPanes(paintContextId, hit.terminalTabId)).length;
       await navigateToLocatedPane(
         {
           hostId: contextId,
@@ -327,16 +304,13 @@ export function navigateToAgentStatusSession(
       return;
     }
 
-    const { useCenterSpaceStore } = await import(
-      "@/app-shell/center-space/center-space-store"
-    );
+    const { useCenterSpaceStore } = await import("@/app-shell/center-space/center-space-store");
     const store = useCenterSpaceStore.getState();
     if (!store.hydrated) store.hydrate();
     store.ensureHost(contextId);
 
     const sameHost = currentHostIdFromLocation() === contextId;
-    const alreadyOnDestSpace =
-      sameHost && store.getActiveSpaceId(contextId) === target.spaceId;
+    const alreadyOnDestSpace = sameHost && store.getActiveSpaceId(contextId) === target.spaceId;
 
     if (!sameHost) {
       store.setActiveSpace(contextId, target.spaceId);
@@ -355,9 +329,7 @@ export function navigateToAgentStatusSession(
     });
     if (!committed) return;
 
-    const { switchCenterSpace } = await import(
-      "@/app-shell/center-space/center-space-switch"
-    );
+    const { switchCenterSpace } = await import("@/app-shell/center-space/center-space-switch");
     await switchCenterSpace(contextId, target.spaceId, {
       preserveDeepLink: true,
     });
@@ -405,5 +377,9 @@ export function resolveAgentStatusContextNames(
     return { projectName: contextId.slice(0, 8), workspaceName: null, workspaceDisplayName: null };
   }
 
-  return { projectName: agentT("agentHookNavigation.unknownProject"), workspaceName: null, workspaceDisplayName: null };
+  return {
+    projectName: agentT("agentHookNavigation.unknownProject"),
+    workspaceName: null,
+    workspaceDisplayName: null,
+  };
 }

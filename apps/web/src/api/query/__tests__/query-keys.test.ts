@@ -15,13 +15,7 @@ const relayScope: RelayQueryScope = {
 
 describe("queryKeys", () => {
   test("computer root includes instance, epoch, and session revision", () => {
-    expect(queryKeys.computer.root(scope)).toEqual([
-      "atmos",
-      "computer",
-      "local",
-      2,
-      3,
-    ]);
+    expect(queryKeys.computer.root(scope)).toEqual(["atmos", "computer", "local", 2, 3]);
   });
 
   test("system diagnostics nest under computer system segment", () => {
@@ -30,10 +24,7 @@ describe("queryKeys", () => {
     expect(queryKeys.computer.tmuxStatus(scope)).toEqual([...system, "tmuxStatus"]);
     expect(queryKeys.computer.runtimeInfo(scope)).toEqual([...system, "runtimeInfo"]);
     expect(queryKeys.computer.ghCliStatus(scope)).toEqual([...system, "ghCliStatus"]);
-    expect(queryKeys.computer.terminalOverview(scope)).toEqual([
-      ...system,
-      "terminalOverview",
-    ]);
+    expect(queryKeys.computer.terminalOverview(scope)).toEqual([...system, "terminalOverview"]);
     expect(queryKeys.computer.wsConnections(scope)).toEqual([...system, "wsConnections"]);
   });
 
@@ -91,27 +82,78 @@ describe("queryKeys", () => {
       "/root",
     ]);
     expect(queryKeys.computer.filesRoot(scope)).toEqual([
-      "atmos", "computer", "local", 2, 3, "files",
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "files",
     ]);
     expect(queryKeys.computer.fileTree(scope, "/root", false)).toEqual([
-      "atmos", "computer", "local", 2, 3, "files", "/root", "tree", { showHidden: false },
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "files",
+      "/root",
+      "tree",
+      { showHidden: false },
     ]);
     expect(queryKeys.computer.fileTree(scope, "/root", true)).toEqual([
-      "atmos", "computer", "local", 2, 3, "files", "/root", "tree", { showHidden: true },
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "files",
+      "/root",
+      "tree",
+      { showHidden: true },
     ]);
     expect(queryKeys.computer.listDir(scope, "/dir")).toEqual([
-      "atmos", "computer", "local", 2, 3, "files", "/dir", "dir",
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "files",
+      "/dir",
+      "dir",
       { dirsOnly: true, showHidden: false },
     ]);
     expect(queryKeys.computer.readFile(scope, "/path/to/file.ts")).toEqual([
-      "atmos", "computer", "local", 2, 3, "files", "/path/to/file.ts", "content",
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "files",
+      "/path/to/file.ts",
+      "content",
     ]);
     expect(queryKeys.computer.searchContent(scope, "/root", "hello")).toEqual([
-      "atmos", "computer", "local", 2, 3, "files", "/root", "search", "content",
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "files",
+      "/root",
+      "search",
+      "content",
       { query: "hello", maxResults: 50, caseSensitive: false },
     ]);
     expect(queryKeys.computer.searchDirs(scope, "/root", "src")).toEqual([
-      "atmos", "computer", "local", 2, 3, "files", "/root", "search", "dirs",
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "files",
+      "/root",
+      "search",
+      "dirs",
       { query: "src", maxResults: 50, maxDepth: 4 },
     ]);
   });
@@ -221,8 +263,8 @@ describe("queryKeys", () => {
     expect(queryKeys.computer.root({ ...scope, relaySessionRevision: 9 })).not.toEqual(
       queryKeys.computer.root(scope),
     );
-    expect(
-      queryKeys.computer.root({ ...scope, activeInstanceId: "relay:abc" }),
-    ).not.toEqual(queryKeys.computer.root(scope));
+    expect(queryKeys.computer.root({ ...scope, activeInstanceId: "relay:abc" })).not.toEqual(
+      queryKeys.computer.root(scope),
+    );
   });
 });

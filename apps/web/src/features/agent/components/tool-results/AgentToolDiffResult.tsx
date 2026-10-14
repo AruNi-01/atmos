@@ -16,7 +16,11 @@ import {
   type ToolLineRange,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { DiscussionDiffBlock } from "@/features/diff/components/DiscussionDiffBlock";
-import { useAgentChatCwd, useAgentChatPathRoots, useDisplayToolTitle } from "../agent-chat-cwd-context";
+import {
+  useAgentChatCwd,
+  useAgentChatPathRoots,
+  useDisplayToolTitle,
+} from "../agent-chat-cwd-context";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
 import {
   AgentToolCard,
@@ -67,14 +71,14 @@ export function AgentToolDiffResult({
   const strippedTitle = stripPathEchoFromToolHeading(rawTitle, path, [displayPath]);
   const actionTitle = created
     ? t("created")
-    : (!strippedTitle || toolTitleLooksLikePath(strippedTitle, path) ? t("file") : strippedTitle);
+    : !strippedTitle || toolTitleLooksLikePath(strippedTitle, path)
+      ? t("file")
+      : strippedTitle;
 
   const fallback = patch ? (
     <AgentToolCodePreview code={patch} language="plaintext" />
   ) : (
-    <div className="px-3 py-2 text-xs text-muted-foreground">
-      {t("loadingDiff")}
-    </div>
+    <div className="px-3 py-2 text-xs text-muted-foreground">{t("loadingDiff")}</div>
   );
 
   const discussionLineRange =

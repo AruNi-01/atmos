@@ -3,9 +3,11 @@
 ### Changes Since 2026.7.6-beta.2
 
 #### New Features
+
 - **Custom Terminal Tab & Pane Naming**: You can now give terminal tabs and panes your own names. Tab titles reflect the active agent over the current working directory, renaming keeps its context menu open while you move the pointer, and the tab/pane context menus are now non-modal for a smoother editing flow ([#152](https://github.com/AruNi-01/atmos/pull/152)).
 
 #### Bug Fixes
+
 - **Review Diff**: Adding a comment in a review diff no longer makes the page scroll or jump, and diff-view tab tooltips now show their contents on hover.
 - **Landing Changelog**: The changelog table of contents stays visible on laptop-sized screens.
 
@@ -14,10 +16,12 @@
 ### Changes Since 2026.7.6-beta.1
 
 #### New Features
+
 - **Header & Sidebar Visibility Toggles**: Added per-feature visibility toggles for header buttons and right sidebar tabs ([#151](https://github.com/AruNi-01/atmos/pull/151)).
 - **Demo Hero Video**: Replaced the landing page hero image with a full-screen video dialog showing a compressed agent terminal demo.
 
 #### Bug Fixes & Refinements
+
 - **UI & Layouts**: Resolved welcome overlay layout bugs and improved drag resize synchronization.
 - **i18n Timezone**: Configured UTC as the default timeZone to avoid `ENVIRONMENT_FALLBACK` errors.
 - **Agent Launch Flow**: Restored interactive agent launches with TUI follow-up and fixed empty agent launches and the header refresh button.

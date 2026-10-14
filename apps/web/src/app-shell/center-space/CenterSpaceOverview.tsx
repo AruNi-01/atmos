@@ -6,13 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Pin, Plus, Trash2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { formatRelativeTime } from "@atmos/shared";
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  cn,
-} from "@workspace/ui";
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from "@workspace/ui";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { CENTER_STAGE_GUTTER_CLASS } from "@/app-shell/sidebar-layout-constants";
 import {
@@ -100,7 +94,7 @@ function CenterSpaceNameEditor({
           onCancel();
         }
       }}
-      className="h-5 min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] font-medium text-foreground outline-none ring-0"
+      className="h-5 min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] font-medium text-foreground ring-0 outline-none"
     />
   );
 }
@@ -191,7 +185,7 @@ function CenterSpaceOverview({
   const locale = useLocale();
   const { effectiveContextId: hostId } = useContextParams();
   const spaces = useCenterSpaceStore((s) =>
-    hostId ? s.byHost[hostId]?.spaces ?? EMPTY_CENTER_SPACES : EMPTY_CENTER_SPACES,
+    hostId ? (s.byHost[hostId]?.spaces ?? EMPTY_CENTER_SPACES) : EMPTY_CENTER_SPACES,
   );
   const activeSpaceId = useCenterSpaceStore((s) =>
     hostId ? s.getActiveSpaceId(hostId) : DEFAULT_CENTER_SPACE_ID,
@@ -426,7 +420,7 @@ function CenterSpaceOverview({
                       <button
                         type="button"
                         title={label}
-                        className="h-5 min-w-0 flex-1 cursor-text truncate border-0 bg-transparent p-0 text-left text-[13px] font-medium text-foreground outline-none ring-0 hover:border-0 hover:bg-transparent"
+                        className="h-5 min-w-0 flex-1 cursor-text truncate border-0 bg-transparent p-0 text-left text-[13px] font-medium text-foreground ring-0 outline-none hover:border-0 hover:bg-transparent"
                         onPointerDown={(event) => event.stopPropagation()}
                         onClick={(event) => {
                           event.preventDefault();
@@ -484,7 +478,9 @@ function CenterSpaceOverview({
             </div>
           </div>
           {atLimit ? (
-            <p className="pb-3 text-center text-[11px] text-muted-foreground">{t("limitReached")}</p>
+            <p className="pb-3 text-center text-[11px] text-muted-foreground">
+              {t("limitReached")}
+            </p>
           ) : null}
         </div>
       </div>
@@ -687,13 +683,7 @@ export function CenterSpaceOverviewLayer({ children }: { children: React.ReactNo
         }),
       );
       if (!added) return;
-      pose.applySlots(
-        stage,
-        collectSlots(overviewRef.current),
-        activePaintId,
-        false,
-        true,
-      );
+      pose.applySlots(stage, collectSlots(overviewRef.current), activePaintId, false, true);
     };
     const observer = new MutationObserver(onFrames);
     observer.observe(framesHost, { childList: true, subtree: true });
@@ -710,66 +700,75 @@ export function CenterSpaceOverviewLayer({ children }: { children: React.ReactNo
     };
   }, [pose]);
 
-  const beginZoomHome = React.useCallback((spaceId: string) => {
-    if (!hostId || busyRef.current) return false;
-    const stage = stageRef.current;
-    if (!stage) return false;
-    busyRef.current = true;
-    useCenterSpaceOverviewStore.getState().setBusy(true);
-    setDimmed(true);
-    const paintId = makeCenterSpaceKey(hostId, spaceId);
-    // Swap into this space while it is still parked in the card, then scale
-    // that same page home. Switching after the zoom replaces it with a cut.
-    // Mark busy first so the paint-id layout effect does not re-snap slots
-    // over the zoom.
-    if (spaceId !== activeSpaceId) {
-      flushSync(() => {
-        void switchCenterSpace(hostId, spaceId, { animate: false });
-      });
-    }
-    pose.applySlots(stage, collectSlots(overviewRef.current), paintId, false);
-    const animated = !prefersReducedMotion() && pose.zoomHome(stage, paintId);
-    void (async () => {
-      try {
-        if (animated) await wait(CENTER_SPACE_OVERVIEW_MS + 40);
-      } finally {
-        pose.clear();
-        busyRef.current = false;
-        useCenterSpaceOverviewStore.getState().setBusy(false);
-        finishHandoff();
-      }
-    })();
-    return true;
-  }, [activeSpaceId, finishHandoff, hostId, pose]);
-
-  const onZoom = React.useCallback((spaceId: string) => {
-    beginZoomHome(spaceId);
-  }, [beginZoomHome]);
-
-  const onCreate = React.useCallback((source: HTMLElement) => {
-    if (!hostId || busyRef.current) return;
-    const stage = stageRef.current;
-    if (!stage) return;
-    busyRef.current = true;
-    useCenterSpaceOverviewStore.getState().setBusy(true);
-    setDimmed(true);
-    void (async () => {
-      let cover: HTMLElement | null = null;
-      try {
-        cover = await growCover(source, stage);
-        if (cover) await wait(CENTER_SPACE_OVERVIEW_MS);
+  const beginZoomHome = React.useCallback(
+    (spaceId: string) => {
+      if (!hostId || busyRef.current) return false;
+      const stage = stageRef.current;
+      if (!stage) return false;
+      busyRef.current = true;
+      useCenterSpaceOverviewStore.getState().setBusy(true);
+      setDimmed(true);
+      const paintId = makeCenterSpaceKey(hostId, spaceId);
+      // Swap into this space while it is still parked in the card, then scale
+      // that same page home. Switching after the zoom replaces it with a cut.
+      // Mark busy first so the paint-id layout effect does not re-snap slots
+      // over the zoom.
+      if (spaceId !== activeSpaceId) {
         flushSync(() => {
-          void openNewCenterSpace(hostId, undefined, { animate: false });
+          void switchCenterSpace(hostId, spaceId, { animate: false });
         });
-      } finally {
-        cover?.remove();
-        pose.clear();
-        busyRef.current = false;
-        useCenterSpaceOverviewStore.getState().setBusy(false);
-        finishHandoff();
       }
-    })();
-  }, [finishHandoff, hostId, pose]);
+      pose.applySlots(stage, collectSlots(overviewRef.current), paintId, false);
+      const animated = !prefersReducedMotion() && pose.zoomHome(stage, paintId);
+      void (async () => {
+        try {
+          if (animated) await wait(CENTER_SPACE_OVERVIEW_MS + 40);
+        } finally {
+          pose.clear();
+          busyRef.current = false;
+          useCenterSpaceOverviewStore.getState().setBusy(false);
+          finishHandoff();
+        }
+      })();
+      return true;
+    },
+    [activeSpaceId, finishHandoff, hostId, pose],
+  );
+
+  const onZoom = React.useCallback(
+    (spaceId: string) => {
+      beginZoomHome(spaceId);
+    },
+    [beginZoomHome],
+  );
+
+  const onCreate = React.useCallback(
+    (source: HTMLElement) => {
+      if (!hostId || busyRef.current) return;
+      const stage = stageRef.current;
+      if (!stage) return;
+      busyRef.current = true;
+      useCenterSpaceOverviewStore.getState().setBusy(true);
+      setDimmed(true);
+      void (async () => {
+        let cover: HTMLElement | null = null;
+        try {
+          cover = await growCover(source, stage);
+          if (cover) await wait(CENTER_SPACE_OVERVIEW_MS);
+          flushSync(() => {
+            void openNewCenterSpace(hostId, undefined, { animate: false });
+          });
+        } finally {
+          cover?.remove();
+          pose.clear();
+          busyRef.current = false;
+          useCenterSpaceOverviewStore.getState().setBusy(false);
+          finishHandoff();
+        }
+      })();
+    },
+    [finishHandoff, hostId, pose],
+  );
 
   const onClose = React.useCallback(() => {
     // Escape and the scrim zoom the active page home. setOpen(false) runs

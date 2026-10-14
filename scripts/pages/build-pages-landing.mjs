@@ -8,10 +8,7 @@ const landingOutDir = join(landingDir, "out");
 const proxyFile = join(landingDir, "src/proxy.ts");
 const proxyBackupFile = join(landingDir, "src/_proxy_pages_backup.ts");
 const downloadLinksRouteDir = join(landingDir, "src/app/api/download-links");
-const downloadLinksRouteBackupDir = join(
-  landingDir,
-  "src/app/api/_download_links_pages_backup",
-);
+const downloadLinksRouteBackupDir = join(landingDir, "src/app/api/_download_links_pages_backup");
 const videosDir = join(landingDir, "public/videos");
 const videosBackupDir = join(landingDir, ".videos_pages_backup");
 
@@ -143,14 +140,7 @@ function ensurePagesRoutes() {
     `${JSON.stringify(
       {
         version: 1,
-        include: [
-          "/tok",
-          "/tok/*",
-          "/_next/*",
-          "/ai-provider/*",
-          "/agents/*",
-          "/icon.svg",
-        ],
+        include: ["/tok", "/tok/*", "/_next/*", "/ai-provider/*", "/agents/*", "/icon.svg"],
         exclude: [],
       },
       null,

@@ -116,24 +116,23 @@ export function useAutomationPageState() {
   const isProjectsLoading = useProjectsLoading();
   const ensureWorkspaceVisible = useProjectStore((state) => state.ensureWorkspaceVisible);
 
-  const [{ automationView: hookPageView, automationId: automationParam, automationRun: runParam }, setPageParams] =
-    useQueryStates(
-      {
-        automationView: automationsParams.view,
-        automationId: automationsParams.automation,
-        automationRun: automationsParams.run,
-      },
-      { history: "push" },
-    );
+  const [
+    { automationView: hookPageView, automationId: automationParam, automationRun: runParam },
+    setPageParams,
+  ] = useQueryStates(
+    {
+      automationView: automationsParams.view,
+      automationId: automationsParams.automation,
+      automationRun: automationsParams.run,
+    },
+    { history: "push" },
+  );
   const pageView = resolveAutomationsPageView(
     hookPageView,
-    automationsViewFromLocation(
-      typeof window === "undefined" ? null : window.location.search,
-    ),
+    automationsViewFromLocation(typeof window === "undefined" ? null : window.location.search),
   );
   const setPageView = React.useCallback(
-    (view: AutomationsView | null) =>
-      setPageParams({ automationView: view ?? "list" }),
+    (view: AutomationsView | null) => setPageParams({ automationView: view ?? "list" }),
     [setPageParams],
   );
   const setAutomationParam = React.useCallback(
@@ -144,10 +143,7 @@ export function useAutomationPageState() {
     (guid: string | null) => setPageParams({ automationRun: guid }),
     [setPageParams],
   );
-  const [listTab, setListTab] = useQueryState(
-    "automationTab",
-    automationsParams.tab,
-  );
+  const [listTab, setListTab] = useQueryState("automationTab", automationsParams.tab);
   const [runStatuses, setRunStatuses] = useQueryState(
     "automationRunStatuses",
     automationsParams.runStatuses,
@@ -161,10 +157,7 @@ export function useAutomationPageState() {
     automationTriggers: automationsParams.triggers,
     automationStates: automationsParams.states,
   });
-  const [searchQuery, setSearchQuery] = useQueryState(
-    "automationQ",
-    automationsParams.q,
-  );
+  const [searchQuery, setSearchQuery] = useQueryState("automationQ", automationsParams.q);
   const listFilters = React.useMemo<AutomationListFilters>(
     () => ({
       environments: filterParams.automationEnvironments,
@@ -218,20 +211,14 @@ export function useAutomationPageState() {
   const selectedAutomationGuid = automationParam || null;
   const selectedRunGuid = runParam || null;
 
-  const [selectedDetail, setSelectedDetail] =
-    React.useState<AutomationDetail | null>(null);
+  const [selectedDetail, setSelectedDetail] = React.useState<AutomationDetail | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [busyAction, setBusyAction] = React.useState<string | null>(null);
-  const [standaloneChatRunGuid, setStandaloneChatRunGuid] = React.useState<
-    string | null
-  >(null);
+  const [standaloneChatRunGuid, setStandaloneChatRunGuid] = React.useState<string | null>(null);
   const selectedAutomationGuidRef = React.useRef<string | null>(null);
 
   const selectedAutomation = React.useMemo(
-    () =>
-      automations.find(
-        (automation) => automation.guid === selectedAutomationGuid,
-      ) ?? null,
+    () => automations.find((automation) => automation.guid === selectedAutomationGuid) ?? null,
     [automations, selectedAutomationGuid],
   );
 
@@ -275,9 +262,7 @@ export function useAutomationPageState() {
     if (
       automations.length > 0 &&
       selectedAutomationGuid &&
-      !automations.some(
-        (automation) => automation.guid === selectedAutomationGuid,
-      )
+      !automations.some((automation) => automation.guid === selectedAutomationGuid)
     ) {
       if (pageView === "edit") {
         void setPageParams(automationsListQuery());
@@ -378,10 +363,7 @@ export function useAutomationPageState() {
   );
 
   const handleDefinitionAction = React.useCallback(
-    async (
-      action: "run" | "pause" | "resume" | "delete",
-      automation: AutomationSummary,
-    ) => {
+    async (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => {
       setBusyAction(`${action}:${automation.guid}`);
       try {
         if (action === "run") {
@@ -482,9 +464,7 @@ export function useAutomationPageState() {
       try {
         let detail: AutomationDetail;
         if (automation.trigger_kind === "github") {
-          const githubConfig = parseGithubTriggerConfig(
-            automation.trigger_config_json,
-          );
+          const githubConfig = parseGithubTriggerConfig(automation.trigger_config_json);
           if (!githubConfig) {
             throw new Error(t("errors.githubSetupIncomplete"));
           }
@@ -524,13 +504,7 @@ export function useAutomationPageState() {
         setBusyAction(null);
       }
     },
-    [
-      pauseAutomation,
-      resumeAutomation,
-      t,
-      updateAutomation,
-      upsertAutomation,
-    ],
+    [pauseAutomation, resumeAutomation, t, updateAutomation, upsertAutomation],
   );
 
   const handleCancelRun = React.useCallback(
@@ -539,9 +513,7 @@ export function useAutomationPageState() {
       try {
         const nextRun = await cancelRun(run.guid);
         setSelectedRun(nextRun);
-        setRuns((current) =>
-          current.map((item) => (item.guid === nextRun.guid ? nextRun : item)),
-        );
+        setRuns((current) => current.map((item) => (item.guid === nextRun.guid ? nextRun : item)));
         await Promise.all([
           loadRuns(run.automation_guid),
           refreshAutomation(run.automation_guid)
@@ -576,10 +548,7 @@ export function useAutomationPageState() {
       try {
         const response = await continueInTerminal(run.guid);
         const copied = await copyTextToClipboard(response.prompt_content);
-        const href = runEnvironmentHref(
-          continueTargetRun(run, response),
-          "tab=terminal",
-        );
+        const href = runEnvironmentHref(continueTargetRun(run, response), "tab=terminal");
         if (href.startsWith("/automations?")) {
           toastManager.add({
             title: t("errors.continueInTerminalFailed"),
@@ -606,9 +575,7 @@ export function useAutomationPageState() {
           type: "error",
         });
       } finally {
-        setBusyAction((current) =>
-          current === `continue-terminal:${run.guid}` ? null : current,
-        );
+        setBusyAction((current) => (current === `continue-terminal:${run.guid}` ? null : current));
       }
     },
     [continueInTerminal, ensureWorkspaceVisible, router, t],
@@ -661,9 +628,7 @@ export function useAutomationPageState() {
           type: "error",
         });
       } finally {
-        setBusyAction((current) =>
-          current === `continue-chat:${run.guid}` ? null : current,
-        );
+        setBusyAction((current) => (current === `continue-chat:${run.guid}` ? null : current));
       }
     },
     [continueInTerminal, ensureWorkspaceVisible, router, t],
@@ -684,9 +649,7 @@ export function useAutomationPageState() {
           type: "error",
         });
       } finally {
-        setBusyAction((current) =>
-          current === `open:${run.guid}` ? null : current,
-        );
+        setBusyAction((current) => (current === `open:${run.guid}` ? null : current));
       }
     },
     [ensureWorkspaceVisible, router, t],
@@ -720,9 +683,7 @@ export function useAutomationPageState() {
   const openHistory = React.useCallback(
     (runGuid?: string) => {
       void setListTab("history");
-      void setPageParams(
-        automationsListQuery({ automationRun: runGuid ?? null }),
-      );
+      void setPageParams(automationsListQuery({ automationRun: runGuid ?? null }));
     },
     [setListTab, setPageParams],
   );

@@ -14,29 +14,29 @@ Deterministic unit tests on shipped supervisor classify/ownership functions and 
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 reuse healthy UI Runtime | S1, S2 |
-| M2 Desktop quit does not kill | S3, S4 |
-| M3 CLI-only lazy ensure | S5, S6 |
-| M4 CLI is not the backend | S7 |
-| M5 Desktop Use via Runtime | S8, S9 |
-| M6 explicit stop | S10 |
+| PRD item                      | Scenario IDs |
+| ----------------------------- | ------------ |
+| M1 reuse healthy UI Runtime   | S1, S2       |
+| M2 Desktop quit does not kill | S3, S4       |
+| M3 CLI-only lazy ensure       | S5, S6       |
+| M4 CLI is not the backend     | S7           |
+| M5 Desktop Use via Runtime    | S8, S9       |
+| M6 explicit stop              | S10          |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust unit | `cargo test` | `cargo test -p runtime-manager --features supervisor classify_ensure` | booleans | Reuse when running+healthy+ui | covered |
-| S2 | Rust unit | `cargo test` | `looks_like_atmos_ui_html` | HTML vs 404 text | product HTML true; "Not Found" false | covered |
-| S3 | Rust unit | `cargo test` | `desktop_quit_should_stop_runtime` | none | returns false | covered |
-| S4 | Bun | `bun test` | `apps/desktop-electron/src/runtime/ensure.test.ts` | shipped `stopOwnedAtmosServer` | `stopped: false`, `shared_runtime` | covered |
-| S5 | Rust unit | `cargo test` | `cli_should_lazy_ensure` | flags | true when needs_server && !no_ensure | covered |
-| S6 | Rust unit | `cargo test` | `cli_should_lazy_ensure` | `--no-ensure` | false | covered |
-| S7 | Rust unit | `cargo test` | `cli_is_not_long_running_backend` comment via `desktop_quit` + invoke module docs test `runtime_backend_is_server` | none | policy: supervisor starts Server binary not CLI as daemon | covered |
-| S8 | Rust unit | `cargo test -p api` | desktop-use status route or handler JSON | in-process manager | `product` Desktop Use | covered |
-| S9 | Bun | `bun test` | desktop-use client runtime URL helper | host/port | path `/api/desktop-use/status` | covered |
-| S10 | Rust unit | `cargo test` | classify + stop is separate from quit | force_restart | stop not implied by quit policy | covered |
+| Scenario | Level     | Expected tool       | Target command / method                                                                                            | Fixture / data                 | Signals                                                   | Status  |
+| -------- | --------- | ------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------ | --------------------------------------------------------- | ------- |
+| S1       | Rust unit | `cargo test`        | `cargo test -p runtime-manager --features supervisor classify_ensure`                                              | booleans                       | Reuse when running+healthy+ui                             | covered |
+| S2       | Rust unit | `cargo test`        | `looks_like_atmos_ui_html`                                                                                         | HTML vs 404 text               | product HTML true; "Not Found" false                      | covered |
+| S3       | Rust unit | `cargo test`        | `desktop_quit_should_stop_runtime`                                                                                 | none                           | returns false                                             | covered |
+| S4       | Bun       | `bun test`          | `apps/desktop-electron/src/runtime/ensure.test.ts`                                                                 | shipped `stopOwnedAtmosServer` | `stopped: false`, `shared_runtime`                        | covered |
+| S5       | Rust unit | `cargo test`        | `cli_should_lazy_ensure`                                                                                           | flags                          | true when needs_server && !no_ensure                      | covered |
+| S6       | Rust unit | `cargo test`        | `cli_should_lazy_ensure`                                                                                           | `--no-ensure`                  | false                                                     | covered |
+| S7       | Rust unit | `cargo test`        | `cli_is_not_long_running_backend` comment via `desktop_quit` + invoke module docs test `runtime_backend_is_server` | none                           | policy: supervisor starts Server binary not CLI as daemon | covered |
+| S8       | Rust unit | `cargo test -p api` | desktop-use status route or handler JSON                                                                           | in-process manager             | `product` Desktop Use                                     | covered |
+| S9       | Bun       | `bun test`          | desktop-use client runtime URL helper                                                                              | host/port                      | path `/api/desktop-use/status`                            | covered |
+| S10      | Rust unit | `cargo test`        | classify + stop is separate from quit                                                                              | force_restart                  | stop not implied by quit policy                           | covered |
 
 ## Scenarios
 
@@ -161,18 +161,18 @@ bun test src/runtime/ensure.test.ts src/desktop-use/client.test.ts src/desktop-u
 
 Logs: implementer scratch `runtime-unification-tests.log`, `runtime-cli-launch.log`.
 
-| Scenario | Status |
-|----------|--------|
-| S1 classify Reuse | ✅ `supervisor::tests::classify_reuses_healthy_product_ui` |
-| S2 HTML probe / no-UI | ✅ `ui_html_probe`, `classify_rejects_healthz_without_ui` |
-| S3 quit policy false | ✅ `desktop_quit_never_stops_runtime` |
-| S4 Electron no-op stop | ✅ `stopOwnedAtmosServer never kills shared Runtime` |
-| S5 lazy ensure | ✅ `cli_lazy_ensure_rules` |
-| S6 --no-ensure | ✅ `cli_lazy_ensure_rules` |
-| S7 backend is Server | ✅ `runtime_backend_is_server_not_cli` |
+| Scenario                    | Status                                                              |
+| --------------------------- | ------------------------------------------------------------------- |
+| S1 classify Reuse           | ✅ `supervisor::tests::classify_reuses_healthy_product_ui`          |
+| S2 HTML probe / no-UI       | ✅ `ui_html_probe`, `classify_rejects_healthz_without_ui`           |
+| S3 quit policy false        | ✅ `desktop_quit_never_stops_runtime`                               |
+| S4 Electron no-op stop      | ✅ `stopOwnedAtmosServer never kills shared Runtime`                |
+| S5 lazy ensure              | ✅ `cli_lazy_ensure_rules`                                          |
+| S6 --no-ensure              | ✅ `cli_lazy_ensure_rules`                                          |
+| S7 backend is Server        | ✅ `runtime_backend_is_server_not_cli`                              |
 | S8 Desktop Use product JSON | ✅ `api::desktop_use::tests::status_payload_is_desktop_use_product` |
-| S9 Runtime URL helper | ✅ `builds Runtime Desktop Use URLs on loopback` |
-| S10 explicit stop vs quit | ✅ classify force_restart Start; quit policy false |
+| S9 Runtime URL helper       | ✅ `builds Runtime Desktop Use URLs on loopback`                    |
+| S10 explicit stop vs quit   | ✅ classify force_restart Start; quit policy false                  |
 
 Re-run of `cargo test -p api` after a later edit failed with disk full (`No space left on device`); first run of that test passed. runtime-manager and bun tests re-ran green `--offline`. `cargo check -p atmos --offline` after P1 prefs/lazy-ensure wiring succeeded.
 

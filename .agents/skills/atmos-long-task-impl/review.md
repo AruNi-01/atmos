@@ -12,12 +12,12 @@ Read-only. Do not edit any file (including `PROGRESS.md` / `REVIEW.md` / code). 
 
 ## Severity
 
-| Level | Meaning | Lead agent action |
-|-------|---------|-------------------|
-| P0 | Spec violation, scope breach, stub implementation, security/data corruption, slice Verify actually failed | Must rework |
-| P1 | Checklist logic error, wrong contract usage, clear behavior bug | Must rework |
-| P2 | Maintainability within checklist, with spec basis | Lead decides if rework this wave |
-| nit | Style/naming preference | Ignore unless spec mandates |
+| Level | Meaning                                                                                                   | Lead agent action                |
+| ----- | --------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| P0    | Spec violation, scope breach, stub implementation, security/data corruption, slice Verify actually failed | Must rework                      |
+| P1    | Checklist logic error, wrong contract usage, clear behavior bug                                           | Must rework                      |
+| P2    | Maintainability within checklist, with spec basis                                                         | Lead decides if rework this wave |
+| nit   | Style/naming preference                                                                                   | Ignore unless spec mandates      |
 
 ## Output (required shape)
 
@@ -26,10 +26,11 @@ SLICE: S1
 VERDICT: pass | fail
 SCOPE_VIOLATION: none | <paths>
 FINDINGS:
+
 - P0: <file:line> <fact> — <spec sentence violated>
 - P1: …
-REWORK: none | <what impl agent must change, still within Owns>
-CHECKS_RUN:
+  REWORK: none | <what impl agent must change, still within Owns>
+  CHECKS_RUN:
 - [x] <checklist item 1> pass | fail
 - [ ] <checklist item 2> fail — <evidence>
 ```
@@ -45,14 +46,16 @@ You are a review subagent. Read `.agents/skills/atmos-long-task-impl/review.md`.
 
 SLICE: S1
 OWNS:
+
 - path
-DIFF: git diff for the paths above only (workspace vs slice baseline; if no baseline, vs HEAD)
-SPEC EXCERPTS:
+  DIFF: git diff for the paths above only (workspace vs slice baseline; if no baseline, vs HEAD)
+  SPEC EXCERPTS:
 - …
-REVIEW CHECKLIST (check only these):
+  REVIEW CHECKLIST (check only these):
+
 1. …
 2. …
 3. …
-DO NOT: edit code; style review; label refactor suggestions P0; declare done.
-Return output shape from review.md.
+   DO NOT: edit code; style review; label refactor suggestions P0; declare done.
+   Return output shape from review.md.
 ```

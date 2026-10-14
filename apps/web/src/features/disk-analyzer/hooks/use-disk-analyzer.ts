@@ -201,121 +201,113 @@ export function useDiskAnalyzer() {
   }, []);
 
   useEffect(() => {
-    const off = useWebSocketStore.getState().onEvent(
-      "disk_analyzer_scan_progress",
-      (raw) => {
-        const payload = raw as DiskScanProgress;
-        const activeId = scanIdRef.current;
-        if (!activeId || payload.scan_id !== activeId) return;
+    const off = useWebSocketStore.getState().onEvent("disk_analyzer_scan_progress", (raw) => {
+      const payload = raw as DiskScanProgress;
+      const activeId = scanIdRef.current;
+      if (!activeId || payload.scan_id !== activeId) return;
 
-        setProgress(payload);
-        setStatus(payload.status);
+      setProgress(payload);
+      setStatus(payload.status);
 
-        if (payload.tree) {
-          const level = payload.tree;
-          rememberLevel(level);
-          setFocusPath((fp) => fp ?? level.path);
-          setSelectedPath((sp) => sp ?? level.path);
+      if (payload.tree) {
+        const level = payload.tree;
+        rememberLevel(level);
+        setFocusPath((fp) => fp ?? level.path);
+        setSelectedPath((sp) => sp ?? level.path);
 
-          // Persist ready levels in TanStack cache (never store intermediate loading).
-          if (
-            (payload.status === "level_completed" ||
-              payload.status === "completed" ||
-              level.children_loaded) &&
-            scanIdRef.current
-          ) {
-            const levelPath = payload.level_path ?? level.path;
-            queryClient.setQueryData(
-              diskAnalyzerLevelQueryKey(
-                queryScope,
-                scanIdRef.current,
-                levelPath,
-                topN,
-              ),
-              {
-                status: "ready" as const,
-                tree: level,
-                stats: payload.stats ?? null,
-              },
-            );
-          }
-
-          if (
-            payload.level_path &&
-            loadingPathRef.current === payload.level_path &&
-            (payload.status === "level_completed" ||
-              payload.status === "completed" ||
-              level.children_loaded)
-          ) {
-            loadingPathRef.current = null;
-            setLoadingPath(null);
-          }
-        }
-
-        if (payload.stats) {
-          setStats(payload.stats);
-        } else if (
-          payload.status === "running" ||
-          payload.status === "level_completed" ||
-          payload.status === "completed"
+        // Persist ready levels in TanStack cache (never store intermediate loading).
+        if (
+          (payload.status === "level_completed" ||
+            payload.status === "completed" ||
+            level.children_loaded) &&
+          scanIdRef.current
         ) {
-          // Progressive events often omit `stats`; keep counts in sync from the payload.
-          const files = payload.files_scanned ?? 0;
-          const dirs = payload.dirs_scanned ?? 0;
-          const bytes = payload.bytes_scanned ?? 0;
-          if (files > 0 || dirs > 0 || bytes > 0) {
-            setStats((prev) => ({
-              root_path: prev?.root_path ?? payload.level_path ?? "",
-              total_size: Math.max(bytes, prev?.total_size ?? 0),
-              files_scanned: Math.max(files, prev?.files_scanned ?? 0),
-              dirs_scanned: Math.max(dirs, prev?.dirs_scanned ?? 0),
-              error_count: payload.error_count ?? prev?.error_count ?? 0,
-              elapsed_ms: prev?.elapsed_ms ?? 0,
-            }));
-          }
-        }
-        if (payload.suggestions) {
-          // Confirmed items can stream in while scanning. Only apply an empty
-          // list once the walk is done so "all clean" is not a mid-scan lie.
-          if (payload.suggestions.length > 0 || payload.status === "completed") {
-            const suppressed = suppressedSuggestPathsRef.current;
-            setSuggestions(
-              suppressed.length === 0
-                ? payload.suggestions
-                : payload.suggestions.filter((item) =>
-                    suggestionSurvivesDelete(item.path, suppressed),
-                  ),
-            );
-          }
+          const levelPath = payload.level_path ?? level.path;
+          queryClient.setQueryData(
+            diskAnalyzerLevelQueryKey(queryScope, scanIdRef.current, levelPath, topN),
+            {
+              status: "ready" as const,
+              tree: level,
+              stats: payload.stats ?? null,
+            },
+          );
         }
 
-        if (payload.status === "completed") {
-          startLockRef.current = false;
-          setBusy(false);
+        if (
+          payload.level_path &&
+          loadingPathRef.current === payload.level_path &&
+          (payload.status === "level_completed" ||
+            payload.status === "completed" ||
+            level.children_loaded)
+        ) {
           loadingPathRef.current = null;
           setLoadingPath(null);
         }
-        if (payload.status === "level_completed") {
-          if (payload.level_path && loadingPathRef.current === payload.level_path) {
-            loadingPathRef.current = null;
-            setLoadingPath(null);
-          }
+      }
+
+      if (payload.stats) {
+        setStats(payload.stats);
+      } else if (
+        payload.status === "running" ||
+        payload.status === "level_completed" ||
+        payload.status === "completed"
+      ) {
+        // Progressive events often omit `stats`; keep counts in sync from the payload.
+        const files = payload.files_scanned ?? 0;
+        const dirs = payload.dirs_scanned ?? 0;
+        const bytes = payload.bytes_scanned ?? 0;
+        if (files > 0 || dirs > 0 || bytes > 0) {
+          setStats((prev) => ({
+            root_path: prev?.root_path ?? payload.level_path ?? "",
+            total_size: Math.max(bytes, prev?.total_size ?? 0),
+            files_scanned: Math.max(files, prev?.files_scanned ?? 0),
+            dirs_scanned: Math.max(dirs, prev?.dirs_scanned ?? 0),
+            error_count: payload.error_count ?? prev?.error_count ?? 0,
+            elapsed_ms: prev?.elapsed_ms ?? 0,
+          }));
         }
-        if (payload.status === "failed") {
-          setError(payload.error ?? scanFailedLabel);
-          startLockRef.current = false;
-          setBusy(false);
+      }
+      if (payload.suggestions) {
+        // Confirmed items can stream in while scanning. Only apply an empty
+        // list once the walk is done so "all clean" is not a mid-scan lie.
+        if (payload.suggestions.length > 0 || payload.status === "completed") {
+          const suppressed = suppressedSuggestPathsRef.current;
+          setSuggestions(
+            suppressed.length === 0
+              ? payload.suggestions
+              : payload.suggestions.filter((item) =>
+                  suggestionSurvivesDelete(item.path, suppressed),
+                ),
+          );
+        }
+      }
+
+      if (payload.status === "completed") {
+        startLockRef.current = false;
+        setBusy(false);
+        loadingPathRef.current = null;
+        setLoadingPath(null);
+      }
+      if (payload.status === "level_completed") {
+        if (payload.level_path && loadingPathRef.current === payload.level_path) {
           loadingPathRef.current = null;
           setLoadingPath(null);
         }
-        if (payload.status === "cancelled") {
-          startLockRef.current = false;
-          setBusy(false);
-          loadingPathRef.current = null;
-          setLoadingPath(null);
-        }
-      },
-    );
+      }
+      if (payload.status === "failed") {
+        setError(payload.error ?? scanFailedLabel);
+        startLockRef.current = false;
+        setBusy(false);
+        loadingPathRef.current = null;
+        setLoadingPath(null);
+      }
+      if (payload.status === "cancelled") {
+        startLockRef.current = false;
+        setBusy(false);
+        loadingPathRef.current = null;
+        setLoadingPath(null);
+      }
+    });
     return off;
   }, [queryClient, queryScope, rememberLevel, scanFailedLabel, topN]);
 
@@ -350,11 +342,7 @@ export function useDiskAnalyzer() {
     }
     try {
       // Default: Atmos-scoped paths. scanAllSpace → home + Applications.
-      const result = await diskAnalyzerApi.startScan(
-        undefined,
-        topN,
-        scanAllSpaceRef.current,
-      );
+      const result = await diskAnalyzerApi.startScan(undefined, topN, scanAllSpaceRef.current);
       scanIdRef.current = result.scan_id;
       setScanId(result.scan_id);
       setScanPath(result.root_path);
@@ -362,8 +350,7 @@ export function useDiskAnalyzer() {
       setLoadingPath(result.root_path);
       try {
         // Volume gauge uses home (or real path); synthetic atmos:// has no volume.
-        const volumePath =
-          result.root_path.startsWith("atmos://") ? undefined : result.root_path;
+        const volumePath = result.root_path.startsWith("atmos://") ? undefined : result.root_path;
         const info = await diskAnalyzerApi.diskInfo(volumePath);
         setVolume(info);
       } catch {
@@ -377,13 +364,10 @@ export function useDiskAnalyzer() {
     }
   }, [queryClient, queryScope, topN]);
 
-  const setScanAllSpaceAndMaybeRescan = useCallback(
-    (next: boolean) => {
-      scanAllSpaceRef.current = next;
-      setScanAllSpace(next);
-    },
-    [],
-  );
+  const setScanAllSpaceAndMaybeRescan = useCallback((next: boolean) => {
+    scanAllSpaceRef.current = next;
+    setScanAllSpace(next);
+  }, []);
 
   // Auto-start primary-locations scan once WS is available.
   useEffect(() => {
@@ -441,14 +425,9 @@ export function useDiskAnalyzer() {
         } else {
           // Prefer a ready client cache (do not treat "loading" as a final answer —
           // that used to sticky-block drill-in after the first get_tree).
-          const cached = queryClient.getQueryData<
-            Awaited<ReturnType<typeof diskAnalyzerApi.getTree>>
-          >(key);
-          if (
-            cached?.status === "ready" &&
-            cached.tree &&
-            isChildrenLoaded(cached.tree)
-          ) {
+          const cached =
+            queryClient.getQueryData<Awaited<ReturnType<typeof diskAnalyzerApi.getTree>>>(key);
+          if (cached?.status === "ready" && cached.tree && isChildrenLoaded(cached.tree)) {
             rememberLevel(cached.tree);
             if (cached.stats) setStats(cached.stats);
             loadingPathRef.current = null;
@@ -538,9 +517,7 @@ export function useDiskAnalyzer() {
     if (paths.length === 0) return;
     const next = [...suppressedSuggestPathsRef.current, ...paths];
     suppressedSuggestPathsRef.current = next;
-    setSuggestions((prev) =>
-      prev.filter((item) => suggestionSurvivesDelete(item.path, next)),
-    );
+    setSuggestions((prev) => prev.filter((item) => suggestionSurvivesDelete(item.path, next)));
   }, []);
 
   /**
@@ -567,10 +544,7 @@ export function useDiskAnalyzer() {
       for (const deleted of deletedList) {
         const deletedNorm = deleted.replace(/\/+$/, "");
         const stayNorm = stay.replace(/\/+$/, "");
-        if (
-          stayNorm === deletedNorm ||
-          stayNorm.startsWith(`${deletedNorm}/`)
-        ) {
+        if (stayNorm === deletedNorm || stayNorm.startsWith(`${deletedNorm}/`)) {
           stay = parentDirPath(deletedNorm, root);
         }
       }
@@ -655,10 +629,7 @@ export function useDiskAnalyzer() {
         await refreshAfterDelete(deleted);
       }
       if (firstError) {
-        const error =
-          firstError instanceof Error
-            ? firstError
-            : new Error(String(firstError));
+        const error = firstError instanceof Error ? firstError : new Error(String(firstError));
         throw Object.assign(error, { deletedPaths: deleted });
       }
       return deleted;
@@ -720,10 +691,7 @@ export function useDiskAnalyzer() {
    * Cleanup tips for **currently displayed** chart tiles only (immediate children).
    * Updates when the user drills to another directory — does not scan nested contents.
    */
-  const scopedSuggestions = useMemo(
-    () => collectCleanupSuggestions(childList),
-    [childList],
-  );
+  const scopedSuggestions = useMemo(() => collectCleanupSuggestions(childList), [childList]);
 
   const isLevelLoading =
     loadingPath !== null &&

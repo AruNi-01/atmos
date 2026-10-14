@@ -1,23 +1,9 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslations } from "next-intl";
-import {
-  CaseSensitive,
-  ChevronLeft,
-  ChevronRight,
-  Regex,
-  WholeWord,
-  X,
-} from "lucide-react";
+import { CaseSensitive, ChevronLeft, ChevronRight, Regex, WholeWord, X } from "lucide-react";
 import { cn } from "@workspace/ui";
 import {
   contentFindHighlightRect,
@@ -210,10 +196,7 @@ export function FindPanel({
       const index =
         hits.length === 0
           ? 0
-          : Math.min(
-              grewFromEmpty ? 0 : (opts?.index ?? activeIndexRef.current),
-              hits.length - 1,
-            );
+          : Math.min(grewFromEmpty ? 0 : (opts?.index ?? activeIndexRef.current), hits.length - 1);
       setActiveIndex(index);
       setHitCount(hits.length);
       setInvalid(nextInvalid);
@@ -294,12 +277,8 @@ export function FindPanel({
         const sideNodes = [...mutation.addedNodes, ...mutation.removedNodes];
         if (sideNodes.length > 0 && sideNodes.every(isFindChrome)) return false;
         const node =
-          mutation.target instanceof Element
-            ? mutation.target
-            : mutation.target.parentElement;
-        return !node?.closest(
-          "[data-markdown-find-highlight], [data-markdown-find-panel]",
-        );
+          mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+        return !node?.closest("[data-markdown-find-highlight], [data-markdown-find-panel]");
       });
       if (!relevant) return;
       scan({ index: activeIndexRef.current, scroll: false });
@@ -375,98 +354,87 @@ export function FindPanel({
       data-markdown-find-panel=""
       className="cm-atmos-search pointer-events-auto absolute top-2 right-2 z-30 w-[min(26rem,calc(100%-1rem))]"
     >
-        <div className="cm-atmos-search__header">
-          <div className="cm-atmos-search__title-group">
-            <span className="cm-atmos-search__title">{t("find")}</span>
-            {counter ? (
-              <span
-                data-markdown-find-count={counter}
-                className="cm-atmos-search__counter"
-              >
-                {counter}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              className={cn(
-                "cm-atmos-search__icon-button cm-atmos-search__nav-button",
-                !hasMatches && "is-hidden",
-              )}
-              title={t("previousMatch")}
-              aria-label={t("previousMatch")}
-              onClick={() => goTo(-1)}
-            >
-              <ChevronLeft className="cm-atmos-search__icon" />
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "cm-atmos-search__icon-button cm-atmos-search__nav-button",
-                !hasMatches && "is-hidden",
-              )}
-              title={t("nextMatch")}
-              aria-label={t("nextMatch")}
-              onClick={() => goTo(1)}
-            >
-              <ChevronRight className="cm-atmos-search__icon" />
-            </button>
-          </div>
-          <div className="cm-atmos-search__header-actions">
-            <button
-              type="button"
-              className="cm-atmos-search__icon-button"
-              title={t("closeSearch")}
-              aria-label={t("closeSearch")}
-              onClick={onClose}
-            >
-              <X className="cm-atmos-search__icon" />
-            </button>
-          </div>
+      <div className="cm-atmos-search__header">
+        <div className="cm-atmos-search__title-group">
+          <span className="cm-atmos-search__title">{t("find")}</span>
+          {counter ? (
+            <span data-markdown-find-count={counter} className="cm-atmos-search__counter">
+              {counter}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            className={cn(
+              "cm-atmos-search__icon-button cm-atmos-search__nav-button",
+              !hasMatches && "is-hidden",
+            )}
+            title={t("previousMatch")}
+            aria-label={t("previousMatch")}
+            onClick={() => goTo(-1)}
+          >
+            <ChevronLeft className="cm-atmos-search__icon" />
+          </button>
+          <button
+            type="button"
+            className={cn(
+              "cm-atmos-search__icon-button cm-atmos-search__nav-button",
+              !hasMatches && "is-hidden",
+            )}
+            title={t("nextMatch")}
+            aria-label={t("nextMatch")}
+            onClick={() => goTo(1)}
+          >
+            <ChevronRight className="cm-atmos-search__icon" />
+          </button>
         </div>
-        <div className="cm-atmos-search__fields">
-          <div className="cm-atmos-search__row">
-            <div className="cm-atmos-search__field">
-              <input
-                ref={inputRef}
-                data-markdown-find-input=""
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  goTo(event.shiftKey ? -1 : 1);
-                }}
-                placeholder={findPlaceholder}
-                aria-label={findPlaceholder}
-                aria-invalid={invalid || undefined}
-                className="cm-atmos-search__input"
-              />
-              <div className="cm-atmos-search__inline-options">
-                <FindToggle
-                  pressed={caseSensitive}
-                  label={t("matchCase")}
-                  onPressedChange={setCaseSensitive}
-                >
-                  <CaseSensitive className="cm-atmos-search__icon" />
-                </FindToggle>
-                <FindToggle
-                  pressed={wholeWord}
-                  label={t("wholeWord")}
-                  onPressedChange={setWholeWord}
-                >
-                  <WholeWord className="cm-atmos-search__icon" />
-                </FindToggle>
-                <FindToggle
-                  pressed={regexp}
-                  label={t("regexp")}
-                  onPressedChange={setRegexp}
-                >
-                  <Regex className="cm-atmos-search__icon" />
-                </FindToggle>
-              </div>
+        <div className="cm-atmos-search__header-actions">
+          <button
+            type="button"
+            className="cm-atmos-search__icon-button"
+            title={t("closeSearch")}
+            aria-label={t("closeSearch")}
+            onClick={onClose}
+          >
+            <X className="cm-atmos-search__icon" />
+          </button>
+        </div>
+      </div>
+      <div className="cm-atmos-search__fields">
+        <div className="cm-atmos-search__row">
+          <div className="cm-atmos-search__field">
+            <input
+              ref={inputRef}
+              data-markdown-find-input=""
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                goTo(event.shiftKey ? -1 : 1);
+              }}
+              placeholder={findPlaceholder}
+              aria-label={findPlaceholder}
+              aria-invalid={invalid || undefined}
+              className="cm-atmos-search__input"
+            />
+            <div className="cm-atmos-search__inline-options">
+              <FindToggle
+                pressed={caseSensitive}
+                label={t("matchCase")}
+                onPressedChange={setCaseSensitive}
+              >
+                <CaseSensitive className="cm-atmos-search__icon" />
+              </FindToggle>
+              <FindToggle pressed={wholeWord} label={t("wholeWord")} onPressedChange={setWholeWord}>
+                <WholeWord className="cm-atmos-search__icon" />
+              </FindToggle>
+              <FindToggle pressed={regexp} label={t("regexp")} onPressedChange={setRegexp}>
+                <Regex className="cm-atmos-search__icon" />
+              </FindToggle>
             </div>
           </div>
         </div>
       </div>
+    </div>
   );
 }

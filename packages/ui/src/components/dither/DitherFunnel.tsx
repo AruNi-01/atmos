@@ -8,17 +8,8 @@ import {
   funnelValueWidth,
   resolveFunnelTrack,
 } from "../../lib/dither/funnel-track";
-import {
-  bandColor,
-  hash,
-  smoothstep,
-  type DitherTheme,
-} from "../../lib/dither/math";
-import {
-  createSeriesMorph,
-  seriesSignature,
-  type SeriesMorph,
-} from "../../lib/dither/morph";
+import { bandColor, hash, smoothstep, type DitherTheme } from "../../lib/dither/math";
+import { createSeriesMorph, seriesSignature, type SeriesMorph } from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 
 export type DitherFunnelStage = {
@@ -75,16 +66,11 @@ function paintFunnelBand(
   ctx.globalAlpha = alpha;
   ctx.fillStyle = color;
   for (let bx = 0; bx <= Math.ceil(width); bx += cell) {
-    for (
-      let by = Math.floor(yTop);
-      by <= Math.ceil(yTop + rowH);
-      by += cell
-    ) {
+    for (let by = Math.floor(yTop); by <= Math.ceil(yTop + rowH); by += cell) {
       const jx = bx + cell / 2;
       const jy = by + cell / 2;
       const jit = hash(jx, jy);
-      const waveRaw =
-        Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
+      const waveRaw = Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
       const mod = smoothstep(-1.5, 1.5, waveRaw);
       const sz = cell * (0.35 + 0.35 * mod) * (0.8 + 0.4 * jit);
       ctx.fillRect(bx + (cell - sz) / 2, by + (cell - sz) / 2, sz, sz);
@@ -127,9 +113,7 @@ export function DitherFunnel({
     .join("|");
   const themeKey = `${stagesKey}|${theme}`;
   if (sigRef.current !== themeKey) {
-    colorsRef.current = stages.map(
-      (stage, index) => stage.color ?? bandColor(index, theme),
-    );
+    colorsRef.current = stages.map((stage, index) => stage.color ?? bandColor(index, theme));
     morphRef.current.retarget(stages.map((s) => s.value));
     sigRef.current = themeKey;
   }
@@ -160,11 +144,7 @@ export function DitherFunnel({
       // Prefer explicit maxValue; otherwise use the largest stage value.
       const explicitMax = maxRef.current;
       const stageMax = Math.max(0, ...values);
-      const scaleMax = isFixedDomainMax(explicitMax)
-        ? explicitMax
-        : stageMax > 0
-          ? stageMax
-          : 1;
+      const scaleMax = isFixedDomainMax(explicitMax) ? explicitMax : stageMax > 0 ? stageMax : 1;
       const tAnim = reducedMotion ? 0 : time;
       const track = resolveFunnelTrack(trackColorRef.current);
 
@@ -196,8 +176,7 @@ export function DitherFunnel({
         });
       }
       return {
-        busy:
-          !reducedMotion && morphRef.current!.progress(reducedMotion) < 0.999,
+        busy: !reducedMotion && morphRef.current!.progress(reducedMotion) < 0.999,
       };
     },
     [theme],
@@ -212,7 +191,7 @@ export function DitherFunnel({
       role="img"
       aria-label={
         stages.length === 1
-          ? stages[0]?.label ?? "Progress"
+          ? (stages[0]?.label ?? "Progress")
           : `Funnel: ${stages.map((s) => s.label).join(", ")}`
       }
     />

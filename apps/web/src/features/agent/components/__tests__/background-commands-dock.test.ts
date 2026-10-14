@@ -2,14 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const dock = readFileSync(
-  join(import.meta.dir, "../BackgroundCommandsDock.tsx"),
-  "utf8",
-);
-const composer = readFileSync(
-  join(import.meta.dir, "../AgentPromptComposer.tsx"),
-  "utf8",
-);
+const dock = readFileSync(join(import.meta.dir, "../BackgroundCommandsDock.tsx"), "utf8");
+const composer = readFileSync(join(import.meta.dir, "../AgentPromptComposer.tsx"), "utf8");
 
 describe("background commands dock", () => {
   it("sits in the in-flow composer stack with plan and queue, not the floating overlay", () => {

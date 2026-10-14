@@ -46,9 +46,9 @@ async function ensureIpcSubscription(): Promise<void> {
     const off = await desktopListen("window-fullscreen-changed", (payload) => {
       const fs = Boolean(
         payload &&
-          typeof payload === "object" &&
-          "fullscreen" in payload &&
-          (payload as { fullscreen?: unknown }).fullscreen,
+        typeof payload === "object" &&
+        "fullscreen" in payload &&
+        (payload as { fullscreen?: unknown }).fullscreen,
       );
       emit(fs);
     });

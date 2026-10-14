@@ -30,13 +30,7 @@ import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import { queuedPromptEditText } from "@/features/agent/lib/agent-composer-attachment";
 import { ComposerCollapseGlyph } from "./composer-collapse-glyph";
 
-function HoverScrollableText({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) {
+function HoverScrollableText({ text, className }: { text: string; className?: string }) {
   const textRef = useRef<HTMLSpanElement>(null);
   const animRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,7 +104,7 @@ export function PermissionActionButton({
     <ConfirmationAction
       variant={variant}
       onClick={onClick}
-      className="min-w-0 max-w-[22rem] flex-1 basis-0 justify-start overflow-hidden rounded-full px-3"
+      className="max-w-[22rem] min-w-0 flex-1 basis-0 justify-start overflow-hidden rounded-full px-3"
     >
       <HoverScrollableText
         text={label}
@@ -120,7 +114,7 @@ export function PermissionActionButton({
   );
 }
 
-const NOOP_QUEUE_ACTION = () => { };
+const NOOP_QUEUE_ACTION = () => {};
 
 function QueueCard({
   item,
@@ -142,13 +136,7 @@ function QueueCard({
   const text = queuedPromptEditText(item);
 
   return (
-    <div
-      className={
-        isDragging
-          ? "bg-background/95 shadow-sm"
-          : "bg-transparent"
-      }
-    >
+    <div className={isDragging ? "bg-background/95 shadow-sm" : "bg-transparent"}>
       <div className="flex items-center gap-1 px-1.5 py-1">
         <button
           type="button"
@@ -207,70 +195,62 @@ type SortableQueueCardProps = {
   t: ReturnType<typeof useTranslations>;
 };
 
-const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProps>(function SortableQueueCard({
-  item,
-  isEditing,
-  onToggleEdit,
-  onRemove,
-  t,
-}, forwardedRef) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: item.id,
-    disabled: isEditing,
-  });
-  const setRefs = React.useCallback((node: HTMLDivElement | null) => {
-    setNodeRef(node);
-    if (typeof forwardedRef === "function") {
-      forwardedRef(node);
-    } else if (forwardedRef) {
-      forwardedRef.current = node;
-    }
-  }, [forwardedRef, setNodeRef]);
+const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProps>(
+  function SortableQueueCard({ item, isEditing, onToggleEdit, onRemove, t }, forwardedRef) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+      id: item.id,
+      disabled: isEditing,
+    });
+    const setRefs = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        setNodeRef(node);
+        if (typeof forwardedRef === "function") {
+          forwardedRef(node);
+        } else if (forwardedRef) {
+          forwardedRef.current = node;
+        }
+      },
+      [forwardedRef, setNodeRef],
+    );
 
-  return (
-    <motion.div
-      ref={setRefs}
-      layout="position"
-      initial={{ opacity: 1, y: 0 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{
-        opacity: 0,
-        y: 12,
-        transition: {
-          duration: 0.16,
-          ease: "easeOut",
-        },
-      }}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
-      transition={{
-        layout: {
-          duration: 0.16,
-          ease: "easeOut",
-        },
-      }}
-    >
-      <QueueCard
-        item={item}
-        isDragging={isDragging}
-        dragHandleProps={{ ...attributes, ...listeners }}
-        isEditing={isEditing}
-        onToggleEdit={() => onToggleEdit(item)}
-        onRemove={() => onRemove(item.id)}
-        t={t}
-      />
-    </motion.div>
-  );
-});
+    return (
+      <motion.div
+        ref={setRefs}
+        layout="position"
+        initial={{ opacity: 1, y: 0 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{
+          opacity: 0,
+          y: 12,
+          transition: {
+            duration: 0.16,
+            ease: "easeOut",
+          },
+        }}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition,
+        }}
+        transition={{
+          layout: {
+            duration: 0.16,
+            ease: "easeOut",
+          },
+        }}
+      >
+        <QueueCard
+          item={item}
+          isDragging={isDragging}
+          dragHandleProps={{ ...attributes, ...listeners }}
+          isEditing={isEditing}
+          onToggleEdit={() => onToggleEdit(item)}
+          onRemove={() => onRemove(item.id)}
+          t={t}
+        />
+      </motion.div>
+    );
+  },
+);
 SortableQueueCard.displayName = "SortableQueueCard";
 
 export function MessageQueueDock({
@@ -291,30 +271,32 @@ export function MessageQueueDock({
   const [draggingPromptId, setDraggingPromptId] = useState<string | null>(null);
 
   const draggingPrompt = draggingPromptId
-    ? items.find((item) => item.id === draggingPromptId) ?? null
+    ? (items.find((item) => item.id === draggingPromptId) ?? null)
     : null;
-  const activeEditingPromptId = editingPromptId && items.some((item) => item.id === editingPromptId)
-    ? editingPromptId
-    : null;
+  const activeEditingPromptId =
+    editingPromptId && items.some((item) => item.id === editingPromptId) ? editingPromptId : null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setDraggingPromptId(String(event.active.id));
   }, []);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    setDraggingPromptId(null);
-    if (!over || active.id === over.id) return;
-    const fromIndex = items.findIndex((item) => item.id === String(active.id));
-    const toIndex = items.findIndex((item) => item.id === String(over.id));
-    if (fromIndex < 0 || toIndex < 0) return;
-    onMove(String(active.id), toIndex);
-  }, [items, onMove]);
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      setDraggingPromptId(null);
+      if (!over || active.id === over.id) return;
+      const fromIndex = items.findIndex((item) => item.id === String(active.id));
+      const toIndex = items.findIndex((item) => item.id === String(over.id));
+      if (fromIndex < 0 || toIndex < 0) return;
+      onMove(String(active.id), toIndex);
+    },
+    [items, onMove],
+  );
 
   if (items.length === 0) return null;
 

@@ -43,7 +43,7 @@ export interface TerminalProps {
   sideChatId?: string;
   sourcePaneId?: string;
   sourceTmuxWindowName?: string;
-  /** 
+  /**
    * If true, this is a new pane - use terminalName to create a new window.
    * If false/undefined, use tmuxWindowName to attach to existing window.
    */

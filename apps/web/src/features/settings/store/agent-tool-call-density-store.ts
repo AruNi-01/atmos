@@ -17,7 +17,9 @@ interface AgentToolCallDensityState {
   setDensity: (density: ToolCallDensity) => Promise<void>;
 }
 
-function readDensity(settings: { agent_cli?: { tool_call_density?: unknown } } | null | undefined): ToolCallDensity {
+function readDensity(
+  settings: { agent_cli?: { tool_call_density?: unknown } } | null | undefined,
+): ToolCallDensity {
   return normalizeToolCallDensity(settings?.agent_cli?.tool_call_density);
 }
 

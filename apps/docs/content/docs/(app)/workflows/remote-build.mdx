@@ -79,20 +79,20 @@ Once connected, use the same Atmos workflows:
 
 CLI commands use this resolution order:
 
-| Setting | Resolution order |
-|---------|------------------|
-| API URL | `--api-url`, `ATMOS_API_URL`, active `client-session.json`, `runtime_manifest.json` |
+| Setting   | Resolution order                                                                           |
+| --------- | ------------------------------------------------------------------------------------------ |
+| API URL   | `--api-url`, `ATMOS_API_URL`, active `client-session.json`, `runtime_manifest.json`        |
 | API token | `--api-token`, `ATMOS_API_TOKEN`, `ATMOS_LOCAL_TOKEN`, active client-session gateway token |
 
 ## Security Notes
 
-| Topic | What to know |
-|-------|--------------|
-| **Access key** | Anyone with the key can manage your registered computers. Store it carefully. |
-| **Registration codes** | Short-lived and one-time. Remove unused codes. |
-| **Relay secrets** | Private Relay deployments may require a Relay secret in addition to the Access Key. |
-| **Sessions** | Connect sessions expire. Reconnect from **My Computers** when needed. |
-| **Revocation** | Remove a computer from **My Computers** when it should no longer be available. |
+| Topic                  | What to know                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| **Access key**         | Anyone with the key can manage your registered computers. Store it carefully.       |
+| **Registration codes** | Short-lived and one-time. Remove unused codes.                                      |
+| **Relay secrets**      | Private Relay deployments may require a Relay secret in addition to the Access Key. |
+| **Sessions**           | Connect sessions expire. Reconnect from **My Computers** when needed.               |
+| **Revocation**         | Remove a computer from **My Computers** when it should no longer be available.      |
 
 ## Related
 

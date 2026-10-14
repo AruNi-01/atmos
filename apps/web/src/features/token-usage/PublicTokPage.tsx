@@ -4,6 +4,7 @@ import * as React from "react";
 import { GitHubIcon } from "@daveyplate/better-auth-ui";
 import { Trophy } from "lucide-react";
 import { XIcon } from "@workspace/ui";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
@@ -94,11 +95,7 @@ export function PublicTokPage({
               </XUserHoverCard>
             ) : null}
             {githubUsername ? (
-              <GithubUserHoverCard
-                username={githubUsername}
-                avatarUrl={avatarUrl}
-                source="public"
-              >
+              <GithubUserHoverCard username={githubUsername} avatarUrl={avatarUrl} source="public">
                 <a
                   href={`https://github.com/${githubUsername}`}
                   target="_blank"
@@ -127,13 +124,13 @@ export function PublicTokPage({
             {t("leaderboardLink")}
           </button>
         ) : (
-          <a
+          <Link
             href="/tok/leaderboard"
             className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
           >
             <Trophy className="size-3 shrink-0" aria-hidden />
             {t("leaderboardLink")}
-          </a>
+          </Link>
         )}
         <p className="text-right text-[11px] text-muted-foreground">
           {t("generatedDate", { date })} · {t("generatedByPrefix")}

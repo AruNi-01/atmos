@@ -1,32 +1,32 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import { createTranslator } from 'next-intl';
-import { gitApi } from '@/api/ws-api';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
+import { create } from "zustand";
+import { createTranslator } from "next-intl";
+import { gitApi } from "@/api/ws-api";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
 
-let cachedGitStoreLocale: 'en' | 'zh' | null = null;
+let cachedGitStoreLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedGitStoreTranslator: any = null;
 
 function gitStoreT(
   key:
-    | 'actionErrors.mergeConflicts'
-    | 'actionErrors.localChangesWouldBeOverwritten'
-    | 'actionErrors.noUpstreamBranch'
-    | 'actionErrors.fastForwardNotPossible'
-    | 'actionErrors.notGitRepository',
+    | "actionErrors.mergeConflicts"
+    | "actionErrors.localChangesWouldBeOverwritten"
+    | "actionErrors.noUpstreamBranch"
+    | "actionErrors.fastForwardNotPossible"
+    | "actionErrors.notGitRepository",
 ): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedGitStoreTranslator || cachedGitStoreLocale !== locale) {
     cachedGitStoreLocale = locale;
     cachedGitStoreTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'git.store',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "git.store",
     });
   }
   return cachedGitStoreTranslator(key as never);
@@ -34,7 +34,7 @@ function gitStoreT(
 
 export function cleanGitActionErrorMessage(error: unknown): string {
   if (!(error instanceof Error)) {
-    return '';
+    return "";
   }
 
   return error.message
@@ -57,45 +57,45 @@ export function isConflictActionError(error: unknown): boolean {
 
 export function formatGitActionErrorForDisplay(error: unknown): string {
   const message = cleanGitActionErrorMessage(error);
-  if (!message) return '';
+  if (!message) return "";
 
   const normalized = message.toLowerCase();
 
   if (isConflictActionError(error)) {
-    return gitStoreT('actionErrors.mergeConflicts');
+    return gitStoreT("actionErrors.mergeConflicts");
   }
 
   if (
-    normalized.includes('would be overwritten by merge') ||
-    normalized.includes('your local changes to the following files would be overwritten')
+    normalized.includes("would be overwritten by merge") ||
+    normalized.includes("your local changes to the following files would be overwritten")
   ) {
-    return gitStoreT('actionErrors.localChangesWouldBeOverwritten');
+    return gitStoreT("actionErrors.localChangesWouldBeOverwritten");
   }
 
   if (
-    normalized.includes('no upstream branch') ||
-    normalized.includes('has no upstream branch') ||
-    normalized.includes('no tracking information for the current branch')
+    normalized.includes("no upstream branch") ||
+    normalized.includes("has no upstream branch") ||
+    normalized.includes("no tracking information for the current branch")
   ) {
-    return gitStoreT('actionErrors.noUpstreamBranch');
+    return gitStoreT("actionErrors.noUpstreamBranch");
   }
 
   if (
-    normalized.includes('not possible to fast-forward') ||
-    normalized.includes('cannot fast-forward') ||
-    normalized.includes('divergent branches')
+    normalized.includes("not possible to fast-forward") ||
+    normalized.includes("cannot fast-forward") ||
+    normalized.includes("divergent branches")
   ) {
-    return gitStoreT('actionErrors.fastForwardNotPossible');
+    return gitStoreT("actionErrors.fastForwardNotPossible");
   }
 
-  if (normalized.includes('not a git repository')) {
-    return gitStoreT('actionErrors.notGitRepository');
+  if (normalized.includes("not a git repository")) {
+    return gitStoreT("actionErrors.notGitRepository");
   }
 
   return message;
 }
 
-export type GitCompareMode = 'branch' | 'default-branch' | 'ref' | 'worktree';
+export type GitCompareMode = "branch" | "default-branch" | "ref" | "worktree";
 
 interface GitStore {
   // Orchestration state (not server snapshots)
@@ -134,7 +134,7 @@ interface GitStore {
 
 export const useGitStore = create<GitStore>((set, get) => ({
   currentRepoPath: null,
-  compareMode: 'branch',
+  compareMode: "branch",
   compareBaseRef: null,
   selectedFilePath: null,
   isLoading: false,
@@ -143,7 +143,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
     if (get().currentRepoPath === path) return;
     set({
       currentRepoPath: path,
-      compareMode: 'branch',
+      compareMode: "branch",
       compareBaseRef: null,
     });
     if (!path) return;
@@ -164,7 +164,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
 
   resetCompareMode: () => {
     set({
-      compareMode: 'branch',
+      compareMode: "branch",
       compareBaseRef: null,
     });
   },
@@ -172,7 +172,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
   resetForConnectionChange: () => {
     set({
       currentRepoPath: null,
-      compareMode: 'branch',
+      compareMode: "branch",
       compareBaseRef: null,
       selectedFilePath: null,
       isLoading: false,
@@ -180,7 +180,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
   },
 
   compareAgainstDefaultBranch: async () => {
-    set({ compareMode: 'default-branch', compareBaseRef: null });
+    set({ compareMode: "default-branch", compareBaseRef: null });
     const { currentRepoPath } = get();
     if (!currentRepoPath) return;
     try {
@@ -188,7 +188,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await gitApi.fetch(currentRepoPath);
       await invalidateGitQueries(currentRepoPath);
     } catch (error) {
-      console.error('Failed to compare against default branch:', error);
+      console.error("Failed to compare against default branch:", error);
       throw error;
     } finally {
       set({ isLoading: false });
@@ -197,11 +197,11 @@ export const useGitStore = create<GitStore>((set, get) => ({
 
   compareAgainstRef: async (baseRef: string) => {
     if (!baseRef.trim()) return;
-    set({ compareMode: 'ref', compareBaseRef: baseRef.trim() });
+    set({ compareMode: "ref", compareBaseRef: baseRef.trim() });
   },
 
   compareWorktreeChanges: async () => {
-    set({ compareMode: 'worktree', compareBaseRef: null });
+    set({ compareMode: "worktree", compareBaseRef: null });
   },
 
   commitChanges: async (message: string) => {
@@ -213,7 +213,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await gitApi.commit(currentRepoPath, message);
       await invalidateGitQueries(currentRepoPath);
     } catch (error) {
-      console.error('Failed to commit changes:', error);
+      console.error("Failed to commit changes:", error);
       throw error;
     } finally {
       set({ isLoading: false });
@@ -233,7 +233,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
         await gitApi.fetch(currentRepoPath);
         await invalidateGitQueries(currentRepoPath);
       } catch (refreshError) {
-        console.error('Failed to refresh after push error:', refreshError);
+        console.error("Failed to refresh after push error:", refreshError);
       }
       throw error;
     } finally {
@@ -250,7 +250,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await gitApi.stage(currentRepoPath, files);
       await invalidateGitQueries(currentRepoPath);
     } catch (error) {
-      console.error('Failed to stage files:', error);
+      console.error("Failed to stage files:", error);
       throw error;
     } finally {
       set({ isLoading: false });
@@ -266,7 +266,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await gitApi.unstage(currentRepoPath, files);
       await invalidateGitQueries(currentRepoPath);
     } catch (error) {
-      console.error('Failed to unstage files:', error);
+      console.error("Failed to unstage files:", error);
       throw error;
     } finally {
       set({ isLoading: false });
@@ -282,7 +282,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await gitApi.discardUnstaged(currentRepoPath, files);
       await invalidateGitQueries(currentRepoPath);
     } catch (error) {
-      console.error('Failed to discard unstaged changes:', error);
+      console.error("Failed to discard unstaged changes:", error);
       throw error;
     } finally {
       set({ isLoading: false });
@@ -298,7 +298,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await gitApi.discardUntracked(currentRepoPath, files);
       await invalidateGitQueries(currentRepoPath);
     } catch (error) {
-      console.error('Failed to discard untracked files:', error);
+      console.error("Failed to discard untracked files:", error);
       throw error;
     } finally {
       set({ isLoading: false });
@@ -354,7 +354,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await gitApi.fetch(currentRepoPath);
       await invalidateGitQueries(currentRepoPath);
     } catch (error) {
-      console.error('Failed to fetch changes:', error);
+      console.error("Failed to fetch changes:", error);
       throw error;
     } finally {
       set({ isLoading: false });

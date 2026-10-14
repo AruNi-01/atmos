@@ -150,7 +150,11 @@ export const normalizePreviewPageTitle = (title: string, pageUrl: string): strin
 
   const [workspaceLabel, ...titleParts] = trimmedTitle.split(" · ");
   const remainingTitle = titleParts.join(" · ").trim();
-  if (!workspaceLabel?.includes("/") || !remainingTitle || !ATMOS_TITLE_SUFFIX_PATTERN.test(remainingTitle)) {
+  if (
+    !workspaceLabel?.includes("/") ||
+    !remainingTitle ||
+    !ATMOS_TITLE_SUFFIX_PATTERN.test(remainingTitle)
+  ) {
     return trimmedTitle;
   }
 
@@ -293,57 +297,57 @@ const PreviewErrorCardContent = ({
   const t = useTranslations(PREVIEW_UTILS_NAMESPACE);
 
   return (
-  <div className="flex h-full w-full items-center justify-center px-4 py-6">
-    <div className="w-full max-w-2xl rounded-2xl border border-border bg-background p-5 shadow-lg">
-      <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-destructive/10 p-2 text-destructive">
-          <AlertTriangle className="size-5" />
-        </div>
-        <div className="min-w-0 flex-1 space-y-3">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold text-foreground">{previewLoadError.title}</div>
-            <div className="text-sm leading-relaxed text-muted-foreground">
-              {previewLoadError.message}
-            </div>
+    <div className="flex h-full w-full items-center justify-center px-4 py-6">
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-background p-5 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-destructive/10 p-2 text-destructive">
+            <AlertTriangle className="size-5" />
           </div>
-          <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
-            <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-              {t("errorCard.urlLabel")}
-            </div>
-            <div className="mt-1 break-all font-mono text-xs text-foreground">
-              {previewLoadError.url}
-            </div>
-          </div>
-          {previewLoadError.details.length > 0 ? (
-            <div className="space-y-2 rounded-xl border border-border/70 bg-muted/30 p-3">
-              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                {t("errorCard.detailsLabel")}
-              </div>
-              <div className="space-y-1 text-xs leading-relaxed text-muted-foreground">
-                {previewLoadError.details.map((detail) => (
-                  <div key={detail}>{detail}</div>
-                ))}
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="space-y-1">
+              <div className="text-sm font-semibold text-foreground">{previewLoadError.title}</div>
+              <div className="text-sm leading-relaxed text-muted-foreground">
+                {previewLoadError.message}
               </div>
             </div>
-          ) : null}
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={handleRefresh}>
-              {t("errorCard.retry")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                window.open(previewLoadError.url, "_blank", "noopener,noreferrer");
-              }}
-            >
-              {t("errorCard.openInBrowser")}
-            </Button>
+            <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+              <div className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+                {t("errorCard.urlLabel")}
+              </div>
+              <div className="mt-1 font-mono text-xs break-all text-foreground">
+                {previewLoadError.url}
+              </div>
+            </div>
+            {previewLoadError.details.length > 0 ? (
+              <div className="space-y-2 rounded-xl border border-border/70 bg-muted/30 p-3">
+                <div className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+                  {t("errorCard.detailsLabel")}
+                </div>
+                <div className="space-y-1 text-xs leading-relaxed text-muted-foreground">
+                  {previewLoadError.details.map((detail) => (
+                    <div key={detail}>{detail}</div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={handleRefresh}>
+                {t("errorCard.retry")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  window.open(previewLoadError.url, "_blank", "noopener,noreferrer");
+                }}
+              >
+                {t("errorCard.openInBrowser")}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
   );
 };
 
@@ -362,89 +366,89 @@ const PreviewHomeContent = ({
   const t = useTranslations(PREVIEW_UTILS_NAMESPACE);
 
   return (
-  <div className="flex h-full w-full items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10">
-    <div className="w-full max-w-4xl">
-      <div className="space-y-3">
+    <div className="flex h-full w-full items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10">
+      <div className="w-full max-w-4xl">
+        <div className="space-y-3">
+          <div
+            className={cn(
+              "font-semibold tracking-tight text-foreground",
+              shouldStackPreviewHomeCards ? "text-2xl" : "text-3xl sm:text-4xl",
+            )}
+          >
+            {t("home.title")}
+          </div>
+          <p
+            className={cn(
+              "max-w-2xl leading-relaxed text-muted-foreground",
+              shouldStackPreviewHomeCards ? "text-sm" : "text-base sm:text-lg",
+            )}
+          >
+            {t("home.description")}
+          </p>
+        </div>
+
         <div
           className={cn(
-            "font-semibold tracking-tight text-foreground",
-            shouldStackPreviewHomeCards ? "text-2xl" : "text-3xl sm:text-4xl",
+            "mt-8 grid gap-4 md:mt-10",
+            shouldStackPreviewHomeCards ? "grid-cols-1" : "grid-cols-3",
           )}
         >
-          {t("home.title")}
+          <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
+            <Monitor className="size-5 text-foreground" />
+            <div className="mt-4 text-base font-medium text-foreground">
+              {t("home.cards.previewPages.title")}
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {t("home.cards.previewPages.description")}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
+            <SquareMousePointer className="size-5 text-foreground" />
+            <div className="mt-4 text-base font-medium text-foreground">
+              {t("home.cards.selectElements.title")}
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {t("home.cards.selectElements.description")}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
+            <ExternalLink className="size-5 text-foreground" />
+            <div className="mt-4 text-base font-medium text-foreground">
+              {t("home.cards.workAcrossModes.title")}
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {t("home.cards.workAcrossModes.description")}
+            </p>
+          </div>
         </div>
-        <p
+
+        <div
           className={cn(
-            "max-w-2xl leading-relaxed text-muted-foreground",
-            shouldStackPreviewHomeCards ? "text-sm" : "text-base sm:text-lg",
+            "mt-6 grid gap-3 rounded-2xl border border-dashed border-border/70 bg-background/35 p-4 md:mt-8 md:p-5",
+            shouldStackPreviewHomeNotes ? "grid-cols-1" : "grid-cols-2",
           )}
         >
-          {t("home.description")}
-        </p>
-      </div>
-
-      <div
-        className={cn(
-          "mt-8 grid gap-4 md:mt-10",
-          shouldStackPreviewHomeCards ? "grid-cols-1" : "grid-cols-3",
-        )}
-      >
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
-          <Monitor className="size-5 text-foreground" />
-          <div className="mt-4 text-base font-medium text-foreground">
-            {t("home.cards.previewPages.title")}
+          <div>
+            <div className="text-xs font-medium tracking-[0.12em] text-muted-foreground uppercase">
+              {t("home.notes.start.title")}
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {t.rich("home.notes.start.description", {
+                enter: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+              })}
+            </p>
           </div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {t("home.cards.previewPages.description")}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
-          <SquareMousePointer className="size-5 text-foreground" />
-          <div className="mt-4 text-base font-medium text-foreground">
-            {t("home.cards.selectElements.title")}
+          <div>
+            <div className="text-xs font-medium tracking-[0.12em] text-muted-foreground uppercase">
+              {t("home.notes.crossPort.title")}
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {t("home.notes.crossPort.description")}
+            </p>
           </div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {t("home.cards.selectElements.description")}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
-          <ExternalLink className="size-5 text-foreground" />
-          <div className="mt-4 text-base font-medium text-foreground">
-            {t("home.cards.workAcrossModes.title")}
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {t("home.cards.workAcrossModes.description")}
-          </p>
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          "mt-6 grid gap-3 rounded-2xl border border-dashed border-border/70 bg-background/35 p-4 md:mt-8 md:p-5",
-          shouldStackPreviewHomeNotes ? "grid-cols-1" : "grid-cols-2",
-        )}
-      >
-        <div>
-          <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            {t("home.notes.start.title")}
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {t.rich("home.notes.start.description", {
-              enter: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-            })}
-          </p>
-        </div>
-        <div>
-          <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            {t("home.notes.crossPort.title")}
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {t("home.notes.crossPort.description")}
-          </p>
         </div>
       </div>
     </div>
-  </div>
   );
 };
 

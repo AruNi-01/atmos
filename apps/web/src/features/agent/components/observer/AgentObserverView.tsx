@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Background,
@@ -76,10 +69,7 @@ import { ObserverDrawer } from "./ObserverDrawer";
 import { ObserverTerminalDrawer } from "./ObserverTerminalDrawer";
 
 function attentionForSession(
-  panes: Map<
-    string,
-    { sessionId: string; stablePaneId: string; reason: AttentionReason }
-  >,
+  panes: Map<string, { sessionId: string; stablePaneId: string; reason: AttentionReason }>,
   session: { session_id: string; pane_id?: string | null } | undefined,
 ): AttentionReason | null {
   if (!session) return null;
@@ -136,11 +126,7 @@ function ObserverCardMenu({
           style={{ left: menu.x, top: menu.y }}
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        sideOffset={4}
-        className="z-[90] min-w-36"
-      >
+      <DropdownMenuContent align="start" sideOffset={4} className="z-[90] min-w-36">
         {canFold ? (
           <DropdownMenuItem onSelect={onToggle}>
             {collapsed ? (
@@ -297,9 +283,7 @@ export function AgentObserverView() {
     queryScope.relaySessionRevision,
   ].join(":");
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
-  const [measuredHeights, setMeasuredHeights] = useState<Map<string, number>>(
-    () => new Map(),
-  );
+  const [measuredHeights, setMeasuredHeights] = useState<Map<string, number>>(() => new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cardMenu, setCardMenu] = useState<{
     x: number;
@@ -312,32 +296,22 @@ export function AgentObserverView() {
   }, []);
   const leakedTrackpadClick = useCallback(
     (event: { button?: number; ctrlKey?: boolean }) =>
-      isLeakedTrackpadClick(
-        event,
-        secondaryPointerAt.current,
-        performance.now(),
-      ),
+      isLeakedTrackpadClick(event, secondaryPointerAt.current, performance.now()),
     [],
   );
   const [installingHooks, setInstallingHooks] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
-  const [hookReport, setHookReport] = useState<AgentHookInstallReport | null>(
+  const [hookReport, setHookReport] = useState<AgentHookInstallReport | null>(null);
+  const flowRef = useRef<ReactFlowInstance<Node<ObserverFlowData>, Edge<ObserverEdgeData>> | null>(
     null,
   );
-  const flowRef = useRef<ReactFlowInstance<
-    Node<ObserverFlowData>,
-    Edge<ObserverEdgeData>
-  > | null>(null);
   const [layoutShift, setLayoutShift] = useState({ x: 0, y: 0 });
-  const pendingAnchorRef = useRef<{ id: string; x: number; y: number } | null>(
-    null,
-  );
+  const pendingAnchorRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const placedRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const behaviourSettings = useAgentBehaviourSettingsQuery();
   const sessionTimeoutMins =
-    behaviourSettings.data?.observer_session_timeout_mins ??
-    OBSERVER_SESSION_TIMEOUT_MINS_DEFAULT;
+    behaviourSettings.data?.observer_session_timeout_mins ?? OBSERVER_SESSION_TIMEOUT_MINS_DEFAULT;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -450,8 +424,7 @@ export function AgentObserverView() {
           ? (graph.nodes.find((item) => item.id === node.parentId) ?? node)
           : node;
       const session =
-        target.session ??
-        (target.activity ? sessionFromActivity(target.activity) : null);
+        target.session ?? (target.activity ? sessionFromActivity(target.activity) : null);
       if (!session) return;
       navigateToAgentStatusSession(session, router, projects);
     },
@@ -474,9 +447,7 @@ export function AgentObserverView() {
     const pending = pendingAnchorRef.current;
     if (!pending) return;
     const next = observerLayoutShiftToAnchor(positions, pending.id, pending);
-    setLayoutShift((prev) =>
-      prev.x === next.x && prev.y === next.y ? prev : next,
-    );
+    setLayoutShift((prev) => (prev.x === next.x && prev.y === next.y ? prev : next));
     // Folded cards report height a frame after they return. Hold the anchor
     // until then so the opened card does not step upward on the correction.
     const waiting = graph.nodes.some((node) => !measuredHeights.has(node.id));
@@ -486,8 +457,7 @@ export function AgentObserverView() {
   const liveNodes: Node<ObserverFlowData>[] = useMemo(
     () =>
       graph.nodes.map((node) => {
-        const position = wire.positions.get(node.id) ??
-          placed.get(node.id) ?? { x: 0, y: 0 };
+        const position = wire.positions.get(node.id) ?? placed.get(node.id) ?? { x: 0, y: 0 };
         return {
           id: node.id,
           position,
@@ -496,13 +466,9 @@ export function AgentObserverView() {
             collapsed: collapsedIds.has(node.id),
             presence: "live",
             onToggle: () => toggleNode(node),
-            sessionTitle: node.session
-              ? sessionTitles[node.session.session_id]
-              : undefined,
+            sessionTitle: node.session ? sessionTitles[node.session.session_id] : undefined,
             attentionReason:
-              node.kind === "subagent"
-                ? null
-                : attentionForSession(attentionPanes, node.session),
+              node.kind === "subagent" ? null : attentionForSession(attentionPanes, node.session),
             boxHeight: wire.boxHeights.get(node.id),
             onHeight: reportHeight,
           },
@@ -510,8 +476,7 @@ export function AgentObserverView() {
           selected: node.id === selectedId,
           draggable: false,
           initialWidth: 288,
-          initialHeight:
-            measuredHeights.get(node.id) ?? observerNodeHeight(node),
+          initialHeight: measuredHeights.get(node.id) ?? observerNodeHeight(node),
           style: { width: 288 },
         };
       }),
@@ -561,18 +526,9 @@ export function AgentObserverView() {
     });
   }, [graph.edges]);
 
-  const { exitingNodes, exitingEdges } = useObserverPresence(
-    liveNodes,
-    liveEdges,
-  );
-  const liveNodeIds = useMemo(
-    () => new Set(liveNodes.map((node) => node.id)),
-    [liveNodes],
-  );
-  const liveEdgeIds = useMemo(
-    () => new Set(liveEdges.map((edge) => edge.id)),
-    [liveEdges],
-  );
+  const { exitingNodes, exitingEdges } = useObserverPresence(liveNodes, liveEdges);
+  const liveNodeIds = useMemo(() => new Set(liveNodes.map((node) => node.id)), [liveNodes]);
+  const liveEdgeIds = useMemo(() => new Set(liveEdges.map((edge) => edge.id)), [liveEdges]);
 
   const flowNodes = useMemo(
     () => [
@@ -627,20 +583,16 @@ export function AgentObserverView() {
     setEdges((current) => mergeFlowEdges(current, flowEdges));
   }, [flowEdges]);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange<Node<ObserverFlowData>>[]) => {
-      const leaked =
-        performance.now() - secondaryPointerAt.current <
-        TRACKPAD_SECONDARY_CLICK_WINDOW_MS;
-      const next = changes.filter((change) => {
-        if (change.type === "position") return false;
-        if (leaked && change.type === "select") return false;
-        return true;
-      });
-      setNodes((current) => applyNodeChanges(next, current));
-    },
-    [],
-  );
+  const onNodesChange = useCallback((changes: NodeChange<Node<ObserverFlowData>>[]) => {
+    const leaked =
+      performance.now() - secondaryPointerAt.current < TRACKPAD_SECONDARY_CLICK_WINDOW_MS;
+    const next = changes.filter((change) => {
+      if (change.type === "position") return false;
+      if (leaked && change.type === "select") return false;
+      return true;
+    });
+    setNodes((current) => applyNodeChanges(next, current));
+  }, []);
 
   const onNodeClick: NodeMouseHandler = useCallback(
     (event, node) => {
@@ -688,125 +640,112 @@ export function AgentObserverView() {
 
   return (
     <ObserverNowProvider now={now}>
-    <div className="flex h-full min-h-0 flex-col bg-background">
-      <div className="min-h-0 flex-1">
-        {boardIsEmpty ? (
-          <div className="flex h-full items-center justify-center bg-background p-8">
-            <ProjectEmpty
-              variant="Minimal"
-              className="max-w-[440px]"
-              title={connected ? t("emptyTitle") : t("disconnectedTitle")}
-              description={
-                installError ?? (connected ? t("empty") : t("disconnected"))
-              }
-              createAction={
-                <ObserverInstallHooksButton
-                  connected={connected}
-                  installing={installingHooks}
-                  report={hookReport}
-                  onInstall={() => {
-                    void installHooks();
-                  }}
-                />
-              }
-              docsAction={<ObserverNewChatPicker projects={projects} />}
-              icon={<IconActivity />}
-            />
-          </div>
-        ) : (
-          <ReactFlow<Node<ObserverFlowData>, Edge<ObserverEdgeData>>
-            className="observer-flow bg-background"
-            nodes={nodes.length > 0 ? nodes : flowNodes}
-            edges={edges.length > 0 ? edges : flowEdges}
-            nodeTypes={OBSERVER_NODE_TYPES}
-            edgeTypes={OBSERVER_EDGE_TYPES}
-            onNodesChange={onNodesChange}
-            onNodeClick={onNodeClick}
-            onNodeContextMenu={onNodeContextMenu}
-            onPaneClick={(event) => {
-              if (leakedTrackpadClick(event)) return;
-              setCardMenu(null);
-            }}
-            onPointerDownCapture={(event) => {
-              if (event.button !== 0 || event.ctrlKey) markSecondaryPointer();
-            }}
-            onNodeDoubleClick={onNodeDoubleClick}
-            onInit={(instance) => {
-              flowRef.current = instance;
-              instance.fitView({ padding: 0.18 });
-            }}
-            nodesConnectable={false}
-            nodesDraggable={false}
-            selectNodesOnDrag={false}
-            elementsSelectable
-            minZoom={0.2}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={22}
-              size={1}
-              color="color-mix(in oklch, var(--muted-foreground) 28%, transparent)"
-            />
-            <Controls
-              showInteractive={false}
-              className="!overflow-hidden !rounded-lg !border !border-border !bg-card !shadow-none [&>button]:!border-border [&>button]:!bg-card [&>button]:!fill-foreground [&>button]:!text-foreground"
-            />
-          </ReactFlow>
-        )}
-      </div>
-      {cardMenu
-        ? createPortal(
-            <ObserverCardMenu
-              menu={cardMenu}
-              node={
-                graph.nodes.find((item) => item.id === cardMenu.nodeId) ?? null
-              }
-              collapsed={collapsedIds.has(cardMenu.nodeId)}
-              foldLabel={t("fold")}
-              expandLabel={t("expand")}
-              removeLabel={t("remove")}
-              onClose={() => setCardMenu(null)}
-              onToggle={() => {
-                const node = graph.nodes.find(
-                  (item) => item.id === cardMenu.nodeId,
-                );
-                if (node) toggleNode(node);
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <div className="min-h-0 flex-1">
+          {boardIsEmpty ? (
+            <div className="flex h-full items-center justify-center bg-background p-8">
+              <ProjectEmpty
+                variant="Minimal"
+                className="max-w-[440px]"
+                title={connected ? t("emptyTitle") : t("disconnectedTitle")}
+                description={installError ?? (connected ? t("empty") : t("disconnected"))}
+                createAction={
+                  <ObserverInstallHooksButton
+                    connected={connected}
+                    installing={installingHooks}
+                    report={hookReport}
+                    onInstall={() => {
+                      void installHooks();
+                    }}
+                  />
+                }
+                docsAction={<ObserverNewChatPicker projects={projects} />}
+                icon={<IconActivity />}
+              />
+            </div>
+          ) : (
+            <ReactFlow<Node<ObserverFlowData>, Edge<ObserverEdgeData>>
+              className="observer-flow bg-background"
+              nodes={nodes.length > 0 ? nodes : flowNodes}
+              edges={edges.length > 0 ? edges : flowEdges}
+              nodeTypes={OBSERVER_NODE_TYPES}
+              edgeTypes={OBSERVER_EDGE_TYPES}
+              onNodesChange={onNodesChange}
+              onNodeClick={onNodeClick}
+              onNodeContextMenu={onNodeContextMenu}
+              onPaneClick={(event) => {
+                if (leakedTrackpadClick(event)) return;
                 setCardMenu(null);
               }}
-              onRemove={() => {
-                const node = graph.nodes.find(
-                  (item) => item.id === cardMenu.nodeId,
-                );
-                if (node) removeAgentCard(node);
+              onPointerDownCapture={(event) => {
+                if (event.button !== 0 || event.ctrlKey) markSecondaryPointer();
               }}
-            />,
-            document.body,
-          )
-        : null}
-      <ObserverTerminalDrawer />
-      <ObserverDrawer
-        node={selected}
-        sessionTitle={
-          selected?.session
-            ? sessionTitles[selected.session.session_id]
-            : undefined
-        }
-        attentionReason={
-          selected?.kind === "subagent"
-            ? null
-            : attentionForSession(attentionPanes, selected?.session)
-        }
-        onClose={() => setSelectedId(null)}
-        onOpenSession={openSession}
-        onOpenChild={(childId) => {
-          const sessionId =
-            selected?.session?.session_id ?? selected?.activity?.session_id;
-          if (!sessionId || !childId) return;
-          setSelectedId(`child:${sessionId}:${childId}`);
-        }}
-      />
-    </div>
+              onNodeDoubleClick={onNodeDoubleClick}
+              onInit={(instance) => {
+                flowRef.current = instance;
+                instance.fitView({ padding: 0.18 });
+              }}
+              nodesConnectable={false}
+              nodesDraggable={false}
+              selectNodesOnDrag={false}
+              elementsSelectable
+              minZoom={0.2}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background
+                variant={BackgroundVariant.Dots}
+                gap={22}
+                size={1}
+                color="color-mix(in oklch, var(--muted-foreground) 28%, transparent)"
+              />
+              <Controls
+                showInteractive={false}
+                className="!overflow-hidden !rounded-lg !border !border-border !bg-card !shadow-none [&>button]:!border-border [&>button]:!bg-card [&>button]:!fill-foreground [&>button]:!text-foreground"
+              />
+            </ReactFlow>
+          )}
+        </div>
+        {cardMenu
+          ? createPortal(
+              <ObserverCardMenu
+                menu={cardMenu}
+                node={graph.nodes.find((item) => item.id === cardMenu.nodeId) ?? null}
+                collapsed={collapsedIds.has(cardMenu.nodeId)}
+                foldLabel={t("fold")}
+                expandLabel={t("expand")}
+                removeLabel={t("remove")}
+                onClose={() => setCardMenu(null)}
+                onToggle={() => {
+                  const node = graph.nodes.find((item) => item.id === cardMenu.nodeId);
+                  if (node) toggleNode(node);
+                  setCardMenu(null);
+                }}
+                onRemove={() => {
+                  const node = graph.nodes.find((item) => item.id === cardMenu.nodeId);
+                  if (node) removeAgentCard(node);
+                }}
+              />,
+              document.body,
+            )
+          : null}
+        <ObserverTerminalDrawer />
+        <ObserverDrawer
+          node={selected}
+          sessionTitle={selected?.session ? sessionTitles[selected.session.session_id] : undefined}
+          attentionReason={
+            selected?.kind === "subagent"
+              ? null
+              : attentionForSession(attentionPanes, selected?.session)
+          }
+          onClose={() => setSelectedId(null)}
+          onOpenSession={openSession}
+          onOpenChild={(childId) => {
+            const sessionId = selected?.session?.session_id ?? selected?.activity?.session_id;
+            if (!sessionId || !childId) return;
+            setSelectedId(`child:${sessionId}:${childId}`);
+          }}
+        />
+      </div>
     </ObserverNowProvider>
   );
 }

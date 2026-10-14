@@ -80,9 +80,9 @@ describe("resolveRolledOccupancy", () => {
 
 describe("resolveRolledAttentionReason", () => {
   it("prefers permission_request over task_complete", () => {
-    expect(
-      resolveRolledAttentionReason(["task_complete", null, "permission_request"]),
-    ).toBe("permission_request");
+    expect(resolveRolledAttentionReason(["task_complete", null, "permission_request"])).toBe(
+      "permission_request",
+    );
   });
 
   it("returns null when empty", () => {
@@ -167,12 +167,7 @@ describe("resolveWorkspaceAgentGroupKey", () => {
   });
 
   it("uses action-first bucket order", () => {
-    expect(WORKSPACE_AGENT_GROUP_ORDER).toEqual([
-      "permission",
-      "attention",
-      "running",
-      "done",
-    ]);
+    expect(WORKSPACE_AGENT_GROUP_ORDER).toEqual(["permission", "attention", "running", "done"]);
   });
 });
 

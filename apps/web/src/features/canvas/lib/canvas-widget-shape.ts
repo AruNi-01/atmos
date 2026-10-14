@@ -14,10 +14,7 @@ import zhMessages from "../../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 import type { CanvasCenterTab } from "./canvas-center-tabs";
-import {
-  CANVAS_CARD_CORNER_RADIUS,
-  createCanvasCardIndicatorPath,
-} from "./canvas-shape-indicator";
+import { CANVAS_CARD_CORNER_RADIUS, createCanvasCardIndicatorPath } from "./canvas-shape-indicator";
 
 export const CANVAS_WIDGET_SHAPE_TYPE = "canvas-widget" as const;
 
@@ -212,9 +209,7 @@ export class CanvasWidgetShapeSchemaUtil extends BaseBoxShapeUtil<CanvasWidgetSh
   }
 }
 
-export function getCanvasWidgetIndicatorCornerRadius(
-  _shape: Pick<CanvasWidgetShape, "props">,
-) {
+export function getCanvasWidgetIndicatorCornerRadius(_shape: Pick<CanvasWidgetShape, "props">) {
   return CANVAS_CARD_CORNER_RADIUS;
 }
 
@@ -252,11 +247,7 @@ function normalizeLastActivatedAt(value: unknown): number | null {
 }
 
 function sanitizeJsonValue(value: unknown): unknown {
-  if (
-    value === undefined ||
-    typeof value === "function" ||
-    typeof value === "symbol"
-  ) {
+  if (value === undefined || typeof value === "function" || typeof value === "symbol") {
     return undefined;
   }
   if (value === null || typeof value === "string" || typeof value === "boolean") {
@@ -266,9 +257,7 @@ function sanitizeJsonValue(value: unknown): unknown {
     return Number.isFinite(value) ? value : null;
   }
   if (Array.isArray(value)) {
-    return value
-      .map((item) => sanitizeJsonValue(item))
-      .filter((item) => item !== undefined);
+    return value.map((item) => sanitizeJsonValue(item)).filter((item) => item !== undefined);
   }
   if (typeof value === "object") {
     const next: Record<string, unknown> = {};
@@ -391,20 +380,18 @@ export function createCanvasWidgetTitle(source: CanvasWidgetSourceRef): string {
   }
 }
 
-export function createCanvasWidgetShapeProps(
-  props: {
-    widgetType: CanvasWidgetType;
-    title?: string;
-    source: CanvasWidgetSourceRef;
-    w?: number;
-    h?: number;
-    isPinned?: boolean;
-    pinKey?: string;
-    lastActivatedAt?: number | null;
-    displayMode?: CanvasWidgetShapeProps["displayMode"];
-    frameId?: string | null;
-  },
-): CanvasWidgetShapeProps {
+export function createCanvasWidgetShapeProps(props: {
+  widgetType: CanvasWidgetType;
+  title?: string;
+  source: CanvasWidgetSourceRef;
+  w?: number;
+  h?: number;
+  isPinned?: boolean;
+  pinKey?: string;
+  lastActivatedAt?: number | null;
+  displayMode?: CanvasWidgetShapeProps["displayMode"];
+  frameId?: string | null;
+}): CanvasWidgetShapeProps {
   const size = CANVAS_WIDGET_DEFAULT_SIZES[props.widgetType];
   const source = sanitizeCanvasWidgetSource(props.source);
   return {
@@ -487,9 +474,7 @@ export function normalizeCanvasWidgetShapePropsInDocument(
           }
         : sanitizedSource;
     const rawTitle =
-      typeof rawProps.title === "string" && rawProps.title.trim()
-        ? rawProps.title
-        : null;
+      typeof rawProps.title === "string" && rawProps.title.trim() ? rawProps.title : null;
     const normalizedTitle =
       rawTitle && !(widgetType === "center" && rawTitle === "Center")
         ? rawTitle
@@ -537,9 +522,7 @@ export function getCanvasWidgetContext(source: CanvasWidgetSourceRef): CanvasCon
   return source.context;
 }
 
-export function isCanvasCenterWidgetShape(
-  shape: CanvasWidgetShape,
-): shape is CanvasWidgetShape & {
+export function isCanvasCenterWidgetShape(shape: CanvasWidgetShape): shape is CanvasWidgetShape & {
   props: CanvasWidgetShapeProps & {
     widgetType: "center";
     source: Extract<CanvasWidgetSourceRef, { type: "center" }>;

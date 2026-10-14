@@ -27,9 +27,11 @@ packages/shared/
 ## Coding Conventions
 
 ### Tree Shaking
+
 - Ensure exports are clean to minimize bundle size
 
 ### Pure Functions
+
 - Utils should be side-effect free
 
 ---
@@ -37,6 +39,7 @@ packages/shared/
 ## Safety Rails
 
 ### NEVER
+
 - Add framework-specific code to utils — keep them framework-agnostic
 - Add API calls or side effects to `utils/` functions
 - Add main-app `/ws` wire types (`WsAction`, `WsEvent`, `WsContract`, frames, DTOs) — use `@atmos/api-types`
@@ -44,11 +47,13 @@ packages/shared/
 - Import `@atmos/api-client` or `@atmos/api-types` from utils (keep pure-shared free of wire coupling)
 
 ### ALWAYS
+
 - Keep `utils/` functions pure and reusable
 - Use tree-shaking-friendly exports
 - Put **terminal stream** protocol helpers under `src/terminal/` only (not a dumping ground for main `/ws`)
 
 ### Exception: `src/debug/`
+
 `src/debug/` is explicitly allowed to contain utilities with side effects (network
 calls, `console.*`, mutable state). These are debug-only tools — **never import
 them in production code paths**. They are exported under the `@atmos/shared/debug/*`
@@ -61,4 +66,3 @@ import { getDebugLogger } from "@atmos/shared/debug/debug-logger";
 
 // ❌ wrong — never re-export from utils/ or the root index
 ```
-

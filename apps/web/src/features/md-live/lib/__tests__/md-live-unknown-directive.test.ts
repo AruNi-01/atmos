@@ -1,12 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Window } from "happy-dom";
-import {
-  Editor,
-  defaultValueCtx,
-  editorViewCtx,
-  rootCtx,
-  serializerCtx,
-} from "@milkdown/kit/core";
+import { Editor, defaultValueCtx, editorViewCtx, rootCtx, serializerCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { TextSelection } from "@milkdown/kit/prose/state";
@@ -16,11 +10,7 @@ import {
   insertMarkdown,
 } from "@atmos/md-live/ui";
 import { markdownFromEmbedSpec, embedSpecFromPath } from "../../embeds/insert";
-import {
-  mdLiveEmbedBlock,
-  mdLiveEmbedInline,
-  mdLiveRemarkDirective,
-} from "../md-live-embed-nodes";
+import { mdLiveEmbedBlock, mdLiveEmbedInline, mdLiveRemarkDirective } from "../md-live-embed-nodes";
 
 const USER_PROSE = `这里已经看出关键点了:每种 tmux 操作都 \`spawn\` 一个新的 \`tmux\` 进程(\`Command::new\`),而且多次操作(\`capture_pane_page\` 内部要跑 4、5 次 tmux)互不复用。`;
 
@@ -130,7 +120,7 @@ describe("md-live unknown directive parse", () => {
       ["unused definition", "Hello.\n\n[unused]: https://example.com/x\n"],
       ["footnote", "A note.[^1]\n\n[^1]: Footnote body.\n"],
       ["heading colon", "## 后续优化:\n\nNext.\n"],
-      ["json braces", "Config {\"a\":1} and {#id}."],
+      ["json braces", 'Config {"a":1} and {#id}.'],
       ["autolink", "Visit <https://example.com/path> please."],
       ["strikethrough", "This is ~~old~~ text."],
       ["task list", "- [ ] todo\n- [x] done\n"],

@@ -2,8 +2,8 @@ import {
   buildInteractiveAgentRunPlan,
   sanitizeRunConfig,
   type TerminalAgentRunConfigInput,
-} from '@/features/agent/lib/terminal-agent-run-config';
-import type { TerminalPaneAgent } from '@/features/terminal/types/index';
+} from "@/features/agent/lib/terminal-agent-run-config";
+import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 
 export type TerminalSplitPrefs = {
   /** When true, plain split launches the configured default agent. */
@@ -27,13 +27,13 @@ export const DEFAULT_TERMINAL_SPLIT_PREFS: TerminalSplitPrefs = {
 
 /** Disk keys under function_settings.terminal.* */
 export const TERMINAL_DEFAULT_SPLIT_AGENT_KEYS = {
-  enabled: 'default_split_agent_enabled',
-  agentId: 'default_split_agent_id',
-  runConfig: 'default_split_agent_run_config',
+  enabled: "default_split_agent_enabled",
+  agentId: "default_split_agent_id",
+  runConfig: "default_split_agent_run_config",
 } as const;
 
 function readAgentId(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null;
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 /**
@@ -44,12 +44,12 @@ function readRunConfig(value: unknown): TerminalAgentRunConfigInput | null {
   if (value == null) return null;
   try {
     let candidate: unknown = value;
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       const trimmed = value.trim();
       if (!trimmed) return null;
       candidate = JSON.parse(trimmed) as unknown;
     }
-    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
       return null;
     }
     return sanitizeRunConfig(candidate as TerminalAgentRunConfigInput);
@@ -75,7 +75,7 @@ export function parseTerminalSplitPrefsFromSettings(
  * any saved run config to the launch command.
  */
 export function resolveDefaultSplitAgent(
-  prefs: Pick<TerminalSplitPrefs, 'enabled' | 'agentId' | 'runConfig'>,
+  prefs: Pick<TerminalSplitPrefs, "enabled" | "agentId" | "runConfig">,
   agents: readonly TerminalDefaultAgentMatch[],
 ): TerminalDefaultAgentMatch | null {
   if (!prefs.enabled || !prefs.agentId) return null;
@@ -84,7 +84,7 @@ export function resolveDefaultSplitAgent(
   const plan = buildInteractiveAgentRunPlan({
     agentId: match.agent.id,
     launchCommand: match.command,
-    prompt: '',
+    prompt: "",
     runConfig: prefs.runConfig,
   });
   return {

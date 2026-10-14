@@ -1,14 +1,17 @@
-'use client';
+"use client";
 
-import { useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
-import type { DiffLineAnnotation } from '@pierre/diffs';
-import { Check, MessageSquarePlus, Save, Trash2 } from 'lucide-react';
-import { Button, Textarea } from '@workspace/ui';
-import { cn } from '@/shared/lib/utils';
-import type { CopyAnnotationMeta, DiffListAnnotationMeta } from '@/features/diff/lib/diff-code-view-shared';
-import { AgentFixToolbar } from '@/features/agent-fix/components/AgentFixToolbar';
-import type { AgentFixPromptSource } from '@/features/agent-fix/types';
+import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import type { DiffLineAnnotation } from "@pierre/diffs";
+import { Check, MessageSquarePlus, Save, Trash2 } from "lucide-react";
+import { Button, Textarea } from "@workspace/ui";
+import { cn } from "@/shared/lib/utils";
+import type {
+  CopyAnnotationMeta,
+  DiffListAnnotationMeta,
+} from "@/features/diff/lib/diff-code-view-shared";
+import { AgentFixToolbar } from "@/features/agent-fix/components/AgentFixToolbar";
+import type { AgentFixPromptSource } from "@/features/agent-fix/types";
 
 interface DiffCopyAnnotationProps {
   annotation: DiffLineAnnotation<CopyAnnotationMeta> | DiffLineAnnotation<DiffListAnnotationMeta>;
@@ -33,9 +36,8 @@ export function DiffCopyAnnotation({
   lineLabel,
   agentFixSource,
 }: DiffCopyAnnotationProps) {
-  const t = useTranslations('diff.copyAnnotation');
-  const key =
-    annotation.metadata.kind === 'copy' ? annotation.metadata.key : '';
+  const t = useTranslations("diff.copyAnnotation");
+  const key = annotation.metadata.kind === "copy" ? annotation.metadata.key : "";
   const [isEditingStashed, setIsEditingStashed] = useState(false);
   const savePointerDownRef = useRef(false);
   const isEditingStashedPrompt = isStashed && isEditingStashed;
@@ -48,22 +50,22 @@ export function DiffCopyAnnotation({
     }
   };
   const primaryLabel = isStashed
-    ? (isEditingStashedPrompt ? t('actions.save') : t('actions.stashed'))
-    : t('actions.stash');
-  const secondaryLabel = isStashed ? t('actions.delete') : t('actions.cancel');
+    ? isEditingStashedPrompt
+      ? t("actions.save")
+      : t("actions.stashed")
+    : t("actions.stash");
+  const secondaryLabel = isStashed ? t("actions.delete") : t("actions.cancel");
 
   return (
     <div
       className={cn(
-        'mx-3 my-2 rounded-md border border-border/70 bg-popover/95 p-3 font-sans shadow-sm',
-        isStashed && 'border-success/45',
+        "mx-3 my-2 rounded-md border border-border/70 bg-popover/95 p-3 font-sans shadow-sm",
+        isStashed && "border-success/45",
       )}
     >
       <div className="space-y-0.5">
-        <p className="text-sm font-medium leading-5 text-foreground">{lineLabel}</p>
-        <p className="text-xs leading-4 text-muted-foreground">
-          {t('description')}
-        </p>
+        <p className="text-sm leading-5 font-medium text-foreground">{lineLabel}</p>
+        <p className="text-xs leading-4 text-muted-foreground">{t("description")}</p>
       </div>
       <Textarea
         value={note}
@@ -90,7 +92,7 @@ export function DiffCopyAnnotation({
           }
           setIsEditingStashed(false);
         }}
-        placeholder={t('placeholder')}
+        placeholder={t("placeholder")}
         className="mt-3 min-h-20 resize-y rounded-md border-border/70 bg-muted/20 font-sans text-sm leading-5 focus:bg-background"
       />
       <div className="mt-3 flex flex-wrap items-center gap-2">

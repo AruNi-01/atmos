@@ -39,7 +39,11 @@ function useGithubEmbedRemote(spec: MdLiveEmbedSpec) {
     const request =
       target.kind === "pr"
         ? wsGithubApi.getPr({ owner: target.owner, repo: target.repo, prNumber: target.number })
-        : wsGithubApi.getIssue({ owner: target.owner, repo: target.repo, issueNumber: target.number });
+        : wsGithubApi.getIssue({
+            owner: target.owner,
+            repo: target.repo,
+            issueNumber: target.number,
+          });
     void request
       .then((remote) => {
         if (cancelled) return;
@@ -78,7 +82,9 @@ export function GithubMdLiveEmbed({ spec, selected }: MdLiveEmbedViewProps) {
     <MdLiveEmbedChrome
       layout={spec.layout}
       selected={selected}
-      icon={isPr ? <GithubPrStatusIcon state={prState} /> : <GithubIssueStatusIcon state={issueState} />}
+      icon={
+        isPr ? <GithubPrStatusIcon state={prState} /> : <GithubIssueStatusIcon state={issueState} />
+      }
       title={spec.layout === "inline" ? chipTitle : displayTitle}
       subtitle={subtitle}
       badge={mdLiveCopy(isPr ? STATE_COPY[prState] : STATE_COPY[issueState])}

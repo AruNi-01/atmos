@@ -69,7 +69,9 @@ function CheckboxRenderer({ node, mode, onCommit, onAction }: PtRendererProps): 
   const checked = node.checked === true;
   return (
     <ControlRoot node={node} mode={mode}>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, height: "100%", cursor: "pointer" }}>
+      <label
+        style={{ display: "flex", alignItems: "center", gap: 8, height: "100%", cursor: "pointer" }}
+      >
         <input
           type="checkbox"
           checked={checked}
@@ -169,7 +171,8 @@ export const inputModule: PtComponentModule = {
 
 function InputOtpRenderer({ node, mode, onCommit, onAction }: PtRendererProps): ReactElement {
   const lengthRaw = Number(propText(node, "length", "6"));
-  const length = Number.isFinite(lengthRaw) && lengthRaw > 0 ? Math.min(12, Math.floor(lengthRaw)) : 6;
+  const length =
+    Number.isFinite(lengthRaw) && lengthRaw > 0 ? Math.min(12, Math.floor(lengthRaw)) : 6;
   const chars = Array.from({ length }, (_, i) => (node.value ?? "")[i] ?? "");
   const commit = (nextChars: string[]) => {
     onCommit({ value: nextChars.join("") });
@@ -177,7 +180,10 @@ function InputOtpRenderer({ node, mode, onCommit, onAction }: PtRendererProps): 
   };
   return (
     <ControlRoot node={node} mode={mode}>
-      <div style={{ display: "flex", gap: 6, height: "100%", alignItems: "center" }} aria-label={propText(node, "label", "OTP")}>
+      <div
+        style={{ display: "flex", gap: 6, height: "100%", alignItems: "center" }}
+        aria-label={propText(node, "label", "OTP")}
+      >
         {chars.map((ch, index) => (
           <input
             key={index}
@@ -185,7 +191,12 @@ function InputOtpRenderer({ node, mode, onCommit, onAction }: PtRendererProps): 
             maxLength={1}
             value={ch}
             aria-label={`Digit ${index + 1}`}
-            style={{ ...FIELD, textAlign: "center", padding: 0, fontVariantNumeric: "tabular-nums" }}
+            style={{
+              ...FIELD,
+              textAlign: "center",
+              padding: 0,
+              fontVariantNumeric: "tabular-nums",
+            }}
             onChange={(event) => {
               const next = event.target.value.replace(/\D/g, "").slice(-1);
               const copy = [...chars];
@@ -499,11 +510,21 @@ export const calendarModule: PtComponentModule = {
   type: "calendar",
   defaultBBox: { width: 280, height: 280 },
   defaultNode: (id) =>
-    ptNode(id, "calendar", { width: 280, height: 280 }, {
-      props: { label: "Calendar" },
-      value: "2026-09-02",
-    }),
-  Renderer: function CalendarRenderer({ node, mode, onCommit, onAction }: PtRendererProps): ReactElement {
+    ptNode(
+      id,
+      "calendar",
+      { width: 280, height: 280 },
+      {
+        props: { label: "Calendar" },
+        value: "2026-09-02",
+      },
+    ),
+  Renderer: function CalendarRenderer({
+    node,
+    mode,
+    onCommit,
+    onAction,
+  }: PtRendererProps): ReactElement {
     return (
       <ControlRoot node={node} mode={mode}>
         <CalendarGrid

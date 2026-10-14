@@ -53,8 +53,7 @@ export function TerminalSelectionToolbar({
     if (!el) return;
 
     const container =
-      (el.offsetParent instanceof HTMLElement ? el.offsetParent : null) ??
-      el.parentElement;
+      (el.offsetParent instanceof HTMLElement ? el.offsetParent : null) ?? el.parentElement;
     const containerWidth = container?.clientWidth ?? window.innerWidth;
     const containerHeight = container?.clientHeight ?? window.innerHeight;
 
@@ -101,7 +100,7 @@ export function TerminalSelectionToolbar({
     <div
       ref={toolbarRef}
       className={cn(
-        "absolute z-30 flex w-max flex-nowrap items-center gap-1 whitespace-nowrap rounded-xl border border-border/70 bg-background/95 p-1 text-xs shadow-lg backdrop-blur-md",
+        "absolute z-30 flex w-max flex-nowrap items-center gap-1 rounded-xl border border-border/70 bg-background/95 p-1 text-xs whitespace-nowrap shadow-lg backdrop-blur-md",
         className,
       )}
       style={{ top: position.top, left: position.left }}
@@ -165,10 +164,7 @@ function CopyButton({ text, label, onDone }: { text: string; label: string; onDo
   return (
     <button
       type="button"
-      className={cn(
-        toolbarActionClass,
-        "size-7 text-foreground hover:bg-muted",
-      )}
+      className={cn(toolbarActionClass, "size-7 text-foreground hover:bg-muted")}
       onClick={(event) => {
         stopToolbarEvent(event);
         if (copied) return;

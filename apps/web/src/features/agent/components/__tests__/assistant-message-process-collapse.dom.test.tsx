@@ -17,13 +17,7 @@ mock.module("next-intl", () => ({
 
 mock.module("@workspace/ui", () => ({
   cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
-  Collapsible: ({
-    open,
-    children,
-  }: {
-    open?: boolean;
-    children: React.ReactNode;
-  }) => (
+  Collapsible: ({ open, children }: { open?: boolean; children: React.ReactNode }) => (
     <div data-process-collapsible="" data-open={open ? "true" : "false"}>
       {children}
     </div>
@@ -77,11 +71,7 @@ mock.module("@/features/agent/components/AgentStreamReveal", () => ({
 }));
 
 mock.module("@/features/agent/components/AgentToolGroupView", () => ({
-  AgentToolGroupView: ({
-    onUserOpenChange,
-  }: {
-    onUserOpenChange?: (next: boolean) => void;
-  }) => (
+  AgentToolGroupView: ({ onUserOpenChange }: { onUserOpenChange?: (next: boolean) => void }) => (
     <button type="button" data-tool-group="" onClick={() => onUserOpenChange?.(true)}>
       tool
     </button>
@@ -217,12 +207,8 @@ describe("assistant process collapse render", () => {
     expect(collapsible).not.toBeNull();
     expect(collapsible?.getAttribute("data-open")).toBe("false");
     expect(container.querySelector("[data-worked-for]")).not.toBeNull();
-    expect(
-      renderErrors.some((line) => line.includes("Cannot update a component")),
-    ).toBe(false);
-    expect(
-      useAgentChatExpandStore.getState().values[agentChatProcessExpandKey("a1")],
-    ).toBe(false);
+    expect(renderErrors.some((line) => line.includes("Cannot update a component"))).toBe(false);
+    expect(useAgentChatExpandStore.getState().values[agentChatProcessExpandKey("a1")]).toBe(false);
   });
 
   it("keeps process open on settle when tools were expanded during the stream", async () => {
@@ -239,21 +225,17 @@ describe("assistant process collapse render", () => {
     });
 
     await act(async () => {
-      useAgentChatExpandStore
-        .getState()
-        .setExpand(agentChatInspectExpandKey("a1"), true);
+      useAgentChatExpandStore.getState().setExpand(agentChatInspectExpandKey("a1"), true);
     });
-    expect(
-      useAgentChatExpandStore.getState().values[agentChatInspectExpandKey("a1")],
-    ).toBe(true);
+    expect(useAgentChatExpandStore.getState().values[agentChatInspectExpandKey("a1")]).toBe(true);
 
     await act(async () => {
       root?.render(<AssistantMessageView message={assistantMessage()} />);
     });
 
-    expect(
-      container.querySelector("[data-process-collapsible]")?.getAttribute("data-open"),
-    ).toBe("true");
+    expect(container.querySelector("[data-process-collapsible]")?.getAttribute("data-open")).toBe(
+      "true",
+    );
   });
 
   it("does not reopen a collapsed process panel after a virtual-row remount", async () => {
@@ -269,25 +251,21 @@ describe("assistant process collapse render", () => {
       );
     });
     await act(async () => {
-      useAgentChatExpandStore
-        .getState()
-        .setExpand(agentChatInspectExpandKey("a1"), true);
+      useAgentChatExpandStore.getState().setExpand(agentChatInspectExpandKey("a1"), true);
     });
     await act(async () => {
       root?.render(<AssistantMessageView message={assistantMessage()} />);
     });
-    expect(
-      container.querySelector("[data-process-collapsible]")?.getAttribute("data-open"),
-    ).toBe("true");
+    expect(container.querySelector("[data-process-collapsible]")?.getAttribute("data-open")).toBe(
+      "true",
+    );
 
     await act(async () => {
-      useAgentChatExpandStore
-        .getState()
-        .setExpand(agentChatProcessExpandKey("a1"), false);
+      useAgentChatExpandStore.getState().setExpand(agentChatProcessExpandKey("a1"), false);
     });
-    expect(
-      container.querySelector("[data-process-collapsible]")?.getAttribute("data-open"),
-    ).toBe("false");
+    expect(container.querySelector("[data-process-collapsible]")?.getAttribute("data-open")).toBe(
+      "false",
+    );
 
     await act(async () => {
       root?.render(<div />);
@@ -295,12 +273,10 @@ describe("assistant process collapse render", () => {
     await act(async () => {
       root?.render(<AssistantMessageView message={assistantMessage()} />);
     });
-    expect(
-      container.querySelector("[data-process-collapsible]")?.getAttribute("data-open"),
-    ).toBe("false");
-    expect(
-      useAgentChatExpandStore.getState().values[agentChatProcessExpandKey("a1")],
-    ).toBe(false);
+    expect(container.querySelector("[data-process-collapsible]")?.getAttribute("data-open")).toBe(
+      "false",
+    );
+    expect(useAgentChatExpandStore.getState().values[agentChatProcessExpandKey("a1")]).toBe(false);
   });
 });
 

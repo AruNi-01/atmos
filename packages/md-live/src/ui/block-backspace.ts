@@ -46,10 +46,7 @@ function depthOf($from: ResolvedPos, name: string): number {
   return -1;
 }
 
-function applyCommand(
-  command: Command,
-  state: EditorState,
-): Transaction | null {
+function applyCommand(command: Command, state: EditorState): Transaction | null {
   let next: Transaction | null = null;
   const applied = command(state, (tr) => {
     next = tr;

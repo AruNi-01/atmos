@@ -55,8 +55,12 @@ describe("terminal pointer gestures", () => {
   });
 
   test("sends wheel reports while a TUI owns the scroll", () => {
-    expect(fingerScrollTarget({ bufferType: "normal", mouseTrackingMode: "vt200" })).toBe("application");
-    expect(fingerScrollTarget({ bufferType: "alternate", mouseTrackingMode: "none" })).toBe("application");
+    expect(fingerScrollTarget({ bufferType: "normal", mouseTrackingMode: "vt200" })).toBe(
+      "application",
+    );
+    expect(fingerScrollTarget({ bufferType: "alternate", mouseTrackingMode: "none" })).toBe(
+      "application",
+    );
     expect(fingerScrollTarget({ bufferType: "normal", mouseTrackingMode: "none" })).toBe("local");
   });
 

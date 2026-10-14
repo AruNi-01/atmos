@@ -8,11 +8,7 @@ export async function publicShareJson(db: HubDb, shareId: string) {
 }
 
 export async function publicProfileJson(db: HubDb, handle: string) {
-  const rows = await db
-    .select()
-    .from(userProfiles)
-    .where(eq(userProfiles.handle, handle))
-    .limit(1);
+  const rows = await db.select().from(userProfiles).where(eq(userProfiles.handle, handle)).limit(1);
   const profile = rows[0];
   if (!profile || !profile.profilePublic) return null;
   return {

@@ -6,6 +6,8 @@ on:
     paths:
       - "apps/landing/**"
       - "packages/**"
+      - ".oxlintrc.jsonc"
+      - ".oxfmtrc.json"
       - ".github/workflows/ci-landing.yml"
       - ".github/actions/setup-bun/**"
   pull_request:
@@ -13,6 +15,8 @@ on:
     paths:
       - "apps/landing/**"
       - "packages/**"
+      - ".oxlintrc.jsonc"
+      - ".oxfmtrc.json"
       - ".github/workflows/ci-landing.yml"
       - ".github/actions/setup-bun/**"
 

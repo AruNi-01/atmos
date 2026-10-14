@@ -6,8 +6,7 @@ export type SidebarTarget = { name: string; tab?: string; force?: boolean };
 
 export function prefersReducedMotion(): boolean {
   return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
 }
 
@@ -128,10 +127,7 @@ export type SidebarApi = {
   getAppState: () => { openSidebar?: { name: string; tab?: string } | null };
 };
 
-export function wrapToggleSidebar(
-  api: SidebarApi,
-  getRoot: () => HTMLElement | null,
-): void {
+export function wrapToggleSidebar(api: SidebarApi, getRoot: () => HTMLElement | null): void {
   const tagged = api as SidebarApi & { __ptSidebarAnim?: boolean };
   if (tagged.__ptSidebarAnim) return;
   tagged.__ptSidebarAnim = true;
@@ -148,10 +144,7 @@ export function wrapToggleSidebar(
   };
 }
 
-export function observeSidebarExit(
-  root: HTMLElement,
-  getApi: () => SidebarApi | null,
-): () => void {
+export function observeSidebarExit(root: HTMLElement, getApi: () => SidebarApi | null): () => void {
   let snapshot: { node: HTMLElement; rect: Rect } | null = null;
   let liveExiting = false;
 

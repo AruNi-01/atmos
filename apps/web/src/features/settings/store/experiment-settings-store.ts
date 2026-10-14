@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import { functionSettingsApi } from '@/api/ws/settings-api';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
-import { globalKey, readJson, removeKey, writeJson } from '@/shared/lib/browser-store';
+import { create } from "zustand";
+import { functionSettingsApi } from "@/api/ws/settings-api";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
+import { globalKey, readJson, removeKey, writeJson } from "@/shared/lib/browser-store";
 import {
   applyLaunchpadReorder,
   createDefaultLaunchpadItems,
@@ -15,14 +15,14 @@ import {
   type LaunchpadItemId,
   type LaunchpadItems,
   type LaunchpadPlacement,
-} from '@/features/settings/lib/launchpad-items';
+} from "@/features/settings/lib/launchpad-items";
 
 export type {
   LaunchpadItemConfig,
   LaunchpadItemId,
   LaunchpadItems,
   LaunchpadPlacement,
-} from '@/features/settings/lib/launchpad-items';
+} from "@/features/settings/lib/launchpad-items";
 export {
   applyLaunchpadHide,
   applyLaunchpadReorder,
@@ -36,10 +36,10 @@ export {
   LAUNCHPAD_ITEM_IDS,
   readLaunchpadItems,
   selectLaunchpadItemsByPlacement,
-} from '@/features/settings/lib/launchpad-items';
+} from "@/features/settings/lib/launchpad-items";
 
 /** Fast browser cache. Durable copy is ~/.atmos/config/function_settings.json. */
-const LAUNCHPAD_ITEMS_STORAGE_KEY = globalKey('launchpad-items');
+const LAUNCHPAD_ITEMS_STORAGE_KEY = globalKey("launchpad-items");
 
 export interface ExperimentPrefs {
   launchpadItems: LaunchpadItems;
@@ -94,16 +94,17 @@ function persistLocalLaunchpadItems(items: LaunchpadItems) {
 
 function readLocalLaunchpadItems(): LaunchpadItems | null {
   const raw = readJson<unknown>(LAUNCHPAD_ITEMS_STORAGE_KEY, null);
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   return readLaunchpadItems({ launchpad_items: raw });
 }
 
 function readExperiments(raw: unknown): ExperimentPrefs {
   const section =
-    raw && typeof raw === 'object' && 'experiments' in raw
+    raw && typeof raw === "object" && "experiments" in raw
       ? (raw as { experiments?: unknown }).experiments
       : undefined;
-  const ex = section && typeof section === 'object' ? (section as Record<string, unknown>) : undefined;
+  const ex =
+    section && typeof section === "object" ? (section as Record<string, unknown>) : undefined;
   const launchpadItems = readLaunchpadItems(ex);
   return {
     launchpadItems,
@@ -114,7 +115,7 @@ function readExperiments(raw: unknown): ExperimentPrefs {
 
 async function persistLaunchpadItems(items: LaunchpadItems): Promise<void> {
   persistLocalLaunchpadItems(items);
-  await functionSettingsApi.update('experiments', 'launchpad_items', items);
+  await functionSettingsApi.update("experiments", "launchpad_items", items);
   useFunctionSettingsStore.getState().invalidate();
 }
 
@@ -270,24 +271,24 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
 
     setLaunchpadTerminalsEnabled: async (value) => {
       const placement = get().launchpadItems.terminals.placement;
-      await get().setLaunchpadItemEnabled('terminals', placement, value);
+      await get().setLaunchpadItemEnabled("terminals", placement, value);
     },
 
     setLaunchpadAgentsEnabled: async (value) => {
       const placement = get().launchpadItems.agents.placement;
-      await get().setLaunchpadItemEnabled('agents', placement, value);
+      await get().setLaunchpadItemEnabled("agents", placement, value);
     },
 
     setAutomationsEnabled: async (value) => {
       const placement = get().launchpadItems.automations.placement;
-      await get().setLaunchpadItemEnabled('automations', placement, value);
+      await get().setLaunchpadItemEnabled("automations", placement, value);
     },
 
     setCenterWikiTabEnabled: async (value) => {
       const prev = get().centerWikiTabEnabled;
       set({ centerWikiTabEnabled: value });
       try {
-        await functionSettingsApi.update('experiments', 'center_wiki_tab', value);
+        await functionSettingsApi.update("experiments", "center_wiki_tab", value);
         useFunctionSettingsStore.getState().invalidate();
       } catch {
         set({ centerWikiTabEnabled: prev });

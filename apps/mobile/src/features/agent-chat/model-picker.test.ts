@@ -27,11 +27,13 @@ function snapshot(partial: Partial<AgentOptionsSnapshot> = {}): AgentOptionsSnap
 
 describe("composer picker", () => {
   test("trigger matches the web model and effort chip", () => {
-    expect(composerTriggerLabel({
-      modelLabel: "grok-4.7",
-      thinkingLabel: "Extra high",
-      agentLabel: "Grok",
-    })).toBe("grok-4.7 · Extra high");
+    expect(
+      composerTriggerLabel({
+        modelLabel: "grok-4.7",
+        thinkingLabel: "Extra high",
+        agentLabel: "Grok",
+      }),
+    ).toBe("grok-4.7 · Extra high");
     expect(effortChipLabel("Extra high", true)).toBe("Extra high · Fast");
     expect(isFastOn("true")).toBe(true);
     expect(isFastOn("off")).toBe(false);

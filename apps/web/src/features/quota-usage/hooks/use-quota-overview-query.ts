@@ -5,10 +5,7 @@ import { useCallback } from "react";
 import { queryKeys } from "@/api/query/query-keys";
 import { wsQueryOptions } from "@/api/query/computer-query-options";
 import { useComputerQueryScope } from "@/api/query/query-scope";
-import {
-  quotaUsageApi,
-  type QuotaOverviewResponse,
-} from "@/api/ws/quota-usage-api";
+import { quotaUsageApi, type QuotaOverviewResponse } from "@/api/ws/quota-usage-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 
 export function useQuotaOverviewQuery(options?: {

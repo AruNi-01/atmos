@@ -9,12 +9,7 @@
  * drops `en_FEMININE.lproj` / `zh_CN_MASCULINE.lproj` and Windows `en-US.pak`.
  */
 
-const {
-  existsSync,
-  readdirSync,
-  rmSync,
-  statSync,
-} = require("node:fs");
+const { existsSync, readdirSync, rmSync, statSync } = require("node:fs");
 const { join } = require("node:path");
 
 /** Chromium locale tags we ship. Gender suffixes are stripped before compare. */
@@ -30,11 +25,7 @@ const SWIFTSHADER_NAMES = Object.freeze([
 ]);
 
 function normalizeLocaleTag(raw) {
-  return String(raw)
-    .trim()
-    .toLowerCase()
-    .replace(/_/g, "-")
-    .replace(GENDER_SUFFIX, "");
+  return String(raw).trim().toLowerCase().replace(/_/g, "-").replace(GENDER_SUFFIX, "");
 }
 
 function localeFileBase(filename) {
@@ -50,9 +41,7 @@ function isLocaleEntryName(filename, platform) {
 }
 
 function shouldKeepLocaleFile(filename) {
-  return KEPT_LOCALE_TAGS.includes(
-    normalizeLocaleTag(localeFileBase(filename)),
-  );
+  return KEPT_LOCALE_TAGS.includes(normalizeLocaleTag(localeFileBase(filename)));
 }
 
 function findMacApp(appOutDir) {
@@ -102,21 +91,12 @@ function swiftshaderPaths(appOutDir, platform) {
       "A",
       "Libraries",
     );
-    return [
-      join(lib, "libvk_swiftshader.dylib"),
-      join(lib, "vk_swiftshader_icd.json"),
-    ];
+    return [join(lib, "libvk_swiftshader.dylib"), join(lib, "vk_swiftshader_icd.json")];
   }
   if (platform === "win32") {
-    return [
-      join(appOutDir, "vk_swiftshader.dll"),
-      join(appOutDir, "vk_swiftshader_icd.json"),
-    ];
+    return [join(appOutDir, "vk_swiftshader.dll"), join(appOutDir, "vk_swiftshader_icd.json")];
   }
-  return [
-    join(appOutDir, "libvk_swiftshader.so"),
-    join(appOutDir, "vk_swiftshader_icd.json"),
-  ];
+  return [join(appOutDir, "libvk_swiftshader.so"), join(appOutDir, "vk_swiftshader_icd.json")];
 }
 
 function listLocaleEntries(dir, platform) {
@@ -221,9 +201,7 @@ function inspectSlimState(appOutDir, platform) {
       localeNames.push(name);
     }
   }
-  const swiftshader = swiftshaderPaths(appOutDir, platform).filter((p) =>
-    existsSync(p),
-  );
+  const swiftshader = swiftshaderPaths(appOutDir, platform).filter((p) => existsSync(p));
   return { localeNames, swiftshader };
 }
 
@@ -235,9 +213,7 @@ function verifySlimPackagedApp(appOutDir, platform) {
     problems.push(`leftover Chromium locales: ${extras.slice(0, 8).join(", ")}`);
   }
 
-  const keptTags = new Set(
-    localeNames.map((name) => normalizeLocaleTag(localeFileBase(name))),
-  );
+  const keptTags = new Set(localeNames.map((name) => normalizeLocaleTag(localeFileBase(name))));
   if (platform === "darwin") {
     if (!keptTags.has("en")) problems.push("missing en.lproj");
     if (!keptTags.has("zh-cn")) problems.push("missing zh_CN.lproj");

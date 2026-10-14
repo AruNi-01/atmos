@@ -20,7 +20,7 @@ This skill is the bridge from specs to shipped production code. You execute what
 - **Owns**: real production code in `crates/`, `apps/`, `packages/`, plus schema/migration/feature-flag files TECH.md names.
 - **Owns**: compile + lint + existing-test regression gate on every chunk (`cargo check`, `cargo clippy`, `bun run typecheck`, `just lint`, targeted `cargo test` / `bun test` for pre-existing suites near the change).
 - **May touch `TECH.md`**: only when implementation reveals a decision in TECH that is wrong or ambiguous. When that happens, update TECH alongside the code and call it out.
-- **Does not own** authoring the scenario-level test suite described in TEST.md. Hand that off to `atmos-specs-test-run` after production code. In-line "smoke" tests that are *the cheapest way to prove the code you just wrote compiles and runs* are fine (and encouraged), but the systematic TEST.md coverage pass is not this skill's job.
+- **Does not own** authoring the scenario-level test suite described in TEST.md. Hand that off to `atmos-specs-test-run` after production code. In-line "smoke" tests that are _the cheapest way to prove the code you just wrote compiles and runs_ are fine (and encouraged), but the systematic TEST.md coverage pass is not this skill's job.
 - **Does not touch `PRD.md` / `BRAINSTORM.md`** — if PRD is wrong, stop and tell the user.
 
 Why: separating production code from scenario-test authoring forces honesty. When the same skill writes both, it's tempting to weaken assertions to make green; having `atmos-specs-test-run` write the suite afterward, against the plan, makes regressions land as real failures. The regression gate (lint + existing tests) stays here because it's non-negotiable for every code chunk.
@@ -93,7 +93,7 @@ For each chunk:
 
 1. Apply edits, small and coherent.
 2. Run the chunk's **regression gate**: compile, lint, and any pre-existing tests that touch this surface. If you can't run it (missing deps, environment constraint), say so explicitly instead of pretending.
-3. Add in-line smoke tests only if they are the cheapest way to prove the code path you just wrote runs correctly (e.g., a small `#[test]` next to a pure function). The *systematic* scenario coverage from TEST.md is not built here — that's `atmos-specs-test-run`.
+3. Add in-line smoke tests only if they are the cheapest way to prove the code path you just wrote runs correctly (e.g., a small `#[test]` next to a pure function). The _systematic_ scenario coverage from TEST.md is not built here — that's `atmos-specs-test-run`.
 4. Only then move to the next chunk.
 
 When adding debug instrumentation (WS protocol work, PTY flows, agent streams), use the project's structured debug logs (see root `AGENTS.md` "Debug Logging"). Don't sprinkle `println!` / `console.log`.

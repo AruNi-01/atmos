@@ -25,17 +25,13 @@ const TRACK_HEX = {
   dark: "#47474C",
 } as const;
 
-export function resourceMonitorPressureTone(
-  percent: number,
-): ResourceMonitorPressureTone {
+export function resourceMonitorPressureTone(percent: number): ResourceMonitorPressureTone {
   if (percent < 60) return "low";
   if (percent < 80) return "medium";
   return "high";
 }
 
-export function resourceMonitorDitherTheme(
-  resolvedTheme: string | undefined,
-): DitherTheme {
+export function resourceMonitorDitherTheme(resolvedTheme: string | undefined): DitherTheme {
   return resolvedTheme === "light" ? "light" : "dark";
 }
 
@@ -94,9 +90,7 @@ export function resourceMonitorGrowthColorStops(
   ];
 }
 
-export function resourceMonitorPressureTextClass(
-  tone: ResourceMonitorPressureTone,
-): string {
+export function resourceMonitorPressureTextClass(tone: ResourceMonitorPressureTone): string {
   if (tone === "medium") return "text-warning";
   if (tone === "high") return "text-destructive";
   return "text-success";

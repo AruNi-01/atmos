@@ -3,22 +3,12 @@ import { motion, useAnimate } from "motion/react";
 
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 
-const ArrowNarrowDownDashedIcon = forwardRef<
-  AnimatedIconHandle,
-  AnimatedIconProps
->(
-  (
-    { size = 24, color = "currentColor", strokeWidth = 2, className = "" },
-    ref,
-  ) => {
+const ArrowNarrowDownDashedIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
+  ({ size = 24, color = "currentColor", strokeWidth = 2, className = "" }, ref) => {
     const [scope, animate] = useAnimate();
 
     const start = async () => {
-      await animate(
-        ".arrow-group",
-        { y: [0, 4, 0] },
-        { duration: 0.5, ease: "easeInOut" },
-      );
+      await animate(".arrow-group", { y: [0, 4, 0] }, { duration: 0.5, ease: "easeInOut" });
     };
 
     const stop = () => {

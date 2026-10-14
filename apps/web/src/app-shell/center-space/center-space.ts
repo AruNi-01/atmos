@@ -50,9 +50,7 @@ export function makeCenterSpaceKey(hostId: string, spaceId: string): string {
   return `${hostId}${CENTER_SPACE_KEY_MARK}${spaceId}`;
 }
 
-export function parseCenterSpaceKey(
-  key: string,
-): { hostId: string; spaceId: string } {
+export function parseCenterSpaceKey(key: string): { hostId: string; spaceId: string } {
   const index = key.indexOf(CENTER_SPACE_KEY_MARK);
   if (index === -1) {
     return { hostId: key, spaceId: DEFAULT_CENTER_SPACE_ID };
@@ -132,17 +130,14 @@ export function normalizeHostCenterSpaces(raw: unknown): HostCenterSpaces {
     spaces.unshift(fallback.spaces[0]!);
   }
   const activeSpaceId =
-    typeof row.activeSpaceId === "string" &&
-    spaces.some((space) => space.id === row.activeSpaceId)
+    typeof row.activeSpaceId === "string" && spaces.some((space) => space.id === row.activeSpaceId)
       ? row.activeSpaceId
       : DEFAULT_CENTER_SPACE_ID;
   return { spaces: orderPinnedCenterSpaces(spaces), activeSpaceId };
 }
 
 /** Pinned spaces first, keeping the relative order inside each group. */
-export function orderPinnedCenterSpaces(
-  spaces: readonly CenterSpaceRecord[],
-): CenterSpaceRecord[] {
+export function orderPinnedCenterSpaces(spaces: readonly CenterSpaceRecord[]): CenterSpaceRecord[] {
   let pinnedCount = 0;
   for (const space of spaces) {
     if (space.pinned) pinnedCount += 1;
@@ -197,9 +192,7 @@ export function moveCenterSpacePin(
   return [...stillPinned, ...unpinned];
 }
 
-export function normalizeCenterSpacesByHost(
-  raw: unknown,
-): Record<string, HostCenterSpaces> {
+export function normalizeCenterSpacesByHost(raw: unknown): Record<string, HostCenterSpaces> {
   if (!raw || typeof raw !== "object") return {};
   const out: Record<string, HostCenterSpaces> = {};
   for (const [hostId, value] of Object.entries(raw as Record<string, unknown>)) {
@@ -242,9 +235,7 @@ export function omitCenterSpaceThumbnails(
     out[hostId] = {
       activeSpaceId: host.activeSpaceId,
       spaces: host.spaces.map((space) =>
-        space.thumbnailDataUrl == null
-          ? space
-          : { ...space, thumbnailDataUrl: null },
+        space.thumbnailDataUrl == null ? space : { ...space, thumbnailDataUrl: null },
       ),
     };
   }

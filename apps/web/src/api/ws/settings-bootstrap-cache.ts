@@ -2,10 +2,7 @@
 
 import { wsRequestForComputerScope } from "@/api/ws/request";
 import { queryKeys } from "@/api/query/query-keys";
-import {
-  getComputerQueryScope,
-  type ComputerQueryScope,
-} from "@/api/query/query-scope";
+import { getComputerQueryScope, type ComputerQueryScope } from "@/api/query/query-scope";
 import { cancelAndRemoveQueries, getAtmosWebQueryClient } from "@/providers/app/query-client";
 import type {
   AgentBehaviourSettings,
@@ -110,9 +107,7 @@ function patchSnapshot(
 
 async function fetchBootstrapFromServer(
   scope: ComputerQueryScope = getComputerQueryScope(),
-  request: (
-    scope: ComputerQueryScope,
-  ) => Promise<SettingsBootstrapPayload> = (requestScope) =>
+  request: (scope: ComputerQueryScope) => Promise<SettingsBootstrapPayload> = (requestScope) =>
     wsRequestForComputerScope(
       requestScope,
       "settings_bootstrap_get",

@@ -142,8 +142,7 @@ export async function captureElementCanvas(
     pixelRatio?: number;
   },
 ): Promise<HTMLCanvasElement> {
-  const pixelRatio =
-    options?.pixelRatio ?? Math.min(2, window.devicePixelRatio || 2);
+  const pixelRatio = options?.pixelRatio ?? Math.min(2, window.devicePixelRatio || 2);
   const backgroundColor = options?.backgroundColor ?? "#0c0c0c";
 
   // Measure without touching scroll position (avoids header/tabs flicker).
@@ -154,9 +153,7 @@ export async function captureElementCanvas(
   );
   const height = Math.max(
     1,
-    Math.ceil(
-      Math.max(rect.height, element.clientHeight, element.scrollHeight),
-    ),
+    Math.ceil(Math.max(rect.height, element.clientHeight, element.scrollHeight)),
   );
 
   // html-to-image clones off-DOM; do not hide/show live chrome for the shot.
@@ -344,10 +341,7 @@ export function downloadBlob(blob: Blob, filename: string) {
  * Desktop web intents cannot attach files; clipboard is the reliable path.
  * Safari often requires Promise-wrapped blobs in ClipboardItem.
  */
-export async function copyImageBlobToClipboard(
-  blob: Blob,
-  text?: string,
-): Promise<boolean> {
+export async function copyImageBlobToClipboard(blob: Blob, text?: string): Promise<boolean> {
   if (
     typeof ClipboardItem === "undefined" ||
     !navigator.clipboard ||
@@ -358,10 +352,7 @@ export async function copyImageBlobToClipboard(
 
   const mime = blob.type || "image/png";
   // Ensure a real image/* type — some browsers reject empty/unknown types.
-  const imageBlob =
-    mime.startsWith("image/")
-      ? blob
-      : new Blob([blob], { type: "image/png" });
+  const imageBlob = mime.startsWith("image/") ? blob : new Blob([blob], { type: "image/png" });
   const imageType = imageBlob.type || "image/png";
 
   const writeItem = async (data: Record<string, Blob | Promise<Blob>>) => {
@@ -424,14 +415,16 @@ export async function tryNativeShare(args: {
   }
 
   const type = args.blob.type || "image/png";
-  const file = new File([args.blob], args.filename.endsWith(".png") ? args.filename : `${args.filename}.png`, {
-    type: type.startsWith("image/") ? type : "image/png",
-  });
+  const file = new File(
+    [args.blob],
+    args.filename.endsWith(".png") ? args.filename : `${args.filename}.png`,
+    {
+      type: type.startsWith("image/") ? type : "image/png",
+    },
+  );
 
   const canShareFiles =
-    typeof navigator.canShare === "function"
-      ? navigator.canShare({ files: [file] })
-      : false;
+    typeof navigator.canShare === "function" ? navigator.canShare({ files: [file] }) : false;
 
   // Prefer files-only payload first — some targets reject files+url together.
   const attempts: ShareData[] = canShareFiles

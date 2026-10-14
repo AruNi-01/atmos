@@ -1,13 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-  PendingStore,
-  PREVIEW_EXPIRES_IN_MS,
-  type PendingCapture,
-} from "./pending.ts";
+import { PendingStore, PREVIEW_EXPIRES_IN_MS, type PendingCapture } from "./pending.ts";
 
-function sampleCapture(
-  overrides: Partial<PendingCapture> = {},
-): PendingCapture {
+function sampleCapture(overrides: Partial<PendingCapture> = {}): PendingCapture {
   return {
     previewId: "p1",
     appName: "Notes",
@@ -34,9 +28,7 @@ describe("PendingStore auto-accept", () => {
     const now = 1_000_000;
     store.insert(sampleCapture(), now);
     expect(store.autoAcceptState("p1", now).kind).toBe("wait");
-    expect(
-      store.autoAcceptState("p1", now + PREVIEW_EXPIRES_IN_MS + 600).kind,
-    ).toBe("ready");
+    expect(store.autoAcceptState("p1", now + PREVIEW_EXPIRES_IN_MS + 600).kind).toBe("ready");
   });
 
   it("hold blocks ready; resume schedules later ready", () => {
@@ -47,9 +39,7 @@ describe("PendingStore auto-accept", () => {
     expect(store.autoAcceptState("p1", now + 60_000).kind).toBe("held");
     store.setAutoAcceptHold("p1", false, 1_000, now + 60_000);
     expect(store.autoAcceptState("p1", now + 60_000).kind).toBe("wait");
-    expect(store.autoAcceptState("p1", now + 60_000 + 2_000).kind).toBe(
-      "ready",
-    );
+    expect(store.autoAcceptState("p1", now + 60_000 + 2_000).kind).toBe("ready");
   });
 
   it("take removes pending entry", () => {

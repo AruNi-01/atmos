@@ -16,8 +16,7 @@ type TestIconProps = {
 };
 
 mock.module("@workspace/ui", () => ({
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
   getFileIconProps: ({ className }: TestIconProps) => ({
     alt: "",
     className,
@@ -164,10 +163,7 @@ describe("PromptComposer URL chips", () => {
   });
 
   it("keeps OG hover preview on expanded composer URL text", () => {
-    const source = readFileSync(
-      join(import.meta.dir, "../PromptComposer.tsx"),
-      "utf8",
-    );
+    const source = readFileSync(join(import.meta.dir, "../PromptComposer.tsx"), "utf8");
     expect(source).toContain("[data-kind='url'], [data-kind='url-link']");
     expect(source).toContain("urlFromComposerUrlEl");
   });

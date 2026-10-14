@@ -19,7 +19,12 @@ import {
   normalizeSlashCommands,
 } from "./composer-suggestions";
 import { copy } from "./copy";
-import { buildComposerPicker, fastWireValue, type ComposerPatch, type PickerAgent } from "./model-picker";
+import {
+  buildComposerPicker,
+  fastWireValue,
+  type ComposerPatch,
+  type PickerAgent,
+} from "./model-picker";
 import type { ComposerPhoto } from "./photo-attachment";
 import { useAgentFavorites } from "./use-agent-favorites";
 import { useMentionFiles } from "./use-mention-files";
@@ -40,7 +45,15 @@ function backHeaderItem(onPress: () => void, tintColor: string): NativeStackHead
 }
 
 function registryAgents(
-  agents: Array<{ enabled?: boolean; icon?: string | null; id: string; installed: boolean; name: string }> | undefined,
+  agents:
+    | Array<{
+        enabled?: boolean;
+        icon?: string | null;
+        id: string;
+        installed: boolean;
+        name: string;
+      }>
+    | undefined,
   providerId: string | null,
 ): PickerAgent[] {
   const choices: PickerAgent[] = [];
@@ -72,11 +85,14 @@ export function AgentChatNewScreen({ workspaceId }: { workspaceId: string }) {
     normalizeSlashCommands(draft.options?.commands),
     mentionFiles,
   );
-  const onPickSuggestion = useCallback((id: string) => {
-    if (!suggestions) return;
-    const insert = suggestions.trigger.kind === "slash" ? `/${id} ` : `@${id} `;
-    draft.setText(applyComposerPick(draft.text, suggestions.trigger, insert));
-  }, [draft, suggestions]);
+  const onPickSuggestion = useCallback(
+    (id: string) => {
+      if (!suggestions) return;
+      const insert = suggestions.trigger.kind === "slash" ? `/${id} ` : `@${id} `;
+      draft.setText(applyComposerPick(draft.text, suggestions.trigger, insert));
+    },
+    [draft, suggestions],
+  );
   const [photos, setPhotos] = useState<ComposerPhoto[]>([]);
   const registryQuery = useQuery({
     queryKey: ["agent-registry-list", selectedServerId, wsState],
@@ -97,23 +113,26 @@ export function AgentChatNewScreen({ workspaceId }: { workspaceId: string }) {
     fastId: draft.fast,
     contextId: draft.context,
   });
-  const onPatch = useCallback((patch: ComposerPatch) => {
-    if (patch.agentId) draft.setProviderId(patch.agentId);
-    if (patch.modelId) draft.setModel(patch.modelId);
-    if (patch.thinkingId) draft.setThinking(patch.thinkingId);
-    if (patch.modeId) draft.setMode(patch.modeId);
-    if (patch.permissionId) draft.setPermissionMode(patch.permissionId);
-    if (patch.fastEnabled != null) draft.setFast(fastWireValue(patch.fastEnabled));
-    if (patch.contextId) draft.setContext(patch.contextId);
-  }, [
-    draft.setContext,
-    draft.setFast,
-    draft.setMode,
-    draft.setModel,
-    draft.setPermissionMode,
-    draft.setProviderId,
-    draft.setThinking,
-  ]);
+  const onPatch = useCallback(
+    (patch: ComposerPatch) => {
+      if (patch.agentId) draft.setProviderId(patch.agentId);
+      if (patch.modelId) draft.setModel(patch.modelId);
+      if (patch.thinkingId) draft.setThinking(patch.thinkingId);
+      if (patch.modeId) draft.setMode(patch.modeId);
+      if (patch.permissionId) draft.setPermissionMode(patch.permissionId);
+      if (patch.fastEnabled != null) draft.setFast(fastWireValue(patch.fastEnabled));
+      if (patch.contextId) draft.setContext(patch.contextId);
+    },
+    [
+      draft.setContext,
+      draft.setFast,
+      draft.setMode,
+      draft.setModel,
+      draft.setPermissionMode,
+      draft.setProviderId,
+      draft.setThinking,
+    ],
+  );
   const onSend = useCallback(() => {
     void draft.submit(undefined, photos).then((result) => {
       if (!result || !("chatId" in result) || result.chatId.length === 0) return;
@@ -146,7 +165,12 @@ export function AgentChatNewScreen({ workspaceId }: { workspaceId: string }) {
             ? { unstable_headerLeftItems: () => [backHeaderItem(goBack, theme.colors.label)] }
             : {
                 headerLeft: () => (
-                  <Pressable accessibilityLabel="Back" accessibilityRole="button" hitSlop={12} onPress={goBack}>
+                  <Pressable
+                    accessibilityLabel="Back"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={goBack}
+                  >
                     <ChevronLeftIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
                   </Pressable>
                 ),
@@ -170,7 +194,9 @@ export function AgentChatNewScreen({ workspaceId }: { workspaceId: string }) {
               onPatch={onPatch}
               onPickSuggestion={onPickSuggestion}
               onQueue={() => undefined}
-              onRemovePhoto={(id) => setPhotos((current) => current.filter((photo) => photo.id !== id))}
+              onRemovePhoto={(id) =>
+                setPhotos((current) => current.filter((photo) => photo.id !== id))
+              }
               onSend={onSend}
               onSteer={() => undefined}
               onStop={() => undefined}

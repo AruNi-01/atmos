@@ -41,12 +41,10 @@ describe("mapGuestRect", () => {
   it("maps guest rect into shell-local coords for absolute pins", () => {
     const shell = fakeEl({ left: 80, top: 40, width: 820, height: 620 });
     const frame = fakeEl({ left: 100, top: 50, width: 800, height: 600 });
-    const mapped = mapGuestRectToShellLocal(
-      { x: 10, y: 20, width: 40, height: 30 },
-      frame,
-      shell,
-      { width: 800, height: 600 },
-    );
+    const mapped = mapGuestRectToShellLocal({ x: 10, y: 20, width: 40, height: 30 }, frame, shell, {
+      width: 800,
+      height: 600,
+    });
     // frame offset within shell (20,10) + guest (10,20)
     expect(mapped.x).toBeCloseTo(30);
     expect(mapped.y).toBeCloseTo(30);

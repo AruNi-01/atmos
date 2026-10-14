@@ -48,9 +48,10 @@ type LegacyPersistedTerminalWorkspaceLayout = {
   tabStates: Record<string, LegacyPersistedTerminalTabState>;
 };
 
-type NormalizableTerminalTab =
-  & LegacyTerminalTabLike
-  & Partial<Pick<PersistedTerminalTabDocument, "layout" | "maximizedTerminalId" | "panes" | "customTitle">>;
+type NormalizableTerminalTab = LegacyTerminalTabLike &
+  Partial<
+    Pick<PersistedTerminalTabDocument, "layout" | "maximizedTerminalId" | "panes" | "customTitle">
+  >;
 
 function isPersistedTerminalWorkspaceLayout(
   value: unknown,
@@ -66,10 +67,16 @@ function isPersistedTerminalWorkspaceLayout(
 function isLegacyPersistedTerminalWorkspaceLayout(
   value: unknown,
 ): value is LegacyPersistedTerminalWorkspaceLayout {
-  return !!value && typeof value === "object" && (value as LegacyPersistedTerminalWorkspaceLayout).version === 2;
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as LegacyPersistedTerminalWorkspaceLayout).version === 2
+  );
 }
 
-function normalizePersistedTerminalTabs(tabs: NormalizableTerminalTab[]): PersistedTerminalTabDocument[] {
+function normalizePersistedTerminalTabs(
+  tabs: NormalizableTerminalTab[],
+): PersistedTerminalTabDocument[] {
   return tabs.map((tab) => ({
     ...tab,
     title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,

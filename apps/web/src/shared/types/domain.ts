@@ -1,28 +1,23 @@
-import type { GithubIssuePayload, GithubPrPayload } from '@/api/ws-api';
+import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws-api";
 
 export type WorkspaceWorkflowStatus =
-  | 'backlog'
-  | 'todo'
-  | 'in_progress'
-  | 'in_review'
-  | 'blocked'
-  | 'completed'
-  | 'canceled';
+  | "backlog"
+  | "todo"
+  | "in_progress"
+  | "in_review"
+  | "blocked"
+  | "completed"
+  | "canceled";
 
-export type WorkspacePriority =
-  | 'no_priority'
-  | 'urgent'
-  | 'high'
-  | 'medium'
-  | 'low';
+export type WorkspacePriority = "no_priority" | "urgent" | "high" | "medium" | "low";
 
-export type WorkspaceCreateSource = 'manual' | 'automation';
+export type WorkspaceCreateSource = "manual" | "automation";
 
 export interface WorkspaceLabel {
   id: string;
   name: string;
   color: string;
-  source: 'manual' | 'gitHub_issue' | 'gitHub_pr';
+  source: "manual" | "gitHub_issue" | "gitHub_pr";
   createdAt?: string;
 }
 
@@ -33,7 +28,7 @@ export interface Workspace {
   branch: string;
   baseBranch: string;
   isActive: boolean;
-  status: 'clean' | 'modified';
+  status: "clean" | "modified";
   projectId: string;
   isPinned: boolean;
   pinnedAt?: string;
@@ -92,20 +87,20 @@ export interface Group {
 
 // Color presets for project border
 export const PROJECT_COLOR_PRESETS = [
-  { name: 'Gray', color: '#6b7280' },
-  { name: 'Red', color: '#ef4444' },
-  { name: 'Orange', color: '#f97316' },
-  { name: 'Amber', color: '#f59e0b' },
-  { name: 'Yellow', color: '#eab308' },
-  { name: 'Green', color: '#22c55e' },
-  { name: 'Teal', color: '#14b8a6' },
-  { name: 'Blue', color: '#3b82f6' },
-  { name: 'Indigo', color: '#6366f1' },
-  { name: 'Purple', color: '#a855f7' },
-  { name: 'Pink', color: '#ec4899' },
+  { name: "Gray", color: "#6b7280" },
+  { name: "Red", color: "#ef4444" },
+  { name: "Orange", color: "#f97316" },
+  { name: "Amber", color: "#f59e0b" },
+  { name: "Yellow", color: "#eab308" },
+  { name: "Green", color: "#22c55e" },
+  { name: "Teal", color: "#14b8a6" },
+  { name: "Blue", color: "#3b82f6" },
+  { name: "Indigo", color: "#6366f1" },
+  { name: "Purple", color: "#a855f7" },
+  { name: "Pink", color: "#ec4899" },
 ] as const;
 
-export type ProjectColorPreset = typeof PROJECT_COLOR_PRESETS[number];
+export type ProjectColorPreset = (typeof PROJECT_COLOR_PRESETS)[number];
 
 export interface Repo {
   id: string;
@@ -117,13 +112,13 @@ export interface FileChange {
   path: string;
   additions: number;
   deletions: number;
-  status: 'M' | 'A' | 'D'; // Modified, Added, Deleted
+  status: "M" | "A" | "D"; // Modified, Added, Deleted
 }
 
 export interface FileNode {
   id: string;
   name: string;
-  type: 'file' | 'folder';
+  type: "file" | "folder";
   children?: FileNode[];
   isOpen?: boolean;
 }

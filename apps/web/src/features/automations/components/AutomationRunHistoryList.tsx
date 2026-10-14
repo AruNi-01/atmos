@@ -4,14 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@workspace/ui";
-import {
-  CalendarClock,
-  Clock3,
-  Folder,
-  History,
-  Search,
-  Timer,
-} from "lucide-react";
+import { CalendarClock, Clock3, Folder, History, Search, Timer } from "lucide-react";
 
 import {
   AutomationAgentLabel,
@@ -149,11 +142,7 @@ export function AutomationRunHistoryList({
             key={run.guid}
             run={run}
             automation={automationById.get(run.automation_guid) ?? null}
-            agent={
-              run.agent_id
-                ? (agentById.get(run.agent_id) ?? null)
-                : null
-            }
+            agent={run.agent_id ? (agentById.get(run.agent_id) ?? null) : null}
             selected={run.guid === selectedRunGuid}
             index={index}
             onSelect={() => onSelectRun(run.guid)}

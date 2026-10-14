@@ -18,15 +18,13 @@ type UseCreateWorkspaceSetupOptions = {
  * Workspace create → setup progress subscription and snapshot merge.
  * Keeps CreateWorkspaceScreen focused on form fields + mutations + layout.
  */
-export function useCreateWorkspaceSetup({
-  client,
-  setError,
-}: UseCreateWorkspaceSetupOptions) {
+export function useCreateWorkspaceSetup({ client, setError }: UseCreateWorkspaceSetupOptions) {
   const router = useRouter();
   const [createdWorkspace, setCreatedWorkspace] = useState<WorkspaceModel | null>(null);
   const [isAwaitingSetup, setIsAwaitingSetup] = useState(false);
-  const [setupProgress, setSetupProgress] =
-    useState<WorkspaceSetupProgressNotification | null>(null);
+  const [setupProgress, setSetupProgress] = useState<WorkspaceSetupProgressNotification | null>(
+    null,
+  );
   const [setupOutput, setSetupOutput] = useState("");
   const createdWorkspaceIdRef = useRef<string | null>(null);
   const setupSnapshotsRef = useRef(new Map<string, SetupSnapshot>());
@@ -47,9 +45,7 @@ export function useCreateWorkspaceSetup({
       if (progress.status === "error" || !progress.success) {
         setIsAwaitingSetup(false);
         setError(
-          progress.output
-            ? cleanSetupOutput(progress.output).trim()
-            : "Workspace setup failed.",
+          progress.output ? cleanSetupOutput(progress.output).trim() : "Workspace setup failed.",
         );
         return;
       }
@@ -68,7 +64,7 @@ export function useCreateWorkspaceSetup({
         ? progress.replace_output
           ? incomingOutput
           : `${previous?.output ?? ""}${incomingOutput}`
-        : previous?.output ?? "";
+        : (previous?.output ?? "");
       const snapshot = { progress, output };
 
       setupSnapshotsRef.current.set(progress.workspace_id, snapshot);

@@ -229,10 +229,7 @@ function executablePathMatchToken(value: string): string | undefined {
     return basename;
   }
   const lower = normalized.toLowerCase();
-  if (
-    lower.includes("/cursor-agent/") &&
-    (basename === "agent" || basename === "cursor-agent")
-  ) {
+  if (lower.includes("/cursor-agent/") && (basename === "agent" || basename === "cursor-agent")) {
     return "cursor-agent";
   }
   if (lower.includes("/.grok/") && (basename === "agent" || isGrokBuildCommandToken(basename))) {
@@ -276,11 +273,11 @@ function isRuntimeWrapperTitle(value: string | undefined): boolean {
   const normalized = normalizeRuntimeWrapperTitle(value);
   return Boolean(
     normalized &&
-      (RUNTIME_WRAPPER_COMMANDS.has(normalized) ||
-        VERSIONED_RUNTIME_WRAPPER_COMMANDS.some((command) => {
-          if (!normalized.startsWith(command)) return false;
-          return VERSION_SUFFIX_RE.test(normalized.slice(command.length));
-        })),
+    (RUNTIME_WRAPPER_COMMANDS.has(normalized) ||
+      VERSIONED_RUNTIME_WRAPPER_COMMANDS.some((command) => {
+        if (!normalized.startsWith(command)) return false;
+        return VERSION_SUFFIX_RE.test(normalized.slice(command.length));
+      })),
   );
 }
 
@@ -412,9 +409,7 @@ export function resolveAgentForTitle<TAgent extends TerminalTitleAgent>(
   if (!title) return undefined;
   const command = firstCommandToken(title);
   const pathOnlyTitle = isPathLikeTitle(title) && !command.rest;
-  const pathOnlyMatchToken = pathOnlyTitle
-    ? executablePathMatchToken(command.token)
-    : undefined;
+  const pathOnlyMatchToken = pathOnlyTitle ? executablePathMatchToken(command.token) : undefined;
   if (pathOnlyTitle && !pathOnlyMatchToken) {
     return undefined;
   }
@@ -1012,8 +1007,7 @@ export function resolveDisplayOscTitle(
 const GROK_TITLE_PART_SEPARATOR = " - ";
 
 /** Braille / classic spinner glyphs used by agent CLIs in host titles. */
-const OSC_SPINNER_SEGMENT_RE =
-  /^[\u2800-\u28FF●○◉◎◐◑◒◓⣾⣽⣻⢿⡿⣟⣯⣷⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]+$/u;
+const OSC_SPINNER_SEGMENT_RE = /^[\u2800-\u28FF●○◉◎◐◑◒◓⣾⣽⣻⢿⡿⣟⣯⣷⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]+$/u;
 
 const REALTIME_OSC_ACTIVITY_EXACT = new Set([
   "action required",
@@ -1191,18 +1185,17 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   // htop, agy, git) must display as themselves unless resolveAgentForTitle
   // matches a configured agent.
   const fallbackAgent = isRuntimeWrapperTitle(dynamicTitle)
-    ? agent ?? labelAgent
+    ? (agent ?? labelAgent)
     : dynamicTitleIsVersion
-      ? labelAgent ?? agent
+      ? (labelAgent ?? agent)
       : undefined;
   // A live cwd or non-agent command is the current title. Do not keep a leftover
   // pane-label brand (e.g. launched as "Claude Code") after the agent exits or
   // the shell returns to a prompt — refresh + typed commands must show cwd.
-  const hasLiveDynamicTitle =
-    Boolean(dynamicTitle?.trim()) && !isTmuxIndexTitle(dynamicTitle);
+  const hasLiveDynamicTitle = Boolean(dynamicTitle?.trim()) && !isTmuxIndexTitle(dynamicTitle);
   const toolbarAgent = unresolvedContestedDynamic
     ? undefined
-    : matchedDynamicAgent ?? fallbackAgent ?? (hasLiveDynamicTitle ? undefined : labelAgent);
+    : (matchedDynamicAgent ?? fallbackAgent ?? (hasLiveDynamicTitle ? undefined : labelAgent));
 
   // When an OSC/cwd/command title is present, hide agent brand text so the icon
   // sits next to that title with no ` | `. If there is no other title yet, fall

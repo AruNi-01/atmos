@@ -4,12 +4,12 @@
 
 ## Role
 
-| Package | Channel |
-|---------|---------|
-| `@atmos/hub-client` | Hub HTTPS — sign-in, device enroll |
+| Package                   | Channel                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| `@atmos/hub-client`       | Hub HTTPS — sign-in, device enroll                        |
 | **`@atmos/relay-client`** | Relay HTTPS — computers, register tokens, client sessions |
-| `@atmos/api-client` | Computer main WebSocket (local or via Relay session URL) |
-| `packages/relay` | **Worker only** — not a client SDK |
+| `@atmos/api-client`       | Computer main WebSocket (local or via Relay session URL)  |
+| `packages/relay`          | **Worker only** — not a client SDK                        |
 
 ## Auth
 
@@ -38,11 +38,11 @@ Helpers: `activeComputers` / `onlineComputers`, `buildClientSessionUrls`, `clien
 
 ## Client kinds
 
-| Kind | App surface |
-|------|-------------|
-| `web` | Browser (hosted app.atmos.land or loopback) |
+| Kind      | App surface                                                       |
+| --------- | ----------------------------------------------------------------- |
+| `web`     | Browser (hosted app.atmos.land or loopback)                       |
 | `desktop` | Electron shell loading apps/web UI (`workbenchRelayClientKind()`) |
-| `mobile` | Expo app |
+| `mobile`  | Expo app                                                          |
 
 Desktop does **not** ship a separate relay package — same `@atmos/relay-client` + `clientKind: "desktop"`.
 

@@ -15,7 +15,10 @@ export function formatEmbedDirective(spec: MdLiveEmbedSpec): string {
     if (key === "kind" || key === "layout") continue;
     parts.push(`${key}=${quoteAttr(value)}`);
   }
-  const title = (spec.title ?? "").replace(/[\[\]]/g, "").replace(/\s+/g, " ").trim();
+  const title = (spec.title ?? "")
+    .replace(/[\[\]]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   const body = `{${parts.join(" ")}}`;
   if (spec.layout === "inline") {
     return `:md-live[${title}]${body}`;

@@ -1,11 +1,11 @@
-import { fsApi } from '@/api/ws-api';
-import type { FileNavigationTarget, OpenFile } from './editor-store-types';
+import { fsApi } from "@/api/ws-api";
+import type { FileNavigationTarget, OpenFile } from "./editor-store-types";
 
 export async function readFileWithTimeout(path: string, timeoutMs = 12000) {
   return Promise.race([
     fsApi.readFile(path),
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Read timeout: ${path}`)), timeoutMs)
+      setTimeout(() => reject(new Error(`Read timeout: ${path}`)), timeoutMs),
     ),
   ]);
 }
@@ -52,7 +52,7 @@ export function removeNavigationTargetForPath(
 export function touchOpenFile(
   file: OpenFile,
   timestamp: number,
-  updates?: Partial<Pick<OpenFile, 'lastOpenedAt' | 'lastFocusedAt' | 'isPreview'>>
+  updates?: Partial<Pick<OpenFile, "lastOpenedAt" | "lastFocusedAt" | "isPreview">>,
 ): OpenFile {
   return {
     ...file,

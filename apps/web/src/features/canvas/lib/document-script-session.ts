@@ -4,10 +4,7 @@
  */
 import type { AtmosCanvasScript } from "@/api/rest-api";
 
-import type {
-  CanvasDocumentScriptBundle,
-  DocumentScriptStatus,
-} from "./document-script-host";
+import type { CanvasDocumentScriptBundle, DocumentScriptStatus } from "./document-script-host";
 import { getDocumentScriptHost } from "./document-script-host";
 
 type SessionApi = {

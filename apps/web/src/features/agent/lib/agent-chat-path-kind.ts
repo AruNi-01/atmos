@@ -4,9 +4,7 @@ import { findPathInFileTrees } from "@/features/files/lib/file-tree-lookup";
 
 export type AgentChatPathKind = "file" | "directory";
 
-export async function resolveAgentChatPathKind(
-  path: string,
-): Promise<AgentChatPathKind | null> {
+export async function resolveAgentChatPathKind(path: string): Promise<AgentChatPathKind | null> {
   const normalized = normalizeFsPath(path);
   if (!normalized) return null;
   const found = findPathInFileTrees(normalized, collectCachedFileTrees());

@@ -30,12 +30,7 @@ export type FrontmostCaptureResult = {
   via?: "host_engine" | "electron_fallback";
 };
 
-const SELF_APP_NAMES = new Set([
-  "Atmos",
-  "Atmos Electron",
-  "Atmos Desktop",
-  "Electron",
-]);
+const SELF_APP_NAMES = new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
 /**
  * Metadata-only frontmost read (System Events).
@@ -111,8 +106,7 @@ export async function captureFrontmostWindow(
 
   // Engine not installed: Electron in-process (pre-ensure installs only).
   const result = await desktopUseCaptureInProcess({ selfAppNames: selfNames });
-  const quality =
-    result.png && result.png.length > 0 ? "screenshot_only" : "metadata_only";
+  const quality = result.png && result.png.length > 0 ? "screenshot_only" : "metadata_only";
   return {
     frontmost: result.frontmost,
     png: result.png,
@@ -123,10 +117,7 @@ export async function captureFrontmostWindow(
   };
 }
 
-export function buildContextMarkdown(
-  frontmost: FrontmostWindow,
-  warnings: string[],
-): string {
+export function buildContextMarkdown(frontmost: FrontmostWindow, warnings: string[]): string {
   return buildAppshotContextMarkdown(frontmost, warnings);
 }
 

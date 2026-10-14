@@ -57,10 +57,7 @@ export function matchesAutomationRunFilters(
   automation: AutomationSummary | undefined,
   filters: AutomationRunListFilters,
 ) {
-  if (
-    filters.environments.length > 0 &&
-    !filters.environments.includes(run.target_kind)
-  ) {
+  if (filters.environments.length > 0 && !filters.environments.includes(run.target_kind)) {
     return false;
   }
   if (filters.triggers.length > 0) {
@@ -68,12 +65,13 @@ export function matchesAutomationRunFilters(
     if (trigger) {
       if (!filters.triggers.includes(trigger)) return false;
     } else if (
-      !filters.triggers.some((value) =>
-        value === "hourly" ||
-        value === "daily" ||
-        value === "weekly" ||
-        value === "monthly" ||
-        value === "cron",
+      !filters.triggers.some(
+        (value) =>
+          value === "hourly" ||
+          value === "daily" ||
+          value === "weekly" ||
+          value === "monthly" ||
+          value === "cron",
       )
     ) {
       return false;

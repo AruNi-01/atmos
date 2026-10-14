@@ -9,9 +9,7 @@ import {
 } from "./snapshot";
 import type { TerminalSnapshot } from "./protocol";
 
-function baseSnapshot(
-  overrides: Partial<TerminalSnapshot> = {},
-): TerminalSnapshot {
+function baseSnapshot(overrides: Partial<TerminalSnapshot> = {}): TerminalSnapshot {
   return {
     data: "hello",
     cursor_x: 0,

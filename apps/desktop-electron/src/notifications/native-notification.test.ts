@@ -6,15 +6,9 @@ import {
   liveNativeNotificationCountForTests,
 } from "./native-notification.ts";
 
-function fakeNotification(options: {
-  emitShow?: boolean;
-  emitFailed?: string;
-}): {
+function fakeNotification(options: { emitShow?: boolean; emitFailed?: string }): {
   show: () => void;
-  once: (
-    event: "show" | "failed" | "close",
-    listener: (...args: unknown[]) => void,
-  ) => void;
+  once: (event: "show" | "failed" | "close", listener: (...args: unknown[]) => void) => void;
 } {
   const listeners: Record<string, Array<(...args: unknown[]) => void>> = {};
   return {
@@ -39,21 +33,15 @@ function fakeNotification(options: {
 
 describe("classifyNativeNotificationError", () => {
   it("maps OS permission failures", () => {
-    expect(
-      classifyNativeNotificationError("Notifications are not allowed"),
-    ).toBe("permission_denied");
-    expect(classifyNativeNotificationError("not authorized to post")).toBe(
+    expect(classifyNativeNotificationError("Notifications are not allowed")).toBe(
       "permission_denied",
     );
-    expect(classifyNativeNotificationError("Permission denied")).toBe(
-      "permission_denied",
-    );
+    expect(classifyNativeNotificationError("not authorized to post")).toBe("permission_denied");
+    expect(classifyNativeNotificationError("Permission denied")).toBe("permission_denied");
   });
 
   it("keeps unsigned / generic delivery errors as failed", () => {
-    expect(
-      classifyNativeNotificationError("application must be code-signed"),
-    ).toBe("failed");
+    expect(classifyNativeNotificationError("application must be code-signed")).toBe("failed");
     expect(classifyNativeNotificationError("unknown")).toBe("failed");
   });
 });

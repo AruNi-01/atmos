@@ -3,10 +3,12 @@
 ### Changes Since 2026.7.6-beta.1
 
 #### New Features
+
 - **Header & Sidebar Visibility Toggles**: Added per-feature visibility toggles for header buttons and right sidebar tabs ([#151](https://github.com/AruNi-01/atmos/pull/151)).
 - **Demo Hero Video**: Replaced the landing page hero image with a full-screen video dialog showing a compressed agent terminal demo.
 
 #### Bug Fixes & Refinements
+
 - **UI & Layouts**: Resolved welcome overlay layout bugs and improved drag resize synchronization.
 - **i18n Timezone**: Configured UTC as the default timeZone to avoid `ENVIRONMENT_FALLBACK` errors.
 - **Agent Launch Flow**: Restored interactive agent launches with TUI follow-up and fixed empty agent launches and the header refresh button.

@@ -3,25 +3,14 @@ import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion, useAnimate } from "motion/react";
 
 const LayoutDashboardIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
-  (
-    { size = 40, className = "", strokeWidth = 2, color = "currentColor" },
-    ref,
-  ) => {
+  ({ size = 40, className = "", strokeWidth = 2, color = "currentColor" }, ref) => {
     const [scope, animate] = useAnimate();
 
     const start = async () => {
       animate(".rect-1", { x: 10 }, { duration: 0.3, ease: "easeInOut" });
-      animate(
-        ".rect-2",
-        { y: 12, x: -1 },
-        { duration: 0.3, ease: "easeInOut" },
-      );
+      animate(".rect-2", { y: 12, x: -1 }, { duration: 0.3, ease: "easeInOut" });
       animate(".rect-3", { x: -10 }, { duration: 0.3, ease: "easeInOut" });
-      animate(
-        ".rect-4",
-        { y: -12, x: 1 },
-        { duration: 0.3, ease: "easeInOut" },
-      );
+      animate(".rect-4", { y: -12, x: 1 }, { duration: 0.3, ease: "easeInOut" });
     };
 
     const stop = async () => {

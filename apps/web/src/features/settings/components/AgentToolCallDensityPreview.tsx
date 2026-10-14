@@ -33,10 +33,7 @@ function ChromeRow({
       <span className="min-w-0 truncate">{children}</span>
       {chevron ? (
         <ChevronRight
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground",
-            open && "rotate-90",
-          )}
+          className={cn("size-3.5 shrink-0 text-muted-foreground", open && "rotate-90")}
         />
       ) : null}
     </div>
@@ -85,10 +82,7 @@ function ToolRow({
         <span className="min-w-0 truncate">{title}</span>
         <AgentToolDiffStats additions={additions} deletions={deletions} />
         <ChevronRight
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground",
-            open && "rotate-90",
-          )}
+          className={cn("size-3.5 shrink-0 text-muted-foreground", open && "rotate-90")}
         />
       </div>
       {open && sketch ? (
@@ -109,11 +103,7 @@ function overviewLabel(
   return sentenceCaseOverview(formatToolGroupOverview(counts, labelFor, join), locale);
 }
 
-export function AgentToolCallDensityPreview({
-  density,
-}: {
-  density: ToolCallDensity;
-}) {
+export function AgentToolCallDensityPreview({ density }: { density: ToolCallDensity }) {
   const t = useTranslations("settings.codeAgentSection.toolCallDensity");
   const chatT = useTranslations("Agent.components.chatPanel");
   const groupT = useTranslations("Agent.components.toolGroup");
@@ -170,9 +160,7 @@ export function AgentToolCallDensityPreview({
 
   return (
     <div className="min-w-0 space-y-2" aria-hidden="true">
-      <p className="text-[11px] font-medium leading-4 text-foreground">
-        {t(density)}
-      </p>
+      <p className="text-[11px] leading-4 font-medium text-foreground">{t(density)}</p>
       <div className="min-w-0 space-y-0.5">
         {density === "compact" ? (
           <>

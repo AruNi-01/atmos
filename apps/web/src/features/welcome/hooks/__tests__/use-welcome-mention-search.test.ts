@@ -48,26 +48,22 @@ describe("filterMentionFileCandidates", () => {
   ];
 
   it("lists first-level files and folders when the query is empty", () => {
-    expect(filterMentionFileCandidates(entries, "").map((item) => item.relativePath))
-      .toEqual([
-        "README.md",
-        "zz_end_appshot",
-        "apps",
-        "docs",
-        "pages",
-        "src",
-        ".appshot-config",
-        ".github",
-      ]);
+    expect(filterMentionFileCandidates(entries, "").map((item) => item.relativePath)).toEqual([
+      "README.md",
+      "zz_end_appshot",
+      "apps",
+      "docs",
+      "pages",
+      "src",
+      ".appshot-config",
+      ".github",
+    ]);
   });
 
   it("lists first-level files and folders under the typed directory when the query ends with a slash", () => {
-    expect(filterMentionFileCandidates(entries, "pages/").map((item) => item.relativePath))
-      .toEqual([
-        "pages/script.ts",
-        "pages/styles.css",
-        "pages/sub",
-      ]);
+    expect(filterMentionFileCandidates(entries, "pages/").map((item) => item.relativePath)).toEqual(
+      ["pages/script.ts", "pages/styles.css", "pages/sub"],
+    );
   });
 
   it("searches only inside the directory before the last slash, matching names", () => {
@@ -114,9 +110,7 @@ describe("filterMentionFileCandidates", () => {
     expect(names[0]?.startsWith("appshot_")).toBe(true);
     // But naive prefix-only slice must not hide mid/suffix contains matches.
     const containsHits = names.filter((name) => !name.startsWith("appshot"));
-    expect(containsHits.length).toBeGreaterThanOrEqual(
-      Math.min(MENTION_CONTAINS_RESERVE, 3),
-    );
+    expect(containsHits.length).toBeGreaterThanOrEqual(Math.min(MENTION_CONTAINS_RESERVE, 3));
     expect(names).toContain("libatmos_appshot_shift.dylib");
     expect(names).toContain("zz_end_appshot");
     expect(names).not.toContain("unrelated.md");

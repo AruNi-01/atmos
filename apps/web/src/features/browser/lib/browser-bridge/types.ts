@@ -3,9 +3,9 @@ import type {
   PreviewHelperMessage,
   PreviewHoverPayload,
   PreviewHelperPayload,
-} from '../browser-helper/types';
+} from "../browser-helper/types";
 
-export type BrowserTransportMode = 'same-origin' | 'extension' | 'desktop';
+export type BrowserTransportMode = "same-origin" | "extension" | "desktop";
 
 export interface BrowserTransportViewport {
   x: number;
@@ -16,7 +16,7 @@ export interface BrowserTransportViewport {
 }
 
 export interface BrowserBridgeHostInitMessage {
-  type: 'atmos-browser:host-init';
+  type: "atmos-browser:host-init";
   sessionId: string;
   pageUrl: string;
   parentOrigin: string;
@@ -26,23 +26,23 @@ export interface BrowserBridgeHostInitMessage {
 export type BrowserBridgeCommandMessage =
   | BrowserBridgeHostInitMessage
   | {
-      type: 'atmos-browser:ping';
+      type: "atmos-browser:ping";
       sessionId: string;
     }
   | {
-      type: 'atmos-browser:enter-pick-mode';
+      type: "atmos-browser:enter-pick-mode";
       sessionId: string;
     }
   | {
-      type: 'atmos-browser:exit-pick-mode';
+      type: "atmos-browser:exit-pick-mode";
       sessionId: string;
     }
   | {
-      type: 'atmos-browser:clear-selection';
+      type: "atmos-browser:clear-selection";
       sessionId: string;
     }
   | {
-      type: 'atmos-browser:destroy';
+      type: "atmos-browser:destroy";
       sessionId: string;
     };
 
@@ -59,7 +59,7 @@ export interface BrowserBridgeEventHandlers {
   onSelected?: (payload: PreviewHelperPayload) => void;
   onHover?: (payload: PreviewHoverPayload | null) => void;
   onToolbarAction?: (
-    action: 'copy' | 'add' | 'update' | 'delete',
+    action: "copy" | "add" | "update" | "delete",
     note?: string,
     annotationId?: string,
     selectionSnapshot?: PreviewHelperPayload,

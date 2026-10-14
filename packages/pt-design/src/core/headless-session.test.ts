@@ -80,10 +80,9 @@ describe("headless PTX session", () => {
 
   test("S13 applyPtx with a complete page succeeds; orphan snippet is invalid_ptx", () => {
     const session = createHeadlessSession({ ptx: LEGAL_PTX });
-    const edited = session.getPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = session
+      .getPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     session.applyPtx(edited);
     expect(session.getPtx()).toContain('value="deepseek"');
     const after = session.getPtx();
@@ -121,7 +120,10 @@ describe("headless PTX session", () => {
   });
 
   test("S22 does not import @excalidraw/excalidraw", () => {
-    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "headless-session.ts"), "utf8");
+    const src = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "headless-session.ts"),
+      "utf8",
+    );
     expect(src).not.toMatch(/@excalidraw\/excalidraw/);
   });
 });

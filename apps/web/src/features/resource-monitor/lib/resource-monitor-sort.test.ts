@@ -135,10 +135,7 @@ describe("sortResourceMonitorProjects", () => {
   });
 
   test("name sort uses a display-title resolver instead of the server name", () => {
-    const numbered = [
-      session("s-1", "1", 1, 1),
-      session("s-2", "2", 1, 1),
-    ];
+    const numbered = [session("s-1", "1", 1, 1), session("s-2", "2", 1, 1)];
     expect(sortResourceMonitorSessions(numbered, "name").map((item) => item.session_id)).toEqual([
       "s-1",
       "s-2",
@@ -168,10 +165,7 @@ describe("sortResourceMonitorProjects", () => {
   });
 
   test("uses id when names are equal", () => {
-    const twins = [
-      project("p-b", "Same", 1, 1, []),
-      project("p-a", "Same", 1, 1, []),
-    ];
+    const twins = [project("p-b", "Same", 1, 1, []), project("p-a", "Same", 1, 1, [])];
     expect(sortResourceMonitorProjects(twins, "name").map((item) => item.project_id)).toEqual([
       "p-a",
       "p-b",
@@ -183,20 +177,13 @@ describe("sortResourceMonitorProjects", () => {
   });
 
   test("reverses every sibling layer when the active direction toggles", () => {
-    const sorted = sortResourceMonitorProjects(
-      tree,
-      "name",
-      undefined,
-      "descending",
-    );
+    const sorted = sortResourceMonitorProjects(tree, "name", undefined, "descending");
     expect(sorted.map((item) => item.project_id)).toEqual(["p-beta", "p-alpha"]);
-    expect(sorted[0]?.workspaces.map((item) => item.workspace_id)).toEqual([
-      "w-2",
-      "w-1",
+    expect(sorted[0]?.workspaces.map((item) => item.workspace_id)).toEqual(["w-2", "w-1"]);
+    expect(sorted[0]?.workspaces[0]?.sessions.map((item) => item.session_id)).toEqual([
+      "s-high",
+      "s-low",
     ]);
-    expect(
-      sorted[0]?.workspaces[0]?.sessions.map((item) => item.session_id),
-    ).toEqual(["s-high", "s-low"]);
     expect(sorted[0]?.sessions.map((item) => item.session_id)).toEqual([
       "s-direct-b",
       "s-direct-a",
@@ -273,9 +260,7 @@ describe("sortResourceMonitorProcesses", () => {
 
   test("supports ascending process usage within each process group", () => {
     expect(
-      sortResourceMonitorProcesses(processes, "memory", "ascending").map(
-        (item) => item.name,
-      ),
+      sortResourceMonitorProcesses(processes, "memory", "ascending").map((item) => item.name),
     ).toEqual(["eslint", "node", "vite"]);
   });
 });

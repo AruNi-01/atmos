@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -50,7 +58,13 @@ function clampZoom(value: number) {
 
 type ZoomAnchor = { focalX: number; index: number };
 
-function zoomOffset(anchor: ZoomAnchor, gap: number, axis: number, contentWidth: number, viewport: number) {
+function zoomOffset(
+  anchor: ZoomAnchor,
+  gap: number,
+  axis: number,
+  contentWidth: number,
+  viewport: number,
+) {
   const max = Math.max(0, contentWidth - viewport);
   const raw = anchor.index * gap - (anchor.focalX - axis);
   return Math.min(max, Math.max(0, raw));
@@ -256,34 +270,51 @@ function useHoldScroll({ axis, baseGap, onHold, onMove, onRelease, seriesKey }: 
         unlock();
       });
   }, [native]);
-  const pinch = useMemo(() => Gesture.Pinch()
-    .cancelsTouchesInView(false)
-    .shouldCancelWhenOutside(false)
-    .simultaneousWithExternalGesture(native)
-    .onBegin(() => {
-      gestureIdSv.set(gestureIdSv.get() + 1);
-      pinchingSv.set(true);
-      scheduleOnRN(beginZoom, gestureIdSv.get());
-    })
-    .onStart((event) => {
-      const origin = scaleSv.get();
-      pinchOriginSv.set(origin);
-      const gap = baseGapSv.get() * origin;
-      focalSv.set(event.focalX);
-      anchorSv.set(gap > 0 ? (offsetSv.get() + event.focalX - axisSv.get()) / gap : 0);
-    })
-    .onUpdate((event) => {
-      focalSv.set(event.focalX);
-      scaleSv.set(clampZoom(pinchOriginSv.get() * event.scale));
-    })
-    .onFinalize(() => {
-      const token = gestureIdSv.get();
-      const next = scaleSv.get();
-      const anchor = anchorSv.get();
-      const focal = focalSv.get();
-      pinchingSv.set(false);
-      scheduleOnRN(endZoom, next, anchor, focal, token);
-    }), [anchorSv, axisSv, baseGapSv, beginZoom, endZoom, focalSv, gestureIdSv, native, offsetSv, pinchOriginSv, pinchingSv, scaleSv]);
+  const pinch = useMemo(
+    () =>
+      Gesture.Pinch()
+        .cancelsTouchesInView(false)
+        .shouldCancelWhenOutside(false)
+        .simultaneousWithExternalGesture(native)
+        .onBegin(() => {
+          gestureIdSv.set(gestureIdSv.get() + 1);
+          pinchingSv.set(true);
+          scheduleOnRN(beginZoom, gestureIdSv.get());
+        })
+        .onStart((event) => {
+          const origin = scaleSv.get();
+          pinchOriginSv.set(origin);
+          const gap = baseGapSv.get() * origin;
+          focalSv.set(event.focalX);
+          anchorSv.set(gap > 0 ? (offsetSv.get() + event.focalX - axisSv.get()) / gap : 0);
+        })
+        .onUpdate((event) => {
+          focalSv.set(event.focalX);
+          scaleSv.set(clampZoom(pinchOriginSv.get() * event.scale));
+        })
+        .onFinalize(() => {
+          const token = gestureIdSv.get();
+          const next = scaleSv.get();
+          const anchor = anchorSv.get();
+          const focal = focalSv.get();
+          pinchingSv.set(false);
+          scheduleOnRN(endZoom, next, anchor, focal, token);
+        }),
+    [
+      anchorSv,
+      axisSv,
+      baseGapSv,
+      beginZoom,
+      endZoom,
+      focalSv,
+      gestureIdSv,
+      native,
+      offsetSv,
+      pinchOriginSv,
+      pinchingSv,
+      scaleSv,
+    ],
+  );
   const gesture = useMemo(() => Gesture.Simultaneous(pan, pinch), [pan, pinch]);
   useAnimatedReaction(
     () => Math.round(scaleSv.get() / ZOOM_STEP),
@@ -294,44 +325,53 @@ function useHoldScroll({ axis, baseGap, onHold, onMove, onRelease, seriesKey }: 
     [anchorSv, commitZoom, focalSv, gestureIdSv, pinchingSv, scaleSv],
   );
 
-  const scrollTo = useCallback((x: number) => {
-    offsetRef.current = x;
-    offsetSv.set(x);
-    scrollRef.current?.scrollTo({ animated: false, x });
-  }, [offsetSv]);
-  const placeEnd = useCallback((contentWidth: number, viewport: number) => {
-    zoomAnchor.current = null;
-    const x = Math.max(0, contentWidth - viewport);
-    offsetRef.current = x;
-    offsetSv.set(x);
-    pinnedOffset.current = x;
-    scrollRef.current?.scrollTo({ animated: false, x });
-  }, [offsetSv]);
+  const scrollTo = useCallback(
+    (x: number) => {
+      offsetRef.current = x;
+      offsetSv.set(x);
+      scrollRef.current?.scrollTo({ animated: false, x });
+    },
+    [offsetSv],
+  );
+  const placeEnd = useCallback(
+    (contentWidth: number, viewport: number) => {
+      zoomAnchor.current = null;
+      const x = Math.max(0, contentWidth - viewport);
+      offsetRef.current = x;
+      offsetSv.set(x);
+      pinnedOffset.current = x;
+      scrollRef.current?.scrollTo({ animated: false, x });
+    },
+    [offsetSv],
+  );
   const noteDrag = useCallback(() => {
     if (holding.current || zoomingRef.current) return;
     userScrolled.current = true;
     pinnedOffset.current = null;
     zoomAnchor.current = null;
   }, []);
-  const onScroll = useCallback((x: number) => {
-    if (holding.current) {
-      if (Math.abs(x - holdOffset.current) > 0.5) {
-        scrollRef.current?.scrollTo({ animated: false, x: holdOffset.current });
+  const onScroll = useCallback(
+    (x: number) => {
+      if (holding.current) {
+        if (Math.abs(x - holdOffset.current) > 0.5) {
+          scrollRef.current?.scrollTo({ animated: false, x: holdOffset.current });
+        }
+        return;
       }
-      return;
-    }
-    if (zoomingRef.current) {
-      if (Math.abs(x - offsetRef.current) > 0.5) {
-        scrollRef.current?.scrollTo({ animated: false, x: offsetRef.current });
+      if (zoomingRef.current) {
+        if (Math.abs(x - offsetRef.current) > 0.5) {
+          scrollRef.current?.scrollTo({ animated: false, x: offsetRef.current });
+        }
+        return;
       }
-      return;
-    }
-    if (pinnedOffset.current !== null && Math.abs(x - pinnedOffset.current) > 1) return;
-    if (zoomAnchor.current && Math.abs(x - offsetRef.current) > 1) zoomAnchor.current = null;
-    offsetRef.current = x;
-    offsetSv.set(x);
-    offsetListener.current(x);
-  }, [offsetSv]);
+      if (pinnedOffset.current !== null && Math.abs(x - pinnedOffset.current) > 1) return;
+      if (zoomAnchor.current && Math.abs(x - offsetRef.current) > 1) zoomAnchor.current = null;
+      offsetRef.current = x;
+      offsetSv.set(x);
+      offsetListener.current(x);
+    },
+    [offsetSv],
+  );
 
   return {
     gesture,
@@ -411,7 +451,11 @@ function ChartViewport({
             showsHorizontalScrollIndicator={false}
             style={{ height, marginLeft: axisWidth, width: lane }}
           >
-            <View collapsable={false} pointerEvents="none" style={{ height, marginLeft: -axisWidth, width: contentWidth }}>
+            <View
+              collapsable={false}
+              pointerEvents="none"
+              style={{ height, marginLeft: -axisWidth, width: contentWidth }}
+            >
               {children}
             </View>
           </ScrollView>
@@ -476,7 +520,13 @@ function trailingSpan(count: number, viewport: number, axis: number, gap: number
   return { end: count, start: Math.max(0, count - visible - SPAN_OVERSCAN) };
 }
 
-function spanAround(offset: number, viewport: number, count: number, axis: number, gap: number): DrawnSpan {
+function spanAround(
+  offset: number,
+  viewport: number,
+  count: number,
+  axis: number,
+  gap: number,
+): DrawnSpan {
   const lane = Math.max(gap, viewport - axis);
   const first = Math.floor(offset / gap);
   const last = Math.ceil((offset + lane) / gap);
@@ -486,7 +536,14 @@ function spanAround(offset: number, viewport: number, count: number, axis: numbe
   };
 }
 
-function spanIsLoose(span: DrawnSpan, offset: number, viewport: number, count: number, axis: number, gap: number) {
+function spanIsLoose(
+  span: DrawnSpan,
+  offset: number,
+  viewport: number,
+  count: number,
+  axis: number,
+  gap: number,
+) {
   const lane = Math.max(gap, viewport - axis);
   const first = Math.floor(offset / gap);
   const last = Math.ceil((offset + lane) / gap);
@@ -508,8 +565,9 @@ function useDrawnSpan(
   const keyRef = useRef({ count, enabled, gap });
   let visible = span;
   const gapChanged = Math.abs(keyRef.current.gap - gap) > 0.01;
-  const recenter = scroll.zoomAnchor.current != null
-    && !spanIsLoose(span, scroll.offsetRef.current, viewport, count, axis, gap);
+  const recenter =
+    scroll.zoomAnchor.current != null &&
+    !spanIsLoose(span, scroll.offsetRef.current, viewport, count, axis, gap);
   if (keyRef.current.count !== count || keyRef.current.enabled !== enabled) {
     keyRef.current = { count, enabled, gap };
     visible = trailingSpan(count, viewport, axis, gap);
@@ -606,32 +664,36 @@ export function UsageGrowthChart({
   const publishTip = useCallback((next: PointTip) => {
     const current = tipRef.current;
     if (
-      current
-      && current.index === next.index
-      && current.label === next.label
-      && current.value === next.value
-      && Math.abs(current.x - next.x) < 0.5
-      && Math.abs(current.y - next.y) < 0.5
-    ) return;
+      current &&
+      current.index === next.index &&
+      current.label === next.label &&
+      current.value === next.value &&
+      Math.abs(current.x - next.x) < 0.5 &&
+      Math.abs(current.y - next.y) < 0.5
+    )
+      return;
     tipRef.current = next;
     setTip(next);
   }, []);
-  const selectAt = useCallback((chartX: number) => {
-    const series = pointsRef.current;
-    const next = pointIndexAt(chartX, contentWidthRef.current, series.length);
-    const point = series[next];
-    if (!point) return;
-    setSelected((current) => (current === next ? current : next));
-    const previous = tipRef.current;
-    if (previous?.index !== next) holdGen.current += 1;
-    publishTip({
-      index: next,
-      label: point.label,
-      value: point.value,
-      x: PLOT_X + next * gap - scroll.offsetRef.current,
-      y: previous?.y ?? 36,
-    });
-  }, [gap, publishTip, scroll.offsetRef]);
+  const selectAt = useCallback(
+    (chartX: number) => {
+      const series = pointsRef.current;
+      const next = pointIndexAt(chartX, contentWidthRef.current, series.length);
+      const point = series[next];
+      if (!point) return;
+      setSelected((current) => (current === next ? current : next));
+      const previous = tipRef.current;
+      if (previous?.index !== next) holdGen.current += 1;
+      publishTip({
+        index: next,
+        label: point.label,
+        value: point.value,
+        x: PLOT_X + next * gap - scroll.offsetRef.current,
+        y: previous?.y ?? 36,
+      });
+    },
+    [gap, publishTip, scroll.offsetRef],
+  );
   selectRef.current = selectAt;
   const anchor = scroll.zoomAnchor.current;
   if (anchor) scroll.offsetRef.current = zoomOffset(anchor, gap, PLOT_X, contentWidth, width);
@@ -654,9 +716,10 @@ export function UsageGrowthChart({
   const theme = chartTheme(labelColor, [color]);
   const drawn = windowed ? points.slice(span.start, span.end) : points;
   const drawnWidth = windowed ? growthSliceWidth(drawn.length, gap) : contentWidth;
-  const localSelected = selected != null && selected >= span.start && selected < span.start + drawn.length
-    ? selected - span.start
-    : undefined;
+  const localSelected =
+    selected != null && selected >= span.start && selected < span.start + drawn.length
+      ? selected - span.start
+      : undefined;
   const plot = (
     <AreaChart
       accessibilityLabel="Usage over time"
@@ -715,10 +778,13 @@ export function UsageGrowthChart({
   );
   return (
     <ChartViewport
-      axis={(
+      axis={
         <AreaChart
           areaFill={{ fromOpacity: 0, toOpacity: 0 }}
-          data={[{ label: points[0]?.label ?? "", value: 0 }, { label: points[count - 1]?.label ?? "", value: peak }]}
+          data={[
+            { label: points[0]?.label ?? "", value: 0 },
+            { label: points[count - 1]?.label ?? "", value: peak },
+          ]}
           formatYLabel={formatValue}
           height={height}
           interaction="none"
@@ -734,7 +800,7 @@ export function UsageGrowthChart({
           yAxisLabelWidth={Y_LABEL_WIDTH}
           yDomain={domain}
         />
-      )}
+      }
       axisWidth={PLOT_X}
       backgroundColor={backgroundColor}
       contentWidth={contentWidth}
@@ -755,7 +821,9 @@ export function UsageGrowthChart({
         >
           <View style={{ height, marginLeft: -PLOT_X, width: drawnWidth }}>{plot}</View>
         </View>
-      ) : plot}
+      ) : (
+        plot
+      )}
     </ChartViewport>
   );
 }
@@ -765,7 +833,8 @@ function tickStep(start: number, stop: number, count: number) {
   if (!Number.isFinite(raw) || raw === 0) return 0;
   const power = Math.floor(Math.log10(raw));
   const error = raw / 10 ** power;
-  const factor = error >= Math.sqrt(50) ? 10 : error >= Math.sqrt(10) ? 5 : error >= Math.sqrt(2) ? 2 : 1;
+  const factor =
+    error >= Math.sqrt(50) ? 10 : error >= Math.sqrt(10) ? 5 : error >= Math.sqrt(2) ? 2 : 1;
   return factor * 10 ** power;
 }
 
@@ -824,11 +893,16 @@ export function UsageStackedChart({
 }) {
   const segmentCount = Math.min(SERIES.length, ids.length, series[0]?.length ?? 0);
   const paint = colors.slice(0, segmentCount);
-  const rows = useMemo(() => labels.map((label, index) => {
-    const row = { label, s0: 0, s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 };
-    for (let segment = 0; segment < segmentCount; segment += 1) row[SERIES[segment]!] = series[index]?.[segment] ?? 0;
-    return row;
-  }), [labels, segmentCount, series]);
+  const rows = useMemo(
+    () =>
+      labels.map((label, index) => {
+        const row = { label, s0: 0, s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 };
+        for (let segment = 0; segment < segmentCount; segment += 1)
+          row[SERIES[segment]!] = series[index]?.[segment] ?? 0;
+        return row;
+      }),
+    [labels, segmentCount, series],
+  );
   const count = rows.length;
   const peak = useMemo(() => {
     let max = 0;
@@ -866,32 +940,35 @@ export function UsageStackedChart({
   if (anchor) scroll.offsetRef.current = zoomOffset(anchor, slot, axisWidth, contentWidth, width);
   const windowed = contentWidth > width + 1;
   const span = useDrawnSpan(scroll, count, width, axisWidth, slot, windowed);
-  const selectAt = useCallback((chartX: number) => {
-    const frame = columnAt(chartX, frames.current);
-    const row = frame ? rowsRef.current[frame.index] : undefined;
-    if (!frame || !row) return;
-    const nextRows: ColumnTipRow[] = [];
-    for (let index = 0; index < segmentCount; index += 1) {
-      const amount = row[SERIES[index]!] ?? 0;
-      if (amount <= 0) continue;
-      const id = ids[index] || String(index);
-      nextRows.push({
-        amount,
-        color: paint[index] ?? labelColor,
-        icon: seriesMark(dimension, id, paint[index] ?? labelColor, providers),
-        key: id,
-        name: names[index] ?? id,
-      });
-    }
-    const next = {
-      index: frame.index,
-      rows: nextRows,
-      title: row.label,
-      x: frame.x + frame.width / 2 - scroll.offsetRef.current,
-      y: frame.y,
-    };
-    setTip((current) => (sameColumnTip(current, next) ? current : next));
-  }, [dimension, ids, labelColor, names, paint, providers, scroll.offsetRef, segmentCount]);
+  const selectAt = useCallback(
+    (chartX: number) => {
+      const frame = columnAt(chartX, frames.current);
+      const row = frame ? rowsRef.current[frame.index] : undefined;
+      if (!frame || !row) return;
+      const nextRows: ColumnTipRow[] = [];
+      for (let index = 0; index < segmentCount; index += 1) {
+        const amount = row[SERIES[index]!] ?? 0;
+        if (amount <= 0) continue;
+        const id = ids[index] || String(index);
+        nextRows.push({
+          amount,
+          color: paint[index] ?? labelColor,
+          icon: seriesMark(dimension, id, paint[index] ?? labelColor, providers),
+          key: id,
+          name: names[index] ?? id,
+        });
+      }
+      const next = {
+        index: frame.index,
+        rows: nextRows,
+        title: row.label,
+        x: frame.x + frame.width / 2 - scroll.offsetRef.current,
+        y: frame.y,
+      };
+      setTip((current) => (sameColumnTip(current, next) ? current : next));
+    },
+    [dimension, ids, labelColor, names, paint, providers, scroll.offsetRef, segmentCount],
+  );
   selectRef.current = selectAt;
   useLayoutEffect(() => {
     scroll.userScrolled.current = false;
@@ -905,7 +982,9 @@ export function UsageStackedChart({
   useEffect(() => {
     const left = barPlotLeft(frames.current);
     if (left === null) return;
-    setMeasuredAxis((current) => (current !== null && Math.abs(current - left) < 0.5 ? current : left));
+    setMeasuredAxis((current) =>
+      current !== null && Math.abs(current - left) < 0.5 ? current : left,
+    );
   });
   const frameKey = `${span.start}:${span.end}:${count}:${slot}`;
   if (frameKeyRef.current !== frameKey) {
@@ -947,7 +1026,9 @@ export function UsageStackedChart({
           x: bar.x + span.start * slot,
           y: current ? Math.min(current.y, bar.y) : bar.y,
         });
-        return <Rect fill={fill} height={bar.height} rx={radius} width={bar.width} x={bar.x} y={bar.y} />;
+        return (
+          <Rect fill={fill} height={bar.height} rx={radius} width={bar.width} x={bar.x} y={bar.y} />
+        );
       }}
       series={barSeries}
       showYAxisLabels={false}
@@ -961,7 +1042,7 @@ export function UsageStackedChart({
   );
   return (
     <ChartViewport
-      axis={(
+      axis={
         <BarChart
           data={axisRows}
           formatYLabel={formatValue}
@@ -977,12 +1058,14 @@ export function UsageStackedChart({
           xKey="label"
           yDomain={domain}
         />
-      )}
+      }
       axisWidth={axisWidth}
       backgroundColor={backgroundColor}
       contentWidth={contentWidth}
       height={height}
-      overlay={tip ? <ColumnTipView chartWidth={width} formatValue={formatValue} tip={tip} /> : null}
+      overlay={
+        tip ? <ColumnTipView chartWidth={width} formatValue={formatValue} tip={tip} /> : null
+      }
       scroll={scroll}
       width={width}
     >
@@ -990,7 +1073,9 @@ export function UsageStackedChart({
         <View style={{ height, left: span.start * slot, position: "absolute", width: drawnWidth }}>
           {bars}
         </View>
-      ) : bars}
+      ) : (
+        bars
+      )}
     </ChartViewport>
   );
 }
@@ -1031,12 +1116,21 @@ function columnAt(x: number, frames: Map<number, ColumnFrame>) {
 }
 
 function sameColumnTip(current: ColumnTip | null, next: ColumnTip) {
-  if (!current || current.index !== next.index || current.rows.length !== next.rows.length) return false;
-  return current.rows.every((row, index) => row.key === next.rows[index]?.key && row.amount === next.rows[index]?.amount);
+  if (!current || current.index !== next.index || current.rows.length !== next.rows.length)
+    return false;
+  return current.rows.every(
+    (row, index) => row.key === next.rows[index]?.key && row.amount === next.rows[index]?.amount,
+  );
 }
 
-function seriesMark(dimension: UsageDimension, id: string, color: string, providers?: ReadonlyMap<string, string>) {
-  if (dimension === "model") return <UsageModelIcon color={color} modelId={id} providerId={providers?.get(id)} size={12} />;
+function seriesMark(
+  dimension: UsageDimension,
+  id: string,
+  color: string,
+  providers?: ReadonlyMap<string, string>,
+) {
+  if (dimension === "model")
+    return <UsageModelIcon color={color} modelId={id} providerId={providers?.get(id)} size={12} />;
   if (id === "other") return <BotIcon color={color} size={12} />;
   return <MobileAgentIcon agentId={id} size={12} />;
 }
@@ -1053,14 +1147,22 @@ function PointTipView({
   tip: PointTip;
 }) {
   const [size, setSize] = useState({ height: 0, width: 0 });
-  const left = Math.min(Math.max(8, tip.x - size.width / 2), Math.max(8, chartWidth - size.width - 8));
+  const left = Math.min(
+    Math.max(8, tip.x - size.width / 2),
+    Math.max(8, chartWidth - size.width - 8),
+  );
   const top = Math.max(4, tip.y - size.height - 12);
   return (
     <View
       onLayout={(event) => {
-        const next = { height: event.nativeEvent.layout.height, width: event.nativeEvent.layout.width };
+        const next = {
+          height: event.nativeEvent.layout.height,
+          width: event.nativeEvent.layout.width,
+        };
         if (next.height <= 0 || next.width <= 0) return;
-        setSize((current) => (current.width === next.width && current.height === next.height ? current : next));
+        setSize((current) =>
+          current.width === next.width && current.height === next.height ? current : next,
+        );
       }}
       pointerEvents="none"
       style={[styles.tip, { left, opacity: size.height > 0 ? 1 : 0, top }]}
@@ -1086,7 +1188,10 @@ function ColumnTipView({
   tip: ColumnTip;
 }) {
   const [size, setSize] = useState({ height: 0, width: 0 });
-  const left = Math.min(Math.max(8, tip.x - size.width / 2), Math.max(8, chartWidth - size.width - 8));
+  const left = Math.min(
+    Math.max(8, tip.x - size.width / 2),
+    Math.max(8, chartWidth - size.width - 8),
+  );
   const top = Math.max(4, tip.y - size.height - 12);
   return (
     <>
@@ -1103,9 +1208,14 @@ function ColumnTipView({
       </Svg>
       <View
         onLayout={(event) => {
-          const next = { height: event.nativeEvent.layout.height, width: event.nativeEvent.layout.width };
+          const next = {
+            height: event.nativeEvent.layout.height,
+            width: event.nativeEvent.layout.width,
+          };
           if (next.height <= 0 || next.width <= 0) return;
-          setSize((current) => (current.width === next.width && current.height === next.height ? current : next));
+          setSize((current) =>
+            current.width === next.width && current.height === next.height ? current : next,
+          );
         }}
         pointerEvents="none"
         style={[styles.tip, { left, opacity: size.height > 0 ? 1 : 0, top }]}
@@ -1114,7 +1224,9 @@ function ColumnTipView({
         {tip.rows.map((row) => (
           <View key={row.key} style={styles.tipRow}>
             {row.icon}
-            <Text numberOfLines={1} style={styles.tipName}>{row.name}</Text>
+            <Text numberOfLines={1} style={styles.tipName}>
+              {row.name}
+            </Text>
             <AnimatedMetric
               format={formatValue}
               pinEnd
@@ -1266,8 +1378,22 @@ function HeatmapActiveBorder({
     destY.set(nextY);
     split.set(corner.split);
     progress.set(0);
-    progress.set(withTiming(1, { duration: selectionDuration(corner.distance), easing: SELECTION_EASE }));
-  }, [destX, destY, originX, originY, progress, reduced, split, turnX, turnY, weekIndex, weekdayIndex]);
+    progress.set(
+      withTiming(1, { duration: selectionDuration(corner.distance), easing: SELECTION_EASE }),
+    );
+  }, [
+    destX,
+    destY,
+    originX,
+    originY,
+    progress,
+    reduced,
+    split,
+    turnX,
+    turnY,
+    weekIndex,
+    weekdayIndex,
+  ]);
   return (
     <AnimatedRect
       animatedProps={animatedProps}
@@ -1332,7 +1458,8 @@ export function UsageHeatmap({
   );
   const end = days[days.length - 1];
   const placeLatest = useCallback(() => {
-    if (userScrolled.current || latestIndex < 0 || plotWidth <= 0 || chartWidth <= plotWidth + 1) return;
+    if (userScrolled.current || latestIndex < 0 || plotWidth <= 0 || chartWidth <= plotWidth + 1)
+      return;
     const maxOffset = Math.max(0, chartWidth - plotWidth);
     const latestRight = HEATMAP_LABEL_LANE + (latestIndex + 1) * CELL + latestIndex * GAP;
     const offset = Math.min(maxOffset, Math.max(0, latestRight - plotWidth * 0.75));
@@ -1388,7 +1515,8 @@ export function UsageHeatmap({
               interaction={{ mode: "tap" }}
               numDays={values.length}
               onDayPress={(event) => {
-                const key = typeof event.raw?.key === "string" ? event.raw.key : localDateKey(event.date);
+                const key =
+                  typeof event.raw?.key === "string" ? event.raw.key : localDateKey(event.date);
                 onSelect(key);
               }}
               showMonthLabels
@@ -1406,7 +1534,12 @@ export function UsageHeatmap({
               width={chartWidth}
             />
             {slot ? (
-              <Svg height={HEATMAP_HEIGHT} pointerEvents="none" style={StyleSheet.absoluteFill} width={chartWidth}>
+              <Svg
+                height={HEATMAP_HEIGHT}
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+                width={chartWidth}
+              >
                 <HeatmapActiveBorder
                   color={selectionColor}
                   weekdayIndex={slot.weekdayIndex}

@@ -11,20 +11,20 @@ These files are **sibling assets**, not new specs. Do not invent a second PRD. I
 
 ## Index
 
-| File | Slice | PRD |
-|------|-------|-----|
-| [descriptor.md](./descriptor.md) | Identity, capabilities, supported options, current config | M1–M4 |
-| [runtime.md](./runtime.md) | Small runtime, `AgentAction`, provider routing, spawn override | M5, M15 routing |
-| [events.md](./events.md) | Tagged Atmos events, unknown frames, envelope | M6 |
-| [tools.md](./tools.md) | Kind / params / result, web_search / fetch, `other` | M7–M9, M11 |
-| [persistence.md](./persistence.md) | Chat files, new jsonl only, restore ≠ spawn | M12 |
-| [ws-contract.md](./ws-contract.md) | Keep `agent_chat_*`, evolve DTOs | M14 |
-| [web.md](./web.md) | Composer + cards read Atmos only; delete client classifiers | M10 |
-| [acp-adapter.md](./acp-adapter.md) | ACP mapper for every agent except the four natives | M10, remaining agents |
-| [native-claude.md](./native-claude.md) | Claude Code stream-json + control | M15–M16 |
-| [native-codex.md](./native-codex.md) | Codex `app-server` JSON-RPC | M15–M16 |
-| [native-opencode.md](./native-opencode.md) | OpenCode `serve` HTTP+SSE | M15–M16 |
-| [native-pi.md](./native-pi.md) | Pi `--mode rpc` JSONL | M15–M16 |
+| File                                       | Slice                                                          | PRD                   |
+| ------------------------------------------ | -------------------------------------------------------------- | --------------------- |
+| [descriptor.md](./descriptor.md)           | Identity, capabilities, supported options, current config      | M1–M4                 |
+| [runtime.md](./runtime.md)                 | Small runtime, `AgentAction`, provider routing, spawn override | M5, M15 routing       |
+| [events.md](./events.md)                   | Tagged Atmos events, unknown frames, envelope                  | M6                    |
+| [tools.md](./tools.md)                     | Kind / params / result, web_search / fetch, `other`            | M7–M9, M11            |
+| [persistence.md](./persistence.md)         | Chat files, new jsonl only, restore ≠ spawn                    | M12                   |
+| [ws-contract.md](./ws-contract.md)         | Keep `agent_chat_*`, evolve DTOs                               | M14                   |
+| [web.md](./web.md)                         | Composer + cards read Atmos only; delete client classifiers    | M10                   |
+| [acp-adapter.md](./acp-adapter.md)         | ACP mapper for every agent except the four natives             | M10, remaining agents |
+| [native-claude.md](./native-claude.md)     | Claude Code stream-json + control                              | M15–M16               |
+| [native-codex.md](./native-codex.md)       | Codex `app-server` JSON-RPC                                    | M15–M16               |
+| [native-opencode.md](./native-opencode.md) | OpenCode `serve` HTTP+SSE                                      | M15–M16               |
+| [native-pi.md](./native-pi.md)             | Pi `--mode rpc` JSONL                                          | M15–M16               |
 
 M13 (APP-067 product behavior unchanged) applies to every slice. N1–N5 stay deferred unless a slice names a seam.
 

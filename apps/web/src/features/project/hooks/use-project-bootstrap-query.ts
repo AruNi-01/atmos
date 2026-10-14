@@ -53,9 +53,7 @@ export function setProjectBootstrapSnapshotAt(
 }
 
 /** Cancel in-flight bootstrap for scope before applying a mutation patch. */
-export async function cancelProjectBootstrapQuery(
-  scope?: ComputerQueryScope,
-): Promise<void> {
+export async function cancelProjectBootstrapQuery(scope?: ComputerQueryScope): Promise<void> {
   const client = getAtmosWebQueryClient();
   await client.cancelQueries({
     queryKey: queryKeys.computer.projectBootstrap(scope ?? getComputerQueryScope()),

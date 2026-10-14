@@ -1,7 +1,12 @@
 import { useMemo, type ReactNode } from "react";
 import { Platform, View } from "react-native";
 import { BottomSheet, RNHostView } from "@expo/ui";
-import { environment, frame, presentationBackground, type PresentationDetent } from "@expo/ui/swift-ui/modifiers";
+import {
+  environment,
+  frame,
+  presentationBackground,
+  type PresentationDetent,
+} from "@expo/ui/swift-ui/modifiers";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MobileThemeColorScheme } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -65,7 +70,15 @@ export function ExpoDrawer({
         ? [
             environment("colorScheme", palette.scheme),
             presentationBackground(palette.colors.sheetBackground),
-            ...(matchContents ? [] : [frame({ alignment: "top", maxHeight: Number.POSITIVE_INFINITY, maxWidth: Number.POSITIVE_INFINITY })]),
+            ...(matchContents
+              ? []
+              : [
+                  frame({
+                    alignment: "top",
+                    maxHeight: Number.POSITIVE_INFINITY,
+                    maxWidth: Number.POSITIVE_INFINITY,
+                  }),
+                ]),
           ]
         : undefined,
     [matchContents, palette.colors.sheetBackground, palette.scheme],
@@ -75,24 +88,24 @@ export function ExpoDrawer({
     [detents, snapPoints],
   );
   const host = (
-      <RNHostView matchContents={matchContents}>
-        <View
-          style={{
-            backgroundColor: fillBackground ? palette.colors.sheetBackground : "transparent",
-            alignSelf: "stretch",
-            justifyContent: "flex-start",
-            paddingBottom: contentPaddingBottom ?? Math.max(insets.bottom, 24),
-            paddingHorizontal: contentPaddingHorizontal,
-            paddingTop: 16,
-            width: "100%",
-            // A scroll view inside a detent must not report its full content height,
-            // or the sheet treats the drag as its own pan and snaps back.
-            ...(matchContents ? {} : { flexGrow: 1, height: 0 }),
-          }}
-        >
-          {children}
-        </View>
-      </RNHostView>
+    <RNHostView matchContents={matchContents}>
+      <View
+        style={{
+          backgroundColor: fillBackground ? palette.colors.sheetBackground : "transparent",
+          alignSelf: "stretch",
+          justifyContent: "flex-start",
+          paddingBottom: contentPaddingBottom ?? Math.max(insets.bottom, 24),
+          paddingHorizontal: contentPaddingHorizontal,
+          paddingTop: 16,
+          width: "100%",
+          // A scroll view inside a detent must not report its full content height,
+          // or the sheet treats the drag as its own pan and snaps back.
+          ...(matchContents ? {} : { flexGrow: 1, height: 0 }),
+        }}
+      >
+        {children}
+      </View>
+    </RNHostView>
   );
 
   return (

@@ -9,9 +9,7 @@ export type AgentChatCwdGroup = {
   chats: AgentChatListItem[];
 };
 
-export function groupChatsByCwd(
-  items: AgentChatListItem[],
-): AgentChatCwdGroup[] {
+export function groupChatsByCwd(items: AgentChatListItem[]): AgentChatCwdGroup[] {
   const groups = new Map<string, AgentChatListItem[]>();
   for (const item of items) {
     const cwd = item.cwd || "";

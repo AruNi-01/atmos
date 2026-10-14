@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { cn, TextShimmer } from '@workspace/ui';
+import { cn, TextShimmer } from "@workspace/ui";
 
-const SLOGAN = 'Atmosphere for Agentic Builders';
+const SLOGAN = "Atmosphere for Agentic Builders";
 
 /** Hosted hero slogan — keep outside motion/AnimatePresence parents so shimmer can loop. */
 export function HostedSloganShimmer({
@@ -17,10 +17,7 @@ export function HostedSloganShimmer({
       as="p"
       duration={duration}
       spread={2.2}
-      className={cn(
-        'text-center text-lg font-medium tracking-wide sm:text-xl',
-        className,
-      )}
+      className={cn("text-center text-lg font-medium tracking-wide sm:text-xl", className)}
     >
       {SLOGAN}
     </TextShimmer>

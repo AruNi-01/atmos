@@ -86,10 +86,13 @@ export function AgentChatHistoryPopover({
     searchInputRef.current?.focus();
   }, [searchOpen]);
 
-  const handleOpenChange = React.useCallback((open: boolean) => {
-    setHistoryOpen(open);
-    if (open) void loadHistorySessions();
-  }, [loadHistorySessions, setHistoryOpen]);
+  const handleOpenChange = React.useCallback(
+    (open: boolean) => {
+      setHistoryOpen(open);
+      if (open) void loadHistorySessions();
+    },
+    [loadHistorySessions, setHistoryOpen],
+  );
 
   return (
     <Popover open={historyOpen} onOpenChange={handleOpenChange}>
@@ -115,9 +118,7 @@ export function AgentChatHistoryPopover({
       </TooltipProvider>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-          <p className="text-sm font-medium shrink-0">
-            {t("historyPopover.title")}
-          </p>
+          <p className="shrink-0 text-sm font-medium">{t("historyPopover.title")}</p>
           <button
             type="button"
             className={cn(
@@ -140,18 +141,18 @@ export function AgentChatHistoryPopover({
         {searchOpen ? (
           <div className="border-b border-border px-3 py-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
               <Input
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={t("historyPopover.searchPlaceholder")}
-                className="h-8 rounded-md border-border/50 bg-muted/20 pl-8 pr-8 text-sm"
+                className="h-8 rounded-md border-border/50 bg-muted/20 pr-8 pl-8 text-sm"
               />
               {searchQuery ? (
                 <button
                   type="button"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                  className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
                   aria-label={t("historyPopover.clearSearchAria")}
                   onClick={() => {
                     setSearchQuery("");
@@ -180,10 +181,7 @@ export function AgentChatHistoryPopover({
           ) : (
             <div className="p-1">
               {visibleSessions.map((s) => {
-                const displayedCwd = formatHistoryCwd(
-                  s.cwd,
-                  t("composer.workingDirectory.thread"),
-                );
+                const displayedCwd = formatHistoryCwd(s.cwd, t("composer.workingDirectory.thread"));
                 const displayedTime = s.updated_at
                   ? formatLocalDateTime(s.updated_at, "MM/dd HH:mm")
                   : null;
@@ -199,7 +197,7 @@ export function AgentChatHistoryPopover({
                     <span className="w-full truncate font-medium">
                       {s.title || t("historyPopover.newChat")}
                     </span>
-                    {(displayedCwd || displayedTime) ? (
+                    {displayedCwd || displayedTime ? (
                       <span className="flex w-full min-w-0 items-center gap-2 text-[11px] text-muted-foreground/80">
                         {displayedCwd ? (
                           <span className="min-w-0 flex-1 truncate" title={displayedCwd}>
@@ -207,9 +205,7 @@ export function AgentChatHistoryPopover({
                           </span>
                         ) : null}
                         {displayedTime ? (
-                          <span className="shrink-0 text-muted-foreground">
-                            {displayedTime}
-                          </span>
+                          <span className="shrink-0 text-muted-foreground">{displayedTime}</span>
                         ) : null}
                       </span>
                     ) : null}

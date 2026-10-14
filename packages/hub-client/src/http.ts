@@ -9,10 +9,7 @@ import { requireHubBaseUrl } from "./config";
  *
  * Call sites never pass cookie/device explicitly.
  */
-export async function hubFetch(
-  path: string,
-  init: RequestInit = {},
-): Promise<Response> {
+export async function hubFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const base = requireHubBaseUrl();
   const headers = new Headers(init.headers);
   if (!headers.has("Content-Type") && init.body) {

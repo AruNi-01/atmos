@@ -19,10 +19,7 @@ import {
   type OAuthCallbackStatus,
 } from "@/shared/components/oauth-callback-shell";
 import { useOAuthCallbackReturn } from "@/shared/hooks/use-oauth-callback-return";
-import {
-  HUB_AUTH_DONE_CHANNEL,
-  HUB_AUTH_DONE_MESSAGE,
-} from "@/app/hub-auth/hub-auth-channel";
+import { HUB_AUTH_DONE_CHANNEL, HUB_AUTH_DONE_MESSAGE } from "@/app/hub-auth/hub-auth-channel";
 
 function HubAuthDoneInner() {
   const t = useTranslations("hubAuthDone");
@@ -58,10 +55,7 @@ function HubAuthDoneInner() {
         }
 
         try {
-          window.opener?.postMessage(
-            { type: HUB_AUTH_DONE_MESSAGE },
-            window.location.origin,
-          );
+          window.opener?.postMessage({ type: HUB_AUTH_DONE_MESSAGE }, window.location.origin);
         } catch {
           /* opener blocked */
         }
@@ -80,12 +74,7 @@ function HubAuthDoneInner() {
   }, [t]);
 
   return (
-    <OAuthCallbackShell
-      provider={provider}
-      status={status}
-      title={t("title")}
-      message={message}
-    >
+    <OAuthCallbackShell provider={provider} status={status} title={t("title")} message={message}>
       {status === "ok" || status === "error" ? (
         <OAuthCallbackReturnFooter
           ctx={returnCtx}
@@ -100,13 +89,7 @@ function HubAuthDoneInner() {
 
 function HubAuthDoneFallback() {
   const t = useTranslations("hubAuthDone");
-  return (
-    <OAuthCallbackShell
-      status="working"
-      title={t("title")}
-      message={t("working")}
-    />
-  );
+  return <OAuthCallbackShell status="working" title={t("title")} message={t("working")} />;
 }
 
 export default function HubAuthDonePage() {

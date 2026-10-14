@@ -6,21 +6,21 @@
 2. **Execution surface** is Atmos Desktop Use (library + optional engine binary under `~/.atmos/desktop-use/`). Process isolation preferred for any optional third-party control binary.
 3. **No MCP.** Agents use `atmos desktop-use` (and/or skills that wrap it).
 4. **No public vendor names** in UI, help, or default errors. Internal adapter modules may call a pinned external binary; that name never surfaces.
-5. **Orthogonal to APP-016**: Desktop Use is a *capability on a machine*, not a Computer identity. Do not nest under `atmos computer`.
+5. **Orthogonal to APP-016**: Desktop Use is a _capability on a machine_, not a Computer identity. Do not nest under `atmos computer`.
 
 ### 1.1 Control-engine supply chain (locked)
 
-| Choice | Decision |
-|--------|----------|
-| Source | **Pin official `cua-driver-rs-v*` release artifacts** (not monorepo compile-in-tree as default) |
-| Pin | `0.19.2` / tag `cua-driver-rs-v0.19.2` in `crates/desktop-use/manifest/default.json` |
-| Pin authority (Desktop) | **App Resources** `desktop-use/engine-manifest.json` via `ATMOS_DESKTOP_USE_MANIFEST` (Desktop injects pin; CLI binary is independent). Bare CLI falls back to embedded manifest. |
-| Runner (Desktop) | **Sole** canonical CLI `~/.atmos/bin/atmos` (ADR-005). Engine pin: App Resources `desktop-use/engine-manifest.json`. **CLI floor:** App Resources `desktop-use/cli-requirement.json` (`min_cli_version`, staged from `apps/cli/Cargo.toml` at package time into a gitignored overlay — never overwrite the tracked `resources/desktop-use/` pin). Desktop Use prompts install/update only when CLI missing or **below that floor** — not when a newer unrelated CLI exists on the release channel (About still uses channel latest). Never bundle CLI binary into Desktop. |
-| Install path | `atmos desktop-use driver ensure` downloads + sha256-verifies + extracts into `~/.atmos/desktop-use/` |
-| Managed binary name | `atmos-desktop-control` (white-label; never teach users `cua-driver`) |
-| macOS host identity | Rebrand extracted host app to **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + ad-hoc/product codesign so TCC grants show **one** product name for AppShot + control |
-| Rejected as primary | Separate **CuaDriver.app** grant UX; public MCP; user install from cua.ai |
-| Offline / CI | `ATMOS_DESKTOP_USE_ENGINE_ARCHIVE` fixture tarball or `ATMOS_DESKTOP_USE_ENGINE_SOURCE` raw binary |
+| Choice                  | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source                  | **Pin official `cua-driver-rs-v*` release artifacts** (not monorepo compile-in-tree as default)                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Pin                     | `0.19.2` / tag `cua-driver-rs-v0.19.2` in `crates/desktop-use/manifest/default.json`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Pin authority (Desktop) | **App Resources** `desktop-use/engine-manifest.json` via `ATMOS_DESKTOP_USE_MANIFEST` (Desktop injects pin; CLI binary is independent). Bare CLI falls back to embedded manifest.                                                                                                                                                                                                                                                                                                                                                                                          |
+| Runner (Desktop)        | **Sole** canonical CLI `~/.atmos/bin/atmos` (ADR-005). Engine pin: App Resources `desktop-use/engine-manifest.json`. **CLI floor:** App Resources `desktop-use/cli-requirement.json` (`min_cli_version`, staged from `apps/cli/Cargo.toml` at package time into a gitignored overlay — never overwrite the tracked `resources/desktop-use/` pin). Desktop Use prompts install/update only when CLI missing or **below that floor** — not when a newer unrelated CLI exists on the release channel (About still uses channel latest). Never bundle CLI binary into Desktop. |
+| Install path            | `atmos desktop-use driver ensure` downloads + sha256-verifies + extracts into `~/.atmos/desktop-use/`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Managed binary name     | `atmos-desktop-control` (white-label; never teach users `cua-driver`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| macOS host identity     | Rebrand extracted host app to **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + ad-hoc/product codesign so TCC grants show **one** product name for AppShot + control                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Rejected as primary     | Separate **CuaDriver.app** grant UX; public MCP; user install from cua.ai                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Offline / CI            | `ATMOS_DESKTOP_USE_ENGINE_ARCHIVE` fixture tarball or `ATMOS_DESKTOP_USE_ENGINE_SOURCE` raw binary                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Daemon: managed socket `~/.atmos/desktop-use/engine.sock`.
 
@@ -93,7 +93,7 @@ Notes:
   "bundle_id": null,
   "process_id": 1234,
   "bounds": { "x": 0, "y": 0, "width": 800, "height": 600 },
-  "png_base64": "…",   // or png_path when --out used
+  "png_base64": "…", // or png_path when --out used
   "context_markdown": "…",
   "quality": "window|display_fallback",
   "warnings": []
@@ -102,10 +102,10 @@ Notes:
 
 ### Capture execution identity (M1 lock)
 
-| Path | Implementation | TCC principal |
-|------|----------------|---------------|
-| **AppShot hot path** | `apps/desktop-electron/src/desktop-use/capture.ts` **in-process** (same Electron app) | **Atmos Desktop** app identity |
-| **CLI / agents** | `crates/desktop-use` via `atmos desktop-use capture` | CLI / helper binary (may need separate grants; documented) |
+| Path                 | Implementation                                                                        | TCC principal                                              |
+| -------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **AppShot hot path** | `apps/desktop-electron/src/desktop-use/capture.ts` **in-process** (same Electron app) | **Atmos Desktop** app identity                             |
+| **CLI / agents**     | `crates/desktop-use` via `atmos desktop-use capture`                                  | CLI / helper binary (may need separate grants; documented) |
 
 Rules:
 
@@ -138,12 +138,12 @@ Manifest ensure mirrors `local-model-runtime`: platform URL + sha256 when artifa
 
 ### 5.1 Desktop drive phases (product CLI, not 1:1 engine dump)
 
-| Phase | Goal | `atmos desktop-use drive` (representative) |
-|-------|------|-----------------------------------------------|
-| **0 (shipped)** | Install + capture + basic click/type | `screenshot`, `click`, `type`, `verify`, `window-state`, `highlight`, `session-end` |
-| **1** | Full computer shell for agents | `double-click`, `right-click`, `drag`, `scroll`, `hotkey`, `key`, `move`, `apps`, `launch`, `quit`, `clipboard get|set`, `screen`, `cursor`, `menu`, `ax-tree` |
-| **2** | Explicit extras (never default steal focus) | `front` (bring_to_front), `set-value`, `window-frame`, `zoom`, `verify-state` |
-| **3** | Page CDP — **not under Desktop Use** | See **§5.2 Browser Use** (`atmos browser-use`) |
+| Phase           | Goal                                        | `atmos desktop-use drive` (representative)                                                                         |
+| --------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **0 (shipped)** | Install + capture + basic click/type        | `screenshot`, `click`, `type`, `verify`, `window-state`, `highlight`, `session-end`                                |
+| **1**           | Full computer shell for agents              | `double-click`, `right-click`, `drag`, `scroll`, `hotkey`, `key`, `move`, `apps`, `launch`, `quit`, `clipboard get | set`, `screen`, `cursor`, `menu`, `ax-tree` |
+| **2**           | Explicit extras (never default steal focus) | `front` (bring_to_front), `set-value`, `window-frame`, `zoom`, `verify-state`                                      |
+| **3**           | Page CDP — **not under Desktop Use**        | See **§5.2 Browser Use** (`atmos browser-use`)                                                                     |
 
 Defaults: `delivery_mode=background`; optional session + operation border chrome; foreground only when requested.
 
@@ -151,9 +151,9 @@ Defaults: `delivery_mode=background`; optional session + operation border chrome
 
 **Product split (locked):**
 
-| Surface | Object | CLI | Engine tools (external Chromium first) |
-|---------|--------|-----|----------------------------------------|
-| **Desktop Use** | OS windows, keys, AX, pixels | `atmos desktop-use` | `list_windows`, `click`, `type_text`, … |
+| Surface         | Object                                            | CLI                 | Engine tools (external Chromium first)                                                                                                                                  |
+| --------------- | ------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Desktop Use** | OS windows, keys, AX, pixels                      | `atmos desktop-use` | `list_windows`, `click`, `type_text`, …                                                                                                                                 |
 | **Browser Use** | Bound browser **tabs / DOM** (engine **0.19.2+**) | `atmos browser-use` | `browser_prepare`, `get_browser_state` (`semantic_v2`), `browser_click`, `browser_type`, `browser_navigate`, `browser_pointer`, `browser_dialog`, `browser_download`, … |
 
 Rules:
@@ -212,14 +212,14 @@ Handlers invoke the same crate logic via CLI subprocess or embedded binary path 
 
 ## 9. Rollout
 
-| Slice | Deliverable |
-|-------|-------------|
-| S0 | Specs locked |
-| S1 | `crates/desktop-use` + unit tests (state, paths, capture parse, brand scrub) |
-| S2 | CLI `atmos desktop-use` |
-| S3 | Electron capture rewire |
-| S4 | Settings + permissions reuse + primary path redirect |
-| S5 | PR + CI |
+| Slice | Deliverable                                                                  |
+| ----- | ---------------------------------------------------------------------------- |
+| S0    | Specs locked                                                                 |
+| S1    | `crates/desktop-use` + unit tests (state, paths, capture parse, brand scrub) |
+| S2    | CLI `atmos desktop-use`                                                      |
+| S3    | Electron capture rewire                                                      |
+| S4    | Settings + permissions reuse + primary path redirect                         |
+| S5    | PR + CI                                                                      |
 
 ## 10. Testing strategy
 
@@ -229,8 +229,8 @@ Handlers invoke the same crate logic via CLI subprocess or embedded binary path 
 
 ## 11. Risks
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                            | Mitigation                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------- |
 | TCC identity for naked binaries | M1 capture via host-spawned Atmos tools; document helper identity follow-up |
-| Engine download unavailable | First-class not_installed / failed; capture still works |
-| CLI spawn latency for AppShot | Acceptable M1; can embed helper later |
+| Engine download unavailable     | First-class not_installed / failed; capture still works                     |
+| CLI spawn latency for AppShot   | Acceptable M1; can embed helper later                                       |

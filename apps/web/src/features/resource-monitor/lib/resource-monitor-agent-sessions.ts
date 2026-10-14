@@ -38,9 +38,7 @@ function chatStatusSessionId(chatId: string): string {
   return `chat:${chatId.trim()}`;
 }
 
-function parseChatStatusSessionId(
-  sessionId: string | null | undefined,
-): string | null {
+function parseChatStatusSessionId(sessionId: string | null | undefined): string | null {
   const id = sessionId?.trim() ?? "";
   if (!id.startsWith("chat:")) return null;
   return id.slice("chat:".length) || null;
@@ -87,9 +85,7 @@ function toolbarAgentForChat(
   };
 }
 
-function indexResourceMonitorContexts(
-  projects: readonly Project[],
-): Map<string, ContextIndex> {
+function indexResourceMonitorContexts(projects: readonly Project[]): Map<string, ContextIndex> {
   const index = new Map<string, ContextIndex>();
   for (const project of projects) {
     index.set(project.id, {
@@ -103,8 +99,7 @@ function indexResourceMonitorContexts(
         projectId: project.id,
         projectName: project.name,
         workspaceId: workspace.id,
-        workspaceName:
-          workspace.displayName?.trim() || workspace.name || workspace.branch,
+        workspaceName: workspace.displayName?.trim() || workspace.name || workspace.branch,
       });
     }
   }
@@ -113,11 +108,7 @@ function indexResourceMonitorContexts(
 
 function chatIdFromStatus(session: AgentStatusRecord): string | null {
   if (session.surface !== "chat") return null;
-  return (
-    session.surface_id?.trim() ||
-    parseChatStatusSessionId(session.session_id) ||
-    null
-  );
+  return session.surface_id?.trim() || parseChatStatusSessionId(session.session_id) || null;
 }
 
 function synthesizeChatStatus(input: {
@@ -148,8 +139,7 @@ function placementFromChat(input: {
   agentStatus: AgentStatusRecord;
 }): ResourceMonitorChatPlacement {
   const tool = asAgentTool(input.agentStatus.tool);
-  const providerId =
-    input.agentStatus.provider_id?.trim() || input.tab?.providerId?.trim() || null;
+  const providerId = input.agentStatus.provider_id?.trim() || input.tab?.providerId?.trim() || null;
   const title = input.tab?.title?.trim();
   return {
     sessionId: chatStatusSessionId(input.chatId),
@@ -190,11 +180,7 @@ export function collectResourceMonitorChatSessions(input: {
       hostId,
       session.space_id?.trim() || DEFAULT_CENTER_SPACE_ID,
     );
-    const tab = findAgentChatCenterTab(
-      input.chatTabsByContext,
-      chatId,
-      preferredPaint,
-    );
+    const tab = findAgentChatCenterTab(input.chatTabsByContext, chatId, preferredPaint);
     const spaceId = tab
       ? parseCenterSpaceKey(tab.contextId).spaceId
       : session.space_id?.trim() || DEFAULT_CENTER_SPACE_ID;
@@ -233,14 +219,13 @@ export function collectResourceMonitorChatSessions(input: {
     }
   }
 
-  return [...byChatId.values()].sort((left, right) =>
-    left.name.localeCompare(right.name) || left.sessionId.localeCompare(right.sessionId),
+  return [...byChatId.values()].sort(
+    (left, right) =>
+      left.name.localeCompare(right.name) || left.sessionId.localeCompare(right.sessionId),
   );
 }
 
-function listedChatSession(
-  chat: ResourceMonitorChatPlacement,
-): ResourceMonitorListedSession {
+function listedChatSession(chat: ResourceMonitorChatPlacement): ResourceMonitorListedSession {
   return {
     session_id: chat.sessionId,
     name: chat.name,
@@ -277,10 +262,7 @@ function upsertChatSession(
   return next;
 }
 
-function emptyWorkspace(
-  workspaceId: string,
-  name: string,
-): ResourceWorkspaceMetrics {
+function emptyWorkspace(workspaceId: string, name: string): ResourceWorkspaceMetrics {
   return {
     workspace_id: workspaceId,
     name,
@@ -333,14 +315,9 @@ export function mergeResourceMonitorChatSessions(
     }
     const listed = listedChatSession(chat);
     if (chat.workspaceId) {
-      let workspace = project.workspaces.find(
-        (item) => item.workspace_id === chat.workspaceId,
-      );
+      let workspace = project.workspaces.find((item) => item.workspace_id === chat.workspaceId);
       if (!workspace) {
-        workspace = emptyWorkspace(
-          chat.workspaceId,
-          chat.workspaceName ?? chat.workspaceId,
-        );
+        workspace = emptyWorkspace(chat.workspaceId, chat.workspaceName ?? chat.workspaceId);
         project.workspaces = [...project.workspaces, workspace];
       }
       workspace.sessions = upsertChatSession(workspace.sessions, listed);

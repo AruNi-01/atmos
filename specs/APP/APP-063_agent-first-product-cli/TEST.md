@@ -14,65 +14,65 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 envelope | S1, S2, S3 |
-| M2 root discovery | S4 |
-| M3 next_actions | S10, S11 |
-| M4 truncation | S5 |
-| M5 no dual --json | S6 |
-| M6 thin client | S7 (arch/regression) |
-| M7 headless | S8, S10 |
-| M8 RPC plane | S8, S9 |
-| M9 status/context | S12, S13 |
-| M10 project | S10, S14 |
-| M11 workspace | S11, S15 |
-| M12 group | S16 |
-| M13 terminal | S17 |
-| M14 run | S18 |
-| M15 settings | S19 |
-| M16 git | S20 |
-| M17 call/actions | S9, S21 |
-| M18 host envelope | S22 |
-| M19 review/canvas envelope | S23 |
-| M20 destructive --yes | S14, S15 |
-| M21 auth/unreachable | S2, S3 |
-| M22 atmos-cli skill | S25, S26, S27 |
-| N1 streaming | S24 (deferred) |
-| N5 skill-dir | S28 (deferred / optional) |
+| PRD item                   | Scenario IDs              |
+| -------------------------- | ------------------------- |
+| M1 envelope                | S1, S2, S3                |
+| M2 root discovery          | S4                        |
+| M3 next_actions            | S10, S11                  |
+| M4 truncation              | S5                        |
+| M5 no dual --json          | S6                        |
+| M6 thin client             | S7 (arch/regression)      |
+| M7 headless                | S8, S10                   |
+| M8 RPC plane               | S8, S9                    |
+| M9 status/context          | S12, S13                  |
+| M10 project                | S10, S14                  |
+| M11 workspace              | S11, S15                  |
+| M12 group                  | S16                       |
+| M13 terminal               | S17                       |
+| M14 run                    | S18                       |
+| M15 settings               | S19                       |
+| M16 git                    | S20                       |
+| M17 call/actions           | S9, S21                   |
+| M18 host envelope          | S22                       |
+| M19 review/canvas envelope | S23                       |
+| M20 destructive --yes      | S14, S15                  |
+| M21 auth/unreachable       | S2, S3                    |
+| M22 atmos-cli skill        | S25, S26, S27             |
+| N1 streaming               | S24 (deferred)            |
+| N5 skill-dir               | S28 (deferred / optional) |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Unit | `cargo test -p atmos` | envelope success shape | sample Value | keys `ok,command,result,next_actions` | planned |
-| S2 | Unit | `cargo test -p atmos` | envelope error + exit | fake unreachable | `ok:false`, `error.code`, `fix` | planned |
-| S3 | API | `cargo test -p api` | rpc unauthorized | no token / wrong token | 401 or structured UNAUTHORIZED | planned |
-| S4 | CLI | `cargo test -p atmos` or manual | `atmos` no args | none | command tree JSON | planned |
-| S5 | Unit | `cargo test -p atmos` | truncate helper | 500-item list | `truncated:true`, `full_output` or total | planned |
-| S6 | CLI | `cargo test -p atmos` | parse CLI | `--json` absent | clap rejects unknown global `--json` or flag gone | planned |
-| S7 | Manual/review | code review | Cargo.toml deps | apps/cli | no core-service dep | planned |
-| S8 | API | `cargo test -p api` | rpc project_list without WS clients | test AppState | success data array/object | planned |
-| S9 | API | `cargo test -p api` | rpc unknown action | `action: no_such` | UNKNOWN_ACTION / 400 | planned |
-| S10 | Integration | `cargo test` / manual | project create via CLI or rpc | temp git repo path | project guid in result | planned |
-| S11 | Integration | same | workspace create | project from S10 | workspace id; next_actions | planned |
-| S12 | CLI | `cargo test -p atmos` | status | mock or real server | health fields | planned |
-| S13 | Unit | `cargo test -p atmos` | context resolve order | temp HOME | flag > env > file | planned |
-| S14 | CLI/API | integration | project delete without/with `--yes` | fixture project | CONFIRMATION_REQUIRED then deleted | planned |
-| S15 | CLI/API | integration | workspace delete | fixture | same as S14 pattern | planned |
-| S16 | API | `cargo test -p api` | group_list rpc | empty db | success | planned |
-| S17 | Integration | manual/api | terminal create | workspace | session id without UI | planned |
-| S18 | Integration | manual/api | run logs resolve | workspace with run | log pointer or lines | planned |
-| S19 | API | `cargo test -p api` | settings_bootstrap_get | AppState | bootstrap object | planned |
-| S20 | API | `cargo test -p api` | git_get_status | workspace path fixture | status payload | planned |
-| S21 | CLI | `cargo test -p atmos` | actions list filter | mock actions endpoint | filtered names | planned |
-| S22 | CLI | `cargo test -p atmos` | runtime status envelope | fake status Value | `ok:true` envelope | planned |
-| S23 | CLI | unit | review/canvas wrap | sample API data | envelope not raw-only | planned |
-| S24 | deferred | — | NDJSON follow | — | — | deferred |
-| S25 | Static / unit | path exists check or script | skill root | packaged `atmos-cli` tree | `SKILL.md` + `references/` present | planned |
-| S26 | Review / static | grep / checklist | SKILL.md body | skill source | decision tree; L1 primary; call secondary; no full actions dump | planned |
-| S27 | Manual / packaging | install or runtime sync | system-skills sync | clean user skill dir | `~/.atmos/skills/.system/atmos-cli/SKILL.md` exists after sync | planned |
-| S28 | CLI optional | N5 | `atmos skill-dir` or discovery | skill installed | path points at skill | deferred |
+| Scenario | Level              | Expected tool                   | Target command / method             | Fixture / data            | Signals                                                         | Status   |
+| -------- | ------------------ | ------------------------------- | ----------------------------------- | ------------------------- | --------------------------------------------------------------- | -------- |
+| S1       | Unit               | `cargo test -p atmos`           | envelope success shape              | sample Value              | keys `ok,command,result,next_actions`                           | planned  |
+| S2       | Unit               | `cargo test -p atmos`           | envelope error + exit               | fake unreachable          | `ok:false`, `error.code`, `fix`                                 | planned  |
+| S3       | API                | `cargo test -p api`             | rpc unauthorized                    | no token / wrong token    | 401 or structured UNAUTHORIZED                                  | planned  |
+| S4       | CLI                | `cargo test -p atmos` or manual | `atmos` no args                     | none                      | command tree JSON                                               | planned  |
+| S5       | Unit               | `cargo test -p atmos`           | truncate helper                     | 500-item list             | `truncated:true`, `full_output` or total                        | planned  |
+| S6       | CLI                | `cargo test -p atmos`           | parse CLI                           | `--json` absent           | clap rejects unknown global `--json` or flag gone               | planned  |
+| S7       | Manual/review      | code review                     | Cargo.toml deps                     | apps/cli                  | no core-service dep                                             | planned  |
+| S8       | API                | `cargo test -p api`             | rpc project_list without WS clients | test AppState             | success data array/object                                       | planned  |
+| S9       | API                | `cargo test -p api`             | rpc unknown action                  | `action: no_such`         | UNKNOWN_ACTION / 400                                            | planned  |
+| S10      | Integration        | `cargo test` / manual           | project create via CLI or rpc       | temp git repo path        | project guid in result                                          | planned  |
+| S11      | Integration        | same                            | workspace create                    | project from S10          | workspace id; next_actions                                      | planned  |
+| S12      | CLI                | `cargo test -p atmos`           | status                              | mock or real server       | health fields                                                   | planned  |
+| S13      | Unit               | `cargo test -p atmos`           | context resolve order               | temp HOME                 | flag > env > file                                               | planned  |
+| S14      | CLI/API            | integration                     | project delete without/with `--yes` | fixture project           | CONFIRMATION_REQUIRED then deleted                              | planned  |
+| S15      | CLI/API            | integration                     | workspace delete                    | fixture                   | same as S14 pattern                                             | planned  |
+| S16      | API                | `cargo test -p api`             | group_list rpc                      | empty db                  | success                                                         | planned  |
+| S17      | Integration        | manual/api                      | terminal create                     | workspace                 | session id without UI                                           | planned  |
+| S18      | Integration        | manual/api                      | run logs resolve                    | workspace with run        | log pointer or lines                                            | planned  |
+| S19      | API                | `cargo test -p api`             | settings_bootstrap_get              | AppState                  | bootstrap object                                                | planned  |
+| S20      | API                | `cargo test -p api`             | git_get_status                      | workspace path fixture    | status payload                                                  | planned  |
+| S21      | CLI                | `cargo test -p atmos`           | actions list filter                 | mock actions endpoint     | filtered names                                                  | planned  |
+| S22      | CLI                | `cargo test -p atmos`           | runtime status envelope             | fake status Value         | `ok:true` envelope                                              | planned  |
+| S23      | CLI                | unit                            | review/canvas wrap                  | sample API data           | envelope not raw-only                                           | planned  |
+| S24      | deferred           | —                               | NDJSON follow                       | —                         | —                                                               | deferred |
+| S25      | Static / unit      | path exists check or script     | skill root                          | packaged `atmos-cli` tree | `SKILL.md` + `references/` present                              | planned  |
+| S26      | Review / static    | grep / checklist                | SKILL.md body                       | skill source              | decision tree; L1 primary; call secondary; no full actions dump | planned  |
+| S27      | Manual / packaging | install or runtime sync         | system-skills sync                  | clean user skill dir      | `~/.atmos/skills/.system/atmos-cli/SKILL.md` exists after sync  | planned  |
+| S28      | CLI optional       | N5                              | `atmos skill-dir` or discovery      | skill installed           | path points at skill                                            | deferred |
 
 ## Scenarios
 

@@ -45,10 +45,7 @@ describe("Artist overlay ink", () => {
   });
 
   test("skips the full-bleed frame that duplicates the handle", () => {
-    const marks = marksForBox(
-      box({ w: 240, h: 80, borders: four(solid()) }),
-      { w: 240, h: 80 },
-    );
+    const marks = marksForBox(box({ w: 240, h: 80, borders: four(solid()) }), { w: 240, h: 80 });
     expect(marks).toEqual([]);
   });
 
@@ -148,7 +145,9 @@ describe("Artist overlay ink", () => {
     expect(plan.marks).toEqual([]);
     expect(plan.hide).toBe(true);
     expect(fieldMarks({ x: 0, y: 0, w: 240, h: 80 }, { w: 240, h: 80 })).toEqual([]);
-    expect(marksForBox(box({ w: 240, h: 80, borders: four(solid()) }), { w: 240, h: 80 })).toEqual([]);
+    expect(marksForBox(box({ w: 240, h: 80, borders: four(solid()) }), { w: 240, h: 80 })).toEqual(
+      [],
+    );
   });
 
   test("inner strokes are sampled, not two-point CSS lines", () => {
@@ -203,9 +202,9 @@ describe("overlay wires Artist ink", () => {
     expect(css).toContain("data-pt-artist-ink");
     expect(css).toContain('[data-pt-artist-ink="line"]');
     expect(css).toContain("data-pt-artist-ready");
-    expect(css).toContain("input[type=\"checkbox\"]");
+    expect(css).toContain('input[type="checkbox"]');
     const ink = readFileSync(new URL("./artist-ink.tsx", import.meta.url), "utf8");
-    expect(ink).toContain("addEventListener(\"change\"");
+    expect(ink).toContain('addEventListener("change"');
     expect(ink).toContain("attributeFilter");
     expect(ink).toContain("el.dataset.ptArtist");
     expect(ink).toContain("fieldMarks");

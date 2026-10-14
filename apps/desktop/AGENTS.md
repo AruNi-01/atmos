@@ -6,11 +6,11 @@
 
 ## Rule for agents and humans
 
-| Do | Don't |
-|----|--------|
+| Do                                                               | Don't                                                 |
+| ---------------------------------------------------------------- | ----------------------------------------------------- |
 | Edit **`apps/desktop-electron/**`** for any desktop shell change | Edit `apps/desktop/**` for new features, fixes, or UX |
-| Release via `just release-desktop` / `/atmos-desktop-release` | Cut Tauri `desktop-*` production releases |
-| Point docs/commands at production desktop | Treat this tree as the default desktop |
+| Release via `just release-desktop` / `/atmos-desktop-release`    | Cut Tauri `desktop-*` production releases             |
+| Point docs/commands at production desktop                        | Treat this tree as the default desktop                |
 
 This tree (`apps/desktop` + Tauri) is **read-mostly**: emergency/local reference only. Production product identity is **Atmos** / `com.atmos.desktop` under `apps/desktop-electron`.
 

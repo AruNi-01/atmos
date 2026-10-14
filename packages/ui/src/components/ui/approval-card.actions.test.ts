@@ -15,7 +15,7 @@ describe("approval-card dynamic actions", () => {
 
   it("accepts optional planBody for injected plan markdown preview", () => {
     expect(card).toContain("planBody?: ReactNode");
-    expect(card).toContain("planView?: \"body\" | \"todos\"");
+    expect(card).toContain('planView?: "body" | "todos"');
     expect(card).toContain("data-approval-plan-body");
     expect(card).toContain("canSwitchPlanPanes");
     expect(card).toContain("activePlanPane");

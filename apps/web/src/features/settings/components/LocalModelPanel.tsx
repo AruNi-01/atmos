@@ -2,11 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  type LocalModelListResponse,
-  type LocalModelStatus,
-  localModelApi,
-} from "@/api/ws-api";
+import { type LocalModelListResponse, type LocalModelStatus, localModelApi } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { Button } from "@workspace/ui/components/ui/button";
 import { Skeleton } from "@workspace/ui/components/ui/skeleton";
@@ -116,8 +112,7 @@ export function LocalModelRuntimeControl() {
   const state = data?.state;
   const installed = data?.runtime.installed ?? false;
   const downloading = state?.status === "downloading_runtime";
-  const progress =
-    state?.status === "downloading_runtime" ? state.progress * 100 : null;
+  const progress = state?.status === "downloading_runtime" ? state.progress * 100 : null;
 
   return (
     <>
@@ -127,7 +122,7 @@ export function LocalModelRuntimeControl() {
             <Button
               size="sm"
               variant="outline"
-              className="text-muted-foreground hover:text-destructive hover:border-destructive/50"
+              className="text-muted-foreground hover:border-destructive/50 hover:text-destructive"
               disabled={busy}
               onClick={() => setConfirmDeleteRuntime(true)}
             >
@@ -159,9 +154,7 @@ export function LocalModelRuntimeControl() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("runtime.deleteDialogTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("runtime.deleteDialogDescription")}
-            </DialogDescription>
+            <DialogDescription>{t("runtime.deleteDialogDescription")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDeleteRuntime(false)}>
@@ -264,7 +257,10 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
       setData((prev) => (prev ? { ...prev, state: payload.state } : prev));
 
       // Reset the check flag when entering downloading state
-      if (payload.state.status === "downloading_model" || payload.state.status === "downloading_runtime") {
+      if (
+        payload.state.status === "downloading_model" ||
+        payload.state.status === "downloading_runtime"
+      ) {
         hasCheckedCompletedRef.current = false;
       }
 
@@ -327,7 +323,12 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
     setBusy(true);
     try {
       setData((prev) =>
-        prev ? { ...prev, state: { status: "starting", model_id: modelId, stage: "launching_process" } } : prev,
+        prev
+          ? {
+              ...prev,
+              state: { status: "starting", model_id: modelId, stage: "launching_process" },
+            }
+          : prev,
       );
       await localModelApi.start(modelId);
       // Don't immediately load - let WebSocket events and polling handle state updates
@@ -407,9 +408,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
     <div className="space-y-3">
       {/* Header row: global status */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {data && <StatusBadge state={data.state} />}
-        </div>
+        <div className="flex items-center gap-2">{data && <StatusBadge state={data.state} />}</div>
         <Button
           size="sm"
           variant="ghost"

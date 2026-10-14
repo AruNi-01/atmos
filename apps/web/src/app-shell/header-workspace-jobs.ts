@@ -18,12 +18,8 @@ export function collectHeaderWorkspaceSetupItems(input: {
   const seenWorkspaceIds = new Set<string>();
 
   for (const job of input.jobs) {
-    const progress = job.workspaceId ? input.setupProgress[job.workspaceId] ?? null : null;
-    if (
-      !progress &&
-      job.workspaceId &&
-      job.workspaceId === input.currentWorkspaceId
-    ) {
+    const progress = job.workspaceId ? (input.setupProgress[job.workspaceId] ?? null) : null;
+    if (!progress && job.workspaceId && job.workspaceId === input.currentWorkspaceId) {
       seenWorkspaceIds.add(job.workspaceId);
       continue;
     }

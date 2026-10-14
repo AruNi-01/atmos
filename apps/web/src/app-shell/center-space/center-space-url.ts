@@ -54,9 +54,7 @@ let urlWriter: CenterPaintTabUrlWriter | null = null;
 let paintIdReader: ((hostId: string) => string) | null = null;
 
 /** Bound by the center-space store so nav-prep stays free of that module graph. */
-export function bindPaintContextIdReader(
-  reader: ((hostId: string) => string) | null,
-): void {
+export function bindPaintContextIdReader(reader: ((hostId: string) => string) | null): void {
   paintIdReader = reader;
 }
 
@@ -154,8 +152,7 @@ function isLeftoverUrlDeepLink(input: {
     }
   }
   if (input.ignoreLeftoverDeepLink) return true;
-  const paintChanged =
-    Boolean(input.previousPaintId) && input.previousPaintId !== input.paintId;
+  const paintChanged = Boolean(input.previousPaintId) && input.previousPaintId !== input.paintId;
   if (!paintChanged) return false;
   const prevHost = hostIdFromCenterKey(input.previousPaintId ?? "");
   const destHost = hostIdFromCenterKey(input.paintId ?? "");
@@ -190,8 +187,7 @@ export function shouldHonorUrlTabForPaintContext(input: {
   if (!input.paintId) return false;
 
   const tab = input.tabFromUrl;
-  const paintChanged =
-    Boolean(input.previousPaintId) && input.previousPaintId !== input.paintId;
+  const paintChanged = Boolean(input.previousPaintId) && input.previousPaintId !== input.paintId;
 
   const tmux = input.terminalTmux?.trim() || "";
   const side = input.sideChat?.trim() || "";
@@ -229,9 +225,7 @@ export function shouldHonorUrlTabForPaintContext(input: {
   return input.lastTab === tab;
 }
 
-export function bindCenterPaintTabUrlWriter(
-  writer: CenterPaintTabUrlWriter | null,
-): void {
+export function bindCenterPaintTabUrlWriter(writer: CenterPaintTabUrlWriter | null): void {
   urlWriter = writer;
 }
 

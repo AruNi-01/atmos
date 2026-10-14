@@ -32,9 +32,7 @@ export function WorkspacePickerScreen() {
   const theme = useMobileTheme();
   const queryClient = useQueryClient();
   const { client, state } = useMobileWs();
-  const hasDeviceCredential = useSessionStore(
-    (store) => store.hasDeviceCredential,
-  );
+  const hasDeviceCredential = useSessionStore((store) => store.hasDeviceCredential);
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const isConnected = Boolean(client && state === "open");
   const bootstrapQueryKey = ["workspace-bootstrap", selectedServerId, state] as const;
@@ -58,7 +56,8 @@ export function WorkspacePickerScreen() {
     },
     onMutate: async ({ workflowStatus, workspaceId }) => {
       await queryClient.cancelQueries({ queryKey: bootstrapQueryKey });
-      const previous = queryClient.getQueryData<ProjectWorkspaceBootstrapResponse>(bootstrapQueryKey);
+      const previous =
+        queryClient.getQueryData<ProjectWorkspaceBootstrapResponse>(bootstrapQueryKey);
       queryClient.setQueryData<ProjectWorkspaceBootstrapResponse>(bootstrapQueryKey, (current) =>
         updateBootstrapWorkspaceStatus(current, workspaceId, workflowStatus),
       );
@@ -80,7 +79,8 @@ export function WorkspacePickerScreen() {
   const workspaceCount = groups.reduce((total, group) => total + group.workspaces.length, 0);
   const projectCount = projects.length;
   const error = bootstrap.error instanceof Error ? bootstrap.error.message : null;
-  const statusUpdateError = updateWorkflowStatus.error instanceof Error ? updateWorkflowStatus.error.message : null;
+  const statusUpdateError =
+    updateWorkflowStatus.error instanceof Error ? updateWorkflowStatus.error.message : null;
   const canShowWorkspaces = hasDeviceCredential && isConnected && !error;
 
   return (
@@ -117,27 +117,31 @@ export function WorkspacePickerScreen() {
               <Section key={group.project.guid} label={group.project.name}>
                 {group.workspaces.length === 0 ? (
                   <View style={styles.emptyProject}>
-                    <EmptyState title="No Workspaces" message="Create a workspace in this project to start working." />
+                    <EmptyState
+                      title="No Workspaces"
+                      message="Create a workspace in this project to start working."
+                    />
                     <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.ctaFill}
-      style={styles.stretchHost}
-    >
-      <Button
-        label={"New Workspace"}
-        onPress={() =>
-                        router.replace({
-                          pathname: "/create-workspace",
-                          params: { projectGuid: group.project.guid },
-                        })}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="filled"
-      />
-    </Host>
+                      matchContents={{ vertical: true }}
+                      colorScheme={theme.colorScheme}
+                      seedColor={theme.colors.ctaFill}
+                      style={styles.stretchHost}
+                    >
+                      <Button
+                        label={"New Workspace"}
+                        onPress={() =>
+                          router.replace({
+                            pathname: "/create-workspace",
+                            params: { projectGuid: group.project.guid },
+                          })
+                        }
+                        modifiers={buttonStretchModifiers}
+                        style={{
+                          height: 52,
+                        }}
+                        variant="filled"
+                      />
+                    </Host>
                   </View>
                 ) : (
                   <View>
@@ -149,8 +153,15 @@ export function WorkspacePickerScreen() {
                           status={workspace.workflow_status}
                           onPress={() => router.replace(`/workspace/${workspace.guid}`)}
                           onStatusChange={(workflowStatus) => {
-                            if (workflowStatus === normalizeWorkspaceWorkflowStatus(workspace.workflow_status)) return;
-                            updateWorkflowStatus.mutate({ workspaceId: workspace.guid, workflowStatus });
+                            if (
+                              workflowStatus ===
+                              normalizeWorkspaceWorkflowStatus(workspace.workflow_status)
+                            )
+                              return;
+                            updateWorkflowStatus.mutate({
+                              workspaceId: workspace.guid,
+                              workflowStatus,
+                            });
                           }}
                         />
                         {index < group.workspaces.length - 1 ? <Separator /> : null}
@@ -219,15 +230,15 @@ function WorkspaceRow({
           {title}
         </Text>
         {branch.trim().toLowerCase() === title.trim().toLowerCase() ? null : (
-          <Text style={[styles.workspaceBranch, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
+          <Text
+            style={[styles.workspaceBranch, { color: theme.colors.secondaryLabel }]}
+            numberOfLines={1}
+          >
             {branch}
           </Text>
         )}
       </Pressable>
-      <WorkspaceStatusMenu
-        status={status}
-        onStatusChange={onStatusChange}
-      />
+      <WorkspaceStatusMenu status={status} onStatusChange={onStatusChange} />
     </View>
   );
 }
@@ -266,7 +277,9 @@ function WorkspaceStatusMenu({
     <View style={styles.statusMenu}>
       <MenuView
         actions={actions}
-        onPressAction={(event) => onStatusChange(event.nativeEvent.event as WorkspaceWorkflowStatus)}
+        onPressAction={(event) =>
+          onStatusChange(event.nativeEvent.event as WorkspaceWorkflowStatus)
+        }
         shouldOpenOnLongPress={false}
         title="Workspace status"
       >
@@ -370,22 +383,24 @@ function GuideSection({
     <Section>
       <View style={styles.guide}>
         <EmptyState title={title} message={message} />
-        {actionLabel && onAction ? <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.ctaFill}
-      style={styles.stretchHost}
-    >
-      <Button
-        label={actionLabel}
-        onPress={onAction}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="filled"
-      />
-    </Host> : null}
+        {actionLabel && onAction ? (
+          <Host
+            matchContents={{ vertical: true }}
+            colorScheme={theme.colorScheme}
+            seedColor={theme.colors.ctaFill}
+            style={styles.stretchHost}
+          >
+            <Button
+              label={actionLabel}
+              onPress={onAction}
+              modifiers={buttonStretchModifiers}
+              style={{
+                height: 52,
+              }}
+              variant="filled"
+            />
+          </Host>
+        ) : null}
       </View>
     </Section>
   );

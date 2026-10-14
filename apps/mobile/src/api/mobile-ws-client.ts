@@ -1,7 +1,4 @@
-import type {
-  MappedWsAction,
-  WsContract,
-} from "@atmos/api-types/ws/contract";
+import type { MappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
 import {
   createWsSession,
   DEFAULT_MOBILE_RECONNECT,
@@ -36,13 +33,7 @@ type MobileWebSocketCtor = new (url: string) => MobileWebSocketLike;
 
 type MobileTimer = ReturnType<typeof setTimeout>;
 
-export type MobileWsState =
-  | "idle"
-  | "connecting"
-  | "open"
-  | "reconnecting"
-  | "closed"
-  | "error";
+export type MobileWsState = "idle" | "connecting" | "open" | "reconnecting" | "closed" | "error";
 
 type MobileWsClientOptions = {
   WebSocketCtor?: MobileWebSocketCtor;
@@ -164,8 +155,7 @@ export class MobileWsClient {
     const WebSocketCtor = options.WebSocketCtor;
     const setTimer = options.setTimeout ?? setTimeout;
     const clearTimer = options.clearTimeout ?? clearTimeout;
-    const maxAttempts =
-      options.maxReconnectAttempts ?? DEFAULT_MOBILE_RECONNECT.maxAttempts;
+    const maxAttempts = options.maxReconnectAttempts ?? DEFAULT_MOBILE_RECONNECT.maxAttempts;
     const reconnectEnabled = options.reconnect ?? true;
 
     this.session = createWsSession({
@@ -174,9 +164,7 @@ export class MobileWsClient {
       platform: {
         createWebSocket: (url) =>
           adaptSocket(
-            WebSocketCtor
-              ? new WebSocketCtor(url)
-              : preferredComputerWebSocket(url),
+            WebSocketCtor ? new WebSocketCtor(url) : preferredComputerWebSocket(url),
             (message) => {
               this.lastFailureMessage = message;
             },
@@ -197,11 +185,8 @@ export class MobileWsClient {
         ...DEFAULT_MOBILE_RECONNECT,
         enabled: reconnectEnabled,
         maxAttempts,
-        initialDelayMs:
-          options.reconnectInitialDelayMs ??
-          DEFAULT_MOBILE_RECONNECT.initialDelayMs,
-        maxDelayMs:
-          options.reconnectMaxDelayMs ?? DEFAULT_MOBILE_RECONNECT.maxDelayMs,
+        initialDelayMs: options.reconnectInitialDelayMs ?? DEFAULT_MOBILE_RECONNECT.initialDelayMs,
+        maxDelayMs: options.reconnectMaxDelayMs ?? DEFAULT_MOBILE_RECONNECT.maxDelayMs,
       },
       requestTimeoutMs: 0,
     });
@@ -246,9 +231,7 @@ export class MobileWsClient {
     return this.session.request(action as never, data as never, opts).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("not connected")) {
-        return Promise.reject(
-          new Error("Atmos mobile WebSocket is not connected"),
-        );
+        return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
       }
       return Promise.reject(err instanceof Error ? err : new Error(message));
     });

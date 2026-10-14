@@ -35,9 +35,7 @@ let sessionCookieProvider: (() => string) | null = null;
  * Browser: `() => document.cookie` (HttpOnly cookies are not visible; device covers that).
  * Native / pure device: omit or pass null.
  */
-export function setHubSessionCookieProvider(
-  provider: (() => string) | null,
-): void {
+export function setHubSessionCookieProvider(provider: (() => string) | null): void {
   sessionCookieProvider = provider;
 }
 
@@ -99,10 +97,7 @@ export function withHubAuth<T extends Record<string, unknown>>(
 }
 
 /** Apply material to outbound Hub HTTPS headers (device Bearer). Cookies use credentials:include. */
-export function applyHubAuthToHeaders(
-  headers: Headers,
-  material?: HubAuthMaterial,
-): void {
+export function applyHubAuthToHeaders(headers: Headers, material?: HubAuthMaterial): void {
   const m = material ?? getHubAuthMaterial();
   if (!headers.has("Authorization") && m.deviceCredential) {
     headers.set("Authorization", `Bearer ${m.deviceCredential}`);

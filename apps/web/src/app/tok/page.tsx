@@ -5,16 +5,10 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { PushPageStack, usePushPageTransition } from "@workspace/ui";
 
-import {
-  PublicTokNotFound,
-  PublicTokPage,
-} from "@/features/token-usage/PublicTokPage";
+import { PublicTokNotFound, PublicTokPage } from "@/features/token-usage/PublicTokPage";
 import { PublicTokLeaderboards } from "@/features/token-usage/PublicTokLeaderboards";
 import { TokenUsageLoadingScreen } from "@/features/token-usage/TokenUsageLoadingScreen";
-import {
-  fetchPublicLeaderboards,
-  fetchPublicTok,
-} from "@/features/token-usage/fetch-public-tok";
+import { fetchPublicLeaderboards, fetchPublicTok } from "@/features/token-usage/fetch-public-tok";
 import type {
   PublicLeaderboardEntry,
   PublicLeaderboards,
@@ -27,10 +21,7 @@ const LEADERBOARD_PATH = "/tok/leaderboard";
 let boardsCache: PublicLeaderboards | null | undefined;
 const profileCache = new Map<string, PublicTokData | null>();
 
-type TokRoute =
-  | { kind: "leaderboard" }
-  | { kind: "profile"; handle: string }
-  | { kind: "home" };
+type TokRoute = { kind: "leaderboard" } | { kind: "profile"; handle: string } | { kind: "home" };
 
 function parseTokPath(pathname: string): TokRoute {
   const parts = pathname.split("/").filter(Boolean);
@@ -145,26 +136,17 @@ function ProfilePendingShell({
 export default function TokPage() {
   const { pathname, navigate } = useTokPath();
   const route = React.useMemo(() => parseTokPath(pathname), [pathname]);
-  const {
-    phase,
-    isPresented,
-    open: openPush,
-    close: closePush,
-  } = usePushPageTransition();
+  const { phase, isPresented, open: openPush, close: closePush } = usePushPageTransition();
   const phaseRef = React.useRef(phase);
   phaseRef.current = phase;
 
-  const [boards, setBoards] = React.useState<
-    PublicLeaderboards | null | undefined
-  >(() => boardsCache);
-  const [profile, setProfile] = React.useState<PublicTokData | null | undefined>(
-    () => {
-      if (route.kind !== "profile") return null;
-      return profileCache.has(route.handle)
-        ? profileCache.get(route.handle)
-        : undefined;
-    },
+  const [boards, setBoards] = React.useState<PublicLeaderboards | null | undefined>(
+    () => boardsCache,
   );
+  const [profile, setProfile] = React.useState<PublicTokData | null | undefined>(() => {
+    if (route.kind !== "profile") return null;
+    return profileCache.has(route.handle) ? profileCache.get(route.handle) : undefined;
+  });
   const [profileHandle, setProfileHandle] = React.useState<string | null>(() =>
     route.kind === "profile" ? route.handle : null,
   );
@@ -322,9 +304,7 @@ export default function TokPage() {
     ) : null;
 
   if (route.kind === "home") {
-    return (
-      <div className="h-dvh overflow-y-auto bg-background" aria-busy="true" />
-    );
+    return <div className="h-dvh overflow-y-auto bg-background" aria-busy="true" />;
   }
 
   return (

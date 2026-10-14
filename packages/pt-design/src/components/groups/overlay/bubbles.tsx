@@ -10,7 +10,9 @@ import {
   useOverlayOpen,
 } from "./shared";
 
-function Bubble(props: PtRendererProps & { kind: "popover" | "hover-card" | "tooltip" }): ReactElement {
+function Bubble(
+  props: PtRendererProps & { kind: "popover" | "hover-card" | "tooltip" },
+): ReactElement {
   const [open, setOpen] = useOverlayOpen(props.mode);
   const visible = overlayVisible(props.mode, open);
   const title = propString(props.node, "title", props.kind === "tooltip" ? "" : "Details");
@@ -46,7 +48,15 @@ function Bubble(props: PtRendererProps & { kind: "popover" | "hover-card" | "too
         <ContentShell
           open={visible}
           role={isTooltip ? "tooltip" : "dialog"}
-          style={isTooltip ? { borderRadius: overlayTokens.radius, boxShadow: overlayTokens.shadow, padding: "8px 12px" } : undefined}
+          style={
+            isTooltip
+              ? {
+                  borderRadius: overlayTokens.radius,
+                  boxShadow: overlayTokens.shadow,
+                  padding: "8px 12px",
+                }
+              : undefined
+          }
         >
           {isTooltip ? (
             <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.3 }}>{label}</div>
@@ -54,7 +64,9 @@ function Bubble(props: PtRendererProps & { kind: "popover" | "hover-card" | "too
             <>
               <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{title || label}</div>
               {description ? (
-                <div style={{ fontSize: 13, color: overlayTokens.muted, lineHeight: 1.45 }}>{description}</div>
+                <div style={{ fontSize: 13, color: overlayTokens.muted, lineHeight: 1.45 }}>
+                  {description}
+                </div>
               ) : null}
             </>
           )}
@@ -68,12 +80,18 @@ export const popoverModule: PtComponentModule = {
   type: "popover",
   defaultBBox: { width: 260, height: 160 },
   defaultNode: (id) =>
-    spatialNode("popover", id, { width: 260, height: 160 }, {
-      title: "Popover",
-      description: "Extra content stays visible inside this overlay box.",
-      label: "More",
-    }),
-  agentDescription: "In-place popover bubble rendered inside the overlay box. Never a document portal.",
+    spatialNode(
+      "popover",
+      id,
+      { width: 260, height: 160 },
+      {
+        title: "Popover",
+        description: "Extra content stays visible inside this overlay box.",
+        label: "More",
+      },
+    ),
+  agentDescription:
+    "In-place popover bubble rendered inside the overlay box. Never a document portal.",
   xmlExample: `<popover id="hint" title="Popover" description="Extra content stays visible inside this overlay box." label="More" x="24" y="24" width="260" height="160"/>`,
   inspectorFields: TEXT_FIELDS,
   Renderer: (props) => <Bubble {...props} kind="popover" />,
@@ -83,12 +101,18 @@ export const hoverCardModule: PtComponentModule = {
   type: "hover-card",
   defaultBBox: { width: 260, height: 140 },
   defaultNode: (id) =>
-    spatialNode("hover-card", id, { width: 260, height: 140 }, {
-      title: "Ada Lovelace",
-      description: "Mathematician and writer. Profile preview stays in-canvas.",
-      label: "Profile",
-    }),
-  agentDescription: "In-place hover-card bubble. Always expanded inside the overlay box; never a document portal.",
+    spatialNode(
+      "hover-card",
+      id,
+      { width: 260, height: 140 },
+      {
+        title: "Ada Lovelace",
+        description: "Mathematician and writer. Profile preview stays in-canvas.",
+        label: "Profile",
+      },
+    ),
+  agentDescription:
+    "In-place hover-card bubble. Always expanded inside the overlay box; never a document portal.",
   xmlExample: `<hover-card id="profile" title="Ada Lovelace" description="Mathematician and writer. Profile preview stays in-canvas." label="Profile" x="24" y="24" width="260" height="140"/>`,
   inspectorFields: TEXT_FIELDS,
   Renderer: (props) => <Bubble {...props} kind="hover-card" />,
@@ -97,8 +121,10 @@ export const hoverCardModule: PtComponentModule = {
 export const tooltipModule: PtComponentModule = {
   type: "tooltip",
   defaultBBox: { width: 220, height: 48 },
-  defaultNode: (id) => spatialNode("tooltip", id, { width: 220, height: 48 }, { label: "Save changes" }),
-  agentDescription: "In-place tooltip bubble inside the overlay box. Never a document portal and never hover-gated off-canvas.",
+  defaultNode: (id) =>
+    spatialNode("tooltip", id, { width: 220, height: 48 }, { label: "Save changes" }),
+  agentDescription:
+    "In-place tooltip bubble inside the overlay box. Never a document portal and never hover-gated off-canvas.",
   xmlExample: `<tooltip id="save-tip" label="Save changes" x="24" y="24" width="220" height="48"/>`,
   inspectorFields: LABEL_FIELD,
   Renderer: (props) => <Bubble {...props} kind="tooltip" />,

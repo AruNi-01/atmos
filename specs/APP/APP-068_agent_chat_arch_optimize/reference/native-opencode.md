@@ -6,40 +6,40 @@ This slice is the **OpenCode `serve` HTTP+SSE adapter**. Vendor HTTP stays insid
 
 ## Scope
 
-| In | Out |
-|----|-----|
-| One `serve` process per live Chat; HTTP/1.1 client; SSE bus → Atmos events/tools | `@opencode-ai/sdk` in Atmos Server |
-| `send` / `cancel` / `close` / `next_event` + `RespondPermission` + `SetConfig` + `Steer` (`delivery:"steer"`) | OpenCode TUI follow-up / vendor queue as Atmos queue |
-| Permission + `question.asked` mapping; model/`variant` on prompt | Fork / summarize / share / revert / TUI `/tui/*` (N4) |
-| Fixtures S20 / S21 / S23 | Attaching to the user’s interactive TUI server |
-| Kill **this** Chat’s `serve` on `close` | Sharing one `serve` across Chats (Orca does; Atmos must not) |
+| In                                                                                                            | Out                                                          |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| One `serve` process per live Chat; HTTP/1.1 client; SSE bus → Atmos events/tools                              | `@opencode-ai/sdk` in Atmos Server                           |
+| `send` / `cancel` / `close` / `next_event` + `RespondPermission` + `SetConfig` + `Steer` (`delivery:"steer"`) | OpenCode TUI follow-up / vendor queue as Atmos queue         |
+| Permission + `question.asked` mapping; model/`variant` on prompt                                              | Fork / summarize / share / revert / TUI `/tui/*` (N4)        |
+| Fixtures S20 / S21 / S23                                                                                      | Attaching to the user’s interactive TUI server               |
+| Kill **this** Chat’s `serve` on `close`                                                                       | Sharing one `serve` across Chats (Orca does; Atmos must not) |
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Spawn `opencode serve --hostname 127.0.0.1 --port 0` with generated `OPENCODE_SERVER_PASSWORD` | Use Terminal argv `opencode run --format json` for Chat |
-| Parse the listening URL from stdout; health-check `GET /doc` = 200 | Assume port `4096`; bind `0.0.0.0`; enable `--mdns` |
-| Force **HTTP/1.1** on every request including SSE | Allow HTTP/2 / h2c (POST with a body hangs) |
-| Open `GET /event` **before** `POST …/prompt_async`; filter by `sessionID` | Drive turns with blocking `POST …/message` as the live path |
-| Treat `session.idle` (this `sessionID`) as vendor turn complete | Dual-write Atmos `queue.json` onto OpenCode's own queue |
-| Permission: `POST /session/:id/permissions/:permissionID` `{response, remember?}` | Older `/permission/:id/reply` unless live `/doc` still lists only that |
-| SSE best-effort: on drop/reconnect, reconcile `GET /session/:id/message` | Fail the Atmos turn solely because SSE ended early |
-| Unknown bus `type` → skip or one `Unknown`; session continues (M16) | Route Chat through `opencode acp` |
-| `kill_on_drop(true)` on **this** child; `close` kills this `serve` | Attach to / hijack a TUI that the user already started |
+| MUST                                                                                           | MUST NOT                                                               |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Spawn `opencode serve --hostname 127.0.0.1 --port 0` with generated `OPENCODE_SERVER_PASSWORD` | Use Terminal argv `opencode run --format json` for Chat                |
+| Parse the listening URL from stdout; health-check `GET /doc` = 200                             | Assume port `4096`; bind `0.0.0.0`; enable `--mdns`                    |
+| Force **HTTP/1.1** on every request including SSE                                              | Allow HTTP/2 / h2c (POST with a body hangs)                            |
+| Open `GET /event` **before** `POST …/prompt_async`; filter by `sessionID`                      | Drive turns with blocking `POST …/message` as the live path            |
+| Treat `session.idle` (this `sessionID`) as vendor turn complete                                | Dual-write Atmos `queue.json` onto OpenCode's own queue                |
+| Permission: `POST /session/:id/permissions/:permissionID` `{response, remember?}`              | Older `/permission/:id/reply` unless live `/doc` still lists only that |
+| SSE best-effort: on drop/reconnect, reconcile `GET /session/:id/message`                       | Fail the Atmos turn solely because SSE ended early                     |
+| Unknown bus `type` → skip or one `Unknown`; session continues (M16)                            | Route Chat through `opencode acp`                                      |
+| `kill_on_drop(true)` on **this** child; `close` kills this `serve`                             | Attach to / hijack a TUI that the user already started                 |
 
 ## Sources (pin, then record)
 
-| What | URL |
-|------|-----|
-| Official server (spawn flags, basic auth, OpenAPI `/doc`, session/message/event tables) | https://opencode.ai/docs/server/ |
-| Official SDK (same OpenAPI; `session.prompt` body `model: {providerID, modelID}`; `event.subscribe`) | https://opencode.ai/docs/sdk/ |
-| Official ACP (editor stdio bridge — **not** Chat) | https://opencode.ai/docs/acp/ |
-| Permission outcomes `once` / `always` / `reject` | https://opencode.ai/docs/permissions/ |
-| Models `provider/model` + **variant** (thinking / reasoning effort) | https://opencode.ai/docs/models/ |
-| Native host that already speaks this wire (HTTP/1.1, SSE-before-prompt, idle = result, reconcile) | https://github.com/VirtusLab/orca/blob/master/adr/0014-opencode-server-driver.md |
-| Serve stdout line (parse this; do not guess the port) | https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/cli/cmd/serve.ts |
-| Official JS spawn + URL regex | https://github.com/anomalyco/opencode/blob/dev/packages/sdk/js/src/server.ts |
+| What                                                                                                 | URL                                                                                   |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Official server (spawn flags, basic auth, OpenAPI `/doc`, session/message/event tables)              | https://opencode.ai/docs/server/                                                      |
+| Official SDK (same OpenAPI; `session.prompt` body `model: {providerID, modelID}`; `event.subscribe`) | https://opencode.ai/docs/sdk/                                                         |
+| Official ACP (editor stdio bridge — **not** Chat)                                                    | https://opencode.ai/docs/acp/                                                         |
+| Permission outcomes `once` / `always` / `reject`                                                     | https://opencode.ai/docs/permissions/                                                 |
+| Models `provider/model` + **variant** (thinking / reasoning effort)                                  | https://opencode.ai/docs/models/                                                      |
+| Native host that already speaks this wire (HTTP/1.1, SSE-before-prompt, idle = result, reconcile)    | https://github.com/VirtusLab/orca/blob/master/adr/0014-opencode-server-driver.md      |
+| Serve stdout line (parse this; do not guess the port)                                                | https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/cli/cmd/serve.ts |
+| Official JS spawn + URL regex                                                                        | https://github.com/anomalyco/opencode/blob/dev/packages/sdk/js/src/server.ts          |
 
 Pin the **CLI version** used for fixtures in `testdata/README.md`. Re-record when `/doc` paths or event names move. Do not codegen a Rust SDK from `/doc` at runtime.
 
@@ -190,24 +190,24 @@ SSE is **best-effort**. Reconnect on drop. On `server.connected` after reconnect
 
 ## Event map (`event_map.rs`)
 
-| OpenCode `type` | Atmos |
-|-----------------|-------|
-| `server.connected` | internal (SSE ready); not a Chat event |
-| `server.heartbeat` | omit |
-| `message.part.delta` `{field:"text", delta}` | `AssistantMessageDelta` |
-| `message.part.delta` `{field:"reasoning", delta}` | `ThinkingDelta` |
-| `message.part.updated` `part.type == "text"` | snapshot text; prefer delta when present |
-| `message.part.updated` `part.type == "tool"` `state.status == running` | `ToolCallStarted` / `Updated` |
-| `message.part.updated` tool `completed` / `error` | `ToolCallCompleted` / `Failed` — **authoritative result** |
-| `message.part.removed` | omit or fail that tool if in-flight |
-| `message.updated` assistant | capture `info.tokens` / `cost` / `error` → `UsageUpdated`; do not dual-store raw `info` on mapped text |
-| `permission.asked` | `PermissionRequested` (`request_id` = `properties.id` `per_…`) |
-| `permission.replied` | `PermissionResolved` |
-| `question.asked` | see below |
-| `session.idle` | `TurnCompleted` |
-| `session.error` | `TurnFailed` |
-| `session.status` / `session.updated` / `session.diff` / `session.next.*` | omit |
-| anything else | omit **or** one `Unknown { event_type, payload: properties }` — never panic |
+| OpenCode `type`                                                          | Atmos                                                                                                  |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `server.connected`                                                       | internal (SSE ready); not a Chat event                                                                 |
+| `server.heartbeat`                                                       | omit                                                                                                   |
+| `message.part.delta` `{field:"text", delta}`                             | `AssistantMessageDelta`                                                                                |
+| `message.part.delta` `{field:"reasoning", delta}`                        | `ThinkingDelta`                                                                                        |
+| `message.part.updated` `part.type == "text"`                             | snapshot text; prefer delta when present                                                               |
+| `message.part.updated` `part.type == "tool"` `state.status == running`   | `ToolCallStarted` / `Updated`                                                                          |
+| `message.part.updated` tool `completed` / `error`                        | `ToolCallCompleted` / `Failed` — **authoritative result**                                              |
+| `message.part.removed`                                                   | omit or fail that tool if in-flight                                                                    |
+| `message.updated` assistant                                              | capture `info.tokens` / `cost` / `error` → `UsageUpdated`; do not dual-store raw `info` on mapped text |
+| `permission.asked`                                                       | `PermissionRequested` (`request_id` = `properties.id` `per_…`)                                         |
+| `permission.replied`                                                     | `PermissionResolved`                                                                                   |
+| `question.asked`                                                         | see below                                                                                              |
+| `session.idle`                                                           | `TurnCompleted`                                                                                        |
+| `session.error`                                                          | `TurnFailed`                                                                                           |
+| `session.status` / `session.updated` / `session.diff` / `session.next.*` | omit                                                                                                   |
+| anything else                                                            | omit **or** one `Unknown { event_type, payload: properties }` — never panic                            |
 
 Do not emit adapter `TurnStarted` / `UserMessage` for the user’s send (host already did). Tool `id` / `callID` → `AgentTool.tool_call_id`. Thinking/plan/todo fold here, not as tool kinds ([tools.md](./tools.md)).
 
@@ -215,18 +215,18 @@ Do not emit adapter `TurnStarted` / `UserMessage` for the user’s send (host al
 
 Parent tool table, OpenCode column:
 
-| Atmos kind | OpenCode part / tool name (typical build agent) |
-|------------|--------------------------------------------------|
-| `execute` | `bash` / shell — `params.command` from `state.input`; `result.Execute.output` + exit if present |
-| `read` | `read` — path |
-| `edit` | `edit` / `write` / `patch` — path; diff stats if the part has them |
-| `search` | `grep` / `glob` / find — **workspace** search, not `web_search` |
-| `web_search` | `websearch` / `web-search` |
-| `fetch` | `webfetch` |
-| `skill` | `skill` |
-| `subagent` | `task` / child session |
-| fold | `reasoning` / plan / `todowrite` → thinking/plan events |
-| `other` | unknown `part.tool` / `part.type` — params/result **are** vendor `input`/`output` once |
+| Atmos kind   | OpenCode part / tool name (typical build agent)                                                 |
+| ------------ | ----------------------------------------------------------------------------------------------- |
+| `execute`    | `bash` / shell — `params.command` from `state.input`; `result.Execute.output` + exit if present |
+| `read`       | `read` — path                                                                                   |
+| `edit`       | `edit` / `write` / `patch` — path; diff stats if the part has them                              |
+| `search`     | `grep` / `glob` / find — **workspace** search, not `web_search`                                 |
+| `web_search` | `websearch` / `web-search`                                                                      |
+| `fetch`      | `webfetch`                                                                                      |
+| `skill`      | `skill`                                                                                         |
+| `subagent`   | `task` / child session                                                                          |
+| fold         | `reasoning` / plan / `todowrite` → thinking/plan events                                         |
+| `other`      | unknown `part.tool` / `part.type` — params/result **are** vendor `input`/`output` once          |
 
 Map by vendor **tool name** first, then generic extractors in `domain/tool_map.rs`. Never `web_search` → workspace `search`.
 
@@ -238,11 +238,11 @@ Official: `POST /session/:id/permissions/:permissionID` body `{ response, rememb
 
 Emit `PermissionRequested` with Atmos options whose `option_id` the adapter understands:
 
-| Atmos `option_id` | HTTP body |
-|-------------------|-----------|
-| `once` / `allow_once` | `{ "response": "once" }` |
+| Atmos `option_id`         | HTTP body                                                                                                                                            |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `once` / `allow_once`     | `{ "response": "once" }`                                                                                                                             |
 | `always` / `allow_always` | `{ "response": "always" }` (`remember: true` if `/doc` documents it as a separate flag — pin from recorded spec; do not send both if they duplicate) |
-| `reject` / `reject_once` | `{ "response": "reject" }` |
+| `reject` / `reject_once`  | `{ "response": "reject" }`                                                                                                                           |
 
 `AgentAction::RespondPermission { request_id, option_id }`: `request_id` is `per_…`. Unknown `option_id` → `NotFound`, do not guess `once`. Missing pending id → `NotFound`. `close`/`cancel` must not leave the vendor Deferred hanging: abort the session (abort rejects in-flight work) rather than invent a reply.
 

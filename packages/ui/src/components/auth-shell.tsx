@@ -63,32 +63,31 @@ export function AuthShell({
               </div>
               {variant === "request-access" ? (
                 <div className="max-w-md">
-                  <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
+                  <div className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground uppercase">
                     Quiet onboarding
                   </div>
-                  <p className="mt-3 font-heading text-xl leading-snug md:text-2xl">
-                    A waitlist screen with a particle figure and a single soft
-                    CTA — for invite-only entry points.
+                  <p className="font-heading mt-3 text-xl leading-snug md:text-2xl">
+                    A waitlist screen with a particle figure and a single soft CTA — for invite-only
+                    entry points.
                   </p>
                 </div>
               ) : variant === "onboarding" ? (
                 <div className="max-w-md">
-                  <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
+                  <div className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground uppercase">
                     First steps
                   </div>
-                  <p className="mt-3 font-heading text-xl leading-snug md:text-2xl">
-                    A guided multi-step setup, paced so each screen carries one
-                    decision at a time.
+                  <p className="font-heading mt-3 text-xl leading-snug md:text-2xl">
+                    A guided multi-step setup, paced so each screen carries one decision at a time.
                   </p>
                 </div>
               ) : (
                 <div className="max-w-md">
-                  <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
+                  <div className="font-mono text-[11px] tracking-[0.3em] text-muted-foreground uppercase">
                     Sign-in design
                   </div>
-                  <p className="mt-3 font-heading text-xl leading-snug md:text-2xl">
-                    Split layout with a particle field on the left and a single
-                    centered form on the right.
+                  <p className="font-heading mt-3 text-xl leading-snug md:text-2xl">
+                    Split layout with a particle field on the left and a single centered form on the
+                    right.
                   </p>
                 </div>
               )}

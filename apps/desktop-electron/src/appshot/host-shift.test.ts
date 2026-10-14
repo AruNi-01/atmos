@@ -82,17 +82,14 @@ describe("host inject capture wiring", () => {
     expect(capture).not.toContain("CGRequestScreenCaptureAccess");
     expect(capture).not.toContain("AXIsProcessTrustedWithOptions");
     expect(capture).not.toContain("kAXTrustedCheckOptionPrompt");
-    expect(native).toContain("{\"t\":\"captured\"");
+    expect(native).toContain('{"t":"captured"');
   });
 
   it("Electron stages host PNGs and opens the drag overlay on need_grant", () => {
     const service = readFileSync(join(import.meta.dir, "service.ts"), "utf8");
     const tap = readFileSync(join(import.meta.dir, "trigger-event-tap.ts"), "utf8");
     const trigger = readFileSync(join(import.meta.dir, "trigger.ts"), "utf8");
-    const grant = readFileSync(
-      join(import.meta.dir, "../desktop-use/host-grant.ts"),
-      "utf8",
-    );
+    const grant = readFileSync(join(import.meta.dir, "../desktop-use/host-grant.ts"), "utf8");
     expect(service).toContain("stageHostCapturedPreview");
     expect(service).toContain("openDesktopUseGrantFlow");
     expect(service).toContain("handleAppshotNeedGrant");

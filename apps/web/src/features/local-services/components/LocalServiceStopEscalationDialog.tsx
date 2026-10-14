@@ -85,7 +85,10 @@ export function LocalServiceStopEscalationDialog({
         if (!pending) onOpenChange(next);
       }}
     >
-      <DialogContent className="max-h-[min(85vh,640px)] gap-4 overflow-hidden sm:max-w-lg" showCloseButton={!pending}>
+      <DialogContent
+        className="max-h-[min(85vh,640px)] gap-4 overflow-hidden sm:max-w-lg"
+        showCloseButton={!pending}
+      >
         <DialogHeader>
           <DialogTitle>{t("escalation.title")}</DialogTitle>
           <DialogDescription className="text-left">
@@ -162,7 +165,11 @@ export function LocalServiceStopEscalationDialog({
               }
             }}
           >
-            {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Square className="size-3.5" />}
+            {pending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Square className="size-3.5" />
+            )}
             {t("escalation.stopProcessTree")}
           </Button>
         </DialogFooter>
@@ -195,13 +202,15 @@ function ProcessTreeRow({
       )}
       style={{ paddingLeft: `${4 + Math.min(depth, 6) * 10}px` }}
     >
-      <span className="shrink-0 tabular-nums text-muted-foreground">{node.pid}</span>
+      <span className="shrink-0 text-muted-foreground tabular-nums">{node.pid}</span>
       <span className="min-w-0 flex-1 truncate text-foreground" title={node.command_preview}>
         {node.command_preview}
       </span>
       <span className="flex shrink-0 flex-wrap justify-end gap-1">
         {node.is_listener ? (
-          <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">{listenerLabel}</span>
+          <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">
+            {listenerLabel}
+          </span>
         ) : null}
         {isRecommended ? (
           <span className="rounded bg-destructive/15 px-1 text-[10px] text-destructive">
@@ -209,7 +218,9 @@ function ProcessTreeRow({
           </span>
         ) : null}
         {node.protected ? (
-          <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">{protectedLabel}</span>
+          <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">
+            {protectedLabel}
+          </span>
         ) : null}
       </span>
     </div>

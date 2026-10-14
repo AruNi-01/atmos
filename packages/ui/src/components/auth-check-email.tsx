@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CheckCircle2Icon,
-  MailIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, CheckCircle2Icon, MailIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthShell } from "./auth-shell";
 
@@ -38,16 +33,13 @@ export function AuthCheckEmailShowcasePage() {
           <CheckCircle2Icon className="size-5" />
         </div>
 
-        <div className="mt-5 font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
+        <div className="mt-5 font-mono text-[11px] tracking-[0.3em] text-muted-foreground uppercase">
           Magic link sent
         </div>
-        <h1 className="mt-2 font-heading text-3xl leading-tight">
-          Check your inbox.
-        </h1>
-        <p className="mt-2 max-w-md text-muted-foreground text-sm leading-relaxed">
-          We sent a sign-in link to{" "}
-          <span className="font-medium text-foreground">{email}</span>. Click it
-          to continue — the link expires in{" "}
+        <h1 className="font-heading mt-2 text-3xl leading-tight">Check your inbox.</h1>
+        <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+          We sent a sign-in link to <span className="font-medium text-foreground">{email}</span>.
+          Click it to continue — the link expires in{" "}
           <span className="text-foreground">10 minutes</span>.
         </p>
 
@@ -64,29 +56,27 @@ export function AuthCheckEmailShowcasePage() {
             loading={resending}
             onClick={onResend}
           >
-            {secondsLeft > 0
-              ? `Resend in ${String(secondsLeft).padStart(2, "0")}s`
-              : "Resend link"}
+            {secondsLeft > 0 ? `Resend in ${String(secondsLeft).padStart(2, "0")}s` : "Resend link"}
           </Button>
         </div>
 
         {resendCount > 0 ? (
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-700 uppercase tracking-[0.25em] dark:text-emerald-400">
+          <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-[10px] tracking-[0.25em] text-emerald-700 uppercase dark:text-emerald-400">
             <CheckCircle2Icon className="size-3" />
             Sent again · {resendCount}
           </div>
         ) : null}
 
-        <div className="mt-8 border-border/60 border-t pt-5">
+        <div className="mt-8 border-t border-border/60 pt-5">
           <a
             href="#"
-            className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeftIcon className="size-3.5" />
             Use a different email
           </a>
-          <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
-            Didn't get the email? Check spam, then{" "}
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            Didn&apos;t get the email? Check spam, then{" "}
             <a
               href="#"
               className="inline-flex items-center gap-1 text-foreground underline-offset-4 hover:underline"

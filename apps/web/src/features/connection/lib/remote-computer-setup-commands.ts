@@ -1,10 +1,7 @@
-import {
-  DEFAULT_RELAY_URL,
-  resolveRelayUrl,
-} from '@/features/connection/lib/atmos-computer-store';
+import { DEFAULT_RELAY_URL, resolveRelayUrl } from "@/features/connection/lib/atmos-computer-store";
 
 export const REMOTE_COMPUTER_INSTALL_SCRIPT_URL =
-  'https://install.atmos.land/install-local-web-runtime.sh';
+  "https://install.atmos.land/install-local-web-runtime.sh";
 
 /** One-shot install: `atmos` CLI + local API runtime under ~/.atmos. */
 export function buildRemoteComputerInstallCommand(): string {
@@ -27,9 +24,9 @@ export function buildRemoteComputerSetupCommand(opts: {
     `  --token ${token} \\`,
     relayLine,
     relaySecret ? `  --relay-secret-key ${shellQuote(relaySecret)} \\` : null,
-    '  --daemon',
+    "  --daemon",
   ].filter((line): line is string => Boolean(line));
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 export function buildRemoteComputerSetupPlaceholderCommand(relayUrl: string): string {
@@ -38,12 +35,12 @@ export function buildRemoteComputerSetupPlaceholderCommand(relayUrl: string): st
     relayOrigin === DEFAULT_RELAY_URL ? null : `  --relay ${shellQuote(relayOrigin)} \\`;
   return [
     `curl -fsSL ${REMOTE_COMPUTER_INSTALL_SCRIPT_URL} | bash -s -- \\`,
-    '  --token <registration_code> \\',
+    "  --token <registration_code> \\",
     relayLine,
-    '  --daemon',
+    "  --daemon",
   ]
     .filter((line): line is string => Boolean(line))
-    .join('\n');
+    .join("\n");
 }
 
 function shellQuote(value: string): string {

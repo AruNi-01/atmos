@@ -33,10 +33,7 @@ import { useToolbarHoverExpand } from "../hooks/use-toolbar-hover-expand";
 import { useTerminalSideChats, type SpawnTerminalRequest } from "../hooks/use-terminal-side-chats";
 import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
-import {
-  getAgentContextDragText,
-  hasAgentContextDragData,
-} from "@/shared/lib/agent-context-drag";
+import { getAgentContextDragText, hasAgentContextDragData } from "@/shared/lib/agent-context-drag";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import { addTerminalSelectionAsContext } from "@/features/agent/lib/agent/active-composer";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
@@ -65,7 +62,10 @@ type TerminalWorkspacePaneProps = {
   pane: TerminalPaneProps;
   workspaceId: string;
   terminalTabId: string;
-  workspaceInfo: { projectName: string; workspaceName: string; localPath: string } | null | undefined;
+  workspaceInfo:
+    | { projectName: string; workspaceName: string; localPath: string }
+    | null
+    | undefined;
   projects: Project[];
   configuredAgents: TerminalPaneAgent[];
   isProjectContext: boolean;
@@ -78,7 +78,12 @@ type TerminalWorkspacePaneProps = {
   splitMenuKey: string | null;
   setSplitMenuKey: React.Dispatch<React.SetStateAction<string | null>>;
   onSplitPane: (id: string, direction: "row" | "column") => void;
-  splitAndRunAgent: (id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => void;
+  splitAndRunAgent: (
+    id: string,
+    direction: "row" | "column",
+    command: string,
+    agent: TerminalPaneAgent,
+  ) => void;
   handleSplitMenuEnter: (key: string) => void;
   handleSplitMenuLeave: () => void;
   pinPaneToCanvas: (id?: string | null) => void;
@@ -138,22 +143,17 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
   } = props;
 
   const { toolbarHovered, onToolbarMouseEnter, onToolbarMouseLeave } = useToolbarHoverExpand(400);
-  const richInputActive = useTerminalRichInputSettingsStore(
-    (s) => s.loaded && s.enabled,
-  );
-  const splitMenuOpenForPane =
-    splitMenuKey === `${id}:row` || splitMenuKey === `${id}:column`;
-  const toolbarExpanded =
-    maximizedId === id || toolbarHovered || splitMenuOpenForPane;
+  const richInputActive = useTerminalRichInputSettingsStore((s) => s.loaded && s.enabled);
+  const splitMenuOpenForPane = splitMenuKey === `${id}:row` || splitMenuKey === `${id}:column`;
+  const toolbarExpanded = maximizedId === id || toolbarHovered || splitMenuOpenForPane;
 
   const storeWrite = useMemo(
-    () =>
-      ({
-        kind: "terminal-pane" as const,
-        workspaceId,
-        paneId: id,
-        terminalTabId,
-      }),
+    () => ({
+      kind: "terminal-pane" as const,
+      workspaceId,
+      paneId: id,
+      terminalTabId,
+    }),
     [workspaceId, id, terminalTabId],
   );
 
@@ -181,15 +181,18 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
           project.mainFilePath === workspaceInfo?.localPath ||
           project.workspaces.some(
             (workspace) =>
-              workspace.id === hostWorkspaceId ||
-              workspace.localPath === workspaceInfo?.localPath,
+              workspace.id === hostWorkspaceId || workspace.localPath === workspaceInfo?.localPath,
           ),
       ) ?? null,
     [projects, hostWorkspaceId, workspaceInfo?.localPath],
   );
 
   const panePinKey = pane.tmuxWindowName
-    ? buildCanvasTerminalPinKey(isProjectContext ? "project" : "workspace", workspaceId, pane.tmuxWindowName)
+    ? buildCanvasTerminalPinKey(
+        isProjectContext ? "project" : "workspace",
+        workspaceId,
+        pane.tmuxWindowName,
+      )
     : null;
   const isPanePinned = panePinKey ? pinnedPaneKeys.has(panePinKey) : false;
   const agentForSubmit = pane.agent ?? toolbarAgent;
@@ -214,7 +217,10 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
   }, [activeProject, hostWorkspaceId, isProjectContext, workspaceInfo]);
   const sideChatAgentOptions = useMemo(() => {
     const options = quickOpenAgents.map(({ agent, command }) => ({ ...agent, command }));
-    if (agentForSubmit?.command?.trim() && !options.some((agent) => agent.id === agentForSubmit.id)) {
+    if (
+      agentForSubmit?.command?.trim() &&
+      !options.some((agent) => agent.id === agentForSubmit.id)
+    ) {
       options.unshift(agentForSubmit);
     }
     return options;
@@ -258,23 +264,20 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
   const splitVerticalLabel = t.has("split.verticalTitle")
     ? t("split.verticalTitle")
     : "Split vertically (⌘⇧D)";
-  const maximizeButtonLabel = maximizedId === id
-    ? t.has("maximize.restoreTitle")
-      ? t("maximize.restoreTitle")
-      : "Restore"
-    : t.has("maximize.title")
-      ? t("maximize.title")
-      : "Maximize";
-  const closeButtonLabel = t.has("close.title")
-    ? t("close.title")
-    : "Close (⌘W)";
+  const maximizeButtonLabel =
+    maximizedId === id
+      ? t.has("maximize.restoreTitle")
+        ? t("maximize.restoreTitle")
+        : "Restore"
+      : t.has("maximize.title")
+        ? t("maximize.title")
+        : "Maximize";
+  const closeButtonLabel = t.has("close.title") ? t("close.title") : "Close (⌘W)";
 
   const stablePaneId = pane.tmuxWindowName
     ? `${hostWorkspaceId}:${pane.tmuxWindowName}`
     : pane.sessionId;
-  const attentionReason = useAgentAttentionStore(
-    (s) => s.panes.get(stablePaneId)?.reason ?? null,
-  );
+  const attentionReason = useAgentAttentionStore((s) => s.panes.get(stablePaneId)?.reason ?? null);
   const locateGeneration = useTerminalPaneLocateStore((s) => s.generation);
   const locatePhase = useTerminalPaneLocateStore((s) => s.phase);
   const locateTarget = useTerminalPaneLocateStore((s) => s.target);
@@ -345,169 +348,172 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
       onMouseDownCapture={() => setActivePaneId(id, "immediate")}
       {...(showLocateRing ? { "data-resource-locate-ring": "" } : {})}
     >
-          <div
-            className={cn(
-              "terminal-pane-toolbar group/toolbar",
-              toolbarExpanded && "is-toolbar-expanded",
-            )}
-            onMouseEnter={onToolbarMouseEnter}
-            onMouseLeave={onToolbarMouseLeave}
-          >
-            <TerminalPaneDragHandle
-              className="terminal-pane-toolbar-left"
-              label={t("drag.handle")}
-            >
-              {displayTitle || toolbarAgent ? (
-                <TerminalTitleWithAgent
-                  displayTitle={displayTitle}
-                  primaryTitle={primaryTitle}
-                  oscSuffix={oscSuffix}
-                  toolbarAgent={toolbarAgent}
-                  className="terminal-pane-title gap-1.5"
-                />
-              ) : null}
-            </TerminalPaneDragHandle>
+      <div
+        className={cn(
+          "terminal-pane-toolbar group/toolbar",
+          toolbarExpanded && "is-toolbar-expanded",
+        )}
+        onMouseEnter={onToolbarMouseEnter}
+        onMouseLeave={onToolbarMouseLeave}
+      >
+        <TerminalPaneDragHandle className="terminal-pane-toolbar-left" label={t("drag.handle")}>
+          {displayTitle || toolbarAgent ? (
+            <TerminalTitleWithAgent
+              displayTitle={displayTitle}
+              primaryTitle={primaryTitle}
+              oscSuffix={oscSuffix}
+              toolbarAgent={toolbarAgent}
+              className="terminal-pane-title gap-1.5"
+            />
+          ) : null}
+        </TerminalPaneDragHandle>
 
-            <div className="terminal-pane-toolbar-end">
-              <TerminalPaneAgentStatus paneId={stablePaneId} contextId={workspaceId} />
-              {(actions.split || actions.maximize || actions.close) && (
-              <div className="terminal-pane-toolbar-right">
-                <button
-                  type="button"
-                  className={cn(
-                    "terminal-pane-btn",
-                    isPanePinned && "cursor-default text-primary hover:text-primary",
-                  )}
-                  onClick={() => {
-                    if (isPanePinned) return;
-                    void pinPaneToCanvas(id);
-                  }}
-                  title={pinButtonLabel}
-                  aria-label={pinButtonLabel}
-                  aria-disabled={isPanePinned}
-                  aria-pressed={isPanePinned}
-                >
-                  <Pin size={12} className={cn(!isPanePinned && "rotate-45")} />
-                </button>
-                <div className="flex items-center gap-0.5">
-                  {actions.split && (
-                    <div className="flex items-center gap-0.5">
-                      <DropdownMenu
-                        open={splitMenuKey === `${id}:row`}
-                        onOpenChange={(open) => setSplitMenuKey(open ? `${id}:row` : null)}
-                        modal={false}
-                      >
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="terminal-pane-btn"
-                            onClick={() => onSplitPane(id, "row")}
-                            onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
-                            onMouseLeave={handleSplitMenuLeave}
-                            title={splitHorizontalLabel}
-                            aria-label={splitHorizontalLabel}
-                          >
-                            <Columns size={12} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        {quickOpenAgents.length > 0 && (
-                          <DropdownMenuContent
-                            align="start"
-                            onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
-                            onMouseLeave={handleSplitMenuLeave}
-                            onCloseAutoFocus={(e) => e.preventDefault()}
-                          >
-                            {quickOpenAgents.map(({ agent, command }) => (
-                              <DropdownMenuItem key={`row-${agent.id}`} onSelect={() => splitAndRunAgent(id, "row", command, agent)}>
-                                {agent.iconType === "built-in" ? (
-                                  <AgentIcon registryId={agent.id} name={agent.label} size={16} />
-                                ) : (
-                                  <Bot className="size-4 text-muted-foreground" />
-                                )}
-                                <span>{agent.label}</span>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        )}
-                      </DropdownMenu>
-                      <DropdownMenu
-                        open={splitMenuKey === `${id}:column`}
-                        onOpenChange={(open) => setSplitMenuKey(open ? `${id}:column` : null)}
-                        modal={false}
-                      >
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="terminal-pane-btn"
-                            onClick={() => onSplitPane(id, "column")}
-                            onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
-                            onMouseLeave={handleSplitMenuLeave}
-                            title={splitVerticalLabel}
-                            aria-label={splitVerticalLabel}
-                          >
-                            <Rows size={12} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        {quickOpenAgents.length > 0 && (
-                          <DropdownMenuContent
-                            align="start"
-                            onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
-                            onMouseLeave={handleSplitMenuLeave}
-                            onCloseAutoFocus={(e) => e.preventDefault()}
-                          >
-                            {quickOpenAgents.map(({ agent, command }) => (
-                              <DropdownMenuItem key={`column-${agent.id}`} onSelect={() => splitAndRunAgent(id, "column", command, agent)}>
-                                {agent.iconType === "built-in" ? (
-                                  <AgentIcon registryId={agent.id} name={agent.label} size={16} />
-                                ) : (
-                                  <Bot className="size-4 text-muted-foreground" />
-                                )}
-                                <span>{agent.label}</span>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        )}
-                      </DropdownMenu>
-                    </div>
-                  )}
-                  {(actions.maximize || actions.close) && (
-                    <div className="flex items-center gap-0.5">
-                      {actions.maximize && (
+        <div className="terminal-pane-toolbar-end">
+          <TerminalPaneAgentStatus paneId={stablePaneId} contextId={workspaceId} />
+          {(actions.split || actions.maximize || actions.close) && (
+            <div className="terminal-pane-toolbar-right">
+              <button
+                type="button"
+                className={cn(
+                  "terminal-pane-btn",
+                  isPanePinned && "cursor-default text-primary hover:text-primary",
+                )}
+                onClick={() => {
+                  if (isPanePinned) return;
+                  void pinPaneToCanvas(id);
+                }}
+                title={pinButtonLabel}
+                aria-label={pinButtonLabel}
+                aria-disabled={isPanePinned}
+                aria-pressed={isPanePinned}
+              >
+                <Pin size={12} className={cn(!isPanePinned && "rotate-45")} />
+              </button>
+              <div className="flex items-center gap-0.5">
+                {actions.split && (
+                  <div className="flex items-center gap-0.5">
+                    <DropdownMenu
+                      open={splitMenuKey === `${id}:row`}
+                      onOpenChange={(open) => setSplitMenuKey(open ? `${id}:row` : null)}
+                      modal={false}
+                    >
+                      <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className={cn("terminal-pane-btn", maximizedId === id && "text-primary")}
-                          onClick={() => onToggleMaximize(id)}
-                          title={maximizeButtonLabel}
-                          aria-label={maximizeButtonLabel}
+                          className="terminal-pane-btn"
+                          onClick={() => onSplitPane(id, "row")}
+                          onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
+                          onMouseLeave={handleSplitMenuLeave}
+                          title={splitHorizontalLabel}
+                          aria-label={splitHorizontalLabel}
                         >
-                          {maximizedId === id ? (
-                            <div className="relative flex size-3 items-center justify-center">
-                              <Maximize2 size={11} className="scale-75 opacity-70" />
-                              <div className="absolute inset-0 translate-x-0.5 -translate-y-0.5 scale-50 rounded-[1px] border-[1.5px] border-current" />
-                            </div>
-                          ) : (
-                            <Maximize2 size={11} />
-                          )}
+                          <Columns size={12} />
                         </button>
+                      </DropdownMenuTrigger>
+                      {quickOpenAgents.length > 0 && (
+                        <DropdownMenuContent
+                          align="start"
+                          onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
+                          onMouseLeave={handleSplitMenuLeave}
+                          onCloseAutoFocus={(e) => e.preventDefault()}
+                        >
+                          {quickOpenAgents.map(({ agent, command }) => (
+                            <DropdownMenuItem
+                              key={`row-${agent.id}`}
+                              onSelect={() => splitAndRunAgent(id, "row", command, agent)}
+                            >
+                              {agent.iconType === "built-in" ? (
+                                <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+                              ) : (
+                                <Bot className="size-4 text-muted-foreground" />
+                              )}
+                              <span>{agent.label}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
                       )}
-                      {actions.close && (
+                    </DropdownMenu>
+                    <DropdownMenu
+                      open={splitMenuKey === `${id}:column`}
+                      onOpenChange={(open) => setSplitMenuKey(open ? `${id}:column` : null)}
+                      modal={false}
+                    >
+                      <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="terminal-pane-btn terminal-pane-btn-close ml-1"
-                          onClick={() => requestCloseTerminal(id)}
-                          title={closeButtonLabel}
-                          aria-label={closeButtonLabel}
+                          className="terminal-pane-btn"
+                          onClick={() => onSplitPane(id, "column")}
+                          onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
+                          onMouseLeave={handleSplitMenuLeave}
+                          title={splitVerticalLabel}
+                          aria-label={splitVerticalLabel}
                         >
-                          <X size={12} />
+                          <Rows size={12} />
                         </button>
+                      </DropdownMenuTrigger>
+                      {quickOpenAgents.length > 0 && (
+                        <DropdownMenuContent
+                          align="start"
+                          onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
+                          onMouseLeave={handleSplitMenuLeave}
+                          onCloseAutoFocus={(e) => e.preventDefault()}
+                        >
+                          {quickOpenAgents.map(({ agent, command }) => (
+                            <DropdownMenuItem
+                              key={`column-${agent.id}`}
+                              onSelect={() => splitAndRunAgent(id, "column", command, agent)}
+                            >
+                              {agent.iconType === "built-in" ? (
+                                <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+                              ) : (
+                                <Bot className="size-4 text-muted-foreground" />
+                              )}
+                              <span>{agent.label}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
                       )}
-                    </div>
-                  )}
-                </div>
+                    </DropdownMenu>
+                  </div>
+                )}
+                {(actions.maximize || actions.close) && (
+                  <div className="flex items-center gap-0.5">
+                    {actions.maximize && (
+                      <button
+                        type="button"
+                        className={cn("terminal-pane-btn", maximizedId === id && "text-primary")}
+                        onClick={() => onToggleMaximize(id)}
+                        title={maximizeButtonLabel}
+                        aria-label={maximizeButtonLabel}
+                      >
+                        {maximizedId === id ? (
+                          <div className="relative flex size-3 items-center justify-center">
+                            <Maximize2 size={11} className="scale-75 opacity-70" />
+                            <div className="absolute inset-0 translate-x-0.5 -translate-y-0.5 scale-50 rounded-[1px] border-[1.5px] border-current" />
+                          </div>
+                        ) : (
+                          <Maximize2 size={11} />
+                        )}
+                      </button>
+                    )}
+                    {actions.close && (
+                      <button
+                        type="button"
+                        className="terminal-pane-btn terminal-pane-btn-close ml-1"
+                        onClick={() => requestCloseTerminal(id)}
+                        title={closeButtonLabel}
+                        aria-label={closeButtonLabel}
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-              )}
             </div>
-          </div>
+          )}
+        </div>
+      </div>
 
       <div
         className="terminal-pane-content min-h-0 flex-1"
@@ -561,7 +567,9 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
             richInputActive
               ? (snapshot) => {
                   setActivePaneId(id);
-                  agentInputOverlayRefsMap.current.get(id)?.startSideChatForTerminalSelection(snapshot);
+                  agentInputOverlayRefsMap.current
+                    .get(id)
+                    ?.startSideChatForTerminalSelection(snapshot);
                 }
               : undefined
           }

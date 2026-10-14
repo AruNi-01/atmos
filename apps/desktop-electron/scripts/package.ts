@@ -25,9 +25,7 @@ import { stampDmgApplicationsAlias } from "./stamp-dmg-applications-alias.ts";
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(appRoot, "package.json"));
 const requireScript = createRequire(import.meta.url);
-const { verifySlimPackagedApp } = requireScript(
-  "./slim-electron-runtime.cjs",
-) as {
+const { verifySlimPackagedApp } = requireScript("./slim-electron-runtime.cjs") as {
   verifySlimPackagedApp: (
     appOutDir: string,
     platform: string,
@@ -50,11 +48,7 @@ function builderArgsIncludeMac(extra: string[]): boolean {
   if (extra.length === 0) return process.platform === "darwin";
   if (extra.some((a) => a === "--mac" || a.startsWith("--mac="))) return true;
   const hasOther = extra.some(
-    (a) =>
-      a === "--win" ||
-      a === "--linux" ||
-      a.startsWith("--win") ||
-      a.startsWith("--linux"),
+    (a) => a === "--win" || a === "--linux" || a.startsWith("--win") || a.startsWith("--linux"),
   );
   const hasMac = extra.some((a) => a === "--mac" || a.startsWith("--mac"));
   if (hasOther && !hasMac) return false;
@@ -81,9 +75,7 @@ function assertSlimOk(appOutDir: string, platform: string, label: string): void 
     );
     process.exit(1);
   }
-  console.log(
-    `[package] Chromium locales en/zh_CN/zh_TW + SwiftShader stripped OK (${label})`,
-  );
+  console.log(`[package] Chromium locales en/zh_CN/zh_TW + SwiftShader stripped OK (${label})`);
 }
 
 function requireLiquidGlass(): boolean {
@@ -98,9 +90,7 @@ function requireLiquidGlass(): boolean {
 function preflightMacIcons(extra: string[]): void {
   if (!builderArgsIncludeMac(extra)) return;
   if (process.env.ATMOS_ELECTRON_ICON_LEGACY === "1") {
-    console.warn(
-      "[package] ATMOS_ELECTRON_ICON_LEGACY=1 — icns only (no Assets.car)",
-    );
+    console.warn("[package] ATMOS_ELECTRON_ICON_LEGACY=1 — icns only (no Assets.car)");
     return;
   }
   if (!hasIconComposerPackage(appRoot)) {
@@ -122,18 +112,14 @@ function preflightMacIcons(extra: string[]): void {
   const msg = `[package] actool unavailable for Liquid Glass .icon: ${actool.reason}`;
   if (requireLiquidGlass()) {
     console.error(msg);
-    console.error(
-      "[package] CI/macOS release requires Xcode 26+ (actool ≥ 26) on the runner.",
-    );
+    console.error("[package] CI/macOS release requires Xcode 26+ (actool ≥ 26) on the runner.");
     console.error(
       "[package] Local workaround: install Xcode 26, or set ATMOS_ELECTRON_ICON_LEGACY=1 for icns-only.",
     );
     process.exit(1);
   }
   console.warn(msg);
-  console.warn(
-    "[package] Falling back to legacy icon.icns (Dock may look small on macOS 26).",
-  );
+  console.warn("[package] Falling back to legacy icon.icns (Dock may look small on macOS 26).");
 }
 
 function findPackagedMacApp(): string | null {
@@ -176,17 +162,13 @@ function main() {
 
   const runtimeWeb = join(appRoot, "resources/runtime/current/web/index.html");
   if (!existsSync(runtimeWeb)) {
-    console.error(
-      `[package] missing ${runtimeWeb} — stage runtime before packaging`,
-    );
+    console.error(`[package] missing ${runtimeWeb} — stage runtime before packaging`);
     process.exit(1);
   }
 
   const stagedCliReq = join(appRoot, STAGED_CLI_REQUIREMENT_REL);
   if (!existsSync(stagedCliReq)) {
-    console.error(
-      `[package] missing ${stagedCliReq} — stage CLI floor overlay before packaging`,
-    );
+    console.error(`[package] missing ${stagedCliReq} — stage CLI floor overlay before packaging`);
     process.exit(1);
   }
 
@@ -194,24 +176,14 @@ function main() {
   try {
     builderBin = require.resolve("electron-builder/cli.js");
   } catch {
-    console.error(
-      "[package] electron-builder not installed. Run bun install from repo root.",
-    );
+    console.error("[package] electron-builder not installed. Run bun install from repo root.");
     process.exit(1);
   }
 
-  const extra =
-    process.env.ATMOS_ELECTRON_BUILDER_ARGS?.trim()
-      .split(/\s+/)
-      .filter(Boolean) ?? [];
+  const extra = process.env.ATMOS_ELECTRON_BUILDER_ARGS?.trim().split(/\s+/).filter(Boolean) ?? [];
   preflightMacIcons(extra);
 
-  run(process.execPath, [
-    builderBin,
-    "--config",
-    "electron-builder.yml",
-    ...extra,
-  ]);
+  run(process.execPath, [builderBin, "--config", "electron-builder.yml", ...extra]);
   console.log("[package] artifacts under apps/desktop-electron/release/");
 
   if (builderArgsIncludeMac(extra) && process.platform === "darwin") {

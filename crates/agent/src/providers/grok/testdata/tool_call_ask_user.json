@@ -14,7 +14,10 @@
             "header": "优化方向",
             "options": [
               { "label": "性能优化", "description": "启动速度、运行时性能、内存占用、打包体积等" },
-              { "label": "架构/代码优化", "description": "模块结构、依赖关系、可维护性、技术债务清理" }
+              {
+                "label": "架构/代码优化",
+                "description": "模块结构、依赖关系、可维护性、技术债务清理"
+              }
             ],
             "multi_select": true
           }

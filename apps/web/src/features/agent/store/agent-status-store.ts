@@ -5,10 +5,7 @@ import type { AgentStatusChangedNotification } from "@atmos/api-types/ws/dto/eve
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { agentStatusApi } from "@/api/rest-api";
-import type {
-  AgentAttentionSummaryDto,
-  WorkspaceAgentGroupKeyDto,
-} from "@/api/rest-api";
+import type { AgentAttentionSummaryDto, WorkspaceAgentGroupKeyDto } from "@/api/rest-api";
 import {
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
@@ -91,7 +88,6 @@ export const AGENT_TOOL_ICON_IDS: Record<AgentToolType, string> = {
   [AGENT_TOOL.GROK_BUILD]: "grok-build",
   [AGENT_TOOL.AGENT]: "agent",
 };
-
 
 export interface AgentStatusRecord {
   session_id: string;
@@ -178,9 +174,9 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
       get().dismissIdleSessionsForPane(stablePaneId);
     });
 
-    const unsubscribeStateChanged = useWebSocketStore.getState().onEvent(
-      "agent_status_changed",
-      (update: AgentStatusChangedNotification) => {
+    const unsubscribeStateChanged = useWebSocketStore
+      .getState()
+      .onEvent("agent_status_changed", (update: AgentStatusChangedNotification) => {
         const previous = get().sessions.get(update.session_id);
         set((state) => {
           const sessions = new Map(state.sessions);
@@ -206,12 +202,11 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
 
         // Sticky attention latches are raised by the API kernel via
         // `agent_attention_raised` (respects ForcedIdle vs TerminalIdle).
-      }
-    );
+      });
 
-    const unsubscribeCleared = useWebSocketStore.getState().onEvent(
-      "agent_status_cleared",
-      (data: unknown) => {
+    const unsubscribeCleared = useWebSocketStore
+      .getState()
+      .onEvent("agent_status_cleared", (data: unknown) => {
         const { session_ids } = data as { session_ids: string[] };
         if (!session_ids?.length) return;
         set((state) => {
@@ -222,12 +217,11 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
         // Do NOT clear sticky attention here. Idle session sweeps must not drop
         // need-attention latches — those live in API memory until acknowledge
         // (or pane destroy / explicit remove, which emit agent_attention_cleared).
-      }
-    );
+      });
 
-    const unsubscribeAttentionRaised = useWebSocketStore.getState().onEvent(
-      "agent_attention_raised",
-      (data: unknown) => {
+    const unsubscribeAttentionRaised = useWebSocketStore
+      .getState()
+      .onEvent("agent_attention_raised", (data: unknown) => {
         const latch = data as {
           stable_pane_id?: string;
           context_id?: string;
@@ -245,17 +239,15 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
           tool: latch.tool,
           raisedAt: latch.raised_at ? Date.parse(latch.raised_at) : undefined,
         });
-      },
-    );
+      });
 
-    const unsubscribeAttentionCleared = useWebSocketStore.getState().onEvent(
-      "agent_attention_cleared",
-      (data: unknown) => {
+    const unsubscribeAttentionCleared = useWebSocketStore
+      .getState()
+      .onEvent("agent_attention_cleared", (data: unknown) => {
         const { stable_pane_ids } = data as { stable_pane_ids?: string[] };
         if (!stable_pane_ids?.length) return;
         useAgentAttentionStore.getState().clearMatchingSessionIds(stable_pane_ids);
-      },
-    );
+      });
 
     const unsubscribeAttentionSummaryUpdated = useWebSocketStore
       .getState()
@@ -272,14 +264,10 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
             ? dto.next_steps.map(String).filter(Boolean)
             : [],
           canCloseSession:
-            typeof dto.can_close_session === "boolean"
-              ? dto.can_close_session
-              : undefined,
+            typeof dto.can_close_session === "boolean" ? dto.can_close_session : undefined,
           error: dto.error ?? undefined,
           startedAt: dto.started_at ? Date.parse(dto.started_at) : Date.now(),
-          completedAt: dto.completed_at
-            ? Date.parse(dto.completed_at)
-            : undefined,
+          completedAt: dto.completed_at ? Date.parse(dto.completed_at) : undefined,
         });
       });
 
@@ -288,9 +276,7 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
       .onEvent("agent_attention_summary_cleared", (data: unknown) => {
         const { stable_pane_ids } = data as { stable_pane_ids?: string[] };
         if (!stable_pane_ids?.length) return;
-        useAgentAttentionSummaryStore
-          .getState()
-          .clearMatchingIds(stable_pane_ids);
+        useAgentAttentionSummaryStore.getState().clearMatchingIds(stable_pane_ids);
       });
 
     const _unsubscribe = () => {
@@ -342,9 +328,7 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
   },
 
   getSessionsByProjectPath: (projectPath: string) => {
-    return Array.from(get().sessions.values()).filter(
-      (s) => s.project_path === projectPath
-    );
+    return Array.from(get().sessions.values()).filter((s) => s.project_path === projectPath);
   },
 
   getAggregateAgentStateForProjectPath: (projectPath: string) => {
@@ -389,20 +373,16 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
   getLatestSession: () => {
     const sessions = Array.from(get().sessions.values());
     if (sessions.length === 0) return null;
-    return sessions.reduce((latest, s) =>
-      s.timestamp > latest.timestamp ? s : latest
-    );
+    return sessions.reduce((latest, s) => (s.timestamp > latest.timestamp ? s : latest));
   },
 
   hasRunningSession: () => {
-    return Array.from(get().sessions.values()).some(
-      (s) => s.state === AGENT_STATE.RUNNING
-    );
+    return Array.from(get().sessions.values()).some((s) => s.state === AGENT_STATE.RUNNING);
   },
 
   hasPermissionRequest: () => {
     return Array.from(get().sessions.values()).some(
-      (s) => s.state === AGENT_STATE.PERMISSION_REQUEST
+      (s) => s.state === AGENT_STATE.PERMISSION_REQUEST,
     );
   },
 
@@ -469,8 +449,7 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
     try {
       await agentStatusApi.removeSession(sessionId, options);
     } catch (error) {
-      const missing =
-        error instanceof Error && error.message.includes("404");
+      const missing = error instanceof Error && error.message.includes("404");
       if (missing) return;
       console.warn("[AgentStatusStore] Failed to remove session:", error);
       if (previousSession) {
@@ -548,19 +527,18 @@ function contextIdFromStablePaneId(stablePaneId: string): string {
 }
 
 function dropStaleServerGroupKey(
-  set: (partial: Partial<AgentStatusStore> | ((state: AgentStatusStore) => Partial<AgentStatusStore> | AgentStatusStore)) => void,
+  set: (
+    partial:
+      | Partial<AgentStatusStore>
+      | ((state: AgentStatusStore) => Partial<AgentStatusStore> | AgentStatusStore),
+  ) => void,
   get: () => AgentStatusStore,
   stablePaneId: string,
 ) {
   const contextId = contextIdFromStablePaneId(stablePaneId);
   if (!contextId) return;
-  const attentionReason = useAgentAttentionStore
-    .getState()
-    .getContextReason(contextId);
-  if (
-    get().getAgentStateForContextId(contextId) !== AGENT_STATE.IDLE ||
-    attentionReason
-  ) {
+  const attentionReason = useAgentAttentionStore.getState().getContextReason(contextId);
+  if (get().getAgentStateForContextId(contextId) !== AGENT_STATE.IDLE || attentionReason) {
     return;
   }
   set((state) => {
@@ -572,7 +550,11 @@ function dropStaleServerGroupKey(
 }
 
 async function hydrateHookSnapshots(
-  set: (partial: Partial<AgentStatusStore> | ((state: AgentStatusStore) => Partial<AgentStatusStore> | AgentStatusStore)) => void,
+  set: (
+    partial:
+      | Partial<AgentStatusStore>
+      | ((state: AgentStatusStore) => Partial<AgentStatusStore> | AgentStatusStore),
+  ) => void,
   get: () => AgentStatusStore,
   generation: number,
 ): Promise<void> {
@@ -593,13 +575,8 @@ async function hydrateHookSnapshots(
       for (const paneId of ackedDuringHydrate) {
         const contextId = contextIdFromStablePaneId(paneId);
         if (!contextId) continue;
-        const attentionReason = useAgentAttentionStore
-          .getState()
-          .getContextReason(contextId);
-        if (
-          get().getAgentStateForContextId(contextId) === AGENT_STATE.IDLE &&
-          !attentionReason
-        ) {
+        const attentionReason = useAgentAttentionStore.getState().getContextReason(contextId);
+        if (get().getAgentStateForContextId(contextId) === AGENT_STATE.IDLE && !attentionReason) {
           delete serverWorkspaceGroupKeys[contextId];
         }
       }
@@ -607,10 +584,7 @@ async function hydrateHookSnapshots(
     });
   }
 
-  const [initialSessions, attention] = await Promise.all([
-    sessionsPromise,
-    attentionPromise,
-  ]);
+  const [initialSessions, attention] = await Promise.all([sessionsPromise, attentionPromise]);
   if (generation !== hydrateGeneration) return;
   if (attention.length > 0) {
     const filteredAttention = attention.filter((latch) => {
@@ -663,9 +637,7 @@ async function fetchInitialSessions(): Promise<AgentStatusRecord[]> {
   }
 }
 
-async function fetchInitialAttention(): Promise<
-  import("@/api/rest-api").AgentAttentionLatchDto[]
-> {
+async function fetchInitialAttention(): Promise<import("@/api/rest-api").AgentAttentionLatchDto[]> {
   try {
     const { attention } = await agentStatusApi.listAttention();
     return attention ?? [];

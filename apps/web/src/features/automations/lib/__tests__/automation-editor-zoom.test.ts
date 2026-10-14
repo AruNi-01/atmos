@@ -16,10 +16,7 @@ import {
 
 const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
-const previousGetComputedStyle = Object.getOwnPropertyDescriptor(
-  globalThis,
-  "getComputedStyle",
-);
+const previousGetComputedStyle = Object.getOwnPropertyDescriptor(globalThis, "getComputedStyle");
 
 beforeEach(() => {
   const win = new Window({ url: "https://app.atmos.local/" });
@@ -62,9 +59,7 @@ describe("automation editor zoom geometry", () => {
       scaleX: 0.25,
       scaleY: 0.25,
     });
-    expect(zoomTransformCss(origin, layout)).toBe(
-      "translate(40px, 80px) scale(0.25, 0.25)",
-    );
+    expect(zoomTransformCss(origin, layout)).toBe("translate(40px, 80px) scale(0.25, 0.25)");
     expect(automationEditorZoomTransition()).toContain("width");
     expect(automationEditorZoomTransition()).toContain("border-color");
     expect(automationEditorZoomTransition()).not.toContain("transform ");
@@ -106,10 +101,7 @@ describe("automation editor zoom geometry", () => {
 
   test("converts a viewport box into a transformed containing block", () => {
     expect(
-      boxRelativeTo(
-        { top: 65, left: 308, width: 1590, height: 960 },
-        { top: 49, left: 292 },
-      ),
+      boxRelativeTo({ top: 65, left: 308, width: 1590, height: 960 }, { top: 49, left: 292 }),
     ).toEqual({
       top: 16,
       left: 16,
@@ -131,9 +123,7 @@ describe("automation editor zoom geometry", () => {
         </div>
       </div>
     `;
-    expect(queryAutomationEditorExpandTarget(document.getElementById("host"))?.id).toBe(
-      "clip",
-    );
+    expect(queryAutomationEditorExpandTarget(document.getElementById("host"))?.id).toBe("clip");
   });
 
   test("falls back to the center-stage card when there is no clip node", () => {
@@ -144,9 +134,7 @@ describe("automation editor zoom geometry", () => {
         </div>
       </div>
     `;
-    expect(queryAutomationEditorExpandTarget(document.getElementById("host"))?.id).toBe(
-      "card",
-    );
+    expect(queryAutomationEditorExpandTarget(document.getElementById("host"))?.id).toBe("card");
   });
 
   test("releases overflow along the path and restores it", () => {

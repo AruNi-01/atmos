@@ -38,7 +38,10 @@ afterEach(() => {
 describe("S28 old storage key ignored", () => {
   test("v1 scene blob at the old key does not load as a v2 document", async () => {
     const store = installLocalStorage();
-    const v1 = { elements: [{ id: "old", type: "rectangle" }], appState: { viewBackgroundColor: "#fff" } };
+    const v1 = {
+      elements: [{ id: "old", type: "rectangle" }],
+      appState: { viewBackgroundColor: "#fff" },
+    };
     store.set("pt-design:scene:global", JSON.stringify(v1));
     const v2 = localStoragePersistence("pt-design/v2/global");
     expect(await v2.load()).toBeNull();
@@ -47,10 +50,7 @@ describe("S28 old storage key ignored", () => {
 
   test("v1 blob at the v2 key is ignored without throwing", async () => {
     const store = installLocalStorage();
-    store.set(
-      "pt-design/v2/global",
-      JSON.stringify({ elements: [{ id: "old" }], appState: {} }),
-    );
+    store.set("pt-design/v2/global", JSON.stringify({ elements: [{ id: "old" }], appState: {} }));
     const adapter = localStoragePersistence("pt-design/v2/global");
     expect(await adapter.load()).toBeNull();
   });

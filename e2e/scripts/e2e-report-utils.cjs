@@ -57,8 +57,7 @@ function collectSpecResults(report) {
       }
 
       for (const test of tests) {
-        const status =
-          test.status || (spec.ok === false ? "unexpected" : "expected");
+        const status = test.status || (spec.ok === false ? "unexpected" : "expected");
         results.push({
           title: spec.title,
           file: normalizeSpecFile(spec.file || suite.file),
@@ -125,8 +124,7 @@ function resolveOverview(report, results) {
   const skipped = stats.skipped ?? counted.skipped;
   const durationMs = stats.duration ?? 0;
   const executed = passed + failed + flaky;
-  const passRate =
-    executed === 0 ? 100 : Math.round((passed / executed) * 1000) / 10;
+  const passRate = executed === 0 ? 100 : Math.round((passed / executed) * 1000) / 10;
   const ok = failed === 0;
 
   return {
@@ -187,11 +185,13 @@ function buildFailureTableLines(failures) {
   appendMarkdownTable(
     lines,
     ["Project", "Spec", "Error"],
-    failures.slice(0, 15).map((failure) => [
-      `\`${failure.project}\``,
-      failure.title.replaceAll("|", "\\|"),
-      failure.message.replaceAll("|", "\\|"),
-    ]),
+    failures
+      .slice(0, 15)
+      .map((failure) => [
+        `\`${failure.project}\``,
+        failure.title.replaceAll("|", "\\|"),
+        failure.message.replaceAll("|", "\\|"),
+      ]),
   );
   if (failures.length > 15) {
     lines.push("", `_…and ${failures.length - 15} more failures in the HTML report._`);
@@ -306,16 +306,7 @@ function extractReportUrl(body) {
 
 function buildPrCommentBody(report, reportUrl, options = {}) {
   const sections = buildReportSections(report, { ...options, reportUrl });
-  const {
-    overview,
-    failures,
-    byFile,
-    byProject,
-    suites,
-    runId,
-    repository,
-    duration,
-  } = sections;
+  const { overview, failures, byFile, byProject, suites, runId, repository, duration } = sections;
 
   const lines = [
     REPORT_COMMENT_MARKER,
@@ -373,9 +364,7 @@ function buildPrCommentBody(report, reportUrl, options = {}) {
 }
 
 function buildExpiredPrCommentBody(previousBody, options = {}) {
-  const supersededByRunId = options.supersededByRunId
-    ? String(options.supersededByRunId)
-    : null;
+  const supersededByRunId = options.supersededByRunId ? String(options.supersededByRunId) : null;
   const previousUrl = extractReportUrl(previousBody);
   const lines = [
     REPORT_COMMENT_MARKER,

@@ -1,10 +1,4 @@
-export type HomeSocketState =
-  | "idle"
-  | "connecting"
-  | "open"
-  | "reconnecting"
-  | "closed"
-  | "error";
+export type HomeSocketState = "idle" | "connecting" | "open" | "reconnecting" | "closed" | "error";
 
 export type WorkspaceHomePhase = "loading" | "choose-computer" | "connection-failed" | "ready";
 

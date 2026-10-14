@@ -3,11 +3,7 @@
 import React, { useState } from "react";
 import { useTheme } from "next-themes";
 import { useLocale, useTranslations } from "next-intl";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui";
+import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { FollowHoverCard } from "@/shared/components/follow-hover-card";
 import { useGithubUserCardQuery } from "@/features/github/hooks/use-github-user-card-query";
@@ -115,13 +111,11 @@ function GithubUserCardBody({
   const year = new Date().getFullYear();
 
   const displayName = card?.name || name || card?.login || username;
-  const displayAvatar =
-    card?.avatar_url || avatarUrl || `https://github.com/${username}.png`;
+  const displayAvatar = card?.avatar_url || avatarUrl || `https://github.com/${username}.png`;
   const contributions = card?.contributions ?? [];
   const hasCalendar = contributions.length > 0;
   const total = hasCalendar
-    ? (card?.total_contributions ??
-      contributions.reduce((sum, day) => sum + day.count, 0))
+    ? (card?.total_contributions ?? contributions.reduce((sum, day) => sum + day.count, 0))
     : 0;
   const profileUrl = `https://github.com/${username}`;
 
@@ -135,9 +129,7 @@ function GithubUserCardBody({
           className="size-12 rounded-full border border-border/60 object-cover shadow-sm"
         />
         <div className="flex min-w-0 flex-col text-left">
-          <span className="truncate text-sm font-semibold text-foreground">
-            {displayName}
-          </span>
+          <span className="truncate text-sm font-semibold text-foreground">{displayName}</span>
           <a
             href={profileUrl}
             target="_blank"
@@ -156,8 +148,8 @@ function GithubUserCardBody({
             {contributions.map((day, index) => {
               const level = Math.max(0, Math.min(4, day.level ?? 0));
               const color = isDark
-                ? COLOR_SCHEME.dark[level] ?? COLOR_SCHEME.dark[0]
-                : COLOR_SCHEME.light[level] ?? COLOR_SCHEME.light[0];
+                ? (COLOR_SCHEME.dark[level] ?? COLOR_SCHEME.dark[0])
+                : (COLOR_SCHEME.light[level] ?? COLOR_SCHEME.light[0]);
               return (
                 <div key={day.date || index} className="group/cell relative">
                   <div

@@ -12,11 +12,11 @@
  * <ProjectEmpty variant="Minimal" title="No agents yet" createLabel="Install hooks" docsLabel="New chat" />
  */
 
-'use client';
+"use client";
 
-import * as React from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { cn } from '@workspace/ui/lib/utils';
+import * as React from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { cn } from "@workspace/ui/lib/utils";
 import {
   EmptyAction,
   EmptyHint,
@@ -30,9 +30,9 @@ import {
   IconPlus,
   IconTickSquare,
   SPRING_SNAPPY,
-} from './empty-state-kit';
+} from "./empty-state-kit";
 
-export type ProjectEmptyVariant = 'Templates' | 'Checklist' | 'Minimal';
+export type ProjectEmptyVariant = "Templates" | "Checklist" | "Minimal";
 
 export interface ProjectTemplate {
   id: string;
@@ -70,32 +70,32 @@ export interface ProjectEmptyProps {
 }
 
 const TEMPLATES: ProjectTemplate[] = [
-  { id: 'blank', name: 'Blank', detail: 'Start from nothing', icon: <IconFolder /> },
-  { id: 'analytics', name: 'Analytics', detail: 'Events and funnels', icon: <IconChart /> },
-  { id: 'docs', name: 'Docs site', detail: 'Markdown and search', icon: <IconDocument /> },
+  { id: "blank", name: "Blank", detail: "Start from nothing", icon: <IconFolder /> },
+  { id: "analytics", name: "Analytics", detail: "Events and funnels", icon: <IconChart /> },
+  { id: "docs", name: "Docs site", detail: "Markdown and search", icon: <IconDocument /> },
 ];
 
 const STEPS: SetupStep[] = [
-  { id: 'name', label: 'Name the project', detail: 'You can rename it later' },
-  { id: 'source', label: 'Connect a data source', detail: 'Postgres, S3 or an HTTP endpoint' },
-  { id: 'invite', label: 'Invite one teammate', detail: 'Projects are more useful with two' },
+  { id: "name", label: "Name the project", detail: "You can rename it later" },
+  { id: "source", label: "Connect a data source", detail: "Postgres, S3 or an HTTP endpoint" },
+  { id: "invite", label: "Invite one teammate", detail: "Projects are more useful with two" },
 ];
 
 export function ProjectEmpty({
-  panelTitle = 'Projects',
-  title = 'No projects yet',
-  description = 'A project holds your sources, queries and everything built on top of them. Start from a template or an empty one.',
+  panelTitle = "Projects",
+  title = "No projects yet",
+  description = "A project holds your sources, queries and everything built on top of them. Start from a template or an empty one.",
   templates = TEMPLATES,
   steps = STEPS,
-  createLabel = 'New project',
-  docsLabel = 'Read the guide',
+  createLabel = "New project",
+  docsLabel = "Read the guide",
   docsAction,
   onCreate,
   onDocs,
   createAction,
-  variant = 'Templates',
+  variant = "Templates",
   className,
-  meta = '0 active',
+  meta = "0 active",
   icon = <IconFolder />,
   createDisabled = false,
 }: ProjectEmptyProps) {
@@ -114,156 +114,154 @@ export function ProjectEmpty({
   }
 
   const emptyState = (
-      <EmptyState
-        className={variant === 'Minimal' ? className : undefined}
-        icon={icon}
-        backdrop="stack"
-        title={title}
-        description={description}
-        actions={
-          <>
-            {createAction ?? (
-              <EmptyAction
-                icon={<IconPlus />}
-                disabled={createDisabled}
-                onClick={() => onCreate?.(selected)}
-              >
-                {variant !== 'Minimal' && chosen
-                  ? `Create ${chosen.name.toLowerCase()} project`
-                  : createLabel}
+    <EmptyState
+      className={variant === "Minimal" ? className : undefined}
+      icon={icon}
+      backdrop="stack"
+      title={title}
+      description={description}
+      actions={
+        <>
+          {createAction ?? (
+            <EmptyAction
+              icon={<IconPlus />}
+              disabled={createDisabled}
+              onClick={() => onCreate?.(selected)}
+            >
+              {variant !== "Minimal" && chosen
+                ? `Create ${chosen.name.toLowerCase()} project`
+                : createLabel}
+            </EmptyAction>
+          )}
+          {docsAction ??
+            (showDocs ? (
+              <EmptyAction emphasis="quiet" trailing={<IconArrowRight />} onClick={onDocs}>
+                {docsLabel}
               </EmptyAction>
-            )}
-            {docsAction ??
-              (showDocs ? (
-                <EmptyAction emphasis="quiet" trailing={<IconArrowRight />} onClick={onDocs}>
-                  {docsLabel}
-                </EmptyAction>
-              ) : null)}
-          </>
-        }
-        footnote={
-          variant !== 'Minimal' ? (
-            <EmptyHint keys={['⌘', 'N']}>to skip this screen</EmptyHint>
-          ) : undefined
-        }
-      >
-        {variant === 'Templates' && (
-          <div className="grid w-full max-w-[560px] grid-cols-1 gap-2 sm:grid-cols-3">
-            {templates.map((template) => {
-              const active = template.id === selected;
-              return (
-                <motion.button
-                  key={template.id}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setSelected(active ? null : template.id)}
-                  whileTap={reduced ? undefined : { scale: 0.98 }}
-                  transition={SPRING_SNAPPY}
-                  className={cn(
-                    'group relative cursor-pointer rounded-xl border px-3 py-3 text-left',
-                    'transition-transform duration-150 ease-out hover:-translate-y-0.5',
-                    'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
-                    active
-                      ? 'border-border bg-accent'
-                      : 'border-border hover:border-foreground/20',
-                  )}
-                >
-                  <span className="flex items-center justify-between">
-                    <span className="text-foreground [&_svg]:size-[18px]">{template.icon}</span>
-                    <AnimatePresence initial={false}>
-                      {active && (
-                        <motion.span
-                          initial={{ opacity: 0, scale: 0.6 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.6 }}
-                          transition={SPRING_SNAPPY}
-                          className="text-foreground [&_svg]:size-4"
-                        >
-                          <IconTickSquare />
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </span>
-                  <span className="mt-2.5 block text-[14px] font-medium text-foreground">
-                    {template.name}
-                  </span>
-                  <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
-                    {template.detail}
-                  </span>
-                </motion.button>
-              );
-            })}
-          </div>
-        )}
-
-        {variant === 'Checklist' && (
-          <div className="w-full max-w-[420px] text-left">
-            <div className="mb-3 flex items-baseline justify-between">
-              <span className="text-[13px] font-medium text-foreground">Setup</span>
-              <span className="text-[12.5px] tabular-nums text-muted-foreground">
-                {done.length}/{steps.length}
-              </span>
-            </div>
-            <EmptyMeter value={progress} tone={progress === 1 ? 'positive' : 'neutral'} />
-            <ul className="mt-3 flex flex-col gap-1">
-              {steps.map((step) => {
-                const complete = done.includes(step.id);
-                return (
-                  <li key={step.id}>
-                    <button
-                      type="button"
-                      aria-pressed={complete}
-                      onClick={() => toggleStep(step.id)}
-                      className="flex w-full cursor-pointer items-start gap-2.5 rounded-xl px-2 py-2 text-left transition-colors duration-150 hover:bg-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                    >
+            ) : null)}
+        </>
+      }
+      footnote={
+        variant !== "Minimal" ? (
+          <EmptyHint keys={["⌘", "N"]}>to skip this screen</EmptyHint>
+        ) : undefined
+      }
+    >
+      {variant === "Templates" && (
+        <div className="grid w-full max-w-[560px] grid-cols-1 gap-2 sm:grid-cols-3">
+          {templates.map((template) => {
+            const active = template.id === selected;
+            return (
+              <motion.button
+                key={template.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setSelected(active ? null : template.id)}
+                whileTap={reduced ? undefined : { scale: 0.98 }}
+                transition={SPRING_SNAPPY}
+                className={cn(
+                  "group relative cursor-pointer rounded-xl border px-3 py-3 text-left",
+                  "transition-transform duration-150 ease-out hover:-translate-y-0.5",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+                  active ? "border-border bg-accent" : "border-border hover:border-foreground/20",
+                )}
+              >
+                <span className="flex items-center justify-between">
+                  <span className="text-foreground [&_svg]:size-[18px]">{template.icon}</span>
+                  <AnimatePresence initial={false}>
+                    {active && (
                       <motion.span
-                        animate={{ scale: complete ? 1 : 0.92 }}
+                        initial={{ opacity: 0, scale: 0.6 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.6 }}
                         transition={SPRING_SNAPPY}
+                        className="text-foreground [&_svg]:size-4"
+                      >
+                        <IconTickSquare />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </span>
+                <span className="mt-2.5 block text-[14px] font-medium text-foreground">
+                  {template.name}
+                </span>
+                <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
+                  {template.detail}
+                </span>
+              </motion.button>
+            );
+          })}
+        </div>
+      )}
+
+      {variant === "Checklist" && (
+        <div className="w-full max-w-[420px] text-left">
+          <div className="mb-3 flex items-baseline justify-between">
+            <span className="text-[13px] font-medium text-foreground">Setup</span>
+            <span className="text-[12.5px] text-muted-foreground tabular-nums">
+              {done.length}/{steps.length}
+            </span>
+          </div>
+          <EmptyMeter value={progress} tone={progress === 1 ? "positive" : "neutral"} />
+          <ul className="mt-3 flex flex-col gap-1">
+            {steps.map((step) => {
+              const complete = done.includes(step.id);
+              return (
+                <li key={step.id}>
+                  <button
+                    type="button"
+                    aria-pressed={complete}
+                    onClick={() => toggleStep(step.id)}
+                    className="flex w-full cursor-pointer items-start gap-2.5 rounded-xl px-2 py-2 text-left transition-colors duration-150 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
+                  >
+                    <motion.span
+                      animate={{ scale: complete ? 1 : 0.92 }}
+                      transition={SPRING_SNAPPY}
+                      className={cn(
+                        "mt-px grid size-[18px] shrink-0 place-items-center rounded-[7px] border",
+                        complete
+                          ? "border-transparent bg-primary text-primary-foreground"
+                          : "border-border",
+                      )}
+                    >
+                      <AnimatePresence initial={false}>
+                        {complete && (
+                          <motion.span
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            transition={SPRING_SNAPPY}
+                            className="[&_svg]:size-3"
+                          >
+                            <IconTickSquare />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </motion.span>
+                    <span className="min-w-0">
+                      <span
                         className={cn(
-                          'mt-px grid size-[18px] shrink-0 place-items-center rounded-[7px] border',
-                          complete
-                            ? 'border-transparent bg-primary text-primary-foreground'
-                            : 'border-border',
+                          "block text-[14px] font-medium transition-colors duration-200",
+                          complete ? "text-muted-foreground line-through" : "text-foreground",
                         )}
                       >
-                        <AnimatePresence initial={false}>
-                          {complete && (
-                            <motion.span
-                              initial={{ opacity: 0, scale: 0.5 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.5 }}
-                              transition={SPRING_SNAPPY}
-                              className="[&_svg]:size-3"
-                            >
-                              <IconTickSquare />
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      </motion.span>
-                      <span className="min-w-0">
-                        <span
-                          className={cn(
-                            'block text-[14px] font-medium transition-colors duration-200',
-                            complete ? 'text-muted-foreground line-through' : 'text-foreground',
-                          )}
-                        >
-                          {step.label}
-                        </span>
-                        <span className="block text-[12.5px] text-muted-foreground">
-                          {step.detail}
-                        </span>
+                        {step.label}
                       </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </EmptyState>
+                      <span className="block text-[12.5px] text-muted-foreground">
+                        {step.detail}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </EmptyState>
   );
 
-  if (variant === 'Minimal') return emptyState;
+  if (variant === "Minimal") return emptyState;
 
   return (
     <EmptyPanel
@@ -283,9 +281,9 @@ export function ProjectEmpty({
       className={className}
     >
       {emptyState}
-      {variant === 'Templates' && (
+      {variant === "Templates" && (
         <p aria-live="polite" className="sr-only">
-          {chosen ? `${chosen.name} template selected` : 'No template selected'}
+          {chosen ? `${chosen.name} template selected` : "No template selected"}
         </p>
       )}
     </EmptyPanel>

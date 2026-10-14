@@ -24,32 +24,24 @@ describe("nativeChatHostsForTerminalSelection", () => {
   });
 
   test("ignores agents without a Native Chat sibling", () => {
-    expect(
-      nativeChatHostsForTerminalSelection(["cursor", "gemini", "deepseek-harness"]),
-    ).toEqual([]);
+    expect(nativeChatHostsForTerminalSelection(["cursor", "gemini", "deepseek-harness"])).toEqual(
+      [],
+    );
   });
 
   test("dedupes when both terminal and ACP ids are selected", () => {
-    expect(nativeChatHostsForTerminalSelection(["claude", "claude-acp"])).toEqual([
-      "claude",
-    ]);
+    expect(nativeChatHostsForTerminalSelection(["claude", "claude-acp"])).toEqual(["claude"]);
   });
 });
 
 describe("acpOnboardingTerminalIds", () => {
   test("skips families already covered by a native host on PATH", () => {
     expect(
-      acpOnboardingTerminalIds(
-        ["claude", "cursor", "grok-build"],
-        ["claude", "grok"],
-      ).sort(),
+      acpOnboardingTerminalIds(["claude", "cursor", "grok-build"], ["claude", "grok"]).sort(),
     ).toEqual(["cursor"]);
   });
 
   test("keeps ACP when the native CLI is missing", () => {
-    expect(acpOnboardingTerminalIds(["claude", "cursor"], [])).toEqual([
-      "claude",
-      "cursor",
-    ]);
+    expect(acpOnboardingTerminalIds(["claude", "cursor"], [])).toEqual(["claude", "cursor"]);
   });
 });

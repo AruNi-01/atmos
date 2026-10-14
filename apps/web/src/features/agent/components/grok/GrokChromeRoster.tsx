@@ -61,10 +61,8 @@ export function GrokChromeRoster({
         const leadNode = lead?.(section) ?? null;
         const hint = emptyHint?.(section) ?? null;
         const phaseOpen =
-          openPhases[section.id]
-          ?? (section.state === "running"
-            || section.state === "active"
-            || Boolean(leadNode));
+          openPhases[section.id] ??
+          (section.state === "running" || section.state === "active" || Boolean(leadNode));
         return (
           <Collapsible
             key={section.id}

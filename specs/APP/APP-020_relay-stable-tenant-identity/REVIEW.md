@@ -14,22 +14,22 @@ The remaining quality work is mostly about proving the edge cases: direct token 
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | relay/web | Token rotation and token switch need separate behavior | fixed |
-| REV-002 | P1 | automations/relay | Route cleanup must preserve tenant ownership boundaries | fixed |
-| REV-003 | P1 | migration/relay | Stable tenant migration must protect tenant integrity | fixed |
-| REV-004 | P2 | relay/ops | Retention cleanup remains a production tradeoff | fixed |
+| Id      | Severity | Area              | Title                                                   | Status |
+| ------- | -------- | ----------------- | ------------------------------------------------------- | ------ |
+| REV-001 | P1       | relay/web         | Token rotation and token switch need separate behavior  | fixed  |
+| REV-002 | P1       | automations/relay | Route cleanup must preserve tenant ownership boundaries | fixed  |
+| REV-003 | P1       | migration/relay   | Stable tenant migration must protect tenant integrity   | fixed  |
+| REV-004 | P2       | relay/ops         | Retention cleanup remains a production tradeoff         | fixed  |
 
 ## REV-001 · Token rotation and token switch need separate behavior
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | relay/web |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Status**      | fixed                   |
+| **Severity**    | P1                      |
+| **Area**        | relay/web               |
 | **Reported by** | internal quality review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned              |
 
 ### Finding
 
@@ -59,13 +59,13 @@ There is still no lost-token recovery. That is intentional for v1: without the c
 
 ## REV-002 · Route cleanup must preserve tenant ownership boundaries
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | automations/relay |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Status**      | fixed                   |
+| **Severity**    | P1                      |
+| **Area**        | automations/relay       |
 | **Reported by** | internal quality review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned              |
 
 ### Finding
 
@@ -95,13 +95,13 @@ If a user directly switches away from Token A, Token B cannot clean up Token A's
 
 ## REV-003 · Stable tenant migration must protect tenant integrity
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | migration/relay |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Status**      | fixed                   |
+| **Severity**    | P1                      |
+| **Area**        | migration/relay         |
 | **Reported by** | internal quality review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned              |
 
 ### Finding
 
@@ -131,13 +131,13 @@ The migration disables foreign keys while rebuilding tables, which is pragmatic 
 
 ## REV-004 · Retention cleanup remains a production tradeoff
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | relay/ops |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Status**      | fixed                   |
+| **Severity**    | P2                      |
+| **Area**        | relay/ops               |
 | **Reported by** | internal quality review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned              |
 
 ### Finding
 

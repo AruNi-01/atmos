@@ -274,10 +274,7 @@ export function pushStickyLeavingContext(
   if (!leavingContextId || leavingContextId === nextActiveContextId) {
     return stickyLeavingIds;
   }
-  return [
-    ...stickyLeavingIds.filter((id) => id !== leavingContextId),
-    leavingContextId,
-  ];
+  return [...stickyLeavingIds.filter((id) => id !== leavingContextId), leavingContextId];
 }
 
 /** Drop sticky ids once the warm store (or active) owns them. */
@@ -289,9 +286,7 @@ export function pruneStickyLeavingContexts(
   },
 ): string[] {
   const warm = new Set(input.warmIds);
-  return stickyLeavingIds.filter(
-    (id) => id && id !== input.effectiveContextId && !warm.has(id),
-  );
+  return stickyLeavingIds.filter((id) => id && id !== input.effectiveContextId && !warm.has(id));
 }
 
 export interface ProtectSignals {
@@ -376,10 +371,7 @@ export function sweepWarmByTtl(input: {
   const kept: WarmEntry[] = [];
   const expired: string[] = [];
   for (const w of input.warm) {
-    if (
-      input.now - w.lastAccessed > input.warmTtlMs &&
-      !isProtected(w.contextId, input.protect)
-    ) {
+    if (input.now - w.lastAccessed > input.warmTtlMs && !isProtected(w.contextId, input.protect)) {
       expired.push(w.contextId);
     } else {
       kept.push(w);

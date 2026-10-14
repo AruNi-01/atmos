@@ -34,11 +34,13 @@ crates/llm/
 ## Coding Conventions
 
 ### Provider Pattern
+
 - Each provider implements a common `LLMClient` trait
 - Providers are split into compatibility classes (OpenAI-compatible, Anthropic-compatible)
 - New providers should follow the compatibility pattern
 
 ### Client Interface
+
 ```rust
 pub use client::LLMClient;       // Main trait
 
@@ -57,6 +59,7 @@ pub use providers::{
 ```
 
 ### Configuration
+
 - API keys and endpoints configured via `config.rs`
 - Supports both streaming and non-streaming modes
 - Prompt templating via `prompt_template.rs`
@@ -66,14 +69,15 @@ pub use providers::{
 ## Safety Rails
 
 ### NEVER
+
 - Hardcode API keys — use configuration
 - Assume all providers have the same API — use trait abstraction
 - Expose provider-specific types outside the provider module
 - Mix OpenAI and Anthropic message formats without conversion
 
 ### ALWAYS
+
 - Use the `LLMClient` trait for all LLM interactions
 - Convert provider-specific types to common types in `types.rs`
 - Handle streaming and non-streaming consistently
 - Add new providers under `providers/` following existing patterns
-

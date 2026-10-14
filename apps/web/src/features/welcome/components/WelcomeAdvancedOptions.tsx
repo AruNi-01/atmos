@@ -27,11 +27,7 @@ import {
   SelectValue,
   cn,
 } from "@workspace/ui";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import {
   Check,
   ChevronDown,
@@ -234,7 +230,9 @@ export function WelcomeAdvancedOptions({
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="workspace-branch-inline">{t("advanced.fields.currentWorkspaceBranch")}</Label>
+                <Label htmlFor="workspace-branch-inline">
+                  {t("advanced.fields.currentWorkspaceBranch")}
+                </Label>
                 <Input
                   id="workspace-branch-inline"
                   ref={branchInputRef}
@@ -250,7 +248,7 @@ export function WelcomeAdvancedOptions({
                       <Button
                         type="button"
                         variant="link"
-                        className="ml-1 h-auto p-0 text-xs align-baseline"
+                        className="ml-1 h-auto p-0 align-baseline text-xs"
                         onClick={handleRegenerateBranch}
                       >
                         {t("advanced.randomGenerateAgain")}
@@ -262,7 +260,9 @@ export function WelcomeAdvancedOptions({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="workspace-base-branch-trigger-inline">{t("advanced.fields.baseBranch")}</Label>
+              <Label htmlFor="workspace-base-branch-trigger-inline">
+                {t("advanced.fields.baseBranch")}
+              </Label>
               <DropdownMenu
                 open={isBaseBranchOpen}
                 onOpenChange={(open) => {
@@ -285,9 +285,14 @@ export function WelcomeAdvancedOptions({
                     <ChevronDown className="size-4 opacity-50" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] p-3">
+                <DropdownMenuContent
+                  align="start"
+                  className="w-[var(--radix-dropdown-menu-trigger-width)] p-3"
+                >
                   <div className="space-y-2">
-                    <p className="text-[12px] text-muted-foreground">{t("advanced.selectTargetBranch")}</p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {t("advanced.selectTargetBranch")}
+                    </p>
                     <Input
                       value={baseBranchFilter}
                       onChange={(event) => setBaseBranchFilter(event.target.value)}
@@ -308,9 +313,8 @@ export function WelcomeAdvancedOptions({
                             key={remoteBranch}
                             onClick={() => setBaseBranch(remoteBranch)}
                             className={cn(
-                              "cursor-pointer justify-between whitespace-nowrap text-[13px]",
-                              baseBranch === remoteBranch &&
-                                "bg-accent text-accent-foreground",
+                              "cursor-pointer justify-between text-[13px] whitespace-nowrap",
+                              baseBranch === remoteBranch && "bg-accent text-accent-foreground",
                             )}
                           >
                             <span className="flex items-center">
@@ -390,7 +394,11 @@ export function WelcomeAdvancedOptions({
                     disabled={isIssuesLoading}
                     title={t("advanced.refreshIssues")}
                   >
-                    {isIssuesLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+                    {isIssuesLoading ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <RotateCw className="size-4" />
+                    )}
                   </Button>
                 ) : repoContext && linkType === "pr" ? (
                   <Button
@@ -402,7 +410,11 @@ export function WelcomeAdvancedOptions({
                     disabled={isPrsLoading}
                     title={t("advanced.refreshPrs")}
                   >
-                    {isPrsLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+                    {isPrsLoading ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <RotateCw className="size-4" />
+                    )}
                   </Button>
                 ) : linkType === "linear" ? (
                   <Button
@@ -414,7 +426,11 @@ export function WelcomeAdvancedOptions({
                     disabled={isLinearLoading}
                     title={t("advanced.refreshLinear")}
                   >
-                    {isLinearLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+                    {isLinearLoading ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <RotateCw className="size-4" />
+                    )}
                   </Button>
                 ) : null}
               </div>
@@ -583,7 +599,9 @@ function IssueLinkPanel({
         {repoContext ? (
           <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
             <div className="grid min-w-0 gap-2">
-              <Label htmlFor="issue-select-inline">{t("advanced.issue.selectFromRepository")}</Label>
+              <Label htmlFor="issue-select-inline">
+                {t("advanced.issue.selectFromRepository")}
+              </Label>
               <Select
                 value={selectedIssueNumber}
                 onValueChange={handleSelectIssue}
@@ -638,7 +656,10 @@ function IssueLinkPanel({
                   id="issue-url-inline"
                   value={issueUrl}
                   onChange={(event) => onIssueUrlChange(event.target.value)}
-                  placeholder={t("advanced.issue.issueUrlPlaceholder", { owner: repoContext.owner, repo: repoContext.repo })}
+                  placeholder={t("advanced.issue.issueUrlPlaceholder", {
+                    owner: repoContext.owner,
+                    repo: repoContext.repo,
+                  })}
                 />
                 <Button
                   type="button"
@@ -806,7 +827,10 @@ function PrLinkPanel({
                   id="pr-url-inline"
                   value={prUrl}
                   onChange={(event) => onPrUrlChange(event.target.value)}
-                  placeholder={t("advanced.pr.prUrlPlaceholder", { owner: repoContext.owner, repo: repoContext.repo })}
+                  placeholder={t("advanced.pr.prUrlPlaceholder", {
+                    owner: repoContext.owner,
+                    repo: repoContext.repo,
+                  })}
                 />
                 <Button
                   type="button"
@@ -925,9 +949,7 @@ function LinearLinkPanel({
           </div>
         ) : (
           <div className="grid min-w-0 gap-2">
-            <Label htmlFor="linear-select-inline">
-              {t("advanced.linear.selectIssue")}
-            </Label>
+            <Label htmlFor="linear-select-inline">{t("advanced.linear.selectIssue")}</Label>
             <Select
               value={selectedLinearId}
               onValueChange={handleSelectLinear}
@@ -973,9 +995,7 @@ function LinearLinkPanel({
                 />
               </SelectContent>
             </Select>
-            <p className="text-[11px] text-muted-foreground">
-              {t("advanced.linear.openOnlyHint")}
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("advanced.linear.openOnlyHint")}</p>
           </div>
         )}
 
@@ -1024,7 +1044,7 @@ function LinearLinkPanel({
                 ) : null}
               </div>
               {linearPreview.description ? (
-                <p className="line-clamp-4 whitespace-pre-wrap text-xs text-muted-foreground">
+                <p className="line-clamp-4 text-xs whitespace-pre-wrap text-muted-foreground">
                   {linearPreview.description}
                 </p>
               ) : (
@@ -1084,9 +1104,7 @@ function GithubPreviewCard({
                 {t("advanced.preview.openOnGithub")}
               </Button>
             </div>
-            <h3 className="mt-1 truncate text-sm font-medium text-foreground">
-              {title}
-            </h3>
+            <h3 className="mt-1 truncate text-sm font-medium text-foreground">{title}</h3>
             {branchMeta}
           </div>
           <Badge variant="secondary" className="rounded-full capitalize">
@@ -1104,7 +1122,7 @@ function GithubPreviewCard({
           </div>
         ) : null}
 
-        <p className="line-clamp-6 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
+        <p className="line-clamp-6 text-xs leading-5 whitespace-pre-wrap text-muted-foreground">
           {body?.trim() || bodyFallback}
         </p>
       </CardContent>
@@ -1136,9 +1154,7 @@ function AutoExtractTodosCheckbox({
           <Sparkles className="size-4 text-muted-foreground" />
           {t("advanced.autoExtractTodos")}
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {description}
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
       </div>
     </label>
   );

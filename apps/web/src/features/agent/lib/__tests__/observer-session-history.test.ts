@@ -44,41 +44,61 @@ function assistant(text: string, id = text): AgentMessage {
 
 describe("observerHistoryRequest", () => {
   it("loads a chat from its chat id", () => {
-    expect(observerHistoryRequest(activity({
-      session_id: "chat:chat-1",
-      surface: "chat",
-      surface_id: "chat-1",
-      tool: "grok-build",
-    }))).toEqual({ kind: "chat", chatId: "chat-1" });
+    expect(
+      observerHistoryRequest(
+        activity({
+          session_id: "chat:chat-1",
+          surface: "chat",
+          surface_id: "chat-1",
+          tool: "grok-build",
+        }),
+      ),
+    ).toEqual({ kind: "chat", chatId: "chat-1" });
   });
 
   it("strips the chat prefix when surface id is missing", () => {
-    expect(observerHistoryRequest(activity({
-      session_id: "chat:chat-2",
-      surface: "chat",
-    }))).toEqual({ kind: "chat", chatId: "chat-2" });
+    expect(
+      observerHistoryRequest(
+        activity({
+          session_id: "chat:chat-2",
+          surface: "chat",
+        }),
+      ),
+    ).toEqual({ kind: "chat", chatId: "chat-2" });
   });
 
   it("loads a terminal session from the vendor guid", () => {
-    expect(observerHistoryRequest(activity({
-      native_session_id: "lead-guid",
-      host_provider_id: "claude",
-    }))).toEqual({ kind: "host", key: "claude:lead-guid" });
+    expect(
+      observerHistoryRequest(
+        activity({
+          native_session_id: "lead-guid",
+          host_provider_id: "claude",
+        }),
+      ),
+    ).toEqual({ kind: "host", key: "claude:lead-guid" });
   });
 
   it("derives the host provider from the tool when the field is empty", () => {
-    expect(observerHistoryRequest(activity({
-      tool: "grok-build",
-      native_session_id: "grok-guid",
-    }))).toEqual({ kind: "host", key: "grok:grok-guid" });
+    expect(
+      observerHistoryRequest(
+        activity({
+          tool: "grok-build",
+          native_session_id: "grok-guid",
+        }),
+      ),
+    ).toEqual({ kind: "host", key: "grok:grok-guid" });
   });
 
   it("does not ask for a session source the host roster does not have", () => {
-    expect(observerHistoryRequest(activity({
-      tool: "gemini",
-      native_session_id: "gem-guid",
-      host_provider_id: "gemini",
-    }))).toBeNull();
+    expect(
+      observerHistoryRequest(
+        activity({
+          tool: "gemini",
+          native_session_id: "gem-guid",
+          host_provider_id: "gemini",
+        }),
+      ),
+    ).toBeNull();
     expect(observerHistoryRequest(activity({ tool: "claude-code" }))).toBeNull();
   });
 });
@@ -96,12 +116,20 @@ describe("splitSessionHistory", () => {
   });
 
   it("uses the transcript once an ended turn is already in it", () => {
-    const messages = [user("delegate"), assistant("done"), user("also add tests"), assistant("added")];
+    const messages = [
+      user("delegate"),
+      assistant("done"),
+      user("also add tests"),
+      assistant("added"),
+    ];
     const split = splitSessionHistory(messages, [
       turn({ turn_id: 1, prompt: "delegate", ended_at: "t2" }),
       turn({ turn_id: 2, prompt: "also add tests", ended_at: "t3" }),
     ]);
-    expect(split.messages.map(userMessageText).filter(Boolean)).toEqual(["delegate", "also add tests"]);
+    expect(split.messages.map(userMessageText).filter(Boolean)).toEqual([
+      "delegate",
+      "also add tests",
+    ]);
     expect(split.hookTurnIds).toEqual([]);
   });
 
@@ -144,14 +172,16 @@ describe("splitSessionHistory", () => {
         turn({ turn_id: 2, prompt: "scan the tree" }),
         turn({ turn_id: 3, prompt: follow }),
       ],
-      [{
-        child_id: "c1",
-        state: "running",
-        recent_tools: [],
-        prompt: "scan the tree",
-        started_at: "t",
-        last_event_at: "t",
-      }],
+      [
+        {
+          child_id: "c1",
+          state: "running",
+          recent_tools: [],
+          prompt: "scan the tree",
+          started_at: "t",
+          last_event_at: "t",
+        },
+      ],
     );
     expect(split.hookTurnIds).toEqual([3]);
   });

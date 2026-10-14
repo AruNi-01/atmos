@@ -27,14 +27,9 @@ export type {
 export { buildProtectSignals } from "@/app-shell/workspace-surface-policies";
 
 /** Persist a workspace_surface setting only when the app WS is already connected. */
-async function persistWorkspaceSurfaceSetting(
-  key: string,
-  value: number,
-): Promise<void> {
+async function persistWorkspaceSurfaceSetting(key: string, value: number): Promise<void> {
   try {
-    const { useWebSocketStore } = await import(
-      "@/features/connection/hooks/use-websocket"
-    );
+    const { useWebSocketStore } = await import("@/features/connection/hooks/use-websocket");
     if (useWebSocketStore.getState().connectionState !== "connected") {
       return;
     }
@@ -123,10 +118,7 @@ function sameMountPlan(a: MountPlan, b: MountPlan): boolean {
   return true;
 }
 
-function surfaceSnapshotEqual(
-  prev: ContextSurfaceSnapshot,
-  next: ContextSurfaceSnapshot,
-): boolean {
+function surfaceSnapshotEqual(prev: ContextSurfaceSnapshot, next: ContextSurfaceSnapshot): boolean {
   return (
     prev.frameActiveTab === next.frameActiveTab &&
     prev.terminalTabIds.join("\0") === next.terminalTabIds.join("\0") &&
@@ -175,15 +167,15 @@ export function resolveProtectSignals(
   return buildProtectSignalsFromLiveStores(activeContextId);
 }
 
-export function buildProtectSignalsFromLiveStores(
-  activeContextId: string | null,
-): ProtectSignals {
+export function buildProtectSignalsFromLiveStores(activeContextId: string | null): ProtectSignals {
   // Lazy require keeps unit tests of the WSC shell free of the full editor/UI import graph.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { useEditorStore } = require("@/features/editor/store/use-editor-store") as typeof import("@/features/editor/store/use-editor-store");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { useTerminalStore } = require("@/features/terminal/store/use-terminal-store") as typeof import("@/features/terminal/store/use-terminal-store");
+    /* oxlint-disable typescript/no-require-imports -- lazy require keeps WSC unit tests free of the editor/UI import graph */
+    const { useEditorStore } =
+      require("@/features/editor/store/use-editor-store") as typeof import("@/features/editor/store/use-editor-store");
+    const { useTerminalStore } =
+      require("@/features/terminal/store/use-terminal-store") as typeof import("@/features/terminal/store/use-terminal-store");
+    /* oxlint-enable typescript/no-require-imports */
     return buildProtectSignals({
       activeContextId,
       editorWorkspaceStates: useEditorStore.getState().workspaceStates ?? {},
@@ -242,7 +234,9 @@ function trimWarmToBudget(
   set: (
     partial:
       | Partial<WorkspaceSurfaceCacheState>
-      | ((s: WorkspaceSurfaceCacheState) => Partial<WorkspaceSurfaceCacheState> | WorkspaceSurfaceCacheState),
+      | ((
+          s: WorkspaceSurfaceCacheState,
+        ) => Partial<WorkspaceSurfaceCacheState> | WorkspaceSurfaceCacheState),
   ) => void,
 ) {
   const state = get();
@@ -350,9 +344,7 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     if (prev) {
       // Projected size if we only append prev (no eviction).
       const alreadyWarm = warmWithoutNext.some((w) => w.contextId === prev);
-      const projectedLen = alreadyWarm
-        ? warmWithoutNext.length
-        : warmWithoutNext.length + 1;
+      const projectedLen = alreadyWarm ? warmWithoutNext.length : warmWithoutNext.length + 1;
       // Skip full editor/terminal protect scan when under budget (common fast path).
       const protect =
         projectedLen > state.maxWarmWorkspaces
@@ -498,9 +490,8 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
 
   loadSettings: async () => {
     try {
-      const { useFunctionSettingsStore } = await import(
-        "@/features/settings/store/function-settings-store"
-      );
+      const { useFunctionSettingsStore } =
+        await import("@/features/settings/store/function-settings-store");
       const settings = await useFunctionSettingsStore.getState().load();
       const ws = (settings as Record<string, unknown>).workspace_surface as
         | Record<string, unknown>
@@ -527,8 +518,7 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
           typeof ws.max_global_browsers === "number"
             ? ws.max_global_browsers
             : state.maxGlobalBrowsers,
-        warmTtlMs:
-          typeof ws.warm_ttl_ms === "number" ? ws.warm_ttl_ms : state.warmTtlMs,
+        warmTtlMs: typeof ws.warm_ttl_ms === "number" ? ws.warm_ttl_ms : state.warmTtlMs,
       }));
       // Apply loaded budgets immediately (defaults may already have published snapshots).
       trimWarmToBudget(get, set);
@@ -544,20 +534,14 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     // Immediately freeze excess warm contexts (do not wait for next touch).
     trimWarmToBudget(get, set);
     get().enforceMountBudgets("settings");
-    await persistWorkspaceSurfaceSetting(
-      "max_warm_workspaces",
-      maxWarmWorkspaces,
-    );
+    await persistWorkspaceSurfaceSetting("max_warm_workspaces", maxWarmWorkspaces);
   },
 
   setMaxGlobalTerminalPanes: async (n) => {
     const maxGlobalTerminalPanes = Math.min(100, Math.max(1, n));
     set({ maxGlobalTerminalPanes });
     get().enforceMountBudgets("settings");
-    await persistWorkspaceSurfaceSetting(
-      "max_global_terminal_panes",
-      maxGlobalTerminalPanes,
-    );
+    await persistWorkspaceSurfaceSetting("max_global_terminal_panes", maxGlobalTerminalPanes);
   },
 
   setMaxMountedEditorsPerWorkspace: async (n) => {
@@ -574,20 +558,14 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     const maxGlobalMountedEditors = Math.min(100, Math.max(1, n));
     set({ maxGlobalMountedEditors });
     get().enforceMountBudgets("settings");
-    await persistWorkspaceSurfaceSetting(
-      "max_global_mounted_editors",
-      maxGlobalMountedEditors,
-    );
+    await persistWorkspaceSurfaceSetting("max_global_mounted_editors", maxGlobalMountedEditors);
   },
 
   setMaxGlobalBrowsers: async (n) => {
     const maxGlobalBrowsers = Math.min(20, Math.max(1, n));
     set({ maxGlobalBrowsers });
     get().enforceMountBudgets("settings");
-    await persistWorkspaceSurfaceSetting(
-      "max_global_browsers",
-      maxGlobalBrowsers,
-    );
+    await persistWorkspaceSurfaceSetting("max_global_browsers", maxGlobalBrowsers);
   },
 
   getMountedContextIds: () => {

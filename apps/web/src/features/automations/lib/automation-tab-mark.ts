@@ -32,10 +32,7 @@ function jobName(run: AutomationRunSummary): string {
   return run.terminal_display_name?.trim() || run.automation_guid;
 }
 
-function paneMatchesRun(
-  pane: AutomationTabMarkPane,
-  run: AutomationRunSummary,
-): boolean {
+function paneMatchesRun(pane: AutomationTabMarkPane, run: AutomationRunSummary): boolean {
   const paneRunGuid = pane.runGuid?.trim();
   if (paneRunGuid) {
     return paneRunGuid === run.guid;

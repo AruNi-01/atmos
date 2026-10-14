@@ -179,7 +179,7 @@ export function CenterExplorerSidecar({
           role="separator"
           aria-orientation="vertical"
           data-center-explorer-resize=""
-          className="absolute inset-y-0 left-0 z-10 w-3 -translate-x-1/2 cursor-col-resize overflow-visible touch-none"
+          className="absolute inset-y-0 left-0 z-10 w-3 -translate-x-1/2 cursor-col-resize touch-none overflow-visible"
           onMouseDown={(event) => {
             event.preventDefault();
             const start = { x: event.clientX, y: event.clientY };
@@ -263,7 +263,7 @@ export function CenterExplorerSidecar({
       <div
         // Fill the frame width so a collapsed/off-surface rail cannot paint the
         // 260px tree into a sibling tab (outer is overflow-visible for the mark).
-        className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[inherit] bg-background pl-[0.5px]"
+        className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-[inherit] bg-background pl-[0.5px]"
       >
         {takingSpace || isResizing || collapseAnimating ? children : null}
       </div>

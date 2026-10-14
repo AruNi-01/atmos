@@ -30,15 +30,15 @@ The design deliberately separates:
 
 ## Product decisions resolved in TECH
 
-| Decision | Resolution |
-|----------|------------|
-| New tab vs reuse | Agent Fix creates a new terminal tab by default for clarity and source traceability. |
-| Terminal tab naming | `createTerminalTab` gains an optional title parameter; Agent Fix passes source titles. |
-| Agent selector reuse | Use `TerminalAgentSelectorWithRunConfig`; do not import the welcome-specific `WelcomeAgentSelector` into shared surfaces. |
-| Settings popover content | Show only the reusable agent selector/run-config UI. Do not add source previews or prompt summaries. |
-| Agent default memory | Persist one global last-used Agent Fix agent id. Do not store per-source family defaults in M1. |
-| Prompt generation | Shared components accept `getPrompt`; they do not build prompts. |
-| Transport | No new REST. No new WS unless a source later needs more data to build a prompt. Existing source APIs remain source-owned. |
+| Decision                 | Resolution                                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| New tab vs reuse         | Agent Fix creates a new terminal tab by default for clarity and source traceability.                                             |
+| Terminal tab naming      | `createTerminalTab` gains an optional title parameter; Agent Fix passes source titles.                                           |
+| Agent selector reuse     | Use `TerminalAgentSelectorWithRunConfig`; do not import the welcome-specific `WelcomeAgentSelector` into shared surfaces.        |
+| Settings popover content | Show only the reusable agent selector/run-config UI. Do not add source previews or prompt summaries.                             |
+| Agent default memory     | Persist one global last-used Agent Fix agent id. Do not store per-source family defaults in M1.                                  |
+| Prompt generation        | Shared components accept `getPrompt`; they do not build prompts.                                                                 |
+| Transport                | No new REST. No new WS unless a source later needs more data to build a prompt. Existing source APIs remain source-owned.        |
 | Review Session lifecycle | Existing tracked review fix runs can wrap the shared toolbar but keep `ReviewAgentRunModel` ownership in `code-review` / `diff`. |
 
 ## Module-by-module design
@@ -144,7 +144,7 @@ Recommended location:
 Add:
 
 ```ts
-export function useAgentFixLastAgentId(): [string | null, (id: string) => void]
+export function useAgentFixLastAgentId(): [string | null, (id: string) => void];
 ```
 
 Rules:
@@ -309,7 +309,7 @@ Suggested helper:
 export function getUniqueTerminalTabTitle(
   existingTabs: TerminalCenterTab[],
   preferredTitle: string,
-): string
+): string;
 ```
 
 Rules:

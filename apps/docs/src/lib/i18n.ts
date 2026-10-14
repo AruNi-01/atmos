@@ -1,12 +1,12 @@
-import { defineI18n } from 'fumadocs-core/i18n';
+import { defineI18n } from "fumadocs-core/i18n";
 
 export const i18n = defineI18n({
-  defaultLanguage: 'en',
-  languages: ['en', 'zh'],
-  hideLocale: 'default-locale', // / -> English, /zh -> Chinese
+  defaultLanguage: "en",
+  languages: ["en", "zh"],
+  hideLocale: "default-locale", // / -> English, /zh -> Chinese
 });
 
 export const localeNames: Record<string, string> = {
-  en: 'English',
-  zh: '中文',
+  en: "English",
+  zh: "中文",
 };

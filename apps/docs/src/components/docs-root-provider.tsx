@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { docsBasePath, docsHomePath } from '@/lib/docs-paths';
-import { i18n as i18nConfig } from '@/lib/i18n';
-import { usePathname, useRouter } from 'next/navigation';
-import { RootProvider } from 'fumadocs-ui/provider/next';
-import type { ComponentProps } from 'react';
+import { docsBasePath, docsHomePath } from "@/lib/docs-paths";
+import { i18n as i18nConfig } from "@/lib/i18n";
+import { usePathname, useRouter } from "next/navigation";
+import { RootProvider } from "fumadocs-ui/provider/next";
+import type { ComponentProps } from "react";
 
 export function DocsRootProvider({
   children,
@@ -23,14 +23,17 @@ export function DocsRootProvider({
           if (!i18nConfig.languages.includes(locale as (typeof i18nConfig.languages)[number])) {
             return;
           }
-          const segments = pathname.split('/').filter(Boolean);
-          if (segments[0] && i18nConfig.languages.includes(segments[0] as (typeof i18nConfig.languages)[number])) {
+          const segments = pathname.split("/").filter(Boolean);
+          if (
+            segments[0] &&
+            i18nConfig.languages.includes(segments[0] as (typeof i18nConfig.languages)[number])
+          ) {
             segments.shift();
           }
           const prefix = docsBasePath(locale);
           const next =
             segments.length > 0
-              ? `${prefix}/${segments.join('/')}`.replace(/\/+/g, '/')
+              ? `${prefix}/${segments.join("/")}`.replace(/\/+/g, "/")
               : docsHomePath(locale);
           router.push(next);
         },
@@ -41,16 +44,14 @@ export function DocsRootProvider({
   // type="application/json" so React does not try to execute it again.
   // @see https://github.com/pacocoursey/next-themes/issues/387
   const themeScriptProps =
-    typeof window === 'undefined'
-      ? undefined
-      : ({ type: 'application/json' } as const);
+    typeof window === "undefined" ? undefined : ({ type: "application/json" } as const);
   const search =
-    process.env.NEXT_PUBLIC_BUILD_TARGET === 'pages'
+    process.env.NEXT_PUBLIC_BUILD_TARGET === "pages"
       ? {
           ...searchProps,
           options: {
             ...searchProps?.options,
-            type: 'static' as const,
+            type: "static" as const,
           },
         }
       : searchProps;

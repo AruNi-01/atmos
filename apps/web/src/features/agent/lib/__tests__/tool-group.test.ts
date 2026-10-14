@@ -51,9 +51,9 @@ describe("segmentAssistantParts", () => {
       tool({ tool_call_id: "t4", kind: "edit" }),
     ];
     const segments = segmentAssistantParts(parts, "standard");
-    expect(segments.map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual(["tool_call", "tool_call", "text", "tool_call", "tool_call"]);
+    expect(
+      segments.map((segment) => (segment.type === "part" ? segment.part.type : segment.type)),
+    ).toEqual(["tool_call", "tool_call", "text", "tool_call", "tool_call"]);
   });
 
   it("keeps session lifecycle as its own process row next to thought", () => {
@@ -63,9 +63,9 @@ describe("segmentAssistantParts", () => {
       tool({ tool_call_id: "t1", kind: "read" }),
     ];
     const segments = segmentAssistantParts(parts, "standard");
-    expect(segments.map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual(["session_lifecycle", "thinking", "tool_call"]);
+    expect(
+      segments.map((segment) => (segment.type === "part" ? segment.part.type : segment.type)),
+    ).toEqual(["session_lifecycle", "thinking", "tool_call"]);
   });
 
   it("keeps session config change as its own process row", () => {
@@ -75,9 +75,9 @@ describe("segmentAssistantParts", () => {
       tool({ tool_call_id: "t1", kind: "read" }),
     ];
     const segments = segmentAssistantParts(parts, "standard");
-    expect(segments.map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual(["session_config_change", "thinking", "tool_call"]);
+    expect(
+      segments.map((segment) => (segment.type === "part" ? segment.part.type : segment.type)),
+    ).toEqual(["session_config_change", "thinking", "tool_call"]);
   });
 
   it("keeps session hints as their own process row", () => {
@@ -87,9 +87,9 @@ describe("segmentAssistantParts", () => {
       tool({ tool_call_id: "t1", kind: "read" }),
     ];
     const segments = segmentAssistantParts(parts, "standard");
-    expect(segments.map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual(["session_hint", "thinking", "tool_call"]);
+    expect(
+      segments.map((segment) => (segment.type === "part" ? segment.part.type : segment.type)),
+    ).toEqual(["session_hint", "thinking", "tool_call"]);
   });
 
   it("skips empty thinking and hidden plan parts without grouping neighbors", () => {
@@ -100,9 +100,9 @@ describe("segmentAssistantParts", () => {
       tool({ tool_call_id: "t2", kind: "fetch" }),
     ];
     const segments = segmentAssistantParts(parts, "standard");
-    expect(segments.map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual(["tool_call", "tool_call"]);
+    expect(
+      segments.map((segment) => (segment.type === "part" ? segment.part.type : segment.type)),
+    ).toEqual(["tool_call", "tool_call"]);
   });
 
   it("hides vendor wait-poll tools from transcript cards", () => {
@@ -125,11 +125,13 @@ describe("segmentAssistantParts", () => {
         name: "Read",
       }),
     ];
-    expect(segmentAssistantParts(parts, "standard").map((segment) =>
-      segment.type === "part" && segment.part.type === "tool_call"
-        ? segment.part.tool_call_id
-        : segment.type,
-    )).toEqual(["parent", "read"]);
+    expect(
+      segmentAssistantParts(parts, "standard").map((segment) =>
+        segment.type === "part" && segment.part.type === "tool_call"
+          ? segment.part.tool_call_id
+          : segment.type,
+      ),
+    ).toEqual(["parent", "read"]);
   });
 
   it("hides enter/exit plan tools and mode-only config from transcript cards", () => {
@@ -147,13 +149,17 @@ describe("segmentAssistantParts", () => {
       }),
       { type: "session_config_change", model: { to: "opus" }, mode: { to: "plan" } },
     ];
-    expect(segmentAssistantParts(parts, "standard").map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual(["tool_call", "session_config_change"]);
+    expect(
+      segmentAssistantParts(parts, "standard").map((segment) =>
+        segment.type === "part" ? segment.part.type : segment.type,
+      ),
+    ).toEqual(["tool_call", "session_config_change"]);
     const remaining = segmentAssistantParts(parts, "standard")[0];
-    expect(remaining?.type === "part" && remaining.part.type === "tool_call"
-      ? remaining.part.tool_call_id
-      : null).toBe("read");
+    expect(
+      remaining?.type === "part" && remaining.part.type === "tool_call"
+        ? remaining.part.tool_call_id
+        : null,
+    ).toBe("read");
   });
 
   it("puts a leading answer under the tool group", () => {
@@ -166,9 +172,7 @@ describe("segmentAssistantParts", () => {
       segmentAssistantParts(parts, "compact"),
     );
     expect(processSegments.map((segment) => segment.type)).toEqual(["tool_group"]);
-    expect(tailSegments).toEqual([
-      { type: "part", part: parts[0], origIndex: 0 },
-    ]);
+    expect(tailSegments).toEqual([{ type: "part", part: parts[0], origIndex: 0 }]);
   });
 
   it("keeps every process row after extracting answer text", () => {
@@ -184,16 +188,11 @@ describe("segmentAssistantParts", () => {
     const { processSegments, tailSegments } = splitSegmentedAssistantParts(
       segmentAssistantParts(parts, "standard"),
     );
-    expect(processSegments.map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual([
-      "thinking",
-      "tool_call",
-      "tool_call",
-      "text",
-      "tool_call",
-      "tool_call",
-    ]);
+    expect(
+      processSegments.map((segment) =>
+        segment.type === "part" ? segment.part.type : segment.type,
+      ),
+    ).toEqual(["thinking", "tool_call", "tool_call", "text", "tool_call", "tool_call"]);
     expect(tailSegments).toHaveLength(1);
     expect(tailSegments[0]).toMatchObject({
       type: "part",
@@ -210,12 +209,12 @@ describe("segmentAssistantParts", () => {
     const { processSegments, tailSegments } = splitSegmentedAssistantParts(
       segmentAssistantParts(parts, "standard"),
     );
-    expect(processSegments.map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual(["tool_call", "thinking"]);
-    expect(tailSegments).toEqual([
-      { type: "part", part: parts[2], origIndex: 2 },
-    ]);
+    expect(
+      processSegments.map((segment) =>
+        segment.type === "part" ? segment.part.type : segment.type,
+      ),
+    ).toEqual(["tool_call", "thinking"]);
+    expect(tailSegments).toEqual([{ type: "part", part: parts[2], origIndex: 2 }]);
   });
 
   it("keeps think, extra text, and the last text visible after the last tool", () => {
@@ -235,12 +234,18 @@ describe("segmentAssistantParts", () => {
     const { processSegments, tailSegments } = splitSegmentedAssistantParts(
       segmentAssistantParts(parts, "standard"),
     );
-    expect(processSegments.map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual(["thinking", "tool_call", "thinking"]);
-    expect(tailSegments.map((segment) =>
-      segment.type === "part" && segment.part.type === "text" ? segment.part.text : segment.part.type,
-    )).toEqual([
+    expect(
+      processSegments.map((segment) =>
+        segment.type === "part" ? segment.part.type : segment.type,
+      ),
+    ).toEqual(["thinking", "tool_call", "thinking"]);
+    expect(
+      tailSegments.map((segment) =>
+        segment.type === "part" && segment.part.type === "text"
+          ? segment.part.text
+          : segment.part.type,
+      ),
+    ).toEqual([
       "## 验证\n\n- 浏览器实测通过。",
       "thinking",
       "one more note",
@@ -257,11 +262,7 @@ describe("segmentAssistantParts", () => {
     ];
     const segments = segmentAssistantParts(parts, "compact");
     expect(segmentAssistantParts(parts)).toEqual(segments);
-    expect(segments.map((segment) => segment.type)).toEqual([
-      "tool_group",
-      "part",
-      "part",
-    ]);
+    expect(segments.map((segment) => segment.type)).toEqual(["tool_group", "part", "part"]);
     expect(segments[0]).toMatchObject({
       type: "tool_group",
       origIndexes: [0, 1],
@@ -288,9 +289,9 @@ describe("segmentAssistantParts", () => {
         tool({ tool_call_id: "t1", kind: "read" }),
       ];
       const segments = segmentAssistantParts(parts, "compact");
-      expect(segments.map((segment) =>
-        segment.type === "part" ? segment.part.type : segment.type,
-      )).toEqual(["session_lifecycle", "tool_group"]);
+      expect(
+        segments.map((segment) => (segment.type === "part" ? segment.part.type : segment.type)),
+      ).toEqual(["session_lifecycle", "tool_group"]);
       expect(segments[1]).toMatchObject({
         type: "tool_group",
         origIndexes: [1, 2],
@@ -327,13 +328,20 @@ describe("segmentAssistantParts", () => {
       { type: "part", part: parts[0], origIndex: 0 },
       { type: "part", part: parts[4], origIndex: 4 },
     ]);
-    expect(segmentAssistantParts(parts, "standard").map((segment) =>
-      segment.type === "part" ? segment.part : segment.parts,
-    )).toEqual([parts[0], parts[4]]);
-    expect(countToolGroupOverview(toolCallPartsFromGroup(
-      segmentAssistantParts(parts, "compact")
-        .flatMap((segment) => segment.type === "part" ? [segment.part] : segment.parts),
-    ))).toEqual([{ kind: "subagent", count: 1 }]);
+    expect(
+      segmentAssistantParts(parts, "standard").map((segment) =>
+        segment.type === "part" ? segment.part : segment.parts,
+      ),
+    ).toEqual([parts[0], parts[4]]);
+    expect(
+      countToolGroupOverview(
+        toolCallPartsFromGroup(
+          segmentAssistantParts(parts, "compact").flatMap((segment) =>
+            segment.type === "part" ? [segment.part] : segment.parts,
+          ),
+        ),
+      ),
+    ).toEqual([{ kind: "subagent", count: 1 }]);
   });
 
   it("omits nested tools and text even when the parent row is in a later message", () => {
@@ -347,9 +355,11 @@ describe("segmentAssistantParts", () => {
       { type: "text", text: "nested prose", parent_tool_call_id: "parent" },
       { type: "text", text: "parent reply" },
     ];
-    expect(segmentAssistantParts(parts, "standard").map((segment) =>
-      segment.type === "part" ? segment.part : segment.parts,
-    )).toEqual([parts[3]]);
+    expect(
+      segmentAssistantParts(parts, "standard").map((segment) =>
+        segment.type === "part" ? segment.part : segment.parts,
+      ),
+    ).toEqual([parts[3]]);
   });
 
   it("hides grok chrome rows that duplicate a user spawn in the host tree", () => {
@@ -358,7 +368,11 @@ describe("segmentAssistantParts", () => {
         tool_call_id: "tc_rust",
         kind: "subagent",
         name: "spawn_subagent",
-        params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore" },
+        params: {
+          type: "subagent",
+          description: "Explore Rust backend layers",
+          agent_type: "explore",
+        },
       }),
       tool({
         tool_call_id: "tc_front",
@@ -370,21 +384,33 @@ describe("segmentAssistantParts", () => {
         tool_call_id: "sa-rust",
         kind: "subagent",
         name: "grok_chrome",
-        params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore", task_id: "sa-rust" },
+        params: {
+          type: "subagent",
+          description: "Explore Rust backend layers",
+          agent_type: "explore",
+          task_id: "sa-rust",
+        },
       }),
       tool({
         tool_call_id: "sa-front",
         kind: "subagent",
         name: "grok_chrome",
-        params: { type: "subagent", description: "Explore frontend apps", agent_type: "explore", task_id: "sa-front" },
+        params: {
+          type: "subagent",
+          description: "Explore frontend apps",
+          agent_type: "explore",
+          task_id: "sa-front",
+        },
       }),
     ];
     const compact = segmentAssistantParts(parts, "compact");
     expect(compact).toHaveLength(1);
     expect(compact[0]).toMatchObject({ type: "tool_group", origIndexes: [0, 1] });
-    expect(countToolGroupOverview(toolCallPartsFromGroup(
-      compact[0]?.type === "tool_group" ? compact[0].parts : [],
-    ))).toEqual([{ kind: "subagent", count: 2 }]);
+    expect(
+      countToolGroupOverview(
+        toolCallPartsFromGroup(compact[0]?.type === "tool_group" ? compact[0].parts : []),
+      ),
+    ).toEqual([{ kind: "subagent", count: 2 }]);
   });
 
   it("keeps orphan grok chrome spawns in the host tree", () => {
@@ -393,13 +419,21 @@ describe("segmentAssistantParts", () => {
         tool_call_id: "sa-plan",
         kind: "subagent",
         name: "grok_chrome",
-        params: { type: "subagent", description: "goal plan writer", agent_type: "general-purpose" },
+        params: {
+          type: "subagent",
+          description: "goal plan writer",
+          agent_type: "general-purpose",
+        },
       }),
       tool({
         tool_call_id: "sa-a",
         kind: "subagent",
         name: "grok_chrome",
-        params: { type: "subagent", description: "goal achievement skeptic", agent_type: "general-purpose" },
+        params: {
+          type: "subagent",
+          description: "goal achievement skeptic",
+          agent_type: "general-purpose",
+        },
       }),
     ];
     expect(segmentAssistantParts(parts, "compact")).toMatchObject([
@@ -417,9 +451,11 @@ describe("segmentAssistantParts", () => {
       tool({ tool_call_id: "t5", kind: "execute" }),
       tool({ tool_call_id: "t6", kind: "fetch" }),
     ];
-    expect(segmentAssistantParts(parts, "detailed").map((segment) =>
-      segment.type === "part" ? segment.part.type : segment.type,
-    )).toEqual([
+    expect(
+      segmentAssistantParts(parts, "detailed").map((segment) =>
+        segment.type === "part" ? segment.part.type : segment.type,
+      ),
+    ).toEqual([
       "thinking",
       "tool_call",
       "tool_call",
@@ -471,15 +507,9 @@ describe("countToolGroupOverview", () => {
       tool({ tool_call_id: "c1", kind: "execute" }),
       tool({ tool_call_id: "w1", kind: "edit" }),
     ]);
-    const text = formatToolGroupOverview(
-      counts,
-      (kind, count) => `${count} ${kind}`,
-      ", ",
-    );
+    const text = formatToolGroupOverview(counts, (kind, count) => `${count} ${kind}`, ", ");
     expect(text).toBe("1 write, 1 command, 1 read");
-    expect(sentenceCaseOverview("ran 1 command, 2 reads", "en")).toBe(
-      "Ran 1 command, 2 reads",
-    );
+    expect(sentenceCaseOverview("ran 1 command, 2 reads", "en")).toBe("Ran 1 command, 2 reads");
     expect(sentenceCaseOverview("运行了 1 条命令", "zh")).toBe("运行了 1 条命令");
   });
 });

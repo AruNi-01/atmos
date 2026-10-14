@@ -212,9 +212,7 @@ export function hostScopeFromPaintContext(
   projects: Project[],
   url?: { workspaceId?: string | null; projectId?: string | null },
 ): { workspaceId: string | null; projectId: string | null } {
-  const hostId = paintContextId?.trim()
-    ? hostIdFromCenterKey(paintContextId.trim())
-    : "";
+  const hostId = paintContextId?.trim() ? hostIdFromCenterKey(paintContextId.trim()) : "";
   if (!hostId) {
     return {
       workspaceId: url?.workspaceId?.trim() || null,
@@ -296,10 +294,7 @@ export async function openAgentChatHistoryRow(
   if (!centerStore.hydrated) centerStore.hydrate();
   centerStore.ensureHost(tabHost);
   centerStore.setActiveSpace(tabHost, tabSpace);
-  commitLocatedPaneNavigation(
-    router,
-    buildAgentChatCenterHref(tabHost, projects, tab.value),
-  );
+  commitLocatedPaneNavigation(router, buildAgentChatCenterHref(tabHost, projects, tab.value));
 }
 
 export function openNewAgentChatInContext(

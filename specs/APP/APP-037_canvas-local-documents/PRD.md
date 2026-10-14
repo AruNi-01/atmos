@@ -99,13 +99,13 @@
 
 ## Decisions locked (from product)
 
-| Topic | Decision |
-|-------|----------|
-| Source of truth | Document file |
-| Directory | `~/.atmos/canvas/` |
-| Extension | `.atmos.tldr` |
-| DB JSON board content | Removed; no BC |
-| FS-less mode | Not supported |
-| Multi-page | Inside one document |
-| Switch UX | Replace current view via popover |
-| Toolbar | Top-right Documents button |
+| Topic                 | Decision                         |
+| --------------------- | -------------------------------- |
+| Source of truth       | Document file                    |
+| Directory             | `~/.atmos/canvas/`               |
+| Extension             | `.atmos.tldr`                    |
+| DB JSON board content | Removed; no BC                   |
+| FS-less mode          | Not supported                    |
+| Multi-page            | Inside one document              |
+| Switch UX             | Replace current view via popover |
+| Toolbar               | Top-right Documents button       |

@@ -15,11 +15,5 @@ export function PtDesignStandaloneStage() {
     return <PtDesignOverview />;
   }
 
-  return (
-    <PtDesignCenterPanel
-      contextId={design}
-      openMode="canvas"
-      onBack={closeDesign}
-    />
-  );
+  return <PtDesignCenterPanel contextId={design} openMode="canvas" onBack={closeDesign} />;
 }

@@ -10,10 +10,7 @@ import { resolve } from "node:path";
 import { ensureCalendarVersion } from "./lib/calendar-version.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "../..");
-const packageJsonPath = resolve(
-  repoRoot,
-  "apps/desktop-electron/package.json",
-);
+const packageJsonPath = resolve(repoRoot, "apps/desktop-electron/package.json");
 
 function parseArgs(argv) {
   const positional = [];

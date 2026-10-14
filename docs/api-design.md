@@ -1,6 +1,6 @@
 # API Design
 
-*Draft Status*
+_Draft Status_
 
 ## Principles
 
@@ -11,10 +11,12 @@
 ## Endpoints
 
 ### Auth
+
 - `POST /auth/login`
 - `POST /auth/register`
 
 ### Core
+
 - `GET /api/v1/resource`
 
 (Link to Swagger/OpenAPI spec if available)

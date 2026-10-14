@@ -34,11 +34,13 @@ describe("scroll area fade skips stuck sticky chrome", () => {
     const styles = read("../../../../../packages/ui/src/styles/globals.css");
     expect(styles).toContain('[data-slot="scroll-area-viewport"]');
     expect(styles).toContain("scrollbar-width: none");
-    expect(styles).toContain("[data-slot=\"scroll-area-viewport\"]::-webkit-scrollbar");
+    expect(styles).toContain('[data-slot="scroll-area-viewport"]::-webkit-scrollbar');
     expect(styles).toContain("display: none");
     expect(scrollArea).toContain("flex size-full min-h-0 flex-col");
-    expect(scrollArea).toContain("relative mx-1 mb-1 mt-0.5 h-1.5 w-auto flex-col data-[has-overflow-x]:flex");
-    expect(scrollArea).toContain("position: \"relative\"");
+    expect(scrollArea).toContain(
+      "relative mx-1 mt-0.5 mb-1 h-1.5 w-auto flex-col data-[has-overflow-x]:flex",
+    );
+    expect(scrollArea).toContain('position: "relative"');
     expect(scrollArea).toContain("opacity-0");
     expect(scrollArea).toContain("data-hovering:opacity-100");
     expect(scrollArea).toContain("data-scrolling:opacity-100");
@@ -191,15 +193,15 @@ describe("GitHub PR, Issue, and Actions scroll areas", () => {
     const files = read("../../features/github/components/PRFilesTab.tsx");
     expectFadedScrollArea(detail, 2);
     expect(detail).toContain("viewportRef={mainScrollRef}");
-    expect(detail).toContain("sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3");
+    expect(detail).toContain("sticky top-0 z-20 border-t border-border/40 bg-background pt-3 pb-3");
     expect(detail).not.toContain("will-change-transform");
     expect(detail).not.toContain("handleMainScroll");
     expect(detail).not.toContain("prContextRef");
-    expect(detail).toContain("activeMainTab !== 'description'");
-    expect(detail).toContain("activeMainTab !== 'checks'");
-    expect(detail).toContain("activeMainTab !== 'discussion'");
-    expect(detail).toContain("activeMainTab !== 'commits'");
-    expect(detail).toContain("activeMainTab !== 'files'");
+    expect(detail).toContain('activeMainTab !== "description"');
+    expect(detail).toContain('activeMainTab !== "checks"');
+    expect(detail).toContain('activeMainTab !== "discussion"');
+    expect(detail).toContain('activeMainTab !== "commits"');
+    expect(detail).toContain('activeMainTab !== "files"');
     expect(detail).not.toContain("overflow-y-auto");
     expectFadedScrollArea(sidebar);
     expect(sidebar).not.toContain("overflow-y-auto");
@@ -209,7 +211,7 @@ describe("GitHub PR, Issue, and Actions scroll areas", () => {
   it("fades Issue description and discussion plus the metadata sidebar", () => {
     const detail = read("../../features/github/components/IssueDetailView.tsx");
     expectFadedScrollArea(detail, 2);
-    expect(detail).toContain("sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3");
+    expect(detail).toContain("sticky top-0 z-20 border-t border-border/40 bg-background pt-3 pb-3");
     expect(count(detail, "sticky top-0")).toBe(1);
     expect(detail).toContain('activeTab !== "description"');
     expect(detail).toContain('activeTab !== "discussion"');
@@ -229,7 +231,9 @@ describe("GitHub PR, Issue, and Actions scroll areas", () => {
     expect(commit).not.toContain("overflow-y-auto");
     expectFadedScrollArea(actions);
     expect(actions).toContain("viewportRef={scrollRef}");
-    expect(actions).toContain("sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3");
+    expect(actions).toContain(
+      "sticky top-0 z-20 border-t border-border/40 bg-background pt-3 pb-3",
+    );
     expect(actions).not.toContain("will-change-transform");
     expect(actions).toContain('activeTab === "summary"');
     expect(actions).not.toContain("overflow-y-auto");

@@ -10,37 +10,37 @@
 
 被审查提交（含 merge，按时间）：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `8842c9654` | AarynLu | feat(desktop-use): native highlight binary and Electron grant overlay |
-| `c3649a2d1` | AarynLu | feat(agent): sticky attention latches and idle/dismiss hooks |
-| `10c15826e` | AarynLu | feat(terminal): center-tab presentation and agent name titles |
-| `e47016efc` | AarynLu | feat(web): configurable agent activity indicators |
-| `96f1e5958` | AarynLu | refactor(ui): use border-beam package and dialog polish |
-| `9f61c7f26` | AarynLu | fix(web): shell chrome, surface policies, and i18n polish |
-| `d75b7aeb2` | AarynLu | feat(shared/terminal): stabilize center-tab OSC session titles |
-| `ccce0d50b` | AarynLu | feat(web): add terminal cursor appearance settings |
-| `611232cf8` | AarynLu | fix(terminal): zero scrollback only for inline mouse TUIs |
-| `3696f107b` | AarynLu | fix(web): keep warm terminal chrome from painting over light surfaces |
-| `b3490bd70` | AarynLu | feat(web): show workspace agent and PR status on sidebar rows |
-| `8a4207efa` | AarynLu | feat(web): polish agent activity indicator picker |
-| `a5ffb7eb0` | AarynLu | feat(web): improve Appshots history popover UX |
-| `c01090a67` | AarynLu | fix(web): polish Desktop Use readiness and permissions UX |
-| `d90667882` | AarynLu | chore(desktop): unify host and notification icons with legacy regen |
-| `c8ed993b0` | AarynLu | fix(web): stabilize commit message field and refresh tab chrome |
-| `963563e55` | AarynLu | docs: English UI casing rule and icon regen notes |
-| `000b8b68a` | AarynLu | feat(release): inject desktop Download section and Contributors mentions |
-| `dd4ef818b` | AarynLu | chore(deps): bump Next.js to 16.3.0 and @pierre/diffs to 1.3.4 |
-| `81aed8489` | AarynLu | feat(web): allow inline edit of worktree diffs in Changes view |
-| `6f72615e4` | AarynLu | fix(diff): smooth edit-toolbar collapse and use SquarePen icon |
-| `125490723` | AarynLu | fix(editor): refresh git gutter live while typing and after save |
-| `9bf93d587` | AarynLu | Merge remote-tracking branch 'origin/main' into feat/app-053-browser-use-embedded |
-| `6293ccc1c` | AruNi_Lu | Merge pull request #204 from AruNi-01/feat/app-053-browser-use-embedded |
-| `89a6dccfc` | AarynLu | chore(desktop-electron): release 2026.8.6-beta.1 |
-| `bab1dd2e5` | AarynLu | fix(web): add scrollMargin to MockIntersectionObserver for Next 16.3 types |
-| `0d3ed7b17` | AarynLu | chore(desktop-electron): release 2026.8.6-beta.2 |
-| `df43c9707` | AarynLu | fix(desktop): use webpack for desktop web static export on all platforms |
-| `dd75f5f11` | AarynLu | chore(desktop-electron): release 2026.8.6-beta.3 |
+| Hash        | Author   | Message                                                                           |
+| ----------- | -------- | --------------------------------------------------------------------------------- |
+| `8842c9654` | AarynLu  | feat(desktop-use): native highlight binary and Electron grant overlay             |
+| `c3649a2d1` | AarynLu  | feat(agent): sticky attention latches and idle/dismiss hooks                      |
+| `10c15826e` | AarynLu  | feat(terminal): center-tab presentation and agent name titles                     |
+| `e47016efc` | AarynLu  | feat(web): configurable agent activity indicators                                 |
+| `96f1e5958` | AarynLu  | refactor(ui): use border-beam package and dialog polish                           |
+| `9f61c7f26` | AarynLu  | fix(web): shell chrome, surface policies, and i18n polish                         |
+| `d75b7aeb2` | AarynLu  | feat(shared/terminal): stabilize center-tab OSC session titles                    |
+| `ccce0d50b` | AarynLu  | feat(web): add terminal cursor appearance settings                                |
+| `611232cf8` | AarynLu  | fix(terminal): zero scrollback only for inline mouse TUIs                         |
+| `3696f107b` | AarynLu  | fix(web): keep warm terminal chrome from painting over light surfaces             |
+| `b3490bd70` | AarynLu  | feat(web): show workspace agent and PR status on sidebar rows                     |
+| `8a4207efa` | AarynLu  | feat(web): polish agent activity indicator picker                                 |
+| `a5ffb7eb0` | AarynLu  | feat(web): improve Appshots history popover UX                                    |
+| `c01090a67` | AarynLu  | fix(web): polish Desktop Use readiness and permissions UX                         |
+| `d90667882` | AarynLu  | chore(desktop): unify host and notification icons with legacy regen               |
+| `c8ed993b0` | AarynLu  | fix(web): stabilize commit message field and refresh tab chrome                   |
+| `963563e55` | AarynLu  | docs: English UI casing rule and icon regen notes                                 |
+| `000b8b68a` | AarynLu  | feat(release): inject desktop Download section and Contributors mentions          |
+| `dd4ef818b` | AarynLu  | chore(deps): bump Next.js to 16.3.0 and @pierre/diffs to 1.3.4                    |
+| `81aed8489` | AarynLu  | feat(web): allow inline edit of worktree diffs in Changes view                    |
+| `6f72615e4` | AarynLu  | fix(diff): smooth edit-toolbar collapse and use SquarePen icon                    |
+| `125490723` | AarynLu  | fix(editor): refresh git gutter live while typing and after save                  |
+| `9bf93d587` | AarynLu  | Merge remote-tracking branch 'origin/main' into feat/app-053-browser-use-embedded |
+| `6293ccc1c` | AruNi_Lu | Merge pull request #204 from AruNi-01/feat/app-053-browser-use-embedded           |
+| `89a6dccfc` | AarynLu  | chore(desktop-electron): release 2026.8.6-beta.1                                  |
+| `bab1dd2e5` | AarynLu  | fix(web): add scrollMargin to MockIntersectionObserver for Next 16.3 types        |
+| `0d3ed7b17` | AarynLu  | chore(desktop-electron): release 2026.8.6-beta.2                                  |
+| `df43c9707` | AarynLu  | fix(desktop): use webpack for desktop web static export on all platforms          |
+| `dd75f5f11` | AarynLu  | chore(desktop-electron): release 2026.8.6-beta.3                                  |
 
 ## 2. 一份好代码应该是什么样
 
@@ -61,13 +61,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 24/30 | 正向：`terminal-center-tab-presentation`、`workspace-pr-status`、`workspace-agent-status`、`agent-activity-indicator-styles`、`AgentRunningGlyph`、grant-overlay 自成模块。扣分：worktree 编辑会话嵌在 Changes 视图总编排里；attention latch 逻辑落在已巨大的 hooks service 而非子模块。 |
-| 可读性与复杂度 | 20/25 | 编辑路径依赖多份 state+ref 镜像与 pierre item 重建时序；`Terminal.tsx` 在既有超长组件上继续叠 TUI/cursor/title 行为。 |
-| 体量与内聚 | 13/20 | 日终：`ChangesCodeView` ~1117（+353）、`Terminal.tsx` ~1634、`agent_hooks.rs` ~1409（+300）、`TerminalAgentInputOverlay` ~1383、`TerminalSettingsSection` ~577、`WorkspaceKanbanCard` ~601。 |
-| 可维护性与复用 | 12/15 | 正向：PR/agent status 与 center-tab 规则可单测复用。扣分：编辑逻辑未抽 hook，后续若 commit/review 视图也要编辑会复制；cursor 外观 UI 与其它设置组仍耦在同一文件。 |
-| 工程卫生 | 9/10 | 大量 structural/unit 测试、NOTICE/orbs 归属、release notes 脚本拆分、webpack 平台注释清晰；编辑状态双写（state + ref）偏啰嗦，轻微扣分。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                                                                                                 |
+| -------------- | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 24/30 | 正向：`terminal-center-tab-presentation`、`workspace-pr-status`、`workspace-agent-status`、`agent-activity-indicator-styles`、`AgentRunningGlyph`、grant-overlay 自成模块。扣分：worktree 编辑会话嵌在 Changes 视图总编排里；attention latch 逻辑落在已巨大的 hooks service 而非子模块。 |
+| 可读性与复杂度 | 20/25 | 编辑路径依赖多份 state+ref 镜像与 pierre item 重建时序；`Terminal.tsx` 在既有超长组件上继续叠 TUI/cursor/title 行为。                                                                                                                                                                    |
+| 体量与内聚     | 13/20 | 日终：`ChangesCodeView` ~1117（+353）、`Terminal.tsx` ~1634、`agent_hooks.rs` ~1409（+300）、`TerminalAgentInputOverlay` ~1383、`TerminalSettingsSection` ~577、`WorkspaceKanbanCard` ~601。                                                                                             |
+| 可维护性与复用 | 12/15 | 正向：PR/agent status 与 center-tab 规则可单测复用。扣分：编辑逻辑未抽 hook，后续若 commit/review 视图也要编辑会复制；cursor 外观 UI 与其它设置组仍耦在同一文件。                                                                                                                        |
+| 工程卫生       |  9/10 | 大量 structural/unit 测试、NOTICE/orbs 归属、release notes 脚本拆分、webpack 平台注释清晰；编辑状态双写（state + ref）偏啰嗦，轻微扣分。                                                                                                                                                 |
 
 ## 6. 主要问题清单
 
@@ -134,17 +134,17 @@
 
 ### 修复摘要
 
-1. **Changes 内联编辑拆分**  
-   - 新增 `useDiffWorktreeEdit.tsx`（会话状态、save/stage、快捷键、`rebuildDiffItem`）  
-   - 新增 `DiffWorktreeEditToolbar.tsx`（Edit/Save/Reset 控件）  
+1. **Changes 内联编辑拆分**
+   - 新增 `useDiffWorktreeEdit.tsx`（会话状态、save/stage、快捷键、`rebuildDiffItem`）
+   - 新增 `DiffWorktreeEditToolbar.tsx`（Edit/Save/Reset 控件）
    - `ChangesCodeView.tsx` 约 1117 → ~818 行
 
-2. **Agent attention 子模块**  
-   - 新增 `crates/core-service/src/service/agent_hooks/attention.rs`  
+2. **Agent attention 子模块**
+   - 新增 `crates/core-service/src/service/agent_hooks/attention.rs`
    - 类型、API、broadcast 与 4 个单测迁出；`agent_hooks.rs` 约 1409 → ~1129 行，并 `pub use` 保持对外类型路径
 
-3. **Terminal cursor 设置自包含**  
-   - 新增 `TerminalCursorAppearanceSettings.tsx`  
+3. **Terminal cursor 设置自包含**
+   - 新增 `TerminalCursorAppearanceSettings.tsx`
    - `TerminalSettingsSection.tsx` 约 577 → ~443 行
 
 ### 验证

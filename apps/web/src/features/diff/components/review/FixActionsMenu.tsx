@@ -1,10 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  Button,
-  DropdownMenuItem,
-} from "@workspace/ui";
+import { Button, DropdownMenuItem } from "@workspace/ui";
 import { Bot, Settings2 } from "lucide-react";
 import { type AgentId } from "@/features/wiki/components/AgentSelect";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";

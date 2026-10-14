@@ -44,10 +44,8 @@ export type MacosAppPermissionsStatus = {
 };
 
 const PRIVACY_URLS: Record<GrantOverlayPurpose, string> = {
-  accessibility:
-    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-  screen_recording:
-    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+  accessibility: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+  screen_recording: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
 };
 
 export function resolveAtmosAppBundlePath(
@@ -71,9 +69,7 @@ export async function queryAtmosAppPermissions(): Promise<MacosAppPermissionsSta
   }
   try {
     const { systemPreferences } = await import("electron");
-    const accessibility = Boolean(
-      systemPreferences.isTrustedAccessibilityClient(false),
-    );
+    const accessibility = Boolean(systemPreferences.isTrustedAccessibilityClient(false));
     const screenStatus = systemPreferences.getMediaAccessStatus("screen");
     return {
       supported: true,
@@ -95,9 +91,7 @@ export async function queryAtmosAppPermissions(): Promise<MacosAppPermissionsSta
   }
 }
 
-export async function openMacosPrivacyPane(
-  purpose: GrantOverlayPurpose,
-): Promise<void> {
+export async function openMacosPrivacyPane(purpose: GrantOverlayPurpose): Promise<void> {
   const { shell } = await import("electron");
   await shell.openExternal(PRIVACY_URLS[purpose]);
 }
@@ -152,10 +146,7 @@ export async function grantAtmosAppPermission(opts: {
   }
 
   if (!appPath || !existsSync(appPath)) {
-    mainLog(
-      `[macos-app-permissions] Atmos.app path missing exec=${process.execPath}`,
-      "warn",
-    );
+    mainLog(`[macos-app-permissions] Atmos.app path missing exec=${process.execPath}`, "warn");
     return {
       ok: false,
       app_path: appPath,
@@ -177,27 +168,16 @@ export async function grantAtmosAppPermission(opts: {
           y: Math.round(opts.sourceOrigin.y),
         }
       : undefined;
-  if (
-    !sourceOrigin &&
-    opts.anchor &&
-    opts.hostWindow &&
-    !opts.hostWindow.isDestroyed()
-  ) {
+  if (!sourceOrigin && opts.anchor && opts.hostWindow && !opts.hostWindow.isDestroyed()) {
     try {
       const cb = opts.hostWindow.getContentBounds();
-      sourceOrigin = grantOverlaySourceOriginFromAnchor(
-        cb,
-        opts.anchor,
-        panelW,
-        panelH,
-      );
+      sourceOrigin = grantOverlaySourceOriginFromAnchor(cb, opts.anchor, panelW, panelH);
     } catch {
       /* overlay falls back to Atmos window center */
     }
   }
   if (!sourceOrigin && opts.reason === "host_shortcuts") {
-    const host =
-      opts.hostWindow && !opts.hostWindow.isDestroyed() ? opts.hostWindow : null;
+    const host = opts.hostWindow && !opts.hostWindow.isDestroyed() ? opts.hostWindow : null;
     if (host) {
       try {
         sourceOrigin = leftSidebarGrantOrigin(host.getContentBounds(), panelH);
@@ -215,10 +195,7 @@ export async function grantAtmosAppPermission(opts: {
     sourceOrigin,
     reason: opts.reason,
     holdAtOriginMs: opts.holdAtOriginMs,
-    afterHold:
-      openSettings === "after"
-        ? () => openMacosPrivacyPane(purpose)
-        : undefined,
+    afterHold: openSettings === "after" ? () => openMacosPrivacyPane(purpose) : undefined,
   });
   return {
     ok: overlay.ok,

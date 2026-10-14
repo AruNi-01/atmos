@@ -61,9 +61,7 @@ function cloudWinnerIndices(
     }
   }
   for (const clientId of clientIds) {
-    const seriesList = overviews.map((overview) =>
-      clientDailySeries(overview.by_day, clientId),
-    );
+    const seriesList = overviews.map((overview) => clientDailySeries(overview.by_day, clientId));
     const allowed = new Set<number>();
     for (const cluster of clusterCloudAccountIndices(seriesList)) {
       let winner = cluster[0]!;

@@ -13,10 +13,7 @@ import type {
   AppshotStatus,
 } from "../types";
 
-type TestButtonProps = Omit<
-  React.ButtonHTMLAttributes<HTMLButtonElement>,
-  "size"
-> & {
+type TestButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "size"> & {
   size?: string;
   variant?: string;
 };
@@ -80,10 +77,7 @@ const historyMessages: Record<string, string> = {
   "history.recordRow.deleteAriaLabel": "Delete Appshot record",
 };
 
-function translateHistory(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
+function translateHistory(key: string, values?: Record<string, string | number>): string {
   const template = historyMessages[key] ?? key;
   if (!values) {
     return template;
@@ -95,37 +89,31 @@ function translateHistory(
 
 mock.module("next-intl", () => ({
   useTranslations: () => translateHistory,
-  createTranslator: () =>
-    (key: string, values?: Record<string, string | number>) => {
-      const protocolMessages: Record<string, string> = {
-        "protocol.promptBody": "Appshot record is stored locally in Atmos appshots records for timestamp {timestamp}. The default location is ~/.atmos/appshots/records/{timestamp}/. Read metadata.json, context.md, and snapshot.png before answering. Inspect snapshot.png when visual context matters.",
-        "protocol.unknownApp": "Unknown app",
-        "protocol.appshotTitle": "Appshot {timestamp}",
-        "protocol.quality.screenshotAndUiTree": "Screenshot + UI tree",
-        "protocol.quality.screenshotOnly": "Screenshot only",
-        "protocol.quality.uiTreeOnly": "UI tree only",
-        "protocol.quality.metadataOnly": "Metadata only",
-        "protocol.quality.unsupported": "Unsupported",
-        "protocol.invalidTimestamp": "Invalid Appshot timestamp",
-      };
-      const template = protocolMessages[key] ?? key;
-      if (!values) {
-        return template;
-      }
-      return template.replace(/\{(\w+)\}/g, (_, name: string) =>
-        values[name] == null ? `{${name}}` : String(values[name]),
-      );
-    },
+  createTranslator: () => (key: string, values?: Record<string, string | number>) => {
+    const protocolMessages: Record<string, string> = {
+      "protocol.promptBody":
+        "Appshot record is stored locally in Atmos appshots records for timestamp {timestamp}. The default location is ~/.atmos/appshots/records/{timestamp}/. Read metadata.json, context.md, and snapshot.png before answering. Inspect snapshot.png when visual context matters.",
+      "protocol.unknownApp": "Unknown app",
+      "protocol.appshotTitle": "Appshot {timestamp}",
+      "protocol.quality.screenshotAndUiTree": "Screenshot + UI tree",
+      "protocol.quality.screenshotOnly": "Screenshot only",
+      "protocol.quality.uiTreeOnly": "UI tree only",
+      "protocol.quality.metadataOnly": "Metadata only",
+      "protocol.quality.unsupported": "Unsupported",
+      "protocol.invalidTimestamp": "Invalid Appshot timestamp",
+    };
+    const template = protocolMessages[key] ?? key;
+    if (!values) {
+      return template;
+    }
+    return template.replace(/\{(\w+)\}/g, (_, name: string) =>
+      values[name] == null ? `{${name}}` : String(values[name]),
+    );
+  },
 }));
 
 mock.module("@/shared/components/image-preview-overlay", () => ({
-  ImagePreviewOverlay: ({
-    alt,
-    onClose,
-  }: {
-    alt: string;
-    onClose: () => void;
-  }) => (
+  ImagePreviewOverlay: ({ alt, onClose }: { alt: string; onClose: () => void }) => (
     <div data-testid="appshot-image-preview">
       <span>{alt}</span>
       <button type="button" onClick={onClose}>
@@ -146,21 +134,12 @@ mock.module("@workspace/ui", () => ({
     void variant;
     return <span {...props}>{children}</span>;
   },
-  Button: ({
-    children,
-    size,
-    variant,
-    ...props
-  }: TestButtonProps) => {
+  Button: ({ children, size, variant, ...props }: TestButtonProps) => {
     void size;
     void variant;
     return <button {...props}>{children}</button>;
   },
-  ScrollArea: ({
-    children,
-    scrollbarGutter,
-    ...props
-  }: TestDivProps) => {
+  ScrollArea: ({ children, scrollbarGutter, ...props }: TestDivProps) => {
     void scrollbarGutter;
     return (
       <div {...props}>
@@ -190,16 +169,9 @@ mock.module("@workspace/ui", () => ({
     }
     return <span {...props}>{children}</span>;
   },
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
   toastManager: { add: () => undefined },
-  getFileIconProps: ({
-    className,
-  }: {
-    className?: string;
-    isDir: boolean;
-    name: string;
-  }) => ({
+  getFileIconProps: ({ className }: { className?: string; isDir: boolean; name: string }) => ({
     alt: "",
     className,
     src: "/icons/file.svg",
@@ -229,9 +201,7 @@ mock.module("../lib/appshot-client", () => ({
     }
     return recordItems;
   },
-  readAppshotRecords: async (
-    timestamps: string[],
-  ): Promise<AppshotRecordDetail[]> => {
+  readAppshotRecords: async (timestamps: string[]): Promise<AppshotRecordDetail[]> => {
     calls.read.push(timestamps);
     return timestamps.map((timestamp) => {
       const detail = recordDetails.get(timestamp);
@@ -241,9 +211,7 @@ mock.module("../lib/appshot-client", () => ({
       return detail;
     });
   },
-  readAppshotSnapshot: async (
-    timestamp: string,
-  ): Promise<AppshotSnapshotView> => {
+  readAppshotSnapshot: async (timestamp: string): Promise<AppshotSnapshotView> => {
     calls.readSnapshot.push(timestamp);
     return {
       timestamp,
@@ -278,9 +246,7 @@ mock.module("@/shared/lib/desktop-bridge", () => ({
   },
 }));
 
-const { AppshotsHistoryPopover } = await import(
-  "../components/AppshotsHistoryPopover"
-);
+const { AppshotsHistoryPopover } = await import("../components/AppshotsHistoryPopover");
 
 const defaultDesktopStatus = (): AppshotStatus => ({
   supported: true,
@@ -352,14 +318,10 @@ describe("S7/S8 - Header Appshots history", () => {
     expect(container.textContent).not.toContain("App #00");
     expect(container.textContent).not.toContain("More");
 
-    const recordsScrollArea = container.querySelector(
-      '[aria-label="Recent Appshot records"]',
-    );
+    const recordsScrollArea = container.querySelector('[aria-label="Recent Appshot records"]');
     expect(recordsScrollArea?.className).toContain("h-[min(42vh,360px)]");
     expect(recordsScrollArea?.className).toContain("min-h-[160px]");
-    expect(
-      container.querySelector('[data-testid="appshot-history-load-more"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[data-testid="appshot-history-load-more"]')).not.toBeNull();
 
     const readCallCountBeforeMore = calls.read.length;
     await act(async () => {
@@ -371,20 +333,14 @@ describe("S7/S8 - Header Appshots history", () => {
     expect(uniqueReadTimestamps()).toEqual(newestFirst);
     expect(container.textContent).toContain("App #01");
     expect(container.textContent).toContain("App #00");
-    expect(
-      container.querySelector('[data-testid="appshot-history-load-more"]'),
-    ).toBeNull();
+    expect(container.querySelector('[data-testid="appshot-history-load-more"]')).toBeNull();
 
     await click(getButtonsByLabel(container, "Copy Appshot reference")[0]);
-    await flushUntil(
-      () => getButtonsByLabel(container, "Copied Appshot reference").length > 0,
-    );
+    await flushUntil(() => getButtonsByLabel(container, "Copied Appshot reference").length > 0);
 
     expect(calls.copy).toEqual([newestFirst[0]]);
 
-    await click(
-      getButtonsByLabel(container, "Preview screenshot for App #11 - Window #11")[0],
-    );
+    await click(getButtonsByLabel(container, "Preview screenshot for App #11 - Window #11")[0]);
     await flushUntil(() => calls.readSnapshot.length === 1);
 
     expect(calls.readSnapshot).toEqual([newestFirst[0]]);
@@ -493,10 +449,7 @@ function timestampAt(index: number): string {
   return String(1_760_000_000_000 + index);
 }
 
-function makeRecordDetail(
-  timestamp: string,
-  index: number,
-): AppshotRecordDetail {
+function makeRecordDetail(timestamp: string, index: number): AppshotRecordDetail {
   const label = index.toString().padStart(2, "0");
 
   return {
@@ -552,18 +505,12 @@ async function click(element: Element | undefined): Promise<void> {
   }
 
   await act(async () => {
-    element.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, cancelable: true }),
-    );
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
   });
 }
 
 function getButtonsByLabel(container: HTMLElement, label: string): HTMLButtonElement[] {
-  return Array.from(
-    container.querySelectorAll<HTMLButtonElement>(
-      `button[aria-label="${label}"]`,
-    ),
-  );
+  return Array.from(container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`));
 }
 
 function getButtonByText(container: HTMLElement, text: string): HTMLButtonElement {
@@ -582,10 +529,7 @@ function getButtonsByText(container: HTMLElement, text: string): HTMLButtonEleme
   );
 }
 
-async function flushUntil(
-  predicate: () => boolean,
-  timeoutMs = 2_000,
-): Promise<void> {
+async function flushUntil(predicate: () => boolean, timeoutMs = 2_000): Promise<void> {
   const startedAt = Date.now();
   while (!predicate() && Date.now() - startedAt < timeoutMs) {
     await act(async () => {
@@ -651,10 +595,7 @@ function installIntersectionObserver(): void {
     readonly thresholds: ReadonlyArray<number> = [];
     private readonly instance: MockIntersectionObserverInstance;
 
-    constructor(
-      callback: IntersectionObserverCallback,
-      _options?: IntersectionObserverInit,
-    ) {
+    constructor(callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {
       void _options;
       this.instance = {
         callback,

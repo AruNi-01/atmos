@@ -14,11 +14,7 @@ import {
   toastManager,
 } from "@workspace/ui";
 
-import {
-  codeAgentCustomApi,
-  llmProvidersApi,
-  type LlmProvidersFile,
-} from "@/api/ws-api";
+import { codeAgentCustomApi, llmProvidersApi, type LlmProvidersFile } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   EMPTY_ROUTING,
@@ -145,9 +141,8 @@ export function LlmProviderEditorDialog({
     } catch (error) {
       toastManager.add({
         title: providerLoadTextRef.current.loadProviderSettingsTitle,
-        description: error instanceof Error
-          ? error.message
-          : providerLoadTextRef.current.unknownError,
+        description:
+          error instanceof Error ? error.message : providerLoadTextRef.current.unknownError,
         type: "error",
       });
       onOpenChange(false);
@@ -164,18 +159,14 @@ export function LlmProviderEditorDialog({
   const providerEditorCandidates = useMemo(() => {
     if (!providerEditor) return providers;
     return [
-      ...providers.filter(
-        (provider) => provider.clientKey !== providerEditor.clientKey,
-      ),
+      ...providers.filter((provider) => provider.clientKey !== providerEditor.clientKey),
       providerEditor,
     ];
   }, [providers, providerEditor]);
 
   const providerNameIssue = useMemo(() => {
     if (!providerEditor) return null;
-    return buildProviderNameIssues(providerEditorCandidates, t)[
-      providerEditor.clientKey
-    ];
+    return buildProviderNameIssues(providerEditorCandidates, t)[providerEditor.clientKey];
   }, [providerEditor, providerEditorCandidates, t]);
 
   const showProviderNameIssue =
@@ -219,9 +210,8 @@ export function LlmProviderEditorDialog({
       setTestStatus("pass");
       setTestOutput(streamedOutput || result.text || "");
     } catch (error) {
-      const message = error instanceof Error
-        ? error.message
-        : t("appShell.llmProviders.common.unknownError");
+      const message =
+        error instanceof Error ? error.message : t("appShell.llmProviders.common.unknownError");
       setTestStatus("fail");
       setTestOutput(
         streamedOutput
@@ -238,11 +228,7 @@ export function LlmProviderEditorDialog({
     if (!providerEditor) return;
 
     setProviderSaveAttempted(true);
-    const validationError = validateProvider(
-      providerEditor,
-      providerEditorCandidates,
-      t,
-    );
+    const validationError = validateProvider(providerEditor, providerEditorCandidates, t);
     if (validationError) {
       toastManager.add({
         title: t("appShell.llmProviders.toasts.invalidProviderSettings.title"),
@@ -253,9 +239,7 @@ export function LlmProviderEditorDialog({
     }
 
     const nextProviders = [
-      ...providers.filter(
-        (provider) => provider.clientKey !== providerEditor.clientKey,
-      ),
+      ...providers.filter((provider) => provider.clientKey !== providerEditor.clientKey),
       providerEditor,
     ];
 
@@ -275,9 +259,8 @@ export function LlmProviderEditorDialog({
       setProviderSaveState("idle");
       toastManager.add({
         title: t("appShell.llmProviders.toasts.saveProvider.title"),
-        description: error instanceof Error
-          ? error.message
-          : t("appShell.llmProviders.common.unknownError"),
+        description:
+          error instanceof Error ? error.message : t("appShell.llmProviders.common.unknownError"),
         type: "error",
       });
     }
@@ -295,9 +278,7 @@ export function LlmProviderEditorDialog({
           routingDraft.features.git_commit === providerEditor.clientKey
             ? null
             : routingDraft.features.git_commit,
-        git_commit_language: normalizeFeatureLanguage(
-          routingDraft.features.git_commit_language,
-        ),
+        git_commit_language: normalizeFeatureLanguage(routingDraft.features.git_commit_language),
         workspace_issue_todo:
           routingDraft.features.workspace_issue_todo === providerEditor.clientKey
             ? null
@@ -322,20 +303,18 @@ export function LlmProviderEditorDialog({
       setProviderSaveState("idle");
       toastManager.add({
         title: t("appShell.llmProviders.toasts.deleteProvider.title"),
-        description: error instanceof Error
-          ? error.message
-          : t("appShell.llmProviders.common.unknownError"),
+        description:
+          error instanceof Error ? error.message : t("appShell.llmProviders.common.unknownError"),
         type: "error",
       });
     }
   };
 
-  const selectedProviderIsUnsaved =
-    !!providerEditor && !providerEditor.persistedId;
+  const selectedProviderIsUnsaved = !!providerEditor && !providerEditor.persistedId;
   const selectedProviderHint = selectedProviderIsUnsaved
     ? "appShell.llmProviders.providerDialog.description.newProvider"
     : providerEditor
-      ? KIND_OPTIONS.find((item) => item.value === providerEditor.kind)?.hintKey ?? null
+      ? (KIND_OPTIONS.find((item) => item.value === providerEditor.kind)?.hintKey ?? null)
       : null;
 
   return (
@@ -439,9 +418,8 @@ export function LlmRoutingDialog({
     } catch (error) {
       toastManager.add({
         title: routingLoadTextRef.current.loadRoutingSettingsTitle,
-        description: error instanceof Error
-          ? error.message
-          : routingLoadTextRef.current.unknownError,
+        description:
+          error instanceof Error ? error.message : routingLoadTextRef.current.unknownError,
         type: "error",
       });
       onOpenChange(false);
@@ -490,9 +468,8 @@ export function LlmRoutingDialog({
       setRoutingSaveState("idle");
       toastManager.add({
         title: t("appShell.llmProviders.toasts.saveRoutingSettings.title"),
-        description: error instanceof Error
-          ? error.message
-          : t("appShell.llmProviders.common.unknownError"),
+        description:
+          error instanceof Error ? error.message : t("appShell.llmProviders.common.unknownError"),
         type: "error",
       });
     }

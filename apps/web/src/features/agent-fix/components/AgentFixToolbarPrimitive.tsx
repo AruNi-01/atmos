@@ -61,7 +61,7 @@ export function AgentFixToolbarPrimitive({
             {copyAction.isLoading ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
-              copyAction.icon ?? <Copy className="size-3.5" />
+              (copyAction.icon ?? <Copy className="size-3.5" />)
             )}
           </Button>
         ) : null}
@@ -131,9 +131,9 @@ export function AgentFixToolbarPrimitive({
           title={copyAction.title}
         >
           {copyAction.isLoading ? (
-            <Loader2 className={cn(iconSizeClass, "animate-spin shrink-0")} />
+            <Loader2 className={cn(iconSizeClass, "shrink-0 animate-spin")} />
           ) : (
-            copyAction.icon ?? <Copy className={cn(iconSizeClass, "shrink-0")} />
+            (copyAction.icon ?? <Copy className={cn(iconSizeClass, "shrink-0")} />)
           )}
           {copyAction.hideLabel ? null : <span className="truncate">{copyAction.label}</span>}
         </button>
@@ -147,7 +147,7 @@ export function AgentFixToolbarPrimitive({
         title={primaryAction.title}
       >
         {primaryAction.isLoading ? (
-          <Loader2 className={cn(iconSizeClass, "animate-spin shrink-0")} />
+          <Loader2 className={cn(iconSizeClass, "shrink-0 animate-spin")} />
         ) : (
           <span className="shrink-0">{primaryAction.icon}</span>
         )}

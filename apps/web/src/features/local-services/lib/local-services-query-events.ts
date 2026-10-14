@@ -6,9 +6,7 @@ import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type { LocalServicesScanResponse } from "@/api/ws/local-services-api";
 import { localServicesScopeKey } from "@/features/local-services/store/local-services-store";
 
-export function isLocalServicesScanResponse(
-  data: unknown,
-): data is LocalServicesScanResponse {
+export function isLocalServicesScanResponse(data: unknown): data is LocalServicesScanResponse {
   if (!data || typeof data !== "object") return false;
   const value = data as Record<string, unknown>;
   return (

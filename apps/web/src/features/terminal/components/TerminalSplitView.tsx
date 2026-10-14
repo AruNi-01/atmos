@@ -75,9 +75,7 @@ const ROOT_EDGES: TerminalDockEdge[] = ["top", "bottom", "left", "right"];
 const paneCollision: CollisionDetection = (args) => {
   const pointerHits = pointerWithin(args);
   if (pointerHits.length === 0) return [];
-  const rootHits = pointerHits.filter((hit) =>
-    String(hit.id).startsWith("root-drop:"),
-  );
+  const rootHits = pointerHits.filter((hit) => String(hit.id).startsWith("root-drop:"));
   return rootHits.length > 0 ? rootHits : pointerHits;
 };
 
@@ -99,10 +97,7 @@ export function TerminalSplitView({
     useLiveSplitLayout(layout);
   const hoverRef = React.useRef<DockHover | null>(null);
   const leafCount = React.useMemo(() => getLeaves(live).length, [live]);
-  const geometry = React.useMemo(
-    () => collectTerminalLayoutGeometry(live),
-    [live],
-  );
+  const geometry = React.useMemo(() => collectTerminalLayoutGeometry(live), [live]);
   const canDrag = !maximizedId && leafCount > 1;
   const [draggingPaneId, setDraggingPaneId] = React.useState<string | null>(null);
   const [hover, setHover] = React.useState<DockHover | null>(null);
@@ -110,60 +105,57 @@ export function TerminalSplitView({
   const [ghostPose, setGhostPose] = React.useState<GhostPose | null>(null);
   const grabOffsetRef = React.useRef({ x: 0, y: 0 });
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const moveGhost = React.useCallback(
+    (event: { activatorEvent: Event; delta: { x: number; y: number } }) => {
+      const pointer = pointerFromDragEvent(event);
+      if (!pointer) return;
+      setGhostPose({
+        x: pointer.x - grabOffsetRef.current.x,
+        y: pointer.y - grabOffsetRef.current.y,
+      });
+    },
+    [],
   );
 
-  const moveGhost = React.useCallback((event: {
-    activatorEvent: Event;
-    delta: { x: number; y: number };
-  }) => {
-    const pointer = pointerFromDragEvent(event);
-    if (!pointer) return;
-    setGhostPose({
-      x: pointer.x - grabOffsetRef.current.x,
-      y: pointer.y - grabOffsetRef.current.y,
-    });
-  }, []);
-
-  const updateHover = React.useCallback((event: DragMoveEvent) => {
-    moveGhost(event);
-    const over = event.over;
-    if (!over) {
-      hoverRef.current = null;
-      setHover(null);
-      return;
-    }
-    const data = over.data.current;
-    if (data?.kind === "root" && isDockEdge(data.edge)) {
-      const next: DockHover = { kind: "root", edge: data.edge };
+  const updateHover = React.useCallback(
+    (event: DragMoveEvent) => {
+      moveGhost(event);
+      const over = event.over;
+      if (!over) {
+        hoverRef.current = null;
+        setHover(null);
+        return;
+      }
+      const data = over.data.current;
+      if (data?.kind === "root" && isDockEdge(data.edge)) {
+        const next: DockHover = { kind: "root", edge: data.edge };
+        hoverRef.current = next;
+        setHover(next);
+        return;
+      }
+      const paneId = readPaneId(data);
+      const sourceId = readPaneId(event.active.data.current);
+      if (!paneId || paneId === sourceId) {
+        hoverRef.current = null;
+        setHover(null);
+        return;
+      }
+      const pointer = pointerFromDragEvent(event);
+      const edge = pointer ? hitDockEdge(over.rect, pointer.x, pointer.y) : "bottom";
+      const next: DockHover = { kind: "pane", paneId, edge };
       hoverRef.current = next;
       setHover(next);
-      return;
-    }
-    const paneId = readPaneId(data);
-    const sourceId = readPaneId(event.active.data.current);
-    if (!paneId || paneId === sourceId) {
-      hoverRef.current = null;
-      setHover(null);
-      return;
-    }
-    const pointer = pointerFromDragEvent(event);
-    const edge = pointer
-      ? hitDockEdge(over.rect, pointer.x, pointer.y)
-      : "bottom";
-    const next: DockHover = { kind: "pane", paneId, edge };
-    hoverRef.current = next;
-    setHover(next);
-  }, [moveGhost]);
+    },
+    [moveGhost],
+  );
 
   const handleDragStart = React.useCallback(
     (event: DragStartEvent) => {
       const paneId = readPaneId(event.active.data.current);
       if (!paneId) return;
-      const el = document.querySelector(
-        `[data-terminal-split-leaf="${CSS.escape(paneId)}"]`,
-      );
+      const el = document.querySelector(`[data-terminal-split-leaf="${CSS.escape(paneId)}"]`);
       const captured =
         el instanceof HTMLElement
           ? capturePanePreview(el)
@@ -177,8 +169,7 @@ export function TerminalSplitView({
               top: 0,
             };
       const sized = scaleTerminalDragPreview(captured.width, captured.height);
-      const snapshotUrl =
-        capturePane?.(paneId, sized.width, sized.height) ?? captured.snapshotUrl;
+      const snapshotUrl = capturePane?.(paneId, sized.width, sized.height) ?? captured.snapshotUrl;
       const pointer = getEventCoordinates(event.activatorEvent);
       const grab = dragPreviewGrabOffset(sized.width);
       const originX = grab.x;
@@ -230,12 +221,7 @@ export function TerminalSplitView({
           ? dockLeafAtRoot(current, fromId, nextHover.edge)
           : nextHover.paneId === fromId
             ? current
-            : dockLeafInLayoutTree(
-                current,
-                fromId,
-                nextHover.paneId,
-                nextHover.edge,
-              );
+            : dockLeafInLayoutTree(current, fromId, nextHover.paneId, nextHover.edge);
       if (terminalLayoutTopologyEqual(current, next)) return;
       onLayoutChange(next);
     },
@@ -245,7 +231,7 @@ export function TerminalSplitView({
   if (maximizedId) {
     return (
       <div
-        className={cn("h-full w-full min-h-0 min-w-0", className)}
+        className={cn("h-full min-h-0 w-full min-w-0", className)}
         data-edge-top=""
         data-edge-bottom=""
         data-edge-left=""
@@ -267,7 +253,7 @@ export function TerminalSplitView({
       onDragCancel={finishDrag}
     >
       <div
-        className={cn("relative h-full w-full min-h-0 min-w-0", className)}
+        className={cn("relative h-full min-h-0 w-full min-w-0", className)}
         data-terminal-split-root=""
       >
         {geometry.leaves.map((leaf) => {
@@ -314,11 +300,7 @@ export function TerminalSplitView({
             }}
           />
         ))}
-        {draggingPaneId
-          ? ROOT_EDGES.map((edge) => (
-              <RootEdgeDrop key={edge} edge={edge} />
-            ))
-          : null}
+        {draggingPaneId ? ROOT_EDGES.map((edge) => <RootEdgeDrop key={edge} edge={edge} />) : null}
         {hover?.kind === "root" ? (
           <div
             className="terminal-dock-preview"
@@ -350,12 +332,7 @@ function readPaneId(data: Record<string, unknown> | undefined): string | null {
 }
 
 function isDockEdge(value: unknown): value is TerminalDockEdge {
-  return (
-    value === "left" ||
-    value === "right" ||
-    value === "top" ||
-    value === "bottom"
-  );
+  return value === "left" || value === "right" || value === "top" || value === "bottom";
 }
 
 function pointerFromDragEvent(event: {
@@ -549,9 +526,7 @@ function SplitHandle({
       const onMove = (ev: PointerEvent) => {
         const pos = isRow ? ev.clientX : ev.clientY;
         const nextPct = ((pos - origin) / size) * 100;
-        onLiveLayout(
-          updateSplitPercentageAtPath(layoutRef.current, split.path, nextPct),
-        );
+        onLiveLayout(updateSplitPercentageAtPath(layoutRef.current, split.path, nextPct));
       };
       const onUp = () => {
         handle.removeAttribute("data-resizing");
@@ -571,8 +546,8 @@ function SplitHandle({
       role="separator"
       aria-orientation={isRow ? "vertical" : "horizontal"}
       className={cn(
-        "absolute z-10 overflow-visible touch-none bg-transparent",
-        isRow ? "w-2 -ml-1 cursor-col-resize" : "h-2 -mt-1 cursor-row-resize",
+        "absolute z-10 touch-none overflow-visible bg-transparent",
+        isRow ? "-ml-1 w-2 cursor-col-resize" : "-mt-1 h-2 cursor-row-resize",
       )}
       style={
         isRow
@@ -589,10 +564,7 @@ function SplitHandle({
       }
       onPointerDown={startResize}
     >
-      <ResizeFollowMark
-        axis={isRow ? "vertical" : "horizontal"}
-        dragging={resizing}
-      />
+      <ResizeFollowMark axis={isRow ? "vertical" : "horizontal"} dragging={resizing} />
     </div>
   );
 }
@@ -613,7 +585,12 @@ function SplitLeaf({
   renderPane: (paneId: string) => React.ReactNode;
 }) {
   const isSource = draggingPaneId === paneId;
-  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging,
+  } = useDraggable({
     id: `pane-drag:${paneId}`,
     data: { paneId, kind: "pane" },
     disabled: !canDrag,
@@ -635,8 +612,7 @@ function SplitLeaf({
     [attributes, canDrag, isDragging, listeners, setDragRef],
   );
 
-  const showDock =
-    hover?.kind === "pane" && hover.paneId === paneId && !isSource;
+  const showDock = hover?.kind === "pane" && hover.paneId === paneId && !isSource;
 
   return (
     <TerminalPaneDragHandleProvider value={handleValue}>
@@ -644,7 +620,7 @@ function SplitLeaf({
         ref={setDropRef}
         data-terminal-split-leaf={paneId}
         className={cn(
-          "relative h-full w-full min-h-0 min-w-0 overflow-hidden",
+          "relative h-full min-h-0 w-full min-w-0 overflow-hidden",
           isDragging && "pointer-events-none opacity-80",
         )}
       >

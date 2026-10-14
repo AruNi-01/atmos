@@ -10,34 +10,34 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-003**). |
-| **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
-| **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
+| **Entry id**    | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-003**).                                           |
+| **Status**      | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason).                                  |
+| **Do not**      | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status.       |
+| **Fix proof**   | Each fixed item should name the code change and the verification command or manual check.                      |
 
 ---
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P2 | backend | Silent failure to write hooks if hooks.json is not an object | open |
-| REV-002 | P2 | test | Scenario-3 test gap in core-engine | open |
+| Id      | Severity | Area    | Title                                                        | Status |
+| ------- | -------- | ------- | ------------------------------------------------------------ | ------ |
+| REV-001 | P2       | backend | Silent failure to write hooks if hooks.json is not an object | open   |
+| REV-002 | P2       | test    | Scenario-3 test gap in core-engine                           | open   |
 
 ---
 
 ## REV-001 · Silent failure to write hooks if hooks.json is not an object
 
-| Field | Value |
-|-------|--------|
-| **Status** | open |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | open            |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -70,13 +70,13 @@ Ensure `hooks_config` is forced to a valid JSON object (resetting it to `json!({
 
 ## REV-002 · Scenario-3 test gap in core-engine
 
-| Field | Value |
-|-------|--------|
-| **Status** | open |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | open            |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 

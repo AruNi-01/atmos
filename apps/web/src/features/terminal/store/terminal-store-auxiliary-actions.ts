@@ -72,7 +72,10 @@ export function createTerminalAuxiliaryActions(
     },
     isProjectWikiReady: (workspaceId) => {
       const state = get();
-      return state.projectWikiLoadedWorkspaces.has(workspaceId) && !state.projectWikiInitializingWorkspaces.has(workspaceId);
+      return (
+        state.projectWikiLoadedWorkspaces.has(workspaceId) &&
+        !state.projectWikiInitializingWorkspaces.has(workspaceId)
+      );
     },
     setProjectWikiLayout: (workspaceId, layout) => {
       set((state) => ({
@@ -85,7 +88,7 @@ export function createTerminalAuxiliaryActions(
       const leaves = layout ? getLeaves(layout) : [];
       const leafSet = new Set(leaves);
       const nextPanes: Record<string, TerminalPaneProps> = {};
-      Object.keys(currentPanes).forEach(id => {
+      Object.keys(currentPanes).forEach((id) => {
         if (leafSet.has(id)) nextPanes[id] = currentPanes[id];
       });
       set((state) => ({
@@ -110,7 +113,7 @@ export function createTerminalAuxiliaryActions(
       if (!layout) {
         nextLayout = newId;
       } else {
-        nextLayout = { direction: 'row', first: layout, second: newId };
+        nextLayout = { direction: "row", first: layout, second: newId };
       }
       set((state) => ({
         projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: nextPanes },
@@ -161,19 +164,24 @@ export function createTerminalAuxiliaryActions(
       if (state.projectWikiLoadedWorkspaces.has(workspaceId)) return;
       if (state.projectWikiInitializingWorkspaces.has(workspaceId)) return;
       set((state) => ({
-        projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces, workspaceId]),
+        projectWikiInitializingWorkspaces: new Set([
+          ...state.projectWikiInitializingWorkspaces,
+          workspaceId,
+        ]),
       }));
       get().loadProjectWikiFromTmux(workspaceId);
     },
     loadProjectWikiFromTmux: async (workspaceId) => {
-      if (typeof window === 'undefined') return;
+      if (typeof window === "undefined") return;
       try {
         const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
         const state = get();
         if (!state.projectWikiInitializingWorkspaces.has(workspaceId)) return; // init was reset
         if (exists) {
           const panes = state.projectWikiPanes[workspaceId] || {};
-          const hasWikiPane = Object.values(panes).some(p => p.tmuxWindowName === PROJECT_WIKI_WINDOW_NAME);
+          const hasWikiPane = Object.values(panes).some(
+            (p) => p.tmuxWindowName === PROJECT_WIKI_WINDOW_NAME,
+          );
           if (!hasWikiPane) {
             const newId = uuidv4();
             const newPane = createTerminalPane(workspaceId, PROJECT_WIKI_WINDOW_NAME, {
@@ -182,23 +190,35 @@ export function createTerminalAuxiliaryActions(
               isNewPane: false,
             });
             set((state) => ({
-              projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: { ...panes, [newId]: newPane } },
+              projectWikiPanes: {
+                ...state.projectWikiPanes,
+                [workspaceId]: { ...panes, [newId]: newPane },
+              },
               projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: newId },
-              projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
-              projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
+              projectWikiLoadedWorkspaces: new Set([
+                ...state.projectWikiLoadedWorkspaces,
+                workspaceId,
+              ]),
+              projectWikiInitializingWorkspaces: new Set(
+                [...state.projectWikiInitializingWorkspaces].filter((id) => id !== workspaceId),
+              ),
             }));
             return;
           }
         }
         set((state) => ({
           projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
-          projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
+          projectWikiInitializingWorkspaces: new Set(
+            [...state.projectWikiInitializingWorkspaces].filter((id) => id !== workspaceId),
+          ),
         }));
       } catch (err) {
-        console.debug('Failed to load Project Wiki from tmux:', err);
+        console.debug("Failed to load Project Wiki from tmux:", err);
         set((state) => ({
           projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
-          projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
+          projectWikiInitializingWorkspaces: new Set(
+            [...state.projectWikiInitializingWorkspaces].filter((id) => id !== workspaceId),
+          ),
         }));
       }
     },
@@ -286,7 +306,10 @@ export function createTerminalAuxiliaryActions(
     getCodeReviewLayout: (workspaceId) => get().codeReviewLayouts[workspaceId] || null,
     isCodeReviewReady: (workspaceId) => {
       const state = get();
-      return state.codeReviewLoadedWorkspaces.has(workspaceId) && !state.codeReviewInitializingWorkspaces.has(workspaceId);
+      return (
+        state.codeReviewLoadedWorkspaces.has(workspaceId) &&
+        !state.codeReviewInitializingWorkspaces.has(workspaceId)
+      );
     },
     setCodeReviewLayout: (workspaceId, layout) => {
       set((state) => ({
@@ -308,7 +331,7 @@ export function createTerminalAuxiliaryActions(
       if (!layout) {
         nextLayout = newId;
       } else {
-        nextLayout = { direction: 'row', first: layout, second: newId };
+        nextLayout = { direction: "row", first: layout, second: newId };
       }
       set((state) => ({
         codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: nextPanes },
@@ -333,19 +356,24 @@ export function createTerminalAuxiliaryActions(
       if (state.codeReviewLoadedWorkspaces.has(workspaceId)) return;
       if (state.codeReviewInitializingWorkspaces.has(workspaceId)) return;
       set((state) => ({
-        codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces, workspaceId]),
+        codeReviewInitializingWorkspaces: new Set([
+          ...state.codeReviewInitializingWorkspaces,
+          workspaceId,
+        ]),
       }));
       get().loadCodeReviewFromTmux(workspaceId);
     },
     loadCodeReviewFromTmux: async (workspaceId) => {
-      if (typeof window === 'undefined') return;
+      if (typeof window === "undefined") return;
       try {
         const { exists } = await systemApi.checkCodeReviewWindow(workspaceId);
         const state = get();
         if (!state.codeReviewInitializingWorkspaces.has(workspaceId)) return;
         if (exists) {
           const panes = state.codeReviewPanes[workspaceId] || {};
-          const hasPane = Object.values(panes).some(p => p.tmuxWindowName === CODE_REVIEW_WINDOW_NAME);
+          const hasPane = Object.values(panes).some(
+            (p) => p.tmuxWindowName === CODE_REVIEW_WINDOW_NAME,
+          );
           if (!hasPane) {
             const newId = uuidv4();
             const newPane = createTerminalPane(workspaceId, CODE_REVIEW_WINDOW_NAME, {
@@ -354,23 +382,35 @@ export function createTerminalAuxiliaryActions(
               isNewPane: false,
             });
             set((state) => ({
-              codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: { ...panes, [newId]: newPane } },
+              codeReviewPanes: {
+                ...state.codeReviewPanes,
+                [workspaceId]: { ...panes, [newId]: newPane },
+              },
               codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: newId },
-              codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
-              codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
+              codeReviewLoadedWorkspaces: new Set([
+                ...state.codeReviewLoadedWorkspaces,
+                workspaceId,
+              ]),
+              codeReviewInitializingWorkspaces: new Set(
+                [...state.codeReviewInitializingWorkspaces].filter((id) => id !== workspaceId),
+              ),
             }));
             return;
           }
         }
         set((state) => ({
           codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
-          codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
+          codeReviewInitializingWorkspaces: new Set(
+            [...state.codeReviewInitializingWorkspaces].filter((id) => id !== workspaceId),
+          ),
         }));
       } catch (err) {
-        console.debug('Failed to load Code Review from tmux:', err);
+        console.debug("Failed to load Code Review from tmux:", err);
         set((state) => ({
           codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
-          codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
+          codeReviewInitializingWorkspaces: new Set(
+            [...state.codeReviewInitializingWorkspaces].filter((id) => id !== workspaceId),
+          ),
         }));
       }
     },

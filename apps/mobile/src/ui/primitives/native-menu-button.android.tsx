@@ -15,11 +15,20 @@ export function NativeMenuButton({
   title,
 }: NativeMenuButtonProps) {
   const theme = useMobileTheme();
-  const resolvedTintColor = disabled ? theme.colors.tertiaryLabel : (tintColor ?? theme.colors.label);
+  const resolvedTintColor = disabled
+    ? theme.colors.tertiaryLabel
+    : (tintColor ?? theme.colors.label);
 
   return (
     <MenuView
-      actions={disabled ? actions.map((action) => ({ ...action, attributes: { ...action.attributes, disabled: true } })) : actions}
+      actions={
+        disabled
+          ? actions.map((action) => ({
+              ...action,
+              attributes: { ...action.attributes, disabled: true },
+            }))
+          : actions
+      }
       onPressAction={(event) => onAction(event.nativeEvent.event)}
       shouldOpenOnLongPress={false}
       title={title}
@@ -36,26 +45,21 @@ export function NativeMenuButton({
         ]}
       >
         {iconOnly && androidIcon ? (
-          <Image
-            source={androidIcon}
-            style={[
-              styles.icon,
-              { tintColor: resolvedTintColor },
-            ]}
-          />
+          <Image source={androidIcon} style={[styles.icon, { tintColor: resolvedTintColor }]} />
         ) : (
-          <Text
-            style={[
-              styles.label,
-              { color: resolvedTintColor },
-            ]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.label, { color: resolvedTintColor }]} numberOfLines={1}>
             {label}
           </Text>
         )}
         {iconOnly ? null : (
-          <Text style={[styles.chevron, { color: disabled ? theme.colors.tertiaryLabel : theme.colors.label }]}>⌄</Text>
+          <Text
+            style={[
+              styles.chevron,
+              { color: disabled ? theme.colors.tertiaryLabel : theme.colors.label },
+            ]}
+          >
+            ⌄
+          </Text>
         )}
       </View>
     </MenuView>

@@ -4,47 +4,47 @@
 
 ## Test strategy
 
-| Level | Role |
-|-------|------|
-| Rust unit/service (`cargo test -p infra`, `cargo test -p core-service`) | Exclusive membership, rename validation, delete cascade, member order |
-| API/WS (service or router-level if harness exists; else service + thin handler) | WS actions map to service correctly |
-| Bun/TS unit | Group view derivation, ungrouped bucket, dual visibility of workspace under project |
-| Playwright e2e (`e2e/`) | Create group, add project/workspace, switch By Group, dual-pane select, rename |
-| agent-browser exploratory | Copy, empty states, two-column resize selection |
+| Level                                                                           | Role                                                                                |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Rust unit/service (`cargo test -p infra`, `cargo test -p core-service`)         | Exclusive membership, rename validation, delete cascade, member order               |
+| API/WS (service or router-level if harness exists; else service + thin handler) | WS actions map to service correctly                                                 |
+| Bun/TS unit                                                                     | Group view derivation, ungrouped bucket, dual visibility of workspace under project |
+| Playwright e2e (`e2e/`)                                                         | Create group, add project/workspace, switch By Group, dual-pane select, rename      |
+| agent-browser exploratory                                                       | Copy, empty states, two-column resize selection                                     |
 
 ## Coverage map
 
-| PRD | Scenarios |
-|-----|-----------|
-| M1 Group CRUD | S1, S2, S3 |
-| M2 Mixed membership | S4, S5 |
-| M3 Exclusive membership | S6 |
-| M4 Workspace dual visibility | S7 |
-| M5 Mode `group` + persist | S8 |
-| M6 One-column | S9 |
-| M7 Two-column | S10 |
-| M8 Member menus | S11 |
-| M9 Bootstrap | S12 |
-| M10 Integrity on delete | S13, S14 |
+| PRD                          | Scenarios  |
+| ---------------------------- | ---------- |
+| M1 Group CRUD                | S1, S2, S3 |
+| M2 Mixed membership          | S4, S5     |
+| M3 Exclusive membership      | S6         |
+| M4 Workspace dual visibility | S7         |
+| M5 Mode `group` + persist    | S8         |
+| M6 One-column                | S9         |
+| M7 Two-column                | S10        |
+| M8 Member menus              | S11        |
+| M9 Bootstrap                 | S12        |
+| M10 Integrity on delete      | S13, S14   |
 
 ## Execution map
 
-| Id | Level | Tool | Target | Fixture | Signals | Status |
-|----|-------|------|--------|---------|---------|--------|
-| S1 | service | cargo | `core-service` group tests | temp sqlite | create returns guid + name | pending |
-| S2 | service | cargo | rename | temp sqlite | name updated; empty rejected | pending |
-| S3 | service | cargo | delete group | temp sqlite | group soft-deleted; members cleared; projects remain | pending |
-| S4 | service | cargo | set project member | temp sqlite | member_type project | pending |
-| S5 | service | cargo | set workspace member | temp sqlite | mixed members listed | pending |
-| S6 | service | cargo | exclusive move | two groups | only second group has member | pending |
-| S7 | ts | bun | derived view helper | mock projects/groups | workspace under project AND as direct member | pending |
-| S8 | e2e | playwright | grouping mode switch | local computer | mode By Group selectable | pending |
-| S9 | e2e | playwright | one-column groups | local computer | group header + members | pending |
-| S10 | e2e | playwright | two-column | local computer + two-column layout | left select → right members | pending |
-| S11 | e2e / unit | playwright or bun | context menu add/remove | local computer | membership updates | pending |
-| S12 | service/api | cargo | bootstrap includes groups | temp db | groups field present | pending |
-| S13 | service | cargo | delete project | temp sqlite | membership removed | pending |
-| S14 | service | cargo | delete workspace | temp sqlite | membership removed | pending |
+| Id  | Level       | Tool              | Target                     | Fixture                            | Signals                                              | Status  |
+| --- | ----------- | ----------------- | -------------------------- | ---------------------------------- | ---------------------------------------------------- | ------- |
+| S1  | service     | cargo             | `core-service` group tests | temp sqlite                        | create returns guid + name                           | pending |
+| S2  | service     | cargo             | rename                     | temp sqlite                        | name updated; empty rejected                         | pending |
+| S3  | service     | cargo             | delete group               | temp sqlite                        | group soft-deleted; members cleared; projects remain | pending |
+| S4  | service     | cargo             | set project member         | temp sqlite                        | member_type project                                  | pending |
+| S5  | service     | cargo             | set workspace member       | temp sqlite                        | mixed members listed                                 | pending |
+| S6  | service     | cargo             | exclusive move             | two groups                         | only second group has member                         | pending |
+| S7  | ts          | bun               | derived view helper        | mock projects/groups               | workspace under project AND as direct member         | pending |
+| S8  | e2e         | playwright        | grouping mode switch       | local computer                     | mode By Group selectable                             | pending |
+| S9  | e2e         | playwright        | one-column groups          | local computer                     | group header + members                               | pending |
+| S10 | e2e         | playwright        | two-column                 | local computer + two-column layout | left select → right members                          | pending |
+| S11 | e2e / unit  | playwright or bun | context menu add/remove    | local computer                     | membership updates                                   | pending |
+| S12 | service/api | cargo             | bootstrap includes groups  | temp db                            | groups field present                                 | pending |
+| S13 | service     | cargo             | delete project             | temp sqlite                        | membership removed                                   | pending |
+| S14 | service     | cargo             | delete workspace           | temp sqlite                        | membership removed                                   | pending |
 
 ## Scenarios
 
@@ -182,12 +182,12 @@
 
 _Updated 2026-07-25 during APP-044 implementation._
 
-| Id | Status | Evidence |
-|----|--------|----------|
-| S1–S6, S13–S14 | **pass** | `cargo test -p core-service group` — 4 tests (create/rename/delete, exclusive membership, mixed members, delete hooks) |
-| S7 | **pass** | `bun test apps/web/src/app-shell/sidebar/user-groups.test.ts` — dual visibility + exclusive lookup |
-| S8–S11 | **partial** | Playwright `e2e/tests/specs/APP-044_project-workspace-groups.e2e.ts` covers group create / set_member / bootstrap / delete via WS; UI By Group is best-effort when footer control is visible |
-| S12 | **pass** | Same e2e asserts `project_workspace_bootstrap.groups` includes created group + member; API compiles with bootstrap field |
+| Id             | Status      | Evidence                                                                                                                                                                                     |
+| -------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1–S6, S13–S14 | **pass**    | `cargo test -p core-service group` — 4 tests (create/rename/delete, exclusive membership, mixed members, delete hooks)                                                                       |
+| S7             | **pass**    | `bun test apps/web/src/app-shell/sidebar/user-groups.test.ts` — dual visibility + exclusive lookup                                                                                           |
+| S8–S11         | **partial** | Playwright `e2e/tests/specs/APP-044_project-workspace-groups.e2e.ts` covers group create / set_member / bootstrap / delete via WS; UI By Group is best-effort when footer control is visible |
+| S12            | **pass**    | Same e2e asserts `project_workspace_bootstrap.groups` includes created group + member; API compiles with bootstrap field                                                                     |
 
 Commands run:
 
@@ -203,4 +203,3 @@ Remaining gaps:
 
 - Full UI path for context-menu add/remove of workspace members in Playwright (project menu is wired; workspace menu deferred).
 - agent-browser exploratory checks not run in this session.
-

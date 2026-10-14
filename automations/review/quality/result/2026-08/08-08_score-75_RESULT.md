@@ -59,13 +59,13 @@ AppShot 抽出多块 pure 模块与测试，但 `browser-use-control.ts`（~1117
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 23/30 | 正向：`window-crop`、`frontmost-cg`、`capture-fly`、`host-shift`、`auto-update`。扣分：`BrowserUseControlPlane` 继续吞 dialog/download/pointer；settings 引擎/权限/可见性仍单文件。 |
-| 可读性与复杂度 | 18/25 | control plane `handle` 路由表 + 长 private 方法链；settings 多状态与 install/update/runtime 交叉。 |
-| 体量与内聚 | 12/20 | 日终：control ~1117（+~600）、settings ~805（+~310）、host-capture ~736（+~500）、service ~1037、grant-overlay ~1270。 |
-| 可维护性与复用 | 13/15 | 正向：host-capture / window-crop / frontmost 测试充分；crop 纯函数复用。扣分：control 能力扩展未按动作域拆文件。 |
-| 工程卫生 | 9/10 | 大量 unit/structural tests；少量 structural 字符串耦合（已随拆分调整）。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                            |
+| -------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 23/30 | 正向：`window-crop`、`frontmost-cg`、`capture-fly`、`host-shift`、`auto-update`。扣分：`BrowserUseControlPlane` 继续吞 dialog/download/pointer；settings 引擎/权限/可见性仍单文件。 |
+| 可读性与复杂度 | 18/25 | control plane `handle` 路由表 + 长 private 方法链；settings 多状态与 install/update/runtime 交叉。                                                                                  |
+| 体量与内聚     | 12/20 | 日终：control ~1117（+~600）、settings ~805（+~310）、host-capture ~736（+~500）、service ~1037、grant-overlay ~1270。                                                              |
+| 可维护性与复用 | 13/15 | 正向：host-capture / window-crop / frontmost 测试充分；crop 纯函数复用。扣分：control 能力扩展未按动作域拆文件。                                                                    |
+| 工程卫生       |  9/10 | 大量 unit/structural tests；少量 structural 字符串耦合（已随拆分调整）。                                                                                                            |
 
 ## 6. 主要问题清单
 

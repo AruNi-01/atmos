@@ -42,9 +42,9 @@ describe("mermaid worker DOM layout", () => {
         "flowchart LR",
         '  User([用户]) --> Electron["Atmos.app<br/>apps/desktop-electron"]',
         '  User --> Browser["浏览器 :3030<br/>just dev-web"]',
-        "  Electron -->|spawn / 复用| Server[\"Atmos Server<br/>apps/api :30303\"]",
+        '  Electron -->|spawn / 复用| Server["Atmos Server<br/>apps/api :30303"]',
         "  Browser -->|dev rewrite| Server",
-        "  Server -->|静态导出 / WS| Web[\"apps/web 同一套 UI\"]",
+        '  Server -->|静态导出 / WS| Web["apps/web 同一套 UI"]',
         "  Electron -->|preload 桥| Web",
       ].join("\n"),
     );

@@ -5,10 +5,7 @@ import { useTranslations } from "next-intl";
 import { AlertTriangle, Code2, Loader2 } from "lucide-react";
 import { cn } from "@workspace/ui";
 
-import {
-  getDocumentScriptHost,
-  type DocumentScriptStatus,
-} from "../lib/document-script-host";
+import { getDocumentScriptHost, type DocumentScriptStatus } from "../lib/document-script-host";
 
 export function CanvasDocumentScriptStatus({ className }: { className?: string }) {
   const t = useTranslations("Canvas.script");
@@ -34,9 +31,7 @@ export function CanvasDocumentScriptStatus({ className }: { className?: string }
         title={t("runningTitle")}
       >
         <Code2 className="size-3.5 shrink-0 text-emerald-500" />
-        <span className="truncate">
-          {t("running", { entry: status.entry ?? "main.js" })}
-        </span>
+        <span className="truncate">{t("running", { entry: status.entry ?? "main.js" })}</span>
       </div>
     );
   }

@@ -7,10 +7,7 @@ function readEnv(name: string): string | undefined {
 }
 
 /** Human display name. Agents use their own name, otherwise "Agent". */
-export function resolveCollaboratorName(
-  role: "human" | "agent",
-  explicit?: string | null,
-): string {
+export function resolveCollaboratorName(role: "human" | "agent", explicit?: string | null): string {
   const named = explicit?.trim();
   if (named) return named;
   if (role === "agent") {
@@ -33,7 +30,10 @@ const PALETTE = [
 
 const AGENT_COLOR = { background: "#7c3aed", stroke: "#ede9fe" };
 
-export function colorForCollaborator(name: string, socketId = ""): { background: string; stroke: string } {
+export function colorForCollaborator(
+  name: string,
+  socketId = "",
+): { background: string; stroke: string } {
   if (isAgentName(name)) return AGENT_COLOR;
   const seed = `${name}:${socketId}`;
   let hash = 0;

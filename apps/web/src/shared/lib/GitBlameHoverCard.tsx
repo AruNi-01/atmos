@@ -63,9 +63,9 @@ export function GitBlameHoverCard({
           {strings.when(commit.timestamp)}
         </span>
       </div>
-      <div className="text-[13px] font-medium leading-snug">{commit.subject}</div>
+      <div className="text-[13px] leading-snug font-medium">{commit.subject}</div>
       {detail?.body ? (
-        <div className="max-h-[9.5em] overflow-hidden whitespace-pre-wrap text-[12px] text-muted-foreground">
+        <div className="max-h-[9.5em] overflow-hidden text-[12px] whitespace-pre-wrap text-muted-foreground">
           {detail.body}
         </div>
       ) : null}

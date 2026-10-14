@@ -101,11 +101,11 @@ export function AgentChatAboveComposerOverlays({
   const showGrokWorkflowCard = Boolean(grokWorkflow && grokWorkflow.status !== "cleared");
   const showSubagentTasksCard = subagentTasks.items.length > 0;
   const capOverlayLane =
-    overlayOpen
-    || showContextUsageCard
-    || showGrokGoalCard
-    || showGrokWorkflowCard
-    || showSubagentTasksCard;
+    overlayOpen ||
+    showContextUsageCard ||
+    showGrokGoalCard ||
+    showGrokWorkflowCard ||
+    showSubagentTasksCard;
 
   const setOverlayLaneNode = useCallback(
     (node: HTMLDivElement | null) => {
@@ -131,9 +131,7 @@ export function AgentChatAboveComposerOverlays({
     }
     const column = lane.closest("[data-agent-chat-column]");
     if (!(column instanceof HTMLElement)) return;
-    const composer =
-      lane.closest("[data-agent-chat-composer]")
-      ?? composerSurfaceRef.current;
+    const composer = lane.closest("[data-agent-chat-composer]") ?? composerSurfaceRef.current;
     const apply = () => {
       const composerHeight = composer instanceof HTMLElement ? composer.clientHeight : 0;
       const next = `${subagentOverlayFrameHeight(column.clientHeight, composerHeight)}px`;
@@ -162,14 +160,11 @@ export function AgentChatAboveComposerOverlays({
       ref={setOverlayLaneNode}
       data-agent-chat-above-composer-overlays=""
       className={cn(
-        "pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full min-h-0 flex-col gap-2 has-[.pointer-events-auto]:pb-2",
+        "pointer-events-none absolute inset-x-0 bottom-full z-20 flex min-h-0 w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2",
         capOverlayLane && "overflow-hidden",
       )}
     >
-      <div
-        data-agent-chat-scroll-button-host=""
-        className="flex justify-center empty:hidden"
-      />
+      <div data-agent-chat-scroll-button-host="" className="flex justify-center empty:hidden" />
       <div
         className={cn(
           "flex min-h-0 w-full flex-col gap-2 empty:hidden",
@@ -195,7 +190,7 @@ export function AgentChatAboveComposerOverlays({
           {subagentOverlay ? (
             <div
               data-agent-subagent-overlay=""
-              className="pointer-events-auto relative z-30 flex h-full min-h-0 min-w-0 w-full flex-1 select-text flex-col overflow-hidden"
+              className="pointer-events-auto relative z-30 flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden select-text"
             >
               {subagentOverlay}
             </div>
@@ -233,10 +228,7 @@ export function AgentChatAboveComposerOverlays({
               reduceMotion={reduceOverlayMotion}
               className={subagentOverlay ? "hidden" : undefined}
             >
-              <SubagentTasksPanel
-                tools={subagentTasks.items}
-                messages={messages}
-              />
+              <SubagentTasksPanel tools={subagentTasks.items} messages={messages} />
             </OverlayFadeCard>
           ) : null}
           {aboveInputOverlay ? (

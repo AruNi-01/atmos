@@ -77,10 +77,7 @@ function parseWebsite(raw: unknown): XUserWebsite | null {
   };
 }
 
-export function parsePublicXUserCard(
-  body: unknown,
-  fallbackUsername: string,
-): XUserCardPayload {
+export function parsePublicXUserCard(body: unknown, fallbackUsername: string): XUserCardPayload {
   if (!body || typeof body !== "object") {
     throw new Error("Invalid X user payload");
   }
@@ -100,8 +97,7 @@ export function parsePublicXUserCard(
     location?: unknown;
     website?: unknown;
   };
-  const username =
-    normalizeXUsername(asNonEmptyString(user.screen_name)) ?? fallbackUsername;
+  const username = normalizeXUsername(asNonEmptyString(user.screen_name)) ?? fallbackUsername;
   return {
     username,
     name: asNonEmptyString(user.name),
@@ -116,18 +112,15 @@ export function parsePublicXUserCard(
   };
 }
 
-export async function fetchPublicXUserCard(
-  username: string,
-): Promise<XUserCardPayload> {
+export async function fetchPublicXUserCard(username: string): Promise<XUserCardPayload> {
   const normalized = normalizeXUsername(username);
   if (!normalized) {
     throw new Error("X username is required");
   }
 
-  const res = await fetch(
-    `${PUBLIC_X_USER_API}/${encodeURIComponent(normalized)}`,
-    { cache: "no-store" },
-  );
+  const res = await fetch(`${PUBLIC_X_USER_API}/${encodeURIComponent(normalized)}`, {
+    cache: "no-store",
+  });
   if (!res.ok) {
     throw new Error(`X user '${normalized}' not found`);
   }

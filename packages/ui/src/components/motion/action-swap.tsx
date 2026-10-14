@@ -7,7 +7,13 @@ import {
   type HTMLMotionProps,
   type Variants,
 } from "motion/react";
-import { useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from "react";
 import { EASE_OUT, EASE_OUT_CSS, SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 
@@ -25,8 +31,10 @@ export type ActionSwapAnimation = "blur" | "roll" | "cascade";
 /** Animations with a single-element variant set (cascade animates per letter). */
 type CoreAnimation = "blur" | "roll";
 
-export interface ActionSwapButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onChange"> {
+export interface ActionSwapButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "children" | "onChange"
+> {
   items: ActionSwapItem[];
   value?: string;
   defaultValue?: string;
@@ -172,15 +180,14 @@ export function ActionSwapText({
   // and reduced motion fall back to the closest single-element animation.
   const label = typeof children === "string" ? children : null;
   const cascade = animation === "cascade" && label !== null && !reduce;
-  const coreAnimation: CoreAnimation =
-    animation === "cascade" ? "roll" : animation;
+  const coreAnimation: CoreAnimation = animation === "cascade" ? "roll" : animation;
 
   return (
     <span
       className={cn(
         // Fixed line box; measure node is out-of-flow so it can never grow
         // flex min-content height of toolbars above page content.
-        "relative inline-block h-[1em] max-h-[1em] overflow-hidden whitespace-nowrap align-middle leading-none",
+        "relative inline-block h-[1em] max-h-[1em] overflow-hidden align-middle leading-none whitespace-nowrap",
         className,
       )}
       style={{
@@ -196,10 +203,10 @@ export function ActionSwapText({
         ref={measureRef}
         aria-hidden
         className={cn(
-          "whitespace-nowrap leading-none",
+          "leading-none whitespace-nowrap",
           width == null
             ? "invisible inline-block"
-            : "pointer-events-none absolute left-0 top-0 opacity-0",
+            : "pointer-events-none absolute top-0 left-0 opacity-0",
         )}
       >
         {children}
@@ -214,7 +221,7 @@ export function ActionSwapText({
               initial="initial"
               animate="animate"
               exit="exit"
-              className="absolute inset-0 inline-block overflow-hidden whitespace-pre leading-none"
+              className="absolute inset-0 inline-block overflow-hidden leading-none whitespace-pre"
             >
               {label.split("").map((char, i) => (
                 <motion.span
@@ -256,8 +263,7 @@ export function ActionSwapIcon({
 }: ActionSwapIconProps) {
   const reduce = useReducedMotion();
   // Icons are single elements — cascade maps to its closest motion, roll.
-  const coreAnimation: CoreAnimation =
-    animation === "cascade" ? "roll" : animation;
+  const coreAnimation: CoreAnimation = animation === "cascade" ? "roll" : animation;
 
   return (
     <span
@@ -301,7 +307,10 @@ export function ActionSwapButton({
 }: ActionSwapButtonProps) {
   const [internalValue, setInternalValue] = useState(defaultValue ?? items[0]?.id);
   const currentValue = value ?? internalValue;
-  const activeIndex = Math.max(0, items.findIndex((item) => item.id === currentValue));
+  const activeIndex = Math.max(
+    0,
+    items.findIndex((item) => item.id === currentValue),
+  );
   const activeItem = items[activeIndex] ?? items[0];
   const hasIcon = items.some((item) => item.icon);
   const nextItem = cycle && items.length > 0 ? items[(activeIndex + 1) % items.length] : undefined;

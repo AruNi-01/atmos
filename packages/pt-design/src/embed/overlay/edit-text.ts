@@ -113,11 +113,18 @@ function measureCanvas(): HTMLCanvasElement {
 }
 measureCanvas.current = null as HTMLCanvasElement | null;
 
-export function hitTextAtPoint(layer: Element, clientX: number, clientY: number, root: PtNode): TextHit | null {
+export function hitTextAtPoint(
+  layer: Element,
+  clientX: number,
+  clientY: number,
+  root: PtNode,
+): TextHit | null {
   const hosts = [...layer.querySelectorAll<HTMLElement>("[data-pt-id]")];
   const containing = hosts.filter((el) => {
     const box = el.getBoundingClientRect();
-    return clientX >= box.left && clientX <= box.right && clientY >= box.top && clientY <= box.bottom;
+    return (
+      clientX >= box.left && clientX <= box.right && clientY >= box.top && clientY <= box.bottom
+    );
   });
   containing.sort((a, b) => areaOf(a) - areaOf(b));
   for (const host of containing) {
@@ -142,7 +149,12 @@ function areaOf(el: Element): number {
   return Math.max(1, box.width * box.height);
 }
 
-function matchTextInHost(host: Element, clientX: number, clientY: number, node: PtNode): TextHit | null {
+function matchTextInHost(
+  host: Element,
+  clientX: number,
+  clientY: number,
+  node: PtNode,
+): TextHit | null {
   const fields = textFieldsOf(node);
   const keyed = [...host.querySelectorAll<HTMLElement>("[data-pt-text]")].filter(
     (el) => !el.closest("svg") && containsPoint(el, clientX, clientY),
@@ -163,7 +175,8 @@ function matchTextInHost(host: Element, clientX: number, clientY: number, node: 
     }
     if (isChartType(node.type)) continue;
     for (const option of node.options ?? []) {
-      if (raw === option.label) return { nodeId: node.id, key: "label", kind: "option", optionValue: option.value };
+      if (raw === option.label)
+        return { nodeId: node.id, key: "label", kind: "option", optionValue: option.value };
     }
   }
   if (!isChartType(node.type) && fields.length === 1 && containsPoint(host, clientX, clientY)) {
@@ -209,7 +222,11 @@ export function applyTextHit(root: PtNode, hit: TextHit, next: string): PtNode {
   return growAncestorsToFit(patchNodeTree(patched, hit.nodeId, { width }));
 }
 
-export function findEditableHost(layer: Element, hit: TextHit, original: string): HTMLElement | null {
+export function findEditableHost(
+  layer: Element,
+  hit: TextHit,
+  original: string,
+): HTMLElement | null {
   const scope = layer.querySelector(`[data-pt-id="${hit.nodeId}"]`) ?? layer;
   const keyed = [...scope.querySelectorAll<HTMLElement>(`[data-pt-text="${hit.key}"]`)].filter(
     (el) => !el.closest("svg"),
@@ -220,7 +237,11 @@ export function findEditableHost(layer: Element, hit: TextHit, original: string)
   );
   const match = candidates.find((el) => visibleText(el) === original);
   if (match) return match;
-  if (scope instanceof HTMLElement && !scope.querySelector("svg") && visibleText(scope) === original) {
+  if (
+    scope instanceof HTMLElement &&
+    !scope.querySelector("svg") &&
+    visibleText(scope) === original
+  ) {
     return scope;
   }
   return null;
@@ -242,7 +263,9 @@ export function isFlattenedCopy(node: PtNode, hit: TextHit, next: string): boole
       : String(node.props[hit.key] ?? "");
   if (next === original) return false;
   const foreign = [
-    ...textFieldsOf(node).filter((field) => field.key !== hit.key).map((field) => field.value),
+    ...textFieldsOf(node)
+      .filter((field) => field.key !== hit.key)
+      .map((field) => field.value),
     ...(node.options ?? []).map((option) => option.label),
   ].filter((value) => value.length > 0 && !original.includes(value));
   return foreign.filter((value) => next.includes(value)).length >= 2;
@@ -256,11 +279,17 @@ export function copyHostTextFromMarkup(html: string, key: string): string | null
   if (openEnd < 0) return null;
   const close = html.indexOf("<", openEnd + 1);
   if (close < 0) return null;
-  return html.slice(openEnd + 1, close).replace(/\s+/g, " ").trim();
+  return html
+    .slice(openEnd + 1, close)
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function flattenedMarkupText(html: string): string {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function stripInert(layer: Element): void {

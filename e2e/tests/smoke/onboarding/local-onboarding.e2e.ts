@@ -15,15 +15,11 @@ test.describe("smoke onboarding local", () => {
     await expect(remoteTab).toBeVisible();
     await localTab.click();
     await expect(localTab).toHaveAttribute("aria-selected", "true");
-    await expect(
-      page.getByRole("heading", { name: /Local Atmos Computer/i }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Local Atmos Computer/i })).toBeVisible();
     await expect(page.getByRole("button", { name: "Check again" })).toBeVisible();
   });
 
-  test("@smoke keeps local health-check actions on the onboarding route", async ({
-    page,
-  }) => {
+  test("@smoke keeps local health-check actions on the onboarding route", async ({ page }) => {
     await stubOnboardingRelayNetwork(page);
     await expectHealthyRoute(page, "/setup");
 
@@ -36,8 +32,6 @@ test.describe("smoke onboarding local", () => {
       "true",
     );
     await page.getByRole("button", { name: "Check again" }).click();
-    await expect(
-      page.getByRole("heading", { name: /Local Atmos Computer/i }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Local Atmos Computer/i })).toBeVisible();
   });
 });

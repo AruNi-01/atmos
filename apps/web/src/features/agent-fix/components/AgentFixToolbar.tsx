@@ -32,7 +32,7 @@ export function AgentFixToolbar({
     setRunConfigForAgent,
     setSelectedAgentId,
   } = useAgentFixConfig();
-  const runConfig = selectedAgent ? runConfigByAgentId[selectedAgent.id] ?? null : null;
+  const runConfig = selectedAgent ? (runConfigByAgentId[selectedAgent.id] ?? null) : null;
   const { copyPrompt, isCopying, isLaunching, launchAgentFix } = useAgentFixActions({
     agent: selectedAgent,
     rememberAgent: rememberSelectedAgent,
@@ -72,7 +72,11 @@ export function AgentFixToolbar({
       primaryAction={{
         disabled: disableLaunch,
         icon: selectedAgent ? (
-          <AgentIcon registryId={selectedAgent.id} name={selectedAgent.label} size={agentIconSize} />
+          <AgentIcon
+            registryId={selectedAgent.id}
+            name={selectedAgent.label}
+            size={agentIconSize}
+          />
         ) : (
           <Bot className={cn(size === "xs" ? "size-3" : "size-3.5", "shrink-0")} />
         ),

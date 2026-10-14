@@ -18,20 +18,20 @@
 
 ### Must Have
 
-- 
+-
 
 ### Nice to Have
 
-- 
+-
 
 ## Out of Scope
 
-- 
+-
 
 ## Success Metrics
 
-- 
+-
 
 ## Milestones
 
-- 
+-

@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useCallback, useMemo } from 'react';
-import { create } from 'zustand';
-import { fsApi } from '@/api/ws-api';
-import { canSaveWorkspaceNote } from '@/features/workspace/lib/workspace-note';
+import { useCallback, useMemo } from "react";
+import { create } from "zustand";
+import { fsApi } from "@/api/ws-api";
+import { canSaveWorkspaceNote } from "@/features/workspace/lib/workspace-note";
 
 // ===== 类型定义 =====
 
-export type TaskStatus = 'todo' | 'progress' | 'done' | 'cancelled';
+export type TaskStatus = "todo" | "progress" | "done" | "cancelled";
 
 export interface Task {
   content: string;
@@ -24,7 +24,7 @@ interface WorkspaceContextState {
 interface WorkspaceContextStore {
   // 状态（按 workspaceId 存储）
   workspaceStates: Record<string, WorkspaceContextState>;
-  
+
   // Loading 状态
   requirementLoading: boolean;
   tasksLoading: boolean;
@@ -37,8 +37,18 @@ interface WorkspaceContextStore {
   // Task 相关
   loadTasks: (workspaceId: string, projectPath: string) => Promise<void>;
   addTask: (workspaceId: string, projectPath: string, content: string) => Promise<void>;
-  updateTaskStatus: (workspaceId: string, projectPath: string, taskIndex: number, status: TaskStatus) => Promise<void>;
-  updateTaskContent: (workspaceId: string, projectPath: string, taskIndex: number, content: string) => Promise<void>;
+  updateTaskStatus: (
+    workspaceId: string,
+    projectPath: string,
+    taskIndex: number,
+    status: TaskStatus,
+  ) => Promise<void>;
+  updateTaskContent: (
+    workspaceId: string,
+    projectPath: string,
+    taskIndex: number,
+    content: string,
+  ) => Promise<void>;
   deleteTask: (workspaceId: string, projectPath: string, taskIndex: number) => Promise<void>;
 
   // Note 相关
@@ -64,34 +74,34 @@ const TASK_PATTERN = /^-\s*\[([ x\/\-])\]\s*(.*)$/;
 
 function parseTaskStatus(marker: string): TaskStatus {
   switch (marker) {
-    case 'x':
-      return 'done';
-    case '/':
-      return 'progress';
-    case '-':
-      return 'cancelled';
+    case "x":
+      return "done";
+    case "/":
+      return "progress";
+    case "-":
+      return "cancelled";
     default:
-      return 'todo';
+      return "todo";
   }
 }
 
 function statusToMarker(status: TaskStatus): string {
   switch (status) {
-    case 'done':
-      return 'x';
-    case 'progress':
-      return '/';
-    case 'cancelled':
-      return '-';
+    case "done":
+      return "x";
+    case "progress":
+      return "/";
+    case "cancelled":
+      return "-";
     default:
-      return ' ';
+      return " ";
   }
 }
 
 function parseTaskLine(line: string): Task | null {
   const match = line.match(TASK_PATTERN);
   if (!match) return null;
-  
+
   const [, marker, content] = match;
   return {
     content: content.trim(),
@@ -101,16 +111,16 @@ function parseTaskLine(line: string): Task | null {
 }
 
 function parseTasks(content: string): Task[] {
-  const lines = content.split('\n');
+  const lines = content.split("\n");
   const tasks: Task[] = [];
-  
+
   for (const line of lines) {
     const task = parseTaskLine(line);
     if (task) {
       tasks.push(task);
     }
   }
-  
+
   return tasks;
 }
 
@@ -119,7 +129,7 @@ function taskToLine(task: Task): string {
 }
 
 function tasksToContent(tasks: Task[]): string {
-  return tasks.map(taskToLine).join('\n');
+  return tasks.map(taskToLine).join("\n");
 }
 
 function getRequirementPath(projectPath: string): string {
@@ -161,10 +171,10 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
   loadRequirement: async (workspaceId: string, projectPath: string) => {
     const requestId = ++_loadRequirementId;
     set({ requirementLoading: true });
-    
+
     const filePath = getRequirementPath(projectPath);
     const response = await fsApi.readFile(filePath);
-    
+
     if (requestId !== _loadRequirementId) return;
 
     set((state) => ({
@@ -184,7 +194,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
   saveRequirement: async (workspaceId: string, projectPath: string, content: string) => {
     const filePath = getRequirementPath(projectPath);
     await fsApi.writeFile(filePath, content);
-    
+
     set((state) => ({
       workspaceStates: {
         ...state.workspaceStates,
@@ -201,11 +211,11 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
   loadTasks: async (workspaceId: string, projectPath: string) => {
     const requestId = ++_loadTasksId;
     set({ tasksLoading: true });
-    
+
     const filePath = getTaskPath(projectPath);
     const response = await fsApi.readFile(filePath);
     const tasks = response.exists && response.content ? parseTasks(response.content) : [];
-    
+
     if (requestId !== _loadTasksId) return;
 
     set((state) => ({
@@ -225,14 +235,14 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
     const currentTasks = get().getTasks(workspaceId);
     const newTask: Task = {
       content,
-      status: 'todo',
+      status: "todo",
       rawLine: `- [ ] ${content}`,
     };
     const updatedTasks = [...currentTasks, newTask];
-    
+
     const filePath = getTaskPath(projectPath);
     await fsApi.writeFile(filePath, tasksToContent(updatedTasks));
-    
+
     set((state) => ({
       workspaceStates: {
         ...state.workspaceStates,
@@ -245,10 +255,15 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
     }));
   },
 
-  updateTaskStatus: async (workspaceId: string, projectPath: string, taskIndex: number, status: TaskStatus) => {
+  updateTaskStatus: async (
+    workspaceId: string,
+    projectPath: string,
+    taskIndex: number,
+    status: TaskStatus,
+  ) => {
     const currentTasks = get().getTasks(workspaceId);
     if (taskIndex < 0 || taskIndex >= currentTasks.length) return;
-    
+
     const updatedTasks = currentTasks.map((task, index) => {
       if (index === taskIndex) {
         const updatedTask: Task = {
@@ -260,10 +275,10 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
       }
       return task;
     });
-    
+
     const filePath = getTaskPath(projectPath);
     await fsApi.writeFile(filePath, tasksToContent(updatedTasks));
-    
+
     set((state) => ({
       workspaceStates: {
         ...state.workspaceStates,
@@ -276,10 +291,15 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
     }));
   },
 
-  updateTaskContent: async (workspaceId: string, projectPath: string, taskIndex: number, content: string) => {
+  updateTaskContent: async (
+    workspaceId: string,
+    projectPath: string,
+    taskIndex: number,
+    content: string,
+  ) => {
     const currentTasks = get().getTasks(workspaceId);
     if (taskIndex < 0 || taskIndex >= currentTasks.length) return;
-    
+
     const updatedTasks = currentTasks.map((task, index) => {
       if (index === taskIndex) {
         const updatedTask: Task = {
@@ -291,10 +311,10 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
       }
       return task;
     });
-    
+
     const filePath = getTaskPath(projectPath);
     await fsApi.writeFile(filePath, tasksToContent(updatedTasks));
-    
+
     set((state) => ({
       workspaceStates: {
         ...state.workspaceStates,
@@ -310,12 +330,12 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
   deleteTask: async (workspaceId: string, projectPath: string, taskIndex: number) => {
     const currentTasks = get().getTasks(workspaceId);
     if (taskIndex < 0 || taskIndex >= currentTasks.length) return;
-    
+
     const updatedTasks = currentTasks.filter((_, index) => index !== taskIndex);
-    
+
     const filePath = getTaskPath(projectPath);
     await fsApi.writeFile(filePath, tasksToContent(updatedTasks));
-    
+
     set((state) => ({
       workspaceStates: {
         ...state.workspaceStates,
@@ -344,7 +364,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
         [workspaceId]: {
           requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
           tasks: state.workspaceStates[workspaceId]?.tasks ?? [],
-          note: response.exists ? response.content ?? '' : '',
+          note: response.exists ? (response.content ?? "") : "",
         },
       },
     }));
@@ -356,7 +376,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
     content: string,
     expectedContent?: string,
   ) => {
-    const currentNote = get().workspaceStates[workspaceId]?.note ?? '';
+    const currentNote = get().workspaceStates[workspaceId]?.note ?? "";
     if (!canSaveWorkspaceNote(currentNote, expectedContent)) {
       return false;
     }
@@ -403,19 +423,20 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
 export function useWorkspaceContext(workspaceId: string | null) {
   const requirement = useWorkspaceContextStore(
     useCallback(
-      (state) => (workspaceId ? state.workspaceStates[workspaceId]?.requirement ?? null : null),
+      (state) => (workspaceId ? (state.workspaceStates[workspaceId]?.requirement ?? null) : null),
       [workspaceId],
     ),
   );
   const tasks = useWorkspaceContextStore(
     useCallback(
-      (state) => (workspaceId ? state.workspaceStates[workspaceId]?.tasks ?? EMPTY_TASKS : EMPTY_TASKS),
+      (state) =>
+        workspaceId ? (state.workspaceStates[workspaceId]?.tasks ?? EMPTY_TASKS) : EMPTY_TASKS,
       [workspaceId],
     ),
   );
   const note = useWorkspaceContextStore(
     useCallback(
-      (state) => (workspaceId ? state.workspaceStates[workspaceId]?.note ?? null : null),
+      (state) => (workspaceId ? (state.workspaceStates[workspaceId]?.note ?? null) : null),
       [workspaceId],
     ),
   );
@@ -433,35 +454,47 @@ export function useWorkspaceContext(workspaceId: string | null) {
   const storeSaveNote = useWorkspaceContextStore((state) => state.saveNote);
 
   const loadRequirement = useCallback(
-    (projectPath: string) => workspaceId ? storeLoadRequirement(workspaceId, projectPath) : Promise.resolve(),
+    (projectPath: string) =>
+      workspaceId ? storeLoadRequirement(workspaceId, projectPath) : Promise.resolve(),
     [workspaceId, storeLoadRequirement],
   );
   const saveRequirement = useCallback(
-    (projectPath: string, content: string) => workspaceId ? storeSaveRequirement(workspaceId, projectPath, content) : Promise.resolve(),
+    (projectPath: string, content: string) =>
+      workspaceId ? storeSaveRequirement(workspaceId, projectPath, content) : Promise.resolve(),
     [workspaceId, storeSaveRequirement],
   );
   const loadTasks = useCallback(
-    (projectPath: string) => workspaceId ? storeLoadTasks(workspaceId, projectPath) : Promise.resolve(),
+    (projectPath: string) =>
+      workspaceId ? storeLoadTasks(workspaceId, projectPath) : Promise.resolve(),
     [workspaceId, storeLoadTasks],
   );
   const addTask = useCallback(
-    (projectPath: string, content: string) => workspaceId ? storeAddTask(workspaceId, projectPath, content) : Promise.resolve(),
+    (projectPath: string, content: string) =>
+      workspaceId ? storeAddTask(workspaceId, projectPath, content) : Promise.resolve(),
     [workspaceId, storeAddTask],
   );
   const updateTaskStatus = useCallback(
-    (projectPath: string, taskIndex: number, status: TaskStatus) => workspaceId ? storeUpdateTaskStatus(workspaceId, projectPath, taskIndex, status) : Promise.resolve(),
+    (projectPath: string, taskIndex: number, status: TaskStatus) =>
+      workspaceId
+        ? storeUpdateTaskStatus(workspaceId, projectPath, taskIndex, status)
+        : Promise.resolve(),
     [workspaceId, storeUpdateTaskStatus],
   );
   const updateTaskContent = useCallback(
-    (projectPath: string, taskIndex: number, content: string) => workspaceId ? storeUpdateTaskContent(workspaceId, projectPath, taskIndex, content) : Promise.resolve(),
+    (projectPath: string, taskIndex: number, content: string) =>
+      workspaceId
+        ? storeUpdateTaskContent(workspaceId, projectPath, taskIndex, content)
+        : Promise.resolve(),
     [workspaceId, storeUpdateTaskContent],
   );
   const deleteTask = useCallback(
-    (projectPath: string, taskIndex: number) => workspaceId ? storeDeleteTask(workspaceId, projectPath, taskIndex) : Promise.resolve(),
+    (projectPath: string, taskIndex: number) =>
+      workspaceId ? storeDeleteTask(workspaceId, projectPath, taskIndex) : Promise.resolve(),
     [workspaceId, storeDeleteTask],
   );
   const loadNote = useCallback(
-    (projectPath: string) => workspaceId ? storeLoadNote(workspaceId, projectPath) : Promise.resolve(),
+    (projectPath: string) =>
+      workspaceId ? storeLoadNote(workspaceId, projectPath) : Promise.resolve(),
     [workspaceId, storeLoadNote],
   );
   const saveNote = useCallback(
@@ -472,37 +505,40 @@ export function useWorkspaceContext(workspaceId: string | null) {
     [workspaceId, storeSaveNote],
   );
 
-  return useMemo(() => ({
-    requirement,
-    requirementLoading,
-    tasks,
-    tasksLoading,
-    note,
-    noteLoading,
-    loadRequirement,
-    saveRequirement,
-    loadTasks,
-    addTask,
-    updateTaskStatus,
-    updateTaskContent,
-    deleteTask,
-    loadNote,
-    saveNote,
-  }), [
-    requirement,
-    requirementLoading,
-    tasks,
-    tasksLoading,
-    note,
-    noteLoading,
-    loadRequirement,
-    saveRequirement,
-    loadTasks,
-    addTask,
-    updateTaskStatus,
-    updateTaskContent,
-    deleteTask,
-    loadNote,
-    saveNote,
-  ]);
+  return useMemo(
+    () => ({
+      requirement,
+      requirementLoading,
+      tasks,
+      tasksLoading,
+      note,
+      noteLoading,
+      loadRequirement,
+      saveRequirement,
+      loadTasks,
+      addTask,
+      updateTaskStatus,
+      updateTaskContent,
+      deleteTask,
+      loadNote,
+      saveNote,
+    }),
+    [
+      requirement,
+      requirementLoading,
+      tasks,
+      tasksLoading,
+      note,
+      noteLoading,
+      loadRequirement,
+      saveRequirement,
+      loadTasks,
+      addTask,
+      updateTaskStatus,
+      updateTaskContent,
+      deleteTask,
+      loadNote,
+      saveNote,
+    ],
+  );
 }

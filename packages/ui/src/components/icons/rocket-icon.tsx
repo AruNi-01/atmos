@@ -77,7 +77,7 @@ const RocketIcon = forwardRef<RocketIconHandle, RocketIconProps>(
           controls.start("animate");
         }
       },
-      [controls, onMouseEnter]
+      [controls, onMouseEnter],
     );
 
     const handleMouseLeave = useCallback(
@@ -88,7 +88,7 @@ const RocketIcon = forwardRef<RocketIconHandle, RocketIconProps>(
           controls.start("normal");
         }
       },
-      [controls, onMouseLeave]
+      [controls, onMouseLeave],
     );
 
     return (
@@ -122,7 +122,7 @@ const RocketIcon = forwardRef<RocketIconHandle, RocketIconProps>(
         </motion.svg>
       </div>
     );
-  }
+  },
 );
 
 RocketIcon.displayName = "RocketIcon";

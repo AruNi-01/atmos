@@ -41,12 +41,12 @@ No edits. Rollback of a bad phone build does not require a server flag.
 
 ### apps/mobile routes (M1, M2, M4)
 
-| Route | Screen |
-| --- | --- |
-| `app/workspace/[workspaceId]/index.tsx` | Replace `WorkspaceSessionsScreen` with the chat session list |
-| `app/workspace/[workspaceId]/chat/new.tsx` | Draft New chat. No `agent_chat_create` until the first send succeeds, then `replace` to `chat/[chatId]` |
-| `app/workspace/[workspaceId]/chat/[chatId].tsx` | Transcript + composer for one chat |
-| `app/workspace/[workspaceId]/terminal.tsx` | Unchanged. No list navigates here |
+| Route                                           | Screen                                                                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `app/workspace/[workspaceId]/index.tsx`         | Replace `WorkspaceSessionsScreen` with the chat session list                                            |
+| `app/workspace/[workspaceId]/chat/new.tsx`      | Draft New chat. No `agent_chat_create` until the first send succeeds, then `replace` to `chat/[chatId]` |
+| `app/workspace/[workspaceId]/chat/[chatId].tsx` | Transcript + composer for one chat                                                                      |
+| `app/workspace/[workspaceId]/terminal.tsx`      | Unchanged. No list navigates here                                                                       |
 
 Navigation edits, and nowhere else in the terminal feature:
 

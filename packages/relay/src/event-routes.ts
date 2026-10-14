@@ -204,10 +204,7 @@ export async function handleGithubCallback(
   return Response.redirect(redirectUrl.toString(), 302);
 }
 
-export async function listGithubInstallations(
-  env: Env,
-  userId: string,
-): Promise<Response> {
+export async function listGithubInstallations(env: Env, userId: string): Promise<Response> {
   const { results } = await env.DB.prepare(
     `SELECT installation_id, account_login, account_type, repository_selection, suspended_at, created_at, updated_at
      FROM github_app_installations
@@ -277,18 +274,13 @@ export async function upsertGithubEventRoute(
   const eventName = normalizeGithubRouteEventName(body?.event_name);
   const action = normalizeRouteAction(eventName, body?.action);
   const routeId = body?.route_id?.trim() || `route_${randomBase64Url(18)}`;
-  const filters = body?.filters && typeof body.filters === "object"
-    ? normalizeRouteFilters(body.filters as Record<string, unknown>)
-    : {};
+  const filters =
+    body?.filters && typeof body.filters === "object"
+      ? normalizeRouteFilters(body.filters as Record<string, unknown>)
+      : {};
   const repositoryId = normalizeInt64String(body?.repository_id);
 
-  if (
-    !serverId ||
-    !automationGuid ||
-    !installationId ||
-    !repositoryFullName ||
-    !eventName
-  ) {
+  if (!serverId || !automationGuid || !installationId || !repositoryFullName || !eventName) {
     return json({ error: "invalid_route" }, 400);
   }
   if (
@@ -445,15 +437,17 @@ export async function findMatchingGithubRoutes(
     return [];
   }
 
-  const repositoryPredicate = event.repositoryId != null
-    ? `AND (
+  const repositoryPredicate =
+    event.repositoryId != null
+      ? `AND (
          repository_id = ?
          OR (repository_id IS NULL AND repository_full_name = ?)
        )`
-    : "AND repository_full_name = ?";
-  const repositoryArgs = event.repositoryId != null
-    ? [event.repositoryId, event.repositoryFullName]
-    : [event.repositoryFullName];
+      : "AND repository_full_name = ?";
+  const repositoryArgs =
+    event.repositoryId != null
+      ? [event.repositoryId, event.repositoryFullName]
+      : [event.repositoryFullName];
 
   const { results } = await env.DB.prepare(
     `SELECT route_id, user_id, server_id, automation_guid, installation_id,
@@ -497,11 +491,7 @@ export async function validateGithubEventRouteLimits(
   },
 ): Promise<string | null> {
   if (!route.routeExists) {
-    const total = await countGithubEventRoutes(
-      env,
-      "user_id = ?",
-      [route.userId],
-    );
+    const total = await countGithubEventRoutes(env, "user_id = ?", [route.userId]);
     if (total >= GITHUB_ROUTE_LIMITS.userTotal) {
       return "github_trigger_total_limit_exceeded";
     }
@@ -682,10 +672,7 @@ async function findUserInstallation(
     .first<{ installation_id: string | number }>();
 }
 
-export function routeMatchesEvent(
-  route: GithubEventRoute,
-  event: NormalizedGithubEvent,
-): boolean {
+export function routeMatchesEvent(route: GithubEventRoute, event: NormalizedGithubEvent): boolean {
   if (!routeActionMatchesEvent(route, event)) {
     return false;
   }
@@ -751,10 +738,7 @@ export function routeMatchesEvent(
   return true;
 }
 
-function routeActionMatchesEvent(
-  route: GithubEventRoute,
-  event: NormalizedGithubEvent,
-): boolean {
+function routeActionMatchesEvent(route: GithubEventRoute, event: NormalizedGithubEvent): boolean {
   const routeAction = normalizeTokenString(route.action);
   if (!routeAction || isAny(routeAction)) {
     return true;
@@ -801,10 +785,7 @@ function normalizeTokenString(value: unknown): string | null {
   return normalized ? normalizeToken(normalized) : null;
 }
 
-function normalizeRouteAction(
-  eventName: string | null | undefined,
-  value: unknown,
-): string | null {
+function normalizeRouteAction(eventName: string | null | undefined, value: unknown): string | null {
   const action = normalizeTokenString(value);
   if (!action) {
     return null;
@@ -888,10 +869,12 @@ function branchFiltersAreValid(filters: RouteFilters): boolean {
 
 function isValidBranchFilter(value: string): boolean {
   const branch = value.trim();
-  return Boolean(branch) &&
+  return (
+    Boolean(branch) &&
     branch.length <= 255 &&
     branch.split("*").length <= 2 &&
-    (!branch.includes("*") || branch.endsWith("*"));
+    (!branch.includes("*") || branch.endsWith("*"))
+  );
 }
 
 function senderFiltersAreValid(filters: RouteFilters): boolean {
@@ -899,11 +882,13 @@ function senderFiltersAreValid(filters: RouteFilters): boolean {
 }
 
 function isValidGithubLogin(value: string): boolean {
-  return Boolean(value) &&
+  return (
+    Boolean(value) &&
     value.length <= 100 &&
     /^[a-z0-9](?:[a-z0-9-]|\[bot\])*$/.test(value) &&
     !value.startsWith("-") &&
-    !value.endsWith("-");
+    !value.endsWith("-")
+  );
 }
 
 function normalizeRouteFilters(filters: Record<string, unknown>): RouteFilters {
@@ -1043,10 +1028,7 @@ function normalizeReturnUrl(
       ...DEFAULT_SETUP_RETURN_ORIGINS,
       ...parseAllowedOrigins(allowedOriginsConfig),
     ]);
-    if (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      allowedOrigins.has(url.origin)
-    ) {
+    if ((url.protocol === "http:" || url.protocol === "https:") && allowedOrigins.has(url.origin)) {
       return url.toString();
     }
   } catch {
@@ -1065,7 +1047,9 @@ function parseAllowedOrigins(value: string | undefined): string[] {
       }
       try {
         const parsed = new URL(origin);
-        return parsed.origin === origin && (parsed.protocol === "http:" || parsed.protocol === "https:");
+        return (
+          parsed.origin === origin && (parsed.protocol === "http:" || parsed.protocol === "https:")
+        );
       } catch {
         return false;
       }
@@ -1082,10 +1066,7 @@ function randomBase64Url(byteLength: number): string {
 }
 
 async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  );
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -1093,10 +1074,7 @@ async function sha256Hex(value: string): Promise<string> {
 
 function githubErrorCode(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  if (
-    message === "github_app_not_configured" ||
-    message === "github_oauth_not_configured"
-  ) {
+  if (message === "github_app_not_configured" || message === "github_oauth_not_configured") {
     return message;
   }
   if (message === "installation_not_authorized_for_user") {
@@ -1111,9 +1089,7 @@ function githubErrorCode(error: unknown): string {
   ) {
     return message;
   }
-  if (
-    /^github_[a-z_]+_failed(?:_\d{3}|_network|_invalid_json|_missing_token)?$/.test(message)
-  ) {
+  if (/^github_[a-z_]+_failed(?:_\d{3}|_network|_invalid_json|_missing_token)?$/.test(message)) {
     return message;
   }
   return "github_request_failed";

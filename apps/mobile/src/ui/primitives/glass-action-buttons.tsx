@@ -50,7 +50,9 @@ function FallbackActionButtons({ actions }: { actions: GlassAction[] }) {
   const theme = useMobileTheme();
 
   return (
-    <View style={{ alignItems: "flex-end", flexDirection: "row", gap: 8, justifyContent: "flex-end" }}>
+    <View
+      style={{ alignItems: "flex-end", flexDirection: "row", gap: 8, justifyContent: "flex-end" }}
+    >
       {actions.map((action) => {
         const look = expoUiSecondaryStyle(theme.colors, action.disabled);
         return (

@@ -5,28 +5,24 @@
  * Relay mode: write `client-session.json` with gateway URL + token for the selected Computer.
  */
 
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import { desktopInvoke, isDesktopRuntime } from '@/shared/lib/desktop-bridge';
-import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
+import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 
-async function putClientSession(
-  body: Record<string, unknown>,
-  apiBase: string,
-): Promise<void> {
-  const token =
-    typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+async function putClientSession(body: Record<string, unknown>, apiBase: string): Promise<void> {
+  const token = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/system/client-session`, {
-    method: 'PUT',
+  const res = await fetch(`${apiBase.replace(/\/$/, "")}/api/system/client-session`, {
+    method: "PUT",
     headers,
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    console.warn('[sync-client-session] PUT failed', res.status, text);
+    const text = await res.text().catch(() => "");
+    console.warn("[sync-client-session] PUT failed", res.status, text);
   }
 }
 
@@ -34,9 +30,9 @@ async function putClientSession(
 export async function syncClientSessionLocal(): Promise<void> {
   if (isDesktopRuntime()) {
     try {
-      await desktopInvoke('clear_client_session_cmd');
+      await desktopInvoke("clear_client_session_cmd");
     } catch (e) {
-      console.warn('[sync-client-session] desktop clear failed', e);
+      console.warn("[sync-client-session] desktop clear failed", e);
     }
     return;
   }
@@ -71,17 +67,13 @@ export async function syncClientSessionFromStore(): Promise<void> {
     selectedServerId,
   } = useAtmosComputerStore.getState();
   if (
-    connectionMode === 'relay' &&
+    connectionMode === "relay" &&
     relayWebSocketUrl &&
     relayGatewayHttpBase &&
     relayClientToken &&
     selectedServerId
   ) {
-    await syncClientSessionRelay(
-      selectedServerId,
-      relayGatewayHttpBase,
-      relayClientToken,
-    );
+    await syncClientSessionRelay(selectedServerId, relayGatewayHttpBase, relayClientToken);
   } else {
     await syncClientSessionLocal();
   }

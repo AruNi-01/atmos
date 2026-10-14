@@ -26,7 +26,7 @@ export function useCanvasChromePrefs() {
   }, []);
 
   const patch = React.useCallback((partial: Partial<CanvasChromePrefs>) => {
-    setPrefs(prev => {
+    setPrefs((prev) => {
       const next = { ...prev, ...partial };
       if (hydratedRef.current) {
         patchCanvasChromePrefs(next);
@@ -38,12 +38,10 @@ export function useCanvasChromePrefs() {
   return {
     ...prefs,
     setIsStylePanelEnabled: (value: boolean) => patch({ isStylePanelEnabled: value }),
-    setIsTopLeftToolbarCollapsed: (value: boolean) =>
-      patch({ isTopLeftToolbarCollapsed: value }),
+    setIsTopLeftToolbarCollapsed: (value: boolean) => patch({ isTopLeftToolbarCollapsed: value }),
     setIsToolbarCollapsed: (value: boolean) => patch({ isToolbarCollapsed: value }),
     setIsBottomToolbarDocked: (value: boolean) => patch({ isBottomToolbarDocked: value }),
-    toggleIsStylePanelEnabled: () =>
-      patch({ isStylePanelEnabled: !prefs.isStylePanelEnabled }),
+    toggleIsStylePanelEnabled: () => patch({ isStylePanelEnabled: !prefs.isStylePanelEnabled }),
     toggleIsTopLeftToolbarCollapsed: () =>
       patch({ isTopLeftToolbarCollapsed: !prefs.isTopLeftToolbarCollapsed }),
     toggleIsToolbarCollapsed: () => patch({ isToolbarCollapsed: !prefs.isToolbarCollapsed }),

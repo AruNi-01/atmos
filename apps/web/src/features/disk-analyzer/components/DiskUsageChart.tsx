@@ -128,9 +128,7 @@ export function DiskUsageChart({
   const modeRef = useRef(mode);
   modeRef.current = mode;
   /** Treemap: last highlight we applied (index + time). */
-  const treemapHoverAppliedRef = useRef<{ index: number; t: number } | null>(
-    null,
-  );
+  const treemapHoverAppliedRef = useRef<{ index: number; t: number } | null>(null);
   /** Coalesce highlight dispatchAction to one per animation frame. */
   const treemapHoverRafRef = useRef(0);
   const treemapHoverPendingRef = useRef<number | null>(null);
@@ -360,12 +358,7 @@ export function DiskUsageChart({
         params.data && typeof params.data === "object"
           ? (params.data as { bytes?: number })
           : undefined;
-      const size =
-        typeof data?.bytes === "number"
-          ? data.bytes
-          : typeof raw === "number"
-            ? raw
-            : 0;
+      const size = typeof data?.bytes === "number" ? data.bytes : typeof raw === "number" ? raw : 0;
       const name = params.name ?? "";
       if (!size) return name;
       return `${name}\n${formatBytes(size)}`;
@@ -498,10 +491,7 @@ export function DiskUsageChart({
     agentDataLabel,
   ]);
 
-  const openContextMenu = (params: {
-    data?: ChartNodeData;
-    event?: { event?: MouseEvent };
-  }) => {
+  const openContextMenu = (params: { data?: ChartNodeData; event?: { event?: MouseEvent } }) => {
     const native = params.event?.event;
     native?.preventDefault?.();
     native?.stopPropagation?.();

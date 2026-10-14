@@ -251,10 +251,7 @@ function SpringTab({
     reduce ? target : position,
     (left) => `translate3d(${left}px, 0, 0)`,
   );
-  const draggedTransform = useTransform(
-    dragLeft,
-    (left) => `translate3d(${left}px, 0, 0)`,
-  );
+  const draggedTransform = useTransform(dragLeft, (left) => `translate3d(${left}px, 0, 0)`);
 
   useLayoutEffect(() => {
     target.set(targetLeft);
@@ -266,11 +263,7 @@ function SpringTab({
     return () => registerPosition(id, null);
   }, [id, position, registerPosition]);
 
-  const liquidDriver = anyDragging
-    ? dragging
-      ? dragLeft
-      : position
-    : surfaceLeft;
+  const liquidDriver = anyDragging ? (dragging ? dragLeft : position) : surfaceLeft;
 
   return (
     <>
@@ -290,13 +283,7 @@ function SpringTab({
               style={{ height: RAIL_HEIGHT + PANEL_RADIUS }}
             >
               <LiquidSurfacePath
-                key={
-                  anyDragging
-                    ? dragging
-                      ? "dragged"
-                      : "displaced"
-                    : "idle"
-                }
+                key={anyDragging ? (dragging ? "dragged" : "displaced") : "idle"}
                 left={liquidDriver}
                 scrollLeft={scrollLeft}
                 surfaceWidth={surfaceWidth}
@@ -340,13 +327,7 @@ function LiquidSurfacePath({
   return <motion.path d={path} fill="currentColor" />;
 }
 
-function AddTabButton({
-  ariaLabel,
-  onClick,
-}: {
-  ariaLabel: string;
-  onClick: () => void;
-}) {
+function AddTabButton({ ariaLabel, onClick }: { ariaLabel: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -384,10 +365,7 @@ export function MorphingTabs({
   const reduce = Boolean(useReducedMotion());
   const uid = useId();
   const itemIds = useMemo(() => items.map((item) => item.id), [items]);
-  const itemMap = useMemo(
-    () => new Map(items.map((item) => [item.id, item])),
-    [items],
-  );
+  const itemMap = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const [order, setOrder] = useState(itemIds);
   const orderRef = useRef(order);
   orderRef.current = order;
@@ -403,18 +381,12 @@ export function MorphingTabs({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const trailingRef = useRef<HTMLDivElement | null>(null);
   const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const tabPositionRefs = useRef<Record<string, MotionValue<number> | null>>(
-    {},
-  );
+  const tabPositionRefs = useRef<Record<string, MotionValue<number> | null>>({});
   const dragRef = useRef<DragSession | null>(null);
   const dragAnimationRef = useRef<ReturnType<typeof animateValue> | null>(null);
-  const surfaceAnimationRef = useRef<ReturnType<typeof animateValue> | null>(
-    null,
-  );
+  const surfaceAnimationRef = useRef<ReturnType<typeof animateValue> | null>(null);
   /** Shared with surfaceLeft when selection needs strip scroll (coordinated). */
-  const scrollAnimationRef = useRef<ReturnType<typeof animateValue> | null>(
-    null,
-  );
+  const scrollAnimationRef = useRef<ReturnType<typeof animateValue> | null>(null);
   const [surfaceWidth, setSurfaceWidth] = useState(0);
   const [trackWidth, setTrackWidth] = useState(0);
   const [tabGap, setTabGap] = useState(4);
@@ -457,28 +429,22 @@ export function MorphingTabs({
     [itemMap, order],
   );
 
-  const firstEnabledItem =
-    orderedItems.find((item) => !item.disabled) ?? orderedItems[0] ?? null;
+  const firstEnabledItem = orderedItems.find((item) => !item.disabled) ?? orderedItems[0] ?? null;
   const activeItem =
     currentValue && itemMap.has(currentValue)
-      ? itemMap.get(currentValue) ?? null
+      ? (itemMap.get(currentValue) ?? null)
       : firstEnabledItem;
   const activeId = activeItem?.id ?? null;
 
   const slotLefts = useMemo(
-    () =>
-      order.map(
-        (_, index) => tabOrigin + index * (TAB_WIDTH + tabGap),
-      ),
+    () => order.map((_, index) => tabOrigin + index * (TAB_WIDTH + tabGap)),
     [order, tabGap, tabOrigin],
   );
 
   const count = orderedItems.length;
-  const tabsSpan =
-    count <= 0 ? 0 : count * TAB_WIDTH + Math.max(0, count - 1) * tabGap;
+  const tabsSpan = count <= 0 ? 0 : count * TAB_WIDTH + Math.max(0, count - 1) * tabGap;
   // Inline + sits just after the last tab until the strip overflows.
-  const addAfterLastLeft =
-    tabOrigin + tabsSpan + (count > 0 ? ADD_BUTTON_GAP : 0);
+  const addAfterLastLeft = tabOrigin + tabsSpan + (count > 0 ? ADD_BUTTON_GAP : 0);
 
   const dragStartIndex = draggingId ? order.indexOf(draggingId) : -1;
 
@@ -487,18 +453,10 @@ export function MorphingTabs({
       if (dragStartIndex < 0 || dragTargetIndex < 0) return index;
       if (index === dragStartIndex) return dragTargetIndex;
 
-      if (
-        dragTargetIndex > dragStartIndex &&
-        index > dragStartIndex &&
-        index <= dragTargetIndex
-      ) {
+      if (dragTargetIndex > dragStartIndex && index > dragStartIndex && index <= dragTargetIndex) {
         return index - 1;
       }
-      if (
-        dragTargetIndex < dragStartIndex &&
-        index >= dragTargetIndex &&
-        index < dragStartIndex
-      ) {
+      if (dragTargetIndex < dragStartIndex && index >= dragTargetIndex && index < dragStartIndex) {
         return index + 1;
       }
       return index;
@@ -521,11 +479,8 @@ export function MorphingTabs({
 
       const n = Math.max(1, orderRef.current.length);
       const gaps = Math.max(0, n - 1) * gap;
-      const tabsContent =
-        tabOrigin + n * TAB_WIDTH + gaps;
-      const withInlineAdd = onAdd
-        ? tabsContent + ADD_BUTTON_GAP + ADD_BUTTON_SIZE
-        : tabsContent;
+      const tabsContent = tabOrigin + n * TAB_WIDTH + gaps;
+      const withInlineAdd = onAdd ? tabsContent + ADD_BUTTON_GAP + ADD_BUTTON_SIZE : tabsContent;
 
       const trailingWidth = trailingRef.current?.offsetWidth ?? 0;
       // Scroll strip = root − trailing (− pinned + when overflowing).
@@ -578,8 +533,7 @@ export function MorphingTabs({
   }, [currentValue, firstEnabledItem, itemMap, setActive]);
 
   const activeOrderIndex = activeId ? order.indexOf(activeId) : -1;
-  const activeVisualIndex =
-    activeOrderIndex < 0 ? -1 : visualIndexFor(activeOrderIndex);
+  const activeVisualIndex = activeOrderIndex < 0 ? -1 : visualIndexFor(activeOrderIndex);
 
   // Active fill is trackX − scrollLeft. Drive surface + scroll with the same
   // progress so far tabs / new tabs glide together (never reverse-slide).
@@ -611,10 +565,7 @@ export function MorphingTabs({
       if (tabLeft < fromScroll + padding) {
         toScroll = Math.max(0, Math.min(maxScroll, tabLeft - padding));
       } else if (tabRight > fromScroll + scroll.clientWidth - padding) {
-        toScroll = Math.max(
-          0,
-          Math.min(maxScroll, tabRight - scroll.clientWidth + padding),
-        );
+        toScroll = Math.max(0, Math.min(maxScroll, tabRight - scroll.clientWidth + padding));
       }
     }
 
@@ -632,11 +583,7 @@ export function MorphingTabs({
 
     // In-view only: classic beui liquid glide (no strip scroll).
     if (scrollDelta < 0.5) {
-      surfaceAnimationRef.current = animateValue(
-        surfaceLeft,
-        toSurface,
-        SPRING_GLIDE,
-      );
+      surfaceAnimationRef.current = animateValue(surfaceLeft, toSurface, SPRING_GLIDE);
       return;
     }
 
@@ -682,20 +629,13 @@ export function MorphingTabs({
     [onOrderChange],
   );
 
-  const registerPosition = useCallback(
-    (id: string, position: MotionValue<number> | null) => {
-      tabPositionRefs.current[id] = position;
-    },
-    [],
-  );
+  const registerPosition = useCallback((id: string, position: MotionValue<number> | null) => {
+    tabPositionRefs.current[id] = position;
+  }, []);
 
   const startDrag = useCallback(
     (id: string, event: ReactPointerEvent<HTMLDivElement>) => {
-      if (
-        event.button !== 0 ||
-        itemMap.get(id)?.disabled ||
-        dragRef.current
-      ) {
+      if (event.button !== 0 || itemMap.get(id)?.disabled || dragRef.current) {
         return;
       }
 
@@ -747,18 +687,11 @@ export function MorphingTabs({
 
       const minLeft = drag.slotLefts[0];
       const maxLeft = drag.slotLefts[drag.slotLefts.length - 1];
-      const visualLeft = Math.max(
-        minLeft,
-        Math.min(maxLeft, drag.startLeft + delta),
-      );
+      const visualLeft = Math.max(minLeft, Math.min(maxLeft, drag.startLeft + delta));
       let targetIndex = drag.startIndex;
 
       if (visualLeft >= drag.startLeft) {
-        for (
-          let index = drag.startIndex + 1;
-          index < drag.slotLefts.length;
-          index += 1
-        ) {
+        for (let index = drag.startIndex + 1; index < drag.slotLefts.length; index += 1) {
           if (visualLeft + TAB_WIDTH / 2 >= drag.slotLefts[index]) {
             targetIndex = index;
           }
@@ -804,20 +737,12 @@ export function MorphingTabs({
 
       drag.finishing = true;
       const targetLeft = drag.slotLefts[drag.targetIndex];
-      const controls = animateValue(
-        dragLeft,
-        targetLeft,
-        reduce ? { duration: 0 } : SPRING_GLIDE,
-      );
+      const controls = animateValue(dragLeft, targetLeft, reduce ? { duration: 0 } : SPRING_GLIDE);
       dragAnimationRef.current = controls;
 
       controls.then(async () => {
         if (dragAnimationRef.current !== controls) return;
-        const next = moveItem(
-          drag.startOrder,
-          drag.startIndex,
-          drag.targetIndex,
-        );
+        const next = moveItem(drag.startOrder, drag.startIndex, drag.targetIndex);
 
         if (!reduce) {
           await new Promise<void>((resolve) => {
@@ -878,12 +803,7 @@ export function MorphingTabs({
       const current = orderRef.current;
       const index = current.indexOf(id);
       const nextIndex = index + direction;
-      if (
-        index < 0 ||
-        nextIndex < 0 ||
-        nextIndex >= current.length ||
-        itemMap.get(id)?.disabled
-      ) {
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length || itemMap.get(id)?.disabled) {
         return;
       }
       commitOrder(moveItem(current, index, nextIndex), true);
@@ -896,10 +816,7 @@ export function MorphingTabs({
       const index = orderRef.current.indexOf(id);
       if (index < 0) return;
 
-      if (
-        event.altKey &&
-        (event.key === "ArrowLeft" || event.key === "ArrowRight")
-      ) {
+      if (event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
         event.preventDefault();
         moveBy(id, event.key === "ArrowLeft" ? -1 : 1);
         return;
@@ -908,8 +825,7 @@ export function MorphingTabs({
 
       event.preventDefault();
       const direction = event.key === "ArrowLeft" ? -1 : 1;
-      const nextIndex =
-        (index + direction + orderRef.current.length) % orderRef.current.length;
+      const nextIndex = (index + direction + orderRef.current.length) % orderRef.current.length;
       const nextId = orderRef.current[nextIndex];
       setActive(nextId);
       requestAnimationFrame(() => tabButtonRefs.current[nextId]?.focus());
@@ -948,7 +864,7 @@ export function MorphingTabs({
         */}
         <div
           ref={scrollRef}
-          className="relative z-0 min-w-0 flex-1 isolate overflow-x-auto overflow-y-hidden no-scrollbar"
+          className="no-scrollbar relative isolate z-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
           style={{ height: RAIL_HEIGHT }}
         >
           <div
@@ -971,16 +887,10 @@ export function MorphingTabs({
             {/* Dividers between tabs that are not next to the active slot. */}
             {Array.from({ length: Math.max(0, count - 1) }, (_, gapIndex) => {
               // Gap sits between visual slots gapIndex and gapIndex + 1.
-              if (
-                activeVisualIndex === gapIndex ||
-                activeVisualIndex === gapIndex + 1
-              ) {
+              if (activeVisualIndex === gapIndex || activeVisualIndex === gapIndex + 1) {
                 return null;
               }
-              const left =
-                tabOrigin +
-                (gapIndex + 1) * (TAB_WIDTH + tabGap) -
-                tabGap / 2;
+              const left = tabOrigin + (gapIndex + 1) * (TAB_WIDTH + tabGap) - tabGap / 2;
               // Align with tab mid-line (tabs sit at TAB_TOP, not rail center).
               const top = TAB_TOP + TAB_HEIGHT / 2;
               return (
@@ -1017,7 +927,7 @@ export function MorphingTabs({
                   surfaceClassName={classNames?.activeTab}
                   zIndex={isDragging ? 30 : isActive ? 20 : 1}
                   className={cn(
-                    "group absolute left-0 top-0 flex select-none touch-pan-y items-stretch desktop-no-drag",
+                    "group desktop-no-drag absolute top-0 left-0 flex touch-pan-y items-stretch select-none",
                     item.disabled && "cursor-not-allowed",
                     // Grabbing only while actually dragging — not on idle hover.
                     isDragging && "cursor-grabbing",
@@ -1041,7 +951,7 @@ export function MorphingTabs({
                       <span
                         aria-hidden
                         className={cn(
-                          "absolute inset-x-0.5 bottom-0.5 top-0.5 rounded-lg",
+                          "absolute inset-x-0.5 top-0.5 bottom-0.5 rounded-lg",
                           isDragging
                             ? "bg-background/60"
                             : "bg-transparent group-hover:bg-background/45",
@@ -1099,7 +1009,7 @@ export function MorphingTabs({
                       ) : null}
                       <span
                         className={cn(
-                          "min-w-0 truncate whitespace-nowrap text-[11px] font-medium leading-none",
+                          "min-w-0 truncate text-[11px] leading-none font-medium whitespace-nowrap",
                           classNames?.label,
                         )}
                       >
@@ -1111,9 +1021,7 @@ export function MorphingTabs({
                       <button
                         type="button"
                         aria-label={
-                          closeAriaLabel
-                            ? closeAriaLabel(item.label)
-                            : `Close ${item.label}`
+                          closeAriaLabel ? closeAriaLabel(item.label) : `Close ${item.label}`
                         }
                         onPointerDown={(event) => event.stopPropagation()}
                         onClick={(event) => {
@@ -1121,9 +1029,8 @@ export function MorphingTabs({
                           onClose(item.id);
                         }}
                         className={cn(
-                          "absolute right-1 top-1/2 z-20 grid size-5 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                          !isActive &&
-                            "opacity-0 group-hover:opacity-100 hover:bg-background/60",
+                          "absolute top-1/2 right-1 z-20 grid size-5 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none",
+                          !isActive && "opacity-0 group-hover:opacity-100 hover:bg-background/60",
                           classNames?.close,
                         )}
                       >
@@ -1155,7 +1062,7 @@ export function MorphingTabs({
         {trailing ? (
           <div
             ref={trailingRef}
-            className="desktop-no-drag relative z-10 flex h-full shrink-0 items-end bg-zinc-300/80 pb-0.5 pr-1.5 pl-1 dark:bg-zinc-900"
+            className="desktop-no-drag relative z-10 flex h-full shrink-0 items-end bg-zinc-300/80 pr-1.5 pb-0.5 pl-1 dark:bg-zinc-900"
           >
             {trailing}
           </div>
@@ -1181,11 +1088,7 @@ export function MorphingTabs({
             {activeItem ? (
               <motion.div
                 key={activeItem.id}
-                initial={
-                  reduce
-                    ? { opacity: 0 }
-                    : { opacity: 0, y: 8, filter: "blur(6px)" }
-                }
+                initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, filter: "blur(6px)" }}
                 animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                 exit={
                   reduce
@@ -1200,11 +1103,7 @@ export function MorphingTabs({
                         transition: { duration: 0.12, ease: EASE_OUT },
                       }
                 }
-                transition={
-                  reduce
-                    ? { duration: 0.12, ease: EASE_OUT }
-                    : SPRING_PRESS
-                }
+                transition={reduce ? { duration: 0.12, ease: EASE_OUT } : SPRING_PRESS}
                 className="min-h-0 flex-1"
               >
                 {activeItem.content}

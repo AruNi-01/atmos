@@ -88,12 +88,9 @@ describe("isImageComposerAttachment", () => {
 
 describe("composerAttachmentLabel", () => {
   it("uses the filename when present", () => {
-    expect(
-      composerAttachmentLabel(
-        { id: "1", filename: " summer-menu.pdf " },
-        "File",
-      ),
-    ).toBe("summer-menu.pdf");
+    expect(composerAttachmentLabel({ id: "1", filename: " summer-menu.pdf " }, "File")).toBe(
+      "summer-menu.pdf",
+    );
   });
 
   it("falls back when the filename is empty", () => {
@@ -103,9 +100,7 @@ describe("composerAttachmentLabel", () => {
 
 describe("queued prompt composer files", () => {
   it("prefers displayPrompt when editing queued text", () => {
-    expect(
-      queuedPromptEditText({ prompt: "stored", displayPrompt: "shown" }),
-    ).toBe("shown");
+    expect(queuedPromptEditText({ prompt: "stored", displayPrompt: "shown" })).toBe("shown");
     expect(queuedPromptEditText({ prompt: "stored" })).toBe("stored");
   });
 
@@ -122,18 +117,14 @@ describe("queued prompt composer files", () => {
         displayPrompt: expanded,
       }),
     ).toBe(composerText);
-    expect(
-      queuedPromptComposerText({ prompt: expanded }),
-    ).toBe(composerText);
+    expect(queuedPromptComposerText({ prompt: expanded })).toBe(composerText);
     expect(
       queuedPromptComposerText({
         prompt: expanded,
         displayPrompt: composerText,
       }),
     ).toBe(composerText);
-    expect(
-      queuedPromptComposerText({ prompt: "stored", displayPrompt: "shown" }),
-    ).toBe("shown");
+    expect(queuedPromptComposerText({ prompt: "stored", displayPrompt: "shown" })).toBe("shown");
     __resetComposerPasteForTests();
   });
 
@@ -180,9 +171,9 @@ describe("queued prompt composer files", () => {
     expect(composerFileUrlFromPath("/tmp/shot.png", "http://127.0.0.1:30303")).toBe(
       "http://127.0.0.1:30303/api/system/file?path=%2Ftmp%2Fshot.png",
     );
-    expect(
-      composerFileUrlFromPath("/tmp/shot.png", "http://127.0.0.1:30303/", "tok"),
-    ).toBe("http://127.0.0.1:30303/api/system/file?path=%2Ftmp%2Fshot.png&token=tok");
+    expect(composerFileUrlFromPath("/tmp/shot.png", "http://127.0.0.1:30303/", "tok")).toBe(
+      "http://127.0.0.1:30303/api/system/file?path=%2Ftmp%2Fshot.png&token=tok",
+    );
   });
 
   it("clones composer parts into File objects without dropping the original urls", async () => {
@@ -205,9 +196,9 @@ describe("queued prompt composer files", () => {
   });
 
   it("turns queued attachment paths into named files", async () => {
-    const files = await filesFromQueuedPrompt(
-      { attachmentPaths: ["/tmp/summer-menu.pdf", "/tmp/shot.png"] },
-    );
+    const files = await filesFromQueuedPrompt({
+      attachmentPaths: ["/tmp/summer-menu.pdf", "/tmp/shot.png"],
+    });
     expect(files.map((file) => file.name)).toEqual(["summer-menu.pdf", "shot.png"]);
     expect(files[0]?.type).toBe("application/pdf");
     expect(files[1]?.type).toBe("image/png");

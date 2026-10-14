@@ -1,10 +1,7 @@
 import type { FileDiffLine } from "./file-diff-gift-types";
 
 /** Truncate diff rows so only the first `charCount` characters of joined content remain. */
-export function truncateFileDiffLines(
-  lines: FileDiffLine[],
-  charCount: number,
-): FileDiffLine[] {
+export function truncateFileDiffLines(lines: FileDiffLine[], charCount: number): FileDiffLine[] {
   if (charCount <= 0) return [];
   let remaining = charCount;
   const out: FileDiffLine[] = [];

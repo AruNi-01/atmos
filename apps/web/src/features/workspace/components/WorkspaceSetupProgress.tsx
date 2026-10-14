@@ -18,7 +18,10 @@ import {
 } from "lucide-react";
 import { Button, Textarea, toastManager } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
-import { WorkspaceSetupProgress, useProjectStore } from "@/features/project/store/use-project-store";
+import {
+  WorkspaceSetupProgress,
+  useProjectStore,
+} from "@/features/project/store/use-project-store";
 import { wsScriptApi, wsWorkspaceApi } from "@/api/ws-api";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { motion, useReducedMotion } from "motion/react";
@@ -27,7 +30,10 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { atmosDarkTheme, defaultTerminalOptions } from "../../terminal/lib/theme";
-import { getWorkspaceSetupCurrentStepKey, type WorkspaceSetupStepKey } from "@/features/workspace/lib/workspace-setup";
+import {
+  getWorkspaceSetupCurrentStepKey,
+  type WorkspaceSetupStepKey,
+} from "@/features/workspace/lib/workspace-setup";
 import { ScriptTrustReview } from "@/shared/components/ScriptTrustReview";
 
 const Progress = ({ value, className }: { value: number; className?: string }) => (
@@ -58,8 +64,16 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 }) => {
   const t = useTranslations("Workspace.components.setupProgress");
   const stepT = useTranslations("Workspace.components.workspaceSetup.steps");
-  const { status, stepTitle, output, workspaceId, stepKey, lastStepKey, failedStepKey, setupContext } =
-    progress;
+  const {
+    status,
+    stepTitle,
+    output,
+    workspaceId,
+    stepKey,
+    lastStepKey,
+    failedStepKey,
+    setupContext,
+  } = progress;
   const retryWorkspaceSetup = useProjectStore((s) => s.retryWorkspaceSetup);
   const reduceMotion = useReducedMotion();
   const needsScriptTrust = progress.requiresScriptTrust === true;
@@ -211,13 +225,10 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     0,
     steps.findIndex((step) => step.id === currentStepKey),
   );
-  const displayStepTitle =
-    steps.find((step) => step.id === failedStepToSkip)?.title ?? stepTitle;
+  const displayStepTitle = steps.find((step) => step.id === failedStepToSkip)?.title ?? stepTitle;
   const useCompactSteps = steps.length >= 5;
   const progressValue =
-    status === "completed"
-      ? 100
-      : (currentStepIndex + 0.5) * (100 / Math.max(1, steps.length));
+    status === "completed" ? 100 : (currentStepIndex + 0.5) * (100 / Math.max(1, steps.length));
 
   const [isHovered, setIsHovered] = useState(false);
   const localRemainingRef = useRef(5_000);
@@ -230,20 +241,28 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     setLocalRemainingMs(5_000);
   }
   const confirmationKey = `${workspaceId ?? ""}:${stepKey ?? ""}:${progress.requiresConfirmation ? "confirm" : "idle"}`;
-  const [confirmingTodosState, setConfirmingTodosState] = useState({ key: confirmationKey, value: false });
-  const [skippingFailedStepState, setSkippingFailedStepState] = useState({ workspaceId, value: false });
+  const [confirmingTodosState, setConfirmingTodosState] = useState({
+    key: confirmationKey,
+    value: false,
+  });
+  const [skippingFailedStepState, setSkippingFailedStepState] = useState({
+    workspaceId,
+    value: false,
+  });
   const [isTodoEditing, setIsTodoEditing] = useState(false);
   const [editedTodoOutput, setEditedTodoOutput] = useState<string | null>(null);
   const staleKey = `${status}:${stepKey ?? ""}:${stepTitle}:${output.length}:${progress.requiresConfirmation ? "confirm" : "run"}`;
   const [staleState, setStaleState] = useState({ key: staleKey, value: false });
   const localCountdown = Math.max(0, Math.ceil(localRemainingMs / 1_000));
   const displayedCountdown = autoFinishSeconds ?? localCountdown;
-  const isConfirmingTodos = progress.requiresConfirmation && confirmingTodosState.key === confirmationKey
-    ? confirmingTodosState.value
-    : false;
-  const isSkippingFailedStep = status === "error" && skippingFailedStepState.workspaceId === workspaceId
-    ? skippingFailedStepState.value
-    : false;
+  const isConfirmingTodos =
+    progress.requiresConfirmation && confirmingTodosState.key === confirmationKey
+      ? confirmingTodosState.value
+      : false;
+  const isSkippingFailedStep =
+    status === "error" && skippingFailedStepState.workspaceId === workspaceId
+      ? skippingFailedStepState.value
+      : false;
   const isStale = staleState.key === staleKey ? staleState.value : false;
 
   const terminalContainerRef = useRef<HTMLDivElement>(null);
@@ -398,9 +417,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   };
 
   const skippableFailedStepKey =
-    status === "error" && failedStepToSkip !== "create_worktree"
-      ? failedStepToSkip
-      : null;
+    status === "error" && failedStepToSkip !== "create_worktree" ? failedStepToSkip : null;
   const canSkipFailedStep = skippableFailedStepKey !== null;
 
   const handleSkipFailedStep = async () => {
@@ -424,10 +441,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     }
   };
 
-  const renderStepIcon = (
-    step: { id: WorkspaceSetupStepKey },
-    stepIndex: number,
-  ) => {
+  const renderStepIcon = (step: { id: WorkspaceSetupStepKey }, stepIndex: number) => {
     const isFailed = status === "error" && step.id === currentStepKey;
     const isActive = status !== "completed" && status !== "error" && step.id === currentStepKey;
     const isDone = stepIndex < currentStepIndex || status === "completed";
@@ -489,11 +503,13 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
               <div className="size-2.5 rounded-full bg-[#27c93f]" />
             </div>
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[#8b949e]">
+            <span className="font-mono text-[10px] tracking-widest text-[#8b949e] uppercase">
               {t("outputLabel")}
             </span>
           </div>
-          <div className={cn("min-h-0 flex-1 overflow-hidden bg-[#09090b]", compact ? "p-3" : "p-4")}>
+          <div
+            className={cn("min-h-0 flex-1 overflow-hidden bg-[#09090b]", compact ? "p-3" : "p-4")}
+          >
             <div ref={terminalContainerRef} className="h-full w-full" />
           </div>
         </div>
@@ -508,9 +524,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             <p className="text-sm text-muted-foreground">
               {displayStepTitle || t("states.failedFallbackDescription")}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {t("states.failedHint")}
-            </p>
+            <p className="text-xs text-muted-foreground">{t("states.failedHint")}</p>
           </div>
         </div>
       );
@@ -520,7 +534,9 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       return (
         <div className={cn(statusPanelClass, "border-border bg-background")}>
           <div className="max-w-md space-y-2">
-            <p className="text-sm font-medium text-foreground">{t("states.creatingWorktreeTitle")}</p>
+            <p className="text-sm font-medium text-foreground">
+              {t("states.creatingWorktreeTitle")}
+            </p>
             <p>{t("states.creatingWorktreeDescription")}</p>
           </div>
         </div>
@@ -530,18 +546,16 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     if (needsScriptTrust) {
       return (
         <div className={cn(reviewPanelClass, "border-destructive/40")}>
-          <div className={cn(
-            "flex items-start gap-3 border-b border-destructive/40 bg-destructive/5",
-            compact ? "px-4 py-3" : "px-5 py-4",
-          )}>
+          <div
+            className={cn(
+              "flex items-start gap-3 border-b border-destructive/40 bg-destructive/5",
+              compact ? "px-4 py-3" : "px-5 py-4",
+            )}
+          >
             <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">
-                {t("scriptTrust.title")}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("scriptTrust.description")}
-              </p>
+              <p className="text-sm font-medium text-foreground">{t("scriptTrust.title")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t("scriptTrust.description")}</p>
             </div>
           </div>
           <div className={cn("min-h-0 flex-1 overflow-auto", compact ? "px-4 py-3" : "px-5 py-4")}>
@@ -555,18 +569,18 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       const todoContent = editedTodoOutput ?? output;
       return (
         <div className={cn(reviewPanelClass, "border-border")}>
-          <div className={cn(
-            "flex items-start justify-between gap-2 border-b border-border",
-            compact ? "px-4 py-3" : "px-5 py-4",
-          )}>
+          <div
+            className={cn(
+              "flex items-start justify-between gap-2 border-b border-border",
+              compact ? "px-4 py-3" : "px-5 py-4",
+            )}
+          >
             <div>
               <p className="text-sm font-medium text-foreground">
                 {progress.requiresConfirmation ? t("todo.reviewTitle") : t("todo.generatingTitle")}
               </p>
               {progress.requiresConfirmation && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t("todo.confirmDescription")}
-                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{t("todo.confirmDescription")}</p>
               )}
             </div>
             {progress.requiresConfirmation && todoContent.trim().length > 0 && (
@@ -596,7 +610,9 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               </Button>
             )}
           </div>
-          <div className={cn("min-h-0 flex-1 overflow-y-auto", compact ? "px-4 py-3" : "px-5 py-4")}>
+          <div
+            className={cn("min-h-0 flex-1 overflow-y-auto", compact ? "px-4 py-3" : "px-5 py-4")}
+          >
             {todoContent.trim().length > 0 ? (
               isTodoEditing ? (
                 <Textarea
@@ -608,15 +624,17 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                   onChange={(e) => setEditedTodoOutput(e.target.value)}
                 />
               ) : (
-                <MarkdownRenderer className="prose prose-sm max-w-none text-sm text-foreground dark:prose-invert">
+                <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-sm text-foreground">
                   {todoContent}
                 </MarkdownRenderer>
               )
             ) : (
-              <div className={cn(
-                "flex items-center justify-center text-sm text-muted-foreground",
-                compact ? "min-h-[72px]" : "h-full min-h-[160px]",
-              )}>
+              <div
+                className={cn(
+                  "flex items-center justify-center text-sm text-muted-foreground",
+                  compact ? "min-h-[72px]" : "h-full min-h-[160px]",
+                )}
+              >
                 {t("todo.waiting")}
               </div>
             )}
@@ -629,7 +647,9 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       return (
         <div className={cn(statusPanelClass, "border-border bg-background")}>
           <div className="max-w-md space-y-2">
-            <p className="text-sm font-medium text-foreground">{t("states.runningSetupScriptTitle")}</p>
+            <p className="text-sm font-medium text-foreground">
+              {t("states.runningSetupScriptTitle")}
+            </p>
             <p>
               {t("states.runningSetupScriptDescription")}
               {!output.trim() ? ` ${t("states.runningSetupScriptOutputHint")}` : ""}
@@ -767,16 +787,15 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   ].join(":");
 
   return (
-    <div className={cn(
-      "mx-auto flex flex-col bg-background",
-      compact
-        ? "h-auto w-full max-w-none gap-4 overflow-visible rounded-xl p-4"
-        : "h-full max-w-5xl gap-6 overflow-hidden p-6",
-    )}>
-      <div className={cn(
-        "w-full shrink-0 space-y-2 text-center",
-        compact ? "pt-0" : "pt-4",
-      )}>
+    <div
+      className={cn(
+        "mx-auto flex flex-col bg-background",
+        compact
+          ? "h-auto w-full max-w-none gap-4 overflow-visible rounded-xl p-4"
+          : "h-full max-w-5xl gap-6 overflow-hidden p-6",
+      )}
+    >
+      <div className={cn("w-full shrink-0 space-y-2 text-center", compact ? "pt-0" : "pt-4")}>
         <h2 className={cn("font-bold tracking-tight", compact ? "text-lg" : "text-3xl")}>
           {t("header.title")}
         </h2>
@@ -809,14 +828,17 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               className={cn(
                 "min-w-0 flex-1 basis-0 border",
                 compact || useCompactSteps ? "rounded-lg px-2.5 py-2" : "rounded-xl p-4",
-                isActive
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-muted/30",
+                isActive ? "border-primary bg-primary/5" : "border-border bg-muted/30",
                 isDone && !isActive && "border-emerald-500/30 bg-emerald-500/5",
                 isFailed && "border-destructive bg-destructive/5",
               )}
             >
-              <div className={cn("flex min-w-0 items-center", useCompactSteps ? "mb-1 gap-2" : "mb-2 gap-3")}>
+              <div
+                className={cn(
+                  "flex min-w-0 items-center",
+                  useCompactSteps ? "mb-1 gap-2" : "mb-2 gap-3",
+                )}
+              >
                 {renderStepIcon(step, idx)}
                 <span
                   className={cn(
@@ -857,13 +879,14 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             )}
             {displayStepTitle}
           </span>
-          <span className="tabular-nums text-muted-foreground">
-            {Math.round(progressValue)}%
-          </span>
+          <span className="text-muted-foreground tabular-nums">{Math.round(progressValue)}%</span>
         </div>
         <Progress
           value={progressValue}
-          className={cn("h-2 transition-all duration-500", status === "error" && "bg-destructive/20")}
+          className={cn(
+            "h-2 transition-all duration-500",
+            status === "error" && "bg-destructive/20",
+          )}
         />
       </div>
 
@@ -878,15 +901,15 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       </motion.div>
 
       {(actions || showKeyboardTip) && (
-        <div className={cn(
-          "flex w-full shrink-0 flex-col items-center gap-2",
-          !compact && "pb-2",
-        )}>
+        <div className={cn("flex w-full shrink-0 flex-col items-center gap-2", !compact && "pb-2")}>
           {actions && (
             <motion.div
               initial={compact && !reduceMotion ? { opacity: 0 } : false}
               animate={{ opacity: 1 }}
-              transition={{ duration: compact && !reduceMotion ? 0.18 : 0, ease: [0.22, 1, 0.36, 1] }}
+              transition={{
+                duration: compact && !reduceMotion ? 0.18 : 0,
+                ease: [0.22, 1, 0.36, 1],
+              }}
               className="flex flex-wrap justify-center gap-2"
             >
               {actions}
@@ -896,11 +919,11 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           {showKeyboardTip && (
             <p className="text-center text-xs text-muted-foreground">
               {t("tip.press")}{" "}
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium font-sans">
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-sans text-[10px] font-medium">
                 ⌘
               </kbd>{" "}
               +{" "}
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium font-sans">
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-sans text-[10px] font-medium">
                 Enter
               </kbd>{" "}
               {t("tip.toContinue")}

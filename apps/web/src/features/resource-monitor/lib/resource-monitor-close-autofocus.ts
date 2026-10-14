@@ -1,6 +1,4 @@
-export function isResourceMonitorDetailEventTarget(
-  target: EventTarget | null,
-): boolean {
+export function isResourceMonitorDetailEventTarget(target: EventTarget | null): boolean {
   if (target == null || typeof target !== "object") return false;
   const closest = (target as { closest?: (selector: string) => unknown }).closest;
   if (typeof closest !== "function") return false;

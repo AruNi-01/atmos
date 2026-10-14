@@ -63,9 +63,7 @@ export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function compileMarkdownFindPattern(
-  query: MarkdownFindQuery,
-): MarkdownFindPattern {
+export function compileMarkdownFindPattern(query: MarkdownFindQuery): MarkdownFindPattern {
   const raw = query.search;
   if (!raw) return { pattern: null, invalid: false };
 
@@ -81,10 +79,7 @@ export function compileMarkdownFindPattern(
   }
 }
 
-export function markdownFindMatches(
-  text: string,
-  query: MarkdownFindQuery | null,
-): boolean {
+export function markdownFindMatches(text: string, query: MarkdownFindQuery | null): boolean {
   if (!query?.search || !text) return false;
   const { pattern, invalid } = compileMarkdownFindPattern(query);
   if (!pattern || invalid) return false;
@@ -219,11 +214,7 @@ function matchOverlapsSeparator(
   return low < separators.length && separators[low]! < matchEnd;
 }
 
-function matchOverlapsText(
-  matchStart: number,
-  matchEnd: number,
-  spans: TextSpan[],
-): boolean {
+function matchOverlapsText(matchStart: number, matchEnd: number, spans: TextSpan[]): boolean {
   let low = 0;
   let high = spans.length;
   while (low < high) {
@@ -268,10 +259,7 @@ export function findMarkdownHits(
   const { pattern, invalid } = compileMarkdownFindPattern(query);
   if (!pattern) return { hits: [], invalid };
 
-  const { text, spans, separators } = collectMarkdownFindStream(
-    root,
-    options?.scopeSelector,
-  );
+  const { text, spans, separators } = collectMarkdownFindStream(root, options?.scopeSelector);
   if (spans.length === 0) return { hits: [], invalid: false };
 
   const hits: MarkdownFindHit[] = [];
@@ -324,8 +312,7 @@ export type FindHighlightBox = {
   current: boolean;
 };
 
-const FIND_HIGHLIGHT_HOST_SELECTOR =
-  "[data-markdown-find-content], [data-agent-chat-transcript]";
+const FIND_HIGHLIGHT_HOST_SELECTOR = "[data-markdown-find-content], [data-agent-chat-transcript]";
 
 /** In-flow host whose box is the highlight coordinate origin (scrolls with the text). */
 export function resolveFindHighlightHost(root: HTMLElement): HTMLElement {
@@ -370,23 +357,16 @@ export function clipFindHighlightRect(
   };
 }
 
-export function scrollMarkdownFindHitIntoView(
-  root: HTMLElement,
-  hit: MarkdownFindHit,
-): void {
+export function scrollMarkdownFindHitIntoView(root: HTMLElement, hit: MarkdownFindHit): void {
   const range = root.ownerDocument.createRange();
   range.setStart(hit.startNode, hit.startOffset);
   range.setEnd(hit.endNode, hit.endOffset);
   const hitRect = range.getBoundingClientRect();
   const rootRect = root.getBoundingClientRect();
   const pad = 48;
-  if (
-    hitRect.top >= rootRect.top + pad &&
-    hitRect.bottom <= rootRect.bottom - pad
-  ) {
+  if (hitRect.top >= rootRect.top + pad && hitRect.bottom <= rootRect.bottom - pad) {
     return;
   }
-  const nextTop =
-    root.scrollTop + (hitRect.top - rootRect.top) - root.clientHeight / 3;
+  const nextTop = root.scrollTop + (hitRect.top - rootRect.top) - root.clientHeight / 3;
   root.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
 }

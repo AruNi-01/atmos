@@ -102,6 +102,7 @@ Rough, revisable. It's fine to list two competing goals; flag which one is prima
 ## Options
 
 ### Option A — <one-line label>
+
 What it is, how it would feel to the user, rough scope.
 
 **Pros**: ...
@@ -109,9 +110,11 @@ What it is, how it would feel to the user, rough scope.
 **Unknown**: ...
 
 ### Option B — <one-line label>
+
 ...
 
 ### Option C — <one-line label>
+
 ...
 
 ## Key forks in the road

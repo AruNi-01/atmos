@@ -38,10 +38,7 @@ function authFromEnv(env: HubEnv) {
 }
 
 /** Cookie session only — use for OAuth handoff that mints the first device. */
-export async function requireSession(
-  env: HubEnv,
-  request: Request,
-): Promise<HubUser | Response> {
+export async function requireSession(env: HubEnv, request: Request): Promise<HubUser | Response> {
   const auth = authFromEnv(env);
   const session = await auth.api.getSession({
     headers: sessionCookieHeaders(request),
@@ -61,10 +58,7 @@ export async function requireSession(
  * Product identity for `/v1/me/*`, integrations, usage shares, etc.
  * Accepts session cookie or `Authorization: Bearer <device_credential>`.
  */
-export async function requireUser(
-  env: HubEnv,
-  request: Request,
-): Promise<HubUser | Response> {
+export async function requireUser(env: HubEnv, request: Request): Promise<HubUser | Response> {
   const session = await requireSession(env, request);
   if (!(session instanceof Response)) {
     return session;
@@ -83,10 +77,7 @@ export async function requireUser(
   const { verifyDeviceCredential } = await import("./devices");
   const device = await verifyDeviceCredential(db, credential);
   if (!device) {
-    return json(
-      { error: "unauthorized", message: "Sign in or enroll a device" },
-      401,
-    );
+    return json({ error: "unauthorized", message: "Sign in or enroll a device" }, 401);
   }
 
   const rows = await db

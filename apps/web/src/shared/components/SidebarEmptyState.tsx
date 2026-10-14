@@ -39,7 +39,12 @@ export function SidebarEmptyWorkspaces({
 }) {
   const t = useTranslations("AppShell.chrome");
   return (
-    <div className={cn("flex h-full min-h-full w-full flex-col items-center justify-center px-2", className)}>
+    <div
+      className={cn(
+        "flex h-full min-h-full w-full flex-col items-center justify-center px-2",
+        className,
+      )}
+    >
       <SidebarEmptyState
         icon={<IconFolder />}
         title={t("leftSidebarControls.emptyWorkspaces.title")}
@@ -70,7 +75,12 @@ export function SidebarEmptyProjects({
 }) {
   const t = useTranslations("AppShell.chrome");
   return (
-    <div className={cn("flex h-full min-h-full w-full flex-col items-center justify-center px-2", className)}>
+    <div
+      className={cn(
+        "flex h-full min-h-full w-full flex-col items-center justify-center px-2",
+        className,
+      )}
+    >
       <SidebarEmptyState
         icon={<IconCategory />}
         title={t("leftSidebarControls.emptyProjects.title")}

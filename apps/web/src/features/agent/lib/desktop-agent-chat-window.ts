@@ -34,9 +34,7 @@ function agentWindowT(key: string): string {
   return cachedAgentWindowTranslator(key as never);
 }
 
-export async function openAgentChatWindow(
-  options: OpenAgentChatWindowOptions = {},
-): Promise<void> {
+export async function openAgentChatWindow(options: OpenAgentChatWindowOptions = {}): Promise<void> {
   const locale = currentAppLocale();
   if (isDesktopRuntime()) {
     try {
@@ -67,11 +65,7 @@ export async function openAgentChatWindow(
     return;
   }
 
-  window.open(
-    buildBrowserAgentChatUrl(options),
-    "_blank",
-    "noopener,noreferrer",
-  );
+  window.open(buildBrowserAgentChatUrl(options), "_blank", "noopener,noreferrer");
 }
 
 function buildBrowserAgentChatUrl(options: OpenAgentChatWindowOptions): string {

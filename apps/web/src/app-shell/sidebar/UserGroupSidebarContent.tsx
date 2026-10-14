@@ -172,7 +172,7 @@ function GroupRowTrailing({
     <div className="relative mr-1 flex size-6 shrink-0 items-center justify-center">
       <span
         className={cn(
-          "text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
+          "text-[10px] font-medium tracking-normal text-muted-foreground/80 normal-case transition-opacity",
           canManage && (menuOpen ? "opacity-0" : countHideOnHover),
         )}
       >
@@ -256,7 +256,7 @@ function GroupRowTrailing({
               }}
             >
               <DropdownMenuSubTrigger
-                className="cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive data-[state=open]:bg-destructive/10 data-[state=open]:text-destructive [&>svg:last-child]:hidden [&_svg:not([class*='text-'])]:text-destructive"
+                className="cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive data-[state=open]:bg-destructive/10 data-[state=open]:text-destructive [&_svg:not([class*='text-'])]:text-destructive [&>svg:last-child]:hidden"
                 onClick={(event) => {
                   event.preventDefault();
                   setRenameOpen(false);
@@ -335,14 +335,10 @@ function SortableUserGroupTwoColumnRow({
 }) {
   const t = useTranslations("appShell.groups");
   const canSort = Boolean(view.groupId);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: view.key, disabled: !canSort });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: view.key,
+    disabled: !canSort,
+  });
   const count = countUserGroupItems(view);
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
 
@@ -369,7 +365,7 @@ function SortableUserGroupTwoColumnRow({
         role="button"
         tabIndex={0}
         className={cn(
-          "flex min-w-0 flex-1 select-none items-center gap-1.5 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
+          "flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] select-none",
           "cursor-pointer",
         )}
         data-testid={`user-group-row-${view.key}`}
@@ -426,9 +422,7 @@ export function UserGroupTwoColumnLeftContent({
   const visibleViews = attentionFilterMode
     ? views.filter((view) => countUserGroupItems(view) > 0)
     : views;
-  const sortableIds = visibleViews
-    .filter((view) => view.groupId)
-    .map((view) => view.key);
+  const sortableIds = visibleViews.filter((view) => view.groupId).map((view) => view.key);
   const canReorder = Boolean(sensors && onGroupOrderChange && sortableIds.length > 1);
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -542,8 +536,7 @@ export function UserGroupTwoColumnRightContent({
 }) {
   const t = useTranslations("appShell.groups");
   const chromeT = useTranslations("AppShell.chrome");
-  const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
-    projectItemProps;
+  const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } = projectItemProps;
 
   // Primary open: pl-3, with the shared divider gutter on the right.
   // Primary collapsed: pl-5 for Launchpad alignment.
@@ -555,9 +548,7 @@ export function UserGroupTwoColumnRightContent({
     <div className="flex h-full min-h-0 flex-col">
       <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          {selectedView ? (
-            <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
-          ) : null}
+          {selectedView ? <FolderOpen className="size-4 shrink-0 text-muted-foreground" /> : null}
           <div className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">
             {selectedView?.label ?? chromeT("leftSidebarControls.selectGroup")}
           </div>
@@ -572,48 +563,46 @@ export function UserGroupTwoColumnRightContent({
           scrollFade
           viewportClassName={cn("py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
         >
-        {!selectedView ? (
-          <div className="px-3 py-6 text-sm text-muted-foreground">
-            {chromeT("leftSidebarControls.selectGroupDescription")}
-          </div>
-        ) : countUserGroupItems(selectedView) === 0 ? (
-          <div className="px-3 py-6 text-sm text-muted-foreground" data-testid="user-group-empty">
-            {t("empty")}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {selectedView.projects.length > 0 ? (
-              <div className="space-y-0.5">
-                {selectedView.projects.map((project) => (
-                  <ProjectItem
-                    key={project.id}
-                    project={project}
-                    isExpanded={expandedProjectIds.includes(project.id)}
-                    onToggle={() => onToggleProject(project.id)}
-                    isActiveProject={
-                      activeProjectId === project.id && !activeWorkspaceId
-                    }
-                    activeWorkspaceId={activeWorkspaceId}
-                    {...sharedProjectItemProps}
-                    workspaceSortingDisabled
-                  />
-                ))}
-              </div>
-            ) : null}
-            {selectedView.directWorkspaces.length > 0 ? (
-              <div className="space-y-1">
-                <div className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                  {t("directWorkspaces")}
+          {!selectedView ? (
+            <div className="px-3 py-6 text-sm text-muted-foreground">
+              {chromeT("leftSidebarControls.selectGroupDescription")}
+            </div>
+          ) : countUserGroupItems(selectedView) === 0 ? (
+            <div className="px-3 py-6 text-sm text-muted-foreground" data-testid="user-group-empty">
+              {t("empty")}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {selectedView.projects.length > 0 ? (
+                <div className="space-y-0.5">
+                  {selectedView.projects.map((project) => (
+                    <ProjectItem
+                      key={project.id}
+                      project={project}
+                      isExpanded={expandedProjectIds.includes(project.id)}
+                      onToggle={() => onToggleProject(project.id)}
+                      isActiveProject={activeProjectId === project.id && !activeWorkspaceId}
+                      activeWorkspaceId={activeWorkspaceId}
+                      {...sharedProjectItemProps}
+                      workspaceSortingDisabled
+                    />
+                  ))}
                 </div>
-                {selectedView.directWorkspaces.map((entry) =>
-                  renderWorkspaceContentRow(entry, {
-                    showProjectName: !isStandaloneAutomationProject(entry.projectId),
-                  }),
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
+              ) : null}
+              {selectedView.directWorkspaces.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="px-2 pt-1 text-[10px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
+                    {t("directWorkspaces")}
+                  </div>
+                  {selectedView.directWorkspaces.map((entry) =>
+                    renderWorkspaceContentRow(entry, {
+                      showProjectName: !isStandaloneAutomationProject(entry.projectId),
+                    }),
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
         </ScrollArea>
       </div>
     </div>
@@ -674,22 +663,16 @@ function SortableUserGroupOneColumnSection({
 }) {
   const t = useTranslations("appShell.groups");
   const canSort = Boolean(view.groupId);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: view.key, disabled: !canSort });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: view.key,
+    disabled: !canSort,
+  });
   const count = countUserGroupItems(view);
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
-  const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
-    projectItemProps;
+  const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } = projectItemProps;
   // Match ProjectItem: hide nested list while any group is dragging.
   // DragOverlay follows the pointer, so collapsing source height is fine.
-  const showChildren =
-    !isCollapsed && !isDragging && !isAnyGroupDragging;
+  const showChildren = !isCollapsed && !isDragging && !isAnyGroupDragging;
 
   return (
     <div
@@ -710,71 +693,68 @@ function SortableUserGroupOneColumnSection({
         isDragging ? "relative z-20 opacity-20" : "opacity-100",
       )}
     >
-      <div
-        className={LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS}
-        data-sidebar-sticky-group-header=""
-      >
-      <div
-        className={cn(
-          "group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent",
-          // Attention filter: dim group chrome so projects/workspaces stay the focus.
-          attentionFilterMode && "opacity-45",
-        )}
-      >
-        {/*
+      <div className={LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS} data-sidebar-sticky-group-header="">
+        <div
+          className={cn(
+            "group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent",
+            // Attention filter: dim group chrome so projects/workspaces stay the focus.
+            attentionFilterMode && "opacity-45",
+          )}
+        >
+          {/*
           Project pattern: put useSortable attributes/listeners on a plain div
           (not CollapsibleTrigger/button). Click toggles collapse; drag uses the
           same host with activation distance from shared sidebar sensors.
         */}
-        <div
-          {...(canSort ? { ...attributes, ...listeners } : {})}
-          role="button"
-          tabIndex={0}
-          className={cn(
-            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-foreground",
-            "cursor-pointer",
-          )}
-          data-testid={`user-group-section-${view.key}`}
-          onClick={() => {
-            if (isAnyGroupDragging) return;
-            onToggleCollapsed();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
+          <div
+            {...(canSort ? { ...attributes, ...listeners } : {})}
+            role="button"
+            tabIndex={0}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground select-none hover:text-sidebar-foreground",
+              "cursor-pointer",
+            )}
+            data-testid={`user-group-section-${view.key}`}
+            onClick={() => {
               if (isAnyGroupDragging) return;
               onToggleCollapsed();
-            }
-          }}
-        >
-          {showChildren ? (
-            <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
-          ) : (
-            <Folders className="size-3.5 shrink-0 text-muted-foreground" />
-          )}
-          <span className="truncate">{view.label}</span>
-          <ChevronRight
-            className={cn(
-              "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover/header:opacity-100",
-              showChildren && "rotate-90",
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                if (isAnyGroupDragging) return;
+                onToggleCollapsed();
+              }
+            }}
+          >
+            {showChildren ? (
+              <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <Folders className="size-3.5 shrink-0 text-muted-foreground" />
             )}
+            <span className="truncate">{view.label}</span>
+            <ChevronRight
+              className={cn(
+                "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover/header:opacity-100",
+                showChildren && "rotate-90",
+              )}
+            />
+          </div>
+          <GroupRowTrailing
+            count={count}
+            canManage={Boolean(view.groupId)}
+            hoverScope="header"
+            groupId={view.groupId}
+            groupName={view.label}
+            renameLabel={t("rename")}
+            deleteLabel={t("delete")}
+            onRename={onRenameGroup}
+            onDelete={async () => {
+              if (!view.groupId) return;
+              await onDeleteGroup(view.groupId);
+            }}
           />
         </div>
-        <GroupRowTrailing
-          count={count}
-          canManage={Boolean(view.groupId)}
-          hoverScope="header"
-          groupId={view.groupId}
-          groupName={view.label}
-          renameLabel={t("rename")}
-          deleteLabel={t("delete")}
-          onRename={onRenameGroup}
-          onDelete={async () => {
-            if (!view.groupId) return;
-            await onDeleteGroup(view.groupId);
-          }}
-        />
-      </div>
       </div>
 
       {/* ProjectItem child-list pattern: grid collapse + opacity hide while dragging. */}
@@ -787,50 +767,42 @@ function SortableUserGroupOneColumnSection({
         <div
           className={cn(
             "min-w-0 overflow-hidden transition-opacity duration-300",
-            isAnyGroupDragging || isDragging
-              ? "invisible opacity-0"
-              : "visible opacity-100",
+            isAnyGroupDragging || isDragging ? "invisible opacity-0" : "visible opacity-100",
           )}
         >
           <div
             className={cn(
               "min-w-0 space-y-1 pb-2 pl-1 transition-opacity duration-200",
-              isAnyGroupDragging || isDragging
-                ? "pointer-events-none opacity-0"
-                : "opacity-100",
+              isAnyGroupDragging || isDragging ? "pointer-events-none opacity-0" : "opacity-100",
             )}
           >
-              {count === 0 ? (
-                <div className="px-3 py-2 text-[11px] text-muted-foreground">
-                  {view.key === UNGROUPED_USER_GROUP_KEY
-                    ? t("emptyGroups")
-                    : t("empty")}
-                </div>
-              ) : (
-                <>
-                  {view.projects.map((project) => (
-                    <ProjectItem
-                      key={project.id}
-                      project={project}
-                      isExpanded={expandedProjectIds.includes(project.id)}
-                      onToggle={() => onToggleProject(project.id)}
-                      isActiveProject={
-                        activeProjectId === project.id && !activeWorkspaceId
-                      }
-                      activeWorkspaceId={activeWorkspaceId}
-                      {...sharedProjectItemProps}
-                      // Nested workspaces must not register in the group DndContext.
-                      workspaceSortingDisabled
-                    />
-                  ))}
-                  {view.directWorkspaces.map((entry) =>
-                    renderWorkspaceContentRow(entry, {
-                      showProjectName: !isStandaloneAutomationProject(entry.projectId),
-                    }),
-                  )}
-                </>
-              )}
-            </div>
+            {count === 0 ? (
+              <div className="px-3 py-2 text-[11px] text-muted-foreground">
+                {view.key === UNGROUPED_USER_GROUP_KEY ? t("emptyGroups") : t("empty")}
+              </div>
+            ) : (
+              <>
+                {view.projects.map((project) => (
+                  <ProjectItem
+                    key={project.id}
+                    project={project}
+                    isExpanded={expandedProjectIds.includes(project.id)}
+                    onToggle={() => onToggleProject(project.id)}
+                    isActiveProject={activeProjectId === project.id && !activeWorkspaceId}
+                    activeWorkspaceId={activeWorkspaceId}
+                    {...sharedProjectItemProps}
+                    // Nested workspaces must not register in the group DndContext.
+                    workspaceSortingDisabled
+                  />
+                ))}
+                {view.directWorkspaces.map((entry) =>
+                  renderWorkspaceContentRow(entry, {
+                    showProjectName: !isStandaloneAutomationProject(entry.projectId),
+                  }),
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -873,17 +845,14 @@ export function UserGroupOneColumnContent({
   const visibleViews = attentionFilterMode
     ? views.filter((view) => countUserGroupItems(view) > 0)
     : views;
-  const sortableIds = visibleViews
-    .filter((view) => view.groupId)
-    .map((view) => view.key);
+  const sortableIds = visibleViews.filter((view) => view.groupId).map((view) => view.key);
   const sortableIdSet = new Set(sortableIds);
   // Only real groups count as "group dragging" — never workspace row ids.
-  const isAnyGroupDragging =
-    activeDragId !== null && sortableIdSet.has(activeDragId);
+  const isAnyGroupDragging = activeDragId !== null && sortableIdSet.has(activeDragId);
   const canReorder = Boolean(sensors && onGroupOrderChange && sortableIds.length > 1);
 
   const activeDragView = activeDragId
-    ? visibleViews.find((view) => view.key === activeDragId) ?? null
+    ? (visibleViews.find((view) => view.key === activeDragId) ?? null)
     : null;
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -968,9 +937,7 @@ export function UserGroupOneColumnContent({
               {activeDragView ? (
                 <UserGroupHeaderPreview
                   label={activeDragView.label}
-                  isCollapsed={
-                    collapsedKeys[`group:${activeDragView.key}`] ?? false
-                  }
+                  isCollapsed={collapsedKeys[`group:${activeDragView.key}`] ?? false}
                   className="mx-1 min-w-[10rem]"
                 />
               ) : null}

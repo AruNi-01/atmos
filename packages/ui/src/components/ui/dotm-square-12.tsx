@@ -20,18 +20,18 @@ const animationResolver: DotAnimationResolver = ({ isActive, row, col, reducedMo
 
   const ring = Math.max(
     0,
-    Math.min(MAX_MANHATTAN, Math.abs(row - ORIGIN_ROW) + Math.abs(col - ORIGIN_COL))
+    Math.min(MAX_MANHATTAN, Math.abs(row - ORIGIN_ROW) + Math.abs(col - ORIGIN_COL)),
   );
   const style = {
-    "--dmx-center-ripple-ring": ring
+    "--dmx-center-ripple-ring": ring,
   } as CSSProperties;
 
   if (reducedMotion || phase === "idle") {
     return {
       style: {
         ...style,
-        opacity: 0.2 + (1 - ring / MAX_MANHATTAN) * 0.75
-      }
+        opacity: 0.2 + (1 - ring / MAX_MANHATTAN) * 0.75,
+      },
     };
   }
 
@@ -46,10 +46,14 @@ export function DotmSquare12({
   ...rest
 }: DotmSquare12Props) {
   const reducedMotion = usePrefersReducedMotion();
-  const { phase: matrixPhase, onMouseEnter, onMouseLeave } = useDotMatrixPhases({
+  const {
+    phase: matrixPhase,
+    onMouseEnter,
+    onMouseLeave,
+  } = useDotMatrixPhases({
     animated: Boolean(animated && !reducedMotion),
     hoverAnimated: Boolean(hoverAnimated && !reducedMotion),
-    speed
+    speed,
   });
 
   return (

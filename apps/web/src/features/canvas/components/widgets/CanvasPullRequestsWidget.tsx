@@ -2,12 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import {
-  GitPullRequest,
-  GitPullRequestClosed,
-  GitPullRequestCreate,
-  Loader2,
-} from "lucide-react";
+import { GitPullRequest, GitPullRequestClosed, GitPullRequestCreate, Loader2 } from "lucide-react";
 import { Tabs, TabsList } from "@workspace/ui";
 
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
@@ -21,19 +16,14 @@ import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { RefreshableTabsTab } from "@/shared/components/ui/RefreshableTabsTab";
 import { type TLShapeId } from "tldraw";
 
-type CanvasPullRequestsWidgetSource = Extract<
-  CanvasWidgetSourceRef,
-  { type: "pull-requests" }
->;
+type CanvasPullRequestsWidgetSource = Extract<CanvasWidgetSourceRef, { type: "pull-requests" }>;
 
 export function CanvasPullRequestsWidget({ shape }: { shape: CanvasWidgetShape }) {
   const source = shape.props.source;
   if (source.type !== "pull-requests") {
     return null;
   }
-  return (
-    <CanvasPullRequestsWidgetBody shapeId={shape.id as TLShapeId} source={source} />
-  );
+  return <CanvasPullRequestsWidgetBody shapeId={shape.id as TLShapeId} source={source} />;
 }
 
 function CanvasPullRequestsWidgetBody({
@@ -51,16 +41,13 @@ function CanvasPullRequestsWidgetBody({
   const githubRepo = statusQuery.data?.github_repo ?? null;
   const currentBranch = statusQuery.data?.current_branch ?? null;
   const openCenterTab = useOpenCanvasCenterTab(shapeId, source.context);
-  const [prSubTab, setPRSubTab] = React.useState<"open" | "closed">(
-    source.prSubTab ?? "open",
-  );
+  const [prSubTab, setPRSubTab] = React.useState<"open" | "closed">(source.prSubTab ?? "open");
   const prPanelRef = React.useRef<PRPanelHandle>(null);
   const [prPanelLoading, setPRPanelLoading] = React.useState({
     open: false,
     closed: false,
   });
-  const isResolvingGithub =
-    Boolean(repoPath) && statusQuery.isLoading && !statusQuery.data;
+  const isResolvingGithub = Boolean(repoPath) && statusQuery.isLoading && !statusQuery.data;
 
   if (isResolvingGithub) {
     return (
@@ -114,7 +101,7 @@ function CanvasPullRequestsWidgetBody({
           </TabsList>
         </Tabs>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar px-2 pb-2 pt-0">
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pt-0 pb-2">
         <PRPanel
           ref={prPanelRef}
           owner={githubOwner}

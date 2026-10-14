@@ -96,10 +96,7 @@ export function resolveTuiWheelReportCount(
 
   // Discrete line wheels: at least one report per notch.
   const deltaMode = event.deltaMode ?? DOM_DELTA_PIXEL;
-  const rows =
-    deltaMode === DOM_DELTA_LINE
-      ? Math.max(1, distanceRows)
-      : distanceRows;
+  const rows = deltaMode === DOM_DELTA_LINE ? Math.max(1, distanceRows) : distanceRows;
 
   const total = state.pendingRows + rows;
   const reports = Math.min(TUI_WHEEL_MAX_REPORTS_PER_EVENT, Math.trunc(total));
@@ -136,7 +133,10 @@ function markReplayedWheelEvent(event: WheelEvent): void {
 }
 
 function resolveCellHeight(terminal: TuiWheelTerminalLike): number | undefined {
-  const screen = terminal.element?.querySelector?.(".xterm-screen") as HTMLElement | null | undefined;
+  const screen = terminal.element?.querySelector?.(".xterm-screen") as
+    | HTMLElement
+    | null
+    | undefined;
   const rect = screen?.getBoundingClientRect?.();
   if (!rect || rect.height <= 0 || terminal.rows <= 0) {
     return undefined;
@@ -230,14 +230,10 @@ export function attachTuiMouseWheelMultiplier(
       return true;
     }
 
-    const reportCount = resolveTuiWheelReportCount(
-      event,
-      distanceState,
-      {
-        cellHeight: resolveCellHeight(terminal),
-        rows: terminal.rows,
-      },
-    );
+    const reportCount = resolveTuiWheelReportCount(event, distanceState, {
+      cellHeight: resolveCellHeight(terminal),
+      rows: terminal.rows,
+    });
 
     if (reportCount <= 0) {
       // Consume tiny pixel motion while tracking (avoid local scroll bleed).

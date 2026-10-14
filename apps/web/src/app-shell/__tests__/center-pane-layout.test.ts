@@ -34,7 +34,10 @@ import {
   treeFromReadingOrder,
   MIN_FRACTION,
 } from "@/app-shell/center-pane/center-pane-layout";
-import { collectTerminalLayoutGeometry, getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
+import {
+  collectTerminalLayoutGeometry,
+  getLeaves,
+} from "@/features/terminal/lib/terminal-layout-tree";
 
 describe("center-pane-layout", () => {
   it("treats a center of only empty panes as the gallery launcher", () => {
@@ -76,10 +79,7 @@ describe("center-pane-layout", () => {
   });
 
   it("splits right into an empty secondary pane without moving tabs", () => {
-    const base = createDefaultLayout(
-      ["terminal", "overview", "files", "wiki"],
-      "files",
-    );
+    const base = createDefaultLayout(["terminal", "overview", "files", "wiki"], "files");
     const next = splitPane(base, { direction: "right", seedTabId: "files" });
     expect(next.panes).toHaveLength(2);
     expect(next.columnCount).toBeGreaterThanOrEqual(2);
@@ -105,10 +105,10 @@ describe("center-pane-layout", () => {
   });
 
   it("reveals an already-owned tab instead of stealing it onto the focused pane", () => {
-    const next = splitPane(
-      createDefaultLayout(["terminal", "overview", "files"], "files"),
-      { direction: "right", seedTabId: "files" },
-    );
+    const next = splitPane(createDefaultLayout(["terminal", "overview", "files"], "files"), {
+      direction: "right",
+      seedTabId: "files",
+    });
     const primaryId = next.panes.find((pane) => pane.id === DEFAULT_PANE_ID)!.id;
     expect(planCenterTabAttach(next, "files")).toEqual({
       action: "reveal",
@@ -247,7 +247,10 @@ describe("center-pane-layout", () => {
     let layout = createDefaultLayout(["terminal", "overview", "wiki"], "terminal");
     layout = splitPane(layout, { direction: "right" });
     // Put wiki on the empty secondary then remove it.
-    layout = focusPane(layout, layout.order.find((id) => id !== DEFAULT_PANE_ID)!);
+    layout = focusPane(
+      layout,
+      layout.order.find((id) => id !== DEFAULT_PANE_ID)!,
+    );
     layout = openTabOnFocusedPane(layout, "wiki");
     expect(layout.panes).toHaveLength(2);
     const next = removeTabFromLayout(layout, "wiki");
@@ -445,10 +448,9 @@ describe("center-pane-layout", () => {
   });
 
   it("persists a multi-pane fullscreen id and drops it when the mosaic collapses", () => {
-    const split = splitPane(
-      createDefaultLayout(["terminal", "files"], "files"),
-      { direction: "right" },
-    );
+    const split = splitPane(createDefaultLayout(["terminal", "files"], "files"), {
+      direction: "right",
+    });
     const secondaryId = split.order.find((id) => id !== DEFAULT_PANE_ID)!;
     const expanded = setLayoutFullscreenPane(split, secondaryId);
     expect(expanded.fullscreenPaneId).toBe(secondaryId);
@@ -488,10 +490,7 @@ describe("center-pane-layout", () => {
   });
 
   it("normalizes a stale fullscreen pane id off the layout", () => {
-    const split = splitPane(
-      createDefaultLayout(["terminal"], "terminal"),
-      { direction: "right" },
-    );
+    const split = splitPane(createDefaultLayout(["terminal"], "terminal"), { direction: "right" });
     const stale = normalizeCenterPaneLayout({
       ...split,
       fullscreenPaneId: "pane-missing",

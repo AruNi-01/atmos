@@ -46,10 +46,9 @@ function workspace(guid: string, projectGuid: string): WorkspaceModel {
 
 describe("workspace picker groups", () => {
   test("keeps imported projects that do not have workspaces yet", () => {
-    const groups = buildWorkspaceProjectGroups(
-      [project("project-atmos", "Atmos")],
-      { "project-atmos": [] },
-    );
+    const groups = buildWorkspaceProjectGroups([project("project-atmos", "Atmos")], {
+      "project-atmos": [],
+    });
 
     expect(groups).toHaveLength(1);
     expect(groups[0]?.project.guid).toBe("project-atmos");
@@ -57,13 +56,10 @@ describe("workspace picker groups", () => {
   });
 
   test("keeps orphaned workspaces in an Other group", () => {
-    const groups = buildWorkspaceProjectGroups(
-      [project("project-atmos", "Atmos")],
-      {
-        "project-atmos": [],
-        "missing-project": [workspace("workspace-1", "missing-project")],
-      },
-    );
+    const groups = buildWorkspaceProjectGroups([project("project-atmos", "Atmos")], {
+      "project-atmos": [],
+      "missing-project": [workspace("workspace-1", "missing-project")],
+    });
 
     expect(groups.map((group) => group.project.guid)).toEqual(["project-atmos", "__other__"]);
     expect(groups[1]?.workspaces.map((item) => item.guid)).toEqual(["workspace-1"]);

@@ -59,7 +59,12 @@ export type TaskGithubCreateIssueDialogProps = {
   initialProjectId?: string | null;
   /** Fallback when only owner/repo is known. */
   initialRepoFullName?: string | null;
-  onCreated?: (result: { owner: string; repo: string; number?: number | null; url: string }) => void;
+  onCreated?: (result: {
+    owner: string;
+    repo: string;
+    number?: number | null;
+    url: string;
+  }) => void;
 };
 
 type CreateIssueFormValues = {
@@ -117,10 +122,7 @@ export function TaskGithubCreateIssueDialog({
     wsQueryOptions({
       scope,
       connectionState,
-      queryKey: queryKeys.computer.githubIssueTemplates(
-        scope,
-        selectedRepo?.path ?? "",
-      ),
+      queryKey: queryKeys.computer.githubIssueTemplates(scope, selectedRepo?.path ?? ""),
       queryFn: () =>
         loadLocalGithubIssueTemplates(selectedRepo!.path, {
           owner: selectedRepo!.owner,
@@ -185,12 +187,7 @@ export function TaskGithubCreateIssueDialog({
     if (activeTemplate.htmlUrl) return activeTemplate.htmlUrl;
     if (!selectedRepo) return null;
     return `https://github.com/${selectedRepo.owner}/${selectedRepo.repo}/security/policy`;
-  }, [
-    activeTemplate.htmlUrl,
-    isContactTemplate,
-    isSecurityTemplate,
-    selectedRepo,
-  ]);
+  }, [activeTemplate.htmlUrl, isContactTemplate, isSecurityTemplate, selectedRepo]);
 
   const assigneesQuery = useQuery(
     githubRepoAssigneesQueryOptions(
@@ -235,7 +232,11 @@ export function TaskGithubCreateIssueDialog({
           body = String(value.fields.description ?? "");
         }
         const labels = Array.from(
-          new Set([...(activeTemplate.labels ?? []), ...value.labels].map((l) => l.trim()).filter(Boolean)),
+          new Set(
+            [...(activeTemplate.labels ?? []), ...value.labels]
+              .map((l) => l.trim())
+              .filter(Boolean),
+          ),
         );
         const assignees = Array.from(
           new Set(
@@ -411,7 +412,7 @@ export function TaskGithubCreateIssueDialog({
                     href={externalLinkUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex max-w-full break-all text-xs text-primary underline-offset-2 hover:underline"
+                    className="inline-flex max-w-full text-xs break-all text-primary underline-offset-2 hover:underline"
                   >
                     {externalLinkUrl}
                   </a>
@@ -570,4 +571,3 @@ export function TaskGithubCreateIssueDialog({
     </Dialog>
   );
 }
-

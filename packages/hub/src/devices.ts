@@ -17,13 +17,8 @@ function randomCredential(): string {
 }
 
 async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
-  return [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** Mint device credential — plaintext returned once (APP-056 M13). */
@@ -61,11 +56,7 @@ export async function rotateDevice(
     .select()
     .from(devices)
     .where(
-      and(
-        eq(devices.deviceId, deviceId),
-        eq(devices.userId, userId),
-        isNull(devices.revokedAt),
-      ),
+      and(eq(devices.deviceId, deviceId), eq(devices.userId, userId), isNull(devices.revokedAt)),
     )
     .limit(1);
   if (!rows[0]) return null;
@@ -83,21 +74,13 @@ export async function rotateDevice(
   return { device_credential: deviceCredential };
 }
 
-export async function revokeDevice(
-  db: HubDb,
-  userId: string,
-  deviceId: string,
-): Promise<boolean> {
+export async function revokeDevice(db: HubDb, userId: string, deviceId: string): Promise<boolean> {
   const now = new Date();
   await db
     .update(devices)
     .set({ revokedAt: now })
     .where(
-      and(
-        eq(devices.deviceId, deviceId),
-        eq(devices.userId, userId),
-        isNull(devices.revokedAt),
-      ),
+      and(eq(devices.deviceId, deviceId), eq(devices.userId, userId), isNull(devices.revokedAt)),
     );
   return true;
 }

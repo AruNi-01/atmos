@@ -57,11 +57,7 @@ export function localServiceCommandTooltip(
 }
 
 function commandHasFilesystemPath(commandPreview: string): boolean {
-  return commandPreview
-    .trim()
-    .split(/\s+/)
-    .map(stripQuotes)
-    .some(looksLikePath);
+  return commandPreview.trim().split(/\s+/).map(stripQuotes).some(looksLikePath);
 }
 
 function shouldStripLeadingRuntime(tokens: string[]): boolean {

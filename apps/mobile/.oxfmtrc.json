@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": false,
+  "jsxSingleQuote": false,
+  "trailingComma": "all",
+  "insertFinalNewline": true,
+  "proseWrap": "preserve",
+  "sortPackageJson": false,
+  "sortTailwindcss": {
+    "stylesheet": "./src/global.css",
+    "functions": ["cn", "clsx", "cva"]
+  }
+}

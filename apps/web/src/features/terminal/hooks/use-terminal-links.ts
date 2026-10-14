@@ -30,8 +30,12 @@ export function useTerminalLinks({
 }: UseTerminalLinksArgs) {
   const modifierKeyPressedRef = useRef(false);
   const pointerModifierPressedRef = useRef(false);
-  const handleTerminalLinkRef = useRef<(event: MouseEvent, resolved: ResolvedTerminalLink) => Promise<void>>(async () => {});
-  const handleResolvedLinkRef = useRef<(event: MouseEvent, rawText: string) => Promise<void>>(async () => {});
+  const handleTerminalLinkRef = useRef<
+    (event: MouseEvent, resolved: ResolvedTerminalLink) => Promise<void>
+  >(async () => {});
+  const handleResolvedLinkRef = useRef<(event: MouseEvent, rawText: string) => Promise<void>>(
+    async () => {},
+  );
   const openFile = useEditorStore((state) => state.openFile);
   const requestFileTreeReveal = useEditorStore((state) => state.requestFileTreeReveal);
   const currentEditorContextId = useEditorStore((state) => state.currentWorkspaceId);
@@ -111,79 +115,82 @@ export function useTerminalLinks({
     await appApi.openWith(appName, path);
   }, []);
 
-  const handleTerminalLink = useCallback(async (event: MouseEvent, resolved: ResolvedTerminalLink) => {
-    if (!resolved) {
-      return;
-    }
+  const handleTerminalLink = useCallback(
+    async (event: MouseEvent, resolved: ResolvedTerminalLink) => {
+      if (!resolved) {
+        return;
+      }
 
-    const modifierPressed =
-      event.metaKey ||
-      event.ctrlKey ||
-      modifierKeyPressedRef.current ||
-      pointerModifierPressedRef.current;
+      const modifierPressed =
+        event.metaKey ||
+        event.ctrlKey ||
+        modifierKeyPressedRef.current ||
+        pointerModifierPressedRef.current;
 
-    event.preventDefault();
+      event.preventDefault();
 
-    try {
-      if (resolved.type === "external") {
-        if (!modifierPressed) {
+      try {
+        if (resolved.type === "external") {
+          if (!modifierPressed) {
+            return;
+          }
+          await openExternalLink(resolved.url);
           return;
         }
-        await openExternalLink(resolved.url);
-        return;
+
+        const targetContextId = workspaceId || currentEditorContextId || undefined;
+
+        if (fileLinkOpenMode === "finder") {
+          await openPathWithApp("Finder", resolved.path);
+          return;
+        }
+
+        if (fileLinkOpenMode === "app") {
+          await openPathWithApp(fileLinkOpenApp, resolved.path);
+          return;
+        }
+
+        if (resolved.type === "directory") {
+          requestFileTreeReveal(resolved.path, targetContextId);
+          return;
+        }
+
+        await openFile(resolved.path, targetContextId, {
+          preview: false,
+          line: resolved.line,
+          column: resolved.column,
+        });
+        if (targetContextId) {
+          activateCenterChromeTab(targetContextId, resolved.path, { placement: "focused" });
+        }
+      } catch (error) {
+        reportTerminalLinkError(resolved.type === "external" ? resolved.url : resolved.path, error);
       }
+    },
+    [
+      currentEditorContextId,
+      fileLinkOpenApp,
+      fileLinkOpenMode,
+      openExternalLink,
+      openFile,
+      openPathWithApp,
+      reportTerminalLinkError,
+      requestFileTreeReveal,
+      workspaceId,
+    ],
+  );
 
-      const targetContextId = workspaceId || currentEditorContextId || undefined;
-
-      if (fileLinkOpenMode === "finder") {
-        await openPathWithApp("Finder", resolved.path);
-        return;
-      }
-
-      if (fileLinkOpenMode === "app") {
-        await openPathWithApp(fileLinkOpenApp, resolved.path);
-        return;
-      }
-
-      if (resolved.type === "directory") {
-        requestFileTreeReveal(resolved.path, targetContextId);
-        return;
-      }
-
-      await openFile(resolved.path, targetContextId, {
-        preview: false,
-        line: resolved.line,
-        column: resolved.column,
+  const handleResolvedLink = useCallback(
+    async (event: MouseEvent, rawText: string) => {
+      const resolved = await resolveTerminalLink(rawText, {
+        cwdPath: cwd,
+        projectRootPath,
       });
-      if (targetContextId) {
-        activateCenterChromeTab(targetContextId, resolved.path, { placement: "focused" });
-      }
-    } catch (error) {
-      reportTerminalLinkError(
-        resolved.type === "external" ? resolved.url : resolved.path,
-        error,
-      );
-    }
-  }, [
-    currentEditorContextId,
-    fileLinkOpenApp,
-    fileLinkOpenMode,
-    openExternalLink,
-    openFile,
-    openPathWithApp,
-    reportTerminalLinkError,
-    requestFileTreeReveal,
-    workspaceId,
-  ]);
 
-  const handleResolvedLink = useCallback(async (event: MouseEvent, rawText: string) => {
-    const resolved = await resolveTerminalLink(rawText, {
-      cwdPath: cwd,
-      projectRootPath,
-    });
-
-    await handleTerminalLink(event, resolved);
-  }, [cwd, handleTerminalLink, projectRootPath]);
+      await handleTerminalLink(event, resolved);
+    },
+    [cwd, handleTerminalLink, projectRootPath],
+  );
 
   useEffect(() => {
     handleTerminalLinkRef.current = handleTerminalLink;
@@ -211,35 +218,39 @@ export function useTerminalLinks({
     return [...new Set(candidates)];
   }, []);
 
-  const handleTerminalAnchorActivation = useCallback((anchor: HTMLAnchorElement, event: MouseEvent) => {
-    const candidates = getAnchorCandidates(anchor);
-    const shouldIntercept = candidates.some((candidate) =>
-      candidate.startsWith("/") ||
-      candidate.startsWith("~/") ||
-      candidate.startsWith("./") ||
-      candidate.startsWith("../") ||
-      candidate.startsWith("file://")
-    );
-    if (shouldIntercept) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-
-    void (async () => {
-      for (const candidate of candidates) {
-        const resolved = await resolveTerminalLink(candidate, {
-          cwdPath: cwd,
-          projectRootPath,
-        });
-        if (!resolved || resolved.type === "external") {
-          continue;
-        }
-
-        await handleTerminalLink(event, resolved);
-        return;
+  const handleTerminalAnchorActivation = useCallback(
+    (anchor: HTMLAnchorElement, event: MouseEvent) => {
+      const candidates = getAnchorCandidates(anchor);
+      const shouldIntercept = candidates.some(
+        (candidate) =>
+          candidate.startsWith("/") ||
+          candidate.startsWith("~/") ||
+          candidate.startsWith("./") ||
+          candidate.startsWith("../") ||
+          candidate.startsWith("file://"),
+      );
+      if (shouldIntercept) {
+        event.preventDefault();
+        event.stopPropagation();
       }
-    })();
-  }, [cwd, getAnchorCandidates, handleTerminalLink, projectRootPath]);
+
+      void (async () => {
+        for (const candidate of candidates) {
+          const resolved = await resolveTerminalLink(candidate, {
+            cwdPath: cwd,
+            projectRootPath,
+          });
+          if (!resolved || resolved.type === "external") {
+            continue;
+          }
+
+          await handleTerminalLink(event, resolved);
+          return;
+        }
+      })();
+    },
+    [cwd, getAnchorCandidates, handleTerminalLink, projectRootPath],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -252,22 +263,27 @@ export function useTerminalLinks({
       }
 
       const target = event.target;
-      if (!(target instanceof HTMLCanvasElement) || !target.classList.contains("xterm-link-layer")) {
+      if (
+        !(target instanceof HTMLCanvasElement) ||
+        !target.classList.contains("xterm-link-layer")
+      ) {
         return;
       }
 
-      const core = (terminal as unknown as {
-        _core?: {
-          _mouseService?: {
-            getCoords: (
-              event: MouseEvent,
-              element: HTMLElement,
-              colCount: number,
-              rowCount: number,
-            ) => [number, number] | undefined;
+      const core = (
+        terminal as unknown as {
+          _core?: {
+            _mouseService?: {
+              getCoords: (
+                event: MouseEvent,
+                element: HTMLElement,
+                colCount: number,
+                rowCount: number,
+              ) => [number, number] | undefined;
+            };
           };
-        };
-      })._core;
+        }
+      )._core;
 
       const coords = core?._mouseService?.getCoords(
         event,
@@ -282,12 +298,10 @@ export function useTerminalLinks({
       const bufferLineNumber = coords[1] + terminal.buffer.active.viewportY;
       const column = coords[0];
       void (async () => {
-        const resolved = await resolveTerminalLinkAtCell(
-          terminal,
-          bufferLineNumber,
-          column,
-          { cwdPath: cwd, projectRootPath },
-        );
+        const resolved = await resolveTerminalLinkAtCell(terminal, bufferLineNumber, column, {
+          cwdPath: cwd,
+          projectRootPath,
+        });
         if (!resolved || resolved.type === "external") {
           return;
         }
@@ -316,7 +330,14 @@ export function useTerminalLinks({
     return () => {
       container.removeEventListener("click", handleNativeClickCapture, true);
     };
-  }, [containerRef, cwd, handleTerminalAnchorActivation, handleTerminalLink, projectRootPath, terminalRef]);
+  }, [
+    containerRef,
+    cwd,
+    handleTerminalAnchorActivation,
+    handleTerminalLink,
+    projectRootPath,
+    terminalRef,
+  ]);
 
   return {
     handleResolvedLinkRef,

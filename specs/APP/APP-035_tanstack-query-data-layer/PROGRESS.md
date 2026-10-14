@@ -6,16 +6,16 @@ Implementation handoff log (not a requirements source). See PRD/TECH/TEST for co
 
 ### Shipped
 
-| Area | Notes |
-|------|-------|
-| Foundation | QueryClient, provider above WS, focus bridge, keys, scope epoch/auth/session revisions |
-| Lifecycle | Target change cancel/remove + epoch bump; identity/session helpers; legacy reset registry |
-| Reconnect | Selective invalidation of registered roots |
-| Pilot | System REST queries, settings bootstrap via Query, usage overview + event bridge |
-| Core | Project bootstrap Query-owned; Git status/changedFiles/branches Query-owned; File tree Query-owned |
-| Extended | Token usage, skills, automations (+ events + run list UI), GitHub PR lists/detail/sidebar/files/timeline, local services/models, agent registry, **review sessions** (primary consumer Query-owned; comments local) |
-| Inventory | `api-operation-inventory.ts` + Bun validation tests |
-| Tests | 66 Bun tests under `apps/web/src/api/query/__tests__/` covering isolation, enablement, events, inventory, races |
+| Area       | Notes                                                                                                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation | QueryClient, provider above WS, focus bridge, keys, scope epoch/auth/session revisions                                                                                                                              |
+| Lifecycle  | Target change cancel/remove + epoch bump; identity/session helpers; legacy reset registry                                                                                                                           |
+| Reconnect  | Selective invalidation of registered roots                                                                                                                                                                          |
+| Pilot      | System REST queries, settings bootstrap via Query, usage overview + event bridge                                                                                                                                    |
+| Core       | Project bootstrap Query-owned; Git status/changedFiles/branches Query-owned; File tree Query-owned                                                                                                                  |
+| Extended   | Token usage, skills, automations (+ events + run list UI), GitHub PR lists/detail/sidebar/files/timeline, local services/models, agent registry, **review sessions** (primary consumer Query-owned; comments local) |
+| Inventory  | `api-operation-inventory.ts` + Bun validation tests                                                                                                                                                                 |
+| Tests      | 66 Bun tests under `apps/web/src/api/query/__tests__/` covering isolation, enablement, events, inventory, races                                                                                                     |
 
 ### Intentionally deferred (TECH)
 

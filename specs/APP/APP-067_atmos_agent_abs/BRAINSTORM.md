@@ -53,15 +53,15 @@ Two layers must not be confused:
 - **Host ↔ Provider** stays ACP JSON-RPC over stdio inside the adapter (Codex/Claude/etc. as they are).
 - **Client ↔ Atmos** is the decision. Mainstream products:
 
-| Product | Client ↔ host | Why |
-|---|---|---|
-| ChatGPT web / Claude.ai | REST + SSE | One-shot send, then one-way token stream. Control is a new HTTP call. |
-| OpenAI Responses API | REST + SSE; optional WebSocket mode | SSE for generation; WS when the same socket must carry the next turn without reconnect. |
-| Codex app-server | JSON-RPC over stdio (local) or WebSocket (remote) | Bidirectional: approvals, `turn/steer`, `turn/interrupt`, subscribe/unsubscribe. |
-| Claude Code IDE | JSON-RPC over WebSocket | IDE and agent both push (diffs, selection, cancel). |
-| Cursor Agent | HTTP/2 bidirectional ConnectRPC; SSE fallback | True bidi for tool results mid-stream; enterprises often break HTTP/2, hence SSE fallback. |
-| AG-UI | SSE events + HTTP actions | Fine for “watch the agent”; weak for in-turn control. |
-| Microsoft AHP | Host sequences ACP and broadcasts envelopes to N clients | Host is a mutex over a 1:1 agent protocol — the role Atmos must play. |
+| Product                 | Client ↔ host                                            | Why                                                                                        |
+| ----------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| ChatGPT web / Claude.ai | REST + SSE                                               | One-shot send, then one-way token stream. Control is a new HTTP call.                      |
+| OpenAI Responses API    | REST + SSE; optional WebSocket mode                      | SSE for generation; WS when the same socket must carry the next turn without reconnect.    |
+| Codex app-server        | JSON-RPC over stdio (local) or WebSocket (remote)        | Bidirectional: approvals, `turn/steer`, `turn/interrupt`, subscribe/unsubscribe.           |
+| Claude Code IDE         | JSON-RPC over WebSocket                                  | IDE and agent both push (diffs, selection, cancel).                                        |
+| Cursor Agent            | HTTP/2 bidirectional ConnectRPC; SSE fallback            | True bidi for tool results mid-stream; enterprises often break HTTP/2, hence SSE fallback. |
+| AG-UI                   | SSE events + HTTP actions                                | Fine for “watch the agent”; weak for in-turn control.                                      |
+| Microsoft AHP           | Host sequences ACP and broadcasts envelopes to N clients | Host is a mutex over a 1:1 agent protocol — the role Atmos must play.                      |
 
 **A — Keep dedicated `/ws/agent/{session_id}`.** Current path. ACP events mapped 1:1.
 
@@ -75,7 +75,7 @@ Two layers must not be confused:
 
 **C — Main `/ws` `WsContract` actions + sequenced `agent.event` notifications.** One Computer connection. Actions: create/list/get/send/steer/queue/cancel/permission. Events: `{ chat_id, event_id, sequence, payload }`. History hydrate is a WS snapshot request (Get Conversation), then subscribe from last sequence.
 
-**Pros**: matches Codex/AHP *semantics* without a second RPC dialect; multiplexes many conversations; permission/steer/cancel ride the same channel; Mobile/CLI later reuse the catalog; reconnect is snapshot + sequence; deletes `/ws/agent`.
+**Pros**: matches Codex/AHP _semantics_ without a second RPC dialect; multiplexes many conversations; permission/steer/cancel ride the same channel; Mobile/CLI later reuse the catalog; reconnect is snapshot + sequence; deletes `/ws/agent`.
 **Cons**: event journal / sequence must be honest; high-rate deltas need coalescing in TECH.
 **Unknown**: whether an extra HTTP GET snapshot helps Mobile cold start later (not v1).
 
@@ -97,11 +97,11 @@ Today every composer submit is a **client-local queue**. Dispatch waits until th
 
 Busy-composer is three different intents, not one:
 
-| Intent | User meaning | Turn identity | Gold-standard mapping |
-|---|---|---|---|
-| **Queue** | After you finish, do this next | New turn later | Persist follow-up; dispatch on turn complete |
-| **Steer** | Keep going, but take this into account now | Same turn | Codex `turn/steer`: append input, no `turn/started`, no model/cwd/sandbox override, `expectedTurnId` must match |
-| **Interrupt** | Stop that | Turn ends cancelled | Codex `turn/interrupt` / ACP `session/cancel`. Stop does not auto-send the draft |
+| Intent        | User meaning                               | Turn identity       | Gold-standard mapping                                                                                           |
+| ------------- | ------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Queue**     | After you finish, do this next             | New turn later      | Persist follow-up; dispatch on turn complete                                                                    |
+| **Steer**     | Keep going, but take this into account now | Same turn           | Codex `turn/steer`: append input, no `turn/started`, no model/cwd/sandbox override, `expectedTurnId` must match |
+| **Interrupt** | Stop that                                  | Turn ends cancelled | Codex `turn/interrupt` / ACP `session/cancel`. Stop does not auto-send the draft                                |
 
 ChatGPT web mostly cannot send while generating (extensions add queues). ChatGPT desktop Goal mode lets follow-ups add constraints while work runs. Codex Chat is the clean model: queue is “next turn”, steer is “same turn, non-interruptive”, interrupt is explicit.
 

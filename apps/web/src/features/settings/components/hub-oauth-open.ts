@@ -23,9 +23,7 @@ export const HUB_OAUTH_STARTED_EVENT = "atmos:hub-oauth-started";
 /** @deprecated use HUB_OAUTH_STARTED_EVENT */
 export const HUB_DESKTOP_OAUTH_STARTED_EVENT = HUB_OAUTH_STARTED_EVENT;
 
-export function isHubSocialProvider(
-  provider: string,
-): provider is HubSocialProvider {
+export function isHubSocialProvider(provider: string): provider is HubSocialProvider {
   return provider === "github" || provider === "google";
 }
 
@@ -62,9 +60,7 @@ export async function openHubOAuth(opts: {
     provider: opts.provider,
     mode: opts.mode,
     desktop,
-    returnTo: desktop
-      ? undefined
-      : applyTokenUsageShareResumeToPath(currentOAuthReturnToPath()),
+    returnTo: desktop ? undefined : applyTokenUsageShareResumeToPath(currentOAuthReturnToPath()),
   });
 
   let linkTicket: string | undefined;
@@ -79,10 +75,7 @@ export async function openHubOAuth(opts: {
       } catch (e) {
         return {
           ok: false,
-          error:
-            e instanceof Error
-              ? e.message
-              : "Could not prepare account linking",
+          error: e instanceof Error ? e.message : "Could not prepare account linking",
         };
       }
     }
@@ -113,8 +106,7 @@ export async function openHubOAuth(opts: {
     if (!w) {
       return {
         ok: false,
-        error:
-          "Could not open a new tab. Allow pop-ups for this site and try again.",
+        error: "Could not open a new tab. Allow pop-ups for this site and try again.",
         popupBlocked: true,
       };
     }

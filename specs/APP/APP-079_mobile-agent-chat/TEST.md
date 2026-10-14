@@ -16,40 +16,40 @@ Deterministic checks live in Bun tests next to the mobile helpers (navigation ta
 ## Coverage map
 
 | PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S3, S4 |
-| M3 | S5, S6 |
-| M4 | S7, S8 |
-| M5 | S9, S10, S11 |
-| M6 | S12 |
-| M7 | S13, S14 |
-| M8 | S15, S16 |
-| N1 | S17 |
-| N2 | S18 |
+| -------- | ------------ |
+| M1       | S1, S2       |
+| M2       | S3, S4       |
+| M3       | S5, S6       |
+| M4       | S7, S8       |
+| M5       | S9, S10, S11 |
+| M6       | S12          |
+| M7       | S13, S14     |
+| M8       | S15, S16     |
+| N1       | S17          |
+| N2       | S18          |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun test | `bun test` | `apps/mobile` session navigation test | workspace id, no terminal id | pushed pathname is the workspace index; params have no `terminal` | planned |
-| S2 | Bun test | `bun test` | same navigation test | session row without workspace id | no navigation call | planned |
-| S3 | Bun test | `bun test` | chat list mapping test | `AgentChatIndexEntry` list with one deleted row | visible rows show title, provider, recency; deleted hidden | planned |
-| S4 | Manual | iOS simulator | open a workspace with zero chats | connected Computer | empty copy and a New chat control; route is not `terminal` | planned |
-| S5 | Bun test | `bun test` | `session-inbox.test.ts` | snapshots with `surface` terminal and chat | both become rows | planned |
-| S6 | Bun test | `bun test` | inbox open helper | chat row and terminal row, same workspace | both target `/workspace/[workspaceId]` only | planned |
-| S7 | Bun test | `bun test` | new-chat submit helper | draft text + options, create not yet called | create payload matches scope/cwd/provider/options; send follows create | planned |
-| S8 | Bun test | `bun test` | new-chat submit helper | create returns an error | send is not called; draft text kept | planned |
-| S9 | Bun test | `bun test` | fold fixture test | ordered `agent_chat_event` text chunks | one assistant message with the concatenated text | planned |
-| S10 | Bun test | `bun test` | tool-kind test | representative tool names from web’s kind table | each maps to the same card kind web uses | planned |
-| S11 | Manual | iOS simulator | open an existing chat that already has a tool call | same `chat_id` as web | history visible; a new streamed reply appends; stop control appears while busy | planned |
-| S12 | Bun test | `bun test` | path presentation helper | tool result containing a repo path | path string kept; helper does not return an editor route | planned |
-| S13 | Manual | iOS simulator | focus the composer in light and dark | connected Computer | prompt is the filled native field; send/stop are glass buttons | planned |
-| S14 | Bun test | `bun test` | option-sheet filter | `AgentOptionsSnapshot` missing thinking | thinking control omitted | planned |
-| S15 | Bun test | `bun test` | action wrapper list | static inventory | wrappers only name actions in TECH Transport; no new REST path | planned |
-| S16 | Manual | iOS simulator | send a message with the web app closed on this phone | device session already connected | transcript updates from `agent_chat_event`; no WebView of the website | planned |
-| S17 | Manual | iOS simulator | chat with two user messages | N1 implemented | Messages sheet scrolls to the second user message | planned |
-| S18 | Bun test | `bun test` | rename/delete payload helper | chat id + title | payloads match `agent_chat_rename` / `agent_chat_delete` | planned |
+| Scenario | Level    | Expected tool | Target command / method                              | Fixture / data                                  | Signals                                                                        | Status  |
+| -------- | -------- | ------------- | ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------ | ------- |
+| S1       | Bun test | `bun test`    | `apps/mobile` session navigation test                | workspace id, no terminal id                    | pushed pathname is the workspace index; params have no `terminal`              | planned |
+| S2       | Bun test | `bun test`    | same navigation test                                 | session row without workspace id                | no navigation call                                                             | planned |
+| S3       | Bun test | `bun test`    | chat list mapping test                               | `AgentChatIndexEntry` list with one deleted row | visible rows show title, provider, recency; deleted hidden                     | planned |
+| S4       | Manual   | iOS simulator | open a workspace with zero chats                     | connected Computer                              | empty copy and a New chat control; route is not `terminal`                     | planned |
+| S5       | Bun test | `bun test`    | `session-inbox.test.ts`                              | snapshots with `surface` terminal and chat      | both become rows                                                               | planned |
+| S6       | Bun test | `bun test`    | inbox open helper                                    | chat row and terminal row, same workspace       | both target `/workspace/[workspaceId]` only                                    | planned |
+| S7       | Bun test | `bun test`    | new-chat submit helper                               | draft text + options, create not yet called     | create payload matches scope/cwd/provider/options; send follows create         | planned |
+| S8       | Bun test | `bun test`    | new-chat submit helper                               | create returns an error                         | send is not called; draft text kept                                            | planned |
+| S9       | Bun test | `bun test`    | fold fixture test                                    | ordered `agent_chat_event` text chunks          | one assistant message with the concatenated text                               | planned |
+| S10      | Bun test | `bun test`    | tool-kind test                                       | representative tool names from web’s kind table | each maps to the same card kind web uses                                       | planned |
+| S11      | Manual   | iOS simulator | open an existing chat that already has a tool call   | same `chat_id` as web                           | history visible; a new streamed reply appends; stop control appears while busy | planned |
+| S12      | Bun test | `bun test`    | path presentation helper                             | tool result containing a repo path              | path string kept; helper does not return an editor route                       | planned |
+| S13      | Manual   | iOS simulator | focus the composer in light and dark                 | connected Computer                              | prompt is the filled native field; send/stop are glass buttons                 | planned |
+| S14      | Bun test | `bun test`    | option-sheet filter                                  | `AgentOptionsSnapshot` missing thinking         | thinking control omitted                                                       | planned |
+| S15      | Bun test | `bun test`    | action wrapper list                                  | static inventory                                | wrappers only name actions in TECH Transport; no new REST path                 | planned |
+| S16      | Manual   | iOS simulator | send a message with the web app closed on this phone | device session already connected                | transcript updates from `agent_chat_event`; no WebView of the website          | planned |
+| S17      | Manual   | iOS simulator | chat with two user messages                          | N1 implemented                                  | Messages sheet scrolls to the second user message                              | planned |
+| S18      | Bun test | `bun test`    | rename/delete payload helper                         | chat id + title                                 | payloads match `agent_chat_rename` / `agent_chat_delete`                       | planned |
 
 ## Scenarios
 

@@ -23,9 +23,7 @@ function activity(
 
 describe("mergeActivityHydration", () => {
   test("keeps live turns that arrived while the REST snapshot was in flight", () => {
-    const snapshot = new Map([
-      ["old", activity("old", "2026-09-21T00:00:00.000Z")],
-    ]);
+    const snapshot = new Map([["old", activity("old", "2026-09-21T00:00:00.000Z")]]);
     const live = new Map([
       ["old", activity("old", "2026-09-21T00:00:00.000Z")],
       ["new", activity("new", "2026-09-21T00:00:05.000Z")],

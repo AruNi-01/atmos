@@ -74,8 +74,6 @@ sequenceDiagram
     Terminal->>Terminal: Agent reads diff, updates affected pages
 ```
 
-
-
 ## Layer-by-Layer Changes
 
 ### 1. Data Model: Extend `_catalog.json` with `commit_hash`
@@ -137,7 +135,7 @@ updateStatus: {
 Add new action:
 
 ```typescript
-checkForUpdates: (contextId: string, effectivePath: string) => Promise<void>
+checkForUpdates: (contextId: string, effectivePath: string) => Promise<void>;
 ```
 
 Logic:
@@ -189,12 +187,14 @@ When "Update" is clicked, the flow mirrors wiki generation:
 1. Show a confirmation dialog explaining what will happen
 2. Build an incremental update command using the same agent selector pattern as `WikiSetup`
 3. The prompt references the new `project-wiki-update` skill:
-  ```
-   Read the skill at ~/.atmos/skills/.system/project-wiki-update/SKILL.md
-   and follow it to incrementally update the project wiki at ./.atmos/wiki/.
-   The wiki was generated at commit <catalog.commit_hash>.
-   Current HEAD is <currentCommit>.
-  ```
+
+```
+ Read the skill at ~/.atmos/skills/.system/project-wiki-update/SKILL.md
+ and follow it to incrementally update the project wiki at ./.atmos/wiki/.
+ The wiki was generated at commit <catalog.commit_hash>.
+ Current HEAD is <currentCommit>.
+```
+
 4. Run in ProjectWikiTerminal (reuse `onSwitchToProjectWikiAndRun`)
 
 To enable this, `WikiViewer` needs access to the same terminal integration props that `WikiTab` provides. Update `WikiViewerProps` and `WikiTabProps` to pass these through.
@@ -292,6 +292,7 @@ The `project-wiki-update/SKILL.md` references shared resources using **local rel
 ## References
 
 Read these files in this skill directory before making any changes:
+
 - Content & formatting guidelines: `references/content-guidelines.md`
 - Catalog schema: `references/catalog.schema.json`
 - Output structure: `references/output_structure.md`
@@ -302,14 +303,12 @@ This means the agent **only loads one skill** -- everything it needs is right th
 
 #### 8.4 Two-level design: repo DRY vs installed self-contained
 
-
 | Concern         | Repo (`skills/`)                                                      | Installed (`~/.atmos/skills/.system/`)        |
 | --------------- | --------------------------------------------------------------------- | --------------------------------------------- |
 | Shared files    | Symlinks to `project-wiki/` (single source of truth)                  | Real copies (resolved from symlinks)          |
 | Update workflow | Edit once in `project-wiki/`, all skills pick up changes via symlinks | Re-run install/sync to propagate              |
 | Agent loading   | N/A (repo is for developers)                                          | One skill directory = one self-contained unit |
 | Add new variant | Create `SKILL.md` + symlinks, done                                    | Install resolves symlinks into full copy      |
-
 
 #### 8.5 Benefits
 
@@ -329,15 +328,17 @@ The skill's `SKILL.md` contains ONLY the update-specific logic. It starts by ins
 2. Parse every wiki page's frontmatter to collect all `sources` fields -> build a "covered files" set
 3. Run `git diff --name-only <old_commit>..HEAD` to get all changed files
 4. Partition changed files into:
-  - **Covered**: files that appear in at least one page's `sources` -> those pages are "definitely needs update"
-  - **Uncovered**: files not referenced by any page's `sources`
+
+- **Covered**: files that appear in at least one page's `sources` -> those pages are "definitely needs update"
+- **Uncovered**: files not referenced by any page's `sources`
 
 **Phase 2: Uncovered changes analysis (AI reasoning)**
 
 1. For each uncovered changed file, the agent reasons about it:
-  - **Add to existing page**: the change is conceptually related to an existing wiki topic -> update that page and add the file to its `sources`
-  - **Create new page**: a new module/feature/API deserves its own documentation -> create a new wiki page, update `_catalog.json`
-  - **Skip**: trivial changes (config, formatting, test-only, CI, `.gitignore`, lock files)
+
+- **Add to existing page**: the change is conceptually related to an existing wiki topic -> update that page and add the file to its `sources`
+- **Create new page**: a new module/feature/API deserves its own documentation -> create a new wiki page, update `_catalog.json`
+- **Skip**: trivial changes (config, formatting, test-only, CI, `.gitignore`, lock files)
 
 **Phase 3: Cross-cutting impact check**
 
@@ -377,14 +378,12 @@ Two changes:
 
 A naive approach of only matching `sources` frontmatter would miss important changes:
 
-
 | Changed file category                          | Source-only approach           | Hybrid approach                                      |
 | ---------------------------------------------- | ------------------------------ | ---------------------------------------------------- |
 | File listed in a page's `sources`              | Detected                       | Detected (Phase 1)                                   |
 | New module/feature file, no page references it | **Missed**                     | Agent creates new page or adds to existing (Phase 2) |
 | Shared utility change affecting multiple pages | Only pages listing it directly | Agent traces cross-cutting impact (Phase 3)          |
 | Trivial changes (CI, config, lock files)       | Silently skipped               | Explicitly skipped with reasoning (Phase 2)          |
-
 
 The frontend remains simple: it only checks "is commit_hash stale?" and shows a button. All the intelligence about what to update is delegated to the AI agent running the skill.
 
@@ -394,4 +393,3 @@ The frontend remains simple: it only checks "is commit_hash stale?" and shows a 
 - **Stored commit no longer in history** (force push/rebase): `git diff` will fail in the skill; the skill should fall back to suggesting a full regeneration.
 - **Non-git project**: `getHeadCommit` will return an error; catch it and skip update check.
 - **Massive diff (hundreds of files)**: The skill should use `git diff --stat` for a summary view first, then focus on meaningful changes. If too many files changed, suggest full regeneration instead.
-

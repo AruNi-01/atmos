@@ -37,17 +37,17 @@ export interface WorkspaceItemProps {
   onUpdatePriority?: (workspaceId: string, priority: WorkspacePriority) => void;
   availableLabels?: WorkspaceLabel[];
   onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
-  onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateLabel?: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
   groups?: Group[];
   onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
   onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
 }
 
-function workspaceItemPropsAreEqual(
-  prev: WorkspaceItemProps,
-  next: WorkspaceItemProps,
-): boolean {
+function workspaceItemPropsAreEqual(prev: WorkspaceItemProps, next: WorkspaceItemProps): boolean {
   return (
     prev.workspace === next.workspace &&
     prev.projectId === next.projectId &&
@@ -90,20 +90,16 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   onSetWorkspaceGroup,
   onCreateGroup,
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id: workspace.id, disabled: sortingDisabled });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: workspace.id,
+    disabled: sortingDisabled,
+  });
 
   const pointerStartRef = React.useRef<{ x: number; y: number; warned: boolean } | null>(null);
 
   const style = {
     transform: CSS.Translate.toString(transform),
-    transition: transition || 'transform 200ms cubic-bezier(0.2, 0, 0, 1)',
+    transition: transition || "transform 200ms cubic-bezier(0.2, 0, 0, 1)",
   };
 
   const showSortingDisabledWarning = React.useCallback(() => {
@@ -114,34 +110,40 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
     });
   }, [sortingDisabledMessage]);
 
-  const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    // Only prime the disabled-drag warning when a message is provided (e.g. filters).
-    // Silent disable (By Group) should not toast or treat the row as a drag host.
-    if (!sortingDisabled || !sortingDisabledMessage || event.button !== 0) return;
-    pointerStartRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      warned: false,
-    };
-  }, [sortingDisabled, sortingDisabledMessage]);
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      // Only prime the disabled-drag warning when a message is provided (e.g. filters).
+      // Silent disable (By Group) should not toast or treat the row as a drag host.
+      if (!sortingDisabled || !sortingDisabledMessage || event.button !== 0) return;
+      pointerStartRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        warned: false,
+      };
+    },
+    [sortingDisabled, sortingDisabledMessage],
+  );
 
-  const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (
-      !sortingDisabled ||
-      !sortingDisabledMessage ||
-      !pointerStartRef.current ||
-      pointerStartRef.current.warned
-    ) {
-      return;
-    }
+  const handlePointerMove = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (
+        !sortingDisabled ||
+        !sortingDisabledMessage ||
+        !pointerStartRef.current ||
+        pointerStartRef.current.warned
+      ) {
+        return;
+      }
 
-    const deltaX = event.clientX - pointerStartRef.current.x;
-    const deltaY = event.clientY - pointerStartRef.current.y;
-    if (Math.hypot(deltaX, deltaY) < 6) return;
+      const deltaX = event.clientX - pointerStartRef.current.x;
+      const deltaY = event.clientY - pointerStartRef.current.y;
+      if (Math.hypot(deltaX, deltaY) < 6) return;
 
-    pointerStartRef.current.warned = true;
-    showSortingDisabledWarning();
-  }, [showSortingDisabledWarning, sortingDisabled, sortingDisabledMessage]);
+      pointerStartRef.current.warned = true;
+      showSortingDisabledWarning();
+    },
+    [showSortingDisabledWarning, sortingDisabled, sortingDisabledMessage],
+  );
 
   const handlePointerEnd = React.useCallback(() => {
     pointerStartRef.current = null;

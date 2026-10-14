@@ -35,9 +35,7 @@ const COPY: Record<string, string> = {
 const t = ((key: string, values?: Record<string, string | number>) => {
   const template = COPY[key] ?? key;
   if (!values) return template;
-  return template.replace(/\{(\w+)\}/g, (_, name: string) =>
-    String(values[name] ?? `{${name}}`),
-  );
+  return template.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? `{${name}}`));
 }) as ReturnType<typeof useTranslations>;
 
 describe("startOnboardingChatSetup", () => {
@@ -97,21 +95,23 @@ describe("startOnboardingChatSetup", () => {
   });
 
   it("does not show a step count or progress bar while setup is running", async () => {
-    enableChatForOnboardingAgents.mockImplementation(async (options: {
-      onProgress?: (progress: {
-        step: "native" | "acp" | "deepseek";
-        current: number;
-        total: number;
-      }) => void;
-    }) => {
-      options.onProgress?.({ step: "native", current: 1, total: 2 });
-      options.onProgress?.({ step: "acp", current: 2, total: 2 });
-      return {
-        enabledNativeHosts: ["claude"],
-        acpFailed: [],
-        deepseekFailed: false,
-      };
-    });
+    enableChatForOnboardingAgents.mockImplementation(
+      async (options: {
+        onProgress?: (progress: {
+          step: "native" | "acp" | "deepseek";
+          current: number;
+          total: number;
+        }) => void;
+      }) => {
+        options.onProgress?.({ step: "native", current: 1, total: 2 });
+        options.onProgress?.({ step: "acp", current: 2, total: 2 });
+        return {
+          enabledNativeHosts: ["claude"],
+          acpFailed: [],
+          deepseekFailed: false,
+        };
+      },
+    );
 
     await startOnboardingChatSetup({
       selectedTerminalIds: ["claude"],
@@ -120,7 +120,9 @@ describe("startOnboardingChatSetup", () => {
     });
 
     const loadingUpdates = update.mock.calls
-      .map((call) => call[1] as { type?: string; description?: string; data?: { progress?: number } })
+      .map(
+        (call) => call[1] as { type?: string; description?: string; data?: { progress?: number } },
+      )
       .filter((payload) => payload.type === "loading");
     expect(loadingUpdates).toEqual([]);
     expect(add.mock.calls[0]?.[0]).not.toMatchObject({

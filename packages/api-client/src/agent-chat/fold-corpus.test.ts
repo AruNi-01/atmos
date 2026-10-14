@@ -4,10 +4,7 @@ import { join } from "node:path";
 import { applyPartClosed, applyTextChunk, applyToolCall, createPartStore } from "./fold";
 import type { PartClosed, TextChunk, ToolCallState } from "./types";
 
-type CorpusEvent =
-  | TextChunk
-  | PartClosed
-  | (ToolCallState & { type: "tool_call" });
+type CorpusEvent = TextChunk | PartClosed | (ToolCallState & { type: "tool_call" });
 
 type CorpusPart = {
   id: string;

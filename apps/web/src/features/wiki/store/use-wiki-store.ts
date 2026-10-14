@@ -60,7 +60,7 @@ const getDefaultState = (): WikiContextState => ({
 
 function ensureContext(
   state: Record<string, WikiContextState>,
-  contextId: string
+  contextId: string,
 ): WikiContextState {
   return state[contextId] ?? getDefaultState();
 }
@@ -182,8 +182,7 @@ export const useWikiStore = create<WikiStore>()((set) => ({
             ...ensureContext(state.contextStates, contextId),
             catalog: null,
             catalogLoading: false,
-            catalogError:
-              err instanceof Error ? err.message : wikiStoreT("failedToLoadCatalog"),
+            catalogError: err instanceof Error ? err.message : wikiStoreT("failedToLoadCatalog"),
           },
         },
       }));
@@ -237,7 +236,11 @@ export const useWikiStore = create<WikiStore>()((set) => ({
       let commitCount: number | undefined;
       if (hasUpdate) {
         try {
-          const { count } = await gitApi.getCommitCount(effectivePath, catalogCommit, currentCommit);
+          const { count } = await gitApi.getCommitCount(
+            effectivePath,
+            catalogCommit,
+            currentCommit,
+          );
           commitCount = count;
         } catch {
           commitCount = undefined;
@@ -321,8 +324,7 @@ export const useWikiStore = create<WikiStore>()((set) => ({
             ...ensureContext(state.contextStates, contextId),
             activeContent: null,
             contentLoading: false,
-            contentError:
-              err instanceof Error ? err.message : wikiStoreT("failedToLoadPage"),
+            contentError: err instanceof Error ? err.message : wikiStoreT("failedToLoadPage"),
           },
         },
       }));
@@ -365,8 +367,8 @@ export function useWikiContext(contextId: string | null) {
   // Always subscribe with a selector — only re-render when this context's state changes
   const state = useWikiStore(
     useShallow((s) =>
-      contextId ? (s.contextStates[contextId] ?? getDefaultState()) : getDefaultState()
-    )
+      contextId ? (s.contextStates[contextId] ?? getDefaultState()) : getDefaultState(),
+    ),
   );
 
   // Stable action references — always call hooks unconditionally
@@ -375,15 +377,13 @@ export function useWikiContext(contextId: string | null) {
       contextId
         ? useWikiStore.getState().checkWikiExists(contextId, effectivePath)
         : Promise.resolve(false),
-    [contextId]
+    [contextId],
   );
 
   const loadCatalog = useCallback(
     (effectivePath: string) =>
-      contextId
-        ? useWikiStore.getState().loadCatalog(contextId, effectivePath)
-        : Promise.resolve(),
-    [contextId]
+      contextId ? useWikiStore.getState().loadCatalog(contextId, effectivePath) : Promise.resolve(),
+    [contextId],
   );
 
   const checkForUpdates = useCallback(
@@ -391,7 +391,7 @@ export function useWikiContext(contextId: string | null) {
       contextId
         ? useWikiStore.getState().checkForUpdates(contextId, effectivePath)
         : Promise.resolve(),
-    [contextId]
+    [contextId],
   );
 
   const loadPage = useCallback(
@@ -399,15 +399,13 @@ export function useWikiContext(contextId: string | null) {
       contextId
         ? useWikiStore.getState().loadPage(contextId, effectivePath, filePath)
         : Promise.resolve(),
-    [contextId]
+    [contextId],
   );
 
   const setActivePage = useCallback(
     (pageId: string) =>
-      contextId
-        ? useWikiStore.getState().setActivePage(contextId, pageId)
-        : undefined,
-    [contextId]
+      contextId ? useWikiStore.getState().setActivePage(contextId, pageId) : undefined,
+    [contextId],
   );
 
   return useMemo(
@@ -419,7 +417,7 @@ export function useWikiContext(contextId: string | null) {
       loadPage,
       setActivePage,
     }),
-    [state, checkWikiExists, loadCatalog, checkForUpdates, loadPage, setActivePage]
+    [state, checkWikiExists, loadCatalog, checkForUpdates, loadPage, setActivePage],
   );
 }
 
@@ -428,7 +426,5 @@ export function useWikiContext(contextId: string | null) {
  * Returns null before first check, then true/false.
  */
 export function useWikiExists(contextId: string | null): boolean | null {
-  return useWikiStore((s) =>
-    contextId ? (s.contextStates[contextId]?.wikiExists ?? null) : null
-  );
+  return useWikiStore((s) => (contextId ? (s.contextStates[contextId]?.wikiExists ?? null) : null));
 }

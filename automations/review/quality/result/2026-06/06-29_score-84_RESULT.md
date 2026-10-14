@@ -10,28 +10,28 @@
 
 被审查提交：
 
-| Hash | 时间(UTC+8) | Author | Message |
-| --- | --- | --- | --- |
-| `585aebe2` | 2026-06-28 17:13:34 | AarynLu | Add terminal agent input shortcut |
-| `b91788c4` | 2026-06-28 20:33:10 | AarynLu | Add layered E2E CI and smoke suites |
-| `872be410` | 2026-06-28 20:33:32 | AarynLu | Fix ACP chat panel history UX |
-| `fd8644cc` | 2026-06-28 20:48:42 | AarynLu | Add desktop preview browser window |
-| `78bed522` | 2026-06-28 20:50:47 | AarynLu | Document Lottie skill workflow |
-| `0efba5cb` | 2026-06-28 20:50:53 | AarynLu | Fix desktop startup error routing |
-| `ea61e40e` | 2026-06-28 20:51:04 | AarynLu | Update web app shell interactions |
-| `e8e85f33` | 2026-06-28 20:51:11 | AarynLu | Refine agent and connection workflows |
-| `addce67d` | 2026-06-28 20:51:18 | AarynLu | Update automation canvas and review surfaces |
+| Hash       | 时间(UTC+8)         | Author  | Message                                        |
+| ---------- | ------------------- | ------- | ---------------------------------------------- |
+| `585aebe2` | 2026-06-28 17:13:34 | AarynLu | Add terminal agent input shortcut              |
+| `b91788c4` | 2026-06-28 20:33:10 | AarynLu | Add layered E2E CI and smoke suites            |
+| `872be410` | 2026-06-28 20:33:32 | AarynLu | Fix ACP chat panel history UX                  |
+| `fd8644cc` | 2026-06-28 20:48:42 | AarynLu | Add desktop preview browser window             |
+| `78bed522` | 2026-06-28 20:50:47 | AarynLu | Document Lottie skill workflow                 |
+| `0efba5cb` | 2026-06-28 20:50:53 | AarynLu | Fix desktop startup error routing              |
+| `ea61e40e` | 2026-06-28 20:51:04 | AarynLu | Update web app shell interactions              |
+| `e8e85f33` | 2026-06-28 20:51:11 | AarynLu | Refine agent and connection workflows          |
+| `addce67d` | 2026-06-28 20:51:18 | AarynLu | Update automation canvas and review surfaces   |
 | `cbac3dc9` | 2026-06-28 20:51:25 | AarynLu | Polish editor preview and repository workflows |
-| `7cb47cac` | 2026-06-28 20:51:35 | AarynLu | Refresh settings skills and terminal panels |
-| `60025c1e` | 2026-06-28 20:51:44 | AarynLu | Update workspace welcome and shared utilities |
-| `c76ab08f` | 2026-06-28 20:59:26 | AarynLu | Fix E2E CI startup race |
-| `95734fa4` | 2026-06-28 21:10:01 | AarynLu | Wait for API readiness in E2E server startup |
-| `a0f26015` | 2026-06-28 21:26:04 | AarynLu | Stabilize E2E smoke fixtures |
-| `01a5060b` | 2026-06-28 21:36:45 | AarynLu | Scope web CI checks by changed paths |
-| `fecf9019` | 2026-06-28 21:38:49 | AarynLu | Fix web lint regressions |
-| `6e600bfa` | 2026-06-28 21:38:59 | AarynLu | Limit web lint checks to source changes |
-| `fa7ae708` | 2026-06-28 21:40:59 | AarynLu | Fix agent chat session typecheck |
-| `ec72d48a` | 2026-06-28 21:44:10 | AarynLu | Stabilize cached web translators |
+| `7cb47cac` | 2026-06-28 20:51:35 | AarynLu | Refresh settings skills and terminal panels    |
+| `60025c1e` | 2026-06-28 20:51:44 | AarynLu | Update workspace welcome and shared utilities  |
+| `c76ab08f` | 2026-06-28 20:59:26 | AarynLu | Fix E2E CI startup race                        |
+| `95734fa4` | 2026-06-28 21:10:01 | AarynLu | Wait for API readiness in E2E server startup   |
+| `a0f26015` | 2026-06-28 21:26:04 | AarynLu | Stabilize E2E smoke fixtures                   |
+| `01a5060b` | 2026-06-28 21:36:45 | AarynLu | Scope web CI checks by changed paths           |
+| `fecf9019` | 2026-06-28 21:38:49 | AarynLu | Fix web lint regressions                       |
+| `6e600bfa` | 2026-06-28 21:38:59 | AarynLu | Limit web lint checks to source changes        |
+| `fa7ae708` | 2026-06-28 21:40:59 | AarynLu | Fix agent chat session typecheck               |
+| `ec72d48a` | 2026-06-28 21:44:10 | AarynLu | Stabilize cached web translators               |
 
 ## 2. 一份好代码应该是什么样
 
@@ -41,13 +41,13 @@
 
 总分 100 分，按 5 个维度评分：
 
-| 维度 | 权重 |
-| --- | ---: |
-| 设计与分层 | 30 |
-| 可读性与复杂度 | 25 |
-| 体量与内聚 | 20 |
-| 可维护性与复用 | 15 |
-| 工程卫生 | 10 |
+| 维度           | 权重 |
+| -------------- | ---: |
+| 设计与分层     |   30 |
+| 可读性与复杂度 |   25 |
+| 体量与内聚     |   20 |
+| 可维护性与复用 |   15 |
+| 工程卫生       |   10 |
 
 扣分口径：高严重度问题通常扣 8-15 分，中严重度扣 3-7 分，低严重度扣 1-2 分；同一问题只按主要影响扣一次，只有产生额外维护后果时才在其他维度少量扣分。体量阈值按组件、函数、workflow 的职责混杂程度判断，不机械按行数扣分。
 
@@ -59,13 +59,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 24/30 | `585aebe2` 的 terminal agent input overlay 同时承担 UI、上传、mention/slash、拖拽、动画和终端提交协议；`b91788c4` 的 E2E workflow 把 suite planning、报告解析、Pages 生成和 PR 评论正文都写在 YAML 中。 |
-| 可读性与复杂度 | 22/25 | 新增流程能读懂，但 `TerminalAgentInputOverlay` 和 `.github/workflows/ci-e2e.yml` 的主路径过长，调试时需要在多段状态和 heredoc 之间跳转。 |
-| 体量与内聚 | 17/20 | `TerminalAgentInputOverlay.tsx` 新增后达到 588 行；`ci-e2e.yml` 达到 610 行；`settings-modal-data.ts` 达到 961 行，虽然部分是配置，但配置和运行时翻译逻辑混在一起。 |
-| 可维护性与复用 | 12/15 | cached translator helper 在 web 侧约 61 个文件中重复出现；E2E 报告失败解析逻辑在 summary 和 PR comment 中重复。 |
-| 工程卫生 | 9/10 | 未发现调试残留或明显临时代码；但 `ec72d48a` 为绕过 translator 类型问题引入多处 `any` 和 eslint disable，属于局部卫生退步。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                |
+| -------------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 24/30 | `585aebe2` 的 terminal agent input overlay 同时承担 UI、上传、mention/slash、拖拽、动画和终端提交协议；`b91788c4` 的 E2E workflow 把 suite planning、报告解析、Pages 生成和 PR 评论正文都写在 YAML 中。 |
+| 可读性与复杂度 | 22/25 | 新增流程能读懂，但 `TerminalAgentInputOverlay` 和 `.github/workflows/ci-e2e.yml` 的主路径过长，调试时需要在多段状态和 heredoc 之间跳转。                                                                |
+| 体量与内聚     | 17/20 | `TerminalAgentInputOverlay.tsx` 新增后达到 588 行；`ci-e2e.yml` 达到 610 行；`settings-modal-data.ts` 达到 961 行，虽然部分是配置，但配置和运行时翻译逻辑混在一起。                                     |
+| 可维护性与复用 | 12/15 | cached translator helper 在 web 侧约 61 个文件中重复出现；E2E 报告失败解析逻辑在 summary 和 PR comment 中重复。                                                                                         |
+| 工程卫生       |  9/10 | 未发现调试残留或明显临时代码；但 `ec72d48a` 为绕过 translator 类型问题引入多处 `any` 和 eslint disable，属于局部卫生退步。                                                                              |
 
 ## 6. 主要问题清单
 

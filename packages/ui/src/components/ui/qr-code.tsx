@@ -18,11 +18,7 @@ export interface QRCodeProps extends React.SVGProps<SVGSVGElement> {
 }
 
 function isInFinderPattern(row: number, col: number, size: number): boolean {
-  return (
-    (row < 7 && col < 7) ||
-    (row < 7 && col >= size - 7) ||
-    (row >= size - 7 && col < 7)
-  );
+  return (row < 7 && col < 7) || (row < 7 && col >= size - 7) || (row >= size - 7 && col < 7);
 }
 
 export function QRCode({
@@ -66,10 +62,7 @@ export function QRCode({
 
   for (let row = 0; row < moduleCount; row++) {
     for (let col = 0; col < moduleCount; col++) {
-      if (
-        qrData.modules.get(row, col) &&
-        !isInFinderPattern(row, col, moduleCount)
-      ) {
+      if (qrData.modules.get(row, col) && !isInFinderPattern(row, col, moduleCount)) {
         circles.push({
           cx: (col + 0.5) * moduleSize,
           cy: (row + 0.5) * moduleSize,
@@ -88,13 +81,7 @@ export function QRCode({
       className={cn("block", className)}
       {...props}
     >
-      <rect
-        width={totalSize}
-        height={totalSize}
-        fill={bgColor}
-        rx="12"
-        ry="12"
-      />
+      <rect width={totalSize} height={totalSize} fill={bgColor} rx="12" ry="12" />
       {finderPositions.map(([r, c]) => {
         const x = c * moduleSize;
         const y = r * moduleSize;

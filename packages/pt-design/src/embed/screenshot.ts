@@ -5,12 +5,7 @@ import { thumbnailViewBox } from "../host/preview";
 import { canvasOriginInBoard, findCanvasOriginNode } from "./overlay/canvas-origin";
 import { boardCropFromScene } from "./preview-crop";
 import type { ExcalidrawCompatElement, ExcalidrawHostApi } from "./scene-bridge";
-import {
-  blobFromDataUrl,
-  blobToDataUrl,
-  dataUrlParts,
-  encodeCanvas,
-} from "./screenshot-encode";
+import { blobFromDataUrl, blobToDataUrl, dataUrlParts, encodeCanvas } from "./screenshot-encode";
 
 export { encodeCanvas };
 
@@ -74,7 +69,9 @@ function nodeIdsOf(elements: readonly ExcalidrawCompatElement[]): string[] {
   return ids;
 }
 
-function unionBBox(elements: readonly { x: number; y: number; width: number; height: number }[]): BBox {
+function unionBBox(
+  elements: readonly { x: number; y: number; width: number; height: number }[],
+): BBox {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -93,7 +90,12 @@ function intersectsBox(
   el: { x: number; y: number; width: number; height: number },
   box: { x: number; y: number; w: number; h: number },
 ): boolean {
-  return el.x < box.x + box.w && el.x + el.width > box.x && el.y < box.y + box.h && el.y + el.height > box.y;
+  return (
+    el.x < box.x + box.w &&
+    el.x + el.width > box.x &&
+    el.y < box.y + box.h &&
+    el.y + el.height > box.y
+  );
 }
 
 function findLiveBoard(): HTMLElement | null {
@@ -105,7 +107,11 @@ function findLiveBoard(): HTMLElement | null {
   return boards[0] ?? null;
 }
 
-async function cropDataUrlToLandscape(dataUrl: string, width: number, height: number): Promise<{
+async function cropDataUrlToLandscape(
+  dataUrl: string,
+  width: number,
+  height: number,
+): Promise<{
   dataUrl: string;
   width: number;
   height: number;
@@ -233,7 +239,13 @@ async function captureBoardDom(
   const paper = api.getAppState().viewBackgroundColor || "#fffef7";
   const snap = await snapBoard(board, paper);
   if (snap && snap.width > 1) {
-    const region = scaleCropToPixels(crop, snap.width, snap.height, boardRect.width, boardRect.height);
+    const region = scaleCropToPixels(
+      crop,
+      snap.width,
+      snap.height,
+      boardRect.width,
+      boardRect.height,
+    );
     if (region) {
       const painted = rasterCanvasFromCrop(snap, region, maxEdge, paper);
       if (painted) return encodeCanvas(painted, preview);
@@ -365,7 +377,9 @@ export async function captureLiveScreenshot(
   const dataUrlRaw = await blobToDataUrl(blob);
   const sizeRaw = await dataUrlSize(dataUrlRaw);
   const cropped =
-    args.preview === true ? await cropDataUrlToLandscape(dataUrlRaw, sizeRaw.width, sizeRaw.height) : { dataUrl: dataUrlRaw, ...sizeRaw };
+    args.preview === true
+      ? await cropDataUrlToLandscape(dataUrlRaw, sizeRaw.width, sizeRaw.height)
+      : { dataUrl: dataUrlRaw, ...sizeRaw };
   const dataUrl = cropped.dataUrl;
   const size = { width: cropped.width, height: cropped.height };
   const parts = dataUrlParts(dataUrl);

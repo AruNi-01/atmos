@@ -10,7 +10,7 @@ graph TB
     API -->|2. 消息分发| Infra[infra::WsService]
     Infra -->|3. 连接管理| Manager[WsManager]
     Infra -->|4. 控制消息| Control[ping/pong处理]
-    
+
     %% 问题所在：infra 需要调用 service
     Infra -.->|❓ 如何处理业务消息？| Service[core-service]
     API -->|6. 直接调用| Service
@@ -19,6 +19,7 @@ graph TB
 ## 🔍 当前实现的问题
 
 ### 1. **消息处理的分裂**
+
 ```rust
 // apps/api/src/api/ws/handlers.rs:119-126
 // 1. API层调用infra处理控制消息
@@ -38,12 +39,13 @@ if !state.ws_service.is_control_message(text_str) {
 **问题**：消息处理逻辑被分割在两个不同的层，API层需要承担判断消息类型和分发的责任。
 
 ### 2. **infra层的职责不完整**
+
 ```rust
 // crates/infra/src/websocket/service.rs:125-135
 // infra层只处理控制消息，业务消息仍需要上层判断
 pub async fn handle_control_message(&self, conn_id: &str, text: &str) -> Option<String> {
     self.manager.touch_connection(conn_id).await;
-    
+
     match process_text_message(text, conn_id) {
         HandleResult::Reply(response) => Some(response),  // 只处理ping/pong
         HandleResult::None => None,                      // 业务消息返回None
@@ -57,12 +59,13 @@ pub async fn handle_control_message(&self, conn_id: &str, text: &str) -> Option<
 ## 🎯 依赖反转的真正目的
 
 ### 场景1：**infra层需要处理所有消息**
+
 ```rust
 // 理想情况：infra层统一处理所有消息
 pub async fn handle_message(&self, conn_id: &str, text: &str) -> Option<String> {
     // 1. 更新活跃时间
     self.manager.touch_connection(conn_id).await;
-    
+
     // 2. 处理所有消息（控制 + 业务）
     match process_text_message(text, conn_id) {
         HandleResult::Reply(response) => Some(response),  // ping -> pong
@@ -80,6 +83,7 @@ pub async fn handle_message(&self, conn_id: &str, text: &str) -> Option<String> 
 ```
 
 ### 场景2：**API层的简化**
+
 ```rust
 // 改进后：API层只需要转发，无需判断消息类型
 pub async fn handle_incoming_message(
@@ -105,6 +109,7 @@ pub async fn handle_incoming_message(
 ## 🔧 正确的依赖反转实现
 
 ### 1. **WsService注入业务处理器**
+
 ```rust
 pub struct WsService {
     manager: Arc<WsManager>,
@@ -118,17 +123,17 @@ impl WsService {
         self.message_handler = Some(handler);
         self
     }
-    
+
     // 统一消息处理入口
     pub async fn handle_message(&self, conn_id: &str, text: &str) -> Option<String> {
         // 更新活跃时间
         self.manager.touch_connection(conn_id).await;
-        
+
         // 先处理控制消息
         if let Some(response) = self.handle_control_message_internal(text, conn_id).await {
             return Some(response);
         }
-        
+
         // 业务消息委托给注入的处理器
         if let Some(handler) = &self.message_handler {
             handler.handle_message(conn_id, text).await
@@ -141,6 +146,7 @@ impl WsService {
 ```
 
 ### 2. **WsMessageService实现接口**
+
 ```rust
 // crates/core-service/src/ws_message_service.rs
 #[async_trait]
@@ -159,11 +165,11 @@ impl infra::WsMessageHandler for WsMessageService {
             }
         }
     }
-    
+
     async fn on_connect(&self, conn_id: &str) {
         tracing::info!("WebSocket client connected: {}", conn_id);
     }
-    
+
     async fn on_disconnect(&self, conn_id: &str) {
         tracing::info!("WebSocket client disconnected: {}", conn_id);
     }
@@ -171,6 +177,7 @@ impl infra::WsMessageHandler for WsMessageService {
 ```
 
 ### 3. **初始化时的依赖注入**
+
 ```rust
 // apps/api/src/main.rs 或 app_state.rs
 impl AppState {
@@ -180,11 +187,11 @@ impl AppState {
     ) -> Self {
         let ws_message_service = Arc::new(WsMessageService::new(engine, db));
         let message_push_service = Arc::new(MessagePushService::new());
-        
+
         // 1. 创建WebSocket服务
         let ws_service = WsService::new()
             .with_message_handler(Box::new(ws_message_service.as_ref().clone()));
-        
+
         Self {
             ws_service: Arc::new(ws_service),
             message_push_service,
@@ -197,23 +204,25 @@ impl AppState {
 ## 🎯 依赖反转的好处
 
 ### 1. **职责清晰**
+
 - **infra层**：统一管理WebSocket连接和消息分发
 - **API层**：只负责HTTP升级和连接建立
 - **core-service层**：专注于业务逻辑处理
 
 ### 2. **消息处理统一**
+
 ```mermaid
 sequenceDiagram
     participant Client
     participant API
     participant Infra
     participant Service
-    
+
     Client->>API: WebSocket Message
     API->>Infra: handle_message()
     Infra->>Infra: update_last_active()
     Infra->>Infra: is_control_message?
-    
+
     alt Control Message
         Infra->>Infra: handle_ping_pong()
         Infra-->>API: response
@@ -222,34 +231,35 @@ sequenceDiagram
         Service-->>Infra: business_response
         Infra-->>API: response
     end
-    
+
     API->>Client: WebSocket Response
 ```
 
 ### 3. **测试友好**
+
 ```rust
 #[cfg(test)]
 mod tests {
     struct MockHandler {
         responses: HashMap<String, String>,
     }
-    
+
     #[async_trait]
     impl WsMessageHandler for MockHandler {
         async fn handle_message(&self, conn_id: &str, message: &str) -> Option<String> {
             self.responses.get(message).cloned()
         }
     }
-    
+
     #[tokio::test]
     async fn test_complete_message_flow() {
         let mock_handler = Box::new(MockHandler::new());
         let ws_service = WsService::new().with_message_handler(mock_handler);
-        
+
         // 测试控制消息
         let pong = ws_service.handle_message("test", "ping").await;
         assert_eq!(pong, Some("pong".to_string()));
-        
+
         // 测试业务消息
         let response = ws_service.handle_message("test", "hello").await;
         assert_eq!(response, Some("world".to_string()));
@@ -266,6 +276,7 @@ mod tests {
 3. **目的是统一消息处理** - 避免API层承担消息类型判断和分发的责任
 
 **依赖反转解决的核心问题**：
+
 - infra层作为WebSocket的基础设施，需要能够处理所有类型的消息
 - 但业务逻辑在core-service层，infra不应该直接依赖具体的业务实现
 - 通过WsMessageHandler接口，infra可以调用业务逻辑而不违反依赖原则

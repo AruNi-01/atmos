@@ -32,8 +32,8 @@ describe("hidden terminal write buffer", () => {
     const trimmed = trimHiddenTerminalWriteBuffer(chunks, 8);
     expect(trimmed.join("")).toHaveLength(8);
     expect(trimmed.join("")).toBe("ccccdddd");
-    expect(
-      trimHiddenTerminalWriteBuffer(["hello"], HIDDEN_TERMINAL_WRITE_BUFFER_MAX),
-    ).toEqual(["hello"]);
+    expect(trimHiddenTerminalWriteBuffer(["hello"], HIDDEN_TERMINAL_WRITE_BUFFER_MAX)).toEqual([
+      "hello",
+    ]);
   });
 });

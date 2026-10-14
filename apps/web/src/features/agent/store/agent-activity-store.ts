@@ -59,9 +59,9 @@ export const useAgentActivityStore = create<AgentActivityStore>((set, get) => ({
   init: () => {
     if (get()._unsubscribe) return;
 
-    const unsubscribeUpdated = useWebSocketStore.getState().onEvent(
-      "agent_activity_updated",
-      (payload: AgentActivity) => {
+    const unsubscribeUpdated = useWebSocketStore
+      .getState()
+      .onEvent("agent_activity_updated", (payload: AgentActivity) => {
         if (!payload?.session_id) return;
         clearedDuringHydrate.delete(payload.session_id);
         set((state) => {
@@ -69,12 +69,11 @@ export const useAgentActivityStore = create<AgentActivityStore>((set, get) => ({
           records.set(payload.session_id, payload);
           return { records };
         });
-      },
-    );
+      });
 
-    const unsubscribeCleared = useWebSocketStore.getState().onEvent(
-      "agent_activity_cleared",
-      (payload: { session_ids?: string[] }) => {
+    const unsubscribeCleared = useWebSocketStore
+      .getState()
+      .onEvent("agent_activity_cleared", (payload: { session_ids?: string[] }) => {
         const ids = payload?.session_ids ?? [];
         if (!ids.length) return;
         for (const id of ids) clearedDuringHydrate.add(id);
@@ -83,8 +82,7 @@ export const useAgentActivityStore = create<AgentActivityStore>((set, get) => ({
           for (const id of ids) records.delete(id);
           return { records };
         });
-      },
-    );
+      });
 
     void hydrateActivity();
 

@@ -9,25 +9,25 @@
 
 ## Coverage map
 
-| PRD | Scenarios |
-|-----|-----------|
-| M3 / M8 | S1 |
-| M4 / M5 copy / M8 | S2 |
-| M5 symlink / M8 | S3 |
-| M6 | S4 |
-| M1 / M2 | S5 |
-| N3 | S6 |
+| PRD               | Scenarios |
+| ----------------- | --------- |
+| M3 / M8           | S1        |
+| M4 / M5 copy / M8 | S2        |
+| M5 symlink / M8   | S3        |
+| M6                | S4        |
+| M1 / M2           | S5        |
+| N3                | S6        |
 
 ## Execution map
 
-| ID | Level | Tool | Target | Status |
-|----|-------|------|--------|--------|
-| S1 | unit | cargo | `core-service` skill tests | pass |
-| S2 | unit | cargo | `core-service` skill tests | pass |
-| S3 | unit | cargo | `core-service` skill tests | pass |
-| S4 | manual | UI | Dynamic Skills popover tip | pending |
-| S5 | manual | UI | Welcome + terminal `/` Dynamic Skills | pending |
-| S6 | manual | UI | `/` skill list Disabled badge | pending |
+| ID  | Level  | Tool  | Target                                | Status  |
+| --- | ------ | ----- | ------------------------------------- | ------- |
+| S1  | unit   | cargo | `core-service` skill tests            | pass    |
+| S2  | unit   | cargo | `core-service` skill tests            | pass    |
+| S3  | unit   | cargo | `core-service` skill tests            | pass    |
+| S4  | manual | UI    | Dynamic Skills popover tip            | pending |
+| S5  | manual | UI    | Welcome + terminal `/` Dynamic Skills | pending |
+| S6  | manual | UI    | `/` skill list Disabled badge         | pending |
 
 ## Scenarios
 
@@ -89,13 +89,13 @@ disabled storage holds the moved workplace entry (after materialization).
 
 _Updated 2026-07-22_
 
-| ID | Status | Evidence |
-|----|--------|----------|
-| S1 | pass | `cargo +stable test -p core-service --lib skill::tests::project_disable_moves_skill_into_disabled_storage` |
-| S2 | pass | `…workspace_copy_disable_is_local_to_workplace` |
-| S3 | pass | `…workspace_parent_symlink_disable_does_not_mutate_project` |
-| S4 | pending | Manual — `skills.composerDisable.sessionTip` / Dynamic Skills title |
-| S5 | pending | Manual — `/` command id `dynamic-skills` on Welcome + terminal |
-| S6 | pending | Manual — Disabled badge non-selectable in slash skills list |
+| ID  | Status  | Evidence                                                                                                   |
+| --- | ------- | ---------------------------------------------------------------------------------------------------------- |
+| S1  | pass    | `cargo +stable test -p core-service --lib skill::tests::project_disable_moves_skill_into_disabled_storage` |
+| S2  | pass    | `…workspace_copy_disable_is_local_to_workplace`                                                            |
+| S3  | pass    | `…workspace_parent_symlink_disable_does_not_mutate_project`                                                |
+| S4  | pending | Manual — `skills.composerDisable.sessionTip` / Dynamic Skills title                                        |
+| S5  | pending | Manual — `/` command id `dynamic-skills` on Welcome + terminal                                             |
+| S6  | pending | Manual — Disabled badge non-selectable in slash skills list                                                |
 
 Regression: `cargo +stable check -p api` green after WS `skills_scan_root` / `skills_set_enabled.scope_root` additions; skill unit suite green after `SKILL_DISABLED.md` marker + macOS path-prefix materialize fix.

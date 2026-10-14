@@ -22,8 +22,7 @@ export function useDesktopTrafficLightsPadding(): boolean {
 
   useEffect(() => {
     const isMac =
-      typeof navigator !== "undefined" &&
-      /Macintosh|Mac OS X/i.test(navigator.userAgent);
+      typeof navigator !== "undefined" && /Macintosh|Mac OS X/i.test(navigator.userAgent);
 
     if (!isMac || !isDesktopRuntime()) {
       setNeedsPadding(false);

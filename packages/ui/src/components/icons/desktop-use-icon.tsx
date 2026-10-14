@@ -11,16 +11,7 @@ import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
  * - Hover: light wiggle on the pointer tail
  */
 const DesktopUseIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
-  (
-    {
-      size = 24,
-      color = "currentColor",
-      strokeWidth = 2,
-      className = "",
-      ...props
-    },
-    ref,
-  ) => {
+  ({ size = 24, color = "currentColor", strokeWidth = 2, className = "", ...props }, ref) => {
     const [scope, animate] = useAnimate();
 
     const start = useCallback(async () => {
@@ -69,10 +60,7 @@ const DesktopUseIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           Click pointer on the top-right notch, tip pointing ↗ (upper-right).
           mouse-pointer-click is mirrored on X so the tip faces the open corner.
         */}
-        <motion.g
-          className="du-pointer"
-          style={{ transformOrigin: "19px 5px" }}
-        >
+        <motion.g className="du-pointer" style={{ transformOrigin: "19px 5px" }}>
           {/*
             scale(-s, s) mirrors the lucide pointer (default tip ↖ → tip ↗).
             translate places the tip on the screen-share open corner.

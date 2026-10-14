@@ -3,11 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
-import {
-  ConversationScrollButton,
-  SlidingNumber,
-  TextMorph,
-} from "@workspace/ui";
+import { ConversationScrollButton, SlidingNumber, TextMorph } from "@workspace/ui";
 import type { MessagesBelowCountStore } from "../lib/agent-chat-below-count";
 
 export function AgentChatScrollToBottomButton({
@@ -46,7 +42,7 @@ function AgentChatScrollBelowCopy({ count }: { count: number }) {
     <span
       data-agent-chat-scroll-below=""
       aria-hidden="true"
-      className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium tabular-nums leading-none"
+      className="inline-flex items-center gap-1 text-xs leading-none font-medium whitespace-nowrap tabular-nums"
     >
       {prefix ? <span>{prefix}</span> : null}
       <SlidingNumber value={count} />

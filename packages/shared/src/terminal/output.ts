@@ -58,4 +58,3 @@ export function coalesceTerminalWriteChunks(chunks: TerminalWriteChunk[]): Termi
 
   return coalesced;
 }
-

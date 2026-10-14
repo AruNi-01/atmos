@@ -33,9 +33,11 @@ export function GlobalSearchSubViewFrame({
 
       {children}
 
-      <div className="mt-auto flex h-[38px] shrink-0 select-none items-center justify-end border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80">
+      <div className="mt-auto flex h-[38px] shrink-0 items-center justify-end border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80 select-none">
         <span className="flex items-center gap-1.5 opacity-80">
-          <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">Esc</kbd>
+          <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">
+            Esc
+          </kbd>
           <span>{t("globalSearch.back")}</span>
         </span>
       </div>

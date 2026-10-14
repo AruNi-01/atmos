@@ -9,10 +9,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  cookieHelperBinName,
-  findCookieHelperBinary,
-} from "./helper-resolve.js";
+import { cookieHelperBinName, findCookieHelperBinary } from "./helper-resolve.js";
 
 export type BrowserProfileDto = {
   profile_handle: string;
@@ -94,17 +91,13 @@ export function resolveBrowserCookiesHelper(
     (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
   const repoRoot = options.repoRoot ?? REPO_ROOT;
   const env = options.env ?? process.env;
-  const allowCargo =
-    options.allowCargo ?? env.ATMOS_ALLOW_CARGO_COOKIE_HELPER === "1";
+  const allowCargo = options.allowCargo ?? env.ATMOS_ALLOW_CARGO_COOKIE_HELPER === "1";
 
   const found = findCookieHelperBinary({
     repoRoot,
     binName,
     resourcesPath: resourcesPath || undefined,
-    packageResourcesBin: join(
-      repoRoot,
-      "apps/desktop-electron/resources/bin",
-    ),
+    packageResourcesBin: join(repoRoot, "apps/desktop-electron/resources/bin"),
     cargoTargets: options.cargoTargets,
     env,
   });
@@ -121,15 +114,7 @@ export function resolveBrowserCookiesHelper(
     return {
       mode: "cargo",
       path: "cargo",
-      argsPrefix: [
-        "run",
-        "-q",
-        "-p",
-        "browser-cookies",
-        "--bin",
-        "atmos-browser-cookies",
-        "--",
-      ],
+      argsPrefix: ["run", "-q", "-p", "browser-cookies", "--bin", "atmos-browser-cookies", "--"],
       source: "cargo-fallback",
     };
   }
@@ -205,10 +190,7 @@ function throwCookieError(
     if (e && typeof e === "object" && "code" in e) throw e;
   }
   const detail =
-    extras?.spawnError ||
-    stdout.trim() ||
-    extras?.stderr?.trim() ||
-    "cookie helper failed";
+    extras?.spawnError || stdout.trim() || extras?.stderr?.trim() || "cookie helper failed";
   throw { code: fallback, message: detail };
 }
 
@@ -235,16 +217,12 @@ export function listImportableBrowsers(): BrowserProfileDto[] {
   }
 }
 
-export async function clearBrowserCache(
-  browserSession: Session,
-): Promise<{ ok: true }> {
+export async function clearBrowserCache(browserSession: Session): Promise<{ ok: true }> {
   await browserSession.clearCache();
   return { ok: true };
 }
 
-export async function clearBrowserSiteData(
-  browserSession: Session,
-): Promise<{ ok: true }> {
+export async function clearBrowserSiteData(browserSession: Session): Promise<{ ok: true }> {
   await browserSession.clearStorageData({
     storages: [
       "cookies",
@@ -259,9 +237,7 @@ export async function clearBrowserSiteData(
   return { ok: true };
 }
 
-function sameSiteToElectron(
-  s: string,
-): "unspecified" | "no_restriction" | "lax" | "strict" {
+function sameSiteToElectron(s: string): "unspecified" | "no_restriction" | "lax" | "strict" {
   switch (s) {
     case "none":
       return "no_restriction";
@@ -297,11 +273,7 @@ export async function importBrowserCookies(
   try {
     extraction = JSON.parse(r.stdout) as ExtractionResult;
   } catch (e) {
-    console.error(
-      "[cookies] extract JSON parse failed",
-      e,
-      r.stdout.slice(0, 400),
-    );
+    console.error("[cookies] extract JSON parse failed", e, r.stdout.slice(0, 400));
     throw {
       code: "Io",
       message: "cookie helper returned invalid extract payload",
@@ -326,16 +298,12 @@ export async function importBrowserCookies(
         path: c.identity.path || "/",
         secure: c.secure,
         httpOnly: c.http_only,
-        expirationDate:
-          c.has_expires && c.expires != null ? c.expires : undefined,
+        expirationDate: c.has_expires && c.expires != null ? c.expires : undefined,
         sameSite: sameSiteToElectron(c.same_site),
       });
       imported += 1;
     } catch (e) {
-      console.error(
-        `[cookies] inject failed name=${c.identity.name} domain=${domain}`,
-        e,
-      );
+      console.error(`[cookies] inject failed name=${c.identity.name} domain=${domain}`, e);
       failed += 1;
     }
   }

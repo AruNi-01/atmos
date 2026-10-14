@@ -2,13 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  cn,
-} from "@workspace/ui";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@workspace/ui";
 import { Coins, X } from "lucide-react";
 import type { AgentSessionUsage, AgentTurnUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import type { QuotaProviderResponse } from "@/api/ws-api";
@@ -36,7 +30,12 @@ import {
   quotaMetricShowsBar,
   quotaMetrics,
 } from "@/app-shell/quota-popover-utils";
-import { QuotaFetchFailureBanner, QuotaModeTabs, UsageBar, UsageBarLegend } from "@/app-shell/quota-popover-components";
+import {
+  QuotaFetchFailureBanner,
+  QuotaModeTabs,
+  UsageBar,
+  UsageBarLegend,
+} from "@/app-shell/quota-popover-components";
 
 function CircularProgress({
   percent,
@@ -52,11 +51,7 @@ function CircularProgress({
   const clamped = Math.min(100, Math.max(0, percent));
   const offset = circumference * (1 - clamped / 100);
   return (
-    <svg
-      viewBox="0 0 16 16"
-      className={cn("size-3.5 shrink-0", className)}
-      aria-hidden="true"
-    >
+    <svg viewBox="0 0 16 16" className={cn("size-3.5 shrink-0", className)} aria-hidden="true">
       <circle
         cx="8"
         cy="8"
@@ -83,13 +78,7 @@ function CircularProgress({
   );
 }
 
-function ContextUsageBar({
-  percent,
-  tone,
-}: {
-  percent: number;
-  tone: ContextWindowBarTone;
-}) {
+function ContextUsageBar({ percent, tone }: { percent: number; tone: ContextWindowBarTone }) {
   const clamped = Math.min(100, Math.max(0, percent));
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -104,11 +93,7 @@ function ContextUsageBar({
   );
 }
 
-function AgentQuotaSection({
-  provider,
-}: {
-  provider: QuotaProviderResponse;
-}) {
+function AgentQuotaSection({ provider }: { provider: QuotaProviderResponse }) {
   const t = useTranslations("Agent.components.contextWindow");
   const tQuota = useTranslations("appShell.usagePopover");
   const locale = useLocale();
@@ -155,7 +140,10 @@ function AgentQuotaSection({
               useDroidToStartLabel: tQuota("formatters.useDroidToStart"),
             },
           });
-          const usedText = view.percent != null ? `${Math.round(view.percent)}% ${tQuota("detail.usedSuffix")}` : view.valueText;
+          const usedText =
+            view.percent != null
+              ? `${Math.round(view.percent)}% ${tQuota("detail.usedSuffix")}`
+              : view.valueText;
           return (
             <div
               key={
@@ -186,7 +174,10 @@ function AgentQuotaSection({
                 />
               ) : null}
               {view.segments.length > 0 ? (
-                <UsageBarLegend segments={view.segments} className="text-[10px] text-muted-foreground" />
+                <UsageBarLegend
+                  segments={view.segments}
+                  className="text-[10px] text-muted-foreground"
+                />
               ) : null}
             </div>
           );
@@ -210,12 +201,8 @@ function useMatchedQuota(providerId: string | null | undefined, enabled: boolean
     if (quotaIds.length === 0) return null;
     const providers = quotaQuery.data?.providers ?? [];
     return (
-      providers.find(
-        (item) =>
-          quotaIds.includes(item.id)
-          && item.switch_enabled
-          && item.enabled,
-      ) ?? null
+      providers.find((item) => quotaIds.includes(item.id) && item.switch_enabled && item.enabled) ??
+      null
     );
   }, [quotaIds, quotaQuery.data?.providers]);
 
@@ -369,7 +356,7 @@ export function ContextWindowUsageControl({
       aria-controls={open ? "agent-context-usage-panel" : undefined}
       onClick={() => setOpen(!open)}
       className={cn(
-        "inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-[11px] font-medium tabular-nums text-muted-foreground transition-colors",
+        "inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-[11px] font-medium text-muted-foreground tabular-nums transition-colors",
         "bg-transparent hover:bg-muted/60 hover:text-foreground",
         open && "bg-muted/60 text-foreground",
         className,
@@ -391,19 +378,13 @@ export function SessionUsageBadge({
   className?: string;
   providerId?: string | null;
 }) {
-  return (
-    <ContextWindowUsageControl
-      usage={usage}
-      providerId={providerId}
-      className={className}
-    />
-  );
+  return <ContextWindowUsageControl usage={usage} providerId={providerId} className={className} />;
 }
 
 export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
   const t = useTranslations("Agent.components");
   const locale = useLocale();
-  const totalTokens = usage.total_tokens ?? ((usage.input_tokens ?? 0) + (usage.output_tokens ?? 0));
+  const totalTokens = usage.total_tokens ?? (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
   const total = totalTokens >= 1000 ? `${(totalTokens / 1000).toFixed(1)}k` : totalTokens;
 
   if (usage.total_tokens == null && usage.input_tokens == null && usage.output_tokens == null) {
@@ -419,11 +400,9 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
             <span>{total}</span>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="p-3 w-52 z-100">
+        <TooltipContent side="top" align="center" className="z-100 w-52 p-3">
           <div className="space-y-1.5">
-            <div className="mb-1 pb-1 text-xs font-semibold">
-              {t("usageBadges.turn.title")}
-            </div>
+            <div className="mb-1 pb-1 text-xs font-semibold">{t("usageBadges.turn.title")}</div>
             <div className="h-px w-full bg-background/20" />
             <div className="flex justify-between text-[11px]">
               <span>{t("usageBadges.turn.input")}</span>
@@ -436,7 +415,9 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
             {usage.thought_tokens != null && (
               <div className="flex justify-between text-[11px]">
                 <span>{t("usageBadges.turn.thought")}</span>
-                <span className="font-mono">{(usage.thought_tokens ?? 0).toLocaleString(locale)}</span>
+                <span className="font-mono">
+                  {(usage.thought_tokens ?? 0).toLocaleString(locale)}
+                </span>
               </div>
             )}
             {(usage.cached_read_tokens != null || usage.cached_write_tokens != null) && (
@@ -445,13 +426,17 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
                 {usage.cached_read_tokens != null && (
                   <div className="flex justify-between text-[11px]">
                     <span>{t("usageBadges.turn.cacheRead")}</span>
-                    <span className="font-mono">{(usage.cached_read_tokens ?? 0).toLocaleString(locale)}</span>
+                    <span className="font-mono">
+                      {(usage.cached_read_tokens ?? 0).toLocaleString(locale)}
+                    </span>
                   </div>
                 )}
                 {usage.cached_write_tokens != null && (
                   <div className="flex justify-between text-[11px]">
                     <span>{t("usageBadges.turn.cacheWrite")}</span>
-                    <span className="font-mono">{(usage.cached_write_tokens ?? 0).toLocaleString(locale)}</span>
+                    <span className="font-mono">
+                      {(usage.cached_write_tokens ?? 0).toLocaleString(locale)}
+                    </span>
                   </div>
                 )}
               </div>

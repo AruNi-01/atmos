@@ -63,10 +63,7 @@ describe("canvas-terminal-placement", () => {
     const { x, y } = findCanvasTerminalPlacement(snapshot, "page:page", { w: 720, h: 420 });
 
     const overlaps =
-      x < 400 + 400 + 32 &&
-      x + 720 + 32 > 400 &&
-      y < 300 + 300 + 32 &&
-      y + 420 + 32 > 300;
+      x < 400 + 400 + 32 && x + 720 + 32 > 400 && y < 300 + 300 + 32 && y + 420 + 32 > 300;
     expect(overlaps).toBe(false);
     expect(x).toBeGreaterThanOrEqual(400 + 400 + 32);
     expect(x).toBeLessThan(400 + 400 + 32 + 200);

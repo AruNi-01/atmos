@@ -1,6 +1,13 @@
-import { getAvailableSourceLocatorCapabilities, locateSourceForElement } from '../source-locators/registry';
-import { createPreviewHelperBridge } from './bridge';
-import { buildElementSelector, getPreviewElementRect, inspectPreviewElement } from './dom-inspector';
+import {
+  getAvailableSourceLocatorCapabilities,
+  locateSourceForElement,
+} from "../source-locators/registry";
+import { createPreviewHelperBridge } from "./bridge";
+import {
+  buildElementSelector,
+  getPreviewElementRect,
+  inspectPreviewElement,
+} from "./dom-inspector";
 import {
   PREVIEW_PICKER_HOVER_COLOR,
   PREVIEW_PICKER_HOVER_BORDER_COLOR,
@@ -8,9 +15,9 @@ import {
   PREVIEW_PICKER_LOCKED_BORDER_COLOR,
   createPreviewOverlay,
   createPreviewPickerCursor,
-} from './overlay';
-import { createPreviewSelectionState } from './selection-state';
-import type { PreviewHelperCapability, PreviewHelperPayload, PreviewHoverPayload } from './types';
+} from "./overlay";
+import { createPreviewSelectionState } from "./selection-state";
+import type { PreviewHelperCapability, PreviewHelperPayload, PreviewHoverPayload } from "./types";
 
 interface InstallPreviewHelperOptions {
   sessionId: string;
@@ -47,13 +54,13 @@ function isInspectableElement(
 function isIgnoredElement(element: Element): boolean {
   if (element.closest('[data-atmos-browser-overlay="true"]')) return true;
   const tagName = element.tagName.toLowerCase();
-  if (tagName === 'html' || tagName === 'body') return true;
+  if (tagName === "html" || tagName === "body") return true;
   const rect = element.getBoundingClientRect();
   return rect.width < 4 || rect.height < 4;
 }
 
 function getPageTitle(win: Window): string {
-  return win.document.title?.trim() ?? '';
+  return win.document.title?.trim() ?? "";
 }
 
 function getPageFaviconUrl(win: Window): string {
@@ -75,9 +82,9 @@ function getPageFaviconUrl(win: Window): string {
   }
 
   try {
-    return new URL('/favicon.ico', win.location.origin).href;
+    return new URL("/favicon.ico", win.location.origin).href;
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -87,7 +94,7 @@ function resolvePreviewOpenTabUrl(win: Window, value: string | undefined | null)
 
   try {
     const parsedUrl = new URL(rawValue, win.location.href);
-    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:'
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
       ? parsedUrl.href
       : null;
   } catch {
@@ -96,15 +103,11 @@ function resolvePreviewOpenTabUrl(win: Window, value: string | undefined | null)
 }
 
 function shouldOpenAnchorInNewTab(anchor: HTMLAnchorElement, event: MouseEvent): boolean {
-  const target = anchor.getAttribute('target')?.trim().toLowerCase();
+  const target = anchor.getAttribute("target")?.trim().toLowerCase();
   const opensSeparateContext =
-    Boolean(target) && target !== '_self' && target !== '_parent' && target !== '_top';
+    Boolean(target) && target !== "_self" && target !== "_parent" && target !== "_top";
   return (
-    event.button === 1 ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    opensSeparateContext
+    event.button === 1 || event.metaKey || event.ctrlKey || event.shiftKey || opensSeparateContext
   );
 }
 
@@ -124,7 +127,7 @@ export function installPreviewHelper(
     PREVIEW_PICKER_LOCKED_COLOR,
     PREVIEW_PICKER_LOCKED_BORDER_COLOR,
   );
-  let parentOrigin = '*';
+  let parentOrigin = "*";
   try {
     parentOrigin = win.parent.location.origin;
   } catch {
@@ -144,7 +147,7 @@ export function installPreviewHelper(
     overlay.clearHover();
     options.onHover?.(null);
     bridge.hover(null);
-    overlay.setCursor(state.enabled ? hoverCursor : 'default');
+    overlay.setCursor(state.enabled ? hoverCursor : "default");
     if (notifyHost) {
       options.onCleared?.();
       bridge.cleared();
@@ -204,7 +207,10 @@ export function installPreviewHelper(
   };
 
   const isOverlayTarget = (target: EventTarget | null) => {
-    return isInspectableElement(target, elementCtor) && Boolean(target.closest('[data-atmos-browser-overlay="true"]'));
+    return (
+      isInspectableElement(target, elementCtor) &&
+      Boolean(target.closest('[data-atmos-browser-overlay="true"]'))
+    );
   };
 
   const blockPagePointerEvent = (event: Event) => {
@@ -250,18 +256,18 @@ export function installPreviewHelper(
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
-    if (!state.enabled || event.key !== 'Escape') return;
+    if (!state.enabled || event.key !== "Escape") return;
     clearSelection(true);
   };
 
-  doc.addEventListener('mousemove', handleMouseMove, true);
-  doc.addEventListener('pointerdown', blockPagePointerEvent, true);
-  doc.addEventListener('mousedown', blockPagePointerEvent, true);
-  doc.addEventListener('mouseup', blockPagePointerEvent, true);
-  doc.addEventListener('click', handleClick, true);
-  doc.addEventListener('dblclick', blockPagePointerEvent, true);
-  doc.addEventListener('contextmenu', blockPagePointerEvent, true);
-  win.addEventListener('keydown', handleKeyDown, true);
+  doc.addEventListener("mousemove", handleMouseMove, true);
+  doc.addEventListener("pointerdown", blockPagePointerEvent, true);
+  doc.addEventListener("mousedown", blockPagePointerEvent, true);
+  doc.addEventListener("mouseup", blockPagePointerEvent, true);
+  doc.addEventListener("click", handleClick, true);
+  doc.addEventListener("dblclick", blockPagePointerEvent, true);
+  doc.addEventListener("contextmenu", blockPagePointerEvent, true);
+  win.addEventListener("keydown", handleKeyDown, true);
 
   let lastKnownPath = win.location.pathname + win.location.hash;
   let lastKnownTitle = getPageTitle(win);
@@ -285,8 +291,8 @@ export function installPreviewHelper(
     const target = event.target;
     if (!isInspectableElement(target, elementCtor)) return;
 
-    const anchor = target.closest('a[href]');
-    if (!anchor || anchor.tagName.toLowerCase() !== 'a') return;
+    const anchor = target.closest("a[href]");
+    if (!anchor || anchor.tagName.toLowerCase() !== "a") return;
     const link = anchor as HTMLAnchorElement;
     if (!shouldOpenAnchorInNewTab(link, event)) return;
 
@@ -313,14 +319,14 @@ export function installPreviewHelper(
   };
 
   const handlePopState = () => checkUrlChange();
-  doc.addEventListener('click', handleOpenTabClick, true);
-  doc.addEventListener('auxclick', handleOpenTabClick, true);
-  win.addEventListener('popstate', handlePopState);
+  doc.addEventListener("click", handleOpenTabClick, true);
+  doc.addEventListener("auxclick", handleOpenTabClick, true);
+  win.addEventListener("popstate", handlePopState);
   const titleObserverTarget = doc.head ?? doc.documentElement;
   const titleObserver =
-    titleObserverTarget && typeof MutationObserver === 'function'
+    titleObserverTarget && typeof MutationObserver === "function"
       ? new MutationObserver(() => {
-        const nextTitle = getPageTitle(win);
+          const nextTitle = getPageTitle(win);
           const nextFaviconUrl = getPageFaviconUrl(win);
           if (nextTitle === lastKnownTitle && nextFaviconUrl === lastKnownFaviconUrl) return;
           lastKnownTitle = nextTitle;
@@ -343,14 +349,10 @@ export function installPreviewHelper(
     checkUrlChange();
   };
   const originalOpen = win.open.bind(win);
-  win.open = function (
-    url?: string | URL,
-    target?: string,
-    features?: string,
-  ): WindowProxy | null {
-    const targetName = target?.trim().toLowerCase() ?? '';
+  win.open = function (url?: string | URL, target?: string, features?: string): WindowProxy | null {
+    const targetName = target?.trim().toLowerCase() ?? "";
     const targetUrl = resolvePreviewOpenTabUrl(win, url == null ? null : String(url));
-    if (targetUrl && targetName !== '_self' && targetName !== '_parent' && targetName !== '_top') {
+    if (targetUrl && targetName !== "_self" && targetName !== "_parent" && targetName !== "_top") {
       emitOpenTab(targetUrl);
       return null;
     }
@@ -358,9 +360,9 @@ export function installPreviewHelper(
   };
 
   const capabilities: PreviewHelperCapability[] = [
-    'dom-inspection',
-    'element-selection',
-    ...getAvailableSourceLocatorCapabilities(win) as PreviewHelperCapability[],
+    "dom-inspection",
+    "element-selection",
+    ...(getAvailableSourceLocatorCapabilities(win) as PreviewHelperCapability[]),
   ];
   const initialTitle = getPageTitle(win);
   const initialFaviconUrl = getPageFaviconUrl(win);
@@ -380,21 +382,21 @@ export function installPreviewHelper(
       state.hovered = null;
       overlay.clearLocked();
       overlay.clearHover();
-      overlay.setCursor('default');
+      overlay.setCursor("default");
     },
     clearSelection,
     destroy() {
-      doc.removeEventListener('mousemove', handleMouseMove, true);
-      doc.removeEventListener('pointerdown', blockPagePointerEvent, true);
-      doc.removeEventListener('mousedown', blockPagePointerEvent, true);
-      doc.removeEventListener('mouseup', blockPagePointerEvent, true);
-      doc.removeEventListener('click', handleClick, true);
-      doc.removeEventListener('dblclick', blockPagePointerEvent, true);
-      doc.removeEventListener('contextmenu', blockPagePointerEvent, true);
-      doc.removeEventListener('click', handleOpenTabClick, true);
-      doc.removeEventListener('auxclick', handleOpenTabClick, true);
-      win.removeEventListener('keydown', handleKeyDown, true);
-      win.removeEventListener('popstate', handlePopState);
+      doc.removeEventListener("mousemove", handleMouseMove, true);
+      doc.removeEventListener("pointerdown", blockPagePointerEvent, true);
+      doc.removeEventListener("mousedown", blockPagePointerEvent, true);
+      doc.removeEventListener("mouseup", blockPagePointerEvent, true);
+      doc.removeEventListener("click", handleClick, true);
+      doc.removeEventListener("dblclick", blockPagePointerEvent, true);
+      doc.removeEventListener("contextmenu", blockPagePointerEvent, true);
+      doc.removeEventListener("click", handleOpenTabClick, true);
+      doc.removeEventListener("auxclick", handleOpenTabClick, true);
+      win.removeEventListener("keydown", handleKeyDown, true);
+      win.removeEventListener("popstate", handlePopState);
       titleObserver?.disconnect();
       win.history.pushState = originalPushState;
       win.history.replaceState = originalReplaceState;

@@ -4,21 +4,21 @@
 
 TECH defines `ChatSessionId` and `ws` action names, but types are not in the repo yet.
 
-| ID | Wave | Owns |
-|----|------|------|
-| S0 | 0 serial | `packages/api-types/src/ws/dto/agent-chat.ts`, `contract/agent-chat.ts` |
-| S1 | 1 | `crates/agent/src/session/**`, `apps/api/src/api/ws/agent_chat*.rs` |
-| S2 | 1 | `apps/web/src/features/agent/lib/**` (excludes `messages/*.json`) |
-| S3 | 2 serial | `apps/web/messages/en.json`, `apps/web/messages/zh.json` |
+| ID  | Wave     | Owns                                                                    |
+| --- | -------- | ----------------------------------------------------------------------- |
+| S0  | 0 serial | `packages/api-types/src/ws/dto/agent-chat.ts`, `contract/agent-chat.ts` |
+| S1  | 1        | `crates/agent/src/session/**`, `apps/api/src/api/ws/agent_chat*.rs`     |
+| S2  | 1        | `apps/web/src/features/agent/lib/**` (excludes `messages/*.json`)       |
+| S3  | 2 serial | `apps/web/messages/en.json`, `apps/web/messages/zh.json`                |
 
 S1 and S2 cannot run in parallel before S0 lands. S3 is a hot file — always its own wave.
 
 ## Bad: “layer” split with shared files
 
-| Slice | Wrong Owns |
-|-------|------------|
-| “Backend” | `crates/agent/**` |
-| “Frontend” | `apps/web/**` |
+| Slice      | Wrong Owns        |
+| ---------- | ----------------- |
+| “Backend”  | `crates/agent/**` |
+| “Frontend” | `apps/web/**`     |
 
 Too broad. `apps/web/**` includes locale, stores, unrelated features. If both briefs say “add a WS field,” both will touch `packages/api-types`.
 

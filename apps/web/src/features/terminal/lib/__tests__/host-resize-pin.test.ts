@@ -47,12 +47,8 @@ describe("host-resize-pin", () => {
   });
 
   it("always discards TUI scrollback on resize so old frames cannot stack", () => {
-    expect(shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: true })).toBe(
-      true,
-    );
-    expect(shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: false })).toBe(
-      false,
-    );
+    expect(shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: true })).toBe(true);
+    expect(shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: false })).toBe(false);
   });
 
   it("does not SIGWINCH an idle shell while a host splitter is dragged", () => {
@@ -189,10 +185,7 @@ describe("host-resize-pin", () => {
 
 describe("host resize wiring", () => {
   it("fits xterm locally and holds shell PTY until settle", () => {
-    const terminal = readFileSync(
-      join(import.meta.dir, "../../components/Terminal.tsx"),
-      "utf8",
-    );
+    const terminal = readFileSync(join(import.meta.dir, "../../components/Terminal.tsx"), "utf8");
     expect(terminal).toContain("createHostResizePinScheduler");
     expect(terminal).toContain("createStableGridScheduler");
     expect(terminal).toContain("captureXtermResizeScroll");
@@ -207,10 +200,7 @@ describe("host resize wiring", () => {
     expect(terminal).not.toContain("clearTextureAtlas");
     expect(terminal).not.toContain("paintXtermAfterGridChange");
     expect(terminal).toContain("hostResizePinRef.current.flush()");
-    const theme = readFileSync(
-      join(import.meta.dir, "../theme.ts"),
-      "utf8",
-    );
+    const theme = readFileSync(join(import.meta.dir, "../theme.ts"), "utf8");
     expect(theme).toContain("reflowCursorLine: false");
   });
 

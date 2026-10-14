@@ -33,14 +33,14 @@ The `Execution map` is the key addition. It maps each scenario to the expected t
 
 ### Tool responsibilities
 
-| Layer | Role |
-|-------|------|
-| Rust tests | Business rules, DB/repo behavior, WS/service contracts, backend edge cases |
-| Bun tests | Frontend store/hooks/lib behavior, mobile client logic, shared TS utilities |
-| Service/API tests | WS action routing, DTO normalization, authorization, cross-layer behavior |
-| Playwright/E2E | Future committed harness for a few core user journeys; not assumed to exist |
-| agent-browser | Exploratory UI/workflow smoke checks through Vercel Agent Browser (`agent-browser`): copy, layout, responsive behavior, console/network failures, recovery flows |
-| Manual | External services or OS/device states that remain too expensive to automate |
+| Layer             | Role                                                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust tests        | Business rules, DB/repo behavior, WS/service contracts, backend edge cases                                                                                       |
+| Bun tests         | Frontend store/hooks/lib behavior, mobile client logic, shared TS utilities                                                                                      |
+| Service/API tests | WS action routing, DTO normalization, authorization, cross-layer behavior                                                                                        |
+| Playwright/E2E    | Future committed harness for a few core user journeys; not assumed to exist                                                                                      |
+| agent-browser     | Exploratory UI/workflow smoke checks through Vercel Agent Browser (`agent-browser`): copy, layout, responsive behavior, console/network failures, recovery flows |
+| Manual            | External services or OS/device states that remain too expensive to automate                                                                                      |
 
 ### Agent-browser boundary
 

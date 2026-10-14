@@ -53,10 +53,7 @@ export function chordForDigit(
   return osReservedShortcutChords(platform).find((chord) => chord.digit === digit) ?? null;
 }
 
-export function digitFromCodeOrKey(input: {
-  code?: string;
-  key?: string;
-}): number | null {
+export function digitFromCodeOrKey(input: { code?: string; key?: string }): number | null {
   const fromCode = input.code?.match(/^(?:Digit|Numpad)([0-9])$/);
   if (fromCode) return Number(fromCode[1]);
   const fromKey = input.key?.match(/^([0-9])$/);

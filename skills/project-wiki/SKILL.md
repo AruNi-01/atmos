@@ -24,7 +24,7 @@ Before considering the wiki complete, ALL of the following must be true:
 
 ## Core Philosophy
 
-- **Concept Research, Not Code Summary**: Each article is produced by a research-type Agent that explores *why* and *how it evolved*, not just *what* the code does. Metadata (Git history, PRs, Issues) is as important as source code.
+- **Concept Research, Not Code Summary**: Each article is produced by a research-type Agent that explores _why_ and _how it evolved_, not just _what_ the code does. Metadata (Git history, PRs, Issues) is as important as source code.
 - **Deep Research**: Every article is produced by thoroughly reading actual source code and related metadata, not just skimming README files.
 - **Two-Part Structure**: The Wiki is split into **Getting Started** (for newcomers) and **Deep Dive** (for contributors/maintainers).
 - **Local First**: The Wiki lives with the code. No external databases or services required.
@@ -59,12 +59,13 @@ bash ~/.atmos/skills/.system/project-wiki/scripts/collect_metadata.sh
 ```
 
 This creates `.atmos/wiki/_metadata/` with:
+
 - `commit_graph.txt` — `git log --oneline --graph`
 - `commit_details.txt` — Full commit log with file stats
 - `contributors.txt` — `git shortlog`
 - `prs.json`, `issues.json` — PR/Issue list (if `gh` CLI available)
 
-**Critical**: Read these files before and during article generation. Git history and PR/Issue discussions reveal design intent and evolution — metadata often explains *why* better than code alone.
+**Critical**: Read these files before and during article generation. Git history and PR/Issue discussions reveal design intent and evolution — metadata often explains _why_ better than code alone.
 
 Update `_todo.md`: check `[x] Git metadata collected`.
 
@@ -153,14 +154,14 @@ Target audience: **New users and developers** who want to understand what the pr
 
 Required articles (adapt to the specific project):
 
-| Article | Content Focus | Level |
-|---------|---------------|-------|
-| Overview | What the project is, what it provides, key features, who it's for | Beginner |
-| Quick Start | Install, configure, and run in 5 minutes | Beginner |
-| Installation & Setup | Detailed setup for all environments, prerequisites, troubleshooting | Beginner |
-| Architecture Overview | High-level architecture with diagrams, module relationships, tech stack | Beginner |
-| Key Concepts | Core terminology, design patterns, mental models needed to work with the project | Beginner |
-| Configuration Guide | All configuration options, environment variables, feature flags | Intermediate |
+| Article               | Content Focus                                                                    | Level        |
+| --------------------- | -------------------------------------------------------------------------------- | ------------ |
+| Overview              | What the project is, what it provides, key features, who it's for                | Beginner     |
+| Quick Start           | Install, configure, and run in 5 minutes                                         | Beginner     |
+| Installation & Setup  | Detailed setup for all environments, prerequisites, troubleshooting              | Beginner     |
+| Architecture Overview | High-level architecture with diagrams, module relationships, tech stack          | Beginner     |
+| Key Concepts          | Core terminology, design patterns, mental models needed to work with the project | Beginner     |
+| Configuration Guide   | All configuration options, environment variables, feature flags                  | Intermediate |
 
 #### Part 2: Deep Dive (深入探索)
 
@@ -168,15 +169,15 @@ Target audience: **Contributors, maintainers, and advanced users** who need to u
 
 Required articles (adapt to the specific project):
 
-| Article | Content Focus | Level |
-|---------|---------------|-------|
-| Module/Package deep dives | One article per major module with full implementation details | Intermediate-Advanced |
-| Data Flow & Lifecycle | How data moves through the system end-to-end | Advanced |
-| API Reference | Complete endpoint documentation with request/response examples | Intermediate |
-| Database & Storage | Schema design, migrations, query patterns | Advanced |
-| Build System & Tooling | Build pipeline, CI/CD, development workflow details | Intermediate |
-| Testing Strategy | Test architecture, how to write tests, coverage approach | Intermediate |
-| Design Decisions | Why key architectural choices were made, trade-offs considered | Advanced |
+| Article                   | Content Focus                                                  | Level                 |
+| ------------------------- | -------------------------------------------------------------- | --------------------- |
+| Module/Package deep dives | One article per major module with full implementation details  | Intermediate-Advanced |
+| Data Flow & Lifecycle     | How data moves through the system end-to-end                   | Advanced              |
+| API Reference             | Complete endpoint documentation with request/response examples | Intermediate          |
+| Database & Storage        | Schema design, migrations, query patterns                      | Advanced              |
+| Build System & Tooling    | Build pipeline, CI/CD, development workflow details            | Intermediate          |
+| Testing Strategy          | Test architecture, how to write tests, coverage approach       | Intermediate          |
+| Design Decisions          | Why key architectural choices were made, trade-offs considered | Advanced              |
 
 #### Catalog Design Rules
 
@@ -192,15 +193,16 @@ Required articles (adapt to the specific project):
 
 #### 3.1 Required Root-Level Structure
 
-| Field | Type | Example | Notes |
-|-------|------|---------|-------|
-| `version` | string | `"2.0"` | Must match pattern `^\d+\.\d+$` |
-| `generated_at` | string | `"2026-02-11T12:00:00Z"` | ISO 8601 |
-| `commit_hash` | string | `"abc1234"` | From `git rev-parse HEAD` — **required** |
-| `project` | **object** | See below | **NEVER a string** |
-| `catalog` | array | See below | Hierarchical tree |
+| Field          | Type       | Example                  | Notes                                    |
+| -------------- | ---------- | ------------------------ | ---------------------------------------- |
+| `version`      | string     | `"2.0"`                  | Must match pattern `^\d+\.\d+$`          |
+| `generated_at` | string     | `"2026-02-11T12:00:00Z"` | ISO 8601                                 |
+| `commit_hash`  | string     | `"abc1234"`              | From `git rev-parse HEAD` — **required** |
+| `project`      | **object** | See below                | **NEVER a string**                       |
+| `catalog`      | array      | See below                | Hierarchical tree                        |
 
 **`project` MUST be an object:**
+
 ```json
 "project": {
   "name": "Project Name",
@@ -218,14 +220,14 @@ Required articles (adapt to the specific project):
 
 #### 3.3 COMMON MISTAKES — DO NOT
 
-| Mistake | Correct |
-|---------|---------|
-| `"project": "my-project"` (string) | `"project": { "name": "...", "description": "..." }` (object) |
+| Mistake                                                      | Correct                                                                                       |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `"project": "my-project"` (string)                           | `"project": { "name": "...", "description": "..." }` (object)                                 |
 | Flat `catalog: [{id:"overview",...},{id:"quick-start",...}]` | Nested: `catalog: [{id:"getting-started", children:[...]}, {id:"deep-dive", children:[...]}]` |
-| Missing `order` or `children` on items | Every item: `"order": 0`, `"children": []` (or array of children) |
-| Missing `commit_hash` | Run `git rev-parse HEAD`, add to root |
-| `version`: `"1.0.0"` | Use `"2.0"` (pattern is X.Y) |
-| Adding `description` to catalog items | Not in schema — omit or use only schema fields |
+| Missing `order` or `children` on items                       | Every item: `"order": 0`, `"children": []` (or array of children)                             |
+| Missing `commit_hash`                                        | Run `git rev-parse HEAD`, add to root                                                         |
+| `version`: `"1.0.0"`                                         | Use `"2.0"` (pattern is X.Y)                                                                  |
+| Adding `description` to catalog items                        | Not in schema — omit or use only schema fields                                                |
 
 #### 3.4 Validation Gate (Blocking Loop)
 
@@ -254,6 +256,7 @@ python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py .atmos/
 For each **Deep Dive** catalog entry (leaf article, not index), generate a research briefing in `.atmos/wiki/_briefings/`. Use `references/briefing_template.md` and `examples/sample_briefing.md` as templates.
 
 Each briefing MUST include:
+
 - **Involved concepts** (from `_concepts.json`)
 - **Role in the project** (2–4 sentences)
 - **Relevant Git history** (3–5 commits from `_metadata/commit_details.txt`)
@@ -273,7 +276,7 @@ Iterate through every entry in the `catalog` array and generate the correspondin
 
 #### Agent Role: Research-Type, Not Document Generator
 
-**Critical**: Subagents must act as **technical researchers**, not document writers. Their task is to *research a concept* and produce findings, not to "summarize code." Include the research briefing (from Step 8) for Deep Dive articles, and instruct the Agent to answer every research question in the briefing.
+**Critical**: Subagents must act as **technical researchers**, not document writers. Their task is to _research a concept_ and produce findings, not to "summarize code." Include the research briefing (from Step 8) for Deep Dive articles, and instruct the Agent to answer every research question in the briefing.
 
 #### Parallel Generation (Recommended)
 
@@ -290,7 +293,7 @@ Iterate through every entry in the `catalog` array and generate the correspondin
 
    - **CRITICAL: Research-type role** — Copy into the subagent prompt:
 
-     > **You are a technical researcher, not a document summarizer.** Your task is to *research* this topic. Read the research briefing (if provided) and answer every research question. Read the source files and metadata (Git history). Explain *why* and *how it evolved*, not just *what*. If your article is under the word minimum, expand by adding more detail to each section — do not add filler.
+     > **You are a technical researcher, not a document summarizer.** Your task is to _research_ this topic. Read the research briefing (if provided) and answer every research question. Read the source files and metadata (Git history). Explain _why_ and _how it evolved_, not just _what_. If your article is under the word minimum, expand by adding more detail to each section — do not add filler.
 
 3. **Parallelization Strategy**:
    - Process index/overview pages first to establish context.
@@ -301,13 +304,13 @@ Iterate through every entry in the `catalog` array and generate the correspondin
 
 **This is what differentiates a great Wiki from a mediocre one.** Each article MUST meet these depth standards:
 
-| Metric | Getting Started Articles | Deep Dive Articles |
-|--------|------------------------|-------------------|
-| **Minimum Word Count** | 800+ words | 1500+ words |
-| **Source Files Referenced** | 3+ files | 5+ files |
-| **Code Snippets** | 0–1 (only when essential) | 0–2 (only when essential) |
-| **Mermaid Diagrams** | 2+ diagrams | 3+ diagrams |
-| **Estimated Reading Time** | 5-8 minutes | 8-15 minutes |
+| Metric                      | Getting Started Articles  | Deep Dive Articles        |
+| --------------------------- | ------------------------- | ------------------------- |
+| **Minimum Word Count**      | 800+ words                | 1500+ words               |
+| **Source Files Referenced** | 3+ files                  | 5+ files                  |
+| **Code Snippets**           | 0–1 (only when essential) | 0–2 (only when essential) |
+| **Mermaid Diagrams**        | 2+ diagrams               | 3+ diagrams               |
+| **Estimated Reading Time**  | 5-8 minutes               | 8-15 minutes              |
 
 **Important:** Readers come to understand **business logic, implementation reasoning, and technical architecture** — not to read code. Do NOT fill articles with code blocks. **Translate code logic into natural language**. Use architecture diagrams, flowcharts, and sequence diagrams instead of quoting source code.
 
@@ -334,7 +337,6 @@ sources:
   - src/module/file3.rs
 updated_at: 2026-02-10T12:00:00Z
 ---
-
 # Article Title
 
 First paragraph of content...
@@ -356,7 +358,7 @@ First paragraph of content...
 3. **`## Architecture`** -- Mermaid diagram(s) showing the component's internal structure and its relationships to other modules. Must accurately reflect the actual code.
 
 4. **Content Sections** (varies by article type) -- These are the meat of the article. Use H2 and H3 headings freely. Each section should:
-   - **Translate code logic into natural language** — describe *what* the code does and *why*, not paste code
+   - **Translate code logic into natural language** — describe _what_ the code does and _why_, not paste code
    - Use **Mermaid diagrams** (architecture, flowchart, sequence) to illustrate flow and structure
    - Explain concepts with context and reasoning in prose
    - Cover error cases and edge cases in text
@@ -366,9 +368,9 @@ First paragraph of content...
 5. **`## Key Source Files`** -- A table listing the most important source files covered in this article:
 
    ```markdown
-   | File | Purpose |
-   |------|---------|
-   | `src/auth/service.rs` | Core authentication logic |
+   | File                     | Purpose                           |
+   | ------------------------ | --------------------------------- |
+   | `src/auth/service.rs`    | Core authentication logic         |
    | `src/auth/middleware.rs` | Request authentication middleware |
    ```
 
@@ -376,16 +378,16 @@ First paragraph of content...
 
 ##### Mandatory Content Rules
 
-| Rule | Description |
-|------|-------------|
-| **Prose over code** | Prefer natural language and Mermaid diagrams over code blocks. Translate implementation logic into readable explanations. |
-| **Diagram-heavy** | Use architecture diagrams, flowcharts, and sequence diagrams to illustrate structure and flow. At least 2–3 Mermaid diagrams per article. |
-| **Minimal code** | Code snippets only when a short 2–3 line example is truly clearer than prose. Avoid long code blocks. |
-| **Source file links** | If you include a code snippet, it MUST have a source file path. Prefer describing behavior in prose and citing the source file in the Key Source Files table. |
-| **Mermaid accuracy** | Mermaid diagrams MUST reflect actual code architecture. |
-| **Relative links** | Use relative paths for all cross-document references. |
-| **Trace the flow** | For Deep Dive articles, trace how a request/operation flows — use sequence diagrams and numbered steps, not code. |
-| **Cover error handling** | Explain what happens when things go wrong in prose, not just the happy path. |
+| Rule                     | Description                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Prose over code**      | Prefer natural language and Mermaid diagrams over code blocks. Translate implementation logic into readable explanations.                                     |
+| **Diagram-heavy**        | Use architecture diagrams, flowcharts, and sequence diagrams to illustrate structure and flow. At least 2–3 Mermaid diagrams per article.                     |
+| **Minimal code**         | Code snippets only when a short 2–3 line example is truly clearer than prose. Avoid long code blocks.                                                         |
+| **Source file links**    | If you include a code snippet, it MUST have a source file path. Prefer describing behavior in prose and citing the source file in the Key Source Files table. |
+| **Mermaid accuracy**     | Mermaid diagrams MUST reflect actual code architecture.                                                                                                       |
+| **Relative links**       | Use relative paths for all cross-document references.                                                                                                         |
+| **Trace the flow**       | For Deep Dive articles, trace how a request/operation flows — use sequence diagrams and numbered steps, not code.                                             |
+| **Cover error handling** | Explain what happens when things go wrong in prose, not just the happy path.                                                                                  |
 
 ##### Writing Quality Standards
 
@@ -436,6 +438,7 @@ python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_content.py .atmos/
 This checks each article for: word count (800+ / 1500+), Mermaid diagrams (2+ / 3+), H2 sections (4+ / 6+), source files (3+ / 5+), cross-reference links (2+ / 4+).
 
 **For each failing article:**
+
 1. Read the failure reasons.
 2. Re-read the research briefing and source files.
 3. Regenerate the article with explicit instructions to expand the weak areas.
@@ -450,30 +453,38 @@ Do NOT consider the wiki complete until `validate_content` exits with success. U
 Before finishing, you MUST run all validation scripts and fix any errors. The wiki is NOT complete until all pass. **Use `.sh` versions if Python is not available.**
 
 1. **Catalog validation** (required):
+
    ```bash
    python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py .atmos/wiki/_catalog.json
    # OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.sh .atmos/wiki/_catalog.json
    ```
+
    Must exit with success. Fix catalog structure (hierarchy, `order`, `children`) if it fails.
 
 2. **Frontmatter validation** (required):
+
    ```bash
    python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py .atmos/wiki/
    ```
+
    Must exit with success. Regenerate any failing Markdown files.
 
 3. **Content depth validation** (required):
+
    ```bash
    python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_content.py .atmos/wiki/
    # OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_content.sh .atmos/wiki/
    ```
+
    Must exit with success. Expand and regenerate any failing articles.
 
 4. **Todo checklist validation** (required):
+
    ```bash
    python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_todo.py .atmos/wiki/_todo.md
    # OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_todo.sh .atmos/wiki/_todo.md
    ```
+
    Must exit with success. Ensure all checklist items are checked `[x]`.
 
 5. All `_todo.md` items checked? If any validation was skipped, go back and fix.

@@ -38,21 +38,21 @@ stateDiagram-v2
 
 ## Design decisions
 
-| ID | Decision |
-|----|----------|
-| **D1** | **Supersede APP-034 completely.** Remove `use-terminal-cache-store.ts`. New settings namespace only; **do not read** `terminal.max_cached_*`. |
-| **D2** | **Singleton shell, multi-instance center frames only.** |
-| **D3** | **Route `effectiveContextId` is active identity truth.** WSC `activeContextId` mirrors it. |
-| **D4** | **Frame exists only for Active + Warm.** Frozen: no React frame; **retain** tab/layout/openFile identity (see D10). |
-| **D5** | **Switch is synchronous for chrome** (frame visibility + last tab identity). Hydrate/attach never gates first paint. |
-| **D6** | **Surface policies + mount plan are declarative** in `workspace-surface-policies.ts` + WSC `mountPlan`. |
-| **D7** | **Right sidebar single-mounted**; viewState keyed by context. |
-| **D8** | **No historical compatibility layer.** |
-| **D9** | **One delivery** (store + host + policies + settings + tests). |
+| ID      | Decision                                                                                                                                                                                                                                                                                                                                                            |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D1**  | **Supersede APP-034 completely.** Remove `use-terminal-cache-store.ts`. New settings namespace only; **do not read** `terminal.max_cached_*`.                                                                                                                                                                                                                       |
+| **D2**  | **Singleton shell, multi-instance center frames only.**                                                                                                                                                                                                                                                                                                             |
+| **D3**  | **Route `effectiveContextId` is active identity truth.** WSC `activeContextId` mirrors it.                                                                                                                                                                                                                                                                          |
+| **D4**  | **Frame exists only for Active + Warm.** Frozen: no React frame; **retain** tab/layout/openFile identity (see D10).                                                                                                                                                                                                                                                 |
+| **D5**  | **Switch is synchronous for chrome** (frame visibility + last tab identity). Hydrate/attach never gates first paint.                                                                                                                                                                                                                                                |
+| **D6**  | **Surface policies + mount plan are declarative** in `workspace-surface-policies.ts` + WSC `mountPlan`.                                                                                                                                                                                                                                                             |
+| **D7**  | **Right sidebar single-mounted**; viewState keyed by context.                                                                                                                                                                                                                                                                                                       |
+| **D8**  | **No historical compatibility layer.**                                                                                                                                                                                                                                                                                                                              |
+| **D9**  | **One delivery** (store + host + policies + settings + tests).                                                                                                                                                                                                                                                                                                      |
 | **D10** | **Frozen = Option A (identity-preserving detach).** Unmount heavy DOM; **do not** call today’s full `evictWorkspaceRuntime` on freeze (it deletes tabs/layouts/`persistedTerminalLayouts`). Introduce `detachWorkspaceFrontend(contextId)` that drops live attach/hydration flags only. Full wipe only on `clearAll` / computer switch / explicit workspace delete. |
-| **D11** | **Per-frame `frameActiveTab`; only Active writes URL.** Warm frames never read global URL tab for panel visibility. |
-| **D12** | **Light panels default narrow:** mount only last-active or session-opened light surfaces inside a frame; not “all light panels always mounted while warm.” |
-| **D13** | **project-wiki / code-review are per-frame surfaces**, not host-level singletons bound to `effectiveContextId`. |
+| **D11** | **Per-frame `frameActiveTab`; only Active writes URL.** Warm frames never read global URL tab for panel visibility.                                                                                                                                                                                                                                                 |
+| **D12** | **Light panels default narrow:** mount only last-active or session-opened light surfaces inside a frame; not “all light panels always mounted while warm.”                                                                                                                                                                                                          |
+| **D13** | **project-wiki / code-review are per-frame surfaces**, not host-level singletons bound to `effectiveContextId`.                                                                                                                                                                                                                                                     |
 
 ---
 
@@ -60,12 +60,12 @@ stateDiagram-v2
 
 ### 1.1 Contract table
 
-| Frame state | `frameActiveTab` source | Writes URL (`?tab=` / wikiPage / editor active) | Panel visibility uses |
-|-------------|-------------------------|--------------------------------------------------|------------------------|
-| **Active** | URL tab **or** editor active file for this `contextId` (same resolution rules as today’s CenterStage, but **scoped to this context**) | **Yes** — only this frame | `frameActiveTab` |
-| **Warm** | That context’s `lastCenterTab` / `ContextViewState` (updated whenever the frame was last Active, and when user changes tabs while it is Active) | **No** | `frameActiveTab` from viewState — **never** global URL |
-| **Warm → Active** | On activation: take Warm `frameActiveTab` / `lastCenterTab` and **push once** to URL (and editor active file if file tab) | **Yes (one sync write)** | After URL catch-up, Active rules |
-| **Frozen → Active** | Remount frame; `frameActiveTab` from retained `lastCenterTab` + tab meta; push URL once | **Yes (one sync write)** | Same as Active after push |
+| Frame state         | `frameActiveTab` source                                                                                                                         | Writes URL (`?tab=` / wikiPage / editor active) | Panel visibility uses                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ |
+| **Active**          | URL tab **or** editor active file for this `contextId` (same resolution rules as today’s CenterStage, but **scoped to this context**)           | **Yes** — only this frame                       | `frameActiveTab`                                       |
+| **Warm**            | That context’s `lastCenterTab` / `ContextViewState` (updated whenever the frame was last Active, and when user changes tabs while it is Active) | **No**                                          | `frameActiveTab` from viewState — **never** global URL |
+| **Warm → Active**   | On activation: take Warm `frameActiveTab` / `lastCenterTab` and **push once** to URL (and editor active file if file tab)                       | **Yes (one sync write)**                        | After URL catch-up, Active rules                       |
+| **Frozen → Active** | Remount frame; `frameActiveTab` from retained `lastCenterTab` + tab meta; push URL once                                                         | **Yes (one sync write)**                        | Same as Active after push                              |
 
 ### 1.2 Invariants
 
@@ -81,14 +81,14 @@ stateDiagram-v2
 const isActiveFrame = contextId === activeContextId;
 const frameActiveTab = isActiveFrame
   ? resolveActiveTabFromUrlAndEditor(contextId) // Active path
-  : readLastCenterTab(contextId);              // Warm path
+  : readLastCenterTab(contextId); // Warm path
 
 // each panel (layout-ready inside the frame shell):
-hidden = panelTabId !== frameActiveTab
+hidden = panelTabId !== frameActiveTab;
 // terminal multi-tab inside frame:
-hidden = frameActiveTab !== terminalTabId
+hidden = frameActiveTab !== terminalTabId;
 // outer shell (Active/Warm paint gate only):
-frame.hidden = !isActiveFrame
+frame.hidden = !isActiveFrame;
 ```
 
 Warm frames stay mounted; only the **outer shell** is viewport-hidden. Last-tab panels stay layout-ready so a hop can unhide the shell (including a pre-React DOM flip) without rebuilding panel trees. Focus / polling still gate on `isActiveFrame` at call sites.
@@ -97,21 +97,21 @@ Warm frames stay mounted; only the **outer shell** is viewport-hidden. Last-tab 
 
 ## 2. Host vs Frame ownership
 
-| Responsibility | Host (`WorkspaceFrameHost` / residual CenterStage shell) | Frame (`WorkspaceCenterFrame`) |
-|----------------|----------------------------------------------------------|--------------------------------|
-| Mirror URL → `activeContextId` / WSC `setActive` + `touch(prev)` | ✓ | |
-| Mount set = `{active} ∪ warm` | ✓ | |
-| URL tab / wikiPage writes | ✓ coordinator: only when change originates from **Active** frame | Request via callback `onRequestUrlTabChange` |
-| Tab bar UI | | ✓ |
-| Center panels (terminal, files, wiki, GH, browser, project-wiki, code-review) | | ✓ |
-| Per-context last-tab pending restore | Coordinates activate push | Holds per-frame pending until meta ready |
-| Global hotkeys that change center tab | ✓ only if target is Active | |
-| Pending agent-fix / workspace agent run landing | ✓ targets `activeContextId` only | Receives apply when active |
-| Canvas terminal close / pin events | ✓ routes to owning context’s terminal store; never wrong frame focus | May expose grid ref for active only |
-| Setup-blocking progress UI | ✓ replaces **center region** when **active** workspace is blocking | Frozen/warm frames unmounted or not shown under block |
-| Dialogs (unsaved close, terminal close confirm) | ✓ host-level, context-tagged | Triggers only |
-| `enforceMountBudgets` / freeze | ✓ calls WSC | Applies `mountPlan` props |
-| Right sidebar | Outside host (AppShell); rebinds active only | |
+| Responsibility                                                                | Host (`WorkspaceFrameHost` / residual CenterStage shell)             | Frame (`WorkspaceCenterFrame`)                        |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------- |
+| Mirror URL → `activeContextId` / WSC `setActive` + `touch(prev)`              | ✓                                                                    |                                                       |
+| Mount set = `{active} ∪ warm`                                                 | ✓                                                                    |                                                       |
+| URL tab / wikiPage writes                                                     | ✓ coordinator: only when change originates from **Active** frame     | Request via callback `onRequestUrlTabChange`          |
+| Tab bar UI                                                                    |                                                                      | ✓                                                     |
+| Center panels (terminal, files, wiki, GH, browser, project-wiki, code-review) |                                                                      | ✓                                                     |
+| Per-context last-tab pending restore                                          | Coordinates activate push                                            | Holds per-frame pending until meta ready              |
+| Global hotkeys that change center tab                                         | ✓ only if target is Active                                           |                                                       |
+| Pending agent-fix / workspace agent run landing                               | ✓ targets `activeContextId` only                                     | Receives apply when active                            |
+| Canvas terminal close / pin events                                            | ✓ routes to owning context’s terminal store; never wrong frame focus | May expose grid ref for active only                   |
+| Setup-blocking progress UI                                                    | ✓ replaces **center region** when **active** workspace is blocking   | Frozen/warm frames unmounted or not shown under block |
+| Dialogs (unsaved close, terminal close confirm)                               | ✓ host-level, context-tagged                                         | Triggers only                                         |
+| `enforceMountBudgets` / freeze                                                | ✓ calls WSC                                                          | Applies `mountPlan` props                             |
+| Right sidebar                                                                 | Outside host (AppShell); rebinds active only                         |                                                       |
 
 **Anti-pattern to avoid:** host effects that still assume a single CenterStage tree and read only `effectiveContextId` for panel state while multiple frames exist.
 
@@ -196,13 +196,13 @@ Replace ad-hoc `mountedTerminalTabsByContext` with **mountPlan-driven** mounts i
 
 ### 4.2 Who runs coordinator
 
-| Trigger (`BudgetRunReason`) | Caller |
-|-----------------------------|--------|
-| Context switch (`setActive` / `touch` / `freeze`) | WSC actions (sync end of action) |
-| Open/close file, terminal tab, browser tab | Feature store mutation → `enforceMountBudgets("surface_change")` (microtask ok) |
-| Settings budget change | WSC setters after persist |
-| TTL sweep | `sweepExpired` then enforce |
-| Memory pressure (N2) | optional listener → `enforceMountBudgets("memory_pressure")` |
+| Trigger (`BudgetRunReason`)                       | Caller                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Context switch (`setActive` / `touch` / `freeze`) | WSC actions (sync end of action)                                                |
+| Open/close file, terminal tab, browser tab        | Feature store mutation → `enforceMountBudgets("surface_change")` (microtask ok) |
+| Settings budget change                            | WSC setters after persist                                                       |
+| TTL sweep                                         | `sweepExpired` then enforce                                                     |
+| Memory pressure (N2)                              | optional listener → `enforceMountBudgets("memory_pressure")`                    |
 
 **Owner:** pure function `computeMountPlan(snapshot, budgets) → MountPlan` in `workspace-surface-policies.ts`; WSC stores result; FrameHost/Frames **only read** `mountPlan`.
 
@@ -230,10 +230,10 @@ Warm terminal **demount** (step 7) ≠ freeze: DOM unmounts and may reconnect on
 
 ### 4.4 Single-pane demount vs freeze workspace
 
-| Action | Effect |
-|--------|--------|
-| Demount one surface | Remove key from `mountPlan`; unmount that React subtree only; identity retained (tabs/layouts/openFiles) |
-| Freeze workspace | Unmount entire frame; `detachWorkspaceFrontend`; drop all mount keys for context; tier=frozen; identity retained |
+| Action              | Effect                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Demount one surface | Remove key from `mountPlan`; unmount that React subtree only; identity retained (tabs/layouts/openFiles)         |
+| Freeze workspace    | Unmount entire frame; `detachWorkspaceFrontend`; drop all mount keys for context; tier=frozen; identity retained |
 
 ---
 
@@ -241,18 +241,18 @@ Warm terminal **demount** (step 7) ≠ freeze: DOM unmounts and may reconnect on
 
 `hidden` ≠ paused. For every Warm frame (`isActiveFrame === false`), enforce:
 
-| Subsystem | Warm behavior |
-|-----------|----------------|
-| Terminal `fit` / ResizeObserver-driven fit | **Paused**; run fit only on Active transition |
-| Terminal write → xterm render | **Throttle or coalesce**; still accept backend data into buffer if attach kept |
-| Terminal focus / selection overlays | **Disabled** |
-| CodeMirror | `surfaceActive=false` (existing); no focus; defer expensive extensions if any |
-| Browser panel | `isActive=false`; no focus; prefer freeze network timers if panel supports; demount under browser cap first |
+| Subsystem                                    | Warm behavior                                                                                                          |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Terminal `fit` / ResizeObserver-driven fit   | **Paused**; run fit only on Active transition                                                                          |
+| Terminal write → xterm render                | **Throttle or coalesce**; still accept backend data into buffer if attach kept                                         |
+| Terminal focus / selection overlays          | **Disabled**                                                                                                           |
+| CodeMirror                                   | `surfaceActive=false` (existing); no focus; defer expensive extensions if any                                          |
+| Browser panel                                | `isActive=false`; no focus; prefer freeze network timers if panel supports; demount under browser cap first            |
 | Wiki / overview polling or refresh intervals | **Paused** unless that light surface is also last tab **and** product requires background refresh (default: pause all) |
-| GitHub detail polling | **Paused** when frame warm |
-| Global hotkeys | Host handles; **must not** dispatch to hidden frame handlers |
-| Focus traps / dialogs | Only Active frame |
-| `document` paste / drag targets | Active only |
+| GitHub detail polling                        | **Paused** when frame warm                                                                                             |
+| Global hotkeys                               | Host handles; **must not** dispatch to hidden frame handlers                                                           |
+| Focus traps / dialogs                        | Only Active frame                                                                                                      |
+| `document` paste / drag targets              | Active only                                                                                                            |
 
 Checklist for implementers: grep Warm path for `setInterval`, query `refetchInterval`, and xterm `onRender` while hidden.
 
@@ -263,9 +263,9 @@ Checklist for implementers: grep Warm path for `setInterval`, query `refetchInte
 ```ts
 function isProtected(contextId: string): boolean {
   if (contextId === getActiveContextId()) return true; // Active never frozen via budget
-  if (hasDirtyOpenFile(contextId)) return true;        // OpenFile.isDirty
-  if (hasLiveAgentOrBusyPane(contextId)) return true;  // existing pane agent / busy indicators
-  if (isPinned(contextId)) return true;                // N1 only; no-op if unshipped
+  if (hasDirtyOpenFile(contextId)) return true; // OpenFile.isDirty
+  if (hasLiveAgentOrBusyPane(contextId)) return true; // existing pane agent / busy indicators
+  if (isPinned(contextId)) return true; // N1 only; no-op if unshipped
   return false;
 }
 ```
@@ -276,13 +276,13 @@ function isProtected(contextId: string): boolean {
 
 ## 7. Surface policies (final)
 
-| Surface | Active | Warm | Frozen |
-|---------|--------|------|--------|
-| Terminal center tabs | Live attach; mount per mountPlan | Keep DOM if in mountPlan; pause matrix | DOM gone; **tabs/layouts/persisted layouts retained**; reattach on demand |
-| project-wiki / code-review named terminals | **Per-frame** TerminalGrid (not host singleton) | Same as terminal if mountPlan allows | Identity maps retained; detach frontend |
-| File editors | Active file + editor LRU ≤ per-ws cap | Same LRU; pause CM | DOM gone; openFiles + dirty retained |
-| Browser | Live; global cap | Cap demounts first | Meta retained |
-| Overview / Wiki / GitHub | Mount **only if** `frameActiveTab` is that surface **or** surface was opened this session and still in a small per-frame light LRU (max 1 light besides last tab) | Same; pause polling | Remount + Query |
+| Surface                                    | Active                                                                                                                                                            | Warm                                   | Frozen                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------- |
+| Terminal center tabs                       | Live attach; mount per mountPlan                                                                                                                                  | Keep DOM if in mountPlan; pause matrix | DOM gone; **tabs/layouts/persisted layouts retained**; reattach on demand |
+| project-wiki / code-review named terminals | **Per-frame** TerminalGrid (not host singleton)                                                                                                                   | Same as terminal if mountPlan allows   | Identity maps retained; detach frontend                                   |
+| File editors                               | Active file + editor LRU ≤ per-ws cap                                                                                                                             | Same LRU; pause CM                     | DOM gone; openFiles + dirty retained                                      |
+| Browser                                    | Live; global cap                                                                                                                                                  | Cap demounts first                     | Meta retained                                                             |
+| Overview / Wiki / GitHub                   | Mount **only if** `frameActiveTab` is that surface **or** surface was opened this session and still in a small per-frame light LRU (max 1 light besides last tab) | Same; pause polling                    | Remount + Query                                                           |
 
 ---
 
@@ -350,12 +350,12 @@ interface WorkspaceSurfaceCacheState {
   activeContextId: string | null;
   warm: WarmEntry[];
   mountPlan: MountPlan;
-  maxWarmWorkspaces: number;                    // default 8
-  maxGlobalTerminalPanes: number;               // default 16
-  maxGlobalMountedEditors: number;              // default 10
-  maxMountedEditorsPerWorkspace: number;        // default 5
-  maxGlobalBrowsers: number;                    // default 2
-  warmTtlMs: number;                            // default 3_600_000
+  maxWarmWorkspaces: number; // default 8
+  maxGlobalTerminalPanes: number; // default 16
+  maxGlobalMountedEditors: number; // default 10
+  maxMountedEditorsPerWorkspace: number; // default 5
+  maxGlobalBrowsers: number; // default 2
+  warmTtlMs: number; // default 3_600_000
   setActiveContextId: (id: string | null) => void;
   touch: (id: string) => void;
   /** Atomic leave→warm + set active (preferred over setActive+touch). */
@@ -394,14 +394,14 @@ interface WorkspaceSurfaceCacheState {
 
 ### 9.4 Settings (M10) — semantic change, no silent migration
 
-| New key | Default | Replaces concept |
-|---------|---------|------------------|
-| `workspace_surface.max_warm_workspaces` | `8` | `terminal.max_cached_workspaces` (warm frames, not “kick whole context if panels high” alone) |
-| `workspace_surface.max_global_terminal_panes` | `16` | Was per-workspace panel kick from cache; now **global mounted pane** cap |
-| `workspace_surface.max_mounted_editors_per_workspace` | `5` | new |
-| `workspace_surface.max_global_mounted_editors` | `10` | new |
-| `workspace_surface.max_global_browsers` | `2` | new |
-| `workspace_surface.warm_ttl_ms` | `3600000` | TTL (same order of magnitude as APP-034) |
+| New key                                               | Default   | Replaces concept                                                                              |
+| ----------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------- |
+| `workspace_surface.max_warm_workspaces`               | `8`       | `terminal.max_cached_workspaces` (warm frames, not “kick whole context if panels high” alone) |
+| `workspace_surface.max_global_terminal_panes`         | `16`      | Was per-workspace panel kick from cache; now **global mounted pane** cap                      |
+| `workspace_surface.max_mounted_editors_per_workspace` | `5`       | new                                                                                           |
+| `workspace_surface.max_global_mounted_editors`        | `10`      | new                                                                                           |
+| `workspace_surface.max_global_browsers`               | `2`       | new                                                                                           |
+| `workspace_surface.warm_ttl_ms`                       | `3600000` | TTL (same order of magnitude as APP-034)                                                      |
 
 **Settings UI copy must explain:** warm workspaces vs global heavy-surface caps. **Do not** silently map old values into new keys. Old keys unused; may delete from schema in same delivery.
 
@@ -431,22 +431,22 @@ On Warm/Frozen → Active, `useLayoutEffect` on active terminal/editor: explicit
 
 Measured with temporary `wsc-switch` frontend debug logs (desktop API cwd: `apps/desktop/src-tauri/logs/debug/`). **Do not** reintroduce double-rAF promote or click-path **full** WSC promote (`switchContext` / warm / budgets).
 
-| Rule | Detail |
-|------|--------|
-| **Nav path** | `prepareAndPrimeWorkspaceNavigation`: last-tab inject + optional visual prime when target is already mounted (Active ∪ Warm). **No** `switchContext` on click |
-| **Visual lead** | `visualActiveContextId` may lead URL for warm hops so center paint flips before route commit. Cold hops never prime an unmounted frame; stale lead resets to committed active |
-| **Rapid hop coalesce** | Quiet ≥ ~140ms → visual/promote flush immediately. Faster hops → trailing coalesce (~32ms visual / ~48ms promote) so only the latest target commits; intermediate leaves are `touch`ed into warm (IMP-009) |
-| **Promote** | `schedulePromoteWorkspaceSurfaceSwitch` from CenterStage effect after URL commits; syncs `activeContextId` + `visualActiveContextId`; never double-rAF |
-| **Sticky** | `stickyLeavingIds` keeps leaving frame mounted until warm owns it (tracks live URL id) |
-| **Display id** | Prefer mounted `visualActiveContextId` when it leads `effectiveContextId`; else URL. Removed `useDeferredValue` delay on the visible frame |
-| **URL-synced props** | Handlers, grid refs, and parent live tab/file lists apply only when `contextId === effectiveContextId`. Optimistic frames read per-context stores + `lastCenterTab` |
-| **Warm paint** | inactive **shells**: `hidden` + `contentVisibility: "hidden"`; last-tab panels stay layout-ready inside (IMP-010); DOM visual flip on nav; light mount set still last-active / mountPlan |
-| **Frame isolation** | `WorkspaceCenterFrame` is `React.memo`’d (IMP-011); warm siblings skip host re-renders unless their paint/mount keys change |
-| **Terminal structure vs title** | CenterStagePanels must **not** subscribe to full `workspacePanes`. Subscribe to a **structural fingerprint** (scope → sorted pane ids) only. Dynamic title updates stay local to terminal chrome. |
-| **Snapshots** | Idle publish of `setSurfaceSnapshot`; generation guard skips superseded batches; store no-ops identical snapshots and stable `mountPlan` refs |
-| **Sidebar rows** | Pass `isActive` from parent; memo rows ignoring handler identity; click closes info popover and does **not** open on focus |
-| **markVisited** | Debounced (~750ms); patch bootstrap only for the touched workspace; **do not** `cancelQueries` on every visit |
-| **Non-chrome rebind** | git `setCurrentContext` / file-tree context after single rAF (not on click path) |
+| Rule                            | Detail                                                                                                                                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Nav path**                    | `prepareAndPrimeWorkspaceNavigation`: last-tab inject + optional visual prime when target is already mounted (Active ∪ Warm). **No** `switchContext` on click                                              |
+| **Visual lead**                 | `visualActiveContextId` may lead URL for warm hops so center paint flips before route commit. Cold hops never prime an unmounted frame; stale lead resets to committed active                              |
+| **Rapid hop coalesce**          | Quiet ≥ ~140ms → visual/promote flush immediately. Faster hops → trailing coalesce (~32ms visual / ~48ms promote) so only the latest target commits; intermediate leaves are `touch`ed into warm (IMP-009) |
+| **Promote**                     | `schedulePromoteWorkspaceSurfaceSwitch` from CenterStage effect after URL commits; syncs `activeContextId` + `visualActiveContextId`; never double-rAF                                                     |
+| **Sticky**                      | `stickyLeavingIds` keeps leaving frame mounted until warm owns it (tracks live URL id)                                                                                                                     |
+| **Display id**                  | Prefer mounted `visualActiveContextId` when it leads `effectiveContextId`; else URL. Removed `useDeferredValue` delay on the visible frame                                                                 |
+| **URL-synced props**            | Handlers, grid refs, and parent live tab/file lists apply only when `contextId === effectiveContextId`. Optimistic frames read per-context stores + `lastCenterTab`                                        |
+| **Warm paint**                  | inactive **shells**: `hidden` + `contentVisibility: "hidden"`; last-tab panels stay layout-ready inside (IMP-010); DOM visual flip on nav; light mount set still last-active / mountPlan                   |
+| **Frame isolation**             | `WorkspaceCenterFrame` is `React.memo`’d (IMP-011); warm siblings skip host re-renders unless their paint/mount keys change                                                                                |
+| **Terminal structure vs title** | CenterStagePanels must **not** subscribe to full `workspacePanes`. Subscribe to a **structural fingerprint** (scope → sorted pane ids) only. Dynamic title updates stay local to terminal chrome.          |
+| **Snapshots**                   | Idle publish of `setSurfaceSnapshot`; generation guard skips superseded batches; store no-ops identical snapshots and stable `mountPlan` refs                                                              |
+| **Sidebar rows**                | Pass `isActive` from parent; memo rows ignoring handler identity; click closes info popover and does **not** open on focus                                                                                 |
+| **markVisited**                 | Debounced (~750ms); patch bootstrap only for the touched workspace; **do not** `cancelQueries` on every visit                                                                                              |
+| **Non-chrome rebind**           | git `setCurrentContext` / file-tree context after single rAF (not on click path)                                                                                                                           |
 
 **Perf evidence (local desktop dogfood, 2026-07-25 → 2026-07-26):**
 
@@ -504,15 +504,15 @@ None. No new REST/WebSocket APIs. Terminal attach uses existing paths after Froz
 
 ## Performance budgets
 
-| Path | Target |
-|------|--------|
-| Warm → Active, terminal last surface | ≤ 100ms focusable |
-| Warm → Active, file last surface | ≤ 150ms editor chrome |
-| Frozen → Active chrome (strip + last tab identity) | ≤ 150ms **from local identity** |
-| Frozen primary content (local reattach) | ≤ 500ms typical |
-| `switchContext` / `touch` body (no subscriber work) | ≤ 4ms typical |
-| Click → `router.push` return | ≤ 5ms typical (must not run multi-frame re-render) |
-| CenterStagePanels commit (≤5 warm frames, steady) | ≤ 50ms p50 local; avoid 200ms+ spikes when possible |
+| Path                                                | Target                                              |
+| --------------------------------------------------- | --------------------------------------------------- |
+| Warm → Active, terminal last surface                | ≤ 100ms focusable                                   |
+| Warm → Active, file last surface                    | ≤ 150ms editor chrome                               |
+| Frozen → Active chrome (strip + last tab identity)  | ≤ 150ms **from local identity**                     |
+| Frozen primary content (local reattach)             | ≤ 500ms typical                                     |
+| `switchContext` / `touch` body (no subscriber work) | ≤ 4ms typical                                       |
+| Click → `router.push` return                        | ≤ 5ms typical (must not run multi-frame re-render)  |
+| CenterStagePanels commit (≤5 warm frames, steady)   | ≤ 50ms p50 local; avoid 200ms+ spikes when possible |
 
 Optional marks (debug-only, not production default): `SWITCH_BEGIN` → `CS_RENDER_*` → `CS_SWITCH_CONTEXT` → `SNAPSHOT_*` via temporary `wsc-switch` logger.
 

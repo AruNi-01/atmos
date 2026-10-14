@@ -5,9 +5,12 @@
   const ui = data.ui || {};
   const docs = data.docs || {};
   const docNames = Object.keys(docs);
-  const md = window.markdownit ? window.markdownit({ html: false, linkify: true, typographer: true }) : null;
+  const md = window.markdownit
+    ? window.markdownit({ html: false, linkify: true, typographer: true })
+    : null;
 
-  const stableSourceKey = data.sources?.map((source) => source.spec_path || source.spec_id).join("|") || data.view_id;
+  const stableSourceKey =
+    data.sources?.map((source) => source.spec_path || source.spec_id).join("|") || data.view_id;
   const storageKey = `atmos-specs-view:${data.view_id || "view"}:${stableSourceKey}`;
   const legacyStorageKeys = [
     `atmos-spec-view:${data.view_id || stableSourceKey}`,
@@ -19,10 +22,18 @@
   const feedback = loadFeedback();
 
   const tabs = Array.from(document.querySelectorAll("[data-doc]"));
-  const rendered = document.getElementById("document-viewer") || document.getElementById("markdown-rendered") || document.getElementById("spec-detail-panel");
-  const source = document.getElementById("document-source") || document.getElementById("markdown-source");
-  const title = document.getElementById("active-doc-title") || document.getElementById("document-title");
-  const decisions = document.getElementById("file-decisions") || document.getElementById("section-decisions") || document.getElementById("spec-decisions");
+  const rendered =
+    document.getElementById("document-viewer") ||
+    document.getElementById("markdown-rendered") ||
+    document.getElementById("spec-detail-panel");
+  const source =
+    document.getElementById("document-source") || document.getElementById("markdown-source");
+  const title =
+    document.getElementById("active-doc-title") || document.getElementById("document-title");
+  const decisions =
+    document.getElementById("file-decisions") ||
+    document.getElementById("section-decisions") ||
+    document.getElementById("spec-decisions");
   const globalNotes = document.getElementById("global-notes");
   const sourceDialog = document.getElementById("source-dialog");
   const reviewDialog = document.getElementById("review-dialog");
@@ -33,18 +44,24 @@
   }
 
   function escapeHtml(value) {
-    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    }[char]));
+    return String(value ?? "").replace(
+      /[&<>"']/g,
+      (char) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[char],
+    );
   }
 
   function loadFeedback() {
     try {
-      const raw = localStorage.getItem(storageKey) || legacyStorageKeys.map((key) => localStorage.getItem(key)).find(Boolean);
+      const raw =
+        localStorage.getItem(storageKey) ||
+        legacyStorageKeys.map((key) => localStorage.getItem(key)).find(Boolean);
       return JSON.parse(raw || "{}");
     } catch {
       return {};
@@ -148,7 +165,9 @@
         securityLevel: "strict",
         theme: data.mermaid_theme || "default",
       });
-      const result = window.mermaid.run({ nodes: root.querySelectorAll(".language-mermaid, .mermaid") });
+      const result = window.mermaid.run({
+        nodes: root.querySelectorAll(".language-mermaid, .mermaid"),
+      });
       if (result && typeof result.catch === "function") {
         result.catch((error) => {
           console.warn("Mermaid render failed", error);
@@ -199,7 +218,10 @@
 
     const notes = document.createElement("textarea");
     notes.dataset.noteFor = name;
-    notes.placeholder = t("fileNotesPlaceholder", "Notes for this document").replace("{file}", name);
+    notes.placeholder = t("fileNotesPlaceholder", "Notes for this document").replace(
+      "{file}",
+      name,
+    );
     notes.value = entry.notes || "";
     section.appendChild(notes);
 
@@ -207,7 +229,9 @@
   }
 
   function buildFeedbackJson() {
-    const decisions = Object.fromEntries(docNames.map((name) => [name, feedback[name] || { decision: "unreviewed", notes: "" }]));
+    const decisions = Object.fromEntries(
+      docNames.map((name) => [name, feedback[name] || { decision: "unreviewed", notes: "" }]),
+    );
     return {
       view_id: data.view_id,
       mode: data.mode,
@@ -215,7 +239,11 @@
       generated_at: data.generated_at,
       sources: data.sources || [],
       decisions,
-      changed_decisions: Object.fromEntries(Object.entries(decisions).filter(([, entry]) => (entry.decision && entry.decision !== "unreviewed") || entry.notes)),
+      changed_decisions: Object.fromEntries(
+        Object.entries(decisions).filter(
+          ([, entry]) => (entry.decision && entry.decision !== "unreviewed") || entry.notes,
+        ),
+      ),
       global_notes: feedback.global_notes || "",
     };
   }
@@ -245,19 +273,29 @@
     if (data.synthesis?.needs_attention?.length) {
       lines.push("", `${t("attentionItems", "View-highlighted attention items")}:`);
       data.synthesis.needs_attention.forEach((item) => {
-        lines.push(`- ${item.title || item.name || ""}: ${item.detail || item.summary || ""} (${item.source || ""})`);
+        lines.push(
+          `- ${item.title || item.name || ""}: ${item.detail || item.summary || ""} (${item.source || ""})`,
+        );
       });
     }
 
     if (data.synthesis?.open_questions?.length) {
       lines.push("", `${t("openQuestions", "Open questions")}:`);
       data.synthesis.open_questions.forEach((item) => {
-        lines.push(`- ${item.title || item.name || ""}: ${item.detail || item.summary || ""} (${item.source || ""})`);
+        lines.push(
+          `- ${item.title || item.name || ""}: ${item.detail || item.summary || ""} (${item.source || ""})`,
+        );
       });
     }
 
     lines.push("", JSON.stringify(json, null, 2));
-    lines.push("", t("promptInstruction", "Apply only the requested spec changes; otherwise report what is already ready."));
+    lines.push(
+      "",
+      t(
+        "promptInstruction",
+        "Apply only the requested spec changes; otherwise report what is already ready.",
+      ),
+    );
     return lines.join("\n");
   }
 
@@ -296,16 +334,24 @@
     });
   });
 
-  document.querySelectorAll('[data-action="copy-active-source"], [data-action="copy-source"]').forEach((button) => {
-    button.addEventListener("click", () => copyText(docs[activeDoc] || "", t("copiedMarkdown", "Markdown copied")));
-  });
+  document
+    .querySelectorAll('[data-action="copy-active-source"], [data-action="copy-source"]')
+    .forEach((button) => {
+      button.addEventListener("click", () =>
+        copyText(docs[activeDoc] || "", t("copiedMarkdown", "Markdown copied")),
+      );
+    });
 
   document.querySelectorAll('[data-action="copy-agent-prompt"]').forEach((button) => {
-    button.addEventListener("click", () => copyText(buildAgentPrompt(), t("copiedAgentPrompt", "Agent prompt copied")));
+    button.addEventListener("click", () =>
+      copyText(buildAgentPrompt(), t("copiedAgentPrompt", "Agent prompt copied")),
+    );
   });
 
   document.querySelectorAll('[data-action="copy-json"]').forEach((button) => {
-    button.addEventListener("click", () => copyText(JSON.stringify(buildFeedbackJson(), null, 2), t("copiedJson", "JSON copied")));
+    button.addEventListener("click", () =>
+      copyText(JSON.stringify(buildFeedbackJson(), null, 2), t("copiedJson", "JSON copied")),
+    );
   });
 
   document.querySelectorAll('[data-action="open-source"]').forEach((button) => {

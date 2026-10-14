@@ -62,10 +62,7 @@ import {
   WorkspaceCenterFrame,
   type TerminalQuickOpenAgent,
 } from "@/app-shell/workspace-center-frame";
-const WikiTab = dynamic(
-  () => import("@/features/wiki").then((m) => m.WikiTab),
-  { ssr: false },
-);
+const WikiTab = dynamic(() => import("@/features/wiki").then((m) => m.WikiTab), { ssr: false });
 
 type FrameMosaicGeometry = {
   tabToPaneId: Readonly<Record<string, string>> | null;
@@ -163,7 +160,9 @@ interface CenterStagePanelsProps {
   projectWikiUserTriggeredRef: React.RefObject<boolean>;
   reviewTarget: ReviewTarget | null;
   setFixedTab: (tab: FixedTab) => void;
-  setProjectWikiPendingCommand: React.Dispatch<React.SetStateAction<PendingNamedTerminalRun | null>>;
+  setProjectWikiPendingCommand: React.Dispatch<
+    React.SetStateAction<PendingNamedTerminalRun | null>
+  >;
   setProjectWikiVisibleMap: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setWikiPage: (page: string) => void;
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
@@ -233,9 +232,7 @@ export function CenterStagePanels({
   // Do NOT subscribe to visualActiveContextId — hop paint is DOM-first (IMP-010/012).
   // Subscribing forced a multi-frame host re-render on every click and starved sidebar input.
   // Prefer id lists over full warm entry objects — lastAccessed churn must not re-render.
-  const warmIds = useWorkspaceSurfaceCacheStore((s) =>
-    s.warm.map((w) => w.contextId).join("\0"),
-  );
+  const warmIds = useWorkspaceSurfaceCacheStore((s) => s.warm.map((w) => w.contextId).join("\0"));
   const mountPlan = useWorkspaceSurfaceCacheStore((s) => s.mountPlan);
   const setSurfaceSnapshots = useWorkspaceSurfaceCacheStore((s) => s.setSurfaceSnapshots);
   const allWorkspaceTerminalTabs = useTerminalStore((s) => s.workspaceTerminalTabs);
@@ -297,9 +294,7 @@ export function CenterStagePanels({
     }
     return key;
   });
-  const overviewPaintIds = overviewSpaceKey
-    ? overviewSpaceKey.split("\0").filter(Boolean)
-    : [];
+  const overviewPaintIds = overviewSpaceKey ? overviewSpaceKey.split("\0").filter(Boolean) : [];
   const contextIdsToRender = resolveContextIdsToRender({
     effectiveContextId: paintContextId,
     warmIds: warmIdList,
@@ -309,8 +304,7 @@ export function CenterStagePanels({
   });
 
   // Shell visibility: live paint id (and optional visual lead from store snapshot).
-  const visualActiveContextId =
-    useWorkspaceSurfaceCacheStore.getState().visualActiveContextId;
+  const visualActiveContextId = useWorkspaceSurfaceCacheStore.getState().visualActiveContextId;
   const displayContextId =
     visualActiveContextId &&
     visualActiveContextId !== paintContextId &&
@@ -364,17 +358,15 @@ export function CenterStagePanels({
           });
           continue;
         }
-        const tabs =
-          allWorkspaceTerminalTabs[contextId] ??
-          (isActive ? visibleTerminalTabs : []);
+        const tabs = allWorkspaceTerminalTabs[contextId] ?? (isActive ? visibleTerminalTabs : []);
         const files = getOpenFiles(contextId);
         const last = readCenterStageLastTab(contextId);
         const validForContext = [
           ...tabs.map((tab) => tab.id),
           ...files.map((f) => f.path),
-          ...((githubTabsByContext[contextId] ?? []).map((tab) => tab.value)),
-          ...((gitCommitTabsByContext[contextId] ?? []).map((tab) => tab.value)),
-          ...((browserTabsByContext[contextId] ?? []).map((b) => b.value)),
+          ...(githubTabsByContext[contextId] ?? []).map((tab) => tab.value),
+          ...(gitCommitTabsByContext[contextId] ?? []).map((tab) => tab.value),
+          ...(browserTabsByContext[contextId] ?? []).map((b) => b.value),
           "overview",
           "wiki",
           "project-wiki",
@@ -399,8 +391,7 @@ export function CenterStagePanels({
           contextLayout && contextLayout.order.length > 1
             ? collectActiveTabIds(contextLayout).filter(Boolean)
             : [];
-        const preferKeepIds =
-          paneActiveTabIds.length > 0 ? paneActiveTabIds : [frameActiveTab];
+        const preferKeepIds = paneActiveTabIds.length > 0 ? paneActiveTabIds : [frameActiveTab];
         const lightIds: string[] = [];
         for (const tabId of preferKeepIds) {
           if (
@@ -421,38 +412,24 @@ export function CenterStagePanels({
         // GitHub center tabs are light surfaces — pane-active / last-active ids enter mount plan.
         const ghTabs = githubTabsByContext[contextId] ?? [];
         for (const tab of ghTabs) {
-          if (
-            preferKeepIds.includes(tab.value) ||
-            (isActive && activeValue === tab.value)
-          ) {
+          if (preferKeepIds.includes(tab.value) || (isActive && activeValue === tab.value)) {
             lightIds.push(tab.value);
           }
         }
         const commitTabs = gitCommitTabsByContext[contextId] ?? [];
         for (const tab of commitTabs) {
-          if (
-            preferKeepIds.includes(tab.value) ||
-            (isActive && activeValue === tab.value)
-          ) {
+          if (preferKeepIds.includes(tab.value) || (isActive && activeValue === tab.value)) {
             lightIds.push(tab.value);
           }
         }
         const named: Array<"project-wiki" | "code-review"> = [];
-        if (
-          preferKeepIds.includes("project-wiki") ||
-          (isActive && projectWikiTabVisible)
-        ) {
+        if (preferKeepIds.includes("project-wiki") || (isActive && projectWikiTabVisible)) {
           named.push("project-wiki");
         }
-        if (
-          preferKeepIds.includes("code-review") ||
-          (isActive && codeReviewTabVisible)
-        ) {
+        if (preferKeepIds.includes("code-review") || (isActive && codeReviewTabVisible)) {
           named.push("code-review");
         }
-        const paneActiveTerminals = preferKeepIds.filter((id) =>
-          isTerminalCenterTabValue(id),
-        );
+        const paneActiveTerminals = preferKeepIds.filter((id) => isTerminalCenterTabValue(id));
         const terminalTabIds = Array.from(
           new Set(
             (mountedTerminalTabsByContext[contextId] ?? tabs.map((tab) => tab.id))
@@ -549,32 +526,24 @@ export function CenterStagePanels({
         // Keep the leaving frame URL-synced until deferred IDs catch up so the
         // first hop commit does not demote keep-alive Files/PR/Run trees.
         const isUrlSyncedActive = liveBinding !== "warm";
-        const mountedTabIds =
-          mountedTerminalTabsByContext[contextId] ?? EMPTY_MOUNTED_TAB_IDS;
+        const mountedTabIds = mountedTerminalTabsByContext[contextId] ?? EMPTY_MOUNTED_TAB_IDS;
         const mountPlanKeys = mountedKeysForContext(mountPlan, contextId).join("\0");
         const contextLayout = layoutsByContext[contextId];
         const retainedActiveTabIds =
           contextLayout && contextLayout.order.length > 1
             ? collectActiveTabIds(contextLayout)
             : null;
-        const contextMaps = layoutMapsFor(
-          layoutMapsCacheRef.current,
-          contextId,
-          contextLayout,
-        );
+        const contextMaps = layoutMapsFor(layoutMapsCacheRef.current, contextId, contextLayout);
         const frozenGeometry =
-          liveBinding === "frozen" &&
-          lastLiveGeometryRef.current?.contextId === contextId
+          liveBinding === "frozen" && lastLiveGeometryRef.current?.contextId === contextId
             ? lastLiveGeometryRef.current.geometry
             : null;
         const cachedBoxes = paneSlotBoxCache?.[contextId];
-        const hasWarmGeometry = Boolean(
-          cachedBoxes && Object.keys(cachedBoxes).length > 0,
-        );
+        const hasWarmGeometry = Boolean(cachedBoxes && Object.keys(cachedBoxes).length > 0);
         const mosaicGeometry: FrameMosaicGeometry =
           liveBinding === "live"
             ? liveGeometry
-            : frozenGeometry ??
+            : (frozenGeometry ??
               (hasWarmGeometry
                 ? {
                     tabToPaneId: contextMaps?.tabToPaneId ?? null,
@@ -589,7 +558,7 @@ export function CenterStagePanels({
                     paneActiveTabById: null,
                     paneSlotBoxes: null,
                     fullscreenPaneId: null,
-                  });
+                  }));
 
         const galleryPreview =
           overviewPaintIds.includes(contextId) && contextId !== displayContextId;
@@ -643,28 +612,18 @@ export function CenterStagePanels({
             githubHubTabVisible={githubHubTabVisible}
             filesTabVisible={filesTabVisible}
             ptDesignTabVisible={ptDesignTabVisible}
-            terminalQuickOpenAgents={
-              isUrlSyncedActive ? terminalQuickOpenAgents : undefined
-            }
+            terminalQuickOpenAgents={isUrlSyncedActive ? terminalQuickOpenAgents : undefined}
             terminalGridRef={isUrlSyncedActive ? terminalGridRef : undefined}
             terminalGridRefs={isUrlSyncedActive ? terminalGridRefs : undefined}
-            projectWikiTerminalGridRef={
-              isUrlSyncedActive ? projectWikiTerminalGridRef : undefined
-            }
-            codeReviewTerminalGridRef={
-              isUrlSyncedActive ? codeReviewTerminalGridRef : undefined
-            }
+            projectWikiTerminalGridRef={isUrlSyncedActive ? projectWikiTerminalGridRef : undefined}
+            codeReviewTerminalGridRef={isUrlSyncedActive ? codeReviewTerminalGridRef : undefined}
             handleCreateTerminalCenterTab={
               isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined
             }
-            handleTerminalPaneClosed={
-              isUrlSyncedActive ? handleTerminalPaneClosed : undefined
-            }
+            handleTerminalPaneClosed={isUrlSyncedActive ? handleTerminalPaneClosed : undefined}
             handleCloseGithubTab={isUrlSyncedActive ? handleCloseGithubTab : undefined}
             handleCloseGitCommitTab={isUrlSyncedActive ? handleCloseGitCommitTab : undefined}
-            onGithubPullRequestChanged={
-              isUrlSyncedActive ? onGithubPullRequestChanged : undefined
-            }
+            onGithubPullRequestChanged={isUrlSyncedActive ? onGithubPullRequestChanged : undefined}
           />
         );
       })}
@@ -682,84 +641,83 @@ export function CenterStagePanels({
             ? [tabToPaneId.wiki]
             : []
         ).map((wikiPaneId) => {
-          const wikiVisible = wikiPaneId
-            ? paneActiveTabById?.[wikiPaneId] === "wiki"
-            : false;
+          const wikiVisible = wikiPaneId ? paneActiveTabById?.[wikiPaneId] === "wiki" : false;
           const wikiBox = wikiPaneId ? paneSlotBoxes?.[wikiPaneId] : undefined;
           return (
-        <div
-          key={`wiki-${wikiPaneId ?? "root"}`}
-          data-center-pane-owner={wikiPaneId ?? tabToPaneId?.wiki}
-          className={cn(
-            "absolute inset-0 z-[2] min-h-0 min-w-0 overflow-hidden bg-background",
-            (!wikiVisible ||
-              paneHiddenByCenterFullscreen(fullscreenPaneId, wikiPaneId ?? tabToPaneId?.wiki)) &&
-              "hidden",
-            wikiVisible && "pointer-events-auto",
-          )}
-          style={
-            wikiVisible && wikiBox
-              ? {
-                  top: wikiBox.top,
-                  right: "auto",
-                  bottom: "auto",
-                  left: wikiBox.left,
-                  width: wikiBox.width,
-                  height: wikiBox.height,
-                }
-              : undefined
-          }
-        >
-          <WikiTab
-            contextId={paintContextId || effectiveContextId}
-            effectivePath={
-              currentWorkspace?.localPath || currentProject?.mainFilePath || ""
-            }
-            projectName={currentProject?.name}
-            refreshTrigger={wikiRefreshTrigger}
-            terminalGridRef={terminalGridRef}
-            onSwitchToTerminal={() => setFixedTab("terminal")}
-            onSwitchToProjectWikiAndRun={(run) => {
-              projectWikiUserTriggeredRef.current = true;
-              setProjectWikiPendingCommand(run);
-              setProjectWikiVisibleMap((prev) => ({
-                ...prev,
-                [effectiveContextId]: true,
-              }));
-              setFixedTab("project-wiki");
-            }}
-            onProjectWikiReplaceAndRun={async (run) => {
-              try {
-                await systemApi.killProjectWikiWindow(effectiveContextId);
-                projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(
-                  PROJECT_WIKI_WINDOW_NAME,
-                );
-                projectWikiUserTriggeredRef.current = true;
-                setProjectWikiPendingCommand(run);
-                setProjectWikiVisibleMap((prev) => ({
-                  ...prev,
-                  [effectiveContextId]: true,
-                }));
-                setFixedTab("project-wiki");
-                toastManager.add({
-                  title: t("toasts.wikiGenerationStarted.title"),
-                  description: t("toasts.wikiGenerationStarted.description"),
-                  type: "info",
-                });
-              } catch (err) {
-                setProjectWikiPendingCommand(null);
-                toastManager.add({
-                  title: t("errors.failedToClosePreviousTerminal"),
-                  description: err instanceof Error ? err.message : t("errors.unknown"),
-                  type: "error",
-                });
+            <div
+              key={`wiki-${wikiPaneId ?? "root"}`}
+              data-center-pane-owner={wikiPaneId ?? tabToPaneId?.wiki}
+              className={cn(
+                "absolute inset-0 z-[2] min-h-0 min-w-0 overflow-hidden bg-background",
+                (!wikiVisible ||
+                  paneHiddenByCenterFullscreen(
+                    fullscreenPaneId,
+                    wikiPaneId ?? tabToPaneId?.wiki,
+                  )) &&
+                  "hidden",
+                wikiVisible && "pointer-events-auto",
+              )}
+              style={
+                wikiVisible && wikiBox
+                  ? {
+                      top: wikiBox.top,
+                      right: "auto",
+                      bottom: "auto",
+                      left: wikiBox.left,
+                      width: wikiBox.width,
+                      height: wikiBox.height,
+                    }
+                  : undefined
               }
-            }}
-            wikiPage={wikiPageFromUrl ?? undefined}
-            onWikiPageChange={setWikiPage}
-            isWikiTabActive={wikiVisible}
-          />
-        </div>
+            >
+              <WikiTab
+                contextId={paintContextId || effectiveContextId}
+                effectivePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
+                projectName={currentProject?.name}
+                refreshTrigger={wikiRefreshTrigger}
+                terminalGridRef={terminalGridRef}
+                onSwitchToTerminal={() => setFixedTab("terminal")}
+                onSwitchToProjectWikiAndRun={(run) => {
+                  projectWikiUserTriggeredRef.current = true;
+                  setProjectWikiPendingCommand(run);
+                  setProjectWikiVisibleMap((prev) => ({
+                    ...prev,
+                    [effectiveContextId]: true,
+                  }));
+                  setFixedTab("project-wiki");
+                }}
+                onProjectWikiReplaceAndRun={async (run) => {
+                  try {
+                    await systemApi.killProjectWikiWindow(effectiveContextId);
+                    projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(
+                      PROJECT_WIKI_WINDOW_NAME,
+                    );
+                    projectWikiUserTriggeredRef.current = true;
+                    setProjectWikiPendingCommand(run);
+                    setProjectWikiVisibleMap((prev) => ({
+                      ...prev,
+                      [effectiveContextId]: true,
+                    }));
+                    setFixedTab("project-wiki");
+                    toastManager.add({
+                      title: t("toasts.wikiGenerationStarted.title"),
+                      description: t("toasts.wikiGenerationStarted.description"),
+                      type: "info",
+                    });
+                  } catch (err) {
+                    setProjectWikiPendingCommand(null);
+                    toastManager.add({
+                      title: t("errors.failedToClosePreviousTerminal"),
+                      description: err instanceof Error ? err.message : t("errors.unknown"),
+                      type: "error",
+                    });
+                  }
+                }}
+                wikiPage={wikiPageFromUrl ?? undefined}
+                onWikiPageChange={setWikiPage}
+                isWikiTabActive={wikiVisible}
+              />
+            </div>
           );
         })}
     </div>

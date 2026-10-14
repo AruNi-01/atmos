@@ -18,13 +18,13 @@
 
 整个系统由四个核心组件构成：
 
-| 组件 | 位置 | 职责 |
-| :--- | :--- | :--- |
-| **垫片脚本 (Shim Script)** | 后端服务器 `~/.atmos/shims/` | 按 Shell 类型分立的脚本（Bash/Zsh/Fish），设置 preexec/precmd 钩子，通过 **OSC 9999** 序列发送元数据。在 tmux 内自动使用 DCS passthrough 包裹。 |
-| **后端注入器 (Backend Injector)** | 后端应用 | 在 **tmux new-session/new-window** 或 **简单 PTY spawn** 时，构建并追加 shim 启动参数。tmux 模式下启用 `allow-passthrough on`。 |
-| **初始标题注入 (Initial Title Inject)** | 后端 `TerminalService` | WebSocket 连接建立后，查询 tmux `pane_current_command`/`pane_current_path`，注入合成 OSC 9999 序列，确保刷新后标题立即恢复。 |
-| **数据传输** | PTY → WebSocket | **透传**：无需后端正则解析或剥离，OSC 序列随 PTY 输出一并发送至前端。 |
-| **前端 OSC 处理器 (Frontend OSC Handler)** | 前端浏览器 xterm.js | 使用 `registerOscHandler(9999, ...)` 拦截 OSC 9999 序列，**防抖 CMD_START**（150ms） + **标题值去重**，解析并更新标签标题。 |
+| 组件                                       | 位置                         | 职责                                                                                                                                            |
+| :----------------------------------------- | :--------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **垫片脚本 (Shim Script)**                 | 后端服务器 `~/.atmos/shims/` | 按 Shell 类型分立的脚本（Bash/Zsh/Fish），设置 preexec/precmd 钩子，通过 **OSC 9999** 序列发送元数据。在 tmux 内自动使用 DCS passthrough 包裹。 |
+| **后端注入器 (Backend Injector)**          | 后端应用                     | 在 **tmux new-session/new-window** 或 **简单 PTY spawn** 时，构建并追加 shim 启动参数。tmux 模式下启用 `allow-passthrough on`。                 |
+| **初始标题注入 (Initial Title Inject)**    | 后端 `TerminalService`       | WebSocket 连接建立后，查询 tmux `pane_current_command`/`pane_current_path`，注入合成 OSC 9999 序列，确保刷新后标题立即恢复。                    |
+| **数据传输**                               | PTY → WebSocket              | **透传**：无需后端正则解析或剥离，OSC 序列随 PTY 输出一并发送至前端。                                                                           |
+| **前端 OSC 处理器 (Frontend OSC Handler)** | 前端浏览器 xterm.js          | 使用 `registerOscHandler(9999, ...)` 拦截 OSC 9999 序列，**防抖 CMD_START**（150ms） + **标题值去重**，解析并更新标签标题。                     |
 
 **v3.0 相比 v2.0 的优化**：
 
@@ -49,11 +49,11 @@
 \033]9999;<type>:<payload>\007
 ```
 
-* `\033]`：OSC 序列起始
-* `9999`：自定义 OSC 标识符（避免与 iTerm2/Kitty 等厂商码冲突）
-* `<type>`：消息类型，如 `CMD_START` 或 `CMD_END`
-* `<payload>`：消息内容，如完整命令字符串或当前工作目录路径
-* `\007` (BEL)：OSC 序列终止
+- `\033]`：OSC 序列起始
+- `9999`：自定义 OSC 标识符（避免与 iTerm2/Kitty 等厂商码冲突）
+- `<type>`：消息类型，如 `CMD_START` 或 `CMD_END`
+- `<payload>`：消息内容，如完整命令字符串或当前工作目录路径
+- `\007` (BEL)：OSC 序列终止
 
 **Tmux DCS passthrough**：tmux 终端模拟器只识别标准 OSC 码（0/4/7/52 等），自定义 OSC 9999 会被静默丢弃。垫片脚本检测 `$TMUX` 环境变量，在 tmux 内自动使用 DCS passthrough 包裹：
 
@@ -65,10 +65,10 @@ tmux 收到 DCS passthrough 后解包，将纯 `\033]9999;...\007` 转发给 att
 
 **消息类型**：
 
-| 类型 | 含义 | payload 示例 |
-|------|------|--------------|
-| `CMD_START` | 用户刚输入了一条命令，即将执行 | `vim src/main.rs` |
-| `CMD_END` | 命令执行完毕，Shell 空闲 | `/Users/me/projects/atmos` |
+| 类型        | 含义                           | payload 示例               |
+| ----------- | ------------------------------ | -------------------------- |
+| `CMD_START` | 用户刚输入了一条命令，即将执行 | `vim src/main.rs`          |
+| `CMD_END`   | 命令执行完毕，Shell 空闲       | `/Users/me/projects/atmos` |
 
 xterm.js 通过 `registerOscHandler(9999, callback)` 拦截该序列，`callback` 返回 `true` 表示已消费，终端不会渲染该序列。
 
@@ -92,20 +92,20 @@ __atmos_send_meta() {
 
 #### Bash：`atmos_shim.bash`
 
-* 通过 `bash --init-file /path/to/atmos_shim.bash` 加载
-* 先 `source ~/.bashrc`，再注册 DEBUG trap 与 PROMPT_COMMAND
-* 使用 `__atmos_at_prompt` flag 区分「用户输入」与「内部执行」，避免 PROMPT_COMMAND 等触发误报
+- 通过 `bash --init-file /path/to/atmos_shim.bash` 加载
+- 先 `source ~/.bashrc`，再注册 DEBUG trap 与 PROMPT_COMMAND
+- 使用 `__atmos_at_prompt` flag 区分「用户输入」与「内部执行」，避免 PROMPT_COMMAND 等触发误报
 
 #### Zsh：`zdotdir/.zshenv` + `zdotdir/.zshrc`
 
-* 通过 `env ZDOTDIR=~/.atmos/shims/zdotdir zsh` 启动
-* `.zshenv` 代理用户 `~/.zshenv`
-* `.zshrc` 恢复 ZDOTDIR、加载用户 `~/.zshrc`，再 `add-zsh-hook preexec/precmd`
+- 通过 `env ZDOTDIR=~/.atmos/shims/zdotdir zsh` 启动
+- `.zshenv` 代理用户 `~/.zshenv`
+- `.zshrc` 恢复 ZDOTDIR、加载用户 `~/.zshrc`，再 `add-zsh-hook preexec/precmd`
 
 #### Fish：`atmos_shim.fish`
 
-* 通过 `fish --init-command 'source /path/to/atmos_shim.fish'` 加载
-* 使用 `fish_preexec`、`fish_prompt` 事件
+- 通过 `fish --init-command 'source /path/to/atmos_shim.fish'` 加载
+- 使用 `fish_preexec`、`fish_prompt` 事件
 
 ### 3.3. 后端注入器
 
@@ -127,12 +127,12 @@ let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
 
 `build_shell_command()` 根据 `$SHELL` 或显式参数返回：
 
-| Shell | 命令示例 |
-|-------|----------|
-| Bash | `["bash", "--init-file", "/path/to/atmos_shim.bash"]` |
-| Zsh | `["env", "ZDOTDIR=/path/to/zdotdir", "zsh"]` |
-| Fish | `["fish", "--init-command", "source /path/to/atmos_shim.fish"]` |
-| 其他 | `None`（优雅降级，不注入） |
+| Shell | 命令示例                                                        |
+| ----- | --------------------------------------------------------------- |
+| Bash  | `["bash", "--init-file", "/path/to/atmos_shim.bash"]`           |
+| Zsh   | `["env", "ZDOTDIR=/path/to/zdotdir", "zsh"]`                    |
+| Fish  | `["fish", "--init-command", "source /path/to/atmos_shim.fish"]` |
+| 其他  | `None`（优雅降级，不注入）                                      |
 
 #### 简单 PTY 模式（无 Tmux）
 
@@ -208,9 +208,9 @@ terminal.parser.registerOscHandler(9999, (data: string) => {
 
 ### 3.6. 状态管理
 
-* `dynamicTitle`：由 OSC 回调更新的**瞬时**标题，用于 Tab 展示。刷新后由后端初始标题注入（§3.4）恢复。
-* `title` / `tmuxWindowName`：**持久化**的窗口名，用于 reconnection 与 backend 同步。
-* 保存布局到后端时**不包含** `dynamicTitle`，避免污染持久化数据。
+- `dynamicTitle`：由 OSC 回调更新的**瞬时**标题，用于 Tab 展示。刷新后由后端初始标题注入（§3.4）恢复。
+- `title` / `tmuxWindowName`：**持久化**的窗口名，用于 reconnection 与 backend 同步。
+- 保存布局到后端时**不包含** `dynamicTitle`，避免污染持久化数据。
 
 ## 4. 部署与配置
 
@@ -232,6 +232,7 @@ terminal.parser.registerOscHandler(9999, (data: string) => {
 本方案通过**会话级临时 Shell 注入** + **OSC 9999 协议** + **前端 xterm.js 原生拦截**，在不修改用户本地配置、不增加后端解析负担的前提下，实现 Web 终端动态标题功能。
 
 v3.0 解决了三个生产环境中的关键问题：
+
 1. **Tmux 穿透**：通过 DCS passthrough + `allow-passthrough on` 使 OSC 序列能穿过 tmux 终端模拟器层。
 2. **刷新恢复**：后端在 WebSocket 连接建立时主动查询 tmux pane 状态并注入合成 OSC，前端即时恢复标题。
 3. **防抖去重**：150ms CMD_START 防抖 + 标题值去重，消除快速命令的标题闪烁。

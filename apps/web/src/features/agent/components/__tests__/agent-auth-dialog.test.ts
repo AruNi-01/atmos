@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const dialog = readFileSync(
-  join(import.meta.dir, "../AgentAuthDialog.tsx"),
-  "utf8",
-);
+const dialog = readFileSync(join(import.meta.dir, "../AgentAuthDialog.tsx"), "utf8");
 
 describe("agent auth dialog", () => {
   it("does not preselect a method or highlight the first row", () => {

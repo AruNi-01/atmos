@@ -12,7 +12,9 @@ export type UsageShot = {
 
 type Measurable = {
   measure: (callback: (x: number, y: number, width: number, height: number) => void) => void;
-  measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void;
+  measureInWindow: (
+    callback: (x: number, y: number, width: number, height: number) => void,
+  ) => void;
 };
 
 function asMeasurable(node: object): Measurable {
@@ -90,7 +92,8 @@ export function releaseUsageImage(uri: string): void {
 
 async function captureView(ref: RefObject<ScrollView | View | null>): Promise<SkImage> {
   const image = await makeImageFromView(ref as unknown as RefObject<View>);
-  if (!image || image.width() < 1 || image.height() < 1) throw new Error("Could not capture this page.");
+  if (!image || image.width() < 1 || image.height() < 1)
+    throw new Error("Could not capture this page.");
   return image;
 }
 
@@ -136,13 +139,18 @@ function stitchSlices(
 function writePng(image: SkImage): string {
   const base64 = image.encodeToBase64(ImageFormat.PNG);
   if (!base64) throw new Error("Could not capture this page.");
-  const file = new File(Paths.cache, `atmos-usage-${Date.now()}-${Math.random().toString(16).slice(2)}.png`);
+  const file = new File(
+    Paths.cache,
+    `atmos-usage-${Date.now()}-${Math.random().toString(16).slice(2)}.png`,
+  );
   file.create();
   file.write(base64, { encoding: "base64" });
   return file.uri;
 }
 
-function measureLayout(node: Pick<Measurable, "measure">): Promise<{ height: number; width: number }> {
+function measureLayout(
+  node: Pick<Measurable, "measure">,
+): Promise<{ height: number; width: number }> {
   return new Promise((resolve) => {
     node.measure((_x, _y, width, height) => resolve({ height, width }));
   });
@@ -164,8 +172,14 @@ function waitFrames(count: number): Promise<void> {
   });
 }
 
-async function measurePlacement(anchor: Measurable, child: Measurable): Promise<{ lead: number; scrollY: number }> {
-  const [anchorWindow, childWindow] = await Promise.all([measureWindow(anchor), measureWindow(child)]);
+async function measurePlacement(
+  anchor: Measurable,
+  child: Measurable,
+): Promise<{ lead: number; scrollY: number }> {
+  const [anchorWindow, childWindow] = await Promise.all([
+    measureWindow(anchor),
+    measureWindow(child),
+  ]);
   return { lead: childWindow.y - anchorWindow.y, scrollY: anchorWindow.y };
 }
 
@@ -173,7 +187,11 @@ async function measureLead(anchor: Measurable, child: Measurable): Promise<numbe
   return (await measurePlacement(anchor, child)).lead;
 }
 
-async function waitForShift(scroll: Measurable, content: Measurable, expected: number): Promise<void> {
+async function waitForShift(
+  scroll: Measurable,
+  content: Measurable,
+  expected: number,
+): Promise<void> {
   await waitFrames(2);
   for (let i = 0; i < 8; i++) {
     const delta = await measureLead(scroll, content);

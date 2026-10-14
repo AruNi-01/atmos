@@ -5,6 +5,7 @@
 **Review date**: 2026-07-16  
 **Review scope**: functional review + quality review  
 **Related code**:
+
 - `resources/terminal-agents/builtin_agents.json`
 - `packages/shared/src/terminal/title.ts`
 - `crates/core-service/src/service/cli_identity.rs`
@@ -19,58 +20,58 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-027**). |
-| **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
-| **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
+| **Entry id**    | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-027**).                                           |
+| **Status**      | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason).                                  |
+| **Do not**      | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status.       |
+| **Fix proof**   | Each fixed item should name the code change and the verification command or manual check.                      |
 
 ---
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | backend | Grok hooks detection treats any `agent` on PATH as Grok | verified |
-| REV-002 | P1 | backend | Contested identity probe does not enforce timeout | verified |
-| REV-003 | P1 | backend | Notification hook matcher may drop PermissionRequest | verified |
-| REV-004 | P2 | frontend | Canvas pin path omits contestedOwners | verified |
-| REV-005 | P2 | frontend | Mobile freehand `agent` identity not wired | verified |
-| REV-006 | P1 | frontend | Unknown `agent` can fall back to a stale agent label | verified |
-| REV-007 | P2 | frontend | Mobile Grok icon is stored outside the required bundle path | fixed |
-| REV-008 | P1 | backend | PATH lookup remains unbounded inside the identity endpoint | verified |
-| REV-009 | P2 | frontend | Web identity cache is reused across different Computers | fixed |
-| REV-010 | P2 | frontend | Per-pane focus refresh can fan out identity probes | fixed |
-| REV-011 | P2 | frontend | Executable paths and path-valued arguments bypass agent matching | verified |
-| REV-012 | P2 | frontend | Mobile Grok icon has no dark-terminal treatment | fixed |
-| REV-013 | P1 | backend | Grok ignores the configured asynchronous hook flag | verified |
-| REV-014 | P2 | backend | Grok model catalog includes status lines as models | verified |
-| REV-015 | P2 | frontend | Mobile identity refresh can publish the previous Computer's owner | fixed |
-| REV-016 | P1 | backend | Grok run-config flags split `-p` from its prompt value | verified |
-| REV-017 | P1 | frontend | Interactive Grok prompts incorrectly launch single-turn headless mode | verified |
-| REV-018 | P1 | frontend | Hook settings bypass the selected relay Computer | fixed |
-| REV-019 | P3 | tests | Grok hook tests leak process-wide HOME state | fixed |
-| REV-020 | P1 | frontend | Web headless run config still split `-p` from the prompt | verified |
-| REV-021 | P2 | frontend | Argument-free absolute agent executables were treated as CWDs | verified |
-| REV-022 | P1 | backend | Descendants retaining probe pipes could bypass the identity deadline | verified |
-| REV-023 | P1 | frontend | Hook settings could restore stale Computer state | fixed |
-| REV-024 | P1 | backend | Automation discovery omitted `~/.grok/bin` | verified |
-| REV-025 | P2 | backend | Hook management ignored `GROK_HOME` | verified |
-| REV-026 | P2 | backend | Chunk boundaries could corrupt UTF-8 JSONL output | verified |
+| Id      | Severity | Area     | Title                                                                 | Status   |
+| ------- | -------- | -------- | --------------------------------------------------------------------- | -------- |
+| REV-001 | P1       | backend  | Grok hooks detection treats any `agent` on PATH as Grok               | verified |
+| REV-002 | P1       | backend  | Contested identity probe does not enforce timeout                     | verified |
+| REV-003 | P1       | backend  | Notification hook matcher may drop PermissionRequest                  | verified |
+| REV-004 | P2       | frontend | Canvas pin path omits contestedOwners                                 | verified |
+| REV-005 | P2       | frontend | Mobile freehand `agent` identity not wired                            | verified |
+| REV-006 | P1       | frontend | Unknown `agent` can fall back to a stale agent label                  | verified |
+| REV-007 | P2       | frontend | Mobile Grok icon is stored outside the required bundle path           | fixed    |
+| REV-008 | P1       | backend  | PATH lookup remains unbounded inside the identity endpoint            | verified |
+| REV-009 | P2       | frontend | Web identity cache is reused across different Computers               | fixed    |
+| REV-010 | P2       | frontend | Per-pane focus refresh can fan out identity probes                    | fixed    |
+| REV-011 | P2       | frontend | Executable paths and path-valued arguments bypass agent matching      | verified |
+| REV-012 | P2       | frontend | Mobile Grok icon has no dark-terminal treatment                       | fixed    |
+| REV-013 | P1       | backend  | Grok ignores the configured asynchronous hook flag                    | verified |
+| REV-014 | P2       | backend  | Grok model catalog includes status lines as models                    | verified |
+| REV-015 | P2       | frontend | Mobile identity refresh can publish the previous Computer's owner     | fixed    |
+| REV-016 | P1       | backend  | Grok run-config flags split `-p` from its prompt value                | verified |
+| REV-017 | P1       | frontend | Interactive Grok prompts incorrectly launch single-turn headless mode | verified |
+| REV-018 | P1       | frontend | Hook settings bypass the selected relay Computer                      | fixed    |
+| REV-019 | P3       | tests    | Grok hook tests leak process-wide HOME state                          | fixed    |
+| REV-020 | P1       | frontend | Web headless run config still split `-p` from the prompt              | verified |
+| REV-021 | P2       | frontend | Argument-free absolute agent executables were treated as CWDs         | verified |
+| REV-022 | P1       | backend  | Descendants retaining probe pipes could bypass the identity deadline  | verified |
+| REV-023 | P1       | frontend | Hook settings could restore stale Computer state                      | fixed    |
+| REV-024 | P1       | backend  | Automation discovery omitted `~/.grok/bin`                            | verified |
+| REV-025 | P2       | backend  | Hook management ignored `GROK_HOME`                                   | verified |
+| REV-026 | P2       | backend  | Chunk boundaries could corrupt UTF-8 JSONL output                     | verified |
 
 ---
 
 ## REV-001 · Grok hooks detection treats any `agent` on PATH as Grok
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -109,13 +110,13 @@ This diverges from TECH M9 detection: “`which grok` / `which agent` **resolves
 
 ## REV-002 · Contested identity probe does not enforce timeout
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -145,13 +146,13 @@ This diverges from TECH M9 detection: “`which grok` / `which agent` **resolves
 
 ## REV-003 · Notification hook matcher may drop PermissionRequest
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -181,13 +182,13 @@ Install Notification with broad matcher `.*`; keep server-side allowlist for `pe
 
 ## REV-004 · Canvas pin path omits contestedOwners
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -215,13 +216,13 @@ Pass `useContestedCliOwners()` into pin `getTerminalDisplayMeta`.
 
 ## REV-005 · Mobile freehand `agent` identity not wired
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -250,13 +251,13 @@ Fetch `/hooks/cli-identity` via active computer HTTP gateway + client token; pas
 
 ## REV-006 · Unknown `agent` can fall back to a stale agent label
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -292,13 +293,13 @@ Treat an unresolved contested dynamic token as authoritative: suppress base-labe
 
 ## REV-007 · Mobile Grok icon is stored outside the required bundle path
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -330,13 +331,13 @@ Move the PNG to `apps/mobile/assets/agents/grok-build.png`, matching all existin
 
 ## REV-008 · PATH lookup remains unbounded inside the identity endpoint
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -368,13 +369,13 @@ Bound the PATH-resolution subprocess as part of the same end-to-end probe deadli
 
 ## REV-009 · Web identity cache is reused across different Computers
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -406,13 +407,13 @@ Key cache/in-flight state by the resolved API target or selected Computer id, cl
 
 ## REV-010 · Per-pane focus refresh can fan out identity probes
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -444,13 +445,13 @@ Expose contested-owner state through one connection-scoped external store/provid
 
 ## REV-011 · Executable paths and path-valued arguments bypass agent matching
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -488,13 +489,13 @@ Distinguish a bare CWD/path title from a command line whose first token is an ex
 
 ## REV-012 · Mobile Grok icon has no dark-terminal treatment
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -527,13 +528,13 @@ Use a theme-appropriate mobile asset pair or tint the monochrome Grok PNG with t
 
 ## REV-013 · Grok ignores the configured asynchronous hook flag
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -569,13 +570,13 @@ Make the generated command genuinely fire-and-forget using syntax supported by G
 
 ## REV-014 · Grok model catalog includes status lines as models
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -610,13 +611,13 @@ Use a Grok-specific catalog parser (preferred) that starts after `Available mode
 
 ## REV-015 · Mobile identity refresh can publish the previous Computer's owner
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -650,13 +651,13 @@ Store cache and in-flight promises per gateway/Computer key. On active-session c
 
 ## REV-016 · Grok run-config flags split `-p` from its prompt value
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -694,13 +695,13 @@ Represent the prompt flag structurally or insert run-config options before the t
 
 ## REV-017 · Interactive Grok prompts incorrectly launch single-turn headless mode
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -736,13 +737,13 @@ Give Grok an explicit interactive-prompt policy: pass the initial prompt positio
 
 ## REV-018 · Hook settings bypass the selected relay Computer
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -776,13 +777,13 @@ Move status, install-all, uninstall-all, install-tool, and uninstall-tool calls 
 
 ## REV-019 · Grok hook tests leak process-wide HOME state
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P3 |
-| **Area** | tests |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P3              |
+| **Area**        | tests           |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -814,11 +815,11 @@ Use an RAII environment guard that restores both HOME and PATH on every exit/pan
 
 ## REV-020 · Web headless run config still split `-p` from the prompt
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field        | Value    |
+| ------------ | -------- |
+| **Status**   | verified |
+| **Severity** | P1       |
+| **Area**     | frontend |
 
 ### Finding and resolution
 
@@ -833,11 +834,11 @@ The Rust automation path had been corrected, but the web workspace headless buil
 
 ## REV-021 · Argument-free absolute agent executables were treated as CWDs
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field        | Value    |
+| ------------ | -------- |
+| **Status**   | verified |
+| **Severity** | P2       |
+| **Area**     | frontend |
 
 ### Finding and resolution
 
@@ -852,11 +853,11 @@ The CWD guard rejected `/Users/me/.grok/bin/grok` and `/opt/bin/cursor-agent` wh
 
 ## REV-022 · Descendants retaining probe pipes could bypass the identity deadline
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field        | Value    |
+| ------------ | -------- |
+| **Status**   | verified |
+| **Severity** | P1       |
+| **Area**     | backend  |
 
 ### Finding and resolution
 
@@ -872,11 +873,11 @@ After the probed parent exited, synchronous pipe draining could wait forever on 
 
 ## REV-023 · Hook settings could restore stale Computer state
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field        | Value    |
+| ------------ | -------- |
+| **Status**   | fixed    |
+| **Severity** | P1       |
+| **Area**     | frontend |
 
 ### Finding and resolution
 
@@ -894,11 +895,11 @@ Target changes could leave the previous report visible, and late status/mutation
 
 ## REV-024 · Automation discovery omitted `~/.grok/bin`
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field        | Value    |
+| ------------ | -------- |
+| **Status**   | verified |
+| **Severity** | P1       |
+| **Area**     | backend  |
 
 ### Finding and resolution
 
@@ -912,11 +913,11 @@ API/Desktop processes with a sanitized PATH could miss the official Grok install
 
 ## REV-025 · Hook management ignored `GROK_HOME`
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field        | Value    |
+| ------------ | -------- |
+| **Status**   | verified |
+| **Severity** | P2       |
+| **Area**     | backend  |
 
 ### Finding and resolution
 
@@ -931,11 +932,11 @@ Install/check/uninstall always targeted `~/.grok`. They now resolve `${GROK_HOME
 
 ## REV-026 · Chunk boundaries could corrupt UTF-8 JSONL output
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field        | Value    |
+| ------------ | -------- |
+| **Status**   | verified |
+| **Severity** | P2       |
+| **Area**     | backend  |
 
 ### Finding and resolution
 
@@ -950,11 +951,11 @@ Structured stdout decoded each arbitrary read chunk independently, so a split mu
 
 ## What looks solid (no finding)
 
-| Area | Notes |
-|------|--------|
-| M1 built-in identity | `builtin_agents.json` has `grok-build` / `Grok Build` / `grok` / streaming parser. |
+| Area                      | Notes                                                                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M1 built-in identity      | `builtin_agents.json` has `grok-build` / `Grok Build` / `grok` / streaming parser.                                                                                                   |
 | Base registration/parsing | Built-in identity, Cursor `cursor-agent` migration, dedicated streaming parser, state mapping, and Grok settings metadata are wired; launch/catalog/relay defects are tracked above. |
-| Layering | REST hooks + cli-identity justified; WS state path reused. |
+| Layering                  | REST hooks + cli-identity justified; WS state path reused.                                                                                                                           |
 
 ## Verification run (post-fix)
 

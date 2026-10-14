@@ -14,10 +14,7 @@ import {
   Input,
 } from "@workspace/ui";
 import type { CatalogAuthStartResult } from "@/features/agent/lib/catalog-auth";
-import {
-  AUTHENTICATED_HOLD_MS,
-  catalogAuthMethodKind,
-} from "@/features/agent/lib/catalog-auth";
+import { AUTHENTICATED_HOLD_MS, catalogAuthMethodKind } from "@/features/agent/lib/catalog-auth";
 
 interface AuthMethod {
   id: string;
@@ -139,9 +136,7 @@ export function AgentAuthDialog({
                 </Button>
                 {expanded && kind === "browser" ? (
                   <div className="space-y-2 px-0.5">
-                    <p className="text-xs text-muted-foreground">
-                      {t("authDialog.browserHint")}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t("authDialog.browserHint")}</p>
                     <Button
                       type="button"
                       size="sm"
@@ -170,10 +165,13 @@ export function AgentAuthDialog({
                             size="sm"
                             disabled={busy}
                             onClick={() => {
-                              void navigator.clipboard.writeText(cliCommand).then(() => {
-                                setCopied(true);
-                                window.setTimeout(() => setCopied(false), 1500);
-                              }).catch(() => undefined);
+                              void navigator.clipboard
+                                .writeText(cliCommand)
+                                .then(() => {
+                                  setCopied(true);
+                                  window.setTimeout(() => setCopied(false), 1500);
+                                })
+                                .catch(() => undefined);
                             }}
                           >
                             {copied ? t("authDialog.copied") : t("authDialog.copyCommand")}
@@ -198,7 +196,10 @@ export function AgentAuthDialog({
                 ) : null}
                 {expanded && kind === "token" ? (
                   <div className="space-y-2 px-0.5">
-                    <label className="text-sm font-medium" htmlFor={`agent-auth-api-key-${method.id}`}>
+                    <label
+                      className="text-sm font-medium"
+                      htmlFor={`agent-auth-api-key-${method.id}`}
+                    >
                       {t("authDialog.apiKeyLabel")}
                     </label>
                     <Input

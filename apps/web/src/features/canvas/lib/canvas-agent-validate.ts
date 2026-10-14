@@ -3,7 +3,11 @@ import type { Editor, TLShape, TLShapePartial } from "tldraw";
 import { CanvasAgentError, isTldrawValidationError } from "./canvas-agent-errors";
 import { finalizeShapeForStore } from "./canvas-agent-shape-patch";
 
-export function validateShapeUpdate(editor: Editor, before: TLShape, partial: TLShapePartial): void {
+export function validateShapeUpdate(
+  editor: Editor,
+  before: TLShape,
+  partial: TLShapePartial,
+): void {
   const updated = finalizeShapeForStore(editor, before, partial);
   validateShapeRecord(editor, updated, "updateRecord", before);
 }

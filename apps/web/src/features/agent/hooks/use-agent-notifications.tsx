@@ -19,21 +19,14 @@ import {
 import { desktopListen, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import { getProjectBootstrapSnapshot } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import {
-  navigateToAgentStatusSession,
-} from "@/features/agent/lib/agent-status-navigation";
+import { navigateToAgentStatusSession } from "@/features/agent/lib/agent-status-navigation";
 import {
   sessionFromAgentNotification,
   showAgentStatusToast,
 } from "@/features/agent/lib/agent-status-toast";
-import {
-  AGENT_STATE,
-  type AgentStatusRecord,
-} from "@/features/agent/store/agent-status-store";
+import { AGENT_STATE, type AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 
-function agentClickActionFromPayload(
-  payload: AgentNotificationPayload,
-): NotificationClickAction {
+function agentClickActionFromPayload(payload: AgentNotificationPayload): NotificationClickAction {
   const session = sessionFromAgentNotification(payload);
   return {
     kind: "agent_status",
@@ -91,83 +84,79 @@ export function useAgentNotifications() {
   const handleNotificationClickAction = useCallback((action: NotificationClickAction) => {
     if (action.kind === "agent_status") {
       const projects = getProjectBootstrapSnapshot()?.projects ?? [];
-      navigateToAgentStatusSession(
-        sessionFromAgentAction(action),
-        routerRef.current,
-        projects,
-      );
+      navigateToAgentStatusSession(sessionFromAgentAction(action), routerRef.current, projects);
       return;
     }
 
     if (action.kind === "automation") {
-      routerRef.current.push(
-        automationNotificationHref(action.automation_guid, action.run_guid),
-      );
+      routerRef.current.push(automationNotificationHref(action.automation_guid, action.run_guid));
     }
   }, []);
 
-  const handleNotification = useCallback((payload: AgentNotificationPayload) => {
-    const settings = useNotificationSettingsStore.getState().settings;
+  const handleNotification = useCallback(
+    (payload: AgentNotificationPayload) => {
+      const settings = useNotificationSettingsStore.getState().settings;
 
-    if (settings.app_toast_notification) {
-      showAgentStatusToast({ payload, router: routerRef.current, t });
-    }
+      if (settings.app_toast_notification) {
+        showAgentStatusToast({ payload, router: routerRef.current, t });
+      }
 
-    const showSystem = shouldShowSystemNotification(
-      settings.system_notification_when_focused,
-    );
-    if (!showSystem) return;
+      const showSystem = shouldShowSystemNotification(settings.system_notification_when_focused);
+      if (!showSystem) return;
 
-    const action = agentClickActionFromPayload(payload);
-    const browserIcon = resolveAgentNotificationIconSrc(payload.tool);
+      const action = agentClickActionFromPayload(payload);
+      const browserIcon = resolveAgentNotificationIconSrc(payload.tool);
 
-    if (settings.browser_notification) {
-      showBrowserNotification(payload, {
-        tag: `atmos-agent-${payload.session_id}`,
-        icon: browserIcon,
-        requireInteraction: payload.reason === "permission_request"
-          || payload.state === "permission_request",
-        onClick: () => handleNotificationClickAction(action),
-      });
-    }
+      if (settings.browser_notification) {
+        showBrowserNotification(payload, {
+          tag: `atmos-agent-${payload.session_id}`,
+          icon: browserIcon,
+          requireInteraction:
+            payload.reason === "permission_request" || payload.state === "permission_request",
+          onClick: () => handleNotificationClickAction(action),
+        });
+      }
 
-    if (settings.desktop_notification) {
-      void (async () => {
-        // Content icon = agent brand (left on macOS). App icon stays as Atmos identity.
-        const icon = await resolveAgentNotificationIconDataUrl(payload.tool);
-        await showDesktopNotification(payload, { action, icon });
-      })();
-    }
-  }, [handleNotificationClickAction, t]);
+      if (settings.desktop_notification) {
+        void (async () => {
+          // Content icon = agent brand (left on macOS). App icon stays as Atmos identity.
+          const icon = await resolveAgentNotificationIconDataUrl(payload.tool);
+          await showDesktopNotification(payload, { action, icon });
+        })();
+      }
+    },
+    [handleNotificationClickAction, t],
+  );
 
-  const handleAutomationNotification = useCallback((payload: AutomationNotificationPayload) => {
-    const settings = useNotificationSettingsStore.getState().settings;
+  const handleAutomationNotification = useCallback(
+    (payload: AutomationNotificationPayload) => {
+      const settings = useNotificationSettingsStore.getState().settings;
 
-    if (!settings.notify_on_automation_outcome) {
-      return;
-    }
+      if (!settings.notify_on_automation_outcome) {
+        return;
+      }
 
-    const showSystem = shouldShowSystemNotification(
-      settings.system_notification_when_focused,
-    );
-    if (!showSystem) return;
+      const showSystem = shouldShowSystemNotification(settings.system_notification_when_focused);
+      if (!showSystem) return;
 
-    const action = automationClickActionFromPayload(payload);
+      const action = automationClickActionFromPayload(payload);
 
-    if (settings.browser_notification) {
-      showBrowserNotification(payload, {
-        tag: `atmos-automation-${payload.run_guid}`,
-        requireInteraction: payload.status !== "completed",
-        onClick: () => handleNotificationClickAction(action),
-      });
-    }
+      if (settings.browser_notification) {
+        showBrowserNotification(payload, {
+          tag: `atmos-automation-${payload.run_guid}`,
+          requireInteraction: payload.status !== "completed",
+          onClick: () => handleNotificationClickAction(action),
+        });
+      }
 
-    if (settings.desktop_notification) {
-      // Default brand plate (current saturn mark). Leaving icon unset lets
-      // macOS reuse a cached pre-rebrand app icon on com.atmos.desktop.
-      void showDesktopNotification(payload, { action });
-    }
-  }, [handleNotificationClickAction]);
+      if (settings.desktop_notification) {
+        // Default brand plate (current saturn mark). Leaving icon unset lets
+        // macOS reuse a cached pre-rebrand app icon on com.atmos.desktop.
+        void showDesktopNotification(payload, { action });
+      }
+    },
+    [handleNotificationClickAction],
+  );
 
   useEffect(() => {
     void useNotificationSettingsStore.getState().loadSettings();

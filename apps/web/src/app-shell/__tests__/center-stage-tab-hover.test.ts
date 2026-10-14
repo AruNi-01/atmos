@@ -2,14 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const shared = readFileSync(
-  join(import.meta.dir, "../center-stage-shared-tabs.tsx"),
-  "utf8",
-);
-const tabBar = readFileSync(
-  join(import.meta.dir, "../CenterStageTabBar.tsx"),
-  "utf8",
-);
+const shared = readFileSync(join(import.meta.dir, "../center-stage-shared-tabs.tsx"), "utf8");
+const tabBar = readFileSync(join(import.meta.dir, "../CenterStageTabBar.tsx"), "utf8");
 
 describe("center stage tab hover", () => {
   it("slides the pill with CSS transform instead of layoutId", () => {
@@ -37,27 +31,27 @@ describe("center stage tab hover", () => {
     expect(listFn).toContain('orientation = "horizontal"');
     expect(listFn).toContain("orientation={orientation}");
     expect(listFn).toContain(
-      '"flex h-full w-11 min-h-0 max-h-full flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"',
+      '"flex h-full max-h-full min-h-0 w-11 flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"',
     );
     const scrollFn = shared.slice(
       shared.indexOf("export function CenterStageScrollableTabs"),
       shared.indexOf("export function CenterStageStickyTabActions"),
     );
     expect(scrollFn).toContain('orientation = "horizontal"');
-    expect(scrollFn).toContain(
-      '"flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar"',
-    );
+    expect(scrollFn).toContain('"no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto"');
   });
 
   it("uses the tasks-page motion pill tabs without a bottom divider", () => {
-    expect(shared).toContain('@workspace/ui/components/motion/tabs');
+    expect(shared).toContain("@workspace/ui/components/motion/tabs");
     expect(shared).toContain('variant="pill"');
-    expect(shared).toContain("flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0");
+    expect(shared).toContain(
+      "flex h-8 max-w-full min-w-0 justify-start overflow-hidden bg-background py-0.5 pr-0 pl-0.5",
+    );
     expect(shared).toContain("group h-7 shrink-0 gap-1.5 px-1.5 text-xs");
     expect(shared).toContain("aria-selected:!text-foreground");
     expect(shared).toContain('CENTER_STAGE_TAB_INDICATOR_CLASS = "bg-active"');
     expect(shared).not.toContain("border-b border-sidebar-border");
-    expect(shared).not.toContain("variant=\"underline\"");
+    expect(shared).not.toContain('variant="underline"');
     expect(shared).toContain("{children}");
     expect(shared).toContain("{actions}");
   });
@@ -83,9 +77,7 @@ describe("center stage tab hover", () => {
     expect(listFn).toContain("flex-[0_1_auto]");
     expect(listFn).toContain("gap-0.5");
     expect(listFn.indexOf("trailing={afterTabs}")).toBeLessThan(listFn.indexOf("{actions}"));
-    expect(shared).toContain(
-      "flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar",
-    );
+    expect(shared).toContain("no-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto");
     expect(tabBar).toContain("afterTabs={");
     expect(tabBar.indexOf("<CenterStageNewTabMenu")).toBeLessThan(
       tabBar.indexOf("<CenterStagePaneFullscreenButton"),
@@ -205,9 +197,9 @@ describe("center stage tab hover", () => {
     expect(pointer).toContain("function hitPlusMenuControl");
     expect(pointer).toContain("function syncPlusMenuHover");
     expect(pointer).toContain("function muteCenterOverlayHits");
-    expect(pointer).toContain("window.addEventListener(\"pointermove\", onPointerMove, true)");
-    expect(pointer).toContain("window.addEventListener(\"pointerdown\", onPointerDown, true)");
-    expect(pointer).toContain("window.addEventListener(\"mousedown\", onMouseDown, true)");
+    expect(pointer).toContain('window.addEventListener("pointermove", onPointerMove, true)');
+    expect(pointer).toContain('window.addEventListener("pointerdown", onPointerDown, true)');
+    expect(pointer).toContain('window.addEventListener("mousedown", onMouseDown, true)');
     expect(pointer).toContain("markCenterStagePlusMenuOpen");
     expect(menuBlock).toContain("useCenterStagePlusMenuOverlayGuard(open");
     expect(menuBlock).toContain("onPointerOverChrome: clearCloseTimer");
@@ -244,7 +236,7 @@ describe("center stage tab hover", () => {
       "html[data-center-stage-plus-menu-open] [data-center-panel-host]",
     );
     expect(terminalGridCss).toContain(
-      "html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized",
+      "html[data-center-stage-plus-menu-open]\n  .terminal-grid-container[data-maximized-id]\n  .terminal-pane.is-maximized",
     );
     expect(terminalGridCss).toContain("html[data-center-stage-plus-menu-open] canvas");
     expect(terminalGridCss).not.toContain(
@@ -253,10 +245,7 @@ describe("center stage tab hover", () => {
     expect(terminalGridCss).toContain("[data-plus-menu-hot]");
     expect(terminalGridCss).toContain("pointer-events: none !important;");
 
-    const globalsCss = readFileSync(
-      join(import.meta.dir, "../../app/globals.css"),
-      "utf8",
-    );
+    const globalsCss = readFileSync(join(import.meta.dir, "../../app/globals.css"), "utf8");
     expect(globalsCss).toContain("html[data-center-stage-plus-menu-open] canvas");
     expect(globalsCss).toContain("html[data-center-stage-plus-menu-open] webview");
     expect(globalsCss).toContain(
@@ -275,10 +264,10 @@ describe("center stage tab hover", () => {
       tabBar.indexOf("function CenterStageNewTabMenu"),
       tabBar.indexOf("function SpecialTerminalTab"),
     );
-    expect(tabBar).toContain('@workspace/ui/components/motion/tabs');
+    expect(tabBar).toContain("@workspace/ui/components/motion/tabs");
     expect(menuBlock).toContain('variant="pill"');
     expect(menuBlock).toContain('className="flex h-8 w-full min-w-0 gap-0.5 bg-muted p-0.5"');
-    expect(menuBlock).toContain('onValueChange={(value) => {');
+    expect(menuBlock).toContain("onValueChange={(value) => {");
     const tabList = menuBlock.slice(
       menuBlock.indexOf("<MotionTabsList"),
       menuBlock.indexOf("</MotionTabsList>"),
@@ -295,15 +284,16 @@ describe("center stage tab hover", () => {
     expect(menuBlock.indexOf("{overviewLabel}")).toBeLessThan(menuBlock.indexOf("{terminalLabel}"));
     expect(menuBlock).toContain("onCreateMarkdownNote");
     expect(menuBlock).toContain("FileText");
-    expect(menuBlock.indexOf("{terminalLabel}")).toBeLessThan(menuBlock.indexOf("{agentChatLabel}"));
-    expect(menuBlock.indexOf("{agentChatLabel}")).toBeLessThan(menuBlock.indexOf("{markdownLabel}"));
+    expect(menuBlock.indexOf("{terminalLabel}")).toBeLessThan(
+      menuBlock.indexOf("{agentChatLabel}"),
+    );
+    expect(menuBlock.indexOf("{agentChatLabel}")).toBeLessThan(
+      menuBlock.indexOf("{markdownLabel}"),
+    );
   });
 
   it("puts TUI and Chat UI kind chips in tab tooltips, not on the pills", () => {
-    const tabs = readFileSync(
-      join(import.meta.dir, "../center-stage-tab-tooltip.tsx"),
-      "utf8",
-    );
+    const tabs = readFileSync(join(import.meta.dir, "../center-stage-tab-tooltip.tsx"), "utf8");
     expect(tabs).toContain("export function CenterStageTabKindChip");
     expect(tabs).toContain('data-center-tab-kind-chip=""');
     expect(tabs).toContain("kind?: React.ReactNode");
@@ -330,12 +320,10 @@ describe("center stage tab hover", () => {
       tabBar.indexOf('if (tab.kind === "agent-chat")'),
       tabBar.indexOf('if (tab.kind === "browser")'),
     );
-    expect(chatTab).toContain("tooltipKind={t(\"centerStageTabBar.tooltipKindChatUi\")}");
+    expect(chatTab).toContain('tooltipKind={t("centerStageTabBar.tooltipKindChatUi")}');
     expect(chatTab).not.toContain("CenterStageTabKindChip");
 
-    const specialTab = tabBar.slice(
-      tabBar.indexOf("function SpecialTerminalTab"),
-    );
+    const specialTab = tabBar.slice(tabBar.indexOf("function SpecialTerminalTab"));
     const specialTooltip = specialTab.slice(
       specialTab.indexOf("<TooltipContent"),
       specialTab.indexOf("</TooltipContent>"),
@@ -359,10 +347,7 @@ describe("center stage tab hover", () => {
     expect(extraTab).not.toContain("useShallow");
     expect(extraTab).not.toContain("s.getPanes(");
 
-    const indicator = readFileSync(
-      join(import.meta.dir, "../center-stage-tabs.tsx"),
-      "utf8",
-    );
+    const indicator = readFileSync(join(import.meta.dir, "../center-stage-tabs.tsx"), "utf8");
     const withPanes = indicator.slice(
       indicator.indexOf("export function TerminalTabAgentIndicatorWithPanes"),
       indicator.indexOf("export function AgentChatTabStatusIndicator"),
@@ -377,9 +362,9 @@ describe("center stage tab hover", () => {
       tabBar.indexOf("function CenterStageNewTabMenu"),
     );
     expect(menuBlock).toContain("ResizeObserver");
-    expect(menuBlock).toContain("animate={reduce || height === \"auto\" ? undefined : { height }}");
+    expect(menuBlock).toContain('animate={reduce || height === "auto" ? undefined : { height }}');
     expect(menuBlock).toContain("overflow-hidden");
-    expect(menuBlock).toContain("scale: tab === \"tabs\" ? 1 : 0.96");
+    expect(menuBlock).toContain('scale: tab === "tabs" ? 1 : 0.96');
     expect(tabBar).toContain("w-48 overflow-hidden border-border/70");
   });
 });

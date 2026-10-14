@@ -13,7 +13,7 @@ describe("agent tool markdown file presentation", () => {
     expect(preview).toContain("ImagePreviewOverlay");
     expect(preview).not.toContain("MarkdownRenderer");
     expect(preview).not.toContain('kind: "markdown"');
-    expect(preview).not.toContain("language === \"markdown\"");
+    expect(preview).not.toContain('language === "markdown"');
     expect(preview).not.toContain("/\\.md$/i");
   });
 
@@ -72,14 +72,8 @@ describe("agent tool markdown file presentation", () => {
   });
 
   it("execute cards show the command above output, not in the collapsed title", () => {
-    const terminal = readFileSync(
-      join(import.meta.dir, "../TerminalBlock.tsx"),
-      "utf8",
-    );
-    const command = readFileSync(
-      join(import.meta.dir, "../AgentCommandLine.tsx"),
-      "utf8",
-    );
+    const terminal = readFileSync(join(import.meta.dir, "../TerminalBlock.tsx"), "utf8");
+    const command = readFileSync(join(import.meta.dir, "../AgentCommandLine.tsx"), "utf8");
     expect(terminal).toContain("preferredCollapsedToolTitle");
     expect(terminal).toContain("AgentCommandLine");
     expect(terminal).not.toContain("Run Script:");
@@ -99,14 +93,12 @@ describe("agent tool markdown file presentation", () => {
       "utf8",
     );
     const present = readFileSync(
-      join(import.meta.dir, "../../lib/tool-results/parse-tool-result.ts"),
+      join(import.meta.dir, "../../lib/tool-results/diff-stats.ts"),
       "utf8",
     );
-    expect(present).toContain('kind: "diff_stats"');
+    expect(present).toContain('type === "diff_stats"');
     expect(block).toContain('presentation.kind === "diff_stats"');
     expect(block).toContain('t("lineChanges")');
-    expect(block).toMatch(
-      /presentation\.kind === "empty" && path && part\.kind === "read"/,
-    );
+    expect(block).toMatch(/presentation\.kind === "empty" && path && part\.kind === "read"/);
   });
 });

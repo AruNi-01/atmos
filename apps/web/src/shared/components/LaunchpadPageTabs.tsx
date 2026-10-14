@@ -1,11 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import { cn } from "@workspace/ui";
 
 export type LaunchpadPageTabItem = {
@@ -34,11 +30,7 @@ export function LaunchpadPageTabs({
     >
       <TabsList className="h-10 gap-1 p-1">
         {items.map((item) => (
-          <TabsTrigger
-            key={item.value}
-            value={item.value}
-            className="h-8 gap-1.5 px-3.5 text-sm"
-          >
+          <TabsTrigger key={item.value} value={item.value} className="h-8 gap-1.5 px-3.5 text-sm">
             {item.icon ? <item.icon className="size-4 shrink-0" /> : null}
             {item.label}
           </TabsTrigger>

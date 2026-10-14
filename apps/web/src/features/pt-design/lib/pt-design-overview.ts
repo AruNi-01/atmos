@@ -15,10 +15,7 @@ export type { PtDesignHostContext };
 
 const CENTER_SPACE_KEY_MARK = "::space::";
 
-export function ptDesignHostForFrame(
-  contextId: string,
-  isProject: boolean,
-): PtDesignHostContext {
+export function ptDesignHostForFrame(contextId: string, isProject: boolean): PtDesignHostContext {
   const index = contextId.indexOf(CENTER_SPACE_KEY_MARK);
   const hostId = index === -1 ? contextId : contextId.slice(0, index);
   if (isProject) return { kind: "project", projectId: hostId };
@@ -77,7 +74,9 @@ export function resolvePtDesignOwner(
   projectId?: string;
   workspaceId?: string;
 } {
-  const byProject = projects.find((project) => project.id === meta.id || project.id === meta.projectId);
+  const byProject = projects.find(
+    (project) => project.id === meta.id || project.id === meta.projectId,
+  );
   if (byProject && (byProject.id === meta.id || meta.scope === "project")) {
     if (byProject.id === meta.id) {
       return {
@@ -124,13 +123,16 @@ export function resolvePtDesignOwner(
   };
 }
 
-export function resolvePtDesignList(listed: PtDesignListed[], projects: Project[]): ResolvedPtDesign[] {
+export function resolvePtDesignList(
+  listed: PtDesignListed[],
+  projects: Project[],
+): ResolvedPtDesign[] {
   return listed.map((item) => {
     const owner = resolvePtDesignOwner(item.meta, projects);
     const projectId =
       item.meta.scope === "global"
         ? undefined
-        : owner.projectId ?? item.meta.projectId ?? "unresolved";
+        : (owner.projectId ?? item.meta.projectId ?? "unresolved");
     const group: "global" | "project" = item.meta.scope === "global" ? "global" : "project";
     return {
       id: item.id,
@@ -157,7 +159,9 @@ export function createMetaForHost(
     return { scope: "project", openMode: "center-tab", projectId: host.projectId };
   }
   if (host.kind === "workspace") {
-    const project = projects.find((row) => row.workspaces.some((workspace) => workspace.id === host.workspaceId));
+    const project = projects.find((row) =>
+      row.workspaces.some((workspace) => workspace.id === host.workspaceId),
+    );
     return {
       scope: "project",
       openMode: "center-tab",

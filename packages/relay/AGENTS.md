@@ -36,14 +36,14 @@ packages/relay/
 
 ## Auth model (APP-056)
 
-| Credential | Holder | Use |
-|------------|--------|-----|
-| **Relay secret** (`X-Atmos-Relay-Secret`, optional) | Private relay operator/user | Extra relay gate when `RELAY_SECRET_KEY` is set on a self-hosted Worker |
-| **Hub sync secret** (Bearer on `/v1/internal/*`) | Hub Worker | Device upsert/revoke projection |
-| **Device credential** (Bearer) | Hub-minted; Desktop/Web/Mobile store | `user_id` identity: register tokens, list computers, client sessions, GitHub control |
-| `register_token` | One-time to VPS/CLI | `POST /v1/computers/register` only |
-| `server_secret` | `~/.atmos/credentials/relay_identity.json` on Server | Outbound `GET /ws/server` |
-| `client_token` | Browser/Desktop memory + `~/.atmos/state/client-session.json` | Inbound `GET /ws/client` + HTTP gateway |
+| Credential                                          | Holder                                                        | Use                                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Relay secret** (`X-Atmos-Relay-Secret`, optional) | Private relay operator/user                                   | Extra relay gate when `RELAY_SECRET_KEY` is set on a self-hosted Worker              |
+| **Hub sync secret** (Bearer on `/v1/internal/*`)    | Hub Worker                                                    | Device upsert/revoke projection                                                      |
+| **Device credential** (Bearer)                      | Hub-minted; Desktop/Web/Mobile store                          | `user_id` identity: register tokens, list computers, client sessions, GitHub control |
+| `register_token`                                    | One-time to VPS/CLI                                           | `POST /v1/computers/register` only                                                   |
+| `server_secret`                                     | `~/.atmos/credentials/relay_identity.json` on Server          | Outbound `GET /ws/server`                                                            |
+| `client_token`                                      | Browser/Desktop memory + `~/.atmos/state/client-session.json` | Inbound `GET /ws/client` + HTTP gateway                                              |
 
 There is **no** end-user `POST /v1/tenants` / Access Token model.
 
@@ -51,12 +51,12 @@ There is **no** end-user `POST /v1/tenants` / Access Token model.
 
 ## Integration with monorepo
 
-| Component | Role |
-|-----------|------|
-| `apps/api/src/relay/` | Outbound WSS + inject frames into local `WsManager` |
-| `crates/runtime-manager` | `register_computer()` HTTP client |
+| Component                  | Role                                                     |
+| -------------------------- | -------------------------------------------------------- |
+| `apps/api/src/relay/`      | Outbound WSS + inject frames into local `WsManager`      |
+| `crates/runtime-manager`   | `register_computer()` HTTP client                        |
 | `apps/web` / `apps/mobile` | **Client SDK:** `@atmos/relay-client` (not this package) |
-| `apps/cli` | `atmos computer start\|status` |
+| `apps/cli`                 | `atmos computer start\|status`                           |
 
 Apps **must not** import `packages/relay/src`. Shared REST shapes live in `@atmos/relay-client`.
 

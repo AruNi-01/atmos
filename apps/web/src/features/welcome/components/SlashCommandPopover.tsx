@@ -190,10 +190,7 @@ function SlashCommandSection({
   );
 }
 
-function scopeBadgeLabel(
-  scope: SkillInfo["scope"],
-  t: ReturnType<typeof useTranslations>,
-) {
+function scopeBadgeLabel(scope: SkillInfo["scope"], t: ReturnType<typeof useTranslations>) {
   if (scope === "global") return t("slashPopover.global");
   if (scope === "workspace") return t("slashPopover.workspace");
   return t("slashPopover.project");
@@ -339,8 +336,10 @@ export function SlashCommandPopover({
     showAtmosCommands && filteredAtmosCommands.length > 3 && !expandedSections.atmosCommands
       ? 1
       : 0;
-  const skillsShowMore = showSkills && filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
-  const projectsShowMore = showProjects && filteredProjects.length > 3 && !expandedSections.projects ? 1 : 0;
+  const skillsShowMore =
+    showSkills && filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
+  const projectsShowMore =
+    showProjects && filteredProjects.length > 3 && !expandedSections.projects ? 1 : 0;
 
   const commandsCount = visibleCommands.length;
   const atmosStartIndex = commandsCount + commandsShowMore;
@@ -367,284 +366,284 @@ export function SlashCommandPopover({
 
   const menuContent = (
     <div ref={listRef}>
-    <ScrollArea
-      scrollFade
-      className="h-auto max-h-80 w-full"
-      viewportClassName="h-auto max-h-80"
-    >
-      <div className="space-y-0.5 p-1">
-      {showCommands ? (
-        <SlashCommandSection
-          activeIndex={activeIndex}
-          commands={filteredCommands}
-          headingClassName={commandHeadingClass}
-          onExpand={() => setExpandedSections((prev) => ({ ...prev, commands: true }))}
-          onSelect={onSelectCommand}
-          setItemRef={setItemRef}
-          showMoreLabel={t("slashPopover.showMore", { count: filteredCommands.length - 3 })}
-          startIndex={0}
-          title={commandsTitle || t("slashPopover.commands")}
-          visibleCommands={visibleCommands}
-        />
-      ) : null}
+      <ScrollArea scrollFade className="h-auto max-h-80 w-full" viewportClassName="h-auto max-h-80">
+        <div className="space-y-0.5 p-1">
+          {showCommands ? (
+            <SlashCommandSection
+              activeIndex={activeIndex}
+              commands={filteredCommands}
+              headingClassName={commandHeadingClass}
+              onExpand={() => setExpandedSections((prev) => ({ ...prev, commands: true }))}
+              onSelect={onSelectCommand}
+              setItemRef={setItemRef}
+              showMoreLabel={t("slashPopover.showMore", { count: filteredCommands.length - 3 })}
+              startIndex={0}
+              title={commandsTitle || t("slashPopover.commands")}
+              visibleCommands={visibleCommands}
+            />
+          ) : null}
 
-      {showAtmosCommands ? (
-        <SlashCommandSection
-          activeIndex={activeIndex}
-          commands={filteredAtmosCommands}
-          headingClassName={cn(commandHeadingClass, commandsSectionVisible && "mt-1.5")}
-          onExpand={() => setExpandedSections((prev) => ({ ...prev, atmosCommands: true }))}
-          onSelect={onSelectCommand}
-          setItemRef={setItemRef}
-          showMoreLabel={t("slashPopover.showMore", { count: filteredAtmosCommands.length - 3 })}
-          startIndex={atmosStartIndex}
-          title={atmosCommandsTitle || t("slashPopover.atmosCommands")}
-          visibleCommands={visibleAtmosCommands}
-        />
-      ) : null}
-
-      {showSkills ? (
-        <>
-          <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
-            {t("slashPopover.skills")}
-          </div>
-          {isSkillsLoading ? (
-            <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
-              {t("slashPopover.loadingSkills")}
-            </div>
-          ) : filteredSkills.length > 0 ? (
-            <>
-              {visibleSkills.map((skill, index) => {
-                const isDisabled = skill.status === "disabled";
-                const navIndex = skillsStartIndex + index;
-                const isBrowserUse =
-                  skill.name === "atmos-browser-use" ||
-                  skill.id === "atmos-browser-use" ||
-                  skill.path.includes("atmos-browser-use");
-                const isDesktopUse =
-                  skill.name === "atmos-desktop-use" ||
-                  skill.id === "atmos-desktop-use" ||
-                  skill.path.includes("atmos-desktop-use");
-                return (
-                  <button
-                    key={skill.id}
-                    type="button"
-                    ref={(el) => {
-                      setItemRef(navIndex, el);
-                    }}
-                    disabled={isDisabled}
-                    aria-disabled={isDisabled}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left",
-                      isDisabled
-                        ? "cursor-default text-muted-foreground opacity-80"
-                        : "hover:bg-muted",
-                      navIndex === activeIndex && "bg-muted",
-                    )}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      if (isDisabled) return;
-                      onSelectSkill(skill);
-                    }}
-                  >
-                    {isBrowserUse ? (
-                      <BrowserUseIconStatic className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                    ) : isDesktopUse ? (
-                      <DesktopUseIconStatic className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
-                    ) : (
-                      <Puzzle className="size-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="min-w-0 flex-1 truncate">{skill.name}</span>
-                    {isDisabled ? (
-                      <span className="shrink-0 rounded-md border border-red-500/35 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300">
-                        {t("slashPopover.disabled")}
-                      </span>
-                    ) : null}
-                    <span className="shrink-0 rounded-md border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                      {scopeBadgeLabel(skill.scope, t)}
-                    </span>
-                  </button>
-                );
+          {showAtmosCommands ? (
+            <SlashCommandSection
+              activeIndex={activeIndex}
+              commands={filteredAtmosCommands}
+              headingClassName={cn(commandHeadingClass, commandsSectionVisible && "mt-1.5")}
+              onExpand={() => setExpandedSections((prev) => ({ ...prev, atmosCommands: true }))}
+              onSelect={onSelectCommand}
+              setItemRef={setItemRef}
+              showMoreLabel={t("slashPopover.showMore", {
+                count: filteredAtmosCommands.length - 3,
               })}
-              {filteredSkills.length > 3 && !expandedSections.skills ? (
-                <button
-                  type="button"
-                  ref={(el) => {
-                    setItemRef(skillsStartIndex + skillsCount, el);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
-                    skillsStartIndex + skillsCount === activeIndex && "bg-muted",
-                  )}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    setExpandedSections((prev) => ({ ...prev, skills: true }));
-                  }}
-                >
-                  {t("slashPopover.showMore", { count: filteredSkills.length - 3 })}
-                </button>
-              ) : null}
-            </>
-          ) : (
-            <div className="px-2.5 py-2 text-xs text-muted-foreground">
-              {t("slashPopover.noSkillsAvailable")}
-            </div>
-          )}
-        </>
-      ) : null}
+              startIndex={atmosStartIndex}
+              title={atmosCommandsTitle || t("slashPopover.atmosCommands")}
+              visibleCommands={visibleAtmosCommands}
+            />
+          ) : null}
 
-      {showProjects ? (
-        <>
-          <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
-            {t("slashPopover.projects")}
-          </div>
-          {filteredProjects.length > 0 ? (
+          {showSkills ? (
             <>
-              {visibleProjects.map((project, index) => {
-                const navIndex = projectsStartIndex + index;
-                return (
-                  <button
-                    key={project.id}
-                    type="button"
-                    ref={(el) => {
-                      setItemRef(navIndex, el);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
-                      navIndex === activeIndex && "bg-muted",
-                    )}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      onSelectProject(project);
-                    }}
-                  >
-                    <Folder className="size-4 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate">{project.name}</span>
-                  </button>
-                );
-              })}
-              {filteredProjects.length > 3 && !expandedSections.projects ? (
-                <button
-                  type="button"
-                  ref={(el) => {
-                    setItemRef(projectsStartIndex + projectsCount, el);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
-                    projectsStartIndex + projectsCount === activeIndex && "bg-muted",
-                  )}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    setExpandedSections((prev) => ({ ...prev, projects: true }));
-                  }}
-                >
-                  {t("slashPopover.showMore", { count: filteredProjects.length - 3 })}
-                </button>
-              ) : null}
+              <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
+                {t("slashPopover.skills")}
+              </div>
+              {isSkillsLoading ? (
+                <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  {t("slashPopover.loadingSkills")}
+                </div>
+              ) : filteredSkills.length > 0 ? (
+                <>
+                  {visibleSkills.map((skill, index) => {
+                    const isDisabled = skill.status === "disabled";
+                    const navIndex = skillsStartIndex + index;
+                    const isBrowserUse =
+                      skill.name === "atmos-browser-use" ||
+                      skill.id === "atmos-browser-use" ||
+                      skill.path.includes("atmos-browser-use");
+                    const isDesktopUse =
+                      skill.name === "atmos-desktop-use" ||
+                      skill.id === "atmos-desktop-use" ||
+                      skill.path.includes("atmos-desktop-use");
+                    return (
+                      <button
+                        key={skill.id}
+                        type="button"
+                        ref={(el) => {
+                          setItemRef(navIndex, el);
+                        }}
+                        disabled={isDisabled}
+                        aria-disabled={isDisabled}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left",
+                          isDisabled
+                            ? "cursor-default text-muted-foreground opacity-80"
+                            : "hover:bg-muted",
+                          navIndex === activeIndex && "bg-muted",
+                        )}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          if (isDisabled) return;
+                          onSelectSkill(skill);
+                        }}
+                      >
+                        {isBrowserUse ? (
+                          <BrowserUseIconStatic className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                        ) : isDesktopUse ? (
+                          <DesktopUseIconStatic className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                        ) : (
+                          <Puzzle className="size-4 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="min-w-0 flex-1 truncate">{skill.name}</span>
+                        {isDisabled ? (
+                          <span className="shrink-0 rounded-md border border-red-500/35 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300">
+                            {t("slashPopover.disabled")}
+                          </span>
+                        ) : null}
+                        <span className="shrink-0 rounded-md border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                          {scopeBadgeLabel(skill.scope, t)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {filteredSkills.length > 3 && !expandedSections.skills ? (
+                    <button
+                      type="button"
+                      ref={(el) => {
+                        setItemRef(skillsStartIndex + skillsCount, el);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        skillsStartIndex + skillsCount === activeIndex && "bg-muted",
+                      )}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        setExpandedSections((prev) => ({ ...prev, skills: true }));
+                      }}
+                    >
+                      {t("slashPopover.showMore", { count: filteredSkills.length - 3 })}
+                    </button>
+                  ) : null}
+                </>
+              ) : (
+                <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                  {t("slashPopover.noSkillsAvailable")}
+                </div>
+              )}
             </>
-          ) : (
-            <div className="px-2.5 py-2 text-xs text-muted-foreground">
-              {t("slashPopover.noProjectsAvailable")}
-            </div>
-          )}
-        </>
-      ) : null}
+          ) : null}
 
-      {showAgents ? (
-        <>
-          <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
-            {t("slashPopover.codeAgents")}
-          </div>
-          {filteredAgents.length > 0 ? (
+          {showProjects ? (
             <>
-              {visibleAgents.map((agent, index) => {
-                const navIndex = agentsStartIndex + index;
-                return (
-                  <button
-                    key={agent.id}
-                    type="button"
-                    ref={(el) => {
-                      setItemRef(navIndex, el);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
-                      navIndex === activeIndex && "bg-muted",
-                    )}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      onSelectAgent(agent);
-                    }}
-                  >
-                    <AgentIcon
-                      registryId={agent.id}
-                      name={agent.label}
-                      size={16}
-                      isCustom={agent.iconType === "custom"}
-                      registryIcon={undefined}
-                    />
-                    <span className="min-w-0 flex-1 truncate">{agent.label}</span>
-                  </button>
-                );
-              })}
-              {filteredAgents.length > 3 && !expandedSections.agents ? (
-                <button
-                  type="button"
-                  ref={(el) => {
-                    setItemRef(agentsStartIndex + Math.min(filteredAgents.length, 3), el);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
-                    agentsStartIndex + Math.min(filteredAgents.length, 3) === activeIndex &&
-                      "bg-muted",
-                  )}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    setExpandedSections((prev) => ({ ...prev, agents: true }));
-                  }}
-                >
-                  {t("slashPopover.showMore", { count: filteredAgents.length - 3 })}
-                </button>
-              ) : null}
+              <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
+                {t("slashPopover.projects")}
+              </div>
+              {filteredProjects.length > 0 ? (
+                <>
+                  {visibleProjects.map((project, index) => {
+                    const navIndex = projectsStartIndex + index;
+                    return (
+                      <button
+                        key={project.id}
+                        type="button"
+                        ref={(el) => {
+                          setItemRef(navIndex, el);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          navIndex === activeIndex && "bg-muted",
+                        )}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          onSelectProject(project);
+                        }}
+                      >
+                        <Folder className="size-4 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                      </button>
+                    );
+                  })}
+                  {filteredProjects.length > 3 && !expandedSections.projects ? (
+                    <button
+                      type="button"
+                      ref={(el) => {
+                        setItemRef(projectsStartIndex + projectsCount, el);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        projectsStartIndex + projectsCount === activeIndex && "bg-muted",
+                      )}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        setExpandedSections((prev) => ({ ...prev, projects: true }));
+                      }}
+                    >
+                      {t("slashPopover.showMore", { count: filteredProjects.length - 3 })}
+                    </button>
+                  ) : null}
+                </>
+              ) : (
+                <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                  {t("slashPopover.noProjectsAvailable")}
+                </div>
+              )}
             </>
-          ) : (
-            <div className="px-2.5 py-2 text-xs text-muted-foreground">
-              {t("slashPopover.noAgentsAvailable")}
-            </div>
-          )}
-        </>
-      ) : null}
+          ) : null}
 
-      {showProjects || showAgents ? (
-        <div className="flex items-center justify-between px-2 py-1 text-[11px] text-muted-foreground">
-          <span>{t("slashPopover.hidden")}</span>
-          <span>
-            {t("slashPopover.hiddenSummary", {
-              skills: showSkills
-                ? Math.max(
-                    0,
-                    filteredSkills.length - (expandedSections.skills ? filteredSkills.length : 3),
-                  )
-                : 0,
-              projects: showProjects
-                ? Math.max(
-                    0,
-                    filteredProjects.length -
-                      (expandedSections.projects ? filteredProjects.length : 3),
-                  )
-                : 0,
-              agents: showAgents
-                ? Math.max(
-                    0,
-                    filteredAgents.length - (expandedSections.agents ? filteredAgents.length : 3),
-                  )
-                : 0,
-            })}
-          </span>
+          {showAgents ? (
+            <>
+              <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
+                {t("slashPopover.codeAgents")}
+              </div>
+              {filteredAgents.length > 0 ? (
+                <>
+                  {visibleAgents.map((agent, index) => {
+                    const navIndex = agentsStartIndex + index;
+                    return (
+                      <button
+                        key={agent.id}
+                        type="button"
+                        ref={(el) => {
+                          setItemRef(navIndex, el);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          navIndex === activeIndex && "bg-muted",
+                        )}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          onSelectAgent(agent);
+                        }}
+                      >
+                        <AgentIcon
+                          registryId={agent.id}
+                          name={agent.label}
+                          size={16}
+                          isCustom={agent.iconType === "custom"}
+                          registryIcon={undefined}
+                        />
+                        <span className="min-w-0 flex-1 truncate">{agent.label}</span>
+                      </button>
+                    );
+                  })}
+                  {filteredAgents.length > 3 && !expandedSections.agents ? (
+                    <button
+                      type="button"
+                      ref={(el) => {
+                        setItemRef(agentsStartIndex + Math.min(filteredAgents.length, 3), el);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        agentsStartIndex + Math.min(filteredAgents.length, 3) === activeIndex &&
+                          "bg-muted",
+                      )}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        setExpandedSections((prev) => ({ ...prev, agents: true }));
+                      }}
+                    >
+                      {t("slashPopover.showMore", { count: filteredAgents.length - 3 })}
+                    </button>
+                  ) : null}
+                </>
+              ) : (
+                <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                  {t("slashPopover.noAgentsAvailable")}
+                </div>
+              )}
+            </>
+          ) : null}
+
+          {showProjects || showAgents ? (
+            <div className="flex items-center justify-between px-2 py-1 text-[11px] text-muted-foreground">
+              <span>{t("slashPopover.hidden")}</span>
+              <span>
+                {t("slashPopover.hiddenSummary", {
+                  skills: showSkills
+                    ? Math.max(
+                        0,
+                        filteredSkills.length -
+                          (expandedSections.skills ? filteredSkills.length : 3),
+                      )
+                    : 0,
+                  projects: showProjects
+                    ? Math.max(
+                        0,
+                        filteredProjects.length -
+                          (expandedSections.projects ? filteredProjects.length : 3),
+                      )
+                    : 0,
+                  agents: showAgents
+                    ? Math.max(
+                        0,
+                        filteredAgents.length -
+                          (expandedSections.agents ? filteredAgents.length : 3),
+                      )
+                    : 0,
+                })}
+              </span>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      </div>
-    </ScrollArea>
+      </ScrollArea>
     </div>
   );
 
@@ -667,82 +666,78 @@ export function SlashCommandPopover({
         </p>
       </div>
       <div ref={disableListScrollRef} className="min-h-0 flex-1">
-      <ScrollArea
-        scrollFade
-        className="h-full min-h-0 w-full"
-        viewportClassName="h-full min-h-0"
-      >
-        <div className="p-1.5">
-        {disableSkills?.loading ? (
-          <div className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
-            {disableT("loading")}
-          </div>
-        ) : disableList.length === 0 ? (
-          <div className="px-2.5 py-3 text-xs text-muted-foreground">{disableT("empty")}</div>
-        ) : (
-          disableList.map((skill, index) => {
-            const enabled = skill.status !== "disabled";
-            const busy = disableSkills?.pendingId === skill.id;
-            const isActive = index === disableActiveIndex;
-            return (
-              <div
-                key={skill.id}
-                ref={(el) => {
-                  disableItemRefs.current[index] = el;
-                }}
-                role="option"
-                aria-selected={isActive}
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5",
-                  isActive ? "bg-muted" : "hover:bg-muted/60",
-                )}
-                onMouseEnter={() => setDisableActiveIndex(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  if (busy) return;
-                  onToggleDisableSkill?.(skill, !enabled);
-                }}
-              >
-                <Puzzle className="size-4 shrink-0 text-muted-foreground" />
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate text-sm",
-                    enabled ? "text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {skill.title || skill.name}
-                </span>
-                <span className="shrink-0 rounded-md border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                  {scopeBadgeLabel(skill.scope, t)}
-                </span>
-                <Switch
-                  checked={enabled}
-                  disabled={busy}
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onCheckedChange={(checked) => {
-                    onToggleDisableSkill?.(skill, checked);
-                  }}
-                  aria-label={
-                    enabled
-                      ? disableT("disableSkill", { name: skill.name })
-                      : disableT("enableSkill", { name: skill.name })
-                  }
-                />
+        <ScrollArea scrollFade className="h-full min-h-0 w-full" viewportClassName="h-full min-h-0">
+          <div className="p-1.5">
+            {disableSkills?.loading ? (
+              <div className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                {disableT("loading")}
               </div>
-            );
-          })
-        )}
-        {disableSkills?.error ? (
-          <p className="px-2.5 py-2 text-[11px] text-destructive">{disableSkills.error}</p>
-        ) : null}
-        </div>
-      </ScrollArea>
+            ) : disableList.length === 0 ? (
+              <div className="px-2.5 py-3 text-xs text-muted-foreground">{disableT("empty")}</div>
+            ) : (
+              disableList.map((skill, index) => {
+                const enabled = skill.status !== "disabled";
+                const busy = disableSkills?.pendingId === skill.id;
+                const isActive = index === disableActiveIndex;
+                return (
+                  <div
+                    key={skill.id}
+                    ref={(el) => {
+                      disableItemRefs.current[index] = el;
+                    }}
+                    role="option"
+                    aria-selected={isActive}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5",
+                      isActive ? "bg-muted" : "hover:bg-muted/60",
+                    )}
+                    onMouseEnter={() => setDisableActiveIndex(index)}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      if (busy) return;
+                      onToggleDisableSkill?.(skill, !enabled);
+                    }}
+                  >
+                    <Puzzle className="size-4 shrink-0 text-muted-foreground" />
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-sm",
+                        enabled ? "text-foreground" : "text-muted-foreground",
+                      )}
+                    >
+                      {skill.title || skill.name}
+                    </span>
+                    <span className="shrink-0 rounded-md border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                      {scopeBadgeLabel(skill.scope, t)}
+                    </span>
+                    <Switch
+                      checked={enabled}
+                      disabled={busy}
+                      onMouseDown={(event) => {
+                        event.stopPropagation();
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                      }}
+                      onCheckedChange={(checked) => {
+                        onToggleDisableSkill?.(skill, checked);
+                      }}
+                      aria-label={
+                        enabled
+                          ? disableT("disableSkill", { name: skill.name })
+                          : disableT("enableSkill", { name: skill.name })
+                      }
+                    />
+                  </div>
+                );
+              })
+            )}
+            {disableSkills?.error ? (
+              <p className="px-2.5 py-2 text-[11px] text-destructive">{disableSkills.error}</p>
+            ) : null}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );

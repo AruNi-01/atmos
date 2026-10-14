@@ -48,9 +48,7 @@ function buildDeleteMessage(
   totalCount: number,
   t: ReturnType<typeof useTranslations>,
 ) {
-  const hasSymlink = selectedPlacements.some(
-    (placement) => placement.entry_kind === "symlink",
-  );
+  const hasSymlink = selectedPlacements.some((placement) => placement.entry_kind === "symlink");
   const scopeText =
     selectedCount === totalCount
       ? t("confirm.deleteScopeAll")
@@ -115,13 +113,8 @@ function getActionablePlacements(skill: SkillInfo, action: SkillAction) {
   }
 }
 
-function formatAgentTitle(
-  agent: string,
-  t: ReturnType<typeof useTranslations>,
-) {
-  return agent === "unified"
-    ? t("labels.unified")
-    : agent.charAt(0).toUpperCase() + agent.slice(1);
+function formatAgentTitle(agent: string, t: ReturnType<typeof useTranslations>) {
+  return agent === "unified" ? t("labels.unified") : agent.charAt(0).toUpperCase() + agent.slice(1);
 }
 
 function formatPlacementPath(placement: SkillPlacement, action: SkillAction) {
@@ -222,10 +215,7 @@ function deriveLinkedSelection(
   };
 }
 
-function formatGroupTitle(
-  group: PlacementGroup,
-  t: ReturnType<typeof useTranslations>,
-) {
+function formatGroupTitle(group: PlacementGroup, t: ReturnType<typeof useTranslations>) {
   return group.agents.map((agent) => formatAgentTitle(agent, t)).join(", ");
 }
 
@@ -250,10 +240,7 @@ function entryKindIcon(entryKind: string) {
   return entryKind === "symlink" ? Link2 : Folder;
 }
 
-function formatEntryKindLabel(
-  entryKind: string,
-  t: ReturnType<typeof useTranslations>,
-) {
+function formatEntryKindLabel(entryKind: string, t: ReturnType<typeof useTranslations>) {
   if (entryKind === "symlink") {
     return t("entryKind.symlink");
   }
@@ -266,20 +253,14 @@ function formatEntryKindLabel(
   return entryKind;
 }
 
-function TruncatedPath({
-  value,
-  className,
-}: {
-  value: string;
-  className?: string;
-}) {
+function TruncatedPath({ value, className }: { value: string; className?: string }) {
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
           <p className={cn("truncate font-mono", className)}>{value}</p>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-md break-all text-xs">
+        <TooltipContent side="top" className="max-w-md text-xs break-all">
           {value}
         </TooltipContent>
       </Tooltip>
@@ -300,8 +281,14 @@ export function SkillActionsMenu({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [explicitLocationKeys, setExplicitLocationKeys] = useState<string[]>([]);
   const [pendingAction, setPendingAction] = useState<SkillAction | null>(null);
-  const enableGroupCount = groupPlacementsByPath(getActionablePlacements(skill, "enable"), "enable").length;
-  const disableGroupCount = groupPlacementsByPath(getActionablePlacements(skill, "disable"), "disable").length;
+  const enableGroupCount = groupPlacementsByPath(
+    getActionablePlacements(skill, "enable"),
+    "enable",
+  ).length;
+  const disableGroupCount = groupPlacementsByPath(
+    getActionablePlacements(skill, "disable"),
+    "disable",
+  ).length;
   const isMenuDisabled = !skill.manageable;
   const disabledReason =
     skill.scope === "inside_project"
@@ -318,14 +305,10 @@ export function SkillActionsMenu({
     : linkedSelection.effectiveKeys;
   const autoSelectedLocationKeys = applyToAll
     ? []
-    : linkedSelection.autoSelectedKeys.filter(
-        (key) => !explicitLocationKeys.includes(key),
-      );
+    : linkedSelection.autoSelectedKeys.filter((key) => !explicitLocationKeys.includes(key));
   const selectedCount = selectedLocationKeys.length;
   const selectedPlacementIds = applyToAll
-    ? actionableGroups.flatMap((group) =>
-        group.placements.map((placement) => placement.id),
-      )
+    ? actionableGroups.flatMap((group) => group.placements.map((placement) => placement.id))
     : flattenGroupPlacementIds(actionableGroups, selectedLocationKeys);
   const selectedPlacementIdSet = new Set(selectedPlacementIds);
   const selectedActionablePlacements = actionablePlacements.filter((placement) =>
@@ -350,9 +333,7 @@ export function SkillActionsMenu({
     const nextKeys = groupPlacementsByPath(
       getActionablePlacements(skill, confirmAction),
       confirmAction,
-    ).map(
-      (group) => group.key,
-    );
+    ).map((group) => group.key);
     setApplyToAll(nextKeys.length > 1);
     setDetailsOpen(nextKeys.length <= 1);
     setExplicitLocationKeys(nextKeys.length > 1 ? [] : nextKeys);
@@ -474,11 +455,7 @@ export function SkillActionsMenu({
       disabled={isBusy || isMenuDisabled}
       title={t("manageSkill")}
     >
-      {isBusy ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : (
-        <MoreHorizontal className="size-4" />
-      )}
+      {isBusy ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
     </Button>
   );
 
@@ -583,37 +560,85 @@ export function SkillActionsMenu({
                   >
                     {!applyToAll ? (
                       <div className="max-h-56 space-y-2 overflow-y-auto p-2">
-                      {actionableGroups.map((group) => (
-                        <label
-                          key={group.key}
-                          className={cn(
-                            "flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2",
-                            autoSelectedLocationKeys.includes(group.key)
-                              ? "cursor-not-allowed"
-                              : "cursor-pointer",
-                          )}
-                        >
-                          <Checkbox
-                            checked={selectedLocationKeys.includes(group.key)}
-                            disabled={isBusy || autoSelectedLocationKeys.includes(group.key)}
-                            onCheckedChange={(checked) =>
-                              toggleLocation(group.key, checked === true)
-                            }
-                          />
-                          <div className="min-w-0 flex-1">
+                        {actionableGroups.map((group) => (
+                          <label
+                            key={group.key}
+                            className={cn(
+                              "flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2",
+                              autoSelectedLocationKeys.includes(group.key)
+                                ? "cursor-not-allowed"
+                                : "cursor-pointer",
+                            )}
+                          >
+                            <Checkbox
+                              checked={selectedLocationKeys.includes(group.key)}
+                              disabled={isBusy || autoSelectedLocationKeys.includes(group.key)}
+                              onCheckedChange={(checked) =>
+                                toggleLocation(group.key, checked === true)
+                              }
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-foreground">
+                                  {formatGroupTitle(group, t)}
+                                </span>
+                                {isUnifiedGroup(group, confirmAction!) ? (
+                                  <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] tracking-wide text-blue-600 uppercase dark:text-blue-400">
+                                    {t("labels.unified")}
+                                  </span>
+                                ) : null}
+                                {(() => {
+                                  const EntryKindIcon = entryKindIcon(group.entryKind);
+                                  return (
+                                    <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] tracking-wide text-muted-foreground uppercase">
+                                      <EntryKindIcon className="size-3" />
+                                      {formatEntryKindLabel(group.entryKind, t)}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                              <TruncatedPath
+                                value={formatPlacementPath(group.placements[0], confirmAction!)}
+                                className="mt-1 text-[11px] text-foreground"
+                              />
+                              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                                {formatGroupMeta(group, confirmAction!, t)}
+                              </p>
+                              {group.symlinkTarget ? (
+                                <TruncatedPath
+                                  value={`${t("labels.target")}: ${group.symlinkTarget}`}
+                                  className="mt-1 text-[11px] text-muted-foreground"
+                                />
+                              ) : null}
+                              {autoSelectedLocationKeys.includes(group.key) ? (
+                                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                                  {t("confirm.autoIncluded")}
+                                </p>
+                              ) : null}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="max-h-40 space-y-2 overflow-y-auto p-2">
+                        {actionableGroups.map((group) => (
+                          <div
+                            key={group.key}
+                            className="rounded-lg border border-border bg-muted/20 px-3 py-2"
+                          >
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium text-foreground">
                                 {formatGroupTitle(group, t)}
                               </span>
-                                {isUnifiedGroup(group, confirmAction!) ? (
-                                <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                              {isUnifiedGroup(group, confirmAction!) ? (
+                                <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] tracking-wide text-blue-600 uppercase dark:text-blue-400">
                                   {t("labels.unified")}
                                 </span>
                               ) : null}
                               {(() => {
                                 const EntryKindIcon = entryKindIcon(group.entryKind);
                                 return (
-                                  <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                  <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] tracking-wide text-muted-foreground uppercase">
                                     <EntryKindIcon className="size-3" />
                                     {formatEntryKindLabel(group.entryKind, t)}
                                   </span>
@@ -624,54 +649,6 @@ export function SkillActionsMenu({
                               value={formatPlacementPath(group.placements[0], confirmAction!)}
                               className="mt-1 text-[11px] text-foreground"
                             />
-                              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                                {formatGroupMeta(group, confirmAction!, t)}
-                              </p>
-                              {group.symlinkTarget ? (
-                              <TruncatedPath
-                                value={`${t("labels.target")}: ${group.symlinkTarget}`}
-                                className="mt-1 text-[11px] text-muted-foreground"
-                              />
-                            ) : null}
-                            {autoSelectedLocationKeys.includes(group.key) ? (
-                              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                                {t("confirm.autoIncluded")}
-                              </p>
-                            ) : null}
-                          </div>
-                        </label>
-                      ))}
-                      </div>
-                    ) : (
-                      <div className="max-h-40 space-y-2 overflow-y-auto p-2">
-                      {actionableGroups.map((group) => (
-                        <div
-                          key={group.key}
-                          className="rounded-lg border border-border bg-muted/20 px-3 py-2"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground">
-                              {formatGroupTitle(group, t)}
-                            </span>
-                              {isUnifiedGroup(group, confirmAction!) ? (
-                                <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                                  {t("labels.unified")}
-                                </span>
-                              ) : null}
-                            {(() => {
-                              const EntryKindIcon = entryKindIcon(group.entryKind);
-                              return (
-                                <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                                  <EntryKindIcon className="size-3" />
-                                  {formatEntryKindLabel(group.entryKind, t)}
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          <TruncatedPath
-                            value={formatPlacementPath(group.placements[0], confirmAction!)}
-                            className="mt-1 text-[11px] text-foreground"
-                          />
                           </div>
                         ))}
                       </div>
@@ -686,14 +663,14 @@ export function SkillActionsMenu({
                     {formatGroupTitle(actionableGroups[0], t)}
                   </p>
                   {isUnifiedGroup(actionableGroups[0], confirmAction!) ? (
-                    <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                    <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] tracking-wide text-blue-600 uppercase dark:text-blue-400">
                       {t("labels.unified")}
                     </span>
                   ) : null}
                   {(() => {
                     const EntryKindIcon = entryKindIcon(actionableGroups[0].entryKind);
                     return (
-                      <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] tracking-wide text-muted-foreground uppercase">
                         <EntryKindIcon className="size-3" />
                         {formatEntryKindLabel(actionableGroups[0].entryKind, t)}
                       </span>

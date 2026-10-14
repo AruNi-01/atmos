@@ -4,10 +4,7 @@ import { join } from "node:path";
 
 describe("desktop-use grant overlay", () => {
   it("uses Electron startDrag and never embeds third-party grant brands", () => {
-    const src = readFileSync(
-      join(import.meta.dir, "grant-overlay.ts"),
-      "utf8",
-    );
+    const src = readFileSync(join(import.meta.dir, "grant-overlay.ts"), "utf8");
     expect(src).toContain("startDrag");
     expect(src).toContain("hostAppPath");
     expect(src.toLowerCase()).not.toContain("chatgpt");
@@ -16,10 +13,7 @@ describe("desktop-use grant overlay", () => {
   });
 
   it("grant preload exposes drag preview + close (no Finder reveal)", () => {
-    const src = readFileSync(
-      join(import.meta.dir, "grant-preload.ts"),
-      "utf8",
-    );
+    const src = readFileSync(join(import.meta.dir, "grant-preload.ts"), "utf8");
     expect(src).toContain("startDrag");
     expect(src).toContain("setDragPreview");
     expect(src).toContain("sendSync");
@@ -31,19 +25,13 @@ describe("desktop-use grant overlay", () => {
   });
 
   it("uses dragstart not mousedown for file drag", () => {
-    const src = readFileSync(
-      join(import.meta.dir, "grant-overlay.ts"),
-      "utf8",
-    );
+    const src = readFileSync(join(import.meta.dir, "grant-overlay.ts"), "utf8");
     expect(src).toContain("dragstart");
     expect(src).not.toContain("addEventListener('mousedown'");
   });
 
   it("matches in-window placement and reference UX (no chip/Finder)", () => {
-    const src = readFileSync(
-      join(import.meta.dir, "grant-overlay.ts"),
-      "utf8",
-    );
+    const src = readFileSync(join(import.meta.dir, "grant-overlay.ts"), "utf8");
     expect(src).not.toContain("芯片");
     expect(src).not.toMatch(/Drag the chip/i);
     expect(src).not.toContain("Finder");
@@ -84,12 +72,6 @@ describe("desktop-use grant overlay", () => {
     expect(src).toContain("setOverlayVisibleOnAllWorkspaces");
     expect(src).toContain("forceMacDockTileRefresh");
     expect(src).toContain("pinDockAfterGrantOverlay");
-    expect(src).not.toMatch(
-      /setVisibleOnAllWorkspaces\(\s*true\s*,\s*\{\s*visibleOnFullScreen/,
-    );
+    expect(src).not.toMatch(/setVisibleOnAllWorkspaces\(\s*true\s*,\s*\{\s*visibleOnFullScreen/);
   });
 });
-
-
-
-

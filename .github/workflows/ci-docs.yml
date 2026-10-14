@@ -6,6 +6,8 @@ on:
     paths:
       - "apps/docs/**"
       - "packages/**"
+      - ".oxlintrc.jsonc"
+      - ".oxfmtrc.json"
       - ".github/workflows/ci-docs.yml"
       - ".github/actions/setup-bun/**"
   pull_request:
@@ -13,6 +15,8 @@ on:
     paths:
       - "apps/docs/**"
       - "packages/**"
+      - ".oxlintrc.jsonc"
+      - ".oxfmtrc.json"
       - ".github/workflows/ci-docs.yml"
       - ".github/actions/setup-bun/**"
 

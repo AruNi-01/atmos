@@ -30,10 +30,7 @@ export function useDismissOnOutsidePress(
  * Pressing the trigger while open should toggle closed. React Aria may fire
  * `onOpenChange(false)` then `onOpenChange(true)` in the same press.
  */
-export function useTriggerToggle(
-  isOpen: boolean,
-  triggerRef: RefObject<HTMLElement | null>,
-) {
+export function useTriggerToggle(isOpen: boolean, triggerRef: RefObject<HTMLElement | null>) {
   const suppressReopenRef = useRef(false);
 
   useEffect(() => {

@@ -1,6 +1,18 @@
 export type MdLiveMediaKind = "img" | "video" | "audio" | "file";
 
-const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "ico", "tif", "tiff"]);
+const IMAGE_EXT = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "svg",
+  "avif",
+  "bmp",
+  "ico",
+  "tif",
+  "tiff",
+]);
 const VIDEO_EXT = new Set(["mp4", "webm", "mov", "m4v", "ogv"]);
 const AUDIO_EXT = new Set(["mp3", "wav", "flac", "aac", "m4a", "ogg", "oga"]);
 

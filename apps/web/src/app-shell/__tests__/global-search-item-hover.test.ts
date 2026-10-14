@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const parts = readFileSync(
-  join(import.meta.dir, "../global-search-parts.tsx"),
-  "utf8",
-);
+const parts = readFileSync(join(import.meta.dir, "../global-search-parts.tsx"), "utf8");
 const command = readFileSync(
   join(import.meta.dir, "../../../../../packages/ui/src/components/ui/command.tsx"),
   "utf8",

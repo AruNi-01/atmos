@@ -46,8 +46,7 @@ export function parseSimulatorDeviceMessage(data: unknown): {
   if (typeof rec.udid !== "string") return null;
   const udid = rec.udid.trim();
   if (!udid) return null;
-  const platform =
-    rec.platform === "ios" || rec.platform === "android" ? rec.platform : undefined;
+  const platform = rec.platform === "ios" || rec.platform === "android" ? rec.platform : undefined;
   return { udid, platform };
 }
 

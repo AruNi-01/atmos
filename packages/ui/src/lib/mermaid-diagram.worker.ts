@@ -1,6 +1,9 @@
 import "./mermaid-worker-dom";
 import mermaid from "mermaid";
-import type { MermaidWorkerRequest, MermaidWorkerResponse } from "./mermaid-diagram-worker-protocol";
+import type {
+  MermaidWorkerRequest,
+  MermaidWorkerResponse,
+} from "./mermaid-diagram-worker-protocol";
 
 let lastTheme: "light" | "dark" | null = null;
 let renderSeq = 0;

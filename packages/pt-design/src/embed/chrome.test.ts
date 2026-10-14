@@ -31,7 +31,9 @@ describe("excalidraw API handoff", () => {
     expect(board).toContain("handedOffRef.current = true");
     expect(board).toContain("onApiRef.current(");
     expect(board).toContain("bindHostApi(api");
-    expect(board).toContain("handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}");
+    expect(board).toContain(
+      "handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}",
+    );
     expect(board).not.toContain("handleKeyboardGlobally={false}");
     expect(board).toContain("onFocusCapture");
     expect(board).toContain("onKeyDownCapture");
@@ -64,7 +66,9 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain("--theme-filter: none");
     expect(css).toContain("--mobile-action-button-bg: var(--island-bg-color)");
     expect(css).toContain(".compact-shape-actions .ToolIcon .ToolIcon__icon:hover");
-    expect(css).toContain(".compact-shape-actions .compact-action-item .compact-action-button:hover");
+    expect(css).toContain(
+      ".compact-shape-actions .compact-action-item .compact-action-button:hover",
+    );
     expect(css).toContain("--island-bg-color: var(--card");
     expect(css).toContain("#09090b");
     expect(css).toContain(".zoom-actions");
@@ -87,16 +91,20 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain(".pt-design-back");
     expect(css).toContain("--pt-back-slot");
     expect(css).toContain("--pt-chrome-size: var(--lg-button-size, 2.25rem)");
-    expect(css).toContain("--pt-chrome-btn-size: calc(var(--pt-chrome-size) - 2 * var(--pt-island-pad))");
+    expect(css).toContain(
+      "--pt-chrome-btn-size: calc(var(--pt-chrome-size) - 2 * var(--pt-island-pad))",
+    );
     expect(css).toContain("width: calc(var(--pt-chrome-size) - 2 * var(--pt-island-pad))");
     expect(css).toContain("gap: var(--pt-island-pad)");
     expect(css).toContain("--pt-back-slot: calc(var(--pt-chrome-size) + 8px)");
     expect(css).not.toContain("--pt-back-slot: calc(4.25rem + 8px)");
     expect(css).toContain("justify-content: center");
-    expect(board).toContain("aria-label={backLabel ?? \"Back\"}");
+    expect(board).toContain('aria-label={backLabel ?? "Back"}');
     expect(board).not.toMatch(/>\s*\{backLabel \?\? "Back"\}\s*</);
     expect(css).toContain(".App-menu_top .main-menu-trigger");
-    expect(css).toContain("left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-chrome-size) + 8px)");
+    expect(css).toContain(
+      "left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-chrome-size) + 8px)",
+    );
     expect(css).toContain("padding: var(--pt-island-pad)");
     expect(css).not.toContain("padding: 0 2px 0 var(--lg-button-size, 2.25rem)");
     expect(css).not.toContain("--padding: 0");
@@ -105,7 +113,9 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain("button.pt-design-catalog-row");
     expect(css).toContain(".pt-design-top-right__actions");
     expect(css).toContain(".excalidraw .App-menu_top");
-    expect(css).toMatch(/\.excalidraw \.App-menu_top \{\s*position: relative;\s*align-items: flex-start;/);
+    expect(css).toMatch(
+      /\.excalidraw \.App-menu_top \{\s*position: relative;\s*align-items: flex-start;/,
+    );
     expect(css).toContain(".excalidraw .App-menu_top > .shapes-section");
     expect(css).toContain(".excalidraw.excalidraw--view-mode .App-menu_top__left");
     expect(css).toContain(".excalidraw.excalidraw--view-mode .layer-ui__wrapper__top-right");
@@ -116,8 +126,12 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain(".sidebar__header::after");
     expect(css).toContain("display: none");
     expect(css).toContain(".default-sidebar .sidebar-triggers");
-    expect(css).toContain(".pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(1)::after");
-    expect(css).toContain('.pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(2)::after');
+    expect(css).toContain(
+      ".pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(1)::after",
+    );
+    expect(css).toContain(
+      ".pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(2)::after",
+    );
     expect(css).toContain('content: "Search"');
     expect(css).toContain('content: "Library"');
     expect(css).toContain('content: "搜索"');
@@ -130,7 +144,7 @@ describe("excalidraw Atmos chrome", () => {
     const styleMenu = readFileSync(new URL("./CatalogStyleMenu.tsx", import.meta.url), "utf8");
     expect(styleMenu).toContain("pt-design-catalog-style");
     expect(styleMenu).toContain("pt-design-catalog-style-radius");
-    expect(css).toContain(".pt-design-catalog-sidebar [data-testid=\"sidebar-close\"]");
+    expect(css).toContain('.pt-design-catalog-sidebar [data-testid="sidebar-close"]');
     expect(css).toContain(".pt-design-catalog-style-menu");
     expect(board).toContain("BlockSidebarIcon");
     expect(board).toContain("ComponentSidebarIcon");
@@ -164,8 +178,10 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain("width: max-content");
     expect(css).toContain(".pt-design-top-right");
     expect(css).toContain(".excalidraw.excalidraw--mobile .excalidraw-ui-top-left");
-    expect(css).toContain("[data-testid=\"pt-design-board\"] > .pt-design-mode-toggle");
-    expect(css).toContain("left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-chrome-size) + 8px)");
+    expect(css).toContain('[data-testid="pt-design-board"] > .pt-design-mode-toggle');
+    expect(css).toContain(
+      "left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-chrome-size) + 8px)",
+    );
     expect(board).toContain("pt-design-back");
     expect(board).toContain("data-has-back");
     expect(css).toContain(".pt-design-mode-toggle__btn:active");
@@ -235,7 +251,7 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain("align-items: flex-end");
     const rail = readFileSync(new URL("./SelectionPropsRail.tsx", import.meta.url), "utf8");
     expect(rail).toContain("RadiusGlyph");
-    expect(rail).toContain('data-placement={placement}');
+    expect(rail).toContain("data-placement={placement}");
     expect(rail).toContain("mobileColorTool");
     expect(rail).toContain("railAnchorFromLayout");
     expect(rail).toContain("COMPACT_TOOLBAR_SELECTOR");
@@ -249,9 +265,7 @@ describe("excalidraw Atmos chrome", () => {
 describe("S27 collab remote apply NEVER", () => {
   test("onScene applies remote elements with captureUpdate NEVER", () => {
     const collabHook = readFileSync(new URL("./use-collab.ts", import.meta.url), "utf8");
-    expect(collabHook).toMatch(
-      /onScene:\s*\([^)]*\)\s*=>\s*\{[\s\S]*?captureUpdate:\s*"NEVER"/,
-    );
+    expect(collabHook).toMatch(/onScene:\s*\([^)]*\)\s*=>\s*\{[\s\S]*?captureUpdate:\s*"NEVER"/);
   });
 });
 
@@ -297,4 +311,3 @@ describe("excalidraw collaboration", () => {
     expect(css).toContain(".pt-design-share-trigger");
   });
 });
-

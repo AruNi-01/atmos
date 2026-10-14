@@ -19,11 +19,7 @@ import {
   cn,
   toastManager,
 } from "@workspace/ui";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import { CircleHelp, Loader2 } from "lucide-react";
 import { wsScriptApi } from "@/api/ws-api";
 import {
@@ -233,7 +229,7 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
             setShowExitConfirm(true);
           }}
         >
-          <DialogHeader className="shrink-0 px-6 pb-3 pr-12 pt-6 text-left">
+          <DialogHeader className="shrink-0 px-6 pt-6 pr-12 pb-3 text-left">
             <div className="flex min-w-0 items-center gap-2.5">
               <DialogTitle>{t("title")}</DialogTitle>
               {dirty ? (
@@ -252,7 +248,7 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
               initialScripts={initialScripts}
               onSelect={selectPhase}
             />
-            <p className="mb-3 mt-3 shrink-0 text-xs leading-5 text-muted-foreground">
+            <p className="mt-3 mb-3 shrink-0 text-xs leading-5 text-muted-foreground">
               {t(`${activePhase}.help`)}
             </p>
 
@@ -297,9 +293,13 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
             <EnvInsertBar disabled={isLoading} onInsert={insertEnv} />
           </div>
 
-          <DialogFooter className="flex-row items-center justify-between px-6 pb-5 pt-2">
+          <DialogFooter className="flex-row items-center justify-between px-6 pt-2 pb-5">
             <TrustHint />
-            <Button onClick={() => void handleSave()} disabled={!dirty || isLoading} loading={isSaving}>
+            <Button
+              onClick={() => void handleSave()}
+              disabled={!dirty || isLoading}
+              loading={isSaving}
+            >
               {isSaving ? t("actions.saving") : t("actions.save")}
             </Button>
           </DialogFooter>
@@ -363,11 +363,7 @@ function PhaseTabs({
         {WORKSPACE_SCRIPT_PHASES.map((phase, index) => {
           const status = phaseStatus(scripts[phase], initialScripts?.[phase]);
           return (
-            <TabsTrigger
-              key={phase}
-              value={phase}
-              className="h-7 gap-1.5 px-3 text-xs"
-            >
+            <TabsTrigger key={phase} value={phase} className="h-7 gap-1.5 px-3 text-xs">
               <span
                 data-script-phase={phase}
                 data-script-phase-status={status}

@@ -24,12 +24,10 @@ type PrConflictPreviewStore = {
  * Used by the read-only conflict center tab so we do not depend on a
  * local unmerged worktree.
  */
-export const usePrConflictPreviewStore = create<PrConflictPreviewStore>(
-  (set) => ({
-    preview: null,
-    setPreview: (preview) => set({ preview }),
-  }),
-);
+export const usePrConflictPreviewStore = create<PrConflictPreviewStore>((set) => ({
+  preview: null,
+  setPreview: (preview) => set({ preview }),
+}));
 
 export function matchPrConflictPreview(
   preview: PrConflictPreviewPayload | null,

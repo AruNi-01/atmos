@@ -3,10 +3,7 @@ import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
 import { installBrowserWebviewHooks } from "../browser/webview-hooks.js";
 import { uiBaseUrl } from "./main-window.js";
-import {
-  macWindowChromeOptions,
-  type MacChromeVariant,
-} from "./mac-chrome.js";
+import { macWindowChromeOptions, type MacChromeVariant } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
 import { resolveAppPreloadPath } from "./preload-path.js";
 
@@ -78,15 +75,10 @@ function trimQuery(value: unknown): string | undefined {
   return t.length ? t : undefined;
 }
 
-export function openAgentChatWindow(
-  state: AppState,
-  args: Record<string, unknown>,
-): void {
+export function openAgentChatWindow(state: AppState, args: Record<string, unknown>): void {
   const q = new URLSearchParams();
   const agent = trimQuery(args.agent);
-  const chatId = trimQuery(
-    args.chat_id ?? args.chatId ?? args.session,
-  );
+  const chatId = trimQuery(args.chat_id ?? args.chatId ?? args.session);
   const sessionCwd = trimQuery(args.session_cwd ?? args.sessionCwd);
   const workspaceId = trimQuery(args.workspace_id ?? args.workspaceId);
   const projectId = trimQuery(args.project_id ?? args.projectId);
@@ -115,26 +107,19 @@ export function openAgentChatWindow(
   );
 }
 
-export function browserWindowLabel(
-  browserContextId: string | undefined,
-): string {
+export function browserWindowLabel(browserContextId: string | undefined): string {
   const raw = browserContextId?.trim();
   if (!raw) return "browser";
   const safe = raw.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 80);
   return `browser-${safe}`;
 }
 
-export function openBrowserWindow(
-  state: AppState,
-  args: Record<string, unknown>,
-): void {
+export function openBrowserWindow(state: AppState, args: Record<string, unknown>): void {
   const q = new URLSearchParams();
   const url = trimQuery(args.url);
   const workspaceId = trimQuery(args.workspace_id ?? args.workspaceId);
   const projectId = trimQuery(args.project_id ?? args.projectId);
-  const browserContextId = trimQuery(
-    args.browser_context_id ?? args.browserContextId,
-  );
+  const browserContextId = trimQuery(args.browser_context_id ?? args.browserContextId);
   if (url) q.set("url", url);
   if (workspaceId) q.set("workspaceId", workspaceId);
   if (projectId) q.set("projectId", projectId);
@@ -158,12 +143,7 @@ export function openBrowserWindow(
   );
 }
 
-
-
-export function openAppshotPermissionsWindow(
-  state: AppState,
-  args: Record<string, unknown>,
-): void {
+export function openAppshotPermissionsWindow(state: AppState, args: Record<string, unknown>): void {
   const locale = trimQuery(args.locale) ?? "en";
   openOrFocus(
     "appshot-permissions",

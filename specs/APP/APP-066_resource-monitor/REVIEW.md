@@ -10,33 +10,33 @@
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | api | Subscription generation could be reused after unsubscribe | verified |
-| REV-002 | P1 | api | Relay app close leaked virtual subscriptions | verified |
-| REV-003 | P2 | backend | Attribution performed blocking path work on async workers | verified |
-| REV-004 | P2 | frontend | Malformed nested metrics and stale states were unsafe | verified |
-| REV-005 | P2 | api | `send_to` held the connection lock across backpressure | verified |
-| REV-006 | P2 | test | Structural checks did not prove the user-visible lifecycle | verified |
-| REV-007 | P1 | backend | macOS Host memory used the wrong accounting definition | verified |
-| REV-008 | P2 | frontend | Session rows displayed numeric tmux identities as titles | verified |
-| REV-009 | P1 | frontend | Resource hierarchy was visually flat and terminal rows were not actionable | verified |
-| REV-010 | P1 | frontend | Cross-host locate deep links could be stripped as leftover chrome | verified |
-| REV-011 | P1 | full-stack | Project and Workspace totals lacked explainable process leaves | verified |
-| REV-012 | P1 | full-stack | Host and Atmos lacked compact summaries and diagnostic detail | verified |
-| REV-013 | P1 | full-stack | Resource charts lacked a unified pressure language and disk capacity | verified |
+| Id      | Severity | Area       | Title                                                                      | Status   |
+| ------- | -------- | ---------- | -------------------------------------------------------------------------- | -------- |
+| REV-001 | P1       | api        | Subscription generation could be reused after unsubscribe                  | verified |
+| REV-002 | P1       | api        | Relay app close leaked virtual subscriptions                               | verified |
+| REV-003 | P2       | backend    | Attribution performed blocking path work on async workers                  | verified |
+| REV-004 | P2       | frontend   | Malformed nested metrics and stale states were unsafe                      | verified |
+| REV-005 | P2       | api        | `send_to` held the connection lock across backpressure                     | verified |
+| REV-006 | P2       | test       | Structural checks did not prove the user-visible lifecycle                 | verified |
+| REV-007 | P1       | backend    | macOS Host memory used the wrong accounting definition                     | verified |
+| REV-008 | P2       | frontend   | Session rows displayed numeric tmux identities as titles                   | verified |
+| REV-009 | P1       | frontend   | Resource hierarchy was visually flat and terminal rows were not actionable | verified |
+| REV-010 | P1       | frontend   | Cross-host locate deep links could be stripped as leftover chrome          | verified |
+| REV-011 | P1       | full-stack | Project and Workspace totals lacked explainable process leaves             | verified |
+| REV-012 | P1       | full-stack | Host and Atmos lacked compact summaries and diagnostic detail              | verified |
+| REV-013 | P1       | full-stack | Resource charts lacked a unified pressure language and disk capacity       | verified |
 
 ---
 
 ## REV-001 · Subscription generation could be reused after unsubscribe
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | api |
-| **Reported by** | internal review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P1                     |
+| **Area**        | api                    |
+| **Reported by** | internal review        |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -66,13 +66,13 @@ Use non-reusable generations and return an error when a pending subscription was
 
 ## REV-002 · Relay app close leaked virtual subscriptions
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | api |
-| **Reported by** | internal review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P1                     |
+| **Area**        | api                    |
+| **Reported by** | internal review        |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -102,13 +102,13 @@ Classify app-stream close envelopes, remove only the matching virtual session, a
 
 ## REV-003 · Attribution performed blocking path work on async workers
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
-| **Reported by** | internal review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P2                     |
+| **Area**        | backend                |
+| **Reported by** | internal review        |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -134,13 +134,13 @@ Keep database reads async, then perform process sampling, tmux discovery, path n
 
 ## REV-004 · Malformed nested metrics and stale states were unsafe
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | frontend |
-| **Reported by** | internal review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P2                     |
+| **Area**        | frontend               |
+| **Reported by** | internal review        |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -167,13 +167,13 @@ Validate the complete nested DTO, run a visible-only local stale clock, allow st
 
 ## REV-005 · `send_to` held the connection lock across backpressure
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | api |
-| **Reported by** | internal review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P2                     |
+| **Area**        | api                    |
+| **Reported by** | internal review        |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -197,13 +197,13 @@ Clone the target sender under the lock, release the lock, then await the send. P
 
 ## REV-006 · Structural checks did not prove the user-visible lifecycle
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | test |
-| **Reported by** | internal review |
-| **Owner** | APP-066 test run |
+| Field           | Value            |
+| --------------- | ---------------- |
+| **Status**      | verified         |
+| **Severity**    | P2               |
+| **Area**        | test             |
+| **Reported by** | internal review  |
+| **Owner**       | APP-066 test run |
 
 ### Finding
 
@@ -228,13 +228,13 @@ Use behavioral pure tests for Query/controller/state invariants and the existing
 
 ## REV-007 · macOS Host memory used the wrong accounting definition
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
-| **Reported by** | user review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P1                     |
+| **Area**        | backend                |
+| **Reported by** | user review            |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -259,13 +259,13 @@ Use the same Mach VM formula as btop on macOS: `(active_count + wire_count) × p
 
 ## REV-008 · Session rows displayed numeric tmux identities as titles
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | frontend |
-| **Reported by** | user review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P2                     |
+| **Area**        | frontend               |
+| **Reported by** | user review            |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -291,13 +291,13 @@ Join active Resource Monitor session rows to terminal pane state by `session_id`
 
 ## REV-009 · Resource hierarchy was visually flat and terminal rows were not actionable
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
-| **Reported by** | user review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P1                     |
+| **Area**        | frontend               |
+| **Reported by** | user review            |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -324,13 +324,13 @@ Use an Activity Monitor + Raycast hierarchy: compact Host summary and time-based
 
 ## REV-010 · Cross-host locate deep links could be stripped as leftover chrome
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
-| **Reported by** | internal review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P1                     |
+| **Area**        | frontend               |
+| **Reported by** | internal review        |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -357,13 +357,13 @@ Provide a guarded app-router method for explicit Workspace deep links, commit th
 
 ## REV-011 · Project and Workspace totals lacked explainable process leaves
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | full-stack |
-| **Reported by** | user review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P1                     |
+| **Area**        | full-stack             |
+| **Reported by** | user review            |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -391,13 +391,13 @@ Project resources must appear before Workspaces and partition direct sessions fr
 
 ## REV-012 · Host and Atmos lacked compact summaries and diagnostic detail
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | full-stack |
-| **Reported by** | user review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P1                     |
+| **Area**        | full-stack             |
+| **Reported by** | user review            |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 
@@ -426,13 +426,13 @@ Make Host and Atmos default-collapsed summary rows; remove adjacent separators; 
 
 ## REV-013 · Resource charts lacked a unified pressure language and disk capacity
 
-| Field | Value |
-|-------|-------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | full-stack |
-| **Reported by** | user review |
-| **Owner** | APP-066 implementation |
+| Field           | Value                  |
+| --------------- | ---------------------- |
+| **Status**      | verified               |
+| **Severity**    | P1                     |
+| **Area**        | full-stack             |
+| **Reported by** | user review            |
+| **Owner**       | APP-066 implementation |
 
 ### Finding
 

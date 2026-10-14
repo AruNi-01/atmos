@@ -123,7 +123,7 @@ function CodeLanguagePicker({
           onMouseDown={preventEditorBlur}
         >
           <LanguageTriggerIcon language={language} />
-          <span className="min-w-0 max-w-[9rem] truncate text-xs tracking-tight">
+          <span className="max-w-[9rem] min-w-0 truncate text-xs tracking-tight">
             {formatMdLiveCodeLangLabel(language, t("codeLanguagePlain"))}
           </span>
           <ChevronDown className="size-3 shrink-0 opacity-70" />
@@ -166,7 +166,11 @@ function CodeLanguagePicker({
   );
 }
 
-async function paintHighlight(overlay: HTMLElement, code: string, language: string): Promise<boolean> {
+async function paintHighlight(
+  overlay: HTMLElement,
+  code: string,
+  language: string,
+): Promise<boolean> {
   const normalized = normalizeMdLiveCodeLang(language);
   if (!normalized || !SHIKI_LANGS.has(normalized)) {
     overlay.replaceChildren();
@@ -203,9 +207,12 @@ function MdLiveCodeBlockFrame({
   const onAsciiText = useCallback((next: string | null) => {
     setAsciiText(next);
   }, []);
-  const onPreviewReady = useCallback((ready: boolean) => {
-    setReadyCode(ready ? text : null);
-  }, [text]);
+  const onPreviewReady = useCallback(
+    (ready: boolean) => {
+      setReadyCode(ready ? text : null);
+    },
+    [text],
+  );
   const viewMode: MermaidViewMode = isMermaid ? mode : "source";
   const previewReady = readyCode === text;
   const showSource = !isMermaid || mode === "source" || (mode === "preview" && !previewReady);
@@ -231,10 +238,7 @@ function MdLiveCodeBlockFrame({
         />
       ) : null}
       <CodeBlockContent
-        className={cn(
-          "max-h-none overflow-x-auto text-[13px] leading-5",
-          !showSource && "hidden",
-        )}
+        className={cn("max-h-none overflow-x-auto text-[13px] leading-5", !showSource && "hidden")}
       >
         <div
           ref={(el) => {
@@ -246,77 +250,82 @@ function MdLiveCodeBlockFrame({
   );
 }
 
-export const mdLiveCodeBlockView = $view(codeBlockSchema.node, () => (node, view: EditorView, getPos) => {
-  const root = document.createElement("div");
-  root.className = "md-live-preview-code";
-  const surface = document.createElement("div");
-  surface.className = "md-live-code-surface relative";
-  const overlay = document.createElement("div");
-  overlay.className = "md-live-preview-code-overlay";
-  overlay.contentEditable = "false";
-  const editor = document.createElement("pre");
-  editor.className = "md-live-preview-code-editor";
-  editor.spellcheck = false;
-  const content = document.createElement("code");
-  content.spellcheck = false;
-  editor.append(content);
-  surface.append(overlay, editor);
+export const mdLiveCodeBlockView = $view(
+  codeBlockSchema.node,
+  () => (node, view: EditorView, getPos) => {
+    const root = document.createElement("div");
+    root.className = "md-live-preview-code";
+    const surface = document.createElement("div");
+    surface.className = "md-live-code-surface relative";
+    const overlay = document.createElement("div");
+    overlay.className = "md-live-preview-code-overlay";
+    overlay.contentEditable = "false";
+    const editor = document.createElement("pre");
+    editor.className = "md-live-preview-code-editor";
+    editor.spellcheck = false;
+    const content = document.createElement("code");
+    content.spellcheck = false;
+    editor.append(content);
+    surface.append(overlay, editor);
 
-  let headerRoot: Root | null = createRoot(root);
-  let highlightSeq = 0;
-  const applyLanguage = (language: string) => {
-    const pos = typeof getPos === "function" ? getPos() : undefined;
-    if (pos == null) return;
-    const current = view.state.doc.nodeAt(pos);
-    if (!current || current.type.name !== "code_block") return;
-    view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, {
-      ...current.attrs,
-      language,
-    }));
-  };
-  const refresh = (next: Node) => {
-    const language = languageOf(next);
-    const text = next.textContent ?? "";
-    headerRoot?.render(
-      <NextIntlClientProvider {...localeMessages()}>
-        <MdLiveCodeBlockFrame
-          language={language}
-          text={text}
-          onLanguageChange={applyLanguage}
-          surface={surface}
-        />
-      </NextIntlClientProvider>,
-    );
-    const seq = ++highlightSeq;
-    void paintHighlight(overlay, text, language).then((ok) => {
-      if (seq !== highlightSeq) return;
-      root.classList.toggle("is-highlighted", ok);
-    });
-  };
+    let headerRoot: Root | null = createRoot(root);
+    let highlightSeq = 0;
+    const applyLanguage = (language: string) => {
+      const pos = typeof getPos === "function" ? getPos() : undefined;
+      if (pos == null) return;
+      const current = view.state.doc.nodeAt(pos);
+      if (!current || current.type.name !== "code_block") return;
+      view.dispatch(
+        view.state.tr.setNodeMarkup(pos, undefined, {
+          ...current.attrs,
+          language,
+        }),
+      );
+    };
+    const refresh = (next: Node) => {
+      const language = languageOf(next);
+      const text = next.textContent ?? "";
+      headerRoot?.render(
+        <NextIntlClientProvider {...localeMessages()}>
+          <MdLiveCodeBlockFrame
+            language={language}
+            text={text}
+            onLanguageChange={applyLanguage}
+            surface={surface}
+          />
+        </NextIntlClientProvider>,
+      );
+      const seq = ++highlightSeq;
+      void paintHighlight(overlay, text, language).then((ok) => {
+        if (seq !== highlightSeq) return;
+        root.classList.toggle("is-highlighted", ok);
+      });
+    };
 
-  refresh(node);
+    refresh(node);
 
-  return {
-    dom: root,
-    contentDOM: content,
-    update: (updated: Node) => {
-      if (updated.type.name !== "code_block") return false;
-      if (isMdLiveComposing(view)) return true;
-      refresh(updated);
-      return true;
-    },
-    destroy: () => {
-      headerRoot?.unmount();
-      headerRoot = null;
-    },
-    ignoreMutation: (mutation: { type: string; target: globalThis.Node }) =>
-      mutation.type === "selection" ? false : !content.contains(mutation.target),
-    stopEvent: (event: Event) => {
-      const target = event.target as HTMLElement | null;
-      return Boolean(target?.closest("[data-slot], button, [data-mermaid-chrome]"));
-    },
-  };
-});
+    return {
+      dom: root,
+      contentDOM: content,
+      update: (updated: Node) => {
+        if (updated.type.name !== "code_block") return false;
+        if (isMdLiveComposing(view)) return true;
+        refresh(updated);
+        return true;
+      },
+      destroy: () => {
+        headerRoot?.unmount();
+        headerRoot = null;
+      },
+      ignoreMutation: (mutation: { type: string; target: globalThis.Node }) =>
+        mutation.type === "selection" ? false : !content.contains(mutation.target),
+      stopEvent: (event: Event) => {
+        const target = event.target as HTMLElement | null;
+        return Boolean(target?.closest("[data-slot], button, [data-mermaid-chrome]"));
+      },
+    };
+  },
+);
 
 function tablePartView(tag: string, className: string) {
   return () => {
@@ -339,9 +348,15 @@ export const mdLiveTableHeadView = $view(tableHeaderRowSchema.node, () => () => 
   return { dom: head, contentDOM: row };
 });
 
-export const mdLiveTableRowView = $view(tableRowSchema.node, () => tablePartView("tr", MARKDOWN_TABLE_ROW_CLASS));
-export const mdLiveTableHeaderCellView = $view(tableHeaderSchema.node, () => tablePartView("th", MARKDOWN_TABLE_TH_CLASS));
-export const mdLiveTableCellView = $view(tableCellSchema.node, () => tablePartView("td", MARKDOWN_TABLE_TD_CLASS));
+export const mdLiveTableRowView = $view(tableRowSchema.node, () =>
+  tablePartView("tr", MARKDOWN_TABLE_ROW_CLASS),
+);
+export const mdLiveTableHeaderCellView = $view(tableHeaderSchema.node, () =>
+  tablePartView("th", MARKDOWN_TABLE_TH_CLASS),
+);
+export const mdLiveTableCellView = $view(tableCellSchema.node, () =>
+  tablePartView("td", MARKDOWN_TABLE_TD_CLASS),
+);
 
 export function mdLivePreviewBlockPlugins() {
   return [

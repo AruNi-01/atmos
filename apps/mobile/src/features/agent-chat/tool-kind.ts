@@ -30,8 +30,9 @@ export {
 };
 
 export function collapsedToolTitle(part: AgentToolCallPart): string {
-  const fallback = wireToolKind(part.kind) === "execute"
-    ? "Run Script"
-    : part.name.trim() || part.title?.trim() || wireToolKind(part.kind);
+  const fallback =
+    wireToolKind(part.kind) === "execute"
+      ? "Run Script"
+      : part.name.trim() || part.title?.trim() || wireToolKind(part.kind);
   return preferredCollapsedToolTitle(part, fallback);
 }

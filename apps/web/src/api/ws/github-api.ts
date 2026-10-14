@@ -184,11 +184,20 @@ export const wsGithubApi = {
     }),
 
   listIssuePage: (params: {
-    owner: string; repo: string; state: "open" | "closed"; page: number; perPage: number;
+    owner: string;
+    repo: string;
+    state: "open" | "closed";
+    page: number;
+    perPage: number;
   }): Promise<GithubPage<GithubIssuePayload>> =>
     wsRequest("github_issue_page", {
-      owner: params.owner, repo: params.repo, state: params.state, page: params.page, per_page: params.perPage,
-      sort: "updated", direction: "desc",
+      owner: params.owner,
+      repo: params.repo,
+      state: params.state,
+      page: params.page,
+      per_page: params.perPage,
+      sort: "updated",
+      direction: "desc",
     }),
 
   listIssues: async (params: {
@@ -211,9 +220,10 @@ export const wsGithubApi = {
     });
   },
 
-  getIssue: async (params:
-    | { owner: string; repo: string; issueNumber: number; issueUrl?: undefined }
-    | { issueUrl: string; owner?: undefined; repo?: undefined; issueNumber?: undefined },
+  getIssue: async (
+    params:
+      | { owner: string; repo: string; issueNumber: number; issueUrl?: undefined }
+      | { issueUrl: string; owner?: undefined; repo?: undefined; issueNumber?: undefined },
   ): Promise<GithubIssuePayload> => {
     return wsRequest("github_issue_get", {
       owner: params.owner ?? null,
@@ -238,16 +248,26 @@ export const wsGithubApi = {
   },
 
   listBranchPrPage: (params: {
-    owner: string; repo: string; branch: string; state: string; page: number; perPage: number;
+    owner: string;
+    repo: string;
+    branch: string;
+    state: string;
+    page: number;
+    perPage: number;
   }): Promise<GithubPage<Record<string, unknown>>> =>
     wsRequest("github_pr_branch_page", {
-      owner: params.owner, repo: params.repo, branch: params.branch, state: params.state,
-      page: params.page, per_page: params.perPage,
+      owner: params.owner,
+      repo: params.repo,
+      branch: params.branch,
+      state: params.state,
+      page: params.page,
+      per_page: params.perPage,
     }),
 
-  getPr: async (params:
-    | { owner: string; repo: string; prNumber: number; prUrl?: undefined }
-    | { prUrl: string; owner?: undefined; repo?: undefined; prNumber?: undefined },
+  getPr: async (
+    params:
+      | { owner: string; repo: string; prNumber: number; prUrl?: undefined }
+      | { prUrl: string; owner?: undefined; repo?: undefined; prNumber?: undefined },
   ): Promise<GithubPrPayload> => {
     return wsRequest("github_pr_get", {
       owner: params.owner ?? null,
@@ -270,6 +290,5 @@ export const wsGithubApi = {
   },
 
   /** REST core / Search / GraphQL rate limits for the local `gh` auth token. */
-  getRateLimit: (): Promise<GithubRateLimitPayload> =>
-    wsRequest("github_rate_limit", {}),
+  getRateLimit: (): Promise<GithubRateLimitPayload> => wsRequest("github_rate_limit", {}),
 };

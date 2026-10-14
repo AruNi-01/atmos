@@ -68,8 +68,7 @@ export function GithubListPagination({
 
   const canPrev = page > 1;
   const canNext = hasMore;
-  const compact =
-    layout === "compact" ? true : layout === "full" ? false : autoCompact;
+  const compact = layout === "compact" ? true : layout === "full" ? false : autoCompact;
 
   // Full layout: previous page, current, next page when available.
   const pages = compact
@@ -84,13 +83,13 @@ export function GithubListPagination({
       role="navigation"
       aria-label="pagination"
       className={cn(
-        "mt-3 flex w-full min-w-0 max-w-full items-center justify-center overflow-hidden pb-2",
+        "mt-3 flex w-full max-w-full min-w-0 items-center justify-center overflow-hidden pb-2",
         // Avoid shrink-to-fit collapsing full layout under flex parents.
         layout === "full" && "min-w-fit shrink-0",
         className,
       )}
     >
-      <div className="flex min-w-0 max-w-full items-center gap-0.5">
+      <div className="flex max-w-full min-w-0 items-center gap-0.5">
         <button
           type="button"
           aria-label={previousLabel}

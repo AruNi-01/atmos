@@ -122,7 +122,10 @@ import {
   getScopeKey,
   stableAgentPaneId,
 } from "@/features/terminal/store/terminal-store-helpers";
-import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
+import type {
+  CenterTabContextMenuState,
+  CenterTabDescriptor,
+} from "@/app-shell/center-stage-tab-model";
 import {
   getCenterStripShortcutDigitForTab,
   orderCenterTabsBySavedOrder,
@@ -164,7 +167,12 @@ interface CenterStageTabBarProps {
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
   /** Saved strip order (tab ids). Missing/new tabs append after. */
   tabStripOrder: string[];
-  visibleTerminalTabs: Array<{ id: string; title: string; closable: boolean; customTitle?: string }>;
+  visibleTerminalTabs: Array<{
+    id: string;
+    title: string;
+    closable: boolean;
+    customTitle?: string;
+  }>;
   wikiCenterEligible: boolean;
   wikiRefreshing: boolean;
   /**
@@ -316,9 +324,7 @@ export function CenterStageTabBar({
   );
   const paneAgentChatTabs = React.useMemo(
     () =>
-      allowedTabIds
-        ? agentChatTabs.filter((tab) => allowedTabIds.has(tab.value))
-        : agentChatTabs,
+      allowedTabIds ? agentChatTabs.filter((tab) => allowedTabIds.has(tab.value)) : agentChatTabs,
     [agentChatTabs, allowedTabIds],
   );
   const hideGitChrome = isStandaloneAutomationScope(effectiveContextId);
@@ -342,19 +348,19 @@ export function CenterStageTabBar({
     [activeValue, previewBrowserPrefs],
   );
 
-  const renderTabGroupItemContent = React.useCallback((
-    tab: TabGroupItem,
-    close?: { label: string; onClose: () => void },
-  ) => {
-    return (
-      <CenterStageTabGroupItemContent
-        effectiveContextId={effectiveContextId}
-        tab={tab}
-        closeLabel={close?.label}
-        onClose={close?.onClose}
-      />
-    );
-  }, [effectiveContextId]);
+  const renderTabGroupItemContent = React.useCallback(
+    (tab: TabGroupItem, close?: { label: string; onClose: () => void }) => {
+      return (
+        <CenterStageTabGroupItemContent
+          effectiveContextId={effectiveContextId}
+          tab={tab}
+          closeLabel={close?.label}
+          onClose={close?.onClose}
+        />
+      );
+    },
+    [effectiveContextId],
+  );
 
   // Natural open-order among file / github / browser surface tabs (before pin reordering).
   const orderedSurfaceTabs = React.useMemo<
@@ -366,18 +372,10 @@ export function CenterStageTabBar({
     >
   >(() => {
     const items = [
-      ...openFiles.map(
-        (file) => ({ type: "file" as const, openedAt: file.lastOpenedAt, file }),
-      ),
-      ...githubTabs.map(
-        (tab) => ({ type: "github" as const, openedAt: tab.openedAt, tab }),
-      ),
-      ...gitCommitTabs.map(
-        (tab) => ({ type: "git-commit" as const, openedAt: tab.openedAt, tab }),
-      ),
-      ...browserTabs.map(
-        (tab) => ({ type: "browser" as const, openedAt: tab.openedAt, tab }),
-      ),
+      ...openFiles.map((file) => ({ type: "file" as const, openedAt: file.lastOpenedAt, file })),
+      ...githubTabs.map((tab) => ({ type: "github" as const, openedAt: tab.openedAt, tab })),
+      ...gitCommitTabs.map((tab) => ({ type: "git-commit" as const, openedAt: tab.openedAt, tab })),
+      ...browserTabs.map((tab) => ({ type: "browser" as const, openedAt: tab.openedAt, tab })),
     ];
     return items.sort((left, right) => left.openedAt - right.openedAt);
   }, [browserTabs, gitCommitTabs, githubTabs, openFiles]);
@@ -521,12 +519,8 @@ export function CenterStageTabBar({
       }
 
       if (item.type === "browser") {
-        const browserContext =
-          previewBrowserPrefs.byContext[item.tab.browserContextId];
-        const label = getActivePreviewBrowserLabel(
-          browserContext,
-          browserFallbackLabel,
-        );
+        const browserContext = previewBrowserPrefs.byContext[item.tab.browserContextId];
+        const label = getActivePreviewBrowserLabel(browserContext, browserFallbackLabel);
         descriptors.push({
           id: item.tab.value,
           value: item.tab.value,
@@ -652,10 +646,7 @@ export function CenterStageTabBar({
   ]);
 
   const renderDescriptorTab = (tab: CenterTabDescriptor) => {
-    const shortcutDigit = getCenterStripShortcutDigitForTab(
-      stripShortcutTabIds,
-      tab.id,
-    );
+    const shortcutDigit = getCenterStripShortcutDigitForTab(stripShortcutTabIds, tab.id);
     if (tab.kind === "overview") {
       const overviewLabel = t("centerStageTabBar.overview");
       return (
@@ -889,12 +880,8 @@ export function CenterStageTabBar({
     if (tab.kind === "browser") {
       const browserTab = browserTabs.find((item) => item.value === tab.value);
       if (!browserTab) return null;
-      const browserContext =
-        previewBrowserPrefs.byContext[browserTab.browserContextId];
-      const label = getActivePreviewBrowserLabel(
-        browserContext,
-        browserFallbackLabel,
-      );
+      const browserContext = previewBrowserPrefs.byContext[browserTab.browserContextId];
+      const label = getActivePreviewBrowserLabel(browserContext, browserFallbackLabel);
       const faviconUrl = getActivePreviewBrowserFaviconUrl(browserContext);
       return (
         <CenterStageSurfaceContentTab
@@ -989,9 +976,9 @@ export function CenterStageTabBar({
             onCreateAgentChat={handleCreateAgentChatCenterTab}
             markdownLabel={t("centerStageTabBar.newMarkdown")}
             onCreateMarkdownNote={() => {
-              const path = useEditorStore.getState().openUntitledMarkdown(
-                writeContextId || effectiveContextId,
-              );
+              const path = useEditorStore
+                .getState()
+                .openUntitledMarkdown(writeContextId || effectiveContextId);
               if (path) handleCenterStageTabChange(path);
             }}
             overviewLabel={t("centerStageTabBar.overview")}
@@ -1063,21 +1050,21 @@ export function CenterStageTabBar({
               <span className="relative size-3.5">
                 <BookOpen
                   className={cn(
-                    "size-3.5 absolute inset-0 transition-all duration-200",
+                    "absolute inset-0 size-3.5 transition-all duration-200",
                     activeValue === "wiki"
-                      ? "group-hover/wiki:opacity-0 group-hover/wiki:scale-50 group-hover/wiki:rotate-[-30deg]"
+                      ? "group-hover/wiki:scale-50 group-hover/wiki:rotate-[-30deg] group-hover/wiki:opacity-0"
                       : "",
                   )}
                 />
                 {activeValue === "wiki" ? (
                   wikiRefreshing ? (
-                    <LoaderCircle className="size-3.5 absolute inset-0 animate-spin" />
+                    <LoaderCircle className="absolute inset-0 size-3.5 animate-spin" />
                   ) : (
                     <RotateCw
                       className={cn(
-                        "size-3.5 absolute inset-0 transition-all duration-200",
-                        "opacity-0 scale-50 rotate-60",
-                        "group-hover/wiki:opacity-100 group-hover/wiki:scale-100 group-hover/wiki:rotate-0",
+                        "absolute inset-0 size-3.5 transition-all duration-200",
+                        "scale-50 rotate-60 opacity-0",
+                        "group-hover/wiki:scale-100 group-hover/wiki:rotate-0 group-hover/wiki:opacity-100",
                       )}
                     />
                   )
@@ -1087,7 +1074,7 @@ export function CenterStageTabBar({
                 <span
                   role="button"
                   aria-label={t("centerStageTabBar.refreshWiki")}
-                  className="absolute inset-0 opacity-0 group-hover/wiki:opacity-100 pointer-events-none group-hover/wiki:pointer-events-auto cursor-pointer"
+                  className="pointer-events-none absolute inset-0 cursor-pointer opacity-0 group-hover/wiki:pointer-events-auto group-hover/wiki:opacity-100"
                   onClick={(event) => {
                     event.stopPropagation();
                     event.preventDefault();
@@ -1100,7 +1087,9 @@ export function CenterStageTabBar({
             </CenterStageTab>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {activeValue === "wiki" ? t("centerStageTabBar.refreshWiki") : t("centerStageTabBar.projectWiki")}
+            {activeValue === "wiki"
+              ? t("centerStageTabBar.refreshWiki")
+              : t("centerStageTabBar.projectWiki")}
           </TooltipContent>
         </Tooltip>
       ) : null}
@@ -1108,7 +1097,7 @@ export function CenterStageTabBar({
       <div
         ref={scrollableTabsRef}
         data-center-tabs-scroll
-        className="pointer-events-none flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar"
+        className="no-scrollbar pointer-events-none flex min-w-0 flex-1 items-center overflow-x-auto"
       >
         <DndContext
           sensors={stripDndSensors}
@@ -1121,11 +1110,7 @@ export function CenterStageTabBar({
             strategy={horizontalListSortingStrategy}
           >
             {orderedDescriptors.map((tab) => (
-              <SortableCenterStripTab
-                key={tab.id}
-                id={tab.id}
-                disabled={tab.kind === "overview"}
-              >
+              <SortableCenterStripTab key={tab.id} id={tab.id} disabled={tab.kind === "overview"}>
                 {renderDescriptorTab(tab)}
               </SortableCenterStripTab>
             ))}
@@ -1172,14 +1157,10 @@ function SortableCenterStripTab({
   children: React.ReactNode;
   disabled?: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, disabled });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled,
+  });
   const { onPointerDown, ...restListeners } = listeners ?? {};
 
   // Only while actively dragging: force grabbing cursor globally so it stays
@@ -1203,7 +1184,7 @@ function SortableCenterStripTab({
         transition,
       }}
       className={cn(
-        "pointer-events-auto flex h-7 shrink-0 items-center touch-none",
+        "pointer-events-auto flex h-7 shrink-0 touch-none items-center",
         isDragging && "z-20 cursor-grabbing opacity-60 [&_button]:cursor-grabbing",
       )}
       {...attributes}
@@ -1242,9 +1223,7 @@ function TerminalExtraTab({
   const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: tabLabel });
 
   const panesRecord = useTerminalStore(
-    (s) =>
-      s.workspacePanes[getScopeKey(effectiveContextId, tab.id)] ??
-      EMPTY_TERMINAL_TAB_PANES,
+    (s) => s.workspacePanes[getScopeKey(effectiveContextId, tab.id)] ?? EMPTY_TERMINAL_TAB_PANES,
   );
   const markPanes = React.useMemo(
     () =>
@@ -1258,9 +1237,7 @@ function TerminalExtraTab({
     () =>
       Object.values(panesRecord)
         .map((pane) =>
-          pane.tmuxWindowName
-            ? stableAgentPaneId(effectiveContextId, pane.tmuxWindowName)
-            : null,
+          pane.tmuxWindowName ? stableAgentPaneId(effectiveContextId, pane.tmuxWindowName) : null,
         )
         .filter((id): id is string => Boolean(id)),
     [effectiveContextId, panesRecord],
@@ -1295,20 +1272,13 @@ function TerminalExtraTab({
           onContextMenu={onContextMenu}
           className={attentionTabClass(attentionReason)}
         >
-          <CenterStageTabIconSlot
-            closeLabel={closeAriaLabel}
-            onClose={() => onClose(tab.id)}
-          >
+          <CenterStageTabIconSlot closeLabel={closeAriaLabel} onClose={() => onClose(tab.id)}>
             {tabLeadingIcon}
           </CenterStageTabIconSlot>
           {displayTitle ? (
-            <span className="max-w-[180px] truncate whitespace-nowrap">
-              {displayTitle}
-            </span>
+            <span className="max-w-[180px] truncate whitespace-nowrap">{displayTitle}</span>
           ) : null}
-          <AutomationTabMark
-            surface={{ kind: "terminal", panes: markPanes }}
-          />
+          <AutomationTabMark surface={{ kind: "terminal", panes: markPanes }} />
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
           <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
@@ -1412,9 +1382,7 @@ function CenterStagePaneFullscreenButton({
   exitFullscreenLabel: string;
 }) {
   const isCenterFullscreen = useCenterStageFullscreenStore((state) => state.isFullscreen);
-  const toggleCenterFullscreen = useCenterStageFullscreenStore(
-    (state) => state.toggleFullscreen,
-  );
+  const toggleCenterFullscreen = useCenterStageFullscreenStore((state) => state.toggleFullscreen);
   const label = isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel;
   return (
     <Tooltip>
@@ -1428,11 +1396,7 @@ function CenterStagePaneFullscreenButton({
           className={PANE_FULLSCREEN_BUTTON_CLASS}
           onClick={() => toggleCenterFullscreen(paneId)}
         >
-          {isCenterFullscreen ? (
-            <Minimize2 className="size-4" />
-          ) : (
-            <Maximize2 className="size-4" />
-          )}
+          {isCenterFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
         </button>
       </TooltipTrigger>
       <TooltipContent side="bottom">{label}</TooltipContent>
@@ -1559,9 +1523,7 @@ function CenterStageNewTabMenu({
   const [applyConfirmOpen, setApplyConfirmOpen] = React.useState(false);
   const [pendingApplyLayoutId, setPendingApplyLayoutId] = React.useState<string | null>(null);
   const isCenterFullscreen = useCenterStageFullscreenStore((state) => state.isFullscreen);
-  const toggleCenterFullscreen = useCenterStageFullscreenStore(
-    (state) => state.toggleFullscreen,
-  );
+  const toggleCenterFullscreen = useCenterStageFullscreenStore((state) => state.toggleFullscreen);
   const closeTimerRef = React.useRef<number | null>(null);
   const layoutsLeaveTimerRef = React.useRef<number | null>(null);
 
@@ -1620,14 +1582,11 @@ function CenterStageNewTabMenu({
     [clearCloseTimer, scheduleClose],
   );
 
-  const retainPlusMenuIfPointerOverIt = React.useCallback(
-    (event: PlusMenuOutsideDismissEvent) => {
-      if (shouldRetainPlusMenuForOutsidePointer(event)) {
-        event.preventDefault();
-      }
-    },
-    [],
-  );
+  const retainPlusMenuIfPointerOverIt = React.useCallback((event: PlusMenuOutsideDismissEvent) => {
+    if (shouldRetainPlusMenuForOutsidePointer(event)) {
+      event.preventDefault();
+    }
+  }, []);
 
   const openSaveDialog = React.useCallback(() => {
     setLayoutName("");
@@ -1775,298 +1734,296 @@ function CenterStageNewTabMenu({
               tab={plusTab}
               tabs={
                 <>
-          {onCreateOverview && !overviewAlreadyOpen ? (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateOverview();
-              setOpen(false);
-            }}
-          >
-            <LayoutDashboard className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{overviewLabel}</span>
-            <ShortcutHint digit={0} />
-          </button>
-          ) : null}
-          <button
-            type="button"
-            id="create-terminal"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateTerminal();
-              setOpen(false);
-            }}
-          >
-            <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{terminalLabel}</span>
-            <ShortcutHint digit="T" />
-          </button>
-          <button
-            type="button"
-            id="create-agent-chat"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateAgentChat();
-              setOpen(false);
-            }}
-          >
-            <MessagesSquare className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{agentChatLabel}</span>
-          </button>
-          {onCreateMarkdownNote && markdownLabel ? (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateMarkdownNote();
-              setOpen(false);
-            }}
-          >
-            <FileText className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{markdownLabel}</span>
-          </button>
-          ) : null}
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateBrowser();
-              setOpen(false);
-            }}
-          >
-            <Globe className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{browserLabel}</span>
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateToolTab("files");
-              setOpen(false);
-            }}
-          >
-            <FolderTree className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{filesLabel}</span>
-          </button>
-          {hideGitChrome ? null : (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateToolTab("changes");
-              setOpen(false);
-            }}
-          >
-            <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{changesLabel}</span>
-          </button>
-          )}
-          {hideGitChrome ? null : (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateToolTab("review");
-              setOpen(false);
-            }}
-          >
-            <FileDiff className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{reviewLabel}</span>
-          </button>
-          )}
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateToolTab("run");
-              setOpen(false);
-            }}
-          >
-            <Play className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{runLabel}</span>
-          </button>
-          {hideGitChrome || !GITHUB_HUB_CENTER_TAB_VISIBLE ? null : (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateToolTab("github");
-              setOpen(false);
-            }}
-          >
-            <Github className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{githubLabel}</span>
-          </button>
-          )}
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateToolTab("pt-design");
-              setOpen(false);
-            }}
-          >
-            <PencilRuler className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{ptDesignLabel}</span>
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onCreateSimulator();
-              setOpen(false);
-            }}
-          >
-            <Smartphone className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">{simulatorLabel}</span>
-          </button>
+                  {onCreateOverview && !overviewAlreadyOpen ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        onCreateOverview();
+                        setOpen(false);
+                      }}
+                    >
+                      <LayoutDashboard className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{overviewLabel}</span>
+                      <ShortcutHint digit={0} />
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    id="create-terminal"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onCreateTerminal();
+                      setOpen(false);
+                    }}
+                  >
+                    <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{terminalLabel}</span>
+                    <ShortcutHint digit="T" />
+                  </button>
+                  <button
+                    type="button"
+                    id="create-agent-chat"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onCreateAgentChat();
+                      setOpen(false);
+                    }}
+                  >
+                    <MessagesSquare className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{agentChatLabel}</span>
+                  </button>
+                  {onCreateMarkdownNote && markdownLabel ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        onCreateMarkdownNote();
+                        setOpen(false);
+                      }}
+                    >
+                      <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{markdownLabel}</span>
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onCreateBrowser();
+                      setOpen(false);
+                    }}
+                  >
+                    <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{browserLabel}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onCreateToolTab("files");
+                      setOpen(false);
+                    }}
+                  >
+                    <FolderTree className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{filesLabel}</span>
+                  </button>
+                  {hideGitChrome ? null : (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        onCreateToolTab("changes");
+                        setOpen(false);
+                      }}
+                    >
+                      <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{changesLabel}</span>
+                    </button>
+                  )}
+                  {hideGitChrome ? null : (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        onCreateToolTab("review");
+                        setOpen(false);
+                      }}
+                    >
+                      <FileDiff className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{reviewLabel}</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onCreateToolTab("run");
+                      setOpen(false);
+                    }}
+                  >
+                    <Play className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{runLabel}</span>
+                  </button>
+                  {hideGitChrome || !GITHUB_HUB_CENTER_TAB_VISIBLE ? null : (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        onCreateToolTab("github");
+                        setOpen(false);
+                      }}
+                    >
+                      <Github className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{githubLabel}</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onCreateToolTab("pt-design");
+                      setOpen(false);
+                    }}
+                  >
+                    <PencilRuler className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{ptDesignLabel}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onCreateSimulator();
+                      setOpen(false);
+                    }}
+                  >
+                    <Smartphone className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{simulatorLabel}</span>
+                  </button>
                 </>
               }
               layout={
                 <>
-          {showLayoutItems ? (
-            <Popover modal={false} open={layoutsSubOpen} onOpenChange={setLayoutsSubOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
-                  aria-haspopup="menu"
-                  aria-expanded={layoutsSubOpen}
-                  onMouseEnter={() => {
-                    clearLayoutsLeaveTimer();
-                    clearCloseTimer();
-                    setLayoutsSubOpen(true);
-                  }}
-                  onMouseLeave={scheduleLayoutsClose}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    clearLayoutsLeaveTimer();
-                    clearCloseTimer();
-                    setLayoutsSubOpen(true);
-                  }}
-                >
-                  <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate">{layoutLabel}</span>
-                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                side="right"
-                sideOffset={4}
-                collisionPadding={8}
-                data-center-stage-layouts-menu=""
-                className="z-[2147483647] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
-                onOpenAutoFocus={(event) => event.preventDefault()}
-                onCloseAutoFocus={(event) => event.preventDefault()}
-                onPointerDown={(event) => event.stopPropagation()}
-                onMouseDown={(event) => event.stopPropagation()}
-                onPointerDownOutside={retainPlusMenuIfPointerOverIt}
-                onInteractOutside={retainPlusMenuIfPointerOverIt}
-                onMouseEnter={() => {
-                  clearLayoutsLeaveTimer();
-                  clearCloseTimer();
-                }}
-                onMouseLeave={(event) => {
-                  if (!shouldSchedulePlusMenuClose(event)) {
-                    clearCloseTimer();
-                    clearLayoutsLeaveTimer();
-                    return;
-                  }
-                  scheduleLayoutsClose();
-                  scheduleClose();
-                }}
-              >
-                {onSaveLayout ? (
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-                    onClick={openSaveDialog}
-                  >
-                    <Plus className="size-3.5 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate">{newLayoutLabel}</span>
-                  </button>
-                ) : null}
-                {onSaveLayout && (savedLayouts?.length ?? 0) > 0 ? (
-                  <div className="my-1 h-px bg-border/60" role="separator" />
-                ) : null}
-                {(savedLayouts ?? []).map((layout) => (
-                  <button
-                    key={layout.id}
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-                    onClick={() => requestApplyLayout(layout.id)}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{layout.name}</span>
-                  </button>
-                ))}
-                {(savedLayouts?.length ?? 0) === 0 && !onSaveLayout ? (
-                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                    —
-                  </div>
-                ) : null}
-              </PopoverContent>
-            </Popover>
-          ) : null}
-          {onSplitRight ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => {
-                onSplitRight();
-                setOpen(false);
-              }}
-            >
-              <SquareSplitHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{splitRightLabel}</span>
-            </button>
-          ) : null}
-          {onSplitDown ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => {
-                onSplitDown();
-                setOpen(false);
-              }}
-            >
-              <Rows2 className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{splitDownLabel}</span>
-            </button>
-          ) : null}
-          {onCreateSpace && newSpaceLabel ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={openSpaceDialog}
-            >
-              <Layers className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{newSpaceLabel}</span>
-            </button>
-          ) : null}
-          {showPaneFullscreenButton ? null : (
-          <button
-            type="button"
-            aria-pressed={isCenterFullscreen}
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              toggleCenterFullscreen(paneId);
-              setOpen(false);
-            }}
-          >
-            {isCenterFullscreen ? (
-              <Minimize2 className="size-3.5 shrink-0 text-muted-foreground" />
-            ) : (
-              <Maximize2 className="size-3.5 shrink-0 text-muted-foreground" />
-            )}
-            <span className="min-w-0 flex-1 truncate">
-              {isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}
-            </span>
-          </button>
-          )}
+                  {showLayoutItems ? (
+                    <Popover modal={false} open={layoutsSubOpen} onOpenChange={setLayoutsSubOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+                          aria-haspopup="menu"
+                          aria-expanded={layoutsSubOpen}
+                          onMouseEnter={() => {
+                            clearLayoutsLeaveTimer();
+                            clearCloseTimer();
+                            setLayoutsSubOpen(true);
+                          }}
+                          onMouseLeave={scheduleLayoutsClose}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            clearLayoutsLeaveTimer();
+                            clearCloseTimer();
+                            setLayoutsSubOpen(true);
+                          }}
+                        >
+                          <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1 truncate">{layoutLabel}</span>
+                          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="start"
+                        side="right"
+                        sideOffset={4}
+                        collisionPadding={8}
+                        data-center-stage-layouts-menu=""
+                        className="z-[2147483647] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+                        onOpenAutoFocus={(event) => event.preventDefault()}
+                        onCloseAutoFocus={(event) => event.preventDefault()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDownOutside={retainPlusMenuIfPointerOverIt}
+                        onInteractOutside={retainPlusMenuIfPointerOverIt}
+                        onMouseEnter={() => {
+                          clearLayoutsLeaveTimer();
+                          clearCloseTimer();
+                        }}
+                        onMouseLeave={(event) => {
+                          if (!shouldSchedulePlusMenuClose(event)) {
+                            clearCloseTimer();
+                            clearLayoutsLeaveTimer();
+                            return;
+                          }
+                          scheduleLayoutsClose();
+                          scheduleClose();
+                        }}
+                      >
+                        {onSaveLayout ? (
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                            onClick={openSaveDialog}
+                          >
+                            <Plus className="size-3.5 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 flex-1 truncate">{newLayoutLabel}</span>
+                          </button>
+                        ) : null}
+                        {onSaveLayout && (savedLayouts?.length ?? 0) > 0 ? (
+                          <div className="my-1 h-px bg-border/60" role="separator" />
+                        ) : null}
+                        {(savedLayouts ?? []).map((layout) => (
+                          <button
+                            key={layout.id}
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => requestApplyLayout(layout.id)}
+                          >
+                            <span className="min-w-0 flex-1 truncate">{layout.name}</span>
+                          </button>
+                        ))}
+                        {(savedLayouts?.length ?? 0) === 0 && !onSaveLayout ? (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">—</div>
+                        ) : null}
+                      </PopoverContent>
+                    </Popover>
+                  ) : null}
+                  {onSplitRight ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        onSplitRight();
+                        setOpen(false);
+                      }}
+                    >
+                      <SquareSplitHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{splitRightLabel}</span>
+                    </button>
+                  ) : null}
+                  {onSplitDown ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        onSplitDown();
+                        setOpen(false);
+                      }}
+                    >
+                      <Rows2 className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{splitDownLabel}</span>
+                    </button>
+                  ) : null}
+                  {onCreateSpace && newSpaceLabel ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={openSpaceDialog}
+                    >
+                      <Layers className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{newSpaceLabel}</span>
+                    </button>
+                  ) : null}
+                  {showPaneFullscreenButton ? null : (
+                    <button
+                      type="button"
+                      aria-pressed={isCenterFullscreen}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        toggleCenterFullscreen(paneId);
+                        setOpen(false);
+                      }}
+                    >
+                      {isCenterFullscreen ? (
+                        <Minimize2 className="size-3.5 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <Maximize2 className="size-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">
+                        {isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}
+                      </span>
+                    </button>
+                  )}
                 </>
               }
             />
@@ -2125,11 +2082,7 @@ function CenterStageNewTabMenu({
               maxLength={64}
             />
             <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setSpaceDialogOpen(false)}
-              >
+              <Button type="button" variant="ghost" onClick={() => setSpaceDialogOpen(false)}>
                 {newSpaceCancelLabel}
               </Button>
               <Button type="submit" disabled={!spaceName.trim()}>
@@ -2160,11 +2113,7 @@ function CenterStageNewTabMenu({
               maxLength={64}
             />
             <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setSaveDialogOpen(false)}
-              >
+              <Button type="button" variant="ghost" onClick={() => setSaveDialogOpen(false)}>
                 {saveLayoutCancelLabel}
               </Button>
               <Button type="submit" disabled={!layoutName.trim()}>
@@ -2194,11 +2143,7 @@ function AgentChatCenterTab({
       {...props}
       contextId={contextId}
       className={attentionTabClass(attentionReason)}
-      mark={
-        chatId ? (
-          <AutomationTabMark surface={{ kind: "chat", chatId }} />
-        ) : null
-      }
+      mark={chatId ? <AutomationTabMark surface={{ kind: "chat", chatId }} /> : null}
     />
   );
 }

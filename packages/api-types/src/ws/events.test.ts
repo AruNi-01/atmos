@@ -45,8 +45,8 @@ describe("@atmos/api-types events", () => {
   });
 
   test("resource_monitor events stay the existing snapshot event", () => {
-    expect(
-      WS_EVENTS.filter((event) => event.startsWith("resource_monitor_")),
-    ).toEqual(["resource_monitor_updated"]);
+    expect(WS_EVENTS.filter((event) => event.startsWith("resource_monitor_"))).toEqual([
+      "resource_monitor_updated",
+    ]);
   });
 });

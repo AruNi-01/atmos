@@ -198,10 +198,10 @@ function FooterButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-0.5 overflow-hidden whitespace-nowrap rounded-[10px] p-2 text-sm select-none outline-none",
+        "inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-0.5 overflow-hidden rounded-[10px] p-2 text-sm whitespace-nowrap outline-none select-none",
         "transition-[transform,background-color,border-color,box-shadow] duration-150 ease-out",
         "active:scale-[0.97]",
-        "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-64 disabled:shadow-none",
         variant === "primary"
           ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
@@ -494,7 +494,7 @@ export function DateRangePicker({
         className={cn(triggerButtonClassName, className)}
       >
         <CalendarDays className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="flex items-center justify-center whitespace-nowrap px-1 text-sm text-foreground">
+        <span className="flex items-center justify-center px-1 text-sm whitespace-nowrap text-foreground">
           {committedRange
             ? `${formatTriggerDate(committedRange.start, locale)} - ${formatTriggerDate(committedRange.end, locale)}`
             : labels.placeholder}

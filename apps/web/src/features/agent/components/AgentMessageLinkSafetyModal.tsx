@@ -18,16 +18,12 @@ const FOCUSABLE_SELECTOR = [
 
 function focusableElements(root: HTMLElement | null) {
   if (!root) return [];
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-    .filter((element) => !element.hasAttribute("disabled") && element.tabIndex !== -1);
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => !element.hasAttribute("disabled") && element.tabIndex !== -1,
+  );
 }
 
-function AgentMessageLinkSafetyModal({
-  isOpen,
-  onClose,
-  onConfirm,
-  url,
-}: LinkSafetyModalProps) {
+function AgentMessageLinkSafetyModal({ isOpen, onClose, onConfirm, url }: LinkSafetyModalProps) {
   const t = useTranslations("Agent.components");
   const [mounted, setMounted] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
@@ -162,7 +158,7 @@ function AgentMessageLinkSafetyModal({
         tabIndex={-1}
       >
         <button
-          className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="absolute top-4 right-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={onClose}
           title={t("linkSafety.closeTitle")}
           type="button"
@@ -180,7 +176,7 @@ function AgentMessageLinkSafetyModal({
         </div>
         <div
           className={cn(
-            "break-all rounded-md bg-muted p-3 font-mono text-sm",
+            "rounded-md bg-muted p-3 font-mono text-sm break-all",
             url.length > 100 && "max-h-32 overflow-y-auto",
           )}
         >

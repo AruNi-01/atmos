@@ -78,10 +78,7 @@ export function UnsavedChangesDialog({
   const t = useTranslations("AppShell.chrome");
 
   return (
-    <Dialog
-      open={!!fileToClose}
-      onOpenChange={(open) => !open && onCancel()}
-    >
+    <Dialog open={!!fileToClose} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("centerStageDialogs.unsavedChanges.title")}</DialogTitle>

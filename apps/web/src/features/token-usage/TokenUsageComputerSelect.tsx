@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  cn,
-} from "@workspace/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from "@workspace/ui";
 import {
   ALL_COMPUTERS_VALUE,
   type UniqueComputer,
@@ -34,9 +27,7 @@ export function TokenUsageComputerSelect({
         aria-label={allLabel}
         className={cn(
           "h-8 w-auto max-w-[12.5rem] rounded-lg border text-xs font-medium",
-          isDark
-            ? "border-white/[0.07] bg-white/[0.04]"
-            : "border-black/[0.08] bg-black/[0.04]",
+          isDark ? "border-white/[0.07] bg-white/[0.04]" : "border-black/[0.08] bg-black/[0.04]",
         )}
       >
         <SelectValue />

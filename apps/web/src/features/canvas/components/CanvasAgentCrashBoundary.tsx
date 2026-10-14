@@ -71,9 +71,7 @@ function CanvasAgentCrashFallback({
     handledRef.current = true;
     setBusy("skip");
     try {
-      await recovery?.failInflight(
-        t("recovery.skipMessage"),
-      );
+      await recovery?.failInflight(t("recovery.skipMessage"));
       recovery?.bumpRemount();
       onDismiss();
     } finally {
@@ -86,9 +84,7 @@ function CanvasAgentCrashFallback({
     handledRef.current = true;
     setBusy("refresh");
     try {
-      await recovery?.failInflight(
-        t("recovery.refreshMessage"),
-      );
+      await recovery?.failInflight(t("recovery.refreshMessage"));
       await recovery?.reloadBoard();
       recovery?.bumpRemount();
       onDismiss();
@@ -100,7 +96,7 @@ function CanvasAgentCrashFallback({
   React.useEffect(() => {
     if (handledRef.current) return;
     const timer = window.setInterval(() => {
-      setSecondsLeft(s => {
+      setSecondsLeft((s) => {
         if (s <= 1) {
           window.clearInterval(timer);
           void runSkip();
@@ -123,15 +119,14 @@ function CanvasAgentCrashFallback({
         <Sparkles className="size-7 text-amber-400" aria-hidden />
       </div>
       <div className="max-w-md space-y-2">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {t("title")}
-        </h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {t("description.prefix")} <code className="rounded bg-muted px-1 py-0.5 text-xs">atmos canvas</code>{" "}
+        <h2 className="text-lg font-semibold tracking-tight">{t("title")}</h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {t("description.prefix")}{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">atmos canvas</code>{" "}
           {t("description.suffix")}
         </p>
         {error?.message ? (
-          <p className="mt-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-left font-mono text-[11px] text-muted-foreground break-all">
+          <p className="mt-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-left font-mono text-[11px] break-all text-muted-foreground">
             {error.message}
           </p>
         ) : null}

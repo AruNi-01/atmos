@@ -140,7 +140,8 @@ function rectsFromPtxFallback(ptx: string): SketchRect[] {
   for (const match of ptx.matchAll(/<([a-zA-Z][\w-]*)\b[^>]*>/g)) {
     const tag = match[0];
     const name = match[1]?.toLowerCase();
-    if (!name || name === "page" || name === "option" || name === "on" || name === "action") continue;
+    if (!name || name === "page" || name === "option" || name === "on" || name === "action")
+      continue;
     const x = attrFromTag(tag, "x");
     const y = attrFromTag(tag, "y");
     const w = attrFromTag(tag, "width");
@@ -189,7 +190,9 @@ function rectsFromPtx(ptx: string): SketchRect[] {
   return rectsFromPtxFallback(ptx);
 }
 
-export function unionPreviewBox(rects: Array<{ x: number; y: number; w: number; h: number }>): PreviewBox | null {
+export function unionPreviewBox(
+  rects: Array<{ x: number; y: number; w: number; h: number }>,
+): PreviewBox | null {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -243,7 +246,8 @@ export function rasterPreviewSize(preview: string): { w: number; h: number } | n
     if (bin.length < 24) return null;
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47) return null;
+    if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47)
+      return null;
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const w = view.getUint32(16);
     const h = view.getUint32(20);
@@ -292,7 +296,10 @@ export function parsePreviewViewBox(preview: string | undefined): PreviewBox | n
   if (!svg) return null;
   const match = svg.match(/viewBox="([^"]+)"/);
   if (!match?.[1]) return null;
-  const parts = match[1].trim().split(/[\s,]+/).map(Number);
+  const parts = match[1]
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
   if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
   const [x, y, w, h] = parts as [number, number, number, number];
   if (w <= 0 || h <= 0) return null;

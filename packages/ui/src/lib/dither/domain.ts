@@ -15,10 +15,7 @@ export function isFixedDomainMax(yMax: number | undefined): yMax is number {
  * Prefer a valid fixed `yMax`; otherwise keep the caller-computed auto max.
  * Growth uses this so its 1.06 axis lerp stays unchanged when `yMax` is omitted.
  */
-export function resolveFixedDomainMax(
-  yMax: number | undefined,
-  autoMax: number,
-): number {
+export function resolveFixedDomainMax(yMax: number | undefined, autoMax: number): number {
   return isFixedDomainMax(yMax) ? yMax : autoMax;
 }
 
@@ -27,24 +24,15 @@ export function resolveFixedDomainMax(
  * Valid `yMax` → that value (no headroom).
  * `undefined` / invalid → `max(1, dataPeak) * 1.2` (legacy auto domain).
  */
-export function resolveDomainMax(
-  yMax: number | undefined,
-  dataPeak: number,
-): number {
-  return resolveFixedDomainMax(
-    yMax,
-    Math.max(1, dataPeak) * REVENUE_LINES_AUTO_HEADROOM,
-  );
+export function resolveDomainMax(yMax: number | undefined, dataPeak: number): number {
+  return resolveFixedDomainMax(yMax, Math.max(1, dataPeak) * REVENUE_LINES_AUTO_HEADROOM);
 }
 
 /**
  * Clamp a plotted value onto a fixed domain.
  * Auto / invalid `yMax` leaves the value unchanged.
  */
-export function clampToDomain(
-  value: number,
-  yMax: number | undefined,
-): number {
+export function clampToDomain(value: number, yMax: number | undefined): number {
   if (!isFixedDomainMax(yMax)) return value;
   return Math.max(0, Math.min(yMax, value));
 }

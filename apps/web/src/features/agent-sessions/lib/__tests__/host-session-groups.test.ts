@@ -71,9 +71,11 @@ describe("host session grouping", () => {
 
     const byProject = groupHostSessions(sessions, "project", "Unknown project");
     expect(byProject.map((group) => group.label)).toEqual(["atmos", "web", "notes"]);
-    expect(flattenHostSessionGroups(byProject, { "project:web": true }).map((row) =>
-      row.kind === "header" ? row.group.label : row.session.key,
-    )).toEqual(["atmos", "claude:a", "web", "notes", "claude:c"]);
+    expect(
+      flattenHostSessionGroups(byProject, { "project:web": true }).map((row) =>
+        row.kind === "header" ? row.group.label : row.session.key,
+      ),
+    ).toEqual(["atmos", "claude:a", "web", "notes", "claude:c"]);
   });
 
   test("sorts sessions by created or modified time", () => {
@@ -188,8 +190,12 @@ describe("host session grouping", () => {
       item({ key: "claude:b", provider_id: "claude", title: "Other", cwd: "/src/notes" }),
     ];
     expect(hostSessionAgentLabel("grok")).toBe("Grok Build");
-    expect(filterHostSessionsByQuery(sessions, "sidebar").map((row) => row.key)).toEqual(["grok:a"]);
-    expect(filterHostSessionsByQuery(sessions, "notes").map((row) => row.key)).toEqual(["claude:b"]);
+    expect(filterHostSessionsByQuery(sessions, "sidebar").map((row) => row.key)).toEqual([
+      "grok:a",
+    ]);
+    expect(filterHostSessionsByQuery(sessions, "notes").map((row) => row.key)).toEqual([
+      "claude:b",
+    ]);
     expect(filterHostSessionsByQuery(sessions, "grok build").map((row) => row.key)).toEqual([
       "grok:a",
     ]);

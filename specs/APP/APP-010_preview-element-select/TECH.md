@@ -1,6 +1,7 @@
 # Issue #41: Preview 元素选择 + React 源码组件定位增强（可扩展到多框架）
 
 ## Summary
+
 本次把 Preview 能力拆成两层并一次性设计好扩展架构：
 
 - `v1`：在 [Preview.tsx](apps/web/src/components/run-preview/Preview.tsx) 支持同源/本地预览页的 DOM 元素选择，复用现有 `SelectionPopover`
@@ -8,13 +9,17 @@
 - 设计目标是“宿主稳定、框架可插拔”：后续支持 Vue/Svelte 只新增 adapter 和少量 metadata formatter，不改 Preview 主流程
 
 范围明确：
+
 - 支持：同源、本地 dev server、可访问 iframe DOM 的页面
 - 不支持：跨域外部网站
 - React 源码定位仅保证开发态最佳效果；生产构建或 sourcemap/调试信息缺失时自动降级到 DOM 级上下文
 
 ## Architecture
+
 ### 1. 宿主层：Preview Host
+
 在 [Preview.tsx](apps/web/src/components/run-preview/Preview.tsx) 新增宿主能力：
+
 - 管理“元素选择模式”开关
 - 检测 iframe 是否同源可注入
 - 在 iframe load 后注入 helper bootstrap
@@ -28,7 +33,9 @@
 - attach 时把格式化后的上下文写入默认 Agent chat
 
 ### 2. 注入层：Preview Helper Runtime
+
 新增一组前端文件，建议放在 `apps/web/src/components/run-preview/preview-helper/`：
+
 - `bootstrap.ts`
 - `bridge.ts`
 - `dom-inspector.ts`
@@ -37,6 +44,7 @@
 - `types.ts`
 
 helper 运行在 iframe 页面上下文，职责固定：
+
 - 监听鼠标移动/点击/键盘事件
 - 计算 hover 元素与锁定元素
 - 渲染高亮 overlay
@@ -53,18 +61,22 @@ helper 运行在 iframe 页面上下文，职责固定：
 helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面元素并解析上下文”。
 
 ### 3. 适配层：Framework Source Locators
+
 新增适配器目录，建议放在 `apps/web/src/components/run-preview/source-locators/`：
+
 - `types.ts`
 - `registry.ts`
 - `react-locator.ts`
 - 预留 `vue-locator.ts`、`svelte-locator.ts`
 
 统一接口固定为：
+
 - `id`
 - `canHandle(win: Window): boolean`
 - `locate(element: Element, win: Window): SourceLocationResult | null`
 
 `SourceLocationResult` 至少包含：
+
 - `framework: "react" | "vue" | "svelte" | "unknown"`
 - `componentName?: string`
 - `filePath?: string`
@@ -77,7 +89,9 @@ helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面�
 宿主和 helper 只依赖这个通用结果，不写死 React 逻辑。
 
 ## React v1.5 Design
+
 ### 1. React 定位策略
+
 `react-locator.ts` 采用分层探测，避免只押单一内部实现：
 
 1. 优先从 DOM 节点上查找 React fiber 关联字段  
@@ -105,7 +119,9 @@ helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面�
 6. 若只能拿到组件名，仍返回 `confidence=low/medium` 的结果，不中断流程
 
 ### 2. React 结果过滤
+
 为避免把内部包装层发给 Agent，加入一层 heuristics：
+
 - 默认忽略明显宿主节点和低价值包装：
   - `div`/`span` 这类 host component
   - 内部 forwardRef/memo 包装名但无源码位置信息的节点
@@ -115,7 +131,9 @@ helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面�
 - 如果找到多个有价值组件，可附带一条 `componentChain` 摘要，但默认 prompt 里只输出最佳候选，避免噪声
 
 ### 3. React 输出格式
+
 新增 preview 专用 formatter，输出顺序固定：
+
 - Page URL
 - DOM selector
 - Element summary
@@ -126,13 +144,17 @@ helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面�
 - Optional user note
 
 示例结构：
+
 - `Framework: React`
 - `Component: LoginForm`
 - `Source: components/login-form.tsx:46:19`
 
 ## Public Interfaces / Types
+
 ### 扩展 SelectionInfo
+
 更新 [format-selection-for-ai.ts](apps/web/src/lib/format-selection-for-ai.ts)：
+
 - 新增 preview 相关字段：
   - `sourceType?: "text" | "element"`
   - `pageUrl?: string`
@@ -150,19 +172,26 @@ helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面�
   - `sourceConfidence?: "high" | "medium" | "low"`
 
 ### 扩展 SelectionPopover
+
 更新 [SelectionPopover.tsx](apps/web/src/components/selection/SelectionPopover.tsx)：
+
 - `SelectionType` 增加 `"preview"`
 - attach 能力改成只要传了 `onAttach` 就可用，不再绑死 wiki
 - `type="preview"` 时调用新的 `formatPreviewSelectionForAI`
 
 ### PreviewProps 调整
+
 更新 [RunPreviewPanel.tsx](apps/web/src/components/run-preview/RunPreviewPanel.tsx) 和 [Preview.tsx](apps/web/src/components/run-preview/Preview.tsx)：
+
 - `Preview` 增加 `workspaceId`、`projectId`
 - 用于把选中元素上下文写入默认 Agent composer
 
 ## Implementation Changes
+
 ### 1. Preview 宿主改造
+
 在 [Preview.tsx](apps/web/src/components/run-preview/Preview.tsx) 中：
+
 - 新增 `elementPickMode`、`selectionPopover`、`iframeCapability` 状态
 - iframe load 时：
   - 判断同源访问
@@ -180,7 +209,9 @@ helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面�
   - 失败则回退 `appendAgentChatDraft`
 
 ### 2. 注入协议
+
 定义严格的 message 协议，避免后面加 Vue 时再改通道：
+
 - `atmos-preview:ready`
 - `atmos-preview:hover`
 - `atmos-preview:selected`
@@ -188,6 +219,7 @@ helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面�
 - `atmos-preview:capability`
 
 消息内容包含：
+
 - `sessionId`
 - `pageUrl`
 - `rect`
@@ -199,7 +231,9 @@ helper 不关心 atmos UI，也不直接写 Agent；它只负责“选中页面�
 宿主层按 `sessionId + source window + origin` 做校验，防止串消息。
 
 ### 3. DOM 选择与 overlay
+
 helper 内单独实现：
+
 - hover overlay
 - locked selection overlay
 - ignore list：
@@ -211,21 +245,27 @@ helper 内单独实现：
 - 锁定后暂停 hover 更新，直到取消或重新选
 
 ### 4. 框架适配器注册
+
 `registry.ts` 固定流程：
+
 - 按顺序检测 adapter
 - 当前先注册 `react`
 - 后续 Vue/Svelte 只需新增文件并注册，不改 Preview 主逻辑
 - 若无 adapter 命中，则返回 `framework="unknown"` 并降级为纯 DOM 模式
 
 ### 5. 降级策略
+
 任何一层失败都不能让 element picker 崩掉：
+
 - helper 注入失败：关闭 picker，给出 toast
 - React debug 元数据缺失：保留 selector + DOM 摘要
 - 拿到组件名但没文件：仍输出组件名，`confidence=low`
 - 页面非 React：正常返回 DOM-only payload
 
 ## Test Plan
+
 ### 功能场景
+
 1. 本地 React dev 页面中开启元素选择，点击元素后能拿到 selector、组件名、源码路径、行列号。
 2. React 页面中目标 DOM 属于多层组件包装时，返回最近且最有价值的用户组件，而不是裸 `div/span`。
 3. React 页面调试信息不完整时，自动降级到 selector + DOM 摘要，不报错。
@@ -236,17 +276,20 @@ helper 内单独实现：
 8. 跨域页面中 picker 按钮禁用，并有明确提示。
 
 ### 扩展性回归
+
 1. 宿主层不依赖 React 专有字段名称，React 逻辑仅存在于 `react-locator.ts`。
 2. 关闭 React locator 后，DOM picker 仍完整可用。
 3. 增加新 adapter 时，不需要修改 SelectionPopover、Agent composer、Preview 主事件流。
 
 ### 验证方式
+
 - `bun typecheck`
 - `bun lint`
 - 手动在本仓库 dev 页面和一个简单 React demo 页面验证
 - 手动验证一个非 React HTML 页面降级路径
 
 ## Assumptions
+
 - 这个 issue 仍然只覆盖“同源/本地 dev server Preview”，不覆盖跨域任意网站。
 - React 源码定位依赖开发态内部调试元数据，属于 best-effort，不承诺所有构建链路都 100% 命中。
 - 不引入后端改动；helper 由 atmos 前端动态注入到 iframe。

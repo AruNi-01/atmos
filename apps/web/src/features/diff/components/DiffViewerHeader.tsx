@@ -1,11 +1,11 @@
-import { useTranslations } from 'next-intl';
+import { useTranslations } from "next-intl";
 import {
   IconCollapsedRow,
   IconDiffSplit,
   IconDiffUnified,
   IconExpandAll,
   IconGearFill,
-} from '@pierre/icons';
+} from "@pierre/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,13 +15,13 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@workspace/ui';
-import { cn } from '@/shared/lib/utils';
+} from "@workspace/ui";
+import { cn } from "@/shared/lib/utils";
 
 const SETTING_ROW_CLASS =
-  'flex w-full cursor-pointer items-center justify-between gap-4 px-2 py-1.5 text-sm';
+  "flex w-full cursor-pointer items-center justify-between gap-4 px-2 py-1.5 text-sm";
 
-type DiffStyle = 'split' | 'unified';
+type DiffStyle = "split" | "unified";
 
 interface DiffViewerHeaderProps {
   canEditReview: boolean;
@@ -66,51 +66,62 @@ export function DiffViewerHeader({
   snapshotGuidFromPath,
   wordWrap,
 }: DiffViewerHeaderProps) {
-  const t = useTranslations('diff.viewerHeader');
+  const t = useTranslations("diff.viewerHeader");
   return (
-    <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0">
+    <div className="flex h-10 shrink-0 items-center justify-between border-b border-sidebar-border bg-muted/30 px-4">
       <div
-        className="relative h-5 flex-1 min-w-0 overflow-hidden pr-3"
+        className="relative h-5 min-w-0 flex-1 overflow-hidden pr-3"
         onMouseEnter={() => setTipPaused(true)}
         onMouseLeave={() => setTipPaused(false)}
       >
         <div
-          className="absolute inset-x-0 h-full flex items-center gap-3 transition-all duration-500 ease-in-out"
+          className="absolute inset-x-0 flex h-full items-center gap-3 transition-all duration-500 ease-in-out"
           style={{
-            transform: !isReviewDiff && showTip ? 'translateY(-100%)' : 'translateY(0)',
+            transform: !isReviewDiff && showTip ? "translateY(-100%)" : "translateY(0)",
             opacity: !isReviewDiff && showTip ? 0 : 1,
           }}
         >
-          <span className="text-sm font-medium text-foreground truncate">{filePath}</span>
-          {diffCompareRef && <span className="text-xs text-muted-foreground shrink-0">{t('versus')} {diffCompareRef}</span>}
+          <span className="truncate text-sm font-medium text-foreground">{filePath}</span>
+          {diffCompareRef && (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {t("versus")} {diffCompareRef}
+            </span>
+          )}
           {diffStats && (diffStats.additions > 0 || diffStats.deletions > 0) && (
-            <span className="text-xs font-mono shrink-0">
-              {diffStats.additions > 0 && <span className="text-green-500">+{diffStats.additions}</span>}
-              {diffStats.additions > 0 && diffStats.deletions > 0 && <span className="text-muted-foreground mx-1">/</span>}
-              {diffStats.deletions > 0 && <span className="text-red-500">-{diffStats.deletions}</span>}
+            <span className="shrink-0 font-mono text-xs">
+              {diffStats.additions > 0 && (
+                <span className="text-green-500">+{diffStats.additions}</span>
+              )}
+              {diffStats.additions > 0 && diffStats.deletions > 0 && (
+                <span className="mx-1 text-muted-foreground">/</span>
+              )}
+              {diffStats.deletions > 0 && (
+                <span className="text-red-500">-{diffStats.deletions}</span>
+              )}
             </span>
           )}
           {snapshotGuidFromPath && hasReviewSession && !canEditReview ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300 shrink-0">
-                  {t('snapshotView')}
+                <span className="shrink-0 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                  {t("snapshotView")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[260px] text-xs">
-                {t('snapshotTooltip')}
+                {t("snapshotTooltip")}
               </TooltipContent>
             </Tooltip>
           ) : null}
         </div>
         {!isReviewDiff && (
           <div
-            className="absolute inset-x-0 h-full flex items-center transition-all duration-500 ease-in-out"
-            style={{ transform: showTip ? 'translateY(0)' : 'translateY(100%)', opacity: showTip ? 1 : 0 }}
-        >
-          <span className="text-xs text-muted-foreground truncate">
-              {t('tips')}
-            </span>
+            className="absolute inset-x-0 flex h-full items-center transition-all duration-500 ease-in-out"
+            style={{
+              transform: showTip ? "translateY(0)" : "translateY(100%)",
+              opacity: showTip ? 1 : 0,
+            }}
+          >
+            <span className="truncate text-xs text-muted-foreground">{t("tips")}</span>
           </div>
         )}
       </div>
@@ -121,31 +132,37 @@ export function DiffViewerHeader({
             onClick={() => onToggleReviewed(!isReviewed)}
             disabled={!canEditReview}
             className={cn(
-              'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium cursor-pointer disabled:cursor-not-allowed shrink-0',
+              "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium disabled:cursor-not-allowed",
               isReviewed
-                ? 'border-blue-500/50 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25'
-                : 'border-border bg-background/80 text-foreground hover:bg-muted/50',
+                ? "border-blue-500/50 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25"
+                : "border-border bg-background/80 text-foreground hover:bg-muted/50",
             )}
           >
             {isReviewed ? (
-              <span className="flex items-center justify-center w-3.5 h-3.5 rounded-sm bg-blue-500">
+              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-sm bg-blue-500">
                 <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 8L6.5 11.5L13 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M3 8L6.5 11.5L13 5"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </span>
             ) : (
-              <span className="flex items-center justify-center w-3.5 h-3.5 rounded-sm border border-muted-foreground/40" />
+              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-muted-foreground/40" />
             )}
-            <span>{t('reviewed')}</span>
+            <span>{t("reviewed")}</span>
           </button>
         ) : null}
         <button
           type="button"
-          title={diffStyle === 'split' ? t('switchToUnifiedView') : t('switchToSplitView')}
+          title={diffStyle === "split" ? t("switchToUnifiedView") : t("switchToSplitView")}
           className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-          onClick={() => setDiffStyle(diffStyle === 'split' ? 'unified' : 'split')}
+          onClick={() => setDiffStyle(diffStyle === "split" ? "unified" : "split")}
         >
-          {diffStyle === 'split' ? (
+          {diffStyle === "split" ? (
             <IconDiffSplit className="size-3.5" />
           ) : (
             <IconDiffUnified className="size-3.5" />
@@ -153,7 +170,7 @@ export function DiffViewerHeader({
         </button>
         <button
           type="button"
-          title={fileCollapsed ? t('expandFile') : t('collapseFile')}
+          title={fileCollapsed ? t("expandFile") : t("collapseFile")}
           className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
           onClick={() => setFileCollapsed(!fileCollapsed)}
         >
@@ -168,30 +185,24 @@ export function DiffViewerHeader({
             <button
               type="button"
               className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              title={t('viewOptions')}
+              title={t("viewOptions")}
             >
               <IconGearFill className="size-3.5" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem
-              className="cursor-default p-0"
-            onSelect={(e) => e.preventDefault()}
-          >
+            <DropdownMenuItem className="cursor-default p-0" onSelect={(e) => e.preventDefault()}>
               <label className={SETTING_ROW_CLASS}>
-                <span className="min-w-0 flex-1">{t('backgrounds')}</span>
+                <span className="min-w-0 flex-1">{t("backgrounds")}</span>
                 <Switch
                   checked={!disableBackground}
                   onCheckedChange={(checked) => setDisableBackground(!checked)}
                 />
               </label>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-default p-0"
-            onSelect={(e) => e.preventDefault()}
-          >
+            <DropdownMenuItem className="cursor-default p-0" onSelect={(e) => e.preventDefault()}>
               <label className={SETTING_ROW_CLASS}>
-                <span className="min-w-0 flex-1">{t('wordWrap')}</span>
+                <span className="min-w-0 flex-1">{t("wordWrap")}</span>
                 <Switch checked={wordWrap} onCheckedChange={setWordWrap} />
               </label>
             </DropdownMenuItem>

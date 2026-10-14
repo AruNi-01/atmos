@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const planBlock = readFileSync(
-  join(import.meta.dir, "../PlanBlockView.tsx"),
-  "utf8",
-);
+const planBlock = readFileSync(join(import.meta.dir, "../PlanBlockView.tsx"), "utf8");
 
 describe("plan block view", () => {
   it("keeps expanded plan entries free of item and header dividers", () => {
@@ -24,10 +21,7 @@ describe("plan block view", () => {
   });
 
   it("shows a plan icon that morphs to the collapse chevron on header hover", () => {
-    const glyph = readFileSync(
-      join(import.meta.dir, "../composer-collapse-glyph.tsx"),
-      "utf8",
-    );
+    const glyph = readFileSync(join(import.meta.dir, "../composer-collapse-glyph.tsx"), "utf8");
     expect(planBlock).toContain("ComposerCollapseGlyph");
     expect(planBlock).toContain("ListTodo");
     expect(glyph).toContain("ChevronDown");

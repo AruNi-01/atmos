@@ -14,11 +14,7 @@ export function resolveFunnelTrack(
 }
 
 /** Foreground width from the (possibly morphing) stage value. Track is always full canvas. */
-export function funnelValueWidth(
-  canvasW: number,
-  value: number,
-  scaleMax: number,
-): number {
+export function funnelValueWidth(canvasW: number, value: number, scaleMax: number): number {
   if (!(canvasW > 0) || !(scaleMax > 0)) return 0;
   return Math.max(0, Math.min(canvasW, (value / scaleMax) * canvasW));
 }

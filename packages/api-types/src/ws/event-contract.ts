@@ -20,15 +20,9 @@ import type {
   AutomationStalePromptEvent,
 } from "./dto/automation";
 import type { ResourceMonitorSnapshot } from "./dto/resource-monitor";
-import type {
-  AgentOptionsUpdated,
-  AgentChatEvent,
-} from "./dto/agent-chat";
+import type { AgentOptionsUpdated, AgentChatEvent } from "./dto/agent-chat";
 import type { HostSessionIndexUpdated } from "./dto/host-session";
-import type {
-  SimulatorDevicesChanged,
-  SimulatorDownloadProgress,
-} from "./dto/simulator";
+import type { SimulatorDevicesChanged, SimulatorDownloadProgress } from "./dto/simulator";
 import type {
   ProjectDeleteProgressNotification,
   WorkspaceDeleteProgressNotification,

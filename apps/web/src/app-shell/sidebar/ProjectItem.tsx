@@ -144,7 +144,9 @@ export interface ProjectItemProps {
   onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
 }
 
-const parseColorToRgb = (colorStr: string | undefined): { r: number; g: number; b: number; a: number } => {
+const parseColorToRgb = (
+  colorStr: string | undefined,
+): { r: number; g: number; b: number; a: number } => {
   if (!colorStr) return { r: 239, g: 68, b: 68, a: 1 };
   const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
   if (rgbaMatch) {
@@ -155,7 +157,7 @@ const parseColorToRgb = (colorStr: string | undefined): { r: number; g: number; 
       a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1,
     };
   }
-  const hex = colorStr.replace('#', '');
+  const hex = colorStr.replace("#", "");
   const r = parseInt(hex.substr(0, 2), 16);
   const g = parseInt(hex.substr(2, 2), 16);
   const b = parseInt(hex.substr(4, 2), 16);
@@ -259,18 +261,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
 
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
   // Own project latch — used for filter-mode dimming (child latches don't dim parent).
-  const projectOwnAttentionReason = useAgentAttentionStore((s) =>
-    s.getContextReason(project.id),
-  );
+  const projectOwnAttentionReason = useAgentAttentionStore((s) => s.getContextReason(project.id));
   // Fold child marks in only when this row hides its workspace list.
-  const rollupChildren =
-    !hideWorkspaceList && !isExpanded && project.workspaces.length > 0;
+  const rollupChildren = !hideWorkspaceList && !isExpanded && project.workspaces.length > 0;
   // In attention filter mode, parent projects that only host attention workspaces
   // stay visible for structure but are dimmed so the latched rows stand out.
   const dimAsAttentionParent =
-    attentionFilterMode &&
-    !projectOwnAttentionReason &&
-    project.workspaces.length > 0;
+    attentionFilterMode && !projectOwnAttentionReason && project.workspaces.length > 0;
   const [showLogoDialog, setShowLogoDialog] = useState(false);
   const [showLogoBrowser, setShowLogoBrowser] = useState(false);
   const [isPickingLogo, setIsPickingLogo] = useState(false);
@@ -284,13 +281,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const shortcutDigit = useSidebarShortcutDigit(projectShortcutKey);
 
   const unpinnedWorkspaces = project.workspaces.filter((workspace) => !workspace.isPinned);
-  const {
-    visibleCount,
-    canShowMore,
-    canShowLess,
-    showMore,
-    showLess,
-  } = useWorkspaceListVisibleCount(unpinnedWorkspaces.length, project.id);
+  const { visibleCount, canShowMore, canShowLess, showMore, showLess } =
+    useWorkspaceListVisibleCount(unpinnedWorkspaces.length, project.id);
   const visibleUnpinnedWorkspaces = unpinnedWorkspaces.slice(0, visibleCount);
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -422,10 +414,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       try {
         const localSource = logoInput.trim();
         const selected = await pickLocalFile({
-          defaultPath:
-            localSource && !isDirectLogoSource(localSource)
-              ? localSource
-              : undefined,
+          defaultPath: localSource && !isDirectLogoSource(localSource) ? localSource : undefined,
           title: t("projectItem.logo.selectLogoImage"),
           filters: [
             {
@@ -478,14 +467,12 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       className={cn(
         "mt-1 ml-8 space-y-0.5 transition-all duration-300",
         LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
-        isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
+        isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100",
       )}
     >
       <SortableContext
         items={
-          workspaceSortingDisabled
-            ? []
-            : visibleUnpinnedWorkspaces.map((workspace) => workspace.id)
+          workspaceSortingDisabled ? [] : visibleUnpinnedWorkspaces.map((workspace) => workspace.id)
         }
         strategy={verticalListSortingStrategy}
       >
@@ -515,9 +502,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             groups={groups}
             onSetWorkspaceGroup={onSetWorkspaceGroup}
             onCreateGroup={onCreateGroup}
-            onUpdateLabels={(wsId, labels) =>
-              onUpdateWorkspaceLabels(project.id, wsId, labels)
-            }
+            onUpdateLabels={(wsId, labels) => onUpdateWorkspaceLabels(project.id, wsId, labels)}
             suppressInfoPopover={isProjectMenuOpen}
           />
         ))}
@@ -540,7 +525,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       className={cn(
         "group/project mb-1 transition-all duration-200",
         isPlaceholder ? "opacity-20" : "opacity-100",
-        isDragging && "z-50"
+        isDragging && "z-50",
       )}
       {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: projectShortcutKey }}
     >
@@ -548,318 +533,338 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         className={cn(stickyHeader && LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS)}
         {...(stickyHeader ? { "data-sidebar-sticky-group-header": "" } : {})}
       >
-      <div
-        className={cn(
+        <div
+          className={cn(
             "relative ml-2 flex min-w-0 items-center rounded-sm px-2 py-1.5 hover:bg-sidebar-accent",
             LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
-            isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
-            (isActiveProject || isSelected) && "bg-sidebar-accent"
+            isDragging && "scale-[1.02] bg-sidebar-accent shadow-2xl",
+            (isActiveProject || isSelected) && "bg-sidebar-accent",
           )}
-      >
-        <div
-          {...attributes}
-          {...listeners}
-          className={cn(
-            "flex items-center flex-1 min-w-0 select-none pr-8",
-            disableRowClick ? "cursor-default" : "cursor-pointer",
-            dimAsAttentionParent && "opacity-45",
-          )}
-          onClick={() => {
-            if (disableRowClick) {
-              return;
-            }
-            if (onProjectRowClick) {
-              onProjectRowClick(project.id);
-              return;
-            }
-            onToggle(project.id);
-          }}
         >
-          <div className="flex items-center space-x-2 flex-1 min-w-0">
-            <div
-              className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 hover:bg-sidebar-accent relative"
-              style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
-            >
-              {isStandaloneGroup ? (
-                <Timer className="size-3.5" />
-              ) : logoUrl && !hasLogoLoadError ? (
-                <ProjectLogoMark
-                  src={logoUrl}
-                  className="group-hover/project:hidden"
-                  onError={() => setHasLogoLoadError(true)}
-                />
-              ) : (
-                <span className="group-hover/project:hidden transition-all duration-200">{initialLetter}</span>
-              )}
-              {isStandaloneGroup ? null : (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectMain(project.id);
-                        }}
-                        className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground hover:cursor-pointer"
-                      >
-                        <MapPinned className="size-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                      {t("projectItem.mainDirectoryTooltip")}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+          <div
+            {...attributes}
+            {...listeners}
+            className={cn(
+              "flex min-w-0 flex-1 items-center pr-8 select-none",
+              disableRowClick ? "cursor-default" : "cursor-pointer",
+              dimAsAttentionParent && "opacity-45",
+            )}
+            onClick={() => {
+              if (disableRowClick) {
+                return;
+              }
+              if (onProjectRowClick) {
+                onProjectRowClick(project.id);
+                return;
+              }
+              onToggle(project.id);
+            }}
+          >
+            <div className="flex min-w-0 flex-1 items-center space-x-2">
+              <div
+                className="relative flex size-6 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-sidebar text-[10px] font-bold text-muted-foreground hover:bg-sidebar-accent"
+                style={{
+                  borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined,
+                }}
+              >
+                {isStandaloneGroup ? (
+                  <Timer className="size-3.5" />
+                ) : logoUrl && !hasLogoLoadError ? (
+                  <ProjectLogoMark
+                    src={logoUrl}
+                    className="group-hover/project:hidden"
+                    onError={() => setHasLogoLoadError(true)}
+                  />
+                ) : (
+                  <span className="transition-all duration-200 group-hover/project:hidden">
+                    {initialLetter}
+                  </span>
+                )}
+                {isStandaloneGroup ? null : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectMain(project.id);
+                          }}
+                          className="absolute inset-0 hidden size-full items-center justify-center text-muted-foreground group-hover/project:flex hover:cursor-pointer hover:text-foreground"
+                        >
+                          <MapPinned className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        {t("projectItem.mainDirectoryTooltip")}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[13px] font-medium",
+                  dimAsAttentionParent
+                    ? "text-muted-foreground"
+                    : "text-sidebar-foreground group-hover/project:text-sidebar-foreground",
+                )}
+              >
+                {project.name}
+              </span>
+              <ProjectAgentStatusMark
+                projectId={project.id}
+                workspaceIds={project.workspaces.map((ws) => ws.id)}
+                rollupChildren={rollupChildren}
+              />
             </div>
-            <span
+          </div>
+
+          {!isDragging && shortcutDigit != null ? (
+            <div
               className={cn(
-                "min-w-0 flex-1 text-[13px] font-medium truncate",
-                dimAsAttentionParent
-                  ? "text-muted-foreground"
-                  : "text-sidebar-foreground group-hover/project:text-sidebar-foreground",
+                "absolute top-1/2 right-3 z-10 flex -translate-y-1/2 items-center justify-end",
               )}
             >
-              {project.name}
-            </span>
-            <ProjectAgentStatusMark
-              projectId={project.id}
-              workspaceIds={project.workspaces.map((ws) => ws.id)}
-              rollupChildren={rollupChildren}
-            />
-          </div>
-        </div>
-
-            {!isDragging && shortcutDigit != null ? (
-          <div
-            className={cn(
-              "absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
-            )}
-          >
-            <SidebarHeldShortcutBadge targetKey={projectShortcutKey} />
-          </div>
-            ) : !isDragging && (
-          <div
-            className={cn(
-              "absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
-            )}
-          >
-            {/*
+              <SidebarHeldShortcutBadge targetKey={projectShortcutKey} />
+            </div>
+          ) : (
+            !isDragging && (
+              <div
+                className={cn(
+                  "absolute top-1/2 right-3 z-10 flex -translate-y-1/2 items-center justify-end",
+                )}
+              >
+                {/*
               Match terminal pane toolbar action-rail motion:
               fixed open width (not max-width) + cubic-bezier expand + short opacity fade.
               Stay open while the ··· menu is open so the rail doesn't collapse under a portaled menu.
             */}
-            <div
-              className={cn(
-                "flex items-center overflow-hidden",
-                "[transition:width_0.22s_cubic-bezier(0.22,1,0.36,1),opacity_0.16s_ease]",
-                isProjectMenuOpen
-                  ? "w-[44px] opacity-100"
-                  : "w-0 opacity-0 pointer-events-none group-hover/project:w-[44px] group-hover/project:opacity-100 group-hover/project:pointer-events-auto group-focus-within/project:w-[44px] group-focus-within/project:opacity-100 group-focus-within/project:pointer-events-auto",
-              )}
-            >
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickAddWorkspace(project.id);
-                      }}
-                      className="p-1 hover:bg-sidebar-accent rounded-sm hover:cursor-pointer"
-                    >
-                      <Zap className="size-3.5 text-muted-foreground" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    {t("projectItem.quickNewWorkspace")}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <DropdownMenu
-                open={isProjectMenuOpen}
-                modal={false}
-                onOpenChange={(open) => {
-                  if (open) {
-                    cancelProjectMenuClose();
-                  }
-                  // Keep the menu open while EyeDropper is active so the
-                  // color panel is still there after sampling.
-                  if (!open && (isColorEyedroppingRef.current || isColorEyedropperActive())) {
-                    return;
-                  }
-                  setIsProjectMenuOpen(open);
-                }}
-              >
-                <DropdownMenuTrigger asChild>
-                  <button
-                    ref={triggerRef}
-                    className="p-1 hover:bg-sidebar-accent rounded-sm hover:cursor-pointer"
-                    onMouseEnter={openProjectMenu}
-                    onMouseLeave={scheduleProjectMenuClose}
-                  >
-                    <Ellipsis className="size-3.5 text-muted-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  ref={menuRef}
-                  side="right"
-                  align="start"
-                  alignOffset={6}
-                  sideOffset={8}
-                  avoidCollisions={false}
-                  className="w-56"
-                  onMouseEnter={cancelProjectMenuClose}
-                  onMouseLeave={scheduleProjectMenuClose}
-                  onCloseAutoFocus={(e) => e.preventDefault()}
-                  onPointerDownOutside={(e) => {
-                    if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
-                  }}
-                  onFocusOutside={(e) => {
-                    if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
-                  }}
-                  onInteractOutside={(e) => {
-                    if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
-                  }}
+                <div
+                  className={cn(
+                    "flex items-center overflow-hidden",
+                    "[transition:width_0.22s_cubic-bezier(0.22,1,0.36,1),opacity_0.16s_ease]",
+                    isProjectMenuOpen
+                      ? "w-[44px] opacity-100"
+                      : "pointer-events-none w-0 opacity-0 group-focus-within/project:pointer-events-auto group-focus-within/project:w-[44px] group-focus-within/project:opacity-100 group-hover/project:pointer-events-auto group-hover/project:w-[44px] group-hover/project:opacity-100",
+                  )}
                 >
-                  <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
-                    <Plus className="size-4" />
-                    <span>{t("launchpad.items.newWorkspace")}</span>
-                  </DropdownMenuItem>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onQuickAddWorkspace(project.id);
+                          }}
+                          className="rounded-sm p-1 hover:cursor-pointer hover:bg-sidebar-accent"
+                        >
+                          <Zap className="size-3.5 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        {t("projectItem.quickNewWorkspace")}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
 
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="cursor-pointer">
-                      <Palette className="size-4" />
-                      <span>{t("projectItem.setColor")}</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent
-                      className="w-auto overflow-visible border-0 bg-transparent p-0 shadow-none"
+                  <DropdownMenu
+                    open={isProjectMenuOpen}
+                    modal={false}
+                    onOpenChange={(open) => {
+                      if (open) {
+                        cancelProjectMenuClose();
+                      }
+                      // Keep the menu open while EyeDropper is active so the
+                      // color panel is still there after sampling.
+                      if (!open && (isColorEyedroppingRef.current || isColorEyedropperActive())) {
+                        return;
+                      }
+                      setIsProjectMenuOpen(open);
+                    }}
+                  >
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        ref={triggerRef}
+                        className="rounded-sm p-1 hover:cursor-pointer hover:bg-sidebar-accent"
+                        onMouseEnter={openProjectMenu}
+                        onMouseLeave={scheduleProjectMenuClose}
+                      >
+                        <Ellipsis className="size-3.5 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      ref={menuRef}
+                      side="right"
+                      align="start"
+                      alignOffset={6}
+                      sideOffset={8}
+                      avoidCollisions={false}
+                      className="w-56"
+                      onMouseEnter={cancelProjectMenuClose}
+                      onMouseLeave={scheduleProjectMenuClose}
+                      onCloseAutoFocus={(e) => e.preventDefault()}
                       onPointerDownOutside={(e) => {
-                        if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                        if (isColorEyedroppingRef.current || isColorEyedropperActive())
+                          e.preventDefault();
                       }}
                       onFocusOutside={(e) => {
-                        if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                        if (isColorEyedroppingRef.current || isColorEyedropperActive())
+                          e.preventDefault();
                       }}
                       onInteractOutside={(e) => {
-                        if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                        if (isColorEyedroppingRef.current || isColorEyedropperActive())
+                          e.preventDefault();
                       }}
                     >
-                      <div className="space-y-2">
-                        <ColorPicker
-                          value={customColor}
-                          onValueChange={(value) => {
-                            // Commit only — ColorPicker already defers parent
-                            // updates until drag ends; store the picker string
-                            // as-is to avoid hex↔rgba thrash.
-                            setCustomColor(value);
-                            onSetColor(project.id, value);
-                          }}
-                          onEyedropperOpenChange={(active) => {
-                            isColorEyedroppingRef.current = active;
-                            if (active) cancelProjectMenuClose();
-                          }}
-                          swatches={PROJECT_COLOR_SWATCHES}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => onSetColor(project.id, undefined)}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                          title={t("projectItem.none")}
-                        >
-                          <X className="size-3.5" />
-                          <span>{t("projectItem.none")}</span>
-                        </button>
-                      </div>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuItem
-                    onClick={handleOpenLogoDialog}
-                    className="cursor-pointer"
-                  >
-                    <ImageIcon className="size-4" />
-                    <span>{t("projectItem.logo.setLogo")}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="mx-2" />
-                  <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
-                    <FileCode className="size-4" />
-                    <span>{t("projectItem.workspaceScripts")}</span>
-                  </DropdownMenuItem>
-                  {!isStandaloneGroup && (onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
-                    <>
-                      <DropdownMenuSeparator className="mx-2" />
+                      <DropdownMenuItem
+                        onClick={() => onAddWorkspace(project.id)}
+                        className="cursor-pointer"
+                      >
+                        <Plus className="size-4" />
+                        <span>{t("launchpad.items.newWorkspace")}</span>
+                      </DropdownMenuItem>
+
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="cursor-pointer">
-                          <FolderPlus className="size-4" />
-                          <span>{projectGroupId ? groupsT("moveToGroup") : groupsT("addToGroup")}</span>
+                          <Palette className="size-4" />
+                          <span>{t("projectItem.setColor")}</span>
                         </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-max min-w-[11rem]">
-                          {groups.map((group) => (
-                            <DropdownMenuItem
-                              key={group.id}
-                              className="cursor-pointer"
-                              disabled={group.id === projectGroupId}
-                              onClick={() => onAddProjectToGroup?.(project.id, group.id)}
+                        <DropdownMenuSubContent
+                          className="w-auto overflow-visible border-0 bg-transparent p-0 shadow-none"
+                          onPointerDownOutside={(e) => {
+                            if (isColorEyedroppingRef.current || isColorEyedropperActive())
+                              e.preventDefault();
+                          }}
+                          onFocusOutside={(e) => {
+                            if (isColorEyedroppingRef.current || isColorEyedropperActive())
+                              e.preventDefault();
+                          }}
+                          onInteractOutside={(e) => {
+                            if (isColorEyedroppingRef.current || isColorEyedropperActive())
+                              e.preventDefault();
+                          }}
+                        >
+                          <div className="space-y-2">
+                            <ColorPicker
+                              value={customColor}
+                              onValueChange={(value) => {
+                                // Commit only — ColorPicker already defers parent
+                                // updates until drag ends; store the picker string
+                                // as-is to avoid hex↔rgba thrash.
+                                setCustomColor(value);
+                                onSetColor(project.id, value);
+                              }}
+                              onEyedropperOpenChange={(active) => {
+                                isColorEyedroppingRef.current = active;
+                                if (active) cancelProjectMenuClose();
+                              }}
+                              swatches={PROJECT_COLOR_SWATCHES}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onSetColor(project.id, undefined)}
+                              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                              title={t("projectItem.none")}
                             >
-                              {group.name}
-                            </DropdownMenuItem>
-                          ))}
-                          {onCreateGroup ? (
-                            <>
-                              {groups.length > 0 ? <DropdownMenuSeparator className="mx-2" /> : null}
-                              <DropdownMenuSub>
-                                <DropdownMenuSubTrigger className="cursor-pointer">
-                                  <Plus className="size-4" />
-                                  <span>{groupsT("create")}</span>
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent
-                                  className="w-56 p-2"
-                                  onKeyDown={(event) => event.stopPropagation()}
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  <GroupNamePopoverForm
-                                    mode="create"
-                                    onCancel={() => setIsProjectMenuOpen(false)}
-                                    onSubmit={async (name) => {
-                                      const created = await onCreateGroup(name);
-                                      if (created?.id && onAddProjectToGroup) {
-                                        onAddProjectToGroup(project.id, created.id);
-                                      }
-                                      setIsProjectMenuOpen(false);
-                                    }}
-                                  />
-                                </DropdownMenuSubContent>
-                              </DropdownMenuSub>
-                            </>
-                          ) : null}
+                              <X className="size-3.5" />
+                              <span>{t("projectItem.none")}</span>
+                            </button>
+                          </div>
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
-                      {projectGroupId && onRemoveProjectFromGroup ? (
-                        <DropdownMenuItem
-                          className="cursor-pointer"
-                          onClick={() => onRemoveProjectFromGroup(project.id)}
-                        >
-                          <FolderMinus className="size-4" />
-                          <span>{groupsT("removeFromGroup")}</span>
-                        </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleOpenLogoDialog} className="cursor-pointer">
+                        <ImageIcon className="size-4" />
+                        <span>{t("projectItem.logo.setLogo")}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="mx-2" />
+                      <DropdownMenuItem
+                        onClick={() => onConfigureScripts(project.id)}
+                        className="cursor-pointer"
+                      >
+                        <FileCode className="size-4" />
+                        <span>{t("projectItem.workspaceScripts")}</span>
+                      </DropdownMenuItem>
+                      {!isStandaloneGroup &&
+                      (onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
+                        <>
+                          <DropdownMenuSeparator className="mx-2" />
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="cursor-pointer">
+                              <FolderPlus className="size-4" />
+                              <span>
+                                {projectGroupId ? groupsT("moveToGroup") : groupsT("addToGroup")}
+                              </span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-max min-w-[11rem]">
+                              {groups.map((group) => (
+                                <DropdownMenuItem
+                                  key={group.id}
+                                  className="cursor-pointer"
+                                  disabled={group.id === projectGroupId}
+                                  onClick={() => onAddProjectToGroup?.(project.id, group.id)}
+                                >
+                                  {group.name}
+                                </DropdownMenuItem>
+                              ))}
+                              {onCreateGroup ? (
+                                <>
+                                  {groups.length > 0 ? (
+                                    <DropdownMenuSeparator className="mx-2" />
+                                  ) : null}
+                                  <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger className="cursor-pointer">
+                                      <Plus className="size-4" />
+                                      <span>{groupsT("create")}</span>
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent
+                                      className="w-56 p-2"
+                                      onKeyDown={(event) => event.stopPropagation()}
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      <GroupNamePopoverForm
+                                        mode="create"
+                                        onCancel={() => setIsProjectMenuOpen(false)}
+                                        onSubmit={async (name) => {
+                                          const created = await onCreateGroup(name);
+                                          if (created?.id && onAddProjectToGroup) {
+                                            onAddProjectToGroup(project.id, created.id);
+                                          }
+                                          setIsProjectMenuOpen(false);
+                                        }}
+                                      />
+                                    </DropdownMenuSubContent>
+                                  </DropdownMenuSub>
+                                </>
+                              ) : null}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          {projectGroupId && onRemoveProjectFromGroup ? (
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onClick={() => onRemoveProjectFromGroup(project.id)}
+                            >
+                              <FolderMinus className="size-4" />
+                              <span>{groupsT("removeFromGroup")}</span>
+                            </DropdownMenuItem>
+                          ) : null}
+                        </>
                       ) : null}
-                    </>
-                  ) : null}
-                  <DropdownMenuSeparator className="mx-2" />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    className="cursor-pointer"
-                    onClick={() => onDelete(project.id)}
-                  >
-                    <Trash2 className="size-4" />
-                    <span>{t("projectItem.deleteProject")}</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        )}
-      </div>
+                      <DropdownMenuSeparator className="mx-2" />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        className="cursor-pointer"
+                        onClick={() => onDelete(project.id)}
+                      >
+                        <Trash2 className="size-4" />
+                        <span>{t("projectItem.deleteProject")}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       <div
@@ -869,15 +874,17 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             ? "grid-rows-[0fr]"
             : isExpanded && !isDragging && !isAnyProjectDragging
               ? "grid-rows-[1fr]"
-              : "grid-rows-[0fr]"
+              : "grid-rows-[0fr]",
         )}
       >
-        <div className={cn(
-          "min-w-0 overflow-hidden relative transition-opacity duration-300",
-          isAnyProjectDragging ? "opacity-0 invisible" : "opacity-100 visible"
-        )}>
+        <div
+          className={cn(
+            "relative min-w-0 overflow-hidden transition-opacity duration-300",
+            isAnyProjectDragging ? "invisible opacity-0" : "visible opacity-100",
+          )}
+        >
           <div
-            className="absolute left-6 top-0 bottom-4 w-px bg-sidebar-border/60"
+            className="absolute top-0 bottom-4 left-6 w-px bg-sidebar-border/60"
             style={project.borderColor ? getVerticalLineStyle(project.borderColor) : undefined}
           />
 
@@ -896,13 +903,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle>{t("projectItem.logo.setLogo")}</DialogTitle>
-            <DialogDescription>
-              {t("projectItem.logo.description")}
-            </DialogDescription>
+            <DialogDescription>{t("projectItem.logo.description")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor={`project-logo-source-${project.id}`}>{t("projectItem.logo.sourceLabel")}</Label>
+              <Label htmlFor={`project-logo-source-${project.id}`}>
+                {t("projectItem.logo.sourceLabel")}
+              </Label>
               <div className="flex items-stretch gap-2">
                 <Input
                   id={`project-logo-source-${project.id}`}
@@ -914,7 +921,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-9 sm:h-9 cursor-pointer shrink-0"
+                  className="h-9 shrink-0 cursor-pointer sm:h-9"
                   onClick={() => void handleBrowseLogo()}
                   disabled={preferOsLogoPicker ? isPickingLogo : false}
                 >
@@ -936,7 +943,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             <Button
               type="button"
               variant="ghost"
-              className="cursor-pointer mr-auto text-muted-foreground hover:text-foreground"
+              className="mr-auto cursor-pointer text-muted-foreground hover:text-foreground"
               onClick={() => {
                 onSetLogo(project.id, null);
                 setShowLogoDialog(false);

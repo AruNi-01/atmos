@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
-import {
-  stableAgentMessageKey,
-  withStableAgentMessageIds,
-} from "../agent-chat-message-key";
+import { stableAgentMessageKey, withStableAgentMessageIds } from "../agent-chat-message-key";
 
 describe("stableAgentMessageKey", () => {
   it("uses the message id when present", () => {

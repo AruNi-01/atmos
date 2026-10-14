@@ -17,7 +17,12 @@ function walkNode(node: PtNode, ids: Set<string>): void {
   if (!isPtNodeType(node.type)) {
     fail("invalid_ptx", `Unknown node type: ${String(node.type)}`);
   }
-  if (!isFiniteNumber(node.x) || !isFiniteNumber(node.y) || !isFiniteNumber(node.width) || !isFiniteNumber(node.height)) {
+  if (
+    !isFiniteNumber(node.x) ||
+    !isFiniteNumber(node.y) ||
+    !isFiniteNumber(node.width) ||
+    !isFiniteNumber(node.height)
+  ) {
     fail("invalid_ptx", `Node ${node.id} is missing numeric spatial attrs`);
   }
   if (!isFiniteNumber(node.rotation)) {
@@ -45,7 +50,11 @@ function walkNode(node: PtNode, ids: Set<string>): void {
         fail("invalid_ptx", `Invalid actions on ${node.id}`);
       }
       for (const action of handler.actions) {
-        if (action.type !== "agent" || typeof action.name !== "string" || action.name.length === 0) {
+        if (
+          action.type !== "agent" ||
+          typeof action.name !== "string" ||
+          action.name.length === 0
+        ) {
           fail("invalid_ptx", `Invalid action on ${node.id}`);
         }
       }

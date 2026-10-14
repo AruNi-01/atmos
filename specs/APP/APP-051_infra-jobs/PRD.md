@@ -14,7 +14,7 @@
 
 ## Goals
 
-1. **Primary**: Ship **stable `infra::jobs` and `infra::queue` abstractions** used by business code for all *product* time-driven and *external event* async work.
+1. **Primary**: Ship **stable `infra::jobs` and `infra::queue` abstractions** used by business code for all _product_ time-driven and _external event_ async work.
 2. **Primary**: Implement **Local adapters only** in v1 (process-local scheduler + bounded in-memory queue).
 3. **Primary**: Migrate existing product scheduled loops onto `jobs`; route GitHub/external event intake through `queue`; keep **manual user actions as direct service calls**.
 4. **Secondary**: Document an **adapter seam** so a future cloud/distributed implementation can be introduced without rewriting domain rules—without promising zero business change on day one of cloud.
@@ -60,7 +60,7 @@
 
 ### Nice to Have
 
-- **N1 · Cron helper on jobs port**: First-class cron schedule on the jobs API for *new* non-domain schedules (Automations still use domain cron + tick job).
+- **N1 · Cron helper on jobs port**: First-class cron schedule on the jobs API for _new_ non-domain schedules (Automations still use domain cron + tick job).
 - **N2 · Execution retry policy on jobs**: Optional max attempts + backoff for a single firing (default none for automation tick and AI usage in v1 parity mode).
 - **N3 · Durable local queue**: SQLite/outbox-backed queue adapter for “ack then crash” safety—**not** required for v1 if upstream retries (e.g. GitHub) + claim cover the product risk.
 - **N4 · Cloud adapter sketches**: Non-normative notes for future Redis/NATS/apalis-style backends; not implemented in this spec’s ship gate.
@@ -78,7 +78,7 @@
 
 ## Success Metrics
 
-- **Leading**: No remaining *product* scheduled loops for automation tick, AI usage auto-refresh, or agent-hooks idle cleanup using raw private intervals outside `infra::jobs`.
+- **Leading**: No remaining _product_ scheduled loops for automation tick, AI usage auto-refresh, or agent-hooks idle cleanup using raw private intervals outside `infra::jobs`.
 - **Leading**: GitHub (or equivalent) automation event path enqueues via `infra::queue` rather than running full domain work inline on the ingress task (except thin validate + enqueue).
 - **Leading**: Manual run path has zero jobs/queue dependency.
 - **Lagging**: APP-017 schedule scenarios and AI usage interval change/disable remain green.
@@ -100,11 +100,11 @@
 
 ## Resolved product forks
 
-| Topic | Decision |
-|-------|----------|
-| v1 engine | **Local only** (no apalis/MQ) |
-| Extensibility | **Trait/adapter seam**; cloud later |
-| Automation schedule | **Meta tick job + domain DB authority** |
-| Manual | **Direct service** |
-| Events | **Queue** |
-| Default retries | **None** for migrated timers unless TECH opts in per job |
+| Topic               | Decision                                                 |
+| ------------------- | -------------------------------------------------------- |
+| v1 engine           | **Local only** (no apalis/MQ)                            |
+| Extensibility       | **Trait/adapter seam**; cloud later                      |
+| Automation schedule | **Meta tick job + domain DB authority**                  |
+| Manual              | **Direct service**                                       |
+| Events              | **Queue**                                                |
+| Default retries     | **None** for migrated timers unless TECH opts in per job |

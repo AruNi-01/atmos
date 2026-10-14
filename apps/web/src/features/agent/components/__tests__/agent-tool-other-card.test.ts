@@ -41,7 +41,7 @@ describe("S9 generic other tool card", () => {
     expect(block).not.toContain("titleNode");
     expect(block).toContain("accessory={fileChip}");
     expect(block).not.toContain("titleWithRange");
-    expect(block).toContain("lineRange={part.kind === \"read\" ? parsed.lineRange : null}");
+    expect(block).toContain('lineRange={part.kind === "read" ? parsed.lineRange : null}');
     expect(card).not.toContain("pathLike && fileChip");
   });
 

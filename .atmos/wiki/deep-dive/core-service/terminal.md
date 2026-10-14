@@ -39,14 +39,18 @@ graph TD
 终端数据的处理分为“输入流”和“输出流”两个完全异步的路径。
 
 ### 1. 输入路径 (Write Path)
+
 当用户在浏览器按下键盘时，数据流向如下：
+
 1. **前端**: 发送 `TerminalInput` 消息到 WebSocket。
 2. **API 层**: 接收消息，调用 `TerminalService::input(terminal_id, data)`。
 3. **服务层**: 根据 `terminal_id` 找到对应的 `TerminalInstance`。
 4. **引擎层**: 将数据写入底层 PTY 或通过 `tmux send-keys` 发送。
 
 ### 2. 输出路径 (Read Path)
+
 这是性能优化的重点。每个终端实例在启动时都会开启一个专用的 **Tokio Task**：
+
 1. **轮询**: 后台任务持续读取 PTY 的输出流。
 2. **缓冲与合并**: 为了避免 WebSocket 帧过于碎片化，服务层会进行微小的缓冲（通常为 10-20ms）。
 3. **分发**: 将合并后的数据封装成 `TerminalOutput` 消息，通过 `WebSocketManager` 推送到所有订阅了该终端主题的客户端。
@@ -54,16 +58,21 @@ graph TD
 ## 核心功能实现
 
 ### 终端复用与持久化
+
 `TerminalService` 能够识别当前终端是否处于 Tmux 模式。如果是，它会优先尝试“附加”到现有的 Tmux 会话，而不是开启新的进程。这实现了跨页面刷新、跨设备的会话连续性。
 
 ### 动态调整大小 (Dynamic Resizing)
+
 当用户调整前端面板大小时：
+
 - 前端发送 `Resize` 指令。
 - `TerminalService` 调用底层引擎的 `resize` 接口。
 - 系统向 Shell 发送 `SIGWINCH` 信号，强制 CLI 工具（如 `vim`）重绘界面。
 
 ### 资源配额与清理
+
 为了防止单个工作区耗尽服务器资源，`TerminalService` 实施了以下策略：
+
 - **最大连接数**: 限制单个工作区可开启的终端数量。
 - **空闲检测**: 自动关闭长时间无数据交换且未开启持久化的终端。
 - **强制回收**: 当工作区停止时，确保所有关联的 PTY 进程被彻底杀死。
@@ -82,7 +91,7 @@ sequenceDiagram
     API->>Svc: input(id, 'ls\n')
     Svc->>Eng: write('ls\n')
     Eng->>Shell: stdin.write('ls\n')
-    
+
     loop 异步读取
         Shell->>Eng: stdout.read('file.txt')
         Eng->>Svc: notify_output('file.txt')
@@ -93,12 +102,12 @@ sequenceDiagram
 
 ## 关键源码分析
 
-| 文件路径 | 核心职责 |
-|:---|:---|
-| `crates/core-service/src/service/terminal.rs` | 实现终端注册表、读写循环调度和生命周期管理。 |
-| `crates/core-service/src/service/ws_message.rs` | 定义终端相关的内部消息格式。 |
-| `apps/api/src/api/ws/terminal_handler.rs` | 将外部 WebSocket 流量桥接到 `TerminalService`。 |
-| `crates/core-engine/src/pty/mod.rs` | 提供底层的读写 Trait，支持 PTY 的异步操作。 |
+| 文件路径                                        | 核心职责                                        |
+| :---------------------------------------------- | :---------------------------------------------- |
+| `crates/core-service/src/service/terminal.rs`   | 实现终端注册表、读写循环调度和生命周期管理。    |
+| `crates/core-service/src/service/ws_message.rs` | 定义终端相关的内部消息格式。                    |
+| `apps/api/src/api/ws/terminal_handler.rs`       | 将外部 WebSocket 流量桥接到 `TerminalService`。 |
+| `crates/core-engine/src/pty/mod.rs`             | 提供底层的读写 Trait，支持 PTY 的异步操作。     |
 
 ## 总结
 

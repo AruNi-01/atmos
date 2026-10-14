@@ -283,12 +283,7 @@ No new business logic belongs in `packages/ui`. If shared primitives are needed,
 The existing Canvas document stores tldraw records. The new shape stores only widget references. Frame placement is represented by normal tldraw parentage: a widget inside a frame has the frame shape as its parent.
 
 ```ts
-type CanvasWidgetType =
-  | "workspace-context"
-  | "files"
-  | "changes"
-  | "review"
-  | "center";
+type CanvasWidgetType = "workspace-context" | "files" | "changes" | "review" | "center";
 
 type CanvasContextRef = {
   contextScope: "project" | "workspace";
@@ -301,11 +296,24 @@ type CanvasContextRef = {
 };
 
 type CanvasWidgetSourceRef =
-  | { type: "workspace-context"; context: CanvasContextRef; sections: Array<"notes" | "tasks" | "requirements"> }
+  | {
+      type: "workspace-context";
+      context: CanvasContextRef;
+      sections: Array<"notes" | "tasks" | "requirements">;
+    }
   | { type: "files"; context: CanvasContextRef; rootPath: string; showHidden?: boolean }
-  | { type: "changes"; context: CanvasContextRef; group?: "all" | "staged" | "unstaged" | "untracked" | "compare" }
+  | {
+      type: "changes";
+      context: CanvasContextRef;
+      group?: "all" | "staged" | "unstaged" | "untracked" | "compare";
+    }
   | { type: "review"; context: CanvasContextRef; sessionGuid?: string; revisionGuid?: string }
-  | { type: "center"; context: CanvasContextRef; tabs: CanvasCenterTab[]; activeTabId: string | null };
+  | {
+      type: "center";
+      context: CanvasContextRef;
+      tabs: CanvasCenterTab[];
+      activeTabId: string | null;
+    };
 
 type CanvasWidgetShapeProps = {
   w: number;

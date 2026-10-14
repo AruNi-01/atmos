@@ -1,14 +1,14 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
-import { MenuIcon } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { MenuIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-import Link from 'next/link'
-import { Link as IntlLink } from '@atmos/i18n/navigation'
+import Link from "next/link";
+import { Link as IntlLink } from "@atmos/i18n/navigation";
 
-import { Button } from '@workspace/ui/components/ui/button'
+import { Button } from "@workspace/ui/components/ui/button";
 import {
   Sheet,
   SheetClose,
@@ -16,110 +16,118 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@workspace/ui/components/ui/sheet'
+} from "@workspace/ui/components/ui/sheet";
 
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
-import Logo from '@/components/logo'
-import { ModeToggle } from '@/components/layout/mode-toggle'
-import { LocaleSwitcher } from '@/components/locale-switcher'
-import { GitHubStarButton } from '@/components/ui/github-star-button'
-import { GITHUB_REPO_URL } from '@/lib/github-desktop-release'
+import Logo from "@/components/logo";
+import { ModeToggle } from "@/components/layout/mode-toggle";
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { GitHubStarButton } from "@/components/ui/github-star-button";
+import { GITHUB_REPO_URL } from "@/lib/github-desktop-release";
 
-import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
-import { motion, useScroll, useSpring, useTransform } from 'motion/react'
+import { MotionPreset } from "@workspace/ui/components/ui/motion-preset";
+import { motion, useScroll, useSpring, useTransform } from "motion/react";
 
 type HeaderProps = {
-  className?: string
-}
+  className?: string;
+};
 
 const Header = ({ className }: HeaderProps) => {
-  const t = useTranslations('header')
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [windowWidth, setWindowWidth] = useState(0)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const t = useTranslations("header");
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const { scrollYProgress } = useScroll()
+  const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
     stiffness: 100,
     damping: 30,
-    restDelta: 0.001
-  })
+    restDelta: 0.001,
+  });
 
   // Vertical rail progress: always keyed to the shared 72rem content track
   // (same center box used by LandingFrame), so rails stay aligned on resize.
-  const containerWidth = 1152 // 72rem / max-w-6xl
-  const boxWidth = windowWidth > 0 ? Math.min(windowWidth, containerWidth) : containerWidth
-  const leftEdge = windowWidth > 0 ? (windowWidth - boxWidth) / 2 : 0
-  const rightEdge = windowWidth > 0 ? windowWidth - leftEdge : 1
+  const containerWidth = 1152; // 72rem / max-w-6xl
+  const boxWidth = windowWidth > 0 ? Math.min(windowWidth, containerWidth) : containerWidth;
+  const leftEdge = windowWidth > 0 ? (windowWidth - boxWidth) / 2 : 0;
+  const rightEdge = windowWidth > 0 ? windowWidth - leftEdge : 1;
 
-  const leftTrigger = windowWidth > 0 ? leftEdge / windowWidth : 0
-  const rightTrigger = windowWidth > 0 ? rightEdge / windowWidth : 1
+  const leftTrigger = windowWidth > 0 ? leftEdge / windowWidth : 0;
+  const rightTrigger = windowWidth > 0 ? rightEdge / windowWidth : 1;
 
-  const leftScaleY = useTransform(scaleX, [leftTrigger, leftTrigger + 0.05], [0, 1])
-  const rightScaleY = useTransform(scaleX, [rightTrigger, rightTrigger + 0.05], [0, 1])
+  const leftScaleY = useTransform(scaleX, [leftTrigger, leftTrigger + 0.05], [0, 1]);
+  const rightScaleY = useTransform(scaleX, [rightTrigger, rightTrigger + 0.05], [0, 1]);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0)
-    }
+      setIsScrolled(window.scrollY > 0);
+    };
 
     const handleResize = () => {
-      setWindowWidth(window.innerWidth)
-    }
+      setWindowWidth(window.innerWidth);
+    };
 
     // Initial measurement
-    handleResize()
+    handleResize();
 
-    window.addEventListener('scroll', handleScroll)
-    window.addEventListener('resize', handleResize)
-    handleScroll()
+    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("resize", handleResize);
+    handleScroll();
 
     return () => {
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleResize)
-    }
-  }, [])
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   return (
     <MotionPreset
       fade
       transition={{ duration: 0.5 }}
       delay={0.05}
-      component='header'
+      component="header"
       className={cn(
-        'sticky top-0 z-50 h-14 w-full border-b transition-all duration-300 sm:h-16',
+        "sticky top-0 z-50 h-14 w-full border-b transition-all duration-300 sm:h-16",
         {
-          'bg-card/75 backdrop-blur': isScrolled
+          "bg-card/75 backdrop-blur": isScrolled,
         },
-        className
+        className,
       )}
     >
       {/* Same 72rem center track as LandingFrame — rails never drift between sections */}
-      <div className='mx-auto grid h-full w-full max-w-6xl xl:max-w-none xl:grid-cols-[minmax(0,1fr)_72rem_minmax(0,1fr)]'>
-        <div className='hidden xl:block' aria-hidden />
-        <div className='relative flex h-full min-w-0 w-full items-center justify-between gap-2 min-[72rem]:border-x px-4 sm:gap-4 sm:px-6 lg:px-8'>
+      <div className="mx-auto grid h-full w-full max-w-6xl xl:max-w-none xl:grid-cols-[minmax(0,1fr)_72rem_minmax(0,1fr)]">
+        <div className="hidden xl:block" aria-hidden />
+        <div className="relative flex h-full w-full min-w-0 items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8 min-[72rem]:border-x">
           {/* Rail progress only when gutters exist (same breakpoint as border-x) */}
           <motion.div
-            className="absolute -left-px top-0 bottom-0 hidden w-px origin-bottom bg-primary min-[72rem]:block"
+            className="absolute top-0 bottom-0 -left-px hidden w-px origin-bottom bg-primary min-[72rem]:block"
             style={{ scaleY: leftScaleY }}
           />
           <motion.div
-            className="absolute -right-px top-0 bottom-0 hidden w-px origin-bottom bg-primary min-[72rem]:block"
+            className="absolute top-0 -right-px bottom-0 hidden w-px origin-bottom bg-primary min-[72rem]:block"
             style={{ scaleY: rightScaleY }}
           />
           {/* Logo */}
-          <IntlLink href={{ pathname: '/', hash: 'home' }} className='flex min-w-0 items-center gap-2 sm:gap-3'>
+          <IntlLink
+            href={{ pathname: "/", hash: "home" }}
+            className="flex min-w-0 items-center gap-2 sm:gap-3"
+          >
             <Logo />
           </IntlLink>
 
-          <div className='flex shrink-0 items-center gap-1.5 sm:gap-3'>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
             <nav className="mr-2 hidden items-center gap-4 text-sm font-medium text-muted-foreground sm:flex">
-              <Link href="https://docs.atmos.land" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
-                {t('docs')}
+              <Link
+                href="https://docs.atmos.land"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground"
+              >
+                {t("docs")}
               </Link>
               <IntlLink href="/changelog" className="hover:text-foreground">
-                {t('changelog')}
+                {t("changelog")}
               </IntlLink>
             </nav>
 
@@ -128,49 +136,49 @@ const Header = ({ className }: HeaderProps) => {
             <ModeToggle />
             <GitHubStarButton
               href={GITHUB_REPO_URL}
-              label={t('starOnGithub')}
-              className='hidden sm:inline-flex'
+              label={t("starOnGithub")}
+              className="hidden sm:inline-flex"
             />
 
             {/* Mobile menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button
-                  variant='outline'
-                  size='icon'
-                  className='rounded-full sm:hidden'
-                  aria-label={t('menu')}
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full sm:hidden"
+                  aria-label={t("menu")}
                 >
-                  <MenuIcon className='size-4' />
+                  <MenuIcon className="size-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side='right' className='w-[min(100vw-2rem,20rem)] gap-0 p-0'>
-                <SheetHeader className='border-b px-5 py-4 text-left'>
-                  <SheetTitle className='text-base'>{t('menu')}</SheetTitle>
+              <SheetContent side="right" className="w-[min(100vw-2rem,20rem)] gap-0 p-0">
+                <SheetHeader className="border-b px-5 py-4 text-left">
+                  <SheetTitle className="text-base">{t("menu")}</SheetTitle>
                 </SheetHeader>
-                <nav className='flex flex-col gap-1 p-3'>
+                <nav className="flex flex-col gap-1 p-3">
                   <SheetClose asChild>
                     <Link
-                      href='https://docs.atmos.land'
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted'
+                      href="https://docs.atmos.land"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted"
                     >
-                      {t('docs')}
+                      {t("docs")}
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>
                     <IntlLink
-                      href='/changelog'
-                      className='rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted'
+                      href="/changelog"
+                      className="rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted"
                     >
-                      {t('changelog')}
+                      {t("changelog")}
                     </IntlLink>
                   </SheetClose>
                   <GitHubStarButton
                     href={GITHUB_REPO_URL}
-                    label={t('starOnGithub')}
-                    className='mt-1 w-full'
+                    label={t("starOnGithub")}
+                    className="mt-1 w-full"
                     onClick={() => setMobileMenuOpen(false)}
                   />
                 </nav>
@@ -178,14 +186,14 @@ const Header = ({ className }: HeaderProps) => {
             </Sheet>
           </div>
         </div>
-        <div className='hidden xl:block' aria-hidden />
+        <div className="hidden xl:block" aria-hidden />
       </div>
       <motion.div
-        className="absolute -bottom-px left-0 right-0 h-px bg-primary origin-left"
+        className="absolute right-0 -bottom-px left-0 h-px origin-left bg-primary"
         style={{ scaleX }}
       />
     </MotionPreset>
-  )
-}
+  );
+};
 
-export default Header
+export default Header;

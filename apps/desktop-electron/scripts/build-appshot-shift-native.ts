@@ -15,18 +15,9 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(appRoot, "native/appshot-shift/appshot_shift.c");
-const captureSrc = join(
-  appRoot,
-  "native/appshot-shift/appshot_window_capture.m",
-);
-const hostShortcutsSrc = join(
-  appRoot,
-  "native/host-shortcuts/host_shortcuts.c",
-);
-const frontmostSrc = join(
-  appRoot,
-  "native/appshot-frontmost/appshot_frontmost.m",
-);
+const captureSrc = join(appRoot, "native/appshot-shift/appshot_window_capture.m");
+const hostShortcutsSrc = join(appRoot, "native/host-shortcuts/host_shortcuts.c");
+const frontmostSrc = join(appRoot, "native/appshot-frontmost/appshot_frontmost.m");
 const outDir = join(appRoot, "resources/bin");
 const outHelper = join(outDir, "libatmos_appshot_shift.dylib");
 const outInject = join(outDir, "libatmos_appshot_shift_inject.dylib");
@@ -38,9 +29,7 @@ function codesignAdHoc(path: string): void {
     encoding: "utf8",
   });
   if (sign.status !== 0) {
-    console.warn(
-      `[build-appshot-native] codesign warning: ${sign.stderr || sign.stdout}`,
-    );
+    console.warn(`[build-appshot-native] codesign warning: ${sign.stderr || sign.stdout}`);
   }
 }
 
@@ -66,19 +55,15 @@ function macosSdkPath(): string {
 
 function runClang(args: string[]) {
   const sdk = macosSdkPath();
-  return spawnSync(
-    "xcrun",
-    ["--sdk", "macosx", "clang", "-isysroot", sdk, ...args],
-    { encoding: "utf8" },
-  );
+  return spawnSync("xcrun", ["--sdk", "macosx", "clang", "-isysroot", sdk, ...args], {
+    encoding: "utf8",
+  });
 }
 
 function buildDylib(out: string, args: string[]): void {
   const clang = runClang(args);
   if (clang.status !== 0) {
-    throw new Error(
-      `clang failed for ${out}:\n${clang.stderr || clang.stdout || "unknown"}`,
-    );
+    throw new Error(`clang failed for ${out}:\n${clang.stderr || clang.stdout || "unknown"}`);
   }
   codesignAdHoc(out);
   console.log(`[build-appshot-native] ${out}`);
@@ -180,9 +165,7 @@ function main(): void {
     "Foundation",
   ]);
   if (clang.status !== 0) {
-    throw new Error(
-      `clang frontmost failed:\n${clang.stderr || clang.stdout || "unknown"}`,
-    );
+    throw new Error(`clang frontmost failed:\n${clang.stderr || clang.stdout || "unknown"}`);
   }
   codesignAdHoc(outFrontmost);
   console.log(`[build-appshot-native] ${outFrontmost}`);

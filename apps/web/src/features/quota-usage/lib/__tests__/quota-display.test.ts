@@ -69,9 +69,7 @@ function provider(partial: Partial<QuotaProviderResponse>): QuotaProviderRespons
 
 describe("DeepSeek quota display", () => {
   test("carousel shows prepaid balances instead of usage percent", () => {
-    expect(formatQuotaCarouselText(provider({}))).toBe(
-      "DeepSeek: 110.00 CNY · 20 USD",
-    );
+    expect(formatQuotaCarouselText(provider({}))).toBe("DeepSeek: 110.00 CNY · 20 USD");
   });
 
   test("keeps per-currency balance rows as extra detail", () => {

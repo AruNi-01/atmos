@@ -52,7 +52,9 @@ describe("empty model list reload", () => {
     expect(reloadAt).toBeGreaterThan(searchAt);
     expect(reloadAt).toBeLessThan(listAt);
     expect(menu).toContain("grid size-7 shrink-0 place-items-center rounded-xl");
-    expect(menu).not.toContain("flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-muted-foreground");
+    expect(menu).not.toContain(
+      "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-muted-foreground",
+    );
   });
 });
 
@@ -66,7 +68,7 @@ describe("locked session config", () => {
   it("keeps the agent rail visible and disabled when the agent is locked", () => {
     expect(promptMenu).toContain("const skipAgentList = agents.length === 0");
     expect(promptMenu).not.toContain("agentLocked || agents.length === 0");
-    expect(promptMenu).toContain("agentLocked && \"opacity-40\"");
+    expect(promptMenu).toContain('agentLocked && "opacity-40"');
     expect(promptMenu).toContain("disabled={option.disabled || agentLocked}");
   });
 });
@@ -338,7 +340,7 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("function PromptAgentConfigMenu");
     expect(promptMenu).toContain("function ThinkingSliderPanel");
     expect(promptMenu).toContain('orientation="vertical"');
-    expect(promptMenu).toContain("indicatorClassName=\"bg-active\"");
+    expect(promptMenu).toContain('indicatorClassName="bg-active"');
     expect(promptMenu).toContain("agentTablist");
     expect(promptMenu).not.toContain("openFlyout");
     expect(promptMenu).not.toContain("{flyout ? (");
@@ -364,7 +366,7 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("contextLabel: contextSuffix");
     expect(promptMenu).toContain("fastLabel: labels.fastChip");
     expect(promptMenu).toContain("function ThinkingSliderPanel");
-    expect(promptMenu).toContain('aria-label={labels.fastMode}');
+    expect(promptMenu).toContain("aria-label={labels.fastMode}");
     expect(promptMenu).toContain("onModelChange(option.value, option)");
     expect(promptMenu).toContain("function ModelFavoriteMark");
     expect(promptMenu).toContain("group/model");
@@ -375,7 +377,7 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("showContext = contextLevels.length > 1");
     expect(promptMenu).toContain("{labels.context}");
     expect(promptMenu).toContain("onContextChange?.(level.value)");
-    expect(promptMenu).toContain("side=\"right\"");
+    expect(promptMenu).toContain('side="right"');
     expect(promptMenu).toContain(
       "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
     );
@@ -418,15 +420,15 @@ describe("PromptAgentConfigMenu", () => {
     );
     expect(promptInput).toContain("multiplier?: string");
     expect(promptMenu).toContain("groupedPromptModelRows");
-    expect(promptMenu).toContain("row.type === \"header\"");
+    expect(promptMenu).toContain('row.type === "header"');
     expect(promptMenu).toContain("key={`group:${index}:${row.label}`}");
     expect(promptMenu).toContain('(option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5"');
     expect(promptMenu).toContain("text-sm text-muted-foreground");
     expect(promptMenu).not.toContain("` / ${provider}`");
-    expect(promptMenu).toContain("const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : \"\")");
     expect(promptMenu).toContain(
-      "label: modelLabelWithContext(optionName(option), contextSuffix)",
+      'const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : "")',
     );
+    expect(promptMenu).toContain("label: modelLabelWithContext(optionName(option), contextSuffix)");
     expect(promptMenu).toContain("modelsLocked\n                    ? labels.modelLocked");
     expect(promptMenu).toContain("min-w-0 truncate text-sm");
   });
@@ -434,10 +436,7 @@ describe("PromptAgentConfigMenu", () => {
 
 describe("nested morph popover", () => {
   it("keeps a nested effort panel from dismissing the parent picker", () => {
-    const morph = readFileSync(
-      join(import.meta.dir, "../motion/popover-morph.tsx"),
-      "utf8",
-    );
+    const morph = readFileSync(join(import.meta.dir, "../motion/popover-morph.tsx"), "utf8");
     expect(morph).toContain("data-morph-anchor={ctx.triggerId}");
     expect(morph).toContain("hasOpenNestedMorphPopover");
     expect(morph).toContain("isNestedMorphPopoverPortal");

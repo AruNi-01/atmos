@@ -35,9 +35,12 @@ function simulateChartTextCommit(type: string, key: "title" | "description" | "f
 
 describe("edit text", () => {
   test("button label is a text field and hugs width", () => {
-    const node = parsePtx(`<page id="p"><button id="run" label="Run" x="0" y="0" width="100" height="40"/></page>`)
-      .pages[0]!.nodes[0]!;
-    expect(textFieldsOf(node).some((field) => field.key === "label" && field.value === "Run")).toBe(true);
+    const node = parsePtx(
+      `<page id="p"><button id="run" label="Run" x="0" y="0" width="100" height="40"/></page>`,
+    ).pages[0]!.nodes[0]!;
+    expect(textFieldsOf(node).some((field) => field.key === "label" && field.value === "Run")).toBe(
+      true,
+    );
     expect(hugsText("button")).toBe(true);
     expect(hugsText("input")).toBe(false);
     expect(hugsText("chart.bar-default")).toBe(false);
@@ -45,8 +48,9 @@ describe("edit text", () => {
   });
 
   test("longer button copy grows the handle width", () => {
-    const node = parsePtx(`<page id="p"><button id="run" label="Go" x="0" y="0" width="40" height="40"/></page>`)
-      .pages[0]!.nodes[0]!;
+    const node = parsePtx(
+      `<page id="p"><button id="run" label="Go" x="0" y="0" width="40" height="40"/></page>`,
+    ).pages[0]!.nodes[0]!;
     const next = applyTextHit(node, { nodeId: "run", key: "label", kind: "prop" }, "Save changes");
     expect(next.props.label).toBe("Save changes");
     expect(next.width).toBeGreaterThan(node.width);
@@ -57,7 +61,11 @@ describe("edit text", () => {
     const root = parsePtx(
       `<page id="p"><block-auth-form id="login" title="Sign in" x="0" y="0" width="200" height="120"><button id="go" label="Go" x="16" y="60" width="80" height="40"/></block-auth-form></page>`,
     ).pages[0]!.nodes[0]!;
-    const next = applyTextHit(root, { nodeId: "go", key: "label", kind: "prop" }, "Create your account");
+    const next = applyTextHit(
+      root,
+      { nodeId: "go", key: "label", kind: "prop" },
+      "Create your account",
+    );
     const child = next.children?.[0];
     expect(child?.props.label).toBe("Create your account");
     expect(child?.width ?? 0).toBeGreaterThan(80);

@@ -2,12 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  TextShimmer,
-} from "@workspace/ui";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, TextShimmer } from "@workspace/ui";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
@@ -99,7 +94,7 @@ export function AgentToolGroupView({
     >
       <CollapsibleTrigger
         aria-label={open ? t("collapseAria", { overview }) : t("expandAria", { overview })}
-        className="group inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground"
+        className="group inline-flex max-w-full min-w-0 cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground"
       >
         <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-3.5">
           {icon}
@@ -125,7 +120,7 @@ export function AgentToolGroupView({
       <CollapsibleContent className="data-[state=open]:overflow-visible">
         <AgentTreeRevealProvider reveal={arriving > 0}>
           {/* ms-2 sits the 1px trunk under the centre of the size-4 header icon. */}
-          <ul className="mt-0.5 ms-2 flex list-none flex-col p-0">
+          <ul className="ms-2 mt-0.5 flex list-none flex-col p-0">
             {rows.map((row, index) => {
               const itemKey = foldedPartKey(row.part, row.origIndex);
               return (

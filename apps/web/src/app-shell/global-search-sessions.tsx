@@ -26,7 +26,7 @@ export function sessionCommandValue(key: string) {
 
 const SESSION_COMMAND_ITEM_CLASS = cn(
   hostSessionResultClass(false),
-  "mb-2 cursor-pointer !h-[84px] !px-4 !py-0",
+  "mb-2 !h-[84px] cursor-pointer !px-4 !py-0",
   "hover:!border-primary/30 hover:!bg-muted/50 hover:!text-foreground",
   "data-[selected=true]:!border-primary/40 data-[selected=true]:!bg-muted/50 data-[selected=true]:!text-foreground data-[selected=true]:!shadow-sm",
 );
@@ -58,16 +58,8 @@ function SessionSearchResults({
 }) {
   const t = useTranslations("agentSessions");
   const listRef = useRef<HTMLDivElement>(null);
-  const {
-    sessions,
-    hits,
-    isLoading,
-    isLoadingMore,
-    hasMore,
-    error,
-    refresh,
-    loadMore,
-  } = useHostSessionList({ query, syncOnMount, onSourcesSynced });
+  const { sessions, hits, isLoading, isLoadingMore, hasMore, error, refresh, loadMore } =
+    useHostSessionList({ query, syncOnMount, onSourcesSynced });
 
   const hitByRoot = useMemo(() => {
     const map = new Map<string, (typeof hits)[number]>();
@@ -149,7 +141,10 @@ function SessionSearchResults({
             })}
           </CommandGroup>
           {isLoadingMore ? (
-            <div className="flex items-center justify-center py-3 text-muted-foreground" aria-hidden>
+            <div
+              className="flex items-center justify-center py-3 text-muted-foreground"
+              aria-hidden
+            >
               <Loader2 className="size-4 animate-spin" />
             </div>
           ) : null}

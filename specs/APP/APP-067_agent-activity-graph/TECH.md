@@ -10,20 +10,20 @@ Idle sweep and pane-focus dismiss continue to drop **session rows**. They do **n
 
 ## Frozen decisions
 
-| Decision | Rule |
-|----------|------|
-| Parallel model | Occupancy map unchanged. Activity is a second map on `AgentStatusService`, keyed by `session_id` (terminal pane id or `chat:{id}`). |
-| Surfaces | Terminal hook sessions and Agent Chat host sessions both fold activity. Chat bind copies `surface=chat`, `surface_id`, `space_id`. |
-| History unit | `AgentTurn` opened by prompt-submit / NewTurn / Chat `UserMessage`, closed by Idle/Stop or the next prompt. Chat `Steer` does not open a turn. |
-| Finished Agents | Stay on the graph while an activity record with `turns.length ≥ 1` exists. |
-| Automatic idle cleanup | `clear_idle_older_than` and client `dismissIdleSessionsForPane` do **not** call activity clear. |
-| Explicit drop | Footer Clear idle, session remove, pane destroy, tool takeover, API process restart **do** drop activity. |
-| Hook install | Bump `CURRENT_HOOK_VERSION` **4 → 5**. Startup `sync_installed_hooks` refreshes installed tools. |
-| Layout lib | In-house vertical tree. Do not add `elkjs` (EPL). |
-| Equality emit | Compare visible fields only (not `last_event_at`). |
-| Graph scope | Connected workbench Computer. Hydrate + subscribe that Computer. Reset on Computer switch. |
-| i18n | `apps/web/messages/{en,zh}.json` only. Namespace `AgentObserver.*` (do not reuse `Agent.*` manager copy, do not put app copy in `packages/i18n`). |
-| Footer | Popover stays. Optional one-line from activity. Launchpad opens the board. |
+| Decision               | Rule                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Parallel model         | Occupancy map unchanged. Activity is a second map on `AgentStatusService`, keyed by `session_id` (terminal pane id or `chat:{id}`).               |
+| Surfaces               | Terminal hook sessions and Agent Chat host sessions both fold activity. Chat bind copies `surface=chat`, `surface_id`, `space_id`.                |
+| History unit           | `AgentTurn` opened by prompt-submit / NewTurn / Chat `UserMessage`, closed by Idle/Stop or the next prompt. Chat `Steer` does not open a turn.    |
+| Finished Agents        | Stay on the graph while an activity record with `turns.length ≥ 1` exists.                                                                        |
+| Automatic idle cleanup | `clear_idle_older_than` and client `dismissIdleSessionsForPane` do **not** call activity clear.                                                   |
+| Explicit drop          | Footer Clear idle, session remove, pane destroy, tool takeover, API process restart **do** drop activity.                                         |
+| Hook install           | Bump `CURRENT_HOOK_VERSION` **4 → 5**. Startup `sync_installed_hooks` refreshes installed tools.                                                  |
+| Layout lib             | In-house vertical tree. Do not add `elkjs` (EPL).                                                                                                 |
+| Equality emit          | Compare visible fields only (not `last_event_at`).                                                                                                |
+| Graph scope            | Connected workbench Computer. Hydrate + subscribe that Computer. Reset on Computer switch.                                                        |
+| i18n                   | `apps/web/messages/{en,zh}.json` only. Namespace `AgentObserver.*` (do not reuse `Agent.*` manager copy, do not put app copy in `packages/i18n`). |
+| Footer                 | Popover stays. Optional one-line from activity. Launchpad opens the board.                                                                        |
 
 ## Architecture overview
 
@@ -65,12 +65,12 @@ Wire JSON, snake_case. Bind fields are **copied onto activity** so the graph sti
 ```ts
 export type AgentToolLine = {
   name: string;
-  detail: string;                // truncated path / command / query, max 120
+  detail: string; // truncated path / command / query, max 120
   state: "pending" | "ok" | "error";
-  started_at: string;            // ISO-8601
+  started_at: string; // ISO-8601
   ended_at?: string | null;
   duration_ms?: number | null;
-  repeat: number;                // consecutive same-name aggregation; default 1
+  repeat: number; // consecutive same-name aggregation; default 1
 };
 
 export type AgentTodoItem = {
@@ -89,13 +89,13 @@ export type AgentChildActivity = {
 };
 
 export type AgentTurn = {
-  turn_id: number;               // monotonic per session, from 1
-  prompt: string;                // submitted text, max 240; "" if unknown
+  turn_id: number; // monotonic per session, from 1
+  prompt: string; // submitted text, max 240; "" if unknown
   started_at: string;
-  ended_at?: string | null;      // set when the turn closes
-  tools: AgentToolLine[];        // this turn, newest last; cap 32 after aggregation
-  todos: AgentTodoItem[];        // snapshot after last TodoWrite in this turn
-  spawned_child_ids: string[];   // child ids started during this turn
+  ended_at?: string | null; // set when the turn closes
+  tools: AgentToolLine[]; // this turn, newest last; cap 32 after aggregation
+  todos: AgentTodoItem[]; // snapshot after last TodoWrite in this turn
+  spawned_child_ids: string[]; // child ids started during this turn
 };
 
 export type AgentActivity = {
@@ -107,15 +107,15 @@ export type AgentActivity = {
   terminal_kind?: string | null;
   side_chat_id?: string | null;
   source_pane_id?: string | null;
-  last_state: AgentHookState;    // last observed; graph uses this if session row is gone
+  last_state: AgentHookState; // last observed; graph uses this if session row is gone
   current_tool?: AgentToolLine | null;
-  todos: AgentTodoItem[];        // latest list (collapsed n/m)
+  todos: AgentTodoItem[]; // latest list (collapsed n/m)
   children: AgentChildActivity[];
-  turns: AgentTurn[];            // oldest → newest
-  turns_omitted: number;         // oldest dropped beyond TURNS_MAX
+  turns: AgentTurn[]; // oldest → newest
+  turns_omitted: number; // oldest dropped beyond TURNS_MAX
   current_turn_id?: number | null;
-  last_file?: string | null;     // relative; reserved for N2, unused in v1 UI
-  started_at: string;            // first turn
+  last_file?: string | null; // relative; reserved for N2, unused in v1 UI
+  started_at: string; // first turn
   last_event_at: string;
 };
 ```
@@ -139,17 +139,17 @@ Consecutive **completed** tools on the **same turn** with the same `name` within
 
 ### Lifetime
 
-| Trigger | Session row | Activity / turns |
-|---------|-------------|------------------|
-| Prompt / tools / idle | update | keep; close or append turn |
-| `clear_idle_older_than` (APP-051 job, default 30 min) | delete idle rows | **keep** |
-| Client `dismissIdleSessionsForPane` | delete idle rows locally | **keep** (store ignores that path) |
-| Stale-active force idle | row stays, state Idle | close current turn, **keep** |
-| Footer **Clear idle** (`clear_idle_sessions`) | delete | **delete** + `agent_activity_cleared` |
-| `remove_session` / graph Remove | delete | **delete** + cleared |
-| Pane destroy (`removeSessionsForPane` / teardown) | delete | **delete** + cleared |
-| `SessionEnd` | force idle (existing) | close turn, **keep** (same pane may continue) |
-| Computer switch / API restart | empty | empty |
+| Trigger                                               | Session row              | Activity / turns                              |
+| ----------------------------------------------------- | ------------------------ | --------------------------------------------- |
+| Prompt / tools / idle                                 | update                   | keep; close or append turn                    |
+| `clear_idle_older_than` (APP-051 job, default 30 min) | delete idle rows         | **keep**                                      |
+| Client `dismissIdleSessionsForPane`                   | delete idle rows locally | **keep** (store ignores that path)            |
+| Stale-active force idle                               | row stays, state Idle    | close current turn, **keep**                  |
+| Footer **Clear idle** (`clear_idle_sessions`)         | delete                   | **delete** + `agent_activity_cleared`         |
+| `remove_session` / graph Remove                       | delete                   | **delete** + cleared                          |
+| Pane destroy (`removeSessionsForPane` / teardown)     | delete                   | **delete** + cleared                          |
+| `SessionEnd`                                          | force idle (existing)    | close turn, **keep** (same pane may continue) |
+| Computer switch / API restart                         | empty                    | empty                                         |
 
 `GET /hooks/activity` returns every retained activity record, including those whose session row is gone.
 
@@ -159,15 +159,15 @@ Each adapter keeps its state `match`. After `update_state` / `handle_child_lifec
 
 Shared extractor in `crates/core-service/src/service/agent_hooks/activity.rs`:
 
-| Want | Keys tried (first hit) |
-|------|------------------------|
-| Event name | `hook_event_name`, `hookEventName`, `type` |
-| Tool name | `tool_name`, `toolName`, `tool`, `name` |
-| Tool input | `tool_input`, `toolInput`, `input`, `arguments`, `properties` |
+| Want          | Keys tried (first hit)                                                                |
+| ------------- | ------------------------------------------------------------------------------------- |
+| Event name    | `hook_event_name`, `hookEventName`, `type`                                            |
+| Tool name     | `tool_name`, `toolName`, `tool`, `name`                                               |
+| Tool input    | `tool_input`, `toolInput`, `input`, `arguments`, `properties`                         |
 | File / detail | `file_path`, `notebook_path`, `command`, `pattern`, `url`, `query`, `prompt` (string) |
-| Todos | `tool_input.todos` or `todos` array with `content` + `status` |
-| Prompt | `prompt`, `content`, `user_prompt`, `text` (string) |
-| Child id | existing `extract_child_agent_id` |
+| Todos         | `tool_input.todos` or `todos` array with `content` + `status`                         |
+| Prompt        | `prompt`, `content`, `user_prompt`, `text` (string)                                   |
+| Child id      | existing `extract_child_agent_id`                                                     |
 
 Unknown events: no-op. Malformed fields: skip that field. Never fail the hook HTTP handler.
 
@@ -177,13 +177,13 @@ Unknown events: no-op. Malformed fields: skip that field. Never fail the hook HT
 
 Startup `sync_installed_hooks` already rewrites installed tools. Users who opted out stay opted out. All tools show outdated until refresh — accepted cost of a global version constant.
 
-| Tool | File | v5 change |
-|------|------|-----------|
-| Claude Code | `claude_code.rs` | `UserPromptSubmit`: **stdin-forward** (same as PreToolUse). SessionStart/SessionEnd may stay fixed-body. |
-| Grok Build | `grok_build.rs` | Already stdin including UserPromptSubmit. **Register** `SubagentStart` / `SubagentStop` stdin entries if the hook schema accepts those names; unknown names are ignored by the product. |
-| Codex | `codex.rs` | Replace fixed-body with **stdin-forward**. `UserPromptSubmit` stdin. `PreToolUse` stdin, **no Bash-only matcher**. Add `PostToolUse` stdin if Codex documents the event; otherwise complete tools on the next Stop / next Pre. |
-| OpenCode | `opencode.rs` | Plugin hooks: `chat.message` (POST `input` + `output.message/parts`; user text lives in parts, not `message.updated`) and `tool.execute.before/after` (POST `input.tool` + `output.args`). Keep `event:` for session/permission only. Skip `message.part.delta`. |
-| Pi | `pi.rs` | `before_agent_start`: POST `event.prompt` as the sole PromptSubmit. `agent_start`: POST with no extras (Progress; do not open a second turn). `tool_call`: pass `toolName` + `input`/`arguments` when present. |
+| Tool        | File             | v5 change                                                                                                                                                                                                                                                        |
+| ----------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `claude_code.rs` | `UserPromptSubmit`: **stdin-forward** (same as PreToolUse). SessionStart/SessionEnd may stay fixed-body.                                                                                                                                                         |
+| Grok Build  | `grok_build.rs`  | Already stdin including UserPromptSubmit. **Register** `SubagentStart` / `SubagentStop` stdin entries if the hook schema accepts those names; unknown names are ignored by the product.                                                                          |
+| Codex       | `codex.rs`       | Replace fixed-body with **stdin-forward**. `UserPromptSubmit` stdin. `PreToolUse` stdin, **no Bash-only matcher**. Add `PostToolUse` stdin if Codex documents the event; otherwise complete tools on the next Stop / next Pre.                                   |
+| OpenCode    | `opencode.rs`    | Plugin hooks: `chat.message` (POST `input` + `output.message/parts`; user text lives in parts, not `message.updated`) and `tool.execute.before/after` (POST `input.tool` + `output.args`). Keep `event:` for session/permission only. Skip `message.part.delta`. |
+| Pi          | `pi.rs`          | `before_agent_start`: POST `event.prompt` as the sole PromptSubmit. `agent_start`: POST with no extras (Progress; do not open a second turn). `tool_call`: pass `toolName` + `input`/`arguments` when present.                                                   |
 
 Hooks remain `timeout: 5` (or current per-event timeouts), `|| true`, `ATMOS_MANAGED`, fail-silent. Activity fold must tolerate v4 empty bodies (prompt `""`, no tools) so mixed-version panes do not error.
 
@@ -194,7 +194,7 @@ Hooks remain `timeout: 5` (or current per-event timeouts), `|| true`, `ATMOS_MAN
 `GET /agent-status/activity` — same auth / Computer scope as `GET /agent-status/sessions`. Bootstrap after refresh; not a substitute for WS.
 
 ```json
-{ "sessions": [ /* AgentActivity */ ] }
+{ "sessions": [/* AgentActivity */] }
 ```
 
 Empty `sessions: []` is valid. Include records whose hook session row is gone.
@@ -230,14 +230,14 @@ Membership:
 
 Stable ids:
 
-| Node | id |
-|------|----|
-| Root | `atmos` |
-| Project | `project:{projectId}` |
-| Fallback | `project:unassigned` |
-| Workspace | `workspace:{workspaceId}` |
-| Agent | `agent:{sessionId}` |
-| Subagent | `child:{sessionId}:{childId}` |
+| Node      | id                            |
+| --------- | ----------------------------- |
+| Root      | `atmos`                       |
+| Project   | `project:{projectId}`         |
+| Fallback  | `project:unassigned`          |
+| Workspace | `workspace:{workspaceId}`     |
+| Agent     | `agent:{sessionId}`           |
+| Subagent  | `child:{sessionId}:{childId}` |
 
 Edges: `parent→child` with `kind: "owns" | "spawn"`. `spawn` is Agent→Subagent and `animated` while child `state === running` or `current_tool` is pending. Honor `prefers-reduced-motion` (no animated edges).
 
@@ -278,20 +278,20 @@ Elapsed: client 1s tick from current turn `started_at` while `last_state !== idl
 
 Launchpad page follows Token Usage: `createAppPage` route + Center Stage no-host view. Touch all of:
 
-| Piece | Location |
-|-------|----------|
-| Route shell | `apps/web/src/app/(app)/agent-observer/page.tsx` |
-| View | `features/agent/components/AgentActivityGraphView.tsx` |
-| Nodes | `features/agent/components/graph/*-node.tsx` |
-| `CurrentView` | `shared/hooks/use-context-params.ts` (`"agent-observer"`) |
-| Center Stage | `app-shell/center-stage-support.tsx` |
-| Left sidebar expand set | `app-shell/LeftSidebar.tsx` |
-| Launchpad id | `LaunchpadItemId` + `LAUNCHPAD_ITEM_IDS`; default **outside**, **enabled** |
-| Launchpad defs | `LeftSidebarLaunchpad.tsx` `ITEM_DEF_BY_ID`, `LaunchpadLayoutSettings.tsx` |
-| Document title | `app-shell/DocumentTitle.tsx` |
-| Command palette | `app-shell/global-search-app-items.tsx` |
-| Footer | popover unchanged; one line from activity; “Open Agent Observer” control → `/agent-observer` |
-| i18n | `AgentObserver.*` in `apps/web/messages/en.json` + `zh.json` |
+| Piece                   | Location                                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| Route shell             | `apps/web/src/app/(app)/agent-observer/page.tsx`                                             |
+| View                    | `features/agent/components/AgentActivityGraphView.tsx`                                       |
+| Nodes                   | `features/agent/components/graph/*-node.tsx`                                                 |
+| `CurrentView`           | `shared/hooks/use-context-params.ts` (`"agent-observer"`)                                    |
+| Center Stage            | `app-shell/center-stage-support.tsx`                                                         |
+| Left sidebar expand set | `app-shell/LeftSidebar.tsx`                                                                  |
+| Launchpad id            | `LaunchpadItemId` + `LAUNCHPAD_ITEM_IDS`; default **outside**, **enabled**                   |
+| Launchpad defs          | `LeftSidebarLaunchpad.tsx` `ITEM_DEF_BY_ID`, `LaunchpadLayoutSettings.tsx`                   |
+| Document title          | `app-shell/DocumentTitle.tsx`                                                                |
+| Command palette         | `app-shell/global-search-app-items.tsx`                                                      |
+| Footer                  | popover unchanged; one line from activity; “Open Agent Observer” control → `/agent-observer` |
+| i18n                    | `AgentObserver.*` in `apps/web/messages/en.json` + `zh.json`                                 |
 
 Click **Open pane**: existing `navigateToAgentHookSessionPane`. Subagent: lead session’s pane. Display name: existing `uniquePaneTitleForAgentStatus` + `AGENT_TOOL_LABELS`.
 

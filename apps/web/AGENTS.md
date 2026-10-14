@@ -44,12 +44,12 @@ imports and feature store writes.
 
 ### Resolving the Server
 
-| Runtime | Mechanism |
-|---------|-----------|
-| **Browser dev** | `NEXT_PUBLIC_API_PORT` (default `30303`) via `desktop-runtime.ts` |
+| Runtime           | Mechanism                                                            |
+| ----------------- | -------------------------------------------------------------------- |
+| **Browser dev**   | `NEXT_PUBLIC_API_PORT` (default `30303`) via `desktop-runtime.ts`    |
 | **Tauri Desktop** | `get_api_config` invoke → `{ host, port }` — **no token** by default |
-| **Desktop prod** | Same-origin `window.location` when served from API static export |
-| **Relay mode** | Relay `client_token` + `relay_ws_url` (Settings → Atmos Computer) |
+| **Desktop prod**  | Same-origin `window.location` when served from API static export     |
+| **Relay mode**    | Relay `client_token` + `relay_ws_url` (Settings → Atmos Computer)    |
 
 Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host guesses in features.
 

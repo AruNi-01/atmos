@@ -2,19 +2,8 @@
  * Tunnel connector control for Electron — command surface matches Tauri.
  */
 
-import {
-  spawn,
-  execFileSync,
-  type ChildProcess,
-} from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  unlinkSync,
-  chmodSync,
-} from "node:fs";
+import { spawn, execFileSync, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, chmodSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -28,11 +17,7 @@ import {
 export type ProviderKind = "cloudflare" | "ngrok" | "tailscale";
 
 /** Canonical provider set — keep detect/quit paths in sync. */
-export const ALL_PROVIDERS: readonly ProviderKind[] = [
-  "cloudflare",
-  "ngrok",
-  "tailscale",
-] as const;
+export const ALL_PROVIDERS: readonly ProviderKind[] = ["cloudflare", "ngrok", "tailscale"] as const;
 
 /** Matches Tauri `ProviderStatus` / web `ProviderStatus`. */
 export type ProviderStatus = {
@@ -116,10 +101,7 @@ function sleep(ms: number) {
 }
 
 /** Wait for child exit; SIGKILL after timeout so quit teardown reaps tunnel children. */
-function waitForChildExit(
-  child: ChildProcess,
-  timeoutMs = 3000,
-): Promise<void> {
+function waitForChildExit(child: ChildProcess, timeoutMs = 3000): Promise<void> {
   if (child.exitCode != null || child.signalCode != null) {
     return Promise.resolve();
   }
@@ -216,8 +198,7 @@ export class TunnelService {
       } else if (code !== 0 && code !== null) {
         current.exitError = true;
         current.message =
-          current.message ??
-          `process exited with code ${code}${signal ? ` (${signal})` : ""}`;
+          current.message ?? `process exited with code ${code}${signal ? ` (${signal})` : ""}`;
       } else {
         current.exitError = false;
         current.message = current.message ?? "exited";
@@ -265,8 +246,7 @@ export class TunnelService {
             : which("tailscale");
       const loggedIn =
         provider === "ngrok"
-          ? existsSync(credentialPath("ngrok")) ||
-            Boolean(process.env.NGROK_AUTHTOKEN)
+          ? existsSync(credentialPath("ngrok")) || Boolean(process.env.NGROK_AUTHTOKEN)
           : Boolean(bin);
       const warnings: string[] = [];
       if (!bin) warnings.push(`${provider} CLI not found on PATH`);
@@ -318,11 +298,9 @@ export class TunnelService {
       const bin = which("cloudflared");
       if (!bin) throw new Error("cloudflared not found on PATH");
       let publicUrl: string | null = null;
-      const child = spawn(
-        bin,
-        ["tunnel", "--url", tunnelTarget, "--no-autoupdate"],
-        { stdio: ["ignore", "pipe", "pipe"] },
-      );
+      const child = spawn(bin, ["tunnel", "--url", tunnelTarget, "--no-autoupdate"], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
       const onData = (buf: Buffer) => {
         const text = buf.toString();
         const m = text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
@@ -433,11 +411,9 @@ export class TunnelService {
     if (!bin) throw new Error("tailscale not found on PATH");
     // Tailscale serve can target gateway host for share-tokenized access.
     const u = new URL(tunnelTarget);
-    const child = spawn(
-      bin,
-      ["serve", "--bg", `${u.protocol}//${u.host}`],
-      { stdio: ["ignore", "pipe", "pipe"] },
-    );
+    const child = spawn(bin, ["serve", "--bg", `${u.protocol}//${u.host}`], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     const entry = this.registerActive(provider, child, {
       publicUrl: null,
       targetBaseUrl,
@@ -483,8 +459,7 @@ export class TunnelService {
             stdio: ["ignore", "pipe", "pipe"],
           });
         } catch (err) {
-          const detail =
-            err instanceof Error ? err.message : String(err);
+          const detail = err instanceof Error ? err.message : String(err);
           failures.push(`tailscale ${args.join(" ")} failed: ${detail}`);
         }
       }
@@ -522,10 +497,7 @@ export class TunnelService {
     }
   }
 
-  async renew(
-    provider: ProviderKind,
-    ttlSecs: number,
-  ): Promise<TunnelConnectorStatus> {
+  async renew(provider: ProviderKind, ttlSecs: number): Promise<TunnelConnectorStatus> {
     const a = this.active.get(provider);
     if (!a) throw new Error(`tunnel not running: ${provider}`);
     return this.start(provider, a.mode, a.targetBaseUrl, ttlSecs);
@@ -562,15 +534,9 @@ export class TunnelService {
       ];
     }
     if (provider === "ngrok") {
-      return [
-        "Install ngrok: brew install ngrok",
-        "Save your authtoken in Atmos Tunnel settings",
-      ];
+      return ["Install ngrok: brew install ngrok", "Save your authtoken in Atmos Tunnel settings"];
     }
-    return [
-      "Install Tailscale and sign in",
-      "Use Tailscale Serve from Atmos Tunnel settings",
-    ];
+    return ["Install Tailscale and sign in", "Use Tailscale Serve from Atmos Tunnel settings"];
   }
 
   saveCredential(provider: ProviderKind, credential: string): void {

@@ -22,9 +22,7 @@ export type RelayTransportResponse = {
  * Low-level HTTP for Relay REST.
  * Apps may inject loopback proxy (desktop) or instrumented fetch.
  */
-export type RelayTransport = (
-  req: RelayTransportRequest,
-) => Promise<RelayTransportResponse>;
+export type RelayTransport = (req: RelayTransportRequest) => Promise<RelayTransportResponse>;
 
 /** Default: global `fetch` against `baseUrl + path`. */
 export function createFetchTransport(

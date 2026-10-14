@@ -1,277 +1,292 @@
-import React, { useCallback } from 'react';
+import React, { useCallback } from "react";
 
-import { WorkspaceContent } from '@/app-shell/sidebar/WorkspaceContent';
-import { WorkspaceItem } from '@/app-shell/sidebar/WorkspaceItem';
-import { GroupedProjectRow } from '@/app-shell/sidebar/GroupedProjectRow';
+import { WorkspaceContent } from "@/app-shell/sidebar/WorkspaceContent";
+import { WorkspaceItem } from "@/app-shell/sidebar/WorkspaceItem";
+import { GroupedProjectRow } from "@/app-shell/sidebar/GroupedProjectRow";
 import {
-    KanbanWorkspaceCard,
-    type KanbanCardProperties,
-} from '@/app-shell/sidebar/WorkspaceKanbanView';
+  KanbanWorkspaceCard,
+  type KanbanCardProperties,
+} from "@/app-shell/sidebar/WorkspaceKanbanView";
 import {
-    getSidebarEntryKey,
-    isFlattenedProjectEntry,
-    type FlattenedSidebarEntry,
-    type FlattenedWorkspaceEntry,
-} from '@/app-shell/sidebar/workspace-grouping';
+  getSidebarEntryKey,
+  isFlattenedProjectEntry,
+  type FlattenedSidebarEntry,
+  type FlattenedWorkspaceEntry,
+} from "@/app-shell/sidebar/workspace-grouping";
 import type {
-    Group,
-    WorkspaceLabel,
-    WorkspacePriority,
-    WorkspaceWorkflowStatus,
-} from '@/shared/types/domain';
+  Group,
+  WorkspaceLabel,
+  WorkspacePriority,
+  WorkspaceWorkflowStatus,
+} from "@/shared/types/domain";
 
 interface UseLeftSidebarWorkspaceRenderersParams {
-    activeProjectId?: string | null;
-    activeWorkspaceId: string | null;
-    archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
-    createWorkspaceLabel: (data: { name: string; color: string; source?: WorkspaceLabel['source'] }) => Promise<WorkspaceLabel>;
-    deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
-    groups?: Group[];
-    onEnterWorkspaceFromKanban: (projectId: string, workspaceId: string) => void;
-    onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void | Promise<void>;
-    onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
-    pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
-    secondColumnKanbanCardProperties: KanbanCardProperties;
-    unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
-    updateWorkspaceLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
-    updateWorkspaceLabels: (projectId: string, workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
-    updateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
-    updateWorkspacePriority: (projectId: string, workspaceId: string, priority: WorkspacePriority) => Promise<void>;
-    updateWorkspaceWorkflowStatus: (projectId: string, workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => Promise<void>;
-    workspaceLabels: WorkspaceLabel[];
+  activeProjectId?: string | null;
+  activeWorkspaceId: string | null;
+  archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  createWorkspaceLabel: (data: {
+    name: string;
+    color: string;
+    source?: WorkspaceLabel["source"];
+  }) => Promise<WorkspaceLabel>;
+  deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  groups?: Group[];
+  onEnterWorkspaceFromKanban: (projectId: string, workspaceId: string) => void;
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void | Promise<void>;
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
+  pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  secondColumnKanbanCardProperties: KanbanCardProperties;
+  unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  updateWorkspaceLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
+  updateWorkspaceLabels: (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => Promise<void>;
+  updateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
+  updateWorkspacePriority: (
+    projectId: string,
+    workspaceId: string,
+    priority: WorkspacePriority,
+  ) => Promise<void>;
+  updateWorkspaceWorkflowStatus: (
+    projectId: string,
+    workspaceId: string,
+    workflowStatus: WorkspaceWorkflowStatus,
+  ) => Promise<void>;
+  workspaceLabels: WorkspaceLabel[];
 }
 
 interface WorkspaceItemRowOptions {
-    showProjectName?: boolean;
-    rightContext?: React.ReactNode;
-    suppressInfoPopover?: boolean;
-    sortingDisabled?: boolean;
-    sortingDisabledMessage?: string;
+  showProjectName?: boolean;
+  rightContext?: React.ReactNode;
+  suppressInfoPopover?: boolean;
+  sortingDisabled?: boolean;
+  sortingDisabledMessage?: string;
 }
 
 interface WorkspaceContentRowOptions {
-    showProjectName?: boolean;
-    rightContext?: React.ReactNode;
+  showProjectName?: boolean;
+  rightContext?: React.ReactNode;
 }
 
 function renderProjectSidebarRow(
-    entry: Extract<FlattenedSidebarEntry, { kind: "project" }>,
-    activeProjectId: string | null | undefined,
-    activeWorkspaceId: string | null,
-    groups: Group[],
+  entry: Extract<FlattenedSidebarEntry, { kind: "project" }>,
+  activeProjectId: string | null | undefined,
+  activeWorkspaceId: string | null,
+  groups: Group[],
 ) {
-    return (
-        <GroupedProjectRow
-            key={getSidebarEntryKey(entry)}
-            project={entry.project}
-            groups={groups}
-            isActive={activeProjectId === entry.projectId && !activeWorkspaceId}
-        />
-    );
+  return (
+    <GroupedProjectRow
+      key={getSidebarEntryKey(entry)}
+      project={entry.project}
+      groups={groups}
+      isActive={activeProjectId === entry.projectId && !activeWorkspaceId}
+    />
+  );
 }
 
 interface WorkspaceKanbanCardOptions {
-    cardProperties?: KanbanCardProperties;
-    showUnpinnedBorder?: boolean;
+  cardProperties?: KanbanCardProperties;
+  showUnpinnedBorder?: boolean;
 }
 
 export function useLeftSidebarWorkspaceRenderers({
-    activeProjectId,
-    activeWorkspaceId,
-    archiveWorkspace,
-    createWorkspaceLabel,
-    deleteWorkspace,
-    groups = [],
-    onEnterWorkspaceFromKanban,
-    onSetWorkspaceGroup,
-    onCreateGroup,
-    pinWorkspace,
-    secondColumnKanbanCardProperties,
-    unpinWorkspace,
-    updateWorkspaceLabel,
-    updateWorkspaceLabels,
-    updateWorkspaceName,
-    updateWorkspacePriority,
-    updateWorkspaceWorkflowStatus,
-    workspaceLabels,
+  activeProjectId,
+  activeWorkspaceId,
+  archiveWorkspace,
+  createWorkspaceLabel,
+  deleteWorkspace,
+  groups = [],
+  onEnterWorkspaceFromKanban,
+  onSetWorkspaceGroup,
+  onCreateGroup,
+  pinWorkspace,
+  secondColumnKanbanCardProperties,
+  unpinWorkspace,
+  updateWorkspaceLabel,
+  updateWorkspaceLabels,
+  updateWorkspaceName,
+  updateWorkspacePriority,
+  updateWorkspaceWorkflowStatus,
+  workspaceLabels,
 }: UseLeftSidebarWorkspaceRenderersParams) {
-    const renderWorkspaceItemRow = useCallback((
-        entry: FlattenedWorkspaceEntry,
-        options?: WorkspaceItemRowOptions,
-    ) => (
-        <WorkspaceItem
-            key={entry.workspace.id}
-            workspace={entry.workspace}
-            projectId={entry.projectId}
-            projectName={entry.projectName}
-            projectPath={entry.projectPath}
-            showProjectName={options?.showProjectName}
-            rightContext={options?.rightContext}
-            isActive={activeWorkspaceId === entry.workspace.id}
-            suppressInfoPopover={options?.suppressInfoPopover}
-            sortingDisabled={options?.sortingDisabled}
-            sortingDisabledMessage={options?.sortingDisabledMessage}
-            onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
-            onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
-            onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
-            onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
-            onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
-                updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
-            }
-            onUpdatePriority={(workspaceId, priority) =>
-                updateWorkspacePriority(entry.projectId, workspaceId, priority)
-            }
-            availableLabels={workspaceLabels}
-            onCreateLabel={createWorkspaceLabel}
-            onUpdateLabel={updateWorkspaceLabel}
-            onUpdateLabels={(workspaceId, labels) =>
-                updateWorkspaceLabels(entry.projectId, workspaceId, labels)
-            }
-            onUpdateName={(workspaceId, name) =>
-                updateWorkspaceName(entry.projectId, workspaceId, name)
-            }
-            groups={groups}
-            onSetWorkspaceGroup={onSetWorkspaceGroup}
-            onCreateGroup={onCreateGroup}
-        />
-    ), [
-        activeWorkspaceId,
-        archiveWorkspace,
-        createWorkspaceLabel,
-        deleteWorkspace,
-        groups,
-        onCreateGroup,
-        onSetWorkspaceGroup,
-        pinWorkspace,
-        unpinWorkspace,
-        updateWorkspaceLabel,
-        updateWorkspaceLabels,
-        updateWorkspaceName,
-        updateWorkspacePriority,
-        updateWorkspaceWorkflowStatus,
-        workspaceLabels,
-    ]);
+  const renderWorkspaceItemRow = useCallback(
+    (entry: FlattenedWorkspaceEntry, options?: WorkspaceItemRowOptions) => (
+      <WorkspaceItem
+        key={entry.workspace.id}
+        workspace={entry.workspace}
+        projectId={entry.projectId}
+        projectName={entry.projectName}
+        projectPath={entry.projectPath}
+        showProjectName={options?.showProjectName}
+        rightContext={options?.rightContext}
+        isActive={activeWorkspaceId === entry.workspace.id}
+        suppressInfoPopover={options?.suppressInfoPopover}
+        sortingDisabled={options?.sortingDisabled}
+        sortingDisabledMessage={options?.sortingDisabledMessage}
+        onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
+        onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
+        onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
+        onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
+        onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
+          updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
+        }
+        onUpdatePriority={(workspaceId, priority) =>
+          updateWorkspacePriority(entry.projectId, workspaceId, priority)
+        }
+        availableLabels={workspaceLabels}
+        onCreateLabel={createWorkspaceLabel}
+        onUpdateLabel={updateWorkspaceLabel}
+        onUpdateLabels={(workspaceId, labels) =>
+          updateWorkspaceLabels(entry.projectId, workspaceId, labels)
+        }
+        onUpdateName={(workspaceId, name) =>
+          updateWorkspaceName(entry.projectId, workspaceId, name)
+        }
+        groups={groups}
+        onSetWorkspaceGroup={onSetWorkspaceGroup}
+        onCreateGroup={onCreateGroup}
+      />
+    ),
+    [
+      activeWorkspaceId,
+      archiveWorkspace,
+      createWorkspaceLabel,
+      deleteWorkspace,
+      groups,
+      onCreateGroup,
+      onSetWorkspaceGroup,
+      pinWorkspace,
+      unpinWorkspace,
+      updateWorkspaceLabel,
+      updateWorkspaceLabels,
+      updateWorkspaceName,
+      updateWorkspacePriority,
+      updateWorkspaceWorkflowStatus,
+      workspaceLabels,
+    ],
+  );
 
-    const renderWorkspaceContentRow = useCallback((
-        entry: FlattenedSidebarEntry,
-        options?: WorkspaceContentRowOptions,
-    ) => isFlattenedProjectEntry(entry) ? renderProjectSidebarRow(
-        entry,
-        activeProjectId,
-        activeWorkspaceId,
-        groups,
-    ) : (
+  const renderWorkspaceContentRow = useCallback(
+    (entry: FlattenedSidebarEntry, options?: WorkspaceContentRowOptions) =>
+      isFlattenedProjectEntry(entry) ? (
+        renderProjectSidebarRow(entry, activeProjectId, activeWorkspaceId, groups)
+      ) : (
         <WorkspaceContent
-            key={entry.workspace.id}
-            workspace={entry.workspace}
-            projectId={entry.projectId}
-            projectName={entry.projectName}
-            projectPath={entry.projectPath}
-            showProjectName={options?.showProjectName}
-            rightContext={options?.rightContext}
-            isActive={activeWorkspaceId === entry.workspace.id}
-            onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
-            onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
-            onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
-            onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
-            onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
-                updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
-            }
-            onUpdatePriority={(workspaceId, priority) =>
-                updateWorkspacePriority(entry.projectId, workspaceId, priority)
-            }
-            availableLabels={workspaceLabels}
-            onCreateLabel={createWorkspaceLabel}
-            onUpdateLabel={updateWorkspaceLabel}
-            onUpdateLabels={(workspaceId, labels) =>
-                updateWorkspaceLabels(entry.projectId, workspaceId, labels)
-            }
-            onUpdateName={(workspaceId, name) =>
-                updateWorkspaceName(entry.projectId, workspaceId, name)
-            }
-            groups={groups}
-            onSetWorkspaceGroup={onSetWorkspaceGroup}
-            onCreateGroup={onCreateGroup}
+          key={entry.workspace.id}
+          workspace={entry.workspace}
+          projectId={entry.projectId}
+          projectName={entry.projectName}
+          projectPath={entry.projectPath}
+          showProjectName={options?.showProjectName}
+          rightContext={options?.rightContext}
+          isActive={activeWorkspaceId === entry.workspace.id}
+          onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
+          onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
+          onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
+          onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
+          onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
+            updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
+          }
+          onUpdatePriority={(workspaceId, priority) =>
+            updateWorkspacePriority(entry.projectId, workspaceId, priority)
+          }
+          availableLabels={workspaceLabels}
+          onCreateLabel={createWorkspaceLabel}
+          onUpdateLabel={updateWorkspaceLabel}
+          onUpdateLabels={(workspaceId, labels) =>
+            updateWorkspaceLabels(entry.projectId, workspaceId, labels)
+          }
+          onUpdateName={(workspaceId, name) =>
+            updateWorkspaceName(entry.projectId, workspaceId, name)
+          }
+          groups={groups}
+          onSetWorkspaceGroup={onSetWorkspaceGroup}
+          onCreateGroup={onCreateGroup}
         />
-    ), [
-        activeProjectId,
-        activeWorkspaceId,
-        archiveWorkspace,
-        createWorkspaceLabel,
-        deleteWorkspace,
-        groups,
-        onCreateGroup,
-        onSetWorkspaceGroup,
-        pinWorkspace,
-        unpinWorkspace,
-        updateWorkspaceLabel,
-        updateWorkspaceLabels,
-        updateWorkspaceName,
-        updateWorkspacePriority,
-        updateWorkspaceWorkflowStatus,
-        workspaceLabels,
-    ]);
+      ),
+    [
+      activeProjectId,
+      activeWorkspaceId,
+      archiveWorkspace,
+      createWorkspaceLabel,
+      deleteWorkspace,
+      groups,
+      onCreateGroup,
+      onSetWorkspaceGroup,
+      pinWorkspace,
+      unpinWorkspace,
+      updateWorkspaceLabel,
+      updateWorkspaceLabels,
+      updateWorkspaceName,
+      updateWorkspacePriority,
+      updateWorkspaceWorkflowStatus,
+      workspaceLabels,
+    ],
+  );
 
-    const renderWorkspaceKanbanCard = useCallback((
-        entry: FlattenedSidebarEntry,
-        options?: WorkspaceKanbanCardOptions,
-    ) => isFlattenedProjectEntry(entry) ? renderProjectSidebarRow(
-        entry,
-        activeProjectId,
-        activeWorkspaceId,
-        groups,
-    ) : (
+  const renderWorkspaceKanbanCard = useCallback(
+    (entry: FlattenedSidebarEntry, options?: WorkspaceKanbanCardOptions) =>
+      isFlattenedProjectEntry(entry) ? (
+        renderProjectSidebarRow(entry, activeProjectId, activeWorkspaceId, groups)
+      ) : (
         <KanbanWorkspaceCard
-            workspace={entry.workspace}
-            projectId={entry.projectId}
-            projectName={entry.projectName}
-            projectPath={entry.projectPath}
-            cardProperties={options?.cardProperties ?? secondColumnKanbanCardProperties}
-            showUnpinnedBorder={options?.showUnpinnedBorder ?? true}
-            groups={groups}
-            onEnterWorkspace={onEnterWorkspaceFromKanban}
-            availableLabels={workspaceLabels}
-            onUpdateWorkflowStatus={(projectId, workspaceId, workflowStatus) =>
-                updateWorkspaceWorkflowStatus(projectId, workspaceId, workflowStatus)
-            }
-            onUpdatePriority={(projectId, workspaceId, priority) =>
-                updateWorkspacePriority(projectId, workspaceId, priority)
-            }
-            onSetWorkspaceGroup={onSetWorkspaceGroup}
-            onCreateGroup={onCreateGroup}
-            onCreateLabel={createWorkspaceLabel}
-            onUpdateLabel={updateWorkspaceLabel}
-            onUpdateLabels={(projectId, workspaceId, labels) =>
-                updateWorkspaceLabels(projectId, workspaceId, labels)
-            }
-            onPinWorkspace={(projectId, workspaceId) => pinWorkspace(projectId, workspaceId)}
-            onUnpinWorkspace={(projectId, workspaceId) => unpinWorkspace(projectId, workspaceId)}
-            onArchiveWorkspace={(projectId, workspaceId) => archiveWorkspace(projectId, workspaceId)}
-            onDeleteWorkspace={(projectId, workspaceId) => deleteWorkspace(projectId, workspaceId)}
+          workspace={entry.workspace}
+          projectId={entry.projectId}
+          projectName={entry.projectName}
+          projectPath={entry.projectPath}
+          cardProperties={options?.cardProperties ?? secondColumnKanbanCardProperties}
+          showUnpinnedBorder={options?.showUnpinnedBorder ?? true}
+          groups={groups}
+          onEnterWorkspace={onEnterWorkspaceFromKanban}
+          availableLabels={workspaceLabels}
+          onUpdateWorkflowStatus={(projectId, workspaceId, workflowStatus) =>
+            updateWorkspaceWorkflowStatus(projectId, workspaceId, workflowStatus)
+          }
+          onUpdatePriority={(projectId, workspaceId, priority) =>
+            updateWorkspacePriority(projectId, workspaceId, priority)
+          }
+          onSetWorkspaceGroup={onSetWorkspaceGroup}
+          onCreateGroup={onCreateGroup}
+          onCreateLabel={createWorkspaceLabel}
+          onUpdateLabel={updateWorkspaceLabel}
+          onUpdateLabels={(projectId, workspaceId, labels) =>
+            updateWorkspaceLabels(projectId, workspaceId, labels)
+          }
+          onPinWorkspace={(projectId, workspaceId) => pinWorkspace(projectId, workspaceId)}
+          onUnpinWorkspace={(projectId, workspaceId) => unpinWorkspace(projectId, workspaceId)}
+          onArchiveWorkspace={(projectId, workspaceId) => archiveWorkspace(projectId, workspaceId)}
+          onDeleteWorkspace={(projectId, workspaceId) => deleteWorkspace(projectId, workspaceId)}
         />
-    ), [
-        activeProjectId,
-        activeWorkspaceId,
-        archiveWorkspace,
-        createWorkspaceLabel,
-        deleteWorkspace,
-        groups,
-        onCreateGroup,
-        onEnterWorkspaceFromKanban,
-        onSetWorkspaceGroup,
-        pinWorkspace,
-        secondColumnKanbanCardProperties,
-        unpinWorkspace,
-        updateWorkspaceLabel,
-        updateWorkspaceLabels,
-        updateWorkspacePriority,
-        updateWorkspaceWorkflowStatus,
-        workspaceLabels,
-    ]);
+      ),
+    [
+      activeProjectId,
+      activeWorkspaceId,
+      archiveWorkspace,
+      createWorkspaceLabel,
+      deleteWorkspace,
+      groups,
+      onCreateGroup,
+      onEnterWorkspaceFromKanban,
+      onSetWorkspaceGroup,
+      pinWorkspace,
+      secondColumnKanbanCardProperties,
+      unpinWorkspace,
+      updateWorkspaceLabel,
+      updateWorkspaceLabels,
+      updateWorkspacePriority,
+      updateWorkspaceWorkflowStatus,
+      workspaceLabels,
+    ],
+  );
 
-    return {
-        renderWorkspaceContentRow,
-        renderWorkspaceItemRow,
-        renderWorkspaceKanbanCard,
-    };
+  return {
+    renderWorkspaceContentRow,
+    renderWorkspaceItemRow,
+    renderWorkspaceKanbanCard,
+  };
 }

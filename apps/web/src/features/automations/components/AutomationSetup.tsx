@@ -4,9 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Button, Label, TooltipProvider, agentConfigTriggerText } from "@workspace/ui";
 import { ArrowLeft, Bot, Brain, LoaderCircle, Sparkles } from "lucide-react";
-import {
-  sanitizeRunConfig,
-} from "@/features/agent/lib/terminal-agent-run-config";
+import { sanitizeRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
 
 import { AutomationEditorExpandHost } from "@/features/automations/components/automation-editor-expand";
 import { AutomationMemoryEditor } from "@/features/automations/components/AutomationMemoryEditor";
@@ -15,13 +13,9 @@ import {
   AutomationSetupControls,
   AutomationSetupSubmitButton,
 } from "@/features/automations/components/AutomationSetupControls";
-import {
-  buildTargetInput,
-} from "@/features/automations/lib/automation-format";
+import { buildTargetInput } from "@/features/automations/lib/automation-format";
 import { automationMdLivePath } from "@/features/automations/lib/automation-md-live-path";
-import {
-  validationMessage,
-} from "@/features/automations/lib/automation-schedule";
+import { validationMessage } from "@/features/automations/lib/automation-schedule";
 import {
   createAutomationWithGithubRoute,
   triggerInputForSubmit,
@@ -110,9 +104,7 @@ export function AutomationSetup({
     [customAgentsQuery.data, chatAgentsQuery.data, registryQuery.data],
   );
   const chatCatalogReady =
-    !registryQuery.isLoading &&
-    !customAgentsQuery.isLoading &&
-    !chatAgentsQuery.isLoading;
+    !registryQuery.isLoading && !customAgentsQuery.isLoading && !chatAgentsQuery.isLoading;
   const openSettings = useOpenSettings();
   const {
     timezone,
@@ -193,8 +185,7 @@ export function AutomationSetup({
           : t("agentOptions.unavailable"),
         disabledReason: agent.automation_supported
           ? null
-          : (agent.unavailable_reason ??
-            t("agentOptions.unavailableReason")),
+          : (agent.unavailable_reason ?? t("agentOptions.unavailableReason")),
       })),
     [agents, t],
   );
@@ -248,31 +239,20 @@ export function AutomationSetup({
         fastId: chatFast,
         contextId: chatContext,
       }),
-    [
-      agentId,
-      chatAgentCatalog,
-      chatContext,
-      chatFast,
-      chatModel,
-      chatThinking,
-    ],
+    [agentId, chatAgentCatalog, chatContext, chatFast, chatModel, chatThinking],
   );
   const chatModelOption =
-    chatConfigOptions.find((option) =>
-      configKindMatches(option.id, option.category, "model"),
-    ) ?? null;
+    chatConfigOptions.find((option) => configKindMatches(option.id, option.category, "model")) ??
+    null;
   const chatThinkingOption =
-    chatConfigOptions.find((option) =>
-      configKindMatches(option.id, option.category, "thinking"),
-    ) ?? null;
+    chatConfigOptions.find((option) => configKindMatches(option.id, option.category, "thinking")) ??
+    null;
   const chatFastOption =
-    chatConfigOptions.find((option) =>
-      configKindMatches(option.id, option.category, "fast"),
-    ) ?? null;
+    chatConfigOptions.find((option) => configKindMatches(option.id, option.category, "fast")) ??
+    null;
   const chatContextOption =
-    chatConfigOptions.find((option) =>
-      configKindMatches(option.id, option.category, "context"),
-    ) ?? null;
+    chatConfigOptions.find((option) => configKindMatches(option.id, option.category, "context")) ??
+    null;
   const selectedExecuteDetail = React.useMemo(() => {
     if (executeMode !== "chat") return "";
     return agentConfigTriggerText({
@@ -445,13 +425,9 @@ export function AutomationSetup({
 
     setSubmitting(true);
     try {
-      const resolvedInstructions = resolvePromptPlaceholders(
-        instructions,
-        [],
-        {
-          preserveFileMentions: true,
-        },
-      );
+      const resolvedInstructions = resolvePromptPlaceholders(instructions, [], {
+        preserveFileMentions: true,
+      });
       let savedAutomation: AutomationDetail | null = null;
 
       if (mode === "create") {
@@ -518,9 +494,7 @@ export function AutomationSetup({
       }
       return savedAutomation;
     } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : t("errors.saveFailed"),
-      );
+      setSubmitError(err instanceof Error ? err.message : t("errors.saveFailed"));
       return null;
     } finally {
       setSubmitting(false);
@@ -545,9 +519,7 @@ export function AutomationSetup({
       }
       applyAutomationRunSurface(run);
     } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : t("errors.tryRunFailed"),
-      );
+      setSubmitError(err instanceof Error ? err.message : t("errors.tryRunFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -576,8 +548,7 @@ export function AutomationSetup({
     );
   }
 
-  const disabledSubmit =
-    !formValid || (trigger === "github" && !githubRouteReady) || submitting;
+  const disabledSubmit = !formValid || (trigger === "github" && !githubRouteReady) || submitting;
   const placeholder = selectedAgent?.label
     ? t("placeholder.withAgent", { agentName: selectedAgent.label })
     : t("placeholder.default");
@@ -699,14 +670,12 @@ export function AutomationSetup({
                 },
                 onGithubIssueActionChange: setGithubIssueAction,
                 onGithubIssueLabelChange: setGithubIssueLabel,
-                onGithubPullRequestActionChange:
-                  setGithubPullRequestAction,
+                onGithubPullRequestActionChange: setGithubPullRequestAction,
                 onGithubBranchFilterChange: setGithubBranchFilter,
                 onGithubCommentContainsChange: setGithubCommentContains,
                 onGithubSenderLoginsChange: setGithubSenderLogins,
                 onGithubWorkflowNameChange: setGithubWorkflowName,
-                onGithubWorkflowConclusionChange:
-                  setGithubWorkflowConclusion,
+                onGithubWorkflowConclusionChange: setGithubWorkflowConclusion,
               }}
             />
 
@@ -729,9 +698,7 @@ export function AutomationSetup({
                       />
                       <span className="truncate">
                         {selectedExecuteOption.label}
-                        {selectedExecuteDetail
-                          ? ` · ${selectedExecuteDetail}`
-                          : ""}
+                        {selectedExecuteDetail ? ` · ${selectedExecuteDetail}` : ""}
                       </span>
                     </span>
                   ) : null}
@@ -739,26 +706,16 @@ export function AutomationSetup({
                 <CenterStageTabList
                   value={executeMode}
                   onValueChange={(value) => {
-                    if (
-                      value === "headless" ||
-                      value === "terminal" ||
-                      value === "chat"
-                    ) {
+                    if (value === "headless" || value === "terminal" || value === "chat") {
                       setExecuteMode(value);
                       clearSubmitError();
                     }
                   }}
                   className="px-0 py-0"
                 >
-                  <CenterStageTab value="headless">
-                    {t("executeAgent.headless")}
-                  </CenterStageTab>
-                  <CenterStageTab value="terminal">
-                    {t("executeAgent.terminal")}
-                  </CenterStageTab>
-                  <CenterStageTab value="chat">
-                    {t("executeAgent.chat")}
-                  </CenterStageTab>
+                  <CenterStageTab value="headless">{t("executeAgent.headless")}</CenterStageTab>
+                  <CenterStageTab value="terminal">{t("executeAgent.terminal")}</CenterStageTab>
+                  <CenterStageTab value="chat">{t("executeAgent.chat")}</CenterStageTab>
                 </CenterStageTabList>
                 {executeMode === "chat" ? (
                   <ChatAgentConfigInput
@@ -799,9 +756,7 @@ export function AutomationSetup({
                     <WelcomeAgentSelector
                       variant="panel"
                       availableAgents={
-                        executeMode === "headless"
-                          ? agentOptions
-                          : terminalAgentOptions
+                        executeMode === "headless" ? agentOptions : terminalAgentOptions
                       }
                       selectedAgentId={agentId}
                       runConfigByAgentId={agentRunConfigs}
@@ -857,9 +812,7 @@ export function AutomationSetup({
                     {t("memory.label")}
                   </Label>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t("memory.description")}
-                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{t("memory.description")}</p>
               </div>
               {ready ? (
                 <AutomationMemoryEditor
@@ -899,9 +852,7 @@ export function AutomationSetup({
                   disabled={disabledSubmit}
                   onClick={() => void handleTryRun()}
                 >
-                  {submitting ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : null}
+                  {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
                   {t("tryRun")}
                 </Button>
               ) : null}

@@ -5,24 +5,15 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-  ensureCalendarVersion,
-  extractCalendarVersionFromTag,
-} from "./lib/calendar-version.mjs";
+import { ensureCalendarVersion, extractCalendarVersionFromTag } from "./lib/calendar-version.mjs";
 
 const TAG_PREFIX = "desktop-electron-";
 const repoRoot = resolve(import.meta.dirname, "../..");
-const packageJsonPath = resolve(
-  repoRoot,
-  "apps/desktop-electron/package.json",
-);
+const packageJsonPath = resolve(repoRoot, "apps/desktop-electron/package.json");
 
 function main() {
   const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-  const version = ensureCalendarVersion(
-    pkg.version,
-    "apps/desktop-electron/package.json version",
-  );
+  const version = ensureCalendarVersion(pkg.version, "apps/desktop-electron/package.json version");
 
   if (pkg.productName !== "Atmos") {
     throw new Error(
@@ -41,8 +32,7 @@ function main() {
   }
 
   console.log(
-    `✅ desktop-electron version ${version}` +
-      (releaseTag ? ` matches ${releaseTag}` : ""),
+    `✅ desktop-electron version ${version}` + (releaseTag ? ` matches ${releaseTag}` : ""),
   );
 }
 

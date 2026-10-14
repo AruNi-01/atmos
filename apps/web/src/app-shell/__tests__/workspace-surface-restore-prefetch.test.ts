@@ -141,10 +141,8 @@ describe("S14 APP-034 cutover gate", () => {
 
     walk(webSrc);
     expect(offenders).toEqual([]);
-    expect(
-      existsSync(
-        join(webSrc, "features/terminal/store/use-terminal-cache-store.ts"),
-      ),
-    ).toBe(false);
+    expect(existsSync(join(webSrc, "features/terminal/store/use-terminal-cache-store.ts"))).toBe(
+      false,
+    );
   });
 });

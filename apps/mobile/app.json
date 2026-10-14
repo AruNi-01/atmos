@@ -4,11 +4,7 @@
     "slug": "atmos-mobile",
     "scheme": "atmos",
     "version": "0.1.0",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "platforms": ["ios", "android", "web"],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "primaryColor": "#0A0A0B",

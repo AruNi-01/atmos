@@ -8,12 +8,12 @@ Single Cloudflare Worker that provides:
 
 ## Identity model (APP-056)
 
-| Concept | Owner | Notes |
-|---------|--------|--------|
-| **Hub user** | `packages/hub` (`hub.atmos.land`) | Better Auth `user_id` — sole product identity |
-| **Device credential** | Hub-minted, shown once | Relay Bearer; stored hashed as `devices.credential_hash` |
-| **Computers** | `user_id` rows in Relay D1 | Any active device of that user may manage |
-| **Access Token / tenants** | **Removed** | No `POST /v1/tenants`, no user-generated access token |
+| Concept                    | Owner                             | Notes                                                    |
+| -------------------------- | --------------------------------- | -------------------------------------------------------- |
+| **Hub user**               | `packages/hub` (`hub.atmos.land`) | Better Auth `user_id` — sole product identity            |
+| **Device credential**      | Hub-minted, shown once            | Relay Bearer; stored hashed as `devices.credential_hash` |
+| **Computers**              | `user_id` rows in Relay D1        | Any active device of that user may manage                |
+| **Access Token / tenants** | **Removed**                       | No `POST /v1/tenants`, no user-generated access token    |
 
 Hub projects devices after enroll/rotate/revoke:
 
@@ -173,24 +173,24 @@ D1 schema migrations are **not** auto-run in CI; apply when you change `migratio
 
 All JSON. CORS `*` for dev. If `RELAY_SECRET_KEY` is configured, protected routes also require `X-Atmos-Relay-Secret` (except Hub internal routes, which use `RELAY_HUB_SYNC_SECRET`).
 
-| Method | Path | Auth | Notes |
-|--------|------|------|--------|
-| GET | `/healthz` | _(none)_ | Liveness |
-| POST | `/v1/internal/devices/upsert` | Bearer **Hub sync secret** | Project/revoke device row from Hub |
-| POST | `/v1/register_tokens` | Bearer **device credential** | `{ register_token, expires_at, register_command }` |
-| POST | `/v1/computers/register` | `register_token` + relay secret when configured | Body `{ register_token, display_name?, app_device_id }`. Same user + `app_device_id` reuses the original `server_id` and rotates `server_secret`. |
-| GET | `/v1/computers` | Bearer device credential | Lists computers for that Hub `user_id` |
-| PATCH | `/v1/computers/:id` | Bearer device credential | Rename |
-| POST | `/v1/computers/:id/revoke` | Bearer device credential | Revokes |
-| POST | `/v1/computers/:id/client_sessions` | Bearer device credential | `{ client_token, expires_at, ws_url, gateway_url }` |
-| * | `/v1/computers/:id/proxy/*` | Bearer `client_token` or device credential | HTTP gateway to remote `apps/api` |
-| POST | `/v1/github/webhook` | GitHub `X-Hub-Signature-256` | Webhook ingress |
-| POST | `/v1/github/setup_sessions` | Bearer device credential | GitHub App install setup state |
-| GET | `/v1/github/callback` | GitHub OAuth callback + setup state | Stores installation for `user_id` |
-| GET | `/v1/github/installations` | Bearer device credential | List installations for user |
-| GET | `/v1/github/installations/:id/repositories` | Bearer device credential | List repos for installation |
-| POST | `/v1/github/event_routes` | Bearer device credential | Upsert route metadata |
-| DELETE | `/v1/github/event_routes/:route_id` | Bearer device credential | Disable route |
+| Method | Path                                        | Auth                                            | Notes                                                                                                                                             |
+| ------ | ------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/healthz`                                  | _(none)_                                        | Liveness                                                                                                                                          |
+| POST   | `/v1/internal/devices/upsert`               | Bearer **Hub sync secret**                      | Project/revoke device row from Hub                                                                                                                |
+| POST   | `/v1/register_tokens`                       | Bearer **device credential**                    | `{ register_token, expires_at, register_command }`                                                                                                |
+| POST   | `/v1/computers/register`                    | `register_token` + relay secret when configured | Body `{ register_token, display_name?, app_device_id }`. Same user + `app_device_id` reuses the original `server_id` and rotates `server_secret`. |
+| GET    | `/v1/computers`                             | Bearer device credential                        | Lists computers for that Hub `user_id`                                                                                                            |
+| PATCH  | `/v1/computers/:id`                         | Bearer device credential                        | Rename                                                                                                                                            |
+| POST   | `/v1/computers/:id/revoke`                  | Bearer device credential                        | Revokes                                                                                                                                           |
+| POST   | `/v1/computers/:id/client_sessions`         | Bearer device credential                        | `{ client_token, expires_at, ws_url, gateway_url }`                                                                                               |
+| *      | `/v1/computers/:id/proxy/*`                 | Bearer `client_token` or device credential      | HTTP gateway to remote `apps/api`                                                                                                                 |
+| POST   | `/v1/github/webhook`                        | GitHub `X-Hub-Signature-256`                    | Webhook ingress                                                                                                                                   |
+| POST   | `/v1/github/setup_sessions`                 | Bearer device credential                        | GitHub App install setup state                                                                                                                    |
+| GET    | `/v1/github/callback`                       | GitHub OAuth callback + setup state             | Stores installation for `user_id`                                                                                                                 |
+| GET    | `/v1/github/installations`                  | Bearer device credential                        | List installations for user                                                                                                                       |
+| GET    | `/v1/github/installations/:id/repositories` | Bearer device credential                        | List repos for installation                                                                                                                       |
+| POST   | `/v1/github/event_routes`                   | Bearer device credential                        | Upsert route metadata                                                                                                                             |
+| DELETE | `/v1/github/event_routes/:route_id`         | Bearer device credential                        | Disable route                                                                                                                                     |
 
 **Removed:** `POST /v1/tenants`, `POST /v1/tenants/rotate_token`.
 

@@ -9,8 +9,7 @@
   width: 136px;
   margin-left: -68px;
   transform-origin: top center;
-  transform: translate3d(var(--fan-x), var(--fan-y), 0)
-    rotate(var(--fan-rotate))
+  transform: translate3d(var(--fan-x), var(--fan-y), 0) rotate(var(--fan-rotate))
     scale(var(--fan-scale));
   opacity: var(--fan-opacity);
   z-index: var(--fan-z);
@@ -29,8 +28,7 @@
 .center-space-fan-card:hover,
 .center-space-fan-card[data-confirming="true"] {
   z-index: 80;
-  transform: translate3d(var(--fan-x), calc(var(--fan-y) - 12px), 0)
-    rotate(var(--fan-rotate))
+  transform: translate3d(var(--fan-x), calc(var(--fan-y) - 12px), 0) rotate(var(--fan-rotate))
     scale(1.06);
   transition-duration: 180ms, 140ms;
 }

@@ -30,7 +30,7 @@ describe("MermaidBlock streaming", () => {
     expect(mermaid).toContain("SelectTrigger");
     expect(mermaid).toContain("border-0");
     expect(mermaid).toContain("[&>svg:last-child]:hidden");
-    expect(mermaid).toContain("<Icon className=\"size-3.5\" />");
+    expect(mermaid).toContain('<Icon className="size-3.5" />');
     expect(mermaid).toContain("ascii: Type");
     expect(mermaid).toContain("source: Code");
     expect(mermaid).toContain("preview: Eye");
@@ -40,11 +40,11 @@ describe("MermaidBlock streaming", () => {
     expect(mermaid).toContain("waitForMermaidSlotReady");
     expect(mermaid).toContain("onError");
     expect(mermaid).toContain("mermaid-container flex justify-center overflow-hidden");
-    expect(renderer).toContain("from './MermaidBlock'");
+    expect(renderer).toContain('from "./MermaidBlock"');
   });
 
   it("highlights Source with the shared Shiki mermaid grammar", () => {
-    expect(mermaid).toContain("from \"@/shared/utils/shiki\"");
+    expect(mermaid).toContain('from "@/shared/utils/shiki"');
     expect(mermaid).toContain("codeToHtml");
     expect(mermaid).toContain('lang: "mermaid"');
     expect(mermaid).toContain("themes: DualThemes");

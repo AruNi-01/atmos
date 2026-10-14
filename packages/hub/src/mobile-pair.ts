@@ -46,9 +46,7 @@ export function buildMobilePairQrValue(opts: {
   });
 }
 
-export function parseMobilePairQrValue(
-  raw: string,
-): { code: string; hub?: string } | null {
+export function parseMobilePairQrValue(raw: string): { code: string; hub?: string } | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
@@ -144,12 +142,7 @@ export async function claimMobilePairCode(
   const rows = await db
     .select()
     .from(verification)
-    .where(
-      and(
-        eq(verification.identifier, identifier),
-        gt(verification.expiresAt, now),
-      ),
-    )
+    .where(and(eq(verification.identifier, identifier), gt(verification.expiresAt, now)))
     .limit(1);
   const row = rows[0];
   if (!row) return null;

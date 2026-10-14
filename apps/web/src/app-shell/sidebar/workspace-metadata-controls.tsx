@@ -46,11 +46,36 @@ export const WORKSPACE_PRIORITY_OPTIONS: Array<{
   className: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { value: "no_priority", labelKey: "priority.noPriority", className: "text-muted-foreground", icon: PriorityNoneIcon },
-  { value: "urgent", labelKey: "priority.urgent", className: "text-red-500/85", icon: PriorityUrgentIcon },
-  { value: "high", labelKey: "priority.high", className: "text-orange-500", icon: PriorityBarsHighIcon },
-  { value: "medium", labelKey: "priority.medium", className: "text-yellow-500", icon: PriorityBarsMediumIcon },
-  { value: "low", labelKey: "priority.low", className: "text-emerald-500", icon: PriorityBarsLowIcon },
+  {
+    value: "no_priority",
+    labelKey: "priority.noPriority",
+    className: "text-muted-foreground",
+    icon: PriorityNoneIcon,
+  },
+  {
+    value: "urgent",
+    labelKey: "priority.urgent",
+    className: "text-red-500/85",
+    icon: PriorityUrgentIcon,
+  },
+  {
+    value: "high",
+    labelKey: "priority.high",
+    className: "text-orange-500",
+    icon: PriorityBarsHighIcon,
+  },
+  {
+    value: "medium",
+    labelKey: "priority.medium",
+    className: "text-yellow-500",
+    icon: PriorityBarsMediumIcon,
+  },
+  {
+    value: "low",
+    labelKey: "priority.low",
+    className: "text-emerald-500",
+    icon: PriorityBarsLowIcon,
+  },
 ];
 
 export const WORKSPACE_PRIORITY_SORT_WEIGHT: Record<WorkspacePriority, number> = {
@@ -85,7 +110,9 @@ const LABEL_COLOR_SWATCHES = [
 
 function PriorityNoneIcon({ className }: { className?: string }) {
   return (
-    <span className={cn("inline-flex size-4 flex-col items-center justify-center gap-[3px]", className)}>
+    <span
+      className={cn("inline-flex size-4 flex-col items-center justify-center gap-[3px]", className)}
+    >
       {[0, 1, 2].map((line) => (
         <span key={line} className="h-[1.5px] w-3 rounded-full bg-current" />
       ))}
@@ -95,8 +122,13 @@ function PriorityNoneIcon({ className }: { className?: string }) {
 
 function PriorityUrgentIcon({ className }: { className?: string }) {
   return (
-    <span className={cn("inline-flex size-4 items-center justify-center rounded-[3px] bg-current", className)}>
-      <span className="text-[11px] font-bold leading-none text-background">!</span>
+    <span
+      className={cn(
+        "inline-flex size-4 items-center justify-center rounded-[3px] bg-current",
+        className,
+      )}
+    >
+      <span className="text-[11px] leading-none font-bold text-background">!</span>
     </span>
   );
 }
@@ -134,7 +166,10 @@ function PriorityBarsLowIcon({ className }: { className?: string }) {
 
 export function getWorkspacePriorityMeta(priority: WorkspacePriority | string) {
   const parsed = parseWorkspacePriority(priority);
-  return WORKSPACE_PRIORITY_OPTIONS.find((option) => option.value === parsed) ?? WORKSPACE_PRIORITY_OPTIONS[0];
+  return (
+    WORKSPACE_PRIORITY_OPTIONS.find((option) => option.value === parsed) ??
+    WORKSPACE_PRIORITY_OPTIONS[0]
+  );
 }
 
 type MetadataSelectTriggerVariant = "chip" | "icon";
@@ -190,8 +225,17 @@ export function WorkspacePrioritySelect({
         triggerClassName,
       )}
     >
-      <Icon className={cn("shrink-0", triggerVariant === "icon" ? "size-4" : "size-4", meta.className, iconClassName)} />
-      {showLabel ? <span className={cn("font-medium", labelClassName)}>{t(meta.labelKey)}</span> : null}
+      <Icon
+        className={cn(
+          "shrink-0",
+          triggerVariant === "icon" ? "size-4" : "size-4",
+          meta.className,
+          iconClassName,
+        )}
+      />
+      {showLabel ? (
+        <span className={cn("font-medium", labelClassName)}>{t(meta.labelKey)}</span>
+      ) : null}
     </button>
   );
 
@@ -206,7 +250,10 @@ export function WorkspacePrioritySelect({
         align={contentAlign}
         className={cn("w-40", contentClassName)}
       >
-        <DropdownMenuRadioGroup value={value} onValueChange={(nextValue) => onChange(nextValue as WorkspacePriority)}>
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(nextValue) => onChange(nextValue as WorkspacePriority)}
+        >
           {WORKSPACE_PRIORITY_OPTIONS.map((option) => {
             const OptionIcon = option.icon;
             return (
@@ -293,7 +340,10 @@ export function WorkspaceStatusSelect({
         align={contentAlign}
         className={cn("w-40", contentClassName)}
       >
-        <DropdownMenuRadioGroup value={value} onValueChange={(nextValue) => onChange(nextValue as WorkspaceWorkflowStatus)}>
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(nextValue) => onChange(nextValue as WorkspaceWorkflowStatus)}
+        >
           {WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => {
             const OptionIcon = option.icon;
             return (
@@ -357,9 +407,7 @@ export function WorkspaceGroupSelect({
 }: WorkspaceGroupSelectProps) {
   const t = useTranslations("appShell.groups");
   const [menuOpen, setMenuOpen] = useState(false);
-  const selectedGroup = value
-    ? groups.find((group) => group.id === value) ?? null
-    : null;
+  const selectedGroup = value ? (groups.find((group) => group.id === value) ?? null) : null;
   const label = selectedGroup?.name ?? t("ungrouped");
   const isDisabled = disabled || !onChange;
   const resolvedTitle = title ?? t("trigger");
@@ -474,7 +522,10 @@ type WorkspaceLabelPickerProps = {
   availableLabels: WorkspaceLabel[];
   onChange?: (labels: WorkspaceLabel[]) => void | Promise<void>;
   onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
-  onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateLabel?: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
   triggerVariant?: "add" | "summary" | "icon";
   contentSide?: PopoverSide;
   contentAlign?: PopoverAlign;
@@ -522,13 +573,16 @@ export function WorkspaceLabelPicker({
     setNewLabelName("");
   }, []);
 
-  const setOpen = React.useCallback((open: boolean) => {
-    // Stay open while EyeDropper is sampling colors outside the popover.
-    if (!open && isColorEyedropperActive()) return;
-    setIsOpen(open);
-    onOpenChange?.(open);
-    if (!open) resetEditor();
-  }, [onOpenChange, resetEditor]);
+  const setOpen = React.useCallback(
+    (open: boolean) => {
+      // Stay open while EyeDropper is sampling colors outside the popover.
+      if (!open && isColorEyedropperActive()) return;
+      setIsOpen(open);
+      onOpenChange?.(open);
+      if (!open) resetEditor();
+    },
+    [onOpenChange, resetEditor],
+  );
 
   const openLabelEditor = React.useCallback((label: WorkspaceLabel | null) => {
     setEditingLabel(label);
@@ -537,13 +591,16 @@ export function WorkspaceLabelPicker({
     setLabelEditorKey(label?.id ?? "new");
   }, []);
 
-  const handleToggleLabel = React.useCallback((label: WorkspaceLabel) => {
-    if (!onChange) return;
-    const nextLabels = selectedLabelIds.has(label.id)
-      ? labels.filter((existing) => existing.id !== label.id)
-      : [...labels, label];
-    void onChange(nextLabels);
-  }, [labels, onChange, selectedLabelIds]);
+  const handleToggleLabel = React.useCallback(
+    (label: WorkspaceLabel) => {
+      if (!onChange) return;
+      const nextLabels = selectedLabelIds.has(label.id)
+        ? labels.filter((existing) => existing.id !== label.id)
+        : [...labels, label];
+      void onChange(nextLabels);
+    },
+    [labels, onChange, selectedLabelIds],
+  );
 
   const handleCreateLabel = React.useCallback(async () => {
     const name = newLabelName.trim();
@@ -552,7 +609,7 @@ export function WorkspaceLabelPicker({
     if (editingLabel && onUpdateLabel) {
       const label = await onUpdateLabel(editingLabel.id, { name, color });
       if (selectedLabelIds.has(label.id)) {
-        await onChange(labels.map((existing) => existing.id === label.id ? label : existing));
+        await onChange(labels.map((existing) => (existing.id === label.id ? label : existing)));
       }
     } else {
       const label = await onCreateLabel({ name, color });
@@ -562,7 +619,16 @@ export function WorkspaceLabelPicker({
     setNewLabelName("");
     setLabelEditorKey(null);
     setEditingLabel(null);
-  }, [editingLabel, labels, newLabelColor, newLabelName, onChange, onCreateLabel, onUpdateLabel, selectedLabelIds]);
+  }, [
+    editingLabel,
+    labels,
+    newLabelColor,
+    newLabelName,
+    onChange,
+    onCreateLabel,
+    onUpdateLabel,
+    selectedLabelIds,
+  ]);
 
   const trigger = (
     <button
@@ -591,7 +657,7 @@ export function WorkspaceLabelPicker({
             </span>
           ) : null}
           {triggerVariant === "icon" && labels.length > 0 ? (
-            <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-primary" />
+            <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-primary" />
           ) : null}
         </>
       )}
@@ -651,79 +717,93 @@ export function WorkspaceLabelPicker({
         />
         <div className="max-h-64 space-y-1 overflow-y-auto">
           {availableLabels.length === 0 ? (
-            <div className="py-2 text-center text-xs text-muted-foreground">{t("labels.empty")}</div>
+            <div className="py-2 text-center text-xs text-muted-foreground">
+              {t("labels.empty")}
+            </div>
           ) : filteredAvailableLabels.length === 0 ? (
-            <div className="py-2 text-center text-xs text-muted-foreground">{t("labels.noMatch")}</div>
-          ) : filteredAvailableLabels.map((label) => {
-            const SourceIcon = label.source === 'manual' ? UserPen : label.source === 'gitHub_issue' ? CircleDot : GitPullRequest;
-            return (
-              <div key={label.id} className="group/label-item relative">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      handleToggleLabel(label);
-                    }
-                  }}
-                  onClick={() => handleToggleLabel(label)}
-                  className={cn(
-                    "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs hover:bg-muted",
-                    selectedLabelIds.has(label.id) && "bg-muted",
-                  )}
-                >
-                  <Checkbox
-                    checked={selectedLabelIds.has(label.id)}
-                    tabIndex={-1}
-                    className="pointer-events-none size-3.5"
-                  />
-                  <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
-                  <span className="min-w-0 truncate flex-1">{label.name}</span>
-                  {onUpdateLabel ? (
-                    <Popover
-                      open={labelEditorKey === label.id}
-                      onOpenChange={(open) => {
-                        if (!open && isColorEyedropperActive()) return;
-                        if (open) {
-                          openLabelEditor(label);
-                        } else if (labelEditorKey === label.id) {
-                          setLabelEditorKey(null);
-                          setEditingLabel(null);
-                        }
-                      }}
-                    >
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
+            <div className="py-2 text-center text-xs text-muted-foreground">
+              {t("labels.noMatch")}
+            </div>
+          ) : (
+            filteredAvailableLabels.map((label) => {
+              const SourceIcon =
+                label.source === "manual"
+                  ? UserPen
+                  : label.source === "gitHub_issue"
+                    ? CircleDot
+                    : GitPullRequest;
+              return (
+                <div key={label.id} className="group/label-item relative">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleToggleLabel(label);
+                      }
+                    }}
+                    onClick={() => handleToggleLabel(label)}
+                    className={cn(
+                      "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs hover:bg-muted",
+                      selectedLabelIds.has(label.id) && "bg-muted",
+                    )}
+                  >
+                    <Checkbox
+                      checked={selectedLabelIds.has(label.id)}
+                      tabIndex={-1}
+                      className="pointer-events-none size-3.5"
+                    />
+                    <span
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: label.color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate">{label.name}</span>
+                    {onUpdateLabel ? (
+                      <Popover
+                        open={labelEditorKey === label.id}
+                        onOpenChange={(open) => {
+                          if (!open && isColorEyedropperActive()) return;
+                          if (open) {
                             openLabelEditor(label);
-                          }}
-                          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                          <SourceIcon className="size-3 group-hover/label-item:hidden" />
-                          <Pencil className="size-3 hidden group-hover/label-item:block" />
-                        </button>
-                      </PopoverTrigger>
-                      <LabelEditorContent
-                        side={editorSide}
-                        surface={surface}
-                        newLabelName={newLabelName}
-                        newLabelColor={newLabelColor}
-                        editingLabel={editingLabel}
-                        setNewLabelName={setNewLabelName}
-                        setNewLabelColor={setNewLabelColor}
-                        onSubmit={handleCreateLabel}
-                      />
-                    </Popover>
-                  ) : (
-                    <SourceIcon className="size-3 shrink-0 text-muted-foreground" />
-                  )}
+                          } else if (labelEditorKey === label.id) {
+                            setLabelEditorKey(null);
+                            setEditingLabel(null);
+                          }
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openLabelEditor(label);
+                            }}
+                            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <SourceIcon className="size-3 group-hover/label-item:hidden" />
+                            <Pencil className="hidden size-3 group-hover/label-item:block" />
+                          </button>
+                        </PopoverTrigger>
+                        <LabelEditorContent
+                          side={editorSide}
+                          surface={surface}
+                          newLabelName={newLabelName}
+                          newLabelColor={newLabelColor}
+                          editingLabel={editingLabel}
+                          setNewLabelName={setNewLabelName}
+                          setNewLabelColor={setNewLabelColor}
+                          onSubmit={handleCreateLabel}
+                        />
+                      </Popover>
+                    ) : (
+                      <SourceIcon className="size-3 shrink-0 text-muted-foreground" />
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -761,19 +841,13 @@ export function LabelEditorContent({
     ...restPopoverContentProps
   } = popoverContentProps ?? {};
 
-  const guardDismiss = React.useCallback(
-    (
-      event: Event,
-      consumer?: (event: Event) => void,
-    ) => {
-      if (isColorEyedroppingRef.current || isColorEyedropperActive()) {
-        event.preventDefault();
-        return;
-      }
-      consumer?.(event);
-    },
-    [],
-  );
+  const guardDismiss = React.useCallback((event: Event, consumer?: (event: Event) => void) => {
+    if (isColorEyedroppingRef.current || isColorEyedropperActive()) {
+      event.preventDefault();
+      return;
+    }
+    consumer?.(event);
+  }, []);
 
   return (
     <PopoverContent
@@ -784,9 +858,15 @@ export function LabelEditorContent({
       alignOffset={28}
       avoidCollisions
       className="w-auto space-y-2 border-0 bg-transparent p-0 shadow-none"
-      onInteractOutside={(event) => guardDismiss(event, consumerInteractOutside as ((e: Event) => void) | undefined)}
-      onPointerDownOutside={(event) => guardDismiss(event, consumerPointerDownOutside as ((e: Event) => void) | undefined)}
-      onFocusOutside={(event) => guardDismiss(event, consumerFocusOutside as ((e: Event) => void) | undefined)}
+      onInteractOutside={(event) =>
+        guardDismiss(event, consumerInteractOutside as ((e: Event) => void) | undefined)
+      }
+      onPointerDownOutside={(event) =>
+        guardDismiss(event, consumerPointerDownOutside as ((e: Event) => void) | undefined)
+      }
+      onFocusOutside={(event) =>
+        guardDismiss(event, consumerFocusOutside as ((e: Event) => void) | undefined)
+      }
       {...restPopoverContentProps}
     >
       <div className="space-y-2 rounded-xl border border-border/60 bg-popover p-3 shadow-md">
@@ -794,7 +874,9 @@ export function LabelEditorContent({
           <Input
             value={newLabelName}
             onChange={(event) => setNewLabelName(event.target.value)}
-            placeholder={editingLabel ? t("labelEditor.editPlaceholder") : t("labelEditor.createPlaceholder")}
+            placeholder={
+              editingLabel ? t("labelEditor.editPlaceholder") : t("labelEditor.createPlaceholder")
+            }
             className="h-7 flex-1 text-xs"
             autoFocus
           />
@@ -822,7 +904,13 @@ export function LabelEditorContent({
   );
 }
 
-export function WorkspaceLabelBadges({ labels, className }: { labels: WorkspaceLabel[]; className?: string }) {
+export function WorkspaceLabelBadges({
+  labels,
+  className,
+}: {
+  labels: WorkspaceLabel[];
+  className?: string;
+}) {
   if (labels.length === 0) return null;
 
   return (
@@ -833,7 +921,11 @@ export function WorkspaceLabelBadges({ labels, className }: { labels: WorkspaceL
           variant="outline"
           className="gap-1.5 rounded-full border-dashed border-border bg-muted/60 text-xs text-foreground"
         >
-          <span className="size-1.5 rounded-full" style={{ backgroundColor: label.color }} aria-hidden="true" />
+          <span
+            className="size-1.5 rounded-full"
+            style={{ backgroundColor: label.color }}
+            aria-hidden="true"
+          />
           {label.name}
         </Badge>
       ))}
@@ -865,7 +957,9 @@ export function WorkspaceLabelDots({
         />
       ))}
       {labels.length > max ? (
-        <span className={cn("text-[10px] text-muted-foreground", overlap && "ml-1")}>+{labels.length - max}</span>
+        <span className={cn("text-[10px] text-muted-foreground", overlap && "ml-1")}>
+          +{labels.length - max}
+        </span>
       ) : null}
     </div>
   );

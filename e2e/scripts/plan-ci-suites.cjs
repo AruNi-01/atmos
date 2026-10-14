@@ -74,8 +74,7 @@ const shouldRun = suites.length > 0;
 const publishReport =
   shouldRun &&
   !isForkPr &&
-  ((process.env.REQUESTED_PUBLISH_REPORT === "true" &&
-    eventName === "workflow_dispatch") ||
+  ((process.env.REQUESTED_PUBLISH_REPORT === "true" && eventName === "workflow_dispatch") ||
     eventName === "pull_request" ||
     (eventName === "push" && gitRef === "refs/heads/main"));
 
@@ -94,7 +93,9 @@ const summaryLines = [
   `- Event: \`${eventName}\``,
   `- Target: \`${target}\``,
   `- Publish HTML report to GitHub Pages: \`${publishReport}\``,
-  isForkPr ? "- GitHub Pages publish is skipped for fork PRs because workflow write permissions are not available." : null,
+  isForkPr
+    ? "- GitHub Pages publish is skipped for fork PRs because workflow write permissions are not available."
+    : null,
   `- Selected suites: ${shouldRun ? suites.map((suite) => `\`${suite}\``).join(", ") : "none"}`,
 ].filter(Boolean);
 

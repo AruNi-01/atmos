@@ -4,7 +4,7 @@
 
 ## Context
 
-Atmos already installs per-tool hooks and tracks live Agent **state** (`idle` / `running` / `permission_request`) per session, bound to `context_id` / `pane_id`. Sidebar grouping (APP-058) and the footer overview can tell the user *which* panes are busy. They cannot tell the user *what* those Agents are doing, or *what they already did*.
+Atmos already installs per-tool hooks and tracks live Agent **state** (`idle` / `running` / `permission_request`) per session, bound to `context_id` / `pane_id`. Sidebar grouping (APP-058) and the footer overview can tell the user _which_ panes are busy. They cannot tell the user _what_ those Agents are doing, or _what they already did_.
 
 A session is a multi-turn conversation in one terminal pane. Today the product treats Idle as “throw away the row”: time-based sweep (~30 min), and the client even drops idle rows when the user focuses the pane. That is correct for **attention chrome**. It is wrong for a **fact graph** of the Computer: after an Agent stops, the next prompt is still the same Agent, and the previous prompts / tools must still be on the node.
 
@@ -23,30 +23,31 @@ Users run many terminals across many projects and worktrees. There is no single 
 
 Live session row today (`AgentHookSession`):
 
-| Field | Role |
-|-------|------|
-| `session_id`, `tool`, `state`, `timestamp` | Identity + coarse lifecycle |
-| `project_path`, `context_id` | Bind to project or workspace |
-| `pane_id`, `terminal_kind`, `side_chat_id`, `source_pane_id` | Navigate back to the pane |
-| `hook_version` | Install freshness |
+| Field                                                        | Role                         |
+| ------------------------------------------------------------ | ---------------------------- |
+| `session_id`, `tool`, `state`, `timestamp`                   | Identity + coarse lifecycle  |
+| `project_path`, `context_id`                                 | Bind to project or workspace |
+| `pane_id`, `terminal_kind`, `side_chat_id`, `source_pane_id` | Navigate back to the pane    |
+| `hook_version`                                               | Install freshness            |
 
 States stay `idle` / `running` / `permission_request`. Sticky attention (`permission_request`, `task_complete`) is unchanged.
 
 Two different things were mixed in the first draft: **what the adapter can parse** vs **what the installed hook actually POSTs**.
 
-| Tool | Adapter can parse | Installed command today (v4) | Gap for activity / turns |
-|------|-------------------|------------------------------|---------------------------|
-| Claude Code | Pre/PostToolUse, Subagent*, Permission, TodoWrite, UserPromptSubmit | Tool + child + permission are stdin-forward. **`UserPromptSubmit` is fixed-body** (`hook_event_name` only) | Prompt text missing until install bump |
-| Grok Build | Same family + name aliases | Stdin-forward including UserPromptSubmit. **No SubagentStart/Stop registered** | Children empty unless install adds those events |
-| Codex | Pre/Post + UserPromptSubmit as state | **All fixed-body.** PreToolUse matcher is **Bash only**. No PostToolUse hook | No tool name, no prompt, almost no tools |
-| OpenCode | `tool.execute.before/after`, permission.* | Plugin **swallows** tool.execute into occasional `agent.running` | No tool events on the wire |
-| Pi | ToolCall / ToolResult, AgentStart | Posts tool **name** only; AgentStart has **no prompt extra** | Detail + prompt missing unless extras added |
+| Tool        | Adapter can parse                                                   | Installed command today (v4)                                                                               | Gap for activity / turns                        |
+| ----------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Claude Code | Pre/PostToolUse, Subagent*, Permission, TodoWrite, UserPromptSubmit | Tool + child + permission are stdin-forward. **`UserPromptSubmit` is fixed-body** (`hook_event_name` only) | Prompt text missing until install bump          |
+| Grok Build  | Same family + name aliases                                          | Stdin-forward including UserPromptSubmit. **No SubagentStart/Stop registered**                             | Children empty unless install adds those events |
+| Codex       | Pre/Post + UserPromptSubmit as state                                | **All fixed-body.** PreToolUse matcher is **Bash only**. No PostToolUse hook                               | No tool name, no prompt, almost no tools        |
+| OpenCode    | `tool.execute.before/after`, permission.*                           | Plugin **swallows** tool.execute into occasional `agent.running`                                           | No tool events on the wire                      |
+| Pi          | ToolCall / ToolResult, AgentStart                                   | Posts tool **name** only; AgentStart has **no prompt extra**                                               | Detail + prompt missing unless extras added     |
 
 Other installed tools (Cursor, Gemini, …) keep updating **state**. They can sit on the graph as state-only cards while the session row exists; they do not get a turn list until an adapter + install exists.
 
 ## Options
 
 ### Option A — Extend `agent_hook_state_changed` with activity fields
+
 Put `current_tool`, `turns`, `children` on the existing notification.
 
 **Pros**: One WS event.
@@ -54,6 +55,7 @@ Put `current_tool`, `turns`, `children` on the existing notification.
 **Rejected.**
 
 ### Option B — Parallel activity model + dedicated WS event
+
 Keep `AgentHookSession` / `agent_hook_state_changed` as the coarse lifecycle. Add an in-memory activity record per session (turns + live children) and push `agent_activity_updated`. Graph subscribes; footer popover may opt in for one current-tool / latest-prompt line.
 
 **Pros**: Existing surfaces stay cheap. Matches “enhance hooks, don't replace them.”
@@ -61,12 +63,14 @@ Keep `AgentHookSession` / `agent_hook_state_changed` as the coarse lifecycle. Ad
 **Lock.**
 
 ### Option C — Per-workspace Canvas widgets only
+
 Pin activity onto the existing tldraw Canvas.
 
 **Pros**: No new route.
 **Cons**: Canvas is a user-composed board; this graph is derived and computer-scoped. Rejected as the primary surface (Canvas may later host a read-only widget; not v1).
 
 ### Option D — Drop activity when the session goes Idle (first draft)
+
 Reuse APP-051 idle sweep as the activity TTL.
 
 **Pros**: Small memory.

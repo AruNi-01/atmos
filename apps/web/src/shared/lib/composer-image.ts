@@ -18,18 +18,10 @@ const PREVIEWABLE_IMAGE_TYPES = new Set([
 
 const PREVIEWABLE_IMAGE_EXT = /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)$/i;
 const TIFF_EXT = /\.(tif|tiff)$/i;
-const TIFF_TYPES = new Set([
-  "image/tif",
-  "image/tiff",
-  "image/x-tif",
-  "image/x-tiff",
-]);
+const TIFF_TYPES = new Set(["image/tif", "image/tiff", "image/x-tif", "image/x-tiff"]);
 
 function toBlobPart(bytes: Uint8Array): BlobPart {
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 const TIFF_COMPRESSION_NONE = 1;
@@ -54,24 +46,17 @@ export type ClipboardFileItem = {
   getAsFile: () => File | null;
 };
 
-export function isBrowserPreviewableImageMediaType(
-  mediaType: string | undefined,
-): boolean {
+export function isBrowserPreviewableImageMediaType(mediaType: string | undefined): boolean {
   if (!mediaType) return false;
   const type = mediaType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
   return PREVIEWABLE_IMAGE_TYPES.has(type);
 }
 
-export function isBrowserPreviewableImageFilename(
-  filename: string | undefined,
-): boolean {
+export function isBrowserPreviewableImageFilename(filename: string | undefined): boolean {
   return PREVIEWABLE_IMAGE_EXT.test(filename ?? "");
 }
 
-export function imageExtensionForFile(file: {
-  name?: string;
-  type?: string;
-}): string {
+export function imageExtensionForFile(file: { name?: string; type?: string }): string {
   const type = file.type?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
   if (type === "image/jpeg" || type === "image/jpg" || type === "image/pjpeg") {
     return "jpeg";
@@ -85,9 +70,7 @@ export function imageExtensionForFile(file: {
   return match?.[1]?.toLowerCase() || "png";
 }
 
-export function pickClipboardImageFiles(
-  items: ArrayLike<ClipboardFileItem | undefined>,
-): File[] {
+export function pickClipboardImageFiles(items: ArrayLike<ClipboardFileItem | undefined>): File[] {
   const images: File[] = [];
   for (let i = 0; i < items.length; i += 1) {
     const item = items[i];
@@ -143,10 +126,7 @@ export function decodeTiffToRgba(
   }
 
   const photometric = firstTag(tags, 262);
-  if (
-    photometric !== TIFF_PHOTOMETRIC_BLACK_IS_ZERO &&
-    photometric !== TIFF_PHOTOMETRIC_RGB
-  ) {
+  if (photometric !== TIFF_PHOTOMETRIC_BLACK_IS_ZERO && photometric !== TIFF_PHOTOMETRIC_RGB) {
     return null;
   }
 
@@ -159,9 +139,7 @@ export function decodeTiffToRgba(
   const bits = tags.get(258) ?? [8];
   if (bits.some((value) => value !== 8)) return null;
 
-  const samplesPerPixel =
-    firstTag(tags, 277) ??
-    (photometric === TIFF_PHOTOMETRIC_RGB ? 3 : 1);
+  const samplesPerPixel = firstTag(tags, 277) ?? (photometric === TIFF_PHOTOMETRIC_RGB ? 3 : 1);
   if (samplesPerPixel < 1 || samplesPerPixel > 4) return null;
 
   const rowsPerStrip = Math.min(firstTag(tags, 278) ?? height, height);
@@ -211,14 +189,8 @@ function isTiffFile(file: File, bytes: Uint8Array): boolean {
 function isTiffBytes(bytes: Uint8Array): boolean {
   return (
     bytes.length >= 4 &&
-    ((bytes[0] === 0x49 &&
-      bytes[1] === 0x49 &&
-      bytes[2] === 0x2a &&
-      bytes[3] === 0x00) ||
-      (bytes[0] === 0x4d &&
-        bytes[1] === 0x4d &&
-        bytes[2] === 0x00 &&
-        bytes[3] === 0x2a))
+    ((bytes[0] === 0x49 && bytes[1] === 0x49 && bytes[2] === 0x2a && bytes[3] === 0x00) ||
+      (bytes[0] === 0x4d && bytes[1] === 0x4d && bytes[2] === 0x00 && bytes[3] === 0x2a))
   );
 }
 
@@ -505,11 +477,7 @@ async function tiffToPngViaBitmap(file: File): Promise<File | null> {
   }
 }
 
-async function encodePngRgba(
-  width: number,
-  height: number,
-  rgba: Uint8Array,
-): Promise<Uint8Array> {
+async function encodePngRgba(width: number, height: number, rgba: Uint8Array): Promise<Uint8Array> {
   const raw = new Uint8Array(height * (1 + width * 4));
   for (let y = 0; y < height; y += 1) {
     const src = y * width * 4;
@@ -543,9 +511,9 @@ async function encodePngRgba(
 async function zlibDeflate(data: Uint8Array): Promise<Uint8Array> {
   if (typeof CompressionStream === "function") {
     try {
-      const stream = new Blob([toBlobPart(data)]).stream().pipeThrough(
-        new CompressionStream("deflate"),
-      );
+      const stream = new Blob([toBlobPart(data)])
+        .stream()
+        .pipeThrough(new CompressionStream("deflate"));
       const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
       if (isZlibWrapper(compressed)) return compressed;
     } catch {
@@ -637,20 +605,12 @@ function adler32(data: Uint8Array): number {
   return ((b << 16) | a) >>> 0;
 }
 
-function readU16(
-  view: DataView,
-  offset: number,
-  littleEndian: boolean,
-): number | null {
+function readU16(view: DataView, offset: number, littleEndian: boolean): number | null {
   if (offset < 0 || offset + 2 > view.byteLength) return null;
   return view.getUint16(offset, littleEndian);
 }
 
-function readU32(
-  view: DataView,
-  offset: number,
-  littleEndian: boolean,
-): number | null {
+function readU32(view: DataView, offset: number, littleEndian: boolean): number | null {
   if (offset < 0 || offset + 4 > view.byteLength) return null;
   return view.getUint32(offset, littleEndian);
 }

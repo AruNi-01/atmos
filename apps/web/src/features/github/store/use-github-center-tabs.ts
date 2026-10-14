@@ -74,10 +74,7 @@ function buildGithubCenterTabValue(
   return `${prefix}${encodeURIComponent(contextId)}:${itemId}`;
 }
 
-export function buildGithubPullRequestTabValue(
-  contextId: string,
-  prNumber: number,
-) {
+export function buildGithubPullRequestTabValue(contextId: string, prNumber: number) {
   return buildGithubCenterTabValue("github-pr", contextId, String(prNumber));
 }
 
@@ -89,9 +86,7 @@ export function buildGithubActionTabValue(contextId: string, runId: number) {
   return buildGithubCenterTabValue("github-action", contextId, String(runId));
 }
 
-export function isGithubCenterTabValue(
-  value: string | null | undefined,
-): value is string {
+export function isGithubCenterTabValue(value: string | null | undefined): value is string {
   return (
     !!value &&
     (value.startsWith(GITHUB_PR_TAB_PREFIX) ||
@@ -100,15 +95,11 @@ export function isGithubCenterTabValue(
   );
 }
 
-export function parseGithubCenterTabValue(
-  value: string | null | undefined,
-):
-  | {
-      kind: "github-pr" | "github-issue" | "github-action";
-      contextId: string;
-      itemId: string;
-    }
-  | null {
+export function parseGithubCenterTabValue(value: string | null | undefined): {
+  kind: "github-pr" | "github-issue" | "github-action";
+  contextId: string;
+  itemId: string;
+} | null {
   if (!isGithubCenterTabValue(value)) return null;
 
   const kind = value.startsWith(GITHUB_PR_TAB_PREFIX)
@@ -144,10 +135,7 @@ export function parseGithubCenterTabValue(
   return { kind, contextId, itemId };
 }
 
-function upsertTab(
-  tabs: GithubCenterTab[],
-  nextTab: GithubCenterTab,
-): GithubCenterTab[] {
+function upsertTab(tabs: GithubCenterTab[], nextTab: GithubCenterTab): GithubCenterTab[] {
   const existingIndex = tabs.findIndex((tab) => tab.value === nextTab.value);
   if (existingIndex === -1) return [...tabs, nextTab];
 

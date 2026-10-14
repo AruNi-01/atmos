@@ -67,7 +67,11 @@ function rectsOverlap(a: PlacementRect, b: PlacementRect, gap: number): boolean 
   );
 }
 
-function layoutRects(origin: { x: number; y: number }, layout: LayoutPlan, sizes: Array<{ w: number; h: number }>) {
+function layoutRects(
+  origin: { x: number; y: number },
+  layout: LayoutPlan,
+  sizes: Array<{ w: number; h: number }>,
+) {
   return sizes.map((size, index) => ({
     x: origin.x + layout.offsets[index]!.x,
     y: origin.y + layout.offsets[index]!.y,
@@ -108,11 +112,13 @@ function createLayoutPlan(sizes: Array<{ w: number; h: number }>): LayoutPlan {
     rowHeights[row] = Math.max(rowHeights[row], size.h);
   });
 
-  const columnOffsets = columnWidths.map((_, index) =>
-    columnWidths.slice(0, index).reduce((sum, width) => sum + width, 0) + DEFAULT_GAP * index,
+  const columnOffsets = columnWidths.map(
+    (_, index) =>
+      columnWidths.slice(0, index).reduce((sum, width) => sum + width, 0) + DEFAULT_GAP * index,
   );
-  const rowOffsets = rowHeights.map((_, index) =>
-    rowHeights.slice(0, index).reduce((sum, height) => sum + height, 0) + DEFAULT_GAP * index,
+  const rowOffsets = rowHeights.map(
+    (_, index) =>
+      rowHeights.slice(0, index).reduce((sum, height) => sum + height, 0) + DEFAULT_GAP * index,
   );
 
   return {
@@ -228,7 +234,11 @@ function sortByDistanceTo(
   });
 }
 
-function getCandidateOrigins(origin: { x: number; y: number }, layout: LayoutPlan, occupied: PlacementRect[]) {
+function getCandidateOrigins(
+  origin: { x: number; y: number },
+  layout: LayoutPlan,
+  occupied: PlacementRect[],
+) {
   const right: Array<{ x: number; y: number }> = [];
   const below: Array<{ x: number; y: number }> = [];
   const left: Array<{ x: number; y: number }> = [];
@@ -299,7 +309,11 @@ function getFrameContentBounds(editor: Editor, frameId?: TLShapeId | null): Plac
   };
 }
 
-function layoutFitsWithin(origin: { x: number; y: number }, layout: LayoutPlan, bounds: PlacementRect): boolean {
+function layoutFitsWithin(
+  origin: { x: number; y: number },
+  layout: LayoutPlan,
+  bounds: PlacementRect,
+): boolean {
   return (
     origin.x >= bounds.x &&
     origin.y >= bounds.y &&

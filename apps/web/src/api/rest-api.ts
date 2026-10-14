@@ -1,11 +1,11 @@
-'use client';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+"use client";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import {
   getLoopbackHttpBase,
   getRuntimeApiConfig,
   httpBase,
   wsBase,
-} from '@/shared/lib/desktop-runtime';
+} from "@/shared/lib/desktop-runtime";
 
 /**
  * REST API client for endpoints that need to be called before WebSocket connection
@@ -20,9 +20,9 @@ export const getAgentWsBase = async (): Promise<string> => {
 
 async function resolveHttpFetchTarget(): Promise<{ apiBase: string; bearer?: string }> {
   const computer = useAtmosComputerStore.getState();
-  if (computer.connectionMode === 'relay' && computer.relayGatewayHttpBase) {
+  if (computer.connectionMode === "relay" && computer.relayGatewayHttpBase) {
     return {
-      apiBase: computer.relayGatewayHttpBase.replace(/\/$/, ''),
+      apiBase: computer.relayGatewayHttpBase.replace(/\/$/, ""),
       bearer: computer.relayClientToken ?? undefined,
     };
   }
@@ -161,14 +161,14 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       ...options?.headers,
     },
   });
 
   if (!response.ok) {
-    let detail = '';
+    let detail = "";
     try {
       const body = await response.json();
       detail = body.error || body.message || JSON.stringify(body);
@@ -176,14 +176,14 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
       // response body not JSON
     }
     throw new Error(
-      `API error: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`
+      `API error: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ""}`,
     );
   }
 
   const result: ApiResponse<T> = await response.json();
 
   if (!result.success) {
-    throw new Error(result.message || 'API request failed');
+    throw new Error(result.message || "API request failed");
   }
 
   return result.data;
@@ -194,7 +194,7 @@ async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T>
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       ...options?.headers,
     },
@@ -204,10 +204,10 @@ async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T>
   if (!response.ok) {
     const detail = body?.error || body?.message || response.statusText;
     throw new Error(
-      `API error: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`
+      `API error: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ""}`,
     );
   }
-  if (body == null || typeof body !== 'object') {
+  if (body == null || typeof body !== "object") {
     throw new Error(`API error: expected JSON from ${path}`);
   }
 
@@ -216,8 +216,8 @@ async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T>
 
 // ===== Terminal Overview Types =====
 
-export type SessionType = 'tmux' | 'simple';
-export type TerminalContextScope = 'workspace' | 'project';
+export type SessionType = "tmux" | "simple";
+export type TerminalContextScope = "workspace" | "project";
 
 export interface ActiveSessionInfo {
   session_id: string;
@@ -253,7 +253,7 @@ export interface PtyProcessInfo {
   count: number;
 }
 
-export type PtyHealth = 'healthy' | 'warning' | 'critical' | 'unknown';
+export type PtyHealth = "healthy" | "warning" | "critical" | "unknown";
 
 export interface SystemPtyInfo {
   os: string;
@@ -278,7 +278,6 @@ export interface TmuxServerInfo {
   total_windows: number;
   running: boolean;
 }
-
 
 export interface ShellEnvInfo {
   shell: string;
@@ -381,50 +380,50 @@ export const systemApi = {
    * Check tmux installation status
    */
   getTmuxStatus: async (): Promise<TmuxStatusResponse> => {
-    return fetchApi<TmuxStatusResponse>('/api/system/tmux-status');
+    return fetchApi<TmuxStatusResponse>("/api/system/tmux-status");
   },
 
   /**
    * Check GitHub CLI installation and authentication status.
    */
   getGhCliStatus: async (): Promise<GhCliStatusResponse> => {
-    return fetchApi<GhCliStatusResponse>('/api/system/gh-cli-status');
+    return fetchApi<GhCliStatusResponse>("/api/system/gh-cli-status");
   },
 
   /**
    * Check Git installation status and user settings.
    */
   getGitStatus: async (): Promise<GitStatusResponse> => {
-    return fetchApi<GitStatusResponse>('/api/system/git-status');
+    return fetchApi<GitStatusResponse>("/api/system/git-status");
   },
 
   /**
    * Detect which built-in terminal agent CLIs are installed on the API host.
    */
   getTerminalAgentsStatus: async (): Promise<TerminalAgentsStatusResponse> => {
-    return fetchApi<TerminalAgentsStatusResponse>('/api/system/terminal-agents-status');
+    return fetchApi<TerminalAgentsStatusResponse>("/api/system/terminal-agents-status");
   },
 
   /**
    * Detect the best tmux installation command for the current API host.
    */
   getTmuxInstallPlan: async (): Promise<TmuxInstallPlanResponse> => {
-    return fetchApi<TmuxInstallPlanResponse>('/api/system/tmux-install-plan');
+    return fetchApi<TmuxInstallPlanResponse>("/api/system/tmux-install-plan");
   },
 
   /**
    * Check installed Atmos CLI version against the latest GitHub CLI release.
    */
   checkCliVersion: async (): Promise<CliVersionCheckResponse> => {
-    return fetchApi<CliVersionCheckResponse>('/api/system/cli-version-check');
+    return fetchApi<CliVersionCheckResponse>("/api/system/cli-version-check");
   },
 
   /**
    * Download and install the latest Atmos CLI from GitHub releases.
    */
   installCli: async (modifyPath: boolean = false): Promise<CliInstallResponse> => {
-    return fetchApi<CliInstallResponse>('/api/system/cli-install', {
-      method: 'POST',
+    return fetchApi<CliInstallResponse>("/api/system/cli-install", {
+      method: "POST",
       body: JSON.stringify({ modify_path: modifyPath }),
     });
   },
@@ -433,7 +432,7 @@ export const systemApi = {
    * List all Atmos tmux sessions
    */
   listTmuxSessions: async (): Promise<{ sessions: TmuxSession[] }> => {
-    return fetchApi<{ sessions: TmuxSession[] }>('/api/system/tmux-sessions');
+    return fetchApi<{ sessions: TmuxSession[] }>("/api/system/tmux-sessions");
   },
 
   /**
@@ -455,9 +454,10 @@ export const systemApi = {
     return fetchApi<{ killed: boolean; message?: string }>(
       `/api/system/tmux-window/${encodeURIComponent(workspaceId)}`,
       {
-      method: 'POST',
-      body: JSON.stringify({ tmux_window_name: tmuxWindowName }),
-    });
+        method: "POST",
+        body: JSON.stringify({ tmux_window_name: tmuxWindowName }),
+      },
+    );
   },
 
   captureTmuxWindow: async (
@@ -495,26 +495,28 @@ export const systemApi = {
     if (params.workspace_name) {
       search.set("workspace_name", params.workspace_name);
     }
-    return fetchApi(`/api/system/tmux-capture/${encodeURIComponent(workspaceId)}?${search.toString()}`);
+    return fetchApi(
+      `/api/system/tmux-capture/${encodeURIComponent(workspaceId)}?${search.toString()}`,
+    );
   },
 
   /**
    * Get comprehensive terminal overview for Terminal Manager
    */
   getTerminalOverview: async (): Promise<TerminalOverviewResponse> => {
-    return fetchApi<TerminalOverviewResponse>('/api/system/terminal-overview');
+    return fetchApi<TerminalOverviewResponse>("/api/system/terminal-overview");
   },
 
   getRuntimeInfo: async (): Promise<RuntimeInfoResponse> => {
-    return fetchApi<RuntimeInfoResponse>('/api/system/runtime-info');
+    return fetchApi<RuntimeInfoResponse>("/api/system/runtime-info");
   },
 
   /**
    * Clean up stale terminal resources
    */
   cleanupTerminals: async (): Promise<CleanupResponse> => {
-    return fetchApi<CleanupResponse>('/api/system/terminal-cleanup', {
-      method: 'POST',
+    return fetchApi<CleanupResponse>("/api/system/terminal-cleanup", {
+      method: "POST",
     });
   },
 
@@ -522,8 +524,8 @@ export const systemApi = {
    * Kill the entire tmux server
    */
   killTmuxServer: async (): Promise<{ killed: boolean }> => {
-    return fetchApi<{ killed: boolean }>('/api/system/tmux-kill-server', {
-      method: 'POST',
+    return fetchApi<{ killed: boolean }>("/api/system/tmux-kill-server", {
+      method: "POST",
     });
   },
 
@@ -537,10 +539,15 @@ export const systemApi = {
   /**
    * Kill the Project Wiki tmux window for a workspace
    */
-  killProjectWikiWindow: async (workspaceId: string): Promise<{ killed: boolean; message?: string }> => {
-    return fetchApi<{ killed: boolean; message?: string }>(`/api/system/project-wiki-window/${workspaceId}`, {
-      method: 'POST',
-    });
+  killProjectWikiWindow: async (
+    workspaceId: string,
+  ): Promise<{ killed: boolean; message?: string }> => {
+    return fetchApi<{ killed: boolean; message?: string }>(
+      `/api/system/project-wiki-window/${workspaceId}`,
+      {
+        method: "POST",
+      },
+    );
   },
 
   /**
@@ -553,34 +560,49 @@ export const systemApi = {
   /**
    * Kill the Code Review tmux window for a workspace
    */
-  killCodeReviewWindow: async (workspaceId: string): Promise<{ killed: boolean; message?: string }> => {
-    return fetchApi<{ killed: boolean; message?: string }>(`/api/system/code-review-window/${workspaceId}`, {
-      method: 'POST',
-    });
+  killCodeReviewWindow: async (
+    workspaceId: string,
+  ): Promise<{ killed: boolean; message?: string }> => {
+    return fetchApi<{ killed: boolean; message?: string }>(
+      `/api/system/code-review-window/${workspaceId}`,
+      {
+        method: "POST",
+      },
+    );
   },
 
   /**
    * Kill a specific tmux session
    */
-  killTmuxSession: async (sessionName: string): Promise<{ killed: boolean; session_name?: string; error?: string }> => {
-    return fetchApi<{ killed: boolean; session_name?: string; error?: string }>('/api/system/tmux-kill-session', {
-      method: 'POST',
-      body: JSON.stringify({ session_name: sessionName }),
-    });
+  killTmuxSession: async (
+    sessionName: string,
+  ): Promise<{ killed: boolean; session_name?: string; error?: string }> => {
+    return fetchApi<{ killed: boolean; session_name?: string; error?: string }>(
+      "/api/system/tmux-kill-session",
+      {
+        method: "POST",
+        body: JSON.stringify({ session_name: sessionName }),
+      },
+    );
   },
 
   /**
    * Kill all orphaned processes by their PIDs
    */
-  killOrphanedProcesses: async (pids: number[]): Promise<{ killed: number; total: number; failed_pids: number[] }> => {
-    return fetchApi<{ killed: number; total: number; failed_pids: number[] }>('/api/system/kill-orphaned-processes', {
-      method: 'POST',
-      body: JSON.stringify({ pids }),
-    });
+  killOrphanedProcesses: async (
+    pids: number[],
+  ): Promise<{ killed: number; total: number; failed_pids: number[] }> => {
+    return fetchApi<{ killed: number; total: number; failed_pids: number[] }>(
+      "/api/system/kill-orphaned-processes",
+      {
+        method: "POST",
+        body: JSON.stringify({ pids }),
+      },
+    );
   },
 
   getWsConnections: async (): Promise<{ connections: WsConnectionInfo[]; count: number }> => {
-    return fetchApi('/api/system/ws-connections');
+    return fetchApi("/api/system/ws-connections");
   },
 };
 
@@ -611,7 +633,7 @@ export interface AgentHookInstallReport {
   grok_build: AgentHookToolStatus;
 }
 
-export type ContestedCliOwner = 'grok-build' | 'cursor' | 'unknown';
+export type ContestedCliOwner = "grok-build" | "cursor" | "unknown";
 
 export interface CliIdentityResponse {
   command: string;
@@ -621,33 +643,31 @@ export interface CliIdentityResponse {
 
 export const agentHooksApi = {
   getStatus: async (): Promise<AgentHookInstallReport> => {
-    return fetchHooksApi<AgentHookInstallReport>('/hooks/status');
+    return fetchHooksApi<AgentHookInstallReport>("/hooks/status");
   },
 
   installAll: async (): Promise<AgentHookInstallReport> => {
-    return fetchHooksApi<AgentHookInstallReport>('/hooks/install', { method: 'POST' });
+    return fetchHooksApi<AgentHookInstallReport>("/hooks/install", { method: "POST" });
   },
 
   uninstallAll: async (): Promise<AgentHookInstallReport> => {
-    return fetchHooksApi<AgentHookInstallReport>('/hooks/uninstall', { method: 'POST' });
+    return fetchHooksApi<AgentHookInstallReport>("/hooks/uninstall", { method: "POST" });
   },
 
   installTool: async (tool: string): Promise<AgentHookToolStatus> => {
-    return fetchHooksApi<AgentHookToolStatus>(
-      `/hooks/${encodeURIComponent(tool)}/install`,
-      { method: 'POST' },
-    );
+    return fetchHooksApi<AgentHookToolStatus>(`/hooks/${encodeURIComponent(tool)}/install`, {
+      method: "POST",
+    });
   },
 
   uninstallTool: async (tool: string): Promise<AgentHookToolStatus> => {
-    return fetchHooksApi<AgentHookToolStatus>(
-      `/hooks/${encodeURIComponent(tool)}/uninstall`,
-      { method: 'POST' },
-    );
+    return fetchHooksApi<AgentHookToolStatus>(`/hooks/${encodeURIComponent(tool)}/uninstall`, {
+      method: "POST",
+    });
   },
 
   /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
-  getCliIdentity: async (command = 'agent'): Promise<CliIdentityResponse> => {
+  getCliIdentity: async (command = "agent"): Promise<CliIdentityResponse> => {
     return fetchHooksApi<CliIdentityResponse>(
       `/hooks/cli-identity?command=${encodeURIComponent(command)}`,
     );
@@ -658,7 +678,7 @@ export const agentStatusApi = {
   forceSessionIdle: async (sessionId: string): Promise<{ ok: boolean }> => {
     return fetchHooksApi<{ ok: boolean }>(
       `/agent-status/sessions/${encodeURIComponent(sessionId)}/force-idle`,
-      { method: 'POST' },
+      { method: "POST" },
     );
   },
 
@@ -681,14 +701,14 @@ export const agentStatusApi = {
 
   /** Sticky need-attention latches held in API memory (survives browser refresh). */
   listAttention: async (): Promise<{ attention: AgentAttentionLatchDto[] }> => {
-    return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/agent-status/attention');
+    return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>("/agent-status/attention");
   },
 
   listWorkspaceAgentGroups: async (): Promise<{
     groups: WorkspaceAgentGroupSnapshotDto[];
   }> => {
     return fetchHooksApi<{ groups: WorkspaceAgentGroupSnapshotDto[] }>(
-      '/agent-status/workspace-agent-groups',
+      "/agent-status/workspace-agent-groups",
     );
   },
 
@@ -698,8 +718,8 @@ export const agentStatusApi = {
     notAfter?: string;
     dismissSummary?: boolean;
   }): Promise<{ cleared: string[] }> => {
-    return fetchHooksApi<{ cleared: string[] }>('/agent-status/attention/clear', {
-      method: 'POST',
+    return fetchHooksApi<{ cleared: string[] }>("/agent-status/attention/clear", {
+      method: "POST",
       body: JSON.stringify({
         stable_pane_id: input.stablePaneId,
         stable_pane_ids: input.stablePaneIds,
@@ -714,36 +734,28 @@ export const agentStatusApi = {
     requestId: string;
     optionId: string;
   }): Promise<{ ok: boolean; accepted: boolean }> => {
-    return fetchHooksApi<{ ok: boolean; accepted: boolean }>(
-      "/agent-status/permission-respond",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          session_id: input.sessionId,
-          request_id: input.requestId,
-          option_id: input.optionId,
-        }),
-      },
-    );
+    return fetchHooksApi<{ ok: boolean; accepted: boolean }>("/agent-status/permission-respond", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: input.sessionId,
+        request_id: input.requestId,
+        option_id: input.optionId,
+      }),
+    });
   },
 
   listAttentionSummaries: async (): Promise<{
     summaries: AgentAttentionSummaryDto[];
   }> => {
     return fetchHooksApi<{ summaries: AgentAttentionSummaryDto[] }>(
-      '/agent-status/attention/summaries',
+      "/agent-status/attention/summaries",
     );
   },
 };
 
-export type AgentAttentionReasonDto = 'permission_request' | 'task_complete';
+export type AgentAttentionReasonDto = "permission_request" | "task_complete";
 
-export type WorkspaceAgentGroupKeyDto =
-  | 'permission'
-  | 'attention'
-  | 'running'
-  | 'done'
-  | 'idle';
+export type WorkspaceAgentGroupKeyDto = "permission" | "attention" | "running" | "done" | "idle";
 
 export type WorkspaceAgentGroupSnapshotDto = {
   context_id: string;
@@ -760,7 +772,7 @@ export type AgentAttentionLatchDto = {
   raised_at: string;
 };
 
-export type AttentionSummaryStatusDto = 'summarizing' | 'ready' | 'error';
+export type AttentionSummaryStatusDto = "summarizing" | "ready" | "error";
 
 export type AgentAttentionSummaryDto = {
   stable_pane_id: string;
@@ -899,8 +911,8 @@ export const agentApi = {
     cwd?: string | null,
     authMethodId?: string | null,
   ): Promise<LogoutAgentResponse> => {
-    return fetchApi<LogoutAgentResponse>('/api/agent/logout', {
-      method: 'POST',
+    return fetchApi<LogoutAgentResponse>("/api/agent/logout", {
+      method: "POST",
       body: JSON.stringify({
         registry_id: registryId,
         cwd: cwd || null,
@@ -920,24 +932,24 @@ export const agentApi = {
   ): Promise<{ paths: string[] }> => {
     const formData = new FormData();
     if (chatId) {
-      formData.append('chat_id', chatId);
+      formData.append("chat_id", chatId);
     }
-    formData.append('local_path', localPath);
+    formData.append("local_path", localPath);
 
     for (const file of files) {
       const response = await fetch(file.url);
       const blob = await response.blob();
-      const name = file.filename || 'attachment';
-      formData.append('files', new File([blob], name, { type: file.mediaType || blob.type }));
+      const name = file.filename || "attachment";
+      formData.append("files", new File([blob], name, { type: file.mediaType || blob.type }));
     }
 
     const { apiBase, bearer } = await resolveHttpFetchTarget();
     const headers = new Headers();
     if (bearer) {
-      headers.set('Authorization', `Bearer ${bearer}`);
+      headers.set("Authorization", `Bearer ${bearer}`);
     }
     const res = await fetch(`${apiBase}/api/agent/upload-attachments`, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: formData,
     });
@@ -948,7 +960,7 @@ export const agentApi = {
 
     const json: ApiResponse<{ paths: string[] }> = await res.json();
     if (!json.success) {
-      throw new Error(json.message || 'Upload failed');
+      throw new Error(json.message || "Upload failed");
     }
     return json.data;
   },
@@ -960,9 +972,12 @@ export const projectLayoutApi = {
   /**
    * Update maximized terminal ID for a project
    */
-  updateMaximizedTerminalId: async (projectId: string, terminalId: string | null): Promise<void> => {
+  updateMaximizedTerminalId: async (
+    projectId: string,
+    terminalId: string | null,
+  ): Promise<void> => {
     await fetchApi<{ message: string }>(`/api/project/${projectId}/maximized-terminal-id`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ terminal_id: terminalId }),
     });
   },
@@ -974,9 +989,12 @@ export const workspaceLayoutApi = {
   /**
    * Update maximized terminal ID for a workspace
    */
-  updateMaximizedTerminalId: async (workspaceId: string, terminalId: string | null): Promise<void> => {
+  updateMaximizedTerminalId: async (
+    workspaceId: string,
+    terminalId: string | null,
+  ): Promise<void> => {
     await fetchApi<{ message: string }>(`/api/workspace/${workspaceId}/maximized-terminal-id`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ terminal_id: terminalId }),
     });
   },
@@ -1024,16 +1042,12 @@ export const canvasApi = {
   },
 
   deleteDocument: async (fileName: string): Promise<{ deleted: string }> => {
-    return fetchApi<{ deleted: string }>(
-      `/api/canvas/documents/${encodeURIComponent(fileName)}`,
-      { method: "DELETE" },
-    );
+    return fetchApi<{ deleted: string }>(`/api/canvas/documents/${encodeURIComponent(fileName)}`, {
+      method: "DELETE",
+    });
   },
 
-  renameDocument: async (
-    fileName: string,
-    name: string,
-  ): Promise<CanvasDocumentWriteResponse> => {
+  renameDocument: async (fileName: string, name: string): Promise<CanvasDocumentWriteResponse> => {
     return fetchApi<CanvasDocumentWriteResponse>(
       `/api/canvas/documents/${encodeURIComponent(fileName)}/rename`,
       {

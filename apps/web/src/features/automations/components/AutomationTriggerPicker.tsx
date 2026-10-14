@@ -29,7 +29,10 @@ import {
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 
 import { AutomationGithubTriggerPanel } from "@/features/automations/components/AutomationGithubTriggerPanel";
-import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";
+import type {
+  GithubInstallation,
+  GithubRepository,
+} from "@/features/automations/lib/github-trigger-relay";
 import type { AutomationSchedulePreviewResponse } from "@/features/automations/types";
 import type { GithubEventFamily, GithubInt64 } from "@/features/automations/types";
 import {
@@ -180,7 +183,8 @@ export function AutomationTriggerPicker({
     [t],
   );
   const selectedTriggerOption =
-    translatedTriggerOptions.find((option) => option.value === trigger) ?? translatedTriggerOptions[0];
+    translatedTriggerOptions.find((option) => option.value === trigger) ??
+    translatedTriggerOptions[0];
 
   return (
     <section
@@ -229,7 +233,10 @@ export function AutomationTriggerPicker({
                       <span data-trigger-option-label className="text-sm font-medium">
                         {option.label}
                       </span>
-                      <span data-trigger-option-description className="text-xs text-muted-foreground">
+                      <span
+                        data-trigger-option-description
+                        className="text-xs text-muted-foreground"
+                      >
                         {option.description}
                       </span>
                     </span>
@@ -240,9 +247,7 @@ export function AutomationTriggerPicker({
           </SelectContent>
         </Select>
         {selectedTriggerOption ? (
-          <p className="text-xs text-muted-foreground">
-            {selectedTriggerOption.description}
-          </p>
+          <p className="text-xs text-muted-foreground">{selectedTriggerOption.description}</p>
         ) : null}
       </div>
 
@@ -285,18 +290,39 @@ export function AutomationTriggerPicker({
       ) : trigger !== "manual" ? (
         <div className="mt-4 space-y-3">
           {trigger === "hourly" ? (
-            <NumberField label={t("fields.minute")} value={minute} min={0} max={59} onChange={onMinuteChange} />
+            <NumberField
+              label={t("fields.minute")}
+              value={minute}
+              min={0}
+              max={59}
+              onChange={onMinuteChange}
+            />
           ) : null}
           {trigger === "daily" || trigger === "weekly" || trigger === "monthly" ? (
             <div className="grid grid-cols-2 gap-2">
-              <NumberField label={t("fields.hour")} value={hour} min={0} max={23} onChange={onHourChange} />
-              <NumberField label={t("fields.minute")} value={minute} min={0} max={59} onChange={onMinuteChange} />
+              <NumberField
+                label={t("fields.hour")}
+                value={hour}
+                min={0}
+                max={23}
+                onChange={onHourChange}
+              />
+              <NumberField
+                label={t("fields.minute")}
+                value={minute}
+                min={0}
+                max={59}
+                onChange={onMinuteChange}
+              />
             </div>
           ) : null}
           {trigger === "weekly" ? (
             <div className="space-y-2">
               <Label>{t("fields.day")}</Label>
-              <Select value={String(dayOfWeek)} onValueChange={(value) => onDayOfWeekChange(Number(value))}>
+              <Select
+                value={String(dayOfWeek)}
+                onValueChange={(value) => onDayOfWeekChange(Number(value))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -311,7 +337,13 @@ export function AutomationTriggerPicker({
             </div>
           ) : null}
           {trigger === "monthly" ? (
-            <NumberField label={t("fields.dayOfMonth")} value={dayOfMonth} min={1} max={31} onChange={onDayOfMonthChange} />
+            <NumberField
+              label={t("fields.dayOfMonth")}
+              value={dayOfMonth}
+              min={1}
+              max={31}
+              onChange={onDayOfMonthChange}
+            />
           ) : null}
           {trigger === "cron" ? (
             <div className="space-y-2">
@@ -326,7 +358,11 @@ export function AutomationTriggerPicker({
           ) : null}
           <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2">
             <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground">
-              {previewLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Clock3 className="size-3.5" />}
+              {previewLoading ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : (
+                <Clock3 className="size-3.5" />
+              )}
               {t("nextRuns")}
             </div>
             {previewError ? (
@@ -408,18 +444,15 @@ function TimezoneSelect({
 }
 
 function groupTimezoneOptions(options: TimezoneOption[]) {
-  return options.reduce<Array<{ group: string; options: TimezoneOption[] }>>(
-    (groups, option) => {
-      const existingGroup = groups.find((group) => group.group === option.group);
-      if (existingGroup) {
-        existingGroup.options.push(option);
-      } else {
-        groups.push({ group: option.group, options: [option] });
-      }
-      return groups;
-    },
-    [],
-  );
+  return options.reduce<Array<{ group: string; options: TimezoneOption[] }>>((groups, option) => {
+    const existingGroup = groups.find((group) => group.group === option.group);
+    if (existingGroup) {
+      existingGroup.options.push(option);
+    } else {
+      groups.push({ group: option.group, options: [option] });
+    }
+    return groups;
+  }, []);
 }
 
 function NumberField({

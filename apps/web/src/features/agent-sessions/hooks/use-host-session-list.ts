@@ -90,7 +90,9 @@ export function useHostSessionList({
   const providerId = filters?.providerId ?? null;
   const project = filters?.project ?? null;
   const includeArchived = filters?.showArchived ?? false;
-  const { updatedAfter, updatedBefore } = hostSessionDateBounds(filters ?? EMPTY_HOST_SESSION_FILTERS);
+  const { updatedAfter, updatedBefore } = hostSessionDateBounds(
+    filters ?? EMPTY_HOST_SESSION_FILTERS,
+  );
   const [sessions, setSessions] = useState<HostSessionListItem[]>([]);
   const [hits, setHits] = useState<HostSessionSearchHit[]>([]);
   const [searchStatus, setSearchStatus] = useState<HostSessionSearchStatus | null>(null);
@@ -138,30 +140,27 @@ export function useHostSessionList({
     setReloadToken((token) => token + 1);
   }, []);
 
-  const mergeFacets = useCallback(
-    (rows: readonly HostSessionListItem[], reset: boolean) => {
-      if (reset) {
-        providerSetRef.current = new Set();
-        projectSetRef.current = new Set();
+  const mergeFacets = useCallback((rows: readonly HostSessionListItem[], reset: boolean) => {
+    if (reset) {
+      providerSetRef.current = new Set();
+      projectSetRef.current = new Set();
+    }
+    let changed = reset;
+    for (const row of rows) {
+      if (!providerSetRef.current.has(row.provider_id)) {
+        providerSetRef.current.add(row.provider_id);
+        changed = true;
       }
-      let changed = reset;
-      for (const row of rows) {
-        if (!providerSetRef.current.has(row.provider_id)) {
-          providerSetRef.current.add(row.provider_id);
-          changed = true;
-        }
-        const label = hostSessionProjectLabel(row);
-        if (label && !projectSetRef.current.has(label)) {
-          projectSetRef.current.add(label);
-          changed = true;
-        }
+      const label = hostSessionProjectLabel(row);
+      if (label && !projectSetRef.current.has(label)) {
+        projectSetRef.current.add(label);
+        changed = true;
       }
-      if (!changed) return;
-      setFacetProviders([...providerSetRef.current].sort((a, b) => a.localeCompare(b)));
-      setFacetProjects([...projectSetRef.current].sort((a, b) => a.localeCompare(b)));
-    },
-    [],
-  );
+    }
+    if (!changed) return;
+    setFacetProviders([...providerSetRef.current].sort((a, b) => a.localeCompare(b)));
+    setFacetProjects([...projectSetRef.current].sort((a, b) => a.localeCompare(b)));
+  }, []);
 
   useEffect(() => {
     if (!connected) {
@@ -297,7 +296,18 @@ export function useHostSessionList({
         loadingMoreRef.current = false;
         setIsLoadingMore(false);
       });
-  }, [connected, debouncedQuery, includeArchived, mergeFacets, project, providerId, sort.field, sort.order, updatedAfter, updatedBefore]);
+  }, [
+    connected,
+    debouncedQuery,
+    includeArchived,
+    mergeFacets,
+    project,
+    providerId,
+    sort.field,
+    sort.order,
+    updatedAfter,
+    updatedBefore,
+  ]);
 
   useEffect(() => {
     if (!connected) return;

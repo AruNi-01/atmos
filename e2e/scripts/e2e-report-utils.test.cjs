@@ -88,7 +88,9 @@ describe("e2e-report-utils PR comments", () => {
     expect(body).toContain(REPORT_COMMENT_MARKER);
     expect(body).not.toContain(REPORT_COMMENT_EXPIRED_MARKER);
     expect(body).toContain("## E2E report: ❌ Failed");
-    expect(body).toContain("**3 passed** · 1 failed · 1 flaky · 1 skipped · **2m 5s** · 60% pass rate");
+    expect(body).toContain(
+      "**3 passed** · 1 failed · 1 flaky · 1 skipped · **2m 5s** · 60% pass rate",
+    );
     expect(body).toContain("### Run");
     expect(body).toContain("<details>");
     expect(body).toContain("<summary><strong>Overview</strong></summary>");

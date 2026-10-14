@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
-import { useQueryState } from 'nuqs';
+import React, { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
+import { useQueryState } from "nuqs";
 import {
   Tabs,
   TabsList,
@@ -16,11 +16,11 @@ import {
   LoaderCircle,
   RotateCcw,
   Button,
-} from '@workspace/ui';
-import { skillsApi, SkillInfo } from '@/api/ws-api';
-import { skillsModalParams, type SkillsModalTab } from '@/shared/lib/nuqs/searchParams';
-import { SkillCard } from './SkillCard';
-import { SkillDetail } from './SkillDetail';
+} from "@workspace/ui";
+import { skillsApi, SkillInfo } from "@/api/ws-api";
+import { skillsModalParams, type SkillsModalTab } from "@/shared/lib/nuqs/searchParams";
+import { SkillCard } from "./SkillCard";
+import { SkillDetail } from "./SkillDetail";
 
 interface SkillsModalProps {
   isOpen: boolean;
@@ -28,8 +28,11 @@ interface SkillsModalProps {
 }
 
 export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => {
-  const t = useTranslations('skills.modal');
-  const [activeTab, setActiveTab] = useQueryState('skillsModalTab', skillsModalParams.skillsModalTab);
+  const t = useTranslations("skills.modal");
+  const [activeTab, setActiveTab] = useQueryState(
+    "skillsModalTab",
+    skillsModalParams.skillsModalTab,
+  );
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
@@ -40,7 +43,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
       const result = await skillsApi.list();
       setSkills(result.skills || []);
     } catch (error) {
-      console.error('Failed to load skills:', error);
+      console.error("Failed to load skills:", error);
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +60,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
   }, []);
 
   useEffect(() => {
-    if (isOpen && activeTab === 'my-skills' && !selectedSkill) {
+    if (isOpen && activeTab === "my-skills" && !selectedSkill) {
       loadSkills();
     }
   }, [isOpen, activeTab, loadSkills, selectedSkill]);
@@ -72,7 +75,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
   // Handle ESC key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (selectedSkill) {
           setSelectedSkill(null);
         } else {
@@ -81,8 +84,8 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
       }
     };
     if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
     }
   }, [isOpen, onClose, selectedSkill]);
 
@@ -91,7 +94,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
   // Show skill detail view
   if (selectedSkill) {
     return (
-      <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background">
         <SkillDetail
           skill={selectedSkill}
           onBack={() => setSelectedSkill(null)}
@@ -103,12 +106,12 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <Puzzle className="size-5" />
-          {t('title')}
+          {t("title")}
         </h2>
         <div className="flex items-center gap-2">
           <Button
@@ -118,12 +121,16 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
             disabled={isLoading}
             className="gap-2"
           >
-            {isLoading ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
-            {t('actions.refresh')}
+            {isLoading ? (
+              <LoaderCircle className="animate-spin-reverse size-4" />
+            ) : (
+              <RotateCcw className="size-4" />
+            )}
+            {t("actions.refresh")}
           </Button>
           <button
             onClick={onClose}
-            className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+            className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="size-5" />
           </button>
@@ -131,49 +138,50 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
       </div>
 
       {/* Tabs */}
-      <Tabs 
-        value={activeTab} 
+      <Tabs
+        value={activeTab}
         onValueChange={(v) => setActiveTab(v as SkillsModalTab)}
-        className="flex-1 flex flex-col overflow-hidden"
+        className="flex flex-1 flex-col overflow-hidden"
       >
-        <div className="px-6 py-4 shrink-0 border-b border-border">
+        <div className="shrink-0 border-b border-border px-6 py-4">
           <TabsList className="w-fit">
             <TabsTrigger value="my-skills" className="flex items-center gap-2 px-4">
               <Puzzle className="size-4" />
-              {t('tabs.mySkills')}
+              {t("tabs.mySkills")}
               {skills.length > 0 && (
-                <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full ml-1">
+                <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs">
                   {skills.length}
                 </span>
               )}
             </TabsTrigger>
             <TabsTrigger value="marketplace" className="flex items-center gap-2 px-4">
               <Store className="size-4" />
-              {t('tabs.marketplace')}
+              {t("tabs.marketplace")}
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="my-skills" className="flex-1 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+        <TabsContent
+          value="my-skills"
+          className="m-0 flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+        >
           {isLoading ? (
-            <div className="flex items-center justify-center flex-1">
+            <div className="flex flex-1 items-center justify-center">
               <Loader2 className="size-8 animate-spin text-muted-foreground" />
             </div>
           ) : skills.length === 0 ? (
-            <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
-              <Puzzle className="size-16 mb-4 opacity-30" />
-              <p className="text-base font-medium">{t('empty.title')}</p>
-              <p className="text-sm mt-1">
-                {t('empty.description')}
-              </p>
+            <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
+              <Puzzle className="mb-4 size-16 opacity-30" />
+              <p className="text-base font-medium">{t("empty.title")}</p>
+              <p className="mt-1 text-sm">{t("empty.description")}</p>
             </div>
           ) : (
             <ScrollArea className="flex-1" scrollFade>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 p-6">
+              <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {skills.map((skill, index) => (
-                  <SkillCard 
-                    key={`${skill.agents.join(",")}-${skill.name}-${index}`} 
-                    skill={skill} 
+                  <SkillCard
+                    key={`${skill.agents.join(",")}-${skill.name}-${index}`}
+                    skill={skill}
                     onClick={() => setSelectedSkill(skill)}
                   />
                 ))}
@@ -182,11 +190,14 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
           )}
         </TabsContent>
 
-        <TabsContent value="marketplace" className="flex-1 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+        <TabsContent
+          value="marketplace"
+          className="m-0 flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+        >
           <iframe
             src="https://skills.sh"
             className="w-full flex-1 border-0"
-            title={t('marketplaceFrameTitle')}
+            title={t("marketplaceFrameTitle")}
             allow="clipboard-write"
           />
         </TabsContent>

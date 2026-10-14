@@ -13,12 +13,14 @@ import {
 
 describe("markdown find", () => {
   test("compiles literal, case, word, and regexp queries", () => {
-    expect(compileMarkdownFindPattern({
-      search: "Hello.",
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: false,
-    }).pattern?.source).toContain("Hello");
+    expect(
+      compileMarkdownFindPattern({
+        search: "Hello.",
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: false,
+      }).pattern?.source,
+    ).toContain("Hello");
 
     const sensitive = compileMarkdownFindPattern({
       search: "Ab",
@@ -31,12 +33,14 @@ describe("markdown find", () => {
     sensitive.lastIndex = 0;
     expect(sensitive.test("ab")).toBe(false);
 
-    expect(compileMarkdownFindPattern({
-      search: "(",
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: true,
-    }).invalid).toBe(true);
+    expect(
+      compileMarkdownFindPattern({
+        search: "(",
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: true,
+      }).invalid,
+    ).toBe(true);
   });
 
   test("matches the same literal, case, and invalid regexp rules as find", () => {
@@ -47,8 +51,12 @@ describe("markdown find", () => {
       regexp: false,
     };
     expect(markdownFindMatches("please export this", query)).toBe(true);
-    expect(markdownFindMatches("please export this", { ...query, caseSensitive: true })).toBe(false);
-    expect(markdownFindMatches("please export this", { ...query, search: "(" , regexp: true })).toBe(false);
+    expect(markdownFindMatches("please export this", { ...query, caseSensitive: true })).toBe(
+      false,
+    );
+    expect(markdownFindMatches("please export this", { ...query, search: "(", regexp: true })).toBe(
+      false,
+    );
     expect(markdownFindMatches("please export this", { ...query, search: "" })).toBe(false);
     expect(markdownFindMatches("", query)).toBe(false);
   });
@@ -102,10 +110,7 @@ describe("markdown find", () => {
       { scopeSelector: TRANSCRIPT_FIND_SCOPE },
     );
     expect(hits).toHaveLength(2);
-    expect(hits.map((hit) => hit.startNode.textContent)).toEqual([
-      "user hello",
-      "answer hello",
-    ]);
+    expect(hits.map((hit) => hit.startNode.textContent)).toEqual(["user hello", "answer hello"]);
   });
 
   test("walks root sibling text nodes in document order", () => {
@@ -118,10 +123,7 @@ describe("markdown find", () => {
       wholeWord: false,
       regexp: false,
     });
-    expect(hits.map((hit) => hit.startNode.textContent)).toEqual([
-      "zebra",
-      "apple",
-    ]);
+    expect(hits.map((hit) => hit.startNode.textContent)).toEqual(["zebra", "apple"]);
   });
 
   test("matches a query that spans inline markup", () => {
@@ -143,66 +145,80 @@ describe("markdown find", () => {
     const win = new Window({ url: "https://app.atmos.local/" });
     const root = win.document.createElement("div");
     root.innerHTML = "<p>hello</p><p>world</p>";
-    expect(findMarkdownHits(root, {
-      search: "helloworld",
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: false,
-    }).hits).toHaveLength(0);
-    expect(findMarkdownHits(root, {
-      search: "hello",
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: false,
-    }).hits).toHaveLength(1);
-    expect(findMarkdownHits(root, {
-      search: String.raw`hello\s+world`,
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: true,
-    }).hits).toHaveLength(0);
+    expect(
+      findMarkdownHits(root, {
+        search: "helloworld",
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: false,
+      }).hits,
+    ).toHaveLength(0);
+    expect(
+      findMarkdownHits(root, {
+        search: "hello",
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: false,
+      }).hits,
+    ).toHaveLength(1);
+    expect(
+      findMarkdownHits(root, {
+        search: String.raw`hello\s+world`,
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: true,
+      }).hits,
+    ).toHaveLength(0);
   });
 
   test("still matches real newlines inside a pre block", () => {
     const win = new Window({ url: "https://app.atmos.local/" });
     const root = win.document.createElement("div");
     root.innerHTML = "<pre>hello\nworld</pre>";
-    expect(findMarkdownHits(root, {
-      search: String.raw`hello\s+world`,
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: true,
-    }).hits).toHaveLength(1);
+    expect(
+      findMarkdownHits(root, {
+        search: String.raw`hello\s+world`,
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: true,
+      }).hits,
+    ).toHaveLength(1);
   });
 
   test("does not match across a pre that already ends with a newline", () => {
     const win = new Window({ url: "https://app.atmos.local/" });
     const root = win.document.createElement("div");
     root.innerHTML = "<pre>hello\n</pre><p>world</p>";
-    expect(findMarkdownHits(root, {
-      search: String.raw`hello\s+world`,
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: true,
-    }).hits).toHaveLength(0);
+    expect(
+      findMarkdownHits(root, {
+        search: String.raw`hello\s+world`,
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: true,
+      }).hits,
+    ).toHaveLength(0);
   });
 
   test("matches a regexp across a line break inside one paragraph", () => {
     const win = new Window({ url: "https://app.atmos.local/" });
     const root = win.document.createElement("div");
     root.innerHTML = "<p>hello<br>world</p>";
-    expect(findMarkdownHits(root, {
-      search: String.raw`hello\s+world`,
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: true,
-    }).hits).toHaveLength(1);
-    expect(findMarkdownHits(root, {
-      search: String.raw`\n`,
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: true,
-    }).hits).toHaveLength(0);
+    expect(
+      findMarkdownHits(root, {
+        search: String.raw`hello\s+world`,
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: true,
+      }).hits,
+    ).toHaveLength(1);
+    expect(
+      findMarkdownHits(root, {
+        search: String.raw`\n`,
+        caseSensitive: false,
+        wholeWord: false,
+        regexp: true,
+      }).hits,
+    ).toHaveLength(0);
   });
 
   test("clips highlight rects to the visible root without adding scroll offset", () => {
@@ -213,11 +229,13 @@ describe("markdown find", () => {
     );
     expect(clipped).toEqual({ top: 40, left: 30, width: 50, height: 20 });
 
-    expect(clipFindHighlightRect(
-      { top: 10, left: 40, right: 90, bottom: 30 },
-      { top: 100, left: 0, right: 400, bottom: 500 },
-      { top: 0, left: 0 },
-    )).toBeNull();
+    expect(
+      clipFindHighlightRect(
+        { top: 10, left: 40, right: 90, bottom: 30 },
+        { top: 100, left: 0, right: 400, bottom: 500 },
+        { top: 0, left: 0 },
+      ),
+    ).toBeNull();
   });
 
   test("content highlight rects stay glued to the host when both move by the same scroll", () => {

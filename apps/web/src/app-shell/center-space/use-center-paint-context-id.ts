@@ -16,9 +16,7 @@ export function useCenterPaintContextId(): string | null {
 }
 
 /** Paint context that should own a tab opened from the current center. */
-export function useResolvedCenterOpenContextId(
-  requested?: string | null,
-): string | null {
+export function useResolvedCenterOpenContextId(requested?: string | null): string | null {
   const { effectiveContextId: hostId } = useContextParams();
   const paintId = useCenterPaintContextId();
   return resolveCenterOpenContextId(requested, hostId, paintId);

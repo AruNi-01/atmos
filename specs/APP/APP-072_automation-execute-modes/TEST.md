@@ -16,66 +16,66 @@ Deterministic Rust tests own mode persistence, start branching, complete/fail ru
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S3, S4 |
-| M3 | S5, S6 |
-| M4 | S7, S8 |
-| M5 | S9, S10 |
-| M6 | S11, S12 |
-| M7 | S13, S14, S15 |
-| M8 | S16, S17 |
-| M9 | S18, S19 |
-| M10 | S20, S21 |
-| M11 | S22, S23, S24 |
-| M12 | S25, S26 |
-| M13 | S25 |
-| M14 | S27, S28 |
-| M15 | S29, S30, S31 |
+| PRD item  | Scenario IDs  |
+| --------- | ------------- |
+| M1        | S1, S2        |
+| M2        | S3, S4        |
+| M3        | S5, S6        |
+| M4        | S7, S8        |
+| M5        | S9, S10       |
+| M6        | S11, S12      |
+| M7        | S13, S14, S15 |
+| M8        | S16, S17      |
+| M9        | S18, S19      |
+| M10       | S20, S21      |
+| M11       | S22, S23, S24 |
+| M12       | S25, S26      |
+| M13       | S25           |
+| M14       | S27, S28      |
+| M15       | S29, S30, S31 |
 | 1h prompt | S32, S33, S34 |
-| N1, N3 | deferred |
-| N2 | S20 |
-| N4 | S23 |
+| N1, N3    | deferred      |
+| N2        | S20           |
+| N4        | S23           |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust | `cargo test` | create/get execute_mode | default omitted | column `headless` | planned |
-| S2 | Bun | `bun test` | AutomationSetup | fixture source | three tabs above Instructions | planned |
-| S3 | Bun | `bun test` | Headless picker | AutomationAgentPicker | inline max-height; no popover | planned |
-| S4 | Bun / Rust | `bun test` / `cargo test` | unavailable agent | no non-interactive flags | `unavailable_reason` shown; cannot select | planned |
-| S5 | Rust | `cargo test` | interactive resolver | terminal mode | uses interactive flags, not `--print` | planned |
-| S6 | Bun | `bun test` | Terminal tab | setup source | TerminalAgentSelectorWithRunConfig present | planned |
-| S7 | Bun | `bun test` | Chat tab | setup source | installedAgents / history picker, not terminal list | planned |
-| S8 | Rust | `cargo test` | chat agent_config | `{kind:chat}` | stored in agent_config_json | planned |
-| S9 | Rust | `cargo test` | start_run terminal | execute_mode=terminal | does not spawn process_runner | planned |
-| S10 | Rust | `cargo test` | scheduler/github entry | same start_run_from_model | no silent headless fallback | planned |
-| S11 | Rust | `cargo test` | headless start | execute_mode=headless | process_runner; tmux None; surface none | planned |
-| S12 | Rust | `cargo test` | headless complete | process exit | runner writes final.md / run.json | planned |
-| S13 | Rust | `cargo test` | project terminal scope | target project | workspace_id = project guid | planned |
-| S14 | Rust | `cargo test` | new_workspace then tab | target new_workspace | created_workspace_guid set before session | planned |
-| S15 | Rust | `cargo test` | standalone scope | target standalone | scope `automation:{guid}`; cwd definition dir; no worktree | planned |
-| S16 | Rust | `cargo test` | chat create+send | mode chat | AgentChatService create then send | planned |
-| S17 | Rust | `cargo test` | chat standalone cwd | workspace_id automation: | no get_workspace; cwd definition dir | planned |
-| S18 | Rust | `cargo test` | interactive prompt | build prompt | skill path + `atmos automation complete` | planned |
-| S19 | Rust | `cargo test` | no TTY parse | interactive finish | status stays running without complete | planned |
-| S20 | Bun | `bun test` | chip copy | i18n + chip helper | “Automation”; tooltip job · short id | planned |
-| S21 | Rust / Bun | `cargo test` | metadata | origin+run_guid | survives reload (server fields) | planned |
-| S22 | Bun | `bun test` | sidebar synth | list standalone | group Automations Standalone; one row per job | planned |
-| S23 | Bun | `bun test` | filter | show_automation_workspaces=false | virtual group hidden | planned |
-| S24 | Rust | `cargo test` | no Project insert | standalone create | project table unchanged | planned |
-| S25 | Bun | `bun test` | landing href | run DTO | headless `?run=`; terminal/chat tab routes | planned |
-| S26 | Bun | `bun test` | try-run validation | empty name | blocked; no run_now | planned |
-| S27 | Structural | grep | runner | process_runner + interactive_runner | no `~/.atmos/bin/atmos` exec | planned |
-| S28 | Rust / CLI | `cargo test` | complete invoke | CLI | action `automation_run_complete` via invoke | planned |
-| S29 | Structural | grep | skill | skills/atmos-automation | in ALL_SYSTEM_SKILL_NAMES + manifest | planned |
-| S30 | Structural | grep | atmos-cli | SKILL.md | points completion here | planned |
-| S31 | Rust / CLI | `cargo test` | paths/status | CLI | invoke `automation_run_paths` / `automation_run_get` | planned |
-| S32 | Rust | `cargo test` | 1h scan | running 61m terminal | stale_prompted_at set; status still running | planned |
-| S33 | Rust | `cargo test` | dismiss | prompted run | dismissed true; status unchanged | planned |
-| S34 | Bun | `bun test` | banner | stale DTO | click calls dismiss; not toastManager success | planned |
+| Scenario | Level      | Expected tool             | Target command / method | Fixture / data                      | Signals                                                    | Status  |
+| -------- | ---------- | ------------------------- | ----------------------- | ----------------------------------- | ---------------------------------------------------------- | ------- |
+| S1       | Rust       | `cargo test`              | create/get execute_mode | default omitted                     | column `headless`                                          | planned |
+| S2       | Bun        | `bun test`                | AutomationSetup         | fixture source                      | three tabs above Instructions                              | planned |
+| S3       | Bun        | `bun test`                | Headless picker         | AutomationAgentPicker               | inline max-height; no popover                              | planned |
+| S4       | Bun / Rust | `bun test` / `cargo test` | unavailable agent       | no non-interactive flags            | `unavailable_reason` shown; cannot select                  | planned |
+| S5       | Rust       | `cargo test`              | interactive resolver    | terminal mode                       | uses interactive flags, not `--print`                      | planned |
+| S6       | Bun        | `bun test`                | Terminal tab            | setup source                        | TerminalAgentSelectorWithRunConfig present                 | planned |
+| S7       | Bun        | `bun test`                | Chat tab                | setup source                        | installedAgents / history picker, not terminal list        | planned |
+| S8       | Rust       | `cargo test`              | chat agent_config       | `{kind:chat}`                       | stored in agent_config_json                                | planned |
+| S9       | Rust       | `cargo test`              | start_run terminal      | execute_mode=terminal               | does not spawn process_runner                              | planned |
+| S10      | Rust       | `cargo test`              | scheduler/github entry  | same start_run_from_model           | no silent headless fallback                                | planned |
+| S11      | Rust       | `cargo test`              | headless start          | execute_mode=headless               | process_runner; tmux None; surface none                    | planned |
+| S12      | Rust       | `cargo test`              | headless complete       | process exit                        | runner writes final.md / run.json                          | planned |
+| S13      | Rust       | `cargo test`              | project terminal scope  | target project                      | workspace_id = project guid                                | planned |
+| S14      | Rust       | `cargo test`              | new_workspace then tab  | target new_workspace                | created_workspace_guid set before session                  | planned |
+| S15      | Rust       | `cargo test`              | standalone scope        | target standalone                   | scope `automation:{guid}`; cwd definition dir; no worktree | planned |
+| S16      | Rust       | `cargo test`              | chat create+send        | mode chat                           | AgentChatService create then send                          | planned |
+| S17      | Rust       | `cargo test`              | chat standalone cwd     | workspace_id automation:            | no get_workspace; cwd definition dir                       | planned |
+| S18      | Rust       | `cargo test`              | interactive prompt      | build prompt                        | skill path + `atmos automation complete`                   | planned |
+| S19      | Rust       | `cargo test`              | no TTY parse            | interactive finish                  | status stays running without complete                      | planned |
+| S20      | Bun        | `bun test`                | chip copy               | i18n + chip helper                  | “Automation”; tooltip job · short id                       | planned |
+| S21      | Rust / Bun | `cargo test`              | metadata                | origin+run_guid                     | survives reload (server fields)                            | planned |
+| S22      | Bun        | `bun test`                | sidebar synth           | list standalone                     | group Automations Standalone; one row per job              | planned |
+| S23      | Bun        | `bun test`                | filter                  | show_automation_workspaces=false    | virtual group hidden                                       | planned |
+| S24      | Rust       | `cargo test`              | no Project insert       | standalone create                   | project table unchanged                                    | planned |
+| S25      | Bun        | `bun test`                | landing href            | run DTO                             | headless `?run=`; terminal/chat tab routes                 | planned |
+| S26      | Bun        | `bun test`                | try-run validation      | empty name                          | blocked; no run_now                                        | planned |
+| S27      | Structural | grep                      | runner                  | process_runner + interactive_runner | no `~/.atmos/bin/atmos` exec                               | planned |
+| S28      | Rust / CLI | `cargo test`              | complete invoke         | CLI                                 | action `automation_run_complete` via invoke                | planned |
+| S29      | Structural | grep                      | skill                   | skills/atmos-automation             | in ALL_SYSTEM_SKILL_NAMES + manifest                       | planned |
+| S30      | Structural | grep                      | atmos-cli               | SKILL.md                            | points completion here                                     | planned |
+| S31      | Rust / CLI | `cargo test`              | paths/status            | CLI                                 | invoke `automation_run_paths` / `automation_run_get`       | planned |
+| S32      | Rust       | `cargo test`              | 1h scan                 | running 61m terminal                | stale_prompted_at set; status still running                | planned |
+| S33      | Rust       | `cargo test`              | dismiss                 | prompted run                        | dismissed true; status unchanged                           | planned |
+| S34      | Bun        | `bun test`                | banner                  | stale DTO                           | click calls dismiss; not toastManager success              | planned |
 
 ## Scenarios
 
@@ -408,36 +408,36 @@ Use `agent-browser` (load the installed skill or `agent-browser skills get core 
 
 Ran 2026-09-12. Follow-up verification same day.
 
-| Scenario | Status | Covered by |
-|----------|--------|------------|
-| S1 | ✅ | `parse_execute_mode_defaults_and_rejects_unknown` + `s1_create_persists_headless_execute_mode` |
-| S2 | ✅ | `automation-execute-modes.test.ts` |
-| S3 | ✅ | same + `AutomationAgentPicker` inline `max-h-[178px]` |
-| S4 | ✅ | picker `disabled={!agent.automation_supported}` + `unavailable_reason` |
-| S5 | ✅ | `interactive_prompt_points_at_skill_and_cli` + agents `s5_*` / `s11_*` interactive flags |
-| S6 | ✅ | setup source keeps `WelcomeAgentSelector` only when `executeMode === "terminal"` |
-| S7 | ✅ | setup source uses `useNativeChatAgentListQuery` |
-| S8 | ✅ | `s8_chat_config_stores_kind_and_provider` |
-| S9–S12 | ⚠️ | Headless APP-017 `output_rendering` / `runner` / agents `s11_*` passed; no live `start_run` spy |
-| S13 | ✅ | `project_scope_uses_project_guid` |
-| S14 | ✅ | `s14_new_workspace_scope_uses_created_workspace_guid` + `s14_new_workspace_run_persists_created_workspace_guid` |
-| S15 | ✅ | `standalone_scope_is_synthetic` + `standalone_scope_never_collides_with_group_id` |
-| S16–S17 | ✅ | `s16_s17_chat_create_then_send_uses_standalone_scope_without_workspace_row` (create-before-send + standalone cwd). No live AgentChatService spawn. |
-| S18 | ✅ | `interactive_prompt_points_at_skill_and_cli` |
-| S19 | ✅ | `only_terminal_and_chat_are_interactive`; complete requires non-empty `final.md` |
-| S20 | ✅ | `automation-run-landing.test.ts` + `AutomationChip` + tab/sidebar mark source |
-| S21 | ✅ | `s21_chat_surface_metadata_survives_reload` |
-| S22 | ✅ | `standalone-sidebar.test.ts` |
-| S23 | ✅ | synthetic rows use `createSource: "automation"` + `left-sidebar-derived.test.ts` |
-| S24 | ✅ | `s24_standalone_create_does_not_insert_project` |
-| S25 | ✅ | `automation-run-landing.test.ts` |
-| S26 | ✅ | `formValid` empty-name gate + try-run returns before `onRunNow` |
-| S27 | ✅ | CLI/skill tests assert invoke client; runner modules do not exec `atmos` |
-| S28 / S31 | ✅ | `apps/cli` `verbs_call_server_invoke_actions` |
-| S29 / S30 | ✅ | `atmos-automation-skill.test.ts` |
-| S32 | ✅ | `stale_prompt_age_is_one_hour` + `s32_s33_stale_prompt_scan_and_dismiss_keep_running` |
-| S33 | ✅ | same DB fixture: dismiss sets `stale_prompt_dismissed`, status stays `running` |
-| S34 | ✅ | `automation-execute-modes.test.ts` stale banner |
+| Scenario  | Status | Covered by                                                                                                                                         |
+| --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1        | ✅     | `parse_execute_mode_defaults_and_rejects_unknown` + `s1_create_persists_headless_execute_mode`                                                     |
+| S2        | ✅     | `automation-execute-modes.test.ts`                                                                                                                 |
+| S3        | ✅     | same + `AutomationAgentPicker` inline `max-h-[178px]`                                                                                              |
+| S4        | ✅     | picker `disabled={!agent.automation_supported}` + `unavailable_reason`                                                                             |
+| S5        | ✅     | `interactive_prompt_points_at_skill_and_cli` + agents `s5_*` / `s11_*` interactive flags                                                           |
+| S6        | ✅     | setup source keeps `WelcomeAgentSelector` only when `executeMode === "terminal"`                                                                   |
+| S7        | ✅     | setup source uses `useNativeChatAgentListQuery`                                                                                                    |
+| S8        | ✅     | `s8_chat_config_stores_kind_and_provider`                                                                                                          |
+| S9–S12    | ⚠️     | Headless APP-017 `output_rendering` / `runner` / agents `s11_*` passed; no live `start_run` spy                                                    |
+| S13       | ✅     | `project_scope_uses_project_guid`                                                                                                                  |
+| S14       | ✅     | `s14_new_workspace_scope_uses_created_workspace_guid` + `s14_new_workspace_run_persists_created_workspace_guid`                                    |
+| S15       | ✅     | `standalone_scope_is_synthetic` + `standalone_scope_never_collides_with_group_id`                                                                  |
+| S16–S17   | ✅     | `s16_s17_chat_create_then_send_uses_standalone_scope_without_workspace_row` (create-before-send + standalone cwd). No live AgentChatService spawn. |
+| S18       | ✅     | `interactive_prompt_points_at_skill_and_cli`                                                                                                       |
+| S19       | ✅     | `only_terminal_and_chat_are_interactive`; complete requires non-empty `final.md`                                                                   |
+| S20       | ✅     | `automation-run-landing.test.ts` + `AutomationChip` + tab/sidebar mark source                                                                      |
+| S21       | ✅     | `s21_chat_surface_metadata_survives_reload`                                                                                                        |
+| S22       | ✅     | `standalone-sidebar.test.ts`                                                                                                                       |
+| S23       | ✅     | synthetic rows use `createSource: "automation"` + `left-sidebar-derived.test.ts`                                                                   |
+| S24       | ✅     | `s24_standalone_create_does_not_insert_project`                                                                                                    |
+| S25       | ✅     | `automation-run-landing.test.ts`                                                                                                                   |
+| S26       | ✅     | `formValid` empty-name gate + try-run returns before `onRunNow`                                                                                    |
+| S27       | ✅     | CLI/skill tests assert invoke client; runner modules do not exec `atmos`                                                                           |
+| S28 / S31 | ✅     | `apps/cli` `verbs_call_server_invoke_actions`                                                                                                      |
+| S29 / S30 | ✅     | `atmos-automation-skill.test.ts`                                                                                                                   |
+| S32       | ✅     | `stale_prompt_age_is_one_hour` + `s32_s33_stale_prompt_scan_and_dismiss_keep_running`                                                              |
+| S33       | ✅     | same DB fixture: dismiss sets `stale_prompt_dismissed`, status stays `running`                                                                     |
+| S34       | ✅     | `automation-execute-modes.test.ts` stale banner                                                                                                    |
 
 ### Commands (this follow-up)
 

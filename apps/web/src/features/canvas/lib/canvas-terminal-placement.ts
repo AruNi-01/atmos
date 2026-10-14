@@ -55,7 +55,11 @@ function rectsOverlap(a: CanvasPlacementRect, b: CanvasPlacementRect, gap: numbe
   );
 }
 
-function fits(candidate: CanvasPlacementRect, occupied: CanvasPlacementRect[], gap: number): boolean {
+function fits(
+  candidate: CanvasPlacementRect,
+  occupied: CanvasPlacementRect[],
+  gap: number,
+): boolean {
   return !occupied.some((rect) => rectsOverlap(candidate, rect, gap));
 }
 
@@ -247,7 +251,10 @@ export function findCanvasTerminalPlacement(
     const y = originY + dy;
     const candidate: CanvasPlacementRect = { x, y, w, h };
     if (!fits(candidate, occupied, PLACEMENT_GAP)) continue;
-    if (contentCenter && distance({ x: x + w / 2, y: y + h / 2 }, contentCenter) > MAX_SEARCH_RADIUS + w) {
+    if (
+      contentCenter &&
+      distance({ x: x + w / 2, y: y + h / 2 }, contentCenter) > MAX_SEARCH_RADIUS + w
+    ) {
       continue;
     }
     return { x, y };

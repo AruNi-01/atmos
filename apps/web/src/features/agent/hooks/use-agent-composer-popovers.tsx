@@ -101,9 +101,7 @@ export function useAgentComposerPopovers({
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
   const [slashPopoverView, setSlashPopoverView] = React.useState<SlashPopoverView>("menu");
   const [skillDisableFilter, setSkillDisableFilter] = React.useState("");
-  const [, setSkillDisableSessionActions] = React.useState<
-    SkillDisableSessionAction[]
-  >([]);
+  const [, setSkillDisableSessionActions] = React.useState<SkillDisableSessionAction[]>([]);
   const suppressSlashCancelRef = React.useRef(false);
   const slashPopoverViewRef = React.useRef<SlashPopoverView>("menu");
   slashPopoverViewRef.current = slashPopoverView;
@@ -135,11 +133,10 @@ export function useAgentComposerPopovers({
     (item: { relativePath: string }) => {
       const popover = mentionPopover;
       if (!popover) return;
-      composerRef.current?.applyMentionAtRange(
-        popover.atOffset,
-        popover.query.length,
-        { kind: "file", relativePath: item.relativePath },
-      );
+      composerRef.current?.applyMentionAtRange(popover.atOffset, popover.query.length, {
+        kind: "file",
+        relativePath: item.relativePath,
+      });
       setMentionPopover(null);
     },
     [composerRef, mentionPopover],
@@ -153,11 +150,10 @@ export function useAgentComposerPopovers({
         selectMentionFile(item.file);
         return;
       }
-      composerRef.current?.applyMentionAtRange(
-        popover.atOffset,
-        popover.query.length,
-        { kind: item.type, number: item.type === "issue" ? item.issue.number : item.pr.number },
-      );
+      composerRef.current?.applyMentionAtRange(popover.atOffset, popover.query.length, {
+        kind: item.type,
+        number: item.type === "issue" ? item.issue.number : item.pr.number,
+      });
       setMentionPopover(null);
     },
     [composerRef, mentionPopover, selectMentionFile],
@@ -255,11 +251,11 @@ export function useAgentComposerPopovers({
       if (skill.status === "disabled") return;
       const popover = slashPopover;
       if (!popover) return;
-      composerRef.current?.applySlashAtRange(
-        popover.slashOffset,
-        popover.query.length,
-        { kind: "skill", absolutePath: skill.path, name: skill.name },
-      );
+      composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+        kind: "skill",
+        absolutePath: skill.path,
+        name: skill.name,
+      });
       setSlashPopover(null);
       setSlashPopoverView("menu");
       setSkillDisableFilter("");
@@ -272,10 +268,7 @@ export function useAgentComposerPopovers({
     if (!popover || !skillsContext) return;
     suppressSlashCancelRef.current = true;
     setSkillDisableSessionActions([]);
-    composerRef.current?.applySkillDisableCommandAtRange(
-      popover.slashOffset,
-      popover.query.length,
-    );
+    composerRef.current?.applySkillDisableCommandAtRange(popover.slashOffset, popover.query.length);
     slashPopoverViewRef.current = "disable_skills";
     setSlashPopoverView("disable_skills");
     setSkillDisableFilter("");
@@ -366,15 +359,11 @@ export function useAgentComposerPopovers({
         setSlashPopover(null);
         setSlashPopoverView("menu");
         const insertSkill = () => {
-          composerRef.current?.applySlashAtRange(
-            popover.slashOffset,
-            popover.query.length,
-            {
-              kind: "skill",
-              absolutePath: skill.absolutePath,
-              name: skill.name,
-            },
-          );
+          composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+            kind: "skill",
+            absolutePath: skill.absolutePath,
+            name: skill.name,
+          });
         };
         if (!browserUseSlashNeedsDesktopUseGate()) {
           insertSkill();
@@ -403,15 +392,11 @@ export function useAgentComposerPopovers({
           ({ gateDesktopUseFeature }) => {
             gateDesktopUseFeature("slash", {
               onReady: () => {
-                composerRef.current?.applySlashAtRange(
-                  popover.slashOffset,
-                  popover.query.length,
-                  {
-                    kind: "skill",
-                    absolutePath: skill.absolutePath,
-                    name: skill.name,
-                  },
-                );
+                composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+                  kind: "skill",
+                  absolutePath: skill.absolutePath,
+                  name: skill.name,
+                });
               },
             });
           },
@@ -420,11 +405,10 @@ export function useAgentComposerPopovers({
       }
       const matched = availableCommands.find((item) => item.name === command.id);
       if (matched) {
-        composerRef.current?.applySlashAtRange(
-          popover.slashOffset,
-          popover.query.length,
-          { kind: "command", name: matched.name },
-        );
+        composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+          kind: "command",
+          name: matched.name,
+        });
       }
       setSlashPopover(null);
       setSlashPopoverView("menu");

@@ -4,10 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ImageIcon } from "lucide-react";
 import type { GitBlobLocator, GitFileDiffResponse } from "@/api/ws-api-types";
-import {
-  formatByteSize,
-  type BinaryDiffPanel,
-} from "@/features/diff/lib/diff-content-kind";
+import { formatByteSize, type BinaryDiffPanel } from "@/features/diff/lib/diff-content-kind";
 import { resolveBlobUrl } from "@/features/diff/lib/resolve-blob-url";
 import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
 import {
@@ -38,10 +35,7 @@ interface BinaryDiffCardProps {
   className?: string;
 }
 
-function statusLabel(
-  status: string,
-  t: ReturnType<typeof useTranslations>,
-): string {
+function statusLabel(status: string, t: ReturnType<typeof useTranslations>): string {
   switch (status) {
     case "A":
     case "?":
@@ -75,7 +69,7 @@ function SideImage({
       <div className="flex items-baseline gap-1.5 text-[12px] text-muted-foreground">
         <span className="font-medium text-foreground/80">{label}</span>
         {sizeLabel ? (
-          <span className="font-mono tabular-nums text-[11px] text-muted-foreground">
+          <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
             {sizeLabel}
           </span>
         ) : null}
@@ -89,11 +83,7 @@ function SideImage({
             aria-label={label}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={url}
-              alt={label}
-              className="max-h-[320px] max-w-full object-contain"
-            />
+            <img src={url} alt={label} className="max-h-[320px] max-w-full object-contain" />
           </button>
         </ImageCopyMenuHost>
       ) : (
@@ -130,23 +120,15 @@ export function BinaryDiffCard({
     isDir: false,
     className: "size-4 shrink-0",
   });
-  const oldSizeLabel =
-    diff.old_size != null ? formatByteSize(diff.old_size) : null;
-  const newSizeLabel =
-    diff.new_size != null ? formatByteSize(diff.new_size) : null;
+  const oldSizeLabel = diff.old_size != null ? formatByteSize(diff.old_size) : null;
+  const newSizeLabel = diff.new_size != null ? formatByteSize(diff.new_size) : null;
   const identical =
-    Boolean(diff.old_sha256) &&
-    Boolean(diff.new_sha256) &&
-    diff.old_sha256 === diff.new_sha256;
-  const showImagePreview =
-    diff.preview_kind === "image" && !loadError && !identical;
+    Boolean(diff.old_sha256) && Boolean(diff.new_sha256) && diff.old_sha256 === diff.new_sha256;
+  const showImagePreview = diff.preview_kind === "image" && !loadError && !identical;
 
   const showPrevious =
-    (panel === "both" || panel === "previous") &&
-    diff.status !== "A" &&
-    diff.status !== "?";
-  const showCurrent =
-    (panel === "both" || panel === "current") && diff.status !== "D";
+    (panel === "both" || panel === "previous") && diff.status !== "A" && diff.status !== "?";
+  const showCurrent = (panel === "both" || panel === "current") && diff.status !== "D";
 
   useEffect(() => {
     let cancelled = false;
@@ -156,10 +138,7 @@ export function BinaryDiffCard({
 
     if (diff.preview_kind !== "image") return;
 
-    const load = async (
-      locator: GitBlobLocator | null,
-      setter: (u: string | null) => void,
-    ) => {
+    const load = async (locator: GitBlobLocator | null, setter: (u: string | null) => void) => {
       try {
         const url = await resolveBlobUrl(locator, repoPath);
         if (!cancelled) setter(url);
@@ -174,14 +153,7 @@ export function BinaryDiffCard({
     return () => {
       cancelled = true;
     };
-  }, [
-    diff.old_blob,
-    diff.new_blob,
-    diff.preview_kind,
-    repoPath,
-    showPrevious,
-    showCurrent,
-  ]);
+  }, [diff.old_blob, diff.new_blob, diff.preview_kind, repoPath, showPrevious, showCurrent]);
 
   return (
     <div
@@ -211,19 +183,9 @@ export function BinaryDiffCard({
         </div>
       ) : null}
 
-      <div
-        className={cn(
-          "flex flex-col gap-3 p-3",
-          (compact || embedded) && "p-2.5",
-        )}
-      >
+      <div className={cn("flex flex-col gap-3 p-3", (compact || embedded) && "p-2.5")}>
         {showImagePreview ? (
-          <div
-            className={cn(
-              "flex gap-3",
-              panel === "both" ? "flex-col sm:flex-row" : "flex-col",
-            )}
-          >
+          <div className={cn("flex gap-3", panel === "both" ? "flex-col sm:flex-row" : "flex-col")}>
             {showPrevious ? (
               <SideImage
                 label={t("previous")}
@@ -259,31 +221,21 @@ export function BinaryDiffCard({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
             {showPrevious ? (
               <span className="inline-flex items-baseline gap-1.5">
-                <span className="font-medium text-foreground/80">
-                  {t("previous")}
-                </span>
+                <span className="font-medium text-foreground/80">{t("previous")}</span>
                 {oldSizeLabel ? (
-                  <span className="font-mono tabular-nums text-[11px]">
-                    {oldSizeLabel}
-                  </span>
+                  <span className="font-mono text-[11px] tabular-nums">{oldSizeLabel}</span>
                 ) : null}
               </span>
             ) : null}
             {showCurrent ? (
               <span className="inline-flex items-baseline gap-1.5">
-                <span className="font-medium text-foreground/80">
-                  {t("current")}
-                </span>
+                <span className="font-medium text-foreground/80">{t("current")}</span>
                 {newSizeLabel ? (
-                  <span className="font-mono tabular-nums text-[11px]">
-                    {newSizeLabel}
-                  </span>
+                  <span className="font-mono text-[11px] tabular-nums">{newSizeLabel}</span>
                 ) : null}
               </span>
             ) : null}
-            {identical ? (
-              <span className="text-[11px]">{t("identicalContent")}</span>
-            ) : null}
+            {identical ? <span className="text-[11px]">{t("identicalContent")}</span> : null}
             {diff.kind === "too_large" ? (
               <span className="text-[11px]">{t("tooLarge")}</span>
             ) : null}

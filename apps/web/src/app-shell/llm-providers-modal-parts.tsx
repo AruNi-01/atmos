@@ -1,13 +1,6 @@
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Check,
-  ChevronDown,
-  Languages,
-  LoaderCircle,
-  Save,
-  Terminal,
-} from "lucide-react";
+import { Check, ChevronDown, Languages, LoaderCircle, Save, Terminal } from "lucide-react";
 import {
   Button,
   DropdownMenu,
@@ -73,8 +66,8 @@ export function FeatureSelect({
   const selectedLabel =
     agentCliRouteLabel(normalizedValue, localAgentOptions, t) ??
     (selectedProviderValue
-      ? providerOptions.find((provider) => provider.value === selectedProviderValue)
-          ?.label ?? selectedProviderValue
+      ? (providerOptions.find((provider) => provider.value === selectedProviderValue)?.label ??
+        selectedProviderValue)
       : noneLabel);
   const hasLabelRow = Boolean(label || action);
 
@@ -98,18 +91,10 @@ export function FeatureSelect({
             <ChevronDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          className="w-80 max-w-[calc(100vw-2rem)]"
-        >
-          <DropdownMenuItem
-            className="min-w-0 cursor-pointer"
-            onClick={() => onChange(null)}
-          >
+        <DropdownMenuContent align="start" className="w-80 max-w-[calc(100vw-2rem)]">
+          <DropdownMenuItem className="min-w-0 cursor-pointer" onClick={() => onChange(null)}>
             <span className="min-w-0 flex-1 truncate">{noneLabel}</span>
-            {!normalizedValue ? (
-              <Check className="ml-auto size-4 shrink-0" />
-            ) : null}
+            {!normalizedValue ? <Check className="ml-auto size-4 shrink-0" /> : null}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuSub>
@@ -172,7 +157,7 @@ export function FeatureLanguageAction({
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState(preset);
   const [customValue, setCustomValue] = useState(
-    preset === "other" ? normalizeFeatureLanguage(value) ?? "" : "",
+    preset === "other" ? (normalizeFeatureLanguage(value) ?? "") : "",
   );
 
   const applySelection = (nextSelection: string, nextCustomValue?: string) => {
@@ -187,9 +172,7 @@ export function FeatureLanguageAction({
       return;
     }
 
-    const option = FEATURE_LANGUAGE_OPTIONS.find(
-      (item) => item.value === nextSelection,
-    );
+    const option = FEATURE_LANGUAGE_OPTIONS.find((item) => item.value === nextSelection);
     onChange(option?.label ?? null);
   };
 
@@ -201,11 +184,7 @@ export function FeatureLanguageAction({
         if (nextOpen) {
           const nextPreset = resolveFeatureLanguagePreset(value);
           setSelection(nextPreset);
-          setCustomValue(
-            nextPreset === "other"
-              ? normalizeFeatureLanguage(value) ?? ""
-              : "",
-          );
+          setCustomValue(nextPreset === "other" ? (normalizeFeatureLanguage(value) ?? "") : "");
         }
       }}
     >
@@ -214,22 +193,14 @@ export function FeatureLanguageAction({
           type="button"
           variant="ghost"
           size="icon"
-          className={cn(
-            "h-7 w-7",
-            normalizeFeatureLanguage(value) && "text-primary",
-          )}
+          className={cn("h-7 w-7", normalizeFeatureLanguage(value) && "text-primary")}
           title={languageButtonLabel(value, t)}
           aria-label={languageButtonLabel(value, t)}
         >
           <Languages className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="end"
-        sideOffset={8}
-        className="w-72 space-y-3 p-4"
-      >
+      <PopoverContent side="top" align="end" sideOffset={8} className="w-72 space-y-3 p-4">
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">
             {t("appShell.llmProviders.common.outputLanguage")}
@@ -335,9 +306,7 @@ export function SaveStateButton({
       variant={variant}
       className={cn(
         "relative justify-center overflow-hidden transition-shadow duration-300",
-        state === "saved" &&
-          !variant &&
-          "bg-emerald-600 text-white hover:bg-emerald-600",
+        state === "saved" && !variant && "bg-emerald-600 text-white hover:bg-emerald-600",
         state === "saved" &&
           variant === "outline" &&
           "border-emerald-500/50 bg-emerald-500/12 text-emerald-200 hover:bg-emerald-500/12",
@@ -386,10 +355,7 @@ export function Field({
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between gap-3">
         <Label
-          className={cn(
-            "text-xs font-semibold text-muted-foreground",
-            error && "text-destructive",
-          )}
+          className={cn("text-xs font-semibold text-muted-foreground", error && "text-destructive")}
         >
           {label}
         </Label>
@@ -397,12 +363,7 @@ export function Field({
       </div>
       {children}
       {description ? (
-        <p
-          className={cn(
-            "text-xs text-muted-foreground",
-            error && "text-destructive",
-          )}
-        >
+        <p className={cn("text-xs text-muted-foreground", error && "text-destructive")}>
           {description}
         </p>
       ) : null}

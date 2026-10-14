@@ -40,7 +40,11 @@ export {
   applyMdLiveToggleDefaultOpen,
   mdLiveToggleDefaultOpenCtx,
 } from "./ui/toggle";
-export { mdLivePlaceholderPlugin, mdLivePlaceholderCopyKey, mdLivePlaceholderTravel } from "./ui/placeholder";
+export {
+  mdLivePlaceholderPlugin,
+  mdLivePlaceholderCopyKey,
+  mdLivePlaceholderTravel,
+} from "./ui/placeholder";
 export { mdLiveBlockBackspacePlugin, mdLiveBlockBackspace } from "./ui/block-backspace";
 export {
   mdLiveInlineCodePlugin,

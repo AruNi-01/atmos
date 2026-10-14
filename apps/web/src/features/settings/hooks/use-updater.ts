@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
-import type { Update } from '@tauri-apps/plugin-updater';
-import { invoke } from '@tauri-apps/api/core';
+import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import type { Update } from "@tauri-apps/plugin-updater";
+import { invoke } from "@tauri-apps/api/core";
 
 export type UpdateInfo = {
   version: string;
@@ -14,21 +14,21 @@ export type UpdateInfo = {
 };
 
 export type UpdateStatus =
-  | { stage: 'idle' }
-  | { stage: 'checking' }
-  | { stage: 'available'; info: UpdateInfo }
-  | { stage: 'downloading'; downloaded: number; total: number | null }
-  | { stage: 'installing' }
-  | { stage: 'done' }
-  | { stage: 'error'; message: string }
-  | { stage: 'upToDate' };
+  | { stage: "idle" }
+  | { stage: "checking" }
+  | { stage: "available"; info: UpdateInfo }
+  | { stage: "downloading"; downloaded: number; total: number | null }
+  | { stage: "installing" }
+  | { stage: "done" }
+  | { stage: "error"; message: string }
+  | { stage: "upToDate" };
 
 type DesktopRelease = {
   tag_name: string;
   prerelease: boolean;
 };
 
-const RELEASES_BASE_URL = 'https://github.com/AruNi-01/atmos/releases';
+const RELEASES_BASE_URL = "https://github.com/AruNi-01/atmos/releases";
 const DESKTOP_RELEASE_TAG_RE = /^desktop-\d{4}\.\d{1,2}\.\d{1,2}(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?$/;
 
 let pendingUpdate: Update | null = null;
@@ -52,7 +52,7 @@ export function getUpdateReleaseNotesUrl(updateInfo?: UpdateInfo | null): string
     return RELEASES_BASE_URL;
   }
 
-  const normalizedVersion = updateInfo.version.startsWith('desktop-')
+  const normalizedVersion = updateInfo.version.startsWith("desktop-")
     ? updateInfo.version
     : `desktop-${updateInfo.version}`;
 
@@ -66,9 +66,9 @@ async function getVersionInfo(): Promise<{ version: string; version_type: string
   if (!isTauriRuntime()) return null;
 
   try {
-    return await invoke('get_version_info');
+    return await invoke("get_version_info");
   } catch (e) {
-    console.error('Failed to get version info:', e);
+    console.error("Failed to get version info:", e);
     return null;
   }
 }
@@ -81,24 +81,24 @@ async function getVersionInfo(): Promise<{ version: string; version_type: string
  * - "2026.7.3-beta.1" -> { major: 2026, minor: 7, patch: 3, prereleaseType: "beta", prereleaseNumber: 1 }
  */
 export function parseVersion(version: string) {
-  const cleanVersion = version.replace(/^desktop-/, '');
-  
+  const cleanVersion = version.replace(/^desktop-/, "");
+
   // Split by '-' to separate main version from prerelease
-  const [mainVersion, prereleasePart] = cleanVersion.split('-');
-  
+  const [mainVersion, prereleasePart] = cleanVersion.split("-");
+
   // Parse main version (e.g., "1.1.0")
-  const [major, minor, patch] = mainVersion.split('.').map(Number);
-  
+  const [major, minor, patch] = mainVersion.split(".").map(Number);
+
   // Parse prerelease part if present (e.g., "rc.5")
   let prereleaseType: string | null = null;
   let prereleaseNumber: number | null = null;
-  
+
   if (prereleasePart) {
-    const [type, number] = prereleasePart.split('.');
+    const [type, number] = prereleasePart.split(".");
     prereleaseType = type;
     prereleaseNumber = number ? parseInt(number, 10) : null;
   }
-  
+
   return {
     major,
     minor,
@@ -114,7 +114,7 @@ export function parseVersion(version: string) {
  * - 1 if versionA > versionB
  * - -1 if versionA < versionB
  * - 0 if versionA == versionB
- * 
+ *
  * Comparison rules:
  * 1. Main version numbers are compared first (major.minor.patch)
  * 2. If main versions are equal, prerelease type is compared (stable > rc > beta > alpha)
@@ -124,7 +124,7 @@ export function parseVersion(version: string) {
 export function compareVersions(versionA: string, versionB: string): number {
   const parsedA = parseVersion(versionA);
   const parsedB = parseVersion(versionB);
-  
+
   // Compare main version numbers
   if (parsedA.major !== parsedB.major) {
     return parsedA.major > parsedB.major ? 1 : -1;
@@ -135,7 +135,7 @@ export function compareVersions(versionA: string, versionB: string): number {
   if (parsedA.patch !== parsedB.patch) {
     return parsedA.patch > parsedB.patch ? 1 : -1;
   }
-  
+
   // Main versions are equal, compare prerelease status
   // Stable (no prerelease) is greater than any prerelease
   if (!parsedA.prereleaseType && parsedB.prereleaseType) {
@@ -147,26 +147,26 @@ export function compareVersions(versionA: string, versionB: string): number {
   if (!parsedA.prereleaseType && !parsedB.prereleaseType) {
     return 0; // Both are stable and equal
   }
-  
+
   // Both are prerelease, compare type priority
   const typePriority: { [key: string]: number } = {
-    'rc': 3,
-    'beta': 2,
-    'alpha': 1,
+    rc: 3,
+    beta: 2,
+    alpha: 1,
   };
-  
-  const priorityA = typePriority[parsedA.prereleaseType || ''] || 0;
-  const priorityB = typePriority[parsedB.prereleaseType || ''] || 0;
-  
+
+  const priorityA = typePriority[parsedA.prereleaseType || ""] || 0;
+  const priorityB = typePriority[parsedB.prereleaseType || ""] || 0;
+
   if (priorityA !== priorityB) {
     return priorityA > priorityB ? 1 : -1;
   }
-  
+
   // Same prerelease type, compare numbers
   if (parsedA.prereleaseNumber !== parsedB.prereleaseNumber) {
     return (parsedA.prereleaseNumber || 0) > (parsedB.prereleaseNumber || 0) ? 1 : -1;
   }
-  
+
   return 0; // Versions are equal
 }
 
@@ -181,7 +181,7 @@ async function getLatestReleaseForVersionType(
   currentVersion: string,
 ): Promise<string | null> {
   try {
-    const releases = await invoke<DesktopRelease[]>('list_desktop_releases');
+    const releases = await invoke<DesktopRelease[]>("list_desktop_releases");
 
     // Filter releases based on version type
     const filteredReleases = releases.filter((release) => {
@@ -189,14 +189,14 @@ async function getLatestReleaseForVersionType(
         return false;
       }
 
-      if (versionType === 'stable') {
+      if (versionType === "stable") {
         return !release.prerelease;
-      } else if (versionType === 'rc') {
-        return release.prerelease && release.tag_name.includes('-rc.');
-      } else if (versionType === 'beta') {
-        return release.prerelease && release.tag_name.includes('-beta.');
-      } else if (versionType === 'alpha') {
-        return release.prerelease && release.tag_name.includes('-alpha.');
+      } else if (versionType === "rc") {
+        return release.prerelease && release.tag_name.includes("-rc.");
+      } else if (versionType === "beta") {
+        return release.prerelease && release.tag_name.includes("-beta.");
+      } else if (versionType === "alpha") {
+        return release.prerelease && release.tag_name.includes("-alpha.");
       }
       return false;
     });
@@ -223,7 +223,7 @@ async function getLatestReleaseForVersionType(
 
     return latestRelease?.tagName || null;
   } catch (e) {
-    console.error('Failed to fetch latest release:', e);
+    console.error("Failed to fetch latest release:", e);
     return null;
   }
 }
@@ -238,7 +238,7 @@ export async function checkForUpdate(
   if (!isTauriRuntime()) return null;
 
   try {
-    onStatus?.({ stage: 'checking' });
+    onStatus?.({ stage: "checking" });
 
     // Get current version info
     const versionInfo = await getVersionInfo();
@@ -248,7 +248,7 @@ export async function checkForUpdate(
     }
 
     // For stable versions, use the default Tauri updater
-    if (versionInfo.version_type === 'stable') {
+    if (versionInfo.version_type === "stable") {
       return await checkForUpdateDefault(onStatus);
     }
 
@@ -258,12 +258,12 @@ export async function checkForUpdate(
       versionInfo.version,
     );
     if (!latestTag) {
-      onStatus?.({ stage: 'upToDate' });
+      onStatus?.({ stage: "upToDate" });
       return null;
     }
 
-    const latestVersion = latestTag.replace(/^desktop-/, '');
-    
+    const latestVersion = latestTag.replace(/^desktop-/, "");
+
     // For prerelease versions, we can't use the Tauri updater directly
     // because it only supports the latest.json endpoint.
     // Instead, we'll inform the user about the available update
@@ -276,12 +276,12 @@ export async function checkForUpdate(
       manualDownloadOnly: true,
     };
 
-    onStatus?.({ stage: 'available', info });
+    onStatus?.({ stage: "available", info });
     return info;
   } catch (e) {
     pendingUpdate = null;
     const message = e instanceof Error ? e.message : String(e);
-    onStatus?.({ stage: 'error', message });
+    onStatus?.({ stage: "error", message });
     return null;
   }
 }
@@ -293,24 +293,24 @@ async function checkForUpdateDefault(
   onStatus?: (status: UpdateStatus) => void,
 ): Promise<UpdateInfo | null> {
   try {
-    const { check } = await import('@tauri-apps/plugin-updater');
+    const { check } = await import("@tauri-apps/plugin-updater");
     const update = await check();
 
     if (!update) {
       pendingUpdate = null;
-      onStatus?.({ stage: 'upToDate' });
+      onStatus?.({ stage: "upToDate" });
       return null;
     }
 
     pendingUpdate = update;
     const info = toUpdateInfo(update);
 
-    onStatus?.({ stage: 'available', info });
+    onStatus?.({ stage: "available", info });
     return info;
   } catch (e) {
     pendingUpdate = null;
     const message = e instanceof Error ? e.message : String(e);
-    onStatus?.({ stage: 'error', message });
+    onStatus?.({ stage: "error", message });
     return null;
   }
 }
@@ -326,13 +326,13 @@ export async function downloadAndInstallUpdate(
 
   try {
     isInstallingUpdate = true;
-    const { check } = await import('@tauri-apps/plugin-updater');
-    const { relaunch } = await import('@tauri-apps/plugin-process');
+    const { check } = await import("@tauri-apps/plugin-updater");
+    const { relaunch } = await import("@tauri-apps/plugin-process");
 
     const update = pendingUpdate ?? (await check());
     if (!update) {
       pendingUpdate = null;
-      onStatus?.({ stage: 'upToDate' });
+      onStatus?.({ stage: "upToDate" });
       return;
     }
 
@@ -341,39 +341,39 @@ export async function downloadAndInstallUpdate(
     let downloaded = 0;
     let total: number | null = null;
 
-    onStatus?.({ stage: 'downloading', downloaded: 0, total: null });
+    onStatus?.({ stage: "downloading", downloaded: 0, total: null });
 
     await update.downloadAndInstall((event) => {
       switch (event.event) {
-        case 'Started':
+        case "Started":
           total = event.data.contentLength ?? null;
           onStatus?.({
-            stage: 'downloading',
+            stage: "downloading",
             downloaded: 0,
             total,
           });
           break;
-        case 'Progress':
+        case "Progress":
           downloaded += event.data.chunkLength;
           onStatus?.({
-            stage: 'downloading',
+            stage: "downloading",
             downloaded,
             total,
           });
           break;
-        case 'Finished':
-          onStatus?.({ stage: 'installing' });
+        case "Finished":
+          onStatus?.({ stage: "installing" });
           break;
       }
     });
 
     pendingUpdate = null;
-    onStatus?.({ stage: 'done' });
+    onStatus?.({ stage: "done" });
     await relaunch();
   } catch (e) {
     pendingUpdate = null;
     const message = e instanceof Error ? e.message : String(e);
-    onStatus?.({ stage: 'error', message });
+    onStatus?.({ stage: "error", message });
   } finally {
     isInstallingUpdate = false;
   }

@@ -10,10 +10,7 @@ export function isSettingsPathname(pathname: string): boolean {
   return normalized === "/settings";
 }
 
-export function sanitizeSettingsReturnPath(
-  href: string,
-  origin: string,
-): string | null {
+export function sanitizeSettingsReturnPath(href: string, origin: string): string | null {
   try {
     const url = new URL(href, origin);
     if (url.origin !== new URL(origin).origin) return null;
@@ -27,10 +24,7 @@ export function sanitizeSettingsReturnPath(
 }
 
 /** Last same-origin href that is not the settings route, or null if none. */
-export function findSettingsReturnHref(
-  entries: HistoryEntryLike[],
-  origin: string,
-): string | null {
+export function findSettingsReturnHref(entries: HistoryEntryLike[], origin: string): string | null {
   for (let i = entries.length - 1; i >= 0; i--) {
     const raw = entries[i]?.url;
     if (!raw) continue;
@@ -41,10 +35,7 @@ export function findSettingsReturnHref(
 }
 
 /** Last same-origin href that is not the settings route, or `/` if none. */
-export function resolveSettingsReturnHref(
-  entries: HistoryEntryLike[],
-  origin: string,
-): string {
+export function resolveSettingsReturnHref(entries: HistoryEntryLike[], origin: string): string {
   return findSettingsReturnHref(entries, origin) ?? FALLBACK_RETURN_PATH;
 }
 

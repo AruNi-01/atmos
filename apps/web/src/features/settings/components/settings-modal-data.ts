@@ -50,7 +50,14 @@ export const SETTINGS_GROUPS = [
     id: "system",
     label: settingsModalT("groups.system.label"),
     description: settingsModalT("groups.system.description"),
-    items: ["remote-access", "integrations", "browser", "desktop-use", "privacy", "keyboard"] as const,
+    items: [
+      "remote-access",
+      "integrations",
+      "browser",
+      "desktop-use",
+      "privacy",
+      "keyboard",
+    ] as const,
   },
 ] as const;
 
@@ -536,7 +543,9 @@ function settingsModalSearchItem(
   return {
     translationKey: key,
     label: settingsModalT(`search.items.${key}.label`),
-    description: options.hasDescription ? settingsModalT(`search.items.${key}.description`) : undefined,
+    description: options.hasDescription
+      ? settingsModalT(`search.items.${key}.description`)
+      : undefined,
     keywords: options.keywords,
   };
 }
@@ -544,7 +553,9 @@ function settingsModalSearchItem(
 const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition[]> = {
   appearance: [
     settingsModalSearchItem("appearance.theme", { keywords: ["theme", "light", "dark", "system"] }),
-    settingsModalSearchItem("appearance.language", { keywords: ["language", "locale", "english", "chinese", "zh"] }),
+    settingsModalSearchItem("appearance.language", {
+      keywords: ["language", "locale", "english", "chinese", "zh"],
+    }),
   ],
   account: [],
   interface: [
@@ -554,7 +565,16 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     }),
     settingsModalSearchItem("layout.workspaceSidebarTwoColumnLayout", {
       hasDescription: true,
-      keywords: ["project sidebar", "by group", "by time", "by status", "by agent", "by priority", "by label", "second column"],
+      keywords: [
+        "project sidebar",
+        "by group",
+        "by time",
+        "by status",
+        "by agent",
+        "by priority",
+        "by label",
+        "second column",
+      ],
     }),
     settingsModalSearchItem("layout.projectSidebarTwoColumnLayout", {
       keywords: ["projects in first column", "workspaces in second column"],
@@ -581,7 +601,14 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["group grouping", "sidebar by group", "user groups"],
     }),
     settingsModalSearchItem("layout.byAgentGroupUsesSecondColumn", {
-      keywords: ["agent grouping", "sidebar by agent status", "done", "running", "permission", "need attention"],
+      keywords: [
+        "agent grouping",
+        "sidebar by agent status",
+        "done",
+        "running",
+        "permission",
+        "need attention",
+      ],
     }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
@@ -630,7 +657,12 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["agent chat", "gui agent conversations", "footer", "launchpad"],
     }),
     settingsModalSearchItem("layout.automationsLaunchpad", {
-      keywords: ["automation creation", "scheduled runs", "github-triggered automation", "launchpad"],
+      keywords: [
+        "automation creation",
+        "scheduled runs",
+        "github-triggered automation",
+        "launchpad",
+      ],
     }),
     settingsModalSearchItem("layout.diskAnalyzerLaunchpad", {
       keywords: ["disk analyzer", "disk usage", "cleanup", "launchpad"],
@@ -693,7 +725,13 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["wrap long diff lines", "horizontal scrolling"],
     }),
     settingsModalSearchItem("editor.indicatorStyle", {
-      keywords: ["changed lines", "gutter", "bar indicators", "classic indicators", "no indicators"],
+      keywords: [
+        "changed lines",
+        "gutter",
+        "bar indicators",
+        "classic indicators",
+        "no indicators",
+      ],
     }),
   ],
   canvas: [
@@ -712,16 +750,39 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["defaults", "launch flags", "yolo"],
     }),
     settingsModalSearchItem("codeAgent.yoloMode", {
-      keywords: ["yolo", "skip-permissions", "auto-approve", "dangerously-skip-permissions", "restore yolo"],
+      keywords: [
+        "yolo",
+        "skip-permissions",
+        "auto-approve",
+        "dangerously-skip-permissions",
+        "restore yolo",
+      ],
     }),
     settingsModalSearchItem("codeAgent.toolCallDensity", {
-      keywords: ["compact", "detailed", "tool calls", "fold", "collapse", "density", "tool call density"],
+      keywords: [
+        "compact",
+        "detailed",
+        "tool calls",
+        "fold",
+        "collapse",
+        "density",
+        "tool call density",
+      ],
     }),
     settingsModalSearchItem("codeAgent.activityIndicators", {
       keywords: ["running-state icon", "unicode spinner", "orbs", "left sidebar", "footer"],
     }),
     settingsModalSearchItem("codeAgent.builtInAgents", {
-      keywords: ["startup command", "parameters", "claude", "codex", "gemini", "antigravity", "grok", "grok build"],
+      keywords: [
+        "startup command",
+        "parameters",
+        "claude",
+        "codex",
+        "gemini",
+        "antigravity",
+        "grok",
+        "grok build",
+      ],
     }),
     settingsModalSearchItem("codeAgent.builtInAgentCommand", {
       keywords: ["command", "startup command"],
@@ -742,7 +803,12 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["--yolo", "custom flags"],
     }),
     settingsModalSearchItem("codeAgent.codeAgentRunConfigs", {
-      keywords: ["saved run configs", "default command presets", "add run config", "edit run config"],
+      keywords: [
+        "saved run configs",
+        "default command presets",
+        "add run config",
+        "edit run config",
+      ],
     }),
     settingsModalSearchItem("codeAgent.runConfigName", {
       keywords: ["cursor sonnet high", "config name"],
@@ -805,14 +871,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       ],
     }),
     settingsModalSearchItem("terminal.richInputTriggerBar", {
-      keywords: [
-        "trigger bar",
-        "handle",
-        "hover bar",
-        "rich input bar",
-        "hide bar",
-        "command g",
-      ],
+      keywords: ["trigger bar", "handle", "hover bar", "rich input bar", "hide bar", "command g"],
     }),
     settingsModalSearchItem("terminal.sideContextBudget", {
       keywords: ["/side", "side chat", "context budget", "prompt bytes", "terminal capture"],
@@ -896,14 +955,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["authenticated", "not authenticated", "gh auth login"],
     }),
     settingsModalSearchItem("integrations.githubApiRateLimits", {
-      keywords: [
-        "rate limit",
-        "api quota",
-        "graphql",
-        "search api",
-        "rest core",
-        "github usage",
-      ],
+      keywords: ["rate limit", "api quota", "graphql", "search api", "rest core", "github usage"],
     }),
     settingsModalSearchItem("integrations.tmux", {
       keywords: ["terminal sessions", "tmux server"],
@@ -1007,33 +1059,16 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
   ],
   "desktop-use": [
     settingsModalSearchItem("desktopUse.cli", {
-      keywords: [
-        "atmos cli",
-        "cli",
-        "install cli",
-        "update cli",
-      ],
+      keywords: ["atmos cli", "cli", "install cli", "update cli"],
     }),
     settingsModalSearchItem("desktopUse.engine", {
-      keywords: [
-        "control engine",
-        "install",
-        "ensure",
-        "download",
-        "stop",
-        "uninstall",
-      ],
+      keywords: ["control engine", "install", "ensure", "download", "stop", "uninstall"],
     }),
     settingsModalSearchItem("desktopUse.permissions", {
       keywords: ["screen recording", "accessibility", "macos permissions"],
     }),
     settingsModalSearchItem("desktopUse.border", {
-      keywords: [
-        "operation border",
-        "visual feedback",
-        "highlight",
-        "chrome",
-      ],
+      keywords: ["operation border", "visual feedback", "highlight", "chrome"],
     }),
   ],
   "atmos-computer": [
@@ -1087,7 +1122,14 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       ],
     }),
     settingsModalSearchItem("shortcuts.centerStageTabsShortcuts", {
-      keywords: ["overview tab", "tab position", "switch tab", "center stage tab", "agent chat", "focus prompt"],
+      keywords: [
+        "overview tab",
+        "tab position",
+        "switch tab",
+        "center stage tab",
+        "agent chat",
+        "focus prompt",
+      ],
     }),
     settingsModalSearchItem("shortcuts.terminalShortcuts", {
       keywords: ["split terminal", "new terminal tab", "close terminal pane", "find in terminal"],
@@ -1133,12 +1175,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     }),
     settingsModalSearchItem("permissionAccess.desktopUsePermissions", {
       hasDescription: true,
-      keywords: [
-        "desktop use",
-        "accessibility",
-        "screen recording",
-        "control engine",
-      ],
+      keywords: ["desktop use", "accessibility", "screen recording", "control engine"],
     }),
   ],
   about: [
@@ -1149,13 +1186,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["app version", "desktop version"],
     }),
     settingsModalSearchItem("about.atmosCli", {
-      keywords: [
-        "atmos cli",
-        "cli version",
-        "install cli",
-        "check cli version",
-        "cli",
-      ],
+      keywords: ["atmos cli", "cli version", "install cli", "check cli version", "cli"],
     }),
     settingsModalSearchItem("about.checkForUpdates", {
       keywords: ["desktop updates", "check update"],
@@ -1270,9 +1301,11 @@ export const SETTINGS_SEARCH_SECTIONS = SETTINGS_SECTIONS.map((section) => ({
     section.description,
     ...(SECTION_GROUP_TERMS[section.id] ?? []),
     ...SETTINGS_SECTION_KEYWORDS[section.id],
-    ...SETTINGS_SEARCH_ITEMS
-      .filter((item) => item.sectionId === section.id)
-      .flatMap((item) => [item.label, item.description, ...item.keywords]),
+    ...SETTINGS_SEARCH_ITEMS.filter((item) => item.sectionId === section.id).flatMap((item) => [
+      item.label,
+      item.description,
+      ...item.keywords,
+    ]),
   ],
 }));
 

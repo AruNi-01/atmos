@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const card = readFileSync(
-  join(import.meta.dir, "../AgentPermissionCard.tsx"),
-  "utf8",
-);
+const card = readFileSync(join(import.meta.dir, "../AgentPermissionCard.tsx"), "utf8");
 
 describe("agent permission card", () => {
   it("uses AIcss ApprovalCard command/questions/plan variants", () => {
@@ -98,7 +95,9 @@ describe("agent permission card", () => {
     expect(card).toContain("planStepsFromPermissionTodos(permission.plan_todos)");
     expect(card).toContain("includeChecklistSteps: !structuredPlanSteps?.length");
     // Prefer structured before markdown overview.steps.
-    const structuredIdx = card.indexOf("if (structuredPlanSteps?.length) return structuredPlanSteps");
+    const structuredIdx = card.indexOf(
+      "if (structuredPlanSteps?.length) return structuredPlanSteps",
+    );
     const markdownIdx = card.indexOf("if (overview?.steps.length) return overview.steps");
     expect(structuredIdx).toBeGreaterThan(-1);
     expect(markdownIdx).toBeGreaterThan(structuredIdx);

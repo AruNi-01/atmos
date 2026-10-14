@@ -100,10 +100,14 @@ function ChoiceMark({
 
   if (kind === "status") {
     const meta = getWorkspaceWorkflowStatusMeta(id);
-    return <meta.Icon color={getWorkspaceWorkflowStatusColor(meta.value, theme.colors)} size={18} />;
+    return (
+      <meta.Icon color={getWorkspaceWorkflowStatusColor(meta.value, theme.colors)} size={18} />
+    );
   }
   if (kind === "priority") {
-    return <WorkspacePriorityIcon mutedColor={theme.colors.secondaryLabel} priority={id} size={16} />;
+    return (
+      <WorkspacePriorityIcon mutedColor={theme.colors.secondaryLabel} priority={id} size={16} />
+    );
   }
   if (kind === "group") {
     return <FoldersIcon color={theme.colors.secondaryLabel} size={18} strokeWidth={2.2} />;

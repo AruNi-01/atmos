@@ -28,9 +28,9 @@ describe("workspaceHomePhase", () => {
   });
 
   test("shows the workspace list only after the socket is open", () => {
-    expect(
-      workspaceHomePhase({ ...readyBase, bootstrapPending: true, wsState: "open" }),
-    ).toBe("loading");
+    expect(workspaceHomePhase({ ...readyBase, bootstrapPending: true, wsState: "open" })).toBe(
+      "loading",
+    );
     expect(workspaceHomePhase({ ...readyBase, wsState: "open" })).toBe("ready");
   });
 

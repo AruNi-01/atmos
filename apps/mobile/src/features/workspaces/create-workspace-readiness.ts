@@ -12,11 +12,17 @@ export function selectCreateWorkspaceProjectGuid({
   initialProjectGuid?: string | null;
   projectOptions: ProjectOption[];
 }) {
-  if (currentProjectGuid && projectOptions.some((project) => project.value === currentProjectGuid)) {
+  if (
+    currentProjectGuid &&
+    projectOptions.some((project) => project.value === currentProjectGuid)
+  ) {
     return currentProjectGuid;
   }
 
-  if (initialProjectGuid && projectOptions.some((project) => project.value === initialProjectGuid)) {
+  if (
+    initialProjectGuid &&
+    projectOptions.some((project) => project.value === initialProjectGuid)
+  ) {
     return initialProjectGuid;
   }
 

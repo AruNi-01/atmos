@@ -130,14 +130,14 @@ flowchart LR
 
 ## Resolved product forks
 
-| Fork | Decision |
-|------|----------|
-| Compat | None; rewrite |
-| Live session | Excalidraw scene + mapping |
-| File/Agent | PTX |
-| Undo | Excalidraw history only |
-| Components | Real DOM; **full existing catalog** (all `SHADCN_BASIC_IDS` + `REQUIRED_BLOCKS`) |
-| Modes | Edit = canvas ops + undo; Interact = operate UI only, no board undo |
-| Agent surface | Edit PTX XML like a source file; structured node tools are N7 |
-| Collab | Existing scene room |
-| Package | `@atmos/pt-design` modules |
+| Fork          | Decision                                                                         |
+| ------------- | -------------------------------------------------------------------------------- |
+| Compat        | None; rewrite                                                                    |
+| Live session  | Excalidraw scene + mapping                                                       |
+| File/Agent    | PTX                                                                              |
+| Undo          | Excalidraw history only                                                          |
+| Components    | Real DOM; **full existing catalog** (all `SHADCN_BASIC_IDS` + `REQUIRED_BLOCKS`) |
+| Modes         | Edit = canvas ops + undo; Interact = operate UI only, no board undo              |
+| Agent surface | Edit PTX XML like a source file; structured node tools are N7                    |
+| Collab        | Existing scene room                                                              |
+| Package       | `@atmos/pt-design` modules                                                       |

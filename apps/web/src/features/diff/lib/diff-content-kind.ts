@@ -136,10 +136,7 @@ export function formatSizeTransition(
 }
 
 /** Build a safe absolute worktree path for /api/system/file. */
-export function resolveWorktreeAbsolutePath(
-  repoPath: string,
-  relativePath: string,
-): string {
+export function resolveWorktreeAbsolutePath(repoPath: string, relativePath: string): string {
   const repo = repoPath.replace(/\/+$/, "");
   const rel = relativePath.replace(/^\/+/, "");
   if (!repo) return rel;

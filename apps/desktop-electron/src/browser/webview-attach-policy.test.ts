@@ -77,9 +77,7 @@ describe("webview-attach-policy (APP-053)", () => {
     const result = evaluateWillAttach({
       partition: "persist:evil",
       src: "https://example.com/",
-      registered: [
-        { sessionId: "s1", url: "https://example.com/", pendingAttach: true },
-      ],
+      registered: [{ sessionId: "s1", url: "https://example.com/", pendingAttach: true }],
     });
     expect(result.allow).toBe(false);
   });
@@ -97,9 +95,7 @@ describe("webview-attach-policy (APP-053)", () => {
     const result = evaluateWillAttach({
       partition: BROWSER_PARTITION,
       src: "javascript:void(0)",
-      registered: [
-        { sessionId: "s1", url: "javascript:void(0)", pendingAttach: true },
-      ],
+      registered: [{ sessionId: "s1", url: "javascript:void(0)", pendingAttach: true }],
     });
     expect(result.allow).toBe(false);
   });
@@ -190,12 +186,8 @@ describe("webview-attach-policy (APP-053)", () => {
     expect(first).toEqual({ allow: true, sessionId: "tab-a" });
 
     registered = consumePendingAttach(registered, "tab-a");
-    expect(registered.find((s) => s.sessionId === "tab-a")?.pendingAttach).toBe(
-      false,
-    );
-    expect(registered.find((s) => s.sessionId === "tab-b")?.pendingAttach).toBe(
-      true,
-    );
+    expect(registered.find((s) => s.sessionId === "tab-a")?.pendingAttach).toBe(false);
+    expect(registered.find((s) => s.sessionId === "tab-b")?.pendingAttach).toBe(true);
 
     const second = evaluateWillAttach({
       partition: BROWSER_PARTITION,
@@ -206,9 +198,7 @@ describe("webview-attach-policy (APP-053)", () => {
   });
 
   it("allows clipboard/media/notifications for local preview UX", () => {
-    expect(isAllowedBrowserGuestPermission("clipboard-sanitized-write")).toBe(
-      true,
-    );
+    expect(isAllowedBrowserGuestPermission("clipboard-sanitized-write")).toBe(true);
     expect(isAllowedBrowserGuestPermission("clipboard-read")).toBe(true);
     expect(isAllowedBrowserGuestPermission("media")).toBe(true);
     expect(isAllowedBrowserGuestPermission("notifications")).toBe(true);

@@ -69,11 +69,14 @@ function ToolbarIconMenu({
               type="button"
               variant="outline"
               size="icon"
-              className={cn(TOOLBAR_ICON_BUTTON, active && "border-primary/30 bg-primary/5 text-foreground")}
+              className={cn(
+                TOOLBAR_ICON_BUTTON,
+                active && "border-primary/30 bg-primary/5 text-foreground",
+              )}
               aria-label={label}
             >
               {badge ? (
-                <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                <span className="absolute -top-1 -right-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
                   {badge}
                 </span>
               ) : null}
@@ -203,7 +206,9 @@ function HostSessionFilterMenu({
           >
             <Bot className="size-4 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{t("allAgents")}</span>
-            <span className="tabular-nums text-[11px] text-muted-foreground">{sessions.length}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {sessions.length}
+            </span>
             {!filters.providerId ? <Check className="size-4" /> : null}
           </DropdownMenuItem>
           {agents.map((agent) => (
@@ -224,7 +229,7 @@ function HostSessionFilterMenu({
                 size={16}
               />
               <span className="min-w-0 flex-1 truncate">{agent.label}</span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">{agent.count}</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{agent.count}</span>
               {filters.providerId === agent.id ? <Check className="size-4" /> : null}
             </DropdownMenuItem>
           ))}
@@ -251,7 +256,9 @@ function HostSessionFilterMenu({
           >
             <Folder className="size-4 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{t("allProjects")}</span>
-            <span className="tabular-nums text-[11px] text-muted-foreground">{sessions.length}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {sessions.length}
+            </span>
             {!filters.project ? <Check className="size-4" /> : null}
           </DropdownMenuItem>
           {projects.map((project) => (
@@ -268,7 +275,9 @@ function HostSessionFilterMenu({
             >
               <Folder className="size-4 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate">{project.value}</span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">{project.count}</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {project.count}
+              </span>
               {filters.project === project.value ? <Check className="size-4" /> : null}
             </DropdownMenuItem>
           ))}

@@ -30,6 +30,7 @@ Atmos Desktop 2026.8.16 opens Graph History as a center-tab commit graph, restyl
 - Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.15...desktop-electron-2026.8.16
 
 <!-- atmos-desktop-contributors -->
+
 Thanks to @AruNi-01 and @cursoragent.
 
 <!-- atmos-desktop-download -->

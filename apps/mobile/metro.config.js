@@ -17,10 +17,7 @@ withCss.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName.includes("worklets/remendWorklet")) {
     return { filePath: remendOnJs, type: "sourceFile" };
   }
-  if (
-    platform === "web" &&
-    (moduleName === "@expo/ui" || moduleName.startsWith("@expo/ui/"))
-  ) {
+  if (platform === "web" && (moduleName === "@expo/ui" || moduleName.startsWith("@expo/ui/"))) {
     return { filePath: expoUiWebStub, type: "sourceFile" };
   }
   if (typeof cssResolve === "function") {

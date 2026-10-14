@@ -5,11 +5,7 @@ import {
   forceRefreshSkillsList,
   useInvalidateSkillsList,
 } from "@/features/skills/hooks/use-skills-query";
-import {
-  skillsApi,
-  type SkillInfo,
-  type SkillScopeRoot,
-} from "@/api/ws/skills-api";
+import { skillsApi, type SkillInfo, type SkillScopeRoot } from "@/api/ws/skills-api";
 
 export type ComposerSkillsContext = {
   mode: "project" | "workspace";
@@ -100,8 +96,7 @@ export function useComposerDisableSkills(context: ComposerSkillsContext | null) 
       setError(null);
       try {
         const root =
-          skill.scope === "workspace" ||
-          (context?.mode === "workspace" && skill.scope !== "global")
+          skill.scope === "workspace" || (context?.mode === "workspace" && skill.scope !== "global")
             ? scopeRoot
             : undefined;
         await skillsApi.setEnabled(skill.id, enabled, undefined, root);

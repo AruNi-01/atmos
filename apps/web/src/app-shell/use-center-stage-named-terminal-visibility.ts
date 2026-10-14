@@ -18,8 +18,12 @@ export function useCenterStageNamedTerminalVisibility({
   onMissingCodeReviewTab,
   onMissingProjectWikiTab,
 }: UseCenterStageNamedTerminalVisibilityOptions) {
-  const [projectWikiVisibleMap, setProjectWikiVisibleMap] = React.useState<Record<string, boolean>>({});
-  const [codeReviewVisibleMap, setCodeReviewVisibleMap] = React.useState<Record<string, boolean>>({});
+  const [projectWikiVisibleMap, setProjectWikiVisibleMap] = React.useState<Record<string, boolean>>(
+    {},
+  );
+  const [codeReviewVisibleMap, setCodeReviewVisibleMap] = React.useState<Record<string, boolean>>(
+    {},
+  );
   const projectWikiUserTriggeredRef = React.useRef(false);
   const codeReviewUserTriggeredRef = React.useRef(false);
 
@@ -39,14 +43,14 @@ export function useCenterStageNamedTerminalVisibility({
     systemApi.checkProjectWikiWindow(ctxId).then(
       ({ exists }) => {
         if (projectWikiUserTriggeredRef.current) return;
-        setProjectWikiVisibleMap(prev => ({ ...prev, [ctxId]: exists }));
+        setProjectWikiVisibleMap((prev) => ({ ...prev, [ctxId]: exists }));
         if (currentTab === "project-wiki" && !exists) {
           onMissingProjectWikiTab();
         }
       },
       () => {
         if (projectWikiUserTriggeredRef.current) return;
-        setProjectWikiVisibleMap(prev => ({ ...prev, [ctxId]: false }));
+        setProjectWikiVisibleMap((prev) => ({ ...prev, [ctxId]: false }));
         if (currentTab === "project-wiki") {
           onMissingProjectWikiTab();
         }
@@ -61,14 +65,14 @@ export function useCenterStageNamedTerminalVisibility({
     systemApi.checkCodeReviewWindow(ctxId).then(
       ({ exists }) => {
         if (codeReviewUserTriggeredRef.current) return;
-        setCodeReviewVisibleMap(prev => ({ ...prev, [ctxId]: exists }));
+        setCodeReviewVisibleMap((prev) => ({ ...prev, [ctxId]: exists }));
         if (currentTab === "code-review" && !exists) {
           onMissingCodeReviewTab();
         }
       },
       () => {
         if (codeReviewUserTriggeredRef.current) return;
-        setCodeReviewVisibleMap(prev => ({ ...prev, [ctxId]: false }));
+        setCodeReviewVisibleMap((prev) => ({ ...prev, [ctxId]: false }));
         if (currentTab === "code-review") {
           onMissingCodeReviewTab();
         }

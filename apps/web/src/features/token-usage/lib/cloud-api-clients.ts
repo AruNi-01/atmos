@@ -56,9 +56,7 @@ export function sameCloudAccountSeries(
   return matches / overlap.length >= ACCOUNT_MATCH_RATIO;
 }
 
-export function clusterCloudAccountIndices(
-  seriesList: Array<Map<string, number>>,
-): number[][] {
+export function clusterCloudAccountIndices(seriesList: Array<Map<string, number>>): number[][] {
   const n = seriesList.length;
   const parent = Array.from({ length: n }, (_, i) => i);
   const find = (i: number): number => {

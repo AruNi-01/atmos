@@ -11,12 +11,9 @@ function markPending(message: AgentMessage): AgentMessage {
 
 export function isPendingUserEcho(message: AgentMessage | null | undefined): boolean {
   return Boolean(
-    message
-    && message.role === "user"
-    && (
-      message.id.startsWith(PENDING_USER_ECHO_PREFIX)
-      || PENDING_FLAG in (message as object)
-    ),
+    message &&
+    message.role === "user" &&
+    (message.id.startsWith(PENDING_USER_ECHO_PREFIX) || PENDING_FLAG in (message as object)),
   );
 }
 
@@ -52,13 +49,10 @@ export function insertPendingUserMessage(
   return [...messages, echo];
 }
 
-export function removePendingUserMessage(
-  messages: AgentMessage[],
-  echoId: string,
-): AgentMessage[] {
+export function removePendingUserMessage(messages: AgentMessage[], echoId: string): AgentMessage[] {
   if (
-    !echoId.startsWith(PENDING_USER_ECHO_PREFIX)
-    && !messages.some((item) => item.id === echoId && isPendingUserEcho(item))
+    !echoId.startsWith(PENDING_USER_ECHO_PREFIX) &&
+    !messages.some((item) => item.id === echoId && isPendingUserEcho(item))
   ) {
     return messages;
   }
@@ -69,8 +63,8 @@ function pendingMatchesIncoming(pending: AgentMessage, incomingId: string): bool
   if (pending.id === incomingId) return true;
   if (pending.id === `${PENDING_USER_ECHO_PREFIX}${incomingId}`) return true;
   if (
-    pending.id.startsWith(PENDING_USER_ECHO_PREFIX)
-    && incomingId === pending.id.slice(PENDING_USER_ECHO_PREFIX.length)
+    pending.id.startsWith(PENDING_USER_ECHO_PREFIX) &&
+    incomingId === pending.id.slice(PENDING_USER_ECHO_PREFIX.length)
   ) {
     return true;
   }
@@ -117,7 +111,9 @@ export function keepPendingUserEchoes(
   if (pending.length === 0) return loaded;
   const next = loaded.slice();
   for (const echo of pending) {
-    const settled = next.some((item) => item.id === echo.id || pendingMatchesIncoming(echo, item.id));
+    const settled = next.some(
+      (item) => item.id === echo.id || pendingMatchesIncoming(echo, item.id),
+    );
     if (settled) continue;
     next.push(echo);
   }

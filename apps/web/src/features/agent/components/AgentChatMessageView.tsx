@@ -48,10 +48,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
   const hasUserMeta = Boolean(userTime) || userText.trim().length > 0;
   const chromeRef = useRef<HTMLDivElement>(null);
   const entryId = stableAgentMessageKey(message, index);
-  const [metaOpen, setMetaOpen] = useAgentChatExpand(
-    agentChatUserMetaExpandKey(entryId),
-    false,
-  );
+  const [metaOpen, setMetaOpen] = useAgentChatExpand(agentChatUserMetaExpandKey(entryId), false);
 
   useEffect(() => {
     if (!metaOpen) return;
@@ -90,9 +87,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
     () =>
       composerFilesFromAttachmentParts(
         message.parts,
-        fileApi
-          ? (path) => composerFileUrlFromPath(path, fileApi.base, fileApi.token)
-          : undefined,
+        fileApi ? (path) => composerFileUrlFromPath(path, fileApi.base, fileApi.token) : undefined,
       ),
     [fileApi, message.parts],
   );
@@ -150,13 +145,17 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
               ) : null}
             </MessageContent>
             {hasUserMeta ? (
-              <div data-user-message-meta="" className="user-message-meta" inert={metaOpen ? undefined : true}>
+              <div
+                data-user-message-meta=""
+                className="user-message-meta"
+                inert={metaOpen ? undefined : true}
+              >
                 <div className="user-message-meta-clip">
                   <div className="user-message-meta-row">
                     {userTime ? (
                       <time
                         dateTime={message.created_at}
-                        className="user-message-meta-item whitespace-nowrap text-[11px] text-muted-foreground"
+                        className="user-message-meta-item text-[11px] whitespace-nowrap text-muted-foreground"
                       >
                         {userTime}
                       </time>
@@ -208,10 +207,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
           />
           {inlineSubagentTools && inlineSubagentTools.length > 0 && subagentMessages ? (
             <div className="mt-2">
-              <SubagentTasksPanel
-                tools={inlineSubagentTools}
-                messages={subagentMessages}
-              />
+              <SubagentTasksPanel tools={inlineSubagentTools} messages={subagentMessages} />
             </div>
           ) : null}
         </div>

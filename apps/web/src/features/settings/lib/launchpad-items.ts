@@ -1,19 +1,19 @@
 export type LaunchpadItemId =
-  | 'workspaces'
-  | 'skills'
-  | 'terminals'
-  | 'agents'
-  | 'automations'
-  | 'disk-analyzer'
-  | 'token-usage'
-  | 'agent-observer'
-  | 'canvas'
-  | 'pt-design'
-  | 'tasks'
-  | 'new-workspace'
-  | 'agent-sessions';
+  | "workspaces"
+  | "skills"
+  | "terminals"
+  | "agents"
+  | "automations"
+  | "disk-analyzer"
+  | "token-usage"
+  | "agent-observer"
+  | "canvas"
+  | "pt-design"
+  | "tasks"
+  | "new-workspace"
+  | "agent-sessions";
 
-export type LaunchpadPlacement = 'inside' | 'outside';
+export type LaunchpadPlacement = "inside" | "outside";
 
 export type LaunchpadItemConfig = {
   enabled: boolean;
@@ -24,50 +24,46 @@ export type LaunchpadItemConfig = {
 export type LaunchpadItems = Record<LaunchpadItemId, LaunchpadItemConfig>;
 
 export const LAUNCHPAD_ITEM_IDS: LaunchpadItemId[] = [
-  'workspaces',
-  'skills',
-  'terminals',
-  'agents',
-  'automations',
-  'disk-analyzer',
-  'token-usage',
-  'agent-observer',
-  'canvas',
-  'pt-design',
-  'tasks',
-  'new-workspace',
-  'agent-sessions',
+  "workspaces",
+  "skills",
+  "terminals",
+  "agents",
+  "automations",
+  "disk-analyzer",
+  "token-usage",
+  "agent-observer",
+  "canvas",
+  "pt-design",
+  "tasks",
+  "new-workspace",
+  "agent-sessions",
 ];
 
-export const LAUNCHPAD_DROP_INSIDE = 'launchpad-drop-inside';
-export const LAUNCHPAD_DROP_OUTSIDE = 'launchpad-drop-outside';
-export const LAUNCHPAD_DROP_HIDE = 'launchpad-drop-hide';
+export const LAUNCHPAD_DROP_INSIDE = "launchpad-drop-inside";
+export const LAUNCHPAD_DROP_OUTSIDE = "launchpad-drop-outside";
+export const LAUNCHPAD_DROP_HIDE = "launchpad-drop-hide";
 
 const LAUNCHPAD_ITEM_ID_SET = new Set<string>(LAUNCHPAD_ITEM_IDS);
 
 /** Items that default enabled in Launchpad on a first-run (no persisted layout). */
 const ALWAYS_ON_DEFAULT_IDS: LaunchpadItemId[] = [
-  'workspaces',
-  'skills',
-  'terminals',
-  'agents',
-  'automations',
-  'disk-analyzer',
-  'token-usage',
-  'agent-observer',
-  'canvas',
-  'pt-design',
-  'tasks',
-  'new-workspace',
-  'agent-sessions',
+  "workspaces",
+  "skills",
+  "terminals",
+  "agents",
+  "automations",
+  "disk-analyzer",
+  "token-usage",
+  "agent-observer",
+  "canvas",
+  "pt-design",
+  "tasks",
+  "new-workspace",
+  "agent-sessions",
 ];
 
 /** Default to Outside (full-width list under Launchpad header). Others default Inside (grid). */
-const DEFAULT_OUTSIDE_PLACEMENT_IDS: LaunchpadItemId[] = [
-  'skills',
-  'automations',
-  'new-workspace',
-];
+const DEFAULT_OUTSIDE_PLACEMENT_IDS: LaunchpadItemId[] = ["skills", "automations", "new-workspace"];
 
 export function isLaunchpadItemId(value: string): value is LaunchpadItemId {
   return LAUNCHPAD_ITEM_ID_SET.has(value);
@@ -78,7 +74,7 @@ export function createDefaultLaunchpadItems(): LaunchpadItems {
   for (const [index, id] of LAUNCHPAD_ITEM_IDS.entries()) {
     items[id] = {
       enabled: ALWAYS_ON_DEFAULT_IDS.includes(id),
-      placement: DEFAULT_OUTSIDE_PLACEMENT_IDS.includes(id) ? 'outside' : 'inside',
+      placement: DEFAULT_OUTSIDE_PLACEMENT_IDS.includes(id) ? "outside" : "inside",
       order: index,
     };
   }
@@ -86,20 +82,17 @@ export function createDefaultLaunchpadItems(): LaunchpadItems {
 }
 
 function isPlacement(value: unknown): value is LaunchpadPlacement {
-  return value === 'inside' || value === 'outside';
+  return value === "inside" || value === "outside";
 }
 
-function readItemConfig(
-  raw: unknown,
-  fallback: LaunchpadItemConfig,
-): LaunchpadItemConfig {
-  if (!raw || typeof raw !== 'object') return fallback;
+function readItemConfig(raw: unknown, fallback: LaunchpadItemConfig): LaunchpadItemConfig {
+  if (!raw || typeof raw !== "object") return fallback;
   const record = raw as Record<string, unknown>;
   return {
-    enabled: typeof record.enabled === 'boolean' ? record.enabled : fallback.enabled,
+    enabled: typeof record.enabled === "boolean" ? record.enabled : fallback.enabled,
     placement: isPlacement(record.placement) ? record.placement : fallback.placement,
     order:
-      typeof record.order === 'number' && Number.isFinite(record.order)
+      typeof record.order === "number" && Number.isFinite(record.order)
         ? record.order
         : fallback.order,
   };
@@ -109,7 +102,7 @@ function readItemConfig(
 export function readLaunchpadItems(ex: Record<string, unknown> | undefined): LaunchpadItems {
   const defaults = createDefaultLaunchpadItems();
   const rawItems = ex?.launchpad_items;
-  if (!rawItems || typeof rawItems !== 'object') {
+  if (!rawItems || typeof rawItems !== "object") {
     return defaults;
   }
 
@@ -138,7 +131,7 @@ export function selectLaunchpadItemsByPlacement(
 
 export function reindexLaunchpadOrders(items: LaunchpadItems): LaunchpadItems {
   const next = { ...items };
-  for (const placement of ['inside', 'outside'] as const) {
+  for (const placement of ["inside", "outside"] as const) {
     const ids = selectLaunchpadItemsByPlacement(items, placement);
     for (const [index, id] of ids.entries()) {
       if (next[id].order !== index || next[id].placement !== placement) {
@@ -154,8 +147,8 @@ export function isLaunchpadHideTarget(overId: string | null | undefined): boolea
 }
 
 function dropPlacementFromOverId(overId: string): LaunchpadPlacement | null {
-  if (overId === LAUNCHPAD_DROP_INSIDE) return 'inside';
-  if (overId === LAUNCHPAD_DROP_OUTSIDE) return 'outside';
+  if (overId === LAUNCHPAD_DROP_INSIDE) return "inside";
+  if (overId === LAUNCHPAD_DROP_OUTSIDE) return "outside";
   return null;
 }
 
@@ -181,10 +174,7 @@ function moveIndex<T>(list: T[], from: number, to: number): T[] {
 }
 
 /** Disable an enabled Launchpad item so it leaves the sidebar. Returns null when the drop is a no-op. */
-export function applyLaunchpadHide(
-  items: LaunchpadItems,
-  activeId: string,
-): LaunchpadItems | null {
+export function applyLaunchpadHide(items: LaunchpadItems, activeId: string): LaunchpadItems | null {
   if (!isLaunchpadItemId(activeId)) return null;
   const active = items[activeId];
   if (!active.enabled) return null;
@@ -254,9 +244,9 @@ export function applyLaunchpadReorder(
 }
 
 export function diskHasLaunchpadItems(raw: unknown): boolean {
-  if (!raw || typeof raw !== 'object' || !('experiments' in raw)) return false;
+  if (!raw || typeof raw !== "object" || !("experiments" in raw)) return false;
   const experiments = (raw as { experiments?: unknown }).experiments;
-  if (!experiments || typeof experiments !== 'object') return false;
+  if (!experiments || typeof experiments !== "object") return false;
   const items = (experiments as { launchpad_items?: unknown }).launchpad_items;
-  return Boolean(items) && typeof items === 'object';
+  return Boolean(items) && typeof items === "object";
 }

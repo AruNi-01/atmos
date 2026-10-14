@@ -4,7 +4,7 @@
 
 ## Context
 
-- **Problem**: Builders run Agents in many terminals, workspaces, and projects at once. Atmos already shows *whether* an Agent is idle, running, or waiting on permission. It does not show *what it is doing*, *what it already did*, or *what the user asked*. There is no single board of every Agent on this Computer. Idle is treated as “forget the row,” which erases a multi-turn conversation between prompts.
+- **Problem**: Builders run Agents in many terminals, workspaces, and projects at once. Atmos already shows _whether_ an Agent is idle, running, or waiting on permission. It does not show _what it is doing_, _what it already did_, or _what the user asked_. There is no single board of every Agent on this Computer. Idle is treated as “forget the row,” which erases a multi-turn conversation between prompts.
 - **Why now**: Hooks are already installed. Some of them already receive tool / child / permission payloads and drop them. The missing product is an activity model whose history unit is a **turn**, plus a derived graph — not a new agent runtime.
 - **Related specs**: APP-058 (sidebar/kanban grouping by coarse Agent **state** — unchanged). APP-014 (Canvas — user-composed board; not this derived graph). APP-051 (idle session **job** still runs; it must not wipe turns). APP-064 (typed WS events). APP-063 (Token Usage Computer picker — **not** copied).
 
@@ -44,50 +44,50 @@
 
   A **turn** is one user prompt through to the Agent going idle (or the next prompt, whichever comes first):
 
-  | Event | Turn effect |
-  |-------|-------------|
-  | Prompt submit (`UserPromptSubmit` / Pi `AgentStart` / equivalent) | Close the previous open turn if any; append a new turn with the submitted text (truncated). |
-  | Tool start / finish | Attach to the **current** turn (`current_tool` while in flight; then a recent-tool slot on that turn). |
-  | TodoWrite / equivalent | Replace the session’s latest todo list **and** snapshot it onto the current turn. |
-  | Child start/stop | Live children hang off the lead; the turn records which child ids it spawned (so history remains after the child node is gone). |
-  | Idle / Stop / AgentEnd | Close the current turn (`ended_at`). **Do not delete** the turn or the Agent node. |
-  | Next prompt on the same pane | New turn on the **same** Agent node. Earlier turns stay. |
+  | Event                                                             | Turn effect                                                                                                                     |
+  | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+  | Prompt submit (`UserPromptSubmit` / Pi `AgentStart` / equivalent) | Close the previous open turn if any; append a new turn with the submitted text (truncated).                                     |
+  | Tool start / finish                                               | Attach to the **current** turn (`current_tool` while in flight; then a recent-tool slot on that turn).                          |
+  | TodoWrite / equivalent                                            | Replace the session’s latest todo list **and** snapshot it onto the current turn.                                               |
+  | Child start/stop                                                  | Live children hang off the lead; the turn records which child ids it spawned (so history remains after the child node is gone). |
+  | Idle / Stop / AgentEnd                                            | Close the current turn (`ended_at`). **Do not delete** the turn or the Agent node.                                              |
+  | Next prompt on the same pane                                      | New turn on the **same** Agent node. Earlier turns stay.                                                                        |
 
   Per session (lead):
 
-  | Field | Collapsed card | Expanded node / detail |
-  |-------|----------------|------------------------|
-  | Tool name + icon | yes | yes |
-  | Display name (tool label + pane title if any) | yes | yes |
-  | State badge | yes | yes |
-  | Current tool line (in-flight) | yes, if running | yes |
-  | Latest turn prompt | yes, if idle / no current tool | yes |
-  | Turn count | yes if > 1 | yes |
-  | Turns (prompt + tools + duration) | no | yes — foldable rows, newest first |
-  | Todos | `n/m` if present | checklist on the current/latest turn |
-  | Live children | count + chevron | Subagent nodes |
-  | Elapsed (current turn, while not idle) | yes | yes |
-  | Project / workspace labels | via parent nodes | yes |
-  | Pane affordance | Open pane | same |
+  | Field                                         | Collapsed card                 | Expanded node / detail               |
+  | --------------------------------------------- | ------------------------------ | ------------------------------------ |
+  | Tool name + icon                              | yes                            | yes                                  |
+  | Display name (tool label + pane title if any) | yes                            | yes                                  |
+  | State badge                                   | yes                            | yes                                  |
+  | Current tool line (in-flight)                 | yes, if running                | yes                                  |
+  | Latest turn prompt                            | yes, if idle / no current tool | yes                                  |
+  | Turn count                                    | yes if > 1                     | yes                                  |
+  | Turns (prompt + tools + duration)             | no                             | yes — foldable rows, newest first    |
+  | Todos                                         | `n/m` if present               | checklist on the current/latest turn |
+  | Live children                                 | count + chevron                | Subagent nodes                       |
+  | Elapsed (current turn, while not idle)        | yes                            | yes                                  |
+  | Project / workspace labels                    | via parent nodes               | yes                                  |
+  | Pane affordance                               | Open pane                      | same                                 |
 
   Missing fields are omitted, not faked. Display name uses the existing pane-title lookup; it is not a new hook field.
 
 - **M2: All installed hook agents** — Fold whatever the vendor documents. Missing events mean omitted UI, never fake data. No v4 empty-body templates.
 
-  | Tool | Documented events we install | Observer fields when payload has them |
-  |------|------------------------------|----------------------------------------|
-  | Claude Code | SessionStart, UserPromptSubmit, Pre/PostToolUse, PostToolUseFailure, PermissionRequest, Notification, Stop, SessionEnd, SubagentStart/Stop | prompt, tools, todos, children, permission |
-  | Codex | SessionStart, UserPromptSubmit, Pre/PostToolUse, PermissionRequest, SubagentStart/Stop, Stop | prompt, tools; children if emitted |
-  | Cursor | sessionStart/End, beforeSubmitPrompt, pre/postToolUse, postToolUseFailure, subagentStart/Stop, stop | prompt, tools, children |
-  | Gemini | SessionStart, BeforeAgent, Before/AfterTool, AfterAgent, Notification | prompt (BeforeAgent), tools; no children |
-  | Antigravity | PreInvocation, Pre/PostToolUse, Stop | prompt if stdin has it, tools; no children |
-  | Factory Droid | SessionStart/End, UserPromptSubmit, Pre/PostToolUse, Notification, Stop, SubagentStart/Stop | prompt, tools, children, permission |
-  | Kiro | agentSpawn, userPromptSubmit, pre/postToolUse, stop | prompt, tools |
-  | OpenCode | session.*, chat.message (user parts), tool.execute.before/after (input.tool + output.args), permission.* | tools, permission, prompt from chat.message parts |
-  | Ampcode | session.start, agent.start, tool.call/result, agent.end | prompt if event has it, tools |
-  | Pi | SessionStart, before_agent_start (event.prompt), agent_start, ToolCall/Result, AgentEnd, SessionShutdown | prompt from before_agent_start; tools; agent_start does not open a turn |
-  | Hermes | on_session_start, pre/post_tool_call, pre/post_llm_call, on_session_end | tools from stdin JSON; prompt omitted unless present |
-  | Grok Build | SessionStart, UserPromptSubmit, Pre/PostToolUse, PostToolUseFailure, Notification, Stop, SessionEnd, SubagentStart/Stop | prompt, tools, permission, children |
+  | Tool          | Documented events we install                                                                                                               | Observer fields when payload has them                                   |
+  | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+  | Claude Code   | SessionStart, UserPromptSubmit, Pre/PostToolUse, PostToolUseFailure, PermissionRequest, Notification, Stop, SessionEnd, SubagentStart/Stop | prompt, tools, todos, children, permission                              |
+  | Codex         | SessionStart, UserPromptSubmit, Pre/PostToolUse, PermissionRequest, SubagentStart/Stop, Stop                                               | prompt, tools; children if emitted                                      |
+  | Cursor        | sessionStart/End, beforeSubmitPrompt, pre/postToolUse, postToolUseFailure, subagentStart/Stop, stop                                        | prompt, tools, children                                                 |
+  | Gemini        | SessionStart, BeforeAgent, Before/AfterTool, AfterAgent, Notification                                                                      | prompt (BeforeAgent), tools; no children                                |
+  | Antigravity   | PreInvocation, Pre/PostToolUse, Stop                                                                                                       | prompt if stdin has it, tools; no children                              |
+  | Factory Droid | SessionStart/End, UserPromptSubmit, Pre/PostToolUse, Notification, Stop, SubagentStart/Stop                                                | prompt, tools, children, permission                                     |
+  | Kiro          | agentSpawn, userPromptSubmit, pre/postToolUse, stop                                                                                        | prompt, tools                                                           |
+  | OpenCode      | session._, chat.message (user parts), tool.execute.before/after (input.tool + output.args), permission._                                   | tools, permission, prompt from chat.message parts                       |
+  | Ampcode       | session.start, agent.start, tool.call/result, agent.end                                                                                    | prompt if event has it, tools                                           |
+  | Pi            | SessionStart, before_agent_start (event.prompt), agent_start, ToolCall/Result, AgentEnd, SessionShutdown                                   | prompt from before_agent_start; tools; agent_start does not open a turn |
+  | Hermes        | on_session_start, pre/post_tool_call, pre/post_llm_call, on_session_end                                                                    | tools from stdin JSON; prompt omitted unless present                    |
+  | Grok Build    | SessionStart, UserPromptSubmit, Pre/PostToolUse, PostToolUseFailure, Notification, Stop, SessionEnd, SubagentStart/Stop                    | prompt, tools, permission, children                                     |
 
   A live session with no activity fields still appears as a **state-only** card (name, state, Open pane).
 
@@ -118,13 +118,13 @@
 
 - **M5: Folding (graph + in-node turns)**
 
-  | Default | Expand reveals |
-  |---------|----------------|
-  | Project: name + member count; children visible | Collapse hides Workspace/Agent descendants |
-  | Workspace: name/branch + count; Agent children visible | Collapse hides Agents |
-  | Agent: **collapsed compact card** | (1) foldable **turn rows inside the node** (newest first, last 8 + “+N earlier”); (2) live Subagent nodes on the graph |
-  | Each turn row: prompt line + tool count + duration | Expand that turn: tool chips for the turn |
-  | Subagent: compact; hidden while parent Agent is collapsed | Spawn edges + child cards |
+  | Default                                                   | Expand reveals                                                                                                         |
+  | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+  | Project: name + member count; children visible            | Collapse hides Workspace/Agent descendants                                                                             |
+  | Workspace: name/branch + count; Agent children visible    | Collapse hides Agents                                                                                                  |
+  | Agent: **collapsed compact card**                         | (1) foldable **turn rows inside the node** (newest first, last 8 + “+N earlier”); (2) live Subagent nodes on the graph |
+  | Each turn row: prompt line + tool count + duration        | Expand that turn: tool chips for the turn                                                                              |
+  | Subagent: compact; hidden while parent Agent is collapsed | Spawn edges + child cards                                                                                              |
 
   Expanding one Agent does not expand every Agent. Collapsing a parent hides descendants without destroying live activity or turns (they reappear on expand). Selecting a node also fills a **right detail panel** with the full turn list so the graph does not have to render 50 turns inside the card.
 

@@ -40,9 +40,7 @@ export function SkillsInstalledTab({
       ) : filteredSkills.length === 0 ? (
         <PageEmptyState
           icon={noneInstalled ? <IconCategory /> : <IconSearch />}
-          title={
-            noneInstalled ? t("empty.noneInstalledTitle") : t("empty.noMatchesTitle")
-          }
+          title={noneInstalled ? t("empty.noneInstalledTitle") : t("empty.noMatchesTitle")}
           description={
             noneInstalled
               ? t("empty.noneInstalledDescription")
@@ -63,7 +61,7 @@ export function SkillsInstalledTab({
           }
         />
       ) : (
-        <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
           <AnimatePresence mode="popLayout" initial={false}>
             {filteredSkills.map((skill, index) => (
               <motion.div

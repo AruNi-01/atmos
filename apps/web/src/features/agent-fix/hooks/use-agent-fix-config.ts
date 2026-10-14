@@ -1,10 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  codeAgentCustomApi,
-  type CodeAgentCustomEntry,
-} from "@/api/ws-api";
+import { codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";

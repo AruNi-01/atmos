@@ -17,8 +17,7 @@ export function snapSliderValue(next: number, min: number, max: number, step: nu
   const whole = Math.floor(Number(((max - min) / step).toFixed(6)));
   const lastWhole = Number((min + whole * step).toFixed(6));
   const toGrid = clamp(Math.round((next - min) / step) * step + min, min, lastWhole);
-  const snapped =
-    lastWhole < max && Math.abs(next - max) <= Math.abs(next - toGrid) ? max : toGrid;
+  const snapped = lastWhole < max && Math.abs(next - max) <= Math.abs(next - toGrid) ? max : toGrid;
   return Number(snapped.toFixed(6));
 }
 

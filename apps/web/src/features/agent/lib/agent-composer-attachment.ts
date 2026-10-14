@@ -21,10 +21,7 @@ export function isImageComposerAttachment(
   return isBrowserPreviewableImageFilename(file.filename);
 }
 
-export function composerAttachmentLabel(
-  file: ComposerAttachmentFile,
-  fallback: string,
-): string {
+export function composerAttachmentLabel(file: ComposerAttachmentFile, fallback: string): string {
   const name = file.filename?.trim();
   return name || fallback;
 }
@@ -43,22 +40,13 @@ const EXT_MEDIA_TYPE: Record<string, string> = {
   webp: "image/webp",
 };
 
-export function queuedPromptEditText(item: {
-  displayPrompt?: string;
-  prompt: string;
-}): string {
+export function queuedPromptEditText(item: { displayPrompt?: string; prompt: string }): string {
   return item.displayPrompt ?? item.prompt;
 }
 
 /** Composer text for editing a queued prompt. Restores paste/url chips. */
-export function queuedPromptComposerText(item: {
-  displayPrompt?: string;
-  prompt: string;
-}): string {
-  if (
-    typeof item.displayPrompt === "string" &&
-    item.displayPrompt !== item.prompt
-  ) {
+export function queuedPromptComposerText(item: { displayPrompt?: string; prompt: string }): string {
+  if (typeof item.displayPrompt === "string" && item.displayPrompt !== item.prompt) {
     return item.displayPrompt;
   }
   return displayTextForSentMessage(item.prompt);

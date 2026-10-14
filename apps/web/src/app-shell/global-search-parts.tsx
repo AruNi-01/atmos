@@ -77,13 +77,7 @@ interface SearchItemProps {
   branch?: string | null;
 }
 
-function HighlightedSearchText({
-  text,
-  query,
-}: {
-  text: string;
-  query?: string;
-}) {
+function HighlightedSearchText({ text, query }: { text: string; query?: string }) {
   const terms = useMemo(() => {
     return Array.from(
       new Set(
@@ -98,7 +92,10 @@ function HighlightedSearchText({
 
   if (terms.length === 0) return <>{text}</>;
 
-  const pattern = new RegExp(`(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  const pattern = new RegExp(
+    `(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+    "gi",
+  );
   const parts = text.split(pattern);
 
   return (
@@ -109,10 +106,7 @@ function HighlightedSearchText({
         if (!isMatch) return <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
 
         return (
-          <mark
-            key={`${part}-${index}`}
-            className="rounded bg-blue-400/35 px-0.5 text-foreground"
-          >
+          <mark key={`${part}-${index}`} className="rounded bg-blue-400/35 px-0.5 text-foreground">
             {part}
           </mark>
         );
@@ -218,7 +212,7 @@ export function CodeSearchResultItem({ match, onHover, onSelect }: CodeSearchRes
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[13px] font-medium">{match.file_path}</span>
         </div>
-        <span className="shrink-0 font-mono text-[10px] font-bold uppercase tabular-nums text-muted-foreground/60 group-data-[selected=true]:text-muted-foreground">
+        <span className="shrink-0 font-mono text-[10px] font-bold text-muted-foreground/60 uppercase tabular-nums group-data-[selected=true]:text-muted-foreground">
           {lineLabel}
         </span>
       </div>
@@ -246,7 +240,9 @@ export function CodePreviewTooltip({
 }: CodePreviewTooltipProps) {
   const t = useTranslations("appShell.globalSearchParts");
   const activeValue = hoveredValue || selectedValue;
-  const match = codeSearchResults.find((item) => `${item.file_path}:${item.line_number}` === activeValue);
+  const match = codeSearchResults.find(
+    (item) => `${item.file_path}:${item.line_number}` === activeValue,
+  );
 
   if (globalSearchTab !== "code" || !match) return null;
 
@@ -255,7 +251,7 @@ export function CodePreviewTooltip({
   const lineShortLabel = t("lineShort", { line: match.line_number });
 
   return (
-    <div className="pointer-events-none absolute bottom-0 left-[calc(100%+8px)] z-50 w-[440px] origin-bottom-left animate-in rounded-xl border border-border bg-popover p-4 shadow-2xl duration-150 fade-in zoom-in-95">
+    <div className="pointer-events-none absolute bottom-0 left-[calc(100%+8px)] z-50 w-[440px] origin-bottom-left animate-in rounded-xl border border-border bg-popover p-4 shadow-2xl duration-150 zoom-in-95 fade-in">
       <div className="mb-3 flex items-center gap-2 border-b border-border/60 pb-2">
         <img {...iconProps} alt="" className="size-4" />
         <span className="flex-1 truncate text-xs font-bold text-foreground">{match.file_path}</span>
@@ -265,13 +261,17 @@ export function CodePreviewTooltip({
       </div>
       <div className="space-y-1 overflow-hidden font-mono text-[11px] leading-relaxed">
         {match.context_before.map((line, i) => (
-          <div key={i} className="truncate overflow-hidden whitespace-pre text-muted-foreground/70">{line}</div>
+          <div key={i} className="truncate overflow-hidden whitespace-pre text-muted-foreground/70">
+            {line}
+          </div>
         ))}
-        <div className="-mx-2 break-all whitespace-pre-wrap rounded-md border-l-4 border-primary bg-primary/20 px-2 py-1.5 font-medium text-foreground shadow-sm">
+        <div className="-mx-2 rounded-md border-l-4 border-primary bg-primary/20 px-2 py-1.5 font-medium break-all whitespace-pre-wrap text-foreground shadow-sm">
           {match.line_content}
         </div>
         {match.context_after.map((line, i) => (
-          <div key={i} className="truncate overflow-hidden whitespace-pre text-muted-foreground/70">{line}</div>
+          <div key={i} className="truncate overflow-hidden whitespace-pre text-muted-foreground/70">
+            {line}
+          </div>
         ))}
       </div>
     </div>

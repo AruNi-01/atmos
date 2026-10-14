@@ -14,17 +14,8 @@ import {
   type TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
-import {
-  Button,
-  toastManager,
-  cn,
-} from "@workspace/ui";
-import {
-  AlertTriangle,
-  Frame,
-  Loader2,
-  Palette,
-} from "lucide-react";
+import { Button, toastManager, cn } from "@workspace/ui";
+import { AlertTriangle, Frame, Loader2, Palette } from "lucide-react";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
@@ -100,13 +91,8 @@ import { CanvasFocusPulse } from "./CanvasFocusPulse";
 import { CanvasShapeCopyOverlay } from "./CanvasShapeCopyOverlay";
 import { CanvasEmptyBrushAddWidget } from "./CanvasEmptyBrushAddWidget";
 import { CanvasUnsupportedInteractionDialog } from "./CanvasUnsupportedInteractionDialog";
-import {
-  CanvasTerminalRefProvider,
-} from "../lib/canvas-terminal-ref-context";
-import {
-  findPinnedTerminalShape,
-  focusCanvasTerminalShape,
-} from "../lib/canvas-terminal-focus";
+import { CanvasTerminalRefProvider } from "../lib/canvas-terminal-ref-context";
+import { findPinnedTerminalShape, focusCanvasTerminalShape } from "../lib/canvas-terminal-focus";
 import { CanvasAgentCrashBoundary } from "./CanvasAgentCrashBoundary";
 import { CanvasAgentCrashProvider } from "../lib/canvas-agent-crash-context";
 import { ensureLocalAppConnectionBootstrap } from "@/features/connection/lib/app-connection-bootstrap";
@@ -118,10 +104,7 @@ import {
   recoverCanvasViewportIfNeeded,
   sanitizeCanvasSessionForPersist,
 } from "../lib/canvas-viewport";
-import {
-  CanvasAgentContext,
-  CanvasTerminalShapeUtil,
-} from "./CanvasTerminalCard";
+import { CanvasAgentContext, CanvasTerminalShapeUtil } from "./CanvasTerminalCard";
 import { CanvasWidgetShapeUtil } from "./CanvasWidgetCard";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-launcher-store";
@@ -135,10 +118,7 @@ import {
   resolveRelatedCanvasTerminalFrameName,
   type RelatedCanvasTerminalSourceContext,
 } from "../lib/create-related-canvas-terminal";
-import {
-  getCanvasContextId,
-  isCanvasWidgetShapeRecord,
-} from "../lib/canvas-widget-shape";
+import { getCanvasContextId, isCanvasWidgetShapeRecord } from "../lib/canvas-widget-shape";
 import { CanvasAddAtmosWidgetPopover } from "./CanvasAddAtmosWidgetDialog";
 import {
   CanvasAnimatedToolbarGroup,
@@ -160,11 +140,7 @@ function nowMs() {
   return typeof performance === "undefined" ? Date.now() : performance.now();
 }
 
-function CanvasLoadingScreen({
-  overlay = false,
-}: {
-  overlay?: boolean;
-}) {
+function CanvasLoadingScreen({ overlay = false }: { overlay?: boolean }) {
   const loadingT = useTranslations("app.loading");
 
   return (
@@ -276,7 +252,7 @@ export const CanvasView: React.FC = () => {
   const [tldrawRemountKey, setTldrawRemountKey] = React.useState(0);
   const canvasCrashRecovery = React.useMemo(
     () => ({
-      bumpRemount: () => setTldrawRemountKey(k => k + 1),
+      bumpRemount: () => setTldrawRemountKey((k) => k + 1),
       failInflight: (message: string) => canvasAgentBridge.failInflight(message),
       reloadBoard: async () => {
         await loadBoard();
@@ -284,10 +260,14 @@ export const CanvasView: React.FC = () => {
     }),
     [canvasAgentBridge, loadBoard],
   );
-  const [agentCustomSettings, setAgentCustomSettings] = React.useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
+  const [agentCustomSettings, setAgentCustomSettings] = React.useState<
+    Record<string, { cmd?: string; flags?: string; enabled?: boolean }>
+  >({});
   const [customAgents, setCustomAgents] = React.useState<CodeAgentCustomEntry[]>([]);
   const projects = useProjects();
-  const createTerminalTabWithInitialPane = useTerminalStore((state) => state.createTerminalTabWithInitialPane);
+  const createTerminalTabWithInitialPane = useTerminalStore(
+    (state) => state.createTerminalTabWithInitialPane,
+  );
   /**
    * When `false`, tldraw's built-in StylePanel is force-hidden via
    * `StylePanel: () => null`. When `true`, we omit the override so tldraw owns
@@ -382,25 +362,28 @@ export const CanvasView: React.FC = () => {
     }
   }, []);
 
-  const scheduleCanvasRevealAfterPaint = React.useCallback((renderKey: string) => {
-    cancelPendingCanvasReveal();
+  const scheduleCanvasRevealAfterPaint = React.useCallback(
+    (renderKey: string) => {
+      cancelPendingCanvasReveal();
 
-    const rafId = requestAnimationFrame(() => {
-      const nestedRafId = requestAnimationFrame(() => {
-        canvasRevealRafIdsRef.current = [];
-        const elapsed = nowMs() - canvasLoadingStartedAtRef.current;
-        const remaining = Math.max(0, CANVAS_READY_MIN_LOADING_MS - elapsed);
+      const rafId = requestAnimationFrame(() => {
+        const nestedRafId = requestAnimationFrame(() => {
+          canvasRevealRafIdsRef.current = [];
+          const elapsed = nowMs() - canvasLoadingStartedAtRef.current;
+          const remaining = Math.max(0, CANVAS_READY_MIN_LOADING_MS - elapsed);
 
-        canvasRevealTimeoutRef.current = setTimeout(() => {
-          canvasRevealTimeoutRef.current = null;
-          setReadyCanvasRenderKey(renderKey);
-        }, remaining);
+          canvasRevealTimeoutRef.current = setTimeout(() => {
+            canvasRevealTimeoutRef.current = null;
+            setReadyCanvasRenderKey(renderKey);
+          }, remaining);
+        });
+        canvasRevealRafIdsRef.current = [nestedRafId];
       });
-      canvasRevealRafIdsRef.current = [nestedRafId];
-    });
 
-    canvasRevealRafIdsRef.current = [rafId];
-  }, [cancelPendingCanvasReveal]);
+      canvasRevealRafIdsRef.current = [rafId];
+    },
+    [cancelPendingCanvasReveal],
+  );
 
   // Snapshot is only used as the *initial* store for a given canvasRenderKey.
   // After mount, the live editor is source of truth — do not recompute snapshot
@@ -411,9 +394,7 @@ export const CanvasView: React.FC = () => {
     }
     return createCanvasSnapshot(
       document.tldrawDocument,
-      resolveCanvasSessionForLoad(
-        document.session ?? readCanvasSession(boardIdentity),
-      ),
+      resolveCanvasSessionForLoad(document.session ?? readCanvasSession(boardIdentity)),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: identity-only
   }, [boardIdentity, connectionBootstrapReady, fileName, tldrawRemountKey]);
@@ -445,12 +426,12 @@ export const CanvasView: React.FC = () => {
   }, []);
 
   const visibleBuiltInAgents = React.useMemo(
-    () => AGENT_OPTIONS.filter((agent) => (agentCustomSettings[agent.id]?.enabled ?? true)),
-    [agentCustomSettings]
+    () => AGENT_OPTIONS.filter((agent) => agentCustomSettings[agent.id]?.enabled ?? true),
+    [agentCustomSettings],
   );
   const visibleCustomAgents = React.useMemo(
     () => customAgents.filter((agent) => agent.enabled !== false),
-    [customAgents]
+    [customAgents],
   );
   const configuredAgents = React.useMemo(
     () => [
@@ -734,24 +715,29 @@ export const CanvasView: React.FC = () => {
 
   // Load agent custom settings and custom agents
   React.useEffect(() => {
-    Promise.all([
-      useFunctionSettingsStore.getState().load(),
-      codeAgentCustomApi.get(),
-    ]).then(([, customData]) => {
-      const allAgents = Array.isArray(customData?.agents) ? customData.agents : [];
-      const builtInEntries = allAgents.filter((agent: CodeAgentCustomEntry) =>
-        AGENT_OPTIONS.some((option) => option.id === agent.id)
-      );
-      const builtInSettings = Object.fromEntries(
-        builtInEntries.map((agent: CodeAgentCustomEntry) => [agent.id, { cmd: agent.cmd, flags: agent.flags, enabled: agent.enabled !== false }])
-      );
-      setAgentCustomSettings(builtInSettings);
-      setCustomAgents(allAgents.filter((a: CodeAgentCustomEntry) =>
-        !AGENT_OPTIONS.some((option) => option.id === a.id) && a.label && a.cmd
-      ));
-    }).catch(() => {
-      // Silently fail - agents will just use defaults
-    });
+    Promise.all([useFunctionSettingsStore.getState().load(), codeAgentCustomApi.get()])
+      .then(([, customData]) => {
+        const allAgents = Array.isArray(customData?.agents) ? customData.agents : [];
+        const builtInEntries = allAgents.filter((agent: CodeAgentCustomEntry) =>
+          AGENT_OPTIONS.some((option) => option.id === agent.id),
+        );
+        const builtInSettings = Object.fromEntries(
+          builtInEntries.map((agent: CodeAgentCustomEntry) => [
+            agent.id,
+            { cmd: agent.cmd, flags: agent.flags, enabled: agent.enabled !== false },
+          ]),
+        );
+        setAgentCustomSettings(builtInSettings);
+        setCustomAgents(
+          allAgents.filter(
+            (a: CodeAgentCustomEntry) =>
+              !AGENT_OPTIONS.some((option) => option.id === a.id) && a.label && a.cmd,
+          ),
+        );
+      })
+      .catch(() => {
+        // Silently fail - agents will just use defaults
+      });
   }, []);
 
   React.useEffect(() => {
@@ -1050,14 +1036,14 @@ export const CanvasView: React.FC = () => {
     }
 
     const validTabIds = new Set((canvasTerminalTabs ?? []).map((tab) => tab.id));
-    const contextScope = (canvasWorkspaceIsProject ?? currentView === "project")
-      ? "project"
-      : "workspace";
-    const staleShapes = getCanvasTerminalShapes(editor).filter((shape) => (
-      shape.props.contextScope === contextScope &&
-      resolveCanvasTerminalSourceTarget(shape.props).paintContextId === paintContextId &&
-      !validTabIds.has(shape.props.sourceTerminalTabId)
-    ));
+    const contextScope =
+      (canvasWorkspaceIsProject ?? currentView === "project") ? "project" : "workspace";
+    const staleShapes = getCanvasTerminalShapes(editor).filter(
+      (shape) =>
+        shape.props.contextScope === contextScope &&
+        resolveCanvasTerminalSourceTarget(shape.props).paintContextId === paintContextId &&
+        !validTabIds.has(shape.props.sourceTerminalTabId),
+    );
 
     if (staleShapes.length === 0) {
       return;
@@ -1295,7 +1281,7 @@ export const CanvasView: React.FC = () => {
   const sharePanelSurfaceClass = cn(
     "bg-[var(--tl-color-low)]",
     "rounded-bl-[var(--tl-radius-4)]",
-    "border-l-2 border-b-2 border-[var(--tl-color-background)]",
+    "border-b-2 border-l-2 border-[var(--tl-color-background)]",
   );
 
   /**
@@ -1330,7 +1316,10 @@ export const CanvasView: React.FC = () => {
           aria-pressed={isToolbarCollapsed}
           aria-label={isToolbarCollapsed ? t("toolbar.expandAria") : t("toolbar.collapseAria")}
           title={isToolbarCollapsed ? t("toolbar.expandTitle") : t("toolbar.collapseTitle")}
-          className={cn(sharePanelIconButtonClass, panelFoldCursorClass("right", isToolbarCollapsed))}
+          className={cn(
+            sharePanelIconButtonClass,
+            panelFoldCursorClass("right", isToolbarCollapsed),
+          )}
         >
           <CanvasToolbarCollapseIcon side="right" />
         </Button>
@@ -1460,54 +1449,57 @@ export const CanvasView: React.FC = () => {
         <CanvasAgentContext.Provider value={configuredAgents}>
           <CanvasAgentCrashProvider value={canvasCrashRecovery}>
             <CanvasTerminalRefProvider>
-            <CanvasTopChromePaddingContext.Provider value={needsTrafficLightsPadding ? 32 : 0}>
-            <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
-              <CanvasAgentCrashBoundary className="h-full w-full">
-                <Tldraw
-                  key={`${boardIdentity || "canvas"}:${tldrawRemountKey}`}
-                  licenseKey={TLDRAW_LICENSE_KEY}
-                  snapshot={initialSnapshot ?? undefined}
-                  shapeUtils={shapeUtils}
-                  components={tldrawComponents}
-                  overrides={TL_DRAW_TRANSLATION_OVERRIDES}
-                  onMount={(nextEditor) => {
-                    editorRef.current = nextEditor;
-                    setEditorReady(true);
-                    setAgentBridgeEditor(nextEditor);
-                    const nextCanvasRenderKey = canvasRenderKey;
-                    if (!nextCanvasRenderKey) {
-                      return;
-                    }
-
-                    // IndexedDB session can override snapshot; re-apply unless user saved grid off.
-                    if (readCanvasSession(boardIdentity)?.isGridMode !== false) {
-                      nextEditor.updateInstanceState({ isGridMode: true });
-                    }
-
-                    const pageId = nextEditor.getCurrentPageId();
-                    const session = readCanvasSession(boardIdentity);
-                    if (!hasTrustedSessionViewport(session, pageId)) {
-                      const viewportFitRafId = requestAnimationFrame(() => {
-                        if (!initialViewportFitDoneRef.current && fitCanvasEditorToPageContent(nextEditor)) {
-                          initialViewportFitDoneRef.current = true;
+              <CanvasTopChromePaddingContext.Provider value={needsTrafficLightsPadding ? 32 : 0}>
+                <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
+                  <CanvasAgentCrashBoundary className="h-full w-full">
+                    <Tldraw
+                      key={`${boardIdentity || "canvas"}:${tldrawRemountKey}`}
+                      licenseKey={TLDRAW_LICENSE_KEY}
+                      snapshot={initialSnapshot ?? undefined}
+                      shapeUtils={shapeUtils}
+                      components={tldrawComponents}
+                      overrides={TL_DRAW_TRANSLATION_OVERRIDES}
+                      onMount={(nextEditor) => {
+                        editorRef.current = nextEditor;
+                        setEditorReady(true);
+                        setAgentBridgeEditor(nextEditor);
+                        const nextCanvasRenderKey = canvasRenderKey;
+                        if (!nextCanvasRenderKey) {
+                          return;
                         }
-                        scheduleCanvasRevealAfterPaint(nextCanvasRenderKey);
-                      });
-                      canvasRevealRafIdsRef.current.push(viewportFitRafId);
-                    } else {
-                      initialViewportFitDoneRef.current = true;
-                      scheduleCanvasRevealAfterPaint(nextCanvasRenderKey);
-                    }
-                  }}
-                >
-                  <CanvasThemeBridge />
-                  <CanvasAgentOverlay bridge={canvasAgentBridge} />
-                  <CanvasFocusPulse />
-                </Tldraw>
-              </CanvasAgentCrashBoundary>
-            </CanvasTopLeftToolbarContext.Provider>
-            </CanvasTopChromePaddingContext.Provider>
-            <CanvasAgentIsland bridge={canvasAgentBridge} />
+
+                        // IndexedDB session can override snapshot; re-apply unless user saved grid off.
+                        if (readCanvasSession(boardIdentity)?.isGridMode !== false) {
+                          nextEditor.updateInstanceState({ isGridMode: true });
+                        }
+
+                        const pageId = nextEditor.getCurrentPageId();
+                        const session = readCanvasSession(boardIdentity);
+                        if (!hasTrustedSessionViewport(session, pageId)) {
+                          const viewportFitRafId = requestAnimationFrame(() => {
+                            if (
+                              !initialViewportFitDoneRef.current &&
+                              fitCanvasEditorToPageContent(nextEditor)
+                            ) {
+                              initialViewportFitDoneRef.current = true;
+                            }
+                            scheduleCanvasRevealAfterPaint(nextCanvasRenderKey);
+                          });
+                          canvasRevealRafIdsRef.current.push(viewportFitRafId);
+                        } else {
+                          initialViewportFitDoneRef.current = true;
+                          scheduleCanvasRevealAfterPaint(nextCanvasRenderKey);
+                        }
+                      }}
+                    >
+                      <CanvasThemeBridge />
+                      <CanvasAgentOverlay bridge={canvasAgentBridge} />
+                      <CanvasFocusPulse />
+                    </Tldraw>
+                  </CanvasAgentCrashBoundary>
+                </CanvasTopLeftToolbarContext.Provider>
+              </CanvasTopChromePaddingContext.Provider>
+              <CanvasAgentIsland bridge={canvasAgentBridge} />
             </CanvasTerminalRefProvider>
           </CanvasAgentCrashProvider>
         </CanvasAgentContext.Provider>
@@ -1520,7 +1512,9 @@ export const CanvasView: React.FC = () => {
         >
           <AlertTriangle className="size-12 text-warning" />
           <div>
-            <div className="text-base font-semibold text-foreground">{t("licenseBlocked.title")}</div>
+            <div className="text-base font-semibold text-foreground">
+              {t("licenseBlocked.title")}
+            </div>
             <div className="mt-1 max-w-md text-sm text-muted-foreground">
               {t("licenseBlocked.description")}
             </div>

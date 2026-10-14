@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { GeistPixelSquare } from 'geist/font/pixel';
-import { cn, TextShimmer } from '@workspace/ui';
-import LogoSvg from '@workspace/ui/components/logo-svg';
+import React from "react";
+import { GeistPixelSquare } from "geist/font/pixel";
+import { cn, TextShimmer } from "@workspace/ui";
+import LogoSvg from "@workspace/ui/components/logo-svg";
 
 interface AtmosWordmarkProps {
   className?: string;
@@ -13,7 +13,7 @@ interface AtmosWordmarkProps {
   sloganShimmer?: boolean;
   sloganShimmerStyle?: React.CSSProperties;
   /** `spread` fills the row; `compact` keeps letters grouped for hero/loading. */
-  layout?: 'spread' | 'compact';
+  layout?: "spread" | "compact";
 }
 
 export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
@@ -23,20 +23,17 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
   sloganClassName,
   sloganShimmer = false,
   sloganShimmerStyle,
-  layout = 'spread',
+  layout = "spread",
 }) => {
-  const sloganText = 'Atmosphere for Agentic Builders';
-  const logoSpacingClass =
-    layout === 'compact' ? undefined : 'mx-0.5 sm:mx-1';
+  const sloganText = "Atmosphere for Agentic Builders";
+  const logoSpacingClass = layout === "compact" ? undefined : "mx-0.5 sm:mx-1";
 
   return (
-    <div className={cn('flex flex-col items-center', className)}>
+    <div className={cn("flex flex-col items-center", className)}>
       <div
         className={cn(
-          'flex w-full max-w-3xl cursor-default select-none items-center text-[10rem] font-normal uppercase leading-none tracking-normal text-foreground drop-shadow-sm',
-          layout === 'compact'
-            ? 'justify-center gap-2 sm:gap-2.5 md:gap-3'
-            : 'justify-between',
+          "flex w-full max-w-3xl cursor-default items-center text-[10rem] leading-none font-normal tracking-normal text-foreground uppercase drop-shadow-sm select-none",
+          layout === "compact" ? "justify-center gap-2 sm:gap-2.5 md:gap-3" : "justify-between",
           GeistPixelSquare.className,
           letterClassName,
         )}
@@ -44,13 +41,7 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
         <span>A</span>
         <span>t</span>
         <span>m</span>
-        <LogoSvg
-          className={cn(
-            'mx-[0.04em] h-[0.72em] w-auto',
-            logoSpacingClass,
-            logoClassName
-          )}
-        />
+        <LogoSvg className={cn("mx-[0.04em] h-[0.72em] w-auto", logoSpacingClass, logoClassName)} />
         <span>s</span>
       </div>
       {sloganShimmer ? (
@@ -59,8 +50,8 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
           duration={2.8}
           spread={2.2}
           className={cn(
-            'pt-6 text-center text-[1.375rem] font-medium tracking-wide',
-            sloganClassName
+            "pt-6 text-center text-[1.375rem] font-medium tracking-wide",
+            sloganClassName,
           )}
           style={sloganShimmerStyle}
         >
@@ -69,8 +60,8 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
       ) : (
         <p
           className={cn(
-            'pt-6 text-center text-[1.375rem] font-medium tracking-wide text-muted-foreground',
-            sloganClassName
+            "pt-6 text-center text-[1.375rem] font-medium tracking-wide text-muted-foreground",
+            sloganClassName,
           )}
         >
           {sloganText}

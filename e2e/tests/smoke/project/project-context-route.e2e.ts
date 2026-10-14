@@ -21,12 +21,8 @@ test.describe("smoke project", () => {
     });
 
     await gotoContextRoute(page, projectUrl);
-    await expect
-      .poll(async () => normalizePathname(new URL(page.url()).pathname))
-      .toBe("/project");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("id"))
-      .toBeTruthy();
+    await expect.poll(async () => normalizePathname(new URL(page.url()).pathname)).toBe("/project");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("id")).toBeTruthy();
     await expect
       .poll(async () => {
         const pvUrl = new URL(page.url()).searchParams.get("pvUrl");
@@ -53,9 +49,7 @@ test.describe("smoke project", () => {
     });
 
     await gotoContextRoute(page, withSearchParams(projectUrl, { lsTab: "projects" }));
-    await expect
-      .poll(async () => normalizePathname(new URL(page.url()).pathname))
-      .toBe("/project");
+    await expect.poll(async () => normalizePathname(new URL(page.url()).pathname)).toBe("/project");
     await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
       timeout: 45_000,
     });

@@ -45,9 +45,9 @@ function findSendOrigin(transcript: HTMLElement | null): HTMLElement | null {
   const column = transcript?.closest("[data-agent-chat-column]");
   if (!column) return null;
   return (
-    column.querySelector<HTMLElement>("[data-agent-chat-composer] [contenteditable='true']")
-    ?? column.querySelector<HTMLElement>("[data-agent-chat-composer]")
-    ?? column.querySelector<HTMLElement>("[data-agent-chat-composer-dock]")
+    column.querySelector<HTMLElement>("[data-agent-chat-composer] [contenteditable='true']") ??
+    column.querySelector<HTMLElement>("[data-agent-chat-composer]") ??
+    column.querySelector<HTMLElement>("[data-agent-chat-composer-dock]")
   );
 }
 
@@ -151,9 +151,8 @@ export function AgentChatOwnSendRuntime({
     const session = sessionRef.current;
     if (isPendingUserEcho(lastUser) && session?.clientId !== lastUser.id) {
       if (handledIdRef.current === lastUser.id) return;
-      const kind: OwnSendKind = messages.filter((item) => item.role === "user").length <= 1
-        ? "first"
-        : "follow";
+      const kind: OwnSendKind =
+        messages.filter((item) => item.role === "user").length <= 1 ? "first" : "follow";
       if (!shouldAnimateOwnSend(kind, isAtBottomRef.current)) {
         handledIdRef.current = lastUser.id;
         clearSession();
@@ -197,10 +196,12 @@ export function AgentChatOwnSendRuntime({
 
       const origin = findSendOrigin(transcriptRef.current);
       const promptTop = prompt.getBoundingClientRect().top;
-      const originTop = origin?.getBoundingClientRect().top
-        ?? promptTop + (session.kind === "first"
-          ? (findAgentChatScrollElement(transcriptRef.current)?.clientHeight ?? 0) / 2
-          : 0);
+      const originTop =
+        origin?.getBoundingClientRect().top ??
+        promptTop +
+          (session.kind === "first"
+            ? (findAgentChatScrollElement(transcriptRef.current)?.clientHeight ?? 0) / 2
+            : 0);
       const invert = reduceMotion ? 0 : ownSendInvertPx(promptTop, originTop, session.kind);
       const layer = invertLayer(promptRow(prompt));
       refs.invertPxRef.current = invert;
@@ -208,7 +209,10 @@ export function AgentChatOwnSendRuntime({
 
       const finish = () => {
         finishTimerRef.current = null;
-        const live = findPrompt(transcriptRef.current, sessionRef.current?.liveId ?? session.liveId);
+        const live = findPrompt(
+          transcriptRef.current,
+          sessionRef.current?.liveId ?? session.liveId,
+        );
         writeLayerInvert(invertLayer(promptRow(live)), 0, 0);
         markTranscript(transcriptRef.current, null);
         sessionRef.current = null;
@@ -246,9 +250,12 @@ export function AgentChatOwnSendRuntime({
     return () => observer.disconnect();
   }, [enabled, messages, reduceMotion, refs, transcriptRef]);
 
-  useLayoutEffect(() => () => {
-    cancelTimers();
-  }, []);
+  useLayoutEffect(
+    () => () => {
+      cancelTimers();
+    },
+    [],
+  );
 
   return null;
 }

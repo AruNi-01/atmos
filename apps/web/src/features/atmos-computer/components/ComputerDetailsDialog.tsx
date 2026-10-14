@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState, type ReactNode } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useEffect, useState, type ReactNode } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -13,40 +13,40 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@workspace/ui';
+} from "@workspace/ui";
 import type {
   GhCliStatusResponse,
   RuntimeInfoResponse,
   TerminalOverviewResponse,
-} from '@/api/rest-api';
+} from "@/api/rest-api";
 import {
   fetchRelayGhCliStatus,
   fetchRelayRuntimeInfo,
   fetchRelayTerminalOverview,
-} from '@/api/relay';
-import type { ComputerRow } from '@/features/connection/lib/atmos-computer-store';
-import { fetchLocalComputerStatus } from '@/features/connection/lib/atmos-computer-local';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+} from "@/api/relay";
+import type { ComputerRow } from "@/features/connection/lib/atmos-computer-store";
+import { fetchLocalComputerStatus } from "@/features/connection/lib/atmos-computer-local";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import {
   formatRegistrationVia,
   registrationMetaFromRecord,
-} from '@/features/connection/lib/registration-meta';
+} from "@/features/connection/lib/registration-meta";
 import {
   useGhCliStatusQuery,
   useRuntimeInfoQuery,
   useTerminalOverviewQuery,
-} from '@/features/system/hooks/use-system-status-queries';
+} from "@/features/system/hooks/use-system-status-queries";
 
 function formatTime(epochSec: number | null | undefined, locale: string): string {
   if (!epochSec) {
-    return '—';
+    return "—";
   }
   return new Date(epochSec * 1000).toLocaleString(locale);
 }
 
 function formatIsoTime(iso: string | null | undefined, locale: string): string {
   if (!iso?.trim()) {
-    return '—';
+    return "—";
   }
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(locale);
@@ -54,7 +54,7 @@ function formatIsoTime(iso: string | null | undefined, locale: string): string {
 
 function formatUptime(secs: number | null | undefined): string {
   if (secs == null || secs < 0) {
-    return '—';
+    return "—";
   }
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
@@ -72,14 +72,14 @@ function formatGhCliInstallation(
   t: ReturnType<typeof useTranslations>,
 ): string {
   if (!status) {
-    return t('common.empty');
+    return t("common.empty");
   }
   if (!status.installed) {
-    return t('githubCli.notInstalled');
+    return t("githubCli.notInstalled");
   }
   return status.version
-    ? t('githubCli.installedWithVersion', { version: status.version })
-    : t('githubCli.installed');
+    ? t("githubCli.installedWithVersion", { version: status.version })
+    : t("githubCli.installed");
 }
 
 function formatGhCliAuthentication(
@@ -87,14 +87,14 @@ function formatGhCliAuthentication(
   t: ReturnType<typeof useTranslations>,
 ): string {
   if (!status?.installed) {
-    return t('common.empty');
+    return t("common.empty");
   }
   if (status.authenticated) {
     return status.username
-      ? t('githubCli.authenticatedAs', { username: status.username })
-      : t('githubCli.authenticated');
+      ? t("githubCli.authenticatedAs", { username: status.username })
+      : t("githubCli.authenticated");
   }
-  return t('githubCli.notAuthenticated');
+  return t("githubCli.notAuthenticated");
 }
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
@@ -117,28 +117,25 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
   );
 }
 
-function canFetchLiveDetails(
-  computer: ComputerRow,
-  isCurrent: boolean,
-): 'local' | 'relay' | false {
+function canFetchLiveDetails(computer: ComputerRow, isCurrent: boolean): "local" | "relay" | false {
   if (isCurrent) {
-    return 'local';
+    return "local";
   }
   const { connectionMode, relayGatewayHttpBase, relayClientToken, selectedServerId } =
     useAtmosComputerStore.getState();
   if (
-    connectionMode === 'relay' &&
+    connectionMode === "relay" &&
     relayGatewayHttpBase &&
     relayClientToken &&
     selectedServerId === computer.server_id
   ) {
-    return 'relay';
+    return "relay";
   }
   return false;
 }
 
 function RuntimeTabContent({ runtimeInfo }: { runtimeInfo: RuntimeInfoResponse }) {
-  const t = useTranslations('atmosComputer.detailsDialog');
+  const t = useTranslations("atmosComputer.detailsDialog");
   const locale = useLocale();
   const manifest = runtimeInfo.runtime_manifest;
   const relay = runtimeInfo.relay;
@@ -146,47 +143,50 @@ function RuntimeTabContent({ runtimeInfo }: { runtimeInfo: RuntimeInfoResponse }
   return (
     <div className="space-y-3">
       {manifest ? (
-        <DetailSection title={t('runtimeManifest.title')}>
-          <DetailRow label={t('runtimeManifest.source')} value={manifest.source} />
-          <DetailRow label={t('runtimeManifest.started')} value={formatIsoTime(manifest.started_at, locale)} />
+        <DetailSection title={t("runtimeManifest.title")}>
+          <DetailRow label={t("runtimeManifest.source")} value={manifest.source} />
           <DetailRow
-            label={t('runtimeManifest.apiUrl')}
+            label={t("runtimeManifest.started")}
+            value={formatIsoTime(manifest.started_at, locale)}
+          />
+          <DetailRow
+            label={t("runtimeManifest.apiUrl")}
             value={<span className="font-mono text-xs">{manifest.api_url}</span>}
           />
           <DetailRow
-            label={t('runtimeManifest.wsUrl')}
+            label={t("runtimeManifest.wsUrl")}
             value={<span className="font-mono text-xs">{manifest.ws_url}</span>}
           />
           {manifest.pid != null ? (
             <DetailRow
-              label={t('runtimeManifest.apiProcess')}
-              value={t('runtimeManifest.pid', { pid: manifest.pid })}
+              label={t("runtimeManifest.apiProcess")}
+              value={t("runtimeManifest.pid", { pid: manifest.pid })}
             />
           ) : null}
         </DetailSection>
       ) : null}
 
       {relay ? (
-        <DetailSection title={t('relay.title')}>
+        <DetailSection title={t("relay.title")}>
           <DetailRow
-            label={t('relay.registration')}
-            value={relay.registered ? t('relay.registered') : t('relay.notRegistered')}
+            label={t("relay.registration")}
+            value={relay.registered ? t("relay.registered") : t("relay.notRegistered")}
           />
           {relay.server_id ? (
             <DetailRow
-              label={t('overview.serverId')}
+              label={t("overview.serverId")}
               value={<span className="font-mono text-xs">{relay.server_id}</span>}
             />
           ) : null}
           {relay.relay_url ? (
             <DetailRow
-              label={t('relay.address')}
+              label={t("relay.address")}
               value={<span className="font-mono text-xs">{relay.relay_url}</span>}
             />
           ) : null}
           <DetailRow
-            label={t('relay.connection')}
-            value={relay.connected ? t('relay.connected') : t('relay.disconnected')}
+            label={t("relay.connection")}
+            value={relay.connected ? t("relay.connected") : t("relay.disconnected")}
           />
         </DetailSection>
       ) : null}
@@ -201,7 +201,7 @@ function HostTabContent({
   overview: TerminalOverviewResponse | null;
   ghCliStatus: GhCliStatusResponse | null;
 }) {
-  const t = useTranslations('atmosComputer.detailsDialog');
+  const t = useTranslations("atmosComputer.detailsDialog");
   const shell = overview?.shell_env;
   const tmux = overview?.tmux;
   const tmuxServer = overview?.tmux_server;
@@ -211,52 +211,58 @@ function HostTabContent({
   return (
     <div className="space-y-3">
       {shell ? (
-        <DetailSection title={t('host.systemTitle')}>
+        <DetailSection title={t("host.systemTitle")}>
           <DetailRow
-            label={t('host.os')}
-            value={[shell.os, shell.arch, shell.os_version].filter(Boolean).join(' · ') || t('common.empty')}
+            label={t("host.os")}
+            value={
+              [shell.os, shell.arch, shell.os_version].filter(Boolean).join(" · ") ||
+              t("common.empty")
+            }
           />
-          <DetailRow label={t('host.user')} value={shell.user || t('common.empty')} />
-          <DetailRow label={t('host.shell')} value={shell.shell || t('common.empty')} />
+          <DetailRow label={t("host.user")} value={shell.user || t("common.empty")} />
+          <DetailRow label={t("host.shell")} value={shell.shell || t("common.empty")} />
         </DetailSection>
       ) : null}
 
       {ghCliStatus ? (
-        <DetailSection title={t('githubCli.title')}>
+        <DetailSection title={t("githubCli.title")}>
           <DetailRow
-            label={t('githubCli.installation')}
+            label={t("githubCli.installation")}
             value={formatGhCliInstallation(ghCliStatus, t)}
           />
           <DetailRow
-            label={t('githubCli.authentication')}
+            label={t("githubCli.authentication")}
             value={formatGhCliAuthentication(ghCliStatus, t)}
           />
         </DetailSection>
       ) : null}
 
       {showTmux ? (
-        <DetailSection title={t('tmux.title')}>
+        <DetailSection title={t("tmux.title")}>
           {tmux ? (
             <>
               <DetailRow
-                label={t('tmux.installation')}
+                label={t("tmux.installation")}
                 value={
                   tmux.installed
                     ? tmux.version
-                      ? t('tmux.installedWithVersion', { version: tmux.version })
-                      : t('tmux.installed')
-                    : t('tmux.notInstalled')
+                      ? t("tmux.installedWithVersion", { version: tmux.version })
+                      : t("tmux.installed")
+                    : t("tmux.notInstalled")
                 }
               />
               {tmux.installed ? (
-                <DetailRow label={t('tmux.sessions')} value={tmux.session_count} />
+                <DetailRow label={t("tmux.sessions")} value={tmux.session_count} />
               ) : null}
             </>
           ) : null}
           {tmuxServer?.running ? (
             <>
-              <DetailRow label={t('tmux.serverUptime')} value={formatUptime(tmuxServer.uptime_secs)} />
-              <DetailRow label={t('tmux.windows')} value={tmuxServer.total_windows} />
+              <DetailRow
+                label={t("tmux.serverUptime")}
+                value={formatUptime(tmuxServer.uptime_secs)}
+              />
+              <DetailRow label={t("tmux.windows")} value={tmuxServer.total_windows} />
             </>
           ) : null}
         </DetailSection>
@@ -281,10 +287,10 @@ export function ComputerDetailsDialog({
   computer: ComputerRow | null;
   isCurrent: boolean;
 }) {
-  const t = useTranslations('atmosComputer.detailsDialog');
+  const t = useTranslations("atmosComputer.detailsDialog");
   const locale = useLocale();
   const localEnabled = open && isCurrent && Boolean(computer);
-  const dialogCycleKey = `${open}:${computer?.server_id ?? ''}:${isCurrent ? '1' : '0'}`;
+  const dialogCycleKey = `${open}:${computer?.server_id ?? ""}:${isCurrent ? "1" : "0"}`;
 
   const overviewQuery = useTerminalOverviewQuery({ enabled: localEnabled });
   const runtimeQuery = useRuntimeInfoQuery({ enabled: localEnabled });
@@ -296,7 +302,7 @@ export function ComputerDetailsDialog({
   const [relayGhCliStatus, setRelayGhCliStatus] = useState<GhCliStatusResponse | null>(null);
   const [relayError, setRelayError] = useState<string | null>(null);
   const [displayHostname, setDisplayHostname] = useState<string | null>(null);
-  const [userLiveTab, setUserLiveTab] = useState<'runtime' | 'host' | null>(null);
+  const [userLiveTab, setUserLiveTab] = useState<"runtime" | "host" | null>(null);
   const [activeCycleKey, setActiveCycleKey] = useState(dialogCycleKey);
 
   // Reset ephemeral dialog state when the open/computer cycle changes (React-recommended).
@@ -322,10 +328,7 @@ export function ComputerDetailsDialog({
         const status = await fetchLocalComputerStatus();
         if (cancelled) return;
         setDisplayHostname(
-          status?.computer_name ??
-            status?.hostname ??
-            status?.shell_env?.hostname ??
-            null,
+          status?.computer_name ?? status?.hostname ?? status?.shell_env?.hostname ?? null,
         );
       } catch {
         if (!cancelled) {
@@ -351,7 +354,7 @@ export function ComputerDetailsDialog({
     void (async () => {
       try {
         const mode = canFetchLiveDetails(computer, false);
-        if (mode !== 'relay') {
+        if (mode !== "relay") {
           if (!cancelled) {
             setRelayLoading(false);
           }
@@ -402,12 +405,12 @@ export function ComputerDetailsDialog({
     ? overviewQuery.isLoading || runtimeQuery.isLoading || ghCliQuery.isLoading
     : relayLoading;
   const error = isCurrent
-    ? queryErrorMessage(overviewQuery.error) ??
+    ? (queryErrorMessage(overviewQuery.error) ??
       queryErrorMessage(runtimeQuery.error) ??
-      queryErrorMessage(ghCliQuery.error)
+      queryErrorMessage(ghCliQuery.error))
     : relayError;
 
-  const name = (computer.display_name ?? t('common.computer')).slice(0, 64);
+  const name = (computer.display_name ?? t("common.computer")).slice(0, 64);
   const registrationMeta =
     registrationMetaFromRecord(computer.registration_meta) ??
     registrationMetaFromRecord(
@@ -416,7 +419,7 @@ export function ComputerDetailsDialog({
   const hasLiveData = Boolean(overview || runtimeInfo || ghCliStatus);
   const showRuntimeTab = Boolean(runtimeInfo);
   const showHostTab = Boolean(overview || ghCliStatus);
-  const defaultLiveTab: 'runtime' | 'host' = runtimeInfo ? 'runtime' : 'host';
+  const defaultLiveTab: "runtime" | "host" = runtimeInfo ? "runtime" : "host";
   const liveTab = userLiveTab ?? defaultLiveTab;
 
   return (
@@ -425,27 +428,32 @@ export function ComputerDetailsDialog({
         <DialogHeader>
           <DialogTitle>{name}</DialogTitle>
           <DialogDescription>
-            {isCurrent ? t('overview.thisComputer') : t('overview.remoteComputer')} ·{' '}
-            {computer.online ? t('overview.online') : t('overview.offline')}
+            {isCurrent ? t("overview.thisComputer") : t("overview.remoteComputer")} ·{" "}
+            {computer.online ? t("overview.online") : t("overview.offline")}
           </DialogDescription>
         </DialogHeader>
 
-        <DetailSection title={t('overview.title')}>
+        <DetailSection title={t("overview.title")}>
           <DetailRow
-            label={t('overview.serverId')}
+            label={t("overview.serverId")}
             value={<span className="font-mono text-xs">{computer.server_id}</span>}
           />
-          <DetailRow label={t('overview.added')} value={formatTime(computer.created_at, locale)} />
-          <DetailRow label={t('overview.lastSeen')} value={formatTime(computer.last_seen_at ?? null, locale)} />
-          {displayHostname ? <DetailRow label={t('overview.hostname')} value={displayHostname} /> : null}
+          <DetailRow label={t("overview.added")} value={formatTime(computer.created_at, locale)} />
+          <DetailRow
+            label={t("overview.lastSeen")}
+            value={formatTime(computer.last_seen_at ?? null, locale)}
+          />
+          {displayHostname ? (
+            <DetailRow label={t("overview.hostname")} value={displayHostname} />
+          ) : null}
           {registrationMeta ? (
             <>
               <DetailRow
-                label={t('overview.registeredVia')}
+                label={t("overview.registeredVia")}
                 value={formatRegistrationVia(registrationMeta.via)}
               />
               {registrationMeta.version ? (
-                <DetailRow label={t('overview.clientVersion')} value={registrationMeta.version} />
+                <DetailRow label={t("overview.clientVersion")} value={registrationMeta.version} />
               ) : null}
             </>
           ) : null}
@@ -460,33 +468,29 @@ export function ComputerDetailsDialog({
         ) : null}
 
         {error ? (
-          <p className="text-sm text-muted-foreground">
-            {t('messages.liveDetailsUnavailable')}
-          </p>
+          <p className="text-sm text-muted-foreground">{t("messages.liveDetailsUnavailable")}</p>
         ) : null}
 
         {!loading && !hasLiveData && !error ? (
-          <p className="text-sm text-muted-foreground">
-            {t('messages.connectToViewStats')}
-          </p>
+          <p className="text-sm text-muted-foreground">{t("messages.connectToViewStats")}</p>
         ) : null}
 
         {!loading && hasLiveData && (showRuntimeTab || showHostTab) ? (
           <Tabs
             value={liveTab}
-            onValueChange={(value) => setUserLiveTab(value as 'runtime' | 'host')}
+            onValueChange={(value) => setUserLiveTab(value as "runtime" | "host")}
             className="pt-1"
           >
             <TabsList
               className="grid w-full"
-              style={{ gridTemplateColumns: `repeat(${showRuntimeTab && showHostTab ? 2 : 1}, minmax(0, 1fr))` }}
+              style={{
+                gridTemplateColumns: `repeat(${showRuntimeTab && showHostTab ? 2 : 1}, minmax(0, 1fr))`,
+              }}
             >
               {showRuntimeTab ? (
-                <TabsTrigger value="runtime">{t('tabs.runtime')}</TabsTrigger>
+                <TabsTrigger value="runtime">{t("tabs.runtime")}</TabsTrigger>
               ) : null}
-              {showHostTab ? (
-                <TabsTrigger value="host">{t('tabs.host')}</TabsTrigger>
-              ) : null}
+              {showHostTab ? <TabsTrigger value="host">{t("tabs.host")}</TabsTrigger> : null}
             </TabsList>
 
             {showRuntimeTab ? (

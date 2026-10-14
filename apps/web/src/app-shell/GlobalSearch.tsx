@@ -1,39 +1,34 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
-import { useHotkeys } from 'react-hotkeys-hook';
-import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
-import { useAppRouter } from '@/shared/hooks/use-app-router';
-import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { useFocusRestore } from "@/shared/hooks/use-focus-restore";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
 import { useContextParams } from "@/shared/hooks/use-context-params";
-import { useTheme } from 'next-themes';
-import { useTranslations } from 'next-intl';
-import { useQueryState } from 'nuqs';
-import {
-  CommandDialog,
-} from '@workspace/ui';
-import { useDialogStore } from '@/app-shell/state/use-dialog-store';
-import { useProjectStore } from '@/features/project/store/use-project-store';
-import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
-import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
+import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
+import { useQueryState } from "nuqs";
+import { CommandDialog } from "@workspace/ui";
+import { useDialogStore } from "@/app-shell/state/use-dialog-store";
+import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import {
   getWorkspaceCreateOriginKey,
   useWorkspaceCreationStore,
-} from '@/features/workspace/store/workspace-creation-store';
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { fsApi, type SearchMatch, type FileTreeNode } from '@/api/ws-api';
-import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
-import { llmProvidersModalParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
-import { useWorkspaceContext } from '@/features/workspace/hooks/use-workspace-context';
-import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
-import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
-import { useWorkbenchLocale } from '@/providers/app/workbench-intl-provider';
-import { useCenterPaintContextId } from '@/app-shell/center-space/use-center-paint-context-id';
-import {
-  type AppSearchItem,
-  type SearchTab,
-} from '@/app-shell/global-search-parts';
-import { buildGlobalSearchItems } from '@/app-shell/global-search-app-items';
+} from "@/features/workspace/store/workspace-creation-store";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { fsApi, type SearchMatch, type FileTreeNode } from "@/api/ws-api";
+import { useFileTreeQuery } from "@/features/files/hooks/use-file-tree-query";
+import { llmProvidersModalParams, centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { useWorkspaceContext } from "@/features/workspace/hooks/use-workspace-context";
+import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
+import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
+import { useWorkbenchLocale } from "@/providers/app/workbench-intl-provider";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
+import { type AppSearchItem, type SearchTab } from "@/app-shell/global-search-parts";
+import { buildGlobalSearchItems } from "@/app-shell/global-search-app-items";
 import {
   CommitSubView,
   GlobalSearchMainView,
@@ -42,32 +37,32 @@ import {
   UsageSubView,
   type GroupedAppItems,
   type SubView,
-} from '@/app-shell/global-search-content';
-import { SessionSubView } from '@/app-shell/global-search-sessions';
+} from "@/app-shell/global-search-content";
+import { SessionSubView } from "@/app-shell/global-search-sessions";
 import {
   GLOBAL_SEARCH_TABS,
   resolveGlobalSearchSelectedValue,
   resolveGlobalSearchTypeahead,
-} from '@/app-shell/global-search-focus';
-import {
-  type HostSessionOpenTarget,
-} from '@/features/agent-sessions/lib/host-session-filters';
+} from "@/app-shell/global-search-focus";
+import { type HostSessionOpenTarget } from "@/features/agent-sessions/lib/host-session-filters";
 
 function normalizeGlobalSearchValue(value: string) {
   return value
     .toLowerCase()
-    .replace(/[-_/]+/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/[-_/]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
 function getGlobalSearchTerms(query: string) {
-  return normalizeGlobalSearchValue(query)
-    .split(' ')
-    .filter(Boolean);
+  return normalizeGlobalSearchValue(query).split(" ").filter(Boolean);
 }
 
-function keywordMatchesGlobalSearch(keyword: string, normalizedQuery: string, queryTerms: string[]) {
+function keywordMatchesGlobalSearch(
+  keyword: string,
+  normalizedQuery: string,
+  queryTerms: string[],
+) {
   const normalizedKeyword = normalizeGlobalSearchValue(keyword);
   if (!normalizedKeyword) return false;
 
@@ -75,8 +70,10 @@ function keywordMatchesGlobalSearch(keyword: string, normalizedQuery: string, qu
     return normalizedKeyword === normalizedQuery;
   }
 
-  return normalizedKeyword.includes(normalizedQuery) ||
-    queryTerms.every((term) => normalizedKeyword.includes(term));
+  return (
+    normalizedKeyword.includes(normalizedQuery) ||
+    queryTerms.every((term) => normalizedKeyword.includes(term))
+  );
 }
 
 function scoreTextMatch(text: string, normalizedQuery: string, queryTerms: string[]) {
@@ -132,31 +129,38 @@ function scoreFileSearchItem(file: { name: string; path: string }, query: string
 }
 
 export function GlobalSearch() {
-  const t = useTranslations('appShell.globalSearch');
+  const t = useTranslations("appShell.globalSearch");
   const router = useAppRouter();
   const [, setAgentChatOpen] = useAgentChatUrl();
-  const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, currentView } = useContextParams();
+  const {
+    workspaceId: currentWorkspaceId,
+    projectId: currentProjectIdFromUrl,
+    currentView,
+  } = useContextParams();
   const { setTheme } = useTheme();
   const { setLocale } = useWorkbenchLocale();
 
-  const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
+  const isGlobalSearchOpen = useDialogStore((s) => s.isGlobalSearchOpen);
   const { onCloseAutoFocusPrevent } = useFocusRestore(isGlobalSearchOpen);
-  const setGlobalSearchOpen = useDialogStore(s => s.setGlobalSearchOpen);
-  const globalSearchTab = useDialogStore(s => s.globalSearchTab);
-  const setGlobalSearchTab = useDialogStore(s => s.setGlobalSearchTab);
-  const setCreateProjectOpen = useDialogStore(s => s.setCreateProjectOpen);
-  const setCreateWorkspaceOpen = useDialogStore(s => s.setCreateWorkspaceOpen);
-  const setSelectedProjectId = useDialogStore(s => s.setSelectedProjectId);
+  const setGlobalSearchOpen = useDialogStore((s) => s.setGlobalSearchOpen);
+  const globalSearchTab = useDialogStore((s) => s.globalSearchTab);
+  const setGlobalSearchTab = useDialogStore((s) => s.setGlobalSearchTab);
+  const setCreateProjectOpen = useDialogStore((s) => s.setCreateProjectOpen);
+  const setCreateWorkspaceOpen = useDialogStore((s) => s.setCreateWorkspaceOpen);
+  const setSelectedProjectId = useDialogStore((s) => s.setSelectedProjectId);
 
   const projects = useProjects();
-  const quickAddWorkspace = useProjectStore(s => s.quickAddWorkspace);
+  const quickAddWorkspace = useProjectStore((s) => s.quickAddWorkspace);
   const currentSetupProgress = useProjectStore((s) =>
-    currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
+    currentWorkspaceId ? (s.setupProgress[currentWorkspaceId] ?? null) : null,
   );
-  const openFile = useEditorStore(s => s.openFile);
+  const openFile = useEditorStore((s) => s.openFile);
 
   // URL-param driven modals
-  const [, setLlmProvidersOpen] = useQueryState("llmProvidersModal", llmProvidersModalParams.llmProvidersModal);
+  const [, setLlmProvidersOpen] = useQueryState(
+    "llmProvidersModal",
+    llmProvidersModalParams.llmProvidersModal,
+  );
   const [, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
 
   const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
@@ -175,7 +179,7 @@ export function GlobalSearch() {
   const [firstSessionValue, setFirstSessionValue] = useState("");
   const [sessionSourcesSynced, setSessionSourcesSynced] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [codeSearchResults, setCodeSearchResults] = useState<SearchMatch[]>([]);
   const [isSearchingCode, setIsSearchingCode] = useState(false);
   const [codeSearchTruncated, setCodeSearchTruncated] = useState(false);
@@ -196,9 +200,9 @@ export function GlobalSearch() {
     // Initial check
     setIsFullScreen(!!document.fullscreenElement);
 
-    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    document.addEventListener("fullscreenchange", handleFullScreenChange);
     return () => {
-      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+      document.removeEventListener("fullscreenchange", handleFullScreenChange);
     };
   }, []);
 
@@ -214,14 +218,15 @@ export function GlobalSearch() {
 
   // Find current project and workspace
   const currentProject = useMemo(() => {
-    return projects.find(p =>
-      (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
-      (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
+    return projects.find(
+      (p) =>
+        (currentWorkspaceId && p.workspaces.some((w) => w.id === currentWorkspaceId)) ||
+        (!currentWorkspaceId && currentProjectIdFromUrl === p.id),
     );
   }, [projects, currentWorkspaceId, currentProjectIdFromUrl]);
 
   const currentWorkspace = useMemo(() => {
-    return currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
+    return currentProject?.workspaces.find((w) => w.id === currentWorkspaceId);
   }, [currentProject, currentWorkspaceId]);
 
   const currentEffectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
@@ -250,48 +255,52 @@ export function GlobalSearch() {
 
   // Load tasks when entering TODO sub-view
   useEffect(() => {
-    if (subView === 'todo' && currentEffectivePath) {
+    if (subView === "todo" && currentEffectivePath) {
       todoLoadTasks(currentEffectivePath);
     }
   }, [subView, currentEffectivePath, todoLoadTasks]);
 
   useEffect(() => {
-    if (subView === 'note' && currentEffectivePath) {
+    if (subView === "note" && currentEffectivePath) {
       void loadWorkspaceNote(currentEffectivePath);
     }
   }, [subView, currentEffectivePath, loadWorkspaceNote]);
 
   // Keyboard shortcut to open search
-  useHotkeys('mod+k', () => setGlobalSearchOpen(!isGlobalSearchOpen), {
+  useHotkeys("mod+k", () => setGlobalSearchOpen(!isGlobalSearchOpen), {
     enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
-    description: t('hotkeys.toggleGlobalSearch'),
+    description: t("hotkeys.toggleGlobalSearch"),
   });
 
   // Keyboard shortcut to switch tabs when search is open
-  useHotkeys('tab', () => {
-    if (!isGlobalSearchOpen) return;
-    const tabs: SearchTab[] = [...GLOBAL_SEARCH_TABS];
-    const currentIndex = tabs.indexOf(globalSearchTab);
-    const nextIndex = (currentIndex + 1) % tabs.length;
-    setGlobalSearchTab(tabs[nextIndex]);
-    // Focus input after tab switch
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }, {
-    enabled: isGlobalSearchOpen,
-    enableOnContentEditable: true,
-    enableOnFormTags: true,
-    preventDefault: true,
-    description: t('hotkeys.switchSearchTabs'),
-  });
+  useHotkeys(
+    "tab",
+    () => {
+      if (!isGlobalSearchOpen) return;
+      const tabs: SearchTab[] = [...GLOBAL_SEARCH_TABS];
+      const currentIndex = tabs.indexOf(globalSearchTab);
+      const nextIndex = (currentIndex + 1) % tabs.length;
+      setGlobalSearchTab(tabs[nextIndex]);
+      // Focus input after tab switch
+      setTimeout(() => inputRef.current?.focus(), 0);
+    },
+    {
+      enabled: isGlobalSearchOpen,
+      enableOnContentEditable: true,
+      enableOnFormTags: true,
+      preventDefault: true,
+      description: t("hotkeys.switchSearchTabs"),
+    },
+  );
 
   // Reset search when dialog closes
   useEffect(() => {
     if (!isGlobalSearchOpen) {
-      setSearchQuery('');
+      setSearchQuery("");
       setCodeSearchResults([]);
-      setSelectedValue('');
+      setSelectedValue("");
       setSubView(null);
       setSessionTarget(null);
       setFirstSessionValue("");
@@ -327,7 +336,9 @@ export function GlobalSearch() {
       const target = event.target;
       if (
         target instanceof Element &&
-        target.closest("[data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content']")
+        target.closest(
+          "[data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content']",
+        )
       ) {
         return;
       }
@@ -342,8 +353,8 @@ export function GlobalSearch() {
       }
     };
 
-    document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [isGlobalSearchOpen, subView, sessionTarget]);
 
   // Auto-scroll to selected item
@@ -352,7 +363,7 @@ export function GlobalSearch() {
       const timer = setTimeout(() => {
         const element = document.querySelector(`[cmdk-item][data-selected="true"]`);
         if (element) {
-          element.scrollIntoView({ block: 'nearest' });
+          element.scrollIntoView({ block: "nearest" });
         }
       }, 0);
       return () => clearTimeout(timer);
@@ -371,7 +382,7 @@ export function GlobalSearch() {
 
   // Debounced code search
   useEffect(() => {
-    if (globalSearchTab !== 'code' || !searchQuery.trim() || !currentEffectivePath || isSettingUp) {
+    if (globalSearchTab !== "code" || !searchQuery.trim() || !currentEffectivePath || isSettingUp) {
       setCodeSearchResults([]);
       return;
     }
@@ -383,7 +394,7 @@ export function GlobalSearch() {
         setCodeSearchResults(response.matches);
         setCodeSearchTruncated(response.truncated);
       } catch (error) {
-        console.error('Code search failed:', error);
+        console.error("Code search failed:", error);
         setCodeSearchResults([]);
       } finally {
         setIsSearchingCode(false);
@@ -394,18 +405,21 @@ export function GlobalSearch() {
   }, [searchQuery, globalSearchTab, currentEffectivePath, isSettingUp]);
 
   // Flatten file tree for searching
-  const flattenFileTree = useCallback((nodes: FileTreeNode[]): { name: string; path: string; isDir: boolean }[] => {
-    const result: { name: string; path: string; isDir: boolean }[] = [];
+  const flattenFileTree = useCallback(
+    (nodes: FileTreeNode[]): { name: string; path: string; isDir: boolean }[] => {
+      const result: { name: string; path: string; isDir: boolean }[] = [];
 
-    for (const node of nodes) {
-      result.push({ name: node.name, path: node.path, isDir: node.is_dir });
-      if (node.children) {
-        result.push(...flattenFileTree(node.children));
+      for (const node of nodes) {
+        result.push({ name: node.name, path: node.path, isDir: node.is_dir });
+        if (node.children) {
+          result.push(...flattenFileTree(node.children));
+        }
       }
-    }
 
-    return result;
-  }, []);
+      return result;
+    },
+    [],
+  );
 
   // Build app search items
   const appSearchItems = useMemo((): AppSearchItem[] => {
@@ -440,7 +454,34 @@ export function GlobalSearch() {
         void setAgentChatOpen(true);
       },
     });
-  }, [projects, router, setTheme, setLocale, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, toggleLeftSidebar, isLeftCollapsed, currentProject, currentWorkspace, currentWorkspaceId, currentEffectivePath, centerContextId, centerWikiTabEnabled, setLlmProvidersOpen, setCanvasOpen, startCreating, bindWorkspace, failCreating, createOriginKey, setAgentChatOpen]);
+  }, [
+    projects,
+    router,
+    setTheme,
+    setLocale,
+    setGlobalSearchOpen,
+    setCreateProjectOpen,
+    setSelectedProjectId,
+    setCreateWorkspaceOpen,
+    quickAddWorkspace,
+    isFullScreen,
+    toggleFullScreen,
+    toggleLeftSidebar,
+    isLeftCollapsed,
+    currentProject,
+    currentWorkspace,
+    currentWorkspaceId,
+    currentEffectivePath,
+    centerContextId,
+    centerWikiTabEnabled,
+    setLlmProvidersOpen,
+    setCanvasOpen,
+    startCreating,
+    bindWorkspace,
+    failCreating,
+    createOriginKey,
+    setAgentChatOpen,
+  ]);
 
   // Filter app items with deterministic matching. Single-word keyword hits must be exact
   // to keep broad keyword phrases from pulling unrelated results into the command palette.
@@ -453,14 +494,17 @@ export function GlobalSearch() {
         index,
         score: scoreAppSearchItem(item, searchQuery),
       }))
-      .filter((result): result is { item: AppSearchItem; index: number; score: number } => result.score !== null)
+      .filter(
+        (result): result is { item: AppSearchItem; index: number; score: number } =>
+          result.score !== null,
+      )
       .sort((a, b) => a.score - b.score || a.index - b.index)
       .map((result) => result.item);
   }, [appSearchItems, searchQuery]);
 
   // Flatten file tree for deterministic file search.
   const allFiles = useMemo(() => {
-    return flattenFileTree(fileTreeCache).filter(f => !f.isDir);
+    return flattenFileTree(fileTreeCache).filter((f) => !f.isDir);
   }, [fileTreeCache, flattenFileTree]);
 
   // Filter files with the same deterministic matching as app results.
@@ -473,7 +517,15 @@ export function GlobalSearch() {
         index,
         score: scoreFileSearchItem(file, searchQuery),
       }))
-      .filter((result): result is { file: { name: string; path: string; isDir: boolean }; index: number; score: number } => result.score !== null)
+      .filter(
+        (
+          result,
+        ): result is {
+          file: { name: string; path: string; isDir: boolean };
+          index: number;
+          score: number;
+        } => result.score !== null,
+      )
       .sort((a, b) => a.score - b.score || a.index - b.index)
       .slice(0, 50)
       .map((result) => result.file);
@@ -485,8 +537,8 @@ export function GlobalSearch() {
       workspace: [],
       theme: [],
       project: [],
-      'new-workspace': [],
-      'quick-open': [],
+      "new-workspace": [],
+      "quick-open": [],
       launchpad: [],
       surface: [],
       modal: [],
@@ -497,7 +549,7 @@ export function GlobalSearch() {
       command: [],
     };
 
-    filteredAppItems.forEach(item => {
+    filteredAppItems.forEach((item) => {
       groups[item.type].push(item);
     });
 
@@ -523,7 +575,15 @@ export function GlobalSearch() {
         firstSessionValue,
       }),
     );
-  }, [globalSearchTab, searchQuery, isGlobalSearchOpen, firstAppItemId, firstFilePath, firstCodeValue, firstSessionValue]);
+  }, [
+    globalSearchTab,
+    searchQuery,
+    isGlobalSearchOpen,
+    firstAppItemId,
+    firstFilePath,
+    firstCodeValue,
+    firstSessionValue,
+  ]);
 
   const handleFileSelect = (path: string) => {
     const contextId = centerContextId;
@@ -562,7 +622,9 @@ export function GlobalSearch() {
         const target = event.target;
         if (
           target instanceof Element &&
-          target.closest("[data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content']")
+          target.closest(
+            "[data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content']",
+          )
         ) {
           event.preventDefault();
         }
@@ -571,8 +633,8 @@ export function GlobalSearch() {
       onOpenAutoFocus={focusSearchInput}
       className={
         sessionTarget
-          ? "w-[min(960px,calc(100vw-2rem))] sm:max-w-[960px] h-[min(86vh,860px)]"
-          : "w-[min(640px,calc(100vw-2rem))] sm:max-w-[640px] h-[min(64vh,640px)]"
+          ? "h-[min(86vh,860px)] w-[min(960px,calc(100vw-2rem))] sm:max-w-[960px]"
+          : "h-[min(64vh,640px)] w-[min(640px,calc(100vw-2rem))] sm:max-w-[640px]"
       }
     >
       {sessionTarget ? (
@@ -582,7 +644,7 @@ export function GlobalSearch() {
           onBack={() => setSessionTarget(null)}
           onNavigated={() => setGlobalSearchOpen(false)}
         />
-      ) : subView === 'todo' ? (
+      ) : subView === "todo" ? (
         <TodoSubView
           currentProject={currentProject}
           currentWorkspace={currentWorkspace}
@@ -595,7 +657,7 @@ export function GlobalSearch() {
           deleteTask={todoDeleteTask}
           onBack={() => setSubView(null)}
         />
-      ) : subView === 'note' ? (
+      ) : subView === "note" ? (
         <NoteSubView
           currentProject={currentProject}
           currentWorkspace={currentWorkspace}
@@ -605,9 +667,9 @@ export function GlobalSearch() {
           saveNote={saveWorkspaceNote}
           onBack={() => setSubView(null)}
         />
-      ) : subView === 'usage' ? (
+      ) : subView === "usage" ? (
         <UsageSubView onBack={() => setSubView(null)} />
-      ) : subView === 'commit' ? (
+      ) : subView === "commit" ? (
         <CommitSubView
           currentProject={currentProject}
           currentWorkspace={currentWorkspace}

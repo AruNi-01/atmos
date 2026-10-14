@@ -57,9 +57,7 @@ function compareUsage(
   return compareNameAndId(left.name, left.id, right.name, right.id, "ascending");
 }
 
-export type ResourceMonitorSessionNameResolver = (
-  session: ResourceSessionMetrics,
-) => string;
+export type ResourceMonitorSessionNameResolver = (session: ResourceSessionMetrics) => string;
 
 function sessionSortName(
   session: ResourceSessionMetrics,
@@ -145,17 +143,8 @@ export function sortResourceMonitorWorkspaces(
     )
     .map((workspace) => ({
       ...workspace,
-      sessions: sortResourceMonitorSessions(
-        workspace.sessions,
-        key,
-        resolveName,
-        direction,
-      ),
-      other_processes: sortResourceMonitorProcesses(
-        workspace.other_processes,
-        key,
-        direction,
-      ),
+      sessions: sortResourceMonitorSessions(workspace.sessions, key, resolveName, direction),
+      other_processes: sortResourceMonitorProcesses(workspace.other_processes, key, direction),
     }));
 }
 
@@ -176,23 +165,9 @@ export function sortResourceMonitorProjects(
     )
     .map((project) => ({
       ...project,
-      sessions: sortResourceMonitorSessions(
-        project.sessions,
-        key,
-        resolveName,
-        direction,
-      ),
-      other_processes: sortResourceMonitorProcesses(
-        project.other_processes,
-        key,
-        direction,
-      ),
-      workspaces: sortResourceMonitorWorkspaces(
-        project.workspaces,
-        key,
-        resolveName,
-        direction,
-      ),
+      sessions: sortResourceMonitorSessions(project.sessions, key, resolveName, direction),
+      other_processes: sortResourceMonitorProcesses(project.other_processes, key, direction),
+      workspaces: sortResourceMonitorWorkspaces(project.workspaces, key, resolveName, direction),
     }));
 }
 

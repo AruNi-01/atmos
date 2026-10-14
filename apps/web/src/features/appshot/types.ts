@@ -7,14 +7,9 @@ export type AppshotQuality =
   | "metadata_only"
   | "unsupported";
 
-export type AppshotPermissionName =
-  | "accessibility"
-  | "screen_recording";
+export type AppshotPermissionName = "accessibility" | "screen_recording";
 
-export type AppshotSettingsTarget =
-  | "accessibility"
-  | "screen_recording"
-  | "privacy_security";
+export type AppshotSettingsTarget = "accessibility" | "screen_recording" | "privacy_security";
 
 export type AppshotTriggerMode =
   | "macos_modifier_gesture"

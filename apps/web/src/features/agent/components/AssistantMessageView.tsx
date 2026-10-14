@@ -2,12 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  cn,
-} from "@workspace/ui";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, cn } from "@workspace/ui";
 import { ChevronRight, FileText } from "lucide-react";
 import { MarkdownCodeBlock } from "@/shared/components/markdown/MarkdownRenderer";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
@@ -16,10 +11,7 @@ import { AgentPartView } from "./AgentPartView";
 import { foldedPartKey } from "./folded-agent-part";
 import { AgentStreamReveal } from "./AgentStreamReveal";
 import { AgentToolGroupView } from "./AgentToolGroupView";
-import {
-  AgentChatMarkdownFileChip,
-  AgentChatMarkdownFileLink,
-} from "./AgentChatMarkdownFile";
+import { AgentChatMarkdownFileChip, AgentChatMarkdownFileLink } from "./AgentChatMarkdownFile";
 import { useAgentChatCwd, useAgentChatPathRoots } from "./agent-chat-cwd-context";
 import {
   isAssistantAnswerTextPart,
@@ -71,7 +63,7 @@ function useReviewLinkComponents() {
             <button
               type="button"
               onClick={() => void openWorkspacePath(file.path, { preview: true, isDir: false })}
-              className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[0.85em] text-primary underline decoration-primary/40 underline-offset-2 hover:bg-primary/20 hover:decoration-primary cursor-pointer"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[0.85em] text-primary underline decoration-primary/40 underline-offset-2 hover:bg-primary/20 hover:decoration-primary"
               title={file.path}
             >
               <FileText className="size-3 shrink-0" />
@@ -93,7 +85,11 @@ function useReviewLinkComponents() {
           );
         }
       }
-      return <MarkdownCodeBlock className={className} {...rest}>{children}</MarkdownCodeBlock>;
+      return (
+        <MarkdownCodeBlock className={className} {...rest}>
+          {children}
+        </MarkdownCodeBlock>
+      );
     };
 
     const FileLink = (props: React.ComponentPropsWithoutRef<"a"> & { node?: unknown }) => {
@@ -143,9 +139,7 @@ function ProcessCollapseRail({
       <div className="h-px min-w-0 flex-1 bg-border" />
       {expanded ? (
         <>
-          <span className="shrink-0 text-xs leading-none">
-            {collapseLabel}
-          </span>
+          <span className="shrink-0 text-xs leading-none">{collapseLabel}</span>
           <div className="h-px min-w-0 flex-1 bg-border" />
         </>
       ) : null}
@@ -276,11 +270,7 @@ export const AssistantMessageView = React.memo(function AssistantMessageView({
         {renderPart(segment.part, segment.origIndex)}
       </AgentStreamReveal>
     );
-    if (
-      searchable
-      && segment.type === "part"
-      && isAssistantAnswerTextPart(segment.part)
-    ) {
+    if (searchable && segment.type === "part" && isAssistantAnswerTextPart(segment.part)) {
       return (
         <div key={`find-${key}`} data-transcript-find="answer">
           {part}
@@ -303,10 +293,7 @@ export const AssistantMessageView = React.memo(function AssistantMessageView({
         >
           <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-1 py-0.5 text-left text-muted-foreground hover:text-foreground">
             {showWorkedFor ? (
-              <AgentWorkedForLabel
-                workedMs={message.worked_ms ?? 0}
-                reveal="duration"
-              />
+              <AgentWorkedForLabel workedMs={message.worked_ms ?? 0} reveal="duration" />
             ) : (
               <span className="text-xs">{t("assistantTurn.process.label")}</span>
             )}

@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Window } from "happy-dom";
-import {
-  Editor,
-  editorViewCtx,
-  rootCtx,
-  defaultValueCtx,
-} from "@milkdown/kit/core";
+import { Editor, editorViewCtx, rootCtx, defaultValueCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { CellSelection } from "@milkdown/kit/prose/tables";
@@ -180,7 +175,11 @@ describe("md-live table ops", () => {
     selectAllCells(editor);
     const handled = editor.action((ctx) => {
       const view = ctx.get(editorViewCtx);
-      const event = new window.KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true });
+      const event = new window.KeyboardEvent("keydown", {
+        key: "Delete",
+        bubbles: true,
+        cancelable: true,
+      });
       const result = view.someProp("handleKeyDown", (fn) => fn(view, event));
       return { result, table: mdLiveFirstTablePos(view.state.doc) };
     });
@@ -300,8 +299,15 @@ describe("md-live table ops", () => {
     const { editor } = await createEditor();
     selectCells(editor, 0, 1, 2, 1);
     expect(applySelectionDelete(editor)).toBe(true);
-    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({ rows: 3, cols: 1 });
-    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual(["A", "1", "3"]);
+    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({
+      rows: 3,
+      cols: 1,
+    });
+    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual([
+      "A",
+      "1",
+      "3",
+    ]);
     await editor.destroy();
   });
 
@@ -309,8 +315,16 @@ describe("md-live table ops", () => {
     const { editor } = await createEditor();
     selectCells(editor, 2, 0, 2, 1);
     expect(applySelectionDelete(editor)).toBe(true);
-    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({ rows: 2, cols: 2 });
-    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual(["A", "B", "1", "2"]);
+    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({
+      rows: 2,
+      cols: 2,
+    });
+    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual([
+      "A",
+      "B",
+      "1",
+      "2",
+    ]);
     await editor.destroy();
   });
 
@@ -318,16 +332,30 @@ describe("md-live table ops", () => {
     const { editor } = await createEditor();
     selectCells(editor, 1, 0, 2, 1);
     expect(applySelectionDelete(editor)).toBe(true);
-    expect(mdLiveFirstTablePos(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toBeNull();
+    expect(
+      mdLiveFirstTablePos(editor.action((ctx) => ctx.get(editorViewCtx).state.doc)),
+    ).toBeNull();
     await editor.destroy();
   });
 
   test("a partial cell selection does not drop rows or columns", async () => {
     const { editor } = await createEditor();
     selectCells(editor, 0, 0, 0, 0);
-    expect(mdLiveDeleteTableSelection(editor.action((ctx) => ctx.get(editorViewCtx).state))).toBeNull();
-    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({ rows: 3, cols: 2 });
-    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual(["A", "B", "1", "2", "3", "4"]);
+    expect(
+      mdLiveDeleteTableSelection(editor.action((ctx) => ctx.get(editorViewCtx).state)),
+    ).toBeNull();
+    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({
+      rows: 3,
+      cols: 2,
+    });
+    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual([
+      "A",
+      "B",
+      "1",
+      "2",
+      "3",
+      "4",
+    ]);
     await editor.destroy();
   });
 
@@ -339,8 +367,15 @@ describe("md-live table ops", () => {
 `);
     selectCells(editor, 0, 1, 2, 2);
     expect(applySelectionDelete(editor)).toBe(true);
-    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({ rows: 3, cols: 1 });
-    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual(["A", "1", "4"]);
+    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({
+      rows: 3,
+      cols: 1,
+    });
+    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual([
+      "A",
+      "1",
+      "4",
+    ]);
     await editor.destroy();
   });
 
@@ -348,8 +383,16 @@ describe("md-live table ops", () => {
     const { editor } = await createEditor();
     selectCells(editor, 0, 0, 0, 1);
     expect(applySelectionDelete(editor)).toBe(true);
-    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({ rows: 2, cols: 2 });
-    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual(["1", "2", "3", "4"]);
+    expect(tableShape(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual({
+      rows: 2,
+      cols: 2,
+    });
+    expect(cellTexts(editor.action((ctx) => ctx.get(editorViewCtx).state.doc))).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+    ]);
     await editor.destroy();
   });
 
@@ -358,7 +401,11 @@ describe("md-live table ops", () => {
     selectCells(editor, 0, 1, 2, 1);
     const handled = editor.action((ctx) => {
       const view = ctx.get(editorViewCtx);
-      const event = new window.KeyboardEvent("keydown", { key: "Backspace", bubbles: true, cancelable: true });
+      const event = new window.KeyboardEvent("keydown", {
+        key: "Backspace",
+        bubbles: true,
+        cancelable: true,
+      });
       const result = view.someProp("handleKeyDown", (fn) => fn(view, event));
       return { result, shape: tableShape(view.state.doc), texts: cellTexts(view.state.doc) };
     });

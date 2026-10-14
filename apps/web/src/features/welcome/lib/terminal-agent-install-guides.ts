@@ -126,14 +126,18 @@ export const TERMINAL_AGENT_INSTALL_GUIDES: Record<string, AgentInstallGuide> = 
   },
   cursor: {
     macos: [
-      unixNative("curl https://cursor.com/install -fsS | bash", "Installs the Cursor CLI (`agent` / `cursor-agent`)."),
+      unixNative(
+        "curl https://cursor.com/install -fsS | bash",
+        "Installs the Cursor CLI (`agent` / `cursor-agent`).",
+      ),
     ],
     linux: [
-      unixNative("curl https://cursor.com/install -fsS | bash", "Installs the Cursor CLI (`agent` / `cursor-agent`)."),
+      unixNative(
+        "curl https://cursor.com/install -fsS | bash",
+        "Installs the Cursor CLI (`agent` / `cursor-agent`).",
+      ),
     ],
-    windows: [
-      winNative("irm 'https://cursor.com/install?win32=true' | iex"),
-    ],
+    windows: [winNative("irm 'https://cursor.com/install?win32=true' | iex")],
   },
   "grok-build": {
     macos: [unixNative("curl -fsSL https://x.ai/cli/install.sh | bash")],
@@ -152,9 +156,15 @@ export const TERMINAL_AGENT_INSTALL_GUIDES: Record<string, AgentInstallGuide> = 
       npmGlobal("opencode-ai"),
     ],
     windows: [
-      unixNative("curl -fsSL https://opencode.ai/install | bash", "Prefer WSL2; native Windows binary also available from releases."),
+      unixNative(
+        "curl -fsSL https://opencode.ai/install | bash",
+        "Prefer WSL2; native Windows binary also available from releases.",
+      ),
       npmGlobal("opencode-ai"),
-      docsLink("https://opencode.ai", "Download a Windows binary from the official site / releases if needed."),
+      docsLink(
+        "https://opencode.ai",
+        "Download a Windows binary from the official site / releases if needed.",
+      ),
     ],
   },
   pi: {
@@ -168,7 +178,10 @@ export const TERMINAL_AGENT_INSTALL_GUIDES: Record<string, AgentInstallGuide> = 
     ],
     windows: [
       npmGlobal("@earendil-works/pi-coding-agent", "--ignore-scripts"),
-      docsLink("https://pi.dev/docs/latest/quickstart", "Windows: use npm, or run the curl installer from WSL."),
+      docsLink(
+        "https://pi.dev/docs/latest/quickstart",
+        "Windows: use npm, or run the curl installer from WSL.",
+      ),
     ],
   },
   antigravity: {
@@ -190,14 +203,8 @@ export const TERMINAL_AGENT_INSTALL_GUIDES: Record<string, AgentInstallGuide> = 
       brewFormula("droid", true),
       npmGlobal("droid"),
     ],
-    linux: [
-      unixNative("curl -fsSL https://app.factory.ai/cli | sh"),
-      npmGlobal("droid"),
-    ],
-    windows: [
-      winNative("irm https://app.factory.ai/cli/windows | iex"),
-      npmGlobal("droid"),
-    ],
+    linux: [unixNative("curl -fsSL https://app.factory.ai/cli | sh"), npmGlobal("droid")],
+    windows: [winNative("irm https://app.factory.ai/cli/windows | iex"), npmGlobal("droid")],
   },
   amp: {
     macos: [
@@ -260,9 +267,15 @@ export const TERMINAL_AGENT_INSTALL_GUIDES: Record<string, AgentInstallGuide> = 
   },
   // Less standardized / docs-first when official one-liners are unclear.
   commandcode: {
-    macos: [docsLink("https://commandcode.ai", "Install CommandCode (`cmd`) from the official site.")],
-    linux: [docsLink("https://commandcode.ai", "Install CommandCode (`cmd`) from the official site.")],
-    windows: [docsLink("https://commandcode.ai", "Install CommandCode (`cmd`) from the official site.")],
+    macos: [
+      docsLink("https://commandcode.ai", "Install CommandCode (`cmd`) from the official site."),
+    ],
+    linux: [
+      docsLink("https://commandcode.ai", "Install CommandCode (`cmd`) from the official site."),
+    ],
+    windows: [
+      docsLink("https://commandcode.ai", "Install CommandCode (`cmd`) from the official site."),
+    ],
   },
   devin: {
     macos: [docsLink("https://devin.ai", "Install the Devin CLI from Cognition / Devin docs.")],

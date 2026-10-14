@@ -1,18 +1,8 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  motion,
-  useMotionValue,
-  useSpring,
-  useTransform,
-} from "motion/react";
+import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import { cn } from "@/shared/lib/utils";
 import {
   clampFollowHoverHorizontal,
@@ -248,8 +238,7 @@ export function FollowHoverCard({
     return <>{children}</>;
   }
 
-  const placementTranslate =
-    placement === "top" ? "translate(-50%, -100%)" : "translate(-50%, 0)";
+  const placementTranslate = placement === "top" ? "translate(-50%, -100%)" : "translate(-50%, 0)";
 
   const popover =
     isHovered && typeof document !== "undefined"
@@ -311,9 +300,9 @@ export function FollowHoverCard({
                 }}
                 data-slot="follow-hover-card"
                 className={cn(
-                  "relative select-none rounded-2xl border border-dashed border-border/70 bg-popover/95 p-4 shadow-xl backdrop-blur-md will-change-transform",
+                  "relative rounded-2xl border border-dashed border-border/70 bg-popover/95 p-4 shadow-xl backdrop-blur-md will-change-transform select-none",
                   placement === "top" &&
-                    "after:absolute after:left-0 after:top-full after:h-4 after:w-full",
+                    "after:absolute after:top-full after:left-0 after:h-4 after:w-full",
                   placement === "bottom" &&
                     "after:absolute after:bottom-full after:left-0 after:h-4 after:w-full",
                   contentClassName,
@@ -347,16 +336,8 @@ export function FollowHoverCard({
         onMouseLeave={() => {
           scheduleClose();
         }}
-        onClick={
-          stopTriggerPropagation
-            ? (event) => event.stopPropagation()
-            : undefined
-        }
-        onPointerDown={
-          stopTriggerPropagation
-            ? (event) => event.stopPropagation()
-            : undefined
-        }
+        onClick={stopTriggerPropagation ? (event) => event.stopPropagation() : undefined}
+        onPointerDown={stopTriggerPropagation ? (event) => event.stopPropagation() : undefined}
       >
         {children}
       </span>

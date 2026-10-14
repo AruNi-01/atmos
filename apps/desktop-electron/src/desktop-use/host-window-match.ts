@@ -112,8 +112,7 @@ function scoreWindow(
 
   const preferredByPid =
     opts.preferPid != null && typeof w.pid === "number" && w.pid === opts.preferPid;
-  const preferredByApp =
-    Boolean(opts.preferApp) && appNamesLooselyEqual(app, opts.preferApp!);
+  const preferredByApp = Boolean(opts.preferApp) && appNamesLooselyEqual(app, opts.preferApp!);
   const preferred = preferredByPid || preferredByApp;
 
   // Skip Atmos/self chrome unless this row is the explicitly focused app
@@ -158,8 +157,7 @@ export function pickFrontmostWindow(
 ): HostWindowRow | null {
   if (!windows.length) return null;
   const selfNames =
-    options.selfAppNames ??
-    new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
+    options.selfAppNames ?? new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
   const anyOnScreen = windows.some((w) => w.is_on_screen);
 
   let best: HostWindowRow | null = null;
@@ -254,8 +252,7 @@ export function mergeFrontmostIdentity(
     systemEvents.processId != null &&
     fromHost.processId != null &&
     systemEvents.processId === fromHost.processId;
-  const sameName =
-    hostRow != null && appNamesLooselyEqual(hostApp, seApp);
+  const sameName = hostRow != null && appNamesLooselyEqual(hostApp, seApp);
   // Trust host rect when pid matches OR names loosely match.
   const trustHostRow = samePid || sameName;
   const hostHas = hasCompleteBounds(fromHost);
@@ -263,28 +260,21 @@ export function mergeFrontmostIdentity(
   const useHostGeometry = trustHostRow && hostHas;
 
   const windowTitle =
-    (trustHostRow && fromHost.windowTitle) ||
-    systemEvents.windowTitle?.trim() ||
-    null;
+    (trustHostRow && fromHost.windowTitle) || systemEvents.windowTitle?.trim() || null;
 
   // Prefer SE/CG app label for product identity; keep host geometry as a unit.
   return {
     appName: seApp,
-    windowTitle:
-      windowTitle && windowTitle !== seApp ? windowTitle : windowTitle || null,
+    windowTitle: windowTitle && windowTitle !== seApp ? windowTitle : windowTitle || null,
     bundleId: systemEvents.bundleId ?? fromHost.bundleId,
     processId: systemEvents.processId ?? fromHost.processId,
     windowId: useHostGeometry
-      ? fromHost.windowId ?? systemEvents.windowId
-      : systemEvents.windowId ?? fromHost.windowId,
+      ? (fromHost.windowId ?? systemEvents.windowId)
+      : (systemEvents.windowId ?? fromHost.windowId),
     x: useHostGeometry ? fromHost.x : seHas ? systemEvents.x : null,
     y: useHostGeometry ? fromHost.y : seHas ? systemEvents.y : null,
     width: useHostGeometry ? fromHost.width : seHas ? systemEvents.width : null,
-    height: useHostGeometry
-      ? fromHost.height
-      : seHas
-        ? systemEvents.height
-        : null,
+    height: useHostGeometry ? fromHost.height : seHas ? systemEvents.height : null,
   };
 }
 

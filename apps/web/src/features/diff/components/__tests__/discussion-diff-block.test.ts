@@ -3,10 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("DiscussionDiffBlock", () => {
-  const source = readFileSync(
-    join(import.meta.dir, "../DiscussionDiffBlock.tsx"),
-    "utf8",
-  );
+  const source = readFileSync(join(import.meta.dir, "../DiscussionDiffBlock.tsx"), "utf8");
 
   it("matches PR discussion chrome: muted header + MultiFileDiff without Pierre file header", () => {
     expect(source).toContain("MultiFileDiff");
@@ -16,8 +13,8 @@ describe("DiscussionDiffBlock", () => {
     expect(source).toContain("bg-muted/30");
     expect(source).toContain("getFileIconProps");
     expect(source).toContain("data-discussion-diff-block");
-    expect(source).toContain("t('line'");
-    expect(source).toContain("t('lineRange'");
+    expect(source).toContain('t("line"');
+    expect(source).toContain('t("lineRange"');
   });
 
   it("supports non-collapsible chat mode and flush header/body", () => {

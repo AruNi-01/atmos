@@ -4,10 +4,7 @@ import { join } from "node:path";
 import { resolveAgentChatSkillsContext } from "@/features/agent/lib/agent-chat-skills-context";
 import type { Project } from "@/shared/types/domain";
 
-const source = readFileSync(
-  join(import.meta.dir, "../use-agent-composer-popovers.tsx"),
-  "utf8",
-);
+const source = readFileSync(join(import.meta.dir, "../use-agent-composer-popovers.tsx"), "utf8");
 
 function project(partial: Partial<Project> & Pick<Project, "id" | "name">): Project {
   return {

@@ -20,7 +20,14 @@ import {
   DialogFooter,
 } from "@workspace/ui";
 import { BookOpen, Copy, Loader2, Download, AlertTriangle } from "lucide-react";
-import { AgentSelect, buildCommand, buildWikiTerminalRun, toTerminalPaneAgent, type AgentId, type WikiTerminalRun } from "./AgentSelect";
+import {
+  AgentSelect,
+  buildCommand,
+  buildWikiTerminalRun,
+  toTerminalPaneAgent,
+  type AgentId,
+  type WikiTerminalRun,
+} from "./AgentSelect";
 import { getWikiLanguageOptions } from "../lib/wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
@@ -68,7 +75,9 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 }) => {
   const t = useTranslations("wiki.setup");
   const [agentId, setAgentId] = useState<AgentId>("claude");
-  const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
+  const [agentRunConfigs, setAgentRunConfigs] = useState<
+    Record<string, TerminalAgentRunConfigInput | null>
+  >({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
@@ -163,7 +172,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         });
       }
     },
-    [onSwitchToProjectWikiAndRun, onSwitchToTerminal, t, terminalGridRef]
+    [onSwitchToProjectWikiAndRun, onSwitchToTerminal, t, terminalGridRef],
   );
 
   const handleGenerate = useCallback(async () => {
@@ -197,7 +206,16 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [agentId, currentAgentRunConfig, customLanguage, doRunGenerate, effectivePath, language, t, workspaceId]);
+  }, [
+    agentId,
+    currentAgentRunConfig,
+    customLanguage,
+    doRunGenerate,
+    effectivePath,
+    language,
+    t,
+    workspaceId,
+  ]);
 
   const handleConfirmReplaceAndGenerate = useCallback(async () => {
     const cmd = pendingCommand;
@@ -230,25 +248,25 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
   const skillMissing = systemHasSkill !== true;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] p-6 max-w-2xl mx-auto">
+    <div className="mx-auto flex min-h-[400px] max-w-2xl flex-col items-center justify-center p-6">
       {/* No Card border - plain center content */}
       <div className="w-full space-y-6">
         <div className="text-center">
-          <div className="size-12 mx-auto mb-3 rounded-xl bg-muted flex items-center justify-center">
+          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
             <BookOpen className="size-6 text-muted-foreground" />
           </div>
           <h2 className="text-lg font-semibold text-foreground">{t("title")}</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="mt-1 text-sm text-muted-foreground">
             {t("descriptionPrefix")}{" "}
-            <code className="text-xs bg-muted px-1 rounded">.atmos/wiki/</code>{" "}
+            <code className="rounded bg-muted px-1 text-xs">.atmos/wiki/</code>{" "}
             {t("descriptionSuffix")}
           </p>
         </div>
 
         {/* Notices */}
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-foreground space-y-2">
+        <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-foreground">
           <p className="font-medium">{t("notices.title")}</p>
-          <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+          <ul className="list-inside list-disc space-y-1 text-muted-foreground">
             <li>
               {t.rich("notices.estimatedDuration", {
                 strong: (chunks) => <strong>{chunks}</strong>,
@@ -264,10 +282,8 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
         {/* Skill install - show when ~/.atmos/skills/.system/project-wiki is missing */}
         {skillMissing && (
-          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {t("skillMissing.description")}
-            </p>
+          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+            <p className="text-sm text-muted-foreground">{t("skillMissing.description")}</p>
             <Button
               variant="outline"
               size="sm"
@@ -277,12 +293,12 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
             >
               {isInstalling ? (
                 <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   {t("skillMissing.installing")}
                 </>
               ) : (
                 <>
-                  <Download className="size-4 mr-2" />
+                  <Download className="mr-2 size-4" />
                   {t("skillMissing.installButton")}
                 </>
               )}
@@ -310,10 +326,10 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
         {/* Language */}
         <div>
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
+          <label className="mb-2 block text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {t("languageLabel")}
           </label>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2">
             <Select value={language} onValueChange={setLanguage}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue />
@@ -331,14 +347,14 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
                 placeholder={t("customLanguagePlaceholder")}
                 value={customLanguage}
                 onChange={(e) => setCustomLanguage(e.target.value)}
-                className="flex-1 min-w-[120px]"
+                className="min-w-[120px] flex-1"
               />
             )}
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             className="flex-1"
             onClick={handleGenerate}
@@ -346,7 +362,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           >
             {isGenerating ? (
               <>
-                <Loader2 className="size-4 animate-spin mr-2" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
                 {t("actions.starting")}
               </>
             ) : (
@@ -359,27 +375,26 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
             disabled={skillMissing}
             className="flex-1 sm:flex-none"
           >
-            <Copy className="size-4 mr-2" />
+            <Copy className="mr-2 size-4" />
             {t("actions.copyPrompt")}
           </Button>
         </div>
 
-        <p className="text-[11px] text-muted-foreground text-center">
-          {t("footnote")}
-        </p>
+        <p className="text-center text-[11px] text-muted-foreground">{t("footnote")}</p>
       </div>
 
       {/* 冲突确认：检测到已有 Project Wiki 终端在运行时弹出 */}
-      <Dialog open={conflictDialogOpen} onOpenChange={(open) => !open && (setConflictDialogOpen(false), setPendingCommand(null))}>
+      <Dialog
+        open={conflictDialogOpen}
+        onOpenChange={(open) => !open && (setConflictDialogOpen(false), setPendingCommand(null))}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="size-5 text-amber-500" />
               {t("conflictDialog.title")}
             </DialogTitle>
-            <DialogDescription>
-              {t("conflictDialog.description")}
-            </DialogDescription>
+            <DialogDescription>{t("conflictDialog.description")}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-4">
             <Button
@@ -396,7 +411,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   {t("actions.starting")}
                 </>
               ) : (

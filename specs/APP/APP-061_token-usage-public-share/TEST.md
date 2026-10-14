@@ -8,51 +8,51 @@ Hub rules (handle claim, uniqueness, visibility, `k`, allowlist, size) are **Bun
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 Local-first | S1, S2 |
-| M2 Sign-in to publish | S3, S4 |
-| M3 Claim-once handle | S5, S6, S7, S8 |
-| M4 One page / overwrite | S9, S10 |
-| M5 Visibility public / unlisted / off | S11, S12, S13 |
-| M6 Manual refresh | S9, S14 |
-| M7 Slim snapshot | S15, S16, S17 |
-| M8 Same charts | S18 |
-| M9 Public shell | S19, S20 |
-| M10 Unpublish | S13 |
-| M11 Social usernames | S20, S21 |
-| M12 atmos.land host | S22 |
-| N1 Rotate secret | S23 (optional) |
-| N2 OG | S24 (optional) |
+| PRD item                              | Scenario IDs   |
+| ------------------------------------- | -------------- |
+| M1 Local-first                        | S1, S2         |
+| M2 Sign-in to publish                 | S3, S4         |
+| M3 Claim-once handle                  | S5, S6, S7, S8 |
+| M4 One page / overwrite               | S9, S10        |
+| M5 Visibility public / unlisted / off | S11, S12, S13  |
+| M6 Manual refresh                     | S9, S14        |
+| M7 Slim snapshot                      | S15, S16, S17  |
+| M8 Same charts                        | S18            |
+| M9 Public shell                       | S19, S20       |
+| M10 Unpublish                         | S13            |
+| M11 Social usernames                  | S20, S21       |
+| M12 atmos.land host                   | S22            |
+| N1 Rotate secret                      | S23 (optional) |
+| N2 OG                                 | S24 (optional) |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun | `bun test` | existing Token Usage page/query tests | no Hub | overview still loads | planned |
-| S2 | Bun | `bun test` | PNG share card tests | capture fixture | PNG path unchanged | planned |
-| S3 | Bun / Hub | `bun test` `packages/hub` | `PUT /v1/me/usage-page` without auth | no cookie/Bearer | 401 | planned |
-| S4 | E2E or agent-browser | Playwright / `agent-browser` | Token Usage publish CTA | signed-out web | Sign in shown; no upload | planned |
-| S5 | Bun | `bun test` `packages/hub` | first PUT claims handle | unique slug | row `handle_claimed_at` set | planned |
-| S6 | Bun | `bun test` `packages/hub` | second PUT other handle | claimed user | 403 `handle_immutable` | planned |
-| S7 | Bun | `bun test` `packages/hub` | two users same handle | parallel PUT | one 409 | planned |
-| S8 | Bun | `bun test` `packages/hub` | reserved / short / bad charset | `admin`, `ab`, `A!` | 400 | planned |
-| S9 | Bun | `bun test` `packages/hub` | PUT snapshot twice | same user | one row; `generated_at` changes | planned |
-| S10 | Bun | `bun test` `packages/hub` | no second share id | two PUTs | public URL still `/tok/@h` | planned |
-| S11 | Bun | `bun test` `packages/hub` | GET public no `k` | visibility public | 200 + snapshot | planned |
-| S12 | Bun | `bun test` `packages/hub` | GET with/without `k` | unlisted | no k / bad k → 404; good k → 200 | planned |
-| S13 | Bun | `bun test` `packages/hub` | DELETE or visibility off | was public | GET 404 | planned |
-| S14 | Bun | `bun test` web | mapper not invoked without PUT | local overview refresh | Hub not called | planned |
-| S15 | Bun | `bun test` web | mapper top-N | 20 clients | 5 ranks + other; full totals | planned |
-| S16 | Bun | `bun test` web / hub | `include_cost=false` | overview with costs | no cost keys in stored/public JSON | planned |
-| S17 | Bun | `bun test` hub | oversized / denied keys | fat overview + `prompt` | 413 or stripped; no prompt | planned |
-| S18 | Bun | `bun test` web | view accepts payload | payload from mapper | same series helpers / no crash | planned |
-| S19 | agent-browser | `agent-browser` | public page | fixture profile | avatar, `@handle`, footer Atmos link | planned |
-| S20 | Bun + agent-browser | `bun test` / `agent-browser` | empty vs filled socials | one empty username | empty omitted; filled icon+@user | planned |
-| S21 | Bun | `bun test` hub | URL / `@` pasted | `https://x.com/a`, `@a` | stored `a` | planned |
-| S22 | Manual / deploy | rewrite check | `https://atmos.land/tok/@fixture` | staging DNS | address bar atmos.land; charts load | planned |
-| S23 | Bun | `bun test` hub | rotate secret | old k | old 404; new 200 | planned |
-| S24 | agent-browser | `agent-browser` | view-source / meta | public page | og:title contains handle | planned |
+| Scenario | Level                | Expected tool                | Target command / method               | Fixture / data          | Signals                              | Status  |
+| -------- | -------------------- | ---------------------------- | ------------------------------------- | ----------------------- | ------------------------------------ | ------- |
+| S1       | Bun                  | `bun test`                   | existing Token Usage page/query tests | no Hub                  | overview still loads                 | planned |
+| S2       | Bun                  | `bun test`                   | PNG share card tests                  | capture fixture         | PNG path unchanged                   | planned |
+| S3       | Bun / Hub            | `bun test` `packages/hub`    | `PUT /v1/me/usage-page` without auth  | no cookie/Bearer        | 401                                  | planned |
+| S4       | E2E or agent-browser | Playwright / `agent-browser` | Token Usage publish CTA               | signed-out web          | Sign in shown; no upload             | planned |
+| S5       | Bun                  | `bun test` `packages/hub`    | first PUT claims handle               | unique slug             | row `handle_claimed_at` set          | planned |
+| S6       | Bun                  | `bun test` `packages/hub`    | second PUT other handle               | claimed user            | 403 `handle_immutable`               | planned |
+| S7       | Bun                  | `bun test` `packages/hub`    | two users same handle                 | parallel PUT            | one 409                              | planned |
+| S8       | Bun                  | `bun test` `packages/hub`    | reserved / short / bad charset        | `admin`, `ab`, `A!`     | 400                                  | planned |
+| S9       | Bun                  | `bun test` `packages/hub`    | PUT snapshot twice                    | same user               | one row; `generated_at` changes      | planned |
+| S10      | Bun                  | `bun test` `packages/hub`    | no second share id                    | two PUTs                | public URL still `/tok/@h`           | planned |
+| S11      | Bun                  | `bun test` `packages/hub`    | GET public no `k`                     | visibility public       | 200 + snapshot                       | planned |
+| S12      | Bun                  | `bun test` `packages/hub`    | GET with/without `k`                  | unlisted                | no k / bad k → 404; good k → 200     | planned |
+| S13      | Bun                  | `bun test` `packages/hub`    | DELETE or visibility off              | was public              | GET 404                              | planned |
+| S14      | Bun                  | `bun test` web               | mapper not invoked without PUT        | local overview refresh  | Hub not called                       | planned |
+| S15      | Bun                  | `bun test` web               | mapper top-N                          | 20 clients              | 5 ranks + other; full totals         | planned |
+| S16      | Bun                  | `bun test` web / hub         | `include_cost=false`                  | overview with costs     | no cost keys in stored/public JSON   | planned |
+| S17      | Bun                  | `bun test` hub               | oversized / denied keys               | fat overview + `prompt` | 413 or stripped; no prompt           | planned |
+| S18      | Bun                  | `bun test` web               | view accepts payload                  | payload from mapper     | same series helpers / no crash       | planned |
+| S19      | agent-browser        | `agent-browser`              | public page                           | fixture profile         | avatar, `@handle`, footer Atmos link | planned |
+| S20      | Bun + agent-browser  | `bun test` / `agent-browser` | empty vs filled socials               | one empty username      | empty omitted; filled icon+@user     | planned |
+| S21      | Bun                  | `bun test` hub               | URL / `@` pasted                      | `https://x.com/a`, `@a` | stored `a`                           | planned |
+| S22      | Manual / deploy      | rewrite check                | `https://atmos.land/tok/@fixture`     | staging DNS             | address bar atmos.land; charts load  | planned |
+| S23      | Bun                  | `bun test` hub               | rotate secret                         | old k                   | old 404; new 200                     | planned |
+| S24      | agent-browser        | `agent-browser`              | view-source / meta                    | public page             | og:title contains handle             | planned |
 
 ## Scenarios
 

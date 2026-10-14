@@ -26,17 +26,11 @@ describe("git history center tab store", () => {
     store.open("ws-2");
     expect(useGitHistoryCenterTabStore.getState().isOpen("ws-1")).toBe(true);
     expect(useGitHistoryCenterTabStore.getState().isOpen("ws-2")).toBe(true);
-    expect(
-      useGitHistoryCenterTabStore.getState().selectedCommitByContext["ws-1"],
-    ).toBe("abc123");
-    expect(
-      useGitHistoryCenterTabStore.getState().selectedCommitByContext["ws-2"],
-    ).toBeUndefined();
+    expect(useGitHistoryCenterTabStore.getState().selectedCommitByContext["ws-1"]).toBe("abc123");
+    expect(useGitHistoryCenterTabStore.getState().selectedCommitByContext["ws-2"]).toBeUndefined();
 
     store.close("ws-1");
     expect(useGitHistoryCenterTabStore.getState().isOpen("ws-1")).toBe(false);
-    expect(
-      useGitHistoryCenterTabStore.getState().selectedCommitByContext["ws-1"],
-    ).toBe("abc123");
+    expect(useGitHistoryCenterTabStore.getState().selectedCommitByContext["ws-1"]).toBe("abc123");
   });
 });

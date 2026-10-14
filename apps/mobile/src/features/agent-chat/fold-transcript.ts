@@ -61,9 +61,10 @@ function seedStore(messages: AgentMessage[], openPartIds?: ReadonlySet<string>):
     if (message.role !== "assistant") continue;
     message.parts.forEach((part, index) => {
       if (part.type === "text" || part.type === "thinking") {
-        const partId = part.type === "thinking"
-          ? (part.tool_call_id || `${message.id}:${index}`)
-          : (part.message_id || `${message.id}:${index}`);
+        const partId =
+          part.type === "thinking"
+            ? part.tool_call_id || `${message.id}:${index}`
+            : part.message_id || `${message.id}:${index}`;
         applyTextChunk(store, {
           type: "text_chunk",
           part_id: partId,
@@ -74,9 +75,7 @@ function seedStore(messages: AgentMessage[], openPartIds?: ReadonlySet<string>):
           offset: 0,
           text: part.text,
         });
-        const closed = openPartIds
-          ? !openPartIds.has(partId)
-          : !message.streaming;
+        const closed = openPartIds ? !openPartIds.has(partId) : !message.streaming;
         if (closed) {
           applyPartClosed(store, { type: "part_closed", part_id: partId });
         }
@@ -181,7 +180,9 @@ function shouldAdoptSnapshotAssistant(prev: AgentMessage, snap: AgentMessage): b
   if (prev.id === snap.id) return false;
   const prevTools = new Set(
     prev.parts
-      .filter((part): part is Extract<AgentPart, { type: "tool_call" }> => part.type === "tool_call")
+      .filter(
+        (part): part is Extract<AgentPart, { type: "tool_call" }> => part.type === "tool_call",
+      )
       .map((part) => part.tool_call_id)
       .filter(Boolean),
   );
@@ -202,12 +203,15 @@ function withCurrentAssistant(
 ): AgentMessage[] {
   const current = currentTurnAssistant(messages);
   if (!current) {
-    return [...messages, patch({
-      id: turnId?.trim() || "assistant",
-      role: "assistant",
-      parts: [],
-      streaming: true,
-    })];
+    return [
+      ...messages,
+      patch({
+        id: turnId?.trim() || "assistant",
+        role: "assistant",
+        parts: [],
+        streaming: true,
+      }),
+    ];
   }
   return messages.map((message) => (message === current ? patch(message) : message));
 }
@@ -217,9 +221,7 @@ function adoptToolMessageId(messages: AgentMessage[], messageId: string): AgentM
   if (!current || current.id === messageId) return messages;
   const hasText = current.parts.some((part) => part.type === "text" || part.type === "thinking");
   if (hasText) return messages;
-  return messages.map((message) => (
-    message === current ? { ...message, id: messageId } : message
-  ));
+  return messages.map((message) => (message === current ? { ...message, id: messageId } : message));
 }
 
 function upsertAssistantPart(
@@ -230,7 +232,9 @@ function upsertAssistantPart(
   streaming: boolean,
 ): AgentMessage[] {
   const hosted = adoptToolMessageId(messages, messageId);
-  const index = hosted.findIndex((message) => message.id === messageId && message.role === "assistant");
+  const index = hosted.findIndex(
+    (message) => message.id === messageId && message.role === "assistant",
+  );
   if (index < 0) {
     return [...hosted, { id: messageId, role: "assistant", parts: [nextPart], streaming }];
   }
@@ -246,17 +250,19 @@ function upsertAssistantPart(
 
 function toolStateFromEvent(payload: ToolEvent): ToolCallState {
   const tool: AgentTool = payload.tool_call;
-  const status = payload.type === "tool_call_started"
-    ? "running"
-    : payload.type === "tool_call_completed"
-      ? "completed"
-      : payload.type === "tool_call_failed"
-        ? "failed"
-        : tool.status;
+  const status =
+    payload.type === "tool_call_started"
+      ? "running"
+      : payload.type === "tool_call_completed"
+        ? "completed"
+        : payload.type === "tool_call_failed"
+          ? "failed"
+          : tool.status;
   const kind = wireToolKind(tool.kind);
-  const errorResult = payload.type === "tool_call_failed" && payload.error?.trim()
-    ? { type: "error" as const, message: payload.error }
-    : null;
+  const errorResult =
+    payload.type === "tool_call_failed" && payload.error?.trim()
+      ? { type: "error" as const, message: payload.error }
+      : null;
   return {
     tool_call_id: tool.tool_call_id,
     parent_tool_call_id: tool.parent_tool_call_id,
@@ -296,7 +302,10 @@ function unchanged(state: ChatTranscriptState): AppliedChatEvent {
   return { state, backfill: null };
 }
 
-export function applyChatEvent(state: ChatTranscriptState, event: AgentChatEvent): AppliedChatEvent {
+export function applyChatEvent(
+  state: ChatTranscriptState,
+  event: AgentChatEvent,
+): AppliedChatEvent {
   if (!eventsForChat(event, state.chatId)) return unchanged(state);
   const payload = event.payload;
   if (!payload?.type) return unchanged(state);
@@ -318,10 +327,15 @@ export function applyChatEvent(state: ChatTranscriptState, event: AgentChatEvent
       created_at: payload.created_at,
       streaming: false,
     };
-    const index = state.messages.findIndex((message) => message.id === nextMessage.id && message.role === "user");
-    const messages = index >= 0
-      ? state.messages.map((message, messageIndex) => (messageIndex === index ? nextMessage : message))
-      : [...state.messages, nextMessage];
+    const index = state.messages.findIndex(
+      (message) => message.id === nextMessage.id && message.role === "user",
+    );
+    const messages =
+      index >= 0
+        ? state.messages.map((message, messageIndex) =>
+            messageIndex === index ? nextMessage : message,
+          )
+        : [...state.messages, nextMessage];
     return { state: { ...state, messages }, backfill: null };
   }
 
@@ -354,9 +368,9 @@ export function applyChatEvent(state: ChatTranscriptState, event: AgentChatEvent
       if (seen.has(snap.id)) continue;
       const current = snap.role === "assistant" ? currentTurnAssistantAt(messages) : null;
       if (
-        current
-        && !seen.has(current.message.id)
-        && shouldAdoptSnapshotAssistant(current.message, snap)
+        current &&
+        !seen.has(current.message.id) &&
+        shouldAdoptSnapshotAssistant(current.message, snap)
       ) {
         seen.add(snap.id);
         messages[current.index] = snap;
@@ -416,10 +430,10 @@ export function applyChatEvent(state: ChatTranscriptState, event: AgentChatEvent
   }
 
   if (
-    payload.type === "tool_call_started"
-    || payload.type === "tool_call_updated"
-    || payload.type === "tool_call_completed"
-    || payload.type === "tool_call_failed"
+    payload.type === "tool_call_started" ||
+    payload.type === "tool_call_updated" ||
+    payload.type === "tool_call_completed" ||
+    payload.type === "tool_call_failed"
   ) {
     if (!payload.tool_call?.tool_call_id) return unchanged(state);
     const incoming = toolStateFromEvent(payload);
@@ -430,7 +444,9 @@ export function applyChatEvent(state: ChatTranscriptState, event: AgentChatEvent
     const active = toolPart.status === "running" || toolPart.status === "pending";
     const messages = withCurrentAssistant(state.messages, event.turn_id, (message) => {
       const parts = [...message.parts];
-      const existing = parts.findIndex((part) => part.type === "tool_call" && part.tool_call_id === toolPart.tool_call_id);
+      const existing = parts.findIndex(
+        (part) => part.type === "tool_call" && part.tool_call_id === toolPart.tool_call_id,
+      );
       if (existing >= 0) parts[existing] = toolPart;
       else parts.push(toolPart);
       return { ...message, parts, streaming: Boolean(message.streaming) || active };
@@ -452,7 +468,10 @@ export function applyChatEvent(state: ChatTranscriptState, event: AgentChatEvent
         return message.streaming ? { ...message, streaming: false } : message;
       }
       const parts = errorText
-        ? [...message.parts.filter((part) => part.type !== "error"), { type: "error" as const, message: errorText }]
+        ? [
+            ...message.parts.filter((part) => part.type !== "error"),
+            { type: "error" as const, message: errorText },
+          ]
         : message.parts;
       return {
         ...message,

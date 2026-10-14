@@ -97,24 +97,14 @@ export function isDevToolsToggleShortcut(
 
   // macOS: Option+Cmd+I / J / C (Elements inspect)
   if (platform === "darwin") {
-    if (
-      input.meta &&
-      input.alt &&
-      !input.control &&
-      (key === "i" || key === "j" || key === "c")
-    ) {
+    if (input.meta && input.alt && !input.control && (key === "i" || key === "j" || key === "c")) {
       return true;
     }
     return false;
   }
 
   // Windows / Linux: Ctrl+Shift+I / J / C
-  if (
-    input.control &&
-    input.shift &&
-    !input.meta &&
-    (key === "i" || key === "j" || key === "c")
-  ) {
+  if (input.control && input.shift && !input.meta && (key === "i" || key === "j" || key === "c")) {
     return true;
   }
 
@@ -153,9 +143,7 @@ export function installDevToolsPolicy(): void {
 
   const api = getElectronApi();
   if (!api) {
-    console.warn(
-      "[desktop-electron] installDevToolsPolicy: Electron API unavailable",
-    );
+    console.warn("[desktop-electron] installDevToolsPolicy: Electron API unavailable");
     return;
   }
 

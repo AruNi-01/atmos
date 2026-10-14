@@ -25,7 +25,6 @@ export function findResourceMonitorSessionLocation(
 }
 
 /** @deprecated Use `findResourceMonitorSessionLocation`. */
-export const findLiveResourceSessionLocationForMonitor =
-  findResourceMonitorSessionLocation;
+export const findLiveResourceSessionLocationForMonitor = findResourceMonitorSessionLocation;
 
 export { findLiveResourceSessionLocation, parseTerminalWorkspaceScopeKey };

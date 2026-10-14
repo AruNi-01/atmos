@@ -1,17 +1,7 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import {
-  isOrbitThemePalette,
-  type OrbitThemePalette,
-} from "../lib/themes/types";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { isOrbitThemePalette, type OrbitThemePalette } from "../lib/themes/types";
 import { DEFAULT_PALETTE } from "../lib/themes/palettes";
 
 /** localStorage key for mode preference. */
@@ -45,9 +35,7 @@ function readPalette(): OrbitThemePalette {
 
 function readOsScheme(): "light" | "dark" {
   if (typeof window === "undefined") return "dark";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 type ThemeContextValue = {
@@ -144,9 +132,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     [preference, resolved, palette, setPreference, setPalette, toggleLightDark],
   );
 
-  return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {

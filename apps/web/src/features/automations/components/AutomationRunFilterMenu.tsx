@@ -106,143 +106,121 @@ export function AutomationRunFilterMenu({
 
   return (
     <PageFilterButton label={t("trigger")} activeCount={activeFilterCount}>
-        {automationOptions.length > 0 ? (
-          <FilterSubmenu
-            icon={Timer}
-            label={t("automation")}
-            selectedCount={filters.automationGuids.length}
+      {automationOptions.length > 0 ? (
+        <FilterSubmenu
+          icon={Timer}
+          label={t("automation")}
+          selectedCount={filters.automationGuids.length}
+        >
+          {automationOptions.map((option) => (
+            <DropdownMenuItem
+              key={option.guid}
+              onSelect={(event) => {
+                event.preventDefault();
+                onFiltersChange({
+                  ...filters,
+                  automationGuids: toggleValue(filters.automationGuids, option.guid),
+                });
+              }}
+              className="cursor-pointer"
+            >
+              <Timer className="size-4 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">
+                {option.displayName ?? t("unknownAutomation")}
+              </span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {option.runCount}
+              </span>
+              {filters.automationGuids.includes(option.guid) ? <Check className="size-4" /> : null}
+            </DropdownMenuItem>
+          ))}
+        </FilterSubmenu>
+      ) : null}
+
+      <FilterSubmenu
+        icon={FolderGit2}
+        label={t("environment")}
+        selectedCount={filters.environments.length}
+      >
+        {ENVIRONMENT_OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={(event) => {
+              event.preventDefault();
+              onFiltersChange({
+                ...filters,
+                environments: toggleValue(filters.environments, option.value),
+              });
+            }}
+            className="cursor-pointer"
           >
-            {automationOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.guid}
-                onSelect={(event) => {
-                  event.preventDefault();
-                  onFiltersChange({
-                    ...filters,
-                    automationGuids: toggleValue(filters.automationGuids, option.guid),
-                  });
-                }}
-                className="cursor-pointer"
-              >
-                <Timer className="size-4 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">
-                  {option.displayName ?? t("unknownAutomation")}
-                </span>
-                <span className="tabular-nums text-[11px] text-muted-foreground">
-                  {option.runCount}
-                </span>
-                {filters.automationGuids.includes(option.guid) ? (
-                  <Check className="size-4" />
-                ) : null}
-              </DropdownMenuItem>
-            ))}
-          </FilterSubmenu>
-        ) : null}
+            <option.icon className="size-4 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{t(`environments.${option.labelKey}`)}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {counts.environments[option.value]}
+            </span>
+            {filters.environments.includes(option.value) ? <Check className="size-4" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </FilterSubmenu>
 
-        <FilterSubmenu
-          icon={FolderGit2}
-          label={t("environment")}
-          selectedCount={filters.environments.length}
-        >
-          {ENVIRONMENT_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onSelect={(event) => {
-                event.preventDefault();
-                onFiltersChange({
-                  ...filters,
-                  environments: toggleValue(filters.environments, option.value),
-                });
-              }}
-              className="cursor-pointer"
-            >
-              <option.icon className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                {t(`environments.${option.labelKey}`)}
-              </span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">
-                {counts.environments[option.value]}
-              </span>
-              {filters.environments.includes(option.value) ? (
-                <Check className="size-4" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </FilterSubmenu>
+      <FilterSubmenu icon={Play} label={t("triggerType")} selectedCount={filters.triggers.length}>
+        {TRIGGER_OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={(event) => {
+              event.preventDefault();
+              onFiltersChange({
+                ...filters,
+                triggers: toggleValue(filters.triggers, option.value),
+              });
+            }}
+            className="cursor-pointer"
+          >
+            <option.icon className="size-4 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{t(`triggers.${option.labelKey}`)}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {counts.triggers[option.value]}
+            </span>
+            {filters.triggers.includes(option.value) ? <Check className="size-4" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </FilterSubmenu>
 
-        <FilterSubmenu
-          icon={Play}
-          label={t("triggerType")}
-          selectedCount={filters.triggers.length}
-        >
-          {TRIGGER_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onSelect={(event) => {
-                event.preventDefault();
-                onFiltersChange({
-                  ...filters,
-                  triggers: toggleValue(filters.triggers, option.value),
-                });
-              }}
-              className="cursor-pointer"
-            >
-              <option.icon className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                {t(`triggers.${option.labelKey}`)}
-              </span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">
-                {counts.triggers[option.value]}
-              </span>
-              {filters.triggers.includes(option.value) ? (
-                <Check className="size-4" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </FilterSubmenu>
+      <FilterSubmenu icon={CircleDot} label={t("status")} selectedCount={filters.statuses.length}>
+        {STATUS_OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={(event) => {
+              event.preventDefault();
+              onFiltersChange({
+                ...filters,
+                statuses: toggleValue(filters.statuses, option.value),
+              });
+            }}
+            className="cursor-pointer"
+          >
+            <option.icon className="size-4 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{t(`statuses.${option.labelKey}`)}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {counts.statuses[option.value]}
+            </span>
+            {filters.statuses.includes(option.value) ? <Check className="size-4" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </FilterSubmenu>
 
-        <FilterSubmenu
-          icon={CircleDot}
-          label={t("status")}
-          selectedCount={filters.statuses.length}
-        >
-          {STATUS_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onSelect={(event) => {
-                event.preventDefault();
-                onFiltersChange({
-                  ...filters,
-                  statuses: toggleValue(filters.statuses, option.value),
-                });
-              }}
-              className="cursor-pointer"
-            >
-              <option.icon className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                {t(`statuses.${option.labelKey}`)}
-              </span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">
-                {counts.statuses[option.value]}
-              </span>
-              {filters.statuses.includes(option.value) ? (
-                <Check className="size-4" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </FilterSubmenu>
-
-        {activeFilterCount > 0 ? (
-          <>
-            <DropdownMenuSeparator className="mx-2" />
-            <DropdownMenuItem
-              onClick={() => onFiltersChange(EMPTY_AUTOMATION_RUN_FILTERS)}
-              className="text-xs font-medium text-muted-foreground"
-            >
-              {t("clearAll")}
-            </DropdownMenuItem>
-          </>
-        ) : null}
+      {activeFilterCount > 0 ? (
+        <>
+          <DropdownMenuSeparator className="mx-2" />
+          <DropdownMenuItem
+            onClick={() => onFiltersChange(EMPTY_AUTOMATION_RUN_FILTERS)}
+            className="text-xs font-medium text-muted-foreground"
+          >
+            {t("clearAll")}
+          </DropdownMenuItem>
+        </>
+      ) : null}
     </PageFilterButton>
   );
 }
@@ -264,12 +242,14 @@ function FilterSubmenu({
         <Icon className="size-4" />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {selectedCount > 0 ? (
-          <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
             {selectedCount}
           </span>
         ) : null}
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="max-h-72 w-56 overflow-y-auto">{children}</DropdownMenuSubContent>
+      <DropdownMenuSubContent className="max-h-72 w-56 overflow-y-auto">
+        {children}
+      </DropdownMenuSubContent>
     </DropdownMenuSub>
   );
 }
@@ -282,12 +262,14 @@ function countAutomationRunFilterOptions(
   const environments = Object.fromEntries(
     ENVIRONMENT_OPTIONS.map((option) => [option.value, 0]),
   ) as Record<AutomationEnvironmentFilter, number>;
-  const triggers = Object.fromEntries(
-    TRIGGER_OPTIONS.map((option) => [option.value, 0]),
-  ) as Record<AutomationTriggerFilter, number>;
-  const statuses = Object.fromEntries(
-    STATUS_OPTIONS.map((option) => [option.value, 0]),
-  ) as Record<AutomationRunStatusFilter, number>;
+  const triggers = Object.fromEntries(TRIGGER_OPTIONS.map((option) => [option.value, 0])) as Record<
+    AutomationTriggerFilter,
+    number
+  >;
+  const statuses = Object.fromEntries(STATUS_OPTIONS.map((option) => [option.value, 0])) as Record<
+    AutomationRunStatusFilter,
+    number
+  >;
 
   for (const run of runs) {
     environments[run.target_kind] += 1;
@@ -302,7 +284,5 @@ function countAutomationRunFilterOptions(
 }
 
 function toggleValue<T extends string>(values: T[], value: T) {
-  return values.includes(value)
-    ? values.filter((item) => item !== value)
-    : [...values, value];
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }

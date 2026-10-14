@@ -42,17 +42,17 @@ Slash "View Run Logs"
 
 ## Product decisions resolved in TECH
 
-| Decision | Resolution |
-|----------|------------|
-| Tee location | Backend single-writer on PTY/control-mode output for Run windows |
-| Path root | `currentProjectPath` / project root used by Run scripts |
-| File layout | `.atmos/run-logs/{window}.latest.log` + `archive/` |
-| Slash UX | Chip only via AI context kind `run-log`; no editor tab |
-| Prompt content | Short path + "Atmos Run log" + tail/search tip; never inline full log |
-| Multi-tab default | `run-main.latest.log` if exists; else newest `*.latest.log` by mtime |
-| ANSI | Strip for agent-readable plain text |
-| Default capture | On while session is busy / after Run start marker; tee while Run window produces output for that latest file (see lifecycle) |
-| Git | Via `core_engine::ensure_project_atmos_dir`: create `.atmos/` and merge full managed `.atmos/.gitignore` (`attachments/`, `tmp/`, `run-logs/`). Features only call this helper (fallback); no per-feature ad-hoc rules. |
+| Decision          | Resolution                                                                                                                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tee location      | Backend single-writer on PTY/control-mode output for Run windows                                                                                                                                                        |
+| Path root         | `currentProjectPath` / project root used by Run scripts                                                                                                                                                                 |
+| File layout       | `.atmos/run-logs/{window}.latest.log` + `archive/`                                                                                                                                                                      |
+| Slash UX          | Chip only via AI context kind `run-log`; no editor tab                                                                                                                                                                  |
+| Prompt content    | Short path + "Atmos Run log" + tail/search tip; never inline full log                                                                                                                                                   |
+| Multi-tab default | `run-main.latest.log` if exists; else newest `*.latest.log` by mtime                                                                                                                                                    |
+| ANSI              | Strip for agent-readable plain text                                                                                                                                                                                     |
+| Default capture   | On while session is busy / after Run start marker; tee while Run window produces output for that latest file (see lifecycle)                                                                                            |
+| Git               | Via `core_engine::ensure_project_atmos_dir`: create `.atmos/` and merge full managed `.atmos/.gitignore` (`attachments/`, `tmp/`, `run-logs/`). Features only call this helper (fallback); no per-feature ad-hoc rules. |
 
 ## Module-by-module design
 
@@ -121,14 +121,14 @@ Reuse or mirror frontend strip ideas from `terminal-ai-context-protocol.ts` (ANS
 
 #### Limits (defaults)
 
-| Knob | Default |
-|------|---------|
-| Max latest file size | 8 MiB |
-| On exceed | rotate to archive, open new latest with continuation header |
-| Max archives per window | 8 |
-| Max total under `.atmos/run-logs/` | 64 MiB |
-| Flush interval | ≤ 200 ms when dirty |
-| Prune timing | on rotate, on run start, opportunistic on attach |
+| Knob                               | Default                                                     |
+| ---------------------------------- | ----------------------------------------------------------- |
+| Max latest file size               | 8 MiB                                                       |
+| On exceed                          | rotate to archive, open new latest with continuation header |
+| Max archives per window            | 8                                                           |
+| Max total under `.atmos/run-logs/` | 64 MiB                                                      |
+| Flush interval                     | ≤ 200 ms when dirty                                         |
+| Prune timing                       | on rotate, on run start, opportunistic on attach            |
 
 When total budget exceeded: delete oldest archive files first across tabs.
 

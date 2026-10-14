@@ -70,10 +70,7 @@ export function emitMdLiveEditorEvent(path: string, event: MdLiveEditorEvent): v
   for (const listener of set) listener(event);
 }
 
-export function subscribeMdLiveEditorEvents(
-  path: string,
-  listener: Listener,
-): () => void {
+export function subscribeMdLiveEditorEvents(path: string, listener: Listener): () => void {
   const set = listeners.get(path) ?? new Set();
   set.add(listener);
   listeners.set(path, set);

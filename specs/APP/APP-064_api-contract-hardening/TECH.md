@@ -38,14 +38,14 @@ apps/* ──► @atmos/relay-client   Relay HTTPS
 
 ## Frozen decisions (M1–M3)
 
-| Decision | Rule |
-|----------|------|
-| No oRPC / tRPC / ts-rest | If a PR adds one “for type safety”, reject and point here. |
-| No `@atmos/api-sdk` | Second consumer of a feature wrapper still follows APP-050. |
-| No namespaced kernel | `WsSession.request` stays the Computer RPC primitive. |
-| No hub+relay merge | Keep APP-056 / APP-016 clients. |
-| Computer REST after session | Still app-owned (`apps/web/src/api/rest-api.ts`, mobile as needed). Not relay-client. |
-| `WS_ACTIONS` array split | Not a v1 deliverable (PRD N3). Contract **modules** may split by domain; the public catalog stays one union + one extract gate. |
+| Decision                    | Rule                                                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| No oRPC / tRPC / ts-rest    | If a PR adds one “for type safety”, reject and point here.                                                                      |
+| No `@atmos/api-sdk`         | Second consumer of a feature wrapper still follows APP-050.                                                                     |
+| No namespaced kernel        | `WsSession.request` stays the Computer RPC primitive.                                                                           |
+| No hub+relay merge          | Keep APP-056 / APP-016 clients.                                                                                                 |
+| Computer REST after session | Still app-owned (`apps/web/src/api/rest-api.ts`, mobile as needed). Not relay-client.                                           |
+| `WS_ACTIONS` array split    | Not a v1 deliverable (PRD N3). Contract **modules** may split by domain; the public catalog stays one union + one extract gate. |
 
 Update `packages/AGENTS.md` decision tree with one row: **main `/ws` input/output map → `@atmos/api-types` (APP-064); do not add an RPC framework.**
 
@@ -75,13 +75,13 @@ packages/api-types/src/ws/
 
 Exports:
 
-| Subpath | Contents |
-|---------|----------|
-| `@atmos/api-types/ws` | frames + actions + events + `WsContract` |
-| `@atmos/api-types/ws/actions` | unchanged role |
-| `@atmos/api-types/ws/events` | `WsEvent`, `WS_EVENTS`, `isWsEvent` |
-| `@atmos/api-types/ws/contract` | `WsContract`, helpers |
-| `@atmos/api-types/ws/dto/*` | existing + any new request structs |
+| Subpath                        | Contents                                 |
+| ------------------------------ | ---------------------------------------- |
+| `@atmos/api-types/ws`          | frames + actions + events + `WsContract` |
+| `@atmos/api-types/ws/actions`  | unchanged role                           |
+| `@atmos/api-types/ws/events`   | `WsEvent`, `WS_EVENTS`, `isWsEvent`      |
+| `@atmos/api-types/ws/contract` | `WsContract`, helpers                    |
+| `@atmos/api-types/ws/dto/*`    | existing + any new request structs       |
 
 Do **not** put `request()` here.
 
@@ -157,11 +157,11 @@ export type WsEventContract = {
 
 #### DTO hygiene in the same PR as the matching map (M9)
 
-| Type | Today | Fix |
-|------|--------|-----|
-| `WorkspaceAttachmentPayload` in `dto/workspace.ts` | `{ name, path?, content_type?, size? }` | Match `crates/core-service/src/types.rs`: `{ filename: string; mime?: string \| null; data_base64: string }` |
-| Web `ws-api-types.ts` `WorkspaceAttachmentPayload` | `{ filename, mime, dataBase64 }` | App **view** type; rename if needed (`WorkspaceAttachmentView`) so it does not shadow the wire type |
-| Mobile `GitFileDiffResponse` in `apps/mobile/src/api/types.ts` | Transitional optional `old_content` | Use `@atmos/api-types/ws/dto/git` once `git_file_diff` is mapped; adapt call sites |
+| Type                                                           | Today                                   | Fix                                                                                                          |
+| -------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `WorkspaceAttachmentPayload` in `dto/workspace.ts`             | `{ name, path?, content_type?, size? }` | Match `crates/core-service/src/types.rs`: `{ filename: string; mime?: string \| null; data_base64: string }` |
+| Web `ws-api-types.ts` `WorkspaceAttachmentPayload`             | `{ filename, mime, dataBase64 }`        | App **view** type; rename if needed (`WorkspaceAttachmentView`) so it does not shadow the wire type          |
+| Mobile `GitFileDiffResponse` in `apps/mobile/src/api/types.ts` | Transitional optional `old_content`     | Use `@atmos/api-types/ws/dto/git` once `git_file_diff` is mapped; adapt call sites                           |
 
 `ArchivedWorkspace` in web (`project_name` extra field) stays **web-local**. api-types may keep `ArchivedWorkspace = WorkspaceModel` only if that is what the server returns on the shared action; do not force web’s extra field into the wire type.
 

@@ -14,10 +14,7 @@ import {
 } from "@workspace/ui";
 
 import { copyToClipboard } from "@/shared/utils/copy";
-import {
-  CANVAS_TERMINAL_SHAPE_TYPE,
-  type CanvasTerminalShape,
-} from "../lib/canvas-terminal-shape";
+import { CANVAS_TERMINAL_SHAPE_TYPE, type CanvasTerminalShape } from "../lib/canvas-terminal-shape";
 import { CANVAS_WIDGET_SHAPE_TYPE } from "../lib/canvas-widget-shape";
 import { formatCanvasShapesForCopy } from "../lib/canvas-shape-text";
 import { formatCanvasTerminalForCopy } from "../lib/canvas-terminal-copy";
@@ -179,11 +176,7 @@ function ShapeCopyButton({
           )}
         </button>
       </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        sideOffset={6}
-        className={COPY_TOOLTIP_Z_CLASS}
-      >
+      <TooltipContent side="top" sideOffset={6} className={COPY_TOOLTIP_Z_CLASS}>
         {t("shapeCopyOverlay.copyShapeContentForAgent")}
       </TooltipContent>
     </Tooltip>

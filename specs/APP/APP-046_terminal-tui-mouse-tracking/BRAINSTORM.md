@@ -23,10 +23,10 @@ CSI ? 1000 h  +  1002 h  +  1006 h
 In xterm.js, `1000` / `1002` / `1003` are **exclusive** (last enable wins). That sequence leaves the protocol in **DRAG**:
 
 | Mode | Protocol | Click | Drag | Hover (no button) |
-|------|----------|-------|------|-------------------|
-| 1000 | VT200 | ✓ | — | — |
-| 1002 | DRAG | ✓ | ✓ | — |
-| 1003 | ANY | ✓ | ✓ | ✓ |
+| ---- | -------- | ----- | ---- | ----------------- |
+| 1000 | VT200    | ✓     | —    | —                 |
+| 1002 | DRAG     | ✓     | ✓    | —                 |
+| 1003 | ANY      | ✓     | ✓    | ✓                 |
 
 Result: users could click TUI menus, but **hover popovers / row highlight never fired**. Ghostty never hits this because it keeps terminal mode state for the life of the PTY.
 
@@ -41,25 +41,25 @@ Shell choice (zsh / fish / bash) is irrelevant — only the TUI’s DECSET and r
 
 ## 3. Options
 
-| Option | Idea | Pros | Cons |
-|--------|------|------|------|
-| A | Always inject `1000+1002+1003+1006` on alt-screen / Grok whitelist | Simple; fixes hover | Over-enables for apps that only used 1002; wrong if app disabled mouse |
-| B | Track DEC mouse modes on the live stream; persist on the pane; restore exact sequence; heuristic only when never observed | Closest to Ghostty fidelity under tmux reattach | More code; first attach still needs heuristic |
-| C | Frontend-only track via xterm `onProtocolChange` | Accurate while tab open | Lost on full refresh unless also persisted |
+| Option | Idea                                                                                                                      | Pros                                            | Cons                                                                   |
+| ------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------- |
+| A      | Always inject `1000+1002+1003+1006` on alt-screen / Grok whitelist                                                        | Simple; fixes hover                             | Over-enables for apps that only used 1002; wrong if app disabled mouse |
+| B      | Track DEC mouse modes on the live stream; persist on the pane; restore exact sequence; heuristic only when never observed | Closest to Ghostty fidelity under tmux reattach | More code; first attach still needs heuristic                          |
+| C      | Frontend-only track via xterm `onProtocolChange`                                                                          | Accurate while tab open                         | Lost on full refresh unless also persisted                             |
 
 **Choice: B** (with full default including 1003 as the unobserved fallback = A as fallback only).
 
 ## 4. Key design choices
 
-| Decision | Choice | Why |
-|----------|--------|-----|
-| Where to observe | Control-mode `%output` after DCS passthrough unwrap | Same bytes the TUI sends; survives as long as a client is attached long enough to see DECSET |
-| Where to persist | tmux pane option `@atmos_mouse_tracking` (`any+sgr`, `button+sgr`, `none`, …) | Survives WS close / new control client; same pattern as `@atmos_*` metadata |
-| First attach never observed | Heuristic: alternate screen **or** inline mouse TUI whitelist (`grok` / `grok-*`) → default sequence **with 1003** | Best effort without DECRQM to a dead xterm |
-| Observed `none` | Do **not** restore, even on alt-screen | App intentionally disabled mouse |
-| Init suppress window | Still observe mouse modes while suppressing visual `%output` | Apps often re-DECSET on SIGWINCH from attach resize |
-| CMD_START inject (Grok) | Keep belt-and-suspenders full ENABLE including 1003 | Reattach title inject path; must not reintroduce DRAG-only |
-| Shell shim | Unchanged; not required for mouse restore main path | Titles still use OSC 9999 |
+| Decision                    | Choice                                                                                                             | Why                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Where to observe            | Control-mode `%output` after DCS passthrough unwrap                                                                | Same bytes the TUI sends; survives as long as a client is attached long enough to see DECSET |
+| Where to persist            | tmux pane option `@atmos_mouse_tracking` (`any+sgr`, `button+sgr`, `none`, …)                                      | Survives WS close / new control client; same pattern as `@atmos_*` metadata                  |
+| First attach never observed | Heuristic: alternate screen **or** inline mouse TUI whitelist (`grok` / `grok-*`) → default sequence **with 1003** | Best effort without DECRQM to a dead xterm                                                   |
+| Observed `none`             | Do **not** restore, even on alt-screen                                                                             | App intentionally disabled mouse                                                             |
+| Init suppress window        | Still observe mouse modes while suppressing visual `%output`                                                       | Apps often re-DECSET on SIGWINCH from attach resize                                          |
+| CMD_START inject (Grok)     | Keep belt-and-suspenders full ENABLE including 1003                                                                | Reattach title inject path; must not reintroduce DRAG-only                                   |
+| Shell shim                  | Unchanged; not required for mouse restore main path                                                                | Titles still use OSC 9999                                                                    |
 
 ## 5. Non-goals
 

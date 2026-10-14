@@ -45,15 +45,11 @@ export function niceAxisMax(maxVal: number): number {
 export type DitherTheme = "dark" | "light";
 
 export function ditherInk(theme: DitherTheme, alpha = 1): string {
-  return theme === "dark"
-    ? `rgba(255, 255, 255, ${alpha})`
-    : `rgba(15, 15, 15, ${alpha})`;
+  return theme === "dark" ? `rgba(255, 255, 255, ${alpha})` : `rgba(15, 15, 15, ${alpha})`;
 }
 
 export function ditherGrid(theme: DitherTheme): string {
-  return theme === "dark"
-    ? "rgba(255, 255, 255, 0.035)"
-    : "rgba(0, 0, 0, 0.04)";
+  return theme === "dark" ? "rgba(255, 255, 255, 0.035)" : "rgba(0, 0, 0, 0.04)";
 }
 
 /** 5-level green intensity palette for heatmaps (0 empty → 4 max). */

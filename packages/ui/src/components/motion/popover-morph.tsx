@@ -134,8 +134,7 @@ export function MorphPopover({
     if (hasOpenNestedMorphPopover(contentRef.current)) return;
     setOpen(false);
     const focused = document.activeElement;
-    const inPanel =
-      focused instanceof HTMLElement && contentRef.current?.contains(focused);
+    const inPanel = focused instanceof HTMLElement && contentRef.current?.contains(focused);
     if (!inPanel) return;
     const restore = trigger ?? (root && root.tabIndex >= 0 ? root : null);
     restore?.focus();
@@ -152,10 +151,7 @@ export function MorphPopover({
     },
     [root],
   );
-  const getPopoverAnchor = useCallback(
-    () => trigger ?? root,
-    [root, trigger],
-  );
+  const getPopoverAnchor = useCallback(() => trigger ?? root, [root, trigger]);
   useOverlayDismiss({
     open,
     onDismiss: close,
@@ -206,9 +202,7 @@ export function MorphPopoverTrigger({ children }: MorphPopoverTriggerProps) {
   if (!isValidElement(children)) return children;
 
   const child = children as ReactElement<Record<string, unknown>>;
-  const childOnClick = child.props.onClick as
-    | ((e: unknown) => void)
-    | undefined;
+  const childOnClick = child.props.onClick as ((e: unknown) => void) | undefined;
   const childRef = (child.props as { ref?: Ref<HTMLElement> }).ref;
 
   return cloneElement(child, {
@@ -297,11 +291,7 @@ export function MorphPopoverContent({
   const [portalReady, setPortalReady] = useState(false);
   const scaleRef = useRef<HTMLDivElement | null>(null);
   const sizeRef = useRef<{ width: number; height: number } | null>(null);
-  const layout = usePopoverPortalPosition(
-    ctx.triggerRef,
-    ctx.contentRef,
-    portalReady && ctx.open,
-  );
+  const layout = usePopoverPortalPosition(ctx.triggerRef, ctx.contentRef, portalReady && ctx.open);
 
   useEffect(() => setPortalReady(true), []);
   const coords = layout
@@ -352,18 +342,19 @@ export function MorphPopoverContent({
         hidden: { opacity: 0, scale: 0.96, transition: SPRING_PANEL },
         show: { opacity: 1, scale: 1, transition: SPRING_PANEL },
       };
-  const clip = reduce || !clipEnabled
-    ? undefined
-    : {
-        hidden: {
-          clipPath: clipHidden(placedSide, align, radius),
-          transition: MORPH_CLIP_TRANSITION,
-        },
-        show: {
-          clipPath: clipShown(radius),
-          transition: MORPH_CLIP_TRANSITION,
-        },
-      };
+  const clip =
+    reduce || !clipEnabled
+      ? undefined
+      : {
+          hidden: {
+            clipPath: clipHidden(placedSide, align, radius),
+            transition: MORPH_CLIP_TRANSITION,
+          },
+          show: {
+            clipPath: clipShown(radius),
+            transition: MORPH_CLIP_TRANSITION,
+          },
+        };
 
   // Keep the server and first client render identical, then mount the portal.
   if (!portalReady) return null;

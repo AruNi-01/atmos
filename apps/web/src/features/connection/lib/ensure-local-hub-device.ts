@@ -22,9 +22,7 @@ export type EnsureLocalHubDeviceResult =
   | { status: "skipped"; reason: string }
   | { status: "error"; message: string };
 
-async function meUserIdWithBearerOnly(
-  credential: string,
-): Promise<string | null> {
+async function meUserIdWithBearerOnly(credential: string): Promise<string | null> {
   const base = hubBaseUrl();
   if (!base) return null;
   try {
@@ -47,9 +45,8 @@ async function syncDeviceToLocalRuntime(opts: {
   device_credential: string;
 }): Promise<void> {
   try {
-    const { saveComputerClientSettingsToDisk } = await import(
-      "@/features/connection/lib/sync-computer-client-settings"
-    );
+    const { saveComputerClientSettingsToDisk } =
+      await import("@/features/connection/lib/sync-computer-client-settings");
     const st = useAtmosComputerStore.getState();
     await applyIdentityBearingComputerSettings({
       accessToken: opts.device_credential,
@@ -136,10 +133,7 @@ async function ensureLocalHubDeviceImpl(): Promise<EnsureLocalHubDeviceResult> {
   }
 
   try {
-    const label =
-      typeof navigator !== "undefined"
-        ? navigator.userAgent.slice(0, 64)
-        : "web";
+    const label = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 64) : "web";
     // Enroll needs Hub cookie (requireSession on POST /v1/devices).
     const enrolled = await hubEnrollAndStoreDevice({ label });
     await syncDeviceToLocalRuntime({

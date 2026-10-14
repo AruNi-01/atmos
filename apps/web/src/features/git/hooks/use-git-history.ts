@@ -4,7 +4,10 @@ import { useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { gitHistoryInfiniteQueryOptions, GIT_HISTORY_PREFETCH_PAGES } from "@/features/git/lib/git-query-options";
+import {
+  gitHistoryInfiniteQueryOptions,
+  GIT_HISTORY_PREFETCH_PAGES,
+} from "@/features/git/lib/git-query-options";
 
 export function useGitHistory(repoPath: string | null | undefined) {
   const scope = useComputerQueryScope();

@@ -48,7 +48,7 @@
   - last-active or exactly one bound guest → **snapshot that guest** (elements in the same response);
   - several guests and no last-active → `browser_ambiguous_target`;
   - zero guests → **ensure** default surface (H2), then snapshot (homepage / `new_tab_url` / `about:blank`).
-  Bind-only `state` (sessions list, `target_id`, no elements) is **not** the success path.
+    Bind-only `state` (sessions list, `target_id`, no elements) is **not** the success path.
 - **F3: Binding after first success** — That `state` commits `{backend,target_id,tab_id}` so later calls omit the ids.
 
 ### Must Have — Handoff

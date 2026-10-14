@@ -23,9 +23,7 @@ function clipOfCard(card: HTMLElement): HTMLElement {
 }
 
 /** Expand into the rounded center card, not the gutter/overlay around it. */
-export function queryAutomationEditorExpandTarget(
-  from: HTMLElement | null,
-): HTMLElement | null {
+export function queryAutomationEditorExpandTarget(from: HTMLElement | null): HTMLElement | null {
   if (from) {
     const card = from.closest<HTMLElement>(CENTER_STAGE_CARD_SELECTOR);
     if (card) return clipOfCard(card);
@@ -58,7 +56,9 @@ export function releaseOverflowAlongPath(from: HTMLElement, to: HTMLElement): ()
   };
 }
 
-export function rectToEditorBox(rect: Pick<DOMRect, "top" | "left" | "width" | "height">): AutomationEditorBox {
+export function rectToEditorBox(
+  rect: Pick<DOMRect, "top" | "left" | "width" | "height">,
+): AutomationEditorBox {
   return {
     top: rect.top,
     left: rect.left,

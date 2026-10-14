@@ -19,7 +19,7 @@
     "report": "playwright show-report reports/html",
     "install:browsers": "playwright install chromium",
     "install:browsers:with-deps": "playwright install --with-deps chromium",
-    "lint": "bun ../scripts/run-tsc7.ts --noEmit",
+    "lint": "oxlint .",
     "typecheck": "bun ../scripts/run-tsc7.ts --noEmit"
   },
   "devDependencies": {

@@ -11,12 +11,12 @@ The product goal is to make Atmos a protocol-aligned ACP client. Agent Chat shou
 
 ## Implementation Options
 
-| Option | Pros | Cons | Risk |
-| --- | --- | --- | --- |
-| Keep local DB history and add ACP fields | Small UI diff; preserves offline browsing | Keeps two sources of truth; stale sessions remain possible; conflicts with no-backcompat direction | High |
-| Replace history with ACP `session/list` but keep local titles | Faster transition; UI can keep existing title flows | Agent metadata still fights local metadata; title generator remains unnecessary | Medium |
-| Make ACP the only durable session source | Cleanest ownership; best long-term protocol compatibility; removes title/session DB debt | Requires API/UI/session lifecycle refactor; offline history disappears | Medium |
-| Add a background control connection cache | Lower repeated list/logout latency | More process lifecycle and auth edge cases; not needed for v1 | Medium |
+| Option                                                        | Pros                                                                                     | Cons                                                                                               | Risk   |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------ |
+| Keep local DB history and add ACP fields                      | Small UI diff; preserves offline browsing                                                | Keeps two sources of truth; stale sessions remain possible; conflicts with no-backcompat direction | High   |
+| Replace history with ACP `session/list` but keep local titles | Faster transition; UI can keep existing title flows                                      | Agent metadata still fights local metadata; title generator remains unnecessary                    | Medium |
+| Make ACP the only durable session source                      | Cleanest ownership; best long-term protocol compatibility; removes title/session DB debt | Requires API/UI/session lifecycle refactor; offline history disappears                             | Medium |
+| Add a background control connection cache                     | Lower repeated list/logout latency                                                       | More process lifecycle and auth edge cases; not needed for v1                                      | Medium |
 
 Recommended option: make ACP the only durable session source, with short-lived control operations for list/logout and runtime-only active WS sessions.
 

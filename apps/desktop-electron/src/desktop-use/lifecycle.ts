@@ -6,8 +6,7 @@
  */
 
 /** Same `pkill -f` needle as `crates/desktop-use` `stop_daemon`. */
-export const HOST_SERVE_PKILL_PATTERN =
-  "Atmos Desktop Use.app/Contents/MacOS/.*serve";
+export const HOST_SERVE_PKILL_PATTERN = "Atmos Desktop Use.app/Contents/MacOS/.*serve";
 
 /** APP-076: host daemon is owned by Runtime, not Desktop quit. */
 export async function stopDesktopUseOnAppQuit(): Promise<void> {

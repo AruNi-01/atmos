@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  buildClientSessionUrls,
-  clientWsUrlFromGateway,
-} from "./session-urls";
+import { buildClientSessionUrls, clientWsUrlFromGateway } from "./session-urls";
 import { activeComputers, onlineComputers } from "./computers";
 import type { ComputerRow } from "./types";
 
@@ -14,9 +11,7 @@ describe("session URL helpers", () => {
       clientToken: "tok",
       clientKind: "web",
     });
-    expect(urls.gatewayUrl).toBe(
-      "https://relay.example/v1/computers/srv-1/proxy",
-    );
+    expect(urls.gatewayUrl).toBe("https://relay.example/v1/computers/srv-1/proxy");
     expect(urls.wsUrl).toContain("wss://relay.example/ws/client?");
     expect(urls.wsUrl).toContain("server_id=srv-1");
     expect(urls.wsUrl).toContain("token=tok");
@@ -31,9 +26,7 @@ describe("session URL helpers", () => {
       clientToken: "ct",
       clientKind: "desktop",
     });
-    expect(ws).toBe(
-      "wss://relay.example/ws/client?server_id=abc&token=ct&client_type=desktop",
-    );
+    expect(ws).toBe("wss://relay.example/ws/client?server_id=abc&token=ct&client_type=desktop");
   });
 });
 

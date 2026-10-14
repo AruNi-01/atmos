@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const card = readFileSync(
-  join(import.meta.dir, "../AgentSessionOpCard.tsx"),
-  "utf8",
-);
+const card = readFileSync(join(import.meta.dir, "../AgentSessionOpCard.tsx"), "utf8");
 
 describe("APP-069 S9 agent session-op card", () => {
   it("reuses confirmation chrome and i18n keys", () => {

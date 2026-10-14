@@ -45,15 +45,11 @@ export function AtmosAppPermissionsPanel({
   onHeaderEndChange,
 }: AtmosAppPermissionsPanelProps) {
   const t = useTranslations("settings.modal.permissionAccessSection.atmosApp");
-  const [status, setStatus] = React.useState<MacosAppPermissionsStatus | null>(
-    null,
-  );
+  const [status, setStatus] = React.useState<MacosAppPermissionsStatus | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [initialLoading, setInitialLoading] = React.useState(true);
   const [manualRefreshing, setManualRefreshing] = React.useState(false);
-  const [grantingTarget, setGrantingTarget] = React.useState<PermissionName | null>(
-    null,
-  );
+  const [grantingTarget, setGrantingTarget] = React.useState<PermissionName | null>(null);
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = React.useRef(true);
   const activeGrantRef = React.useRef<PermissionName | null>(null);
@@ -75,9 +71,7 @@ export function AtmosAppPermissionsPanel({
           if (mountedRef.current) setStatus(null);
           return;
         }
-        const next = await desktopInvoke<MacosAppPermissionsStatus>(
-          "macos_app_permissions_status",
-        );
+        const next = await desktopInvoke<MacosAppPermissionsStatus>("macos_app_permissions_status");
         if (mountedRef.current) setStatus(next);
         const pending = activeGrantRef.current;
         const done =
@@ -148,29 +142,16 @@ export function AtmosAppPermissionsPanel({
       </Button>,
     );
     return () => onHeaderEndChange(null);
-  }, [
-    onHeaderEndChange,
-    supported,
-    busy,
-    manualRefreshing,
-    refresh,
-    t,
-  ]);
+  }, [onHeaderEndChange, supported, busy, manualRefreshing, refresh, t]);
 
-  const openGrant = async (
-    target: PermissionName,
-    anchorEl?: HTMLElement | null,
-  ) => {
+  const openGrant = async (target: PermissionName, anchorEl?: HTMLElement | null) => {
     if (!isDesktopRuntime() || !supported) return;
     setGrantingTarget(target);
     activeGrantRef.current = target;
     setError(null);
     try {
-      const locale =
-        typeof navigator !== "undefined" ? navigator.language : undefined;
-      let anchor:
-        | { x: number; y: number; width: number; height: number }
-        | undefined;
+      const locale = typeof navigator !== "undefined" ? navigator.language : undefined;
+      let anchor: { x: number; y: number; width: number; height: number } | undefined;
       if (anchorEl) {
         const r = anchorEl.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) {
@@ -208,9 +189,7 @@ export function AtmosAppPermissionsPanel({
 
   if (!isDesktopRuntime()) {
     return (
-      <p className={cn("px-2 py-4 text-sm text-muted-foreground", className)}>
-        {t("desktopOnly")}
-      </p>
+      <p className={cn("px-2 py-4 text-sm text-muted-foreground", className)}>{t("desktopOnly")}</p>
     );
   }
 
@@ -225,9 +204,7 @@ export function AtmosAppPermissionsPanel({
 
   if (!supported) {
     return (
-      <p className={cn("px-2 py-4 text-sm text-muted-foreground", className)}>
-        {t("macosOnly")}
-      </p>
+      <p className={cn("px-2 py-4 text-sm text-muted-foreground", className)}>{t("macosOnly")}</p>
     );
   }
 
@@ -250,16 +227,11 @@ export function AtmosAppPermissionsPanel({
         const PermissionIcon = PERMISSION_ICONS[name];
 
         return (
-          <div
-            key={name}
-            className="border-b border-border/60 px-2 py-3 last:border-b-0"
-          >
+          <div key={name} className="border-b border-border/60 px-2 py-3 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-6">
               <div>
                 <p className="text-sm font-medium text-foreground">{title}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {description}
-                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
               </div>
               <div className="flex items-center justify-end">
                 {granted ? (
@@ -290,9 +262,7 @@ export function AtmosAppPermissionsPanel({
         );
       })}
 
-      {error ? (
-        <p className="px-2 py-2 text-sm text-destructive">{error}</p>
-      ) : null}
+      {error ? <p className="px-2 py-2 text-sm text-destructive">{error}</p> : null}
     </div>
   );
 }

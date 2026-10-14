@@ -21,6 +21,7 @@ All updated content MUST meet the same **content depth requirements** as project
 ## Input Context
 
 The user prompt will provide:
+
 - `catalog_commit`: The git commit hash when the wiki was generated (from `_catalog.json`)
 - `current_commit`: The current HEAD commit hash
 
@@ -38,6 +39,7 @@ The user prompt will provide:
 ### Phase 2: Uncovered Changes Analysis (AI Reasoning)
 
 For each uncovered changed file, reason about it:
+
 - **Add to existing page**: The change is conceptually related to an existing wiki topic (e.g., a new helper in `crates/infra/src/websocket/`) → update that page's content and add the file to its `sources` frontmatter.
 - **Create new page**: A new module, feature, or API was introduced that deserves its own documentation → create a new wiki page, add it to `_catalog.json`.
 - **Skip**: Trivial changes (config files, formatting, test-only, CI scripts, `.gitignore`, lock files) that do not warrant documentation updates.
@@ -111,9 +113,10 @@ If `validate_content` fails for any updated page, expand the content (add more p
 ## Alignment with project-wiki
 
 All generated or updated content MUST follow the same conventions as the full project-wiki skill:
+
 - Same frontmatter schema (title, section, level, reading_time, path, sources, updated_at)
 - Same content style (prose-first, minimal code, prefer Mermaid)
 - **Same content depth** — must pass `validate_content` (word count, diagrams, H2 sections, sources, cross-references)
 - Same file naming (kebab-case under `.atmos/wiki/`)
 - Same catalog structure (Getting Started / Deep Dive, CatalogItem fields)
-- Research-type Agent role — explain *why* and *how it evolved*, not just *what*
+- Research-type Agent role — explain _why_ and _how it evolved_, not just _what_

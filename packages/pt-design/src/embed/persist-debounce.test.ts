@@ -6,17 +6,20 @@ describe("persist debounce", () => {
   test("coalesces rapid schedules into one save and flushes leftover on unmount", () => {
     const saves: PtScene[] = [];
     let pending: (() => void) | null = null;
-    const debouncer = createPersistDebouncer((scene) => {
-      saves.push(scene);
-    }, {
-      delay: 250,
-      schedule(fn) {
-        pending = fn;
-        return () => {
-          pending = null;
-        };
+    const debouncer = createPersistDebouncer(
+      (scene) => {
+        saves.push(scene);
       },
-    });
+      {
+        delay: 250,
+        schedule(fn) {
+          pending = fn;
+          return () => {
+            pending = null;
+          };
+        },
+      },
+    );
     const a = { ...emptyScene(), appState: { viewBackgroundColor: "#aaa" } };
     const b = { ...emptyScene(), appState: { viewBackgroundColor: "#bbb" } };
     const c = { ...emptyScene(), appState: { viewBackgroundColor: "#ccc" } };
@@ -35,17 +38,20 @@ describe("persist debounce", () => {
   test("drop cancels a pending save without writing", () => {
     const saves: PtScene[] = [];
     let pending: (() => void) | null = null;
-    const debouncer = createPersistDebouncer((scene) => {
-      saves.push(scene);
-    }, {
-      delay: 250,
-      schedule(fn) {
-        pending = fn;
-        return () => {
-          pending = null;
-        };
+    const debouncer = createPersistDebouncer(
+      (scene) => {
+        saves.push(scene);
       },
-    });
+      {
+        delay: 250,
+        schedule(fn) {
+          pending = fn;
+          return () => {
+            pending = null;
+          };
+        },
+      },
+    );
     debouncer.schedule({ ...emptyScene(), appState: { viewBackgroundColor: "#aaa" } });
     debouncer.drop();
     pending?.();

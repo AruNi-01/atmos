@@ -17,11 +17,13 @@ const INTRO_FRAMES = 8;
 type Parts = ReturnType<typeof flowParts> & { grouped: boolean };
 
 function sameParts(left: Parts, right: Parts) {
-  return left.value === right.value
-    && left.prefix === right.prefix
-    && left.suffix === right.suffix
-    && left.fraction === right.fraction
-    && left.grouped === right.grouped;
+  return (
+    left.value === right.value &&
+    left.prefix === right.prefix &&
+    left.suffix === right.suffix &&
+    left.fraction === right.fraction &&
+    left.grouped === right.grouped
+  );
 }
 
 /** Rolls a formatted metric with NumberFlow. Compact units stay prefix and suffix, because Hermes drops Intl compact notation. */

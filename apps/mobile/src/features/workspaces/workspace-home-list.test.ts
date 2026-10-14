@@ -25,7 +25,12 @@ function project(guid: string, name: string): ProjectModel {
   };
 }
 
-function workspace(guid: string, projectId: string, name: string, extra: Partial<WorkspaceModel> = {}): WorkspaceModel {
+function workspace(
+  guid: string,
+  projectId: string,
+  name: string,
+  extra: Partial<WorkspaceModel> = {},
+): WorkspaceModel {
   return {
     archived_at: null,
     base_branch: "main",

@@ -87,9 +87,7 @@ export function mapGithubPrWorkflowStatus(
   return "in_progress";
 }
 
-export function mapGithubPrPriority(
-  _pr: GithubPrPayload | null | undefined,
-): WorkspacePriority {
+export function mapGithubPrPriority(_pr: GithubPrPayload | null | undefined): WorkspacePriority {
   return "no_priority";
 }
 
@@ -196,26 +194,14 @@ export function combinedExternalMeta(input: {
   const issueMeta = issue ? githubIssueMeta(issue) : null;
 
   return {
-    priority:
-      linearMeta?.priority ??
-      prMeta?.priority ??
-      issueMeta?.priority ??
-      "no_priority",
+    priority: linearMeta?.priority ?? prMeta?.priority ?? issueMeta?.priority ?? "no_priority",
     workflowStatus:
       linearMeta?.workflowStatus ??
       prMeta?.workflowStatus ??
       issueMeta?.workflowStatus ??
       "in_progress",
-    labels: mergeExternalLabels(
-      linearMeta?.labels,
-      prMeta?.labels,
-      issueMeta?.labels,
-    ),
-    labelSource: linear
-      ? "manual"
-      : pr
-        ? "gitHub_pr"
-        : "gitHub_issue",
+    labels: mergeExternalLabels(linearMeta?.labels, prMeta?.labels, issueMeta?.labels),
+    labelSource: linear ? "manual" : pr ? "gitHub_pr" : "gitHub_issue",
   };
 }
 

@@ -31,7 +31,9 @@ function node(
 
 describe("selectionPropGroups", () => {
   test("button exposes variant and size, not text props", () => {
-    const groups = selectionPropGroups(node("button", { variant: "outline", size: "lg", label: "Save" }));
+    const groups = selectionPropGroups(
+      node("button", { variant: "outline", size: "lg", label: "Save" }),
+    );
     expect(groups.map((group) => group.id)).toEqual(["variant", "size", "radius"]);
     expect(groups[0]?.value).toBe("outline");
     expect(groups[0]?.options.map((opt) => opt.id)).toEqual([
@@ -45,7 +47,13 @@ describe("selectionPropGroups", () => {
     expect(groups[1]?.value).toBe("lg");
     expect(groups[1]?.options.map((opt) => opt.label)).toEqual(["S", "M", "L"]);
     expect(groups[2]?.value).toBe("default");
-    expect(groups[2]?.options.map((opt) => opt.label)).toEqual(["Default", "None", "Small", "Medium", "Large"]);
+    expect(groups[2]?.options.map((opt) => opt.label)).toEqual([
+      "Default",
+      "None",
+      "Small",
+      "Medium",
+      "Large",
+    ]);
   });
 
   test("checkbox exposes size and checked, not a single default variant", () => {
@@ -80,27 +88,36 @@ describe("selectionPropPatch", () => {
 
     const toggle = selectionPropGroups(node("toggle", { label: "Bold" }, { checked: false }));
     const pressed = toggle.find((group) => group.id === "prop:pressed")!;
-    expect(selectionPropPatch(pressed, "true")).toEqual({ type: "prop", key: "pressed", value: true });
+    expect(selectionPropPatch(pressed, "true")).toEqual({
+      type: "prop",
+      key: "pressed",
+      value: true,
+    });
   });
 });
 
 describe("applySelectionNodePatch", () => {
   test("writes variant and size into props and boolean into checked", () => {
     const base = node("button", { label: "Go" });
-    expect(applySelectionNodePatch(base, { type: "variant", variant: "ghost" }).props.variant).toBe("ghost");
-    expect(applySelectionNodePatch(base, { type: "size", size: "sm" }).props.size).toBe("sm");
-    expect(applySelectionNodePatch(base, { type: "radius", radius: "none" }).props.radius).toBe("none");
-    expect(applySelectionNodePatch(node("checkbox", {}, { checked: false }), { type: "prop", key: "checked", value: true }).checked).toBe(
-      true,
+    expect(applySelectionNodePatch(base, { type: "variant", variant: "ghost" }).props.variant).toBe(
+      "ghost",
     );
+    expect(applySelectionNodePatch(base, { type: "size", size: "sm" }).props.size).toBe("sm");
+    expect(applySelectionNodePatch(base, { type: "radius", radius: "none" }).props.radius).toBe(
+      "none",
+    );
+    expect(
+      applySelectionNodePatch(node("checkbox", {}, { checked: false }), {
+        type: "prop",
+        key: "checked",
+        value: true,
+      }).checked,
+    ).toBe(true);
   });
 });
 
 describe("selectedNodeIdFromBoardSelection", () => {
-  const elements = [
-    { id: "root", customData: { pt: { id: "card-1" } } },
-    { id: "label" },
-  ];
+  const elements = [{ id: "root", customData: { pt: { id: "card-1" } } }, { id: "label" }];
 
   test("reads the live selected node", () => {
     expect(

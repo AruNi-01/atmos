@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, PixelRatio, View } from "react-native";
-import { AlphaType, Canvas, ColorType, Image, Skia, type SkImage } from "@shopify/react-native-skia";
+import {
+  AlphaType,
+  Canvas,
+  ColorType,
+  Image,
+  Skia,
+  type SkImage,
+} from "@shopify/react-native-skia";
 import { createEffortFlame } from "./effort-flame";
 
 const TRACK_HEIGHT = 32;
@@ -65,7 +72,12 @@ export function EffortExhaust() {
         setWidth((current) => (current === next ? current : next));
       }}
       pointerEvents="none"
-      style={{ borderRadius: TRACK_HEIGHT / 2, height: TRACK_HEIGHT, overflow: "hidden", width: "100%" }}
+      style={{
+        borderRadius: TRACK_HEIGHT / 2,
+        height: TRACK_HEIGHT,
+        overflow: "hidden",
+        width: "100%",
+      }}
     >
       {image ? (
         <Canvas style={{ height: TRACK_HEIGHT, width: "100%" }}>

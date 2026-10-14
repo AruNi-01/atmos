@@ -13,13 +13,7 @@
     "reasoningSupport": {
       "mode": "enum",
       "arg": "--effort",
-      "options": [
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ]
+      "options": ["low", "medium", "high", "xhigh", "max"]
     }
   },
   {
@@ -41,11 +35,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "codex",
-        "debug",
-        "models"
-      ],
+      "command": ["codex", "debug", "models"],
       "parser": "json"
     }
   },
@@ -82,10 +72,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "agy",
-        "models"
-      ],
+      "command": ["agy", "models"],
       "parser": "line_list"
     }
   },
@@ -135,11 +122,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "droid",
-        "exec",
-        "--help"
-      ],
+      "command": ["droid", "exec", "--help"],
       "parser": "droid_help"
     }
   },
@@ -159,10 +142,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "opencode",
-        "models"
-      ],
+      "command": ["opencode", "models"],
       "parser": "line_list"
     }
   },
@@ -177,19 +157,12 @@
     "reasoningSupport": {
       "mode": "enum",
       "arg": "--thinking",
-      "options": [
-        "thinking"
-      ],
+      "options": ["thinking"],
       "valueStyle": "flag_only"
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "kimi",
-        "provider",
-        "list",
-        "--json"
-      ],
+      "command": ["kimi", "provider", "list", "--json"],
       "parser": "json"
     }
   },
@@ -209,10 +182,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "cursor-agent",
-        "--list-models"
-      ],
+      "command": ["cursor-agent", "--list-models"],
       "parser": "line_list"
     }
   },
@@ -234,10 +204,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "grok",
-        "models"
-      ],
+      "command": ["grok", "models"],
       "parser": "grok_line_list"
     }
   },
@@ -257,10 +224,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "kilo",
-        "models"
-      ],
+      "command": ["kilo", "models"],
       "parser": "line_list"
     }
   },
@@ -279,13 +243,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "kiro-cli",
-        "chat",
-        "--list-models",
-        "--format",
-        "json"
-      ],
+      "command": ["kiro-cli", "chat", "--list-models", "--format", "json"],
       "parser": "kiro_json"
     }
   },
@@ -306,10 +264,7 @@
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "cmd",
-        "--list-models"
-      ],
+      "command": ["cmd", "--list-models"],
       "parser": "line_list"
     }
   },
@@ -324,22 +279,11 @@
     "reasoningSupport": {
       "mode": "enum",
       "arg": "--thinking",
-      "options": [
-        "off",
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ]
+      "options": ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
     },
     "modelList": {
       "supported": true,
-      "command": [
-        "pi",
-        "--list-models"
-      ],
+      "command": ["pi", "--list-models"],
       "parser": "line_list"
     }
   },

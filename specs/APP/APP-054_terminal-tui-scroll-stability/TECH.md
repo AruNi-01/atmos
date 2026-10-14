@@ -48,11 +48,11 @@ resolve_mouse_tracking_restore(observed, alternate, current_command)
   → (restore: bool, sequence: Option<String>)
 ```
 
-| Observed | Result |
-|----------|--------|
-| `Some(active)` | `restore=true`, exact `restore_sequence()` |
+| Observed         | Result                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `Some(active)`   | `restore=true`, exact `restore_sequence()`                                                                    |
 | `Some(inactive)` | If `should_restore_tui_mouse_tracking(alternate, cmd)` → default sequence **with 1003+1006**; else no restore |
-| `None` | Same heuristic as today → default or none |
+| `None`           | Same heuristic as today → default or none                                                                     |
 
 **Policy change vs APP-046:** bare inactive must **not** suppress restore when the pane is still alternate-screen or a known inline mouse TUI. Inactive is treated as **stale or incomplete observation** in those cases.
 
@@ -96,9 +96,9 @@ reset → optional resize → clear/screen + cells + cursor + mouse restore sequ
 
 ### 4.2 Title OSC: shell vs reattach (root-cause race fix)
 
-| OSC | Source | Mouse side-effects |
-|-----|--------|--------------------|
-| **9999** | Shell shim preexec/precmd | CMD_START may ENABLE for alt/inline; CMD_END may DISABLE when not alternate |
+| OSC      | Source                                  | Mouse side-effects                                                                                      |
+| -------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **9999** | Shell shim preexec/precmd               | CMD_START may ENABLE for alt/inline; CMD_END may DISABLE when not alternate                             |
 | **9998** | Server `inject_initial_title` on attach | **Title only for disable path** — never DISABLE mouse; may ENABLE if snapshot/whitelist wants TUI mouse |
 
 **Root cause of “refresh → 100% xterm scroll”:** reattach inject used **9999** `CMD_END`, which raced after snapshot mouse hydrate and cleared DEC mouse modes. Fixed by splitting inject onto **9998**.
@@ -134,12 +134,12 @@ Host element toggles class `atmos-tui-mouse-active` when `mouseTrackingMode !== 
 
 ## 5. Layer rules
 
-| Layer | Responsibility |
-|-------|----------------|
-| `core-engine` | Residual observe, resolve policy, persist encode/decode |
-| `core-service` | Feed live stream; seed/persist pane option |
-| `packages/shared` | Client restore payload contract |
-| `apps/web` | CMD_END gate; wheel multi-report |
+| Layer             | Responsibility                                          |
+| ----------------- | ------------------------------------------------------- |
+| `core-engine`     | Residual observe, resolve policy, persist encode/decode |
+| `core-service`    | Feed live stream; seed/persist pane option              |
+| `packages/shared` | Client restore payload contract                         |
+| `apps/web`        | CMD_END gate; wheel multi-report                        |
 
 ## 6. Rollout
 
@@ -150,12 +150,12 @@ Host element toggles class `atmos-tui-mouse-active` when `mouseTrackingMode !== 
 
 ## 7. Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Residual grows unbounded | Cap residual size; drop if over limit |
-| Inactive override keeps mouse too long | Only when alt or tight inline whitelist |
-| Wheel multi-report floods input | Per-event cap + fractional accumulate |
-| CMD_END on alt never clears mouse | Live stream disable / CMD_END after leave alt still clears |
+| Risk                                   | Mitigation                                                 |
+| -------------------------------------- | ---------------------------------------------------------- |
+| Residual grows unbounded               | Cap residual size; drop if over limit                      |
+| Inactive override keeps mouse too long | Only when alt or tight inline whitelist                    |
+| Wheel multi-report floods input        | Per-event cap + fractional accumulate                      |
+| CMD_END on alt never clears mouse      | Live stream disable / CMD_END after leave alt still clears |
 
 ## 8. Verification
 

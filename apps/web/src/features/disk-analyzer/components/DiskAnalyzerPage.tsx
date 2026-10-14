@@ -28,11 +28,7 @@ import {
   cn,
 } from "@workspace/ui";
 import { MorphingSwap } from "@/shared/components/morphing-swap";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import {
   ChartPie,
   ChevronRight,
@@ -85,11 +81,7 @@ function DiskAnalyzerScanButton({
 }) {
   const [intentCancel, setIntentCancel] = useState(false);
   const showCancel = scanning && intentCancel;
-  const label = showCancel
-    ? cancelLabel
-    : scanLocked
-      ? scanningLabel
-      : rescanLabel;
+  const label = showCancel ? cancelLabel : scanLocked ? scanningLabel : rescanLabel;
   const labelKey = showCancel ? "cancel" : scanLocked ? "scanning" : "rescan";
 
   useEffect(() => {
@@ -118,11 +110,7 @@ function DiskAnalyzerScanButton({
       }}
       onBlur={() => setIntentCancel(false)}
     >
-      {scanLocked ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : (
-        <RefreshCw className="size-4" />
-      )}
+      {scanLocked ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
       <MorphingSwap
         stateKey={labelKey}
         className="whitespace-nowrap"
@@ -177,31 +165,23 @@ export function DiskAnalyzerPage() {
     size: number;
     isWorktree: boolean;
   } | null>(null);
-  const [pendingSuggestItems, setPendingSuggestItems] = useState<
-    CleanupSuggestion[] | null
-  >(null);
+  const [pendingSuggestItems, setPendingSuggestItems] = useState<CleanupSuggestion[] | null>(null);
   /** Keep last paint-able chart node so list drill does not unmount the chart (kills ECharts data morph). */
   const lastChartNodeRef = useRef(analyzer.focusedNode);
 
   useEffect(() => {
-    if (
-      analyzer.focusedNode &&
-      (analyzer.focusedNode.children?.length ?? 0) > 0
-    ) {
+    if (analyzer.focusedNode && (analyzer.focusedNode.children?.length ?? 0) > 0) {
       lastChartNodeRef.current = analyzer.focusedNode;
     }
   }, [analyzer.focusedNode]);
 
   const chartNode =
-    analyzer.focusedNode &&
-    (analyzer.focusedNode.children?.length ?? 0) > 0
+    analyzer.focusedNode && (analyzer.focusedNode.children?.length ?? 0) > 0
       ? analyzer.focusedNode
       : lastChartNodeRef.current;
 
   const isAtScanRoot =
-    !!analyzer.focusPath &&
-    !!analyzer.scanPath &&
-    analyzer.focusPath === analyzer.scanPath;
+    !!analyzer.focusPath && !!analyzer.scanPath && analyzer.focusPath === analyzer.scanPath;
   // Cap root totals by volume used; nested focus still uses path estimates.
   const parentSize = isAtScanRoot
     ? analyzer.chartRootSize
@@ -219,11 +199,7 @@ export function DiskAnalyzerPage() {
     setDeleteOpen(true);
   };
 
-  const openSuggestDelete = (item: {
-    path: string;
-    size: number;
-    kind?: string | null;
-  }) => {
+  const openSuggestDelete = (item: { path: string; size: number; kind?: string | null }) => {
     analyzer.setSelectedPath(item.path);
     setPendingSuggest({
       path: item.path,
@@ -245,10 +221,7 @@ export function DiskAnalyzerPage() {
       if (target) {
         const requiresPermanent =
           pendingSuggest?.isWorktree ||
-          Boolean(
-            analyzer.selectedNode?.is_git_worktree ||
-              analyzer.selectedNode?.is_workspace,
-          );
+          Boolean(analyzer.selectedNode?.is_git_worktree || analyzer.selectedNode?.is_workspace);
         await analyzer.deletePathAt(target, requiresPermanent ? true : permanent);
         setDeleteOpen(false);
         setListDeletePath(null);
@@ -280,7 +253,7 @@ export function DiskAnalyzerPage() {
     } catch (e) {
       const deletedPaths =
         e && typeof e === "object" && "deletedPaths" in e
-          ? (e as { deletedPaths?: string[] }).deletedPaths ?? []
+          ? ((e as { deletedPaths?: string[] }).deletedPaths ?? [])
           : [];
       if (deletedPaths.length > 0) {
         setPendingSuggestItems((prev) => {
@@ -296,24 +269,20 @@ export function DiskAnalyzerPage() {
   };
 
   const pendingBulkItems = pendingSuggestItems ?? analyzer.sessionSuggestions;
-  const pendingBulkNeedsTrash = pendingBulkItems.some(
-    (item) => !isWorktreeSuggestion(item),
-  );
+  const pendingBulkNeedsTrash = pendingBulkItems.some((item) => !isWorktreeSuggestion(item));
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
       {/* Header — compact so the chart can grow */}
       <div className="shrink-0">
-        <div className="w-full px-4 pb-3 pt-5 sm:px-6 lg:px-8">
+        <div className="w-full px-4 pt-5 pb-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <HardDrive className="size-4" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-xl font-bold tracking-tight text-foreground">
-                  {t("title")}
-                </h1>
+                <h1 className="text-xl font-bold tracking-tight text-foreground">{t("title")}</h1>
                 <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground sm:text-sm">
                   {t("subtitle")}
                 </p>
@@ -342,9 +311,7 @@ export function DiskAnalyzerPage() {
                       })();
                     }}
                   />
-                  <Label htmlFor="disk-analyzer-full-scan">
-                    {t("fullScan")}
-                  </Label>
+                  <Label htmlFor="disk-analyzer-full-scan">{t("fullScan")}</Label>
                 </div>
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
@@ -435,19 +402,13 @@ export function DiskAnalyzerPage() {
                       onClick={() => analyzer.drillTo(crumb.path)}
                     >
                       {index === 0
-                        ? rootBreadcrumbLabel(
-                            analyzer.scanPath,
-                            t("computerRoot"),
-                            t("atmosRoot"),
-                          )
+                        ? rootBreadcrumbLabel(analyzer.scanPath, t("computerRoot"), t("atmosRoot"))
                         : (localizedSyntheticName(crumb.path, {
                             atmosRoot: t("atmosRoot"),
                             agentData: t("agentData"),
                             gitWorktrees: t("gitWorktrees"),
                           }) ??
-                          (crumb.name === "__other__"
-                            ? t("other")
-                            : sessionName(crumb.name)))}
+                          (crumb.name === "__other__" ? t("other") : sessionName(crumb.name)))}
                     </button>
                   </React.Fragment>
                 ))
@@ -466,21 +427,13 @@ export function DiskAnalyzerPage() {
                 size="sm"
                 className="h-8 gap-1.5 border-border/60 bg-muted/20 px-2.5 text-xs shadow-none"
                 aria-label={t("switchChartMode", {
-                  mode:
-                    analyzer.chartMode === "treemap"
-                      ? t("sunburst")
-                      : t("treemap"),
+                  mode: analyzer.chartMode === "treemap" ? t("sunburst") : t("treemap"),
                 })}
                 title={t("switchChartMode", {
-                  mode:
-                    analyzer.chartMode === "treemap"
-                      ? t("sunburst")
-                      : t("treemap"),
+                  mode: analyzer.chartMode === "treemap" ? t("sunburst") : t("treemap"),
                 })}
                 onClick={() =>
-                  analyzer.setChartMode(
-                    analyzer.chartMode === "treemap" ? "sunburst" : "treemap",
-                  )
+                  analyzer.setChartMode(analyzer.chartMode === "treemap" ? "sunburst" : "treemap")
                 }
               >
                 {analyzer.chartMode === "treemap" ? (
@@ -526,7 +479,7 @@ export function DiskAnalyzerPage() {
           </div>
 
           {/* Tight inset so the chart fills almost the whole main column; side rail flex-shrinks this. */}
-          <div className="relative min-h-0 flex-1 px-1.5 pb-1.5 pt-0.5 sm:px-2 sm:pb-2">
+          <div className="relative min-h-0 flex-1 px-1.5 pt-0.5 pb-1.5 sm:px-2 sm:pb-2">
             {chartNode && (chartNode.children?.length ?? 0) > 0 ? (
               <div className="relative h-full min-h-0 w-full">
                 <DiskUsageChart
@@ -560,9 +513,7 @@ export function DiskAnalyzerPage() {
                   <>
                     <Loader2 className="size-8 animate-spin text-muted-foreground/70" />
                     <p>
-                      {analyzer.isLevelLoading && !scanning
-                        ? t("loadingLevel")
-                        : t("scanningWait")}
+                      {analyzer.isLevelLoading && !scanning ? t("loadingLevel") : t("scanningWait")}
                     </p>
                     {analyzer.progress?.current_path ? (
                       <p
@@ -592,385 +543,379 @@ export function DiskAnalyzerPage() {
         >
           {detailsOpen ? (
             <TooltipProvider delayDuration={250}>
-            <Tabs
-              value={detailTab}
-              onValueChange={(value) =>
-                setDetailTab(value === "suggest" ? "suggest" : "dirs")
-              }
-              variant="pill"
-              className="flex min-h-0 flex-1 flex-col"
-            >
-            <div className="flex h-10 shrink-0 items-center gap-1.5 px-2 pt-2">
-              <TabsList className="h-8 min-w-0 gap-0.5 p-0.5">
-                <TabsTrigger value="dirs" className="h-7 gap-1 px-2 text-xs">
-                  <Folder className="size-3.5 shrink-0" />
-                  {t("tabDirs")}
-                </TabsTrigger>
-                <TabsTrigger value="suggest" className="h-7 gap-1 px-2 text-xs">
-                  <Sparkles className="size-3.5 shrink-0" />
-                  {t("tabClearSuggest")}
-                </TabsTrigger>
-              </TabsList>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="ml-auto h-7 shrink-0 rounded-full px-2.5 text-xs shadow-none"
-                disabled={analyzer.refreshingDetails || !analyzer.scanId}
-                aria-label={t("refreshDetailsAria")}
-                title={t("refreshDetailsAria")}
-                onClick={() => void analyzer.refreshDetails()}
+              <Tabs
+                value={detailTab}
+                onValueChange={(value) => setDetailTab(value === "suggest" ? "suggest" : "dirs")}
+                variant="pill"
+                className="flex min-h-0 flex-1 flex-col"
               >
-                <RefreshCw
-                  className={cn(
-                    "size-3.5",
-                    analyzer.refreshingDetails && "animate-spin",
-                  )}
-                />
-                {t("refreshDetails")}
-              </Button>
-            </div>
-            {detailTab === "suggest" ? (
-              <DiskAnalyzerSuggestPanel
-                suggestions={analyzer.sessionSuggestions}
-                ready={analyzer.suggestionsReady}
-                scanning={scanning}
-                deleting={deleting}
-                localizeName={sessionName}
-                pathTitle={pathTitle}
-                onOpenItem={(item) => analyzer.drillTo(item.path)}
-                onDeleteOne={(item) => openSuggestDelete(item)}
-                onDeleteAll={() => {
-                  setPendingSuggestItems(null);
-                  setPermanent(false);
-                  setDeleteError(null);
-                  setDeleteAllOpen(true);
-                }}
-                onDeleteGroup={(items) => {
-                  setPendingSuggestItems(items);
-                  setPermanent(false);
-                  setDeleteError(null);
-                  setDeleteAllOpen(true);
-                }}
-              />
-            ) : (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="shrink-0 space-y-2 px-4 py-3">
-                {analyzer.selectedNode ? (
-                  <>
-                    {/* Row 1: name + badge …… size */}
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <div
-                        className="min-w-0 shrink truncate text-sm font-semibold"
-                        title={pathTitle(analyzer.selectedNode.path)}
-                      >
-                        {displayNodeName(
-                          analyzer.selectedNode,
-                          analyzer.scanPath,
-                          t("computerRoot"),
-                          t("atmosRoot"),
-                          t("other"),
-                          t("agentData"),
-                          t("gitWorktrees"),
-                          sessionName,
-                        )}
-                      </div>
-                      <NodeKindBadge
-                        node={analyzer.selectedNode}
-                        projectLabel={t("atmosProject")}
-                        workspaceLabel={t("atmosWorkspace")}
-                        gitWorktreeLabel={t("gitWorktree")}
-                        gitWorktreesLabel={t("gitWorktrees")}
-                        agentDataLabel={t("agentData")}
-                        runtimeLabel={t("atmosRuntimeDir")}
-                      />
-                      <CanCleanBadge
-                        hintKey={getCleanupHintKey(
-                          analyzer.selectedNode.name,
-                          analyzer.selectedNode.size,
-                        )}
-                        label={t("canClean")}
-                      />
-                      <div className="ml-auto shrink-0 text-sm font-semibold tabular-nums tracking-tight">
-                        {formatBytes(
-                          analyzer.selectedPath === analyzer.scanPath
-                            ? analyzer.chartRootSize
-                            : analyzer.selectedNode.size,
-                        )}
-                      </div>
-                    </div>
-                    {/* Row 2: path …… file/dir counts (no share %) */}
-                    <div className="flex min-w-0 items-center gap-2">
-                      <PathEllipsis
-                        path={displayNodePath(
-                          analyzer.selectedNode.path,
-                          analyzer.scanPath,
-                          t("computerRoot"),
-                          t("atmosRoot"),
-                          t("agentData"),
-                          t("gitWorktrees"),
-                        )}
-                        className="min-w-0 flex-1"
-                      />
-                      <div className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
-                        {t("counts", {
-                          files: analyzer.selectedNode.file_count,
-                          dirs: analyzer.selectedNode.dir_count,
-                        })}
-                      </div>
-                    </div>
-                    {analyzer.volumeUsedBytes != null &&
-                    analyzer.selectedPath === analyzer.scanPath &&
-                    (analyzer.selectedNode.size ?? 0) > analyzer.volumeUsedBytes ? (
-                      <p className="text-[11px] leading-snug text-muted-foreground">
-                        {t("sizeEstimateNote")}
-                      </p>
-                    ) : null}
-                    {canDeleteDiskPath(
-                      analyzer.selectedNode.path,
-                      analyzer.selectedNode.name,
-                      analyzer.scanPath,
-                    ) ? (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="w-full rounded-xl"
-                        onClick={() => openDeleteDialog()}
-                      >
-                        <Trash2 className="size-3.5" />
-                        {t("delete")}
-                      </Button>
-                    ) : null}
-                  </>
+                <div className="flex h-10 shrink-0 items-center gap-1.5 px-2 pt-2">
+                  <TabsList className="h-8 min-w-0 gap-0.5 p-0.5">
+                    <TabsTrigger value="dirs" className="h-7 gap-1 px-2 text-xs">
+                      <Folder className="size-3.5 shrink-0" />
+                      {t("tabDirs")}
+                    </TabsTrigger>
+                    <TabsTrigger value="suggest" className="h-7 gap-1 px-2 text-xs">
+                      <Sparkles className="size-3.5 shrink-0" />
+                      {t("tabClearSuggest")}
+                    </TabsTrigger>
+                  </TabsList>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-7 shrink-0 rounded-full px-2.5 text-xs shadow-none"
+                    disabled={analyzer.refreshingDetails || !analyzer.scanId}
+                    aria-label={t("refreshDetailsAria")}
+                    title={t("refreshDetailsAria")}
+                    onClick={() => void analyzer.refreshDetails()}
+                  >
+                    <RefreshCw
+                      className={cn("size-3.5", analyzer.refreshingDetails && "animate-spin")}
+                    />
+                    {t("refreshDetails")}
+                  </Button>
+                </div>
+                {detailTab === "suggest" ? (
+                  <DiskAnalyzerSuggestPanel
+                    suggestions={analyzer.sessionSuggestions}
+                    ready={analyzer.suggestionsReady}
+                    scanning={scanning}
+                    deleting={deleting}
+                    localizeName={sessionName}
+                    pathTitle={pathTitle}
+                    onOpenItem={(item) => analyzer.drillTo(item.path)}
+                    onDeleteOne={(item) => openSuggestDelete(item)}
+                    onDeleteAll={() => {
+                      setPendingSuggestItems(null);
+                      setPermanent(false);
+                      setDeleteError(null);
+                      setDeleteAllOpen(true);
+                    }}
+                    onDeleteGroup={(items) => {
+                      setPendingSuggestItems(items);
+                      setPermanent(false);
+                      setDeleteError(null);
+                      setDeleteAllOpen(true);
+                    }}
+                  />
                 ) : (
-                  <p className="text-sm text-muted-foreground">{t("selectNode")}</p>
-                )}
-              </div>
-
-              <ScrollArea className="min-h-0 flex-1" scrollFade viewportClassName="px-1.5 py-1.5">
-                {analyzer.childList.length === 0 ? (
-                  <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                    {analyzer.isLevelLoading ? t("loadingLevel") : t("noChildren")}
-                  </p>
-                ) : (
-                    <div className="space-y-px">
-                      {analyzer.childList.map((child, index) => {
-                        const share =
-                          parentSize > 0
-                            ? Math.min(100, (child.size / parentSize) * 100)
-                            : 0;
-                        const cleanupHintKey = getCleanupHintKey(child.name, child.size);
-                        const canDelete = canDeleteDiskPath(
-                          child.path,
-                          child.name,
-                          analyzer.scanPath,
-                        );
-                        const popoverOpen = listDeletePath === child.path;
-                        const enterRow = () => {
-                          analyzer.setSelectedPath(child.path);
-                          // Same as chart click: enter directories (chart animates via data update).
-                          if (child.name === "__other__") return;
-                          if (child.is_dir) {
-                            analyzer.drillTo(child.path);
-                          }
-                        };
-                        return (
-                          <div
-                            key={`${child.path}::${child.name}::${index}`}
-                            role="button"
-                            tabIndex={0}
-                            className={cn(
-                              // Only hover / open-delete highlight — never sticky from focus or selectedPath
-                              // (opening delete sets selectedPath for the API, which used to leave bg-muted on).
-                              "group relative flex w-full cursor-pointer items-center gap-1 overflow-hidden rounded-md px-2 py-1",
-                              popoverOpen ? "bg-muted" : "hover:bg-muted/50",
-                            )}
-                            onClick={enterRow}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                enterRow();
-                              }
-                            }}
-                          >
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    <div className="shrink-0 space-y-2 px-4 py-3">
+                      {analyzer.selectedNode ? (
+                        <>
+                          {/* Row 1: name + badge …… size */}
+                          <div className="flex min-w-0 items-center gap-1.5">
                             <div
-                              className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/[0.04]"
-                              style={{ width: `${share}%` }}
-                            />
-                            <div className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left">
-                              <span
-                                className="truncate text-xs font-medium"
-                                title={pathTitle(child.path)}
-                              >
-                                {displayNodeName(
-                                  child,
-                                  analyzer.scanPath,
-                                  t("computerRoot"),
-                                  t("atmosRoot"),
-                                  t("other"),
-                                  t("agentData"),
-                                  t("gitWorktrees"),
-                                  sessionName,
-                                )}
-                              </span>
-                              <NodeKindBadge
-                                node={child}
-                                projectLabel={t("atmosProject")}
-                                workspaceLabel={t("atmosWorkspace")}
-                                gitWorktreeLabel={t("gitWorktree")}
-                                gitWorktreesLabel={t("gitWorktrees")}
-                                agentDataLabel={t("agentData")}
-                                runtimeLabel={t("atmosRuntimeDir")}
-                              />
-                              <CanCleanBadge
-                                hintKey={cleanupHintKey}
-                                label={t("canClean")}
-                              />
+                              className="min-w-0 shrink truncate text-sm font-semibold"
+                              title={pathTitle(analyzer.selectedNode.path)}
+                            >
+                              {displayNodeName(
+                                analyzer.selectedNode,
+                                analyzer.scanPath,
+                                t("computerRoot"),
+                                t("atmosRoot"),
+                                t("other"),
+                                t("agentData"),
+                                t("gitWorktrees"),
+                                sessionName,
+                              )}
                             </div>
-
-                            {/* Size + hover delete: button width 0 → 28px so size slides left */}
-                            <div className="relative z-10 flex shrink-0 items-center">
-                              <span className="text-[11px] tabular-nums text-muted-foreground transition-transform duration-200 ease-out">
-                                {formatBytes(child.size)}
-                              </span>
-                              {canDelete ? (
-                                <div
-                                  className={cn(
-                                    "overflow-hidden transition-[width,margin,opacity] duration-200 ease-out",
-                                    // Hover / open only — no focus-within (trigger keeps focus after popover closes).
-                                    popoverOpen
-                                      ? "ml-0.5 w-6 opacity-100"
-                                      : "ml-0 w-0 opacity-0 group-hover:ml-0.5 group-hover:w-6 group-hover:opacity-100",
-                                  )}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Popover
-                                    open={popoverOpen}
-                                    onOpenChange={(open) => {
-                                      if (open) {
-                                        analyzer.setSelectedPath(child.path);
-                                        setPermanent(false);
-                                        setDeleteError(null);
-                                        setListDeletePath(child.path);
-                                      } else {
-                                        setListDeletePath((cur) =>
-                                          cur === child.path ? null : cur,
-                                        );
-                                        setDeleteError(null);
-                                        setPermanent(false);
-                                        // Drop focus so the row doesn't stay "active" after dismiss.
-                                        requestAnimationFrame(() => {
-                                          const el = document.activeElement;
-                                          if (el instanceof HTMLElement) el.blur();
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-xs"
-                                        className={cn(
-                                          "size-6 shrink-0 text-muted-foreground transition-transform duration-200 ease-out hover:bg-destructive/10 hover:text-destructive",
-                                          popoverOpen
-                                            ? "translate-x-0"
-                                            : "translate-x-2 group-hover:translate-x-0",
-                                        )}
-                                        aria-label={t("deleteItem")}
-                                        title={t("deleteItem")}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                        }}
-                                      >
-                                        <Trash2 className="size-3" />
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                      align="end"
-                                      side="left"
-                                      sideOffset={8}
-                                      className="w-72 max-w-[min(18rem,calc(100vw-2rem))] overflow-hidden p-3"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <div className="min-w-0 space-y-3">
-                                        <div className="min-w-0 space-y-1">
-                                          <p className="text-sm font-medium">
-                                            {t("deleteTitle")}
-                                          </p>
-                                          <p className="min-w-0 whitespace-pre-wrap break-all text-xs leading-relaxed text-muted-foreground">
-                                            {t("deleteDescription", {
-                                              path: child.path,
-                                              size: formatBytes(child.size),
-                                            })}
-                                            {child.is_git_worktree ? (
-                                              <>
-                                                {"\n\n"}
-                                                {t("deleteWorktreeNote")}
-                                              </>
-                                            ) : null}
-                                          </p>
-                                        </div>
-                                        {child.is_git_worktree || child.is_workspace ? null : (
-                                        <label className="flex min-w-0 items-start gap-2 text-xs leading-snug">
-                                          <Checkbox
-                                            className="mt-0.5 shrink-0"
-                                            checked={permanent}
-                                            onCheckedChange={(checked) =>
-                                              setPermanent(checked === true)
-                                            }
-                                          />
-                                          <span className="min-w-0 break-words">
-                                            {t("permanentDelete")}
-                                          </span>
-                                        </label>
-                                        )}
-                                        {deleteError && listDeletePath === child.path ? (
-                                          <div className="text-xs text-destructive">
-                                            {deleteError}
-                                          </div>
-                                        ) : null}
-                                        <div className="flex justify-end gap-2">
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setListDeletePath(null)}
-                                          >
-                                            {t("cancel")}
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            variant="destructive"
-                                            size="sm"
-                                            disabled={deleting}
-                                            onClick={() => void onConfirmDelete()}
-                                          >
-                                            {deleting ? (
-                                              <Loader2 className="size-3.5 animate-spin" />
-                                            ) : null}
-                                            {child.is_git_worktree ||
-                                            child.is_workspace ||
-                                            permanent
-                                              ? t("confirmPermanent")
-                                              : t("confirmTrash")}
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </PopoverContent>
-                                  </Popover>
-                                </div>
-                              ) : null}
+                            <NodeKindBadge
+                              node={analyzer.selectedNode}
+                              projectLabel={t("atmosProject")}
+                              workspaceLabel={t("atmosWorkspace")}
+                              gitWorktreeLabel={t("gitWorktree")}
+                              gitWorktreesLabel={t("gitWorktrees")}
+                              agentDataLabel={t("agentData")}
+                              runtimeLabel={t("atmosRuntimeDir")}
+                            />
+                            <CanCleanBadge
+                              hintKey={getCleanupHintKey(
+                                analyzer.selectedNode.name,
+                                analyzer.selectedNode.size,
+                              )}
+                              label={t("canClean")}
+                            />
+                            <div className="ml-auto shrink-0 text-sm font-semibold tracking-tight tabular-nums">
+                              {formatBytes(
+                                analyzer.selectedPath === analyzer.scanPath
+                                  ? analyzer.chartRootSize
+                                  : analyzer.selectedNode.size,
+                              )}
                             </div>
                           </div>
-                        );
-                      })}
+                          {/* Row 2: path …… file/dir counts (no share %) */}
+                          <div className="flex min-w-0 items-center gap-2">
+                            <PathEllipsis
+                              path={displayNodePath(
+                                analyzer.selectedNode.path,
+                                analyzer.scanPath,
+                                t("computerRoot"),
+                                t("atmosRoot"),
+                                t("agentData"),
+                                t("gitWorktrees"),
+                              )}
+                              className="min-w-0 flex-1"
+                            />
+                            <div className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
+                              {t("counts", {
+                                files: analyzer.selectedNode.file_count,
+                                dirs: analyzer.selectedNode.dir_count,
+                              })}
+                            </div>
+                          </div>
+                          {analyzer.volumeUsedBytes != null &&
+                          analyzer.selectedPath === analyzer.scanPath &&
+                          (analyzer.selectedNode.size ?? 0) > analyzer.volumeUsedBytes ? (
+                            <p className="text-[11px] leading-snug text-muted-foreground">
+                              {t("sizeEstimateNote")}
+                            </p>
+                          ) : null}
+                          {canDeleteDiskPath(
+                            analyzer.selectedNode.path,
+                            analyzer.selectedNode.name,
+                            analyzer.scanPath,
+                          ) ? (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="w-full rounded-xl"
+                              onClick={() => openDeleteDialog()}
+                            >
+                              <Trash2 className="size-3.5" />
+                              {t("delete")}
+                            </Button>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{t("selectNode")}</p>
+                      )}
                     </div>
+
+                    <ScrollArea
+                      className="min-h-0 flex-1"
+                      scrollFade
+                      viewportClassName="px-1.5 py-1.5"
+                    >
+                      {analyzer.childList.length === 0 ? (
+                        <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                          {analyzer.isLevelLoading ? t("loadingLevel") : t("noChildren")}
+                        </p>
+                      ) : (
+                        <div className="space-y-px">
+                          {analyzer.childList.map((child, index) => {
+                            const share =
+                              parentSize > 0 ? Math.min(100, (child.size / parentSize) * 100) : 0;
+                            const cleanupHintKey = getCleanupHintKey(child.name, child.size);
+                            const canDelete = canDeleteDiskPath(
+                              child.path,
+                              child.name,
+                              analyzer.scanPath,
+                            );
+                            const popoverOpen = listDeletePath === child.path;
+                            const enterRow = () => {
+                              analyzer.setSelectedPath(child.path);
+                              // Same as chart click: enter directories (chart animates via data update).
+                              if (child.name === "__other__") return;
+                              if (child.is_dir) {
+                                analyzer.drillTo(child.path);
+                              }
+                            };
+                            return (
+                              <div
+                                key={`${child.path}::${child.name}::${index}`}
+                                role="button"
+                                tabIndex={0}
+                                className={cn(
+                                  // Only hover / open-delete highlight — never sticky from focus or selectedPath
+                                  // (opening delete sets selectedPath for the API, which used to leave bg-muted on).
+                                  "group relative flex w-full cursor-pointer items-center gap-1 overflow-hidden rounded-md px-2 py-1",
+                                  popoverOpen ? "bg-muted" : "hover:bg-muted/50",
+                                )}
+                                onClick={enterRow}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    enterRow();
+                                  }
+                                }}
+                              >
+                                <div
+                                  className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/[0.04]"
+                                  style={{ width: `${share}%` }}
+                                />
+                                <div className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left">
+                                  <span
+                                    className="truncate text-xs font-medium"
+                                    title={pathTitle(child.path)}
+                                  >
+                                    {displayNodeName(
+                                      child,
+                                      analyzer.scanPath,
+                                      t("computerRoot"),
+                                      t("atmosRoot"),
+                                      t("other"),
+                                      t("agentData"),
+                                      t("gitWorktrees"),
+                                      sessionName,
+                                    )}
+                                  </span>
+                                  <NodeKindBadge
+                                    node={child}
+                                    projectLabel={t("atmosProject")}
+                                    workspaceLabel={t("atmosWorkspace")}
+                                    gitWorktreeLabel={t("gitWorktree")}
+                                    gitWorktreesLabel={t("gitWorktrees")}
+                                    agentDataLabel={t("agentData")}
+                                    runtimeLabel={t("atmosRuntimeDir")}
+                                  />
+                                  <CanCleanBadge hintKey={cleanupHintKey} label={t("canClean")} />
+                                </div>
+
+                                {/* Size + hover delete: button width 0 → 28px so size slides left */}
+                                <div className="relative z-10 flex shrink-0 items-center">
+                                  <span className="text-[11px] text-muted-foreground tabular-nums transition-transform duration-200 ease-out">
+                                    {formatBytes(child.size)}
+                                  </span>
+                                  {canDelete ? (
+                                    <div
+                                      className={cn(
+                                        "overflow-hidden transition-[width,margin,opacity] duration-200 ease-out",
+                                        // Hover / open only — no focus-within (trigger keeps focus after popover closes).
+                                        popoverOpen
+                                          ? "ml-0.5 w-6 opacity-100"
+                                          : "ml-0 w-0 opacity-0 group-hover:ml-0.5 group-hover:w-6 group-hover:opacity-100",
+                                      )}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Popover
+                                        open={popoverOpen}
+                                        onOpenChange={(open) => {
+                                          if (open) {
+                                            analyzer.setSelectedPath(child.path);
+                                            setPermanent(false);
+                                            setDeleteError(null);
+                                            setListDeletePath(child.path);
+                                          } else {
+                                            setListDeletePath((cur) =>
+                                              cur === child.path ? null : cur,
+                                            );
+                                            setDeleteError(null);
+                                            setPermanent(false);
+                                            // Drop focus so the row doesn't stay "active" after dismiss.
+                                            requestAnimationFrame(() => {
+                                              const el = document.activeElement;
+                                              if (el instanceof HTMLElement) el.blur();
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon-xs"
+                                            className={cn(
+                                              "size-6 shrink-0 text-muted-foreground transition-transform duration-200 ease-out hover:bg-destructive/10 hover:text-destructive",
+                                              popoverOpen
+                                                ? "translate-x-0"
+                                                : "translate-x-2 group-hover:translate-x-0",
+                                            )}
+                                            aria-label={t("deleteItem")}
+                                            title={t("deleteItem")}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                            }}
+                                          >
+                                            <Trash2 className="size-3" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                          align="end"
+                                          side="left"
+                                          sideOffset={8}
+                                          className="w-72 max-w-[min(18rem,calc(100vw-2rem))] overflow-hidden p-3"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <div className="min-w-0 space-y-3">
+                                            <div className="min-w-0 space-y-1">
+                                              <p className="text-sm font-medium">
+                                                {t("deleteTitle")}
+                                              </p>
+                                              <p className="min-w-0 text-xs leading-relaxed break-all whitespace-pre-wrap text-muted-foreground">
+                                                {t("deleteDescription", {
+                                                  path: child.path,
+                                                  size: formatBytes(child.size),
+                                                })}
+                                                {child.is_git_worktree ? (
+                                                  <>
+                                                    {"\n\n"}
+                                                    {t("deleteWorktreeNote")}
+                                                  </>
+                                                ) : null}
+                                              </p>
+                                            </div>
+                                            {child.is_git_worktree || child.is_workspace ? null : (
+                                              <label className="flex min-w-0 items-start gap-2 text-xs leading-snug">
+                                                <Checkbox
+                                                  className="mt-0.5 shrink-0"
+                                                  checked={permanent}
+                                                  onCheckedChange={(checked) =>
+                                                    setPermanent(checked === true)
+                                                  }
+                                                />
+                                                <span className="min-w-0 break-words">
+                                                  {t("permanentDelete")}
+                                                </span>
+                                              </label>
+                                            )}
+                                            {deleteError && listDeletePath === child.path ? (
+                                              <div className="text-xs text-destructive">
+                                                {deleteError}
+                                              </div>
+                                            ) : null}
+                                            <div className="flex justify-end gap-2">
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setListDeletePath(null)}
+                                              >
+                                                {t("cancel")}
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                variant="destructive"
+                                                size="sm"
+                                                disabled={deleting}
+                                                onClick={() => void onConfirmDelete()}
+                                              >
+                                                {deleting ? (
+                                                  <Loader2 className="size-3.5 animate-spin" />
+                                                ) : null}
+                                                {child.is_git_worktree ||
+                                                child.is_workspace ||
+                                                permanent
+                                                  ? t("confirmPermanent")
+                                                  : t("confirmTrash")}
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </div>
                 )}
-              </ScrollArea>
-            </div>
-            )}
-            </Tabs>
+              </Tabs>
             </TooltipProvider>
           ) : null}
         </aside>
@@ -986,7 +931,7 @@ export function DiskAnalyzerPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("deleteTitle")}</DialogTitle>
-            <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
+            <DialogDescription className="min-w-0 break-all whitespace-pre-wrap">
               {t("deleteDescription", {
                 path:
                   pendingSuggest?.displayPath ??
@@ -995,12 +940,9 @@ export function DiskAnalyzerPage() {
                     : analyzer.selectedPath
                       ? pathTitle(analyzer.selectedPath)
                       : ""),
-                size: formatBytes(
-                  pendingSuggest?.size ?? analyzer.selectedNode?.size ?? 0,
-                ),
+                size: formatBytes(pendingSuggest?.size ?? analyzer.selectedNode?.size ?? 0),
               })}
-              {pendingSuggest?.isWorktree ||
-              analyzer.selectedNode?.is_git_worktree ? (
+              {pendingSuggest?.isWorktree || analyzer.selectedNode?.is_git_worktree ? (
                 <>
                   {"\n\n"}
                   {t("deleteWorktreeNote")}
@@ -1020,9 +962,7 @@ export function DiskAnalyzerPage() {
               <span className="min-w-0 break-words">{t("permanentDelete")}</span>
             </label>
           )}
-          {deleteError ? (
-            <div className="text-sm text-destructive">{deleteError}</div>
-          ) : null}
+          {deleteError ? <div className="text-sm text-destructive">{deleteError}</div> : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
               {t("cancel")}
@@ -1054,11 +994,9 @@ export function DiskAnalyzerPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pendingSuggestItems
-                ? t("suggestDeleteGroupTitle")
-                : t("deleteAllSuggestTitle")}
+              {pendingSuggestItems ? t("suggestDeleteGroupTitle") : t("deleteAllSuggestTitle")}
             </DialogTitle>
-            <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
+            <DialogDescription className="min-w-0 break-all whitespace-pre-wrap">
               {t("deleteAllSuggestDescription", {
                 count: pendingBulkItems.length,
                 size: formatBytes(suggestionTotalSize(pendingBulkItems)),
@@ -1081,9 +1019,7 @@ export function DiskAnalyzerPage() {
               <span className="min-w-0 break-words">{t("permanentDelete")}</span>
             </label>
           ) : null}
-          {deleteError ? (
-            <div className="text-sm text-destructive">{deleteError}</div>
-          ) : null}
+          {deleteError ? <div className="text-sm text-destructive">{deleteError}</div> : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteAllOpen(false)}>
               {t("cancel")}
@@ -1094,9 +1030,7 @@ export function DiskAnalyzerPage() {
               onClick={() => void onConfirmDeleteAll()}
             >
               {deleting ? <Loader2 className="size-4 animate-spin" /> : null}
-              {pendingBulkNeedsTrash && !permanent
-                ? t("confirmTrash")
-                : t("confirmPermanent")}
+              {pendingBulkNeedsTrash && !permanent ? t("confirmTrash") : t("confirmPermanent")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1106,13 +1040,7 @@ export function DiskAnalyzerPage() {
 }
 
 /** Cleanup-candidate chip — tooltip shows localized why it is safe to remove. */
-function CanCleanBadge({
-  hintKey,
-  label,
-}: {
-  hintKey: string | undefined;
-  label: string;
-}) {
+function CanCleanBadge({ hintKey, label }: { hintKey: string | undefined; label: string }) {
   const t = useTranslations("DiskAnalyzer");
   if (!hintKey) return null;
   // Prefer exact key; fall back to generic copy if a new basename is not in messages yet.
@@ -1166,10 +1094,7 @@ function NodeKindBadge({
   } else if (node.is_project) {
     label = projectLabel;
   } else if (node.is_git_worktree) {
-    label =
-      node.path === GIT_WORKTREES_GROUP_PATH
-        ? gitWorktreesLabel
-        : gitWorktreeLabel;
+    label = node.path === GIT_WORKTREES_GROUP_PATH ? gitWorktreesLabel : gitWorktreeLabel;
   } else if (node.is_agent_data) {
     label = agentDataLabel;
   }
@@ -1182,17 +1107,11 @@ function NodeKindBadge({
 }
 
 /** Path with leading ellipsis when too long (overflow from the start). */
-function PathEllipsis({
-  path,
-  className,
-}: {
-  path: string;
-  className?: string;
-}) {
+function PathEllipsis({ path, className }: { path: string; className?: string }) {
   return (
     <div
       className={cn(
-        "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-muted-foreground",
+        "min-w-0 overflow-hidden text-[11px] text-ellipsis whitespace-nowrap text-muted-foreground",
         className,
       )}
       title={path}
@@ -1211,11 +1130,7 @@ function isHomeRootPath(path: string): boolean {
   return (parts[0] === "Users" || parts[0] === "home") && parts.length === 2;
 }
 
-function rootBreadcrumbLabel(
-  scanPath: string,
-  homeLabel: string,
-  atmosLabel: string,
-): string {
+function rootBreadcrumbLabel(scanPath: string, homeLabel: string, atmosLabel: string): string {
   if (isAtmosOverviewPath(scanPath)) return atmosLabel;
   return homeLabel;
 }

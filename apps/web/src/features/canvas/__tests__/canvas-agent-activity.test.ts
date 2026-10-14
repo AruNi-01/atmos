@@ -194,21 +194,15 @@ describe("CanvasAgentActivityStore", () => {
     store.setStatus("idle");
     expect(store.getViewState().inflight).toBe(false);
     expect(store.getViewState().session).toBe("idle");
-    expect(
-      resolveCanvasAgentIndicatorActive(store.getViewState(), true),
-    ).toBe(false);
+    expect(resolveCanvasAgentIndicatorActive(store.getViewState(), true)).toBe(false);
   });
 
   it("setStatus(active) pins session active even without recent activity", () => {
     const store = new CanvasAgentActivityStore();
     store.setStatus("active");
     expect(store.getViewState().session).toBe("active");
-    expect(
-      resolveCanvasAgentIndicatorActive(store.getViewState(), false),
-    ).toBe(true);
-    expect(
-      resolveCanvasAgentIslandWorking(store.getViewState(), false, false),
-    ).toBe(true);
+    expect(resolveCanvasAgentIndicatorActive(store.getViewState(), false)).toBe(true);
+    expect(resolveCanvasAgentIslandWorking(store.getViewState(), false, false)).toBe(true);
   });
 
   it("beginWork() clears an explicit idle session", () => {

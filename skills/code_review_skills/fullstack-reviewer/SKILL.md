@@ -48,12 +48,12 @@ For the full command surface (session discovery, comment reading, run lifecycle,
 
 ## Severity Levels
 
-| Level | Label | Description | Action |
-|-------|-------|-------------|--------|
-| **P0** | 🔴 Critical | Security vulnerability, data loss risk, correctness bug | Must block merge |
-| **P1** | 🟠 High | Logic error, significant architectural violation, performance regression | Should fix before merge |
-| **P2** | 🟡 Medium | Code smell, maintainability concern, minor violation | Fix in this PR or create follow-up |
-| **P3** | 🟢 Low | Style, naming, minor suggestion | Optional improvement |
+| Level  | Label       | Description                                                              | Action                             |
+| ------ | ----------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| **P0** | 🔴 Critical | Security vulnerability, data loss risk, correctness bug                  | Must block merge                   |
+| **P1** | 🟠 High     | Logic error, significant architectural violation, performance regression | Should fix before merge            |
+| **P2** | 🟡 Medium   | Code smell, maintainability concern, minor violation                     | Fix in this PR or create follow-up |
+| **P3** | 🟢 Low      | Style, naming, minor suggestion                                          | Optional improvement               |
 
 ## Workflow
 
@@ -69,6 +69,7 @@ git diff --staged
 ```
 
 **Edge cases:**
+
 - **No changes**: Inform the user and ask whether to review staged changes, a specific commit range, or specific files.
 - **Large diff (>500 lines)**: Summarize by file first, then review in batches by module/feature area.
 - **Mixed concerns**: Group findings by logical feature, not just file order.
@@ -77,20 +78,20 @@ git diff --staged
 
 Before reviewing, identify the project's technology stack by inspecting config files:
 
-| Indicator | Stack |
-|-----------|-------|
-| `package.json` | Node.js / JavaScript / TypeScript ecosystem |
-| `tsconfig.json` | TypeScript |
-| `Cargo.toml` | Rust |
-| `go.mod` | Go |
-| `requirements.txt` / `pyproject.toml` | Python |
-| `pom.xml` / `build.gradle` | Java / Kotlin |
-| `*.csproj` / `*.sln` | C# / .NET |
-| `next.config.*` | Next.js |
-| `vite.config.*` | Vite |
-| `angular.json` | Angular |
-| `vue.config.*` / `nuxt.config.*` | Vue / Nuxt |
-| `Dockerfile` / `docker-compose.*` | Container |
+| Indicator                             | Stack                                       |
+| ------------------------------------- | ------------------------------------------- |
+| `package.json`                        | Node.js / JavaScript / TypeScript ecosystem |
+| `tsconfig.json`                       | TypeScript                                  |
+| `Cargo.toml`                          | Rust                                        |
+| `go.mod`                              | Go                                          |
+| `requirements.txt` / `pyproject.toml` | Python                                      |
+| `pom.xml` / `build.gradle`            | Java / Kotlin                               |
+| `*.csproj` / `*.sln`                  | C# / .NET                                   |
+| `next.config.*`                       | Next.js                                     |
+| `vite.config.*`                       | Vite                                        |
+| `angular.json`                        | Angular                                     |
+| `vue.config.*` / `nuxt.config.*`      | Vue / Nuxt                                  |
+| `Dockerfile` / `docker-compose.*`     | Container                                   |
 
 Use the detected stack to apply relevant review checklists. For unfamiliar stacks, apply general best practices.
 
@@ -98,13 +99,13 @@ Use the detected stack to apply relevant review checklists. For unfamiliar stack
 
 Categorize each changed file:
 
-| Category | Apply Checklist |
-|----------|----------------|
-| **Frontend** (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.scss`, `.html`) | `references/frontend-checklist.md` |
-| **Backend** (`.rs`, `.go`, `.py`, `.java`, `.cs`, `.rb`, `.ts` in server dirs) | `references/backend-checklist.md` |
-| **Config / Infra** (`.toml`, `.yaml`, `.json`, `Dockerfile`, CI files) | Config & dependency review |
-| **Tests** (`*_test.*`, `*.spec.*`, `*.test.*`) | Test quality review |
-| **Documentation** (`.md`, `.rst`, `.txt`) | Accuracy & completeness |
+| Category                                                                       | Apply Checklist                    |
+| ------------------------------------------------------------------------------ | ---------------------------------- |
+| **Frontend** (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.scss`, `.html`)     | `references/frontend-checklist.md` |
+| **Backend** (`.rs`, `.go`, `.py`, `.java`, `.cs`, `.rb`, `.ts` in server dirs) | `references/backend-checklist.md`  |
+| **Config / Infra** (`.toml`, `.yaml`, `.json`, `Dockerfile`, CI files)         | Config & dependency review         |
+| **Tests** (`*_test.*`, `*.spec.*`, `*.test.*`)                                 | Test quality review                |
+| **Documentation** (`.md`, `.rst`, `.txt`)                                      | Accuracy & completeness            |
 
 ### 4. Apply Review Checklists
 
@@ -117,6 +118,7 @@ Load the appropriate reference checklist(s) based on file categories:
 - **`references/atmos-review-cli.md`** — Shared Atmos review CLI reference (symlinked from `atmos-review-fix`)
 
 For each file, check:
+
 1. **Correctness** — Logic errors, off-by-one, null handling, boundary conditions
 2. **Security** — Input validation, auth, injection, data exposure
 3. **Performance** — N+1 queries, blocking operations, memory leaks, unnecessary computation
@@ -128,6 +130,7 @@ For each file, check:
 
 When generating the review report, you MUST save it to the specified directory using the following dynamic file naming format:
 `[projectName]_[branchName]_YYYYMMDD-HHMMSS_[reviewTopic].md`
+
 - The time portion MUST be numeric-only `HHMMSS` (e.g., `143815`) to remain cross-platform safe.
 - `[reviewTopic]` MUST be a dynamically generated 1-5 word slug describing the core changes being reviewed (e.g., `auth_fix`, `ui_refactor`).
 - Example filename: `atmos_main_20260225-143815_overview_tab_redesign.md`
@@ -150,37 +153,38 @@ atmos_review:
 ---
 ```
 
-```markdown
+````markdown
 # Code Review Report
 
-| Entry | Details |
-| :--- | :--- |
-| **Date** | YYYY-MM-DD HH:MM |
-| **Reviewer** | AI (fullstack-reviewer) |
-| **Scope** | [description of what was reviewed — git diff / specific files / commit range] |
-| **Project Stack** | [detected stack, e.g. "TypeScript + React 19 + Next.js / Rust + Axum"] |
-| **Overall Assessment** | **APPROVE** \| **REQUEST_CHANGES** \| **COMMENT** |
+| Entry                  | Details                                                                       |
+| :--------------------- | :---------------------------------------------------------------------------- |
+| **Date**               | YYYY-MM-DD HH:MM                                                              |
+| **Reviewer**           | AI (fullstack-reviewer)                                                       |
+| **Scope**              | [description of what was reviewed — git diff / specific files / commit range] |
+| **Project Stack**      | [detected stack, e.g. "TypeScript + React 19 + Next.js / Rust + Axum"]        |
+| **Overall Assessment** | **APPROVE** \| **REQUEST_CHANGES** \| **COMMENT**                             |
 
 ---
 
 ## Summary
 
-| Metric | Value |
-|--------|-------|
-| Files Reviewed | X |
-| Lines Changed | +Y / -Z |
-| P0 (Critical) | N |
-| P1 (High) | N |
-| P2 (Medium) | N |
-| P3 (Low) | N |
+| Metric         | Value   |
+| -------------- | ------- |
+| Files Reviewed | X       |
+| Lines Changed  | +Y / -Z |
+| P0 (Critical)  | N       |
+| P1 (High)      | N       |
+| P2 (Medium)    | N       |
+| P3 (Low)       | N       |
 
 ---
 
 ## Findings by Severity
 
 ### 🔴 P0 — Critical
+
 > None found. ✅
-(or list each finding)
+> (or list each finding)
 
 ### 🟠 P1 — High
 
@@ -193,9 +197,11 @@ atmos_review:
     ```
 
 ### 🟡 P2 — Medium
+
 (same format)
 
 ### 🟢 P3 — Low
+
 (same format)
 
 ---
@@ -204,12 +210,13 @@ atmos_review:
 
 ### `path/to/file.ts`
 
-| Line | Severity | Category | Issue | Suggestion |
-|------|----------|----------|-------|------------|
-| 42 | P1 | Security | Missing input validation | Add zod schema |
-| 78 | P3 | Style | Unused import | Remove import |
+| Line | Severity | Category | Issue                    | Suggestion     |
+| ---- | -------- | -------- | ------------------------ | -------------- |
+| 42   | P1       | Security | Missing input validation | Add zod schema |
+| 78   | P3       | Style    | Unused import            | Remove import  |
 
 ### `path/to/other-file.rs`
+
 (same table format)
 
 ---
@@ -229,7 +236,7 @@ calling out. Always include at least one positive note.)
 1. [Most critical action]
 2. [Second priority]
 3. ...
-```
+````
 
 **Important**: Create any parent directories automatically before writing the report.
 
@@ -270,11 +277,13 @@ After writing the report, print a concise summary to the console:
 4. **Verify the field/property/type exists** — Don't suggest checking fields that don't exist in the codebase
 
 **BEFORE reporting any issue, ask yourself:**
+
 - "Did I read the actual file that contains this code?"
 - "Can I point to the exact line that demonstrates the problem?"
 - "Is this issue real, or am I assuming something exists?"
 
 **Examples of INCORRECT findings (DO NOT DO THIS):**
+
 - ❌ Suggesting to check a field/property that doesn't exist in the type definition
 - ❌ Claiming "missing authorization" when auth is handled by middleware
 - ❌ Reporting "race condition" without proving concurrent access actually exists
@@ -291,6 +300,7 @@ For ANY security-related finding (P0/P1), you MUST:
 5. **Check if the issue is mitigated elsewhere** — Database constraints, framework protections, etc.
 
 **Only report as P0/P1 if:**
+
 - The vulnerability is exploitable in the current architecture
 - The fix is not already implemented elsewhere (middleware, framework, database, etc.)
 - The impact is clearly severe (data loss, security breach, correctness bug)
@@ -299,14 +309,15 @@ For ANY security-related finding (P0/P1), you MUST:
 
 Use conservative thresholds to avoid "review fatigue":
 
-| Level | When to Use |
-|-------|-------------|
-| **P0** | Confirmed exploits, data loss, corruption, crashes in production code |
+| Level  | When to Use                                                                           |
+| ------ | ------------------------------------------------------------------------------------- |
+| **P0** | Confirmed exploits, data loss, corruption, crashes in production code                 |
 | **P1** | Bugs affecting correctness, exploitable security issues, real performance regressions |
-| **P2** | Code smells, maintainability issues, minor violations |
-| **P3** | Style, naming, nitpicks |
+| **P2** | Code smells, maintainability issues, minor violations                                 |
+| **P3** | Style, naming, nitpicks                                                               |
 
 **Lower your severity if:**
+
 - The issue is theoretical with no proven impact
 - A framework/library already handles this
 - The fix requires significant refactoring for minor gain
@@ -324,6 +335,7 @@ Before flagging an issue:
 5. **Read related files** — Don't judge code in isolation
 
 **Red flags that indicate you're over-reviewing:**
+
 - Finding 10+ P1 issues in a small PR (<500 lines)
 - Suggesting major architecture changes for a simple bug fix
 - Proposing "best practices" that don't fit the project's established patterns
@@ -335,9 +347,9 @@ Before flagging an issue:
 
 Detailed checklists loaded as needed during review:
 
-| File | Scope |
-|------|-------|
-| `references/frontend-checklist.md` | React/Vue/Angular/Svelte, CSS, accessibility, component patterns |
-| `references/backend-checklist.md` | API design, DB queries, concurrency, error handling (multi-language) |
-| `references/security-checklist.md` | XSS, injection, auth, secrets, CORS, CSRF, race conditions |
-| `references/architecture-checklist.md` | SOLID, code smells, coupling, cohesion, refactor heuristics |
+| File                                   | Scope                                                                |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| `references/frontend-checklist.md`     | React/Vue/Angular/Svelte, CSS, accessibility, component patterns     |
+| `references/backend-checklist.md`      | API design, DB queries, concurrency, error handling (multi-language) |
+| `references/security-checklist.md`     | XSS, injection, auth, secrets, CORS, CSRF, race conditions           |
+| `references/architecture-checklist.md` | SOLID, code smells, coupling, cohesion, refactor heuristics          |

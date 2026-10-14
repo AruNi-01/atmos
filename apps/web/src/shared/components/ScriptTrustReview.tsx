@@ -37,10 +37,7 @@ export function ScriptTrustReview({
 
   if (entries.length === 0) {
     return (
-      <p
-        data-script-review-empty="true"
-        className={cn("text-sm text-muted-foreground", className)}
-      >
+      <p data-script-review-empty="true" className={cn("text-sm text-muted-foreground", className)}>
         {t("empty")}
       </p>
     );
@@ -70,7 +67,7 @@ export function ScriptTrustReview({
                 </span>
               )}
             </div>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words px-3 pb-2 pt-1 text-[12px] leading-relaxed text-foreground">
+            <pre className="max-h-40 overflow-auto px-3 pt-1 pb-2 text-[12px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
               <code>{command}</code>
             </pre>
           </div>

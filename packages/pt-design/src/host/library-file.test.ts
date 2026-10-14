@@ -21,7 +21,7 @@ describe("library file bind", () => {
   test("first save writes the file stem onto persist meta.name", () => {
     const named = namedPersistForLibrarySave(
       {
-        ptx: "<page id=\"page\"></page>\n",
+        ptx: '<page id="page"></page>\n',
         meta: {
           id: "doc-1",
           name: "",
@@ -40,11 +40,11 @@ describe("library file bind", () => {
   test("reads ptx persist bodies and legacy scene-only files", () => {
     expect(
       persistFromLibraryBody({
-        ptx: "<page id=\"p\"/>",
+        ptx: '<page id="p"/>',
         canvas: { elements: [{ id: "h" }] },
       }),
     ).toEqual({
-      ptx: "<page id=\"p\"/>",
+      ptx: '<page id="p"/>',
       canvas: { elements: [{ id: "h" }] },
     });
     expect(

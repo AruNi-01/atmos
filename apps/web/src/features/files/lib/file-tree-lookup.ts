@@ -1,7 +1,10 @@
 import type { FileTreeNode } from "@/api/ws-api";
 
 function normalizePath(path: string): string | null {
-  let value = path.trim().replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+  let value = path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/");
   if (!value) return null;
   if (value !== "/") value = value.replace(/\/+$/, "");
   return value || null;
@@ -54,10 +57,7 @@ function coversPath(rootPath: string, path: string): boolean {
  * - `absent`: a covering tree is loaded, but this path is not in it
  * - `null`: no cached tree covers this path (caller may fall back to disk)
  */
-export function lookupPathInFileTrees(
-  path: string,
-  trees: CachedFileTree[],
-): FileTreePathLookup {
+export function lookupPathInFileTrees(path: string, trees: CachedFileTree[]): FileTreePathLookup {
   const normalized = normalizePath(path);
   if (!normalized) return null;
 

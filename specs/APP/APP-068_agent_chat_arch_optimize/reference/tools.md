@@ -8,17 +8,17 @@ Replace today’s bag (`AgentToolCall.input` / `output` / `content` plus client 
 
 ## Today (bugs to close)
 
-| Location | What is wrong |
-|----------|----------------|
-| `crates/agent/src/domain/tool_kind.rs` | `AgentToolKind` has no `WebSearch`. `classify_tool` maps `web_search` / `websearch` / `name.contains("web_search")` → **`Search`**. Unit test `"Web search"` expects `Search`. |
-| `crates/agent/src/domain/event.rs` `AgentToolCall` | Stores `input` / `output` / `content`. No `params` / `result`. |
-| `crates/agent/src/providers/acp/adapter.rs` `map_tool_call` | Copies `raw_input` → `input`, `raw_output` → `output`, ACP `content` → `content`. `ClassifiedTool::Thinking \| Plan \| Hide` collapse to `kind: Other` instead of folding. |
-| `crates/agent/src/lib.rs` | Re-exports `classify_tool` as crate Chat API. `core-service` `apply_event.rs` / `store.rs` classify again when folding parts. |
-| `packages/api-types/src/ws/dto/agent-chat.ts` | `AgentToolKind` missing `"web_search"`. `AgentPart` tool_call still `input`/`output`/`content`. |
-| `crates/core-service/src/service/agent_chat/types.rs` `MessagePart::ToolCall` | Same bag. `deserialize_tool_kind` routes strings through `classify_tool`. |
-| `apps/web/src/features/agent/lib/agent-tool-kind.ts` | Duplicates Rust `classify_tool`, including `web_search` → `"search"`. |
-| `apps/web/src/features/agent/lib/tool-results/parse-tool-result.ts` | Sniffs `_toolName`, Claude envelopes, Grok banners to decide presentation. |
-| `apps/web/src/features/agent/lib/agent/background-command/` | Vendor adapters (`adapters/claude.ts`, `adapters/grok.ts`) infer background from `input`/`output`. |
+| Location                                                                      | What is wrong                                                                                                                                                                  |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `crates/agent/src/domain/tool_kind.rs`                                        | `AgentToolKind` has no `WebSearch`. `classify_tool` maps `web_search` / `websearch` / `name.contains("web_search")` → **`Search`**. Unit test `"Web search"` expects `Search`. |
+| `crates/agent/src/domain/event.rs` `AgentToolCall`                            | Stores `input` / `output` / `content`. No `params` / `result`.                                                                                                                 |
+| `crates/agent/src/providers/acp/adapter.rs` `map_tool_call`                   | Copies `raw_input` → `input`, `raw_output` → `output`, ACP `content` → `content`. `ClassifiedTool::Thinking \| Plan \| Hide` collapse to `kind: Other` instead of folding.     |
+| `crates/agent/src/lib.rs`                                                     | Re-exports `classify_tool` as crate Chat API. `core-service` `apply_event.rs` / `store.rs` classify again when folding parts.                                                  |
+| `packages/api-types/src/ws/dto/agent-chat.ts`                                 | `AgentToolKind` missing `"web_search"`. `AgentPart` tool_call still `input`/`output`/`content`.                                                                                |
+| `crates/core-service/src/service/agent_chat/types.rs` `MessagePart::ToolCall` | Same bag. `deserialize_tool_kind` routes strings through `classify_tool`.                                                                                                      |
+| `apps/web/src/features/agent/lib/agent-tool-kind.ts`                          | Duplicates Rust `classify_tool`, including `web_search` → `"search"`.                                                                                                          |
+| `apps/web/src/features/agent/lib/tool-results/parse-tool-result.ts`           | Sniffs `_toolName`, Claude envelopes, Grok banners to decide presentation.                                                                                                     |
+| `apps/web/src/features/agent/lib/agent/background-command/`                   | Vendor adapters (`adapters/claude.ts`, `adapters/grok.ts`) infer background from `input`/`output`.                                                                             |
 
 ## Architecture
 
@@ -50,16 +50,16 @@ No new `WsAction`. No REST chat API.
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Persist **one** `params` and **one** `result` per `tool_call_id` (M7) | Dual-write typed fields **and** `input`/`output`/`content`/`native` |
-| v1 kinds: `read`, `edit`, `delete`, `move`, `search`, `web_search`, `execute`, `fetch`, `skill`, `subagent`, `other` (M8) | Treat `web_search` as workspace `search` |
-| Mapped: only fields the matching card shows; drop unused vendor keys (M9) | Kitchen-sink params (full vendor object + typed fields) |
-| Unmapped: `kind: other`; `params`/`result` **are** vendor input/output once (M11) | Hide unknown tools; emit no card |
-| Fold think / todo / `SwitchMode` in the **adapter** before `AgentEvent::ToolCall*` | `AgentToolKind::Thinking` or `Plan`; client `classifyTool` |
-| `classify_tool` = adapter name fallback only | Public Chat API (`lib.rs` re-export); TS duplicate; `core-service` re-classify; `deserialize_tool_kind` via `classify_tool` |
-| Add `WebSearch` to Rust + TS `AgentToolKind` | Infer kind from output banners (`Web Search Results for:`, `URL Content from:`) |
-| Background execute: `params.Execute.background` + `task_id` | Client `background-command/adapters/*` as SOT |
+| MUST                                                                                                                      | MUST NOT                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Persist **one** `params` and **one** `result` per `tool_call_id` (M7)                                                     | Dual-write typed fields **and** `input`/`output`/`content`/`native`                                                         |
+| v1 kinds: `read`, `edit`, `delete`, `move`, `search`, `web_search`, `execute`, `fetch`, `skill`, `subagent`, `other` (M8) | Treat `web_search` as workspace `search`                                                                                    |
+| Mapped: only fields the matching card shows; drop unused vendor keys (M9)                                                 | Kitchen-sink params (full vendor object + typed fields)                                                                     |
+| Unmapped: `kind: other`; `params`/`result` **are** vendor input/output once (M11)                                         | Hide unknown tools; emit no card                                                                                            |
+| Fold think / todo / `SwitchMode` in the **adapter** before `AgentEvent::ToolCall*`                                        | `AgentToolKind::Thinking` or `Plan`; client `classifyTool`                                                                  |
+| `classify_tool` = adapter name fallback only                                                                              | Public Chat API (`lib.rs` re-export); TS duplicate; `core-service` re-classify; `deserialize_tool_kind` via `classify_tool` |
+| Add `WebSearch` to Rust + TS `AgentToolKind`                                                                              | Infer kind from output banners (`Web Search Results for:`, `URL Content from:`)                                             |
+| Background execute: `params.Execute.background` + `task_id`                                                               | Client `background-command/adapters/*` as SOT                                                                               |
 
 ## Data model
 
@@ -123,9 +123,17 @@ Wire / TS (`packages/api-types/src/ws/dto/agent-chat.ts`), same tags:
 
 ```ts
 export type AgentToolKind =
-  | "read" | "edit" | "delete" | "move"
-  | "search" | "web_search" | "execute" | "fetch"
-  | "skill" | "subagent" | "other";
+  | "read"
+  | "edit"
+  | "delete"
+  | "move"
+  | "search"
+  | "web_search"
+  | "execute"
+  | "fetch"
+  | "skill"
+  | "subagent"
+  | "other";
 
 export type AgentToolStatus = "pending" | "running" | "completed" | "failed";
 
@@ -136,7 +144,13 @@ export type AgentToolParams =
   | { type: "move"; from: string; to: string }
   | { type: "search"; query: string; path?: string | null; glob?: string | null }
   | { type: "web_search"; query: string }
-  | { type: "execute"; command: string; cwd?: string | null; background: boolean; task_id?: string | null }
+  | {
+      type: "execute";
+      command: string;
+      cwd?: string | null;
+      background: boolean;
+      task_id?: string | null;
+    }
   | { type: "fetch"; url: string }
   | { type: "skill"; skill: string }
   | { type: "subagent"; description: string; agent_type?: string | null }
@@ -147,8 +161,18 @@ export type AgentToolResult =
   | { type: "file_content"; path: string; text: string }
   | { type: "diff_stats"; path: string; additions: number; deletions: number }
   | { type: "execute"; output: string; exit_code?: number | null }
-  | { type: "web_search"; query: string; links: Array<{ url: string; title: string; snippet?: string | null }> }
-  | { type: "web_fetch"; url: string; title?: string | null; markdown?: string | null; text?: string | null }
+  | {
+      type: "web_search";
+      query: string;
+      links: Array<{ url: string; title: string; snippet?: string | null }>;
+    }
+  | {
+      type: "web_fetch";
+      url: string;
+      title?: string | null;
+      markdown?: string | null;
+      text?: string | null;
+    }
   | { type: "other"; value: unknown }
   | { type: "error"; message: string }
   | { type: "empty" };
@@ -183,7 +207,13 @@ Mapped execute (Claude `Bash` / Codex `commandExecution`):
   "title": null,
   "kind": "execute",
   "status": "completed",
-  "params": { "type": "execute", "command": "ls -la", "cwd": null, "background": false, "task_id": null },
+  "params": {
+    "type": "execute",
+    "command": "ls -la",
+    "cwd": null,
+    "background": false,
+    "task_id": null
+  },
   "result": { "type": "execute", "output": "README.md\n", "exit_code": 0 }
 }
 ```
@@ -213,17 +243,17 @@ Web search vs workspace search (S16): `kind` + params `type` stay aligned.
 
 Shared last-resort extractors — `crates/agent/src/domain/tool_map.rs` (not ACP-only):
 
-| fn | Keys (first non-empty string / bool) |
-|----|--------------------------------------|
-| `extract_path` | `file_path`, `filePath`, `target_file`, `targetFile`, `absolute_path`, `path`, `file`, `filename`, `uri` (non-http), `dir_path` |
-| `extract_command` | `command`, `cmd`, `script`, `bash`, `shell`; nested `args` / `parameters` / `input` / `{ type: "Bash", command }` |
-| `extract_url` | `url`, `uri`, `href` if `https?://`; nested `action.url` |
-| `extract_query` | `query`, `q`, `search_term`, `pattern`, `glob_pattern` |
-| `extract_cwd` | `cwd`, `working_directory`, `workdir` |
-| `extract_links` | arrays `links`, `results`, `sources` with `url`/`title`/`snippet` (or `description`) |
-| `extract_background` | bool `run_in_background`, `is_background`, `background`; `task_id` / `taskId` from input or output |
-| `extract_skill` | `skill`, `skill_name`, `name` when kind already Skill |
-| `extract_subagent` | `description` + `subagent_type` / `agent_type` |
+| fn                   | Keys (first non-empty string / bool)                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `extract_path`       | `file_path`, `filePath`, `target_file`, `targetFile`, `absolute_path`, `path`, `file`, `filename`, `uri` (non-http), `dir_path` |
+| `extract_command`    | `command`, `cmd`, `script`, `bash`, `shell`; nested `args` / `parameters` / `input` / `{ type: "Bash", command }`               |
+| `extract_url`        | `url`, `uri`, `href` if `https?://`; nested `action.url`                                                                        |
+| `extract_query`      | `query`, `q`, `search_term`, `pattern`, `glob_pattern`                                                                          |
+| `extract_cwd`        | `cwd`, `working_directory`, `workdir`                                                                                           |
+| `extract_links`      | arrays `links`, `results`, `sources` with `url`/`title`/`snippet` (or `description`)                                            |
+| `extract_background` | bool `run_in_background`, `is_background`, `background`; `task_id` / `taskId` from input or output                              |
+| `extract_skill`      | `skill`, `skill_name`, `name` when kind already Skill                                                                           |
+| `extract_subagent`   | `description` + `subagent_type` / `agent_type`                                                                                  |
 
 Native adapters (`providers/<id>/tool_map.rs`) map published item types first (parent tool table). ACP (`providers/acp/tool_map.rs`, called from `adapter.rs` `map_tool_call`):
 

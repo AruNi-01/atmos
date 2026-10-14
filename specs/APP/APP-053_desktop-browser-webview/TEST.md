@@ -2,59 +2,65 @@
 
 ## Test strategy
 
-| Level | Why |
-|-------|-----|
-| Unit pure policy | attach allow/deny, forced prefs, preload file URL |
-| Unit events | atmos-browser → desktop-browser remap + gate |
+| Level               | Why                                                                 |
+| ------------------- | ------------------------------------------------------------------- |
+| Unit pure policy    | attach allow/deny, forced prefs, preload file URL                   |
+| Unit events         | atmos-browser → desktop-browser remap + gate                        |
 | Unit/web structural | host SelectionPopover for desktop; no occlusion module; rename grep |
-| Quality | typecheck, bun test, lint |
-| Evidence | desktop launch if possible else unavailability log |
+| Quality             | typecheck, bun test, lint                                           |
+| Evidence            | desktop launch if possible else unavailability log                  |
 
 ## Coverage map
 
-| PRD | Scenarios |
-|-----|-----------|
-| M1 webview | S1–S2 |
-| M2 no APP-029 hide | S3 |
-| M3 attach security | S5–S7 |
-| M4 no reparent | S8 |
-| M5 host selection | S9–S10 |
-| M6 outside-dismiss | S11 |
-| M7 pointer-events | S12 |
-| M8 capabilities | S13–S18 |
-| M9 rename | S19 |
-| M10 compensation gone | S3, S20 |
+| PRD                   | Scenarios |
+| --------------------- | --------- |
+| M1 webview            | S1–S2     |
+| M2 no APP-029 hide    | S3        |
+| M3 attach security    | S5–S7     |
+| M4 no reparent        | S8        |
+| M5 host selection     | S9–S10    |
+| M6 outside-dismiss    | S11       |
+| M7 pointer-events     | S12       |
+| M8 capabilities       | S13–S18   |
+| M9 rename             | S19       |
+| M10 compensation gone | S3, S20   |
 
 ## Execution map
 
-| Id | Level | Target | Status |
-|----|-------|--------|--------|
-| S5–S7 | bun test | webview-attach-policy | pending |
-| S9–S10 | structural/unit | BrowserViewport + inject showSelectionToolbar false | pending |
-| S19 | grep | product trees | pending |
-| S1 | structural | no addChildView WebContentsView in-panel | pending |
-| S3/S20 | structural | occlusion deleted; no bounds sync path | pending |
-| S13–S18 | unit/structural | matrix | pending |
-| Q* | gates | typecheck / bun test / lint | pending |
+| Id      | Level           | Target                                              | Status  |
+| ------- | --------------- | --------------------------------------------------- | ------- |
+| S5–S7   | bun test        | webview-attach-policy                               | pending |
+| S9–S10  | structural/unit | BrowserViewport + inject showSelectionToolbar false | pending |
+| S19     | grep            | product trees                                       | pending |
+| S1      | structural      | no addChildView WebContentsView in-panel            | pending |
+| S3/S20  | structural      | occlusion deleted; no bounds sync path              | pending |
+| S13–S18 | unit/structural | matrix                                              | pending |
+| Q*      | gates           | typecheck / bun test / lint                         | pending |
 
 ## Scenarios (selected)
 
 ### S5 Allow attach
+
 Given registered pending session + `persist:atmos-browser` + https src → evaluate allows.
 
 ### S6 Deny attach
+
 Wrong partition / javascript src / empty registry → deny.
 
 ### S7 Forced prefs
+
 nodeIntegration true → forced false + sandbox true.
 
 ### S9 Host selection
+
 Desktop transport renders host SelectionPopover (not null solely because desktop).
 
 ### S10 No guest toolbar product path
+
 Inject config `showSelectionToolbar: false` for desktop product.
 
 ### S19 Rename
+
 No product paths with `run-preview`, `browser_bridge_`, `desktop-browser:`, `packages/shared/browser` (except historical specs).
 
 ## Acceptance

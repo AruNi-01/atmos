@@ -45,9 +45,7 @@ function dylibPath(): string | null {
     /* ignore */
   }
   candidates.push(join(process.cwd(), "resources/bin", name));
-  candidates.push(
-    join(process.cwd(), "apps/desktop-electron/resources/bin", name),
-  );
+  candidates.push(join(process.cwd(), "apps/desktop-electron/resources/bin", name));
   return candidates.find((p) => existsSync(p)) ?? null;
 }
 

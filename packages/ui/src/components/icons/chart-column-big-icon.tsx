@@ -28,91 +28,90 @@ const BAR_VARIANTS: Variants = {
   }),
 };
 
-const ChartColumnBigIcon = forwardRef<
-  ChartColumnBigIconHandle,
-  ChartColumnBigIconProps
->(({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
-  const controls = useAnimation();
-  const isControlledRef = useRef(false);
+const ChartColumnBigIcon = forwardRef<ChartColumnBigIconHandle, ChartColumnBigIconProps>(
+  ({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
+    const controls = useAnimation();
+    const isControlledRef = useRef(false);
 
-  useImperativeHandle(ref, () => {
-    isControlledRef.current = true;
+    useImperativeHandle(ref, () => {
+      isControlledRef.current = true;
 
-    return {
-      startAnimation: () => controls.start("animate"),
-      stopAnimation: () => controls.start("normal"),
-    };
-  });
+      return {
+        startAnimation: () => controls.start("animate"),
+        stopAnimation: () => controls.start("normal"),
+      };
+    });
 
-  const handleMouseEnter = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isControlledRef.current) {
-        onMouseEnter?.(e);
-      } else {
-        controls.start("animate");
-      }
-    },
-    [controls, onMouseEnter]
-  );
+    const handleMouseEnter = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        if (isControlledRef.current) {
+          onMouseEnter?.(e);
+        } else {
+          controls.start("animate");
+        }
+      },
+      [controls, onMouseEnter],
+    );
 
-  const handleMouseLeave = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isControlledRef.current) {
-        onMouseLeave?.(e);
-      } else {
-        controls.start("normal");
-      }
-    },
-    [controls, onMouseLeave]
-  );
+    const handleMouseLeave = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        if (isControlledRef.current) {
+          onMouseLeave?.(e);
+        } else {
+          controls.start("normal");
+        }
+      },
+      [controls, onMouseLeave],
+    );
 
-  return (
-    <div
-      className={cn(className)}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      {...props}
-    >
-      <svg
-        fill="none"
-        height={size}
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-        width={size}
-        xmlns="http://www.w3.org/2000/svg"
+    return (
+      <div
+        className={cn(className)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        {...props}
       >
-        <path d="M3 3v16a2 2 0 0 0 2 2h16" />
-        <motion.rect
-          animate={controls}
-          custom={0}
-          height="9"
-          initial="normal"
-          rx="1"
-          style={{ originX: 0.5, originY: 1 }}
-          variants={BAR_VARIANTS}
-          width="4"
-          x="7"
-          y="8"
-        />
-        <motion.rect
-          animate={controls}
-          custom={1}
-          height="12"
-          initial="normal"
-          rx="1"
-          style={{ originX: 0.5, originY: 1 }}
-          variants={BAR_VARIANTS}
-          width="4"
-          x="15"
-          y="5"
-        />
-      </svg>
-    </div>
-  );
-});
+        <svg
+          fill="none"
+          height={size}
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+          width={size}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+          <motion.rect
+            animate={controls}
+            custom={0}
+            height="9"
+            initial="normal"
+            rx="1"
+            style={{ originX: 0.5, originY: 1 }}
+            variants={BAR_VARIANTS}
+            width="4"
+            x="7"
+            y="8"
+          />
+          <motion.rect
+            animate={controls}
+            custom={1}
+            height="12"
+            initial="normal"
+            rx="1"
+            style={{ originX: 0.5, originY: 1 }}
+            variants={BAR_VARIANTS}
+            width="4"
+            x="15"
+            y="5"
+          />
+        </svg>
+      </div>
+    );
+  },
+);
 
 ChartColumnBigIcon.displayName = "ChartColumnBigIcon";
 

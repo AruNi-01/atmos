@@ -5,9 +5,7 @@ import { join } from "node:path";
 import { automationRunSurfacePlan } from "../automation-run-surface-plan";
 import type { AutomationRunSummary } from "@/features/automations/types";
 
-function run(
-  overrides: Partial<AutomationRunSummary> = {},
-): AutomationRunSummary {
+function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummary {
   return {
     guid: "run-1",
     automation_guid: "job-1",
@@ -45,9 +43,7 @@ function run(
 describe("automationRunSurfacePlan", () => {
   it("does not plan a tab for a failed start", () => {
     expect(
-      automationRunSurfacePlan(
-        run({ status: "failed", created_workspace_guid: "ws-new" }),
-      ),
+      automationRunSurfacePlan(run({ status: "failed", created_workspace_guid: "ws-new" })),
     ).toEqual({
       contextId: "ws-1",
       tabValue: null,
@@ -97,10 +93,7 @@ describe("automationRunSurfacePlan", () => {
 
 describe("applyAutomationRunSurface", () => {
   it("attaches store data without activating or navigating", () => {
-    const apply = readFileSync(
-      join(import.meta.dir, "../apply-automation-run-surface.ts"),
-      "utf8",
-    );
+    const apply = readFileSync(join(import.meta.dir, "../apply-automation-run-surface.ts"), "utf8");
     expect(apply).toContain("invalidateProjectBootstrap");
     expect(apply).toContain("openTab({");
     expect(apply).toContain("ensureAutomationTerminalTab(plan.contextId");

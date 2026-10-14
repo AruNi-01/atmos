@@ -1,8 +1,6 @@
 export type DesktopInvokeArgs = Record<string, unknown>;
 
-export type DesktopCommandHandler = (
-  args: DesktopInvokeArgs,
-) => Promise<unknown> | unknown;
+export type DesktopCommandHandler = (args: DesktopInvokeArgs) => Promise<unknown> | unknown;
 
 export type PreviewBounds = {
   x: number;

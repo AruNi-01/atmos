@@ -1,11 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  cn,
-  type DraggableAttributes,
-  type DraggableSyntheticListeners,
-} from "@workspace/ui";
+import { cn, type DraggableAttributes, type DraggableSyntheticListeners } from "@workspace/ui";
 
 type TerminalPaneDragHandleValue = {
   setNodeRef: (node: HTMLElement | null) => void;
@@ -15,8 +11,7 @@ type TerminalPaneDragHandleValue = {
   dragEnabled: boolean;
 };
 
-const TerminalPaneDragHandleContext =
-  React.createContext<TerminalPaneDragHandleValue | null>(null);
+const TerminalPaneDragHandleContext = React.createContext<TerminalPaneDragHandleValue | null>(null);
 
 export function TerminalPaneDragHandleProvider({
   value,

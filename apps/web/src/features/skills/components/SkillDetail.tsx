@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
-import dynamic from 'next/dynamic';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
+import dynamic from "next/dynamic";
 import {
   cn,
   ScrollArea,
@@ -38,28 +38,31 @@ import {
   toastManager,
   Circle,
   Save,
-} from '@workspace/ui';
+} from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
-import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
-import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
-import { SkillInfo, SkillFile, fsApi } from '@/api/ws-api';
-import { detectCodeLanguage } from '@/shared/lib/code-language';
-import { getAgentStatus, sortAgents } from '../lib/constants';
-import { SkillAgentBadge } from './SkillAgentBadge';
-import { QuickOpen } from '@/app-shell/QuickOpen';
-import { ResizeFollowMark } from '@/app-shell/ResizeFollowMark';
-import { SkillActionsMenu } from './SkillActionsMenu';
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { MarkdownToc } from "@/shared/components/markdown/MarkdownToc";
+import { SkillInfo, SkillFile, fsApi } from "@/api/ws-api";
+import { detectCodeLanguage } from "@/shared/lib/code-language";
+import { getAgentStatus, sortAgents } from "../lib/constants";
+import { SkillAgentBadge } from "./SkillAgentBadge";
+import { QuickOpen } from "@/app-shell/QuickOpen";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
+import { SkillActionsMenu } from "./SkillActionsMenu";
 
 const CodeMirrorEditor = dynamic(
-  () => import('@/features/editor/components/BaseCodeMirrorEditor').then(mod => mod.BaseCodeMirrorEditor),
+  () =>
+    import("@/features/editor/components/BaseCodeMirrorEditor").then(
+      (mod) => mod.BaseCodeMirrorEditor,
+    ),
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex h-full items-center justify-center">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     ),
-  }
+  },
 );
 
 interface SkillDetailProps {
@@ -77,7 +80,17 @@ interface TreeNode {
   children: TreeNode[];
 }
 
-function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boolean; isOpen?: boolean; className?: string }) {
+function FileIcon({
+  name,
+  isDir,
+  isOpen,
+  className,
+}: {
+  name: string;
+  isDir: boolean;
+  isOpen?: boolean;
+  className?: string;
+}) {
   const iconProps = getFileIconProps({ name, isDir, isOpen, className });
   // These icons come from the shared file-icon pack and need raw img rendering.
   // eslint-disable-next-line @next/next/no-img-element
@@ -86,17 +99,17 @@ function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boo
 
 function buildFileTree(files: SkillFile[]): TreeNode[] {
   const root: TreeNode[] = [];
-  
+
   for (const file of files) {
-    const parts = file.relative_path.split('/');
+    const parts = file.relative_path.split("/");
     let current = root;
-    
+
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       const isLast = i === parts.length - 1;
-      const path = parts.slice(0, i + 1).join('/');
-      
-      let node = current.find(n => n.name === part);
+      const path = parts.slice(0, i + 1).join("/");
+
+      let node = current.find((n) => n.name === part);
       if (!node) {
         node = {
           name: part,
@@ -110,7 +123,7 @@ function buildFileTree(files: SkillFile[]): TreeNode[] {
       current = node.children;
     }
   }
-  
+
   // Sort: directories first, then alphabetically
   const sortNodes = (nodes: TreeNode[]) => {
     nodes.sort((a, b) => {
@@ -118,10 +131,10 @@ function buildFileTree(files: SkillFile[]): TreeNode[] {
       if (!a.isDir && b.isDir) return 1;
       return a.name.localeCompare(b.name);
     });
-    nodes.forEach(n => sortNodes(n.children));
+    nodes.forEach((n) => sortNodes(n.children));
   };
   sortNodes(root);
-  
+
   return root;
 }
 
@@ -129,68 +142,62 @@ function getLanguageFromFileName(fileName: string): string {
   return detectCodeLanguage(fileName);
 }
 
-function getScopeMeta(
-  scope: SkillInfo['scope'],
-  t: ReturnType<typeof useTranslations>,
-) {
+function getScopeMeta(scope: SkillInfo["scope"], t: ReturnType<typeof useTranslations>) {
   switch (scope) {
-    case 'global':
+    case "global":
       return {
-        label: t('scope.global'),
+        label: t("scope.global"),
         icon: Globe,
-        className: 'bg-muted text-foreground',
+        className: "bg-muted text-foreground",
       };
-    case 'project':
+    case "project":
       return {
-        label: t('scope.project'),
+        label: t("scope.project"),
         icon: Folder,
-        className: 'bg-muted text-foreground',
+        className: "bg-muted text-foreground",
       };
-    case 'workspace':
+    case "workspace":
       return {
-        label: t('scope.workspace'),
+        label: t("scope.workspace"),
         icon: Folder,
-        className: 'bg-muted text-foreground',
+        className: "bg-muted text-foreground",
       };
-    case 'system':
+    case "system":
       return {
-        label: t('scope.system'),
+        label: t("scope.system"),
         icon: Puzzle,
-        className: 'bg-foreground/80 text-background',
+        className: "bg-foreground/80 text-background",
       };
     default:
       return {
-        label: t('scope.insideProject'),
+        label: t("scope.insideProject"),
         icon: Folder,
-        className: 'bg-muted text-foreground',
+        className: "bg-muted text-foreground",
       };
   }
 }
 
-function getStatusMeta(
-  status: SkillInfo['status'],
-  t: ReturnType<typeof useTranslations>,
-) {
+function getStatusMeta(status: SkillInfo["status"], t: ReturnType<typeof useTranslations>) {
   switch (status) {
-    case 'enabled':
+    case "enabled":
       return {
-        label: t('status.enabled'),
+        label: t("status.enabled"),
         icon: CircleCheck,
-        className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
       };
-    case 'disabled':
+    case "disabled":
       return {
-        label: t('status.disabled'),
+        label: t("status.disabled"),
         icon: CircleX,
-        className: 'border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
+        className: "border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
       };
     default:
       return {
-        label: t('status.partial'),
+        label: t("status.partial"),
         icon: CircleMinus,
-        className: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        className: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
       };
-    }
+  }
 }
 
 const TreeItem: React.FC<{
@@ -201,7 +208,7 @@ const TreeItem: React.FC<{
   onSelect: (file: SkillFile) => void;
   onToggleDir: (path: string) => void;
 }> = ({ node, depth, selectedPath, expandedDirs, onSelect, onToggleDir }) => {
-  const t = useTranslations('skills.detail');
+  const t = useTranslations("skills.detail");
   const isExpanded = expandedDirs.has(node.path);
   const isSelected = selectedPath === node.path;
 
@@ -216,17 +223,17 @@ const TreeItem: React.FC<{
           }
         }}
         className={cn(
-          'flex items-center py-1 px-2 cursor-pointer select-none rounded-none',
-          'hover:bg-sidebar-accent/50',
-          isSelected && 'bg-sidebar-accent text-sidebar-foreground'
+          "flex cursor-pointer items-center rounded-none px-2 py-1 select-none",
+          "hover:bg-sidebar-accent/50",
+          isSelected && "bg-sidebar-accent text-sidebar-foreground",
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
         {node.isDir && (
           <ChevronRight
             className={cn(
-              'size-3.5 mr-1 transition-transform duration-200 text-muted-foreground',
-              isExpanded && 'rotate-90'
+              "mr-1 size-3.5 text-muted-foreground transition-transform duration-200",
+              isExpanded && "rotate-90",
             )}
           />
         )}
@@ -234,7 +241,7 @@ const TreeItem: React.FC<{
         <span className="mr-2 shrink-0">
           <FileIcon name={node.name} isDir={node.isDir} isOpen={isExpanded} className="size-4" />
         </span>
-        <span className="text-[13px] truncate flex-1">{node.name}</span>
+        <span className="flex-1 truncate text-[13px]">{node.name}</span>
         {node.file?.is_symlink && (
           <span className="ml-1 shrink-0" onClick={(e) => e.stopPropagation()}>
             <Tooltip delayDuration={0}>
@@ -243,28 +250,32 @@ const TreeItem: React.FC<{
               </TooltipTrigger>
               <TooltipContent side="right" className="max-w-[300px] break-all">
                 <p className="text-[11px] leading-tight">
-                  <span className="mr-1">{t('symlink.pointsTo')}</span>
-                  {node.file.symlink_target || t('symlink.unknown')}
+                  <span className="mr-1">{t("symlink.pointsTo")}</span>
+                  {node.file.symlink_target || t("symlink.unknown")}
                 </p>
               </TooltipContent>
             </Tooltip>
           </span>
         )}
         {node.file?.is_main && (
-          <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary ml-1">{t('mainBadge')}</span>
+          <span className="ml-1 rounded bg-primary/10 px-1 py-0.5 text-[9px] text-primary">
+            {t("mainBadge")}
+          </span>
         )}
       </div>
-      {node.isDir && isExpanded && node.children.map(child => (
-        <TreeItem
-          key={child.path}
-          node={child}
-          depth={depth + 1}
-          selectedPath={selectedPath}
-          expandedDirs={expandedDirs}
-          onSelect={onSelect}
-          onToggleDir={onToggleDir}
-        />
-      ))}
+      {node.isDir &&
+        isExpanded &&
+        node.children.map((child) => (
+          <TreeItem
+            key={child.path}
+            node={child}
+            depth={depth + 1}
+            selectedPath={selectedPath}
+            expandedDirs={expandedDirs}
+            onSelect={onSelect}
+            onToggleDir={onToggleDir}
+          />
+        ))}
     </>
   );
 };
@@ -277,14 +288,8 @@ interface ResizeHandleProps {
   className?: string;
 }
 
-function ResizeHandle({
-  onCollapse,
-  isCollapsed,
-  side,
-  onDragging,
-  className,
-}: ResizeHandleProps) {
-  const t = useTranslations('skills.detail');
+function ResizeHandle({ onCollapse, isCollapsed, side, onDragging, className }: ResizeHandleProps) {
+  const t = useTranslations("skills.detail");
   const [dragging, setDragging] = useState(false);
   return (
     <PanelResizeHandle
@@ -293,8 +298,8 @@ function ResizeHandle({
         onDragging(nextDragging);
       }}
       className={cn(
-        "relative z-10 flex w-3 -mx-1.5 items-center justify-center overflow-visible bg-transparent group touch-none",
-        className
+        "group relative z-10 -mx-1.5 flex w-3 touch-none items-center justify-center overflow-visible bg-transparent",
+        className,
       )}
     >
       <ResizeFollowMark axis="vertical" dragging={dragging} onFold={onCollapse} />
@@ -306,12 +311,12 @@ function ResizeHandle({
           e.stopPropagation();
           onCollapse();
         }}
-        title={isCollapsed ? t('resize.expand') : t('resize.collapse')}
+        title={isCollapsed ? t("resize.expand") : t("resize.collapse")}
         className={cn(
-          "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
+          "absolute z-50 flex size-5 items-center justify-center rounded-full border border-border bg-muted opacity-0 shadow-lg transition-[opacity,transform] duration-200 group-hover:opacity-100 hover:scale-110 hover:bg-muted/80",
           "left-1/2 -translate-x-1/2",
           panelFoldCursorClass(side, isCollapsed),
-          isCollapsed && "hover:opacity-100! hover:bg-accent!"
+          isCollapsed && "hover:bg-accent! hover:opacity-100!",
         )}
       >
         {side === "right" ? (
@@ -324,8 +329,13 @@ function ResizeHandle({
   );
 }
 
-export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdated, onDeleted }) => {
-  const t = useTranslations('skills.detail');
+export const SkillDetail: React.FC<SkillDetailProps> = ({
+  skill,
+  onBack,
+  onUpdated,
+  onDeleted,
+}) => {
+  const t = useTranslations("skills.detail");
   const storage = useAppStorage();
   const scopeMeta = getScopeMeta(skill.scope, t);
   const ScopeIcon = scopeMeta.icon;
@@ -333,25 +343,25 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
   const StatusIcon = statusMeta.icon;
 
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(
-    skill.files?.find(f => f.is_main) || skill.files?.[0] || null
+    skill.files?.find((f) => f.is_main) || skill.files?.[0] || null,
   );
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => {
     // Expand only the directory of the selected file (if any)
     const dirs = new Set<string>();
-    const fileToExpand = skill.files?.find(f => f.is_main) || skill.files?.[0];
+    const fileToExpand = skill.files?.find((f) => f.is_main) || skill.files?.[0];
 
     if (fileToExpand) {
-      const parts = fileToExpand.relative_path.split('/');
+      const parts = fileToExpand.relative_path.split("/");
       // Add all parent paths
       for (let i = 1; i < parts.length; i++) {
-        dirs.add(parts.slice(0, i).join('/'));
+        dirs.add(parts.slice(0, i).join("/"));
       }
     }
     return dirs;
   });
   const [isReadOnly, setIsReadOnly] = useState(true);
   const [isPreview, setIsPreview] = useState(true);
-  const [fileContent, setFileContent] = useState<string>(selectedFile?.content || '');
+  const [fileContent, setFileContent] = useState<string>(selectedFile?.content || "");
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const loadedFilesRef = useRef<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
@@ -362,8 +372,8 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
   const fileTree = useMemo(() => buildFileTree(skill.files || []), [skill.files]);
 
-  const isMarkdown = selectedFile?.name.endsWith('.md') || selectedFile?.name.endsWith('.mdx');
-  const language = selectedFile ? getLanguageFromFileName(selectedFile.name) : 'plaintext';
+  const isMarkdown = selectedFile?.name.endsWith(".md") || selectedFile?.name.endsWith(".mdx");
+  const language = selectedFile ? getLanguageFromFileName(selectedFile.name) : "plaintext";
 
   // When parent enriches skill after optimistic open (list → skills_get), pick up new file rows.
   useEffect(() => {
@@ -393,7 +403,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
       // If we already tried to load this file, don't try again
       if (loadedFilesRef.current.has(selectedFile.absolute_path)) {
-        setFileContent('');
+        setFileContent("");
         return;
       }
 
@@ -405,11 +415,11 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
         if (result.exists && result.content !== null) {
           setFileContent(result.content);
         } else {
-          setFileContent('');
+          setFileContent("");
         }
       } catch (error) {
-        console.error('Failed to load file content:', error);
-        setFileContent('');
+        console.error("Failed to load file content:", error);
+        setFileContent("");
       } finally {
         setIsLoadingContent(false);
       }
@@ -425,15 +435,15 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
     if (!m) return fileContent;
     const yaml = m[1];
     const body = fileContent.slice(m[0].length);
-    return '```yaml\n' + yaml + '\n```\n\n' + body;
+    return "```yaml\n" + yaml + "\n```\n\n" + body;
   }, [fileContent, isMarkdown]);
 
   // Dirty check: compare current content with the content in the selectedFile object
   // Note: We need to make sure selectedFile.content is up to date when we save.
-  const hasUnsavedChanges = selectedFile ? fileContent !== (selectedFile.content || '') : false;
+  const hasUnsavedChanges = selectedFile ? fileContent !== (selectedFile.content || "") : false;
 
   const handleToggleDir = useCallback((path: string) => {
-    setExpandedDirs(prev => {
+    setExpandedDirs((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
         next.delete(path);
@@ -446,7 +456,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
   const handleSave = useCallback(async () => {
     if (!selectedFile || !fileContent) return;
-    
+
     setIsSaving(true);
     try {
       const res = await fsApi.writeFile(selectedFile.absolute_path, fileContent);
@@ -454,32 +464,32 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
         // Update the local selectedFile object content to reflect the saved state
         // This is important to reset the dirty state
         selectedFile.content = fileContent;
-        
+
         // Force re-render to update UI (dirty state calculation depends on this)
         // Since we mutated the object, React won't see a "change" in selectedFile prop unless we force it
-        // But the dirty check happens in render. 
-        // We can just setFileContent to the same value to trigger render, 
+        // But the dirty check happens in render.
+        // We can just setFileContent to the same value to trigger render,
         // OR better: update the file in the `skill.files` array via a state update if we had one.
         // Since we don't have a local `files` state, we are mutating the prop/derived state object.
         // To ensure the UI updates, we can update a timestamp or similar, or just re-set fileContent.
         // Actually, since hasUnsavedChanges is derived from fileContent and selectedFile.content,
         // and we mutated selectedFile.content, we need to trigger a render.
-        setFileContent(prev => prev); // Dummy update to trigger render? No, primitive equality check.
+        setFileContent((prev) => prev); // Dummy update to trigger render? No, primitive equality check.
         // Let's toggle isSaving to false later which triggers render.
-        
+
         toastManager.add({
-          title: t('toasts.saved.title'),
-          description: t('toasts.saved.description', { fileName: selectedFile.name }),
-          type: 'success',
+          title: t("toasts.saved.title"),
+          description: t("toasts.saved.description", { fileName: selectedFile.name }),
+          type: "success",
         });
       } else {
-        throw new Error(t('toasts.saveFailed.writeError'));
+        throw new Error(t("toasts.saveFailed.writeError"));
       }
     } catch {
       toastManager.add({
-        title: t('toasts.saveFailed.title'),
-        description: t('toasts.saveFailed.description', { fileName: selectedFile.name }),
-        type: 'error',
+        title: t("toasts.saveFailed.title"),
+        description: t("toasts.saveFailed.description", { fileName: selectedFile.name }),
+        type: "error",
       });
     } finally {
       setIsSaving(false);
@@ -488,80 +498,96 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
   const handleSelectFile = useCallback((file: SkillFile) => {
     setSelectedFile(file);
-    setIsPreview(file.name.endsWith('.md') || file.name.endsWith('.mdx'));
+    setIsPreview(file.name.endsWith(".md") || file.name.endsWith(".mdx"));
   }, []);
 
   // Handle relative link clicks in markdown preview — navigate to the target file within the skill
-  const handleRelativeLinkClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const anchor = (e.target as HTMLElement).closest('a');
-    if (!anchor) return;
-    const href = anchor.getAttribute('href');
-    if (!href || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) return;
+  const handleRelativeLinkClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const anchor = (e.target as HTMLElement).closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (
+        !href ||
+        href.startsWith("http://") ||
+        href.startsWith("https://") ||
+        href.startsWith("#")
+      )
+        return;
 
-    e.preventDefault();
+      e.preventDefault();
 
-    // Resolve relative path against current file's directory
-    const currentDir = selectedFile?.relative_path
-      ? selectedFile.relative_path.split('/').slice(0, -1).join('/')
-      : '';
-    const segments = (currentDir ? currentDir + '/' + href : href).split('/');
-    const resolved: string[] = [];
-    for (const seg of segments) {
-      if (seg === '.' || seg === '') continue;
-      if (seg === '..') { resolved.pop(); continue; }
-      resolved.push(seg);
-    }
-    const targetPath = resolved.join('/');
-
-    const targetFile = skill.files?.find(f => f.relative_path === targetPath);
-    if (targetFile) {
-      handleSelectFile(targetFile);
-      // Expand parent dirs so the file is visible in the tree
-      const parts = targetPath.split('/');
-      setExpandedDirs(prev => {
-        const next = new Set(prev);
-        for (let i = 1; i < parts.length; i++) {
-          next.add(parts.slice(0, i).join('/'));
+      // Resolve relative path against current file's directory
+      const currentDir = selectedFile?.relative_path
+        ? selectedFile.relative_path.split("/").slice(0, -1).join("/")
+        : "";
+      const segments = (currentDir ? currentDir + "/" + href : href).split("/");
+      const resolved: string[] = [];
+      for (const seg of segments) {
+        if (seg === "." || seg === "") continue;
+        if (seg === "..") {
+          resolved.pop();
+          continue;
         }
-        return next;
-      });
-    }
-  }, [selectedFile, skill.files, handleSelectFile]);
+        resolved.push(seg);
+      }
+      const targetPath = resolved.join("/");
+
+      const targetFile = skill.files?.find((f) => f.relative_path === targetPath);
+      if (targetFile) {
+        handleSelectFile(targetFile);
+        // Expand parent dirs so the file is visible in the tree
+        const parts = targetPath.split("/");
+        setExpandedDirs((prev) => {
+          const next = new Set(prev);
+          for (let i = 1; i < parts.length; i++) {
+            next.add(parts.slice(0, i).join("/"));
+          }
+          return next;
+        });
+      }
+    },
+    [selectedFile, skill.files, handleSelectFile],
+  );
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-4 px-4 py-3 border-b border-border shrink-0">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex shrink-0 items-center gap-4 border-b border-border px-4 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="group/icon relative size-9 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 hover:bg-accent cursor-pointer"
-            title={t('back')}
+            className="group/icon relative size-9 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-border bg-muted/40 hover:bg-accent"
+            title={t("back")}
           >
             <div className="absolute inset-0 flex items-center justify-center transition-all duration-200 group-hover/icon:-translate-x-1 group-hover/icon:opacity-0">
               <Puzzle className="size-4 text-muted-foreground" />
             </div>
-            <div className="absolute inset-0 flex items-center justify-center translate-x-1 opacity-0 transition-all duration-200 group-hover/icon:translate-x-0 group-hover/icon:opacity-100">
+            <div className="absolute inset-0 flex translate-x-1 items-center justify-center opacity-0 transition-all duration-200 group-hover/icon:translate-x-0 group-hover/icon:opacity-100">
               <ArrowLeft className="size-4 text-foreground" />
             </div>
           </button>
-          <div className="min-w-0 flex flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col gap-0.5">
             <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-base truncate">{skill.title || skill.name}</h2>
-              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                <span className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider h-5",
-                  scopeMeta.className
-                )}>
+              <h2 className="truncate text-base font-semibold">{skill.title || skill.name}</h2>
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                <span
+                  className={cn(
+                    "flex h-5 cursor-default items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase",
+                    scopeMeta.className,
+                  )}
+                >
                   <ScopeIcon className="size-2.5" />
                   {scopeMeta.label}
                 </span>
 
-                <span className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase tracking-wider h-5 inline-flex items-center gap-1",
-                  statusMeta.className,
-                )}>
+                <span
+                  className={cn(
+                    "inline-flex h-5 items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase",
+                    statusMeta.className,
+                  )}
+                >
                   <StatusIcon className="size-2.5" />
                   {statusMeta.label}
                 </span>
@@ -569,17 +595,17 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 {skill.description && (
                   <PreviewCard>
                     <PreviewCardTrigger>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground flex items-center gap-1 cursor-help hover:bg-accent h-5">
+                      <span className="flex h-5 cursor-help items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-accent">
                         <Info className="size-2.5" />
-                        {t('description.badge')}
+                        {t("description.badge")}
                       </span>
                     </PreviewCardTrigger>
                     <PreviewCardPopup align="start" className="w-80">
                       <div className="flex flex-col gap-2 overflow-hidden">
                         <div className="flex flex-col gap-1">
-                          <h4 className="font-medium text-sm">{t('description.title')}</h4>
+                          <h4 className="text-sm font-medium">{t("description.title")}</h4>
                           <ScrollArea className="max-h-60" scrollFade viewportClassName="pr-2">
-                            <p className="text-muted-foreground text-xs leading-relaxed">
+                            <p className="text-xs leading-relaxed text-muted-foreground">
                               {skill.description}
                             </p>
                           </ScrollArea>
@@ -591,57 +617,61 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap overflow-hidden h-[22px]">
-              {sortAgents(skill.agents).filter((agent) => agent !== 'in-project').map((agent) => {
-                const agentStatus = getAgentStatus(skill, agent);
-                return (
-                  <SkillAgentBadge
-                    key={agent}
-                    agent={agent}
-                    status={agentStatus}
-                    tooltip={agent === 'unified' ? t('agentBadge.unifiedTooltip') : undefined}
-                  />
-                );
-              })}
+            <div className="flex h-[22px] flex-wrap items-center gap-1.5 overflow-hidden">
+              {sortAgents(skill.agents)
+                .filter((agent) => agent !== "in-project")
+                .map((agent) => {
+                  const agentStatus = getAgentStatus(skill, agent);
+                  return (
+                    <SkillAgentBadge
+                      key={agent}
+                      agent={agent}
+                      status={agentStatus}
+                      tooltip={agent === "unified" ? t("agentBadge.unifiedTooltip") : undefined}
+                    />
+                  );
+                })}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <SkillActionsMenu skill={skill} onUpdated={onUpdated} onDeleted={onDeleted} />
           <QuickOpen path={selectedFile?.absolute_path || skill.path} />
         </div>
       </div>
 
       {/* Content */}
-      <PanelGroup 
-        direction="horizontal" 
-        className="flex-1 overflow-hidden" 
-        autoSaveId="skill-detail-layout" 
+      <PanelGroup
+        direction="horizontal"
+        className="flex-1 overflow-hidden"
+        autoSaveId="skill-detail-layout"
         storage={storage}
       >
         {/* File tree sidebar */}
-        <Panel 
+        <Panel
           ref={filesPanelRef}
-          defaultSize={20} 
-          minSize={15} 
-          maxSize={40} 
-          collapsible 
+          defaultSize={20}
+          minSize={15}
+          maxSize={40}
+          collapsible
           collapsedSize={0}
           onCollapse={() => setIsFilesCollapsed(true)}
           onExpand={() => setIsFilesCollapsed(false)}
           className={cn(
-            "flex flex-col bg-background min-w-0 transition-all duration-300 ease-in-out",
-            isDragging && "transition-none"
+            "flex min-w-0 flex-col bg-background transition-all duration-300 ease-in-out",
+            isDragging && "transition-none",
           )}
         >
-          <div className="px-3 h-9 border-b border-border flex items-center justify-between shrink-0">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('files.title')}</span>
+          <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {t("files.title")}
+            </span>
             <span className="text-[10px] text-muted-foreground">{skill.files?.length || 0}</span>
           </div>
           <ScrollArea className="flex-1" scrollFade>
             <div>
-              {fileTree.map(node => (
+              {fileTree.map((node) => (
                 <TreeItem
                   key={node.path}
                   node={node}
@@ -653,13 +683,13 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 />
               ))}
               {fileTree.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4">{t('files.empty')}</p>
+                <p className="py-4 text-center text-xs text-muted-foreground">{t("files.empty")}</p>
               )}
             </div>
           </ScrollArea>
         </Panel>
 
-        <ResizeHandle 
+        <ResizeHandle
           onCollapse={() => {
             if (isFilesCollapsed) {
               filesPanelRef.current?.expand();
@@ -673,16 +703,16 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
         />
 
         {/* File content area */}
-        <Panel defaultSize={80} className="flex flex-col overflow-hidden min-w-0">
+        <Panel defaultSize={80} className="flex min-w-0 flex-col overflow-hidden">
           {selectedFile ? (
             <>
               {/* File toolbar */}
-              <div className="flex items-center justify-between px-4 h-9 border-b border-border shrink-0 bg-muted/30">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex h-9 shrink-0 items-center justify-between border-b border-border bg-muted/30 px-4">
+                <div className="flex min-w-0 items-center gap-2">
                   <FileIcon name={selectedFile.name} isDir={false} className="size-4" />
-                  <span className="text-sm font-medium truncate">{selectedFile.relative_path}</span>
+                  <span className="truncate text-sm font-medium">{selectedFile.relative_path}</span>
                   {hasUnsavedChanges && (
-                    <Circle className="size-1.5 fill-current text-primary animate-in fade-in zoom-in duration-200" />
+                    <Circle className="size-1.5 animate-in fill-current text-primary duration-200 fade-in zoom-in" />
                   )}
                 </div>
                 <div className="flex items-center gap-1">
@@ -691,11 +721,15 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                     <button
                       onClick={handleSave}
                       disabled={isSaving}
-                      className="flex items-center gap-1.5 px-2 py-1 text-xs rounded cursor-pointer bg-primary/10 text-primary hover:bg-primary/20"
-                      title={t('toolbar.saveTitle')}
+                      className="flex cursor-pointer items-center gap-1.5 rounded bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
+                      title={t("toolbar.saveTitle")}
                     >
-                      {isSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
-                      <span>{t('toolbar.save')}</span>
+                      {isSaving ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <Save className="size-3" />
+                      )}
+                      <span>{t("toolbar.save")}</span>
                     </button>
                   )}
 
@@ -704,18 +738,18 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                     <button
                       onClick={() => setIsReadOnly(!isReadOnly)}
                       className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 text-xs rounded cursor-pointer",
-                        isReadOnly 
-                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
-                          : "bg-green-500/10 text-green-600 dark:text-green-400"
+                        "flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs",
+                        isReadOnly
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          : "bg-green-500/10 text-green-600 dark:text-green-400",
                       )}
-                      title={isReadOnly ? t('toolbar.enableEditing') : t('toolbar.makeReadOnly')}
+                      title={isReadOnly ? t("toolbar.enableEditing") : t("toolbar.makeReadOnly")}
                     >
                       {isReadOnly ? <Lock className="size-3" /> : <Pencil className="size-3" />}
-                      {isReadOnly ? t('toolbar.readOnly') : t('toolbar.editing')}
+                      {isReadOnly ? t("toolbar.readOnly") : t("toolbar.editing")}
                     </button>
                   )}
-                  
+
                   {/* Markdown preview toggle */}
                   {isMarkdown && (
                     <button
@@ -727,33 +761,38 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                           setIsReadOnly(false);
                         }
                       }}
-                      className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
+                      className="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
                       {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
-                      {isPreview ? t('toolbar.editor') : t('toolbar.preview')}
+                      {isPreview ? t("toolbar.editor") : t("toolbar.preview")}
                     </button>
                   )}
                 </div>
               </div>
 
               {/* Editor / Preview */}
-              <div className="flex-1 overflow-hidden relative">
+              <div className="relative flex-1 overflow-hidden">
                 {isLoadingContent ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <Loader2 className="size-6 animate-spin mr-2" />
-                    <p className="text-sm">{t('content.loading')}</p>
+                  <div className="flex h-full items-center justify-center text-muted-foreground">
+                    <Loader2 className="mr-2 size-6 animate-spin" />
+                    <p className="text-sm">{t("content.loading")}</p>
                   </div>
-                ) : fileContent !== null && fileContent !== '' ? (
+                ) : fileContent !== null && fileContent !== "" ? (
                   isMarkdown && isPreview ? (
                     <>
                       <ScrollArea key={selectedFile.relative_path} className="h-full">
-                        <div id="skill-content-root" className="px-8 py-6" onClick={handleRelativeLinkClick}>
-                          <MarkdownRenderer>
-                            {previewContent}
-                          </MarkdownRenderer>
+                        <div
+                          id="skill-content-root"
+                          className="px-8 py-6"
+                          onClick={handleRelativeLinkClick}
+                        >
+                          <MarkdownRenderer>{previewContent}</MarkdownRenderer>
                         </div>
                       </ScrollArea>
-                      <MarkdownToc markdown={previewContent} scrollContainerId="skill-content-root" />
+                      <MarkdownToc
+                        markdown={previewContent}
+                        scrollContainerId="skill-content-root"
+                      />
                     </>
                   ) : (
                     <CodeMirrorEditor
@@ -766,15 +805,15 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                     />
                   )
                 ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <p className="text-sm">{t('content.binaryUnavailable')}</p>
+                  <div className="flex h-full items-center justify-center text-muted-foreground">
+                    <p className="text-sm">{t("content.binaryUnavailable")}</p>
                   </div>
                 )}
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <p className="text-sm">{t('content.selectFile')}</p>
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <p className="text-sm">{t("content.selectFile")}</p>
             </div>
           )}
         </Panel>

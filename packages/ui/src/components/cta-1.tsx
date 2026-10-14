@@ -31,7 +31,7 @@ export function CTA1({
         showBorder && "border-y",
         widthClassName,
         "bg-[radial-gradient(35%_80%_at_25%_0%,color-mix(in_oklab,var(--foreground)_8%,transparent),transparent)]",
-        className
+        className,
       )}
     >
       {showFrame ? (
@@ -46,11 +46,11 @@ export function CTA1({
         </>
       ) : null}
       <div className="space-y-3">
-        <h1 className="text-balance text-center text-3xl font-semibold tracking-tight md:text-5xl">
+        <h1 className="text-center text-3xl font-semibold tracking-tight text-balance md:text-5xl">
           {title}
         </h1>
         {desc ? (
-          <p className="mx-auto max-w-2xl text-balance text-center text-sm font-medium text-muted-foreground md:text-base">
+          <p className="mx-auto max-w-2xl text-center text-sm font-medium text-balance text-muted-foreground md:text-base">
             {desc}
           </p>
         ) : null}

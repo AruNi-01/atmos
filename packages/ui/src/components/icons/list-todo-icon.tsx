@@ -56,7 +56,7 @@ const ListTodoIcon = forwardRef<ListTodoIconHandle, ListTodoIconProps>(
           controls.start("animate");
         }
       },
-      [controls, onMouseEnter]
+      [controls, onMouseEnter],
     );
 
     const handleMouseLeave = useCallback(
@@ -67,7 +67,7 @@ const ListTodoIcon = forwardRef<ListTodoIconHandle, ListTodoIconProps>(
           controls.start("normal");
         }
       },
-      [controls, onMouseLeave]
+      [controls, onMouseLeave],
     );
 
     return (
@@ -108,7 +108,7 @@ const ListTodoIcon = forwardRef<ListTodoIconHandle, ListTodoIconProps>(
         </svg>
       </div>
     );
-  }
+  },
 );
 
 ListTodoIcon.displayName = "ListTodoIcon";

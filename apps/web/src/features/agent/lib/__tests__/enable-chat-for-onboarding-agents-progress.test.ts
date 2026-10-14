@@ -28,9 +28,7 @@ mock.module("@/api/ws-api", () => ({
   },
 }));
 
-const { enableChatForOnboardingAgents } = await import(
-  "../enable-chat-for-onboarding-agents"
-);
+const { enableChatForOnboardingAgents } = await import("../enable-chat-for-onboarding-agents");
 
 describe("enableChatForOnboardingAgents progress", () => {
   beforeEach(() => {

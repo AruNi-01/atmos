@@ -19,9 +19,7 @@ export const THREAD_WORKING_DIRECTORY: AgentChatWorkingDirectory = {
   cwd: null,
 };
 
-export function isThreadWorkingDirectory(
-  selection: AgentChatWorkingDirectory,
-): boolean {
+export function isThreadWorkingDirectory(selection: AgentChatWorkingDirectory): boolean {
   return !selection.workspaceId && !selection.projectId;
 }
 

@@ -71,12 +71,7 @@ export const PREVIEW_WORKSPACES: PreviewWorkspaceFixture[] = [
       }),
     ],
     transcripts: {
-      "tmux:ws-atmos:0": [
-        "Studio Mac — editor",
-        "~/atmos",
-        "$ bun run typecheck",
-        "✓ typecheck",
-      ],
+      "tmux:ws-atmos:0": ["Studio Mac — editor", "~/atmos", "$ bun run typecheck", "✓ typecheck"],
       "tmux:ws-atmos:1:tab": [
         "Studio Mac — zsh (tab)",
         "~/atmos",
@@ -133,15 +128,16 @@ export const PREVIEW_WORKSPACES: PreviewWorkspaceFixture[] = [
   },
 ];
 
-export const PREVIEW_WORKSPACE_CHOICES: Array<{ id: string; name: string }> = PREVIEW_WORKSPACES.map(
-  (workspace) => ({
+export const PREVIEW_WORKSPACE_CHOICES: Array<{ id: string; name: string }> =
+  PREVIEW_WORKSPACES.map((workspace) => ({
     id: workspace.id,
     name: workspace.name,
-  }),
-);
+  }));
 
 export function previewWorkspaceById(workspaceId: string): PreviewWorkspaceFixture {
-  return PREVIEW_WORKSPACES.find((workspace) => workspace.id === workspaceId) ?? PREVIEW_WORKSPACES[0]!;
+  return (
+    PREVIEW_WORKSPACES.find((workspace) => workspace.id === workspaceId) ?? PREVIEW_WORKSPACES[0]!
+  );
 }
 
 export function previewEntriesForWorkspace(workspaceId: string): MobileTerminalEntry[] {

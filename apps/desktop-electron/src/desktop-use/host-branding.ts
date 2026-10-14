@@ -27,11 +27,7 @@ import { fileURLToPath } from "node:url";
 import { execFile, spawnSync } from "node:child_process";
 import { promisify } from "node:util";
 import { mainLog } from "../main-log.js";
-import {
-  atmosHomeDir,
-  desktopUseDriverStop,
-  isAtmosCliInstalled,
-} from "./client.js";
+import { atmosHomeDir, desktopUseDriverStop, isAtmosCliInstalled } from "./client.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -56,9 +52,7 @@ export type HostBrandingResult = {
 export function resolveDesktopUseHostApp(opts?: { home?: string }): string | null {
   const candidates: string[] = [];
   if (process.env.ATMOS_DESKTOP_USE_HOME) {
-    candidates.push(
-      join(process.env.ATMOS_DESKTOP_USE_HOME, "host", `${HOST_APP_NAME}.app`),
-    );
+    candidates.push(join(process.env.ATMOS_DESKTOP_USE_HOME, "host", `${HOST_APP_NAME}.app`));
   }
   const home = atmosHomeDir(opts);
   candidates.push(join(home, "desktop-use", "host", `${HOST_APP_NAME}.app`));
@@ -153,12 +147,9 @@ function isEngineMachO(path: string): boolean {
 }
 
 /** Product icns for the host app (same plate as Atmos.app). */
-export function resolveHostAppIconPath(opts?: {
-  extraRoots?: string[];
-}): string | null {
+export function resolveHostAppIconPath(opts?: { extraRoots?: string[] }): string | null {
   const here = dirname(fileURLToPath(import.meta.url));
-  const resourcesPath =
-    typeof process.resourcesPath === "string" ? process.resourcesPath : "";
+  const resourcesPath = typeof process.resourcesPath === "string" ? process.resourcesPath : "";
   const roots = [
     ...(opts?.extraRoots ?? []),
     join(resourcesPath, "icons"),
@@ -210,8 +201,7 @@ export function applyHostAppIcon(appPath: string, icnsPath: string): boolean {
   return true;
 }
 
-const CF_BUNDLE_ICON_NAME_XML =
-  /\s*<key>CFBundleIconName<\/key>\s*<string>[^<]*<\/string>/;
+const CF_BUNDLE_ICON_NAME_XML = /\s*<key>CFBundleIconName<\/key>\s*<string>[^<]*<\/string>/;
 
 /**
  * Without Assets.car, CFBundleIconName makes LaunchServices keep a stale
@@ -276,10 +266,8 @@ export async function ensureDesktopUseHostBranding(opts?: {
   }
 
   const before = applyHostServeAlias(hostApp);
-  const icnsPath =
-    opts?.icnsPath === undefined ? resolveHostAppIconPath() : opts.icnsPath;
-  const iconWritten =
-    Boolean(icnsPath) && applyHostAppIcon(hostApp, icnsPath as string);
+  const icnsPath = opts?.icnsPath === undefined ? resolveHostAppIconPath() : opts.icnsPath;
+  const iconWritten = Boolean(icnsPath) && applyHostAppIcon(hostApp, icnsPath as string);
   const catalogCleared = preferHostIcnsOverCatalog(hostApp);
   const iconUpdated = iconWritten || catalogCleared;
   let restarted = false;
@@ -302,11 +290,9 @@ export async function ensureDesktopUseHostBranding(opts?: {
       );
     }
     try {
-      await execFileAsync(
-        "pkill",
-        ["-f", `${HOST_APP_NAME}.app/Contents/MacOS/.*serve`],
-        { timeout: 3_000 },
-      );
+      await execFileAsync("pkill", ["-f", `${HOST_APP_NAME}.app/Contents/MacOS/.*serve`], {
+        timeout: 3_000,
+      });
     } catch {
       /* no match */
     }
@@ -359,16 +345,13 @@ export async function ensureDesktopUseHostBranding(opts?: {
 }
 
 async function isVendorNamedServeLive(hostApp: string): Promise<boolean> {
-  return isServeNeedleLive(
-    `${hostApp}/Contents/MacOS/${UPSTREAM_HOST_EXEC} serve`,
-  );
+  return isServeNeedleLive(`${hostApp}/Contents/MacOS/${UPSTREAM_HOST_EXEC} serve`);
 }
 
 async function isHostServeLive(hostApp: string): Promise<boolean> {
   return (
-    (await isServeNeedleLive(
-      `${hostApp}/Contents/MacOS/${HOST_APP_NAME} serve`,
-    )) || (await isVendorNamedServeLive(hostApp))
+    (await isServeNeedleLive(`${hostApp}/Contents/MacOS/${HOST_APP_NAME} serve`)) ||
+    (await isVendorNamedServeLive(hostApp))
   );
 }
 

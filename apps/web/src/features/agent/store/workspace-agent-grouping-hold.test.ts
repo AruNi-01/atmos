@@ -20,16 +20,12 @@ describe("workspace agent grouping hold", () => {
     expect(store.isHoldActive("ws-2")).toBe(false);
 
     store.expireDue(Date.now() + WORKSPACE_AGENT_GROUPING_HOLD_MS + 1);
-    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(
-      false,
-    );
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(false);
   });
 
   test("beginHold ignores blank context ids", () => {
     useWorkspaceAgentGroupingHoldStore.getState().beginHold("  ");
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().untilByContextId.size,
-    ).toBe(0);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().untilByContextId.size).toBe(0);
   });
 
   test("clearHold drops one context without touching others", () => {
@@ -48,8 +44,6 @@ describe("workspace agent grouping hold", () => {
     store.clearAll();
     expect(store.isHoldActive("ws-1")).toBe(false);
     expect(store.isHoldActive("ws-2")).toBe(false);
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().untilByContextId.size,
-    ).toBe(0);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().untilByContextId.size).toBe(0);
   });
 });

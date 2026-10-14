@@ -13,18 +13,14 @@ import {
   unionShapePageBounds,
 } from "./canvas-agent-bus-helpers";
 
-export function runCanvasAgentSetAgentView(
-  editor: Editor,
-  args: Record<string, unknown>,
-) {
+export function runCanvasAgentSetAgentView(editor: Editor, args: Record<string, unknown>) {
   const padding = nonNegativeNumberOr(args.padding, AGENT_VIEW_PADDING);
   const shouldZoom = args.zoom === true;
   const x = optionalNumber(args.x);
   const y = optionalNumber(args.y);
   const w = optionalNumber(args.w);
   const h = optionalNumber(args.h);
-  const hasBox =
-    x !== undefined && y !== undefined && w !== undefined && h !== undefined;
+  const hasBox = x !== undefined && y !== undefined && w !== undefined && h !== undefined;
 
   let view: CanvasAgentBounds;
 
@@ -69,10 +65,7 @@ export function runCanvasAgentSetAgentView(
   return { view };
 }
 
-export function runCanvasAgentViewport(
-  editor: Editor,
-  args: Record<string, unknown>,
-) {
+export function runCanvasAgentViewport(editor: Editor, args: Record<string, unknown>) {
   const centerIds = args.center_ids;
   if (Array.isArray(centerIds) && centerIds.length) {
     const ids = centerIds.map((v) => String(v));

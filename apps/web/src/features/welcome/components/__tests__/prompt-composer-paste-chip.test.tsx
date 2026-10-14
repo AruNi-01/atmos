@@ -20,8 +20,7 @@ type TestIconProps = {
 };
 
 mock.module("@workspace/ui", () => ({
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
   getFileIconProps: ({ className }: TestIconProps) => ({
     alt: "",
     className,
@@ -267,8 +266,7 @@ function pasteEvent(text: string, html = ""): Event {
   Object.defineProperty(event, "clipboardData", {
     configurable: true,
     value: {
-      getData: (type: string) =>
-        type === "text/html" ? html : type === "text/plain" ? text : "",
+      getData: (type: string) => (type === "text/html" ? html : type === "text/plain" ? text : ""),
       items: [],
     },
   });

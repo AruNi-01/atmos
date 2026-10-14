@@ -136,7 +136,6 @@ export function DesktopUseSettingsSection() {
   const [visibilityOpen, setVisibilityOpen] = useState(true);
   const defaultsAppliedRef = useRef(false);
 
-
   const applyRuntimeCheck = useCallback(
     (check: RuntimeCheckResult["check"] | null | undefined) => {
       if (!check) {
@@ -263,7 +262,7 @@ export function DesktopUseSettingsSection() {
           defaultsAppliedRef.current = true;
           const cliReady = Boolean(
             (res?.cli?.meets_requirement ?? nextCli.meetsRequirement) ||
-              (nextCli.installed && !nextCli.updateRequired && nextCli.meetsRequirement),
+            (nextCli.installed && !nextCli.updateRequired && nextCli.meetsRequirement),
           );
           const installed = Boolean(res?.driver?.installed);
           const engineUpdateAvailable = Boolean(res?.update_available);
@@ -323,8 +322,7 @@ export function DesktopUseSettingsSection() {
     }
   };
 
-  const operationBorderEnabled =
-    status?.prefs?.operation_border_enabled ?? true;
+  const operationBorderEnabled = status?.prefs?.operation_border_enabled ?? true;
 
   const setOperationBorder = async (enabled: boolean) => {
     if (!isDesktopRuntime() || borderBusy) return;
@@ -392,11 +390,7 @@ export function DesktopUseSettingsSection() {
       invalidateDesktopUseReadinessCache();
       await load({ silent: true });
       // After install/update/uninstall, surface the Permission Access jump.
-      if (
-        actionKey === "install" ||
-        actionKey === "update" ||
-        actionKey === "uninstall"
-      ) {
+      if (actionKey === "install" || actionKey === "update" || actionKey === "uninstall") {
         setPermissionsOpen(true);
       }
       if (actionKey === "uninstall") {
@@ -411,9 +405,7 @@ export function DesktopUseSettingsSection() {
       if (actionKey === "restart" || actionKey === "install" || actionKey === "update") {
         // Probe live daemon after start/restart (no auto-start).
         try {
-          const res = await desktopInvoke<RuntimeCheckResult>(
-            "desktop_use_driver_check",
-          );
+          const res = await desktopInvoke<RuntimeCheckResult>("desktop_use_driver_check");
           const ready = applyRuntimeCheck(res?.check);
           setRestartSuggested(!ready);
         } catch {
@@ -443,9 +435,7 @@ export function DesktopUseSettingsSection() {
     setError(null);
     try {
       // Pure probe — never starts the daemon (unlike doctor).
-      const res = await desktopInvoke<RuntimeCheckResult>(
-        "desktop_use_driver_check",
-      );
+      const res = await desktopInvoke<RuntimeCheckResult>("desktop_use_driver_check");
       const check = res?.check;
       const ready = applyRuntimeCheck(check);
       invalidateDesktopUseReadinessCache();
@@ -484,8 +474,7 @@ export function DesktopUseSettingsSection() {
       setRestartSuggested(true);
       toastManager.add({
         title: t("engine.check.failedTitle"),
-        description:
-          e instanceof Error ? e.message : t("errors.checkFailed"),
+        description: e instanceof Error ? e.message : t("errors.checkFailed"),
         type: "error",
       });
     } finally {
@@ -498,16 +487,13 @@ export function DesktopUseSettingsSection() {
   const cliReady = Boolean(cliGate?.meetsRequirement);
   const installed = Boolean(status?.driver?.installed);
   const updateAvailable = Boolean(status?.update_available);
-  const installedVersion =
-    status?.installed_version ?? status?.driver?.engine_version ?? null;
+  const installedVersion = status?.installed_version ?? status?.driver?.engine_version ?? null;
   const pinnedVersion = status?.pinned_version ?? null;
   const busy = busyAction !== null;
   const desktop = isDesktopRuntime();
   const phase = status?.driver?.phase ?? "";
   const isDownloading =
-    busyAction === "install" ||
-    busyAction === "update" ||
-    phase === "downloading";
+    busyAction === "install" || busyAction === "update" || phase === "downloading";
   const rawProgress = status?.driver?.progress;
   const progressPct =
     typeof rawProgress === "number" && Number.isFinite(rawProgress)
@@ -534,9 +520,7 @@ export function DesktopUseSettingsSection() {
     }
     if (updateAvailable) {
       const ver = installedVersion ? `v${installedVersion}` : "";
-      return ver
-        ? `${t("engine.updateAvailable")} · ${ver}`
-        : t("engine.updateAvailable");
+      return ver ? `${t("engine.updateAvailable")} · ${ver}` : t("engine.updateAvailable");
     }
     const ver = installedVersion ? `v${installedVersion}` : "";
     return ver ? `${t("engine.installed")} · ${ver}` : t("engine.installed");
@@ -591,7 +575,7 @@ export function DesktopUseSettingsSection() {
     isDownloading && progressPct !== null ? (
       <div className="flex items-center gap-2">
         <DesktopUseEngineProgressBar value={progressPct} />
-        <span className="min-w-9 text-right text-xs tabular-nums text-muted-foreground">
+        <span className="min-w-9 text-right text-xs text-muted-foreground tabular-nums">
           {progressPct}%
         </span>
       </div>
@@ -599,9 +583,7 @@ export function DesktopUseSettingsSection() {
 
   return (
     <div className="space-y-4">
-      <SettingsExperimentalNotice>
-        {t("developmentWarning")}
-      </SettingsExperimentalNotice>
+      <SettingsExperimentalNotice>{t("developmentWarning")}</SettingsExperimentalNotice>
 
       {/* CLI gate — only when missing or below package min (hidden when OK). */}
       {showCliGateBanner ? (
@@ -628,7 +610,7 @@ export function DesktopUseSettingsSection() {
               size="sm"
               disabled={busy}
               onClick={() => void installOrUpdateCli(false)}
-              className="cursor-pointer shrink-0"
+              className="shrink-0 cursor-pointer"
             >
               {busyAction === "cli_install" ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -643,7 +625,7 @@ export function DesktopUseSettingsSection() {
               size="sm"
               disabled={busy}
               onClick={() => void installOrUpdateCli(true)}
-              className="cursor-pointer shrink-0"
+              className="shrink-0 cursor-pointer"
             >
               {busyAction === "cli_update" ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -672,9 +654,7 @@ export function DesktopUseSettingsSection() {
           {loading ? (
             <Skeleton className="h-9 w-36" />
           ) : !desktop || !cliReady ? (
-            <span className="text-sm text-muted-foreground">
-              {engineStatusLabel}
-            </span>
+            <span className="text-sm text-muted-foreground">{engineStatusLabel}</span>
           ) : !installed || isDownloading ? (
             <div className="flex items-center gap-3">
               {downloadProgressAside}
@@ -705,9 +685,7 @@ export function DesktopUseSettingsSection() {
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
                 {uninstallButton}
-                <span className="text-sm text-muted-foreground">
-                  {engineStatusLabel}
-                </span>
+                <span className="text-sm text-muted-foreground">{engineStatusLabel}</span>
               </div>
               <div className="flex items-center gap-3">
                 {downloadProgressAside}
@@ -736,9 +714,7 @@ export function DesktopUseSettingsSection() {
           ) : (
             <div className="flex items-center gap-2">
               {uninstallButton}
-              <span className="text-sm text-muted-foreground">
-                {engineStatusLabel}
-              </span>
+              <span className="text-sm text-muted-foreground">{engineStatusLabel}</span>
             </div>
           )}
         </SettingsGroupRow>
@@ -752,9 +728,7 @@ export function DesktopUseSettingsSection() {
             <div className="flex flex-wrap items-center justify-end gap-2">
               <span
                 className={
-                  restartSuggested
-                    ? "text-sm text-destructive"
-                    : "text-sm text-muted-foreground"
+                  restartSuggested ? "text-sm text-destructive" : "text-sm text-muted-foreground"
                 }
               >
                 {runtimeStatusDisplay}
@@ -787,9 +761,7 @@ export function DesktopUseSettingsSection() {
                         error?: string;
                       }>("desktop_use_driver_restart");
                       if (res && res.ok === false) {
-                        throw new Error(
-                          res.error || t("errors.restartFailed"),
-                        );
+                        throw new Error(res.error || t("errors.restartFailed"));
                       }
                     })
                   }
@@ -842,7 +814,7 @@ export function DesktopUseSettingsSection() {
             </div>
             <DialogTitle>{t("uninstallConfirm.title")}</DialogTitle>
             <DialogDescription asChild>
-              <div className="space-y-3 text-pretty text-sm text-muted-foreground">
+              <div className="space-y-3 text-sm text-pretty text-muted-foreground">
                 <p>{t("uninstallConfirm.description")}</p>
                 <div>
                   <p className="font-medium text-foreground">
@@ -881,9 +853,7 @@ export function DesktopUseSettingsSection() {
               }
               className="cursor-pointer"
             >
-              {busyAction === "uninstall" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : null}
+              {busyAction === "uninstall" ? <Loader2 className="size-4 animate-spin" /> : null}
               {t("uninstallConfirm.confirm")}
             </Button>
           </DialogFooter>
@@ -922,16 +892,11 @@ export function DesktopUseSettingsSection() {
         title={t("groups.visibility.title")}
         description={t("groups.visibility.description")}
       >
-        <SettingsGroupRow
-          title={t("border.title")}
-          description={t("border.description")}
-        >
+        <SettingsGroupRow title={t("border.title")} description={t("border.description")}>
           {loading ? (
             <Skeleton className="h-6 w-10" />
           ) : !desktop ? (
-            <span className="text-sm text-muted-foreground">
-              {t("status.webOnly")}
-            </span>
+            <span className="text-sm text-muted-foreground">{t("status.webOnly")}</span>
           ) : (
             <Switch
               checked={operationBorderEnabled}
@@ -944,9 +909,7 @@ export function DesktopUseSettingsSection() {
       </SettingsGroupCard>
 
       {(error || status?.driver?.error) && (
-        <p className="px-1 text-sm text-destructive">
-          {error || status?.driver?.error}
-        </p>
+        <p className="px-1 text-sm text-destructive">{error || status?.driver?.error}</p>
       )}
     </div>
   );

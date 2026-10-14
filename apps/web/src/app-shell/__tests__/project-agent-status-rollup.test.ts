@@ -11,7 +11,7 @@ describe("project agent status rollup", () => {
     const source = read("../sidebar/ProjectItem.tsx");
     expect(source).toContain("rollupChildren={rollupChildren}");
     expect(source).toContain(
-      "const rollupChildren =\n    !hideWorkspaceList && !isExpanded && project.workspaces.length > 0;",
+      "const rollupChildren = !hideWorkspaceList && !isExpanded && project.workspaces.length > 0;",
     );
     expect(source).not.toContain("rollupAttention");
   });

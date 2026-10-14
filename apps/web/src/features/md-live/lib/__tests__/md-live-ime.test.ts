@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Window } from "happy-dom";
-import {
-  Editor,
-  defaultValueCtx,
-  editorViewCtx,
-  rootCtx,
-} from "@milkdown/kit/core";
+import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from "@milkdown/kit/core";
 import { headingIdGenerator } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { TextSelection } from "@milkdown/kit/prose/state";
@@ -153,9 +148,7 @@ describe("md-live IME composition", () => {
       const start = view.state.selection.$from.start();
       mdLiveMarkComposing(true);
       view.dispatch(
-        view.state.tr
-          .setSelection(TextSelection.create(view.state.doc, start))
-          .insertText("[x] "),
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, start)).insertText("[x] "),
       );
     });
     const item = editor.action((ctx) => {

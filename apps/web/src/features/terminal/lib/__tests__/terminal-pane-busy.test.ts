@@ -38,9 +38,7 @@ describe("isIdleCwdTitle", () => {
 
 describe("isTerminalPaneNonIdle", () => {
   test("idle when there is no tmux window yet", () => {
-    expect(
-      isTerminalPaneNonIdle({ dynamicTitle: "npm run dev", label: "1" }, null),
-    ).toBe(false);
+    expect(isTerminalPaneNonIdle({ dynamicTitle: "npm run dev", label: "1" }, null)).toBe(false);
   });
 
   test("idle when cwd title and tmux list is unavailable", () => {
@@ -72,28 +70,23 @@ describe("isTerminalPaneNonIdle", () => {
 
   test("non-idle when title is a command even if tmux still shows a shell", () => {
     expect(
-      isTerminalPaneNonIdle(
-        { tmuxWindowName: "1", dynamicTitle: "node", label: "1" },
-        [{ name: "1", current_command: "zsh" }],
-      ),
+      isTerminalPaneNonIdle({ tmuxWindowName: "1", dynamicTitle: "node", label: "1" }, [
+        { name: "1", current_command: "zsh" },
+      ]),
     ).toBe(true);
   });
 
   test("non-idle when a command is running", () => {
     expect(
-      isTerminalPaneNonIdle(
-        { tmuxWindowName: "1", dynamicTitle: "npm run dev", label: "1" },
-        [{ name: "1", current_command: "node" }],
-      ),
+      isTerminalPaneNonIdle({ tmuxWindowName: "1", dynamicTitle: "npm run dev", label: "1" }, [
+        { name: "1", current_command: "node" },
+      ]),
     ).toBe(true);
   });
 
   test("non-idle when tmux list is unavailable and title is not a cwd", () => {
     expect(
-      isTerminalPaneNonIdle(
-        { tmuxWindowName: "1", dynamicTitle: "npm run dev", label: "1" },
-        null,
-      ),
+      isTerminalPaneNonIdle({ tmuxWindowName: "1", dynamicTitle: "npm run dev", label: "1" }, null),
     ).toBe(true);
   });
 
@@ -108,10 +101,9 @@ describe("isTerminalPaneNonIdle", () => {
 
   test("matches window by label or index", () => {
     expect(
-      isTerminalPaneNonIdle(
-        { tmuxWindowName: "2", dynamicTitle: "claude", label: "Claude" },
-        [{ name: "Claude", index: 2, current_command: "claude" }],
-      ),
+      isTerminalPaneNonIdle({ tmuxWindowName: "2", dynamicTitle: "claude", label: "Claude" }, [
+        { name: "Claude", index: 2, current_command: "claude" },
+      ]),
     ).toBe(true);
   });
 

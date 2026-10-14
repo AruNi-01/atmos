@@ -97,7 +97,7 @@ export function ObserverTerminalDrawer() {
       <DrawerPortal>
         <DrawerOverlay className="bg-black/40" style={{ zIndex: 50 }} />
         <DrawerContentBare
-          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background outline-none shadow-2xl"
+          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background shadow-2xl outline-none"
           style={contentStyle}
         >
           <DrawerTitle className="sr-only">{t("openPane")}</DrawerTitle>

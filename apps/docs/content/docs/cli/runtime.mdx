@@ -7,16 +7,16 @@ description: Start, stop, and check local Atmos.
 
 ## Common tasks
 
-| Task | Command |
-|------|---------|
-| Start Atmos if it is not running | `atmos runtime ensure` |
-| Start on a specific port | `atmos runtime ensure --port 30303` |
-| Bind to a different host | `atmos runtime ensure --host 127.0.0.1` |
-| Restart even if a runtime exists | `atmos runtime ensure --force-restart` |
-| Start in the background | `atmos runtime ensure --daemon` |
-| Check runtime health | `atmos runtime status` |
-| Stop the local runtime | `atmos runtime stop` |
-| Force stop | `atmos runtime stop --force` |
+| Task                             | Command                                 |
+| -------------------------------- | --------------------------------------- |
+| Start Atmos if it is not running | `atmos runtime ensure`                  |
+| Start on a specific port         | `atmos runtime ensure --port 30303`     |
+| Bind to a different host         | `atmos runtime ensure --host 127.0.0.1` |
+| Restart even if a runtime exists | `atmos runtime ensure --force-restart`  |
+| Start in the background          | `atmos runtime ensure --daemon`         |
+| Check runtime health             | `atmos runtime status`                  |
+| Stop the local runtime           | `atmos runtime stop`                    |
+| Force stop                       | `atmos runtime stop --force`            |
 
 `--lan` binds to `0.0.0.0` for LAN access. The runtime manifest still points local clients at loopback.
 
@@ -32,11 +32,11 @@ Useful installer flags include `--port`, `--token`, `--relay`, `--display-name`,
 
 ## Files and logs
 
-| Path | Purpose |
-|------|---------|
-| `~/.atmos/runtime/current` | Installed runtime |
-| `~/.atmos/runtime_manifest.json` | Host, port, HTTP URL, and WebSocket URL for local clients |
-| `~/.atmos/runtime/logs/server.log` | Runtime log |
+| Path                               | Purpose                                                   |
+| ---------------------------------- | --------------------------------------------------------- |
+| `~/.atmos/runtime/current`         | Installed runtime                                         |
+| `~/.atmos/runtime_manifest.json`   | Host, port, HTTP URL, and WebSocket URL for local clients |
+| `~/.atmos/runtime/logs/server.log` | Runtime log                                               |
 
 ## Tips
 

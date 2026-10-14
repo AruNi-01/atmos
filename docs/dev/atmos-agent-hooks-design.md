@@ -10,11 +10,11 @@
 
 Atmos 后端需要感知用户本地 Agent 工具的运行状态，统一抽象为以下三态：
 
-| 状态 | 含义 |
-| --- | --- |
-| `idle` | Agent 空闲，等待用户输入 |
-| `running` | Agent 正在处理任务（推理或执行工具） |
-| `permission_request` | Agent 暂停，等待用户授权某个操作 |
+| 状态                 | 含义                                 |
+| -------------------- | ------------------------------------ |
+| `idle`               | Agent 空闲，等待用户输入             |
+| `running`            | Agent 正在处理任务（推理或执行工具） |
+| `permission_request` | Agent 暂停，等待用户授权某个操作     |
 
 前端只接入 Atmos 后端统一接口，由后端 Adapter 层负责各工具的适配。第一版覆盖上述三个工具。
 
@@ -63,12 +63,12 @@ permission_request                                                  │
 
 ### 2.2 状态扭转事件映射
 
-| 目标状态 | Claude Code | Codex CLI | opencode |
-| --- | --- | --- | --- |
-| `idle` | `Stop` / `SessionStart` | `Stop` / `SessionStart` | `session.idle` / `session.created` / `session.error` |
-| `running` | `UserPromptSubmit` / `PreToolUse` | `UserPromptSubmit` / `PreToolUse` | `message.updated(role=user)` / `tool.execute.before` |
-| `permission_request` | `Notification[permissionprompt]` | ❌ 不支持 | `permission.asked` |
-| `running`（从 permission 恢复） | `PreToolUse` | ❌ 不支持 | `permission.replied` |
+| 目标状态                        | Claude Code                       | Codex CLI                         | opencode                                             |
+| ------------------------------- | --------------------------------- | --------------------------------- | ---------------------------------------------------- |
+| `idle`                          | `Stop` / `SessionStart`           | `Stop` / `SessionStart`           | `session.idle` / `session.created` / `session.error` |
+| `running`                       | `UserPromptSubmit` / `PreToolUse` | `UserPromptSubmit` / `PreToolUse` | `message.updated(role=user)` / `tool.execute.before` |
+| `permission_request`            | `Notification[permissionprompt]`  | ❌ 不支持                         | `permission.asked`                                   |
+| `running`（从 permission 恢复） | `PreToolUse`                      | ❌ 不支持                         | `permission.replied`                                 |
 
 ### 2.3 各工具状态机详述
 
@@ -165,11 +165,11 @@ opencode 是三者中状态感知最完整的：`permission_request` 可以精�
 
 ### 3.2 各工具安装位置
 
-| 工具 | 全局配置文件 | 安装内容 |
-| --- | --- | --- |
-| Claude Code | `~/.claude/settings.json` | 在 `hooks` 字段追加 HTTP hook 条目 |
-| Codex CLI | `~/.codex/hooks.json` | 追加 hook 条目 |
-| opencode | `~/.config/opencode/plugins/atmos_plugin.ts` | 新建插件文件 |
+| 工具        | 全局配置文件                                 | 安装内容                           |
+| ----------- | -------------------------------------------- | ---------------------------------- |
+| Claude Code | `~/.claude/settings.json`                    | 在 `hooks` 字段追加 HTTP hook 条目 |
+| Codex CLI   | `~/.codex/hooks.json`                        | 追加 hook 条目                     |
+| opencode    | `~/.config/opencode/plugins/atmos_plugin.ts` | 新建插件文件                       |
 
 ### 3.3 Claude Code Hook 配置
 
@@ -180,53 +180,62 @@ opencode 是三者中状态感知最完整的：`permission_request` 可以精�
   "hooks": {
     "SessionStart": [
       {
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
-          "timeout": 5
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
       {
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
-          "timeout": 5
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
-          "async": true
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
+            "async": true
+          }
+        ]
       }
     ],
     "Notification": [
       {
         "matcher": "permissionprompt",
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
-          "timeout": 5
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "Stop": [
       {
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
-          "async": true
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/claude-code",
+            "async": true
+          }
+        ]
       }
     ]
   }
 }
-
 ```
 
 注意：
@@ -244,44 +253,51 @@ opencode 是三者中状态感知最完整的：`permission_request` 可以精�
   "hooks": {
     "SessionStart": [
       {
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/codex",
-          "timeout": 5
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/codex",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
       {
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/codex",
-          "timeout": 5
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/codex",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/codex",
-          "async": true
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/codex",
+            "async": true
+          }
+        ]
       }
     ],
     "Stop": [
       {
-        "hooks": [{
-          "type": "http",
-          "url": "http://localhost:{{ATMOS_PORT}}/hooks/codex",
-          "async": true
-        }]
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:{{ATMOS_PORT}}/hooks/codex",
+            "async": true
+          }
+        ]
       }
     ]
   }
 }
-
 ```
 
 Codex hooks feature flag 默认开启，安装流程不写 `~/.codex/config.toml`。
@@ -291,10 +307,10 @@ Codex hooks feature flag 默认开启，安装流程不写 `~/.codex/config.toml
 新建 `~/.config/opencode/plugins/atmos_plugin.ts`：
 
 ```typescript
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin } from "@opencode-ai/plugin";
 
-const ATMOS_PORT = "{{ATMOS_PORT}}"
-const ATMOS_URL = `http://localhost:${ATMOS_PORT}/hooks/opencode`
+const ATMOS_PORT = "{{ATMOS_PORT}}";
+const ATMOS_URL = `http://localhost:${ATMOS_PORT}/hooks/opencode`;
 
 async function post(event: object) {
   try {
@@ -303,7 +319,7 @@ async function post(event: object) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(event),
       signal: AbortSignal.timeout(3000),
-    })
+    });
   } catch {
     // 静默失败，不影响 Agent 正常运行
   }
@@ -312,7 +328,7 @@ async function post(event: object) {
 export const AtmosPlugin: Plugin = async () => {
   return {
     event: async ({ event }) => {
-      const type = event.type
+      const type = event.type;
 
       if (
         type === "session.created" ||
@@ -323,17 +339,16 @@ export const AtmosPlugin: Plugin = async () => {
         type === "tool.execute.before" ||
         type === "tool.execute.after"
       ) {
-        await post(event)
+        await post(event);
       }
 
       // message.updated: 只转发 role=user 的消息
       if (type === "message.updated" && (event as any).properties?.role === "user") {
-        await post(event)
+        await post(event);
       }
     },
-  }
-}
-
+  };
+};
 ```
 
 注意：
@@ -398,7 +413,6 @@ Atmos 维护每个 session 的当前状态，通过 WebSocket 或 SSE 向前端�
   "state": "permission_request",
   "timestamp": "2026-03-29T12:00:00Z"
 }
-
 ```
 
 ---
@@ -454,20 +468,20 @@ Atmos 维护每个 session 的当前状态，通过 WebSocket 或 SSE 向前端�
 
 ## 6. 已知限制与后续迭代
 
-| 限制 | 影响 | 后续方案 |
-| --- | --- | --- |
-| Codex 无 permission_request 感知 | Codex adapter 只有 idle/running 两态 | 待 Codex 官方支持 approval hook 后接入 |
-| Codex hook 事件覆盖仍有限 | 可能漏掉部分状态转换 | 跟进 Codex hook 事件覆盖并补齐 adapter |
-| Claude Code PermissionRequest 会对所有工具检查触发 | 若改用 PermissionRequest 替代 Notification 会有状态抖动 | 维持使用 Notification[permissionprompt] |
-| Atmos 服务未启动时 hook 静默失败 | Agent 正常运行不受影响，但状态不更新 | 前端检测 Atmos 服务是否在线，离线时隐藏状态指示器 |
-| opencode 的 message.updated 需过滤 role | 若 API 变更可能漏报 | 待 opencode 提供独立的 prompt submit 事件 |
+| 限制                                               | 影响                                                    | 后续方案                                          |
+| -------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| Codex 无 permission_request 感知                   | Codex adapter 只有 idle/running 两态                    | 待 Codex 官方支持 approval hook 后接入            |
+| Codex hook 事件覆盖仍有限                          | 可能漏掉部分状态转换                                    | 跟进 Codex hook 事件覆盖并补齐 adapter            |
+| Claude Code PermissionRequest 会对所有工具检查触发 | 若改用 PermissionRequest 替代 Notification 会有状态抖动 | 维持使用 Notification[permissionprompt]           |
+| Atmos 服务未启动时 hook 静默失败                   | Agent 正常运行不受影响，但状态不更新                    | 前端检测 Atmos 服务是否在线，离线时隐藏状态指示器 |
+| opencode 的 message.updated 需过滤 role            | 若 API 变更可能漏报                                     | 待 opencode 提供独立的 prompt submit 事件         |
 
 ---
 
 ## 7. 版本支持矩阵
 
-| 工具 | 最低支持版本 | Hook/Plugin 机制 | 备注 |
-| --- | --- | --- | --- |
-| Claude Code | v2.x | HTTP hook (type: "http") | HTTP hook 在 v2.0 后支持 |
-| Codex CLI | 最新版 | hooks.json | hooks 默认开启；Atmos 不写 feature flag |
-| opencode | v1.x | JS/TS Plugin | 默认开启，无需额外配置 |
+| 工具        | 最低支持版本 | Hook/Plugin 机制         | 备注                                    |
+| ----------- | ------------ | ------------------------ | --------------------------------------- |
+| Claude Code | v2.x         | HTTP hook (type: "http") | HTTP hook 在 v2.0 后支持                |
+| Codex CLI   | 最新版       | hooks.json               | hooks 默认开启；Atmos 不写 feature flag |
+| opencode    | v1.x         | JS/TS Plugin             | 默认开启，无需额外配置                  |

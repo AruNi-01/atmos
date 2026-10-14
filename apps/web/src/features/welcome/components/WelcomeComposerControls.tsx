@@ -85,7 +85,7 @@ export function WelcomeAgentSelector({
         onValueChange={onSelectAgent}
         open={open}
         onOpenChange={onOpenChange}
-        runConfig={selectedAgentId ? runConfigByAgentId[selectedAgentId] ?? null : null}
+        runConfig={selectedAgentId ? (runConfigByAgentId[selectedAgentId] ?? null) : null}
         runConfigByAgentId={runConfigByAgentId}
         onRunConfigChange={onRunConfigChange}
         onInteraction={onInteraction}
@@ -105,7 +105,7 @@ export function WelcomeAgentSelector({
         onValueChange={onSelectAgent}
         open={open}
         onOpenChange={onOpenChange}
-        runConfig={selectedAgentId ? runConfigByAgentId[selectedAgentId] ?? null : null}
+        runConfig={selectedAgentId ? (runConfigByAgentId[selectedAgentId] ?? null) : null}
         runConfigByAgentId={runConfigByAgentId}
         onRunConfigChange={onRunConfigChange}
         onInteraction={onInteraction}
@@ -263,12 +263,10 @@ export function WelcomeComposerControls({
           <Button
             type="submit"
             size="icon"
-            className="size-9 shrink-0 rounded-md self-end md:self-auto"
+            className="size-9 shrink-0 self-end rounded-md md:self-auto"
             disabled={disabledSubmit}
             aria-label={
-              isSubmitting
-                ? t("creatingWorkspaceAria")
-                : t("createWorkspaceAndRunAgentAria")
+              isSubmitting ? t("creatingWorkspaceAria") : t("createWorkspaceAndRunAgentAria")
             }
           >
             {isSubmitting ? (
@@ -281,7 +279,7 @@ export function WelcomeComposerControls({
         <TooltipContent side="bottom">
           <div className="flex items-center gap-2">
             <span>{t("createWorkspace")}</span>
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+            <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
               <Command className="size-3" />
               <ArrowBigUp className="size-3" />
               <span className="text-xs">↵</span>

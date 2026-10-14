@@ -7,11 +7,11 @@ or backup — not required for a single “draw this diagram” turn on the open
 
 ## Location
 
-| | |
-|--|--|
-| Directory | `~/.atmos/canvas/` |
-| Extension | `.atmos.tldr` |
-| Truth | File contents (not DB) |
+|            |                                           |
+| ---------- | ----------------------------------------- |
+| Directory  | `~/.atmos/canvas/`                        |
+| Extension  | `.atmos.tldr`                             |
+| Truth      | File contents (not DB)                    |
 | Multi-page | Many tldraw **pages** inside **one** file |
 
 Envelope (simplified):
@@ -20,8 +20,8 @@ Envelope (simplified):
 {
   "schema": "atmos-canvas-file.1",
   "title": "Ops Desk",
-  "tldrawDocument": { },
-  "session": { },
+  "tldrawDocument": {},
+  "session": {},
   "script": { "entry": "main.js", "files": { "main.js": "…" } }
 }
 ```
@@ -32,15 +32,15 @@ Envelope (simplified):
 
 ## CLI (REST — bridge not required)
 
-| Verb | Args |
-|------|------|
-| `docs` | — list + `dir` |
-| `doc-get` | `--file` |
-| `doc-put` | `--file` `--from <json path>` |
-| `doc-delete` | `--file` `--confirm` |
-| `doc-rename` | `--file` `--name` |
-| `doc-duplicate` | `--file` `[--name]` |
-| `doc-sanitize` | `--name` → preview `.atmos.tldr` name |
+| Verb            | Args                                  |
+| --------------- | ------------------------------------- |
+| `docs`          | — list + `dir`                        |
+| `doc-get`       | `--file`                              |
+| `doc-put`       | `--file` `--from <json path>`         |
+| `doc-delete`    | `--file` `--confirm`                  |
+| `doc-rename`    | `--file` `--name`                     |
+| `doc-duplicate` | `--file` `[--name]`                   |
+| `doc-sanitize`  | `--name` → preview `.atmos.tldr` name |
 
 ```bash
 atmos canvas docs
@@ -53,8 +53,8 @@ atmos canvas status   # also includes documents.dir / items / active_document
 
 ## Rules
 
-- **Do not** edit `~/.atmos/canvas/*.atmos.tldr` while that board is open in Canvas (race with live editor).  
-- Prefer live draw/script verbs on the open board; use `doc-*` for library management and closed-file rewrite.  
+- **Do not** edit `~/.atmos/canvas/*.atmos.tldr` while that board is open in Canvas (race with live editor).
+- Prefer live draw/script verbs on the open board; use `doc-*` for library management and closed-file rewrite.
 - UI: Documents control (top-right) for open / Save / Save As / rename / delete / duplicate / copy path.
 
 ---

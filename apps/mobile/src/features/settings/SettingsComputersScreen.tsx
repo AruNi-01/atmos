@@ -95,11 +95,7 @@ export function SettingsComputersScreen() {
         </Section>
       ) : settings.activeComputers.length === 0 ? (
         <Section>
-          <EmptyState
-            layout="section"
-            title="No Computers"
-            message="No Computers yet."
-          />
+          <EmptyState layout="section" title="No Computers" message="No Computers yet." />
           {process.env.EXPO_OS !== "ios" ? (
             <View className="px-card-padding pb-card-padding">
               <GlassActionButtons

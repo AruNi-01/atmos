@@ -1,5 +1,5 @@
-import { installPreviewHelper } from '../browser-helper/bootstrap';
-import type { BrowserBridgeController, BrowserBridgeEventHandlers } from '../browser-bridge/types';
+import { installPreviewHelper } from "../browser-helper/bootstrap";
+import type { BrowserBridgeController, BrowserBridgeEventHandlers } from "../browser-bridge/types";
 
 export function connectSameOriginPreviewTransport(
   win: Window,
@@ -19,7 +19,7 @@ export function connectSameOriginPreviewTransport(
   });
 
   return {
-    mode: 'same-origin',
+    mode: "same-origin",
     enterPickMode() {
       helper.enterPickMode();
     },

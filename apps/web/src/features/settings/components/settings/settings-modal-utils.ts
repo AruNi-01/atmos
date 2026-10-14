@@ -45,9 +45,7 @@ export function isBuiltInAgentId(id: string): boolean {
   return BUILT_IN_AGENT_IDS.has(id);
 }
 
-export function dedupeCodeAgentEntries(
-  entries: CodeAgentCustomEntry[],
-): CodeAgentCustomEntry[] {
+export function dedupeCodeAgentEntries(entries: CodeAgentCustomEntry[]): CodeAgentCustomEntry[] {
   const deduped = new Map<string, CodeAgentCustomEntry>();
   for (const entry of entries) {
     const id = entry.id?.trim();
@@ -57,12 +55,18 @@ export function dedupeCodeAgentEntries(
   return Array.from(deduped.values());
 }
 
-function agentDefaultFlags(agent: (typeof AGENT_OPTIONS)[number], yoloEnabled = DEFAULT_AGENT_YOLO_MODE) {
+function agentDefaultFlags(
+  agent: (typeof AGENT_OPTIONS)[number],
+  yoloEnabled = DEFAULT_AGENT_YOLO_MODE,
+) {
   return resolveAgentLaunchFlags(agent, yoloEnabled);
 }
 
 export function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
-  const next: Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }> = {};
+  const next: Record<
+    string,
+    { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }
+  > = {};
   const defaults = agentDefaultFlags;
 
   for (const agent of AGENT_OPTIONS) {
@@ -71,9 +75,10 @@ export function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
     const resolved = defaults(agent);
 
     const cmd = entry.cmd !== agent.cmd ? entry.cmd : undefined;
-    const flags = entry.flags !== (resolved.params || "") && entry.flags !== (agent.params || "")
-      ? entry.flags
-      : undefined;
+    const flags =
+      entry.flags !== (resolved.params || "") && entry.flags !== (agent.params || "")
+        ? entry.flags
+        : undefined;
     const interactiveFlags =
       entry.interactiveFlags !== (resolved.interactiveParams || "") &&
       entry.interactiveFlags !== (agent.interactiveParams || "")
@@ -93,7 +98,10 @@ export function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
 }
 
 export function buildBuiltInEntries(
-  overrides: Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }>,
+  overrides: Record<
+    string,
+    { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }
+  >,
   yoloEnabled: boolean = DEFAULT_AGENT_YOLO_MODE,
 ): CodeAgentCustomEntry[] {
   return AGENT_OPTIONS.flatMap((agent) => {
@@ -111,14 +119,16 @@ export function buildBuiltInEntries(
 
     if (!changed) return [];
 
-    return [{
-      id: agent.id,
-      label: agent.label,
-      cmd,
-      flags,
-      interactiveFlags,
-      enabled,
-    }];
+    return [
+      {
+        id: agent.id,
+        label: agent.label,
+        cmd,
+        flags,
+        interactiveFlags,
+        enabled,
+      },
+    ];
   });
 }
 

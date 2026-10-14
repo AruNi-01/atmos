@@ -71,9 +71,7 @@ export function CommitActionsContainer({
   }, [currentProjectPath, setCurrentRepoPath]);
 
   const hasChanges =
-    stagedFiles.length > 0 ||
-    unstagedFiles.length > 0 ||
-    untrackedFiles.length > 0;
+    stagedFiles.length > 0 || unstagedFiles.length > 0 || untrackedFiles.length > 0;
 
   const stageAllUnstagedFn = React.useCallback(async () => {
     await stageAllUnstaged(unstagedFiles.map((f) => f.path));

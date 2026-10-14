@@ -61,11 +61,11 @@ Composer / Terminal AI Input
 
 ## API (`apps/api` WS)
 
-| Action | Change |
-|--------|--------|
-| `skills_set_enabled` | Optional `scope_root: { id, name, path, scope }` so workspace roots participate. |
+| Action                   | Change                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `skills_set_enabled`     | Optional `scope_root: { id, name, path, scope }` so workspace roots participate.          |
 | `skills_scan_root` (new) | Scan a single absolute root with given scope/id/name; no disk-cache (composer freshness). |
-| `skills_list` | Unchanged for Skills page / project composer (project disable stays shared). |
+| `skills_list`            | Unchanged for Skills page / project composer (project disable stays shared).              |
 
 ## Frontend (`apps/web`)
 
@@ -83,12 +83,12 @@ Composer / Terminal AI Input
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
-| `rename` through a parent symlink mutates the project | Materialize ancestors first; normalize `/private` path prefix on macOS |
-| Materialization changes workplace tree shape | Only on toggle; children remain symlinks to project |
+| Risk                                                      | Mitigation                                                                       |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `rename` through a parent symlink mutates the project     | Materialize ancestors first; normalize `/private` path prefix on macOS           |
+| Materialization changes workplace tree shape              | Only on toggle; children remain symlinks to project                              |
 | Permanent `SKILL.md` stub re-discovers skill next session | Use `SKILL_DISABLED.md` only; never leave `SKILL.md` at live path while disabled |
-| Agent Runtime still holds baked metadata | Entrypoint removal is best-effort for current session; no Runtime API claim |
+| Agent Runtime still holds baked metadata                  | Entrypoint removal is best-effort for current session; no Runtime API claim      |
 
 ## Rollout
 

@@ -66,9 +66,7 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
     (session: AgentStatusRecord) => {
       const target = resolveAgentStatusNavigationTarget(session);
       if (!target.contextId || !target.tmuxWindowName) return false;
-      return canvasTerminalKeySet.has(
-        canvasTerminalKey(target.contextId, target.tmuxWindowName),
-      );
+      return canvasTerminalKeySet.has(canvasTerminalKey(target.contextId, target.tmuxWindowName));
     },
     [canvasTerminalKeySet],
   );

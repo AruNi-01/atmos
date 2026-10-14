@@ -23,9 +23,7 @@ describe("get_desktop_shell_metrics handler", () => {
     expect(Number.isFinite(snapshot.collected_at_ms)).toBe(true);
     expect(snapshot.logical_cpu_count).toBeGreaterThanOrEqual(0);
     expect(snapshot.total.process_count).toBe(0);
-    expect(snapshot.groups.map((group) => group.kind)).toEqual([
-      ...DESKTOP_SHELL_GROUP_KINDS,
-    ]);
+    expect(snapshot.groups.map((group) => group.kind)).toEqual([...DESKTOP_SHELL_GROUP_KINDS]);
     expect(snapshot.pid).toBeUndefined();
   });
 });

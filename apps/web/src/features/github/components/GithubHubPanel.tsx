@@ -23,11 +23,7 @@ import { IssuePanel } from "@/features/github/components/IssuePanel";
 import { ActionsPanel, type ActionRun } from "@/features/github/components/ActionsPanel";
 import { CreatePrDialog } from "@/features/github/components/CreatePrDialog";
 
-export function GithubHubPanel({
-  currentProjectPath,
-}: {
-  currentProjectPath: string | null;
-}) {
+export function GithubHubPanel({ currentProjectPath }: { currentProjectPath: string | null }) {
   const t = useTranslations("AppShell.chrome");
   const { openActionRunTab, openPullRequestTab, openIssueTab } = useOpenGithubCenterTab();
   const statusQuery = useGitStatusQuery(currentProjectPath);
@@ -62,9 +58,9 @@ export function GithubHubPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-col gap-2 px-2 pb-2 pt-2">
+      <div className="flex shrink-0 flex-col gap-2 px-2 pt-2 pb-2">
         <Tabs
-          className="min-w-0 max-w-full"
+          className="max-w-full min-w-0"
           value={githubSubTab}
           variant="pill"
           onValueChange={(value) => {
@@ -73,7 +69,7 @@ export function GithubHubPanel({
             }
           }}
         >
-          <TabsList className="h-8 max-w-full gap-0.5 overflow-x-auto p-0.5 scrollbar-hide">
+          <TabsList className="scrollbar-hide h-8 max-w-full gap-0.5 overflow-x-auto p-0.5">
             <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="pr">
               <GitPullRequest className="size-3.5 shrink-0" />
               {t("github.topTabs.pullRequests")}

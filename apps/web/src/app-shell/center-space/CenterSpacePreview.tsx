@@ -38,8 +38,7 @@ export function CenterSpacePreview({
 
     const paint = () => {
       if (cancelled) return false;
-      const frame =
-        queryCenterWorkArea() ?? queryCenterSpaceFrame(hostId, spaceId);
+      const frame = queryCenterWorkArea() ?? queryCenterSpaceFrame(hostId, spaceId);
       if (!frame) return false;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const width = Math.round(THUMB_WIDTH * dpr);

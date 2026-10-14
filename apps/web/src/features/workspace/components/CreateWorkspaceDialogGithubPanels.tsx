@@ -11,11 +11,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@workspace/ui';
-import { useTranslations } from 'next-intl';
-import { CloudDownload, ExternalLink, GitBranch, Loader2, Sparkles } from 'lucide-react';
-import type { GithubIssuePayload, GithubPrPayload } from '@/api/ws-api';
-import type { RepoContext } from '@/features/workspace/components/CreateWorkspaceDialogTypes';
+} from "@workspace/ui";
+import { useTranslations } from "next-intl";
+import { CloudDownload, ExternalLink, GitBranch, Loader2, Sparkles } from "lucide-react";
+import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws-api";
+import type { RepoContext } from "@/features/workspace/components/CreateWorkspaceDialogTypes";
 
 interface IssueLinkPanelProps {
   repoContext: RepoContext | null;
@@ -35,7 +35,7 @@ interface IssueLinkPanelProps {
   onSelectIssue: (value: string) => void;
   onIssueUrlChange: (value: string) => void;
   onLoadIssueFromUrl: () => void;
-  onAutoExtractTodosChange: (checked: boolean | 'indeterminate') => void;
+  onAutoExtractTodosChange: (checked: boolean | "indeterminate") => void;
 }
 
 export function IssueLinkPanel({
@@ -58,13 +58,13 @@ export function IssueLinkPanel({
   onLoadIssueFromUrl,
   onAutoExtractTodosChange,
 }: IssueLinkPanelProps) {
-  const t = useTranslations('Workspace.components.githubPanels.issue');
+  const t = useTranslations("Workspace.components.githubPanels.issue");
   const stateLabel = (state: string) => {
     switch (state) {
-      case 'open':
-        return t('states.open');
-      case 'closed':
-        return t('states.closed');
+      case "open":
+        return t("states.open");
+      case "closed":
+        return t("states.closed");
       default:
         return state;
     }
@@ -76,7 +76,7 @@ export function IssueLinkPanel({
           <>
             <div className="grid gap-2">
               <Label htmlFor="issue-select">
-                {isPreselectedIssue ? t('linkedLabel') : t('selectFromRepository')}
+                {isPreselectedIssue ? t("linkedLabel") : t("selectFromRepository")}
               </Label>
               <Select
                 value={selectedIssueNumber}
@@ -89,14 +89,18 @@ export function IssueLinkPanel({
                 >
                   <SelectValue
                     placeholder={
-                      isIssuesLoading ? t('placeholders.loadingIssues') : issues.length === 0 ? t('placeholders.noIssuesAvailable') : t('placeholders.selectIssue')
+                      isIssuesLoading
+                        ? t("placeholders.loadingIssues")
+                        : issues.length === 0
+                          ? t("placeholders.noIssuesAvailable")
+                          : t("placeholders.selectIssue")
                     }
                   />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
                   {issues.length === 0 ? (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      {t('empty.noGithubIssuesFound')}
+                      {t("empty.noGithubIssuesFound")}
                     </div>
                   ) : (
                     issues.map((issue) => (
@@ -115,7 +119,7 @@ export function IssueLinkPanel({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="issue-url">{t('pasteUrlLabel')}</Label>
+              <Label htmlFor="issue-url">{t("pasteUrlLabel")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="issue-url"
@@ -130,7 +134,7 @@ export function IssueLinkPanel({
                   size="icon"
                   onClick={onLoadIssueFromUrl}
                   disabled={isIssuePreviewLoading || !issueUrl.trim() || isPreselectedIssue}
-                  title={t('actions.loadIssue')}
+                  title={t("actions.loadIssue")}
                 >
                   {isIssuePreviewLoading ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -143,11 +147,11 @@ export function IssueLinkPanel({
           </>
         ) : selectedProjectId ? (
           <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            {t('fallbacks.projectWithoutGithub')}
+            {t("fallbacks.projectWithoutGithub")}
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            {t('fallbacks.selectProjectFirst')}
+            {t("fallbacks.selectProjectFirst")}
           </div>
         )}
 
@@ -160,7 +164,7 @@ export function IssueLinkPanel({
         {isIssuePreviewLoading ? (
           <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            {t('loadingPreview')}
+            {t("loadingPreview")}
           </div>
         ) : issuePreview ? (
           <Card className="border-border bg-muted/20">
@@ -176,17 +180,17 @@ export function IssueLinkPanel({
                       variant="outline"
                       size="sm"
                       className="h-6 gap-1 rounded-md px-2 text-[11px]"
-                      onClick={() => window.open(issuePreview.url, '_blank', 'noopener,noreferrer')}
+                      onClick={() => window.open(issuePreview.url, "_blank", "noopener,noreferrer")}
                     >
                       <ExternalLink className="size-3" />
-                      {t('actions.openOnGithub')}
+                      {t("actions.openOnGithub")}
                     </Button>
                   </div>
                   <h3 className="mt-1 truncate text-sm font-medium text-foreground">
                     {issuePreview.title}
                   </h3>
                 </div>
-                <Badge variant="secondary" className="capitalize shrink-0">
+                <Badge variant="secondary" className="shrink-0 capitalize">
                   {stateLabel(issuePreview.state)}
                 </Badge>
               </div>
@@ -201,7 +205,7 @@ export function IssueLinkPanel({
                 </div>
               )}
 
-              <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
+              <p className="line-clamp-6 text-xs leading-5 whitespace-pre-wrap text-muted-foreground">
                 {issueBodyPreview}
               </p>
             </CardContent>
@@ -217,7 +221,7 @@ export function IssueLinkPanel({
           <div className="min-w-0">
             <div className="flex items-center gap-2 font-medium text-foreground">
               <Sparkles className="size-4 text-muted-foreground" />
-              {t('autoExtractTitle')}
+              {t("autoExtractTitle")}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
           </div>
@@ -243,7 +247,7 @@ interface PrLinkPanelProps {
   onSelectPr: (value: string) => void;
   onPrUrlChange: (value: string) => void;
   onLoadPrFromUrl: () => void;
-  onAutoExtractTodosChange: (checked: boolean | 'indeterminate') => void;
+  onAutoExtractTodosChange: (checked: boolean | "indeterminate") => void;
 }
 
 export function PrLinkPanel({
@@ -264,16 +268,16 @@ export function PrLinkPanel({
   onLoadPrFromUrl,
   onAutoExtractTodosChange,
 }: PrLinkPanelProps) {
-  const t = useTranslations('Workspace.components.githubPanels.pr');
+  const t = useTranslations("Workspace.components.githubPanels.pr");
   const stateLabel = (state: string, isDraft: boolean) => {
-    if (isDraft) return t('states.draft');
+    if (isDraft) return t("states.draft");
     switch (state) {
-      case 'open':
-        return t('states.open');
-      case 'closed':
-        return t('states.closed');
-      case 'merged':
-        return t('states.merged');
+      case "open":
+        return t("states.open");
+      case "closed":
+        return t("states.closed");
+      case "merged":
+        return t("states.merged");
       default:
         return state;
     }
@@ -284,7 +288,7 @@ export function PrLinkPanel({
         {repoContext ? (
           <>
             <div className="grid gap-2">
-              <Label htmlFor="pr-select">{t('selectFromRepository')}</Label>
+              <Label htmlFor="pr-select">{t("selectFromRepository")}</Label>
               <Select
                 value={selectedPrNumber}
                 onValueChange={onSelectPr}
@@ -296,14 +300,18 @@ export function PrLinkPanel({
                 >
                   <SelectValue
                     placeholder={
-                      isPrsLoading ? t('placeholders.loadingPrs') : prs.length === 0 ? t('placeholders.noPrsAvailable') : t('placeholders.selectPr')
+                      isPrsLoading
+                        ? t("placeholders.loadingPrs")
+                        : prs.length === 0
+                          ? t("placeholders.noPrsAvailable")
+                          : t("placeholders.selectPr")
                     }
                   />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
                   {prs.length === 0 ? (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      {t('empty.noGithubPrsFound')}
+                      {t("empty.noGithubPrsFound")}
                     </div>
                   ) : (
                     prs.map((pr) => (
@@ -322,7 +330,7 @@ export function PrLinkPanel({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="pr-url">{t('pasteUrlLabel')}</Label>
+              <Label htmlFor="pr-url">{t("pasteUrlLabel")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="pr-url"
@@ -336,7 +344,7 @@ export function PrLinkPanel({
                   size="icon"
                   onClick={onLoadPrFromUrl}
                   disabled={isPrPreviewLoading || !prUrl.trim()}
-                  title={t('actions.loadPr')}
+                  title={t("actions.loadPr")}
                 >
                   {isPrPreviewLoading ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -349,11 +357,11 @@ export function PrLinkPanel({
           </>
         ) : selectedProjectId ? (
           <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            {t('fallbacks.projectWithoutGithub')}
+            {t("fallbacks.projectWithoutGithub")}
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            {t('fallbacks.selectProjectFirst')}
+            {t("fallbacks.selectProjectFirst")}
           </div>
         )}
 
@@ -366,7 +374,7 @@ export function PrLinkPanel({
         {isPrPreviewLoading ? (
           <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            {t('loadingPreview')}
+            {t("loadingPreview")}
           </div>
         ) : prPreview ? (
           <Card className="border-border bg-muted/20">
@@ -382,10 +390,10 @@ export function PrLinkPanel({
                       variant="outline"
                       size="sm"
                       className="h-6 gap-1 rounded-md px-2 text-[11px]"
-                      onClick={() => window.open(prPreview.url, '_blank', 'noopener,noreferrer')}
+                      onClick={() => window.open(prPreview.url, "_blank", "noopener,noreferrer")}
                     >
                       <ExternalLink className="size-3" />
-                      {t('actions.openOnGithub')}
+                      {t("actions.openOnGithub")}
                     </Button>
                   </div>
                   <h3 className="mt-1 truncate text-sm font-medium text-foreground">
@@ -403,7 +411,7 @@ export function PrLinkPanel({
                     </span>
                   </div>
                 </div>
-                <Badge variant="secondary" className="capitalize shrink-0">
+                <Badge variant="secondary" className="shrink-0 capitalize">
                   {stateLabel(prPreview.state, prPreview.is_draft)}
                 </Badge>
               </div>
@@ -418,14 +426,14 @@ export function PrLinkPanel({
                 </div>
               )}
 
-              <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
-                {prPreview.body?.trim() || t('noDescription')}
+              <p className="line-clamp-6 text-xs leading-5 whitespace-pre-wrap text-muted-foreground">
+                {prPreview.body?.trim() || t("noDescription")}
               </p>
 
               <div className="rounded-md border border-border bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
-                {t('reuseBranchPrefix')}{' '}
+                {t("reuseBranchPrefix")}{" "}
                 <span className="font-mono text-foreground">{prPreview.head_ref}</span> directly
-                {t('reuseBranchSuffix')}
+                {t("reuseBranchSuffix")}
               </div>
             </CardContent>
           </Card>
@@ -440,7 +448,7 @@ export function PrLinkPanel({
           <div className="min-w-0">
             <div className="flex items-center gap-2 font-medium text-foreground">
               <Sparkles className="size-4 text-muted-foreground" />
-              {t('autoExtractTitle')}
+              {t("autoExtractTitle")}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
           </div>

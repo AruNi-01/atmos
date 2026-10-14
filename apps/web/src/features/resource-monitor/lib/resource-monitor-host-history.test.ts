@@ -83,11 +83,11 @@ describe("appendResourceHostHistoryPoint", () => {
   });
 
   test("dedupes the same local receive timestamp", () => {
-    const first = appendResourceHostHistoryPoint(
-      emptyResourceHostHistoryRing("a"),
-      "a",
-      { received_at_ms: 10, cpu_percent: 1, memory_percent: 2 },
-    );
+    const first = appendResourceHostHistoryPoint(emptyResourceHostHistoryRing("a"), "a", {
+      received_at_ms: 10,
+      cpu_percent: 1,
+      memory_percent: 2,
+    });
     const again = appendResourceHostHistoryPoint(first, "a", {
       received_at_ms: 10,
       cpu_percent: 9,
@@ -110,17 +110,15 @@ describe("appendResourceHostHistoryPoint", () => {
       memory_percent: 4,
     });
     expect(relay.scopeKey).toBe("relay:2:1");
-    expect(relay.points).toEqual([
-      { received_at_ms: 2, cpu_percent: 3, memory_percent: 4 },
-    ]);
+    expect(relay.points).toEqual([{ received_at_ms: 2, cpu_percent: 3, memory_percent: 4 }]);
   });
 
   test("ignores a missing snapshot on the same scope", () => {
-    const first = appendResourceHostHistoryPoint(
-      emptyResourceHostHistoryRing("a"),
-      "a",
-      { received_at_ms: 1, cpu_percent: 1, memory_percent: 1 },
-    );
+    const first = appendResourceHostHistoryPoint(emptyResourceHostHistoryRing("a"), "a", {
+      received_at_ms: 1,
+      cpu_percent: 1,
+      memory_percent: 1,
+    });
     expect(appendResourceHostHistoryPoint(first, "a", null)).toBe(first);
   });
 });

@@ -28,7 +28,9 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
   const [leftSidebarSize, setLeftSidebarSize] = React.useState(DEFAULT_LEFT_SIDEBAR_SIZE);
   const [liveLeftSidebarSize, setLiveLeftSidebarSize] = React.useState(DEFAULT_LEFT_SIDEBAR_SIZE);
   const [isLeftSidebarDragging, setIsLeftSidebarDragging] = React.useState(false);
-  const [requestedLeftSidebarSize, setRequestedLeftSidebarSize] = React.useState<number | null>(null);
+  const [requestedLeftSidebarSize, setRequestedLeftSidebarSize] = React.useState<number | null>(
+    null,
+  );
   const [toggleLeftSidebarImpl, setToggleLeftSidebar] = React.useState<ToggleFn | null>(null);
   const setLeftSidebarToggle = React.useCallback((toggle: ToggleFn | null) => {
     setToggleLeftSidebar(() => toggle);
@@ -58,14 +60,10 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
       requestedLeftSidebarSize,
       setLeftSidebarToggle,
       toggleLeftSidebarImpl,
-    ]
+    ],
   );
 
-  return (
-    <SidebarLayoutContext.Provider value={value}>
-      {children}
-    </SidebarLayoutContext.Provider>
-  );
+  return <SidebarLayoutContext.Provider value={value}>{children}</SidebarLayoutContext.Provider>;
 }
 
 export function useSidebarLayout() {

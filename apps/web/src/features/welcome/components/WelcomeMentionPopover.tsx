@@ -11,12 +11,7 @@ import {
   getFileIconProps,
   ScrollArea,
 } from "@workspace/ui";
-import {
-  CircleDot,
-  Files,
-  GitPullRequestArrow,
-  Loader2,
-} from "lucide-react";
+import { CircleDot, Files, GitPullRequestArrow, Loader2 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws-api";
 import {
@@ -109,10 +104,7 @@ export function WelcomeMentionPopover({
 
   return createPortal(
     <>
-      <div
-        className="fixed inset-0 z-[2147483646]"
-        onMouseDown={onClose}
-      />
+      <div className="fixed inset-0 z-[2147483646]" onMouseDown={onClose} />
       <div
         ref={listRef}
         className="fixed z-[2147483647] max-h-80 w-[min(90vw,460px)] overflow-hidden rounded-2xl border border-border/70 bg-popover text-sm text-popover-foreground shadow-md"
@@ -128,144 +120,149 @@ export function WelcomeMentionPopover({
           viewportClassName="h-auto max-h-80"
         >
           <div className="space-y-0.5 p-1">
-        {githubCount > 0 ? (
-          <>
-            <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
-              <Github className="size-3" />
-              <span>{t("mentionPopover.github")}</span>
+            {githubCount > 0 ? (
+              <>
+                <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
+                  <Github className="size-3" />
+                  <span>{t("mentionPopover.github")}</span>
+                </div>
+                {issuePreview ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        ref={(element) => {
+                          onSetItemRef(issueIndex, element);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          issueIndex === activeIndex && "bg-muted",
+                        )}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          onSelectNavItem({ type: "issue", issue: issuePreview });
+                        }}
+                      >
+                        <CircleDot className="size-4 text-muted-foreground" />
+                        <span className="font-mono text-xs text-muted-foreground">
+                          #{issuePreview.number}
+                        </span>
+                        <span className="truncate">{issuePreview.title}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      align="end"
+                      className="z-[2147483647] max-w-xs break-words whitespace-normal"
+                    >
+                      #{issuePreview.number} {issuePreview.title}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null}
+                {prPreview ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        ref={(element) => {
+                          onSetItemRef(prIndex, element);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          prIndex === activeIndex && "bg-muted",
+                        )}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          onSelectNavItem({ type: "pr", pr: prPreview });
+                        }}
+                      >
+                        <GitPullRequestArrow className="size-4 text-muted-foreground" />
+                        <span className="font-mono text-xs text-muted-foreground">
+                          #{prPreview.number}
+                        </span>
+                        <span className="truncate">{prPreview.title}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      align="end"
+                      className="z-[2147483647] max-w-xs break-words whitespace-normal"
+                    >
+                      #{prPreview.number} {prPreview.title}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null}
+              </>
+            ) : null}
+            <div
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground",
+                githubCount > 0 && "mt-1.5",
+              )}
+            >
+              <Files className="size-3" />
+              <span>{t("mentionPopover.files")}</span>
             </div>
-            {issuePreview ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    ref={(element) => {
-                      onSetItemRef(issueIndex, element);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
-                      issueIndex === activeIndex && "bg-muted",
-                    )}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      onSelectNavItem({ type: "issue", issue: issuePreview });
-                    }}
-                  >
-                    <CircleDot className="size-4 text-muted-foreground" />
-                    <span className="font-mono text-xs text-muted-foreground">
-                      #{issuePreview.number}
-                    </span>
-                    <span className="truncate">{issuePreview.title}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="right"
-                  align="end"
-                  className="z-[2147483647] max-w-xs whitespace-normal break-words"
-                >
-                  #{issuePreview.number} {issuePreview.title}
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-            {prPreview ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    ref={(element) => {
-                      onSetItemRef(prIndex, element);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
-                      prIndex === activeIndex && "bg-muted",
-                    )}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      onSelectNavItem({ type: "pr", pr: prPreview });
-                    }}
-                  >
-                    <GitPullRequestArrow className="size-4 text-muted-foreground" />
-                    <span className="font-mono text-xs text-muted-foreground">
-                      #{prPreview.number}
-                    </span>
-                    <span className="truncate">{prPreview.title}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="right"
-                  align="end"
-                  className="z-[2147483647] max-w-xs whitespace-normal break-words"
-                >
-                  #{prPreview.number} {prPreview.title}
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-          </>
-        ) : null}
-        <div className={cn("flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground", githubCount > 0 && "mt-1.5")}>
-          <Files className="size-3" />
-          <span>{t("mentionPopover.files")}</span>
-        </div>
-        {isLoading ? (
-          <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
-            {t("mentionPopover.searchingFiles")}
-          </div>
-        ) : mentionFiles.length > 0 ? (
-          mentionFiles.map((item, index) => {
-            const iconProps = getFileIconProps({
-              name: item.name,
-              isDir: item.isDir,
-              className: "size-4",
-            });
-            const navIndex = githubCount + index;
-            return (
-              <Tooltip key={item.relativePath}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    ref={(element) => {
-                      onSetItemRef(navIndex, element);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
-                      item.isHidden && "text-muted-foreground",
-                      navIndex === activeIndex && "bg-muted",
-                    )}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      onSelectFile(item);
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- file icons are tiny decorative SVG/data assets from the UI package. */}
-                    <img {...iconProps} alt="" />
-                    <MentionHighlightText
-                      text={item.name}
-                      query={nameHighlightQuery}
-                      className="min-w-0 flex-1 truncate"
-                    />
-                    <span className="ml-2 max-w-[55%] shrink truncate text-right text-[11px] text-muted-foreground">
+            {isLoading ? (
+              <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                {t("mentionPopover.searchingFiles")}
+              </div>
+            ) : mentionFiles.length > 0 ? (
+              mentionFiles.map((item, index) => {
+                const iconProps = getFileIconProps({
+                  name: item.name,
+                  isDir: item.isDir,
+                  className: "size-4",
+                });
+                const navIndex = githubCount + index;
+                return (
+                  <Tooltip key={item.relativePath}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        ref={(element) => {
+                          onSetItemRef(navIndex, element);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          item.isHidden && "text-muted-foreground",
+                          navIndex === activeIndex && "bg-muted",
+                        )}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          onSelectFile(item);
+                        }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- file icons are tiny decorative SVG/data assets from the UI package. */}
+                        <img {...iconProps} alt="" />
+                        <MentionHighlightText
+                          text={item.name}
+                          query={nameHighlightQuery}
+                          className="min-w-0 flex-1 truncate"
+                        />
+                        <span className="ml-2 max-w-[55%] shrink truncate text-right text-[11px] text-muted-foreground">
+                          {item.relativePath}
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      align="end"
+                      className="z-[2147483647] max-w-xs break-words whitespace-normal"
+                    >
                       {item.relativePath}
-                    </span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="right"
-                  align="end"
-                  className="z-[2147483647] max-w-xs whitespace-normal break-words"
-                >
-                  {item.relativePath}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })
-        ) : (
-          <div className="px-2.5 py-2 text-xs text-muted-foreground">
-            {isImmediateMentionListingQuery(popover.query)
-              ? t("mentionPopover.noFiles")
-              : t("mentionPopover.noMatches")}
-          </div>
-        )}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })
+            ) : (
+              <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                {isImmediateMentionListingQuery(popover.query)
+                  ? t("mentionPopover.noFiles")
+                  : t("mentionPopover.noMatches")}
+              </div>
+            )}
           </div>
         </ScrollArea>
       </div>

@@ -13,10 +13,7 @@
  */
 import type { Editor } from "tldraw";
 
-import {
-  createDocumentScriptHelpers,
-  type DocumentScriptHelpers,
-} from "./document-script-helpers";
+import { createDocumentScriptHelpers, type DocumentScriptHelpers } from "./document-script-helpers";
 
 export type CanvasDocumentScriptBundle = {
   entry: string;
@@ -133,9 +130,7 @@ export class DocumentScriptHost {
       });
 
       const entryFinal = rewriteRelativeImports(source, entry, pathToUrl);
-      const entryUrl = URL.createObjectURL(
-        new Blob([entryFinal], { type: "text/javascript" }),
-      );
+      const entryUrl = URL.createObjectURL(new Blob([entryFinal], { type: "text/javascript" }));
       this.blobUrls.push(entryUrl);
 
       this.setStatus({
@@ -209,8 +204,7 @@ function buildResolvedModuleUrls(
       const rewritten = rewriteRelativeImports(code, path, pathToUrl);
       nextRewritten.set(path, rewritten);
       if (rewrittenByPath.get(path) !== rewritten) changed = true;
-      const dataUrl =
-        "data:text/javascript;charset=utf-8," + encodeURIComponent(rewritten);
+      const dataUrl = "data:text/javascript;charset=utf-8," + encodeURIComponent(rewritten);
       nextUrls.set(path, dataUrl);
       nextUrls.set(path.replace(/^\.\//, ""), dataUrl);
     }
@@ -250,8 +244,7 @@ export function rewriteRelativeImports(
 ): string {
   const replaceSpec = (quote: string, rel: string) => {
     const resolved = resolveRelative(fromPath, rel);
-    const url =
-      pathToUrl.get(resolved) ?? pathToUrl.get(resolved.replace(/^\.\//, ""));
+    const url = pathToUrl.get(resolved) ?? pathToUrl.get(resolved.replace(/^\.\//, ""));
     if (!url) return null;
     return `${quote}${url}${quote}`;
   };
@@ -407,10 +400,7 @@ export function getDocumentScriptHost(): DocumentScriptHost {
 }
 
 /** One-shot exec against the live editor. */
-export async function runDocumentScriptExec(
-  editor: Editor,
-  code: string,
-): Promise<unknown> {
+export async function runDocumentScriptExec(editor: Editor, code: string): Promise<unknown> {
   const helpers = createDocumentScriptHelpers(editor);
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
     ...args: string[]

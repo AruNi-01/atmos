@@ -7,21 +7,13 @@
  *   bun scripts/stamp-dmg-applications-alias.ts [path/to/Atmos.dmg]
  */
 import { spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdtempSync,
-  renameSync,
-  rmSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const APPLICATIONS_PNG = join(
-  appRoot,
-  "resources/dmg/applications-folder.png",
-);
+const APPLICATIONS_PNG = join(appRoot, "resources/dmg/applications-folder.png");
 
 function run(cmd: string, args: string[]): string {
   const r = spawnSync(cmd, args, {
@@ -31,9 +23,7 @@ function run(cmd: string, args: string[]): string {
   const stdout = r.stdout ?? "";
   const stderr = r.stderr ?? "";
   if ((r.status ?? 1) !== 0) {
-    throw new Error(
-      `${cmd} ${args.join(" ")} failed (${r.status}): ${stderr || stdout}`,
-    );
+    throw new Error(`${cmd} ${args.join(" ")} failed (${r.status}): ${stderr || stdout}`);
   }
   return stdout;
 }
@@ -46,13 +36,7 @@ function detachVolume(volumePath: string): void {
 }
 
 function attachRw(dmgPath: string): string {
-  const stdout = run("hdiutil", [
-    "attach",
-    "-readwrite",
-    "-nobrowse",
-    "-noverify",
-    dmgPath,
-  ]);
+  const stdout = run("hdiutil", ["attach", "-readwrite", "-nobrowse", "-noverify", dmgPath]);
   const match = stdout.match(/\s+(\/Volumes\/[^\s]+)\s*$/m);
   if (!match?.[1]) {
     throw new Error(`could not parse mount point from:\n${stdout}`);
@@ -116,16 +100,7 @@ export function stampDmgApplicationsAlias(dmgPath: string): void {
     } finally {
       detachVolume(volume);
     }
-    run("hdiutil", [
-      "convert",
-      rw,
-      "-format",
-      "UDZO",
-      "-imagekey",
-      "zlib-level=9",
-      "-o",
-      out,
-    ]);
+    run("hdiutil", ["convert", rw, "-format", "UDZO", "-imagekey", "zlib-level=9", "-o", out]);
     renameSync(out, dmgPath);
   } finally {
     rmSync(work, { recursive: true, force: true });

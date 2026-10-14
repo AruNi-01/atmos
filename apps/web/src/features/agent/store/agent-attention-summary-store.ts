@@ -50,11 +50,7 @@ function fromDto(dto: AgentAttentionSummaryDto): PaneAttentionSummary | null {
   const stablePaneId = dto.stable_pane_id?.trim();
   const contextId = dto.context_id?.trim();
   if (!stablePaneId || !contextId) return null;
-  if (
-    dto.status !== "summarizing" &&
-    dto.status !== "ready" &&
-    dto.status !== "error"
-  ) {
+  if (dto.status !== "summarizing" && dto.status !== "ready" && dto.status !== "error") {
     return null;
   }
   return {
@@ -66,70 +62,67 @@ function fromDto(dto: AgentAttentionSummaryDto): PaneAttentionSummary | null {
     nextSteps: Array.isArray(dto.next_steps)
       ? dto.next_steps.map((s) => String(s).trim()).filter(Boolean)
       : [],
-    canCloseSession:
-      typeof dto.can_close_session === "boolean" ? dto.can_close_session : undefined,
+    canCloseSession: typeof dto.can_close_session === "boolean" ? dto.can_close_session : undefined,
     error: dto.error?.trim() || undefined,
     startedAt: parseTime(dto.started_at) ?? Date.now(),
     completedAt: parseTime(dto.completed_at ?? undefined),
   };
 }
 
-export const useAgentAttentionSummaryStore = create<AgentAttentionSummaryStore>(
-  (set, get) => ({
-    panes: new Map(),
-    revision: 0,
+export const useAgentAttentionSummaryStore = create<AgentAttentionSummaryStore>((set, get) => ({
+  panes: new Map(),
+  revision: 0,
 
-    upsert: (row) => {
-      const stablePaneId = row.stablePaneId?.trim();
-      if (!stablePaneId) return;
-      set((state) => {
-        const panes = new Map(state.panes);
-        panes.set(stablePaneId, { ...row, stablePaneId });
-        return { panes, revision: state.revision + 1 };
-      });
-    },
+  upsert: (row) => {
+    const stablePaneId = row.stablePaneId?.trim();
+    if (!stablePaneId) return;
+    set((state) => {
+      const panes = new Map(state.panes);
+      panes.set(stablePaneId, { ...row, stablePaneId });
+      return { panes, revision: state.revision + 1 };
+    });
+  },
 
-    hydrateFromServer: (rows) => {
-      const panes = new Map<string, PaneAttentionSummary>();
-      for (const dto of rows) {
-        const row = fromDto(dto);
-        if (!row) continue;
-        panes.set(row.stablePaneId, row);
-      }
-      set((state) => ({ panes, revision: state.revision + 1 }));
-    },
+  hydrateFromServer: (rows) => {
+    const panes = new Map<string, PaneAttentionSummary>();
+    for (const dto of rows) {
+      const row = fromDto(dto);
+      if (!row) continue;
+      panes.set(row.stablePaneId, row);
+    }
+    set((state) => ({ panes, revision: state.revision + 1 }));
+  },
 
-    clearMatchingIds: (ids) => {
-      const idSet = new Set(ids.map((id) => id.trim()).filter(Boolean));
-      if (idSet.size === 0) return;
-      set((state) => {
-        let changed = false;
-        const panes = new Map(state.panes);
-        for (const [key, row] of state.panes) {
-          if (idSet.has(key) || idSet.has(row.sessionId)) {
-            panes.delete(key);
-            changed = true;
-          }
+  clearMatchingIds: (ids) => {
+    const idSet = new Set(ids.map((id) => id.trim()).filter(Boolean));
+    if (idSet.size === 0) return;
+    set((state) => {
+      let changed = false;
+      const panes = new Map(state.panes);
+      for (const [key, row] of state.panes) {
+        if (idSet.has(key) || idSet.has(row.sessionId)) {
+          panes.delete(key);
+          changed = true;
         }
-        if (!changed) return state;
-        return { panes, revision: state.revision + 1 };
-      });
-    },
+      }
+      if (!changed) return state;
+      return { panes, revision: state.revision + 1 };
+    });
+  },
 
-    clearPane: (stablePaneId) => {
-      const id = stablePaneId?.trim();
-      if (!id) return;
-      set((state) => {
-        if (!state.panes.has(id)) return state;
-        const panes = new Map(state.panes);
-        panes.delete(id);
-        return { panes, revision: state.revision + 1 };
-      });
-    },
+  clearPane: (stablePaneId) => {
+    const id = stablePaneId?.trim();
+    if (!id) return;
+    set((state) => {
+      if (!state.panes.has(id)) return state;
+      const panes = new Map(state.panes);
+      panes.delete(id);
+      return { panes, revision: state.revision + 1 };
+    });
+  },
 
-    getPane: (stablePaneId) => get().panes.get(stablePaneId) ?? null,
-  }),
-);
+  getPane: (stablePaneId) => get().panes.get(stablePaneId) ?? null,
+}));
 
 export function selectPaneAttentionSummary(
   stablePaneId: string,
@@ -146,10 +139,7 @@ export async function hydrateAttentionSummariesFromServer(): Promise<void> {
     if (useAgentAttentionSummaryStore.getState().revision !== revision) return;
     useAgentAttentionSummaryStore.getState().hydrateFromServer(summaries ?? []);
   } catch (error) {
-    console.warn(
-      "[AgentAttentionSummaryStore] Failed to hydrate summaries:",
-      error,
-    );
+    console.warn("[AgentAttentionSummaryStore] Failed to hydrate summaries:", error);
   }
 }
 
@@ -180,18 +170,12 @@ export function dismissAttentionSummaryChrome(stablePaneId: string): void {
   void agentStatusApi
     .clearAttention({ stablePaneId: id, notAfter, dismissSummary: true })
     .catch((error) => {
-      console.warn(
-        "[AgentAttentionSummaryStore] Failed to dismiss summary:",
-        error,
-      );
+      console.warn("[AgentAttentionSummaryStore] Failed to dismiss summary:", error);
       restoreDismissedAttentionSummary(id, prevAttentionList, prevSummary);
     });
 }
 
-function collectMatchingAttention(
-  panes: Map<string, PaneAttention>,
-  id: string,
-): PaneAttention[] {
+function collectMatchingAttention(panes: Map<string, PaneAttention>, id: string): PaneAttention[] {
   const matched: PaneAttention[] = [];
   for (const [key, pane] of panes) {
     if (key === id || pane.sessionId === id) {
@@ -219,8 +203,7 @@ function restoreDismissedAttentionSummary(
     (best, pane) => Math.max(best, pane.raisedAt),
     prevSummary?.startedAt ?? 0,
   );
-  const newerTurnTookOver =
-    newestCurrentRaisedAt > 0 && newestCurrentRaisedAt > prevRaisedAt;
+  const newerTurnTookOver = newestCurrentRaisedAt > 0 && newestCurrentRaisedAt > prevRaisedAt;
 
   if (currentMatches.length === 0) {
     for (const prev of prevAttentionList) {

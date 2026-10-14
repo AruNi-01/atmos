@@ -28,8 +28,7 @@ mock.module("next-intl", () => ({
 }));
 
 mock.module("@workspace/ui", () => ({
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
   toastManager: {
     add: () => undefined,
   },
@@ -61,10 +60,10 @@ function expectedStage(viewport: { width: number; height: number }) {
   const width = Math.round(viewport.width * IMAGE_PREVIEW_STAGE_RATIO);
   const left = Math.round((viewport.width - width) / 2);
   const top =
-    IMAGE_PREVIEW_TOOLBAR_TOP_GAP_PX
-    + IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX
-    + IMAGE_PREVIEW_TOOLBAR_GAP_PX;
-  const bottomInset = Math.round(viewport.height * (1 - IMAGE_PREVIEW_STAGE_RATIO) / 2);
+    IMAGE_PREVIEW_TOOLBAR_TOP_GAP_PX +
+    IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX +
+    IMAGE_PREVIEW_TOOLBAR_GAP_PX;
+  const bottomInset = Math.round((viewport.height * (1 - IMAGE_PREVIEW_STAGE_RATIO)) / 2);
   return {
     left,
     top,
@@ -143,9 +142,9 @@ describe("image preview zoom geometry", () => {
     const stage = imagePreviewStageRect({ width: 400, height: 400 });
     expect(stage.toolbarGap).toBe(IMAGE_PREVIEW_TOOLBAR_GAP_PX);
     expect(stage.top).toBe(
-      IMAGE_PREVIEW_TOOLBAR_TOP_GAP_PX
-        + IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX
-        + IMAGE_PREVIEW_TOOLBAR_GAP_PX,
+      IMAGE_PREVIEW_TOOLBAR_TOP_GAP_PX +
+        IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX +
+        IMAGE_PREVIEW_TOOLBAR_GAP_PX,
     );
     expect(stage.top + stage.height).toBeLessThanOrEqual(400);
     expect(stage.width).toBe(380);
@@ -396,18 +395,22 @@ describe("ImagePreviewOverlay context menu", () => {
     renderOverlay(() => undefined, { onSaveAnnotation: () => undefined });
     const draw = document.querySelector('[data-image-preview-toolbar-action="draw"]');
     expect(draw).not.toBeNull();
-    expect(document.querySelector('[data-image-preview-toolbar-action="save-annotation"]')).toBeNull();
+    expect(
+      document.querySelector('[data-image-preview-toolbar-action="save-annotation"]'),
+    ).toBeNull();
 
     await act(async () => {
       draw?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
     });
 
-    expect(document.querySelector('[data-image-preview-toolbar-action="save-annotation"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-image-preview-toolbar-action="save-annotation"]'),
+    ).not.toBeNull();
     expect(document.querySelector('[data-image-preview-toolbar-action="undo"]')).not.toBeNull();
     expect(document.querySelector('[data-image-preview-toolbar-action="redo"]')).not.toBeNull();
-    const actions = [
-      ...document.querySelectorAll("[data-image-preview-toolbar-action]"),
-    ].map((node) => node.getAttribute("data-image-preview-toolbar-action"));
+    const actions = [...document.querySelectorAll("[data-image-preview-toolbar-action]")].map(
+      (node) => node.getAttribute("data-image-preview-toolbar-action"),
+    );
     expect(actions.slice(0, 4)).toEqual(["save-annotation", "undo", "redo", "draw"]);
   });
 
@@ -437,24 +440,30 @@ describe("ImagePreviewOverlay context menu", () => {
     const PointerEvent = window.PointerEvent;
 
     await act(async () => {
-      canvas?.dispatchEvent(new PointerEvent("pointerdown", {
-        bubbles: true,
-        button: 0,
-        clientX: 10,
-        clientY: 10,
-      }));
-      canvas?.dispatchEvent(new PointerEvent("pointermove", {
-        bubbles: true,
-        button: 0,
-        clientX: 40,
-        clientY: 25,
-      }));
-      canvas?.dispatchEvent(new PointerEvent("pointerup", {
-        bubbles: true,
-        button: 0,
-        clientX: 40,
-        clientY: 25,
-      }));
+      canvas?.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        }),
+      );
+      canvas?.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          button: 0,
+          clientX: 40,
+          clientY: 25,
+        }),
+      );
+      canvas?.dispatchEvent(
+        new PointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 40,
+          clientY: 25,
+        }),
+      );
     });
 
     expect(img?.style.transform).toContain("translate(30px, 15px)");

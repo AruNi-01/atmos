@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   Input,
   Label,
   AlertTriangle,
-} from '@workspace/ui';
+} from "@workspace/ui";
 
 interface DeleteProjectDialogProps {
   isOpen: boolean;
@@ -28,10 +28,10 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
   onConfirm,
   canDelete = true,
 }) => {
-  const [confirmName, setConfirmName] = useState('');
+  const [confirmName, setConfirmName] = useState("");
 
   const handleClose = () => {
-    setConfirmName('');
+    setConfirmName("");
     onClose();
   };
 
@@ -48,19 +48,21 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 rounded-full bg-destructive/10">
+          <div className="mb-4 flex justify-center">
+            <div className="rounded-full bg-destructive/10 p-3">
               <AlertTriangle className="size-6 text-destructive" />
             </div>
           </div>
           <DialogTitle className="text-center">Delete {projectName}</DialogTitle>
           {canDelete ? (
             <DialogDescription className="text-center">
-              This action cannot be undone. This will permanently delete the project and remove it from your workspace.
+              This action cannot be undone. This will permanently delete the project and remove it
+              from your workspace.
             </DialogDescription>
           ) : (
             <DialogDescription className="text-center text-amber-500">
-              This project has active (non-archived) workspaces. Please archive all workspaces before deleting the project.
+              This project has active (non-archived) workspaces. Please archive all workspaces
+              before deleting the project.
             </DialogDescription>
           )}
         </DialogHeader>
@@ -68,7 +70,9 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
         {canDelete && (
           <div className="py-4">
             <Label htmlFor="confirm-name" className="text-sm text-muted-foreground">
-              To confirm, type &apos;<span className="font-semibold text-foreground">{projectName}</span>&apos; in the box below
+              To confirm, type &apos;
+              <span className="font-semibold text-foreground">{projectName}</span>&apos; in the box
+              below
             </Label>
             <Input
               id="confirm-name"
@@ -98,7 +102,7 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
               </Button>
             </>
           ) : (
-              <Button variant="outline" onClick={handleClose} className="w-full cursor-pointer">
+            <Button variant="outline" onClick={handleClose} className="w-full cursor-pointer">
               Close
             </Button>
           )}

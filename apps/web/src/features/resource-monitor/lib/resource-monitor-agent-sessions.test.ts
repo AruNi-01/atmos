@@ -38,9 +38,7 @@ const projects = [
   },
 ] as unknown as Project[];
 
-function status(
-  overrides: Partial<AgentStatusRecord> = {},
-): AgentStatusRecord {
+function status(overrides: Partial<AgentStatusRecord> = {}): AgentStatusRecord {
   return {
     session_id: "chat:chat-1",
     tool: "grok-build",
@@ -55,9 +53,7 @@ function status(
   };
 }
 
-function tab(
-  overrides: Partial<AgentChatCenterTab> = {},
-): AgentChatCenterTab {
+function tab(overrides: Partial<AgentChatCenterTab> = {}): AgentChatCenterTab {
   return {
     id: "agent-chat:chat-1",
     value: "agent-chat:chat-1",
@@ -72,9 +68,7 @@ function tab(
   };
 }
 
-function snapshotProject(
-  overrides: Partial<ResourceProjectMetrics> = {},
-): ResourceProjectMetrics {
+function snapshotProject(overrides: Partial<ResourceProjectMetrics> = {}): ResourceProjectMetrics {
   return {
     project_id: "proj-1",
     name: "Atmos",
@@ -175,7 +169,9 @@ describe("collectResourceMonitorChatSessions", () => {
   test("reads space from the open tab when status space disagrees", () => {
     const paintId = makeCenterSpaceKey("ws-1", "space-review");
     const [chat] = collectResourceMonitorChatSessions({
-      agentSessions: [status({ space_id: "main", surface_id: "chat-2", session_id: "chat:chat-2" })],
+      agentSessions: [
+        status({ space_id: "main", surface_id: "chat-2", session_id: "chat:chat-2" }),
+      ],
       chatTabsByContext: {
         [paintId]: [
           tab({
@@ -211,16 +207,9 @@ describe("mergeResourceMonitorChatSessions", () => {
     });
     const merged = mergeResourceMonitorChatSessions([snapshotProject()], chats);
     const sessions = merged[0]?.workspaces[0]?.sessions ?? [];
-    expect(sessions.map((item) => item.session_id)).toEqual([
-      "sess-tui",
-      "chat:chat-1",
-    ]);
-    expect(isResourceMonitorChatSession(sessions[1] as ResourceSessionMetrics)).toBe(
-      true,
-    );
-    expect(resourceMonitorSessionUiKind(sessions[0] as ResourceSessionMetrics)).toBe(
-      "tui",
-    );
+    expect(sessions.map((item) => item.session_id)).toEqual(["sess-tui", "chat:chat-1"]);
+    expect(isResourceMonitorChatSession(sessions[1] as ResourceSessionMetrics)).toBe(true);
+    expect(resourceMonitorSessionUiKind(sessions[0] as ResourceSessionMetrics)).toBe("tui");
   });
 
   test("injects a missing workspace when the snapshot has no row for it", () => {

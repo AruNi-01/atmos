@@ -64,8 +64,7 @@ export async function expandFileTreeRevealAncestors(params: {
   getTree: () => FileTreeRevealTree;
   isCancelled: () => boolean;
 }): Promise<ExpandFileTreeRevealResult> {
-  const { rootPath, targetPath, loadDirectoryChildren, getTree, isCancelled } =
-    params;
+  const { rootPath, targetPath, loadDirectoryChildren, getTree, isCancelled } = params;
   const relative = targetPath.slice(rootPath.length + 1);
   const segments = relative.split("/").filter(Boolean);
   let currentPath = rootPath;
@@ -104,9 +103,7 @@ export async function expandFileTreeRevealAncestors(params: {
 }
 
 /** Prefer the ScrollArea viewport when the marker sits on the root. */
-export function resolveFileTreeScrollElement(
-  node: Element | null | undefined,
-): HTMLElement | null {
+export function resolveFileTreeScrollElement(node: Element | null | undefined): HTMLElement | null {
   if (!node) return null;
   const element = node as HTMLElement;
   if (
@@ -122,9 +119,7 @@ export function resolveFileTreeScrollElement(
   return (viewport as HTMLElement | null) ?? element;
 }
 
-export function findFileTreeScrollParent(
-  element: HTMLElement,
-): HTMLElement | null {
+export function findFileTreeScrollParent(element: HTMLElement): HTMLElement | null {
   const marked = element.closest(`[${FILE_TREE_SCROLL_ATTR}]`);
   if (marked) return resolveFileTreeScrollElement(marked);
 
@@ -236,7 +231,5 @@ export function resolveFileTreeRowElement(
   const fromTree = item?.getElement?.() ?? null;
   if (fromTree) return fromTree;
   if (typeof document === "undefined") return null;
-  return document.querySelector(
-    `[data-file-tree-row="${CSS.escape(path)}"]`,
-  );
+  return document.querySelector(`[data-file-tree-row="${CSS.escape(path)}"]`);
 }

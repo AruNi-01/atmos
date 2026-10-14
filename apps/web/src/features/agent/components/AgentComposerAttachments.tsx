@@ -77,10 +77,7 @@ export function AgentComposerAttachmentList({
     >
       {files.map((file) => {
         const image = isImageComposerAttachment(file);
-        const label = composerAttachmentLabel(
-          file,
-          t(image ? "imageFallback" : "fileFallback"),
-        );
+        const label = composerAttachmentLabel(file, t(image ? "imageFallback" : "fileFallback"));
         return image ? (
           <ComposerImageTile
             key={file.id}
@@ -166,10 +163,8 @@ function ComposerImageTile({
           className={cn(
             "block cursor-zoom-in overflow-hidden transition-[height,max-width] duration-200",
             "bg-muted/40 ring-1 ring-border/50",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            density === "compact"
-              ? "h-12 max-w-[6.6rem] rounded-xl"
-              : "h-20 max-w-44 rounded-2xl",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            density === "compact" ? "h-12 max-w-[6.6rem] rounded-xl" : "h-20 max-w-44 rounded-2xl",
           )}
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- composer previews use local object/data URLs. */}
@@ -200,8 +195,8 @@ function ComposerImageTile({
             "bg-black/70 text-white shadow-sm",
             "opacity-0 transition-opacity",
             "hover:bg-black/85",
-            "group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100",
-            "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100",
+            "focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           )}
         >
           <X className="size-3" strokeWidth={2.5} />
@@ -232,7 +227,7 @@ function ComposerFilePill({
       className={cn(
         "inline-flex max-w-[min(16rem,100%)] min-w-0 shrink-0 items-center gap-1.5 rounded-full",
         "border border-border/70 bg-muted/40 py-0 pl-2.5",
-        "select-none text-foreground/90",
+        "text-foreground/90 select-none",
         density === "compact" ? "h-7 text-xs" : "h-8 text-[13px]",
         onRemove ? "pr-1.5" : "pr-2.5",
       )}
@@ -253,7 +248,7 @@ function ComposerFilePill({
             "flex size-5 shrink-0 items-center justify-center rounded-full",
             "text-muted-foreground transition-colors",
             "hover:bg-muted hover:text-foreground",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           )}
         >
           <X className="size-3" strokeWidth={2.5} />

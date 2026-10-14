@@ -6,10 +6,7 @@
  */
 
 import { mainLog } from "../main-log.js";
-import {
-  ensureMacDockVisible,
-  setOverlayVisibleOnAllWorkspaces,
-} from "../windows/mac-dock.js";
+import { ensureMacDockVisible, setOverlayVisibleOnAllWorkspaces } from "../windows/mac-dock.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyBrowserWindow = any;
@@ -32,12 +29,7 @@ export const FLY_CARD_WIDTH = 132;
 export const FLY_CARD_HEIGHT = 86;
 
 /** Pure: center of a rect. */
-export function rectCenter(r: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}): Point {
+export function rectCenter(r: { x: number; y: number; width: number; height: number }): Point {
   return {
     x: r.x + r.width / 2,
     y: r.y + r.height / 2,
@@ -170,9 +162,7 @@ window.__atmosFly = function(from, to, control, durationMs) {
 /**
  * Play the arc fly-in. Never throws — capture UX must not fail if animation does.
  */
-export async function playCaptureFlyToAtmos(
-  opts: CaptureFlyOpts,
-): Promise<void> {
+export async function playCaptureFlyToAtmos(opts: CaptureFlyOpts): Promise<void> {
   if (process.platform !== "darwin") return;
   if (!opts.imageDataUrl || opts.imageDataUrl.length < 32) return;
 
@@ -232,9 +222,7 @@ export async function playCaptureFlyToAtmos(
     win.setAlwaysOnTop(true, "screen-saver");
 
     const html = flyHtml(opts.imageDataUrl);
-    await win.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
-    );
+    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     await sleep(20);
 
     await setOverlayVisibleOnAllWorkspaces(win, true);
@@ -257,10 +245,7 @@ export async function playCaptureFlyToAtmos(
     while (Date.now() < deadline) {
       if (win.isDestroyed()) break;
       try {
-        const done = await win.webContents.executeJavaScript(
-          `!!window.__atmosFlyDone`,
-          true,
-        );
+        const done = await win.webContents.executeJavaScript(`!!window.__atmosFlyDone`, true);
         if (done) break;
       } catch {
         break;

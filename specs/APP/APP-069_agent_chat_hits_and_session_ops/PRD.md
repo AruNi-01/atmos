@@ -14,14 +14,14 @@
 
 BRAINSTORM forks resolved here (see [BRAINSTORM.md](./BRAINSTORM.md)):
 
-| Fork | Decision |
-|------|----------|
-| Grok hosting | Spawn `grok` and map its published host protocol. **Do not** Cargo-depend on `xai-grok-*`. Use the open repo as protocol/fixture source. |
-| Rewind meaning | One Atmos slash `/rewind`. **Options come from that native** (conversation only vs conversation + files, pick a turn, confirm). Atmos never invents a union of every vendor’s rewind. |
-| Fork meaning | `/fork` always creates a **new Atmos conversation** (`chat_id`) because the agent also starts a new vendor session. Map vendor fork extras (including Grok worktree) **only when that native protocol has them**. |
-| Scope | One spec. Gemini / Cursor native still out. |
-| Compact | Out of v1. |
-| Surface | **Slash commands**, not standing Fork/Rewind buttons. Native option/confirm chrome sits **above the prompt**, like permission. ACP slash list is **unchanged** (`available_commands` as returned); no extra filter. |
+| Fork           | Decision                                                                                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Grok hosting   | Spawn `grok` and map its published host protocol. **Do not** Cargo-depend on `xai-grok-*`. Use the open repo as protocol/fixture source.                                                                            |
+| Rewind meaning | One Atmos slash `/rewind`. **Options come from that native** (conversation only vs conversation + files, pick a turn, confirm). Atmos never invents a union of every vendor’s rewind.                               |
+| Fork meaning   | `/fork` always creates a **new Atmos conversation** (`chat_id`) because the agent also starts a new vendor session. Map vendor fork extras (including Grok worktree) **only when that native protocol has them**.   |
+| Scope          | One spec. Gemini / Cursor native still out.                                                                                                                                                                         |
+| Compact        | Out of v1.                                                                                                                                                                                                          |
+| Surface        | **Slash commands**, not standing Fork/Rewind buttons. Native option/confirm chrome sits **above the prompt**, like permission. ACP slash list is **unchanged** (`available_commands` as returned); no extra filter. |
 
 ## Goals
 

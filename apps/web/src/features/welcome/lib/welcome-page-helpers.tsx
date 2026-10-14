@@ -78,10 +78,7 @@ export const WELCOME_HEADLINES: WelcomeHeadline[] = [
 ];
 export const DEFAULT_WELCOME_HEADLINE: WelcomeHeadline = "come_alive";
 
-export function useDebouncedPopoverQuery(
-  popover: { query: string } | null,
-  delayMs: number,
-) {
+export function useDebouncedPopoverQuery(popover: { query: string } | null, delayMs: number) {
   const [debouncedQuery, setDebouncedQuery] = React.useState("");
 
   React.useEffect(() => {
@@ -114,14 +111,22 @@ export function useWelcomeComposerPlaceholder({
   const t = useTranslations("Welcome.components");
   const placeholderTemplates = React.useMemo(
     () => [
-      (project: string, agent: string) => t("helpers.placeholderTemplates.makeInside", { project, agent }),
-      (project: string, agent: string) => t("helpers.placeholderTemplates.giveDirection", { project, agent }),
-      (project: string, agent: string) => t("helpers.placeholderTemplates.startSomething", { project, agent }),
-      (project: string, agent: string) => t("helpers.placeholderTemplates.shape", { project, agent }),
-      (project: string, agent: string) => t("helpers.placeholderTemplates.buildNextIdea", { project, agent }),
-      (project: string, agent: string) => t("helpers.placeholderTemplates.turnSparkReal", { project, agent }),
-      (project: string, agent: string) => t("helpers.placeholderTemplates.bringToLife", { project, agent }),
-      (project: string, agent: string) => t("helpers.placeholderTemplates.beginBuild", { project, agent }),
+      (project: string, agent: string) =>
+        t("helpers.placeholderTemplates.makeInside", { project, agent }),
+      (project: string, agent: string) =>
+        t("helpers.placeholderTemplates.giveDirection", { project, agent }),
+      (project: string, agent: string) =>
+        t("helpers.placeholderTemplates.startSomething", { project, agent }),
+      (project: string, agent: string) =>
+        t("helpers.placeholderTemplates.shape", { project, agent }),
+      (project: string, agent: string) =>
+        t("helpers.placeholderTemplates.buildNextIdea", { project, agent }),
+      (project: string, agent: string) =>
+        t("helpers.placeholderTemplates.turnSparkReal", { project, agent }),
+      (project: string, agent: string) =>
+        t("helpers.placeholderTemplates.bringToLife", { project, agent }),
+      (project: string, agent: string) =>
+        t("helpers.placeholderTemplates.beginBuild", { project, agent }),
     ],
     [t],
   );
@@ -168,7 +173,10 @@ export function buildAutoExtractDescription({
   todoProviderLabel: string | null;
   t: (key: string, values?: Record<string, string | number | boolean | null | undefined>) => string;
 }) {
-  if (!hasPreview) return t("helpers.autoExtract.importFirst", { kind: kind === "pr" ? t("helpers.common.pr") : t("helpers.common.issue") });
+  if (!hasPreview)
+    return t("helpers.autoExtract.importFirst", {
+      kind: kind === "pr" ? t("helpers.common.pr") : t("helpers.common.issue"),
+    });
   if (isLlmRoutingLoading) return t("helpers.autoExtract.checkingRouting");
   if (todoProviderLabel) {
     return t("helpers.autoExtract.usesProvider", {
@@ -249,7 +257,10 @@ export function buildWelcomeSummaryItems({
     items.push({
       key: "github-pr",
       value: `PR#${prPreview.number}`,
-      title: t("helpers.summary.githubPrTitle", { number: prPreview.number, branch: prPreview.head_ref }),
+      title: t("helpers.summary.githubPrTitle", {
+        number: prPreview.number,
+        branch: prPreview.head_ref,
+      }),
     });
   }
   const autoTodosOn = (issuePreview && autoExtractTodos) || (prPreview && autoExtractTodosPr);
@@ -433,10 +444,7 @@ export function flattenFileTreeToCandidates(
   return out;
 }
 
-export function issueToWorkspaceName(issue: {
-  number: number;
-  title: string;
-}): string {
+export function issueToWorkspaceName(issue: { number: number; title: string }): string {
   const title = issue.title.trim();
   return title ? `[issue#${issue.number}] ${title}` : `[issue#${issue.number}]`;
 }
@@ -451,10 +459,7 @@ export function prToWorkspaceName(pr: { number: number; title: string }): string
 }
 
 /** Display name for Linear-linked workspace (matches Task → Create prefill). */
-export function linearIssueToWorkspaceName(issue: {
-  identifier: string;
-  title: string;
-}): string {
+export function linearIssueToWorkspaceName(issue: { identifier: string; title: string }): string {
   const title = issue.title.trim();
   const id = issue.identifier.trim();
   if (title && id) return `${id} ${title}`.slice(0, 120);
@@ -465,9 +470,7 @@ export function linearIssueToWorkspaceName(issue: {
  * Branch name from a Linear issue identifier (e.g. `LAN-48` → `lan-48-pikachu`).
  * Mirrors GitHub `issue-{n}-{pokemon}` so Create Workspace is ready without manual rename.
  */
-export function linearIssueToBranchName(issue: {
-  identifier: string;
-}): string {
+export function linearIssueToBranchName(issue: { identifier: string }): string {
   const slug = issue.identifier
     .trim()
     .toLowerCase()
@@ -498,9 +501,7 @@ export function regeneratePokemonSuffixBranch(
   }
 
   // Linear-style `lan-48-pikachu` → keep identifier prefix, new pokemon suffix.
-  const matchedLinear = branchName
-    .trim()
-    .match(/^([a-z][a-z0-9]*(?:-[0-9]+)+)-[a-z0-9]+$/i);
+  const matchedLinear = branchName.trim().match(/^([a-z][a-z0-9]*(?:-[0-9]+)+)-[a-z0-9]+$/i);
   if (matchedLinear?.[1]) {
     return `${matchedLinear[1].toLowerCase()}-${randomPokemon}`;
   }

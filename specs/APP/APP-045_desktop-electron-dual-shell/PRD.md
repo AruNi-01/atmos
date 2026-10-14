@@ -90,13 +90,13 @@
 
 ## Milestones
 
-| Phase | Outcome | PRD items |
-|-------|---------|-----------|
-| **Phase 0** | Bridge + Electron boots main UI + Server | M1–M6, M8–M9 (scaffolding) |
-| **Phase 1** | Desktop basics: notifications, dialogs, multi-window chat/handoff, version | M4, M7 expansion |
-| **Phase 2** | Preview bridge parity (embedded + detached) | N2, M7 |
-| **Phase 3** | Cookies, tunnel, AppShot helpers | N3–N5, M7 |
-| **Phase 4** | Packaging / internal dogfood channel | N6, M8 |
-| **Phase 5 (decision)** | Parity review → optional default-shell switch proposal | not automatic |
+| Phase                  | Outcome                                                                    | PRD items                  |
+| ---------------------- | -------------------------------------------------------------------------- | -------------------------- |
+| **Phase 0**            | Bridge + Electron boots main UI + Server                                   | M1–M6, M8–M9 (scaffolding) |
+| **Phase 1**            | Desktop basics: notifications, dialogs, multi-window chat/handoff, version | M4, M7 expansion           |
+| **Phase 2**            | Preview bridge parity (embedded + detached)                                | N2, M7                     |
+| **Phase 3**            | Cookies, tunnel, AppShot helpers                                           | N3–N5, M7                  |
+| **Phase 4**            | Packaging / internal dogfood channel                                       | N6, M8                     |
+| **Phase 5 (decision)** | Parity review → optional default-shell switch proposal                     | not automatic              |
 
 **Status (2026-07-28):** Phase 5 product cutover applied — Electron is the production default desktop shell for maintainers and release entry points. Tauri remains buildable for non-regression. Shared data contracts are mandatory (not shell-forked).

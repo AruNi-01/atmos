@@ -7,9 +7,7 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md"
-    ],
+    "may_read": ["references/lottie-spec-map.md"],
     "must_not_read": [
       "references/recipe-logo.md",
       "references/recipe-diagram-technical.md",
@@ -28,10 +26,7 @@
       "references/svg-compatibility.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md",
-      "references/design-taste.md"
-    ],
+    "may_read": ["references/lottie-spec-map.md", "references/design-taste.md"],
     "must_not_read": [
       "references/recipe-logo.md",
       "references/recipe-lower-thirds.md",
@@ -46,9 +41,7 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md"
-    ],
+    "may_read": ["references/lottie-spec-map.md"],
     "must_not_read": [
       "references/svg-compatibility.md",
       "references/recipe-logo.md",
@@ -64,9 +57,7 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md"
-    ],
+    "may_read": ["references/lottie-spec-map.md"],
     "must_not_read": [
       "references/recipe-product-promo.md",
       "references/recipe-diagram-technical.md",
@@ -81,13 +72,8 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/recipe-starter-projects.md"
-    ],
-    "must_not_read": [
-      "references/recipe-svg-animation.md",
-      "references/recipe-loaders-icons.md"
-    ]
+    "may_read": ["references/recipe-starter-projects.md"],
+    "must_not_read": ["references/recipe-svg-animation.md", "references/recipe-loaders-icons.md"]
   },
   {
     "query": "Build a product announcement with a light sweep and a slow push-in.",
@@ -99,13 +85,8 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md"
-    ],
-    "must_not_read": [
-      "references/recipe-lower-thirds.md",
-      "references/recipe-diagram-technical.md"
-    ]
+    "may_read": ["references/lottie-spec-map.md"],
+    "must_not_read": ["references/recipe-lower-thirds.md", "references/recipe-diagram-technical.md"]
   },
   {
     "query": "Trace this technical SVG diagram and highlight each node.",
@@ -116,13 +97,8 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md"
-    ],
-    "must_not_read": [
-      "references/recipe-logo.md",
-      "references/recipe-product-promo.md"
-    ]
+    "may_read": ["references/lottie-spec-map.md"],
+    "must_not_read": ["references/recipe-logo.md", "references/recipe-product-promo.md"]
   },
   {
     "query": "Animate a KPI grid with count-up numbers and direct labels.",
@@ -132,9 +108,7 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md"
-    ],
+    "may_read": ["references/lottie-spec-map.md"],
     "must_not_read": [
       "references/recipe-typography.md",
       "references/recipe-diagram-technical.md",
@@ -150,9 +124,7 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md"
-    ],
+    "may_read": ["references/lottie-spec-map.md"],
     "must_not_read": [
       "references/recipe-svg-animation.md",
       "references/recipe-diagram-technical.md"
@@ -166,9 +138,7 @@
       "references/design-taste.md",
       "references/motion-taste.md"
     ],
-    "may_read": [
-      "references/lottie-spec-map.md"
-    ],
+    "may_read": ["references/lottie-spec-map.md"],
     "must_not_read": [
       "references/recipe-typography.md",
       "references/recipe-diagram-technical.md",

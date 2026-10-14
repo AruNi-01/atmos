@@ -145,16 +145,12 @@ function overlaySlideClass(axis: PushPageAxis, phase: PushPagePhase): string | u
 
 function baseShiftTransform(axis: PushPageAxis, active: boolean): string {
   if (!active) return "translate3d(0, 0, 0)";
-  return axis === "vertical"
-    ? "translate3d(0, -18%, 0)"
-    : "translate3d(-18%, 0, 0)";
+  return axis === "vertical" ? "translate3d(0, -18%, 0)" : "translate3d(-18%, 0, 0)";
 }
 
 function overlayRestTransform(axis: PushPageAxis, offscreen: boolean): string {
   if (!offscreen) return "translate3d(0, 0, 0)";
-  return axis === "vertical"
-    ? "translate3d(0, 100%, 0)"
-    : "translate3d(100%, 0, 0)";
+  return axis === "vertical" ? "translate3d(0, 100%, 0)" : "translate3d(100%, 0, 0)";
 }
 
 /**
@@ -176,8 +172,7 @@ export function PushPageStack({
   durationMs = PUSH_PAGE_DURATION_MS,
 }: PushPageStackProps) {
   const presented = phase !== "closed";
-  const showOverlay =
-    overlay != null && (presented || keepOverlayMounted);
+  const showOverlay = overlay != null && (presented || keepOverlayMounted);
   const baseActive = phase === "open";
   const blockBase = (presented && showOverlay) || loading != null;
   const reduce = prefersReducedMotion();
@@ -224,11 +219,7 @@ export function PushPageStack({
           )}
           aria-hidden={warmHidden || undefined}
           // Warm-hidden: park off-screen without enter/exit animation classes.
-          style={
-            warmHidden
-              ? { transform: overlayRestTransform(axis, true) }
-              : undefined
-          }
+          style={warmHidden ? { transform: overlayRestTransform(axis, true) } : undefined}
         >
           {overlay}
         </div>

@@ -12,12 +12,7 @@ function authFromEnv(env: HubEnv) {
   const db = createDb(env);
   return createAuth(db, env);
 }
-import {
-  listDevices,
-  mintDevice,
-  revokeDevice,
-  rotateDevice,
-} from "./devices";
+import { listDevices, mintDevice, revokeDevice, rotateDevice } from "./devices";
 import {
   deleteLinearIntegration,
   getLinearIntegration,
@@ -166,11 +161,7 @@ export default {
         } catch {
           /* auth context unavailable */
         }
-        return withCors(
-          env,
-          request,
-          json({ accounts: accounts.map(publicLinkedAccount) }),
-        );
+        return withCors(env, request, json({ accounts: accounts.map(publicLinkedAccount) }));
       }
 
       if (path === "/v1/me/accounts/unlink" && request.method === "POST") {
@@ -194,11 +185,7 @@ export default {
           accountId: body.account_id?.trim() || undefined,
         });
         if (!result.ok) {
-          return withCors(
-            env,
-            request,
-            json({ error: result.error }, result.status),
-          );
+          return withCors(env, request, json({ error: result.error }, result.status));
         }
         return withCors(env, request, json({ ok: true }));
       }
@@ -209,11 +196,7 @@ export default {
         const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
-        const ticket = await createLinkTicket(
-          db,
-          session.userId,
-          session.email ?? "",
-        );
+        const ticket = await createLinkTicket(db, session.userId, session.email ?? "");
         return withCors(env, request, json(ticket));
       }
 
@@ -225,27 +208,20 @@ export default {
         const db = createDb(env);
         const result = await deleteUserAndRelated(db, session.userId);
         if (!result.ok) {
-          return withCors(
-            env,
-            request,
-            json({ error: result.error }, result.status),
-          );
+          return withCors(env, request, json({ error: result.error }, result.status));
         }
         // Best-effort: clear Better Auth session cookie if present.
         try {
           const auth = authFromEnv(env);
-          const signOutReq = new Request(
-            new URL("/api/auth/sign-out", url.origin).toString(),
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Origin: url.origin,
-                Cookie: request.headers.get("Cookie") ?? "",
-              },
-              body: "{}",
+          const signOutReq = new Request(new URL("/api/auth/sign-out", url.origin).toString(), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Origin: url.origin,
+              Cookie: request.headers.get("Cookie") ?? "",
             },
-          );
+            body: "{}",
+          });
           const signOutRes = await auth.handler(signOutReq);
           const headers = new Headers({ "Content-Type": "application/json" });
           appendSetCookies(signOutRes, headers);
@@ -298,10 +274,7 @@ export default {
         });
         // Hash is not returned to client for relay; project async
         const te = new TextEncoder();
-        const digest = await crypto.subtle.digest(
-          "SHA-256",
-          te.encode(minted.device_credential),
-        );
+        const digest = await crypto.subtle.digest("SHA-256", te.encode(minted.device_credential));
         const credential_hash = [...new Uint8Array(digest)]
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
@@ -332,10 +305,7 @@ export default {
           return withCors(env, request, json({ error: "not_found" }, 404));
         }
         const te = new TextEncoder();
-        const digest = await crypto.subtle.digest(
-          "SHA-256",
-          te.encode(rotated.device_credential),
-        );
+        const digest = await crypto.subtle.digest("SHA-256", te.encode(rotated.device_credential));
         const credential_hash = [...new Uint8Array(digest)]
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
@@ -344,11 +314,7 @@ export default {
           device_id: rotateMatch[1]!,
           credential_hash,
         });
-        return withCors(
-          env,
-          request,
-          json({ ...rotated, relay_synced: projected.ok }),
-        );
+        return withCors(env, request, json({ ...rotated, relay_synced: projected.ok }));
       }
 
       const revokeMatch = path.match(/^\/v1\/devices\/([^/]+)\/revoke$/);
@@ -363,11 +329,7 @@ export default {
           credential_hash: "",
           revoked: true,
         });
-        return withCors(
-          env,
-          request,
-          json({ ok: true, relay_synced: projected.ok }),
-        );
+        return withCors(env, request, json({ ok: true, relay_synced: projected.ok }));
       }
 
       // ----- OAuth start (new tab / system browser, first-party state cookie) -----
@@ -385,20 +347,14 @@ export default {
           return withCors(
             env,
             request,
-            json(
-              { error: "invalid_provider", message: "provider must be github or google" },
-              400,
-            ),
+            json({ error: "invalid_provider", message: "provider must be github or google" }, 400),
           );
         }
         if (!isAllowedOAuthMode(mode)) {
           return withCors(
             env,
             request,
-            json(
-              { error: "invalid_mode", message: "mode must be sign-in or link" },
-              400,
-            ),
+            json({ error: "invalid_mode", message: "mode must be sign-in or link" }, 400),
           );
         }
         if (!isAllowedOAuthCallbackURL(env, callbackURL, url.origin)) {
@@ -464,32 +420,28 @@ export default {
 
         // Invoke Better Auth as if the browser POSTed on this Hub origin,
         // so oauth state cookies are first-party. Forward session Cookie for link.
-        const startReq = new Request(
-          new URL(authPath, url.origin).toString(),
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              // Better Auth origin checks use Origin / cookie headers.
-              Origin: url.origin,
-              Cookie: cookieHeader,
-              "User-Agent": request.headers.get("User-Agent") ?? "",
-              ...(request.headers.get("CF-Connecting-IP")
-                ? {
-                    "x-forwarded-for":
-                      request.headers.get("CF-Connecting-IP") ?? "",
-                  }
-                : {}),
-            },
-            body: JSON.stringify({
-              provider,
-              callbackURL,
-              // Land errors on the app (e.g. /hub-auth/error), not Hub default page.
-              errorCallbackURL: oauthErrorCallbackURL(callbackURL, url.origin),
-              disableRedirect: true,
-            }),
+        const startReq = new Request(new URL(authPath, url.origin).toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            // Better Auth origin checks use Origin / cookie headers.
+            Origin: url.origin,
+            Cookie: cookieHeader,
+            "User-Agent": request.headers.get("User-Agent") ?? "",
+            ...(request.headers.get("CF-Connecting-IP")
+              ? {
+                  "x-forwarded-for": request.headers.get("CF-Connecting-IP") ?? "",
+                }
+              : {}),
           },
-        );
+          body: JSON.stringify({
+            provider,
+            callbackURL,
+            // Land errors on the app (e.g. /hub-auth/error), not Hub default page.
+            errorCallbackURL: oauthErrorCallbackURL(callbackURL, url.origin),
+            disableRedirect: true,
+          }),
+        });
         const startRes = await auth.handler(startReq);
 
         // Drop link_ticket temp session (OAuth state cookies already set on startRes).
@@ -514,16 +466,13 @@ export default {
         const oauthUrl = typeof body.url === "string" ? body.url : "";
         if (!startRes.ok || !oauthUrl) {
           const linkNeedsSession =
-            mode === "link" &&
-            (startRes.status === 401 || startRes.status === 403);
+            mode === "link" && (startRes.status === 401 || startRes.status === 403);
           return withCors(
             env,
             request,
             json(
               {
-                error: linkNeedsSession
-                  ? "session_required"
-                  : "oauth_start_failed",
+                error: linkNeedsSession ? "session_required" : "oauth_start_failed",
                 message: linkNeedsSession
                   ? "Sign in before linking another account"
                   : mode === "link"
@@ -540,19 +489,14 @@ export default {
         const headers = new Headers({ Location: oauthUrl });
         appendSetCookies(startRes, headers);
         // Top-level navigation — CORS not required, but keep consistent.
-        return withCors(
-          env,
-          request,
-          new Response(null, { status: 302, headers }),
-        );
+        return withCors(env, request, new Response(null, { status: 302, headers }));
       }
 
       // ----- Desktop / mobile system-browser OAuth handoff -----
       // After OAuth, Better Auth redirects here (Hub origin → session cookie works).
       // We mint a device + one-time code and bounce to loopback bridge or atmos:// deep link.
       if (
-        (path === "/v1/desktop-auth/complete" ||
-          path === "/v1/mobile-auth/complete") &&
+        (path === "/v1/desktop-auth/complete" || path === "/v1/mobile-auth/complete") &&
         request.method === "GET"
       ) {
         const session = await requireSession(env, request);
@@ -575,16 +519,12 @@ export default {
           );
         }
         const db = createDb(env);
-        const defaultLabel =
-          path === "/v1/mobile-auth/complete" ? "Mobile" : "Desktop";
+        const defaultLabel = path === "/v1/mobile-auth/complete" ? "Mobile" : "Desktop";
         const label = url.searchParams.get("label") ?? defaultLabel;
         const { code, payload } = await createDesktopAuthCode(db, session, label);
         // Project device to Relay (best-effort; same as enroll).
         const te = new TextEncoder();
-        const digest = await crypto.subtle.digest(
-          "SHA-256",
-          te.encode(payload.device_credential),
-        );
+        const digest = await crypto.subtle.digest("SHA-256", te.encode(payload.device_credential));
         const credential_hash = [...new Uint8Array(digest)]
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
@@ -606,8 +546,7 @@ export default {
       }
 
       if (
-        (path === "/v1/desktop-auth/exchange" ||
-          path === "/v1/mobile-auth/exchange") &&
+        (path === "/v1/desktop-auth/exchange" || path === "/v1/mobile-auth/exchange") &&
         request.method === "POST"
       ) {
         const body = (await request.json().catch(() => ({}))) as {
@@ -668,10 +607,7 @@ export default {
           );
         }
         const te = new TextEncoder();
-        const digest = await crypto.subtle.digest(
-          "SHA-256",
-          te.encode(claimed.device_credential),
-        );
+        const digest = await crypto.subtle.digest("SHA-256", te.encode(claimed.device_credential));
         const credential_hash = [...new Uint8Array(digest)]
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
@@ -704,10 +640,7 @@ export default {
         return withCors(env, request, json(status));
       }
 
-      if (
-        path === "/v1/me/integrations/linear/credentials" &&
-        request.method === "GET"
-      ) {
+      if (path === "/v1/me/integrations/linear/credentials" && request.method === "GET") {
         // Local runtime pulls secrets with Hub session cookie or device Bearer.
         const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
@@ -750,40 +683,23 @@ export default {
 
       // ----- Usage page (APP-061) -----
       if (path === "/v1/me/usage-page" && request.method === "POST") {
-        return withCors(
-          env,
-          request,
-          json({ error: "method_not_allowed" }, 405),
-        );
+        return withCors(env, request, json({ error: "method_not_allowed" }, 405));
       }
       if (
         path === "/v1/me/usage-page" &&
-        (request.method === "GET" ||
-          request.method === "PUT" ||
-          request.method === "DELETE")
+        (request.method === "GET" || request.method === "PUT" || request.method === "DELETE")
       ) {
         const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
-        return withCors(
-          env,
-          request,
-          await handleOwnerUsagePage(db, session, request),
-        );
+        return withCors(env, request, await handleOwnerUsagePage(db, session, request));
       }
 
-      if (
-        path === "/v1/me/usage-page/unlisted-secret" &&
-        request.method === "POST"
-      ) {
+      if (path === "/v1/me/usage-page/unlisted-secret" && request.method === "POST") {
         const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
-        return withCors(
-          env,
-          request,
-          await handleMintUnlistedSecret(db, session),
-        );
+        return withCors(env, request, await handleMintUnlistedSecret(db, session));
       }
 
       if (path === "/v1/public/tok-leaderboards" && request.method === "GET") {
@@ -799,11 +715,7 @@ export default {
         return withCors(
           env,
           request,
-          await handlePublicTok(
-            db,
-            decodeURIComponent(publicTok[1]!),
-            request,
-          ),
+          await handlePublicTok(db, decodeURIComponent(publicTok[1]!), request),
         );
       }
 
@@ -831,12 +743,7 @@ export default {
         if (session instanceof Response) return withCors(env, request, session);
         const body = await request.json();
         const db = createDb(env);
-        const updated = await updateUsageShare(
-          db,
-          session.userId,
-          shareMatch[1]!,
-          body as never,
-        );
+        const updated = await updateUsageShare(db, session.userId, shareMatch[1]!, body as never);
         if (!updated) {
           return withCors(env, request, json({ error: "not_found" }, 404));
         }
@@ -848,11 +755,7 @@ export default {
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const ok = await revokeUsageShare(db, session.userId, shareMatch[1]!);
-        return withCors(
-          env,
-          request,
-          ok ? json({ ok: true }) : json({ error: "not_found" }, 404),
-        );
+        return withCors(env, request, ok ? json({ ok: true }) : json({ error: "not_found" }, 404));
       }
 
       // ----- Public -----
@@ -861,11 +764,7 @@ export default {
         const db = createDb(env);
         const data = await publicShareJson(db, publicShare[1]!);
         if (!data) {
-          return withCors(
-            env,
-            request,
-            jsonPublicNoStore({ error: "not_found" }, 404),
-          );
+          return withCors(env, request, jsonPublicNoStore({ error: "not_found" }, 404));
         }
         return withCors(env, request, jsonPublicNoStore(data));
       }
@@ -875,11 +774,7 @@ export default {
         const db = createDb(env);
         const data = await publicProfileJson(db, decodeURIComponent(publicUser[1]!));
         if (!data) {
-          return withCors(
-            env,
-            request,
-            jsonPublicNoStore({ error: "not_found" }, 404),
-          );
+          return withCors(env, request, jsonPublicNoStore({ error: "not_found" }, 404));
         }
         return withCors(env, request, jsonPublicNoStore(data));
       }

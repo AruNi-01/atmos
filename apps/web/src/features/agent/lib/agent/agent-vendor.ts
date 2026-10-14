@@ -1,4 +1,13 @@
-export type AgentVendor = "claude" | "opencode" | "cursor" | "gemini" | "antigravity" | "factory-droid" | "kiro" | "grok" | "unknown";
+export type AgentVendor =
+  | "claude"
+  | "opencode"
+  | "cursor"
+  | "gemini"
+  | "antigravity"
+  | "factory-droid"
+  | "kiro"
+  | "grok"
+  | "unknown";
 
 const REGISTRY_VENDOR_MAP: Record<string, AgentVendor> = {
   claude_code: "claude",

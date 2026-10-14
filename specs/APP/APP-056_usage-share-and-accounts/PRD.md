@@ -104,7 +104,7 @@
 ## Out of Scope
 
 - Moving raw tokscale session files or agent transcripts to the cloud.
-- Putting usage share routes or account tables into the **relay** Worker as the product home (may later *reference* `user_id` from relay tables in Phase 2, but share product is not relay).
+- Putting usage share routes or account tables into the **relay** Worker as the product home (may later _reference_ `user_id` from relay tables in Phase 2, but share product is not relay).
 - Replacing local Token Usage computation with a cloud-only dashboard.
 - Team org accounts / SSO (future).
 - Billing Atmos itself based on token usage.
@@ -116,24 +116,24 @@
 
 ## Success Metrics
 
-| Metric | Target (direction) |
-|--------|--------------------|
-| Publish completion | Token Usage → GitHub/Google login → live `/s/...` URL |
-| Local independence | 100% of local Token Usage features work signed-out |
-| Privacy | Zero raw prompts/paths in stored `snapshot_json` (schema + review) |
-| Separation | No new usage/account business routes in `packages/relay` public API surface for this feature |
-| Unpublish latency | Revoked share returns not-found/gone to public readers immediately after revoke |
+| Metric             | Target (direction)                                                                           |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| Publish completion | Token Usage → GitHub/Google login → live `/s/...` URL                                        |
+| Local independence | 100% of local Token Usage features work signed-out                                           |
+| Privacy            | Zero raw prompts/paths in stored `snapshot_json` (schema + review)                           |
+| Separation         | No new usage/account business routes in `packages/relay` public API surface for this feature |
+| Unpublish latency  | Revoked share returns not-found/gone to public readers immediately after revoke              |
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Accidental oversharing of cost or agent mix | Default unlisted; cost off; clear publish checklist |
-| Account vs device confusion | UI: “Signed in as …” vs “This device credential” (never “Access Token identity”) |
-| Relay scope creep | Hard package boundary + AGENTS.md for hub |
-| Social login vs GitHub App install | Product login = Better Auth GitHub/Google; APP-019 install stays GitHub App on relay |
-| Public page abuse / spam | Rate limit publish; bind to GitHub account; optional future abuse reporting |
-| Stale snapshots mistaken for live billing | Provenance badge + generated_at on page |
+| Risk                                        | Mitigation                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Accidental oversharing of cost or agent mix | Default unlisted; cost off; clear publish checklist                                  |
+| Account vs device confusion                 | UI: “Signed in as …” vs “This device credential” (never “Access Token identity”)     |
+| Relay scope creep                           | Hard package boundary + AGENTS.md for hub                                            |
+| Social login vs GitHub App install          | Product login = Better Auth GitHub/Google; APP-019 install stays GitHub App on relay |
+| Public page abuse / spam                    | Rate limit publish; bind to GitHub account; optional future abuse reporting          |
+| Stale snapshots mistaken for live billing   | Provenance badge + generated_at on page                                              |
 
 ## Milestones
 

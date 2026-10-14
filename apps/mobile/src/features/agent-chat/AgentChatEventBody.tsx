@@ -40,7 +40,9 @@ function EventBlockView({ block }: { block: EventBlock }) {
   const theme = useMobileTheme();
   return (
     <View style={{ gap: 6 }}>
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>{block.label}</Text>
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>
+        {block.label}
+      </Text>
       {block.format === "markdown" ? (
         <AgentChatMarkdown text={block.text} />
       ) : (

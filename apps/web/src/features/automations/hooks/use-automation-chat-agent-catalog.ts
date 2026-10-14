@@ -41,9 +41,7 @@ export function useAutomationChatAgentCatalog(agentId: string, enabled: boolean)
       .then((next) => {
         if (cancelled) return;
         rememberComposerOptions(next);
-        setCatalog((current) =>
-          shouldRetainExistingOptions(next, current) ? current : next,
-        );
+        setCatalog((current) => (shouldRetainExistingOptions(next, current) ? current : next));
       })
       .catch(() => undefined);
     return () => {
@@ -59,9 +57,7 @@ export function useAutomationChatAgentCatalog(agentId: string, enabled: boolean)
       .optionsGet(id, true)
       .then((next) => {
         rememberComposerOptions(next);
-        setCatalog((current) =>
-          shouldRetainExistingOptions(next, current) ? current : next,
-        );
+        setCatalog((current) => (shouldRetainExistingOptions(next, current) ? current : next));
       })
       .catch(() => undefined)
       .finally(() => setRefreshing(false));

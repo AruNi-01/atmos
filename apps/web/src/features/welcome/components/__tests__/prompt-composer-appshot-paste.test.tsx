@@ -13,8 +13,7 @@ type TestIconProps = {
 };
 
 mock.module("@workspace/ui", () => ({
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
   getFileIconProps: ({ className }: TestIconProps) => ({
     alt: "",
     className,

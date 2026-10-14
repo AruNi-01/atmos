@@ -78,10 +78,7 @@ export function getGitChangedFilesSnapshot(
   repoPath: string,
   params: GitCompareParams = GIT_WORKTREE_PARAMS,
 ): GitChangedFilesResponse | undefined {
-  const sessionKey = sessionListKeys.gitChangedFiles(
-    repoPath,
-    serializeGitCompareParams(params),
-  );
+  const sessionKey = sessionListKeys.gitChangedFiles(repoPath, serializeGitCompareParams(params));
   const fromSession = useSessionListSnapshotStore
     .getState()
     .get<GitChangedFilesResponse>(sessionKey);

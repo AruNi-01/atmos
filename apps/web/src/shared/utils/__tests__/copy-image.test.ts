@@ -1,15 +1,10 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import {
-  copyImageSrcToClipboard,
-  filenameFromImageSrc,
-  saveImageSrcToDisk,
-} from "../copy-image";
+import { copyImageSrcToClipboard, filenameFromImageSrc, saveImageSrcToDisk } from "../copy-image";
 
 const PNG_BYTES = Uint8Array.from([
-  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0,
-  0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 8, 153, 99,
-  96, 0, 0, 0, 2, 0, 1, 226, 33, 188, 51, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96,
-  130,
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0,
+  0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 8, 153, 99, 96, 0, 0, 0, 2, 0, 1, 226, 33, 188,
+  51, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
 ]);
 
 class FakeClipboardItem {
@@ -19,8 +14,7 @@ class FakeClipboardItem {
 function installClipboard(write: (items: FakeClipboardItem[]) => Promise<void>) {
   const previousClipboardItem = (globalThis as { ClipboardItem?: unknown }).ClipboardItem;
   const previousClipboard = navigator.clipboard;
-  (globalThis as { ClipboardItem: typeof FakeClipboardItem }).ClipboardItem =
-    FakeClipboardItem;
+  (globalThis as { ClipboardItem: typeof FakeClipboardItem }).ClipboardItem = FakeClipboardItem;
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { write },
@@ -49,9 +43,7 @@ describe("copyImageSrcToClipboard", () => {
   it("writes a fetched PNG blob to the clipboard", async () => {
     const png = new Blob([PNG_BYTES], { type: "image/png" });
     const originalFetch = globalThis.fetch;
-    const fetchMock = mock(() =>
-      Promise.resolve(new Response(png, { status: 200 })),
-    );
+    const fetchMock = mock(() => Promise.resolve(new Response(png, { status: 200 })));
     restores.push(() => {
       globalThis.fetch = originalFetch;
     });
@@ -64,9 +56,7 @@ describe("copyImageSrcToClipboard", () => {
       }),
     );
 
-    expect(await copyImageSrcToClipboard("https://example.test/shot.png")).toBe(
-      true,
-    );
+    expect(await copyImageSrcToClipboard("https://example.test/shot.png")).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(written).toHaveLength(1);
     const payload = await written[0]?.items["image/png"];
@@ -82,9 +72,7 @@ describe("copyImageSrcToClipboard", () => {
       (globalThis as { ClipboardItem: unknown }).ClipboardItem = previous;
     });
 
-    expect(await copyImageSrcToClipboard("https://example.test/shot.png")).toBe(
-      false,
-    );
+    expect(await copyImageSrcToClipboard("https://example.test/shot.png")).toBe(false);
   });
 
   it("returns false when the image cannot be fetched", async () => {
@@ -101,17 +89,13 @@ describe("copyImageSrcToClipboard", () => {
       }),
     );
 
-    expect(await copyImageSrcToClipboard("https://example.test/missing.png")).toBe(
-      false,
-    );
+    expect(await copyImageSrcToClipboard("https://example.test/missing.png")).toBe(false);
   });
 });
 
 describe("filenameFromImageSrc", () => {
   it("keeps a file name from the URL path and maps data URLs to an extension", () => {
-    expect(filenameFromImageSrc("https://example.test/photos/beach.webp?x=1")).toBe(
-      "beach.webp",
-    );
+    expect(filenameFromImageSrc("https://example.test/photos/beach.webp?x=1")).toBe("beach.webp");
     expect(filenameFromImageSrc("data:image/jpeg;base64,aaa")).toBe("image.jpg");
   });
 });
@@ -190,9 +174,7 @@ describe("saveImageSrcToDisk", () => {
       UrlCtor.revokeObjectURL = () => undefined;
     }
 
-    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe(
-      "saved",
-    );
+    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe("saved");
     expect(clicks).toEqual(["shot.png"]);
     expect(objectUrls).toHaveLength(1);
     expect(fakeLink.href).toBe(objectUrls[0]);
@@ -228,9 +210,7 @@ describe("saveImageSrcToDisk", () => {
       }),
     };
 
-    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe(
-      "saved",
-    );
+    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe("saved");
     expect(written).toHaveLength(1);
   });
 
@@ -251,8 +231,6 @@ describe("saveImageSrcToDisk", () => {
       },
     };
 
-    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe(
-      "cancelled",
-    );
+    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe("cancelled");
   });
 });

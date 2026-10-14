@@ -30,10 +30,11 @@ Success:
 SLICE: S1
 STATUS: ok
 FILES:
+
 - path (created|modified)
-VERIFY: `<command>` → pass | fail (exit N)
-NOTES: one-line invariants preserved
-BLOCKED: none
+  VERIFY: `<command>` → pass | fail (exit N)
+  NOTES: one-line invariants preserved
+  BLOCKED: none
 ```
 
 `FILES` must be a subset of `Owns`. Extra paths = slice failure.
@@ -47,9 +48,10 @@ REASON: <spec gap, not "I'm unsure how to write this elegantly">
 NEED_FROM: HUMAN | lead agent
 QUESTION: <two mutually exclusive options + the TECH sentence you lack>
 FILES_ALREADY_CHANGED:
+
 - path
-OWNS_RESPECTED: true | false
-VERIFY: not_run | `<command>` → …
+  OWNS_RESPECTED: true | false
+  VERIFY: not_run | `<command>` → …
 ```
 
 `QUESTION` must offer HUMAN a choice A/B, not an open-ended prompt.
@@ -65,16 +67,17 @@ SLICE: S1
 GOAL: …
 OUT OF SCOPE: …
 OWNS:
+
 - path
-FORBIDS:
+  FORBIDS:
 - path
-READS (read-only):
+  READS (read-only):
 - path
-INVARIANTS (verbatim from TECH/PRD):
+  INVARIANTS (verbatim from TECH/PRD):
 - …
-VERIFY: `<command>`
-DO NOT: edit outside Owns; write PROGRESS.md / REVIEW.md; commit; guess spec; TODO/mock/stubs; declare pass.
-If uncertain, output STATUS: BLOCKED per impl.md and stop.
+  VERIFY: `<command>`
+  DO NOT: edit outside Owns; write PROGRESS.md / REVIEW.md; commit; guess spec; TODO/mock/stubs; declare pass.
+  If uncertain, output STATUS: BLOCKED per impl.md and stop.
 ```
 
 ## Failure modes

@@ -41,12 +41,11 @@ export function agentNotifyToastKind(
   return null;
 }
 
-export function sessionFromAgentNotification(
-  payload: AgentNotificationPayload,
-): AgentStatusRecord {
+export function sessionFromAgentNotification(payload: AgentNotificationPayload): AgentStatusRecord {
   const existing = useAgentStatusStore.getState().sessions.get(payload.session_id);
   const tool = (payload.tool as AgentToolType | undefined) ?? existing?.tool ?? "claude-code";
-  const state = (payload.state as AgentOccupancy | undefined) ?? existing?.state ?? AGENT_STATE.IDLE;
+  const state =
+    (payload.state as AgentOccupancy | undefined) ?? existing?.state ?? AGENT_STATE.IDLE;
   return {
     session_id: payload.session_id,
     tool,
@@ -81,18 +80,22 @@ export function showAgentStatusToast(options: {
 
   const projects = getProjectBootstrapSnapshot()?.projects ?? [];
   const session = sessionFromAgentNotification(payload);
-  const { projectName, workspaceName, workspaceDisplayName } =
-    resolveAgentStatusContextNames(payload.context_id, payload.project_path, projects);
+  const { projectName, workspaceName, workspaceDisplayName } = resolveAgentStatusContextNames(
+    payload.context_id,
+    payload.project_path,
+    projects,
+  );
   const agentName = AGENT_TOOL_LABELS[session.tool] ?? payload.tool;
-  const statusLabel = kind === "permission"
-    ? t("notifications.permissionRequired")
-    : t("notifications.completed");
+  const statusLabel =
+    kind === "permission" ? t("notifications.permissionRequired") : t("notifications.completed");
   const workspaceLabel = workspaceDisplayName ?? workspaceName;
   const contextLabel = [
     projectName,
     workspaceLabel,
     isAgentStatusSideChatSession(session) ? t("notifications.sideChat") : null,
-  ].filter(Boolean).join(" / ");
+  ]
+    .filter(Boolean)
+    .join(" / ");
   const canNavigate = canNavigateToAgentStatusSession(session);
   const toastId = `agent-notify-${payload.session_id}-${kind}`;
 
@@ -118,8 +121,7 @@ export function showAgentStatusToast(options: {
             disabled={!canNavigate}
             onClick={() => {
               if (!canNavigate) return;
-              const latestProjects =
-                getProjectBootstrapSnapshot()?.projects ?? projects;
+              const latestProjects = getProjectBootstrapSnapshot()?.projects ?? projects;
               navigateToAgentStatusSession(session, router, latestProjects);
               agentToastManager.close(toastId);
             }}

@@ -89,8 +89,7 @@ async function loadLocalSecurityPolicy(
     if (!result?.file?.exists || !content?.trim()) continue;
     const owner = opts?.owner?.trim();
     const repo = opts?.repo?.trim();
-    const html_url =
-      owner && repo ? `https://github.com/${owner}/${repo}/security/policy` : null;
+    const html_url = owner && repo ? `https://github.com/${owner}/${repo}/security/policy` : null;
     return {
       path: candidate.rel,
       content,

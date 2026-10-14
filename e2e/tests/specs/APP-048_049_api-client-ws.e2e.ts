@@ -1,9 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "../../fixtures/test";
-import {
-  connectLocalComputer,
-  stubComputerClientSettingsApi,
-} from "../smoke/support/app-smoke";
+import { connectLocalComputer, stubComputerClientSettingsApi } from "../smoke/support/app-smoke";
 import {
   attachAppWsObserver,
   isWsErrorEnvelope,
@@ -74,9 +71,7 @@ test.describe("APP-048/049 api-types + api-client web cutover", () => {
     const actions = listOutboundActions(sessions);
     expect(actions.length).toBeGreaterThan(0);
     for (const action of actions) {
-      expect(action, `action must be snake_case wire name: ${action}`).toMatch(
-        /^[a-z][a-z0-9_]*$/,
-      );
+      expect(action, `action must be snake_case wire name: ${action}`).toMatch(/^[a-z][a-z0-9_]*$/);
     }
 
     // At least one multi-client catalog action used by workbench bootstrap.

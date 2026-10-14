@@ -29,7 +29,7 @@ describe("footer agent status overview", () => {
     expect(footerSrc).toContain(
       'className="w-fit max-w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-hidden p-0"',
     );
-    expect(footerSrc).toContain("w-72 max-h-64");
+    expect(footerSrc).toContain("h-auto max-h-64 w-72");
     expect(footerSrc).not.toContain("w-[24rem]");
     expect(footerSrc).not.toContain("w-[28rem]");
     expect(footerSrc).not.toContain("min-w-[7.25rem]");

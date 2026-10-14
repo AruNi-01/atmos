@@ -10,27 +10,27 @@
 
 被审查提交（节选代表性；窗口内业务/代码提交约 34 条，不含结果归档）：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `4f34e2a4a` | AarynLu | feat(hub): account linking, sessions, OAuth start, and delete user |
-| `6c0966e01` | AarynLu | feat(hub-client): expose account security APIs and OAuth helpers |
-| `b092a7275` | AarynLu | feat(web): Hub Account security UI and auto device after login |
-| `f0ee3937d` | AarynLu | feat(linear): tighten Hub-backed credentials and task/workspace flows |
-| `a3abfcb07` | AarynLu | feat(web): polish token usage dialog and model icon tests |
-| `ca0843f0f` | AarynLu | feat(ui): dither morph transitions and sliding metric components |
-| `3421841b5` | AruNi_Lu | feat(agent-hooks): unattended need-attention auto-summary on AI input |
-| `f96213c40` … `f3c0d531f` | AruNi_Lu | fix(agent-hooks): race / revision-safe dismiss / due-scan lock |
-| `abf11efc3` | AarynLu | feat(hub): mobile pair claim flow and hub-client device helpers |
-| `e812ad501` | AarynLu | feat(mobile): hub device pair QR and credential-based auth |
-| `1d0fb30b2` | AarynLu | feat(ui): QR code, motion action-swap, and sliding metric morph fixes |
-| `82731d992` | AarynLu | feat(web): hub auth shells, linear tasks, pair QR, token usage cycle toolbar |
-| `46e50ba84` | AarynLu | feat(api): hub-backed Linear credentials on WS routes |
-| `d2d92525e` | AarynLu | fix(web): move hub-auth BroadcastChannel constants off page modules |
-| `bdeac913f` | AarynLu | feat(web): beui Task source tabs and warmer GitHub tab cache |
-| `5f0747600` | AarynLu | fix(web): polish token metrics and remove GitHub list footer hint |
-| `7d0744b6e` | AarynLu | refactor(web): polish Code Agent Behaviour settings UI |
-| `03ab7795e` | AarynLu | refactor: address daily quality findings for 2026-08-10 |
-| （其余） | — | clippy/CI、desktop release、landing changelog、APP-057 TECH 等 |
+| Hash                      | Author   | Message                                                                      |
+| ------------------------- | -------- | ---------------------------------------------------------------------------- |
+| `4f34e2a4a`               | AarynLu  | feat(hub): account linking, sessions, OAuth start, and delete user           |
+| `6c0966e01`               | AarynLu  | feat(hub-client): expose account security APIs and OAuth helpers             |
+| `b092a7275`               | AarynLu  | feat(web): Hub Account security UI and auto device after login               |
+| `f0ee3937d`               | AarynLu  | feat(linear): tighten Hub-backed credentials and task/workspace flows        |
+| `a3abfcb07`               | AarynLu  | feat(web): polish token usage dialog and model icon tests                    |
+| `ca0843f0f`               | AarynLu  | feat(ui): dither morph transitions and sliding metric components             |
+| `3421841b5`               | AruNi_Lu | feat(agent-hooks): unattended need-attention auto-summary on AI input        |
+| `f96213c40` … `f3c0d531f` | AruNi_Lu | fix(agent-hooks): race / revision-safe dismiss / due-scan lock               |
+| `abf11efc3`               | AarynLu  | feat(hub): mobile pair claim flow and hub-client device helpers              |
+| `e812ad501`               | AarynLu  | feat(mobile): hub device pair QR and credential-based auth                   |
+| `1d0fb30b2`               | AarynLu  | feat(ui): QR code, motion action-swap, and sliding metric morph fixes        |
+| `82731d992`               | AarynLu  | feat(web): hub auth shells, linear tasks, pair QR, token usage cycle toolbar |
+| `46e50ba84`               | AarynLu  | feat(api): hub-backed Linear credentials on WS routes                        |
+| `d2d92525e`               | AarynLu  | fix(web): move hub-auth BroadcastChannel constants off page modules          |
+| `bdeac913f`               | AarynLu  | feat(web): beui Task source tabs and warmer GitHub tab cache                 |
+| `5f0747600`               | AarynLu  | fix(web): polish token metrics and remove GitHub list footer hint            |
+| `7d0744b6e`               | AarynLu  | refactor(web): polish Code Agent Behaviour settings UI                       |
+| `03ab7795e`               | AarynLu  | refactor: address daily quality findings for 2026-08-10                      |
+| （其余）                  | —        | clippy/CI、desktop release、landing changelog、APP-057 TECH 等               |
 
 日合计约 **189 files / +17k / −3.6k**（排除 quality result）。
 
@@ -52,13 +52,13 @@ Hub / agent-hooks 后端拆分与竞态测试质量高；Web 侧同日继续放�
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 24/30 | 正向：`user-security` / `mobile-pair` / `oauth-start` / `desktop-auth` / `require-user` 模块化；attention 拆 `attention.rs` + `attention_summary*.rs`；Linear Hub credentials 分层。扣分：Welcome project context 把 GitHub+Linear+prefill+name/branch 主权全绑在一个 hook；`CodeAgentSettingsSection` 用超大 props 面承载 Behaviour；`packages/hub/src/index.ts` 仍为 900+ 行 path 编排（OAuth start 内联 ~170 行）。 |
-| 可读性与复杂度 | 18/25 | Welcome `linkType`/`linearPreview`/`prPreview`/`issuePreview` 交叉 effect 决定 name/branch 归属，阅读成本高；`TokenUsagePage` 主页面数据装配 + 巨型 `OverviewTab` 属性表（~40 props）；`TaskLinearPanel` 同文件混 auth status / filter / list / drawer / workspace 动作。 |
-| 体量与内聚 | 11/20 | 当日放大：`use-welcome-project-context` 555→1121（+566）；`TokenUsagePage` 1091→1503（+412）；`CodeAgentSettingsSection` 498→802（+304）；`hub/index.ts` 452→925（+473）。新建 `TaskLinearDrawer` ~413、`HubSecuritySettingsCards` ~494（已有子卡片，略好）。 |
-| 可维护性与复用 | 13/15 | 正向：`packages/ui` QR / ActionSwap / SlidingMetric；Linear draft 与 sessionStorage 键散落多处；Task Linear 未对齐前日 GitHub 的 `task-*-panel-model` 模式。扣 2：`atmos.pendingLinearLink` 魔法字符串多点复制。 |
-| 工程卫生 | 9/10 | 正向：agent-hooks 竞态单测、hub security tests、BroadcastChannel 常量文件。扣 1：Settings/Token Usage 体量抛光提交未同步拆文件，留下「功能合入后再拆」痕迹。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------- | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 24/30 | 正向：`user-security` / `mobile-pair` / `oauth-start` / `desktop-auth` / `require-user` 模块化；attention 拆 `attention.rs` + `attention_summary*.rs`；Linear Hub credentials 分层。扣分：Welcome project context 把 GitHub+Linear+prefill+name/branch 主权全绑在一个 hook；`CodeAgentSettingsSection` 用超大 props 面承载 Behaviour；`packages/hub/src/index.ts` 仍为 900+ 行 path 编排（OAuth start 内联 ~170 行）。 |
+| 可读性与复杂度 | 18/25 | Welcome `linkType`/`linearPreview`/`prPreview`/`issuePreview` 交叉 effect 决定 name/branch 归属，阅读成本高；`TokenUsagePage` 主页面数据装配 + 巨型 `OverviewTab` 属性表（~40 props）；`TaskLinearPanel` 同文件混 auth status / filter / list / drawer / workspace 动作。                                                                                                                                              |
+| 体量与内聚     | 11/20 | 当日放大：`use-welcome-project-context` 555→1121（+566）；`TokenUsagePage` 1091→1503（+412）；`CodeAgentSettingsSection` 498→802（+304）；`hub/index.ts` 452→925（+473）。新建 `TaskLinearDrawer` ~413、`HubSecuritySettingsCards` ~494（已有子卡片，略好）。                                                                                                                                                          |
+| 可维护性与复用 | 13/15 | 正向：`packages/ui` QR / ActionSwap / SlidingMetric；Linear draft 与 sessionStorage 键散落多处；Task Linear 未对齐前日 GitHub 的 `task-*-panel-model` 模式。扣 2：`atmos.pendingLinearLink` 魔法字符串多点复制。                                                                                                                                                                                                       |
+| 工程卫生       |  9/10 | 正向：agent-hooks 竞态单测、hub security tests、BroadcastChannel 常量文件。扣 1：Settings/Token Usage 体量抛光提交未同步拆文件，留下「功能合入后再拆」痕迹。                                                                                                                                                                                                                                                           |
 
 ## 6. 主要问题清单
 

@@ -1,14 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import {
-  buildContextMarkdown,
-  parseFrontmostScriptOutput,
-} from "./frontmost.ts";
+import { buildContextMarkdown, parseFrontmostScriptOutput } from "./frontmost.ts";
 
 describe("frontmost parsing + context", () => {
   it("parses System Events script output into real app/window metadata", () => {
-    const fm = parseFrontmostScriptOutput(
-      "Safari\nGitHub\n10,20,800,600\n1234\n",
-    );
+    const fm = parseFrontmostScriptOutput("Safari\nGitHub\n10,20,800,600\n1234\n");
     expect(fm.appName).toBe("Safari");
     expect(fm.windowTitle).toBe("GitHub");
     expect(fm.x).toBe(10);
@@ -19,9 +14,7 @@ describe("frontmost parsing + context", () => {
   });
 
   it("keeps negative multi-monitor origins for source_bounds / animation", () => {
-    const fm = parseFrontmostScriptOutput(
-      "Notes\nShopping\n-1440,100,1280,800\n42\n",
-    );
+    const fm = parseFrontmostScriptOutput("Notes\nShopping\n-1440,100,1280,800\n42\n");
     expect(fm.x).toBe(-1440);
     expect(fm.y).toBe(100);
     expect(fm.width).toBe(1280);

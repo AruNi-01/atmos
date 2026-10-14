@@ -36,7 +36,4 @@ export type StoredDeviceCredential = {
   enrolled_at: number;
 };
 
-export type {
-  HubAuthMaterial,
-  HubAuthWire,
-} from "./auth-material";
+export type { HubAuthMaterial, HubAuthWire } from "./auth-material";

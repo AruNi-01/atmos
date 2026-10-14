@@ -11,30 +11,30 @@
 
 ## Coverage map
 
-| PRD | Scenario |
-|-----|----------|
-| M1 | S1 |
-| M2 | S2 |
-| M3 | S3 |
-| M4 | S4 |
-| M5 | S5 |
-| M6, M7 | S6 |
-| M8 | S7 |
-| M9 | S8 |
-| M10, M12 | S9 |
-| M11 | S10 |
-| M13 | S11 |
-| M14 | S12 |
-| Test page | S13 |
+| PRD       | Scenario |
+| --------- | -------- |
+| M1        | S1       |
+| M2        | S2       |
+| M3        | S3       |
+| M4        | S4       |
+| M5        | S5       |
+| M6, M7    | S6       |
+| M8        | S7       |
+| M9        | S8       |
+| M10, M12  | S9       |
+| M11       | S10      |
+| M13       | S11      |
+| M14       | S12      |
+| Test page | S13      |
 
 ## Execution map
 
-| ID | Level | Command / method | Status |
-|----|-------|------------------|--------|
-| S6 | unit | `bun --filter @atmos/mobile test src/features/terminal/terminal-selection.test.ts` | pass |
-| S13 | unit | `bun --filter @atmos/mobile test src/features/preview/preview-fixtures.test.ts` | pass |
-| S1–S5, S7–S12 | typecheck + remaining bun tests | `bun --filter @atmos/mobile typecheck` / `bun --filter @atmos/mobile test` | pass (unit/typecheck); overlay split still manual |
-| Overlay split | manual | iOS: group = BottomSheet; Ctrl/workspace = `expo-ios-popover` | pending |
+| ID            | Level                           | Command / method                                                                   | Status                                            |
+| ------------- | ------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------- |
+| S6            | unit                            | `bun --filter @atmos/mobile test src/features/terminal/terminal-selection.test.ts` | pass                                              |
+| S13           | unit                            | `bun --filter @atmos/mobile test src/features/preview/preview-fixtures.test.ts`    | pass                                              |
+| S1–S5, S7–S12 | typecheck + remaining bun tests | `bun --filter @atmos/mobile typecheck` / `bun --filter @atmos/mobile test`         | pass (unit/typecheck); overlay split still manual |
+| Overlay split | manual                          | iOS: group = BottomSheet; Ctrl/workspace = `expo-ios-popover`                      | pending                                           |
 
 ## Scenarios
 

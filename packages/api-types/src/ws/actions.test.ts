@@ -47,9 +47,7 @@ describe("@atmos/api-types actions", () => {
   });
 
   test("resource_monitor actions stay the existing set", () => {
-    expect(
-      WS_ACTIONS.filter((action) => action.startsWith("resource_monitor_")),
-    ).toEqual([
+    expect(WS_ACTIONS.filter((action) => action.startsWith("resource_monitor_"))).toEqual([
       "resource_monitor_get",
       "resource_monitor_subscribe",
       "resource_monitor_unsubscribe",

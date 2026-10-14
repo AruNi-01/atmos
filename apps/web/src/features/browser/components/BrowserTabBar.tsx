@@ -16,7 +16,6 @@ import {
   PanelTopOpen,
   PictureInPicture,
   PictureInPicture2,
-
   Trash2,
 } from "lucide-react";
 import {
@@ -33,10 +32,7 @@ import { cn } from "@/shared/lib/utils";
 import { BROWSER_MAC_TRAFFIC_RAIL_INSET } from "../lib/browser-mac-chrome";
 import { extractCookieErrorCode, type CookieCmdErrorCode } from "../lib/browser-cookie-commands";
 import { canonicalizeUrl } from "../lib/browser-utils";
-import {
-  MorphingTabs,
-  type MorphingTabsItem,
-} from "./morphing-tabs";
+import { MorphingTabs, type MorphingTabsItem } from "./morphing-tabs";
 
 export interface PreviewBrowserTab {
   id: string;
@@ -208,9 +204,7 @@ export function BrowserTabBar({
       ariaLabel={t("preview")}
       // Dense browser chrome (maximized + standalone) — same inset so first tab
       // aligns with traffic lights in both surfaces.
-      railInsetLeft={
-        needsTrafficLightsInset ? BROWSER_MAC_TRAFFIC_RAIL_INSET : 0
-      }
+      railInsetLeft={needsTrafficLightsInset ? BROWSER_MAC_TRAFFIC_RAIL_INSET : 0}
       trailing={trailing}
       className={className}
       railProps={{
@@ -253,9 +247,7 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
   const hasCookieTools = hasImport || hasClearCache || hasClearSiteData;
 
   const hasSurfaceControls = Boolean(
-    controls.onOpenInWindow ||
-      controls.onReturnToEmbedded ||
-      controls.onToggleMaximized,
+    controls.onOpenInWindow || controls.onReturnToEmbedded || controls.onToggleMaximized,
   );
 
   if (!hasSurfaceControls && !hasCookieTools) {
@@ -324,7 +316,9 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
               <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">
-                  {isSiteData ? t("cookieSync.clear.clearedSiteData") : t("cookieSync.clear.clearedCache")}
+                  {isSiteData
+                    ? t("cookieSync.clear.clearedSiteData")
+                    : t("cookieSync.clear.clearedCache")}
                 </p>
                 <div className="flex justify-end">
                   <Button variant="outline" size="sm" onClick={closeClearPopover}>
@@ -337,7 +331,9 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
             <div className="space-y-3">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">
-                  {isSiteData ? t("cookieSync.clear.siteDataTitle") : t("cookieSync.clear.cacheTitle")}
+                  {isSiteData
+                    ? t("cookieSync.clear.siteDataTitle")
+                    : t("cookieSync.clear.cacheTitle")}
                 </p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   {isSiteData
@@ -402,7 +398,9 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
                 ) : (
                   <Maximize className="size-4" />
                 )}
-                {controls.isMaximized ? t("browserTabs.minimizePreview") : t("browserTabs.maximizePreview")}
+                {controls.isMaximized
+                  ? t("browserTabs.minimizePreview")
+                  : t("browserTabs.maximizePreview")}
               </DropdownMenuItem>
             ) : null}
 

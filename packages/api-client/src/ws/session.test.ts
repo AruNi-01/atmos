@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  DEFAULT_MOBILE_RECONNECT,
-  DEFAULT_WEB_RECONNECT,
-} from "./defaults";
+import { DEFAULT_MOBILE_RECONNECT, DEFAULT_WEB_RECONNECT } from "./defaults";
 import { backoffDelayMs, redactUrl } from "./reconnect";
 import { createWsSession } from "./session";
 import type { WebSocketLike } from "../platform/types";
@@ -11,9 +8,7 @@ class MockSocket implements WebSocketLike {
   readyState = 0;
   onopen: ((ev?: unknown) => void) | null = null;
   onmessage: ((ev: { data: unknown }) => void) | null = null;
-  onclose:
-    | ((ev: { code: number; reason: string; wasClean: boolean }) => void)
-    | null = null;
+  onclose: ((ev: { code: number; reason: string; wasClean: boolean }) => void) | null = null;
   onerror: ((ev?: unknown) => void) | null = null;
   sent: string[] = [];
 
@@ -128,9 +123,7 @@ describe("@atmos/api-client WsSession", () => {
       },
       reconnect: { enabled: false },
     });
-    await expect(session.request("fs_get_home_dir")).rejects.toThrow(
-      /not connected/,
-    );
+    await expect(session.request("fs_get_home_dir")).rejects.toThrow(/not connected/);
   });
 
   test("close flushes pending", async () => {
@@ -271,9 +264,7 @@ describe("@atmos/api-client WsSession", () => {
   });
 
   test("redactUrl masks tokens", () => {
-    expect(redactUrl("ws://x/ws?token=abc&client_type=web")).toContain(
-      "token=<redacted>",
-    );
+    expect(redactUrl("ws://x/ws?token=abc&client_type=web")).toContain("token=<redacted>");
     expect(redactUrl("ws://x/ws?token=abc")).not.toContain("token=abc");
   });
 

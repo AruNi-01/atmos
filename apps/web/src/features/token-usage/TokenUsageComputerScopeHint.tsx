@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import { LogIn, Plus } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  cn,
-} from "@workspace/ui";
+import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@workspace/ui";
 import { useTranslations } from "next-intl";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import { HubSignInDialog } from "@/features/settings/components/HubSignInDialog";

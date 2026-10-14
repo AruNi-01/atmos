@@ -28,10 +28,7 @@ export function sessionLiveGroupKey(
     groupingHoldActive,
   });
   if (key !== "done") return key;
-  if (
-    !statusHydrated &&
-    (snapshotGroupKey === "attention" || snapshotGroupKey === "permission")
-  ) {
+  if (!statusHydrated && (snapshotGroupKey === "attention" || snapshotGroupKey === "permission")) {
     return snapshotGroupKey;
   }
   return "done";
@@ -62,10 +59,7 @@ function findLiveSession(
   return null;
 }
 
-function attentionLookupKeys(
-  sessionId: string,
-  live: AgentStatusRecord | null,
-): string[] {
+function attentionLookupKeys(sessionId: string, live: AgentStatusRecord | null): string[] {
   const keys = [sessionId, live?.session_id, live?.pane_id];
   const chatId =
     chatIdFromSessionId(sessionId) ??
@@ -92,8 +86,7 @@ function findAttentionReason(
     const matches =
       keySet.has(pane.sessionId) ||
       keySet.has(pane.stablePaneId) ||
-      (live != null &&
-        (pane.sessionId === live.session_id || pane.stablePaneId === live.pane_id));
+      (live != null && (pane.sessionId === live.session_id || pane.stablePaneId === live.pane_id));
     if (!matches) continue;
     if (pane.reason === "permission_request") return pane.reason;
     reason = pane.reason;
@@ -135,10 +128,7 @@ export function sessionMatchesAttentionFilter(
 ): boolean {
   const live = findLiveSession(sessionId, sessions);
   if (findAttentionReason(sessionId, live, panes)) return true;
-  if (
-    !statusHydrated &&
-    (groupKey === "attention" || groupKey === "permission")
-  ) {
+  if (!statusHydrated && (groupKey === "attention" || groupKey === "permission")) {
     return true;
   }
   return false;

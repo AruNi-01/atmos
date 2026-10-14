@@ -6,12 +6,12 @@
 
 ## 1. Test strategy
 
-| Layer | What | When |
-|------|------|------|
-| **Unit** | Canvas Command Bus: JSON validation → allow-listed `update-shape` keys, layout bounds (**≤24×24**, id caps), sanitization codes (`STALE_SHAPE_ID`, `VALIDATION_*`). | Implementation PR |
-| **API / WS integration** | `POST` invoke handler: auth rejection, ambiguous routing (**409**), offline bridge (**503**), timeout (**504**/code `RELAY_TIMEOUT`), **`request_id` echo** through pending map; **`canvas_bridge_*`** registry lifecycle on connect/disconnect. | `cargo test` / focused integration in `apps/api` or `core-service` (as team patterns allow). |
-| **Browser integration** | `onEvent("canvas_agent_dispatch")` → bus → mocked or headed `Editor`; confirm **`canvas_agent_dispatch_result`** always sent for known/unknown **`command`** (unknown → `UNSUPPORTED_COMMAND`) and Agent presence updates are produced from command results. | `bun test` where hooks exist; Storybook/mock optional. |
-| **End-to-end (manual)** | Full stack: local **`just dev-api` + `just dev-web`**, authenticated CLI **`atmos canvas`**, bridge toggle, observable canvas mutations + autosave persistence. See §5. Required before marking M1 done. |
+| Layer                    | What                                                                                                                                                                                                                                                         | When                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| **Unit**                 | Canvas Command Bus: JSON validation → allow-listed `update-shape` keys, layout bounds (**≤24×24**, id caps), sanitization codes (`STALE_SHAPE_ID`, `VALIDATION_*`).                                                                                          | Implementation PR                                                                            |
+| **API / WS integration** | `POST` invoke handler: auth rejection, ambiguous routing (**409**), offline bridge (**503**), timeout (**504**/code `RELAY_TIMEOUT`), **`request_id` echo** through pending map; **`canvas_bridge_*`** registry lifecycle on connect/disconnect.             | `cargo test` / focused integration in `apps/api` or `core-service` (as team patterns allow). |
+| **Browser integration**  | `onEvent("canvas_agent_dispatch")` → bus → mocked or headed `Editor`; confirm **`canvas_agent_dispatch_result`** always sent for known/unknown **`command`** (unknown → `UNSUPPORTED_COMMAND`) and Agent presence updates are produced from command results. | `bun test` where hooks exist; Storybook/mock optional.                                       |
+| **End-to-end (manual)**  | Full stack: local **`just dev-api` + `just dev-web`**, authenticated CLI **`atmos canvas`**, bridge toggle, observable canvas mutations + autosave persistence. See §5. Required before marking M1 done.                                                     |
 
 **Out of scope for M1 automated gate**: MCP, `@tldraw/driver` conformance tests, agent products (Codex/etc.) injecting Skill.
 
@@ -19,29 +19,29 @@
 
 ## 2. Coverage map
 
-| PRD / TECH | Scenario IDs |
-|------------|----------------|
-| M1 Skill + manifest sync | **S-D01**–**S-D02** |
-| M2 CLI surface + verbs | **S-C01**, verb rows in §5 |
-| M3 Bridge enable / disable | **S-B01**–**S-B03** |
-| M4 Live editor execution | **S-E01**–**S-E02**, **S-B03** |
-| M5 `status` | **S-R01** |
-| M6 `get-state` | **S-R02** |
-| M7 Create (note/frame/geo/arrow/draw) | **S-M01**–**S-M05** |
-| M8 `create-note` only (no `create-text`) | **S-M06** |
-| M9 Selection / move | **S-M07**–**S-M08** |
-| M10 `delete` + confirm | **S-M09**, **S-N06** |
-| M11 Layout row/column/grid + bounds | **S-M10**–**S-M11** |
-| M12 `update-shape` allow-list | **S-M12** |
-| M13 `viewport` | **S-M13** |
-| M14 Correlation | **S-N01** |
-| M15 Auth | **S-N02** |
-| M16 HTTP CLI ingress + WS browser | **S-T01**, **T-WS01** |
-| M17 Recoverable errors | **S-N03**–**S-N05** |
+| PRD / TECH                                   | Scenario IDs                    |
+| -------------------------------------------- | ------------------------------- |
+| M1 Skill + manifest sync                     | **S-D01**–**S-D02**             |
+| M2 CLI surface + verbs                       | **S-C01**, verb rows in §5      |
+| M3 Bridge enable / disable                   | **S-B01**–**S-B03**             |
+| M4 Live editor execution                     | **S-E01**–**S-E02**, **S-B03**  |
+| M5 `status`                                  | **S-R01**                       |
+| M6 `get-state`                               | **S-R02**                       |
+| M7 Create (note/frame/geo/arrow/draw)        | **S-M01**–**S-M05**             |
+| M8 `create-note` only (no `create-text`)     | **S-M06**                       |
+| M9 Selection / move                          | **S-M07**–**S-M08**             |
+| M10 `delete` + confirm                       | **S-M09**, **S-N06**            |
+| M11 Layout row/column/grid + bounds          | **S-M10**–**S-M11**             |
+| M12 `update-shape` allow-list                | **S-M12**                       |
+| M13 `viewport`                               | **S-M13**                       |
+| M14 Correlation                              | **S-N01**                       |
+| M15 Auth                                     | **S-N02**                       |
+| M16 HTTP CLI ingress + WS browser            | **S-T01**, **T-WS01**           |
+| M17 Recoverable errors                       | **S-N03**–**S-N05**             |
 | M18 Diagnostic vs read vs mutate permissions | **S-B02**, **S-B03**, **S-R01** |
-| M19 Clipboard + `skill-dir` | **S-D03**–**S-D05** |
-| M20 Agent presence + Follow Agent | **S-P01**–**S-P04** |
-| TECH: multi-tab ambiguity | **S-N07** |
+| M19 Clipboard + `skill-dir`                  | **S-D03**–**S-D05**             |
+| M20 Agent presence + Follow Agent            | **S-P01**–**S-P04**             |
+| TECH: multi-tab ambiguity                    | **S-N07**                       |
 
 ---
 
@@ -69,7 +69,7 @@
 
 **Given** Canvas visible but bridge **explicitly OFF**.  
 **When** **`atmos canvas status`**, **`get-state`**, and a mutate verb fire **`POST`** invoke.  
-**Then** **`status` succeeds** and reports no eligible bridge target / disabled state, while **`get-state`** and mutate return **`ok: false`** with actionable message + stable **`error.code`**; HTTP status aligns with [TECH §12](./TECH.md) *Structured errors*.
+**Then** **`status` succeeds** and reports no eligible bridge target / disabled state, while **`get-state`** and mutate return **`ok: false`** with actionable message + stable **`error.code`**; HTTP status aligns with [TECH §12](./TECH.md) _Structured errors_.
 
 ### S-B03 — Bridge on before meaningful mutate smoke
 
@@ -252,35 +252,35 @@ Assume **bridge ON**, single **`client_id`**, sane defaults. **When/Then** colum
 
 ## 9. Non-functional checks
 
-| ID | Requirement | Evidence |
-|----|-------------|-----------|
-| **NF-01** | Relay default timeout **≤ 45 s** (**TECH §2**); **`--timeout-ms`** honoured client-side | Manual stopwatch / log timestamps |
-| **NF-02** | Autosave interleaving: rapid CLI invokes ≠ corrupt doc / wedged undo (TECH §8.1 mutex) | Manual spam + reopen board |
-| **NF-03** | Debug tracing: searchable **`request_id`** in `./logs/debug/` per `agents/references/debug-logging.md` | Spot check one failed + one okay run |
-| **NF-04** | Agent presence is session-only; no `TLInstancePresence` records leak into persisted board JSON | Reload board / inspect persisted payload |
+| ID        | Requirement                                                                                            | Evidence                                 |
+| --------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| **NF-01** | Relay default timeout **≤ 45 s** (**TECH §2**); **`--timeout-ms`** honoured client-side                | Manual stopwatch / log timestamps        |
+| **NF-02** | Autosave interleaving: rapid CLI invokes ≠ corrupt doc / wedged undo (TECH §8.1 mutex)                 | Manual spam + reopen board               |
+| **NF-03** | Debug tracing: searchable **`request_id`** in `./logs/debug/` per `agents/references/debug-logging.md` | Spot check one failed + one okay run     |
+| **NF-04** | Agent presence is session-only; no `TLInstancePresence` records leak into persisted board JSON         | Reload board / inspect persisted payload |
 
 ---
 
 ## 10. Manual regression checklist pre-release
 
-- [ ] **S-T01** local E2E (status + simple create-note)  
-- [ ] **S-B01** bridge toggle/offline behaviours  
-- [ ] **S-N07** two-tab ambiguity + **`--client-id`** success path  
-- [ ] **S-M09/S-N06** delete guard  
-- [ ] **S-D04** clipboard content matches TECH  
-- [ ] **S-P01/S-P02** Agent presence visible and Follow Agent tracks latest command area  
-- [ ] Persistence round-trip (**S-B03** tail)  
+- [ ] **S-T01** local E2E (status + simple create-note)
+- [ ] **S-B01** bridge toggle/offline behaviours
+- [ ] **S-N07** two-tab ambiguity + **`--client-id`** success path
+- [ ] **S-M09/S-N06** delete guard
+- [ ] **S-D04** clipboard content matches TECH
+- [ ] **S-P01/S-P02** Agent presence visible and Follow Agent tracks latest command area
+- [ ] Persistence round-trip (**S-B03** tail)
 
 ---
 
 ## 11. Automated test placement (implementation guide)
 
-| Component | Suggested venue |
-|-----------|----------------|
-| **`canvas-agent-bus`** (TS) | `apps/web` colocated **`*.test.ts`** or **`bun:test`** fixtures—pure functions first. |
-| **`canvas-agent-presence`** (TS) | Unit tests for actor normalization, TTL cleanup, and `changed_bounds` → presence/camera metadata. |
-| **HTTP relay + waiter** | `apps/api` or `core-service` **`#[tokio::test]`** using mock **`WsManager`** / fake browser sender callback. |
-| **`canvas_dispatch_result` handler** | Same—assert waiter completion + malformed **`request_id`** dropped safely. |
+| Component                            | Suggested venue                                                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **`canvas-agent-bus`** (TS)          | `apps/web` colocated **`*.test.ts`** or **`bun:test`** fixtures—pure functions first.                        |
+| **`canvas-agent-presence`** (TS)     | Unit tests for actor normalization, TTL cleanup, and `changed_bounds` → presence/camera metadata.            |
+| **HTTP relay + waiter**              | `apps/api` or `core-service` **`#[tokio::test]`** using mock **`WsManager`** / fake browser sender callback. |
+| **`canvas_dispatch_result` handler** | Same—assert waiter completion + malformed **`request_id`** dropped safely.                                   |
 
 ---
 
@@ -288,14 +288,14 @@ Assume **bridge ON**, single **`client_id`**, sane defaults. **When/Then** colum
 
 _Pre-implementation: no automated suites recorded._
 
-| Scenario / bucket | Automated | Manual | Last verified |
-|-------------------|-----------|--------|---------------|
-| §3 Relay & bridge | — | — | _not run_ |
-| §4 Read model | — | — | _not run_ |
-| §5 Mutations | — | — | _not run_ |
-| §6 Negative | — | — | _not run_ |
-| §7 M19 | — | — | _not run_ |
-| §8 M20 Agent presence | — | — | _not run_ |
+| Scenario / bucket     | Automated | Manual | Last verified |
+| --------------------- | --------- | ------ | ------------- |
+| §3 Relay & bridge     | —         | —      | _not run_     |
+| §4 Read model         | —         | —      | _not run_     |
+| §5 Mutations          | —         | —      | _not run_     |
+| §6 Negative           | —         | —      | _not run_     |
+| §7 M19                | —         | —      | _not run_     |
+| §8 M20 Agent presence | —         | —      | _not run_     |
 
 After **`atmos-specs-test-run`**: append row results + commit SHA.
 

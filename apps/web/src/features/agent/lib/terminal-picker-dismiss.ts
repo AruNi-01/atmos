@@ -13,7 +13,5 @@ export function pointerDownKeepsTerminalPickerOpen(target: EventTarget | null): 
   if (!target || typeof target !== "object") return false;
   const closest = (target as { closest?: unknown }).closest;
   if (typeof closest !== "function") return false;
-  return Boolean(
-    (closest as (selector: string) => unknown).call(target, EFFORT_POPOVER_PORTAL),
-  );
+  return Boolean((closest as (selector: string) => unknown).call(target, EFFORT_POPOVER_PORTAL));
 }

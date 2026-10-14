@@ -8,10 +8,7 @@ import { useQueryState } from "nuqs";
 import { Button, EmptyAction, IconSetting, Input, cn } from "@workspace/ui";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
-import type {
-  LinearGithubRefPayload,
-  LinearIssuePayload,
-} from "@atmos/api-types/ws/dto/linear";
+import type { LinearGithubRefPayload, LinearIssuePayload } from "@atmos/api-types/ws/dto/linear";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { queryKeys } from "@/api/query/query-keys";
@@ -22,11 +19,7 @@ import {
   resolveLinearCredentialSource,
   selectLinearOauth,
 } from "@/features/settings/lib/linear-local-keys";
-import {
-  hubConfigured,
-  hubLinearStatus,
-  hubMe,
-} from "@/api/hub-client";
+import { hubConfigured, hubLinearStatus, hubMe } from "@/api/hub-client";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import { GithubListPagination } from "@/features/github/components/GithubListPagination";
@@ -44,17 +37,13 @@ import {
   TaskGithubDrawerHost,
   type TaskGithubDrawerController,
 } from "@/features/task/components/task-github-drawer/TaskGithubDrawerHost";
-import {
-  issueDrawerKey,
-  prDrawerKey,
-} from "@/features/task/components/task-github-drawer/types";
+import { issueDrawerKey, prDrawerKey } from "@/features/task/components/task-github-drawer/types";
 import { openTaskWorkspaceCreate } from "@/features/task/lib/open-task-workspace-create";
 import { TASK_LINEAR_PAGE_SIZE } from "@/features/task/lib/task-linear-panel-model";
 import { findLinkedWorkspaceForLinearIssue } from "@/features/task/lib/find-linked-workspace";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { PageEmptyState } from "@/shared/components/PageEmptyState";
-
 
 function issueToWire(issue: LinearIssuePayload) {
   return {
@@ -86,22 +75,14 @@ type TaskLinearPanelProps = {
   headerTrailingHost?: HTMLElement | null;
 };
 
-export function TaskLinearPanel({
-  headerTrailingHost = null,
-}: TaskLinearPanelProps) {
+export function TaskLinearPanel({ headerTrailingHost = null }: TaskLinearPanelProps) {
   const t = useTranslations("appShell.task");
   const router = useAppRouter();
   const projects = useProjects();
   const scope = useComputerQueryScope();
-  const drawerControllerRef = React.useRef<TaskLinearDrawerController | null>(
-    null,
-  );
-  const githubDrawerControllerRef =
-    React.useRef<TaskGithubDrawerController | null>(null);
-  const [, setNewWorkspace] = useQueryState(
-    "newWorkspace",
-    centerStageParams.newWorkspace,
-  );
+  const drawerControllerRef = React.useRef<TaskLinearDrawerController | null>(null);
+  const githubDrawerControllerRef = React.useRef<TaskGithubDrawerController | null>(null);
+  const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
   const openSettings = useOpenSettings();
 
   const openLinearIntegrations = useCallback(() => {
@@ -205,12 +186,10 @@ export function TaskLinearPanel({
     void selectLinearOauth().then(() => setKeysEpoch((n) => n + 1));
   }, [keysReady, statusQuery.data?.connected, statusQuery.data?.auth_method]);
 
-  const usedLocalCredential =
-    selection.mode !== "oauth" && Boolean(activeLocal?.api_key);
+  const usedLocalCredential = selection.mode !== "oauth" && Boolean(activeLocal?.api_key);
   const source = resolveLinearCredentialSource({
     selection,
-    oauthConnected:
-      !usedLocalCredential && Boolean(statusQuery.data?.connected),
+    oauthConnected: !usedLocalCredential && Boolean(statusQuery.data?.connected),
     hasLocalKey: Boolean(activeLocal),
   });
   const connected = source === "oauth" || source === "local";
@@ -252,12 +231,9 @@ export function TaskLinearPanel({
         preset: filters.preset,
         team_id: filters.teamId || undefined,
         project_id: filters.projectId || undefined,
-        state_types:
-          filters.stateTypes.length > 0 ? [...filters.stateTypes] : undefined,
-        assignee_ids:
-          filters.assigneeIds.length > 0 ? [...filters.assigneeIds] : undefined,
-        label_ids:
-          filters.labelIds.length > 0 ? [...filters.labelIds] : undefined,
+        state_types: filters.stateTypes.length > 0 ? [...filters.stateTypes] : undefined,
+        assignee_ids: filters.assigneeIds.length > 0 ? [...filters.assigneeIds] : undefined,
+        label_ids: filters.labelIds.length > 0 ? [...filters.labelIds] : undefined,
         query: queryApplied.trim() || undefined,
         first: TASK_LINEAR_PAGE_SIZE,
         after,
@@ -284,9 +260,7 @@ export function TaskLinearPanel({
   const listLoading =
     connected &&
     !authLoading &&
-    (listQuery.isPending ||
-      listQuery.isLoading ||
-      (listQuery.isFetching && issues.length === 0));
+    (listQuery.isPending || listQuery.isLoading || (listQuery.isFetching && issues.length === 0));
 
   const resetPaging = useCallback(() => {
     setPage(1);
@@ -367,9 +341,7 @@ export function TaskLinearPanel({
         router.push(`/workspace?id=${linked.workspace.id}`);
         return;
       }
-      const gh = (issue.github_refs ?? []).find(
-        (r) => r.kind === "issue" || r.kind === "pull",
-      );
+      const gh = (issue.github_refs ?? []).find((r) => r.kind === "issue" || r.kind === "pull");
       openTaskWorkspaceCreate({
         requireProjectPick: true,
         displayName: `${issue.identifier} ${issue.title}`.trim().slice(0, 120),
@@ -407,8 +379,7 @@ export function TaskLinearPanel({
 
   const resolveLinkedWorkspaceId = useCallback(
     (issue: LinearIssuePayload) =>
-      findLinkedWorkspaceForLinearIssue(projects, issue.id)?.workspace.id ??
-      null,
+      findLinkedWorkspaceForLinearIssue(projects, issue.id)?.workspace.id ?? null,
     [projects],
   );
 
@@ -445,9 +416,7 @@ export function TaskLinearPanel({
   const headerActions = (
     <div className="flex h-7 items-center gap-1.5">
       <span className="hidden h-7 items-center rounded-full border border-border bg-muted/30 px-2.5 text-[11px] font-medium text-foreground sm:inline-flex">
-        {source === "local"
-          ? t("linear.chip.localApiKey")
-          : t("linear.chip.oauthAccount")}
+        {source === "local" ? t("linear.chip.localApiKey") : t("linear.chip.oauthAccount")}
       </span>
       <Button
         type="button"
@@ -465,9 +434,7 @@ export function TaskLinearPanel({
   );
 
   const portaledHeaderActions =
-    headerTrailingHost != null
-      ? createPortal(headerActions, headerTrailingHost)
-      : null;
+    headerTrailingHost != null ? createPortal(headerActions, headerTrailingHost) : null;
 
   // Auth probe only (local key hydrate + status) — not the issue list yet.
   if (authLoading) {
@@ -482,8 +449,7 @@ export function TaskLinearPanel({
   }
 
   // Sign-in wall only for explicit OAuth; local keys never require Hub login.
-  const needsHubLogin =
-    Boolean(statusQuery.data?.needs_hub_login) && selection.mode === "oauth";
+  const needsHubLogin = Boolean(statusQuery.data?.needs_hub_login) && selection.mode === "oauth";
 
   if (needsHubLogin || !connected) {
     return (
@@ -526,7 +492,7 @@ export function TaskLinearPanel({
         {/* Search · Filter — fixed toolbar */}
         <div className="flex min-w-0 shrink-0 items-center gap-2 pb-2">
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={queryDraft}
               onChange={(e) => setQueryDraft(e.target.value)}
@@ -541,12 +507,12 @@ export function TaskLinearPanel({
               }}
               placeholder={t("linear.filters.searchPlaceholder")}
               aria-label={t("linear.filters.searchPlaceholder")}
-              className="h-8 border-border/70 bg-background pl-8 pr-8 text-[12px] shadow-none"
+              className="h-8 border-border/70 bg-background pr-8 pl-8 text-[12px] shadow-none"
             />
             {queryDraft || queryApplied ? (
               <button
                 type="button"
-                className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="absolute top-1/2 right-1.5 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={clearQuery}
                 title={t("linear.search.clear")}
@@ -588,9 +554,7 @@ export function TaskLinearPanel({
                       ? "empty"
                       : "ready"
               }
-              bodyMessage={
-                listQuery.isError ? t("linear.loadError") : t("linear.empty")
-              }
+              bodyMessage={listQuery.isError ? t("linear.loadError") : t("linear.empty")}
               onOpenIssue={handleOpenIssue}
               onCreateWorkspace={openCreateFromIssue}
               onEnterWorkspace={handleEnterWorkspace}

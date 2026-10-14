@@ -54,7 +54,7 @@ interface NotificationSettingsStore {
   updateSettings: (settings: NotificationSettings) => Promise<void>;
   updateField: <K extends keyof NotificationSettings>(
     key: K,
-    value: NotificationSettings[K]
+    value: NotificationSettings[K],
   ) => Promise<void>;
   addPushServer: (server: PushServerConfig) => Promise<void>;
   removePushServer: (id: string) => Promise<void>;
@@ -79,108 +79,95 @@ function notificationSettingsStoreText(key: "unknownError"): string {
   }
 }
 
-const notificationSettingsStore = create<NotificationSettingsStore>(
-  (set, get) => ({
-    settings: DEFAULT_SETTINGS,
-    _version: 0,
-    isLoading: false,
-    isSaving: false,
+const notificationSettingsStore = create<NotificationSettingsStore>((set, get) => ({
+  settings: DEFAULT_SETTINGS,
+  _version: 0,
+  isLoading: false,
+  isSaving: false,
 
-    loadSettings: async () => {
-      set({ isLoading: true });
-      try {
-        const data = await wsRequest("notification_settings_get"
-        );
-        set({ settings: { ...DEFAULT_SETTINGS, ...data } });
-      } catch {
-        // use defaults
-      } finally {
-        set({ isLoading: false });
-      }
-    },
-
-    updateSettings: async (settings: NotificationSettings) => {
-      const prev = get().settings;
-      const versionAtStart = get()._version + 1;
-      set({ settings, isSaving: true, _version: versionAtStart });
-      try {
-        await wsRequest("notification_settings_update", {
-          settings,
-        });
-      } catch {
-        set((s) =>
-          s._version === versionAtStart ? { settings: prev } : {}
-        );
-      } finally {
-        set({ isSaving: false });
-      }
-    },
-
-    updateField: async (key, value) => {
-      const next = { ...get().settings, [key]: value };
-      await get().updateSettings(next);
-    },
-
-    addPushServer: async (server: PushServerConfig) => {
-      const next = {
-        ...get().settings,
-        push_servers: [...get().settings.push_servers, server],
-      };
-      await get().updateSettings(next);
-    },
-
-    removePushServer: async (id: string) => {
-      const next = {
-        ...get().settings,
-        push_servers: get().settings.push_servers.filter((s) => s.id !== id),
-      };
-      await get().updateSettings(next);
-    },
-
-    updatePushServer: async (
-      id: string,
-      updates: Partial<PushServerConfig>
-    ) => {
-      const next = {
-        ...get().settings,
-        push_servers: get().settings.push_servers.map((s) =>
-          s.id === id ? { ...s, ...updates } : s
-        ),
-      };
-      await get().updateSettings(next);
-    },
-
-    testPushServer: async (index: number) => {
-      try {
-        return await wsRequest("notification_test_push",
-          { server_index: index }
-        );
-      } catch (e) {
-        return {
-          ok: false,
-          error: e instanceof Error ? e.message : notificationSettingsStoreText("unknownError"),
-        };
-      }
-    },
-  })
-);
-
-export const useNotificationSettingsStore = Object.assign(
-  function useNotificationSettingsStore(
-    ...args: Parameters<typeof notificationSettingsStore>
-  ) {
-    const t = useTranslations("settings.notificationStore");
-
-    React.useEffect(() => {
-      notificationSettingsTranslator = t;
-      return () => {
-        if (notificationSettingsTranslator === t) {
-          notificationSettingsTranslator = null;
-        }
-      };
-    }, [t]);
-
-    return notificationSettingsStore(...args);
+  loadSettings: async () => {
+    set({ isLoading: true });
+    try {
+      const data = await wsRequest("notification_settings_get");
+      set({ settings: { ...DEFAULT_SETTINGS, ...data } });
+    } catch {
+      // use defaults
+    } finally {
+      set({ isLoading: false });
+    }
   },
-  notificationSettingsStore,
-);
+
+  updateSettings: async (settings: NotificationSettings) => {
+    const prev = get().settings;
+    const versionAtStart = get()._version + 1;
+    set({ settings, isSaving: true, _version: versionAtStart });
+    try {
+      await wsRequest("notification_settings_update", {
+        settings,
+      });
+    } catch {
+      set((s) => (s._version === versionAtStart ? { settings: prev } : {}));
+    } finally {
+      set({ isSaving: false });
+    }
+  },
+
+  updateField: async (key, value) => {
+    const next = { ...get().settings, [key]: value };
+    await get().updateSettings(next);
+  },
+
+  addPushServer: async (server: PushServerConfig) => {
+    const next = {
+      ...get().settings,
+      push_servers: [...get().settings.push_servers, server],
+    };
+    await get().updateSettings(next);
+  },
+
+  removePushServer: async (id: string) => {
+    const next = {
+      ...get().settings,
+      push_servers: get().settings.push_servers.filter((s) => s.id !== id),
+    };
+    await get().updateSettings(next);
+  },
+
+  updatePushServer: async (id: string, updates: Partial<PushServerConfig>) => {
+    const next = {
+      ...get().settings,
+      push_servers: get().settings.push_servers.map((s) =>
+        s.id === id ? { ...s, ...updates } : s,
+      ),
+    };
+    await get().updateSettings(next);
+  },
+
+  testPushServer: async (index: number) => {
+    try {
+      return await wsRequest("notification_test_push", { server_index: index });
+    } catch (e) {
+      return {
+        ok: false,
+        error: e instanceof Error ? e.message : notificationSettingsStoreText("unknownError"),
+      };
+    }
+  },
+}));
+
+export const useNotificationSettingsStore = Object.assign(function useNotificationSettingsStore(
+  ...args: Parameters<typeof notificationSettingsStore>
+) {
+  const t = useTranslations("settings.notificationStore");
+
+  React.useEffect(() => {
+    notificationSettingsTranslator = t;
+    return () => {
+      if (notificationSettingsTranslator === t) {
+        notificationSettingsTranslator = null;
+      }
+    };
+  }, [t]);
+
+  return notificationSettingsStore(...args);
+}, notificationSettingsStore);

@@ -1,6 +1,9 @@
 import type { TextInputProps as ExpoTextInputProps } from "@expo/ui";
 
-export type NativeTextInputProps = Omit<ExpoTextInputProps, "defaultValue" | "style" | "textStyle" | "value"> & {
+export type NativeTextInputProps = Omit<
+  ExpoTextInputProps,
+  "defaultValue" | "style" | "textStyle" | "value"
+> & {
   defaultValue?: string;
   minHeight?: number;
   style?: ExpoTextInputProps["style"];

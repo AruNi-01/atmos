@@ -2,10 +2,7 @@
 
 import { create } from "zustand";
 
-import {
-  resolveBrowserContext,
-  type ResolveBrowserContextResult,
-} from "./resolve-browser-context";
+import { resolveBrowserContext, type ResolveBrowserContextResult } from "./resolve-browser-context";
 
 type PanelEntry = {
   isActive: boolean;

@@ -37,9 +37,7 @@ async function softOpenWorkspace(page: import("@playwright/test").Page, workspac
  * data-tier visibility (not HTML hidden) so terminal WebGL is preserved.
  */
 test.describe("APP-043 workspace surface cache", () => {
-  test("@stateful keeps prior workspace frame warm when switching contexts", async ({
-    page,
-  }) => {
+  test("@stateful keeps prior workspace frame warm when switching contexts", async ({ page }) => {
     test.setTimeout(180_000);
 
     await stubComputerClientSettingsApi(page);
@@ -111,11 +109,10 @@ test.describe("APP-043 workspace surface cache", () => {
         project_guid: project.guid,
       });
 
-      let first = workspaces.find((w) => !w.is_archived) ?? workspaces[0] ?? null;
+      const first = workspaces.find((w) => !w.is_archived) ?? workspaces[0] ?? null;
       if (!first) throw new Error("no workspace A");
 
-      let second =
-        workspaces.find((w) => w.guid !== first!.guid && !w.is_archived) ?? null;
+      let second = workspaces.find((w) => w.guid !== first!.guid && !w.is_archived) ?? null;
       if (!second) {
         const stamp = Date.now().toString(36);
         const branch = `e2e/app043-warm-b-${stamp}`;
@@ -138,8 +135,7 @@ test.describe("APP-043 workspace surface cache", () => {
         workspaces = await wsRequest("workspace_list", {
           project_guid: project.guid,
         });
-        second =
-          workspaces.find((w) => w.guid !== first!.guid && !w.is_archived) ?? null;
+        second = workspaces.find((w) => w.guid !== first!.guid && !w.is_archived) ?? null;
       }
       if (!second) throw new Error("no workspace B");
       return { a: first.guid, b: second.guid };
@@ -159,9 +155,7 @@ test.describe("APP-043 workspace surface cache", () => {
       .poll(
         async () =>
           page.evaluate(() =>
-            document.querySelectorAll("[data-workspace-frame]").length > 0
-              ? "ok"
-              : "none",
+            document.querySelectorAll("[data-workspace-frame]").length > 0 ? "ok" : "none",
           ),
         { timeout: 45_000 },
       )

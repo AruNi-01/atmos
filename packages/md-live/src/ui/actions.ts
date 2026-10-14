@@ -1,10 +1,5 @@
 import type { Ctx } from "@milkdown/kit/ctx";
-import {
-  commandsCtx,
-  editorViewCtx,
-  parserCtx,
-  serializerCtx,
-} from "@milkdown/kit/core";
+import { commandsCtx, editorViewCtx, parserCtx, serializerCtx } from "@milkdown/kit/core";
 import type { Node } from "@milkdown/kit/prose/model";
 import { Slice } from "@milkdown/kit/prose/model";
 import { TextSelection } from "@milkdown/kit/prose/state";
@@ -22,10 +17,7 @@ import {
   startStreamingCmd,
   streamingPluginKey,
 } from "@milkdown/kit/plugin/streaming";
-import {
-  acceptAllDiffsCmd,
-  clearDiffReviewCmd,
-} from "@milkdown/kit/plugin/diff";
+import { acceptAllDiffsCmd, clearDiffReviewCmd } from "@milkdown/kit/plugin/diff";
 import type { MdLiveBlockAction, MdLiveFocusCaret } from "./types";
 import { formatMdLiveSerializedMarkdown } from "./markdown-stringify";
 import { applyMdLiveBlockConvert } from "./convert-block";

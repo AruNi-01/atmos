@@ -9,21 +9,20 @@ import type {
   GhCliStatusResponse,
   RuntimeInfoResponse,
   TerminalOverviewResponse,
-} from '@/api/rest-api';
+} from "@/api/rest-api";
 
 async function fetchComputerGatewayJson<T>(
   relayGatewayHttpBase: string,
   relayClientToken: string,
   path: string,
 ): Promise<T> {
-  const base = relayGatewayHttpBase.replace(/\/$/, '');
-  const token =
-    typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
+  const base = relayGatewayHttpBase.replace(/\/$/, "");
+  const token = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
   const headers = new Headers({
     Authorization: `Bearer ${relayClientToken}`,
   });
   if (token) {
-    headers.set('X-Atmos-Local-Token', token);
+    headers.set("X-Atmos-Local-Token", token);
   }
   const res = await fetch(`${base}${path}`, { headers });
   const json = (await res.json().catch(() => null)) as {
@@ -45,7 +44,7 @@ export async function fetchRelayTerminalOverview(
   return fetchComputerGatewayJson<TerminalOverviewResponse>(
     relayGatewayHttpBase,
     relayClientToken,
-    '/api/system/terminal-overview',
+    "/api/system/terminal-overview",
   );
 }
 
@@ -57,7 +56,7 @@ export async function fetchRelayRuntimeInfo(
   return fetchComputerGatewayJson<RuntimeInfoResponse>(
     relayGatewayHttpBase,
     relayClientToken,
-    '/api/system/runtime-info',
+    "/api/system/runtime-info",
   );
 }
 
@@ -69,6 +68,6 @@ export async function fetchRelayGhCliStatus(
   return fetchComputerGatewayJson<GhCliStatusResponse>(
     relayGatewayHttpBase,
     relayClientToken,
-    '/api/system/gh-cli-status',
+    "/api/system/gh-cli-status",
   );
 }

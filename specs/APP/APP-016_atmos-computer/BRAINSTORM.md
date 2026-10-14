@@ -17,10 +17,10 @@
 
 ## 2. 参考产品形态（类比，非实现约束）
 
-| 产品/概念 | 启发点 |
-|-----------|--------|
-| [Factory Droid Computers](https://docs.factory.ai/cli/features/droid-computers)（**第三方品牌**） | 对方产品里「可寻址的一台计算环境」的**产品形态**可参考；**本 spec 用户向名称：Atmos Computer**；不把 Atmos 叫作 Droid，以免与 Factory 的 Agent 品牌混淆。 |
-| [Paseo](https://github.com/getpaseo/paseo) | 官方 `packages/relay` 用 **Wrangler + Worker + Durable Object**（`RelayDurableObject`）做 WS 中继、按 `serverId` 路由；**未见 D1 绑定**（DO 侧可用 **Durable Objects SQLite** 等能力）。README 亦指向社区 **[paseo-relay](https://github.com/zenghongtu/paseo-relay)（Go 自建）**，与 Cloudflare 无关。 |
+| 产品/概念                                                                                         | 启发点                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Factory Droid Computers](https://docs.factory.ai/cli/features/droid-computers)（**第三方品牌**） | 对方产品里「可寻址的一台计算环境」的**产品形态**可参考；**本 spec 用户向名称：Atmos Computer**；不把 Atmos 叫作 Droid，以免与 Factory 的 Agent 品牌混淆。                                                                                                                                               |
+| [Paseo](https://github.com/getpaseo/paseo)                                                        | 官方 `packages/relay` 用 **Wrangler + Worker + Durable Object**（`RelayDurableObject`）做 WS 中继、按 `serverId` 路由；**未见 D1 绑定**（DO 侧可用 **Durable Objects SQLite** 等能力）。README 亦指向社区 **[paseo-relay](https://github.com/zenghongtu/paseo-relay)（Go 自建）**，与 Cloudflare 无关。 |
 
 **借鉴结论**：把 **Atmos Server**（`apps/api` 进程）定义为 **单台 Atmos Computer 内计算与状态的唯一宿主**；Relay 只做 **连接与路由（+ 可选事件回放）**；Web/Desktop 是 **多 Computer 客户端**。
 
@@ -34,12 +34,12 @@
 
 ### 3.2 备选方案（记录取舍）
 
-| 方案 | 优点 | 缺点 | 结论 |
-|------|------|------|------|
-| A. 每台 Server 公网 IP + TLS | 简单直连 | 端口、证书、防火墙、动态 IP | 不作为主路径 |
-| B. 自建 STUN/TURN + P2P | 低云端成本 | 实现与排障成本高 | 不采纳 |
-| C. 仅 Tailscale/WireGuard | 安全 | 强制用户网络栈 | 可作为 **可选增强**，非本 spec 核心 |
-| **D. CF Worker + DO Relay，Server 出站** | 无入站、易扩展多台 **Computer**、与 DO replay 契合 | 依赖 CF、需设计协议与配额 | **主路径** |
+| 方案                                     | 优点                                               | 缺点                        | 结论                                |
+| ---------------------------------------- | -------------------------------------------------- | --------------------------- | ----------------------------------- |
+| A. 每台 Server 公网 IP + TLS             | 简单直连                                           | 端口、证书、防火墙、动态 IP | 不作为主路径                        |
+| B. 自建 STUN/TURN + P2P                  | 低云端成本                                         | 实现与排障成本高            | 不采纳                              |
+| C. 仅 Tailscale/WireGuard                | 安全                                               | 强制用户网络栈              | 可作为 **可选增强**，非本 spec 核心 |
+| **D. CF Worker + DO Relay，Server 出站** | 无入站、易扩展多台 **Computer**、与 DO replay 契合 | 依赖 CF、需设计协议与配额   | **主路径**                          |
 
 ## 4. 与现有仓库能力的关系
 
@@ -58,4 +58,4 @@
 
 ---
 
-*本文件随讨论更新；实现以前以 PRD/TECH 锁定范围为准。*
+_本文件随讨论更新；实现以前以 PRD/TECH 锁定范围为准。_

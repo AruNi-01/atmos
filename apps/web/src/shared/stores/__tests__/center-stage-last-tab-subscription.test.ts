@@ -2,10 +2,7 @@
 import { describe, expect, it } from "bun:test";
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
-import {
-  readCenterStageLastTab,
-  setCenterStageLastTab,
-} from "@/shared/stores/use-ui-pref-hooks";
+import { readCenterStageLastTab, setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 
 describe("center stage last tab store updates", () => {
   it("notifies ui-pref subscribers so chrome can follow tab clicks", () => {

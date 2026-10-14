@@ -20,7 +20,14 @@ describe("transcript find corpus", () => {
     user("u1", "请看登录页"),
     assistant("a1", [
       { type: "thinking", text: "内部思考登录页" },
-      { type: "tool_call", tool_call_id: "t1", name: "Read", kind: "read", status: "completed", params: { type: "read", path: "a.ts" } },
+      {
+        type: "tool_call",
+        tool_call_id: "t1",
+        name: "Read",
+        kind: "read",
+        status: "completed",
+        params: { type: "read", path: "a.ts" },
+      },
       { type: "text", text: "已核对登录页布局" },
     ]),
     user("u2", "换个话题"),

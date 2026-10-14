@@ -3,11 +3,7 @@
 import type { ComponentProps, ReactNode } from "react";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { cn } from "../../lib/utils";
 import { BrainIcon, ChevronRightIcon } from "lucide-react";
 import {
@@ -102,12 +98,7 @@ export const Reasoning = memo(
 
     // Auto-close when streaming ends (once only, and only if it ever streamed)
     useEffect(() => {
-      if (
-        hasEverStreamedRef.current &&
-        !isStreaming &&
-        isOpen &&
-        !hasAutoClosed
-      ) {
+      if (hasEverStreamedRef.current && !isStreaming && isOpen && !hasAutoClosed) {
         const timer = setTimeout(() => {
           setIsOpen(false);
           setHasAutoClosed(true);
@@ -121,12 +112,12 @@ export const Reasoning = memo(
       (newOpen: boolean) => {
         setIsOpen(newOpen);
       },
-      [setIsOpen]
+      [setIsOpen],
     );
 
     const contextValue = useMemo(
       () => ({ duration, isOpen, isStreaming, setIsOpen }),
-      [duration, isOpen, isStreaming, setIsOpen]
+      [duration, isOpen, isStreaming, setIsOpen],
     );
 
     return (
@@ -141,12 +132,10 @@ export const Reasoning = memo(
         </Collapsible>
       </ReasoningContext.Provider>
     );
-  }
+  },
 );
 
-export type ReasoningTriggerProps = ComponentProps<
-  typeof CollapsibleTrigger
-> & {
+export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
   getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
 };
 
@@ -172,8 +161,8 @@ export const ReasoningTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "group inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground",
-          className
+          "group inline-flex max-w-full min-w-0 cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground",
+          className,
         )}
         {...props}
       >
@@ -182,25 +171,21 @@ export const ReasoningTrigger = memo(
             <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">
               <BrainIcon />
             </span>
-            <span className="min-w-0 truncate">
-              {getThinkingMessage(isStreaming, duration)}
-            </span>
+            <span className="min-w-0 truncate">{getThinkingMessage(isStreaming, duration)}</span>
             <ChevronRightIcon
               className={cn(
                 "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                isOpen ? "rotate-90" : "rotate-0"
+                isOpen ? "rotate-90" : "rotate-0",
               )}
             />
           </>
         )}
       </CollapsibleTrigger>
     );
-  }
+  },
 );
 
-export type ReasoningContentProps = ComponentProps<
-  typeof CollapsibleContent
-> & {
+export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & {
   children: string;
   components?: MessageResponseProps["components"];
   linkSafety?: MessageResponseProps["linkSafety"];
@@ -213,7 +198,7 @@ export const ReasoningContent = memo(
       <CollapsibleContent
         className={cn(
           "text-sm text-muted-foreground outline-none data-[state=open]:overflow-visible",
-          className
+          className,
         )}
         {...props}
       >
@@ -235,7 +220,7 @@ export const ReasoningContent = memo(
         </div>
       </CollapsibleContent>
     );
-  }
+  },
 );
 
 Reasoning.displayName = "Reasoning";

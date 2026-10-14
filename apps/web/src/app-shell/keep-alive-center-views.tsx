@@ -11,22 +11,16 @@ export { githubKeptSurfacePropsAreEqual };
 export type { GithubKeptSurfaceProps };
 
 const PRDetailView = dynamic(
-  () =>
-    import("@/features/github/components/PRDetailView").then((mod) => mod.PRDetailView),
+  () => import("@/features/github/components/PRDetailView").then((mod) => mod.PRDetailView),
   { ssr: false },
 );
 const IssueDetailView = dynamic(
-  () =>
-    import("@/features/github/components/IssueDetailView").then(
-      (mod) => mod.IssueDetailView,
-    ),
+  () => import("@/features/github/components/IssueDetailView").then((mod) => mod.IssueDetailView),
   { ssr: false },
 );
 const ActionsDetailView = dynamic(
   () =>
-    import("@/features/github/components/ActionsDetailView").then(
-      (mod) => mod.ActionsDetailView,
-    ),
+    import("@/features/github/components/ActionsDetailView").then((mod) => mod.ActionsDetailView),
   { ssr: false },
 );
 
@@ -84,8 +78,5 @@ function GithubKeptSurfaceImpl({
  * toggles wrapper opacity — `active` stays workspace-scoped so queries
  * do not disable/re-enable (that re-render is the post-load hitch).
  */
-export const GithubKeptSurface = React.memo(
-  GithubKeptSurfaceImpl,
-  githubKeptSurfacePropsAreEqual,
-);
+export const GithubKeptSurface = React.memo(GithubKeptSurfaceImpl, githubKeptSurfacePropsAreEqual);
 GithubKeptSurface.displayName = "GithubKeptSurface";

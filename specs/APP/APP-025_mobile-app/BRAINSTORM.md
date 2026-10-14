@@ -56,16 +56,19 @@ Build a new `apps/mobile` Expo app with a small native navigation stack:
 - Expo UI native controls for app chrome, forms, lists, menus, sheets, dialogs, and settings.
 
 **Pros**:
+
 - Matches the settled direction: Expo + Expo Router + Expo UI + TanStack Query + React Hook Form + Zustand + Zod + NativeWind.
 - Keeps the UX honest for phones instead of forcing the desktop shell into a narrow viewport.
 - Lets the MVP focus on terminal operation, which is the core value of mobile Atmos.
 
 **Cons**:
+
 - Requires deciding how to render and drive a terminal well on iOS/Android.
 - Duplicates some Web client state and API orchestration unless shared packages are deliberately extracted.
 - App-store/mobile release workflow adds product and QA overhead.
 
 **Unknown**:
+
 - Whether terminal rendering should be native, WebView-based, or a custom React Native surface.
 - Whether M1 needs both iOS and Android, or can start with one platform.
 
@@ -74,16 +77,19 @@ Build a new `apps/mobile` Expo app with a small native navigation stack:
 Build the real Expo app for all regular UI, but render the terminal through an embedded WebView that can reuse web terminal code or xterm-style behavior.
 
 **Pros**:
+
 - Keeps the product as a real app while reducing terminal renderer risk.
 - May reuse proven terminal rendering behavior from the Web/Desktop client.
 - Lets Expo UI own the surrounding native shell, forms, sheets, and shortcuts while terminal remains specialized.
 
 **Cons**:
+
 - WebView keyboard behavior, viewport resizing, selection, and clipboard handling can still be fragile.
 - Native accessory controls must bridge cleanly into the WebView terminal.
 - Risks a split feel if the terminal surface does not visually integrate with the Expo UI shell.
 
 **Unknown**:
+
 - How much terminal code can be reused without pulling in desktop shell assumptions.
 - Whether WebView terminal latency is acceptable over Relay on real devices.
 
@@ -98,16 +104,19 @@ Treat mobile as a first-class Atmos client, not just a terminal companion:
 - User-customizable terminal shortcut palettes and deeper workspace operations.
 
 **Pros**:
+
 - Best long-term product shape if mobile becomes a real daily client.
 - Can expose high-value Atmos features beyond terminal access.
 - Tablet support could make remote Atmos development substantially more comfortable.
 
 **Cons**:
+
 - Too large for the first spec if the goal is MVP learning.
 - High parity burden with Web/Desktop.
 - Risks committing to native abstractions before the terminal and Relay experience is proven.
 
 **Unknown**:
+
 - Which Web/Desktop features users actually need on mobile versus which are desktop-only.
 - Whether tablet should be scoped separately from phone.
 
@@ -116,16 +125,19 @@ Treat mobile as a first-class Atmos client, not just a terminal companion:
 Solve the adjacent problem: do not make mobile a development client yet. Make it a companion app for quick approvals, status checks, and short terminal commands.
 
 **Pros**:
+
 - Smaller terminal rendering burden.
 - Better fit for phones if most serious coding remains on desktop.
 - Could pair naturally with automations, GitHub triggers, or agent review/approval flows later.
 
 **Cons**:
+
 - Does not satisfy the explicit desire to open a workspace/project and work in the terminal.
 - May feel like a notification utility rather than Atmos mobile.
 - Still needs Access Token, Relay sessions, and a reliable connected Computer model.
 
 **Unknown**:
+
 - Whether users primarily want emergency terminal access or a broader mobile development surface.
 
 ## Key forks in the road

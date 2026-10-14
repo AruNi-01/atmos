@@ -8,20 +8,10 @@ interface ErrorDisplayProps {
   className?: string;
 }
 
-export function ErrorDisplay({
-  message,
-  fallbackMessage,
-  onRetry,
-  className,
-}: ErrorDisplayProps) {
+export function ErrorDisplay({ message, fallbackMessage, onRetry, className }: ErrorDisplayProps) {
   const t = useTranslations("shared.errorDisplay");
   return (
-    <div
-      className={cn(
-        "flex items-center justify-center bg-background px-4",
-        className,
-      )}
-    >
+    <div className={cn("flex items-center justify-center bg-background px-4", className)}>
       <div className="flex max-w-md flex-col items-center gap-4 text-center">
         <div className="rounded-full bg-destructive/10 p-3">
           <svg
@@ -38,9 +28,7 @@ export function ErrorDisplay({
             />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-foreground">
-          {t("title")}
-        </h2>
+        <h2 className="text-lg font-semibold text-foreground">{t("title")}</h2>
         <p className="text-sm text-muted-foreground">
           {message || fallbackMessage || t("fallbackMessage")}
         </p>

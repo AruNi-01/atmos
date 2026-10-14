@@ -84,26 +84,28 @@ export function TerminalAgentRunConfigContent({
 
   return (
     <div className={cn("space-y-4", embedded ? "w-full" : "pt-2")}>
-      {showHeader ? (!embedded ? (
-        <>
-          <DialogTitle>{t("runConfig.title", { agentLabel })}</DialogTitle>
-          <DialogDescription>
-            {t("runConfig.description")}
-          </DialogDescription>
-        </>
-      ) : (
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">{t("runConfig.title", { agentLabel })}</p>
-          <p className="text-xs text-muted-foreground">
-            {t("runConfig.description")}
-          </p>
-        </div>
-      )) : null}
+      {showHeader ? (
+        !embedded ? (
+          <>
+            <DialogTitle>{t("runConfig.title", { agentLabel })}</DialogTitle>
+            <DialogDescription>{t("runConfig.description")}</DialogDescription>
+          </>
+        ) : (
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              {t("runConfig.title", { agentLabel })}
+            </p>
+            <p className="text-xs text-muted-foreground">{t("runConfig.description")}</p>
+          </div>
+        )
+      ) : null}
 
       {purpose === "interactive" ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-foreground">{t("runConfig.savedConfig.label")}</span>
+            <span className="text-sm font-medium text-foreground">
+              {t("runConfig.savedConfig.label")}
+            </span>
             <button
               type="button"
               onClick={handleOpenCodeAgentSettings}

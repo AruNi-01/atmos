@@ -8,22 +8,22 @@ Addresses **M1–M15**. N1–N5 deferred (N3 = transcript tool chip only; compos
 
 ## Frozen decisions
 
-| Decision | Rule |
-|----------|------|
-| Delivery | System skill `atmos-device-preview` + `atmos simulator <verb>`. Skill is **not** folded into `atmos-cli`. No MCP. No injected native Chat tools in v1. |
-| Claim | Live `DeviceClaim` required. `screenshot`/`tap`/`swipe`/`type`/`press` never call `DevicePreviewService::start`. |
-| Wire names | New actions stay `simulator_*` (APP-070 freeze). **Per-verb** actions, not one tagged `simulator_control`, so CLI maps 1:1 and `@atmos/api-types` `WsContract` stays obvious. |
-| Coordinates | Normalized **0..1**, top-left origin. Reject outside range (`invalid_coords`). Skill: `x = px / width`. |
-| Screenshot | Write PNG to disk; WS/CLI return `{ path, width, height, … }`. Never put image bytes on `/ws` or `/api/cli/invoke`. |
-| iOS screenshot | `xcrun simctl io <udid> screenshot <path>` via `core-engine`. Do not pull PNG through serve-sim `/exec`. |
-| iOS HID | Talk to the **already-running** helper: spawn the vendored `serve-sim` binary (`tap` / `gesture` / `type` / `button`) with `-d <udid>`. Do not reimplement HID WS frames in v1. |
-| Android HID + screenshot | Loopback HTTP to the claimed port: `POST /api/tap\|swipe\|text\|key`, `GET /api/screenshot`. Atmos spawn is loopback **without** `--token` (APP-070 argv); do not add tokens to skill text. |
-| Layers | Helper I/O in `core-engine` (no workspace). Claim resolve + verb policy in `core-service`. Thin WS in `apps/api`. CLI is invoke-only (no helper HTTP in `apps/cli`). |
-| Keys | Product `press`: `home` \| `back` \| `recents`. iOS: `home` → `serve-sim button home`; `back`/`recents` → `unsupported_on_platform`. Android: `POST /api/key` `{ key }`. No `power` in v1. |
-| Lifecycle CLI | Same `atmos simulator` group also wraps existing `probe` / `start` / `stop` / `status` so the skill never teaches `atmos call simulator_*`. Start remains **explicit**, never a side effect of tap. |
-| Device handle | Public id = existing `DeviceClaim.udid` (iOS UDID / Android AVD id). Matching also accepts `argv_id` (Android `emulator-5554`). Do **not** mint `claim_id`. `platform` is a filter only. `workspace_id` authorizes; `udid` selects. |
-| Missing user id | Skill lists Computer-wide live claims with project/workspace names and **asks**. Never guess across workspaces. |
-| Copy + slash | Shared English prompt builder. Clipboard = AI-context protocol (`atmos://context/device-preview`). Composer chip `[#ctx:device-preview:…]` expands to that body on send. Overlay button lives on Atmos `SimulatorPanel`, not vendor helper chrome. |
+| Decision                 | Rule                                                                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Delivery                 | System skill `atmos-device-preview` + `atmos simulator <verb>`. Skill is **not** folded into `atmos-cli`. No MCP. No injected native Chat tools in v1.                                                                                             |
+| Claim                    | Live `DeviceClaim` required. `screenshot`/`tap`/`swipe`/`type`/`press` never call `DevicePreviewService::start`.                                                                                                                                   |
+| Wire names               | New actions stay `simulator_*` (APP-070 freeze). **Per-verb** actions, not one tagged `simulator_control`, so CLI maps 1:1 and `@atmos/api-types` `WsContract` stays obvious.                                                                      |
+| Coordinates              | Normalized **0..1**, top-left origin. Reject outside range (`invalid_coords`). Skill: `x = px / width`.                                                                                                                                            |
+| Screenshot               | Write PNG to disk; WS/CLI return `{ path, width, height, … }`. Never put image bytes on `/ws` or `/api/cli/invoke`.                                                                                                                                |
+| iOS screenshot           | `xcrun simctl io <udid> screenshot <path>` via `core-engine`. Do not pull PNG through serve-sim `/exec`.                                                                                                                                           |
+| iOS HID                  | Talk to the **already-running** helper: spawn the vendored `serve-sim` binary (`tap` / `gesture` / `type` / `button`) with `-d <udid>`. Do not reimplement HID WS frames in v1.                                                                    |
+| Android HID + screenshot | Loopback HTTP to the claimed port: `POST /api/tap\|swipe\|text\|key`, `GET /api/screenshot`. Atmos spawn is loopback **without** `--token` (APP-070 argv); do not add tokens to skill text.                                                        |
+| Layers                   | Helper I/O in `core-engine` (no workspace). Claim resolve + verb policy in `core-service`. Thin WS in `apps/api`. CLI is invoke-only (no helper HTTP in `apps/cli`).                                                                               |
+| Keys                     | Product `press`: `home` \| `back` \| `recents`. iOS: `home` → `serve-sim button home`; `back`/`recents` → `unsupported_on_platform`. Android: `POST /api/key` `{ key }`. No `power` in v1.                                                         |
+| Lifecycle CLI            | Same `atmos simulator` group also wraps existing `probe` / `start` / `stop` / `status` so the skill never teaches `atmos call simulator_*`. Start remains **explicit**, never a side effect of tap.                                                |
+| Device handle            | Public id = existing `DeviceClaim.udid` (iOS UDID / Android AVD id). Matching also accepts `argv_id` (Android `emulator-5554`). Do **not** mint `claim_id`. `platform` is a filter only. `workspace_id` authorizes; `udid` selects.                |
+| Missing user id          | Skill lists Computer-wide live claims with project/workspace names and **asks**. Never guess across workspaces.                                                                                                                                    |
+| Copy + slash             | Shared English prompt builder. Clipboard = AI-context protocol (`atmos://context/device-preview`). Composer chip `[#ctx:device-preview:…]` expands to that body on send. Overlay button lives on Atmos `SimulatorPanel`, not vendor helper chrome. |
 
 ## Architecture overview
 
@@ -49,14 +49,14 @@ flowchart LR
 
 Target vs current:
 
-| Piece | Keep | Add | Do not |
-|-------|------|-----|--------|
-| `DevicePreviewService` claims/start/stop | yes | lookup used by control | auto-start from HID |
-| `simulator_probe/start/stop/status` | yes | CLI wrappers; **list** | rename prefix |
-| Helper spawn argv (loopback, no token) | yes | — | put token in skill |
-| Chat hosts / ACP | unchanged | Atmos `/device-preview` in Agent Chat slash (today Agent Chat only lists provider commands) | extra native tools |
-| Iframe `SimulatorPanel` | yes | Agent copy overlay | patch serve-emu/serve-sim for the button |
-| `atmos-desktop-use` | yes | cross-link “not the phone” | drive Simulator.app |
+| Piece                                    | Keep      | Add                                                                                         | Do not                                   |
+| ---------------------------------------- | --------- | ------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `DevicePreviewService` claims/start/stop | yes       | lookup used by control                                                                      | auto-start from HID                      |
+| `simulator_probe/start/stop/status`      | yes       | CLI wrappers; **list**                                                                      | rename prefix                            |
+| Helper spawn argv (loopback, no token)   | yes       | —                                                                                           | put token in skill                       |
+| Chat hosts / ACP                         | unchanged | Atmos `/device-preview` in Agent Chat slash (today Agent Chat only lists provider commands) | extra native tools                       |
+| Iframe `SimulatorPanel`                  | yes       | Agent copy overlay                                                                          | patch serve-emu/serve-sim for the button |
+| `atmos-desktop-use`                      | yes       | cross-link “not the phone”                                                                  | drive Simulator.app                      |
 
 ## Module-by-module design
 
@@ -75,18 +75,18 @@ device_control/
 
 Capabilities:
 
-| Fn | Behavior |
-|----|----------|
-| `simctl_screenshot(udid, dest)` | `xcrun simctl io <udid> screenshot <dest>`; then read PNG size. |
-| `serve_sim_tap(bin, udid, x, y)` | `{bin} tap {x} {y} -d {udid}` (coords already validated). |
-| `serve_sim_swipe(...)` | `{bin} gesture` with begin/move/end JSON (same 0..1 space as `tap`). |
-| `serve_sim_type(bin, udid, text)` | `{bin} type -- {text}`. Map non-ASCII helper failure → typed engine error. |
-| `serve_sim_button(bin, udid, home)` | `{bin} button home -d {udid}`. |
-| `serve_emu_tap(port, x, y)` | `POST /api/tap` `{x,y}`. |
-| `serve_emu_swipe(port, x1,y1,x2,y2, duration_ms?)` | `POST /api/swipe`. |
-| `serve_emu_text(port, text)` | `POST /api/text` `{text}`. |
-| `serve_emu_key(port, key)` | `POST /api/key` `{key: "home"|"back"|"recents"}`. |
-| `serve_emu_screenshot(port, dest)` | `GET /api/screenshot` (binary PNG); write `dest`. |
+| Fn                                                 | Behavior                                                                   |
+| -------------------------------------------------- | -------------------------------------------------------------------------- |
+| `simctl_screenshot(udid, dest)`                    | `xcrun simctl io <udid> screenshot <dest>`; then read PNG size.            |
+| `serve_sim_tap(bin, udid, x, y)`                   | `{bin} tap {x} {y} -d {udid}` (coords already validated).                  |
+| `serve_sim_swipe(...)`                             | `{bin} gesture` with begin/move/end JSON (same 0..1 space as `tap`).       |
+| `serve_sim_type(bin, udid, text)`                  | `{bin} type -- {text}`. Map non-ASCII helper failure → typed engine error. |
+| `serve_sim_button(bin, udid, home)`                | `{bin} button home -d {udid}`.                                             |
+| `serve_emu_tap(port, x, y)`                        | `POST /api/tap` `{x,y}`.                                                   |
+| `serve_emu_swipe(port, x1,y1,x2,y2, duration_ms?)` | `POST /api/swipe`.                                                         |
+| `serve_emu_text(port, text)`                       | `POST /api/text` `{text}`.                                                 |
+| `serve_emu_key(port, key)`                         | `POST /api/key` `{key: "home"                                              | "back" | "recents"}`. |
+| `serve_emu_screenshot(port, dest)`                 | `GET /api/screenshot` (binary PNG); write `dest`.                          |
 
 Helper binary path is **not** invented here: caller passes the installed serve-sim path from `DevicePreviewPaths` / pin version (same `~/.atmos/runtime/serve-sim/<version>/serve-sim` APP-060 already uses).
 
@@ -110,10 +110,10 @@ Flow for every verb:
 
 Two keys, different jobs:
 
-| Key | Job | Unique? |
-|-----|-----|---------|
+| Key            | Job                                                   | Unique?                                              |
+| -------------- | ----------------------------------------------------- | ---------------------------------------------------- |
 | `workspace_id` | Who may drive (APP-070: one live claim per workspace) | Unique **slot**, not unique hardware on the Computer |
-| `udid` | Which simulator/AVD | Unique among live claims. Also match `argv_id` |
+| `udid`         | Which simulator/AVD                                   | Unique among live claims. Also match `argv_id`       |
 
 ```text
 live = all DeviceClaims on this Computer
@@ -160,14 +160,14 @@ Extend `apps/api/src/api/ws/message.rs` `WsAction` and `apps/api/src/api/ws/rout
 
 New actions (snake_case wire names):
 
-| Action | Input (plus `workspace_id` where noted) | Output |
-|--------|-----------------------------|--------|
-| `simulator_list` | `workspace_id?: string` (marks `current`) | `SimulatorClaimList` |
+| Action                 | Input (plus `workspace_id` where noted)                                    | Output                      |
+| ---------------------- | -------------------------------------------------------------------------- | --------------------------- |
+| `simulator_list`       | `workspace_id?: string` (marks `current`)                                  | `SimulatorClaimList`        |
 | `simulator_screenshot` | `workspace_id`, `udid?: string`, `platform?: ios\|android`, `out?: string` | `SimulatorScreenshotResult` |
-| `simulator_tap` | `udid?`, `platform?`, `x, y` (`f64`) | `SimulatorControlAck` |
-| `simulator_swipe` | `udid?`, `platform?`, `x1,y1,x2,y2`, `duration_ms?: u32` | ack |
-| `simulator_type` | `udid?`, `platform?`, `text: string` | ack |
-| `simulator_press` | `udid?`, `platform?`, `key: "home"\|"back"\|"recents"` | ack |
+| `simulator_tap`        | `udid?`, `platform?`, `x, y` (`f64`)                                       | `SimulatorControlAck`       |
+| `simulator_swipe`      | `udid?`, `platform?`, `x1,y1,x2,y2`, `duration_ms?: u32`                   | ack                         |
+| `simulator_type`       | `udid?`, `platform?`, `text: string`                                       | ack                         |
+| `simulator_press`      | `udid?`, `platform?`, `key: "home"\|"back"\|"recents"`                     | ack                         |
 
 Same-PR `@atmos/api-types` recipe ([packages/api-types/AGENTS.md](../../../packages/api-types/AGENTS.md)): Rust enum → `extract-actions` → `src/ws/actions.ts` → DTO in `src/ws/dto/simulator.ts` → rows in `src/ws/contract/simulator.ts`.
 
@@ -234,11 +234,11 @@ Add `"device-preview"` to `AI_CONTEXT_KINDS` in `apps/web/src/shared/lib/ai-cont
 
 **Slash command** — `buildDevicePreviewSlashCommand` + `matchesDevicePreviewSlashQuery` in the same module. Wire into:
 
-| Surface | File | Insert |
-|---------|------|--------|
-| Welcome / project composer | `WelcomePage.tsx` `slashCommands` | `applyAiContextAtRange(..., "device-preview", prompt)` like View Run Logs |
-| Terminal agent overlay | `TerminalAgentInputOverlay.tsx` | same |
-| Agent Chat | `use-agent-composer-popovers.tsx` | **Merge** this Atmos command into `filteredCommands` (today that list is only ACP `availableCommands`). On select, AI-context insert — **not** `/cmd:device-preview`. |
+| Surface                    | File                              | Insert                                                                                                                                                                |
+| -------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Welcome / project composer | `WelcomePage.tsx` `slashCommands` | `applyAiContextAtRange(..., "device-preview", prompt)` like View Run Logs                                                                                             |
+| Terminal agent overlay     | `TerminalAgentInputOverlay.tsx`   | same                                                                                                                                                                  |
+| Agent Chat                 | `use-agent-composer-popovers.tsx` | **Merge** this Atmos command into `filteredCommands` (today that list is only ACP `availableCommands`). On select, AI-context insert — **not** `/cmd:device-preview`. |
 
 Bind prompt to **this composer’s workspace** live claim when present; otherwise list prompt. Fetch via `simulator_list` / `simulator_status` (no helper HTTP from the client).
 
@@ -374,16 +374,16 @@ See [TEST.md](./TEST.md). Prefer service fakes over booting Simulator.app in CI.
 
 ## Risks and follow-ups
 
-| Risk | Mitigation |
-|------|------------|
-| Agent uses Desktop Use PNG pixels on the phone | Skill + inverse rule in desktop-use; screenshot result includes width/height. |
-| Agent says “the Android one” with two live previews | `udid` required in skill; `platform` is a filter that cannot retarget another workspace. |
-| Helper iframe switches device under the claim | Passing `--udid` lets the server refuse if claim.udid no longer matches; claim remains source of truth (APP-070). |
-| `serve-sim tap` fails if helper state file missing | Claim is live and spawned by us; still map to `helper_unreachable` + `fix`: restart Simulator tab. |
-| Android `/api/screenshot` JSON vs raw PNG | Engine accepts `image/png` body; if JSON-base64 appears, decode once in `serve_emu.rs` (do not leak both shapes to service). |
-| iOS type ASCII-only | Map helper error; do not silently strip CJK. |
-| Auto-start RAM | Not in these verbs. N1 only when user asked to start. |
-| Agent Chat slash is provider-only today | Merge Atmos `/device-preview` into `use-agent-composer-popovers`; do not send `/cmd:device-preview` to ACP. |
-| Copy includes ports | Prompt builder unit-tested to omit `url`/`port`. |
+| Risk                                                | Mitigation                                                                                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Agent uses Desktop Use PNG pixels on the phone      | Skill + inverse rule in desktop-use; screenshot result includes width/height.                                                |
+| Agent says “the Android one” with two live previews | `udid` required in skill; `platform` is a filter that cannot retarget another workspace.                                     |
+| Helper iframe switches device under the claim       | Passing `--udid` lets the server refuse if claim.udid no longer matches; claim remains source of truth (APP-070).            |
+| `serve-sim tap` fails if helper state file missing  | Claim is live and spawned by us; still map to `helper_unreachable` + `fix`: restart Simulator tab.                           |
+| Android `/api/screenshot` JSON vs raw PNG           | Engine accepts `image/png` body; if JSON-base64 appears, decode once in `serve_emu.rs` (do not leak both shapes to service). |
+| iOS type ASCII-only                                 | Map helper error; do not silently strip CJK.                                                                                 |
+| Auto-start RAM                                      | Not in these verbs. N1 only when user asked to start.                                                                        |
+| Agent Chat slash is provider-only today             | Merge Atmos `/device-preview` into `use-agent-composer-popovers`; do not send `/cmd:device-preview` to ACP.                  |
+| Copy includes ports                                 | Prompt builder unit-tested to omit `url`/`port`.                                                                             |
 
 Follow-ups (not this PR): N2 accessibility adapter (`GET /api/accessibility`), N3 Chat classification, install/launch spec, rotate/volume.

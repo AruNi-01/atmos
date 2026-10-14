@@ -19,6 +19,8 @@ describe("next chat list cursor", () => {
 
   test("a cursor that did not advance stops paging", () => {
     const items = page(CHAT_LIST_PAGE_SIZE);
-    expect(nextChatListCursor(items, CHAT_LIST_PAGE_SIZE, items[items.length - 1]?.id ?? null)).toBeUndefined();
+    expect(
+      nextChatListCursor(items, CHAT_LIST_PAGE_SIZE, items[items.length - 1]?.id ?? null),
+    ).toBeUndefined();
   });
 });

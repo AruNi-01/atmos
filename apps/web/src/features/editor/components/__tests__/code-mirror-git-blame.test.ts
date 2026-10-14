@@ -20,7 +20,7 @@ describe("APP-074 CodeMirror git blame wiring", () => {
     const editor = readFileSync(editorPath, "utf8");
     const base = readFileSync(basePath, "utf8");
     expect(editor).toContain("gitBlame={gitBlame}");
-    expect(editor).toContain("t('codeMirror.settings.gitBlame')");
+    expect(editor).toContain('t("codeMirror.settings.gitBlame")');
     expect(editor).toContain("setGitBlame");
     expect(base).toContain("createGitBlameExtensions");
     expect(base).toContain("gitBlameCompartment");
@@ -97,7 +97,7 @@ describe("APP-074 CodeMirror git blame wiring", () => {
     const store = readFileSync(storePath, "utf8");
     expect(store).toContain("gitBlame: true");
     expect(store).toContain("settings.editor?.git_blame ?? true");
-    expect(store).toContain("functionSettingsApi.update('editor', 'git_blame', gitBlame)");
+    expect(store).toContain('functionSettingsApi.update("editor", "git_blame", gitBlame)');
   });
 
   test("S19 git blame is WebSocket-only", () => {
@@ -120,7 +120,11 @@ describe("APP-074 CodeMirror git blame wiring", () => {
 
   test("S15 i18n keys exist in en and zh without ALL CAPS labels", () => {
     const en = JSON.parse(readFileSync(enPath, "utf8")) as {
-      Editor: { components: { codeMirror: { settings: { gitBlame: string }; gitBlame: { notCommittedYet: string } } } };
+      Editor: {
+        components: {
+          codeMirror: { settings: { gitBlame: string }; gitBlame: { notCommittedYet: string } };
+        };
+      };
       settings: { editorSection: { rows: { gitBlame: { title: string } } } };
     };
     const zh = JSON.parse(readFileSync(zhPath, "utf8")) as typeof en;

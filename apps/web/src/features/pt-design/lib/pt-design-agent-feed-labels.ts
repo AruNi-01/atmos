@@ -53,10 +53,7 @@ export function describePtDesignAgentCommand(
     return kindFor("edit", "runningBoardAction");
   }
   if (name === "pt-ptx-get") return kindFor("read", "readingPtx");
-  if (
-    name === "pt-catalog-list" ||
-    name === "pt-tools-list"
-  ) {
+  if (name === "pt-catalog-list" || name === "pt-tools-list") {
     return kindFor("read", "readingBoard");
   }
   if (name === "pt-screenshot") return kindFor("read", "capturingScreenshot");

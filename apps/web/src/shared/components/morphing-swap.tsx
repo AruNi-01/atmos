@@ -80,7 +80,7 @@ export function MorphingIconToggle<T extends string>({
       variant="outline"
       size="icon"
       className={cn(
-        "size-11 sm:size-11 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm hover:bg-background",
+        "size-11 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm hover:bg-background sm:size-11",
         className,
       )}
       aria-label={current.label}

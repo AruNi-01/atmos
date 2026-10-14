@@ -30,9 +30,7 @@ level: intermediate
 # Content
 `;
     const { frontmatter } = parseFrontmatter(md);
-    expect(frontmatter.title).toBe(
-      "A multi-line wiki title that should fold into one line",
-    );
+    expect(frontmatter.title).toBe("A multi-line wiki title that should fold into one line");
     expect(frontmatter.section).toBe("getting-started");
   });
 

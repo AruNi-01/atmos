@@ -117,7 +117,7 @@ globals.Element = window.Element;
 globals.HTMLElement = window.HTMLElement;
 globals.SVGElement = window.SVGElement ?? window.Element;
 globals.CSSStyleSheet = window.CSSStyleSheet ?? ShimStyleSheet;
-globals.getComputedStyle = ((() => computedStyle) as unknown) as typeof getComputedStyle;
+globals.getComputedStyle = (() => computedStyle) as unknown as typeof getComputedStyle;
 if (typeof globals.CSS === "undefined") {
   (globals as { CSS: { escape: (value: string) => string } }).CSS = {
     escape: (value: string) => String(value).replace(/[^a-zA-Z0-9_-]/g, "\\$&"),

@@ -26,9 +26,7 @@ import type {
 
 const AgentChatPanel = dynamic(
   () =>
-    import("@/features/agent/components/AgentChatPanel").then(
-      (module) => module.AgentChatPanel,
-    ),
+    import("@/features/agent/components/AgentChatPanel").then((module) => module.AgentChatPanel),
   { ssr: false },
 );
 
@@ -58,10 +56,7 @@ export function AutomationRunDrawer({
   onClose: () => void;
   onCloseStandaloneChat: () => void;
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
-  onFetchArtifact: (
-    run: AutomationRunSummary,
-    kind: AutomationArtifactKind,
-  ) => Promise<void>;
+  onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
   onContinueInChat: (run: AutomationRunSummary) => Promise<void>;
   onOpenRunSurface: (run: AutomationRunSummary) => Promise<void>;
@@ -103,7 +98,7 @@ export function AutomationRunDrawer({
       <DrawerPortal>
         <DrawerOverlay className="bg-black/40" style={{ zIndex: 50 }} />
         <DrawerContentBare
-          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background outline-none shadow-2xl"
+          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background shadow-2xl outline-none"
           style={contentStyle}
         >
           <DrawerTitle className="sr-only">
@@ -114,63 +109,63 @@ export function AutomationRunDrawer({
             <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
               <DrawerCloseButton onClick={onClose} aria-label={t("close")} />
 
-            <div
-              className={
-                standaloneChatOpen
-                  ? "grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]"
-                  : "flex min-h-0 flex-1 flex-col overflow-hidden"
-              }
-            >
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <RunDetailPanel
-                  run={run}
-                  agents={agents}
-                  artifact={artifact}
-                  artifactLoading={artifactLoading}
-                  busyAction={busyAction}
-                  onCancelRun={onCancelRun}
-                  onFetchArtifact={onFetchArtifact}
-                  onContinueInTerminal={onContinueInTerminal}
-                  onContinueInChat={onContinueInChat}
-                  onOpenRunSurface={onOpenRunSurface}
-                  headerClassName="pr-12"
-                />
-              </div>
-              {standaloneChatOpen ? (
-                <section className="flex min-h-0 flex-col overflow-hidden border-t border-border lg:border-l lg:border-t-0">
-                  <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-                    <div className="min-w-0 pr-8">
-                      <div className="text-sm font-semibold text-foreground">
-                        {t("standalone.title")}
+              <div
+                className={
+                  standaloneChatOpen
+                    ? "grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]"
+                    : "flex min-h-0 flex-1 flex-col overflow-hidden"
+                }
+              >
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <RunDetailPanel
+                    run={run}
+                    agents={agents}
+                    artifact={artifact}
+                    artifactLoading={artifactLoading}
+                    busyAction={busyAction}
+                    onCancelRun={onCancelRun}
+                    onFetchArtifact={onFetchArtifact}
+                    onContinueInTerminal={onContinueInTerminal}
+                    onContinueInChat={onContinueInChat}
+                    onOpenRunSurface={onOpenRunSurface}
+                    headerClassName="pr-12"
+                  />
+                </div>
+                {standaloneChatOpen ? (
+                  <section className="flex min-h-0 flex-col overflow-hidden border-t border-border lg:border-t-0 lg:border-l">
+                    <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+                      <div className="min-w-0 pr-8">
+                        <div className="text-sm font-semibold text-foreground">
+                          {t("standalone.title")}
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          {t("standalone.description")}
+                        </div>
                       </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-                        {t("standalone.description")}
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={onCloseStandaloneChat}
+                        aria-label={t("standalone.close")}
+                      >
+                        <X className="size-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      onClick={onCloseStandaloneChat}
-                      aria-label={t("standalone.close")}
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-hidden">
-                    <AgentChatPanel
-                      variant="sidebar"
-                      publishStatus={false}
-                      active={standaloneChatOpen}
-                      instanceKey={runKey}
-                      chatId={chatId}
-                      onChatStarted={setChatId}
-                      onOpenChat={setChatId}
-                    />
-                  </div>
-                </section>
-              ) : null}
-            </div>
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      <AgentChatPanel
+                        variant="sidebar"
+                        publishStatus={false}
+                        active={standaloneChatOpen}
+                        instanceKey={runKey}
+                        chatId={chatId}
+                        onChatStarted={setChatId}
+                        onOpenChat={setChatId}
+                      />
+                    </div>
+                  </section>
+                ) : null}
+              </div>
             </div>
           </DrawerCloseReserveProvider>
         </DrawerContentBare>

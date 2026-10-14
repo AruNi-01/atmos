@@ -62,7 +62,7 @@ graph TD
     User[开发者] -->|管理| Project[项目]
     Project -->|包含| WorkspaceA[工作区 A]
     Project -->|包含| WorkspaceB[工作区 B]
-    
+
     subgraph Workspace_Detail [工作区内部结构]
         WorkspaceA -->|拥有| FS[物理文件系统]
         WorkspaceA -->|调度| Term1[终端 1]
@@ -70,20 +70,20 @@ graph TD
         Term1 -->|托管| Tmux[Tmux 会话]
         Tmux -->|驱动| Shell[Shell 进程]
     end
-    
+
     WorkspaceA -.->|同步| DB[(持久化数据库)]
     WorkspaceA -.->|推送| WS[WebSocket 实时流]
 ```
 
 ## 核心术语对照表
 
-| 术语 | 英文 | 描述 |
-|:---|:---|:---|
-| **项目** | Project | 逻辑容器，对应一个代码仓库。 |
-| **工作区** | Workspace | 物理环境，包含代码副本和运行进程。 |
-| **伪终端** | PTY | 后端模拟的终端接口。 |
-| **持久化会话** | Persistent Session | 即使连接断开也能保持运行的会话。 |
-| **归档** | Archive | 冻结工作区资源，保留数据但不占用运行内存。 |
+| 术语           | 英文               | 描述                                       |
+| :------------- | :----------------- | :----------------------------------------- |
+| **项目**       | Project            | 逻辑容器，对应一个代码仓库。               |
+| **工作区**     | Workspace          | 物理环境，包含代码副本和运行进程。         |
+| **伪终端**     | PTY                | 后端模拟的终端接口。                       |
+| **持久化会话** | Persistent Session | 即使连接断开也能保持运行的会话。           |
+| **归档**       | Archive            | 冻结工作区资源，保留数据但不占用运行内存。 |
 
 ## 总结
 

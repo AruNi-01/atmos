@@ -3,10 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ImageIcon } from "lucide-react";
-import {
-  ImageGeneration,
-  type ImageGenerationStatus,
-} from "@workspace/ui";
+import { ImageGeneration, type ImageGenerationStatus } from "@workspace/ui";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { isActiveToolStatus } from "@/features/agent/lib/agent-tool-kind";
 import { composerFileUrlFromPath } from "@/features/agent/lib/agent-composer-attachment";
@@ -57,11 +54,7 @@ function imageSrc(
 ): string | null {
   const url = image.url?.trim();
   if (url) {
-    if (
-      url.startsWith("http://")
-      || url.startsWith("https://")
-      || url.startsWith("data:image/")
-    ) {
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/")) {
       return url;
     }
   }
@@ -92,10 +85,8 @@ export function AgentToolImageGen({
     alt: string;
     originRect: ImagePreviewOriginRect | null;
   } | null>(null);
-  const prompt =
-    part.params?.type === "image_gen" ? part.params.prompt.trim() : "";
-  const aspect =
-    part.params?.type === "image_gen" ? part.params.aspect_ratio : null;
+  const prompt = part.params?.type === "image_gen" ? part.params.prompt.trim() : "";
+  const aspect = part.params?.type === "image_gen" ? part.params.aspect_ratio : null;
   const status = statusFromPart(part);
   const images = imagesFromPart(part);
   const needsFileApi = images.some((image) => {

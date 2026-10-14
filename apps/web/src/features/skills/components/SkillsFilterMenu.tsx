@@ -8,13 +8,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@workspace/ui";
-import {
-  Check,
-  FolderOpen,
-  Globe,
-  Layers,
-  Puzzle,
-} from "lucide-react";
+import { Check, FolderOpen, Globe, Layers, Puzzle } from "lucide-react";
 
 import { PageFilterButton } from "@/shared/components/PageFilterButton";
 import type { ScopeFilter } from "@/shared/lib/nuqs/searchParams";
@@ -46,8 +40,7 @@ export function SkillsFilterMenu({
   onClear: () => void;
 }) {
   const t = useTranslations("skills.view.filter");
-  const activeCount =
-    (scopeFilter === "all" ? 0 : 1) + selectedProjectIds.length;
+  const activeCount = (scopeFilter === "all" ? 0 : 1) + selectedProjectIds.length;
 
   return (
     <PageFilterButton label={t("trigger")} activeCount={activeCount}>
@@ -56,9 +49,7 @@ export function SkillsFilterMenu({
           <Layers className="size-4" />
           <span className="min-w-0 flex-1 truncate">{t("scope")}</span>
           {scopeFilter !== "all" ? (
-            <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
-              1
-            </span>
+            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">1</span>
           ) : null}
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent className="w-56">
@@ -72,9 +63,7 @@ export function SkillsFilterMenu({
               className="cursor-pointer"
             >
               <option.icon className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                {t(`scopes.${option.labelKey}`)}
-              </span>
+              <span className="min-w-0 flex-1 truncate">{t(`scopes.${option.labelKey}`)}</span>
               {scopeFilter === option.value ? <Check className="size-4" /> : null}
             </DropdownMenuItem>
           ))}
@@ -87,7 +76,7 @@ export function SkillsFilterMenu({
             <FolderOpen className="size-4" />
             <span className="min-w-0 flex-1 truncate">{t("projects")}</span>
             {selectedProjectIds.length > 0 ? (
-              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                 {selectedProjectIds.length}
               </span>
             ) : null}
@@ -104,9 +93,7 @@ export function SkillsFilterMenu({
               >
                 <FolderOpen className="size-4 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate">{project.name}</span>
-                {selectedProjectIds.includes(project.id) ? (
-                  <Check className="size-4" />
-                ) : null}
+                {selectedProjectIds.includes(project.id) ? <Check className="size-4" /> : null}
               </DropdownMenuItem>
             ))}
           </DropdownMenuSubContent>
@@ -116,10 +103,7 @@ export function SkillsFilterMenu({
       {activeCount > 0 ? (
         <>
           <DropdownMenuSeparator className="mx-2" />
-          <DropdownMenuItem
-            onClick={onClear}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <DropdownMenuItem onClick={onClear} className="text-xs font-medium text-muted-foreground">
             {t("clearAll")}
           </DropdownMenuItem>
         </>

@@ -10,13 +10,13 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-009**). |
-| **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
-| **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
+| **Entry id**    | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-009**).                                           |
+| **Status**      | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason).                                  |
+| **Do not**      | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status.       |
+| **Fix proof**   | Each fixed item should name the code change and the verification command or manual check.                      |
 
 ## Cross-check (2026-09-01)
 
@@ -24,19 +24,19 @@ Implementation slices S0–S8 are done. Review findings REV-001–008 were fixed
 
 **Must Haves that hold in code**
 
-| ID | Result |
-|----|--------|
-| M1 search hits | Pass — extract + UI; `web_search` not mixed |
-| M2 / M3 Grok native | Pass — `grok agent stdio`; no `xai-grok-*` crate |
-| M14 native probe | Pass — natives `acp: false`; Grok thinking overlay; `descriptor.support` |
-| M4 slash not buttons | Pass — composer has no standing Fork/Rewind |
-| M5 native intercept vs ACP | Pass — ACP `send` still prompt; ACP commands not filtered |
-| M6 vendor-true chrome | Pass — REV-002 gated Restore code/files on vendor preview |
-| M7 / M8 rewind view | Pass — Applied conversation rewind sets `rewind_view`; code restore does not |
-| M9 no Atmos file restore | Pass — grep plus temp-workspace Applied `rewind_code` leaves files unchanged |
-| M10 / M11 fork + worktree | Pass — sibling `chat_id`; Grok `_x.ai/git/worktree/create` then fork |
-| M12 APP-068 transport | Pass — one WS action `agent_chat_session_op_respond`; no REST chat |
-| M13 protocol map | Pass — Claude `checkpoint_id` persisted and rehydrated on resume |
+| ID                         | Result                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| M1 search hits             | Pass — extract + UI; `web_search` not mixed                                  |
+| M2 / M3 Grok native        | Pass — `grok agent stdio`; no `xai-grok-*` crate                             |
+| M14 native probe           | Pass — natives `acp: false`; Grok thinking overlay; `descriptor.support`     |
+| M4 slash not buttons       | Pass — composer has no standing Fork/Rewind                                  |
+| M5 native intercept vs ACP | Pass — ACP `send` still prompt; ACP commands not filtered                    |
+| M6 vendor-true chrome      | Pass — REV-002 gated Restore code/files on vendor preview                    |
+| M7 / M8 rewind view        | Pass — Applied conversation rewind sets `rewind_view`; code restore does not |
+| M9 no Atmos file restore   | Pass — grep plus temp-workspace Applied `rewind_code` leaves files unchanged |
+| M10 / M11 fork + worktree  | Pass — sibling `chat_id`; Grok `_x.ai/git/worktree/create` then fork         |
+| M12 APP-068 transport      | Pass — one WS action `agent_chat_session_op_respond`; no REST chat           |
+| M13 protocol map           | Pass — Claude `checkpoint_id` persisted and rehydrated on resume             |
 
 **Not claimed**
 
@@ -48,28 +48,28 @@ Implementation slices S0–S8 are done. Review findings REV-001–008 were fixed
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | backend | Claude checkpoint uuid never persisted; rewind fails after respawn | verified |
-| REV-002 | P1 | backend | Phase-2 Restore code/files not gated on vendor dry_run / `has_file_changes` | verified |
-| REV-003 | P2 | test | S15 proves no file restore only via source grep | verified |
-| REV-004 | P2 | backend | Pi `/fork` chrome lacks vendor entry picker | verified |
-| REV-005 | P2 | test | No core-service Applied rewind → `rewind_view` integration test | verified |
-| REV-006 | P2 | backend | Failed session op drops vendor error; UI only clears the card | verified |
-| REV-007 | P3 | frontend | New composer picker group names stay hardcoded English | verified |
-| REV-008 | P3 | docs | TEST.md execution map Status still `planned` after Coverage Status | verified |
+| Id      | Severity | Area     | Title                                                                       | Status   |
+| ------- | -------- | -------- | --------------------------------------------------------------------------- | -------- |
+| REV-001 | P1       | backend  | Claude checkpoint uuid never persisted; rewind fails after respawn          | verified |
+| REV-002 | P1       | backend  | Phase-2 Restore code/files not gated on vendor dry_run / `has_file_changes` | verified |
+| REV-003 | P2       | test     | S15 proves no file restore only via source grep                             | verified |
+| REV-004 | P2       | backend  | Pi `/fork` chrome lacks vendor entry picker                                 | verified |
+| REV-005 | P2       | test     | No core-service Applied rewind → `rewind_view` integration test             | verified |
+| REV-006 | P2       | backend  | Failed session op drops vendor error; UI only clears the card               | verified |
+| REV-007 | P3       | frontend | New composer picker group names stay hardcoded English                      | verified |
+| REV-008 | P3       | docs     | TEST.md execution map Status still `planned` after Coverage Status          | verified |
 
 ---
 
 ## REV-001 · Claude checkpoint uuid never persisted; rewind fails after respawn
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -109,13 +109,13 @@ Persisting `checkpoint_id` alone is not enough: `resolve_checkpoint` still requi
 
 ## REV-002 · Phase-2 Restore code/files not gated on vendor dry_run / `has_file_changes`
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -151,13 +151,13 @@ Before emitting phase-two options, call Claude `rewind_files` dry_run (and Grok 
 
 ## REV-003 · S15 proves no file restore only via source grep
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -186,13 +186,13 @@ Keep the grep as a cheap guard if useful. Add a behavioral assertion: apply a na
 
 ## REV-004 · Pi `/fork` chrome lacks vendor entry picker
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -223,13 +223,13 @@ For Pi, prepare fork options from `get_fork_messages` and pass the selected `ent
 
 ## REV-005 · No core-service Applied rewind → `rewind_view` integration test
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -260,13 +260,13 @@ Extend the fake provider so RespondSessionOp can return unit Applied for rewind,
 
 ## REV-006 · Failed session op drops vendor error; UI only clears the card
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -298,13 +298,13 @@ Surface the vendor/service error on `session_op_resolved` (or a nearby inline er
 
 ## REV-007 · New composer picker group names stay hardcoded English
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P3 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P3              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -334,13 +334,13 @@ Wire new APP-069 picker labels through `useTranslations` (or pass translated nam
 
 ## REV-008 · TEST.md execution map Status still `planned` after Coverage Status
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P3 |
-| **Area** | docs |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P3              |
+| **Area**        | docs            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 

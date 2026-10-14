@@ -4,7 +4,11 @@ import type { PtComponentModule, PtRendererProps } from "./contract";
 import { TEXT_FIELDS, propString, spatialNode } from "./defaults";
 import { OverlayFrame, ghostButtonStyle, overlayTokens } from "./shared";
 
-function ToastRow(props: { title: string; description?: string; onClose: () => void }): ReactElement {
+function ToastRow(props: {
+  title: string;
+  description?: string;
+  onClose: () => void;
+}): ReactElement {
   return (
     <div
       role="status"
@@ -21,10 +25,16 @@ function ToastRow(props: { title: string; description?: string; onClose: () => v
       <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>{props.title}</div>
         {props.description ? (
-          <div style={{ fontSize: 12, color: overlayTokens.muted, lineHeight: 1.4 }}>{props.description}</div>
+          <div style={{ fontSize: 12, color: overlayTokens.muted, lineHeight: 1.4 }}>
+            {props.description}
+          </div>
         ) : null}
       </div>
-      <button type="button" onClick={props.onClose} style={{ ...ghostButtonStyle(), padding: "4px 8px", flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={props.onClose}
+        style={{ ...ghostButtonStyle(), padding: "4px 8px", flexShrink: 0 }}
+      >
         Close
       </button>
     </div>
@@ -45,7 +55,9 @@ function ToastPanel(props: PtRendererProps): ReactElement {
       style={{ justifyContent: "center" }}
     >
       <div style={{ padding: 10 }}>
-        {visible ? <ToastRow title={title} description={description} onClose={() => setVisible(false)} /> : null}
+        {visible ? (
+          <ToastRow title={title} description={description} onClose={() => setVisible(false)} />
+        ) : null}
       </div>
     </OverlayFrame>
   );
@@ -101,12 +113,18 @@ export const toastModule: PtComponentModule = {
   type: "toast",
   defaultBBox: { width: 320, height: 72 },
   defaultNode: (id) =>
-    spatialNode("toast", id, { width: 320, height: 72 }, {
-      title: "Saved",
-      description: "Your changes are stored on this canvas.",
-      label: "Toast",
-    }),
-  agentDescription: "In-place toast notification bar inside the overlay box. Never a viewport portal.",
+    spatialNode(
+      "toast",
+      id,
+      { width: 320, height: 72 },
+      {
+        title: "Saved",
+        description: "Your changes are stored on this canvas.",
+        label: "Toast",
+      },
+    ),
+  agentDescription:
+    "In-place toast notification bar inside the overlay box. Never a viewport portal.",
   xmlExample: `<toast id="saved" title="Saved" description="Your changes are stored on this canvas." label="Toast" x="24" y="24" width="320" height="72"/>`,
   inspectorFields: TEXT_FIELDS,
   Renderer: ToastPanel,
@@ -128,7 +146,8 @@ export const sonnerModule: PtComponentModule = {
         ],
       },
     ),
-  agentDescription: "In-place stacked toast notifications (sonner). Rendered in-tree, never a viewport portal.",
+  agentDescription:
+    "In-place stacked toast notifications (sonner). Rendered in-tree, never a viewport portal.",
   xmlExample: `<sonner id="toasts" title="Notifications" description="Stacked in-place toasts." label="Sonner" x="24" y="24" width="320" height="140">
   <option value="saved">Saved</option>
   <option value="synced">Changes synced</option>

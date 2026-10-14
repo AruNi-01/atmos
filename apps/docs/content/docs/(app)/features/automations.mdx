@@ -17,22 +17,22 @@ Some automation controls may be behind **Settings** -> **Experiments** while the
 
 ## Triggers
 
-| Trigger | Use it for |
-|---------|------------|
-| **Manual** | Jobs you start yourself from the Automations panel |
-| **Schedule** | Regular checks, cleanup, report generation, and recurring review |
-| **GitHub** | Pull request, issue, push, comment, workflow, and label-driven work |
+| Trigger      | Use it for                                                          |
+| ------------ | ------------------------------------------------------------------- |
+| **Manual**   | Jobs you start yourself from the Automations panel                  |
+| **Schedule** | Regular checks, cleanup, report generation, and recurring review    |
+| **GitHub**   | Pull request, issue, push, comment, workflow, and label-driven work |
 
 GitHub triggers need a connected Atmos Computer because the work still runs on your machine, not on the Relay.
 
 ## Environments
 
-| Environment | What happens |
-|-------------|--------------|
-| **Project** | Runs against an existing project |
-| **Workspace** | Runs inside an existing workspace |
-| **New Workspace** | Creates a workspace for the automation run |
-| **Standalone** | Runs in the owning computer's automation run directory |
+| Environment       | What happens                                           |
+| ----------------- | ------------------------------------------------------ |
+| **Project**       | Runs against an existing project                       |
+| **Workspace**     | Runs inside an existing workspace                      |
+| **New Workspace** | Creates a workspace for the automation run             |
+| **Standalone**    | Runs in the owning computer's automation run directory |
 
 Choose the smallest environment that has the files and context the job needs.
 

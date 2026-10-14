@@ -1,22 +1,8 @@
-import type {
-  MappedWsAction,
-  WsContract,
-} from "@atmos/api-types/ws/contract";
-import type {
-  MappedWsEvent,
-  WsEventPayload,
-} from "@atmos/api-types/ws/event-contract";
+import type { MappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
+import type { MappedWsEvent, WsEventPayload } from "@atmos/api-types/ws/event-contract";
 import type { WsError, WsResponse } from "@atmos/api-types/ws/frames";
-import {
-  WEBSOCKET_OPEN,
-  type WebSocketLike,
-  type WsSessionPlatform,
-} from "../platform/types";
-import {
-  backoffDelayMs,
-  mergeReconnectPolicy,
-  redactUrl,
-} from "./reconnect";
+import { WEBSOCKET_OPEN, type WebSocketLike, type WsSessionPlatform } from "../platform/types";
+import { backoffDelayMs, mergeReconnectPolicy, redactUrl } from "./reconnect";
 import type {
   ConnectionState,
   ReconnectPolicy,
@@ -54,10 +40,7 @@ export class WsSession {
   private socket: WebSocketLike | null = null;
   private pending = new Map<string, Pending>();
   private stateListeners = new Set<(s: ConnectionState) => void>();
-  private notificationListeners = new Map<
-    string,
-    Set<(data: unknown) => void>
-  >();
+  private notificationListeners = new Map<string, Set<(data: unknown) => void>>();
   private messageListeners = new Set<(msg: unknown) => void>();
   private currentState: ConnectionState = "idle";
   private reconnectAttempt = 0;
@@ -88,8 +71,7 @@ export class WsSession {
     this.policy = mergeReconnectPolicy(options.reconnect);
     this.requestTimeoutMs = options.requestTimeoutMs ?? 0;
     this.connectWaitMs = options.connectWaitMs ?? 15_000;
-    this.handshakeTimeoutMs =
-      options.handshakeTimeoutMs ?? Math.min(this.connectWaitMs, 3_000);
+    this.handshakeTimeoutMs = options.handshakeTimeoutMs ?? Math.min(this.connectWaitMs, 3_000);
     this.urlOption = options.url;
     this.timers = options.platform.timers ?? {
       setTimeout: (fn, ms) => setTimeout(fn, ms),
@@ -102,9 +84,7 @@ export class WsSession {
   }
 
   resolveUrl(): string {
-    return typeof this.urlOption === "function"
-      ? this.urlOption()
-      : this.urlOption;
+    return typeof this.urlOption === "function" ? this.urlOption() : this.urlOption;
   }
 
   connect(): Promise<void> {
@@ -204,11 +184,7 @@ export class WsSession {
     data?: WsContract[A]["input"],
     opts?: WsRequestCallOpts,
   ): Promise<WsContract[A]["output"]>;
-  request(
-    action: string,
-    data: unknown = {},
-    opts?: WsRequestCallOpts,
-  ): Promise<unknown> {
+  request(action: string, data: unknown = {}, opts?: WsRequestCallOpts): Promise<unknown> {
     return this.sendRequest(action, data, opts);
   }
 
@@ -248,11 +224,7 @@ export class WsSession {
     });
   }
 
-  private sendRequest<T>(
-    action: string,
-    data: unknown = {},
-    opts?: WsRequestCallOpts,
-  ): Promise<T> {
+  private sendRequest<T>(action: string, data: unknown = {}, opts?: WsRequestCallOpts): Promise<T> {
     if (
       this.currentState !== "connected" ||
       !this.socket ||
@@ -387,11 +359,7 @@ export class WsSession {
 
     socket.onerror = (event) => {
       const detail = websocketFailureDetail(event);
-      this.log(
-        "error",
-        detail ? `ws error: ${detail}` : "ws error",
-        { url: redactUrl(url) },
-      );
+      this.log("error", detail ? `ws error: ${detail}` : "ws error", { url: redactUrl(url) });
       this.rejectAll(new Error(`WebSocket error: ${redactUrl(url)}`));
       this.setState("error");
       try {
@@ -416,9 +384,7 @@ export class WsSession {
         (this.policy.reconnectOnCleanClose || !wasClean);
 
       // Settle connect before scheduling reconnect so reconnect can open a new socket.
-      this.failConnect(
-        new Error(`WebSocket closed during connect (${event?.code ?? "?"})`),
-      );
+      this.failConnect(new Error(`WebSocket closed during connect (${event?.code ?? "?"})`));
 
       if (shouldSchedule) {
         this.scheduleReconnect();
@@ -500,9 +466,7 @@ export class WsSession {
       if (requestId && this.pending.has(requestId)) {
         const code = err.payload.code;
         const message = err.payload.message;
-        const failure = new Error(
-          code ? `[${code}] ${message}` : message || "WS error",
-        );
+        const failure = new Error(code ? `[${code}] ${message}` : message || "WS error");
         this.clearPending(requestId, failure);
       }
       return;
@@ -515,10 +479,7 @@ export class WsSession {
     if (!requestId || !this.pending.has(requestId)) return;
 
     if (res.payload.success === false) {
-      this.clearPending(
-        requestId,
-        new Error("WS request failed"),
-      );
+      this.clearPending(requestId, new Error("WS request failed"));
       return;
     }
 

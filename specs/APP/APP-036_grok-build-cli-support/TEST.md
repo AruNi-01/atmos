@@ -15,50 +15,50 @@ Prove deterministic logic at the cheapest honest layer; reserve manual/E2E for C
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 Built-in identity | S1, S2 |
-| M2 Interactive defaults | S1, S14 |
-| M3 Model catalog | S3 |
-| M4 Reasoning / effort | S4 |
-| M5 Cursor → `cursor-agent` | S5, S6, S14 |
-| M6 Unique-cmd titles | S7, S8 |
-| M7 Contested freehand `agent` | S9, S10, S11 |
-| M8 Automation streaming | S12, S13 |
-| M9 Hooks status | S15, S16, S17, S18 |
-| M10 Settings / UI parity | S19, S20 |
-| M11 AI usage / quota | S22, S23, S24 |
-| N1 Icons | S21 |
-| N2–N4 | deferred / non-coverage |
+| PRD item                      | Scenario IDs            |
+| ----------------------------- | ----------------------- |
+| M1 Built-in identity          | S1, S2                  |
+| M2 Interactive defaults       | S1, S14                 |
+| M3 Model catalog              | S3                      |
+| M4 Reasoning / effort         | S4                      |
+| M5 Cursor → `cursor-agent`    | S5, S6, S14             |
+| M6 Unique-cmd titles          | S7, S8                  |
+| M7 Contested freehand `agent` | S9, S10, S11            |
+| M8 Automation streaming       | S12, S13                |
+| M9 Hooks status               | S15, S16, S17, S18      |
+| M10 Settings / UI parity      | S19, S20                |
+| M11 AI usage / quota          | S22, S23, S24           |
+| N1 Icons                      | S21                     |
+| N2–N4                         | deferred / non-coverage |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun / unit | `bun test` | load `builtin_agents.json` / terminal-agent-definitions | repo manifest | entry `id=grok-build`, `cmd=grok`, label `Grok Build` | planned |
-| S2 | Rust unit | `cargo test -p core-service` | automation resolve built-in | resolved agents list | agent present; headless flags include streaming-json + `-p` | planned |
-| S3 | Rust unit | `cargo test -p core-service` | `parse_grok_model_catalog` / `grok_line_list` | full `grok models` stdout including `You are logged in with grok.com.` and `Default model:` preamble plus `* grok-4.5 (default)` | only real models; id `grok-4.5` without `(default)`; login/default status lines dropped | planned |
-| S4 | Bun unit | `bun test` | run-config / reasoning arg helpers | agent id `grok-build` | reasoning arg `--reasoning-effort`; model flag `--model` | planned |
-| S5 | Bun / unit | `bun test` | builtin load | manifest | cursor `cmd=cursor-agent`; modelList uses `cursor-agent` | planned |
-| S6 | Rust unit | `cargo test -p core-service` | resolve cursor agent | resolved agents | executable not bare `agent` | planned |
-| S7 | Bun unit | `bun test` | `getTerminalDisplayMeta` / `resolveAgentForTitle` | agents with grok + cursor | dynamic `grok …` → Grok Build; `cursor-agent …` → Cursor | planned |
-| S8 | Bun unit | `bun test` | title matcher | cursor cmd `cursor-agent` only | `cursor-agent` does **not** match via substring of `agent` if residual agent cmd exists in custom list | planned |
-| S9 | Bun unit | `bun test` | title + contestedOwners | `agent --yolo`, owner `grok-build` | toolbarAgent Grok Build | planned |
-| S10 | Bun unit | `bun test` | title + contestedOwners | owner `cursor` | toolbarAgent Cursor | planned |
-| S11 | Bun + Rust | both | title unknown + identity probe | owner `unknown`; fake paths | no wrong brand; probe returns unknown | planned |
-| S12 | Rust unit | `cargo test -p core-service` | `OutputRenderer` + `GrokStreamingJson` | NDJSON fixture from TECH live sample | text in final output; thought as `[thinking]` channel; end finalized | planned |
-| S13 | Rust unit | `cargo test -p core-service` | parser fail-open | unknown type / bad JSON line | no panic; text still works | planned |
-| S14 | Manual | manual | interactive launch | real CLIs on PATH | Select Grok → `grok`; Select Cursor → `cursor-agent` even if `agent` is Grok | planned |
-| S15 | Rust unit | `cargo test -p core-engine` | grok_build hook install/check/uninstall | temp `$HOME` | writes `~/.grok/hooks/atmos-status.json` with ATMOS_MANAGED; uninstall removes Atmos entries | planned |
-| S16 | Rust unit | `cargo test -p core-service` | `handle_grok_build_event` | payload matrix | SessionStart Idle; PreToolUse Running; Notification permission_prompt PermissionRequest; elicitation_dialog PermissionRequest; idle_prompt no change; Stop Idle | planned |
-| S17 | Service/API | `cargo test` / API harness | `POST /hooks/grok-build` | JSON camelCase envelope | state update broadcast / session list | planned |
-| S18 | Rust unit | `cargo test -p core-service` | foreign-tool ownership | active Claude session same pane | Grok event skipped while non-idle foreign owner | planned |
-| S19 | Manual / agent-browser | manual + `agent-browser` | Settings Code Agent + hooks card | dev web | Grok Build listed; hook row install status | planned |
-| S20 | Manual | manual | Agent Select | workspace terminal | Grok Build option with label | planned |
-| S21 | Bun / visual | manual or snapshot | AgentIcon | light/dark theme | grok-build icon visible; not Bot fallback; not cursor icon for freehand agent when owner grok | planned |
-| S22 | Rust unit | `cargo test -p quota-usage` | Grok auth parse | synthetic auth.json | OIDC preferred; missing key errors | planned |
-| S23 | Rust unit | `cargo test -p quota-usage` | credits billing map | fixture JSON | percent + weekly reset + product row | planned |
-| S24 | Manual | manual | usage popover | real `~/.grok/auth.json` | Grok Build row with % / reset or re-login | planned |
+| Scenario | Level                  | Expected tool                | Target command / method                                 | Fixture / data                                                                                                                   | Signals                                                                                                                                                         | Status  |
+| -------- | ---------------------- | ---------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1       | Bun / unit             | `bun test`                   | load `builtin_agents.json` / terminal-agent-definitions | repo manifest                                                                                                                    | entry `id=grok-build`, `cmd=grok`, label `Grok Build`                                                                                                           | planned |
+| S2       | Rust unit              | `cargo test -p core-service` | automation resolve built-in                             | resolved agents list                                                                                                             | agent present; headless flags include streaming-json + `-p`                                                                                                     | planned |
+| S3       | Rust unit              | `cargo test -p core-service` | `parse_grok_model_catalog` / `grok_line_list`           | full `grok models` stdout including `You are logged in with grok.com.` and `Default model:` preamble plus `* grok-4.5 (default)` | only real models; id `grok-4.5` without `(default)`; login/default status lines dropped                                                                         | planned |
+| S4       | Bun unit               | `bun test`                   | run-config / reasoning arg helpers                      | agent id `grok-build`                                                                                                            | reasoning arg `--reasoning-effort`; model flag `--model`                                                                                                        | planned |
+| S5       | Bun / unit             | `bun test`                   | builtin load                                            | manifest                                                                                                                         | cursor `cmd=cursor-agent`; modelList uses `cursor-agent`                                                                                                        | planned |
+| S6       | Rust unit              | `cargo test -p core-service` | resolve cursor agent                                    | resolved agents                                                                                                                  | executable not bare `agent`                                                                                                                                     | planned |
+| S7       | Bun unit               | `bun test`                   | `getTerminalDisplayMeta` / `resolveAgentForTitle`       | agents with grok + cursor                                                                                                        | dynamic `grok …` → Grok Build; `cursor-agent …` → Cursor                                                                                                        | planned |
+| S8       | Bun unit               | `bun test`                   | title matcher                                           | cursor cmd `cursor-agent` only                                                                                                   | `cursor-agent` does **not** match via substring of `agent` if residual agent cmd exists in custom list                                                          | planned |
+| S9       | Bun unit               | `bun test`                   | title + contestedOwners                                 | `agent --yolo`, owner `grok-build`                                                                                               | toolbarAgent Grok Build                                                                                                                                         | planned |
+| S10      | Bun unit               | `bun test`                   | title + contestedOwners                                 | owner `cursor`                                                                                                                   | toolbarAgent Cursor                                                                                                                                             | planned |
+| S11      | Bun + Rust             | both                         | title unknown + identity probe                          | owner `unknown`; fake paths                                                                                                      | no wrong brand; probe returns unknown                                                                                                                           | planned |
+| S12      | Rust unit              | `cargo test -p core-service` | `OutputRenderer` + `GrokStreamingJson`                  | NDJSON fixture from TECH live sample                                                                                             | text in final output; thought as `[thinking]` channel; end finalized                                                                                            | planned |
+| S13      | Rust unit              | `cargo test -p core-service` | parser fail-open                                        | unknown type / bad JSON line                                                                                                     | no panic; text still works                                                                                                                                      | planned |
+| S14      | Manual                 | manual                       | interactive launch                                      | real CLIs on PATH                                                                                                                | Select Grok → `grok`; Select Cursor → `cursor-agent` even if `agent` is Grok                                                                                    | planned |
+| S15      | Rust unit              | `cargo test -p core-engine`  | grok_build hook install/check/uninstall                 | temp `$HOME`                                                                                                                     | writes `~/.grok/hooks/atmos-status.json` with ATMOS_MANAGED; uninstall removes Atmos entries                                                                    | planned |
+| S16      | Rust unit              | `cargo test -p core-service` | `handle_grok_build_event`                               | payload matrix                                                                                                                   | SessionStart Idle; PreToolUse Running; Notification permission_prompt PermissionRequest; elicitation_dialog PermissionRequest; idle_prompt no change; Stop Idle | planned |
+| S17      | Service/API            | `cargo test` / API harness   | `POST /hooks/grok-build`                                | JSON camelCase envelope                                                                                                          | state update broadcast / session list                                                                                                                           | planned |
+| S18      | Rust unit              | `cargo test -p core-service` | foreign-tool ownership                                  | active Claude session same pane                                                                                                  | Grok event skipped while non-idle foreign owner                                                                                                                 | planned |
+| S19      | Manual / agent-browser | manual + `agent-browser`     | Settings Code Agent + hooks card                        | dev web                                                                                                                          | Grok Build listed; hook row install status                                                                                                                      | planned |
+| S20      | Manual                 | manual                       | Agent Select                                            | workspace terminal                                                                                                               | Grok Build option with label                                                                                                                                    | planned |
+| S21      | Bun / visual           | manual or snapshot           | AgentIcon                                               | light/dark theme                                                                                                                 | grok-build icon visible; not Bot fallback; not cursor icon for freehand agent when owner grok                                                                   | planned |
+| S22      | Rust unit              | `cargo test -p quota-usage`  | Grok auth parse                                         | synthetic auth.json                                                                                                              | OIDC preferred; missing key errors                                                                                                                              | planned |
+| S23      | Rust unit              | `cargo test -p quota-usage`  | credits billing map                                     | fixture JSON                                                                                                                     | percent + weekly reset + product row                                                                                                                            | planned |
+| S24      | Manual                 | manual                       | usage popover                                           | real `~/.grok/auth.json`                                                                                                         | Grok Build row with % / reset or re-login                                                                                                                       | planned |
 
 ## Scenarios
 

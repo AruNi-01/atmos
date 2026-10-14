@@ -13,7 +13,7 @@ type Parsed = {
 function parseArgs(argv: string[]): Parsed {
   const tokens: string[] = [];
   const flags: Record<string, string | boolean> = {};
-  let json = argv.includes("--json") || process.env.CI === "1";
+  const json = argv.includes("--json") || process.env.CI === "1";
   let file: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
@@ -107,12 +107,16 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
   } catch (error) {
     if (error instanceof PtDesignError) {
       process.stderr.write(`${error.code}: ${error.message}\n`);
-      process.stdout.write(`${JSON.stringify({ ok: false, error: { code: error.code, message: error.message } })}\n`);
+      process.stdout.write(
+        `${JSON.stringify({ ok: false, error: { code: error.code, message: error.message } })}\n`,
+      );
       return cliExitCode(error.code);
     }
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);
-    process.stdout.write(`${JSON.stringify({ ok: false, error: { code: "unknown_tool", message } })}\n`);
+    process.stdout.write(
+      `${JSON.stringify({ ok: false, error: { code: "unknown_tool", message } })}\n`,
+    );
     return 4;
   }
 }

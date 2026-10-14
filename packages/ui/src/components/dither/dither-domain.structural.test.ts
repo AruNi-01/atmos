@@ -26,10 +26,7 @@ describe("DitherRevenueLines yMax", () => {
 });
 
 describe("useDitherCanvas scheduling", () => {
-  const src = readFileSync(
-    join(import.meta.dir, "../../lib/dither/use-dither-canvas.ts"),
-    "utf8",
-  );
+  const src = readFileSync(join(import.meta.dir, "../../lib/dither/use-dither-canvas.ts"), "utf8");
 
   test("sizes with ResizeObserver and idles after draw reports not busy", () => {
     expect(src).toContain("ResizeObserver");

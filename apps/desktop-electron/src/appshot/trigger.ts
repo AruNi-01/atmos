@@ -8,10 +8,7 @@
 import type { AppState } from "../app-state.js";
 import { mainLog } from "../main-log.js";
 import type { HostShiftCapturedPayload } from "./host-shift.js";
-import {
-  startShiftFlagsEventTap,
-  type TapHandle,
-} from "./trigger-event-tap.js";
+import { startShiftFlagsEventTap, type TapHandle } from "./trigger-event-tap.js";
 
 export type TriggerListenerStatus = {
   enabled: boolean;
@@ -28,11 +25,9 @@ let status: TriggerListenerStatus = {
 };
 let captureRunning = false;
 let onTrigger: (() => void | Promise<void>) | null = null;
-let onHostCaptured: ((payload: HostShiftCapturedPayload) => void | Promise<void>) | null =
-  null;
+let onHostCaptured: ((payload: HostShiftCapturedPayload) => void | Promise<void>) | null = null;
 let onNeedGrant: ((missing: string[]) => void | Promise<void>) | null = null;
-let onHostReady: ((info: { ax: boolean; tap: boolean }) => void | Promise<void>) | null =
-  null;
+let onHostReady: ((info: { ax: boolean; tap: boolean }) => void | Promise<void>) | null = null;
 let tapHandle: TapHandle | null = null;
 /** Accessibility trust observed at last successful arm. */
 let armedWithAx = false;
@@ -101,10 +96,7 @@ export async function ensureTriggerListener(
   triggerCapture: (state: AppState) => Promise<void>,
   accessibilityGranted?: boolean,
   hooks?: {
-    hostCaptured?: (
-      state: AppState,
-      payload: HostShiftCapturedPayload,
-    ) => Promise<void>;
+    hostCaptured?: (state: AppState, payload: HostShiftCapturedPayload) => Promise<void>;
     needGrant?: (missing: string[]) => Promise<void>;
     hostReady?: (info: { ax: boolean; tap: boolean }) => Promise<void>;
   },
@@ -120,9 +112,7 @@ export async function ensureTriggerListener(
   }
 
   onTrigger = () => triggerCapture(state);
-  onHostCaptured = hooks?.hostCaptured
-    ? (payload) => hooks.hostCaptured?.(state, payload)
-    : null;
+  onHostCaptured = hooks?.hostCaptured ? (payload) => hooks.hostCaptured?.(state, payload) : null;
   onNeedGrant = hooks?.needGrant ?? null;
   onHostReady = hooks?.hostReady ?? null;
 

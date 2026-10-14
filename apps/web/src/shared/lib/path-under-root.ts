@@ -4,8 +4,8 @@
  */
 function normalizeDirectoryRoot(rootPath: string): string | null {
   if (!rootPath) return null;
-  const trimmed = rootPath.replace(/\/+$/, '');
-  if (trimmed === '' && rootPath.startsWith('/')) return '/';
+  const trimmed = rootPath.replace(/\/+$/, "");
+  if (trimmed === "" && rootPath.startsWith("/")) return "/";
   return trimmed || null;
 }
 
@@ -18,13 +18,13 @@ export function tryRelativePathUnderRoot(filePath: string, rootPath: string): st
   const root = normalizeDirectoryRoot(rootPath);
   if (root == null) return null;
 
-  if (root === '/') {
-    if (!filePath.startsWith('/')) return null;
-    if (filePath === '/' || filePath === '') return '';
-    return filePath.replace(/^\/+/, '');
+  if (root === "/") {
+    if (!filePath.startsWith("/")) return null;
+    if (filePath === "/" || filePath === "") return "";
+    return filePath.replace(/^\/+/, "");
   }
 
-  if (filePath === root) return '';
+  if (filePath === root) return "";
   if (!filePath.startsWith(`${root}/`)) return null;
   return filePath.slice(root.length + 1);
 }

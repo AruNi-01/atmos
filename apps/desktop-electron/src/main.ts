@@ -6,15 +6,8 @@
 import { app, ipcMain } from "electron";
 import path from "node:path";
 import { createAppState } from "./app-state.js";
-import {
-  ATMOS_PROTOCOL,
-  findAtmosUrlInArgv,
-  isAtmosProtocolUrl,
-} from "./deep-link.js";
-import {
-  applyEarlyAppBranding,
-  applyReadyAppBranding,
-} from "./branding.js";
+import { ATMOS_PROTOCOL, findAtmosUrlInArgv, isAtmosProtocolUrl } from "./deep-link.js";
+import { applyEarlyAppBranding, applyReadyAppBranding } from "./branding.js";
 import { installDevToolsPolicy } from "./devtools-policy.js";
 import { installAppShortcutGuard } from "./host-shortcuts.js";
 import { ensureAtmosServer } from "./runtime/ensure.js";
@@ -26,10 +19,7 @@ import {
   createMainWindowOrError,
 } from "./windows/main-window.js";
 import { markAllowWindowDestroy } from "./windows/close-behavior.js";
-import {
-  ensureMacDockVisible,
-  pinMacDockAfterBoot,
-} from "./windows/mac-dock.js";
+import { ensureMacDockVisible, pinMacDockAfterBoot } from "./windows/mac-dock.js";
 import { BrowserSurfaceManager } from "./browser/surface-manager.js";
 import { BrowserUseControlPlane } from "./browser/browser-use-control.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
@@ -63,11 +53,7 @@ function registerIpc() {
 }
 
 function servicesReady(): boolean {
-  return (
-    state.apiPort != null &&
-    state.browser != null &&
-    state.tunnel != null
-  );
+  return state.apiPort != null && state.browser != null && state.tunnel != null;
 }
 
 async function ensureMainWindow(): Promise<void> {
@@ -86,9 +72,7 @@ function registerAtmosProtocolClient(): void {
   if (process.defaultApp) {
     const appPath = process.argv[1];
     if (appPath) {
-      app.setAsDefaultProtocolClient(ATMOS_PROTOCOL, process.execPath, [
-        path.resolve(appPath),
-      ]);
+      app.setAsDefaultProtocolClient(ATMOS_PROTOCOL, process.execPath, [path.resolve(appPath)]);
       return;
     }
   }
@@ -156,9 +140,7 @@ async function boot() {
   // Background: if control engine is installed but behind the Atmos pin, force
   // ensure without blocking UI. First-time install stays user-initiated.
   try {
-    const { scheduleDesktopUseEngineAutoUpdate } = await import(
-      "./desktop-use/auto-update.js"
-    );
+    const { scheduleDesktopUseEngineAutoUpdate } = await import("./desktop-use/auto-update.js");
     scheduleDesktopUseEngineAutoUpdate();
   } catch (e) {
     mainLog(
@@ -169,9 +151,7 @@ async function boot() {
   // Arm Appshots Left+Right Shift global gesture (macOS). Always attempt on boot.
   if (process.platform === "darwin") {
     try {
-      const { ensureDesktopUseHostBranding } = await import(
-        "./desktop-use/host-branding.js"
-      );
+      const { ensureDesktopUseHostBranding } = await import("./desktop-use/host-branding.js");
       await ensureDesktopUseHostBranding();
     } catch (e) {
       mainLog(
@@ -209,15 +189,9 @@ function presentBootFailure(err: unknown): void {
     applyReadyAppBranding();
     createMainWindowOrError(state, err);
   } catch (showErr) {
-    mainLog(
-      `[boot] could not show error window: ${formatUnknownError(showErr)}`,
-      "error",
-    );
+    mainLog(`[boot] could not show error window: ${formatUnknownError(showErr)}`, "error");
     // Last resort — no silent exit without a chance to read the log path.
-    console.error(
-      `[desktop-electron] fatal boot failure (see ${mainLogPath()}):`,
-      err,
-    );
+    console.error(`[desktop-electron] fatal boot failure (see ${mainLogPath()}):`, err);
   }
 }
 
@@ -239,10 +213,7 @@ async function stopAllTunnelsBeforeExit(): Promise<void> {
     try {
       await tunnel.stop(p);
     } catch (err) {
-      console.error(
-        `[desktop-electron] tunnel stop on quit failed (${p}):`,
-        err,
-      );
+      console.error(`[desktop-electron] tunnel stop on quit failed (${p}):`, err);
     }
   }
 }
@@ -329,18 +300,14 @@ if (!gotLock) {
           }
         }
         try {
-          const { stopDesktopUseOnAppQuit } = await import(
-            "./desktop-use/lifecycle.js"
-          );
+          const { stopDesktopUseOnAppQuit } = await import("./desktop-use/lifecycle.js");
           await stopDesktopUseOnAppQuit();
         } catch (err) {
           console.warn("[desktop-electron] desktop-use stop on quit failed:", err);
         }
         await stopAllTunnelsBeforeExit();
         // APP-076: user-session Runtime stays up for CLI / other clients.
-        const { desktopQuitShouldStopRuntime } = await import(
-          "./runtime/ownership.js"
-        );
+        const { desktopQuitShouldStopRuntime } = await import("./runtime/ownership.js");
         if (desktopQuitShouldStopRuntime()) {
           const { stopOwnedAtmosServer } = await import("./runtime/ensure.js");
           stopOwnedAtmosServer();

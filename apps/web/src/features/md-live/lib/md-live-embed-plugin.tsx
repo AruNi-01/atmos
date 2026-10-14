@@ -10,11 +10,7 @@ import {
   specFromNode,
 } from "./md-live-embed-nodes";
 
-export {
-  mdLiveEmbedBlock,
-  mdLiveEmbedInline,
-  mdLiveRemarkDirective,
-} from "./md-live-embed-nodes";
+export { mdLiveEmbedBlock, mdLiveEmbedInline, mdLiveRemarkDirective } from "./md-live-embed-nodes";
 
 function embedView(inline: boolean) {
   return () => (node: Node) => {

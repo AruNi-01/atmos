@@ -9,8 +9,7 @@ import {
 import type { HubEnv } from "../src/env";
 
 const env = {
-  ALLOWED_ORIGINS:
-    "http://localhost:3030,http://127.0.0.1:30303,https://app.atmos.land",
+  ALLOWED_ORIGINS: "http://localhost:3030,http://127.0.0.1:30303,https://app.atmos.land",
 } as HubEnv;
 
 describe("oauth-start allowlists", () => {
@@ -32,26 +31,14 @@ describe("oauth-start allowlists", () => {
 
   test("web callback origins", () => {
     expect(
-      isAllowedOAuthCallbackURL(
-        env,
-        "https://app.atmos.land/settings",
-        "https://hub.atmos.land",
-      ),
+      isAllowedOAuthCallbackURL(env, "https://app.atmos.land/settings", "https://hub.atmos.land"),
     ).toBe(true);
-    expect(
-      isAllowedOAuthCallbackURL(
-        env,
-        "http://localhost:3030/",
-        "https://hub.atmos.land",
-      ),
-    ).toBe(true);
-    expect(
-      isAllowedOAuthCallbackURL(
-        env,
-        "https://evil.example/",
-        "https://hub.atmos.land",
-      ),
-    ).toBe(false);
+    expect(isAllowedOAuthCallbackURL(env, "http://localhost:3030/", "https://hub.atmos.land")).toBe(
+      true,
+    );
+    expect(isAllowedOAuthCallbackURL(env, "https://evil.example/", "https://hub.atmos.land")).toBe(
+      false,
+    );
   });
 
   test("mobile complete + atmos deep link", () => {
@@ -93,16 +80,10 @@ describe("oauth-start allowlists", () => {
 
   test("error callback stays on app origin", () => {
     expect(
-      oauthErrorCallbackURL(
-        "https://app.atmos.land/hub-auth/done",
-        "https://hub.atmos.land",
-      ),
+      oauthErrorCallbackURL("https://app.atmos.land/hub-auth/done", "https://hub.atmos.land"),
     ).toBe("https://app.atmos.land/hub-auth/error");
     expect(
-      oauthErrorCallbackURL(
-        "http://localhost:3030/hub-auth/done",
-        "https://hub.atmos.land",
-      ),
+      oauthErrorCallbackURL("http://localhost:3030/hub-auth/done", "https://hub.atmos.land"),
     ).toBe("http://localhost:3030/hub-auth/error");
     expect(
       oauthErrorCallbackURL(
@@ -123,9 +104,7 @@ describe("oauth-start allowlists", () => {
     expect(
       oauthErrorCallbackURL(
         "https://hub.atmos.land/v1/desktop-auth/complete?return_to=" +
-          encodeURIComponent(
-            "http://127.0.0.1:30303/hub-auth/bridge?provider=github",
-          ),
+          encodeURIComponent("http://127.0.0.1:30303/hub-auth/bridge?provider=github"),
         "https://hub.atmos.land",
       ),
     ).toBe("http://127.0.0.1:30303/hub-auth/error?provider=github");
@@ -148,8 +127,6 @@ describe("oauth-start allowlists", () => {
           ),
         "https://hub.atmos.land",
       ),
-    ).toBe(
-      "http://127.0.0.1:30303/hub-auth/error?provider=github&client=desktop",
-    );
+    ).toBe("http://127.0.0.1:30303/hub-auth/error?provider=github&client=desktop");
   });
 });

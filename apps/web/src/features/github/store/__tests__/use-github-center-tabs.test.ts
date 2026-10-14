@@ -41,8 +41,11 @@ describe("GitHub center tabs", () => {
       issueNumber: 17,
     });
 
-    expect(useGithubCenterTabsStore.getState().tabsByContext["workspace-1"]?.[0])
-      .toMatchObject({ kind: "github-issue", issueNumber: 17, value });
+    expect(useGithubCenterTabsStore.getState().tabsByContext["workspace-1"]?.[0]).toMatchObject({
+      kind: "github-issue",
+      issueNumber: 17,
+      value,
+    });
   });
 
   it("keeps one tab per item and updates repeated action opens", () => {
@@ -75,13 +78,10 @@ describe("GitHub center tabs", () => {
       runId: firstRun.databaseId,
     });
 
-    const tabs =
-      useGithubCenterTabsStore.getState().tabsByContext["workspace-1"];
+    const tabs = useGithubCenterTabsStore.getState().tabsByContext["workspace-1"];
     expect(tabs).toHaveLength(1);
     expect(tabs[0]?.label).toBe("Updated title");
-    expect(tabs[0]?.value).toBe(
-      buildGithubActionTabValue("workspace-1", firstRun.databaseId),
-    );
+    expect(tabs[0]?.value).toBe(buildGithubActionTabValue("workspace-1", firstRun.databaseId));
   });
 
   it("keeps tabs isolated by center context", () => {
@@ -97,13 +97,11 @@ describe("GitHub center tabs", () => {
     store.openPullRequest("workspace-1", params);
     store.openPullRequest("workspace-2", params);
 
-    expect(
-      useGithubCenterTabsStore.getState().tabsByContext["workspace-1"]?.[0]
-        ?.value,
-    ).toBe(buildGithubPullRequestTabValue("workspace-1", 7));
-    expect(
-      useGithubCenterTabsStore.getState().tabsByContext["workspace-2"]?.[0]
-        ?.value,
-    ).toBe(buildGithubPullRequestTabValue("workspace-2", 7));
+    expect(useGithubCenterTabsStore.getState().tabsByContext["workspace-1"]?.[0]?.value).toBe(
+      buildGithubPullRequestTabValue("workspace-1", 7),
+    );
+    expect(useGithubCenterTabsStore.getState().tabsByContext["workspace-2"]?.[0]?.value).toBe(
+      buildGithubPullRequestTabValue("workspace-2", 7),
+    );
   });
 });

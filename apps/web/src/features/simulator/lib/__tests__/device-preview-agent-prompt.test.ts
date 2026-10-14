@@ -79,9 +79,7 @@ describe("device-preview agent prompt", () => {
       workspace_name: "",
       workspace_id: "93d98766-84ac-4f9a-a8ee-bba94d67def7",
     });
-    expect(workspaceOnly).toContain(
-      "- workspace: 93d98766-84ac-4f9a-a8ee-bba94d67def7",
-    );
+    expect(workspaceOnly).toContain("- workspace: 93d98766-84ac-4f9a-a8ee-bba94d67def7");
     expect(workspaceOnly).not.toContain("- project:");
     expect(workspaceOnly).not.toContain("(id: )");
     expect(workspaceOnly).toContain("that workspace");
@@ -116,12 +114,10 @@ describe("device-preview agent prompt", () => {
     expect(resolveDevicePreviewPromptFromClaims([claim, other], "ws_login")).toContain(
       "- udid: Pixel_8",
     );
-    expect(
-      resolveDevicePreviewPromptFromClaims([claim, other], "ws_missing"),
-    ).toContain("which udid");
-    expect(resolveDevicePreviewPromptFromClaims([claim, other], null)).toContain(
+    expect(resolveDevicePreviewPromptFromClaims([claim, other], "ws_missing")).toContain(
       "which udid",
     );
+    expect(resolveDevicePreviewPromptFromClaims([claim, other], null)).toContain("which udid");
   });
 
   it("matches slash queries like other Atmos composer commands", () => {
@@ -141,16 +137,13 @@ describe("device-preview agent prompt", () => {
   });
 
   it("derives the chip label from the device name", () => {
-    const labeled = presentAiContextChip(
-      "device-preview",
-      formatDevicePreviewPrompt(claim),
-    );
+    const labeled = presentAiContextChip("device-preview", formatDevicePreviewPrompt(claim));
     expect(labeled.label).toBe("Pixel 8");
     expect(labeled.tone).toBe("cyan");
     expect(labeled.icon).toBe("layout");
-    expect(
-      presentAiContextChip("device-preview", formatDevicePreviewListPrompt([])).label,
-    ).toBe("Simulator Device Use");
+    expect(presentAiContextChip("device-preview", formatDevicePreviewListPrompt([])).label).toBe(
+      "Simulator Device Use",
+    );
   });
 });
 
@@ -188,7 +181,10 @@ describe("SimulatorPanel Agent copy", () => {
     expect(androidApp).toContain("chrome-nav-pill");
     expect(
       readFileSync(
-        join(repoRoot, "vendor/serve-emu/packages/serve-emu/src/ui/components/agent-copy-button.tsx"),
+        join(
+          repoRoot,
+          "vendor/serve-emu/packages/serve-emu/src/ui/components/agent-copy-button.tsx",
+        ),
         "utf8",
       ),
     ).toContain("chrome-agent-fab");

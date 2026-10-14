@@ -5,8 +5,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 mock.module("@workspace/ui", () => ({
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
   toastManager: { add: () => undefined },
   usePromptInputAttachments: () => ({
     files: [],
@@ -281,9 +280,7 @@ describe("agent composer attachments", () => {
       },
     });
 
-    const removeButton = container.querySelector(
-      '[data-agent-composer-attachment="file"] button',
-    );
+    const removeButton = container.querySelector('[data-agent-composer-attachment="file"] button');
     await act(async () => {
       removeButton?.dispatchEvent(new window.Event("click", { bubbles: true }));
     });

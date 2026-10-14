@@ -28,10 +28,7 @@ import { resourceMonitorSnapshotQueryOptions } from "@/features/resource-monitor
 import { createResourceMonitorSubscriptionController } from "@/features/resource-monitor/lib/resource-monitor-subscription";
 import { isElectronShell } from "@/shared/lib/desktop-bridge";
 
-export function useResourceMonitor(options: {
-  enabled: boolean;
-  interactive: boolean;
-}) {
+export function useResourceMonitor(options: { enabled: boolean; interactive: boolean }) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
@@ -40,9 +37,7 @@ export function useResourceMonitor(options: {
   const showDesktop = canFetchDesktopShellMetrics(electron, connectionMode);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const clockRef = useRef<ReturnType<typeof createResourceMonitorClock> | null>(
-    null,
-  );
+  const clockRef = useRef<ReturnType<typeof createResourceMonitorClock> | null>(null);
   if (clockRef.current == null) {
     clockRef.current = createResourceMonitorClock();
   }
@@ -84,9 +79,7 @@ export function useResourceMonitor(options: {
     refetchInterval: options.interactive
       ? RESOURCE_MONITOR_INTERACTIVE_MS
       : RESOURCE_MONITOR_IDLE_MS,
-    staleTime: options.interactive
-      ? RESOURCE_MONITOR_INTERACTIVE_MS
-      : RESOURCE_MONITOR_IDLE_MS,
+    staleTime: options.interactive ? RESOURCE_MONITOR_INTERACTIVE_MS : RESOURCE_MONITOR_IDLE_MS,
     retry: false,
   });
 
@@ -95,12 +88,7 @@ export function useResourceMonitor(options: {
       return;
     }
     return controllerRef.current?.attach(scope);
-  }, [
-    options.enabled,
-    options.interactive,
-    connectionState,
-    scope,
-  ]);
+  }, [options.enabled, options.interactive, connectionState, scope]);
 
   useEffect(() => {
     if (!options.enabled || !options.interactive) return;
@@ -115,11 +103,7 @@ export function useResourceMonitor(options: {
       snapshot != null && connectionState === "connected"
         ? resourceHostHistoryPointFromSnapshot(receivedAtMs, snapshot.host)
         : null;
-    const next = appendResourceHostHistoryPoint(
-      historyRingRef.current,
-      scopeKey,
-      point,
-    );
+    const next = appendResourceHostHistoryPoint(historyRingRef.current, scopeKey, point);
     if (next === historyRingRef.current) return;
     historyRingRef.current = next;
     setHistory(next.points);

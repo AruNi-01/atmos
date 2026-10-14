@@ -12,7 +12,6 @@ Atmosphere for Agentic Builders
   <img src="./assets/readme/atmos-preview.png" alt="Atmos screenshot" />
 </p>
 
-
 ## Features
 
 <table>

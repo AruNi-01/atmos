@@ -38,12 +38,7 @@ import {
 export type LinearIssuePreset = "active" | "backlog" | "all";
 
 /** Linear workflow state types (status filter). */
-export type LinearStateType =
-  | "backlog"
-  | "unstarted"
-  | "started"
-  | "completed"
-  | "canceled";
+export type LinearStateType = "backlog" | "unstarted" | "started" | "completed" | "canceled";
 
 export const LINEAR_STATE_TYPES: LinearStateType[] = [
   "backlog",
@@ -107,9 +102,7 @@ function StatusTypeIcon({ type }: { type: LinearStateType }) {
     case "completed":
       return <CheckCircle2 className={cn(base, "text-indigo-400")} aria-hidden />;
     case "canceled":
-      return (
-        <XCircle className={cn(base, "text-muted-foreground/70")} aria-hidden />
-      );
+      return <XCircle className={cn(base, "text-muted-foreground/70")} aria-hidden />;
     case "started":
       return (
         <span className="relative inline-flex size-3.5 shrink-0 items-center justify-center">
@@ -123,9 +116,7 @@ function StatusTypeIcon({ type }: { type: LinearStateType }) {
         </span>
       );
     case "backlog":
-      return (
-        <CircleDashed className={cn(base, "text-muted-foreground")} aria-hidden />
-      );
+      return <CircleDashed className={cn(base, "text-muted-foreground")} aria-hidden />;
     case "unstarted":
     default:
       return <Circle className={cn(base, "text-muted-foreground")} aria-hidden />;
@@ -159,15 +150,13 @@ export function TaskLinearFilterMenu({
     filters.assigneeIds.length === 0
       ? t("filter.allAssignees")
       : filters.assigneeIds.length === 1
-        ? (users.find((u) => u.id === filters.assigneeIds[0])?.name ??
-          filters.assigneeIds[0]!)
+        ? (users.find((u) => u.id === filters.assigneeIds[0])?.name ?? filters.assigneeIds[0]!)
         : t("filter.assigneeCount", { count: filters.assigneeIds.length });
   const labelsLabel =
     filters.labelIds.length === 0
       ? t("filter.allLabels")
       : filters.labelIds.length === 1
-        ? (labels.find((l) => l.id === filters.labelIds[0])?.name ??
-          filters.labelIds[0]!)
+        ? (labels.find((l) => l.id === filters.labelIds[0])?.name ?? filters.labelIds[0]!)
         : t("filter.labelCount", { count: filters.labelIds.length });
   const teamLabel = filters.teamId
     ? (teams.find((team) => team.id === filters.teamId)?.name ?? filters.teamId)
@@ -178,9 +167,7 @@ export function TaskLinearFilterMenu({
 
   const toggleStateType = (type: LinearStateType) => {
     const has = filters.stateTypes.includes(type);
-    const next = has
-      ? filters.stateTypes.filter((s) => s !== type)
-      : [...filters.stateTypes, type];
+    const next = has ? filters.stateTypes.filter((s) => s !== type) : [...filters.stateTypes, type];
     onFiltersChange({ ...filters, stateTypes: next });
   };
 
@@ -207,7 +194,7 @@ export function TaskLinearFilterMenu({
           <ListFilter className="size-3.5 shrink-0" />
           <span>{t("filter.trigger")}</span>
           {activeCount > 0 ? (
-            <span className="min-w-3 tabular-nums text-foreground">{activeCount}</span>
+            <span className="min-w-3 text-foreground tabular-nums">{activeCount}</span>
           ) : null}
         </Button>
       </DropdownMenuTrigger>
@@ -312,10 +299,7 @@ export function TaskLinearFilterMenu({
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-64 p-0" sideOffset={4}>
             <Command>
-              <CommandInput
-                placeholder={t("filter.searchAssignees")}
-                className="h-8 text-xs"
-              />
+              <CommandInput placeholder={t("filter.searchAssignees")} className="h-8 text-xs" />
               <CommandEmpty className="py-4 text-xs">
                 {t("filter.noMatchingAssignees")}
               </CommandEmpty>
@@ -372,13 +356,8 @@ export function TaskLinearFilterMenu({
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-64 p-0" sideOffset={4}>
             <Command>
-              <CommandInput
-                placeholder={t("filter.searchLabels")}
-                className="h-8 text-xs"
-              />
-              <CommandEmpty className="py-4 text-xs">
-                {t("filter.noMatchingLabels")}
-              </CommandEmpty>
+              <CommandInput placeholder={t("filter.searchLabels")} className="h-8 text-xs" />
+              <CommandEmpty className="py-4 text-xs">{t("filter.noMatchingLabels")}</CommandEmpty>
               <CommandGroup className="max-h-56 overflow-y-auto">
                 <CommandItem
                   value="__all_labels__"
@@ -386,9 +365,7 @@ export function TaskLinearFilterMenu({
                   className="gap-2 text-xs"
                 >
                   <span className="min-w-0 flex-1 truncate">{t("filter.allLabels")}</span>
-                  {filters.labelIds.length === 0 ? (
-                    <Check className="size-3.5 shrink-0" />
-                  ) : null}
+                  {filters.labelIds.length === 0 ? <Check className="size-3.5 shrink-0" /> : null}
                 </CommandItem>
                 {labels.map((label) => {
                   const selected = filters.labelIds.includes(label.id);
@@ -449,16 +426,12 @@ export function TaskLinearFilterMenu({
                     <CommandItem
                       key={team.id}
                       value={`${team.key} ${team.name}`}
-                      onSelect={() =>
-                        onFiltersChange({ ...filters, teamId: team.id })
-                      }
+                      onSelect={() => onFiltersChange({ ...filters, teamId: team.id })}
                       className="gap-2 text-xs"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-medium">{team.name}</div>
-                        <div className="truncate text-[10px] text-muted-foreground">
-                          {team.key}
-                        </div>
+                        <div className="truncate text-[10px] text-muted-foreground">{team.key}</div>
                       </div>
                       {selected ? <Check className="size-3.5 shrink-0" /> : null}
                     </CommandItem>
@@ -480,13 +453,8 @@ export function TaskLinearFilterMenu({
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-64 p-0" sideOffset={4}>
             <Command>
-              <CommandInput
-                placeholder={t("filter.searchProjects")}
-                className="h-8 text-xs"
-              />
-              <CommandEmpty className="py-4 text-xs">
-                {t("filter.noMatchingProjects")}
-              </CommandEmpty>
+              <CommandInput placeholder={t("filter.searchProjects")} className="h-8 text-xs" />
+              <CommandEmpty className="py-4 text-xs">{t("filter.noMatchingProjects")}</CommandEmpty>
               <CommandGroup className="max-h-56 overflow-y-auto">
                 <CommandItem
                   value="__all_projects__"
@@ -502,9 +470,7 @@ export function TaskLinearFilterMenu({
                     <CommandItem
                       key={project.id}
                       value={project.name}
-                      onSelect={() =>
-                        onFiltersChange({ ...filters, projectId: project.id })
-                      }
+                      onSelect={() => onFiltersChange({ ...filters, projectId: project.id })}
                       className="gap-2 text-xs"
                     >
                       <span className="min-w-0 flex-1 truncate">{project.name}</span>

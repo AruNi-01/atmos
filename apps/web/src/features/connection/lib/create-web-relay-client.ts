@@ -35,16 +35,11 @@ function createWebRelayTransport(opts: {
 }): RelayTransport {
   return async (req) => {
     if (opts.preferLoopbackProxy) {
-      const proxied = await proxyRelayRequest(
-        req.baseUrl,
-        req.method,
-        req.path,
-        {
-          deviceCredential: bearerFromHeaders(req.headers),
-          body: req.body,
-          relaySecretKey: opts.relaySecretKey || undefined,
-        },
-      );
+      const proxied = await proxyRelayRequest(req.baseUrl, req.method, req.path, {
+        deviceCredential: bearerFromHeaders(req.headers),
+        body: req.body,
+        relaySecretKey: opts.relaySecretKey || undefined,
+      });
       if (proxied) {
         let json: unknown = {};
         try {
@@ -55,9 +50,7 @@ function createWebRelayTransport(opts: {
         return { status: proxied.status, json };
       }
       if (isDesktopRuntime()) {
-        throw new Error(
-          "Could not reach local Atmos Server to proxy Relay requests.",
-        );
+        throw new Error("Could not reach local Atmos Server to proxy Relay requests.");
       }
     }
 
@@ -79,9 +72,7 @@ function bearerFromHeaders(headers: Record<string, string>): string | undefined 
 }
 
 /** Shared factory for web Atmos Computer / hosted connection flows. */
-export function createWebRelayClient(
-  options: CreateWebRelayClientOptions,
-): RelayClient {
+export function createWebRelayClient(options: CreateWebRelayClientOptions): RelayClient {
   const relaySecretKey = (options.relaySecretKey ?? "").trim();
   return createRelayClient({
     baseUrl: normalizeRelayUrl(options.relayUrl),
@@ -139,8 +130,7 @@ export function getWebRelayClient(opts?: {
 export function getAuthenticatedWebRelayClient(
   deviceCredential?: string,
 ): AuthenticatedRelayClient {
-  const token =
-    (deviceCredential ?? useAtmosComputerStore.getState().accessToken).trim();
+  const token = (deviceCredential ?? useAtmosComputerStore.getState().accessToken).trim();
   return getWebRelayClient().withDeviceCredential(token);
 }
 

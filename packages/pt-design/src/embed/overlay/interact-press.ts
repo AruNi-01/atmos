@@ -11,7 +11,10 @@ export function armInteractPress(target: HTMLElement): void {
   window.addEventListener("pointercancel", clear, true);
 }
 
-export function pressableButtonRoot(event: { button: number; target: EventTarget | null }): HTMLElement | null {
+export function pressableButtonRoot(event: {
+  button: number;
+  target: EventTarget | null;
+}): HTMLElement | null {
   if (event.button !== 0) return null;
   const node = event.target as { closest?: (selector: string) => Element | null } | null;
   if (!node || typeof node.closest !== "function") return null;

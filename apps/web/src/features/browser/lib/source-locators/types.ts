@@ -1,5 +1,5 @@
-export type SourceLocatorFramework = 'react' | 'vue' | 'angular' | 'svelte' | 'unknown';
-export type SourceLocatorConfidence = 'high' | 'medium' | 'low';
+export type SourceLocatorFramework = "react" | "vue" | "angular" | "svelte" | "unknown";
+export type SourceLocatorConfidence = "high" | "medium" | "low";
 
 export interface SourceLocationResult {
   framework: SourceLocatorFramework;

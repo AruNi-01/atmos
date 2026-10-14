@@ -1,7 +1,4 @@
-export type PermissionAccessDecision =
-  | "allow"
-  | "skip_not_installed"
-  | "skip_no_consent";
+export type PermissionAccessDecision = "allow" | "skip_not_installed" | "skip_no_consent";
 
 export type PermissionAccessStatus = {
   id: string;

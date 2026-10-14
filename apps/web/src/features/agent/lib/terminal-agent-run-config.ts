@@ -75,7 +75,9 @@ export function readSavedRunConfigs(value: unknown): TerminalAgentSavedRunConfig
   });
 }
 
-export function parseRunConfigJson(value: string | null | undefined): TerminalAgentRunConfigInput | null {
+export function parseRunConfigJson(
+  value: string | null | undefined,
+): TerminalAgentRunConfigInput | null {
   if (!value) return null;
   try {
     return sanitizeRunConfig(JSON.parse(value) as TerminalAgentRunConfigInput);
@@ -140,9 +142,7 @@ function resolveInteractivePromptStrategy(
   return definition?.promptStrategy ?? "arg";
 }
 
-function interactivePromptFlagSuffix(
-  definition: TerminalAgentDefinition,
-): string | null {
+function interactivePromptFlagSuffix(definition: TerminalAgentDefinition): string | null {
   const automationParams = definition.params.trim();
   const interactiveParams = definition.interactiveParams ?? "";
   if (!automationParams || automationParams === interactiveParams.trim()) {

@@ -9,7 +9,7 @@ import {
 } from "../agent-hook-interrupt-inference";
 
 function makeSession(
-  overrides: Partial<AgentHookInterruptSession> = {}
+  overrides: Partial<AgentHookInterruptSession> = {},
 ): AgentHookInterruptSession {
   return {
     session_id: "ws-1:agent",

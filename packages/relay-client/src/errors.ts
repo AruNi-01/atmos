@@ -15,13 +15,9 @@ export function relayErrorFromBody(
   fallbackMessage: string,
 ): RelayError {
   const payload =
-    body && typeof body === "object"
-      ? (body as { error?: unknown; message?: unknown })
-      : null;
+    body && typeof body === "object" ? (body as { error?: unknown; message?: unknown }) : null;
   const code =
-    typeof payload?.error === "string" && payload.error.trim()
-      ? payload.error.trim()
-      : undefined;
+    typeof payload?.error === "string" && payload.error.trim() ? payload.error.trim() : undefined;
   const message =
     (typeof payload?.message === "string" && payload.message.trim()
       ? payload.message.trim()

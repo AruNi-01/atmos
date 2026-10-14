@@ -176,11 +176,7 @@ const AnimationComponent: React.FC<{
         {segment}
       </motion.span>
     ) : (
-      <motion.span
-        aria-hidden="true"
-        variants={variants}
-        className="inline-block whitespace-pre"
-      >
+      <motion.span aria-hidden="true" variants={variants} className="inline-block whitespace-pre">
         {segment}
       </motion.span>
     );
@@ -191,11 +187,7 @@ const AnimationComponent: React.FC<{
 
   const defaultWrapperClassName = per === "line" ? "block" : "inline-block";
 
-  return (
-    <span className={cn(defaultWrapperClassName, segmentWrapperClassName)}>
-      {content}
-    </span>
-  );
+  return <span className={cn(defaultWrapperClassName, segmentWrapperClassName)}>{content}</span>;
 });
 
 AnimationComponent.displayName = "AnimationComponent";
@@ -235,9 +227,7 @@ const createVariantsWithTransition = (
     visible: {
       ...baseVariants.visible,
       transition: {
-        ...(hasTransition(baseVariants.visible)
-          ? baseVariants.visible.transition
-          : {}),
+        ...(hasTransition(baseVariants.visible) ? baseVariants.visible.transition : {}),
         ...mainTransition,
       },
     },
@@ -248,9 +238,7 @@ const createVariantsWithTransition = (
         ...mainTransition,
         ...exitTransition,
         staggerDirection:
-          exitTransition?.staggerDirection ??
-          baseExitTransition?.staggerDirection ??
-          -1,
+          exitTransition?.staggerDirection ?? baseExitTransition?.staggerDirection ?? -1,
       },
     },
   };
@@ -289,31 +277,26 @@ export function TextEffect({
   const baseDuration = 0.3 / speedSegment;
 
   const customStagger = hasTransition(variants?.container?.visible ?? {})
-    ? (variants?.container?.visible as TargetAndTransition).transition
-        ?.staggerChildren
+    ? (variants?.container?.visible as TargetAndTransition).transition?.staggerChildren
     : undefined;
 
   const customDelay = hasTransition(variants?.container?.visible ?? {})
-    ? (variants?.container?.visible as TargetAndTransition).transition
-        ?.delayChildren
+    ? (variants?.container?.visible as TargetAndTransition).transition?.delayChildren
     : undefined;
 
   const computedVariants = {
-    container: createVariantsWithTransition(
-      variants?.container || baseVariants.container,
-      {
+    container: createVariantsWithTransition(variants?.container || baseVariants.container, {
+      staggerChildren: customStagger ?? stagger,
+      delayChildren: customDelay ?? delay,
+      ...containerTransition,
+      exit: {
         staggerChildren: customStagger ?? stagger,
-        delayChildren: customDelay ?? delay,
-        ...containerTransition,
-        exit: {
-          staggerChildren: customStagger ?? stagger,
-          staggerDirection:
-            exitStaggerDirection(variants?.container?.exit) ??
-            exitStaggerDirection(baseVariants.container.exit) ??
-            -1,
-        },
+        staggerDirection:
+          exitStaggerDirection(variants?.container?.exit) ??
+          exitStaggerDirection(baseVariants.container.exit) ??
+          -1,
       },
-    ),
+    }),
     item: createVariantsWithTransition(variants?.item || baseVariants.item, {
       duration: baseDuration,
       ...segmentTransition,
@@ -349,10 +332,7 @@ export function TextEffect({
             <motion.span
               aria-hidden="true"
               variants={computedVariants.item}
-              className={cn(
-                "inline-flex shrink-0 items-center",
-                leadingClassName,
-              )}
+              className={cn("inline-flex shrink-0 items-center", leadingClassName)}
             >
               {leading}
             </motion.span>

@@ -1,6 +1,4 @@
-export type ChatScope =
-  | { workspace_id: string }
-  | { project_id: string };
+export type ChatScope = { workspace_id: string } | { project_id: string };
 
 export type ChatScopeBootstrap = {
   projects: Array<{ guid: string; main_file_path: string }>;

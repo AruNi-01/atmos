@@ -62,7 +62,15 @@ describe("excalidraw scene bridge", () => {
           id: "el_run",
           x: 12,
           y: 24,
-          customData: { pt: { schemaVersion: 1, instanceId: "run", componentType: "button", catalogVersion: "1", props: { label: "Save" } } },
+          customData: {
+            pt: {
+              schemaVersion: 1,
+              instanceId: "run",
+              componentType: "button",
+              catalogVersion: "1",
+              props: { label: "Save" },
+            },
+          },
         }),
       ],
       appState: { viewBackgroundColor: "#ffffff" },
@@ -117,7 +125,9 @@ describe("excalidraw scene bridge", () => {
     const shown = sceneToExcalidrawElements(scene, "light");
     expect(shown.filter((el) => el.type === "text").every((el) => el.fontFamily === 5)).toBe(true);
     const stored = excalidrawElementsToScene(shown, { viewBackgroundColor: "#ffffff" }, "light");
-    expect(stored.elements.filter((el) => el.type === "text").every((el) => el.fontFamily === 5)).toBe(true);
+    expect(
+      stored.elements.filter((el) => el.type === "text").every((el) => el.fontFamily === 5),
+    ).toBe(true);
   });
 
   test("dark theme remaps default Excalidraw ink so freehand stays visible", () => {
@@ -210,7 +220,11 @@ describe("ptx-only handle convert", () => {
     });
     expect(geometryOnly.every((el) => el.customData === undefined)).toBe(true);
     const filled = fillMissingPtCustomData(geometryOnly, converted);
-    expect(extractDocument(filled).pages[0]?.nodes.map((n) => n.id)).toEqual(["model", "prompt", "run"]);
+    expect(extractDocument(filled).pages[0]?.nodes.map((n) => n.id)).toEqual([
+      "model",
+      "prompt",
+      "run",
+    ]);
     const already = fillMissingPtCustomData(converted, converted);
     expect(already.map((el) => el.customData?.pt?.id)).toEqual(["model", "prompt", "run"]);
   });
@@ -261,7 +275,11 @@ describe("ptx-only handle convert", () => {
     const xml = serializePtx(extractDocument(filled));
     expect(xml).not.toContain("deepseek");
     expect(xml).toContain("claude");
-    expect(extractDocument(filled).pages[0]?.nodes.map((n) => n.id)).toEqual(["model", "prompt", "run"]);
+    expect(extractDocument(filled).pages[0]?.nodes.map((n) => n.id)).toEqual([
+      "model",
+      "prompt",
+      "run",
+    ]);
   });
 
   test("createPtRestampState undo of full pre-apply elements does not refill applied payload", () => {
@@ -307,10 +325,18 @@ describe("ptx-only handle convert", () => {
     const missedXml = serializePtx(extractDocument(missed));
     expect(missedXml).not.toContain("deepseek");
     expect(missedXml).toContain("claude");
-    expect(extractDocument(missed).pages[0]?.nodes.map((n) => n.id)).toEqual(["model", "prompt", "run"]);
+    expect(extractDocument(missed).pages[0]?.nodes.map((n) => n.id)).toEqual([
+      "model",
+      "prompt",
+      "run",
+    ]);
     const missedAgain = restamp.restamp(shapeC);
     expect(serializePtx(extractDocument(missedAgain))).toContain("claude");
-    expect(extractDocument(missedAgain).pages[0]?.nodes.map((n) => n.id)).toEqual(["model", "prompt", "run"]);
+    expect(extractDocument(missedAgain).pages[0]?.nodes.map((n) => n.id)).toEqual([
+      "model",
+      "prompt",
+      "run",
+    ]);
   });
 
   test("bumpHandleVersions changes versionNonce so IMMEDIATELY can enter history", () => {
@@ -330,9 +356,9 @@ describe("ptx-only handle convert", () => {
     expect(bumped[0]?.customData?.pt?.options).not.toBe(options);
     expect(bumped[0]?.customData?.ptv).toBe(2);
     options.push({ value: "deepseek", label: "DeepSeek" });
-    expect((bumped[0]?.customData?.pt?.options as { value: string }[]).map((o) => o.value)).not.toContain(
-      "deepseek",
-    );
+    expect(
+      (bumped[0]?.customData?.pt?.options as { value: string }[]).map((o) => o.value),
+    ).not.toContain("deepseek");
     const cloned = cloneScenePtCustomData(el);
     expect(cloned.customData).not.toBe(el.customData);
     expect(cloned.customData?.pt).not.toBe(el.customData.pt);
@@ -348,8 +374,14 @@ describe("ptx-only handle convert", () => {
     const applied = bumpHandleVersions(
       toExcalidrawCompatElements(projectDocument(parsePtx(appliedXml), seed)),
     );
-    const modelPrev = seed.find((el) => el.customData?.pt?.id === "model") as Record<string, unknown>;
-    const modelNext = applied.find((el) => el.customData?.pt?.id === "model") as Record<string, unknown>;
+    const modelPrev = seed.find((el) => el.customData?.pt?.id === "model") as Record<
+      string,
+      unknown
+    >;
+    const modelNext = applied.find((el) => el.customData?.pt?.id === "model") as Record<
+      string,
+      unknown
+    >;
     expect(modelPrev).toBeDefined();
     expect(modelNext).toBeDefined();
     const delta = excalidrawStrippedElementDelta(modelPrev, modelNext);
@@ -366,7 +398,11 @@ describe("ptx-only handle convert", () => {
     const xml = serializePtx(extractDocument(restored));
     expect(xml).not.toContain("deepseek");
     expect(xml).toContain("claude");
-    expect(extractDocument(restored).pages[0]?.nodes.map((n) => n.id)).toEqual(["model", "prompt", "run"]);
+    expect(extractDocument(restored).pages[0]?.nodes.map((n) => n.id)).toEqual([
+      "model",
+      "prompt",
+      "run",
+    ]);
   });
 
   test("fillMissingPtCustomData copies payload only and keeps live spatial", () => {
@@ -423,7 +459,11 @@ describe("ptx-only handle convert", () => {
     const xml = serializePtx(extractDocument(restored));
     expect(xml).not.toContain("deepseek");
     expect(xml).toContain("claude");
-    expect(extractDocument(restored).pages[0]?.nodes.map((n) => n.id)).toEqual(["model", "prompt", "run"]);
+    expect(extractDocument(restored).pages[0]?.nodes.map((n) => n.id)).toEqual([
+      "model",
+      "prompt",
+      "run",
+    ]);
   });
 });
 

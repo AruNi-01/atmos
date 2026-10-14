@@ -200,7 +200,11 @@ export function BrowserToolbar({
               desktopToolbarExpanded ? "opacity-100" : "opacity-0",
             ),
         )}
-        style={usesDesktopToolbarExpand ? { height: desktopToolbarExpanded ? undefined : "0" } : undefined}
+        style={
+          usesDesktopToolbarExpand
+            ? { height: desktopToolbarExpanded ? undefined : "0" }
+            : undefined
+        }
       >
         <div
           className={cn(
@@ -213,7 +217,9 @@ export function BrowserToolbar({
               onClick={() => setViewMode("desktop")}
               className={cn(
                 "rounded-sm p-1.5",
-                viewMode === "desktop" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+                viewMode === "desktop"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
               title={t("view.desktop")}
             >
@@ -223,7 +229,9 @@ export function BrowserToolbar({
               onClick={() => setViewMode("mobile")}
               className={cn(
                 "rounded-sm p-1.5",
-                viewMode === "mobile" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+                viewMode === "mobile"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
               title={t("view.mobile")}
             >
@@ -269,7 +277,12 @@ export function BrowserToolbar({
             className="rounded-sm p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
             title={t("navigation.refresh")}
           >
-            <RotateCcw className={cn("size-3.5", isPreviewLoading && "animate-spin [animation-direction:reverse]")} />
+            <RotateCcw
+              className={cn(
+                "size-3.5",
+                isPreviewLoading && "animate-spin [animation-direction:reverse]",
+              )}
+            />
           </button>
         </div>
 
@@ -315,9 +328,13 @@ export function BrowserToolbar({
                       {displayUrlParts.protocol}
                     </span>
                   ) : null}
-                  <span className="truncate text-xs text-foreground">{displayUrlParts.address}</span>
+                  <span className="truncate text-xs text-foreground">
+                    {displayUrlParts.address}
+                  </span>
                   {displayPageTitle ? (
-                    <span className="truncate text-xs text-muted-foreground">/ {displayPageTitle}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      / {displayPageTitle}
+                    </span>
                   ) : null}
                 </>
               ) : (
@@ -422,7 +439,7 @@ export function BrowserToolbar({
                       onClick={() => {
                         void handleCopySelectionAnnotations();
                       }}
-                      className="group relative flex h-6 w-[66px] cursor-pointer items-center justify-center overflow-hidden rounded-l-none rounded-r-sm border-l border-border/60 px-2 text-[11px] font-medium leading-none text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      className="group relative flex h-6 w-[66px] cursor-pointer items-center justify-center overflow-hidden rounded-l-none rounded-r-sm border-l border-border/60 px-2 text-[11px] leading-none font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                       aria-label={t(
                         selectionAnnotationCount === 1
                           ? "annotations.copyAriaOne"
@@ -478,7 +495,6 @@ export function BrowserToolbar({
             />
           </div>
         ) : null}
-
       </div>
     </div>
   );
@@ -534,7 +550,7 @@ function FavoriteSavePopover({
             <p className="text-sm font-medium text-foreground">
               {activeFavorite ? t("edit") : t("save")}
             </p>
-            <p className="break-all text-xs text-muted-foreground">
+            <p className="text-xs break-all text-muted-foreground">
               {normalizedActiveUrl || t("noPageSelected")}
             </p>
           </div>
@@ -602,17 +618,19 @@ function PreviewExtensionUpdatePopover({
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <p className="text-xs font-medium text-foreground">{t("title")}</p>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {t("description")}
-        </p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{t("description")}</p>
         <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
           <li>{t("steps.download")}</li>
           <li>
-            {t("steps.unzipPrefix")} <span className="font-medium text-foreground">{t("steps.replace")}</span> {t("steps.unzipMiddle")}{" "}
+            {t("steps.unzipPrefix")}{" "}
+            <span className="font-medium text-foreground">{t("steps.replace")}</span>{" "}
+            {t("steps.unzipMiddle")}{" "}
             <span className="font-medium text-foreground">atmos-inspector-extension</span> folder.
           </li>
           <li>
-            {t("steps.reloadPrefix")} <span className="font-medium text-foreground">chrome://extensions</span> {t("steps.reloadMiddle")}
+            {t("steps.reloadPrefix")}{" "}
+            <span className="font-medium text-foreground">chrome://extensions</span>{" "}
+            {t("steps.reloadMiddle")}
             <span className="font-medium text-foreground">reload ↻</span> {t("steps.reloadSuffix")}
           </li>
           <li>{t("steps.reloadPage")}</li>
@@ -690,21 +708,27 @@ function PreviewExtensionInstallPopover({
             </p>
             <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
               <li>
-                {t("steps.unzip")} <span className="font-medium text-foreground">atmos-inspector-extension.zip</span>.
+                {t("steps.unzip")}{" "}
+                <span className="font-medium text-foreground">atmos-inspector-extension.zip</span>.
               </li>
               <li>
-                {t("steps.open")} <span className="font-medium text-foreground">chrome://extensions</span> {t("steps.or")}{" "}
+                {t("steps.open")}{" "}
+                <span className="font-medium text-foreground">chrome://extensions</span>{" "}
+                {t("steps.or")}{" "}
                 <span className="font-medium text-foreground">edge://extensions</span>.
               </li>
               <li>
-                {t("steps.turnOn")} <span className="font-medium text-foreground">{t("steps.developerMode")}</span>.
+                {t("steps.turnOn")}{" "}
+                <span className="font-medium text-foreground">{t("steps.developerMode")}</span>.
               </li>
               <li>
-                {t("steps.click")} <span className="font-medium text-foreground">{t("steps.loadUnpacked")}</span>.
+                {t("steps.click")}{" "}
+                <span className="font-medium text-foreground">{t("steps.loadUnpacked")}</span>.
               </li>
               <li>
                 {t("steps.selectExtracted")}{" "}
-                <span className="font-medium text-foreground">atmos-inspector-extension</span> folder.
+                <span className="font-medium text-foreground">atmos-inspector-extension</span>{" "}
+                folder.
               </li>
               <li>{t("steps.returnAndReload")}</li>
             </ol>
@@ -726,9 +750,7 @@ function PreviewExtensionInstallPopover({
           </div>
         ) : (
           <>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {t("description")}
-            </p>
+            <p className="text-xs leading-relaxed text-muted-foreground">{t("description")}</p>
             <div className="flex items-center justify-between gap-2">
               <Button variant="outline" size="sm" onClick={() => setExtensionPopoverOpen(false)}>
                 {t("close")}
@@ -762,11 +784,7 @@ function PreviewExtensionInstallPopover({
   );
 }
 
-function BrowserUseActivityBadge({
-  sessionId,
-}: {
-  sessionId?: string | null;
-}) {
+function BrowserUseActivityBadge({ sessionId }: { sessionId?: string | null }) {
   const t = useTranslations("browser.toolbar");
   const { active, status } = useBrowserUseActivity(sessionId);
   if (!active) return null;

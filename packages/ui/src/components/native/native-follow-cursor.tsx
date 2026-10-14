@@ -1,13 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useSpring,
-} from "motion/react";
+import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
 
 import { cn } from "../../lib/utils";
 import { TextMorph } from "../ui/text-morph";
@@ -73,7 +67,7 @@ export function NativeFollowCursor({
         <motion.div
           aria-hidden="true"
           className={cn(
-            "pointer-events-none fixed left-0 top-0 z-[2147483646] max-w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-full border border-white/10 bg-zinc-950/88 px-3 py-1.5 font-mono text-xs font-medium leading-none text-zinc-50 shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl",
+            "pointer-events-none fixed top-0 left-0 z-[2147483646] max-w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-full border border-white/10 bg-zinc-950/88 px-3 py-1.5 font-mono text-xs leading-none font-medium text-zinc-50 shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl",
             className,
           )}
           style={{

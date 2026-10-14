@@ -7,16 +7,16 @@ description: 启动、停止和检查本地 Atmos。
 
 ## 常见任务
 
-| 任务 | 命令 |
-|------|------|
-| 如果 Atmos 没有运行，则启动它 | `atmos runtime ensure` |
-| 在指定端口启动 | `atmos runtime ensure --port 30303` |
-| 绑定到指定 host | `atmos runtime ensure --host 127.0.0.1` |
-| 即使已有 runtime 也重启 | `atmos runtime ensure --force-restart` |
-| 后台启动 | `atmos runtime ensure --daemon` |
-| 检查 runtime 健康状态 | `atmos runtime status` |
-| 停止本地 runtime | `atmos runtime stop` |
-| 强制停止 | `atmos runtime stop --force` |
+| 任务                          | 命令                                    |
+| ----------------------------- | --------------------------------------- |
+| 如果 Atmos 没有运行，则启动它 | `atmos runtime ensure`                  |
+| 在指定端口启动                | `atmos runtime ensure --port 30303`     |
+| 绑定到指定 host               | `atmos runtime ensure --host 127.0.0.1` |
+| 即使已有 runtime 也重启       | `atmos runtime ensure --force-restart`  |
+| 后台启动                      | `atmos runtime ensure --daemon`         |
+| 检查 runtime 健康状态         | `atmos runtime status`                  |
+| 停止本地 runtime              | `atmos runtime stop`                    |
+| 强制停止                      | `atmos runtime stop --force`            |
 
 `--lan` 会绑定到 `0.0.0.0` 以支持 LAN 访问。runtime manifest 仍然会让本地客户端指向 loopback。
 
@@ -32,11 +32,11 @@ curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 
 ## 文件和日志
 
-| 路径 | 用途 |
-|------|------|
-| `~/.atmos/runtime/current` | 已安装的 runtime |
-| `~/.atmos/runtime_manifest.json` | 本地客户端使用的 host、port、HTTP URL 和 WebSocket URL |
-| `~/.atmos/runtime/logs/server.log` | Runtime 日志 |
+| 路径                               | 用途                                                   |
+| ---------------------------------- | ------------------------------------------------------ |
+| `~/.atmos/runtime/current`         | 已安装的 runtime                                       |
+| `~/.atmos/runtime_manifest.json`   | 本地客户端使用的 host、port、HTTP URL 和 WebSocket URL |
+| `~/.atmos/runtime/logs/server.log` | Runtime 日志                                           |
 
 ## 使用建议
 

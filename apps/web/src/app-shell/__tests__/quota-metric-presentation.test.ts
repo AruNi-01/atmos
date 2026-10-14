@@ -418,7 +418,13 @@ describe("presentQuotaMetric", () => {
           },
           {
             title: "Managed Computers",
-            rows: [{ label: "Managed Computers", value: "0% used · 0m / 5.0h · Resets in 138d 0h", tone: "default" }],
+            rows: [
+              {
+                label: "Managed Computers",
+                value: "0% used · 0m / 5.0h · Resets in 138d 0h",
+                tone: "default",
+              },
+            ],
           },
         ],
       }),
@@ -438,12 +444,8 @@ describe("presentQuotaMetric", () => {
 describe("displayResetText", () => {
   test("does not replace a window's own countdown with the subscription reset", () => {
     const fiveHourReset = Math.floor(Date.now() / 1000) + 4 * 3600;
-    expect(
-      displayResetText("Resets in 6d 0h", fiveHourReset, {}, "en"),
-    ).toMatch(/6d/i);
-    expect(
-      displayResetText("Resets in 6d 0h", fiveHourReset, {}, "en"),
-    ).not.toMatch(/4h/i);
+    expect(displayResetText("Resets in 6d 0h", fiveHourReset, {}, "en")).toMatch(/6d/i);
+    expect(displayResetText("Resets in 6d 0h", fiveHourReset, {}, "en")).not.toMatch(/4h/i);
     expect(displayResetText("Use Droid to start", fiveHourReset, {}, "en")).toBe(
       "Use Droid to start",
     );
@@ -509,8 +511,6 @@ describe("usageSegmentFillClass", () => {
     expect(usageSegmentFillClass("Chat", 1)).toBe("bg-success");
     expect(usageSegmentFillClass("Image", 2)).toBe("bg-warning");
     expect(usageSegmentFillClass("Voice", 3)).toBe("bg-chart-2");
-    expect(usageSegmentFillClass("Grok Build", 0)).not.toBe(
-      usageSegmentFillClass("Chat", 1),
-    );
+    expect(usageSegmentFillClass("Grok Build", 0)).not.toBe(usageSegmentFillClass("Chat", 1));
   });
 });

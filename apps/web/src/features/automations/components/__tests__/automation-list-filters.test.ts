@@ -86,8 +86,8 @@ describe("automation list filters", () => {
 
   it("maps scheduled automations to their schedule kind", () => {
     expect(resolveAutomationTriggerFilter(summary({ schedule_kind: "weekly" }))).toBe("weekly");
-    expect(resolveAutomationTriggerFilter(summary({ trigger_kind: "manual", schedule_kind: null }))).toBe(
-      "manual",
-    );
+    expect(
+      resolveAutomationTriggerFilter(summary({ trigger_kind: "manual", schedule_kind: null })),
+    ).toBe("manual");
   });
 });

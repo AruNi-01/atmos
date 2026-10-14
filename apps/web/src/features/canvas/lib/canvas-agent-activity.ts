@@ -159,9 +159,7 @@ export class CanvasAgentActivityStore {
    * When `replace` is true, previous inferred bounds are discarded.
    */
   setAgentView(bounds: CanvasAgentBounds, replace = true) {
-    this.viewBounds = replace
-      ? bounds
-      : unionBounds(this.viewBounds, bounds, 0);
+    this.viewBounds = replace ? bounds : unionBounds(this.viewBounds, bounds, 0);
     this.emit();
   }
 

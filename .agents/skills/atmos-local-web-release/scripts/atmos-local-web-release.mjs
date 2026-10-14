@@ -192,9 +192,7 @@ function ensureWorkingTreeClean(allowDirty) {
   if (!status || allowDirty) {
     return;
   }
-  fail(
-    "Working tree is dirty. Commit or stash changes first, or rerun with --allow-dirty.",
-  );
+  fail("Working tree is dirty. Commit or stash changes first, or rerun with --allow-dirty.");
 }
 
 function ensureGhAuth() {
@@ -241,14 +239,10 @@ function main() {
     info("Release intent is prerelease.");
   }
 
-  runOrPrint(
-    "node",
-    ["./scripts/release/check-local-runtime-version.mjs", "--release-tag", tag],
-    {
-      dryRun: false,
-      description: "Validating local runtime version alignment",
-    },
-  );
+  runOrPrint("node", ["./scripts/release/check-local-runtime-version.mjs", "--release-tag", tag], {
+    dryRun: false,
+    description: "Validating local runtime version alignment",
+  });
 
   if (args.build) {
     runOrPrint("node", ["./scripts/local-runtime/build-runtime.mjs"], {

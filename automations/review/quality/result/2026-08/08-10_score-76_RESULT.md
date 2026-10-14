@@ -39,13 +39,13 @@ Tasks 功能切分出 lib/hook/drawer 子目录方向正确，但同日新增多
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 24/30 | 正向：`task-github-query-sync`、`find-linked-workspace`、`github-issue-templates`、drawer types/insets、#210 chrome/match 拆分。扣分：CreateIssueDialog 内嵌 TemplateFormField/MultiToggle；Panel 单组件吞 URL+query+toolbar+table+drawer。 |
-| 可读性与复杂度 | 19/25 | Panel 中 nuqs / useQueries / portal header / workspace actions 交织；CreateIssue 表单与 template 动态字段长链。 |
-| 体量与内聚 | 12/20 | 日终新建：CreateIssueDialog ~891、Panel ~828、DrawerHost ~656、Table ~476、FilterMenu ~398、templates lib ~453；engine `github/mod.rs` +~1.5k。 |
-| 可维护性与复用 | 12/15 | 正向：query-sync 纯函数、templates 解析独立。扣分：template 字段 UI 未组件化时难在其他创建入口复用。 |
-| 工程卫生 | 9/10 | 合并 polish、SECURITY 模板、CLI min-version 文档；缺 Tasks 单元测试文件。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                                                    |
+| -------------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 24/30 | 正向：`task-github-query-sync`、`find-linked-workspace`、`github-issue-templates`、drawer types/insets、#210 chrome/match 拆分。扣分：CreateIssueDialog 内嵌 TemplateFormField/MultiToggle；Panel 单组件吞 URL+query+toolbar+table+drawer。 |
+| 可读性与复杂度 | 19/25 | Panel 中 nuqs / useQueries / portal header / workspace actions 交织；CreateIssue 表单与 template 动态字段长链。                                                                                                                             |
+| 体量与内聚     | 12/20 | 日终新建：CreateIssueDialog ~891、Panel ~828、DrawerHost ~656、Table ~476、FilterMenu ~398、templates lib ~453；engine `github/mod.rs` +~1.5k。                                                                                             |
+| 可维护性与复用 | 12/15 | 正向：query-sync 纯函数、templates 解析独立。扣分：template 字段 UI 未组件化时难在其他创建入口复用。                                                                                                                                        |
+| 工程卫生       |  9/10 | 合并 polish、SECURITY 模板、CLI min-version 文档；缺 Tasks 单元测试文件。                                                                                                                                                                   |
 
 ## 6. 主要问题清单
 

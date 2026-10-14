@@ -1,11 +1,11 @@
 # Known debt · Client transport (Web-first → Desktop IPC)
 
-| | |
-|--|--|
-| **Status** | Known debt / follow-up architecture work |
-| **Recorded** | 2026-08-05 |
-| **Updated** | 2026-08-05 (recommended design) |
-| **Scope** | Web client, Desktop (Electron) shell, local runtime, terminal & other real-time paths |
+|               |                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Status**    | Known debt / follow-up architecture work                                                                                             |
+| **Recorded**  | 2026-08-05                                                                                                                           |
+| **Updated**   | 2026-08-05 (recommended design)                                                                                                      |
+| **Scope**     | Web client, Desktop (Electron) shell, local runtime, terminal & other real-time paths                                                |
 | **Not a bug** | Current WS/HTTP paths are intentional product choices; this tracks **latency and platform fit**, not correctness of a single feature |
 
 ---
@@ -59,12 +59,12 @@ Related product work (TUI scroll / mouse stability) is orthogonal: mode restore 
 
 **Abstract shared port semantics, not one god-object “Transport”.**
 
-| Approach | Verdict |
-|----------|---------|
-| Single `Transport.send(any)` for everything | Avoid — mixes RPC and byte streams; becomes a second protocol dump |
-| **Two ports** (`ControlPort` + `ByteStreamPort`) + thin clients | **Preferred** |
-| Per-feature desktop `if (isDesktop)` forks | Avoid — permanent web/desktop split |
-| Fully native desktop terminal, abandon shared web client | Highest cost; not first choice |
+| Approach                                                        | Verdict                                                            |
+| --------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Single `Transport.send(any)` for everything                     | Avoid — mixes RPC and byte streams; becomes a second protocol dump |
+| **Two ports** (`ControlPort` + `ByteStreamPort`) + thin clients | **Preferred**                                                      |
+| Per-feature desktop `if (isDesktop)` forks                      | Avoid — permanent web/desktop split                                |
+| Fully native desktop terminal, abandon shared web client        | Highest cost; not first choice                                     |
 
 Business features must not import `WebSocket` or `ipcRenderer` directly. They talk to **logical** session/terminal clients; the **carrier** (WS / HTTP / IPC / UDS) is chosen by runtime binding.
 
@@ -97,34 +97,34 @@ Business features must not import `WebSocket` or `ipcRenderer` directly. They ta
 
 ```ts
 interface ControlPort {
-  request<TReq, TRes>(method: string, body: TReq, opts?: { timeoutMs?: number }): Promise<TRes>
+  request<TReq, TRes>(method: string, body: TReq, opts?: { timeoutMs?: number }): Promise<TRes>;
 }
 ```
 
-| Binding | Typical carrier |
-|---------|-----------------|
-| Web | HTTP or WS request/response frames |
-| Desktop → **local** runtime | Electron IPC invoke, or UDS JSON-RPC |
-| Desktop → **remote** runtime | Same as web (HTTP / WS) |
+| Binding                      | Typical carrier                      |
+| ---------------------------- | ------------------------------------ |
+| Web                          | HTTP or WS request/response frames   |
+| Desktop → **local** runtime  | Electron IPC invoke, or UDS JSON-RPC |
+| Desktop → **remote** runtime | Same as web (HTTP / WS)              |
 
 **Byte stream** — terminal PTY input/output (must stay binary end-to-end):
 
 ```ts
 interface ByteStreamPort {
-  open(meta: StreamOpenMeta): Promise<StreamHandle>
+  open(meta: StreamOpenMeta): Promise<StreamHandle>;
 }
 
 interface StreamHandle {
-  write(bytes: Uint8Array): void
-  onData(cb: (bytes: Uint8Array) => void): () => void
-  resize?(cols: number, rows: number): void
-  close(): void
+  write(bytes: Uint8Array): void;
+  onData(cb: (bytes: Uint8Array) => void): () => void;
+  resize?(cols: number, rows: number): void;
+  close(): void;
 }
 ```
 
-| Binding | Typical carrier |
-|---------|-----------------|
-| Web / remote | WebSocket **binary** frames (current model) |
+| Binding         | Typical carrier                                                   |
+| --------------- | ----------------------------------------------------------------- |
+| Web / remote    | WebSocket **binary** frames (current model)                       |
 | Desktop → local | UDS binary, or main↔renderer binary channel — **not** JSON+base64 |
 
 Do **not** force terminal bytes through a string RPC envelope; that erases the latency win of IPC/UDS.
@@ -144,12 +144,12 @@ resolveRuntimeBinding():
 
 ### Migration order (cost / benefit)
 
-| Phase | Work | User-visible |
-|-------|------|----------------|
-| **0** | Introduce `TerminalClient` / `RuntimeClient` + ports; implement adapters with **existing** WS/HTTP only | None (refactor) |
-| **1** | Desktop **local**: switch **ByteStreamPort** only (terminal hot path) | Lower local TUI / stream latency |
-| **2** | Desktop **local**: switch **ControlPort** (attach metadata, config) | Faster session setup; unified errors |
-| **3** | Explicit remote downgrade + metrics (`carrier=ws\|ipc\|uds`) | Safe remote; measurable wins |
+| Phase | Work                                                                                                    | User-visible                         |
+| ----- | ------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **0** | Introduce `TerminalClient` / `RuntimeClient` + ports; implement adapters with **existing** WS/HTTP only | None (refactor)                      |
+| **1** | Desktop **local**: switch **ByteStreamPort** only (terminal hot path)                                   | Lower local TUI / stream latency     |
+| **2** | Desktop **local**: switch **ControlPort** (attach metadata, config)                                     | Faster session setup; unified errors |
+| **3** | Explicit remote downgrade + metrics (`carrier=ws\|ipc\|uds`)                                            | Safe remote; measurable wins         |
 
 Do not flip the whole app to IPC on day one. Terminal stream alone has the highest payback and the smallest blast radius.
 
@@ -179,12 +179,12 @@ Promote this note to a formal ADR when the concrete adapter set and binding rule
 
 ## Suggested entry points (when work starts)
 
-| Area | Notes |
-|------|--------|
-| `apps/web` connection / terminal WS clients | Depend on `ByteStreamPort` / client facades, not raw `WebSocket` only |
-| `apps/desktop-electron` preload / main | Local stream + control channels; map to the same logical ops as WS |
-| Local runtime / API entry | Accept UDS or IPC-fronted local connections without breaking remote WS |
-| Specs / ADR | Formal ADR when binding matrix and message compatibility are fixed |
+| Area                                        | Notes                                                                  |
+| ------------------------------------------- | ---------------------------------------------------------------------- |
+| `apps/web` connection / terminal WS clients | Depend on `ByteStreamPort` / client facades, not raw `WebSocket` only  |
+| `apps/desktop-electron` preload / main      | Local stream + control channels; map to the same logical ops as WS     |
+| Local runtime / API entry                   | Accept UDS or IPC-fronted local connections without breaking remote WS |
+| Specs / ADR                                 | Formal ADR when binding matrix and message compatibility are fixed     |
 
 ---
 

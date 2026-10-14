@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { usePauseWhenInert } from "../../lib/use-pause-when-inert";
 import { TextShimmer } from "./text-shimmer";
@@ -21,10 +15,7 @@ import {
   type UnicodeSpinnerId,
 } from "./activity-indicator-catalog";
 
-export type {
-  ActivityIndicatorStyle,
-  UnicodeSpinnerId,
-} from "./activity-indicator-catalog";
+export type { ActivityIndicatorStyle, UnicodeSpinnerId } from "./activity-indicator-catalog";
 export {
   ACTIVITY_INDICATOR_GROUPS,
   ACTIVITY_INDICATOR_STYLES,
@@ -88,10 +79,7 @@ export function ActivityIndicator({
   const paused = usePauseWhenInert(hostRef);
   const motionOn = animated && !paused;
   const resolved = useMemo(
-    () =>
-      style === "random"
-        ? pickActivityIndicatorStyle(random)
-        : style,
+    () => (style === "random" ? pickActivityIndicatorStyle(random) : style),
     // Pick once per mount / per pool identity so a streaming row keeps its orb.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [style, poolKey],
@@ -101,20 +89,18 @@ export function ActivityIndicator({
   return (
     <span
       ref={hostRef}
-      className={cn(
-        "inline-flex items-center gap-2 text-muted-foreground",
-        className,
-      )}
+      className={cn("inline-flex items-center gap-2 text-muted-foreground", className)}
       title={title}
     >
-      <ActivityIndicatorGlyph
-        style={resolved}
-        size={size}
-        animated={motionOn}
-      />
+      <ActivityIndicatorGlyph style={resolved} size={size} animated={motionOn} />
       {label ? (
         showShimmer ? (
-          <TextShimmer as="span" className="translate-y-px text-sm" duration={1.5} animated={motionOn}>
+          <TextShimmer
+            as="span"
+            className="translate-y-px text-sm"
+            duration={1.5}
+            animated={motionOn}
+          >
             {label}
           </TextShimmer>
         ) : (

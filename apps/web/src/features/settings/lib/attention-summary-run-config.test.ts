@@ -60,10 +60,7 @@ describe("attention summary run config", () => {
     expect(section).toContain("attentionSummaryExtraArgs");
     expect(section).toContain("hydrateLastPick={false}");
 
-    const modal = readFileSync(
-      join(import.meta.dir, "../components/SettingsModal.tsx"),
-      "utf8",
-    );
+    const modal = readFileSync(join(import.meta.dir, "../components/SettingsModal.tsx"), "utf8");
     expect(modal).toContain("attention_summary_effort: values.attentionSummaryEffort");
     expect(modal).toContain("attention_summary_extra_args: values.attentionSummaryExtraArgs");
   });

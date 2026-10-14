@@ -19,11 +19,7 @@ async function blobFromImageSrc(src: string): Promise<Blob> {
   return blob;
 }
 
-function canvasToPng(
-  source: CanvasImageSource,
-  width: number,
-  height: number,
-): Promise<Blob> {
+function canvasToPng(source: CanvasImageSource, width: number, height: number): Promise<Blob> {
   if (width < 1 || height < 1) {
     return Promise.reject(new Error("Invalid image size"));
   }
@@ -75,10 +71,7 @@ async function rasterizeBlobToPng(blob: Blob): Promise<Blob> {
   }
 }
 
-async function pngBlobFromImageSrc(
-  src: string,
-  img?: HTMLImageElement | null,
-): Promise<Blob> {
+async function pngBlobFromImageSrc(src: string, img?: HTMLImageElement | null): Promise<Blob> {
   try {
     const blob = await blobFromImageSrc(src);
     if (blob.type === "image/png") return blob;
@@ -193,10 +186,7 @@ async function pickImageSaveDestination(
   return { status: "unavailable" };
 }
 
-async function blobForSave(
-  src: string,
-  img?: HTMLImageElement | null,
-): Promise<Blob> {
+async function blobForSave(src: string, img?: HTMLImageElement | null): Promise<Blob> {
   try {
     return await blobFromImageSrc(src);
   } catch {
@@ -248,16 +238,12 @@ export async function copyImageSrcToClipboard(
 
   const pngPromise = pngBlobFromImageSrc(src, img);
   try {
-    await navigator.clipboard.write([
-      new ClipboardItem({ "image/png": pngPromise }),
-    ]);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": pngPromise })]);
     return true;
   } catch {
     try {
       const png = await pngPromise;
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": png }),
-      ]);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
       return true;
     } catch {
       return false;

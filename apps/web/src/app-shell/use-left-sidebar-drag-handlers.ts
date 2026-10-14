@@ -32,7 +32,7 @@ export function useLeftSidebarDragHandlers({
   shouldApplyWorkspaceFilter,
 }: UseLeftSidebarDragHandlersParams) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const isAnyProjectDragging = activeId !== null && projects.some(p => p.id === activeId);
+  const isAnyProjectDragging = activeId !== null && projects.some((p) => p.id === activeId);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -84,7 +84,7 @@ export function useLeftSidebarDragHandlers({
             .map((entry) => entry.workspace.id),
         );
         const visibleWorkspacesInOrder = project.workspaces.filter((w) =>
-          visibleWorkspaceIds.has(w.id)
+          visibleWorkspaceIds.has(w.id),
         );
         const activeFilteredIndex = visibleWorkspacesInOrder.findIndex((w) => w.id === active.id);
         const overFilteredIndex = visibleWorkspacesInOrder.findIndex((w) => w.id === over.id);
@@ -103,7 +103,11 @@ export function useLeftSidebarDragHandlers({
 
         await reorderWorkspaces(project.id, newWorkspaces);
       } else {
-        const newWorkspaces = arrayMove(project.workspaces, activeWorkspaceIndex, overWorkspaceIndex);
+        const newWorkspaces = arrayMove(
+          project.workspaces,
+          activeWorkspaceIndex,
+          overWorkspaceIndex,
+        );
         await reorderWorkspaces(project.id, newWorkspaces);
       }
       return;

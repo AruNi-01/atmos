@@ -13,10 +13,7 @@ import {
   cn,
 } from "@workspace/ui";
 import { GithubMarkdownField } from "@/features/task/components/GithubMarkdownField";
-import {
-  isFieldValueEmpty,
-  type IssueFormField,
-} from "@/features/task/lib/github-issue-templates";
+import { isFieldValueEmpty, type IssueFormField } from "@/features/task/lib/github-issue-templates";
 
 export function requiredMessage(label: string, tRequired: (values: { field: string }) => string) {
   return tRequired({ field: label });
@@ -34,9 +31,9 @@ export function TemplateFormField({
 }) {
   if (field.type === "markdown") {
     return (
-      <div className="prose prose-sm max-w-none rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[13px] text-muted-foreground dark:prose-invert">
+      <div className="prose prose-sm dark:prose-invert max-w-none rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[13px] text-muted-foreground">
         {/* Static markdown from template — not an input */}
-        <pre className="m-0 whitespace-pre-wrap font-sans text-[13px]">{field.value}</pre>
+        <pre className="m-0 font-sans text-[13px] whitespace-pre-wrap">{field.value}</pre>
       </div>
     );
   }
@@ -104,10 +101,7 @@ export function TemplateFormField({
 
   if (field.type === "input") {
     return (
-      <form.Field
-        name={`fields.${field.id}` as never}
-        validators={validators as never}
-      >
+      <form.Field name={`fields.${field.id}` as never} validators={validators as never}>
         {(f: AnyFieldApi) => (
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">
@@ -254,9 +248,7 @@ export function MultiToggleGroup({
   const selected = new Set(value);
   return (
     <div className="space-y-1.5">
-      {!hideLabel && label ? (
-        <Label className="text-xs font-medium">{label}</Label>
-      ) : null}
+      {!hideLabel && label ? <Label className="text-xs font-medium">{label}</Label> : null}
       {options.length === 0 ? (
         <p className="text-[11px] text-muted-foreground">{emptyLabel}</p>
       ) : (

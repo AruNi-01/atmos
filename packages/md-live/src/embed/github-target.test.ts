@@ -50,13 +50,16 @@ describe("github embed targets", () => {
     });
     expect(parseGithubRefInput("acme/app#128")).toBeNull();
     expect(
-      githubTargetToEmbedSpec({
-        kind: "issue",
-        owner: "acme",
-        repo: "app",
-        number: 128,
-        url: "https://github.com/acme/app/issues/128",
-      }, { title: "Fix pty" }),
+      githubTargetToEmbedSpec(
+        {
+          kind: "issue",
+          owner: "acme",
+          repo: "app",
+          number: 128,
+          url: "https://github.com/acme/app/issues/128",
+        },
+        { title: "Fix pty" },
+      ),
     ).toEqual({
       kind: "github-issue",
       layout: "card",

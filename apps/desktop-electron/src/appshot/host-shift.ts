@@ -71,13 +71,7 @@ export function appshotShiftInjectInstallPath(): string {
   if (atmosHome) {
     return join(atmosHome, "desktop-use", "lib", "libatmos_appshot_shift_inject.dylib");
   }
-  return join(
-    homedir(),
-    ".atmos",
-    "desktop-use",
-    "lib",
-    "libatmos_appshot_shift_inject.dylib",
-  );
+  return join(homedir(), ".atmos", "desktop-use", "lib", "libatmos_appshot_shift_inject.dylib");
 }
 
 /** True when something is accept()ing on the chord socket (not a stale file). */
@@ -123,9 +117,7 @@ function resolveBundledInjectDylib(): string | null {
     candidates.push(join(appPath, "resources", "bin", name));
     if (typeof process.resourcesPath === "string" && process.resourcesPath) {
       candidates.push(join(process.resourcesPath, "bin", name));
-      candidates.push(
-        join(process.resourcesPath, "app.asar.unpacked", "resources", "bin", name),
-      );
+      candidates.push(join(process.resourcesPath, "app.asar.unpacked", "resources", "bin", name));
     }
   } catch {
     /* app not ready */
@@ -157,10 +149,7 @@ export function ensureHostShiftInjectInstalled(): {
   const dest = appshotShiftInjectInstallPath();
   const src = resolveBundledInjectDylib();
   if (!src) {
-    mainLog(
-      "[appshot-host-shift] inject dylib missing from package resources",
-      "warn",
-    );
+    mainLog("[appshot-host-shift] inject dylib missing from package resources", "warn");
     return { installed: existsSync(dest), replaced: false };
   }
   try {
@@ -298,11 +287,7 @@ export function startHostShiftSocketListener(
       if (stopped || connecting) return;
 
       // Initial-connect deadline only. Reconnect after success never times out.
-      if (
-        !settled &&
-        !options.retryForever &&
-        Date.now() - started > timeoutMs
-      ) {
+      if (!settled && !options.retryForever && Date.now() - started > timeoutMs) {
         mainLog(
           `[appshot-host-shift] socket not ready within ${timeoutMs}ms (${sockPath})`,
           "warn",
@@ -362,10 +347,7 @@ export function startHostShiftSocketListener(
           scheduleRetry(250);
           return;
         }
-        mainLog(
-          `[appshot-host-shift] connection dropped (${why}) — reconnecting`,
-          "warn",
-        );
+        mainLog(`[appshot-host-shift] connection dropped (${why}) — reconnecting`, "warn");
         scheduleRetry(400);
       };
 

@@ -44,16 +44,16 @@ like any other ref. Skip nodes with `visible: false`. Do not look for a side cha
 
 ## Flags
 
-Read `capability_flags` on the last success. These say what the backend *can* do:
+Read `capability_flags` on the last success. These say what the backend _can_ do:
 
-| Flag | When true |
-|------|-----------|
-| `tabs` | `atmos browser-use tabs --action list\|open\|select\|close` |
-| `query` | `state --query "Sign in"` to narrow a large page |
-| `continuation` | `state --continuation <token>` (external `semantic_v2` only) |
-| `upload` | `upload --ref … --file …` (external only) |
-| `press_key` | `press-key --key Enter` (embedded only) |
-| `ensure_surface` | empty Desktop `state` / `tabs open` *may* create chrome |
+| Flag             | When true                                                    |
+| ---------------- | ------------------------------------------------------------ |
+| `tabs`           | `atmos browser-use tabs --action list\|open\|select\|close`  |
+| `query`          | `state --query "Sign in"` to narrow a large page             |
+| `continuation`   | `state --continuation <token>` (external `semantic_v2` only) |
+| `upload`         | `upload --ref … --file …` (external only)                    |
+| `press_key`      | `press-key --key Enter` (embedded only)                      |
+| `ensure_surface` | empty Desktop `state` / `tabs open` _may_ create chrome      |
 
 `snapshot_format` is `embedded_dom_v1` or `semantic_v2`. Never invent the other.
 
@@ -95,10 +95,10 @@ enabled that grant.
 
 ## Errors
 
-| Code | Meaning |
-|------|---------|
-| `embedded_browser_host_unavailable` | Desktop host not running |
-| `browser_ambiguous_target` | Several tabs; pass `--target-id` |
-| `browser_ref_stale` | Re-`state`, then use a ref from that snapshot |
-| `browser_unsupported` | Flag is false for this backend |
-| `control_engine_not_installed` / `browser_engine_failed` | Desktop Use engine 0.19.2+ |
+| Code                                                     | Meaning                                       |
+| -------------------------------------------------------- | --------------------------------------------- |
+| `embedded_browser_host_unavailable`                      | Desktop host not running                      |
+| `browser_ambiguous_target`                               | Several tabs; pass `--target-id`              |
+| `browser_ref_stale`                                      | Re-`state`, then use a ref from that snapshot |
+| `browser_unsupported`                                    | Flag is false for this backend                |
+| `control_engine_not_installed` / `browser_engine_failed` | Desktop Use engine 0.19.2+                    |

@@ -4,7 +4,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CHART_GROUPS, CHART_IDS, CHART_META, chartMeta, chartVariantLabel } from "../../../catalog/chart-list";
+import {
+  CHART_GROUPS,
+  CHART_IDS,
+  CHART_META,
+  chartMeta,
+  chartVariantLabel,
+} from "../../../catalog/chart-list";
 import { parsePtx, serializePtx } from "../../../protocol";
 import { CHART_MODULES } from "./index";
 import type { PtComponentModule } from "./contract";
@@ -116,10 +122,11 @@ describe("CHART_MODULES", () => {
   });
 
   test("must-distinct flags change geometry or tooltip chrome", () => {
-    const html = (id: (typeof CHART_IDS)[number]) => markup(
-      CHART_MODULES.find((mod) => mod.type === id)!,
-      "interact",
-    );
+    const html = (id: (typeof CHART_IDS)[number]) =>
+      markup(
+        CHART_MODULES.find((mod) => mod.type === id)!,
+        "interact",
+      );
     const svg = (id: (typeof CHART_IDS)[number]) => html(id).match(/<svg[\s\S]*<\/svg>/)?.[0] ?? "";
     expect(svg("chart.area-stacked")).not.toBe(svg("chart.area-stacked-expand"));
     expect(svg("chart.area-linear")).not.toBe(svg("chart.area-step"));

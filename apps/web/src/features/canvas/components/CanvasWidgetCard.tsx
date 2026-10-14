@@ -43,11 +43,7 @@ export class CanvasWidgetShapeUtil extends CanvasWidgetShapeSchemaUtil {
 
 function isCanvasSelectableTextTarget(target: EventTarget | null) {
   const element =
-    target instanceof Element
-      ? target
-      : target instanceof Node
-        ? target.parentElement
-        : null;
+    target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
   return Boolean(element?.closest('[data-canvas-selectable-text="true"]'));
 }
 
@@ -238,9 +234,7 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
         <div className="flex min-w-0 items-center gap-2">
           <Icon className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-foreground">
-              {title}
-            </div>
+            <div className="truncate text-sm font-semibold text-foreground">{title}</div>
             <div className="truncate text-xs text-muted-foreground">
               {getCanvasContextLabel(shape.props.source.context)}
             </div>

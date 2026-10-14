@@ -8,15 +8,15 @@
 
 被审查的提交列表：
 
-| commit | author | message |
-| --- | --- | --- |
-| `771e2932` | AarynLu | feat(preview): improve selection picker flow |
-| `0b3f681b` | AarynLu | refactor: improve daily quality findings |
-| `729b95e7` | AarynLu | Guard live apply after agent hydration |
+| commit     | author   | message                                                            |
+| ---------- | -------- | ------------------------------------------------------------------ |
+| `771e2932` | AarynLu  | feat(preview): improve selection picker flow                       |
+| `0b3f681b` | AarynLu  | refactor: improve daily quality findings                           |
+| `729b95e7` | AarynLu  | Guard live apply after agent hydration                             |
 | `35db5f02` | AruNi_Lu | Merge pull request #125 from AruNi-01/codex/quality-fix/2026-06-10 |
-| `9663abc6` | AarynLu | Add favicon and selection annotation support to preview |
-| `e4f22ba6` | AarynLu | perf: optimize web bootstrap requests |
-| `8d60d07e` | AarynLu | Normalize preview titles for Atmos workspace pages |
+| `9663abc6` | AarynLu  | Add favicon and selection annotation support to preview            |
+| `e4f22ba6` | AarynLu  | perf: optimize web bootstrap requests                              |
+| `8d60d07e` | AarynLu  | Normalize preview titles for Atmos workspace pages                 |
 
 ## 2. 一份好代码应该是什么样
 
@@ -41,13 +41,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 25 / 30 | preview runtime 已发出 `toolbar-action`，但 extension transport 未消费，跨模式协议闭环不完整；`SelectionPopover` 承担了定位、动画、复制、附件、preview annotation 详情渲染等多类职责。涉及 `771e2932`、`9663abc6`。 |
+| 维度           |    得分 | 扣分原因                                                                                                                                                                                                              |
+| -------------- | ------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 25 / 30 | preview runtime 已发出 `toolbar-action`，但 extension transport 未消费，跨模式协议闭环不完整；`SelectionPopover` 承担了定位、动画、复制、附件、preview annotation 详情渲染等多类职责。涉及 `771e2932`、`9663abc6`。   |
 | 可读性与复杂度 | 21 / 25 | `SelectionPopover.tsx` 的 details JSX 与动作分支嵌在主组件内，阅读主路径时需要跨越大段 preview/wiki 特化 UI；`loadIssues` 的序列号只在仓库切换时变化，无法表达同仓库多次加载的竞态关系。涉及 `9663abc6`、`e4f22ba6`。 |
-| 体量与内聚 | 16 / 20 | `SelectionPopover.tsx` 达到 513 行，新增详情区后组件内聚下降；preview runtime 文件本身天然较大，但昨天新增 annotation 行为进一步放大了人工同步成本。 |
-| 可维护性与复用 | 13 / 15 | `handle_project_workspace_bootstrap` 使用 `join_all` 对所有 project 并发拉取 workspace，缺少并发上限；该优化在项目数增大时容易把 bootstrap 稳定性压力转给服务层。涉及 `e4f22ba6`。 |
-| 工程卫生 | 9 / 10 | 扩展版本号在 `manifest.json`、extension runtime、shared runtime 三处保持一致；未发现调试残留。扣 1 分是因为新增竞态/并发规则没有通过局部常量或传输层分支显式表达。 |
+| 体量与内聚     | 16 / 20 | `SelectionPopover.tsx` 达到 513 行，新增详情区后组件内聚下降；preview runtime 文件本身天然较大，但昨天新增 annotation 行为进一步放大了人工同步成本。                                                                  |
+| 可维护性与复用 | 13 / 15 | `handle_project_workspace_bootstrap` 使用 `join_all` 对所有 project 并发拉取 workspace，缺少并发上限；该优化在项目数增大时容易把 bootstrap 稳定性压力转给服务层。涉及 `e4f22ba6`。                                    |
+| 工程卫生       |  9 / 10 | 扩展版本号在 `manifest.json`、extension runtime、shared runtime 三处保持一致；未发现调试残留。扣 1 分是因为新增竞态/并发规则没有通过局部常量或传输层分支显式表达。                                                    |
 
 ## 6. 主要问题清单
 

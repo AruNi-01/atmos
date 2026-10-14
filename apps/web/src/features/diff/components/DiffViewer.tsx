@@ -1,51 +1,60 @@
-'use client';
+"use client";
 
-import { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { FileDiff, Virtualizer } from '@pierre/diffs/react';
+import { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
+import { FileDiff, Virtualizer } from "@pierre/diffs/react";
 import type {
   DiffLineAnnotation,
   FileContents,
   FileDiffOptions,
   SelectedLineRange,
   FileDiffMetadata,
-} from '@pierre/diffs';
-import { parseDiffFromFile } from '@pierre/diffs';
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import { reviewWsApi } from '@/api/ws-api';
-import type { ReviewMessageDto, ReviewCommentDto } from '@/api/ws-api';
-import { Loader2, toastManager } from '@workspace/ui';
-import { useGitStore } from '@/features/git/store/use-git-store';
-import { useGitChangedFilesQuery, GIT_WORKTREE_PARAMS } from '@/features/git/hooks/use-git-changed-files-query';
-import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
-import { useGitFileDiffQuery } from '@/features/git/hooks/use-git-file-diff-query';
-import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES, type GitFileDiffParams } from '@/features/git/lib/git-query-options';
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
-import { useReviewCtx } from '@/features/diff/components/review/ReviewContextProvider';
-import type { SelectionInfo } from '@/shared/lib/format-selection-for-ai';
-import { useContextParams } from '@/shared/hooks/use-context-params';
+} from "@pierre/diffs";
+import { parseDiffFromFile } from "@pierre/diffs";
+import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { reviewWsApi } from "@/api/ws-api";
+import type { ReviewMessageDto, ReviewCommentDto } from "@/api/ws-api";
+import { Loader2, toastManager } from "@workspace/ui";
+import { useGitStore } from "@/features/git/store/use-git-store";
+import {
+  useGitChangedFilesQuery,
+  GIT_WORKTREE_PARAMS,
+} from "@/features/git/hooks/use-git-changed-files-query";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
+import { useGitFileDiffQuery } from "@/features/git/hooks/use-git-file-diff-query";
+import {
+  computeCompareParams,
+  selectCompareChangedFiles,
+  isCompareQueryEnabled,
+  EMPTY_CHANGED_FILES,
+  type GitFileDiffParams,
+} from "@/features/git/lib/git-query-options";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { SelectionPopover } from "@/features/selection/components/SelectionPopover";
+import { useReviewCtx } from "@/features/diff/components/review/ReviewContextProvider";
+import type { SelectionInfo } from "@/shared/lib/format-selection-for-ai";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   type DiffViewerAnnotationMeta,
   type DiffViewerInlineCommentDraft,
   DiffViewerReviewAnnotation,
-} from '@/features/diff/components/diff-viewer-review-annotations';
+} from "@/features/diff/components/diff-viewer-review-annotations";
 import {
   DIFF_VIRTUALIZER_SCROLL_CLASS,
   buildDiffViewerLineTypeMap,
   buildDiffViewerSelectionInfo,
   getDiffScrollRoot,
-} from '@/features/diff/lib/diff-viewer-selection';
-import { attachScrollFade } from '@/features/diff/lib/use-scroll-fade-element';
+} from "@/features/diff/lib/diff-viewer-selection";
+import { attachScrollFade } from "@/features/diff/lib/use-scroll-fade-element";
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   getAtmosDiffThemeType,
-} from '@/features/diff/lib/diff-view-constants';
-import { diffSideCacheKey } from '@/features/diff/lib/diff-code-view-shared';
-import { DiffViewerHeader } from '@/features/diff/components/DiffViewerHeader';
-import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
-import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
+} from "@/features/diff/lib/diff-view-constants";
+import { diffSideCacheKey } from "@/features/diff/lib/diff-code-view-shared";
+import { DiffViewerHeader } from "@/features/diff/components/DiffViewerHeader";
+import { BinaryDiffCard } from "@/features/diff/components/BinaryDiffCard";
+import { useDiffSettingsStore } from "@/features/settings/store/diff-settings-store";
 
 interface DiffViewerProps {
   repoPath: string;
@@ -66,21 +75,16 @@ function getLocalCoordinateMetrics(element: HTMLElement) {
   };
 }
 
-export const DiffViewer = ({
-  repoPath,
-  filePath,
-  originalPath,
-  contextId,
-}: DiffViewerProps) => {
-  const viewerT = useTranslations('diff.viewer');
-  const codeViewT = useTranslations('diff.codeView');
-  const reviewT = useTranslations('diff.reviewAnnotations');
-  const loadFallbackMessageRef = useRef(viewerT('errors.loadFallback'));
+export const DiffViewer = ({ repoPath, filePath, originalPath, contextId }: DiffViewerProps) => {
+  const viewerT = useTranslations("diff.viewer");
+  const codeViewT = useTranslations("diff.codeView");
+  const reviewT = useTranslations("diff.reviewAnnotations");
+  const loadFallbackMessageRef = useRef(viewerT("errors.loadFallback"));
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
-  const snapshotGuidFromPath = originalPath?.startsWith('review-diff://')
-    ? originalPath.slice('review-diff://'.length).split('/')[0] || null
+  const snapshotGuidFromPath = originalPath?.startsWith("review-diff://")
+    ? originalPath.slice("review-diff://".length).split("/")[0] || null
     : null;
   const isReviewDiff = Boolean(snapshotGuidFromPath);
   const reviewCtx = useReviewCtx();
@@ -90,38 +94,49 @@ export const DiffViewer = ({
   const [newFile, setNewFile] = useState<FileContents | null>(null);
   const [workingDiff, setWorkingDiff] = useState<FileDiffMetadata | null>(null);
   const [diffCompareRef, setDiffCompareRef] = useState<string | null>(null);
-  const [inlineCommentDraft, setInlineCommentDraft] = useState<DiffViewerInlineCommentDraft | null>(null);
-  const [inlineCommentBody, setInlineCommentBody] = useState('');
+  const [inlineCommentDraft, setInlineCommentDraft] = useState<DiffViewerInlineCommentDraft | null>(
+    null,
+  );
+  const [inlineCommentBody, setInlineCommentBody] = useState("");
   const [isSubmittingInlineComment, setIsSubmittingInlineComment] = useState(false);
   const inlineCommentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [replyDraftCommentGuid, setReplyDraftCommentGuid] = useState<string | null>(null);
-  const [replyBody, setReplyBody] = useState('');
+  const [replyBody, setReplyBody] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [deletingMessageGuid, setDeletingMessageGuid] = useState<string | null>(null);
-  const [collapsedInlineCommentGuids, setCollapsedInlineCommentGuids] = useState<Set<string>>(() => new Set());
-  const [highlightedInlineCommentGuid, setHighlightedInlineCommentGuid] = useState<string | null>(null);
-  const [highlightedInlineMessageGuid, setHighlightedInlineMessageGuid] = useState<string | null>(null);
-  const reviewContext = useMemo(() => ({
-    session: reviewCtx.currentSession,
-    revision: reviewCtx.currentRevision,
-    file: reviewCtx.currentFile,
-    comments: reviewCtx.comments,
-    canEdit: reviewCtx.canEdit,
-    replyToComment: reviewCtx.handleReplyToComment,
-    updateMessage: reviewCtx.handleUpdateMessage,
-    deleteMessage: reviewCtx.handleDeleteMessage,
-    handleCreateComment: reviewCtx.handleCreateComment,
-  }), [
-    reviewCtx.currentSession,
-    reviewCtx.currentRevision,
-    reviewCtx.currentFile,
-    reviewCtx.comments,
-    reviewCtx.canEdit,
-    reviewCtx.handleReplyToComment,
-    reviewCtx.handleUpdateMessage,
-    reviewCtx.handleDeleteMessage,
-    reviewCtx.handleCreateComment,
-  ]);
+  const [collapsedInlineCommentGuids, setCollapsedInlineCommentGuids] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [highlightedInlineCommentGuid, setHighlightedInlineCommentGuid] = useState<string | null>(
+    null,
+  );
+  const [highlightedInlineMessageGuid, setHighlightedInlineMessageGuid] = useState<string | null>(
+    null,
+  );
+  const reviewContext = useMemo(
+    () => ({
+      session: reviewCtx.currentSession,
+      revision: reviewCtx.currentRevision,
+      file: reviewCtx.currentFile,
+      comments: reviewCtx.comments,
+      canEdit: reviewCtx.canEdit,
+      replyToComment: reviewCtx.handleReplyToComment,
+      updateMessage: reviewCtx.handleUpdateMessage,
+      deleteMessage: reviewCtx.handleDeleteMessage,
+      handleCreateComment: reviewCtx.handleCreateComment,
+    }),
+    [
+      reviewCtx.currentSession,
+      reviewCtx.currentRevision,
+      reviewCtx.currentFile,
+      reviewCtx.comments,
+      reviewCtx.canEdit,
+      reviewCtx.handleReplyToComment,
+      reviewCtx.handleUpdateMessage,
+      reviewCtx.handleDeleteMessage,
+      reviewCtx.handleCreateComment,
+    ],
+  );
 
   const {
     diffStyle,
@@ -148,7 +163,7 @@ export const DiffViewer = ({
   const clearNavigationTarget = useEditorStore((state) => state.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
     activeContextId && originalPath
-      ? state.navigationTargets[activeContextId]?.[originalPath] ?? null
+      ? (state.navigationTargets[activeContextId]?.[originalPath] ?? null)
       : null,
   );
 
@@ -184,8 +199,8 @@ export const DiffViewer = ({
     () => ({
       baseBranch: null,
       againstIndex: false,
-      baseRef: compareMode === 'ref' ? null : compareRef,
-      commitRef: compareMode === 'ref' ? compareBaseRef : null,
+      baseRef: compareMode === "ref" ? null : compareRef,
+      commitRef: compareMode === "ref" ? compareBaseRef : null,
     }),
     [compareBaseRef, compareMode, compareRef],
   );
@@ -207,21 +222,21 @@ export const DiffViewer = ({
   }, [loadDiffSettings]);
 
   useEffect(() => {
-    loadFallbackMessageRef.current = viewerT('errors.loadFallback');
+    loadFallbackMessageRef.current = viewerT("errors.loadFallback");
   }, [viewerT]);
 
   const diffStats = useMemo(() => {
     const allFiles = compareRef
       ? compareFiles
       : [...stagedFiles, ...unstagedFiles, ...untrackedFiles];
-    const file = allFiles.find(f => f.path === filePath);
+    const file = allFiles.find((f) => f.path === filePath);
     return file ? { additions: file.additions, deletions: file.deletions } : null;
   }, [compareFiles, compareRef, stagedFiles, unstagedFiles, untrackedFiles, filePath]);
 
   useEffect(() => {
     if (tipPaused) return;
     const interval = setInterval(() => {
-      setShowTip(prev => !prev);
+      setShowTip((prev) => !prev);
     }, 5000);
     return () => clearInterval(interval);
   }, [tipPaused]);
@@ -255,23 +270,29 @@ export const DiffViewer = ({
     });
   }, []);
 
-  const buildSelectionInfo = useCallback((startLine: number, endLine: number, side: 'deletions' | 'additions'): SelectionInfo => {
-    return buildDiffViewerSelectionInfo({
-      filePath,
-      oldContent: oldFile?.contents,
-      newContent: newFile?.contents,
-      lineTypeMap,
-      startLine,
-      endLine,
-      side,
-    });
-  }, [filePath, lineTypeMap, newFile?.contents, oldFile?.contents]);
+  const buildSelectionInfo = useCallback(
+    (startLine: number, endLine: number, side: "deletions" | "additions"): SelectionInfo => {
+      return buildDiffViewerSelectionInfo({
+        filePath,
+        oldContent: oldFile?.contents,
+        newContent: newFile?.contents,
+        lineTypeMap,
+        startLine,
+        endLine,
+        side,
+      });
+    },
+    [filePath, lineTypeMap, newFile?.contents, oldFile?.contents],
+  );
 
-  const openInlineCommentDraft = useCallback((draft: DiffViewerInlineCommentDraft) => {
-    dismissPopover();
-    setInlineCommentBody('');
-    setInlineCommentDraft(draft);
-  }, [dismissPopover]);
+  const openInlineCommentDraft = useCallback(
+    (draft: DiffViewerInlineCommentDraft) => {
+      dismissPopover();
+      setInlineCommentBody("");
+      setInlineCommentDraft(draft);
+    },
+    [dismissPopover],
+  );
 
   // Reliably focus the inline composer textarea once it mounts. Native
   // `autoFocus` is unreliable here because the composer is rendered through
@@ -295,60 +316,69 @@ export const DiffViewer = ({
     };
   }, [inlineCommentDraft]);
 
-  const handleLineSelectionEnd = useCallback((range: SelectedLineRange | null) => {
-    if (!range || !containerRef.current) return;
+  const handleLineSelectionEnd = useCallback(
+    (range: SelectedLineRange | null) => {
+      if (!range || !containerRef.current) return;
 
-    const startLine = Math.min(range.start, range.end);
-    const endLine = Math.max(range.start, range.end);
-    const side = range.endSide ?? range.side;
-    if (!side) return;
-    const selection = buildSelectionInfo(startLine, endLine, side);
+      const startLine = Math.min(range.start, range.end);
+      const endLine = Math.max(range.start, range.end);
+      const side = range.endSide ?? range.side;
+      if (!side) return;
+      const selection = buildSelectionInfo(startLine, endLine, side);
 
-    if (isReviewDiff) {
-      if (!reviewContext.canEdit || !reviewContext.file) return;
-      openInlineCommentDraft({
-        side: selection.diffSide === 'old' ? 'old' : 'new',
-        diffSide: selection.diffSide === 'old' ? 'old' : 'new',
-        startLine: selection.startLine,
-        endLine: selection.endLine,
-        selectedText: selection.selectedText,
-        beforeContext: selection.beforeText ? selection.beforeText.split('\n') : [],
-        afterContext: selection.afterText ? selection.afterText.split('\n') : [],
-      });
-      return;
-    }
-
-    setSelectionInfo(selection);
-
-    const container = containerRef.current;
-    const containerMetrics = getLocalCoordinateMetrics(container);
-    const containerRect = containerMetrics.rect;
-    const diffElement = container.querySelector('diffs-container');
-    const shadowRoot = diffElement?.shadowRoot;
-
-    let popX = containerMetrics.width / 2 - 75;
-    let popY = 100;
-
-    if (shadowRoot) {
-      const sideAttr = side === 'deletions' ? '[data-deletions]' : '[data-additions]';
-      const sideContainer = shadowRoot.querySelector(sideAttr);
-      const selectedLineEl = sideContainer
-        ? sideContainer.querySelector(`[data-line="${endLine}"]`)
-        : shadowRoot.querySelector(`[data-line="${endLine}"]`);
-      if (selectedLineEl) {
-        const lineRect = selectedLineEl.getBoundingClientRect();
-        popX = Math.min(
-          (lineRect.left + 50 - containerRect.left) / containerMetrics.scaleX,
-          containerMetrics.width - 180,
-        );
-        popY = (lineRect.bottom + 8 - containerRect.top) / containerMetrics.scaleY;
+      if (isReviewDiff) {
+        if (!reviewContext.canEdit || !reviewContext.file) return;
+        openInlineCommentDraft({
+          side: selection.diffSide === "old" ? "old" : "new",
+          diffSide: selection.diffSide === "old" ? "old" : "new",
+          startLine: selection.startLine,
+          endLine: selection.endLine,
+          selectedText: selection.selectedText,
+          beforeContext: selection.beforeText ? selection.beforeText.split("\n") : [],
+          afterContext: selection.afterText ? selection.afterText.split("\n") : [],
+        });
+        return;
       }
-    }
 
-    setPopoverPosition({ x: popX, y: popY });
-    setIsPopoverVisible(true);
-    setIsPopoverExpanded(false);
-  }, [buildSelectionInfo, isReviewDiff, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file]);
+      setSelectionInfo(selection);
+
+      const container = containerRef.current;
+      const containerMetrics = getLocalCoordinateMetrics(container);
+      const containerRect = containerMetrics.rect;
+      const diffElement = container.querySelector("diffs-container");
+      const shadowRoot = diffElement?.shadowRoot;
+
+      let popX = containerMetrics.width / 2 - 75;
+      let popY = 100;
+
+      if (shadowRoot) {
+        const sideAttr = side === "deletions" ? "[data-deletions]" : "[data-additions]";
+        const sideContainer = shadowRoot.querySelector(sideAttr);
+        const selectedLineEl = sideContainer
+          ? sideContainer.querySelector(`[data-line="${endLine}"]`)
+          : shadowRoot.querySelector(`[data-line="${endLine}"]`);
+        if (selectedLineEl) {
+          const lineRect = selectedLineEl.getBoundingClientRect();
+          popX = Math.min(
+            (lineRect.left + 50 - containerRect.left) / containerMetrics.scaleX,
+            containerMetrics.width - 180,
+          );
+          popY = (lineRect.bottom + 8 - containerRect.top) / containerMetrics.scaleY;
+        }
+      }
+
+      setPopoverPosition({ x: popX, y: popY });
+      setIsPopoverVisible(true);
+      setIsPopoverExpanded(false);
+    },
+    [
+      buildSelectionInfo,
+      isReviewDiff,
+      openInlineCommentDraft,
+      reviewContext.canEdit,
+      reviewContext.file,
+    ],
+  );
 
   useEffect(() => {
     if (!isPopoverVisible) return;
@@ -357,8 +387,8 @@ export const DiffViewer = ({
       const target = event.target as HTMLElement;
       if (
         popoverRef.current?.contains(target) ||
-        target.closest('[data-selection-popover]') ||
-        target.closest('[data-radix-popper-content-wrapper]') ||
+        target.closest("[data-selection-popover]") ||
+        target.closest("[data-radix-popper-content-wrapper]") ||
         target.closest('[data-slot="popover-content"]')
       ) {
         return;
@@ -367,14 +397,14 @@ export const DiffViewer = ({
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') dismissPopover();
+      if (event.key === "Escape") dismissPopover();
     };
 
-    document.addEventListener('mousedown', handleMouseDown, true);
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("mousedown", handleMouseDown, true);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handleMouseDown, true);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("mousedown", handleMouseDown, true);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isPopoverVisible, dismissPopover]);
 
@@ -383,7 +413,7 @@ export const DiffViewer = ({
     if (!snapshotGuidFromPath || reviewFallbackToGit) return;
 
     let cancelled = false;
-    const fileName = filePath.split('/').pop() || filePath;
+    const fileName = filePath.split("/").pop() || filePath;
 
     setIsLoading(true);
     setError(null);
@@ -396,20 +426,12 @@ export const DiffViewer = ({
         const nextOldFile = {
           name: fileName,
           contents: diff.old_content,
-          cacheKey: diffSideCacheKey(
-            filePath,
-            diff.old_content,
-            diff.file_snapshot.old_sha256,
-          ),
+          cacheKey: diffSideCacheKey(filePath, diff.old_content, diff.file_snapshot.old_sha256),
         };
         const nextNewFile = {
           name: fileName,
           contents: diff.new_content,
-          cacheKey: diffSideCacheKey(
-            filePath,
-            diff.new_content,
-            diff.file_snapshot.new_sha256,
-          ),
+          cacheKey: diffSideCacheKey(filePath, diff.new_content, diff.file_snapshot.new_sha256),
         };
         setOldFile(nextOldFile);
         setNewFile(nextNewFile);
@@ -420,14 +442,14 @@ export const DiffViewer = ({
         if (cancelled) return;
         const isNotFoundError =
           err instanceof Error &&
-          (err.message.includes('404') ||
-            err.message.includes('Not Found') ||
-            err.message.toLowerCase().includes('snapshot not found'));
+          (err.message.includes("404") ||
+            err.message.includes("Not Found") ||
+            err.message.toLowerCase().includes("snapshot not found"));
         if (isNotFoundError) {
           setReviewFallbackToGit(true);
           return;
         }
-        console.error('Failed to load diff:', err);
+        console.error("Failed to load diff:", err);
         setError(err instanceof Error ? err.message : loadFallbackMessageRef.current);
         setWorkingDiff(null);
         setIsLoading(false);
@@ -449,7 +471,7 @@ export const DiffViewer = ({
 
     if (gitDiffQuery.data) {
       const data = gitDiffQuery.data;
-      if (data.kind !== 'text') {
+      if (data.kind !== "text") {
         setOldFile(null);
         setNewFile(null);
         setWorkingDiff(null);
@@ -458,9 +480,9 @@ export const DiffViewer = ({
         setError(null);
         return;
       }
-      const fileName = filePath.split('/').pop() || filePath;
-      const oldText = data.old_text ?? '';
-      const newText = data.new_text ?? '';
+      const fileName = filePath.split("/").pop() || filePath;
+      const oldText = data.old_text ?? "";
+      const newText = data.new_text ?? "";
       const nextOldFile = {
         name: fileName,
         contents: oldText,
@@ -481,7 +503,7 @@ export const DiffViewer = ({
     }
 
     if (gitDiffQuery.isError) {
-      console.error('Failed to load diff:', gitDiffQuery.error);
+      console.error("Failed to load diff:", gitDiffQuery.error);
       setError(
         gitDiffQuery.error instanceof Error
           ? gitDiffQuery.error.message
@@ -534,31 +556,39 @@ export const DiffViewer = ({
     return reviewContext.comments
       .filter((comment) => comment.file_snapshot_guid === fileSnapshotGuid)
       .map((comment) => ({
-        side: comment.anchor_side === 'old' ? 'deletions' : 'additions',
+        side: comment.anchor_side === "old" ? "deletions" : "additions",
         lineNumber: comment.anchor_start_line,
         metadata: {
-          kind: 'comment' as const,
+          kind: "comment" as const,
           comment,
         },
       }));
   }, [reviewContext.file, reviewContext.comments, isReviewDiff]);
 
-  const inlineComposerAnnotation = useMemo<DiffLineAnnotation<{
-    kind: 'composer';
-  }>[]>(
+  const inlineComposerAnnotation = useMemo<
+    DiffLineAnnotation<{
+      kind: "composer";
+    }>[]
+  >(
     () =>
       inlineCommentDraft
-        ? [{
-            side: inlineCommentDraft.side === 'old' ? 'deletions' : 'additions',
-            lineNumber: inlineCommentDraft.startLine,
-            metadata: { kind: 'composer' },
-          }]
+        ? [
+            {
+              side: inlineCommentDraft.side === "old" ? "deletions" : "additions",
+              lineNumber: inlineCommentDraft.startLine,
+              metadata: { kind: "composer" },
+            },
+          ]
         : [],
     [inlineCommentDraft],
   );
 
   const lineAnnotations = useMemo(
-    () => [...commentAnnotations, ...inlineComposerAnnotation] as unknown as DiffLineAnnotation<DiffViewerAnnotationMeta>[],
+    () =>
+      [
+        ...commentAnnotations,
+        ...inlineComposerAnnotation,
+      ] as unknown as DiffLineAnnotation<DiffViewerAnnotationMeta>[],
     [inlineComposerAnnotation, commentAnnotations],
   );
 
@@ -614,7 +644,7 @@ export const DiffViewer = ({
     const findTarget = (): HTMLElement | null => {
       const container = containerRef.current;
       if (!container) return null;
-      const diffElement = container.querySelector('diffs-container');
+      const diffElement = container.querySelector("diffs-container");
       const shadowRoot = diffElement?.shadowRoot;
       if (targetMessageGuid) {
         const selector = `[data-review-message-guid="${targetMessageGuid}"]`;
@@ -624,7 +654,7 @@ export const DiffViewer = ({
         const selector = `[data-review-comment-guid="${targetCommentGuid}"]`;
         return queryTarget(container, selector) ?? queryTarget(shadowRoot, selector);
       }
-      if (typeof targetLine === 'number') {
+      if (typeof targetLine === "number") {
         const selector = `[data-review-anchor-line="${targetLine}"]`;
         return queryTarget(container, selector) ?? queryTarget(shadowRoot, selector);
       }
@@ -638,14 +668,13 @@ export const DiffViewer = ({
       const containerRect = scrollRoot.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const currentTop = scrollRoot.scrollTop;
-      const offsetWithinContainer =
-        targetRect.top - containerRect.top + currentTop;
+      const offsetWithinContainer = targetRect.top - containerRect.top + currentTop;
       const centeredTop =
         offsetWithinContainer - scrollRoot.clientHeight / 2 + targetRect.height / 2;
 
       scrollRoot.scrollTo({
         top: Math.max(0, centeredTop),
-        behavior: 'smooth',
+        behavior: "smooth",
       });
     };
 
@@ -679,14 +708,7 @@ export const DiffViewer = ({
       cancelAnimationFrame(frameId);
       if (timerId !== undefined) window.clearTimeout(timerId);
     };
-  }, [
-    clearNavigationTarget,
-    activeContextId,
-    filePath,
-    isLoading,
-    navigationTarget,
-    originalPath,
-  ]);
+  }, [clearNavigationTarget, activeContextId, filePath, isLoading, navigationTarget, originalPath]);
 
   useEffect(() => {
     if (!highlightedInlineCommentGuid) return;
@@ -705,16 +727,21 @@ export const DiffViewer = ({
   }, [highlightedInlineMessageGuid]);
 
   const handleInlineCommentSubmit = useCallback(async () => {
-    if (!reviewContext.session || !reviewContext.revision || !reviewContext.file || !inlineCommentDraft) {
+    if (
+      !reviewContext.session ||
+      !reviewContext.revision ||
+      !reviewContext.file ||
+      !inlineCommentDraft
+    ) {
       return;
     }
 
     const body = inlineCommentBody.trim();
     if (!body) {
       toastManager.add({
-        title: reviewT('errors.emptyCommentTitle'),
-        description: reviewT('errors.emptyCommentDescription'),
-        type: 'error',
+        title: reviewT("errors.emptyCommentTitle"),
+        description: reviewT("errors.emptyCommentDescription"),
+        type: "error",
       });
       return;
     }
@@ -731,7 +758,7 @@ export const DiffViewer = ({
           start_line: inlineCommentDraft.startLine,
           end_line: inlineCommentDraft.endLine,
           line_range_kind:
-            inlineCommentDraft.startLine === inlineCommentDraft.endLine ? 'single' : 'range',
+            inlineCommentDraft.startLine === inlineCommentDraft.endLine ? "single" : "range",
           selected_text: inlineCommentDraft.selectedText,
           before_context: inlineCommentDraft.beforeContext,
           after_context: inlineCommentDraft.afterContext,
@@ -740,200 +767,230 @@ export const DiffViewer = ({
         body,
       });
 
-      setInlineCommentBody('');
+      setInlineCommentBody("");
       setInlineCommentDraft(null);
 
       await createPromise;
     } catch (error) {
       toastManager.add({
-        title: reviewT('errors.createCommentTitle'),
-        description:
-          error instanceof Error ? error.message : reviewT('errors.unknownCommentError'),
-        type: 'error',
+        title: reviewT("errors.createCommentTitle"),
+        description: error instanceof Error ? error.message : reviewT("errors.unknownCommentError"),
+        type: "error",
       });
     } finally {
       setIsSubmittingInlineComment(false);
     }
-  }, [filePath, inlineCommentBody, inlineCommentDraft, reviewContext.file, reviewContext.revision, reviewContext.session, reviewContext.handleCreateComment, reviewT]);
+  }, [
+    filePath,
+    inlineCommentBody,
+    inlineCommentDraft,
+    reviewContext.file,
+    reviewContext.revision,
+    reviewContext.session,
+    reviewContext.handleCreateComment,
+    reviewT,
+  ]);
 
-  const handleToggleReviewed = useCallback(async (reviewed: boolean) => {
-    if (!reviewContext.file) return;
-    try {
-      await reviewWsApi.setFileReviewed({
-        fileStateGuid: reviewContext.file.state.guid,
-        reviewed,
-      });
-    } catch (error) {
-      toastManager.add({
-        title: reviewT('errors.updateFileReviewStateTitle'),
-        description:
-          error instanceof Error ? error.message : reviewT('errors.unknownReviewStateError'),
-        type: 'error',
-      });
-    }
-  }, [reviewContext.file, reviewT]);
+  const handleToggleReviewed = useCallback(
+    async (reviewed: boolean) => {
+      if (!reviewContext.file) return;
+      try {
+        await reviewWsApi.setFileReviewed({
+          fileStateGuid: reviewContext.file.state.guid,
+          reviewed,
+        });
+      } catch (error) {
+        toastManager.add({
+          title: reviewT("errors.updateFileReviewStateTitle"),
+          description:
+            error instanceof Error ? error.message : reviewT("errors.unknownReviewStateError"),
+          type: "error",
+        });
+      }
+    },
+    [reviewContext.file, reviewT],
+  );
 
-  const handleCommentReplySubmit = useCallback(async (comment: ReviewCommentDto) => {
-    const body = replyBody.trim();
-    if (!body) {
-      toastManager.add({
-        title: reviewT('errors.emptyReplyTitle'),
-        description: reviewT('errors.emptyReplyDescription'),
-        type: 'error',
-      });
-      return;
-    }
+  const handleCommentReplySubmit = useCallback(
+    async (comment: ReviewCommentDto) => {
+      const body = replyBody.trim();
+      if (!body) {
+        toastManager.add({
+          title: reviewT("errors.emptyReplyTitle"),
+          description: reviewT("errors.emptyReplyDescription"),
+          type: "error",
+        });
+        return;
+      }
 
-    setIsSubmittingReply(true);
-    try {
-      await reviewContext.replyToComment(comment, body);
-      setReplyBody('');
-      setReplyDraftCommentGuid(null);
-    } catch {
-      // The shared review hook already shows the failure toast.
-    } finally {
-      setIsSubmittingReply(false);
-    }
-  }, [replyBody, reviewContext, reviewT]);
+      setIsSubmittingReply(true);
+      try {
+        await reviewContext.replyToComment(comment, body);
+        setReplyBody("");
+        setReplyDraftCommentGuid(null);
+      } catch {
+        // The shared review hook already shows the failure toast.
+      } finally {
+        setIsSubmittingReply(false);
+      }
+    },
+    [replyBody, reviewContext, reviewT],
+  );
 
-  const handleDeleteMessage = useCallback(async (
-    comment: ReviewCommentDto,
-    message: ReviewMessageDto,
-  ) => {
-    setDeletingMessageGuid(message.guid);
-    try {
-      await reviewContext.deleteMessage(comment, message);
-    } catch {
-      // The shared review hook already shows the failure toast.
-    } finally {
-      setDeletingMessageGuid(null);
-    }
-  }, [reviewContext]);
+  const handleDeleteMessage = useCallback(
+    async (comment: ReviewCommentDto, message: ReviewMessageDto) => {
+      setDeletingMessageGuid(message.guid);
+      try {
+        await reviewContext.deleteMessage(comment, message);
+      } catch {
+        // The shared review hook already shows the failure toast.
+      } finally {
+        setDeletingMessageGuid(null);
+      }
+    },
+    [reviewContext],
+  );
 
+  const renderGutterUtility = useCallback(
+    (getHoveredLine: () => { lineNumber: number; side: "deletions" | "additions" } | undefined) => {
+      if (!snapshotGuidFromPath || !reviewContext.canEdit || !reviewContext.file) return null;
 
-
-  const renderGutterUtility = useCallback((getHoveredLine: () => { lineNumber: number; side: 'deletions' | 'additions' } | undefined) => {
-    if (!snapshotGuidFromPath || !reviewContext.canEdit || !reviewContext.file) return null;
-
-    return (
-      <button
-        type="button"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: 'none',
-          width: '1lh',
-          height: '1lh',
-          marginRight: 'calc((1lh - 1ch) * -1)',
-          padding: 0,
-          cursor: 'pointer',
-          borderRadius: 4,
-          backgroundColor: 'var(--diffs-modified-base, #0969da)',
-          color: 'var(--diffs-bg, #fff)',
-          fill: 'currentColor',
-          position: 'relative',
-          zIndex: 4,
-        }}
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={(event) => {
-          event.preventDefault();
-          const hoveredLine = getHoveredLine();
-          if (!hoveredLine || !hoveredLine.side) return;
-          const info = buildSelectionInfo(hoveredLine.lineNumber, hoveredLine.lineNumber, hoveredLine.side);
-          openInlineCommentDraft({
-            side: info.diffSide === 'old' ? 'old' : 'new',
-            diffSide: info.diffSide === 'old' ? 'old' : 'new',
-            startLine: info.startLine,
-            endLine: info.endLine,
-            selectedText: info.selectedText,
-            beforeContext: [],
-            afterContext: [],
-          });
-        }}
-        aria-label={codeViewT('actions.addReviewComment')}
-      >
-        <svg width={14} height={14} viewBox="0 0 16 16" fill="none">
-          <path d="M8 3a.75.75 0 0 1 .75.75v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5A.75.75 0 0 1 8 3" fill="currentColor" />
-        </svg>
-      </button>
-    );
-  }, [buildSelectionInfo, codeViewT, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file, snapshotGuidFromPath]);
+      return (
+        <button
+          type="button"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "none",
+            width: "1lh",
+            height: "1lh",
+            marginRight: "calc((1lh - 1ch) * -1)",
+            padding: 0,
+            cursor: "pointer",
+            borderRadius: 4,
+            backgroundColor: "var(--diffs-modified-base, #0969da)",
+            color: "var(--diffs-bg, #fff)",
+            fill: "currentColor",
+            position: "relative",
+            zIndex: 4,
+          }}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => {
+            event.preventDefault();
+            const hoveredLine = getHoveredLine();
+            if (!hoveredLine || !hoveredLine.side) return;
+            const info = buildSelectionInfo(
+              hoveredLine.lineNumber,
+              hoveredLine.lineNumber,
+              hoveredLine.side,
+            );
+            openInlineCommentDraft({
+              side: info.diffSide === "old" ? "old" : "new",
+              diffSide: info.diffSide === "old" ? "old" : "new",
+              startLine: info.startLine,
+              endLine: info.endLine,
+              selectedText: info.selectedText,
+              beforeContext: [],
+              afterContext: [],
+            });
+          }}
+          aria-label={codeViewT("actions.addReviewComment")}
+        >
+          <svg width={14} height={14} viewBox="0 0 16 16" fill="none">
+            <path
+              d="M8 3a.75.75 0 0 1 .75.75v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5A.75.75 0 0 1 8 3"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      );
+    },
+    [
+      buildSelectionInfo,
+      codeViewT,
+      openInlineCommentDraft,
+      reviewContext.canEdit,
+      reviewContext.file,
+      snapshotGuidFromPath,
+    ],
+  );
 
   const cancelInlineCommentDraft = useCallback(() => {
     setInlineCommentDraft(null);
-    setInlineCommentBody('');
+    setInlineCommentBody("");
   }, []);
 
   const cancelReplyDraft = useCallback(() => {
     setReplyDraftCommentGuid(null);
-    setReplyBody('');
+    setReplyBody("");
   }, []);
 
   const toggleReplyDraft = useCallback((commentGuid: string) => {
-    setReplyBody('');
+    setReplyBody("");
     setCollapsedInlineCommentGuids((prev) => {
       if (!prev.has(commentGuid)) return prev;
       const next = new Set(prev);
       next.delete(commentGuid);
       return next;
     });
-    setReplyDraftCommentGuid((value) =>
-      value === commentGuid ? null : commentGuid,
-    );
+    setReplyDraftCommentGuid((value) => (value === commentGuid ? null : commentGuid));
   }, []);
 
-  const renderAnnotation = useCallback((annotation: DiffLineAnnotation<DiffViewerAnnotationMeta>) => (
-    <DiffViewerReviewAnnotation
-      annotation={annotation}
-      inlineCommentDraft={inlineCommentDraft}
-      inlineCommentTextareaRef={inlineCommentTextareaRef}
-      inlineCommentBody={inlineCommentBody}
-      isSubmittingInlineComment={isSubmittingInlineComment}
-      replyBody={replyBody}
-      replyDraftCommentGuid={replyDraftCommentGuid}
-      isSubmittingReply={isSubmittingReply}
-      deletingMessageGuid={deletingMessageGuid}
-      collapsedInlineCommentGuids={collapsedInlineCommentGuids}
-      highlightedInlineCommentGuid={highlightedInlineCommentGuid}
-      highlightedInlineMessageGuid={highlightedInlineMessageGuid}
-      canEditReview={reviewContext.canEdit}
-      onInlineCommentBodyChange={setInlineCommentBody}
-      onInlineCommentSubmit={() => void handleInlineCommentSubmit()}
-      onInlineCommentCancel={cancelInlineCommentDraft}
-      onReplyBodyChange={setReplyBody}
-      onReplySubmit={(comment) => void handleCommentReplySubmit(comment)}
-      onReplyCancel={cancelReplyDraft}
-      onToggleReplyDraft={toggleReplyDraft}
-      onToggleInlineCommentExpanded={toggleInlineCommentExpanded}
-      onUpdateMessage={reviewContext.updateMessage}
-      onDeleteMessage={(comment, message) => void handleDeleteMessage(comment, message)}
-    />
-  ), [
-    cancelInlineCommentDraft,
-    cancelReplyDraft,
-    collapsedInlineCommentGuids,
-    deletingMessageGuid,
-    handleCommentReplySubmit,
-    handleDeleteMessage,
-    handleInlineCommentSubmit,
-    highlightedInlineCommentGuid,
-    highlightedInlineMessageGuid,
-    inlineCommentBody,
-    inlineCommentDraft,
-    isSubmittingInlineComment,
-    isSubmittingReply,
-    replyBody,
-    replyDraftCommentGuid,
-    reviewContext.canEdit,
-    reviewContext.updateMessage,
-    toggleReplyDraft,
-    toggleInlineCommentExpanded,
-  ]);
+  const renderAnnotation = useCallback(
+    (annotation: DiffLineAnnotation<DiffViewerAnnotationMeta>) => (
+      <DiffViewerReviewAnnotation
+        annotation={annotation}
+        inlineCommentDraft={inlineCommentDraft}
+        inlineCommentTextareaRef={inlineCommentTextareaRef}
+        inlineCommentBody={inlineCommentBody}
+        isSubmittingInlineComment={isSubmittingInlineComment}
+        replyBody={replyBody}
+        replyDraftCommentGuid={replyDraftCommentGuid}
+        isSubmittingReply={isSubmittingReply}
+        deletingMessageGuid={deletingMessageGuid}
+        collapsedInlineCommentGuids={collapsedInlineCommentGuids}
+        highlightedInlineCommentGuid={highlightedInlineCommentGuid}
+        highlightedInlineMessageGuid={highlightedInlineMessageGuid}
+        canEditReview={reviewContext.canEdit}
+        onInlineCommentBodyChange={setInlineCommentBody}
+        onInlineCommentSubmit={() => void handleInlineCommentSubmit()}
+        onInlineCommentCancel={cancelInlineCommentDraft}
+        onReplyBodyChange={setReplyBody}
+        onReplySubmit={(comment) => void handleCommentReplySubmit(comment)}
+        onReplyCancel={cancelReplyDraft}
+        onToggleReplyDraft={toggleReplyDraft}
+        onToggleInlineCommentExpanded={toggleInlineCommentExpanded}
+        onUpdateMessage={reviewContext.updateMessage}
+        onDeleteMessage={(comment, message) => void handleDeleteMessage(comment, message)}
+      />
+    ),
+    [
+      cancelInlineCommentDraft,
+      cancelReplyDraft,
+      collapsedInlineCommentGuids,
+      deletingMessageGuid,
+      handleCommentReplySubmit,
+      handleDeleteMessage,
+      handleInlineCommentSubmit,
+      highlightedInlineCommentGuid,
+      highlightedInlineMessageGuid,
+      inlineCommentBody,
+      inlineCommentDraft,
+      isSubmittingInlineComment,
+      isSubmittingReply,
+      replyBody,
+      replyDraftCommentGuid,
+      reviewContext.canEdit,
+      reviewContext.updateMessage,
+      toggleReplyDraft,
+      toggleInlineCommentExpanded,
+    ],
+  );
 
   if (isLoading || queriesLoading) {
     return (
-      <div className="flex items-center justify-center h-full bg-background">
+      <div className="flex h-full items-center justify-center bg-background">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -941,9 +998,9 @@ export const DiffViewer = ({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full bg-background">
+      <div className="flex h-full items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-red-500 mb-2">{viewerT('errors.loadTitle')}</p>
+          <p className="mb-2 text-red-500">{viewerT("errors.loadTitle")}</p>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -951,9 +1008,7 @@ export const DiffViewer = ({
   }
 
   const binaryGitDiff =
-    gitDiffEnabled &&
-    gitDiffQuery.data &&
-    gitDiffQuery.data.kind !== 'text'
+    gitDiffEnabled && gitDiffQuery.data && gitDiffQuery.data.kind !== "text"
       ? gitDiffQuery.data
       : null;
 
@@ -967,14 +1022,14 @@ export const DiffViewer = ({
 
   if (!oldFile || !newFile || !workingDiff) {
     return (
-      <div className="flex items-center justify-center h-full bg-background">
-        <p className="text-muted-foreground">{viewerT('empty')}</p>
+      <div className="flex h-full items-center justify-center bg-background">
+        <p className="text-muted-foreground">{viewerT("empty")}</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden bg-background">
       <DiffViewerHeader
         canEditReview={reviewContext.canEdit}
         diffCompareRef={diffCompareRef}
@@ -985,7 +1040,9 @@ export const DiffViewer = ({
         filePath={filePath}
         hasReviewSession={Boolean(reviewContext.session)}
         isReviewDiff={isReviewDiff}
-        isReviewed={snapshotGuidFromPath && reviewContext.file ? reviewContext.file.state.reviewed : null}
+        isReviewed={
+          snapshotGuidFromPath && reviewContext.file ? reviewContext.file.state.reviewed : null
+        }
         onToggleReviewed={handleToggleReviewed}
         setDiffStyle={setDiffStyle}
         setDisableBackground={(disabled) => void setShowBackgrounds(!disabled)}
@@ -1000,7 +1057,7 @@ export const DiffViewer = ({
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div
           ref={containerRef}
-          className="diff-viewer-container min-h-0 h-full w-full overflow-hidden bg-background relative"
+          className="diff-viewer-container relative h-full min-h-0 w-full overflow-hidden bg-background"
         >
           <SelectionPopover
             isVisible={isPopoverVisible}
@@ -1015,12 +1072,12 @@ export const DiffViewer = ({
           />
           <div
             className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-            style={{ gridTemplateRows: fileCollapsed ? '0fr' : '1fr' }}
+            style={{ gridTemplateRows: fileCollapsed ? "0fr" : "1fr" }}
           >
-            <div className="min-h-0 h-full overflow-hidden">
+            <div className="h-full min-h-0 overflow-hidden">
               <Virtualizer
                 className={`${DIFF_VIRTUALIZER_SCROLL_CLASS} h-full min-h-0 overflow-auto`}
-                style={{ scrollbarGutter: 'stable' }}
+                style={{ scrollbarGutter: "stable" }}
               >
                 <FileDiff
                   fileDiff={workingDiff}
@@ -1028,14 +1085,13 @@ export const DiffViewer = ({
                   lineAnnotations={lineAnnotations}
                   renderAnnotation={renderAnnotation}
                   renderGutterUtility={renderGutterUtility}
-                  style={{ minHeight: '100%', width: '100%' }}
+                  style={{ minHeight: "100%", width: "100%" }}
                 />
               </Virtualizer>
             </div>
           </div>
         </div>
-
-        </div>
+      </div>
     </div>
   );
 };

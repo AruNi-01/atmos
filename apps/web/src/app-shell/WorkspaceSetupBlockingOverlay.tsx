@@ -37,13 +37,11 @@ export function WorkspaceSetupBlockingOverlay() {
     return [...jobs].reverse().find((job) => job.blocking) ?? null;
   }, [jobs, latestJobId]);
   const progress = useProjectStore((state) =>
-    blockingJob?.workspaceId ? state.setupProgress[blockingJob.workspaceId] ?? null : null,
+    blockingJob?.workspaceId ? (state.setupProgress[blockingJob.workspaceId] ?? null) : null,
   );
   const { isLeftCollapsed, liveLeftSidebarSize, isLeftSidebarDragging } = useSidebarLayout();
   const overlayLeftSize =
-    !isLeftCollapsed && liveLeftSidebarSize > 0.5
-      ? liveLeftSidebarSize
-      : DEFAULT_LEFT_SIDEBAR_SIZE;
+    !isLeftCollapsed && liveLeftSidebarSize > 0.5 ? liveLeftSidebarSize : DEFAULT_LEFT_SIDEBAR_SIZE;
 
   const show =
     !!blockingJob &&
@@ -57,9 +55,7 @@ export function WorkspaceSetupBlockingOverlay() {
 
   const gutterX = CENTER_STAGE_GUTTER_X_PX;
   const gutterY = CENTER_STAGE_GUTTER_Y_PX;
-  const leftInset = isLeftCollapsed
-    ? gutterX
-    : `calc(${overlayLeftSize}% + 1px + ${gutterX}px)`;
+  const leftInset = isLeftCollapsed ? gutterX : `calc(${overlayLeftSize}% + 1px + ${gutterX}px)`;
   const transitionProperty = isLeftSidebarDragging ? "translate" : "left, translate";
 
   return (
@@ -71,7 +67,7 @@ export function WorkspaceSetupBlockingOverlay() {
       className={cn(
         "absolute z-[48] overflow-hidden bg-background",
         CENTER_STAGE_RADIUS_CLASS,
-        "ring-1 ring-border/40 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]",
+        "shadow-[0_-8px_30px_rgba(0,0,0,0.12)] ring-1 ring-border/40",
       )}
       style={{
         top: gutterY,

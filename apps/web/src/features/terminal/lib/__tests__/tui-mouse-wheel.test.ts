@@ -10,9 +10,7 @@ import {
 
 describe("resolveTuiWheelDistanceRows", () => {
   test("maps pixel distance using cell height", () => {
-    expect(
-      resolveTuiWheelDistanceRows({ deltaY: 48, deltaMode: 0 }, { cellHeight: 16 }),
-    ).toBe(3);
+    expect(resolveTuiWheelDistanceRows({ deltaY: 48, deltaMode: 0 }, { cellHeight: 16 })).toBe(3);
   });
 
   test("maps line mode as rows", () => {
@@ -23,30 +21,24 @@ describe("resolveTuiWheelDistanceRows", () => {
 describe("resolveTuiWheelReportCount", () => {
   test("emits multiple reports for multi-cell pixel distance", () => {
     const state = createTuiWheelDistanceState();
-    const reports = resolveTuiWheelReportCount(
-      { deltaY: 48, deltaMode: 0 },
-      state,
-      { cellHeight: 16 },
-    );
+    const reports = resolveTuiWheelReportCount({ deltaY: 48, deltaMode: 0 }, state, {
+      cellHeight: 16,
+    });
     expect(reports).toBe(3);
     expect(state.pendingRows).toBe(0);
   });
 
   test("accumulates fractional rows across events", () => {
     const state = createTuiWheelDistanceState();
-    const first = resolveTuiWheelReportCount(
-      { deltaY: 8, deltaMode: 0 },
-      state,
-      { cellHeight: 16 },
-    );
+    const first = resolveTuiWheelReportCount({ deltaY: 8, deltaMode: 0 }, state, {
+      cellHeight: 16,
+    });
     expect(first).toBe(0);
     expect(state.pendingRows).toBeCloseTo(0.5);
 
-    const second = resolveTuiWheelReportCount(
-      { deltaY: 8, deltaMode: 0 },
-      state,
-      { cellHeight: 16 },
-    );
+    const second = resolveTuiWheelReportCount({ deltaY: 8, deltaMode: 0 }, state, {
+      cellHeight: 16,
+    });
     expect(second).toBe(1);
     expect(state.pendingRows).toBeCloseTo(0);
   });
@@ -58,11 +50,9 @@ describe("resolveTuiWheelReportCount", () => {
 
   test("caps reports per event", () => {
     const state = createTuiWheelDistanceState();
-    const reports = resolveTuiWheelReportCount(
-      { deltaY: 10_000, deltaMode: 0 },
-      state,
-      { cellHeight: 16 },
-    );
+    const reports = resolveTuiWheelReportCount({ deltaY: 10_000, deltaMode: 0 }, state, {
+      cellHeight: 16,
+    });
     expect(reports).toBe(TUI_WHEEL_MAX_REPORTS_PER_EVENT);
   });
 

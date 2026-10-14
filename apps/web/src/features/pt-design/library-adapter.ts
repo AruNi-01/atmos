@@ -33,7 +33,9 @@ export function httpDesignLibrary(): DesignLibrary {
       return { name: doc.name, persist: persistFromLibraryBody(doc.body) };
     },
     async save(name, persist) {
-      const saved = await ptDesignApi.putDocument(name, libraryFileBody(persist), { overwrite: true });
+      const saved = await ptDesignApi.putDocument(name, libraryFileBody(persist), {
+        overwrite: true,
+      });
       return { name: saved.name };
     },
   };

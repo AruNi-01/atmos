@@ -19,18 +19,18 @@ This directory is outside `apps/web`, so Next typecheck / production build never
 
 ## Results (real, this VM)
 
-| | unbatched per-token (`main` mode) | 56ms snapshots (`branch` mode) |
-|---|---:|---:|
-| Scroll FPS | 55.043 | 55.003 |
-| Frames | 111 | 110 |
-| Frames > 16.67ms | 72 | 70 |
-| Scroll duration | 2008.9 ms | 2003.8 ms |
-| Scroll height | 174204 px | 174359 px |
-| Profiler commits (40 tokens) | 81 | 55 |
-| Total `actualDuration` | 71.8 ms | 43.7 ms |
-| Mean commit | 0.886 ms | 0.795 ms |
-| p50 commit | 0.7 ms | 0.6 ms |
-| p95 commit | 1.3 ms | 2.5 ms |
-| Per-token `actualDuration` (total/40) | 1.795 ms | 1.092 ms |
+|                                       | unbatched per-token (`main` mode) | 56ms snapshots (`branch` mode) |
+| ------------------------------------- | --------------------------------: | -----------------------------: |
+| Scroll FPS                            |                            55.043 |                         55.003 |
+| Frames                                |                               111 |                            110 |
+| Frames > 16.67ms                      |                                72 |                             70 |
+| Scroll duration                       |                         2008.9 ms |                      2003.8 ms |
+| Scroll height                         |                         174204 px |                      174359 px |
+| Profiler commits (40 tokens)          |                                81 |                             55 |
+| Total `actualDuration`                |                           71.8 ms |                        43.7 ms |
+| Mean commit                           |                          0.886 ms |                       0.795 ms |
+| p50 commit                            |                            0.7 ms |                         0.6 ms |
+| p95 commit                            |                            1.3 ms |                         2.5 ms |
+| Per-token `actualDuration` (total/40) |                          1.795 ms |                       1.092 ms |
 
 Scroll FPS is the same within noise (virtual list already exists on main). Token streaming cost dropped because this branch commits less often (81 → 55) and spends less total Profiler time (71.8 ms → 43.7 ms).

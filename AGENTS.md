@@ -8,40 +8,40 @@
 
 **I need to...**
 
-| Task | Go To |
-|------|-------|
-| **Cross-Cutting References** (Shortcuts, Debug, etc.) | [agents/AGENTS.md](agents/AGENTS.md) |
-| **Design System / UI Visual Language** | [DESIGN.md](DESIGN.md) |
-| **Marketing Creative Production** (video/audio/social assets) | [marketing/AGENTS.md](marketing/AGENTS.md) |
-| **Rust crates index** (layer map) | [crates/AGENTS.md](crates/AGENTS.md) |
-| **Backend: Infrastructure** (DB, Cache, Queue, Jobs) | [crates/infra/AGENTS.md](crates/infra/AGENTS.md) |
-| **Backend: Core Engine** (PTY, Git, FS) | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md) |
-| **Backend: Business Logic** (Auth, Project, Workspace) | [crates/core-service/AGENTS.md](crates/core-service/AGENTS.md) |
-| **Backend: Agent Integration** (Chat providers, ACP, Agent Manager) | [crates/agent/AGENTS.md](crates/agent/AGENTS.md) |
-| **Backend: Quota Usage Tracking** | [crates/quota-usage/AGENTS.md](crates/quota-usage/AGENTS.md) |
-| **Backend: Token Usage Tracking** | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md) |
-| **Backend: Permission Access** | [crates/permission-access/AGENTS.md](crates/permission-access/AGENTS.md) |
-| **Backend: LLM Integration** | [crates/llm/AGENTS.md](crates/llm/AGENTS.md) |
-| **Local runtime** (manifest, supervisor, relay identity) | [agents/references/runtime/AGENTS.md](agents/references/runtime/AGENTS.md) |
-| **`~/.atmos` layout** (credentials/state/config/data) | [agents/references/runtime/atmos-home-layout.md](agents/references/runtime/atmos-home-layout.md) |
-| **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
-| **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
-| **Desktop (production — all shell work)** | [apps/desktop-electron/AGENTS.md](apps/desktop-electron/AGENTS.md) |
-| **Desktop Tauri (DEPRECATED — do not change for product)** | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
-| **Mobile** (Expo / React Native) | [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md) |
-| **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
-| **Main `/ws` wire types + `WsContract`** (`@atmos/api-types`) | [packages/api-types/AGENTS.md](packages/api-types/AGENTS.md) |
-| **Main `/ws` session kernel** (`@atmos/api-client`) | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
-| **Hub control-plane client** (`@atmos/hub-client`) | [packages/hub-client/AGENTS.md](packages/hub-client/AGENTS.md) |
-| **Relay control-plane client** (`@atmos/relay-client`) | [packages/relay-client/AGENTS.md](packages/relay-client/AGENTS.md) |
-| **Package boundary map** (shared / types / client) | [packages/AGENTS.md](packages/AGENTS.md) |
-| **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
-| **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
-| **CLI × feature versions** (min pin, install/upgrade gates) | [agents/references/cli-feature-versions.md](agents/references/cli-feature-versions.md) |
-| **Hub** (Cloudflare Worker — auth/devices) | [packages/hub/AGENTS.md](packages/hub/AGENTS.md) |
-| **Relay** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
-| **Write/Edit Specs** (planning + optional logs) | [specs/AGENTS.md](specs/AGENTS.md) |
-| **E2E / Playwright** (cross-layer browser checks) | [e2e/AGENTS.md](e2e/AGENTS.md) |
+| Task                                                                | Go To                                                                                            |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Cross-Cutting References** (Shortcuts, Debug, etc.)               | [agents/AGENTS.md](agents/AGENTS.md)                                                             |
+| **Design System / UI Visual Language**                              | [DESIGN.md](DESIGN.md)                                                                           |
+| **Marketing Creative Production** (video/audio/social assets)       | [marketing/AGENTS.md](marketing/AGENTS.md)                                                       |
+| **Rust crates index** (layer map)                                   | [crates/AGENTS.md](crates/AGENTS.md)                                                             |
+| **Backend: Infrastructure** (DB, Cache, Queue, Jobs)                | [crates/infra/AGENTS.md](crates/infra/AGENTS.md)                                                 |
+| **Backend: Core Engine** (PTY, Git, FS)                             | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md)                                     |
+| **Backend: Business Logic** (Auth, Project, Workspace)              | [crates/core-service/AGENTS.md](crates/core-service/AGENTS.md)                                   |
+| **Backend: Agent Integration** (Chat providers, ACP, Agent Manager) | [crates/agent/AGENTS.md](crates/agent/AGENTS.md)                                                 |
+| **Backend: Quota Usage Tracking**                                   | [crates/quota-usage/AGENTS.md](crates/quota-usage/AGENTS.md)                                     |
+| **Backend: Token Usage Tracking**                                   | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md)                                     |
+| **Backend: Permission Access**                                      | [crates/permission-access/AGENTS.md](crates/permission-access/AGENTS.md)                         |
+| **Backend: LLM Integration**                                        | [crates/llm/AGENTS.md](crates/llm/AGENTS.md)                                                     |
+| **Local runtime** (manifest, supervisor, relay identity)            | [agents/references/runtime/AGENTS.md](agents/references/runtime/AGENTS.md)                       |
+| **`~/.atmos` layout** (credentials/state/config/data)               | [agents/references/runtime/atmos-home-layout.md](agents/references/runtime/atmos-home-layout.md) |
+| **API Entry**: HTTP/WS Handlers & DTOs                              | [apps/api/AGENTS.md](apps/api/AGENTS.md)                                                         |
+| **Frontend: Web App** (Next.js 16)                                  | [apps/web/AGENTS.md](apps/web/AGENTS.md)                                                         |
+| **Desktop (production — all shell work)**                           | [apps/desktop-electron/AGENTS.md](apps/desktop-electron/AGENTS.md)                               |
+| **Desktop Tauri (DEPRECATED — do not change for product)**          | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md)                                                 |
+| **Mobile** (Expo / React Native)                                    | [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md)                                                   |
+| **Frontend: UI Library** (@workspace/ui)                            | [packages/ui/AGENTS.md](packages/ui/AGENTS.md)                                                   |
+| **Main `/ws` wire types + `WsContract`** (`@atmos/api-types`)       | [packages/api-types/AGENTS.md](packages/api-types/AGENTS.md)                                     |
+| **Main `/ws` session kernel** (`@atmos/api-client`)                 | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md)                                   |
+| **Hub control-plane client** (`@atmos/hub-client`)                  | [packages/hub-client/AGENTS.md](packages/hub-client/AGENTS.md)                                   |
+| **Relay control-plane client** (`@atmos/relay-client`)              | [packages/relay-client/AGENTS.md](packages/relay-client/AGENTS.md)                               |
+| **Package boundary map** (shared / types / client)                  | [packages/AGENTS.md](packages/AGENTS.md)                                                         |
+| **Terminal agent built-ins** (shared Rust/TS manifest)              | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md)                       |
+| **CLI Tool** (atmos command)                                        | [apps/cli/AGENTS.md](apps/cli/AGENTS.md)                                                         |
+| **CLI × feature versions** (min pin, install/upgrade gates)         | [agents/references/cli-feature-versions.md](agents/references/cli-feature-versions.md)           |
+| **Hub** (Cloudflare Worker — auth/devices)                          | [packages/hub/AGENTS.md](packages/hub/AGENTS.md)                                                 |
+| **Relay** (Cloudflare Worker)                                       | [packages/relay/AGENTS.md](packages/relay/AGENTS.md)                                             |
+| **Write/Edit Specs** (planning + optional logs)                     | [specs/AGENTS.md](specs/AGENTS.md)                                                               |
+| **E2E / Playwright** (cross-layer browser checks)                   | [e2e/AGENTS.md](e2e/AGENTS.md)                                                                   |
 
 ---
 
@@ -115,15 +115,19 @@ atmos/
 ## 🔄 Development Workflow
 
 ### Backend Change Flow
+
 `infra` (data/foundation) → `core-engine` (technical capability) → `core-service` (business/application) → `apps/api` (HTTP/WS/relay entry)
 
 ### Frontend Change Flow
+
 `packages/ui` (Styles) → `apps/web/src/api` (API Client) → `apps/web` (Feature)
 
 ### Mobile Change Flow
+
 `apps/mobile/src/api` (Relay/relay/WS clients) → `apps/mobile/src/stores` (session/UI state) → `apps/mobile/src/features` (Expo UI screens). Fresh-machine native setup lives in [agents/references/mobile/dev-setup.md](agents/references/mobile/dev-setup.md).
 
 ### Specs Flow
+
 Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-NNN_<title>/` with four standard planning files: `BRAINSTORM.md` → `PRD.md` → `TECH.md` → `TEST.md`. Optional sibling logs such as `PROGRESS.md`, `REVIEW.md`, and `IMPROVEMENT.md` can track implementation handoff, post-implementation review fixes, and post-ship learnings without becoming requirements sources. The lifecycle is: brainstorm → PRD → TECH → test plan → implementation → test run. Each stage has a dedicated skill in [`.agents/skills/`](.agents/skills/):
 
 - `atmos-specs-brainstorm` — explore problem space, write `BRAINSTORM.md`
@@ -215,10 +219,25 @@ just typecheck-bench    # Typecheck wall time vs QUALITY-005 baseline
 just test               # Run all tests
 just test-e2e-smoke     # Run fast Playwright smoke tests
 just test-e2e           # Run all Playwright E2E tests
-just lint               # Run all linters
+just lint               # oxlint (JS/TS) + cargo clippy
+just fmt                # oxfmt (JS/TS/CSS/JSON/MD) + cargo fmt
+just fmt-check          # check formatting without writing
 ```
 
-TypeScript note: `@typescript/native` (TS 7 `tsc`) is installed alongside `typescript@6` (eslint API). See [packages/config/AGENTS.md](packages/config/AGENTS.md).
+TypeScript note: `@typescript/native` (TS 7 `tsc`) is installed alongside `typescript@6` (programmatic API for Next and other tools). See [packages/config/AGENTS.md](packages/config/AGENTS.md).
+
+### JS/TS lint and format (oxc)
+
+Root configs are `.oxlintrc.jsonc` and `.oxfmtrc.json`. Do not add per-app ESLint or Prettier.
+
+**Agents:** each turn, run oxlint and oxfmt **only on files you changed**, not the whole repo:
+
+```bash
+bunx oxlint --fix path/to/changed.ts path/to/other.tsx
+bunx oxfmt path/to/changed.ts path/to/other.tsx
+```
+
+Do not run `just fmt` / `bun run fmt` on the whole tree unless the task is an explicit repo-wide format.
 
 For a fresh iOS/Android mobile environment, follow [agents/references/mobile/dev-setup.md](agents/references/mobile/dev-setup.md) before running native dev builds.
 
@@ -280,7 +299,6 @@ Before implementing:
 - If something is unclear, stop. Name what's confusing. Ask.
 - **When implementing any feature, ask the user when uncertain—do not make blind assumptions or speculations.**
 
-
 ### 2. Simplicity First
 
 **Minimum code that solves the problem. Nothing speculative.**
@@ -292,6 +310,10 @@ Before implementing:
 - If you write 200 lines and it could be 50, rewrite it.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### 3. JS/TS lint and format
+
+After editing JS/TS (and CSS/JSON/MD when you touched those files), run `oxlint --fix` and `oxfmt` **only on the changed paths** for that turn. Do not lint or format the whole monorepo as a matter of course.
 
 ---
 

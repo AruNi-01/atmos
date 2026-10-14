@@ -83,9 +83,7 @@ function prepareSystemSkillsBundle(rootDir, binariesDir) {
     console.log(`✅ Bundled system skills: ${bundledSkills}`);
   } else {
     mkdirSync(bundledSkills, { recursive: true });
-    console.warn(
-      `Warning: ${skillsSrc} not found, created empty bundled system skills directory`,
-    );
+    console.warn(`Warning: ${skillsSrc} not found, created empty bundled system skills directory`);
   }
 }
 
@@ -175,9 +173,7 @@ const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
   const { rootDir, targetTriple, binExt } = parseArgs(process.argv.slice(2));
   if (!rootDir || !targetTriple) {
-    console.error(
-      "Usage: node layout-runtime-bundle.mjs <rootDir> <targetTriple> [binExt]",
-    );
+    console.error("Usage: node layout-runtime-bundle.mjs <rootDir> <targetTriple> [binExt]");
     console.error(
       "   or: node layout-runtime-bundle.mjs --root <dir> --target <triple> [--bin-ext .exe]",
     );

@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  buildMobilePairQrValue,
-  parseMobilePairQrValue,
-} from "../src/mobile-pair";
+import { buildMobilePairQrValue, parseMobilePairQrValue } from "../src/mobile-pair";
 import { isAllowedMobileReturnTo } from "../src/desktop-auth";
 
 describe("mobile pair QR payload", () => {
@@ -36,15 +33,11 @@ describe("mobile pair QR payload", () => {
 describe("mobile OAuth return_to allowlist", () => {
   test("allows atmos hub-auth callback", () => {
     expect(isAllowedMobileReturnTo("atmos://hub-auth/callback")).toBe(true);
-    expect(
-      isAllowedMobileReturnTo("atmos://hub-auth/callback?state=1"),
-    ).toBe(true);
+    expect(isAllowedMobileReturnTo("atmos://hub-auth/callback?state=1")).toBe(true);
   });
 
   test("rejects arbitrary deep links", () => {
     expect(isAllowedMobileReturnTo("atmos://evil")).toBe(false);
-    expect(isAllowedMobileReturnTo("https://evil.example/callback")).toBe(
-      false,
-    );
+    expect(isAllowedMobileReturnTo("https://evil.example/callback")).toBe(false);
   });
 });

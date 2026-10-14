@@ -4,7 +4,14 @@ import type { ComputerRow } from "@/api/types";
 import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
-import { CheckIcon, ChevronRightIcon, LaptopIcon, UserIcon, WifiIcon, WifiOffIcon } from "@/ui/icons/lucide-native";
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  LaptopIcon,
+  UserIcon,
+  WifiIcon,
+  WifiOffIcon,
+} from "@/ui/icons/lucide-native";
 
 type LucideIcon = typeof LaptopIcon;
 
@@ -51,10 +58,7 @@ export function SettingsProfileRow({
         )}
       </View>
       <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-        <Text
-          numberOfLines={1}
-          style={[typography.rowTitle, { color: theme.colors.label }]}
-        >
+        <Text numberOfLines={1} style={[typography.rowTitle, { color: theme.colors.label }]}>
           {title}
         </Text>
         {signedIn ? null : (
@@ -130,10 +134,7 @@ export function SettingsListRow({
       {value ? (
         <Text
           numberOfLines={1}
-          style={[
-            typography.rowMeta,
-            { color: theme.colors.secondaryLabel, maxWidth: "42%" },
-          ]}
+          style={[typography.rowMeta, { color: theme.colors.secondaryLabel, maxWidth: "42%" }]}
         >
           {value}
         </Text>
@@ -229,9 +230,7 @@ export function ComputerListRow({
         </Text>
         <ComputerStatusIndicator online={computer.online} />
       </View>
-      {selected ? (
-        <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.6} />
-      ) : null}
+      {selected ? <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.6} /> : null}
     </View>
   );
 

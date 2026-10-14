@@ -10,19 +10,19 @@ Addresses **M1–M14**. N1–N4 deferred. Moves Device Preview domain out of `ap
 
 ## Frozen decisions
 
-| Decision | Rule |
-|----------|------|
-| Android helper | Vendor [expo/serve-emu](https://github.com/expo/serve-emu) (package currently branded `serve-emul`). **Not** `serve-avd`. |
-| Install | Same as APP-060: pin JSON, GitHub Release, sha256, `~/.atmos/runtime/serve-emu/<version>/`, spawn from local Server. |
-| Product UI | Iframe helper preview. Patch serve-emu chrome to match vendored serve-sim. |
-| Claims | Exclusive per device. Auto-claim free (including shutdown-but-available). Never steal. Persist last `{platform, udid}` per workspace. |
-| Helper topology | One helper **process per claimed device**. Do not wait on upstream multi-device routing. |
-| Layers | Inventory in `core-engine`. Claims + helper lifecycle in `core-service`. Paths only in `runtime-manager`. Thin WS in `apps/api`. |
-| Wire names | Keep `simulator_*`. Add `platform` on start/status/claim. Do not add a parallel `device_preview_*` catalog in v1. |
-| `/exec` | Unchanged from APP-060 TECH: keep serve-sim `/exec` + `/exec-ws`; bind `127.0.0.1`. |
-| Hosts | `macos` + `aarch64` only. Linux/Windows → `unsupported_platform` / `unsupported_arch` for the whole host, even if Android SDK exists. |
-| Physical adb | Filter out; only emulator serials / AVDs. |
-| Creating AVDs | User-initiated “start another device” may boot an **existing** shutdown AVD/sim. Do not `avdmanager create` in v1 unless the helper already exposes a one-click create that we can gate. |
+| Decision        | Rule                                                                                                                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Android helper  | Vendor [expo/serve-emu](https://github.com/expo/serve-emu) (package currently branded `serve-emul`). **Not** `serve-avd`.                                                                |
+| Install         | Same as APP-060: pin JSON, GitHub Release, sha256, `~/.atmos/runtime/serve-emu/<version>/`, spawn from local Server.                                                                     |
+| Product UI      | Iframe helper preview. Patch serve-emu chrome to match vendored serve-sim.                                                                                                               |
+| Claims          | Exclusive per device. Auto-claim free (including shutdown-but-available). Never steal. Persist last `{platform, udid}` per workspace.                                                    |
+| Helper topology | One helper **process per claimed device**. Do not wait on upstream multi-device routing.                                                                                                 |
+| Layers          | Inventory in `core-engine`. Claims + helper lifecycle in `core-service`. Paths only in `runtime-manager`. Thin WS in `apps/api`.                                                         |
+| Wire names      | Keep `simulator_*`. Add `platform` on start/status/claim. Do not add a parallel `device_preview_*` catalog in v1.                                                                        |
+| `/exec`         | Unchanged from APP-060 TECH: keep serve-sim `/exec` + `/exec-ws`; bind `127.0.0.1`.                                                                                                      |
+| Hosts           | `macos` + `aarch64` only. Linux/Windows → `unsupported_platform` / `unsupported_arch` for the whole host, even if Android SDK exists.                                                    |
+| Physical adb    | Filter out; only emulator serials / AVDs.                                                                                                                                                |
+| Creating AVDs   | User-initiated “start another device” may boot an **existing** shutdown AVD/sim. Do not `avdmanager create` in v1 unless the helper already exposes a one-click create that we can gate. |
 
 ## Architecture overview
 
@@ -60,14 +60,14 @@ flowchart TB
 
 Target vs current:
 
-| Piece | Keep | Move | Add | Delete |
-|-------|------|------|-----|--------|
-| `vendor/serve-sim` + pack + pin | yes | — | — | — |
-| `apps/api/src/simulator.rs` | tests as migration source | domain → `core-service` | Android runtime | fat API module |
-| WS `simulator_*` | names | payloads | `platform`, per-platform probe, `claimed_by` | all-or-nothing `reason` as the only signal |
-| Web `features/simulator` | iframe panel, tab id | setup cards | Android reasons, dual-ready start | custom Device Screen |
-| `runtime-manager` layout | serve-sim paths | — | `serve_emu_runtime_dir` | DevicePreviewManager here |
-| Metro / gradle | — | — | — | out of spec |
+| Piece                           | Keep                      | Move                    | Add                                          | Delete                                     |
+| ------------------------------- | ------------------------- | ----------------------- | -------------------------------------------- | ------------------------------------------ |
+| `vendor/serve-sim` + pack + pin | yes                       | —                       | —                                            | —                                          |
+| `apps/api/src/simulator.rs`     | tests as migration source | domain → `core-service` | Android runtime                              | fat API module                             |
+| WS `simulator_*`                | names                     | payloads                | `platform`, per-platform probe, `claimed_by` | all-or-nothing `reason` as the only signal |
+| Web `features/simulator`        | iframe panel, tab id      | setup cards             | Android reasons, dual-ready start            | custom Device Screen                       |
+| `runtime-manager` layout        | serve-sim paths           | —                       | `serve_emu_runtime_dir`                      | DevicePreviewManager here                  |
+| Metro / gradle                  | —                         | —                       | —                                            | out of spec                                |
 
 Do not invent a plugin framework. Platforms are an enum: `Ios | Android`.
 
@@ -219,12 +219,12 @@ Stop: remove that workspace’s claim, SIGTERM our child, do not `--kill` all he
 
 Keep WebSocket-only. No REST.
 
-| Action | Input | Output |
-|--------|--------|--------|
-| `simulator_probe` | `{}` | `SimulatorProbe` (ios + android) |
-| `simulator_start` | `{ workspace_id, platform?, udid? }` | `{ ready, reason?, url?, udid?, platform? }` + probe flatten **or** nested platforms — pick nested `ios`/`android` and stop flattening the old single `reason` as the only field. Keep a convenience `reason` = blocking reason for this start attempt. |
-| `simulator_stop` | `{ workspace_id }` | `{ stopped: true }` |
-| `simulator_status` | `{ workspace_id }` | `DeviceClaim \| null` including `platform` |
+| Action             | Input                                | Output                                                                                                                                                                                                                                                  |
+| ------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `simulator_probe`  | `{}`                                 | `SimulatorProbe` (ios + android)                                                                                                                                                                                                                        |
+| `simulator_start`  | `{ workspace_id, platform?, udid? }` | `{ ready, reason?, url?, udid?, platform? }` + probe flatten **or** nested platforms — pick nested `ios`/`android` and stop flattening the old single `reason` as the only field. Keep a convenience `reason` = blocking reason for this start attempt. |
+| `simulator_stop`   | `{ workspace_id }`                   | `{ stopped: true }`                                                                                                                                                                                                                                     |
+| `simulator_status` | `{ workspace_id }`                   | `DeviceClaim \| null` including `platform`                                                                                                                                                                                                              |
 
 Event: `simulator_download_progress` `{ workspace_id?, helper?, downloaded, total }`.
 

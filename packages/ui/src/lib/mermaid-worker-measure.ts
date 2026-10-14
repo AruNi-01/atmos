@@ -139,10 +139,11 @@ function transformFromFunction(name: string, args: number[]): SvgMatrix | null {
       const sin = Math.sin(rad);
       const rotation = { a: cos, b: sin, c: -sin, d: cos, e: 0, f: 0 };
       if (args.length < 3) return rotation;
-      return multiplyMatrix(
-        multiplyMatrix({ ...IDENTITY, e: args[1], f: args[2] }, rotation),
-        { ...IDENTITY, e: -args[1], f: -args[2] },
-      );
+      return multiplyMatrix(multiplyMatrix({ ...IDENTITY, e: args[1], f: args[2] }, rotation), {
+        ...IDENTITY,
+        e: -args[1],
+        f: -args[2],
+      });
     }
     default:
       return null;
@@ -161,7 +162,14 @@ function parseSvgTransform(value: string | null | undefined): SvgMatrix {
 }
 
 function applyTransformToBox(bounds: MermaidMeasureBox, matrix: SvgMatrix): MermaidMeasureBox {
-  if (matrix.a === 1 && matrix.b === 0 && matrix.c === 0 && matrix.d === 1 && matrix.e === 0 && matrix.f === 0) {
+  if (
+    matrix.a === 1 &&
+    matrix.b === 0 &&
+    matrix.c === 0 &&
+    matrix.d === 1 &&
+    matrix.e === 0 &&
+    matrix.f === 0
+  ) {
     return bounds;
   }
   if (matrix.a === 1 && matrix.b === 0 && matrix.c === 0 && matrix.d === 1) {

@@ -7,9 +7,7 @@ import type { ReviewTarget } from "@/api/ws-api";
 import { ReviewContextProvider } from "@/features/diff/components/review/ReviewContextProvider";
 import { ReviewActions } from "@/features/diff/components/review/ReviewActions";
 import ReviewView, { type ReviewViewOpenFileArgs } from "@/features/diff/components/ReviewView";
-import {
-  EDITOR_REVIEW_GROUP_PREFIX,
-} from "@/features/editor/store/use-editor-store";
+import { EDITOR_REVIEW_GROUP_PREFIX } from "@/features/editor/store/use-editor-store";
 import { createCanvasCenterTab } from "@/features/canvas/lib/canvas-center-tabs";
 import {
   getCanvasContextId,
@@ -89,10 +87,7 @@ function CanvasReviewWidgetBody({
         <ReviewActions />
       </div>
       <div className="min-h-0 flex-1">
-        <ReviewView
-          contextId={contextId}
-          onOpenReviewFile={handleOpenReviewFile}
-        />
+        <ReviewView contextId={contextId} onOpenReviewFile={handleOpenReviewFile} />
       </div>
     </div>
   );

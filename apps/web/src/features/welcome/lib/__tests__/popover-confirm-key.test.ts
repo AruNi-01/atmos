@@ -21,8 +21,7 @@ describe("isPopoverConfirmKey", () => {
   it("prefers the ScrollArea viewport when present", () => {
     const viewport = { id: "viewport" } as unknown as HTMLElement;
     const root = {
-      querySelector: (sel: string) =>
-        sel.includes("scroll-area-viewport") ? viewport : null,
+      querySelector: (sel: string) => (sel.includes("scroll-area-viewport") ? viewport : null),
     } as unknown as HTMLElement;
     expect(resolvePopoverScrollContainer(root)).toBe(viewport);
     const plain = { querySelector: () => null } as unknown as HTMLElement;

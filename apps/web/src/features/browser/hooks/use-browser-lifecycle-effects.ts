@@ -5,10 +5,7 @@ import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "reac
 
 import { isDesktopRuntime, isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
-import type {
-  BrowserBridgeController,
-  BrowserTransportMode,
-} from "../lib/browser-bridge/types";
+import type { BrowserBridgeController, BrowserTransportMode } from "../lib/browser-bridge/types";
 import {
   PREVIEW_EXTENSION_REQUIRED_MESSAGE,
   PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
@@ -169,14 +166,18 @@ export function useBrowserLifecycleEffects({
     }
 
     const timeoutId = window.setTimeout(() => {
-      setPreviewLoadError((previous) => previous ?? createPreviewLoadError(
-        requestedIframeUrl,
-        "Browser failed to load",
-        "The new page never finished loading.",
-        [
-          "The URL may be invalid, the server may be down, or the browser may have rejected the navigation before committing a new document.",
-        ],
-      ));
+      setPreviewLoadError(
+        (previous) =>
+          previous ??
+          createPreviewLoadError(
+            requestedIframeUrl,
+            "Browser failed to load",
+            "The new page never finished loading.",
+            [
+              "The URL may be invalid, the server may be down, or the browser may have rejected the navigation before committing a new document.",
+            ],
+          ),
+      );
       setIsPreviewLoading(false);
     }, 12000);
 
@@ -370,16 +371,14 @@ export function useBrowserLifecycleEffects({
       return;
     }
     void syncDesktopPreview();
-  }, [
-    desktopCommittedUrl,
-    paintGuest,
-    preferredTransportMode,
-    syncDesktopPreview,
-  ]);
+  }, [desktopCommittedUrl, paintGuest, preferredTransportMode, syncDesktopPreview]);
 
-  useEffect(() => () => {
-    teardownTransport(false);
-    iframeUrlWatcherCleanupRef.current?.();
-    iframeUrlWatcherCleanupRef.current = null;
-  }, [iframeUrlWatcherCleanupRef, teardownTransport]);
+  useEffect(
+    () => () => {
+      teardownTransport(false);
+      iframeUrlWatcherCleanupRef.current?.();
+      iframeUrlWatcherCleanupRef.current = null;
+    },
+    [iframeUrlWatcherCleanupRef, teardownTransport],
+  );
 }

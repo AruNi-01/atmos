@@ -1,4 +1,7 @@
-import type { AgentServerMessage, AgentToolCallContentItem } from "@/features/agent/hooks/use-agent-session";
+import type {
+  AgentServerMessage,
+  AgentToolCallContentItem,
+} from "@/features/agent/hooks/use-agent-session";
 import type {
   AssistantBlock,
   AssistantEntry,
@@ -13,13 +16,17 @@ function streamUsageToTurnUsage(usage: unknown): AssistantEntry["usage"] | undef
   if (!usage || typeof usage !== "object") return undefined;
   const value = usage as Record<string, unknown>;
   const inputTokens =
-    typeof value.input_tokens === "number" ? value.input_tokens :
-    typeof value.inputTokens === "number" ? value.inputTokens :
-    undefined;
+    typeof value.input_tokens === "number"
+      ? value.input_tokens
+      : typeof value.inputTokens === "number"
+        ? value.inputTokens
+        : undefined;
   const outputTokens =
-    typeof value.output_tokens === "number" ? value.output_tokens :
-    typeof value.outputTokens === "number" ? value.outputTokens :
-    undefined;
+    typeof value.output_tokens === "number"
+      ? value.output_tokens
+      : typeof value.outputTokens === "number"
+        ? value.outputTokens
+        : undefined;
   if (inputTokens == null && outputTokens == null) return undefined;
   return {
     inputTokens,
@@ -65,7 +72,9 @@ function mergeToolCallContent(
   const merged = [...prev];
   for (const item of incoming) {
     if (item.type === "text") {
-      const idx = merged.findIndex((existing) => existing.type === "text" && existing.text === item.text);
+      const idx = merged.findIndex(
+        (existing) => existing.type === "text" && existing.text === item.text,
+      );
       if (idx < 0) merged.push(item);
       continue;
     }
@@ -75,13 +84,13 @@ function mergeToolCallContent(
           existing.type === "diff" &&
           existing.path === item.path &&
           existing.new_content === item.new_content &&
-          existing.old_content === item.old_content
+          existing.old_content === item.old_content,
       );
       if (idx < 0) merged.push(item);
       continue;
     }
     const idx = merged.findIndex(
-      (existing) => existing.type === "terminal" && existing.terminal_id === item.terminal_id
+      (existing) => existing.type === "terminal" && existing.terminal_id === item.terminal_id,
     );
     if (idx < 0) merged.push(item);
   }
@@ -124,7 +133,7 @@ export function applyServerMessageToEntries(
           ...last,
           blocks,
           isStreaming: !msg.done,
-          usage: msg.done ? streamUsageToTurnUsage(msg.usage) ?? last.usage : last.usage,
+          usage: msg.done ? (streamUsageToTurnUsage(msg.usage) ?? last.usage) : last.usage,
         },
       ];
     }
@@ -133,7 +142,11 @@ export function applyServerMessageToEntries(
       ...prev,
       {
         role: "assistant",
-        blocks: [{ type: isThinking ? "thinking" : "text", content: msg.delta } as TextBlock | ThinkingBlock],
+        blocks: [
+          { type: isThinking ? "thinking" : "text", content: msg.delta } as
+            | TextBlock
+            | ThinkingBlock,
+        ],
         isStreaming: !msg.done,
         usage: msg.done ? streamUsageToTurnUsage(msg.usage) : undefined,
       },
@@ -174,9 +187,7 @@ export function applyServerMessageToEntries(
 
       let toolIdx = -1;
       if (id) {
-        toolIdx = blocks.findIndex(
-          (b) => b.type === "tool_call" && b.tool_call_id === id
-        );
+        toolIdx = blocks.findIndex((b) => b.type === "tool_call" && b.tool_call_id === id);
       }
       if (toolIdx < 0 && isTerminal) {
         const incoming = msg.raw_input as Record<string, unknown> | undefined;
@@ -186,14 +197,18 @@ export function applyServerMessageToEntries(
             const r = b.raw_input as Record<string, unknown> | undefined;
             if (!r || typeof r !== "object") return false;
             for (const k of ["file_path", "path", "url", "command"]) {
-              if (incoming[k] != null && r[k] != null && String(incoming[k]) === String(r[k])) return true;
+              if (incoming[k] != null && r[k] != null && String(incoming[k]) === String(r[k]))
+                return true;
             }
             return false;
           });
         }
         if (toolIdx < 0) {
           for (let i = blocks.length - 1; i >= 0; i--) {
-            if (blocks[i].type === "tool_call" && (blocks[i] as ToolCallBlock).status?.toLowerCase() === "running") {
+            if (
+              blocks[i].type === "tool_call" &&
+              (blocks[i] as ToolCallBlock).status?.toLowerCase() === "running"
+            ) {
               toolIdx = i;
               break;
             }
@@ -210,7 +225,7 @@ export function applyServerMessageToEntries(
           description:
             isGenericToolDescription(msg.description) && prevBlock.description
               ? prevBlock.description
-              : (msg.description || prevBlock.description),
+              : msg.description || prevBlock.description,
           status: msg.status,
           raw_input: hasMeaningfulToolInput(msg.raw_input) ? msg.raw_input : prevBlock.raw_input,
           content: mergeToolCallContent(prevBlock.content, msg.content),

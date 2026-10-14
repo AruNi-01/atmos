@@ -40,11 +40,7 @@ export function parseAlignMode(value: unknown): AlignMode {
 export function parseStackDirection(value: unknown): StackDirection {
   const s = String(value ?? "").trim();
   if (s === "horizontal" || s === "vertical") return s;
-  throw new CanvasAgentError(
-    "VALIDATION_ARG",
-    "direction must be horizontal or vertical",
-    false,
-  );
+  throw new CanvasAgentError("VALIDATION_ARG", "direction must be horizontal or vertical", false);
 }
 
 export function parseDistributeDirection(value: unknown): DistributeDirection {
@@ -54,21 +50,13 @@ export function parseDistributeDirection(value: unknown): DistributeDirection {
 export function parsePlaceSide(value: unknown): PlaceSide {
   const s = String(value ?? "").trim();
   if (s === "top" || s === "bottom" || s === "left" || s === "right") return s;
-  throw new CanvasAgentError(
-    "VALIDATION_ARG",
-    "side must be top, bottom, left, or right",
-    false,
-  );
+  throw new CanvasAgentError("VALIDATION_ARG", "side must be top, bottom, left, or right", false);
 }
 
 export function parsePlaceAlign(value: unknown): PlaceAlign {
   const s = String(value ?? "center").trim();
   if (s === "start" || s === "center" || s === "end") return s;
-  throw new CanvasAgentError(
-    "VALIDATION_ARG",
-    "align must be start, center, or end",
-    false,
-  );
+  throw new CanvasAgentError("VALIDATION_ARG", "align must be start, center, or end", false);
 }
 
 export function runAlign(editor: Editor, shapes: TLShape[], alignment: AlignMode): void {

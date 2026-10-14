@@ -35,59 +35,55 @@ function commitLayouts(
   markCenterLayoutDirty();
 }
 
-export const useCenterPaneSavedLayoutStore = create<CenterPaneSavedLayoutStore>(
-  (set, get) => ({
-    layouts: [],
-    hydrated: false,
-    diskSynced: false,
+export const useCenterPaneSavedLayoutStore = create<CenterPaneSavedLayoutStore>((set, get) => ({
+  layouts: [],
+  hydrated: false,
+  diskSynced: false,
 
-    hydrate: () => {
-      if (get().hydrated) return;
-      hydrateCenterLayoutCache();
-    },
+  hydrate: () => {
+    if (get().hydrated) return;
+    hydrateCenterLayoutCache();
+  },
 
-    syncFromDisk: () => syncCenterLayoutFromDisk(),
+  syncFromDisk: () => syncCenterLayoutFromDisk(),
 
-    list: () => {
-      if (!get().hydrated) get().hydrate();
-      return get().layouts;
-    },
+  list: () => {
+    if (!get().hydrated) get().hydrate();
+    return get().layouts;
+  },
 
-    getById: (id) => {
-      if (!get().hydrated) get().hydrate();
-      return get().layouts.find((item) => item.id === id) ?? null;
-    },
+  getById: (id) => {
+    if (!get().hydrated) get().hydrate();
+    return get().layouts.find((item) => item.id === id) ?? null;
+  },
 
-    save: (layout) => {
-      if (!get().hydrated) get().hydrate();
-      const now = Date.now();
-      const nextItem: SavedCenterLayout = {
-        ...layout,
-        id: layout.id || createSavedLayoutId(),
-        name: layout.name.trim() || "Layout",
-        updatedAt: now,
-        createdAt: layout.createdAt || now,
-      };
-      const without = get().layouts.filter((item) => item.id !== nextItem.id);
-      const layouts = [nextItem, ...without].slice(0, MAX_SAVED_CENTER_LAYOUTS);
-      commitLayouts(set, layouts);
-      return nextItem;
-    },
+  save: (layout) => {
+    if (!get().hydrated) get().hydrate();
+    const now = Date.now();
+    const nextItem: SavedCenterLayout = {
+      ...layout,
+      id: layout.id || createSavedLayoutId(),
+      name: layout.name.trim() || "Layout",
+      updatedAt: now,
+      createdAt: layout.createdAt || now,
+    };
+    const without = get().layouts.filter((item) => item.id !== nextItem.id);
+    const layouts = [nextItem, ...without].slice(0, MAX_SAVED_CENTER_LAYOUTS);
+    commitLayouts(set, layouts);
+    return nextItem;
+  },
 
-    rename: (id, name) => {
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      const layouts = get().layouts.map((item) =>
-        item.id === id
-          ? { ...item, name: trimmed, updatedAt: Date.now() }
-          : item,
-      );
-      commitLayouts(set, layouts);
-    },
+  rename: (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const layouts = get().layouts.map((item) =>
+      item.id === id ? { ...item, name: trimmed, updatedAt: Date.now() } : item,
+    );
+    commitLayouts(set, layouts);
+  },
 
-    remove: (id) => {
-      const layouts = get().layouts.filter((item) => item.id !== id);
-      commitLayouts(set, layouts);
-    },
-  }),
-);
+  remove: (id) => {
+    const layouts = get().layouts.filter((item) => item.id !== id);
+    commitLayouts(set, layouts);
+  },
+}));

@@ -36,12 +36,8 @@ let cachedLocale: AutomationsLocale | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
-function automationsT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
-  const locale: AutomationsLocale =
-    currentAppLocale("en") === "zh" ? "zh" : "en";
+function automationsT(key: string, values?: Record<string, string | number>): string {
+  const locale: AutomationsLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({
@@ -80,15 +76,11 @@ export function useAutomationRunHistoryState({
   const runs = runListQuery.data?.runs ?? [];
   const runsLoading = runListQuery.isLoading || runListQuery.isFetching;
 
-  const [selectedRun, setSelectedRun] =
-    React.useState<AutomationRunSummary | null>(null);
-  const [artifact, setArtifact] =
-    React.useState<AutomationArtifactResponse | null>(null);
+  const [selectedRun, setSelectedRun] = React.useState<AutomationRunSummary | null>(null);
+  const [artifact, setArtifact] = React.useState<AutomationArtifactResponse | null>(null);
   const [artifactLoading, setArtifactLoading] = React.useState(false);
   const selectedAutomationGuidRef = React.useRef<string | null>(null);
-  const liveRunOutputRef = React.useRef<Map<string, LiveRunOutputBuffer>>(
-    new Map(),
-  );
+  const liveRunOutputRef = React.useRef<Map<string, LiveRunOutputBuffer>>(new Map());
   const loadErrorToastShownRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -164,11 +156,7 @@ export function useAutomationRunHistoryState({
       try {
         const [allResponse] = await Promise.all([
           queryClient.fetchQuery(
-            automationRunListQueryOptions(
-              scope,
-              connectionState,
-              ALL_AUTOMATION_RUNS_KEY,
-            ),
+            automationRunListQueryOptions(scope, connectionState, ALL_AUTOMATION_RUNS_KEY),
           ),
           automationGuid
             ? queryClient.fetchQuery(
@@ -180,10 +168,7 @@ export function useAutomationRunHistoryState({
       } catch (err) {
         toastManager.add({
           title: automationsT("runHistory.failedToLoadTitle"),
-          description:
-            err instanceof Error
-              ? err.message
-              : automationsT("runHistory.unknownError"),
+          description: err instanceof Error ? err.message : automationsT("runHistory.unknownError"),
           type: "error",
         });
         return [];
@@ -241,50 +226,37 @@ export function useAutomationRunHistoryState({
     [patchRunList, selectedRunGuid],
   );
 
-  const applyRunOutput = React.useCallback(
-    (payload: AutomationRunOutputEvent) => {
-      const finalChunk = payload.final_chunk ? payload.chunk : "";
-      const buffer = liveRunOutputRef.current.get(payload.run_guid) ?? {
-        final: "",
-      };
-      if (finalChunk) {
-        buffer.final = `${buffer.final}${finalChunk}`;
-      }
-      liveRunOutputRef.current.set(payload.run_guid, buffer);
+  const applyRunOutput = React.useCallback((payload: AutomationRunOutputEvent) => {
+    const finalChunk = payload.final_chunk ? payload.chunk : "";
+    const buffer = liveRunOutputRef.current.get(payload.run_guid) ?? {
+      final: "",
+    };
+    if (finalChunk) {
+      buffer.final = `${buffer.final}${finalChunk}`;
+    }
+    liveRunOutputRef.current.set(payload.run_guid, buffer);
 
-      setArtifact((current) => {
-        if (!current || current.run_guid !== payload.run_guid) {
-          return current;
-        }
-        if (current.artifact === "final") {
-          return finalChunk
-            ? { ...current, content: `${current.content}${finalChunk}` }
-            : current;
-        }
+    setArtifact((current) => {
+      if (!current || current.run_guid !== payload.run_guid) {
         return current;
-      });
-    },
-    [],
-  );
+      }
+      if (current.artifact === "final") {
+        return finalChunk ? { ...current, content: `${current.content}${finalChunk}` } : current;
+      }
+      return current;
+    });
+  }, []);
 
   const handleArtifactFetch = React.useCallback(
     async (run: AutomationRunSummary, kind: AutomationArtifactKind) => {
       setArtifactLoading(true);
       try {
         const response = await getArtifact(run.guid, kind);
-        setArtifact(
-          mergeLiveOutputIntoArtifact(
-            response,
-            liveRunOutputRef.current.get(run.guid),
-          ),
-        );
+        setArtifact(mergeLiveOutputIntoArtifact(response, liveRunOutputRef.current.get(run.guid)));
       } catch (err) {
         toastManager.add({
           title: automationsT("runHistory.failedToFetchArtifactTitle"),
-          description:
-            err instanceof Error
-              ? err.message
-              : automationsT("runHistory.unknownError"),
+          description: err instanceof Error ? err.message : automationsT("runHistory.unknownError"),
           type: "error",
         });
       } finally {

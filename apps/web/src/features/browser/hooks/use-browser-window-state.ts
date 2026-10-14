@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
 import {
   acquireBrowserMacChrome,
   releaseBrowserMacChrome,
-} from '@/features/browser/lib/browser-mac-chrome';
-import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
+} from "@/features/browser/lib/browser-mac-chrome";
+import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 
 interface PreviewWindowStateOptions {
   isMaximized?: boolean;
@@ -22,11 +22,9 @@ export function useBrowserWindowState(options: PreviewWindowStateOptions = {}) {
   // standalone browser windows.
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
 
-  const usesDenseBrowserChrome =
-    isMaximized || options.reserveDesktopWindowControlsInset === true;
+  const usesDenseBrowserChrome = isMaximized || options.reserveDesktopWindowControlsInset === true;
 
-  const needsDesktopPreviewSafeInset =
-    usesDenseBrowserChrome && needsTrafficLightsPadding;
+  const needsDesktopPreviewSafeInset = usesDenseBrowserChrome && needsTrafficLightsPadding;
 
   // Main-window maximize only: raise traffic lights to the dense tab rail.
   // Standalone browser windows are created with `browser` chrome already and

@@ -90,11 +90,15 @@ describe("api-operation-inventory", () => {
 
     for (const entry of inventory) {
       if (
-        (entry.classification === "deferred" || entry.classification === "excluded" ||
-         entry.status === "deferred" || entry.status === "excluded") &&
+        (entry.classification === "deferred" ||
+          entry.classification === "excluded" ||
+          entry.status === "deferred" ||
+          entry.status === "excluded") &&
         !entry.rationale
       ) {
-        violations.push(`${entry.domain}::${entry.operation} — deferred/excluded without rationale`);
+        violations.push(
+          `${entry.domain}::${entry.operation} — deferred/excluded without rationale`,
+        );
       }
     }
 

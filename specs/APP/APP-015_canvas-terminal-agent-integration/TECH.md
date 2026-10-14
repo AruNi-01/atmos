@@ -18,17 +18,17 @@ Delivers **`atmos canvas`** (CLI intent verbs), **Canvas Command Bus** in `apps/
 
 ## 2. Locked product constants
 
-| Constant | Value | Notes |
-|----------|--------|--------|
-| **System skill id** | `atmos-canvas-agent` | Directory `skills/atmos-canvas-agent/` in repo; sync target `~/.atmos/skills/.system/atmos-canvas-agent/`. |
-| **M8 text story** | **`create-note` only** | No separate `create-text` in M1; plain text diagrams use note/sticky semantics. Document in Skill + `--help`. |
-| **Default multi-tab policy** | **Refuse ambiguous targets** | If more than one bridge-registered tab and CLI omits `--client-id`, fail with explicit stderr + structured error + registered id list in payload. |
-| **Layout grid bounds** | **Max 24×24** cells; max **256** ids per layout invocation | Prevent abuse / huge allocations; tighten if profiling says otherwise. |
-| **Correlation** | **`request_id`**: UUID v4 strings | Minted by **CLI issuer** each invoke; echoes through relay for log correlation (`agents/references/debug-logging.md`). |
-| **Relay timeout** | Default **45s** per invoke | Configurable `--timeout-ms` on CLI for slow machines. |
-| **CLI ingress** | **Authenticated `POST` JSON** to `apps/api` | Exact path in implementation (e.g. `POST /api/v1/canvas/agent/invoke`); **no CLI WebSocket** in M1. Reuse the same auth story as other CLI→API flows. |
-| **Agent presence user id** | `agent:<actor_id>` | `actor_id` defaults to the bridge `client_id` / terminal agent label hash if CLI does not supply one. Must be stable for a run so `startFollowingUser` remains valid. |
-| **Agent presence TTL** | 60s idle | Remove or mark idle after no Agent command for 60s; refresh on every accepted command. |
+| Constant                     | Value                                                      | Notes                                                                                                                                                                 |
+| ---------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **System skill id**          | `atmos-canvas-agent`                                       | Directory `skills/atmos-canvas-agent/` in repo; sync target `~/.atmos/skills/.system/atmos-canvas-agent/`.                                                            |
+| **M8 text story**            | **`create-note` only**                                     | No separate `create-text` in M1; plain text diagrams use note/sticky semantics. Document in Skill + `--help`.                                                         |
+| **Default multi-tab policy** | **Refuse ambiguous targets**                               | If more than one bridge-registered tab and CLI omits `--client-id`, fail with explicit stderr + structured error + registered id list in payload.                     |
+| **Layout grid bounds**       | **Max 24×24** cells; max **256** ids per layout invocation | Prevent abuse / huge allocations; tighten if profiling says otherwise.                                                                                                |
+| **Correlation**              | **`request_id`**: UUID v4 strings                          | Minted by **CLI issuer** each invoke; echoes through relay for log correlation (`agents/references/debug-logging.md`).                                                |
+| **Relay timeout**            | Default **45s** per invoke                                 | Configurable `--timeout-ms` on CLI for slow machines.                                                                                                                 |
+| **CLI ingress**              | **Authenticated `POST` JSON** to `apps/api`                | Exact path in implementation (e.g. `POST /api/v1/canvas/agent/invoke`); **no CLI WebSocket** in M1. Reuse the same auth story as other CLI→API flows.                 |
+| **Agent presence user id**   | `agent:<actor_id>`                                         | `actor_id` defaults to the bridge `client_id` / terminal agent label hash if CLI does not supply one. Must be stable for a run so `startFollowingUser` remains valid. |
+| **Agent presence TTL**       | 60s idle                                                   | Remove or mark idle after no Agent command for 60s; refresh on every accepted command.                                                                                |
 
 ---
 
@@ -95,7 +95,7 @@ flowchart TB
 
 **How to read this diagram**
 
-- **`SKILL.md`**: teaches *when* and *how* to use the CLI; visible on disk and **not** carried over the relay. **`skill-dir`** only prints a local path and **does not** open a WebSocket.
+- **`SKILL.md`**: teaches _when_ and _how_ to use the CLI; visible on disk and **not** carried over the relay. **`skill-dir`** only prints a local path and **does not** open a WebSocket.
 - **Relay for `atmos canvas` (except `skill-dir`)**: **CLI uses HTTP** to the API; **only the web client** holds a **`/ws`** connection. **Execution** happens in **CanvasView + Editor**; persistence stays the existing **canvas board** path (APP-014).
 - **Follow Agent**: the command bus also updates a local tldraw **`TLInstancePresence`** record for the Agent so the user can call tldraw follow APIs (`startFollowingUser` / `zoomToUser`) against a real presence target.
 
@@ -289,10 +289,10 @@ Implement end-to-end in:
 
 ### 7.1 New `WsAction` variants (browser → server, planned)
 
-| Action | Direction | Purpose |
-|--------|-----------|---------|
-| `canvas_bridge_register` | Web → srv | Announce bridge-eligible Canvas tab (`client_id`, flags). |
-| `canvas_bridge_unregister` | Web → srv | Tear down routing state. |
+| Action                         | Direction | Purpose                                                     |
+| ------------------------------ | --------- | ----------------------------------------------------------- |
+| `canvas_bridge_register`       | Web → srv | Announce bridge-eligible Canvas tab (`client_id`, flags).   |
+| `canvas_bridge_unregister`     | Web → srv | Tear down routing state.                                    |
 | `canvas_agent_dispatch_result` | Web → srv | Completes **HTTP waiters** and correlates **`request_id`**. |
 
 ### 7.2 Server notification events
@@ -347,9 +347,9 @@ HTTP invoke accepts optional **`actor`** metadata (TECH §6). API normalizes it 
 ```ts
 interface CanvasAgentActor {
   type: "terminal-agent";
-  id: string;       // stable within an agent run; used to derive agent:<id>
-  name: string;     // e.g. "Codex Agent", "Claude Code", "Terminal Agent"
-  color: string;    // CSS color; default from deterministic palette
+  id: string; // stable within an agent run; used to derive agent:<id>
+  name: string; // e.g. "Codex Agent", "Claude Code", "Terminal Agent"
+  color: string; // CSS color; default from deterministic palette
 }
 ```
 
@@ -368,7 +368,7 @@ import { InstancePresenceRecordType } from "tldraw";
 
 const agentPresence = InstancePresenceRecordType.create({
   id: InstancePresenceRecordType.createId(agentUserId),
-  userId: agentUserId,              // "agent:<actor.id>"
+  userId: agentUserId, // "agent:<actor.id>"
   userName: actor.name,
   color: actor.color,
   currentPageId: editor.getCurrentPageId(),
@@ -376,7 +376,7 @@ const agentPresence = InstancePresenceRecordType.create({
     ? { x: changedCenter.x, y: changedCenter.y, type: "default", rotation: 0 }
     : null,
   selectedShapeIds: changedShapeIds,
-  camera: cameraForChangedBounds,   // enough for startFollowingUser viewport math
+  camera: cameraForChangedBounds, // enough for startFollowingUser viewport math
   screenBounds: syntheticScreenBoundsForChangedBounds,
   lastActivityTimestamp: Date.now(),
   chatMessage: "",
@@ -430,35 +430,35 @@ CLI flags are **thin skins** over **`command` + `args`**. Naming below matches *
 
 ### 10.1 Read / diagnostics
 
-| CLI verb | `command` string | Payload notes |
-|---------|-------------------|---------------|
-| `status` | `status` | **Server-side only**; does not dispatch to CanvasView. Response includes **`bridge_registered_count`**, ambiguity hints, **`clients[]`** summaries, and whether bridge is enabled for known tabs. |
-| `get-state` | `get_state` | Routed to Canvas tab; optional **`page_id`** in args; default current page. Response schema §10.3. |
+| CLI verb    | `command` string | Payload notes                                                                                                                                                                                     |
+| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`    | `status`         | **Server-side only**; does not dispatch to CanvasView. Response includes **`bridge_registered_count`**, ambiguity hints, **`clients[]`** summaries, and whether bridge is enabled for known tabs. |
+| `get-state` | `get_state`      | Routed to Canvas tab; optional **`page_id`** in args; default current page. Response schema §10.3.                                                                                                |
 
 ### 10.2 Mutations (non-exhaustive keys — final types in TS/Rust)
 
-| CLI verb | `command` | Args highlights |
-|----------|-----------|-----------------|
-| `create-note` | `create_note` | text, `{x,y}?`, `{w,h}?`, style ids bounded |
-| `create-frame` | `create_frame` | title?, bounds |
-| `create-geo` | `create_geo` | `kind` enum (must track supported **tldraw** geo kinds server-side validator list) |
-| `create-arrow` | `create_arrow` | `{x,y}` pairs for start/end in **page space** M1 |
-| `create-draw` | `create_draw` | structured points/path + stroke width/color |
-| `select` | `select` | `shape_ids: string[]` |
-| `clear-selection` | `clear_selection` | |
-| `move` | `move` | ids + delta `{dx, dy}` only for M1. Absolute placement can be added later if user demand appears. |
-| `delete` | `delete` | `shape_ids`; **requires CLI flag `--confirm`** mirrored in args `{ "confirm": true }` |
-| `layout-row` | `layout_row` | ids/order, gap |
-| `layout-column` | `layout_column` | |
-| `layout-grid` | `layout_grid` | rows, cols bounded (§2), spacing |
-| `update-shape` | `update_shape` | id → `{ patch … }` with **allow-listed keys only** (`color`, `fill`, …) |
-| `viewport` | `viewport` | `zoom`, `pan`, optional `bounds`/`center_ids` analogue |
+| CLI verb          | `command`         | Args highlights                                                                                   |
+| ----------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| `create-note`     | `create_note`     | text, `{x,y}?`, `{w,h}?`, style ids bounded                                                       |
+| `create-frame`    | `create_frame`    | title?, bounds                                                                                    |
+| `create-geo`      | `create_geo`      | `kind` enum (must track supported **tldraw** geo kinds server-side validator list)                |
+| `create-arrow`    | `create_arrow`    | `{x,y}` pairs for start/end in **page space** M1                                                  |
+| `create-draw`     | `create_draw`     | structured points/path + stroke width/color                                                       |
+| `select`          | `select`          | `shape_ids: string[]`                                                                             |
+| `clear-selection` | `clear_selection` |                                                                                                   |
+| `move`            | `move`            | ids + delta `{dx, dy}` only for M1. Absolute placement can be added later if user demand appears. |
+| `delete`          | `delete`          | `shape_ids`; **requires CLI flag `--confirm`** mirrored in args `{ "confirm": true }`             |
+| `layout-row`      | `layout_row`      | ids/order, gap                                                                                    |
+| `layout-column`   | `layout_column`   |                                                                                                   |
+| `layout-grid`     | `layout_grid`     | rows, cols bounded (§2), spacing                                                                  |
+| `update-shape`    | `update_shape`    | id → `{ patch … }` with **allow-listed keys only** (`color`, `fill`, …)                           |
+| `viewport`        | `viewport`        | `zoom`, `pan`, optional `bounds`/`center_ids` analogue                                            |
 
 Nice / later (**N2**):
 
-| CLI verb | Notes |
-|---------|-------|
-| `apply` | Single JSON blob of ordered actions `{ _type }` validators shared with bus internals. |
+| CLI verb | Notes                                                                                 |
+| -------- | ------------------------------------------------------------------------------------- |
+| `apply`  | Single JSON blob of ordered actions `{ _type }` validators shared with bus internals. |
 
 ### 10.3 `get-state` response sketch
 
@@ -528,17 +528,17 @@ Use OS home dirs (`dirs` crate or POSIX `HOME`), **never** WS (**§4.5**).
 
 Use **HTTP status** + JSON body **`{ ok: false, error: { code, message, recoverable? } }`** (exact shape aligned with existing **`apps/api`** error DTOs).
 
-| Code | HTTP (illustrative) | Meaning | Recoverable |
-|------|---------------------|---------|-------------|
-| `CANVAS_BRIDGE_OFFLINE` | 503 | No registered tab | Yes |
-| `CANVAS_CLIENT_AMBIGUOUS` | 409 | Multiple registrations | Yes — `--client-id` |
-| `BRIDGE_DISABLED` | 403 | Tab not accepting | Yes |
-| `EDITOR_NOT_READY` | 503 | Editor not ready | Retry |
-| `STALE_SHAPE_ID` | 422 | Stale id | `get-state` |
-| `VALIDATION_ARG` | 400 | Bad args | Fix args |
-| `PERMISSION_DENIED` | 401/403 | Auth | Refresh token |
-| `UNSUPPORTED_COMMAND` | 422 | Skew | Upgrade |
-| `RELAY_TIMEOUT` | 504 | Browser never answered | Retry |
+| Code                      | HTTP (illustrative) | Meaning                | Recoverable         |
+| ------------------------- | ------------------- | ---------------------- | ------------------- |
+| `CANVAS_BRIDGE_OFFLINE`   | 503                 | No registered tab      | Yes                 |
+| `CANVAS_CLIENT_AMBIGUOUS` | 409                 | Multiple registrations | Yes — `--client-id` |
+| `BRIDGE_DISABLED`         | 403                 | Tab not accepting      | Yes                 |
+| `EDITOR_NOT_READY`        | 503                 | Editor not ready       | Retry               |
+| `STALE_SHAPE_ID`          | 422                 | Stale id               | `get-state`         |
+| `VALIDATION_ARG`          | 400                 | Bad args               | Fix args            |
+| `PERMISSION_DENIED`       | 401/403             | Auth                   | Refresh token       |
+| `UNSUPPORTED_COMMAND`     | 422                 | Skew                   | Upgrade             |
+| `RELAY_TIMEOUT`           | 504                 | Browser never answered | Retry               |
 
 Emit **English** stderr hints for humans; Skill translates for agents.
 
@@ -572,15 +572,15 @@ Emit **English** stderr hints for humans; Skill translates for agents.
 
 ## 16. Implementation checklist (expected touch list)
 
-| Area | Files / modules (illustrative) |
-|------|--------------------------------|
-| Skill | `skills/atmos-canvas-agent/SKILL.md`, manifest, `ALL_SYSTEM_SKILL_NAMES` |
+| Area            | Files / modules (illustrative)                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Skill           | `skills/atmos-canvas-agent/SKILL.md`, manifest, `ALL_SYSTEM_SKILL_NAMES`                                                                         |
 | WS + relay core | `crates/infra/.../message.rs`, **`canvas_agent_dispatch`** notify, **`canvas_agent_dispatch_result`** handler linking to **pending HTTP waiter** |
-| HTTP ingress | **`apps/api/...`** Axum route + **`core-service`** helper shared with WS routing rules |
-| Web bus | `CanvasView.tsx`, `canvas-agent-bus.ts`, **`onEvent("canvas_agent_dispatch")`** |
-| Agent presence | `canvas-agent-presence.ts` (or similar), Canvas chrome activity chip / Follow Agent control |
-| CLI | `commands/canvas.rs`, **`reqwest`** / HTTP client deps, **`main.rs`** routing |
-| Clipboard M19 | Canvas chrome UI |
+| HTTP ingress    | **`apps/api/...`** Axum route + **`core-service`** helper shared with WS routing rules                                                           |
+| Web bus         | `CanvasView.tsx`, `canvas-agent-bus.ts`, **`onEvent("canvas_agent_dispatch")`**                                                                  |
+| Agent presence  | `canvas-agent-presence.ts` (or similar), Canvas chrome activity chip / Follow Agent control                                                      |
+| CLI             | `commands/canvas.rs`, **`reqwest`** / HTTP client deps, **`main.rs`** routing                                                                    |
+| Clipboard M19   | Canvas chrome UI                                                                                                                                 |
 
 ---
 
@@ -598,14 +598,14 @@ Emit **English** stderr hints for humans; Skill translates for agents.
 
 ## 18. Risks & mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| API base URL misconfigured | **`--api-url`** + clear error when host unreachable |
-| Orphaned HTTP waiters | Server timeout + structured **`RELAY_TIMEOUT`** |
-| Autosave races | §8.1 mutex / queue |
+| Risk                                             | Mitigation                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| API base URL misconfigured                       | **`--api-url`** + clear error when host unreachable                                  |
+| Orphaned HTTP waiters                            | Server timeout + structured **`RELAY_TIMEOUT`**                                      |
+| Autosave races                                   | §8.1 mutex / queue                                                                   |
 | Stale Agent presence / user follows old location | Presence TTL (§2), cleanup on bridge unregister, refresh from every accepted command |
-| Multi-tab confusion | §2 default refuse + `status` lists ids |
-| Accidental token in shell | Doc: read token from file/env; never log full URL |
+| Multi-tab confusion                              | §2 default refuse + `status` lists ids                                               |
+| Accidental token in shell                        | Doc: read token from file/env; never log full URL                                    |
 
 ---
 

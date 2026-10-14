@@ -4,8 +4,7 @@ import type { SimulatorClaimListItem } from "@atmos/api-types/ws/dto/simulator";
 export const DEVICE_PREVIEW_SLASH_COMMAND_ID = "device-preview";
 export const DEVICE_PREVIEW_SKILL_NAME = "atmos-device-preview";
 /** Installed by system skill sync, not the agent-host skill folder. */
-export const DEVICE_PREVIEW_SKILL_PATH =
-  "~/.atmos/skills/.system/atmos-device-preview/SKILL.md";
+export const DEVICE_PREVIEW_SKILL_PATH = "~/.atmos/skills/.system/atmos-device-preview/SKILL.md";
 
 export type DevicePreviewClaimInput = Pick<
   SimulatorClaimListItem,
@@ -171,9 +170,7 @@ export async function resolveDevicePreviewSkillPath(): Promise<string> {
   return DEVICE_PREVIEW_SKILL_PATH;
 }
 
-export async function loadDevicePreviewPrompt(
-  workspaceId?: string | null,
-): Promise<string> {
+export async function loadDevicePreviewPrompt(workspaceId?: string | null): Promise<string> {
   const skillPath = await resolveDevicePreviewSkillPath();
   try {
     const { simulatorApi } = await import("@/api/ws/simulator-api");
@@ -203,10 +200,11 @@ export function matchesDevicePreviewSlashQuery(query: string): boolean {
   );
 }
 
-export function buildDevicePreviewSlashCommand(opts: {
+export function buildDevicePreviewSlashCommand(opts: { label: string; description: string }): {
+  id: string;
   label: string;
   description: string;
-}): { id: string; label: string; description: string } {
+} {
   return {
     id: DEVICE_PREVIEW_SLASH_COMMAND_ID,
     label: opts.label,

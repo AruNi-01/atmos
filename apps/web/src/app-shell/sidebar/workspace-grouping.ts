@@ -1,8 +1,4 @@
-import type {
-  Project,
-  Workspace,
-  WorkspaceLabel,
-} from "@/shared/types/domain";
+import type { Project, Workspace, WorkspaceLabel } from "@/shared/types/domain";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
@@ -92,9 +88,7 @@ function createCachedWorkspaceTranslator(
   };
 }
 
-const workspaceGroupingT = createCachedWorkspaceTranslator(
-  "appShell.workspaceGrouping",
-);
+const workspaceGroupingT = createCachedWorkspaceTranslator("appShell.workspaceGrouping");
 const workspaceKanbanT = createCachedWorkspaceTranslator("appShell.task");
 
 export function flattenProjectWorkspaces(projects: Project[]): FlattenedWorkspaceEntry[] {
@@ -122,9 +116,7 @@ export function flattenProjects(projects: Project[]): FlattenedProjectEntry[] {
 /** Most recently visited (or created) workspace — used to bucket a project row. */
 export function getProjectGroupingWorkspace(project: Project): Workspace | undefined {
   if (project.workspaces.length === 0) return undefined;
-  return [...project.workspaces].sort(
-    (a, b) => getRecencyTimestamp(b) - getRecencyTimestamp(a),
-  )[0];
+  return [...project.workspaces].sort((a, b) => getRecencyTimestamp(b) - getRecencyTimestamp(a))[0];
 }
 
 function getRecencySource(workspace: Workspace): string {
@@ -255,10 +247,7 @@ function getOrderedLabels(
   labelGroupOrder: string[],
 ): WorkspaceLabel[] {
   return orderWorkspaceLabels(
-    [
-      ...availableLabels,
-      ...items.flatMap((item) => getEntryLabels(item)),
-    ],
+    [...availableLabels, ...items.flatMap((item) => getEntryLabels(item))],
     labelGroupOrder,
   );
 }
@@ -271,12 +260,13 @@ export function getWorkspaceLabelGroupKey(
   if (workspace.labels.length === 0) return UNTAGGED_WORKSPACE_GROUP_KEY;
 
   const workspaceLabelIds = new Set(workspace.labels.map((label) => label.id));
-  return orderWorkspaceLabels(
-    [...availableLabels, ...workspace.labels],
-    labelGroupOrder,
-  ).find((label) => workspaceLabelIds.has(label.id))?.id
-    ?? workspace.labels[0]?.id
-    ?? UNTAGGED_WORKSPACE_GROUP_KEY;
+  return (
+    orderWorkspaceLabels([...availableLabels, ...workspace.labels], labelGroupOrder).find((label) =>
+      workspaceLabelIds.has(label.id),
+    )?.id ??
+    workspace.labels[0]?.id ??
+    UNTAGGED_WORKSPACE_GROUP_KEY
+  );
 }
 
 export function getWorkspaceStatusGroupKey(status: unknown): string {
@@ -388,9 +378,7 @@ export function groupWorkspaces(
 
     return [...WORKSPACE_PRIORITY_OPTIONS]
       .sort(
-        (a, b) =>
-          WORKSPACE_PRIORITY_SORT_WEIGHT[b.value] -
-          WORKSPACE_PRIORITY_SORT_WEIGHT[a.value],
+        (a, b) => WORKSPACE_PRIORITY_SORT_WEIGHT[b.value] - WORKSPACE_PRIORITY_SORT_WEIGHT[a.value],
       )
       .map((priority) => ({
         key: priority.value,
@@ -461,7 +449,7 @@ export function groupWorkspaces(
     }
   }
 
-  return SIDEBAR_TIME_GROUP_KEYS
-    .map((key) => grouped.get(key))
-    .filter((group): group is WorkspaceGroup => !!group);
+  return SIDEBAR_TIME_GROUP_KEYS.map((key) => grouped.get(key)).filter(
+    (group): group is WorkspaceGroup => !!group,
+  );
 }

@@ -22,7 +22,19 @@ import {
   MorphPopoverContent,
   MorphPopoverTrigger,
 } from "@workspace/ui/components/motion/popover-morph";
-import { Download, Folder, LogOut, Maximize2, Minimize2, MoreHorizontal, MessagesSquare, PictureInPicture, PictureInPicture2, Plus, X } from "lucide-react";
+import {
+  Download,
+  Folder,
+  LogOut,
+  Maximize2,
+  Minimize2,
+  MoreHorizontal,
+  MessagesSquare,
+  PictureInPicture,
+  PictureInPicture2,
+  Plus,
+  X,
+} from "lucide-react";
 import type { AgentCapabilities } from "@/api/rest-api";
 import type { AgentChatSurfaceVariant } from "@/features/agent/hooks/use-agent-chat-session-types";
 import type { AgentChatHistoryRow } from "@/features/agent/lib/agent-chat-thread";
@@ -146,13 +158,9 @@ export function AgentChatHeader({
   const animatedSessionTitle = shouldAnimateSessionTitle ? displaySessionTitle : null;
   const threadLabel = t("composer.workingDirectory.thread");
   const displayedCwd = agentChatCwdLabel(sessionCwd ?? localPath, threadLabel);
-  const displayedCwdLabel = sessionCwd
-    ? t("header.cwd.current")
-    : t("header.cwd.context");
+  const displayedCwdLabel = sessionCwd ? t("header.cwd.current") : t("header.cwd.context");
   const lockedSelection = variant === "modal" && chatId ? contextSelection : null;
-  const lockedContextIsThread = lockedSelection
-    ? isThreadWorkingDirectory(lockedSelection)
-    : false;
+  const lockedContextIsThread = lockedSelection ? isThreadWorkingDirectory(lockedSelection) : false;
   const lockedContextLabel = lockedSelection
     ? resolveWorkingDirectoryLabel(lockedSelection, contextProjects, threadLabel)
     : null;
@@ -184,10 +192,10 @@ export function AgentChatHeader({
         trafficLightsContentInset ? "pl-[124px]" : "pl-4",
         constrainWidth && "mx-auto w-full max-w-3xl",
         useNativeWindowDrag && "desktop-drag-region select-none",
-        variant === "modal" && handleDragStart && "cursor-grab active:cursor-grabbing"
+        variant === "modal" && handleDragStart && "cursor-grab active:cursor-grabbing",
       )}
     >
-      <div className="flex min-w-0 max-w-[50%] items-start gap-2">
+      <div className="flex max-w-[50%] min-w-0 items-start gap-2">
         {historySidebarControl}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <TooltipProvider delayDuration={300}>
@@ -218,7 +226,11 @@ export function AgentChatHeader({
                   )}
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="bottom" align="start" className="z-100 max-w-[300px] break-words text-xs">
+              <TooltipContent
+                side="bottom"
+                align="start"
+                className="z-100 max-w-[300px] text-xs break-words"
+              >
                 {sessionTitleText}
               </TooltipContent>
             </Tooltip>
@@ -234,7 +246,7 @@ export function AgentChatHeader({
                     ) : (
                       <Folder className="size-3 shrink-0 text-muted-foreground/70" />
                     )}
-                    <span className="truncate select-none text-[10px] leading-none text-muted-foreground/80">
+                    <span className="truncate text-[10px] leading-none text-muted-foreground/80 select-none">
                       {lockedContextLabel}
                     </span>
                   </div>
@@ -257,7 +269,7 @@ export function AgentChatHeader({
                   <div className="inline-flex w-fit max-w-full cursor-help items-center gap-1.5 overflow-hidden rounded-md border border-border/50 bg-muted/40 px-2 py-0.5">
                     <Folder className="size-3 shrink-0 text-muted-foreground/70" />
                     <span
-                      className="truncate select-none text-[10px] leading-none text-muted-foreground/80"
+                      className="truncate text-[10px] leading-none text-muted-foreground/80 select-none"
                       style={
                         isAgentScratchCwd(sessionCwd ?? localPath)
                           ? undefined
@@ -291,26 +303,24 @@ export function AgentChatHeader({
                 <Plus className="size-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {t("header.newSession.defaultTitle")}
-            </TooltipContent>
+            <TooltipContent side="bottom">{t("header.newSession.defaultTitle")}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
         {historyTriggerClassName === "hidden" ? null : (
-        <AgentChatHistoryPopover
-          triggerClassName={historyTriggerClassName}
-          historyOpen={historyOpen}
-          setHistoryOpen={setHistoryOpen}
-          historySessions={historySessions}
-          historyHasMore={historyHasMore}
-          historyLoading={historyLoading}
-          historyCursor={historyCursor}
-          historyResumeUnsupportedReason={historyResumeUnsupportedReason}
-          historyUnsupportedReason={historyUnsupportedReason}
-          loadHistorySessions={loadHistorySessions}
-          handleSelectHistorySession={handleSelectHistorySession}
-          isConnecting={isConnecting}
-        />
+          <AgentChatHistoryPopover
+            triggerClassName={historyTriggerClassName}
+            historyOpen={historyOpen}
+            setHistoryOpen={setHistoryOpen}
+            historySessions={historySessions}
+            historyHasMore={historyHasMore}
+            historyLoading={historyLoading}
+            historyCursor={historyCursor}
+            historyResumeUnsupportedReason={historyResumeUnsupportedReason}
+            historyUnsupportedReason={historyUnsupportedReason}
+            loadHistorySessions={loadHistorySessions}
+            handleSelectHistorySession={handleSelectHistorySession}
+            isConnecting={isConnecting}
+          />
         )}
         <MorphPopover open={moreOpen} onOpenChange={setMoreOpen}>
           <MorphPopoverTrigger>
@@ -343,9 +353,11 @@ export function AgentChatHeader({
             {showFullscreen ? (
               <HeaderMenuItem
                 icon={isFullscreen ? <Minimize2 /> : <Maximize2 />}
-                label={isFullscreen
-                  ? t("header.fullscreen.exitTooltip")
-                  : t("header.fullscreen.openTooltip")}
+                label={
+                  isFullscreen
+                    ? t("header.fullscreen.exitTooltip")
+                    : t("header.fullscreen.openTooltip")
+                }
                 onSelect={() => {
                   closeMore();
                   handleToggleFullscreen?.();
@@ -447,7 +459,7 @@ function HeaderMenuItem({
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors",
+        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors outline-none",
         destructive
           ? "text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10"
           : "text-foreground hover:bg-muted focus-visible:bg-muted",

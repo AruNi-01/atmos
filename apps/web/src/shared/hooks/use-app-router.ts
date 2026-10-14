@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useRouter as useNextRouter,
-  usePathname,
-} from "next/navigation";
+import { useRouter as useNextRouter, usePathname } from "next/navigation";
 import { useCallback, useMemo } from "react";
 
 import {
@@ -25,35 +22,28 @@ export function useAppRouter() {
   const pathname = usePathname();
   const interceptor = useAppNavigationInterceptor();
 
-  const normalizePath = useCallback(
-    (path: string) => {
-      const [pathAndQuery, hash = ""] = path.split("#", 2);
-      const [rawPathname, rawQuery = ""] = pathAndQuery.split("?", 2);
+  const normalizePath = useCallback((path: string) => {
+    const [pathAndQuery, hash = ""] = path.split("#", 2);
+    const [rawPathname, rawQuery = ""] = pathAndQuery.split("?", 2);
 
-      let nextPathname = rawPathname;
-      if (!nextPathname.startsWith("/")) {
-        nextPathname = `/${nextPathname}`;
-      }
+    let nextPathname = rawPathname;
+    if (!nextPathname.startsWith("/")) {
+      nextPathname = `/${nextPathname}`;
+    }
 
-      const isStaticExportBuild =
-        process.env.BUILD_TARGET === "desktop" ||
-        process.env.BUILD_TARGET === "local-web" ||
-        process.env.BUILD_TARGET === "pages";
+    const isStaticExportBuild =
+      process.env.BUILD_TARGET === "desktop" ||
+      process.env.BUILD_TARGET === "local-web" ||
+      process.env.BUILD_TARGET === "pages";
 
-      if (
-        isStaticExportBuild &&
-        nextPathname !== "/" &&
-        !nextPathname.endsWith("/")
-      ) {
-        nextPathname = `${nextPathname}/`;
-      }
+    if (isStaticExportBuild && nextPathname !== "/" && !nextPathname.endsWith("/")) {
+      nextPathname = `${nextPathname}/`;
+    }
 
-      const query = rawQuery ? `?${rawQuery}` : "";
-      const nextHash = hash ? `#${hash}` : "";
-      return `${nextPathname}${query}${nextHash}`;
-    },
-    [],
-  );
+    const query = rawQuery ? `?${rawQuery}` : "";
+    const nextHash = hash ? `#${hash}` : "";
+    return `${nextPathname}${query}${nextHash}`;
+  }, []);
 
   const commitWorkspaceNavigation = useCallback(
     (path: string, kind: "push" | "replace", currentHref?: string | null) => {

@@ -35,20 +35,25 @@ test.describe("smoke workspace", () => {
     await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
       timeout: 45_000,
     });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBeNull();
+    await expect.poll(async () => new URL(page.url()).searchParams.get("tab")).toBeNull();
 
     // Stay on this paint context: `?tab=` hops are leftover chrome after last-tab
     // files, and a full navigation remounts the strip. Open tools from plus.
     await activateWorkspaceToolTab(page, /变更|Changes/);
-    const changesStage = await getCenterStage(page);
-    const scopeTrigger = changesStage.getByRole("button", {
-      name: /选择变更范围|Select changes scope/,
-    });
-    await expect(scopeTrigger).toBeVisible({ timeout: 45_000 });
-    await scopeTrigger.click();
-    await page.getByRole("menuitem", { name: /^(图形历史|Graph History)$/ }).click();
+    // Graph History lives on the Changes landing. Clicking the sidecar scope
+    // dropdown uses Playwright hover, which crosses the plus trigger and
+    // intercepts the pointer (same class of flake as e676987aa).
+    const changesLanding = page.locator('[data-center-explorer-landing="changes"]');
+    const graphHistoryRow = changesLanding.locator('[data-center-explorer-row="graph-history"]');
+    await expect(graphHistoryRow).toBeVisible({ timeout: 45_000 });
+    await expect(
+      page.getByRole("button", { name: /选择变更范围|Select changes scope/ }),
+    ).toBeVisible({ timeout: 45_000 });
+    // Playwright click() hovers first: the plus trigger's onMouseEnter
+    // intercepts the pointer and the landing row is not actionably stable
+    // (same class of flake as e676987aa). Native click does not move the pointer.
+    await page.keyboard.press("Escape");
+    await graphHistoryRow.evaluate((el) => (el as HTMLButtonElement).click());
     // The tab's computed name can include the close control; do not require an exact match.
     await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
@@ -58,7 +63,10 @@ test.describe("smoke workspace", () => {
     const runStage = await getCenterStage(page);
     // The Run surface's inner terminal strip reuses the same 运行/Run tab name.
     await expect(
-      runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
+      runStage
+        .getByRole("tablist")
+        .first()
+        .getByRole("tab", { name: /运行|Run/ }),
     ).toBeVisible({ timeout: 45_000 });
 
     // GITHUB_HUB_CENTER_TAB_VISIBLE is off; GitHub is not a plus-menu / center tab.
@@ -109,18 +117,10 @@ test.describe("smoke workspace", () => {
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/workspace");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("id") ?? "")
-      .not.toBe("");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
-      .toBe("projects");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTask"))
-      .toBe("true");
-    await expect
-      .poll(async () => page.locator("html").getAttribute("lang"))
-      .toBe("zh");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("id") ?? "").not.toBe("");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("lsTab")).toBe("projects");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("lsTask")).toBe("true");
+    await expect.poll(async () => page.locator("html").getAttribute("lang")).toBe("zh");
     await expect(page.locator("body")).toBeVisible();
 
     const filesRoute = withSearchParams(workspaceUrl!, {
@@ -137,9 +137,7 @@ test.describe("smoke workspace", () => {
     await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
       timeout: 45_000,
     });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "")
-      .toBe("");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "").toBe("");
 
     await gotoSettingsRoute(page, "keyboard", { locale: "zh" });
     await expect

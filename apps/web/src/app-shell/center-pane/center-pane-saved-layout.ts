@@ -18,14 +18,8 @@ import {
   type CenterPaneLayout,
   type CenterPaneTree,
 } from "@/app-shell/center-pane/center-pane-layout";
-import {
-  CENTER_TAB_KINDS,
-  type CenterTabKind,
-} from "@/app-shell/center-stage-tab-model";
-import {
-  isCenterToolTabValue,
-  type CenterToolTabValue,
-} from "@/app-shell/center-tool-tabs";
+import { CENTER_TAB_KINDS, type CenterTabKind } from "@/app-shell/center-stage-tab-model";
+import { isCenterToolTabValue, type CenterToolTabValue } from "@/app-shell/center-tool-tabs";
 import {
   FIXED_TERMINAL_TAB_VALUE,
   TERMINAL_TAB_VALUE_PREFIX,
@@ -79,9 +73,7 @@ export function isLayoutSurfaceKind(kind: string): kind is CenterSurfaceKind {
 }
 
 /** @deprecated Use {@link isLayoutSurfaceKind}. */
-export function isPlusMenuSurfaceKind(
-  kind: string,
-): kind is LayoutCenterSurfaceKind {
+export function isPlusMenuSurfaceKind(kind: string): kind is LayoutCenterSurfaceKind {
   return LAYOUT_SURFACE_KIND_SET.has(kind);
 }
 
@@ -153,10 +145,7 @@ export function normalizeSavedCenterLayouts(raw: unknown): SavedCenterLayout[] {
       name: row.name,
       createdAt: typeof row.createdAt === "number" ? row.createdAt : Date.now(),
       updatedAt: typeof row.updatedAt === "number" ? row.updatedAt : Date.now(),
-      columnCount:
-        typeof row.columnCount === "number" && row.columnCount > 0
-          ? row.columnCount
-          : 1,
+      columnCount: typeof row.columnCount === "number" && row.columnCount > 0 ? row.columnCount : 1,
       columnFractions: Array.isArray(row.columnFractions)
         ? row.columnFractions.filter((n): n is number => typeof n === "number")
         : [1],
@@ -186,9 +175,7 @@ export function tabIdToSurfaceKind(tabId: string): CenterSurfaceKind | null {
   return kind;
 }
 
-export function isToolSurfaceKind(
-  kind: CenterSurfaceKind,
-): kind is CenterToolTabValue {
+export function isToolSurfaceKind(kind: CenterSurfaceKind): kind is CenterToolTabValue {
   return isCenterToolTabValue(kind);
 }
 
@@ -209,15 +196,11 @@ export function snapshotCenterLayout(
       surfaces.push(kind);
     }
     const activeKind =
-      tabIdToSurfaceKind(pane.activeTabId) ??
-      surfaces[0] ??
-      ("overview" as CenterSurfaceKind);
+      tabIdToSurfaceKind(pane.activeTabId) ?? surfaces[0] ?? ("overview" as CenterSurfaceKind);
     panes.push({
       id: pane.id,
       surfaces,
-      activeSurface: surfaces.includes(activeKind)
-        ? activeKind
-        : (surfaces[0] ?? "overview"),
+      activeSurface: surfaces.includes(activeKind) ? activeKind : (surfaces[0] ?? "overview"),
     });
   }
 

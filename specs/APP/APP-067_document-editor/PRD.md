@@ -60,7 +60,7 @@ flowchart TD
 - As a builder, I want the document stored as markdown on disk, so git, `@file`, and terminal agents see the same artifact I am editing.
 - As a builder, I want to edit a markdown file in a rendered preview (Obsidian-like), so I do not have to flip to raw source for ordinary writing.
 - As a builder, I want to `@` mention files, workspaces, branches, GitHub, and Linear in the composer, so the Agent receives real context rather than pasted paths.
-- As a builder, I want to insert Atmos objects as **real embeds** in the document (inline chip *or* block card, with status and action buttons), so a reader can preview and jump without leaving the prose messy — and so later embed kinds can reuse the same slot.
+- As a builder, I want to insert Atmos objects as **real embeds** in the document (inline chip _or_ block card, with status and action buttons), so a reader can preview and jump without leaving the prose messy — and so later embed kinds can reuse the same slot.
 - As a builder, I want **Copy Prompt** to copy the current selection and document context so I can paste it into any Agent — not to tell that Agent to edit this file.
 - As a builder, I want Rewrite / Generate to run the selected agent **headless from this editor’s composer**, stream text or markdown into Live, and wait until I Accept or Reject.
 - As a builder, I want Agent **code** changes and GitHub / review / patch displays to stay on their existing read-only surfaces, not inside Live.
@@ -75,7 +75,7 @@ flowchart TD
 - **M3 · Worktree markdown**: Source of truth is the UTF-8 `.md` file being edited. **New note** does **not** use a `docs/` folder. It opens an **untitled** Live tab (no disk write yet). Default proposed location is the current Project / Workspace **root** (`{effectivePath}/`). Default proposed name matches Canvas: `Untitled.md`, then `Untitled-1.md`, `Untitled-2.md`, … if that name exists in the chosen directory. The user writes first; **Save** on untitled is **Save as**: pick directory and filename (fields prefilled with those defaults), then `fs_write_file`. Later Cmd-S overwrites that path. Opening any **Live-eligible** worktree `.md` uses the same live editor. Review reports, `.mdx`, GitHub bodies, and patches are not Live-eligible.
 - **M4 · No document database**: No SQLite document / EditorAgent tables.
 - **M5 · Editing engine**: **Markdown-first live preview** (Obsidian-like WYSIWYM). The file remains markdown. **No** Notion-like block chrome (no drag handles, no nested-block document model). **No** BlockNote. **No** Tiptap paid Notion-like template / AI Toolkit. Library choice in TECH must be MIT and markdown-round-trip tested. **Live must look like Atmos**, not Milkdown Crepe/Nord: same typography and prose as today’s `MarkdownRenderer`; slash, toolbars, Accept/Reject, and embeds use `@workspace/ui`.
-- **M6 · GFM writing**: Paragraph, headings, bullet / numbered / task lists, quote, fenced code, GFM table, divider, images as relative worktree files. Undo / redo. Markdown shortcuts (`# `, `- `, `` ``` ``) work in Live the way Obsidian does for common marks.
+- **M6 · GFM writing**: Paragraph, headings, bullet / numbered / task lists, quote, fenced code, GFM table, divider, images as relative worktree files. Undo / redo. Markdown shortcuts (`# `, `- `, ` ``` `) work in Live the way Obsidian does for common marks.
 - **M7 · Live vs Source**: **Live** = rendered, editable preview. **Source** = existing `BaseCodeMirrorEditor`. Same file. Switching does not require a second schema. Source remains the escape hatch for messy markdown.
 - **M8 · Save**: Existing file-tab save (Cmd/Ctrl-S, dirty) once the note has a real path. Untitled notes: Cmd-S opens **Save as** (directory + filename). Autosave does not run until a path exists. No new persistence API (`fs_write_file`).
 - **M9 · Slash in the document**: `/` in Live inserts **markdown constructs** (heading, list, table, Atmos reference, …). This is not PromptComposer `/`. Composer slash stays in the composer dock only.
@@ -142,16 +142,16 @@ Aspirational counts are unknown; do not invent adoption percentages.
 
 ## BRAINSTORM forks
 
-| Fork | PRD decision |
-|------|----------------|
-| 1 Persistence | Worktree markdown. New note = untitled buffer; Save as defaults to `{effectivePath}/Untitled.md` (Canvas-style `Untitled-N`); no `docs/` folder; no SQLite document store. |
-| 2 Writing engine | **Editable markdown live preview.** No BlockNote, no Notion-like. |
-| 3 Agent runtime | Shared composer + **existing Agent Select**; Copy (citation) + headless in this editor (APP-024). No Terminal send. No agent file writes. Stream text or markdown into Live; Accept / Reject. ACP is N1. Wiki unchanged. |
-| 4 Shell | Existing `.md` file tab. No launchpad in v1. |
-| 5 Naming | Live / Source on the file tab. `@atmos/md-live` + `features/md-live`. Not `docs`, not `features/editor`. |
-| 6 Two modes | **Dropped.** Live vs Source replaces Notion-like vs Simple. |
-| 7 Transport | Reuse `fs_*`. Headless PTY tap only; no `terminal_input` to the user’s shell. |
-| 8 Coexistence | Source stays CodeMirror and is **unmounted** while Live is shown. Live only for Live-eligible `.md`. Review / GitHub / diffs stay dedicated read-only components (`MarkdownPatchDiff`). |
+| Fork             | PRD decision                                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1 Persistence    | Worktree markdown. New note = untitled buffer; Save as defaults to `{effectivePath}/Untitled.md` (Canvas-style `Untitled-N`); no `docs/` folder; no SQLite document store.                                               |
+| 2 Writing engine | **Editable markdown live preview.** No BlockNote, no Notion-like.                                                                                                                                                        |
+| 3 Agent runtime  | Shared composer + **existing Agent Select**; Copy (citation) + headless in this editor (APP-024). No Terminal send. No agent file writes. Stream text or markdown into Live; Accept / Reject. ACP is N1. Wiki unchanged. |
+| 4 Shell          | Existing `.md` file tab. No launchpad in v1.                                                                                                                                                                             |
+| 5 Naming         | Live / Source on the file tab. `@atmos/md-live` + `features/md-live`. Not `docs`, not `features/editor`.                                                                                                                 |
+| 6 Two modes      | **Dropped.** Live vs Source replaces Notion-like vs Simple.                                                                                                                                                              |
+| 7 Transport      | Reuse `fs_*`. Headless PTY tap only; no `terminal_input` to the user’s shell.                                                                                                                                            |
+| 8 Coexistence    | Source stays CodeMirror and is **unmounted** while Live is shown. Live only for Live-eligible `.md`. Review / GitHub / diffs stay dedicated read-only components (`MarkdownPatchDiff`).                                  |
 
 ## Milestones
 

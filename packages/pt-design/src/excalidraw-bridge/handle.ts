@@ -1,4 +1,9 @@
-import { PT_RADIUS_DEFAULT, radiusHandleRoundness, resolveRadiusChoice, type PtRadiusToken } from "../components/radius";
+import {
+  PT_RADIUS_DEFAULT,
+  radiusHandleRoundness,
+  resolveRadiusChoice,
+  type PtRadiusToken,
+} from "../components/radius";
 
 /**
  * Page-level handle look. Overlay stacking: position each page-level DOM layer
@@ -48,17 +53,19 @@ function radiusFromPt(pt: unknown): unknown {
   return props?.radius;
 }
 
-export function prepareLiveHandle<T extends {
-  id?: string;
-  customData?: { pt?: unknown };
-  backgroundColor?: string;
-  locked?: boolean;
-  roughness?: number;
-  roundness?: { type: number; value?: number } | null;
-  seed?: number;
-  strokeColor?: string;
-  strokeWidth?: number;
-}>(el: T, globalRadius: PtRadiusToken = PT_RADIUS_DEFAULT): T {
+export function prepareLiveHandle<
+  T extends {
+    id?: string;
+    customData?: { pt?: unknown };
+    backgroundColor?: string;
+    locked?: boolean;
+    roughness?: number;
+    roundness?: { type: number; value?: number } | null;
+    seed?: number;
+    strokeColor?: string;
+    strokeWidth?: number;
+  },
+>(el: T, globalRadius: PtRadiusToken = PT_RADIUS_DEFAULT): T {
   if (!el.customData?.pt) return el;
   const hiddenStroke =
     !el.strokeWidth ||

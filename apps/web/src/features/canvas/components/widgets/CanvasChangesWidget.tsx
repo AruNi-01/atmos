@@ -9,10 +9,7 @@ import {
   DIFF_GROUP_TAB_LABELS,
   type DiffChangeGroupKind,
 } from "@/features/diff/lib/diff-editor-paths";
-import {
-  ChangesToolbar,
-  type ChangesDiffScope,
-} from "@/app-shell/sidebar/ChangesToolbar";
+import { ChangesToolbar, type ChangesDiffScope } from "@/app-shell/sidebar/ChangesToolbar";
 import { createCanvasCenterTab } from "@/features/canvas/lib/canvas-center-tabs";
 import {
   getCanvasContextId,
@@ -23,8 +20,18 @@ import { useOpenCanvasCenterTab } from "@/features/canvas/hooks/use-open-canvas-
 import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
 import { useGitStore } from "@/features/git/store/use-git-store";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
-import { useGitChangedFilesQuery, invalidateGitQueries, GIT_WORKTREE_PARAMS } from "@/features/git/hooks/use-git-changed-files-query";
-import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES, collectStageAllPaths } from "@/features/git/lib/git-query-options";
+import {
+  useGitChangedFilesQuery,
+  invalidateGitQueries,
+  GIT_WORKTREE_PARAMS,
+} from "@/features/git/hooks/use-git-changed-files-query";
+import {
+  computeCompareParams,
+  selectCompareChangedFiles,
+  isCompareQueryEnabled,
+  EMPTY_CHANGED_FILES,
+  collectStageAllPaths,
+} from "@/features/git/lib/git-query-options";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { type TLShapeId } from "tldraw";
 
@@ -100,8 +107,8 @@ function CanvasChangesWidgetBody({
   const isLoading = worktreeQuery.isFetching || compareQuery.isFetching;
 
   const changesScopeKey = `${repoPath ?? ""}:${currentBranch ?? ""}`;
-  const [changesScopeState, setChangesScopeState] = React.useState<ChangesScopeState>(
-    () => defaultChangesScopeState(changesScopeKey),
+  const [changesScopeState, setChangesScopeState] = React.useState<ChangesScopeState>(() =>
+    defaultChangesScopeState(changesScopeKey),
   );
   const activeChangesScopeState =
     changesScopeState.key === changesScopeKey
@@ -122,9 +129,7 @@ function CanvasChangesWidgetBody({
   const setChangesScopeMenuOpen = React.useCallback(
     (open: boolean) => {
       setChangesScopeState((current) => ({
-        ...(current.key === changesScopeKey
-          ? current
-          : defaultChangesScopeState(changesScopeKey)),
+        ...(current.key === changesScopeKey ? current : defaultChangesScopeState(changesScopeKey)),
         menuOpen: open,
       }));
     },
@@ -170,30 +175,18 @@ function CanvasChangesWidgetBody({
   const displayedStagedFiles = stagedFiles;
   const displayedUnstagedFiles = unstagedFiles;
   const displayedUntrackedFiles = untrackedFiles;
-  const stageAllChanges = React.useCallback(
-    async () => {
-      await stageFiles(collectStageAllPaths(displayedUnstagedFiles, displayedUntrackedFiles));
-    },
-    [displayedUnstagedFiles, displayedUntrackedFiles, stageFiles],
-  );
-  const unstageAllChanges = React.useCallback(
-    async () => {
-      await unstageFiles(displayedStagedFiles.map((file) => file.path));
-    },
-    [displayedStagedFiles, unstageFiles],
-  );
-  const discardAllTrackedChanges = React.useCallback(
-    async () => {
-      await discardUnstagedChanges(displayedUnstagedFiles.map((file) => file.path));
-    },
-    [discardUnstagedChanges, displayedUnstagedFiles],
-  );
-  const trashAllUntrackedFiles = React.useCallback(
-    async () => {
-      await discardUntrackedFiles(displayedUntrackedFiles.map((file) => file.path));
-    },
-    [discardUntrackedFiles, displayedUntrackedFiles],
-  );
+  const stageAllChanges = React.useCallback(async () => {
+    await stageFiles(collectStageAllPaths(displayedUnstagedFiles, displayedUntrackedFiles));
+  }, [displayedUnstagedFiles, displayedUntrackedFiles, stageFiles]);
+  const unstageAllChanges = React.useCallback(async () => {
+    await unstageFiles(displayedStagedFiles.map((file) => file.path));
+  }, [displayedStagedFiles, unstageFiles]);
+  const discardAllTrackedChanges = React.useCallback(async () => {
+    await discardUnstagedChanges(displayedUnstagedFiles.map((file) => file.path));
+  }, [discardUnstagedChanges, displayedUnstagedFiles]);
+  const trashAllUntrackedFiles = React.useCallback(async () => {
+    await discardUntrackedFiles(displayedUntrackedFiles.map((file) => file.path));
+  }, [discardUntrackedFiles, displayedUntrackedFiles]);
   const hasDisplayedChanges =
     changesScope === "branch" || changesScope === "commit"
       ? displayedComparedFiles.length > 0
@@ -217,10 +210,7 @@ function CanvasChangesWidgetBody({
       filePath: string;
       preview: boolean;
     }) => {
-      if (
-        kind === "compared" ||
-        !repoPath
-      ) {
+      if (kind === "compared" || !repoPath) {
         return;
       }
       setSelectedFilePath(filePath);
@@ -312,7 +302,9 @@ function CanvasChangesWidgetBody({
               onStage={stageFiles}
               onDiscard={discardUnstagedChanges}
               onStageAll={() => stageFiles(displayedUnstagedFiles.map((file) => file.path))}
-              onDiscardAll={() => discardUnstagedChanges(displayedUnstagedFiles.map((file) => file.path))}
+              onDiscardAll={() =>
+                discardUnstagedChanges(displayedUnstagedFiles.map((file) => file.path))
+              }
             />
             <ChangeSection
               kind="untracked"
@@ -325,7 +317,9 @@ function CanvasChangesWidgetBody({
               onStage={stageFiles}
               onDiscard={discardUntrackedFiles}
               onStageAll={() => stageFiles(displayedUntrackedFiles.map((file) => file.path))}
-              onDiscardAll={() => discardUntrackedFiles(displayedUntrackedFiles.map((file) => file.path))}
+              onDiscardAll={() =>
+                discardUntrackedFiles(displayedUntrackedFiles.map((file) => file.path))
+              }
             />
           </>
         )}

@@ -1,4 +1,4 @@
-import type { SourceLocationResult } from '../source-locators/types';
+import type { SourceLocationResult } from "../source-locators/types";
 
 export interface PreviewElementRect {
   x: number;
@@ -37,16 +37,16 @@ export interface PreviewHoverPayload {
 }
 
 export type PreviewHelperCapability =
-  | 'dom-inspection'
-  | 'element-selection'
-  | 'source-locator:react'
-  | 'source-locator:vue'
-  | 'source-locator:angular'
-  | 'source-locator:svelte';
+  | "dom-inspection"
+  | "element-selection"
+  | "source-locator:react"
+  | "source-locator:vue"
+  | "source-locator:angular"
+  | "source-locator:svelte";
 
 export type PreviewHelperMessage =
   | {
-      type: 'atmos-browser:ready';
+      type: "atmos-browser:ready";
       sessionId: string;
       pageUrl: string;
       capabilities: PreviewHelperCapability[];
@@ -55,7 +55,7 @@ export type PreviewHelperMessage =
       faviconUrl?: string;
     }
   | {
-      type: 'atmos-browser:hover';
+      type: "atmos-browser:hover";
       sessionId: string;
       pageUrl: string;
       label?: string;
@@ -66,45 +66,45 @@ export type PreviewHelperMessage =
       };
     }
   | ({
-      type: 'atmos-browser:selected';
+      type: "atmos-browser:selected";
       sessionId: string;
     } & PreviewHelperPayload)
   | {
-      type: 'atmos-browser:cleared';
+      type: "atmos-browser:cleared";
       sessionId: string;
       pageUrl: string;
     }
   | {
-      type: 'atmos-browser:error';
+      type: "atmos-browser:error";
       sessionId: string;
       pageUrl: string;
       error: string;
     }
   | {
-      type: 'atmos-browser:navigation-changed';
+      type: "atmos-browser:navigation-changed";
       sessionId: string;
       pageUrl: string;
       pageTitle?: string;
       faviconUrl?: string;
     }
   | {
-      type: 'atmos-browser:title-changed';
+      type: "atmos-browser:title-changed";
       sessionId: string;
       pageUrl: string;
       pageTitle: string;
       faviconUrl?: string;
     }
   | {
-      type: 'atmos-browser:open-tab';
+      type: "atmos-browser:open-tab";
       sessionId: string;
       pageUrl: string;
       targetUrl: string;
     }
   | {
-      type: 'atmos-browser:toolbar-action';
+      type: "atmos-browser:toolbar-action";
       sessionId: string;
       pageUrl: string;
-      action: 'copy' | 'add' | 'update' | 'delete';
+      action: "copy" | "add" | "update" | "delete";
       annotationId?: string;
       note?: string;
       rect?: PreviewElementRect;
@@ -112,7 +112,7 @@ export type PreviewHelperMessage =
       sourceLocation?: SourceLocationResult | null;
     }
   | {
-      type: 'atmos-browser:pong';
+      type: "atmos-browser:pong";
       sessionId: string;
       pageUrl: string;
       pageTitle?: string;

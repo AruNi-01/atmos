@@ -12,7 +12,10 @@ import {
   cn,
 } from "@workspace/ui";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
-import { useProjectStore, type WorkspaceSetupProgress } from "@/features/project/store/use-project-store";
+import {
+  useProjectStore,
+  type WorkspaceSetupProgress,
+} from "@/features/project/store/use-project-store";
 import {
   getWorkspaceSetupPopoverWidth,
   getWorkspaceSetupProgressValue,
@@ -26,13 +29,7 @@ import {
 import { WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS } from "@/app-shell/header-workspace-jobs";
 import { usePausedDeadlineCountdown } from "@/app-shell/use-paused-deadline-countdown";
 
-function SetupPopoverSizeFrame({
-  width,
-  children,
-}: {
-  width: number;
-  children: React.ReactNode;
-}) {
+function SetupPopoverSizeFrame({ width, children }: { width: number; children: React.ReactNode }) {
   const reduceMotion = useReducedMotion();
 
   return (
@@ -79,17 +76,17 @@ function ProgressRing({
     : highlightReview
       ? "stroke-amber-500"
       : status === "error"
-      ? "stroke-destructive"
-      : status === "completed"
-        ? "stroke-emerald-500"
-        : "stroke-primary";
+        ? "stroke-destructive"
+        : status === "completed"
+          ? "stroke-emerald-500"
+          : "stroke-primary";
   const numberClass = highlightScriptTrust
     ? "text-destructive"
     : highlightReview
-    ? "text-amber-500"
-    : status === "error"
-      ? "text-destructive"
-      : "text-foreground";
+      ? "text-amber-500"
+      : status === "error"
+        ? "text-destructive"
+        : "text-foreground";
 
   return (
     <div className="relative flex size-[22px] shrink-0 items-center justify-center">
@@ -141,7 +138,8 @@ export function WorkspaceStatusPopover({
     (state) => state.setupProgress[progressProp.workspaceId] ?? progressProp,
   );
   const autoFinish = usePausedDeadlineCountdown({
-    sessionKey: progress.status === "completed" ? `${progress.workspaceId}:setup-auto-finish` : null,
+    sessionKey:
+      progress.status === "completed" ? `${progress.workspaceId}:setup-auto-finish` : null,
     durationMs: WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS,
     paused: chipHovering || actionHovering,
     onComplete: onFinish,

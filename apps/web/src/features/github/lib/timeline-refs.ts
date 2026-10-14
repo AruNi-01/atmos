@@ -52,9 +52,7 @@ export type TimelineRefLike = {
   };
 };
 
-export function isTimelineCrossReferencedItem(item: {
-  event?: string;
-}): boolean {
+export function isTimelineCrossReferencedItem(item: { event?: string }): boolean {
   return item.event === "cross-referenced";
 }
 
@@ -72,8 +70,7 @@ function parseOwnerRepo(
     const [owner, name] = fullName.split("/");
     if (owner && name) return { owner, repo: name };
   }
-  const owner =
-    typeof repo?.owner === "string" ? repo.owner : repo?.owner?.login;
+  const owner = typeof repo?.owner === "string" ? repo.owner : repo?.owner?.login;
   if (owner && repo?.name) return { owner, repo: repo.name };
   return { owner: fallbackOwner, repo: fallbackRepo };
 }
@@ -93,9 +90,7 @@ function lifecycleFromIssue(
   return "open";
 }
 
-function inferSubjectKind(
-  subject: NonNullable<TimelineRefLike["subject"]>,
-): TimelineRefKind {
+function inferSubjectKind(subject: NonNullable<TimelineRefLike["subject"]>): TimelineRefKind {
   const type = String(subject.type ?? "").toLowerCase();
   if (type === "pull_request" || type === "pr") return "pull_request";
   if (type === "issue") return "issue";
@@ -125,11 +120,7 @@ export function parseTimelineIssueSource(
   fallbackRepo: string,
 ): TimelineReference | null {
   if (!issue?.number) return null;
-  const { owner, repo } = parseOwnerRepo(
-    issue.repository,
-    fallbackOwner,
-    fallbackRepo,
-  );
+  const { owner, repo } = parseOwnerRepo(issue.repository, fallbackOwner, fallbackRepo);
   return {
     kind: issue.pull_request ? "pull_request" : "issue",
     number: issue.number,
@@ -148,21 +139,13 @@ export function getTimelineReference(
   fallbackRepo: string,
 ): TimelineReference | null {
   if (item.event === "cross-referenced") {
-    return parseTimelineIssueSource(
-      item.source?.issue,
-      fallbackOwner,
-      fallbackRepo,
-    );
+    return parseTimelineIssueSource(item.source?.issue, fallbackOwner, fallbackRepo);
   }
 
   if (item.event === "connected" || item.event === "disconnected") {
     const subject = item.subject;
     if (!subject?.number) return null;
-    const { owner, repo } = parseOwnerRepo(
-      subject.repository,
-      fallbackOwner,
-      fallbackRepo,
-    );
+    const { owner, repo } = parseOwnerRepo(subject.repository, fallbackOwner, fallbackRepo);
     const kind = inferSubjectKind(subject);
     return {
       kind,

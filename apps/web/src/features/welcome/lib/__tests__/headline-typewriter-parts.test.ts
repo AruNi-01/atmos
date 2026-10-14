@@ -62,10 +62,15 @@ describe("headlineTypewriterParts", () => {
   });
 
   it("drops a punctuation-only token", () => {
-    expect(headlineTypewriterParts("come_alive", t({
-      ...EN,
-      "helpers.headline.questionMark": "?",
-    }))).toEqual([
+    expect(
+      headlineTypewriterParts(
+        "come_alive",
+        t({
+          ...EN,
+          "helpers.headline.questionMark": "?",
+        }),
+      ),
+    ).toEqual([
       { text: "What" },
       { text: "should" },
       { text: "come" },

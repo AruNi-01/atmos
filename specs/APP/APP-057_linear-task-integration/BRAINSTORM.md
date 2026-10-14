@@ -40,24 +40,24 @@ Non-goals for v1:
 
 Provisional locks for this brainstorm — promote or revise in PRD.
 
-| # | Topic | Decision |
-|---|--------|----------|
-| D1 | **Sync model** | **No webhooks.** User-driven filter + fetch only. |
-| D2 | **Auth** | **Both API key and OAuth.** User picks either. Tokens/keys stored **locally** (global connection). See OAuth deep-dive. |
-| D3 | **Association depth** | Link + display snapshot only. No detail/timeline mirror. “Open in Linear” for depth. |
-| D4 | **Linear Team** | **Filter only** — not a bound Atmos entity. |
-| D5 | **Linear Project** | **Filter only** — not bound to Atmos Project. |
-| D6 | **Persistence** | **Dedicated association table** (not more columns on `workspace`). Redundant issue id + identifier + title (+ related display fields). |
-| D7 | **GitHub cross-links** | Show Linear’s GitHub chips/attachments in the list; optional reuse of existing GitHub flows when relevant. |
-| D8 | **Write path** | **Read-only** against Linear. Primary action = **create Atmos Workspace** (and multi-link). No Linear mutations. |
-| D9 | **Cardinality** | **Many Linear issues per Workspace** allowed. |
-| D10 | **Connection scope** | **One global Linear connection** per local Atmos install (not per Atmos Project). Filtering happens at list time (team / project / …). |
-| D11 | **List UI** | **Align with Linear Issues list** (see List UI section + screenshot reference). Filters will be richer than GitHub Task filters. |
-| D12 | **GitHub optional sync** | When creating a Workspace from a Linear issue, **may also attach GitHub link metadata** if Linear already points at a GitHub issue/PR (optional path; keep simple). |
-| D13 | **OAuth platforms** | **Both** desktop/loopback and web HTTPS callback — pick the redirect that matches **where the user is authenticating** (desktop shell vs web). |
-| D14 | **Import body / TODOs** | **Align with existing GitHub issue → workspace import** (same requirement/TODO extraction optionality and files — do not invent a Linear-only import product). |
+| #   | Topic                        | Decision                                                                                                                                                                                                                           |
+| --- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **Sync model**               | **No webhooks.** User-driven filter + fetch only.                                                                                                                                                                                  |
+| D2  | **Auth**                     | **Both API key and OAuth.** User picks either. Tokens/keys stored **locally** (global connection). See OAuth deep-dive.                                                                                                            |
+| D3  | **Association depth**        | Link + display snapshot only. No detail/timeline mirror. “Open in Linear” for depth.                                                                                                                                               |
+| D4  | **Linear Team**              | **Filter only** — not a bound Atmos entity.                                                                                                                                                                                        |
+| D5  | **Linear Project**           | **Filter only** — not bound to Atmos Project.                                                                                                                                                                                      |
+| D6  | **Persistence**              | **Dedicated association table** (not more columns on `workspace`). Redundant issue id + identifier + title (+ related display fields).                                                                                             |
+| D7  | **GitHub cross-links**       | Show Linear’s GitHub chips/attachments in the list; optional reuse of existing GitHub flows when relevant.                                                                                                                         |
+| D8  | **Write path**               | **Read-only** against Linear. Primary action = **create Atmos Workspace** (and multi-link). No Linear mutations.                                                                                                                   |
+| D9  | **Cardinality**              | **Many Linear issues per Workspace** allowed.                                                                                                                                                                                      |
+| D10 | **Connection scope**         | **One global Linear connection** per local Atmos install (not per Atmos Project). Filtering happens at list time (team / project / …).                                                                                             |
+| D11 | **List UI**                  | **Align with Linear Issues list** (see List UI section + screenshot reference). Filters will be richer than GitHub Task filters.                                                                                                   |
+| D12 | **GitHub optional sync**     | When creating a Workspace from a Linear issue, **may also attach GitHub link metadata** if Linear already points at a GitHub issue/PR (optional path; keep simple).                                                                |
+| D13 | **OAuth platforms**          | **Both** desktop/loopback and web HTTPS callback — pick the redirect that matches **where the user is authenticating** (desktop shell vs web).                                                                                     |
+| D14 | **Import body / TODOs**      | **Align with existing GitHub issue → workspace import** (same requirement/TODO extraction optionality and files — do not invent a Linear-only import product).                                                                     |
 | D15 | **Disconnect / stale creds** | **Do not delete association rows** when credentials expire or user disconnects. No webhooks ⇒ we cannot know remote lifecycle; **first successful link snapshot is the display source of truth** until the user re-links or edits. |
-| D16 | **Settings** | Settings → **Integrations** gains a **Linear** card (connect OAuth / API key, status, disconnect). Show **API quota usage** panels analogous to GitHub’s rate-limit bars (`IntegrationsSettingsSection` + `github_rate_limit`). |
+| D16 | **Settings**                 | Settings → **Integrations** gains a **Linear** card (connect OAuth / API key, status, disconnect). Show **API quota usage** panels analogous to GitHub’s rate-limit bars (`IntegrationsSettingsSection` + `github_rate_limit`).    |
 
 ## Options
 
@@ -65,7 +65,7 @@ Provisional locks for this brainstorm — promote or revise in PRD.
 
 What it is:
 
-- Settings → Integrations → Linear: connect via **OAuth** *or* paste **API key**.
+- Settings → Integrations → Linear: connect via **OAuth** _or_ paste **API key**.
 - One global connection; Task Management gains a **Linear** source tab.
 - Rich filters (team, project, state/view tabs, labels, assignee, …) → on-demand GraphQL list.
 - Row UI mirrors Linear’s issue list density (priority, `LAN-48`, status, title, labels, project, GitHub `#N`, assignee, dates).
@@ -92,14 +92,14 @@ Deferred.
 
 ### Why both key and OAuth
 
-| | API key | OAuth |
-|--|---------|--------|
-| UX | Paste key from Linear Settings | “Connect Linear” button |
-| Setup cost for Atmos | None (user-owned key) | Need Atmos-owned Linear OAuth Application |
-| Scope control | User picks Read / Write / team limits in Linear UI | App requests `read` only (v1) |
-| Rate limits (docs table) | ~2.5k req/h (prose also cites 5k) | ~5k req/h |
-| Complexity budget | Higher (3M pts/h) | Lower (2M pts/h) |
-| Fits v1 traffic | Yes (on-demand list) | Yes |
+|                          | API key                                            | OAuth                                     |
+| ------------------------ | -------------------------------------------------- | ----------------------------------------- |
+| UX                       | Paste key from Linear Settings                     | “Connect Linear” button                   |
+| Setup cost for Atmos     | None (user-owned key)                              | Need Atmos-owned Linear OAuth Application |
+| Scope control            | User picks Read / Write / team limits in Linear UI | App requests `read` only (v1)             |
+| Rate limits (docs table) | ~2.5k req/h (prose also cites 5k)                  | ~5k req/h                                 |
+| Complexity budget        | Higher (3M pts/h)                                  | Lower (2M pts/h)                          |
+| Fits v1 traffic          | Yes (on-demand list)                               | Yes                                       |
 
 For on-demand lists, **quota is not the driver**. Dual support is about **user preference**: power users already have keys; others prefer Connect.
 
@@ -117,13 +117,13 @@ What is “user local” in Atmos:
 
 What gets stored:
 
-| Credential | Who issues it | Store locally? |
-|------------|---------------|----------------|
-| Linear **API key** | User, in Linear Settings | Yes (secret) |
-| OAuth **access_token** | Linear token endpoint (~24h) | Yes (secret) |
-| OAuth **refresh_token** | Linear token endpoint | Yes (secret) |
-| OAuth **client_id** | Atmos OAuth app (public identifier) | Can ship in app config (not a secret) |
-| OAuth **client_secret** | Atmos OAuth app | **Must not** ship in open-source / client bundle if avoidable — see PKCE |
+| Credential              | Who issues it                       | Store locally?                                                           |
+| ----------------------- | ----------------------------------- | ------------------------------------------------------------------------ |
+| Linear **API key**      | User, in Linear Settings            | Yes (secret)                                                             |
+| OAuth **access_token**  | Linear token endpoint (~24h)        | Yes (secret)                                                             |
+| OAuth **refresh_token** | Linear token endpoint               | Yes (secret)                                                             |
+| OAuth **client_id**     | Atmos OAuth app (public identifier) | Can ship in app config (not a secret)                                    |
+| OAuth **client_secret** | Atmos OAuth app                     | **Must not** ship in open-source / client bundle if avoidable — see PKCE |
 
 API key and user tokens are **the user’s** secrets; storing them locally is correct for a local-first product (same idea as `gh` credentials on disk).
 
@@ -250,9 +250,9 @@ grant_type=refresh_token
 
 ### Platform notes (D13 — both shells)
 
-| Where user authenticates | Redirect approach |
-|--------------------------|-------------------|
-| **Desktop (Electron)** | Loopback `127.0.0.1` during connect and/or custom protocol `atmos://linear/callback`. PKCE. |
+| Where user authenticates  | Redirect approach                                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Desktop (Electron)**    | Loopback `127.0.0.1` during connect and/or custom protocol `atmos://linear/callback`. PKCE.                           |
 | **Web (local or hosted)** | Registered **HTTPS (or local origin) redirect** on the web app / API callback route the user is actually using. PKCE. |
 
 Product rule: **implement both**; at connect time choose the redirect URI registered for the current shell. OAuth app registration must list **all** redirect URIs Atmos will use (desktop loopback + web callback(s)).
@@ -275,15 +275,15 @@ TECH still owns exact ports/paths and how the local API participates in the code
 
 ## Concept mapping (deliberately loose)
 
-| Linear | Atmos v1 role |
-|--------|----------------|
-| Linear Workspace | Implicit tenant of the connected credentials; not an Atmos entity |
-| Team | **List filter** (+ required context when Linear API scopes issues by team) |
-| Linear Project | **List filter** + optional **row chip** (see UI) |
-| Issue | External task we list / multi-link |
-| Attachments / GitHub chips | Display; optional GitHub handoff |
-| Atmos Project | Git repo container; **no** Linear Team binding |
-| Atmos Workspace | Work unit; **0..N** Linear issue links |
+| Linear                     | Atmos v1 role                                                              |
+| -------------------------- | -------------------------------------------------------------------------- |
+| Linear Workspace           | Implicit tenant of the connected credentials; not an Atmos entity          |
+| Team                       | **List filter** (+ required context when Linear API scopes issues by team) |
+| Linear Project             | **List filter** + optional **row chip** (see UI)                           |
+| Issue                      | External task we list / multi-link                                         |
+| Attachments / GitHub chips | Display; optional GitHub handoff                                           |
+| Atmos Project              | Git repo container; **no** Linear Team binding                             |
+| Atmos Workspace            | Work unit; **0..N** Linear issue links                                     |
 
 Homonym warning: always prefix in UI copy (“Linear issue”, “Linear team”, “Linear project”).
 
@@ -347,9 +347,9 @@ GitHub today: `github_rate_limit` → `core` / `search` / `graphql` bars (used/l
 
 Linear product intent:
 
-| Bucket | Headers on GraphQL responses | UI |
-|--------|------------------------------|-----|
-| **Requests** | `X-RateLimit-Requests-Limit` / `Remaining` / `Reset` | Progress bar |
+| Bucket         | Headers on GraphQL responses                           | UI           |
+| -------------- | ------------------------------------------------------ | ------------ |
+| **Requests**   | `X-RateLimit-Requests-Limit` / `Remaining` / `Reset`   | Progress bar |
 | **Complexity** | `X-RateLimit-Complexity-Limit` / `Remaining` / `Reset` | Progress bar |
 
 - Show only when connected; Refresh re-probes (cheap viewer query or last response headers — TECH).
@@ -362,17 +362,17 @@ Reference: Linear Issues list for team/workspace `Land_atmos` (user-provided scr
 
 ### Density / row anatomy (left → right)
 
-| Region | Linear reference | Atmos list field |
-|--------|------------------|------------------|
-| Priority | Orange `!`, gray `---` | `priority` (urgent/high/…/none) |
-| Identifier | `LAN-48` | `identifier` |
-| Status | Open circle / completed check | `state` (type + name); icon by state type |
-| Title | Full issue title | `title` (single line, truncate) |
-| Labels | Pill chips (`enhancement`, `Feature`, `UI`, `Bug`) | `labels[]` |
-| Project | Cube + name (`Test`) | Linear project name if any (filter + display only) |
-| GitHub | `#164` style chips | Parsed GitHub issue/PR numbers/urls from attachments |
-| Assignee | Avatar / empty | `assignee` avatar or placeholder |
-| Dates | Created / updated (e.g. Jul 20 · Aug 10) | `createdAt` / `updatedAt` (relative or short month-day) |
+| Region     | Linear reference                                   | Atmos list field                                        |
+| ---------- | -------------------------------------------------- | ------------------------------------------------------- |
+| Priority   | Orange `!`, gray `---`                             | `priority` (urgent/high/…/none)                         |
+| Identifier | `LAN-48`                                           | `identifier`                                            |
+| Status     | Open circle / completed check                      | `state` (type + name); icon by state type               |
+| Title      | Full issue title                                   | `title` (single line, truncate)                         |
+| Labels     | Pill chips (`enhancement`, `Feature`, `UI`, `Bug`) | `labels[]`                                              |
+| Project    | Cube + name (`Test`)                               | Linear project name if any (filter + display only)      |
+| GitHub     | `#164` style chips                                 | Parsed GitHub issue/PR numbers/urls from attachments    |
+| Assignee   | Avatar / empty                                     | `assignee` avatar or placeholder                        |
+| Dates      | Created / updated (e.g. Jul 20 · Aug 10)           | `createdAt` / `updatedAt` (relative or short month-day) |
 
 Row click / primary CTA:
 
@@ -401,25 +401,25 @@ Visual language: use Atmos design system components, but **information hierarchy
 
 ## Key forks in the road
 
-| Fork | Status |
-|------|--------|
-| Auth key vs OAuth | **Resolved: both** |
-| Write to Linear | **Resolved: no** — create Atmos Workspace only |
-| Cardinality | **Resolved: many links per workspace** |
-| Connection scope | **Resolved: global** |
-| Team/Project binding | **Resolved: filter only** |
-| List UI fidelity | **Resolved: align with Linear list** |
-| OAuth platforms | **Resolved: both desktop + web** (redirect by auth surface) |
-| GitHub on create-workspace | **Resolved: allowed** when Linear has GitHub link |
-| Body/TODO import | **Resolved: align with GitHub** |
-| Disconnect vs links | **Resolved: keep association snapshots** |
-| Settings + quota UI | **Resolved: Integrations Linear card + rate bars like GitHub** |
-| OAuth redirect URIs / code exchange | **Open → TECH** (register multi-URI; PKCE) |
-| Association table generic vs linear-specific | **Open → TECH** |
-| Migrate GitHub columns into same table later | **Open → TECH** (out of v1 product need) |
-| Multi-link chip UI density | **Open → PRD** (all ids vs primary + “+N”) |
-| Filter preset exact set for v1 | **Open → PRD** (Active/Backlog/All + team/project as must) |
-| Linear rate probe WS action shape | **Open → TECH** (mirror `github_rate_limit`) |
+| Fork                                         | Status                                                         |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| Auth key vs OAuth                            | **Resolved: both**                                             |
+| Write to Linear                              | **Resolved: no** — create Atmos Workspace only                 |
+| Cardinality                                  | **Resolved: many links per workspace**                         |
+| Connection scope                             | **Resolved: global**                                           |
+| Team/Project binding                         | **Resolved: filter only**                                      |
+| List UI fidelity                             | **Resolved: align with Linear list**                           |
+| OAuth platforms                              | **Resolved: both desktop + web** (redirect by auth surface)    |
+| GitHub on create-workspace                   | **Resolved: allowed** when Linear has GitHub link              |
+| Body/TODO import                             | **Resolved: align with GitHub**                                |
+| Disconnect vs links                          | **Resolved: keep association snapshots**                       |
+| Settings + quota UI                          | **Resolved: Integrations Linear card + rate bars like GitHub** |
+| OAuth redirect URIs / code exchange          | **Open → TECH** (register multi-URI; PKCE)                     |
+| Association table generic vs linear-specific | **Open → TECH**                                                |
+| Migrate GitHub columns into same table later | **Open → TECH** (out of v1 product need)                       |
+| Multi-link chip UI density                   | **Open → PRD** (all ids vs primary + “+N”)                     |
+| Filter preset exact set for v1               | **Open → PRD** (Active/Backlog/All + team/project as must)     |
+| Linear rate probe WS action shape            | **Open → TECH** (mirror `github_rate_limit`)                   |
 
 ## Open questions
 
@@ -513,10 +513,10 @@ Visual language: use Atmos design system components, but **information hierarchy
 
 APP-056 (Hub) is the **account root**. Linear auth is **not** a second identity system.
 
-| Mode | When | Credential store |
-|------|------|------------------|
+| Mode               | When                                       | Credential store                           |
+| ------------------ | ------------------------------------------ | ------------------------------------------ |
 | **Hub-bound only** | User signed into Atmos Hub (GitHub/Google) | Hub `user_integrations` keyed by `user_id` |
-| ~~Local fallback~~ | **Removed** | No dual store — guide user to sign in |
+| ~~Local fallback~~ | **Removed**                                | No dual store — guide user to sign in      |
 
 **Optimal single design (no dual path):**
 

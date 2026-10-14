@@ -12,7 +12,11 @@ import {
 import { useTranslations } from "next-intl";
 import { skillsApi, type SkillInfo } from "@/api/ws-api";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { useSkillsListQuery, useInvalidateSkillsList, forceRefreshSkillsList } from "@/features/skills/hooks/use-skills-query";
+import {
+  useSkillsListQuery,
+  useInvalidateSkillsList,
+  forceRefreshSkillsList,
+} from "@/features/skills/hooks/use-skills-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { queryKeys } from "@/api/query/query-keys";
@@ -37,11 +41,7 @@ import { SkillInstallTerminalDialog } from "./SkillInstallTerminalDialog";
 import { SkillsInstalledTab } from "./SkillsInstalledTab";
 import { SkillsMarketTab } from "./SkillsMarketTab";
 import { SkillsResourcesTab } from "./SkillsResourcesTab";
-import {
-  marketCategories,
-  resourceCategories,
-  type SkillMarketItem,
-} from "../lib/market-data";
+import { marketCategories, resourceCategories, type SkillMarketItem } from "../lib/market-data";
 import {
   buildSkillDetailUrl,
   buildSkillListUrl,
@@ -53,7 +53,10 @@ import {
 export const SkillsView: React.FC = () => {
   const t = useTranslations("skills.view");
   const router = useAppRouter();
-  const [{ skillsTab: activeTab, filter: scopeFilter, projects: projectsParam, q: query }, setParams] = useQueryStates(skillsParams);
+  const [
+    { skillsTab: activeTab, filter: scopeFilter, projects: projectsParam, q: query },
+    setParams,
+  ] = useQueryStates(skillsParams);
   const { skillScope, skillId } = useContextParams();
   const {
     phase: pushPhase,
@@ -74,7 +77,9 @@ export const SkillsView: React.FC = () => {
   const [detailSkill, setDetailSkill] = useState<SkillInfo | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [installingSkill, setInstallingSkill] = useState<SkillMarketItem | null>(null);
-  const [collapsedMarketCategories, setCollapsedMarketCategories] = useState<Record<string, boolean>>({});
+  const [collapsedMarketCategories, setCollapsedMarketCategories] = useState<
+    Record<string, boolean>
+  >({});
   const detailSkillRef = useRef(detailSkill);
   detailSkillRef.current = detailSkill;
   const pushPhaseRef = useRef(pushPhase);
@@ -121,13 +126,10 @@ export const SkillsView: React.FC = () => {
       if (scopeFilter === "global") return skill.scope === "global";
       if (scopeFilter === "system") return skill.scope === "system";
       if (scopeFilter === "project") {
-        const isProjectScoped =
-          skill.scope === "project" || skill.scope === "inside_project";
+        const isProjectScoped = skill.scope === "project" || skill.scope === "inside_project";
         if (selectedProjectIds.length === 0) return isProjectScoped;
         return (
-          isProjectScoped &&
-          !!skill.project_id &&
-          selectedProjectIds.includes(skill.project_id)
+          isProjectScoped && !!skill.project_id && selectedProjectIds.includes(skill.project_id)
         );
       }
       return true;
@@ -150,16 +152,15 @@ export const SkillsView: React.FC = () => {
     return countCategoryItems(filteredResourceCategories);
   }, [filteredResourceCategories]);
 
-  const handleSkillUpdated = useCallback((nextSkill: SkillInfo) => {
-    queryClient.setQueryData<SkillsListResponse>(
-      queryKeys.computer.skillsList(scope),
-      (prev) =>
-        prev
-          ? { skills: prev.skills.map((s) => (s.id === nextSkill.id ? nextSkill : s)) }
-          : prev,
-    );
-    setDetailSkill((current) => (current?.id === nextSkill.id ? nextSkill : current));
-  }, [queryClient, scope]);
+  const handleSkillUpdated = useCallback(
+    (nextSkill: SkillInfo) => {
+      queryClient.setQueryData<SkillsListResponse>(queryKeys.computer.skillsList(scope), (prev) =>
+        prev ? { skills: prev.skills.map((s) => (s.id === nextSkill.id ? nextSkill : s)) } : prev,
+      );
+      setDetailSkill((current) => (current?.id === nextSkill.id ? nextSkill : current));
+    },
+    [queryClient, scope],
+  );
 
   /** Open immediately with whatever skill payload we have (list row is enough). */
   const openDetail = useCallback(
@@ -252,10 +253,8 @@ export const SkillsView: React.FC = () => {
 
   const handleSkillDeleted = useCallback(
     (skillIdToRemove: string) => {
-      queryClient.setQueryData<SkillsListResponse>(
-        queryKeys.computer.skillsList(scope),
-        (prev) =>
-          prev ? { skills: prev.skills.filter((s) => s.id !== skillIdToRemove) } : prev,
+      queryClient.setQueryData<SkillsListResponse>(queryKeys.computer.skillsList(scope), (prev) =>
+        prev ? { skills: prev.skills.filter((s) => s.id !== skillIdToRemove) } : prev,
       );
       if (detailSkill?.id === skillIdToRemove || skillId === skillIdToRemove) {
         handleBack();
@@ -314,10 +313,10 @@ export const SkillsView: React.FC = () => {
                       <Puzzle className="size-6" />
                     </div>
                     <div className="min-w-0">
-                      <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">
+                      <h2 className="text-xl font-bold tracking-tight text-balance text-foreground">
                         {t("title")}
                       </h2>
-                      <p className="max-w-xs text-sm text-muted-foreground text-pretty">
+                      <p className="max-w-xs text-sm text-pretty text-muted-foreground">
                         {t("description")}
                       </p>
                     </div>
@@ -335,7 +334,7 @@ export const SkillsView: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <div className="group relative min-w-0 flex-1">
-                    <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
+                    <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
                     <Input
                       value={query}
                       onChange={(event) => void setParams({ q: event.target.value })}
@@ -366,7 +365,7 @@ export const SkillsView: React.FC = () => {
                       title={t("refresh")}
                     >
                       {isForceRefreshing || isRefreshing ? (
-                        <LoaderCircle className="size-4 animate-spin-reverse" />
+                        <LoaderCircle className="animate-spin-reverse size-4" />
                       ) : (
                         <RotateCcw className="size-4" />
                       )}
@@ -382,35 +381,35 @@ export const SkillsView: React.FC = () => {
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
               <ScrollArea className="min-h-0 flex-1" scrollFade>
-                <div className="px-8 pb-8 pt-4">
+                <div className="px-8 pt-4 pb-8">
                   <div className="mx-auto w-full max-w-5xl">
-                  <SkillsInstalledTab
-                    isLoading={isLoading}
-                    skills={skills}
-                    filteredSkills={filteredSkills}
-                    query={query}
-                    isFilterActive={isFilterActive}
-                    onResetFilters={() => void setParams({ q: "", filter: "all", projects: "" })}
-                    onBrowseMarket={() => void setParams({ skillsTab: "market" })}
-                    onOpenSkill={handleOpenInstalledSkill}
-                    onSkillUpdated={handleSkillUpdated}
-                    onSkillDeleted={handleSkillDeleted}
-                  />
-                  <SkillsMarketTab
-                    categories={filteredMarketCategories}
-                    resultCount={marketResultCount}
-                    query={query}
-                    collapsedCategories={collapsedMarketCategories}
-                    onCategoryOpenChange={setMarketCategoryOpen}
-                    onClearSearch={() => void setParams({ q: "" })}
-                    onInstallSkill={setInstallingSkill}
-                  />
-                  <SkillsResourcesTab
-                    categories={filteredResourceCategories}
-                    resultCount={resourceResultCount}
-                    query={query}
-                    onClearSearch={() => void setParams({ q: "" })}
-                  />
+                    <SkillsInstalledTab
+                      isLoading={isLoading}
+                      skills={skills}
+                      filteredSkills={filteredSkills}
+                      query={query}
+                      isFilterActive={isFilterActive}
+                      onResetFilters={() => void setParams({ q: "", filter: "all", projects: "" })}
+                      onBrowseMarket={() => void setParams({ skillsTab: "market" })}
+                      onOpenSkill={handleOpenInstalledSkill}
+                      onSkillUpdated={handleSkillUpdated}
+                      onSkillDeleted={handleSkillDeleted}
+                    />
+                    <SkillsMarketTab
+                      categories={filteredMarketCategories}
+                      resultCount={marketResultCount}
+                      query={query}
+                      collapsedCategories={collapsedMarketCategories}
+                      onCategoryOpenChange={setMarketCategoryOpen}
+                      onClearSearch={() => void setParams({ q: "" })}
+                      onInstallSkill={setInstallingSkill}
+                    />
+                    <SkillsResourcesTab
+                      categories={filteredResourceCategories}
+                      resultCount={resourceResultCount}
+                      query={query}
+                      onClearSearch={() => void setParams({ q: "" })}
+                    />
                   </div>
                 </div>
               </ScrollArea>

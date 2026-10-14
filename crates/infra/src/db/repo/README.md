@@ -39,25 +39,25 @@ impl<'a> MyRepo<'a> {
     pub fn new(db: &'a DatabaseConnection) -> Self {
         Self { db }
     }
-    
+
     /// 根据 GUID 查询单条记录
     pub async fn find_by_guid(&self, guid: String) -> Result<Option<my_entity::Model>> {
         Ok(my_entity::Entity::find_by_id(guid)
             .one(self.db)
             .await?)
     }
-    
+
     /// 查询所有记录
     pub async fn list(&self) -> Result<Vec<my_entity::Model>> {
         Ok(my_entity::Entity::find()
             .all(self.db)
             .await?)
     }
-    
+
     /// 创建新记录
     pub async fn create(&self, data: CreateData) -> Result<my_entity::Model> {
         let base = BaseFields::new();
-        
+
         let model = my_entity::ActiveModel {
             guid: Set(base.guid),
             created_at: Set(base.created_at),
@@ -65,10 +65,10 @@ impl<'a> MyRepo<'a> {
             is_deleted: Set(base.is_deleted),
             // ... 其他字段
         };
-        
+
         Ok(model.insert(self.db).await?)
     }
-    
+
     /// 删除记录（硬删除）
     pub async fn delete(&self, guid: String) -> Result<()> {
         my_entity::Entity::delete_by_id(guid)
@@ -76,7 +76,7 @@ impl<'a> MyRepo<'a> {
             .await?;
         Ok(())
     }
-    
+
     /// 软删除（将 is_deleted 设置为 true）
     pub async fn soft_delete(&self, guid: String) -> Result<()> {
         my_entity::Entity::update_many()
@@ -185,18 +185,21 @@ Entity::update_many()
 ## 注意事项
 
 1. **导入必要的 SeaORM 类型**：
+
    ```rust
    use sea_orm::*;
    use sea_orm::sea_query::Expr;
    ```
 
 2. **使用 BaseFields 生成基础字段**：
+
    ```rust
    use crate::db::entities::base::BaseFields;
    let base = BaseFields::new();
    ```
 
 3. **错误处理**：
+
    ```rust
    use crate::error::Result;
    ```

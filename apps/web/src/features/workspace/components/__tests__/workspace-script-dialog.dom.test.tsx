@@ -11,7 +11,11 @@ const getMock = mock(async () => ({
 
 mock.module("@workspace/ui", () => ({
   cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
-  Button: ({ children, loading: _loading, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) => (
+  Button: ({
+    children,
+    loading: _loading,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) => (
     <button {...props}>{children}</button>
   ),
   Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
@@ -127,7 +131,10 @@ describe("WorkspaceScriptDialog", () => {
     const container = await renderDialog();
 
     expect(
-      container.querySelector('[data-script-phase="setup"]')?.closest('[role="tab"]')?.getAttribute("aria-selected"),
+      container
+        .querySelector('[data-script-phase="setup"]')
+        ?.closest('[role="tab"]')
+        ?.getAttribute("aria-selected"),
     ).toBe("true");
     expect(container.querySelector('[data-script-phase="run"]')).not.toBeNull();
     expect(container.querySelector('[data-script-phase="purge"]')).not.toBeNull();
@@ -142,7 +149,9 @@ describe("WorkspaceScriptDialog", () => {
   it("inserts an env token into the active script and marks the phase edited", async () => {
     const container = await renderDialog();
     const insert = container.querySelector('[data-env-var="workspaceName"]') as HTMLButtonElement;
-    const editor = container.querySelector("#workspace-script-setup textarea") as HTMLTextAreaElement;
+    const editor = container.querySelector(
+      "#workspace-script-setup textarea",
+    ) as HTMLTextAreaElement;
     editor.selectionStart = editor.value.length;
     editor.selectionEnd = editor.value.length;
 
@@ -152,7 +161,11 @@ describe("WorkspaceScriptDialog", () => {
     });
 
     expect(editor.value).toBe("npm i $ATMOS_WORKSPACE_NAME");
-    expect(container.querySelector('[data-script-phase="setup"]')?.getAttribute("data-script-phase-status")).toBe("edited");
+    expect(
+      container
+        .querySelector('[data-script-phase="setup"]')
+        ?.getAttribute("data-script-phase-status"),
+    ).toBe("edited");
     expect(container.textContent).toContain("unsaved");
   });
 });
@@ -162,9 +175,7 @@ async function renderDialog() {
   document.body.appendChild(container);
   root = createRoot(container);
   await act(async () => {
-    root?.render(
-      <WorkspaceScriptDialog projectId="proj-1" isOpen onClose={() => undefined} />,
-    );
+    root?.render(<WorkspaceScriptDialog projectId="proj-1" isOpen onClose={() => undefined} />);
   });
   await act(async () => {
     await Promise.resolve();

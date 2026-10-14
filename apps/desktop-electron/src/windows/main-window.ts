@@ -5,11 +5,7 @@ import { APP_PRODUCT_NAME, appWindowBranding } from "../branding.js";
 import { installBrowserWebviewHooks } from "../browser/webview-hooks.js";
 import { mainLog, mainLogPath } from "../main-log.js";
 import { probeDesktopUi } from "../runtime/ensure.js";
-import {
-  errorPageDataUrl,
-  formatUnknownError,
-  type DesktopErrorView,
-} from "./error-page.js";
+import { errorPageDataUrl, formatUnknownError, type DesktopErrorView } from "./error-page.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
 import { wireMainWindowCloseBehavior } from "./close-behavior.js";
@@ -67,19 +63,11 @@ function attachShellLifecycle(state: AppState, win: BrowserWindow): void {
   state.mainWindow = win;
 }
 
-export function showErrorInMainWindow(
-  state: AppState,
-  view: DesktopErrorView,
-): BrowserWindow {
-  const existing =
-    state.mainWindow && !state.mainWindow.isDestroyed()
-      ? state.mainWindow
-      : null;
+export function showErrorInMainWindow(state: AppState, view: DesktopErrorView): BrowserWindow {
+  const existing = state.mainWindow && !state.mainWindow.isDestroyed() ? state.mainWindow : null;
   const win =
     existing ??
-    new BrowserWindow(
-      baseWindowOptions(undefined) as Electron.BrowserWindowConstructorOptions,
-    );
+    new BrowserWindow(baseWindowOptions(undefined) as Electron.BrowserWindowConstructorOptions);
 
   if (!existing) {
     attachShellLifecycle(state, win);
@@ -102,9 +90,7 @@ export function showErrorInMainWindow(
 
 export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow {
   const preload = resolveAppPreloadPath();
-  console.log(
-    `[desktop-electron] main preload=${preload} exists=${existsSync(preload)}`,
-  );
+  console.log(`[desktop-electron] main preload=${preload} exists=${existsSync(preload)}`);
 
   const win = new BrowserWindow(
     baseWindowOptions(preload) as Electron.BrowserWindowConstructorOptions,
@@ -164,9 +150,7 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
 /**
  * Confirm the runtime serves HTML before loadURL (404 still "finishes" load → black screen).
  */
-export async function assertDesktopUiReady(
-  state: AppState,
-): Promise<{ uiUrl: string }> {
+export async function assertDesktopUiReady(state: AppState): Promise<{ uiUrl: string }> {
   if (state.apiPort == null) {
     throw new Error("API not ready");
   }

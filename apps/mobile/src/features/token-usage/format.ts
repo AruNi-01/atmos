@@ -31,11 +31,18 @@ export function formatCurrencyDetailed(value: number | null): string {
   if (value === null) return "--";
   const abs = Math.abs(value);
   const digits = abs > 0 && abs < 0.01 ? 4 : 2;
-  const body = abs.toLocaleString("en", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const body = abs.toLocaleString("en", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
   return `${value < 0 ? "-" : ""}$${body}`;
 }
 
-export function formatMetric(value: number, metric: "tokens" | "cost", mode: "compact" | "detailed" = "compact") {
+export function formatMetric(
+  value: number,
+  metric: "tokens" | "cost",
+  mode: "compact" | "detailed" = "compact",
+) {
   if (metric === "cost") {
     return mode === "detailed" ? formatCurrencyDetailed(value) : formatCurrencyCompact(value);
   }

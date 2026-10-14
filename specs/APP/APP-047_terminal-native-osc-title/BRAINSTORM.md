@@ -18,6 +18,7 @@ Users already have custom pane names (`customLabel`, APP-033). Those must remain
 ## Options
 
 ### Option A — Append OSC title with `|` after auto title
+
 Capture OSC 0/2 via xterm `onTitleChange`, store as `oscTitle` on the pane, compose:
 
 ```
@@ -31,6 +32,7 @@ Agent detection unchanged. Clear `oscTitle` on empty OSC payload and on shim `CM
 **Unknown**: Whether scoped wiki/code-review panes need the same wiring in v1.
 
 ### Option B — Replace auto title with OSC title when present
+
 When OSC title arrives, use it as the whole pane title (still keep agent icon from detection).
 
 **Pros**: Closer to native terminal tab behavior.  
@@ -38,6 +40,7 @@ When OSC title arrives, use it as the whole pane title (still keep agent icon fr
 **Unknown**: How often OSC titles are noise (version strings, spinners).
 
 ### Option C — Independent status chip / tooltip only
+
 Show OSC title in a tooltip or secondary chip, never in the main toolbar string.
 
 **Pros**: Toolbar stays short.  
@@ -52,7 +55,7 @@ Show OSC title in a tooltip or secondary chip, never in the main toolbar string.
 
 ## Open questions
 
-- [x] Separator character: `|` with spaces → ` | `
+- [x] Separator character: `|` with spaces → `|`
 - [x] Custom title suppresses OSC entirely (even Keep Agent / Keep CWD suffixes)
 - [x] OSC text never drives `resolveAgentForTitle` / `setPaneAgent`
 - [x] Max length for OSC suffix — **resolved: 64 char hard cap without ellipsis** (`MAX_NATIVE_OSC_TITLE_CHARS = 64`)

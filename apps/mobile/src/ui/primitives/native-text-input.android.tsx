@@ -110,7 +110,12 @@ export function NativeTextInput({
   );
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents={{ vertical: true }} seedColor={theme.colors.label} style={{ width: "100%" }}>
+    <Host
+      colorScheme={theme.colorScheme}
+      matchContents={{ vertical: true }}
+      seedColor={theme.colors.label}
+      style={{ width: "100%" }}
+    >
       <OutlinedTextField
         colors={textFieldColors}
         enabled={editable !== false}

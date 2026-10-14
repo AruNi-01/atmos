@@ -262,9 +262,7 @@ function flushPendingPromote(): void {
  * let CenterStage unmount live Terminal grids (orphaning a running TUI agent).
  * Keep the previous surface mounted and overlay the launchpad view instead.
  */
-export function shouldPromoteWorkspaceSurface(
-  nextContextId: string | null | undefined,
-): boolean {
+export function shouldPromoteWorkspaceSurface(nextContextId: string | null | undefined): boolean {
   return Boolean(nextContextId);
 }
 
@@ -433,9 +431,7 @@ export function promoteWorkspaceSurfaceSwitch(nextContextId: string | null): {
     // URL caught up to an optimistic visual flip — keep visual aligned.
     if (store.visualActiveContextId !== nextPaintId) {
       applyWorkspaceFrameVisualDom(nextPaintId);
-      applyWorkspaceSidebarSelectionDom(
-        nextContextId ? hostIdFromCenterKey(nextContextId) : null,
-      );
+      applyWorkspaceSidebarSelectionDom(nextContextId ? hostIdFromCenterKey(nextContextId) : null);
       scheduleNonUrgent(() => {
         store.beginVisualSwitch(nextPaintId);
       });
@@ -443,9 +439,7 @@ export function promoteWorkspaceSurfaceSwitch(nextContextId: string | null): {
     return { previousContextId, alreadyActive: true };
   }
   applyWorkspaceFrameVisualDom(nextPaintId);
-  applyWorkspaceSidebarSelectionDom(
-    nextContextId ? hostIdFromCenterKey(nextContextId) : null,
-  );
+  applyWorkspaceSidebarSelectionDom(nextContextId ? hostIdFromCenterKey(nextContextId) : null);
   scheduleNonUrgent(() => {
     store.switchContext(nextPaintId);
   });
@@ -593,10 +587,7 @@ export function scheduleAfterPaint(fn: () => void): () => void {
  * Coalesce rapid calls: only the latest `fn` runs after `delayMs`.
  * Used so fast workspace hops only apply the final context.
  */
-export function scheduleCoalesced(
-  fn: () => void,
-  delayMs = 32,
-): () => void {
+export function scheduleCoalesced(fn: () => void, delayMs = 32): () => void {
   let cancelled = false;
   const t = setTimeout(() => {
     if (!cancelled) fn();

@@ -16,12 +16,12 @@ Ship **Desktop Use**: an Atmos-owned local capability for **desktop capture** an
 
 ## 3. Users & stories
 
-| As a… | I want… | So that… |
-|-------|---------|----------|
-| Desktop user | a Settings section for Desktop Use | I can install the control engine and grant permissions in one place |
-| AppShot user | capture to keep working after migration | dual-shift / history still produce records |
-| Agent operator | `atmos desktop-use` commands | agents can capture/drive without custom MCP config |
-| Privacy-conscious user | permissions and engine downloads to be explicit | nothing silent-installs control capabilities |
+| As a…                  | I want…                                         | So that…                                                            |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| Desktop user           | a Settings section for Desktop Use              | I can install the control engine and grant permissions in one place |
+| AppShot user           | capture to keep working after migration         | dual-shift / history still produce records                          |
+| Agent operator         | `atmos desktop-use` commands                    | agents can capture/drive without custom MCP config                  |
+| Privacy-conscious user | permissions and engine downloads to be explicit | nothing silent-installs control capabilities                        |
 
 ## 4. Must Have
 
@@ -75,13 +75,13 @@ Ship **Desktop Use**: an Atmos-owned local capability for **desktop capture** an
 
 ## 7. Success metrics
 
-| Metric | Target |
-|--------|--------|
-| Naming lock | Spec + UI + CLI use Desktop Use / desktop-use only |
+| Metric          | Target                                                                 |
+| --------------- | ---------------------------------------------------------------------- |
+| Naming lock     | Spec + UI + CLI use Desktop Use / desktop-use only                     |
 | AppShot capture | No direct osascript/screencapture in production appshot capture module |
-| Settings | Desktop Use section reachable; permissions reusable component |
-| CLI | help + status work offline; ensure dry/not-installed path testable |
-| Brand | grep of user-facing surfaces free of cua/trycua |
+| Settings        | Desktop Use section reachable; permissions reusable component          |
+| CLI             | help + status work offline; ensure dry/not-installed path testable     |
+| Brand           | grep of user-facing surfaces free of cua/trycua                        |
 
 ## 8. Related
 

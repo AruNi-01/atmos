@@ -12,7 +12,12 @@ import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { HomeTabBarInsetContext } from "@/ui/layout/home-tab-bar-inset";
-import { ChartColumnBigIcon, GaugeIcon, LayoutGridIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
+import {
+  ChartColumnBigIcon,
+  GaugeIcon,
+  LayoutGridIcon,
+  MessagesSquareIcon,
+} from "@/ui/icons/lucide-native";
 
 /**
  * The library pins the pill to `safeArea.bottom + 8`, which leaves a dead band

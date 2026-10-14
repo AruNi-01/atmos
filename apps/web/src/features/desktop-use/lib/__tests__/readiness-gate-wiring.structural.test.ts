@@ -23,14 +23,12 @@ describe("desktop-use readiness gate wiring", () => {
     expect(layout).not.toContain('data-theme-ready="true"');
     expect(layout).toContain('id="theme-init"');
     expect(layout).toMatch(/<script[\s\S]*id="theme-init"/);
-    expect(layout).not.toContain('strategy=');
+    expect(layout).not.toContain("strategy=");
     expect(layout).toContain("if (!root.classList.contains(theme))");
   });
 
   it("gates Appshots open and closes popover when blocked", () => {
-    const popover = read(
-      "apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx",
-    );
+    const popover = read("apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx");
     expect(popover).toContain("gateDesktopUseFeature");
     expect(popover).toContain('"appshot"');
     expect(popover).toContain("onBlocked");
@@ -38,9 +36,7 @@ describe("desktop-use readiness gate wiring", () => {
   });
 
   it("defers readiness modal open to avoid Popover dismiss race", () => {
-    const bus = read(
-      "apps/web/src/features/desktop-use/lib/readiness-modal-bus.ts",
-    );
+    const bus = read("apps/web/src/features/desktop-use/lib/readiness-modal-bus.ts");
     expect(bus).toContain("openDesktopUseReadinessModalDeferred");
     const dialog = read(
       "apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx",
@@ -62,9 +58,7 @@ describe("desktop-use readiness gate wiring", () => {
   });
 
   it("gates Desktop Use and Browser Use slash on terminal agent input", () => {
-    const overlay = read(
-      "apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx",
-    );
+    const overlay = read("apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx");
     expect(overlay).toContain("gateDesktopUseFeature");
     expect(overlay).toContain('"slash"');
     expect(overlay).toContain('"browser"');
@@ -74,9 +68,7 @@ describe("desktop-use readiness gate wiring", () => {
   });
 
   it("gates Desktop Use and Browser Use slash on Agent Chat with the same Welcome modal", () => {
-    const hook = read(
-      "apps/web/src/features/agent/hooks/use-agent-composer-popovers.tsx",
-    );
+    const hook = read("apps/web/src/features/agent/hooks/use-agent-composer-popovers.tsx");
     expect(hook).toContain("gateDesktopUseFeature");
     expect(hook).toContain('"slash"');
     expect(hook).toContain('"browser"');

@@ -15,12 +15,7 @@ import { EASE_IN_OUT, EASE_OUT, SPRING_PRESS } from "@workspace/ui/lib/ease";
 import { useHoverCapable } from "@workspace/ui/lib/hooks/use-hover-capable";
 import { cn } from "@workspace/ui/lib/utils";
 
-export type ImageGenerationStatus =
-  | "queued"
-  | "generating"
-  | "refining"
-  | "complete"
-  | "error";
+export type ImageGenerationStatus = "queued" | "generating" | "refining" | "complete" | "error";
 
 export interface ImageGenerationProps {
   /** The completed media. Pass an img, Next Image, canvas, video, or custom preview. */
@@ -73,13 +68,7 @@ const OVERLAY_OPACITY: Record<ImageGenerationStatus, number> = {
 const DOT_GAP = 10;
 const TWO_PI = Math.PI * 2;
 
-function DitherMark({
-  status,
-  reduce,
-}: {
-  status: ImageGenerationStatus;
-  reduce: boolean;
-}) {
+function DitherMark({ status, reduce }: { status: ImageGenerationStatus; reduce: boolean }) {
   if (status === "complete") {
     return <Check aria-hidden="true" className="size-3.5" />;
   }
@@ -157,10 +146,8 @@ function DitherField({
       context.clearRect(0, 0, width, height);
 
       if (!pointer.inside) {
-        pointer.targetX =
-          width / 2 + (reduce ? 0 : Math.sin(time / 1700) * width * 0.12);
-        pointer.targetY =
-          height / 2 + (reduce ? 0 : Math.cos(time / 2100) * height * 0.1);
+        pointer.targetX = width / 2 + (reduce ? 0 : Math.sin(time / 1700) * width * 0.12);
+        pointer.targetY = height / 2 + (reduce ? 0 : Math.cos(time / 2100) * height * 0.1);
       }
 
       const follow = reduce ? 1 : pointer.inside ? 0.16 : 0.045;
@@ -215,9 +202,7 @@ function DitherField({
     };
 
     const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(resize);
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
 
     resize();
     resizeObserver?.observe(canvas);
@@ -241,10 +226,7 @@ function DitherField({
       transition={{ duration: reduce ? 0 : 0.4, ease: EASE_OUT }}
       className="absolute inset-0 overflow-hidden bg-muted"
     >
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 size-full text-foreground"
-      />
+      <canvas ref={canvasRef} className="absolute inset-0 size-full text-foreground" />
     </motion.div>
   );
 }
@@ -266,13 +248,11 @@ export function ImageGeneration({
   statusClassName,
 }: ImageGenerationProps) {
   const reduce = useReducedMotion() ?? false;
-  const active =
-    status === "queued" || status === "generating" || status === "refining";
+  const active = status === "queued" || status === "generating" || status === "refining";
   const hasMedia = Boolean(children);
   const mediaState = MEDIA_STATE[status];
   const resolvedStatusText = statusText ?? STATUS_TEXT[status];
-  const resolvedLabel =
-    label ?? (prompt ? `${resolvedStatusText}: ${prompt}` : resolvedStatusText);
+  const resolvedLabel = label ?? (prompt ? `${resolvedStatusText}: ${prompt}` : resolvedStatusText);
 
   return (
     <div
@@ -281,12 +261,7 @@ export function ImageGeneration({
       aria-busy={active}
       className={cn("w-full", className)}
     >
-      <div
-        className={cn(
-          "w-full",
-          size === "compact" && "mx-auto max-w-52",
-        )}
-      >
+      <div className={cn("w-full", size === "compact" && "mx-auto max-w-52")}>
         <div
           role="img"
           aria-label={resolvedLabel}
@@ -308,13 +283,11 @@ export function ImageGeneration({
                     scale: mediaState.scale,
                   }
             }
-            transition={
-              reduce ? { duration: 0 } : { duration: 0.4, ease: EASE_OUT }
-            }
+            transition={reduce ? { duration: 0 } : { duration: 0.4, ease: EASE_OUT }}
             className={cn(
               hasMedia
                 ? "[&_button]:block [&_button]:w-full [&_img]:block [&_img]:h-auto [&_img]:w-full"
-                : "absolute inset-0 [&>*]:size-full [&>*]:object-cover [&_img]:size-full [&_img]:object-cover",
+                : "absolute inset-0 [&_img]:size-full [&_img]:object-cover [&>*]:size-full [&>*]:object-cover",
               mediaClassName,
             )}
           >
@@ -331,17 +304,13 @@ export function ImageGeneration({
                 transition={{ duration: reduce ? 0 : 0.25, ease: EASE_OUT }}
                 className="absolute inset-0"
               >
-                <DitherField
-                  interactive={interactive}
-                  reduce={reduce}
-                  status={status}
-                />
+                <DitherField interactive={interactive} reduce={reduce} status={status} />
               </motion.div>
             ) : null}
           </AnimatePresence>
 
           {resolution ? (
-            <span className="absolute top-2 right-2 z-10 rounded-full bg-background/75 px-2 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+            <span className="absolute top-2 right-2 z-10 rounded-full bg-background/75 px-2 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums">
               {resolution}
             </span>
           ) : null}
@@ -376,9 +345,7 @@ export function ImageGeneration({
               </div>
             ) : null}
             {prompt ? (
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                “{prompt}”
-              </p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">“{prompt}”</p>
             ) : null}
           </div>
         ) : null}
@@ -389,7 +356,7 @@ export function ImageGeneration({
             onClick={onRetry}
             whileTap={reduce ? undefined : { scale: 0.96 }}
             transition={SPRING_PRESS}
-            className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
           >
             <RotateCcw aria-hidden="true" className="size-4" />
             Try again
@@ -399,7 +366,6 @@ export function ImageGeneration({
     </div>
   );
 }
-
 
 import "./image-generation.css";
 

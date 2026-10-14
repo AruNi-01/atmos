@@ -48,10 +48,13 @@ export function useSessionRowActions() {
           const field = key === "pinned_session_ids" ? "pinnedIds" : "archivedIds";
           if (settingsRef.current[field].join("\n") !== next.join("\n")) return;
           settingsRef.current = { ...settingsRef.current, [field]: previous };
-          queryClient.setQueryData(settingsKey, (current: { archivedIds: string[]; pinnedIds: string[] } | undefined) => {
-            if (!current) return current;
-            return { ...current, [field]: previous };
-          });
+          queryClient.setQueryData(
+            settingsKey,
+            (current: { archivedIds: string[]; pinnedIds: string[] } | undefined) => {
+              if (!current) return current;
+              return { ...current, [field]: previous };
+            },
+          );
         });
     },
     [client, connected, queryClient, selectedServerId],
@@ -64,10 +67,13 @@ export function useSessionRowActions() {
         ? current.filter((id) => id !== sessionId)
         : [sessionId, ...current];
       settingsRef.current = { ...settingsRef.current, pinnedIds: next };
-      queryClient.setQueryData(settingsKey, (value: { archivedIds: string[]; pinnedIds: string[] } | undefined) => ({
-        archivedIds: value?.archivedIds ?? settingsRef.current.archivedIds,
-        pinnedIds: next,
-      }));
+      queryClient.setQueryData(
+        settingsKey,
+        (value: { archivedIds: string[]; pinnedIds: string[] } | undefined) => ({
+          archivedIds: value?.archivedIds ?? settingsRef.current.archivedIds,
+          pinnedIds: next,
+        }),
+      );
       writeIds("pinned_session_ids", next, current);
     },
     [queryClient, selectedServerId, writeIds],
@@ -82,10 +88,13 @@ export function useSessionRowActions() {
       }
       if (next.length === current.length) return;
       settingsRef.current = { ...settingsRef.current, archivedIds: next };
-      queryClient.setQueryData(settingsKey, (value: { archivedIds: string[]; pinnedIds: string[] } | undefined) => ({
-        archivedIds: next,
-        pinnedIds: value?.pinnedIds ?? settingsRef.current.pinnedIds,
-      }));
+      queryClient.setQueryData(
+        settingsKey,
+        (value: { archivedIds: string[]; pinnedIds: string[] } | undefined) => ({
+          archivedIds: next,
+          pinnedIds: value?.pinnedIds ?? settingsRef.current.pinnedIds,
+        }),
+      );
       writeIds("archived_session_ids", next, current);
     },
     [queryClient, selectedServerId, writeIds],
@@ -93,16 +102,19 @@ export function useSessionRowActions() {
 
   const hideSession = useCallback(
     (sessionId: string) => {
-      queryClient.setQueryData<InfiniteData<AgentSessionStatusListResponse>>(statusKey, (current) => {
-        if (!current?.pages) return current;
-        return {
-          ...current,
-          pages: current.pages.map((page) => ({
-            ...page,
-            sessions: page.sessions.filter((session) => session.session_id !== sessionId),
-          })),
-        };
-      });
+      queryClient.setQueryData<InfiniteData<AgentSessionStatusListResponse>>(
+        statusKey,
+        (current) => {
+          if (!current?.pages) return current;
+          return {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              sessions: page.sessions.filter((session) => session.session_id !== sessionId),
+            })),
+          };
+        },
+      );
     },
     [queryClient, selectedServerId],
   );

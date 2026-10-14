@@ -1,0 +1,244 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Root JS/TS lint for the Atmos monorepo.
+  // Bootstrap: @oxlint/migrate on apps/web/eslint.config.mjs (eslint-config-next
+  // core-web-vitals + typescript, with React Compiler rules as warn).
+  // correctness is off so we only enable the Next-equivalent allowlist plus a
+  // small unicorn/import set — not a silent global rule dump.
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import",
+    "react",
+    "jsx-a11y",
+    "nextjs",
+    "node",
+  ],
+  "categories": {
+    "correctness": "off",
+  },
+  "env": {
+    "builtin": true,
+    "browser": true,
+    "node": true,
+  },
+  "settings": {
+    "react": {
+      "version": "19.2.3",
+    },
+    "next": {
+      "rootDir": ["apps/web", "apps/landing", "apps/docs"],
+    },
+  },
+  "ignorePatterns": [
+    "vendor/**",
+    "marketing/**",
+    "skills/react-native-chart-kit",
+    "**/.expo/**",
+    "apps/mobile/ios/**",
+    "apps/mobile/android/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/out/**",
+    "**/build/**",
+    "**/.source/**",
+    "**/next-env.d.ts",
+    "**/coverage/**",
+    "**/.wrangler/**",
+    "**/.turbo/**",
+    "**/playwright-report/**",
+    "e2e/reports/**",
+    "e2e/test-results/**",
+    "target/**",
+    "**/node_modules/**",
+    "apps/desktop/src-tauri/**",
+  ],
+  "rules": {
+    // --- ESLint core (typescript-eslint recommended / Next) ---
+    "no-array-constructor": "error",
+    "no-unused-expressions": "warn",
+    "no-unused-vars": "warn",
+    "no-var": "error",
+    "prefer-const": ["error", { "destructuring": "all", "ignoreReadBeforeAssign": true }],
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+
+    // --- TypeScript (typescript-eslint recommended, not type-aware) ---
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/prefer-namespace-keyword": "error",
+    "typescript/triple-slash-reference": "error",
+
+    // --- React (eslint-plugin-react recommended) ---
+    "react/display-name": "error",
+    "react/jsx-key": "error",
+    "react/jsx-no-comment-textnodes": "error",
+    "react/jsx-no-duplicate-props": "error",
+    "react/jsx-no-target-blank": "off",
+    "react/jsx-no-undef": "error",
+    "react/no-children-prop": "error",
+    "react/no-danger-with-children": "error",
+    "react/no-direct-mutation-state": "error",
+    "react/no-find-dom-node": "error",
+    "react/no-is-mounted": "error",
+    "react/no-render-return-value": "error",
+    "react/no-string-refs": "error",
+    "react/no-unescaped-entities": "error",
+    "react/no-unknown-property": "off",
+    "react/no-unsafe": "off",
+    "react/react-in-jsx-scope": "off",
+    // react/prop-types is not implemented in oxlint (lost vs eslint-plugin-react;
+    // TypeScript + React 19 makes it unnecessary).
+
+    // --- React Hooks + Compiler (native oxlint; not eslint-plugin-react-hooks JS plugin) ---
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/static-components": "error",
+    "react/use-memo": "error",
+    "react/globals": "error",
+    "react/error-boundaries": "error",
+    "react/set-state-in-render": "error",
+    "react/unsupported-syntax": "warn",
+    // Match apps/web + landing: Next 16 enables these as errors; pre-existing
+    // violations stay warn. CI (`bun lint` / `CI - JS`) uses --max-warnings
+    // equal to the current inventory so new warnings fail the job.
+    "react/set-state-in-effect": "warn",
+    "react/refs": "warn",
+    "react/immutability": "warn",
+    "react/preserve-manual-memoization": "warn",
+    "react/purity": "warn",
+    "react/incompatible-library": "warn",
+
+    // --- Next.js ---
+    "nextjs/google-font-display": "warn",
+    "nextjs/google-font-preconnect": "warn",
+    "nextjs/next-script-for-ga": "warn",
+    "nextjs/no-async-client-component": "warn",
+    "nextjs/no-before-interactive-script-outside-document": "warn",
+    "nextjs/no-css-tags": "warn",
+    "nextjs/no-head-element": "warn",
+    "nextjs/no-html-link-for-pages": "error",
+    "nextjs/no-img-element": "warn",
+    "nextjs/no-page-custom-font": "warn",
+    "nextjs/no-styled-jsx-in-document": "warn",
+    "nextjs/no-sync-scripts": "error",
+    "nextjs/no-title-in-document-head": "warn",
+    "nextjs/no-typos": "warn",
+    "nextjs/no-unwanted-polyfillio": "warn",
+    "nextjs/inline-script-id": "error",
+    "nextjs/no-assign-module-variable": "error",
+    "nextjs/no-document-import-in-page": "error",
+    "nextjs/no-duplicate-head": "error",
+    "nextjs/no-head-import-in-document": "error",
+    "nextjs/no-script-component-in-head": "error",
+
+    // --- import (Next only enabled this one) ---
+    "import/no-anonymous-default-export": "warn",
+
+    // --- jsx-a11y (Next core-web-vitals subset) ---
+    "jsx-a11y/alt-text": [
+      "warn",
+      {
+        "elements": ["img"],
+        "img": ["Image"],
+      },
+    ],
+    "jsx-a11y/aria-props": "warn",
+    "jsx-a11y/aria-proptypes": "warn",
+    "jsx-a11y/aria-unsupported-elements": "warn",
+    "jsx-a11y/role-has-required-aria-props": "warn",
+    "jsx-a11y/role-supports-aria-props": "warn",
+
+    // --- unicorn (plugin enabled; small correctness slice, not the full set) ---
+    "unicorn/no-instanceof-builtins": "error",
+    "unicorn/no-new-buffer": "error",
+    "unicorn/no-empty-file": "warn",
+  },
+  "overrides": [
+    {
+      // Next.js pages-dir / app-dir rules only make sense in Next apps.
+      "files": [
+        "packages/**",
+        "apps/mobile/**",
+        "apps/desktop-electron/**",
+        "e2e/**",
+        "scripts/**",
+        "extension/**",
+      ],
+      "rules": {
+        "nextjs/no-html-link-for-pages": "off",
+        "nextjs/no-head-element": "off",
+        "nextjs/no-img-element": "off",
+        "nextjs/google-font-display": "off",
+        "nextjs/google-font-preconnect": "off",
+        "nextjs/next-script-for-ga": "off",
+        "nextjs/no-page-custom-font": "off",
+      },
+    },
+    {
+      // Injected browser guest runtime is an IIFE that must stay ES5-ish (`var`).
+      // extension/browser-runtime.js is a synced copy of the shared file.
+      "files": [
+        "packages/shared/browser/browser-runtime.js",
+        "extension/browser-runtime.js",
+        "extension/injected.js",
+        "extension/content.js",
+        "extension/background.js",
+      ],
+      "rules": {
+        "no-var": "off",
+        "prefer-rest-params": "off",
+      },
+    },
+    {
+      // CJS / plain JS is allowed to use require(); this rule is a TS ESM lint.
+      "files": ["**/*.{js,cjs}"],
+      "rules": {
+        "typescript/no-require-imports": "off",
+      },
+    },
+    {
+      // Metro bundler asset `require(...)` is the supported image import form.
+      "files": ["apps/mobile/**"],
+      "rules": {
+        "typescript/no-require-imports": "warn",
+        "react/static-components": "warn",
+      },
+    },
+    {
+      // Pre-existing React Compiler static-components in the design system.
+      "files": ["packages/ui/**"],
+      "rules": {
+        "react/static-components": "warn",
+      },
+    },
+    {
+      // Asset module + motion factory are not tag-generic; `any` is the
+      // published type. Tightening them breaks `logo-svg` / `auth-shell` /
+      // `MotionPreset` typecheck (see CI).
+      "files": [
+        "packages/ui/src/css.d.ts",
+        "packages/ui/src/components/ui/motion-preset.tsx",
+        "packages/ui/src/components/auth-shell.tsx",
+      ],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+      },
+    },
+  ],
+}

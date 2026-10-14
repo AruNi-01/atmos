@@ -57,10 +57,15 @@ describe("theme palette", () => {
     expect(resolveDrawingStrokeColor("dark", "#000")).toBe(ATMOS_DARK_DEFAULT_STROKE);
     expect(resolveDrawingStrokeColor("dark", ATMOS_DARK_DEFAULT_STROKE)).toBeUndefined();
     expect(resolveDrawingStrokeColor("dark", "#ef4444")).toBeUndefined();
-    expect(resolveDrawingStrokeColor("light", ATMOS_DARK_DEFAULT_STROKE)).toBe(EXCALIDRAW_DEFAULT_STROKE);
+    expect(resolveDrawingStrokeColor("light", ATMOS_DARK_DEFAULT_STROKE)).toBe(
+      EXCALIDRAW_DEFAULT_STROKE,
+    );
     expect(resolveDrawingStrokeColor("light", EXCALIDRAW_DEFAULT_STROKE)).toBeUndefined();
     const remapped = applyThemeInkToElements(
-      [{ id: "a", strokeColor: "#1e1e1e" }, { id: "b", strokeColor: "#ef4444" }],
+      [
+        { id: "a", strokeColor: "#1e1e1e" },
+        { id: "b", strokeColor: "#ef4444" },
+      ],
       "dark",
     );
     expect(remapped[0]?.strokeColor).toBe(ATMOS_DARK_DEFAULT_STROKE);

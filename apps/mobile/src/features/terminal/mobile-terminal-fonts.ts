@@ -1,5 +1,7 @@
-export const terminalFontRegularUrl = require("../../../assets/fonts/HackNerdFontMono-Regular.ttf") as string;
-export const terminalFontBoldUrl = require("../../../assets/fonts/HackNerdFontMono-Bold.ttf") as string;
+export const terminalFontRegularUrl =
+  require("../../../assets/fonts/HackNerdFontMono-Regular.ttf") as string;
+export const terminalFontBoldUrl =
+  require("../../../assets/fonts/HackNerdFontMono-Bold.ttf") as string;
 
 /** Matches the web terminal font size (`terminalFont.size`). */
 export const MOBILE_TERMINAL_FONT_SIZE = 14;
@@ -42,8 +44,14 @@ export async function ensureMobileTerminalFontsLoaded() {
       }
 
       await Promise.allSettled([
-        document.fonts.load(`${MOBILE_TERMINAL_FONT_SIZE}px "Hack Nerd Font Mono"`, NERD_FONT_TEST_GLYPH),
-        document.fonts.load(`${MOBILE_TERMINAL_FONT_SIZE}px "Hack Nerd Font"`, NERD_FONT_TEST_GLYPH),
+        document.fonts.load(
+          `${MOBILE_TERMINAL_FONT_SIZE}px "Hack Nerd Font Mono"`,
+          NERD_FONT_TEST_GLYPH,
+        ),
+        document.fonts.load(
+          `${MOBILE_TERMINAL_FONT_SIZE}px "Hack Nerd Font"`,
+          NERD_FONT_TEST_GLYPH,
+        ),
         document.fonts.ready,
       ]);
     })();

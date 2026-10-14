@@ -16,25 +16,25 @@ Cross-review after the By Agent Status implementation. Mapping, empty buckets, d
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | frontend | Grouping snapshot never used on refresh | verified |
-| REV-002 | P1 | frontend | In-flight attention hydrate can resurrect acked latches | verified |
-| REV-003 | P2 | test | Missing Rust cases for running + sticky permission / two panes | verified |
-| REV-004 | P3 | frontend | Hidden kanban columns used color swatches instead of bucket icons | verified |
-| REV-005 | P1 | frontend | Stale Agent sessions leak across Computer switch | verified |
+| Id      | Severity | Area     | Title                                                             | Status   |
+| ------- | -------- | -------- | ----------------------------------------------------------------- | -------- |
+| REV-001 | P1       | frontend | Grouping snapshot never used on refresh                           | verified |
+| REV-002 | P1       | frontend | In-flight attention hydrate can resurrect acked latches           | verified |
+| REV-003 | P2       | test     | Missing Rust cases for running + sticky permission / two panes    | verified |
+| REV-004 | P3       | frontend | Hidden kanban columns used color swatches instead of bucket icons | verified |
+| REV-005 | P1       | frontend | Stale Agent sessions leak across Computer switch                  | verified |
 
 ---
 
 ## REV-001 · Grouping snapshot never used on refresh
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -64,13 +64,13 @@ Apply the grouping snapshot first while `hooksHydrated` remains `false`. Live no
 
 ## REV-002 · In-flight attention hydrate can resurrect acked latches
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -99,13 +99,13 @@ Record panes acknowledged during hydrate. Strip them from the attention snapshot
 
 ## REV-003 · Missing Rust cases for running + sticky permission / two panes
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -127,13 +127,13 @@ Add resolver + snapshot tests for running + sticky permission, and two sessions 
 
 ## REV-004 · Hidden kanban columns used color swatches instead of bucket icons
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P3 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P3              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -155,13 +155,13 @@ Reuse status / priority / agent group icons in the hidden-column list; keep colo
 
 ## REV-005 · Stale Agent sessions leak across Computer switch
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | Greptile review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -185,4 +185,3 @@ Add `resetForConnectionChange()` that clears sessions, grouping snapshot, and at
 ### Fix log
 
 - 2026-08-13 - `resetForConnectionChange` on `agent-hooks-store`; wired through `legacy-server-state-reset.ts`. Test: `agent-hooks-store.reset.test.ts`.
-

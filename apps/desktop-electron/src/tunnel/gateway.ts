@@ -28,10 +28,7 @@ export type GatewayStatusFields = {
   share_url: string | null;
 };
 
-export function buildShareUrl(
-  publicUrl: string,
-  entryToken: string,
-): string {
+export function buildShareUrl(publicUrl: string, entryToken: string): string {
   const sep = publicUrl.includes("?") ? "&" : "?";
   return `${publicUrl}${sep}entry_token=${entryToken}`;
 }
@@ -127,10 +124,7 @@ export class LocalGateway {
     });
   }
 
-  private async handle(
-    req: IncomingMessage,
-    res: ServerResponse,
-  ): Promise<void> {
+  private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
       const host = req.headers.host ?? `127.0.0.1:${GATEWAY_PORT}`;
       const url = new URL(req.url ?? "/", `http://${host}`);
@@ -176,14 +170,9 @@ export class LocalGateway {
       const upstream = await fetch(targetUrl, {
         method: req.method,
         headers,
-        body:
-          req.method && ["GET", "HEAD"].includes(req.method.toUpperCase())
-            ? undefined
-            : body,
+        body: req.method && ["GET", "HEAD"].includes(req.method.toUpperCase()) ? undefined : body,
         // Node fetch may require duplex when body is a stream; Buffer is fine without.
-        ...(typeof body !== "undefined"
-          ? ({ duplex: "half" } as RequestInit)
-          : {}),
+        ...(typeof body !== "undefined" ? ({ duplex: "half" } as RequestInit) : {}),
       });
 
       const outHeaders: Record<string, string> = {};

@@ -10,10 +10,7 @@ export type LocalCommitView = {
   files: PrFile[];
 };
 
-export async function loadLocalCommitView(
-  repoPath: string,
-  sha: string,
-): Promise<LocalCommitView> {
+export async function loadLocalCommitView(repoPath: string, sha: string): Promise<LocalCommitView> {
   const [detail, changed] = await Promise.all([
     gitApi.getCommitDetail(repoPath, sha),
     gitApi.getChangedFiles(repoPath, null, false, { commitRef: sha }),
@@ -25,16 +22,12 @@ export async function loadLocalCommitView(
       ? await gitApi.getFilesDiff(repoPath, paths, null, { commitRef: sha })
       : { results: [] };
   const diffByPath = new Map(
-    diffs.results
-      .filter((result) => result.diff)
-      .map((result) => [result.file_path, result.diff!]),
+    diffs.results.filter((result) => result.diff).map((result) => [result.file_path, result.diff!]),
   );
   const files: PrFile[] = listed.map((meta) => {
     const diff = diffByPath.get(meta.path);
     const patch =
-      diff?.kind === "text"
-        ? unifiedHunkBody(diff.old_text ?? "", diff.new_text ?? "")
-        : undefined;
+      diff?.kind === "text" ? unifiedHunkBody(diff.old_text ?? "", diff.new_text ?? "") : undefined;
     return {
       sha: diff?.new_sha256 ?? "",
       filename: meta.path,

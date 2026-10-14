@@ -6,9 +6,7 @@ export type ContextWindowStats = {
   percent: number;
 };
 
-function contextWindowTotal(
-  usage: AgentSessionUsage | null | undefined,
-): number | null {
+function contextWindowTotal(usage: AgentSessionUsage | null | undefined): number | null {
   if (usage == null) return null;
   const window = usage.context_window ?? usage.size ?? null;
   if (window == null || window <= 0) return null;
@@ -19,11 +17,7 @@ function contextWindowTotal(
 export function hasContextWindowStats(
   usage: AgentSessionUsage | null | undefined,
 ): usage is AgentSessionUsage & { used: number } {
-  return (
-    usage != null
-    && usage.used != null
-    && contextWindowTotal(usage) != null
-  );
+  return usage != null && usage.used != null && contextWindowTotal(usage) != null;
 }
 
 export function contextWindowStats(
@@ -66,11 +60,7 @@ export function mergeContextUsageUpdate(
   return {
     ...(existing ?? {}),
     used: update.used,
-    context_window:
-      update.context_window
-      ?? existing?.context_window
-      ?? existing?.size
-      ?? null,
+    context_window: update.context_window ?? existing?.context_window ?? existing?.size ?? null,
     size: undefined,
   };
 }

@@ -49,35 +49,35 @@ For the full command surface (session discovery, comment reading, run lifecycle,
 
 These issues cause bugs, memory leaks, or architectural problems:
 
-| Issue | Why It's Critical |
-|-------|-------------------|
-| `useEffect` for derived state | Extra render cycle, sync bugs |
-| Missing cleanup in `useEffect` | Memory leaks |
-| Direct state mutation (`.push()`, `.splice()`) | Silent update failures |
-| Conditional hook calls | Breaks Rules of Hooks |
-| `key={index}` in dynamic lists | State corruption on reorder |
-| `any` type without justification | Type safety bypass |
-| `useFormStatus` in same component as `<form>` | Always returns false (React 19 bug) |
-| Promise created inside render with `use()` | Infinite loop |
+| Issue                                          | Why It's Critical                   |
+| ---------------------------------------------- | ----------------------------------- |
+| `useEffect` for derived state                  | Extra render cycle, sync bugs       |
+| Missing cleanup in `useEffect`                 | Memory leaks                        |
+| Direct state mutation (`.push()`, `.splice()`) | Silent update failures              |
+| Conditional hook calls                         | Breaks Rules of Hooks               |
+| `key={index}` in dynamic lists                 | State corruption on reorder         |
+| `any` type without justification               | Type safety bypass                  |
+| `useFormStatus` in same component as `<form>`  | Always returns false (React 19 bug) |
+| Promise created inside render with `use()`     | Infinite loop                       |
 
 ### ⚠️ High Priority
 
-| Issue | Impact |
-|-------|--------|
-| Incomplete dependency arrays | Stale closures, missing updates |
-| Props typed as `any` | Runtime errors |
-| Unjustified `useMemo`/`useCallback` | Unnecessary complexity |
-| Missing Error Boundaries | Poor error UX |
-| Controlled input initialized with `undefined` | React warning |
+| Issue                                         | Impact                          |
+| --------------------------------------------- | ------------------------------- |
+| Incomplete dependency arrays                  | Stale closures, missing updates |
+| Props typed as `any`                          | Runtime errors                  |
+| Unjustified `useMemo`/`useCallback`           | Unnecessary complexity          |
+| Missing Error Boundaries                      | Poor error UX                   |
+| Controlled input initialized with `undefined` | React warning                   |
 
 ### 📝 Architecture/Style
 
-| Issue | Recommendation |
-|-------|----------------|
-| Component > 300 lines | Split into smaller components |
-| Prop drilling > 2-3 levels | Use composition or context |
-| State far from usage | Colocate state |
-| Custom hooks without `use` prefix | Follow naming convention |
+| Issue                             | Recommendation                |
+| --------------------------------- | ----------------------------- |
+| Component > 300 lines             | Split into smaller components |
+| Prop drilling > 2-3 levels        | Use composition or context    |
+| State far from usage              | Colocate state                |
+| Custom hooks without `use` prefix | Follow naming convention      |
 
 ## Quick Detection Patterns
 
@@ -85,26 +85,26 @@ These issues cause bugs, memory leaks, or architectural problems:
 
 ```typescript
 // ❌ WRONG: Derived state in useEffect
-const [firstName, setFirstName] = useState('');
-const [fullName, setFullName] = useState('');
+const [firstName, setFirstName] = useState("");
+const [fullName, setFullName] = useState("");
 useEffect(() => {
-  setFullName(firstName + ' ' + lastName);
+  setFullName(firstName + " " + lastName);
 }, [firstName, lastName]);
 
 // ✅ CORRECT: Compute during render
-const fullName = firstName + ' ' + lastName;
+const fullName = firstName + " " + lastName;
 ```
 
 ```typescript
 // ❌ WRONG: Event logic in useEffect
 useEffect(() => {
-  if (product.isInCart) showNotification('Added!');
+  if (product.isInCart) showNotification("Added!");
 }, [product]);
 
 // ✅ CORRECT: Logic in event handler
 function handleAddToCart() {
   addToCart(product);
-  showNotification('Added!');
+  showNotification("Added!");
 }
 ```
 
@@ -130,7 +130,7 @@ function Form() {
 ```typescript
 // ❌ WRONG: Promise created in render (infinite loop)
 function Component() {
-  const data = use(fetch('/api/data')); // New promise every render!
+  const data = use(fetch("/api/data")); // New promise every render!
 }
 
 // ✅ CORRECT: Promise from props or state
@@ -151,21 +151,21 @@ setArr(arr);
 
 // ✅ CORRECT: Immutable updates
 setItems([...items, newItem]);
-setArr(arr.map((x, idx) => idx === i ? newValue : x));
+setArr(arr.map((x, idx) => (idx === i ? newValue : x)));
 ```
 
 ### TypeScript Red Flags
 
 ```typescript
 // ❌ Red flags to catch
-const data: any = response;           // Unsafe any
-const items = arr[10];                // Missing undefined check
+const data: any = response; // Unsafe any
+const items = arr[10]; // Missing undefined check
 const App: React.FC<Props> = () => {}; // Discouraged pattern
 
 // ✅ Preferred patterns
 const data: ResponseType = response;
 const items = arr[10]; // with noUncheckedIndexedAccess
-const App = ({ prop }: Props) => {};  // Explicit props
+const App = ({ prop }: Props) => {}; // Explicit props
 ```
 
 ## Review Workflow
@@ -199,38 +199,41 @@ atmos_review:
 ```markdown
 # TypeScript + React 19 Code Review Report
 
-| Entry | Details |
-| :--- | :--- |
-| **Date** | YYYY-MM-DD HH:MM |
-| **Reviewer** | AI (typescript-react-reviewer) |
-| **Scope** | [description of what was reviewed — git diff / specific files / commit range] |
-| **Project Stack** | TypeScript + React 19 (detected frameworks/libraries) |
-| **Overall Assessment** | **APPROVE** \| **REQUEST_CHANGES** \| **COMMENT** |
+| Entry                  | Details                                                                       |
+| :--------------------- | :---------------------------------------------------------------------------- |
+| **Date**               | YYYY-MM-DD HH:MM                                                              |
+| **Reviewer**           | AI (typescript-react-reviewer)                                                |
+| **Scope**              | [description of what was reviewed — git diff / specific files / commit range] |
+| **Project Stack**      | TypeScript + React 19 (detected frameworks/libraries)                         |
+| **Overall Assessment** | **APPROVE** \| **REQUEST_CHANGES** \| **COMMENT**                             |
 
 ---
 
 ## Summary
 
-| Metric | Value |
-|--------|-------|
-| Files Reviewed | X |
-| Lines Changed | +Y / -Z |
-| Critical Issues | N |
-| High Priority | N |
-| Architecture Issues | N |
+| Metric              | Value   |
+| ------------------- | ------- |
+| Files Reviewed      | X       |
+| Lines Changed       | +Y / -Z |
+| Critical Issues     | N       |
+| High Priority       | N       |
+| Architecture Issues | N       |
 
 ---
 
 ## Findings by Priority
 
 ### 🚫 Critical
+
 > None found. ✅
-(or list each finding with file, line, impact, and fix)
+> (or list each finding with file, line, impact, and fix)
 
 ### ⚠️ High Priority
+
 (same format)
 
 ### 📝 Architecture/Style
+
 (same format)
 
 ---
@@ -253,24 +256,24 @@ For detailed patterns and examples:
 
 ## State Management Quick Guide
 
-| Data Type | Solution |
-|-----------|----------|
-| Server/async data | TanStack Query (never copy to local state) |
-| Simple global UI state | Zustand (~1KB, no Provider) |
-| Fine-grained derived state | Jotai (~2.4KB) |
-| Component-local state | useState/useReducer |
-| Form state | React 19 useActionState |
+| Data Type                  | Solution                                   |
+| -------------------------- | ------------------------------------------ |
+| Server/async data          | TanStack Query (never copy to local state) |
+| Simple global UI state     | Zustand (~1KB, no Provider)                |
+| Fine-grained derived state | Jotai (~2.4KB)                             |
+| Component-local state      | useState/useReducer                        |
+| Form state                 | React 19 useActionState                    |
 
 ### TanStack Query Anti-Pattern
 
 ```typescript
 // ❌ NEVER copy server data to local state
-const { data } = useQuery({ queryKey: ['todos'], queryFn: fetchTodos });
+const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 const [todos, setTodos] = useState([]);
 useEffect(() => setTodos(data), [data]);
 
 // ✅ Query IS the source of truth
-const { data: todos } = useQuery({ queryKey: ['todos'], queryFn: fetchTodos });
+const { data: todos } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 ```
 
 ## TypeScript Config Recommendations
@@ -292,10 +295,10 @@ const { data: todos } = useQuery({ queryKey: ['todos'], queryFn: fetchTodos });
 
 When reviewing, flag these immediately:
 
-| Pattern | Problem | Fix |
-|---------|---------|-----|
-| `eslint-disable react-hooks/exhaustive-deps` | Hides stale closure bugs | Refactor logic |
-| Component defined inside component | Remounts every render | Move outside |
-| `useState(undefined)` for inputs | Uncontrolled warning | Use empty string |
-| `React.FC` with generics | Generic inference breaks | Use explicit props |
-| Barrel files (`index.ts`) in app code | Bundle bloat, circular deps | Direct imports |
+| Pattern                                      | Problem                     | Fix                |
+| -------------------------------------------- | --------------------------- | ------------------ |
+| `eslint-disable react-hooks/exhaustive-deps` | Hides stale closure bugs    | Refactor logic     |
+| Component defined inside component           | Remounts every render       | Move outside       |
+| `useState(undefined)` for inputs             | Uncontrolled warning        | Use empty string   |
+| `React.FC` with generics                     | Generic inference breaks    | Use explicit props |
+| Barrel files (`index.ts`) in app code        | Bundle bloat, circular deps | Direct imports     |

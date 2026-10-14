@@ -14,9 +14,7 @@ export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: integer("email_verified", { mode: "boolean" })
-    .notNull()
-    .default(false),
+  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
   image: text("image"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
@@ -123,9 +121,7 @@ export const usageShares = sqliteTable(
     title: text("title"),
     periodStart: text("period_start"),
     periodEnd: text("period_end"),
-    includeCost: integer("include_cost", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    includeCost: integer("include_cost", { mode: "boolean" }).notNull().default(false),
     snapshotJson: text("snapshot_json").notNull(),
     schemaVersion: integer("schema_version").notNull().default(1),
     ogObjectKey: text("og_object_key"),
@@ -147,17 +143,13 @@ export const userProfiles = sqliteTable(
     handleChangedAt: integer("handle_changed_at", { mode: "timestamp_ms" }),
     handleClaimedAt: integer("handle_claimed_at", { mode: "timestamp_ms" }),
     primaryShareId: text("primary_share_id"),
-    profilePublic: integer("profile_public", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    profilePublic: integer("profile_public", { mode: "boolean" }).notNull().default(false),
     avatarUrl: text("avatar_url"),
     githubUsername: text("github_username"),
     xUsername: text("x_username"),
     usageVisibility: text("usage_visibility").notNull().default("off"),
     unlistedTokenHash: text("unlisted_token_hash"),
-    includeCost: integer("include_cost", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    includeCost: integer("include_cost", { mode: "boolean" }).notNull().default(false),
     snapshotJson: text("snapshot_json"),
     snapshotUpdatedAt: integer("snapshot_updated_at", { mode: "timestamp_ms" }),
     shareTotalTokens: integer("share_total_tokens"),

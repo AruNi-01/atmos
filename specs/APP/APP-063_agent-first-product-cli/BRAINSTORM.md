@@ -72,15 +72,15 @@ No typed subcommands; agent lists wire actions and calls them.
 
 ## Key forks in the road
 
-| Fork | Choices | Resolution |
-|------|---------|------------|
-| **F1 Transport for CRUD** | REST-per-resource vs server invoke vs WS | **server invoke over HTTP** reusing handlers; typed CLI on top |
-| **F2 Agent primary UX** | `call` only vs resource verbs | **Resource verbs (L1)**; `call` is escape hatch |
-| **F3 Output format** | Dual human/`--json` vs JSON-always | **JSON-always agent-first envelope** for product plane; **no backward compat** with prior ad-hoc CLI JSON shapes |
-| **F4 Framework** | Effect/Bun (cli-design skill) vs Rust/clap | **Rust + clap** (existing release, native tools) |
-| **F5 Business logic location** | CLI embed vs Server | **Server only** |
-| **F6 Interactive PTY in v1** | Full attach vs create/write/logs only | **Create + write + logs first**; interactive attach later / optional |
-| **F7 Canvas** | Must work headless | Canvas **live bridge** still needs UI; document as special; product CRUD must not require UI |
+| Fork                           | Choices                                    | Resolution                                                                                                       |
+| ------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| **F1 Transport for CRUD**      | REST-per-resource vs server invoke vs WS   | **server invoke over HTTP** reusing handlers; typed CLI on top                                                   |
+| **F2 Agent primary UX**        | `call` only vs resource verbs              | **Resource verbs (L1)**; `call` is escape hatch                                                                  |
+| **F3 Output format**           | Dual human/`--json` vs JSON-always         | **JSON-always agent-first envelope** for product plane; **no backward compat** with prior ad-hoc CLI JSON shapes |
+| **F4 Framework**               | Effect/Bun (cli-design skill) vs Rust/clap | **Rust + clap** (existing release, native tools)                                                                 |
+| **F5 Business logic location** | CLI embed vs Server                        | **Server only**                                                                                                  |
+| **F6 Interactive PTY in v1**   | Full attach vs create/write/logs only      | **Create + write + logs first**; interactive attach later / optional                                             |
+| **F7 Canvas**                  | Must work headless                         | Canvas **live bridge** still needs UI; document as special; product CRUD must not require UI                     |
 
 ## Open questions (settled for PRD/TECH)
 
@@ -93,12 +93,12 @@ No typed subcommands; agent lists wire actions and calls them.
 
 Agents need more than a binary: a **system skill** that teaches product CLI usage.
 
-| Option | Notes | Decision |
-|--------|-------|----------|
-| Monolithic skill with full action catalog | Burns context; duplicates live CLI discovery | Reject |
-| **`atmos-cli` entry + `references/`** | Same pattern as canvas / desktop-use | **Accept** |
-| Many domain skills from day one | Sprawl; unclear entry | Reject until a domain is huge + independently triggered |
-| Rely only on `cli-design` | Wrong audience (authors vs operators) | Reject |
+| Option                                    | Notes                                        | Decision                                                |
+| ----------------------------------------- | -------------------------------------------- | ------------------------------------------------------- |
+| Monolithic skill with full action catalog | Burns context; duplicates live CLI discovery | Reject                                                  |
+| **`atmos-cli` entry + `references/`**     | Same pattern as canvas / desktop-use         | **Accept**                                              |
+| Many domain skills from day one           | Sprawl; unclear entry                        | Reject until a domain is huge + independently triggered |
+| Rely only on `cli-design`                 | Wrong audience (authors vs operators)        | Reject                                                  |
 
 **Boundaries**: `atmos-cli` = product state; keep `atmos-canvas-agent`, `atmos-desktop-use`, `atmos-browser-use` separate. Skill narrative: L1 first, `call` secondary. Ship skill text in lockstep with CLI phases.
 

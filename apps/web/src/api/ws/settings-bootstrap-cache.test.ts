@@ -59,19 +59,13 @@ describe("settings bootstrap mutation isolation", () => {
       relaySessionRevision: 2,
     };
     const client = getAtmosWebQueryClient();
-    client.setQueryData(
-      queryKeys.computer.settingsBootstrap(scopeA),
-      bootstrapPayload("project"),
-    );
+    client.setQueryData(queryKeys.computer.settingsBootstrap(scopeA), bootstrapPayload("project"));
 
     let resolveBootstrap!: (payload: SettingsBootstrapPayload) => void;
     const deferredBootstrap = new Promise<SettingsBootstrapPayload>((resolve) => {
       resolveBootstrap = resolve;
     });
-    const inFlight = settingsBootstrapQueryFn(
-      scopeA,
-      () => deferredBootstrap,
-    );
+    const inFlight = settingsBootstrapQueryFn(scopeA, () => deferredBootstrap);
 
     settingsBootstrapCache.patchFunctionSetting(
       "workspace_sidebar",
@@ -82,9 +76,7 @@ describe("settings bootstrap mutation isolation", () => {
     resolveBootstrap(bootstrapPayload("label"));
 
     const result = await inFlight;
-    expect(result.function_settings.workspace_sidebar?.grouping_mode).toBe(
-      "label",
-    );
+    expect(result.function_settings.workspace_sidebar?.grouping_mode).toBe("label");
   });
 
   it("preserves a newer mutation made in the same scope", async () => {
@@ -94,19 +86,13 @@ describe("settings bootstrap mutation isolation", () => {
       relaySessionRevision: 3,
     };
     const client = getAtmosWebQueryClient();
-    client.setQueryData(
-      queryKeys.computer.settingsBootstrap(scope),
-      bootstrapPayload("project"),
-    );
+    client.setQueryData(queryKeys.computer.settingsBootstrap(scope), bootstrapPayload("project"));
 
     let resolveBootstrap!: (payload: SettingsBootstrapPayload) => void;
     const deferredBootstrap = new Promise<SettingsBootstrapPayload>((resolve) => {
       resolveBootstrap = resolve;
     });
-    const inFlight = settingsBootstrapQueryFn(
-      scope,
-      () => deferredBootstrap,
-    );
+    const inFlight = settingsBootstrapQueryFn(scope, () => deferredBootstrap);
 
     settingsBootstrapCache.patchFunctionSetting(
       "workspace_sidebar",
@@ -117,8 +103,6 @@ describe("settings bootstrap mutation isolation", () => {
     resolveBootstrap(bootstrapPayload("project"));
 
     const result = await inFlight;
-    expect(result.function_settings.workspace_sidebar?.grouping_mode).toBe(
-      "priority",
-    );
+    expect(result.function_settings.workspace_sidebar?.grouping_mode).toBe("priority");
   });
 });

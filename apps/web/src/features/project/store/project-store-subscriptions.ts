@@ -1,42 +1,36 @@
-'use client';
+"use client";
 
-import { createTranslator } from 'next-intl';
-import { toastManager } from '@workspace/ui';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
+import { createTranslator } from "next-intl";
+import { toastManager } from "@workspace/ui";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 import {
   isWorkspaceSetupProgressEventPayload,
   type WorkspaceSetupProgress,
-} from './project-store-setup-progress';
+} from "./project-store-setup-progress";
 
 const deleteProgressToasts = new Map<string, { toastId: string; workspaceName: string }>();
-let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+let cachedRuntimeLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedRuntimeTranslator: any = null;
 
-function runtimeT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+function runtimeT(key: string, values?: Record<string, string | number>): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
     cachedRuntimeLocale = locale;
     cachedRuntimeTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'project.runtime',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "project.runtime",
     });
   }
   return cachedRuntimeTranslator(key as never, values as never);
 }
 
-export function registerWorkspaceDeleteProgressToast(
-  workspaceId: string,
-  workspaceName: string,
-) {
-  deleteProgressToasts.set(workspaceId, { toastId: '', workspaceName });
+export function registerWorkspaceDeleteProgressToast(workspaceId: string, workspaceName: string) {
+  deleteProgressToasts.set(workspaceId, { toastId: "", workspaceName });
 }
 
 export function clearWorkspaceDeleteProgressToast(workspaceId: string) {
@@ -50,7 +44,7 @@ export function hasWorkspaceDeleteProgressToast(workspaceId: string): boolean {
 export function subscribeToWorkspaceSetupProgressEvent(
   setSetupProgress: (progress: WorkspaceSetupProgress) => void,
 ): () => void {
-  return useWebSocketStore.getState().onEvent('workspace_setup_progress', (data: unknown) => {
+  return useWebSocketStore.getState().onEvent("workspace_setup_progress", (data: unknown) => {
     if (!isWorkspaceSetupProgressEventPayload(data)) return;
     setSetupProgress({
       workspaceId: data.workspace_id,
@@ -58,7 +52,7 @@ export function subscribeToWorkspaceSetupProgressEvent(
       stepKey: data.step_key,
       failedStepKey: data.failed_step_key,
       stepTitle: data.step_title,
-      output: data.output || '',
+      output: data.output || "",
       replaceOutput: data.replace_output,
       requiresConfirmation: data.requires_confirmation,
       requiresScriptTrust: data.requires_script_trust,
@@ -88,16 +82,16 @@ interface WorkspaceDeleteProgressPayload {
 
 function isWorkspaceDeleteProgressPayload(data: unknown): data is WorkspaceDeleteProgressPayload {
   return (
-    typeof data === 'object' &&
+    typeof data === "object" &&
     data !== null &&
-    'workspace_id' in data &&
-    'step' in data &&
-    'message' in data
+    "workspace_id" in data &&
+    "step" in data &&
+    "message" in data
   );
 }
 
 export function subscribeToWorkspaceDeleteProgressEvent(): () => void {
-  return useWebSocketStore.getState().onEvent('workspace_delete_progress', (data: unknown) => {
+  return useWebSocketStore.getState().onEvent("workspace_delete_progress", (data: unknown) => {
     if (!isWorkspaceDeleteProgressPayload(data)) return;
 
     const entry = deleteProgressToasts.get(data.workspace_id);
@@ -105,24 +99,24 @@ export function subscribeToWorkspaceDeleteProgressEvent(): () => void {
 
     const { workspaceName } = entry;
 
-    if (data.step === 'completed') {
+    if (data.step === "completed") {
       toastManager.add({
-        title: runtimeT('common.deleted'),
-        description: runtimeT('subscriptions.messages.workspaceRemoved', {
+        title: runtimeT("common.deleted"),
+        description: runtimeT("subscriptions.messages.workspaceRemoved", {
           name: workspaceName,
         }),
-        type: 'success',
+        type: "success",
         timeout: 3000,
       });
       deleteProgressToasts.delete(data.workspace_id);
-    } else if (data.step === 'error') {
+    } else if (data.step === "error") {
       toastManager.add({
-        title: runtimeT('subscriptions.messages.cleanupWarningTitle'),
-        description: runtimeT('subscriptions.messages.workspaceDeletedButCleanupFailed', {
+        title: runtimeT("subscriptions.messages.cleanupWarningTitle"),
+        description: runtimeT("subscriptions.messages.workspaceDeletedButCleanupFailed", {
           name: workspaceName,
           message: data.message,
         }),
-        type: 'warning',
+        type: "warning",
         timeout: 5000,
       });
       deleteProgressToasts.delete(data.workspace_id);
@@ -138,24 +132,19 @@ interface WorkspaceGitignoreSyncFailedPayload {
 function isWorkspaceGitignoreSyncFailedPayload(
   data: unknown,
 ): data is WorkspaceGitignoreSyncFailedPayload {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'workspace_id' in data &&
-    'message' in data
-  );
+  return typeof data === "object" && data !== null && "workspace_id" in data && "message" in data;
 }
 
 export function subscribeToWorkspaceGitignoreSyncFailedEvent(): () => void {
   return useWebSocketStore
     .getState()
-    .onEvent('workspace_gitignore_sync_failed', (data: unknown) => {
+    .onEvent("workspace_gitignore_sync_failed", (data: unknown) => {
       if (!isWorkspaceGitignoreSyncFailedPayload(data)) return;
 
       toastManager.add({
-        title: runtimeT('subscriptions.errors.gitignoreSyncFailedTitle'),
+        title: runtimeT("subscriptions.errors.gitignoreSyncFailedTitle"),
         description: data.message,
-        type: 'error',
+        type: "error",
       });
     });
 }

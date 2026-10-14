@@ -5,13 +5,7 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -54,11 +48,9 @@ export async function resizePngBytes(
     const input = join(dir, "in.png");
     const output = join(dir, "out.png");
     writeFileSync(input, bytes);
-    await execFileAsync(
-      "sips",
-      ["-Z", String(maxEdge), input, "--out", output],
-      { timeout: 8_000 },
-    );
+    await execFileAsync("sips", ["-Z", String(maxEdge), input, "--out", output], {
+      timeout: 8_000,
+    });
     if (!existsSync(output)) return null;
     const out = readFileSync(output);
     return out.length > 0 ? out : null;
@@ -75,15 +67,11 @@ export async function resizePngBytes(
   }
 }
 
-export async function thumbnailPngFromBytes(
-  bytes: Buffer,
-): Promise<Buffer | null> {
+export async function thumbnailPngFromBytes(bytes: Buffer): Promise<Buffer | null> {
   return resizePngBytes(bytes, THUMBNAIL_MAX_EDGE);
 }
 
-export async function thumbnailPngFromPath(
-  path: string,
-): Promise<Buffer | null> {
+export async function thumbnailPngFromPath(path: string): Promise<Buffer | null> {
   if (!existsSync(path)) return null;
   try {
     return thumbnailPngFromBytes(readFileSync(path));
@@ -96,9 +84,7 @@ export async function thumbnailPngFromPath(
  * Base64 (no data: prefix) for pending preview events.
  * Prefer original when small; otherwise thumbnail via sips.
  */
-export async function buildScreenshotPreviewBase64(
-  png: Buffer | null,
-): Promise<string | null> {
+export async function buildScreenshotPreviewBase64(png: Buffer | null): Promise<string | null> {
   if (!png || png.length === 0) return null;
   if (fitsInlinePngDataUrl(png.length)) {
     return png.toString("base64");
@@ -113,9 +99,7 @@ export async function buildScreenshotPreviewBase64(
 /**
  * Inline data URL for history rows / list payloads.
  */
-export async function buildInlineSnapshotDataUrl(
-  pngPath: string,
-): Promise<string | null> {
+export async function buildInlineSnapshotDataUrl(pngPath: string): Promise<string | null> {
   if (!existsSync(pngPath)) return null;
   let bytes: Buffer;
   try {

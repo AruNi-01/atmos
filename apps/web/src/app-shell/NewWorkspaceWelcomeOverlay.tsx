@@ -15,9 +15,8 @@ import { useWelcomeOverlayState } from "@/app-shell/use-welcome-overlay-state";
 export function NewWorkspaceWelcomeOverlay() {
   const welcomeOverlay = useWelcomeOverlayState();
   const { isLeftCollapsed, liveLeftSidebarSize, isLeftSidebarDragging } = useSidebarLayout();
-  const overlayLeftSize = !isLeftCollapsed && liveLeftSidebarSize > 0.5
-    ? liveLeftSidebarSize
-    : DEFAULT_LEFT_SIDEBAR_SIZE;
+  const overlayLeftSize =
+    !isLeftCollapsed && liveLeftSidebarSize > 0.5 ? liveLeftSidebarSize : DEFAULT_LEFT_SIDEBAR_SIZE;
 
   if (!welcomeOverlay.isVisible) {
     return null;
@@ -30,9 +29,7 @@ export function NewWorkspaceWelcomeOverlay() {
   const gutterX = CENTER_STAGE_GUTTER_X_PX;
   const gutterY = CENTER_STAGE_GUTTER_Y_PX;
   const footerHeightPx = APP_FOOTER_HEIGHT_PX;
-  const leftInset = isLeftCollapsed
-    ? gutterX
-    : `calc(${overlayLeftSize}% + 1px + ${gutterX}px)`;
+  const leftInset = isLeftCollapsed ? gutterX : `calc(${overlayLeftSize}% + 1px + ${gutterX}px)`;
   // Tailwind v4 maps translate-* utilities to the individual `translate` property
   // (not `transform`). Transition that property so slide open/close actually animates.
   // While the left sidebar is dragged, drop `left` from the transition so the overlay
@@ -47,12 +44,10 @@ export function NewWorkspaceWelcomeOverlay() {
       className={cn(
         "absolute z-[49] bg-background will-change-[translate]",
         CENTER_STAGE_RADIUS_CLASS,
-        "ring-1 ring-border/40 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]",
+        "shadow-[0_-8px_30px_rgba(0,0,0,0.12)] ring-1 ring-border/40",
         // Prefer reduced motion: kill the slide without fighting inline transition props.
         "motion-reduce:![transition-property:none]",
-        isShown
-          ? "translate-y-0"
-          : "translate-y-full",
+        isShown ? "translate-y-0" : "translate-y-full",
       )}
       style={{
         top: gutterY,

@@ -105,11 +105,17 @@ export function mergeToolStatus(existing: ToolStatus, incoming: ToolStatus): Too
   return toolStatusRank(incoming) > toolStatusRank(existing) ? incoming : existing;
 }
 
-function keepOptional<T>(incoming: T | null | undefined, existing: T | null | undefined): T | null | undefined {
+function keepOptional<T>(
+  incoming: T | null | undefined,
+  existing: T | null | undefined,
+): T | null | undefined {
   return incoming != null ? incoming : existing;
 }
 
-export function mergeToolCallState(existing: ToolCallState, incoming: ToolCallState): ToolCallState {
+export function mergeToolCallState(
+  existing: ToolCallState,
+  incoming: ToolCallState,
+): ToolCallState {
   return {
     tool_call_id: incoming.tool_call_id || existing.tool_call_id,
     parent_tool_call_id: incoming.parent_tool_call_id ?? existing.parent_tool_call_id,

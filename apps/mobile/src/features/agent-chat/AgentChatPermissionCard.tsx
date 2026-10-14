@@ -39,11 +39,16 @@ export function AgentChatPermissionCard({
         {copy.permissionTitle}
       </Text>
       {description ? (
-        <Text selectable style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}>
+        <Text
+          selectable
+          style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}
+        >
           {description}
         </Text>
       ) : null}
-      {markdown.length > 0 && markdown !== description ? <AgentChatMarkdown text={markdown} /> : null}
+      {markdown.length > 0 && markdown !== description ? (
+        <AgentChatMarkdown text={markdown} />
+      ) : null}
       <View style={{ gap: 8 }}>
         {options.map((option) => {
           const label = option.name.trim() || option.option_id;
@@ -51,7 +56,9 @@ export function AgentChatPermissionCard({
             <Pressable
               accessibilityRole="button"
               key={option.option_id}
-              onPress={() => onRespond({ requestId: request.request_id, optionId: option.option_id })}
+              onPress={() =>
+                onRespond({ requestId: request.request_id, optionId: option.option_id })
+              }
               style={({ pressed }) => ({
                 backgroundColor: pressed ? theme.colors.mutedPressed : theme.colors.control,
                 borderColor: theme.colors.controlBorder,
@@ -62,7 +69,14 @@ export function AgentChatPermissionCard({
                 paddingVertical: 10,
               })}
             >
-              <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "600", lineHeight: 20 }}>
+              <Text
+                style={{
+                  color: theme.colors.label,
+                  fontSize: 15,
+                  fontWeight: "600",
+                  lineHeight: 20,
+                }}
+              >
                 {label}
               </Text>
             </Pressable>

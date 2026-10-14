@@ -17,11 +17,7 @@ import {
   useState,
 } from "react";
 import { Button } from "../motion/button";
-import {
-  MorphPopover,
-  MorphPopoverContent,
-  MorphPopoverTrigger,
-} from "../motion/popover-morph";
+import { MorphPopover, MorphPopoverContent, MorphPopoverTrigger } from "../motion/popover-morph";
 import { SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 import {
@@ -276,18 +272,13 @@ export function PromptInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const measurementRef = useRef<HTMLDivElement>(null);
   const [internalValue, setInternalValue] = useState(defaultValue);
-  const [internalModel, setInternalModel] = useState(
-    defaultModel ?? models[0]?.value,
-  );
+  const [internalModel, setInternalModel] = useState(defaultModel ?? models[0]?.value);
   const [actionsOpen, setActionsOpen] = useState(false);
   const currentValue = value ?? internalValue;
   const currentModelValue = model ?? internalModel;
-  const currentModel = models.find(
-    (option) => option.value === currentModelValue,
-  );
+  const currentModel = models.find((option) => option.value === currentModelValue);
   const currentAgent = agents.find((option) => option.value === agent);
-  const canSubmit =
-    canSubmitProp ?? (Boolean(currentValue.trim()) && !disabled && !loading);
+  const canSubmit = canSubmitProp ?? (Boolean(currentValue.trim()) && !disabled && !loading);
   const shellRadius = PROMPT_SHELL_RADIUS[radius];
   const controlRadius = PROMPT_CONTROL_RADIUS[radius];
 
@@ -351,7 +342,12 @@ export function PromptInput({
   };
 
   const agentConfigMenu =
-    agents.length || models.length || thinkingLevels.length > 0 || fastAvailable || contextLevels.length > 1 || modelsLoading ? (
+    agents.length ||
+    models.length ||
+    thinkingLevels.length > 0 ||
+    fastAvailable ||
+    contextLevels.length > 1 ||
+    modelsLoading ? (
       <PromptAgentConfigMenu
         agents={agents}
         agent={agent}
@@ -393,9 +389,7 @@ export function PromptInput({
     return (
       <div
         className={cn(
-          menuInline
-            ? "min-w-0 w-full"
-            : "flex min-h-8 min-w-0 flex-wrap items-center gap-1",
+          menuInline ? "w-full min-w-0" : "flex min-h-8 min-w-0 flex-wrap items-center gap-1",
           className,
         )}
       >
@@ -449,7 +443,7 @@ export function PromptInput({
           <div
             ref={measurementRef}
             aria-hidden="true"
-            className="pointer-events-none invisible absolute inset-x-2 top-0 whitespace-pre-wrap px-2 text-sm leading-6 [overflow-wrap:break-word]"
+            className="pointer-events-none invisible absolute inset-x-2 top-0 px-2 text-sm leading-6 [overflow-wrap:break-word] whitespace-pre-wrap"
           >
             {`${currentValue}\u200b`}
           </div>
@@ -506,7 +500,7 @@ export function PromptInput({
                     onAction?.(action.value);
                     setActionsOpen(false);
                   }}
-                  className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                  className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors outline-none hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-50"
                 >
                   {action.icon ? (
                     <span className="mt-0.5 grid size-5 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4">
@@ -514,9 +508,7 @@ export function PromptInput({
                     </span>
                   ) : null}
                   <span className="min-w-0">
-                    <span className="block text-sm text-foreground">
-                      {action.label}
-                    </span>
+                    <span className="block text-sm text-foreground">{action.label}</span>
                     {action.description ? (
                       <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
                         {action.description}
@@ -615,8 +607,7 @@ function PromptOptionSelect({
   const [search, setSearch] = useState("");
   // Never show the empty placeholder when options exist — preselect the first
   // listed value (composer also resolves aliases / currentValue before this).
-  const current =
-    options.find((option) => option.value === value) ?? options[0];
+  const current = options.find((option) => option.value === value) ?? options[0];
   const effectiveValue = current?.value ?? value ?? "";
   const showSearch = options.length > 15;
   const warning = current?.tone === "warning";
@@ -685,4 +676,3 @@ function PromptOptionSelect({
     </MorphPopover>
   );
 }
-

@@ -46,7 +46,7 @@ sequenceDiagram
         Bin->>Srv: 创建新会话
     end
     Eng-->>Svc: Session Ready
-    
+
     Svc->>Eng: send_input(data)
     Eng->>Bin: tmux send-keys -t atmos_id data
     Bin->>Srv: 转发按键到 Shell
@@ -55,23 +55,30 @@ sequenceDiagram
 ## 核心实现细节
 
 ### 1. 会话命名规范
+
 为了防止不同工作区之间的冲突，Atmos 采用统一的命名规则：`atmos_ws_{workspace_uuid}`。这确保了每个工作区都有一个全局唯一的 Tmux 会话。
 
 ### 2. 输出捕获：`pipe-pane` 技术
+
 这是最复杂的部分。为了将 Tmux 的输出实时推送到 Web 端，Atmos 使用了 Tmux 的 `pipe-pane` 功能。
+
 - **原理**: 我们启动一个辅助进程（如 `cat`），让 Tmux 将面板的所有输出重定向到这个进程的 `stdout`。
 - **读取**: Atmos 的 Rust 后端异步读取这个辅助进程的流，并将其转发到 WebSocket。
 
 ### 3. 窗口大小同步 (Resizing)
+
 当用户调整浏览器窗口大小时，前端会发送 `resize` 事件。Atmos 会将其转化为 `tmux resize-window` 指令。
+
 - **挑战**: Tmux 默认会根据所有附加客户端的最小尺寸来调整窗口。Atmos 通过设置 `window-size smallest` 等选项来优化这一行为。
 
 ## 异常处理与资源清理
 
 ### Tmux 未安装处理
+
 在 `core-engine` 初始化时，系统会检查 `tmux` 二进制文件是否存在。如果缺失，Atmos 会优雅地降级到“纯 PTY 模式”，并向用户发出警告。
 
 ### 孤儿会话清理
+
 当工作区被删除时，`WorkspaceService` 会显式调用 `tmux kill-session`。此外，系统还包含一个定时任务，用于清理那些标记为已停止但 Tmux 会话依然存在的异常情况。
 
 ## 性能考量
@@ -81,12 +88,12 @@ sequenceDiagram
 
 ## 关键源码分析
 
-| 文件路径 | 核心职责 |
-|:---|:---|
-| `crates/core-engine/src/tmux/mod.rs` | 封装 `Command::new("tmux")`，实现所有基础指令。 |
-| `crates/core-service/src/service/terminal.rs` | 决定何时创建 Tmux 会话，何时附加到现有会话。 |
-| `apps/api/src/api/ws/terminal_handler.rs` | 将 WebSocket 输入转化为 Tmux 的 `send-keys` 指令。 |
-| `crates/core-engine/src/error.rs` | 定义 Tmux 相关的错误类型（如：会话冲突、二进制文件缺失）。 |
+| 文件路径                                      | 核心职责                                                   |
+| :-------------------------------------------- | :--------------------------------------------------------- |
+| `crates/core-engine/src/tmux/mod.rs`          | 封装 `Command::new("tmux")`，实现所有基础指令。            |
+| `crates/core-service/src/service/terminal.rs` | 决定何时创建 Tmux 会话，何时附加到现有会话。               |
+| `apps/api/src/api/ws/terminal_handler.rs`     | 将 WebSocket 输入转化为 Tmux 的 `send-keys` 指令。         |
+| `crates/core-engine/src/error.rs`             | 定义 Tmux 相关的错误类型（如：会话冲突、二进制文件缺失）。 |
 
 ## 总结
 

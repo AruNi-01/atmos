@@ -1,9 +1,7 @@
 "use client";
 
 import { queryKeys } from "@/api/query/query-keys";
-import {
-  wsQueryOptions,
-} from "@/api/query/computer-query-options";
+import { wsQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import { wsRequest } from "@/api/ws/request";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";

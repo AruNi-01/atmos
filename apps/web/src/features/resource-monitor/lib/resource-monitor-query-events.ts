@@ -42,23 +42,15 @@ const MEMORY_ACCOUNTING: ReadonlySet<ResourceMemoryAccounting> = new Set([
   "fallback_total_minus_available",
 ]);
 
-export function isResourceMemoryAccounting(
-  value: unknown,
-): value is ResourceMemoryAccounting {
-  return (
-    typeof value === "string" &&
-    MEMORY_ACCOUNTING.has(value as ResourceMemoryAccounting)
-  );
+export function isResourceMemoryAccounting(value: unknown): value is ResourceMemoryAccounting {
+  return typeof value === "string" && MEMORY_ACCOUNTING.has(value as ResourceMemoryAccounting);
 }
 
 function isCpuPercent(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;
 }
 
-function isHostCores(
-  value: unknown,
-  logicalCpuCount: number,
-): value is ResourceHostCpuCore[] {
+function isHostCores(value: unknown, logicalCpuCount: number): value is ResourceHostCpuCore[] {
   if (!Array.isArray(value)) return false;
   if (value.length === 0) return true;
   if (value.length !== logicalCpuCount) return false;
@@ -216,7 +208,6 @@ function isProjectMetrics(value: unknown): boolean {
   );
 }
 
-
 function isAttributionStatus(value: unknown): value is ResourceAttributionStatus {
   return value === "complete" || value === "partial" || value === "unsupported";
 }
@@ -255,9 +246,7 @@ function isDiskList(value: unknown): value is ResourceDiskMetrics[] {
   );
 }
 
-export function isResourceMonitorSnapshot(
-  data: unknown,
-): data is ResourceMonitorSnapshot {
+export function isResourceMonitorSnapshot(data: unknown): data is ResourceMonitorSnapshot {
   if (!data || typeof data !== "object") return false;
   const value = data as Record<string, unknown>;
   return (

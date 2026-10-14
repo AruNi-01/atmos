@@ -87,9 +87,7 @@ export async function updateUsageShare(
   if (!existing || existing.revokedAt) return null;
 
   const includeCost =
-    body.include_cost !== undefined
-      ? Boolean(body.include_cost)
-      : existing.includeCost;
+    body.include_cost !== undefined ? Boolean(body.include_cost) : existing.includeCost;
   const snapshotJson =
     body.snapshot !== undefined
       ? JSON.stringify(redactSnapshot(body.snapshot, { includeCost }))

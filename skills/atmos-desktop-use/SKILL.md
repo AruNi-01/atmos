@@ -26,15 +26,15 @@ Details: [`references/cli.md`](references/cli.md).
 
 ## Decision tree
 
-| Intent | Commands |
-|--------|----------|
-| Ready? | `status` + `doctor` |
-| List windows | `drive verify` (**not** `drive windows`) |
-| Full-display screenshot | `drive screenshot --out …` (preferred for click loops) |
-| Frontmost window only | `capture --out …` |
-| Click / type / full desktop shell | `drive click|type|double-click|scroll|hotkey|…` (Phase 1–2; see cli.md) |
-| **Page / Chrome DOM** | **`atmos browser-use`** (separate product — not Desktop Use) |
-| Install engine | `driver ensure` |
+| Intent                            | Commands                                                     |
+| --------------------------------- | ------------------------------------------------------------ |
+| Ready?                            | `status` + `doctor`                                          |
+| List windows                      | `drive verify` (**not** `drive windows`)                     |
+| Full-display screenshot           | `drive screenshot --out …` (preferred for click loops)       |
+| Frontmost window only             | `capture --out …`                                            |
+| Click / type / full desktop shell | `drive click                                                 | type | double-click | scroll | hotkey | …` (Phase 1–2; see cli.md) |
+| **Page / Chrome DOM**             | **`atmos browser-use`** (separate product — not Desktop Use) |
+| Install engine                    | `driver ensure`                                              |
 
 ## Critical click rules (read this — most failures are here)
 
@@ -42,20 +42,20 @@ Details: [`references/cli.md`](references/cli.md).
 
 `drive screenshot` returns a **native PNG** that is often **2×** logical screen size (e.g. screen 1512×982, PNG 3024×1964).
 
-| Source of (x, y) | Flag | Example |
-|------------------|------|---------|
-| Pixel you read on the **drive screenshot PNG** | default `--coord-space png` | button at image (200, 322) → `--x 200 --y 322` |
-| `drive verify` bounds / AX `position` / System Events | `--coord-space points` | AX says (100, 161) → `--x 100 --y 161 --coord-space points` |
+| Source of (x, y)                                      | Flag                        | Example                                                     |
+| ----------------------------------------------------- | --------------------------- | ----------------------------------------------------------- |
+| Pixel you read on the **drive screenshot PNG**        | default `--coord-space png` | button at image (200, 322) → `--x 200 --y 322`              |
+| `drive verify` bounds / AX `position` / System Events | `--coord-space points`      | AX says (100, 161) → `--x 100 --y 161 --coord-space points` |
 
 **Wrong:** treating logical points (bounds/AX) as default PNG coords → click lands at ~half offset (looks like hover / miss).
 
 ### 2) Do not mix addressing modes
 
-| Mode | How | Background? |
-|------|-----|-------------|
-| **AX element_token** (**preferred**) | `window-state` → `click --element-token` | **Yes** — even hidden / off-Space when tree exists |
-| **Desktop PNG** | `--x --y` only, **no** `--pid` | Needs window **on-screen** |
-| **Window-local** | `--window-id` + optional `--pid`, coords from **that** window image | Same |
+| Mode                                 | How                                                                 | Background?                                        |
+| ------------------------------------ | ------------------------------------------------------------------- | -------------------------------------------------- |
+| **AX element_token** (**preferred**) | `window-state` → `click --element-token`                            | **Yes** — even hidden / off-Space when tree exists |
+| **Desktop PNG**                      | `--x --y` only, **no** `--pid`                                      | Needs window **on-screen**                         |
+| **Window-local**                     | `--window-id` + optional `--pid`, coords from **that** window image | Same                                               |
 
 ```bash
 # BEST — AX token (true background) when window-state has elements
@@ -87,12 +87,12 @@ These are **Desktop Use**, not Browser Use. OS AX is often empty or shell-only.
 
 **Always start with window-state** and read `result.atmos_surface`:
 
-| `atmos_surface.kind` | Meaning | Do this |
-|----------------------|---------|---------|
-| `ax_ok` | Actionable tree | **Only** `element_token` until it fails |
-| `ax_sparse` | Few nodes (chrome) | Token if matches; else pixel for content |
-| `ax_heavy` | Huge tree | `--max-elements` / `--max-depth` / `--query`; still prefer token |
-| `ax_empty` | Empty / `ax_window_unresolved` | **Stop AX retries** → screenshot + pixel ladder |
+| `atmos_surface.kind` | Meaning                        | Do this                                                          |
+| -------------------- | ------------------------------ | ---------------------------------------------------------------- |
+| `ax_ok`              | Actionable tree                | **Only** `element_token` until it fails                          |
+| `ax_sparse`          | Few nodes (chrome)             | Token if matches; else pixel for content                         |
+| `ax_heavy`           | Huge tree                      | `--max-elements` / `--max-depth` / `--query`; still prefer token |
+| `ax_empty`           | Empty / `ax_window_unresolved` | **Stop AX retries** → screenshot + pixel ladder                  |
 
 ```bash
 atmos desktop-use --json drive window-state --pid <pid> --window-id <id>
@@ -133,11 +133,11 @@ atmos desktop-use --json drive screenshot --out "$HOME/.atmos/desktop-use/shots/
 
 **Default is background** — `delivery_mode=background`. The engine does **not** need the target app to stay frontmost.
 
-| Path | Background? | Notes |
-|------|-------------|-------|
-| **AX `element_token`** (preferred) | **Yes** — backgrounded / minimized / off-Space when tree exists | `window-state` → `click/type --element-token` |
-| **Pixel click** (`--x --y`) | **Partial** — window must be **on-screen** | Pixel clicks annotate `atmos_addressing`. Use `foreground` only after background fails |
-| `bring_to_front` | **Never default** | Explicit `drive front` only |
+| Path                               | Background?                                                     | Notes                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **AX `element_token`** (preferred) | **Yes** — backgrounded / minimized / off-Space when tree exists | `window-state` → `click/type --element-token`                                          |
+| **Pixel click** (`--x --y`)        | **Partial** — window must be **on-screen**                      | Pixel clicks annotate `atmos_addressing`. Use `foreground` only after background fails |
+| `bring_to_front`                   | **Never default**                                               | Explicit `drive front` only                                                            |
 
 ```bash
 # True background (AX ok):
@@ -153,13 +153,13 @@ atmos desktop-use --json drive click --x <png_x> --y <png_y> \
 
 ## Visibility chrome
 
-| Expectation | Reality |
-|-------------|---------|
-| See where agent points | Session + `move_cursor`; idle hide extended to ~1h for drive session |
-| App / desktop **border highlight** | **Yes, blinking** — blue window / green desktop. Auto-clears after idle (~8s) or `drive session-end`. Toggle in Settings → Desktop Use → Operation border |
-| **Under-arrow status text** | **`{Agent} - {operation}`** under the pointer only. Explicit: `--status "…"`. Auto: `Clicking Orca` / `Operating`. No free-floating capsule without a cursor position. |
-| **Border z-order** | Window border sits just above the target; **hides** when another app covers the target (does not paint over your work). No full-desktop fallback for window-scoped actions. |
-| Must activate target app | **No** for default background path — avoid `drive front` every turn |
+| Expectation                        | Reality                                                                                                                                                                     |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| See where agent points             | Session + `move_cursor`; idle hide extended to ~1h for drive session                                                                                                        |
+| App / desktop **border highlight** | **Yes, blinking** — blue window / green desktop. Auto-clears after idle (~8s) or `drive session-end`. Toggle in Settings → Desktop Use → Operation border                   |
+| **Under-arrow status text**        | **`{Agent} - {operation}`** under the pointer only. Explicit: `--status "…"`. Auto: `Clicking Orca` / `Operating`. No free-floating capsule without a cursor position.      |
+| **Border z-order**                 | Window border sits just above the target; **hides** when another app covers the target (does not paint over your work). No full-desktop fallback for window-scoped actions. |
+| Must activate target app           | **No** for default background path — avoid `drive front` every turn                                                                                                         |
 
 ```bash
 # End a drive run (clears border + engine session cursor)
@@ -187,11 +187,11 @@ atmos desktop-use --json drive type --text "周杰伦" --x 780 --y 78 \
 
 ## Desktop vs page CDP
 
-| Target | Command family |
-|--------|----------------|
-| Any app shell, keys, AX, pixels | **`atmos desktop-use drive …`** (this skill) |
-| Chrome/Chromium **page** DOM | **`atmos browser-use …`** (separate skill surface; **no MCP**) |
-| Atmos in-app browser (webview) | `atmos browser-use --backend embedded` |
+| Target                          | Command family                                                 |
+| ------------------------------- | -------------------------------------------------------------- |
+| Any app shell, keys, AX, pixels | **`atmos desktop-use drive …`** (this skill)                   |
+| Chrome/Chromium **page** DOM    | **`atmos browser-use …`** (separate skill surface; **no MCP**) |
+| Atmos in-app browser (webview)  | `atmos browser-use --backend embedded`                         |
 
 Do **not** use Desktop Use for deep webpage automation when Browser Use is available.
 
@@ -207,15 +207,15 @@ Do **not** use Desktop Use for deep webpage automation when Browser Use is avail
 
 ## Errors
 
-| Signal | Recovery |
-|--------|----------|
-| `control_engine_not_installed` | `driver ensure` / Settings Install |
-| TCC denied | User grants Atmos Desktop Use AX + Screen Recording |
-| ok click, no UI change | Drop `--pid`; fix png vs points; on-screen; `foreground` + `window_id` |
-| empty PNG | doctor + permissions |
+| Signal                         | Recovery                                                               |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| `control_engine_not_installed` | `driver ensure` / Settings Install                                     |
+| TCC denied                     | User grants Atmos Desktop Use AX + Screen Recording                    |
+| ok click, no UI change         | Drop `--pid`; fix png vs points; on-screen; `foreground` + `window_id` |
+| empty PNG                      | doctor + permissions                                                   |
 
 ## Reporting
 
-- Commands + ok/error  
-- Screenshot paths before/after  
-- Coord space used (`png` vs `points`) and whether `--pid` / `window_id` / `foreground`  
+- Commands + ok/error
+- Screenshot paths before/after
+- Coord space used (`png` vs `points`) and whether `--pid` / `window_id` / `foreground`

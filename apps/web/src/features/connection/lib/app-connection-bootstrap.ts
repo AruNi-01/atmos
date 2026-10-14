@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { ensureComputerClientSettingsHydrated } from '@/features/connection/lib/sync-computer-client-settings';
-import { prepareConnectionTargetChange } from '@/app-shell/bootstrap/connection-target-lifecycle';
-import { hydrateRelaySessionFromDisk } from '@/features/connection/lib/hydrate-relay-session';
-import { workbenchRelayClientKind } from '@/features/connection/lib/workbench-relay-client-kind';
-import { isHostedAtmosOrigin, isPublicTokPath } from '@/shared/lib/desktop-runtime';
+import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
+import { prepareConnectionTargetChange } from "@/app-shell/bootstrap/connection-target-lifecycle";
+import { hydrateRelaySessionFromDisk } from "@/features/connection/lib/hydrate-relay-session";
+import { workbenchRelayClientKind } from "@/features/connection/lib/workbench-relay-client-kind";
+import { isHostedAtmosOrigin, isPublicTokPath } from "@/shared/lib/desktop-runtime";
 
 let localBootstrapPromise: Promise<void> | null = null;
 
@@ -14,7 +14,7 @@ let localBootstrapPromise: Promise<void> | null = null;
  */
 export function ensureLocalAppConnectionBootstrap(): Promise<void> {
   if (
-    typeof window === 'undefined' ||
+    typeof window === "undefined" ||
     isHostedAtmosOrigin() ||
     isPublicTokPath(window.location.pathname)
   ) {

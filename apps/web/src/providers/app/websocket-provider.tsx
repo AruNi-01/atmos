@@ -1,28 +1,28 @@
-'use client';
+"use client";
 
-import { useEffect, ReactNode, useRef } from 'react';
-import { usePathname } from 'next/navigation';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useAgentStatusStore } from '@/features/agent/store/agent-status-store';
-import { useAgentActivityStore } from '@/features/agent/store/agent-activity-store';
-import { initServerTerminalTitles } from '@/features/terminal/lib/terminal-server-title';
-import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
-import { useAutomationRunSurfaceSync } from '@/features/automations/hooks/use-automation-run-surface-sync';
-import { useDismissExitedAgentStatusSessions } from '@/features/agent/hooks/use-dismiss-exited-agent-status-sessions';
-import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
-import { useAgentActivityIndicatorSettingsStore } from '@/features/settings/store/agent-activity-indicator-settings-store';
-import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
-import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
-import { isHostedAtmosOrigin, isPublicTokPath } from '@/shared/lib/desktop-runtime';
+import { useEffect, ReactNode, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { useAgentStatusStore } from "@/features/agent/store/agent-status-store";
+import { useAgentActivityStore } from "@/features/agent/store/agent-activity-store";
+import { initServerTerminalTitles } from "@/features/terminal/lib/terminal-server-title";
+import { useAgentNotifications } from "@/features/agent/hooks/use-agent-notifications";
+import { useAutomationRunSurfaceSync } from "@/features/automations/hooks/use-automation-run-surface-sync";
+import { useDismissExitedAgentStatusSessions } from "@/features/agent/hooks/use-dismiss-exited-agent-status-sessions";
+import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
+import { useAgentActivityIndicatorSettingsStore } from "@/features/settings/store/agent-activity-indicator-settings-store";
+import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
+import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
+import { isHostedAtmosOrigin, isPublicTokPath } from "@/shared/lib/desktop-runtime";
 import {
   subscribeToWorkspaceDeleteProgress,
   subscribeToWorkspaceGitignoreSyncFailed,
   subscribeToWorkspaceSetupProgress,
-} from '@/features/project/store/use-project-store';
-import { ensureProjectBootstrap } from '@/features/project/hooks/use-project-bootstrap-query';
-import { getAtmosWebQueryClient } from '@/providers/app/query-client';
-import { getComputerQueryScope } from '@/api/query/query-scope';
-import { invalidateAfterComputerReconnect } from '@/api/query/reconnect-invalidation';
+} from "@/features/project/store/use-project-store";
+import { ensureProjectBootstrap } from "@/features/project/hooks/use-project-bootstrap-query";
+import { getAtmosWebQueryClient } from "@/providers/app/query-client";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { invalidateAfterComputerReconnect } from "@/api/query/reconnect-invalidation";
 
 interface WebSocketProviderProps {
   children: ReactNode;
@@ -35,14 +35,13 @@ interface WebSocketProviderProps {
  * 提供自动重连和心跳检测功能。
  */
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
-  const connect = useWebSocketStore(s => s.connect);
-  const disconnect = useWebSocketStore(s => s.disconnect);
-  const connectionState = useWebSocketStore(s => s.connectionState);
-  const hostedBootstrapState = useHostedConnectionStore(s => s.bootstrapState);
+  const connect = useWebSocketStore((s) => s.connect);
+  const disconnect = useWebSocketStore((s) => s.disconnect);
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const hostedBootstrapState = useHostedConnectionStore((s) => s.bootstrapState);
   const pathname = usePathname();
   const shouldConnect =
-    !isPublicTokPath(pathname) &&
-    (!isHostedAtmosOrigin() || hostedBootstrapState === 'connected');
+    !isPublicTokPath(pathname) && (!isHostedAtmosOrigin() || hostedBootstrapState === "connected");
   const prevConnectionStateRef = useRef(connectionState);
 
   useEffect(() => {
@@ -56,10 +55,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
     // 页面可见性变化时的处理
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === "visible") {
         // 页面变为可见时，检查并重新连接
         const state = useWebSocketStore.getState();
-        if (shouldConnect && state.connectionState === 'disconnected') {
+        if (shouldConnect && state.connectionState === "disconnected") {
           void connect().catch(() => undefined);
         }
       }
@@ -68,18 +67,18 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // 网络状态变化时的处理
     const handleOnline = () => {
       const state = useWebSocketStore.getState();
-      if (shouldConnect && state.connectionState === 'disconnected') {
+      if (shouldConnect && state.connectionState === "disconnected") {
         void connect().catch(() => undefined);
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('online', handleOnline);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
 
     // 清理函数
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('online', handleOnline);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
       // 注意：不在这里调用 disconnect()，因为这可能只是组件重新渲染
       // 真正的断开连接应该在用户明确登出或关闭页面时
     };
@@ -100,7 +99,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // init() is idempotent — it checks _unsubscribe internally.
     // We call it once the WS is connected and never cleanup, because
     // the event listener persists across reconnections (same Map ref).
-    if (connectionState === 'connected') {
+    if (connectionState === "connected") {
       useAgentStatusStore.getState().init();
       useAgentActivityStore.getState().init();
       initServerTerminalTitles();
@@ -116,15 +115,12 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   useEffect(() => {
     const prev = prevConnectionStateRef.current;
     prevConnectionStateRef.current = connectionState;
-    if (connectionState !== 'connected') return;
-    if (prev === 'connected') return;
+    if (connectionState !== "connected") return;
+    if (prev === "connected") return;
     // Transition into connected from connecting/reconnecting/disconnected.
     useAgentStatusStore.getState().resetForConnectionChange();
     useAgentActivityStore.getState().resetForConnectionChange();
-    void invalidateAfterComputerReconnect(
-      getAtmosWebQueryClient(),
-      getComputerQueryScope(),
-    );
+    void invalidateAfterComputerReconnect(getAtmosWebQueryClient(), getComputerQueryScope());
   }, [connectionState]);
 
   useAgentNotifications();

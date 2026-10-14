@@ -82,7 +82,7 @@ export function HostSessionBulkToolbar({
         <div className="flex items-center gap-1 px-2 py-2">
           <div className="flex items-center gap-1.5 pl-1.5">
             <span
-              className="text-sm font-medium tabular-nums text-muted-foreground"
+              className="text-sm font-medium text-muted-foreground tabular-nums"
               data-testid="host-session-selected-count"
             >
               {count}
@@ -265,10 +265,7 @@ const ToolbarButton = forwardRef<
     testId: string;
     tone?: "default" | "danger";
   }
->(function ToolbarButton(
-  { label, children, disabled, onClick, testId, tone = "default" },
-  ref,
-) {
+>(function ToolbarButton({ label, children, disabled, onClick, testId, tone = "default" }, ref) {
   return (
     <Button
       ref={ref}

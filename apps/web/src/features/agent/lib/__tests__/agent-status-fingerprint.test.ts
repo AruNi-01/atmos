@@ -24,16 +24,11 @@ describe("agent status occupancy fingerprints", () => {
       ["b", session({ session_id: "b", state: "idle", context_id: "ws-b" })],
     ]);
     const second = new Map(first);
-    second.set(
-      "c",
-      session({ session_id: "c", state: "idle", context_id: "ws-b" }),
-    );
+    second.set("c", session({ session_id: "c", state: "idle", context_id: "ws-b" }));
     expect(contextOccupancyFingerprint(first, ["ws-a"])).toBe(
       contextOccupancyFingerprint(second, ["ws-a"]),
     );
-    expect(sessionsOccupancyFingerprint(first)).not.toBe(
-      sessionsOccupancyFingerprint(second),
-    );
+    expect(sessionsOccupancyFingerprint(first)).not.toBe(sessionsOccupancyFingerprint(second));
   });
 
   it("changes when a watched context starts running", () => {

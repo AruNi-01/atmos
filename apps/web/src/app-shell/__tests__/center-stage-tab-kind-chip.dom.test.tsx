@@ -42,9 +42,7 @@ describe("center stage tab kind chip tooltip", () => {
     await act(async () => {
       root?.render(
         <>
-          <CenterStageShortcutTooltipBody kind="TUI">
-            Claude
-          </CenterStageShortcutTooltipBody>
+          <CenterStageShortcutTooltipBody kind="TUI">Claude</CenterStageShortcutTooltipBody>
           <CenterStageShortcutTooltipBody kind="Chat UI" digit={2}>
             Codex
           </CenterStageShortcutTooltipBody>

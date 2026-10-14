@@ -49,10 +49,7 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
       expect(status.platform).toBe("macos");
       expect(status.trigger).toBeDefined();
       expect(status.trigger.mode).toBe("macos_modifier_gesture");
-      expect(status.trigger.required_modifiers).toEqual([
-        "left_shift",
-        "right_shift",
-      ]);
+      expect(status.trigger.required_modifiers).toEqual(["left_shift", "right_shift"]);
       expect(Array.isArray(status.permissions)).toBe(true);
       expect(status.permissions.length).toBeGreaterThan(0);
       expect(status.permissions[0]).toMatchObject({
@@ -136,18 +133,12 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
       accessibilityProduct: "Atmos Desktop Use",
       screenRecordingProduct: "Atmos Desktop Use",
     });
-    expect(perms[0]!.recovery_action?.manual_steps.join(" ")).toContain(
-      "Atmos Desktop Use",
-    );
+    expect(perms[0]!.recovery_action?.manual_steps.join(" ")).toContain("Atmos Desktop Use");
     expect(perms[0]!.recovery_action?.manual_steps.join(" ")).toContain(
       "restart Atmos Desktop Use",
     );
-    expect(perms[0]!.recovery_action?.manual_steps.join(" ")).not.toContain(
-      "restart Atmos if",
-    );
-    expect(perms[1]!.recovery_action?.manual_steps.join(" ")).toContain(
-      "Atmos Desktop Use",
-    );
+    expect(perms[0]!.recovery_action?.manual_steps.join(" ")).not.toContain("restart Atmos if");
+    expect(perms[1]!.recovery_action?.manual_steps.join(" ")).toContain("Atmos Desktop Use");
   });
 
   it("writeRecordFromCapture uses protocol + real app metadata", () => {

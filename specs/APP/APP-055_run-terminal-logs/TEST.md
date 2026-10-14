@@ -14,36 +14,36 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 local files | S1, S2 |
-| M2 stable latest path | S1, S8 |
-| M3 start markers & rotation | S3 |
-| M4 volume limits | S4 |
-| M5 plain-text strip | S5 |
-| M6 git hygiene | S6 |
-| M7 slash chip only | S7, S10 |
-| M8 prompt expansion | S8, S9 |
-| M9 missing log | S9 |
-| M10 web/desktop Run scope | S2 (non-run no tee) |
-| M11 localization | S11 |
-| N1–N5 | deferred |
+| PRD item                    | Scenario IDs        |
+| --------------------------- | ------------------- |
+| M1 local files              | S1, S2              |
+| M2 stable latest path       | S1, S8              |
+| M3 start markers & rotation | S3                  |
+| M4 volume limits            | S4                  |
+| M5 plain-text strip         | S5                  |
+| M6 git hygiene              | S6                  |
+| M7 slash chip only          | S7, S10             |
+| M8 prompt expansion         | S8, S9              |
+| M9 missing log              | S9                  |
+| M10 web/desktop Run scope   | S2 (non-run no tee) |
+| M11 localization            | S11                 |
+| N1–N5                       | deferred            |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust unit/integration | `cargo test` | `TBD by test-run` (run_log_tee) | temp project dir | `.atmos/run-logs/run-main.latest.log` created with body | planned |
-| S2 | Rust unit | `cargo test` | window filter | window `main` vs `run-main` | only `run-*` writes | planned |
-| S3 | Rust unit | `cargo test` | rotate on run_start | two starts | archive count + new header | planned |
-| S4 | Rust unit | `cargo test` | size/prune limits | oversized append | size ≤ cap; archive count capped | planned |
-| S5 | Rust unit | `cargo test` | strip ANSI | colored bytes | no ESC sequences in file | planned |
-| S6 | Rust unit / git | `cargo test` | exclude sync | repo fixture | `git check-ignore` or exclude block contains `.atmos/run-logs/` | planned |
-| S7 | Bun | `bun test` | slash + composer | mock project path | chip token present; no open-file call | planned |
-| S8 | Bun | `bun test` | materialize prompt | registered run-log payload | expanded text has path + tail tip; no multi-KB dump | planned |
-| S9 | Bun | `bun test` | missing file | empty run-logs dir | missing-log instruction | planned |
-| S10 | agent-browser / manual | agent-browser | local web app | project with Run | chip visible; no new center log tab | planned |
-| S11 | Bun / manual | `bun test` or locale grep | messages en+zh | keys present | zh not English copy for descriptions | planned |
+| Scenario | Level                  | Expected tool             | Target command / method         | Fixture / data              | Signals                                                         | Status  |
+| -------- | ---------------------- | ------------------------- | ------------------------------- | --------------------------- | --------------------------------------------------------------- | ------- |
+| S1       | Rust unit/integration  | `cargo test`              | `TBD by test-run` (run_log_tee) | temp project dir            | `.atmos/run-logs/run-main.latest.log` created with body         | planned |
+| S2       | Rust unit              | `cargo test`              | window filter                   | window `main` vs `run-main` | only `run-*` writes                                             | planned |
+| S3       | Rust unit              | `cargo test`              | rotate on run_start             | two starts                  | archive count + new header                                      | planned |
+| S4       | Rust unit              | `cargo test`              | size/prune limits               | oversized append            | size ≤ cap; archive count capped                                | planned |
+| S5       | Rust unit              | `cargo test`              | strip ANSI                      | colored bytes               | no ESC sequences in file                                        | planned |
+| S6       | Rust unit / git        | `cargo test`              | exclude sync                    | repo fixture                | `git check-ignore` or exclude block contains `.atmos/run-logs/` | planned |
+| S7       | Bun                    | `bun test`                | slash + composer                | mock project path           | chip token present; no open-file call                           | planned |
+| S8       | Bun                    | `bun test`                | materialize prompt              | registered run-log payload  | expanded text has path + tail tip; no multi-KB dump             | planned |
+| S9       | Bun                    | `bun test`                | missing file                    | empty run-logs dir          | missing-log instruction                                         | planned |
+| S10      | agent-browser / manual | agent-browser             | local web app                   | project with Run            | chip visible; no new center log tab                             | planned |
+| S11      | Bun / manual           | `bun test` or locale grep | messages en+zh                  | keys present                | zh not English copy for descriptions                            | planned |
 
 ## Scenarios
 

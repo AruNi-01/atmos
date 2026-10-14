@@ -1,10 +1,4 @@
-export const HISTORY_COLUMN_IDS = [
-  "graph",
-  "description",
-  "date",
-  "author",
-  "commit",
-] as const;
+export const HISTORY_COLUMN_IDS = ["graph", "description", "date", "author", "commit"] as const;
 
 export type HistoryColumnId = (typeof HISTORY_COLUMN_IDS)[number];
 
@@ -44,13 +38,7 @@ export function clampHistoryColumnWidth(
 }
 
 export function historyTableWidth(widths: HistoryColumnWidths): number {
-  return (
-    widths.graph +
-    widths.description +
-    widths.date +
-    widths.author +
-    widths.commit
-  );
+  return widths.graph + widths.description + widths.date + widths.author + widths.commit;
 }
 
 export function historyGridTemplate(widths: HistoryColumnWidths): string {
@@ -94,11 +82,12 @@ export function resolveHistoryColumnWidths(
   const date = clampHistoryColumnWidth("date", widths.date);
   const author = clampHistoryColumnWidth("author", widths.author);
   const commit = clampHistoryColumnWidth("commit", widths.commit);
-  const description = options.descriptionPinned || options.containerWidth <= 0
-    ? clampHistoryColumnWidth("description", widths.description)
-    : Math.max(
-        HISTORY_COLUMN_MINS.description,
-        options.containerWidth - graph - date - author - commit,
-      );
+  const description =
+    options.descriptionPinned || options.containerWidth <= 0
+      ? clampHistoryColumnWidth("description", widths.description)
+      : Math.max(
+          HISTORY_COLUMN_MINS.description,
+          options.containerWidth - graph - date - author - commit,
+        );
   return { graph, description, date, author, commit };
 }

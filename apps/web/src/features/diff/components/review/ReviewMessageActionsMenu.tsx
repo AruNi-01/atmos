@@ -1,13 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  toastManager,
-} from "@workspace/ui";
+import { Button, Popover, PopoverContent, PopoverTrigger, toastManager } from "@workspace/ui";
 import { Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { ReviewMessageDto } from "@/api/ws-api";
 
@@ -79,7 +73,7 @@ export const ReviewMessageActionsMenu: React.FC<ReviewMessageActionsMenuProps> =
           onClick={stopPropagation}
           onKeyDown={stopPropagation}
           disabled={isDisabled}
-          className="flex size-6 items-center justify-center rounded bg-background/80 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/70 backdrop-blur hover:bg-muted hover:text-foreground group-hover/message:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 disabled:opacity-50"
+          className="flex size-6 items-center justify-center rounded bg-background/80 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/70 backdrop-blur group-hover/message:opacity-100 hover:bg-muted hover:text-foreground focus:opacity-100 disabled:opacity-50 data-[state=open]:opacity-100"
           title="Comment actions"
           aria-label="Comment actions"
         >
@@ -132,7 +126,13 @@ export const ReviewMessageActionsMenu: React.FC<ReviewMessageActionsMenuProps> =
               This message will be removed from the review thread.
             </p>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" size="sm" disabled={isBusy} onClick={() => setMode("menu")}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={isBusy}
+                onClick={() => setMode("menu")}
+              >
                 Cancel
               </Button>
               <Button

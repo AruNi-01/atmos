@@ -3,24 +3,10 @@
 import { useCallback, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { clampToDomain, resolveDomainMax } from "../../lib/dither/domain";
-import {
-  bandColor,
-  hash,
-  hexToRgba,
-  smoothstep,
-  type DitherTheme,
-} from "../../lib/dither/math";
-import {
-  createGridMorph,
-  gridSignature,
-  type GridMorph,
-} from "../../lib/dither/morph";
+import { bandColor, hash, hexToRgba, smoothstep, type DitherTheme } from "../../lib/dither/math";
+import { createGridMorph, gridSignature, type GridMorph } from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
-import {
-  DitherTooltip,
-  smoothToward,
-  type DitherTooltipState,
-} from "./DitherTooltip";
+import { DitherTooltip, smoothToward, type DitherTooltipState } from "./DitherTooltip";
 
 export type DitherRevenueSeries = {
   id: string;
@@ -121,8 +107,7 @@ export function DitherRevenueLines({
       }
       const domainMax = yMaxRef.current;
       const maxVal = resolveDomainMax(domainMax, dataPeak);
-      const plotY = (value: number) =>
-        h - (clampToDomain(value, domainMax) / maxVal) * h;
+      const plotY = (value: number) => h - (clampToDomain(value, domainMax) / maxVal) * h;
 
       const cell = Math.max(2, Math.round(w / 200));
       const tAnim = reducedMotion ? 0 : time;
@@ -136,9 +121,7 @@ export function DitherRevenueLines({
         const idx = Math.round(t * (maxLen - 1));
         ptr.scrubIdx = idx;
         const targetX = (idx / Math.max(1, maxLen - 1)) * w;
-        ptr.scrubX = reducedMotion
-          ? targetX
-          : smoothToward(ptr.scrubX, targetX, 0.24);
+        ptr.scrubX = reducedMotion ? targetX : smoothToward(ptr.scrubX, targetX, 0.24);
 
         const title = labelsRef.current?.[idx];
         const lines = all.map((s, si) => {
@@ -206,21 +189,14 @@ export function DitherRevenueLines({
           const curveY = plotY(val);
 
           // Soft scrub column boost
-          const scrubBoost =
-            ptr.active *
-            (1 - smoothstep(0, cell * 3, Math.abs(x - ptr.scrubX)));
+          const scrubBoost = ptr.active * (1 - smoothstep(0, cell * 3, Math.abs(x - ptr.scrubX)));
 
           for (let y = Math.floor(curveY); y <= h; y += cell) {
             const jx = x + cell / 2;
             const jy = y + cell / 2;
             const jit = hash(jx + si * 13, jy + si * 7);
-            const gradientFalloff = Math.max(
-              0,
-              1 - (y - curveY) / Math.max(1, h - curveY),
-            );
-            const waveRaw =
-              Math.sin(jx * 0.05 + tAnim + si) +
-              Math.sin(jy * 0.05 + tAnim * 0.7);
+            const gradientFalloff = Math.max(0, 1 - (y - curveY) / Math.max(1, h - curveY));
+            const waveRaw = Math.sin(jx * 0.05 + tAnim + si) + Math.sin(jy * 0.05 + tAnim * 0.7);
             const mod = smoothstep(-1.5, 1.5, waveRaw);
             const sz =
               cell *
@@ -228,9 +204,7 @@ export function DitherRevenueLines({
               (0.8 + 0.4 * jit) *
               fillScale;
             if (sz > 0.45) {
-              ctx.globalAlpha = multi
-                ? 0.45 + gradientFalloff * 0.25 + scrubBoost * 0.15
-                : 0.85;
+              ctx.globalAlpha = multi ? 0.45 + gradientFalloff * 0.25 + scrubBoost * 0.15 : 0.85;
               ctx.fillRect(x + (cell - sz) / 2, y + (cell - sz) / 2, sz, sz);
               ctx.globalAlpha = 1;
             }

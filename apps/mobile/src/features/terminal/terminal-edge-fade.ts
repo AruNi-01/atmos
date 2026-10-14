@@ -4,7 +4,10 @@
  */
 export const TERMINAL_SHORTCUT_BAR_COLOR = "#2c2c2e";
 
-export function shortcutEdgeFade(side: "left" | "right", color = TERMINAL_SHORTCUT_BAR_COLOR): string {
+export function shortcutEdgeFade(
+  side: "left" | "right",
+  color = TERMINAL_SHORTCUT_BAR_COLOR,
+): string {
   const direction = side === "left" ? "to right" : "to left";
   const transparent = hexToTransparent(color);
   return `linear-gradient(${direction}, ${color} 0%, ${transparent} 100%)`;

@@ -1,8 +1,11 @@
-'use client';
+"use client";
 
-import { useTranslations } from 'next-intl';
-import { SettingsGroup, SettingsPageStack } from '@/features/settings/components/settings/SettingsGroupCard';
-import { ShortcutKeySequence } from '@/shared/components/shortcut-key-sequence';
+import { useTranslations } from "next-intl";
+import {
+  SettingsGroup,
+  SettingsPageStack,
+} from "@/features/settings/components/settings/SettingsGroupCard";
+import { ShortcutKeySequence } from "@/shared/components/shortcut-key-sequence";
 
 interface ShortcutEntry {
   keys: string[];
@@ -29,81 +32,84 @@ function ShortcutGroup({ title, shortcuts }: { title: string; shortcuts: Shortcu
 }
 
 export function ShortcutsSettingsSection() {
-  const t = useTranslations('settings.shortcutsSection');
+  const t = useTranslations("settings.shortcutsSection");
 
   return (
     <SettingsPageStack>
       <ShortcutGroup
-        title={t('groups.global.title')}
+        title={t("groups.global.title")}
         shortcuts={[
-          { keys: ['⌘', 'B'], description: t('groups.global.items.toggleLeftSidebar') },
-          { keys: ['⌘', 'K'], description: t('groups.global.items.commandPalette') },
-          { keys: ['⌘', 'O'], description: t('groups.global.items.quickOpenFile') },
-          { keys: ['⌘', '['], description: t('groups.global.items.navigateBack') },
-          { keys: ['⌘', ']'], description: t('groups.global.items.navigateForward') },
-          { keys: ['⌘', '⇧', 'M'], description: t('groups.global.items.toggleActionMenu') },
-          { keys: ['⌘', 'U'], description: t('groups.global.items.toggleQuotaPopover') },
-          { keys: ['⌘', '⇧', 'U'], description: t('groups.global.items.toggleNeedAttention') },
+          { keys: ["⌘", "B"], description: t("groups.global.items.toggleLeftSidebar") },
+          { keys: ["⌘", "K"], description: t("groups.global.items.commandPalette") },
+          { keys: ["⌘", "O"], description: t("groups.global.items.quickOpenFile") },
+          { keys: ["⌘", "["], description: t("groups.global.items.navigateBack") },
+          { keys: ["⌘", "]"], description: t("groups.global.items.navigateForward") },
+          { keys: ["⌘", "⇧", "M"], description: t("groups.global.items.toggleActionMenu") },
+          { keys: ["⌘", "U"], description: t("groups.global.items.toggleQuotaPopover") },
+          { keys: ["⌘", "⇧", "U"], description: t("groups.global.items.toggleNeedAttention") },
         ]}
       />
       <ShortcutGroup
-        title={t('groups.workspace.title')}
+        title={t("groups.workspace.title")}
         shortcuts={[
-          { keys: ['⌘', 'N'], description: t('groups.workspace.items.newWorkspaceOverlay') },
-          { keys: ['⌘', '⇧', 'H'], description: t('groups.workspace.items.toggleCanvasOverlay') },
-          { keys: ['⌘', '⇧', 'K'], description: t('groups.workspace.items.expandKanbanOverlay') },
-          { keys: ['⌘', '⇧', '↵'], description: t('groups.workspace.items.openOrCreateWorkspace') },
-          { keys: ['⌘', '⇧', '1-9'], description: t('groups.workspace.items.listByPosition') },
+          { keys: ["⌘", "N"], description: t("groups.workspace.items.newWorkspaceOverlay") },
+          { keys: ["⌘", "⇧", "H"], description: t("groups.workspace.items.toggleCanvasOverlay") },
+          { keys: ["⌘", "⇧", "K"], description: t("groups.workspace.items.expandKanbanOverlay") },
+          { keys: ["⌘", "⇧", "↵"], description: t("groups.workspace.items.openOrCreateWorkspace") },
+          { keys: ["⌘", "⇧", "1-9"], description: t("groups.workspace.items.listByPosition") },
         ]}
       />
       <ShortcutGroup
-        title={t('groups.centerStageTabs.title')}
+        title={t("groups.centerStageTabs.title")}
         shortcuts={[
-          { keys: ['⌘', '0'], description: t('groups.centerStageTabs.items.overview') },
-          { keys: ['⌘', '1-9'], description: t('groups.centerStageTabs.items.tabByPosition') },
-          { keys: ['⌘', 'L'], description: t('groups.centerStageTabs.items.focusAgentChat') },
+          { keys: ["⌘", "0"], description: t("groups.centerStageTabs.items.overview") },
+          { keys: ["⌘", "1-9"], description: t("groups.centerStageTabs.items.tabByPosition") },
+          { keys: ["⌘", "L"], description: t("groups.centerStageTabs.items.focusAgentChat") },
         ]}
       />
       <ShortcutGroup
-        title={t('groups.terminal.title')}
+        title={t("groups.terminal.title")}
         shortcuts={[
-          { keys: ['⌘', 'D'], description: t('groups.terminal.items.splitHorizontal') },
-          { keys: ['⌘', '⇧', 'D'], description: t('groups.terminal.items.splitVertical') },
-          { keys: ['⌘', 'T'], description: t('groups.terminal.items.newTab') },
-          { keys: ['⌘', 'W'], description: t('groups.terminal.items.closePane') },
-          { keys: ['⌘', '⇧', 'F'], description: t('groups.terminal.items.maximizePanel') },
-          { keys: ['⌘', '⇧', 'P'], description: t('groups.terminal.items.pinToCanvas') },
-          { keys: ['⌘', 'F'], description: t('groups.terminal.items.findInTerminal') },
-          { keys: ['⌘', 'G'], description: t('groups.terminal.items.toggleAgentInput') },
-          { keys: ['⌘', '['], description: t('groups.terminal.items.previousTab') },
-          { keys: ['⌘', ']'], description: t('groups.terminal.items.nextTab') },
-          { keys: ['⌘', 'C'], description: t('groups.terminal.items.copySelection') },
+          { keys: ["⌘", "D"], description: t("groups.terminal.items.splitHorizontal") },
+          { keys: ["⌘", "⇧", "D"], description: t("groups.terminal.items.splitVertical") },
+          { keys: ["⌘", "T"], description: t("groups.terminal.items.newTab") },
+          { keys: ["⌘", "W"], description: t("groups.terminal.items.closePane") },
+          { keys: ["⌘", "⇧", "F"], description: t("groups.terminal.items.maximizePanel") },
+          { keys: ["⌘", "⇧", "P"], description: t("groups.terminal.items.pinToCanvas") },
+          { keys: ["⌘", "F"], description: t("groups.terminal.items.findInTerminal") },
+          { keys: ["⌘", "G"], description: t("groups.terminal.items.toggleAgentInput") },
+          { keys: ["⌘", "["], description: t("groups.terminal.items.previousTab") },
+          { keys: ["⌘", "]"], description: t("groups.terminal.items.nextTab") },
+          { keys: ["⌘", "C"], description: t("groups.terminal.items.copySelection") },
         ]}
       />
       <ShortcutGroup
-        title={t('groups.appshots.title')}
+        title={t("groups.appshots.title")}
         shortcuts={[
-          { keys: ['Left ⇧', 'Right ⇧'], description: t('groups.appshots.items.captureFocusedApp') },
+          {
+            keys: ["Left ⇧", "Right ⇧"],
+            description: t("groups.appshots.items.captureFocusedApp"),
+          },
         ]}
       />
       <ShortcutGroup
-        title={t('groups.editor.title')}
+        title={t("groups.editor.title")}
         shortcuts={[
-          { keys: ['⌘', 'S'], description: t('groups.editor.items.saveCurrentFile') },
-          { keys: ['⌘', 'F'], description: t('groups.editor.items.findInEditor') },
-          { keys: ['⌘', 'G'], description: t('groups.editor.items.toggleAgentInput') },
+          { keys: ["⌘", "S"], description: t("groups.editor.items.saveCurrentFile") },
+          { keys: ["⌘", "F"], description: t("groups.editor.items.findInEditor") },
+          { keys: ["⌘", "G"], description: t("groups.editor.items.toggleAgentInput") },
         ]}
       />
       <ShortcutGroup
-        title={t('groups.submitCommit.title')}
+        title={t("groups.submitCommit.title")}
         shortcuts={[
-          { keys: ['⌘', '↵'], description: t('groups.submitCommit.items.submitPromptOrCommit') },
+          { keys: ["⌘", "↵"], description: t("groups.submitCommit.items.submitPromptOrCommit") },
         ]}
       />
       <ShortcutGroup
-        title={t('groups.diffViewer.title')}
+        title={t("groups.diffViewer.title")}
         shortcuts={[
-          { keys: ['⇧', 'Click'], description: t('groups.diffViewer.items.multiSelectLines') },
+          { keys: ["⇧", "Click"], description: t("groups.diffViewer.items.multiSelectLines") },
         ]}
       />
     </SettingsPageStack>

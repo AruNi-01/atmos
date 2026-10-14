@@ -18,6 +18,8 @@ describe("task drawer insets", () => {
     expect(src).toContain("APP_FOOTER_HEIGHT_PX");
     expect(src).toContain("APP_HEADER_HEIGHT_PX");
     expect(src).toContain("CENTER_STAGE_GUTTER_Y_PX");
-    expect(src).toMatch(/queryCenterStageCard[\s\S]*queryCenterStageBody[\s\S]*queryCenterStagePanel/);
+    expect(src).toMatch(
+      /queryCenterStageCard[\s\S]*queryCenterStageBody[\s\S]*queryCenterStagePanel/,
+    );
   });
 });

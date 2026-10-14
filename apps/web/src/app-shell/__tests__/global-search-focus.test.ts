@@ -34,7 +34,14 @@ describe("global search focus", () => {
 
     expect(
       resolveGlobalSearchTypeahead(
-        { key: "f", metaKey: false, ctrlKey: false, altKey: false, isComposing: false, target: tab },
+        {
+          key: "f",
+          metaKey: false,
+          ctrlKey: false,
+          altKey: false,
+          isComposing: false,
+          target: tab,
+        },
         input,
         "",
       ),
@@ -42,7 +49,14 @@ describe("global search focus", () => {
 
     expect(
       resolveGlobalSearchTypeahead(
-        { key: "Backspace", metaKey: false, ctrlKey: false, altKey: false, isComposing: false, target: tab },
+        {
+          key: "Backspace",
+          metaKey: false,
+          ctrlKey: false,
+          altKey: false,
+          isComposing: false,
+          target: tab,
+        },
         input,
         "ab",
       ),
@@ -55,7 +69,14 @@ describe("global search focus", () => {
 
     expect(
       resolveGlobalSearchTypeahead(
-        { key: "ArrowDown", metaKey: false, ctrlKey: false, altKey: false, isComposing: false, target: tab },
+        {
+          key: "ArrowDown",
+          metaKey: false,
+          ctrlKey: false,
+          altKey: false,
+          isComposing: false,
+          target: tab,
+        },
         input,
         "q",
       ),
@@ -63,7 +84,14 @@ describe("global search focus", () => {
 
     expect(
       resolveGlobalSearchTypeahead(
-        { key: "f", metaKey: false, ctrlKey: false, altKey: false, isComposing: false, target: input },
+        {
+          key: "f",
+          metaKey: false,
+          ctrlKey: false,
+          altKey: false,
+          isComposing: false,
+          target: input,
+        },
         input,
         "",
       ),
@@ -239,7 +267,9 @@ describe("global search focus", () => {
     );
     expect(chatResume).toContain("onNavigated?.()");
     expect(tuiResume).toContain("if (launched)");
-    expect(tuiResume.indexOf("onNavigated?.()")).toBeGreaterThan(tuiResume.indexOf("if (launched)"));
+    expect(tuiResume.indexOf("onNavigated?.()")).toBeGreaterThan(
+      tuiResume.indexOf("if (launched)"),
+    );
     expect(tuiResume.indexOf("onNavigated?.()")).toBeLessThan(
       tuiResume.indexOf("setTuiCommand(formatHostSessionTuiLaunch"),
     );
@@ -248,7 +278,10 @@ describe("global search focus", () => {
     expect(hook).toContain("syncOnMount = false");
     expect(hook).toContain("mountSyncPending");
     expect(hook).toContain("syncInFlight");
-    const syncRequest = hook.slice(hook.indexOf("const sync ="), hook.indexOf("void hostSessionApi"));
+    const syncRequest = hook.slice(
+      hook.indexOf("const sync ="),
+      hook.indexOf("void hostSessionApi"),
+    );
     expect(syncRequest).toContain("mountSyncPending.current && !syncInFlight.current");
     expect(syncRequest).not.toContain("mountSyncPending.current = false");
     expect(syncRequest).not.toContain("onSourcesSyncedRef.current?.()");

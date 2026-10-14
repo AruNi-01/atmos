@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { formatEmbedDirective } from "./format";
-import {
-  parseAttributeBlob,
-  parseEmbedDirective,
-  parseEmbedDirectiveText,
-} from "./parse";
+import { parseAttributeBlob, parseEmbedDirective, parseEmbedDirectiveText } from "./parse";
 
 describe("embed directives", () => {
   test("round-trips inline and card forms", () => {
@@ -38,14 +34,14 @@ describe("embed directives", () => {
   });
 
   test("parses quoted, unquoted, and escaped attribute values", () => {
-    expect(
-      parseAttributeBlob('{kind=file path=src/auth.ts title="auth ts" note=\'a b\'}'),
-    ).toEqual({
-      kind: "file",
-      path: "src/auth.ts",
-      title: "auth ts",
-      note: "a b",
-    });
+    expect(parseAttributeBlob("{kind=file path=src/auth.ts title=\"auth ts\" note='a b'}")).toEqual(
+      {
+        kind: "file",
+        path: "src/auth.ts",
+        title: "auth ts",
+        note: "a b",
+      },
+    );
     expect(parseAttributeBlob('{msg="say \\"hi\\""}')).toEqual({
       msg: 'say "hi"',
     });

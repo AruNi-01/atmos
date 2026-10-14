@@ -166,9 +166,7 @@ export function isTerminalPaneNonIdle(
 
   const cwdTitle = isIdleCwdTitle(pane.dynamicTitle);
   const titleLooksBusy =
-    Boolean(pane.dynamicTitle?.trim()) &&
-    !cwdTitle &&
-    !isIdleShellCommand(pane.dynamicTitle);
+    Boolean(pane.dynamicTitle?.trim()) && !cwdTitle && !isIdleShellCommand(pane.dynamicTitle);
 
   if (!tmuxWindows) {
     return !cwdTitle;

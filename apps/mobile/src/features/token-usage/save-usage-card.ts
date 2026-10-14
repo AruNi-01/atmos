@@ -3,7 +3,8 @@ import { NativeModules, TurboModuleRegistry } from "react-native";
 import { pngBase64FromDataUrl } from "@/features/token-usage/png-data-url";
 
 function hasNativeModule(name: string): boolean {
-  const expoModules = (globalThis as { expo?: { modules?: Record<string, object | undefined> } }).expo?.modules;
+  const expoModules = (globalThis as { expo?: { modules?: Record<string, object | undefined> } })
+    .expo?.modules;
   if (expoModules?.[name]) return true;
   if (NativeModules[name]) return true;
   try {
@@ -17,8 +18,14 @@ let saveQueue: Promise<void> = Promise.resolve();
 
 /** Write a usage PNG into the photo library. Does not open a text share sheet. */
 export function saveUsageCardImage(source: string): Promise<void> {
-  const run = saveQueue.then(() => writeUsageCardImage(source), () => writeUsageCardImage(source));
-  saveQueue = run.then(() => undefined, () => undefined);
+  const run = saveQueue.then(
+    () => writeUsageCardImage(source),
+    () => writeUsageCardImage(source),
+  );
+  saveQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
   return run;
 }
 
@@ -36,7 +43,10 @@ async function writeUsageCardImage(source: string): Promise<void> {
 
   const owned = source.startsWith("data:");
   const file = owned
-    ? new File(Paths.cache, `atmos-token-usage-${Date.now()}-${Math.random().toString(16).slice(2)}.png`)
+    ? new File(
+        Paths.cache,
+        `atmos-token-usage-${Date.now()}-${Math.random().toString(16).slice(2)}.png`,
+      )
     : new File(source);
   if (owned) {
     file.create();

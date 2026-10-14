@@ -16,10 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { mainLog } from "../main-log.js";
 import { REPO_ROOT } from "../runtime/ensure.js";
-import {
-  ensureMacDockVisible,
-  setOverlayVisibleOnAllWorkspaces,
-} from "../windows/mac-dock.js";
+import { ensureMacDockVisible, setOverlayVisibleOnAllWorkspaces } from "../windows/mac-dock.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyBrowserWindow = any;
@@ -40,11 +37,7 @@ export const OVERLAY_PADDING = 14;
 export const OVERLAY_DURATION_MS = 400;
 export const MIN_OVERLAY_EDGE = 32;
 
-const SELF_APP_NAMES = new Set([
-  "Atmos",
-  "Atmos Electron",
-  "Electron",
-]);
+const SELF_APP_NAMES = new Set(["Atmos", "Atmos Electron", "Electron"]);
 
 /** Pure: expand target window bounds with padding for the overlay window. */
 export function overlayFrameFromBounds(
@@ -290,9 +283,7 @@ export function warmCaptureAnimationOverlay(): void {
  * Show the blue border + flash over the target window, wait, then hide.
  * Never throws — capture must proceed even if the affordance fails.
  */
-export async function playCaptureAnimation(
-  bounds: CaptureAnimationBounds,
-): Promise<void> {
+export async function playCaptureAnimation(bounds: CaptureAnimationBounds): Promise<void> {
   if (process.platform !== "darwin") return;
 
   const frame = overlayFrameFromBounds(bounds);
@@ -352,12 +343,7 @@ export async function playCaptureAnimation(
   } finally {
     // Only the owning generation may clear all-workspaces — stale cleanup must
     // not disable visibility claimed by a newer overlapping playCaptureAnimation.
-    if (
-      win &&
-      !win.isDestroyed() &&
-      allWorkspacesOn &&
-      workspaceVisibilityOwner === gen
-    ) {
+    if (win && !win.isDestroyed() && allWorkspacesOn && workspaceVisibilityOwner === gen) {
       try {
         await setOverlayVisibleOnAllWorkspaces(win, false);
       } catch {

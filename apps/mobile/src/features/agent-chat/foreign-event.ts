@@ -17,6 +17,7 @@ export function agentChatEventFromMessage(message: unknown): AgentChatEvent | nu
   if (!data || typeof data !== "object") return null;
   const event = data as Partial<AgentChatEvent>;
   if (typeof event.chat_id !== "string") return null;
-  if (!event.payload || typeof event.payload !== "object" || !("type" in event.payload)) return null;
+  if (!event.payload || typeof event.payload !== "object" || !("type" in event.payload))
+    return null;
   return data as AgentChatEvent;
 }

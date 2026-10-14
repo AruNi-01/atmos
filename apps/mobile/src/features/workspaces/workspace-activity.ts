@@ -30,7 +30,13 @@ export type WorkspaceTerminalCandidate = {
 };
 
 export function workspaceActivityRows(input: {
-  chats: Array<{ id: string; title: string; place: string; updatedAt: string; providerId?: string | null }>;
+  chats: Array<{
+    id: string;
+    title: string;
+    place: string;
+    updatedAt: string;
+    providerId?: string | null;
+  }>;
   terminals: Array<{
     id: string;
     title: string;
@@ -56,15 +62,17 @@ export function workspaceActivityRows(input: {
     const id = row.id.trim();
     if (!id || seen.has(id)) return [];
     seen.add(id);
-    return [{
-      id,
-      kind: "terminal" as const,
-      title: row.title.trim() || "Terminal",
-      subtitle: row.subtitle,
-      updatedAt: row.updatedAt?.trim() || null,
-      agentId: row.agentId?.trim() || null,
-      catalogId: row.catalogId?.trim() || null,
-    }];
+    return [
+      {
+        id,
+        kind: "terminal" as const,
+        title: row.title.trim() || "Terminal",
+        subtitle: row.subtitle,
+        updatedAt: row.updatedAt?.trim() || null,
+        agentId: row.agentId?.trim() || null,
+        catalogId: row.catalogId?.trim() || null,
+      },
+    ];
   });
   return [...chats, ...terminals].sort(byRecent);
 }
@@ -109,10 +117,7 @@ export function terminalActivityFromStatus(input: {
   return rows;
 }
 
-function byRecent(
-  left: { updatedAt: string | null },
-  right: { updatedAt: string | null },
-): number {
+function byRecent(left: { updatedAt: string | null }, right: { updatedAt: string | null }): number {
   const leftTime = Date.parse(left.updatedAt ?? "");
   const rightTime = Date.parse(right.updatedAt ?? "");
   const leftOk = Boolean(left.updatedAt) && Number.isFinite(leftTime);
@@ -141,13 +146,16 @@ function candidateForSnapshot(
   });
 }
 
-function terminalStatusTitle(sessionId: string, candidate: WorkspaceTerminalCandidate | undefined): string {
+function terminalStatusTitle(
+  sessionId: string,
+  candidate: WorkspaceTerminalCandidate | undefined,
+): string {
   const fromCandidate = candidate
-    ? cleanActivityTitle(candidate.session_title) ?? cleanActivityTitle(candidate.dynamic_title)
+    ? (cleanActivityTitle(candidate.session_title) ?? cleanActivityTitle(candidate.dynamic_title))
     : null;
   if (fromCandidate && !isIndexTitle(fromCandidate)) return fromCandidate;
   const named = candidate
-    ? cleanActivityTitle(candidate.terminal_name) ?? cleanActivityTitle(candidate.label)
+    ? (cleanActivityTitle(candidate.terminal_name) ?? cleanActivityTitle(candidate.label))
     : null;
   if (named && !isIndexTitle(named) && !isOpaqueId(named)) return named;
   const windowName = windowNameFromSessionId(sessionId);
@@ -189,8 +197,9 @@ export function terminalAgentId(
   const windowName = candidate.tmux_window_name?.trim();
   if (windowName) add(`${workspaceId}:${windowName}`);
   if (keys.size === 0) return null;
-  const match = sessions.find((session) =>
-    keys.has(session.session_id) || (session.surface_id != null && keys.has(session.surface_id)),
+  const match = sessions.find(
+    (session) =>
+      keys.has(session.session_id) || (session.surface_id != null && keys.has(session.surface_id)),
   );
   const tool = match?.tool?.trim() ?? "";
   return tool.length > 0 ? tool : null;
@@ -203,10 +212,10 @@ export function terminalActivityTitle(candidate: {
   label?: string | null;
 }): string {
   return (
-    candidate.session_title?.trim()
-    || candidate.dynamic_title?.trim()
-    || candidate.terminal_name?.trim()
-    || candidate.label?.trim()
-    || "Terminal"
+    candidate.session_title?.trim() ||
+    candidate.dynamic_title?.trim() ||
+    candidate.terminal_name?.trim() ||
+    candidate.label?.trim() ||
+    "Terminal"
   );
 }

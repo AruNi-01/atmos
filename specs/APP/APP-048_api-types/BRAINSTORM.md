@@ -14,12 +14,12 @@ Atmos multi-client surfaces talk to `apps/api` over a hand-rolled WebSocket requ
 
 ## Options considered
 
-| Option | Outcome |
-|--------|---------|
+| Option                           | Outcome                                                |
+| -------------------------------- | ------------------------------------------------------ |
 | A Hand-written api-types + drift | **Chosen for DTOs**; actions use **enum extract** gate |
-| B Full codegen from Rust | Deferred N4 |
-| C Zod runtime schemas | Deferred N3 |
-| D Expand shared only | Rejected (APP-050) |
+| B Full codegen from Rust         | Deferred N4                                            |
+| C Zod runtime schemas            | Deferred N3                                            |
+| D Expand shared only             | Rejected (APP-050)                                     |
 
 ## Settled decisions (post-review)
 

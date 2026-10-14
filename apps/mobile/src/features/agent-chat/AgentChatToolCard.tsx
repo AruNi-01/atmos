@@ -22,7 +22,13 @@ export function AgentChatToolCard({
       accessibilityRole="button"
       disabled={!interactive}
       onPress={onPress}
-      style={{ alignItems: "center", flexDirection: "row", gap: 6, marginBottom: 4, paddingVertical: 2 }}
+      style={{
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 6,
+        marginBottom: 4,
+        paddingVertical: 2,
+      }}
     >
       <Text
         numberOfLines={1}

@@ -47,9 +47,7 @@ let sidebarStripShortcutHandler: CenterDigitShortcutHandler | null = null;
 let lastDispatchKey = "";
 let lastDispatchAt = 0;
 
-export function serializeSidebarShortcutTarget(
-  target: SidebarShortcutTarget,
-): string {
+export function serializeSidebarShortcutTarget(target: SidebarShortcutTarget): string {
   return `${target.kind}:${target.id}`;
 }
 
@@ -65,12 +63,15 @@ export function parseSidebarShortcutTarget(
   return null;
 }
 
-function asElement(value: EventTarget | { parentElement?: Element | null } | null | undefined): Element | null {
+function asElement(
+  value: EventTarget | { parentElement?: Element | null } | null | undefined,
+): Element | null {
   if (!value || typeof value !== "object") return null;
   if ("closest" in value && typeof (value as Element).closest === "function") {
     return value as Element;
   }
-  const parent = "parentElement" in value ? (value as { parentElement?: Element | null }).parentElement : null;
+  const parent =
+    "parentElement" in value ? (value as { parentElement?: Element | null }).parentElement : null;
   return parent ?? null;
 }
 
@@ -92,15 +93,11 @@ export function elementIsInCenterHotkeyScope(
  * Terminal auto-focuses a textarea, so it worked without this; Files / Overview
  * / GitHub / editor chrome often do not.
  */
-export function noteCenterRegionPointerTarget(
-  target: EventTarget | null | undefined,
-): void {
+export function noteCenterRegionPointerTarget(target: EventTarget | null | undefined): void {
   centerRegionPointerActive = elementIsInCenterHotkeyScope(target);
 }
 
-export function noteCenterRegionFocusTarget(
-  target: EventTarget | null | undefined,
-): void {
+export function noteCenterRegionFocusTarget(target: EventTarget | null | undefined): void {
   const element = asElement(target);
   if (!element || isDocumentRoot(element)) return;
   centerRegionPointerActive = elementIsInCenterHotkeyScope(element);
@@ -142,9 +139,7 @@ export function registerSidebarStripShortcutHandler(
   sidebarStripShortcutHandler = handler;
 }
 
-export function parseHostDigitShortcutPayload(
-  payload: unknown,
-): HostDigitShortcutPayload | null {
+export function parseHostDigitShortcutPayload(payload: unknown): HostDigitShortcutPayload | null {
   if (!payload || typeof payload !== "object") return null;
   const digit = (payload as { digit?: unknown }).digit;
   const shift = (payload as { shift?: unknown }).shift;
@@ -216,9 +211,7 @@ export function collectSidebarShortcutTargets(
   const seen = new Set<string>();
   for (const node of nodes) {
     if (!isShortcutHintElementVisible(node)) continue;
-    const parsed = parseSidebarShortcutTarget(
-      node.getAttribute(SIDEBAR_SHORTCUT_TARGET_ATTR),
-    );
+    const parsed = parseSidebarShortcutTarget(node.getAttribute(SIDEBAR_SHORTCUT_TARGET_ATTR));
     if (!parsed) continue;
     const key = serializeSidebarShortcutTarget(parsed);
     if (seen.has(key)) continue;

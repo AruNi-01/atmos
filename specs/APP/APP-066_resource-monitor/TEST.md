@@ -11,47 +11,47 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S3, S4, S5, S6 |
-| M3 | S10, S11 |
-| M4 | S8, S12 |
-| M5 | S7, S9 |
-| M6 | S2, S6, S13 |
-| M7 | S11, S13 |
-| M8 | S14, S15 |
-| M9 | S16 |
-| M10 | S17, S18 |
-| M11 | S19, S20 |
-| M12 | S21, S22 |
+| PRD item | Scenario IDs   |
+| -------- | -------------- |
+| M1       | S1, S2         |
+| M2       | S3, S4, S5, S6 |
+| M3       | S10, S11       |
+| M4       | S8, S12        |
+| M5       | S7, S9         |
+| M6       | S2, S6, S13    |
+| M7       | S11, S13       |
+| M8       | S14, S15       |
+| M9       | S16            |
+| M10      | S17, S18       |
+| M11      | S19, S20       |
+| M12      | S21, S22       |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust integration | `cargo test` | `cargo test -p core-engine resource_metrics` | current process + host sampler | valid totals; logical CPUs > 0; primed timestamp | planned |
-| S2 | Rust unit | `cargo test` | `cargo test -p core-engine resource_metrics` | synthetic process samples | normalized CPU; exited/missing processes skipped | planned |
-| S3 | Rust unit | `cargo test` | `cargo test -p core-service resource_monitor` | synthetic parent/child graph with nested roots | each process claimed once; deepest root wins | planned |
-| S4 | Rust integration | `cargo test` | `cargo test -p core-service terminal` | simple portable PTY fixture | non-zero simple root PID captured internally | planned |
-| S5 | Rust unit/integration | `cargo test` | `cargo test -p core-engine tmux` and service attribution tests | duplicate handles for one tmux window | one pane query result and one process claim | planned |
-| S6 | Rust unit | `cargo test` | `cargo test -p core-service resource_monitor` | project context, workspace context, unresolved context | correct hierarchy; unresolved usage remains visible | planned |
-| S7 | WS/API-level | `cargo test` | `cargo test -p api resource_monitor` | fake/counting monitor service and two connection IDs | immediate snapshot; scoped events; idempotent unsubscribe | planned |
-| S8 | Bun test | `bun test` | Query key and connection-isolation suites | local scope and two relay revisions | old snapshot never appears under new scope | planned |
-| S9 | WS/API-level | `cargo test` | API disconnect lifecycle test | subscribed connection closed without unsubscribe | subscription task removed; no further sends | planned |
-| S10 | Bun test | `bun test` | Electron metrics collector tests | synthetic Browser/Tab/GPU/Utility metrics | byte conversion, CPU normalization, groups, no PIDs | planned |
-| S11 | Bun test + E2E | `bun test`, Playwright | resource-monitor feature tests; `e2e/tests/specs/APP-066_resource-monitor.e2e.ts` if fixture supports metrics | Electron-local and hosted/relay modes | shell shown only for local Electron; Footer opens popover | planned |
-| S12 | Bun test | `bun test` | resource-monitor API lifecycle tests | scope changes while popover is open | unsubscribe targets captured old scope; new scope subscribes once | planned |
-| S13 | Bun test + agent-browser | `bun test`, `agent-browser` | UI states and exploratory checks | loading, stale, unsupported, partial, many Workspaces | actionable localized states; scrollable hierarchy; no layout overlap | planned |
-| S14 | Bun test + E2E | `bun test`, Playwright | terminal pane locate helpers and APP-066 E2E | one host with default and extra Center Spaces | exact host/Space/tab/pane route; session row is actionable | planned |
-| S15 | Bun test + E2E | `bun test`, Playwright | locate signal store/CSS and pane integration | repeated locate requests and reduced-motion mode | only target panel receives a finite blue pulse; agent attention is unchanged | planned |
-| S16 | Bun test + E2E | `bun test`, Playwright | history/sort helpers and APP-066 popover | 61 snapshots across two Computer scopes | 60-point isolated history; useful chart; stable Name/CPU/Memory sorting | planned |
-| S17 | Rust unit/integration | `cargo test` | `cargo test -p core-service resource_monitor` | Project-direct and Workspace session/cwd process graph | exclusive process leaves; parent memory/count reconciliation; no duplicate owner rows | planned |
-| S18 | Rust/Bun test + E2E | `cargo test`, `bun test`, Playwright | Local Services cache join + hierarchy rendering | attributed listeners with matching/mismatching process identities | process basenames and cached ports under correct scope/session; no PID/path/command leak; no listener scan from hot path | planned |
-| S19 | Rust/Bun test | `cargo test`, `bun test` | Host detail sampling/DTO/validator | per-core samples and macOS/Linux/Windows memory fixtures | core count and range; explicit accounting; used/available and swap invariants; cached nullable | planned |
-| S20 | Bun test + E2E | `bun test`, Playwright | collapsible Host/Atmos and detail popovers | repeated snapshots, reduced-motion, narrow viewport | default-collapsed summaries; sticky sort; rounded hover; animated bars/chart; CPU/memory details remain inside parent monitor | planned |
-| S21 | Bun/UI test + E2E | `bun test`, Playwright | shared Dither Funnel/Growth and feature thresholds | low/mid/high values and reduced-motion | full-length shallow track; compact Host CPU Growth 0–100; success/warning/destructive pressure on host average; morph/snap behavior | planned |
-| S22 | Rust/Bun test + E2E | `cargo test`, `bun test`, Playwright | primary-disk sampler and default-collapsed Disk UI | root/system drive, APFS Data, removable, disk-image, pseudo, duplicate fixtures | exactly one primary system disk; used/available invariant; 2.5s cache; collapsed/expanded summary | planned |
+| Scenario | Level                    | Expected tool                        | Target command / method                                                                                       | Fixture / data                                                                  | Signals                                                                                                                             | Status  |
+| -------- | ------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1       | Rust integration         | `cargo test`                         | `cargo test -p core-engine resource_metrics`                                                                  | current process + host sampler                                                  | valid totals; logical CPUs > 0; primed timestamp                                                                                    | planned |
+| S2       | Rust unit                | `cargo test`                         | `cargo test -p core-engine resource_metrics`                                                                  | synthetic process samples                                                       | normalized CPU; exited/missing processes skipped                                                                                    | planned |
+| S3       | Rust unit                | `cargo test`                         | `cargo test -p core-service resource_monitor`                                                                 | synthetic parent/child graph with nested roots                                  | each process claimed once; deepest root wins                                                                                        | planned |
+| S4       | Rust integration         | `cargo test`                         | `cargo test -p core-service terminal`                                                                         | simple portable PTY fixture                                                     | non-zero simple root PID captured internally                                                                                        | planned |
+| S5       | Rust unit/integration    | `cargo test`                         | `cargo test -p core-engine tmux` and service attribution tests                                                | duplicate handles for one tmux window                                           | one pane query result and one process claim                                                                                         | planned |
+| S6       | Rust unit                | `cargo test`                         | `cargo test -p core-service resource_monitor`                                                                 | project context, workspace context, unresolved context                          | correct hierarchy; unresolved usage remains visible                                                                                 | planned |
+| S7       | WS/API-level             | `cargo test`                         | `cargo test -p api resource_monitor`                                                                          | fake/counting monitor service and two connection IDs                            | immediate snapshot; scoped events; idempotent unsubscribe                                                                           | planned |
+| S8       | Bun test                 | `bun test`                           | Query key and connection-isolation suites                                                                     | local scope and two relay revisions                                             | old snapshot never appears under new scope                                                                                          | planned |
+| S9       | WS/API-level             | `cargo test`                         | API disconnect lifecycle test                                                                                 | subscribed connection closed without unsubscribe                                | subscription task removed; no further sends                                                                                         | planned |
+| S10      | Bun test                 | `bun test`                           | Electron metrics collector tests                                                                              | synthetic Browser/Tab/GPU/Utility metrics                                       | byte conversion, CPU normalization, groups, no PIDs                                                                                 | planned |
+| S11      | Bun test + E2E           | `bun test`, Playwright               | resource-monitor feature tests; `e2e/tests/specs/APP-066_resource-monitor.e2e.ts` if fixture supports metrics | Electron-local and hosted/relay modes                                           | shell shown only for local Electron; Footer opens popover                                                                           | planned |
+| S12      | Bun test                 | `bun test`                           | resource-monitor API lifecycle tests                                                                          | scope changes while popover is open                                             | unsubscribe targets captured old scope; new scope subscribes once                                                                   | planned |
+| S13      | Bun test + agent-browser | `bun test`, `agent-browser`          | UI states and exploratory checks                                                                              | loading, stale, unsupported, partial, many Workspaces                           | actionable localized states; scrollable hierarchy; no layout overlap                                                                | planned |
+| S14      | Bun test + E2E           | `bun test`, Playwright               | terminal pane locate helpers and APP-066 E2E                                                                  | one host with default and extra Center Spaces                                   | exact host/Space/tab/pane route; session row is actionable                                                                          | planned |
+| S15      | Bun test + E2E           | `bun test`, Playwright               | locate signal store/CSS and pane integration                                                                  | repeated locate requests and reduced-motion mode                                | only target panel receives a finite blue pulse; agent attention is unchanged                                                        | planned |
+| S16      | Bun test + E2E           | `bun test`, Playwright               | history/sort helpers and APP-066 popover                                                                      | 61 snapshots across two Computer scopes                                         | 60-point isolated history; useful chart; stable Name/CPU/Memory sorting                                                             | planned |
+| S17      | Rust unit/integration    | `cargo test`                         | `cargo test -p core-service resource_monitor`                                                                 | Project-direct and Workspace session/cwd process graph                          | exclusive process leaves; parent memory/count reconciliation; no duplicate owner rows                                               | planned |
+| S18      | Rust/Bun test + E2E      | `cargo test`, `bun test`, Playwright | Local Services cache join + hierarchy rendering                                                               | attributed listeners with matching/mismatching process identities               | process basenames and cached ports under correct scope/session; no PID/path/command leak; no listener scan from hot path            | planned |
+| S19      | Rust/Bun test            | `cargo test`, `bun test`             | Host detail sampling/DTO/validator                                                                            | per-core samples and macOS/Linux/Windows memory fixtures                        | core count and range; explicit accounting; used/available and swap invariants; cached nullable                                      | planned |
+| S20      | Bun test + E2E           | `bun test`, Playwright               | collapsible Host/Atmos and detail popovers                                                                    | repeated snapshots, reduced-motion, narrow viewport                             | default-collapsed summaries; sticky sort; rounded hover; animated bars/chart; CPU/memory details remain inside parent monitor       | planned |
+| S21      | Bun/UI test + E2E        | `bun test`, Playwright               | shared Dither Funnel/Growth and feature thresholds                                                            | low/mid/high values and reduced-motion                                          | full-length shallow track; compact Host CPU Growth 0–100; success/warning/destructive pressure on host average; morph/snap behavior | planned |
+| S22      | Rust/Bun test + E2E      | `cargo test`, `bun test`, Playwright | primary-disk sampler and default-collapsed Disk UI                                                            | root/system drive, APFS Data, removable, disk-image, pseudo, duplicate fixtures | exactly one primary system disk; used/available invariant; 2.5s cache; collapsed/expanded summary                                   | planned |
 
 ## Scenarios
 

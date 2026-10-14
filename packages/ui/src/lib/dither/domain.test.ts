@@ -44,9 +44,7 @@ describe("resolveDomainMax", () => {
     expect(resolveDomainMax(0, 40)).toBe(40 * REVENUE_LINES_AUTO_HEADROOM);
     expect(resolveDomainMax(-5, 40)).toBe(40 * REVENUE_LINES_AUTO_HEADROOM);
     expect(resolveDomainMax(Number.NaN, 40)).toBe(40 * REVENUE_LINES_AUTO_HEADROOM);
-    expect(resolveDomainMax(Number.POSITIVE_INFINITY, 40)).toBe(
-      40 * REVENUE_LINES_AUTO_HEADROOM,
-    );
+    expect(resolveDomainMax(Number.POSITIVE_INFINITY, 40)).toBe(40 * REVENUE_LINES_AUTO_HEADROOM);
   });
 
   test("fixed yMax replaces the data peak and skips headroom", () => {

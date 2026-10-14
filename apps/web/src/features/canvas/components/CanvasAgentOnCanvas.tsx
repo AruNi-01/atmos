@@ -9,11 +9,7 @@ import { CanvasAgentViewHighlight } from "./CanvasAgentViewHighlight";
  * Renders on tldraw's `OnTheCanvas` layer (page-space, camera-transformed).
  * Must not be a direct `<Tldraw>` child — `SVGContainer` only works here.
  */
-export function CanvasAgentOnCanvas({
-  bridge,
-}: {
-  bridge: CanvasAgentBridgeState;
-}) {
+export function CanvasAgentOnCanvas({ bridge }: { bridge: CanvasAgentBridgeState }) {
   const editor = useEditor();
   return <CanvasAgentViewHighlight bridge={bridge} editor={editor} />;
 }

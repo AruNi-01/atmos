@@ -35,23 +35,23 @@
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID | Wave | Owns | Forbids | Depends | Status | Impl | Review | Verify |
-|----|------|------|---------|---------|--------|------|--------|--------|
-| S0 | 0 | `crates/agent/src/domain/**`, `crates/agent/src/lib.rs` | ACP adapter, core-service, api-types, web, natives, `PROGRESS.md` | — | done | ok | pass | `cargo test -p agent` |
-| S1 | 1 | `session.rs`, `event.rs`, `testing.rs`, `lib.rs`, `providers/acp/**`, plus barrel `domain/mod.rs` and `descriptor.rs` crate-root caps test (parent D2) | core-service, api-types, web, natives, acp_client JSON-RPC, `PROGRESS.md` | S0 | done | ok | pass | `cargo test -p agent` |
-| S2 | 2 | `crates/core-service/src/service/agent_chat/**` + `service/agent.rs` imports only (D3) | agent domain writes, api-types, apps/api, web, natives, `PROGRESS.md` | S1 | done | ok | pass | `cargo test -p core-service --lib agent_chat` |
-| S3 | 3 | api-types agent-chat dto/contract + apps/api agent_chat message/router | web, natives, acp_factory | S2 | done | ok | pass | extract + bun test |
-| S9 | 7 | `providers/mod.rs` + `acp_factory.rs` | native codecs, api-types, web | S2,S5–S8 | done | ok | pass | `cargo test -p core-service --lib agent_chat::acp_factory` |
-| S4 | 4 | `apps/web/src/features/agent/**` | api-types, rust, acp_factory | S3 | done | ok | pass | bun test spec subset 112 |
-| S5 | 5 | `crates/agent/src/providers/codex/**` + flock-append `pub mod codex;` | routing/`chat_provider_kind`, other natives, `lib.rs`, core-service | S1 | done | ok | pass | `cargo test -p agent --lib providers::codex` |
-| S6 | 5 | `crates/agent/src/providers/claude/**` + flock-append `pub mod claude;` | routing, other natives, `lib.rs`, core-service | S1 | done | ok | pass | `cargo test -p agent --lib providers::claude` |
-| S7 | 5 | `crates/agent/src/providers/pi/**` + flock-append `pub mod pi;` | routing, other natives, `lib.rs`, core-service | S1 | done | ok | pass | `cargo test -p agent --lib providers::pi` |
-| S8 | 5 | `crates/agent/src/providers/opencode/**` + flock-append `pub mod opencode;` | routing, other natives, `lib.rs`, core-service | S1 | done | ok | pass | `cargo test -p agent --lib providers::opencode` |
-| S10 | 8 | `packages/ui/src/components/agents/prompt-input.tsx` + `prompt-input-view.test.ts` | apps/web, rust, api-types, other ui | S4 | done | ok | pass | bun test prompt-input-view.test.ts |
-| S11 | 11 | `domain/descriptor.rs` + `domain/mod.rs` + `providers/mod.rs` | native codecs, lib.rs, web, api-types | S9 | done | ok | pass | `cargo test -p agent --lib domain::descriptor` |
-| S12 | 11 | `crates/agent/src/lib.rs` | native codecs, descriptor.rs | S5–S8 | done | ok | pass | `cargo check -p agent` |
-| S13 | 11 | `packages/api-types/src/ws/dto/agent-chat.ts` (+ test) | rust, web | S3 | done | ok | pass | bun api-types test |
-| S14 | 11 | web background-command remnants + `chat-helpers.ts` + `no-acp-schema.test.ts` | rust, api-types | S4 | done | ok | pass | bun no-acp-schema + background-command tests |
+| ID  | Wave | Owns                                                                                                                                                   | Forbids                                                                   | Depends  | Status | Impl | Review | Verify                                                     |
+| --- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | -------- | ------ | ---- | ------ | ---------------------------------------------------------- |
+| S0  | 0    | `crates/agent/src/domain/**`, `crates/agent/src/lib.rs`                                                                                                | ACP adapter, core-service, api-types, web, natives, `PROGRESS.md`         | —        | done   | ok   | pass   | `cargo test -p agent`                                      |
+| S1  | 1    | `session.rs`, `event.rs`, `testing.rs`, `lib.rs`, `providers/acp/**`, plus barrel `domain/mod.rs` and `descriptor.rs` crate-root caps test (parent D2) | core-service, api-types, web, natives, acp_client JSON-RPC, `PROGRESS.md` | S0       | done   | ok   | pass   | `cargo test -p agent`                                      |
+| S2  | 2    | `crates/core-service/src/service/agent_chat/**` + `service/agent.rs` imports only (D3)                                                                 | agent domain writes, api-types, apps/api, web, natives, `PROGRESS.md`     | S1       | done   | ok   | pass   | `cargo test -p core-service --lib agent_chat`              |
+| S3  | 3    | api-types agent-chat dto/contract + apps/api agent_chat message/router                                                                                 | web, natives, acp_factory                                                 | S2       | done   | ok   | pass   | extract + bun test                                         |
+| S9  | 7    | `providers/mod.rs` + `acp_factory.rs`                                                                                                                  | native codecs, api-types, web                                             | S2,S5–S8 | done   | ok   | pass   | `cargo test -p core-service --lib agent_chat::acp_factory` |
+| S4  | 4    | `apps/web/src/features/agent/**`                                                                                                                       | api-types, rust, acp_factory                                              | S3       | done   | ok   | pass   | bun test spec subset 112                                   |
+| S5  | 5    | `crates/agent/src/providers/codex/**` + flock-append `pub mod codex;`                                                                                  | routing/`chat_provider_kind`, other natives, `lib.rs`, core-service       | S1       | done   | ok   | pass   | `cargo test -p agent --lib providers::codex`               |
+| S6  | 5    | `crates/agent/src/providers/claude/**` + flock-append `pub mod claude;`                                                                                | routing, other natives, `lib.rs`, core-service                            | S1       | done   | ok   | pass   | `cargo test -p agent --lib providers::claude`              |
+| S7  | 5    | `crates/agent/src/providers/pi/**` + flock-append `pub mod pi;`                                                                                        | routing, other natives, `lib.rs`, core-service                            | S1       | done   | ok   | pass   | `cargo test -p agent --lib providers::pi`                  |
+| S8  | 5    | `crates/agent/src/providers/opencode/**` + flock-append `pub mod opencode;`                                                                            | routing, other natives, `lib.rs`, core-service                            | S1       | done   | ok   | pass   | `cargo test -p agent --lib providers::opencode`            |
+| S10 | 8    | `packages/ui/src/components/agents/prompt-input.tsx` + `prompt-input-view.test.ts`                                                                     | apps/web, rust, api-types, other ui                                       | S4       | done   | ok   | pass   | bun test prompt-input-view.test.ts                         |
+| S11 | 11   | `domain/descriptor.rs` + `domain/mod.rs` + `providers/mod.rs`                                                                                          | native codecs, lib.rs, web, api-types                                     | S9       | done   | ok   | pass   | `cargo test -p agent --lib domain::descriptor`             |
+| S12 | 11   | `crates/agent/src/lib.rs`                                                                                                                              | native codecs, descriptor.rs                                              | S5–S8    | done   | ok   | pass   | `cargo check -p agent`                                     |
+| S13 | 11   | `packages/api-types/src/ws/dto/agent-chat.ts` (+ test)                                                                                                 | rust, web                                                                 | S3       | done   | ok   | pass   | bun api-types test                                         |
+| S14 | 11   | web background-command remnants + `chat-helpers.ts` + `no-acp-schema.test.ts`                                                                          | rust, api-types                                                           | S4       | done   | ok   | pass   | bun no-acp-schema + background-command tests               |
 
 S5 and S6 are parallel only after S1 is `done` and `Owns` stay on disjoint `providers/<id>/` trees. S7/S8 same. HUMAN (2026-09-01): run all four native impls in one wave (D4). `providers/mod.rs` routing/`chat_provider_kind` stays S9. D5: each native may flock-append only `pub mod <id>;`.
 
@@ -164,28 +164,28 @@ S5 and S6 are parallel only after S1 is `done` and `Owns` stay on disjoint `prov
 
 ## Decisions Since TECH
 
-| ID | Decision | Why | Source update |
-|----|----------|-----|---------------|
-| D1 | S0 is additive types only; trait/`AgentToolCall`/`AgentCapabilities` replacement is S1+S2 | Keep `core-service` green after Wave 0; TECH dual-schema ban is wire/jsonl, not two Rust names for one release cut | This file |
-| D2 | S1 Owns includes `domain/mod.rs` + `descriptor.rs` for crate-root closed `AgentCapabilities` | S1 brief required crate-root Chat API switch; barrel/test live outside original file list | This file |
-| D3 | S2 Owns includes `core-service/src/service/agent.rs` import fix only | S1 removed crate-root `logout_acp_agent` / `AgentLogoutResult`; `acp-adapter.md` says non-Chat callers use `agent::acp_client::`. Needed for `cargo test -p core-service` | This file |
-| D4 | Wave 5 runs S5–S8 in parallel (4 native trees) | HUMAN asked for more parallel impl/review; Owns remain disjoint except D5 append | This file |
-| D5 | Native slices may flock-append `pub mod <id>;` to `providers/mod.rs`; must not rewrite routing or sibling mods | Needed so `cargo test -p agent --lib providers::<id>` actually compiles the tree; S9 still owns `chat_provider_kind` / factory routing | This file |
-| D6 | S10 owns `packages/ui` thinking visibility (`length > 0`); not S4 | S4 Owns was `features/agent/**` only; web.md M3 lives in prompt-input.tsx | This file |
-| D7 | Wave 11 fixes REVIEW.md REV-001–005; TECH routing table updated to alias fold | Architecture review 2026-09-01; P1 capabilities must share canonicalize | This file |
+| ID  | Decision                                                                                                       | Why                                                                                                                                                                       | Source update |
+| --- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| D1  | S0 is additive types only; trait/`AgentToolCall`/`AgentCapabilities` replacement is S1+S2                      | Keep `core-service` green after Wave 0; TECH dual-schema ban is wire/jsonl, not two Rust names for one release cut                                                        | This file     |
+| D2  | S1 Owns includes `domain/mod.rs` + `descriptor.rs` for crate-root closed `AgentCapabilities`                   | S1 brief required crate-root Chat API switch; barrel/test live outside original file list                                                                                 | This file     |
+| D3  | S2 Owns includes `core-service/src/service/agent.rs` import fix only                                           | S1 removed crate-root `logout_acp_agent` / `AgentLogoutResult`; `acp-adapter.md` says non-Chat callers use `agent::acp_client::`. Needed for `cargo test -p core-service` | This file     |
+| D4  | Wave 5 runs S5–S8 in parallel (4 native trees)                                                                 | HUMAN asked for more parallel impl/review; Owns remain disjoint except D5 append                                                                                          | This file     |
+| D5  | Native slices may flock-append `pub mod <id>;` to `providers/mod.rs`; must not rewrite routing or sibling mods | Needed so `cargo test -p agent --lib providers::<id>` actually compiles the tree; S9 still owns `chat_provider_kind` / factory routing                                    | This file     |
+| D6  | S10 owns `packages/ui` thinking visibility (`length > 0`); not S4                                              | S4 Owns was `features/agent/**` only; web.md M3 lives in prompt-input.tsx                                                                                                 | This file     |
+| D7  | Wave 11 fixes REVIEW.md REV-001–005; TECH routing table updated to alias fold                                  | Architecture review 2026-09-01; P1 capabilities must share canonicalize                                                                                                   | This file     |
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Rust `agent` | `cargo test -p agent --offline` | pass (195) | Wave 11 re-run 2026-09-01 |
-| Rust `core-service` agent_chat | `cargo test -p core-service --lib agent_chat --offline` | pass (94) | clock flake did not reproduce |
-| api `meta_wire` | `cargo test -p api --bin api meta_wire --offline` | pass (1) | persist-only keys stripped |
-| api-types | `bun run --filter @atmos/api-types test` | pass (22) | S15 + S13 `turn_id` |
-| Web S4 subset | bun test web.md file list + other-card | pass (85) | full `features/agent` dir may segfault `.dom.test.tsx` |
-| UI thinking M3 | bun test prompt-input-view.test.ts | pass (14) | S10 / TEST S2 |
-| TEST.md S1–S24 | mapping + targeted commands | covered | see TEST.md Coverage Status |
-| Playwright / live CLI / agent-browser | optional / manual | not_run | Chat UI was not running |
+| Area                                  | Command / Method                                        | Last result | Notes                                                  |
+| ------------------------------------- | ------------------------------------------------------- | ----------- | ------------------------------------------------------ |
+| Rust `agent`                          | `cargo test -p agent --offline`                         | pass (195)  | Wave 11 re-run 2026-09-01                              |
+| Rust `core-service` agent_chat        | `cargo test -p core-service --lib agent_chat --offline` | pass (94)   | clock flake did not reproduce                          |
+| api `meta_wire`                       | `cargo test -p api --bin api meta_wire --offline`       | pass (1)    | persist-only keys stripped                             |
+| api-types                             | `bun run --filter @atmos/api-types test`                | pass (22)   | S15 + S13 `turn_id`                                    |
+| Web S4 subset                         | bun test web.md file list + other-card                  | pass (85)   | full `features/agent` dir may segfault `.dom.test.tsx` |
+| UI thinking M3                        | bun test prompt-input-view.test.ts                      | pass (14)   | S10 / TEST S2                                          |
+| TEST.md S1–S24                        | mapping + targeted commands                             | covered     | see TEST.md Coverage Status                            |
+| Playwright / live CLI / agent-browser | optional / manual                                       | not_run     | Chat UI was not running                                |
 
 ## Known Blockers
 

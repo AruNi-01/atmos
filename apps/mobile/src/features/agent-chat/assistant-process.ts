@@ -124,7 +124,15 @@ export function shouldCollapseAssistantProcess(
   return isAssistantTurnSettled(message);
 }
 
-export type ToolOverviewKind = "write" | "command" | "skill" | "subagent" | "other" | "fetch" | "search" | "read";
+export type ToolOverviewKind =
+  | "write"
+  | "command"
+  | "skill"
+  | "subagent"
+  | "other"
+  | "fetch"
+  | "search"
+  | "read";
 
 const OVERVIEW_ORDER: readonly ToolOverviewKind[] = [
   "write",
@@ -192,12 +200,10 @@ export function toolGroupOverview(parts: AgentPart[]): string {
   if (counts.size === 0) {
     return parts.some((part) => part.type === "thinking") ? "Thinking" : "Working";
   }
-  const phrase = OVERVIEW_ORDER
-    .flatMap((kind) => {
-      const count = counts.get(kind) ?? 0;
-      return count > 0 ? [overviewPhrase(kind, count)] : [];
-    })
-    .join(", ");
+  const phrase = OVERVIEW_ORDER.flatMap((kind) => {
+    const count = counts.get(kind) ?? 0;
+    return count > 0 ? [overviewPhrase(kind, count)] : [];
+  }).join(", ");
   return phrase.charAt(0).toUpperCase() + phrase.slice(1);
 }
 
@@ -241,10 +247,10 @@ export function segmentAssistantParts(parts: AgentPart[]): AssistantSegment[] {
       continue;
     }
     if (
-      item.part.type === "session_lifecycle"
-      || item.part.type === "session_config_change"
-      || item.part.type === "session_hint"
-      || item.part.type === "permission"
+      item.part.type === "session_lifecycle" ||
+      item.part.type === "session_config_change" ||
+      item.part.type === "session_hint" ||
+      item.part.type === "permission"
     ) {
       flush();
       segments.push({ type: "part", part: item.part, index: item.index });

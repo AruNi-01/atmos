@@ -43,8 +43,7 @@ export function buildGitCommitTabValue(contextId: string, sha: string) {
 export function isGitCommitTabValue(value: string | null | undefined): value is string {
   return (
     !!value &&
-    (value.startsWith(GIT_COMMIT_TAB_PREFIX) ||
-      value.startsWith(LEGACY_GITHUB_COMMIT_TAB_PREFIX))
+    (value.startsWith(GIT_COMMIT_TAB_PREFIX) || value.startsWith(LEGACY_GITHUB_COMMIT_TAB_PREFIX))
   );
 }
 
@@ -68,10 +67,7 @@ export function parseGitCommitTabValue(
   return { contextId, sha };
 }
 
-function upsertTab(
-  tabs: GitCommitCenterTab[],
-  nextTab: GitCommitCenterTab,
-): GitCommitCenterTab[] {
+function upsertTab(tabs: GitCommitCenterTab[], nextTab: GitCommitCenterTab): GitCommitCenterTab[] {
   const existingIndex = tabs.findIndex((tab) => tab.value === nextTab.value);
   if (existingIndex === -1) return [...tabs, nextTab];
   const nextTabs = [...tabs];

@@ -9,15 +9,11 @@ import {
 
 describe("seriesScaleDiscontinuity", () => {
   test("detects tokens → cost peak jump", () => {
-    expect(
-      seriesScaleDiscontinuity([5_000_000, 3_000_000], [50, 30]),
-    ).toBe(true);
+    expect(seriesScaleDiscontinuity([5_000_000, 3_000_000], [50, 30])).toBe(true);
   });
 
   test("ignores same-scale updates", () => {
-    expect(
-      seriesScaleDiscontinuity([100, 200, 150], [120, 180, 160]),
-    ).toBe(false);
+    expect(seriesScaleDiscontinuity([100, 200, 150], [120, 180, 160])).toBe(false);
   });
 
   test("treats zero ↔ non-zero as discontinuity", () => {

@@ -5,18 +5,17 @@ import type * as React from "react";
  * Modal drawers set `pointer-events: none` on `body` and RemoveScroll
  * preventDefaults wheel/touchmove that originate outside the lock.
  */
-export function isolateOverlayScroll<
-  T extends { stopPropagation(): void },
->(event: T, next?: (event: T) => void) {
+export function isolateOverlayScroll<T extends { stopPropagation(): void }>(
+  event: T,
+  next?: (event: T) => void,
+) {
   event.stopPropagation();
   next?.(event);
 }
 
 export const overlayScrollClassName = "pointer-events-auto overscroll-contain";
 
-export function overlayScrollHandlers<
-  E extends HTMLElement,
->(handlers: {
+export function overlayScrollHandlers<E extends HTMLElement>(handlers: {
   onWheel?: React.WheelEventHandler<E>;
   onTouchMove?: React.TouchEventHandler<E>;
 }) {

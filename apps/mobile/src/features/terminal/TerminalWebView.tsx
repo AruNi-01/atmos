@@ -26,19 +26,33 @@ export type TerminalWebViewHandle = {
   restoreSnapshot: (snapshot: TerminalSnapshot) => void;
 };
 
-export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
-  connected: boolean;
-  onInput: (data: string) => void;
-  onReady?: (size: { cols: number; rows: number }) => void;
-  onRendererError?: (message: string) => void;
-  onResize?: (size: { cols: number; rows: number }) => void;
-  onTitleChange?: (title: string) => void;
-  onOscTitleChange?: (title: string | undefined) => void;
-  onCopyText?: (text: string) => void;
-  onPaste?: () => void;
-  sessionId: string;
-}>(function TerminalWebView(
-  { connected, onInput, onReady, onRendererError, onResize, onTitleChange, onOscTitleChange, onCopyText, onPaste, sessionId },
+export const TerminalWebView = forwardRef<
+  TerminalWebViewHandle,
+  {
+    connected: boolean;
+    onInput: (data: string) => void;
+    onReady?: (size: { cols: number; rows: number }) => void;
+    onRendererError?: (message: string) => void;
+    onResize?: (size: { cols: number; rows: number }) => void;
+    onTitleChange?: (title: string) => void;
+    onOscTitleChange?: (title: string | undefined) => void;
+    onCopyText?: (text: string) => void;
+    onPaste?: () => void;
+    sessionId: string;
+  }
+>(function TerminalWebView(
+  {
+    connected,
+    onInput,
+    onReady,
+    onRendererError,
+    onResize,
+    onTitleChange,
+    onOscTitleChange,
+    onCopyText,
+    onPaste,
+    sessionId,
+  },
   ref,
 ) {
   const isIos = process.env.EXPO_OS === "ios";
@@ -186,7 +200,9 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
           keyboardDisplayRequiresUserAction: false,
           scrollEnabled: false,
           style: [styles.dom, { backgroundColor: theme.colors.terminalBg }],
-          ...(isIos ? { hideKeyboardAccessoryView: true, useExpoDOMWebView: false } : { useExpoDOMWebView: true }),
+          ...(isIos
+            ? { hideKeyboardAccessoryView: true, useExpoDOMWebView: false }
+            : { useExpoDOMWebView: true }),
         }}
       />
       <TerminalSelectionOverlay

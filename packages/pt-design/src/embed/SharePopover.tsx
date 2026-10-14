@@ -71,7 +71,10 @@ export const SHARE_COPY_ZH: ShareCopy = {
 };
 
 function preferZh(): boolean {
-  if (typeof document !== "undefined" && document.documentElement.lang.toLowerCase().startsWith("zh")) {
+  if (
+    typeof document !== "undefined" &&
+    document.documentElement.lang.toLowerCase().startsWith("zh")
+  ) {
     return true;
   }
   if (typeof navigator !== "undefined" && navigator.language.toLowerCase().startsWith("zh")) {
@@ -178,7 +181,10 @@ export function SharePopover({
     fontSize: 13,
     fontWeight: 500,
     background: theme === "dark" ? "var(--primary, #fafafa)" : "var(--primary, #18181b)",
-    color: theme === "dark" ? "var(--primary-foreground, #09090b)" : "var(--primary-foreground, #fafafa)",
+    color:
+      theme === "dark"
+        ? "var(--primary-foreground, #09090b)"
+        : "var(--primary-foreground, #fafafa)",
     opacity: enabled ? 1 : 0.55,
   });
 
@@ -244,7 +250,9 @@ export function SharePopover({
 
       {tab === "agent" ? (
         <>
-          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: chrome.mutedFg }}>{copy.agentHint}</p>
+          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: chrome.mutedFg }}>
+            {copy.agentHint}
+          </p>
 
           <button
             type="button"
@@ -252,18 +260,25 @@ export function SharePopover({
             disabled={!clientId}
             onClick={async () => {
               if (!clientId) return;
-              if (await writeClipboard(buildLocalAgentPrompt(clientId, apiBase))) markCopied("prompt");
+              if (await writeClipboard(buildLocalAgentPrompt(clientId, apiBase)))
+                markCopied("prompt");
             }}
             style={{ ...primaryBtn(Boolean(clientId)), width: "100%" }}
           >
-            {copied === "prompt" ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
+            {copied === "prompt" ? (
+              <Check size={14} strokeWidth={2} />
+            ) : (
+              <Copy size={14} strokeWidth={2} />
+            )}
             {copied === "prompt" ? copy.copied : copy.copyPrompt}
           </button>
         </>
       ) : (
         <>
           <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: chrome.mutedFg }}>{copy.nameLabel}</span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: chrome.mutedFg }}>
+              {copy.nameLabel}
+            </span>
             <input
               data-testid="pt-design-share-name"
               value={draftName}
@@ -279,7 +294,9 @@ export function SharePopover({
           {room ? (
             <>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 500, color: chrome.mutedFg }}>{copy.linkLabel}</span>
+                <span style={{ fontSize: 12, fontWeight: 500, color: chrome.mutedFg }}>
+                  {copy.linkLabel}
+                </span>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input
                     data-testid="pt-design-share-url"
@@ -322,12 +339,19 @@ export function SharePopover({
                     }}
                     style={primaryBtn(Boolean(inviteUrl))}
                   >
-                    {copied === "link" ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
+                    {copied === "link" ? (
+                      <Check size={14} strokeWidth={2} />
+                    ) : (
+                      <Copy size={14} strokeWidth={2} />
+                    )}
                     {copied === "link" ? copy.copied : copy.copy}
                   </button>
                 </div>
                 {linkError ? (
-                  <span data-testid="pt-design-share-url-error" style={{ fontSize: 12, color: "var(--destructive, #ef4444)" }}>
+                  <span
+                    data-testid="pt-design-share-url-error"
+                    style={{ fontSize: 12, color: "var(--destructive, #ef4444)" }}
+                  >
                     {copy.invalidLink}
                   </span>
                 ) : null}
@@ -352,7 +376,16 @@ export function SharePopover({
               </button>
 
               <div style={{ height: 1, background: chrome.border }} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, lineHeight: 1.5, color: chrome.mutedFg }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: chrome.mutedFg,
+                }}
+              >
                 <p style={{ margin: 0 }}>{copy.privacy}</p>
                 <p style={{ margin: 0 }}>{copy.stopHint}</p>
               </div>

@@ -13,14 +13,14 @@ describe("header window drag", () => {
     expect(header).toContain('data-desktop-window-drag=""');
     expect(header).toContain("flex-1 self-stretch");
     expect(header).toContain('enabled && "desktop-drag-region"');
-    expect(header).toContain("relative z-10 desktop-no-drag flex shrink-0 items-center gap-6");
-    expect(header).toContain("relative z-10 desktop-no-drag flex min-w-0 items-center gap-5");
+    expect(header).toContain("desktop-no-drag relative z-10 flex shrink-0 items-center gap-6");
+    expect(header).toContain("desktop-no-drag relative z-10 flex min-w-0 items-center gap-5");
     expect(header).not.toContain("pointer-events-none absolute inset-0 z-0 desktop-drag-region");
     expect(header).not.toContain("justify-between px-4");
 
     const actions = read("../header-action-controls.tsx");
     expect(actions).toContain(
-      "relative z-10 desktop-no-drag flex shrink-0 items-center justify-end space-x-3",
+      "desktop-no-drag relative z-10 flex shrink-0 items-center justify-end space-x-3",
     );
   });
 });

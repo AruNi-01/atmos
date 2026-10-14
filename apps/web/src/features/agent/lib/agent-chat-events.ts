@@ -71,10 +71,7 @@ export function agentChatEventFor(event: AgentChatEvent, chatId: string): boolea
   return event.chat_id === chatId;
 }
 
-function asToolCallState(
-  tool: AgentTool,
-  fallbackStatus: ToolStatus,
-): ToolCallState {
+function asToolCallState(tool: AgentTool, fallbackStatus: ToolStatus): ToolCallState {
   return {
     tool_call_id: tool.tool_call_id,
     parent_tool_call_id: tool.parent_tool_call_id,
@@ -147,10 +144,10 @@ export function currentTurnHasRunningSubagent(messages: AgentMessage[]): boolean
     if (message?.role !== "assistant") continue;
     for (const part of message.parts) {
       if (
-        part.type === "tool_call"
-        && part.kind === "subagent"
-        && !isGrokChromeSubagent(part)
-        && isActiveToolStatus(part.status)
+        part.type === "tool_call" &&
+        part.kind === "subagent" &&
+        !isGrokChromeSubagent(part) &&
+        isActiveToolStatus(part.status)
       ) {
         return true;
       }
@@ -207,7 +204,8 @@ function patchCurrentTurnAssistant(
   preferredId: string | undefined,
   patch: (message: AgentMessage) => AgentMessage,
 ): AgentMessage[] {
-  const existing = assistantById(messages, preferredId) ?? currentTurnAssistant(messages, preferredId);
+  const existing =
+    assistantById(messages, preferredId) ?? currentTurnAssistant(messages, preferredId);
   if (existing) {
     return messages.map((item, index) => (index === existing.index ? patch(item) : item));
   }
@@ -366,13 +364,14 @@ function projectedPartUnchanged(previous: AgentPart, next: AgentPart): boolean {
   if (prevMeta.closed_at !== nextMeta.closed_at) return false;
   if (prevMeta.ordinal !== nextMeta.ordinal) return false;
   if (previous.type === "text" && next.type === "text") {
-    return previous.text === next.text
-      && previous.parent_tool_call_id === next.parent_tool_call_id;
+    return previous.text === next.text && previous.parent_tool_call_id === next.parent_tool_call_id;
   }
   if (previous.type === "thinking" && next.type === "thinking") {
-    return previous.text === next.text
-      && previous.duration_ms === next.duration_ms
-      && previous.parent_tool_call_id === next.parent_tool_call_id;
+    return (
+      previous.text === next.text &&
+      previous.duration_ms === next.duration_ms &&
+      previous.parent_tool_call_id === next.parent_tool_call_id
+    );
   }
   return false;
 }
@@ -397,10 +396,7 @@ function projectMessages(
   let listChanged = false;
   const next = messages.map((message) => {
     if (message.role !== "assistant") return message;
-    const parts = reuseProjectedParts(
-      message.parts,
-      upsertStoreParts(message, store, durations),
-    );
+    const parts = reuseProjectedParts(message.parts, upsertStoreParts(message, store, durations));
     const streaming = parts.some(partIsOpen);
     if (parts === message.parts && Boolean(message.streaming) === streaming) {
       return message;
@@ -434,10 +430,7 @@ function folded(messages: AgentMessage[]): FoldedChatEvent {
   return { messages, backfill: null };
 }
 
-function applyTextToMessages(
-  messages: AgentMessage[],
-  chunk: TextChunk,
-): FoldedChatEvent {
+function applyTextToMessages(messages: AgentMessage[], chunk: TextChunk): FoldedChatEvent {
   const store = seedPartStore(messages);
   const durations = collectDurations(messages);
   const existing = store.parts.get(chunk.part_id);
@@ -475,7 +468,10 @@ function closeTurnTextParts(messages: AgentMessage[]): AgentMessage[] {
   const durations = collectDurations(messages);
   const start = lastUserIndex(messages) + 1;
   const turnIds = new Set(
-    messages.slice(start).filter((item) => item.role === "assistant").map((item) => item.id),
+    messages
+      .slice(start)
+      .filter((item) => item.role === "assistant")
+      .map((item) => item.id),
   );
   for (const part of store.parts.values()) {
     if (part.closed_at != null) continue;
@@ -486,9 +482,11 @@ function closeTurnTextParts(messages: AgentMessage[]): AgentMessage[] {
 }
 
 function isChromePart(part: AgentPart): boolean {
-  return part.type === "session_lifecycle"
-    || part.type === "session_config_change"
-    || part.type === "session_hint";
+  return (
+    part.type === "session_lifecycle" ||
+    part.type === "session_config_change" ||
+    part.type === "session_hint"
+  );
 }
 
 function stampSnapshotOpenParts(
@@ -509,18 +507,19 @@ function stampSnapshotOpenParts(
 function mergeSnapshotMessage(prev: AgentMessage, incoming: AgentMessage): AgentMessage {
   const incomingHasChrome = incoming.parts.some(isChromePart);
   const chrome = incomingHasChrome ? [] : prev.parts.filter(isChromePart);
-  const mergedParts = chrome.length > 0
-    ? [...chrome, ...incoming.parts.filter((part) => !isChromePart(part))]
-    : incoming.parts;
+  const mergedParts =
+    chrome.length > 0
+      ? [...chrome, ...incoming.parts.filter((part) => !isChromePart(part))]
+      : incoming.parts;
   const parts = reuseProjectedParts(prev.parts, mergedParts);
   if (
-    prev.id === incoming.id
-    && prev.streaming === incoming.streaming
-    && prev.worked_ms === incoming.worked_ms
-    && prev.thinking_ms === incoming.thinking_ms
-    && prev.completed_at === incoming.completed_at
-    && prev.usage === incoming.usage
-    && parts === prev.parts
+    prev.id === incoming.id &&
+    prev.streaming === incoming.streaming &&
+    prev.worked_ms === incoming.worked_ms &&
+    prev.thinking_ms === incoming.thinking_ms &&
+    prev.completed_at === incoming.completed_at &&
+    prev.usage === incoming.usage &&
+    parts === prev.parts
   ) {
     return prev;
   }
@@ -585,9 +584,9 @@ export function applyTurnSnapshot(
     if (seen.has(snap.id)) continue;
     const current = snap.role === "assistant" ? currentTurnAssistant(next) : null;
     if (
-      current
-      && !seen.has(current.message.id)
-      && shouldAdoptSnapshotAssistant(current.message, snap)
+      current &&
+      !seen.has(current.message.id) &&
+      shouldAdoptSnapshotAssistant(current.message, snap)
     ) {
       seen.add(snap.id);
       next[current.index] = mergeSnapshotMessage(current.message, snap);
@@ -652,13 +651,15 @@ function foldAgentChatEvent(
         name: path.split(/[\\/]/).at(-1) ?? path,
       });
     }
-    return folded(settlePendingUserMessage(messages, {
-      id: payload.message_id,
-      role: "user",
-      kind: payload.kind,
-      parts,
-      created_at: payload.created_at,
-    }));
+    return folded(
+      settlePendingUserMessage(messages, {
+        id: payload.message_id,
+        role: "user",
+        kind: payload.kind,
+        parts,
+        created_at: payload.created_at,
+      }),
+    );
   }
 
   if (payload.type === "text_chunk") {
@@ -666,11 +667,7 @@ function foldAgentChatEvent(
   }
 
   if (payload.type === "turn_snapshot") {
-    return folded(applyTurnSnapshot(
-      messages,
-      payload.messages ?? [],
-      payload.open_part_ids ?? [],
-    ));
+    return folded(applyTurnSnapshot(messages, payload.messages ?? [], payload.open_part_ids ?? []));
   }
 
   if (payload.type === "part_closed") {
@@ -682,17 +679,19 @@ function foldAgentChatEvent(
     if (currentTurnHasRunningSubagent(closed) && payload.status !== "failed") {
       const current = currentTurnAssistant(closed);
       if (!current) return folded(closed);
-      return folded(closed.map((item, index) =>
-        index === current.index
-          ? deriveStreaming({
-              ...item,
-              completed_at: payload.completed_at ?? item.completed_at ?? payload.turn_id,
-              worked_ms: payload.worked_ms ?? item.worked_ms,
-              thinking_ms: payload.thinking_ms ?? item.thinking_ms,
-              usage: payload.usage ?? item.usage,
-            })
-          : item,
-      ));
+      return folded(
+        closed.map((item, index) =>
+          index === current.index
+            ? deriveStreaming({
+                ...item,
+                completed_at: payload.completed_at ?? item.completed_at ?? payload.turn_id,
+                worked_ms: payload.worked_ms ?? item.worked_ms,
+                thinking_ms: payload.thinking_ms ?? item.thinking_ms,
+                usage: payload.usage ?? item.usage,
+              })
+            : item,
+        ),
+      );
     }
     const errorMessage = payload.error?.trim();
     const failed = payload.status === "failed" && Boolean(errorMessage);
@@ -704,39 +703,45 @@ function foldAgentChatEvent(
     if (!failed || !errorMessage) {
       const current = currentTurnAssistant(settled);
       if (!current) return folded(settled);
-      return folded(settled.map((item, index) =>
-        index === current.index
-          ? deriveStreaming({
-              ...item,
-              worked_ms: payload.worked_ms ?? item.worked_ms,
-              thinking_ms: payload.thinking_ms ?? item.thinking_ms,
-              completed_at: payload.completed_at ?? item.completed_at,
-              usage: payload.usage ?? item.usage,
-            })
-          : item,
-      ));
+      return folded(
+        settled.map((item, index) =>
+          index === current.index
+            ? deriveStreaming({
+                ...item,
+                worked_ms: payload.worked_ms ?? item.worked_ms,
+                thinking_ms: payload.thinking_ms ?? item.thinking_ms,
+                completed_at: payload.completed_at ?? item.completed_at,
+                usage: payload.usage ?? item.usage,
+              })
+            : item,
+        ),
+      );
     }
-    return folded(patchCurrentTurnAssistant(settled, undefined, (message) =>
-      deriveStreaming({
-        ...message,
-        parts: [
-          ...message.parts.filter((part) => part.type !== "error"),
-          { type: "error", message: errorMessage },
-        ],
-        worked_ms: payload.worked_ms ?? message.worked_ms,
-        thinking_ms: payload.thinking_ms ?? message.thinking_ms,
-        completed_at: payload.completed_at ?? message.completed_at,
-        usage: payload.usage ?? message.usage,
-      }),
-    ));
+    return folded(
+      patchCurrentTurnAssistant(settled, undefined, (message) =>
+        deriveStreaming({
+          ...message,
+          parts: [
+            ...message.parts.filter((part) => part.type !== "error"),
+            { type: "error", message: errorMessage },
+          ],
+          worked_ms: payload.worked_ms ?? message.worked_ms,
+          thinking_ms: payload.thinking_ms ?? message.thinking_ms,
+          completed_at: payload.completed_at ?? message.completed_at,
+          usage: payload.usage ?? message.usage,
+        }),
+      ),
+    );
   }
 
   if (payload.type === "usage_updated" && payload.turn) {
     const current = currentTurnAssistant(messages);
     if (!current) return folded(messages);
-    return folded(messages.map((item, index) =>
-      index === current.index ? { ...item, usage: payload.turn } : item,
-    ));
+    return folded(
+      messages.map((item, index) =>
+        index === current.index ? { ...item, usage: payload.turn } : item,
+      ),
+    );
   }
 
   if (
@@ -747,10 +752,13 @@ function foldAgentChatEvent(
   ) {
     const tool = payload.tool_call;
     if (!tool?.tool_call_id) return folded(messages);
-    const existingTool = [...messages].reverse().flatMap((message) => message.parts).find(
-      (part): part is Extract<AgentPart, { type: "tool_call" }> =>
-        part.type === "tool_call" && part.tool_call_id === tool.tool_call_id,
-    );
+    const existingTool = [...messages]
+      .reverse()
+      .flatMap((message) => message.parts)
+      .find(
+        (part): part is Extract<AgentPart, { type: "tool_call" }> =>
+          part.type === "tool_call" && part.tool_call_id === tool.tool_call_id,
+      );
     const inferredStatus: ToolStatus =
       payload.type === "tool_call_started"
         ? "running"
@@ -788,98 +796,106 @@ function foldAgentChatEvent(
       ),
     );
     if (ownerIndex >= 0) {
-      return folded(messages.map((message, index) => (
-        index === ownerIndex ? applyPart(message) : message
-      )));
+      return folded(
+        messages.map((message, index) => (index === ownerIndex ? applyPart(message) : message)),
+      );
     }
     return folded(patchCurrentTurnAssistant(messages, undefined, applyPart));
   }
 
   if (payload.type === "plan_updated") {
-    return folded(patchCurrentTurnAssistant(messages, undefined, (message) => {
-      const planPart: AgentPart = { type: "plan", plan: payload.plan };
-      const existing = message.parts.findIndex((row) => row.type === "plan");
-      if (existing >= 0) {
-        const parts = [...message.parts];
-        parts[existing] = planPart;
-        return deriveStreaming({ ...message, parts });
-      }
-      return deriveStreaming({ ...message, parts: [...message.parts, planPart] });
-    }));
+    return folded(
+      patchCurrentTurnAssistant(messages, undefined, (message) => {
+        const planPart: AgentPart = { type: "plan", plan: payload.plan };
+        const existing = message.parts.findIndex((row) => row.type === "plan");
+        if (existing >= 0) {
+          const parts = [...message.parts];
+          parts[existing] = planPart;
+          return deriveStreaming({ ...message, parts });
+        }
+        return deriveStreaming({ ...message, parts: [...message.parts, planPart] });
+      }),
+    );
   }
 
   if (payload.type === "session_lifecycle") {
-    return folded(patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
-      const next: AgentPart = {
-        type: "session_lifecycle",
-        action: payload.action,
-        status: payload.status,
-        duration_ms: payload.duration_ms,
-        error: payload.error,
-      };
-      const parts = [...message.parts];
-      const existing = parts.findIndex((row) => row.type === "session_lifecycle");
-      if (existing >= 0) parts[existing] = next;
-      else parts.unshift(next);
-      return deriveStreaming({ ...message, parts });
-    }));
+    return folded(
+      patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
+        const next: AgentPart = {
+          type: "session_lifecycle",
+          action: payload.action,
+          status: payload.status,
+          duration_ms: payload.duration_ms,
+          error: payload.error,
+        };
+        const parts = [...message.parts];
+        const existing = parts.findIndex((row) => row.type === "session_lifecycle");
+        if (existing >= 0) parts[existing] = next;
+        else parts.unshift(next);
+        return deriveStreaming({ ...message, parts });
+      }),
+    );
   }
 
   if (payload.type === "session_config_change") {
-    return folded(patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
-      const next: AgentPart = {
-        type: "session_config_change",
-        model: payload.model,
-        mode: payload.mode,
-      };
-      const parts = [...message.parts];
-      const existing = parts.findIndex((row) => row.type === "session_config_change");
-      if (existing >= 0) {
-        parts[existing] = next;
-      } else {
-        const afterSession = parts.findLastIndex((row) => row.type === "session_lifecycle");
-        parts.splice(afterSession + 1, 0, next);
-      }
-      return deriveStreaming({ ...message, parts });
-    }));
+    return folded(
+      patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
+        const next: AgentPart = {
+          type: "session_config_change",
+          model: payload.model,
+          mode: payload.mode,
+        };
+        const parts = [...message.parts];
+        const existing = parts.findIndex((row) => row.type === "session_config_change");
+        if (existing >= 0) {
+          parts[existing] = next;
+        } else {
+          const afterSession = parts.findLastIndex((row) => row.type === "session_lifecycle");
+          parts.splice(afterSession + 1, 0, next);
+        }
+        return deriveStreaming({ ...message, parts });
+      }),
+    );
   }
 
   if (
-    payload.type === "session_op_requested"
-    || payload.type === "session_op_resolved"
-    || payload.type === "session_forked"
-    || payload.type === "rewind_view_updated"
-    || payload.type === "permission_requested"
-    || payload.type === "permission_resolved"
-    || payload.type === "unknown"
+    payload.type === "session_op_requested" ||
+    payload.type === "session_op_resolved" ||
+    payload.type === "session_forked" ||
+    payload.type === "rewind_view_updated" ||
+    payload.type === "permission_requested" ||
+    payload.type === "permission_resolved" ||
+    payload.type === "unknown"
   ) {
     return folded(messages);
   }
 
   if (payload.type === "session_hint") {
-    return folded(patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
-      const next: AgentPart = {
-        type: "session_hint",
-        tone: payload.tone,
-        kind: payload.kind,
-      };
-      const parts = [...message.parts];
-      const existing = parts.findIndex(
-        (row) => row.type === "session_hint" && row.kind === payload.kind,
-      );
-      if (existing >= 0) {
-        parts[existing] = next;
-      } else {
-        const afterChrome = parts.findLastIndex(
-          (row) =>
-            row.type === "session_lifecycle"
-            || row.type === "session_config_change"
-            || row.type === "session_hint",
+    return folded(
+      patchCurrentTurnAssistant(messages, payload.message_id, (message) => {
+        const next: AgentPart = {
+          type: "session_hint",
+          tone: payload.tone,
+          kind: payload.kind,
+        };
+        const parts = [...message.parts];
+        const existing = parts.findIndex(
+          (row) => row.type === "session_hint" && row.kind === payload.kind,
         );
-        parts.splice(afterChrome + 1, 0, next);
-      }
-      return deriveStreaming({ ...message, parts });
-    }));
+        if (existing >= 0) {
+          parts[existing] = next;
+        } else {
+          const afterChrome = parts.findLastIndex(
+            (row) =>
+              row.type === "session_lifecycle" ||
+              row.type === "session_config_change" ||
+              row.type === "session_hint",
+          );
+          parts.splice(afterChrome + 1, 0, next);
+        }
+        return deriveStreaming({ ...message, parts });
+      }),
+    );
   }
 
   return folded(messages);
@@ -887,8 +903,10 @@ function foldAgentChatEvent(
 
 export function textFromParts(parts: AgentPart[]): string {
   return parts
-    .filter((part): part is Extract<AgentPart, { type: "text" }> =>
-      part.type === "text" && !part.parent_tool_call_id)
+    .filter(
+      (part): part is Extract<AgentPart, { type: "text" }> =>
+        part.type === "text" && !part.parent_tool_call_id,
+    )
     .map((part) => part.text)
     .join("\n")
     .trim();

@@ -66,7 +66,7 @@
 - **Real-time multiplayer collaboration** — this PRD is for a local-first personal workbench, not a shared collaborative whiteboard.
 - **Rich document editing in notes** — v1 notes are plain text via tldraw's built-in note shape, not rich text docs or embedded files.
 - **Terminal session creation from the canvas** — v1 focuses on importing and organizing existing sessions; creating brand-new sessions from the canvas can follow later.
-- **Non-terminal Atmos-specific widgets** — agent session cards, PR/issue references, file viewers, charts, dashboards, and similar custom widgets are explicitly *future scope* for the canvas surface, but are not part of v1. v1 ships terminal cards plus tldraw's built-in shape catalogue (notes, frames, drawings, geo shapes, text, …).
+- **Non-terminal Atmos-specific widgets** — agent session cards, PR/issue references, file viewers, charts, dashboards, and similar custom widgets are explicitly _future scope_ for the canvas surface, but are not part of v1. v1 ships terminal cards plus tldraw's built-in shape catalogue (notes, frames, drawings, geo shapes, text, …).
 - **Mobile-first canvas UX** — the target experience is desktop/web usage with keyboard and terminal-heavy interaction.
 
 ## Success Metrics

@@ -9,16 +9,19 @@ export function CommandCopyButton({ text }: { text: string }) {
   const t = useTranslations("Agent.components.copyButtons");
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {});
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
   }, [text]);
   return (
     <button
       type="button"
       onClick={handleCopy}
-      className="shrink-0 px-2 py-1 text-zinc-500 hover:text-zinc-300 cursor-pointer"
+      className="shrink-0 cursor-pointer px-2 py-1 text-zinc-500 hover:text-zinc-300"
       aria-label={t("copyCommand")}
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
@@ -44,10 +47,13 @@ export function MessageCopyButton({
   const handleCopy = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    void navigator.clipboard.writeText(trimmed).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    }).catch(() => {});
+    void navigator.clipboard
+      .writeText(trimmed)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
   }, [text]);
 
   return (

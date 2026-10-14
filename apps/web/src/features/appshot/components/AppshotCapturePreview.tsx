@@ -16,10 +16,7 @@ import {
   showAppshotPermissionsWindow,
   watchAppshotStatusAfterPermissionOpen,
 } from "../lib/appshot-client";
-import {
-  sanitizePendingPreviewPayload,
-  toBoundedScreenshotDataUrl,
-} from "../lib/appshot-payload";
+import { sanitizePendingPreviewPayload, toBoundedScreenshotDataUrl } from "../lib/appshot-payload";
 import { formatQualityLabel } from "../lib/appshot-protocol";
 import type { AppshotPendingPreview } from "../types";
 
@@ -158,9 +155,7 @@ export function AppshotCapturePreview() {
 
     const nextRemaining = Math.max(
       0,
-      deadlineRef.current === null
-        ? remainingMsRef.current
-        : deadlineRef.current - Date.now(),
+      deadlineRef.current === null ? remainingMsRef.current : deadlineRef.current - Date.now(),
     );
     clearTimer();
     remainingMsRef.current = nextRemaining;
@@ -208,8 +203,7 @@ export function AppshotCapturePreview() {
       return;
     }
     clearPermissionWatcher();
-    permissionWatcherRef.current =
-      watchAppshotStatusAfterPermissionOpen(refreshPreviewPermissions);
+    permissionWatcherRef.current = watchAppshotStatusAfterPermissionOpen(refreshPreviewPermissions);
   }, [clearPermissionWatcher, refreshPreviewPermissions]);
 
   React.useEffect(() => {
@@ -234,17 +228,19 @@ export function AppshotCapturePreview() {
         setRemainingMs(0);
         setCountdownPaused(false);
       }
-    }).then((cleanup) => {
-      if (cancelled) {
-        cleanup();
-        return;
-      }
-      unlisten = cleanup;
-    }).catch((err) => {
-      if (!cancelled) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    });
+    })
+      .then((cleanup) => {
+        if (cancelled) {
+          cleanup();
+          return;
+        }
+        unlisten = cleanup;
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      });
 
     return () => {
       mountedRef.current = false;
@@ -280,12 +276,14 @@ export function AppshotCapturePreview() {
     <div
       key={preview.preview_id}
       className={cn(
-        "appshot-capture-card-enter fixed right-4 top-12 z-[2147483647] w-80 rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-md desktop-no-drag",
+        "appshot-capture-card-enter desktop-no-drag fixed top-12 right-4 z-[2147483647] w-80 rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-md",
       )}
-      style={{
-        "--appshot-enter-x": `${entranceOffset.x}px`,
-        "--appshot-enter-y": `${entranceOffset.y}px`,
-      } as React.CSSProperties}
+      style={
+        {
+          "--appshot-enter-x": `${entranceOffset.x}px`,
+          "--appshot-enter-y": `${entranceOffset.y}px`,
+        } as React.CSSProperties
+      }
       role="status"
       aria-live="polite"
       onMouseEnter={pauseAutoAcceptCountdown}
@@ -296,8 +294,7 @@ export function AppshotCapturePreview() {
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{preview.app_name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {preview.window_title?.trim() &&
-              preview.window_title.trim() !== preview.app_name
+              {preview.window_title?.trim() && preview.window_title.trim() !== preview.app_name
                 ? preview.window_title.trim()
                 : formatQualityLabel(preview.quality)}
             </p>
@@ -329,9 +326,7 @@ export function AppshotCapturePreview() {
         </div>
 
         {preview.warnings.length > 0 ? (
-          <p className="line-clamp-2 text-xs text-warning">
-            {preview.warnings[0]}
-          </p>
+          <p className="line-clamp-2 text-xs text-warning">{preview.warnings[0]}</p>
         ) : null}
 
         {deniedPermissions.length > 0 ? (
@@ -433,7 +428,7 @@ function CountdownStatusBadge({ paused, seconds }: { paused: boolean; seconds: n
           <motion.span
             key="paused"
             aria-hidden="true"
-            className="overflow-hidden whitespace-nowrap font-medium"
+            className="overflow-hidden font-medium whitespace-nowrap"
             initial={reduceMotion ? false : { width: 0, opacity: 0, marginRight: 0 }}
             animate={{ width: "auto", opacity: 1, marginRight: 4 }}
             exit={reduceMotion ? undefined : { width: 0, opacity: 0, marginRight: 0 }}

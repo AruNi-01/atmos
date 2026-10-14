@@ -5,17 +5,15 @@ import { useSortable, CSS } from "@workspace/ui";
 import type { ProjectItemProps } from "./ProjectItem";
 import { ProjectItem } from "./ProjectItem";
 
-export type SortableProjectProps = Omit<ProjectItemProps, "isDragging" | "isPlaceholder" | "attributes" | "listeners">;
+export type SortableProjectProps = Omit<
+  ProjectItemProps,
+  "isDragging" | "isPlaceholder" | "attributes" | "listeners"
+>;
 
 export const SortableProject: React.FC<SortableProjectProps> = (props) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: props.project.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.project.id,
+  });
 
   const style = {
     // Rest-state translate3d(0,0,0) would become a sticky containing block

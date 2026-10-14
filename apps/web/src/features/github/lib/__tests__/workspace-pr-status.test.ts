@@ -50,30 +50,15 @@ describe("toneForStatusCheck / getChecksIconTone", () => {
   });
 
   it("prefers failure over success for icon color", () => {
-    expect(
-      getChecksIconTone([
-        { state: "SUCCESS" },
-        { state: "FAILURE" },
-      ]),
-    ).toBe("failure");
+    expect(getChecksIconTone([{ state: "SUCCESS" }, { state: "FAILURE" }])).toBe("failure");
   });
 
   it("returns success only when checks pass without failure/running", () => {
-    expect(
-      getChecksIconTone([
-        { state: "SUCCESS" },
-        { conclusion: "SKIPPED" },
-      ]),
-    ).toBe("success");
+    expect(getChecksIconTone([{ state: "SUCCESS" }, { conclusion: "SKIPPED" }])).toBe("success");
   });
 
   it("uses yellow/running when checks are still in progress", () => {
-    expect(
-      getChecksIconTone([
-        { state: "SUCCESS" },
-        { state: "PENDING" },
-      ]),
-    ).toBe("running");
+    expect(getChecksIconTone([{ state: "SUCCESS" }, { state: "PENDING" }])).toBe("running");
     expect(hasRunningChecks([{ status: "IN_PROGRESS" }])).toBe(true);
   });
 

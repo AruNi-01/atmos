@@ -18,7 +18,5 @@ export function compareDiffTreePaths(leftPath: string, rightPath: string): numbe
 }
 
 export function sortByDiffTreePath<T extends { path: string }>(items: readonly T[]): T[] {
-  return [...items].sort((left, right) =>
-    compareDiffTreePaths(left.path, right.path),
-  );
+  return [...items].sort((left, right) => compareDiffTreePaths(left.path, right.path));
 }

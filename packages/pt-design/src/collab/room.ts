@@ -10,7 +10,10 @@ function envFlag(name: string): string | undefined {
 }
 
 export function isPrivateShareHost(hostname: string): boolean {
-  const host = hostname.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  const host = hostname
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "");
   if (
     host === "localhost" ||
     host === "127.0.0.1" ||
@@ -104,7 +107,9 @@ export function parseRoomFromString(value: string | undefined | null): CollabRoo
   if (trimmed.startsWith("?") || trimmed.includes("#room=") || trimmed.includes("room=")) {
     try {
       const url = new URL(trimmed, `${DEFAULT_SHARE_ORIGIN}/`);
-      return parseRoomFromHash(url.hash) ?? parseRoomFromSearch(url.search) ?? parseRoomFromHash(trimmed);
+      return (
+        parseRoomFromHash(url.hash) ?? parseRoomFromSearch(url.search) ?? parseRoomFromHash(trimmed)
+      );
     } catch {
       return parseRoomFromHash(trimmed);
     }

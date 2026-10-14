@@ -3,7 +3,10 @@ import type {
   AgentChatRenameRequest,
 } from "@atmos/api-types/ws/dto/agent-chat";
 
-export function renameRequest(chatId: string, title: string): {
+export function renameRequest(
+  chatId: string,
+  title: string,
+): {
   action: "agent_chat_rename";
   input: AgentChatRenameRequest;
 } {

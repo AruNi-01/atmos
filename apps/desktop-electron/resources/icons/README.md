@@ -2,22 +2,22 @@
 
 ## Layout
 
-| Asset | Role |
-|-------|------|
-| `icon.icon/` | **macOS 26+ Liquid Glass** Icon Composer package (source). Fill is black; `Assets/Logo.png` is the white mark; `Assets/Rim.png` is a hairline edge so the tile reads on a dark Dock. electron-builder + `actool` ≥ 26 → `Assets.car` + legacy ICNS. |
-| `icon.icns` | Legacy macOS **app** icon (pre-Tahoe Dock, `CFBundleIconFile`). Full-bleed plate — the system applies the squircle mask. |
-| `dmg-icon.icns` | DMG **volume** + downloaded-file icon. Same plate inset ~9% so Finder's desktop well has margin (full-bleed fills the frame). |
-| `icon.png` / `icon.ico` | Window chrome, Windows installer, dev `dock.setIcon` (PNG preferred). |
-| `32x32.png`, `128x128*.png` | Fallback sizes |
+| Asset                       | Role                                                                                                                                                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `icon.icon/`                | **macOS 26+ Liquid Glass** Icon Composer package (source). Fill is black; `Assets/Logo.png` is the white mark; `Assets/Rim.png` is a hairline edge so the tile reads on a dark Dock. electron-builder + `actool` ≥ 26 → `Assets.car` + legacy ICNS. |
+| `icon.icns`                 | Legacy macOS **app** icon (pre-Tahoe Dock, `CFBundleIconFile`). Full-bleed plate — the system applies the squircle mask.                                                                                                                            |
+| `dmg-icon.icns`             | DMG **volume** + downloaded-file icon. Same plate inset ~9% so Finder's desktop well has margin (full-bleed fills the frame).                                                                                                                       |
+| `icon.png` / `icon.ico`     | Window chrome, Windows installer, dev `dock.setIcon` (PNG preferred).                                                                                                                                                                               |
+| `32x32.png`, `128x128*.png` | Fallback sizes                                                                                                                                                                                                                                      |
 
 **Cross-surface brand pack** (same black rounded-plate art as `icon.icns`, kept in lockstep by `regen-legacy-icns`):
 
-| Asset | Role |
-|-------|------|
-| `crates/desktop-use/assets/host-app-icon.icns` | **Atmos Desktop Use.app** — System Settings / Accessibility / Screen Recording |
-| `apps/web/public/notification-icon.png` | Default system-notification **content** icon (left side of banner) |
-| `apps/{docs,landing,web}/src/app/icon.png` | Site favicons (Next.js App Router) |
-| `apps/docs/src/app/apple-icon.png` + `apps/docs/public/favicon.ico` | Docs Apple touch icon and legacy favicon |
+| Asset                                                               | Role                                                                           |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `crates/desktop-use/assets/host-app-icon.icns`                      | **Atmos Desktop Use.app** — System Settings / Accessibility / Screen Recording |
+| `apps/web/public/notification-icon.png`                             | Default system-notification **content** icon (left side of banner)             |
+| `apps/{docs,landing,web}/src/app/icon.png`                          | Site favicons (Next.js App Router)                                             |
+| `apps/docs/src/app/apple-icon.png` + `apps/docs/public/favicon.ico` | Docs Apple touch icon and legacy favicon                                       |
 
 Legacy bitmap/icns/ico are **synced** from the Tauri pack:
 

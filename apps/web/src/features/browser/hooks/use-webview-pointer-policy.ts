@@ -12,7 +12,7 @@ const OVERLAY_SELECTOR = [
   '[data-slot="context-menu-content"]',
   '[data-slot="select-content"]',
   '[data-slot="tooltip-content"]',
-  '[data-radix-popper-content-wrapper]',
+  "[data-radix-popper-content-wrapper]",
   '[role="dialog"]',
   '[aria-modal="true"]',
   "[data-atmos-browser-surface-overlay]",

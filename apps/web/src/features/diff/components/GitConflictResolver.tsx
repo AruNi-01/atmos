@@ -13,16 +13,7 @@ import {
 import { parseConflictResolvePrRef } from "@/features/editor/store/use-editor-store";
 import { usePrConflictPreviewStore } from "@/features/github/store/use-pr-conflict-preview-store";
 
-const CONFLICT_STATUSES = new Set([
-  "DD",
-  "AU",
-  "UD",
-  "UA",
-  "DU",
-  "AA",
-  "UU",
-  "U",
-]);
+const CONFLICT_STATUSES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU", "U"]);
 
 function toAbsolutePath(repoPath: string, relativePath: string): string {
   if (relativePath.startsWith("/")) {
@@ -46,10 +37,7 @@ function ConflictFileRenderer({
   onResolved,
 }: ConflictFileRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const fileName = useMemo(
-    () => file.name.split("/").pop() || file.name,
-    [file.name],
-  );
+  const fileName = useMemo(() => file.name.split("/").pop() || file.name, [file.name]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -151,9 +139,7 @@ export function GitConflictResolver({
             ? focusPath
             : null;
       if (filePath) {
-        return previewMatchesPr.files.includes(filePath)
-          ? [filePath]
-          : [filePath];
+        return previewMatchesPr.files.includes(filePath) ? [filePath] : [filePath];
       }
       return [...previewMatchesPr.files];
     }
@@ -164,13 +150,7 @@ export function GitConflictResolver({
       if (list.length === 0 && readOnly) list = [focusPath];
     }
     return list;
-  }, [
-    focusPath,
-    prContext?.filePath,
-    previewMatchesPr,
-    readOnly,
-    worktreeConflictPaths,
-  ]);
+  }, [focusPath, prContext?.filePath, previewMatchesPr, readOnly, worktreeConflictPaths]);
 
   const [files, setFiles] = useState<Record<string, FileContents>>({});
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
@@ -237,9 +217,7 @@ export function GitConflictResolver({
         const response = await fsApi.readFiles(absolutePaths);
         if (!active) return;
 
-        const resultByPath = new Map(
-          response.results.map((result) => [result.path, result]),
-        );
+        const resultByPath = new Map(response.results.map((result) => [result.path, result]));
         const loadedFiles: Record<string, FileContents> = {};
         const errors: Record<string, string> = {};
 
@@ -253,8 +231,7 @@ export function GitConflictResolver({
               contents: result.file.content ?? "",
             };
           } else {
-            errors[relativePath] =
-              result?.error ?? "Failed to read conflicted file";
+            errors[relativePath] = result?.error ?? "Failed to read conflicted file";
           }
         }
 
@@ -262,14 +239,9 @@ export function GitConflictResolver({
         setErrorByPath(errors);
       } catch (error) {
         if (!active) return;
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to read conflicted files";
+        const message = error instanceof Error ? error.message : "Failed to read conflicted files";
         setErrorByPath(
-          Object.fromEntries(
-            conflictedFilePaths.map((relativePath) => [relativePath, message]),
-          ),
+          Object.fromEntries(conflictedFilePaths.map((relativePath) => [relativePath, message])),
         );
       } finally {
         if (active) {
@@ -306,9 +278,7 @@ export function GitConflictResolver({
           }
         } catch (error) {
           const description =
-            error instanceof Error
-              ? error.message
-              : "Failed to write resolved content";
+            error instanceof Error ? error.message : "Failed to write resolved content";
           toastManager.add({
             title: "Failed to save conflict resolution",
             description,
@@ -328,7 +298,7 @@ export function GitConflictResolver({
 
   if (conflictedFilePaths.length === 0) {
     return (
-      <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
         {readOnly
           ? previewMatchesPr
             ? "No conflict files in this preview."
@@ -348,12 +318,12 @@ export function GitConflictResolver({
           display: none !important;
         }
       `}</style>
-      <div className="mx-auto w-full max-w-[1200px] px-5 py-4 space-y-4">
+      <div className="mx-auto w-full max-w-[1200px] space-y-4 px-5 py-4">
         {readOnly && (
           <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
-            Read-only conflict view — accept/reject is disabled because this may
-            not be the current workspace branch. Content is generated via
-            merge-tree (does not modify your working tree).
+            Read-only conflict view — accept/reject is disabled because this may not be the current
+            workspace branch. Content is generated via merge-tree (does not modify your working
+            tree).
           </div>
         )}
         {conflictedFilePaths.map((relativePath) => {
@@ -366,7 +336,7 @@ export function GitConflictResolver({
             return (
               <div
                 key={relativePath}
-                className="rounded-md border border-border/60 bg-card px-3 py-2 text-sm text-muted-foreground flex items-center gap-2"
+                className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-3 py-2 text-sm text-muted-foreground"
               >
                 <Loader2 className="size-4 animate-spin" />
                 <span>Loading {relativePath}...</span>
@@ -386,12 +356,9 @@ export function GitConflictResolver({
           }
 
           return (
-            <div
-              key={relativePath}
-              className="rounded-md border border-border/60 overflow-hidden"
-            >
+            <div key={relativePath} className="overflow-hidden rounded-md border border-border/60">
               {isSaving && !readOnly && (
-                <div className="px-3 py-1.5 text-xs text-muted-foreground border-b border-border/60 bg-muted/40">
+                <div className="border-b border-border/60 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
                   Saving resolution...
                 </div>
               )}
@@ -399,9 +366,7 @@ export function GitConflictResolver({
                 file={file}
                 theme={diffTheme}
                 readOnly={readOnly}
-                onResolved={(nextFile) =>
-                  handleMergeConflictResolve(relativePath, nextFile)
-                }
+                onResolved={(nextFile) => handleMergeConflictResolve(relativePath, nextFile)}
               />
             </div>
           );

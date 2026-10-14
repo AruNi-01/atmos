@@ -31,12 +31,7 @@ export function observerWireEase(t: number): number {
   return sampleCubicBezier(x1, y1, x2, y2, t);
 }
 
-export function observerWirePath(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-): string {
+export function observerWirePath(x1: number, y1: number, x2: number, y2: number): string {
   const mid = (x1 + x2) / 2;
   return `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
 }
@@ -87,8 +82,7 @@ export function beginObserverWireMotion({
         sameIds = false;
         break;
       }
-      if (Math.abs(from.x - to.x) >= 0.5 || Math.abs(from.y - to.y) >= 0.5)
-        moved = true;
+      if (Math.abs(from.x - to.x) >= 0.5 || Math.abs(from.y - to.y) >= 0.5) moved = true;
     }
   }
 
@@ -98,11 +92,7 @@ export function beginObserverWireMotion({
     const nextHeight = heights.get(id);
     const prevHeight = current.heights.get(id);
     if (prevHeight != null) hadBaseline = true;
-    if (
-      prevHeight != null &&
-      nextHeight != null &&
-      Math.abs(prevHeight - nextHeight) >= 1
-    ) {
+    if (prevHeight != null && nextHeight != null && Math.abs(prevHeight - nextHeight) >= 1) {
       heightChanged = true;
     }
   }
@@ -135,9 +125,7 @@ export function sampleObserverWireMotion(
   now: number,
 ): { frame: ObserverWireFrame; baseline: ObserverWireBaseline } {
   const t =
-    motion.duration <= 0
-      ? 1
-      : Math.min(1, Math.max(0, (now - motion.start) / motion.duration));
+    motion.duration <= 0 ? 1 : Math.min(1, Math.max(0, (now - motion.start) / motion.duration));
   const eased = t >= 1 ? 1 : observerWireEase(t);
   const positions = new Map<string, WirePoint>();
   const boxHeights = new Map<string, number>();
@@ -167,23 +155,15 @@ export function sampleObserverWireMotion(
   return { frame: { positions, boxHeights }, baseline: { positions, heights } };
 }
 
-function sampleCubicBezier(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  x: number,
-): number {
+function sampleCubicBezier(x1: number, y1: number, x2: number, y2: number, x: number): number {
   const cx = 3 * x1;
   const bx = 3 * (x2 - x1) - cx;
   const ax = 1 - cx - bx;
   const cy = 3 * y1;
   const by = 3 * (y2 - y1) - cy;
   const ay = 1 - cy - by;
-  const sample = (t: number, a: number, b: number, c: number) =>
-    ((a * t + b) * t + c) * t;
-  const slope = (t: number, a: number, b: number, c: number) =>
-    (3 * a * t + 2 * b) * t + c;
+  const sample = (t: number, a: number, b: number, c: number) => ((a * t + b) * t + c) * t;
+  const slope = (t: number, a: number, b: number, c: number) => (3 * a * t + 2 * b) * t + c;
   let t = x;
   for (let i = 0; i < 8; i += 1) {
     const dx = sample(t, ax, bx, cx) - x;

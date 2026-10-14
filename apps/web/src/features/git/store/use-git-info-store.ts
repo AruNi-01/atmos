@@ -1,18 +1,16 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import { wsProjectApi } from '@/api/ws-api';
-import { toastManager } from '@workspace/ui';
-import { createTranslator } from 'next-intl';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import {
-  getAtmosWebQueryClient,
-} from '@/providers/app/query-client';
-import { getComputerQueryScope } from '@/api/query/query-scope';
-import { gitStatusQueryOptions } from '@/features/git/lib/git-query-options';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
+import { create } from "zustand";
+import { wsProjectApi } from "@/api/ws-api";
+import { toastManager } from "@workspace/ui";
+import { createTranslator } from "next-intl";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import { getAtmosWebQueryClient } from "@/providers/app/query-client";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { gitStatusQueryOptions } from "@/features/git/lib/git-query-options";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 
 /**
  * Git orchestration store — context, target branch, and project linkage.
@@ -43,26 +41,26 @@ export interface GitInfoActions {
 
 export type GitInfoStore = GitInfoState & GitInfoActions;
 
-let cachedGitInfoLocale: 'en' | 'zh' | null = null;
+let cachedGitInfoLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedGitInfoTranslator: any = null;
 
 function gitInfoT(
   key:
-    | 'successTitle'
-    | 'targetBranchSet'
-    | 'targetBranchCleared'
-    | 'errorTitle'
-    | 'failedToUpdateTargetBranch',
+    | "successTitle"
+    | "targetBranchSet"
+    | "targetBranchCleared"
+    | "errorTitle"
+    | "failedToUpdateTargetBranch",
   values?: Record<string, string | number>,
 ): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedGitInfoTranslator || cachedGitInfoLocale !== locale) {
     cachedGitInfoLocale = locale;
     cachedGitInfoTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'git.infoStore',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "git.infoStore",
     });
   }
   return cachedGitInfoTranslator(key as never, values);
@@ -100,18 +98,18 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
       await wsProjectApi.updateTargetBranch(projectId, targetBranch);
       set({ targetBranch });
       toastManager.add({
-        title: gitInfoT('successTitle'),
+        title: gitInfoT("successTitle"),
         description: targetBranch
-          ? gitInfoT('targetBranchSet', { branch: targetBranch })
-          : gitInfoT('targetBranchCleared'),
-        type: 'success',
+          ? gitInfoT("targetBranchSet", { branch: targetBranch })
+          : gitInfoT("targetBranchCleared"),
+        type: "success",
       });
     } catch (error) {
-      console.error('[GitInfoStore] Failed to update target branch:', error);
+      console.error("[GitInfoStore] Failed to update target branch:", error);
       toastManager.add({
-        title: gitInfoT('errorTitle'),
-        description: gitInfoT('failedToUpdateTargetBranch'),
-        type: 'error',
+        title: gitInfoT("errorTitle"),
+        description: gitInfoT("failedToUpdateTargetBranch"),
+        type: "error",
       });
     }
   },
@@ -128,14 +126,14 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
 export function useGitStatusCheck() {
   const checkBeforeOperation = async (
     path: string,
-    operation: 'archive' | 'delete',
+    operation: "archive" | "delete",
   ): Promise<{ canProceed: boolean; message?: string }> => {
-    const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+    const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const translator: any = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'git.infoStore',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "git.infoStore",
     });
     const t = (key: string, values?: Record<string, string | number>) =>
       translator(key, values) as string;
@@ -152,27 +150,26 @@ export function useGitStatusCheck() {
 
       const issues: string[] = [];
       if (status.has_uncommitted_changes) {
-        issues.push(t('uncommittedChanges', { count: status.uncommitted_count }));
+        issues.push(t("uncommittedChanges", { count: status.uncommitted_count }));
       }
       if (status.has_unpushed_commits) {
-        issues.push(t('unpushedCommits', { count: status.unpushed_count }));
+        issues.push(t("unpushedCommits", { count: status.unpushed_count }));
       }
       if (issues.length > 0) {
         return {
           canProceed: false,
-          message: t('cannotProceed', {
-            operation:
-              operation === 'archive' ? t('archiveOperation') : t('deleteOperation'),
-            issues: issues.join(t('issuesJoiner')),
+          message: t("cannotProceed", {
+            operation: operation === "archive" ? t("archiveOperation") : t("deleteOperation"),
+            issues: issues.join(t("issuesJoiner")),
           }),
         };
       }
       return { canProceed: true };
     } catch (error) {
-      console.error('[useGitStatusCheck] Error checking git status:', error);
+      console.error("[useGitStatusCheck] Error checking git status:", error);
       return {
         canProceed: true,
-        message: translator('couldNotVerifyStatus' as never),
+        message: translator("couldNotVerifyStatus" as never),
       };
     }
   };

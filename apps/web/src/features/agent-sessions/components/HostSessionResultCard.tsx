@@ -2,12 +2,7 @@
 
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  cn,
-} from "@workspace/ui";
+import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@workspace/ui";
 import { formatLocalDateTime, formatRelativeTime, parseUTCDate } from "@atmos/shared";
 import { Archive, Folder, MessageSquare } from "lucide-react";
 import type {
@@ -48,9 +43,7 @@ export function HostSessionHighlight({ text, query }: { text: string; query: str
 export function hostSessionResultClass(selected: boolean) {
   return cn(
     "group flex h-[84px] w-full items-center justify-between rounded-lg border px-4 text-left hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm",
-    selected
-      ? "border-primary/40 bg-muted/50 shadow-sm"
-      : "border-border bg-background",
+    selected ? "border-primary/40 bg-muted/50 shadow-sm" : "border-border bg-background",
   );
 }
 
@@ -131,10 +124,10 @@ export function HostSessionResultBody({
       </div>
       <div className="ml-4 flex shrink-0 items-center gap-3">
         <div className="text-right">
-          <div className="text-[11px] font-medium tabular-nums text-muted-foreground">
+          <div className="text-[11px] font-medium text-muted-foreground tabular-nums">
             {formatHostSessionBytes(session.byte_size) ?? "–"}
           </div>
-          <div className="mt-0.5 whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/55">
+          <div className="mt-0.5 text-[10px] whitespace-nowrap text-muted-foreground/55 tabular-nums">
             {session.updated_at && !Number.isNaN(parseUTCDate(session.updated_at).getTime())
               ? `${formatLocalDateTime(session.updated_at, "yyyy/MM/dd HH:mm")} · ${formatRelativeTime(session.updated_at, locale)}`
               : ""}

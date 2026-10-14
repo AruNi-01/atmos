@@ -41,12 +41,8 @@ describe("center space thumbnail mapping", () => {
 
   it("keeps only boxes that overlap the visible clip", () => {
     const clip = { left: 0, top: 0, right: 200, bottom: 100 };
-    expect(
-      isVisibleInClip({ left: 10, top: 10, right: 40, bottom: 40 }, clip),
-    ).toBe(true);
-    expect(
-      isVisibleInClip({ left: 0, top: 2000, right: 200, bottom: 2040 }, clip),
-    ).toBe(false);
+    expect(isVisibleInClip({ left: 10, top: 10, right: 40, bottom: 40 }, clip)).toBe(true);
+    expect(isVisibleInClip({ left: 0, top: 2000, right: 200, bottom: 2040 }, clip)).toBe(false);
   });
 
   it("keeps the capture root so display-contents wrappers are not dropped", () => {
@@ -56,31 +52,17 @@ describe("center space thumbnail mapping", () => {
 
   it("treats GitHub and Google avatars as remote so snapdom does not CORS-fetch them", () => {
     const page = "http://localhost:3030/workspace";
+    expect(isRemoteSnapPreviewSrc("https://github.com/AruNi-01.png?size=32", page)).toBe(true);
     expect(
-      isRemoteSnapPreviewSrc("https://github.com/AruNi-01.png?size=32", page),
+      isRemoteSnapPreviewSrc("https://avatars.githubusercontent.com/u/76934779?s=32&v=4", page),
     ).toBe(true);
-    expect(
-      isRemoteSnapPreviewSrc(
-        "https://avatars.githubusercontent.com/u/76934779?s=32&v=4",
-        page,
-      ),
-    ).toBe(true);
-    expect(
-      isRemoteSnapPreviewSrc(
-        "https://lh3.googleusercontent.com/a/ACg8ocKexample",
-        page,
-      ),
-    ).toBe(true);
+    expect(isRemoteSnapPreviewSrc("https://lh3.googleusercontent.com/a/ACg8ocKexample", page)).toBe(
+      true,
+    );
     expect(isRemoteSnapPreviewSrc("/icon.png", page)).toBe(false);
-    expect(isRemoteSnapPreviewSrc("http://localhost:3030/icon.png", page)).toBe(
-      false,
-    );
-    expect(isRemoteSnapPreviewSrc("data:image/png;base64,abc", page)).toBe(
-      false,
-    );
-    expect(
-      isRemoteSnapPreviewSrc("blob:http://localhost:3030/abc", page),
-    ).toBe(false);
+    expect(isRemoteSnapPreviewSrc("http://localhost:3030/icon.png", page)).toBe(false);
+    expect(isRemoteSnapPreviewSrc("data:image/png;base64,abc", page)).toBe(false);
+    expect(isRemoteSnapPreviewSrc("blob:http://localhost:3030/abc", page)).toBe(false);
   });
 
   it("fills the cell when the pane has no layout size", () => {
@@ -94,11 +76,8 @@ describe("center space thumbnail mapping", () => {
   });
 
   it("captures the live frame with snapdom instead of html2canvas", () => {
-    const thumb = readFileSync(
-      join(dir, "center-space/center-space-thumbnail.ts"),
-      "utf8",
-    );
-    expect(thumb).toContain('@zumer/snapdom');
+    const thumb = readFileSync(join(dir, "center-space/center-space-thumbnail.ts"), "utf8");
+    expect(thumb).toContain("@zumer/snapdom");
     expect(thumb).toContain("snapdom.toCanvas");
     expect(thumb).toContain("burst: true");
     expect(thumb).toContain("width: outW");
@@ -126,22 +105,13 @@ describe("center space thumbnail mapping", () => {
     expect(thumb).not.toContain("react-screen-capture");
     expect(thumb).not.toContain("html-to-image");
     expect(thumb).not.toContain("paintDomPreview");
-    const preview = readFileSync(
-      join(dir, "center-space/CenterSpacePreview.tsx"),
-      "utf8",
-    );
+    const preview = readFileSync(join(dir, "center-space/CenterSpacePreview.tsx"), "utf8");
     expect(preview).toContain("paintCenterSpaceTerminalOverlay");
   });
 
   it("does not snapdom on the space switch path", () => {
-    const switchSrc = readFileSync(
-      join(dir, "center-space/center-space-switch.ts"),
-      "utf8",
-    );
-    const thumb = readFileSync(
-      join(dir, "center-space/center-space-thumbnail.ts"),
-      "utf8",
-    );
+    const switchSrc = readFileSync(join(dir, "center-space/center-space-switch.ts"), "utf8");
+    const thumb = readFileSync(join(dir, "center-space/center-space-thumbnail.ts"), "utf8");
     expect(thumb).toContain("isActiveCaptureFrame");
     expect(thumb).toContain('data-tier") === "active"');
     expect(thumb).toContain("frame.isConnected");
@@ -151,7 +121,10 @@ describe("center space thumbnail mapping", () => {
     const createAt = switchSrc.indexOf("export async function openNewCenterSpace");
     const switchAt = switchSrc.indexOf("export async function switchCenterSpace");
     const createBody = switchSrc.slice(createAt, switchAt);
-    const switchBody = switchSrc.slice(switchAt, switchSrc.indexOf("export async function deleteCenterSpace"));
+    const switchBody = switchSrc.slice(
+      switchAt,
+      switchSrc.indexOf("export async function deleteCenterSpace"),
+    );
     expect(createBody).not.toContain("await captureActiveCenterSpaceThumbnail");
     expect(switchBody).not.toContain("await captureActiveCenterSpaceThumbnail");
     expect(createBody.indexOf("invalidateCenterSpaceThumbnailCapture()")).toBeLessThan(

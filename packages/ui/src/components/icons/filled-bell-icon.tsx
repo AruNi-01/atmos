@@ -14,10 +14,7 @@ export interface AnimatedIconProps {
 }
 
 const FilledBellIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
-  (
-    { size = 24, color = "currentColor", strokeWidth = 2, className = "" },
-    ref,
-  ) => {
+  ({ size = 24, color = "currentColor", strokeWidth = 2, className = "" }, ref) => {
     const [scope, animate] = useAnimate();
 
     const start = useCallback(async () => {
@@ -45,11 +42,7 @@ const FilledBellIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }, [animate]);
 
     const stop = useCallback(() => {
-      animate(
-        ".bell, .below-circle",
-        { rotate: 0 },
-        { duration: 0.2, ease: "easeInOut" },
-      );
+      animate(".bell, .below-circle", { rotate: 0 }, { duration: 0.2, ease: "easeInOut" });
     }, [animate]);
 
     useImperativeHandle(ref, () => ({

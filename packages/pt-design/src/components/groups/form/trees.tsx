@@ -39,17 +39,27 @@ export const formModule: PtComponentModule = {
     ptNode(id, "form", formBBox, {
       props: { label: "Form" },
       children: [
-        ptNode(`${id}-email`, "input", { width: 328, height: 40 }, {
-          x: 16,
-          y: 16,
-          props: { label: "Email", placeholder: "you@example.com" },
-          value: "",
-        }),
-        ptNode(`${id}-submit`, "button", { width: 328, height: 40 }, {
-          x: 16,
-          y: 72,
-          props: { label: "Submit" },
-        }),
+        ptNode(
+          `${id}-email`,
+          "input",
+          { width: 328, height: 40 },
+          {
+            x: 16,
+            y: 16,
+            props: { label: "Email", placeholder: "you@example.com" },
+            value: "",
+          },
+        ),
+        ptNode(
+          `${id}-submit`,
+          "button",
+          { width: 328, height: 40 },
+          {
+            x: 16,
+            y: 72,
+            props: { label: "Submit" },
+          },
+        ),
       ],
     }),
   Renderer: (props) => <TreeRenderer {...props} asForm />,
@@ -68,17 +78,27 @@ export const fieldModule: PtComponentModule = {
     ptNode(id, "field", fieldBBox, {
       props: { label: "Field" },
       children: [
-        ptNode(`${id}-label`, "label", { width: 280, height: 20 }, {
-          x: 0,
-          y: 0,
-          props: { label: "Field" },
-        }),
-        ptNode(`${id}-input`, "input", { width: 280, height: 40 }, {
-          x: 0,
-          y: 28,
-          props: { label: "Field", placeholder: "Value" },
-          value: "",
-        }),
+        ptNode(
+          `${id}-label`,
+          "label",
+          { width: 280, height: 20 },
+          {
+            x: 0,
+            y: 0,
+            props: { label: "Field" },
+          },
+        ),
+        ptNode(
+          `${id}-input`,
+          "input",
+          { width: 280, height: 40 },
+          {
+            x: 0,
+            y: 28,
+            props: { label: "Field", placeholder: "Value" },
+            value: "",
+          },
+        ),
       ],
     }),
   Renderer: TreeRenderer,
@@ -97,16 +117,26 @@ export const buttonGroupModule: PtComponentModule = {
     ptNode(id, "button-group", buttonGroupBBox, {
       props: { label: "Actions" },
       children: [
-        ptNode(`${id}-one`, "button", { width: 112, height: 40 }, {
-          x: 0,
-          y: 0,
-          props: { label: "One", variant: "outline" },
-        }),
-        ptNode(`${id}-two`, "button", { width: 112, height: 40 }, {
-          x: 120,
-          y: 0,
-          props: { label: "Two" },
-        }),
+        ptNode(
+          `${id}-one`,
+          "button",
+          { width: 112, height: 40 },
+          {
+            x: 0,
+            y: 0,
+            props: { label: "One", variant: "outline" },
+          },
+        ),
+        ptNode(
+          `${id}-two`,
+          "button",
+          { width: 112, height: 40 },
+          {
+            x: 120,
+            y: 0,
+            props: { label: "Two" },
+          },
+        ),
       ],
     }),
   Renderer: TreeRenderer,
@@ -125,17 +155,27 @@ export const inputGroupModule: PtComponentModule = {
     ptNode(id, "input-group", inputGroupBBox, {
       props: { label: "Search" },
       children: [
-        ptNode(`${id}-input`, "input", { width: 200, height: 40 }, {
-          x: 0,
-          y: 0,
-          props: { label: "Search", placeholder: "Search" },
-          value: "",
-        }),
-        ptNode(`${id}-go`, "button", { width: 72, height: 40 }, {
-          x: 208,
-          y: 0,
-          props: { label: "Go" },
-        }),
+        ptNode(
+          `${id}-input`,
+          "input",
+          { width: 200, height: 40 },
+          {
+            x: 0,
+            y: 0,
+            props: { label: "Search", placeholder: "Search" },
+            value: "",
+          },
+        ),
+        ptNode(
+          `${id}-go`,
+          "button",
+          { width: 72, height: 40 },
+          {
+            x: 208,
+            y: 0,
+            props: { label: "Go" },
+          },
+        ),
       ],
     }),
   Renderer: TreeRenderer,

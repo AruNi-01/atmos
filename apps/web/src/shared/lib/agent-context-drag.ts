@@ -15,10 +15,7 @@ interface AgentContextDragPayload {
   items: AgentContextDragItem[];
 }
 
-export function getAgentContextMentionPath(
-  path: string,
-  rootPath?: string | null,
-): string {
+export function getAgentContextMentionPath(path: string, rootPath?: string | null): string {
   const trimmed = path.trim();
   if (!trimmed) return "";
   if (!rootPath) return trimmed;
@@ -167,17 +164,13 @@ export function getAgentContextDragItems(
   }
 }
 
-export function getAgentContextDragText(
-  dataTransfer: DataTransfer,
-): string | null {
+export function getAgentContextDragText(dataTransfer: DataTransfer): string | null {
   const items = getAgentContextDragItems(dataTransfer);
   if (!items) return null;
 
   const text = items
-      .map((item) =>
-        typeof item?.mentionText === "string" ? item.mentionText.trim() : "",
-      )
-      .filter(Boolean)
-      .join(" ");
+    .map((item) => (typeof item?.mentionText === "string" ? item.mentionText.trim() : ""))
+    .filter(Boolean)
+    .join(" ");
   return text || null;
 }

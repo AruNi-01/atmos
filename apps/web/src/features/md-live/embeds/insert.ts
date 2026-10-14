@@ -32,10 +32,7 @@ export function embedSpecFromGithubInput(
   return embedSpecFromGithubTarget(target, title);
 }
 
-export function embedSpecFromPath(
-  relativePath: string,
-  kind: "file" | "folder",
-): MdLiveEmbedSpec {
+export function embedSpecFromPath(relativePath: string, kind: "file" | "folder"): MdLiveEmbedSpec {
   const path = relativePath.replace(/^\.\//, "");
   const layout = mdLiveEmbedDefaultLayout(kind);
   return {

@@ -5,11 +5,7 @@ import { toastManager } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import { isCancelledError } from "@/shared/lib/is-cancelled-error";
-import {
-  canonicalizeUrl,
-  deriveFavoriteName,
-  type FavoriteSite,
-} from "../lib/browser-utils";
+import { canonicalizeUrl, deriveFavoriteName, type FavoriteSite } from "../lib/browser-utils";
 
 interface UsePreviewFavoritesArgs {
   currentPageTitle: string;
@@ -97,7 +93,9 @@ export function useBrowserFavorites({
 
   useEffect(() => {
     if (!favoritePopoverOpen) return;
-    setFavoriteNameDraft(activeFavorite?.name ?? deriveFavoriteName(currentPageTitle, normalizedActiveUrl));
+    setFavoriteNameDraft(
+      activeFavorite?.name ?? deriveFavoriteName(currentPageTitle, normalizedActiveUrl),
+    );
   }, [activeFavorite, currentPageTitle, favoritePopoverOpen, normalizedActiveUrl]);
 
   useEffect(() => {
@@ -121,7 +119,10 @@ export function useBrowserFavorites({
       ? favorites.map((site) =>
           canonicalizeUrl(site.url) === normalizedActiveUrl ? nextFavorite : site,
         )
-      : [nextFavorite, ...favorites.filter((site) => canonicalizeUrl(site.url) !== normalizedActiveUrl)];
+      : [
+          nextFavorite,
+          ...favorites.filter((site) => canonicalizeUrl(site.url) !== normalizedActiveUrl),
+        ];
 
     const ok = await persistFavorites(nextFavorites);
     if (!ok) return;

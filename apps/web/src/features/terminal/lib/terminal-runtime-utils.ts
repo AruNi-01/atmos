@@ -1,8 +1,5 @@
 import type { Terminal as XTerm } from "@xterm/xterm";
-import type {
-  ClipboardSelectionType,
-  IClipboardProvider,
-} from "@xterm/addon-clipboard";
+import type { ClipboardSelectionType, IClipboardProvider } from "@xterm/addon-clipboard";
 import type { TerminalPaneAgent } from "../types/index";
 
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
@@ -171,20 +168,10 @@ export function ctrlEnterInput(): string {
   return CTRL_ENTER_CSI_U;
 }
 
-export type TerminalAgentSubmitMode =
-  | "text-enter"
-  | "text-ctrl-enter"
-  | "bracketed-paste-enter";
+export type TerminalAgentSubmitMode = "text-enter" | "text-ctrl-enter" | "bracketed-paste-enter";
 
-export function resolveTerminalAgentSubmitMode(
-  agent?: TerminalPaneAgent,
-): TerminalAgentSubmitMode {
-  const values = [
-    agent?.id,
-    agent?.command,
-    agent?.pipeCommand,
-    agent?.label,
-  ]
+export function resolveTerminalAgentSubmitMode(agent?: TerminalPaneAgent): TerminalAgentSubmitMode {
+  const values = [agent?.id, agent?.command, agent?.pipeCommand, agent?.label]
     .filter((value): value is string => Boolean(value))
     .map((value) => value.trim().toLowerCase());
 
@@ -333,7 +320,7 @@ function terminalWriteBytesLookViewportDestructive(bytes: Uint8Array): boolean {
     const final = bytes[j];
     if (final === 0x4a /* J */) return true;
     // ESC [ ? 1049 h/l  |  ESC [ ? 1047 h/l  |  ESC [ ? 47 h/l
-    if (bytes[i + 2] === 0x3f /* ? */ && (final === 0x68 /* h */ || final === 0x6c /* l */)) {
+    if (bytes[i + 2] === 0x3f /* ? */ && (final === 0x68 /* h */ || final === 0x6c) /* l */) {
       const params = String.fromCharCode(...bytes.subarray(i + 3, j));
       if (
         params === "1049" ||
@@ -477,8 +464,20 @@ export async function ensureTerminalFontsLoaded() {
 }
 
 const MULTI_WORD_CMDS = new Set([
-  "cargo", "npm", "yarn", "pnpm", "bun", "docker", "git",
-  "kubectl", "go", "just", "make", "python", "ruby", "node",
+  "cargo",
+  "npm",
+  "yarn",
+  "pnpm",
+  "bun",
+  "docker",
+  "git",
+  "kubectl",
+  "go",
+  "just",
+  "make",
+  "python",
+  "ruby",
+  "node",
 ]);
 
 export function extractCommandName(fullCommand: string): string {
@@ -504,7 +503,12 @@ export function shortenPath(fullPath: string): string {
   return parts.slice(-2).join("/");
 }
 
-export function isFindShortcut(event: { ctrlKey: boolean; metaKey: boolean; key: string; shiftKey?: boolean }): boolean {
+export function isFindShortcut(event: {
+  ctrlKey: boolean;
+  metaKey: boolean;
+  key: string;
+  shiftKey?: boolean;
+}): boolean {
   return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" && !event.shiftKey;
 }
 

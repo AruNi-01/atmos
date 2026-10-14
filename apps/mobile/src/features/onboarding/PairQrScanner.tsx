@@ -34,16 +34,12 @@ export function PairQrScanner({
   // Dark: elevated gray bezel on pure black page (CameraView alone is black and
   // would otherwise disappear into the background).
   const shellBg = theme.isDark ? theme.colors.cardElevated : "#0a0a0b";
-  const shellBorder = theme.isDark
-    ? "rgba(255, 255, 255, 0.22)"
-    : theme.colors.separator;
+  const shellBorder = theme.isDark ? "rgba(255, 255, 255, 0.22)" : theme.colors.separator;
   const shellBorderWidth = theme.isDark ? 1 : StyleSheet.hairlineWidth;
   const shellPadding = theme.isDark ? DARK_BEZEL : 0;
   const wellRadius = Math.max(radii.card - shellPadding, 12);
   const reticleColor = "#ffffff";
-  const placeholderBg = theme.isDark
-    ? theme.colors.cardElevated
-    : theme.colors.cardSubtle;
+  const placeholderBg = theme.isDark ? theme.colors.cardElevated : theme.colors.cardSubtle;
 
   if (!permission) {
     return (
@@ -57,9 +53,7 @@ export function PairQrScanner({
           },
         ]}
       >
-        <Text style={[styles.hint, { color: theme.colors.secondaryLabel }]}>
-          Checking camera…
-        </Text>
+        <Text style={[styles.hint, { color: theme.colors.secondaryLabel }]}>Checking camera…</Text>
       </View>
     );
   }

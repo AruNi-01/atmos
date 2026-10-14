@@ -1,7 +1,24 @@
 import type { ReactNode } from "react";
 import { Host } from "@expo/ui";
-import { Button, HStack, Image, Label, Menu, Picker as SwiftPicker, Spacer, Text as SwiftText } from "@expo/ui/swift-ui";
-import { fixedSize, font, frame, imageScale, labelsHidden, pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
+import {
+  Button,
+  HStack,
+  Image,
+  Label,
+  Menu,
+  Picker as SwiftPicker,
+  Spacer,
+  Text as SwiftText,
+} from "@expo/ui/swift-ui";
+import {
+  fixedSize,
+  font,
+  frame,
+  imageScale,
+  labelsHidden,
+  pickerStyle,
+  tag,
+} from "@expo/ui/swift-ui/modifiers";
 import { Text, View } from "react-native";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { typography } from "@/theme/typography";

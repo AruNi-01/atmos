@@ -53,7 +53,10 @@ export function composerDockDurationMs(docked: boolean): number {
   return docked ? COMPOSER_DOCK_MS : COMPOSER_UNDOCK_MS;
 }
 
-export function composerDockMotion(docked: boolean, reduceMotion: boolean): {
+export function composerDockMotion(
+  docked: boolean,
+  reduceMotion: boolean,
+): {
   yKey: "hero" | "dock";
   duration: number;
   ease: typeof COMPOSER_DOCK_EASE;
@@ -80,7 +83,10 @@ export function composerLogoChrome(docked: boolean, reduceMotion: boolean): Comp
   };
 }
 
-export function composerTranscriptChrome(docked: boolean, reduceMotion: boolean): ComposerDockChrome {
+export function composerTranscriptChrome(
+  docked: boolean,
+  reduceMotion: boolean,
+): ComposerDockChrome {
   if (reduceMotion) {
     return { opacity: docked ? 1 : 0, y: 0, delay: 0, duration: 0 };
   }

@@ -76,15 +76,11 @@ export function buildWebStaticForDesktop(rootDir = defaultRootDir) {
     // Do not pass `bun x --bun`. Forcing Next onto the Bun runtime breaks
     // webpack page-data collection for App Router metadata routes (e.g. /icon.svg)
     // with: "Expected CommonJS module to have a function wrapper".
-    const bundlerOverride = (process.env.ATMOS_DESKTOP_WEB_BUNDLER ?? "")
-      .trim()
-      .toLowerCase();
+    const bundlerOverride = (process.env.ATMOS_DESKTOP_WEB_BUNDLER ?? "").trim().toLowerCase();
     const useWebpack =
       bundlerOverride === "webpack" ||
       (bundlerOverride !== "turbopack" && process.platform === "win32");
-    const nextBuildArgs = useWebpack
-      ? ["x", "next", "build", "--webpack"]
-      : ["x", "next", "build"];
+    const nextBuildArgs = useWebpack ? ["x", "next", "build", "--webpack"] : ["x", "next", "build"];
     const bundlerLabel = useWebpack ? "webpack" : "turbopack";
     console.log(
       `🔨 Building web static export (BUILD_TARGET=desktop, next build${useWebpack ? " --webpack" : ""}, bundler=${bundlerLabel})...`,
@@ -133,7 +129,10 @@ export function buildWebStaticForDesktop(rootDir = defaultRootDir) {
 }
 
 /** Copy apps/web/out → binaries/web-out (with root index.html fix). */
-export function copyWebStaticToSidecar(rootDir = defaultRootDir, webOut = join(rootDir, "apps/web/out")) {
+export function copyWebStaticToSidecar(
+  rootDir = defaultRootDir,
+  webOut = join(rootDir, "apps/web/out"),
+) {
   const sidecarWebOut = join(rootDir, "apps/desktop/src-tauri/binaries/web-out");
   const indexHtmlPath = join(webOut, "index.html");
   const enIndexPath = join(webOut, "en", "index.html");

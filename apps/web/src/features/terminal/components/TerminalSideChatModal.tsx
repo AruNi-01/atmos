@@ -3,17 +3,8 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Minus, X } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  cn,
-} from "@workspace/ui";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Popover, PopoverContent, PopoverTrigger, cn } from "@workspace/ui";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
@@ -87,17 +78,18 @@ export function TerminalSideChatModal({
   onSelectSideChat,
 }: TerminalSideChatModalProps) {
   const t = useTranslations("terminal.sideChat");
-  const richInputActive = useTerminalRichInputSettingsStore(
-    (s) => s.loaded && s.enabled,
-  );
+  const richInputActive = useTerminalRichInputSettingsStore((s) => s.loaded && s.enabled);
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
-  const agentInputOverlayRefs = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
+  const agentInputOverlayRefs = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(
+    new Map(),
+  );
   const [closeAllConfirmOpen, setCloseAllConfirmOpen] = React.useState(false);
   const skillsContext = React.useMemo(() => {
     if (!localPath) return null;
     const isProjectRoot =
       !!projectRootPath &&
-      (localPath === projectRootPath || localPath.replace(/\/$/, "") === projectRootPath.replace(/\/$/, ""));
+      (localPath === projectRootPath ||
+        localPath.replace(/\/$/, "") === projectRootPath.replace(/\/$/, ""));
     if (isProjectRoot) {
       if (!projectId) return null;
       return {
@@ -123,18 +115,18 @@ export function TerminalSideChatModal({
   recordsRef.current = records;
   const activeSideChatIdRef = React.useRef(activeSideChatId);
   activeSideChatIdRef.current = activeSideChatId;
-  const claimSideChatFocus = React.useCallback((
-    sideChatId: string,
-    ack: PaneFocusAck = "deferred",
-  ) => {
-    holdFocusUntilRef.current = Date.now() + 500;
-    setIsFocusedWithin(true);
-    modalRef.current?.focus({ preventScroll: true });
-    terminalRefs.current.get(sideChatId)?.focus();
-    const record = recordsRef.current.find((item) => item.side_chat_id === sideChatId);
-    const paneId = record ? sideChatStablePaneId(record) : null;
-    if (paneId) useAgentAttentionStore.getState().notifyPaneFocused(paneId, { ack });
-  }, [terminalRefs]);
+  const claimSideChatFocus = React.useCallback(
+    (sideChatId: string, ack: PaneFocusAck = "deferred") => {
+      holdFocusUntilRef.current = Date.now() + 500;
+      setIsFocusedWithin(true);
+      modalRef.current?.focus({ preventScroll: true });
+      terminalRefs.current.get(sideChatId)?.focus();
+      const record = recordsRef.current.find((item) => item.side_chat_id === sideChatId);
+      const paneId = record ? sideChatStablePaneId(record) : null;
+      if (paneId) useAgentAttentionStore.getState().notifyPaneFocused(paneId, { ack });
+    },
+    [terminalRefs],
+  );
   const {
     handleDragStart,
     handleResizeStart,
@@ -266,7 +258,7 @@ export function TerminalSideChatModal({
         ref={modalRef}
         tabIndex={-1}
         className={cn(
-          "pointer-events-auto absolute flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)] outline-none transition-opacity duration-200",
+          "pointer-events-auto absolute flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)] transition-opacity duration-200 outline-none",
           isFocusedWithin ? "opacity-100" : "opacity-75",
         )}
         onContextMenu={(event) => {
@@ -375,7 +367,9 @@ export function TerminalSideChatModal({
                     <AlertTriangle className="mt-0.5 size-4.5 text-amber-500" />
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-foreground">{t("closeAllTitle")}</p>
-                      <p className="text-xs leading-relaxed text-muted-foreground">{t("closeAllDescription")}</p>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t("closeAllDescription")}
+                      </p>
                     </div>
                   </div>
                   <div className="flex justify-end gap-2">
@@ -539,7 +533,7 @@ function SideChatTabLeadingIcon({
           event.stopPropagation();
           onClose();
         }}
-        className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full opacity-0 pointer-events-none hover:bg-current/15 group-hover:pointer-events-auto group-hover:opacity-100"
+        className="pointer-events-none absolute inset-0 flex cursor-pointer items-center justify-center rounded-full opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 hover:bg-current/15"
       >
         <X className="size-3" />
       </span>
@@ -556,32 +550,32 @@ function SideChatResizeHandles({
     <>
       <div
         aria-hidden="true"
-        className="absolute left-3 right-3 top-0 z-50 h-2 cursor-n-resize touch-none"
+        className="absolute top-0 right-3 left-3 z-50 h-2 cursor-n-resize touch-none"
         onPointerDown={onResizeStart("n")}
       />
       <div
         aria-hidden="true"
-        className="absolute bottom-0 left-3 right-3 z-50 h-2 cursor-s-resize touch-none"
+        className="absolute right-3 bottom-0 left-3 z-50 h-2 cursor-s-resize touch-none"
         onPointerDown={onResizeStart("s")}
       />
       <div
         aria-hidden="true"
-        className="absolute bottom-3 left-0 top-3 z-50 w-2 cursor-w-resize touch-none"
+        className="absolute top-3 bottom-3 left-0 z-50 w-2 cursor-w-resize touch-none"
         onPointerDown={onResizeStart("w")}
       />
       <div
         aria-hidden="true"
-        className="absolute bottom-3 right-0 top-3 z-50 w-2 cursor-e-resize touch-none"
+        className="absolute top-3 right-0 bottom-3 z-50 w-2 cursor-e-resize touch-none"
         onPointerDown={onResizeStart("e")}
       />
       <div
         aria-hidden="true"
-        className="absolute left-0 top-0 z-[60] size-4 cursor-nw-resize touch-none"
+        className="absolute top-0 left-0 z-[60] size-4 cursor-nw-resize touch-none"
         onPointerDown={onResizeStart("nw")}
       />
       <div
         aria-hidden="true"
-        className="absolute right-0 top-0 z-[60] size-4 cursor-ne-resize touch-none"
+        className="absolute top-0 right-0 z-[60] size-4 cursor-ne-resize touch-none"
         onPointerDown={onResizeStart("ne")}
       />
       <div
@@ -591,7 +585,7 @@ function SideChatResizeHandles({
       />
       <div
         aria-hidden="true"
-        className="absolute bottom-0 right-0 z-[60] size-4 cursor-se-resize touch-none"
+        className="absolute right-0 bottom-0 z-[60] size-4 cursor-se-resize touch-none"
         onPointerDown={onResizeStart("se")}
       />
     </>

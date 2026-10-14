@@ -26,10 +26,7 @@ describe("APP-074 git blame query identity", () => {
   });
 
   test("S4 detail query stays disabled without a SHA", () => {
-    const options = readFileSync(
-      join(import.meta.dir, "../git-query-options.ts"),
-      "utf8",
-    );
+    const options = readFileSync(join(import.meta.dir, "../git-query-options.ts"), "utf8");
     expect(options).toContain(
       "enabled: (options?.enabled ?? true) && Boolean(repoPath) && Boolean(commitHash)",
     );

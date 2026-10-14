@@ -16,7 +16,13 @@ import { useTerminalStore } from "@/stores/terminal-store";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronLeftIcon, PlusIcon } from "@/ui/icons/lucide-native";
-import { AppScreen, EmptyState, InlineError, ListLoadMoreFooter, Section } from "@/ui/layout/app-screen";
+import {
+  AppScreen,
+  EmptyState,
+  InlineError,
+  ListLoadMoreFooter,
+  Section,
+} from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
@@ -25,7 +31,11 @@ import { SessionDeletePicker } from "@/features/sessions/session-delete-picker";
 import { useSessionRowActions } from "@/features/sessions/use-session-row-actions";
 import type { SessionDeleteChoice } from "@/features/sessions/session-row-actions";
 import { useAgentSessionStatusList } from "@/features/sessions/use-agent-session-status-list";
-import { terminalActivityFromStatus, workspaceActivityRows, type WorkspaceActivityRow } from "./workspace-activity";
+import {
+  terminalActivityFromStatus,
+  workspaceActivityRows,
+  type WorkspaceActivityRow,
+} from "./workspace-activity";
 
 export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
@@ -56,7 +66,9 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
       snapshots: sessionSnapshots,
       workspaceId,
     }),
-  }).filter((row) => !archivedIds.has(row.id) && !archivedIds.has(activityPinId(row, sessionSnapshots)));
+  }).filter(
+    (row) => !archivedIds.has(row.id) && !archivedIds.has(activityPinId(row, sessionSnapshots)),
+  );
   const orderedRows = [
     ...rows.filter((row) => rowActions.pinnedIds.includes(activityPinId(row, sessionSnapshots))),
     ...rows.filter((row) => !rowActions.pinnedIds.includes(activityPinId(row, sessionSnapshots))),
@@ -135,16 +147,33 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
           ...(process.env.EXPO_OS === "ios"
             ? {
                 unstable_headerLeftItems: () => [backHeaderItem(goBack, theme.colors.label)],
-                unstable_headerRightItems: () => [newSessionHeaderItem(openNewChat, openNewTerminal, launchAgents, theme.colors.label)],
+                unstable_headerRightItems: () => [
+                  newSessionHeaderItem(
+                    openNewChat,
+                    openNewTerminal,
+                    launchAgents,
+                    theme.colors.label,
+                  ),
+                ],
               }
             : {
                 headerLeft: () => (
-                  <Pressable accessibilityLabel="Back" accessibilityRole="button" hitSlop={12} onPress={goBack}>
+                  <Pressable
+                    accessibilityLabel="Back"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={goBack}
+                  >
                     <ChevronLeftIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
                   </Pressable>
                 ),
                 headerRight: () => (
-                  <Pressable accessibilityLabel="New" accessibilityRole="button" hitSlop={12} onPress={openCreateMenu}>
+                  <Pressable
+                    accessibilityLabel="New"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={openCreateMenu}
+                  >
                     <PlusIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
                   </Pressable>
                 ),
@@ -190,7 +219,11 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
                         ? () => {
                             setActionError(null);
                             void rowActions.archiveChat(pinId, row.id).catch((error: unknown) => {
-                              setActionError(error instanceof Error ? error.message : "Could not archive this session.");
+                              setActionError(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Could not archive this session.",
+                              );
                             });
                           }
                         : undefined
@@ -229,7 +262,9 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
               .deleteChat(activityPinId(row, sessionSnapshots), row.id, choice)
               .then(() => setDeleteRow(null))
               .catch((error: unknown) => {
-                setActionError(error instanceof Error ? error.message : "Could not delete this session.");
+                setActionError(
+                  error instanceof Error ? error.message : "Could not delete this session.",
+                );
               })
               .finally(() => setDeleting(false));
           }}
@@ -237,7 +272,9 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
         <InlineError
           message={
             chats.error ??
-            (!sessions.isFetchNextPageError && sessions.error instanceof Error ? sessions.error.message : null)
+            (!sessions.isFetchNextPageError && sessions.error instanceof Error
+              ? sessions.error.message
+              : null)
           }
         />
       </AppScreen>
@@ -253,7 +290,11 @@ function activityPinId(
   if (row.kind === "chat") {
     const match = sessions.find((session) => {
       if (session.surface && session.surface !== "chat") return false;
-      return session.surface_id === row.id || session.session_id === row.id || session.session_id === `chat:${row.id}`;
+      return (
+        session.surface_id === row.id ||
+        session.session_id === row.id ||
+        session.session_id === `chat:${row.id}`
+      );
     });
     return match?.session_id ?? `chat:${row.id}`;
   }
@@ -277,7 +318,9 @@ function backHeaderItem(onPress: () => void, tintColor: string): NativeStackHead
   };
 }
 
-function agentMenuIcon(agentId: string):
+function agentMenuIcon(
+  agentId: string,
+):
   | { source: ImageSourcePropType; tinted: boolean; type: "image" }
   | { name: SFSymbol; type: "sfSymbol" } {
   const image = mobileAgentMenuIcon(agentId);

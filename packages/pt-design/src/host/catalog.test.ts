@@ -120,11 +120,13 @@ describe("pt-design catalog", () => {
     expect(setPtDesignPinned(created.id, true)?.meta.updatedAt).toBe(createdAt);
     expect(setPtDesignPinned(created.id, false)?.meta.pinned).toBe(false);
     expect(setPtDesignPinned(created.id, false)?.meta.updatedAt).toBe(createdAt);
-    expect(movePtDesign(created.id, { scope: "project", projectId: "proj-1" })?.meta).toMatchObject({
-      scope: "project",
-      projectId: "proj-1",
-      updatedAt: createdAt,
-    });
+    expect(movePtDesign(created.id, { scope: "project", projectId: "proj-1" })?.meta).toMatchObject(
+      {
+        scope: "project",
+        projectId: "proj-1",
+        updatedAt: createdAt,
+      },
+    );
     expect(movePtDesign(created.id, { scope: "global" })?.meta).toMatchObject({
       scope: "global",
       updatedAt: createdAt,
@@ -168,12 +170,14 @@ describe("pt-design catalog", () => {
     })!;
     const listed = listPtDesignDocs();
     expect(filterPtDesignsByHost(listed, { kind: "global" })).toHaveLength(3);
-    expect(filterPtDesignsByHost(listed, { kind: "project", projectId: "proj-1" }).map((row) => row.id)).toEqual([
-      project.id,
-    ]);
-    expect(filterPtDesignsByHost(listed, { kind: "workspace", workspaceId: "ws-2" }).map((row) => row.id)).toEqual([
-      workspace.id,
-    ]);
+    expect(
+      filterPtDesignsByHost(listed, { kind: "project", projectId: "proj-1" }).map((row) => row.id),
+    ).toEqual([project.id]);
+    expect(
+      filterPtDesignsByHost(listed, { kind: "workspace", workspaceId: "ws-2" }).map(
+        (row) => row.id,
+      ),
+    ).toEqual([workspace.id]);
     expect(designListedInHost(global.meta, { kind: "project", projectId: "proj-1" })).toBe(false);
   });
 
@@ -191,7 +195,9 @@ describe("pt-design catalog", () => {
           pinOrder: 0,
           updatedAt: 1,
           openMode: "canvas",
-          preview: "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg viewBox="0 0 320 180"></svg>'),
+          preview:
+            "data:image/svg+xml;charset=utf-8," +
+            encodeURIComponent('<svg viewBox="0 0 320 180"></svg>'),
           previewFit: "content",
         },
       }),
@@ -201,7 +207,9 @@ describe("pt-design catalog", () => {
     expect(listed[0]!.meta.previewFit).toBeUndefined();
     const stored = JSON.parse(storage.getItem("pt-design/v2/global")!);
     expect(stored.meta.preview).toBeUndefined();
-    expect(typeof stored.meta.preview === "string" ? stored.meta.preview : "").not.toContain("<rect");
+    expect(typeof stored.meta.preview === "string" ? stored.meta.preview : "").not.toContain(
+      "<rect",
+    );
   });
 
   test("list keeps an IndexedDB screenshot pointer without hydrating a board", () => {

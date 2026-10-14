@@ -25,10 +25,7 @@ import {
   shouldPlayCaptureAnimation,
   type CaptureAnimationBounds,
 } from "./capture-animation.js";
-import {
-  captureFrontmostWindow,
-  readFrontmostWindow,
-} from "./frontmost.js";
+import { captureFrontmostWindow, readFrontmostWindow } from "./frontmost.js";
 import type { HostShiftCapturedPayload } from "./host-shift.js";
 import { mainLog } from "../main-log.js";
 import {
@@ -39,20 +36,9 @@ import {
   SNAPSHOT_FILE,
   tmpRoot,
 } from "./paths.js";
-import {
-  globalPendingStore,
-  type PendingCapture,
-  PREVIEW_EXPIRES_IN_MS,
-} from "./pending.js";
-import {
-  allocateTimestamp,
-  formatProtocolPrompt,
-  isValidTimestamp,
-} from "./protocol.js";
-import {
-  buildInlineSnapshotDataUrl,
-  buildScreenshotPreviewBase64,
-} from "./thumbnail.js";
+import { globalPendingStore, type PendingCapture, PREVIEW_EXPIRES_IN_MS } from "./pending.js";
+import { allocateTimestamp, formatProtocolPrompt, isValidTimestamp } from "./protocol.js";
+import { buildInlineSnapshotDataUrl, buildScreenshotPreviewBase64 } from "./thumbnail.js";
 
 export type AppshotPermissionState = {
   name: "accessibility" | "screen_recording";
@@ -71,10 +57,7 @@ export type AppshotStatus = {
   platform: "macos" | "windows" | "linux" | "unknown";
   reason: string | null;
   trigger: {
-    mode:
-      | "macos_modifier_gesture"
-      | "regular_hotkey_fallback"
-      | "unsupported";
+    mode: "macos_modifier_gesture" | "regular_hotkey_fallback" | "unsupported";
     enabled: boolean;
     required_modifiers: string[];
     last_error: string | null;
@@ -156,10 +139,8 @@ export function buildMacosPermissions(flags: {
   accessibilityProduct?: string;
   screenRecordingProduct?: string;
 }): AppshotPermissionState[] {
-  const axProduct =
-    flags.accessibilityProduct ?? flags.productName ?? APP_PRODUCT_NAME;
-  const screenProduct =
-    flags.screenRecordingProduct ?? flags.productName ?? APP_PRODUCT_NAME;
+  const axProduct = flags.accessibilityProduct ?? flags.productName ?? APP_PRODUCT_NAME;
+  const screenProduct = flags.screenRecordingProduct ?? flags.productName ?? APP_PRODUCT_NAME;
   return [
     permissionState({
       name: "accessibility",
@@ -338,9 +319,7 @@ export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
   let triggerEnabled = false;
   let triggerLastError: string | null = null;
   if (state) {
-    const { ensureTriggerListener, triggerListenerStatus } = await import(
-      "./trigger.js"
-    );
+    const { ensureTriggerListener, triggerListenerStatus } = await import("./trigger.js");
     // Always (re)arm so granting Atmos Accessibility after boot restarts the
     // helper (existing taps do not pick up new TCC without recreate).
     await ensureTriggerListener(state, triggerCapture, flags.accessibility, {
@@ -360,9 +339,7 @@ export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
   }
 
   const backend =
-    state != null
-      ? (await import("./trigger.js")).triggerListenerStatus().mode
-      : null;
+    state != null ? (await import("./trigger.js")).triggerListenerStatus().mode : null;
 
   return {
     supported: true,
@@ -406,8 +383,7 @@ function buildMetadataFromCapture(
   const snapshotPath = join(dir, SNAPSHOT_FILE);
   const contextPath = join(dir, CONTEXT_FILE);
   const metadataPath = join(dir, METADATA_FILE);
-  const available =
-    capture.screenshotPng != null && capture.screenshotPng.length > 0;
+  const available = capture.screenshotPng != null && capture.screenshotPng.length > 0;
   return {
     timestamp,
     captured_at: capture.capturedAt,
@@ -454,11 +430,7 @@ export function writeRecordFromCapture(capture: PendingCapture): {
 
   const finalDir = join(root, timestamp);
   const metadata = buildMetadataFromCapture(timestamp, finalDir, capture);
-  writeFileSync(
-    join(tmpDir, METADATA_FILE),
-    JSON.stringify(metadata, null, 2),
-    "utf8",
-  );
+  writeFileSync(join(tmpDir, METADATA_FILE), JSON.stringify(metadata, null, 2), "utf8");
 
   if (existsSync(finalDir)) {
     rmSync(tmpDir, { recursive: true, force: true });
@@ -469,9 +441,7 @@ export function writeRecordFromCapture(capture: PendingCapture): {
   return { timestamp, record_dir: finalDir, protocol_text, metadata };
 }
 
-export async function readRecords(
-  timestamps: string[],
-): Promise<AppshotRecordDetail[]> {
+export async function readRecords(timestamps: string[]): Promise<AppshotRecordDetail[]> {
   const out: AppshotRecordDetail[] = [];
   for (const ts of timestamps) {
     if (!isValidTimestamp(ts)) continue;
@@ -480,9 +450,7 @@ export async function readRecords(
     if (!existsSync(metaPath)) continue;
     let metadata: AppshotRecordMetadata;
     try {
-      metadata = JSON.parse(
-        readFileSync(metaPath, "utf8"),
-      ) as AppshotRecordMetadata;
+      metadata = JSON.parse(readFileSync(metaPath, "utf8")) as AppshotRecordMetadata;
     } catch {
       continue;
     }
@@ -538,8 +506,6 @@ export async function deleteRecord(timestamp: string): Promise<void> {
   }
 }
 
-
-
 export async function triggerCapture(state: AppState): Promise<void> {
   if (process.platform !== "darwin") {
     throw new Error("AppShot capture is only supported on macOS");
@@ -555,15 +521,8 @@ export async function triggerCapture(state: AppState): Promise<void> {
   // Enrich bounds before animation so the flash frames the real app window.
   let systemFrontmost = seFrontmost;
   try {
-    const { resolveFrontmostWithHostBounds } = await import(
-      "../desktop-use/host-capture.js"
-    );
-    const selfNames = new Set([
-      "Atmos",
-      "Atmos Electron",
-      "Atmos Desktop",
-      "Electron",
-    ]);
+    const { resolveFrontmostWithHostBounds } = await import("../desktop-use/host-capture.js");
+    const selfNames = new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
     const warnings: string[] = [];
     const needsBounds =
       !systemFrontmost ||
@@ -669,9 +628,7 @@ export async function stageHostCapturedPreview(
     width: payload.width,
     height: payload.height,
   };
-  const { buildAppshotContextMarkdown } = await import(
-    "../desktop-use/capture.js"
-  );
+  const { buildAppshotContextMarkdown } = await import("../desktop-use/capture.js");
   const contextMarkdown = buildAppshotContextMarkdown(frontmost, []);
   const permissions = await macosPermissionsForCapture();
 
@@ -692,14 +649,12 @@ export async function stageHostCapturedPreview(
 }
 
 export async function handleAppshotNeedGrant(missing: string[]): Promise<void> {
-  const target = missing.includes("accessibility") &&
-    !missing.includes("screen_recording")
-    ? "accessibility"
-    : "screen_recording";
+  const target =
+    missing.includes("accessibility") && !missing.includes("screen_recording")
+      ? "accessibility"
+      : "screen_recording";
   try {
-    const { openDesktopUseGrantFlow } = await import(
-      "../desktop-use/host-grant.js"
-    );
+    const { openDesktopUseGrantFlow } = await import("../desktop-use/host-grant.js");
     await openDesktopUseGrantFlow({ target });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -707,10 +662,7 @@ export async function handleAppshotNeedGrant(missing: string[]): Promise<void> {
   }
 }
 
-export async function handleHostShiftReady(info: {
-  ax: boolean;
-  tap: boolean;
-}): Promise<void> {
+export async function handleHostShiftReady(info: { ax: boolean; tap: boolean }): Promise<void> {
   if (info.ax) return;
   await handleAppshotNeedGrant(["accessibility"]);
 }
@@ -741,9 +693,7 @@ async function presentPendingCapture(
   const screenshotPreviewBase64 = await buildScreenshotPreviewBase64(input.png);
   const warnings = [...input.warnings];
   if (input.png && input.png.length > 0 && !screenshotPreviewBase64) {
-    warnings.push(
-      "Screenshot preview was hidden because the inline image payload is too large.",
-    );
+    warnings.push("Screenshot preview was hidden because the inline image payload is too large.");
   }
   const captureSucceeded = Boolean(input.png && input.png.length > 0);
   const permissionsForPreview = captureSucceeded
@@ -789,10 +739,7 @@ async function presentPendingCapture(
     /* ignore */
   }
   if (!state.mainWindow || state.mainWindow.isDestroyed()) {
-    mainLog(
-      "[appshot-capture] mainWindow missing — preview event has no target",
-      "error",
-    );
+    mainLog("[appshot-capture] mainWindow missing — preview event has no target", "error");
   } else {
     if (state.mainWindow.isMinimized()) state.mainWindow.restore();
     state.mainWindow.show();
@@ -857,18 +804,13 @@ let capturePermsCache: {
 } | null = null;
 const CAPTURE_PERMS_CACHE_MS = 45_000;
 
-export function cacheAppshotPermissionsForCapture(
-  permissions: AppshotPermissionState[],
-): void {
+export function cacheAppshotPermissionsForCapture(permissions: AppshotPermissionState[]): void {
   capturePermsCache = { at: Date.now(), permissions };
 }
 
 async function macosPermissionsForCapture(): Promise<AppshotPermissionState[]> {
   const now = Date.now();
-  if (
-    capturePermsCache &&
-    now - capturePermsCache.at < CAPTURE_PERMS_CACHE_MS
-  ) {
+  if (capturePermsCache && now - capturePermsCache.at < CAPTURE_PERMS_CACHE_MS) {
     return capturePermsCache.permissions;
   }
   // Light path: Electron TCC only (no CLI). Good enough for preview CTA.
@@ -937,10 +879,7 @@ function spawnAutoAccept(state: AppState, previewId: string): void {
         const msg = e instanceof Error ? e.message : String(e);
         if (!msg.toLowerCase().includes("no longer pending")) {
           console.error("[desktop-electron] appshot auto-accept failed:", msg);
-          state.mainWindow?.webContents.send(
-            "atmos:desktop-event:appshot://error",
-            msg,
-          );
+          state.mainWindow?.webContents.send("atmos:desktop-event:appshot://error", msg);
         }
       }
       return;
@@ -961,22 +900,13 @@ export async function openPermissions(target: string): Promise<void> {
   const flags = await resolveAppShotPermissionFlags();
   if (flags.hostEngineInstalled) {
     const target =
-      t === "screen_recording" || t === "screen"
-        ? "screen_recording"
-        : "accessibility";
-    const { openDesktopUseGrantFlow } = await import(
-      "../desktop-use/host-grant.js"
-    );
+      t === "screen_recording" || t === "screen" ? "screen_recording" : "accessibility";
+    const { openDesktopUseGrantFlow } = await import("../desktop-use/host-grant.js");
     await openDesktopUseGrantFlow({ target });
     return;
   }
-  const purpose =
-    t === "screen_recording" || t === "screen"
-      ? "screen_recording"
-      : "accessibility";
-  const { grantAtmosAppPermission } = await import(
-    "../macos-app-permissions.js"
-  );
+  const purpose = t === "screen_recording" || t === "screen" ? "screen_recording" : "accessibility";
+  const { grantAtmosAppPermission } = await import("../macos-app-permissions.js");
   await grantAtmosAppPermission({ target: purpose });
 }
 
@@ -1081,9 +1011,7 @@ export function writeTestRecord(
 ): void {
   if (!isValidTimestamp(timestamp)) {
     // Allow tests that still use old ids by writing only when valid
-    throw new Error(
-      `writeTestRecord requires 13-digit timestamp, got ${timestamp}`,
-    );
+    throw new Error(`writeTestRecord requires 13-digit timestamp, got ${timestamp}`);
   }
   const appName = opts.appName ?? "TestApp";
   const capture: PendingCapture = {
@@ -1113,22 +1041,10 @@ export function writeTestRecord(
   }
   writeFileSync(join(dir, CONTEXT_FILE), capture.contextMarkdown, "utf8");
   const metadata = buildMetadataFromCapture(timestamp, dir, capture);
-  writeFileSync(
-    join(dir, METADATA_FILE),
-    JSON.stringify(metadata, null, 2),
-    "utf8",
-  );
+  writeFileSync(join(dir, METADATA_FILE), JSON.stringify(metadata, null, 2), "utf8");
 }
 
 // Re-export path helpers for tests
-export {
-  recordsRoot as appshotRecordsRoot,
-  appshotsRoot,
-  setTestAppshotsRoot,
-} from "./paths.js";
-export {
-  formatProtocolPrompt,
-  isValidTimestamp,
-  allocateTimestamp,
-} from "./protocol.js";
+export { recordsRoot as appshotRecordsRoot, appshotsRoot, setTestAppshotsRoot } from "./paths.js";
+export { formatProtocolPrompt, isValidTimestamp, allocateTimestamp } from "./protocol.js";
 export { globalPendingStore, PendingStore } from "./pending.js";

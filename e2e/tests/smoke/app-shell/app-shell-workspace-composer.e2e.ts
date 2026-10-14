@@ -1,8 +1,5 @@
 import { expect, test } from "../../../fixtures/test";
-import {
-  connectLocalComputer,
-  stubComputerClientSettingsApi,
-} from "../support/app-smoke";
+import { connectLocalComputer, stubComputerClientSettingsApi } from "../support/app-smoke";
 
 test.describe("smoke app shell workspace composer", () => {
   test("@smoke @stateful exercises read-only workspace composer controls", async ({ page }) => {

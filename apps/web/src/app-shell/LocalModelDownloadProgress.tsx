@@ -4,11 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { TextShimmer } from "@workspace/ui";
-import {
-  localModelApi,
-  type LocalModelStatus,
-  type LocalModelListResponse,
-} from "@/api/ws-api";
+import { localModelApi, type LocalModelStatus, type LocalModelListResponse } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 
@@ -39,7 +35,8 @@ export function LocalModelDownloadProgress() {
       const payload = raw as { state: LocalModelStatus };
       setData((prev) => {
         // Only update if state actually changed
-        if (!prev) return { state: payload.state, models: [], runtime: { installed: false, version: null } };
+        if (!prev)
+          return { state: payload.state, models: [], runtime: { installed: false, version: null } };
 
         // Use JSON comparison for simplicity since LocalModelStatus is a complex union type
         if (JSON.stringify(prev.state) === JSON.stringify(payload.state)) {
@@ -135,10 +132,14 @@ export function LocalModelDownloadProgress() {
         title={t("openSettings")}
       >
         <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-        <span className={`ml-2 whitespace-nowrap text-[13px] font-medium tabular-nums text-foreground transition-all duration-500 ease-out ${isExpanded ? 'max-w-16' : 'max-w-16'}`}>
+        <span
+          className={`ml-2 text-[13px] font-medium whitespace-nowrap text-foreground tabular-nums transition-all duration-500 ease-out ${isExpanded ? "max-w-16" : "max-w-16"}`}
+        >
           {progressText}
         </span>
-        <span className={`ml-2 whitespace-nowrap text-[13px] font-medium text-muted-foreground tabular-nums transition-all duration-500 ease-out ${isExpanded ? 'max-w-96 opacity-100' : 'max-w-0 opacity-0'}`}>
+        <span
+          className={`ml-2 text-[13px] font-medium whitespace-nowrap text-muted-foreground tabular-nums transition-all duration-500 ease-out ${isExpanded ? "max-w-96 opacity-100" : "max-w-0 opacity-0"}`}
+        >
           <TextShimmer as="span" duration={1.6} className="inline">
             {fullDownloadText}
           </TextShimmer>

@@ -11,10 +11,14 @@ const CHART_BBOX_WIDE = { width: 520, height: 340 };
 const CHART_BBOX_ROUND = { width: 340, height: 320 };
 
 function bboxFor(meta: ChartMeta): { width: number; height: number } {
-  if (meta.marks.includes("interactive") && (meta.kind === "area" || meta.kind === "bar" || meta.kind === "line")) {
+  if (
+    meta.marks.includes("interactive") &&
+    (meta.kind === "area" || meta.kind === "bar" || meta.kind === "line")
+  ) {
     return CHART_BBOX_WIDE;
   }
-  if (meta.kind === "pie" || meta.kind === "radar" || meta.kind === "radial") return CHART_BBOX_ROUND;
+  if (meta.kind === "pie" || meta.kind === "radar" || meta.kind === "radial")
+    return CHART_BBOX_ROUND;
   return CHART_BBOX;
 }
 

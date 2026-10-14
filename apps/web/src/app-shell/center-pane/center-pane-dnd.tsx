@@ -1,11 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  cn,
-  type DraggableAttributes,
-  type DraggableSyntheticListeners,
-} from "@workspace/ui";
+import { cn, type DraggableAttributes, type DraggableSyntheticListeners } from "@workspace/ui";
 
 type CenterPaneDragHandleValue = {
   setNodeRef: (node: HTMLElement | null) => void;
@@ -15,8 +11,7 @@ type CenterPaneDragHandleValue = {
   dragEnabled: boolean;
 };
 
-const CenterPaneDragHandleContext =
-  React.createContext<CenterPaneDragHandleValue | null>(null);
+const CenterPaneDragHandleContext = React.createContext<CenterPaneDragHandleValue | null>(null);
 
 export function CenterPaneDragHandleProvider({
   value,

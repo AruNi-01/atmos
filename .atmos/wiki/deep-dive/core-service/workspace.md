@@ -36,13 +36,14 @@ stateDiagram-v2
     Stopped --> Archived: 归档 (Archive)
     Archived --> Stopped: 恢复 (Unarchive)
     Stopped --> [*]: 删除 (Delete)
-    
+
     note right of Running: 占用 CPU/内存/PTY 资源
     note right of Stopped: 仅占用磁盘空间
     note right of Archived: 资源冻结，UI 隐藏
 ```
 
 #### 状态详解：
+
 - **Pending**: 数据库记录已建立，但物理目录尚未准备好。
 - **Initializing**: 正在执行耗时的初始化任务，如 Git 克隆或依赖预下载。
 - **Stopped**: 工作区处于静默状态，没有活跃的进程，但随时可以启动。
@@ -85,22 +86,25 @@ stateDiagram-v2
 在多用户或高频操作场景下，`WorkspaceService` 必须处理复杂的并发问题。
 
 ### 锁机制与原子性
+
 Atmos 利用 Rust 的 `tokio::sync::RwLock` 和数据库事务来确保状态转换的原子性。例如，在工作区从 `Starting` 转换到 `Running` 的过程中，系统会锁定该工作区的记录，防止重复启动。
 
 ### 孤儿资源清理
+
 如果后端服务意外崩溃，重启后 `WorkspaceService` 会执行扫描任务：
+
 - 检查数据库中标记为 `Running` 但实际没有对应系统进程的工作区。
 - 自动将这些“僵尸”工作区的状态修正为 `Stopped`。
 - 清理残留的临时文件和无效的 PTY 句柄。
 
 ## 关键源码分析
 
-| 文件路径 | 核心职责 |
-|:---|:---|
-| `crates/core-service/src/service/workspace.rs` | 实现 `WorkspaceService`，包含所有状态转换逻辑 |
-| `crates/infra/src/db/repo/workspace_repo.rs` | 封装 SQL 操作，提供类型安全的工作区查询与更新接口 |
-| `crates/infra/src/db/entities/workspace.rs` | 定义工作区的数据库 Schema 和状态枚举 |
-| `crates/core-engine/src/fs/mod.rs` | 提供物理目录的创建、删除和权限校验能力 |
+| 文件路径                                       | 核心职责                                          |
+| :--------------------------------------------- | :------------------------------------------------ |
+| `crates/core-service/src/service/workspace.rs` | 实现 `WorkspaceService`，包含所有状态转换逻辑     |
+| `crates/infra/src/db/repo/workspace_repo.rs`   | 封装 SQL 操作，提供类型安全的工作区查询与更新接口 |
+| `crates/infra/src/db/entities/workspace.rs`    | 定义工作区的数据库 Schema 和状态枚举              |
+| `crates/core-engine/src/fs/mod.rs`             | 提供物理目录的创建、删除和权限校验能力            |
 
 ## 总结
 

@@ -9,27 +9,27 @@
 
 被审查提交：
 
-| Commit | Author | Message |
-| --- | --- | --- |
-| `2611b473` | AarynLu | `fix(local-runtime): handle existing logo migration` |
+| Commit     | Author  | Message                                                   |
+| ---------- | ------- | --------------------------------------------------------- |
+| `2611b473` | AarynLu | `fix(local-runtime): handle existing logo migration`      |
 | `e7a967d6` | AarynLu | `refactor: address daily quality findings for 2026-06-22` |
-| `943b8881` | AarynLu | `fix: keep prompt stash on copy failure` |
-| `7786d450` | AarynLu | `Route terminal WebSocket URLs through runtime config` |
-| `23f33eae` | AarynLu | `fix(web): use bundled geist fonts for pages build` |
-| `2d85dc79` | AarynLu | `Bracket IPv6 probe URLs in local services` |
-| `e2e3d66c` | AarynLu | `fix(cli): use R2 manifest for updates` |
-| `898e56f5` | AarynLu | `Refine session and workspace state handling` |
-| `afb7b4fd` | AarynLu | `chore(cli): release 0.2.2` |
-| `1ec22cdf` | AarynLu | `chore(local-runtime): release 0.2.2` |
-| `ed8ffb44` | AarynLu | `chore(desktop): release 2.0.0` |
-| `b5f7019d` | AarynLu | `fix github app setup completion flow` |
-| `b1e64b5a` | AarynLu | `fix stale github installation selection` |
-| `0efdfaf2` | AarynLu | `fix github app callback authorization fallback` |
-| `2d43003e` | AarynLu | `improve github relay error diagnostics` |
-| `9d6e07e1` | AarynLu | `fix github installation token parsing` |
-| `0560fb6f` | AarynLu | `log github installation token response shape` |
-| `68a20a11` | AarynLu | `fix github trigger setup refresh flow` |
-| `385cc313` | AarynLu | `fix hosted access key display` |
+| `943b8881` | AarynLu | `fix: keep prompt stash on copy failure`                  |
+| `7786d450` | AarynLu | `Route terminal WebSocket URLs through runtime config`    |
+| `23f33eae` | AarynLu | `fix(web): use bundled geist fonts for pages build`       |
+| `2d85dc79` | AarynLu | `Bracket IPv6 probe URLs in local services`               |
+| `e2e3d66c` | AarynLu | `fix(cli): use R2 manifest for updates`                   |
+| `898e56f5` | AarynLu | `Refine session and workspace state handling`             |
+| `afb7b4fd` | AarynLu | `chore(cli): release 0.2.2`                               |
+| `1ec22cdf` | AarynLu | `chore(local-runtime): release 0.2.2`                     |
+| `ed8ffb44` | AarynLu | `chore(desktop): release 2.0.0`                           |
+| `b5f7019d` | AarynLu | `fix github app setup completion flow`                    |
+| `b1e64b5a` | AarynLu | `fix stale github installation selection`                 |
+| `0efdfaf2` | AarynLu | `fix github app callback authorization fallback`          |
+| `2d43003e` | AarynLu | `improve github relay error diagnostics`                  |
+| `9d6e07e1` | AarynLu | `fix github installation token parsing`                   |
+| `0560fb6f` | AarynLu | `log github installation token response shape`            |
+| `68a20a11` | AarynLu | `fix github trigger setup refresh flow`                   |
+| `385cc313` | AarynLu | `fix hosted access key display`                           |
 
 ## 2. 一份好代码应该是什么样
 
@@ -53,13 +53,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 25 / 30 | `e2e3d66c` 和 `898e56f5` 把 CLI release/install 主机能力放入 `apps/api/src/api/system/cli.rs`；这与 `apps/api/AGENTS.md` 中 handler stay thin、业务/能力下沉的边界不一致。 |
-| 可读性与复杂度 | 22 / 25 | 同一文件内主路径需要跨 HTTP DTO、manifest fallback、GitHub API fallback、Atom feed parsing、tar 解包、递归找二进制、PATH 写入等阶段阅读，局部函数虽可理解，但入口文件整体阅读成本明显上升。 |
-| 体量与内聚 | 17 / 20 | `apps/api/src/api/system/cli.rs` 达到 745 行，且不再只是 API handler；`install_cli`、`ensure_standalone_cli_on_startup`、`download_and_install_cli`、`fetch_latest_cli_release*` 和 `modify_shell_config` 有清晰拆分点。 |
-| 可维护性与复用 | 14 / 15 | CLI release manifest 逻辑同时被 API startup、手动 install endpoint、脚本 installer 使用；当天最明显的问题是 Rust API 侧没有先形成能力模块，后续测试和复用都会被 API 层耦合拖住。 |
-| 工程卫生 | 10 / 10 | 未发现明确 token/secret 泄露或临时调试残留；`0560fb6f` 只记录 installation token 响应键名，未记录 token 值。 |
+| 维度           |    得分 | 扣分原因                                                                                                                                                                                                                 |
+| -------------- | ------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 设计与分层     | 25 / 30 | `e2e3d66c` 和 `898e56f5` 把 CLI release/install 主机能力放入 `apps/api/src/api/system/cli.rs`；这与 `apps/api/AGENTS.md` 中 handler stay thin、业务/能力下沉的边界不一致。                                               |
+| 可读性与复杂度 | 22 / 25 | 同一文件内主路径需要跨 HTTP DTO、manifest fallback、GitHub API fallback、Atom feed parsing、tar 解包、递归找二进制、PATH 写入等阶段阅读，局部函数虽可理解，但入口文件整体阅读成本明显上升。                              |
+| 体量与内聚     | 17 / 20 | `apps/api/src/api/system/cli.rs` 达到 745 行，且不再只是 API handler；`install_cli`、`ensure_standalone_cli_on_startup`、`download_and_install_cli`、`fetch_latest_cli_release*` 和 `modify_shell_config` 有清晰拆分点。 |
+| 可维护性与复用 | 14 / 15 | CLI release manifest 逻辑同时被 API startup、手动 install endpoint、脚本 installer 使用；当天最明显的问题是 Rust API 侧没有先形成能力模块，后续测试和复用都会被 API 层耦合拖住。                                         |
+| 工程卫生       | 10 / 10 | 未发现明确 token/secret 泄露或临时调试残留；`0560fb6f` 只记录 installation token 响应键名，未记录 token 值。                                                                                                             |
 
 ## 6. 主要问题清单
 

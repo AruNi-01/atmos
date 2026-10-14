@@ -14,9 +14,7 @@ export function sessionsOccupancyFingerprint(
   if (sessions.size === 0) return "";
   const parts: string[] = [];
   for (const session of sessions.values()) {
-    parts.push(
-      `${session.session_id}:${session.state}:${session.context_id ?? ""}`,
-    );
+    parts.push(`${session.session_id}:${session.state}:${session.context_id ?? ""}`);
   }
   parts.sort();
   return parts.join("|");

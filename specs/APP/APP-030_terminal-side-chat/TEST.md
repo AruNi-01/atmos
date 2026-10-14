@@ -14,42 +14,42 @@
 ## Coverage map
 
 | PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S1, S3 |
-| M3 | S3, S4, S6 |
-| M4 | S4, S8 |
-| M5 | S5 |
-| M6 | S13 |
-| M7 | S5 |
-| M8 | S6, S7 |
-| M9 | S7 |
-| M10 | S9, S10 |
-| M11 | S11 |
-| M12 | S14 |
-| M13 | S15 |
-| M14 | S16 |
+| -------- | ------------ |
+| M1       | S1, S2       |
+| M2       | S1, S3       |
+| M3       | S3, S4, S6   |
+| M4       | S4, S8       |
+| M5       | S5           |
+| M6       | S13          |
+| M7       | S5           |
+| M8       | S6, S7       |
+| M9       | S7           |
+| M10      | S9, S10      |
+| M11      | S11          |
+| M12      | S14          |
+| M13      | S15          |
+| M14      | S16          |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun component | `bun test` | `bun test apps/web/src/features/terminal` | terminal AI Input rendered with `/side` extra command | slash popover shows `/side`; selecting it renders chip; chip hover/focus shows compact metadata popover; composer focus remains | planned |
-| S2 | Bun component | `bun test` | `bun test apps/web/src/features/welcome` | New Workspace welcome composer | slash popover does not include `/side` | planned |
-| S3 | Bun integration | `bun test` | `bun test apps/web/src/features/terminal` | fake source pane with known agent and tmux window | side submit calls capture API and does not call source `sendText` / `sendEnter` | planned |
-| S4 | Rust + Bun | `cargo test`, `bun test` | `cargo test -p core-service terminal_side_context`; `bun test apps/web/src/features/terminal` | tmux capture fixture with ANSI and long output | response text has no ANSI; prompt includes source metadata, captured bytes, prompt byte budget, truncation state, and user prompt | planned |
-| S5 | Bun component | `bun test` | `bun test apps/web/src/features/terminal` | side modal record with one terminal | header shows Hide and Close only; no split/maximize/context-menu controls rendered | planned |
-| S6 | Bun component | `bun test` | `bun test apps/web/src/features/terminal` | side modal hidden after launch | modal unmounts; hidden dot appears next to collapsed AI Input handle; clicking restores modal | planned |
-| S7 | Bun unit | `bun test` | `bun test apps/web/src/features/terminal` | multiple side chat records | active side chats get unique random bright colors; allocator rejects used and dark colors | planned |
-| S8 | WebSocket/API-level | `cargo test` or API harness | `TBD by test-run` | workspace tmux session with source window | `terminal_side_context_capture` returns bounded context and never accepts arbitrary tmux session names | planned |
-| S9 | Bun component | `bun test` | `bun test apps/web/src/features/terminal` | source pane without detected agent and with available terminal agents | agent picker/menu opens; selecting an agent continues side launch; cancelling keeps composer recoverable; source terminal untouched | planned |
-| S10 | WebSocket/API-level + Bun | `cargo test`, `bun test` | `TBD by test-run` | capture failure / missing tmux window | recoverable error response maps to inline composer feedback; no side terminal launches | planned |
-| S11 | Static/i18n | `bun test` or lint | `bun test apps/web/src/features/terminal apps/web/src/features/agent` | `en.json` and `zh.json` | all side-chat copy keys, including optional agent status label, exist in both locales; no hardcoded user-facing side-chat strings in components | planned |
-| S12 | E2E | Playwright | `just test-e2e -- tests/specs/APP-030_terminal-side-chat.e2e.ts` | local app, seeded workspace, tmux available, deterministic test agent command | selecting `/side` opens side modal; Hide creates dot; restore works; source terminal output does not receive prompt | planned |
-| S13 | Bun component + E2E | `bun test`, Playwright | `bun test apps/web/src/features/canvas`; `just test-e2e -- tests/specs/APP-030_terminal-side-chat.e2e.ts` | Canvas terminal card with AI Input | side modal and hidden dots are clipped to the terminal card; no drag or movement outside the card | planned |
-| S14 | Rust + Bun integration | `cargo test`, `bun test` | `cargo test -p core-service terminal_side_identity`; `bun test apps/web/src/features/terminal apps/web/src/features/agent` | side chat creation request and fake agent hook update | side terminal receives side-chat env metadata; hook DTO/store carries `terminal_kind` and `side_chat_id`; status navigation restores/focuses side chat by id | planned |
-| S15 | Rust + Bun integration + E2E | `cargo test`, `bun test`, Playwright | `cargo test -p core-service terminal_side_chat_registry`; `bun test apps/web/src/features/terminal`; `just test-e2e -- tests/specs/APP-030_terminal-side-chat.e2e.ts` | backend side-chat registry plus terminal discovery response with live/missing side tmux windows | reload/context remount restores live side chats as hidden dots; stale backend records are removed; no prompt/transcript content is persisted | planned |
-| S16 | Rust integration + Bun + E2E | `cargo test`, `bun test`, Playwright | `cargo test -p core-service terminal_side_chat_cleanup`; `bun test apps/web/src/features/terminal`; `just test-e2e -- tests/specs/APP-030_terminal-side-chat.e2e.ts` | source terminal with one open and one hidden child side chat | closing child side chat removes backend record and tmux window; closing parent source terminal cascades cleanup to all child side chats and dots | planned |
+| Scenario | Level                        | Expected tool                        | Target command / method                                                                                                                                               | Fixture / data                                                                                  | Signals                                                                                                                                                      | Status  |
+| -------- | ---------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| S1       | Bun component                | `bun test`                           | `bun test apps/web/src/features/terminal`                                                                                                                             | terminal AI Input rendered with `/side` extra command                                           | slash popover shows `/side`; selecting it renders chip; chip hover/focus shows compact metadata popover; composer focus remains                              | planned |
+| S2       | Bun component                | `bun test`                           | `bun test apps/web/src/features/welcome`                                                                                                                              | New Workspace welcome composer                                                                  | slash popover does not include `/side`                                                                                                                       | planned |
+| S3       | Bun integration              | `bun test`                           | `bun test apps/web/src/features/terminal`                                                                                                                             | fake source pane with known agent and tmux window                                               | side submit calls capture API and does not call source `sendText` / `sendEnter`                                                                              | planned |
+| S4       | Rust + Bun                   | `cargo test`, `bun test`             | `cargo test -p core-service terminal_side_context`; `bun test apps/web/src/features/terminal`                                                                         | tmux capture fixture with ANSI and long output                                                  | response text has no ANSI; prompt includes source metadata, captured bytes, prompt byte budget, truncation state, and user prompt                            | planned |
+| S5       | Bun component                | `bun test`                           | `bun test apps/web/src/features/terminal`                                                                                                                             | side modal record with one terminal                                                             | header shows Hide and Close only; no split/maximize/context-menu controls rendered                                                                           | planned |
+| S6       | Bun component                | `bun test`                           | `bun test apps/web/src/features/terminal`                                                                                                                             | side modal hidden after launch                                                                  | modal unmounts; hidden dot appears next to collapsed AI Input handle; clicking restores modal                                                                | planned |
+| S7       | Bun unit                     | `bun test`                           | `bun test apps/web/src/features/terminal`                                                                                                                             | multiple side chat records                                                                      | active side chats get unique random bright colors; allocator rejects used and dark colors                                                                    | planned |
+| S8       | WebSocket/API-level          | `cargo test` or API harness          | `TBD by test-run`                                                                                                                                                     | workspace tmux session with source window                                                       | `terminal_side_context_capture` returns bounded context and never accepts arbitrary tmux session names                                                       | planned |
+| S9       | Bun component                | `bun test`                           | `bun test apps/web/src/features/terminal`                                                                                                                             | source pane without detected agent and with available terminal agents                           | agent picker/menu opens; selecting an agent continues side launch; cancelling keeps composer recoverable; source terminal untouched                          | planned |
+| S10      | WebSocket/API-level + Bun    | `cargo test`, `bun test`             | `TBD by test-run`                                                                                                                                                     | capture failure / missing tmux window                                                           | recoverable error response maps to inline composer feedback; no side terminal launches                                                                       | planned |
+| S11      | Static/i18n                  | `bun test` or lint                   | `bun test apps/web/src/features/terminal apps/web/src/features/agent`                                                                                                 | `en.json` and `zh.json`                                                                         | all side-chat copy keys, including optional agent status label, exist in both locales; no hardcoded user-facing side-chat strings in components              | planned |
+| S12      | E2E                          | Playwright                           | `just test-e2e -- tests/specs/APP-030_terminal-side-chat.e2e.ts`                                                                                                      | local app, seeded workspace, tmux available, deterministic test agent command                   | selecting `/side` opens side modal; Hide creates dot; restore works; source terminal output does not receive prompt                                          | planned |
+| S13      | Bun component + E2E          | `bun test`, Playwright               | `bun test apps/web/src/features/canvas`; `just test-e2e -- tests/specs/APP-030_terminal-side-chat.e2e.ts`                                                             | Canvas terminal card with AI Input                                                              | side modal and hidden dots are clipped to the terminal card; no drag or movement outside the card                                                            | planned |
+| S14      | Rust + Bun integration       | `cargo test`, `bun test`             | `cargo test -p core-service terminal_side_identity`; `bun test apps/web/src/features/terminal apps/web/src/features/agent`                                            | side chat creation request and fake agent hook update                                           | side terminal receives side-chat env metadata; hook DTO/store carries `terminal_kind` and `side_chat_id`; status navigation restores/focuses side chat by id | planned |
+| S15      | Rust + Bun integration + E2E | `cargo test`, `bun test`, Playwright | `cargo test -p core-service terminal_side_chat_registry`; `bun test apps/web/src/features/terminal`; `just test-e2e -- tests/specs/APP-030_terminal-side-chat.e2e.ts` | backend side-chat registry plus terminal discovery response with live/missing side tmux windows | reload/context remount restores live side chats as hidden dots; stale backend records are removed; no prompt/transcript content is persisted                 | planned |
+| S16      | Rust integration + Bun + E2E | `cargo test`, `bun test`, Playwright | `cargo test -p core-service terminal_side_chat_cleanup`; `bun test apps/web/src/features/terminal`; `just test-e2e -- tests/specs/APP-030_terminal-side-chat.e2e.ts`  | source terminal with one open and one hidden child side chat                                    | closing child side chat removes backend record and tmux window; closing parent source terminal cascades cleanup to all child side chats and dots             | planned |
 
 ## Scenarios
 

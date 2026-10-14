@@ -31,11 +31,7 @@ function deviceKeyForRow(row: ComputerRow): DeviceKey {
 }
 
 function representativeRank(row: ComputerRow): [number, number, number] {
-  return [
-    row.online ? 1 : 0,
-    row.last_seen_at ?? -1,
-    row.created_at,
-  ];
+  return [row.online ? 1 : 0, row.last_seen_at ?? -1, row.created_at];
 }
 
 function pickRepresentative(rows: ComputerRow[]): ComputerRow {
@@ -87,8 +83,7 @@ export function uniqueComputers(
   const localMatched =
     localAppId != null && devices.some((device) => device.key === `app:${localAppId}`);
   const localServerMatched =
-    localServerId != null &&
-    devices.some((device) => device.serverId === localServerId);
+    localServerId != null && devices.some((device) => device.serverId === localServerId);
   if (local && !localMatched && !localServerMatched) {
     devices.push({
       key: `local:${localServerId ?? "unregistered"}`,
@@ -131,15 +126,11 @@ export function computerScopeHintKind(opts: {
   return opts.signedIn ? "add-computer" : "sign-in";
 }
 
-export function currentUniqueComputer(
-  devices: UniqueComputer[],
-): UniqueComputer | null {
+export function currentUniqueComputer(devices: UniqueComputer[]): UniqueComputer | null {
   return devices.find((device) => device.isCurrent) ?? devices[0] ?? null;
 }
 
-export function allComputersFetchTargets(
-  devices: UniqueComputer[],
-): UniqueComputer[] {
+export function allComputersFetchTargets(devices: UniqueComputer[]): UniqueComputer[] {
   const seen = new Set<DeviceKey>();
   const targets: UniqueComputer[] = [];
   for (const device of devices) {

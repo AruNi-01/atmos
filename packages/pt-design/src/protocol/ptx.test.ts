@@ -4,7 +4,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CHART_IDS } from "../catalog/chart-list";
 import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "../catalog/shadcn-list";
-import { PtDesignError, catalogIdToXmlTag, parsePtx, serializePtx, xmlTagToCatalogId } from "./index";
+import {
+  PtDesignError,
+  catalogIdToXmlTag,
+  parsePtx,
+  serializePtx,
+  xmlTagToCatalogId,
+} from "./index";
 import type { PtNode } from "./schema";
 
 const GOLDEN = `<page id="model-config">
@@ -116,7 +122,9 @@ describe("S7 / S8 options", () => {
   });
 
   test("S8 value + text become option pair", () => {
-    const doc = parsePtx(pageXml(`<select ${spatial("s")}><option value="claude">Claude</option></select>`));
+    const doc = parsePtx(
+      pageXml(`<select ${spatial("s")}><option value="claude">Claude</option></select>`),
+    );
     expect(doc.pages[0]!.nodes[0]!.options).toEqual([{ value: "claude", label: "Claude" }]);
   });
 });
@@ -124,7 +132,10 @@ describe("S7 / S8 options", () => {
 describe("S13 orphan snippets", () => {
   test("option / on / action as root fail invalid_ptx", () => {
     expectCode(() => parsePtx(`<option value="x">X</option>`), "invalid_ptx");
-    expectCode(() => parsePtx(`<on event="click"><action type="agent" name="run"/></on>`), "invalid_ptx");
+    expectCode(
+      () => parsePtx(`<on event="click"><action type="agent" name="run"/></on>`),
+      "invalid_ptx",
+    );
     expectCode(() => parsePtx(`<action type="agent" name="run"/>`), "invalid_ptx");
   });
 });
@@ -140,7 +151,19 @@ describe("S35 pretty stable XML", () => {
     const twice = serializePtx(parsePtx(once));
     expect(twice).toBe(once);
     const line = once.trim().split("\n")[1]!;
-    const keys = ["id", "label", "value", "checked", "x", "y", "width", "height", "rotation", "name", "variant"];
+    const keys = [
+      "id",
+      "label",
+      "value",
+      "checked",
+      "x",
+      "y",
+      "width",
+      "height",
+      "rotation",
+      "name",
+      "variant",
+    ];
     let last = -1;
     for (const key of keys) {
       const at = line.indexOf(`${key}="`);
@@ -179,7 +202,10 @@ describe("S37 dotted block XML tags", () => {
   });
 
   test("unknown tag is invalid_ptx", () => {
-    expectCode(() => parsePtx(pageXml(`<nope id="a" x="0" y="0" width="1" height="1"/>`)), "invalid_ptx");
+    expectCode(
+      () => parsePtx(pageXml(`<nope id="a" x="0" y="0" width="1" height="1"/>`)),
+      "invalid_ptx",
+    );
   });
 });
 
@@ -197,10 +223,18 @@ describe("frozen catalog ids", () => {
 
 describe("PTX grammar", () => {
   test("ignores XML declaration and rejects doctype, entity, percent entity", () => {
-    const doc = parsePtx(`<?xml version="1.0" encoding="UTF-8"?>${pageXml(`<button ${spatial("b")}/>`)}`);
+    const doc = parsePtx(
+      `<?xml version="1.0" encoding="UTF-8"?>${pageXml(`<button ${spatial("b")}/>`)}`,
+    );
     expect(doc.pages[0]!.nodes[0]!.type).toBe("button");
-    expectCode(() => parsePtx(`<!DOCTYPE page>${pageXml(`<button ${spatial("b")}/>`)}`), "invalid_ptx");
-    expectCode(() => parsePtx(`<!ENTITY foo "bar">${pageXml(`<button ${spatial("b")}/>`)}`), "invalid_ptx");
+    expectCode(
+      () => parsePtx(`<!DOCTYPE page>${pageXml(`<button ${spatial("b")}/>`)}`),
+      "invalid_ptx",
+    );
+    expectCode(
+      () => parsePtx(`<!ENTITY foo "bar">${pageXml(`<button ${spatial("b")}/>`)}`),
+      "invalid_ptx",
+    );
     expectCode(() => parsePtx(pageXml(`<button ${spatial("b")}>%foo;</button>`)), "invalid_ptx");
   });
 
@@ -209,17 +243,17 @@ describe("PTX grammar", () => {
       () => parsePtx(pageXml(`<button ${spatial("dup")}/><input ${spatial("dup")}/>`)),
       "invalid_ptx",
     );
-    expectCode(() => parsePtx(pageXml(`<button id="b" y="0" width="1" height="1"/>`)), "invalid_ptx");
+    expectCode(
+      () => parsePtx(pageXml(`<button id="b" y="0" width="1" height="1"/>`)),
+      "invalid_ptx",
+    );
   });
 
   test("checked boolean attr and nested duplicate ids", () => {
     const doc = parsePtx(pageXml(`<checkbox ${spatial("c")} checked/>`));
     expect(doc.pages[0]!.nodes[0]!.checked).toBe(true);
     expectCode(
-      () =>
-        parsePtx(
-          pageXml(`<card ${spatial("c")}><input ${spatial("c")}/></card>`),
-        ),
+      () => parsePtx(pageXml(`<card ${spatial("c")}><input ${spatial("c")}/></card>`)),
       "invalid_ptx",
     );
   });

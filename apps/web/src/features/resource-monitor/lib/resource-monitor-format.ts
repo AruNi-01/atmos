@@ -45,21 +45,14 @@ export function formatCpuPercent(value: number): string {
 }
 
 /** Sliding-number parts matching {@link formatCpuPercent} decimals. */
-export function cpuSlidingParts(
-  value: number,
-  locale = "en",
-): SlidingMetricParts {
+export function cpuSlidingParts(value: number, locale = "en"): SlidingMetricParts {
   const amount = Number.isFinite(value) && value > 0 ? value : 0;
   return percentSlidingParts(amount, locale, amount > 0 && amount < 10 ? 1 : 0);
 }
 
 /** Sliding-number parts matching {@link formatPercent} decimals. */
-export function hostPercentSlidingParts(
-  value: number,
-  locale = "en",
-): SlidingMetricParts {
-  const amount =
-    Number.isFinite(value) && value > 0 ? Math.min(100, Math.max(0, value)) : 0;
+export function hostPercentSlidingParts(value: number, locale = "en"): SlidingMetricParts {
+  const amount = Number.isFinite(value) && value > 0 ? Math.min(100, Math.max(0, value)) : 0;
   return percentSlidingParts(amount, locale, amount > 0 && amount < 10 ? 1 : 0);
 }
 
@@ -86,10 +79,7 @@ function memorySlidingParts(
 }
 
 /** Sliding-number parts matching {@link formatMemoryBytes}. */
-export function memoryBytesSlidingParts(
-  bytes: number,
-  locale = "en",
-): SlidingMetricParts {
+export function memoryBytesSlidingParts(bytes: number, locale = "en"): SlidingMetricParts {
   const resolved = resolveMemoryAmount(bytes);
   return memorySlidingParts(resolved, ` ${resolved.unit}`, locale);
 }
@@ -101,11 +91,7 @@ export function memoryPairSlidingParts(
   locale = "en",
 ): SlidingMetricParts {
   const used = resolveMemoryAmount(usedBytes);
-  return memorySlidingParts(
-    used,
-    ` ${used.unit} / ${formatMemoryBytes(totalBytes)}`,
-    locale,
-  );
+  return memorySlidingParts(used, ` ${used.unit} / ${formatMemoryBytes(totalBytes)}`, locale);
 }
 
 /**
@@ -124,9 +110,7 @@ export function slidingPartsFromFormatted(
   const idx = formatted.indexOf(token);
   const prefix = idx > 0 ? formatted.slice(0, idx) : "";
   const suffix =
-    idx >= 0 && idx + token.length < formatted.length
-      ? formatted.slice(idx + token.length)
-      : "";
+    idx >= 0 && idx + token.length < formatted.length ? formatted.slice(idx + token.length) : "";
   return {
     value: Number(token),
     ...(prefix ? { prefix } : {}),
@@ -154,10 +138,7 @@ export function sumAtmosUsage(
 ): ResourceUsage {
   return {
     cpu_percent:
-      server.cpu_percent +
-      shared.cpu_percent +
-      desktopUse.cpu_percent +
-      desktopShell.cpu_percent,
+      server.cpu_percent + shared.cpu_percent + desktopUse.cpu_percent + desktopShell.cpu_percent,
     memory_rss_bytes:
       server.memory_rss_bytes +
       shared.memory_rss_bytes +
@@ -172,11 +153,7 @@ export function sumAtmosUsage(
 }
 
 export function isUsageVisible(usage: ResourceUsage): boolean {
-  return (
-    usage.process_count > 0 ||
-    usage.cpu_percent > 0 ||
-    usage.memory_rss_bytes > 0
-  );
+  return usage.process_count > 0 || usage.cpu_percent > 0 || usage.memory_rss_bytes > 0;
 }
 
 export function processBasename(name: string): string {

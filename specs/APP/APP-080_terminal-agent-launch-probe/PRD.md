@@ -67,19 +67,19 @@ flowchart LR
 
 - **M3 · Effort and model coverage for the audited CLIs**: The first ship shows choices only where the audit has a closed launch contract.
 
-  | Agent | Model choices | Effort choices | Launch meaning |
-  | --- | --- | --- | --- |
-  | Claude Code | none | low, medium, high, xhigh, max | `--effort` |
-  | Codex | live catalog | minimal, low, medium, high, xhigh | `--model` and config `model_reasoning_effort` |
-  | Antigravity | live catalog | low, medium, high, xhigh, max | `--model` and `--effort` |
-  | Droid | live catalog | the selected model's list from the catalog probe | `--model` and `--reasoning-effort` |
-  | Grok Build | live catalog | none, minimal, low, medium, high, xhigh, max, narrowed when the model row has its own list | `--model` and `--reasoning-effort` |
-  | Pi | live catalog | off, minimal, low, medium, high, xhigh, max | `--model` and `--thinking` |
-  | Command Code | live catalog | low, medium, high | `--model` and `--effort` |
-  | Cursor Agent | live catalog | effort submenu only when the selected model row carries an effort list | model id, with effort written into that id |
-  | OpenCode, Kilo Code | live catalog | hidden | `--model` only |
-  | Gemini, Amp | none | hidden | Amp must not send `--effort` |
-  | Devin, Kimi, Kiro, Hermes, OpenClaw | unchanged until N1 | unchanged until N1 | no guessed enums |
+  | Agent                               | Model choices      | Effort choices                                                                             | Launch meaning                                |
+  | ----------------------------------- | ------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
+  | Claude Code                         | none               | low, medium, high, xhigh, max                                                              | `--effort`                                    |
+  | Codex                               | live catalog       | minimal, low, medium, high, xhigh                                                          | `--model` and config `model_reasoning_effort` |
+  | Antigravity                         | live catalog       | low, medium, high, xhigh, max                                                              | `--model` and `--effort`                      |
+  | Droid                               | live catalog       | the selected model's list from the catalog probe                                           | `--model` and `--reasoning-effort`            |
+  | Grok Build                          | live catalog       | none, minimal, low, medium, high, xhigh, max, narrowed when the model row has its own list | `--model` and `--reasoning-effort`            |
+  | Pi                                  | live catalog       | off, minimal, low, medium, high, xhigh, max                                                | `--model` and `--thinking`                    |
+  | Command Code                        | live catalog       | low, medium, high                                                                          | `--model` and `--effort`                      |
+  | Cursor Agent                        | live catalog       | effort submenu only when the selected model row carries an effort list                     | model id, with effort written into that id    |
+  | OpenCode, Kilo Code                 | live catalog       | hidden                                                                                     | `--model` only                                |
+  | Gemini, Amp                         | none               | hidden                                                                                     | Amp must not send `--effort`                  |
+  | Devin, Kimi, Kiro, Hermes, OpenClaw | unchanged until N1 | unchanged until N1                                                                         | no guessed enums                              |
 
 - **M4 · Terminal storage, isolated from Chat**: Favorites and the last model and effort for each Terminal Agent persist in a Terminal store. The record for a favorite is the agent id, the model id, and the label. Chat's `chat_prefs.json` is not read or written by this picker. A favorite selects the model. Effort stays the separate submenu value and is stored with the last Terminal pick for that agent.
 

@@ -12,41 +12,41 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S1, S2 |
-| M3 | S3, S4 |
-| M4 | S12 |
-| M5 | S5 |
-| M6 | S6 |
-| M7 | S7 |
-| M8 | S7, S8 |
-| M9 | S9 |
-| M10 | S10 |
-| M11 | S11 |
-| M12 | S7, S5 |
-| M13 | S4 |
-| M14 | S1 (service root) |
-| M15 | S5, S6 |
-| N1–N6 | deferred |
+| PRD item | Scenario IDs      |
+| -------- | ----------------- |
+| M1       | S1, S2            |
+| M2       | S1, S2            |
+| M3       | S3, S4            |
+| M4       | S12               |
+| M5       | S5                |
+| M6       | S6                |
+| M7       | S7                |
+| M8       | S7, S8            |
+| M9       | S9                |
+| M10      | S10               |
+| M11      | S11               |
+| M12      | S7, S5            |
+| M13      | S4                |
+| M14      | S1 (service root) |
+| M15      | S5, S6            |
+| N1–N6    | deferred          |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust unit | `cargo test` | `CanvasDocumentService` path/list tests | temp dir as canvas root | dir created; only `.atmos.tldr` listed | planned |
-| S2 | Rust unit | `cargo test` | sanitize + reject `../` | malicious names | Err validation; no write outside root | planned |
-| S3 | Rust unit | `cargo test` | write/read `AtmosCanvasFile` | minimal tldrawDocument JSON | file on disk; schema round-trip | planned |
-| S4 | Bun or manual | `bun test` / manual | multi-page snapshot in file | editor snapshot with 2 pages | reload shows both pages | planned |
-| S5 | E2E or agent-browser | Playwright / agent-browser | Save As flow | empty canvas | file `Name.atmos.tldr` exists; title updates | planned |
-| S6 | E2E or Bun | Playwright / bun | Save existing path | already saved doc | second save no rename prompt; dirty clears | planned |
-| S7 | E2E / agent-browser | Playwright / agent-browser | open Documents popover | ≥1 file on disk | list visible; active name on button | planned |
-| S8 | Rust/API | `cargo test` | list empty dir | empty canvas dir | `items: []` | planned |
-| S9 | E2E / agent-browser | Playwright / agent-browser | switch document | two files A/B | view shows B content; button title B | planned |
-| S10 | E2E / agent-browser | Playwright / agent-browser | dirty switch | edit then switch | modal Save/Discard/Cancel; Cancel keeps A | planned |
-| S11 | E2E / agent-browser | Playwright / agent-browser | New document | any | untitled; empty/default board; dirty after edit | planned |
-| S12 | Rust/grep CI | `cargo test` + search | no canvas_board content API | codebase | table dropped; no document_json board save | planned |
+| Scenario | Level                | Expected tool              | Target command / method                 | Fixture / data               | Signals                                         | Status  |
+| -------- | -------------------- | -------------------------- | --------------------------------------- | ---------------------------- | ----------------------------------------------- | ------- |
+| S1       | Rust unit            | `cargo test`               | `CanvasDocumentService` path/list tests | temp dir as canvas root      | dir created; only `.atmos.tldr` listed          | planned |
+| S2       | Rust unit            | `cargo test`               | sanitize + reject `../`                 | malicious names              | Err validation; no write outside root           | planned |
+| S3       | Rust unit            | `cargo test`               | write/read `AtmosCanvasFile`            | minimal tldrawDocument JSON  | file on disk; schema round-trip                 | planned |
+| S4       | Bun or manual        | `bun test` / manual        | multi-page snapshot in file             | editor snapshot with 2 pages | reload shows both pages                         | planned |
+| S5       | E2E or agent-browser | Playwright / agent-browser | Save As flow                            | empty canvas                 | file `Name.atmos.tldr` exists; title updates    | planned |
+| S6       | E2E or Bun           | Playwright / bun           | Save existing path                      | already saved doc            | second save no rename prompt; dirty clears      | planned |
+| S7       | E2E / agent-browser  | Playwright / agent-browser | open Documents popover                  | ≥1 file on disk              | list visible; active name on button             | planned |
+| S8       | Rust/API             | `cargo test`               | list empty dir                          | empty canvas dir             | `items: []`                                     | planned |
+| S9       | E2E / agent-browser  | Playwright / agent-browser | switch document                         | two files A/B                | view shows B content; button title B            | planned |
+| S10      | E2E / agent-browser  | Playwright / agent-browser | dirty switch                            | edit then switch             | modal Save/Discard/Cancel; Cancel keeps A       | planned |
+| S11      | E2E / agent-browser  | Playwright / agent-browser | New document                            | any                          | untitled; empty/default board; dirty after edit | planned |
+| S12      | Rust/grep CI         | `cargo test` + search      | no canvas_board content API             | codebase                     | table dropped; no document_json board save      | planned |
 
 ## Scenarios
 

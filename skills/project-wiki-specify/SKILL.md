@@ -22,6 +22,7 @@ The generated article MUST meet **specify-wiki** content depth requirements: 150
 ## Input Context
 
 The user prompt will provide:
+
 - **topic**: A string describing what wiki article to generate. Examples (user replaces bracketed parts for their project):
   - "Explore how [feature name] is implemented"
   - "Research why the project chose [technology] for [purpose]"
@@ -50,6 +51,7 @@ The user prompt will provide:
 ### Step 3: Create Research Briefing
 
 Before writing the article, create a research briefing at `./.atmos/wiki/_briefings/specify-wiki/{topic-slug}.md` (e.g. `_briefings/specify-wiki/wiki-implementation.md`). Use `~/.atmos/skills/.system/project-wiki/references/briefing_template.md` as template. Include:
+
 - Involved concepts (from `_concepts.json` or newly identified)
 - Must-answer research questions (e.g. "Why was this approach chosen?", "How does it integrate with X?")
 - Required source files and why each matters
@@ -79,12 +81,13 @@ Before writing the article, create a research briefing at `./.atmos/wiki/_briefi
 ## Alignment with project-wiki
 
 All generated content MUST follow the same conventions as the full project-wiki skill:
+
 - Same frontmatter schema (with `section: "specify-wiki"`)
 - Same content style (prose-first, minimal code, prefer Mermaid)
 - **Same content depth** — specify-wiki uses Deep Dive thresholds: 1500+ words, 3+ diagrams, 6+ H2s, 5+ sources, 4+ cross-refs; must pass `validate_content`
 - Same file naming (kebab-case under `.atmos/wiki/specify-wiki/`)
 - Same catalog item structure (id, title, path, order, file, section, level, reading_time, children)
-- Research-type Agent role — explain *why* and *how it evolved*, not just *what*
+- Research-type Agent role — explain _why_ and _how it evolved_, not just _what_
 
 ## Edge Cases
 

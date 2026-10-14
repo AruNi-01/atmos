@@ -52,23 +52,26 @@ apps/docs/
 ## 📝 Key Files Explained
 
 ### `lib/source.ts`
+
 Content source adapter that provides the `loader()` interface to access MDX content.
 
 ### `lib/layout.shared.tsx`
+
 Shared options for layouts, optional but preferred to keep consistency.
 
 ### `source.config.ts`
+
 Fumadocs MDX config where you can customize frontmatter schema and other options.
 
 ---
 
 ## 🗂 Route Structure
 
-| Route | Description |
-|-------|-------------|
-| `app/(home)` | Landing page and other pages |
-| `app/docs` | Documentation layout and pages |
-| `app/api/search/route.ts` | Search API endpoint |
+| Route                     | Description                    |
+| ------------------------- | ------------------------------ |
+| `app/(home)`              | Landing page and other pages   |
+| `app/docs`                | Documentation layout and pages |
+| `app/api/search/route.ts` | Search API endpoint            |
 
 ---
 
@@ -93,11 +96,13 @@ Open http://localhost:3002 with your browser to see the result.
 ### Create New Page
 
 1. Add MDX file in `content/docs/`:
+
 ```bash
 touch content/docs/my-new-page.mdx
 ```
 
 2. Add frontmatter:
+
 ```mdx
 ---
 title: My New Page

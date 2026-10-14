@@ -213,4 +213,3 @@ export type ProjectDeleteProgressNotification = {
   message: string;
   success: boolean;
 };
-

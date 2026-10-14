@@ -38,11 +38,8 @@ const createTouchTexture = () => {
     let intensity = 1;
     const easeOutSine = (t: number) => Math.sin((t * Math.PI) / 2);
     const easeOutQuad = (t: number) => -t * (t - 2);
-    if (p.age < maxAge * 0.3)
-      intensity = easeOutSine(p.age / (maxAge * 0.3));
-    else
-      intensity =
-        easeOutQuad(1 - (p.age - maxAge * 0.3) / (maxAge * 0.7)) || 0;
+    if (p.age < maxAge * 0.3) intensity = easeOutSine(p.age / (maxAge * 0.3));
+    else intensity = easeOutQuad(1 - (p.age - maxAge * 0.3) / (maxAge * 0.7)) || 0;
     intensity *= p.force;
     const color = `${((p.vx + 1) / 2) * 255}, ${((p.vy + 1) / 2) * 255}, ${intensity * 255}`;
     const offset = size * 5;
@@ -452,10 +449,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         uTime: { value: 0 },
         uColor: { value: new THREE.Color(color) },
         uClickPos: {
-          value: Array.from(
-            { length: MAX_CLICKS },
-            () => new THREE.Vector2(-1, -1),
-          ),
+          value: Array.from({ length: MAX_CLICKS }, () => new THREE.Vector2(-1, -1)),
         },
         uClickTimes: { value: new Float32Array(MAX_CLICKS) },
         uShapeType: { value: SHAPE_MAP[variant] ?? 0 },
@@ -490,25 +484,16 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         const w = container.clientWidth || 1;
         const h = container.clientHeight || 1;
         renderer.setSize(w, h, false);
-        uniforms.uResolution.value.set(
-          renderer.domElement.width,
-          renderer.domElement.height,
-        );
+        uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
         if (threeRef.current?.composer)
-          threeRef.current.composer.setSize(
-            renderer.domElement.width,
-            renderer.domElement.height,
-          );
+          threeRef.current.composer.setSize(renderer.domElement.width, renderer.domElement.height);
         uniforms.uPixelSize.value = pixelSize * renderer.getPixelRatio();
       };
       setSize();
       const ro = new ResizeObserver(setSize);
       ro.observe(container);
       const randomFloat = () => {
-        if (
-          typeof window !== "undefined" &&
-          window.crypto?.getRandomValues
-        ) {
+        if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
           const u32 = new Uint32Array(1);
           window.crypto.getRandomValues(u32);
           return u32[0] / 0xffffffff;
@@ -554,11 +539,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
           composer.passes.forEach((p) => (p.renderToScreen = false));
         composer.addPass(noisePass);
       }
-      if (composer)
-        composer.setSize(
-          renderer.domElement.width,
-          renderer.domElement.height,
-        );
+      if (composer) composer.setSize(renderer.domElement.width, renderer.domElement.height);
       const mapToPixels = (e: PointerEvent) => {
         const rect = renderer.domElement.getBoundingClientRect();
         const scaleX = renderer.domElement.width / rect.width;
@@ -577,8 +558,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         const ix = threeRef.current?.clickIx ?? 0;
         uniforms.uClickPos.value[ix].set(fx, fy);
         uniforms.uClickTimes.value[ix] = uniforms.uTime.value;
-        if (threeRef.current)
-          threeRef.current.clickIx = (ix + 1) % MAX_CLICKS;
+        if (threeRef.current) threeRef.current.clickIx = (ix + 1) % MAX_CLICKS;
       };
       const onPointerMove = (e: PointerEvent) => {
         if (!touch) return;
@@ -597,10 +577,8 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
           raf = requestAnimationFrame(animate);
           return;
         }
-        uniforms.uTime.value =
-          timeOffset + clock.getElapsedTime() * speedRef.current;
-        if (liquidEffect)
-          liquidEffect.uniforms.get("uTime")!.value = uniforms.uTime.value;
+        uniforms.uTime.value = timeOffset + clock.getElapsedTime() * speedRef.current;
+        if (liquidEffect) liquidEffect.uniforms.get("uTime")!.value = uniforms.uTime.value;
         if (composer) {
           if (touch) touch.update();
           composer.passes.forEach((p) => {
@@ -636,8 +614,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
     } else {
       const t = threeRef.current!;
       t.uniforms.uShapeType.value = SHAPE_MAP[variant] ?? 0;
-      t.uniforms.uPixelSize.value =
-        pixelSize * t.renderer.getPixelRatio();
+      t.uniforms.uPixelSize.value = pixelSize * t.renderer.getPixelRatio();
       t.uniforms.uColor.value.set(color);
       t.uniforms.uScale.value = patternScale;
       t.uniforms.uDensity.value = patternDensity;
@@ -703,7 +680,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`size-full relative overflow-hidden ${className ?? ""}`}
+      className={`relative size-full overflow-hidden ${className ?? ""}`}
       style={style}
       aria-label="PixelBlast interactive background"
     />

@@ -79,13 +79,13 @@ Use one finding per maintainability risk. Avoid vague comments like "this is com
 ```markdown
 ## REV-NNN - Duplicate agent command catalog can drift
 
-| Field | Value |
-|-------|--------|
-| **Status** | open |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | open            |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 

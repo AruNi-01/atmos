@@ -11,18 +11,11 @@ export { gitCommitKeptSurfacePropsAreEqual };
 export type { GitCommitKeptSurfaceProps };
 
 const GitCommitDiffView = dynamic(
-  () =>
-    import("@/features/git/components/GitCommitDiffView").then(
-      (mod) => mod.GitCommitDiffView,
-    ),
+  () => import("@/features/git/components/GitCommitDiffView").then((mod) => mod.GitCommitDiffView),
   { ssr: false },
 );
 
-function GitCommitKeptSurfaceImpl({
-  tab,
-  active,
-  onCloseTab,
-}: GitCommitKeptSurfaceProps) {
+function GitCommitKeptSurfaceImpl({ tab, active, onCloseTab }: GitCommitKeptSurfaceProps) {
   const onRequestClose = React.useCallback(() => {
     onCloseTab?.(tab.value);
   }, [onCloseTab, tab.value]);

@@ -45,8 +45,7 @@ export const changelogData: ChangelogItem[] = [
     },
     date: "2026-08-23",
     version: "2026.8.23",
-    releaseUrl:
-      "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.23",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.23",
     tags: [
       { zh: "Prototype Design", en: "Prototype Design" },
       { zh: "中心空间", en: "Center Spaces" },
@@ -154,8 +153,7 @@ export const changelogData: ChangelogItem[] = [
     },
     date: "2026-08-16",
     version: "2026.8.16",
-    releaseUrl:
-      "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.16",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.16",
     tags: [
       { zh: "Graph History", en: "Graph History" },
       { zh: "Changes", en: "Changes" },
@@ -229,8 +227,7 @@ export const changelogData: ChangelogItem[] = [
     },
     date: "2026-08-15",
     version: "2026.8.15",
-    releaseUrl:
-      "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.15",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.15",
     tags: [
       { zh: "Agent 状态", en: "Agent Status" },
       { zh: "Disk Analyzer", en: "Disk Analyzer" },
@@ -316,8 +313,7 @@ export const changelogData: ChangelogItem[] = [
     },
     date: "2026-08-11",
     version: "2026.8.11",
-    releaseUrl:
-      "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.11",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.11",
     tags: [
       { zh: "Hub", en: "Hub" },
       { zh: "Linear", en: "Linear" },

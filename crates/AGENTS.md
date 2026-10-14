@@ -6,19 +6,19 @@
 
 ## Layered stack
 
-| Layer | Crate | AGENTS.md |
-|-------|-------|-----------|
-| L1 | `infra` | [infra/AGENTS.md](infra/AGENTS.md) |
-| L2 | `core-engine` | [core-engine/AGENTS.md](core-engine/AGENTS.md) |
-| L3 | `core-service` | [core-service/AGENTS.md](core-service/AGENTS.md) |
-| Capability | `agent` | [agent/AGENTS.md](agent/AGENTS.md) — Chat `AgentProvider` (native + ACP) and `AgentManager` |
-| Capability | `llm` | [llm/AGENTS.md](llm/AGENTS.md) |
-| Capability | `quota-usage` | [quota-usage/AGENTS.md](quota-usage/AGENTS.md) |
-| Capability | `token-usage` | [token-usage/AGENTS.md](token-usage/AGENTS.md) |
-| Capability | `permission-access` | [permission-access/AGENTS.md](permission-access/AGENTS.md) |
-| Capability | `local-model-runtime` | — |
-| Capability | `tunnel-connector` | — |
-| Host | `runtime-manager` | [runtime-manager/AGENTS.md](runtime-manager/AGENTS.md) |
+| Layer      | Crate                 | AGENTS.md                                                                                   |
+| ---------- | --------------------- | ------------------------------------------------------------------------------------------- |
+| L1         | `infra`               | [infra/AGENTS.md](infra/AGENTS.md)                                                          |
+| L2         | `core-engine`         | [core-engine/AGENTS.md](core-engine/AGENTS.md)                                              |
+| L3         | `core-service`        | [core-service/AGENTS.md](core-service/AGENTS.md)                                            |
+| Capability | `agent`               | [agent/AGENTS.md](agent/AGENTS.md) — Chat `AgentProvider` (native + ACP) and `AgentManager` |
+| Capability | `llm`                 | [llm/AGENTS.md](llm/AGENTS.md)                                                              |
+| Capability | `quota-usage`         | [quota-usage/AGENTS.md](quota-usage/AGENTS.md)                                              |
+| Capability | `token-usage`         | [token-usage/AGENTS.md](token-usage/AGENTS.md)                                              |
+| Capability | `permission-access`   | [permission-access/AGENTS.md](permission-access/AGENTS.md)                                  |
+| Capability | `local-model-runtime` | —                                                                                           |
+| Capability | `tunnel-connector`    | —                                                                                           |
+| Host       | `runtime-manager`     | [runtime-manager/AGENTS.md](runtime-manager/AGENTS.md)                                      |
 
 Change flow: **infra → core-engine → core-service → apps/api**. Do not skip layers.
 

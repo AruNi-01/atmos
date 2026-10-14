@@ -6,7 +6,12 @@ import {
   buildPipedAgentTerminalInput,
   buildStructuredRunConfigArgs,
 } from "@/features/agent/lib/terminal-agent-run-config";
-import { AGENT_OPTIONS, buildCommand, buildCommandPlan, getInteractiveAgentParams } from "../AgentSelect";
+import {
+  AGENT_OPTIONS,
+  buildCommand,
+  buildCommandPlan,
+  getInteractiveAgentParams,
+} from "../AgentSelect";
 
 function agent(id: string) {
   const found = AGENT_OPTIONS.find((item) => item.id === id);
@@ -66,7 +71,10 @@ describe("getInteractiveAgentParams", () => {
 
   it("maps saved non-interactive default flags back to interactive params", () => {
     expect(
-      getInteractiveAgentParams(agent("codex"), "exec --json --dangerously-bypass-approvals-and-sandbox"),
+      getInteractiveAgentParams(
+        agent("codex"),
+        "exec --json --dangerously-bypass-approvals-and-sandbox",
+      ),
     ).toBe("--dangerously-bypass-approvals-and-sandbox");
     expect(getInteractiveAgentParams(agent("pi"), "-p")).toBe("--approve");
     expect(
@@ -74,7 +82,10 @@ describe("getInteractiveAgentParams", () => {
     ).toBe("agent --agent main --local");
     expect(getInteractiveAgentParams(agent("hermes"), "chat --yolo -q")).toBe("chat --yolo");
     expect(
-      getInteractiveAgentParams(agent("antigravity"), "--dangerously-skip-permissions --output-format stream-json -p"),
+      getInteractiveAgentParams(
+        agent("antigravity"),
+        "--dangerously-skip-permissions --output-format stream-json -p",
+      ),
     ).toBe("--dangerously-skip-permissions");
   });
 

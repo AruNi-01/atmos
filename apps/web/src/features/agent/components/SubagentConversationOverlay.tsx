@@ -48,12 +48,10 @@ export function SubagentConversationOverlay({
       data-agent-subagent-overlay=""
       role="region"
       aria-label={t("subAgent.overlayAria")}
-      className="flex h-full min-h-0 w-full min-w-0 flex-1 select-text flex-col overflow-hidden rounded-3xl border border-border bg-background"
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background select-text"
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3">
-        <div className="min-w-0 truncate text-sm font-medium text-foreground">
-          {headerLine}
-        </div>
+        <div className="min-w-0 truncate text-sm font-medium text-foreground">{headerLine}</div>
         <button
           type="button"
           aria-label={t("subAgent.closeAria")}
@@ -66,7 +64,7 @@ export function SubagentConversationOverlay({
       <AgentChatCwdProvider cwd={cwd} projectOrWorkspacePath={cwd}>
         <Conversation
           key={toolCallId}
-          className="min-h-0 h-full w-full min-w-0 flex-1 overflow-hidden"
+          className="h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden"
           initial={false}
           resize="instant"
         >
@@ -77,10 +75,7 @@ export function SubagentConversationOverlay({
           >
             {projected.map((message, index) => (
               <div key={message.id} className="w-full min-w-0">
-                <AgentChatMessageView
-                  message={message}
-                  index={index}
-                />
+                <AgentChatMessageView message={message} index={index} />
                 {activity.busy && index === projected.length - 1 ? (
                   <div
                     data-agent-chat-activity-status=""

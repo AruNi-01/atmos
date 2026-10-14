@@ -3,10 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
-import {
-  hostnameFromUrl,
-  type LinkPreviewPayload,
-} from "@/shared/lib/link-preview";
+import { hostnameFromUrl, type LinkPreviewPayload } from "@/shared/lib/link-preview";
 
 export function LinkOgPreviewBody({
   url,
@@ -51,9 +48,7 @@ export function LinkOgPreviewBody({
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium text-foreground">{title}</div>
           {!showImage ? (
-            <div className="truncate text-xs text-muted-foreground">
-              {hostnameFromUrl(url)}
-            </div>
+            <div className="truncate text-xs text-muted-foreground">{hostnameFromUrl(url)}</div>
           ) : null}
           {!showImage && isLoading ? (
             <div className="font-mono text-[11px] text-muted-foreground">…</div>

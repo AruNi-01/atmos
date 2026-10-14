@@ -7,10 +7,7 @@ const repoRoot = join(import.meta.dir, "../../../../../../../");
 describe("atmos-automation skill registry", () => {
   test("is registered in both sync lists and cross-linked from atmos-cli", () => {
     const skill = readFileSync(join(repoRoot, "skills/atmos-automation/SKILL.md"), "utf8");
-    const manifest = readFileSync(
-      join(repoRoot, "skills/system-skills-manifest.json"),
-      "utf8",
-    );
+    const manifest = readFileSync(join(repoRoot, "skills/system-skills-manifest.json"), "utf8");
     const sync = readFileSync(
       join(repoRoot, "crates/infra/src/utils/system_skill_sync.rs"),
       "utf8",

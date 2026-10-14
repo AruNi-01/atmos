@@ -131,10 +131,7 @@ export type YearAgentShare = BreakdownShare & {
 };
 
 /** Day-level metric amount from tokscale overview rows. */
-export function dayMetricValue(
-  day: DailyTokenUsageResponse,
-  metric: UsageMetric,
-): number {
+export function dayMetricValue(day: DailyTokenUsageResponse, metric: UsageMetric): number {
   if (metric === "cost") {
     return day.total_cost_usd ?? 0;
   }
@@ -364,9 +361,7 @@ export function resolveTokenUsageModelIconSrc(
 }
 
 /** Accumulate provider weights and return the dominant provider id. */
-function pickDominantProvider(
-  votes: Map<string, number> | undefined,
-): string | undefined {
+function pickDominantProvider(votes: Map<string, number> | undefined): string | undefined {
   if (!votes || votes.size === 0) return undefined;
   let bestId = "";
   let bestWeight = -1;
@@ -400,13 +395,16 @@ function addProviderVote(
  * Used by chart legends when series keys are bare model ids.
  */
 export function buildModelProviderMap(
-  overview: {
-    by_model?: Array<{
-      model_id: string;
-      provider_id: string;
-      total_tokens: number;
-    }> | null;
-  } | null | undefined,
+  overview:
+    | {
+        by_model?: Array<{
+          model_id: string;
+          provider_id: string;
+          total_tokens: number;
+        }> | null;
+      }
+    | null
+    | undefined,
   days: DailyTokenUsageResponse[] = [],
 ): Map<string, string> {
   const votes = new Map<string, Map<string, number>>();
@@ -539,8 +537,7 @@ export function assignAgentChartColors(
   clientIds: readonly string[],
   theme: "dark" | "light" = "dark",
 ): Map<string, string> {
-  const palette =
-    theme === "dark" ? AGENT_CHART_COLORS_DARK : AGENT_CHART_COLORS_LIGHT;
+  const palette = theme === "dark" ? AGENT_CHART_COLORS_DARK : AGENT_CHART_COLORS_LIGHT;
   const other = theme === "dark" ? AGENT_OTHER_COLOR_DARK : AGENT_OTHER_COLOR_LIGHT;
   const map = new Map<string, string>();
   const usedIndexes = new Set<number>();
@@ -631,11 +628,7 @@ export function summarizeTokenMix(days: DailyTokenUsageResponse[]): TokenMixSumm
   }
 
   summary.total =
-    summary.input +
-    summary.output +
-    summary.cacheRead +
-    summary.cacheWrite +
-    summary.reasoning;
+    summary.input + summary.output + summary.cacheRead + summary.cacheWrite + summary.reasoning;
 
   return summary;
 }
@@ -748,21 +741,9 @@ export const agentPalette = [
   "color-mix(in oklch, var(--color-chart-2) 58%, var(--color-chart-3))",
 ];
 
-export const darkHeatmapPalette = [
-  "#2f2f35",
-  "#13362a",
-  "#165742",
-  "#11825f",
-  "#12b886",
-] as const;
+export const darkHeatmapPalette = ["#2f2f35", "#13362a", "#165742", "#11825f", "#12b886"] as const;
 
-export const lightHeatmapPalette = [
-  "#ececf1",
-  "#d0ece6",
-  "#9edacd",
-  "#5fc1ae",
-  "#20a689",
-] as const;
+export const lightHeatmapPalette = ["#ececf1", "#d0ece6", "#9edacd", "#5fc1ae", "#20a689"] as const;
 
 export function buildTimelineSeries(
   days: DailyTokenUsageResponse[],
@@ -840,8 +821,7 @@ export function buildBreakdownSeries(
 
   const top = ranked.slice(0, BREAKDOWN_TOP_N);
   const topSet = new Set(top);
-  const hasOther =
-    ranked.length > top.length || (totals.get(BREAKDOWN_OTHER_ID) ?? 0) > 0;
+  const hasOther = ranked.length > top.length || (totals.get(BREAKDOWN_OTHER_ID) ?? 0) > 0;
   const keys = hasOther ? [...top, BREAKDOWN_OTHER_ID] : top;
 
   const data = Array.from(periods.entries())
@@ -900,9 +880,7 @@ export function buildHeatmapWeeks(
   const dayMap = new Map(days.map((day) => [day.date, day]));
   const maxValue = days.reduce(
     (max, day) =>
-      day.date.startsWith(`${year}-`)
-        ? Math.max(max, dayMetricValue(day, metric))
-        : max,
+      day.date.startsWith(`${year}-`) ? Math.max(max, dayMetricValue(day, metric)) : max,
     0,
   );
   const calendarDays = eachDayOfInterval({ start, end });
@@ -916,11 +894,7 @@ export function buildHeatmapWeeks(
         const isoDate = format(day, "yyyy-MM-dd");
         const isTargetYear = format(day, "yyyy") === year;
         const detail = isTargetYear ? (dayMap.get(isoDate) ?? null) : null;
-        const count = isTargetYear
-          ? detail
-            ? dayMetricValue(detail, metric)
-            : 0
-          : null;
+        const count = isTargetYear ? (detail ? dayMetricValue(detail, metric) : 0) : null;
 
         return {
           date: isoDate,
@@ -1087,10 +1061,7 @@ export function buildYearBreakdownShares(
     value,
     share: value / totalValue,
     sharePercent: (value / totalValue) * 100,
-    providerId:
-      dimension === "model"
-        ? pickDominantProvider(providerVotes.get(id))
-        : undefined,
+    providerId: dimension === "model" ? pickDominantProvider(providerVotes.get(id)) : undefined,
   }));
 }
 
@@ -1110,19 +1081,22 @@ export function buildYearAgentShares(
  * Model rows are aggregated by model_id across clients.
  */
 export function buildOverviewBreakdownShares(
-  overview: {
-    by_client: Array<{
-      client_id: string;
-      total_tokens: number;
-      total_cost_usd: number | null;
-    }>;
-    by_model: Array<{
-      model_id: string;
-      provider_id?: string;
-      total_tokens: number;
-      cost_usd: number | null;
-    }>;
-  } | null | undefined,
+  overview:
+    | {
+        by_client: Array<{
+          client_id: string;
+          total_tokens: number;
+          total_cost_usd: number | null;
+        }>;
+        by_model: Array<{
+          model_id: string;
+          provider_id?: string;
+          total_tokens: number;
+          cost_usd: number | null;
+        }>;
+      }
+    | null
+    | undefined,
   metric: UsageMetric,
   dimension: UsageDimension,
   otherLabel = "Other",
@@ -1157,10 +1131,7 @@ export function buildOverviewBreakdownShares(
     value,
     share: value / totalValue,
     sharePercent: (value / totalValue) * 100,
-    providerId:
-      dimension === "model"
-        ? pickDominantProvider(providerVotes.get(id))
-        : undefined,
+    providerId: dimension === "model" ? pickDominantProvider(providerVotes.get(id)) : undefined,
   }));
 }
 
@@ -1173,10 +1144,7 @@ export function calculateYearAgentRadarMax(data: BreakdownShare[]) {
   return Math.max(20, Math.ceil((maxShare * 1.15) / 5) * 5);
 }
 
-export function mergeYearLists(
-  incoming: string[],
-  byDay: DailyTokenUsageResponse[],
-): string[] {
+export function mergeYearLists(incoming: string[], byDay: DailyTokenUsageResponse[]): string[] {
   const inferred = byDay.map((day) => day.date.slice(0, 4));
   return Array.from(new Set([...incoming, ...inferred])).sort((left, right) =>
     left.localeCompare(right),
@@ -1294,11 +1262,7 @@ export function formatCompactNumber(value: number, locale: string) {
  * Avoid `style: "currency"` + USD — zh-CN (and some other locales) emit `US$…`
  * which is noisy on compact chart axes / stats.
  */
-function formatUsdAmount(
-  value: number,
-  locale: string,
-  options: Intl.NumberFormatOptions,
-): string {
+function formatUsdAmount(value: number, locale: string, options: Intl.NumberFormatOptions): string {
   const abs = Math.abs(value);
   const body = new Intl.NumberFormat(locale, options).format(abs);
   return `${value < 0 ? "-" : ""}$${body}`;

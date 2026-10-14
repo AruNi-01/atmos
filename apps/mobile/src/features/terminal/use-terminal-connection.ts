@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import { createTerminalOutputBatcher } from "@/features/terminal/terminal-output-batcher";
 import { TerminalWsClient, type TerminalWsState } from "@/api/terminal-ws-client";
 import type { MobileWsState } from "@/api/mobile-ws-client";
@@ -158,7 +166,11 @@ export function useTerminalConnection({
   useEffect(() => {
     if (appWsState !== "open") {
       setConnectionState(
-        appWsState === "connecting" ? "connecting" : appWsState === "reconnecting" ? "reconnecting" : "disconnected",
+        appWsState === "connecting"
+          ? "connecting"
+          : appWsState === "reconnecting"
+            ? "reconnecting"
+            : "disconnected",
       );
       setTerminalError(
         appWsState === "connecting"

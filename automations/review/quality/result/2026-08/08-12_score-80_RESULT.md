@@ -10,16 +10,16 @@
 
 被审查提交（代表性，窗口内约 30+ 条业务/代码提交）：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `0ecad7147` | AruNi_Lu | refactor: address daily quality findings for 2026-08-11 (#217) |
-| `ab8754dbc` | Cursor Agent | feat(mobile): P0 design system foundation — tokens, NativeWind, primitives |
-| `a01b2c56b` | AarynLu | feat(core-service): base attention summary on terminal transcript |
-| `b2be241d8` | AarynLu | refactor(core-service): load attention summary prompts from prompt/ |
+| Hash                      | Author       | Message                                                                         |
+| ------------------------- | ------------ | ------------------------------------------------------------------------------- |
+| `0ecad7147`               | AruNi_Lu     | refactor: address daily quality findings for 2026-08-11 (#217)                  |
+| `ab8754dbc`               | Cursor Agent | feat(mobile): P0 design system foundation — tokens, NativeWind, primitives      |
+| `a01b2c56b`               | AarynLu      | feat(core-service): base attention summary on terminal transcript               |
+| `b2be241d8`               | AarynLu      | refactor(core-service): load attention summary prompts from prompt/             |
 | `f353158ab` … `aa20227df` | Cursor Agent | mobile P1–P6 visual/CTA passes, ExpoUiButton introduce→delete, CodeRabbit fixes |
-| `dcfbe8ac4` | AruNi_Lu | feat(landing,docs): add PostHog web analytics (#222) |
-| `e292fbc12` | AruNi_Lu | feat(landing): migrate marketing site to Cloudflare Pages + R2 (#224) |
-| `54d207c21` | AruNi_Lu | ci(docs): inject PostHog env vars in Pages build workflow (#226) |
+| `dcfbe8ac4`               | AruNi_Lu     | feat(landing,docs): add PostHog web analytics (#222)                            |
+| `e292fbc12`               | AruNi_Lu     | feat(landing): migrate marketing site to Cloudflare Pages + R2 (#224)           |
+| `54d207c21`               | AruNi_Lu     | ci(docs): inject PostHog env vars in Pages build workflow (#226)                |
 
 日合计约 **76 files / +4.0k / −3.2k**（窗口 diff；mobile 为绝对主力）。
 
@@ -40,13 +40,13 @@ Mobile 设计系统与 UI README 方向清晰，WorkspaceList 等有收缩；`Cr
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 25/30 | 正向：`theme/*` + generated `@theme`、`ui/primitives` 与 layout 分层、README 明确「按钮不包 wrapper」；`terminal/text_capture.rs` 抽出供 side chat / attention 共用；attention prompt 走 `prompt/`。扣分：CreateWorkspace 仍把表单 + mutation + setup 进度 UI 绑在一屏；Settings 五路由屏同居一文件（当日 polish 固化）。 |
-| 可读性与复杂度 | 20/25 | AppScreen footer/form-sheet 有清晰平台注释；CreateWorkspace 19 `useState` + setup 快照合并仍难扫读；Host+Button 样板在多屏重复（设计选择，轻微理解成本）。 |
-| 体量与内聚 | 13/20 | `CreateWorkspaceScreen` ~703（+110）；`SettingsScreen` ~691 多 export；`AppScreen` 231→302。正向：`WorkspaceListScreen` 489→289。 |
-| 可维护性与复用 | 13/15 | 正向：`expo-ui-button-styles` / modifiers、`create-workspace-readiness` 已有单测、theme css-variables tests。扣分：landing/docs PostHog provider 与 `lib/posthog.ts` 近乎逐字复制。 |
-| 工程卫生 | 9/10 | 正向：同日删掉中间层 ExpoUiButton、硬编码色替换 token、CodeRabbit a11y。扣 1：同日经历厚 wrapper→删除的中间态（最终态干净）。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                                                                                                                                  |
+| -------------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 25/30 | 正向：`theme/*` + generated `@theme`、`ui/primitives` 与 layout 分层、README 明确「按钮不包 wrapper」；`terminal/text_capture.rs` 抽出供 side chat / attention 共用；attention prompt 走 `prompt/`。扣分：CreateWorkspace 仍把表单 + mutation + setup 进度 UI 绑在一屏；Settings 五路由屏同居一文件（当日 polish 固化）。 |
+| 可读性与复杂度 | 20/25 | AppScreen footer/form-sheet 有清晰平台注释；CreateWorkspace 19 `useState` + setup 快照合并仍难扫读；Host+Button 样板在多屏重复（设计选择，轻微理解成本）。                                                                                                                                                                |
+| 体量与内聚     | 13/20 | `CreateWorkspaceScreen` ~703（+110）；`SettingsScreen` ~691 多 export；`AppScreen` 231→302。正向：`WorkspaceListScreen` 489→289。                                                                                                                                                                                         |
+| 可维护性与复用 | 13/15 | 正向：`expo-ui-button-styles` / modifiers、`create-workspace-readiness` 已有单测、theme css-variables tests。扣分：landing/docs PostHog provider 与 `lib/posthog.ts` 近乎逐字复制。                                                                                                                                       |
+| 工程卫生       |  9/10 | 正向：同日删掉中间层 ExpoUiButton、硬编码色替换 token、CodeRabbit a11y。扣 1：同日经历厚 wrapper→删除的中间态（最终态干净）。                                                                                                                                                                                             |
 
 ## 6. 主要问题清单
 

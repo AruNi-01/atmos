@@ -1,4 +1,4 @@
-import type { SourceLocationResult, SourceLocatorAdapter } from './types';
+import type { SourceLocationResult, SourceLocatorAdapter } from "./types";
 
 interface AngularDebugGlobals {
   getComponent?: (element: Element) => unknown;
@@ -17,7 +17,7 @@ interface AngularComponentCandidate {
 }
 
 interface AngularConfidenceEvaluation {
-  confidence: SourceLocationResult['confidence'];
+  confidence: SourceLocationResult["confidence"];
   debug: string[];
 }
 
@@ -27,7 +27,7 @@ function getAngularGlobals(win: Window): AngularDebugGlobals | null {
 }
 
 function getAngularComponentName(instance: unknown): string | null {
-  if (!instance || typeof instance !== 'object') return null;
+  if (!instance || typeof instance !== "object") return null;
   const typed = instance as {
     constructor?: {
       name?: string;
@@ -43,7 +43,7 @@ function getAngularComponentName(instance: unknown): string | null {
 }
 
 function getAngularParentInstance(instance: unknown): unknown {
-  if (!instance || typeof instance !== 'object') return null;
+  if (!instance || typeof instance !== "object") return null;
   const typed = instance as {
     __ngContext__?: unknown[];
   };
@@ -52,7 +52,7 @@ function getAngularParentInstance(instance: unknown): unknown {
   if (!Array.isArray(context)) return null;
 
   for (const entry of context) {
-    if (!entry || typeof entry !== 'object') continue;
+    if (!entry || typeof entry !== "object") continue;
     const candidateName = getAngularComponentName(entry);
     if (candidateName && entry !== instance) {
       return entry;
@@ -64,7 +64,9 @@ function getAngularParentInstance(instance: unknown): unknown {
 
 function normalizeAngularChain(candidates: AngularComponentCandidate[]): string[] {
   return candidates
-    .filter((candidate, index) => candidates.findIndex((item) => item.name === candidate.name) === index)
+    .filter(
+      (candidate, index) => candidates.findIndex((item) => item.name === candidate.name) === index,
+    )
     .slice(0, 5)
     .map((candidate) => candidate.name)
     .reverse();
@@ -81,37 +83,37 @@ function evaluateAngularConfidence(
 
   if (candidate?.name) {
     score += 2;
-    debug.push('component-name');
+    debug.push("component-name");
   } else {
-    debug.push('missing-component-name');
+    debug.push("missing-component-name");
   }
 
   if (componentChain.length > 1) {
     score += 1;
-    debug.push('component-chain');
+    debug.push("component-chain");
   }
 
   if (hasRootComponents) {
     score += 1;
-    debug.push('root-components');
+    debug.push("root-components");
   }
 
   if (hasDirectiveMetadata) {
     score += 1;
-    debug.push('directive-metadata');
+    debug.push("directive-metadata");
   }
 
-  debug.push('missing-source-file');
+  debug.push("missing-source-file");
 
   if (score >= 4) {
-    return { confidence: 'medium', debug };
+    return { confidence: "medium", debug };
   }
 
-  return { confidence: 'low', debug };
+  return { confidence: "low", debug };
 }
 
 export const angularSourceLocator: SourceLocatorAdapter = {
-  id: 'angular',
+  id: "angular",
   canHandle: (win) => {
     const ng = getAngularGlobals(win);
     return !!(ng?.getComponent || ng?.getOwningComponent || ng?.getRootComponents);
@@ -124,7 +126,7 @@ export const angularSourceLocator: SourceLocatorAdapter = {
     const owningComponent = ng.getOwningComponent?.(element) ?? null;
     const startingInstance = directComponent || owningComponent;
 
-    if (!startingInstance || typeof startingInstance !== 'object') return null;
+    if (!startingInstance || typeof startingInstance !== "object") return null;
 
     const candidates: AngularComponentCandidate[] = [];
     let current: unknown = startingInstance;
@@ -132,7 +134,7 @@ export const angularSourceLocator: SourceLocatorAdapter = {
 
     while (current && depth < 10) {
       const name = getAngularComponentName(current);
-      if (name && typeof current === 'object') {
+      if (name && typeof current === "object") {
         candidates.push({
           name,
           instance: current as Record<string, unknown>,
@@ -147,7 +149,9 @@ export const angularSourceLocator: SourceLocatorAdapter = {
     const componentChain = normalizeAngularChain(candidates);
     const bestCandidate = candidates[0] ?? null;
     const rootComponents = ng.getRootComponents?.(element) ?? [];
-    const hasDirectiveMetadata = !!(bestCandidate?.instance && ng.getDirectiveMetadata?.(bestCandidate.instance));
+    const hasDirectiveMetadata = !!(
+      bestCandidate?.instance && ng.getDirectiveMetadata?.(bestCandidate.instance)
+    );
     const confidenceEvaluation = evaluateAngularConfidence(
       bestCandidate,
       componentChain,
@@ -156,7 +160,7 @@ export const angularSourceLocator: SourceLocatorAdapter = {
     );
 
     return {
-      framework: 'angular',
+      framework: "angular",
       componentName: bestCandidate?.name,
       displayName: bestCandidate?.name,
       componentChain,

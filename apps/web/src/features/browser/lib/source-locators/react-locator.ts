@@ -1,4 +1,4 @@
-import type { SourceLocationResult, SourceLocatorAdapter } from './types';
+import type { SourceLocationResult, SourceLocatorAdapter } from "./types";
 
 interface ReactFiberLike {
   type?: unknown;
@@ -25,18 +25,18 @@ interface FiberCandidate {
 }
 
 interface ConfidenceEvaluation {
-  confidence: SourceLocationResult['confidence'];
+  confidence: SourceLocationResult["confidence"];
   debug: string[];
 }
 
 function getDisplayName(type: unknown): string | null {
   if (!type) return null;
-  if (typeof type === 'string') return null;
-  if (typeof type === 'function') {
+  if (typeof type === "string") return null;
+  if (typeof type === "function") {
     const candidate = type as { displayName?: string; name?: string };
     return candidate.displayName || candidate.name || null;
   }
-  if (typeof type === 'object') {
+  if (typeof type === "object") {
     const candidate = type as {
       displayName?: string;
       name?: string;
@@ -60,12 +60,12 @@ function getFiberFromElement(element: Element): ReactFiberLike | null {
   const typed = element as Element & Record<string, unknown>;
   for (const key of Object.keys(typed)) {
     if (
-      key.startsWith('__reactFiber$') ||
-      key.startsWith('__reactInternalInstance$') ||
-      key.startsWith('__reactContainer$')
+      key.startsWith("__reactFiber$") ||
+      key.startsWith("__reactInternalInstance$") ||
+      key.startsWith("__reactContainer$")
     ) {
       const value = typed[key];
-      if (value && typeof value === 'object') {
+      if (value && typeof value === "object") {
         return value as ReactFiberLike;
       }
     }
@@ -74,7 +74,7 @@ function getFiberFromElement(element: Element): ReactFiberLike | null {
 }
 
 function coerceDebugSource(value: unknown): DebugSourceLike | null {
-  if (!value || typeof value !== 'object') return null;
+  if (!value || typeof value !== "object") return null;
   const candidate = value as DebugSourceLike;
   if (!candidate.fileName && !candidate.filePath) return null;
   return candidate;
@@ -99,8 +99,10 @@ function isLikelyInternalComponent(name: string): boolean {
 
 function isChainNoise(name: string): boolean {
   if (isLikelyInternalComponent(name)) return true;
-  if (name.startsWith('forwardRef(') || name.startsWith('memo(')) return true;
-  return /(Provider|Context|Boundary|Router|Handler|Template|Segment|ScrollAndMaybeFocusHandler|LayoutRouter|PanelGroupContext)$/.test(name);
+  if (name.startsWith("forwardRef(") || name.startsWith("memo(")) return true;
+  return /(Provider|Context|Boundary|Router|Handler|Template|Segment|ScrollAndMaybeFocusHandler|LayoutRouter|PanelGroupContext)$/.test(
+    name,
+  );
 }
 
 function normalizeComponentChain(candidates: FiberCandidate[]): string[] {
@@ -108,10 +110,12 @@ function normalizeComponentChain(candidates: FiberCandidate[]): string[] {
     (candidate, index) => candidates.findIndex((item) => item.name === candidate.name) === index,
   );
 
-  const userFacingCandidates = uniqueCandidates.filter((candidate) => !isChainNoise(candidate.name));
+  const userFacingCandidates = uniqueCandidates.filter(
+    (candidate) => !isChainNoise(candidate.name),
+  );
   const preferredCandidates = userFacingCandidates.filter((candidate) => {
     const filePath = candidate.source?.filePath || candidate.source?.fileName;
-    return !filePath || !filePath.includes('node_modules');
+    return !filePath || !filePath.includes("node_modules");
   });
 
   const finalCandidates =
@@ -121,14 +125,17 @@ function normalizeComponentChain(candidates: FiberCandidate[]): string[] {
         ? userFacingCandidates
         : uniqueCandidates;
 
-  return finalCandidates.slice(0, 5).map((candidate) => candidate.name).reverse();
+  return finalCandidates
+    .slice(0, 5)
+    .map((candidate) => candidate.name)
+    .reverse();
 }
 
 function scoreCandidate(candidate: FiberCandidate): number {
   let score = 0;
   if (candidate.source?.fileName || candidate.source?.filePath) score += 6;
-  if (candidate.source?.fileName && candidate.source.fileName.includes('node_modules')) score -= 4;
-  if (candidate.source?.filePath && candidate.source.filePath.includes('node_modules')) score -= 4;
+  if (candidate.source?.fileName && candidate.source.fileName.includes("node_modules")) score -= 4;
+  if (candidate.source?.filePath && candidate.source.filePath.includes("node_modules")) score -= 4;
   if (!isLikelyInternalComponent(candidate.name)) score += 2;
   return score;
 }
@@ -145,60 +152,60 @@ function evaluateConfidence(
 
   if (bestCandidate.name) {
     score += 1;
-    debug.push('component-name');
+    debug.push("component-name");
   }
 
   if (filePath) {
     score += 2;
-    debug.push('source-file');
+    debug.push("source-file");
   } else {
-    debug.push('missing-source-file');
+    debug.push("missing-source-file");
   }
 
   if (line != null) {
     score += 1;
-    debug.push('source-line');
+    debug.push("source-line");
   }
 
   if (column != null) {
     score += 1;
-    debug.push('source-column');
+    debug.push("source-column");
   }
 
-  if (filePath && !filePath.includes('node_modules')) {
+  if (filePath && !filePath.includes("node_modules")) {
     score += 2;
-    debug.push('user-code-path');
+    debug.push("user-code-path");
   } else if (filePath) {
     score -= 1;
-    debug.push('node-modules-path');
+    debug.push("node-modules-path");
   }
 
   if (isChainNoise(bestCandidate.name)) {
     score -= 2;
-    debug.push('wrapper-component');
+    debug.push("wrapper-component");
   }
 
   if (componentChain.length === 0) {
     score -= 1;
-    debug.push('empty-component-chain');
+    debug.push("empty-component-chain");
   } else if (componentChain.length <= 3) {
     score += 1;
-    debug.push('focused-component-chain');
+    debug.push("focused-component-chain");
   }
 
   if (score >= 6) {
-    return { confidence: 'high', debug };
+    return { confidence: "high", debug };
   }
 
   if (score >= 3) {
-    return { confidence: 'medium', debug };
+    return { confidence: "medium", debug };
   }
 
-  return { confidence: 'low', debug };
+  return { confidence: "low", debug };
 }
 
 export const reactSourceLocator: SourceLocatorAdapter = {
-  id: 'react',
+  id: "react",
   canHandle: () => true,
   locate: (element) => {
     const startFiber = getFiberFromElement(element);
@@ -223,14 +230,16 @@ export const reactSourceLocator: SourceLocatorAdapter = {
 
     if (candidates.length === 0) return null;
 
-    const bestCandidate = [...candidates].sort((left, right) => scoreCandidate(right) - scoreCandidate(left))[0];
+    const bestCandidate = [...candidates].sort(
+      (left, right) => scoreCandidate(right) - scoreCandidate(left),
+    )[0];
     const source = bestCandidate.source;
     const filePath = source?.filePath || source?.fileName;
     const componentChain = normalizeComponentChain(candidates);
     const confidenceEvaluation = evaluateConfidence(bestCandidate, componentChain);
 
     const result: SourceLocationResult = {
-      framework: 'react',
+      framework: "react",
       componentName: bestCandidate.name,
       displayName: bestCandidate.name,
       filePath,

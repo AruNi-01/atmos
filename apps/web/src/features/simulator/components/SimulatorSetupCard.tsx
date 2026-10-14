@@ -31,14 +31,9 @@ export function SimulatorSetupCard({
 }) {
   const t = useTranslations("features.simulator");
   const platforms = startablePlatforms(probe);
-  const showChooser =
-    (reason === "ok" || reason === "helper_missing") && platforms.length > 0;
-  const title = showChooser
-    ? t("choosePlatform.title")
-    : t(`reasons.${reason}.title`);
-  const body = showChooser
-    ? t("choosePlatform.body")
-    : t(`reasons.${reason}.body`);
+  const showChooser = (reason === "ok" || reason === "helper_missing") && platforms.length > 0;
+  const title = showChooser ? t("choosePlatform.title") : t(`reasons.${reason}.title`);
+  const body = showChooser ? t("choosePlatform.body") : t(`reasons.${reason}.body`);
 
   const onAction = React.useCallback(() => {
     if (!action) return;

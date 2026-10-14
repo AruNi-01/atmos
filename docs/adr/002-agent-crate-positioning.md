@@ -11,6 +11,7 @@
 ## 背景 (Context)
 
 在实现 AI Agent 集成功能时，我们创建了 `crates/agent` 模块。该模块负责：
+
 - ACP (Agent Client Protocol) 客户端实现
 - Agent 生命周期管理（安装、卸载、配置）
 - ACP Registry 集成
@@ -39,11 +40,11 @@
 
 ### 依赖规则
 
-| 方向 | 规则 | 说明 |
-|------|------|------|
-| `agent` → 其他 crates | ❌ 禁止 | 不依赖 infra/core-engine/core-service |
-| 其他 crates → `agent` | ✅ 允许 | core-service 和 apps/api 可使用 |
-| `agent` → 外部库 | ✅ 允许 | tokio, serde, reqwest, keyring, ACP 库等 |
+| 方向                  | 规则    | 说明                                     |
+| --------------------- | ------- | ---------------------------------------- |
+| `agent` → 其他 crates | ❌ 禁止 | 不依赖 infra/core-engine/core-service    |
+| 其他 crates → `agent` | ✅ 允许 | core-service 和 apps/api 可使用          |
+| `agent` → 外部库      | ✅ 允许 | tokio, serde, reqwest, keyring, ACP 库等 |
 
 ---
 
@@ -52,6 +53,7 @@
 ### 1. **外部集成，非核心能力**
 
 Agent 管理涉及：
+
 - 外部协议 (ACP)
 - 外部命令 (npm, npx)
 - 二进制下载
@@ -62,6 +64,7 @@ Agent 管理涉及：
 ### 2. **独立演进**
 
 Agent 协议可能快速变化：
+
 - ACP 版本更新
 - 新的 Agent 协议出现
 - 不同 Agent 提供商的集成
@@ -71,6 +74,7 @@ Agent 协议可能快速变化：
 ### 3. **避免架构污染**
 
 如果将 `agent` 放入 `core-service` (L3)：
+
 - L3 会变得臃肿
 - 违反 L3 的"业务逻辑"定位
 - 混淆"内部能力"和"外部集成"的界限
@@ -83,6 +87,7 @@ agent 不依赖 core-service  ✅ (集成层独立)
 ```
 
 如果强行作为 L4：
+
 - 依赖方向会变成 L4 ← L3，违反分层原则
 
 ---
@@ -94,9 +99,11 @@ agent 不依赖 core-service  ✅ (集成层独立)
 **描述**：将 agent 相关代码作为 `core-service` 的一个子模块。
 
 **优点**：
+
 - 符合"服务层"的概念
 
 **缺点**：
+
 - L3 变得臃肿
 - 混淆业务逻辑和外部集成
 - 难以独立测试和演进
@@ -110,9 +117,11 @@ agent 不依赖 core-service  ✅ (集成层独立)
 **描述**：在 L3 之上增加 L4，专门处理 AI Agent 领域。
 
 **优点**：
+
 - 语义上符合"领域层"概念
 
 **缺点**：
+
 - **依赖方向反了**：当前 `core-service` 依赖 `agent`
 - L4 应该依赖 L3，而不是被 L3 依赖
 - 增加分层复杂度
@@ -126,12 +135,14 @@ agent 不依赖 core-service  ✅ (集成层独立)
 **描述**：与 `infra` 和 `core-engine` 平行，但定位为"外部集成模块"。
 
 **优点**：
+
 - 职责清晰：专门处理外部服务集成
 - 依赖单向：其他模块可使用 agent，agent 不依赖核心层
 - 独立演进：不影响核心架构
 - 易于测试：不依赖其他 crates
 
 **缺点**：
+
 - 需要额外的文档说明其定位
 
 **评估**：✅ **采纳此方案**
@@ -178,6 +189,7 @@ crates/agent/
 ### 2. 导出策略
 
 **从 `agent` 导出**：
+
 ```rust
 pub use acp_client::{AcpSessionEvent, AcpSessionHandle, ...};
 pub use manager::AgentManager;
@@ -185,6 +197,7 @@ pub use models::{AgentId, KnownAgent, ...};
 ```
 
 **从 `core-service` 重新导出** (可选，用于统一)：
+
 ```rust
 // crates/core-service/src/lib.rs
 pub use agent::{AcpSessionEvent, AcpSessionHandle, AgentId, ...};
@@ -193,11 +206,13 @@ pub use agent::{AcpSessionEvent, AcpSessionHandle, AgentId, ...};
 ### 3. 使用规范
 
 **✅ 允许**：`apps/api` 直接导入 agent 类型（用于 WebSocket 处理）
+
 ```rust
 use agent::{AcpSessionEvent, AcpSessionHandle};
 ```
 
 **✅ 推荐**：业务逻辑通过 `core-service::AgentService` 访问
+
 ```rust
 use core_service::AgentService;
 ```
@@ -223,6 +238,7 @@ crates/
 ### 命名规范
 
 独立模块应遵循：
+
 - 单一职责（一个外部协议/服务）
 - 不依赖其他 crates
 - 可独立测试和演进

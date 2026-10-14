@@ -34,13 +34,13 @@ packages/api-client  (APP-049; request/session only)
 
 ## 3. Channel boundaries
 
-| Channel | Location |
-|---------|----------|
-| Main `/ws` | This package |
-| Terminal stream | `@atmos/shared/terminal` |
+| Channel         | Location                               |
+| --------------- | -------------------------------------- |
+| Main `/ws`      | This package                           |
+| Terminal stream | `@atmos/shared/terminal`               |
 | Relay REST DTOs | Optional `@atmos/api-types/relay` (N1) |
-| Desktop IPC | `apps/desktop-electron` only |
-| Auth / URL | Apps (see APP-049) |
+| Desktop IPC     | `apps/desktop-electron` only           |
+| Auth / URL      | Apps (see APP-049)                     |
 
 ## 4. Package layout
 
@@ -69,13 +69,13 @@ packages/api-types/
 
 ### Exports (recommended)
 
-| Subpath | Contents |
-|---------|----------|
-| `@atmos/api-types/ws` | Re-export frames + actions |
-| `@atmos/api-types/ws/frames` | Frame types |
-| `@atmos/api-types/ws/actions` | `WsAction`, `WS_ACTIONS` |
-| `@atmos/api-types/ws/dto/*` | Domain DTOs |
-| `@atmos/api-types/relay` | N1 |
+| Subpath                       | Contents                   |
+| ----------------------------- | -------------------------- |
+| `@atmos/api-types/ws`         | Re-export frames + actions |
+| `@atmos/api-types/ws/frames`  | Frame types                |
+| `@atmos/api-types/ws/actions` | `WsAction`, `WS_ACTIONS`   |
+| `@atmos/api-types/ws/dto/*`   | Domain DTOs                |
+| `@atmos/api-types/relay`      | N1                         |
 
 DTO modules: subpath-only (no mega-barrel of all DTOs required).
 
@@ -147,11 +147,11 @@ Bootstrap may copy web’s list as a starting point, then **immediately** run ex
 
 ### 6.4 Phase policy
 
-| Phase | Gate |
-|-------|------|
-| Phase 1 | Extract+diff **runnable** in package tests (hard-fail in package CI recommended) |
-| Phase 4 | Wired into monorepo CI path used on main |
-| After any server action add | Same PR: enum + fixture + `actions.ts` + at least one client if calling |
+| Phase                       | Gate                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| Phase 1                     | Extract+diff **runnable** in package tests (hard-fail in package CI recommended) |
+| Phase 4                     | Wired into monorepo CI path used on main                                         |
+| After any server action add | Same PR: enum + fixture + `actions.ts` + at least one client if calling          |
 
 ### 6.5 Non-goal
 
@@ -163,14 +163,14 @@ Per-action request/response mapped types in MVP.
 
 Build a table in the implementation PR (not necessarily frozen here):
 
-| Type | Web today | Mobile today | Target module |
-|------|-----------|--------------|---------------|
-| FsEntry, FsListDirResponse, … | ws-api-types | types.ts | dto/fs |
-| Git* status/diff/commit | ws-api-types | types.ts | dto/git |
-| ProjectModel, bootstrap | ws-api-types | types.ts | dto/project |
-| WorkspaceModel, labels | ws-api-types | types.ts | dto/workspace |
-| Group* if shared | … | … | dto/group |
-| GithubIssue/Pr payloads if both | ws/github-api.ts | types.ts | dto/github |
+| Type                            | Web today        | Mobile today | Target module |
+| ------------------------------- | ---------------- | ------------ | ------------- |
+| FsEntry, FsListDirResponse, …   | ws-api-types     | types.ts     | dto/fs        |
+| Git* status/diff/commit         | ws-api-types     | types.ts     | dto/git       |
+| ProjectModel, bootstrap         | ws-api-types     | types.ts     | dto/project   |
+| WorkspaceModel, labels          | ws-api-types     | types.ts     | dto/workspace |
+| Group* if shared                | …                | …            | dto/group     |
+| GithubIssue/Pr payloads if both | ws/github-api.ts | types.ts     | dto/github    |
 
 Web-only review/automation/local-model DTOs **stay app-local** until a second consumer.
 
@@ -213,33 +213,33 @@ Update `apps/api/AGENTS.md` (or equivalent) “keep DTOs in sync with web” →
 
 ## 9. Relationship to APP-049 / APP-050
 
-| Concern | Owner |
-|---------|-------|
-| Frames/actions/DTOs/drift | APP-048 |
-| Session/reconnect/request | APP-049 |
-| Package edges / AGENTS map | APP-050 |
+| Concern                       | Owner                    |
+| ----------------------------- | ------------------------ |
+| Frames/actions/DTOs/drift     | APP-048                  |
+| Session/reconnect/request     | APP-049                  |
+| Package edges / AGENTS map    | APP-050                  |
 | **Hard gate for 049 Phase 1** | APP-048 Phase 1 complete |
 
 Notification fan-out may use `event: string` until N2; APP-049 must not invent a second event catalog package.
 
 ## 10. Rollout PRs
 
-| PR | Scope |
-|----|-------|
-| PR1 | Package + frames + actions + extract fixture + web import actions/frames + package drift test |
-| PR2 | Shared DTO modules + inventory table + dual imports |
-| PR3 | Mobile cutover; delete local authorities |
-| PR4 | Monorepo CI hard-fail wiring |
-| PR5+ | N1–N4 |
+| PR   | Scope                                                                                         |
+| ---- | --------------------------------------------------------------------------------------------- |
+| PR1  | Package + frames + actions + extract fixture + web import actions/frames + package drift test |
+| PR2  | Shared DTO modules + inventory table + dual imports                                           |
+| PR3  | Mobile cutover; delete local authorities                                                      |
+| PR4  | Monorepo CI hard-fail wiring                                                                  |
+| PR5+ | N1–N4                                                                                         |
 
 ## 11. Risks
 
-| Risk | Mitigation |
-|------|------------|
-| False confidence on DTOs | M13; review inventory |
-| Enum extract tooling friction | Start with test-written fixture; improve later |
-| Mega-union TS cost | Subpath imports |
-| Scope creep into terminal/relay/IPC | Channel matrix |
+| Risk                                | Mitigation                                     |
+| ----------------------------------- | ---------------------------------------------- |
+| False confidence on DTOs            | M13; review inventory                          |
+| Enum extract tooling friction       | Start with test-written fixture; improve later |
+| Mega-union TS cost                  | Subpath imports                                |
+| Scope creep into terminal/relay/IPC | Channel matrix                                 |
 
 ## 12. Out of scope (implementation)
 

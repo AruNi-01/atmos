@@ -20,10 +20,7 @@ import {
 } from "tldraw";
 import { createTranslator } from "next-intl";
 
-import {
-  createArrowShapeWithBindings,
-  resolveArrowEndpoints,
-} from "./canvas-agent-arrow-bindings";
+import { createArrowShapeWithBindings, resolveArrowEndpoints } from "./canvas-agent-arrow-bindings";
 import { CanvasAgentError, type CanvasAgentErrorCode } from "./canvas-agent-errors";
 import {
   layoutColumnByBounds,
@@ -41,7 +38,11 @@ import {
 } from "./canvas-agent-layout";
 import { mutateEditor } from "./canvas-agent-mutate";
 import { NOTE_BASE_WIDTH, planUpdateShapePartial } from "./canvas-agent-shape-patch";
-import { applyOptionalColor, applyOptionalFill, applyOptionalSize } from "./canvas-agent-tldraw-style";
+import {
+  applyOptionalColor,
+  applyOptionalFill,
+  applyOptionalSize,
+} from "./canvas-agent-tldraw-style";
 import { validateShapeUpdate } from "./canvas-agent-validate";
 import { runCanvasAgentApply } from "./canvas-agent-bus-apply";
 import {
@@ -72,10 +73,7 @@ import {
   type CanvasAgentDispatchInput,
   type CanvasAgentResult,
 } from "./canvas-agent-bus-result";
-import {
-  runCanvasAgentSetAgentView,
-  runCanvasAgentViewport,
-} from "./canvas-agent-bus-viewport";
+import { runCanvasAgentSetAgentView, runCanvasAgentViewport } from "./canvas-agent-bus-viewport";
 import { getShapePageBoundsBox } from "./canvas-agent-bounds";
 import { estimateGeoTextOverflow } from "./canvas-agent-lint";
 import { runCanvasAgentScreenshot } from "./canvas-agent-screenshot";
@@ -97,18 +95,18 @@ export type {
   CanvasAgentSuccess,
 } from "./canvas-agent-bus-result";
 
-let cachedCanvasBusLocale: 'en' | 'zh' | null = null;
+let cachedCanvasBusLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedCanvasBusTranslator: any = null;
 
 function canvasBusT(key: string, values?: Record<string, string | number>): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedCanvasBusTranslator || cachedCanvasBusLocale !== locale) {
     cachedCanvasBusLocale = locale;
     cachedCanvasBusTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'Canvas.chrome',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "Canvas.chrome",
     });
   }
   return cachedCanvasBusTranslator(key as never, values as never);
@@ -137,11 +135,7 @@ export class CanvasAgentBus {
   async handleDispatch(input: CanvasAgentDispatchInput): Promise<CanvasAgentResult> {
     const editor = this.editor;
     if (!editor) {
-      return fail(
-        "EDITOR_NOT_READY",
-        canvasBusT("agentBus.canvasEditorIsNotMountedYet"),
-        true,
-      );
+      return fail("EDITOR_NOT_READY", canvasBusT("agentBus.canvasEditorIsNotMountedYet"), true);
     }
 
     const command = (input.command ?? "").trim();
@@ -265,11 +259,7 @@ export class CanvasAgentBus {
         return fail(err.code, err.message, err.recoverable);
       }
       this.log("canvas-agent: handler threw", err);
-      return fail(
-        "INTERNAL_ERROR",
-        err instanceof Error ? err.message : String(err),
-        true,
-      );
+      return fail("INTERNAL_ERROR", err instanceof Error ? err.message : String(err), true);
     }
   }
 
@@ -341,11 +331,7 @@ export class CanvasAgentBus {
         return fail(err.code, err.message, err.recoverable);
       }
       this.log("canvas-agent: handler threw", err);
-      return fail(
-        "INTERNAL_ERROR",
-        err instanceof Error ? err.message : String(err),
-        true,
-      );
+      return fail("INTERNAL_ERROR", err instanceof Error ? err.message : String(err), true);
     }
   }
 
@@ -624,8 +610,7 @@ export class CanvasAgentBus {
 
   private runPlace(editor: Editor, args: Record<string, unknown>) {
     const id = requireString(args.id, "id");
-    const referenceId =
-      optionalString(args.reference_id) ?? optionalString(args.referenceId);
+    const referenceId = optionalString(args.reference_id) ?? optionalString(args.referenceId);
     if (!referenceId) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
@@ -696,19 +681,12 @@ export class CanvasAgentBus {
 
   // ===== helpers =====
 
-  private shapeCreateResult(
-    editor: Editor,
-    id: TLShapeId,
-    type: string,
-    warnings: string[] = [],
-  ) {
+  private shapeCreateResult(editor: Editor, id: TLShapeId, type: string, warnings: string[] = []) {
     const bb = getShapePageBoundsBox(editor, id);
     return {
       id,
       type,
-      bounds: bb
-        ? { min_x: bb.minX, min_y: bb.minY, w: bb.width, h: bb.height }
-        : null,
+      bounds: bb ? { min_x: bb.minX, min_y: bb.minY, w: bb.width, h: bb.height } : null,
       ...(warnings.length ? { warnings } : {}),
     };
   }
@@ -722,10 +700,7 @@ export class CanvasAgentBus {
     if (xArg !== undefined && xArg !== null && yArg !== undefined && yArg !== null) {
       return { x: requireNumber(xArg, "x"), y: requireNumber(yArg, "y") };
     }
-    if (
-      (xArg !== undefined && xArg !== null) ||
-      (yArg !== undefined && yArg !== null)
-    ) {
+    if ((xArg !== undefined && xArg !== null) || (yArg !== undefined && yArg !== null)) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
         canvasBusT("agentBus.provideBothXAndYOrOmitBoth"),

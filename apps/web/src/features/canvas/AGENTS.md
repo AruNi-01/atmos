@@ -42,13 +42,13 @@ and jumps back, keep the same identity split Terminal already uses. Mixing
 these ids is what made footer Agent status and canvas Source land on the
 wrong space/tab after multi-space + mosaic.
 
-| Use | Identity |
-| --- | --- |
-| URL `?id=` / tmux session / agent pane key / `killTmuxWindow` | Host workspace or project id (`hostIdFromCenterKey`) |
-| Terminal tab store, mosaic layout, github/browser tab catalogs | Paint context (`makeCenterSpaceKey(host, spaceId)`) |
-| Extra-space tmux window | Namespaced name (`cs__{spaceId}__…`); space from the name if the pin stored only host |
-| Exclusive session tab (terminal, browser) | Reveal the mosaic leaf that already owns it (`planCenterTabAttach` default `reveal`) |
-| Shareable tab (files, changes, overview) | May copy onto the focused leaf (`placement: "focused"`) |
+| Use                                                            | Identity                                                                              |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| URL `?id=` / tmux session / agent pane key / `killTmuxWindow`  | Host workspace or project id (`hostIdFromCenterKey`)                                  |
+| Terminal tab store, mosaic layout, github/browser tab catalogs | Paint context (`makeCenterSpaceKey(host, spaceId)`)                                   |
+| Extra-space tmux window                                        | Namespaced name (`cs__{spaceId}__…`); space from the name if the pin stored only host |
+| Exclusive session tab (terminal, browser)                      | Reveal the mosaic leaf that already owns it (`planCenterTabAttach` default `reveal`)  |
+| Shareable tab (files, changes, overview)                       | May copy onto the focused leaf (`placement: "focused"`)                               |
 
 Navigation: commit dest `?tab=` / `terminalTmux` / `sideChat` **before** a
 same-host space switch (`preserveDeepLink: true`). Switching first lets

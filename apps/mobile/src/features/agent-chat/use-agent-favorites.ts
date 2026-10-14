@@ -19,23 +19,26 @@ export function useAgentFavorites() {
   const favorites = favoriteModelsFromUnknown(
     (query.data as { favorite_models?: unknown } | undefined)?.favorite_models,
   );
-  const toggleFavorite = useCallback((entry: FavoriteModel) => {
-    if (!client || wsState !== "open") return;
-    const current = favoriteModelsFromUnknown(
-      (queryClient.getQueryData<{ favorite_models?: unknown }>(queryKey))?.favorite_models,
-    );
-    const next = toggleFavoriteModel(current, entry);
-    const favorite_models = next.map((item) => ({
-      agent_id: item.agentId,
-      model: item.model,
-      label: item.label,
-    }));
-    queryClient.setQueryData(queryKey, (cached: AgentChatPrefs | undefined) => ({
-      ...(cached ?? {}),
-      favorite_models,
-    }));
-    const payload: AgentChatPrefsSetRequest = { favorite_models };
-    void wsActions.agentChatPrefsSet(client, payload).catch(() => undefined);
-  }, [client, queryClient, queryKey, wsState]);
+  const toggleFavorite = useCallback(
+    (entry: FavoriteModel) => {
+      if (!client || wsState !== "open") return;
+      const current = favoriteModelsFromUnknown(
+        queryClient.getQueryData<{ favorite_models?: unknown }>(queryKey)?.favorite_models,
+      );
+      const next = toggleFavoriteModel(current, entry);
+      const favorite_models = next.map((item) => ({
+        agent_id: item.agentId,
+        model: item.model,
+        label: item.label,
+      }));
+      queryClient.setQueryData(queryKey, (cached: AgentChatPrefs | undefined) => ({
+        ...(cached ?? {}),
+        favorite_models,
+      }));
+      const payload: AgentChatPrefsSetRequest = { favorite_models };
+      void wsActions.agentChatPrefsSet(client, payload).catch(() => undefined);
+    },
+    [client, queryClient, queryKey, wsState],
+  );
   return { favorites, toggleFavorite };
 }

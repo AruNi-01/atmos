@@ -71,11 +71,7 @@ export const workspacesParams = {
 // ---------------------------------------------------------------------------
 export type AutomationsView = "list" | "create" | "edit" | "history";
 export type AutomationsListTab = "automations" | "history";
-export type AutomationEnvironmentFilter =
-  | "project"
-  | "workspace"
-  | "new_workspace"
-  | "standalone";
+export type AutomationEnvironmentFilter = "project" | "workspace" | "new_workspace" | "standalone";
 export type AutomationTriggerFilter =
   | "manual"
   | "github"
@@ -96,9 +92,7 @@ export const automationsParams = {
   view: parseAsStringEnum<AutomationsView>(["list", "create", "edit", "history"])
     .withDefault("list")
     .withOptions({ history: "push" }),
-  tab: parseAsStringEnum<AutomationsListTab>(["automations", "history"]).withDefault(
-    "automations",
-  ),
+  tab: parseAsStringEnum<AutomationsListTab>(["automations", "history"]).withDefault("automations"),
   automation: parseAsString.withDefault(""),
   run: parseAsString.withDefault(""),
   environments: parseAsArrayOf(
@@ -148,7 +142,9 @@ export const skillsParams = {
    * workspace deep link (centerStageParams), which strips values it does not
    * honor. Generic `tab` here made Skills header tabs revert on click.
    */
-  skillsTab: parseAsStringEnum<SkillsTab>(["installed", "market", "resources"]).withDefault("installed"),
+  skillsTab: parseAsStringEnum<SkillsTab>(["installed", "market", "resources"]).withDefault(
+    "installed",
+  ),
   filter: parseAsStringEnum<ScopeFilter>(["all", "global", "project", "system"]).withDefault("all"),
   projects: parseAsString.withDefault(""),
   q: parseAsString.withDefault(""),
@@ -174,7 +170,9 @@ export type SkillsModalTab = "my-skills" | "marketplace";
 
 export const skillsModalParams = {
   skillsModal: parseAsBoolean.withDefault(false),
-  skillsModalTab: parseAsStringEnum<SkillsModalTab>(["my-skills", "marketplace"]).withDefault("my-skills"),
+  skillsModalTab: parseAsStringEnum<SkillsModalTab>(["my-skills", "marketplace"]).withDefault(
+    "my-skills",
+  ),
 };
 
 export const llmProvidersModalParams = {

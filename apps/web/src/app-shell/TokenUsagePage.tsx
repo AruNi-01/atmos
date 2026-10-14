@@ -12,10 +12,7 @@ import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import { tokenUsageApi } from "@/api/ws/token-usage-api";
 import { permissionAccessApi } from "@/api/ws/permission-access-api";
 import { queryKeys } from "@/api/query/query-keys";
-import {
-  useComputerQueryScope,
-  useRelayQueryScope,
-} from "@/api/query/query-scope";
+import { useComputerQueryScope, useRelayQueryScope } from "@/api/query/query-scope";
 import { useTokenUsageQuery } from "@/features/quota-usage/hooks/use-token-usage-query";
 import { TokenUsageSharePopover } from "@/app-shell/TokenUsageShareDialog";
 import { TokenUsageCookieConsentBanner } from "@/app-shell/TokenUsageCookieConsentBanner";
@@ -50,9 +47,7 @@ export function TokenUsagePage() {
   const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
   const localServerId = useAtmosComputerStore((s) => s.localServerId);
   const selectedServerId = useAtmosComputerStore((s) => s.selectedServerId);
-  const localComputerDisplayName = useAtmosComputerStore(
-    (s) => s.localComputerDisplayName,
-  );
+  const localComputerDisplayName = useAtmosComputerStore((s) => s.localComputerDisplayName);
   const signedIn = isPlausibleDeviceCredential(accessToken);
   const [loopbackDevice, setLoopbackDevice] = React.useState<LocalDeviceInput>(null);
   const [usageSelection, setUsageSelection] = React.useState<string | null>(null);
@@ -92,8 +87,7 @@ export function TokenUsagePage() {
     };
   }, [connectionMode, localComputerDisplayName, localServerId]);
 
-  const currentServerId =
-    connectionMode === "relay" ? selectedServerId : localServerId;
+  const currentServerId = connectionMode === "relay" ? selectedServerId : localServerId;
   const devices = React.useMemo(
     () => uniqueComputers(computers, localDevice, currentServerId),
     [computers, currentServerId, localDevice],
@@ -160,9 +154,7 @@ export function TokenUsagePage() {
     : null;
   const [consentBusy, setConsentBusy] = React.useState(false);
   const missedWarnings =
-    isAll && overview
-      ? overview.partial_warnings.filter((line) => line.trim().length > 0)
-      : [];
+    isAll && overview ? overview.partial_warnings.filter((line) => line.trim().length > 0) : [];
 
   const applyOverview = React.useCallback(
     (next: TokenUsageOverviewResponse) => {

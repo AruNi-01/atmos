@@ -25,10 +25,7 @@ export function ProjectLogoMark({
     const cached = getCachedProjectLogoTone(src);
     return cached ? { src, tone: cached } : null;
   });
-  const tone =
-    classified?.src === src
-      ? classified.tone
-      : (getCachedProjectLogoTone(src) ?? null);
+  const tone = classified?.src === src ? classified.tone : (getCachedProjectLogoTone(src) ?? null);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -46,9 +43,7 @@ export function ProjectLogoMark({
         if (event.currentTarget.getAttribute("src") !== src) {
           return;
         }
-        const next =
-          getCachedProjectLogoTone(src) ??
-          classifyProjectLogoImage(event.currentTarget);
+        const next = getCachedProjectLogoTone(src) ?? classifyProjectLogoImage(event.currentTarget);
         setCachedProjectLogoTone(src, next);
         setClassified({ src, tone: next });
       }}

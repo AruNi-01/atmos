@@ -139,9 +139,7 @@ describe("event-bridge-policy", () => {
       applyQuotaOverviewUpdated(client, scope, makeQuotaOverview());
 
       // Other scope's key remains empty
-      expect(
-        client.getQueryData(queryKeys.computer.quotaOverview(otherScope)),
-      ).toBeUndefined();
+      expect(client.getQueryData(queryKeys.computer.quotaOverview(otherScope))).toBeUndefined();
     });
   });
 

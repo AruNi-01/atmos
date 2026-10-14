@@ -77,7 +77,12 @@ function pathMatch(cwd: string, root: string): { relative: string | null } | nul
 }
 
 function workspaceLabel(workspace: Project["workspaces"][number]): string {
-  return workspace.displayName?.trim() || workspace.name.trim() || workspace.branch.trim() || workspace.id;
+  return (
+    workspace.displayName?.trim() ||
+    workspace.name.trim() ||
+    workspace.branch.trim() ||
+    workspace.id
+  );
 }
 
 function unknownAtmosWorkspaceLabel(cwd: string, fallback: string): string | null {
@@ -101,11 +106,15 @@ function resolveCwdGroupName(
   if (!normalizedCwd) return noCwdLabel;
 
   const workspaceMatches = projects
-    .flatMap((project) => project.workspaces.map((workspace) => ({
-      workspace,
-      root: normalizePathForMatch(workspace.localPath),
-    })))
-    .filter((item): item is { workspace: Project["workspaces"][number]; root: string } => Boolean(item.root))
+    .flatMap((project) =>
+      project.workspaces.map((workspace) => ({
+        workspace,
+        root: normalizePathForMatch(workspace.localPath),
+      })),
+    )
+    .filter((item): item is { workspace: Project["workspaces"][number]; root: string } =>
+      Boolean(item.root),
+    )
     .sort((a, b) => b.root.length - a.root.length);
 
   for (const { workspace, root } of workspaceMatches) {
@@ -126,7 +135,9 @@ function resolveCwdGroupName(
     return match.relative ? `${project.name} · ${match.relative}` : project.name;
   }
 
-  return unknownAtmosWorkspaceLabel(normalizedCwd, atmosWorkspaceLabel) ?? cwdGroupName(cwd, noCwdLabel);
+  return (
+    unknownAtmosWorkspaceLabel(normalizedCwd, atmosWorkspaceLabel) ?? cwdGroupName(cwd, noCwdLabel)
+  );
 }
 
 function sessionTimeValue(session: AgentChatHistoryRow): number {
@@ -149,10 +160,14 @@ function formatRelativeTime(
   const month = 30 * day;
 
   if (elapsedMs < minute) return t("historySidebar.relative.now");
-  if (elapsedMs < hour) return t("historySidebar.relative.minute", { value: Math.floor(elapsedMs / minute) });
-  if (elapsedMs < day) return t("historySidebar.relative.hour", { value: Math.floor(elapsedMs / hour) });
-  if (elapsedMs < week) return t("historySidebar.relative.day", { value: Math.floor(elapsedMs / day) });
-  if (elapsedMs < month * 2) return t("historySidebar.relative.week", { value: Math.floor(elapsedMs / week) });
+  if (elapsedMs < hour)
+    return t("historySidebar.relative.minute", { value: Math.floor(elapsedMs / minute) });
+  if (elapsedMs < day)
+    return t("historySidebar.relative.hour", { value: Math.floor(elapsedMs / hour) });
+  if (elapsedMs < week)
+    return t("historySidebar.relative.day", { value: Math.floor(elapsedMs / day) });
+  if (elapsedMs < month * 2)
+    return t("historySidebar.relative.week", { value: Math.floor(elapsedMs / week) });
   return t("historySidebar.relative.month", { value: Math.floor(elapsedMs / month) });
 }
 
@@ -216,13 +231,14 @@ export function AgentChatHistorySidebar({
 }: AgentChatHistorySidebarProps) {
   const t = useTranslations("Agent.components");
   const groups = React.useMemo(
-    () => groupHistorySessions(
-      historySessions,
-      t("historySidebar.noCwd"),
-      t("historySidebar.atmosWorkspace"),
-      t("composer.workingDirectory.thread"),
-      projects,
-    ),
+    () =>
+      groupHistorySessions(
+        historySessions,
+        t("historySidebar.noCwd"),
+        t("historySidebar.atmosWorkspace"),
+        t("composer.workingDirectory.thread"),
+        projects,
+      ),
     [historySessions, projects, t],
   );
   const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
@@ -238,7 +254,8 @@ export function AgentChatHistorySidebar({
     installedAgents.find((agent) => agent.id === defaultRegistryId) ??
     installedAgents[0] ??
     null;
-  const selectedAgentLabel = selectedAgent?.name ?? activeAgentName ?? t("historySidebar.agentFallback");
+  const selectedAgentLabel =
+    selectedAgent?.name ?? activeAgentName ?? t("historySidebar.agentFallback");
   const installedAgentById = React.useMemo(
     () => new Map(installedAgents.map((agent) => [agent.id, agent])),
     [installedAgents],
@@ -261,16 +278,16 @@ export function AgentChatHistorySidebar({
     const measure = () => {
       if (controlNode) {
         const nextControlWidth = Math.round(controlNode.getBoundingClientRect().width);
-        setNewSessionControlWidth((current) => (
-          current === nextControlWidth ? current : nextControlWidth
-        ));
+        setNewSessionControlWidth((current) =>
+          current === nextControlWidth ? current : nextControlWidth,
+        );
       }
 
       if (labelNode) {
         const nextLabelWidth = Math.ceil(labelNode.getBoundingClientRect().width);
-        setAgentLabelMeasuredWidth((current) => (
-          current === nextLabelWidth ? current : nextLabelWidth
-        ));
+        setAgentLabelMeasuredWidth((current) =>
+          current === nextLabelWidth ? current : nextLabelWidth,
+        );
       }
     };
 
@@ -282,14 +299,18 @@ export function AgentChatHistorySidebar({
     return () => observer.disconnect();
   }, [selectedAgentLabel]);
 
-  const agentSelectorMaxWidth = newSessionControlWidth > 0
-    ? Math.floor(newSessionControlWidth * 0.5)
-    : 128;
+  const agentSelectorMaxWidth =
+    newSessionControlWidth > 0 ? Math.floor(newSessionControlWidth * 0.5) : 128;
   const agentLabelMaxWidth = Math.max(0, agentSelectorMaxWidth - 56);
   const agentLabelTargetWidth = Math.min(agentLabelMeasuredWidth + 6, agentLabelMaxWidth);
 
   return (
-    <aside className={cn("h-full min-h-0 w-full shrink-0 flex-col bg-transparent text-foreground backdrop-blur-md", className)}>
+    <aside
+      className={cn(
+        "h-full min-h-0 w-full shrink-0 flex-col bg-transparent text-foreground backdrop-blur-md",
+        className,
+      )}
+    >
       <div
         className={cn(
           "shrink-0 px-3 pb-3 transition-[padding] duration-300 ease-out",
@@ -322,14 +343,14 @@ export function AgentChatHistorySidebar({
               trigger={
                 <button
                   type="button"
-                  className="group/agent-selector relative flex h-full min-w-0 max-w-[50%] shrink-0 items-center px-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  className="group/agent-selector relative flex h-full max-w-[50%] min-w-0 shrink-0 items-center px-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                   disabled={installedAgents.length === 0}
                   aria-label={t("historySidebar.selectAgentAria")}
                   title={selectedAgentLabel}
                 >
                   <span
                     ref={agentLabelMeasureRef}
-                    className="pointer-events-none absolute -left-[9999px] top-0 whitespace-nowrap text-xs font-medium"
+                    className="pointer-events-none absolute top-0 -left-[9999px] text-xs font-medium whitespace-nowrap"
                     aria-hidden="true"
                   >
                     {selectedAgentLabel}
@@ -347,9 +368,11 @@ export function AgentChatHistorySidebar({
                   )}
                   <span
                     className="max-w-0 min-w-0 shrink -translate-x-1 overflow-hidden whitespace-nowrap opacity-0 transition-[max-width,opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/agent-selector:max-w-[var(--agent-label-target-width)] group-hover/agent-selector:translate-x-0 group-hover/agent-selector:opacity-100"
-                    style={{
-                      "--agent-label-target-width": `${agentLabelTargetWidth}px`,
-                    } as React.CSSProperties}
+                    style={
+                      {
+                        "--agent-label-target-width": `${agentLabelTargetWidth}px`,
+                      } as React.CSSProperties
+                    }
                   >
                     <span className="block truncate pl-1.5">{selectedAgentLabel}</span>
                   </span>
@@ -389,9 +412,15 @@ export function AgentChatHistorySidebar({
                     onClick={() => toggleGroup(group.key)}
                   >
                     {collapsed ? (
-                      <Folder className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <Folder
+                        className="size-4 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     ) : (
-                      <FolderOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <FolderOpen
+                        className="size-4 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     )}
                     <span className="truncate" title={group.name}>
                       {group.name}

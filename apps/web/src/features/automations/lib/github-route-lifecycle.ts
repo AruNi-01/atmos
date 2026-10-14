@@ -129,22 +129,28 @@ export async function updateAutomationWithGithubRoute({
       initialAutomation.trigger_enabled &&
       initialAutomation.trigger_status === "active"
     ) {
-      await upsertGithubRoute(githubPrereqs, initialAutomation.guid, previousGithubConfig, true).catch(
-        (rollbackErr) => {
-          rollbackErrors.push(`previous route restore: ${formatError(rollbackErr)}`);
-        },
-      );
+      await upsertGithubRoute(
+        githubPrereqs,
+        initialAutomation.guid,
+        previousGithubConfig,
+        true,
+      ).catch((rollbackErr) => {
+        rollbackErrors.push(`previous route restore: ${formatError(rollbackErr)}`);
+      });
     }
     if (nextRouteUpserted && nextRouteId && nextRouteId !== previousRouteId) {
       await deleteGithubRoute(githubPrereqs, nextRouteId).catch((rollbackErr) => {
         rollbackErrors.push(`new route cleanup: ${formatError(rollbackErr)}`);
       });
     } else if (nextRouteUpserted && nextRouteId === previousRouteId && previousGithubConfig) {
-      await upsertGithubRoute(githubPrereqs, initialAutomation.guid, previousGithubConfig, true).catch(
-        (rollbackErr) => {
-          rollbackErrors.push(`previous route restore: ${formatError(rollbackErr)}`);
-        },
-      );
+      await upsertGithubRoute(
+        githubPrereqs,
+        initialAutomation.guid,
+        previousGithubConfig,
+        true,
+      ).catch((rollbackErr) => {
+        rollbackErrors.push(`previous route restore: ${formatError(rollbackErr)}`);
+      });
     }
     throw flowError(err, rollbackErrors);
   }
@@ -164,7 +170,9 @@ export async function deleteAutomationWithGithubRoute({
     try {
       await deleteGithubRoute(githubPrereqs, githubConfig.route_id);
     } catch (err) {
-      throw new Error(`Delete blocked because the GitHub route could not be removed: ${formatError(err)}`);
+      throw new Error(
+        `Delete blocked because the GitHub route could not be removed: ${formatError(err)}`,
+      );
     }
   }
   await deleteAutomation(automation.guid);
@@ -194,16 +202,19 @@ function githubConfigEquals(left: GithubTriggerConfig | null, right: GithubTrigg
     left.route_id.trim() === right.route_id.trim() &&
     left.installation_id === right.installation_id &&
     normalizeNullableId(left.repository_id) === normalizeNullableId(right.repository_id) &&
-    left.repository_full_name.trim().toLowerCase() === right.repository_full_name.trim().toLowerCase() &&
+    left.repository_full_name.trim().toLowerCase() ===
+      right.repository_full_name.trim().toLowerCase() &&
     left.event_family === right.event_family &&
     stringArrayEquals(normalizeStringArray(left.actions), normalizeStringArray(right.actions)) &&
-    normalizeNullableString(left.filters.branch) === normalizeNullableString(right.filters.branch) &&
+    normalizeNullableString(left.filters.branch) ===
+      normalizeNullableString(right.filters.branch) &&
     stringArrayEquals(
       normalizedCommentContainsValues(left),
       normalizedCommentContainsValues(right),
     ) &&
     normalizeNullableString(left.filters.label) === normalizeNullableString(right.filters.label) &&
-    normalizeNullableString(left.filters.workflow_name) === normalizeNullableString(right.filters.workflow_name) &&
+    normalizeNullableString(left.filters.workflow_name) ===
+      normalizeNullableString(right.filters.workflow_name) &&
     stringArrayEquals(
       normalizeStringArray(left.filters.sender_logins, true),
       normalizeStringArray(right.filters.sender_logins, true),

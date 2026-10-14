@@ -33,12 +33,7 @@ export async function upsertLinearIntegration(
   const existing = await db
     .select()
     .from(userIntegrations)
-    .where(
-      and(
-        eq(userIntegrations.userId, userId),
-        eq(userIntegrations.provider, "linear"),
-      ),
-    )
+    .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, "linear")))
     .limit(1);
 
   const payload = {
@@ -52,10 +47,7 @@ export async function upsertLinearIntegration(
   };
 
   if (existing[0]) {
-    await db
-      .update(userIntegrations)
-      .set(payload)
-      .where(eq(userIntegrations.id, existing[0].id));
+    await db.update(userIntegrations).set(payload).where(eq(userIntegrations.id, existing[0].id));
   } else {
     await db.insert(userIntegrations).values({
       id: randomId("int"),
@@ -75,18 +67,11 @@ export async function getLinearIntegration(db: HubDb, userId: string) {
   const rows = await db
     .select()
     .from(userIntegrations)
-    .where(
-      and(
-        eq(userIntegrations.userId, userId),
-        eq(userIntegrations.provider, "linear"),
-      ),
-    )
+    .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, "linear")))
     .limit(1);
   const row = rows[0];
   if (!row) return null;
-  const credentials = JSON.parse(
-    row.credentialsJson,
-  ) as LinearCredentialsPayload;
+  const credentials = JSON.parse(row.credentialsJson) as LinearCredentialsPayload;
   return {
     provider: "linear" as const,
     auth_method: row.authMethod,
@@ -112,17 +97,9 @@ export async function getLinearIntegrationStatus(db: HubDb, userId: string) {
   };
 }
 
-export async function deleteLinearIntegration(
-  db: HubDb,
-  userId: string,
-): Promise<boolean> {
+export async function deleteLinearIntegration(db: HubDb, userId: string): Promise<boolean> {
   const res = await db
     .delete(userIntegrations)
-    .where(
-      and(
-        eq(userIntegrations.userId, userId),
-        eq(userIntegrations.provider, "linear"),
-      ),
-    );
+    .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, "linear")));
   return true;
 }

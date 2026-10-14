@@ -3,11 +3,7 @@ import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 import { resolveCanvasTerminalContextMaxLines } from "@/features/canvas/store/canvas-settings-store";
 import type { CanvasTerminalShape } from "./canvas-terminal-shape";
-import {
-  formatCanvasTerminalMetadata,
-  stripAnsi,
-  truncateText,
-} from "./canvas-shape-text";
+import { formatCanvasTerminalMetadata, stripAnsi, truncateText } from "./canvas-shape-text";
 
 export const CANVAS_TERMINAL_CAPTURE_MAX_CHARS = 32_000;
 
@@ -32,7 +28,9 @@ export async function captureCanvasTerminalScreenText(
   const skip = Math.max(0, options?.skipFromBottom ?? 0);
 
   const fromXterm =
-    skip === 0 ? terminalRef?.getScreenText?.(maxLines, 0) : terminalRef?.getScreenText?.(maxLines, skip);
+    skip === 0
+      ? terminalRef?.getScreenText?.(maxLines, 0)
+      : terminalRef?.getScreenText?.(maxLines, skip);
   if (fromXterm?.trim()) {
     const lines = fromXterm.split("\n");
     const linesReturned = lines.length;
@@ -48,16 +46,13 @@ export async function captureCanvasTerminalScreenText(
     };
   }
 
-  const snapshot = await systemApi.captureTmuxWindow(
-    hostIdFromCenterKey(shape.props.workspaceId),
-    {
-      tmux_window_name: shape.props.tmuxWindowName,
-      max_lines: maxLines,
-      skip_lines: skip,
-      project_name: shape.props.projectName,
-      workspace_name: shape.props.workspaceName,
-    },
-  );
+  const snapshot = await systemApi.captureTmuxWindow(hostIdFromCenterKey(shape.props.workspaceId), {
+    tmux_window_name: shape.props.tmuxWindowName,
+    max_lines: maxLines,
+    skip_lines: skip,
+    project_name: shape.props.projectName,
+    workspace_name: shape.props.workspaceName,
+  });
 
   const text = truncateCapturedTerminalText(stripAnsi(snapshot.data ?? ""));
   return {

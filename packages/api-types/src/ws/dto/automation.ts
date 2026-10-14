@@ -35,28 +35,14 @@ export type AutomationTriggerInput = {
   config?: GithubTriggerConfig | null;
 };
 
-export type AutomationRunStatus =
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "interrupted";
+export type AutomationRunStatus = "running" | "completed" | "failed" | "cancelled" | "interrupted";
 
 export type AutomationExecuteMode = "headless" | "terminal" | "chat";
 export type AutomationSurfaceKind = "none" | "terminal" | "chat";
 
-export type AutomationTargetKind =
-  | "project"
-  | "workspace"
-  | "new_workspace"
-  | "standalone";
+export type AutomationTargetKind = "project" | "workspace" | "new_workspace" | "standalone";
 
-export type AutomationScheduleKind =
-  | "hourly"
-  | "daily"
-  | "weekly"
-  | "monthly"
-  | "cron";
+export type AutomationScheduleKind = "hourly" | "daily" | "weekly" | "monthly" | "cron";
 
 export type AutomationArtifactKind = "prompt" | "final" | "run_json";
 

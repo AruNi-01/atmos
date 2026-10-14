@@ -1,8 +1,7 @@
 import { isPlausibleDeviceCredential } from "@atmos/relay-client";
 import { normalizeRelayUrl } from "@/lib/relay-url";
 
-const DEFAULT_SETTINGS_URL =
-  "http://127.0.0.1:3030/api/system/computer-client-settings";
+const DEFAULT_SETTINGS_URL = "http://127.0.0.1:3030/api/system/computer-client-settings";
 
 type SettingsResponse = {
   success?: boolean;
@@ -23,16 +22,12 @@ export type DevDeviceImport = {
 };
 
 function isReactNativeDev() {
-  const globalDev = (globalThis as typeof globalThis & { __DEV__?: boolean })
-    .__DEV__;
+  const globalDev = (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__;
   return globalDev ?? (typeof __DEV__ !== "undefined" && __DEV__);
 }
 
 export function isDevDeviceImportEnabled() {
-  return (
-    isReactNativeDev() &&
-    process.env.EXPO_PUBLIC_ATMOS_MOBILE_DEV_IMPORT_DEVICE === "1"
-  );
+  return isReactNativeDev() && process.env.EXPO_PUBLIC_ATMOS_MOBILE_DEV_IMPORT_DEVICE === "1";
 }
 
 /** Dev-only: pull a device credential from local Computer settings API. */
@@ -43,9 +38,7 @@ export async function loadDevDeviceImport(
     return null;
   }
 
-  const url =
-    process.env.EXPO_PUBLIC_ATMOS_MOBILE_DEV_DEVICE_SETTINGS_URL ??
-    DEFAULT_SETTINGS_URL;
+  const url = process.env.EXPO_PUBLIC_ATMOS_MOBILE_DEV_DEVICE_SETTINGS_URL ?? DEFAULT_SETTINGS_URL;
   const response = await fetchImpl(url);
   if (!response.ok) {
     return null;

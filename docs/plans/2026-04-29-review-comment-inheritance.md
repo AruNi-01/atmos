@@ -86,6 +86,7 @@ e. 将当前 fix run 的 agent 消息从 V1 线程迁移到 V2 继承线程:
 ```
 
 **关键设计**:
+
 - Agent 的回复通过 `fix_run_guid` 标识，只迁移属于当前 fix run 的消息
 - 用户的原始评论留在 V1 线程中，V2 通过 `parent_comment_guid` 链链接
 
@@ -109,6 +110,7 @@ f. 返回完整的 ReviewCommentDto
 ```
 
 这样 V2 的线程 DTO 的 messages 数组会包含：
+
 - 本线程上的 agent 回复（从 V1 迁移过来的）
 - 父链上 V1 线程的用户原始评论（通过 parent_comment_guid 追溯）
 
@@ -167,13 +169,15 @@ useEffect(() => {
 引入已有的 `RevisionPicker` 组件，当 session 有多个 revision 时显示版本切换下拉菜单：
 
 ```tsx
-{(currentSession?.revisions.length ?? 0) > 1 && (
-  <RevisionPicker
-    revisions={currentSession?.revisions ?? []}
-    selectedGuid={currentRevision?.guid ?? null}
-    onSelect={setSelectedRevisionGuid}
-  />
-)}
+{
+  (currentSession?.revisions.length ?? 0) > 1 && (
+    <RevisionPicker
+      revisions={currentSession?.revisions ?? []}
+      selectedGuid={currentRevision?.guid ?? null}
+      onSelect={setSelectedRevisionGuid}
+    />
+  );
+}
 ```
 
 ### 6. 前端：Summary 按 Revision 过滤
@@ -188,15 +192,14 @@ const latestSummaryRun = useMemo(
 );
 
 // 之后：只匹配当前 revision 产生的 fix run
-const latestSummaryRun = useMemo(
-  () => {
-    if (!currentSession || !currentRevision) return null;
-    return currentSession.runs.find((run) =>
-      !!run.summary_rel_path && run.result_revision_guid === currentRevision.guid,
-    ) ?? null;
-  },
-  [currentSession, currentRevision],
-);
+const latestSummaryRun = useMemo(() => {
+  if (!currentSession || !currentRevision) return null;
+  return (
+    currentSession.runs.find(
+      (run) => !!run.summary_rel_path && run.result_revision_guid === currentRevision.guid,
+    ) ?? null
+  );
+}, [currentSession, currentRevision]);
 ```
 
 ### 7. 前端：ReviewView Stats 改为 Revision 级别
@@ -277,6 +280,7 @@ V1 中仍有这些线程，用户切换到 V1 时可以正常查看。
 ### 多版本链 (V1 → V2 → V3)
 
 `resolve_ancestor_comments` 递归解析父链：
+
 - V3 Comment 的 parent 指向 V2 Comment
 - V2 Comment 的 parent 指向 V1 Comment
 - 查询 V3 Comment 时，消息列表 = V3自身 + V2父 + V1祖先

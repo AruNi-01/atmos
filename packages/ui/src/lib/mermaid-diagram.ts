@@ -1,4 +1,7 @@
-import type { MermaidWorkerRequest, MermaidWorkerResponse } from "./mermaid-diagram-worker-protocol";
+import type {
+  MermaidWorkerRequest,
+  MermaidWorkerResponse,
+} from "./mermaid-diagram-worker-protocol";
 import { installMermaidUtf8Btoa } from "./mermaid-utf8-btoa";
 
 export type MermaidDiagramTheme = "light" | "dark";
@@ -100,9 +103,11 @@ function rememberMermaidDiagram(key: string, record: MermaidDiagramRecord): Merm
 
 function cleanupMermaidArtifacts(id: string): void {
   if (typeof document === "undefined") return;
-  document.querySelectorAll(`body > #${CSS.escape(id)}, body > #d${CSS.escape(id)}`).forEach((node) => {
-    node.remove();
-  });
+  document
+    .querySelectorAll(`body > #${CSS.escape(id)}, body > #d${CSS.escape(id)}`)
+    .forEach((node) => {
+      node.remove();
+    });
 }
 
 function whenIdle(timeout = MERMAID_IDLE_TIMEOUT_MS): Promise<void> {
@@ -251,7 +256,9 @@ function createMermaidWorker(): Worker | null {
   if (workerUnavailable || typeof Worker === "undefined") return null;
   if (worker) return worker;
   try {
-    worker = new Worker(new URL("./mermaid-diagram.worker.ts", import.meta.url), { type: "module" });
+    worker = new Worker(new URL("./mermaid-diagram.worker.ts", import.meta.url), {
+      type: "module",
+    });
     worker.addEventListener("message", (event: MessageEvent<MermaidWorkerResponse>) => {
       const response = event.data;
       if (!response || typeof response.id !== "number") return;
@@ -276,7 +283,10 @@ function createMermaidWorker(): Worker | null {
   }
 }
 
-function renderMermaidSvgInWorker(code: string, theme: MermaidDiagramTheme): Promise<string | null> {
+function renderMermaidSvgInWorker(
+  code: string,
+  theme: MermaidDiagramTheme,
+): Promise<string | null> {
   const target = createMermaidWorker();
   if (!target) return Promise.resolve(null);
   workerJobId += 1;

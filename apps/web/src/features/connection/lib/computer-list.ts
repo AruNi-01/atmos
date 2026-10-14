@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { activeComputers } from '@atmos/relay-client';
-import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
+import { activeComputers } from "@atmos/relay-client";
+import type { ComputerRow } from "@/features/connection/lib/connection-ui-prefs";
 
 const APP_DEVICE_ID_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -11,12 +11,12 @@ function normalizeServerId(serverId: string | null | undefined): string | null {
 }
 
 function normalizeAppDeviceId(raw: string | null | undefined): string | null {
-  const value = raw?.trim().toLowerCase() ?? '';
+  const value = raw?.trim().toLowerCase() ?? "";
   return APP_DEVICE_ID_PATTERN.test(value) ? value : null;
 }
 
 export function isCurrentLocalComputer(
-  computer: Pick<ComputerRow, 'server_id' | 'app_device_id'>,
+  computer: Pick<ComputerRow, "server_id" | "app_device_id">,
   localServerId: string | null | undefined,
   localAppDeviceId?: string | null,
 ): boolean {

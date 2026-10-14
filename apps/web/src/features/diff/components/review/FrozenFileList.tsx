@@ -36,23 +36,13 @@ function gitStatusClassName(status: string | null | undefined) {
   }
 }
 
-function ChangeCountDecoration({
-  additions,
-  deletions,
-}: {
-  additions: number;
-  deletions: number;
-}) {
+function ChangeCountDecoration({ additions, deletions }: { additions: number; deletions: number }) {
   if (additions <= 0 && deletions <= 0) return null;
 
   return (
     <span className="flex items-center gap-1 font-mono font-medium tabular-nums">
-      {additions > 0 ? (
-        <span className="text-emerald-500">+{additions}</span>
-      ) : null}
-      {deletions > 0 ? (
-        <span className="text-red-500">-{deletions}</span>
-      ) : null}
+      {additions > 0 ? <span className="text-emerald-500">+{additions}</span> : null}
+      {deletions > 0 ? <span className="text-red-500">-{deletions}</span> : null}
     </span>
   );
 }
@@ -76,17 +66,11 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
   ).map((entry) => entry.file);
 
   if (!revision || orderedFiles.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground px-1">
-        No files in this revision.
-      </p>
-    );
+    return <p className="px-1 text-xs text-muted-foreground">No files in this revision.</p>;
   }
 
   if (viewMode === "tree") {
-    const fileByPath = new Map(
-      orderedFiles.map((file) => [file.snapshot.file_path, file]),
-    );
+    const fileByPath = new Map(orderedFiles.map((file) => [file.snapshot.file_path, file]));
 
     return (
       <DiffFileTree
@@ -151,11 +135,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
 
           if (annotations.length === 0) return null;
 
-          return (
-            <div className="flex items-center gap-2 text-[11px]">
-              {annotations}
-            </div>
-          );
+          return <div className="flex items-center gap-2 text-[11px]">{annotations}</div>;
         }}
         renderFileActions={(item) => {
           const file = fileByPath.get(item.path);
@@ -171,9 +151,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
               onClick={(event) => {
                 event.stopPropagation();
               }}
-              onCheckedChange={(value: boolean) =>
-                onToggleReviewed(file, Boolean(value))
-              }
+              onCheckedChange={(value: boolean) => onToggleReviewed(file, Boolean(value))}
               className="m-1"
             />
           );
@@ -186,11 +164,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
 
           const reviewedCount = files.filter((file) => file.state.reviewed).length;
           const checked =
-            reviewedCount === files.length
-              ? true
-              : reviewedCount === 0
-                ? false
-                : "indeterminate";
+            reviewedCount === files.length ? true : reviewedCount === 0 ? false : "indeterminate";
 
           return (
             <Checkbox
@@ -204,9 +178,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
               }}
               onCheckedChange={(value: boolean) => {
                 const nextChecked = Boolean(value);
-                void Promise.all(
-                  files.map((file) => onToggleReviewed(file, nextChecked)),
-                );
+                void Promise.all(files.map((file) => onToggleReviewed(file, nextChecked)));
               }}
               className="m-1"
             />
@@ -248,21 +220,21 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
               isCurrent && "bg-sidebar-accent",
             )}
           >
-              <button
-                type="button"
-                onClick={() => {
-                  onSelectFile(file.snapshot.guid, path, revisionLabel);
-                  if (onDoubleClickFile) {
-                    const now = Date.now();
-                    const last = clickTimers.current[path] ?? 0;
-                    clickTimers.current[path] = now;
-                    if (now - last < 350) {
-                      delete clickTimers.current[path];
-                      onDoubleClickFile(file.snapshot.guid, path);
-                    }
+            <button
+              type="button"
+              onClick={() => {
+                onSelectFile(file.snapshot.guid, path, revisionLabel);
+                if (onDoubleClickFile) {
+                  const now = Date.now();
+                  const last = clickTimers.current[path] ?? 0;
+                  clickTimers.current[path] = now;
+                  if (now - last < 350) {
+                    delete clickTimers.current[path];
+                    onDoubleClickFile(file.snapshot.guid, path);
                   }
-                }}
-              className="flex flex-1 items-center gap-2 min-w-0 text-left cursor-pointer"
+                }
+              }}
+              className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
               title={path}
             >
               <DiffFilePathLabel
@@ -272,27 +244,20 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
                 dirPathClassName="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
               />
               {file.open_comment_count > 0 && (
-                <span className="flex items-center gap-0.5 text-muted-foreground shrink-0">
+                <span className="flex shrink-0 items-center gap-0.5 text-muted-foreground">
                   <MessageSquare className="size-3" />
                   {file.open_comment_count}
                 </span>
               )}
-              {file.changed_after_review && (
-                <span className="text-amber-600 shrink-0">●</span>
-              )}
+              {file.changed_after_review && <span className="shrink-0 text-amber-600">●</span>}
               {status !== "?" ? (
-                <ChangeCountDecoration
-                  additions={file.additions}
-                  deletions={file.deletions}
-                />
+                <ChangeCountDecoration additions={file.additions} deletions={file.deletions} />
               ) : null}
             </button>
             <Checkbox
               checked={file.state.reviewed}
               disabled={!canEdit}
-              onCheckedChange={(value: boolean) =>
-                onToggleReviewed(file, Boolean(value))
-              }
+              onCheckedChange={(value: boolean) => onToggleReviewed(file, Boolean(value))}
               className="shrink-0"
             />
           </div>

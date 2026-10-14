@@ -127,7 +127,9 @@ export function MotionSlideMenu({
         <motion.div
           key={path.join("/") || "root"}
           custom={direction}
-          initial={reduceMotion ? { opacity: 1 } : { x: `${direction * offset}%`, y: 8, opacity: 0 }}
+          initial={
+            reduceMotion ? { opacity: 1 } : { x: `${direction * offset}%`, y: 8, opacity: 0 }
+          }
           animate={{ x: 0, y: 0, opacity: 1 }}
           exit={reduceMotion ? { opacity: 0 } : { x: `${direction * -offset}%`, y: 8, opacity: 0 }}
           transition={{ duration, ease: [0.23, 1, 0.32, 1] }}

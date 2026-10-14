@@ -103,19 +103,19 @@ No Hub/Relay REST DTOs.
 
 ### apps/web
 
-| Area | Path |
-|------|------|
-| Settings state | `apps/web/src/features/settings/store/editor-settings-store.ts` — `gitBlame: boolean`, default **`true`**, `setGitBlame` → `functionSettingsApi.update('editor', 'git_blame', value)` |
-| Function settings type | `apps/web/src/api/ws/settings-api.ts` `editor.git_blame?: boolean` |
-| Header switch | `apps/web/src/features/editor/components/CodeMirrorEditor.tsx` `renderEditorSettingsMenu` — new row after Git integration, same `Switch` + tooltip pattern |
-| Settings page | `apps/web/src/features/settings/components/EditorSettingsSection.tsx` — `SettingsGroupRow` after Git integration |
-| WS wrapper | `apps/web/src/api/ws-api.ts` `gitApi.getFileBlame` / `getCommitDetail` — `wsRequest("git_file_blame" \| "git_commit_detail", { ...snake })` **no** `<T>` |
-| Query keys | `apps/web/src/api/query/query-keys.ts` under `computer.git(...)` — **two** keys: `gitFileBlame(scope, repo, file)` and `gitCommitDetail(scope, repo, sha)`. Hover SHA must not appear on the blame key. |
-| Query hook | `apps/web/src/features/git/hooks/use-git-file-blame-query.ts` (mirror `use-git-file-diff-query.ts`) |
-| Commit-detail query | `apps/web/src/features/git/hooks/use-git-commit-detail-query.ts` — `enabled` only when a hover SHA is set |
-| CM extension | `apps/web/src/shared/lib/codemirror-git-blame.ts` (+ small theme helper if needed) |
-| Editor wiring | `apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx` — Compartment like `gitIntegrationCompartment`; `gitBlame` + `gitDiffSource` |
-| i18n | `apps/web/messages/en.json` + `zh.json` — `codeMirror.settings.gitBlame*`, `codeMirror.gitBlame.*`, `settings.editorSection.rows.gitBlame.*` |
+| Area                   | Path                                                                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings state         | `apps/web/src/features/settings/store/editor-settings-store.ts` — `gitBlame: boolean`, default **`true`**, `setGitBlame` → `functionSettingsApi.update('editor', 'git_blame', value)`                   |
+| Function settings type | `apps/web/src/api/ws/settings-api.ts` `editor.git_blame?: boolean`                                                                                                                                      |
+| Header switch          | `apps/web/src/features/editor/components/CodeMirrorEditor.tsx` `renderEditorSettingsMenu` — new row after Git integration, same `Switch` + tooltip pattern                                              |
+| Settings page          | `apps/web/src/features/settings/components/EditorSettingsSection.tsx` — `SettingsGroupRow` after Git integration                                                                                        |
+| WS wrapper             | `apps/web/src/api/ws-api.ts` `gitApi.getFileBlame` / `getCommitDetail` — `wsRequest("git_file_blame" \| "git_commit_detail", { ...snake })` **no** `<T>`                                                |
+| Query keys             | `apps/web/src/api/query/query-keys.ts` under `computer.git(...)` — **two** keys: `gitFileBlame(scope, repo, file)` and `gitCommitDetail(scope, repo, sha)`. Hover SHA must not appear on the blame key. |
+| Query hook             | `apps/web/src/features/git/hooks/use-git-file-blame-query.ts` (mirror `use-git-file-diff-query.ts`)                                                                                                     |
+| Commit-detail query    | `apps/web/src/features/git/hooks/use-git-commit-detail-query.ts` — `enabled` only when a hover SHA is set                                                                                               |
+| CM extension           | `apps/web/src/shared/lib/codemirror-git-blame.ts` (+ small theme helper if needed)                                                                                                                      |
+| Editor wiring          | `apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx` — Compartment like `gitIntegrationCompartment`; `gitBlame` + `gitDiffSource`                                                         |
+| i18n                   | `apps/web/messages/en.json` + `zh.json` — `codeMirror.settings.gitBlame*`, `codeMirror.gitBlame.*`, `settings.editorSection.rows.gitBlame.*`                                                            |
 
 **Do not** put blame UI in `packages/ui` (too domain-specific). Reuse `@workspace/ui` `Switch`, `Button`, `Tooltip`, `Popover` for **settings**. The in-editor card is a CodeMirror `hoverTooltip` DOM node styled with the same tokens (`bg-popover`, `text-popover-foreground`, `rounded-xl`, `shadow-md`, `p-3`), **not** a Radix `Popover` (focus/hover fight with CM). Copy control: same inline Check/Copy pattern as `HashCopyButton` in `apps/web/src/features/github/components/CommitList.tsx` — **no success toast**.
 
@@ -187,8 +187,8 @@ export type GitBlameCommit = {
 };
 
 export type GitFileBlameRequest = {
-  path: string;       // repo root
-  file_path: string;  // relative
+  path: string; // repo root
+  file_path: string; // relative
 };
 
 export type GitFileBlameResponse = {
@@ -223,26 +223,26 @@ No SQLite.
 
 ### Layer 1 — whole-file blame (expensive)
 
-| | |
-|--|--|
-| **Identity** | Computer + repo + relative path + **this file’s blob fingerprint** (`blob_id` / worktree `hash-object`). Not repo `HEAD` (other files committing must not bust this file). |
-| **Value** | Coalesced `ranges` (the full line map) + compact `commits` summaries (author, time, subject). No `--stat`, no body, no file text. |
-| **When to fetch** | File tab opens / becomes active **and** there is no live Query for that key. Save of **this** file, discard, or worktree bytes changing (new `blob_id`) → new fetch. |
-| **Line / selection change** | **Memory only.** Binary-search `ranges` by 1-based line. Never `git_file_blame`. |
-| **Switch file** | New Layer-1 query for the other path. The previous file’s Query **stays** in TanStack cache until `gcTime` (same idea as `gitFileDiffQueryOptions`). Re-opening a cached file is a hit if `blob_id` still matches. |
-| **Engine** | Process map `(canonical_repo, relpath, blob_id) → FileBlameInfo`. Evict by **file entry** (~64), not by commit. Cache hit skips `git blame`. |
+|                             |                                                                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Identity**                | Computer + repo + relative path + **this file’s blob fingerprint** (`blob_id` / worktree `hash-object`). Not repo `HEAD` (other files committing must not bust this file).                                         |
+| **Value**                   | Coalesced `ranges` (the full line map) + compact `commits` summaries (author, time, subject). No `--stat`, no body, no file text.                                                                                  |
+| **When to fetch**           | File tab opens / becomes active **and** there is no live Query for that key. Save of **this** file, discard, or worktree bytes changing (new `blob_id`) → new fetch.                                               |
+| **Line / selection change** | **Memory only.** Binary-search `ranges` by 1-based line. Never `git_file_blame`.                                                                                                                                   |
+| **Switch file**             | New Layer-1 query for the other path. The previous file’s Query **stays** in TanStack cache until `gcTime` (same idea as `gitFileDiffQueryOptions`). Re-opening a cached file is a hit if `blob_id` still matches. |
+| **Engine**                  | Process map `(canonical_repo, relpath, blob_id) → FileBlameInfo`. Evict by **file entry** (~64), not by commit. Cache hit skips `git blame`.                                                                       |
 
 Client: `use-git-file-blame-query.ts` + `queryKeys.computer.gitFileBlame(scope, repoPath, filePath)`. Mirror `gitFileDiffQueryOptions` (`staleTime` ~5 min — blame is heavier than diff; `gcTime` 30 min like `GIT_LIST_GC_MS`). Include last-saved content hash in the query key **or** invalidate that file’s key on save / `gitDiffRefreshNonce` for that path so dirty→saved gets a new worktree blame. **Do not** put hover SHA or caret line in this key.
 
 ### Layer 2 — commit detail (cheap, lazy)
 
-| | |
-|--|--|
-| **Identity** | Computer + repo + **commit SHA** (shared across files). |
-| **Value** | `body`, `files_changed`, `insertions`, `deletions`. |
-| **When to fetch** | First hover whose range SHA is not already in the detail cache. |
-| **Reuse** | Same SHA on another line or another file → cache hit; no second `git show`. |
-| **GC** | SHA-level LRU / TanStack `gcTime` is OK — the current-line widget does not need stats. |
+|                   |                                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| **Identity**      | Computer + repo + **commit SHA** (shared across files).                                |
+| **Value**         | `body`, `files_changed`, `insertions`, `deletions`.                                    |
+| **When to fetch** | First hover whose range SHA is not already in the detail cache.                        |
+| **Reuse**         | Same SHA on another line or another file → cache hit; no second `git show`.            |
+| **GC**            | SHA-level LRU / TanStack `gcTime` is OK — the current-line widget does not need stats. |
 
 Client: `use-git-commit-detail-query.ts` + `gitCommitDetail(scope, repoPath, sha)`, `enabled: Boolean(hoverSha)`.
 

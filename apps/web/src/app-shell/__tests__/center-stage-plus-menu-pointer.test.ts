@@ -16,10 +16,7 @@ import {
   syncPlusMenuHover,
 } from "@/app-shell/center-stage-plus-menu-pointer";
 
-function stubBox(
-  el: Element,
-  box: { left: number; top: number; width: number; height: number },
-) {
+function stubBox(el: Element, box: { left: number; top: number; width: number; height: number }) {
   (el as HTMLElement).getBoundingClientRect = () =>
     ({
       left: box.left,

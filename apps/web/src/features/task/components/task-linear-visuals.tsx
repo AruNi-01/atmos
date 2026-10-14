@@ -2,13 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
-import {
-  CheckCircle2,
-  Circle,
-  CircleDashed,
-  CircleDot,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, Circle, CircleDashed, CircleDot, XCircle } from "lucide-react";
 
 /**
  * Priority mark: Linear 0 = none · 1 urgent · 2 high · 3 medium · 4 low.
@@ -26,7 +20,7 @@ export function LinearPriorityMark({
     return (
       <span
         className={cn(
-          "inline-block min-w-[1.75rem] shrink-0 whitespace-nowrap text-center text-[11px] leading-none tracking-tight text-muted-foreground",
+          "inline-block min-w-[1.75rem] shrink-0 text-center text-[11px] leading-none tracking-tight whitespace-nowrap text-muted-foreground",
           className,
         )}
         title={t("table.noPriority")}
@@ -54,7 +48,7 @@ export function LinearPriorityMark({
   return (
     <span
       className={cn(
-        "inline-block min-w-[1.75rem] shrink-0 whitespace-nowrap text-center text-xs font-semibold leading-none",
+        "inline-block min-w-[1.75rem] shrink-0 text-center text-xs leading-none font-semibold whitespace-nowrap",
         tone,
         className,
       )}
@@ -107,28 +101,15 @@ export function LinearStatusIcon({
     if (type === "completed" || name === "done") {
       return <CheckCircle2 className={cn(base, "text-indigo-400")} aria-hidden />;
     }
-    if (
-      type === "canceled" ||
-      name.includes("cancel") ||
-      name.includes("duplicate")
-    ) {
-      return (
-        <XCircle className={cn(base, "text-muted-foreground/70")} aria-hidden />
-      );
+    if (type === "canceled" || name.includes("cancel") || name.includes("duplicate")) {
+      return <XCircle className={cn(base, "text-muted-foreground/70")} aria-hidden />;
     }
     if (type === "started") {
       if (name.includes("review")) {
-        return (
-          <CircleDot className={cn(base, "text-emerald-500")} aria-hidden />
-        );
+        return <CircleDot className={cn(base, "text-emerald-500")} aria-hidden />;
       }
       return (
-        <span
-          className={cn(
-            "relative inline-flex shrink-0 items-center justify-center",
-            dim,
-          )}
-        >
+        <span className={cn("relative inline-flex shrink-0 items-center justify-center", dim)}>
           <span className="absolute inset-0 rounded-full border-[1.5px] border-yellow-500/90" />
           <span
             className="absolute inset-0 overflow-hidden rounded-full"
@@ -140,19 +121,13 @@ export function LinearStatusIcon({
       );
     }
     if (type === "backlog") {
-      return (
-        <CircleDashed className={cn(base, "text-muted-foreground")} aria-hidden />
-      );
+      return <CircleDashed className={cn(base, "text-muted-foreground")} aria-hidden />;
     }
     return <Circle className={cn(base, "text-muted-foreground")} aria-hidden />;
   })();
 
   return (
-    <span
-      className={cn("inline-flex shrink-0", className)}
-      title={title}
-      aria-label={title}
-    >
+    <span className={cn("inline-flex shrink-0", className)} title={title} aria-label={title}>
       {icon}
     </span>
   );

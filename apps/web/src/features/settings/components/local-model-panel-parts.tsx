@@ -18,11 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/ui/tooltip";
 import { cn } from "@workspace/ui/lib/utils";
 import {
   CheckCircle2,
@@ -42,8 +38,7 @@ import {
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
@@ -126,12 +121,7 @@ export function StatusBadge({ state }: { state: LocalModelStatus }) {
   const busy = isTransitioning(state);
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-1.5 text-xs font-medium",
-        statusColor(state),
-      )}
-    >
+    <div className={cn("flex items-center gap-1.5 text-xs font-medium", statusColor(state))}>
       {busy ? (
         <Loader2 className="size-3.5 animate-spin" />
       ) : state.status === "running" ? (
@@ -157,10 +147,8 @@ export function CustomModelDialog({
 }) {
   const t = useTranslations("Settings.localModel");
   const [url, setUrl] = useState("");
-  const [resolved, setResolved] =
-    useState<LocalModelHfResolveResponse | null>(null);
-  const [lastChoices, setLastChoices] =
-    useState<LocalModelHfResolveResponse | null>(null);
+  const [resolved, setResolved] = useState<LocalModelHfResolveResponse | null>(null);
+  const [lastChoices, setLastChoices] = useState<LocalModelHfResolveResponse | null>(null);
   const [selectedUrl, setSelectedUrl] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [ramFootprintMb, setRamFootprintMb] = useState("");
@@ -206,9 +194,7 @@ export function CustomModelDialog({
       }
     } catch (e) {
       setResolved(null);
-      setError(
-        e instanceof Error ? e.message : t("custom.errors.resolveUrl"),
-      );
+      setError(e instanceof Error ? e.message : t("custom.errors.resolveUrl"));
     } finally {
       setResolving(false);
     }
@@ -269,16 +255,12 @@ export function CustomModelDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("custom.dialogTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("custom.dialogDescription")}
-          </DialogDescription>
+          <DialogDescription>{t("custom.dialogDescription")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-foreground">
-              {t("custom.urlLabel")}
-            </label>
+            <label className="text-xs font-medium text-foreground">{t("custom.urlLabel")}</label>
             <div className="flex gap-2">
               <input
                 value={url}
@@ -292,20 +274,14 @@ export function CustomModelDialog({
                 disabled={resolving}
                 onClick={() => void handleResolve()}
               >
-                {resolving ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  t("custom.resolve")
-                )}
+                {resolving ? <Loader2 className="size-4 animate-spin" /> : t("custom.resolve")}
               </Button>
             </div>
           </div>
 
           {resolved?.kind === "choices" && (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-foreground">
-                {t("custom.chooseFileTitle")}
-              </p>
+              <p className="text-xs font-medium text-foreground">{t("custom.chooseFileTitle")}</p>
               {resolved.choices.some((choice) => choice.discovered) && (
                 <p className="text-xs text-muted-foreground">
                   {t("custom.discoveredChoicesDescription")}
@@ -362,9 +338,7 @@ export function CustomModelDialog({
             <div className="space-y-3 rounded-lg border border-border p-3">
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0 text-xs text-muted-foreground">
-                  <p className="font-medium text-foreground">
-                    {t("custom.selectedFileTitle")}
-                  </p>
+                  <p className="font-medium text-foreground">{t("custom.selectedFileTitle")}</p>
                   <p className="mt-0.5 break-all" title={selectedUrl}>
                     {selectedUrl}
                   </p>
@@ -401,7 +375,9 @@ export function CustomModelDialog({
                 </label>
               </div>
               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <span>{t("custom.storageApprox", { size: formatBytes(resolvedModel.size_bytes) })}</span>
+                <span>
+                  {t("custom.storageApprox", { size: formatBytes(resolvedModel.size_bytes) })}
+                </span>
                 <span>{t("custom.sha256Prefix", { hash: resolvedModel.sha256.slice(0, 12) })}</span>
               </div>
             </div>
@@ -455,8 +431,7 @@ export function ModelCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isRunning = state.status === "running" && state.model_id === model.id;
-  const isDownloading =
-    state.status === "downloading_model" && state.model_id === model.id;
+  const isDownloading = state.status === "downloading_model" && state.model_id === model.id;
   const isInstalled =
     model.installed ||
     ((state.status === "installed_not_running" ||
@@ -464,26 +439,19 @@ export function ModelCard({
       state.status === "running") &&
       state.model_id === model.id);
 
-  const downloadProgress =
-    state.status === "downloading_model" ? state.progress * 100 : null;
+  const downloadProgress = state.status === "downloading_model" ? state.progress * 100 : null;
   const canRemove = model.custom && !isRunning && state.status !== "starting";
-  const canDeleteFiles =
-    isInstalled && !isRunning && state.status !== "starting";
+  const canDeleteFiles = isInstalled && !isRunning && state.status !== "starting";
 
   return (
     <>
       <div
-        className={cn(
-          "rounded-xl border border-border p-4",
-          isRunning && "border-green-500/30",
-        )}
+        className={cn("rounded-xl border border-border p-4", isRunning && "border-green-500/30")}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-foreground">
-                {model.display_name}
-              </span>
+              <span className="text-sm font-semibold text-foreground">{model.display_name}</span>
               {model.recommended && (
                 <Badge variant="secondary" className="text-xs">
                   {t("badges.recommended")}
@@ -495,9 +463,7 @@ export function ModelCard({
                 </Badge>
               )}
             </div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {model.description}
-            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{model.description}</p>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <HardDrive className="size-3" />
@@ -505,7 +471,9 @@ export function ModelCard({
               </span>
               <span className="flex items-center gap-1">
                 <MemoryStick className="size-3" />
-                {t("model.minMemoryApprox", { size: formatBytes(model.ram_footprint_mb * 1024 * 1024) })}
+                {t("model.minMemoryApprox", {
+                  size: formatBytes(model.ram_footprint_mb * 1024 * 1024),
+                })}
               </span>
               {model.license_url &&
               (model.license_url.startsWith("http://") ||
@@ -539,8 +507,7 @@ export function ModelCard({
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>
                     {t("model.downloadingWeights")}
-                    {state.status === "downloading_model" &&
-                    state.eta_seconds != null
+                    {state.status === "downloading_model" && state.eta_seconds != null
                       ? ` ${t("model.remainingEta", { eta: formatTimeRemaining(state.eta_seconds, t) })}`
                       : ""}
                   </span>
@@ -564,9 +531,7 @@ export function ModelCard({
                     {t("common.download")}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {t("model.downloadTooltip")}
-                </TooltipContent>
+                <TooltipContent>{t("model.downloadTooltip")}</TooltipContent>
               </Tooltip>
             )}
 
@@ -590,7 +555,7 @@ export function ModelCard({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-muted-foreground hover:text-destructive hover:border-destructive/50"
+                          className="text-muted-foreground hover:border-destructive/50 hover:text-destructive"
                           disabled={busy}
                           onClick={() => setConfirmDelete(true)}
                         >
@@ -639,14 +604,14 @@ export function ModelCard({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {model.custom ? t("deleteDialog.removeCustomTitle") : t("deleteDialog.deleteFilesTitle")}
+              {model.custom
+                ? t("deleteDialog.removeCustomTitle")
+                : t("deleteDialog.deleteFilesTitle")}
             </DialogTitle>
             <DialogDescription>
-              {model.custom ? (
-                t("deleteDialog.removeCustomDescription", { name: model.display_name })
-              ) : (
-                t("deleteDialog.deleteFilesDescription", { name: model.display_name })
-              )}
+              {model.custom
+                ? t("deleteDialog.removeCustomDescription", { name: model.display_name })
+                : t("deleteDialog.deleteFilesDescription", { name: model.display_name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

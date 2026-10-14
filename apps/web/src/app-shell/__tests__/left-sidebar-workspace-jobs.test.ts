@@ -15,7 +15,7 @@ describe("left sidebar workspace create jobs", () => {
 
   test("sidebar view is written on choice and a cancelled settings read is retried", () => {
     const source = readFileSync(join(import.meta.dir, "../LeftSidebar.tsx"), "utf8");
-    expect(source).toContain("persistWorkspaceSidebarSetting('view', next)");
+    expect(source).toContain('persistWorkspaceSidebarSetting("view", next)');
     expect(source).toContain("onListViewChange={handleSidebarListViewChange}");
     expect(source).toContain("sidebarListViewToApply(");
     expect(source).not.toMatch(/if \(isCancelledError\(error\)\) return;/);

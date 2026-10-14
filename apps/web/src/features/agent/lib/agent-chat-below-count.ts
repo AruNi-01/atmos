@@ -6,9 +6,7 @@ export type MessagesBelowCountStore = {
   set: (next: number) => void;
 };
 
-export function createMessagesBelowCountStore(
-  initial = 0,
-): MessagesBelowCountStore {
+export function createMessagesBelowCountStore(initial = 0): MessagesBelowCountStore {
   let count = Math.max(0, Math.floor(initial));
   const listeners = new Set<() => void>();
 

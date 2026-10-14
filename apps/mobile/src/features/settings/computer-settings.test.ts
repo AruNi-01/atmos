@@ -17,8 +17,10 @@ function computer(serverId: string, revoked: number): ComputerRow {
 
 describe("settings computers", () => {
   test("hides revoked computers from the settings list", () => {
-    expect(activeSettingsComputers([computer("active", 0), computer("revoked", 1)]).map((row) => row.server_id)).toEqual([
-      "active",
-    ]);
+    expect(
+      activeSettingsComputers([computer("active", 0), computer("revoked", 1)]).map(
+        (row) => row.server_id,
+      ),
+    ).toEqual(["active"]);
   });
 });

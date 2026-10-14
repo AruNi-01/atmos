@@ -41,13 +41,8 @@ export const WikiTab: React.FC<WikiTabProps> = ({
   onWikiPageChange,
   isWikiTabActive = false,
 }) => {
-  const {
-    wikiExists,
-    activePage,
-    checkWikiExists,
-    loadCatalog,
-    loadPage,
-  } = useWikiContext(contextId);
+  const { wikiExists, activePage, checkWikiExists, loadCatalog, loadPage } =
+    useWikiContext(contextId);
 
   useEffect(() => {
     if (!effectivePath) return;
@@ -77,7 +72,7 @@ export const WikiTab: React.FC<WikiTabProps> = ({
 
   if (wikiExists === null) {
     return (
-      <div className="flex flex-col gap-4 p-6 max-w-2xl mx-auto">
+      <div className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />

@@ -10,10 +10,7 @@ import { hasPtDesignCollabInvite } from "@/features/pt-design/collab-invite";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 
 const PtDesignGuestStage = dynamic(
-  () =>
-    import("@/features/pt-design/PtDesignGuestStage").then(
-      (mod) => mod.PtDesignGuestStage,
-    ),
+  () => import("@/features/pt-design/PtDesignGuestStage").then((mod) => mod.PtDesignGuestStage),
   { ssr: false },
 );
 
@@ -70,7 +67,7 @@ function DesktopStartupTransition({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-0 flex-1 animate-in flex-col fade-in slide-in-from-bottom-1 duration-200">
+      <div className="flex min-h-0 flex-1 animate-in flex-col duration-200 fade-in slide-in-from-bottom-1">
         {children}
       </div>
 
@@ -88,9 +85,7 @@ function DesktopStartupTransition({
   );
 }
 
-export function HostedBootstrapBoundary({
-  children,
-}: HostedBootstrapBoundaryProps) {
+export function HostedBootstrapBoundary({ children }: HostedBootstrapBoundaryProps) {
   const mounted = useSyncExternalStore(
     subscribeMounted,
     getClientMountedSnapshot,
@@ -98,9 +93,7 @@ export function HostedBootstrapBoundary({
   );
   const bootstrapState = useHostedConnectionStore((s) => s.bootstrapState);
   const hosted = mounted ? isHostedAtmosOrigin() : false;
-  const desktopStartupLoading = useDesktopStartupPrefetchLoading(
-    mounted && !hosted,
-  );
+  const desktopStartupLoading = useDesktopStartupPrefetchLoading(mounted && !hosted);
   const collabInviteOnLoad = useMemo(
     () => (mounted ? hasPtDesignCollabInvite() : false),
     [mounted],
@@ -124,7 +117,10 @@ export function HostedBootstrapBoundary({
   // (see Footer ticker comment: nested motion interrupts backgroundPosition shimmer).
   if (phase === "loading") {
     return (
-      <div key="hosted-shell-loading" className="flex min-h-0 flex-1 animate-in bg-background fade-in duration-200">
+      <div
+        key="hosted-shell-loading"
+        className="flex min-h-0 flex-1 animate-in bg-background duration-200 fade-in"
+      >
         <HostedLandingLoading />
       </div>
     );
@@ -135,7 +131,7 @@ export function HostedBootstrapBoundary({
       return (
         <div
           key="hosted-shell-pt-design-guest"
-          className="flex min-h-0 flex-1 animate-in flex-col bg-background fade-in duration-200"
+          className="flex min-h-0 flex-1 animate-in flex-col bg-background duration-200 fade-in"
         >
           <PtDesignGuestStage />
         </div>
@@ -144,7 +140,7 @@ export function HostedBootstrapBoundary({
     return (
       <div
         key="hosted-shell-onboarding"
-        className="flex min-h-0 flex-1 animate-in bg-background fade-in slide-in-from-bottom-2 duration-200"
+        className="flex min-h-0 flex-1 animate-in bg-background duration-200 fade-in slide-in-from-bottom-2"
       >
         <HostedWelcomeGate />
       </div>
@@ -152,7 +148,10 @@ export function HostedBootstrapBoundary({
   }
 
   return (
-    <div key="hosted-shell-ready" className="flex min-h-0 flex-1 animate-in flex-col fade-in slide-in-from-bottom-1 duration-200">
+    <div
+      key="hosted-shell-ready"
+      className="flex min-h-0 flex-1 animate-in flex-col duration-200 fade-in slide-in-from-bottom-1"
+    >
       {children}
     </div>
   );

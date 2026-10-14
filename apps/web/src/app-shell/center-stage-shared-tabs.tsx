@@ -128,7 +128,7 @@ export function CenterStageTabIconSlot({
         <CenterStageTabCloseButton
           label={hover.label}
           onClose={hover.onAction}
-          className="absolute inset-0 opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
+          className="pointer-events-none absolute inset-0 opacity-0 group-hover:pointer-events-auto group-hover:opacity-100"
         >
           {hover.icon}
         </CenterStageTabCloseButton>
@@ -211,8 +211,8 @@ export function CenterStageTabList({
         <MotionTabsList
           className={
             vertical
-              ? "flex h-full w-11 min-h-0 max-h-full flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"
-              : "flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0"
+              ? "flex h-full max-h-full min-h-0 w-11 flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"
+              : "flex h-8 max-w-full min-w-0 justify-start overflow-hidden bg-background py-0.5 pr-0 pl-0.5"
           }
           indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}
           trailing={afterTabs}
@@ -223,9 +223,7 @@ export function CenterStageTabList({
       {actions ? (
         <div
           className={
-            vertical
-              ? "mt-auto flex shrink-0 items-center"
-              : "ml-auto flex shrink-0 items-center"
+            vertical ? "mt-auto flex shrink-0 items-center" : "ml-auto flex shrink-0 items-center"
           }
         >
           {actions}
@@ -253,8 +251,8 @@ export function CenterStageScrollableTabs({
       ref={scrollableTabsRef}
       className={cn(
         vertical
-          ? "flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar"
-          : "flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar",
+          ? "no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto"
+          : "no-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto",
         className,
       )}
       {...rest}
@@ -333,13 +331,7 @@ export function CenterStageOverviewTab({
   );
 }
 
-export function CenterStageFileIcon({
-  className,
-  name,
-}: {
-  className?: string;
-  name: string;
-}) {
+export function CenterStageFileIcon({ className, name }: { className?: string; name: string }) {
   const iconProps = getFileIconProps({ name, isDir: false, className });
   // eslint-disable-next-line @next/next/no-img-element -- file icons are tiny decorative SVG/data assets from the UI package.
   return <img {...iconProps} alt="" />;
@@ -370,10 +362,7 @@ export function BrowserTabFavicon({
   return (
     <span className={cn("relative size-3.5 shrink-0", className)}>
       <Globe
-        className={cn(
-          "size-3.5 absolute inset-0 text-current/70",
-          resolvedFaviconUrl && "hidden",
-        )}
+        className={cn("absolute inset-0 size-3.5 text-current/70", resolvedFaviconUrl && "hidden")}
       />
       {resolvedFaviconUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- Dynamic external favicons are tiny and may not be configured for next/image domains.
@@ -381,7 +370,7 @@ export function BrowserTabFavicon({
           key={resolvedFaviconUrl}
           src={resolvedFaviconUrl}
           alt=""
-          className="size-3.5 absolute inset-0 rounded-[2px]"
+          className="absolute inset-0 size-3.5 rounded-[2px]"
           onError={(event) => {
             event.currentTarget.style.display = "none";
             event.currentTarget.previousElementSibling?.classList.remove("hidden");
@@ -506,11 +495,7 @@ function CenterStageTerminalTabGroupItemContent({
 
   const leadingIcon = toolbarAgent ? (
     toolbarAgent.iconType === "built-in" ? (
-      <AgentIcon
-        registryId={toolbarAgent.id}
-        name={toolbarAgent.label}
-        size={14}
-      />
+      <AgentIcon registryId={toolbarAgent.id} name={toolbarAgent.label} size={14} />
     ) : (
       <Bot className="size-3.5 shrink-0 text-muted-foreground" />
     )
@@ -608,7 +593,12 @@ export function CenterStageTabGroupItemContent({
     );
   }
 
-  if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "git-commit") {
+  if (
+    tab.kind === "github-pr" ||
+    tab.kind === "github-issue" ||
+    tab.kind === "github-action" ||
+    tab.kind === "git-commit"
+  ) {
     return (
       <>
         {leading(
@@ -630,12 +620,7 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "simulator") {
     return (
       <>
-        {leading(
-          <SimulatorTabIcon
-            className="size-3.5 shrink-0"
-            contextId={effectiveContextId}
-          />,
-        )}
+        {leading(<SimulatorTabIcon className="size-3.5 shrink-0" contextId={effectiveContextId} />)}
         {label(tab.label)}
       </>
     );
@@ -813,10 +798,15 @@ export function CenterStageOpenFileTab({
       tooltip={
         <>
           {displayPath}
-          {isReviewDiff && sessionDisplay && (sessionDisplay.sessionTitle || sessionDisplay.revisionLabel) ? (
+          {isReviewDiff &&
+          sessionDisplay &&
+          (sessionDisplay.sessionTitle || sessionDisplay.revisionLabel) ? (
             <span className="text-background/70">
               {" "}
-              / {[sessionDisplay.sessionTitle, sessionDisplay.revisionLabel].filter(Boolean).join(" - ")}
+              /{" "}
+              {[sessionDisplay.sessionTitle, sessionDisplay.revisionLabel]
+                .filter(Boolean)
+                .join(" - ")}
             </span>
           ) : null}
         </>

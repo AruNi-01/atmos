@@ -1,18 +1,16 @@
-'use client';
+"use client";
 
-import React, { lazy, Suspense, useState, useSyncExternalStore } from 'react';
-import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
+import React, { lazy, Suspense, useState, useSyncExternalStore } from "react";
+import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 
-const OnboardingPage = lazy(
-  () => import('@/features/welcome/components/OnboardingPage'),
-);
+const OnboardingPage = lazy(() => import("@/features/welcome/components/OnboardingPage"));
 
 interface OnboardingGateProps {
   children: React.ReactNode;
 }
 
-const ONBOARDING_DONE_KEY = 'atmos_onboarding_done';
-const ONBOARDING_DONE_EVENT = 'atmos:onboarding-done';
+const ONBOARDING_DONE_KEY = "atmos_onboarding_done";
+const ONBOARDING_DONE_EVENT = "atmos:onboarding-done";
 
 const subscribeMounted = () => () => {};
 const getClientMountedSnapshot = () => true;
@@ -20,7 +18,7 @@ const getServerMountedSnapshot = () => false;
 
 function readOnboardingDone(): boolean {
   try {
-    return localStorage.getItem(ONBOARDING_DONE_KEY) === 'true';
+    return localStorage.getItem(ONBOARDING_DONE_KEY) === "true";
   } catch {
     return false;
   }
@@ -28,7 +26,7 @@ function readOnboardingDone(): boolean {
 
 function writeOnboardingDone(): void {
   try {
-    localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
+    localStorage.setItem(ONBOARDING_DONE_KEY, "true");
   } catch {
     /* private browsing / storage disabled */
   }

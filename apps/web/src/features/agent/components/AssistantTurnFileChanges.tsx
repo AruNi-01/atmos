@@ -16,10 +16,17 @@ import {
   collectTurnFileChanges,
   type TurnFileChange,
 } from "@/features/agent/lib/tool-results/turn-file-changes";
-import { displayAgentChatFilePath, resolveAgentChatOpenableFile } from "@/features/agent/lib/agent-chat-file-links";
+import {
+  displayAgentChatFilePath,
+  resolveAgentChatOpenableFile,
+} from "@/features/agent/lib/agent-chat-file-links";
 import { useOpenAgentChatWorkspacePath } from "@/features/agent/hooks/use-open-agent-chat-path";
 import { useAgentChatCwd, useAgentChatPathRoots } from "./agent-chat-cwd-context";
-import { AgentToolFileChangeStats, AgentToolFileGlyph, fileNameFromPath } from "./tool-results/AgentToolCard";
+import {
+  AgentToolFileChangeStats,
+  AgentToolFileGlyph,
+  fileNameFromPath,
+} from "./tool-results/AgentToolCard";
 
 const PREVIEW_COUNT = 3;
 const ROW_CLASS_NAME = "flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm";
@@ -39,9 +46,7 @@ function FileChangeRow({
   const body = (
     <>
       <AgentToolFileGlyph path={change.path} className="size-4" />
-      <span className="min-w-0 flex-1 truncate text-foreground">
-        {name}
-      </span>
+      <span className="min-w-0 flex-1 truncate text-foreground">{name}</span>
       <AgentToolFileChangeStats additions={change.additions} deletions={change.deletions} />
     </>
   );
@@ -54,15 +59,13 @@ function FileChangeRow({
       {body}
     </button>
   ) : (
-    <div className={ROW_CLASS_NAME}>
-      {body}
-    </div>
+    <div className={ROW_CLASS_NAME}>{body}</div>
   );
   return (
     <li>
       <Tooltip>
         <TooltipTrigger asChild>{row}</TooltipTrigger>
-        <TooltipContent side="top" className="z-50 max-w-sm break-all font-mono text-xs">
+        <TooltipContent side="top" className="z-50 max-w-sm font-mono text-xs break-all">
           {tooltip}
         </TooltipContent>
       </Tooltip>
@@ -82,10 +85,7 @@ export function AssistantTurnFileChanges({
   const roots = useAgentChatPathRoots();
   const openWorkspacePath = useOpenAgentChatWorkspacePath();
   const [expanded, setExpanded] = useState(false);
-  const changes = useMemo(
-    () => collectTurnFileChanges(parts, { includeRanges: false }),
-    [parts],
-  );
+  const changes = useMemo(() => collectTurnFileChanges(parts, { includeRanges: false }), [parts]);
 
   if (!visible || changes.length === 0) return null;
 
@@ -111,24 +111,14 @@ export function AssistantTurnFileChanges({
   return (
     <div className="mt-3 w-full min-w-0 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
       <div className="flex items-center justify-between gap-2 pb-1">
-        <p className="text-sm text-muted-foreground">
-          {t("changed", { count: changes.length })}
-        </p>
+        <p className="text-sm text-muted-foreground">{t("changed", { count: changes.length })}</p>
       </div>
       {hidden > 0 ? (
         <Collapsible open={expanded} onOpenChange={setExpanded}>
-          <ScrollArea
-            className="h-auto max-h-44"
-            scrollFade
-            viewportClassName="h-auto max-h-44"
-          >
-            <ul className="flex flex-col">
-              {preview.map(renderChange)}
-            </ul>
+          <ScrollArea className="h-auto max-h-44" scrollFade viewportClassName="h-auto max-h-44">
+            <ul className="flex flex-col">{preview.map(renderChange)}</ul>
             <CollapsibleContent className="motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none">
-              <ul className="flex flex-col">
-                {extra.map(renderChange)}
-              </ul>
+              <ul className="flex flex-col">{extra.map(renderChange)}</ul>
             </CollapsibleContent>
           </ScrollArea>
           <CollapsibleTrigger className="mt-0.5 py-1 text-left text-sm text-muted-foreground hover:text-foreground">
@@ -136,9 +126,7 @@ export function AssistantTurnFileChanges({
           </CollapsibleTrigger>
         </Collapsible>
       ) : (
-        <ul className="flex flex-col">
-          {preview.map(renderChange)}
-        </ul>
+        <ul className="flex flex-col">{preview.map(renderChange)}</ul>
       )}
     </div>
   );

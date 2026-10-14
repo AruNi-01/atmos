@@ -140,10 +140,7 @@ export function applyPaneTabGroupOrders(
     if (group.key === "terminal") {
       return applyTerminalGroupOrder(group, contextOrder, paneId);
     }
-    return applySavedTabGroupOrder(
-      group,
-      readPaneTabGroupOrder(contextOrder, paneId, group.key),
-    );
+    return applySavedTabGroupOrder(group, readPaneTabGroupOrder(contextOrder, paneId, group.key));
   });
 }
 
@@ -358,7 +355,10 @@ export function useCenterStageTabGroups({
       });
     }
     openFiles
-      .filter((file) => file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) || isReviewGroupEditorPath(file.path))
+      .filter(
+        (file) =>
+          file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) || isReviewGroupEditorPath(file.path),
+      )
       .forEach((file) => {
         reviewTabs.push({
           id: file.path,
@@ -369,10 +369,9 @@ export function useCenterStageTabGroups({
         });
       });
     if (reviewTabs.length > 0) {
-      reviewTabs.sort((a, b) => byOpenedAt(
-        { openedAt: a.file!.lastOpenedAt },
-        { openedAt: b.file!.lastOpenedAt },
-      ));
+      reviewTabs.sort((a, b) =>
+        byOpenedAt({ openedAt: a.file!.lastOpenedAt }, { openedAt: b.file!.lastOpenedAt }),
+      );
       groups.push({ key: "review", label: t("groups.review"), tabs: reviewTabs });
     }
 
@@ -390,10 +389,9 @@ export function useCenterStageTabGroups({
         });
       });
     if (conflictTabs.length > 0) {
-      conflictTabs.sort((a, b) => byOpenedAt(
-        { openedAt: a.file!.lastOpenedAt },
-        { openedAt: b.file!.lastOpenedAt },
-      ));
+      conflictTabs.sort((a, b) =>
+        byOpenedAt({ openedAt: a.file!.lastOpenedAt }, { openedAt: b.file!.lastOpenedAt }),
+      );
       groups.push({ key: "conflict", label: t("groups.conflict"), tabs: conflictTabs });
     }
 
@@ -417,10 +415,7 @@ export function useCenterStageTabGroups({
       githubGroupTabs.sort((left, right) => {
         if (left.kind === "github") return -1;
         if (right.kind === "github") return 1;
-        return byOpenedAt(
-          { openedAt: left.openedAt ?? 0 },
-          { openedAt: right.openedAt ?? 0 },
-        );
+        return byOpenedAt({ openedAt: left.openedAt ?? 0 }, { openedAt: right.openedAt ?? 0 });
       });
       groups.push({ key: "github", label: t("groups.github"), tabs: githubGroupTabs });
     }
@@ -440,10 +435,7 @@ export function useCenterStageTabGroups({
       });
     }
 
-    const simulatorGroupTabs = collectSimulatorGroupTabs(
-      simulatorTabVisible,
-      tabBarT("simulator"),
-    );
+    const simulatorGroupTabs = collectSimulatorGroupTabs(simulatorTabVisible, tabBarT("simulator"));
     if (simulatorGroupTabs.length > 0) {
       groups.push({
         key: "simulator",
@@ -506,9 +498,7 @@ export function useCenterStageTabGroups({
     terminalTabs,
   ]);
 
-  const contextOrder = effectiveContextId
-    ? tabGroupOrderByContext[effectiveContextId]
-    : undefined;
+  const contextOrder = effectiveContextId ? tabGroupOrderByContext[effectiveContextId] : undefined;
 
   const orderGroupsForPane = React.useCallback(
     (groups: readonly GroupedTabColumn[], paneId?: string) =>
@@ -521,47 +511,46 @@ export function useCenterStageTabGroups({
     [groupedTabItems, orderGroupsForPane],
   );
 
-  const handleTabGroupDragEnd = React.useCallback((
-    event: DragEndEvent,
-    paneId?: string,
-    paneGroups?: readonly GroupedTabColumn[],
-  ) => {
-    if (!effectiveContextId || !event.over || event.active.id === event.over.id) return;
+  const handleTabGroupDragEnd = React.useCallback(
+    (event: DragEndEvent, paneId?: string, paneGroups?: readonly GroupedTabColumn[]) => {
+      if (!effectiveContextId || !event.over || event.active.id === event.over.id) return;
 
-    const activeGroupKey = event.active.data.current?.groupKey;
-    const overGroupKey = event.over.data.current?.groupKey;
-    if (typeof activeGroupKey !== "string" || activeGroupKey !== overGroupKey) return;
+      const activeGroupKey = event.active.data.current?.groupKey;
+      const overGroupKey = event.over.data.current?.groupKey;
+      if (typeof activeGroupKey !== "string" || activeGroupKey !== overGroupKey) return;
 
-    // Cross-section drops share a column but use different groupKeys
-    // (`browser-instance:<id>` / `terminal-section:<id>`). Same-key check above
-    // already rejects those.
-    const { columnKey, sectionFilter } = resolveSectionedColumnKey(activeGroupKey);
-    const groups = paneGroups ?? orderGroupsForPane(groupedTabItems, paneId);
-    const group = groups.find((item) => item.key === columnKey);
-    if (!group) return;
+      // Cross-section drops share a column but use different groupKeys
+      // (`browser-instance:<id>` / `terminal-section:<id>`). Same-key check above
+      // already rejects those.
+      const { columnKey, sectionFilter } = resolveSectionedColumnKey(activeGroupKey);
+      const groups = paneGroups ?? orderGroupsForPane(groupedTabItems, paneId);
+      const group = groups.find((item) => item.key === columnKey);
+      if (!group) return;
 
-    const ids = sectionFilter
-      ? group.tabs.filter(sectionFilter).map((tab) => tab.id)
-      : group.tabs.map((tab) => tab.id);
+      const ids = sectionFilter
+        ? group.tabs.filter(sectionFilter).map((tab) => tab.id)
+        : group.tabs.map((tab) => tab.id);
 
-    const oldIndex = ids.indexOf(String(event.active.id));
-    const newIndex = ids.indexOf(String(event.over.id));
-    if (oldIndex === -1 || newIndex === -1) return;
+      const oldIndex = ids.indexOf(String(event.active.id));
+      const newIndex = ids.indexOf(String(event.over.id));
+      if (oldIndex === -1 || newIndex === -1) return;
 
-    const nextOrder = arrayMove(ids, oldIndex, newIndex);
-    const orderKey = paneScopedTabGroupKey(paneId, activeGroupKey);
-    setTabGroupOrderByContext((current) => {
-      const next: TabGroupOrderByContext = {
-        ...current,
-        [effectiveContextId]: {
-          ...(current[effectiveContextId] ?? {}),
-          [orderKey]: nextOrder,
-        },
-      };
-      writeCenterStageTabGroupOrder(next);
-      return next;
-    });
-  }, [effectiveContextId, groupedTabItems, orderGroupsForPane]);
+      const nextOrder = arrayMove(ids, oldIndex, newIndex);
+      const orderKey = paneScopedTabGroupKey(paneId, activeGroupKey);
+      setTabGroupOrderByContext((current) => {
+        const next: TabGroupOrderByContext = {
+          ...current,
+          [effectiveContextId]: {
+            ...(current[effectiveContextId] ?? {}),
+            [orderKey]: nextOrder,
+          },
+        };
+        writeCenterStageTabGroupOrder(next);
+        return next;
+      });
+    },
+    [effectiveContextId, groupedTabItems, orderGroupsForPane],
+  );
 
   return {
     groupedTabItems,

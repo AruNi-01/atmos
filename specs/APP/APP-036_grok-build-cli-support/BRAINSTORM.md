@@ -6,12 +6,12 @@
 
 xAI **Grok Build** ships a local CLI with dual entrypoints that collide with Cursor’s historical short name:
 
-| Entry | Typical resolve | Product |
-|-------|-----------------|---------|
-| `grok` | `~/.grok/bin/grok` → Grok binary | Grok Build |
-| `agent` (Grok alias) | same Grok binary | Grok Build |
-| `cursor-agent` | Cursor install path | Cursor Agent |
-| historical bare `agent` | PATH-dependent | **contested** |
+| Entry                   | Typical resolve                  | Product       |
+| ----------------------- | -------------------------------- | ------------- |
+| `grok`                  | `~/.grok/bin/grok` → Grok binary | Grok Build    |
+| `agent` (Grok alias)    | same Grok binary                 | Grok Build    |
+| `cursor-agent`          | Cursor install path              | Cursor Agent  |
+| historical bare `agent` | PATH-dependent                   | **contested** |
 
 Atmos today encodes Cursor as:
 
@@ -30,15 +30,15 @@ So bare `agent` **behaves** as “always Cursor”, even though it is not a hard
 
 ## Decisions (locked)
 
-| # | Decision | Status |
-|---|----------|--------|
-| 1 | **Full surface support** for Grok Build (Agent Select + run config / model list + automation headless + agent hooks status) | locked |
-| 2 | Atmos built-in Cursor launch command → **`cursor-agent`** | locked |
-| 3 | Freehand bare `agent` identity follows **real CLI on PATH**, never hard-code Cursor/Grok | locked |
-| 4 | Display label → **`Grok Build`** | locked |
-| 5 | Stable built-in id → **`grok-build`** | locked |
-| 6 | Automation headless uses **`--output-format streaming-json`** + **new `grok_streaming_json` parser** (do **not** reuse Cursor/Claude parsers) | locked |
-| 7 | M1 includes **agent hooks status** for Grok Build (install/check/uninstall + state notifications) | locked |
+| #   | Decision                                                                                                                                      | Status |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | **Full surface support** for Grok Build (Agent Select + run config / model list + automation headless + agent hooks status)                   | locked |
+| 2   | Atmos built-in Cursor launch command → **`cursor-agent`**                                                                                     | locked |
+| 3   | Freehand bare `agent` identity follows **real CLI on PATH**, never hard-code Cursor/Grok                                                      | locked |
+| 4   | Display label → **`Grok Build`**                                                                                                              | locked |
+| 5   | Stable built-in id → **`grok-build`**                                                                                                         | locked |
+| 6   | Automation headless uses **`--output-format streaming-json`** + **new `grok_streaming_json` parser** (do **not** reuse Cursor/Claude parsers) | locked |
+| 7   | M1 includes **agent hooks status** for Grok Build (install/check/uninstall + state notifications)                                             | locked |
 
 ## Goals (draft)
 
@@ -54,14 +54,14 @@ Probed against local install: **grok 0.2.101** (`grok version`, `grok version --
 
 ### Interactive (Agent Select / terminal TUI)
 
-| Need | Grok support | Notes |
-|------|--------------|-------|
-| Unique launch cmd | **Yes** — `grok` | Canonical built-in `cmd`. |
-| Alias binary | **Yes** — `agent` → same binary as `grok` | Contested with historical Cursor short name. |
-| Auto-approve tools | **Yes** — `--always-approve` | Also `--permission-mode`. |
-| Model select | **Yes** — `-m` / `--model <MODEL>` | |
-| Reasoning effort | **Yes** — `--reasoning-effort` / `--effort` | |
-| Initial prompt | **Yes** — positional `[PROMPT]` | |
+| Need               | Grok support                                | Notes                                        |
+| ------------------ | ------------------------------------------- | -------------------------------------------- |
+| Unique launch cmd  | **Yes** — `grok`                            | Canonical built-in `cmd`.                    |
+| Alias binary       | **Yes** — `agent` → same binary as `grok`   | Contested with historical Cursor short name. |
+| Auto-approve tools | **Yes** — `--always-approve`                | Also `--permission-mode`.                    |
+| Model select       | **Yes** — `-m` / `--model <MODEL>`          |                                              |
+| Reasoning effort   | **Yes** — `--reasoning-effort` / `--effort` |                                              |
+| Initial prompt     | **Yes** — positional `[PROMPT]`             |                                              |
 
 **Draft interactive built-in:**
 
@@ -74,8 +74,8 @@ Probed against local install: **grok 0.2.101** (`grok version`, `grok version --
 
 ### Model catalog
 
-| Need | Support | Notes |
-|------|---------|-------|
+| Need        | Support                 | Notes                                                                                              |
+| ----------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
 | List models | **Yes** — `grok models` | Human text; dedicated `grok_line_list` parser drops login/default preamble and strips `(default)`. |
 
 ```json
@@ -88,11 +88,11 @@ Probed against local install: **grok 0.2.101** (`grok version`, `grok version --
 
 ### Headless / automation (locked: streaming-json)
 
-| Need | Support | Notes |
-|------|---------|-------|
-| Single-turn headless | **Yes** — `-p` / `--single <PROMPT>` | Live probe succeeded. |
-| Streaming NDJSON | **Yes** — `--output-format streaming-json` | Sample below. |
-| Auto-approve | **Yes** — `--always-approve` | Needed for unattended runs. |
+| Need                 | Support                                    | Notes                       |
+| -------------------- | ------------------------------------------ | --------------------------- |
+| Single-turn headless | **Yes** — `-p` / `--single <PROMPT>`       | Live probe succeeded.       |
+| Streaming NDJSON     | **Yes** — `--output-format streaming-json` | Sample below.               |
+| Auto-approve         | **Yes** — `--always-approve`               | Needed for unattended runs. |
 
 **Live `streaming-json` sample:**
 
@@ -120,20 +120,20 @@ Also verified:
 
 **Parser requirements (`grok_streaming_json`)** — new enum variant in automation output rendering:
 
-| Event `type` | Atmos handling |
-|--------------|----------------|
-| `thought` | Stream as thinking / reasoning channel if product surfaces it; otherwise buffer or drop per existing automation UX for other agents |
-| `text` | Accumulate / emit assistant text deltas (`data` field) |
-| `end` | Finalize turn; capture `stopReason`, optional usage metadata |
-| unknown types | Fail-open: ignore with debug log |
+| Event `type`  | Atmos handling                                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `thought`     | Stream as thinking / reasoning channel if product surfaces it; otherwise buffer or drop per existing automation UX for other agents |
+| `text`        | Accumulate / emit assistant text deltas (`data` field)                                                                              |
+| `end`         | Finalize turn; capture `stopReason`, optional usage metadata                                                                        |
+| unknown types | Fail-open: ignore with debug log                                                                                                    |
 
 Must **not** route through `cursor_stream_json` / Claude-like event shapes.
 
 ### Cursor changes (locked)
 
-| Field | Today | Target |
-|-------|-------|--------|
-| `cmd` | `agent` | **`cursor-agent`** |
+| Field               | Today                        | Target                                                       |
+| ------------------- | ---------------------------- | ------------------------------------------------------------ |
+| `cmd`               | `agent`                      | **`cursor-agent`**                                           |
 | `modelList.command` | `["agent", "--list-models"]` | `["cursor-agent", "--list-models"]` (or `models` subcommand) |
 
 ### Contested freehand `agent` → real CLI identity (locked)
@@ -148,11 +148,11 @@ For exact first token `agent`:
 
 Probe signals observed:
 
-| Signal | Grok | Cursor |
-|--------|------|--------|
-| Realpath | `/.grok/` | `cursor-agent/versions/` |
-| `--version` | `grok 0.2.101…` | date-hash version |
-| `--help` | `Grok Build TUI` | `Start the Cursor Agent` |
+| Signal      | Grok             | Cursor                   |
+| ----------- | ---------------- | ------------------------ |
+| Realpath    | `/.grok/`        | `cursor-agent/versions/` |
+| `--version` | `grok 0.2.101…`  | date-hash version        |
+| `--help`    | `Grok Build TUI` | `Start the Cursor Agent` |
 
 Also fix match algorithm: exact token + longer-first; kill dangerous `includes("agent")`.
 
@@ -172,13 +172,13 @@ Hooks can:
 
 ### Discovery locations
 
-| Scope | Path | Trust |
-|-------|------|-------|
-| Global (native) | `~/.grok/hooks/*.json` | Always trusted |
-| Project | `<repo>/.grok/hooks/*.json` | Requires folder trust |
-| Plugin | plugin-bundled `hooks/hooks.json` | Per-plugin trust |
-| Compat Claude | `~/.claude/settings.json` (+ local) | Always global / project trust |
-| Compat Cursor | `~/.cursor/hooks.json` | Always global / project trust |
+| Scope           | Path                                | Trust                         |
+| --------------- | ----------------------------------- | ----------------------------- |
+| Global (native) | `~/.grok/hooks/*.json`              | Always trusted                |
+| Project         | `<repo>/.grok/hooks/*.json`         | Requires folder trust         |
+| Plugin          | plugin-bundled `hooks/hooks.json`   | Per-plugin trust              |
+| Compat Claude   | `~/.claude/settings.json` (+ local) | Always global / project trust |
+| Compat Cursor   | `~/.cursor/hooks.json`              | Always global / project trust |
 
 Compat scanning defaults **on** (`[compat.claude] hooks = true`, `[compat.cursor] hooks = true` in `~/.grok/config.toml`).
 
@@ -188,20 +188,20 @@ Do **not** rely only on Claude/Cursor compat hooks for Grok identity — those w
 
 ### Documented lifecycle events
 
-| Grok event | When | Blocking? |
-|------------|------|-----------|
-| `SessionStart` | Session starts | No |
-| `UserPromptSubmit` | User submits a prompt | No |
-| `PreToolUse` | Tool about to run | **Yes** — can deny |
-| `PostToolUse` | Tool succeeds | No |
-| `PostToolUseFailure` | Tool fails | No |
-| `PermissionDenied` | Permission system denies a tool | No |
-| `Stop` | Agent turn ends (complete / cancel / error) | No |
-| `StopFailure` | Turn ends due to API error | No |
-| `Notification` | Agent sends a notification | No (matcher on notification type) |
-| `SubagentStart` / `SubagentStop` (`SubagentEnd` alias) | Subagent lifecycle | No |
-| `PreCompact` / `PostCompact` | Context compaction | No |
-| `SessionEnd` | Session ends | No |
+| Grok event                                             | When                                        | Blocking?                         |
+| ------------------------------------------------------ | ------------------------------------------- | --------------------------------- |
+| `SessionStart`                                         | Session starts                              | No                                |
+| `UserPromptSubmit`                                     | User submits a prompt                       | No                                |
+| `PreToolUse`                                           | Tool about to run                           | **Yes** — can deny                |
+| `PostToolUse`                                          | Tool succeeds                               | No                                |
+| `PostToolUseFailure`                                   | Tool fails                                  | No                                |
+| `PermissionDenied`                                     | Permission system denies a tool             | No                                |
+| `Stop`                                                 | Agent turn ends (complete / cancel / error) | No                                |
+| `StopFailure`                                          | Turn ends due to API error                  | No                                |
+| `Notification`                                         | Agent sends a notification                  | No (matcher on notification type) |
+| `SubagentStart` / `SubagentStop` (`SubagentEnd` alias) | Subagent lifecycle                          | No                                |
+| `PreCompact` / `PostCompact`                           | Context compaction                          | No                                |
+| `SessionEnd`                                           | Session ends                                | No                                |
 
 Cursor camelCase aliases are accepted (`sessionStart` → `SessionStart`, etc.).
 
@@ -211,14 +211,14 @@ Cursor camelCase aliases are accepted (`sessionStart` → `SessionStart`, etc.).
 
 Envelope (`HookEventEnvelope`, camelCase JSON on stdin):
 
-| Field | Notes |
-|-------|-------|
-| `hookEventName` | Wire: **snake_case** (`notification`, `pre_tool_use`, …) via `#[serde(rename_all = "snake_case")]` on `HookEventName` |
-| `sessionId` | Session id |
-| `cwd` / `workspaceRoot` | Paths |
-| `timestamp` | ISO string |
-| optional | `transcriptPath`, `clientIdentifier`, `promptId` |
-| + flattened payload | event-specific fields |
+| Field                   | Notes                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `hookEventName`         | Wire: **snake_case** (`notification`, `pre_tool_use`, …) via `#[serde(rename_all = "snake_case")]` on `HookEventName` |
+| `sessionId`             | Session id                                                                                                            |
+| `cwd` / `workspaceRoot` | Paths                                                                                                                 |
+| `timestamp`             | ISO string                                                                                                            |
+| optional                | `transcriptPath`, `clientIdentifier`, `promptId`                                                                      |
+| + flattened payload     | event-specific fields                                                                                                 |
 
 `Notification` payload variant (`HookPayload::Notification`):
 
@@ -246,23 +246,23 @@ Source of truth: [xai-org/grok-build](https://github.com/xai-org/grok-build) (Ap
 
 These are the **lifecycle `Notification` hook** types Grok actually dispatches via `dispatch_notification_hook` / extension sinks. They are **not** the same vocabulary as UI `[ui.notifications] events`.
 
-| `notificationType` | When it fires | Source paths |
-|--------------------|---------------|--------------|
-| **`permission_prompt`** | Tool permission requested (skipped in always-approve / yolo); plan approval (`exit_plan_mode`); diff review requested | `tool_calls.rs`, `hook_dispatch.rs` (`DiffReview`) |
-| **`elicitation_dialog`** | Ask-user / user-question reverse request | `spawn.rs` |
-| **`agent_error`** | Auto-recovery exhausted; retry exhausted / failed | `hook_dispatch.rs` (`AutoRecoveryExhausted`, `RetryState::{Exhausted,Failed}`) |
-| **`task_complete`** | Background bash / monitor task completed | `notification_bridge.rs` |
-| **`idle_prompt`** | Session stayed idle ~60s after a **completed** turn (message `"Turn complete"`) | `extensions/idle_prompt.rs` |
+| `notificationType`       | When it fires                                                                                                         | Source paths                                                                   |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **`permission_prompt`**  | Tool permission requested (skipped in always-approve / yolo); plan approval (`exit_plan_mode`); diff review requested | `tool_calls.rs`, `hook_dispatch.rs` (`DiffReview`)                             |
+| **`elicitation_dialog`** | Ask-user / user-question reverse request                                                                              | `spawn.rs`                                                                     |
+| **`agent_error`**        | Auto-recovery exhausted; retry exhausted / failed                                                                     | `hook_dispatch.rs` (`AutoRecoveryExhausted`, `RetryState::{Exhausted,Failed}`) |
+| **`task_complete`**      | Background bash / monitor task completed                                                                              | `notification_bridge.rs`                                                       |
+| **`idle_prompt`**        | Session stayed idle ~60s after a **completed** turn (message `"Turn complete"`)                                       | `extensions/idle_prompt.rs`                                                    |
 
 **Do not confuse with UI notification config** (`[ui.notifications] events` in `05-configuration.md` / pager):
 
-| UI event id | Role |
-|-------------|------|
-| `turn_complete` | Terminal OS notification only |
-| `approval_required` | Terminal OS notification only |
-| `session_ready` | Terminal OS notification only |
-| `task_complete` | Overlaps name with hook type; UI config, not the hook rail |
-| `agent_error` | Overlaps name with hook type; UI config |
+| UI event id         | Role                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| `turn_complete`     | Terminal OS notification only                              |
+| `approval_required` | Terminal OS notification only                              |
+| `session_ready`     | Terminal OS notification only                              |
+| `task_complete`     | Overlaps name with hook type; UI config, not the hook rail |
+| `agent_error`       | Overlaps name with hook type; UI config                    |
 
 Atmos hooks must match **`notificationType` on the lifecycle hook**, especially **`permission_prompt`** (not `approval_required`).
 
@@ -288,22 +288,22 @@ Matcher on `Notification` hooks tests **notification type** (docs + `dispatcher.
 
 Primary mapping for **status notification** (not policy-blocking):
 
-| Grok hook event | Atmos state | Rationale |
-|-----------------|-------------|-----------|
-| `SessionStart` | **Idle** | Session open, no active turn. |
-| `UserPromptSubmit` | **Running** | User kicked off work. |
-| `PreToolUse` | **Running** | Mid-turn tool activity. |
-| `PostToolUse` | **Running** | Still mid-turn after a tool. |
-| `PostToolUseFailure` | **Running** | Failure of one tool ≠ turn idle. |
-| `Notification` + `notificationType == "permission_prompt"` | **PermissionRequest** | Tool / plan / diff approval waiting (Claude equivalent). |
-| `Notification` + `notificationType == "elicitation_dialog"` | **PermissionRequest** | Waiting on user question (same “blocked on human” UX). |
+| Grok hook event                                                  | Atmos state            | Rationale                                                                                    |
+| ---------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------- |
+| `SessionStart`                                                   | **Idle**               | Session open, no active turn.                                                                |
+| `UserPromptSubmit`                                               | **Running**            | User kicked off work.                                                                        |
+| `PreToolUse`                                                     | **Running**            | Mid-turn tool activity.                                                                      |
+| `PostToolUse`                                                    | **Running**            | Still mid-turn after a tool.                                                                 |
+| `PostToolUseFailure`                                             | **Running**            | Failure of one tool ≠ turn idle.                                                             |
+| `Notification` + `notificationType == "permission_prompt"`       | **PermissionRequest**  | Tool / plan / diff approval waiting (Claude equivalent).                                     |
+| `Notification` + `notificationType == "elicitation_dialog"`      | **PermissionRequest**  | Waiting on user question (same “blocked on human” UX).                                       |
 | `Notification` + `agent_error` / `task_complete` / `idle_prompt` | **ignore** (no change) | Not “running agent turn”; `idle_prompt` is post-idle ping (message even says turn complete). |
-| `PermissionDenied` | **ignore** | Already denied; not waiting on user. |
-| `Stop` | **Idle** | Turn finished. |
-| `StopFailure` | **Idle** | Turn finished via API error. |
-| `SessionEnd` | **Idle** | Session closed. |
-| `SubagentStart` / `SubagentStop` | **ignore** | Parent owns status. |
-| `PreCompact` / `PostCompact` | **ignore** | Internal maintenance. |
+| `PermissionDenied`                                               | **ignore**             | Already denied; not waiting on user.                                                         |
+| `Stop`                                                           | **Idle**               | Turn finished.                                                                               |
+| `StopFailure`                                                    | **Idle**               | Turn finished via API error.                                                                 |
+| `SessionEnd`                                                     | **Idle**               | Session closed.                                                                              |
+| `SubagentStart` / `SubagentStop`                                 | **ignore**             | Parent owns status.                                                                          |
+| `PreCompact` / `PostCompact`                                     | **ignore**             | Internal maintenance.                                                                        |
 
 Optional matcher install for Notification: `permission_prompt|elicitation_dialog` if we want fewer hook invocations; service still filters.
 
@@ -362,11 +362,11 @@ If Grok also loads Atmos hooks from `~/.claude/settings.json` or `~/.cursor/hook
 
 ### PermissionRequest — resolved
 
-| Agent | Permission waiting signal |
-|-------|---------------------------|
-| Claude Code | `PermissionRequest` event + `Notification(permission_prompt)` |
-| Cursor | no dedicated permission state in Atmos handler today (only Running/Idle) |
-| Grok Build | **no** `PermissionRequest` event; use **`Notification.notificationType = "permission_prompt"`** (+ **`elicitation_dialog`** for ask-user) |
+| Agent       | Permission waiting signal                                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `PermissionRequest` event + `Notification(permission_prompt)`                                                                             |
+| Cursor      | no dedicated permission state in Atmos handler today (only Running/Idle)                                                                  |
+| Grok Build  | **no** `PermissionRequest` event; use **`Notification.notificationType = "permission_prompt"`** (+ **`elicitation_dialog`** for ask-user) |
 
 Open-source confirmation closes the previous “capture a fixture first” gap for type strings. Live E2E still recommended at implement time, but types are no longer unknown.
 
@@ -413,17 +413,17 @@ If Notification types prove unstable.
 
 ## Worked scenarios
 
-| User action | Desired outcome |
-|-------------|-----------------|
-| Agent Select → Cursor | `cursor-agent …`, Cursor Agent title |
-| Agent Select → Grok Build | `grok …`, Grok Build title |
-| Freehand `agent` → Grok binary | Grok Build |
-| Freehand `agent` → Cursor binary | Cursor Agent |
-| Freehand `agent` unknown | raw `agent` |
-| Automation run Grok | streaming-json parsed via `grok_streaming_json` |
-| Grok turn starts / tools run | hooks → **Running** |
-| Grok waits for approval | hooks Notification → **PermissionRequest** (if type known) |
-| Grok turn ends | hooks Stop → **Idle** |
+| User action                      | Desired outcome                                            |
+| -------------------------------- | ---------------------------------------------------------- |
+| Agent Select → Cursor            | `cursor-agent …`, Cursor Agent title                       |
+| Agent Select → Grok Build        | `grok …`, Grok Build title                                 |
+| Freehand `agent` → Grok binary   | Grok Build                                                 |
+| Freehand `agent` → Cursor binary | Cursor Agent                                               |
+| Freehand `agent` unknown         | raw `agent`                                                |
+| Automation run Grok              | streaming-json parsed via `grok_streaming_json`            |
+| Grok turn starts / tools run     | hooks → **Running**                                        |
+| Grok waits for approval          | hooks Notification → **PermissionRequest** (if type known) |
+| Grok turn ends                   | hooks Stop → **Idle**                                      |
 
 ## References
 

@@ -41,29 +41,29 @@ sequenceDiagram
 
 ## Layer mapping
 
-| PRD | Layer | Change |
-|-----|-------|--------|
-| M1 | `apps/web` | Management Center item, route `/disk-analyzer`, `CurrentView`, center-stage render |
-| M2–M4, M11 | `core-engine` + `core-service` + `apps/api` WS | Scanner, owned scan session, unicast progress, tree DTO |
-| M5–M9, M12 | `apps/web` | Feature UI, ECharts, i18n |
-| M8 | `core-service` | Mark nodes whose path equals known project + workspace roots |
-| M10 | `core-engine` + service + web | Trash crate / permanent delete + confirm dialog; delete requires `scan_id` and stays under session root |
-| N1 | `core-engine` + web | Volume free/total via `fs4` |
-| N2 | engine (pre-prune) + web | Suggestion list from unpruned tree |
+| PRD        | Layer                                          | Change                                                                                                  |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| M1         | `apps/web`                                     | Management Center item, route `/disk-analyzer`, `CurrentView`, center-stage render                      |
+| M2–M4, M11 | `core-engine` + `core-service` + `apps/api` WS | Scanner, owned scan session, unicast progress, tree DTO                                                 |
+| M5–M9, M12 | `apps/web`                                     | Feature UI, ECharts, i18n                                                                               |
+| M8         | `core-service`                                 | Mark nodes whose path equals known project + workspace roots                                            |
+| M10        | `core-engine` + service + web                  | Trash crate / permanent delete + confirm dialog; delete requires `scan_id` and stays under session root |
+| N1         | `core-engine` + web                            | Volume free/total via `fs4`                                                                             |
+| N2         | engine (pre-prune) + web                       | Suggestion list from unpruned tree                                                                      |
 
 ## Decisions
 
-| ID | Decision | Why |
-|----|----------|-----|
-| D1 | WebSocket over Atmos Server, not Tauri-only | Matches Management Center features; Desktop and local Web share one capability. |
-| D2 | Allocated size = Unix `blocks * 512` (and best-effort equivalent elsewhere) | Matches “disk usage, not apparent size”. Hard links counted once via `(dev, ino)`. |
-| D3 | Do **not** skip caches (`node_modules`, `.git`, `target`, etc.) | Explicit PRD requirement for cleanup discovery. |
-| D4 | Follow directory entries; do **not** follow directory symlinks into cycles | Avoid infinite walks; count symlink files as their link metadata size only. |
-| D5 | Sessions live in `DiskAnalyzerService` keyed by `scan_id`, bound to `owner_conn_id`; progress is **unicast** | Prevent cross-connection path leakage and cancel/delete abuse. |
-| D5b | Max ~8 sessions + 30m TTL eviction | Bound memory from retained trees. |
-| D6 | Trash by default via `trash` crate; permanent delete requires `permanent: true`; trash errors do not fall back to permanent | Safer default; matches PRD. |
-| D7 | Add `echarts` (+ `echarts-for-react`) to `apps/web` | Recharts lacks first-class Sunburst; PRD requires ECharts. |
-| D8 | Business logic in `core-service`; API stays thin (parse/route/adapt notifications) | Matches Atmos backend dependency flow. |
+| ID  | Decision                                                                                                                    | Why                                                                                |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| D1  | WebSocket over Atmos Server, not Tauri-only                                                                                 | Matches Management Center features; Desktop and local Web share one capability.    |
+| D2  | Allocated size = Unix `blocks * 512` (and best-effort equivalent elsewhere)                                                 | Matches “disk usage, not apparent size”. Hard links counted once via `(dev, ino)`. |
+| D3  | Do **not** skip caches (`node_modules`, `.git`, `target`, etc.)                                                             | Explicit PRD requirement for cleanup discovery.                                    |
+| D4  | Follow directory entries; do **not** follow directory symlinks into cycles                                                  | Avoid infinite walks; count symlink files as their link metadata size only.        |
+| D5  | Sessions live in `DiskAnalyzerService` keyed by `scan_id`, bound to `owner_conn_id`; progress is **unicast**                | Prevent cross-connection path leakage and cancel/delete abuse.                     |
+| D5b | Max ~8 sessions + 30m TTL eviction                                                                                          | Bound memory from retained trees.                                                  |
+| D6  | Trash by default via `trash` crate; permanent delete requires `permanent: true`; trash errors do not fall back to permanent | Safer default; matches PRD.                                                        |
+| D7  | Add `echarts` (+ `echarts-for-react`) to `apps/web`                                                                         | Recharts lacks first-class Sunburst; PRD requires ECharts.                         |
+| D8  | Business logic in `core-service`; API stays thin (parse/route/adapt notifications)                                          | Matches Atmos backend dependency flow.                                             |
 
 ## Data model (in-memory, no DB migration)
 
@@ -118,34 +118,34 @@ Project / worktree / agent marking:
 
   Covered session roots (env overrides in parentheses):
 
-  | Agent | Session path |
-  |-------|----------------|
-  | Claude Code | `~/.claude/projects` (`CLAUDE_CONFIG_DIR`) |
-  | Cursor | `~/.cursor/projects`, `~/.cursor/chats` |
-  | Codex | `$CODEX_HOME/sessions`, `archived_sessions`, `headless` |
-  | Copilot CLI | `$COPILOT_HOME/session-state`, `history-session-state` |
-  | Gemini CLI | `~/.gemini/tmp` |
-  | Antigravity | `~/.gemini/antigravity-cli/conversations` |
-  | Continue | `~/.continue/sessions` |
-  | Grok Build | `$GROK_HOME/sessions` (default `~/.grok/sessions`) |
-  | OpenCode | `~/.local/share/opencode` (+ macOS Application Support); not `~/.opencode` |
-  | Devin CLI | `~/.local/share/devin/cli`; Desktop ACP `…/Devin/User/acp-events` |
-  | Amp | `~/.local/share/amp/threads` |
-  | Factory Droid | `~/.factory/sessions` |
-  | Pi / Oh My Pi | `~/.pi/agent/sessions` (`PI_CODING_AGENT_DIR`), `~/.omp/agent/sessions` |
-  | Kimi CLI / Code | `~/.kimi/sessions` (`KIMI_SHARE_DIR`), `$KIMI_CODE_HOME/sessions` |
-  | Qwen | `~/.qwen/tmp`, `~/.qwen/projects` |
-  | Cline CLI | `~/.cline/data/sessions` (`CLINE_SESSION_DATA_DIR` / `CLINE_DATA_DIR` / `CLINE_DIR`) |
-  | Goose | `~/.config/goose/sessions`, `~/.local/share/goose/sessions` (`GOOSE_PATH_ROOT`) |
-  | Crush | `~/.crush` when `crush.db` exists, else `sessions/` |
-  | Hermes | `$HERMES_HOME/sessions` only (not the whole home) |
-  | OpenClaw | `~/.openclaw/agents` |
-  | OpenHands | `~/.openhands/conversations` |
-  | Mux / Junie / Augment | `~/.mux/sessions`, `~/.junie/sessions`, `~/.augment/sessions` |
-  | Command Code / CodeBuddy | `~/.commandcode/projects`, `~/.codebuddy/projects` |
-  | Vibe | `~/.vibe/logs/session` |
-  | Kiro | `~/.kiro/sessions`, `~/.local/share/kiro-cli` |
-  | Windsurf Cascade | `~/.codeium/windsurf/cascade` |
+  | Agent                    | Session path                                                                         |
+  | ------------------------ | ------------------------------------------------------------------------------------ |
+  | Claude Code              | `~/.claude/projects` (`CLAUDE_CONFIG_DIR`)                                           |
+  | Cursor                   | `~/.cursor/projects`, `~/.cursor/chats`                                              |
+  | Codex                    | `$CODEX_HOME/sessions`, `archived_sessions`, `headless`                              |
+  | Copilot CLI              | `$COPILOT_HOME/session-state`, `history-session-state`                               |
+  | Gemini CLI               | `~/.gemini/tmp`                                                                      |
+  | Antigravity              | `~/.gemini/antigravity-cli/conversations`                                            |
+  | Continue                 | `~/.continue/sessions`                                                               |
+  | Grok Build               | `$GROK_HOME/sessions` (default `~/.grok/sessions`)                                   |
+  | OpenCode                 | `~/.local/share/opencode` (+ macOS Application Support); not `~/.opencode`           |
+  | Devin CLI                | `~/.local/share/devin/cli`; Desktop ACP `…/Devin/User/acp-events`                    |
+  | Amp                      | `~/.local/share/amp/threads`                                                         |
+  | Factory Droid            | `~/.factory/sessions`                                                                |
+  | Pi / Oh My Pi            | `~/.pi/agent/sessions` (`PI_CODING_AGENT_DIR`), `~/.omp/agent/sessions`              |
+  | Kimi CLI / Code          | `~/.kimi/sessions` (`KIMI_SHARE_DIR`), `$KIMI_CODE_HOME/sessions`                    |
+  | Qwen                     | `~/.qwen/tmp`, `~/.qwen/projects`                                                    |
+  | Cline CLI                | `~/.cline/data/sessions` (`CLINE_SESSION_DATA_DIR` / `CLINE_DATA_DIR` / `CLINE_DIR`) |
+  | Goose                    | `~/.config/goose/sessions`, `~/.local/share/goose/sessions` (`GOOSE_PATH_ROOT`)      |
+  | Crush                    | `~/.crush` when `crush.db` exists, else `sessions/`                                  |
+  | Hermes                   | `$HERMES_HOME/sessions` only (not the whole home)                                    |
+  | OpenClaw                 | `~/.openclaw/agents`                                                                 |
+  | OpenHands                | `~/.openhands/conversations`                                                         |
+  | Mux / Junie / Augment    | `~/.mux/sessions`, `~/.junie/sessions`, `~/.augment/sessions`                        |
+  | Command Code / CodeBuddy | `~/.commandcode/projects`, `~/.codebuddy/projects`                                   |
+  | Vibe                     | `~/.vibe/logs/session`                                                               |
+  | Kiro                     | `~/.kiro/sessions`, `~/.local/share/kiro-cli`                                        |
+  | Windsurf Cascade         | `~/.codeium/windsurf/cascade`                                                        |
 
   Omitted (no confirmed home session root, or would swallow IDE/settings): Aider per-repo history, VS Code extension task DBs (Cline/Roo/Kilo), Replit cloud, and skill-only trees without a known session dir (`iflow`, `kode`, `qoder`, `trae`, …).
 
@@ -158,14 +158,14 @@ Project / worktree / agent marking:
 
 ### Actions (`WsAction`)
 
-| Action | Request | Response |
-|--------|---------|----------|
-| `DiskAnalyzerStartScan` | `{ path?: string, max_children?: number }` | `{ scan_id, root_path }` |
-| `DiskAnalyzerCancelScan` | `{ scan_id }` | `{ ok: true }` — owner connection only |
-| `DiskAnalyzerGetTree` | `{ scan_id, path?: string, max_children?: number }` | `{ tree, stats }` — owner only; snapshot then prune outside lock. If the cached node was already pruned into `__other__` below the requested `max_children`, re-walk that path instead of returning the truncated snapshot. |
-| `DiskAnalyzerGetSuggestions` | `{ scan_id }` | `{ suggestions, ready }` — owner only; recomputes cache hints plus stale worktrees/sessions from **time only** (no size gate). `ready` is true after the overview walk finishes. |
-| `DiskAnalyzerDelete` | `{ scan_id, path, permanent?: bool }` | `{ success, path, freed_bytes, permanent }` — owner only; path must canonicalize under session root |
-| `DiskAnalyzerDiskInfo` | `{ path?: string }` | `DiskVolumeInfo` |
+| Action                       | Request                                             | Response                                                                                                                                                                                                                    |
+| ---------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DiskAnalyzerStartScan`      | `{ path?: string, max_children?: number }`          | `{ scan_id, root_path }`                                                                                                                                                                                                    |
+| `DiskAnalyzerCancelScan`     | `{ scan_id }`                                       | `{ ok: true }` — owner connection only                                                                                                                                                                                      |
+| `DiskAnalyzerGetTree`        | `{ scan_id, path?: string, max_children?: number }` | `{ tree, stats }` — owner only; snapshot then prune outside lock. If the cached node was already pruned into `__other__` below the requested `max_children`, re-walk that path instead of returning the truncated snapshot. |
+| `DiskAnalyzerGetSuggestions` | `{ scan_id }`                                       | `{ suggestions, ready }` — owner only; recomputes cache hints plus stale worktrees/sessions from **time only** (no size gate). `ready` is true after the overview walk finishes.                                            |
+| `DiskAnalyzerDelete`         | `{ scan_id, path, permanent?: bool }`               | `{ success, path, freed_bytes, permanent }` — owner only; path must canonicalize under session root                                                                                                                         |
+| `DiskAnalyzerDiskInfo`       | `{ path?: string }`                                 | `DiskVolumeInfo`                                                                                                                                                                                                            |
 
 Default `path` for start/info = home directory from existing `FsEngine::get_home_dir`.
 
@@ -221,14 +221,14 @@ Default `path` for start/info = home directory from existing `FsEngine::get_home
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Huge home dirs freeze UI | Prune serialization; virtualize details list; show progress early |
-| Permission errors mid-scan | Skip unreadable entries; count in `error_count` (including `process_read_dir` Errs) |
+| Risk                                  | Mitigation                                                                                     |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Huge home dirs freeze UI              | Prune serialization; virtualize details list; show progress early                              |
+| Permission errors mid-scan            | Skip unreadable entries; count in `error_count` (including `process_read_dir` Errs)            |
 | Remote Relay users scan wrong machine | Copy warning when connection is remote computer; still valid for remote Atmos Computer cleanup |
-| `trash` unsupported on some targets | Return error; never fall back to permanent |
-| ECharts bundle size | Dynamic import chart component |
-| Cross-client path leakage | Owner binding + unicast |
+| `trash` unsupported on some targets   | Return error; never fall back to permanent                                                     |
+| ECharts bundle size                   | Dynamic import chart component                                                                 |
+| Cross-client path leakage             | Owner binding + unicast                                                                        |
 
 ## Testing notes
 

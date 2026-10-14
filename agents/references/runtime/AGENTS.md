@@ -14,12 +14,12 @@ Cross-cutting runtime guidance for Atmos agents. Load this when work touches loc
 
 One `apps/api` process per machine is the default Atmos Server. Desktop, CLI, and the local web runtime installer are entry points, not separate API products.
 
-| Piece | Location |
-|-------|----------|
-| Discovery | `~/.atmos/runtime_manifest.json` with `host`, `port`, `url`, and `ws_url`. It must not contain an auth token. |
-| Relay credentials | `~/.atmos/relay_identity.json`, written after `atmos computer start --token` or `ATMOS_REGISTER_TOKEN`. |
+| Piece              | Location                                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Discovery          | `~/.atmos/runtime_manifest.json` with `host`, `port`, `url`, and `ws_url`. It must not contain an auth token.    |
+| Relay credentials  | `~/.atmos/relay_identity.json`, written after `atmos computer start --token` or `ATMOS_REGISTER_TOKEN`.          |
 | Process supervisor | `crates/runtime-manager` with the `supervisor` feature. Used by `atmos runtime ensure` and Desktop `runtime.rs`. |
-| API self-describe | `apps/api` writes the manifest on bind and may start optional `relay/` outbound WebSocket when identity exists. |
+| API self-describe  | `apps/api` writes the manifest on bind and may start optional `relay/` outbound WebSocket when identity exists.  |
 
 ## Auth Boundary
 
@@ -30,14 +30,14 @@ One `apps/api` process per machine is the default Atmos Server. Desktop, CLI, an
 
 ## Ownership
 
-| Area | Owner |
-|------|-------|
-| Runtime manifest and relay identity helpers | `crates/runtime-manager` |
-| Local API bind and manifest write | `apps/api` |
-| Desktop ensure/start integration | `apps/desktop-electron` |
-| CLI runtime commands | `apps/cli` |
-| Relay Worker, D1, Durable Object routing | `packages/relay` |
-| Product-level Atmos Computer contract | `specs/APP/APP-016_atmos-computer/` |
+| Area                                        | Owner                               |
+| ------------------------------------------- | ----------------------------------- |
+| Runtime manifest and relay identity helpers | `crates/runtime-manager`            |
+| Local API bind and manifest write           | `apps/api`                          |
+| Desktop ensure/start integration            | `apps/desktop-electron`             |
+| CLI runtime commands                        | `apps/cli`                          |
+| Relay Worker, D1, Durable Object routing    | `packages/relay`                    |
+| Product-level Atmos Computer contract       | `specs/APP/APP-016_atmos-computer/` |
 
 ## Related Files
 

@@ -22,11 +22,7 @@ import {
   CardTitle,
 } from "@workspace/ui";
 import { NotePanel } from "@/features/workspace/components/NotePanel";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import type { SearchMatch } from "@/api/ws-api";
 import type { Task } from "@/features/workspace/hooks/use-workspace-context";
 import { TaskListPanel } from "@/features/workspace/components/TaskListPanel";
@@ -96,7 +92,7 @@ export function TodoSubView({
       <div className="min-h-0 flex-1 overflow-hidden">
         <Card className="flex h-full flex-col rounded-none border-0 bg-background">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-border px-4 py-3">
-            <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <CardTitle className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               <CheckSquare className="size-4" />
               {t("globalSearch.tasks")}
             </CardTitle>
@@ -274,7 +270,11 @@ function AppSearchResults({
   searchQuery,
 }: Pick<GlobalSearchMainViewProps, "filteredAppItems" | "groupedAppItems" | "searchQuery">) {
   const t = useTranslations("appShell");
-  const appGroups: Array<{ key: AppSearchItem["type"]; heading: string; showDescription?: boolean }> = [
+  const appGroups: Array<{
+    key: AppSearchItem["type"];
+    heading: string;
+    showDescription?: boolean;
+  }> = [
     { key: "workspace", heading: t("globalSearch.groups.workspace"), showDescription: true },
     { key: "theme", heading: t("globalSearch.groups.theme") },
     { key: "project", heading: t("globalSearch.groups.project") },
@@ -296,7 +296,7 @@ function AppSearchResults({
 
   return (
     <>
-      {appGroups.map(({ key, heading, showDescription }) => (
+      {appGroups.map(({ key, heading, showDescription }) =>
         groupedAppItems[key].length > 0 ? (
           <CommandGroup key={key} heading={heading}>
             {groupedAppItems[key].map((item) => (
@@ -315,8 +315,8 @@ function AppSearchResults({
               />
             ))}
           </CommandGroup>
-        ) : null
-      ))}
+        ) : null,
+      )}
     </>
   );
 }
@@ -327,7 +327,10 @@ function FileSearchResults({
   filteredFiles,
   isLoadingFiles,
   onFileSelect,
-}: Pick<GlobalSearchMainViewProps, "currentEffectivePath" | "currentProject" | "filteredFiles" | "isLoadingFiles" | "onFileSelect">) {
+}: Pick<
+  GlobalSearchMainViewProps,
+  "currentEffectivePath" | "currentProject" | "filteredFiles" | "isLoadingFiles" | "onFileSelect"
+>) {
   const t = useTranslations("appShell");
   if (!currentProject) {
     return <EmptyState>{t("globalSearch.selectWorkspaceForFiles")}</EmptyState>;
@@ -366,7 +369,16 @@ function CodeSearchResults({
   searchQuery,
   setHoveredValue,
   onCodeResultSelect,
-}: Pick<GlobalSearchMainViewProps, "codeSearchResults" | "codeSearchTruncated" | "currentProject" | "isSearchingCode" | "searchQuery" | "setHoveredValue" | "onCodeResultSelect">) {
+}: Pick<
+  GlobalSearchMainViewProps,
+  | "codeSearchResults"
+  | "codeSearchTruncated"
+  | "currentProject"
+  | "isSearchingCode"
+  | "searchQuery"
+  | "setHoveredValue"
+  | "onCodeResultSelect"
+>) {
   const t = useTranslations("appShell");
   if (!currentProject) {
     return <EmptyState>{t("globalSearch.selectWorkspaceForCode")}</EmptyState>;
@@ -385,7 +397,9 @@ function CodeSearchResults({
   }
 
   return (
-    <CommandGroup heading={codeSearchTruncated ? t("globalSearch.resultsTruncated") : t("globalSearch.results")}>
+    <CommandGroup
+      heading={codeSearchTruncated ? t("globalSearch.resultsTruncated") : t("globalSearch.results")}
+    >
       {codeSearchResults.map((match, index) => (
         <CodeSearchResultItem
           key={`${match.file_path}-${match.line_number}-${index}`}
@@ -401,7 +415,7 @@ function CodeSearchResults({
 function GlobalSearchFooter() {
   const t = useTranslations("appShell");
   return (
-    <div className="mt-auto flex h-[38px] shrink-0 select-none items-center justify-between border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80">
+    <div className="mt-auto flex h-[38px] shrink-0 items-center justify-between border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80 select-none">
       <div className="flex items-center gap-5">
         <span className="group flex items-center gap-1.5">
           <div className="flex items-center gap-0.5">
@@ -423,7 +437,9 @@ function GlobalSearchFooter() {
       </div>
       <div className="flex items-center gap-4">
         <span className="flex items-center gap-1.5 opacity-80">
-          <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">Esc</kbd>
+          <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">
+            Esc
+          </kbd>
           <span>{t("globalSearch.close")}</span>
         </span>
       </div>

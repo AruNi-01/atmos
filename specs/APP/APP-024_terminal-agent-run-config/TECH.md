@@ -16,17 +16,17 @@ This design addresses PRD M1-M12. Code Review adoption, custom-agent capability 
 
 ## Product decisions resolved in TECH
 
-| PRD fork | Decision |
-|----------|----------|
-| M1 surface scope | Ship the shared capability in **New Workspace** and **Automations** only. Code Review is the first planned follow-up surface. |
-| Static vs. user-owned data | Built-in capability metadata lives in `resources/terminal-agents/builtin_agents.json`. User-saved reusable run-config templates live in `function_settings.json` under `agent_cli.saved_run_configs`. |
-| Template persistence | Saved templates are reusable seeds for form state. Automations persist a full run-config snapshot and do not depend on a mutable template reference at execution time. |
-| Structured field toggles | Structured `model` and `reasoning` are UI-level opt-in fields. Persisted config stores only the resulting values; unchecked fields are saved as absent / null. |
-| Advanced args format | Persist and validate advanced args as argv tokens (`string[]`), not raw shell fragments. |
-| Extra-args conflict policy | If structured model or reasoning is enabled, the equivalent flags are blocked in `extra_args`. If structured fields are absent, users may provide those flags manually through `extra_args`. |
-| Custom agents in M1 | Custom agents remain **advanced-args-first** in M1 unless a later feature adds explicit capability hints for them. |
-| Automation snapshot UX | Automation setup shows a hover tooltip near the saved-template picker and/or structured model section explaining that the automation saves its own run-config snapshot and does not live-bind to later template edits. Reuse one canonical M1 copy string so the message stays consistent across create and edit flows. |
-| `opencode` live catalog | Treat `opencode` as manual-model-input in M1. Its advertised `models` command is not yet reliable enough for a first-class live catalog path. |
+| PRD fork                   | Decision                                                                                                                                                                                                                                                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1 surface scope           | Ship the shared capability in **New Workspace** and **Automations** only. Code Review is the first planned follow-up surface.                                                                                                                                                                                           |
+| Static vs. user-owned data | Built-in capability metadata lives in `resources/terminal-agents/builtin_agents.json`. User-saved reusable run-config templates live in `function_settings.json` under `agent_cli.saved_run_configs`.                                                                                                                   |
+| Template persistence       | Saved templates are reusable seeds for form state. Automations persist a full run-config snapshot and do not depend on a mutable template reference at execution time.                                                                                                                                                  |
+| Structured field toggles   | Structured `model` and `reasoning` are UI-level opt-in fields. Persisted config stores only the resulting values; unchecked fields are saved as absent / null.                                                                                                                                                          |
+| Advanced args format       | Persist and validate advanced args as argv tokens (`string[]`), not raw shell fragments.                                                                                                                                                                                                                                |
+| Extra-args conflict policy | If structured model or reasoning is enabled, the equivalent flags are blocked in `extra_args`. If structured fields are absent, users may provide those flags manually through `extra_args`.                                                                                                                            |
+| Custom agents in M1        | Custom agents remain **advanced-args-first** in M1 unless a later feature adds explicit capability hints for them.                                                                                                                                                                                                      |
+| Automation snapshot UX     | Automation setup shows a hover tooltip near the saved-template picker and/or structured model section explaining that the automation saves its own run-config snapshot and does not live-bind to later template edits. Reuse one canonical M1 copy string so the message stays consistent across create and edit flows. |
+| `opencode` live catalog    | Treat `opencode` as manual-model-input in M1. Its advertised `models` command is not yet reliable enough for a first-class live catalog path.                                                                                                                                                                           |
 
 ## Architecture overview
 
@@ -505,22 +505,22 @@ The interactive web builder and the Rust headless builder are intentionally sepa
 
 M1 does not need identical behavior across every built-in agent. It needs consistent UI semantics backed by verified adapters.
 
-| Agent id | Structured model in M1 | Live model catalog in M1 | Structured reasoning in M1 |
-|----------|------------------------|--------------------------|----------------------------|
-| `cursor` | yes | yes (`agent --list-models`) | encoded in model id |
-| `kiro` | yes | yes (`kiro-cli chat --list-models --format json`) | none |
-| `commandcode` | yes | yes (`cmd --list-models`) | none |
-| `kilocode` | yes | yes (`kilo models`) | `variant` |
-| `pi` | yes | yes (`pi --list-models`) with auth-aware fallback | `thinking` |
-| `claude` | yes | no | `effort` |
-| `codex` | yes | no | none |
-| `gemini` | yes | no | none |
-| `devin` | yes | no | none |
-| `droid` | yes | no first-class live catalog | `effort` |
-| `kimi` | yes | no | `thinking` |
-| `amp` | no structured model field in M1 | no | `effort` |
-| `opencode` | yes | no first-class live catalog in M1 | `variant` |
-| unknown custom agent | no structured model field | no | none |
+| Agent id             | Structured model in M1          | Live model catalog in M1                          | Structured reasoning in M1 |
+| -------------------- | ------------------------------- | ------------------------------------------------- | -------------------------- |
+| `cursor`             | yes                             | yes (`agent --list-models`)                       | encoded in model id        |
+| `kiro`               | yes                             | yes (`kiro-cli chat --list-models --format json`) | none                       |
+| `commandcode`        | yes                             | yes (`cmd --list-models`)                         | none                       |
+| `kilocode`           | yes                             | yes (`kilo models`)                               | `variant`                  |
+| `pi`                 | yes                             | yes (`pi --list-models`) with auth-aware fallback | `thinking`                 |
+| `claude`             | yes                             | no                                                | `effort`                   |
+| `codex`              | yes                             | no                                                | none                       |
+| `gemini`             | yes                             | no                                                | none                       |
+| `devin`              | yes                             | no                                                | none                       |
+| `droid`              | yes                             | no first-class live catalog                       | `effort`                   |
+| `kimi`               | yes                             | no                                                | `thinking`                 |
+| `amp`                | no structured model field in M1 | no                                                | `effort`                   |
+| `opencode`           | yes                             | no first-class live catalog in M1                 | `variant`                  |
+| unknown custom agent | no structured model field       | no                                                | none                       |
 
 This table is a runtime policy, not a user-facing promise that every CLI behaves identically.
 

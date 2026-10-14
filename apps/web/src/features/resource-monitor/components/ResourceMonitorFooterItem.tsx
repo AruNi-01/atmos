@@ -69,10 +69,7 @@ export function ResourceMonitorFooterItem() {
 
   const hostCpuPercent = snapshot?.host.cpu_percent ?? 0;
   const hostMemoryUsagePercent = snapshot
-    ? hostMemoryPercent(
-        snapshot.host.memory_used_bytes,
-        snapshot.host.memory_total_bytes,
-      )
+    ? hostMemoryPercent(snapshot.host.memory_used_bytes, snapshot.host.memory_total_bytes)
     : 0;
   const compact =
     connectionState === "connected" && snapshot
@@ -81,9 +78,7 @@ export function ResourceMonitorFooterItem() {
           memory: formatPercent(hostMemoryUsagePercent),
         }
       : null;
-  const compactAria = compact
-    ? t("compact", compact)
-    : t("compactUnavailable");
+  const compactAria = compact ? t("compact", compact) : t("compactUnavailable");
   const labelText = t("monitor");
   const labelMeasureRef = React.useRef<HTMLSpanElement>(null);
   const usageMeasureRef = React.useRef<HTMLSpanElement>(null);
@@ -93,9 +88,7 @@ export function ResourceMonitorFooterItem() {
   const usageContent = compact ? (
     <>
       <span
-        className={resourceMonitorPressureTextClass(
-          resourceMonitorPressureTone(hostCpuPercent),
-        )}
+        className={resourceMonitorPressureTextClass(resourceMonitorPressureTone(hostCpuPercent))}
       >
         {t.rich("cpuValue", {
           value: () => (
@@ -143,9 +136,7 @@ export function ResourceMonitorFooterItem() {
     return () => observer.disconnect();
   }, [compactAria, labelText, compact?.cpu, compact?.memory]);
 
-  const contentWidth = previewing
-    ? usageWidth || labelWidth
-    : labelWidth;
+  const contentWidth = previewing ? usageWidth || labelWidth : labelWidth;
 
   const handleOpenChange = React.useCallback((next: boolean) => {
     if (next && navigatingRef.current) return;
@@ -191,16 +182,13 @@ export function ResourceMonitorFooterItem() {
                 <Activity className="size-3" />
                 <span
                   aria-hidden
-                  className="pointer-events-none invisible absolute left-0 top-0 flex gap-6 whitespace-nowrap font-medium"
+                  className="pointer-events-none invisible absolute top-0 left-0 flex gap-6 font-medium whitespace-nowrap"
                   data-resource-monitor-footer-measure=""
                 >
                   <span ref={labelMeasureRef} className="inline-block">
                     {labelText}
                   </span>
-                  <span
-                    ref={usageMeasureRef}
-                    className="inline-flex items-center gap-1"
-                  >
+                  <span ref={usageMeasureRef} className="inline-flex items-center gap-1">
                     {usageContent}
                   </span>
                 </span>
@@ -222,7 +210,7 @@ export function ResourceMonitorFooterItem() {
                 >
                   <span
                     aria-hidden
-                    className="invisible inline-flex items-center gap-1 whitespace-nowrap font-medium"
+                    className="invisible inline-flex items-center gap-1 font-medium whitespace-nowrap"
                   >
                     {previewing ? usageContent : labelText}
                   </span>
@@ -233,12 +221,8 @@ export function ResourceMonitorFooterItem() {
                         initial={reducedMotion ? false : { opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
-                        transition={
-                          reducedMotion
-                            ? { duration: 0 }
-                            : FOOTER_SWAP_TRANSITION
-                        }
-                        className="absolute inset-0 inline-flex items-center gap-1 whitespace-nowrap font-medium"
+                        transition={reducedMotion ? { duration: 0 } : FOOTER_SWAP_TRANSITION}
+                        className="absolute inset-0 inline-flex items-center gap-1 font-medium whitespace-nowrap"
                         data-resource-monitor-footer-usage=""
                       >
                         {usageContent}
@@ -249,12 +233,8 @@ export function ResourceMonitorFooterItem() {
                         initial={reducedMotion ? false : { opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
-                        transition={
-                          reducedMotion
-                            ? { duration: 0 }
-                            : FOOTER_SWAP_TRANSITION
-                        }
-                        className="absolute inset-0 inline-flex items-center whitespace-nowrap font-medium"
+                        transition={reducedMotion ? { duration: 0 } : FOOTER_SWAP_TRANSITION}
+                        className="absolute inset-0 inline-flex items-center font-medium whitespace-nowrap"
                         data-resource-monitor-footer-label=""
                       >
                         {labelText}

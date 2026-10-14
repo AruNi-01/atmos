@@ -4,12 +4,7 @@ import React from "react";
 import { Check, FolderHeart, Pencil, Search, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import {
-  Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@workspace/ui";
+import { Input, Popover, PopoverContent, PopoverTrigger } from "@workspace/ui";
 import type { FavoriteSite } from "../lib/browser-utils";
 
 export interface PreviewFavoritesListPopoverProps {
@@ -150,7 +145,9 @@ export function BrowserFavoritesListPopover({
                             {site.name?.trim() || site.url}
                           </div>
                           {site.name?.trim() ? (
-                            <div className="truncate text-[11px] text-muted-foreground">{site.url}</div>
+                            <div className="truncate text-[11px] text-muted-foreground">
+                              {site.url}
+                            </div>
                           ) : null}
                         </button>
                         <button
@@ -159,7 +156,7 @@ export function BrowserFavoritesListPopover({
                             setRenameDraft(site.name ?? "");
                           }}
                           type="button"
-                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-[opacity,transform] hover:bg-muted hover:text-foreground group-hover/item:opacity-100"
+                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-[opacity,transform] group-hover/item:opacity-100 hover:bg-muted hover:text-foreground"
                           title={renameLabel}
                         >
                           <Pencil className="size-3.5" />
@@ -167,7 +164,7 @@ export function BrowserFavoritesListPopover({
                         <button
                           onClick={() => void handleDeleteFavorite(site)}
                           type="button"
-                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-[opacity,transform] hover:bg-destructive/10 hover:text-destructive group-hover/item:opacity-100"
+                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-[opacity,transform] group-hover/item:opacity-100 hover:bg-destructive/10 hover:text-destructive"
                           title={deleteLabel}
                         >
                           <Trash2 className="size-3.5" />

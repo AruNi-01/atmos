@@ -1,6 +1,6 @@
-import React from 'react';
-import { useTranslations } from 'next-intl';
-import { useQueryClient } from '@tanstack/react-query';
+import React from "react";
+import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Avatar,
   AvatarFallback,
@@ -21,8 +21,11 @@ import {
   TooltipTrigger,
   ScrollArea,
   toastManager,
-} from '@workspace/ui';
-import { GithubUserAvatar, GithubUserHoverCard } from '@/features/github/components/GithubUserHoverCard';
+} from "@workspace/ui";
+import {
+  GithubUserAvatar,
+  GithubUserHoverCard,
+} from "@/features/github/components/GithubUserHoverCard";
 import {
   Check,
   CheckCircle2,
@@ -37,28 +40,28 @@ import {
   User,
   Users,
   XCircle,
-} from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
-import { useComputerQueryScope } from '@/api/query/query-scope';
-import { queryKeys } from '@/api/query/query-keys';
-import { wsRequest } from '@/api/ws/request';
+} from "lucide-react";
+import { cn } from "@/shared/lib/utils";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { queryKeys } from "@/api/query/query-keys";
+import { wsRequest } from "@/api/ws/request";
 import {
   useGithubRepoAssigneesQuery,
   useGithubRepoLabelsQuery,
   useGithubIssueListQuery,
-} from '@/features/github/hooks/use-github-pr-query';
+} from "@/features/github/hooks/use-github-pr-query";
 import type {
   GithubRepoAssignee,
   GithubRepoLabel,
-} from '@/features/github/lib/github-query-options';
+} from "@/features/github/lib/github-query-options";
 import {
   SidebarSection,
   type Assignee,
   type ClosingIssue,
   type Label,
   type Reviewer,
-} from './pr-detail-parts';
-import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
+} from "./pr-detail-parts";
+import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 
 interface PRSidebarData {
   participants?: Array<{ login: string; avatar_url?: string }>;
@@ -66,8 +69,16 @@ interface PRSidebarData {
 }
 
 interface PRSidebarModel {
-  reviews?: Array<{ author?: { login?: string; avatarUrl?: string; avatar_url?: string }; state?: string }>;
-  reviewRequests?: Array<{ login?: string; name?: string; avatarUrl?: string; avatar_url?: string }>;
+  reviews?: Array<{
+    author?: { login?: string; avatarUrl?: string; avatar_url?: string };
+    state?: string;
+  }>;
+  reviewRequests?: Array<{
+    login?: string;
+    name?: string;
+    avatarUrl?: string;
+    avatar_url?: string;
+  }>;
   assignees?: Assignee[];
   labels?: Label[];
 }
@@ -96,75 +107,80 @@ export function PRMetadataSidebar({
   onPrMetadataChanged,
   onReviewerClick,
 }: PRMetadataSidebarProps) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   return (
     <TooltipProvider delayDuration={300}>
-      <div className={cn(
-        "shrink-0 hidden lg:flex flex-col overflow-hidden transition-[max-width,opacity] duration-200 ease-out",
-        isSidebarCollapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100"
-      )}>
+      <div
+        className={cn(
+          "hidden shrink-0 flex-col overflow-hidden transition-[max-width,opacity] duration-200 ease-out lg:flex",
+          isSidebarCollapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100",
+        )}
+      >
         <ScrollArea scrollFade className="h-full min-h-0">
-        <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
-          <SidebarSection title={t('sections.reviewers')} icon={<Eye className="size-3.5" />}>
-            <ReviewersList
-              pr={pr}
-              onReviewerClick={onReviewerClick}
-            />
-          </SidebarSection>
-
-          <SidebarSection
-            title={t('sections.assignees')}
-            icon={<User className="size-3.5" />}
-            action={
-              <AssigneesEditor
-                owner={owner}
-                repo={repo}
-                number={prNumber}
-                resource="pr"
-                assignees={pr.assignees}
-                onChanged={onPrMetadataChanged}
-              />
-            }
-          >
-            <AssigneesList assignees={pr.assignees} />
-          </SidebarSection>
-
-          <SidebarSection
-            title={t('sections.labels')}
-            icon={<Tag className="size-3.5" />}
-            action={
-              <LabelsEditor
-                owner={owner}
-                repo={repo}
-                number={prNumber}
-                resource="pr"
-                labels={pr.labels}
-                onChanged={onPrMetadataChanged}
-              />
-            }
-          >
-            <LabelsList labels={pr.labels} />
-          </SidebarSection>
-
-          <SidebarSection title={t('sections.participants')} icon={<Users className="size-3.5" />}>
-            <ParticipantsList sidebarData={sidebarData} sidebarLoading={sidebarLoading} />
-          </SidebarSection>
-
-          {sidebarLoading && (
-            <SidebarSection title={t('sections.development')} icon={<Code className="size-3.5" />}>
-              <Skeleton className="h-3 w-full rounded" />
-              <Skeleton className="h-8 w-full rounded mt-1" />
+          <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
+            <SidebarSection title={t("sections.reviewers")} icon={<Eye className="size-3.5" />}>
+              <ReviewersList pr={pr} onReviewerClick={onReviewerClick} />
             </SidebarSection>
-          )}
-          {!sidebarLoading && (
-            <DevelopmentIssues
-              issues={sidebarData?.closingIssuesReferences ?? []}
-              owner={owner}
-              repo={repo}
-              prNumber={prNumber}
-            />
-          )}
-        </div>
+
+            <SidebarSection
+              title={t("sections.assignees")}
+              icon={<User className="size-3.5" />}
+              action={
+                <AssigneesEditor
+                  owner={owner}
+                  repo={repo}
+                  number={prNumber}
+                  resource="pr"
+                  assignees={pr.assignees}
+                  onChanged={onPrMetadataChanged}
+                />
+              }
+            >
+              <AssigneesList assignees={pr.assignees} />
+            </SidebarSection>
+
+            <SidebarSection
+              title={t("sections.labels")}
+              icon={<Tag className="size-3.5" />}
+              action={
+                <LabelsEditor
+                  owner={owner}
+                  repo={repo}
+                  number={prNumber}
+                  resource="pr"
+                  labels={pr.labels}
+                  onChanged={onPrMetadataChanged}
+                />
+              }
+            >
+              <LabelsList labels={pr.labels} />
+            </SidebarSection>
+
+            <SidebarSection
+              title={t("sections.participants")}
+              icon={<Users className="size-3.5" />}
+            >
+              <ParticipantsList sidebarData={sidebarData} sidebarLoading={sidebarLoading} />
+            </SidebarSection>
+
+            {sidebarLoading && (
+              <SidebarSection
+                title={t("sections.development")}
+                icon={<Code className="size-3.5" />}
+              >
+                <Skeleton className="h-3 w-full rounded" />
+                <Skeleton className="mt-1 h-8 w-full rounded" />
+              </SidebarSection>
+            )}
+            {!sidebarLoading && (
+              <DevelopmentIssues
+                issues={sidebarData?.closingIssuesReferences ?? []}
+                owner={owner}
+                repo={repo}
+                prNumber={prNumber}
+              />
+            )}
+          </div>
         </ScrollArea>
       </div>
     </TooltipProvider>
@@ -178,7 +194,7 @@ function ReviewersList({
   pr: PRSidebarModel;
   onReviewerClick?: () => void;
 }) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   const reviewers: Reviewer[] = [];
   const seen = new Map<string, number>();
 
@@ -212,33 +228,39 @@ function ReviewersList({
         reviewers.push({
           login,
           avatar_url: req.avatarUrl || req.avatar_url,
-          state: 'PENDING',
+          state: "PENDING",
         });
       }
     }
   }
 
   if (reviewers.length === 0) {
-    return <span className="text-muted-foreground/60 italic">{t('empty.reviewers')}</span>;
+    return <span className="text-muted-foreground/60 italic">{t("empty.reviewers")}</span>;
   }
 
   return reviewers.map((r) => {
     if (!onReviewerClick) {
       return (
-        <div key={r.login} className="flex items-center gap-2 py-0.5 min-w-0">
+        <div key={r.login} className="flex min-w-0 items-center gap-2 py-0.5">
           <GithubUserAvatar
             username={r.login}
             avatarUrl={r.avatar_url}
-            className="size-5 border border-border/50 shrink-0"
+            className="size-5 shrink-0 border border-border/50"
             fallbackClassName="text-[7px]"
             label={r.login}
             labelClassName="font-medium text-foreground/90 truncate flex-1 min-w-0"
             triggerClassName="min-w-0 flex-1"
           />
-          {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
-          {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
-          {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
-          {r.state === 'PENDING' && <Eye className="size-3.5 text-amber-500 shrink-0" />}
+          {r.state === "APPROVED" && (
+            <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+          )}
+          {r.state === "CHANGES_REQUESTED" && (
+            <XCircle className="size-3.5 shrink-0 text-red-500" />
+          )}
+          {r.state === "COMMENTED" && (
+            <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
+          )}
+          {r.state === "PENDING" && <Eye className="size-3.5 shrink-0 text-amber-500" />}
         </div>
       );
     }
@@ -249,29 +271,35 @@ function ReviewersList({
           <button
             type="button"
             className={cn(
-              "flex w-full items-center gap-2 py-0.5 rounded-md px-1 -mx-1 min-w-0 text-left",
+              "-mx-1 flex w-full min-w-0 items-center gap-2 rounded-md px-1 py-0.5 text-left",
               "cursor-pointer hover:bg-muted/60",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none",
             )}
             onClick={() => onReviewerClick()}
           >
             <GithubUserAvatar
               username={r.login}
               avatarUrl={r.avatar_url}
-              className="size-5 border border-border/50 shrink-0"
+              className="size-5 shrink-0 border border-border/50"
               fallbackClassName="text-[7px]"
               label={r.login}
               labelClassName="font-medium text-foreground/90 truncate flex-1 min-w-0"
               triggerClassName="min-w-0 flex-1"
             />
-            {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
-            {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
-            {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
-            {r.state === 'PENDING' && <Eye className="size-3.5 text-amber-500 shrink-0" />}
+            {r.state === "APPROVED" && (
+              <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+            )}
+            {r.state === "CHANGES_REQUESTED" && (
+              <XCircle className="size-3.5 shrink-0 text-red-500" />
+            )}
+            {r.state === "COMMENTED" && (
+              <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
+            )}
+            {r.state === "PENDING" && <Eye className="size-3.5 shrink-0 text-amber-500" />}
           </button>
         </TooltipTrigger>
         <TooltipContent side="left" className="text-xs">
-          {t('reviewers.jumpToFiles')}
+          {t("reviewers.jumpToFiles")}
         </TooltipContent>
       </Tooltip>
     );
@@ -279,13 +307,13 @@ function ReviewersList({
 }
 
 export function AssigneesList({ assignees }: { assignees?: Assignee[] }) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   if (!assignees || !Array.isArray(assignees) || assignees.length === 0) {
-    return <span className="text-muted-foreground/60 italic">{t('empty.assignees')}</span>;
+    return <span className="text-muted-foreground/60 italic">{t("empty.assignees")}</span>;
   }
 
   return assignees.map((a) => (
-    <div key={a.login} className="flex items-center gap-2 py-0.5 min-w-0">
+    <div key={a.login} className="flex min-w-0 items-center gap-2 py-0.5">
       <GithubUserAvatar
         username={a.login}
         avatarUrl={a.avatar_url || a.avatarUrl}
@@ -300,9 +328,9 @@ export function AssigneesList({ assignees }: { assignees?: Assignee[] }) {
 }
 
 export function LabelsList({ labels }: { labels?: Label[] }) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   if (!labels || !Array.isArray(labels) || labels.length === 0) {
-    return <span className="text-muted-foreground/60 italic">{t('empty.labels')}</span>;
+    return <span className="text-muted-foreground/60 italic">{t("empty.labels")}</span>;
   }
 
   return (
@@ -310,11 +338,11 @@ export function LabelsList({ labels }: { labels?: Label[] }) {
       {labels.map((l) => (
         <span
           key={l.name}
-          className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+          className="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
           style={{
             backgroundColor: l.color ? `#${l.color}20` : undefined,
             color: l.color ? `#${l.color}` : undefined,
-            border: l.color ? `1px solid #${l.color}40` : '1px solid var(--border)',
+            border: l.color ? `1px solid #${l.color}40` : "1px solid var(--border)",
           }}
         >
           {l.name}
@@ -331,7 +359,7 @@ function ParticipantsList({
   sidebarData?: PRSidebarData | null;
   sidebarLoading: boolean;
 }) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   if (sidebarLoading) {
     return (
       <div className="flex gap-1">
@@ -341,8 +369,12 @@ function ParticipantsList({
     );
   }
 
-  if (!sidebarData?.participants || !Array.isArray(sidebarData.participants) || sidebarData.participants.length === 0) {
-    return <span className="text-muted-foreground/60 italic">{t('empty.participants')}</span>;
+  if (
+    !sidebarData?.participants ||
+    !Array.isArray(sidebarData.participants) ||
+    sidebarData.participants.length === 0
+  ) {
+    return <span className="text-muted-foreground/60 italic">{t("empty.participants")}</span>;
   }
 
   return (
@@ -354,9 +386,11 @@ function ParticipantsList({
           avatarUrl={p.avatar_url}
           side="bottom"
         >
-          <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
+          <Avatar className="size-6 cursor-default border border-border/50 transition-all hover:ring-2 hover:ring-primary/30">
             <AvatarImage src={p.avatar_url || `https://github.com/${p.login}.png?size=32`} />
-            <AvatarFallback className="text-[7px]">{p.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="text-[7px]">
+              {p.login.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
           </Avatar>
         </GithubUserHoverCard>
       ))}
@@ -375,52 +409,65 @@ function DevelopmentIssues({
   repo: string;
   prNumber: number;
 }) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   const { openIssueTab } = useOpenGithubCenterTab();
   return (
     <SidebarSection
-      title={t('sections.development')}
+      title={t("sections.development")}
       icon={<Code className="size-3.5" />}
       action={<LinkedIssuesEditor owner={owner} repo={repo} prNumber={prNumber} issues={issues} />}
     >
-      {issues.length ? <div className="flex flex-col gap-1.5">
-        {issues.map((issue) => {
-          const isClosed = issue.state === 'closed' || issue.state === 'CLOSED';
-          return (
-            <Tooltip key={issue.number}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => openIssueTab({
-                    owner,
-                    repo,
-                    issueNumber: issue.number,
-                    title: issue.title,
-                  })}
-                  className="flex w-full min-w-0 items-start gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-muted/60"
-                >
-                  <CircleDot className={cn(
-                    "size-3.5 shrink-0 mt-0.5",
-                    isClosed ? "text-purple-500" : "text-emerald-500"
-                  )} />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-foreground/90 leading-snug line-clamp-2">
-                      {issue.title || t('development.issueFallback', { number: issue.number })}
+      {issues.length ? (
+        <div className="flex flex-col gap-1.5">
+          {issues.map((issue) => {
+            const isClosed = issue.state === "closed" || issue.state === "CLOSED";
+            return (
+              <Tooltip key={issue.number}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openIssueTab({
+                        owner,
+                        repo,
+                        issueNumber: issue.number,
+                        title: issue.title,
+                      })
+                    }
+                    className="flex w-full min-w-0 items-start gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-muted/60"
+                  >
+                    <CircleDot
+                      className={cn(
+                        "mt-0.5 size-3.5 shrink-0",
+                        isClosed ? "text-purple-500" : "text-emerald-500",
+                      )}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="line-clamp-2 leading-snug font-medium text-foreground/90">
+                        {issue.title || t("development.issueFallback", { number: issue.number })}
+                      </div>
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">
+                        #{issue.number} ·{" "}
+                        {isClosed ? t("development.closed") : t("development.open")}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      #{issue.number} · {isClosed ? t('development.closed') : t('development.open')}
-                    </div>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-[280px] text-xs">
+                  <div className="font-semibold">
+                    {issue.title || t("development.issueFallback", { number: issue.number })}
                   </div>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="text-xs max-w-[280px]">
-                <div className="font-semibold">{issue.title || t('development.issueFallback', { number: issue.number })}</div>
-                <div className="text-muted-foreground mt-0.5">#{issue.number} · {isClosed ? t('development.closed') : t('development.open')}</div>
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </div> : <span className="text-muted-foreground/60 italic">{t('empty.development')}</span>}
+                  <div className="mt-0.5 text-muted-foreground">
+                    #{issue.number} · {isClosed ? t("development.closed") : t("development.open")}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      ) : (
+        <span className="text-muted-foreground/60 italic">{t("empty.development")}</span>
+      )}
     </SidebarSection>
   );
 }
@@ -436,17 +483,26 @@ function LinkedIssuesEditor({
   prNumber: number;
   issues: ClosingIssue[];
 }) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   const scope = useComputerQueryScope();
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState<number | null>(null);
-  const openIssues = useGithubIssueListQuery({ owner, repo, state: 'open', limit: 100, enabled: open });
-  const closedIssues = useGithubIssueListQuery({ owner, repo, state: 'closed', limit: 100, enabled: open });
-  const selected = React.useMemo(
-    () => new Set(issues.map((issue) => issue.number)),
-    [issues],
-  );
+  const openIssues = useGithubIssueListQuery({
+    owner,
+    repo,
+    state: "open",
+    limit: 100,
+    enabled: open,
+  });
+  const closedIssues = useGithubIssueListQuery({
+    owner,
+    repo,
+    state: "closed",
+    limit: 100,
+    enabled: open,
+  });
+  const selected = React.useMemo(() => new Set(issues.map((issue) => issue.number)), [issues]);
   const candidates = React.useMemo(
     () => [...(openIssues.data ?? []), ...(closedIssues.data ?? [])],
     [closedIssues.data, openIssues.data],
@@ -456,7 +512,7 @@ function LinkedIssuesEditor({
     if (pending) return;
     setPending(issueNumber);
     try {
-      await wsRequest('github_pr_update_linked_issues', {
+      await wsRequest("github_pr_update_linked_issues", {
         owner,
         repo,
         pr_number: prNumber,
@@ -469,9 +525,9 @@ function LinkedIssuesEditor({
     } catch (error) {
       console.error(error);
       toastManager.add({
-        title: t('edit.errorTitle'),
-        description: t('edit.linkedIssuesFailed'),
-        type: 'error',
+        title: t("edit.errorTitle"),
+        description: t("edit.linkedIssuesFailed"),
+        type: "error",
       });
     } finally {
       setPending(null);
@@ -482,20 +538,20 @@ function LinkedIssuesEditor({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <MetadataEditTrigger label={t('edit.linkedIssuesAria')} busy={pending != null} />
+        <MetadataEditTrigger label={t("edit.linkedIssuesAria")} busy={pending != null} />
       </PopoverTrigger>
       <PopoverContent align="end" side="left" className="w-[320px] p-0">
         <Command>
-          <CommandInput placeholder={t('edit.filterIssues')} />
+          <CommandInput placeholder={t("edit.filterIssues")} />
           <CommandList className="max-h-[280px]">
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" />
-                {t('edit.loading')}
+                {t("edit.loading")}
               </div>
             ) : (
               <>
-                <CommandEmpty>{t('edit.noIssues')}</CommandEmpty>
+                <CommandEmpty>{t("edit.noIssues")}</CommandEmpty>
                 <CommandGroup>
                   {candidates.map((issue) => {
                     const isSelected = selected.has(issue.number);
@@ -507,14 +563,16 @@ function LinkedIssuesEditor({
                         onSelect={() => void toggle(issue.number)}
                         className="h-auto items-start gap-2 py-2"
                       >
-                        <CircleDot className={cn(
-                          "size-3.5 shrink-0",
-                          issue.state.toLowerCase() === 'closed' ? 'text-purple-500' : 'text-emerald-500',
-                        )} />
+                        <CircleDot
+                          className={cn(
+                            "size-3.5 shrink-0",
+                            issue.state.toLowerCase() === "closed"
+                              ? "text-purple-500"
+                              : "text-emerald-500",
+                          )}
+                        />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-xs font-medium">
-                            {issue.title}
-                          </span>
+                          <span className="block truncate text-xs font-medium">{issue.title}</span>
                           <span className="mt-0.5 block text-[10px] text-muted-foreground">
                             {owner}/{repo}#{issue.number}
                           </span>
@@ -554,16 +612,12 @@ const MetadataEditTrigger = React.forwardRef<
       className={cn(
         "inline-flex size-5 items-center justify-center rounded text-muted-foreground/70",
         "hover:bg-muted hover:text-foreground",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none",
         className,
       )}
       {...props}
     >
-      {busy ? (
-        <Loader2 className="size-3 animate-spin" />
-      ) : (
-        <Settings2 className="size-3" />
-      )}
+      {busy ? <Loader2 className="size-3 animate-spin" /> : <Settings2 className="size-3" />}
     </button>
   );
 });
@@ -583,7 +637,7 @@ export function LabelsEditor({
   labels?: Label[];
   onChanged?: () => void;
 }) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   const scope = useComputerQueryScope();
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
@@ -594,7 +648,12 @@ export function LabelsEditor({
     [labels],
   );
 
-  const { data: repoLabels = [], isLoading, isError, refetch } = useGithubRepoLabelsQuery({
+  const {
+    data: repoLabels = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useGithubRepoLabelsQuery({
     owner,
     repo,
     enabled: open && Boolean(owner && repo),
@@ -604,14 +663,15 @@ export function LabelsEditor({
     if (!label.name || pending) return;
     setPending(label.name);
 
-    const detailKey = resource === "pr"
-      ? queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber: number })
-      : queryKeys.computer.githubIssueDetail(scope, { owner, repo, issueNumber: number });
+    const detailKey =
+      resource === "pr"
+        ? queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber: number })
+        : queryKeys.computer.githubIssueDetail(scope, { owner, repo, issueNumber: number });
     const previous = queryClient.getQueryData(detailKey);
 
     // Optimistic update on PR detail cache
     queryClient.setQueryData(detailKey, (old: Record<string, unknown> | undefined) => {
-      if (!old || typeof old !== 'object') return old;
+      if (!old || typeof old !== "object") return old;
       const current = Array.isArray(old.labels) ? (old.labels as Label[]) : [];
       const nextLabels = currentlySelected
         ? current.filter((l) => l.name !== label.name)
@@ -647,9 +707,10 @@ export function LabelsEditor({
       onChanged?.();
       void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({
-        queryKey: resource === "pr"
-          ? queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber: number })
-          : queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber: number }),
+        queryKey:
+          resource === "pr"
+            ? queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber: number })
+            : queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber: number }),
       });
     } catch (error) {
       if (previous !== undefined) {
@@ -657,9 +718,9 @@ export function LabelsEditor({
       }
       console.error(error);
       toastManager.add({
-        title: t('edit.errorTitle'),
-        description: t('edit.labelsFailed'),
-        type: 'error',
+        title: t("edit.errorTitle"),
+        description: t("edit.labelsFailed"),
+        type: "error",
       });
     } finally {
       setPending(null);
@@ -669,47 +730,47 @@ export function LabelsEditor({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <MetadataEditTrigger label={t('edit.labelsAria')} busy={Boolean(pending)} />
+        <MetadataEditTrigger label={t("edit.labelsAria")} busy={Boolean(pending)} />
       </PopoverTrigger>
       <PopoverContent align="end" side="left" className="w-[280px] p-0">
         <Command>
-          <CommandInput placeholder={t('edit.filterLabels')} />
+          <CommandInput placeholder={t("edit.filterLabels")} />
           <CommandList className="max-h-[280px]">
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" />
-                {t('edit.loading')}
+                {t("edit.loading")}
               </div>
             ) : isError ? (
-              <div className="flex flex-col items-center gap-2 py-6 px-3 text-center">
-                <div className="text-xs text-muted-foreground">{t('edit.loadFailed')}</div>
+              <div className="flex flex-col items-center gap-2 px-3 py-6 text-center">
+                <div className="text-xs text-muted-foreground">{t("edit.loadFailed")}</div>
                 <button
                   type="button"
                   className="text-xs text-primary hover:underline"
                   onClick={() => void refetch()}
                 >
-                  {t('edit.retry')}
+                  {t("edit.retry")}
                 </button>
               </div>
             ) : (
               <>
-                <CommandEmpty>{t('edit.noLabels')}</CommandEmpty>
+                <CommandEmpty>{t("edit.noLabels")}</CommandEmpty>
                 <CommandGroup>
                   {repoLabels.map((label) => {
                     const selected = selectedNames.has(label.name);
-                    const color = label.color?.replace(/^#/, '') || undefined;
+                    const color = label.color?.replace(/^#/, "") || undefined;
                     const isBusy = pending === label.name;
                     return (
                       <CommandItem
                         key={label.name}
-                        value={`${label.name} ${label.description ?? ''}`}
+                        value={`${label.name} ${label.description ?? ""}`}
                         disabled={Boolean(pending)}
                         onSelect={() => void applyLabelToggle(label, selected)}
                         className="gap-2"
                       >
                         <span
                           className="size-2.5 shrink-0 rounded-full border border-black/10"
-                          style={{ backgroundColor: color ? `#${color}` : 'var(--muted)' }}
+                          style={{ backgroundColor: color ? `#${color}` : "var(--muted)" }}
                         />
                         <div className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-xs font-medium">{label.name}</span>
@@ -754,7 +815,7 @@ export function AssigneesEditor({
   assignees?: Assignee[];
   onChanged?: () => void;
 }) {
-  const t = useTranslations('github.prDetailSidebar');
+  const t = useTranslations("github.prDetailSidebar");
   const scope = useComputerQueryScope();
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
@@ -765,7 +826,12 @@ export function AssigneesEditor({
     [assignees],
   );
 
-  const { data: repoAssignees = [], isLoading, isError, refetch } = useGithubRepoAssigneesQuery({
+  const {
+    data: repoAssignees = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useGithubRepoAssigneesQuery({
     owner,
     repo,
     enabled: open && Boolean(owner && repo),
@@ -775,13 +841,14 @@ export function AssigneesEditor({
     if (!user.login || pending) return;
     setPending(user.login);
 
-    const detailKey = resource === "pr"
-      ? queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber: number })
-      : queryKeys.computer.githubIssueDetail(scope, { owner, repo, issueNumber: number });
+    const detailKey =
+      resource === "pr"
+        ? queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber: number })
+        : queryKeys.computer.githubIssueDetail(scope, { owner, repo, issueNumber: number });
     const previous = queryClient.getQueryData(detailKey);
 
     queryClient.setQueryData(detailKey, (old: Record<string, unknown> | undefined) => {
-      if (!old || typeof old !== 'object') return old;
+      if (!old || typeof old !== "object") return old;
       const current = Array.isArray(old.assignees) ? (old.assignees as Assignee[]) : [];
       const nextAssignees = currentlySelected
         ? current.filter((a) => a.login !== user.login)
@@ -817,9 +884,10 @@ export function AssigneesEditor({
       onChanged?.();
       void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({
-        queryKey: resource === "pr"
-          ? queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber: number })
-          : queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber: number }),
+        queryKey:
+          resource === "pr"
+            ? queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber: number })
+            : queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber: number }),
       });
     } catch (error) {
       if (previous !== undefined) {
@@ -827,9 +895,9 @@ export function AssigneesEditor({
       }
       console.error(error);
       toastManager.add({
-        title: t('edit.errorTitle'),
-        description: t('edit.assigneesFailed'),
-        type: 'error',
+        title: t("edit.errorTitle"),
+        description: t("edit.assigneesFailed"),
+        type: "error",
       });
     } finally {
       setPending(null);
@@ -839,31 +907,31 @@ export function AssigneesEditor({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <MetadataEditTrigger label={t('edit.assigneesAria')} busy={Boolean(pending)} />
+        <MetadataEditTrigger label={t("edit.assigneesAria")} busy={Boolean(pending)} />
       </PopoverTrigger>
       <PopoverContent align="end" side="left" className="w-[280px] p-0">
         <Command>
-          <CommandInput placeholder={t('edit.filterAssignees')} />
+          <CommandInput placeholder={t("edit.filterAssignees")} />
           <CommandList className="max-h-[280px]">
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" />
-                {t('edit.loading')}
+                {t("edit.loading")}
               </div>
             ) : isError ? (
-              <div className="flex flex-col items-center gap-2 py-6 px-3 text-center">
-                <div className="text-xs text-muted-foreground">{t('edit.loadFailed')}</div>
+              <div className="flex flex-col items-center gap-2 px-3 py-6 text-center">
+                <div className="text-xs text-muted-foreground">{t("edit.loadFailed")}</div>
                 <button
                   type="button"
                   className="text-xs text-primary hover:underline"
                   onClick={() => void refetch()}
                 >
-                  {t('edit.retry')}
+                  {t("edit.retry")}
                 </button>
               </div>
             ) : (
               <>
-                <CommandEmpty>{t('edit.noAssignees')}</CommandEmpty>
+                <CommandEmpty>{t("edit.noAssignees")}</CommandEmpty>
                 <CommandGroup>
                   {repoAssignees.map((user) => {
                     const selected = selectedLogins.has(user.login);
@@ -876,11 +944,11 @@ export function AssigneesEditor({
                         onSelect={() => void applyAssigneeToggle(user, selected)}
                         className="gap-2"
                       >
-                        <Avatar className="size-5 border border-border/50 shrink-0">
+                        <Avatar className="size-5 shrink-0 border border-border/50">
                           <AvatarImage
                             src={
                               user.avatar_url ||
-                              `https://github.com/${user.login.replace('[bot]', '')}.png?size=32`
+                              `https://github.com/${user.login.replace("[bot]", "")}.png?size=32`
                             }
                           />
                           <AvatarFallback className="text-[7px]">

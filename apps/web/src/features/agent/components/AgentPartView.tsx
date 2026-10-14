@@ -71,15 +71,15 @@ export function AgentPartView({
       ? undefined
       : thinkingDurationSeconds(thinkingBlockDurationMs(part, parts, thinkingMs));
     return (
-      <Reasoning
-        isStreaming={open}
-        defaultOpen={toolResultOpen || open}
-        duration={duration}
-      >
+      <Reasoning isStreaming={open} defaultOpen={toolResultOpen || open} duration={duration}>
         <ReasoningTrigger
           getThinkingMessage={(isStreaming, seconds) => {
             if (isStreaming || seconds === 0) {
-              return <TextShimmer as="span" duration={1} className="text-sm">{t("thinking")}</TextShimmer>;
+              return (
+                <TextShimmer as="span" duration={1} className="text-sm">
+                  {t("thinking")}
+                </TextShimmer>
+              );
             }
             if (seconds === undefined) {
               return <span>{t("thoughtForFew")}</span>;
@@ -88,7 +88,7 @@ export function AgentPartView({
           }}
         />
         <ReasoningContent
-          className="break-words prose-sm dark:prose-invert max-w-full min-w-0"
+          className="prose-sm dark:prose-invert max-w-full min-w-0 break-words"
           components={reviewComponents as never}
           linkSafety={CONVERSATION_LINK_SAFETY}
         >
@@ -149,12 +149,7 @@ export function AgentPartView({
 
   if (part.type === "tool_call") {
     if (isNestedSubagentChild(part, parts)) return null;
-    return (
-      <ToolView
-        part={part}
-        defaultOpen={toolResultOpen}
-      />
-    );
+    return <ToolView part={part} defaultOpen={toolResultOpen} />;
   }
 
   return null;
@@ -170,9 +165,10 @@ function SessionLifecycleView({
   const failed = part.status === "failed";
   const resume = part.action === "resume";
   const Icon = resume ? MessageCircleMore : MessageCirclePlus;
-  const duration = part.duration_ms != null && part.duration_ms >= 1000
-    ? formatWorkDuration(part.duration_ms)
-    : null;
+  const duration =
+    part.duration_ms != null && part.duration_ms >= 1000
+      ? formatWorkDuration(part.duration_ms)
+      : null;
   const label = running
     ? t(resume ? "resuming" : "creating")
     : failed
@@ -183,7 +179,7 @@ function SessionLifecycleView({
   const failedDetail = failed ? part.error?.trim() : "";
 
   return (
-    <div className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
+    <div className="inline-flex max-w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
       <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">
         <Icon />
       </span>
@@ -216,18 +212,19 @@ function SessionConfigChangeView({
   const modelFrom = part.model?.from?.trim() || "";
   const modeFrom = part.mode?.from?.trim() || "";
   const Icon = model && !mode ? Box : Layers;
-  const label = model && mode
-    ? t("switchedBoth", { model, mode })
-    : model
-      ? modelFrom
-        ? t("switchedModelFrom", { from: modelFrom, to: model })
-        : t("switchedModel", { to: model })
-      : modeFrom
-        ? t("switchedModeFrom", { from: modeFrom, to: mode })
-        : t("switchedMode", { to: mode });
+  const label =
+    model && mode
+      ? t("switchedBoth", { model, mode })
+      : model
+        ? modelFrom
+          ? t("switchedModelFrom", { from: modelFrom, to: model })
+          : t("switchedModel", { to: model })
+        : modeFrom
+          ? t("switchedModeFrom", { from: modeFrom, to: mode })
+          : t("switchedMode", { to: mode });
 
   return (
-    <div className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
+    <div className="inline-flex max-w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
       <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">
         <Icon />
       </span>
@@ -236,19 +233,16 @@ function SessionConfigChangeView({
   );
 }
 
-function SessionHintView({
-  part,
-}: {
-  part: Extract<AgentPart, { type: "session_hint" }>;
-}) {
+function SessionHintView({ part }: { part: Extract<AgentPart, { type: "session_hint" }> }) {
   const t = useTranslations("Agent.components.chatPanel.session");
-  const label = part.kind === "model_switch_failed"
-    ? t("hints.modelSwitchFailed")
-    : part.kind === "mode_switch_failed"
-      ? t("hints.modeSwitchFailed")
-      : part.kind === "session_op_failed"
-        ? t("hints.sessionOpFailed")
-        : part.kind;
+  const label =
+    part.kind === "model_switch_failed"
+      ? t("hints.modelSwitchFailed")
+      : part.kind === "mode_switch_failed"
+        ? t("hints.modeSwitchFailed")
+        : part.kind === "session_op_failed"
+          ? t("hints.sessionOpFailed")
+          : part.kind;
   const toneClass =
     part.tone === "warning"
       ? "text-amber-500"
@@ -257,7 +251,12 @@ function SessionHintView({
         : "text-muted-foreground";
 
   return (
-    <div className={cn("inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5", toneClass)}>
+    <div
+      className={cn(
+        "inline-flex max-w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm leading-5",
+        toneClass,
+      )}
+    >
       <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">
         <TriangleAlert />
       </span>
@@ -271,5 +270,10 @@ export function isRenderedPart(part: AgentPart): boolean {
   if (part.type === "text") return Boolean(part.text);
   if (part.type === "thinking") return Boolean(part.text);
   if (part.type === "error") return Boolean(part.message);
-  return part.type === "tool_call" || part.type === "session_lifecycle" || part.type === "session_config_change" || part.type === "session_hint";
+  return (
+    part.type === "tool_call" ||
+    part.type === "session_lifecycle" ||
+    part.type === "session_config_change" ||
+    part.type === "session_hint"
+  );
 }

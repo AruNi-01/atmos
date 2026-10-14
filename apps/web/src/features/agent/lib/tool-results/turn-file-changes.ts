@@ -57,7 +57,12 @@ export function collectTurnFileChanges(
     path: string | null | undefined,
     additions: number,
     deletions: number,
-    extra?: { oldContent?: string; newContent?: string; patch?: string; selectRanges?: DiffLineRange[] },
+    extra?: {
+      oldContent?: string;
+      newContent?: string;
+      patch?: string;
+      selectRanges?: DiffLineRange[];
+    },
   ) => {
     const trimmed = path?.trim();
     if (!trimmed) return;
@@ -94,7 +99,11 @@ export function collectTurnFileChanges(
       continue;
     }
     if (part.result?.type === "diff_stats") {
-      add(part.result.path || (part.params?.type === "edit" ? part.params.path : null), part.result.additions, part.result.deletions);
+      add(
+        part.result.path || (part.params?.type === "edit" ? part.params.path : null),
+        part.result.additions,
+        part.result.deletions,
+      );
       continue;
     }
     if (part.result?.type === "diff") {
@@ -131,7 +140,10 @@ export function collectTurnFileChanges(
       );
       continue;
     }
-    if (presentation.kind === "code" && (presentation.hint === "new" || presentation.hint === "deleted")) {
+    if (
+      presentation.kind === "code" &&
+      (presentation.hint === "new" || presentation.hint === "deleted")
+    ) {
       const stats = diffStatsForPresentation(presentation);
       add(presentation.path ?? parsed.path, stats.additions, stats.deletions, {
         oldContent: presentation.hint === "new" ? "" : presentation.code,

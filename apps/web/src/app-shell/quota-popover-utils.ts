@@ -109,10 +109,7 @@ function formatCompactDuration(parts: string[], locale?: Intl.LocalesArgument): 
   }).format(parts);
 }
 
-function resolveFormatterValue(
-  value: string | undefined,
-  fallback: string,
-): string {
+function resolveFormatterValue(value: string | undefined, fallback: string): string {
   return value ?? fallback;
 }
 
@@ -147,14 +144,18 @@ function formatRelativeReset(
   if (days > 0) {
     const remHours = hours % 24;
     const duration = formatCompactDuration(
-      [formatCompactUnit(days, "day", locale), formatCompactUnit(remHours, "hour", locale)].filter(Boolean),
+      [formatCompactUnit(days, "day", locale), formatCompactUnit(remHours, "hour", locale)].filter(
+        Boolean,
+      ),
       locale,
     );
     return `${resolveFormatterValue(formatters.resetsInPrefixLabel, "Resets in")} ${duration}`;
   }
   const mins = Math.floor((diffMs % 3_600_000) / 60_000);
   const duration = formatCompactDuration(
-    [formatCompactUnit(hours, "hour", locale), formatCompactUnit(mins, "minute", locale)].filter(Boolean),
+    [formatCompactUnit(hours, "hour", locale), formatCompactUnit(mins, "minute", locale)].filter(
+      Boolean,
+    ),
     locale,
   );
   return `${resolveFormatterValue(formatters.resetsInPrefixLabel, "Resets in")} ${duration}`;
@@ -309,10 +310,7 @@ export function displayResetText(
     : fallbackText;
 }
 
-export function displayMetricUsedText(
-  metric: QuotaMetricRow,
-  usedSuffix = "used",
-): string {
+export function displayMetricUsedText(metric: QuotaMetricRow, usedSuffix = "used"): string {
   if (metric.percent === null || metric.percent === undefined) {
     return metric.value;
   }
@@ -327,12 +325,7 @@ export type QuotaMetricSegment = {
 };
 
 /** Distinct fills for a shared-pool split. Same class is used on the bar and legend dot. */
-export const USAGE_SEGMENT_FILLS = [
-  "bg-info",
-  "bg-success",
-  "bg-warning",
-  "bg-chart-2",
-] as const;
+export const USAGE_SEGMENT_FILLS = ["bg-info", "bg-success", "bg-warning", "bg-chart-2"] as const;
 
 export function usageSegmentFillClass(label: string, index: number): string {
   const key = label.trim().toLowerCase();
@@ -407,12 +400,7 @@ export function presentQuotaMetric(
     group: metric.group,
     label: metric.label,
     valueText,
-    resetText: displayResetText(
-      metric.resetText,
-      null,
-      options.formatters,
-      options.locale,
-    ),
+    resetText: displayResetText(metric.resetText, null, options.formatters, options.locale),
     percent: null,
     segments: [],
   };
@@ -422,9 +410,7 @@ function formatQuotaAmountText(provider: QuotaProviderResponse): string | null {
   const summary = provider.usage_summary;
   if (!summary) return null;
   const isDollarUsage =
-    summary.unit?.toLowerCase() === "usd" ||
-    summary.currency === "$" ||
-    summary.currency === "USD";
+    summary.unit?.toLowerCase() === "usd" || summary.currency === "$" || summary.currency === "USD";
   if (!isDollarUsage) return null;
   if (summary.used == null || summary.cap == null) return null;
 
@@ -639,10 +625,7 @@ function isNonWindowUsageLabel(label: string): boolean {
  * (`Grok Build 5% used`, `Chat 1% used`) are a split of that bar, not
  * independent quotas. Fold them onto the window row as segments.
  */
-function foldSharedPoolSegments(
-  providerId: string,
-  rows: QuotaMetricRow[],
-): QuotaMetricRow[] {
+function foldSharedPoolSegments(providerId: string, rows: QuotaMetricRow[]): QuotaMetricRow[] {
   if (providerId !== "grok") return rows;
 
   const folded: QuotaMetricRow[] = [];

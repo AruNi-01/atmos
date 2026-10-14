@@ -42,7 +42,11 @@ import {
   modelsHavePerModelFast,
   rememberFastForModel,
 } from "@/features/agent/lib/agent-chat-thread";
-import type { AgentCapabilities, AgentDescriptor, AgentOptionSupport } from "@atmos/api-types/ws/dto/agent-chat";
+import type {
+  AgentCapabilities,
+  AgentDescriptor,
+  AgentOptionSupport,
+} from "@atmos/api-types/ws/dto/agent-chat";
 
 describe("agent chat helpers", () => {
   it("uses the first line of the prompt as a fallback session title", () => {
@@ -128,7 +132,9 @@ describe("agent chat helpers", () => {
         },
       ],
     });
-    expect(plan?.entries.map((entry) => ({ content: entry.content, status: entry.status }))).toEqual([
+    expect(
+      plan?.entries.map((entry) => ({ content: entry.content, status: entry.status })),
+    ).toEqual([
       { content: "Rename skillsParams.tab → skillsTab", status: "completed" },
       { content: "Update SkillsView.tsx to use skillsTab param", status: "completed" },
       { content: "1. Keep numbered titles that are not status-tagged", status: "pending" },
@@ -270,10 +276,7 @@ describe("agent chat helpers", () => {
       "",
     );
     expect(options[0]?.currentValue).toBe("gemini-3.5-flash");
-    expect(options[0]?.options.map((item) => item.name)).toEqual([
-      "Auto",
-      "Gemini 3.5 Flash",
-    ]);
+    expect(options[0]?.options.map((item) => item.name)).toEqual(["Auto", "Gemini 3.5 Flash"]);
   });
 
   it("keeps catalog provider groups on model options", () => {
@@ -350,12 +353,14 @@ describe("agent chat helpers", () => {
       { id: "claude-opus-4-8-fast", label: "Opus 4.8 Fast Mode" },
       { id: "claude-opus-4-7", label: "Opus 4.7", group: "Anthropic", multiplier: "2x" },
     ]);
-    expect(collapsed.map((model) => ({
-      id: model.id,
-      label: model.label,
-      fast: Boolean(model.fast),
-      group: model.group,
-    }))).toEqual([
+    expect(
+      collapsed.map((model) => ({
+        id: model.id,
+        label: model.label,
+        fast: Boolean(model.fast),
+        group: model.group,
+      })),
+    ).toEqual([
       { id: "auto", label: "Auto Model", fast: false, group: undefined },
       { id: "claude-fable-5", label: "Fable 5", fast: false, group: "Anthropic" },
       { id: "claude-opus-5", label: "Opus 5", fast: true, group: "Anthropic" },
@@ -363,12 +368,10 @@ describe("agent chat helpers", () => {
       { id: "claude-opus-4-7", label: "Opus 4.7", fast: false, group: "Anthropic" },
     ]);
     expect(collapsed.find((model) => model.id === "claude-opus-5")?.fast_multiplier).toBe("4x");
-    expect(foldDroidFastSelection(
-      "factory-droid",
-      "claude-opus-5-fast",
-      "",
-      collapsed,
-    )).toEqual({ modelId: "claude-opus-5", fastId: "true" });
+    expect(foldDroidFastSelection("factory-droid", "claude-opus-5-fast", "", collapsed)).toEqual({
+      modelId: "claude-opus-5",
+      fastId: "true",
+    });
 
     const options = optionsSnapshotToConfigOptions(
       {
@@ -413,26 +416,28 @@ describe("agent chat helpers", () => {
       { id: "grok-4.5", label: "Grok 4.5" },
       { id: "grok-composer-2.5-fast", label: "Composer 2.5 Fast" },
     ]);
-    expect(collapsed.map((model) => ({
-      id: model.id,
-      label: model.label,
-      fast: Boolean(model.fast),
-    }))).toEqual([
+    expect(
+      collapsed.map((model) => ({
+        id: model.id,
+        label: model.label,
+        fast: Boolean(model.fast),
+      })),
+    ).toEqual([
       { id: "grok-4.7", label: "Grok 4.7", fast: true },
       { id: "grok-4.6", label: "Grok 4.6", fast: false },
       { id: "grok-4.5", label: "Grok 4.5", fast: false },
       { id: "grok-composer-2.5-fast", label: "Composer 2.5 Fast", fast: false },
     ]);
-    expect(collapseGrokFastModels([
-      { id: "only-build-fast", label: "Only Fast" },
-      { id: "grok-4.6", label: "Grok 4.6" },
-    ]).map((model) => model.id)).toEqual(["only-build-fast", "grok-4.6"]);
-    expect(foldGrokFastSelection(
-      "grok",
-      "grok-4.7-build-fast",
-      "",
-      collapsed,
-    )).toEqual({ modelId: "grok-4.7", fastId: "true" });
+    expect(
+      collapseGrokFastModels([
+        { id: "only-build-fast", label: "Only Fast" },
+        { id: "grok-4.6", label: "Grok 4.6" },
+      ]).map((model) => model.id),
+    ).toEqual(["only-build-fast", "grok-4.6"]);
+    expect(foldGrokFastSelection("grok", "grok-4.7-build-fast", "", collapsed)).toEqual({
+      modelId: "grok-4.7",
+      fastId: "true",
+    });
 
     const options = optionsSnapshotToConfigOptions(
       {
@@ -459,47 +464,44 @@ describe("agent chat helpers", () => {
     ]);
     expect(options.find((item) => item.id === "model")?.currentValue).toBe("grok-4.7");
     expect(options.find((item) => item.id === "fast")?.currentValue).toBe("true");
-    expect(optionsSnapshotToConfigOptions(
-      {
-        agent_id: "grok",
-        status: "ok",
-        models: [
-          { id: "grok-4.7", label: "Grok 4.7", fast: true },
-          { id: "grok-4.6", label: "Grok 4.6" },
-        ],
-        modes: [],
-        thinking: { type: "none" },
-        strategies_used: [],
-        fetched_at: "",
-        source: "cache",
-        message: null,
-      },
-      "grok-4.6",
-      "",
-    ).find((item) => item.id === "fast")).toBeUndefined();
+    expect(
+      optionsSnapshotToConfigOptions(
+        {
+          agent_id: "grok",
+          status: "ok",
+          models: [
+            { id: "grok-4.7", label: "Grok 4.7", fast: true },
+            { id: "grok-4.6", label: "Grok 4.6" },
+          ],
+          modes: [],
+          thinking: { type: "none" },
+          strategies_used: [],
+          fetched_at: "",
+          source: "cache",
+          message: null,
+        },
+        "grok-4.6",
+        "",
+      ).find((item) => item.id === "fast"),
+    ).toBeUndefined();
   });
 
   it("folds Droid Auto (Off/Low/Medium/High) out of Mode into Permission", () => {
-    expect(foldDroidModePermissionSelection(
-      "factory-droid",
-      "Auto (Off)",
-      "",
-    )).toEqual({ modeId: "auto", permissionId: "ask_always" });
-    expect(foldDroidModePermissionSelection(
-      "factory-droid",
-      "Auto (High)",
-      "",
-    )).toEqual({ modeId: "auto", permissionId: "auto" });
-    const folded = foldDroidComposerOptions(
-      "factory-droid",
-      [
-        { id: "Auto (Off)", label: "Auto (Off)" },
-        { id: "spec", label: "Spec" },
-        { id: "Auto (Low)", label: "Auto (Low)" },
-        { id: "Auto (Medium)", label: "Auto (Medium)" },
-        { id: "Auto (High)", label: "Auto (High)", is_default: true },
-      ],
-    );
+    expect(foldDroidModePermissionSelection("factory-droid", "Auto (Off)", "")).toEqual({
+      modeId: "auto",
+      permissionId: "ask_always",
+    });
+    expect(foldDroidModePermissionSelection("factory-droid", "Auto (High)", "")).toEqual({
+      modeId: "auto",
+      permissionId: "auto",
+    });
+    const folded = foldDroidComposerOptions("factory-droid", [
+      { id: "Auto (Off)", label: "Auto (Off)" },
+      { id: "spec", label: "Spec" },
+      { id: "Auto (Low)", label: "Auto (Low)" },
+      { id: "Auto (Medium)", label: "Auto (Medium)" },
+      { id: "Auto (High)", label: "Auto (High)", is_default: true },
+    ]);
     expect(folded.modes.map((item) => item.id)).toEqual(["auto", "spec"]);
     expect(folded.permissionModes.map((item) => item.id)).toEqual([
       "yolo",
@@ -590,8 +592,9 @@ describe("agent chat helpers", () => {
     expect(filled.current_config.mode).toBe("auto");
     expect(filled.current_config.permission_mode).toBe("auto");
     const fromDescriptor = descriptorToConfigOptions(filled);
-    expect(fromDescriptor.find((item) => item.id === "mode")?.options.map((item) => item.value))
-      .toEqual(["auto", "spec"]);
+    expect(
+      fromDescriptor.find((item) => item.id === "mode")?.options.map((item) => item.value),
+    ).toEqual(["auto", "spec"]);
     expect(fromDescriptor.find((item) => item.id === "mode")?.currentValue).toBe("auto");
   });
 
@@ -631,8 +634,21 @@ describe("agent chat helpers", () => {
       agent_id: "factory-droid",
       status: "ok",
       models: [
-        { id: "claude-opus-5", label: "Opus 5", group: "Anthropic", multiplier: "2x", fast: true, fast_multiplier: "4x" },
-        { id: "claude-opus-4-8", label: "Opus 4.8", group: "Anthropic", multiplier: "2x", fast: true },
+        {
+          id: "claude-opus-5",
+          label: "Opus 5",
+          group: "Anthropic",
+          multiplier: "2x",
+          fast: true,
+          fast_multiplier: "4x",
+        },
+        {
+          id: "claude-opus-4-8",
+          label: "Opus 4.8",
+          group: "Anthropic",
+          multiplier: "2x",
+          fast: true,
+        },
       ],
       modes: [],
       permission_modes: [],
@@ -642,12 +658,14 @@ describe("agent chat helpers", () => {
       source: "cache",
       message: null,
     });
-    expect(filled.supported_options.models.map((model) => ({
-      id: model.id,
-      label: model.label,
-      fast: Boolean(model.fast),
-      group: model.group,
-    }))).toEqual([
+    expect(
+      filled.supported_options.models.map((model) => ({
+        id: model.id,
+        label: model.label,
+        fast: Boolean(model.fast),
+        group: model.group,
+      })),
+    ).toEqual([
       { id: "claude-opus-5", label: "Opus 5", fast: true, group: "Anthropic" },
       { id: "claude-opus-4-8", label: "Opus 4.8", fast: true, group: "Anthropic" },
     ]);
@@ -666,49 +684,55 @@ describe("agent chat helpers", () => {
     expect(rememberFastForModel({}, "claude-opus-5", "true")).toEqual({
       "claude-opus-5": "true",
     });
-    expect(fastIdAfterModelChange({
-      nextModelId: "claude-opus-4-8",
-      models,
-      rememberedFastByModel: {},
-      sessionFastId: "true",
-    })).toBe("false");
-    expect(fastIdAfterModelChange({
-      nextModelId: "claude-opus-4-8",
-      models,
-      rememberedFastByModel: { "claude-opus-4-8": "true" },
-      sessionFastId: "false",
-    })).toBe("true");
-    expect(fastIdAfterModelChange({
-      nextModelId: "claude-fable-5",
-      models,
-      rememberedFastByModel: {},
-      sessionFastId: "true",
-    })).toBe("");
-    expect(fastIdAfterModelChange({
-      nextModelId: "claude-opus-5",
-      models: [
-        { id: "claude-opus-5" },
-        { id: "claude-opus-5-fast" },
-        { id: "claude-opus-4-8" },
-        { id: "claude-opus-4-8-fast" },
-      ],
-      rememberedFastByModel: {},
-      sessionFastId: "true",
-    })).toBe("false");
-    expect(fastIdAfterModelChange({
-      nextModelId: "sonnet",
-      models: [{ id: "sonnet" }, { id: "opus" }],
-      rememberedFastByModel: {},
-      sessionFastId: "true",
-    })).toBe("true");
+    expect(
+      fastIdAfterModelChange({
+        nextModelId: "claude-opus-4-8",
+        models,
+        rememberedFastByModel: {},
+        sessionFastId: "true",
+      }),
+    ).toBe("false");
+    expect(
+      fastIdAfterModelChange({
+        nextModelId: "claude-opus-4-8",
+        models,
+        rememberedFastByModel: { "claude-opus-4-8": "true" },
+        sessionFastId: "false",
+      }),
+    ).toBe("true");
+    expect(
+      fastIdAfterModelChange({
+        nextModelId: "claude-fable-5",
+        models,
+        rememberedFastByModel: {},
+        sessionFastId: "true",
+      }),
+    ).toBe("");
+    expect(
+      fastIdAfterModelChange({
+        nextModelId: "claude-opus-5",
+        models: [
+          { id: "claude-opus-5" },
+          { id: "claude-opus-5-fast" },
+          { id: "claude-opus-4-8" },
+          { id: "claude-opus-4-8-fast" },
+        ],
+        rememberedFastByModel: {},
+        sessionFastId: "true",
+      }),
+    ).toBe("false");
+    expect(
+      fastIdAfterModelChange({
+        nextModelId: "sonnet",
+        models: [{ id: "sonnet" }, { id: "opus" }],
+        rememberedFastByModel: {},
+        sessionFastId: "true",
+      }),
+    ).toBe("true");
   });
 
   it("shows an ACP-reported model before the catalog list arrives", () => {
-    const options = optionsSnapshotToConfigOptions(
-      probingOptionsSnapshot("claude"),
-      "grok-4",
-      "",
-    );
+    const options = optionsSnapshotToConfigOptions(probingOptionsSnapshot("claude"), "grok-4", "");
     expect(options).toEqual([
       {
         id: "model",
@@ -759,12 +783,7 @@ describe("agent chat helpers", () => {
       "xhigh",
       "max",
     ]);
-    expect(thinkingChoices(catalog, "gpt-5.3-codex")).toEqual([
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-    ]);
+    expect(thinkingChoices(catalog, "gpt-5.3-codex")).toEqual(["low", "medium", "high", "xhigh"]);
     expect(thinkingChoices(catalog, "auto")).toEqual([]);
     expect(
       thinkingChoices(
@@ -786,14 +805,9 @@ describe("agent chat helpers", () => {
     ).toEqual(["low", "medium", "high", "xhigh"]);
     const opusOptions = optionsSnapshotToConfigOptions(catalog, "claude-opus-5", "high");
 
-    expect(opusOptions.find((item) => item.id === "thinking")?.options.map((item) => item.name)).toEqual([
-      "Off",
-      "Low",
-      "Medium",
-      "High",
-      "Extra high",
-      "Max",
-    ]);
+    expect(
+      opusOptions.find((item) => item.id === "thinking")?.options.map((item) => item.name),
+    ).toEqual(["Off", "Low", "Medium", "High", "Extra high", "Max"]);
     expect(thinkingLevelLabel("xhigh")).toBe("Extra high");
     expect(thinkingLevelMessageKey("xhigh")).toBe("extraHigh");
     expect(thinkingLevelMessageKey("extra_high")).toBe("extraHigh");
@@ -929,13 +943,15 @@ describe("agent chat helpers", () => {
       message: null,
     };
     expect(contextChoices(catalog, "gpt-5.4").map((item) => item.id)).toEqual(["272k", "1m"]);
-    expect(contextChoices(catalog, "claude-opus-4-8").map((item) => item.id)).toEqual(["300k", "1m"]);
-    expect(contextChoices(catalog, "composer-2.5")).toEqual([]);
-    const gptOptions = optionsSnapshotToConfigOptions(catalog, "gpt-5.4", "", "", "", "272k");
-    expect(gptOptions.find((item) => item.id === "context")?.options.map((item) => item.value)).toEqual([
-      "272k",
+    expect(contextChoices(catalog, "claude-opus-4-8").map((item) => item.id)).toEqual([
+      "300k",
       "1m",
     ]);
+    expect(contextChoices(catalog, "composer-2.5")).toEqual([]);
+    const gptOptions = optionsSnapshotToConfigOptions(catalog, "gpt-5.4", "", "", "", "272k");
+    expect(
+      gptOptions.find((item) => item.id === "context")?.options.map((item) => item.value),
+    ).toEqual(["272k", "1m"]);
     const composerOptions = optionsSnapshotToConfigOptions(catalog, "composer-2.5", "");
     expect(composerOptions.find((item) => item.id === "context")).toBeUndefined();
     const gpt1m = optionsSnapshotToConfigOptions(catalog, "gpt-5.4", "", "", "", "1m");
@@ -992,18 +1008,24 @@ describe("agent chat helpers", () => {
     };
     expect(selectedModelSupportsFast(catalog.models, "gpt-5.4", [])).toBe(true);
     expect(selectedModelSupportsFast(catalog.models, "auto", [])).toBe(false);
-    expect(optionsSnapshotToConfigOptions(catalog, "gpt-5.4", "").find((item) => item.id === "fast")).toBeDefined();
-    expect(optionsSnapshotToConfigOptions(catalog, "auto", "").find((item) => item.id === "fast")).toBeUndefined();
-    expect(modelPickerName("GPT-5.4", "gpt-5.4", "gpt-5.4", "1m", [
-      { id: "272k", label: "272K" },
-      { id: "1m", label: "1M" },
-    ])).toBe("GPT-5.4 1M");
+    expect(
+      optionsSnapshotToConfigOptions(catalog, "gpt-5.4", "").find((item) => item.id === "fast"),
+    ).toBeDefined();
+    expect(
+      optionsSnapshotToConfigOptions(catalog, "auto", "").find((item) => item.id === "fast"),
+    ).toBeUndefined();
+    expect(
+      modelPickerName("GPT-5.4", "gpt-5.4", "gpt-5.4", "1m", [
+        { id: "272k", label: "272K" },
+        { id: "1m", label: "1M" },
+      ]),
+    ).toBe("GPT-5.4 1M");
   });
 
   it("puts ACP reasoning-effort options on the trailing thinking control", () => {
-    expect(
-      isComposerTrailingConfigOption({ id: "reasoning_effort", category: "thinking" }),
-    ).toBe(true);
+    expect(isComposerTrailingConfigOption({ id: "reasoning_effort", category: "thinking" })).toBe(
+      true,
+    );
     expect(isThinkingConfigId("reasoningEffort")).toBe(true);
   });
 
@@ -1118,9 +1140,9 @@ describe("agent chat helpers", () => {
         ],
       },
     ];
-    expect(
-      overlayPendingConfigValues(advertised, { modelId: "grok-4" })[0]?.currentValue,
-    ).toBe("grok-4");
+    expect(overlayPendingConfigValues(advertised, { modelId: "grok-4" })[0]?.currentValue).toBe(
+      "grok-4",
+    );
     expect(
       overlayPendingConfigValues(advertised, { modelId: "catalog-opus" })[0]?.currentValue,
     ).toBe("opus");
@@ -1324,12 +1346,9 @@ describe("agent chat helpers", () => {
       "permission_mode",
       "mode",
     ]);
-    expect(options.find((item) => item.id === "permission_mode")?.options.map((item) => item.value)).toEqual([
-      "yolo",
-      "accept_edits",
-      "auto",
-      "ask_always",
-    ]);
+    expect(
+      options.find((item) => item.id === "permission_mode")?.options.map((item) => item.value),
+    ).toEqual(["yolo", "accept_edits", "auto", "ask_always"]);
   });
 
   it("APP-069 S8 shows Codex Yolo, Auto, and Ask always without Accept edits", () => {
@@ -1370,11 +1389,9 @@ describe("agent chat helpers", () => {
       "model",
       "thinking",
     ]);
-    expect(options.find((item) => item.id === "permission_mode")?.options.map((item) => item.value)).toEqual([
-      "yolo",
-      "auto",
-      "ask_always",
-    ]);
+    expect(
+      options.find((item) => item.id === "permission_mode")?.options.map((item) => item.value),
+    ).toEqual(["yolo", "auto", "ask_always"]);
   });
 
   it("APP-069 S8 hides Pi Mode and Permission when both support flags are unsupported", () => {
@@ -1551,20 +1568,23 @@ describe("agent chat helpers", () => {
       message: null,
     };
     const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, catalog);
-    expect(filled.supported_options.models.map((item) => ({
-      id: item.id,
-      label: item.label,
-      fast: Boolean(item.fast),
-    }))).toEqual([
+    expect(
+      filled.supported_options.models.map((item) => ({
+        id: item.id,
+        label: item.label,
+        fast: Boolean(item.fast),
+      })),
+    ).toEqual([
       { id: "grok-4.7", label: "grok-4.7", fast: true },
       { id: "grok-4.6", label: "Grok 4.6", fast: false },
       { id: "grok-4.5", label: "Grok 4.5", fast: false },
     ]);
-    expect(filled.supported_options.models.find((item) => item.id === "grok-4.7")?.thinking)
-      .toEqual(grok47Thinking);
     expect(
-      filled.supported_options.models.some((item) => item.id === "grok-4.7-build-fast"),
-    ).toBe(false);
+      filled.supported_options.models.find((item) => item.id === "grok-4.7")?.thinking,
+    ).toEqual(grok47Thinking);
+    expect(filled.supported_options.models.some((item) => item.id === "grok-4.7-build-fast")).toBe(
+      false,
+    );
     const options = composerConfigOptions({
       descriptor: filled,
       catalog,
@@ -1578,15 +1598,17 @@ describe("agent chat helpers", () => {
       options.find((item) => item.id === "thinking")?.options.map((item) => item.value),
     ).toEqual(["low", "medium", "high", "xhigh"]);
     expect(options.find((item) => item.id === "fast")).toBeDefined();
-    expect(composerConfigOptions({
-      descriptor: filled,
-      catalog,
-      providerId: "grok",
-      modelId: "grok-4.6",
-      thinkingId: "",
-      modeId: "default",
-      permissionModeId: "ask_always",
-    }).find((item) => item.id === "fast")).toBeUndefined();
+    expect(
+      composerConfigOptions({
+        descriptor: filled,
+        catalog,
+        providerId: "grok",
+        modelId: "grok-4.6",
+        thinkingId: "",
+        modeId: "default",
+        permissionModeId: "ask_always",
+      }).find((item) => item.id === "fast"),
+    ).toBeUndefined();
     expect(thinkingChoices(catalog, "grok-4.7")).toEqual(["low", "medium", "high", "xhigh"]);
   });
 
@@ -1936,7 +1958,10 @@ describe("agent chat helpers", () => {
         },
       ],
       modes: [{ id: "default", label: "Default", is_default: true }],
-      thinking: { type: "enum" as const, options: ["low", "medium", "high", "xhigh", "max", "ultra"] },
+      thinking: {
+        type: "enum" as const,
+        options: ["low", "medium", "high", "xhigh", "max", "ultra"],
+      },
       strategies_used: [],
       fetched_at: "",
       source: "cache" as const,
@@ -1952,12 +1977,9 @@ describe("agent chat helpers", () => {
       modeId: "",
       permissionModeId: "",
     });
-    expect(options.find((item) => item.id === "thinking")?.options.map((item) => item.value)).toEqual([
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-    ]);
+    expect(
+      options.find((item) => item.id === "thinking")?.options.map((item) => item.value),
+    ).toEqual(["low", "medium", "high", "xhigh"]);
     expect(thinkingLevelMessageKey("ultra")).toBe("ultra");
     expect(thinkingLevelLabel("ultra")).toBe("Ultra");
   });
@@ -2053,4 +2075,3 @@ describe("agent chat helpers", () => {
     expect(options.map((item) => item.id)).toEqual(["permission_mode", "mode", "model"]);
   });
 });
-

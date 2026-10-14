@@ -69,13 +69,13 @@ Use one finding per broken behavior.
 ```markdown
 ## REV-NNN - Missing scheduled retry visibility
 
-| Field | Value |
-|-------|--------|
-| **Status** | open |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | open            |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 

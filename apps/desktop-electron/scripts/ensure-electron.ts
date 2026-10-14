@@ -27,9 +27,7 @@ let electronPkgDir: string;
 try {
   electronPkgDir = dirname(require.resolve("electron/package.json"));
 } catch {
-  console.warn(
-    "[ensure-electron] electron package not installed; run bun install",
-  );
+  console.warn("[ensure-electron] electron package not installed; run bun install");
   process.exit(0);
 }
 

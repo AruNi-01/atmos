@@ -12,18 +12,18 @@ ACP stdio JSON-RPC stays in `crates/agent/src/acp_client/` (APP-004 spawn, `init
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Route only non-native ids through `AcpAgentProvider` | Keep a parallel ACP Chat path for `claude` / `codex` / `opencode` / `pi` (including `claude-acp`, `codex-acp`, `pi-acp`, `@agentclientprotocol/claude-agent-acp`) |
-| Map `AcpSessionEvent` → tagged `AgentEventEnvelope` in `event_map.rs` | Put `AcpSessionEvent` / `AgentCapabilitiesSnapshot` on crate-root Chat API or `AgentChatMeta` |
-| Map tools to `AgentTool` (`kind` + `params` + `result` only) in `tool_map.rs` | Dual-write typed params and `raw_input` / `_meta.claudeCode` / `detail` |
-| Prefer ACP `ToolKind`, then generic extractors, then `provider_id` overlays | Use name heuristics as the only classifier; map `web_search` to workspace `Search` |
-| Fold Think / plan / hide **before** emitting a tool event | Emit thinking/plan as `AgentToolKind` |
-| Answer `session/request_permission` via `AgentAction::RespondPermission` | Convert options to a boolean `allowed` / `remember` Chat API |
-| Persist ACP session id; resume via `session/load` then `session/resume` | Treat Chat `get` as resume; re-apply host `default_config` on resume |
-| `SetConfig` alias writes (`model`/`models`, …) inside the adapter | Put ACP `configOptions` bags on meta as SOT |
-| Unmapped tool → `kind: other`, params/result = vendor values; unknown `session/update` → drop or one `Unknown` | Crash the session; hide the turn |
-| `AgentAction::Steer` → `Unsupported` | Fake steer with a second `session/prompt` |
+| MUST                                                                                                           | MUST NOT                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route only non-native ids through `AcpAgentProvider`                                                           | Keep a parallel ACP Chat path for `claude` / `codex` / `opencode` / `pi` (including `claude-acp`, `codex-acp`, `pi-acp`, `@agentclientprotocol/claude-agent-acp`) |
+| Map `AcpSessionEvent` → tagged `AgentEventEnvelope` in `event_map.rs`                                          | Put `AcpSessionEvent` / `AgentCapabilitiesSnapshot` on crate-root Chat API or `AgentChatMeta`                                                                     |
+| Map tools to `AgentTool` (`kind` + `params` + `result` only) in `tool_map.rs`                                  | Dual-write typed params and `raw_input` / `_meta.claudeCode` / `detail`                                                                                           |
+| Prefer ACP `ToolKind`, then generic extractors, then `provider_id` overlays                                    | Use name heuristics as the only classifier; map `web_search` to workspace `Search`                                                                                |
+| Fold Think / plan / hide **before** emitting a tool event                                                      | Emit thinking/plan as `AgentToolKind`                                                                                                                             |
+| Answer `session/request_permission` via `AgentAction::RespondPermission`                                       | Convert options to a boolean `allowed` / `remember` Chat API                                                                                                      |
+| Persist ACP session id; resume via `session/load` then `session/resume`                                        | Treat Chat `get` as resume; re-apply host `default_config` on resume                                                                                              |
+| `SetConfig` alias writes (`model`/`models`, …) inside the adapter                                              | Put ACP `configOptions` bags on meta as SOT                                                                                                                       |
+| Unmapped tool → `kind: other`, params/result = vendor values; unknown `session/update` → drop or one `Unknown` | Crash the session; hide the turn                                                                                                                                  |
+| `AgentAction::Steer` → `Unsupported`                                                                           | Fake steer with a second `session/prompt`                                                                                                                         |
 
 ## Architecture
 
@@ -78,13 +78,13 @@ Do not persist `detail` / `_meta.claudeCode`. `extract_claude_code_meta` may sta
 
 Canonicalize before construct (`acp_factory.rs` + tests S24):
 
-| Incoming `provider_id` | Chat provider |
-|------------------------|---------------|
-| `claude`, `claude-code`, `claude_code`, `claude-acp`, `claude-code-acp`, `claude-agent-acp` | native `claude` |
-| `codex`, `codex-acp` | native `codex` |
-| `opencode` | native `opencode` |
-| `pi`, `pi-acp` | native `pi` |
-| anything else (`grok`, `grok-build`, `gemini`, `cursor`, custom, …) | `AcpAgentProvider` |
+| Incoming `provider_id`                                                                      | Chat provider      |
+| ------------------------------------------------------------------------------------------- | ------------------ |
+| `claude`, `claude-code`, `claude_code`, `claude-acp`, `claude-code-acp`, `claude-agent-acp` | native `claude`    |
+| `codex`, `codex-acp`                                                                        | native `codex`     |
+| `opencode`                                                                                  | native `opencode`  |
+| `pi`, `pi-acp`                                                                              | native `pi`        |
+| anything else (`grok`, `grok-build`, `gemini`, `cursor`, custom, …)                         | `AcpAgentProvider` |
 
 Catalog probe may still speak ACP for `claude-acp` (APP-024). That is **not** Chat spawn. `LazyAcpProvider` must not wrap the four natives.
 
@@ -114,12 +114,12 @@ Implement parent `AgentRuntime` / `AgentAction`. Rename `prompt` → `send`. Atm
 
 `descriptor()`: identity from `provider_id` + launch/catalog name/version. Capabilities:
 
-| Atmos | From ACP |
-|-------|----------|
-| `resume` | `sessionCapabilities.resume` **or** `loadSession` |
-| `permission` | `Supported` (host implements `session/request_permission`) |
-| `configure` | `Supported` when live `configOptions` or catalog models/thinking/modes exist |
-| `steer` | `Unsupported` |
+| Atmos        | From ACP                                                                     |
+| ------------ | ---------------------------------------------------------------------------- |
+| `resume`     | `sessionCapabilities.resume` **or** `loadSession`                            |
+| `permission` | `Supported` (host implements `session/request_permission`)                   |
+| `configure`  | `Supported` when live `configOptions` or catalog models/thinking/modes exist |
+| `steer`      | `Unsupported`                                                                |
 
 Never copy `AgentCapabilitiesSnapshot` onto descriptor. `AgentInfoUpdate` / `CapabilitiesUpdate` refresh adapter-internal snapshot only.
 
@@ -129,25 +129,25 @@ Never copy `AgentCapabilitiesSnapshot` onto descriptor. `AgentInfoUpdate` / `Cap
 
 Input: `AcpSessionEvent` (`crates/agent/src/acp_client/client.rs`). Output: zero or more Atmos envelopes (queue extras when closing an open thinking/assistant stream — keep `complete_stream_before`). Wrap every emit: `event_id` UUID, `turn_id` = `running_turn`, `timestamp` now, **no native sidecar**.
 
-| ACP | Atmos |
-|-----|--------|
-| `SessionReady { acp_session_id }` | `SessionStarted { persistence_handle: Some(id) }`; store handle; `replaying = false` |
-| `Stream` kind `thinking` | `ThinkingDelta` / `ThinkingCompleted` |
-| `Stream` role `assistant` | `AssistantMessageDelta` / `AssistantMessageCompleted` |
-| other stream (user replay, …) | drop |
-| `ToolCall` | `tool_map`; if fold → thinking/plan/hide; else `ToolCallStarted` / `Updated` / `Completed` / `Failed` from ACP status |
-| `PermissionRequest` | `PermissionRequested` (`request_id`, `tool`, `description`, `content_markdown`, `options` with `option_id`/`name`/`kind`). Drop ACP `risk_level` |
-| `TurnEnd` | `TurnCompleted` / `TurnCanceled` / `TurnFailed` using Atmos `turn_id` (not ACP). Map `AcpTurnStop` as today |
-| `Error` | `TurnFailed` if a turn is running; else drop or `Unknown` |
-| `Plan` | `PlanUpdated` (JSON entries) |
-| `Usage` / `TurnUsage` | `UsageUpdated` (JSON; good enough for v1) |
-| `ConfigOptionsUpdate` | merge **known** option ids into `current_config` + `supported_options`; emit `ConfigChanged` with that Atmos config, not the raw option vec |
-| `LoadCompleted` | clear `replaying`; no Chat event |
-| `SessionClosed` / `SessionEnded` | `SessionClosed` |
-| `SessionInfoUpdate` title | `SessionTitleUpdated` if non-empty |
-| `AvailableCommandsUpdate` | `AvailableCommandsUpdated` |
-| `AgentInfoUpdate` / `CapabilitiesUpdate` | no Chat event |
-| unknown / `_` | drop (client already swallows unknown `session/update`). Do not fail the session |
+| ACP                                      | Atmos                                                                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SessionReady { acp_session_id }`        | `SessionStarted { persistence_handle: Some(id) }`; store handle; `replaying = false`                                                             |
+| `Stream` kind `thinking`                 | `ThinkingDelta` / `ThinkingCompleted`                                                                                                            |
+| `Stream` role `assistant`                | `AssistantMessageDelta` / `AssistantMessageCompleted`                                                                                            |
+| other stream (user replay, …)            | drop                                                                                                                                             |
+| `ToolCall`                               | `tool_map`; if fold → thinking/plan/hide; else `ToolCallStarted` / `Updated` / `Completed` / `Failed` from ACP status                            |
+| `PermissionRequest`                      | `PermissionRequested` (`request_id`, `tool`, `description`, `content_markdown`, `options` with `option_id`/`name`/`kind`). Drop ACP `risk_level` |
+| `TurnEnd`                                | `TurnCompleted` / `TurnCanceled` / `TurnFailed` using Atmos `turn_id` (not ACP). Map `AcpTurnStop` as today                                      |
+| `Error`                                  | `TurnFailed` if a turn is running; else drop or `Unknown`                                                                                        |
+| `Plan`                                   | `PlanUpdated` (JSON entries)                                                                                                                     |
+| `Usage` / `TurnUsage`                    | `UsageUpdated` (JSON; good enough for v1)                                                                                                        |
+| `ConfigOptionsUpdate`                    | merge **known** option ids into `current_config` + `supported_options`; emit `ConfigChanged` with that Atmos config, not the raw option vec      |
+| `LoadCompleted`                          | clear `replaying`; no Chat event                                                                                                                 |
+| `SessionClosed` / `SessionEnded`         | `SessionClosed`                                                                                                                                  |
+| `SessionInfoUpdate` title                | `SessionTitleUpdated` if non-empty                                                                                                               |
+| `AvailableCommandsUpdate`                | `AvailableCommandsUpdated`                                                                                                                       |
+| `AgentInfoUpdate` / `CapabilitiesUpdate` | no Chat event                                                                                                                                    |
+| unknown / `_`                            | drop (client already swallows unknown `session/update`). Do not fail the session                                                                 |
 
 Replay (`should_drop_replay`): while `replaying`, drop streams/tools/permissions/plans/usage. Keep `LoadCompleted`, `SessionReady`, close, `AvailableCommandsUpdate`. Atmos history is jsonl; ACP load replay is not a second transcript.
 
@@ -195,12 +195,12 @@ Adapter-internal. Catalog probe already uses the same id classes (`crates/agent/
 
 **Write** (`SetConfig` + new-session `default_config`): try ids in order until ACP `session/set_config_option` (or legacy `session/set_mode` when `uses_legacy_modes`) succeeds.
 
-| Atmos field | ACP ids tried |
-|-------------|---------------|
-| `model` | `model`, `models` |
-| `thinking` | `thought_level`, `thinking`, `think` |
-| `mode` | `mode`, `modes` |
-| `extra_config` | exact id |
+| Atmos field    | ACP ids tried                        |
+| -------------- | ------------------------------------ |
+| `model`        | `model`, `models`                    |
+| `thinking`     | `thought_level`, `thinking`, `think` |
+| `mode`         | `mode`, `modes`                      |
+| `extra_config` | exact id                             |
 
 New session: insert Atmos model/thinking/mode into the default map using **canonical** ACP ids `model` / `thought_level` / `mode` (today’s `open_acp_session`). Resume: **do not** apply host defaults (`resume_session_id_skips_host_config`).
 

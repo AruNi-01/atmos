@@ -59,8 +59,7 @@ export const webPort = useSingleServer ? apiPort : configuredWebPort;
 export const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${webPort}`;
 export const webHealthURL = `${baseURL}/`;
 
-export const shouldStartWebServer =
-  process.env.E2E_START_WEB !== "0" && !process.env.E2E_BASE_URL;
+export const shouldStartWebServer = process.env.E2E_START_WEB !== "0" && !process.env.E2E_BASE_URL;
 export const shouldReuseWebServer =
   process.env.E2E_REUSE_SERVER === "1" ||
   (existingWebPort != null && (useSingleServer ? existingApiHasFrontend : true));
@@ -96,24 +95,24 @@ function startApiCommands(correspondingWebPort: number, serveStatic: boolean): s
     "api_pid=",
     `api_log="/tmp/atmos-e2e-api.log"`,
     `if ! lsof -iTCP:${apiPort} -sTCP:LISTEN >/dev/null 2>&1; then`,
-    `  rm -f "${'$'}api_log"`,
-    `  ${env}just dev-api --port ${apiPort} --web-port ${correspondingWebPort} >"${'$'}api_log" 2>&1 & api_pid=$!`,
+    `  rm -f "${"$"}api_log"`,
+    `  ${env}just dev-api --port ${apiPort} --web-port ${correspondingWebPort} >"${"$"}api_log" 2>&1 & api_pid=$!`,
     `  for _ in {1..600}; do`,
     `    if lsof -iTCP:${apiPort} -sTCP:LISTEN >/dev/null 2>&1; then`,
     `      break`,
     `    fi`,
-    `    if ! kill -0 "${'$'}api_pid" >/dev/null 2>&1; then`,
-    `      cat "${'$'}api_log"`,
+    `    if ! kill -0 "${"$"}api_pid" >/dev/null 2>&1; then`,
+    `      cat "${"$"}api_log"`,
     `      exit 1`,
     `    fi`,
     `    sleep 1`,
     `  done`,
     `  if ! lsof -iTCP:${apiPort} -sTCP:LISTEN >/dev/null 2>&1; then`,
-    `    cat "${'$'}api_log"`,
+    `    cat "${"$"}api_log"`,
     `    exit 1`,
     `  fi`,
     `fi`,
-    `if [ -n "${'$'}api_pid" ]; then`,
+    `if [ -n "${"$"}api_pid" ]; then`,
     `  trap 'if [ -n "$api_pid" ]; then kill "$api_pid" >/dev/null 2>&1 || true; fi' EXIT`,
     `fi`,
     `if ${serveStatic ? "true" : "false"}; then`,
@@ -121,14 +120,14 @@ function startApiCommands(correspondingWebPort: number, serveStatic: boolean): s
     `    if curl -fsS --max-time 2 "http://127.0.0.1:${correspondingWebPort}/" > /dev/null; then`,
     `      break`,
     `    fi`,
-    `    if [ -n "${'$'}api_pid" ] && ! kill -0 "${'$'}api_pid" >/dev/null 2>&1; then`,
-    `      cat "${'$'}api_log"`,
+    `    if [ -n "${"$"}api_pid" ] && ! kill -0 "${"$"}api_pid" >/dev/null 2>&1; then`,
+    `      cat "${"$"}api_log"`,
     `      exit 1`,
     `    fi`,
     `    sleep 1`,
     `  done`,
     `  if ! curl -fsS --max-time 2 "http://127.0.0.1:${correspondingWebPort}/" > /dev/null; then`,
-    `    cat "${'$'}api_log" 2>/dev/null || true`,
+    `    cat "${"$"}api_log" 2>/dev/null || true`,
     `    exit 1`,
     `  fi`,
     `fi`,
@@ -136,9 +135,7 @@ function startApiCommands(correspondingWebPort: number, serveStatic: boolean): s
 }
 
 export function webServerCommand(): string {
-  const correspondingWebPort = useSingleServer
-    ? apiPort
-    : existingWebPort ?? webPort;
+  const correspondingWebPort = useSingleServer ? apiPort : (existingWebPort ?? webPort);
   const startNextDev = !useSingleServer && existingWebPort == null;
   const lines = [
     ...(useSingleServer ? staticExportCommands() : []),
@@ -147,7 +144,9 @@ export function webServerCommand(): string {
 
   if (startNextDev) {
     lines.push(`cd "${webAppDir}"`);
-    lines.push(`NEXT_PUBLIC_API_PORT="${apiPort}" NEXT_PUBLIC_ATMOS_HUB_URL="https://hub.atmos.land" bun ./node_modules/next/dist/bin/next dev --turbopack --port ${webPort}`);
+    lines.push(
+      `NEXT_PUBLIC_API_PORT="${apiPort}" NEXT_PUBLIC_ATMOS_HUB_URL="https://hub.atmos.land" bun ./node_modules/next/dist/bin/next dev --turbopack --port ${webPort}`,
+    );
     return shellCommand(lines);
   }
 

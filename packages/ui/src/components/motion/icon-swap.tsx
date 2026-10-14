@@ -18,17 +18,11 @@ const SWAP = {
   bounce: 0,
 } as const;
 
-export function IconSwapItem({
-  children,
-  className,
-  ...props
-}: HTMLMotionProps<"span">) {
+export function IconSwapItem({ children, className, ...props }: HTMLMotionProps<"span">) {
   const reduce = useReducedMotion();
   return (
     <motion.span
-      initial={
-        reduce ? false : { opacity: 0, scale: 0.25, filter: "blur(4px)" }
-      }
+      initial={reduce ? false : { opacity: 0, scale: 0.25, filter: "blur(4px)" }}
       animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
       exit={reduce ? undefined : { opacity: 0, scale: 0.25, filter: "blur(4px)" }}
       transition={reduce ? { duration: 0 } : SWAP}

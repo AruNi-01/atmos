@@ -37,10 +37,7 @@ export function useTerminalSideChatRecords({
   terminalRefs,
   workspaceId,
 }: UseTerminalSideChatRecordsOptions) {
-  const [sideChatParam, setSideChatParam] = useQueryState(
-    "sideChat",
-    centerStageParams.sideChat,
-  );
+  const [sideChatParam, setSideChatParam] = useQueryState("sideChat", centerStageParams.sideChat);
   const [records, setRecords] = React.useState<LocalSideChatRecord[]>([]);
   const [activeSideChatId, setActiveSideChatId] = React.useState<string | null>(null);
   const [focusNonce, setFocusNonce] = React.useState(0);
@@ -89,13 +86,16 @@ export function useTerminalSideChatRecords({
     return terminalSideChatApi.upsert(toSideChatDto(record));
   }, []);
 
-  const updateLocalRecord = React.useCallback((sideChatId: string, patch: Partial<LocalSideChatRecord>) => {
-    setRecords((current) =>
-      current.map((record) =>
-        record.side_chat_id === sideChatId ? { ...record, ...patch } : record,
-      ),
-    );
-  }, []);
+  const updateLocalRecord = React.useCallback(
+    (sideChatId: string, patch: Partial<LocalSideChatRecord>) => {
+      setRecords((current) =>
+        current.map((record) =>
+          record.side_chat_id === sideChatId ? { ...record, ...patch } : record,
+        ),
+      );
+    },
+    [],
+  );
 
   const applyPersistedRecords = React.useCallback((updatedRecords: TerminalSideChatRecord[]) => {
     if (updatedRecords.length === 0) return;
@@ -115,36 +115,36 @@ export function useTerminalSideChatRecords({
     );
   }, []);
 
-  const addRecord = React.useCallback((record: LocalSideChatRecord) => {
-    setActiveSideChatId(record.side_chat_id);
-    setRecords((current) => [...current, record]);
-    bumpFocus();
-  }, [bumpFocus]);
-
-  const hideSideChat = React.useCallback(
-    async () => {
-      const openRecords = records.filter((record) => isSideChatOpen(record.status));
-      if (openRecords.length === 0) return;
-      const results = await Promise.allSettled(
-        openRecords.map((record) =>
-          terminalSideChatApi.setStatus({
-            workspace_id: workspaceId,
-            side_chat_id: record.side_chat_id,
-            status: "hidden",
-          }),
-        ),
-      );
-      applyPersistedRecords(
-        results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])),
-      );
-      results.forEach((result) => {
-        if (result.status === "rejected") {
-          console.error("Failed to hide terminal side chat:", result.reason);
-        }
-      });
+  const addRecord = React.useCallback(
+    (record: LocalSideChatRecord) => {
+      setActiveSideChatId(record.side_chat_id);
+      setRecords((current) => [...current, record]);
+      bumpFocus();
     },
-    [applyPersistedRecords, records, workspaceId],
+    [bumpFocus],
   );
+
+  const hideSideChat = React.useCallback(async () => {
+    const openRecords = records.filter((record) => isSideChatOpen(record.status));
+    if (openRecords.length === 0) return;
+    const results = await Promise.allSettled(
+      openRecords.map((record) =>
+        terminalSideChatApi.setStatus({
+          workspace_id: workspaceId,
+          side_chat_id: record.side_chat_id,
+          status: "hidden",
+        }),
+      ),
+    );
+    applyPersistedRecords(
+      results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])),
+    );
+    results.forEach((result) => {
+      if (result.status === "rejected") {
+        console.error("Failed to hide terminal side chat:", result.reason);
+      }
+    });
+  }, [applyPersistedRecords, records, workspaceId]);
 
   const showSideChat = React.useCallback(
     async (sideChatId: string) => {
@@ -205,7 +205,10 @@ export function useTerminalSideChatRecords({
       if (activeSideChatId !== null) setActiveSideChatId(null);
       return;
     }
-    if (!activeSideChatId || !availableRecords.some((record) => record.side_chat_id === activeSideChatId)) {
+    if (
+      !activeSideChatId ||
+      !availableRecords.some((record) => record.side_chat_id === activeSideChatId)
+    ) {
       const fallback = getFirstOpenSideChatRecord(availableRecords) ?? availableRecords[0];
       setActiveSideChatId(fallback.side_chat_id);
     }

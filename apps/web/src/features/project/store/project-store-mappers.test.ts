@@ -19,9 +19,7 @@ function projectModel(overrides: Partial<ProjectModel> = {}): ProjectModel {
 
 describe("mapProjectModel", () => {
   it("maps created_at and last_visited_at onto the project row", () => {
-    const mapped = mapProjectModel(
-      projectModel({ last_visited_at: "2026-04-02T12:00:00.000Z" }),
-    );
+    const mapped = mapProjectModel(projectModel({ last_visited_at: "2026-04-02T12:00:00.000Z" }));
 
     expect(mapped.createdAt).toBe("2026-01-01T00:00:00.000Z");
     expect(mapped.lastVisitedAt).toBe("2026-04-02T12:00:00.000Z");

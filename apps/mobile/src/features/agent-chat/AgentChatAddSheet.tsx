@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Image, Linking, NativeModules, Pressable, ScrollView, Text, TurboModuleRegistry, View } from "react-native";
+import {
+  Image,
+  Linking,
+  NativeModules,
+  Pressable,
+  ScrollView,
+  Text,
+  TurboModuleRegistry,
+  View,
+} from "react-native";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
@@ -18,7 +27,12 @@ import {
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import { MenuPickerRow } from "@/ui/primitives/menu-picker";
 import { copy } from "./copy";
-import { modeIconKind, permissionIconKind, type ComposerPatch, type ComposerPicker } from "./model-picker";
+import {
+  modeIconKind,
+  permissionIconKind,
+  type ComposerPatch,
+  type ComposerPicker,
+} from "./model-picker";
 import { PHOTO_LIMIT, appendPhotos, type ComposerPhoto } from "./photo-attachment";
 
 type RecentPhoto = ComposerPhoto;
@@ -61,11 +75,11 @@ export function AgentChatAddSheet(props: {
   };
 
   const toggleRecent = (photo: RecentPhoto) => {
-    setDraft((current) => (
+    setDraft((current) =>
       current.some((item) => item.id === photo.id)
         ? current.filter((item) => item.id !== photo.id)
-        : appendPhotos(current, [photo])
-    ));
+        : appendPhotos(current, [photo]),
+    );
   };
 
   const pickLibrary = async () => {
@@ -88,12 +102,17 @@ export function AgentChatAddSheet(props: {
         commit(base);
         return;
       }
-      commit(appendPhotos(base, result.assets.map((asset, index) => ({
-        id: asset.assetId || asset.uri,
-        uri: asset.uri,
-        filename: asset.fileName || `photo-${index + 1}.jpg`,
-        mediaType: asset.mimeType || "image/jpeg",
-      }))));
+      commit(
+        appendPhotos(
+          base,
+          result.assets.map((asset, index) => ({
+            id: asset.assetId || asset.uri,
+            uri: asset.uri,
+            filename: asset.fileName || `photo-${index + 1}.jpg`,
+            mediaType: asset.mimeType || "image/jpeg",
+          })),
+        ),
+      );
     } catch {
       commit(base);
     } finally {
@@ -110,107 +129,120 @@ export function AgentChatAddSheet(props: {
       snapPoints={["half", "full"]}
     >
       <View style={{ alignSelf: "stretch", flex: 1, gap: 8, width: "100%" }}>
-        <Text style={{ color: theme.colors.label, fontSize: 17, fontWeight: "600" }}>{copy.context}</Text>
+        <Text style={{ color: theme.colors.label, fontSize: 17, fontWeight: "600" }}>
+          {copy.context}
+        </Text>
         <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 8 }} style={{ flex: 1 }}>
-        {recent.photos.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: PHOTO_SIZE }}>
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              {recent.photos.map((photo) => {
-                const selected = draft.some((item) => item.id === photo.id);
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    key={photo.id}
-                    onPress={() => toggleRecent(photo)}
-                  >
-                    <View
-                      style={{
-                        borderRadius: 16,
-                        height: PHOTO_SIZE,
-                        overflow: "hidden",
-                        width: PHOTO_SIZE,
-                      }}
+          {recent.photos.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ height: PHOTO_SIZE }}
+            >
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {recent.photos.map((photo) => {
+                  const selected = draft.some((item) => item.id === photo.id);
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      key={photo.id}
+                      onPress={() => toggleRecent(photo)}
                     >
-                      {displayablePhotoUri(photo.uri) ? (
-                        <Image source={{ uri: photo.uri }} style={{ height: PHOTO_SIZE, width: PHOTO_SIZE }} />
-                      ) : null}
-                      {selected ? (
-                        <View
-                          style={{
-                            backgroundColor: "rgba(0,0,0,0.45)",
-                            bottom: 0,
-                            left: 0,
-                            position: "absolute",
-                            right: 0,
-                            top: 0,
-                          }}
-                        />
-                      ) : null}
-                      {selected ? (
-                        <View
-                          style={{
-                            alignItems: "center",
-                            backgroundColor: "#fff",
-                            borderRadius: 12,
-                            height: 24,
-                            justifyContent: "center",
-                            position: "absolute",
-                            right: 8,
-                            top: 8,
-                            width: 24,
-                          }}
-                        >
-                          <CheckIcon color="#111" size={14} strokeWidth={3} />
-                        </View>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
-        ) : recent.status === "unavailable" ? (
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15 }}>{copy.photosNeedRebuild}</Text>
-        ) : recent.status === "denied" ? (
-          <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15 }}>{copy.allowPhotos}</Text>
-          </Pressable>
-        ) : null}
-        {props.picker.modes.length > 0 ? (
-          <MenuPickerRow
-            icon={<ModeGlyph id={props.picker.modeId} />}
-            label={copy.mode}
-            onValueChange={(modeId) => props.onPatch({ modeId })}
-            options={props.picker.modes.map((choice) => ({
-              value: choice.id,
-              label: choice.label,
-              systemImage: modeSymbol(choice.id),
-            }))}
-            selectedValue={props.picker.modeId}
-          />
-        ) : null}
-        {props.picker.permissions.length > 0 ? (
-          <MenuPickerRow
-            icon={<PermissionGlyph id={props.picker.permissionId} />}
-            label={copy.permission}
-            onValueChange={(permissionId) => props.onPatch({ permissionId })}
-            options={props.picker.permissions.map((choice) => ({
-              value: choice.id,
-              label: choice.label,
-              systemImage: permissionSymbol(choice.id),
-            }))}
-            selectedValue={props.picker.permissionId}
-          />
-        ) : null}
-        <Section title={copy.add}>
-          <SettingRow
-            icon={<ImageIcon color={theme.colors.label} size={18} strokeWidth={2.2} />}
-            label={copy.photos}
-            onPress={() => void pickLibrary()}
-            value=""
-          />
-        </Section>
+                      <View
+                        style={{
+                          borderRadius: 16,
+                          height: PHOTO_SIZE,
+                          overflow: "hidden",
+                          width: PHOTO_SIZE,
+                        }}
+                      >
+                        {displayablePhotoUri(photo.uri) ? (
+                          <Image
+                            source={{ uri: photo.uri }}
+                            style={{ height: PHOTO_SIZE, width: PHOTO_SIZE }}
+                          />
+                        ) : null}
+                        {selected ? (
+                          <View
+                            style={{
+                              backgroundColor: "rgba(0,0,0,0.45)",
+                              bottom: 0,
+                              left: 0,
+                              position: "absolute",
+                              right: 0,
+                              top: 0,
+                            }}
+                          />
+                        ) : null}
+                        {selected ? (
+                          <View
+                            style={{
+                              alignItems: "center",
+                              backgroundColor: "#fff",
+                              borderRadius: 12,
+                              height: 24,
+                              justifyContent: "center",
+                              position: "absolute",
+                              right: 8,
+                              top: 8,
+                              width: 24,
+                            }}
+                          >
+                            <CheckIcon color="#111" size={14} strokeWidth={3} />
+                          </View>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          ) : recent.status === "unavailable" ? (
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15 }}>
+              {copy.photosNeedRebuild}
+            </Text>
+          ) : recent.status === "denied" ? (
+            <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
+              <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15 }}>
+                {copy.allowPhotos}
+              </Text>
+            </Pressable>
+          ) : null}
+          {props.picker.modes.length > 0 ? (
+            <MenuPickerRow
+              icon={<ModeGlyph id={props.picker.modeId} />}
+              label={copy.mode}
+              onValueChange={(modeId) => props.onPatch({ modeId })}
+              options={props.picker.modes.map((choice) => ({
+                value: choice.id,
+                label: choice.label,
+                systemImage: modeSymbol(choice.id),
+              }))}
+              selectedValue={props.picker.modeId}
+            />
+          ) : null}
+          {props.picker.permissions.length > 0 ? (
+            <MenuPickerRow
+              icon={<PermissionGlyph id={props.picker.permissionId} />}
+              label={copy.permission}
+              onValueChange={(permissionId) => props.onPatch({ permissionId })}
+              options={props.picker.permissions.map((choice) => ({
+                value: choice.id,
+                label: choice.label,
+                systemImage: permissionSymbol(choice.id),
+              }))}
+              selectedValue={props.picker.permissionId}
+            />
+          ) : null}
+          <Section title={copy.add}>
+            <SettingRow
+              icon={<ImageIcon color={theme.colors.label} size={18} strokeWidth={2.2} />}
+              label={copy.photos}
+              onPress={() => void pickLibrary()}
+              value=""
+            />
+          </Section>
         </ScrollView>
       </View>
     </ExpoDrawer>
@@ -237,7 +269,8 @@ function permissionSymbol(id: string): SFSymbol {
 }
 
 function hasNativeModule(name: string): boolean {
-  const expoModules = (globalThis as { expo?: { modules?: Record<string, object | undefined> } }).expo?.modules;
+  const expoModules = (globalThis as { expo?: { modules?: Record<string, object | undefined> } })
+    .expo?.modules;
   if (expoModules?.[name]) return true;
   if (NativeModules[name]) return true;
   try {
@@ -247,7 +280,10 @@ function hasNativeModule(name: string): boolean {
   }
 }
 
-function useRecentPhotos(active: boolean): { photos: RecentPhoto[]; status: "unknown" | "granted" | "denied" | "unavailable" } {
+function useRecentPhotos(active: boolean): {
+  photos: RecentPhoto[];
+  status: "unknown" | "granted" | "denied" | "unavailable";
+} {
   const [photos, setPhotos] = useState<RecentPhoto[]>([]);
   const [status, setStatus] = useState<"unknown" | "granted" | "denied" | "unavailable">("unknown");
   useEffect(() => {
@@ -280,22 +316,26 @@ function useRecentPhotos(active: boolean): { photos: RecentPhoto[]; status: "unk
           .orderBy({ key: mediaLibrary.AssetField.CREATION_TIME, ascending: false })
           .limit(12)
           .exe();
-        const resolved = (await Promise.all(assets.map(async (asset) => {
-          try {
-            const info = await asset.getInfo();
-            const uri = typeof info.uri === "string" ? info.uri : "";
-            const id = (typeof info.id === "string" && info.id) || asset.id;
-            if (!displayablePhotoUri(uri) || !id) return null;
-            return {
-              id,
-              uri,
-              filename: (typeof info.filename === "string" && info.filename) || "photo.jpg",
-              mediaType: "image/jpeg",
-            };
-          } catch {
-            return null;
-          }
-        }))).filter((photo): photo is RecentPhoto => photo != null);
+        const resolved = (
+          await Promise.all(
+            assets.map(async (asset) => {
+              try {
+                const info = await asset.getInfo();
+                const uri = typeof info.uri === "string" ? info.uri : "";
+                const id = (typeof info.id === "string" && info.id) || asset.id;
+                if (!displayablePhotoUri(uri) || !id) return null;
+                return {
+                  id,
+                  uri,
+                  filename: (typeof info.filename === "string" && info.filename) || "photo.jpg",
+                  mediaType: "image/jpeg",
+                };
+              } catch {
+                return null;
+              }
+            }),
+          )
+        ).filter((photo): photo is RecentPhoto => photo != null);
         if (!cancelled) setPhotos(resolved);
       } catch {
         if (!cancelled) setStatus((current) => (current === "granted" ? current : "denied"));
@@ -318,12 +358,7 @@ function Section(props: { children: ReactNode; title: string }) {
   );
 }
 
-function SettingRow(props: {
-  icon: ReactNode;
-  label: string;
-  onPress: () => void;
-  value: string;
-}) {
+function SettingRow(props: { icon: ReactNode; label: string; onPress: () => void; value: string }) {
   const theme = useMobileTheme();
   return (
     <Pressable
@@ -333,7 +368,9 @@ function SettingRow(props: {
     >
       {props.icon}
       <Text style={{ color: theme.colors.label, flex: 1, fontSize: 16 }}>{props.label}</Text>
-      {props.value ? <Text style={{ color: theme.colors.secondaryLabel, fontSize: 16 }}>{props.value}</Text> : null}
+      {props.value ? (
+        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 16 }}>{props.value}</Text>
+      ) : null}
     </Pressable>
   );
 }

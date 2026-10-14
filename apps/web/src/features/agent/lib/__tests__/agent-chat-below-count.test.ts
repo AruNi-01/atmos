@@ -14,24 +14,21 @@ describe("countMessagesBelowViewport", () => {
   ];
 
   it("counts rows whose top edge is at or below the viewport", () => {
-    expect(
-      countMessagesBelowViewport(measurements, 5, { scrollTop: 0, height: 400 }),
-    ).toBe(2);
-    expect(
-      countMessagesBelowViewport(measurements, 5, { scrollTop: 400, height: 200 }),
-    ).toBe(1);
+    expect(countMessagesBelowViewport(measurements, 5, { scrollTop: 0, height: 400 })).toBe(2);
+    expect(countMessagesBelowViewport(measurements, 5, { scrollTop: 400, height: 200 })).toBe(1);
   });
 
   it("returns 0 when every row starts inside the viewport", () => {
-    expect(
-      countMessagesBelowViewport(measurements, 5, { scrollTop: 700, height: 400 }),
-    ).toBe(0);
+    expect(countMessagesBelowViewport(measurements, 5, { scrollTop: 700, height: 400 })).toBe(0);
   });
 
   it("treats trailing unmeasured rows as below", () => {
     expect(
       countMessagesBelowViewport(
-        [{ start: 0, size: 80 }, { start: 92, size: 120 }],
+        [
+          { start: 0, size: 80 },
+          { start: 92, size: 120 },
+        ],
         4,
         { scrollTop: 0, height: 300 },
       ),

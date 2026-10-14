@@ -18,14 +18,8 @@ export {
   requireDeviceCredential,
 } from "./credential";
 export { RelayError, relayErrorFromBody } from "./errors";
-export {
-  deriveTerminalWsUrl,
-  parseClientSessionResponse,
-} from "./session";
-export {
-  buildClientSessionUrls,
-  clientWsUrlFromGateway,
-} from "./session-urls";
+export { deriveTerminalWsUrl, parseClientSessionResponse } from "./session";
+export { buildClientSessionUrls, clientWsUrlFromGateway } from "./session-urls";
 export {
   createFetchTransport,
   relayRequestJson,
@@ -34,11 +28,7 @@ export {
   type RelayTransportRequest,
   type RelayTransportResponse,
 } from "./transport";
-export {
-  DEFAULT_RELAY_URL,
-  normalizeRelayUrl,
-  redactRelayUrl,
-} from "./url";
+export { DEFAULT_RELAY_URL, normalizeRelayUrl, redactRelayUrl } from "./url";
 export type {
   ClientSessionResponse,
   ComputerRow,

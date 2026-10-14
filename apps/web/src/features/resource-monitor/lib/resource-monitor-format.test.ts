@@ -58,12 +58,7 @@ describe("resource-monitor-format", () => {
   });
 
   test("memory pair sliding parts animate used and keep total as suffix", () => {
-    expect(
-      memoryPairSlidingParts(
-        8 * 1024 * 1024 * 1024,
-        16 * 1024 * 1024 * 1024,
-      ),
-    ).toEqual({
+    expect(memoryPairSlidingParts(8 * 1024 * 1024 * 1024, 16 * 1024 * 1024 * 1024)).toEqual({
       value: 8,
       suffix: " GB / 16 GB",
       decimals: 0,
@@ -72,17 +67,13 @@ describe("resource-monitor-format", () => {
   });
 
   test("formatted sliding parts keep surrounding copy as prefix/suffix", () => {
-    expect(
-      slidingPartsFromFormatted("3.2 of 8 cores", 3.21, 1),
-    ).toEqual({
+    expect(slidingPartsFromFormatted("3.2 of 8 cores", 3.21, 1)).toEqual({
       value: 3.2,
       suffix: " of 8 cores",
       decimals: 1,
       decimalSeparator: ".",
     });
-    expect(slidingPartsFromFormatted("3.2 / 8 核", 3.2, 1).suffix).toBe(
-      " / 8 核",
-    );
+    expect(slidingPartsFromFormatted("3.2 / 8 核", 3.2, 1).suffix).toBe(" / 8 核");
   });
 
   test("formats per-core CPU past 100% with one decimal below 10%", () => {
@@ -106,24 +97,14 @@ describe("resource-monitor-format", () => {
   });
 
   test("formats used/total memory as a pair", () => {
-    expect(formatMemoryPair(8 * 1024 * 1024 * 1024, 16 * 1024 * 1024 * 1024)).toBe(
-      "8 GB / 16 GB",
-    );
+    expect(formatMemoryPair(8 * 1024 * 1024 * 1024, 16 * 1024 * 1024 * 1024)).toBe("8 GB / 16 GB");
   });
 
   test("usage visibility treats any non-zero field as visible", () => {
-    expect(
-      isUsageVisible({ cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 }),
-    ).toBe(false);
-    expect(
-      isUsageVisible({ cpu_percent: 0.1, memory_rss_bytes: 0, process_count: 0 }),
-    ).toBe(true);
-    expect(
-      isUsageVisible({ cpu_percent: 0, memory_rss_bytes: 12, process_count: 0 }),
-    ).toBe(true);
-    expect(
-      isUsageVisible({ cpu_percent: 0, memory_rss_bytes: 0, process_count: 1 }),
-    ).toBe(true);
+    expect(isUsageVisible({ cpu_percent: 0, memory_rss_bytes: 0, process_count: 0 })).toBe(false);
+    expect(isUsageVisible({ cpu_percent: 0.1, memory_rss_bytes: 0, process_count: 0 })).toBe(true);
+    expect(isUsageVisible({ cpu_percent: 0, memory_rss_bytes: 12, process_count: 0 })).toBe(true);
+    expect(isUsageVisible({ cpu_percent: 0, memory_rss_bytes: 0, process_count: 1 })).toBe(true);
   });
 
   test("process display uses basename, count suffix, and compact ports", () => {
@@ -133,9 +114,7 @@ describe("resource-monitor-format", () => {
     expect(formatProcessCountSuffix(1)).toBeNull();
     expect(formatProcessCountSuffix(3)).toBe("×3");
     expect(formatListeningPort(3030)).toBe(":3030");
-    expect(normalizeProcessPorts([4173, 3000, 3000, 65536, -1, 80])).toEqual([
-      80, 3000, 4173,
-    ]);
+    expect(normalizeProcessPorts([4173, 3000, 3000, 65536, -1, 80])).toEqual([80, 3000, 4173]);
   });
 
   test("sumAtmosUsage adds Server, shared, and Desktop Use", () => {

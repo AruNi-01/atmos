@@ -36,10 +36,12 @@ export function resolveDrawingStrokeColor(
   return desired;
 }
 
-export function applyThemeInkToElements<T extends {
-  strokeColor?: string;
-  customData?: { pt?: unknown };
-}>(elements: readonly T[], theme: "light" | "dark"): readonly T[] {
+export function applyThemeInkToElements<
+  T extends {
+    strokeColor?: string;
+    customData?: { pt?: unknown };
+  },
+>(elements: readonly T[], theme: "light" | "dark"): readonly T[] {
   let changed = false;
   const next = elements.map((el) => {
     if (el.customData?.pt) return el;

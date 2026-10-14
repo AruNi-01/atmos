@@ -22,18 +22,12 @@ import { cn } from "@/shared/lib/utils";
 import { AgentFixButton } from "@/features/agent-fix/components/AgentFixButton";
 import { useAgentFixContext } from "@/features/agent-fix/hooks/use-agent-fix-context";
 import type { AgentFixPromptSource } from "@/features/agent-fix/types";
-import {
-  parseGithubActionsRunId,
-  type StatusCheck,
-} from "@/features/github/lib/pr-detail-parts";
+import { parseGithubActionsRunId, type StatusCheck } from "@/features/github/lib/pr-detail-parts";
 import {
   buildGithubActionsCheckFixPrompt,
   buildPrMergeConflictsFixPrompt,
 } from "@/features/github/lib/agent-fix-prompts";
-import {
-  PRMergeControls,
-  type PRMergeStrategy,
-} from "@/features/github/lib/pr-detail-actions";
+import { PRMergeControls, type PRMergeStrategy } from "@/features/github/lib/pr-detail-actions";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import type { ActionRun } from "@/features/github/components/ActionsPanel";
 import { ChecksStatusRing } from "@/features/github/components/ChecksStatusRing";
@@ -116,10 +110,7 @@ function formatDurationMs(ms: number): string {
   return remMin > 0 ? `${hr}h ${remMin}m` : `${hr}h`;
 }
 
-function checkDurationLabel(
-  check: StatusCheck,
-  t: ReturnType<typeof useTranslations>,
-): string {
+function checkDurationLabel(check: StatusCheck, t: ReturnType<typeof useTranslations>): string {
   const start = check.startedAt ? Date.parse(check.startedAt) : NaN;
   const end = check.completedAt ? Date.parse(check.completedAt) : NaN;
   if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
@@ -136,12 +127,7 @@ function checkDurationLabel(
   return "";
 }
 
-function buildStubRun(
-  check: StatusCheck,
-  runId: number,
-  owner: string,
-  repo: string,
-): ActionRun {
+function buildStubRun(check: StatusCheck, runId: number, owner: string, repo: string): ActionRun {
   return {
     databaseId: runId,
     workflowName: check.workflowName || check.name || check.context || "Actions",
@@ -214,9 +200,7 @@ export function PRChecksTab({
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const setConflictPreview = usePrConflictPreviewStore((s) => s.setPreview);
-  const [openAgentFixId, setOpenAgentFixId] = React.useState<string | null>(
-    null,
-  );
+  const [openAgentFixId, setOpenAgentFixId] = React.useState<string | null>(null);
 
   const buckets = React.useMemo(() => {
     const result: Record<CheckBucket, StatusCheck[]> = {
@@ -231,27 +215,15 @@ export function PRChecksTab({
     return result;
   }, [checks]);
 
-  const hasConflicts =
-    mergeable === "CONFLICTING" || mergeStateStatus === "DIRTY";
+  const hasConflicts = mergeable === "CONFLICTING" || mergeStateStatus === "DIRTY";
   const isMergeable = mergeable === "MERGEABLE";
   const isCheckingMerge =
     !hasConflicts &&
-    (mergeable === "UNKNOWN" ||
-      mergeable === undefined ||
-      mergeStateStatus === "UNKNOWN");
+    (mergeable === "UNKNOWN" || mergeable === undefined || mergeStateStatus === "UNKNOWN");
 
   // Local worktree unmerged paths (only when user already has a merge in progress).
   const localConflictPaths = React.useMemo(() => {
-    const CONFLICT_STATUSES = new Set([
-      "DD",
-      "AU",
-      "UD",
-      "UA",
-      "DU",
-      "AA",
-      "UU",
-      "U",
-    ]);
+    const CONFLICT_STATUSES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU", "U"]);
     const staged = worktreeQuery.data?.staged_files ?? [];
     const unstaged = worktreeQuery.data?.unstaged_files ?? [];
     const paths = new Set<string>();
@@ -288,9 +260,7 @@ export function PRChecksTab({
       });
       const files = Array.isArray(result?.files) ? result.files : [];
       const contents =
-        result?.contents && typeof result.contents === "object"
-          ? result.contents
-          : {};
+        result?.contents && typeof result.contents === "object" ? result.contents : {};
       // Seed read-only conflict viewer (does not touch worktree).
       setConflictPreview({
         owner,
@@ -523,17 +493,7 @@ export function PRChecksTab({
         }),
       };
     },
-    [
-      agentFixContext,
-      baseRefName,
-      headRefName,
-      owner,
-      prNumber,
-      prTitle,
-      prUrl,
-      repo,
-      t,
-    ],
+    [agentFixContext, baseRefName, headRefName, owner, prNumber, prTitle, prUrl, repo, t],
   );
 
   const sections: Array<{
@@ -587,12 +547,8 @@ export function PRChecksTab({
             className="mt-0.5"
           />
           <div className="min-w-0 flex-1">
-            <h4 className="text-sm font-semibold text-foreground">
-              {summary.title}
-            </h4>
-            <p className="mt-0.5 text-[12px] text-muted-foreground">
-              {summary.description}
-            </p>
+            <h4 className="text-sm font-semibold text-foreground">{summary.title}</h4>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">{summary.description}</p>
           </div>
         </div>
 
@@ -604,12 +560,11 @@ export function PRChecksTab({
                 <div className="text-[11px] font-semibold tracking-wide text-muted-foreground">
                   {section.title}
                 </div>
-                <div className="overflow-hidden rounded-xl border border-border/60 bg-background divide-y divide-border/50">
+                <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background">
                   {section.items.map((check, index) => {
                     const label = checkLabel(check);
                     const runId = parseGithubActionsRunId(check.detailsUrl);
-                    const canOpen =
-                      runId != null || !!(check.detailsUrl || check.targetUrl);
+                    const canOpen = runId != null || !!(check.detailsUrl || check.targetUrl);
                     const agentFixSource = buildCheckAgentFixSource(check);
                     const duration = checkDurationLabel(check, t);
                     const rowKey = `${section.key}-${label}-${runId ?? index}`;
@@ -635,9 +590,7 @@ export function PRChecksTab({
                           <div
                             className={cn(
                               "truncate text-[13px] font-medium",
-                              section.key === "failing"
-                                ? "text-red-500"
-                                : "text-foreground/90",
+                              section.key === "failing" ? "text-red-500" : "text-foreground/90",
                             )}
                             title={label}
                           >
@@ -661,9 +614,9 @@ export function PRChecksTab({
                                   className={cn(
                                     "flex size-7 items-center justify-center rounded-md text-muted-foreground",
                                     "hover:bg-muted hover:text-foreground",
-                                    "opacity-0 pointer-events-none transition-opacity",
-                                    "group-hover:opacity-100 group-hover:pointer-events-auto",
-                                    "group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
+                                    "pointer-events-none opacity-0 transition-opacity",
+                                    "group-hover:pointer-events-auto group-hover:opacity-100",
+                                    "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
                                   )}
                                   aria-label={
                                     runId != null
@@ -695,9 +648,7 @@ export function PRChecksTab({
                                 onSettingsOpenChange={(open) => {
                                   setOpenAgentFixId((current) => {
                                     if (open) return agentFixSource.id;
-                                    return current === agentFixSource.id
-                                      ? null
-                                      : current;
+                                    return current === agentFixSource.id ? null : current;
                                   });
                                 }}
                               />
@@ -723,9 +674,7 @@ export function PRChecksTab({
             <div className="flex items-start gap-3">
               <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-500" />
               <div className="min-w-0 flex-1">
-                <h5 className="text-sm font-semibold text-foreground">
-                  {t("conflicts.title")}
-                </h5>
+                <h5 className="text-sm font-semibold text-foreground">{t("conflicts.title")}</h5>
                 <p className="mt-0.5 text-[12px] text-muted-foreground">
                   {t("conflicts.description")}
                 </p>
@@ -743,9 +692,7 @@ export function PRChecksTab({
                     onSettingsOpenChange={(open) => {
                       setOpenAgentFixId((current) => {
                         if (open) return conflictAgentFixSource.id;
-                        return current === conflictAgentFixSource.id
-                          ? null
-                          : current;
+                        return current === conflictAgentFixSource.id ? null : current;
                       });
                     }}
                   />
@@ -759,7 +706,7 @@ export function PRChecksTab({
                 {t("conflicts.loading")}
               </div>
             ) : conflictFilePaths.length > 0 ? (
-              <div className="overflow-hidden rounded-lg border border-border/50 bg-background/60 divide-y divide-border/40">
+              <div className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border/50 bg-background/60">
                 {conflictFilePaths.map((path) => {
                   const name = path.split("/").pop() || path;
                   const iconProps = getFileIconProps({
@@ -877,9 +824,7 @@ export function PRChecksTab({
                   onMergeStrategyChange={onMergeStrategyChange}
                   onMerge={onMerge}
                 />
-                <span className="text-[11px] text-muted-foreground">
-                  {t("merge.hint")}
-                </span>
+                <span className="text-[11px] text-muted-foreground">{t("merge.hint")}</span>
               </div>
             </div>
 

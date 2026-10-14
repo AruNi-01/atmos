@@ -192,7 +192,7 @@ export function useSessionInbox() {
     const prByWorkspace = prStateByWorkspace(sources.active, prPlan.byWorkspaceId, prQuery.data);
     const rows = joined.map((row) => ({
       ...row,
-      prState: row.workspaceId ? prByWorkspace.get(row.workspaceId) ?? null : null,
+      prState: row.workspaceId ? (prByWorkspace.get(row.workspaceId) ?? null) : null,
     }));
 
     return {
@@ -230,7 +230,9 @@ export function useSessionInbox() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["agent-session-status-list", selectedServerId] }),
-      queryClient.invalidateQueries({ queryKey: ["session-terminal-candidates", selectedServerId] }),
+      queryClient.invalidateQueries({
+        queryKey: ["session-terminal-candidates", selectedServerId],
+      }),
       queryClient.invalidateQueries({ queryKey: ["session-git-status", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["session-branch-prs", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["workspace-sidebar-sessions", selectedServerId] }),
@@ -394,7 +396,11 @@ async function loadSessionBranchPrs(
   return Object.fromEntries(entries);
 }
 
-function chatSessionId(session: { surface?: string; surface_id?: string | null; session_id: string }): string {
+function chatSessionId(session: {
+  surface?: string;
+  surface_id?: string | null;
+  session_id: string;
+}): string {
   if (session.surface !== "chat") return "";
   const surfaceId = session.surface_id?.trim();
   if (surfaceId) return surfaceId;

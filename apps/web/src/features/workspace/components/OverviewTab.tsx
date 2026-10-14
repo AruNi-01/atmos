@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { useLocale, useTranslations } from 'next-intl';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Button,
   cn,
@@ -27,11 +27,10 @@ import {
   AvatarFallback,
   Badge,
   Textarea,
-} from '@workspace/ui';
-import { formatDistanceToNow } from 'date-fns';
-import { enUS, zhCN } from 'date-fns/locale';
-import type { DragEndEvent,
-  DragStartEvent } from '@workspace/ui';
+} from "@workspace/ui";
+import { formatDistanceToNow } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
+import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
 import {
   GitBranch,
   Clock,
@@ -54,28 +53,39 @@ import {
   GitPullRequestDraft,
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
-import { formatLocalDateTime } from '@atmos/shared';
-import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
-import { useWorkspaceContext, type TaskStatus } from '@/features/workspace/hooks/use-workspace-context';
+import { formatLocalDateTime } from "@atmos/shared";
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import {
+  useWorkspaceContext,
+  type TaskStatus,
+} from "@/features/workspace/hooks/use-workspace-context";
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { useProjectStore } from '@/features/project/store/use-project-store';
-import { useWorkspaceLabels } from '@/features/project/hooks/use-project-bootstrap-query';
-import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
-import { useGithubPRList, useGithubActionsList } from '@/features/github/hooks/use-github';
-import { type ActionRun, useProcessedActions, ActionsSummaryHeader } from '@/features/github/components/ActionsPanel';
-import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
-import { fsApi, type GithubIssuePayload } from '@/api/ws-api';
-import { TaskListPanel, renderStatusIcon } from '@/features/workspace/components/TaskListPanel';
-import { NotePanel } from '@/features/workspace/components/NotePanel';
-import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/shared/types/domain';
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useWorkspaceLabels } from "@/features/project/hooks/use-project-bootstrap-query";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
+import { useGithubPRList, useGithubActionsList } from "@/features/github/hooks/use-github";
+import {
+  type ActionRun,
+  useProcessedActions,
+  ActionsSummaryHeader,
+} from "@/features/github/components/ActionsPanel";
+import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
+import { fsApi, type GithubIssuePayload } from "@/api/ws-api";
+import { TaskListPanel, renderStatusIcon } from "@/features/workspace/components/TaskListPanel";
+import { NotePanel } from "@/features/workspace/components/NotePanel";
+import type {
+  WorkspacePriority,
+  WorkspaceWorkflowStatus,
+  WorkspaceLabel,
+} from "@/shared/types/domain";
 import {
   WorkspaceLabelBadges,
   WorkspaceLabelPicker,
   WorkspacePrioritySelect,
   WorkspaceStatusSelect,
-} from '@/app-shell/sidebar/workspace-metadata-controls';
-import { shouldShowOverviewGitWidgets } from '@/features/automations/lib/automation-run-landing';
+} from "@/app-shell/sidebar/workspace-metadata-controls";
+import { shouldShowOverviewGitWidgets } from "@/features/automations/lib/automation-run-landing";
 
 type OverviewPullRequest = {
   number: number;
@@ -105,11 +115,11 @@ interface OverviewTabProps {
 }
 
 function formatDate(isoString: string | undefined, locale: string): string {
-  if (!isoString) return '-';
+  if (!isoString) return "-";
   try {
     return formatLocalDateTime(isoString, undefined, locale);
   } catch {
-    return '-';
+    return "-";
   }
 }
 
@@ -150,18 +160,33 @@ interface MetadataControlGroupProps {
   statusLabel: string;
   priorityLabel: string;
   labelsLabel: string;
-  onUpdatePriority: (projectId: string, workspaceId: string, priority: WorkspacePriority) => Promise<void>;
-  onUpdateWorkflowStatus: (projectId: string, workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => Promise<void>;
-  onUpdateLabels: (projectId: string, workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+  onUpdatePriority: (
+    projectId: string,
+    workspaceId: string,
+    priority: WorkspacePriority,
+  ) => Promise<void>;
+  onUpdateWorkflowStatus: (
+    projectId: string,
+    workspaceId: string,
+    workflowStatus: WorkspaceWorkflowStatus,
+  ) => Promise<void>;
+  onUpdateLabels: (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => Promise<void>;
   onCreateLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
-  onUpdateLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
 }
 
 function MetadataControlGroup({
   projectId,
   workspaceId,
-  priority = 'no_priority',
-  workflowStatus = 'in_progress',
+  priority = "no_priority",
+  workflowStatus = "in_progress",
   labels = [],
   workspaceLabels,
   statusLabel,
@@ -241,17 +266,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onOpenActionRun,
 }) => {
   const locale = useLocale();
-  const t = useTranslations('Workspace.components.overviewTab');
+  const t = useTranslations("Workspace.components.overviewTab");
   const hideGitChrome = !shouldShowOverviewGitWidgets(contextId);
-  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
-  const openFile = useEditorStore(s => s.openFile);
+  const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
+  const openFile = useEditorStore((s) => s.openFile);
   const fileOpenContextId = editorContextId || contextId;
-  const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
-  const updateWorkspaceWorkflowStatus = useProjectStore(s => s.updateWorkspaceWorkflowStatus);
-  const updateWorkspaceLabels = useProjectStore(s => s.updateWorkspaceLabels);
+  const updateWorkspacePriority = useProjectStore((s) => s.updateWorkspacePriority);
+  const updateWorkspaceWorkflowStatus = useProjectStore((s) => s.updateWorkspaceWorkflowStatus);
+  const updateWorkspaceLabels = useProjectStore((s) => s.updateWorkspaceLabels);
   const workspaceLabels = useWorkspaceLabels();
-  const createWorkspaceLabel = useProjectStore(s => s.createWorkspaceLabel);
-  const updateWorkspaceLabel = useProjectStore(s => s.updateWorkspaceLabel);
+  const createWorkspaceLabel = useProjectStore((s) => s.createWorkspaceLabel);
+  const updateWorkspaceLabel = useProjectStore((s) => s.updateWorkspaceLabel);
   const {
     requirement,
     requirementLoading,
@@ -275,16 +300,24 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const githubRepo = statusQuery.data?.github_repo ?? null;
   const currentBranch = statusQuery.data?.current_branch ?? null;
 
-  const effectiveGitBranch = propGitBranch || currentBranch || 'main';
-  const { data: prs, loading: prsLoading, refresh: refreshPRs } = useGithubPRList({
-    owner: githubOwner || '',
-    repo: githubRepo || '',
+  const effectiveGitBranch = propGitBranch || currentBranch || "main";
+  const {
+    data: prs,
+    loading: prsLoading,
+    refresh: refreshPRs,
+  } = useGithubPRList({
+    owner: githubOwner || "",
+    repo: githubRepo || "",
     branch: effectiveGitBranch,
     enabled: active && !hideGitChrome,
   });
-  const { data: actionRuns, loading: actionsLoading, refresh: refreshActions } = useGithubActionsList({
-    owner: githubOwner || '',
-    repo: githubRepo || '',
+  const {
+    data: actionRuns,
+    loading: actionsLoading,
+    refresh: refreshActions,
+  } = useGithubActionsList({
+    owner: githubOwner || "",
+    repo: githubRepo || "",
     branch: effectiveGitBranch,
     enabled: active && !hideGitChrome,
   });
@@ -293,25 +326,33 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const { openActionRunTab, openPullRequestTab } = useOpenGithubCenterTab();
   const [requirementExpanded, setRequirementExpanded] = useState(false);
   const [isEditingRequirement, setIsEditingRequirement] = useState(false);
-  const [draftRequirement, setDraftRequirement] = useState(requirement ?? '');
+  const [draftRequirement, setDraftRequirement] = useState(requirement ?? "");
   const [isSavingRequirement, setIsSavingRequirement] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const requirementSaveRef = React.useRef(false);
 
-  const [reviewFiles, setReviewFiles] = useState<{ name: string, path: string }[]>([]);
+  const [reviewFiles, setReviewFiles] = useState<{ name: string; path: string }[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [activeDragTask, setActiveDragTask] = useState<{ index: number; content: string; status: TaskStatus } | null>(null);
+  const [activeDragTask, setActiveDragTask] = useState<{
+    index: number;
+    content: string;
+    status: TaskStatus;
+  } | null>(null);
 
   const loadReviews = useCallback(async () => {
     if (hideGitChrome || !projectPath || !contextId) return;
     const reviewPath = `${projectPath}/.atmos/reviews/${contextId}`;
     setReviewsLoading(true);
     try {
-      const res = await fsApi.listDir(reviewPath, { dirsOnly: false, showHidden: false, ignoreNotFound: true });
+      const res = await fsApi.listDir(reviewPath, {
+        dirsOnly: false,
+        showHidden: false,
+        ignoreNotFound: true,
+      });
       if (res && res.entries) {
         const files = res.entries
-          .filter(e => !e.is_dir && e.name.endsWith('.md'))
-          .map(e => ({ name: e.name, path: e.path }))
+          .filter((e) => !e.is_dir && e.name.endsWith(".md"))
+          .map((e) => ({ name: e.name, path: e.path }))
           .sort((a, b) => b.name.localeCompare(a.name));
         setReviewFiles(files);
       } else {
@@ -326,47 +367,51 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
   const requirementPreview = useMemo(() => {
     if (!requirement) return null;
-    const lines = requirement.split('\n');
+    const lines = requirement.split("\n");
     if (lines.length <= 8) return null;
-    return lines.slice(0, 8).join('\n');
+    return lines.slice(0, 8).join("\n");
   }, [requirement]);
 
   const needsExpansion = requirementPreview !== null;
   const effectivePath = workspacePath || projectPath;
 
   const displayRootDirectory = useMemo(() => {
-    if (!effectivePath) return '-';
-    const segments = effectivePath.split('/').filter(Boolean);
+    if (!effectivePath) return "-";
+    const segments = effectivePath.split("/").filter(Boolean);
     if (segments.length <= 3) return effectivePath;
-    return `.../${segments.slice(-3).join('/')}`;
+    return `.../${segments.slice(-3).join("/")}`;
   }, [effectivePath]);
 
   useEffect(() => {
     if (!isEditingRequirement) {
-      setDraftRequirement(requirement ?? '');
+      setDraftRequirement(requirement ?? "");
     }
   }, [isEditingRequirement, requirement]);
 
   // DnD: drag tasks between status sections
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const id = String(event.active.id);
+      const idx = parseInt(id.replace("task-", ""), 10);
+      const task = tasks[idx];
+      if (task) setActiveDragTask({ index: idx, content: task.content, status: task.status });
+    },
+    [tasks],
   );
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const id = String(event.active.id);
-    const idx = parseInt(id.replace('task-', ''), 10);
-    const task = tasks[idx];
-    if (task) setActiveDragTask({ index: idx, content: task.content, status: task.status });
-  }, [tasks]);
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
-    const { over } = event;
-    if (over && activeDragTask && effectivePath) {
-      const targetStatus = String(over.id).replace('section-', '') as TaskStatus;
-      if (targetStatus !== activeDragTask.status) {
-        await updateTaskStatus(effectivePath, activeDragTask.index, targetStatus);
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { over } = event;
+      if (over && activeDragTask && effectivePath) {
+        const targetStatus = String(over.id).replace("section-", "") as TaskStatus;
+        if (targetStatus !== activeDragTask.status) {
+          await updateTaskStatus(effectivePath, activeDragTask.index, targetStatus);
+        }
       }
-    }
-    setActiveDragTask(null);
-  }, [activeDragTask, effectivePath, updateTaskStatus]);
+      setActiveDragTask(null);
+    },
+    [activeDragTask, effectivePath, updateTaskStatus],
+  );
 
   useEffect(() => {
     if (effectivePath) {
@@ -377,7 +422,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     if (projectPath && !hideGitChrome) {
       loadReviews();
     }
-  }, [effectivePath, hideGitChrome, projectPath, loadRequirement, loadTasks, loadNote, loadReviews]);
+  }, [
+    effectivePath,
+    hideGitChrome,
+    projectPath,
+    loadRequirement,
+    loadTasks,
+    loadNote,
+    loadReviews,
+  ]);
 
   const handleRefresh = useCallback(async () => {
     if (!effectivePath) return;
@@ -387,25 +440,32 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         loadRequirement(effectivePath),
         loadTasks(effectivePath),
         loadNote(effectivePath),
-        ...(hideGitChrome
-          ? []
-          : [loadReviews(), refreshPRs?.(), refreshActions?.()]),
+        ...(hideGitChrome ? [] : [loadReviews(), refreshPRs?.(), refreshActions?.()]),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [effectivePath, hideGitChrome, loadRequirement, loadTasks, loadNote, loadReviews, refreshPRs, refreshActions]);
+  }, [
+    effectivePath,
+    hideGitChrome,
+    loadRequirement,
+    loadTasks,
+    loadNote,
+    loadReviews,
+    refreshPRs,
+    refreshActions,
+  ]);
 
   const handleStartRequirementEdit = useCallback(() => {
     if (!effectivePath) return;
-    setDraftRequirement(requirement ?? t('requirement.defaultTemplate'));
+    setDraftRequirement(requirement ?? t("requirement.defaultTemplate"));
     setIsEditingRequirement(true);
   }, [effectivePath, requirement, t]);
 
   const handleSaveRequirement = useCallback(async () => {
     if (!effectivePath || requirementSaveRef.current) return;
     const nextRequirement = draftRequirement;
-    if (nextRequirement === (requirement ?? '')) {
+    if (nextRequirement === (requirement ?? "")) {
       setIsEditingRequirement(false);
       return;
     }
@@ -416,7 +476,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       setRequirementExpanded(false);
       setIsEditingRequirement(false);
     } catch (error) {
-      console.error('Failed to save requirement', error);
+      console.error("Failed to save requirement", error);
     } finally {
       requirementSaveRef.current = false;
       setIsSavingRequirement(false);
@@ -470,7 +530,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const taskDragOverlay = (
     <DragOverlay dropAnimation={null} zIndex={1600}>
       {activeDragTask ? (
-        <div className="flex items-center gap-3 px-3 py-2 rounded-sm bg-background border border-border shadow-md text-sm">
+        <div className="flex items-center gap-3 rounded-sm border border-border bg-background px-3 py-2 text-sm shadow-md">
           {renderStatusIcon(activeDragTask.status)}
           <span className="text-sidebar-foreground">{activeDragTask.content}</span>
         </div>
@@ -478,56 +538,67 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     </DragOverlay>
   );
 
-  const getIssueStateLabel = useCallback((state?: string) => {
-    switch (state?.toLowerCase()) {
-      case 'open':
-        return t('githubIssue.states.open');
-      case 'closed':
-        return t('githubIssue.states.closed');
-      default:
-        return state ?? '';
-    }
-  }, [t]);
+  const getIssueStateLabel = useCallback(
+    (state?: string) => {
+      switch (state?.toLowerCase()) {
+        case "open":
+          return t("githubIssue.states.open");
+        case "closed":
+          return t("githubIssue.states.closed");
+        default:
+          return state ?? "";
+      }
+    },
+    [t],
+  );
 
-  const getPullRequestStateLabel = useCallback((state?: string) => {
-    switch (state?.toUpperCase()) {
-      case 'OPEN':
-        return t('pullRequests.states.open');
-      case 'MERGED':
-        return t('pullRequests.states.merged');
-      case 'CLOSED':
-        return t('pullRequests.states.closed');
-      default:
-        return state?.toLowerCase() ?? '';
-    }
-  }, [t]);
+  const getPullRequestStateLabel = useCallback(
+    (state?: string) => {
+      switch (state?.toUpperCase()) {
+        case "OPEN":
+          return t("pullRequests.states.open");
+        case "MERGED":
+          return t("pullRequests.states.merged");
+        case "CLOSED":
+          return t("pullRequests.states.closed");
+        default:
+          return state?.toLowerCase() ?? "";
+      }
+    },
+    [t],
+  );
 
   return (
     <>
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain p-6 animate-in fade-in duration-300">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 animate-in flex-col gap-5 overflow-y-auto overscroll-contain p-6 duration-300 fade-in">
         {/* Header Section */}
-        <div className="flex items-center justify-between pb-4 border-b border-border/50">
+        <div className="flex items-center justify-between border-b border-border/50 pb-4">
           <div className="flex items-center gap-3">
-            <div className="size-8 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-muted-foreground">
+            <div className="flex size-8 items-center justify-center rounded-md border border-sidebar-border bg-sidebar text-muted-foreground">
               <LayoutDashboard className="size-4" />
             </div>
             <div className="flex flex-col">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="inline-flex items-center gap-3 text-[11px] text-muted-foreground min-w-0">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="inline-flex min-w-0 items-center gap-3 text-[11px] text-muted-foreground">
                   {hideGitChrome ? null : (
-                  <div className="inline-flex items-center gap-1.5 min-w-0 shrink-0">
-                    <GitBranch className="size-3.5" />
-                    <span className="font-medium">{effectiveGitBranch}</span>
-                  </div>
+                    <div className="inline-flex min-w-0 shrink-0 items-center gap-1.5">
+                      <GitBranch className="size-3.5" />
+                      <span className="font-medium">{effectiveGitBranch}</span>
+                    </div>
                   )}
                   <TooltipProvider delayDuration={300}>
                     <Tooltip>
-                      <TooltipTrigger className="inline-flex items-center gap-1.5 min-w-0">
+                      <TooltipTrigger className="inline-flex min-w-0 items-center gap-1.5">
                         <FolderOpen className="size-3.5 shrink-0" />
-                        <span className="font-mono truncate max-w-[280px]">{displayRootDirectory}</span>
+                        <span className="max-w-[280px] truncate font-mono">
+                          {displayRootDirectory}
+                        </span>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="text-[10px] font-mono max-w-[520px] break-all">
-                        {effectivePath || '-'}
+                      <TooltipContent
+                        side="top"
+                        className="max-w-[520px] font-mono text-[10px] break-all"
+                      >
+                        {effectivePath || "-"}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -544,41 +615,50 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="h-8 gap-2 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+              className="h-8 cursor-pointer gap-2 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              {isRefreshing ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
-              <span className="text-xs">{t('actions.refresh')}</span>
+              {isRefreshing ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="size-3.5" />
+              )}
+              <span className="text-xs">{t("actions.refresh")}</span>
             </Button>
           ) : null}
         </div>
 
         {/* Middle Section: Tasks & Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.25fr_0.75fr]">
           {/* Tasks Column */}
-          <Card className="bg-background border border-border flex flex-col h-[520px]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 px-4 border-b border-border">
-              <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground">
+          <Card className="flex h-[520px] flex-col border border-border bg-background">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-border px-4 py-3">
+              <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <CheckSquare className="size-4" />
-                {t('tasks.title')}
+                {t("tasks.title")}
               </CardTitle>
               <div className="flex items-center gap-2.5">
-                <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full bg-foreground rounded-full transition-all duration-300"
-                    style={{ width: tasks.length > 0 ? `${(tasks.filter(t => t.status === 'done').length / tasks.length) * 100}%` : '0%' }}
+                    className="h-full rounded-full bg-foreground transition-all duration-300"
+                    style={{
+                      width:
+                        tasks.length > 0
+                          ? `${(tasks.filter((t) => t.status === "done").length / tasks.length) * 100}%`
+                          : "0%",
+                    }}
                   />
                 </div>
-                <span className="text-[11px] text-muted-foreground font-mono">
-                  {tasks.filter(t => t.status === 'done').length}/{tasks.length}
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {tasks.filter((t) => t.status === "done").length}/{tasks.length}
                 </span>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col gap-0 p-0 overflow-hidden">
+            <CardContent className="flex flex-1 flex-col gap-0 overflow-hidden p-0">
               <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <TaskListPanel
                   tasks={tasks}
                   tasksLoading={tasksLoading}
-                  effectivePath={effectivePath || ''}
+                  effectivePath={effectivePath || ""}
                   addTask={addTask}
                   updateTaskStatus={updateTaskStatus}
                   updateTaskContent={updateTaskContent}
@@ -598,14 +678,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </Card>
 
           {/* Status/Metadata Column */}
-          <Card className="bg-background border border-border flex flex-col h-[520px] min-w-0">
-            <CardHeader className="py-3 px-4 border-b border-border">
-              <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground">
+          <Card className="flex h-[520px] min-w-0 flex-col border border-border bg-background">
+            <CardHeader className="border-b border-border px-4 py-3">
+              <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <Info className="size-4" />
-                {t('details.title')}
+                {t("details.title")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-on-hover">
+            <CardContent className="scrollbar-on-hover flex-1 space-y-4 overflow-y-auto p-4">
               {!isProjectOnly && projectId && contextId && (
                 <MetadataControlGroup
                   projectId={projectId}
@@ -614,9 +694,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   workflowStatus={workflowStatus}
                   labels={labels}
                   workspaceLabels={workspaceLabels}
-                  statusLabel={t('metadata.status')}
-                  priorityLabel={t('metadata.priority')}
-                  labelsLabel={t('metadata.labels')}
+                  statusLabel={t("metadata.status")}
+                  priorityLabel={t("metadata.priority")}
+                  labelsLabel={t("metadata.labels")}
                   onUpdatePriority={updateWorkspacePriority}
                   onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
                   onUpdateLabels={updateWorkspaceLabels}
@@ -626,12 +706,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               )}
 
               {!isProjectOnly && createdAt && (
-                <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
+                <div className="flex items-center justify-between rounded-md bg-muted/30 p-2.5">
                   <div className="flex items-center gap-2.5">
                     <Clock className="size-3.5 text-muted-foreground" />
-                    <span className="text-[11px] text-muted-foreground">{t('details.created')}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {t("details.created")}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                  <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
                     {formatDate(createdAt, locale)}
                   </span>
                 </div>
@@ -639,8 +721,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
               {!hideGitChrome && githubIssue && (
                 <div
-                  onClick={() => window.open(githubIssue.url, '_blank', 'noopener,noreferrer')}
-                  className="rounded-md border border-border bg-muted/20 p-3 hover:bg-muted/40 cursor-pointer"
+                  onClick={() => window.open(githubIssue.url, "_blank", "noopener,noreferrer")}
+                  className="cursor-pointer rounded-md border border-border bg-muted/20 p-3 hover:bg-muted/40"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -650,11 +732,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           {githubIssue.owner}/{githubIssue.repo}#{githubIssue.number}
                         </span>
                       </div>
-                      <div className="mt-1 text-[13px] font-medium text-foreground line-clamp-2">
+                      <div className="mt-1 line-clamp-2 text-[13px] font-medium text-foreground">
                         {githubIssue.title}
                       </div>
                     </div>
-                    <Badge variant="secondary" className="capitalize shrink-0">
+                    <Badge variant="secondary" className="shrink-0 capitalize">
                       {getIssueStateLabel(githubIssue.state)}
                     </Badge>
                   </div>
@@ -672,244 +754,296 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               )}
 
               {hideGitChrome ? null : (
-              <div className="space-y-2">
-                <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('codeReviews.title')}</h3>
-                <div className="grid gap-2">
-                  {reviewsLoading ? (
-                    <div className="space-y-1.5">
-                      {[1, 2].map(i => (
-                        <Skeleton key={i} className="h-8 w-full rounded-md" />
-                      ))}
-                    </div>
-                  ) : reviewFiles.length > 0 ? (
-                    reviewFiles.map((file, i) => (
-                      <TooltipProvider key={i} delayDuration={300}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div
-                              onClick={() => {
-                                void openFile(file.path, fileOpenContextId, { preview: true });
-                                activateCenterChromeTab(fileOpenContextId, file.path, { placement: "focused" });
-                              }}
-                              className="flex items-center gap-2.5 p-2 rounded-md bg-muted/20 hover:bg-muted/40 cursor-pointer group min-w-0"
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-medium text-muted-foreground/70">
+                    {t("codeReviews.title")}
+                  </h3>
+                  <div className="grid gap-2">
+                    {reviewsLoading ? (
+                      <div className="space-y-1.5">
+                        {[1, 2].map((i) => (
+                          <Skeleton key={i} className="h-8 w-full rounded-md" />
+                        ))}
+                      </div>
+                    ) : reviewFiles.length > 0 ? (
+                      reviewFiles.map((file, i) => (
+                        <TooltipProvider key={i} delayDuration={300}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div
+                                onClick={() => {
+                                  void openFile(file.path, fileOpenContextId, { preview: true });
+                                  activateCenterChromeTab(fileOpenContextId, file.path, {
+                                    placement: "focused",
+                                  });
+                                }}
+                                className="group flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md bg-muted/20 p-2 hover:bg-muted/40"
+                              >
+                                <FileCheck className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground" />
+                                <span className="truncate text-[11px] text-muted-foreground group-hover:text-foreground">
+                                  {file.name}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="max-w-[400px] font-mono text-[10px] break-all"
                             >
-                              <FileCheck className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground" />
-                              <span className="text-[11px] text-muted-foreground group-hover:text-foreground truncate">
-                                {file.name}
-                              </span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-[10px] font-mono max-w-[400px] break-all">
-                            {file.name}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ))
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-4 text-center border border-dashed border-border/60 rounded-md">
-                      <FileCheck className="size-3.5 text-muted-foreground/30 mb-1.5" />
-                      <h3 className="text-[11px] text-muted-foreground mb-0.5">{t('codeReviews.emptyTitle')}</h3>
-                      <p className="text-[10px] text-muted-foreground/50 max-w-[200px]">
-                        {t('codeReviews.emptyDescription')}
-                      </p>
-                    </div>
-                  )}
+                              {file.name}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border/60 py-4 text-center">
+                        <FileCheck className="mb-1.5 size-3.5 text-muted-foreground/30" />
+                        <h3 className="mb-0.5 text-[11px] text-muted-foreground">
+                          {t("codeReviews.emptyTitle")}
+                        </h3>
+                        <p className="max-w-[200px] text-[10px] text-muted-foreground/50">
+                          {t("codeReviews.emptyDescription")}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
               )}
 
               {hideGitChrome ? null : (
-              <div className="space-y-2.5 pt-1">
-                <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('pullRequests.title')}</h3>
-                <div className="grid gap-2">
-                  {prsLoading ? (
-                    <div className="space-y-1.5">
-                      <Skeleton className="h-20 w-full rounded-md" />
-                      <Skeleton className="h-20 w-full rounded-md" />
-                    </div>
-                  ) : prs && prs.length > 0 ? (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    prs.map((pr: any) => (
-                      <div
-                        key={pr.number}
-                        onClick={() => handleOpenPullRequest(pr)}
-                        className="flex flex-col p-3 rounded-md bg-muted/20 border border-sidebar-border/50 hover:bg-muted/40 hover:border-sidebar-border cursor-pointer group"
-                      >
-                        <div className="flex justify-between items-start gap-4 mb-2">
-                          <span className="text-[13px] font-medium text-foreground group-hover:text-primary leading-snug line-clamp-2">
-                            {pr.title}
-                          </span>
-                          <div className="flex gap-1.5 shrink-0 pt-0.5">
-                            <TooltipProvider delayDuration={400}>
-                              {pr.isDraft && (
+                <div className="space-y-2.5 pt-1">
+                  <h3 className="text-[11px] font-medium text-muted-foreground/70">
+                    {t("pullRequests.title")}
+                  </h3>
+                  <div className="grid gap-2">
+                    {prsLoading ? (
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-20 w-full rounded-md" />
+                        <Skeleton className="h-20 w-full rounded-md" />
+                      </div>
+                    ) : prs && prs.length > 0 ? (
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      prs.map((pr: any) => (
+                        <div
+                          key={pr.number}
+                          onClick={() => handleOpenPullRequest(pr)}
+                          className="group flex cursor-pointer flex-col rounded-md border border-sidebar-border/50 bg-muted/20 p-3 hover:border-sidebar-border hover:bg-muted/40"
+                        >
+                          <div className="mb-2 flex items-start justify-between gap-4">
+                            <span className="line-clamp-2 text-[13px] leading-snug font-medium text-foreground group-hover:text-primary">
+                              {pr.title}
+                            </span>
+                            <div className="flex shrink-0 gap-1.5 pt-0.5">
+                              <TooltipProvider delayDuration={400}>
+                                {pr.isDraft && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex size-5 items-center justify-center rounded-md border border-muted-foreground/20 bg-muted/30 text-muted-foreground hover:bg-muted/50">
+                                        <GitPullRequestDraft className="size-3" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="px-2 py-1 text-[10px]">
+                                      {t("pullRequests.draft")}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <div className="size-5 rounded-md bg-muted/30 border border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:bg-muted/50">
-                                      <GitPullRequestDraft className="size-3" />
+                                    <div
+                                      className={cn(
+                                        "flex size-5 cursor-default items-center justify-center rounded-md border transition-all",
+                                        pr.state === "OPEN"
+                                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+                                          : pr.state === "MERGED"
+                                            ? "border-purple-500/30 bg-purple-500/15 text-purple-600 hover:bg-purple-500/25 dark:text-purple-400"
+                                            : "border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400",
+                                      )}
+                                    >
+                                      {pr.state === "OPEN" ? (
+                                        <GitPullRequest className="size-3" />
+                                      ) : pr.state === "MERGED" ? (
+                                        <GitMerge className="size-3" />
+                                      ) : (
+                                        <GitPullRequestClosed className="size-3" />
+                                      )}
                                     </div>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-[10px] py-1 px-2">{t('pullRequests.draft')}</TooltipContent>
+                                  <TooltipContent
+                                    side="top"
+                                    className="px-2 py-1 text-[10px] font-medium capitalize"
+                                  >
+                                    {getPullRequestStateLabel(pr.state)}
+                                  </TooltipContent>
                                 </Tooltip>
-                              )}
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className={cn(
-                                    "size-5 rounded-md border flex items-center justify-center transition-all cursor-default",
-                                    pr.state === 'OPEN' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20' :
-                                      pr.state === 'MERGED' ? 'bg-purple-500/15 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/25' :
-                                        'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20'
-                                  )}>
-                                    {pr.state === 'OPEN' ? <GitPullRequest className="size-3" /> :
-                                      pr.state === 'MERGED' ? <GitMerge className="size-3" /> :
-                                        <GitPullRequestClosed className="size-3" />}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="text-[10px] py-1 px-2 capitalize font-medium">
-                                  {getPullRequestStateLabel(pr.state)}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                              </TooltipProvider>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <Avatar className="size-4 shrink-0 border border-border/40">
+                              <AvatarImage
+                                src={
+                                  pr.author?.avatar_url ||
+                                  pr.author?.avatarUrl ||
+                                  `https://github.com/${pr.author?.login?.replace("[bot]", "")}.png?size=32`
+                                }
+                              />
+                              <AvatarFallback className="text-[6px]">
+                                {pr.author?.login?.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="max-w-[80px] truncate font-medium text-foreground/80">
+                              {pr.author?.login || t("pullRequests.authorUnknown")}
+                            </span>
+                            {(pr.author?.is_bot || pr.author?.login?.endsWith("[bot]")) && (
+                              <span className="flex h-3.5 shrink-0 items-center rounded-sm border border-border bg-muted/40 px-1 py-0 text-[8px] leading-none font-bold tracking-tighter text-muted-foreground uppercase">
+                                {t("pullRequests.authorBot")}
+                              </span>
+                            )}
+                            <span className="opacity-30">•</span>
+                            <span className="font-mono text-[10px]">#{pr.number}</span>
+                            <span className="ml-auto flex shrink-0 items-center gap-1 opacity-30">
+                              <Clock className="size-2.5" />
+                              {formatDistanceToNow(new Date(pr.createdAt), {
+                                addSuffix: true,
+                                locale: relativeTimeLocale,
+                              })}
+                            </span>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <Avatar className="size-4 shrink-0 border border-border/40">
-                            <AvatarImage src={pr.author?.avatar_url || pr.author?.avatarUrl || `https://github.com/${pr.author?.login?.replace('[bot]', '')}.png?size=32`} />
-                            <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium text-foreground/80 truncate max-w-[80px]">
-                            {pr.author?.login || t('pullRequests.authorUnknown')}
-                          </span>
-                          {(pr.author?.is_bot || pr.author?.login?.endsWith('[bot]')) && (
-                            <span className="text-[8px] px-1 rounded-sm border border-border bg-muted/40 text-muted-foreground font-bold py-0 leading-none h-3.5 flex items-center shrink-0 uppercase tracking-tighter">
-                              {t('pullRequests.authorBot')}
-                            </span>
-                          )}
-                          <span className="opacity-30">•</span>
-                          <span className="font-mono text-[10px]">#{pr.number}</span>
-                          <span className="opacity-30 ml-auto flex items-center gap-1 shrink-0">
-                            <Clock className="size-2.5" />
-                            {formatDistanceToNow(new Date(pr.createdAt), {
-                              addSuffix: true,
-                              locale: relativeTimeLocale,
-                            })}
-                          </span>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border/40 bg-muted/10 py-4 text-center">
+                        <GitPullRequest className="mb-1 size-3.5 text-muted-foreground/20" />
+                        <span className="text-[10px] text-muted-foreground/50">
+                          {t("pullRequests.empty")}
+                        </span>
                       </div>
-                    ))
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-4 text-center bg-muted/10 rounded-md border border-dashed border-border/40">
-                      <GitPullRequest className="size-3.5 text-muted-foreground/20 mb-1" />
-                      <span className="text-[10px] text-muted-foreground/50">{t('pullRequests.empty')}</span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
               )}
 
               {hideGitChrome ? null : (
-              <div className="space-y-2.5 pt-1">
-                <div className="flex items-center justify-between pr-1">
-                  <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('actionsSection.title')}</h3>
-                  {actionRuns && actionRuns.length > 0 && <ActionsSummaryHeader stats={stats} />}
-                </div>
-                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 no-scrollbar shrink-0">
-                  {actionsLoading && (!actionRuns || actionRuns.length === 0) ? (
-                    <div className="flex flex-col items-center justify-center p-4 text-muted-foreground/50 border rounded-md border-dashed border-border/40">
-                      <Loader2 className="size-4 animate-spin opacity-50 mb-2" />
-                      <span className="text-[10px]">{t('actionsSection.loading')}</span>
-                    </div>
-                  ) : latestRuns && latestRuns.length > 0 ? (
-                    latestRuns.map((run: ActionRun) => {
-                      const isSuccess = run.conclusion === 'success';
-                      const isCompleted = run.status === 'completed';
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center justify-between pr-1">
+                    <h3 className="text-[11px] font-medium text-muted-foreground/70">
+                      {t("actionsSection.title")}
+                    </h3>
+                    {actionRuns && actionRuns.length > 0 && <ActionsSummaryHeader stats={stats} />}
+                  </div>
+                  <div className="no-scrollbar flex max-h-[300px] shrink-0 flex-col gap-2 overflow-y-auto pr-1">
+                    {actionsLoading && (!actionRuns || actionRuns.length === 0) ? (
+                      <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border/40 p-4 text-muted-foreground/50">
+                        <Loader2 className="mb-2 size-4 animate-spin opacity-50" />
+                        <span className="text-[10px]">{t("actionsSection.loading")}</span>
+                      </div>
+                    ) : latestRuns && latestRuns.length > 0 ? (
+                      latestRuns.map((run: ActionRun) => {
+                        const isSuccess = run.conclusion === "success";
+                        const isCompleted = run.status === "completed";
 
-                      return (
-                        <div
-                          key={run.databaseId}
-                          onClick={() => handleOpenActionRun(run)}
-                          className={cn(
-                            "flex flex-col gap-1.5 p-2.5 rounded-md transition-all border cursor-pointer hover:shadow-sm",
-                            isCompleted ? (
-                              isSuccess ? "bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/30" : "bg-red-500/5 border-red-500/10 hover:border-red-500/30"
-                            ) : "bg-blue-500/5 border-blue-500/10 hover:border-blue-500/30"
-                          )}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {isCompleted ? (
-                                isSuccess ? <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" /> : <XCircle className="size-3.5 text-red-500 shrink-0" />
-                              ) : (
-                                <Loader2 className="size-3.5 text-blue-500 animate-spin shrink-0" />
-                              )}
-                              <span className="text-[11px] font-bold text-foreground tracking-tight line-clamp-1">
-                                {run.displayTitle || run.workflowName}
+                        return (
+                          <div
+                            key={run.databaseId}
+                            onClick={() => handleOpenActionRun(run)}
+                            className={cn(
+                              "flex cursor-pointer flex-col gap-1.5 rounded-md border p-2.5 transition-all hover:shadow-sm",
+                              isCompleted
+                                ? isSuccess
+                                  ? "border-emerald-500/10 bg-emerald-500/5 hover:border-emerald-500/30"
+                                  : "border-red-500/10 bg-red-500/5 hover:border-red-500/30"
+                                : "border-blue-500/10 bg-blue-500/5 hover:border-blue-500/30",
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {isCompleted ? (
+                                  isSuccess ? (
+                                    <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+                                  ) : (
+                                    <XCircle className="size-3.5 shrink-0 text-red-500" />
+                                  )
+                                ) : (
+                                  <Loader2 className="size-3.5 shrink-0 animate-spin text-blue-500" />
+                                )}
+                                <span className="line-clamp-1 text-[11px] font-bold tracking-tight text-foreground">
+                                  {run.displayTitle || run.workflowName}
+                                </span>
+                              </div>
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded-sm px-1.5 py-0.5 text-[9px] font-bold uppercase",
+                                  isCompleted
+                                    ? isSuccess
+                                      ? "bg-emerald-500/10 text-emerald-500"
+                                      : "bg-red-500/10 text-red-500"
+                                    : "bg-blue-500/10 text-blue-500",
+                                )}
+                              >
+                                {isCompleted ? run.conclusion : run.status}
                               </span>
                             </div>
-                            <span className={cn(
-                              "text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase shrink-0",
-                              isCompleted ? (
-                                isSuccess ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
-                              ) : "bg-blue-500/10 text-blue-500"
-                            )}>
-                              {isCompleted ? run.conclusion : run.status}
-                            </span>
+                            <div className="flex items-center gap-2 overflow-hidden pl-5 text-[10px] text-muted-foreground">
+                              <Rocket className="size-3 shrink-0" />
+                              <span className="truncate">{run.workflowName}</span>
+                              <span className="shrink-0">•</span>
+                              <span className="shrink-0">{formatDate(run.createdAt, locale)}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground pl-5 overflow-hidden">
-                            <Rocket className="size-3 shrink-0" />
-                            <span className="truncate">{run.workflowName}</span>
-                            <span className="shrink-0">•</span>
-                            <span className="shrink-0">{formatDate(run.createdAt, locale)}</span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-4 text-center bg-muted/10 rounded-md border border-dashed border-border/40">
-                      <span className="text-[10px] text-muted-foreground/50">{t('actionsSection.empty')}</span>
+                        );
+                      })
+                    ) : (
+                      <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border/40 bg-muted/10 py-4 text-center">
+                        <span className="text-[10px] text-muted-foreground/50">
+                          {t("actionsSection.empty")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {latestRuns.length > 0 && (
+                    <div className="flex flex-col gap-2 pt-2">
+                      <p className="px-1 text-[10px] leading-normal text-muted-foreground italic">
+                        {t("actionsSection.latestRunHint")}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 justify-center gap-2 border border-dashed border-border text-[10px] font-medium hover:bg-muted"
+                        onClick={() =>
+                          window.open(
+                            `https://github.com/${githubOwner}/${githubRepo}/actions?query=branch:${effectiveGitBranch}`,
+                            "_blank",
+                          )
+                        }
+                      >
+                        <Github className="size-3" />
+                        {t("actionsSection.viewAllRuns")}
+                      </Button>
                     </div>
                   )}
                 </div>
-
-                {latestRuns.length > 0 && (
-                  <div className="pt-2 flex flex-col gap-2">
-                    <p className="text-[10px] text-muted-foreground leading-normal italic px-1">
-                      {t('actionsSection.latestRunHint')}
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-[10px] font-medium gap-2 justify-center border border-dashed border-border hover:bg-muted"
-                      onClick={() => window.open(`https://github.com/${githubOwner}/${githubRepo}/actions?query=branch:${effectiveGitBranch}`, '_blank')}
-                    >
-                      <Github className="size-3" />
-                      {t('actionsSection.viewAllRuns')}
-                    </Button>
-                  </div>
-                )}
-              </div>
               )}
-
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.25fr_0.75fr]">
           <Card className="flex h-[420px] min-w-0 flex-col border border-border bg-background">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
-              <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-border px-4 py-2.5">
+              <CardTitle className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
                 <Pencil className="size-3.5" />
-                {t('requirement.title')}
+                {t("requirement.title")}
               </CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 gap-1.5 px-3 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                className="h-7 cursor-pointer gap-1.5 px-3 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={isEditingRequirement ? handleSaveRequirement : handleStartRequirementEdit}
                 disabled={!effectivePath || isSavingRequirement}
               >
                 {isSavingRequirement ? <Loader2 className="size-3 animate-spin" /> : null}
-                {isEditingRequirement ? t('actions.save') : t('actions.edit')}
+                {isEditingRequirement ? t("actions.save") : t("actions.edit")}
               </Button>
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
@@ -924,19 +1058,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   value={draftRequirement}
                   onChange={(event) => setDraftRequirement(event.target.value)}
                   onKeyDown={(event) => {
-                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                       event.preventDefault();
                       void handleSaveRequirement();
                     }
                   }}
                   autoFocus
-                  placeholder={t('requirement.placeholder')}
-                  className="min-h-0 h-full max-h-full flex-1 resize-none overflow-y-auto !field-sizing-fixed rounded-md border-border bg-muted/30 font-mono text-[13px] leading-relaxed"
+                  placeholder={t("requirement.placeholder")}
+                  className="!field-sizing-fixed h-full max-h-full min-h-0 flex-1 resize-none overflow-y-auto rounded-md border-border bg-muted/30 font-mono text-[13px] leading-relaxed"
                 />
               ) : requirement ? (
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="min-h-0 flex-1 overflow-y-auto pr-2 scrollbar-on-hover">
-                    <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
+                  <div className="scrollbar-on-hover min-h-0 flex-1 overflow-y-auto pr-2">
+                    <MarkdownRenderer className="text-[13px] leading-relaxed text-muted-foreground">
                       {requirementExpanded || !needsExpansion ? requirement : requirementPreview!}
                     </MarkdownRenderer>
                   </div>
@@ -944,29 +1078,31 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="mt-4 h-8 shrink-0 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted w-full border border-dashed border-border rounded-sm cursor-pointer"
+                      className="mt-4 h-8 w-full shrink-0 cursor-pointer rounded-sm border border-dashed border-border text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => setRequirementExpanded(!requirementExpanded)}
                     >
-                      {requirementExpanded ? t('requirement.showLess') : t('requirement.showMore')}
+                      {requirementExpanded ? t("requirement.showLess") : t("requirement.showMore")}
                     </Button>
                   )}
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
-                  <Pencil className="size-5 text-muted-foreground/30 mb-2" />
-                  <h3 className="text-[13px] text-muted-foreground mb-1">{t('requirement.emptyTitle')}</h3>
-                  <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
-                    {t('requirement.emptyDescription')}
+                  <Pencil className="mb-2 size-5 text-muted-foreground/30" />
+                  <h3 className="mb-1 text-[13px] text-muted-foreground">
+                    {t("requirement.emptyTitle")}
+                  </h3>
+                  <p className="mb-4 max-w-[240px] text-[11px] text-muted-foreground/50">
+                    {t("requirement.emptyDescription")}
                   </p>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleStartRequirementEdit}
                     disabled={!effectivePath}
-                    className="h-8 gap-1.5 text-[11px] hover:bg-muted cursor-pointer"
+                    className="h-8 cursor-pointer gap-1.5 text-[11px] hover:bg-muted"
                   >
                     <Plus className="size-3.5" />
-                    {t('requirement.add')}
+                    {t("requirement.add")}
                   </Button>
                 </div>
               )}
@@ -986,14 +1122,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         <style jsx global>{`
-        .animate-spin-slow {
-          animation: spin 3s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(-360deg); }
-        }
-      `}</style>
+          .animate-spin-slow {
+            animation: spin 3s linear infinite;
+          }
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(-360deg);
+            }
+          }
+        `}</style>
       </div>
     </>
   );

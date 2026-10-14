@@ -32,27 +32,27 @@ export function TerminalGridEmptyState({
 }: TerminalGridEmptyStateProps) {
   const emptyTitle = isProjectWiki ? "Generate Project Wiki" : undefined;
   const emptyLabel = isProjectWiki ? "Add Project Wiki Terminal" : "Initialize Workspace";
-  const emptyHint = isProjectWiki ? "Run wiki generation from the Wiki tab" : "Click to add your first terminal session";
+  const emptyHint = isProjectWiki
+    ? "Run wiki generation from the Wiki tab"
+    : "Click to add your first terminal session";
 
   return (
     <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
       <button
-        className="flex flex-col items-center gap-4 hover:text-foreground transition-all duration-300 group"
+        className="group flex flex-col items-center gap-4 transition-all duration-300 hover:text-foreground"
         onClick={() => onAddTerminal(emptyTitle)}
       >
         <div className="relative">
-          <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-0 group-hover:scale-150 transition-transform duration-500" />
-          <div className="relative size-14 rounded-2xl bg-sidebar border border-border flex items-center justify-center group-hover:border-primary/50 group-hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)] transition-all duration-300">
-            <Plus className="size-6 text-muted-foreground group-hover:text-primary group-hover:rotate-90 transition-all duration-500" />
+          <div className="absolute inset-0 scale-0 rounded-full bg-primary/20 blur-xl transition-transform duration-500 group-hover:scale-150" />
+          <div className="relative flex size-14 items-center justify-center rounded-2xl border border-border bg-sidebar transition-all duration-300 group-hover:border-primary/50 group-hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]">
+            <Plus className="size-6 text-muted-foreground transition-all duration-500 group-hover:rotate-90 group-hover:text-primary" />
           </div>
         </div>
         <div className="flex flex-col items-center gap-1">
           <span className="text-sm font-semibold tracking-tight text-muted-foreground group-hover:text-foreground">
             {emptyLabel}
           </span>
-          <span className="text-[11px] text-muted-foreground/60">
-            {emptyHint}
-          </span>
+          <span className="text-[11px] text-muted-foreground/60">{emptyHint}</span>
         </div>
       </button>
     </div>

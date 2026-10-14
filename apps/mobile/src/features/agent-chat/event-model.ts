@@ -42,7 +42,10 @@ function block(label: string, text: string, format: EventBlock["format"] = "plai
 }
 
 function joinLines(lines: Array<string | null | undefined>): string {
-  return lines.map((line) => line?.trim() ?? "").filter((line) => line.length > 0).join("\n");
+  return lines
+    .map((line) => line?.trim() ?? "")
+    .filter((line) => line.length > 0)
+    .join("\n");
 }
 
 function detailBlocks(detail: TranscriptDetail): EventBlock[] {
@@ -64,7 +67,10 @@ function detailBlocks(detail: TranscriptDetail): EventBlock[] {
       return [
         ...block("Path", detail.path ?? ""),
         ...block("Language", detail.language),
-        ...block(detail.hint === "deleted" ? "Deleted" : detail.hint === "new" ? "New" : "Code", detail.code),
+        ...block(
+          detail.hint === "deleted" ? "Deleted" : detail.hint === "new" ? "New" : "Code",
+          detail.code,
+        ),
       ];
     case "search":
       return [
@@ -72,10 +78,11 @@ function detailBlocks(detail: TranscriptDetail): EventBlock[] {
         ...block("Summary", detail.summary ?? ""),
         ...block(
           "Hits",
-          detail.hits.map((hit) => joinLines([
-            hit.line != null ? `${hit.path}:${hit.line}` : hit.path,
-            hit.text,
-          ])).join("\n\n"),
+          detail.hits
+            .map((hit) =>
+              joinLines([hit.line != null ? `${hit.path}:${hit.line}` : hit.path, hit.text]),
+            )
+            .join("\n\n"),
         ),
       ];
     case "web_search":
@@ -90,24 +97,36 @@ function detailBlocks(detail: TranscriptDetail): EventBlock[] {
       return [
         ...block("Title", detail.title ?? ""),
         ...block("URL", detail.url),
-        ...block("Page", detail.markdown || detail.text || "", detail.markdown ? "markdown" : "plain"),
+        ...block(
+          "Page",
+          detail.markdown || detail.text || "",
+          detail.markdown ? "markdown" : "plain",
+        ),
       ];
     case "images":
       return block(
         "Images",
-        detail.images.map((image) => image.path || image.url || image.mime || "").filter(Boolean).join("\n"),
+        detail.images
+          .map((image) => image.path || image.url || image.mime || "")
+          .filter(Boolean)
+          .join("\n"),
       );
     case "files":
       return block("Files", detail.paths.join("\n"));
     case "tree":
       return block(
         "Tree",
-        detail.entries.map((entry) => `${"  ".repeat(entry.indent)}${entry.name}${entry.isDir ? "/" : ""}`).join("\n"),
+        detail.entries
+          .map((entry) => `${"  ".repeat(entry.indent)}${entry.name}${entry.isDir ? "/" : ""}`)
+          .join("\n"),
       );
     case "markdown":
       return block("Markdown", detail.markdown, "markdown");
     case "todos":
-      return block("Todos", detail.todos.map((todo) => `${todo.status}: ${todo.content}`).join("\n"));
+      return block(
+        "Todos",
+        detail.todos.map((todo) => `${todo.status}: ${todo.content}`).join("\n"),
+      );
     case "json":
       return block("JSON", detail.json);
     case "text":
@@ -134,7 +153,10 @@ function detailBlocks(detail: TranscriptDetail): EventBlock[] {
         ...block("Status", detail.status),
         ...block(
           "Images",
-          detail.images.map((image) => image.path || image.url || "").filter(Boolean).join("\n"),
+          detail.images
+            .map((image) => image.path || image.url || "")
+            .filter(Boolean)
+            .join("\n"),
         ),
       ];
     case "plan_document":
@@ -166,10 +188,7 @@ function detailBlocks(detail: TranscriptDetail): EventBlock[] {
     case "error_part":
       return block("Error", detail.message);
     case "session_lifecycle":
-      return [
-        ...block("Status", detail.label),
-        ...block("Error", detail.error ?? ""),
-      ];
+      return [...block("Status", detail.label), ...block("Error", detail.error ?? "")];
     case "session_config_change":
       return block("Change", detail.label);
     case "session_hint":
@@ -182,9 +201,14 @@ function detailBlocks(detail: TranscriptDetail): EventBlock[] {
         ...block("Options", detail.options.map((option) => option.name).join("\n")),
         ...block(
           "Questions",
-          detail.questions.map((question) => joinLines([question.prompt, ...question.options])).join("\n\n"),
+          detail.questions
+            .map((question) => joinLines([question.prompt, ...question.options]))
+            .join("\n\n"),
         ),
-        ...block("Plan", detail.planTodos.map((todo) => `${todo.status}: ${todo.content}`).join("\n")),
+        ...block(
+          "Plan",
+          detail.planTodos.map((todo) => `${todo.status}: ${todo.content}`).join("\n"),
+        ),
         ...block("Status", detail.status),
       ];
     case "hidden":
@@ -193,11 +217,19 @@ function detailBlocks(detail: TranscriptDetail): EventBlock[] {
 }
 
 function blocksFor(detail: TranscriptDetail): EventBlock[] {
-  return [...(detail.paramsJson ? block("Parameters", detail.paramsJson) : []), ...detailBlocks(detail)];
+  return [
+    ...(detail.paramsJson ? block("Parameters", detail.paramsJson) : []),
+    ...detailBlocks(detail),
+  ];
 }
 
 function firstLine(text: string, fallback: string): string {
-  const line = text.trim().split("\n").find((row) => row.trim().length > 0)?.trim() ?? "";
+  const line =
+    text
+      .trim()
+      .split("\n")
+      .find((row) => row.trim().length > 0)
+      ?.trim() ?? "";
   if (!line) return fallback;
   return line.length > 80 ? `${line.slice(0, 79)}…` : line;
 }
@@ -296,7 +328,9 @@ export function transcriptEventModel(
   const model = eventViewModel(part);
   if (part.type !== "tool_call" || part.kind !== "subagent" || !model.sheet) return model;
   const scope = messages.length > 0 ? messages : [{ role: "assistant", parts: siblings }];
-  const nested = subagentChildParts(scope, part.tool_call_id).map((row) => asLeaf(eventViewModel(row)));
+  const nested = subagentChildParts(scope, part.tool_call_id).map((row) =>
+    asLeaf(eventViewModel(row)),
+  );
   return {
     ...model,
     sheet: { ...model.sheet, nested },
@@ -341,16 +375,18 @@ export function openGroupSheet(
   if (state.sheets.length > 0) return state;
   return {
     ...state,
-    sheets: [{
-      id,
-      model: asLeaf({
-        kind: "group",
-        title,
-        blocks: [],
-        nested: models,
-        sheet: { title, blocks: [], nested: models },
-      }),
-    }],
+    sheets: [
+      {
+        id,
+        model: asLeaf({
+          kind: "group",
+          title,
+          blocks: [],
+          nested: models,
+          sheet: { title, blocks: [], nested: models },
+        }),
+      },
+    ],
   };
 }
 

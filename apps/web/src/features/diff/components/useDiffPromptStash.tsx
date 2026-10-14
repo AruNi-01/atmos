@@ -1,22 +1,16 @@
-'use client';
+"use client";
 
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  type MutableRefObject,
-} from 'react';
-import { useTranslations } from 'next-intl';
-import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
-import type { CodeViewHandle } from '@pierre/diffs/react';
-import { MessageSquareText } from 'lucide-react';
-import { toastManager } from '@workspace/ui';
-import { DiffCopyAnnotation } from '@/features/diff/components/DiffCopyAnnotation';
-import { AgentFixToolbar } from '@/features/agent-fix/components/AgentFixToolbar';
-import type { AgentFixPromptSource } from '@/features/agent-fix/types';
-import type { AgentFixContextRef } from '@/features/agent-fix/types';
-import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-context';
+import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useTranslations } from "next-intl";
+import type { DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs";
+import type { CodeViewHandle } from "@pierre/diffs/react";
+import { MessageSquareText } from "lucide-react";
+import { toastManager } from "@workspace/ui";
+import { DiffCopyAnnotation } from "@/features/diff/components/DiffCopyAnnotation";
+import { AgentFixToolbar } from "@/features/agent-fix/components/AgentFixToolbar";
+import type { AgentFixPromptSource } from "@/features/agent-fix/types";
+import type { AgentFixContextRef } from "@/features/agent-fix/types";
+import { useAgentFixContext } from "@/features/agent-fix/hooks/use-agent-fix-context";
 import {
   buildDiffSelectionInfo,
   formatSelectedRangeLabel,
@@ -24,9 +18,9 @@ import {
   isCopyAnnotation,
   type DiffListAnnotationMeta,
   updateViewerDiffItem,
-} from '@/features/diff/lib/diff-code-view-shared';
-import { formatDiffSelectionForAI } from '@/shared/lib/format-selection-for-ai';
-import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
+} from "@/features/diff/lib/diff-code-view-shared";
+import { formatDiffSelectionForAI } from "@/shared/lib/format-selection-for-ai";
+import { BinaryDiffCard } from "@/features/diff/components/BinaryDiffCard";
 
 export type LoadedDiffContents = {
   oldContent: string;
@@ -53,13 +47,13 @@ const EMPTY_STASHED_PROMPTS: StashedDiffPrompt[] = [];
 const EMPTY_DRAFT_NOTES: Record<string, string> = {};
 
 function basename(path: string) {
-  return path.split('/').filter(Boolean).pop() || path;
+  return path.split("/").filter(Boolean).pop() || path;
 }
 
 function formatMergedDiffPrompt(prompts: StashedDiffPrompt[]) {
   return prompts
     .map((entry, index) => `# Comment ${index + 1}\n\n${entry.prompt}`)
-    .join('\n\n---\n\n');
+    .join("\n\n---\n\n");
 }
 
 type UseDiffPromptStashArgs = {
@@ -74,39 +68,33 @@ type UseDiffPromptStashArgs = {
 export function useDiffPromptStash({
   agentFixContext: agentFixContextOverride,
   scope,
-  repoPath = '',
+  repoPath = "",
   viewerRef,
   loadedContentsRef,
 }: UseDiffPromptStashArgs) {
   const routeAgentFixContext = useAgentFixContext();
   const agentFixContext = agentFixContextOverride ?? routeAgentFixContext;
-  const t = useTranslations('diff.promptStash');
+  const t = useTranslations("diff.promptStash");
   const getText = useCallback(
     (key: string, fallback: string, values?: Record<string, unknown>) =>
       t.has(key as never) ? t(key as never, values as never) : fallback,
     [t],
   );
   const copyKeyRef = useRef(0);
-  const [stashedPromptState, setStashedPromptState] =
-    useState<StashedDiffPromptState>(() => ({
-      scope,
-      prompts: [],
-    }));
+  const [stashedPromptState, setStashedPromptState] = useState<StashedDiffPromptState>(() => ({
+    scope,
+    prompts: [],
+  }));
   const stashedPrompts = useMemo(
-    () =>
-      stashedPromptState.scope === scope
-        ? stashedPromptState.prompts
-        : EMPTY_STASHED_PROMPTS,
+    () => (stashedPromptState.scope === scope ? stashedPromptState.prompts : EMPTY_STASHED_PROMPTS),
     [scope, stashedPromptState],
   );
-  const [draftNoteState, setDraftNoteState] =
-    useState<DraftPromptNoteState>(() => ({
-      scope,
-      notes: EMPTY_DRAFT_NOTES,
-    }));
+  const [draftNoteState, setDraftNoteState] = useState<DraftPromptNoteState>(() => ({
+    scope,
+    notes: EMPTY_DRAFT_NOTES,
+  }));
   const draftNotes = useMemo(
-    () =>
-      draftNoteState.scope === scope ? draftNoteState.notes : EMPTY_DRAFT_NOTES,
+    () => (draftNoteState.scope === scope ? draftNoteState.notes : EMPTY_DRAFT_NOTES),
     [draftNoteState, scope],
   );
 
@@ -131,9 +119,7 @@ export function useDiffPromptStash({
         if (current.scope !== scope) return current;
         return {
           scope: current.scope,
-          prompts: current.prompts.filter(
-            (entry) => entry.itemId !== itemId || entry.key !== key,
-          ),
+          prompts: current.prompts.filter((entry) => entry.itemId !== itemId || entry.key !== key),
         };
       });
     },
@@ -180,7 +166,7 @@ export function useDiffPromptStash({
     (itemId: string, key: string, note: string) => {
       const item = viewerRef.current?.getItem(itemId);
       const contents = loadedContentsRef.current.get(itemId);
-      if (item?.type !== 'diff' || !contents) return null;
+      if (item?.type !== "diff" || !contents) return null;
 
       const annotation = item.annotations?.find(
         (a) => isCopyAnnotation(a) && a.metadata.key === key,
@@ -212,8 +198,8 @@ export function useDiffPromptStash({
       const prompt = buildPromptForAnnotation(itemId, key, note);
       if (!prompt) {
         toastManager.add({
-          title: getText('toast.emptyTitle', '没有可暂存的提示'),
-          type: 'error',
+          title: getText("toast.emptyTitle", "没有可暂存的提示"),
+          type: "error",
         });
         return;
       }
@@ -223,9 +209,7 @@ export function useDiffPromptStash({
         prompts:
           current.scope === scope
             ? [
-                ...current.prompts.filter(
-                  (entry) => entry.itemId !== itemId || entry.key !== key,
-                ),
+                ...current.prompts.filter((entry) => entry.itemId !== itemId || entry.key !== key),
                 { itemId, key, prompt },
               ]
             : [{ itemId, key, prompt }],
@@ -244,9 +228,7 @@ export function useDiffPromptStash({
       return {
         scope: current.scope,
         notes: Object.fromEntries(
-          Object.entries(current.notes).filter(
-            ([key]) => !copiedKeys.has(key),
-          ),
+          Object.entries(current.notes).filter(([key]) => !copiedKeys.has(key)),
         ),
       };
     });
@@ -258,30 +240,22 @@ export function useDiffPromptStash({
     const stashedCount = stashedPrompts.length;
     const source: AgentFixPromptSource = {
       id: `diff-stashed:${scope}`,
-      family: 'diff',
+      family: "diff",
       context: agentFixContext,
-      label: getText(
-        'stashedPrompt.agentFixLabel',
-        `修复 ${stashedCount} 条 diff 注释`,
-        { count: stashedCount },
-      ),
+      label: getText("stashedPrompt.agentFixLabel", `修复 ${stashedCount} 条 diff 注释`, {
+        count: stashedCount,
+      }),
       disabledReason: agentFixContext
         ? null
-        : getText(
-            'agentFix.disabledReason',
-            '请先打开一个工作区或项目，再运行 Agent Fix。',
-          ),
+        : getText("agentFix.disabledReason", "请先打开一个工作区或项目，再运行 Agent Fix。"),
       getPrompt: () => ({
         prompt: formatMergedDiffPrompt(stashedPrompts),
         terminalTabTitle: getText(
-          'stashedPrompt.terminalTabTitle',
+          "stashedPrompt.terminalTabTitle",
           `修复 diff 注释（${stashedCount} 条）`,
           { count: stashedCount },
         ),
-        terminalPaneLabel: getText(
-          'stashedPrompt.terminalPaneLabel',
-          '修复 diff 注释',
-        ),
+        terminalPaneLabel: getText("stashedPrompt.terminalPaneLabel", "修复 diff 注释"),
       }),
       onCopied: cleanupStashedPrompts,
       onStarted: cleanupStashedPrompts,
@@ -289,22 +263,20 @@ export function useDiffPromptStash({
     return (
       <div
         className="group/stashed-prompts relative z-10 inline-flex h-8 w-11 shrink-0 items-center rounded-md"
-        title={getText(
-          'stashedPrompt.title',
-          `已暂存 ${stashedCount} 条提示注释`,
-          { count: stashedCount },
-        )}
+        title={getText("stashedPrompt.title", `已暂存 ${stashedCount} 条提示注释`, {
+          count: stashedCount,
+        })}
       >
-        <div className="absolute left-0 top-1/2 inline-flex h-6 w-11 -translate-y-1/2 items-center justify-center rounded-md border border-foreground bg-foreground px-1.5 text-[11px] font-semibold leading-none text-background transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/stashed-prompts:pointer-events-none group-hover/stashed-prompts:opacity-0 group-focus-within/stashed-prompts:pointer-events-none group-focus-within/stashed-prompts:opacity-0">
+        <div className="absolute top-1/2 left-0 inline-flex h-6 w-11 -translate-y-1/2 items-center justify-center rounded-md border border-foreground bg-foreground px-1.5 text-[11px] leading-none font-semibold text-background transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-focus-within/stashed-prompts:pointer-events-none group-focus-within/stashed-prompts:opacity-0 group-hover/stashed-prompts:pointer-events-none group-hover/stashed-prompts:opacity-0">
           <MessageSquareText className="mr-1 size-3 shrink-0" />
           <span className="w-3 text-center tabular-nums">{stashedCount}</span>
         </div>
-        <div className="pointer-events-none absolute left-0 top-1/2 h-6 w-11 -translate-y-1/2 overflow-hidden rounded-md transition-[width] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/stashed-prompts:w-[208px] group-hover/stashed-prompts:pointer-events-auto group-focus-within/stashed-prompts:w-[208px] group-focus-within/stashed-prompts:pointer-events-auto">
+        <div className="pointer-events-none absolute top-1/2 left-0 h-6 w-11 -translate-y-1/2 overflow-hidden rounded-md transition-[width] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] group-focus-within/stashed-prompts:pointer-events-auto group-focus-within/stashed-prompts:w-[208px] group-hover/stashed-prompts:pointer-events-auto group-hover/stashed-prompts:w-[208px]">
           <AgentFixToolbar
             source={source}
             size="xs"
             variant="bottom"
-            className="h-full w-[208px] opacity-0 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/stashed-prompts:opacity-100 group-focus-within/stashed-prompts:opacity-100"
+            className="h-full w-[208px] opacity-0 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-focus-within/stashed-prompts:opacity-100 group-hover/stashed-prompts:opacity-100"
           />
         </div>
       </div>
@@ -328,7 +300,7 @@ export function useDiffPromptStash({
         const existingAnnotations = (item.annotations ?? []).filter((annotation) => {
           if (!isCopyAnnotation(annotation)) return true;
           if (stashedKeys.has(annotation.metadata.key)) return true;
-          if ((draftNotes[annotation.metadata.key] ?? '').trim()) return true;
+          if ((draftNotes[annotation.metadata.key] ?? "").trim()) return true;
           removedEmptyKeys.push(annotation.metadata.key);
           return false;
         });
@@ -351,7 +323,7 @@ export function useDiffPromptStash({
           {
             side,
             lineNumber,
-            metadata: { kind: 'copy', key, filePath: itemId, range },
+            metadata: { kind: "copy", key, filePath: itemId, range },
           },
         ];
 
@@ -362,9 +334,7 @@ export function useDiffPromptStash({
             return {
               scope: current.scope,
               notes: Object.fromEntries(
-                Object.entries(current.notes).filter(
-                  ([entryKey]) => !removed.has(entryKey),
-                ),
+                Object.entries(current.notes).filter(([entryKey]) => !removed.has(entryKey)),
               ),
             };
           });
@@ -391,65 +361,56 @@ export function useDiffPromptStash({
       if (!isCopyAnnotation(annotation)) return null;
       const isStashed = stashedPrompts.some(
         (entry) =>
-          entry.itemId === annotation.metadata.filePath &&
-          entry.key === annotation.metadata.key,
+          entry.itemId === annotation.metadata.filePath && entry.key === annotation.metadata.key,
       );
       return (
         <DiffCopyAnnotation
           annotation={annotation}
           itemId={annotation.metadata.filePath}
           isStashed={isStashed}
-          note={draftNotes[annotation.metadata.key] ?? ''}
+          note={draftNotes[annotation.metadata.key] ?? ""}
           onNoteChange={handleDraftNoteChange}
           onStash={handleStashAnnotation}
           onDismiss={handleDismissAnnotation}
           lineLabel={formatSelectedRangeLabel(annotation.metadata.range)}
           agentFixSource={{
             id: `diff:${scope}:${annotation.metadata.key}`,
-            family: 'diff',
+            family: "diff",
             context: agentFixContext,
             label: getText(
-              'annotation.agentFixLabel',
+              "annotation.agentFixLabel",
               `修复 diff：${basename(annotation.metadata.filePath)}`,
               { file: basename(annotation.metadata.filePath) },
             ),
             disabledReason: agentFixContext
               ? null
-              : getText(
-                  'agentFix.disabledReason',
-                  '请先打开一个工作区或项目，再运行 Agent Fix。',
-                ),
+              : getText("agentFix.disabledReason", "请先打开一个工作区或项目，再运行 Agent Fix。"),
             getPrompt: () => {
               const fileName = basename(annotation.metadata.filePath);
               const prompt = buildPromptForAnnotation(
                 annotation.metadata.filePath,
                 annotation.metadata.key,
-                draftNotes[annotation.metadata.key] ?? '',
+                draftNotes[annotation.metadata.key] ?? "",
               );
               if (!prompt) {
                 throw new Error(
-                  getText(
-                    'annotation.promptBuildError',
-                    '无法为当前选区生成 diff 提示。',
-                  ),
+                  getText("annotation.promptBuildError", "无法为当前选区生成 diff 提示。"),
                 );
               }
               return {
                 prompt,
-                terminalTabTitle: getText(
-                  'annotation.terminalTabTitle',
-                  `修复 diff：${fileName}`,
-                  { file: fileName },
-                ),
-                terminalPaneLabel: getText(
-                  'annotation.terminalPaneLabel',
-                  `修复 ${fileName}`,
-                  { file: fileName },
-                ),
+                terminalTabTitle: getText("annotation.terminalTabTitle", `修复 diff：${fileName}`, {
+                  file: fileName,
+                }),
+                terminalPaneLabel: getText("annotation.terminalPaneLabel", `修复 ${fileName}`, {
+                  file: fileName,
+                }),
               };
             },
-            onCopied: () => cleanupAnnotationPrompt(annotation.metadata.filePath, annotation.metadata.key),
-            onStarted: () => cleanupAnnotationPrompt(annotation.metadata.filePath, annotation.metadata.key),
+            onCopied: () =>
+              cleanupAnnotationPrompt(annotation.metadata.filePath, annotation.metadata.key),
+            onStarted: () =>
+              cleanupAnnotationPrompt(annotation.metadata.filePath, annotation.metadata.key),
           }}
         />
       );

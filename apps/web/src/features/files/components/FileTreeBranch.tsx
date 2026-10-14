@@ -15,13 +15,7 @@ const TREE_BRANCH_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
  * mounted until the close transition finishes — nestTreeItemsByParent clears
  * nested rows on collapse in the same render as `open={false}`.
  */
-export function FileTreeBranch({
-  open,
-  children,
-}: {
-  open: boolean;
-  children: React.ReactNode;
-}) {
+export function FileTreeBranch({ open, children }: { open: boolean; children: React.ReactNode }) {
   const reduceMotion = useReducedMotion();
   const durationMs = reduceMotion ? 0 : TREE_BRANCH_DURATION_MS;
 
@@ -86,9 +80,7 @@ export function FileTreeBranch({
             : undefined,
       }}
     >
-      <div className="min-h-0 overflow-hidden">
-        {renderChildren ? content : null}
-      </div>
+      <div className="min-h-0 overflow-hidden">{renderChildren ? content : null}</div>
     </div>
   );
 }

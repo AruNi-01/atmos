@@ -15,29 +15,21 @@ describe("overlay scroll bounce (macOS rubber-banding)", () => {
     expect(css).not.toMatch(/\*::-webkit-scrollbar\s*\{[^}]*\bheight\s*:/);
     expect(css).toContain("scrollbar-color:");
     expect(css).toContain("scrollbar-width: thin");
-    expect(css).not.toMatch(
-      /\.agent-chat-scroll\s*\{[^}]*scrollbar-gutter:\s*auto/,
-    );
+    expect(css).not.toMatch(/\.agent-chat-scroll\s*\{[^}]*scrollbar-gutter:\s*auto/);
 
-    const stickToBottom = read(
-      "apps/web/node_modules/use-stick-to-bottom/dist/StickToBottom.js",
-    );
+    const stickToBottom = read("apps/web/node_modules/use-stick-to-bottom/dist/StickToBottom.js");
     expect(stickToBottom).toContain('scrollbarGutter: "stable both-edges"');
 
-    const terminalCss = read(
-      "apps/web/src/features/terminal/components/terminal-grid.css",
-    );
+    const terminalCss = read("apps/web/src/features/terminal/components/terminal-grid.css");
     expect(terminalCss).not.toMatch(
       /\.terminal-grid-container\s+::-webkit-scrollbar\s*\{[^}]*\bwidth\s*:/,
     );
   });
 
   it("does not force a classic CodeMirror scroller", () => {
-    const src = read(
-      "apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx",
-    );
+    const src = read("apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx");
     expect(src).not.toMatch(/\.cm-scroller::-webkit-scrollbar['"]\s*:\s*\{[^}]*width/);
-    expect(src).toContain("scrollbarWidth: 'thin'");
+    expect(src).toContain('scrollbarWidth: "thin"');
   });
 
   it("enables Electron scrollBounce on product windows", () => {

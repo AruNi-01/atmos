@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import type { AgentChatIndexEntry, AgentChatListResponse } from "@atmos/api-types/ws/dto/agent-chat";
+import type {
+  AgentChatIndexEntry,
+  AgentChatListResponse,
+} from "@atmos/api-types/ws/dto/agent-chat";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
@@ -40,7 +43,8 @@ export function useAgentChatList(scopeId: string) {
       nextChatListCursor(lastPage.items ?? [], CHAT_LIST_PAGE_SIZE, lastPageParam),
   });
   const fetchNextPage = useCallback(() => {
-    if (!listQuery.hasNextPage || listQuery.isFetchingNextPage || listQuery.isFetchNextPageError) return;
+    if (!listQuery.hasNextPage || listQuery.isFetchingNextPage || listQuery.isFetchNextPageError)
+      return;
     void listQuery.fetchNextPage();
   }, [
     listQuery.fetchNextPage,
@@ -52,11 +56,12 @@ export function useAgentChatList(scopeId: string) {
     if (!listQuery.hasNextPage || listQuery.isFetchingNextPage) return;
     void listQuery.fetchNextPage();
   }, [listQuery.fetchNextPage, listQuery.hasNextPage, listQuery.isFetchingNextPage]);
-  const chatItems = uniqueChatItems(listQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []);
-
-  const loading = connected && (
-    bootstrapQuery.isLoading || Boolean(scopeResult?.ok && listQuery.isLoading)
+  const chatItems = uniqueChatItems(
+    listQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
   );
+
+  const loading =
+    connected && (bootstrapQuery.isLoading || Boolean(scopeResult?.ok && listQuery.isLoading));
   const initialError = listQuery.isFetchNextPageError ? null : listQuery.error;
   const error = connected
     ? bootstrapQuery.error

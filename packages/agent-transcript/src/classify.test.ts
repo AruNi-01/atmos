@@ -9,10 +9,7 @@ import {
   type TranscriptDetail,
 } from "./index";
 
-function tool(
-  kind: AgentToolKind,
-  extras: Partial<AgentToolCallPart> = {},
-): AgentToolCallPart {
+function tool(kind: AgentToolKind, extras: Partial<AgentToolCallPart> = {}): AgentToolCallPart {
   const params = extras.params ?? defaultParams(kind);
   return {
     type: "tool_call",
@@ -46,7 +43,12 @@ function defaultParams(kind: AgentToolKind): AgentToolCallPart["params"] {
     case "skill":
       return { type: "skill", skill: "review" };
     case "subagent":
-      return { type: "subagent", description: "Inspect the diff", agent_type: "explore", prompt: "Look around" };
+      return {
+        type: "subagent",
+        description: "Inspect the diff",
+        agent_type: "explore",
+        prompt: "Look around",
+      };
     case "mcp_list":
       return { type: "mcp_list", server: null };
     case "mcp_call":
@@ -72,7 +74,12 @@ function detailKind(part: AgentPart): TranscriptDetail["kind"] {
 
 describe("classifyTranscriptPart", () => {
   it("classifies every presentation kind and the non-tool parts web renders", () => {
-    const cases: Array<{ part: AgentPart; visibility: string; kind: string; detail: TranscriptDetail["kind"] }> = [
+    const cases: Array<{
+      part: AgentPart;
+      visibility: string;
+      kind: string;
+      detail: TranscriptDetail["kind"];
+    }> = [
       {
         part: tool("edit", {
           result: {
@@ -88,7 +95,10 @@ describe("classifyTranscriptPart", () => {
       },
       {
         part: tool("edit", {
-          result: { type: "text", text: "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-old\n+new\n" },
+          result: {
+            type: "text",
+            text: "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-old\n+new\n",
+          },
         }),
         visibility: "visible",
         kind: "edit",
@@ -282,7 +292,12 @@ describe("classifyTranscriptPart", () => {
         detail: "error_part",
       },
       {
-        part: { type: "session_lifecycle", action: "create", status: "completed", duration_ms: 2000 },
+        part: {
+          type: "session_lifecycle",
+          action: "create",
+          status: "completed",
+          duration_ms: 2000,
+        },
         visibility: "visible",
         kind: "session_lifecycle",
         detail: "session_lifecycle",
@@ -360,19 +375,27 @@ describe("classifyTranscriptPart", () => {
 
     const diff = classifyTranscriptPart(cases[0]!.part);
     if (diff.detail.kind === "diff") {
-      expect(diff.detail.files[0]).toEqual({ path: "src/a.ts", oldContent: "old", newContent: "new" });
+      expect(diff.detail.files[0]).toEqual({
+        path: "src/a.ts",
+        oldContent: "old",
+        newContent: "new",
+      });
     }
-    const execute = classifyTranscriptPart(tool("execute", {
-      result: { type: "execute", output: "ok", exit_code: 0 },
-    }));
+    const execute = classifyTranscriptPart(
+      tool("execute", {
+        result: { type: "execute", output: "ok", exit_code: 0 },
+      }),
+    );
     if (execute.detail.kind === "execute") {
       expect(execute.detail.output).toBe("ok");
       expect(execute.detail.command).toBe("bun test");
       expect(execute.detail.exitCode).toBe(0);
     }
-    const image = classifyTranscriptPart(tool("image_gen", {
-      result: { type: "images", images: [{ path: "mark.png" }] },
-    }));
+    const image = classifyTranscriptPart(
+      tool("image_gen", {
+        result: { type: "images", images: [{ path: "mark.png" }] },
+      }),
+    );
     if (image.detail.kind === "image_gen") {
       expect(image.detail.prompt).toBe("a glass mark");
       expect(image.detail.images[0]?.path).toBe("mark.png");
@@ -382,17 +405,25 @@ describe("classifyTranscriptPart", () => {
       expect(plan.detail.plan).toBe("## Do the work");
       expect(plan.detail.todos[0]?.content).toBe("Write the mapping");
     }
-    const child = classifyTranscriptPart(tool("subagent", { result: { type: "text", text: "child finished" } }));
+    const child = classifyTranscriptPart(
+      tool("subagent", { result: { type: "text", text: "child finished" } }),
+    );
     if (child.detail.kind === "subagent") {
       expect(child.detail.description).toBe("Inspect the diff");
       expect(child.detail.resultText).toBe("child finished");
       expect(child.detail.prompt).toBe("Look around");
     }
-    const created = classifyTranscriptPart(cases.find((item) => item.detail === "session_lifecycle")!.part);
-    if (created.detail.kind === "session_lifecycle") expect(created.detail.label).toBe("Created session in 2s");
+    const created = classifyTranscriptPart(
+      cases.find((item) => item.detail === "session_lifecycle")!.part,
+    );
+    if (created.detail.kind === "session_lifecycle")
+      expect(created.detail.label).toBe("Created session in 2s");
     const hint = classifyTranscriptPart(cases.find((item) => item.detail === "session_hint")!.part);
-    if (hint.detail.kind === "session_hint") expect(hint.detail.label).toBe("Couldn't switch model in this session");
-    const permission = classifyTranscriptPart(cases.find((item) => item.detail === "permission")!.part);
+    if (hint.detail.kind === "session_hint")
+      expect(hint.detail.label).toBe("Couldn't switch model in this session");
+    const permission = classifyTranscriptPart(
+      cases.find((item) => item.detail === "permission")!.part,
+    );
     if (permission.detail.kind === "permission") {
       expect(permission.detail.tool).toBe("Bash");
       expect(permission.detail.shownInTranscript).toBe(true);
@@ -401,26 +432,42 @@ describe("classifyTranscriptPart", () => {
   });
 
   it("hides composer chrome, nested children, and subagent-wait polls", () => {
-    expect(classifyTranscriptPart({ type: "plan", plan: { steps: [] } }).visibility).toBe("hidden_chrome");
-    expect(classifyTranscriptPart({ type: "attachment", path: "a.png" }).visibility).toBe("hidden_chrome");
-    expect(classifyTranscriptPart(tool("other", { name: "enter_plan", title: "Enter plan" })).visibility).toBe("hidden_chrome");
-    expect(classifyTranscriptPart({
-      type: "session_config_change",
-      mode: { to: "plan" },
-    }).visibility).toBe("hidden_chrome");
-    expect(classifyTranscriptPart({
-      type: "text",
-      text: "nested",
-      parent_tool_call_id: "parent",
-    }).visibility).toBe("nested_child");
-    const wait = classifyTranscriptPart(tool("other", {
-      name: "get_command_or_subagent_output",
-      title: "TaskOutput",
-    }));
+    expect(classifyTranscriptPart({ type: "plan", plan: { steps: [] } }).visibility).toBe(
+      "hidden_chrome",
+    );
+    expect(classifyTranscriptPart({ type: "attachment", path: "a.png" }).visibility).toBe(
+      "hidden_chrome",
+    );
+    expect(
+      classifyTranscriptPart(tool("other", { name: "enter_plan", title: "Enter plan" })).visibility,
+    ).toBe("hidden_chrome");
+    expect(
+      classifyTranscriptPart({
+        type: "session_config_change",
+        mode: { to: "plan" },
+      }).visibility,
+    ).toBe("hidden_chrome");
+    expect(
+      classifyTranscriptPart({
+        type: "text",
+        text: "nested",
+        parent_tool_call_id: "parent",
+      }).visibility,
+    ).toBe("nested_child");
+    const wait = classifyTranscriptPart(
+      tool("other", {
+        name: "get_command_or_subagent_output",
+        title: "TaskOutput",
+      }),
+    );
     expect(wait.visibility).toBe("subagent_wait");
-    expect(presentAgentTool(tool("other", {
-      result: { type: "other", value: { type: "Bash", output: "ok" } },
-    })).presentation.kind).toBe("json");
+    expect(
+      presentAgentTool(
+        tool("other", {
+          result: { type: "other", value: { type: "Bash", output: "ok" } },
+        }),
+      ).presentation.kind,
+    ).toBe("json");
   });
 
   it("groups wait polls and keeps their nested events as tour rows", () => {
@@ -434,40 +481,44 @@ describe("classifyTranscriptPart", () => {
       parent_tool_call_id: "wait-1",
       result: { type: "file_content", path: "src/a.ts", text: "const n = 1;\n" },
     });
-    const section = waitForSection([
-      { type: "text", text: "hello" },
-      wait,
-      nested,
-    ]);
+    const section = waitForSection([{ type: "text", text: "hello" }, wait, nested]);
     expect(section?.anchors.map((row) => row.part.tool_call_id)).toEqual(["wait-1"]);
-    expect(section?.rows.map((row) => row.part.type === "tool_call" ? row.part.tool_call_id : row.part.type)).toEqual(["read-1"]);
+    expect(
+      section?.rows.map((row) =>
+        row.part.type === "tool_call" ? row.part.tool_call_id : row.part.type,
+      ),
+    ).toEqual(["read-1"]);
     expect(detailKind(nested)).toBe("code");
   });
 
   it("keeps other-tool params beside the result", () => {
-    const vendor = classifyTranscriptPart(tool("other", {
-      name: "VendorTool",
-      title: "VendorTool",
-      params: { type: "other", value: { type: "ReadFile", path: "/tmp/a.ts" } },
-      result: { type: "other", value: { bytes: 12, ok: true } },
-    }));
+    const vendor = classifyTranscriptPart(
+      tool("other", {
+        name: "VendorTool",
+        title: "VendorTool",
+        params: { type: "other", value: { type: "ReadFile", path: "/tmp/a.ts" } },
+        result: { type: "other", value: { bytes: 12, ok: true } },
+      }),
+    );
     expect(vendor.detail.kind).toBe("json");
     expect(vendor.detail.paramsJson).toContain("ReadFile");
     expect(vendor.detail.paramsJson).toContain("/tmp/a.ts");
-    if (vendor.detail.kind === "json") expect(vendor.detail.json).toContain("\"bytes\": 12");
+    if (vendor.detail.kind === "json") expect(vendor.detail.json).toContain('"bytes": 12');
 
-    const listed = classifyTranscriptPart(tool("other", {
-      name: "Tool",
-      title: "List apps, crates, packages layout",
-      params: {
-        type: "other",
-        value: {
-          command: "ls apps crates packages",
-          description: "List apps, crates, packages layout",
+    const listed = classifyTranscriptPart(
+      tool("other", {
+        name: "Tool",
+        title: "List apps, crates, packages layout",
+        params: {
+          type: "other",
+          value: {
+            command: "ls apps crates packages",
+            description: "List apps, crates, packages layout",
+          },
         },
-      },
-      result: { type: "text", text: "apps\ncrates\n" },
-    }));
+        result: { type: "text", text: "apps\ncrates\n" },
+      }),
+    );
     expect(listed.detail.paramsJson).toContain("ls apps crates packages");
     expect(listed.detail.paramsJson).not.toContain("List apps, crates, packages layout");
     expect(listed.detail.kind).toBe("text");
@@ -475,21 +526,25 @@ describe("classifyTranscriptPart", () => {
   });
 
   it("keeps the path and image-or-text preview for an empty read", () => {
-    const image = classifyTranscriptPart(tool("read", {
-      name: "Read",
-      params: { type: "read", path: "shot.png" },
-      result: { type: "file_content", path: "shot.png", text: "" },
-    }));
+    const image = classifyTranscriptPart(
+      tool("read", {
+        name: "Read",
+        params: { type: "read", path: "shot.png" },
+        result: { type: "file_content", path: "shot.png", text: "" },
+      }),
+    );
     expect(image.detail.kind).toBe("empty");
     if (image.detail.kind === "empty") {
       expect(image.detail.path).toBe("shot.png");
       expect(image.detail.preview).toBe("image");
     }
-    const note = classifyTranscriptPart(tool("read", {
-      name: "Read",
-      params: { type: "read", path: "/tmp/note.md" },
-      result: { type: "text", text: "   " },
-    }));
+    const note = classifyTranscriptPart(
+      tool("read", {
+        name: "Read",
+        params: { type: "read", path: "/tmp/note.md" },
+        result: { type: "text", text: "   " },
+      }),
+    );
     expect(note.detail.kind).toBe("empty");
     if (note.detail.kind === "empty") {
       expect(note.detail.path).toBe("/tmp/note.md");
@@ -530,9 +585,14 @@ describe("classifyTranscriptPart", () => {
       ],
       "parent",
     );
-    expect(rows.map((part) => part.type === "tool_call" ? part.tool_call_id : part.type === "text" ? part.text : part.type)).toEqual([
-      "child-read",
-      "nested hello",
-    ]);
+    expect(
+      rows.map((part) =>
+        part.type === "tool_call"
+          ? part.tool_call_id
+          : part.type === "text"
+            ? part.text
+            : part.type,
+      ),
+    ).toEqual(["child-read", "nested hello"]);
   });
 });

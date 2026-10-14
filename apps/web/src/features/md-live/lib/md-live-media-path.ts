@@ -28,7 +28,11 @@ export function posixRelative(fromDir: string, toFile: string): string {
   const fromParts = normalizeFsPath(fromDir).replace(/\/$/, "").split("/").filter(Boolean);
   const toParts = normalizeFsPath(toFile).split("/").filter(Boolean);
   let shared = 0;
-  while (shared < fromParts.length && shared < toParts.length && fromParts[shared] === toParts[shared]) {
+  while (
+    shared < fromParts.length &&
+    shared < toParts.length &&
+    fromParts[shared] === toParts[shared]
+  ) {
     shared += 1;
   }
   const ups = fromParts.length - shared;
@@ -37,8 +41,12 @@ export function posixRelative(fromDir: string, toFile: string): string {
   return rel.startsWith(".") ? rel : `./${rel}`;
 }
 
-export function documentDirectory(documentPath: string, workspaceRoot: string | null): string | null {
-  if (!workspaceRoot) return isUntitledMarkdownPath(documentPath) ? null : posixDirname(documentPath);
+export function documentDirectory(
+  documentPath: string,
+  workspaceRoot: string | null,
+): string | null {
+  if (!workspaceRoot)
+    return isUntitledMarkdownPath(documentPath) ? null : posixDirname(documentPath);
   if (isUntitledMarkdownPath(documentPath)) return workspaceRoot;
   return posixDirname(documentPath);
 }

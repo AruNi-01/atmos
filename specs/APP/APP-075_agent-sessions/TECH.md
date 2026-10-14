@@ -62,13 +62,13 @@ External: read-only access to v1 CLI homes. No new REST. No SQLite chat tables (
 
 ## Naming
 
-| Surface | Name |
-|---------|------|
-| UI / i18n | **Agent Sessions** / tag **Atmos Chat** |
-| Route / Launchpad id / `CurrentView` | `agent-sessions` |
-| Wire actions | `host_session_list`, `host_session_get`, `host_session_resume_chat`, `host_session_resume_tui` |
-| Rust | `session_source`, `HostSessionService`, `HostSession` |
-| Existing `/agents` | Unchanged Agent Manager + Atmos `AgentChatSessionsView` |
+| Surface                              | Name                                                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| UI / i18n                            | **Agent Sessions** / tag **Atmos Chat**                                                        |
+| Route / Launchpad id / `CurrentView` | `agent-sessions`                                                                               |
+| Wire actions                         | `host_session_list`, `host_session_get`, `host_session_resume_chat`, `host_session_resume_tui` |
+| Rust                                 | `session_source`, `HostSessionService`, `HostSession`                                          |
+| Existing `/agents`                   | Unchanged Agent Manager + Atmos `AgentChatSessionsView`                                        |
 
 Do **not** put third-party session-browser product names in comments, identifiers, fixtures, or copy. Do **not** reuse `agent_chat_*` action names for this scan API.
 
@@ -133,17 +133,17 @@ WS only (APP-048/064). Variants on `WsAction` in `apps/api/src/api/ws/message.rs
 
 ### apps/web
 
-| Piece | Path |
-|-------|------|
-| Feature | `apps/web/src/features/agent-sessions/` (`components/`, `hooks/`, `lib/`) |
-| Launchpad id | `agent-sessions` in `features/settings/lib/launchpad-items.ts` + `LeftSidebarLaunchpad.tsx` `ITEM_DEF_BY_ID` |
-| Route | `/agent-sessions` (+ optional `?key=`) |
-| `CurrentView` | add `"agent-sessions"` in `shared/hooks/use-context-params.ts` |
-| Left sidebar | Same as `/agents` / `/skills`: keep the workspace tree. Do not replace `projectTabContent`. |
-| Center | `HostSessionCenterView`: grouped list (Agent or cwd project folder) like Agent Chat sessions; `?key=` opens the read-only transcript + resume actions. |
-| Virtual list | `@tanstack/react-virtual` — same stack as `AgentChatTranscriptList.tsx` and `GitHistoryPanel.tsx`. Center list + transcript: `measureElement` like chat. |
+| Piece          | Path                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Feature        | `apps/web/src/features/agent-sessions/` (`components/`, `hooks/`, `lib/`)                                                                                                                                                                                                                                                                                                                                        |
+| Launchpad id   | `agent-sessions` in `features/settings/lib/launchpad-items.ts` + `LeftSidebarLaunchpad.tsx` `ITEM_DEF_BY_ID`                                                                                                                                                                                                                                                                                                     |
+| Route          | `/agent-sessions` (+ optional `?key=`)                                                                                                                                                                                                                                                                                                                                                                           |
+| `CurrentView`  | add `"agent-sessions"` in `shared/hooks/use-context-params.ts`                                                                                                                                                                                                                                                                                                                                                   |
+| Left sidebar   | Same as `/agents` / `/skills`: keep the workspace tree. Do not replace `projectTabContent`.                                                                                                                                                                                                                                                                                                                      |
+| Center         | `HostSessionCenterView`: grouped list (Agent or cwd project folder) like Agent Chat sessions; `?key=` opens the read-only transcript + resume actions.                                                                                                                                                                                                                                                           |
+| Virtual list   | `@tanstack/react-virtual` — same stack as `AgentChatTranscriptList.tsx` and `GitHistoryPanel.tsx`. Center list + transcript: `measureElement` like chat.                                                                                                                                                                                                                                                         |
 | Preview render | Reuse Chat `Conversation` + `AgentChatTranscriptList` (folded `AgentMessage[]` from `host_session_get`). Per-turn `SubagentTasksPanel` sits under the assistant message that spawned it (`subagentCardMode: "transcript"`). Grok goal / deep-research stay session-global in `AgentChatAboveComposerOverlays` at the bottom (`grokCardsDefaultOpen={false}`). Subagent overlay still covers the lane. Read-only. |
-| i18n | `apps/web/messages/en.json` + `zh.json` (sentence case; product name **Agent Sessions**) |
+| i18n           | `apps/web/messages/en.json` + `zh.json` (sentence case; product name **Agent Sessions**)                                                                                                                                                                                                                                                                                                                         |
 
 Do not mount one row per session or per message.
 
@@ -163,13 +163,13 @@ No new primitives required. Use existing `ScrollArea`, filter popover patterns (
 type HostSessionTag = "atmos_chat";
 
 type HostSessionListItem = {
-  key: string;                 // "{provider_id}:{native_id}"
-  provider_id: string;         // canonical
-  native_id: string;           // vendor resume id
+  key: string; // "{provider_id}:{native_id}"
+  provider_id: string; // canonical
+  native_id: string; // vendor resume id
   title: string;
   cwd: string;
   project_name: string;
-  started_at: string;          // RFC3339
+  started_at: string; // RFC3339
   updated_at: string;
   message_count: number | null; // visible user prompts + assistant text bubbles; not tool_result / thinking-only / tool-only / vendor num_messages. Line-level JSON (or OpenCode text parts), never a full fold in list().
   model: string | null;
@@ -193,14 +193,14 @@ type HostSessionListItem = {
 
 Env overrides are **candidates**: use them only when they contain real session files; otherwise fall back to the default home.
 
-| Canonical id | Default roots | On-disk shape | Cheap list | TUI resume |
-|--------------|---------------|---------------|------------|------------|
-| `claude` | `~/.claude/projects/` (`CLAUDE_CONFIG_DIR` re-roots) | `{encodedCwd}/{uuid}.jsonl`; subagents under `{uuid}/subagents/` | directory walk + mtime; cwd from encoded dir / first records | `claude --resume <uuid>` in cwd |
-| `codex` | `$CODEX_HOME/sessions` + `archived_sessions` (default `~/.codex`); `state_5.sqlite` | `rollout-*.jsonl`; first line `session_meta` | keep `thread_source=subagent` with `parent_native_id` from `source.subagent.thread_spawn.parent_thread_id`; skip guardian/memory | `codex resume <id>` |
-| `opencode` | `~/.local/share/opencode/` (`XDG_DATA_HOME`, `OPENCODE_DIR`) | `opencode.db` and/or `opencode-next.db`, or `storage/` JSON | sqlite session table / storage dir listing | `opencode --session <id>` (`opencode2` if next-channel) |
-| `pi` | `~/.pi/agent/sessions/` | `{encodedDir}/{timestamp}_{uuid}.jsonl`; first line `{type:session,cwd,id}` | file walk; native id = uuid suffix | `pi --session <uuid>` |
-| `grok` | `~/.grok/sessions/{urlEncodedCwd}/{uuid}/` | `updates.jsonl` (ACP-shaped session/update stream), `summary.json`, optional `chat_history.jsonl` | require `summary.json`; title/cwd/model from summary; **do not** treat `chat_history.jsonl` as the full log | `grok --resume <uuid>` |
-| `cursor` | `~/.cursor/projects/{slug}/agent-transcripts/{uuid}/{uuid}.jsonl` | role/message jsonl + `turn_ended`; **snapshot log** (consecutive assistant lines replace the in-flight message — parse keeps finished tool batches, updates the live batch only when names/inputs look like argument streaming, hides `GetDynamicTools`, keeps the last non-empty assistant text, drops duplicate user lines, and assigns a distinct `turn_id` per unique user). Nested `{uuid}/subagents/{child}.jsonl` rows set `parent_native_id`; parse attaches them under the matching Task via `parent_tool_call_id` (unique prompt overlap, then `resume`/`task_id`, then tool id). Skip turn-marker-only shells | file walk; project from slug / sidecar metadata | `cursor-agent --resume <uuid>` |
+| Canonical id | Default roots                                                                       | On-disk shape                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Cheap list                                                                                                                       | TUI resume                                              |
+| ------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `claude`     | `~/.claude/projects/` (`CLAUDE_CONFIG_DIR` re-roots)                                | `{encodedCwd}/{uuid}.jsonl`; subagents under `{uuid}/subagents/`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | directory walk + mtime; cwd from encoded dir / first records                                                                     | `claude --resume <uuid>` in cwd                         |
+| `codex`      | `$CODEX_HOME/sessions` + `archived_sessions` (default `~/.codex`); `state_5.sqlite` | `rollout-*.jsonl`; first line `session_meta`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | keep `thread_source=subagent` with `parent_native_id` from `source.subagent.thread_spawn.parent_thread_id`; skip guardian/memory | `codex resume <id>`                                     |
+| `opencode`   | `~/.local/share/opencode/` (`XDG_DATA_HOME`, `OPENCODE_DIR`)                        | `opencode.db` and/or `opencode-next.db`, or `storage/` JSON                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | sqlite session table / storage dir listing                                                                                       | `opencode --session <id>` (`opencode2` if next-channel) |
+| `pi`         | `~/.pi/agent/sessions/`                                                             | `{encodedDir}/{timestamp}_{uuid}.jsonl`; first line `{type:session,cwd,id}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | file walk; native id = uuid suffix                                                                                               | `pi --session <uuid>`                                   |
+| `grok`       | `~/.grok/sessions/{urlEncodedCwd}/{uuid}/`                                          | `updates.jsonl` (ACP-shaped session/update stream), `summary.json`, optional `chat_history.jsonl`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | require `summary.json`; title/cwd/model from summary; **do not** treat `chat_history.jsonl` as the full log                      | `grok --resume <uuid>`                                  |
+| `cursor`     | `~/.cursor/projects/{slug}/agent-transcripts/{uuid}/{uuid}.jsonl`                   | role/message jsonl + `turn_ended`; **snapshot log** (consecutive assistant lines replace the in-flight message — parse keeps finished tool batches, updates the live batch only when names/inputs look like argument streaming, hides `GetDynamicTools`, keeps the last non-empty assistant text, drops duplicate user lines, and assigns a distinct `turn_id` per unique user). Nested `{uuid}/subagents/{child}.jsonl` rows set `parent_native_id`; parse attaches them under the matching Task via `parent_tool_call_id` (unique prompt overlap, then `resume`/`task_id`, then tool id). Skip turn-marker-only shells | file walk; project from slug / sidecar metadata                                                                                  | `cursor-agent --resume <uuid>`                          |
 
 Grok Build native and `grok-build` ACP share the Grok home. List as `grok`. Match Atmos chats with canonical `grok` / `grok-build` synonyms via existing canonicalize helpers.
 
@@ -420,15 +420,15 @@ Bump `HOST_SESSION_INDEX_REVISION` when count or FTS extract rules change so the
 
 ### Index document (one FTS row)
 
-| Field | Title row | Message row |
-|-------|-----------|-------------|
-| `kind` | `title` | `user` \| `assistant` |
-| `text` | session title | concatenated `MessagePart::Text` (≤ 32KiB per chunk) |
-| `message_id` | NULL | flattened `AgentMessage.id` |
-| `seq` | `-1` | flatten index (same order as drawer `messages[]`) |
-| `chunk` | `0` | `0..n` sharing the locator |
-| `session_key` | indexed session | same |
-| `root_session_key` | parent or self | parent or self (list stays roots_only) |
+| Field              | Title row       | Message row                                          |
+| ------------------ | --------------- | ---------------------------------------------------- |
+| `kind`             | `title`         | `user` \| `assistant`                                |
+| `text`             | session title   | concatenated `MessagePart::Text` (≤ 32KiB per chunk) |
+| `message_id`       | NULL            | flattened `AgentMessage.id`                          |
+| `seq`              | `-1`            | flatten index (same order as drawer `messages[]`)    |
+| `chunk`            | `0`             | `0..n` sharing the locator                           |
+| `session_key`      | indexed session | same                                                 |
+| `root_session_key` | parent or self  | parent or self (list stays roots_only)               |
 
 Cursor/Grok adapters mint `Uuid::new_v4()` on parse, so `message_id` may change. Jump prefers `message_id`, then `seq`.
 

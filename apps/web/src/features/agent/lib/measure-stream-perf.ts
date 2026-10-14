@@ -70,12 +70,14 @@ function isDirectRun(): boolean {
 
 const messages = transcript();
 const last = messages.at(-1)!;
-const snap = [{
-  ...last,
-  parts: last.parts.map((part) =>
-    part.type === "text" ? { ...part, text: `${part.text} more` } : part
-  ),
-}];
+const snap = [
+  {
+    ...last,
+    parts: last.parts.map((part) =>
+      part.type === "text" ? { ...part, text: `${part.text} more` } : part,
+    ),
+  },
+];
 
 const snapshotMs = timeMs(() => {
   applyTurnSnapshot(messages, snap, [`p${TURNS - 1}`]);
@@ -118,8 +120,9 @@ const payload = {
 };
 
 if (isDirectRun()) {
-  const outDir = process.env.ATMOS_STREAM_PERF_OUTDIR
-    ?? join(process.cwd(), "scripts/agent-chat-stream-perf/tmp");
+  const outDir =
+    process.env.ATMOS_STREAM_PERF_OUTDIR ??
+    join(process.cwd(), "scripts/agent-chat-stream-perf/tmp");
   mkdirSync(outDir, { recursive: true });
   writeFileSync(`${outDir}/agent-chat-stream-perf.json`, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(JSON.stringify(payload, null, 2));

@@ -42,10 +42,7 @@ export function Row({
         {leading}
         <Text
           numberOfLines={2}
-          style={[
-            typography.rowTitle,
-            { color: theme.colors.label, flex: 1, fontWeight: "600" },
-          ]}
+          style={[typography.rowTitle, { color: theme.colors.label, flex: 1, fontWeight: "600" }]}
         >
           {title}
         </Text>

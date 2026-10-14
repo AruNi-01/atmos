@@ -9,28 +9,28 @@
 
 被审查提交：
 
-| Commit | Author | Message |
-| --- | --- | --- |
-| `26bbea10` | AarynLu | `refactor: address daily quality findings for 2026-06-21` |
-| `facf535c` | AarynLu | `fix: avoid node_modules script path in video scaffold` |
-| `1bc03600` | AarynLu | `fix: ignore generated gsap runtime asset` |
+| Commit     | Author   | Message                                                              |
+| ---------- | -------- | -------------------------------------------------------------------- |
+| `26bbea10` | AarynLu  | `refactor: address daily quality findings for 2026-06-21`            |
+| `facf535c` | AarynLu  | `fix: avoid node_modules script path in video scaffold`              |
+| `1bc03600` | AarynLu  | `fix: ignore generated gsap runtime asset`                           |
 | `6e4c7f55` | AruNi_Lu | `Merge pull request #129 from AruNi-01/codex/quality-fix/2026-06-22` |
-| `ef02b724` | AarynLu | `Support Hermes prompt flag query syntax` |
-| `7feb4da4` | AarynLu | `Add prompt stashing to diff annotations` |
-| `ab28ac51` | AarynLu | `chore(local-runtime): bump version to 0.2.0-beta.10` |
-| `03c5933a` | AarynLu | `chore(desktop): release 1.2.0-beta.15` |
-| `7128d21f` | AarynLu | `Guard Hermes executable permissions on non-Unix` |
-| `81a3bb4d` | AarynLu | `Bump atmos-desktop to 1.2.0-beta.15` |
-| `3021e1c7` | AarynLu | `Remove local runtime alias and add JSON CLI output` |
-| `e8b5b340` | AarynLu | `chore(cli): release 0.2.0` |
-| `15792de7` | AarynLu | `chore(local-runtime): release 0.2.0-beta.11` |
-| `6bb8aa5a` | AarynLu | `chore(desktop): release 1.2.0-beta.16` |
-| `ec76931b` | AarynLu | `fix(web): keep local retry button in header row` |
-| `48e91373` | AarynLu | `chore(local-runtime): release 0.2.0` |
-| `6b73e7c6` | AarynLu | `fix(web): preserve hosted local detection on reconnect failure` |
-| `c5c596de` | AarynLu | `fix(local-runtime): publish npm prereleases with dist tag` |
-| `49f2c836` | AarynLu | `fix(local-runtime): keep npm publish opt-in` |
-| `9f8c0250` | AarynLu | `fix(local-runtime): stabilize latest installer distribution` |
+| `ef02b724` | AarynLu  | `Support Hermes prompt flag query syntax`                            |
+| `7feb4da4` | AarynLu  | `Add prompt stashing to diff annotations`                            |
+| `ab28ac51` | AarynLu  | `chore(local-runtime): bump version to 0.2.0-beta.10`                |
+| `03c5933a` | AarynLu  | `chore(desktop): release 1.2.0-beta.15`                              |
+| `7128d21f` | AarynLu  | `Guard Hermes executable permissions on non-Unix`                    |
+| `81a3bb4d` | AarynLu  | `Bump atmos-desktop to 1.2.0-beta.15`                                |
+| `3021e1c7` | AarynLu  | `Remove local runtime alias and add JSON CLI output`                 |
+| `e8b5b340` | AarynLu  | `chore(cli): release 0.2.0`                                          |
+| `15792de7` | AarynLu  | `chore(local-runtime): release 0.2.0-beta.11`                        |
+| `6bb8aa5a` | AarynLu  | `chore(desktop): release 1.2.0-beta.16`                              |
+| `ec76931b` | AarynLu  | `fix(web): keep local retry button in header row`                    |
+| `48e91373` | AarynLu  | `chore(local-runtime): release 0.2.0`                                |
+| `6b73e7c6` | AarynLu  | `fix(web): preserve hosted local detection on reconnect failure`     |
+| `c5c596de` | AarynLu  | `fix(local-runtime): publish npm prereleases with dist tag`          |
+| `49f2c836` | AarynLu  | `fix(local-runtime): keep npm publish opt-in`                        |
+| `9f8c0250` | AarynLu  | `fix(local-runtime): stabilize latest installer distribution`        |
 
 ## 2. 一份好代码应该是什么样
 
@@ -54,13 +54,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 26 / 30 | `7feb4da4` 将 prompt stash 状态机、annotation mutation、prompt 构造、toolbar chip 渲染继续放进 `apps/web/src/features/diff/components/ChangesCodeView.tsx`，让 diff 加载/导航组件承担新的交互子系统职责。 |
-| 可读性与复杂度 | 22 / 25 | `ChangesCodeView.tsx` 同时维护加载批次、滚动导航、collapse、path map、draft notes、stashed prompts 和 clipboard 行为，主路径阅读成本上升。 |
-| 体量与内聚 | 17 / 20 | 同一组件从 479 行增长到 964 行，超过高风险 UI 组件阈值；新增代码有清晰拆分点但未在提交中拆出。 |
-| 可维护性与复用 | 14 / 15 | 多数跨端 manifest 变更有测试同步；但 prompt stash 行为没有形成独立 hook/component，后续扩展会继续扩大主组件。 |
-| 工程卫生 | 9 / 10 | `6bb8aa5a` 将 `apps/desktop/src-tauri/Cargo.toml` bump 到 `1.2.0-beta.16`，但 `Cargo.lock` 仍记录 `atmos-desktop` 为 `1.2.0-beta.15`。 |
+| 维度           |    得分 | 扣分原因                                                                                                                                                                                                  |
+| -------------- | ------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 26 / 30 | `7feb4da4` 将 prompt stash 状态机、annotation mutation、prompt 构造、toolbar chip 渲染继续放进 `apps/web/src/features/diff/components/ChangesCodeView.tsx`，让 diff 加载/导航组件承担新的交互子系统职责。 |
+| 可读性与复杂度 | 22 / 25 | `ChangesCodeView.tsx` 同时维护加载批次、滚动导航、collapse、path map、draft notes、stashed prompts 和 clipboard 行为，主路径阅读成本上升。                                                                |
+| 体量与内聚     | 17 / 20 | 同一组件从 479 行增长到 964 行，超过高风险 UI 组件阈值；新增代码有清晰拆分点但未在提交中拆出。                                                                                                            |
+| 可维护性与复用 | 14 / 15 | 多数跨端 manifest 变更有测试同步；但 prompt stash 行为没有形成独立 hook/component，后续扩展会继续扩大主组件。                                                                                             |
+| 工程卫生       |  9 / 10 | `6bb8aa5a` 将 `apps/desktop/src-tauri/Cargo.toml` bump 到 `1.2.0-beta.16`，但 `Cargo.lock` 仍记录 `atmos-desktop` 为 `1.2.0-beta.15`。                                                                    |
 
 ## 6. 主要问题清单
 

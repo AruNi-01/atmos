@@ -10,34 +10,34 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-003**). |
-| **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
-| **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
+| **Entry id**    | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-003**).                                           |
+| **Status**      | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason).                                  |
+| **Do not**      | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status.       |
+| **Fix proof**   | Each fixed item should name the code change and the verification command or manual check.                      |
 
 ---
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | frontend | New tab can be lost when the canvas terminal context is not already hydrated | verified |
-| REV-002 | P2 | test | No APP-022 test covers the click-to-create canvas workflow | verified |
+| Id      | Severity | Area     | Title                                                                        | Status   |
+| ------- | -------- | -------- | ---------------------------------------------------------------------------- | -------- |
+| REV-001 | P1       | frontend | New tab can be lost when the canvas terminal context is not already hydrated | verified |
+| REV-002 | P2       | test     | No APP-022 test covers the click-to-create canvas workflow                   | verified |
 
 ---
 
 ## REV-001 · New tab can be lost when the canvas terminal context is not already hydrated
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -77,13 +77,13 @@ Make the APP-022 creation path context-aware and deterministic for both already-
 
 ## REV-002 · No APP-022 test covers the click-to-create canvas workflow
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 

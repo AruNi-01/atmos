@@ -2,10 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-const setup = readFileSync(
-  join(import.meta.dir, "../AutomationSetup.tsx"),
-  "utf8",
-);
+const setup = readFileSync(join(import.meta.dir, "../AutomationSetup.tsx"), "utf8");
 const form = readFileSync(
   join(import.meta.dir, "../../hooks/use-automation-setup-form.ts"),
   "utf8",
@@ -14,22 +11,10 @@ const pageState = readFileSync(
   join(import.meta.dir, "../../hooks/use-automation-page-state.ts"),
   "utf8",
 );
-const banner = readFileSync(
-  join(import.meta.dir, "../AutomationStalePromptBanner.tsx"),
-  "utf8",
-);
-const chip = readFileSync(
-  join(import.meta.dir, "../AutomationChip.tsx"),
-  "utf8",
-);
-const page = readFileSync(
-  join(import.meta.dir, "../AutomationPage.tsx"),
-  "utf8",
-);
-const tabMark = readFileSync(
-  join(import.meta.dir, "../AutomationTabMark.tsx"),
-  "utf8",
-);
+const banner = readFileSync(join(import.meta.dir, "../AutomationStalePromptBanner.tsx"), "utf8");
+const chip = readFileSync(join(import.meta.dir, "../AutomationChip.tsx"), "utf8");
+const page = readFileSync(join(import.meta.dir, "../AutomationPage.tsx"), "utf8");
+const tabMark = readFileSync(join(import.meta.dir, "../AutomationTabMark.tsx"), "utf8");
 const tabBar = readFileSync(
   join(import.meta.dir, "../../../../app-shell/CenterStageTabBar.tsx"),
   "utf8",
@@ -58,14 +43,8 @@ const centerStage = readFileSync(
   join(import.meta.dir, "../../../../app-shell/CenterStage.tsx"),
   "utf8",
 );
-const header = readFileSync(
-  join(import.meta.dir, "../../../../app-shell/Header.tsx"),
-  "utf8",
-);
-const runDetail = readFileSync(
-  join(import.meta.dir, "../RunDetailPanel.tsx"),
-  "utf8",
-);
+const header = readFileSync(join(import.meta.dir, "../../../../app-shell/Header.tsx"), "utf8");
+const runDetail = readFileSync(join(import.meta.dir, "../RunDetailPanel.tsx"), "utf8");
 const chatCatalog = readFileSync(
   join(import.meta.dir, "../../hooks/use-automation-chat-agent-catalog.ts"),
   "utf8",
@@ -81,9 +60,7 @@ const wsProvider = readFileSync(
 
 describe("automation execute modes", () => {
   test("setup exposes three execute-agent tabs above instructions", () => {
-    expect(setup.indexOf("executeAgent.label")).toBeLessThan(
-      setup.indexOf("instructions.label"),
-    );
+    expect(setup.indexOf("executeAgent.label")).toBeLessThan(setup.indexOf("instructions.label"));
     expect(setup).toContain("CenterStageTabList");
     expect(setup).toContain("CenterStageTab");
     expect(setup).toContain("WelcomeAgentSelector");
@@ -240,14 +217,19 @@ describe("automation execute modes", () => {
     expect(tabBar).toContain('kind: "terminal"');
     expect(tabBar).toContain('kind: "chat"');
     expect(projectItem).toContain("isStandaloneGroup");
-    expect(projectItem).toContain("<Timer className=\"size-3.5\" />");
-    expect(projectItem).toContain("!isStandaloneGroup && (onAddProjectToGroup");
+    expect(projectItem).toContain('<Timer className="size-3.5" />');
+    expect(projectItem).toContain("{!isStandaloneGroup &&");
+    expect(projectItem).toContain(
+      "onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup",
+    );
     expect(projectItem).not.toContain("AutomationChip");
     expect(groupedProjectRow).toContain("isStandaloneGroup");
-    expect(groupedProjectRow).toContain("<Timer className=\"size-3\" />");
+    expect(groupedProjectRow).toContain('<Timer className="size-3" />');
     expect(groupedProjectRow).toContain("if (isStandaloneGroup) return");
     expect(workspaceContent).toContain("AutomationChip");
-    expect(workspaceContent).toContain("<AutomationChip compact className=\"group-hover/ws:hidden\" />");
+    expect(workspaceContent).toContain(
+      '<AutomationChip compact className="group-hover/ws:hidden" />',
+    );
     const workspaceTitleRow = workspaceContent.slice(
       workspaceContent.indexOf("{/* Title takes remaining width"),
       workspaceContent.indexOf("{/* Trailing slot stays in flow"),
@@ -264,17 +246,23 @@ describe("automation execute modes", () => {
     expect(overviewTab).toContain("const hideGitChrome = !shouldShowOverviewGitWidgets(contextId)");
     expect(overviewTab).toContain("enabled: active && !hideGitChrome");
     expect(overviewTab).toContain("{hideGitChrome ? null : (");
-    expect(overviewTab).toContain("t('codeReviews.title')");
-    expect(overviewTab).toContain("t('pullRequests.title')");
-    expect(overviewTab).toContain("t('actionsSection.title')");
+    expect(overviewTab).toContain('t("codeReviews.title")');
+    expect(overviewTab).toContain('t("pullRequests.title")');
+    expect(overviewTab).toContain('t("actionsSection.title")');
     const codeReviewsBlock = overviewTab.slice(
-      overviewTab.lastIndexOf("hideGitChrome ? null", overviewTab.indexOf("t('codeReviews.title')")),
-      overviewTab.indexOf("t('codeReviews.title')"),
+      overviewTab.lastIndexOf(
+        "hideGitChrome ? null",
+        overviewTab.indexOf('t("codeReviews.title")'),
+      ),
+      overviewTab.indexOf('t("codeReviews.title")'),
     );
     expect(codeReviewsBlock).toContain("hideGitChrome ? null");
     const pullRequestsBlock = overviewTab.slice(
-      overviewTab.lastIndexOf("hideGitChrome ? null", overviewTab.indexOf("t('pullRequests.title')")),
-      overviewTab.indexOf("t('pullRequests.title')"),
+      overviewTab.lastIndexOf(
+        "hideGitChrome ? null",
+        overviewTab.indexOf('t("pullRequests.title")'),
+      ),
+      overviewTab.indexOf('t("pullRequests.title")'),
     );
     expect(pullRequestsBlock).toContain("hideGitChrome ? null");
     expect(centerStage).toContain("!hideStandaloneGitChrome && namedCodeReviewTabVisible");

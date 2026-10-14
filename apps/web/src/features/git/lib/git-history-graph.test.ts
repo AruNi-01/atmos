@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { HISTORY_COLUMN_MINS } from "./git-history-columns";
-import {
-  historyGraphWidth,
-  layoutGitHistoryGraph,
-  type GraphRow,
-} from "./git-history-graph";
+import { historyGraphWidth, layoutGitHistoryGraph, type GraphRow } from "./git-history-graph";
 
 function commit(hash: string, parents: string[]) {
   return { hash, parent_hashes: parents };
@@ -28,12 +24,7 @@ function compactRow(row: GraphRow) {
 describe("layoutGitHistoryGraph", () => {
   test("assigns a side lane for a merge that splits then rejoins", () => {
     const layout = layoutGitHistoryGraph(
-      [
-        commit("m", ["b", "c"]),
-        commit("b", ["a"]),
-        commit("c", ["a"]),
-        commit("a", []),
-      ],
+      [commit("m", ["b", "c"]), commit("b", ["a"]), commit("c", ["a"]), commit("a", [])],
       "m",
     );
 
@@ -51,29 +42,16 @@ describe("layoutGitHistoryGraph", () => {
       (segment) => segment.shape === "outgoing",
     );
     expect(mergeOutgoing).toHaveLength(2);
-    expect(new Set(mergeOutgoing.map((segment) => segment.toLane))).toEqual(
-      new Set([0, 1]),
-    );
+    expect(new Set(mergeOutgoing.map((segment) => segment.toLane))).toEqual(new Set([0, 1]));
 
-    const rootIncoming = layout.rows[3]!.segments.filter(
-      (segment) => segment.shape === "incoming",
-    );
+    const rootIncoming = layout.rows[3]!.segments.filter((segment) => segment.shape === "incoming");
     expect(rootIncoming).toHaveLength(2);
-    expect(new Set(rootIncoming.map((segment) => segment.fromLane))).toEqual(
-      new Set([0, 1]),
-    );
+    expect(new Set(rootIncoming.map((segment) => segment.fromLane))).toEqual(new Set([0, 1]));
   });
 
   test("keeps the prefix layout stable when older commits are appended", () => {
-    const prefix = [
-      commit("m", ["b", "c"]),
-      commit("b", ["a"]),
-    ];
-    const full = [
-      ...prefix,
-      commit("c", ["a"]),
-      commit("a", []),
-    ];
+    const prefix = [commit("m", ["b", "c"]), commit("b", ["a"])];
+    const full = [...prefix, commit("c", ["a"]), commit("a", [])];
 
     const prefixLayout = layoutGitHistoryGraph(prefix, "m");
     const fullLayout = layoutGitHistoryGraph(full, "m");

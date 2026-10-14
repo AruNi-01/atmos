@@ -14,9 +14,7 @@ import type { AutomationsView } from "@/shared/lib/nuqs/searchParams";
 
 interface UseAutomationWebsocketSyncOptions {
   selectedAutomationGuid: string | null;
-  setSelectedDetail: React.Dispatch<
-    React.SetStateAction<AutomationDetail | null>
-  >;
+  setSelectedDetail: React.Dispatch<React.SetStateAction<AutomationDetail | null>>;
   setAutomationParam: (guid: string | null) => Promise<URLSearchParams>;
   setPageView: (view: AutomationsView | null) => Promise<URLSearchParams>;
   refreshAutomation: (automationGuid: string) => Promise<AutomationDetail>;
@@ -65,29 +63,26 @@ export function useAutomationWebsocketSync({
         .catch(() => undefined);
     };
 
-    const offDefinition = store.onEvent(
-      "automation_definition_updated",
-      (event) => {
-        const payload = event as AutomationDefinitionUpdatedEvent;
-        if (payload.change === "deleted") {
-          removeAutomation(payload.automation_guid);
-          if (payload.automation_guid === selectedAutomationGuid) {
-            setSelectedDetail(null);
-            clearRunSelection();
-            void setAutomationParam(null);
-            void setPageView("list");
-          }
-          return;
-        }
-
-        if (payload.automation) {
-          upsertAutomation(payload.automation);
-        }
+    const offDefinition = store.onEvent("automation_definition_updated", (event) => {
+      const payload = event as AutomationDefinitionUpdatedEvent;
+      if (payload.change === "deleted") {
+        removeAutomation(payload.automation_guid);
         if (payload.automation_guid === selectedAutomationGuid) {
-          refreshAffectedDefinition(payload.automation_guid);
+          setSelectedDetail(null);
+          clearRunSelection();
+          void setAutomationParam(null);
+          void setPageView("list");
         }
-      },
-    );
+        return;
+      }
+
+      if (payload.automation) {
+        upsertAutomation(payload.automation);
+      }
+      if (payload.automation_guid === selectedAutomationGuid) {
+        refreshAffectedDefinition(payload.automation_guid);
+      }
+    });
 
     const offRun = store.onEvent("automation_run_updated", (event) => {
       const payload = event as AutomationRunUpdatedEvent;

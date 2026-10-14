@@ -24,7 +24,9 @@ export function mdLiveTaskMarkerOf(attrs: {
   taskMarker?: unknown;
   checked?: unknown;
 }): MdLiveTaskMarker | null {
-  const fromAttr = normalizeMdLiveTaskMarker(typeof attrs.taskMarker === "string" ? attrs.taskMarker : null);
+  const fromAttr = normalizeMdLiveTaskMarker(
+    typeof attrs.taskMarker === "string" ? attrs.taskMarker : null,
+  );
   if (fromAttr != null) return fromAttr;
   if (attrs.checked === true) return "x";
   if (attrs.checked === false) return " ";
@@ -36,7 +38,9 @@ export function cycleMdLiveTaskMarker(marker: MdLiveTaskMarker): MdLiveTaskMarke
   return TASK_MARKERS[(index + 1) % TASK_MARKERS.length] ?? " ";
 }
 
-export function matchTypedTaskMarker(text: string): { marker: MdLiveTaskMarker; length: number } | null {
+export function matchTypedTaskMarker(
+  text: string,
+): { marker: MdLiveTaskMarker; length: number } | null {
   const match = text.match(TYPED_TASK_RE);
   if (!match) return null;
   const marker = normalizeMdLiveTaskMarker(match[1]);
@@ -44,7 +48,11 @@ export function matchTypedTaskMarker(text: string): { marker: MdLiveTaskMarker; 
   return { marker, length: match[0].length };
 }
 
-function firstTextNode(node: { type?: string; value?: string; children?: unknown[] }): { value: string } | null {
+function firstTextNode(node: {
+  type?: string;
+  value?: string;
+  children?: unknown[];
+}): { value: string } | null {
   if (node.type === "text" && typeof node.value === "string") return node as { value: string };
   const children = node.children;
   if (!Array.isArray(children)) return null;
@@ -59,7 +67,12 @@ function firstTextNode(node: { type?: string; value?: string; children?: unknown
 
 export function remarkMdLiveTasks() {
   return (tree: { type?: string; children?: unknown[] }) => {
-    const walk = (node: { type?: string; checked?: unknown; children?: unknown[]; taskMarker?: string }) => {
+    const walk = (node: {
+      type?: string;
+      checked?: unknown;
+      children?: unknown[];
+      taskMarker?: string;
+    }) => {
       if (node.type === "listItem") {
         if (node.checked === true) node.taskMarker = "x";
         else if (node.checked === false) node.taskMarker = " ";
@@ -101,8 +114,8 @@ export const mdLiveTaskListItem = listItemSchema.extendSchema((prev) => {
         match: ({ type }) => type === "listItem",
         runner: (state, node, type) => {
           const marker = normalizeMdLiveTaskMarker(
-            (node as { taskMarker?: string }).taskMarker
-              ?? (node.checked === true ? "x" : node.checked === false ? " " : null),
+            (node as { taskMarker?: string }).taskMarker ??
+              (node.checked === true ? "x" : node.checked === false ? " " : null),
           );
           const spread = node.spread ?? false;
           const label = node.label != null ? `${node.label}.` : "•";
@@ -182,7 +195,11 @@ export const mdLiveTaskListItem = listItemSchema.extendSchema((prev) => {
   };
 });
 
-function applyTaskMarkerNear(tr: Transaction, around: number, marker: MdLiveTaskMarker): Transaction {
+function applyTaskMarkerNear(
+  tr: Transaction,
+  around: number,
+  marker: MdLiveTaskMarker,
+): Transaction {
   const $pos = tr.doc.resolve(Math.min(Math.max(around, 1), tr.doc.content.size));
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
     if ($pos.node(depth).type.name !== "list_item") continue;
@@ -373,11 +390,13 @@ export const mdLiveTaskItemView = $prose(() => {
             if (pos == null) return;
             const marker = mdLiveTaskMarkerOf(current.attrs) ?? " ";
             const next = cycleMdLiveTaskMarker(marker);
-            view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, {
-              ...current.attrs,
-              checked: next === "x",
-              taskMarker: next,
-            }));
+            view.dispatch(
+              view.state.tr.setNodeMarkup(pos, undefined, {
+                ...current.attrs,
+                checked: next === "x",
+                taskMarker: next,
+              }),
+            );
           });
 
           return {

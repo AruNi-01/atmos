@@ -2,7 +2,7 @@
  * Time utilities for handling UTC to local timezone conversion
  * Uses date-fns v4 + @date-fns/tz for timezone-aware operations
  */
-import { TZDate } from '@date-fns/tz';
+import { TZDate } from "@date-fns/tz";
 import {
   format,
   isToday,
@@ -14,27 +14,25 @@ import {
   subYears,
   formatDistanceToNow,
   type Locale as DateFnsLocale,
-} from 'date-fns';
-import { enUS, zhCN } from 'date-fns/locale';
+} from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
 
 function dateFnsLocaleFor(locale?: string | null): DateFnsLocale {
-  return locale?.startsWith('zh') ? zhCN : enUS;
+  return locale?.startsWith("zh") ? zhCN : enUS;
 }
 
-function compactRelativeTime(value: number, unit: 'second' | 'minute' | 'hour' | 'day', locale?: string | null): string {
-  if (!locale?.startsWith('zh')) {
-    const suffix = unit === 'second' ? 's' : unit === 'minute' ? 'm' : unit === 'hour' ? 'h' : 'd';
+function compactRelativeTime(
+  value: number,
+  unit: "second" | "minute" | "hour" | "day",
+  locale?: string | null,
+): string {
+  if (!locale?.startsWith("zh")) {
+    const suffix = unit === "second" ? "s" : unit === "minute" ? "m" : unit === "hour" ? "h" : "d";
     return `${value}${suffix}`;
   }
 
   const unitLabel =
-    unit === 'second'
-      ? '秒'
-      : unit === 'minute'
-        ? '分钟'
-        : unit === 'hour'
-          ? '小时'
-          : '天';
+    unit === "second" ? "秒" : unit === "minute" ? "分钟" : unit === "hour" ? "小时" : "天";
   return `${value}${unitLabel}`;
 }
 
@@ -54,12 +52,13 @@ export function parseUTCDate(utcDateString: string, timeZone?: string): TZDate {
     return TZDate.tz(timeZone ?? getLocalTimeZone());
   }
 
-  const hasTimezoneZ = utcDateString.endsWith('Z');
-  const hasTimezoneOffset = /[+-]\d{2}:\d{2}$/.test(utcDateString) || /[+-]\d{4}$/.test(utcDateString);
+  const hasTimezoneZ = utcDateString.endsWith("Z");
+  const hasTimezoneOffset =
+    /[+-]\d{2}:\d{2}$/.test(utcDateString) || /[+-]\d{4}$/.test(utcDateString);
 
   let dateStr = utcDateString;
   if (!hasTimezoneZ && !hasTimezoneOffset) {
-    dateStr = utcDateString.replace(' ', 'T') + 'Z';
+    dateStr = utcDateString.replace(" ", "T") + "Z";
   }
 
   const tz = timeZone ?? getLocalTimeZone();
@@ -80,7 +79,7 @@ export function formatRelativeTime(utcDateString: string, locale?: string | null
   const diffMs = now.getTime() - target.getTime();
 
   if (diffMs < 0) {
-    return locale?.startsWith('zh') ? '刚刚' : 'just now';
+    return locale?.startsWith("zh") ? "刚刚" : "just now";
   }
 
   const diffSeconds = Math.floor(diffMs / 1000);
@@ -90,23 +89,25 @@ export function formatRelativeTime(utcDateString: string, locale?: string | null
 
   if (diffSeconds < 60) {
     return diffSeconds <= 5
-      ? locale?.startsWith('zh') ? '刚刚' : 'just now'
-      : compactRelativeTime(diffSeconds, 'second', locale);
+      ? locale?.startsWith("zh")
+        ? "刚刚"
+        : "just now"
+      : compactRelativeTime(diffSeconds, "second", locale);
   }
 
   if (diffMinutes < 60) {
-    return compactRelativeTime(diffMinutes, 'minute', locale);
+    return compactRelativeTime(diffMinutes, "minute", locale);
   }
 
   if (diffHours < 24) {
-    return compactRelativeTime(diffHours, 'hour', locale);
+    return compactRelativeTime(diffHours, "hour", locale);
   }
 
   if (diffDays < 7) {
-    return compactRelativeTime(diffDays, 'day', locale);
+    return compactRelativeTime(diffDays, "day", locale);
   }
 
-  return format(target, 'MMM d', { locale: dateFnsLocaleFor(locale) });
+  return format(target, "MMM d", { locale: dateFnsLocaleFor(locale) });
 }
 
 /**
@@ -114,7 +115,7 @@ export function formatRelativeTime(utcDateString: string, locale?: string | null
  */
 export function formatLocalDate(
   utcDateString: string,
-  formatStr: string = 'MMM d, yyyy',
+  formatStr: string = "MMM d, yyyy",
   locale?: string | null,
 ): string {
   const date = parseUTCDate(utcDateString);
@@ -126,7 +127,7 @@ export function formatLocalDate(
  */
 export function formatLocalDateTime(
   utcDateString: string,
-  formatStr: string = 'MMM d, yyyy • HH:mm:ss',
+  formatStr: string = "MMM d, yyyy • HH:mm:ss",
   locale?: string | null,
 ): string {
   const date = parseUTCDate(utcDateString);
@@ -144,5 +145,5 @@ export {
   subMonths,
   subYears,
   formatDistanceToNow,
-} from 'date-fns';
-export { TZDate } from '@date-fns/tz';
+} from "date-fns";
+export { TZDate } from "@date-fns/tz";

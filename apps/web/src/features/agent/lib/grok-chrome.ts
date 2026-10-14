@@ -10,9 +10,7 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 export const GROK_CHROME_SUBAGENT_NAME = "grok_chrome";
 export const GROK_IMPLEMENTER_ID = "grok_implementer";
 
-export function isGrokChromeSubagent(
-  part: Pick<AgentToolCallPart, "kind" | "name">,
-): boolean {
+export function isGrokChromeSubagent(part: Pick<AgentToolCallPart, "kind" | "name">): boolean {
   return part.kind === "subagent" && part.name === GROK_CHROME_SUBAGENT_NAME;
 }
 
@@ -83,14 +81,14 @@ export function grokGoalStatusKey(goal: GrokGoal): {
     return { status: "complete", phase: null };
   }
   if (
-    status === "user_paused"
-    || status === "back_off_paused"
-    || status === "no_progress_paused"
-    || status === "infra_paused"
-    || status === "blocked"
-    || status === "failed"
-    || status === "interrupted"
-    || status === "budget_limited"
+    status === "user_paused" ||
+    status === "back_off_paused" ||
+    status === "no_progress_paused" ||
+    status === "infra_paused" ||
+    status === "blocked" ||
+    status === "failed" ||
+    status === "interrupted" ||
+    status === "budget_limited"
   ) {
     return { status, phase: null };
   }
@@ -116,11 +114,11 @@ function grokGoalPhaseState(goal: GrokGoal, phaseId: string): string {
   if (phaseId === "planning") {
     if (goal.planning || last.includes("planning")) return "running";
     if (
-      complete
-      || goal.verifying_completion
-      || goal.phase === "executing"
-      || last.includes("worker")
-      || last.includes("goal_completed")
+      complete ||
+      goal.verifying_completion ||
+      goal.phase === "executing" ||
+      last.includes("worker") ||
+      last.includes("goal_completed")
     ) {
       return "completed";
     }
@@ -158,7 +156,12 @@ function stubAgent(
     name: GROK_CHROME_SUBAGENT_NAME,
     title: label,
     kind: "subagent",
-    status: state === "running" || state === "active" ? "running" : state === "failed" ? "failed" : "completed",
+    status:
+      state === "running" || state === "active"
+        ? "running"
+        : state === "failed"
+          ? "failed"
+          : "completed",
     params: {
       type: "subagent",
       description: label,
@@ -206,9 +209,7 @@ export function grokGoalPhaseSections(
       .filter((child) => child.role === phase.id)
       .map((child) => resolveAgent(byId, child.id, child.label, state, child.agent_type));
     if (phase.id === "implementing") {
-      agents.unshift(
-        stubAgent(GROK_IMPLEMENTER_ID, "Implementer", state, "general-purpose"),
-      );
+      agents.unshift(stubAgent(GROK_IMPLEMENTER_ID, "Implementer", state, "general-purpose"));
     }
     return {
       id: phase.id,
@@ -236,16 +237,12 @@ export function grokWorkflowPhaseSections(
   }));
 }
 
-function subagentDescriptionOf(
-  part: Pick<AgentToolCallPart, "params">,
-): string {
+function subagentDescriptionOf(part: Pick<AgentToolCallPart, "params">): string {
   return part.params?.type === "subagent" ? part.params.description.trim() : "";
 }
 
-function subagentTaskIdOf(
-  part: Pick<AgentToolCallPart, "params">,
-): string {
-  return part.params?.type === "subagent" ? (part.params.task_id?.trim() || "") : "";
+function subagentTaskIdOf(part: Pick<AgentToolCallPart, "params">): string {
+  return part.params?.type === "subagent" ? part.params.task_id?.trim() || "" : "";
 }
 
 /** True when a synthesized `grok_chrome` row is a second card for a user `spawn_subagent`. */
@@ -276,7 +273,10 @@ export function grokChromeDuplicatesUserSpawn(
 export function isHiddenGrokChromePart(part: AgentPart, parts: AgentPart[]): boolean {
   const chromeIds = new Set(
     parts
-      .filter((item): item is AgentToolCallPart => item.type === "tool_call" && isGrokChromeSubagent(item))
+      .filter(
+        (item): item is AgentToolCallPart =>
+          item.type === "tool_call" && isGrokChromeSubagent(item),
+      )
       .map((item) => item.tool_call_id),
   );
   if (chromeIds.size === 0) return false;

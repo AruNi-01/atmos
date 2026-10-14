@@ -42,11 +42,11 @@ describe("OverlayHost", () => {
       }),
     );
     expect(html).toContain("<button");
-    expect(html).toContain("data-pt-overlay-id=\"run\"");
-    expect(html).toContain("data-pt-node-type=\"button\"");
-    expect(html).toContain("data-pt-global-radius=\"sm\"");
-    expect(html).toContain("data-pt-radius=\"sm\"");
-    expect(html).toContain("data-pt-type=\"button\"");
+    expect(html).toContain('data-pt-overlay-id="run"');
+    expect(html).toContain('data-pt-node-type="button"');
+    expect(html).toContain('data-pt-global-radius="sm"');
+    expect(html).toContain('data-pt-radius="sm"');
+    expect(html).toContain('data-pt-type="button"');
     expect(html).toContain("pointer-events:auto");
   });
 
@@ -63,8 +63,8 @@ describe("OverlayHost", () => {
         globalRadius: "none",
       }),
     );
-    expect(html).toContain("data-pt-global-radius=\"none\"");
-    expect(html).toContain("data-pt-radius=\"lg\"");
+    expect(html).toContain('data-pt-global-radius="none"');
+    expect(html).toContain('data-pt-radius="lg"');
     expect(html).toContain("--pt-radius:14px");
     expect(html).toContain("--pt-handle-radius:28px");
     expect(html).toContain("border-radius:var(--pt-radius, 3px)");
@@ -90,17 +90,17 @@ describe("OverlayHost", () => {
         }),
       );
     const sm = htmlOf("sm");
-    expect(sm).toContain("data-pt-global-radius=\"sm\"");
+    expect(sm).toContain('data-pt-global-radius="sm"');
     expect(sm).toContain("--pt-radius:3px");
     expect(sm).toContain("--pt-handle-radius:12px");
     expect(sm).toContain("border-radius:var(--pt-radius, 3px)");
-    expect(sm).toContain("data-pt-type=\"button\"");
+    expect(sm).toContain('data-pt-type="button"');
     expect(sm).toContain("<input");
-    expect(sm).toContain("data-pt-type=\"card\"");
-    expect(sm).toContain("data-pt-type=\"dialog\"");
+    expect(sm).toContain('data-pt-type="card"');
+    expect(sm).toContain('data-pt-type="dialog"');
 
     const lg = htmlOf("lg");
-    expect(lg).toContain("data-pt-global-radius=\"lg\"");
+    expect(lg).toContain('data-pt-global-radius="lg"');
     expect(lg).toContain("--pt-radius:14px");
     expect(lg).toContain("--pt-handle-radius:28px");
     expect(lg).toContain("border-radius:var(--pt-radius, 3px)");
@@ -129,7 +129,7 @@ describe("OverlayHost", () => {
     expect(html).toContain(`width:${200 - inset * 2}px`);
     expect(html).toContain(`height:${80 - inset * 2}px`);
     expect(html).toContain("pointer-events:none");
-    expect(html).toContain("data-pt-overlay-origin=\"canvas\"");
+    expect(html).toContain('data-pt-overlay-origin="canvas"');
     expect(html).not.toContain("pt-sketch-wobble");
     expect(html).toContain("background:transparent");
   });
@@ -181,14 +181,16 @@ describe("OverlayHost", () => {
     expect(html).toContain('data-pt-node-type="form"');
     expect(html).toContain('data-pt-type="button"');
     expect(html).toContain('data-pt-id="go"');
-    expect(html).toContain("data-pt-artist=\"\"");
+    expect(html).toContain('data-pt-artist=""');
     expect(html).not.toContain('data-pt-overlay-id="go"');
     expect(html.indexOf('data-pt-type="button"')).toBeLessThan(html.lastIndexOf("data-pt-artist"));
   });
 
   test("interact press markup does not attach to non-button catalog nodes", () => {
     const css = readFileSync(new URL("./sketch-ui.css", import.meta.url), "utf8");
-    const pressLines = css.split("\n").filter((line) => line.includes("scale(0.96)") || line.includes("data-pt-pressed"));
+    const pressLines = css
+      .split("\n")
+      .filter((line) => line.includes("scale(0.96)") || line.includes("data-pt-pressed"));
     expect(pressLines.length).toBeGreaterThan(0);
     for (const line of pressLines) {
       if (!line.includes("data-pt-type")) continue;
@@ -223,8 +225,8 @@ describe("OverlayHost", () => {
         onCommit: () => {},
       }),
     );
-    expect(html).toContain("data-pt-overlay-id=\"area\"");
-    expect(html).toContain("data-pt-chart-id=\"chart.area-default\"");
+    expect(html).toContain('data-pt-overlay-id="area"');
+    expect(html).toContain('data-pt-chart-id="chart.area-default"');
     expect(html).toContain("<svg");
     expect(html).toContain("var(--pt-radius");
     expect(html).toContain('data-pt-text="title"');
@@ -284,10 +286,12 @@ describe("OverlayHost", () => {
   });
 
   test("select-type fit and layer overflow are visible; default fit stays hidden", () => {
-    expect(overlayFitStyle({ width: 240, height: 80 }, { width: 120, height: 40 }).overflow).toBe("hidden");
-    expect(overlayFitStyle({ width: 240, height: 80 }, { width: 120, height: 40 }, "visible").overflow).toBe(
-      "visible",
+    expect(overlayFitStyle({ width: 240, height: 80 }, { width: 120, height: 40 }).overflow).toBe(
+      "hidden",
     );
+    expect(
+      overlayFitStyle({ width: 240, height: 80 }, { width: 120, height: 40 }, "visible").overflow,
+    ).toBe("visible");
     const selectXml = `<page id="p"><select id="model" label="Model" value="a" x="0" y="0" width="240" height="40"><option value="a">Option A</option><option value="b">Option B</option></select></page>`;
     for (const type of ["select", "combobox", "native-select"] as const) {
       const document = parsePtx(selectXml.replaceAll("select", type).replaceAll("model", type));

@@ -85,16 +85,18 @@ describe("kanban remainder buckets", () => {
 
     const columns = buildKanbanBoardColumns({
       groupingMode: "status",
-      projects: [{
-        id: "project-1",
-        name: "Project",
-        isOpen: true,
-        mainFilePath: "/tmp/project",
-        sidebarOrder: 0,
-        borderColor: null,
-        logoPath: null,
-        workspaces: [workspace({ workflowStatus: "custom_pipeline" as never })],
-      }],
+      projects: [
+        {
+          id: "project-1",
+          name: "Project",
+          isOpen: true,
+          mainFilePath: "/tmp/project",
+          sidebarOrder: 0,
+          borderColor: null,
+          logoPath: null,
+          workspaces: [workspace({ workflowStatus: "custom_pipeline" as never })],
+        },
+      ],
       groups: [],
       availableLabels: [],
       ungroupedLabel: "Ungrouped",
@@ -149,9 +151,6 @@ describe("kanban remainder buckets", () => {
       untaggedLabel: "No label",
     });
 
-    expect(columns.map((column) => column.key)).toEqual([
-      extraLabel.id,
-      "__untagged__",
-    ]);
+    expect(columns.map((column) => column.key)).toEqual([extraLabel.id, "__untagged__"]);
   });
 });

@@ -31,10 +31,7 @@ export default function SignInRoute() {
           },
         }}
       />
-      <LoginSheet
-        initialScannerOpen={mode === "scan"}
-        onAuthenticated={close}
-      />
+      <LoginSheet initialScannerOpen={mode === "scan"} onAuthenticated={close} />
     </View>
   );
 }

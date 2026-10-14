@@ -1,9 +1,4 @@
-const LIVE_RUNTIME_STATUSES = new Set([
-  "starting",
-  "ready",
-  "running_turn",
-  "waiting_permission",
-]);
+const LIVE_RUNTIME_STATUSES = new Set(["starting", "ready", "running_turn", "waiting_permission"]);
 
 export type AgentComposerPlaceholderKind =
   | "unavailable"

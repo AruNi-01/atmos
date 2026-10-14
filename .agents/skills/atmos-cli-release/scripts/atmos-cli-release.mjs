@@ -210,9 +210,7 @@ function ensureWorkingTreeClean(allowDirty) {
   if (!status || allowDirty) {
     return;
   }
-  fail(
-    "Working tree is dirty. Commit or stash changes first, or rerun with --allow-dirty.",
-  );
+  fail("Working tree is dirty. Commit or stash changes first, or rerun with --allow-dirty.");
 }
 
 function ensureGhAuth() {

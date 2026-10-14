@@ -62,10 +62,7 @@ export function filterExplorerSearchEntries(
   return scored.slice(0, limit).map((item) => item.entry);
 }
 
-export function relativeParentPath(
-  absPath: string,
-  rootPath: string | null | undefined,
-): string {
+export function relativeParentPath(absPath: string, rootPath: string | null | undefined): string {
   const normalizedPath = absPath.replace(/\\/g, "/");
   const normalizedRoot = (rootPath ?? "").replace(/\\/g, "/");
   const underRoot = normalizedRoot
@@ -119,17 +116,12 @@ const EMPTY_FILES_LANDING_SEARCH: FilesLandingSearchState = {
 
 const filesLandingSearchByContext = new Map<string, FilesLandingSearchState>();
 
-export function readFilesLandingSearch(
-  contextId: string,
-): FilesLandingSearchState {
+export function readFilesLandingSearch(contextId: string): FilesLandingSearchState {
   if (!contextId) return EMPTY_FILES_LANDING_SEARCH;
   return filesLandingSearchByContext.get(contextId) ?? EMPTY_FILES_LANDING_SEARCH;
 }
 
-export function writeFilesLandingSearch(
-  contextId: string,
-  state: FilesLandingSearchState,
-): void {
+export function writeFilesLandingSearch(contextId: string, state: FilesLandingSearchState): void {
   if (!contextId) return;
   if (!state.query && !state.open) {
     filesLandingSearchByContext.delete(contextId);

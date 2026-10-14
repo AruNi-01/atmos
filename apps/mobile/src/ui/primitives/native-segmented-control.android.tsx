@@ -1,4 +1,9 @@
-import { Host, SegmentedButton, SingleChoiceSegmentedButtonRow, Text } from "@expo/ui/jetpack-compose";
+import {
+  Host,
+  SegmentedButton,
+  SingleChoiceSegmentedButtonRow,
+  Text,
+} from "@expo/ui/jetpack-compose";
 import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
 import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeSegmentedControlProps } from "./native-segmented-control.types";

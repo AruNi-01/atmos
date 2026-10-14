@@ -57,7 +57,10 @@ function ConfirmPanel(props: PtRendererProps & { surface: Surface }): ReactEleme
         role="dialog"
         style={
           isSheet
-            ? { borderRadius: `0 ${overlayTokens.radius} ${overlayTokens.radius} 0`, boxShadow: overlayTokens.shadow }
+            ? {
+                borderRadius: `0 ${overlayTokens.radius} ${overlayTokens.radius} 0`,
+                boxShadow: overlayTokens.shadow,
+              }
             : isDrawer
               ? { borderRadius: `${overlayTokens.radius} ${overlayTokens.radius} 0 0` }
               : undefined
@@ -77,7 +80,9 @@ function ConfirmPanel(props: PtRendererProps & { surface: Surface }): ReactEleme
           />
         ) : null}
         <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 13, color: overlayTokens.muted, lineHeight: 1.45, flex: 1 }}>{description}</div>
+        <div style={{ fontSize: 13, color: overlayTokens.muted, lineHeight: 1.45, flex: 1 }}>
+          {description}
+        </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
           <button type="button" onClick={onCancel} style={ghostButtonStyle()}>
             Cancel

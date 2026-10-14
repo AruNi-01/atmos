@@ -12,9 +12,7 @@ import {
 
 describe("host engine capture routing", () => {
   it("uses host engine only when control engine is installed", () => {
-    expect(shouldUseHostEngineCapture({ driver: { installed: true, phase: "ready" } })).toBe(
-      true,
-    );
+    expect(shouldUseHostEngineCapture({ driver: { installed: true, phase: "ready" } })).toBe(true);
     expect(
       shouldUseHostEngineCapture({ driver: { installed: false, phase: "not_installed" } }),
     ).toBe(false);
@@ -68,10 +66,7 @@ describe("host engine capture routing", () => {
     expect(["豆包", "QQ音乐"]).toContain(pick?.app_name);
 
     // With System Events saying QQ音乐 is frontmost — must match QQ
-    const focused = matchWindowForFrontmost(
-      windows,
-      { appName: "QQ音乐", processId: 3 },
-    );
+    const focused = matchWindowForFrontmost(windows, { appName: "QQ音乐", processId: 3 });
     expect(focused?.app_name).toBe("QQ音乐");
     expect(focused?.title).toBe("周杰伦");
   });

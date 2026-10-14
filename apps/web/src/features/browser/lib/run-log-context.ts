@@ -73,7 +73,9 @@ export function buildRunLogAvailablePrompt(
   const source = windowName
     ? `This is an Atmos Run log (output from Run window \`${windowName}\`; \`run-main\` is the default Run tab, other \`run-*\` windows are extra Run terminals).`
     : "This is an Atmos Run log (output from the project's Run terminal).";
-  const reason = isRunLogResolveReason(options?.reason) ? selectionReasonLine(options.reason) : null;
+  const reason = isRunLogResolveReason(options?.reason)
+    ? selectionReasonLine(options.reason)
+    : null;
   return [
     source,
     reason,
@@ -113,10 +115,11 @@ export function matchesViewRunLogsSlashQuery(query: string): boolean {
   );
 }
 
-export function buildViewRunLogsSlashCommand(opts: {
+export function buildViewRunLogsSlashCommand(opts: { label: string; description: string }): {
+  id: string;
   label: string;
   description: string;
-}): { id: string; label: string; description: string } {
+} {
   return {
     id: VIEW_RUN_LOGS_SLASH_COMMAND_ID,
     label: opts.label,

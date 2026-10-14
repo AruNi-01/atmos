@@ -34,7 +34,7 @@ interface SelectionInfo {
   endLine: number;
   selectedText: string;
   // DiffViewer 专用
-  changeType?: 'addition' | 'deletion' | 'context';
+  changeType?: "addition" | "deletion" | "context";
   oldContent?: string;
   newContent?: string;
   oldLineRange?: { start: number; end: number };
@@ -77,11 +77,11 @@ interface UseSelectionPopoverReturn {
 
 ### Monaco vs DiffViewer Differences
 
-| | Monaco | DiffViewer |
-|---|--------|------------|
-| Get Selection | `editor.getSelection()` | `window.getSelection()` + traverse `data-line` |
-| Get Text | `editor.getModel().getValueInRange()` | `selection.toString()` |
-| File Path | `file.path` prop | `filePath` prop |
+|               | Monaco                                | DiffViewer                                     |
+| ------------- | ------------------------------------- | ---------------------------------------------- |
+| Get Selection | `editor.getSelection()`               | `window.getSelection()` + traverse `data-line` |
+| Get Text      | `editor.getModel().getValueInRange()` | `selection.toString()`                         |
+| File Path     | `file.path` prop                      | `filePath` prop                                |
 
 ---
 
@@ -129,8 +129,9 @@ Phase 1: Tooltip (default)      Phase 2: Popover (expanded)
 
 ### Monaco Editor Template
 
-```markdown
+````markdown
 ## Code Snippet
+
 - **File**: `src/pages/landing.tsx`
 - **Lines**: L25-L29
 
@@ -138,10 +139,13 @@ Phase 1: Tooltip (default)      Phase 2: Popover (expanded)
 const t = useTranslations("landing");
 const router = useRouter();
 ```
+````
 
 ## Note
+
 User input content...
-```
+
+````
 
 ### DiffViewer Template
 
@@ -154,16 +158,19 @@ User input content...
 ```tsx
 const t = useTranslations("landing");
 <div className="min-h-screen transition-colors">
-```
+````
 
 ### After
+
 ```tsx
 <div className="min-h-screen">
 ```
 
 ## Note
+
 User input content...
-```
+
+````
 
 ---
 
@@ -176,16 +183,16 @@ User input content...
   <span data-column-number=""><span data-line-number-content="">25</span></span>
   <span data-column-content="">...code content...</span>
 </div>
-```
+````
 
 **Key Attributes:**
 
-| Attribute | Meaning |
-|-----------|---------|
-| `data-line` | Original line number |
-| `data-alt-line` | Alternate side line number (only for context lines) |
-| `data-line-type` | `context` / `change-deletion` / `change-addition` |
-| `data-line-index` | Internal index `old,new` |
+| Attribute         | Meaning                                             |
+| ----------------- | --------------------------------------------------- |
+| `data-line`       | Original line number                                |
+| `data-alt-line`   | Alternate side line number (only for context lines) |
+| `data-line-type`  | `context` / `change-deletion` / `change-addition`   |
+| `data-line-index` | Internal index `old,new`                            |
 
 **Extraction Logic:**
 
@@ -209,9 +216,9 @@ User input content...
 
 ## Technical Decisions
 
-| Decision | Choice | Reason |
-|----------|--------|--------|
+| Decision                            | Choice                                 | Reason                                                          |
+| ----------------------------------- | -------------------------------------- | --------------------------------------------------------------- |
 | Line Number Extraction (DiffViewer) | Precise approach (data-line attribute) | @pierre/diffs exposes line numbers, enabling precise extraction |
-| Output Format | Markdown | AI Agent friendly, human readable |
-| Trigger Method | Tooltip → Popover | Simplicity first, expand on demand |
-| Code Reuse | Shared Hook + UI | Monaco and DiffViewer share identical UI logic |
+| Output Format                       | Markdown                               | AI Agent friendly, human readable                               |
+| Trigger Method                      | Tooltip → Popover                      | Simplicity first, expand on demand                              |
+| Code Reuse                          | Shared Hook + UI                       | Monaco and DiffViewer share identical UI logic                  |

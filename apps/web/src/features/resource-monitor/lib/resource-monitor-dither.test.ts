@@ -30,10 +30,7 @@ const sessionNameSrc = readFileSync(
   join(import.meta.dir, "../components/ResourceMonitorSessionName.tsx"),
   "utf8",
 );
-const classesSrc = readFileSync(
-  join(import.meta.dir, "./resource-monitor-classes.ts"),
-  "utf8",
-);
+const classesSrc = readFileSync(join(import.meta.dir, "./resource-monitor-classes.ts"), "utf8");
 
 describe("resource monitor dither structure", () => {
   test("UsageBar is a single-stage DitherFunnel without CSS scaleX", () => {
@@ -96,22 +93,16 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).toContain("RM_NESTED_COPY");
     expect(hierarchySrc).toContain("data-resource-monitor-kill-leaked");
     expect(hierarchySrc).toContain("data-resource-monitor-kill-leaked-confirm");
-    expect(hierarchySrc).toContain("data-resource-monitor-detail=\"kill-leaked\"");
+    expect(hierarchySrc).toContain('data-resource-monitor-detail="kill-leaked"');
     expect(hierarchySrc).toContain("Skull");
     expect(hierarchySrc).toContain('t("killLeakedConfirm")');
     expect(hierarchySrc).toContain('t("killLeakedConfirmAction")');
     expect(hierarchySrc).toContain("process.leaked");
     expect(hierarchySrc).toContain("onKillLeaked");
-    expect(hierarchySrc).toContain(
-      "showDesktop && desktop?.supported ? desktop.total : undefined",
-    );
+    expect(hierarchySrc).toContain("showDesktop && desktop?.supported ? desktop.total : undefined");
     expect(hierarchySrc).toContain('<SectionLabel indent={1}>{t("desktop")}</SectionLabel>');
-    expect(hierarchySrc).toMatch(
-      /name=\{t\("server"\)\} usage=\{snapshotServer\} indent=\{1\}/,
-    );
-    expect(hierarchySrc).toMatch(
-      /name=\{t\("desktopUse"\)\}[\s\S]*?indent=\{1\}/,
-    );
+    expect(hierarchySrc).toMatch(/name=\{t\("server"\)\} usage=\{snapshotServer\} indent=\{1\}/);
+    expect(hierarchySrc).toMatch(/name=\{t\("desktopUse"\)\}[\s\S]*?indent=\{1\}/);
     expect(hierarchySrc).toMatch(
       /name=\{t\("sharedRuntime"\)\} usage=\{snapshotShared\} indent=\{1\}/,
     );
@@ -149,7 +140,9 @@ describe("resource monitor dither structure", () => {
     expect(footerSrc).toContain("data-resource-monitor-footer-measure");
     expect(footerSrc).toContain("data-resource-monitor-footer-label");
     expect(footerSrc).toContain("data-resource-monitor-footer-usage");
-    expect(footerSrc).toContain("invisible inline-flex items-center gap-1 whitespace-nowrap font-medium");
+    expect(footerSrc).toContain(
+      "invisible inline-flex items-center gap-1 font-medium whitespace-nowrap",
+    );
     expect(footerSrc).toContain('type: "spring"');
     expect(footerSrc).not.toContain("min-w-[7.75rem]");
     expect(footerSrc).not.toContain("width: previewing ? 124 : 52");
@@ -188,9 +181,7 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).toContain("group/trigger");
     expect(hierarchySrc).toContain("group-hover/session:opacity-0");
     expect(hierarchySrc).toContain("group-hover/session:opacity-100");
-    expect(hierarchySrc).toContain(
-      "group-data-[state=closed]/trigger:-rotate-90",
-    );
+    expect(hierarchySrc).toContain("group-data-[state=closed]/trigger:-rotate-90");
     expect(hierarchySrc).toContain("transition-opacity duration-150");
     expect(hierarchySrc).toContain("transition-[opacity,transform] duration-150");
     expect(hierarchySrc).toContain("ResourceMonitorSessionIcon");

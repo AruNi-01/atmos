@@ -29,16 +29,17 @@ graph TD
     Client[前端 Xterm.js/React] <-->|Binary/JSON Frames| Handler[Axum WS Handler]
     Handler <--> Manager[WebSocket Manager]
     Manager <--> Registry[Connection Registry]
-    
+
     subgraph Internal_Bus [内部消息总线]
         Manager <--> TopicRouter[Topic-based Router]
     end
-    
+
     TopicRouter <--> Services[Core Services]
     Services <--> Engine[Core Engine / PTY]
 ```
 
 ### 组件职责详解：
+
 - **Axum WS Handler**: 负责处理 HTTP 升级协议、握手认证以及原始字节流的读写。
 - **WebSocket Manager**: 全局单例，维护所有活跃连接的生命周期。它不关心消息内容，只负责分发。
 - **Connection Registry**: 存储每个连接的元数据，例如：用户 ID、当前打开的工作区 ID、已订阅的主题列表。
@@ -49,7 +50,9 @@ graph TD
 Atmos 使用一套混合协议来平衡灵活性和性能：
 
 ### 1. 控制消息 (JSON)
+
 用于建立连接、订阅主题、报告错误等元操作。
+
 ```json
 {
   "type": "Subscribe",
@@ -59,6 +62,7 @@ Atmos 使用一套混合协议来平衡灵活性和性能：
 ```
 
 ### 2. 数据消息 (Binary/Base64)
+
 用于高频的终端 I/O。为了减少序列化开销，终端输出通常被封装在轻量级的二进制帧或经过优化的 JSON 负载中。
 
 ## 性能优化策略
@@ -66,12 +70,15 @@ Atmos 使用一套混合协议来平衡灵活性和性能：
 为了支撑 IDE 级的实时体验，Atmos 在 WebSocket 层实施了多项优化：
 
 ### 1. 消息合并 (Batching)
+
 PTY 输出往往是细碎的字符。`WebSocketManager` 会在毫秒级的时间窗口内合并输出片段，减少发送到前端的帧数量，显著降低 CPU 占用。
 
 ### 2. 异步背压控制 (Backpressure)
+
 当某个连接的发送缓冲区堆积过多时（例如用户执行了 `cat large_file.txt`），系统会暂时停止从对应的 PTY 读取数据，防止内存溢出。
 
 ### 3. 连接池与心跳检测
+
 - **心跳机制**: 每 30 秒发送一次 Ping 帧，确保 NAT 映射不失效，并及时清理僵尸连接。
 - **快速重连**: 前端保存订阅状态，在网络抖动恢复后，自动发送恢复订阅的请求，实现无感重连。
 
@@ -96,12 +103,12 @@ sequenceDiagram
 
 ## 关键源码分析
 
-| 文件路径 | 核心职责 |
-|:---|:---|
-| `crates/infra/src/websocket/manager.rs` | 实现 `WebSocketManager`，负责连接注册与消息路由 |
-| `crates/infra/src/websocket/handler.rs` | 处理 Axum 的 WebSocket 升级逻辑与流转换 |
-| `crates/infra/src/websocket/message.rs` | 定义全系统的 WebSocket 消息协议与序列化逻辑 |
-| `crates/infra/src/websocket/connection.rs` | 封装单个 WebSocket 连接的状态与发送队列 |
+| 文件路径                                   | 核心职责                                        |
+| :----------------------------------------- | :---------------------------------------------- |
+| `crates/infra/src/websocket/manager.rs`    | 实现 `WebSocketManager`，负责连接注册与消息路由 |
+| `crates/infra/src/websocket/handler.rs`    | 处理 Axum 的 WebSocket 升级逻辑与流转换         |
+| `crates/infra/src/websocket/message.rs`    | 定义全系统的 WebSocket 消息协议与序列化逻辑     |
+| `crates/infra/src/websocket/connection.rs` | 封装单个 WebSocket 连接的状态与发送队列         |
 
 ## 总结
 

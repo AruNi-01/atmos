@@ -3,10 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  DEFAULT_CENTER_SPACE_ID,
-  makeCenterSpaceKey,
-} from "@/app-shell/center-space/center-space";
+import { DEFAULT_CENTER_SPACE_ID, makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import {
   buildCanvasTerminalSourcePath,
@@ -77,9 +74,7 @@ describe("buildCanvasTerminalSourcePath", () => {
       tab: "terminal-tab:2",
       terminalTmux: EXTRA_TMUX,
     });
-    expect(buildCanvasTerminalSourcePath(target)).toBe(
-      `/workspace?${expected.toString()}`,
-    );
+    expect(buildCanvasTerminalSourcePath(target)).toBe(`/workspace?${expected.toString()}`);
     expect(buildCanvasTerminalSourcePath(target)).not.toContain("::space::");
   });
 
@@ -95,9 +90,7 @@ describe("buildCanvasTerminalSourcePath", () => {
       tab: "terminal",
       terminalTmux: EXTRA_TMUX,
     });
-    expect(buildCanvasTerminalSourcePath(target)).toBe(
-      `/project?${expected.toString()}`,
-    );
+    expect(buildCanvasTerminalSourcePath(target)).toBe(`/project?${expected.toString()}`);
   });
 });
 
@@ -130,10 +123,7 @@ describe("canvas source jump wiring", () => {
     expect(card).toContain("openContextId={sourceTarget.paintContextId}");
     expect(card).toContain("stableAgentPaneId");
 
-    const src = readFileSync(
-      join(import.meta.dir, "../lib/canvas-terminal-source.ts"),
-      "utf8",
-    );
+    const src = readFileSync(join(import.meta.dir, "../lib/canvas-terminal-source.ts"), "utf8");
     const locateAt = src.indexOf("navigateToLocatedPane(");
     const switchAt = src.indexOf("switchCenterSpace(target.hostId, target.spaceId");
     const pushAt = src.lastIndexOf("commitLocatedPaneNavigation(router, path)");
@@ -146,30 +136,21 @@ describe("canvas source jump wiring", () => {
   });
 
   it("kills tmux and looks up panes with host vs paint split", () => {
-    const stage = readFileSync(
-      join(import.meta.dir, "../../../app-shell/CenterStage.tsx"),
-      "utf8",
-    );
+    const stage = readFileSync(join(import.meta.dir, "../../../app-shell/CenterStage.tsx"), "utf8");
     expect(stage).toContain("resolveCanvasTerminalSourceTarget");
     expect(stage).toContain("killTmuxWindow(target.hostId, target.tmuxWindowName)");
     expect(stage).toContain("getPanes(target.paintContextId, terminalTabId)");
   });
 
   it("prunes and creates canvas terminals against the live paint context", () => {
-    const view = readFileSync(
-      join(import.meta.dir, "../components/CanvasView.tsx"),
-      "utf8",
-    );
+    const view = readFileSync(join(import.meta.dir, "../components/CanvasView.tsx"), "utf8");
     expect(view).toContain("workspaceTerminalTabs[paintContextId]");
     expect(view).toContain(
       "resolveCanvasTerminalSourceTarget(shape.props).paintContextId === paintContextId",
     );
     expect(view).toContain("resolveCenterOpenContextId");
 
-    const add = readFileSync(
-      join(import.meta.dir, "../hooks/use-add-canvas-terminal.ts"),
-      "utf8",
-    );
+    const add = readFileSync(join(import.meta.dir, "../hooks/use-add-canvas-terminal.ts"), "utf8");
     expect(add).toContain("resolveCenterOpenContextId(hostId, hostContextId, paintContextId)");
   });
 });

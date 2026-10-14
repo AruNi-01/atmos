@@ -21,23 +21,20 @@ interface AgentActivityIndicatorSettingsState extends AgentActivityIndicatorSett
   loading: boolean;
   syncingPlacement: AgentIndicatorPlacement | null;
   loadSettings: (force?: boolean) => Promise<void>;
-  setIndicator: (
-    placement: AgentIndicatorPlacement,
-    id: AgentActivityIndicatorId,
-  ) => Promise<void>;
+  setIndicator: (placement: AgentIndicatorPlacement, id: AgentActivityIndicatorId) => Promise<void>;
 }
 
 function readAll(
-  settings: {
-    agent_cli?: Partial<Record<string, unknown>>;
-  } | null | undefined,
+  settings:
+    | {
+        agent_cli?: Partial<Record<string, unknown>>;
+      }
+    | null
+    | undefined,
 ): AgentActivityIndicatorSettings {
   const agentCli = settings?.agent_cli ?? {};
   return {
-    left_sidebar: resolveIndicatorId(
-      agentCli[INDICATOR_SETTING_KEYS.left_sidebar],
-      "left_sidebar",
-    ),
+    left_sidebar: resolveIndicatorId(agentCli[INDICATOR_SETTING_KEYS.left_sidebar], "left_sidebar"),
     center_terminal: resolveIndicatorId(
       agentCli[INDICATOR_SETTING_KEYS.center_terminal],
       "center_terminal",
@@ -78,11 +75,7 @@ export const useAgentActivityIndicatorSettingsStore = create<AgentActivityIndica
       // Optimistic update — keep the preview stable; only clear busy when done.
       set({ [placement]: id, syncingPlacement: placement });
       try {
-        await functionSettingsApi.update(
-          "agent_cli",
-          INDICATOR_SETTING_KEYS[placement],
-          id,
-        );
+        await functionSettingsApi.update("agent_cli", INDICATOR_SETTING_KEYS[placement], id);
         useFunctionSettingsStore.getState().invalidate();
         await useFunctionSettingsStore.getState().load();
         const next = readAll(useFunctionSettingsStore.getState().settings);

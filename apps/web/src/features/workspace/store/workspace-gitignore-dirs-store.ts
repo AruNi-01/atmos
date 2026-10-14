@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import { toastManager } from '@workspace/ui';
-import { createTranslator } from 'next-intl';
+import { create } from "zustand";
+import { toastManager } from "@workspace/ui";
+import { createTranslator } from "next-intl";
 
 import {
   workspaceGitignoreDirsApi,
   type GitIgnoreDirEntry,
   type GitIgnoreDirStrategy,
   type GitIgnoreDirsConfig,
-} from '@/api/ws-api';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
+} from "@/api/ws-api";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 interface State {
   enabled: boolean;
@@ -40,18 +40,18 @@ type WorkspaceGitignoreDirMessages = {
   failedUpdatePath: string;
 };
 
-let cachedWorkspaceGitignoreLocale: 'en' | 'zh' | null = null;
+let cachedWorkspaceGitignoreLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedWorkspaceGitignoreTranslator: any = null;
 
 function workspaceGitignoreT(key: keyof WorkspaceGitignoreDirMessages): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedWorkspaceGitignoreTranslator || cachedWorkspaceGitignoreLocale !== locale) {
     cachedWorkspaceGitignoreLocale = locale;
     cachedWorkspaceGitignoreTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'Workspace.components.gitignoreStore',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "Workspace.components.gitignoreStore",
     });
   }
   return cachedWorkspaceGitignoreTranslator(key as never);
@@ -59,14 +59,14 @@ function workspaceGitignoreT(key: keyof WorkspaceGitignoreDirMessages): string {
 
 function getDefaultWorkspaceGitignoreDirMessages(): WorkspaceGitignoreDirMessages {
   return {
-    settingsSyncFailedTitle: workspaceGitignoreT('settingsSyncFailedTitle'),
-    invalidPathTitle: workspaceGitignoreT('invalidPathTitle'),
-    invalidPathDescription: workspaceGitignoreT('invalidPathDescription'),
-    failedMasterSwitch: workspaceGitignoreT('failedMasterSwitch'),
-    failedStrategy: workspaceGitignoreT('failedStrategy'),
-    failedAddCustom: workspaceGitignoreT('failedAddCustom'),
-    failedRemoveDirectory: workspaceGitignoreT('failedRemoveDirectory'),
-    failedUpdatePath: workspaceGitignoreT('failedUpdatePath'),
+    settingsSyncFailedTitle: workspaceGitignoreT("settingsSyncFailedTitle"),
+    invalidPathTitle: workspaceGitignoreT("invalidPathTitle"),
+    invalidPathDescription: workspaceGitignoreT("invalidPathDescription"),
+    failedMasterSwitch: workspaceGitignoreT("failedMasterSwitch"),
+    failedStrategy: workspaceGitignoreT("failedStrategy"),
+    failedAddCustom: workspaceGitignoreT("failedAddCustom"),
+    failedRemoveDirectory: workspaceGitignoreT("failedRemoveDirectory"),
+    failedUpdatePath: workspaceGitignoreT("failedUpdatePath"),
   };
 }
 
@@ -77,10 +77,7 @@ export function setWorkspaceGitignoreDirsMessages(next: WorkspaceGitignoreDirMes
   workspaceGitignoreDirMessages = next;
 }
 
-const persist = async (
-  next: GitIgnoreDirsConfig,
-  failureMessage: string,
-): Promise<boolean> => {
+const persist = async (next: GitIgnoreDirsConfig, failureMessage: string): Promise<boolean> => {
   try {
     await workspaceGitignoreDirsApi.update(next);
     return true;
@@ -88,23 +85,21 @@ const persist = async (
     toastManager.add({
       title: workspaceGitignoreDirMessages.settingsSyncFailedTitle,
       description: failureMessage,
-      type: 'error',
+      type: "error",
     });
     return false;
   }
 };
 
-const normalizeRelativePath = (path: string): string =>
-  path.trim().replace(/^\/+|\/+$/g, '');
+const normalizeRelativePath = (path: string): string => path.trim().replace(/^\/+|\/+$/g, "");
 
-const hasParentTraversal = (path: string): boolean =>
-  path.split('/').some((part) => part === '..');
+const hasParentTraversal = (path: string): boolean => path.split("/").some((part) => part === "..");
 
 const toastInvalidPath = (): void => {
   toastManager.add({
     title: workspaceGitignoreDirMessages.invalidPathTitle,
     description: workspaceGitignoreDirMessages.invalidPathDescription,
-    type: 'error',
+    type: "error",
   });
 };
 
@@ -167,7 +162,7 @@ export const useWorkspaceGitignoreDirsStore = create<State>((set, get) => ({
     const newEntry: GitIgnoreDirEntry = {
       id,
       path: trimmed,
-      strategy: 'symlink',
+      strategy: "symlink",
       builtin: false,
     };
     const prev = get().entries;

@@ -3,7 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { gitFileDiffQueryOptions, type GitFileDiffParams } from "@/features/git/lib/git-query-options";
+import {
+  gitFileDiffQueryOptions,
+  type GitFileDiffParams,
+} from "@/features/git/lib/git-query-options";
 
 const WORKTREE_DIFF_PARAMS: GitFileDiffParams = {
   baseBranch: null,

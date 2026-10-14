@@ -2,7 +2,7 @@
 
 > Sibling HOW for chat files. Parent contract: [../TECH.md](../TECH.md) (Data model). Product: [../PRD.md](../PRD.md) M12. APP-067: [../../APP-067_atmos_agent_abs/TECH.md](../../APP-067_atmos_agent_abs/TECH.md) — file SOT, restore ≠ resume/spawn.
 
-Addresses **M12** (and M13 persistence gates). Event/tool *types* live in [descriptor.md](./descriptor.md) / [events.md](./events.md) / [tools.md](./tools.md). This slice owns how they hit disk and how `agent_chat_get` paints them without a process.
+Addresses **M12** (and M13 persistence gates). Event/tool _types_ live in [descriptor.md](./descriptor.md) / [events.md](./events.md) / [tools.md](./tools.md). This slice owns how they hit disk and how `agent_chat_get` paints them without a process.
 
 ## Scope
 
@@ -30,14 +30,14 @@ Canonical root: `~/.atmos/data/agent/chats/` via `default_chats_dir()` in `crate
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Append one Atmos envelope per durable observation | SQLite `agent_sessions` / `agent_events` / any chat table |
-| Store tools as `kind` + `params` + `result` only | Persist `input` / `output` / `content` / `native` on a tool |
-| Snapshot `descriptor` on `meta.json` | Keep `supports_steer`, `session_config_options`, `selected_model`, `selected_thinking`, `selected_mode` |
-| `get` / fold from files only | Spawn, `create_runtime`, or `resume_runtime` on open/history |
-| Throttle assistant/thinking snapshots (~100ms) | Append every token delta |
-| Skip a jsonl line that is not the new envelope | Migrator, remap-on-read, rewrite old lines, client fallback |
+| MUST                                              | MUST NOT                                                                                                |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Append one Atmos envelope per durable observation | SQLite `agent_sessions` / `agent_events` / any chat table                                               |
+| Store tools as `kind` + `params` + `result` only  | Persist `input` / `output` / `content` / `native` on a tool                                             |
+| Snapshot `descriptor` on `meta.json`              | Keep `supports_steer`, `session_config_options`, `selected_model`, `selected_thinking`, `selected_mode` |
+| `get` / fold from files only                      | Spawn, `create_runtime`, or `resume_runtime` on open/history                                            |
+| Throttle assistant/thinking snapshots (~100ms)    | Append every token delta                                                                                |
+| Skip a jsonl line that is not the new envelope    | Migrator, remap-on-read, rewrite old lines, client fallback                                             |
 
 ## Architecture
 
@@ -112,7 +112,7 @@ One JSON object per line = `AgentEventEnvelope` (`crates/agent` domain; parent T
   "event_id": "uuid",
   "turn_id": "uuid",
   "timestamp": "2026-09-01T00:00:00Z",
-  "event": { "type": "tool_call", "tool": { } }
+  "event": { "type": "tool_call", "tool": {} }
 }
 ```
 
@@ -202,14 +202,14 @@ Soft-delete: `meta.deleted = true`; directory remains.
 
 ## Files to change
 
-| Path | Change |
-|------|--------|
-| `crates/core-service/src/service/agent_chat/types.rs` | `AgentChatMeta.descriptor`; drop listed fields; `MessagePart::ToolCall` params/result; replace `TranscriptRecord` with envelope |
-| `crates/core-service/src/service/agent_chat/store.rs` | create/update meta; fold without `classify_tool`; skip unknown lines |
-| `crates/core-service/src/service/agent_chat/apply_event.rs` | persist envelope + `AgentTool`; stop classifying on ingest once adapters emit Atmos tools |
-| `crates/core-service/src/service/agent_chat/queue.rs` | write envelope turn/user lines |
-| `crates/agent/src/domain/event.rs` | `AgentTool` on tool events (see tools slice) |
-| `apps/api` + `packages/api-types` | snapshot/meta DTO — [ws-contract.md](./ws-contract.md) |
+| Path                                                        | Change                                                                                                                          |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `crates/core-service/src/service/agent_chat/types.rs`       | `AgentChatMeta.descriptor`; drop listed fields; `MessagePart::ToolCall` params/result; replace `TranscriptRecord` with envelope |
+| `crates/core-service/src/service/agent_chat/store.rs`       | create/update meta; fold without `classify_tool`; skip unknown lines                                                            |
+| `crates/core-service/src/service/agent_chat/apply_event.rs` | persist envelope + `AgentTool`; stop classifying on ingest once adapters emit Atmos tools                                       |
+| `crates/core-service/src/service/agent_chat/queue.rs`       | write envelope turn/user lines                                                                                                  |
+| `crates/agent/src/domain/event.rs`                          | `AgentTool` on tool events (see tools slice)                                                                                    |
+| `apps/api` + `packages/api-types`                           | snapshot/meta DTO — [ws-contract.md](./ws-contract.md)                                                                          |
 
 No infra migration. No new `WsAction`.
 

@@ -1,7 +1,17 @@
 import { catalogIdToXmlTag } from "./catalog-tags";
 import type { PtDocument, PtHandler, PtNode, PtOption } from "./schema";
 
-const ATTR_ORDER = ["id", "label", "value", "checked", "x", "y", "width", "height", "rotation"] as const;
+const ATTR_ORDER = [
+  "id",
+  "label",
+  "value",
+  "checked",
+  "x",
+  "y",
+  "width",
+  "height",
+  "rotation",
+] as const;
 
 function escAttr(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
@@ -47,7 +57,9 @@ function nodeAttrs(node: PtNode): string {
 
 function writeOptions(options: PtOption[] | undefined, indent: string, lines: string[]): void {
   for (const option of options ?? []) {
-    lines.push(`${indent}<option value="${escAttr(option.value)}">${escText(option.label)}</option>`);
+    lines.push(
+      `${indent}<option value="${escAttr(option.value)}">${escText(option.label)}</option>`,
+    );
   }
 }
 

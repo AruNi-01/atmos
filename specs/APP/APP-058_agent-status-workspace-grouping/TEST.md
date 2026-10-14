@@ -12,32 +12,32 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S8 |
-| M2 | S2, S3, S4, S5 |
-| M3 | S2 (only four keys) |
-| M4 | S3 |
-| M5 | S6, S10 |
-| M6 | S7 |
-| M7 | S9 |
-| M8 | S1 (copy keys present) |
-| N1–N3 | deferred |
+| PRD item | Scenario IDs           |
+| -------- | ---------------------- |
+| M1       | S1, S8                 |
+| M2       | S2, S3, S4, S5         |
+| M3       | S2 (only four keys)    |
+| M4       | S3                     |
+| M5       | S6, S10                |
+| M6       | S7                     |
+| M7       | S9                     |
+| M8       | S1 (copy keys present) |
+| N1–N3    | deferred               |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun test | `bun test` | `workspace-status` / grouping options | none | `agent` in `SIDEBAR_GROUPING_OPTIONS`; parse accepts `agent`, unknown → `project` | planned |
-| S2 | Bun test | `bun test` | `resolveWorkspaceAgentGroupKey` | hook + attention combos | permission > running > attention > idle | planned |
-| S3 | Bun test | `bun test` | `groupWorkspaces(..., "agent")` | flattened workspaces + key map | four groups always; membership matches map | planned |
-| S4 | Bun test | `bun test` | sticky permission vs task_complete | idle + each latch | permission latch → `permission`; complete → `attention` | planned |
-| S5 | Bun test | `bun test` | running + leftover `task_complete` | running + complete latch | `running` | planned |
-| S6 | Bun test | `bun test` | map change rebuckets | same items, updated map | workspace moves group | planned |
-| S7 | Bun test | `bun test` | `buildKanbanBoardColumns` / `resolveKanbanColumnKeys` / `isKanbanDragAssignable` | groupingMode `agent` | four columns; key match; drag false | planned |
-| S8 | E2E | Playwright | `just test-e2e -- tests/specs/APP-058_agent-status-workspace-grouping.e2e.ts` | local computer smoke | Group By includes By Agent Status | planned |
-| S9 | Bun test | `bun test` | layout store default / key name | none | `workspaceSidebarAgentTwoColumn` defaults false | planned |
-| S10 | Rust test | `cargo test` | `list_workspace_agent_groups` | running / permission / running→idle + idle sweep | snapshot keys survive in API memory | planned |
+| Scenario | Level     | Expected tool | Target command / method                                                          | Fixture / data                                   | Signals                                                                           | Status  |
+| -------- | --------- | ------------- | -------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------- | ------- |
+| S1       | Bun test  | `bun test`    | `workspace-status` / grouping options                                            | none                                             | `agent` in `SIDEBAR_GROUPING_OPTIONS`; parse accepts `agent`, unknown → `project` | planned |
+| S2       | Bun test  | `bun test`    | `resolveWorkspaceAgentGroupKey`                                                  | hook + attention combos                          | permission > running > attention > idle                                           | planned |
+| S3       | Bun test  | `bun test`    | `groupWorkspaces(..., "agent")`                                                  | flattened workspaces + key map                   | four groups always; membership matches map                                        | planned |
+| S4       | Bun test  | `bun test`    | sticky permission vs task_complete                                               | idle + each latch                                | permission latch → `permission`; complete → `attention`                           | planned |
+| S5       | Bun test  | `bun test`    | running + leftover `task_complete`                                               | running + complete latch                         | `running`                                                                         | planned |
+| S6       | Bun test  | `bun test`    | map change rebuckets                                                             | same items, updated map                          | workspace moves group                                                             | planned |
+| S7       | Bun test  | `bun test`    | `buildKanbanBoardColumns` / `resolveKanbanColumnKeys` / `isKanbanDragAssignable` | groupingMode `agent`                             | four columns; key match; drag false                                               | planned |
+| S8       | E2E       | Playwright    | `just test-e2e -- tests/specs/APP-058_agent-status-workspace-grouping.e2e.ts`    | local computer smoke                             | Group By includes By Agent Status                                                 | planned |
+| S9       | Bun test  | `bun test`    | layout store default / key name                                                  | none                                             | `workspaceSidebarAgentTwoColumn` defaults false                                   | planned |
+| S10      | Rust test | `cargo test`  | `list_workspace_agent_groups`                                                    | running / permission / running→idle + idle sweep | snapshot keys survive in API memory                                               | planned |
 
 ## Scenarios
 
@@ -169,18 +169,18 @@ Use `agent-browser` after implementation. Load Agent Browser instructions first 
 
 > Updated 2026-08-13 after hydrate-race fix (REV-001 / REV-002).
 
-| Scenario | Status | Proof |
-|----------|--------|-------|
-| S1 | covered | `apps/web/src/app-shell/sidebar/workspace-grouping.test.ts` `parseSidebarGroupingMode` |
-| S2 | covered | `apps/web/src/features/agent/lib/__tests__/workspace-agent-status.test.ts` `resolveWorkspaceAgentGroupKey` |
-| S3 | covered | `workspace-grouping.test.ts` `always emits four agent buckets` |
-| S4 | covered | `resolveWorkspaceAgentGroupKey` live/sticky permission vs idle+complete |
-| S5 | covered | `keeps a running agent in running even with a leftover complete latch` |
-| S6 | covered | `rebuckets a workspace when the agent map changes` |
-| S7 | covered | `apps/web/src/app-shell/sidebar/kanban-columns.test.ts` |
-| S8 | planned | `e2e/tests/specs/APP-058_agent-status-workspace-grouping.e2e.ts` (Playwright; not run in this pass) |
-| S9 | covered | `apps/web/src/features/settings/store/layout-settings-store.agent-grouping.test.ts` |
-| S10 | covered | `crates/core-service/src/service/agent_hooks/workspace_agent_group.rs` (`snapshot_survives_idle_sweep_via_attention_latch` and siblings) |
+| Scenario | Status  | Proof                                                                                                                                    |
+| -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| S1       | covered | `apps/web/src/app-shell/sidebar/workspace-grouping.test.ts` `parseSidebarGroupingMode`                                                   |
+| S2       | covered | `apps/web/src/features/agent/lib/__tests__/workspace-agent-status.test.ts` `resolveWorkspaceAgentGroupKey`                               |
+| S3       | covered | `workspace-grouping.test.ts` `always emits four agent buckets`                                                                           |
+| S4       | covered | `resolveWorkspaceAgentGroupKey` live/sticky permission vs idle+complete                                                                  |
+| S5       | covered | `keeps a running agent in running even with a leftover complete latch`                                                                   |
+| S6       | covered | `rebuckets a workspace when the agent map changes`                                                                                       |
+| S7       | covered | `apps/web/src/app-shell/sidebar/kanban-columns.test.ts`                                                                                  |
+| S8       | planned | `e2e/tests/specs/APP-058_agent-status-workspace-grouping.e2e.ts` (Playwright; not run in this pass)                                      |
+| S9       | covered | `apps/web/src/features/settings/store/layout-settings-store.agent-grouping.test.ts`                                                      |
+| S10      | covered | `crates/core-service/src/service/agent_hooks/workspace_agent_group.rs` (`snapshot_survives_idle_sweep_via_attention_latch` and siblings) |
 
 Commands:
 

@@ -24,13 +24,7 @@ export type OrbVariant = LatticeVariant | LensVariant | RingVariant | HelixVaria
 
 export const LATTICE_VARIANTS: LatticeVariant[] = ["S1", "S2", "S3", "S4", "S5"];
 
-export const LENS_VARIANTS: LensVariant[] = [
-  "B1",
-  "B2",
-  "B3",
-  "B4",
-  "B5",
-];
+export const LENS_VARIANTS: LensVariant[] = ["B1", "B2", "B3", "B4", "B5"];
 
 export const RING_VARIANTS: RingVariant[] = ["C1", "C2", "C3", "C4", "C5"];
 
@@ -208,11 +202,16 @@ interface RingDot {
 
 function ringDuration(v: RingVariant): number {
   switch (v) {
-    case "C1": return 1600;
-    case "C2": return 2000;
-    case "C3": return 1800;
-    case "C4": return 1600;
-    case "C5": return 2200;
+    case "C1":
+      return 1600;
+    case "C2":
+      return 2000;
+    case "C3":
+      return 1800;
+    case "C4":
+      return 1600;
+    case "C5":
+      return 2200;
   }
 }
 
@@ -386,13 +385,7 @@ function globeKeyframeStyle(
   }
 
   if (variant === "G3" || variant === "G4") {
-    const poses = ringTurnPoses(
-      x0,
-      y0,
-      z0,
-      ringIndex,
-      variant === "G3" ? G3_MOVES : G4_MOVES,
-    );
+    const poses = ringTurnPoses(x0, y0, z0, ringIndex, variant === "G3" ? G3_MOVES : G4_MOVES);
     for (let k = 0; k < poses.length; k++) {
       const pos = poses[k];
       const p = projectGlobe(pos[0], pos[1], pos[2], 0);
@@ -466,7 +459,12 @@ const shapeOctagon: ShapeFn = (i) => {
 
 const shapeSquare: ShapeFn = (i) => {
   const h = MORPH_R * 0.85;
-  const corners: [number, number][] = [[-h, -h], [h, -h], [h, h], [-h, h]];
+  const corners: [number, number][] = [
+    [-h, -h],
+    [h, -h],
+    [h, h],
+    [-h, h],
+  ];
   const t = ((i / MORPH_N) * 4 + 0.5) % 4;
   const side = Math.floor(t) % 4;
   const frac = t - Math.floor(t);
@@ -493,7 +491,12 @@ const shapeScatterB: ShapeFn = shapeCircle;
 const shapeScatterC: ShapeFn = shapeScatterA;
 
 const shapeDiamond: ShapeFn = (i) => {
-  const corners: [number, number][] = [[0, -MORPH_R], [MORPH_R, 0], [0, MORPH_R], [-MORPH_R, 0]];
+  const corners: [number, number][] = [
+    [0, -MORPH_R],
+    [MORPH_R, 0],
+    [0, MORPH_R],
+    [-MORPH_R, 0],
+  ];
   const t = (i / MORPH_N) * 4;
   const side = Math.floor(t) % 4;
   const frac = t - Math.floor(t);
@@ -509,8 +512,10 @@ const shapeCenter: ShapeFn = (i) => {
 
 function morphShapes(v: MorphVariant): [ShapeFn, ShapeFn, ShapeFn, ShapeFn] {
   switch (v) {
-    case "M1": return [shapeCircle, shapeSquare, shapeDiamond, shapeSquare];
-    case "M2": return [shapeCenter, shapeCircle, shapeCenter, shapeCircle];
+    case "M1":
+      return [shapeCircle, shapeSquare, shapeDiamond, shapeSquare];
+    case "M2":
+      return [shapeCenter, shapeCircle, shapeCenter, shapeCircle];
     case "M3":
       return [
         shapeCircleAt(0),
@@ -518,8 +523,10 @@ function morphShapes(v: MorphVariant): [ShapeFn, ShapeFn, ShapeFn, ShapeFn] {
         shapeCircleAt(Math.PI),
         shapeCircleAt(Math.PI * 1.5),
       ];
-    case "M4": return [shapeCircle, shapeDiamond, shapeCircle, shapeDiamond];
-    case "M5": return [shapeCircle, shapeScatterA, shapeScatterB, shapeScatterC];
+    case "M4":
+      return [shapeCircle, shapeDiamond, shapeCircle, shapeDiamond];
+    case "M5":
+      return [shapeCircle, shapeScatterA, shapeScatterB, shapeScatterC];
   }
 }
 
@@ -548,7 +555,10 @@ function morphDots(v: MorphVariant): MorphDot[] {
       m3: x3.toFixed(1) + "px, " + y3.toFixed(1) + "px",
       m4: x4.toFixed(1) + "px, " + y4.toFixed(1) + "px",
       delay: v === "M5" ? -i * 10 + "ms" : undefined,
-      depth: v === "M5" ? Math.abs(Math.cos((i / MORPH_N) * Math.PI * 2 - Math.PI / 2)).toFixed(2) : undefined,
+      depth:
+        v === "M5"
+          ? Math.abs(Math.cos((i / MORPH_N) * Math.PI * 2 - Math.PI / 2)).toFixed(2)
+          : undefined,
     });
   }
   return dots;
@@ -566,14 +576,7 @@ export interface OrbProps {
   style?: CSSProperties;
 }
 
-export function Orb({
-  variant = "S1",
-  size = SIZE,
-  label,
-  pill,
-  className,
-  style,
-}: OrbProps) {
+export function Orb({ variant = "S1", size = SIZE, label, pill, className, style }: OrbProps) {
   const text = label ?? ORB_TASKS[variant] + "…";
   return (
     <span
@@ -588,9 +591,7 @@ export function Orb({
         role={pill ? undefined : "img"}
         aria-label={pill ? undefined : text}
         aria-hidden={pill ? true : undefined}
-        style={
-          { width: size, height: size, "--orb-k": size / STAGE } as CSSProperties
-        }
+        style={{ width: size, height: size, "--orb-k": size / STAGE } as CSSProperties}
       >
         {isLattice(variant) ? (
           <span className={styles.lattice} data-variant={variant}>
@@ -633,11 +634,7 @@ export function Orb({
         ) : isHelix(variant) ? (
           <span className={styles.helix} data-variant={variant}>
             {globeDots(variant).map((d) => (
-              <span
-                key={d.key}
-                className={styles.helixDot}
-                style={d.style as CSSProperties}
-              />
+              <span key={d.key} className={styles.helixDot} style={d.style as CSSProperties} />
             ))}
           </span>
         ) : isMorph(variant) ? (
@@ -667,9 +664,7 @@ export function Orb({
             {/* focus is the one variant that needs a fourth circle: its cast
                 sits on the corners of a square, and three corners do not
                 make a square. */}
-            {variant === "B1" && (
-              <span className={styles.shape + " " + styles.shapeD} />
-            )}
+            {variant === "B1" && <span className={styles.shape + " " + styles.shapeD} />}
           </span>
         )}
       </span>

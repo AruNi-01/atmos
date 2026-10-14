@@ -35,7 +35,10 @@ import {
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 
-import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";
+import type {
+  GithubInstallation,
+  GithubRepository,
+} from "@/features/automations/lib/github-trigger-relay";
 import type { GithubEventFamily, GithubInt64 } from "@/features/automations/types";
 
 const EVENT_OPTIONS: Array<{
@@ -229,11 +232,20 @@ export function AutomationGithubTriggerPanel({
               disabled={loading || installations.length === 0}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={loading ? t("placeholders.loadingInstallations") : t("placeholders.selectInstallation")} />
+                <SelectValue
+                  placeholder={
+                    loading
+                      ? t("placeholders.loadingInstallations")
+                      : t("placeholders.selectInstallation")
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {installations.map((installation) => (
-                  <SelectItem key={installation.installation_id} value={String(installation.installation_id)}>
+                  <SelectItem
+                    key={installation.installation_id}
+                    value={String(installation.installation_id)}
+                  >
                     {installation.account_login
                       ? t("installationOption.withLogin", {
                           login: installation.account_login,
@@ -254,7 +266,13 @@ export function AutomationGithubTriggerPanel({
               disabled={!selectedInstallationId || repositoriesLoading || repositories.length === 0}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={repositoriesLoading ? t("placeholders.loadingRepositories") : t("placeholders.selectRepository")} />
+                <SelectValue
+                  placeholder={
+                    repositoriesLoading
+                      ? t("placeholders.loadingRepositories")
+                      : t("placeholders.selectRepository")
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {repositories.map((repo) => (
@@ -268,7 +286,10 @@ export function AutomationGithubTriggerPanel({
 
           <div className="space-y-2">
             <Label>{t("fields.event")}</Label>
-            <Select value={eventFamily} onValueChange={(value) => onEventFamilyChange(value as GithubEventFamily)}>
+            <Select
+              value={eventFamily}
+              onValueChange={(value) => onEventFamilyChange(value as GithubEventFamily)}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -376,7 +397,11 @@ function TextField({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+      <Input
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </div>
   );
 }
@@ -451,7 +476,7 @@ function TokenField({
             <span className="truncate">{token}</span>
             <button
               type="button"
-              className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               aria-label={t("removeTokenAria", { token })}
               onClick={(event) => {
                 event.stopPropagation();
@@ -468,7 +493,11 @@ function TokenField({
           placeholder={tokens.length === 0 ? placeholder : ""}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === "," || (event.key === "Tab" && draft.trim())) {
+            if (
+              event.key === "Enter" ||
+              event.key === "," ||
+              (event.key === "Tab" && draft.trim())
+            ) {
               event.preventDefault();
               commitDraft(draft);
               return;
@@ -560,13 +589,7 @@ function SelectField({
   );
 }
 
-function IconOptionLabel({
-  Icon,
-  label,
-}: {
-  Icon?: LucideIcon;
-  label: string;
-}) {
+function IconOptionLabel({ Icon, label }: { Icon?: LucideIcon; label: string }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}

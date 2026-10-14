@@ -2,7 +2,14 @@
 
 import "./excalidraw-assets";
 import React from "react";
-import { DefaultSidebar, Excalidraw, MainMenu, Sidebar, convertToExcalidrawElements, useHandleLibrary } from "@excalidraw/excalidraw";
+import {
+  DefaultSidebar,
+  Excalidraw,
+  MainMenu,
+  Sidebar,
+  convertToExcalidrawElements,
+  useHandleLibrary,
+} from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { ArrowLeft, FolderOpen, Library, Save, Sparkles, Users } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
@@ -29,10 +36,7 @@ import {
   stampPtCustomData,
   toExcalidrawCompatElements,
 } from "./scene-bridge";
-import {
-  bindExcalidrawLibraryWindowName,
-  localStorageLibraryAdapter,
-} from "./excalidraw-library";
+import { bindExcalidrawLibraryWindowName, localStorageLibraryAdapter } from "./excalidraw-library";
 import { observeShortcutDecorations } from "./shortcut-keys";
 import { observeSidebarExit, wrapToggleSidebar } from "./sidebar-motion";
 import {
@@ -100,11 +104,14 @@ function hydrateHandleElements(elements: readonly unknown[]): unknown[] {
   );
   const converted = alreadyLive
     ? asLive
-    : convertToExcalidrawElements(toExcalidrawCompatElements(elements) as never, { regenerateIds: false });
+    : convertToExcalidrawElements(toExcalidrawCompatElements(elements) as never, {
+        regenerateIds: false,
+      });
   const globalRadius = catalogRadiusRef.current;
-  return stampPtCustomData(converted as { id: string; customData?: { pt?: { id?: string } } }[], source).map(
-    (el) => cloneScenePtCustomData(prepareLiveHandle(el, globalRadius)),
-  );
+  return stampPtCustomData(
+    converted as { id: string; customData?: { pt?: { id?: string } } }[],
+    source,
+  ).map((el) => cloneScenePtCustomData(prepareLiveHandle(el, globalRadius)));
 }
 
 function excalidrawHistoryButton(
@@ -311,7 +318,13 @@ function bindHostApi(api: ExcalidrawApi): ExcalidrawHostApi {
       let hydrated: unknown[] | undefined;
       if (input.elements) {
         hydrated = hydrateHandleElements(input.elements);
-        restampState.ingest(hydrated as { id: string; versionNonce?: number; customData?: { pt?: { id?: string } } }[]);
+        restampState.ingest(
+          hydrated as {
+            id: string;
+            versionNonce?: number;
+            customData?: { pt?: { id?: string } };
+          }[],
+        );
       }
       if (captureUpdate === "IMMEDIATELY") {
         armSkipInkAfterImmediate(api); // skipInkAfterImmediate: no theme ink this frame
@@ -347,11 +360,13 @@ function bindHostApi(api: ExcalidrawApi): ExcalidrawHostApi {
         },
       });
     },
-    getSceneElements: () => restampState.restamp(api.getSceneElements() as unknown as ExcalidrawCompatElement[]),
+    getSceneElements: () =>
+      restampState.restamp(api.getSceneElements() as unknown as ExcalidrawCompatElement[]),
     getSceneElementsIncludingDeleted: () =>
-      restampState.restamp(api.getSceneElementsIncludingDeleted() as unknown as ExcalidrawCompatElement[]),
-    getFiles: () =>
-      typeof api.getFiles === "function" ? api.getFiles() : {},
+      restampState.restamp(
+        api.getSceneElementsIncludingDeleted() as unknown as ExcalidrawCompatElement[],
+      ),
+    getFiles: () => (typeof api.getFiles === "function" ? api.getFiles() : {}),
     addFiles: (files) => {
       api.addFiles(files as never);
     },
@@ -462,13 +477,16 @@ export default function ExcalidrawBoard({
     boardRef.current?.querySelector<HTMLElement>(".excalidraw")?.focus({ preventScroll: true });
   }, []);
 
-  const stealEditFocusFromOverlay = React.useCallback((event: { target: EventTarget | null }) => {
-    if (viewModeRef.current) return;
-    const target = event.target;
-    if (!(target instanceof Element) || !target.closest("[data-pt-overlay-id]")) return;
-    if (target.closest("[data-pt-text-editing]")) return;
-    focusEditBoard();
-  }, [focusEditBoard]);
+  const stealEditFocusFromOverlay = React.useCallback(
+    (event: { target: EventTarget | null }) => {
+      if (viewModeRef.current) return;
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest("[data-pt-overlay-id]")) return;
+      if (target.closest("[data-pt-text-editing]")) return;
+      focusEditBoard();
+    },
+    [focusEditBoard],
+  );
 
   const captureEditUndoHotkey = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!editBoardCapturesUndoHotkey(viewModeRef.current, event.nativeEvent)) return;
@@ -494,19 +512,22 @@ export default function ExcalidrawBoard({
   // loadPersist cannot be wiped by the empty initialData restore.
 
   const handleSceneChange = React.useCallback(
-    (elements: readonly unknown[], appState: {
-      cursorButton?: string;
-      newElement?: unknown;
-      currentItemStrokeColor?: string;
-      viewBackgroundColor: string;
-      selectedElementIds: Record<string, boolean>;
-      scrollX: number;
-      scrollY: number;
-      zoom: { value: number };
-      width: number;
-      height: number;
-      viewModeEnabled?: boolean;
-    }) => {
+    (
+      elements: readonly unknown[],
+      appState: {
+        cursorButton?: string;
+        newElement?: unknown;
+        currentItemStrokeColor?: string;
+        viewBackgroundColor: string;
+        selectedElementIds: Record<string, boolean>;
+        scrollX: number;
+        scrollY: number;
+        zoom: { value: number };
+        width: number;
+        height: number;
+        viewModeEnabled?: boolean;
+      },
+    ) => {
       const api = apiRef.current;
       if (api && !handedOffRef.current) {
         handedOffRef.current = true;
@@ -527,7 +548,10 @@ export default function ExcalidrawBoard({
       }
       const typed = elements as unknown as readonly ExcalidrawCompatElement[];
       const drawing = appState.cursorButton === "down" || Boolean(appState.newElement);
-      const desiredStroke = resolveDrawingStrokeColor(themeRef.current, appState.currentItemStrokeColor);
+      const desiredStroke = resolveDrawingStrokeColor(
+        themeRef.current,
+        appState.currentItemStrokeColor,
+      );
       const inked = drawing ? typed : applyThemeInkToElements(typed, themeRef.current);
       const elementsChanged = inked !== typed;
       // Raw updateScene bypasses hydrate. Never write [] (would replaceAllElements
@@ -621,9 +645,7 @@ export default function ExcalidrawBoard({
         currentItemRoughness: 1,
         currentItemFontFamily: FONT_EXCALIFONT,
         ...ink,
-        ...(isDefaultStrokeColor(currentStroke)
-          ? {}
-          : { currentItemStrokeColor: currentStroke }),
+        ...(isDefaultStrokeColor(currentStroke) ? {} : { currentItemStrokeColor: currentStroke }),
       },
       captureUpdate: "NEVER",
     });
@@ -709,7 +731,11 @@ export default function ExcalidrawBoard({
                 <ShareTrigger
                   active={Boolean(sharePanel?.open)}
                   collaborating={isCollaborating}
-                  title={isCollaborating ? (sharePanel?.copy.openMenu ?? "Collaborate") : (sharePanel?.copy.startMenu ?? "Collaborate")}
+                  title={
+                    isCollaborating
+                      ? (sharePanel?.copy.openMenu ?? "Collaborate")
+                      : (sharePanel?.copy.startMenu ?? "Collaborate")
+                  }
                   onClick={onShare}
                 />
               ) : null}
@@ -755,11 +781,7 @@ export default function ExcalidrawBoard({
         {menuItems && menuItems.length > 0 ? (
           <MainMenu>
             {menuItems.map((item) => (
-              <MainMenu.Item
-                key={item.id}
-                icon={menuIcon(item.id)}
-                onSelect={item.onSelect}
-              >
+              <MainMenu.Item key={item.id} icon={menuIcon(item.id)} onSelect={item.onSelect}>
                 {item.label}
               </MainMenu.Item>
             ))}
@@ -787,7 +809,10 @@ export default function ExcalidrawBoard({
                   ) : null}
                 </Sidebar.TabTriggers>
                 {catalogStyle ? (
-                  <CatalogStyleMenu radius={catalogStyle.radius} onRadiusChange={catalogStyle.onRadiusChange} />
+                  <CatalogStyleMenu
+                    radius={catalogStyle.radius}
+                    onRadiusChange={catalogStyle.onRadiusChange}
+                  />
                 ) : null}
               </Sidebar.Header>
               <Sidebar.Tab tab="component">

@@ -43,9 +43,7 @@ function workspaceBlock(request: AgentRequest): string {
 
 function selectionBlock(request: AgentRequest): string {
   if (!request.selection?.markdown) return "";
-  const heading = request.selection.heading
-    ? `Heading: ${request.selection.heading}\n`
-    : "";
+  const heading = request.selection.heading ? `Heading: ${request.selection.heading}\n` : "";
   return `[Selection]\n${heading}${request.selection.markdown}`;
 }
 

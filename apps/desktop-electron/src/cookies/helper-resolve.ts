@@ -21,25 +21,17 @@ const COMMON_TRIPLES = [
  * Host triples + env overrides used by CI (`--target ${{ matrix.target }}`).
  * cargo writes to target/<triple>/release when --target is set.
  */
-export function resolveCargoTargetTriples(
-  env: NodeJS.ProcessEnv = process.env,
-): string[] {
-  const fromEnv = [
-    env.ATMOS_CARGO_TARGET,
-    env.CARGO_BUILD_TARGET,
-    env.CARGO_TARGET,
-  ].filter((v): v is string => Boolean(v && v.trim()));
+export function resolveCargoTargetTriples(env: NodeJS.ProcessEnv = process.env): string[] {
+  const fromEnv = [env.ATMOS_CARGO_TARGET, env.CARGO_BUILD_TARGET, env.CARGO_TARGET].filter(
+    (v): v is string => Boolean(v && v.trim()),
+  );
 
   const triples = new Set<string>([...fromEnv, ...COMMON_TRIPLES]);
   return [...triples];
 }
 
-export function cookieHelperBinName(
-  platform: NodeJS.Platform = process.platform,
-): string {
-  return platform === "win32"
-    ? "atmos-browser-cookies.exe"
-    : "atmos-browser-cookies";
+export function cookieHelperBinName(platform: NodeJS.Platform = process.platform): string {
+  return platform === "win32" ? "atmos-browser-cookies.exe" : "atmos-browser-cookies";
 }
 
 /**

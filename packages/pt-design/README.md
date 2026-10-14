@@ -4,12 +4,12 @@ Prototype Design — Agent-first interactive canvas. PTX is the source file. Not
 
 `@atmos/pt-design` is a **library**, not one long-running product server. The playground, MCP, CLI, and Atmos embed are separate entry points that share the same PTX protocol.
 
-| Entry | What it is | Starts a process? | Talks to the others? |
-|-------|------------|-------------------|----------------------|
-| Atmos center tab | React embed of `PtDesignApp` | No — mounts inside web/desktop | No |
-| Playground | Local HTML host for the same React app | Yes — `Bun.serve` on `:4173` | No |
-| CLI `pt-design` | One-shot tool runner | Exits after the command | Only via `--file` |
-| MCP `pt-design-mcp` | Stdio JSON-RPC tool server | Yes — stays up on stdin/stdout | Only via `--file` |
+| Entry               | What it is                             | Starts a process?              | Talks to the others? |
+| ------------------- | -------------------------------------- | ------------------------------ | -------------------- |
+| Atmos center tab    | React embed of `PtDesignApp`           | No — mounts inside web/desktop | No                   |
+| Playground          | Local HTML host for the same React app | Yes — `Bun.serve` on `:4173`   | No                   |
+| CLI `pt-design`     | One-shot tool runner                   | Exits after the command        | Only via `--file`    |
+| MCP `pt-design-mcp` | Stdio JSON-RPC tool server             | Yes — stays up on stdin/stdout | Only via `--file`    |
 
 Starting the playground does **not** start MCP. Starting MCP does **not** serve a web UI.
 

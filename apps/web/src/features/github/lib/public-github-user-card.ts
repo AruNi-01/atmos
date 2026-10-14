@@ -10,8 +10,7 @@ export type GithubUserCardSource = "auto" | "public" | "ws";
 export const PUBLIC_USER_CARD_CONTRIBUTION_DAYS = 119;
 
 /** Jonathan Gruber's public contributions host — the one Great UI Github Card uses. */
-export const PUBLIC_GITHUB_CONTRIBUTIONS_API =
-  "https://github-contributions-api.jogruber.de/v4";
+export const PUBLIC_GITHUB_CONTRIBUTIONS_API = "https://github-contributions-api.jogruber.de/v4";
 
 export function formatContributionDate(dateStr: string, locale = "en") {
   if (!dateStr) return "";
@@ -41,8 +40,7 @@ export function resolveGithubUserCardSources(
   wsFailed: boolean,
 ): { useWs: boolean; usePublic: boolean } {
   const useWs = source !== "public" && wsAvailable;
-  const usePublic =
-    source !== "ws" && (source === "public" || !wsAvailable || wsFailed);
+  const usePublic = source !== "ws" && (source === "public" || !wsAvailable || wsFailed);
   return { useWs, usePublic };
 }
 
@@ -76,10 +74,7 @@ function parseContributionDays(raw: unknown): GithubContributionDayPayload[] {
     : days;
 }
 
-function parseLastYearTotal(
-  raw: unknown,
-  contributions: GithubContributionDayPayload[],
-): number {
+function parseLastYearTotal(raw: unknown, contributions: GithubContributionDayPayload[]): number {
   if (raw && typeof raw === "object") {
     const total = raw as Record<string, unknown>;
     if (typeof total.lastYear === "number" && Number.isFinite(total.lastYear)) {
@@ -119,9 +114,7 @@ export function parsePublicGithubUserCard(
  * (`github-contributions-api.jogruber.de`) so the browser never hits
  * `api.github.com` — unauthenticated GitHub REST 403s under rate limits.
  */
-export async function fetchPublicGithubUserCard(
-  login: string,
-): Promise<GithubUserCardPayload> {
+export async function fetchPublicGithubUserCard(login: string): Promise<GithubUserCardPayload> {
   const normalized = normalizeGithubLogin(login);
   if (!normalized || /[/\s]/.test(normalized)) {
     throw new Error("GitHub username is required");

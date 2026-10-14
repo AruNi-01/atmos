@@ -17,15 +17,14 @@ export function useMentionFiles(workspaceId: string): MentionFile[] {
       return wsActions.projectWorkspaceBootstrap(client);
     },
   });
-  const scope = bootstrapQuery.data
-    ? resolveChatScope(bootstrapQuery.data, workspaceId)
-    : null;
+  const scope = bootstrapQuery.data ? resolveChatScope(bootstrapQuery.data, workspaceId) : null;
   const cwd = scope?.ok ? scope.cwd : null;
   const filesQuery = useQuery({
     queryKey: ["agent-chat-mention-files", selectedServerId, cwd],
     enabled: Boolean(connected && cwd),
     queryFn: () => {
-      if (!client || !cwd) return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
+      if (!client || !cwd)
+        return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
       return client.request("fs_list_project_files", {
         root_path: cwd,
         show_hidden: false,

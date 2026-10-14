@@ -1,9 +1,6 @@
 "use client";
 
-import type {
-  AgentFixPromptResult,
-  AgentFixPromptSource,
-} from "@/features/agent-fix/types";
+import type { AgentFixPromptResult, AgentFixPromptSource } from "@/features/agent-fix/types";
 
 export function normalizeAgentFixPromptResult(
   value: AgentFixPromptResult | string,

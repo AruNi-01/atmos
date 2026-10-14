@@ -52,10 +52,7 @@ export async function seedOnboardingComplete(page: Page): Promise<void> {
  * Seed runtime locale before the first document load (APP-028).
  * Workbench language is localStorage-backed, not `/zh/...` routes.
  */
-export async function seedWorkbenchLocale(
-  page: Page,
-  locale: WorkbenchLocale,
-): Promise<void> {
+export async function seedWorkbenchLocale(page: Page, locale: WorkbenchLocale): Promise<void> {
   await page.addInitScript(
     ({ key, value }) => {
       try {
@@ -102,15 +99,11 @@ export async function openActionMenu(page: Page): Promise<void> {
 
 export async function openSettingsPage(page: Page): Promise<void> {
   await page.getByRole("button", { name: /Open settings|打开设置/ }).click();
-  await expect
-    .poll(async () => normalizePathname(new URL(page.url()).pathname))
-    .toBe("/settings");
+  await expect.poll(async () => normalizePathname(new URL(page.url()).pathname)).toBe("/settings");
 }
 
 export async function closeSettingsPage(page: Page): Promise<void> {
-  await page
-    .getByRole("button", { name: /Close settings|关闭设置|^Back$|^返回$/ })
-    .click();
+  await page.getByRole("button", { name: /Close settings|关闭设置|^Back$|^返回$/ }).click();
   await expect
     .poll(async () => normalizePathname(new URL(page.url()).pathname))
     .not.toBe("/settings");
@@ -130,12 +123,8 @@ export async function gotoSettingsRoute(
   });
   expect(response, `missing navigation response for ${href}`).not.toBeNull();
   expect(response!.status(), `unexpected status for ${href}`).toBeLessThan(500);
-  await expect
-    .poll(async () => page.locator("html").getAttribute("lang"))
-    .toBe(expectedLocale);
-  await expect
-    .poll(async () => normalizePathname(new URL(page.url()).pathname))
-    .toBe("/settings");
+  await expect.poll(async () => page.locator("html").getAttribute("lang")).toBe(expectedLocale);
+  await expect.poll(async () => normalizePathname(new URL(page.url()).pathname)).toBe("/settings");
   if (tab) {
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
@@ -305,9 +294,7 @@ export async function gotoContextRoute(
   });
   expect(response, `missing navigation response for ${url}`).not.toBeNull();
   expect(response!.status(), `unexpected status for ${url}`).toBeLessThan(500);
-  await expect
-    .poll(async () => page.locator("html").getAttribute("lang"))
-    .toBe(expectedLocale);
+  await expect.poll(async () => page.locator("html").getAttribute("lang")).toBe(expectedLocale);
   const centerStage = await getCenterStage(page);
   await expect(centerStage).toBeVisible();
   await page.waitForTimeout(400);
@@ -380,7 +367,10 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
           });
 
           socket.addEventListener("error", () => {
-            finish((value) => reject(value as Error), new Error(`WebSocket transport error for ${action}`));
+            finish(
+              (value) => reject(value as Error),
+              new Error(`WebSocket transport error for ${action}`),
+            );
           });
         });
       }
@@ -399,15 +389,16 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
         }
       }
 
-      let projects = await listProjects();
-      const candidateProjectPaths = [seedProjectPath, repoRoot].filter(
-        (value): value is string => Boolean(value),
+      const projects = await listProjects();
+      const candidateProjectPaths = [seedProjectPath, repoRoot].filter((value): value is string =>
+        Boolean(value),
       );
       let targetProject =
         projects.find((project) =>
           candidateProjectPaths.some(
             (candidate) =>
-              candidate && (project.main_file_path === candidate || project.main_file_path?.endsWith(candidate)),
+              candidate &&
+              (project.main_file_path === candidate || project.main_file_path?.endsWith(candidate)),
           ),
         ) ??
         projects[0] ??
@@ -425,9 +416,7 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
 
       let workspaces = await listWorkspaces(targetProject.guid);
       let targetWorkspace =
-        workspaces.find((workspace) => !workspace.is_archived) ??
-        workspaces[0] ??
-        null;
+        workspaces.find((workspace) => !workspace.is_archived) ?? workspaces[0] ?? null;
 
       if (!targetWorkspace) {
         await wsRequest("workspace_create", {
@@ -448,9 +437,7 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
         });
         workspaces = await listWorkspaces(targetProject.guid);
         targetWorkspace =
-          workspaces.find((workspace) => !workspace.is_archived) ??
-          workspaces[0] ??
-          null;
+          workspaces.find((workspace) => !workspace.is_archived) ?? workspaces[0] ?? null;
       }
 
       if (!targetProject || !targetWorkspace) {
@@ -469,7 +456,12 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
 /** Open a center-stage plus-menu tool tab (Files / Changes / Review / …). */
 export async function activateWorkspaceToolTab(page: Page, name: RegExp) {
   const toolTab = page.getByRole("tab", { name });
-  if (!(await toolTab.first().isVisible().catch(() => false))) {
+  if (
+    !(await toolTab
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
     const plusTrigger = page
       .locator("main [data-center-stage-plus-trigger]")
       .filter({ visible: true })

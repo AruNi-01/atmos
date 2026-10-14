@@ -12,15 +12,7 @@ import {
   toastManager,
   cn,
 } from "@workspace/ui";
-import {
-  Check,
-  Copy,
-  ExternalLink,
-  FolderGit2,
-  Home,
-  SquareTerminal,
-  X,
-} from "lucide-react";
+import { Check, Copy, ExternalLink, FolderGit2, Home, SquareTerminal, X } from "lucide-react";
 import { fsApi } from "@/api/ws-api";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
 import {
@@ -72,8 +64,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
   const command = skill ? buildSkillInstallCommand(skill.downloadUrl) : "";
   const sourceUrl = skill ? resolveSkillSourceUrl(skill) : "";
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
-  const terminalWorkspaceId =
-    installScope === "global" ? "default" : selectedProject?.id ?? null;
+  const terminalWorkspaceId = installScope === "global" ? "default" : (selectedProject?.id ?? null);
 
   const terminalTarget =
     installScope === "global" && homeDir
@@ -87,16 +78,16 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
           targetLabel: tr("scope.global.targetLabel"),
         }
       : selectedProject
-      ? {
-          workspaceId: selectedProject.id,
-          projectName: selectedProject.name,
-          workspaceName: selectedProject.mainFilePath ?? selectedProject.name,
-          cwd: selectedProject.mainFilePath ?? "",
-          cwdLabel: selectedProject.mainFilePath ?? selectedProject.name,
-          scopeHint: tr("scope.project.targetHint"),
-          targetLabel: selectedProject.name,
-        }
-      : null;
+        ? {
+            workspaceId: selectedProject.id,
+            projectName: selectedProject.name,
+            workspaceName: selectedProject.mainFilePath ?? selectedProject.name,
+            cwd: selectedProject.mainFilePath ?? "",
+            cwdLabel: selectedProject.mainFilePath ?? selectedProject.name,
+            scopeHint: tr("scope.project.targetHint"),
+            targetLabel: selectedProject.name,
+          }
+        : null;
 
   React.useEffect(() => {
     if (!open || !skill) {
@@ -287,7 +278,12 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
               {tr("title", { skillTitle: skill.title }) || skill.title}
             </DialogTitle>
             <div className="flex shrink-0 items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleCopyCommand} className="cursor-pointer">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyCommand}
+                className="cursor-pointer"
+              >
                 <Copy className="mr-1.5 size-3.5" />
                 {tr("buttons.copyCommand")}
               </Button>
@@ -307,18 +303,9 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
               tr("description.configure")
             ) : (
               <>
-                {tr("description.terminalLead") && (
-                  <>
-                    {tr("description.terminalLead")}{" "}
-                  </>
-                )}
+                {tr("description.terminalLead") && <>{tr("description.terminalLead")} </>}
                 <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{command}</code>
-                {tr("description.terminalTail") && (
-                  <>
-                    {" "}
-                    {tr("description.terminalTail")}
-                  </>
-                )}
+                {tr("description.terminalTail") && <> {tr("description.terminalTail")}</>}
               </>
             )}
           </DialogDescription>
@@ -340,7 +327,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                   type="button"
                   onClick={() => setInstallScope("global")}
                   className={cn(
-                    "flex items-start gap-3 rounded-xl border p-4 text-left cursor-pointer",
+                    "flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-left",
                     installScope === "global"
                       ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                       : "border-border hover:bg-muted/40",
@@ -366,7 +353,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                   type="button"
                   onClick={() => setInstallScope("project")}
                   className={cn(
-                    "flex items-start gap-3 rounded-xl border p-4 text-left cursor-pointer",
+                    "flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-left",
                     installScope === "project"
                       ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                       : "border-border hover:bg-muted/40",
@@ -397,7 +384,8 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                         {tr("projects.title")}
                       </h3>
                       <span className="text-xs text-muted-foreground">
-                        {tr("projects.available", { count: projects.length }) || String(projects.length)}
+                        {tr("projects.available", { count: projects.length }) ||
+                          String(projects.length)}
                       </span>
                     </div>
 
@@ -413,7 +401,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                             type="button"
                             onClick={() => setSelectedProjectId(project.id)}
                             className={cn(
-                              "flex items-start justify-between gap-3 rounded-lg border px-3 py-3 text-left cursor-pointer",
+                              "flex cursor-pointer items-start justify-between gap-3 rounded-lg border px-3 py-3 text-left",
                               selectedProjectId === project.id
                                 ? "border-primary/40 bg-primary/5"
                                 : "border-border hover:bg-muted/40",
@@ -421,11 +409,13 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                           >
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-foreground">{project.name}</p>
-                              <p className="mt-1 break-all text-xs leading-relaxed text-muted-foreground">
+                              <p className="mt-1 text-xs leading-relaxed break-all text-muted-foreground">
                                 {project.mainFilePath}
                               </p>
                             </div>
-                            {selectedProjectId === project.id && <Check className="mt-0.5 size-4 shrink-0 text-primary" />}
+                            {selectedProjectId === project.id && (
+                              <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                            )}
                           </button>
                         ))}
                       </div>
@@ -450,14 +440,14 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                       ? tr("target.preparingGlobalInstall")
                       : tr("target.chooseProject")}
                 </p>
-                <p className="mt-1 break-all text-xs text-muted-foreground">
+                <p className="mt-1 text-xs break-all text-muted-foreground">
                   {tr("labels.cwd")}{" "}
                   <code className="rounded bg-background px-1 py-0.5">
                     {terminalTarget?.cwdLabel ||
                       (installScope === "global"
-                        ? (isPreparingTargets
-                            ? tr("target.loadingHomeDirectory")
-                            : "~")
+                        ? isPreparingTargets
+                          ? tr("target.loadingHomeDirectory")
+                          : "~"
                         : tr("target.selectProjectToContinue"))}
                   </code>
                 </p>
@@ -472,7 +462,11 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
               </div>
 
               <div className="mt-4 flex justify-end">
-                <Button onClick={handleStartTerminal} disabled={!canStartTerminal} className="cursor-pointer">
+                <Button
+                  onClick={handleStartTerminal}
+                  disabled={!canStartTerminal}
+                  className="cursor-pointer"
+                >
                   <SquareTerminal className="mr-1.5 size-4" />
                   {tr("buttons.openTerminal")}
                 </Button>
@@ -483,20 +477,32 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
               <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{terminalTarget?.targetLabel}</p>
-                    <p className="mt-1 break-all text-xs text-muted-foreground">
-                      {tr("labels.cwd")} <code className="rounded bg-background px-1 py-0.5">{terminalTarget?.cwdLabel}</code>
+                    <p className="text-sm font-medium text-foreground">
+                      {terminalTarget?.targetLabel}
                     </p>
-                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{terminalTarget?.scopeHint}</p>
+                    <p className="mt-1 text-xs break-all text-muted-foreground">
+                      {tr("labels.cwd")}{" "}
+                      <code className="rounded bg-background px-1 py-0.5">
+                        {terminalTarget?.cwdLabel}
+                      </code>
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      {terminalTarget?.scopeHint}
+                    </p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleCloseTerminalView} className="shrink-0 cursor-pointer">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCloseTerminalView}
+                    className="shrink-0 cursor-pointer"
+                  >
                     <X className="mr-1.5 size-3.5" />
                     {tr("buttons.backToSetup")}
                   </Button>
                 </div>
               </div>
 
-              <div className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
                 <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5 text-xs text-muted-foreground">
                   <span className="truncate">{terminalTarget?.targetLabel}</span>
                   <span className="truncate text-right">{terminalTarget?.cwdLabel || "~"}</span>

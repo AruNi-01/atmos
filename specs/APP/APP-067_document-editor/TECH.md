@@ -53,15 +53,15 @@ flowchart TD
 
 ### Naming
 
-| Layer | Name |
-|-------|------|
-| Package | `@atmos/md-live` |
-| Host feature | `apps/web/src/features/md-live/` |
-| Composer surface | `md-live` |
-| i18n | `mdLive` + existing `codeMirror.*` toggle keys |
-| CSS root | `.md-live` |
-| User-facing | **Live** / **Source** on the file tab. No “Docs” workbench. No second “Editor” brand. |
-| New note | Untitled buffer → Save as into `{effectivePath}/Untitled.md` (or `Untitled-N.md`). No `docs/` default. |
+| Layer            | Name                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
+| Package          | `@atmos/md-live`                                                                                       |
+| Host feature     | `apps/web/src/features/md-live/`                                                                       |
+| Composer surface | `md-live`                                                                                              |
+| i18n             | `mdLive` + existing `codeMirror.*` toggle keys                                                         |
+| CSS root         | `.md-live`                                                                                             |
+| User-facing      | **Live** / **Source** on the file tab. No “Docs” workbench. No second “Editor” brand.                  |
+| New note         | Untitled buffer → Save as into `{effectivePath}/Untitled.md` (or `Untitled-N.md`). No `docs/` default. |
 
 `features/editor` remains CodeMirror. Do not put md-live UI there beyond the mount point in `CodeMirrorEditor.tsx`.
 
@@ -85,47 +85,47 @@ Banned: `@milkdown/crepe`, `@milkdown/plugin-block`, `@blocknote/*`, `@tiptap-pr
 
 ## Resolved decisions
 
-| ID | Decision |
-|----|----------|
-| D1 | Home = existing `.md` file tab. No `"docs"` center kind and no launchpad in v1. |
-| D2 | Package **`@atmos/md-live`**. Codec + fence + `AgentRequest` on `.`. Generic Live chrome (Milkdown editor, `/` menu, selection toolbar, format commands) on **`@atmos/md-live/ui`**. Host **`features/md-live`** wires Agent dock, Save as, Atmos embeds, PTY. <!-- updated 2026-08-27: generic slash/toolbar/editor moved into the package --> |
-| D3 | Persist the markdown string. Never persist ProseMirror/Milkdown JSON. |
-| D4 | **New note** opens an untitled Live tab. No disk write, no `docs/` directory. Proposed save location = `{effectivePath}/` (Project / Workspace root). Proposed name = next free `Untitled.md` / `Untitled-1.md` / `Untitled-2.md` in the **currently selected** save directory (same stem rule as Canvas). |
-| D5 | Two views only: Live vs Source. |
-| D6 | Milkdown **kit only**. No drag-handle chrome. |
-| D7 | **One `PromptComposer`**, surfaces `welcome` \| `terminal` \| `md-live`. Dock on Live-eligible markdown tabs only (Live and Source). Body `/` vs composer `/` are focus-owned (D29). |
-| D8 | Live selection = Milkdown tooltip (format + Ask / Rewrite / Summarize). Source = existing `SelectionPopover`. **Do not show both.** `doc-selection` uses `[#ctx:doc-selection:id]` — extend `AI_CONTEXT_KINDS`, do not widen `CHIP_TOKEN_PATTERN`. |
-| D9 | Adapters: **`copy`** and **`headless` only**. No `terminal-current`. Agent identity = existing AI Input Agent Select. ACP is N1. |
-| D10 | Headless = selected agent + APP-024 `buildInteractiveAgentRunPlan(..., mode: "headless")`. May create a PTY session so the CLI can run. **Do not** switch the workbench to Terminal. **Do not** send into the user’s current interactive shell. Editor dock is the only Agent UX. |
-| D11 | The agent is **forbidden** from writing `{document.path}`. Accept + existing save is the only document write. If disk still changed: after Accept, editor buffer wins on save. Do not productize dual-write. Keep mine / Load disk only as a crash/unexpected-external-change guard on focus, not as an Agent feature. |
-| D12 | AgentRequest body cap 100 KiB; else path + current heading + selection. |
-| D13 | Images: relative worktree files, `![](...)`. Not embeds. |
-| D14 | i18n namespace `mdLive` + `codeMirror` toggle keys. Sentence case (`Live`, `Source`, `Accept`, `Reject`, `Copy prompt`). |
-| D15 | Frontmatter: Source-editable. Live may hide YAML behind a one-line title. |
-| D16 | **Embeds, not hijacked links.** Milkdown custom **atoms** + React `$view` via a host **registry**. Two schema nodes: `mdLiveEmbedInline` (`group: inline`) and `mdLiveEmbedBlock` (`group: block`). Same `kind` registry. Disk = Generic Directive (`:md-live` inline / `::md-live` card). Ordinary `https://` stays a link. Cards may fetch title/status and render **Open** (and later actions). Do not iframe native surfaces. Unknown kind → generic fallback card. |
-| D17 | In-document AI = kit `plugin/streaming` + `plugin/diff`. Provider = fence extractor. `outputHint: "text"` inserts as plain text; `outputHint: "markdown"` parses GFM. `customBlockTypes`: `mdLiveEmbedBlock`, `table`, `image`, `code_block`. **Not** mermaid / patch widgets (D35). Esc = `abortStreamingCmd({ keep: false })`. |
-| D18 | Atmos UI, not Crepe/Nord. Live prose = existing `MarkdownRenderer` Tailwind. Generic slash/toolbar/editor chrome = `@atmos/md-live/ui`. Host dock chrome = `@workspace/ui`. Scope leftovers to `.md-live`. |
-| D19 | **Default Live** for Live-eligible files. Persist per-path `live` \| `source`. |
-| D20 | **Mount exactly one editor.** Inactive `surfaceActive=false` tabs unmount Milkdown + dock. |
-| D21 | **Live-eligible** = untitled `untitled:{uuid}.md` tabs, or worktree `.md` the user is **authoring**, and **not** `.mdx`, **not** `.atmos/reviews/**`. Live is **never** mounted for GitHub issue/PR bodies, review-report preview, or patch/diff hunks (M20). Those stay read-only components. Renderer-only file tabs do **not** dock the composer. |
-| D22 | **No silent rewrite.** No-edit open must not dirty or rewrite disk. |
-| D23 | Pin `@milkdown/kit` / `@milkdown/react` **≥ 7.22.0**. |
-| D24 | Stream isolation fence: `<!--atmos-md-live-->` … `<!--/atmos-md-live-->`. Fallback: one ` ```atmos-md-live ` fence. Inner payload only enters Live. `copy` does **not** include this contract. |
-| D25 | **Streaming only from the headless run this editor started.** `copy` never streams and never asks the model to edit the file. |
-| D26 | Tap PTY via `features/terminal/lib/terminal-output-bus.ts`. Do not open a second terminal WebSocket. Do not focus/steal the Terminal tab. |
-| D27 | `mdLiveStreamLock` while streaming or diff-review pending. Disable autosave, Cmd-S, Live↔Source, file switch except Discard. Accept commits to `file.content`; then existing save. Reject restores the pre-stream snapshot. |
-| D28 | Embed disk form is a **directive**, not `[](atmos://...)`. Public objects still carry `url="https://..."` (or `path="..."`) so Agents can read them. See Embedded components. |
-| D29 | Slash = **focus**. Milkdown slash only when Live body is focused. Composer slash / Cmd-Enter only when the md-live composer is focused. Mosaic with Terminal may show two composers; each submits only itself. |
-| D30 | No string-offset `applyMarkdownTransform`. Format actions are Milkdown commands in `@atmos/md-live/ui`. |
-| D31 | Prompt files for `file_flag` go to `~/.atmos/cache/md-live-prompts/{uuid}.md`. Delete on run end. Never write a prompt file into the worktree. |
-| D32 | No `fs_watch` in v1. Re-read on run end + focus only as an unexpected-change guard (D11). |
+| ID  | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Home = existing `.md` file tab. No `"docs"` center kind and no launchpad in v1.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| D2  | Package **`@atmos/md-live`**. Codec + fence + `AgentRequest` on `.`. Generic Live chrome (Milkdown editor, `/` menu, selection toolbar, format commands) on **`@atmos/md-live/ui`**. Host **`features/md-live`** wires Agent dock, Save as, Atmos embeds, PTY. <!-- updated 2026-08-27: generic slash/toolbar/editor moved into the package -->                                                                                                                                                                                        |
+| D3  | Persist the markdown string. Never persist ProseMirror/Milkdown JSON.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| D4  | **New note** opens an untitled Live tab. No disk write, no `docs/` directory. Proposed save location = `{effectivePath}/` (Project / Workspace root). Proposed name = next free `Untitled.md` / `Untitled-1.md` / `Untitled-2.md` in the **currently selected** save directory (same stem rule as Canvas).                                                                                                                                                                                                                             |
+| D5  | Two views only: Live vs Source.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| D6  | Milkdown **kit only**. No drag-handle chrome.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| D7  | **One `PromptComposer`**, surfaces `welcome` \| `terminal` \| `md-live`. Dock on Live-eligible markdown tabs only (Live and Source). Body `/` vs composer `/` are focus-owned (D29).                                                                                                                                                                                                                                                                                                                                                   |
+| D8  | Live selection = Milkdown tooltip (format + Ask / Rewrite / Summarize). Source = existing `SelectionPopover`. **Do not show both.** `doc-selection` uses `[#ctx:doc-selection:id]` — extend `AI_CONTEXT_KINDS`, do not widen `CHIP_TOKEN_PATTERN`.                                                                                                                                                                                                                                                                                     |
+| D9  | Adapters: **`copy`** and **`headless` only**. No `terminal-current`. Agent identity = existing AI Input Agent Select. ACP is N1.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| D10 | Headless = selected agent + APP-024 `buildInteractiveAgentRunPlan(..., mode: "headless")`. May create a PTY session so the CLI can run. **Do not** switch the workbench to Terminal. **Do not** send into the user’s current interactive shell. Editor dock is the only Agent UX.                                                                                                                                                                                                                                                      |
+| D11 | The agent is **forbidden** from writing `{document.path}`. Accept + existing save is the only document write. If disk still changed: after Accept, editor buffer wins on save. Do not productize dual-write. Keep mine / Load disk only as a crash/unexpected-external-change guard on focus, not as an Agent feature.                                                                                                                                                                                                                 |
+| D12 | AgentRequest body cap 100 KiB; else path + current heading + selection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| D13 | Images: relative worktree files, `![](...)`. Not embeds.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| D14 | i18n namespace `mdLive` + `codeMirror` toggle keys. Sentence case (`Live`, `Source`, `Accept`, `Reject`, `Copy prompt`).                                                                                                                                                                                                                                                                                                                                                                                                               |
+| D15 | Frontmatter: Source-editable. Live may hide YAML behind a one-line title.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| D16 | **Embeds, not hijacked links.** Milkdown custom **atoms** + React `$view` via a host **registry**. Two schema nodes: `mdLiveEmbedInline` (`group: inline`) and `mdLiveEmbedBlock` (`group: block`). Same `kind` registry. Disk = Generic Directive (`:md-live` inline / `::md-live` card). Ordinary `https://` stays a link. Cards may fetch title/status and render **Open** (and later actions). Do not iframe native surfaces. Unknown kind → generic fallback card.                                                                |
+| D17 | In-document AI = kit `plugin/streaming` + `plugin/diff`. Provider = fence extractor. `outputHint: "text"` inserts as plain text; `outputHint: "markdown"` parses GFM. `customBlockTypes`: `mdLiveEmbedBlock`, `table`, `image`, `code_block`. **Not** mermaid / patch widgets (D35). Esc = `abortStreamingCmd({ keep: false })`.                                                                                                                                                                                                       |
+| D18 | Atmos UI, not Crepe/Nord. Live prose = existing `MarkdownRenderer` Tailwind. Generic slash/toolbar/editor chrome = `@atmos/md-live/ui`. Host dock chrome = `@workspace/ui`. Scope leftovers to `.md-live`.                                                                                                                                                                                                                                                                                                                             |
+| D19 | **Default Live** for Live-eligible files. Persist per-path `live` \| `source`.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| D20 | **Mount exactly one editor.** Inactive `surfaceActive=false` tabs unmount Milkdown + dock.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| D21 | **Live-eligible** = untitled `untitled:{uuid}.md` tabs, or worktree `.md` the user is **authoring**, and **not** `.mdx`, **not** `.atmos/reviews/**`. Live is **never** mounted for GitHub issue/PR bodies, review-report preview, or patch/diff hunks (M20). Those stay read-only components. Renderer-only file tabs do **not** dock the composer.                                                                                                                                                                                   |
+| D22 | **No silent rewrite.** No-edit open must not dirty or rewrite disk.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| D23 | Pin `@milkdown/kit` / `@milkdown/react` **≥ 7.22.0**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| D24 | Stream isolation fence: `<!--atmos-md-live-->` … `<!--/atmos-md-live-->`. Fallback: one ` ```atmos-md-live ` fence. Inner payload only enters Live. `copy` does **not** include this contract.                                                                                                                                                                                                                                                                                                                                         |
+| D25 | **Streaming only from the headless run this editor started.** `copy` never streams and never asks the model to edit the file.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| D26 | Tap PTY via `features/terminal/lib/terminal-output-bus.ts`. Do not open a second terminal WebSocket. Do not focus/steal the Terminal tab.                                                                                                                                                                                                                                                                                                                                                                                              |
+| D27 | `mdLiveStreamLock` while streaming or diff-review pending. Disable autosave, Cmd-S, Live↔Source, file switch except Discard. Accept commits to `file.content`; then existing save. Reject restores the pre-stream snapshot.                                                                                                                                                                                                                                                                                                            |
+| D28 | Embed disk form is a **directive**, not `[](atmos://...)`. Public objects still carry `url="https://..."` (or `path="..."`) so Agents can read them. See Embedded components.                                                                                                                                                                                                                                                                                                                                                          |
+| D29 | Slash = **focus**. Milkdown slash only when Live body is focused. Composer slash / Cmd-Enter only when the md-live composer is focused. Mosaic with Terminal may show two composers; each submits only itself.                                                                                                                                                                                                                                                                                                                         |
+| D30 | No string-offset `applyMarkdownTransform`. Format actions are Milkdown commands in `@atmos/md-live/ui`.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| D31 | Prompt files for `file_flag` go to `~/.atmos/cache/md-live-prompts/{uuid}.md`. Delete on run end. Never write a prompt file into the worktree.                                                                                                                                                                                                                                                                                                                                                                                         |
+| D32 | No `fs_watch` in v1. Re-read on run end + focus only as an unexpected-change guard (D11).                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | D33 | Untitled tab id: `OpenFile.path = "untitled:{uuid}.md"` (not a real FS path). Skip `fs_read_file` / autosave until Save as. Cmd-S or dock **Save** on untitled → **Save as** dialog (directory + filename, defaults D4). Confirm → `fs_write_file` at the chosen path → replace the untitled tab with a normal file tab (`openFile` that path, drop the synthetic id). Close untitled while dirty → save / discard / cancel; save opens Save as. Disk stem is always English `Untitled` (Canvas); tab label may use `mdLive.untitled`. |
-| D34 | Live uses GFM line breaks, not `remark-breaks`. |
-| D35 | Live does **not** reimplement review / GitHub / patch widgets. A ` ```diff ` fence in a working note is a normal code block (edit in Live as code, or Source). Patch rendering lives in a dedicated **`MarkdownPatchDiff`** component used by `MarkdownRenderer` (read-only file preview, review reports) and GitHub/review surfaces. |
-| D36 | `MarkdownToc` stays on Live-eligible file tabs, from the current markdown string. |
-| D37 | **Copy Prompt** = context citation only: path, selection, mentions, workspace. No `[Output contract]`, no “rewrite this file”, no fence instructions. User pastes it into some other Agent. |
-| D38 | Headless prompts **must** say: return only the fenced payload; **do not** use file tools on `{document.path}`; **do not** apply a patch to that file. Other files the user asked to change still go through Atmos Diff — that is a different surface, not this editor’s write path. |
-| D39 | Embed NodeViews: `contenteditable: false` + `stopEvent` so button / link / input clicks belong to React. Backspace deletes the whole atom. Register `mdLiveEmbedBlock` in Milkdown `customBlockTypes` so streaming diff can accept/reject a card as one block. |
+| D34 | Live uses GFM line breaks, not `remark-breaks`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| D35 | Live does **not** reimplement review / GitHub / patch widgets. A ` ```diff ` fence in a working note is a normal code block (edit in Live as code, or Source). Patch rendering lives in a dedicated **`MarkdownPatchDiff`** component used by `MarkdownRenderer` (read-only file preview, review reports) and GitHub/review surfaces.                                                                                                                                                                                                  |
+| D36 | `MarkdownToc` stays on Live-eligible file tabs, from the current markdown string.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| D37 | **Copy Prompt** = context citation only: path, selection, mentions, workspace. No `[Output contract]`, no “rewrite this file”, no fence instructions. User pastes it into some other Agent.                                                                                                                                                                                                                                                                                                                                            |
+| D38 | Headless prompts **must** say: return only the fenced payload; **do not** use file tools on `{document.path}`; **do not** apply a patch to that file. Other files the user asked to change still go through Atmos Diff — that is a different surface, not this editor’s write path.                                                                                                                                                                                                                                                    |
+| D39 | Embed NodeViews: `contenteditable: false` + `stopEvent` so button / link / input clicks belong to React. Backspace deletes the whole atom. Register `mdLiveEmbedBlock` in Milkdown `customBlockTypes` so streaming diff can accept/reject a card as one block.                                                                                                                                                                                                                                                                         |
 
 ## Module-by-module design
 
@@ -196,15 +196,15 @@ Markdown **links cannot host cards**. A link is `href` + text; it cannot carry l
 
 **Why Milkdown is enough**
 
-| Need | Milkdown / ProseMirror |
-|------|------------------------|
-| Block card vs inline chip | Two node types: `group: 'block'` vs `group: 'inline'`, both `atom: true`, `isolating: true` |
-| Full React UI (Card, Badge, Button) | `$view` + `@milkdown/react` `useNodeViewFactory` — official `react-custom-component` example |
-| Clicks on Open / copy | `contenteditable: false` on the NodeView DOM + `stopEvent` returning true for `button, a, input, [data-md-live-interactive]` |
-| Structured attrs on disk | `remark-directive` Generic Directive Syntax (Milkdown iframe plugin uses this) |
-| Future kinds without new schema | One directive name `md-live`; `kind` is an attribute; host **registry** picks the React view |
-| Streaming Accept/Reject | Register `mdLiveEmbedBlock` in `diffComponentConfig.customBlockTypes` (NodeViews ignore inline decorations) |
-| Nested markdown inside a callout | Container `:::md-live` — **reserved, not v1**. v1 is leaf/text directives only |
+| Need                                | Milkdown / ProseMirror                                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Block card vs inline chip           | Two node types: `group: 'block'` vs `group: 'inline'`, both `atom: true`, `isolating: true`                                  |
+| Full React UI (Card, Badge, Button) | `$view` + `@milkdown/react` `useNodeViewFactory` — official `react-custom-component` example                                 |
+| Clicks on Open / copy               | `contenteditable: false` on the NodeView DOM + `stopEvent` returning true for `button, a, input, [data-md-live-interactive]` |
+| Structured attrs on disk            | `remark-directive` Generic Directive Syntax (Milkdown iframe plugin uses this)                                               |
+| Future kinds without new schema     | One directive name `md-live`; `kind` is an attribute; host **registry** picks the React view                                 |
+| Streaming Accept/Reject             | Register `mdLiveEmbedBlock` in `diffComponentConfig.customBlockTypes` (NodeViews ignore inline decorations)                  |
+| Nested markdown inside a callout    | Container `:::md-live` — **reserved, not v1**. v1 is leaf/text directives only                                               |
 
 **Disk syntax** (Generic Directive, MIT `remark-directive`):
 
@@ -214,10 +214,10 @@ A file in a sentence :md-live[auth.ts]{kind=file layout=inline path="src/auth/gi
 ::md-live[GitHub #128]{kind=github-issue layout=card owner=acme repo=app n=128 url="https://github.com/acme/app/issues/128"}
 ```
 
-| Form | mdast | ProseMirror | Default UI |
-|------|-------|-------------|------------|
+| Form                                      | mdast           | ProseMirror         | Default UI                            |
+| ----------------------------------------- | --------------- | ------------------- | ------------------------------------- |
 | `:md-live[title]{kind=… layout=inline …}` | `textDirective` | `mdLiveEmbedInline` | compact chip + optional overflow menu |
-| `::md-live[title]{kind=… layout=card …}` | `leafDirective` | `mdLiveEmbedBlock` | card: icon, title, metadata, actions |
+| `::md-live[title]{kind=… layout=card …}`  | `leafDirective` | `mdLiveEmbedBlock`  | card: icon, title, metadata, actions  |
 
 `layout` is required on write. If missing on parse: `textDirective` → inline, `leafDirective` → card.
 
@@ -232,8 +232,8 @@ Do **not** store `[](https://…)` as the embed. Ordinary links remain ordinary.
 export type MdLiveEmbedViewProps = {
   spec: MdLiveEmbedSpec;
   selected: boolean;
-  onOpen: () => void;       // native Atmos surface
-  onRemove: () => void;     // delete atom
+  onOpen: () => void; // native Atmos surface
+  onRemove: () => void; // delete atom
 };
 
 export type MdLiveEmbedDefinition = {
@@ -244,14 +244,14 @@ export type MdLiveEmbedDefinition = {
 };
 
 export const MD_LIVE_EMBEDS: MdLiveEmbedDefinition[] = [
-  githubIssueEmbed,  // card: number, title, state, Open
+  githubIssueEmbed, // card: number, title, state, Open
   githubPrEmbed,
   linearIssueEmbed,
-  fileEmbed,         // inline default; Open file tab
+  fileEmbed, // inline default; Open file tab
   folderEmbed,
   workspaceEmbed,
   branchEmbed,
-  diffEmbed,         // card: Open Diff — does NOT mount MarkdownPatchDiff
+  diffEmbed, // card: Open Diff — does NOT mount MarkdownPatchDiff
   canvasEmbed,
   ptDesignEmbed,
   agentEmbed,
@@ -289,20 +289,20 @@ Slash: “GitHub issue” / “File” / … run the existing mention search, th
 
 - `:::md-live` container with nested markdown (admonitions) — reserve the name
 - Drag-handle reordering of cards (Crepe/block plugin is banned)
-- Using Live to render GitHub/review **pages** (M20). Embeds live *inside* a working note; those pages stay read-only surfaces
+- Using Live to render GitHub/review **pages** (M20). Embeds live _inside_ a working note; those pages stay read-only surfaces
 
 ### Read-only markdown & diffs (M20)
 
 Do **not** replace these with Milkdown:
 
-| Surface | Component |
-|---------|-----------|
-| `.atmos/reviews/**` file tab | `ReviewReportMetadataCard` + `MarkdownRenderer` (already in `CodeMirrorEditor.tsx`) |
-| GitHub issue / PR body / review comments | existing `features/github` + `MarkdownRenderer` (`pr-detail-parts.tsx`) |
-| Patch / diff hunks in markdown | extract **`MarkdownPatchDiff`** from `MarkdownRenderer`’s `SafePatchDiff` |
-| Atmos Diff / Git review UI | existing `features/diff` — unchanged |
-| Wiki | unchanged (M19) |
-| Skills / automations / notes panels | keep `MarkdownRenderer` |
+| Surface                                  | Component                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| `.atmos/reviews/**` file tab             | `ReviewReportMetadataCard` + `MarkdownRenderer` (already in `CodeMirrorEditor.tsx`) |
+| GitHub issue / PR body / review comments | existing `features/github` + `MarkdownRenderer` (`pr-detail-parts.tsx`)             |
+| Patch / diff hunks in markdown           | extract **`MarkdownPatchDiff`** from `MarkdownRenderer`’s `SafePatchDiff`           |
+| Atmos Diff / Git review UI               | existing `features/diff` — unchanged                                                |
+| Wiki                                     | unchanged (M19)                                                                     |
+| Skills / automations / notes panels      | keep `MarkdownRenderer`                                                             |
 
 Extract:
 
@@ -323,10 +323,10 @@ User-facing Agent path is only **`MdLiveAgentDock`**. Headless CLI is an impleme
 
 `outputHint`:
 
-| Hint | Prompt asks for | Live insert |
-|------|-----------------|-------------|
-| `text` | Replacement **plain text** (no extra markdown structure unless it was already in the selection) | Stream as text (`insertAt: 'selection'` or cursor). Still highlighted + Accept/Reject. |
-| `markdown` | Replacement **GFM** for the target | Stream as markdown tokens (Milkdown default). Diff review when the stream ends. |
+| Hint       | Prompt asks for                                                                                 | Live insert                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `text`     | Replacement **plain text** (no extra markdown structure unless it was already in the selection) | Stream as text (`insertAt: 'selection'` or cursor). Still highlighted + Accept/Reject. |
+| `markdown` | Replacement **GFM** for the target                                                              | Stream as markdown tokens (Milkdown default). Diff review when the stream ends.        |
 
 Both wrap the payload in `<!--atmos-md-live-->` so tool traces never enter Live.
 
@@ -376,32 +376,32 @@ Accept / Reject  →  file.content  →  existing Cmd-S
 
 Extractor rules (unit-tested):
 
-| Input | Live |
-|-------|------|
-| Bytes before open fence | Drop |
-| Inside fence | `payloadDelta` |
-| Close fence | `done: true` |
-| Process end, no fence | `abort: "no-fence"` — Live unchanged |
-| Junk / tool JSON inside fence | `abort: "junk"` — restore snapshot |
+| Input                            | Live                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------- |
+| Bytes before open fence          | Drop                                                                                  |
+| Inside fence                     | `payloadDelta`                                                                        |
+| Close fence                      | `done: true`                                                                          |
+| Process end, no fence            | `abort: "no-fence"` — Live unchanged                                                  |
+| Junk / tool JSON inside fence    | `abort: "junk"` — restore snapshot                                                    |
 | Agent `Write`s `{document.path}` | Not a feature. Stream lock ignores disk. After Accept, save writes the editor buffer. |
 
 Insert rules (markdown hint = Milkdown defaults; text hint = insert as text, newlines kept):
 
-| Cursor | markdown | text |
-|--------|----------|------|
-| Empty paragraph | streamed blocks | streamed text |
-| Non-empty selection | `insertAt: 'selection'` | replace selection as text |
-| Code block / table cell | plain text | plain text |
+| Cursor                  | markdown                | text                      |
+| ----------------------- | ----------------------- | ------------------------- |
+| Empty paragraph         | streamed blocks         | streamed text             |
+| Non-empty selection     | `insertAt: 'selection'` | replace selection as text |
+| Code block / table cell | plain text              | plain text                |
 
 Diff chrome: Milkdown behavior, Atmos tokens, sentence-case **Accept** / **Reject** / **Accept all** / **Reject all**.
 
 ### Visual language (D18)
 
-| Layer | Look like | How |
-|-------|-----------|-----|
-| Document | File-tab `MarkdownRenderer` prose | Tailwind `prose` on the Milkdown root |
-| Chrome | `@workspace/ui` | React slash / tooltip / embed cards / Accept bar |
-| Review / GitHub / patches | Existing read-only components | Never inside Live |
+| Layer                     | Look like                         | How                                              |
+| ------------------------- | --------------------------------- | ------------------------------------------------ |
+| Document                  | File-tab `MarkdownRenderer` prose | Tailwind `prose` on the Milkdown root            |
+| Chrome                    | `@workspace/ui`                   | React slash / tooltip / embed cards / Accept bar |
+| Review / GitHub / patches | Existing read-only components     | Never inside Live                                |
 
 ### crates / apps/api
 
@@ -409,22 +409,22 @@ Diff chrome: Milkdown behavior, Atmos tokens, sentence-case **Accept** / **Rejec
 
 ### apps/web — host
 
-| Area | Path |
-|------|------|
-| Live editor | `@atmos/md-live/ui` `MdLiveEditor`; host wrap `features/md-live/components/MarkdownLiveEditor.tsx` |
-| Dock | `features/md-live/components/MdLiveAgentDock.tsx` — `PromptComposer` + existing Agent Select + **Copy prompt** / **Run**. No Terminal send. Shell pattern: `TerminalAgentInputShell` |
-| Slash | Milkdown React slash; GFM + insert embed directive |
-| Toolbar | Ask → `doc-selection` chip in dock. Rewrite / Generate / Continue → headless stream (`text` or `markdown` from the action) |
-| Streaming | `features/md-live/lib/md-live-stream-session.ts` + `mdLiveStreamLock` |
-| Fence host | `features/md-live/lib/md-live-pty-provider.ts` |
-| Embeds | `features/md-live/embeds/` — registry, `MdLiveEmbedInline.tsx`, `MdLiveEmbedCard.tsx`, kind views |
-| Milkdown plugin | `features/md-live/lib/md-live-embed-plugin.ts` — `$remark` + two `$node` + two `$view` |
-| Adapters | `features/md-live/lib/md-live-adapters.ts` — `copy` \| `headless` |
-| Mentions | `features/md-live/hooks/use-md-live-composer-mentions.ts` |
-| New note | `features/md-live/lib/md-live-new-note.ts` — open untitled tab |
-| Untitled names | `features/md-live/lib/md-live-untitled-name.ts` — `nextUntitledMarkdownName(namesInDir)` → `Untitled.md` / `Untitled-1.md` / … |
-| Save as | `features/md-live/components/MdLiveSaveAsDialog.tsx` — directory (file tree, default `{effectivePath}`) + filename |
-| Patch widget | `shared/components/markdown/MarkdownPatchDiff.tsx` |
+| Area            | Path                                                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Live editor     | `@atmos/md-live/ui` `MdLiveEditor`; host wrap `features/md-live/components/MarkdownLiveEditor.tsx`                                                                                   |
+| Dock            | `features/md-live/components/MdLiveAgentDock.tsx` — `PromptComposer` + existing Agent Select + **Copy prompt** / **Run**. No Terminal send. Shell pattern: `TerminalAgentInputShell` |
+| Slash           | Milkdown React slash; GFM + insert embed directive                                                                                                                                   |
+| Toolbar         | Ask → `doc-selection` chip in dock. Rewrite / Generate / Continue → headless stream (`text` or `markdown` from the action)                                                           |
+| Streaming       | `features/md-live/lib/md-live-stream-session.ts` + `mdLiveStreamLock`                                                                                                                |
+| Fence host      | `features/md-live/lib/md-live-pty-provider.ts`                                                                                                                                       |
+| Embeds          | `features/md-live/embeds/` — registry, `MdLiveEmbedInline.tsx`, `MdLiveEmbedCard.tsx`, kind views                                                                                    |
+| Milkdown plugin | `features/md-live/lib/md-live-embed-plugin.ts` — `$remark` + two `$node` + two `$view`                                                                                               |
+| Adapters        | `features/md-live/lib/md-live-adapters.ts` — `copy` \| `headless`                                                                                                                    |
+| Mentions        | `features/md-live/hooks/use-md-live-composer-mentions.ts`                                                                                                                            |
+| New note        | `features/md-live/lib/md-live-new-note.ts` — open untitled tab                                                                                                                       |
+| Untitled names  | `features/md-live/lib/md-live-untitled-name.ts` — `nextUntitledMarkdownName(namesInDir)` → `Untitled.md` / `Untitled-1.md` / …                                                       |
+| Save as         | `features/md-live/components/MdLiveSaveAsDialog.tsx` — directory (file tree, default `{effectivePath}`) + filename                                                                   |
+| Patch widget    | `shared/components/markdown/MarkdownPatchDiff.tsx`                                                                                                                                   |
 
 `CodeMirrorEditor.tsx` (mount only):
 
@@ -529,10 +529,10 @@ Copy uses `execution: { kind: "copy" }` and **omits** the output-contract sectio
 ### Files (existing WS)
 
 ```ts
-wsRequest("fs_read_file", { path })
-wsRequest("fs_write_file", { path, content })
-wsRequest("fs_list_dir", { path })
-wsRequest("fs_create_dir", { path })
+wsRequest("fs_read_file", { path });
+wsRequest("fs_write_file", { path, content });
+wsRequest("fs_list_dir", { path });
+wsRequest("fs_create_dir", { path });
 ```
 
 ### Interactive Terminal
@@ -593,22 +593,22 @@ Each step is a mergeable PR. Must Have is complete after step 6.
 
 ## PRD coverage
 
-| PRD | TECH |
-|-----|------|
-| M1–M2 home | D1, D19, D21; `CodeMirrorEditor` mount |
-| M3–M4 files | D3, D4, D33; untitled + Save as |
-| M5–M7 engine | D5, D6, D18, D20, D22, D23, D34 |
-| M8 save | existing dirty + D27 |
-| M9–M10 slash/toolbar | D7, D8, D29, D30 |
-| M11–M13 composer | D7 `md-live` surface |
-| M14 embeds | D16, D28, D39; `remark-directive` + registry |
-| M15 adapters | D9, D10, D25, D37 — copy + headless only |
-| M16 streaming | D17, D24–D27, D38; `text` \| `markdown` |
-| M17 FS | existing + D32 |
-| M18 i18n | D14 `mdLive` |
-| M19 Wiki | not in v1 |
-| M20 read-only surfaces | D21, D35; `MarkdownPatchDiff` |
-| N* | deferred |
+| PRD                    | TECH                                         |
+| ---------------------- | -------------------------------------------- |
+| M1–M2 home             | D1, D19, D21; `CodeMirrorEditor` mount       |
+| M3–M4 files            | D3, D4, D33; untitled + Save as              |
+| M5–M7 engine           | D5, D6, D18, D20, D22, D23, D34              |
+| M8 save                | existing dirty + D27                         |
+| M9–M10 slash/toolbar   | D7, D8, D29, D30                             |
+| M11–M13 composer       | D7 `md-live` surface                         |
+| M14 embeds             | D16, D28, D39; `remark-directive` + registry |
+| M15 adapters           | D9, D10, D25, D37 — copy + headless only     |
+| M16 streaming          | D17, D24–D27, D38; `text` \| `markdown`      |
+| M17 FS                 | existing + D32                               |
+| M18 i18n               | D14 `mdLive`                                 |
+| M19 Wiki               | not in v1                                    |
+| M20 read-only surfaces | D21, D35; `MarkdownPatchDiff`                |
+| N*                     | deferred                                     |
 
 ## Open questions
 

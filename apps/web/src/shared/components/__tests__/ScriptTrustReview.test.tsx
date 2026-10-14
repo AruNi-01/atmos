@@ -18,10 +18,7 @@ import enMessages from "../../../../messages/en.json";
  * because another test here calls `mock.module("next-intl", ...)` and bun applies
  * module mocks process-wide.
  */
-function renderReview(
-  scripts: Record<string, string>,
-  highlightField?: string,
-): HTMLElement {
+function renderReview(scripts: Record<string, string>, highlightField?: string): HTMLElement {
   const html = renderToStaticMarkup(
     <NextIntlClientProvider locale="en" messages={enMessages} timeZone="UTC">
       <ScriptTrustReview scripts={scripts} highlightField={highlightField} />
@@ -44,8 +41,8 @@ describe("ScriptTrustReview", () => {
       "setup",
     );
 
-    const fields = [...container.querySelectorAll("[data-script-field]")].map(
-      (node) => node.getAttribute("data-script-field"),
+    const fields = [...container.querySelectorAll("[data-script-field]")].map((node) =>
+      node.getAttribute("data-script-field"),
     );
     expect(fields.sort()).toEqual(["purge", "run", "setup"]);
 
@@ -56,14 +53,11 @@ describe("ScriptTrustReview", () => {
   });
 
   it("marks only the command that is about to run", () => {
-    const container = renderReview(
-      { setup: "bun install", run: "just dev" },
-      "run",
-    );
+    const container = renderReview({ setup: "bun install", run: "just dev" }, "run");
 
-    const highlighted = [
-      ...container.querySelectorAll("[data-script-highlighted='true']"),
-    ].map((node) => node.getAttribute("data-script-field"));
+    const highlighted = [...container.querySelectorAll("[data-script-highlighted='true']")].map(
+      (node) => node.getAttribute("data-script-field"),
+    );
     expect(highlighted).toEqual(["run"]);
   });
 
@@ -74,8 +68,8 @@ describe("ScriptTrustReview", () => {
       purge: "   ",
     });
 
-    const fields = [...container.querySelectorAll("[data-script-field]")].map(
-      (node) => node.getAttribute("data-script-field"),
+    const fields = [...container.querySelectorAll("[data-script-field]")].map((node) =>
+      node.getAttribute("data-script-field"),
     );
     expect(fields).toEqual(["setup"]);
   });

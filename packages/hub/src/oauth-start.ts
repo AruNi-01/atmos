@@ -22,8 +22,7 @@ export function isAllowedOAuthCallbackURL(
     // Desktop / mobile handoff: stay on Hub, then bounce to loopback or deep link.
     if (
       u.origin === hubOrigin &&
-      (u.pathname === "/v1/desktop-auth/complete" ||
-        u.pathname === "/v1/mobile-auth/complete")
+      (u.pathname === "/v1/desktop-auth/complete" || u.pathname === "/v1/mobile-auth/complete")
     ) {
       return isAllowedDeviceAuthReturnTo(u.searchParams.get("return_to") ?? "");
     }
@@ -34,9 +33,7 @@ export function isAllowedOAuthCallbackURL(
   }
 }
 
-export function isAllowedOAuthProvider(
-  provider: string,
-): provider is "github" | "google" {
+export function isAllowedOAuthProvider(provider: string): provider is "github" | "google" {
   return provider === "github" || provider === "google";
 }
 
@@ -45,7 +42,9 @@ export function isAllowedOAuthMode(mode: string): mode is "sign-in" | "link" {
   return mode === "sign-in" || mode === "link" || mode === "";
 }
 
-export function oauthStartAuthPath(mode: string): "/api/auth/sign-in/social" | "/api/auth/link-social" {
+export function oauthStartAuthPath(
+  mode: string,
+): "/api/auth/sign-in/social" | "/api/auth/link-social" {
   return mode === "link" ? "/api/auth/link-social" : "/api/auth/sign-in/social";
 }
 
@@ -72,17 +71,13 @@ function errorPageWithOptionalProvider(origin: string, source: URL): string {
   return qs ? `${origin}/hub-auth/error?${qs}` : `${origin}/hub-auth/error`;
 }
 
-export function oauthErrorCallbackURL(
-  callbackURL: string,
-  hubOrigin: string,
-): string {
+export function oauthErrorCallbackURL(callbackURL: string, hubOrigin: string): string {
   try {
     const u = new URL(callbackURL);
     // Desktop / mobile handoff: error back to local UI or deep-link host, not Hub.
     if (
       u.origin === hubOrigin &&
-      (u.pathname === "/v1/desktop-auth/complete" ||
-        u.pathname === "/v1/mobile-auth/complete")
+      (u.pathname === "/v1/desktop-auth/complete" || u.pathname === "/v1/mobile-auth/complete")
     ) {
       const returnTo = u.searchParams.get("return_to") ?? "";
       if (returnTo) {

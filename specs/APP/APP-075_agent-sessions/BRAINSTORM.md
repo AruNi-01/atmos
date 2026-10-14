@@ -20,6 +20,7 @@ Local on-disk layouts for the v1 hosts were inspected from each CLI’s home dir
 ## Options
 
 ### Option A — Preview-only browser, no resume
+
 Scan and show transcripts. User copies an id and resumes in a terminal themselves.
 
 **Pros**: Smallest. No chat import. No PTY spawn.
@@ -27,6 +28,7 @@ Scan and show transcripts. User copies an id and resumes in a terminal themselve
 **Unknown**: none.
 
 ### Option B — Import every scanned session into Atmos chats on first scan
+
 Normalize all host files into `chats/{id}/` up front.
 
 **Pros**: One SOT. Existing chat UI works unchanged.
@@ -34,6 +36,7 @@ Normalize all host files into `chats/{id}/` up front.
 **Unknown**: how to stay in sync as CLIs append.
 
 ### Option C — Dedicated Agent Sessions sidebar; lazy convert only on Atmos Chat resume
+
 Launchpad item **Agent Sessions**. Left sidebar is the session list (not the workspace tree). Center is the selected transcript. Viewing uses an in-memory host adapter. Atmos jsonl is written only on **Resume in Chat** when no matching `persistence_handle` exists. **Resume in TUI** spawns the host CLI. Rows that already match an Atmos chat get an **Atmos Chat** tag.
 
 **Pros**: Matches the requested product. Respects APP-067/068 restore ≠ resume. Reuses `AgentProvider::resume_runtime` and terminal spawn.
@@ -41,6 +44,7 @@ Launchpad item **Agent Sessions**. Left sidebar is the session list (not the wor
 **Unknown**: Cursor IDE composer vs Cursor Agent CLI (see forks).
 
 ### Option D — Merge into `/agents` Atmos chat list
+
 Add host rows into `AgentChatSessionsView`.
 
 **Pros**: One list.
@@ -81,19 +85,23 @@ List search today only `includes()` already-fetched titles / cwd / agent labels.
 ### Options
 
 ### Option A — Keep client-side title filter
+
 **Pros**: Already shipped. **Cons**: Does not search transcripts. **Rejected.**
 
 ### Option B — One FTS blob per session
+
 Concatenate title + all text into one document (256KB cap).
 **Pros**: Few rows. **Cons**: Cannot jump to a message; a cap drops later turns; title weight mixes with body.
 
 ### Option C — Per-message FTS rows + title row (settled)
+
 Index `title` as its own row. Index each visible user/assistant text message as its own row, chunked at 32KB. Store a locator (`message_id` + flatten `seq`) so a hit opens the drawer and scrolls to that message. SQLite FTS5 trigram in `atmos.db` for CJK + English. Cheap `list()` stays metadata-only; body index is a background catchup after scan.
 
 **Pros**: Matches “search then jump”; reuses atmos.db / `parse_at` / fold; no new search engine.
 **Cons**: First catchup parses jsonl (background). Cursor/Grok parse ids are unstable — `seq` is the fallback.
 
 ### Option D — Tantivy / jieba
+
 **Pros**: Stronger ranking / Chinese segmentation. **Cons**: New crate and index directory; worse CJK substring and mixed code. **Rejected** — reuse SQLite.
 
 ## Key forks in the road

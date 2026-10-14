@@ -67,7 +67,7 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
           moonControls.start("animate");
         }
       },
-      [sunControls, moonControls, onMouseEnter]
+      [sunControls, moonControls, onMouseEnter],
     );
 
     const handleMouseLeave = useCallback(
@@ -79,7 +79,7 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
           moonControls.start("normal");
         }
       },
-      [sunControls, moonControls, onMouseLeave]
+      [sunControls, moonControls, onMouseLeave],
     );
 
     return (
@@ -100,11 +100,7 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
           width={size}
           xmlns="http://www.w3.org/2000/svg"
         >
-          <motion.g
-            animate={sunControls}
-            initial="normal"
-            variants={SUN_VARIANTS}
-          >
+          <motion.g animate={sunControls} initial="normal" variants={SUN_VARIANTS}>
             <path d="M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4" />
           </motion.g>
           {[
@@ -129,7 +125,7 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
         </svg>
       </div>
     );
-  }
+  },
 );
 
 SunMoonIcon.displayName = "SunMoonIcon";

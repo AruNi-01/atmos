@@ -1,10 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -36,14 +31,8 @@ function touch(path: string, bytes = 8) {
 function macFixture(): string {
   const root = mkdtempSync(join(tmpdir(), "atmos-slim-mac-"));
   const app = join(root, "Atmos.app");
-  const fwRes = join(
-    app,
-    "Contents/Frameworks/Electron Framework.framework/Versions/A/Resources",
-  );
-  const fwLib = join(
-    app,
-    "Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries",
-  );
+  const fwRes = join(app, "Contents/Frameworks/Electron Framework.framework/Versions/A/Resources");
+  const fwLib = join(app, "Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries");
   const appRes = join(app, "Contents/Resources");
   for (const loc of [
     "en.lproj",
@@ -146,9 +135,7 @@ describe("slimPackagedElectronApp", () => {
     expect(existsSync(join(fwRes, "resources.pak"))).toBe(true);
     expect(existsSync(join(fwLib, "libvk_swiftshader.dylib"))).toBe(false);
     expect(existsSync(join(fwLib, "vk_swiftshader_icd.json"))).toBe(false);
-    expect(
-      existsSync(join(appOutDir, "Atmos.app/Contents/Resources/ja.lproj")),
-    ).toBe(false);
+    expect(existsSync(join(appOutDir, "Atmos.app/Contents/Resources/ja.lproj"))).toBe(false);
     expect(slim.verifySlimPackagedApp(appOutDir, "darwin").ok).toBe(true);
   });
 
@@ -162,11 +149,7 @@ describe("slimPackagedElectronApp", () => {
     touch(join(root, "vk_swiftshader_icd.json"), 8);
 
     const result = slim.slimPackagedElectronApp(root, "win32");
-    expect(result.locales.kept.sort()).toEqual([
-      "en-US.pak",
-      "zh-CN.pak",
-      "zh-TW.pak",
-    ]);
+    expect(result.locales.kept.sort()).toEqual(["en-US.pak", "zh-CN.pak", "zh-TW.pak"]);
     expect(result.locales.removed.sort()).toEqual(["de.pak", "ja.pak"]);
     expect(existsSync(join(locales, "en-US.pak"))).toBe(true);
     expect(existsSync(join(locales, "ja.pak"))).toBe(false);
@@ -193,9 +176,7 @@ describe("slimPackagedElectronApp", () => {
     const root = mkdtempSync(join(tmpdir(), "atmos-slim-empty-"));
     const locales = join(root, "locales");
     touch(join(locales, "ja.pak"), 32);
-    expect(() => slim.slimPackagedElectronApp(root, "linux")).toThrow(
-      /refusing to delete locales/,
-    );
+    expect(() => slim.slimPackagedElectronApp(root, "linux")).toThrow(/refusing to delete locales/);
     expect(existsSync(join(locales, "ja.pak"))).toBe(true);
   });
 });

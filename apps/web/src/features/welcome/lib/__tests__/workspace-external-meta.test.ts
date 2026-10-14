@@ -13,7 +13,10 @@ describe("mergeExternalLabels", () => {
     expect(
       mergeExternalLabels(
         [{ name: "Bug", color: "#f00" }],
-        [{ name: "bug", color: "#0f0" }, { name: "Enhancement", color: "#00f" }],
+        [
+          { name: "bug", color: "#0f0" },
+          { name: "Enhancement", color: "#00f" },
+        ],
       ),
     ).toEqual([
       { name: "Bug", color: "#f00" },

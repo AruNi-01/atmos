@@ -1,6 +1,6 @@
-import type { FileTreeNode } from '@/api/ws-api';
-import { toastManager } from '@workspace/ui';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import type { FileTreeNode } from "@/api/ws-api";
+import { toastManager } from "@workspace/ui";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 export interface FileTreeItem {
   id: string;
@@ -13,19 +13,17 @@ export interface FileTreeItem {
   children?: string[];
 }
 
-export type PendingPanelMode = 'create-file' | 'create-folder' | 'rename';
+export type PendingPanelMode = "create-file" | "create-folder" | "rename";
 
-export type PendingPanelState =
-  | null
-  | {
-      mode: PendingPanelMode;
-      targetPath: string;
-      parentPath: string;
-      initialName: string;
-      title: string;
-      description: string;
-      confirmLabel: string;
-    };
+export type PendingPanelState = null | {
+  mode: PendingPanelMode;
+  targetPath: string;
+  parentPath: string;
+  initialName: string;
+  title: string;
+  description: string;
+  confirmLabel: string;
+};
 
 export interface FileTreeMenuState {
   x: number;
@@ -34,18 +32,19 @@ export interface FileTreeMenuState {
 }
 
 function filesLibT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
-  const messages = locale === 'zh'
-    ? {
-        'copyToClipboard.copiedTitle': '已复制',
-        'copyToClipboard.copyFailedTitle': '复制失败',
-        'copyToClipboard.copyFailedDescription': '无法复制到剪贴板。',
-      }
-    : {
-        'copyToClipboard.copiedTitle': 'Copied',
-        'copyToClipboard.copyFailedTitle': 'Copy failed',
-        'copyToClipboard.copyFailedDescription': 'Could not copy to clipboard.',
-      };
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  const messages =
+    locale === "zh"
+      ? {
+          "copyToClipboard.copiedTitle": "已复制",
+          "copyToClipboard.copyFailedTitle": "复制失败",
+          "copyToClipboard.copyFailedDescription": "无法复制到剪贴板。",
+        }
+      : {
+          "copyToClipboard.copiedTitle": "Copied",
+          "copyToClipboard.copyFailedTitle": "Copy failed",
+          "copyToClipboard.copyFailedDescription": "Could not copy to clipboard.",
+        };
   return messages[key as keyof typeof messages] ?? key;
 }
 
@@ -81,7 +80,7 @@ export function buildFallbackFileTreeItem(
   const knownItem = knownItems.get(itemPath);
   if (knownItem) return knownItem;
 
-  const descendantPrefix = itemPath.endsWith('/') ? itemPath : `${itemPath}/`;
+  const descendantPrefix = itemPath.endsWith("/") ? itemPath : `${itemPath}/`;
   let hasKnownDescendant = false;
   for (const knownPath of knownItems.keys()) {
     if (knownPath.startsWith(descendantPrefix)) {
@@ -101,17 +100,17 @@ export function buildFallbackFileTreeItem(
 }
 
 export function getParentPath(path: string): string {
-  const parts = path.split('/');
+  const parts = path.split("/");
   parts.pop();
-  return parts.join('/') || '/';
+  return parts.join("/") || "/";
 }
 
 export function getBaseName(path: string): string {
-  return path.split('/').pop() || path;
+  return path.split("/").pop() || path;
 }
 
 export function joinPath(parentPath: string, name: string): string {
-  return parentPath === '/' ? `/${name}` : `${parentPath}/${name}`;
+  return parentPath === "/" ? `/${name}` : `${parentPath}/${name}`;
 }
 
 export function buildDuplicateName(name: string, isDir: boolean): string {
@@ -119,7 +118,7 @@ export function buildDuplicateName(name: string, isDir: boolean): string {
     return `${name} copy`;
   }
 
-  const lastDot = name.lastIndexOf('.');
+  const lastDot = name.lastIndexOf(".");
   if (lastDot <= 0) {
     return `${name} copy`;
   }
@@ -130,27 +129,27 @@ export function buildDuplicateName(name: string, isDir: boolean): string {
 }
 
 export function getRenameSelectionEnd(name: string, isDir: boolean): number {
-  if (isDir || !name.includes('.')) {
+  if (isDir || !name.includes(".")) {
     return name.length;
   }
 
-  return (name.split('.')[0] ?? name).length;
+  return (name.split(".")[0] ?? name).length;
 }
 
 export async function copyToClipboard(value: string, successMessage: string) {
   try {
     await navigator.clipboard.writeText(value);
     toastManager.add({
-      title: filesLibT('copyToClipboard.copiedTitle'),
+      title: filesLibT("copyToClipboard.copiedTitle"),
       description: successMessage,
-      type: 'success',
+      type: "success",
     });
   } catch (error) {
-    console.error('Failed to copy to clipboard:', error);
+    console.error("Failed to copy to clipboard:", error);
     toastManager.add({
-      title: filesLibT('copyToClipboard.copyFailedTitle'),
-      description: filesLibT('copyToClipboard.copyFailedDescription'),
-      type: 'error',
+      title: filesLibT("copyToClipboard.copyFailedTitle"),
+      description: filesLibT("copyToClipboard.copyFailedDescription"),
+      type: "error",
     });
   }
 }

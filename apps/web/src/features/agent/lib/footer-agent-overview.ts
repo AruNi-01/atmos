@@ -3,10 +3,7 @@ import type {
   AgentStatusRecord,
   AgentToolType,
 } from "@/features/agent/store/agent-status-store";
-import type {
-  AttentionReason,
-  PaneAttention,
-} from "@/features/agent/store/agent-attention-store";
+import type { AttentionReason, PaneAttention } from "@/features/agent/store/agent-attention-store";
 import {
   resolveWorkspaceAgentGroupKey,
   type WorkspaceAgentGroupKey,
@@ -70,11 +67,7 @@ export function footerBucketForAgentState(input: {
   attentionReason?: AttentionReason | null;
 }): FooterAgentOverviewBucket | null {
   const agentState = input.agentState;
-  if (
-    agentState !== "idle" &&
-    agentState !== "running" &&
-    agentState !== "permission_request"
-  ) {
+  if (agentState !== "idle" && agentState !== "running" && agentState !== "permission_request") {
     return null;
   }
   const key = resolveWorkspaceAgentGroupKey({
@@ -108,8 +101,8 @@ function isAgentToolType(value: string | undefined): value is AgentToolType {
 
 /** Session / pane ids used to match hook rows to sticky attention latches. */
 export function footerSessionIdentityKeys(session: AgentStatusRecord): string[] {
-  const keys = [session.session_id?.trim(), session.pane_id?.trim()].filter(
-    (key): key is string => Boolean(key),
+  const keys = [session.session_id?.trim(), session.pane_id?.trim()].filter((key): key is string =>
+    Boolean(key),
   );
   return [...new Set(keys)];
 }
@@ -119,15 +112,13 @@ function sessionIdentityKeys(session: AgentStatusRecord): string[] {
 }
 
 function latchIdentityKeys(latch: PaneAttention): string[] {
-  const keys = [latch.stablePaneId?.trim(), latch.sessionId?.trim()].filter(
-    (key): key is string => Boolean(key),
+  const keys = [latch.stablePaneId?.trim(), latch.sessionId?.trim()].filter((key): key is string =>
+    Boolean(key),
   );
   return [...new Set(keys)];
 }
 
-function footerBucketFromGroupKey(
-  key: WorkspaceAgentGroupKey,
-): FooterAgentOverviewBucket {
+function footerBucketFromGroupKey(key: WorkspaceAgentGroupKey): FooterAgentOverviewBucket {
   return key === "done" ? "idle" : key;
 }
 
@@ -137,9 +128,7 @@ function findLatchForSession(
 ): PaneAttention | undefined {
   const keys = new Set(sessionIdentityKeys(session));
   if (keys.size === 0) return undefined;
-  return latches.find((latch) =>
-    latchIdentityKeys(latch).some((key) => keys.has(key)),
-  );
+  return latches.find((latch) => latchIdentityKeys(latch).some((key) => keys.has(key)));
 }
 
 function sessionFromAttentionLatch(latch: PaneAttention): AgentStatusRecord {
@@ -147,10 +136,7 @@ function sessionFromAttentionLatch(latch: PaneAttention): AgentStatusRecord {
   return {
     session_id: latch.sessionId || latch.stablePaneId,
     tool,
-    state:
-      latch.reason === "permission_request"
-        ? "permission_request"
-        : "idle",
+    state: latch.reason === "permission_request" ? "permission_request" : "idle",
     timestamp: new Date(latch.raisedAt).toISOString(),
     context_id: latch.contextId,
     pane_id: latch.stablePaneId,

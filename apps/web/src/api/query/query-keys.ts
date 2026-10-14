@@ -34,8 +34,7 @@ export const queryKeys = {
         scope.connectionEpoch,
         scope.relaySessionRevision,
       ] as const,
-    system: (scope: ComputerQueryScope) =>
-      [...queryKeys.computer.root(scope), "system"] as const,
+    system: (scope: ComputerQueryScope) => [...queryKeys.computer.root(scope), "system"] as const,
     tmuxStatus: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.system(scope), "tmuxStatus"] as const,
     runtimeInfo: (scope: ComputerQueryScope) =>
@@ -50,10 +49,7 @@ export const queryKeys = {
       [...queryKeys.computer.system(scope), "wsConnections"] as const,
     settingsBootstrap: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "settings", "bootstrap"] as const,
-    quotaOverview: (
-      scope: ComputerQueryScope,
-      filters?: { providerId?: string | null },
-    ) =>
+    quotaOverview: (scope: ComputerQueryScope, filters?: { providerId?: string | null }) =>
       [
         ...queryKeys.computer.root(scope),
         "quota",
@@ -90,17 +86,12 @@ export const queryKeys = {
     git: (scope: ComputerQueryScope, repoPath: string) =>
       [...queryKeys.computer.root(scope), "git", repoPath] as const,
     /** Prefix key covering ALL git repos for a scope — used for reconnect invalidation. */
-    gitAll: (scope: ComputerQueryScope) =>
-      [...queryKeys.computer.root(scope), "git"] as const,
+    gitAll: (scope: ComputerQueryScope) => [...queryKeys.computer.root(scope), "git"] as const,
     /** Git status snapshot for a repo. */
     gitStatus: (scope: ComputerQueryScope, repoPath: string) =>
       [...queryKeys.computer.git(scope, repoPath), "status"] as const,
     /** Changed-files snapshot keyed by compare params (use GIT_WORKTREE_PARAMS for worktree). */
-    gitChangedFiles: (
-      scope: ComputerQueryScope,
-      repoPath: string,
-      params: GitCompareParams,
-    ) =>
+    gitChangedFiles: (scope: ComputerQueryScope, repoPath: string, params: GitCompareParams) =>
       [...queryKeys.computer.git(scope, repoPath), "changedFiles", params] as const,
     /** Single-file diff snapshot keyed by filePath and diff params. */
     gitFileDiff: (
@@ -108,13 +99,7 @@ export const queryKeys = {
       repoPath: string,
       filePath: string,
       params: GitFileDiffParams,
-    ) =>
-      [
-        ...queryKeys.computer.git(scope, repoPath),
-        "fileDiff",
-        filePath,
-        params,
-      ] as const,
+    ) => [...queryKeys.computer.git(scope, repoPath), "fileDiff", filePath, params] as const,
     /** Local + remote branch list for a repo. */
     gitBranches: (scope: ComputerQueryScope, repoPath: string) =>
       [...queryKeys.computer.git(scope, repoPath), "branches"] as const,
@@ -136,40 +121,22 @@ export const queryKeys = {
     /** Topological commit history pages for the center-tab graph. */
     gitHistory: (scope: ComputerQueryScope, repoPath: string) =>
       [...queryKeys.computer.git(scope, repoPath), "history"] as const,
-    gitLocalCommit: (
-      scope: ComputerQueryScope,
-      repoPath: string,
-      sha: string,
-    ) => [...queryKeys.computer.git(scope, repoPath), "localCommit", sha] as const,
+    gitLocalCommit: (scope: ComputerQueryScope, repoPath: string, sha: string) =>
+      [...queryKeys.computer.git(scope, repoPath), "localCommit", sha] as const,
     /** Whole-file blame ranges. Do not put hover SHA or caret line in this key. */
-    gitFileBlame: (
-      scope: ComputerQueryScope,
-      repoPath: string,
-      filePath: string,
-    ) =>
+    gitFileBlame: (scope: ComputerQueryScope, repoPath: string, filePath: string) =>
       [...queryKeys.computer.git(scope, repoPath), "fileBlame", filePath] as const,
     /** Lazy git show --shortstat keyed only by commit SHA. */
-    gitCommitDetail: (
-      scope: ComputerQueryScope,
-      repoPath: string,
-      commitHash: string,
-    ) =>
+    gitCommitDetail: (scope: ComputerQueryScope, repoPath: string, commitHash: string) =>
       [...queryKeys.computer.git(scope, repoPath), "commitDetail", commitHash] as const,
     /** Prefix for all filesystem queries — used for broad reconnect invalidation. */
-    filesRoot: (scope: ComputerQueryScope) =>
-      [...queryKeys.computer.root(scope), "files"] as const,
+    filesRoot: (scope: ComputerQueryScope) => [...queryKeys.computer.root(scope), "files"] as const,
     /** Flat files key kept for legacy compatibility. */
     files: (scope: ComputerQueryScope, rootPath: string) =>
       [...queryKeys.computer.root(scope), "files", rootPath] as const,
     /** Full recursive file-tree keyed by rootPath + showHidden. */
     fileTree: (scope: ComputerQueryScope, rootPath: string, showHidden: boolean) =>
-      [
-        ...queryKeys.computer.root(scope),
-        "files",
-        rootPath,
-        "tree",
-        { showHidden },
-      ] as const,
+      [...queryKeys.computer.root(scope), "files", rootPath, "tree", { showHidden }] as const,
     /** Single-directory listing keyed by dirPath + filter options. */
     listDir: (
       scope: ComputerQueryScope,
@@ -241,12 +208,7 @@ export const queryKeys = {
 
     /** Automations: run list for a specific automation */
     automationRunList: (scope: ComputerQueryScope, automationGuid: string) =>
-      [
-        ...queryKeys.computer.root(scope),
-        "automations",
-        "runs",
-        automationGuid,
-      ] as const,
+      [...queryKeys.computer.root(scope), "automations", "runs", automationGuid] as const,
 
     /** GitHub: repo-level PR list */
     githubRepoPrList: (
@@ -296,33 +258,83 @@ export const queryKeys = {
      * Keyed by project working-tree path (not remote owner/repo).
      */
     githubIssueTemplates: (scope: ComputerQueryScope, projectPath: string) =>
-      [...queryKeys.computer.root(scope), "github", "issueTemplates", "local", projectPath] as const,
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "issueTemplates",
+        "local",
+        projectPath,
+      ] as const,
 
     githubIssueList: (
       scope: ComputerQueryScope,
       params: { owner: string; repo: string; state: "open" | "closed"; limit: number },
     ) =>
-      [...queryKeys.computer.root(scope), "github", "issues", params.owner, params.repo, params.state, params.limit] as const,
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "issues",
+        params.owner,
+        params.repo,
+        params.state,
+        params.limit,
+      ] as const,
     githubIssuePage: (
       scope: ComputerQueryScope,
-      params: { owner: string; repo: string; state: "open" | "closed"; page: number; perPage: number },
+      params: {
+        owner: string;
+        repo: string;
+        state: "open" | "closed";
+        page: number;
+        perPage: number;
+      },
     ) =>
-      [...queryKeys.computer.root(scope), "github", "issues", params.owner, params.repo, params.state, params.page, params.perPage] as const,
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "issues",
+        params.owner,
+        params.repo,
+        params.state,
+        params.page,
+        params.perPage,
+      ] as const,
     githubIssueDetail: (
       scope: ComputerQueryScope,
       params: { owner: string; repo: string; issueNumber: number },
     ) =>
-      [...queryKeys.computer.root(scope), "github", "issueDetail", params.owner, params.repo, params.issueNumber] as const,
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "issueDetail",
+        params.owner,
+        params.repo,
+        params.issueNumber,
+      ] as const,
     githubIssueTimeline: (
       scope: ComputerQueryScope,
       params: { owner: string; repo: string; issueNumber: number },
     ) =>
-      [...queryKeys.computer.root(scope), "github", "issueTimeline", params.owner, params.repo, params.issueNumber] as const,
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "issueTimeline",
+        params.owner,
+        params.repo,
+        params.issueNumber,
+      ] as const,
     githubIssueLinkedPrs: (
       scope: ComputerQueryScope,
       params: { owner: string; repo: string; issueNumber: number },
     ) =>
-      [...queryKeys.computer.root(scope), "github", "issueLinkedPrs", params.owner, params.repo, params.issueNumber] as const,
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "issueLinkedPrs",
+        params.owner,
+        params.repo,
+        params.issueNumber,
+      ] as const,
 
     /** GitHub: branch-level PR list */
     githubBranchPrList: (
@@ -347,9 +359,26 @@ export const queryKeys = {
       ] as const,
     githubBranchPrPage: (
       scope: ComputerQueryScope,
-      params: { owner: string; repo: string; branch: string; state: string; page: number; perPage: number },
+      params: {
+        owner: string;
+        repo: string;
+        branch: string;
+        state: string;
+        page: number;
+        perPage: number;
+      },
     ) =>
-      [...queryKeys.computer.root(scope), "github", "branchPrs", params.owner, params.repo, params.branch, params.state, params.page, params.perPage] as const,
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "branchPrs",
+        params.owner,
+        params.repo,
+        params.branch,
+        params.state,
+        params.page,
+        params.perPage,
+      ] as const,
 
     /** GitHub: single PR detail (conversation + commits summary) */
     githubPrDetail: (
@@ -394,10 +423,7 @@ export const queryKeys = {
       ] as const,
 
     /** GitHub: repository assignable users for PR picker */
-    githubRepoAssignees: (
-      scope: ComputerQueryScope,
-      params: { owner: string; repo: string },
-    ) =>
+    githubRepoAssignees: (scope: ComputerQueryScope, params: { owner: string; repo: string }) =>
       [
         ...queryKeys.computer.root(scope),
         "github",
@@ -407,26 +433,11 @@ export const queryKeys = {
       ] as const,
 
     /** GitHub: user hover card (profile + contributions) */
-    githubUserCard: (
-      scope: ComputerQueryScope,
-      params: { login: string },
-    ) =>
-      [
-        ...queryKeys.computer.root(scope),
-        "github",
-        "userCard",
-        params.login,
-      ] as const,
+    githubUserCard: (scope: ComputerQueryScope, params: { login: string }) =>
+      [...queryKeys.computer.root(scope), "github", "userCard", params.login] as const,
 
-    linkPreview: (
-      scope: ComputerQueryScope,
-      params: { url: string },
-    ) =>
-      [
-        ...queryKeys.computer.root(scope),
-        "linkPreview",
-        params.url,
-      ] as const,
+    linkPreview: (scope: ComputerQueryScope, params: { url: string }) =>
+      [...queryKeys.computer.root(scope), "linkPreview", params.url] as const,
 
     /** GitHub: API rate limits (core / search / graphql) for local gh token */
     githubRateLimit: (scope: ComputerQueryScope) =>
@@ -620,13 +631,11 @@ export const queryKeys = {
   },
   /** Unauthenticated GitHub REST (share/leaderboard hover cards). */
   publicGithub: {
-    userCard: (login: string) =>
-      ["atmos", "public", "github", "userCard", login] as const,
+    userCard: (login: string) => ["atmos", "public", "github", "userCard", login] as const,
   },
   /** Unauthenticated FxTwitter (share/leaderboard hover cards). */
   publicX: {
-    userCard: (username: string) =>
-      ["atmos", "public", "x", "userCard", username] as const,
+    userCard: (username: string) => ["atmos", "public", "x", "userCard", username] as const,
   },
 } as const;
 

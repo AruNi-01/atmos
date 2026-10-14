@@ -32,12 +32,12 @@
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID | Wave | Owns | Forbids | Depends | Status | Impl | Review | Verify |
-|----|------|------|---------|---------|--------|------|--------|--------|
-| S0 | 0 | infra catalog, agent_status service, WS action, api-types | `apps/mobile/**`, `apps/web/**` | — | in_progress | running | — | `cargo test -p core-service session_agent` |
-| S1 | 0 | mobile tab host and workspace header | `crates/**`, `apps/api/**`, `packages/**`, `apps/web/**` | — | in_progress | running | — | `bun --filter @atmos/mobile typecheck` |
-| S2 | 1 | `apps/mobile/src/features/sessions/**`, session routes | S0/S1 owns | S0, S1 | planned | — | — | `bun test apps/mobile/src/features/sessions` |
-| S3 | 1 | web sidebar view + session grouping + en/zh keys | mobile and backend | S0 | planned | — | — | `bun test apps/web/src/app-shell/sidebar/session-grouping.test.ts` |
+| ID  | Wave | Owns                                                      | Forbids                                                  | Depends | Status      | Impl    | Review | Verify                                                             |
+| --- | ---- | --------------------------------------------------------- | -------------------------------------------------------- | ------- | ----------- | ------- | ------ | ------------------------------------------------------------------ |
+| S0  | 0    | infra catalog, agent_status service, WS action, api-types | `apps/mobile/**`, `apps/web/**`                          | —       | in_progress | running | —      | `cargo test -p core-service session_agent`                         |
+| S1  | 0    | mobile tab host and workspace header                      | `crates/**`, `apps/api/**`, `packages/**`, `apps/web/**` | —       | in_progress | running | —      | `bun --filter @atmos/mobile typecheck`                             |
+| S2  | 1    | `apps/mobile/src/features/sessions/**`, session routes    | S0/S1 owns                                               | S0, S1  | planned     | —       | —      | `bun test apps/mobile/src/features/sessions`                       |
+| S3  | 1    | web sidebar view + session grouping + en/zh keys          | mobile and backend                                       | S0      | planned     | —       | —      | `bun test apps/web/src/app-shell/sidebar/session-grouping.test.ts` |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -67,17 +67,17 @@
 
 ## Decisions Since TECH
 
-| ID | Decision | Why | Source update |
-|----|----------|-----|---------------|
-| D1 | Wave 0 splits backend contract from tab chrome | File-disjoint; session list needs the contract first | none |
+| ID  | Decision                                       | Why                                                  | Source update |
+| --- | ---------------------------------------------- | ---------------------------------------------------- | ------------- |
+| D1  | Wave 0 splits backend contract from tab chrome | File-disjoint; session list needs the contract first | none          |
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Rust tests | `cargo test -p core-service session_agent` | not_run | S0 |
-| api-types | `bun run --filter @atmos/api-types check-actions` | not_run | S0 |
-| Mobile typecheck | `bun --filter @atmos/mobile typecheck` | not_run | S1 |
+| Area             | Command / Method                                  | Last result | Notes |
+| ---------------- | ------------------------------------------------- | ----------- | ----- |
+| Rust tests       | `cargo test -p core-service session_agent`        | not_run     | S0    |
+| api-types        | `bun run --filter @atmos/api-types check-actions` | not_run     | S0    |
+| Mobile typecheck | `bun --filter @atmos/mobile typecheck`            | not_run     | S1    |
 
 ## Known Blockers
 

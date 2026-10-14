@@ -14,10 +14,7 @@ export type UserGroupView = {
   directWorkspaces: FlattenedWorkspaceEntry[];
 };
 
-function workspaceEntry(
-  project: Project,
-  workspace: Workspace,
-): FlattenedWorkspaceEntry {
+function workspaceEntry(project: Project, workspace: Workspace): FlattenedWorkspaceEntry {
   return {
     projectId: project.id,
     projectName: project.name,
@@ -92,7 +89,9 @@ export function buildUserGroupViews(
     });
 
   const ungroupedProjects = projects
-    .filter((project) => !projectGroupById.has(project.id) && !isStandaloneAutomationProject(project.id))
+    .filter(
+      (project) => !projectGroupById.has(project.id) && !isStandaloneAutomationProject(project.id),
+    )
     .slice()
     .sort((a, b) => a.sidebarOrder - b.sidebarOrder);
 
@@ -122,8 +121,7 @@ export function findGroupIdForMember(
   for (const group of groups) {
     if (
       group.members.some(
-        (member) =>
-          member.memberType === memberType && member.memberId === memberId,
+        (member) => member.memberType === memberType && member.memberId === memberId,
       )
     ) {
       return group.id;

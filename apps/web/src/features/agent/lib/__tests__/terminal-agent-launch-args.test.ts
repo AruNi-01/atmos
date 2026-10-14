@@ -196,13 +196,20 @@ describe("buildStructuredRunConfigArgs", () => {
         model: "typed-id",
       }),
     ).toEqual(["--model", "typed-id"]);
-    expect(
-      buildStructuredRunConfigArgs("custom-agent", { extra_args: ["--foo", "bar"] }),
-    ).toEqual(["--foo", "bar"]);
+    expect(buildStructuredRunConfigArgs("custom-agent", { extra_args: ["--foo", "bar"] })).toEqual([
+      "--foo",
+      "bar",
+    ]);
 
     expect(visibleEffortOptions("cursor", ["low", "high"])).toEqual(["low", "high"]);
     expect(visibleEffortOptions("cursor", [])).toEqual([]);
-    expect(visibleEffortOptions("claude", undefined)).toEqual(["low", "medium", "high", "xhigh", "max"]);
+    expect(visibleEffortOptions("claude", undefined)).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
     expect(visibleEffortOptions("droid", ["low", "medium"])).toEqual(["low", "medium"]);
     expect(visibleEffortOptions("opencode", ["high"])).toEqual(["high"]);
     expect(visibleEffortOptions("opencode", undefined)).toEqual([]);
@@ -214,9 +221,7 @@ describe("buildStructuredRunConfigArgs", () => {
   });
 
   it("uses a remembered model row when launch does not pass a probe", () => {
-    rememberTerminalAgentCatalog("droid", [
-      { id: "gpt", thinking: { options: ["low", "high"] } },
-    ]);
+    rememberTerminalAgentCatalog("droid", [{ id: "gpt", thinking: { options: ["low", "high"] } }]);
     rememberTerminalAgentCatalog("cursor", [
       { id: "claude-opus", thinking: { options: [] } },
       { id: "claude-opus-listed", thinking: { options: ["low", "high"] } },
@@ -347,9 +352,10 @@ describe("buildStructuredRunConfigArgs", () => {
 
     expect(buildStructuredRunConfigArgs("amp", { fast: true })).toEqual(["--fast"]);
     expect(buildStructuredRunConfigArgs("amp", { fast: false })).toEqual([]);
-    expect(
-      buildStructuredRunConfigArgs("gemini", { model: "gemini-flash", fast: true }),
-    ).toEqual(["--model", "gemini-flash"]);
+    expect(buildStructuredRunConfigArgs("gemini", { model: "gemini-flash", fast: true })).toEqual([
+      "--model",
+      "gemini-flash",
+    ]);
     expect(buildStructuredRunConfigArgs("amp", { fast: true }).join(" ")).not.toContain("session");
     expect(
       buildStructuredRunConfigArgs(
@@ -369,9 +375,10 @@ describe("buildStructuredRunConfigArgs", () => {
         ["high", "low"],
       ),
     ).toEqual(["--model", "claude-opus[effort=high,fast=true]"]);
-    expect(
-      buildStructuredRunConfigArgs("grok-build", { model: "grok-4.5", fast: true }),
-    ).toEqual(["--model", "grok-4.5-build-fast"]);
+    expect(buildStructuredRunConfigArgs("grok-build", { model: "grok-4.5", fast: true })).toEqual([
+      "--model",
+      "grok-4.5-build-fast",
+    ]);
 
     const lineList = [
       { id: "grok-4.5", thinking: null },

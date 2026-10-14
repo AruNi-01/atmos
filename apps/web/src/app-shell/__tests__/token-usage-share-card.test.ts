@@ -10,8 +10,7 @@ describe("shareCardChrome", () => {
 
   it("keeps equal footer padding above the brand line and below the slogan", () => {
     const chrome = shareCardChrome(2);
-    const used =
-      chrome.footerPadY + chrome.brandSize + chrome.lineGap + chrome.sloganSize;
+    const used = chrome.footerPadY + chrome.brandSize + chrome.lineGap + chrome.sloganSize;
     expect(chrome.footerH - used).toBe(chrome.footerPadY);
   });
 });

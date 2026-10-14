@@ -74,9 +74,7 @@ describe("center space URL isolation", () => {
     expect(tabValueBelongsToPaintContext(githubPrTab("ws-b", 12), "ws-b")).toBe(true);
     expect(tabValueBelongsToPaintContext(githubPrTab("ws-b", 12), extra)).toBe(false);
     expect(tabValueBelongsToPaintContext(githubPrTab(extra, 4), extra)).toBe(true);
-    expect(tabValueBelongsToPaintContext(browserTab("ws-b", "browser-1"), "ws-b")).toBe(
-      true,
-    );
+    expect(tabValueBelongsToPaintContext(browserTab("ws-b", "browser-1"), "ws-b")).toBe(true);
   });
 
   it("does not keep a copied leftover tmux/tab pair on a different host", () => {
@@ -394,9 +392,7 @@ describe("center space URL isolation", () => {
 
   it("resolves dest paint id through the bound reader", () => {
     const extra = makeCenterSpaceKey("ws-paint-url", "space-files");
-    bindPaintContextIdReader((hostId) =>
-      hostId === "ws-paint-url" ? extra : hostId,
-    );
+    bindPaintContextIdReader((hostId) => (hostId === "ws-paint-url" ? extra : hostId));
     expect(paintContextIdForHost("ws-paint-url")).toBe(extra);
     expect(paintContextIdForHost("ws-other")).toBe("ws-other");
     bindPaintContextIdReader(null);

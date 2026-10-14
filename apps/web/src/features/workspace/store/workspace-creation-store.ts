@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
+import { create } from "zustand";
 
-import type { TerminalAgentRunConfigInput } from '@/features/agent/lib/terminal-agent-run-config';
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
-export type WorkspaceCreateJobPhase = 'creating' | 'bound';
+export type WorkspaceCreateJobPhase = "creating" | "bound";
 
 export interface WorkspaceCreateJob {
   id: string;
@@ -149,7 +149,15 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
     set({
       autoOpenedWorkspaceId: workspaceId,
     }),
-  queueAgentRun: ({ workspaceId, projectId, prompt, command, reuseIdlePane, agent, agentRunConfig }) =>
+  queueAgentRun: ({
+    workspaceId,
+    projectId,
+    prompt,
+    command,
+    reuseIdlePane,
+    agent,
+    agentRunConfig,
+  }) =>
     set({
       pendingAgentRun: {
         workspaceId,
@@ -165,7 +173,8 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
   consumeAgentRun: (contextId) => {
     let pending: PendingWorkspaceAgentRun | null = null;
     set((state) => {
-      const pendingContextId = state.pendingAgentRun?.workspaceId ?? state.pendingAgentRun?.projectId;
+      const pendingContextId =
+        state.pendingAgentRun?.workspaceId ?? state.pendingAgentRun?.projectId;
       if (pendingContextId !== contextId) {
         return state;
       }

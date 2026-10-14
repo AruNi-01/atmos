@@ -12,10 +12,7 @@ export const DESKTOP_CMD_UNSUPPORTED = "DESKTOP_CMD_UNSUPPORTED";
 
 export type DesktopInvokeArgs = Record<string, unknown> | undefined;
 
-export type DesktopInvokeFn = (
-  cmd: string,
-  args?: DesktopInvokeArgs,
-) => Promise<unknown>;
+export type DesktopInvokeFn = (cmd: string, args?: DesktopInvokeArgs) => Promise<unknown>;
 
 export type DesktopListenUnlisten = () => void;
 
@@ -27,10 +24,7 @@ export type DesktopListenFn = (
 export type AtmosDesktopPreload = {
   shell: "electron";
   invoke: DesktopInvokeFn;
-  on?: (
-    event: string,
-    handler: (payload: unknown) => void,
-  ) => DesktopListenUnlisten | void;
+  on?: (event: string, handler: (payload: unknown) => void) => DesktopListenUnlisten | void;
 };
 
 type WindowWithDesktop = Window & {
@@ -60,10 +54,7 @@ export function createUnsupportedCommandError(command: string): DesktopBridgeErr
   );
 }
 
-export function isDesktopBridgeError(
-  error: unknown,
-  code?: string,
-): error is DesktopBridgeError {
+export function isDesktopBridgeError(error: unknown, code?: string): error is DesktopBridgeError {
   if (!(error instanceof DesktopBridgeError)) return false;
   if (code === undefined) return true;
   return error.code === code;
@@ -126,16 +117,11 @@ export type DesktopBridgeAdapters = {
 let testAdapters: DesktopBridgeAdapters | null = null;
 
 /** Test-only: inject adapters so unit tests exercise real dispatch without GUI. */
-export function __setDesktopBridgeAdaptersForTests(
-  adapters: DesktopBridgeAdapters | null,
-): void {
+export function __setDesktopBridgeAdaptersForTests(adapters: DesktopBridgeAdapters | null): void {
   testAdapters = adapters;
 }
 
-async function defaultTauriInvoke(
-  cmd: string,
-  args?: DesktopInvokeArgs,
-): Promise<unknown> {
+async function defaultTauriInvoke(cmd: string, args?: DesktopInvokeArgs): Promise<unknown> {
   const win = (globalThis as GlobalWithWindow).window as WindowWithDesktop | undefined;
   const invoke = win?.__TAURI_INTERNALS__?.invoke;
   if (!invoke) {
@@ -149,10 +135,7 @@ async function defaultTauriInvoke(
   return invoke(cmd, args);
 }
 
-async function defaultElectronInvoke(
-  cmd: string,
-  args?: DesktopInvokeArgs,
-): Promise<unknown> {
+async function defaultElectronInvoke(cmd: string, args?: DesktopInvokeArgs): Promise<unknown> {
   const win = (globalThis as GlobalWithWindow).window as WindowWithDesktop | undefined;
   const invoke = win?.__ATMOS_DESKTOP__?.invoke;
   if (!invoke) {

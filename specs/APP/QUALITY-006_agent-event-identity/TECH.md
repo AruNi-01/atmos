@@ -97,14 +97,14 @@ Adding `epoch` and a replay floor on top of this, as the first revision of this 
 
 Audited across all six adapter families in `crates/agent/src/providers/`. This determines feasibility, so it is recorded here rather than assumed.
 
-| Provider | Primary text path | Adapter already tracks sent length | Native part index (currently discarded) | Genuine text revision |
-|----------|-------------------|-----------------------------------|----------------------------------------|----------------------|
-| Claude | `content_block_delta` → `text_delta` / `thinking_delta`, **incremental** | No (`streamed_assistant: bool` only) | **`event.index`** | No evidence |
-| Codex | `item/agentMessage/delta`, `item/reasoning/*Delta`, **incremental** | No | **`summaryIndex`** | No evidence |
-| OpenCode | `message.part.delta`, **incremental** | **Yes** — `assistant_text` / `thinking_text` maps | **`partID`** | Yes — shorter snapshot |
-| Pi | `text_delta` / `thinking_delta`, **incremental** | Partial — `text_by_index` | **`contentIndex`** | Yes — `text_end` overwrite |
-| Grok (native) | ACP `AgentMessageChunk`, **incremental** | No | None | No evidence |
-| ACP (cursor / gemini / droid / …) | `AgentMessageChunk`, `AgentThoughtChunk`, **incremental** | No | None | No evidence |
+| Provider                          | Primary text path                                                        | Adapter already tracks sent length                | Native part index (currently discarded) | Genuine text revision      |
+| --------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------- | --------------------------------------- | -------------------------- |
+| Claude                            | `content_block_delta` → `text_delta` / `thinking_delta`, **incremental** | No (`streamed_assistant: bool` only)              | **`event.index`**                       | No evidence                |
+| Codex                             | `item/agentMessage/delta`, `item/reasoning/*Delta`, **incremental**      | No                                                | **`summaryIndex`**                      | No evidence                |
+| OpenCode                          | `message.part.delta`, **incremental**                                    | **Yes** — `assistant_text` / `thinking_text` maps | **`partID`**                            | Yes — shorter snapshot     |
+| Pi                                | `text_delta` / `thinking_delta`, **incremental**                         | Partial — `text_by_index`                         | **`contentIndex`**                      | Yes — `text_end` overwrite |
+| Grok (native)                     | ACP `AgentMessageChunk`, **incremental**                                 | No                                                | None                                    | No evidence                |
+| ACP (cursor / gemini / droid / …) | `AgentMessageChunk`, `AgentThoughtChunk`, **incremental**                | No                                                | None                                    | No evidence                |
 
 Three findings drive the design:
 
@@ -175,13 +175,13 @@ PartClosed {
 
 Each adapter gains a `HashMap<String, u64>` of bytes already emitted per part, and derives `part_id` from the vendor's own index:
 
-| Provider | `part_id` derivation | Work required |
-|----------|---------------------|---------------|
-| OpenCode | vendor `partID` verbatim | Re-key the existing sent-text maps from `message_id` to `partID` |
-| Claude | `{message_id}:{event.index}` | **Start consuming `event.index`** (`claude/event_map.rs` L205–253) |
-| Codex | `{itemId}` / `{itemId}:{summaryIndex}` | Add per-item offset counter |
-| Pi | `{messageId}:{contentIndex}` | Reuse `text_by_index` as the offset source |
-| Grok / ACP | `{message_id}:{ordinal}` synthesized | Add counter; no vendor index available |
+| Provider   | `part_id` derivation                   | Work required                                                      |
+| ---------- | -------------------------------------- | ------------------------------------------------------------------ |
+| OpenCode   | vendor `partID` verbatim               | Re-key the existing sent-text maps from `message_id` to `partID`   |
+| Claude     | `{message_id}:{event.index}`           | **Start consuming `event.index`** (`claude/event_map.rs` L205–253) |
+| Codex      | `{itemId}` / `{itemId}:{summaryIndex}` | Add per-item offset counter                                        |
+| Pi         | `{messageId}:{contentIndex}`           | Reuse `text_by_index` as the offset source                         |
+| Grok / ACP | `{message_id}:{ordinal}` synthesized   | Add counter; no vendor index available                             |
 
 OpenCode's shorter-snapshot case (`opencode/event_map.rs` L372–377) and Pi's `text_end` overwrite stop being silently discarded and become an explicit `PartClosed` + new part. That is the only behavior change visible to users, and it surfaces a revision that is currently swallowed.
 
@@ -199,10 +199,10 @@ OpenCode's shorter-snapshot case (`opencode/event_map.rs` L372–377) and Pi's `
 
 `src/service/agent_chat/store.rs` — the transcript splits in two, so the durable file stays append-only while total bytes stay O(n):
 
-| File | Contents | Lifecycle |
-|------|----------|-----------|
-| `transcript.jsonl` | One record per **finished** part, plus turn and tool records | Append-only, never rewritten |
-| `live.jsonl` | `TextChunk` records for the **in-flight turn** only | Truncated when the turn completes |
+| File               | Contents                                                     | Lifecycle                         |
+| ------------------ | ------------------------------------------------------------ | --------------------------------- |
+| `transcript.jsonl` | One record per **finished** part, plus turn and tool records | Append-only, never rewritten      |
+| `live.jsonl`       | `TextChunk` records for the **in-flight turn** only          | Truncated when the turn completes |
 
 On `TurnCompleted`, live chunks are materialized into per-part records appended to `transcript.jsonl`, then `live.jsonl` is truncated. Turn boundaries are the natural compaction point: a completed turn never changes again, except via rewind, which discards whole turns anyway. Crash recovery replays `live.jsonl` to rebuild the partial turn. `AssistantSnapshot` and `ThinkingSnapshot` are deleted from `TranscriptEvent`.
 
@@ -239,7 +239,7 @@ function applyTextChunk(draft: PartStore, e: TextChunk): BackfillRequest | null 
   const len = byteLength(part.text);
   if (e.offset > len) return { partId: e.part_id, fromOffset: len }; // precise gap
   const skip = len - e.offset;
-  if (skip >= byteLength(e.text)) return null;                       // already have it
+  if (skip >= byteLength(e.text)) return null; // already have it
   draft.appendText(part, sliceBytes(e.text, skip));
   return null;
 }
@@ -257,7 +257,7 @@ Server-side coalescing bounds **bandwidth**; it does not bound **render cost**, 
 
 **Applied events do not render directly.** Incoming events accumulate in a buffer that flushes to React state on a timer, so the render rate is capped independently of the event rate. Without this, a burst of non-text events — tool state transitions during a fast tool loop, which server-side text coalescing does nothing about — still produces a render per event.
 
-**Every high-frequency event kind must be routed onto the batched schedule.** The failure mode here is specific and worth naming: a single event kind that forgets to mark the buffer dirty falls back to immediate flushing, and the render rate silently becomes the provider's chunk rate. This design is structurally resistant to that particular bug because answer text and thinking text are the *same* event (`TextChunk` with a `kind` field) rather than two variants that must each remember to set the same flags — but tool and activity events are still separate kinds, so the classification needs a test rather than good intentions.
+**Every high-frequency event kind must be routed onto the batched schedule.** The failure mode here is specific and worth naming: a single event kind that forgets to mark the buffer dirty falls back to immediate flushing, and the render rate silently becomes the provider's chunk rate. This design is structurally resistant to that particular bug because answer text and thinking text are the _same_ event (`TextChunk` with a `kind` field) rather than two variants that must each remember to set the same flags — but tool and activity events are still separate kinds, so the classification needs a test rather than good intentions.
 
 **Immutability strategy must be explicit.** `part.text += chunk` is a mutation; applying it through a naive immutable spread copies the whole message tree per commit. Parts live in a keyed store where appending to one part's text does not rebuild its siblings, and only the touched parts' identities change so that memoized rows re-render selectively. A deep clone per event is viable only under aggressive coalescing and is not the plan here.
 
@@ -377,9 +377,14 @@ Precise recovery replaces wholesale rehydration:
 ```ts
 // agent_chat_backfill
 // request
-{ chat_id: string; parts: Array<{ part_id: string; from_offset: number }> }
+{
+  chat_id: string;
+  parts: Array<{ part_id: string; from_offset: number }>;
+}
 // response — server streams the missing suffixes as ordinary text_chunk events
-{ accepted: number }
+{
+  accepted: number;
+}
 ```
 
 The complete client contract is four arithmetic rules per text chunk and one rank comparison per tool event:
@@ -395,7 +400,7 @@ Rule 2 is what makes `epoch` unnecessary. A restarted runtime that replays a par
 
 Three designs were weighed and rejected. Each is simpler than this one in some dimension, so the reasons are recorded to keep them from being reintroduced as "simplifications".
 
-**Ordered exactly-once delivery with positional folding.** Stamp each event with `{ runtime_id, epoch, sequence }`, guarantee strictly-ordered exactly-once application, and then carry no content identity at all: a text event is a bare string, and the fold appends to the last message if it is an assistant message still marked streaming, otherwise starts a new one. This is correct — under an exactly-once in-order guarantee, position *is* identity and `part_id` is redundant — and it makes events dramatically smaller.
+**Ordered exactly-once delivery with positional folding.** Stamp each event with `{ runtime_id, epoch, sequence }`, guarantee strictly-ordered exactly-once application, and then carry no content identity at all: a text event is a bare string, and the fold appends to the last message if it is an assistant message still marked streaming, otherwise starts a new one. This is correct — under an exactly-once in-order guarantee, position _is_ identity and `part_id` is redundant — and it makes events dramatically smaller.
 
 Rejected for two reasons specific to Atmos. Positional identity forces message ids to be generated on the receiving side, so two clients viewing one session name the same assistant message differently; Atmos needs globally consistent ids for `host_session_search` and `?mid=` deep links. And positional folding pays for its small events with pairwise interaction rules: every event kind must remember to close every other kind's open state, which is O(kinds²) coupling and is the same fight `flush_open_thinking` is losing today. `part_id` buys that away.
 

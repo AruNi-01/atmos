@@ -18,9 +18,7 @@ export const FIXED_TABS = new Set<string>([
 ]);
 
 /** Explicit `?tab=` for a fixed/tool surface must not lose to last-tab restore. */
-export function shouldSkipLastTabRestoreForUrlTab(
-  tabFromUrl: string | null | undefined,
-): boolean {
+export function shouldSkipLastTabRestoreForUrlTab(tabFromUrl: string | null | undefined): boolean {
   if (!tabFromUrl) return false;
   if (FIXED_TABS.has(tabFromUrl)) return true;
   return tabFromUrl.startsWith("agent-chat:");

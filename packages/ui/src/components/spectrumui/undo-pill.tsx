@@ -20,62 +20,62 @@
  * />
  */
 
-"use client"
+"use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AnimatePresence,
   motion,
   useMotionValue,
   useReducedMotion,
   type Variants,
-} from "motion/react"
-import { cn } from "@workspace/ui/lib/utils"
+} from "motion/react";
+import { cn } from "@workspace/ui/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface UndoPillProps {
   /** Controls whether the pill is shown. Fully controlled */
-  open: boolean
+  open: boolean;
   /** Message shown inside the pill. Default "Deleted" */
-  label?: string
+  label?: string;
   /** Countdown length in seconds. Default 5 */
-  duration?: number
+  duration?: number;
   /** Fires when the Undo button is clicked or Escape is pressed within */
-  onUndo: () => void
+  onUndo: () => void;
   /** Fires once when the countdown completes */
-  onExpire: () => void
+  onExpire: () => void;
   /** Pause the countdown while hovered or focused. Default true */
-  pauseOnHover?: boolean
+  pauseOnHover?: boolean;
   /** Text of the undo button. Default "Undo" */
-  undoLabel?: string
+  undoLabel?: string;
   /** Additional classes merged with the default pill styles */
-  className?: string
+  className?: string;
 }
 
-type ExitReason = "undo" | "expire"
+type ExitReason = "undo" | "expire";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const RING_RADIUS = 7
-const RING_SIZE = 18
-const RING_CENTER = RING_SIZE / 2
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
+const RING_RADIUS = 7;
+const RING_SIZE = 18;
+const RING_CENTER = RING_SIZE / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
  * Longest elapsed time credited per frame. rAF stops in background tabs, so
  * without this clamp the first frame after returning would land the entire
  * hidden period at once and the pill could expire mid-jump.
  */
-const MAX_FRAME_DELTA_MS = 100
+const MAX_FRAME_DELTA_MS = 100;
 /** Micro-crossfade when the seconds digit swaps */
-const SECONDS_SWAP_DURATION = 0.15
+const SECONDS_SWAP_DURATION = 0.15;
 /** Happy bounce-out after a successful undo */
-const UNDO_EXIT_DURATION = 0.3
+const UNDO_EXIT_DURATION = 0.3;
 /** Quiet fade once the countdown runs out */
-const EXPIRE_EXIT_DURATION = 0.25
+const EXPIRE_EXIT_DURATION = 0.25;
 
-const ENTRANCE_SPRING = { type: "spring", stiffness: 500, damping: 30 } as const
+const ENTRANCE_SPRING = { type: "spring", stiffness: 500, damping: 30 } as const;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -89,108 +89,100 @@ export function UndoPill({
   undoLabel = "Undo",
   className,
 }: UndoPillProps) {
-  const shouldReduceMotion = useReducedMotion()
-  const [secondsLeft, setSecondsLeft] = useState(() => Math.ceil(duration))
-  const [exitReason, setExitReason] = useState<ExitReason>("expire")
+  const shouldReduceMotion = useReducedMotion();
+  const [secondsLeft, setSecondsLeft] = useState(() => Math.ceil(duration));
+  const [exitReason, setExitReason] = useState<ExitReason>("expire");
   // Mirrors the hover/focus pause into render so the ring can hint the pause
-  const [isPaused, setIsPaused] = useState(false)
+  const [isPaused, setIsPaused] = useState(false);
 
   // Drives the ring's stroke-dashoffset without re-rendering every frame
-  const ringOffset = useMotionValue(0)
+  const ringOffset = useMotionValue(0);
 
   // Timer bookkeeping — rAF + accumulated elapsed so pause/resume is smooth
-  const rafRef = useRef<number | null>(null)
-  const lastFrameRef = useRef(0)
-  const elapsedRef = useRef(0)
-  const expiredRef = useRef(false)
-  const hoveredRef = useRef(false)
-  const focusedRef = useRef(false)
+  const rafRef = useRef<number | null>(null);
+  const lastFrameRef = useRef(0);
+  const elapsedRef = useRef(0);
+  const expiredRef = useRef(false);
+  const hoveredRef = useRef(false);
+  const focusedRef = useRef(false);
 
   // Latest props readable from the rAF loop without restarting it
-  const latestRef = useRef({ onExpire, pauseOnHover })
+  const latestRef = useRef({ onExpire, pauseOnHover });
   useEffect(() => {
-    latestRef.current = { onExpire, pauseOnHover }
-  })
+    latestRef.current = { onExpire, pauseOnHover };
+  });
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
 
-    const durationMs = Math.max(duration, 0.001) * 1000
-    elapsedRef.current = 0
-    expiredRef.current = false
-    hoveredRef.current = false
-    focusedRef.current = false
-    lastFrameRef.current = performance.now()
-    ringOffset.set(0)
-    setSecondsLeft(Math.ceil(duration))
-    setExitReason("expire")
-    setIsPaused(false)
+    const durationMs = Math.max(duration, 0.001) * 1000;
+    elapsedRef.current = 0;
+    expiredRef.current = false;
+    hoveredRef.current = false;
+    focusedRef.current = false;
+    lastFrameRef.current = performance.now();
+    ringOffset.set(0);
+    setSecondsLeft(Math.ceil(duration));
+    setExitReason("expire");
+    setIsPaused(false);
 
     const tick = (now: number) => {
-      const { onExpire: expire, pauseOnHover: pausable } = latestRef.current
-      const paused = pausable && (hoveredRef.current || focusedRef.current)
+      const { onExpire: expire, pauseOnHover: pausable } = latestRef.current;
+      const paused = pausable && (hoveredRef.current || focusedRef.current);
 
       // Accumulate elapsed instead of diffing wall-clock across pauses, and
       // clamp the per-frame delta so background-tab time never lands at once
       if (!paused) {
-        elapsedRef.current += Math.min(
-          now - lastFrameRef.current,
-          MAX_FRAME_DELTA_MS,
-        )
+        elapsedRef.current += Math.min(now - lastFrameRef.current, MAX_FRAME_DELTA_MS);
       }
-      lastFrameRef.current = now
+      lastFrameRef.current = now;
 
-      const progress = Math.min(elapsedRef.current / durationMs, 1)
-      ringOffset.set(RING_CIRCUMFERENCE * progress)
+      const progress = Math.min(elapsedRef.current / durationMs, 1);
+      ringOffset.set(RING_CIRCUMFERENCE * progress);
 
-      const remaining = Math.max(
-        0,
-        Math.ceil((durationMs - elapsedRef.current) / 1000),
-      )
-      setSecondsLeft((prev) => (prev === remaining ? prev : remaining))
+      const remaining = Math.max(0, Math.ceil((durationMs - elapsedRef.current) / 1000));
+      setSecondsLeft((prev) => (prev === remaining ? prev : remaining));
 
       if (progress >= 1) {
         if (!expiredRef.current) {
-          expiredRef.current = true
-          expire()
+          expiredRef.current = true;
+          expire();
         }
-        return
+        return;
       }
-      rafRef.current = requestAnimationFrame(tick)
-    }
+      rafRef.current = requestAnimationFrame(tick);
+    };
 
-    rafRef.current = requestAnimationFrame(tick)
+    rafRef.current = requestAnimationFrame(tick);
     return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-  }, [open, duration, ringOffset])
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+  }, [open, duration, ringOffset]);
 
   const handleUndo = useCallback(() => {
-    if (expiredRef.current) return
-    expiredRef.current = true
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-    setExitReason("undo")
-    onUndo()
-  }, [onUndo])
+    if (expiredRef.current) return;
+    expiredRef.current = true;
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    setExitReason("undo");
+    onUndo();
+  }, [onUndo]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.key !== "Escape") return
-      event.stopPropagation()
-      handleUndo()
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      handleUndo();
     },
     [handleUndo],
-  )
+  );
 
   const syncPaused = useCallback(() => {
-    setIsPaused(pauseOnHover && (hoveredRef.current || focusedRef.current))
-  }, [pauseOnHover])
+    setIsPaused(pauseOnHover && (hoveredRef.current || focusedRef.current));
+  }, [pauseOnHover]);
 
   const pillVariants: Variants = {
-    hidden: shouldReduceMotion
-      ? { opacity: 0 }
-      : { opacity: 0, y: 16, scale: 0.95 },
+    hidden: shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.95 },
     visible: shouldReduceMotion
       ? { opacity: 1, transition: { duration: 0.2 } }
       : {
@@ -218,7 +210,7 @@ export function UndoPill({
               y: 8,
               transition: { duration: EXPIRE_EXIT_DURATION, ease: "easeIn" },
             },
-  }
+  };
 
   return (
     <AnimatePresence custom={exitReason}>
@@ -233,26 +225,26 @@ export function UndoPill({
           exit="exit"
           custom={exitReason}
           onPointerEnter={() => {
-            hoveredRef.current = true
-            syncPaused()
+            hoveredRef.current = true;
+            syncPaused();
           }}
           onPointerLeave={() => {
-            hoveredRef.current = false
-            syncPaused()
+            hoveredRef.current = false;
+            syncPaused();
           }}
           onFocus={() => {
-            focusedRef.current = true
-            syncPaused()
+            focusedRef.current = true;
+            syncPaused();
           }}
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-              focusedRef.current = false
-              syncPaused()
+              focusedRef.current = false;
+              syncPaused();
             }
           }}
           onKeyDown={handleKeyDown}
           className={cn(
-            "pointer-events-auto inline-flex select-none items-center gap-2.5 rounded-full bg-foreground py-2 pl-3 pr-2.5 text-sm text-background",
+            "pointer-events-auto inline-flex items-center gap-2.5 rounded-full bg-foreground py-2 pr-2.5 pl-3 text-sm text-background select-none",
             "shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_2px_0px_rgba(0,0,0,0.04),0px_2px_4px_0px_rgba(0,0,0,0.04)]",
             "dark:shadow-none",
             className,
@@ -293,18 +285,14 @@ export function UndoPill({
                 className="stroke-background"
               />
             </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-medium leading-none tabular-nums">
+            <span className="absolute inset-0 flex items-center justify-center text-[9px] leading-none font-medium tabular-nums">
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
                   key={secondsLeft}
                   className="inline-block"
-                  initial={
-                    shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -5 }
-                  }
+                  initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={
-                    shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 5 }
-                  }
+                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 5 }}
                   transition={{
                     duration: shouldReduceMotion ? 0 : SECONDS_SWAP_DURATION,
                     ease: "easeOut",
@@ -318,10 +306,7 @@ export function UndoPill({
 
           <span>{label}</span>
 
-          <span
-            aria-hidden="true"
-            className="h-1 w-1 shrink-0 rounded-full bg-background/30"
-          />
+          <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-background/30" />
 
           <button
             type="button"
@@ -331,7 +316,7 @@ export function UndoPill({
               // -my-1/py-1 grow the hit area past 24px without moving pixels
               "-my-1 touch-manipulation rounded-full px-1.5 py-1 font-medium underline-offset-2 transition-colors",
               "hover:bg-background/10 hover:underline active:bg-background/20",
-              "focus-visible:underline focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-background/70",
+              "focus-visible:underline focus-visible:ring-1 focus-visible:ring-background/70 focus-visible:outline-hidden",
             )}
           >
             {undoLabel}
@@ -339,5 +324,5 @@ export function UndoPill({
         </motion.div>
       )}
     </AnimatePresence>
-  )
+  );
 }

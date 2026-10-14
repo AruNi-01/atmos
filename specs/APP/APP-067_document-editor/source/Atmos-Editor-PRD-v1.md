@@ -86,19 +86,19 @@ Agent 可以：
 
 例如：
 
-| 能力 | Editor 中的表现 |
-|---|---|
-| File | 文件引用 / 简介 |
-| Workspace | Workspace 概览 |
-| Branch | Branch 状态 |
+| 能力         | Editor 中的表现               |
+| ------------ | ----------------------------- |
+| File         | 文件引用 / 简介               |
+| Workspace    | Workspace 概览                |
+| Branch       | Branch 状态                   |
 | GitHub Issue | Issue 卡片 / inline reference |
 | Linear Issue | Issue 卡片 / inline reference |
-| Diff | changed files / summary |
-| Review | review summary |
-| Agent | Agent 状态 / 结果 |
-| Canvas | Canvas 缩略图 / 引用 |
-| Terminal | Command / result 概览 |
-| Git | 状态摘要 |
+| Diff         | changed files / summary       |
+| Review       | review summary                |
+| Agent        | Agent 状态 / 结果             |
+| Canvas       | Canvas 缩略图 / 引用          |
+| Terminal     | Command / result 概览         |
+| Git          | 状态摘要                      |
 
 这些对象在 Editor 中只负责：
 

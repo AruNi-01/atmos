@@ -22,66 +22,39 @@ function keyDown(
 
 describe("isDevToolsToggleShortcut", () => {
   it("matches macOS Option+Cmd+I / J / C", () => {
-    expect(
-      isDevToolsToggleShortcut(
-        keyDown({ key: "i", meta: true, alt: true }),
-        "darwin",
-      ),
-    ).toBe(true);
-    expect(
-      isDevToolsToggleShortcut(
-        keyDown({ key: "I", meta: true, alt: true }),
-        "darwin",
-      ),
-    ).toBe(true);
-    expect(
-      isDevToolsToggleShortcut(
-        keyDown({ key: "j", meta: true, alt: true }),
-        "darwin",
-      ),
-    ).toBe(true);
-    expect(
-      isDevToolsToggleShortcut(
-        keyDown({ key: "c", meta: true, alt: true }),
-        "darwin",
-      ),
-    ).toBe(true);
+    expect(isDevToolsToggleShortcut(keyDown({ key: "i", meta: true, alt: true }), "darwin")).toBe(
+      true,
+    );
+    expect(isDevToolsToggleShortcut(keyDown({ key: "I", meta: true, alt: true }), "darwin")).toBe(
+      true,
+    );
+    expect(isDevToolsToggleShortcut(keyDown({ key: "j", meta: true, alt: true }), "darwin")).toBe(
+      true,
+    );
+    expect(isDevToolsToggleShortcut(keyDown({ key: "c", meta: true, alt: true }), "darwin")).toBe(
+      true,
+    );
   });
 
   it("does not match plain Cmd+I on macOS", () => {
-    expect(
-      isDevToolsToggleShortcut(keyDown({ key: "i", meta: true }), "darwin"),
-    ).toBe(false);
+    expect(isDevToolsToggleShortcut(keyDown({ key: "i", meta: true }), "darwin")).toBe(false);
   });
 
   it("matches Windows/Linux Ctrl+Shift+I / J / C", () => {
     expect(
-      isDevToolsToggleShortcut(
-        keyDown({ key: "i", control: true, shift: true }),
-        "win32",
-      ),
+      isDevToolsToggleShortcut(keyDown({ key: "i", control: true, shift: true }), "win32"),
     ).toBe(true);
     expect(
-      isDevToolsToggleShortcut(
-        keyDown({ key: "j", control: true, shift: true }),
-        "linux",
-      ),
+      isDevToolsToggleShortcut(keyDown({ key: "j", control: true, shift: true }), "linux"),
     ).toBe(true);
     expect(
-      isDevToolsToggleShortcut(
-        keyDown({ key: "c", control: true, shift: true }),
-        "win32",
-      ),
+      isDevToolsToggleShortcut(keyDown({ key: "c", control: true, shift: true }), "win32"),
     ).toBe(true);
   });
 
   it("matches F12 on all platforms", () => {
-    expect(isDevToolsToggleShortcut(keyDown({ key: "F12" }), "darwin")).toBe(
-      true,
-    );
-    expect(isDevToolsToggleShortcut(keyDown({ key: "F12" }), "win32")).toBe(
-      true,
-    );
+    expect(isDevToolsToggleShortcut(keyDown({ key: "F12" }), "darwin")).toBe(true);
+    expect(isDevToolsToggleShortcut(keyDown({ key: "F12" }), "win32")).toBe(true);
   });
 
   it("ignores keyUp", () => {
@@ -101,11 +74,8 @@ describe("isDevToolsToggleShortcut", () => {
   });
 
   it("does not treat macOS Option+Cmd+I as a win32 match", () => {
-    expect(
-      isDevToolsToggleShortcut(
-        keyDown({ key: "i", meta: true, alt: true }),
-        "win32",
-      ),
-    ).toBe(false);
+    expect(isDevToolsToggleShortcut(keyDown({ key: "i", meta: true, alt: true }), "win32")).toBe(
+      false,
+    );
   });
 });

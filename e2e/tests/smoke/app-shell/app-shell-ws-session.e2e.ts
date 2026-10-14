@@ -1,8 +1,5 @@
 import { expect, test } from "../../../fixtures/test";
-import {
-  connectLocalComputer,
-  stubComputerClientSettingsApi,
-} from "../support/app-smoke";
+import { connectLocalComputer, stubComputerClientSettingsApi } from "../support/app-smoke";
 import {
   attachAppWsObserver,
   isWsRequestEnvelope,

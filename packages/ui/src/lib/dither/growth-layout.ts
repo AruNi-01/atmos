@@ -20,10 +20,7 @@ export function growthAxisMax(peak: number): number {
 }
 
 /** Hex color (`#rgb` / `#rrggbb` / `#rrggbbaa`) replaces theme ink. */
-export function resolveGrowthInk(
-  color: string | undefined,
-  theme: DitherTheme,
-): string {
+export function resolveGrowthInk(color: string | undefined, theme: DitherTheme): string {
   if (
     typeof color === "string" &&
     /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color)
@@ -54,10 +51,7 @@ export function resolveGrowthColor(
   theme: DitherTheme,
 ): string {
   const stops = (colorStops ?? [])
-    .filter(
-      (stop) =>
-        Number.isFinite(stop.value) && colorChannels(stop.color) != null,
-    )
+    .filter((stop) => Number.isFinite(stop.value) && colorChannels(stop.color) != null)
     .slice()
     .sort((left, right) => left.value - right.value);
   if (stops.length === 0) return resolveGrowthInk(color, theme);
@@ -90,10 +84,7 @@ export type GrowthPlotPadding = {
 };
 
 /** Compact (~40–50px area) uses ~2/0 padding and no axis chrome. */
-export function resolveGrowthPlotPadding(
-  compact: boolean,
-  yLabelW: number,
-): GrowthPlotPadding {
+export function resolveGrowthPlotPadding(compact: boolean, yLabelW: number): GrowthPlotPadding {
   if (compact) {
     return { padL: 2, padR: 2, padT: 2, padB: 0 };
   }
@@ -110,9 +101,6 @@ export function shouldPaintGrowthGuides(compact: boolean): boolean {
 }
 
 /** Fixed `yMax` wins; otherwise keep Growth's existing auto / lerped axis. */
-export function resolveGrowthAxisMax(
-  yMax: number | undefined,
-  autoAxis: number,
-): number {
+export function resolveGrowthAxisMax(yMax: number | undefined, autoAxis: number): number {
   return resolveFixedDomainMax(yMax, autoAxis);
 }

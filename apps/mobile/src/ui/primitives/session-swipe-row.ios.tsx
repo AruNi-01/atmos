@@ -57,11 +57,7 @@ export function SessionSwipeRow({
         {hasTrailing ? (
           <SwipeActions.Actions allowsFullSwipe={false} edge="trailing">
             {onArchive ? (
-              <SwipeIconButton
-                label={archiveLabel}
-                onPress={onArchive}
-                systemName="archivebox"
-              />
+              <SwipeIconButton label={archiveLabel} onPress={onArchive} systemName="archivebox" />
             ) : null}
             {onDelete ? (
               <SwipeIconButton

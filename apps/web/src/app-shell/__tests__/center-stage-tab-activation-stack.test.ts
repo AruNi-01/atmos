@@ -38,10 +38,7 @@ describe("center-stage-tab-activation-stack", () => {
     removeCenterTabFromActivationStack("ws-1", "file/b.ts");
     const open = new Set(["file/a.ts", "terminal", "overview"]);
     expect(pickNextCenterTabFromActivationStack("ws-1", open)).toBe("terminal");
-    expect(getCenterTabActivationStack("ws-1")).toEqual([
-      "terminal",
-      "file/a.ts",
-    ]);
+    expect(getCenterTabActivationStack("ws-1")).toEqual(["terminal", "file/a.ts"]);
   });
 
   test("pickNext skips closed entries until a live one", () => {
@@ -57,9 +54,7 @@ describe("center-stage-tab-activation-stack", () => {
   test("pickNext returns null when no stack entry is still open", () => {
     recordCenterTabActivation("ws-1", "a");
     // "a" is closed; overview is open but was never activated → null (caller falls back)
-    expect(
-      pickNextCenterTabFromActivationStack("ws-1", new Set(["overview"])),
-    ).toBeNull();
+    expect(pickNextCenterTabFromActivationStack("ws-1", new Set(["overview"]))).toBeNull();
     expect(getCenterTabActivationStack("ws-1")).toEqual([]);
   });
 
@@ -67,9 +62,7 @@ describe("center-stage-tab-activation-stack", () => {
     recordCenterTabActivation("ws-1", "overview");
     recordCenterTabActivation("ws-1", "a");
     removeCenterTabFromActivationStack("ws-1", "a");
-    expect(
-      pickNextCenterTabFromActivationStack("ws-1", new Set(["overview"])),
-    ).toBe("overview");
+    expect(pickNextCenterTabFromActivationStack("ws-1", new Set(["overview"]))).toBe("overview");
   });
 
   test("remove drops a single entry", () => {
@@ -176,18 +169,13 @@ describe("close returns to the tab that opened the closed tab", () => {
     expect(performClose).toContain("if (!options?.skipActivation)");
     expect(performClose).toContain("closeSurfaceIfUnowned");
     const unownedAt = performClose.indexOf("closeSurfaceIfUnowned");
-    const skipStoreCloseAt = performClose.lastIndexOf(
-      "closeTab(effectiveContextId, value)",
-    );
+    const skipStoreCloseAt = performClose.lastIndexOf("closeTab(effectiveContextId, value)");
     expect(unownedAt).toBeGreaterThan(-1);
     expect(skipStoreCloseAt).toBeGreaterThan(unownedAt);
   });
 
   test("agent chat tab close uses the generic MRU path instead of jumping to terminal", () => {
-    const tabBar = readFileSync(
-      join(import.meta.dir, "../CenterStageTabBar.tsx"),
-      "utf8",
-    );
+    const tabBar = readFileSync(join(import.meta.dir, "../CenterStageTabBar.tsx"), "utf8");
     expect(tabBar).toContain("handleCloseAgentChatTab(tab.value)");
     expect(tabBar).not.toContain(
       'handleCenterStageTabChange(visibleTerminalTabs[0]?.id ?? "overview")',
@@ -195,10 +183,7 @@ describe("close returns to the tab that opened the closed tab", () => {
   });
 
   test("content-triggered opens record chrome activation instead of attaching only", () => {
-    const activate = readFileSync(
-      join(import.meta.dir, "../center-stage-activate.ts"),
-      "utf8",
-    );
+    const activate = readFileSync(join(import.meta.dir, "../center-stage-activate.ts"), "utf8");
     expect(activate).toContain("recordCenterTabActivation(contextId, resolvedTab)");
     expect(activate).toContain("ensureFixedTerminalTab");
     expect(activate).toContain("ensureAutomationTerminalTab");

@@ -13,6 +13,7 @@
 ### Task 1: Consolidate agent chat migration history
 
 **Files:**
+
 - Modify: `crates/infra/src/db/migration/m20260215_000007_create_agent_chat_tables.rs`
 - Modify: `crates/infra/src/db/migration/m20260225_000009_add_mode_to_agent_chat_session.rs`
 
@@ -31,6 +32,7 @@ Run a focused search for `idx-agent_chat_session-context` and migration referenc
 ### Task 2: Make release skill sync resource-based
 
 **Files:**
+
 - Modify: `crates/infra/src/utils/system_skill_sync.rs`
 - Modify: `scripts/desktop/before-build.mjs`
 - Modify: `apps/desktop/src-tauri/tauri.conf.json`
@@ -50,6 +52,7 @@ Warn and skip when bundled or source skills are unavailable instead of failing s
 ### Task 3: Tighten startup critical-path boundaries
 
 **Files:**
+
 - Modify: `apps/api/src/main.rs`
 
 **Step 1: Separate critical startup from background startup**
@@ -63,6 +66,7 @@ Continue emitting `ATMOS_READY port=<port>` only after the listener is bound.
 ### Task 4: Improve desktop diagnostics
 
 **Files:**
+
 - Modify: `apps/desktop/src-tauri/src/main.rs`
 - Modify: `apps/desktop/src-tauri/src/commands.rs`
 - Create: `apps/desktop/src-tauri/src/logging.rs`
@@ -82,6 +86,7 @@ When the desktop bundle contains `system-skills`, pass it through `ATMOS_SYSTEM_
 ### Task 5: Verify the release-mode path
 
 **Files:**
+
 - No code changes expected
 
 **Step 1: Format touched Rust files**

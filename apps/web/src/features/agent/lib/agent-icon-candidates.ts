@@ -13,18 +13,18 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "factory-droid": ["droid"],
   "junie-acp": ["junie"],
   // NOTE: do NOT alias bare "agent" → cursor (APP-036 contested freehand identity).
-  "commandcode": ["command-code"],
+  commandcode: ["command-code"],
   // tokscale client ids → local brand assets
-  "roocode": ["roo"],
+  roocode: ["roo"],
   "devin-cli": ["devin"],
   "devin-desktop": ["devin"],
   "antigravity-cli": ["antigravity"],
-  "augment": ["auggie"],
-  "codebuddy": ["codebuddy-code"],
-  "workbuddy": ["codebuddy-code"],
-  "copilot": ["github-copilot", "copilot"],
-  "grok": ["grok-build"],
-  "qwen": ["qwen-code"],
+  augment: ["auggie"],
+  codebuddy: ["codebuddy-code"],
+  workbuddy: ["codebuddy-code"],
+  copilot: ["github-copilot", "copilot"],
+  grok: ["grok-build"],
+  qwen: ["qwen-code"],
   "deepseek-harness": ["deepseek"],
 };
 
@@ -33,24 +33,24 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
 // this replaces the primary candidate to avoid a guaranteed 404.
 const AGENT_ICON_REMAP: Record<string, string> = {
   "amp-acp": "amp",
-  "claude": "claude-code",
-  "hermes": "hermes-agent.png",
-  "openclaw": "openclaw.jpg",
-  "kilocode": "kilo",
-  "kilo": "kilo",
-  "kiro": "kiro-cli",
-  "commandcode": "command-code",
-  "roocode": "roo",
-  "roo": "roo",
-  "qwen": "qwen-code",
-  "codebuddy": "codebuddy-code",
-  "workbuddy": "codebuddy-code",
+  claude: "claude-code",
+  hermes: "hermes-agent.png",
+  openclaw: "openclaw.jpg",
+  kilocode: "kilo",
+  kilo: "kilo",
+  kiro: "kiro-cli",
+  commandcode: "command-code",
+  roocode: "roo",
+  roo: "roo",
+  qwen: "qwen-code",
+  codebuddy: "codebuddy-code",
+  workbuddy: "codebuddy-code",
   "devin-cli": "devin",
   "devin-desktop": "devin",
   "antigravity-cli": "antigravity",
-  "augment": "auggie",
-  "grok": "grok-build",
-  "copilot": "copilot",
+  augment: "auggie",
+  grok: "grok-build",
+  copilot: "copilot",
   "deepseek-harness": "deepseek",
 };
 
@@ -80,8 +80,7 @@ export const AGENT_THEME_NATIVE_ICONS = new Set([
 
 export function getAgentIconCandidates(registryId: string): string[] {
   const remapped = AGENT_ICON_REMAP[registryId] ?? registryId;
-  const themePair =
-    AGENT_THEME_PAIR_ICONS[registryId] ?? AGENT_THEME_PAIR_ICONS[remapped];
+  const themePair = AGENT_THEME_PAIR_ICONS[registryId] ?? AGENT_THEME_PAIR_ICONS[remapped];
   if (themePair) {
     // Prefer light as default path list; component picks by theme at render time.
     return [themePair.light, themePair.dark];

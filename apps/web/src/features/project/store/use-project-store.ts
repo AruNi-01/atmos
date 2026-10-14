@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { createTranslator } from 'next-intl';
-import { create } from 'zustand';
-import { WorkspacePriority, WorkspaceWorkflowStatus, type Project } from '@/shared/types/domain';
-import { getComputerQueryScope } from '@/api/query/query-scope';
-import { wsProjectApi, wsScriptApi, wsWorkspaceApi } from '@/api/ws-api';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import { toastManager } from '@workspace/ui';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
-import { waitForConnection } from './project-store-connection';
-import { createProjectStoreLabelActions } from './project-store-label-actions';
-import { mapProjectModel, mapWorkspaceModel, sortWorkspaces } from './project-store-mappers';
+import { createTranslator } from "next-intl";
+import { create } from "zustand";
+import { WorkspacePriority, WorkspaceWorkflowStatus, type Project } from "@/shared/types/domain";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { wsProjectApi, wsScriptApi, wsWorkspaceApi } from "@/api/ws-api";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import { toastManager } from "@workspace/ui";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { waitForConnection } from "./project-store-connection";
+import { createProjectStoreLabelActions } from "./project-store-label-actions";
+import { mapProjectModel, mapWorkspaceModel, sortWorkspaces } from "./project-store-mappers";
 import {
   createProjectStorePinOrderActions,
   createProjectStoreReorderActions,
-} from './project-store-order-actions';
-import { createProjectStoreSetupActions } from './project-store-setup-actions';
-import { buildInitialWorkspaceSetupProgress } from './project-store-setup-progress';
+} from "./project-store-order-actions";
+import { createProjectStoreSetupActions } from "./project-store-setup-actions";
+import { buildInitialWorkspaceSetupProgress } from "./project-store-setup-progress";
 import {
   clearWorkspaceDeleteProgressToast,
   hasWorkspaceDeleteProgressToast,
@@ -25,45 +25,42 @@ import {
   subscribeToWorkspaceDeleteProgressEvent,
   subscribeToWorkspaceGitignoreSyncFailedEvent,
   subscribeToWorkspaceSetupProgressEvent,
-} from './project-store-subscriptions';
-import type { ProjectStore } from './project-store-types';
+} from "./project-store-subscriptions";
+import type { ProjectStore } from "./project-store-types";
 import {
   cancelProjectBootstrapQuery,
   ensureProjectBootstrap,
   getProjectBootstrapSnapshot,
   invalidateProjectBootstrap,
   patchProjectBootstrapSnapshotAt,
-} from '@/features/project/hooks/use-project-bootstrap-query';
+} from "@/features/project/hooks/use-project-bootstrap-query";
 import {
   findWorkspaceInSnapshot,
   removeWorkspaceFromSnapshot,
   resolveWorkspaceArchiveRestoreHref,
   restoreWorkspaceToSnapshot,
-} from '@/features/workspace/lib/workspace-archive-undo';
-import { useWorkspaceArchiveUndoStore } from '@/features/workspace/store/use-workspace-archive-undo-store';
-import { isCancelledError } from '@/shared/lib/is-cancelled-error';
+} from "@/features/workspace/lib/workspace-archive-undo";
+import { useWorkspaceArchiveUndoStore } from "@/features/workspace/store/use-workspace-archive-undo-store";
+import { isCancelledError } from "@/shared/lib/is-cancelled-error";
 
-export type { WorkspaceSetupProgress } from './project-store-setup-progress';
+export type { WorkspaceSetupProgress } from "./project-store-setup-progress";
 
 const WORKSPACE_VISIBLE_ATTEMPTS = 5;
 const WORKSPACE_VISIBLE_IDLE_ATTEMPTS = 40;
 const WORKSPACE_VISIBLE_IDLE_DELAY_MS = 50;
 const WORKSPACE_VISIBLE_RETRY_DELAY_MS = 100;
-let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+let cachedRuntimeLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedRuntimeTranslator: any = null;
 
-function runtimeT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+function runtimeT(key: string, values?: Record<string, string | number>): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
     cachedRuntimeLocale = locale;
     cachedRuntimeTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'project.runtime',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "project.runtime",
     });
   }
   return cachedRuntimeTranslator(key as never, values as never);
@@ -82,14 +79,13 @@ function runtimeErrorDescription(error: unknown, fallbackKey: string): string {
   return /^[\x00-\x7F]*$/.test(message) ? runtimeT(fallbackKey) : message;
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => {
-  setTimeout(resolve, ms);
-});
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const hasWorkspace = (projects: Project[], workspaceId: string) =>
-  projects.some((project) =>
-    project.workspaces.some((workspace) => workspace.id === workspaceId),
-  );
+  projects.some((project) => project.workspaces.some((workspace) => workspace.id === workspaceId));
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   activeWorkspaceId: null,
@@ -104,11 +100,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       set({ hasLoadedProjects: true });
     } catch (error) {
       if (isCancelledError(error)) return;
-      console.error('Error fetching projects:', error);
+      console.error("Error fetching projects:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeErrorDescription(error, 'store.errors.failedToLoadProjects'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeErrorDescription(error, "store.errors.failedToLoadProjects"),
+        type: "error",
       });
     } finally {
       set({ isLoading: false });
@@ -142,7 +138,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         set({ hasLoadedProjects: true });
       } catch (error) {
         if (!isCancelledError(error)) {
-          console.error('Error fetching projects:', error);
+          console.error("Error fetching projects:", error);
         }
       } finally {
         set({ isLoading: false });
@@ -178,7 +174,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const newProjectModel = await wsProjectApi.create({
         name: data.name,
         mainFilePath: data.mainFilePath,
-        sidebarOrder: data.sidebarOrder ?? (getProjectBootstrapSnapshot()?.projects.length ?? 0),
+        sidebarOrder: data.sidebarOrder ?? getProjectBootstrapSnapshot()?.projects.length ?? 0,
         borderColor: data.borderColor,
       });
 
@@ -192,11 +188,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
       return newProject.id;
     } catch (error) {
-      console.error('Error adding project:', error);
+      console.error("Error adding project:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeErrorDescription(error, 'store.errors.failedToImportProject'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeErrorDescription(error, "store.errors.failedToImportProject"),
+        type: "error",
       });
       throw error;
     }
@@ -218,16 +214,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await cancelProjectBootstrapQuery(scope);
       patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
-        projects: current.projects.map((p) =>
-          p.id === id ? { ...p, ...data } : p
-        ),
+        projects: current.projects.map((p) => (p.id === id ? { ...p, ...data } : p)),
       }));
     } catch (error) {
-      console.error('Error updating project:', error);
+      console.error("Error updating project:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeT('store.errors.failedToUpdateProject'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeT("store.errors.failedToUpdateProject"),
+        type: "error",
       });
     }
   },
@@ -246,16 +240,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
 
       toastManager.add({
-        title: runtimeT('common.deleted'),
-        description: runtimeT('store.messages.projectRemoved'),
-        type: 'info',
+        title: runtimeT("common.deleted"),
+        description: runtimeT("store.messages.projectRemoved"),
+        type: "info",
       });
     } catch (error) {
-      console.error('Error deleting project:', error);
+      console.error("Error deleting project:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeT('store.errors.failedToDeleteProject'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeT("store.errors.failedToDeleteProject"),
+        type: "error",
       });
     }
   },
@@ -303,8 +297,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             ? {
                 ...state.setupProgress[newWorkspace.id],
                 setupContext,
-                retryContext:
-                  state.setupProgress[newWorkspace.id].retryContext ?? retryContext,
+                retryContext: state.setupProgress[newWorkspace.id].retryContext ?? retryContext,
               }
             : buildInitialWorkspaceSetupProgress({
                 workspaceId: newWorkspace.id,
@@ -324,20 +317,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                 targetBranch: p.targetBranch || newWorkspace.baseBranch,
                 workspaces: sortWorkspaces([...p.workspaces, newWorkspace]),
               }
-            : p
+            : p,
         ),
       }));
 
       toastManager.add({
-        title: runtimeT('store.messages.workspaceSetupStartedTitle'),
-        description: runtimeT('store.messages.openingWorkspace', {
+        title: runtimeT("store.messages.workspaceSetupStartedTitle"),
+        description: runtimeT("store.messages.openingWorkspace", {
           name: newWorkspace.displayName || newWorkspace.name,
         }),
-        type: 'info',
+        type: "info",
       });
       return newWorkspace.id;
     } catch (error) {
-      console.error('Error adding workspace:', error);
+      console.error("Error adding workspace:", error);
       throw error;
     }
   },
@@ -345,7 +338,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   addWorkspacesToProject: async (projectId: string, workspaceGuids: string[]) => {
     try {
       const scope = getComputerQueryScope();
-      const mappedWorkspaces = await wsWorkspaceApi.listProjectWorkspacesFiltered(projectId, workspaceGuids);
+      const mappedWorkspaces = await wsWorkspaceApi.listProjectWorkspacesFiltered(
+        projectId,
+        workspaceGuids,
+      );
 
       await cancelProjectBootstrapQuery(scope);
       patchProjectBootstrapSnapshotAt(scope, (current) => {
@@ -363,12 +359,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                   ...p,
                   workspaces: sortWorkspaces([...p.workspaces, ...uniqueNewWorkspaces]),
                 }
-              : p
+              : p,
           ),
         };
       });
     } catch (error) {
-      console.error('Error adding workspaces to project:', error);
+      console.error("Error adding workspaces to project:", error);
       throw error;
     }
   },
@@ -380,23 +376,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
       const project = getProjectBootstrapSnapshot()?.projects.find((p) => p.id === projectId);
       if (!project) {
-        throw new Error(runtimeT('store.errors.projectNotFound'));
+        throw new Error(runtimeT("store.errors.projectNotFound"));
       }
 
       let hasSetupScript = false;
       try {
         const { scripts } = await wsScriptApi.get(projectId);
-        hasSetupScript = typeof scripts.setup === 'string' && scripts.setup.trim().length > 0;
+        hasSetupScript = typeof scripts.setup === "string" && scripts.setup.trim().length > 0;
       } catch {
         hasSetupScript = false;
       }
 
       const newWorkspaceModel = await wsWorkspaceApi.create({
         projectGuid: projectId,
-        name: '',
-        branch: '',
-        priority: 'no_priority',
-        workflowStatus: 'in_progress',
+        name: "",
+        branch: "",
+        priority: "no_priority",
+        workflowStatus: "in_progress",
         labelGuids: [],
       });
 
@@ -421,8 +417,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             ? {
                 ...state.setupProgress[newWorkspace.id],
                 setupContext,
-                retryContext:
-                  state.setupProgress[newWorkspace.id].retryContext ?? retryContext,
+                retryContext: state.setupProgress[newWorkspace.id].retryContext ?? retryContext,
               }
             : buildInitialWorkspaceSetupProgress({
                 workspaceId: newWorkspace.id,
@@ -438,25 +433,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         projects: current.projects.map((p) =>
           p.id === projectId
             ? { ...p, workspaces: sortWorkspaces([...p.workspaces, newWorkspace]) }
-            : p
+            : p,
         ),
       }));
 
       toastManager.add({
-        title: runtimeT('store.messages.workspaceSetupStartedTitle'),
-        description: runtimeT('store.messages.openingWorkspace', {
+        title: runtimeT("store.messages.workspaceSetupStartedTitle"),
+        description: runtimeT("store.messages.openingWorkspace", {
           name: newWorkspace.displayName || newWorkspace.name,
         }),
-        type: 'info',
+        type: "info",
       });
 
       return newWorkspace.id;
     } catch (error) {
-      console.error('Error quick adding workspace:', error);
+      console.error("Error quick adding workspace:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeErrorDescription(error, 'store.errors.failedToCreateWorkspace'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeErrorDescription(error, "store.errors.failedToCreateWorkspace"),
+        type: "error",
       });
       return null;
     }
@@ -476,8 +471,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       delete nextSetupProgress[workspaceId];
 
       return {
-        activeWorkspaceId:
-          state.activeWorkspaceId === workspaceId ? null : state.activeWorkspaceId,
+        activeWorkspaceId: state.activeWorkspaceId === workspaceId ? null : state.activeWorkspaceId,
         setupProgress: nextSetupProgress,
       };
     });
@@ -489,9 +483,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         project.id === projectId
           ? {
               ...project,
-              workspaces: project.workspaces.filter(
-                (workspace) => workspace.id !== workspaceId,
-              ),
+              workspaces: project.workspaces.filter((workspace) => workspace.id !== workspaceId),
             }
           : project,
       ),
@@ -500,7 +492,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const workspaceName =
       workspaceBeingDeleted?.displayName ||
       workspaceBeingDeleted?.name ||
-      runtimeT('common.untitled');
+      runtimeT("common.untitled");
 
     registerWorkspaceDeleteProgressToast(workspaceId, workspaceName);
 
@@ -512,11 +504,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         if (hasWorkspaceDeleteProgressToast(workspaceId)) {
           clearWorkspaceDeleteProgressToast(workspaceId);
           toastManager.add({
-            title: runtimeT('common.deleted'),
-            description: runtimeT('store.messages.workspaceRemovedCleanupMayStillRun', {
+            title: runtimeT("common.deleted"),
+            description: runtimeT("store.messages.workspaceRemovedCleanupMayStillRun", {
               name: workspaceName,
             }),
-            type: 'info',
+            type: "info",
             timeout: 5000,
           });
         }
@@ -524,9 +516,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       clearWorkspaceDeleteProgressToast(workspaceId);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeErrorDescription(error, 'store.errors.failedToDeleteWorkspace'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeErrorDescription(error, "store.errors.failedToDeleteWorkspace"),
+        type: "error",
         timeout: 5000,
       });
       // Restore orchestration fields and reinsert only the deleted workspace into
@@ -550,7 +542,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         activeWorkspaceId: previousActiveWorkspaceId,
         setupProgress: previousSetupProgress,
       });
-      console.error('Error deleting workspace:', error);
+      console.error("Error deleting workspace:", error);
       throw error;
     }
   },
@@ -575,16 +567,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                 return { ...w, pinOrder: w.pinOrder + 1 };
               }
               return w;
-            })
+            }),
           ),
         })),
       }));
     } catch (error) {
-      console.error('Error pinning workspace:', error);
+      console.error("Error pinning workspace:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeT('store.errors.failedToPinWorkspace'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeT("store.errors.failedToPinWorkspace"),
+        type: "error",
       });
     }
   },
@@ -606,19 +598,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                   p.workspaces.map((w) =>
                     w.id === workspaceId
                       ? { ...w, isPinned: false, pinnedAt: undefined, pinOrder: undefined }
-                      : w
-                  )
+                      : w,
+                  ),
                 ),
               }
-            : p
+            : p,
         ),
       }));
     } catch (error) {
-      console.error('Error unpinning workspace:', error);
+      console.error("Error unpinning workspace:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeT('store.errors.failedToUnpinWorkspace'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeT("store.errors.failedToUnpinWorkspace"),
+        type: "error",
       });
     }
   },
@@ -633,7 +625,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await waitForConnection();
       await wsWorkspaceApi.archive(pending.workspace.id);
     } catch (error) {
-      console.error('Error archiving workspace:', error);
+      console.error("Error archiving workspace:", error);
       patchProjectBootstrapSnapshotAt(pending.scope, (current) =>
         restoreWorkspaceToSnapshot(current, pending.projectId, pending.workspace),
       );
@@ -641,9 +633,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         set({ activeWorkspaceId: pending.workspace.id });
       }
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeT('store.errors.failedToArchiveWorkspace'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeT("store.errors.failedToArchiveWorkspace"),
+        type: "error",
       });
     }
   },
@@ -664,7 +656,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await get().commitPendingWorkspaceArchive();
 
     const scope = getComputerQueryScope();
-    const workspace = findWorkspaceInSnapshot(getProjectBootstrapSnapshot(), projectId, workspaceId);
+    const workspace = findWorkspaceInSnapshot(
+      getProjectBootstrapSnapshot(),
+      projectId,
+      workspaceId,
+    );
     if (!workspace) return;
 
     const wasActive = get().activeWorkspaceId === workspaceId;
@@ -672,9 +668,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       workspaceId,
       wasActive,
       href:
-        typeof window === 'undefined'
-          ? ''
-          : `${window.location.pathname}${window.location.search}`,
+        typeof window === "undefined" ? "" : `${window.location.pathname}${window.location.search}`,
     });
 
     await cancelProjectBootstrapQuery(scope);
@@ -708,18 +702,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             ? {
                 ...p,
                 workspaces: p.workspaces.map((w) =>
-                  w.id === workspaceId ? { ...w, displayName: name } : w
+                  w.id === workspaceId ? { ...w, displayName: name } : w,
                 ),
               }
-            : p
+            : p,
         ),
       }));
     } catch (error) {
-      console.error('Error updating workspace name:', error);
+      console.error("Error updating workspace name:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeT('store.errors.failedToUpdateWorkspaceName'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeT("store.errors.failedToUpdateWorkspaceName"),
+        type: "error",
       });
       throw error;
     }
@@ -738,15 +732,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           p.id === projectId
             ? {
                 ...p,
-                workspaces: p.workspaces.map((w) =>
-                  w.id === workspaceId ? { ...w, branch } : w
-                ),
+                workspaces: p.workspaces.map((w) => (w.id === workspaceId ? { ...w, branch } : w)),
               }
-            : p
+            : p,
         ),
       }));
     } catch (error) {
-      console.error('Error updating workspace branch:', error);
+      console.error("Error updating workspace branch:", error);
       throw error;
     }
   },
@@ -769,18 +761,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             ? {
                 ...p,
                 workspaces: p.workspaces.map((w) =>
-                  w.id === workspaceId ? { ...w, workflowStatus } : w
+                  w.id === workspaceId ? { ...w, workflowStatus } : w,
                 ),
               }
-            : p
+            : p,
         ),
       }));
     } catch (error) {
-      console.error('Error updating workspace workflow status:', error);
+      console.error("Error updating workspace workflow status:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeT('store.errors.failedToUpdateWorkspaceStatus'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeT("store.errors.failedToUpdateWorkspaceStatus"),
+        type: "error",
       });
     }
   },
@@ -803,18 +795,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             ? {
                 ...p,
                 workspaces: p.workspaces.map((w) =>
-                  w.id === workspaceId ? { ...w, priority } : w
+                  w.id === workspaceId ? { ...w, priority } : w,
                 ),
               }
-            : p
+            : p,
         ),
       }));
     } catch (error) {
-      console.error('Error updating workspace priority:', error);
+      console.error("Error updating workspace priority:", error);
       toastManager.add({
-        title: runtimeT('common.error'),
-        description: runtimeT('store.errors.failedToUpdateWorkspacePriority'),
-        type: 'error',
+        title: runtimeT("common.error"),
+        description: runtimeT("store.errors.failedToUpdateWorkspacePriority"),
+        type: "error",
       });
       throw error;
     }

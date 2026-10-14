@@ -19,9 +19,7 @@ export type CenterPaneLeafInsets = {
 };
 
 /** Inset only shared/internal edges so header/footer spacing matches one pane. */
-export function centerPaneLeafEdgeInsets(
-  leaf: CenterPaneLeafBox,
-): CenterPaneLeafInsets {
+export function centerPaneLeafEdgeInsets(leaf: CenterPaneLeafBox): CenterPaneLeafInsets {
   return {
     left: leaf.left <= EDGE_EPS ? 0 : CENTER_PANE_LEAF_GAP_PX,
     top: leaf.top <= EDGE_EPS ? 0 : CENTER_PANE_LEAF_GAP_PX,
@@ -30,9 +28,7 @@ export function centerPaneLeafEdgeInsets(
   };
 }
 
-export function centerPaneLeafTileStyle(
-  leaf: CenterPaneLeafBox,
-): {
+export function centerPaneLeafTileStyle(leaf: CenterPaneLeafBox): {
   left: string;
   top: string;
   width: string;

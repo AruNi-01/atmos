@@ -2,10 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const sectionSrc = readFileSync(
-  join(import.meta.dir, "../LayoutSettingsSection.tsx"),
-  "utf8",
-);
+const sectionSrc = readFileSync(join(import.meta.dir, "../LayoutSettingsSection.tsx"), "utf8");
 
 describe("layout settings resource monitor toggle", () => {
   test("places Resource Monitor before Local Services and usage", () => {

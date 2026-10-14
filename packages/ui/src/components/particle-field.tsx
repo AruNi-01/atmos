@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type MutableRefObject,
-  useEffect,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { type MutableRefObject, useEffect, useRef, useSyncExternalStore } from "react";
 
 type Particle = {
   ox: number;
@@ -106,19 +101,14 @@ export function pulseParticleTypingImpulse(
   impulseRef: MutableRefObject<number>,
   amount = TYPING_IMPULSE_ADD,
 ) {
-  impulseRef.current = Math.min(
-    impulseRef.current + amount,
-    TYPING_IMPULSE_CAP,
-  );
+  impulseRef.current = Math.min(impulseRef.current + amount, TYPING_IMPULSE_CAP);
 }
 
 /**
  * Stronger two-beat pulse when a form is sent — primary hit plus a quick
  * follow-up while the first is still decaying (reads like a soft “launch”).
  */
-export function pulseParticleSubmitImpulse(
-  impulseRef: MutableRefObject<number>,
-) {
+export function pulseParticleSubmitImpulse(impulseRef: MutableRefObject<number>) {
   pulseParticleTypingImpulse(impulseRef, SUBMIT_IMPULSE_PRIMARY);
   window.setTimeout(() => {
     pulseParticleTypingImpulse(impulseRef, SUBMIT_IMPULSE_SECONDARY);
@@ -443,7 +433,7 @@ export function ParticleField({
       const mr = mouseRadiusV * dpr;
       const mr2 = mr * mr;
 
-      let typing = typingImpulseRef?.current ?? 0;
+      const typing = typingImpulseRef?.current ?? 0;
       if (typingImpulseRef && typing > 1e-4) {
         typingImpulseRef.current *= 0.93;
       }
@@ -502,9 +492,7 @@ export function ParticleField({
         }
 
         const twinkle =
-          0.85 +
-          Math.sin(time * (1.4 + typing * 2.2) + p.phase) *
-            (0.15 + typing * 0.35);
+          0.85 + Math.sin(time * (1.4 + typing * 2.2) + p.phase) * (0.15 + typing * 0.35);
         ctx.globalAlpha = p.alpha * p.appear * twinkle;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -605,10 +593,7 @@ export function ParticleField({
       className={className}
       style={{ position: "relative", width: "100%", height: "100%" }}
     >
-      <canvas
-        ref={canvasRef}
-        style={{ display: "block", width: "100%", height: "100%" }}
-      />
+      <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
     </div>
   );
 }

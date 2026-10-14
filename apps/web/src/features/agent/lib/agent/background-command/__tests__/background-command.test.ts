@@ -7,7 +7,9 @@ import {
 } from "@/features/agent/lib/agent/background-command";
 
 function execute(
-  overrides: Partial<AgentToolCallPart> & { params: Extract<AgentToolCallPart["params"], { type: "execute" }> },
+  overrides: Partial<AgentToolCallPart> & {
+    params: Extract<AgentToolCallPart["params"], { type: "execute" }>;
+  },
 ): AgentToolCallPart {
   return {
     type: "tool_call",

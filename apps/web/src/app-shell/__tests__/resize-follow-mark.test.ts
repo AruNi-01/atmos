@@ -16,21 +16,13 @@ const host = { left: 100, top: 50, width: 10, height: 200 };
 
 describe("resize follow mark", () => {
   test("vertical handle uses pointer X to pick the approach side", () => {
-    expect(
-      resolveResizeApproachSide("vertical", { x: 101, y: 120 }, host),
-    ).toBe("start");
-    expect(
-      resolveResizeApproachSide("vertical", { x: 108, y: 120 }, host),
-    ).toBe("end");
+    expect(resolveResizeApproachSide("vertical", { x: 101, y: 120 }, host)).toBe("start");
+    expect(resolveResizeApproachSide("vertical", { x: 108, y: 120 }, host)).toBe("end");
   });
 
   test("horizontal handle uses pointer Y to pick the approach side", () => {
-    expect(
-      resolveResizeApproachSide("horizontal", { x: 140, y: 51 }, host),
-    ).toBe("start");
-    expect(
-      resolveResizeApproachSide("horizontal", { x: 140, y: 180 }, host),
-    ).toBe("end");
+    expect(resolveResizeApproachSide("horizontal", { x: 140, y: 51 }, host)).toBe("start");
+    expect(resolveResizeApproachSide("horizontal", { x: 140, y: 180 }, host)).toBe("end");
   });
 
   test("locks the approach side while the pointer travels along the handle", () => {

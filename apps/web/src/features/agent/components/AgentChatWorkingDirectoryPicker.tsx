@@ -2,18 +2,8 @@
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Check,
-  ChevronRight,
-  Folder,
-  MessagesSquare,
-  Search,
-} from "lucide-react";
-import {
-  agentConfigFlyoutOffsetTop,
-  agentConfigFlyoutSide,
-  cn,
-} from "@workspace/ui";
+import { Check, ChevronRight, Folder, MessagesSquare, Search } from "lucide-react";
+import { agentConfigFlyoutOffsetTop, agentConfigFlyoutSide, cn } from "@workspace/ui";
 import {
   MorphPopover,
   MorphPopoverContent,
@@ -58,7 +48,8 @@ export function AgentChatWorkingDirectoryPicker({
     () => filterWorkingDirectoryMenu(projects, search, threadLabel),
     [projects, search, threadLabel],
   );
-  const flyoutProject = filtered.projects.find((item) => item.project.id === flyoutProjectId) ?? null;
+  const flyoutProject =
+    filtered.projects.find((item) => item.project.id === flyoutProjectId) ?? null;
   const flyoutItems = useMemo(
     () =>
       flyoutProject
@@ -178,11 +169,7 @@ export function AgentChatWorkingDirectoryPicker({
         clip={false}
         className="overflow-visible border-0 bg-transparent p-0"
       >
-        <div
-          ref={menuRef}
-          className="relative w-[16.5rem]"
-          onPointerLeave={scheduleHideFlyout}
-        >
+        <div ref={menuRef} className="relative w-[16.5rem]" onPointerLeave={scheduleHideFlyout}>
           <div className="flex w-full flex-col rounded-2xl border border-border bg-popover py-1.5 shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
             <div className="px-1.5 pt-0.5 pb-1" onPointerEnter={scheduleHideFlyout}>
               <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-2.5 py-1.5">
@@ -202,7 +189,7 @@ export function AgentChatWorkingDirectoryPicker({
               </div>
             </div>
 
-            <div className="min-h-0 max-h-[min(16rem,calc(100dvh-8rem))] overflow-y-auto">
+            <div className="max-h-[min(16rem,calc(100dvh-8rem))] min-h-0 overflow-y-auto">
               {filtered.showThread ? (
                 <div className="px-1">
                   <button
@@ -210,7 +197,7 @@ export function AgentChatWorkingDirectoryPicker({
                     onPointerEnter={scheduleHideFlyout}
                     onClick={() => choose(THREAD_WORKING_DIRECTORY)}
                     className={cn(
-                      "flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors",
+                      "flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors outline-none",
                       threadSelected
                         ? "bg-muted text-foreground"
                         : "text-foreground hover:bg-muted/70",
@@ -255,7 +242,9 @@ export function AgentChatWorkingDirectoryPicker({
                           )}
                         >
                           <Folder className="size-3.5 shrink-0 text-muted-foreground" />
-                          <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
+                          <span className="min-w-0 flex-1 truncate font-medium">
+                            {project.name}
+                          </span>
                           <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
                         </button>
                       </div>
@@ -302,7 +291,9 @@ export function AgentChatWorkingDirectoryPicker({
                 <div className="min-h-0 flex-1 overflow-y-auto p-1.5 pt-0">
                   {flyoutItems.showProject ? (
                     <DirectoryOption
-                      selected={!selection.workspaceId && selection.projectId === flyoutProject.project.id}
+                      selected={
+                        !selection.workspaceId && selection.projectId === flyoutProject.project.id
+                      }
                       label={flyoutProject.project.name}
                       onSelect={() =>
                         choose({
@@ -356,7 +347,7 @@ function DirectoryOption({
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors",
+        "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors outline-none",
         selected ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70",
       )}
     >

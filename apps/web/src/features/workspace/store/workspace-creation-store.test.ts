@@ -7,7 +7,9 @@ import {
   type WorkspaceCreateJob,
 } from "./workspace-creation-store";
 
-function job(overrides: Partial<WorkspaceCreateJob> & Pick<WorkspaceCreateJob, "id">): WorkspaceCreateJob {
+function job(
+  overrides: Partial<WorkspaceCreateJob> & Pick<WorkspaceCreateJob, "id">,
+): WorkspaceCreateJob {
   return {
     workspaceId: null,
     label: null,
@@ -127,10 +129,12 @@ describe("workspace creation store", () => {
       originKey: "view:welcome",
       blocking: true,
     });
-    expect(selectAutoOpenJob({
-      jobs: useWorkspaceCreationStore.getState().jobs,
-      latestJobId: id,
-    })?.blocking).toBe(true);
+    expect(
+      selectAutoOpenJob({
+        jobs: useWorkspaceCreationStore.getState().jobs,
+        latestJobId: id,
+      })?.blocking,
+    ).toBe(true);
   });
 
   test("keeps the newest create as the auto-open candidate", () => {

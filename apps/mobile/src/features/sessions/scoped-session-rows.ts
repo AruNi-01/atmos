@@ -24,7 +24,9 @@ export function rowsForTerminalEntries(
   titleFor: (entry: MobileTerminalEntry) => string,
 ): SessionInboxRow[] {
   return entries.map((entry) => {
-    const match = inboxRows.find((row) => row.terminalCandidateId === entry.id || row.id === entry.id);
+    const match = inboxRows.find(
+      (row) => row.terminalCandidateId === entry.id || row.id === entry.id,
+    );
     const title = titleFor(entry);
     if (!match) {
       return {

@@ -46,48 +46,35 @@ describe("languageFromPath", () => {
 
 describe("stripReadLineNumbers", () => {
   it("strips Claude-style numbered Read output", () => {
-    const raw = [
-      "     1|use std::path::Path;",
-      "     2|",
-      "     3|pub fn main() {}",
-    ].join("\n");
+    const raw = ["     1|use std::path::Path;", "     2|", "     3|pub fn main() {}"].join("\n");
     expect(stripReadLineNumbers(raw)).toBe("use std::path::Path;\n\npub fn main() {}");
   });
 
   it("leaves ordinary file content alone", () => {
-    const raw = "fn main() {\n  println!(\"hi\");\n}";
+    const raw = 'fn main() {\n  println!("hi");\n}';
     expect(stripReadLineNumbers(raw)).toBe(raw);
   });
 
   it("does not strip Go map keys that use N:", () => {
     const raw = [
       "var m = map[int]string{",
-      "  1: \"alpha\",",
-      "  2: \"beta\",",
-      "  3: \"gamma\",",
+      '  1: "alpha",',
+      '  2: "beta",',
+      '  3: "gamma",',
       "}",
     ].join("\n");
     expect(stripReadLineNumbers(raw)).toBe(raw);
   });
 
   it("strips sparse numbered arrows", () => {
-    const raw = [
-      "1→# Title",
-      "",
-      "body",
-      "10→next section",
-    ].join("\n");
+    const raw = ["1→# Title", "", "body", "10→next section"].join("\n");
     expect(stripReadLineNumbers(raw)).toBe("# Title\n\nbody\nnext section");
   });
 });
 
 describe("relativeDisplayPath", () => {
   it("strips the shared directory prefix from grep hits", () => {
-    const paths = [
-      "/tmp/app/specs/README.md",
-      "/tmp/app/e2e/README.md",
-      "/tmp/app/README.md",
-    ];
+    const paths = ["/tmp/app/specs/README.md", "/tmp/app/e2e/README.md", "/tmp/app/README.md"];
     expect(relativeDisplayPath(paths[0]!, paths)).toBe("specs/README.md");
     expect(relativeDisplayPath(paths[1]!, paths)).toBe("e2e/README.md");
     expect(relativeDisplayPath(paths[2]!, paths)).toBe("README.md");
@@ -118,38 +105,44 @@ describe("displayToolTitle", () => {
   const cwd = "/Users/aarynlu/OpenSource/atmos";
 
   it("rewrites an absolute path in a ReadFile title", () => {
-    expect(displayToolTitle(
-      `ReadFile: ${cwd}/apps/web/src/features/agent/lib/foo.ts`,
-      cwd,
-      `${cwd}/apps/web/src/features/agent/lib/foo.ts`,
-    )).toBe("ReadFile: apps/web/src/features/agent/lib/foo.ts");
+    expect(
+      displayToolTitle(
+        `ReadFile: ${cwd}/apps/web/src/features/agent/lib/foo.ts`,
+        cwd,
+        `${cwd}/apps/web/src/features/agent/lib/foo.ts`,
+      ),
+    ).toBe("ReadFile: apps/web/src/features/agent/lib/foo.ts");
   });
 });
 
 describe("resolveTreeEntryPaths", () => {
   it("joins nested tree names", () => {
-    expect(resolveTreeEntryPaths([
-      { name: "src", indent: 0, isDir: true, kind: "item" },
-      { name: "a.ts", indent: 1, isDir: false, kind: "item" },
-    ])).toEqual(["src", "src/a.ts"]);
+    expect(
+      resolveTreeEntryPaths([
+        { name: "src", indent: 0, isDir: true, kind: "item" },
+        { name: "a.ts", indent: 1, isDir: false, kind: "item" },
+      ]),
+    ).toEqual(["src", "src/a.ts"]);
   });
 });
 
 describe("S16 presentAgentTool", () => {
   it("renders web_search links from the Atmos result", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "web_search",
-      name: "WebSearch",
-      params: { type: "web_search", query: "atmos agent chat" },
-      result: {
-        type: "web_search",
-        query: "atmos agent chat",
-        links: [
-          { url: "https://example.com/a", title: "A", snippet: "alpha" },
-          { url: "https://example.com/b", title: "B" },
-        ],
-      },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "web_search",
+        name: "WebSearch",
+        params: { type: "web_search", query: "atmos agent chat" },
+        result: {
+          type: "web_search",
+          query: "atmos agent chat",
+          links: [
+            { url: "https://example.com/a", title: "A", snippet: "alpha" },
+            { url: "https://example.com/b", title: "B" },
+          ],
+        },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "web_search",
       query: "atmos agent chat",
@@ -161,18 +154,20 @@ describe("S16 presentAgentTool", () => {
   });
 
   it("renders fetch url and body from the Atmos result", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "fetch",
-      name: "WebFetch",
-      params: { type: "fetch", url: "https://example.com/page" },
-      result: {
-        type: "web_fetch",
-        url: "https://example.com/page",
-        title: "Example",
-        markdown: "# Hello",
-        text: "Hello",
-      },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "fetch",
+        name: "WebFetch",
+        params: { type: "fetch", url: "https://example.com/page" },
+        result: {
+          type: "web_fetch",
+          url: "https://example.com/page",
+          title: "Example",
+          markdown: "# Hello",
+          text: "Hello",
+        },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "web_fetch",
       url: "https://example.com/page",
@@ -183,12 +178,14 @@ describe("S16 presentAgentTool", () => {
   });
 
   it("APP-069 S2 keeps workspace search as text when the result is Text", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "search",
-      name: "Grep",
-      params: { type: "search", query: "AgentTool", glob: "*.ts" },
-      result: { type: "text", text: "apps/web/src/foo.ts:8:export function AgentTool() {}" },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "search",
+        name: "Grep",
+        params: { type: "search", query: "AgentTool", glob: "*.ts" },
+        result: { type: "text", text: "apps/web/src/foo.ts:8:export function AgentTool() {}" },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "search",
       query: "AgentTool",
@@ -200,19 +197,21 @@ describe("S16 presentAgentTool", () => {
   });
 
   it("APP-069 S1 renders search_hits as a search body", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "search",
-      name: "Grep",
-      params: { type: "search", query: "AgentTool", glob: "*.ts" },
-      result: {
-        type: "search_hits",
-        query: "AgentTool",
-        hits: [
-          { path: "apps/web/src/foo.ts", line: 8, snippet: "export function AgentTool() {}" },
-          { path: "apps/web/src/bar.ts", line: null, snippet: null },
-        ],
-      },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "search",
+        name: "Grep",
+        params: { type: "search", query: "AgentTool", glob: "*.ts" },
+        result: {
+          type: "search_hits",
+          query: "AgentTool",
+          hits: [
+            { path: "apps/web/src/foo.ts", line: 8, snippet: "export function AgentTool() {}" },
+            { path: "apps/web/src/bar.ts", line: null, snippet: null },
+          ],
+        },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "search",
       query: "AgentTool",
@@ -226,13 +225,15 @@ describe("S16 presentAgentTool", () => {
   });
 
   it("shows grok grep summary with the query script instead of only match count", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "search",
-      name: "Tool",
-      title: "grep",
-      params: { type: "search", query: "scrollIntoView", glob: "**/*.{ts,tsx}", path: null },
-      result: { type: "text", text: "found 21 matches" },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "search",
+        name: "Tool",
+        title: "grep",
+        params: { type: "search", query: "scrollIntoView", glob: "**/*.{ts,tsx}", path: null },
+        result: { type: "text", text: "found 21 matches" },
+      }),
+    );
     expect(parsed.presentation).toMatchObject({
       kind: "search",
       query: "scrollIntoView",
@@ -243,62 +244,99 @@ describe("S16 presentAgentTool", () => {
     expect(formatSearchScript("scrollIntoView", "**/*.{ts,tsx}", null)).toBe(
       "scrollIntoView **/*.{ts,tsx}",
     );
-    expect(preferredCollapsedToolTitle(tool({
-      kind: "search",
-      name: "Tool",
-      title: "grep",
-      params: { type: "search", query: "scrollIntoView" },
-    }), "Search")).toBe("grep");
+    expect(
+      preferredCollapsedToolTitle(
+        tool({
+          kind: "search",
+          name: "Tool",
+          title: "grep",
+          params: { type: "search", query: "scrollIntoView" },
+        }),
+        "Search",
+      ),
+    ).toBe("grep");
   });
 
   it("prefers a human execute title over echoing the shell command", () => {
-    expect(preferredCollapsedToolTitle(tool({
-      kind: "execute",
-      name: "run_terminal_command",
-      title: "Typecheck files-related web sources",
-      params: { type: "execute", command: "cd apps/web && bunx tsc --noEmit", background: false },
-    }), "Run Script")).toBe("Typecheck files-related web sources");
-    expect(preferredCollapsedToolTitle(tool({
-      kind: "execute",
-      name: "Tool",
-      title: "Execute `cd apps/web && bunx tsc --noEmit`",
-      params: { type: "execute", command: "cd apps/web && bunx tsc --noEmit", background: false },
-    }), "Run Script")).toBe("Run Script");
-    expect(preferredCollapsedToolTitle(tool({
-      kind: "execute",
-      name: "commandExecution",
-      title: "ls -la",
-      params: { type: "execute", command: "ls -la", background: false },
-    }), "Execute")).toBe("ls -la");
-    expect(preferredCollapsedToolTitle(tool({
-      kind: "execute",
-      name: "commandExecution",
-      params: { type: "execute", command: "ls -la", background: false },
-    }), "Execute")).toBe("Execute");
+    expect(
+      preferredCollapsedToolTitle(
+        tool({
+          kind: "execute",
+          name: "run_terminal_command",
+          title: "Typecheck files-related web sources",
+          params: {
+            type: "execute",
+            command: "cd apps/web && bunx tsc --noEmit",
+            background: false,
+          },
+        }),
+        "Run Script",
+      ),
+    ).toBe("Typecheck files-related web sources");
+    expect(
+      preferredCollapsedToolTitle(
+        tool({
+          kind: "execute",
+          name: "Tool",
+          title: "Execute `cd apps/web && bunx tsc --noEmit`",
+          params: {
+            type: "execute",
+            command: "cd apps/web && bunx tsc --noEmit",
+            background: false,
+          },
+        }),
+        "Run Script",
+      ),
+    ).toBe("Run Script");
+    expect(
+      preferredCollapsedToolTitle(
+        tool({
+          kind: "execute",
+          name: "commandExecution",
+          title: "ls -la",
+          params: { type: "execute", command: "ls -la", background: false },
+        }),
+        "Execute",
+      ),
+    ).toBe("ls -la");
+    expect(
+      preferredCollapsedToolTitle(
+        tool({
+          kind: "execute",
+          name: "commandExecution",
+          params: { type: "execute", command: "ls -la", background: false },
+        }),
+        "Execute",
+      ),
+    ).toBe("Execute");
   });
 
   it("APP-069 S2 does not treat web_search as search_hits", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "web_search",
-      name: "WebSearch",
-      params: { type: "web_search", query: "atmos agent chat" },
-      result: {
-        type: "web_search",
-        query: "atmos agent chat",
-        links: [{ url: "https://example.com/a", title: "A", snippet: "alpha" }],
-      },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "web_search",
+        name: "WebSearch",
+        params: { type: "web_search", query: "atmos agent chat" },
+        result: {
+          type: "web_search",
+          query: "atmos agent chat",
+          links: [{ url: "https://example.com/a", title: "A", snippet: "alpha" }],
+        },
+      }),
+    );
     expect(parsed.presentation.kind).toBe("web_search");
     expect(parsed.presentation).not.toMatchObject({ kind: "search" });
   });
 
   it("renders read file content as code", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "read",
-      name: "Read",
-      params: { type: "read", path: "src/lib.rs", offset: 1, limit: 40 },
-      result: { type: "file_content", path: "src/lib.rs", text: "     1|pub fn main() {}\n" },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "read",
+        name: "Read",
+        params: { type: "read", path: "src/lib.rs", offset: 1, limit: 40 },
+        result: { type: "file_content", path: "src/lib.rs", text: "     1|pub fn main() {}\n" },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "code",
       path: "src/lib.rs",
@@ -314,52 +352,60 @@ describe("S16 presentAgentTool", () => {
   it("previews local image reads from disk instead of empty text or binary code", () => {
     expect(isImageToolPath("/tmp/shot.png")).toBe(true);
     expect(isImageToolPath("note.md")).toBe(false);
-    const emptyText = presentAgentTool(tool({
-      kind: "read",
-      name: "Read",
-      params: {
-        type: "read",
-        path: "/Users/me/.atmos/data/agent/chats/c1/attachments/shot.png",
-        offset: null,
-        limit: null,
-      },
-      result: { type: "text", text: "" },
-    }));
+    const emptyText = presentAgentTool(
+      tool({
+        kind: "read",
+        name: "Read",
+        params: {
+          type: "read",
+          path: "/Users/me/.atmos/data/agent/chats/c1/attachments/shot.png",
+          offset: null,
+          limit: null,
+        },
+        result: { type: "text", text: "" },
+      }),
+    );
     expect(emptyText.presentation).toEqual({ kind: "empty" });
     expect(emptyText.path).toContain("shot.png");
 
-    const binaryContent = presentAgentTool(tool({
-      kind: "read",
-      name: "Read",
-      params: { type: "read", path: "shot.webp", offset: null, limit: null },
-      result: { type: "file_content", path: "shot.webp", text: "\u0000PNG" },
-    }));
+    const binaryContent = presentAgentTool(
+      tool({
+        kind: "read",
+        name: "Read",
+        params: { type: "read", path: "shot.webp", offset: null, limit: null },
+        result: { type: "file_content", path: "shot.webp", text: "\u0000PNG" },
+      }),
+    );
     expect(binaryContent.presentation).toEqual({ kind: "empty" });
     expect(binaryContent.path).toBe("shot.webp");
   });
 
   it("previews empty text reads from disk", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "read",
-      name: "Read",
-      params: { type: "read", path: "/tmp/note.md", offset: null, limit: null },
-      result: { type: "text", text: "   " },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "read",
+        name: "Read",
+        params: { type: "read", path: "/tmp/note.md", offset: null, limit: null },
+        result: { type: "text", text: "   " },
+      }),
+    );
     expect(parsed.presentation).toEqual({ kind: "empty" });
     expect(parsed.path).toBe("/tmp/note.md");
   });
 
   it("renders markdown file reads as code, not markdown preview", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "read",
-      name: "Read",
-      params: { type: "read", path: "/tmp/plan.md" },
-      result: {
-        type: "file_content",
-        path: "/tmp/plan.md",
-        text: "     1|# Plan\n     2|\n     3|- step\n",
-      },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "read",
+        name: "Read",
+        params: { type: "read", path: "/tmp/plan.md" },
+        result: {
+          type: "file_content",
+          path: "/tmp/plan.md",
+          text: "     1|# Plan\n     2|\n     3|- step\n",
+        },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "code",
       path: "/tmp/plan.md",
@@ -371,12 +417,14 @@ describe("S16 presentAgentTool", () => {
 
   it("keeps markdown write/edit patches as diff presentation", () => {
     const patch = "--- a/plan.md\n+++ b/plan.md\n@@ -1,1 +1,2 @@\n-# Plan\n+# Plan\n+- step\n";
-    const parsed = presentAgentTool(tool({
-      kind: "edit",
-      name: "Write",
-      params: { type: "edit", path: "/tmp/plan.md" },
-      result: { type: "text", text: patch },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "edit",
+        name: "Write",
+        params: { type: "edit", path: "/tmp/plan.md" },
+        result: { type: "text", text: patch },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "patch",
       path: "/tmp/plan.md",
@@ -385,12 +433,14 @@ describe("S16 presentAgentTool", () => {
   });
 
   it("maps write/edit diff_stats to a stats presentation (no path preview)", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "edit",
-      name: "Write",
-      params: { type: "edit", path: "/tmp/plan.md" },
-      result: { type: "diff_stats", path: "/tmp/plan.md", additions: 12, deletions: 0 },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "edit",
+        name: "Write",
+        params: { type: "edit", path: "/tmp/plan.md" },
+        result: { type: "diff_stats", path: "/tmp/plan.md", additions: 12, deletions: 0 },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "diff_stats",
       path: "/tmp/plan.md",
@@ -401,59 +451,69 @@ describe("S16 presentAgentTool", () => {
   });
 
   it("maps edit diff results to the multi-file diff presentation", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "edit",
-      name: "Edit",
-      params: { type: "edit", path: "src/a.ts" },
-      result: {
-        type: "diff",
-        path: "src/a.ts",
-        old_content: "old\n",
-        new_content: "new\n",
-      },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "edit",
+        name: "Edit",
+        params: { type: "edit", path: "src/a.ts" },
+        result: {
+          type: "diff",
+          path: "src/a.ts",
+          old_content: "old\n",
+          new_content: "new\n",
+        },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "diff",
-      files: [{
-        path: "src/a.ts",
-        oldContent: "old\n",
-        newContent: "new\n",
-      }],
+      files: [
+        {
+          path: "src/a.ts",
+          oldContent: "old\n",
+          newContent: "new\n",
+        },
+      ],
     });
   });
 
   it("keeps outside-workspace plan.md Diff contents (no path-preview demotion)", () => {
     const path = "/Users/me/.cursor/plans/Agent-Chat.plan.md";
-    const parsed = presentAgentTool(tool({
-      kind: "edit",
-      name: "Edit",
-      params: { type: "edit", path },
-      result: {
-        type: "diff",
-        path,
-        old_content: "# Plan\n- a\n",
-        new_content: "# Plan\n- b\n",
-      },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "edit",
+        name: "Edit",
+        params: { type: "edit", path },
+        result: {
+          type: "diff",
+          path,
+          old_content: "# Plan\n- a\n",
+          new_content: "# Plan\n- b\n",
+        },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "diff",
-      files: [{
-        path,
-        oldContent: "# Plan\n- a\n",
-        newContent: "# Plan\n- b\n",
-      }],
+      files: [
+        {
+          path,
+          oldContent: "# Plan\n- a\n",
+          newContent: "# Plan\n- b\n",
+        },
+      ],
     });
     expect(parsed.presentation.kind).not.toBe("diff_stats");
   });
 
   it("renders edit patch text as a patch", () => {
     const patch = "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n";
-    const parsed = presentAgentTool(tool({
-      kind: "edit",
-      name: "Edit",
-      params: { type: "edit", path: "src/a.ts" },
-      result: { type: "text", text: patch },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "edit",
+        name: "Edit",
+        params: { type: "edit", path: "src/a.ts" },
+        result: { type: "text", text: patch },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "patch",
       path: "src/a.ts",
@@ -462,12 +522,17 @@ describe("S16 presentAgentTool", () => {
   });
 
   it("does not unwrap vendor envelopes to pick a kind", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "other",
-      name: "Tool",
-      params: { type: "other", value: { type: "ReadFile", FileContent: { absolute_path: "/tmp/a.ts" } } },
-      result: { type: "other", value: { type: "Bash", output: "ok" } },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "other",
+        name: "Tool",
+        params: {
+          type: "other",
+          value: { type: "ReadFile", FileContent: { absolute_path: "/tmp/a.ts" } },
+        },
+        result: { type: "other", value: { type: "Bash", output: "ok" } },
+      }),
+    );
     expect(parsed.presentation).toEqual({
       kind: "json",
       json: prettyJson({ type: "Bash", output: "ok" }),
@@ -476,24 +541,34 @@ describe("S16 presentAgentTool", () => {
   });
 
   it("maps an Atmos error result to an error body", () => {
-    const parsed = presentAgentTool(tool({
-      kind: "read",
-      name: "Read",
-      params: { type: "read", path: "missing.ts" },
-      result: { type: "error", message: "File not found" },
-    }));
+    const parsed = presentAgentTool(
+      tool({
+        kind: "read",
+        name: "Read",
+        params: { type: "read", path: "missing.ts" },
+        result: { type: "error", message: "File not found" },
+      }),
+    );
     expect(parsed.presentation).toEqual({ kind: "error", text: "File not found" });
   });
 
   it("renders move and delete from params", () => {
-    expect(presentAgentTool(tool({
-      kind: "move",
-      params: { type: "move", from: "src/a.ts", to: "src/b.ts" },
-    })).presentation).toEqual({ kind: "move", from: "src/a.ts", to: "src/b.ts" });
-    expect(presentAgentTool(tool({
-      kind: "delete",
-      params: { type: "delete", path: "src/gone.ts" },
-    })).presentation).toEqual({ kind: "delete", path: "src/gone.ts" });
+    expect(
+      presentAgentTool(
+        tool({
+          kind: "move",
+          params: { type: "move", from: "src/a.ts", to: "src/b.ts" },
+        }),
+      ).presentation,
+    ).toEqual({ kind: "move", from: "src/a.ts", to: "src/b.ts" });
+    expect(
+      presentAgentTool(
+        tool({
+          kind: "delete",
+          params: { type: "delete", path: "src/gone.ts" },
+        }),
+      ).presentation,
+    ).toEqual({ kind: "delete", path: "src/gone.ts" });
   });
 });
 
@@ -510,77 +585,97 @@ describe("resolveAgentToolCardHeading", () => {
   const formatWithPath = (tool: string, path: string) => `${tool}: ${path}`;
 
   it("falls back to kind verb + path when the title is path-only or generic", () => {
-    expect(resolveAgentToolCardHeading({
-      heading: "/tmp/app/AGENTS.md",
-      path: "/tmp/app/AGENTS.md",
-      kindLabel: "Read",
-      formatWithPath,
-    })).toBe("Read: /tmp/app/AGENTS.md");
-    expect(resolveAgentToolCardHeading({
-      heading: "Read",
-      path: "lib.rs",
-      kindLabel: "Read",
-      formatWithPath,
-    })).toBe("Read: lib.rs");
-    expect(resolveAgentToolCardHeading({
-      heading: "",
-      path: null,
-      kindLabel: "Read",
-      formatWithPath,
-    })).toBe("Read");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "/tmp/app/AGENTS.md",
+        path: "/tmp/app/AGENTS.md",
+        kindLabel: "Read",
+        formatWithPath,
+      }),
+    ).toBe("Read: /tmp/app/AGENTS.md");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "Read",
+        path: "lib.rs",
+        kindLabel: "Read",
+        formatWithPath,
+      }),
+    ).toBe("Read: lib.rs");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "",
+        path: null,
+        kindLabel: "Read",
+        formatWithPath,
+      }),
+    ).toBe("Read");
   });
 
   it("keeps rich titles that already include the action when no chip omits the path", () => {
-    expect(resolveAgentToolCardHeading({
-      heading: "Write '/tmp/plan.md'",
-      path: "/tmp/plan.md",
-      kindLabel: "Edit",
-      formatWithPath,
-    })).toBe("Write '/tmp/plan.md'");
-    expect(resolveAgentToolCardHeading({
-      heading: "Read 'specs/TECH.md'",
-      path: "specs/TECH.md",
-      kindLabel: "Read",
-      formatWithPath,
-    })).toBe("Read 'specs/TECH.md'");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "Write '/tmp/plan.md'",
+        path: "/tmp/plan.md",
+        kindLabel: "Edit",
+        formatWithPath,
+      }),
+    ).toBe("Write '/tmp/plan.md'");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "Read 'specs/TECH.md'",
+        path: "specs/TECH.md",
+        kindLabel: "Read",
+        formatWithPath,
+      }),
+    ).toBe("Read 'specs/TECH.md'");
   });
 
   it("omits path echo from the title when a file chip shows the path", () => {
-    expect(resolveAgentToolCardHeading({
-      heading: "Read 'specs/APP/QUALITY-001_agent_crate_architecture_refactor/TECH.md'",
-      path: "specs/APP/QUALITY-001_agent_crate_architecture_refactor/TECH.md",
-      kindLabel: "Read",
-      formatWithPath,
-      omitPathInTitle: true,
-    })).toBe("Read");
-    expect(resolveAgentToolCardHeading({
-      heading: "Write '/tmp/plan.md'",
-      path: "/tmp/plan.md",
-      kindLabel: "Edit",
-      formatWithPath,
-      omitPathInTitle: true,
-    })).toBe("Write");
-    expect(resolveAgentToolCardHeading({
-      heading: "Read",
-      path: "lib.rs",
-      kindLabel: "Read",
-      formatWithPath,
-      omitPathInTitle: true,
-    })).toBe("Read");
-    expect(resolveAgentToolCardHeading({
-      heading: "/tmp/app/AGENTS.md",
-      path: "/tmp/app/AGENTS.md",
-      kindLabel: "Read",
-      formatWithPath,
-      omitPathInTitle: true,
-    })).toBe("Read");
-    expect(resolveAgentToolCardHeading({
-      heading: "ReadFile: /Users/me/app/src/foo.ts",
-      path: "/Users/me/app/src/foo.ts",
-      kindLabel: "Read",
-      formatWithPath,
-      omitPathInTitle: true,
-      pathAliases: ["src/foo.ts"],
-    })).toBe("ReadFile");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "Read 'specs/APP/QUALITY-001_agent_crate_architecture_refactor/TECH.md'",
+        path: "specs/APP/QUALITY-001_agent_crate_architecture_refactor/TECH.md",
+        kindLabel: "Read",
+        formatWithPath,
+        omitPathInTitle: true,
+      }),
+    ).toBe("Read");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "Write '/tmp/plan.md'",
+        path: "/tmp/plan.md",
+        kindLabel: "Edit",
+        formatWithPath,
+        omitPathInTitle: true,
+      }),
+    ).toBe("Write");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "Read",
+        path: "lib.rs",
+        kindLabel: "Read",
+        formatWithPath,
+        omitPathInTitle: true,
+      }),
+    ).toBe("Read");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "/tmp/app/AGENTS.md",
+        path: "/tmp/app/AGENTS.md",
+        kindLabel: "Read",
+        formatWithPath,
+        omitPathInTitle: true,
+      }),
+    ).toBe("Read");
+    expect(
+      resolveAgentToolCardHeading({
+        heading: "ReadFile: /Users/me/app/src/foo.ts",
+        path: "/Users/me/app/src/foo.ts",
+        kindLabel: "Read",
+        formatWithPath,
+        omitPathInTitle: true,
+        pathAliases: ["src/foo.ts"],
+      }),
+    ).toBe("ReadFile");
   });
 });

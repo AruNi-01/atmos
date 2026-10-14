@@ -23,10 +23,7 @@ export function CenterExplorerToggle({
 }) {
   const t = useTranslations("appShell.centerExplorer");
   const [layout, { toggleCollapsed, changesForScope }] = useCenterExplorerLayout();
-  const changesLayout =
-    kind === "changes" && foldScopeId
-      ? changesForScope(foldScopeId)
-      : null;
+  const changesLayout = kind === "changes" && foldScopeId ? changesForScope(foldScopeId) : null;
   const collapsed =
     kind === "files"
       ? layout.filesCollapsed
@@ -43,12 +40,8 @@ export function CenterExplorerToggle({
       aria-label={label}
       aria-pressed={!collapsed}
       data-center-explorer-toggle={kind}
-      data-center-explorer-fold-scope={
-        kind === "changes" ? (foldScopeId ?? undefined) : undefined
-      }
-      onClick={() =>
-        toggleCollapsed(kind, kind === "changes" ? foldScopeId : undefined)
-      }
+      data-center-explorer-fold-scope={kind === "changes" ? (foldScopeId ?? undefined) : undefined}
+      onClick={() => toggleCollapsed(kind, kind === "changes" ? foldScopeId : undefined)}
     >
       <PanelRight className="size-3.5" />
     </button>

@@ -11,7 +11,13 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { PlusIcon } from "@/ui/icons/lucide-native";
-import { AppScreen, EmptyState, InlineError, ListLoadMoreFooter, Section } from "@/ui/layout/app-screen";
+import {
+  AppScreen,
+  EmptyState,
+  InlineError,
+  ListLoadMoreFooter,
+  Section,
+} from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { GlassActionButtons } from "@/ui/primitives/glass-action-buttons";
@@ -40,7 +46,9 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
           headerBackButtonDisplayMode: "minimal",
           ...(process.env.EXPO_OS === "ios"
             ? {
-                unstable_headerRightItems: () => [newChatHeaderItem(openNewChat, theme.colors.label)],
+                unstable_headerRightItems: () => [
+                  newChatHeaderItem(openNewChat, theme.colors.label),
+                ],
               }
             : {
                 headerRight: () => (
@@ -62,7 +70,11 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
             {list.loading && list.rows.length === 0 ? (
               <ListSkeleton />
             ) : list.rows.length === 0 ? (
-              <EmptyState layout="section" message={copy.emptyDescription} title={copy.emptyTitle} />
+              <EmptyState
+                layout="section"
+                message={copy.emptyDescription}
+                title={copy.emptyTitle}
+              />
             ) : (
               <ChatSessionRows
                 onLongPress={(row) => {
@@ -80,7 +92,9 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
                       style: "destructive",
                       onPress: () => {
                         if (!client) return;
-                        void wsActions.agentChatDelete(client, { chat_id: row.id }).then(() => list.refetch());
+                        void wsActions
+                          .agentChatDelete(client, { chat_id: row.id })
+                          .then(() => list.refetch());
                       },
                     },
                   ]);
@@ -89,7 +103,9 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
                   const title = row.title.trim();
                   router.push({
                     pathname: "/workspace/[workspaceId]/chat/[chatId]",
-                    params: title ? { chatId: row.id, title, workspaceId } : { chatId: row.id, workspaceId },
+                    params: title
+                      ? { chatId: row.id, title, workspaceId }
+                      : { chatId: row.id, workspaceId },
                   });
                 }}
                 rows={list.rows}
@@ -103,17 +119,21 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
           <View style={{ gap: 12, padding: 18 }}>
             <NativeTextInput onChangeText={setTitleDraft} value={titleDraft} />
             <GlassActionButtons
-              actions={[{
-                label: copy.rename,
-                onPress: () => {
-                  const title = titleDraft.trim();
-                  if (!client || title.length === 0) return;
-                  void wsActions.agentChatRename(client, { chat_id: renaming.id, title }).then(() => {
-                    setRenaming(null);
-                    return list.refetch();
-                  });
+              actions={[
+                {
+                  label: copy.rename,
+                  onPress: () => {
+                    const title = titleDraft.trim();
+                    if (!client || title.length === 0) return;
+                    void wsActions
+                      .agentChatRename(client, { chat_id: renaming.id, title })
+                      .then(() => {
+                        setRenaming(null);
+                        return list.refetch();
+                      });
+                  },
                 },
-              }]}
+              ]}
             />
           </View>
         ) : null}

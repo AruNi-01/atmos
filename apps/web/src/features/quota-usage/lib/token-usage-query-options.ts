@@ -48,10 +48,7 @@ export function tokenUsageQueryOptions(
 }
 
 /** Invalidate all token usage queries after a `token_usage_updated` event. */
-export function invalidateTokenUsageQueries(
-  client: QueryClient,
-  scope: ComputerQueryScope,
-): void {
+export function invalidateTokenUsageQueries(client: QueryClient, scope: ComputerQueryScope): void {
   void client.invalidateQueries({
     queryKey: [...queryKeys.computer.root(scope), "tokenUsage"],
     refetchType: "active",

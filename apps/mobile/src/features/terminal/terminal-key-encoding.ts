@@ -12,7 +12,9 @@ export const NO_TERMINAL_MODIFIERS: TerminalModifierState = {
   shift: false,
 };
 
-export type TerminalKeyResult = { type: "action"; action: "copy" | "paste" } | { type: "input"; data: string };
+export type TerminalKeyResult =
+  | { type: "action"; action: "copy" | "paste" }
+  | { type: "input"; data: string };
 
 const SHIFTED_DIGIT: Record<string, string> = {
   "0": ")",
@@ -68,7 +70,9 @@ const SPECIAL_KEYS: Record<string, SpecialKey> = {
 };
 
 function modifierValue(mods: TerminalModifierState): number {
-  return 1 + (mods.shift ? 1 : 0) + (mods.option ? 2 : 0) + (mods.ctrl ? 4 : 0) + (mods.command ? 8 : 0);
+  return (
+    1 + (mods.shift ? 1 : 0) + (mods.option ? 2 : 0) + (mods.ctrl ? 4 : 0) + (mods.command ? 8 : 0)
+  );
 }
 
 function csiU(codePoint: number, mods: TerminalModifierState): string {
@@ -114,7 +118,8 @@ export function encodeTerminalKey(
   if (key.length === 1) {
     const shifted = mods.shift ? (SHIFTED_DIGIT[key] ?? key) : key;
     if (!mods.ctrl && !mods.option && !mods.command) return input(shifted);
-    if (key === " " && mods.ctrl && !mods.option && !mods.command && !mods.shift) return input("\u0000");
+    if (key === " " && mods.ctrl && !mods.option && !mods.command && !mods.shift)
+      return input("\u0000");
     if (mods.option && !mods.ctrl && !mods.command) return input(`\u001b${shifted}`);
     const codePoint = shifted.codePointAt(0);
     if (codePoint === undefined) return null;
@@ -123,10 +128,14 @@ export function encodeTerminalKey(
 
   const special = SPECIAL_KEYS[key];
   if (!special) return null;
-  if (key === "enter" && mods.shift && !mods.ctrl && !mods.option && !mods.command) return input("\u001b[13;2u");
-  if (key === "tab" && mods.shift && !mods.ctrl && !mods.option && !mods.command) return input("\u001b[Z");
-  if (key === "backspace" && mods.ctrl && !mods.option && !mods.command && !mods.shift) return input("\u0017");
-  if (key === "space" && mods.ctrl && !mods.option && !mods.command && !mods.shift) return input("\u0000");
+  if (key === "enter" && mods.shift && !mods.ctrl && !mods.option && !mods.command)
+    return input("\u001b[13;2u");
+  if (key === "tab" && mods.shift && !mods.ctrl && !mods.option && !mods.command)
+    return input("\u001b[Z");
+  if (key === "backspace" && mods.ctrl && !mods.option && !mods.command && !mods.shift)
+    return input("\u0017");
+  if (key === "space" && mods.ctrl && !mods.option && !mods.command && !mods.shift)
+    return input("\u0000");
   if (!modified) return input(special.plain);
   if (special.arrow) return input(`\u001b[1;${modifierValue(mods)}${special.arrow}`);
   if (special.tilde) return input(`\u001b[${special.tilde};${modifierValue(mods)}~`);

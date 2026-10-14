@@ -1,12 +1,6 @@
 import type { WorkspaceModel } from "@/api/ws-api";
-import {
-  WORKSPACE_WORKFLOW_STATUS_OPTIONS,
-} from "@/app-shell/sidebar/workspace-status";
-import type {
-  Workspace,
-  WorkspacePriority,
-  WorkspaceWorkflowStatus,
-} from "@/shared/types/domain";
+import { WORKSPACE_WORKFLOW_STATUS_OPTIONS } from "@/app-shell/sidebar/workspace-status";
+import type { Workspace, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { normalizeWorkspaceCreateSource } from "@/shared/lib/workspace-create-source";
 
 export type KanbanEntry = {
@@ -49,17 +43,14 @@ export function mapKanbanWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
-    linearLinks: (model.linear_links ?? []).map((link: {
-      external_id: string;
-      identifier: string;
-      title: string;
-      url: string;
-    }) => ({
-      externalId: link.external_id,
-      identifier: link.identifier,
-      title: link.title,
-      url: link.url,
-    })),
+    linearLinks: (model.linear_links ?? []).map(
+      (link: { external_id: string; identifier: string; title: string; url: string }) => ({
+        externalId: link.external_id,
+        identifier: link.identifier,
+        title: link.title,
+        url: link.url,
+      }),
+    ),
     createSource,
   };
 }
@@ -133,19 +124,21 @@ export type WorkspaceKanbanViewSavedState = {
 };
 
 export function resolveKanbanCardProperties(raw: unknown): KanbanCardProperties {
-  const state = raw && typeof raw === "object"
-    ? raw as Partial<WorkspaceKanbanViewSavedState>
-    : {};
+  const state =
+    raw && typeof raw === "object" ? (raw as Partial<WorkspaceKanbanViewSavedState>) : {};
   const properties =
     state.properties && typeof state.properties === "object"
       ? (state.properties as Partial<KanbanCardProperties>)
       : {};
 
-  return KANBAN_CARD_PROPERTY_KEYS.reduce<KanbanCardProperties>((acc, key) => {
-    const rawValue = properties[key];
-    acc[key] = typeof rawValue === "boolean" ? rawValue : DEFAULT_KANBAN_CARD_PROPERTIES[key];
-    return acc;
-  }, { ...DEFAULT_KANBAN_CARD_PROPERTIES });
+  return KANBAN_CARD_PROPERTY_KEYS.reduce<KanbanCardProperties>(
+    (acc, key) => {
+      const rawValue = properties[key];
+      acc[key] = typeof rawValue === "boolean" ? rawValue : DEFAULT_KANBAN_CARD_PROPERTIES[key];
+      return acc;
+    },
+    { ...DEFAULT_KANBAN_CARD_PROPERTIES },
+  );
 }
 
 export interface DragItem {

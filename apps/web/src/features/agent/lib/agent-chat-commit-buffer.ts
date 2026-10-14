@@ -19,9 +19,7 @@ export const HIGH_FREQUENCY_EVENT_KINDS = [
 
 export type HighFrequencyEventKind = (typeof HIGH_FREQUENCY_EVENT_KINDS)[number];
 
-export function classifyCommitCadence(
-  type: AgentChatPayload["type"],
-): AgentChatCommitCadence {
+export function classifyCommitCadence(type: AgentChatPayload["type"]): AgentChatCommitCadence {
   switch (type) {
     case "text_chunk":
     case "turn_snapshot":
