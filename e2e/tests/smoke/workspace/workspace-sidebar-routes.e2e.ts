@@ -49,7 +49,11 @@ test.describe("smoke workspace", () => {
     await expect(
       page.getByRole("button", { name: /选择变更范围|Select changes scope/ }),
     ).toBeVisible({ timeout: 45_000 });
-    await graphHistoryRow.click();
+    // Playwright click() hovers first: the plus trigger's onMouseEnter
+    // intercepts the pointer and the landing row is not actionably stable
+    // (same class of flake as e676987aa). Native click does not move the pointer.
+    await page.keyboard.press("Escape");
+    await graphHistoryRow.evaluate((el) => (el as HTMLButtonElement).click());
     // The tab's computed name can include the close control; do not require an exact match.
     await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
