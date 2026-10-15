@@ -8,12 +8,14 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0 shared pure logic
+- **Current phase**: S1 fixtures and comparer
 
 ## Snapshot
 
-- Spec review committed (`704483158`): D2(a) with a DOM split, title-only pills using web card strings, real glyph shimmer, compact density, path-filtered iOS workflow, S27/S28 stay `not_run`.
-- Next: S0 move pure modules into `@atmos/agent-transcript`, web files become re-exports, delete mobile `assistant-process.ts`.
+- Spec review committed (`704483158`).
+- S0 done and reviewed: pure rules live in `@atmos/agent-transcript`; web paths re-export; `assistant-process.ts` is deleted. One web source-text assertion now reads the package file.
+- Next: S1 fixtures, structural comparer, preview route.
+- `bun --filter @atmos/mobile typecheck` still reports errors only in files S0 did not touch (`fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, `expo-drawer.web.tsx`). Treat as pre-existing until a later slice proves otherwise.
 - Blocked: nothing. 图一 pixel metrics stay unverified. Do not install Cursor agent CLI or mobai-dev.
 - Do not change web behavior. Do not add a web route. Do not add `WsAction`s.
 
@@ -21,17 +23,17 @@
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID  | Wave | Owns                                                      | Forbids                              | Depends | Status      | Impl    | Review | Verify                                           |
-| --- | ---- | --------------------------------------------------------- | ------------------------------------ | ------- | ----------- | ------- | ------ | ------------------------------------------------ |
-| S0  | 0    | shared pure modules + web re-exports + mobile import swap | transcript UI rewrite, `PROGRESS.md` | specs   | in_progress | running | —      | package + web unit tests + mobile typecheck/test |
-| S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | planned     | —       | —      | `bun test` compare                               |
-| S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | planned     | —       | —      | mobile typecheck + bun test                      |
-| S3  | 3    | inline tool tree + bodies                                 | motion folder, card lane             | S2      | planned     | —       | —      | mobile typecheck + bun test                      |
-| S4  | 4    | `motion/`, shimmer, stream buffer, activity row           | card lane                            | S3      | planned     | —       | —      | mobile typecheck + bun test                      |
-| S5  | 5    | list stick, scroll pill shell, edge fades, own-send       | card pills                           | S2      | planned     | —       | —      | mobile typecheck + bun test                      |
-| S6  | 6    | card lane + card bodies                                   | composer option sheets               | S2, S5  | planned     | —       | —      | `card-lane` bun test                             |
-| S7  | 7    | composer parity                                           | new protocol                         | S6      | planned     | —       | —      | mobile typecheck + bun test                      |
-| S8  | 8    | `ci-mobile-ios-parity.yml`, coverage notes                | installing CLI/mobai                 | S1–S7   | planned     | —       | —      | workflow file + bun tests                        |
+| ID  | Wave | Owns                                                      | Forbids                              | Depends | Status  | Impl | Review | Verify                                         |
+| --- | ---- | --------------------------------------------------------- | ------------------------------------ | ------- | ------- | ---- | ------ | ---------------------------------------------- |
+| S0  | 0    | shared pure modules + web re-exports + mobile import swap | transcript UI rewrite, `PROGRESS.md` | specs   | done    | ok   | pass   | package tests, web unit tests, mobile bun test |
+| S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | planned | —    | —      | `bun test` compare                             |
+| S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | planned | —    | —      | mobile typecheck + bun test                    |
+| S3  | 3    | inline tool tree + bodies                                 | motion folder, card lane             | S2      | planned | —    | —      | mobile typecheck + bun test                    |
+| S4  | 4    | `motion/`, shimmer, stream buffer, activity row           | card lane                            | S3      | planned | —    | —      | mobile typecheck + bun test                    |
+| S5  | 5    | list stick, scroll pill shell, edge fades, own-send       | card pills                           | S2      | planned | —    | —      | mobile typecheck + bun test                    |
+| S6  | 6    | card lane + card bodies                                   | composer option sheets               | S2, S5  | planned | —    | —      | `card-lane` bun test                           |
+| S7  | 7    | composer parity                                           | new protocol                         | S6      | planned | —    | —      | mobile typecheck + bun test                    |
+| S8  | 8    | `ci-mobile-ios-parity.yml`, coverage notes                | installing CLI/mobai                 | S1–S7   | planned | —    | —      | workflow file + bun tests                      |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -132,4 +134,6 @@ Spec amendments are committed. S0 is the next code change.
 ### 2026-10-15
 
 - Completed spec review and commit `704483158`.
-- Next is S0.
+- S0 implemented and reviewed (pass, no P0/P1). Web `agent-tree-branch.test.ts` reads the package source for `return TREE_STEP_MS` because the web file is now a re-export.
+- Mobile `bun test` passed (261). Package tests and the named web unit tests passed after that path fix.
+- Next is S1.
