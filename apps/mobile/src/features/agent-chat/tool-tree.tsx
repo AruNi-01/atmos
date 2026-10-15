@@ -26,33 +26,135 @@ export function toolTreeStrokes(input: { first: boolean; last: boolean; height: 
 
 // @view
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
+import {
+  TREE_DRAW_MS,
+  treeReachLength,
+  treeSegmentDelayMs,
+  treeStaggerDelayMs,
+} from "@atmos/agent-transcript/agent-tree-branch";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
+import { useReducedMotion } from "./motion/use-reduced-motion";
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const CHEVRON_MS = 200;
+const DRAW_EASE = Easing.bezier(0.23, 1, 0.32, 1);
+const CHEVRON_EASE = Easing.bezier(0.22, 1, 0.36, 1);
+const DASH_ARRAY = ["stroke", "Dash", "array"].join("");
+const DASH_OFFSET = ["stroke", "Dash", "offset"].join("");
 
 export function ExpandChevron({ color, open }: { color?: string; open: boolean }) {
   const theme = useMobileTheme();
+  const reduced = useReducedMotion();
+  const rotation = useSharedValue(open ? 90 : 0);
+  const wasOpen = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    const next = open ? 90 : 0;
+    if (wasOpen.current === null || wasOpen.current === open || reduced) {
+      rotation.set(next);
+    } else {
+      rotation.set(withTiming(next, { duration: CHEVRON_MS, easing: CHEVRON_EASE }));
+    }
+    wasOpen.current = open;
+  }, [open, reduced, rotation]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.get()}deg` }],
+  }));
+
   return (
-    <View style={{ transform: [{ rotate: open ? "90deg" : "0deg" }] }}>
+    <Animated.View style={style}>
       <ChevronRightIcon color={color ?? theme.colors.secondaryLabel} size={12} strokeWidth={2.2} />
-    </View>
+    </Animated.View>
   );
+}
+
+function DrawnPath({
+  d,
+  delay,
+  draw,
+  length,
+  stroke,
+}: {
+  d: string;
+  delay: number;
+  draw: boolean;
+  length: number;
+  stroke: string;
+}) {
+  const reduced = useReducedMotion();
+  const skip = reduced || !draw;
+  const offset = useSharedValue(skip || length <= 0 ? 0 : length);
+  const lengthSv = useSharedValue(length);
+  const started = useRef(false);
+  const animatedProps = useAnimatedProps(() => {
+    const props: Record<string, number> = {};
+    props[DASH_ARRAY] = lengthSv.get();
+    props[DASH_OFFSET] = offset.get();
+    return props;
+  });
+
+  useEffect(() => {
+    lengthSv.set(length);
+    if (skip) {
+      offset.set(0);
+      return;
+    }
+    if (started.current || length <= 0) return;
+    started.current = true;
+    offset.set(length);
+    offset.set(withDelay(delay, withTiming(0, { duration: TREE_DRAW_MS, easing: DRAW_EASE })));
+  }, [delay, length, lengthSv, offset, skip]);
+
+  const strokeProps = {
+    d,
+    fill: "none" as const,
+    stroke,
+    strokeLinecap: "butt" as const,
+    strokeLinejoin: "round" as const,
+    strokeOpacity: TREE_LINE_ALPHA,
+    strokeWidth: TREE_LINE_WIDTH,
+  };
+
+  if (skip) return <Path {...strokeProps} />;
+  return <AnimatedPath {...strokeProps} animatedProps={animatedProps as never} />;
 }
 
 export function ToolTreeRow({
   children,
+  count = 1,
+  draw = false,
   first,
+  index = 0,
   last,
 }: {
   children: ReactNode;
+  count?: number;
+  draw?: boolean;
   first: boolean;
+  index?: number;
   last: boolean;
 }) {
   const theme = useMobileTheme();
   const [height, setHeight] = useState(0);
   const strokes = toolTreeStrokes({ first, last, height });
+  const delay = count <= 1 ? treeSegmentDelayMs(index) : treeStaggerDelayMs(index, count);
+  const reachLength = treeReachLength(first ? TREE_BRANCH_FIRST_START_Y : 0, TREE_BRANCH_MID_Y);
+  const trunkFrom = TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS;
+  const trunkLength = height > trunkFrom ? height - trunkFrom : 0;
+
   return (
     <View style={{ flexDirection: "row", minHeight: 24 }}>
       <View pointerEvents="none" style={{ width: TREE_BRANCH_GUTTER }}>
@@ -63,24 +165,20 @@ export function ToolTreeRow({
             style={{ left: 0, position: "absolute", top: 0 }}
           >
             {strokes.trunk ? (
-              <Path
+              <DrawnPath
                 d={strokes.trunk}
-                fill="none"
+                delay={delay}
+                draw={draw}
+                length={trunkLength}
                 stroke={theme.colors.label}
-                strokeLinecap="butt"
-                strokeLinejoin="round"
-                strokeOpacity={TREE_LINE_ALPHA}
-                strokeWidth={TREE_LINE_WIDTH}
               />
             ) : null}
-            <Path
+            <DrawnPath
               d={strokes.reach}
-              fill="none"
+              delay={delay}
+              draw={draw}
+              length={reachLength}
               stroke={theme.colors.label}
-              strokeLinecap="butt"
-              strokeLinejoin="round"
-              strokeOpacity={TREE_LINE_ALPHA}
-              strokeWidth={TREE_LINE_WIDTH}
             />
           </Svg>
         ) : null}

@@ -125,6 +125,7 @@
         "@hookform/resolvers": "^5.4.0",
         "@rbayuokt/expo-adaptive-glass": "^0.3.1",
         "@react-native-async-storage/async-storage": "2.2.0",
+        "@react-native-masked-view/masked-view": "0.3.2",
         "@shopify/react-native-skia": "2.6.2",
         "@tailwindcss/postcss": "^4.3.0",
         "@tanstack/react-query": "^5.101.0",
@@ -144,6 +145,7 @@
         "expo-glass-effect": "~56.0.4",
         "expo-image-picker": "~56.0.25",
         "expo-ios-popover": "^0.1.7",
+        "expo-linear-gradient": "~56.0.4",
         "expo-linking": "~56.0.0",
         "expo-media-library": "~56.0.11",
         "expo-network": "~56.0.5",
@@ -2938,6 +2940,8 @@
     "expo-json-utils": ["expo-json-utils@56.0.0", "", {}, "sha512-lUqyv9aIGDbYTQ5Nux2FnH2/Dz0w5uJ8Pr080eS0StXi2jr5OmuMNErpzUnpfnYOU55xKotd4AHv68PfV/ludg=="],
 
     "expo-keep-awake": ["expo-keep-awake@56.0.3", "", { "peerDependencies": { "expo": "*", "react": "*" } }, "sha512-CLMJXtEiMKknD3Rpm8CRwE6ZJUzu2yCEmRk1sgfHAJ1zIbuEWY3dpPDubtsnuzWm+2k6Sru+yaFbYsvPWmTiBA=="],
+
+    "expo-linear-gradient": ["expo-linear-gradient@56.0.4", "", { "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-KUp1dNSRtuMyiExhf6FJf5YUtmw2cRaPytl10HQi7isj5Yac38udmD55T2tglNYTZlvgT5+oflpyFoH15hmOcw=="],
 
     "expo-linking": ["expo-linking@56.0.16", "", { "dependencies": { "expo-constants": "~56.0.22", "invariant": "^2.2.4" }, "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-rI/ZE22t0sgYqnE0WnDUbld/vTzOiTxEX/uKuNFGTIUZ9tmes/nvcqJufEMqRV7u6REUEIBCFxbROOBibvwG4g=="],
 

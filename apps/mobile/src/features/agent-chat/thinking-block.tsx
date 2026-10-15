@@ -8,6 +8,7 @@ import {
 import { useMobileTheme } from "@/theme/theme-store";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { thinkingTitle } from "./copy";
+import { TextShimmer } from "./motion/text-shimmer";
 
 export function ThinkingBlock({
   part,
@@ -25,12 +26,17 @@ export function ThinkingBlock({
     ? undefined
     : thinkingDurationSeconds(thinkingBlockDurationMs(part, parts, thinkingMs));
   const title = thinkingTitle(open, seconds);
+  const titleStyle = { color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 };
 
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}>
-        {title}
-      </Text>
+      {open ? (
+        <TextShimmer duration={1} style={titleStyle}>
+          {title}
+        </TextShimmer>
+      ) : (
+        <Text style={titleStyle}>{title}</Text>
+      )}
       <AgentChatMarkdown text={part.text} tone="thinking" />
     </View>
   );

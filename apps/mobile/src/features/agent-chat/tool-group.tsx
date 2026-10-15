@@ -41,6 +41,7 @@ import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { agentChatToolGroupExpandKey, useAgentChatExpandStore } from "./expand-store";
+import { TextShimmer } from "./motion/text-shimmer";
 import { ExpandChevron, ToolTreeRow } from "./tool-tree";
 
 function rowKey(part: AgentPart, origIndex: number): string {
@@ -67,7 +68,15 @@ export function ToolGroup({
   const expandKey = agentChatToolGroupExpandKey(messageId, groupKey);
   const stored = useAgentChatExpandStore((state) => state.values[expandKey]);
   const setExpand = useAgentChatExpandStore((state) => state.setExpand);
-  const open = persistentToolGroupOpen(stored, toolGroupHasRunning(parts));
+  const running = toolGroupHasRunning(parts);
+  const open = persistentToolGroupOpen(stored, running);
+  const overview = toolGroupOverviewLabel(parts);
+  const overviewStyle = {
+    color: theme.colors.secondaryLabel,
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 16,
+  };
   const rows = open
     ? parts.flatMap((part, index) => {
         const origIndex = origIndexes[index] ?? index;
@@ -89,22 +98,27 @@ export function ToolGroup({
         }}
         style={{ alignItems: "center", flexDirection: "row", gap: 4, paddingVertical: 2 }}
       >
-        <Text
-          numberOfLines={1}
-          style={{
-            color: theme.colors.secondaryLabel,
-            flexShrink: 1,
-            fontSize: 12,
-            lineHeight: 16,
-          }}
-        >
-          {toolGroupOverviewLabel(parts)}
-        </Text>
+        {running ? (
+          <TextShimmer duration={1} numberOfLines={1} style={overviewStyle}>
+            {overview}
+          </TextShimmer>
+        ) : (
+          <Text numberOfLines={1} style={overviewStyle}>
+            {overview}
+          </Text>
+        )}
         <ExpandChevron open={open} />
       </Pressable>
       {open
         ? rows.map((row, index) => (
-            <ToolTreeRow first={index === 0} key={row.key} last={index === rows.length - 1}>
+            <ToolTreeRow
+              count={rows.length}
+              draw={running}
+              first={index === 0}
+              index={index}
+              key={row.key}
+              last={index === rows.length - 1}
+            >
               {row.rendered}
             </ToolTreeRow>
           ))

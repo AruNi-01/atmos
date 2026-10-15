@@ -22,6 +22,7 @@ import {
   transcriptVisibility,
   type AssistantSegment,
 } from "@atmos/agent-transcript";
+import { ActivityRow } from "./activity-row";
 import { AnswerText } from "./answer-text";
 import { AssistantFooter, AssistantTurnFiles } from "./assistant-footer";
 import { copy } from "./copy";
@@ -86,7 +87,7 @@ function InlinePart({
     if (!showToolRow(part, surface)) return null;
     return <ToolCallRow part={part} />;
   }
-  if (part.type === "text") return <AnswerText part={part} />;
+  if (part.type === "text") return <AnswerText part={part} parts={message.parts} />;
   if (part.type === "thinking") {
     return <ThinkingBlock part={part} parts={message.parts} thinkingMs={message.thinking_ms} />;
   }
@@ -144,10 +145,18 @@ function assistantHasVisiblePart(message: AgentMessage): boolean {
   });
 }
 
-function AssistantTurn({ message }: { message: AgentMessage }) {
+function AssistantTurn({
+  message,
+  showActivity = false,
+}: {
+  message: AgentMessage;
+  showActivity?: boolean;
+}) {
   const assistantText = assistantCopyText(message);
   const showChrome = shouldShowAssistantTurnEndedChrome(message, assistantText);
-  if (!assistantHasVisiblePart(message) && !showChrome && !message.streaming) return null;
+  if (!assistantHasVisiblePart(message) && !showChrome && !message.streaming && !showActivity) {
+    return null;
+  }
 
   const segments = segmentAssistantParts(message.parts, DEFAULT_TOOL_CALL_DENSITY);
   const { processSegments, tailSegments } = splitSegmentedAssistantParts(segments);
@@ -165,16 +174,14 @@ function AssistantTurn({ message }: { message: AgentMessage }) {
       />
       {processSegments.length > 0 ? (
         <ProcessFold canCollapse={canCollapse} message={message}>
-          <View style={{ gap: 6 }}>
-            {processSegments.map((segment) => (
-              <SegmentView
-                key={segmentKey(message.id, segment)}
-                message={message}
-                onInspect={markInspecting}
-                segment={segment}
-              />
-            ))}
-          </View>
+          {processSegments.map((segment) => (
+            <SegmentView
+              key={segmentKey(message.id, segment)}
+              message={message}
+              onInspect={markInspecting}
+              segment={segment}
+            />
+          ))}
         </ProcessFold>
       ) : null}
       {tailSegments.length > 0 ? (
@@ -191,13 +198,20 @@ function AssistantTurn({ message }: { message: AgentMessage }) {
       ) : null}
       <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
       <AssistantTurnFiles parts={message.parts} visible={showChrome} />
+      {showActivity ? <ActivityRow message={message} /> : null}
     </View>
   );
 }
 
-function ChatMessage({ message }: { message: AgentMessage }) {
+function ChatMessage({
+  message,
+  showActivity = false,
+}: {
+  message: AgentMessage;
+  showActivity?: boolean;
+}) {
   if (message.role === "user") return <UserMessage message={message} />;
-  return <AssistantTurn message={message} />;
+  return <AssistantTurn message={message} showActivity={showActivity} />;
 }
 
 export function AgentChatTranscript({
@@ -309,7 +323,16 @@ export function AgentChatTranscript({
         onScrollToIndexFailed={({ index }) => {
           listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
         }}
-        renderItem={({ item }) => <ChatMessage message={item} />}
+        renderItem={({ index, item }) => (
+          <ChatMessage
+            message={item}
+            showActivity={
+              index === rows.length - 1 &&
+              item.role === "assistant" &&
+              (streaming || Boolean(item.streaming))
+            }
+          />
+        )}
         scrollEventThrottle={16}
         style={{ backgroundColor: theme.colors.background, flex: 1 }}
       />
