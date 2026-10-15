@@ -157,6 +157,7 @@ export default function RootLayout() {
                   headerBackButtonDisplayMode: "minimal",
                 }}
               />
+              <Stack.Screen name="preview-chat" options={{ headerShown: false }} />
               <Stack.Screen name="+not-found" />
             </Stack>
           </GlassProvider>

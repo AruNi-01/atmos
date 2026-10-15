@@ -41,14 +41,19 @@ xcrun simctl spawn booted defaults read com.apple.launchservices.schemeapproval
 xcrun simctl spawn booted killall -9 cfprefsd || true
 
 dump_runtime_logs() {
-  echo "----- console.log -----" >&2
+  echo "----- console.log (tail) -----" >&2
   if [[ -f "$OUT/console.log" ]]; then
     tail -n 200 "$OUT/console.log" >&2 || true
   else
     echo "(no console.log)" >&2
   fi
   echo "----- device log -----" >&2
-  xcrun simctl spawn booted log show --last 2m --style compact --predicate 'processImagePath CONTAINS "Atmos"' 2>/dev/null | tail -n 200 >&2 || true
+  # Full filtered log stays in the artifact. The job log only prints the tail.
+  xcrun simctl spawn booted log show --last 5m --info --debug --style compact \
+    --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
+    >"$OUT/device-log.txt" 2>&1 || true
+  tail -n 400 "$OUT/device-log.txt" >&2 || true
+  screencapture -x "$OUT/desktop-on-failure.png" || true
 }
 
 # simctl screenshots stay black unless Simulator.app owns the framebuffer.
@@ -66,6 +71,7 @@ if ! kill -0 "$console_pid" 2>/dev/null; then
   xcrun simctl launch booted "$BUNDLE_ID" || true
 fi
 sleep "$WARMUP_SECONDS"
+screencapture -x "$OUT/desktop-after-warmup.png" || true
 
 open_fixture() {
   local id="$1"

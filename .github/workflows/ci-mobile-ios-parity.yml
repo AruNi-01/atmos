@@ -68,9 +68,12 @@ jobs:
         run: |
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.5.app
-          # Without this, simctl screenshots of an app are a black framebuffer
-          # on a headless runner. The system open-url dialog still captured.
+          # simctl screenshots stay black unless the simulator service starts
+          # with the software framebuffer. The service is already running on
+          # the runner image, so write the default and restart it before boot.
           defaults write com.apple.CoreSimulator.IndigoFramebufferServices FramebufferRendererHint -integer 3
+          killall -9 com.apple.CoreSimulator.CoreSimulatorService || true
+          sleep 2
           echo "xcode-select: $(xcode-select -p)"
           xcodebuild -version
           echo "----- xcrun simctl list -----"
@@ -146,8 +149,6 @@ jobs:
             exit 1
           fi
           xcrun simctl status_bar booted override --time "9:41" --batteryState charged --batteryLevel 100
-          open -a Simulator
-          sleep 5
 
       - name: Bake preview flag and prebuild iOS
         working-directory: apps/mobile
@@ -162,6 +163,11 @@ jobs:
           set -euo pipefail
           pod --version
           pod install
+          if grep -E -q 'expo-dev-launcher|expo-dev-menu|expo-dev-client' Podfile.lock; then
+            echo "parity prebuild still linked expo-dev-client" >&2
+            exit 1
+          fi
+          echo "expo-dev-client is not in Podfile.lock"
 
       - name: Build Release simulator app
         run: |
@@ -244,6 +250,17 @@ jobs:
             exit 1
           fi
           echo "app: ${app}"
+          bundle="$app/main.jsbundle"
+          if [[ ! -f "$bundle" ]]; then
+            echo "main.jsbundle missing from ${app}" >&2
+            find "$app" -name '*.jsbundle' -o -name '*.hbc' >&2 || true
+            exit 1
+          fi
+          if grep -a -q 'EXPO_PUBLIC_PARITY_PREVIEW' "$bundle"; then
+            echo "EXPO_PUBLIC_PARITY_PREVIEW was not inlined into main.jsbundle" >&2
+            exit 1
+          fi
+          echo "parity preview flag is inlined into main.jsbundle"
           printf '%s\n' "$app" > "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt"
 
       - name: Install, launch, and capture
