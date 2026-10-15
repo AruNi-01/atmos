@@ -161,6 +161,18 @@ jobs:
           node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-client")) process.exit(1)'
           bunx expo prebuild -p ios --no-install
           node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-launcher")) { console.error("prebuild dropped the dev-client exclude"); process.exit(1) }'
+          # The Xcode bundle phase sources this file before Expo inlines EXPO_PUBLIC_*.
+          printf 'export EXPO_PUBLIC_PARITY_PREVIEW=1\n' > ios/.xcode.env.local
+          info_plist="$(find ios -name Info.plist -path '*Atmos/Info.plist' -print -quit)"
+          if [[ -z "$info_plist" ]]; then
+            echo "Atmos Info.plist missing after prebuild" >&2
+            find ios -name Info.plist >&2 || true
+            exit 1
+          fi
+          if grep -q 'UISceneDelegateClassName' "$info_plist"; then
+            echo "Info.plist names a scene delegate. Expo does not generate that class, so the scene window stays black while React Native draws into AppDelegate's window." >&2
+            exit 1
+          fi
 
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
@@ -263,6 +275,11 @@ jobs:
           fi
           if grep -a -q 'EXPO_PUBLIC_PARITY_PREVIEW' "$bundle"; then
             echo "EXPO_PUBLIC_PARITY_PREVIEW was not inlined into main.jsbundle" >&2
+            exit 1
+          fi
+          # Hermes -O drops this string when the flag is not "1" (the route returns null).
+          if ! grep -a -q '\[parity\] preview-chat route' "$bundle"; then
+            echo "parity preview route was not compiled in; EXPO_PUBLIC_PARITY_PREVIEW was not inlined as 1" >&2
             exit 1
           fi
           echo "parity preview flag is inlined into main.jsbundle"
