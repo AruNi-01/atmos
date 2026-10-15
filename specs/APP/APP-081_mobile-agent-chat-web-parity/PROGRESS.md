@@ -8,14 +8,15 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S3 inline tool tree
+- **Current phase**: S4 motion
 
 ## Snapshot
 
 - Spec review committed (`704483158`).
 - S0 done and reviewed: pure rules live in `@atmos/agent-transcript`; web paths re-export; `assistant-process.ts` is deleted. One web source-text assertion now reads the package file.
 - S1 done and reviewed: synthetic F1–F13, `projectParityTree`, `scripts/agent-chat-parity/compare.ts` (13 match), preview route gated by `EXPO_PUBLIC_PARITY_PREVIEW`.
-- S2 done and reviewed: user bubbles, answer caret, thinking titles, session chrome, errors, historic permissions, and the assistant footer. Tool-group sheets remain until S3. File-change rows use `presentAgentTool` and count only edit, delete, and move.
+- S2 done and reviewed.
+- S3 done and reviewed: inline tool tree and bodies. Detail sheet and `event-model.ts` are deleted.
 - `bun --filter @atmos/mobile typecheck` still reports errors only in files S0 did not touch (`fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, `expo-drawer.web.tsx`). Treat as pre-existing until a later slice proves otherwise.
 - Blocked: nothing. 图一 pixel metrics stay unverified. Do not install Cursor agent CLI or mobai-dev.
 - Do not change web behavior. Do not add a web route. Do not add `WsAction`s.
@@ -24,17 +25,17 @@
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID  | Wave | Owns                                                      | Forbids                              | Depends | Status  | Impl | Review | Verify                                         |
-| --- | ---- | --------------------------------------------------------- | ------------------------------------ | ------- | ------- | ---- | ------ | ---------------------------------------------- |
-| S0  | 0    | shared pure modules + web re-exports + mobile import swap | transcript UI rewrite, `PROGRESS.md` | specs   | done    | ok   | pass   | package tests, web unit tests, mobile bun test |
-| S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | done    | ok   | pass   | compare.ts 13 fixtures, package + mobile tests |
-| S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | done    | ok   | pass   | mobile bun test 278; package tests; compare 13 |
-| S3  | 3    | inline tool tree + bodies                                 | motion folder, card lane             | S2      | planned | —    | —      | mobile typecheck + bun test                    |
-| S4  | 4    | `motion/`, shimmer, stream buffer, activity row           | card lane                            | S3      | planned | —    | —      | mobile typecheck + bun test                    |
-| S5  | 5    | list stick, scroll pill shell, edge fades, own-send       | card pills                           | S2      | planned | —    | —      | mobile typecheck + bun test                    |
-| S6  | 6    | card lane + card bodies                                   | composer option sheets               | S2, S5  | planned | —    | —      | `card-lane` bun test                           |
-| S7  | 7    | composer parity                                           | new protocol                         | S6      | planned | —    | —      | mobile typecheck + bun test                    |
-| S8  | 8    | `ci-mobile-ios-parity.yml`, coverage notes                | installing CLI/mobai                 | S1–S7   | planned | —    | —      | workflow file + bun tests                      |
+| ID  | Wave | Owns                                                      | Forbids                              | Depends | Status      | Impl | Review | Verify                                         |
+| --- | ---- | --------------------------------------------------------- | ------------------------------------ | ------- | ----------- | ---- | ------ | ---------------------------------------------- |
+| S0  | 0    | shared pure modules + web re-exports + mobile import swap | transcript UI rewrite, `PROGRESS.md` | specs   | done        | ok   | pass   | package tests, web unit tests, mobile bun test |
+| S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | done        | ok   | pass   | compare.ts 13 fixtures, package + mobile tests |
+| S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | done        | ok   | pass   | mobile bun test 278; package tests; compare 13 |
+| S3  | 3    | inline tool tree + bodies                                 | motion folder, card lane             | S2      | done        | ok   | pass   | mobile bun test 280; compare 13                |
+| S4  | 4    | `motion/`, shimmer, stream buffer, activity row           | card lane                            | S3      | in_progress | —    | —      | mobile typecheck + bun test                    |
+| S5  | 5    | list stick, scroll pill shell, edge fades, own-send       | card pills                           | S2      | planned     | —    | —      | mobile typecheck + bun test                    |
+| S6  | 6    | card lane + card bodies                                   | composer option sheets               | S2, S5  | planned     | —    | —      | `card-lane` bun test                           |
+| S7  | 7    | composer parity                                           | new protocol                         | S6      | planned     | —    | —      | mobile typecheck + bun test                    |
+| S8  | 8    | `ci-mobile-ios-parity.yml`, coverage notes                | installing CLI/mobai                 | S1–S7   | planned     | —    | —      | workflow file + bun tests                      |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -141,4 +142,5 @@ S0 and S1 are committed. S2 is implemented and reviewed. Next code change is S3 
 - Mobile `bun test` passed (261). Package tests and the named web unit tests passed after that path fix.
 - S1 implemented and reviewed (pass). `compare.ts` prints `13 fixtures match`.
 - S2 implemented and reviewed (pass after a file-change rework). Mobile `bun test` 278. Package typecheck passed. Mobile typecheck still fails only in `fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, and `expo-drawer.web.tsx`.
-- Next is S3.
+- S3 implemented and reviewed (pass). Sheet and `event-model.ts` deleted. Mobile `bun test` 280.
+- Next is S4.
