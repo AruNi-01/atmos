@@ -17,6 +17,7 @@ type ChatPanelCopy = {
   planViewerEmpty: string;
   bottom: string;
   copy: { message: string };
+  paste: { chip: string };
   thinking: string;
   thoughtFor: string;
   thoughtForFew: string;
@@ -106,6 +107,8 @@ describe("agent chat copy parity", () => {
     expect(copy.grokWorkflowTitle).toBe(components.grokWorkflow.title);
     expect(copy.grokWorkflowTitle).toBe("Research");
     expect(copy.contextWindowTitle).toBe(components.contextWindow.title);
+    expect(copy.pasteChip).toBe(chatPanel.paste.chip);
+    expect(copy.pasteChip).toBe("Pasted: {count} lines");
   });
 
   test("transcript chrome strings match web copy", () => {

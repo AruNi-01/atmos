@@ -27,6 +27,11 @@ import { ExpandedCard } from "./cards/expanded-card";
 import { LaneCardBody } from "./cards/lane-body";
 import { cardPillTitle, deriveComposerCards } from "./composer-cards";
 import { ComposerPillRow } from "./composer-pill-row";
+import {
+  expandComposerPaste,
+  retainComposerPasteChips,
+  type ComposerPasteChip,
+} from "./composer-paste";
 import { composerRowVisible, scrollPillVisible } from "./stick";
 import { resolvedPillRowHeight } from "./transcript-pad";
 import {
@@ -274,6 +279,7 @@ export function AgentChatThreadScreen({
     attention: pillShowsAttention(id, lane.visible),
   }));
   const [text, setText] = useState("");
+  const [pasteChips, setPasteChips] = useState<ComposerPasteChip[]>([]);
   const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
   const [stickToken, setStickToken] = useState(0);
   const [stickToEnd, setStickToEnd] = useState(true);
@@ -292,7 +298,9 @@ export function AgentChatThreadScreen({
     (id: string) => {
       if (!suggestions) return;
       const insert = suggestions.trigger.kind === "slash" ? `/${id} ` : `@${id} `;
-      setText(applyComposerPick(text, suggestions.trigger, insert));
+      const next = applyComposerPick(text, suggestions.trigger, insert);
+      setText(next);
+      setPasteChips((chips) => retainComposerPasteChips(next, chips, null));
     },
     [suggestions, text],
   );
@@ -370,53 +378,67 @@ export function AgentChatThreadScreen({
     [chatCwd, chatId],
   );
 
-  const restoreDraft = useCallback((draft: string, pending: ComposerPhoto[]) => {
-    setText((current) => (current.length === 0 ? draft : current));
-    setPhotos((current) => (current.length === 0 ? pending : current));
-  }, []);
+  const restoreDraft = useCallback(
+    (draft: string, pending: ComposerPhoto[], chips: readonly ComposerPasteChip[]) => {
+      setText((current) => (current.length === 0 ? draft : current));
+      setPhotos((current) => (current.length === 0 ? pending : current));
+      setPasteChips((current) => (current.length === 0 ? [...chips] : current));
+    },
+    [],
+  );
 
   const onSend = useCallback(() => {
     const draft = text;
+    const chips = pasteChips;
+    const expanded = expandComposerPaste(draft, chips);
     const pending = photos;
-    if (draft.trim() === "" && pending.length === 0) return;
+    if (expanded.trim() === "" && pending.length === 0) return;
     setStickToken((token) => token + 1);
     setText("");
+    setPasteChips([]);
     setPhotos([]);
     setUploadError(null);
     void (async () => {
       const paths = await uploadSelectedPhotos(pending);
-      await send(draft, paths);
+      await send(expanded, paths);
     })().catch((err: unknown) => {
-      restoreDraft(draft, pending);
+      restoreDraft(draft, pending, chips);
       setUploadError(err instanceof Error ? err.message : "Could not upload that photo.");
     });
-  }, [photos, restoreDraft, send, text, uploadSelectedPhotos]);
+  }, [pasteChips, photos, restoreDraft, send, text, uploadSelectedPhotos]);
 
   const onQueue = useCallback(() => {
     const draft = text;
+    const chips = pasteChips;
+    const expanded = expandComposerPaste(draft, chips);
     const pending = photos;
-    if (draft.trim() === "" && pending.length === 0) return;
+    if (expanded.trim() === "" && pending.length === 0) return;
     setText("");
+    setPasteChips([]);
     setPhotos([]);
     setUploadError(null);
     void (async () => {
       const paths = await uploadSelectedPhotos(pending);
-      await queueAdd(draft, paths);
+      await queueAdd(expanded, paths);
     })().catch((err: unknown) => {
-      restoreDraft(draft, pending);
+      restoreDraft(draft, pending, chips);
       setUploadError(err instanceof Error ? err.message : "Could not upload that photo.");
     });
-  }, [photos, queueAdd, restoreDraft, text, uploadSelectedPhotos]);
+  }, [pasteChips, photos, queueAdd, restoreDraft, text, uploadSelectedPhotos]);
 
   const onSteer = useCallback(() => {
     const draft = text;
-    if (draft.trim() === "") return;
+    const chips = pasteChips;
+    const expanded = expandComposerPaste(draft, chips);
+    if (expanded.trim() === "") return;
     setText("");
+    setPasteChips([]);
     setUploadError(null);
-    void steer(draft).catch(() => {
+    void steer(expanded).catch(() => {
       setText((current) => (current.length === 0 ? draft : current));
+      setPasteChips((current) => (current.length === 0 ? chips : current));
     });
-  }, [steer, text]);
+  }, [pasteChips, steer, text]);
 
   const onStop = useCallback(() => {
     void cancel().catch(() => undefined);
@@ -564,6 +586,8 @@ export function AgentChatThreadScreen({
                 favorites={favorites}
                 onPhotosChange={setPhotos}
                 onChangeText={setText}
+                onOpenCard={onPillPress}
+                onPasteChipsChange={setPasteChips}
                 onPatch={onPatch}
                 onPickSuggestion={onPickSuggestion}
                 onQueue={onQueue}
@@ -574,7 +598,9 @@ export function AgentChatThreadScreen({
                 onSteer={onSteer}
                 onStop={onStop}
                 onToggleFavorite={toggleFavorite}
+                pasteChips={pasteChips}
                 photos={photos}
+                sessionUsage={sessionUsage}
                 picker={picker}
                 placeholder={composerPlaceholder}
                 queueLabel={copy.queue}

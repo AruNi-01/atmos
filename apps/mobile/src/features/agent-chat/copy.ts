@@ -30,6 +30,7 @@ export const copy = {
   deleteChat: "Delete",
   attach: "Attach",
   context: "Context",
+  pasteChip: "Pasted: {count} lines",
   close: "Close",
   mode: "Mode",
   permission: "Permission",
