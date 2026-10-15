@@ -51,6 +51,9 @@ dump_runtime_logs() {
   xcrun simctl spawn booted log show --last 2m --style compact --predicate 'processImagePath CONTAINS "Atmos"' 2>/dev/null | tail -n 200 >&2 || true
 }
 
+# simctl screenshots stay black unless Simulator.app owns the framebuffer.
+open -a Simulator || true
+
 echo "warming ${BUNDLE_ID}"
 xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
 # --console-pty keeps the JS log attached for the whole capture.

@@ -68,6 +68,9 @@ jobs:
         run: |
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.5.app
+          # Without this, simctl screenshots of an app are a black framebuffer
+          # on a headless runner. The system open-url dialog still captured.
+          defaults write com.apple.CoreSimulator.IndigoFramebufferServices FramebufferRendererHint -integer 3
           echo "xcode-select: $(xcode-select -p)"
           xcodebuild -version
           echo "----- xcrun simctl list -----"
@@ -143,6 +146,8 @@ jobs:
             exit 1
           fi
           xcrun simctl status_bar booted override --time "9:41" --batteryState charged --batteryLevel 100
+          open -a Simulator
+          sleep 5
 
       - name: Bake preview flag and prebuild iOS
         working-directory: apps/mobile
