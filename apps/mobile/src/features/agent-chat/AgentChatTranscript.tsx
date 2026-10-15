@@ -13,20 +13,25 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { EmptyState } from "@/ui/layout/app-screen";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
-import { classifyTranscriptPart, waitForSection } from "@atmos/agent-transcript";
+import {
+  classifyTranscriptPart,
+  countToolGroupOverview,
+  formatToolGroupOverview,
+  formatWorkDuration,
+  hasCollapsibleAssistantProcess,
+  segmentAssistantParts,
+  sentenceCaseOverview,
+  splitSegmentedAssistantParts,
+  toolCallPartsFromGroup,
+  waitForSection,
+  type AssistantSegment,
+} from "@atmos/agent-transcript";
 import { AgentChatDetailSheet } from "./AgentChatDetailSheet";
 import { AgentChatEventBody } from "./AgentChatEventBody";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { AgentChatToolCard } from "./AgentChatToolCard";
-import {
-  segmentAssistantParts,
-  shouldCollapseAssistantProcess,
-  splitAssistantSegments,
-  toolGroupOverview,
-  type AssistantSegment,
-} from "./assistant-process";
 import { ChatBubble } from "./template-message";
-import { copy } from "./copy";
+import { copy, toolGroupCountLabel, toolGroupLabels } from "./copy";
 import {
   activateWaitForBar,
   dismissSheet,
@@ -189,19 +194,17 @@ function visiblePart(part: AgentPart): boolean {
   return true;
 }
 
-function workDuration(workedMs: number): string {
-  const total = Math.max(0, Math.floor(workedMs / 1000));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  if (hours > 0) return `${hours}h${minutes}m${seconds}s`;
-  if (minutes > 0) return `${minutes}m${seconds}s`;
-  return `${seconds}s`;
-}
-
-function workedForLabel(workedMs: number | null | undefined): string | null {
-  if (workedMs == null || workedMs <= 0) return null;
-  return `Worked for ${workDuration(workedMs)}`;
+function toolGroupTitle(parts: AgentPart[]): string {
+  const counts = countToolGroupOverview(toolCallPartsFromGroup(parts));
+  if (counts.length === 0) {
+    return parts.some((part) => part.type === "thinking")
+      ? toolGroupLabels.thinking
+      : toolGroupLabels.working;
+  }
+  return sentenceCaseOverview(
+    formatToolGroupOverview(counts, toolGroupCountLabel, toolGroupLabels.join),
+    toolGroupLabels.locale,
+  );
 }
 
 function DisclosureChevron() {
@@ -221,7 +224,7 @@ function ToolGroupRow({ onPress, parts }: { onPress: () => void; parts: AgentPar
         numberOfLines={1}
         style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}
       >
-        {toolGroupOverview(parts)}
+        {toolGroupTitle(parts)}
       </Text>
       <DisclosureChevron />
     </Pressable>
@@ -277,16 +280,13 @@ function AssistantSegments({
     <>
       {segments.map((segment, index) => {
         if (segment.type === "tool_group") {
-          const title = toolGroupOverview(segment.parts);
+          const title = toolGroupTitle(segment.parts);
+          const groupKey = segment.origIndexes.join("-") || `group-${index}`;
           return (
             <ToolGroupRow
-              key={segment.indexes.join("-") || `group-${index}`}
+              key={groupKey}
               onPress={() =>
-                onOpenGroup(
-                  segment.indexes.join("-") || `group-${index}`,
-                  title,
-                  modelsForParts(segment.parts, siblings, messages),
-                )
+                onOpenGroup(groupKey, title, modelsForParts(segment.parts, siblings, messages))
               }
               parts={segment.parts}
             />
@@ -294,10 +294,10 @@ function AssistantSegments({
         }
         return (
           <ProcessPart
-            key={partKey("segment", segment.part, segment.index)}
+            key={partKey("segment", segment.part, segment.origIndex)}
             messages={messages}
             onOpen={onOpen}
-            openId={partKey("segment", segment.part, segment.index)}
+            openId={partKey("segment", segment.part, segment.origIndex)}
             part={segment.part}
             siblings={siblings}
           />
@@ -350,7 +350,7 @@ function ChatMessage({
   const hasBody = message.parts.some(
     (part) => (isUser && part.type === "attachment") || visiblePart(part),
   );
-  const canCollapse = !isUser && shouldCollapseAssistantProcess(message, message.parts);
+  const canCollapse = !isUser && hasCollapsibleAssistantProcess(message);
   if (!hasBody && !message.streaming) return null;
 
   let cursorIndex = -1;
@@ -416,8 +416,11 @@ function ChatMessage({
   }
 
   const segments = segmentAssistantParts(message.parts);
-  const { process, tail } = splitAssistantSegments(segments);
-  const worked = workedForLabel(message.worked_ms);
+  const { processSegments, tailSegments } = splitSegmentedAssistantParts(segments);
+  const worked =
+    message.worked_ms != null && message.worked_ms > 0
+      ? `Worked for ${formatWorkDuration(message.worked_ms)}`
+      : null;
   const waiting = waitForSection(message.parts);
   const waitingOpen = isWaitForOpen(expand, message.id);
 
@@ -445,14 +448,14 @@ function ChatMessage({
             : null}
         </View>
       ) : null}
-      {canCollapse && process.length > 0 ? (
+      {canCollapse && processSegments.length > 0 ? (
         <Pressable
           accessibilityRole="button"
           onPress={() =>
             openGroup(
               `${message.id}:process`,
               worked ?? "Process",
-              process
+              processSegments
                 .flatMap((segment) =>
                   segment.type === "tool_group" ? segment.parts : [segment.part],
                 )
@@ -472,18 +475,18 @@ function ChatMessage({
           </Text>
           <DisclosureChevron />
         </Pressable>
-      ) : process.length > 0 ? (
+      ) : processSegments.length > 0 ? (
         <View style={{ gap: 6 }}>
           <AssistantSegments
             messages={messages}
             onOpen={openEvent}
             onOpenGroup={openGroup}
-            segments={process}
+            segments={processSegments}
             siblings={message.parts}
           />
         </View>
       ) : null}
-      {tail.length > 0 || message.streaming ? (
+      {tailSegments.length > 0 || message.streaming ? (
         <ChatBubble from="assistant">
           <View style={{ gap: 8 }}>
             {message.streaming && cursorIndex < 0 ? <AgentChatMarkdown text="..." /> : null}
@@ -491,7 +494,7 @@ function ChatMessage({
               messages={messages}
               onOpen={openEvent}
               onOpenGroup={openGroup}
-              segments={tail}
+              segments={tailSegments}
               siblings={message.parts}
             />
           </View>

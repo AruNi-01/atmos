@@ -5,7 +5,17 @@
   "type": "module",
   "description": "UI-free Agent Chat transcript classification shared by Web and Mobile. Depends on @atmos/api-types. Not @atmos/shared.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./agent-chat-below-count": "./src/agent-chat-below-count.ts",
+    "./agent-chat-commit-buffer": "./src/agent-chat-commit-buffer.ts",
+    "./agent-chat-timing": "./src/agent-chat-timing.ts",
+    "./agent-chat-transcript-window": "./src/agent-chat-transcript-window.ts",
+    "./agent-tree-branch": "./src/agent-tree-branch.ts",
+    "./assistant-process-parts": "./src/assistant-process-parts.ts",
+    "./grok-chrome": "./src/grok-chrome.ts",
+    "./tool-call-density": "./src/tool-call-density.ts",
+    "./tool-group": "./src/tool-group.ts",
+    "./user-message-collapse": "./src/user-message-collapse.ts"
   },
   "scripts": {
     "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",

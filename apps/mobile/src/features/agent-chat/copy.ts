@@ -1,3 +1,5 @@
+import type { ToolOverviewKind } from "@atmos/agent-transcript";
+
 export const copy = {
   newChat: "New chat",
   emptyTitle: "Start chatting",
@@ -37,4 +39,48 @@ export const copy = {
   noModels: "No models",
   addFavorite: "Add favorite",
   removeFavorite: "Remove favorite",
+  scrollBelowPrefix: "",
+  scrollBelowSuffix: "below",
+  scrollBelowUnit: "{count, plural, one {message} other {messages}}",
+  permissionRequested: "Permission requested",
+  askUserTitle: "Questions for you",
+  planApprovalTitle: "Plan ready",
+  sessionOpRequested: "Session action requested",
+  bottom: "Bottom",
+  planTitle: "Plan",
+  messageQueueTitle: "Message Queue",
+  backgroundCommandsTitle: "Background",
+  subagentTasksTitle: "Subagent Tasks",
+  grokGoalTitle: "Goal",
+  grokWorkflowTitle: "Research",
+  contextWindowTitle: "Context Usage",
 } as const;
+
+export const toolGroupLabels = {
+  join: ", ",
+  locale: "en",
+  thinking: "Thinking",
+  working: "Working",
+} as const;
+
+export function toolGroupCountLabel(kind: ToolOverviewKind, count: number): string {
+  const one = count === 1;
+  switch (kind) {
+    case "write":
+      return one ? `${count} write` : `${count} writes`;
+    case "command":
+      return one ? `ran ${count} command` : `ran ${count} commands`;
+    case "skill":
+      return one ? `${count} skill` : `${count} skills`;
+    case "subagent":
+      return one ? `${count} subagent` : `${count} subagents`;
+    case "other":
+      return one ? `${count} tool` : `${count} tools`;
+    case "fetch":
+      return one ? `${count} fetch` : `${count} fetches`;
+    case "search":
+      return one ? `${count} search` : `${count} searches`;
+    case "read":
+      return one ? `${count} read` : `${count} reads`;
+  }
+}
