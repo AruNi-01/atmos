@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   FlatList,
-  Pressable,
-  Text,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -12,48 +10,34 @@ import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { EmptyState } from "@/ui/layout/app-screen";
-import { ChevronRightIcon } from "@/ui/icons/lucide-native";
 import {
   assistantCopyText,
-  classifyTranscriptPart,
-  countToolGroupOverview,
-  formatToolGroupOverview,
-  formatWorkDuration,
+  DEFAULT_TOOL_CALL_DENSITY,
   hasCollapsibleAssistantProcess,
   isHiddenGrokChromePart,
   isHiddenTranscriptChromePart,
   segmentAssistantParts,
-  sentenceCaseOverview,
   shouldShowAssistantTurnEndedChrome,
   splitSegmentedAssistantParts,
-  toolCallPartsFromGroup,
   transcriptVisibility,
-  waitForSection,
   type AssistantSegment,
 } from "@atmos/agent-transcript";
-import { AgentChatDetailSheet } from "./AgentChatDetailSheet";
-import { AgentChatToolCard } from "./AgentChatToolCard";
 import { AnswerText } from "./answer-text";
 import { AssistantFooter, AssistantTurnFiles } from "./assistant-footer";
-import { copy, toolGroupCountLabel, toolGroupLabels } from "./copy";
+import { copy } from "./copy";
 import { ErrorPart } from "./error-part";
-import { expandResetForFirstMessage, useAgentChatExpandStore } from "./expand-store";
+import {
+  agentChatInspectExpandKey,
+  expandResetForFirstMessage,
+  useAgentChatExpandStore,
+} from "./expand-store";
 import { HistoricPermission } from "./historic-permission";
+import { ProcessFold, WaitForBlock } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
 import { ThinkingBlock } from "./thinking-block";
+import { ToolGroup, toolGroupKey } from "./tool-group";
+import { showToolRow, ToolCallRow } from "./tool-body";
 import { UserMessage } from "./user-message";
-import {
-  activateWaitForBar,
-  dismissSheet,
-  initialExpandState,
-  isWaitForOpen,
-  openGroupSheet,
-  openLeafSheet,
-  transcriptEventModel,
-  waitForLabel,
-  type EventViewModel,
-  type ExpandState,
-} from "./event-model";
 
 const BOTTOM_SLOP = 64;
 
@@ -80,153 +64,30 @@ function partKey(messageId: string, part: AgentPart, index: number): string {
   return `${messageId}:${part.type}:${index}`;
 }
 
-function MessagePart({
-  messages,
-  onOpen,
-  openId,
-  part,
-  siblings,
-  surface = "timeline",
-}: {
-  messages: Array<Pick<AgentMessage, "role" | "parts">>;
-  onOpen: (id: string, model: EventViewModel) => void;
-  openId: string;
-  part: AgentPart;
-  siblings: AgentPart[];
-  surface?: "timeline" | "tour";
-}) {
-  const theme = useMobileTheme();
-  const classified = classifyTranscriptPart(part);
-  if (surface === "timeline" && classified.visibility !== "visible") return null;
-  if (classified.visibility === "hidden_chrome") return null;
-
-  const model = transcriptEventModel(part, siblings, messages);
-  const sheetId = part.type === "tool_call" ? part.tool_call_id : openId;
-  if (surface === "tour") {
-    if (part.type === "tool_call") {
-      return (
-        <AgentChatToolCard onPress={() => onOpen(sheetId, model)} part={part} title={model.title} />
-      );
-    }
-    return (
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => onOpen(sheetId, model)}
-        style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
-      >
-        <Text
-          numberOfLines={2}
-          style={{
-            color: theme.colors.secondaryLabel,
-            flexShrink: 1,
-            fontSize: 15,
-            lineHeight: 20,
-          }}
-        >
-          {model.title}
-        </Text>
-        <DisclosureChevron />
-      </Pressable>
-    );
+function segmentKey(messageId: string, segment: AssistantSegment): string {
+  if (segment.type === "tool_group") {
+    return `${messageId}:group:${toolGroupKey(segment.parts, segment.origIndexes)}`;
   }
-
-  if (part.type === "tool_call") {
-    return (
-      <AgentChatToolCard onPress={() => onOpen(sheetId, model)} part={part} title={model.title} />
-    );
-  }
-  if (!model.sheet) return null;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => onOpen(sheetId, model)}
-      style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
-    >
-      <Text
-        numberOfLines={2}
-        style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}
-      >
-        {model.title}
-      </Text>
-      <DisclosureChevron />
-    </Pressable>
-  );
+  return partKey(messageId, segment.part, segment.origIndex);
 }
 
-function toolGroupTitle(parts: AgentPart[]): string {
-  const counts = countToolGroupOverview(toolCallPartsFromGroup(parts));
-  if (counts.length === 0) {
-    return parts.some((part) => part.type === "thinking")
-      ? toolGroupLabels.thinking
-      : toolGroupLabels.working;
-  }
-  return sentenceCaseOverview(
-    formatToolGroupOverview(counts, toolGroupCountLabel, toolGroupLabels.join),
-    toolGroupLabels.locale,
-  );
-}
-
-function DisclosureChevron() {
-  const theme = useMobileTheme();
-  return <ChevronRightIcon color={theme.colors.secondaryLabel} size={12} strokeWidth={2.2} />;
-}
-
-function ToolGroupRow({ onPress, parts }: { onPress: () => void; parts: AgentPart[] }) {
-  const theme = useMobileTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
-    >
-      <Text
-        numberOfLines={1}
-        style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}
-      >
-        {toolGroupTitle(parts)}
-      </Text>
-      <DisclosureChevron />
-    </Pressable>
-  );
-}
-
-function modelsForParts(
-  parts: AgentPart[],
-  siblings: AgentPart[],
-  messages: Array<Pick<AgentMessage, "role" | "parts">>,
-): EventViewModel[] {
-  return parts.map((part) => transcriptEventModel(part, siblings, messages));
-}
-
-function TimelinePart({
-  inProcess,
+function InlinePart({
   message,
-  messages,
-  onOpen,
   part,
+  surface,
 }: {
-  inProcess: boolean;
   message: AgentMessage;
-  messages: AgentMessage[];
-  onOpen: (id: string, model: EventViewModel) => void;
   part: AgentPart;
+  surface: "timeline" | "wait";
 }) {
   if (isHiddenTranscriptChromePart(part) || isHiddenGrokChromePart(part, message.parts))
     return null;
-  const key = partKey(message.id, part, 0);
+  if (part.type === "tool_call") {
+    if (!showToolRow(part, surface)) return null;
+    return <ToolCallRow part={part} />;
+  }
   if (part.type === "text") return <AnswerText part={part} />;
   if (part.type === "thinking") {
-    if (inProcess) {
-      return (
-        <MessagePart
-          messages={messages}
-          onOpen={onOpen}
-          openId={key}
-          part={part}
-          siblings={message.parts}
-        />
-      );
-    }
     return <ThinkingBlock part={part} parts={message.parts} thinkingMs={message.thinking_ms} />;
   }
   if (part.type === "error") return <ErrorPart part={part} />;
@@ -238,91 +99,31 @@ function TimelinePart({
     return <SessionChrome part={part} />;
   }
   if (part.type === "permission") return <HistoricPermission part={part} />;
-  if (part.type === "tool_call") {
-    return (
-      <MessagePart
-        messages={messages}
-        onOpen={onOpen}
-        openId={key}
-        part={part}
-        siblings={message.parts}
-      />
-    );
-  }
   return null;
 }
 
-function AssistantSegments({
-  inProcess,
+function SegmentView({
   message,
-  messages,
-  onOpenGroup,
-  onOpen,
-  segments,
+  onInspect,
+  segment,
 }: {
-  inProcess: boolean;
   message: AgentMessage;
-  messages: AgentMessage[];
-  onOpen: (id: string, model: EventViewModel) => void;
-  onOpenGroup: (id: string, title: string, models: EventViewModel[]) => void;
-  segments: AssistantSegment[];
+  onInspect: () => void;
+  segment: AssistantSegment;
 }) {
-  return (
-    <>
-      {segments.map((segment, index) => {
-        if (segment.type === "tool_group") {
-          const title = toolGroupTitle(segment.parts);
-          const groupKey = segment.origIndexes.join("-") || `group-${index}`;
-          return (
-            <ToolGroupRow
-              key={groupKey}
-              onPress={() =>
-                onOpenGroup(groupKey, title, modelsForParts(segment.parts, message.parts, messages))
-              }
-              parts={segment.parts}
-            />
-          );
-        }
-        return (
-          <TimelinePart
-            key={partKey(message.id, segment.part, segment.origIndex)}
-            inProcess={inProcess}
-            message={message}
-            messages={messages}
-            onOpen={onOpen}
-            part={segment.part}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-function WaitForBar({
-  expanded,
-  label,
-  onPress,
-}: {
-  expanded: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  const theme = useMobileTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ expanded }}
-      onPress={onPress}
-      style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 4 }}
-    >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>
-        {label}
-      </Text>
-      <View style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}>
-        <DisclosureChevron />
-      </View>
-    </Pressable>
-  );
+  if (segment.type === "tool_group") {
+    return (
+      <ToolGroup
+        groupKey={toolGroupKey(segment.parts, segment.origIndexes)}
+        messageId={message.id}
+        onInspect={onInspect}
+        origIndexes={segment.origIndexes}
+        parts={segment.parts}
+        renderPart={(part) => <InlinePart message={message} part={part} surface="timeline" />}
+      />
+    );
+  }
+  return <InlinePart message={message} part={segment.part} surface="timeline" />;
 }
 
 function assistantHasVisiblePart(message: AgentMessage): boolean {
@@ -343,120 +144,60 @@ function assistantHasVisiblePart(message: AgentMessage): boolean {
   });
 }
 
-function ChatMessage({
-  expand,
-  message,
-  messages,
-  onExpand,
-}: {
-  expand: ExpandState;
-  message: AgentMessage;
-  messages: AgentMessage[];
-  onExpand: (update: (state: ExpandState) => ExpandState) => void;
-}) {
-  const theme = useMobileTheme();
-  if (message.role === "user") return <UserMessage message={message} />;
-
+function AssistantTurn({ message }: { message: AgentMessage }) {
   const assistantText = assistantCopyText(message);
   const showChrome = shouldShowAssistantTurnEndedChrome(message, assistantText);
-  const canCollapse = hasCollapsibleAssistantProcess(message);
   if (!assistantHasVisiblePart(message) && !showChrome && !message.streaming) return null;
 
-  const openEvent = (id: string, model: EventViewModel) => {
-    onExpand((state) => openLeafSheet(state, id, model));
-  };
-  const openGroup = (id: string, title: string, models: EventViewModel[]) => {
-    onExpand((state) => openGroupSheet(state, id, title, models));
-  };
-
-  const segments = segmentAssistantParts(message.parts);
+  const segments = segmentAssistantParts(message.parts, DEFAULT_TOOL_CALL_DENSITY);
   const { processSegments, tailSegments } = splitSegmentedAssistantParts(segments);
-  const worked =
-    message.worked_ms != null && message.worked_ms > 0
-      ? `Worked for ${formatWorkDuration(message.worked_ms)}`
-      : null;
-  const waiting = waitForSection(message.parts);
-  const waitingOpen = isWaitForOpen(expand, message.id);
+  const canCollapse = processSegments.length > 0 && hasCollapsibleAssistantProcess(message);
+  const markInspecting = () => {
+    useAgentChatExpandStore.getState().setExpand(agentChatInspectExpandKey(message.id), true);
+  };
 
   return (
     <View style={{ gap: 8, width: "100%" }}>
-      {waiting ? (
-        <View style={{ gap: 4 }}>
-          <WaitForBar
-            expanded={waitingOpen}
-            label={waitForLabel(waiting.anchors.length)}
-            onPress={() => onExpand((state) => activateWaitForBar(state, message.id))}
-          />
-          {waitingOpen
-            ? waiting.rows.map((row) => (
-                <MessagePart
-                  key={partKey(message.id, row.part, row.index)}
-                  messages={messages}
-                  onOpen={openEvent}
-                  openId={partKey(message.id, row.part, row.index)}
-                  part={row.part}
-                  siblings={message.parts}
-                  surface="tour"
-                />
-              ))
-            : null}
-        </View>
-      ) : null}
-      {canCollapse && processSegments.length > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            openGroup(
-              `${message.id}:process`,
-              worked ?? "Process",
-              processSegments
-                .flatMap((segment) =>
-                  segment.type === "tool_group" ? segment.parts : [segment.part],
-                )
-                .map((part) => transcriptEventModel(part, message.parts, messages)),
-            )
-          }
-          style={{
-            alignItems: "center",
-            alignSelf: "flex-start",
-            flexDirection: "row",
-            gap: 4,
-            paddingVertical: 2,
-          }}
-        >
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>
-            {worked ?? "Process"}
-          </Text>
-          <DisclosureChevron />
-        </Pressable>
-      ) : processSegments.length > 0 ? (
-        <View style={{ gap: 6 }}>
-          <AssistantSegments
-            inProcess
-            message={message}
-            messages={messages}
-            onOpen={openEvent}
-            onOpenGroup={openGroup}
-            segments={processSegments}
-          />
-        </View>
+      <WaitForBlock
+        messageId={message.id}
+        parts={message.parts}
+        renderPart={(part) => <InlinePart message={message} part={part} surface="wait" />}
+      />
+      {processSegments.length > 0 ? (
+        <ProcessFold canCollapse={canCollapse} message={message}>
+          <View style={{ gap: 6 }}>
+            {processSegments.map((segment) => (
+              <SegmentView
+                key={segmentKey(message.id, segment)}
+                message={message}
+                onInspect={markInspecting}
+                segment={segment}
+              />
+            ))}
+          </View>
+        </ProcessFold>
       ) : null}
       {tailSegments.length > 0 ? (
         <View style={{ gap: 8, width: "100%" }}>
-          <AssistantSegments
-            inProcess={false}
-            message={message}
-            messages={messages}
-            onOpen={openEvent}
-            onOpenGroup={openGroup}
-            segments={tailSegments}
-          />
+          {tailSegments.map((segment) => (
+            <SegmentView
+              key={segmentKey(message.id, segment)}
+              message={message}
+              onInspect={markInspecting}
+              segment={segment}
+            />
+          ))}
         </View>
       ) : null}
       <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
       <AssistantTurnFiles parts={message.parts} visible={showChrome} />
     </View>
   );
+}
+
+function ChatMessage({ message }: { message: AgentMessage }) {
+  if (message.role === "user") return <UserMessage message={message} />;
+  return <AssistantTurn message={message} />;
 }
 
 export function AgentChatTranscript({
@@ -510,14 +251,13 @@ export function AgentChatTranscript({
     [stickToBottom],
   );
 
-  const [expand, setExpand] = useState<ExpandState>(initialExpandState);
   const rows =
     streaming && !messages.some((message) => message.streaming)
       ? [
           ...messages,
           {
             id: "stream-wait",
-            role: "assistant",
+            role: "assistant" as const,
             parts: [{ type: "text" as const, text: "" }],
             streaming: true,
           },
@@ -527,10 +267,7 @@ export function AgentChatTranscript({
 
   useEffect(() => {
     const boundary = expandResetForFirstMessage(seenFirstId.current, firstMessageId);
-    if (boundary.reset) {
-      useAgentChatExpandStore.getState().reset();
-      setExpand(initialExpandState());
-    }
+    if (boundary.reset) useAgentChatExpandStore.getState().reset();
     seenFirstId.current = boundary.firstId;
   }, [firstMessageId]);
 
@@ -572,15 +309,9 @@ export function AgentChatTranscript({
         onScrollToIndexFailed={({ index }) => {
           listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
         }}
-        renderItem={({ item }) => (
-          <ChatMessage expand={expand} message={item} messages={rows} onExpand={setExpand} />
-        )}
+        renderItem={({ item }) => <ChatMessage message={item} />}
         scrollEventThrottle={16}
         style={{ backgroundColor: theme.colors.background, flex: 1 }}
-      />
-      <AgentChatDetailSheet
-        onDismiss={() => setExpand((state) => dismissSheet(state))}
-        sheets={expand.sheets}
       />
     </View>
   );

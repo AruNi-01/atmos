@@ -65,6 +65,15 @@ export const copy = {
   thoughtFor: "Thought for {duration}",
   thoughtForFew: "Thought for a few seconds",
   workedFor: "Worked for {duration}",
+  processLabel: "Process",
+  collapseLabel: "Collapse",
+  showMore: "Show more",
+  showLess: "Show less",
+  subagentStatus: {
+    running: "Running",
+    failed: "Failed",
+    completed: "Completed",
+  },
   answerCaret: "\u258d",
   session: {
     creating: "Creating session...",

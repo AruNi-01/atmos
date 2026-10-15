@@ -44,7 +44,11 @@ type ChatPanelCopy = {
 
 type AgentComponents = {
   chatPanel: ChatPanelCopy;
-  assistantTurn: { files: { changed: string; showMore: string; showLess: string } };
+  assistantTurn: {
+    process: { label: string; collapseLabel: string };
+    files: { changed: string; showMore: string; showLess: string };
+  };
+  subAgent: { status: { running: string; failed: string; completed: string } };
   usageBadges: {
     turn: {
       title: string;
@@ -126,6 +130,16 @@ describe("agent chat copy parity", () => {
     expect(copy.session.hints.modelSwitchFailed).toBe(chatPanel.session.hints.modelSwitchFailed);
     expect(copy.session.hints.modeSwitchFailed).toBe(chatPanel.session.hints.modeSwitchFailed);
     expect(copy.session.hints.sessionOpFailed).toBe(chatPanel.session.hints.sessionOpFailed);
+    expect(copy.processLabel).toBe(components.assistantTurn.process.label);
+    expect(copy.processLabel).toBe("Process");
+    expect(copy.collapseLabel).toBe(components.assistantTurn.process.collapseLabel);
+    expect(copy.collapseLabel).toBe("Collapse");
+    expect(copy.showLess).toBe(components.assistantTurn.files.showLess);
+    expect(copy.showLess).toBe("Show less");
+    expect(copy.showMore).toBe("Show more");
+    expect(copy.subagentStatus.running).toBe(components.subAgent.status.running);
+    expect(copy.subagentStatus.failed).toBe(components.subAgent.status.failed);
+    expect(copy.subagentStatus.completed).toBe(components.subAgent.status.completed);
     expect(copy.filesChanged).toBe(components.assistantTurn.files.changed);
     expect(copy.filesShowMore).toBe(components.assistantTurn.files.showMore);
     expect(copy.filesShowLess).toBe(components.assistantTurn.files.showLess);
