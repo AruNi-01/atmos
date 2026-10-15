@@ -81,10 +81,12 @@ echo "----- console.log after warmup -----"
 tail -n 80 "$OUT/console.log" >&2 || true
 default_hash="$(shasum -a 256 "$OUT/default-route.png" | awk '{print $1}')"
 echo "default-route sha256 ${default_hash}"
-# Same pixels as the empty scene window from runs through 38769715486.
+# Empty scene window through run 38769715486, and the pair screen on 38789917018.
+# initialRouteName mounted preview-chat, then `(home)` painted "Pair this phone".
 black_scene="fbcb6a8c2222c51b2c61b122762b964463322680781a5457888a05fee632c0b6"
-if [[ "$default_hash" == "$black_scene" ]]; then
-  echo "default route is the black scene window; the embedded bundle did not paint preview-chat" >&2
+pair_screen="51cd7923f442b9cb4c4a5c22644a36b435f8ca844c53a4adaa0b658e97ff9342"
+if [[ "$default_hash" == "$black_scene" || "$default_hash" == "$pair_screen" ]]; then
+  echo "default route is not preview-chat (${default_hash})" >&2
   dump_runtime_logs
   exit 1
 fi

@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed. Black window root cause is the scene delegate (fixed, confirmed by run `38780693297`). Open CI blocker is the recording gate.
+- **Current phase**: S0–S8 implemented and reviewed. Run `38789917018` is green. S29 passes on those PNGs. Cold start still showed the pair screen; the next run redirects it to preview-chat.
 
 ## Snapshot
 
@@ -88,14 +88,15 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 | S27 Cursor CLI       | —                                                      | not_run     | do not install                                           |
 | S28 mobai-dev        | —                                                      | not_run     | do not install                                           |
 | S31 web PNGs         | out-of-tree harness                                    | not_run     | would need a new `apps/web` route; not added             |
-| iOS simulator        | run `38780693297`                                      | not_run     | distinct fixture PNGs; job red on a 1.27s `F4.mp4`       |
+| iOS simulator        | run `38789917018`                                      | pass (S29)  | 26 distinct PNGs; recordings are static 8s movies        |
 | 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                            |
 
 ## Known Blockers
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S27 and S28 need a separate AruNi approval to install external tools.
-- [ ] iOS job is still red. Run `38780693297` PNGs are fixture UI, and S29 stays `not_run` until a green job. S10 and S30 stay `not_run` because the new `.mov` is a timed screenshot mux, not the in-app animation.
+- [ ] S10 and S30 stay `not_run`. Run `38789917018` recordings last 8s and each file's frames are identical, so motion is not shown.
+- [ ] Cold start on that run showed the pair screen. A redirect to `/preview-chat` is in the next run and is not verified yet.
 
 ## Handoff Notes
 
@@ -135,9 +136,9 @@ S0–S8 are implemented and reviewed. The black window was `Atmos.SceneDelegate`
 
 ### Next steps
 
-1. One macOS job is expected from the recording-gate push. Check the new `.mov` files before marking S10, S29, or S30.
-2. `F4.mp4` from run `38780693297` is 2 frames / 1.27s and has no audio track. The replacement recording holds screenshots for 8s. It is not an animation capture. S10 and S30 stay `not_run`.
-3. Do not merge. Do not edit `preview-chat.tsx`, `preview-chat-screen.tsx`, or `app/_layout.tsx`. The blank window was the scene manifest. `topLoad` / null `instanceHandle` is an Image `onLoad` drop.
+1. Run `38789917018` is green. S29 is pass. S10 and S30 stay `not_run` because the `.mov` frames do not change.
+2. The default-route PNG on that run is the pair screen. `_layout.tsx` now redirects `/` and `/sign-in` to `/preview-chat` when the preview flag is `"1"`. The capture script fails if that PNG is still `51cd7923…`.
+3. Do not merge. `preview-chat.tsx` and `preview-chat-screen.tsx` were not edited. `topLoad` / null `instanceHandle` is an Image `onLoad` drop and also appeared on the green run.
 
 ### Relevant files/symbols
 
@@ -177,3 +178,5 @@ S0–S8 are implemented and reviewed. The black window was `Atmos.SceneDelegate`
 - Root cause of the black window: `app.json` `UIApplicationSceneManifest` names `Atmos.SceneDelegate`. Expo's template never generates that class and draws into `AppDelegate.window`. The same manifest was removed in `221c22b69` and restored in `23b993825`. It is removed again. The workflow fails prebuild if `Info.plist` still names a scene delegate, and writes `ios/.xcode.env.local` so the bundle phase inlines the preview flag as `"1"`.
 - Run `38780693297` on head `f2b611c44`: `structural` passed. The Release build passed, so `main.jsbundle` contains `[parity] preview-chat route` and no scene delegate. Capture wrote distinct fixture PNGs (F1-light `dae7bb5e…`, F12-light `b560aee6…`) and then failed on `F4.mp4` (`afinfo` / 1.27s, 2 frames).
 - Recording gate: stop using `simctl recordVideo` and `afinfo`. Screenshot the phone for 8s and mux JPEGs with `mp4-duration.py`. After warmup, screenshot the default route before any deep link, tail `console.log`, and save a device-log excerpt. The Release step prints `RCTNewArchEnabled` and fails if the built plist still names a scene delegate. `structural` runs `mp4-duration.py --self-test`. Preview route files were not edited.
+- Run `38789917018` on head `75cbb201e`: `structural` and `ios-simulator` passed. 26 fixture PNGs, all different. `F4.mov` / `F12.mov` / `F13.mov` are 8.000s and each file has one repeated frame. S29 is pass. S10 and S30 stay `not_run`. `default-route.png` is the pair screen (`51cd7923…`) while the log still contains `[parity] preview-chat route`. `topLoad` was dropped on this green run too.
+- Redirect `/` and `/sign-in` to `/preview-chat` in parity builds. The capture script now fails on the pair-screen hash as well as the black scene hash.
