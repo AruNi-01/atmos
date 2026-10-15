@@ -73,23 +73,23 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 
 ## Verification Status
 
-| Area                 | Command / Method                                       | Last result | Notes                                                                 |
-| -------------------- | ------------------------------------------------------ | ----------- | --------------------------------------------------------------------- |
-| Spec review          | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1`                              |
-| S4 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 285 tests                                                             |
-| S5 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 299 tests                                                             |
-| S6 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 324 tests                                                             |
-| S7 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 334 pass, 0 fail, 82 files                                            |
-| Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                              |
-| Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                                   |
-| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`                     |
-| Capture script       | `bash -n scripts/agent-chat-parity/ios-capture.sh`     | pass        | syntax only; no simulator on this machine                             |
-| S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written              |
-| S27 Cursor CLI       | —                                                      | not_run     | do not install                                                        |
-| S28 mobai-dev        | —                                                      | not_run     | do not install                                                        |
-| S31 web PNGs         | out-of-tree harness                                    | not_run     | would need a new `apps/web` route; not added                          |
-| iOS simulator        | `ci-mobile-ios-parity.yml`                             | not_run     | workflow committed; artifacts do not exist until the macOS job passes |
-| 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                                         |
+| Area                 | Command / Method                                       | Last result | Notes                                                              |
+| -------------------- | ------------------------------------------------------ | ----------- | ------------------------------------------------------------------ |
+| Spec review          | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1`                           |
+| S4 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 285 tests                                                          |
+| S5 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 299 tests                                                          |
+| S6 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 324 tests                                                          |
+| S7 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 334 pass, 0 fail, 82 files                                         |
+| Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                           |
+| Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                                |
+| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`                  |
+| Capture script       | `bash -n scripts/agent-chat-parity/ios-capture.sh`     | pass        | syntax only; no simulator on this machine                          |
+| S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written           |
+| S27 Cursor CLI       | —                                                      | not_run     | do not install                                                     |
+| S28 mobai-dev        | —                                                      | not_run     | do not install                                                     |
+| S31 web PNGs         | out-of-tree harness                                    | not_run     | would need a new `apps/web` route; not added                       |
+| iOS simulator        | `ci-mobile-ios-parity.yml` run `38732000113`           | not_run     | job green; screenshots were the Open in Atmos dialog, not fixtures |
+| 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                                      |
 
 ## Known Blockers
 
