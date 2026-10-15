@@ -118,7 +118,7 @@ export function useAgentChatThread(chatId: string) {
       try {
         const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
         if (cancelled) return;
-        let state = createChatTranscript(chatId, snapshot.messages ?? []);
+        let state = createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta);
         state = {
           ...state,
           pendingPermission: snapshot.pending_permission ?? null,
@@ -216,6 +216,58 @@ export function useAgentChatThread(chatId: string) {
     [chatId, client],
   );
 
+  const queueUpdate = useCallback(
+    async (itemId: string, text: string) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatQueueUpdate(client, {
+          chat_id: chatId,
+          item_id: itemId,
+          text,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
+
+  const queueDelete = useCallback(
+    async (itemId: string) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatQueueDelete(client, {
+          chat_id: chatId,
+          item_id: itemId,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
+
+  const queueReorder = useCallback(
+    async (itemIds: string[]) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatQueueReorder(client, {
+          chat_id: chatId,
+          item_ids: itemIds,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
+
   const queueAdd = useCallback(
     async (text: string, attachmentPaths?: string[]) => {
       if (!client) throw new Error("Atmos mobile WebSocket is not connected");
@@ -289,6 +341,9 @@ export function useAgentChatThread(chatId: string) {
     pendingPermission: transcript.pendingPermission,
     pendingSessionOp: transcript.pendingSessionOp,
     queue: transcript.queue,
+    sessionUsage: transcript.sessionUsage,
+    grokGoal: transcript.grokGoal,
+    grokWorkflow: transcript.grokWorkflow,
     commands: transcript.commands,
     runningTurnId: transcript.runningTurnId,
     loading,
@@ -296,6 +351,9 @@ export function useAgentChatThread(chatId: string) {
     send,
     steer,
     queueAdd,
+    queueUpdate,
+    queueDelete,
+    queueReorder,
     cancel,
     respondPermission,
     respondSessionOp,

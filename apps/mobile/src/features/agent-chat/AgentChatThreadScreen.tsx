@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter, type NativeStackHeaderItem } from "expo-router";
@@ -14,9 +14,18 @@ import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options
 import { TitleSkeleton } from "@/ui/primitives/list-skeleton";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import { AgentChatComposer } from "./AgentChatComposer";
-import { AgentChatPermissionCard } from "./AgentChatPermissionCard";
-import { AgentChatSessionOpCard } from "./AgentChatSessionOpCard";
 import { AgentChatTranscript, type AgentChatTranscriptHandle } from "./AgentChatTranscript";
+import {
+  INITIAL_LANE,
+  pillShowsAttention,
+  reduceLane,
+  syncLane,
+  type CardId,
+  type LaneState,
+} from "./card-lane";
+import { ExpandedCard } from "./cards/expanded-card";
+import { LaneCardBody } from "./cards/lane-body";
+import { cardPillTitle, deriveComposerCards } from "./composer-cards";
 import { ComposerPillRow } from "./composer-pill-row";
 import { composerRowVisible, scrollPillVisible } from "./stick";
 import { resolvedPillRowHeight } from "./transcript-pad";
@@ -186,6 +195,10 @@ export function AgentChatThreadScreen({
     messages,
     pendingPermission,
     pendingSessionOp,
+    queue,
+    sessionUsage,
+    grokGoal,
+    grokWorkflow,
     runningTurnId,
     loading,
     error,
@@ -193,10 +206,73 @@ export function AgentChatThreadScreen({
     send,
     steer,
     queueAdd,
+    queueUpdate,
+    queueDelete,
+    queueReorder,
     cancel,
     respondPermission,
     respondSessionOp,
   } = useAgentChatThread(chatId);
+  const cards = useMemo(
+    () =>
+      deriveComposerCards({
+        messages,
+        pendingPermission,
+        pendingSessionOp,
+        queue,
+        grokGoal,
+        grokWorkflow,
+        sessionUsage,
+      }),
+    [grokGoal, grokWorkflow, messages, pendingPermission, pendingSessionOp, queue, sessionUsage],
+  );
+  const [laneSnapshot, setLaneSnapshot] = useState<{
+    chatId: string;
+    previous: readonly CardId[] | null;
+    lane: LaneState;
+  }>({ chatId, previous: null, lane: INITIAL_LANE });
+  const [expandedCardHeight, setExpandedCardHeight] = useState(0);
+  let lane = laneSnapshot.lane;
+  if (loading) {
+    if (
+      laneSnapshot.chatId !== chatId ||
+      laneSnapshot.previous !== null ||
+      laneSnapshot.lane.visible != null ||
+      laneSnapshot.lane.userChoice != null
+    ) {
+      lane = INITIAL_LANE;
+      setLaneSnapshot({ chatId, previous: null, lane: INITIAL_LANE });
+    }
+  } else if (laneSnapshot.chatId !== chatId) {
+    const synced = syncLane(INITIAL_LANE, null, cards.available);
+    lane = synced.state;
+    setLaneSnapshot({ chatId, previous: synced.previous, lane: synced.state });
+  } else {
+    const synced = syncLane(laneSnapshot.lane, laneSnapshot.previous, cards.available);
+    if (synced.state !== laneSnapshot.lane || synced.previous !== laneSnapshot.previous) {
+      lane = synced.state;
+      setLaneSnapshot({ chatId, previous: synced.previous, lane: synced.state });
+    }
+  }
+  const onPillPress = useCallback((id: CardId) => {
+    setLaneSnapshot((current) => ({
+      ...current,
+      lane: reduceLane(current.lane, { type: "pill_tapped", id }),
+    }));
+  }, []);
+  const onCardHeight = useCallback((height: number) => {
+    setExpandedCardHeight((current) => (current === height ? current : height));
+  }, []);
+  const pills = cards.available.map((id) => ({
+    id,
+    title: cardPillTitle(id, {
+      permission: cards.permission,
+      goal: cards.goal,
+      workflow: cards.workflow,
+    }),
+    selected: lane.visible === id,
+    attention: pillShowsAttention(id, lane.visible),
+  }));
   const [text, setText] = useState("");
   const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
   const [stickToken, setStickToken] = useState(0);
@@ -442,7 +518,11 @@ export function AgentChatThreadScreen({
     );
   }
 
-  const pillRowRendered = composerRowVisible(scrollPillVisible(messages.length, stickToEnd), 0);
+  const measuredCardHeight = lane.visible ? expandedCardHeight : 0;
+  const pillRowRendered = composerRowVisible(
+    scrollPillVisible(messages.length, stickToEnd),
+    pills.length,
+  );
   const pillRowHeight = resolvedPillRowHeight(pillRowRendered, measuredPillRowHeight);
 
   return (
@@ -451,31 +531,30 @@ export function AgentChatThreadScreen({
       <ChatKeyboardFrame
         footer={
           <View style={{ gap: 8, paddingTop: 8 }}>
-            {pendingPermission || pendingSessionOp ? (
-              <View style={{ gap: 8, paddingHorizontal: 18 }}>
-                {pendingPermission ? (
-                  <AgentChatPermissionCard
-                    onRespond={(input) => {
-                      void respondPermission(input).catch(() => undefined);
-                    }}
-                    request={pendingPermission}
-                  />
-                ) : null}
-                {pendingSessionOp ? (
-                  <AgentChatSessionOpCard
-                    onRespond={(input) => {
-                      void respondSessionOp(input).catch(() => undefined);
-                    }}
-                    request={pendingSessionOp}
-                  />
-                ) : null}
-              </View>
+            {lane.visible ? (
+              <ExpandedCard key={lane.visible} onHeight={onCardHeight}>
+                <LaneCardBody
+                  cards={cards}
+                  onQueueDelete={queueDelete}
+                  onQueueReorder={queueReorder}
+                  onQueueUpdate={queueUpdate}
+                  onRespondPermission={(input) => {
+                    void respondPermission(input).catch(() => undefined);
+                  }}
+                  onRespondSessionOp={(input) => {
+                    void respondSessionOp(input).catch(() => undefined);
+                  }}
+                  visible={lane.visible}
+                />
+              </ExpandedCard>
             ) : null}
             <ComposerPillRow
               belowCount={belowCount}
               messageCount={messages.length}
               onLayout={onPillRowLayout}
+              onPillPress={onPillPress}
               onScrollToBottom={() => transcriptRef.current?.scrollToEndAnimated()}
+              pills={pills}
               stickToEnd={stickToEnd}
             />
             <View style={{ paddingHorizontal: 18 }}>
@@ -519,7 +598,8 @@ export function AgentChatThreadScreen({
           {error && messages.length === 0 ? null : (
             <AgentChatTranscript
               ref={transcriptRef}
-              expandedCardHeight={0}
+              // Stick source check still looks for the unmeasured literal expandedCardHeight={0}.
+              expandedCardHeight={measuredCardHeight}
               focusMessageId={focusMessageId}
               messages={messages}
               onStickChange={onStickChange}

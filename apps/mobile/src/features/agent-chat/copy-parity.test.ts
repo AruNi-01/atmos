@@ -14,6 +14,7 @@ type ChatPanelCopy = {
   askUserTitle: string;
   planApprovalTitle: string;
   sessionOpRequested: string;
+  planViewerEmpty: string;
   bottom: string;
   copy: { message: string };
   thinking: string;
@@ -94,6 +95,8 @@ describe("agent chat copy parity", () => {
     expect(copy.askUserTitle).toBe(chatPanel.askUserTitle);
     expect(copy.planApprovalTitle).toBe(chatPanel.planApprovalTitle);
     expect(copy.sessionOpRequested).toBe(chatPanel.sessionOpRequested);
+    expect(copy.planViewerEmpty).toBe(chatPanel.planViewerEmpty);
+    expect(copy.planViewerEmpty).toBe("No plan content available yet.");
     expect(copy.bottom).toBe(chatPanel.bottom);
     expect(copy.planTitle).toBe(components.plan.title);
     expect(copy.messageQueueTitle).toBe(components.messageQueue.title);
