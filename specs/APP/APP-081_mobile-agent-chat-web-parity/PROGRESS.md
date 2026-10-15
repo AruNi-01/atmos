@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed; parity prebuild must exclude dev-client pods via package.json
+- **Current phase**: S0–S8 implemented and reviewed; iOS launch must not name `Atmos.SceneDelegate`
 
 ## Snapshot
 
@@ -73,29 +73,29 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 
 ## Verification Status
 
-| Area                 | Command / Method                                                | Last result | Notes                                                              |
-| -------------------- | --------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
-| Spec review          | read specs + web/mobile sources + runner-images readme          | done        | pins still match image `20260907.0351.1`                           |
-| S4 mobile tests      | `cd apps/mobile && bun test`                                    | pass        | 285 tests                                                          |
-| S5 mobile tests      | `cd apps/mobile && bun test`                                    | pass        | 299 tests                                                          |
-| S6 mobile tests      | `cd apps/mobile && bun test`                                    | pass        | 324 tests                                                          |
-| S7 mobile tests      | `cd apps/mobile && bun test`                                    | pass        | 334 pass, 0 fail, 82 files                                         |
-| Package              | `bun --filter @atmos/agent-transcript test`                     | pass        | 31 pass, 0 fail, 5 files                                           |
-| Structural           | `bun scripts/agent-chat-parity/compare.ts`                      | pass        | `13 fixtures match`                                                |
-| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`                 | pass        | 13 files under gitignored `artifacts/structural/`                  |
-| Capture script       | `bash -n scripts/agent-chat-parity/ios-capture.sh`              | pass        | syntax only; no simulator on this machine                          |
-| S9 / S15 / S20 / S26 | dedicated assertions                                            | not_run     | behavior exists; no test asserts the scenario as written           |
-| S27 Cursor CLI       | —                                                               | not_run     | do not install                                                     |
-| S28 mobai-dev        | —                                                               | not_run     | do not install                                                     |
-| S31 web PNGs         | out-of-tree harness                                             | not_run     | would need a new `apps/web` route; not added                       |
-| iOS simulator        | runs `38732000113`, `38739388920`, `38746057563`, `38752947122` | not_run     | dialog, then the same black framebuffer hash; not fixture evidence |
-| 图一 pixels          | image missing                                                   | not_run     | pill height 36 is provisional                                      |
+| Area                 | Command / Method                                       | Last result | Notes                                                    |
+| -------------------- | ------------------------------------------------------ | ----------- | -------------------------------------------------------- |
+| Spec review          | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1`                 |
+| S4 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 285 tests                                                |
+| S5 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 299 tests                                                |
+| S6 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 324 tests                                                |
+| S7 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 334 pass, 0 fail, 82 files                               |
+| Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                 |
+| Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                      |
+| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`        |
+| Capture script       | `bash -n scripts/agent-chat-parity/ios-capture.sh`     | pass        | syntax only; no simulator on this machine                |
+| S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written |
+| S27 Cursor CLI       | —                                                      | not_run     | do not install                                           |
+| S28 mobai-dev        | —                                                      | not_run     | do not install                                           |
+| S31 web PNGs         | out-of-tree harness                                    | not_run     | would need a new `apps/web` route; not added             |
+| iOS simulator        | runs through `38769715486`                             | not_run     | dialog, then a black scene window; not fixture evidence  |
+| 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                            |
 
 ## Known Blockers
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S27 and S28 need a separate AruNi approval to install external tools.
-- [ ] Simulator screenshots are not fixture evidence. Uploaded PNGs are the open-url dialog or one black framebuffer (`fbcb6a8c2222…`).
+- [ ] Simulator screenshots are not fixture evidence. Uploaded PNGs are the open-url dialog or one black scene window (`fbcb6a8c2222…`).
 
 ## Handoff Notes
 
@@ -105,7 +105,7 @@ Phone Agent Chat matches web message/part/tool/motion/scroll/composer behavior, 
 
 ### Current progress
 
-S0–S8 are implemented and reviewed. The iOS job builds, but screenshots are still one black frame. The next run removes the dev-client launcher from the parity prebuild and restarts CoreSimulatorService after the framebuffer hint.
+S0–S8 are implemented and reviewed. The iOS job builds, but screenshots are still one black frame. `app.json` no longer names `Atmos.SceneDelegate`. The next simulator run is the first one after that removal.
 
 ### Completed work
 
@@ -135,9 +135,9 @@ S0–S8 are implemented and reviewed. The iOS job builds, but screenshots are st
 
 ### Next steps
 
-1. Push the parity prebuild and framebuffer-service fix.
-2. Watch `structural` and `ios-simulator`. Download `ios-parity` and compare F1 with F12 before marking any simulator scenario pass.
-3. Do not merge.
+1. One `ci-mobile-ios-parity` run after the scene-manifest removal. Do not start another until that run's PNGs are inspected.
+2. Download `ios-parity` and compare F1 with F12 before marking any simulator scenario pass.
+3. Do not merge. Do not edit `preview-chat.tsx`, `preview-chat-screen.tsx`, or `app/_layout.tsx` for this blank-window bug; the route already renders on react-native-web when the preview flag is inlined.
 
 ### Relevant files/symbols
 
@@ -173,3 +173,5 @@ S0–S8 are implemented and reviewed. The iOS job builds, but screenshots are st
 - iOS job `38732000113` built and uploaded artifacts. Screenshots were the system "Open in Atmos?" dialog (all fixtures identical per theme). Capture script now preapproves the `atmos` scheme and fails when F1 and F12 screenshots match.
 - Runs `38739388920`, `38746057563`, and `38752947122` delivered the deep link and evaluated the JS bundle, then uploaded the same black PNG (`fbcb6a8c2222…`). The framebuffer hint did not change pixels while CoreSimulatorService was already running.
 - Run `38767206759` stopped in pod install: `app.config.js` exclude is ignored by CocoaPods, which reads `package.json`. `exclude-dev-client.js` writes that field on the runner before prebuild. Local `expo-modules-autolinking resolve` then omits the dev-client pods.
+- Run `38769715486` excluded those pods, built Release, and still captured the black Simulator window (`fbcb6a8c2222…`). `desktop-after-warmup.png` is the same black window. Console shows `evaluateJavaScript` and one `topLoad` drop (`UIManagerBinding.cpp` image `onLoad`, not a failed route). Linux `expo export --platform web` with `EXPO_PUBLIC_PARITY_PREVIEW=1` renders F1, including `[parity] preview-chat route`.
+- Root cause of the black window: `app.json` `UIApplicationSceneManifest` names `Atmos.SceneDelegate`. Expo's template never generates that class and draws into `AppDelegate.window`. The same manifest was removed in `221c22b69` and restored in `23b993825`. It is removed again. The workflow fails prebuild if `Info.plist` still names a scene delegate, and writes `ios/.xcode.env.local` so the bundle phase inlines the preview flag as `"1"`.
