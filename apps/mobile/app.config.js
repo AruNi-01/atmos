@@ -1,7 +1,8 @@
 /**
  * Parity preview builds (EXPO_PUBLIC_PARITY_PREVIEW=1) ship the embedded
  * bundle and must not install the expo-dev-client launcher. Local dev
- * keeps the plugin and the native modules.
+ * keeps the plugin. CocoaPods reads exclude from package.json, which
+ * scripts/agent-chat-parity/exclude-dev-client.js writes before prebuild.
  *
  * @param {{ config: import("expo/config").ExpoConfig }} ctx
  * @returns {import("expo/config").ExpoConfig}

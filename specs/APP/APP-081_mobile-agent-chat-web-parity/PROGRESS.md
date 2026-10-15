@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed; iOS capture still black, next run drops the dev client and restarts CoreSimulatorService
+- **Current phase**: S0–S8 implemented and reviewed; parity prebuild must exclude dev-client pods via package.json
 
 ## Snapshot
 

@@ -155,7 +155,12 @@ jobs:
         run: |
           set -euo pipefail
           printf 'EXPO_PUBLIC_PARITY_PREVIEW=1\n' > .env
+          # Pod install reads expo.autolinking.exclude from this package.json,
+          # not from app.config.js.
+          bun ../../scripts/agent-chat-parity/exclude-dev-client.js package.json
+          node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-client")) process.exit(1)'
           bunx expo prebuild -p ios --no-install
+          node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-launcher")) { console.error("prebuild dropped the dev-client exclude"); process.exit(1) }'
 
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
