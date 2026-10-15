@@ -40,8 +40,28 @@ xcrun simctl spawn booted defaults write \
 xcrun simctl spawn booted defaults read com.apple.launchservices.schemeapproval
 xcrun simctl spawn booted killall -9 cfprefsd || true
 
+dump_runtime_logs() {
+  echo "----- console.log -----" >&2
+  if [[ -f "$OUT/console.log" ]]; then
+    tail -n 200 "$OUT/console.log" >&2 || true
+  else
+    echo "(no console.log)" >&2
+  fi
+  echo "----- device log -----" >&2
+  xcrun simctl spawn booted log show --last 2m --style compact --predicate 'processImagePath CONTAINS "Atmos"' 2>/dev/null | tail -n 200 >&2 || true
+}
+
 echo "warming ${BUNDLE_ID}"
-xcrun simctl launch booted "$BUNDLE_ID" || true
+xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
+# --console-pty keeps the JS log attached for the whole capture.
+xcrun simctl launch --console-pty --terminate-running-process booted "$BUNDLE_ID" >"$OUT/console.log" 2>&1 &
+console_pid=$!
+sleep 3
+if ! kill -0 "$console_pid" 2>/dev/null; then
+  echo "console launch exited early; retrying without a pty" >&2
+  dump_runtime_logs
+  xcrun simctl launch booted "$BUNDLE_ID" || true
+fi
 sleep "$WARMUP_SECONDS"
 
 open_fixture() {
@@ -71,6 +91,7 @@ hash_f12="$(shasum -a 256 "$OUT/F12-light.png" | awk '{print $1}')"
 if [[ "$hash_f1" == "$hash_f12" ]]; then
   echo "F1-light and F12-light are identical (${hash_f1})." >&2
   echo "The preview route did not render distinct fixtures." >&2
+  dump_runtime_logs
   exit 1
 fi
 

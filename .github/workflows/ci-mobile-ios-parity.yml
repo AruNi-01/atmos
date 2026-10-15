@@ -246,7 +246,6 @@ jobs:
           set -euo pipefail
           app="$(cat "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt")"
           xcrun simctl install booted "$app"
-          xcrun simctl launch booted land.atmos.mobile
           bash scripts/agent-chat-parity/ios-capture.sh
 
       - name: Write summary

@@ -29,7 +29,7 @@ function navigationTheme(
 }
 
 export const unstable_settings = {
-  initialRouteName: "(home)",
+  initialRouteName: process.env.EXPO_PUBLIC_PARITY_PREVIEW === "1" ? "preview-chat" : "(home)",
 };
 
 export default function RootLayout() {
