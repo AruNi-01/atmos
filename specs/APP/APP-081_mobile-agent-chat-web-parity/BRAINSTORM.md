@@ -91,19 +91,18 @@ Inline expandable process/tool tree, stream reveal, activity row, scroll afforda
 
 Rejected in APP-079 (Fork 2/M8): auth, glass composer, native navigation. Still rejected.
 
-## Forks to resolve
+## Forks
 
 1. **New spec vs append to APP-079.** Resolved: new APP-081 (see PRD "Spec relationship"). APP-079 stays the functional baseline; APP-081 supersedes its transcript-display decisions (sheets, `Risks` bar).
-2. **Shared pure logic.** (a) Extract web's pure modules (`tool-group`, `assistant-process-parts`, `agent-tree-branch` constants, `agent-chat-transcript-window` constants, `agent-chat-timing`, `agent-chat-below-count`) into `@atmos/agent-transcript` and import from both apps; web edits are import-path swaps only. (b) Keep mobile copies and add parity tests. Recommendation: (a) for parity-by-construction; it relaxes APP-079's "no `apps/web` changes" and needs approval.
-3. **Web fixture surface** for same-session comparison: dev-only route in `apps/web` vs an out-of-tree harness under `scripts/` (like `scripts/agent-chat-stream-perf/`). Recommendation: out-of-tree harness; no production code path.
-4. **Shimmer / blur / mask on RN**: which dependency, if any, is acceptable (`expo-linear-gradient` + `@react-native-masked-view/masked-view`, or Skia, or opacity pulse fallback). See TECH "Motion mapping".
-5. **Card pill priority and auto-focus rule** when a permission request arrives while the user is reading another card. Proposed in PRD; confirm.
-6. **"Glass card" meaning.** Mobile design rules (`agents/references/design/mobile.md`) say grouped content cards are plain `cardElevated` + hairline `glassBorder`, while _controls_ (buttons, chips) are `GlassPanel`. The existing above-composer cards (`AgentChatPermissionCard`, `AgentChatSessionOpCard`) follow that. This spec keeps that card style and uses `GlassPanel` only for the pill buttons. The reference screenshot ("图一") was described to this spec in words by AruNi via Eng Manager (horizontally scrollable row of glass pills above a rounded "Follow up…" input with `+` and microphone); the image file itself could not be read on the box, so pixel details (pill height, icon use, spacing) are marked "verify against the image" in TECH.
+2. **Shared pure logic.** **Resolved (AruNi, 2026-10-15): D2(a).** Move the pure modules into `@atmos/agent-transcript`. Web files keep their paths as one-line re-exports (the import-path swap lives in those files; feature call sites stay put so behavior cannot drift). DOM helpers stay in web — see the 2026-10-15 review in TECH. D2(b) is not used.
+3. **Web fixture surface.** **Resolved:** out-of-tree harness under `scripts/agent-chat-parity/`. No new `apps/web` route and no production code path. Structural comparison is the gate and does not render either UI. A Playwright page may import existing web transcript components for reference PNGs; if that import graph cannot run outside Next, S31 stays `not_run` rather than adding a web route.
+4. **Shimmer.** **Resolved (AruNi, 2026-10-15): real shimmer.** Add `expo-linear-gradient` and `@react-native-masked-view/masked-view`. Web `TextShimmer` is `background-clip: text` plus a moving gradient; a gradient view alone cannot clip to glyphs. Blur and mask-image in the part reveal stay on the deviation register (no extra dependency for those).
+5. **Card pill priority.** **Resolved:** a newly arrived permission or session-op takes the expanded slot and does not clear `userChoice`. Other arrivals never steal. See TECH `reduceLane`.
+6. **"Glass card" meaning.** Unchanged: cards stay `cardElevated` + hairline `glassBorder`; pills are `GlassPanel`. **Pill content (AruNi, 2026-10-15): title text only** — no leading icon and no count badge. The reference image file (图一) is still missing, so pixel metrics stay unverified.
 
 ## Open questions
 
-- Pixel details of the reference image (图一): pill height, icon use, spacing, active-pill style. Still to verify; the image is not available yet.
-- **Resolved (AruNi, 2026-10-15)**: the expanded card sits directly above the pill row, so the row and the pill under the finger never move. The microphone shown in the reference image is out of scope: no dictation or voice input (see PRD Out of Scope).
-- Does AruNi want density (`compact` / `standard` / `detailed`) as a phone setting, or compact-only like today?
-- Is `apps/web` allowed to change import paths for the shared-logic extraction (Fork 2)?
-- Should the user-message tap meta row (time + copy) use the same tap target as web, or a long-press menu to avoid conflict with text selection on iOS?
+- **Still open — pixel metrics of 图一** (pill height, spacing, active-pill treatment). Provisional pill height is the composer button size (36). Do not treat that as signed off.
+- **Resolved (AruNi, 2026-10-15):** expanded card above the pill row; no microphone / dictation; D2(a) allowed; real shimmer dependencies allowed and listed in the PR; card lane starts fully collapsed; tapping the expanded pill collapses it; permission / session-op preempt.
+- **Resolved for this delivery:** density stays `compact`. N3 (a phone setting) is not built.
+- **Resolved:** the user-message meta row uses the same tap target as web. Text selection on iOS is a residual risk, not a second interaction model.
