@@ -8,14 +8,14 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S2 message views
+- **Current phase**: S3 inline tool tree
 
 ## Snapshot
 
 - Spec review committed (`704483158`).
 - S0 done and reviewed: pure rules live in `@atmos/agent-transcript`; web paths re-export; `assistant-process.ts` is deleted. One web source-text assertion now reads the package file.
 - S1 done and reviewed: synthetic F1–F13, `projectParityTree`, `scripts/agent-chat-parity/compare.ts` (13 match), preview route gated by `EXPO_PUBLIC_PARITY_PREVIEW`.
-- Next: S2 message views.
+- S2 done and reviewed: user bubbles, answer caret, thinking titles, session chrome, errors, historic permissions, and the assistant footer. Tool-group sheets remain until S3. File-change rows use `presentAgentTool` and count only edit, delete, and move.
 - `bun --filter @atmos/mobile typecheck` still reports errors only in files S0 did not touch (`fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, `expo-drawer.web.tsx`). Treat as pre-existing until a later slice proves otherwise.
 - Blocked: nothing. 图一 pixel metrics stay unverified. Do not install Cursor agent CLI or mobai-dev.
 - Do not change web behavior. Do not add a web route. Do not add `WsAction`s.
@@ -28,7 +28,7 @@
 | --- | ---- | --------------------------------------------------------- | ------------------------------------ | ------- | ------- | ---- | ------ | ---------------------------------------------- |
 | S0  | 0    | shared pure modules + web re-exports + mobile import swap | transcript UI rewrite, `PROGRESS.md` | specs   | done    | ok   | pass   | package tests, web unit tests, mobile bun test |
 | S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | done    | ok   | pass   | compare.ts 13 fixtures, package + mobile tests |
-| S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | planned | —    | —      | mobile typecheck + bun test                    |
+| S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | done    | ok   | pass   | mobile bun test 278; package tests; compare 13 |
 | S3  | 3    | inline tool tree + bodies                                 | motion folder, card lane             | S2      | planned | —    | —      | mobile typecheck + bun test                    |
 | S4  | 4    | `motion/`, shimmer, stream buffer, activity row           | card lane                            | S3      | planned | —    | —      | mobile typecheck + bun test                    |
 | S5  | 5    | list stick, scroll pill shell, edge fades, own-send       | card pills                           | S2      | planned | —    | —      | mobile typecheck + bun test                    |
@@ -65,14 +65,16 @@ Later slice cards are filled in when that slice is dispatched. Owns stay disjoin
 
 ## Verification Status
 
-| Area           | Command / Method                                       | Last result | Notes                                    |
-| -------------- | ------------------------------------------------------ | ----------- | ---------------------------------------- |
-| Spec review    | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1` |
-| S0 tests       | not started                                            | not_run     |                                          |
-| S27 Cursor CLI | —                                                      | not_run     | do not install                           |
-| S28 mobai-dev  | —                                                      | not_run     | do not install                           |
-| iOS simulator  | workflow not added yet                                 | not_run     |                                          |
-| 图一 pixels    | image missing                                          | not_run     | pill height 36 is provisional            |
+| Area            | Command / Method                                       | Last result | Notes                                    |
+| --------------- | ------------------------------------------------------ | ----------- | ---------------------------------------- |
+| Spec review     | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1` |
+| S2 mobile tests | `cd apps/mobile && bun test`                           | pass        | 278 tests                                |
+| S2 package      | `bun --filter @atmos/agent-transcript test`            | pass        | helpers moved verbatim                   |
+| Structural      | `bun scripts/agent-chat-parity/compare.ts`             | pass        | 13 fixtures match                        |
+| S27 Cursor CLI  | —                                                      | not_run     | do not install                           |
+| S28 mobai-dev   | —                                                      | not_run     | do not install                           |
+| iOS simulator   | workflow not added yet                                 | not_run     |                                          |
+| 图一 pixels     | image missing                                          | not_run     | pill height 36 is provisional            |
 
 ## Known Blockers
 
@@ -87,7 +89,7 @@ Phone Agent Chat matches web message/part/tool/motion/scroll/composer behavior, 
 
 ### Current progress
 
-Spec amendments are committed. S0 is the next code change.
+S0 and S1 are committed. S2 is implemented and reviewed. Next code change is S3 (inline tool tree).
 
 ### Completed work
 
@@ -137,4 +139,6 @@ Spec amendments are committed. S0 is the next code change.
 - Completed spec review and commit `704483158`.
 - S0 implemented and reviewed (pass, no P0/P1). Web `agent-tree-branch.test.ts` reads the package source for `return TREE_STEP_MS` because the web file is now a re-export.
 - Mobile `bun test` passed (261). Package tests and the named web unit tests passed after that path fix.
-- Next is S1.
+- S1 implemented and reviewed (pass). `compare.ts` prints `13 fixtures match`.
+- S2 implemented and reviewed (pass after a file-change rework). Mobile `bun test` 278. Package typecheck passed. Mobile typecheck still fails only in `fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, and `expo-drawer.web.tsx`.
+- Next is S3.
