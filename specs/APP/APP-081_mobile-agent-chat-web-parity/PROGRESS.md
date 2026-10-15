@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed; iOS launch must not name `Atmos.SceneDelegate`
+- **Current phase**: S0–S8 implemented and reviewed. Black window root cause is the scene delegate (fixed, confirmed by run `38780693297`). Open CI blocker is the recording gate.
 
 ## Snapshot
 
@@ -30,17 +30,17 @@
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID  | Wave | Owns                                                      | Forbids                              | Depends | Status | Impl | Review | Verify                                                                             |
-| --- | ---- | --------------------------------------------------------- | ------------------------------------ | ------- | ------ | ---- | ------ | ---------------------------------------------------------------------------------- |
-| S0  | 0    | shared pure modules + web re-exports + mobile import swap | transcript UI rewrite, `PROGRESS.md` | specs   | done   | ok   | pass   | package tests, web unit tests, mobile bun test                                     |
-| S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | done   | ok   | pass   | compare.ts 13 fixtures, package + mobile tests                                     |
-| S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | done   | ok   | pass   | mobile bun test 278; package tests; compare 13                                     |
-| S3  | 3    | inline tool tree + bodies                                 | motion folder, card lane             | S2      | done   | ok   | pass   | mobile bun test 280; compare 13                                                    |
-| S4  | 4    | `motion/`, shimmer, stream buffer, activity row           | card lane                            | S3      | done   | ok   | pass   | mobile bun test 285; compare 13                                                    |
-| S5  | 5    | list stick, scroll pill shell, edge fades, own-send       | card pills                           | S2      | done   | ok   | pass   | mobile bun test 299; compare 13                                                    |
-| S6  | 6    | card lane + card bodies                                   | composer option sheets               | S2, S5  | done   | ok   | pass   | mobile bun test 324; `card-lane` + `composer-cards`                                |
-| S7  | 7    | composer parity                                           | new protocol                         | S6      | done   | ok   | pass   | mobile bun test 334; compare 13                                                    |
-| S8  | 8    | `ci-mobile-ios-parity.yml`, coverage notes                | installing CLI/mobai                 | S1–S7   | done   | ok   | pass   | workflow file reviewed; `bash -n` on the capture script; simulator job not run yet |
+| ID  | Wave | Owns                                                      | Forbids                              | Depends | Status | Impl | Review | Verify                                                                                                               |
+| --- | ---- | --------------------------------------------------------- | ------------------------------------ | ------- | ------ | ---- | ------ | -------------------------------------------------------------------------------------------------------------------- |
+| S0  | 0    | shared pure modules + web re-exports + mobile import swap | transcript UI rewrite, `PROGRESS.md` | specs   | done   | ok   | pass   | package tests, web unit tests, mobile bun test                                                                       |
+| S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | done   | ok   | pass   | compare.ts 13 fixtures, package + mobile tests                                                                       |
+| S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | done   | ok   | pass   | mobile bun test 278; package tests; compare 13                                                                       |
+| S3  | 3    | inline tool tree + bodies                                 | motion folder, card lane             | S2      | done   | ok   | pass   | mobile bun test 280; compare 13                                                                                      |
+| S4  | 4    | `motion/`, shimmer, stream buffer, activity row           | card lane                            | S3      | done   | ok   | pass   | mobile bun test 285; compare 13                                                                                      |
+| S5  | 5    | list stick, scroll pill shell, edge fades, own-send       | card pills                           | S2      | done   | ok   | pass   | mobile bun test 299; compare 13                                                                                      |
+| S6  | 6    | card lane + card bodies                                   | composer option sheets               | S2, S5  | done   | ok   | pass   | mobile bun test 324; `card-lane` + `composer-cards`                                                                  |
+| S7  | 7    | composer parity                                           | new protocol                         | S6      | done   | ok   | pass   | mobile bun test 334; compare 13                                                                                      |
+| S8  | 8    | `ci-mobile-ios-parity.yml`, coverage notes                | installing CLI/mobai                 | S1–S7   | done   | ok   | pass   | workflow reviewed; `bash -n` and `mp4-duration.py --self-test` pass; simulator PNGs exist, recording gate still open |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -83,19 +83,19 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 | Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                 |
 | Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                      |
 | Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`        |
-| Capture script       | `bash -n scripts/agent-chat-parity/ios-capture.sh`     | pass        | syntax only; no simulator on this machine                |
+| Capture script       | `bash -n` and `mp4-duration.py --self-test`            | pass        | syntax and muxer only; no simulator on this machine      |
 | S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written |
 | S27 Cursor CLI       | —                                                      | not_run     | do not install                                           |
 | S28 mobai-dev        | —                                                      | not_run     | do not install                                           |
 | S31 web PNGs         | out-of-tree harness                                    | not_run     | would need a new `apps/web` route; not added             |
-| iOS simulator        | runs through `38769715486`                             | not_run     | dialog, then a black scene window; not fixture evidence  |
+| iOS simulator        | run `38780693297`                                      | not_run     | distinct fixture PNGs; job red on a 1.27s `F4.mp4`       |
 | 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                            |
 
 ## Known Blockers
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S27 and S28 need a separate AruNi approval to install external tools.
-- [ ] Simulator screenshots are not fixture evidence. Uploaded PNGs are the open-url dialog or one black scene window (`fbcb6a8c2222…`).
+- [ ] iOS job is still red. Run `38780693297` PNGs are fixture UI, and S29 stays `not_run` until a green job. S10 and S30 stay `not_run` because the new `.mov` is a timed screenshot mux, not the in-app animation.
 
 ## Handoff Notes
 
@@ -105,7 +105,7 @@ Phone Agent Chat matches web message/part/tool/motion/scroll/composer behavior, 
 
 ### Current progress
 
-S0–S8 are implemented and reviewed. Run `38780693297` shows distinct fixture screenshots after `Atmos.SceneDelegate` was removed. The job is still red because `F4.mp4` is 1.27s and `afinfo` cannot read a video-only file.
+S0–S8 are implemented and reviewed. The black window was `Atmos.SceneDelegate` (empty scene window, JS running in `AppDelegate`'s window). Run `38780693297` shows distinct fixture screenshots. The job is still red because `F4.mp4` is 1.27s and `afinfo` cannot read a video-only file. The capture script now muxes timed screenshots into an 8s `.mov`.
 
 ### Completed work
 
@@ -135,9 +135,9 @@ S0–S8 are implemented and reviewed. Run `38780693297` shows distinct fixture s
 
 ### Next steps
 
-1. Do not start another macOS job until the recording gate is fixed and checked against a downloaded `F4.mp4`. Run `38780693297` already shows distinct fixture PNGs.
-2. `F4.mp4` is 2 frames / 1.27s and has no audio track. `afinfo` exits with `AudioFileOpenURL failed`. S10 and S30 stay `not_run`.
-3. Do not merge. Do not edit `preview-chat.tsx`, `preview-chat-screen.tsx`, or `app/_layout.tsx` for the blank window; that bug was the scene manifest.
+1. One macOS job is expected from the recording-gate push. Check the new `.mov` files before marking S10, S29, or S30.
+2. `F4.mp4` from run `38780693297` is 2 frames / 1.27s and has no audio track. The replacement recording holds screenshots for 8s. It is not an animation capture. S10 and S30 stay `not_run`.
+3. Do not merge. Do not edit `preview-chat.tsx`, `preview-chat-screen.tsx`, or `app/_layout.tsx`. The blank window was the scene manifest. `topLoad` / null `instanceHandle` is an Image `onLoad` drop.
 
 ### Relevant files/symbols
 
@@ -175,4 +175,5 @@ S0–S8 are implemented and reviewed. Run `38780693297` shows distinct fixture s
 - Run `38767206759` stopped in pod install: `app.config.js` exclude is ignored by CocoaPods, which reads `package.json`. `exclude-dev-client.js` writes that field on the runner before prebuild. Local `expo-modules-autolinking resolve` then omits the dev-client pods.
 - Run `38769715486` excluded those pods, built Release, and still captured the black Simulator window (`fbcb6a8c2222…`). `desktop-after-warmup.png` is the same black window. Console shows `evaluateJavaScript` and one `topLoad` drop (`UIManagerBinding.cpp` image `onLoad`, not a failed route). Linux `expo export --platform web` with `EXPO_PUBLIC_PARITY_PREVIEW=1` renders F1, including `[parity] preview-chat route`.
 - Root cause of the black window: `app.json` `UIApplicationSceneManifest` names `Atmos.SceneDelegate`. Expo's template never generates that class and draws into `AppDelegate.window`. The same manifest was removed in `221c22b69` and restored in `23b993825`. It is removed again. The workflow fails prebuild if `Info.plist` still names a scene delegate, and writes `ios/.xcode.env.local` so the bundle phase inlines the preview flag as `"1"`.
-- Run `38780693297` on head `f2b611c44`: `structural` passed. The Release build passed, so `main.jsbundle` contains `[parity] preview-chat route` and no scene delegate. Capture wrote distinct fixture PNGs (F1-light `dae7bb5e…`, F12-light `b560aee6…`) and then failed on `F4.mp4` (`afinfo` / 1.27s, 2 frames). Do not push a docs-only follow-up; this PR already touches the workflow paths, so another push starts another macOS job.
+- Run `38780693297` on head `f2b611c44`: `structural` passed. The Release build passed, so `main.jsbundle` contains `[parity] preview-chat route` and no scene delegate. Capture wrote distinct fixture PNGs (F1-light `dae7bb5e…`, F12-light `b560aee6…`) and then failed on `F4.mp4` (`afinfo` / 1.27s, 2 frames).
+- Recording gate: stop using `simctl recordVideo` and `afinfo`. Screenshot the phone for 8s and mux JPEGs with `mp4-duration.py`. After warmup, screenshot the default route before any deep link, tail `console.log`, and save a device-log excerpt. The Release step prints `RCTNewArchEnabled` and fails if the built plist still names a scene delegate. `structural` runs `mp4-duration.py --self-test`. Preview route files were not edited.

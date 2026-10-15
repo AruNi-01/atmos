@@ -20,6 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Recording duration self-test
+        run: python3 scripts/agent-chat-parity/mp4-duration.py --self-test
+
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
@@ -283,6 +286,18 @@ jobs:
             exit 1
           fi
           echo "parity preview flag is inlined into main.jsbundle"
+          echo "main.jsbundle bytes: $(wc -c < "$bundle" | tr -d ' ')"
+          # RN 0.85 turns the new architecture on unless RCT_NEW_ARCH_ENABLED=0.
+          # Run 38780693297 painted fixtures with that default, so Fabric is not
+          # the black-window cause. Print the built value and keep going.
+          echo "RCTNewArchEnabled=$(plutil -extract RCTNewArchEnabled raw -o - "$app/Info.plist" 2>/dev/null || echo absent)"
+          plist_text="$(plutil -p "$app/Info.plist")"
+          if grep -q 'UISceneDelegateClassName' <<<"$plist_text"; then
+            echo "built Info.plist still names a scene delegate" >&2
+            printf '%s\n' "$plist_text" >&2
+            exit 1
+          fi
+          echo "built Info.plist has no scene delegate"
           printf '%s\n' "$app" > "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt"
 
       - name: Install, launch, and capture

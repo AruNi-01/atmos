@@ -73,6 +73,28 @@ fi
 sleep "$WARMUP_SECONDS"
 screencapture -x "$OUT/desktop-after-warmup.png" || true
 
+# Enter preview through the baked initial route. Deep links below only switch
+# fixture and theme after this shot exists.
+echo "default route screenshot (no deep link yet)"
+xcrun simctl io booted screenshot "$OUT/default-route.png"
+echo "----- console.log after warmup -----"
+tail -n 80 "$OUT/console.log" >&2 || true
+default_hash="$(shasum -a 256 "$OUT/default-route.png" | awk '{print $1}')"
+echo "default-route sha256 ${default_hash}"
+# Same pixels as the empty scene window from runs through 38769715486.
+black_scene="fbcb6a8c2222c51b2c61b122762b964463322680781a5457888a05fee632c0b6"
+if [[ "$default_hash" == "$black_scene" ]]; then
+  echo "default route is the black scene window; the embedded bundle did not paint preview-chat" >&2
+  dump_runtime_logs
+  exit 1
+fi
+
+echo "----- device log after warmup -----"
+xcrun simctl spawn booted log show --last 3m --info --style compact \
+  --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
+  >"$OUT/device-log-after-warmup.txt" 2>&1 || true
+grep -E '\[parity\]|RCTFatal|JavaScript|topLoad|instanceHandle|Error' "$OUT/device-log-after-warmup.txt" | tail -n 40 >&2 || true
+
 open_fixture() {
   local id="$1"
   local theme="$2"
@@ -106,38 +128,49 @@ fi
 
 record_one() {
   local id="$1"
-  local video="$OUT/${id}.mp4"
-  local rec_pid
-  local status
+  local video="$OUT/${id}.mov"
+  local frames
+  local started
+  local index=0
+  local png
+  local jpg
   local duration
+  frames="$(mktemp -d)"
   rm -f "$video"
   echo "record ${id}"
   xcrun simctl ui booted appearance light
-  xcrun simctl io booted recordVideo --codec=h264 --force "$video" &
-  rec_pid=$!
   xcrun simctl openurl booted "${URL_SCHEME}://preview-chat?fixture=${id}&theme=light"
-  sleep "$RECORD_SECONDS"
-  if kill -0 "$rec_pid" 2>/dev/null; then
-    kill -INT "$rec_pid"
+  sleep 2
+  # simctl recordVideo on iOS 26 kept two samples (1.27s) of a static screen
+  # and wrote no audio, so afinfo exited AudioFileOpenURL. Screenshot the
+  # phone across the capture window and mux those frames. screencapture -v
+  # needs a Screen Recording grant the runner does not have.
+  started="$SECONDS"
+  while (( SECONDS - started < RECORD_SECONDS )); do
+    png="$frames/$(printf '%03d' "$index").png"
+    jpg="$frames/$(printf '%03d' "$index").jpg"
+    xcrun simctl io booted screenshot "$png"
+    sips -s format jpeg "$png" --out "$jpg" >/dev/null
+    rm -f "$png"
+    index=$((index + 1))
+    sleep 0.5
+  done
+  echo "record ${id} frames ${index}"
+  if [[ "$index" -lt 1 ]]; then
+    echo "recording ${id} captured no frames" >&2
+    exit 1
   fi
-  sleep 1
-  status=0
-  wait "$rec_pid" || status=$?
-  if [[ "$status" -ne 0 && "$status" -ne 130 && "$status" -ne 143 ]]; then
-    echo "recordVideo for ${id} exited ${status}" >&2
-    exit "$status"
-  fi
+  duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"
+  rm -rf "$frames"
+  echo "recording ${id} duration ${duration}"
   if [[ ! -s "$video" ]]; then
     echo "recording ${video} is missing or empty" >&2
     exit 1
   fi
-  duration="$(afinfo "$video" | awk -F': ' '/estimated duration/ {print $2; exit}')"
-  echo "recording ${id} duration ${duration}"
   if ! python3 - "$duration" <<'PY'
 import sys
-raw = sys.argv[1].split()[0] if len(sys.argv) > 1 else ""
 try:
-    seconds = float(raw)
+    seconds = float(sys.argv[1])
 except ValueError:
     seconds = 0.0
 if seconds < 3:
