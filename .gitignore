@@ -25,6 +25,8 @@ coverage/
 e2e/reports/
 e2e/test-results/
 playwright-report/
+# Parity capture output (screenshots, recordings, exported trees)
+/artifacts/
 
 # ===== cache =====
 .cache/

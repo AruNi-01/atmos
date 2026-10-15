@@ -1,0 +1,274 @@
+name: CI - Mobile iOS parity
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "packages/agent-transcript/**"
+      - "scripts/agent-chat-parity/**"
+      - ".github/workflows/ci-mobile-ios-parity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  structural:
+    name: structural
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Mobile unit tests
+        working-directory: apps/mobile
+        run: bun test
+
+      - name: Agent transcript tests
+        run: bun --filter @atmos/agent-transcript test
+
+      - name: Structural compare
+        run: bun scripts/agent-chat-parity/compare.ts
+
+      - name: Export fixture trees
+        run: bun scripts/agent-chat-parity/export-trees.ts
+
+      - name: Upload structural trees
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-structural
+          path: artifacts/structural
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-simulator:
+    name: ios-simulator
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      EXPO_PUBLIC_PARITY_PREVIEW: "1"
+      LANG: en_US.UTF-8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Select Xcode 26.5 and boot iPhone 17 Pro
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_26.5.app
+          echo "xcode-select: $(xcode-select -p)"
+          xcodebuild -version
+          echo "----- xcrun simctl list -----"
+          xcrun simctl list
+
+          if ! parsed="$(python3 - << 'PY'
+          import json, subprocess, sys
+
+          def run(args):
+              return subprocess.check_output(args, text=True)
+
+          devices = json.loads(run(["xcrun", "simctl", "list", "devices", "available", "-j"]))
+          runtimes = json.loads(run(["xcrun", "simctl", "list", "runtimes", "-j"]))
+          runtime_id = ""
+          for runtime in runtimes.get("runtimes", []):
+              version = str(runtime.get("version", ""))
+              name = str(runtime.get("name", ""))
+              identifier = str(runtime.get("identifier", ""))
+              if runtime.get("isAvailable") and (
+                  version == "26.5" or name == "iOS 26.5" or identifier.endswith("iOS-26-5")
+              ):
+                  runtime_id = identifier
+                  break
+          if not runtime_id:
+              print("iOS 26.5 simulator runtime is not installed", file=sys.stderr)
+              sys.exit(2)
+
+          bucket = devices.get("devices", {})
+          runtime_devices = bucket.get(runtime_id, [])
+          if not runtime_devices:
+              for key, value in bucket.items():
+                  if "iOS-26-5" in key:
+                      runtime_id = key
+                      runtime_devices = value
+                      break
+
+          udid = ""
+          for device in runtime_devices:
+              if device.get("name") == "iPhone 17 Pro" and device.get("isAvailable", True):
+                  udid = str(device.get("udid", ""))
+                  break
+          print(runtime_id)
+          print(udid)
+          PY
+          )"; then
+            echo "Simulator pin failed. Full simctl list follows."
+            xcrun simctl list
+            exit 1
+          fi
+
+          runtime_id="$(printf '%s\n' "$parsed" | sed -n '1p')"
+          udid="$(printf '%s\n' "$parsed" | sed -n '2p')"
+          echo "runtime: ${runtime_id}"
+          if [[ -z "$udid" ]]; then
+            echo "Creating iPhone 17 Pro on ${runtime_id}"
+            if ! udid="$(xcrun simctl create "iPhone 17 Pro" "iPhone 17 Pro" "$runtime_id")"; then
+              echo "Could not create iPhone 17 Pro. Full simctl list follows."
+              xcrun simctl list
+              exit 1
+            fi
+            udid="$(printf '%s' "$udid" | tr -d '[:space:]')"
+          fi
+          echo "udid: ${udid}"
+
+          boot_status=0
+          xcrun simctl boot "$udid" || boot_status=$?
+          if [[ "$boot_status" -ne 0 ]]; then
+            echo "simctl boot exited ${boot_status}; waiting for bootstatus"
+          fi
+          if ! xcrun simctl bootstatus "$udid" -b; then
+            echo "Simulator did not boot. Full simctl list follows."
+            xcrun simctl list
+            exit 1
+          fi
+          xcrun simctl status_bar booted override --time "9:41" --batteryState charged --batteryLevel 100
+
+      - name: Bake preview flag and prebuild iOS
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          printf 'EXPO_PUBLIC_PARITY_PREVIEW=1\n' > .env
+          bunx expo prebuild -p ios --no-install
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios
+        run: |
+          set -euo pipefail
+          pod --version
+          pod install
+
+      - name: Build Release simulator app
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          workspace=""
+          if [[ -d apps/mobile/ios/Atmos.xcworkspace ]]; then
+            workspace="apps/mobile/ios/Atmos.xcworkspace"
+          else
+            for candidate in apps/mobile/ios/*.xcworkspace; do
+              [[ -d "$candidate" ]] || continue
+              base="$(basename "$candidate")"
+              [[ "$base" == "project.xcworkspace" ]] && continue
+              workspace="$candidate"
+              break
+            done
+          fi
+          if [[ -z "$workspace" ]]; then
+            echo "No Xcode workspace under apps/mobile/ios" >&2
+            ls -la apps/mobile/ios >&2 || true
+            exit 1
+          fi
+
+          list_output="$(xcodebuild -workspace "$workspace" -list 2>&1)" || {
+            printf '%s\n' "$list_output"
+            exit 1
+          }
+          printf '%s\n' "$list_output"
+          # Heredoc owns stdin, so the list is passed in the environment.
+          if ! scheme="$(LIST_OUTPUT="$list_output" python3 - << 'PY'
+          import os, sys
+          text = os.environ.get("LIST_OUTPUT", "").splitlines()
+          schemes = []
+          in_schemes = False
+          for line in text:
+              if line.strip() == "Schemes:":
+                  in_schemes = True
+                  continue
+              if not in_schemes:
+                  continue
+              if line.strip() == "":
+                  continue
+              if not line.startswith("        "):
+                  break
+              schemes.append(line.strip())
+          if "Atmos" not in schemes:
+              print("scheme Atmos was not in xcodebuild -list", file=sys.stderr)
+              print("\n".join(schemes), file=sys.stderr)
+              sys.exit(1)
+          print("Atmos")
+          PY
+          )"; then
+            echo "Scheme detection failed. xcodebuild -list output is above."
+            exit 1
+          fi
+          echo "scheme: ${scheme}"
+          echo "destination: platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5"
+
+          derived="$GITHUB_WORKSPACE/artifacts/derived"
+          rm -rf "$derived"
+          xcodebuild \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" \
+            -derivedDataPath "$derived" \
+            build
+
+          app="$derived/Build/Products/Release-iphonesimulator/Atmos.app"
+          if [[ ! -d "$app" ]]; then
+            # pipefail plus head would turn find's SIGPIPE into a failed step.
+            set +o pipefail
+            app="$(find "$derived/Build/Products" -maxdepth 4 -type d -name '*.app' -path '*Release-iphonesimulator/*' ! -path '*/PlugIns/*' | head -n 1)"
+            set -o pipefail
+          fi
+          if [[ -z "$app" || ! -d "$app" ]]; then
+            echo "Release simulator app not found under ${derived}" >&2
+            find "$derived/Build/Products" -maxdepth 5 -name '*.app' >&2 || true
+            exit 1
+          fi
+          echo "app: ${app}"
+          printf '%s\n' "$app" > "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt"
+
+      - name: Install, launch, and capture
+        run: |
+          set -euo pipefail
+          app="$(cat "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt")"
+          xcrun simctl install booted "$app"
+          xcrun simctl launch booted land.atmos.mobile
+          bash scripts/agent-chat-parity/ios-capture.sh
+
+      - name: Write summary
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          {
+            echo "# iOS parity capture"
+            echo
+            echo "- xcode-select: $(xcode-select -p)"
+            echo "- xcodebuild:"
+            xcodebuild -version | sed 's/^/  /'
+            echo "- simulator device: iPhone 17 Pro"
+            echo "- S31 web PNGs were not produced."
+          } > artifacts/summary.md
+
+      - name: Upload ios-parity
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-parity
+          path: |
+            artifacts/phone
+            artifacts/summary.md
+          if-no-files-found: error
+          retention-days: 14
