@@ -206,3 +206,16 @@ export {
   USER_MESSAGE_COLLAPSE_FADE_LINES,
   USER_MESSAGE_COLLAPSE_LINES,
 } from "./user-message-collapse";
+
+export {
+  PARITY_FIXTURE_IDS,
+  parityFixtureById,
+  projectParityTree,
+  type ParityCards,
+  type ParityExpand,
+  type ParityFixture,
+  type ParityMessage,
+  type ParityNode,
+  type ParityTone,
+  type ParityTreeOptions,
+} from "./parity-tree";

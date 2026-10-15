@@ -1,0 +1,100 @@
+{
+  "id": "F8",
+  "title": "Subagent and wait",
+  "messages": [
+    {
+      "id": "f8-u",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Inspect the file"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f8-a",
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "sub-1",
+          "name": "Subagent",
+          "kind": "subagent",
+          "params": {
+            "type": "subagent",
+            "description": "Inspect src/main.ts",
+            "prompt": "Read and edit src/main.ts"
+          },
+          "result": {
+            "type": "text",
+            "text": "Inspected src/main.ts"
+          }
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "sub-1-read",
+          "parent_tool_call_id": "sub-1",
+          "name": "Read",
+          "kind": "read",
+          "params": {
+            "type": "read",
+            "path": "src/main.ts"
+          },
+          "result": {
+            "type": "file_content",
+            "path": "src/main.ts",
+            "text": "export const ready = true;\n"
+          }
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "sub-1-edit",
+          "parent_tool_call_id": "sub-1",
+          "name": "Edit",
+          "kind": "edit",
+          "params": {
+            "type": "edit",
+            "path": "src/main.ts"
+          },
+          "result": {
+            "type": "diff_stats",
+            "path": "src/main.ts",
+            "additions": 1,
+            "deletions": 0
+          }
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "sub-1-wait",
+          "name": "TaskOutput",
+          "title": "Waiting for subagent",
+          "kind": "other",
+          "params": {
+            "type": "other",
+            "value": {
+              "task_id": "sub-1"
+            }
+          },
+          "result": {
+            "type": "text",
+            "text": "Subagent finished."
+          }
+        },
+        {
+          "type": "text",
+          "text": "Inspection finished."
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "streaming": false,
+      "worked_ms": 11000,
+      "completed_at": "2026-10-15T12:00:42.000Z"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "id": "F10",
+  "title": "User messages",
+  "messages": [
+    {
+      "id": "f10-long",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Alpha is the long note\nSecond line of the note\nThird line of the note\nFourth line of the note"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f10-paste",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "paste line 1\npaste line 2\npaste line 3\npaste line 4\npaste line 5\npaste line 6\npaste line 7\npaste line 8\npaste line 9\npaste line 10\npaste line 11\npaste line 12"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f10-url",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "See http://example.com/guide"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f10-file",
+      "role": "user",
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Photo note"
+        },
+        {
+          "type": "attachment",
+          "path": "src/note.txt",
+          "name": "note.txt"
+        }
+      ]
+    },
+    {
+      "id": "f10-pending",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Send this"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "pending": true
+    }
+  ]
+}

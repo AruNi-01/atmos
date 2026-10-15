@@ -1,0 +1,49 @@
+[
+  {
+    "kind": "user",
+    "label": "Update the sources",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "process",
+    "label": "Worked for 8s",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "tool_group",
+        "label": "2 writes",
+        "expanded": false,
+        "children": [
+          {
+            "kind": "diff_stats",
+            "label": "-3 / +6"
+          },
+          {
+            "kind": "diff_stats",
+            "label": "src/main.ts -2 / +4"
+          },
+          {
+            "kind": "patch",
+            "label": "src/lib.ts"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "Applied.",
+    "children": [
+      {
+        "kind": "paragraph",
+        "label": "Applied."
+      }
+    ]
+  }
+]

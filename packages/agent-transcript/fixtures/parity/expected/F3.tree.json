@@ -1,0 +1,71 @@
+[
+  {
+    "kind": "user",
+    "label": "Check src/main.ts",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "process",
+    "label": "Worked for 42s",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "tool_group",
+        "label": "1 write, 1 search, 1 read",
+        "expanded": false,
+        "children": [
+          {
+            "kind": "diff_stats",
+            "label": "-1 / +3"
+          },
+          {
+            "kind": "code",
+            "label": "src/main.ts"
+          },
+          {
+            "kind": "search",
+            "label": "ready",
+            "expanded": false,
+            "children": [
+              {
+                "kind": "path",
+                "label": "src/main.ts"
+              }
+            ]
+          },
+          {
+            "kind": "diff_stats",
+            "label": "src/main.ts -1 / +3"
+          },
+          {
+            "kind": "thinking",
+            "label": "Thinking",
+            "expanded": false,
+            "children": [
+              {
+                "kind": "paragraph",
+                "label": "The export is in place."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "The file is ready.",
+    "children": [
+      {
+        "kind": "paragraph",
+        "label": "The file is ready."
+      }
+    ]
+  }
+]
