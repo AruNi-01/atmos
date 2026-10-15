@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38807875046` structural passed (`parity-rn-web`, react-native-web). Its iOS carousel died on the light→dark preference flip. S27 is partial. S28 ran. S31 stays `not_run`.
+- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38816093468` (shared clock) logged every carousel frame and did not throw; its PNGs were not distinct because screenshots outlived the 15s hold. The hold is now 90s. S27 is partial. S28 ran. S31 stays `not_run`.
 
 ## Snapshot
 
@@ -73,29 +73,29 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 
 ## Verification Status
 
-| Area                 | Command / Method                                       | Last result | Notes                                                            |
-| -------------------- | ------------------------------------------------------ | ----------- | ---------------------------------------------------------------- |
-| Spec review          | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1`                         |
-| S4 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 285 tests                                                        |
-| S5 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 299 tests                                                        |
-| S6 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 324 tests                                                        |
-| S7 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 334 pass, 0 fail, 82 files                                       |
-| Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                         |
-| Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                              |
-| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`                |
-| Capture script       | `bash -n` and `mp4-duration.py --self-test`            | pass        | syntax and muxer only; no simulator on this machine              |
-| S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written         |
-| S27 Cursor CLI       | parent `agent -p` on react-native-web shots            | partial     | F3 pass; F12 cards fail; F6 suspected false positive             |
-| S28 mobai-dev        | parent RN-web preview, head `1a8ed362b`                | ran         | 26 frames, not iOS; 241/250 labels; 9 card misses                |
-| S31 web PNGs         | Next.js                                                | not_run     | `next dev` OOM; ubuntu job PNGs are react-native-web             |
-| iOS simulator        | runs `38789917018`, `38797183648`                      | pass (S29)  | transcript-only 26 PNGs; carousel run `38807875046` died on dark |
-| 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                                    |
+| Area                 | Command / Method                                       | Last result | Notes                                                                                 |
+| -------------------- | ------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------- |
+| Spec review          | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1`                                              |
+| S4 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 285 tests                                                                             |
+| S5 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 299 tests                                                                             |
+| S6 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 324 tests                                                                             |
+| S7 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 334 pass, 0 fail, 82 files                                                            |
+| Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                                              |
+| Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                                                   |
+| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`                                     |
+| Capture script       | `bash -n` and `mp4-duration.py --self-test`            | pass        | syntax and muxer only; no simulator on this machine                                   |
+| S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written                              |
+| S27 Cursor CLI       | parent `agent -p` on react-native-web shots            | partial     | F3 pass; F12 cards fail; F6 suspected false positive                                  |
+| S28 mobai-dev        | parent RN-web preview, head `1a8ed362b`                | ran         | 26 frames, not iOS; 241/250 labels; 9 card misses                                     |
+| S31 web PNGs         | Next.js                                                | not_run     | `next dev` OOM; ubuntu job PNGs are react-native-web                                  |
+| iOS simulator        | runs `38789917018`, `38797183648`                      | pass (S29)  | transcript-only 26 PNGs; carousel runs `38807875046` and `38816093468` failed capture |
+| 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                                                         |
 
 ## Known Blockers
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S10 and S30 stay `not_run`. Recordings last 8s and each file's frames are identical, so motion is not shown.
-- [ ] The iOS carousel is not proven. Run `38807875046` captured light F1–F13 and F1 dark, then `Maximum update depth exceeded`. The shared clock fix is not in that artifact.
+- [ ] The iOS carousel is not proven. Run `38807875046` died on the dark theme flip. Run `38816093468` logged all 26 frames, then duplicate PNGs because screenshots outlived the 15s hold. The 90s hold is not in that artifact.
 - [ ] S31 stays `not_run`. Next.js screenshots were not produced.
 
 ## Handoff Notes
@@ -106,7 +106,7 @@ Phone Agent Chat matches web message/part/tool/motion/scroll/composer behavior, 
 
 ### Current progress
 
-S0–S8 are implemented and reviewed. Later green iOS runs painted the transcript-only preview after the scene manifest was removed. Run `38807875046` (head `e60400eb2`) proved the ubuntu react-native-web export (26 PNGs) and then the iOS carousel crashed: two mounted preview routes each held a timer, and at F1 dark their layout effects wrote opposite theme preferences for about 8 seconds before React threw `Maximum update depth exceeded` at `UserMessage`. One shared clock and a single ready-line claim replace those timers, so both copies stay on the same frame and write the same preference.
+S0–S8 are implemented and reviewed. Later green iOS runs painted the transcript-only preview after the scene manifest was removed. Run `38807875046` (head `e60400eb2`) proved the ubuntu react-native-web export (26 PNGs) and then the iOS carousel crashed: two mounted preview routes each held a timer, and at F1 dark their layout effects wrote opposite theme preferences for about 8 seconds before React threw `Maximum update depth exceeded` at `UserMessage`. One shared clock and a single ready-line claim replace those timers. Run `38816093468` (head `4d25dfa03`) logged every ready line through `F13 dark #25` with no exception, and `default-route.png` is F1 light. Capture still failed: `simctl io screenshot` blocked for 61s and 54s, the 15s hold moved on, and several PNGs are the same later frame. Each frame now holds for 90s, and the capture script exits if the next ready line is already logged when the screenshot returns.
 
 ### Completed work
 
@@ -135,13 +135,14 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - S28 ran as react-native-web on scratch head `1a8ed362b` (26 frames, 241/250 labels). Not iOS.
 - The carousel and preview card lane are not in runs `38789917018` or `38797183648`.
 - Run `38807875046` iOS capture is not a pass. Light frames and `F1-dark.png` were written. `F2-dark` onward and the `.mov` files were not. `structural` on that run did upload `parity-rn-web` (react-native-web, not Next, so S31 stays `not_run`).
+- Run `38816093468` iOS capture is not a pass. The shared clock worked. The 26 PNGs are not all distinct. The 90s hold is the follow-up and is not in that artifact.
 - S9, S15, S20, and S26 stay `not_run` because no dedicated test asserts them.
 - Pre-existing mobile typecheck errors in three files.
 
 ### Next steps
 
-1. Watch the iOS run started by the shared-clock push. Do not cancel `38803926761` or `38807875046`.
-2. Do not mark the carousel iOS path pass until that artifact has 26 phone PNGs through `F13-dark`.
+1. Watch the iOS run started by the 90s-hold push. Do not cancel `38803926761`, `38807875046`, or `38816093468`.
+2. Do not mark the carousel iOS path pass until that artifact has 26 distinct phone PNGs through `F13-dark`, and the race check did not fire.
 3. S10 and S30 stay `not_run`. The `.mov` files are still frames.
 4. Do not mark S27 F12 or S31 pass. Do not merge.
 
@@ -189,3 +190,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Parent Linux report, scratch head `1a8ed362b` (older than the scene-delegate fix): react-native-web `PreviewChatScreen` rendered F1–F13 × light/dark, 26 distinct hashes. Structural labels 241/250; 9 misses are card channels. Cursor CLI rubric: F3 pass, F12 cards 8 fail, F6 suspected false positive ("2 files changed" footer; web has `AssistantTurnFileChanges`). `next dev` OOM, so S31 stays `not_run`. `topLoad` is harmless. Device logs on the later green iOS runs contain `[parity] preview-chat module` and `[parity] preview-chat route`.
 - Preview route now cycles those frames, logs `[parity] ready <id> <theme> #<seq>`, and mounts the pill row, composer, and the preempted permission card. Capture waits on the log line, screenshots Springboard first, and does not call `openurl`. `applyParityPreviewConfig` deletes `UIApplicationSceneManifest` when the flag is `"1"`. The ubuntu job exports the same preview to react-native-web. Mobile `bun test` 349 pass.
 - Run `38807875046` head `e60400eb2`: `structural` passed and uploaded `parity-rn-web` (26 distinct react-native-web PNGs, not iOS, not Next). iOS capture wrote F1–F13 light and F1 dark, then `Maximum update depth exceeded` at `UserMessage` (~8s after `ready F1 dark #13`). Ready lines were doubled on every light frame. Two preview routes were mounted. The shared clock is the follow-up.
+- Run `38816093468` head `4d25dfa03`: `structural` passed. iOS capture logged every ready line through `F13 dark #25` and did not throw. `default-route.png` equals `F1-light` (`210adf69…`). The distinct-PNG check failed. `simctl io screenshot` blocked for 61s and 54s against the 15s hold. Duplicate groups: `F1-dark`+`F13-light`, `F2-light`+`F3-light`, `F3-dark`+`F4-dark`, `F6-light`+`F7-light`+`F8-light`. Hold is now 90s. The script fails if the next ready line is already logged when the screenshot returns. The iOS job timeout is 120 minutes.

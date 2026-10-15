@@ -2,8 +2,9 @@ import { PARITY_FIXTURE_IDS } from "@atmos/agent-transcript";
 
 export const PARITY_THEMES = ["light", "dark"] as const;
 
-/** Long enough for the capture script to screenshot after the ready line. */
-export const PARITY_HOLD_MS = 15_000;
+/** Long enough that a stalled `simctl io screenshot` still lands on this frame.
+ * Run 38816093468 blocked for 61s while the 15s hold had already moved on. */
+export const PARITY_HOLD_MS = 90_000;
 
 export type ParityTheme = (typeof PARITY_THEMES)[number];
 

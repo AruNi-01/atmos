@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Screenshot F1–F13 in light and dark from the in-app carousel.
 # The preview route logs `[parity] ready F# <theme> #<seq>` and holds each
-# frame. This script does not call simctl openurl.
+# frame for PARITY_HOLD_MS (90s). A screenshot that returns after the next
+# ready line fails the run. This script does not call simctl openurl.
 # Requires a booted iOS Simulator with land.atmos.mobile already installed.
 # macOS runner only. Do not run this on Linux.
 set -euo pipefail
@@ -130,26 +131,40 @@ for (const [seq, frame] of parityCycleFrames().entries()) {
 fi
 
 current_theme=""
-while IFS=$'\t' read -r id theme needle; do
-  if [[ -z "$id" ]]; then
-    continue
+rows=()
+while IFS= read -r row; do
+  if [[ -n "$row" ]]; then
+    rows+=("$row")
   fi
+done <"$frame_rows"
+rm -f "$frame_rows"
+
+for i in "${!rows[@]}"; do
+  IFS=$'\t' read -r id theme needle <<<"${rows[$i]}"
   if [[ "$theme" != "$current_theme" ]]; then
     xcrun simctl ui booted appearance "$theme"
     current_theme="$theme"
   fi
   echo "wait ${needle}"
-  # The first frame includes JS boot. Later frames are one hold apart.
-  timeout=30
-  if [[ "$needle" == *"#0" ]]; then
-    timeout=90
-  fi
+  # The first frame includes JS boot. Later frames stay up for the 90s hold,
+  # so a fast screenshot still has to wait out the rest of that hold.
+  timeout=120
   if ! wait_for_line "$needle" "$timeout"; then
     echo "missing ${needle}" >&2
     dump_runtime_logs
     exit 1
   fi
   xcrun simctl io booted screenshot "$OUT/${id}-${theme}.png"
+  next_index=$((i + 1))
+  if (( next_index < ${#rows[@]} )); then
+    IFS=$'\t' read -r _next_id _next_theme next_needle <<<"${rows[$next_index]}"
+    if log_has "$next_needle"; then
+      echo "screenshot of ${id}-${theme} finished after ${next_needle} was already logged" >&2
+      echo "simctl io screenshot outlived the frame hold." >&2
+      dump_runtime_logs
+      exit 1
+    fi
+  fi
   if [[ "$needle" == *"#0" ]]; then
     cp "$OUT/${id}-${theme}.png" "$OUT/default-route.png"
     xcrun simctl spawn booted log show --last 3m --info --style compact \
@@ -157,8 +172,7 @@ while IFS=$'\t' read -r id theme needle; do
       >"$OUT/device-log-after-warmup.txt" 2>&1 || true
     grep -E '\[parity\]|RCTFatal|JavaScript|topLoad|instanceHandle|Error' "$OUT/device-log-after-warmup.txt" | tail -n 40 >&2 || true
   fi
-done <"$frame_rows"
-rm -f "$frame_rows"
+done
 
 default_hash="$(shasum -a 256 "$OUT/default-route.png" | awk '{print $1}')"
 echo "default-route sha256 ${default_hash}"
@@ -185,17 +199,20 @@ files = sorted(out.glob("F*-*.png"))
 if len(files) != 26:
     print(f"expected 26 fixture screenshots, found {len(files)}", file=sys.stderr)
     sys.exit(1)
-hashes = []
+hashes = {}
 for path in files:
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     if digest in banned:
         print(f"{path.name} is the black scene or the pair screen", file=sys.stderr)
         sys.exit(1)
-    hashes.append(digest)
-if len(set(hashes)) != len(hashes):
-    print("fixture screenshots are not all distinct", file=sys.stderr)
+    hashes.setdefault(digest, []).append(path.name)
+dupes = [names for names in hashes.values() if len(names) > 1]
+if dupes:
+    print("fixture screenshots are not all distinct:", file=sys.stderr)
+    for names in dupes:
+        print("  " + ", ".join(names), file=sys.stderr)
     sys.exit(1)
-print(f"{len(hashes)} distinct fixture screenshots")
+print(f"{len(files)} distinct fixture screenshots")
 PY
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays

@@ -21,8 +21,10 @@ describe("parity cycle", () => {
     expect(parityReadyLine(frames.at(-1)!, frames.length - 1)).toBe("[parity] ready F13 dark #25");
   });
 
-  test("holds each frame long enough to screenshot", () => {
-    expect(PARITY_HOLD_MS).toBeGreaterThanOrEqual(10_000);
+  test("holds each frame longer than a stalled simulator screenshot", () => {
+    // Run 38816093468: one simctl screenshot blocked for 61s, so the 15s hold
+    // advanced and several PNGs were the same later frame.
+    expect(PARITY_HOLD_MS).toBeGreaterThanOrEqual(75_000);
   });
 
   test("one clock serves every mounted preview", () => {
