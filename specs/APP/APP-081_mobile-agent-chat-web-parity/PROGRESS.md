@@ -8,13 +8,14 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S1 fixtures and comparer
+- **Current phase**: S2 message views
 
 ## Snapshot
 
 - Spec review committed (`704483158`).
 - S0 done and reviewed: pure rules live in `@atmos/agent-transcript`; web paths re-export; `assistant-process.ts` is deleted. One web source-text assertion now reads the package file.
-- Next: S1 fixtures, structural comparer, preview route.
+- S1 done and reviewed: synthetic F1–F13, `projectParityTree`, `scripts/agent-chat-parity/compare.ts` (13 match), preview route gated by `EXPO_PUBLIC_PARITY_PREVIEW`.
+- Next: S2 message views.
 - `bun --filter @atmos/mobile typecheck` still reports errors only in files S0 did not touch (`fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, `expo-drawer.web.tsx`). Treat as pre-existing until a later slice proves otherwise.
 - Blocked: nothing. 图一 pixel metrics stay unverified. Do not install Cursor agent CLI or mobai-dev.
 - Do not change web behavior. Do not add a web route. Do not add `WsAction`s.
@@ -26,7 +27,7 @@
 | ID  | Wave | Owns                                                      | Forbids                              | Depends | Status  | Impl | Review | Verify                                         |
 | --- | ---- | --------------------------------------------------------- | ------------------------------------ | ------- | ------- | ---- | ------ | ---------------------------------------------- |
 | S0  | 0    | shared pure modules + web re-exports + mobile import swap | transcript UI rewrite, `PROGRESS.md` | specs   | done    | ok   | pass   | package tests, web unit tests, mobile bun test |
-| S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | planned | —    | —      | `bun test` compare                             |
+| S1  | 1    | fixtures, `scripts/agent-chat-parity`, preview route      | web routes, CLI/mobai install        | S0      | done    | ok   | pass   | compare.ts 13 fixtures, package + mobile tests |
 | S2  | 2    | message views, expand store, session chrome               | tool tree, list engine               | S0, S1  | planned | —    | —      | mobile typecheck + bun test                    |
 | S3  | 3    | inline tool tree + bodies                                 | motion folder, card lane             | S2      | planned | —    | —      | mobile typecheck + bun test                    |
 | S4  | 4    | `motion/`, shimmer, stream buffer, activity row           | card lane                            | S3      | planned | —    | —      | mobile typecheck + bun test                    |
