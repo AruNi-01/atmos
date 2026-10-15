@@ -1,17 +1,43 @@
-import { useCallback, useEffect, useRef } from "react";
+import {
+  createContext,
+  forwardRef,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   FlatList,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
+import {
+  cancelAnimation,
+  Easing,
+  useAnimatedReaction,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { EmptyState } from "@/ui/layout/app-screen";
 import {
+  AGENT_CHAT_TRANSCRIPT_GAP,
   assistantCopyText,
+  countMessagesBelowViewport,
   DEFAULT_TOOL_CALL_DENSITY,
   hasCollapsibleAssistantProcess,
   isHiddenGrokChromePart,
@@ -19,13 +45,16 @@ import {
   segmentAssistantParts,
   shouldShowAssistantTurnEndedChrome,
   splitSegmentedAssistantParts,
+  TRANSCRIPT_END_SLACK_PX,
   transcriptVisibility,
   type AssistantSegment,
+  type TranscriptMeasurement,
 } from "@atmos/agent-transcript";
 import { ActivityRow } from "./activity-row";
 import { AnswerText } from "./answer-text";
 import { AssistantFooter, AssistantTurnFiles } from "./assistant-footer";
 import { copy } from "./copy";
+import { EdgeFades } from "./edge-fades";
 import { ErrorPart } from "./error-part";
 import {
   agentChatInspectExpandKey,
@@ -33,14 +62,127 @@ import {
   useAgentChatExpandStore,
 } from "./expand-store";
 import { HistoricPermission } from "./historic-permission";
+import { useReducedMotion } from "./motion/use-reduced-motion";
 import { ProcessFold, WaitForBlock } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
+import { initialStickState, reduceStick, type StickAction } from "./stick";
 import { ThinkingBlock } from "./thinking-block";
 import { ToolGroup, toolGroupKey } from "./tool-group";
 import { showToolRow, ToolCallRow } from "./tool-body";
+import {
+  resolvedPillRowHeight,
+  TRANSCRIPT_PAD_SHRINK_BEZIER,
+  TRANSCRIPT_PAD_SHRINK_MS,
+  transcriptListBottomPad,
+  transcriptPadShouldEase,
+} from "./transcript-pad";
 import { UserMessage } from "./user-message";
 
-const BOTTOM_SLOP = 64;
+export type AgentChatTranscriptHandle = {
+  scrollToEndAnimated: () => void;
+};
+
+type TranscriptStick = {
+  belowCount: number;
+  stickToEnd: boolean;
+};
+
+type RowMeasureApi = {
+  clear: (index: number) => void;
+  set: (index: number, measurement: TranscriptMeasurement) => void;
+};
+
+const RowMeasureContext = createContext<RefObject<RowMeasureApi> | null>(null);
+
+function distanceFromEnd(event: NativeScrollEvent): number {
+  const { contentOffset, contentSize, layoutMeasurement } = event;
+  return contentSize.height - layoutMeasurement.height - contentOffset.y;
+}
+
+function useTranscriptBottomPad(expandedCardHeight: number, pillRowHeight: number): number {
+  const reduced = useReducedMotion();
+  const target = transcriptListBottomPad(
+    expandedCardHeight,
+    resolvedPillRowHeight(true, pillRowHeight),
+  );
+  const pad = useSharedValue(target);
+  const [padPx, setPadPx] = useState(target);
+  const previousTarget = useRef(target);
+  const previousReduced = useRef(reduced);
+  const commitPad = useCallback((next: number) => {
+    setPadPx((current) => (current === next ? current : next));
+  }, []);
+
+  useEffect(() => {
+    const previous = previousTarget.current;
+    const reducedChanged = previousReduced.current !== reduced;
+    previousReduced.current = reduced;
+    if (previous === target && !reducedChanged) return;
+    const ease = previous !== target && transcriptPadShouldEase(previous, target, reduced);
+    previousTarget.current = target;
+    if (!ease) {
+      cancelAnimation(pad);
+      pad.set(target);
+      commitPad(target);
+      return;
+    }
+    pad.set(
+      withTiming(target, {
+        duration: TRANSCRIPT_PAD_SHRINK_MS,
+        easing: Easing.bezier(
+          TRANSCRIPT_PAD_SHRINK_BEZIER[0],
+          TRANSCRIPT_PAD_SHRINK_BEZIER[1],
+          TRANSCRIPT_PAD_SHRINK_BEZIER[2],
+          TRANSCRIPT_PAD_SHRINK_BEZIER[3],
+        ),
+      }),
+    );
+  }, [commitPad, pad, reduced, target]);
+
+  useAnimatedReaction(
+    () => Math.round(pad.get()),
+    (rounded, previous) => {
+      if (previous != null && rounded === previous) return;
+      scheduleOnRN(commitPad, rounded);
+    },
+    [commitPad, pad],
+  );
+
+  return padPx;
+}
+
+function MeasureCell({
+  children,
+  index,
+  onLayout,
+  style,
+}: {
+  children?: ReactNode;
+  index: number;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const api = useContext(RowMeasureContext);
+  useEffect(() => {
+    const measure = api?.current;
+    return () => {
+      measure?.clear(index);
+    };
+  }, [api, index]);
+
+  return (
+    <View
+      onLayout={(event) => {
+        onLayout?.(event);
+        const { height, y } = event.nativeEvent.layout;
+        api?.current?.set(index, { size: height, start: y });
+      }}
+      style={style}
+    >
+      {children}
+    </View>
+  );
+}
 
 function EmptyChat() {
   return (
@@ -49,11 +191,6 @@ function EmptyChat() {
       <EmptyState message={copy.emptyDescription} title={copy.emptyTitle} />
     </View>
   );
-}
-
-function distanceFromBottom(event: NativeScrollEvent): number {
-  const { contentOffset, contentSize, layoutMeasurement } = event;
-  return contentSize.height - layoutMeasurement.height - contentOffset.y;
 }
 
 function partKey(messageId: string, part: AgentPart, index: number): string {
@@ -203,7 +340,7 @@ function AssistantTurn({
   );
 }
 
-function ChatMessage({
+const ChatMessage = memo(function ChatMessage({
   message,
   showActivity = false,
 }: {
@@ -212,72 +349,214 @@ function ChatMessage({
 }) {
   if (message.role === "user") return <UserMessage message={message} />;
   return <AssistantTurn message={message} showActivity={showActivity} />;
-}
+});
 
-export function AgentChatTranscript({
-  focusMessageId,
-  messages,
-  streaming = false,
-}: {
-  focusMessageId?: string | null;
-  messages: AgentMessage[];
-  streaming?: boolean;
-}) {
+export const AgentChatTranscript = forwardRef<
+  AgentChatTranscriptHandle,
+  {
+    expandedCardHeight?: number;
+    focusMessageId?: string | null;
+    messages: AgentMessage[];
+    onStickChange?: (next: TranscriptStick) => void;
+    pillRowHeight?: number;
+    stickToken?: number;
+    streaming?: boolean;
+  }
+>(function AgentChatTranscript(
+  {
+    expandedCardHeight = 0,
+    focusMessageId,
+    messages,
+    onStickChange,
+    pillRowHeight = 0,
+    stickToken = 0,
+    streaming = false,
+  },
+  ref,
+) {
   const theme = useMobileTheme();
   const listRef = useRef<FlatList<AgentMessage>>(null);
-  const atBottomRef = useRef(true);
+  const stickRef = useRef(initialStickState);
+  const belowRef = useRef(0);
   const userDraggedRef = useRef(false);
   const listHeightRef = useRef(0);
   const seenFirstId = useRef<string | undefined>(undefined);
+  const seenStickToken = useRef(stickToken);
+  const scrolledFocusRef = useRef<string | null>(null);
+  const measurementsRef = useRef<Array<TranscriptMeasurement | undefined>>([]);
+  const rowCountRef = useRef(0);
+  const viewRef = useRef({ height: 0, scrollTop: 0 });
+  const onStickChangeRef = useRef(onStickChange);
+  const [stickToEnd, setStickToEnd] = useState(initialStickState.stickToEnd);
+  const paddingBottom = useTranscriptBottomPad(expandedCardHeight, pillRowHeight);
 
-  const stickToBottom = useCallback(() => {
-    if (userDraggedRef.current && !atBottomRef.current) return;
-    atBottomRef.current = true;
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: false });
+  const emitStick = useCallback((belowCount: number) => {
+    onStickChangeRef.current?.({
+      belowCount,
+      stickToEnd: stickRef.current.stickToEnd,
     });
   }, []);
 
-  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (!userDraggedRef.current) return;
-    atBottomRef.current = distanceFromBottom(event.nativeEvent) <= BOTTOM_SLOP;
+  const publishBelow = useCallback(() => {
+    const next = countMessagesBelowViewport(
+      measurementsRef.current,
+      rowCountRef.current,
+      viewRef.current,
+    );
+    if (next === belowRef.current) return;
+    belowRef.current = next;
+    emitStick(next);
+  }, [emitStick]);
+
+  const applyStick = useCallback(
+    (action: StickAction) => {
+      const next = reduceStick(stickRef.current, action);
+      if (next === stickRef.current) return;
+      stickRef.current = next;
+      setStickToEnd(next.stickToEnd);
+      emitStick(belowRef.current);
+    },
+    [emitStick],
+  );
+
+  const measureApi = useRef<RowMeasureApi>({
+    clear(index) {
+      if (measurementsRef.current[index] === undefined) return;
+      measurementsRef.current[index] = undefined;
+      publishBelow();
+    },
+    set(index, measurement) {
+      const current = measurementsRef.current[index];
+      if (current && current.start === measurement.start && current.size === measurement.size) {
+        return;
+      }
+      measurementsRef.current[index] = measurement;
+      publishBelow();
+    },
+  });
+
+  const scrollToEndIfStuck = useCallback((animated: boolean) => {
+    if (!stickRef.current.stickToEnd) return;
+    listRef.current?.scrollToEnd({ animated });
   }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToEndAnimated() {
+        userDraggedRef.current = false;
+        applyStick({ type: "scroll", distance: 0, userDragged: false });
+        listRef.current?.scrollToEnd({ animated: true });
+      },
+    }),
+    [applyStick],
+  );
+
+  const onScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const native = event.nativeEvent;
+      viewRef.current = {
+        height: native.layoutMeasurement.height,
+        scrollTop: native.contentOffset.y,
+      };
+      applyStick({
+        type: "scroll",
+        distance: distanceFromEnd(native),
+        userDragged: userDraggedRef.current,
+      });
+      publishBelow();
+    },
+    [applyStick, publishBelow],
+  );
 
   const onScrollBeginDrag = useCallback(() => {
     userDraggedRef.current = true;
   }, []);
 
+  const onScrollEndDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const native = event.nativeEvent;
+      const velocity = native.velocity?.y;
+      if (velocity != null && Math.abs(velocity) >= 0.05) return;
+      viewRef.current = {
+        height: native.layoutMeasurement.height,
+        scrollTop: native.contentOffset.y,
+      };
+      applyStick({
+        type: "scroll",
+        distance: distanceFromEnd(native),
+        userDragged: userDraggedRef.current,
+      });
+      userDraggedRef.current = false;
+      publishBelow();
+    },
+    [applyStick, publishBelow],
+  );
+
+  const onMomentumScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const native = event.nativeEvent;
+      viewRef.current = {
+        height: native.layoutMeasurement.height,
+        scrollTop: native.contentOffset.y,
+      };
+      applyStick({
+        type: "scroll",
+        distance: distanceFromEnd(native),
+        userDragged: userDraggedRef.current,
+      });
+      userDraggedRef.current = false;
+      publishBelow();
+    },
+    [applyStick, publishBelow],
+  );
+
   const onContentSizeChange = useCallback(
     (_width: number, height: number) => {
       if (height <= 0) return;
-      stickToBottom();
+      stickRef.current = reduceStick(stickRef.current, { type: "content_growth" });
+      if (!stickRef.current.stickToEnd) return;
+      scrollToEndIfStuck(false);
     },
-    [stickToBottom],
+    [scrollToEndIfStuck],
   );
 
   const onLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const height = event.nativeEvent.layout.height;
+      viewRef.current = { ...viewRef.current, height };
+      publishBelow();
       if (height === listHeightRef.current) return;
       listHeightRef.current = height;
-      stickToBottom();
+      scrollToEndIfStuck(false);
     },
-    [stickToBottom],
+    [publishBelow, scrollToEndIfStuck],
   );
 
-  const rows =
-    streaming && !messages.some((message) => message.streaming)
-      ? [
-          ...messages,
-          {
-            id: "stream-wait",
-            role: "assistant" as const,
-            parts: [{ type: "text" as const, text: "" }],
-            streaming: true,
-          },
-        ]
-      : messages;
+  const rows = useMemo(() => {
+    if (streaming && !messages.some((message) => message.streaming)) {
+      return [
+        ...messages,
+        {
+          id: "stream-wait",
+          role: "assistant" as const,
+          parts: [{ type: "text" as const, text: "" }],
+          streaming: true,
+        },
+      ];
+    }
+    return messages;
+  }, [messages, streaming]);
   const firstMessageId = messages[0]?.id;
+
+  useLayoutEffect(() => {
+    onStickChangeRef.current = onStickChange;
+    rowCountRef.current = rows.length;
+    if (measurementsRef.current.length > rows.length) {
+      measurementsRef.current.length = rows.length;
+    }
+    publishBelow();
+  }, [onStickChange, publishBelow, rows]);
 
   useEffect(() => {
     const boundary = expandResetForFirstMessage(seenFirstId.current, firstMessageId);
@@ -286,56 +565,78 @@ export function AgentChatTranscript({
   }, [firstMessageId]);
 
   useEffect(() => {
-    stickToBottom();
-  }, [rows.length, stickToBottom]);
+    if (stickToken === seenStickToken.current) return;
+    seenStickToken.current = stickToken;
+    userDraggedRef.current = false;
+    applyStick({ type: "own_send" });
+    listRef.current?.scrollToEnd({ animated: false });
+  }, [applyStick, stickToken]);
 
   useEffect(() => {
-    if (!focusMessageId) return;
+    if (!focusMessageId) {
+      scrolledFocusRef.current = null;
+      return;
+    }
+    if (scrolledFocusRef.current === focusMessageId) return;
     const index = messages.findIndex((message) => message.id === focusMessageId);
     if (index < 0) return;
-    userDraggedRef.current = true;
-    atBottomRef.current = false;
+    scrolledFocusRef.current = focusMessageId;
+    userDraggedRef.current = false;
+    applyStick({
+      type: "scroll",
+      distance: TRANSCRIPT_END_SLACK_PX + 1,
+      userDragged: true,
+    });
     listRef.current?.scrollToIndex({ animated: true, index, viewPosition: 0 });
-  }, [focusMessageId, messages]);
+  }, [applyStick, focusMessageId, messages]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <FlatList
-        ref={listRef}
-        keyboardDismissMode="interactive"
-        contentContainerStyle={{
-          flexGrow: 1,
-          gap: 12,
-          justifyContent: rows.length === 0 ? "center" : "flex-start",
-          paddingBottom: 12,
-          paddingHorizontal: 18,
-          paddingTop: 12,
-        }}
-        contentInsetAdjustmentBehavior="never"
-        data={rows}
-        keyboardShouldPersistTaps="handled"
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={<EmptyChat />}
-        onContentSizeChange={onContentSizeChange}
-        onLayout={onLayout}
-        onScroll={onScroll}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScrollToIndexFailed={({ index }) => {
-          listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
-        }}
-        renderItem={({ index, item }) => (
-          <ChatMessage
-            message={item}
-            showActivity={
-              index === rows.length - 1 &&
-              item.role === "assistant" &&
-              (streaming || Boolean(item.streaming))
-            }
-          />
-        )}
-        scrollEventThrottle={16}
-        style={{ backgroundColor: theme.colors.background, flex: 1 }}
-      />
-    </View>
+    <RowMeasureContext.Provider value={measureApi}>
+      <View style={{ flex: 1 }}>
+        <FlatList
+          ref={listRef}
+          CellRendererComponent={MeasureCell}
+          keyboardDismissMode="interactive"
+          contentContainerStyle={{
+            flexGrow: 1,
+            gap: AGENT_CHAT_TRANSCRIPT_GAP,
+            justifyContent: rows.length === 0 ? "center" : "flex-start",
+            paddingBottom,
+            paddingHorizontal: 18,
+            paddingTop: 12,
+          }}
+          contentInsetAdjustmentBehavior="never"
+          data={rows}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={<EmptyChat />}
+          maintainVisibleContentPosition={
+            stickToEnd ? undefined : { autoscrollToTopThreshold: 10, minIndexForVisible: 0 }
+          }
+          onContentSizeChange={onContentSizeChange}
+          onLayout={onLayout}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          onScroll={onScroll}
+          onScrollBeginDrag={onScrollBeginDrag}
+          onScrollEndDrag={onScrollEndDrag}
+          onScrollToIndexFailed={({ index }) => {
+            listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
+          }}
+          renderItem={({ index, item }) => (
+            <ChatMessage
+              message={item}
+              showActivity={
+                index === rows.length - 1 &&
+                item.role === "assistant" &&
+                (streaming || Boolean(item.streaming))
+              }
+            />
+          )}
+          scrollEventThrottle={16}
+          style={{ backgroundColor: theme.colors.background, flex: 1 }}
+        />
+        <EdgeFades />
+      </View>
+    </RowMeasureContext.Provider>
   );
-}
+});

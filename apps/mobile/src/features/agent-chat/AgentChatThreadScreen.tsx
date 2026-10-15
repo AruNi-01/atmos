@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter, type NativeStackHeaderItem } from "expo-router";
@@ -16,7 +16,10 @@ import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import { AgentChatComposer } from "./AgentChatComposer";
 import { AgentChatPermissionCard } from "./AgentChatPermissionCard";
 import { AgentChatSessionOpCard } from "./AgentChatSessionOpCard";
-import { AgentChatTranscript } from "./AgentChatTranscript";
+import { AgentChatTranscript, type AgentChatTranscriptHandle } from "./AgentChatTranscript";
+import { ComposerPillRow } from "./composer-pill-row";
+import { composerRowVisible, scrollPillVisible } from "./stick";
+import { resolvedPillRowHeight } from "./transcript-pad";
 import {
   applyComposerPick,
   composerSuggestionList,
@@ -196,6 +199,11 @@ export function AgentChatThreadScreen({
   } = useAgentChatThread(chatId);
   const [text, setText] = useState("");
   const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
+  const [stickToken, setStickToken] = useState(0);
+  const [stickToEnd, setStickToEnd] = useState(true);
+  const [belowCount, setBelowCount] = useState(0);
+  const [measuredPillRowHeight, setMeasuredPillRowHeight] = useState(0);
+  const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const userMessages = messages.filter((message) => message.role === "user");
   const mentionFiles = useMentionFiles(workspaceId);
@@ -295,6 +303,7 @@ export function AgentChatThreadScreen({
     const draft = text;
     const pending = photos;
     if (draft.trim() === "" && pending.length === 0) return;
+    setStickToken((token) => token + 1);
     setText("");
     setPhotos([]);
     setUploadError(null);
@@ -336,6 +345,15 @@ export function AgentChatThreadScreen({
   const onStop = useCallback(() => {
     void cancel().catch(() => undefined);
   }, [cancel]);
+
+  const onStickChange = useCallback((next: { belowCount: number; stickToEnd: boolean }) => {
+    setStickToEnd((current) => (current === next.stickToEnd ? current : next.stickToEnd));
+    setBelowCount((current) => (current === next.belowCount ? current : next.belowCount));
+  }, []);
+  const onPillRowLayout = useCallback((event: { nativeEvent: { layout: { height: number } } }) => {
+    const height = event.nativeEvent.layout.height;
+    setMeasuredPillRowHeight((current) => (current === height ? current : height));
+  }, []);
 
   const router = useRouter();
   const goBack = () => {
@@ -424,55 +442,71 @@ export function AgentChatThreadScreen({
     );
   }
 
+  const pillRowRendered = composerRowVisible(scrollPillVisible(messages.length, stickToEnd), 0);
+  const pillRowHeight = resolvedPillRowHeight(pillRowRendered, measuredPillRowHeight);
+
   return (
     <>
       {header}
       <ChatKeyboardFrame
         footer={
-          <View style={{ gap: 8, paddingHorizontal: 18, paddingTop: 8 }}>
-            {pendingPermission ? (
-              <AgentChatPermissionCard
-                onRespond={(input) => {
-                  void respondPermission(input).catch(() => undefined);
-                }}
-                request={pendingPermission}
-              />
+          <View style={{ gap: 8, paddingTop: 8 }}>
+            {pendingPermission || pendingSessionOp ? (
+              <View style={{ gap: 8, paddingHorizontal: 18 }}>
+                {pendingPermission ? (
+                  <AgentChatPermissionCard
+                    onRespond={(input) => {
+                      void respondPermission(input).catch(() => undefined);
+                    }}
+                    request={pendingPermission}
+                  />
+                ) : null}
+                {pendingSessionOp ? (
+                  <AgentChatSessionOpCard
+                    onRespond={(input) => {
+                      void respondSessionOp(input).catch(() => undefined);
+                    }}
+                    request={pendingSessionOp}
+                  />
+                ) : null}
+              </View>
             ) : null}
-            {pendingSessionOp ? (
-              <AgentChatSessionOpCard
-                onRespond={(input) => {
-                  void respondSessionOp(input).catch(() => undefined);
-                }}
-                request={pendingSessionOp}
-              />
-            ) : null}
-            <AgentChatComposer
-              busy={runningTurnId != null}
-              followUp={runningTurnId != null}
-              favorites={favorites}
-              onPhotosChange={setPhotos}
-              onChangeText={setText}
-              onPatch={onPatch}
-              onPickSuggestion={onPickSuggestion}
-              onQueue={onQueue}
-              onRemovePhoto={(id) =>
-                setPhotos((current) => current.filter((photo) => photo.id !== id))
-              }
-              onSend={onSend}
-              onSteer={onSteer}
-              onStop={onStop}
-              onToggleFavorite={toggleFavorite}
-              photos={photos}
-              picker={picker}
-              placeholder={composerPlaceholder}
-              queueLabel={copy.queue}
-              sendLabel={copy.send}
-              suggestionTitle={suggestions?.title}
-              suggestions={suggestions?.rows}
-              steerLabel={copy.steer}
-              stopLabel={copy.stop}
-              text={text}
+            <ComposerPillRow
+              belowCount={belowCount}
+              messageCount={messages.length}
+              onLayout={onPillRowLayout}
+              onScrollToBottom={() => transcriptRef.current?.scrollToEndAnimated()}
+              stickToEnd={stickToEnd}
             />
+            <View style={{ paddingHorizontal: 18 }}>
+              <AgentChatComposer
+                busy={runningTurnId != null}
+                followUp={runningTurnId != null}
+                favorites={favorites}
+                onPhotosChange={setPhotos}
+                onChangeText={setText}
+                onPatch={onPatch}
+                onPickSuggestion={onPickSuggestion}
+                onQueue={onQueue}
+                onRemovePhoto={(id) =>
+                  setPhotos((current) => current.filter((photo) => photo.id !== id))
+                }
+                onSend={onSend}
+                onSteer={onSteer}
+                onStop={onStop}
+                onToggleFavorite={toggleFavorite}
+                photos={photos}
+                picker={picker}
+                placeholder={composerPlaceholder}
+                queueLabel={copy.queue}
+                sendLabel={copy.send}
+                suggestionTitle={suggestions?.title}
+                suggestions={suggestions?.rows}
+                steerLabel={copy.steer}
+                stopLabel={copy.stop}
+                text={text}
+              />
+            </View>
           </View>
         }
       >
@@ -484,8 +518,13 @@ export function AgentChatThreadScreen({
           ) : null}
           {error && messages.length === 0 ? null : (
             <AgentChatTranscript
+              ref={transcriptRef}
+              expandedCardHeight={0}
               focusMessageId={focusMessageId}
               messages={messages}
+              onStickChange={onStickChange}
+              pillRowHeight={pillRowHeight}
+              stickToken={stickToken}
               streaming={runningTurnId != null}
             />
           )}
