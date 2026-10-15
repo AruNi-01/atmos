@@ -264,6 +264,7 @@ jobs:
           } > artifacts/summary.md
 
       - name: Upload ios-parity
+        if: always() && !cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: ios-parity

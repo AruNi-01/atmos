@@ -169,4 +169,5 @@ S0–S8 are implemented and reviewed. Next step is push, update the draft PR, an
 - S5 implemented and reviewed (pass). Mobile `bun test` 299.
 - S6 implemented and reviewed (pass). Mobile `bun test` 324. Expanded card height is measured; `expandedCardHeight={0}` appears only in a stick-test comment.
 - S7 implemented and reviewed (pass). Mobile `bun test` 334. New-chat paste stays raw text because that composer does not pass `onPasteChipsChange`.
-- S8 implemented and reviewed (pass). Workflow is not limited to base `main`. `bash -n` passed. The macOS job has not run.
+- S8 implemented and reviewed (pass). Workflow is not limited to base `main`. `bash -n` passed.
+- iOS job `38732000113` built and uploaded artifacts. Screenshots were the system "Open in Atmos?" dialog (all fixtures identical per theme). Capture script now preapproves the `atmos` scheme and fails when F1 and F12 screenshots match.

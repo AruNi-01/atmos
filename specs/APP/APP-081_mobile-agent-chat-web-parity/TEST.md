@@ -291,7 +291,7 @@ Marked only where the test file exists and the command above ran it.
 
 - **S3, S4, S6, S8, S19** — `compare.ts` exited 0 against the committed expected trees. These scenarios still ask for web and phone trees. S31 did not produce web PNGs, so they stay `not_run`.
 - **S9** — no test asserts the motion constants (`TREE_DRAW_MS` and the shared ease / stagger values). `process-fold.test.ts` asserts tree path geometry, not those timings.
-- **S10, S11, S14, S21, S23, S29, S30, S33** — simulator scenarios. `.github/workflows/ci-mobile-ios-parity.yml` exists (`structural` on `ubuntu-latest`, `ios-simulator` on `macos-26`). They stay `not_run` until the macOS job on this PR uploads artifacts. The workflow file is not a passing run.
+- **S10, S11, S14, S21, S23, S29, S30, S33** — simulator scenarios. Run `38732000113` (`ios-simulator`, Xcode 26.5, iPhone 17 Pro) uploaded `ios-parity`, but every light PNG was the same bitmap and every dark PNG was the same bitmap: the system "Open in Atmos?" dialog. Recordings were under 1s. Those files are not fixture evidence. They stay `not_run`.
 - **S15** — not covered by `packages/agent-transcript` tests. `stick.test.ts` only checks that `AgentChatTranscript.tsx` contains the name `countMessagesBelowViewport`.
 - **S20** — not tested as queue edit / reorder / remove wrapper calls. `actions.test.ts` lists action name constants. `composer-cards.test.ts` covers `moveQueueItem`, not those action calls.
 - **S26** — no test asserts that a duplicate assistant-process module is gone. `assistant-process.test.ts` covers shared fold behavior.
