@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { PreviewChatScreen } from "@/features/agent-chat/preview-chat-screen";
 
 if (process.env.EXPO_PUBLIC_PARITY_PREVIEW === "1") {
@@ -5,7 +6,10 @@ if (process.env.EXPO_PUBLIC_PARITY_PREVIEW === "1") {
 }
 
 export default function PreviewChatRoute() {
+  useEffect(() => {
+    if (process.env.EXPO_PUBLIC_PARITY_PREVIEW !== "1") return;
+    console.error("[parity] preview-chat route");
+  }, []);
   if (process.env.EXPO_PUBLIC_PARITY_PREVIEW !== "1") return null;
-  console.error("[parity] preview-chat route");
   return <PreviewChatScreen />;
 }

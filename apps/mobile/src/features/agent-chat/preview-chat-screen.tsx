@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
@@ -15,10 +15,13 @@ import { copy } from "./copy";
 import { buildComposerPicker, type FavoriteModel } from "./model-picker";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
 import {
-  PARITY_HOLD_MS,
+  armParityClock,
+  claimParityReady,
+  parityClockIndex,
   parityCycleFrames,
   parityPinnedFrame,
   parityReadyLine,
+  subscribeParityClock,
   type ParityFrame,
 } from "./parity-cycle";
 import { resolvedPillRowHeight } from "./transcript-pad";
@@ -46,7 +49,7 @@ export function PreviewChatScreen() {
     [fixtureParam, themeParam],
   );
   const frames = useMemo(() => parityCycleFrames(), []);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => parityClockIndex());
   const frame = useMemo<ParityFrame>(
     () => pinned ?? frames[index] ?? { id: "F1", theme: "light" },
     [frames, index, pinned],
@@ -58,7 +61,8 @@ export function PreviewChatScreen() {
   const [cardHeight, setCardHeight] = useState(0);
   const [pillHeight, setPillHeight] = useState(0);
   const [text, setText] = useState("");
-  const logged = useRef("");
+
+  useEffect(() => subscribeParityClock(setIndex), []);
 
   useLayoutEffect(() => {
     if (preference !== frame.theme) setPreference(frame.theme);
@@ -67,12 +71,10 @@ export function PreviewChatScreen() {
   useEffect(() => {
     if (preference !== frame.theme) return;
     const token = `${frame.id}:${frame.theme}:${pinned ? "pin" : index}`;
-    if (logged.current === token) return;
-    logged.current = token;
+    if (!claimParityReady(token)) return;
     console.error(parityReadyLine(frame, pinned ? 0 : index));
     if (pinned || index >= frames.length - 1) return;
-    const timer = setTimeout(() => setIndex((current) => current + 1), PARITY_HOLD_MS);
-    return () => clearTimeout(timer);
+    armParityClock(frames.length);
   }, [frame, frames.length, index, pinned, preference]);
 
   const fixture = parityFixtureById(frame.id);

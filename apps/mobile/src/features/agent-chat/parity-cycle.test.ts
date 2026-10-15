@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { PARITY_FIXTURE_IDS } from "@atmos/agent-transcript";
 import {
   PARITY_HOLD_MS,
+  createParityClock,
   parityCycleFrames,
   parityPinnedFrame,
   parityReadyLine,
@@ -22,6 +23,35 @@ describe("parity cycle", () => {
 
   test("holds each frame long enough to screenshot", () => {
     expect(PARITY_HOLD_MS).toBeGreaterThanOrEqual(10_000);
+  });
+
+  test("one clock serves every mounted preview", () => {
+    const pending: Array<() => void> = [];
+    const clock = createParityClock(
+      PARITY_HOLD_MS,
+      (fn) => {
+        pending.push(fn);
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+      () => undefined,
+    );
+    const seen: number[] = [];
+    clock.subscribe((next) => seen.push(next));
+    expect(seen).toEqual([0]);
+    expect(clock.claim("F1:light:0")).toBe(true);
+    expect(clock.claim("F1:light:0")).toBe(false);
+    expect(clock.arm(26)).toBe(true);
+    expect(clock.arm(26)).toBe(false);
+    expect(pending).toHaveLength(1);
+    pending[0]!();
+    expect(clock.index()).toBe(1);
+    expect(seen).toEqual([0, 1]);
+    expect(clock.claim("F2:light:1")).toBe(true);
+    expect(clock.arm(26)).toBe(true);
+    expect(pending).toHaveLength(2);
+    clock.reset();
+    expect(clock.index()).toBe(0);
+    expect(clock.arm(1)).toBe(false);
   });
 
   test("pins a query fixture and defaults a missing theme to light", () => {
