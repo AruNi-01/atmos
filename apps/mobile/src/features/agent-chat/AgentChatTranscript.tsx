@@ -14,24 +14,34 @@ import { AtmosLogo } from "@/ui/AtmosLogo";
 import { EmptyState } from "@/ui/layout/app-screen";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
 import {
+  assistantCopyText,
   classifyTranscriptPart,
   countToolGroupOverview,
   formatToolGroupOverview,
   formatWorkDuration,
   hasCollapsibleAssistantProcess,
+  isHiddenGrokChromePart,
+  isHiddenTranscriptChromePart,
   segmentAssistantParts,
   sentenceCaseOverview,
+  shouldShowAssistantTurnEndedChrome,
   splitSegmentedAssistantParts,
   toolCallPartsFromGroup,
+  transcriptVisibility,
   waitForSection,
   type AssistantSegment,
 } from "@atmos/agent-transcript";
 import { AgentChatDetailSheet } from "./AgentChatDetailSheet";
-import { AgentChatEventBody } from "./AgentChatEventBody";
-import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { AgentChatToolCard } from "./AgentChatToolCard";
-import { ChatBubble } from "./template-message";
+import { AnswerText } from "./answer-text";
+import { AssistantFooter, AssistantTurnFiles } from "./assistant-footer";
 import { copy, toolGroupCountLabel, toolGroupLabels } from "./copy";
+import { ErrorPart } from "./error-part";
+import { expandResetForFirstMessage, useAgentChatExpandStore } from "./expand-store";
+import { HistoricPermission } from "./historic-permission";
+import { SessionChrome } from "./session-chrome";
+import { ThinkingBlock } from "./thinking-block";
+import { UserMessage } from "./user-message";
 import {
   activateWaitForBar,
   dismissSheet,
@@ -70,12 +80,6 @@ function partKey(messageId: string, part: AgentPart, index: number): string {
   return `${messageId}:${part.type}:${index}`;
 }
 
-function attachmentName(part: Extract<AgentPart, { type: "attachment" }>): string {
-  const name = part.name?.trim();
-  if (name) return name;
-  return part.path.split(/[\\/]/).filter(Boolean).pop() || part.path;
-}
-
 function MessagePart({
   messages,
   onOpen,
@@ -95,7 +99,6 @@ function MessagePart({
   const classified = classifyTranscriptPart(part);
   if (surface === "timeline" && classified.visibility !== "visible") return null;
   if (classified.visibility === "hidden_chrome") return null;
-  if (classified.detail.kind === "permission" && !classified.detail.shownInTranscript) return null;
 
   const model = transcriptEventModel(part, siblings, messages);
   const sheetId = part.type === "tool_call" ? part.tool_call_id : openId;
@@ -127,43 +130,12 @@ function MessagePart({
     );
   }
 
-  if (part.type === "text") {
-    return <AgentChatMarkdown text={part.text} />;
-  }
-  if (part.type === "error") {
-    const message = part.message.trim();
-    if (!message) return null;
-    return (
-      <Text selectable style={{ color: theme.colors.red, fontSize: 15, lineHeight: 21 }}>
-        {message}
-      </Text>
-    );
-  }
-  if (!model.sheet) {
-    if (model.kind === "permission")
-      return <AgentChatEventBody model={{ ...model, sheet: null }} />;
-    const tone = classified.detail.kind === "session_hint" ? classified.detail.tone : null;
-    const color =
-      model.kind === "session_lifecycle" &&
-      classified.detail.kind === "session_lifecycle" &&
-      classified.detail.status === "failed"
-        ? theme.colors.red
-        : tone === "error"
-          ? theme.colors.red
-          : tone === "warning"
-            ? theme.colors.yellow
-            : theme.colors.secondaryLabel;
-    return (
-      <Text selectable style={{ color, fontSize: 15, lineHeight: 20 }}>
-        {model.title}
-      </Text>
-    );
-  }
   if (part.type === "tool_call") {
     return (
       <AgentChatToolCard onPress={() => onOpen(sheetId, model)} part={part} title={model.title} />
     );
   }
+  if (!model.sheet) return null;
   return (
     <Pressable
       accessibilityRole="button"
@@ -179,19 +151,6 @@ function MessagePart({
       <DisclosureChevron />
     </Pressable>
   );
-}
-
-function visiblePart(part: AgentPart): boolean {
-  const classified = classifyTranscriptPart(part);
-  if (classified.visibility === "hidden_chrome" || classified.visibility === "nested_child")
-    return false;
-  if (classified.visibility === "subagent_wait") return true;
-  if (classified.detail.kind === "permission") return classified.detail.shownInTranscript;
-  if (classified.detail.kind === "text_part") return classified.detail.text.length > 0;
-  if (classified.detail.kind === "thinking") return classified.detail.text.length > 0;
-  if (classified.detail.kind === "error_part") return classified.detail.message.trim().length > 0;
-  if (classified.detail.kind === "hidden") return false;
-  return true;
 }
 
 function toolGroupTitle(parts: AgentPart[]): string {
@@ -239,42 +198,74 @@ function modelsForParts(
   return parts.map((part) => transcriptEventModel(part, siblings, messages));
 }
 
-function ProcessPart({
+function TimelinePart({
+  inProcess,
+  message,
   messages,
   onOpen,
-  openId,
   part,
-  siblings,
 }: {
-  messages: Array<Pick<AgentMessage, "role" | "parts">>;
+  inProcess: boolean;
+  message: AgentMessage;
+  messages: AgentMessage[];
   onOpen: (id: string, model: EventViewModel) => void;
-  openId: string;
   part: AgentPart;
-  siblings: AgentPart[];
 }) {
-  return (
-    <MessagePart
-      messages={messages}
-      onOpen={onOpen}
-      openId={openId}
-      part={part}
-      siblings={siblings}
-    />
-  );
+  if (isHiddenTranscriptChromePart(part) || isHiddenGrokChromePart(part, message.parts))
+    return null;
+  const key = partKey(message.id, part, 0);
+  if (part.type === "text") return <AnswerText part={part} />;
+  if (part.type === "thinking") {
+    if (inProcess) {
+      return (
+        <MessagePart
+          messages={messages}
+          onOpen={onOpen}
+          openId={key}
+          part={part}
+          siblings={message.parts}
+        />
+      );
+    }
+    return <ThinkingBlock part={part} parts={message.parts} thinkingMs={message.thinking_ms} />;
+  }
+  if (part.type === "error") return <ErrorPart part={part} />;
+  if (
+    part.type === "session_lifecycle" ||
+    part.type === "session_config_change" ||
+    part.type === "session_hint"
+  ) {
+    return <SessionChrome part={part} />;
+  }
+  if (part.type === "permission") return <HistoricPermission part={part} />;
+  if (part.type === "tool_call") {
+    return (
+      <MessagePart
+        messages={messages}
+        onOpen={onOpen}
+        openId={key}
+        part={part}
+        siblings={message.parts}
+      />
+    );
+  }
+  return null;
 }
 
 function AssistantSegments({
+  inProcess,
+  message,
   messages,
   onOpenGroup,
   onOpen,
   segments,
-  siblings,
 }: {
-  messages: Array<Pick<AgentMessage, "role" | "parts">>;
+  inProcess: boolean;
+  message: AgentMessage;
+  messages: AgentMessage[];
   onOpen: (id: string, model: EventViewModel) => void;
   onOpenGroup: (id: string, title: string, models: EventViewModel[]) => void;
   segments: AssistantSegment[];
-  siblings: AgentPart[];
 }) {
   return (
     <>
@@ -286,20 +277,20 @@ function AssistantSegments({
             <ToolGroupRow
               key={groupKey}
               onPress={() =>
-                onOpenGroup(groupKey, title, modelsForParts(segment.parts, siblings, messages))
+                onOpenGroup(groupKey, title, modelsForParts(segment.parts, message.parts, messages))
               }
               parts={segment.parts}
             />
           );
         }
         return (
-          <ProcessPart
-            key={partKey("segment", segment.part, segment.origIndex)}
+          <TimelinePart
+            key={partKey(message.id, segment.part, segment.origIndex)}
+            inProcess={inProcess}
+            message={message}
             messages={messages}
             onOpen={onOpen}
-            openId={partKey("segment", segment.part, segment.origIndex)}
             part={segment.part}
-            siblings={siblings}
           />
         );
       })}
@@ -334,6 +325,24 @@ function WaitForBar({
   );
 }
 
+function assistantHasVisiblePart(message: AgentMessage): boolean {
+  return message.parts.some((part) => {
+    if (isHiddenTranscriptChromePart(part) || isHiddenGrokChromePart(part, message.parts)) {
+      return false;
+    }
+    if (transcriptVisibility(part) === "nested_child") return false;
+    if (part.type === "text" || part.type === "thinking") return Boolean(part.text);
+    if (part.type === "error") return Boolean(part.message);
+    if (part.type === "permission") return part.request.status !== "pending";
+    return (
+      part.type === "tool_call" ||
+      part.type === "session_lifecycle" ||
+      part.type === "session_config_change" ||
+      part.type === "session_hint"
+    );
+  });
+}
+
 function ChatMessage({
   expand,
   message,
@@ -346,23 +355,12 @@ function ChatMessage({
   onExpand: (update: (state: ExpandState) => ExpandState) => void;
 }) {
   const theme = useMobileTheme();
-  const isUser = message.role === "user";
-  const hasBody = message.parts.some(
-    (part) => (isUser && part.type === "attachment") || visiblePart(part),
-  );
-  const canCollapse = !isUser && hasCollapsibleAssistantProcess(message);
-  if (!hasBody && !message.streaming) return null;
+  if (message.role === "user") return <UserMessage message={message} />;
 
-  let cursorIndex = -1;
-  if (message.streaming) {
-    for (let index = message.parts.length - 1; index >= 0; index -= 1) {
-      const part = message.parts[index];
-      if (part?.type === "text" || part?.type === "thinking") {
-        cursorIndex = index;
-        break;
-      }
-    }
-  }
+  const assistantText = assistantCopyText(message);
+  const showChrome = shouldShowAssistantTurnEndedChrome(message, assistantText);
+  const canCollapse = hasCollapsibleAssistantProcess(message);
+  if (!assistantHasVisiblePart(message) && !showChrome && !message.streaming) return null;
 
   const openEvent = (id: string, model: EventViewModel) => {
     onExpand((state) => openLeafSheet(state, id, model));
@@ -370,50 +368,6 @@ function ChatMessage({
   const openGroup = (id: string, title: string, models: EventViewModel[]) => {
     onExpand((state) => openGroupSheet(state, id, title, models));
   };
-
-  if (isUser) {
-    return (
-      <View style={{ width: "100%" }}>
-        <ChatBubble from="user">
-          <View style={{ gap: 8 }}>
-            {message.parts.map((part, index) => {
-              if (part.type === "text") {
-                return (
-                  <Text
-                    key={partKey(message.id, part, index)}
-                    selectable
-                    style={{ color: theme.colors.label, fontSize: 16, lineHeight: 22 }}
-                  >
-                    {part.text}
-                  </Text>
-                );
-              }
-              if (part.type === "attachment") {
-                return (
-                  <Text
-                    key={partKey(message.id, part, index)}
-                    style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}
-                  >
-                    {attachmentName(part)}
-                  </Text>
-                );
-              }
-              return (
-                <MessagePart
-                  key={partKey(message.id, part, index)}
-                  messages={messages}
-                  onOpen={openEvent}
-                  openId={partKey(message.id, part, index)}
-                  part={part}
-                  siblings={message.parts}
-                />
-              );
-            })}
-          </View>
-        </ChatBubble>
-      </View>
-    );
-  }
 
   const segments = segmentAssistantParts(message.parts);
   const { processSegments, tailSegments } = splitSegmentedAssistantParts(segments);
@@ -478,28 +432,29 @@ function ChatMessage({
       ) : processSegments.length > 0 ? (
         <View style={{ gap: 6 }}>
           <AssistantSegments
+            inProcess
+            message={message}
             messages={messages}
             onOpen={openEvent}
             onOpenGroup={openGroup}
             segments={processSegments}
-            siblings={message.parts}
           />
         </View>
       ) : null}
-      {tailSegments.length > 0 || message.streaming ? (
-        <ChatBubble from="assistant">
-          <View style={{ gap: 8 }}>
-            {message.streaming && cursorIndex < 0 ? <AgentChatMarkdown text="..." /> : null}
-            <AssistantSegments
-              messages={messages}
-              onOpen={openEvent}
-              onOpenGroup={openGroup}
-              segments={tailSegments}
-              siblings={message.parts}
-            />
-          </View>
-        </ChatBubble>
+      {tailSegments.length > 0 ? (
+        <View style={{ gap: 8, width: "100%" }}>
+          <AssistantSegments
+            inProcess={false}
+            message={message}
+            messages={messages}
+            onOpen={openEvent}
+            onOpenGroup={openGroup}
+            segments={tailSegments}
+          />
+        </View>
       ) : null}
+      <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
+      <AssistantTurnFiles parts={message.parts} visible={showChrome} />
     </View>
   );
 }
@@ -518,6 +473,7 @@ export function AgentChatTranscript({
   const atBottomRef = useRef(true);
   const userDraggedRef = useRef(false);
   const listHeightRef = useRef(0);
+  const seenFirstId = useRef<string | undefined>(undefined);
 
   const stickToBottom = useCallback(() => {
     if (userDraggedRef.current && !atBottomRef.current) return;
@@ -567,6 +523,16 @@ export function AgentChatTranscript({
           },
         ]
       : messages;
+  const firstMessageId = messages[0]?.id;
+
+  useEffect(() => {
+    const boundary = expandResetForFirstMessage(seenFirstId.current, firstMessageId);
+    if (boundary.reset) {
+      useAgentChatExpandStore.getState().reset();
+      setExpand(initialExpandState());
+    }
+    seenFirstId.current = boundary.firstId;
+  }, [firstMessageId]);
 
   useEffect(() => {
     stickToBottom();

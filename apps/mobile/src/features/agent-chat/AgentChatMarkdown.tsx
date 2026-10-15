@@ -13,19 +13,24 @@ function openHttpLink(url: string) {
 export function AgentChatMarkdown({
   text,
   tone = "body",
+  fontSize,
+  lineHeight,
 }: {
   text: string;
   tone?: "body" | "thinking";
+  /** Overrides the tone default. Omitted body text stays 16 / 22. */
+  fontSize?: number;
+  lineHeight?: number;
 }) {
   const theme = useMobileTheme();
   const markdownStyle = useMemo<MarkdownStyle>(() => {
     const proseColor = tone === "thinking" ? theme.colors.secondaryLabel : theme.colors.label;
-    const fontSize = tone === "thinking" ? 15 : 16;
-    const lineHeight = tone === "thinking" ? 21 : 22;
-    const heading = { color: proseColor, lineHeight };
+    const resolvedFontSize = fontSize ?? (tone === "thinking" ? 15 : 16);
+    const resolvedLineHeight = lineHeight ?? (tone === "thinking" ? 21 : 22);
+    const heading = { color: proseColor, lineHeight: resolvedLineHeight };
 
     return {
-      paragraph: { color: proseColor, fontSize, lineHeight },
+      paragraph: { color: proseColor, fontSize: resolvedFontSize, lineHeight: resolvedLineHeight },
       h1: heading,
       h2: heading,
       h3: heading,
@@ -37,14 +42,14 @@ export function AgentChatMarkdown({
         borderColor: theme.colors.glassBorder,
         borderWidth: 3,
         color: proseColor,
-        fontSize,
-        lineHeight,
+        fontSize: resolvedFontSize,
+        lineHeight: resolvedLineHeight,
       },
       list: {
         bulletColor: proseColor,
         color: proseColor,
-        fontSize,
-        lineHeight,
+        fontSize: resolvedFontSize,
+        lineHeight: resolvedLineHeight,
         markerColor: proseColor,
       },
       code: {
@@ -72,7 +77,7 @@ export function AgentChatMarkdown({
         height: 1,
       },
     };
-  }, [theme, tone]);
+  }, [fontSize, lineHeight, theme, tone]);
 
   if (text.length === 0) return null;
 

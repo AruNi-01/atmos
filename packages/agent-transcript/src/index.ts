@@ -207,6 +207,12 @@ export {
   USER_MESSAGE_COLLAPSE_LINES,
 } from "./user-message-collapse";
 
+export { foldedPartIsOpen, foldedPartIsStreamingDisplayTail } from "./folded-part";
+
+export { isSessionChromeOnly, shouldShowAssistantTurnEndedChrome } from "./assistant-turn-chrome";
+
+export { assistantCopyText, textFromParts } from "./message-text";
+
 export {
   PARITY_FIXTURE_IDS,
   parityFixtureById,

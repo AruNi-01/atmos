@@ -12,7 +12,10 @@
     "./agent-chat-transcript-window": "./src/agent-chat-transcript-window.ts",
     "./agent-tree-branch": "./src/agent-tree-branch.ts",
     "./assistant-process-parts": "./src/assistant-process-parts.ts",
+    "./assistant-turn-chrome": "./src/assistant-turn-chrome.ts",
+    "./folded-part": "./src/folded-part.ts",
     "./grok-chrome": "./src/grok-chrome.ts",
+    "./message-text": "./src/message-text.ts",
     "./tool-call-density": "./src/tool-call-density.ts",
     "./tool-group": "./src/tool-group.ts",
     "./user-message-collapse": "./src/user-message-collapse.ts"
