@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green. S29 passes. Cold start now opens fixture F3. S10 and S30 stay `not_run`.
+- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs (S29). The parent Linux pass (scratch head `1a8ed362b`) is S28 react-native-web and a partial S27. S31 stays `not_run`. The in-app carousel and preview card lane are in this commit and are not in those iOS artifacts yet.
 
 ## Snapshot
 
@@ -23,7 +23,7 @@
 - S7 done and reviewed: paste chips and context trigger. Microphone stays off. Mobile `bun test` 334.
 - S8 done and reviewed: `.github/workflows/ci-mobile-ios-parity.yml` (`structural` on `ubuntu-latest`, `ios-simulator` on `macos-26`, Xcode 26.5, iPhone 17 Pro / iOS 26.5). No label gate. Simulator scenarios stay `not_run` until that job uploads artifacts.
 - `bun --filter @atmos/mobile typecheck` still reports errors only in `fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, and `expo-drawer.web.tsx`. Those files predate this work.
-- Blocked: nothing in code. 图一 pixel metrics stay unverified. Do not install Cursor agent CLI or mobai-dev.
+- Blocked: nothing in code. 图一 pixel metrics stay unverified. Do not install Cursor agent CLI or mobai-dev in this session; the parent already ran both.
 - Do not change web behavior beyond the D2(a) re-exports. Do not add a web route. Do not add `WsAction`s. Do not merge the PR.
 
 ## Slice Kanban
@@ -85,17 +85,18 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 | Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`        |
 | Capture script       | `bash -n` and `mp4-duration.py --self-test`            | pass        | syntax and muxer only; no simulator on this machine      |
 | S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written |
-| S27 Cursor CLI       | —                                                      | not_run     | do not install                                           |
-| S28 mobai-dev        | —                                                      | not_run     | do not install                                           |
-| S31 web PNGs         | out-of-tree harness                                    | not_run     | would need a new `apps/web` route; not added             |
-| iOS simulator        | runs `38789917018`, `38797183648`                      | pass (S29)  | 26 distinct PNGs; cold start is F3; movies are static    |
+| S27 Cursor CLI       | parent `agent -p` on react-native-web shots            | partial     | F3 pass; F12 cards fail; F6 suspected false positive     |
+| S28 mobai-dev        | parent RN-web preview, head `1a8ed362b`                | ran         | 26 frames, not iOS; 241/250 labels; 9 card misses        |
+| S31 web PNGs         | Next.js                                                | not_run     | `next dev` OOM; ubuntu job PNGs are react-native-web     |
+| iOS simulator        | runs `38789917018`, `38797183648`                      | pass (S29)  | 26 distinct iOS PNGs; cold start was F3; movies static   |
 | 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                            |
 
 ## Known Blockers
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
-- [ ] S27 and S28 need a separate AruNi approval to install external tools.
 - [ ] S10 and S30 stay `not_run`. Recordings last 8s and each file's frames are identical, so motion is not shown.
+- [ ] S27 F12 card items stay fail until a rubric sees the pill row and the expanded permission card. F6 stays unconfirmed.
+- [ ] S31 stays `not_run`. Next.js screenshots were not produced.
 
 ## Handoff Notes
 
@@ -105,7 +106,7 @@ Phone Agent Chat matches web message/part/tool/motion/scroll/composer behavior, 
 
 ### Current progress
 
-S0–S8 are implemented and reviewed. The black window was `Atmos.SceneDelegate` (empty scene window, JS running in `AppDelegate`'s window). Run `38780693297` shows distinct fixture screenshots. The job is still red because `F4.mp4` is 1.27s and `afinfo` cannot read a video-only file. The capture script now muxes timed screenshots into an 8s `.mov`.
+S0–S8 are implemented and reviewed. Later green iOS runs painted fixtures after the scene manifest was removed. The parent report against `1a8ed362b` still described that manifest as the black-window suspect; that head predates the fix. The preview route now cycles F1–F13 × light/dark, logs `[parity] ready <id> <theme> #<seq>`, and mounts the pill row, composer, and one expanded card. `ios-capture.sh` screenshots from those log lines and does not call `openurl`.
 
 ### Completed work
 
@@ -129,15 +130,18 @@ S0–S8 are implemented and reviewed. The black window was `Atmos.SceneDelegate`
 ### Open issues
 
 - 图一 pixel check.
-- S31 web PNGs were not produced.
+- S31 Next.js web PNGs were not produced (`next dev` OOM). Ubuntu `parity-rn-web` images are react-native-web and do not close S31.
+- S27 is partial: F3 pass, F12 cards fail, F6 suspected false positive pending confirmation. Shots are react-native-web.
+- S28 ran as react-native-web on scratch head `1a8ed362b` (26 frames, 241/250 labels). Not iOS.
+- The carousel and preview card lane are not in runs `38789917018` or `38797183648`.
 - S9, S15, S20, and S26 stay `not_run` because no dedicated test asserts them.
 - Pre-existing mobile typecheck errors in three files.
 
 ### Next steps
 
-1. S10 and S30 stay `not_run`. The `.mov` files last 8s and do not change frames.
-2. Run `38797183648` confirmed the cold-start redirect: `default-route.png` matches `F3-light`.
-3. Do not merge. `preview-chat.tsx` and `preview-chat-screen.tsx` were not edited. `topLoad` / null `instanceHandle` is an Image `onLoad` drop and also appeared on the green runs.
+1. One CI push of the carousel, card preview, and react-native-web capture. Do not cancel the docs-only run that was already queued.
+2. S10 and S30 stay `not_run`. The `.mov` files are still frames.
+3. Do not mark S27 F12 or S31 pass from the parent report. Do not merge.
 
 ### Relevant files/symbols
 
@@ -180,3 +184,5 @@ S0–S8 are implemented and reviewed. The black window was `Atmos.SceneDelegate`
 - Run `38789917018` on head `75cbb201e`: `structural` and `ios-simulator` passed. 26 fixture PNGs, all different. `F4.mov` / `F12.mov` / `F13.mov` are 8.000s and each file has one repeated frame. S29 is pass. S10 and S30 stay `not_run`. `default-route.png` is the pair screen (`51cd7923…`) while the log still contains `[parity] preview-chat route`. `topLoad` was dropped on this green run too.
 - Redirect `/` and `/sign-in` to `/preview-chat` in parity builds. The capture script now fails on the pair-screen hash as well as the black scene hash.
 - Run `38797183648` on head `af9bc6ba8`: `structural` and `ios-simulator` passed. `default-route.png` sha256 equals `F3-light` (`14bbae46…`) and shows fixture F3 before any deep link. F1-light and F12-light match the previous green run.
+- Parent Linux report, scratch head `1a8ed362b` (older than the scene-delegate fix): react-native-web `PreviewChatScreen` rendered F1–F13 × light/dark, 26 distinct hashes. Structural labels 241/250; 9 misses are card channels. Cursor CLI rubric: F3 pass, F12 cards 8 fail, F6 suspected false positive ("2 files changed" footer; web has `AssistantTurnFileChanges`). `next dev` OOM, so S31 stays `not_run`. `topLoad` is harmless. Device logs on the later green iOS runs contain `[parity] preview-chat module` and `[parity] preview-chat route`.
+- Preview route now cycles those frames, logs `[parity] ready <id> <theme> #<seq>`, and mounts the pill row, composer, and the preempted permission card. Capture waits on the log line, screenshots Springboard first, and does not call `openurl`. `applyParityPreviewConfig` deletes `UIApplicationSceneManifest` when the flag is `"1"`. The ubuntu job exports the same preview to react-native-web. Mobile `bun test` 349 pass.

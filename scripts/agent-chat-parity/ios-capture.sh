@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Screenshot F1–F13 in light and dark, then record F4, F12, and F13.
+# Screenshot F1–F13 in light and dark from the in-app carousel.
+# The preview route logs `[parity] ready F# <theme> #<seq>` and holds each
+# frame. This script does not call simctl openurl.
 # Requires a booted iOS Simulator with land.atmos.mobile already installed.
 # macOS runner only. Do not run this on Linux.
 set -euo pipefail
@@ -7,14 +9,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT="${PARITY_PHONE_OUT:-$ROOT/artifacts/phone}"
 BUNDLE_ID="land.atmos.mobile"
-URL_SCHEME="atmos"
-# Cold start of the embedded bundle, then a settle after each deep link.
-WARMUP_SECONDS=25
-SETTLE_SECONDS=12
 RECORD_SECONDS=8
-FIXTURES=(F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13)
-THEMES=(light dark)
 RECORD_IDS=(F4 F12 F13)
+# Empty scene window through run 38769715486.
+black_scene="fbcb6a8c2222c51b2c61b122762b964463322680781a5457888a05fee632c0b6"
+# Pair screen on run 38789917018, before the preview redirect.
+pair_screen="51cd7923f442b9cb4c4a5c22644a36b435f8ca844c53a4adaa0b658e97ff9342"
 
 mkdir -p "$OUT"
 
@@ -30,16 +30,6 @@ if ! xcrun simctl get_app_container booted "$BUNDLE_ID" >/dev/null 2>&1; then
   exit 1
 fi
 
-# A fresh simulator asks "Open in Atmos?" and never delivers the URL.
-# Map the scheme to this bundle before the first openurl (same write EAS uses).
-echo "preapprove ${URL_SCHEME} -> ${BUNDLE_ID}"
-xcrun simctl spawn booted defaults write \
-  com.apple.launchservices.schemeapproval \
-  "com.apple.CoreSimulator.CoreSimulatorBridge-->${URL_SCHEME}" \
-  -string "$BUNDLE_ID"
-xcrun simctl spawn booted defaults read com.apple.launchservices.schemeapproval
-xcrun simctl spawn booted killall -9 cfprefsd || true
-
 dump_runtime_logs() {
   echo "----- console.log (tail) -----" >&2
   if [[ -f "$OUT/console.log" ]]; then
@@ -47,8 +37,11 @@ dump_runtime_logs() {
   else
     echo "(no console.log)" >&2
   fi
+  echo "----- parity stream (tail) -----" >&2
+  if [[ -f "$OUT/parity-stream.log" ]]; then
+    tail -n 80 "$OUT/parity-stream.log" >&2 || true
+  fi
   echo "----- device log -----" >&2
-  # Full filtered log stays in the artifact. The job log only prints the tail.
   xcrun simctl spawn booted log show --last 5m --info --debug --style compact \
     --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
     >"$OUT/device-log.txt" 2>&1 || true
@@ -56,112 +49,169 @@ dump_runtime_logs() {
   screencapture -x "$OUT/desktop-on-failure.png" || true
 }
 
+log_has() {
+  local needle="$1"
+  if [[ -f "$OUT/console.log" ]] && grep -F -q "$needle" "$OUT/console.log"; then
+    return 0
+  fi
+  if [[ -f "$OUT/parity-stream.log" ]] && grep -F -q "$needle" "$OUT/parity-stream.log"; then
+    return 0
+  fi
+  return 1
+}
+
+wait_for_line() {
+  local needle="$1"
+  local timeout="$2"
+  local deadline=$((SECONDS + timeout))
+  while (( SECONDS < deadline )); do
+    if log_has "$needle"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  return 1
+}
+
 # simctl screenshots stay black unless Simulator.app owns the framebuffer.
 open -a Simulator || true
+sleep 2
 
-echo "warming ${BUNDLE_ID}"
+# Prove the framebuffer before the app covers Springboard. The known black
+# scene hash is the empty app window, not a generic dark home screen.
+echo "springboard screenshot (before launch)"
+xcrun simctl io booted screenshot "$OUT/springboard.png"
+spring_hash="$(shasum -a 256 "$OUT/springboard.png" | awk '{print $1}')"
+echo "springboard sha256 ${spring_hash}"
+if [[ "$spring_hash" == "$black_scene" ]]; then
+  echo "simctl framebuffer is the black scene before launch (${spring_hash})" >&2
+  screencapture -x "$OUT/desktop-on-failure.png" || true
+  exit 1
+fi
+
+xcrun simctl ui booted appearance light
+
+echo "streaming [parity] logs"
+xcrun simctl spawn booted log stream --level debug --style compact \
+  --predicate 'eventMessage CONTAINS "[parity]"' >"$OUT/parity-stream.log" 2>&1 &
+stream_pid=$!
+
+echo "launching ${BUNDLE_ID}"
 xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
-# --console-pty keeps the JS log attached for the whole capture.
 xcrun simctl launch --console-pty --terminate-running-process booted "$BUNDLE_ID" >"$OUT/console.log" 2>&1 &
 console_pid=$!
 sleep 3
 if ! kill -0 "$console_pid" 2>/dev/null; then
   echo "console launch exited early; retrying without a pty" >&2
-  dump_runtime_logs
   xcrun simctl launch booted "$BUNDLE_ID" || true
 fi
-sleep "$WARMUP_SECONDS"
-screencapture -x "$OUT/desktop-after-warmup.png" || true
 
-# Enter preview through the baked initial route. Deep links below only switch
-# fixture and theme after this shot exists.
-echo "default route screenshot (no deep link yet)"
-xcrun simctl io booted screenshot "$OUT/default-route.png"
-echo "----- console.log after warmup -----"
-tail -n 80 "$OUT/console.log" >&2 || true
-default_hash="$(shasum -a 256 "$OUT/default-route.png" | awk '{print $1}')"
-echo "default-route sha256 ${default_hash}"
-# Empty scene window through run 38769715486, and the pair screen on 38789917018.
-# initialRouteName mounted preview-chat, then `(home)` painted "Pair this phone".
-black_scene="fbcb6a8c2222c51b2c61b122762b964463322680781a5457888a05fee632c0b6"
-pair_screen="51cd7923f442b9cb4c4a5c22644a36b435f8ca844c53a4adaa0b658e97ff9342"
-if [[ "$default_hash" == "$black_scene" || "$default_hash" == "$pair_screen" ]]; then
-  echo "default route is not preview-chat (${default_hash})" >&2
+if ! wait_for_line "[parity] preview-chat module" 90; then
+  echo "missing [parity] preview-chat module" >&2
+  dump_runtime_logs
+  exit 1
+fi
+if ! wait_for_line "[parity] preview-chat route" 30; then
+  echo "missing [parity] preview-chat route" >&2
   dump_runtime_logs
   exit 1
 fi
 
-echo "----- device log after warmup -----"
-xcrun simctl spawn booted log show --last 3m --info --style compact \
-  --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
-  >"$OUT/device-log-after-warmup.txt" 2>&1 || true
-grep -E '\[parity\]|RCTFatal|JavaScript|topLoad|instanceHandle|Error' "$OUT/device-log-after-warmup.txt" | tail -n 40 >&2 || true
-
-open_fixture() {
-  local id="$1"
-  local theme="$2"
-  xcrun simctl ui booted appearance "$theme"
-  xcrun simctl openurl booted "${URL_SCHEME}://preview-chat?fixture=${id}&theme=${theme}"
+frame_rows="$(mktemp)"
+if ! (cd "$ROOT" && bun -e '
+import { parityCycleFrames, parityReadyLine } from "./apps/mobile/src/features/agent-chat/parity-cycle.ts";
+for (const [seq, frame] of parityCycleFrames().entries()) {
+  console.log(`${frame.id}\t${frame.theme}\t${parityReadyLine(frame, seq)}`);
 }
+') >"$frame_rows"; then
+  echo "could not read the parity carousel from parity-cycle.ts" >&2
+  dump_runtime_logs
+  exit 1
+fi
 
-# simctl has no stable query for the parity-ready accessibility id.
-wait_for_ready() {
-  sleep "$SETTLE_SECONDS"
-}
+current_theme=""
+while IFS=$'\t' read -r id theme needle; do
+  if [[ -z "$id" ]]; then
+    continue
+  fi
+  if [[ "$theme" != "$current_theme" ]]; then
+    xcrun simctl ui booted appearance "$theme"
+    current_theme="$theme"
+  fi
+  echo "wait ${needle}"
+  # The first frame includes JS boot. Later frames are one hold apart.
+  timeout=30
+  if [[ "$needle" == *"#0" ]]; then
+    timeout=90
+  fi
+  if ! wait_for_line "$needle" "$timeout"; then
+    echo "missing ${needle}" >&2
+    dump_runtime_logs
+    exit 1
+  fi
+  xcrun simctl io booted screenshot "$OUT/${id}-${theme}.png"
+  if [[ "$needle" == *"#0" ]]; then
+    cp "$OUT/${id}-${theme}.png" "$OUT/default-route.png"
+    xcrun simctl spawn booted log show --last 3m --info --style compact \
+      --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
+      >"$OUT/device-log-after-warmup.txt" 2>&1 || true
+    grep -E '\[parity\]|RCTFatal|JavaScript|topLoad|instanceHandle|Error' "$OUT/device-log-after-warmup.txt" | tail -n 40 >&2 || true
+  fi
+done <"$frame_rows"
+rm -f "$frame_rows"
 
-for theme in "${THEMES[@]}"; do
-  for id in "${FIXTURES[@]}"; do
-    echo "screenshot ${id} ${theme}"
-    open_fixture "$id" "$theme"
-    wait_for_ready
-    xcrun simctl io booted screenshot "$OUT/${id}-${theme}.png"
-  done
-done
+default_hash="$(shasum -a 256 "$OUT/default-route.png" | awk '{print $1}')"
+echo "default-route sha256 ${default_hash}"
+if [[ "$default_hash" == "$black_scene" || "$default_hash" == "$pair_screen" ]]; then
+  echo "default route is not the preview carousel (${default_hash})" >&2
+  dump_runtime_logs
+  exit 1
+fi
 
-# The system confirmation dialog is the same bitmap for every fixture.
 hash_f1="$(shasum -a 256 "$OUT/F1-light.png" | awk '{print $1}')"
 hash_f12="$(shasum -a 256 "$OUT/F12-light.png" | awk '{print $1}')"
 if [[ "$hash_f1" == "$hash_f12" ]]; then
   echo "F1-light and F12-light are identical (${hash_f1})." >&2
-  echo "The preview route did not render distinct fixtures." >&2
+  echo "The preview carousel did not render distinct fixtures." >&2
   dump_runtime_logs
   exit 1
 fi
 
-record_one() {
+python3 - "$OUT" "$black_scene" "$pair_screen" <<'PY'
+import hashlib, pathlib, sys
+out = pathlib.Path(sys.argv[1])
+banned = {sys.argv[2], sys.argv[3]}
+files = sorted(out.glob("F*-*.png"))
+if len(files) != 26:
+    print(f"expected 26 fixture screenshots, found {len(files)}", file=sys.stderr)
+    sys.exit(1)
+hashes = []
+for path in files:
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest in banned:
+        print(f"{path.name} is the black scene or the pair screen", file=sys.stderr)
+        sys.exit(1)
+    hashes.append(digest)
+if len(set(hashes)) != len(hashes):
+    print("fixture screenshots are not all distinct", file=sys.stderr)
+    sys.exit(1)
+print(f"{len(hashes)} distinct fixture screenshots")
+PY
+
+# Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
+# honest. It does not show reveal, tree draw-in, or a pill swap.
+record_still() {
   local id="$1"
+  local png="$OUT/${id}-light.png"
   local video="$OUT/${id}.mov"
   local frames
-  local started
-  local index=0
-  local png
-  local jpg
   local duration
-  frames="$(mktemp -d)"
-  rm -f "$video"
-  echo "record ${id}"
-  xcrun simctl ui booted appearance light
-  xcrun simctl openurl booted "${URL_SCHEME}://preview-chat?fixture=${id}&theme=light"
-  sleep 2
-  # simctl recordVideo on iOS 26 kept two samples (1.27s) of a static screen
-  # and wrote no audio, so afinfo exited AudioFileOpenURL. Screenshot the
-  # phone across the capture window and mux those frames. screencapture -v
-  # needs a Screen Recording grant the runner does not have.
-  started="$SECONDS"
-  while (( SECONDS - started < RECORD_SECONDS )); do
-    png="$frames/$(printf '%03d' "$index").png"
-    jpg="$frames/$(printf '%03d' "$index").jpg"
-    xcrun simctl io booted screenshot "$png"
-    sips -s format jpeg "$png" --out "$jpg" >/dev/null
-    rm -f "$png"
-    index=$((index + 1))
-    sleep 0.5
-  done
-  echo "record ${id} frames ${index}"
-  if [[ "$index" -lt 1 ]]; then
-    echo "recording ${id} captured no frames" >&2
+  if [[ ! -s "$png" ]]; then
+    echo "recording ${id} is missing ${png}" >&2
     exit 1
   fi
+  frames="$(mktemp -d)"
+  sips -s format jpeg "$png" --out "$frames/000.jpg" >/dev/null
   duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"
   rm -rf "$frames"
   echo "recording ${id} duration ${duration}"
@@ -185,7 +235,9 @@ PY
 }
 
 for id in "${RECORD_IDS[@]}"; do
-  record_one "$id"
+  record_still "$id"
 done
 
+# The log stream and console pty outlive this script. Leave them. The job
+# tears the step down, and killing by name would hit unrelated processes.
 echo "phone artifacts written to ${OUT}"

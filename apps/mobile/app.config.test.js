@@ -51,4 +51,35 @@ describe("applyParityPreviewConfig", () => {
       else process.env.EXPO_PUBLIC_PARITY_PREVIEW = previous;
     }
   });
+
+  test("drops a scene manifest only for the parity preview", () => {
+    const withScene = {
+      ...base,
+      ios: {
+        infoPlist: {
+          UIApplicationSceneManifest: { UISceneDelegateClassName: "Atmos.SceneDelegate" },
+          NSCameraUsageDescription: "camera",
+        },
+      },
+    };
+    const previous = process.env.EXPO_PUBLIC_PARITY_PREVIEW;
+    delete process.env.EXPO_PUBLIC_PARITY_PREVIEW;
+    try {
+      const kept = applyParityPreviewConfig({ config: structuredClone(withScene) });
+      expect(kept.ios.infoPlist.UIApplicationSceneManifest).toBeDefined();
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_PARITY_PREVIEW;
+      else process.env.EXPO_PUBLIC_PARITY_PREVIEW = previous;
+    }
+
+    process.env.EXPO_PUBLIC_PARITY_PREVIEW = "1";
+    try {
+      const next = applyParityPreviewConfig({ config: structuredClone(withScene) });
+      expect(next.ios.infoPlist.UIApplicationSceneManifest).toBeUndefined();
+      expect(next.ios.infoPlist.NSCameraUsageDescription).toBe("camera");
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_PARITY_PREVIEW;
+      else process.env.EXPO_PUBLIC_PARITY_PREVIEW = previous;
+    }
+  });
 });
