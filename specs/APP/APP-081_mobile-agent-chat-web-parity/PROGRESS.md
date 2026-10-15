@@ -105,7 +105,7 @@ Phone Agent Chat matches web message/part/tool/motion/scroll/composer behavior, 
 
 ### Current progress
 
-S0–S8 are implemented and reviewed. The iOS job builds, but screenshots are still one black frame. `app.json` no longer names `Atmos.SceneDelegate`. The next simulator run is the first one after that removal.
+S0–S8 are implemented and reviewed. Run `38780693297` shows distinct fixture screenshots after `Atmos.SceneDelegate` was removed. The job is still red because `F4.mp4` is 1.27s and `afinfo` cannot read a video-only file.
 
 ### Completed work
 
@@ -135,9 +135,9 @@ S0–S8 are implemented and reviewed. The iOS job builds, but screenshots are st
 
 ### Next steps
 
-1. One `ci-mobile-ios-parity` run after the scene-manifest removal. Do not start another until that run's PNGs are inspected.
-2. Download `ios-parity` and compare F1 with F12 before marking any simulator scenario pass.
-3. Do not merge. Do not edit `preview-chat.tsx`, `preview-chat-screen.tsx`, or `app/_layout.tsx` for this blank-window bug; the route already renders on react-native-web when the preview flag is inlined.
+1. Do not start another macOS job until the recording gate is fixed and checked against a downloaded `F4.mp4`. Run `38780693297` already shows distinct fixture PNGs.
+2. `F4.mp4` is 2 frames / 1.27s and has no audio track. `afinfo` exits with `AudioFileOpenURL failed`. S10 and S30 stay `not_run`.
+3. Do not merge. Do not edit `preview-chat.tsx`, `preview-chat-screen.tsx`, or `app/_layout.tsx` for the blank window; that bug was the scene manifest.
 
 ### Relevant files/symbols
 
@@ -175,3 +175,4 @@ S0–S8 are implemented and reviewed. The iOS job builds, but screenshots are st
 - Run `38767206759` stopped in pod install: `app.config.js` exclude is ignored by CocoaPods, which reads `package.json`. `exclude-dev-client.js` writes that field on the runner before prebuild. Local `expo-modules-autolinking resolve` then omits the dev-client pods.
 - Run `38769715486` excluded those pods, built Release, and still captured the black Simulator window (`fbcb6a8c2222…`). `desktop-after-warmup.png` is the same black window. Console shows `evaluateJavaScript` and one `topLoad` drop (`UIManagerBinding.cpp` image `onLoad`, not a failed route). Linux `expo export --platform web` with `EXPO_PUBLIC_PARITY_PREVIEW=1` renders F1, including `[parity] preview-chat route`.
 - Root cause of the black window: `app.json` `UIApplicationSceneManifest` names `Atmos.SceneDelegate`. Expo's template never generates that class and draws into `AppDelegate.window`. The same manifest was removed in `221c22b69` and restored in `23b993825`. It is removed again. The workflow fails prebuild if `Info.plist` still names a scene delegate, and writes `ios/.xcode.env.local` so the bundle phase inlines the preview flag as `"1"`.
+- Run `38780693297` on head `f2b611c44`: `structural` passed. The Release build passed, so `main.jsbundle` contains `[parity] preview-chat route` and no scene delegate. Capture wrote distinct fixture PNGs (F1-light `dae7bb5e…`, F12-light `b560aee6…`) and then failed on `F4.mp4` (`afinfo` / 1.27s, 2 frames). Do not push a docs-only follow-up; this PR already touches the workflow paths, so another push starts another macOS job.
