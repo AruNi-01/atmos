@@ -1,4 +1,5 @@
 import { PARITY_FIXTURE_IDS } from "@atmos/agent-transcript";
+import { parityMotionKind } from "./parity-motion-fixtures";
 
 export const PARITY_THEMES = ["light", "dark"] as const;
 
@@ -60,7 +61,7 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
   const record = value as { id?: unknown; theme?: unknown };
   if (typeof record.id !== "string") return null;
   const id = record.id.trim();
-  if (!(PARITY_FIXTURE_IDS as readonly string[]).includes(id)) return null;
+  if (!(PARITY_FIXTURE_IDS as readonly string[]).includes(id) && !parityMotionKind(id)) return null;
   if (record.theme !== "light" && record.theme !== "dark") return null;
   return { id, theme: record.theme };
 }

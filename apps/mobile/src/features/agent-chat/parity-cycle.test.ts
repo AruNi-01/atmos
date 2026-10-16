@@ -84,6 +84,14 @@ describe("parity cycle", () => {
       theme: "light",
     });
     expect(parseParityDiskFrame('{"id":"F1","theme":"nope"}')).toBeNull();
+    expect(parseParityDiskFrame('{"id":"stream-tools","theme":"dark"}')).toEqual({
+      id: "stream-tools",
+      theme: "dark",
+    });
+    expect(parseParityDiskFrame('{"id":"settled-tools","theme":"light"}')).toEqual({
+      id: "settled-tools",
+      theme: "light",
+    });
     expect(parseParityDiskFrame('{"id":"nope","theme":"light"}')).toBeNull();
     expect(parseParityDiskFrame("")).toBeNull();
     expect(parseParityDiskFrame("{")).toBeNull();

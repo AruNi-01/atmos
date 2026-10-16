@@ -51,6 +51,12 @@ describe("web source parity", () => {
     expect(patch).toContain("kCodeBackgroundPadY = 2.0");
     expect(patch).toContain("ENRMColorIsVisible");
     expect(patch).toContain("kInlineCodePadX = 6.0");
+    expect(patch).toContain("Stop at that glyph");
+    expect(patch).toContain("finalRect.size.width += left;");
+    expect(patch).not.toContain("left + kCodeBackgroundPadX");
+    expect(patch).toContain("kENRMWebCopyGlyph = 14.0");
+    expect(patch).toContain("ENRMWebCopyGlyphImage");
+    expect(patch).toContain("UIImageRenderingModeAlwaysTemplate");
     expect(patch).toContain("language.uppercaseString");
     expect(patch).toContain("pointSize * 0.05");
     expect(patch).toContain("kENRMWebHeaderHeight = 36.0");

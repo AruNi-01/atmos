@@ -27,7 +27,7 @@ index 7bc14aed5225eac421b4f3fa2d28b4b07f355e47..cdd5db2195d485466dc66ca2c5834adc
  }
  
 diff --git a/ios/utils/CodeBackground.m b/ios/utils/CodeBackground.m
-index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..8b06983bb50aac7580a9780a54ac815d6aa81c14 100644
+index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..eb7db5dbb94a3ddda4074dce9f8a5aacf7d01b37 100644
 --- a/ios/utils/CodeBackground.m
 +++ b/ios/utils/CodeBackground.m
 @@ -4,8 +4,17 @@
@@ -49,21 +49,50 @@ index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..8b06983bb50aac7580a9780a54ac815d
  
  @implementation CodeBackground {
    StyleConfig *_config;
-@@ -100,6 +109,13 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
+@@ -100,6 +109,42 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
                                     finalRect.size.height = referenceHeight;
                                   }
  
 +                                 // Web inline code is `rounded px-1.5 py-0.5` (4px radius, 6/2 padding).
++                                 // The last glyph's kern already reserves the 6px right pad. Extending
++                                 // the chip past the next glyph leaves a blank tail. Stop at that glyph.
++                                 if (isLast) {
++                                   NSUInteger endChar = NSMaxRange(range);
++                                   NSTextStorage *storage = layoutManager.textStorage;
++                                   BOOL snapped = NO;
++                                   if (endChar < storage.length) {
++                                     NSUInteger lastGlyph =
++                                         [layoutManager glyphIndexForCharacterAtIndex:NSMaxRange(range) - 1];
++                                     NSUInteger endGlyph = [layoutManager glyphIndexForCharacterAtIndex:endChar];
++                                     NSRange lineGlyphs = NSMakeRange(0, 0);
++                                     [layoutManager lineFragmentRectForGlyphAtIndex:lastGlyph
++                                                                     effectiveRange:&lineGlyphs];
++                                     if (NSLocationInRange(endGlyph, lineGlyphs)) {
++                                       CGRect lineRect =
++                                           [layoutManager lineFragmentRectForGlyphAtIndex:endGlyph
++                                                                           effectiveRange:NULL];
++                                       CGPoint next = [layoutManager locationForGlyphAtIndex:endGlyph];
++                                       CGFloat nextX = lineRect.origin.x + next.x + origin.x;
++                                       CGFloat width = nextX - finalRect.origin.x;
++                                       if (width > 0) {
++                                         finalRect.size.width = width;
++                                         snapped = YES;
++                                       }
++                                     }
++                                   }
++                                   if (!snapped)
++                                     finalRect.size.width += kCodeBackgroundPadX;
++                                 }
 +                                 CGFloat left = MIN(kCodeBackgroundPadX, MAX(0, finalRect.origin.x));
 +                                 finalRect.origin.x -= left;
-+                                 finalRect.size.width += left + kCodeBackgroundPadX;
++                                 finalRect.size.width += left;
 +                                 finalRect.origin.y -= kCodeBackgroundPadY;
 +                                 finalRect.size.height += kCodeBackgroundPadY * 2;
 +
                                   [self drawBackgroundAndBorders:finalRect
                                                  backgroundColor:backgroundColor
                                                      borderColor:borderColor
-@@ -120,7 +136,7 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
+@@ -120,7 +165,7 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
    [backgroundColor setFill];
    [path fill];
  
@@ -98,10 +127,10 @@ index 585044157a9a4e5ed9ebf69d4891f7b5a48eb5b1..670dae208f28d7d6c4ec8b994edc2a9d
  
  void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange range, StyleConfig *config)
 diff --git a/ios/views/ENRMCodeBlockContainerView.m b/ios/views/ENRMCodeBlockContainerView.m
-index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497ecf6b0f43 100644
+index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f20c315db4 100644
 --- a/ios/views/ENRMCodeBlockContainerView.m
 +++ b/ios/views/ENRMCodeBlockContainerView.m
-@@ -20,25 +20,43 @@
+@@ -20,25 +20,89 @@
  // header metrics, so the reported height matches the drawn height. Since
  // lines never wrap, the height is independent of the available width.
  
@@ -111,9 +140,6 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
 -static const CGFloat kENRMHeaderIconScale = 0.72;
 -static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
 -static const CGFloat kENRMHeaderDividerAlpha = 0.2;
--
--// Height geometry and code-run construction shared by the instance layout path
--// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
 +// Web MarkdownCodeBlock (`code-block.tsx`): the header is `h-9` (36) with
 +// `px-2`, the language is `text-xs` (12) `tracking-wider`, and the code pane
 +// is `bg-background` with 12px padding. The frame wash stays
@@ -124,21 +150,69 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
 +static const CGFloat kENRMWebHeaderPadX = 8.0;
 +static const CGFloat kENRMWebCodePad = 12.0;
 +static const CGFloat kENRMWebHeaderFontSize = 12.0;
-+static const CGFloat kENRMWebCopyPointSize = 14.0;
-+
-+static RCTUIColor *ENRMWebHeaderLabelColor(BOOL dark)
++// Lucide `CopyIcon` default is `size={14}`: a 14px box, not an SF Symbol font size.
++static const CGFloat kENRMWebCopyGlyph = 14.0;
+ 
+-// Height geometry and code-run construction shared by the instance layout path
+-// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
++#if !TARGET_OS_OSX
++static UIImage *ENRMWebCopyGlyphImage(void)
 +{
++  UIImageSymbolConfiguration *symbolConfig =
++      [UIImageSymbolConfiguration configurationWithPointSize:kENRMWebCopyGlyph
++                                                      weight:UIImageSymbolWeightRegular];
++  UIImage *symbol = [UIImage systemImageNamed:@"doc.on.doc" withConfiguration:symbolConfig];
++  if (!symbol || symbol.size.width <= 0 || symbol.size.height <= 0)
++    return symbol;
++  CGFloat longest = MAX(symbol.size.width, symbol.size.height);
++  UIImage *image = symbol;
++  if (longest > kENRMWebCopyGlyph) {
++    CGFloat factor = kENRMWebCopyGlyph / longest;
++    CGSize target = CGSizeMake(symbol.size.width * factor, symbol.size.height * factor);
++    UIGraphicsBeginImageContextWithOptions(target, NO, 0);
++    [symbol drawInRect:CGRectMake(0, 0, target.width, target.height)];
++    image = UIGraphicsGetImageFromCurrentImageContext() ?: symbol;
++    UIGraphicsEndImageContext();
++  }
++  return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
++}
++#else
++static NSImage *ENRMWebCopyGlyphImage(void)
++{
++  NSImageSymbolConfiguration *symbolConfig =
++      [NSImageSymbolConfiguration configurationWithPointSize:kENRMWebCopyGlyph weight:NSFontWeightRegular];
++  NSImage *symbol = [[NSImage imageWithSystemSymbolName:@"doc.on.doc" accessibilityDescription:nil]
++      imageWithSymbolConfiguration:symbolConfig];
++  if (!symbol || symbol.size.width <= 0 || symbol.size.height <= 0)
++    return symbol;
++  CGFloat longest = MAX(symbol.size.width, symbol.size.height);
++  NSImage *image = symbol;
++  if (longest > kENRMWebCopyGlyph) {
++    CGFloat factor = kENRMWebCopyGlyph / longest;
++    NSSize target = NSMakeSize(symbol.size.width * factor, symbol.size.height * factor);
++    image = [[NSImage alloc] initWithSize:target];
++    [image lockFocus];
++    [symbol drawInRect:NSMakeRect(0, 0, target.width, target.height)];
++    [image unlockFocus];
++  }
++  [image setTemplate:YES];
++  return image;
++}
++#endif
+ 
+-static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
++static RCTUIColor *ENRMWebHeaderLabelColor(BOOL dark)
+ {
+-  return [config codeBlockPadding] + [config codeBlockBorderWidth];
 +  // text-neutral-600 / dark:text-neutral-400
 +  if (dark) {
 +    return [RCTUIColor colorWithRed:(0xA3 / 255.0) green:(0xA3 / 255.0) blue:(0xA3 / 255.0) alpha:1];
 +  }
 +  return [RCTUIColor colorWithRed:(0x52 / 255.0) green:(0x52 / 255.0) blue:(0x5B / 255.0) alpha:1];
 +}
- 
--static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
++
 +static RCTUIColor *ENRMWebCodePaneColor(BOOL dark)
- {
--  return [config codeBlockPadding] + [config codeBlockBorderWidth];
++{
 +  if (dark) {
 +    return [RCTUIColor colorWithRed:0 green:0 blue:0 alpha:1];
 +  }
@@ -157,7 +231,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
-@@ -48,7 +66,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
+@@ -48,7 +112,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
  #else
  static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
  {
@@ -167,27 +241,30 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
-@@ -218,22 +237,23 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -217,23 +282,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+     [self addInteraction:contextMenu];
  
      _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
-     UIImageSymbolConfiguration *symbolConfig =
+-    UIImageSymbolConfiguration *symbolConfig =
 -        [UIImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
-+        [UIImageSymbolConfiguration configurationWithPointSize:kENRMWebCopyPointSize
-                                                         weight:UIImageSymbolWeightRegular];
-     [_copyButton setImage:[UIImage systemImageNamed:@"doc.on.doc" withConfiguration:symbolConfig]
-                  forState:UIControlStateNormal];
+-                                                        weight:UIImageSymbolWeightRegular];
+-    [_copyButton setImage:[UIImage systemImageNamed:@"doc.on.doc" withConfiguration:symbolConfig]
+-                 forState:UIControlStateNormal];
 -    _copyButton.tintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
++    [_copyButton setImage:ENRMWebCopyGlyphImage() forState:UIControlStateNormal];
 +    _copyButton.tintColor = ENRMWebHeaderLabelColor(ENRMColorIsDark([config codeBlockBackgroundColor]));
      [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
      [self addSubview:_copyButton];
  #else
-     NSImageSymbolConfiguration *symbolConfig =
+-    NSImageSymbolConfiguration *symbolConfig =
 -        [NSImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
-+        [NSImageSymbolConfiguration configurationWithPointSize:kENRMWebCopyPointSize
-                                                         weight:NSFontWeightRegular];
-     NSImage *copyImage = [[NSImage imageWithSystemSymbolName:@"doc.on.doc"
-                                     accessibilityDescription:nil] imageWithSymbolConfiguration:symbolConfig];
-     _copyButton = [NSButton buttonWithImage:copyImage target:self action:@selector(copyCodeToPasteboard)];
+-                                                        weight:NSFontWeightRegular];
+-    NSImage *copyImage = [[NSImage imageWithSystemSymbolName:@"doc.on.doc"
+-                                    accessibilityDescription:nil] imageWithSymbolConfiguration:symbolConfig];
+-    _copyButton = [NSButton buttonWithImage:copyImage target:self action:@selector(copyCodeToPasteboard)];
++    _copyButton = [NSButton buttonWithImage:ENRMWebCopyGlyphImage()
++                                    target:self
++                                    action:@selector(copyCodeToPasteboard)];
      _copyButton.bordered = NO;
 -    _copyButton.contentTintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
 +    _copyButton.contentTintColor =
@@ -195,7 +272,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
      [self addSubview:_copyButton];
  #endif
    }
-@@ -274,14 +294,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -274,14 +333,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  {
    CGFloat borderW = ceil([_config codeBlockBorderWidth]);
    CGFloat headerH = [self headerHeight];
@@ -212,7 +289,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
    _codeContentView.frame = CGRectMake(0, 0, contentWidth, frame.size.height);
  #if !TARGET_OS_OSX
    _scrollView.contentSize = CGSizeMake(contentWidth, frame.size.height);
-@@ -289,25 +307,19 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -289,25 +346,19 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  #endif
  }
  
@@ -237,14 +314,14 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
 -  CGFloat labelCenterY = headerH - _headerLabelLineHeight / 2;
 -  CGFloat buttonTop = MAX(labelCenterY - headerH / 2, 0);
 -  _copyButton.frame = CGRectMake(buttonLeft, buttonTop, headerH, headerH);
-+  CGFloat buttonSize = 28;
++  CGFloat buttonSize = kENRMWebCopyGlyph;
 +  CGFloat buttonLeft = MAX(self.bounds.size.width - kENRMWebHeaderPadX - buttonSize, 0);
 +  CGFloat buttonTop = (headerH - buttonSize) / 2;
 +  _copyButton.frame = CGRectMake(buttonLeft, buttonTop, buttonSize, buttonSize);
  }
  
  #if !TARGET_OS_OSX
-@@ -385,7 +397,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -385,7 +436,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    }
    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
    labelAttributes[NSFontAttributeName] = _headerFont;
@@ -255,7 +332,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
    if (labelColor) {
      labelAttributes[NSForegroundColorAttributeName] = labelColor;
    }
-@@ -398,23 +412,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -398,23 +451,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
  }
  
@@ -281,7 +358,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
  }
  
  - (void)drawRect:(CGRect)rect
-@@ -434,6 +440,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -434,6 +479,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [backgroundColor setFill];
      [path fill];
    }
@@ -304,7 +381,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497e
    if (borderWidth > 0) {
      RCTUIColor *borderColor = [_config codeBlockBorderColor];
      if (borderColor) {
-@@ -443,24 +465,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -443,24 +504,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      }
    }
  

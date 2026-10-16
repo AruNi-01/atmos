@@ -27,8 +27,33 @@ import {
 } from "./parity-cycle";
 import { readParityDiskFrame } from "./read-parity-disk-frame";
 import { resolvedPillRowHeight } from "./transcript-pad";
+import { agentChatProcessExpandKey, useAgentChatExpandStore } from "./expand-store";
+import {
+  PARITY_MOTION_ROW_MS,
+  PARITY_SETTLED_ASSISTANT_ID,
+  parityMotionKind,
+  paritySettledToolMessages,
+  parityStreamToolMessages,
+} from "./parity-motion-fixtures";
 
 const NO_FAVORITES: FavoriteModel[] = [];
+
+function useParityStreamMessages(active: boolean): AgentMessage[] {
+  const [step, setStep] = useState(0);
+  const [armed, setArmed] = useState(active);
+  if (armed !== active) {
+    setArmed(active);
+    setStep(0);
+  }
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => {
+      setStep((current) => current + 1);
+    }, PARITY_MOTION_ROW_MS);
+    return () => clearInterval(timer);
+  }, [active]);
+  return useMemo(() => parityStreamToolMessages(step), [step]);
+}
 
 function param(value: string | string[] | undefined): string {
   const first = Array.isArray(value) ? value[0] : value;
@@ -86,11 +111,26 @@ export function PreviewChatScreen() {
     armParityClock(frames.length);
   }, [frame, frames.length, index, pinned, preference]);
 
-  const fixture = parityFixtureById(frame.id);
+  const motion = parityMotionKind(frame.id);
+  const streamMessages = useParityStreamMessages(motion === "stream");
+  const fixture = motion ? null : parityFixtureById(frame.id);
   const cards = composerCardsFromParity(fixture?.cards);
+
+  useLayoutEffect(() => {
+    if (motion !== "settled") return;
+    const store = useAgentChatExpandStore.getState();
+    store.reset();
+    store.setExpand(agentChatProcessExpandKey(PARITY_SETTLED_ASSISTANT_ID), true);
+  }, [motion]);
   const laneKey = `${frame.id}:${frame.theme}`;
   const lane = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
-  const messages = (fixture?.messages ?? []) as AgentMessage[];
+  const messages = (
+    motion === "stream"
+      ? streamMessages
+      : motion === "settled"
+        ? paritySettledToolMessages()
+        : (fixture?.messages ?? [])
+  ) as AgentMessage[];
   const pills = cards.available.map((id) => ({
     id,
     title: cardPillTitle(id, {
@@ -130,7 +170,7 @@ export function PreviewChatScreen() {
   return (
     <View style={{ backgroundColor, flex: 1, paddingTop: insets.top }} testID="parity-ready">
       <View style={{ flex: 1 }}>
-        {fixture ? (
+        {fixture || motion ? (
           <AgentChatTranscript
             key={laneKey}
             expandedCardHeight={lane.visible ? cardHeight : 0}
