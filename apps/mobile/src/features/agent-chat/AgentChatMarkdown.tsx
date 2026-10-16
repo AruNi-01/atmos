@@ -3,7 +3,7 @@ import { Linking } from "react-native";
 import { StreamdownText } from "react-native-streamdown";
 import type { MarkdownStyle } from "react-native-enriched-markdown";
 import { useMobileTheme } from "@/theme/theme-store";
-import { agentChatMarkdownChrome } from "./markdown-chrome";
+import { agentChatHeadingStyle, agentChatMarkdownChrome } from "./markdown-chrome";
 
 function openHttpLink(url: string) {
   if (url.startsWith("https://") || url.startsWith("http://")) {
@@ -28,17 +28,12 @@ export function AgentChatMarkdown({
     const proseColor = tone === "thinking" ? theme.colors.secondaryLabel : theme.colors.label;
     const resolvedFontSize = fontSize ?? (tone === "thinking" ? 15 : 16);
     const resolvedLineHeight = lineHeight ?? (tone === "thinking" ? 21 : 22);
-    const heading = { color: proseColor, lineHeight: resolvedLineHeight };
+    const headings = agentChatHeadingStyle(proseColor);
     const chrome = agentChatMarkdownChrome(theme.isDark);
 
     return {
       paragraph: { color: proseColor, fontSize: resolvedFontSize, lineHeight: resolvedLineHeight },
-      h1: heading,
-      h2: heading,
-      h3: heading,
-      h4: heading,
-      h5: heading,
-      h6: heading,
+      ...headings,
       blockquote: {
         backgroundColor: theme.colors.cardSubtle,
         borderColor: theme.colors.glassBorder,
