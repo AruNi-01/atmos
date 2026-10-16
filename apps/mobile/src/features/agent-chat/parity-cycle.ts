@@ -77,7 +77,20 @@ export type ParityClock = {
   claim: (token: string) => boolean;
   /** One hold for the process. A second mounted preview must not start its own. */
   arm: (frameCount: number) => boolean;
+  /** Latest focused preview. An earlier route must not scroll or log the tail. */
+  takeOwner: () => number;
+  owner: () => number;
+  /** Cached. `useSyncExternalStore` relies on the same reference until the owner changes. */
+  tailSnapshot: () => TailOwnerSnapshot;
+  bindMount: (mountId: string, generation: number) => void;
+  subscribeOwner: (listener: () => void) => () => void;
+  releaseOwner: (generation: number) => void;
   reset: () => void;
+};
+
+export type TailOwnerSnapshot = {
+  owner: number;
+  byMount: Readonly<Record<string, number>>;
 };
 
 /**
@@ -94,7 +107,18 @@ export function createParityClock(
   let index = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let claimed = "";
+  let nextOwner = 0;
+  let mounts: Record<string, number> = {};
+  let tailSnapshot: TailOwnerSnapshot = { owner: 0, byMount: mounts };
+  const ownerStack: number[] = [];
   const listeners = new Set<(index: number) => void>();
+  const ownerListeners = new Set<() => void>();
+
+  const currentOwner = () => ownerStack.at(-1) ?? 0;
+  const publishOwner = () => {
+    tailSnapshot = { owner: currentOwner(), byMount: mounts };
+    for (const listener of ownerListeners) listener();
+  };
 
   return {
     index: () => index,
@@ -107,6 +131,36 @@ export function createParityClock(
       if (claimed === token) return false;
       claimed = token;
       return true;
+    },
+    takeOwner() {
+      nextOwner += 1;
+      ownerStack.push(nextOwner);
+      publishOwner();
+      return nextOwner;
+    },
+    owner: currentOwner,
+    tailSnapshot: () => tailSnapshot,
+    bindMount(mountId, generation) {
+      if (generation === 0) {
+        if (mounts[mountId] == null) return;
+        const next = { ...mounts };
+        delete next[mountId];
+        mounts = next;
+      } else {
+        mounts = { ...mounts, [mountId]: generation };
+      }
+      publishOwner();
+    },
+    subscribeOwner(listener) {
+      ownerListeners.add(listener);
+      return () => ownerListeners.delete(listener);
+    },
+    releaseOwner(generation) {
+      const indexInStack = ownerStack.lastIndexOf(generation);
+      if (indexInStack < 0) return;
+      const previous = currentOwner();
+      ownerStack.splice(indexInStack, 1);
+      if (currentOwner() !== previous) publishOwner();
     },
     arm(frameCount) {
       if (timer != null || index >= frameCount - 1) return false;
@@ -130,7 +184,12 @@ export function createParityClock(
       timer = null;
       index = 0;
       claimed = "";
+      nextOwner = 0;
+      ownerStack.length = 0;
+      mounts = {};
+      tailSnapshot = { owner: 0, byMount: mounts };
       listeners.clear();
+      ownerListeners.clear();
     },
   };
 }
@@ -151,4 +210,41 @@ export function claimParityReady(token: string): boolean {
 
 export function armParityClock(frameCount: number): boolean {
   return parityClock.arm(frameCount);
+}
+
+export function takeParityOwner(): number {
+  return parityClock.takeOwner();
+}
+
+export function parityOwner(): number {
+  return parityClock.owner();
+}
+
+export function parityTailSnapshot(): TailOwnerSnapshot {
+  return parityClock.tailSnapshot();
+}
+
+export function bindParityTailMount(mountId: string, generation: number): void {
+  parityClock.bindMount(mountId, generation);
+}
+
+export function parityOwnerIs(generation: number): boolean {
+  return generation !== 0 && parityClock.owner() === generation;
+}
+
+/** The focused mount whose generation is the current owner may scroll and log. */
+export function parityTailOwned(
+  focused: boolean,
+  mountId: string,
+  snapshot: TailOwnerSnapshot,
+): boolean {
+  return focused && snapshot.owner !== 0 && snapshot.byMount[mountId] === snapshot.owner;
+}
+
+export function subscribeParityOwner(listener: () => void): () => void {
+  return parityClock.subscribeOwner(listener);
+}
+
+export function releaseParityOwner(generation: number): void {
+  parityClock.releaseOwner(generation);
 }

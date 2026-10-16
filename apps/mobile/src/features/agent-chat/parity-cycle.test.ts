@@ -9,6 +9,7 @@ import {
   parityCycleFrames,
   parityPinnedFrame,
   parityReadyLine,
+  parityTailOwned,
 } from "./parity-cycle";
 
 describe("parity cycle", () => {
@@ -63,6 +64,61 @@ describe("parity cycle", () => {
     clock.reset();
     expect(clock.index()).toBe(0);
     expect(clock.arm(1)).toBe(false);
+  });
+
+  test("the latest preview owns the tail until it releases", () => {
+    const clock = createParityClock(
+      30_000,
+      () => 1 as unknown as ReturnType<typeof setTimeout>,
+      () => undefined,
+      () => 0,
+    );
+    const seen: number[] = [];
+    clock.subscribeOwner(() => seen.push(clock.owner()));
+    const first = clock.takeOwner();
+    const second = clock.takeOwner();
+    expect(first).toBe(1);
+    expect(second).toBe(2);
+    expect(clock.owner()).toBe(second);
+    expect(seen).toEqual([1, 2]);
+    clock.releaseOwner(first);
+    expect(clock.owner()).toBe(second);
+    expect(seen).toEqual([1, 2]);
+    clock.releaseOwner(second);
+    expect(clock.owner()).toBe(0);
+    expect(seen).toEqual([1, 2, 0]);
+    clock.releaseOwner(second);
+    expect(seen).toEqual([1, 2, 0]);
+
+    const earlier = clock.takeOwner();
+    const later = clock.takeOwner();
+    const beforeBind = clock.tailSnapshot();
+    clock.bindMount("earlier", earlier);
+    clock.bindMount("later", later);
+    expect(clock.tailSnapshot()).not.toBe(beforeBind);
+    expect(clock.tailSnapshot()).toEqual({
+      owner: later,
+      byMount: { earlier, later },
+    });
+    expect(clock.tailSnapshot()).toBe(clock.tailSnapshot());
+    clock.releaseOwner(later);
+    expect(clock.owner()).toBe(earlier);
+    expect(clock.tailSnapshot().byMount).toEqual({ earlier, later });
+    clock.bindMount("later", 0);
+    expect(clock.tailSnapshot()).toEqual({ owner: earlier, byMount: { earlier } });
+    clock.bindMount("later", 0);
+    expect(clock.tailSnapshot().byMount).toEqual({ earlier });
+    clock.reset();
+    expect(clock.owner()).toBe(0);
+    expect(clock.tailSnapshot()).toEqual({ owner: 0, byMount: {} });
+    expect(clock.takeOwner()).toBe(1);
+    const visible = clock.takeOwner();
+    clock.bindMount("covered", 1);
+    clock.bindMount("visible", visible);
+    const snapshot = clock.tailSnapshot();
+    expect(parityTailOwned(true, "visible", snapshot)).toBe(true);
+    expect(parityTailOwned(true, "covered", snapshot)).toBe(false);
+    expect(parityTailOwned(false, "visible", snapshot)).toBe(false);
   });
 
   test("pins a query fixture and defaults a missing theme to light", () => {

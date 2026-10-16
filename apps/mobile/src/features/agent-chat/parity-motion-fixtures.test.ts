@@ -122,6 +122,15 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain("revealMessage");
     expect(preview).toContain('scrollParam === "away" || pinned?.scroll === "away"');
     expect(preview).toContain("parityTailLine");
+    expect(preview).toContain("useIsFocused");
+    expect(preview).toContain("useSyncExternalStore");
+    expect(preview).toContain("takeParityOwner");
+    expect(preview).toContain("bindParityTailMount");
+    expect(preview).toContain("releaseParityOwner");
+    expect(preview).toContain("if (!scrollAway || !ownsTail) return");
+    expect(preview).toContain("if (!liveTail || !ownsTail) return");
+    expect(preview).toContain("parityOwnerIs");
+    expect(preview).toContain("parityTailOwned");
     expect(preview).not.toContain("belowCount={0}");
 
     const marker = fixture.messages.find((message) => message.id === PARITY_TAIL_MARKER_ID);

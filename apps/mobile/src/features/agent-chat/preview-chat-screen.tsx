@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useIsFocused, useLocalSearchParams } from "expo-router";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { parityFixtureById } from "@/features/agent-chat/parity-tree";
 import { useThemeStore } from "@/theme/theme-store";
@@ -17,12 +26,19 @@ import { buildComposerPicker, type FavoriteModel } from "./model-picker";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
 import {
   armParityClock,
+  bindParityTailMount,
   claimParityReady,
   parityClockIndex,
   parityCycleFrames,
+  parityOwnerIs,
   parityPinnedFrame,
   parityReadyLine,
+  parityTailOwned,
+  parityTailSnapshot,
+  releaseParityOwner,
   subscribeParityClock,
+  subscribeParityOwner,
+  takeParityOwner,
   type ParityFrame,
 } from "./parity-cycle";
 import { readParityDiskFrame } from "./read-parity-disk-frame";
@@ -105,6 +121,13 @@ export function PreviewChatScreen() {
   const [pillHeight, setPillHeight] = useState(0);
   const [text, setText] = useState("");
   const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
+  const tailMountId = useId();
+  const tailOwner = useSyncExternalStore(
+    subscribeParityOwner,
+    parityTailSnapshot,
+    parityTailSnapshot,
+  );
+  const focused = useIsFocused();
   const [stick, setStick] = useState({ belowCount: 0, stickToEnd: true });
   const stickTopRef = useRef(0);
   const stickEndRef = useRef(0);
@@ -165,18 +188,34 @@ export function PreviewChatScreen() {
   const lane = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
   const liveTail = motion === "tail";
   const scrollAway = liveTail && (scrollParam === "away" || pinned?.scroll === "away");
+  const ownsTail = parityTailOwned(focused, tailMountId, tailOwner);
+  useLayoutEffect(() => {
+    if (!focused || !liveTail) return;
+    const generation = takeParityOwner();
+    bindParityTailMount(tailMountId, generation);
+    console.error(`[parity] tail owner ${generation}`);
+    return () => {
+      bindParityTailMount(tailMountId, 0);
+      releaseParityOwner(generation);
+    };
+  }, [focused, liveTail, tailMountId]);
   useEffect(() => {
-    if (!scrollAway) return;
+    if (!scrollAway || !ownsTail) return;
+    const generation = tailOwner.owner;
     const started = Date.now();
-    const timer = setInterval(() => {
+    const reveal = () => {
+      if (!parityOwnerIs(generation)) return;
       transcriptRef.current?.revealMessage(PARITY_TAIL_MARKER_ID);
+    };
+    const timer = setInterval(() => {
+      reveal();
       if (Date.now() - started >= 2000) clearInterval(timer);
     }, 250);
-    transcriptRef.current?.revealMessage(PARITY_TAIL_MARKER_ID);
+    reveal();
     return () => clearInterval(timer);
-  }, [scrollAway]);
+  }, [ownsTail, scrollAway, tailOwner.owner]);
   useEffect(() => {
-    if (!liveTail) return;
+    if (!liveTail || !ownsTail) return;
     const marker = transcriptRef.current?.measureMessage(PARITY_TAIL_MARKER_ID);
     console.error(
       parityTailLine({
@@ -189,7 +228,7 @@ export function PreviewChatScreen() {
         view: stickViewRef.current,
       }),
     );
-  }, [liveTail, stick.belowCount, stick.stickToEnd, tailStep]);
+  }, [liveTail, ownsTail, stick.belowCount, stick.stickToEnd, tailStep]);
   const messages = (
     motion === "stream"
       ? streamMessages
