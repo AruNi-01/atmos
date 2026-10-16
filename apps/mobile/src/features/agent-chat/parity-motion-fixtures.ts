@@ -13,33 +13,36 @@ export const PARITY_SETTLED_ASSISTANT_ID = "settled-tools-a";
 
 export type ParityTailSample = {
   below: number;
+  end: number;
   stick: boolean;
   step: number;
   top: number;
 };
 
 export function parityTailLine(sample: ParityTailSample): string {
-  return `[parity] tail below=${sample.below} stick=${sample.stick ? 1 : 0} step=${sample.step} top=${Math.round(sample.top)}`;
+  return `[parity] tail below=${sample.below} stick=${sample.stick ? 1 : 0} step=${sample.step} top=${Math.round(sample.top)} end=${Math.round(sample.end)}`;
 }
 
 export function parityTailSamples(log: string): ParityTailSample[] {
   const samples: ParityTailSample[] = [];
-  const pattern = /\[parity\] tail below=(\d+) stick=([01]) step=(\d+) top=(-?\d+)/g;
+  const pattern = /\[parity\] tail below=(\d+) stick=([01]) step=(\d+) top=(-?\d+) end=(-?\d+)/g;
   for (const match of log.matchAll(pattern)) {
     samples.push({
       below: Number(match[1]),
       stick: match[2] === "1",
       step: Number(match[3]),
       top: Number(match[4]),
+      end: Number(match[5]),
     });
   }
   return samples;
 }
 
 /**
- * True when a later unstuck step has a larger below count and the list
- * offset is still within 2 px. Samples taken while the scroll is moving
- * are ignored as long as one settled pair exists.
+ * True when a later unstuck step is still more than 24 px from the end,
+ * has a larger below count, and the list offset is within 2 px.
+ * Samples taken while the scroll is moving are ignored as long as one
+ * settled pair exists.
  */
 export function parityTailReadingHeld(samples: readonly ParityTailSample[]): boolean {
   const byStep = new Map<number, ParityTailSample>();
@@ -53,7 +56,14 @@ export function parityTailReadingHeld(samples: readonly ParityTailSample[]): boo
     for (let j = i + 1; j < steps.length; j += 1) {
       const next = byStep.get(steps[j] ?? -1);
       if (!next) continue;
-      if (next.below > start.below && Math.abs(next.top - start.top) <= 2) return true;
+      if (
+        next.below > start.below &&
+        start.end > 24 &&
+        next.end > 24 &&
+        Math.abs(next.top - start.top) <= 2
+      ) {
+        return true;
+      }
     }
   }
   return false;

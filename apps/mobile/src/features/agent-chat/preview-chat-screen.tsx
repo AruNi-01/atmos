@@ -107,9 +107,16 @@ export function PreviewChatScreen() {
   const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
   const [stick, setStick] = useState({ belowCount: 0, stickToEnd: true });
   const stickTopRef = useRef(0);
+  const stickEndRef = useRef(0);
   const onStickChange = useCallback(
-    (next: { belowCount: number; stickToEnd: boolean; scrollTop?: number }) => {
+    (next: {
+      belowCount: number;
+      distanceFromEnd?: number;
+      stickToEnd: boolean;
+      scrollTop?: number;
+    }) => {
       if (typeof next.scrollTop === "number") stickTopRef.current = next.scrollTop;
+      if (typeof next.distanceFromEnd === "number") stickEndRef.current = next.distanceFromEnd;
       setStick((current) =>
         current.belowCount === next.belowCount && current.stickToEnd === next.stickToEnd
           ? current
@@ -156,10 +163,21 @@ export function PreviewChatScreen() {
   const liveTail = motion === "tail";
   const scrollAway = liveTail && (scrollParam === "away" || pinned?.scroll === "away");
   useEffect(() => {
+    if (!scrollAway) return;
+    const started = Date.now();
+    const timer = setInterval(() => {
+      transcriptRef.current?.revealMessage(PARITY_TAIL_MARKER_ID);
+      if (Date.now() - started >= 2000) clearInterval(timer);
+    }, 250);
+    transcriptRef.current?.revealMessage(PARITY_TAIL_MARKER_ID);
+    return () => clearInterval(timer);
+  }, [scrollAway]);
+  useEffect(() => {
     if (!liveTail) return;
     console.error(
       parityTailLine({
         below: stick.belowCount,
+        end: stickEndRef.current,
         stick: stick.stickToEnd,
         step: tailStep,
         top: stickTopRef.current,
@@ -219,7 +237,6 @@ export function PreviewChatScreen() {
             key={laneKey}
             ref={transcriptRef}
             expandedCardHeight={lane.visible ? cardHeight : 0}
-            focusMessageId={scrollAway ? PARITY_TAIL_MARKER_ID : null}
             messages={messages}
             onStickChange={liveTail ? onStickChange : undefined}
             pillRowHeight={pillRowHeight}

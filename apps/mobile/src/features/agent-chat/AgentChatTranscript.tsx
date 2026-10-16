@@ -80,11 +80,13 @@ import {
 import { UserMessage } from "./user-message";
 
 export type AgentChatTranscriptHandle = {
+  revealMessage: (id: string) => void;
   scrollToEndAnimated: () => void;
 };
 
 type TranscriptStick = {
   belowCount: number;
+  distanceFromEnd: number;
   stickToEnd: boolean;
   scrollTop: number;
 };
@@ -387,7 +389,8 @@ export const AgentChatTranscript = forwardRef<
   const scrolledFocusRef = useRef<string | null>(null);
   const measurementsRef = useRef<Array<TranscriptMeasurement | undefined>>([]);
   const rowCountRef = useRef(0);
-  const viewRef = useRef({ height: 0, scrollTop: 0 });
+  const viewRef = useRef({ distance: 0, height: 0, scrollTop: 0 });
+  const rowsRef = useRef<AgentMessage[]>([]);
   const onStickChangeRef = useRef(onStickChange);
   const [stickToEnd, setStickToEnd] = useState(initialStickState.stickToEnd);
   const [topFade, setTopFade] = useState(false);
@@ -400,6 +403,7 @@ export const AgentChatTranscript = forwardRef<
   const emitStick = useCallback((belowCount: number) => {
     onStickChangeRef.current?.({
       belowCount,
+      distanceFromEnd: viewRef.current.distance,
       stickToEnd: stickRef.current.stickToEnd,
       scrollTop: viewRef.current.scrollTop,
     });
@@ -451,6 +455,17 @@ export const AgentChatTranscript = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
+      revealMessage(id: string) {
+        const index = rowsRef.current.findIndex((message) => message.id === id);
+        if (index < 0) return;
+        userDraggedRef.current = false;
+        applyStick({
+          type: "scroll",
+          distance: TRANSCRIPT_END_SLACK_PX + 1,
+          userDragged: true,
+        });
+        listRef.current?.scrollToIndex({ animated: false, index, viewPosition: 0 });
+      },
       scrollToEndAnimated() {
         userDraggedRef.current = false;
         applyStick({ type: "scroll", distance: 0, userDragged: false });
@@ -464,13 +479,14 @@ export const AgentChatTranscript = forwardRef<
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const native = event.nativeEvent;
       viewRef.current = {
+        distance: distanceFromEnd(native),
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
       syncTopFade(native.contentOffset.y);
       applyStick({
         type: "scroll",
-        distance: distanceFromEnd(native),
+        distance: viewRef.current.distance,
         userDragged: userDraggedRef.current,
       });
       publishBelow();
@@ -488,13 +504,14 @@ export const AgentChatTranscript = forwardRef<
       const velocity = native.velocity?.y;
       if (velocity != null && Math.abs(velocity) >= 0.05) return;
       viewRef.current = {
+        distance: distanceFromEnd(native),
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
       syncTopFade(native.contentOffset.y);
       applyStick({
         type: "scroll",
-        distance: distanceFromEnd(native),
+        distance: viewRef.current.distance,
         userDragged: userDraggedRef.current,
       });
       userDraggedRef.current = false;
@@ -507,6 +524,7 @@ export const AgentChatTranscript = forwardRef<
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const native = event.nativeEvent;
       viewRef.current = {
+        distance: distanceFromEnd(native),
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
@@ -562,6 +580,7 @@ export const AgentChatTranscript = forwardRef<
 
   useLayoutEffect(() => {
     onStickChangeRef.current = onStickChange;
+    rowsRef.current = rows;
     rowCountRef.current = rows.length;
     if (measurementsRef.current.length > rows.length) {
       measurementsRef.current.length = rows.length;
