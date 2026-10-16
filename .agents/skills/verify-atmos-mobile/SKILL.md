@@ -7,7 +7,7 @@ description: Verify the Atmos Expo mobile app (apps/mobile, iOS/Android, bundle 
 
 ## Read first
 
-The e2e skill (`.agents/skills/e2e/SKILL.md`, or `npx e2e guide <topic>`) is the reference. This skill drives `apps/mobile/e2e/e2e.config.ts`, tests glob `apps/mobile/e2e/tests/**/*.e2e.ts`. All commands below run from `apps/mobile/e2e/` (its own npm package, not a bun workspace; web Playwright lives in the root `e2e/` and is unrelated).
+The e2e skill (`.agents/skills/e2e/SKILL.md`, or `npx e2e guide <topic>`) is the reference. This skill drives `apps/mobile/e2e/e2e.config.ts`, tests glob `apps/mobile/e2e/tests/**/*.e2e.ts`. `just mobile-e2e-*` recipes wrap everything below; npx commands run from `apps/mobile/e2e/` (its own Bun package, not a bun workspace; web Playwright lives in the root `e2e/` and is unrelated).
 
 ## Launch
 
@@ -15,7 +15,7 @@ The config has no `app.command`: the engine opens the app already installed on t
 
 1. Node.js >= 22.22 (e2e needs `module.registerHooks`). macOS + Xcode + a booted iOS Simulator (deploymentTarget 16.4) for `ios`; an Android emulator for `android`. agent-device comes with `@e2e-dev/mobile`.
 2. Build and install the app once: `cd apps/mobile && bun install && bun run ios` (or `bun run android`). The app uses native modules and expo-dev-client, so Expo Go is not enough. A dev build needs Metro running (`bun run start`); a Release build does not.
-3. `cd apps/mobile/e2e && npm install`.
+3. `just mobile-e2e-install-deps` (bun). `just mobile-e2e-build` builds a Release app for the pinned Simulator and installs it (`ATMOS_E2E_NO_INSTALL=1` to only build). `just mobile-e2e-doctor` checks the setup read-only. The Simulator is pinned by UDID (`ATMOS_E2E_DEVICE`, default iPhone 17 Pro iOS 26.5), so several booted Simulators do not cause `AMBIGUOUS_MATCH`.
 
 Readiness: the app shows either the pair screen ("Pair this phone with your Computer.") or the workspace list.
 
@@ -46,6 +46,8 @@ Proof standards: drive the real user path (pair screen, list tap, composer, head
 ## Bug bash
 
 Topic `bug-bash`. Charters come from `features/*.md`. Bug-bash config: copy `e2e.config.ts` to `e2e.bugbash.config.ts` (untracked) keeping `workers: 1` — there is one simulator and one paired app, never drive it from two runs at once. Add `.e2e/bugbash/` output under the already-ignored `.e2e/`. A finding is a bug only once `tests/bugbash/<slug>.e2e.ts` fails with `ASSERTION_FAILED`.
+
+Share proof with a cloud agent: `just mobile-e2e-evidence <pr> "<note>"` pushes screenshot, a11y tree and report to branch `agent-artifacts` at `pr-<N>/<sha>/`. Hand the branch over with a `HANDOFF:` PR comment. Rules: `specs/APP/QUALITY-009_mobile-agent-e2e/TECH.md`.
 
 ## Cleanup
 
