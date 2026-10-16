@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38837550765` logged F1–F8 light on a 90s cadence and never logged F9. CI capture now relaunches once per fixture from `Documents/parity-frame.json`. That pin is not in the `38837550765` artifact. S27 is partial. S28 ran. S31 stays `not_run`.
+- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38843429024` relaunched once per fixture and passed the hash gate, but `F1-light` and `F11-dark` are empty backgrounds. The capture script now retakes a shot that is at least 95% one color. That retry is not in the `38843429024` artifact. S27 is partial. S28 ran. S31 stays `not_run`.
 
 ## Snapshot
 
@@ -95,7 +95,7 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S10 and S30 stay `not_run`. Recordings last 8s and each file's frames are identical, so motion is not shown.
-- [ ] The iOS fixture matrix is not proven. Run `38807875046` died on the dark theme flip. Run `38816093468` logged all 26 frames, then duplicate PNGs. Run `38823255381` stopped before `F7 light`. Run `38831101582` stopped before `F2 light`. Run `38837550765` stopped before `F9 light`. The per-launch Documents pin is the follow-up and is not in that artifact.
+- [ ] The iOS fixture matrix is not proven. Run `38843429024` wrote 26 distinct PNGs and the permission card is visible on `F12-light`, but `F1-light` and `F11-dark` are empty backgrounds. The flat-screenshot retry is the follow-up and is not in that artifact.
 - [ ] S31 stays `not_run`. Next.js screenshots were not produced.
 
 ## Handoff Notes
@@ -144,8 +144,8 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 
 ### Next steps
 
-1. Watch the iOS run started by the per-launch pin. Do not cancel `38803926761`, `38807875046`, `38816093468`, `38823255381`, `38831101582`, or `38837550765`.
-2. Do not mark the iOS fixture matrix pass until that artifact has 26 distinct phone PNGs through `F13-dark`, `default-route.png` is the F1 light pin, and each launch logged only its own `#0` ready line.
+1. Watch the iOS run started by the flat-screenshot retry. Do not cancel `38803926761`, `38807875046`, `38816093468`, `38823255381`, `38831101582`, `38837550765`, or `38843429024`.
+2. Do not mark the iOS fixture matrix pass until `F1-light` shows the release notes and `F11-dark` shows the permission card, in addition to 26 distinct hashes.
 3. S10 and S30 stay `not_run`. The `.mov` files are still frames.
 4. Do not mark S27 F12 or S31 pass. Do not merge.
 
@@ -197,3 +197,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Run `38823255381` head `afd34968d`: `structural` passed. iOS capture logged `F1 light #0` through `F6 light #5` on a 90s cadence. Screenshots of those frames returned before the next line. `F7 light #6` was still missing after a 120s wait. No `Maximum update depth`.
 - Run `38831101582` head `993d9c2b8`: `structural` passed. iOS capture logged `F1 light #0`, wrote `F1-light.png`, and exited because `F2 light #1` was missing after 120s. The follow-up repeats a 15s timeout until the 90s hold has elapsed.
 - Run `38837550765` head `1ad359fc4`: `structural` passed. iOS capture logged `F1 light #0` through `F8 light #7` about 90.0s apart, then `F9 light #8` was missing. The expected F9 time was inside the 120s wait. No `Maximum update depth`. The follow-up writes `Documents/parity-frame.json` and relaunches for each fixture. The in-app clock is not the CI capture path.
+- Run `38843429024` head `8887761c4`: `structural` and `ios-simulator` passed. Each launch logged `[parity] disk <id> <theme>` and one `[parity] ready <id> <theme> #0`. 26 PNG hashes differ. `default-route.png` equals `F1-light`. `F1-dark` shows the release notes. `F12-light` shows the expanded permission card. `F1-light` is an empty `#f4f4f6` background and `F11-dark` is an empty black background. `png-flat.py` now rejects a shot that is at least 95% one color and the script takes it again. That retry is not in this artifact.

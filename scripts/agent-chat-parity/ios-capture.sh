@@ -174,7 +174,30 @@ for row in "${rows[@]}"; do
     dump_runtime_logs
     exit 1
   fi
-  xcrun simctl io booted screenshot "$OUT/${id}-${theme}.png"
+  # The ready line can land before UIKit composites the transcript.
+  # Run 38843429024 saved a flat F1-light and a flat F11-dark that way.
+  flat_attempt=1
+  while true; do
+    xcrun simctl io booted screenshot "$OUT/${id}-${theme}.png"
+    flat_status=0
+    python3 "$ROOT/scripts/agent-chat-parity/png-flat.py" "$OUT/${id}-${theme}.png" || flat_status=$?
+    if [[ "$flat_status" == "1" ]]; then
+      break
+    fi
+    if [[ "$flat_status" == "2" ]]; then
+      echo "could not read ${id}-${theme}.png" >&2
+      dump_runtime_logs
+      exit 1
+    fi
+    if (( flat_attempt >= 3 )); then
+      echo "screenshot ${id}-${theme} stayed a flat background" >&2
+      dump_runtime_logs
+      exit 1
+    fi
+    echo "screenshot ${id}-${theme} is flat; waiting for the transcript" >&2
+    sleep 2
+    flat_attempt=$((flat_attempt + 1))
+  done
   if [[ -f "$CURRENT_LOG" ]]; then
     other="$(grep -F '[parity] ready ' "$CURRENT_LOG" | grep -F -v -e "$needle" || true)"
     if [[ -n "$other" ]]; then
