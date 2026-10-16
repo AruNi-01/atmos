@@ -142,7 +142,13 @@ describe("agent tree wiring", () => {
     expect(group).not.toContain("animate={streaming}");
     expect(group).not.toContain("useSequentialReveal(parts.length, streaming)");
     expect(group).not.toContain("useSequentialReveal(parts.length, autoOpen)");
-    const delays = readFileSync(join(import.meta.dir, "../agent-tree-branch.ts"), "utf8");
+    const delays = readFileSync(
+      join(
+        import.meta.dir,
+        "../../../../../../../packages/agent-transcript/src/agent-tree-branch.ts",
+      ),
+      "utf8",
+    );
     expect(delays).toContain("return TREE_STEP_MS");
     expect(delays).not.toContain("pending > 16");
     expect(TREE_LINE_MS).toBe(TREE_DRAW_MS);

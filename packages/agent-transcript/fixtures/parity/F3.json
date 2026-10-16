@@ -1,0 +1,91 @@
+{
+  "id": "F3",
+  "title": "Settled read search edit",
+  "messages": [
+    {
+      "id": "f3-u",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Check src/main.ts"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f3-a",
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f3-read",
+          "name": "Read",
+          "kind": "read",
+          "params": {
+            "type": "read",
+            "path": "src/main.ts"
+          },
+          "result": {
+            "type": "file_content",
+            "path": "src/main.ts",
+            "text": "export const ready = true;\n"
+          }
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f3-search",
+          "name": "Search",
+          "kind": "search",
+          "params": {
+            "type": "search",
+            "query": "ready",
+            "path": "src"
+          },
+          "result": {
+            "type": "search_hits",
+            "query": "ready",
+            "hits": [
+              {
+                "path": "src/main.ts",
+                "line": 1,
+                "snippet": "export const ready = true;"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f3-edit",
+          "name": "Edit",
+          "kind": "edit",
+          "params": {
+            "type": "edit",
+            "path": "src/main.ts"
+          },
+          "result": {
+            "type": "diff_stats",
+            "path": "src/main.ts",
+            "additions": 3,
+            "deletions": 1
+          }
+        },
+        {
+          "type": "thinking",
+          "text": "The export is in place."
+        },
+        {
+          "type": "text",
+          "text": "The file is ready."
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "streaming": false,
+      "worked_ms": 42000,
+      "completed_at": "2026-10-15T12:00:42.000Z"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+[
+  {
+    "kind": "user",
+    "label": "Look through src/main.ts",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "process",
+    "label": "Worked for 15s",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "tool_group",
+        "label": "1 search, 1 read",
+        "expanded": false,
+        "children": [
+          {
+            "kind": "thinking",
+            "label": "Thinking",
+            "expanded": false,
+            "children": [
+              {
+                "kind": "paragraph",
+                "label": "Start with the export."
+              }
+            ]
+          },
+          {
+            "kind": "code",
+            "label": "src/main.ts"
+          },
+          {
+            "kind": "search",
+            "label": "ready",
+            "expanded": false,
+            "children": [
+              {
+                "kind": "path",
+                "label": "src/main.ts"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "The export is ready.",
+    "children": [
+      {
+        "kind": "paragraph",
+        "label": "The export is ready."
+      }
+    ]
+  }
+]

@@ -1,0 +1,41 @@
+[
+  {
+    "kind": "user",
+    "label": "Run the tests",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "process",
+    "label": "Worked for 5s",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "text",
+        "label": "bun test src",
+        "expanded": false,
+        "children": [
+          {
+            "kind": "text",
+            "label": "\u001b[32mPASS\u001b[0m src/main.ts:1\n\u001b[32mPASS\u001b[0m src/main.ts:2\n\u001b[32mPASS\u001b[0m src/main.ts:3\n\u001b[32mPASS\u001b[0m src/main.ts:4\n\u001b[32mPASS\u001b[0m src/main.ts:5\n\u001b[32mPASS\u001b[0m src/main.ts:6\n\u001b[32mPASS\u001b[0m src/main.ts:7\n\u001b[32mPASS\u001b[0m src/main.ts:8\n\u001b[32mPASS\u001b[0m src/main.ts:9\n\u001b[32mPASS\u001b[0m src/main.ts:10\n\u001b[32mPASS\u001b[0m src/main.ts:11\n\u001b[32mPASS\u001b[0m src/main.ts:12\n\u001b[32mPASS\u001b[0m src/main.ts:13\n\u001b[32mPASS\u001b[0m src/main.ts:14\n\u001b[32mPASS\u001b[0m src/main.ts:15\n\u001b[32mPASS\u001b[0m src/main.ts:16\n\u001b[32mPASS\u001b[0m src/main.ts:17\n\u001b[32mPASS\u001b[0m src/main.ts:18\n\u001b[32mPASS\u001b[0m src/main.ts:19\n\u001b[32mPASS\u001b[0m src/main.ts:20\n\u001b[32mPASS\u001b[0m src/main.ts:21\n\u001b[32mPASS\u001b[0m src/main.ts:22\n\u001b[31mFAIL\u001b[0m src/lib.ts:1\n\u001b[32mPASS\u001b[0m src/lib.ts:2"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "Tests finished.",
+    "children": [
+      {
+        "kind": "paragraph",
+        "label": "Tests finished."
+      }
+    ]
+  }
+]

@@ -28,7 +28,7 @@
 - **Primary persona**: AruNi and other builders who run Atmos on a Computer and use Agent Chat on web and on the phone.
 - **Scenario 1**: Open a finished multi-tool turn on web, then the same chat on the phone. Both show "Worked for 42s ›", collapsed; expanding shows the same tree of grouped tools, thinking, and rows.
 - **Scenario 2**: Send a prompt from the phone. The sent message anchors, the activity indicator appears under it, thinking shimmers, tool groups draw in, the answer streams with a caret, then the process folds into "Worked for …".
-- **Scenario 3**: Scroll up during streaming. The view does not jump. A "3 below" pill appears at the left end of the button row above the input; the card pills scroll independently to its right. Tapping it returns to the end and the pill disappears.
+- **Scenario 3**: Scroll up during streaming. The view does not jump. A scroll pill appears at the left end of the button row above the input. Its label is web's `scrollBelow` composition (empty prefix, pluralized unit, suffix `below`), which reads "3 messages below" when three rows are below. "N below" elsewhere in this spec is shorthand for that string. The card pills scroll independently to its right. Tapping it returns to the end and the pill disappears.
 - **Scenario 4**: The agent asks for permission while a plan and a queued prompt exist. One card is expanded; the other two are glass pills in the row above the input, showing their titles. Tapping "Queue" expands that card and collapses the permission card; its pill stays in the row.
 
 ## Functional Requirements
@@ -46,10 +46,10 @@
   - Expand state is stored outside the list, keyed like web, and survives row recycling.
 - **M3 — Motion parity (G-12, G-13, G-14, G-16).** Part reveal, tree draw-in, chevron rotation, shimmer, activity indicator, worked-for swap, overlay fade, and sliding numbers use web's durations and easing. Reduced Motion turns all of them off, as on web. Effects with no native equivalent use a documented fallback, listed in TECH "Deviation register"; a fallback is never silent.
 - **M4 — Stream pacing (G-15).** Live text passes through the same display buffer rules as web (56 ms commit, flush on turn end, stop, error, reduced motion).
-- **M5 — Scroll behavior (G-17…G-20, G-22).** Bottom stick during streaming; no resize-driven jump while reading upward; scroll-to-bottom pill with "N below", pinned at the left end of the glass button row above the input (not a floating button); top and bottom edge fades; bottom padding equals base padding plus the card lane height, easing when it shrinks; own-send anchoring; the Messages header sheet stays.
+- **M5 — Scroll behavior (G-17…G-20, G-22).** Bottom stick during streaming; no resize-driven jump while reading upward; scroll-to-bottom pill pinned at the left end of the glass button row above the input (not a floating button). When the below-count is greater than zero the label is web's `scrollBelow` string ("3 messages below"); at zero but not at the end it is the chevron alone. Top and bottom edge fades; bottom padding equals base padding plus the card lane height, easing when it shrinks; own-send anchoring; the Messages header sheet stays.
 - **M6 — Cards above the input (G-23…G-25).**
   - Card set equals web's: permission, session operation, plan, background commands, queued prompts, subagent tasks, goal, workflow, context usage. Subagent conversation overlay is out of the must-have set.
-  - **A horizontally scrollable row of glass pill buttons sits directly above the input.** Each available card has one pill showing only its title. Tapping a pill expands that card; tapping the expanded card's pill again collapses it. The expanded card renders above the row (confirmed by AruNi, 2026-10-15).
+  - **A horizontally scrollable row of glass pill buttons sits directly above the input.** Each available card has one pill showing only that card's web title (no icon, no count). The title is the same string the web card shows, including dynamic titles (permission kind, goal objective, workflow objective/name). Tapping a pill expands that card; tapping the expanded card's pill again collapses it. The expanded card renders above the row (confirmed by AruNi, 2026-10-15).
   - **At most one card is expanded at a time.** Expanding another card collapses the previous one; its pill stays in the row.
   - **The scroll-to-bottom pill is part of the same row, pinned as the leftmost item.** It stays in place while the card pills scroll. It is not a card: it never expands anything and does not count toward the one-card rule. It shows when the transcript is not at its end; with unread rows below it reads "N below"; tapping it scrolls to the end and resumes bottom-stick. When there is nothing to show (no cards, at the end) the row is not rendered.
   - A new permission or session-operation request takes the visible slot automatically (it blocks the agent). When it is answered, the slot returns to the card the user last chose, otherwise nothing is expanded.
@@ -94,12 +94,12 @@ Parity is "same product, native client". These are intentional and must be liste
 
 ## Risks & Open Questions
 
-- **Risk**: Web effects without an RN primitive (blur, mask, shimmer) look different. Mitigation: deviation register; side-by-side recordings expose the delta honestly.
+- **Risk**: Web effects without an RN primitive (blur, mask-image) look different. Text shimmer is in scope via the approved gradient + masked-view dependencies. Mitigation: deviation register; recordings expose the remaining delta honestly.
 - **Risk**: Large UI port inside one PR. Mitigation: slice plan in TECH; each slice typechecks and ships fixtures.
-- **Risk**: A real iOS simulator run costs macOS minutes. Mitigation: manual or label-triggered workflow; Linux preview for the inner loop.
-- **Open**: Pixel details of the reference image (图一): pill height, icon use, spacing, active style. The image file was not readable on the box; the interaction was taken from AruNi's description.
-- **Confirmed (AruNi, 2026-10-15)**: the expanded card sits above the pill row; the microphone is out of scope.
-- **Open**: Approval to touch `apps/web` import paths (shared extraction), density setting, pill priority rule (see BRAINSTORM "Forks").
+- **Risk**: A real iOS simulator run costs macOS minutes. Mitigation: the workflow runs on path-filtered pull requests and `workflow_dispatch` (no label). Linux preview is advisory and is not installed in this delivery.
+- **Open**: Pixel details of the reference image (图一): pill height, spacing, active style. The image file is still missing. Pills show title text only (no icon). Provisional height is 36, pending that image.
+- **Confirmed (AruNi, 2026-10-15)**: expanded card above the pill row; microphone out of scope; D2(a) import-path extraction allowed; real text shimmer via `expo-linear-gradient` + masked view allowed (list both in the PR); lane starts collapsed; re-tap collapses; permission / session-op preempt without clearing the user's last card choice.
+- **Closed for this delivery**: density stays compact (N3 not built).
 
 ## Milestones
 

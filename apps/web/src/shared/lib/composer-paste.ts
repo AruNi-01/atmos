@@ -1,4 +1,10 @@
 import { displayTextWithUrlTokens } from "@/shared/lib/link-preview";
+import {
+  USER_MESSAGE_COLLAPSE_FADE_LINES,
+  USER_MESSAGE_COLLAPSE_LINES,
+} from "@atmos/agent-transcript/user-message-collapse";
+
+export { USER_MESSAGE_COLLAPSE_FADE_LINES, USER_MESSAGE_COLLAPSE_LINES };
 
 /**
  * Large plain-text paste → Composer chip protocol.
@@ -11,9 +17,6 @@ import { displayTextWithUrlTokens } from "@/shared/lib/link-preview";
  */
 
 export const PASTE_LINE_THRESHOLD = 10;
-export const USER_MESSAGE_COLLAPSE_LINES = 3;
-/** Extra visual line used for the collapsed fade (line 4). */
-export const USER_MESSAGE_COLLAPSE_FADE_LINES = 1;
 export const PASTE_PREVIEW_HEAD_LINES = 3;
 export const PASTE_PREVIEW_TAIL_LINES = 3;
 export const PASTE_TOKEN_PREFIX = "[#paste:";

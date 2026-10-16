@@ -1,0 +1,29 @@
+{
+  "id": "F1",
+  "title": "Answer markdown",
+  "messages": [
+    {
+      "id": "f1-u",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Show the release notes"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f1-a",
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "text",
+          "text": "# Release notes\n\n- Check the build\n- Update the notes\n\n| Step | Owner |\n| --- | --- |\n| Write | Ada |\n\nRun `bun test` in the tree.\n\n```ts\nexport const ready = true;\n```\n\n```mermaid\ngraph TD\n  A-->B\n```\n\nOpen src/main.ts or http://example.com/docs for the rest."
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "streaming": false
+    }
+  ]
+}

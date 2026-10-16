@@ -16,7 +16,10 @@ import type {
   AgentPart,
   AgentQueueItem,
   AgentSessionOpRequest,
+  AgentSessionUsage,
   AgentTool,
+  GrokGoal,
+  GrokWorkflow,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import { normalizeSlashCommands, type SlashCommand } from "./composer-suggestions";
 import { eventsForChat } from "./foreign-event";
@@ -31,6 +34,9 @@ export type ChatTranscriptState = {
   pendingSessionOp: AgentSessionOpRequest | null;
   queue: AgentQueueItem[];
   runningTurnId: string | null;
+  sessionUsage: AgentSessionUsage | null;
+  grokGoal: GrokGoal | null;
+  grokWorkflow: GrokWorkflow | null;
   commands: SlashCommand[];
   store: PartStore;
 };
@@ -101,6 +107,11 @@ function seedStore(messages: AgentMessage[], openPartIds?: ReadonlySet<string>):
 export function createChatTranscript(
   chatId: string,
   messages: AgentMessage[] = [],
+  snapshot?: {
+    session_usage?: AgentSessionUsage | null;
+    grok_goal?: GrokGoal | null;
+    grok_workflow?: GrokWorkflow | null;
+  } | null,
 ): ChatTranscriptState {
   const normalized = messages.map((message) => ({
     ...message,
@@ -114,8 +125,36 @@ export function createChatTranscript(
     pendingSessionOp: null,
     queue: [],
     runningTurnId: null,
+    sessionUsage: snapshot?.session_usage ?? null,
+    grokGoal: snapshot?.grok_goal ?? null,
+    grokWorkflow: snapshot?.grok_workflow ?? null,
     commands: [],
     store: seedStore(normalized),
+  };
+}
+
+function mergeUsageSession(
+  existing: AgentSessionUsage | null,
+  session: AgentSessionUsage,
+): AgentSessionUsage {
+  return {
+    ...(existing ?? {}),
+    ...session,
+    used: session.used ?? existing?.used ?? null,
+    context_window:
+      session.context_window ?? session.size ?? existing?.context_window ?? existing?.size ?? null,
+  };
+}
+
+function mergeContextUsage(
+  existing: AgentSessionUsage | null,
+  update: { used: number; context_window?: number | null },
+): AgentSessionUsage {
+  return {
+    ...(existing ?? {}),
+    used: update.used,
+    context_window: update.context_window ?? existing?.context_window ?? existing?.size ?? null,
+    size: undefined,
   };
 }
 
@@ -529,6 +568,68 @@ export function applyChatEvent(
       },
       backfill: null,
     };
+  }
+
+  if (payload.type === "plan_updated") {
+    const messages = withCurrentAssistant(
+      state.messages,
+      event.turn_id ?? payload.turn_id,
+      (message) => {
+        const planPart: AgentPart = { type: "plan", plan: payload.plan };
+        const existing = message.parts.findIndex((part) => part.type === "plan");
+        if (existing >= 0) {
+          const parts = [...message.parts];
+          parts[existing] = planPart;
+          return { ...message, parts };
+        }
+        return { ...message, parts: [...message.parts, planPart] };
+      },
+    );
+    return { state: { ...state, messages }, backfill: null };
+  }
+
+  if (payload.type === "usage_updated") {
+    let next = state;
+    if (payload.turn) {
+      const current = currentTurnAssistant(next.messages);
+      if (current) {
+        next = {
+          ...next,
+          messages: next.messages.map((message) =>
+            message === current ? { ...message, usage: payload.turn } : message,
+          ),
+        };
+      }
+    }
+    if (payload.session) {
+      next = {
+        ...next,
+        sessionUsage: mergeUsageSession(next.sessionUsage, payload.session),
+      };
+    }
+    if (next === state) return unchanged(state);
+    return { state: next, backfill: null };
+  }
+
+  if (payload.type === "context_usage_updated") {
+    return {
+      state: {
+        ...state,
+        sessionUsage: mergeContextUsage(state.sessionUsage, {
+          used: payload.used,
+          context_window: payload.context_window,
+        }),
+      },
+      backfill: null,
+    };
+  }
+
+  if (payload.type === "grok_goal_updated") {
+    return { state: { ...state, grokGoal: payload.grok_goal ?? null }, backfill: null };
+  }
+
+  if (payload.type === "grok_workflow_updated") {
+    return { state: { ...state, grokWorkflow: payload.grok_workflow ?? null }, backfill: null };
   }
 
   if (payload.type === "queue_updated") {

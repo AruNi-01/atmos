@@ -3,6 +3,7 @@ import {
   ArrowUp,
   Bell,
   Bot,
+  BotMessageSquare,
   BrainCircuit,
   Calendar,
   ChartColumnBig,
@@ -21,7 +22,10 @@ import {
   Download,
   Flag,
   Gauge,
+  Globe,
+  FileText,
   Folder,
+  FolderInput,
   FolderKanban,
   Folders,
   Hammer,
@@ -48,6 +52,7 @@ import {
   LogOut,
   Pencil,
   Pin,
+  Plug,
   Plus,
   PlusCircle,
   Paperclip,
@@ -67,13 +72,16 @@ import {
   User,
   Wifi,
   WifiOff,
+  Wrench,
   X,
+  XCircle,
 } from "lucide-react-native";
 
 export const ArchiveIcon = Archive;
 export const ArrowUpIcon = ArrowUp;
 export const BellIcon = Bell;
 export const BotIcon = Bot;
+export const BotMessageSquareIcon = BotMessageSquare;
 export const BrainCircuitIcon = BrainCircuit;
 export const CalendarIcon = Calendar;
 export const ChartColumnBigIcon = ChartColumnBig;
@@ -93,8 +101,11 @@ export const MessagesSquareIcon = MessagesSquare;
 export const ClockIcon = Clock;
 export const Clock3Icon = Clock3;
 export const DownloadIcon = Download;
+export const FileTextIcon = FileText;
 export const FlagIcon = Flag;
 export const FolderIcon = Folder;
+export const FolderInputIcon = FolderInput;
+export const GlobeIcon = Globe;
 export const FolderKanbanIcon = FolderKanban;
 export const FoldersIcon = Folders;
 export const ListFilterIcon = ListFilter;
@@ -123,6 +134,7 @@ export const LoaderCircleIcon = LoaderCircle;
 export const LogOutIcon = LogOut;
 export const PencilIcon = Pencil;
 export const PinIcon = Pin;
+export const PlugIcon = Plug;
 export const PlusIcon = Plus;
 export const PlusCircleIcon = PlusCircle;
 export const PaperclipIcon = Paperclip;
@@ -139,4 +151,6 @@ export const TrashIcon = Trash2;
 export const UserIcon = User;
 export const WifiIcon = Wifi;
 export const WifiOffIcon = WifiOff;
+export const WrenchIcon = Wrench;
+export const XCircleIcon = XCircle;
 export const XIcon = X;

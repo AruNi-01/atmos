@@ -1,0 +1,48 @@
+[
+  {
+    "kind": "user",
+    "label": "Start the session",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "session_lifecycle",
+    "label": "Creating session...",
+    "tone": "default"
+  },
+  {
+    "kind": "session_lifecycle",
+    "label": "Created session",
+    "tone": "default"
+  },
+  {
+    "kind": "session_lifecycle",
+    "label": "Failed to create session: provider offline",
+    "tone": "error"
+  },
+  {
+    "kind": "session_config_change",
+    "label": "Switched model from fast to standard",
+    "tone": "default"
+  },
+  {
+    "kind": "session_hint",
+    "label": "Couldn't switch model in this session",
+    "tone": "warning"
+  },
+  {
+    "kind": "session_hint",
+    "label": "Couldn't switch mode in this session",
+    "tone": "error"
+  },
+  {
+    "kind": "error",
+    "label": "The session could not continue.",
+    "tone": "error"
+  }
+]

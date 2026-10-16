@@ -1,0 +1,55 @@
+[
+  {
+    "kind": "user",
+    "label": "Review the read",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "permission",
+    "label": "Read src/main.ts",
+    "tone": "default",
+    "children": [
+      {
+        "kind": "status",
+        "label": "allowed"
+      },
+      {
+        "kind": "option",
+        "label": "Allow"
+      }
+    ]
+  },
+  {
+    "kind": "permission",
+    "label": "Questions for you",
+    "tone": "default",
+    "children": [
+      {
+        "kind": "text",
+        "label": "Edit src/main.ts"
+      },
+      {
+        "kind": "status",
+        "label": "pending"
+      },
+      {
+        "kind": "question",
+        "label": "Apply the edit?"
+      },
+      {
+        "kind": "option",
+        "label": "Allow"
+      },
+      {
+        "kind": "option",
+        "label": "Deny"
+      }
+    ]
+  }
+]

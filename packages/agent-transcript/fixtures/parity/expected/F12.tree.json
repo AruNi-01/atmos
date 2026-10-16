@@ -1,0 +1,135 @@
+[
+  {
+    "kind": "user",
+    "label": "Continue",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "process",
+    "label": "Worked for 2s",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "code",
+        "label": "src/main.ts"
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "Done.",
+    "children": [
+      {
+        "kind": "paragraph",
+        "label": "Done."
+      }
+    ]
+  },
+  {
+    "kind": "plan",
+    "label": "Plan",
+    "children": [
+      {
+        "kind": "text",
+        "label": "Write the notes"
+      }
+    ]
+  },
+  {
+    "kind": "queue",
+    "label": "Message Queue",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Check src/main.ts"
+      },
+      {
+        "kind": "item",
+        "label": "Update the notes"
+      },
+      {
+        "kind": "item",
+        "label": "Run the tests"
+      }
+    ]
+  },
+  {
+    "kind": "background",
+    "label": "Background",
+    "children": [
+      {
+        "kind": "item",
+        "label": "bun test src"
+      }
+    ]
+  },
+  {
+    "kind": "subagents",
+    "label": "Subagent Tasks",
+    "children": [
+      {
+        "kind": "item",
+        "label": "Inspect src/main.ts"
+      }
+    ]
+  },
+  {
+    "kind": "goal",
+    "label": "Goal",
+    "children": [
+      {
+        "kind": "text",
+        "label": "Ship the notes"
+      }
+    ]
+  },
+  {
+    "kind": "workflow",
+    "label": "Research",
+    "children": [
+      {
+        "kind": "text",
+        "label": "Research the API"
+      }
+    ]
+  },
+  {
+    "kind": "context",
+    "label": "Context Usage",
+    "children": [
+      {
+        "kind": "text",
+        "label": "2400 / 16000"
+      }
+    ]
+  },
+  {
+    "kind": "permission",
+    "label": "Questions for you",
+    "tone": "default",
+    "children": [
+      {
+        "kind": "text",
+        "label": "Edit src/lib.ts"
+      },
+      {
+        "kind": "status",
+        "label": "pending"
+      },
+      {
+        "kind": "question",
+        "label": "Allow the edit?"
+      },
+      {
+        "kind": "option",
+        "label": "Allow"
+      }
+    ]
+  }
+]

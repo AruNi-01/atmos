@@ -1,16 +1,50 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { AgentChatPayload } from "@atmos/api-types/ws/dto/agent-chat";
+import {
+  AGENT_CHAT_COMMIT_FLUSH_MS,
+  classifyCommitCadence,
+  createAgentChatCommitBuffer,
+  type AgentChatCommitBuffer,
+} from "@atmos/agent-transcript";
+
+/** Flush cadence, plus every event when reduced motion is on. */
+export function shouldFlushAgentEvent(
+  type: AgentChatPayload["type"],
+  reducedMotion: boolean,
+): boolean {
+  return reducedMotion || classifyCommitCadence(type) === "flush";
+}
+
+/** Fold is applied by the caller. This only decides when that fold is painted. */
+export function pushAgentChatCommit(
+  buffer: AgentChatCommitBuffer,
+  type: AgentChatPayload["type"],
+  reducedMotion: boolean,
+): void {
+  const decision = buffer.deliver(type);
+  if (shouldFlushAgentEvent(type, reducedMotion) && !decision.flushed) buffer.flush();
+}
+
+// @hook
+
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BackfillRequest } from "@atmos/api-client/agent-chat";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
 import { applyChatEvent, createChatTranscript, type ChatTranscriptState } from "./fold-transcript";
 import { agentChatEventFromMessage, eventsForChat } from "./foreign-event";
+import { useReducedMotion } from "./motion/use-reduced-motion";
 
 function backfillKey(request: BackfillRequest): string {
   return `${request.partId}:${request.fromOffset}`;
 }
 
 export function useAgentChatThread(chatId: string) {
+  const reducedMotion = useReducedMotion();
+  const reducedMotionRef = useRef(reducedMotion);
+  useLayoutEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
   const { client, state: wsState } = useMobileWs();
   const transcriptRef = useRef<ChatTranscriptState>(createChatTranscript(chatId));
   const [transcript, setTranscript] = useState<ChatTranscriptState>(transcriptRef.current);
@@ -37,6 +71,18 @@ export function useAgentChatThread(chatId: string) {
     setLoading(true);
     setError(null);
 
+    const commitBuffer = createAgentChatCommitBuffer({
+      flushMs: AGENT_CHAT_COMMIT_FLUSH_MS,
+      now: () => Date.now(),
+      onCommit: () => {
+        if (cancelled) return;
+        setTranscript(transcriptRef.current);
+      },
+    });
+    const flushTimer = setInterval(() => {
+      commitBuffer.maybeFlush();
+    }, AGENT_CHAT_COMMIT_FLUSH_MS);
+
     const requestBackfill = (request: BackfillRequest) => {
       const key = backfillKey(request);
       if (inflight.has(key)) return;
@@ -54,12 +100,6 @@ export function useAgentChatThread(chatId: string) {
         });
     };
 
-    const publish = (next: ReturnType<typeof applyChatEvent>) => {
-      transcriptRef.current = next.state;
-      setTranscript(next.state);
-      if (next.backfill) requestBackfill(next.backfill);
-    };
-
     const unsubscribeMessages = client.subscribeMessages((message) => {
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
@@ -67,7 +107,10 @@ export function useAgentChatThread(chatId: string) {
         buffer.push(event);
         return;
       }
-      publish(applyChatEvent(transcriptRef.current, event));
+      const next = applyChatEvent(transcriptRef.current, event);
+      transcriptRef.current = next.state;
+      if (next.backfill) requestBackfill(next.backfill);
+      pushAgentChatCommit(commitBuffer, event.payload.type, reducedMotionRef.current);
     });
 
     void (async () => {
@@ -75,7 +118,7 @@ export function useAgentChatThread(chatId: string) {
       try {
         const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
         if (cancelled) return;
-        let state = createChatTranscript(chatId, snapshot.messages ?? []);
+        let state = createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta);
         state = {
           ...state,
           pendingPermission: snapshot.pending_permission ?? null,
@@ -123,6 +166,7 @@ export function useAgentChatThread(chatId: string) {
 
     return () => {
       cancelled = true;
+      clearInterval(flushTimer);
       ready = false;
       unsubscribeMessages();
       void wsActions.agentChatUnsubscribe(client, { chat_id: chatId }).catch(() => undefined);
@@ -162,6 +206,58 @@ export function useAgentChatThread(chatId: string) {
           chat_id: chatId,
           expected_turn_id: turnId,
           text,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
+
+  const queueUpdate = useCallback(
+    async (itemId: string, text: string) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatQueueUpdate(client, {
+          chat_id: chatId,
+          item_id: itemId,
+          text,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
+
+  const queueDelete = useCallback(
+    async (itemId: string) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatQueueDelete(client, {
+          chat_id: chatId,
+          item_id: itemId,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
+
+  const queueReorder = useCallback(
+    async (itemIds: string[]) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatQueueReorder(client, {
+          chat_id: chatId,
+          item_ids: itemIds,
         });
         setError(null);
       } catch (err) {
@@ -245,6 +341,9 @@ export function useAgentChatThread(chatId: string) {
     pendingPermission: transcript.pendingPermission,
     pendingSessionOp: transcript.pendingSessionOp,
     queue: transcript.queue,
+    sessionUsage: transcript.sessionUsage,
+    grokGoal: transcript.grokGoal,
+    grokWorkflow: transcript.grokWorkflow,
     commands: transcript.commands,
     runningTurnId: transcript.runningTurnId,
     loading,
@@ -252,6 +351,9 @@ export function useAgentChatThread(chatId: string) {
     send,
     steer,
     queueAdd,
+    queueUpdate,
+    queueDelete,
+    queueReorder,
     cancel,
     respondPermission,
     respondSessionOp,

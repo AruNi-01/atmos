@@ -1,0 +1,59 @@
+[
+  {
+    "kind": "user",
+    "label": "Explain the change",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "process",
+    "label": "Worked for 4s",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "tool_group",
+        "label": "Thinking",
+        "expanded": false,
+        "children": [
+          {
+            "kind": "thinking",
+            "label": "Thought for 2s",
+            "expanded": false,
+            "children": [
+              {
+                "kind": "paragraph",
+                "label": "First pass."
+              }
+            ]
+          },
+          {
+            "kind": "thinking",
+            "label": "Thinking",
+            "expanded": false,
+            "children": [
+              {
+                "kind": "paragraph",
+                "label": "Second pass."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "Here is the answer.",
+    "children": [
+      {
+        "kind": "paragraph",
+        "label": "Here is the answer."
+      }
+    ]
+  }
+]

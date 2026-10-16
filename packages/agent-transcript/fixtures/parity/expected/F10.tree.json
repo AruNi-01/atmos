@@ -1,0 +1,75 @@
+[
+  {
+    "kind": "user",
+    "label": "Alpha is the long note",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "user",
+    "label": "paste line 1",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "paste",
+        "label": "Pasted: 12 lines"
+      },
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "user",
+    "label": "See http://example.com/guide",
+    "children": [
+      {
+        "kind": "link",
+        "label": "http://example.com/guide"
+      },
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "user",
+    "label": "Photo note",
+    "children": [
+      {
+        "kind": "attachment",
+        "label": "note.txt"
+      },
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "user",
+    "label": "Send this",
+    "children": [
+      {
+        "kind": "pending",
+        "label": "Pending"
+      },
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  }
+]

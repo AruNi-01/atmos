@@ -1,5 +1,13 @@
 import { colors, type MobileThemeColors } from "@/theme/colors";
 
+/** iOS 26 draws a blur on each scroll edge unless the screen hides it. */
+export const hiddenScrollEdgeEffects = {
+  bottom: "hidden" as const,
+  left: "hidden" as const,
+  right: "hidden" as const,
+  top: "hidden" as const,
+};
+
 export function nativeLargeTitleOptions(title: string, themeColors: MobileThemeColors = colors) {
   return {
     title,

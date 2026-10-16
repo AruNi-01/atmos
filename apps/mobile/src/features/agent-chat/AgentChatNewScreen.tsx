@@ -11,7 +11,10 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronLeftIcon } from "@/ui/icons/lucide-native";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
-import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
+import {
+  hiddenScrollEdgeEffects,
+  nativeCompactTitleOptions,
+} from "@/ui/navigation/native-screen-options";
 import { AgentChatComposer } from "./AgentChatComposer";
 import {
   applyComposerPick,
@@ -157,6 +160,7 @@ export function AgentChatNewScreen({ workspaceId }: { workspaceId: string }) {
       <Stack.Screen
         options={{
           ...nativeCompactTitleOptions(copy.newChat, theme.colors),
+          scrollEdgeEffects: hiddenScrollEdgeEffects,
           headerBackButtonDisplayMode: "minimal",
           headerBackVisible: false,
           headerShadowVisible: false,
