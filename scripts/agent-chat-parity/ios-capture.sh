@@ -202,55 +202,83 @@ rm -f "$frame_rows"
 
 for row in "${rows[@]}"; do
   IFS=$'\t' read -r id theme needle <<<"$row"
-  xcrun simctl ui booted appearance "$theme"
-  write_frame_file "$id" "$theme"
-  echo "launch ${id} ${theme}"
-  launch_frame "$id" "$theme"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
-    echo "missing [parity] preview-chat module for ${id} ${theme}" >&2
-    dump_runtime_logs
-    exit 1
-  fi
-  echo "wait ${needle}"
-  if ! wait_for_line "$needle" 120; then
-    echo "missing ${needle}" >&2
-    dump_runtime_logs
-    exit 1
-  fi
-  # The ready line can land before UIKit composites the transcript.
-  # Run 38843429024 saved a flat F1-light and a flat F11-dark that way.
-  flat_attempt=1
+  frame_attempt=1
   while true; do
-    shot_status=0
-    take_screenshot "$OUT/${id}-${theme}.png" || shot_status=$?
-    flat_status=2
-    if [[ "$shot_status" == "0" ]]; then
-      flat_status=0
-      python3 "$ROOT/scripts/agent-chat-parity/png-flat.py" "$OUT/${id}-${theme}.png" || flat_status=$?
-      if [[ "$flat_status" == "1" ]]; then
+    xcrun simctl ui booted appearance "$theme"
+    write_frame_file "$id" "$theme"
+    echo "launch ${id} ${theme}"
+    launch_frame "$id" "$theme"
+    if ! wait_for_line "[parity] preview-chat module" 90; then
+      echo "missing [parity] preview-chat module for ${id} ${theme}" >&2
+      dump_runtime_logs
+      exit 1
+    fi
+    echo "wait ${needle}"
+    if ! wait_for_line "$needle" 120; then
+      echo "missing ${needle}" >&2
+      dump_runtime_logs
+      exit 1
+    fi
+    # Run 38877961991 wrote F1-light about 6s after ready, before the
+    # markdown body was on screen. The composer alone kept it under 95%
+    # one color. Wait, then shoot.
+    sleep 15
+    flat_attempt=1
+    accepted=0
+    while true; do
+      shot_status=0
+      flat_status=2
+      if [[ -n "${console_pid}" ]] && ! kill -0 "$console_pid" 2>/dev/null; then
+        shot_status=9
+        flat_status=3
+        echo "app exited before screenshot ${id}-${theme}" >&2
+      else
+        take_screenshot "$OUT/${id}-${theme}.png" || shot_status=$?
+        if [[ "$shot_status" == "0" ]]; then
+          flat_status=0
+          python3 "$ROOT/scripts/agent-chat-parity/png-flat.py" "$OUT/${id}-${theme}.png" || flat_status=$?
+          if [[ "$flat_status" == "1" ]]; then
+            accepted=1
+            break
+          fi
+        fi
+      fi
+      if (( flat_attempt >= 3 )); then
         break
       fi
-    fi
-    if (( flat_attempt >= 3 )); then
+      # Home screen means this process is not showing the preview.
+      # Another screenshot of the same process stays on Springboard.
+      if [[ "$flat_status" == "3" || "$shot_status" == "9" ]]; then
+        echo "screenshot ${id}-${theme} is the home screen; relaunching" >&2
+        break
+      fi
       if [[ "$shot_status" != "0" ]]; then
+        echo "screenshot ${id}-${theme} timed out; retrying" >&2
+      elif [[ "$flat_status" == "0" ]]; then
+        echo "screenshot ${id}-${theme} is flat; waiting for the transcript" >&2
+      else
+        echo "could not read ${id}-${theme}.png; retrying" >&2
+      fi
+      sleep 2
+      flat_attempt=$((flat_attempt + 1))
+    done
+    if [[ "$accepted" == "1" ]]; then
+      break
+    fi
+    if (( frame_attempt >= 3 )); then
+      if [[ "$shot_status" != "0" && "$shot_status" != "9" ]]; then
         echo "screenshot ${id}-${theme} timed out" >&2
       elif [[ "$flat_status" == "0" ]]; then
         echo "screenshot ${id}-${theme} stayed a flat background" >&2
+      elif [[ "$flat_status" == "3" || "$shot_status" == "9" ]]; then
+        echo "screenshot ${id}-${theme} stayed on the home screen" >&2
       else
         echo "could not read ${id}-${theme}.png" >&2
       fi
       dump_runtime_logs
       exit 1
     fi
-    if [[ "$shot_status" != "0" ]]; then
-      echo "screenshot ${id}-${theme} timed out; retrying" >&2
-    elif [[ "$flat_status" == "0" ]]; then
-      echo "screenshot ${id}-${theme} is flat; waiting for the transcript" >&2
-    else
-      echo "could not read ${id}-${theme}.png; retrying" >&2
-    fi
-    sleep 2
-    flat_attempt=$((flat_attempt + 1))
+    frame_attempt=$((frame_attempt + 1))
   done
   if [[ -f "$CURRENT_LOG" ]]; then
     other="$(grep -F '[parity] ready ' "$CURRENT_LOG" | grep -F -v -e "$needle" || true)"

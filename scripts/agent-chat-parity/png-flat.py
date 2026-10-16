@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Exit 0 when a PNG is almost one color. Exit 1 when it has other pixels.
+"""Exit 0 when a PNG is almost one color. Exit 1 when it has app UI.
+Exit 3 when the sample is a photo, which on this capture is Springboard.
 
 simctl's first framebuffer after a launch can be the preview background
 with no transcript. Run 38843429024 kept those shots: F1-light was 97%
 #f4f4f6 and F11-dark was 99% black. A real fixture in that run stayed
-under 88% one color.
+under 88% one color. Run 38877961991 then kept two home-screen shots:
+they are not one color, and a real fixture stays under 80 coarse colors.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ def _paeth(a: int, b: int, c: int) -> int:
     return c
 
 
-def dominant_fraction(path: Path) -> float:
+def dominant_fraction(path: Path) -> tuple[float, int]:
     data = path.read_bytes()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
         raise ValueError(f"{path} is not a PNG")
@@ -82,6 +84,7 @@ def dominant_fraction(path: Path) -> float:
             raise ValueError(f"unsupported PNG filter {filter_type}")
         rows.append(row)
     counts: dict[tuple[int, int, int], int] = {}
+    buckets: set[tuple[int, int, int]] = set()
     total = 0
     for y in range(0, height, 16):
         row = rows[y]
@@ -89,10 +92,11 @@ def dominant_fraction(path: Path) -> float:
             i = x * channels
             color = (row[i], row[i + 1], row[i + 2])
             counts[color] = counts.get(color, 0) + 1
+            buckets.add((color[0] // 16, color[1] // 16, color[2] // 16))
             total += 1
     if total == 0:
-        return 1.0
-    return max(counts.values()) / total
+        return 1.0, 1
+    return max(counts.values()) / total, len(buckets)
 
 
 def _write_png(path: Path, width: int, height: int, rows_rgb: list[tuple[int, int, int]]) -> None:
@@ -118,12 +122,31 @@ def self_test() -> int:
         mixed = root / "mixed.png"
         _write_png(solid, 32, 32, [(244, 244, 246)] * 32)
         _write_png(mixed, 32, 32, [(244, 244, 246)] * 16 + [(20, 20, 20)] * 16)
-        solid_fraction = dominant_fraction(solid)
-        mixed_fraction = dominant_fraction(mixed)
-    if solid_fraction < 0.95 or mixed_fraction >= 0.95:
-        print(f"self-test failed solid={solid_fraction:.3f} mixed={mixed_fraction:.3f}", file=sys.stderr)
+        solid_fraction, solid_colors = dominant_fraction(solid)
+        mixed_fraction, mixed_colors = dominant_fraction(mixed)
+        noise = root / "noise.png"
+        noise_rows = []
+        for y in range(256):
+            raw = bytearray()
+            raw.append(0)
+            for x in range(256):
+                raw.extend((x & 255, y & 255, (x * 3 + y * 5) & 255))
+            noise_rows.append(bytes(raw))
+        compressed = zlib.compress(b"".join(noise_rows))
+
+        def chunk(kind: bytes, payload: bytes) -> bytes:
+            return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+
+        ihdr = struct.pack(">IIBBBBB", 256, 256, 8, 2, 0, 0, 0)
+        noise.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", compressed) + chunk(b"IEND", b""))
+        _noise_fraction, noise_colors = dominant_fraction(noise)
+    if solid_fraction < 0.95 or solid_colors > 4 or mixed_fraction >= 0.95 or mixed_colors > 8 or noise_colors < 80:
+        print(
+            f"self-test failed solid={solid_fraction:.3f}/{solid_colors} mixed={mixed_fraction:.3f}/{mixed_colors} noise={noise_colors}",
+            file=sys.stderr,
+        )
         return 1
-    print(f"self-test solid={solid_fraction:.3f} mixed={mixed_fraction:.3f}")
+    print(f"self-test solid={solid_fraction:.3f} mixed={mixed_fraction:.3f} noise={noise_colors}")
     return 0
 
 
@@ -133,9 +156,11 @@ def main() -> int:
     if len(sys.argv) != 2:
         print("usage: png-flat.py <file.png>", file=sys.stderr)
         return 2
-    fraction = dominant_fraction(Path(sys.argv[1]))
-    # Printed for the capture log. Exit 0 means the shot is still empty.
-    print(f"{fraction:.3f}")
+    fraction, colors = dominant_fraction(Path(sys.argv[1]))
+    # Printed for the capture log. Exit 0 is empty. Exit 3 is Springboard.
+    print(f"{fraction:.3f} colors={colors}")
+    if colors >= 80:
+        return 3
     return 0 if fraction >= 0.95 else 1
 
 
