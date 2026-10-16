@@ -93,7 +93,7 @@ jobs:
   ios-simulator:
     name: ios-simulator
     runs-on: macos-26
-    timeout-minutes: 120
+    timeout-minutes: 180
     env:
       EXPO_PUBLIC_PARITY_PREVIEW: "1"
       LANG: en_US.UTF-8

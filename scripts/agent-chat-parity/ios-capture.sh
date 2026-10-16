@@ -85,7 +85,7 @@ dump_runtime_logs() {
     tail -n 80 "$OUT/parity-stream.log" >&2 || true
   fi
   echo "----- device log -----" >&2
-  xcrun simctl spawn booted log show --last 5m --info --debug --style compact \
+  run_bounded 60 xcrun simctl spawn booted log show --last 5m --info --debug --style compact \
     --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
     >"$OUT/device-log.txt" 2>&1 || true
   tail -n 400 "$OUT/device-log.txt" >&2 || true
@@ -116,6 +116,35 @@ wait_for_line() {
   return 1
 }
 
+# simctl io screenshot has blocked long enough to hit the job timeout
+# (run 38857737524). Kill the process group after 90s and let the caller retry.
+run_bounded() {
+  local seconds="$1"
+  shift
+  python3 - "$seconds" "$@" <<'PY'
+import os
+import signal
+import subprocess
+import sys
+
+seconds = int(sys.argv[1])
+cmd = sys.argv[2:]
+proc = subprocess.Popen(cmd, start_new_session=True)
+try:
+    code = proc.wait(timeout=seconds)
+except subprocess.TimeoutExpired:
+    os.killpg(proc.pid, signal.SIGKILL)
+    proc.wait()
+    print(f"timed out after {seconds}s: {' '.join(cmd)}", file=sys.stderr)
+    sys.exit(124)
+sys.exit(code if code is not None else 1)
+PY
+}
+
+take_screenshot() {
+  run_bounded 90 xcrun simctl io booted screenshot "$1"
+}
+
 # simctl screenshots stay black unless Simulator.app owns the framebuffer.
 open -a Simulator || true
 sleep 2
@@ -123,7 +152,19 @@ sleep 2
 # Prove the framebuffer before the app covers Springboard. The known black
 # scene hash is the empty app window, not a generic dark home screen.
 echo "springboard screenshot (before launch)"
-xcrun simctl io booted screenshot "$OUT/springboard.png"
+spring_attempt=1
+while true; do
+  if take_screenshot "$OUT/springboard.png"; then
+    break
+  fi
+  if (( spring_attempt >= 3 )); then
+    echo "springboard screenshot timed out" >&2
+    exit 1
+  fi
+  echo "springboard screenshot failed; retrying" >&2
+  sleep 2
+  spring_attempt=$((spring_attempt + 1))
+done
 spring_hash="$(shasum -a 256 "$OUT/springboard.png" | awk '{print $1}')"
 echo "springboard sha256 ${spring_hash}"
 if [[ "$spring_hash" == "$black_scene" ]]; then
@@ -178,23 +219,34 @@ for row in "${rows[@]}"; do
   # Run 38843429024 saved a flat F1-light and a flat F11-dark that way.
   flat_attempt=1
   while true; do
-    xcrun simctl io booted screenshot "$OUT/${id}-${theme}.png"
-    flat_status=0
-    python3 "$ROOT/scripts/agent-chat-parity/png-flat.py" "$OUT/${id}-${theme}.png" || flat_status=$?
-    if [[ "$flat_status" == "1" ]]; then
-      break
-    fi
-    if [[ "$flat_status" == "2" ]]; then
-      echo "could not read ${id}-${theme}.png" >&2
-      dump_runtime_logs
-      exit 1
+    shot_status=0
+    take_screenshot "$OUT/${id}-${theme}.png" || shot_status=$?
+    flat_status=2
+    if [[ "$shot_status" == "0" ]]; then
+      flat_status=0
+      python3 "$ROOT/scripts/agent-chat-parity/png-flat.py" "$OUT/${id}-${theme}.png" || flat_status=$?
+      if [[ "$flat_status" == "1" ]]; then
+        break
+      fi
     fi
     if (( flat_attempt >= 3 )); then
-      echo "screenshot ${id}-${theme} stayed a flat background" >&2
+      if [[ "$shot_status" != "0" ]]; then
+        echo "screenshot ${id}-${theme} timed out" >&2
+      elif [[ "$flat_status" == "0" ]]; then
+        echo "screenshot ${id}-${theme} stayed a flat background" >&2
+      else
+        echo "could not read ${id}-${theme}.png" >&2
+      fi
       dump_runtime_logs
       exit 1
     fi
-    echo "screenshot ${id}-${theme} is flat; waiting for the transcript" >&2
+    if [[ "$shot_status" != "0" ]]; then
+      echo "screenshot ${id}-${theme} timed out; retrying" >&2
+    elif [[ "$flat_status" == "0" ]]; then
+      echo "screenshot ${id}-${theme} is flat; waiting for the transcript" >&2
+    else
+      echo "could not read ${id}-${theme}.png; retrying" >&2
+    fi
     sleep 2
     flat_attempt=$((flat_attempt + 1))
   done
@@ -210,7 +262,7 @@ for row in "${rows[@]}"; do
   fi
   if [[ "$id" == "F1" && "$theme" == "light" ]]; then
     cp "$OUT/${id}-${theme}.png" "$OUT/default-route.png"
-    xcrun simctl spawn booted log show --last 3m --info --style compact \
+    run_bounded 60 xcrun simctl spawn booted log show --last 3m --info --style compact \
       --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
       >"$OUT/device-log-after-warmup.txt" 2>&1 || true
     grep -E '\[parity\]|RCTFatal|JavaScript|topLoad|instanceHandle|Error' "$OUT/device-log-after-warmup.txt" | tail -n 40 >&2 || true
