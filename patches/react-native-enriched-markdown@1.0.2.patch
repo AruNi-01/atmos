@@ -73,7 +73,7 @@ index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..8b06983bb50aac7580a9780a54ac815d
      UIBezierPath *strokePath =
          (isFirst && isLast) ? path : [self openBorderPathForRect:rect isFirst:isFirst isLast:isLast];
 diff --git a/ios/utils/ENRMCodeBlockContent.mm b/ios/utils/ENRMCodeBlockContent.mm
-index 585044157a9a4e5ed9ebf69d4891f7b5a48eb5b1..01f09588d1dea3a5f29e91f558a90d640d82fafd 100644
+index 585044157a9a4e5ed9ebf69d4891f7b5a48eb5b1..670dae208f28d7d6c4ec8b994edc2a9d1a0b9174 100644
 --- a/ios/utils/ENRMCodeBlockContent.mm
 +++ b/ios/utils/ENRMCodeBlockContent.mm
 @@ -1,5 +1,4 @@
@@ -82,9 +82,13 @@ index 585044157a9a4e5ed9ebf69d4891f7b5a48eb5b1..01f09588d1dea3a5f29e91f558a90d64
  #import "ENRMUIKit.h"
  #import "MarkdownASTNode.h"
  #import "ParagraphStyleUtils.h"
-@@ -49,8 +48,8 @@ NSString *ENRMCodeBlockDisplayLanguageName(NSString *language)
+@@ -47,10 +46,11 @@ NSString *ENRMCodeBlockFencedMarkdown(NSString *code, NSString *language, NSStri
+ NSString *ENRMCodeBlockDisplayLanguageName(NSString *language)
+ {
    if (language.length == 0) {
-     return @"";
+-    return @"";
++    // Web `language || t("common.codeBlock")` with CSS `uppercase` → "CODE BLOCK".
++    return @"CODE BLOCK";
    }
 -  std::string display = Markdown::displayNameForLanguage(language.UTF8String ?: "");
 -  return [NSString stringWithUTF8String:display.c_str()] ?: language;
@@ -94,17 +98,239 @@ index 585044157a9a4e5ed9ebf69d4891f7b5a48eb5b1..01f09588d1dea3a5f29e91f558a90d64
  
  void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange range, StyleConfig *config)
 diff --git a/ios/views/ENRMCodeBlockContainerView.m b/ios/views/ENRMCodeBlockContainerView.m
-index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..0fa08c61ad1dbb98bfc30ddbe4877f3f37de9f4a 100644
+index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..5d897c4b70c6ace9960961fccb5c497ecf6b0f43 100644
 --- a/ios/views/ENRMCodeBlockContainerView.m
 +++ b/ios/views/ENRMCodeBlockContainerView.m
-@@ -385,6 +385,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -20,25 +20,43 @@
+ // header metrics, so the reported height matches the drawn height. Since
+ // lines never wrap, the height is independent of the available width.
+ 
+-static const CGFloat kENRMHeaderLabelScale = 0.85;
+-// The copy glyph reads cleaner a touch smaller than the language label and at a
+-// regular (not medium) weight; sized independently so the two never couple.
+-static const CGFloat kENRMHeaderIconScale = 0.72;
+-static const CGFloat kENRMHeaderSecondaryAlpha = 0.6;
+-static const CGFloat kENRMHeaderDividerAlpha = 0.2;
+-
+-// Height geometry and code-run construction shared by the instance layout path
+-// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
++// Web MarkdownCodeBlock (`code-block.tsx`): the header is `h-9` (36) with
++// `px-2`, the language is `text-xs` (12) `tracking-wider`, and the code pane
++// is `bg-background` with 12px padding. The frame wash stays
++// `codeBlockBackgroundColor`. There is no divider between the header and the
++// pane. Page colors are the phone canvas (`colors.ts`), the role of
++// `bg-background`.
++static const CGFloat kENRMWebHeaderHeight = 36.0;
++static const CGFloat kENRMWebHeaderPadX = 8.0;
++static const CGFloat kENRMWebCodePad = 12.0;
++static const CGFloat kENRMWebHeaderFontSize = 12.0;
++static const CGFloat kENRMWebCopyPointSize = 14.0;
++
++static RCTUIColor *ENRMWebHeaderLabelColor(BOOL dark)
++{
++  // text-neutral-600 / dark:text-neutral-400
++  if (dark) {
++    return [RCTUIColor colorWithRed:(0xA3 / 255.0) green:(0xA3 / 255.0) blue:(0xA3 / 255.0) alpha:1];
++  }
++  return [RCTUIColor colorWithRed:(0x52 / 255.0) green:(0x52 / 255.0) blue:(0x5B / 255.0) alpha:1];
++}
+ 
+-static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
++static RCTUIColor *ENRMWebCodePaneColor(BOOL dark)
+ {
+-  return [config codeBlockPadding] + [config codeBlockBorderWidth];
++  if (dark) {
++    return [RCTUIColor colorWithRed:0 green:0 blue:0 alpha:1];
++  }
++  return [RCTUIColor colorWithRed:(0xF4 / 255.0) green:(0xF4 / 255.0) blue:(0xF6 / 255.0) alpha:1];
+ }
+ 
++// Height geometry and code-run construction shared by the instance layout path
++// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
++
+ #if !TARGET_OS_OSX
+ static UIFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
+ {
+-  return [UIFont systemFontOfSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale weight:UIFontWeightMedium];
++  (void)config;
++  return [UIFont systemFontOfSize:kENRMWebHeaderFontSize weight:UIFontWeightRegular];
+ }
+ 
+ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
+@@ -48,7 +66,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
+ #else
+ static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
+ {
+-  return [NSFont systemFontOfSize:[config codeBlockFont].pointSize * kENRMHeaderLabelScale weight:NSFontWeightMedium];
++  (void)config;
++  return [NSFont systemFontOfSize:kENRMWebHeaderFontSize weight:NSFontWeightRegular];
+ }
+ 
+ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
+@@ -218,22 +237,23 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+ 
+     _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
+     UIImageSymbolConfiguration *symbolConfig =
+-        [UIImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
++        [UIImageSymbolConfiguration configurationWithPointSize:kENRMWebCopyPointSize
+                                                         weight:UIImageSymbolWeightRegular];
+     [_copyButton setImage:[UIImage systemImageNamed:@"doc.on.doc" withConfiguration:symbolConfig]
+                  forState:UIControlStateNormal];
+-    _copyButton.tintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
++    _copyButton.tintColor = ENRMWebHeaderLabelColor(ENRMColorIsDark([config codeBlockBackgroundColor]));
+     [_copyButton addTarget:self action:@selector(copyCodeToPasteboard) forControlEvents:UIControlEventTouchUpInside];
+     [self addSubview:_copyButton];
+ #else
+     NSImageSymbolConfiguration *symbolConfig =
+-        [NSImageSymbolConfiguration configurationWithPointSize:[config codeBlockFont].pointSize * kENRMHeaderIconScale
++        [NSImageSymbolConfiguration configurationWithPointSize:kENRMWebCopyPointSize
+                                                         weight:NSFontWeightRegular];
+     NSImage *copyImage = [[NSImage imageWithSystemSymbolName:@"doc.on.doc"
+                                     accessibilityDescription:nil] imageWithSymbolConfiguration:symbolConfig];
+     _copyButton = [NSButton buttonWithImage:copyImage target:self action:@selector(copyCodeToPasteboard)];
+     _copyButton.bordered = NO;
+-    _copyButton.contentTintColor = [[config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
++    _copyButton.contentTintColor =
++        ENRMWebHeaderLabelColor(ENRMColorIsDark([config codeBlockBackgroundColor]));
+     [self addSubview:_copyButton];
+ #endif
+   }
+@@ -274,14 +294,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+ {
+   CGFloat borderW = ceil([_config codeBlockBorderWidth]);
+   CGFloat headerH = [self headerHeight];
+-  CGFloat inset = [self contentInset];
+   CGRect frame = CGRectMake(borderW, headerH, MAX(self.bounds.size.width - borderW * 2, 0),
+                             MAX(self.bounds.size.height - headerH - borderW, 0));
+   _scrollView.frame = frame;
+ 
+-  CGFloat horizontalPad = MAX(inset - borderW, 0);
+-  CGFloat contentWidth = MAX(_codeSize.width + horizontalPad * 2, frame.size.width);
+-  _codeContentView.textOrigin = CGPointMake(horizontalPad, inset);
++  CGFloat contentWidth = MAX(_codeSize.width + kENRMWebCodePad * 2, frame.size.width);
++  _codeContentView.textOrigin = CGPointMake(kENRMWebCodePad, kENRMWebCodePad);
+   _codeContentView.frame = CGRectMake(0, 0, contentWidth, frame.size.height);
+ #if !TARGET_OS_OSX
+   _scrollView.contentSize = CGSizeMake(contentWidth, frame.size.height);
+@@ -289,25 +307,19 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+ #endif
+ }
+ 
+-// Header is the top content inset plus one label line; the code text's own
+-// top inset then forms the single gap below the label.
++// Web header is a fixed 36px bar. The label and copy control are centered in it.
+ - (CGFloat)headerHeight
+ {
+-  return [self contentInset] + _headerLabelLineHeight;
++  return kENRMWebHeaderHeight;
+ }
+ 
+ - (void)layoutHeaderButton
+ {
+   CGFloat headerH = [self headerHeight];
+-  CGFloat iconWidth = _copyButton.intrinsicContentSize.width;
+-  if (iconWidth <= 0 || iconWidth > headerH) {
+-    iconWidth = headerH;
+-  }
+-  CGFloat iconSlack = (headerH - iconWidth) / 2;
+-  CGFloat buttonLeft = MAX(self.bounds.size.width - [self contentInset] - headerH + iconSlack, 0);
+-  CGFloat labelCenterY = headerH - _headerLabelLineHeight / 2;
+-  CGFloat buttonTop = MAX(labelCenterY - headerH / 2, 0);
+-  _copyButton.frame = CGRectMake(buttonLeft, buttonTop, headerH, headerH);
++  CGFloat buttonSize = 28;
++  CGFloat buttonLeft = MAX(self.bounds.size.width - kENRMWebHeaderPadX - buttonSize, 0);
++  CGFloat buttonTop = (headerH - buttonSize) / 2;
++  _copyButton.frame = CGRectMake(buttonLeft, buttonTop, buttonSize, buttonSize);
+ }
+ 
+ #if !TARGET_OS_OSX
+@@ -385,7 +397,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    }
    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
    labelAttributes[NSFontAttributeName] = _headerFont;
+-  RCTUIColor *labelColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
 +  labelAttributes[NSKernAttributeName] = @(_headerFont.pointSize * 0.05);
-   RCTUIColor *labelColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
++  RCTUIColor *labelColor =
++      ENRMWebHeaderLabelColor(ENRMColorIsDark([_config codeBlockBackgroundColor]));
    if (labelColor) {
      labelAttributes[NSForegroundColorAttributeName] = labelColor;
+   }
+@@ -398,23 +412,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+   return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
+ }
+ 
+-- (CGFloat)contentInset
+-{
+-  return ENRMCodeBlockContentInset(_config);
+-}
+-
+ - (CGFloat)measureHeight:(CGFloat)maxWidth
+ {
+-  CGFloat inset = [self contentInset];
+-  return _codeSize.height + inset * 2 + [self headerHeight];
++  return _codeSize.height + kENRMWebCodePad * 2 + [self headerHeight];
+ }
+ 
+ + (CGFloat)measureHeightForCodeBlockNode:(MarkdownASTNode *)node config:(StyleConfig *)config
+ {
+-  CGFloat inset = ENRMCodeBlockContentInset(config);
+-  CGFloat headerH = inset + ENRMCodeBlockHeaderLabelLineHeight(ENRMCodeBlockHeaderFont(config));
+   NSAttributedString *code = ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config);
+-  return ENRMCodeBlockCodeSize(code).height + inset * 2 + headerH;
++  return ENRMCodeBlockCodeSize(code).height + kENRMWebCodePad * 2 + kENRMWebHeaderHeight;
+ }
+ 
+ - (void)drawRect:(CGRect)rect
+@@ -434,6 +440,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+     [backgroundColor setFill];
+     [path fill];
+   }
++
++  CGFloat headerH = [self headerHeight];
++  BOOL darkFrame = ENRMColorIsDark(backgroundColor);
++  CGRect paneRect = CGRectMake(borderWidth, headerH, MAX(self.bounds.size.width - borderWidth * 2, 0),
++                               MAX(self.bounds.size.height - headerH - borderWidth, 0));
++  CGFloat paneRadius = MAX(0, radius - borderWidth);
++#if !TARGET_OS_OSX
++  UIBezierPath *panePath = [UIBezierPath bezierPathWithRoundedRect:paneRect
++                                                 byRoundingCorners:(UIRectCornerTopLeft | UIRectCornerTopRight)
++                                                       cornerRadii:CGSizeMake(paneRadius, paneRadius)];
++#else
++  NSBezierPath *panePath = [NSBezierPath bezierPathWithRoundedRect:paneRect xRadius:paneRadius yRadius:paneRadius];
++#endif
++  [ENRMWebCodePaneColor(darkFrame) setFill];
++  [panePath fill];
++
+   if (borderWidth > 0) {
+     RCTUIColor *borderColor = [_config codeBlockBorderColor];
+     if (borderColor) {
+@@ -443,24 +465,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+     }
+   }
+ 
+-  CGFloat inset = [self contentInset];
+-  CGFloat headerH = [self headerHeight];
+-
+-  // Divider between the header and the code, centered in the gap the code
+-  // text's top inset creates, so it adds no height of its own.
+-  RCTUIColor *dividerColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderDividerAlpha];
+-  if (dividerColor) {
+-    CGRect dividerRect = CGRectMake(borderWidth, headerH + inset / 2, self.bounds.size.width - borderWidth * 2, 1);
+-    [dividerColor setFill];
+-#if !TARGET_OS_OSX
+-    [[UIBezierPath bezierPathWithRect:dividerRect] fill];
+-#else
+-    [[NSBezierPath bezierPathWithRect:dividerRect] fill];
+-#endif
+-  }
+-
+   if (_languageLabel.length > 0) {
+-    [_languageLabel drawAtPoint:CGPointMake(inset, headerH - _languageLabelSize.height)];
++    CGFloat labelY = MAX(0, (headerH - _languageLabelSize.height) / 2);
++    [_languageLabel drawAtPoint:CGPointMake(kENRMWebHeaderPadX, labelY)];
+   }
+ }
+ 
 diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
 index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a2eb0d3f4 100644
 --- a/ios/views/TableContainerView.m
