@@ -1,0 +1,11 @@
+{
+  "pr": 315,
+  "sha": "17a860c08b9a683cff6fcb39552e14f680783490",
+  "branch": "feat/mobile-agent-e2e",
+  "device": "B3CE3FD6-769B-48A3-B0F7-5933C74D1E39",
+  "bundleId": "land.atmos.mobile",
+  "capturedAt": "2026-10-16T17:04:09Z",
+  "host": "AarynLudeMacBook-Air",
+  "agentDevice": "0.21.25",
+  "note": "demo: smoke ok (paired) + neutral not-found route; no private screens"
+}
