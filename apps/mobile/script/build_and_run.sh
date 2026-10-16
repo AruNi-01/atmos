@@ -57,6 +57,13 @@ patch_ios_pods() {
   done < <(find "$ROOT_DIR/ios/Pods/Target Support Files" -name '*-xcframeworks.sh' -print0 2>/dev/null)
 }
 
+ensure_ios_rncore_debug() {
+  local ensure_script="$ROOT_DIR/script/ensure-ios-rncore-configuration.js"
+  if [[ -f "$ensure_script" ]]; then
+    node "$ensure_script" Debug --ios-dir "$ROOT_DIR/ios"
+  fi
+}
+
 configure_android_env() {
   if [[ -z "${ANDROID_HOME:-}" || ! -d "${ANDROID_HOME:-}/platform-tools" ]]; then
     local sdk_dir
@@ -104,6 +111,7 @@ case "$MODE" in
     ;;
   run-ios)
     patch_ios_pods
+    ensure_ios_rncore_debug
     exec "${EXPO_CMD[@]}" run:ios "${@:2}"
     ;;
   run-android)

@@ -909,3 +909,14 @@ Non-goals:
 ## Open questions
 
 None after the latest product clarification. Reconcile this TECH once `PRD.md` is authored.
+
+<!-- updated 2026-10-16: iOS Debug/Release prebuilt RN core isolation (tooling) -->
+
+## Post-Implementation Update — 2026-10-16
+
+iOS local builds on RN 0.85.3 use `RCT_USE_PREBUILT_RNCORE=1`. Debug and Release cores are swapped in place under `apps/mobile/ios/Pods/React-Core-prebuilt`. This is build tooling, not a product-scope change: no app UI, no Expo/RN upgrade, no new `WsAction`.
+
+- Helper: `apps/mobile/script/ensure-ios-rncore-configuration.js`. A missing `.last_build_configuration` is treated as unknown, not Debug (unlike RN's `replace-rncore-version.js`).
+- `just mobile-ios` / `mobile-ios-dev` / `mobile-ios-device` / `mobile-ios-prepare` ensure Debug before the compile. `just mobile-ios-release` ensures Release, then restores Debug on EXIT.
+- Release writes to `apps/mobile/ios/DerivedData-Release`. Device Debug writes to `apps/mobile/ios/DerivedData-Debug`. Expo simulator Debug keeps `apps/mobile/ios/build`.
+- Manual verification of `xcodebuild` remains on macOS. Linux coverage is the helper unit tests plus recipe wiring assertions.

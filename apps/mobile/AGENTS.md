@@ -7,7 +7,9 @@
 ## Build And Test
 
 - **Dev server**: `just dev-mobile` or `cd apps/mobile && bun run start`
-- **iOS dev build**: `cd apps/mobile && bun run ios`
+- **iOS simulator Debug**: `just mobile-ios` (or `cd apps/mobile && bun run ios`)
+- **iOS device Debug**: `just mobile-ios-dev`
+- **iOS device Release**: `just mobile-ios-release`
 - **Android dev build**: `cd apps/mobile && bun run android`
 - **Typecheck**: `bun --filter @atmos/mobile typecheck`
 - **Doctor**: `apps/mobile/script/build_and_run.sh --doctor`
@@ -41,6 +43,7 @@ apps/mobile/
 │   └── ui/                  # Expo UI wrappers, IosPopover, ExpoDrawer
 ├── references/              # Mobile-local troubleshooting notes
 ├── script/build_and_run.sh
+├── script/ensure-ios-rncore-configuration.js
 ├── app.json
 └── package.json
 ```
@@ -113,7 +116,7 @@ Spec: [specs/APP/APP-077_mobile-terminal-main-path](../../specs/APP/APP-077_mobi
 - Run `bun --filter @atmos/mobile typecheck` after mobile code changes.
 - For environment/setup work, follow [agents/references/mobile/dev-setup.md](../../agents/references/mobile/dev-setup.md).
 - For navigation/header/title work, follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md).
-- Smoke iOS and Android dev builds before claiming platform readiness.
+- Smoke iOS and Android native builds through the `just mobile-ios*` / `just mobile-android` recipes before claiming platform readiness. The iOS recipes keep Debug/Release prebuilt RN cores from sharing one output tree.
 - Keep Relay URL overrides and token switching out of this dogfood cut (APP-077); restore later via a slim settings sheet if needed.
 
 ---
