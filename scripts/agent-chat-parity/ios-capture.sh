@@ -116,8 +116,10 @@ wait_for_line() {
   return 1
 }
 
-# simctl io screenshot has blocked long enough to hit the job timeout
-# (run 38857737524). Kill the process group after 90s and let the caller retry.
+# A stuck simctl screenshot consumed the 120 minute job (run 38857737524).
+# Run 38871450335 then showed the app was ready and the shot still had not
+# returned at 90s, while the previous green capture's slow frames took a few
+# minutes. Kill the process group after 240s and let the caller retry.
 run_bounded() {
   local seconds="$1"
   shift
@@ -142,7 +144,7 @@ PY
 }
 
 take_screenshot() {
-  run_bounded 90 xcrun simctl io booted screenshot "$1"
+  run_bounded 240 xcrun simctl io booted screenshot "$1"
 }
 
 # simctl screenshots stay black unless Simulator.app owns the framebuffer.
