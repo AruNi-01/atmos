@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-16
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38849287823` (head `37e873ad3`) is a green iOS matrix on the card-lane preview before the pill-row height. Run `38877961991` (head `b81686ddf`) is the height-36 build: iOS `F12-light` and `F12-dark` show the title pills ("Questions for you", "Plan", "Message Queue"). That job is not a clean 26-frame pass: `F4-dark` and `F11-dark` are the home screen, and `F1-light` was shot before the release-notes body painted. S27 is partial. S28 ran. S31 stays `not_run`.
+- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38894137249` (head `d0dad93ae`) is a clean iOS Simulator matrix on the card-lane preview: 26 distinct frames, `F1-light` shows the release notes, `F4-dark` and `F11-dark` are the app, and `F12-light` shows the title pills. Run `38877961991` is an earlier height-36 build whose `F4-dark` and `F11-dark` were Springboard and whose `F1-light` missed the body. S27 is partial. S28 ran as react-native-web. S31 stays `not_run`.
 
 ## Snapshot
 
@@ -73,29 +73,29 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 
 ## Verification Status
 
-| Area                 | Command / Method                                                | Last result | Notes                                                                  |
-| -------------------- | --------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------- |
-| Spec review          | read specs + web/mobile sources + runner-images readme          | done        | pins still match image `20260907.0351.1`                               |
-| S4 mobile tests      | `cd apps/mobile && bun test`                                    | pass        | 285 tests                                                              |
-| S5 mobile tests      | `cd apps/mobile && bun test`                                    | pass        | 299 tests                                                              |
-| S6 mobile tests      | `cd apps/mobile && bun test`                                    | pass        | 324 tests                                                              |
-| S7 mobile tests      | `cd apps/mobile && bun test`                                    | pass        | 334 pass, 0 fail, 82 files                                             |
-| Package              | `bun --filter @atmos/agent-transcript test`                     | pass        | 31 pass, 0 fail, 5 files                                               |
-| Structural           | `bun scripts/agent-chat-parity/compare.ts`                      | pass        | `13 fixtures match`                                                    |
-| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`                 | pass        | 13 files under gitignored `artifacts/structural/`                      |
-| Capture script       | `bash -n` and `mp4-duration.py --self-test`                     | pass        | syntax and muxer only; no simulator on this machine                    |
-| S9 / S15 / S20 / S26 | dedicated assertions                                            | not_run     | behavior exists; no test asserts the scenario as written               |
-| S27 Cursor CLI       | parent `agent -p` on react-native-web shots                     | partial     | F3 pass; F12 cards fail; F6 suspected false positive                   |
-| S28 mobai-dev        | parent RN-web preview, head `1a8ed362b`                         | ran         | 26 frames, not iOS; 241/250 labels; 9 card misses                      |
-| S31 web PNGs         | Next.js                                                         | not_run     | `next dev` OOM; ubuntu job PNGs are react-native-web                   |
-| iOS simulator        | runs `38789917018`, `38797183648`, `38849287823`, `38877961991` | pass (S29)  | `38877961991` shows iOS title pills on F12; two frames are Springboard |
-| 图一 pixels          | image missing                                                   | not_run     | pill height 36 is provisional                                          |
+| Area                 | Command / Method                                       | Last result | Notes                                                                  |
+| -------------------- | ------------------------------------------------------ | ----------- | ---------------------------------------------------------------------- |
+| Spec review          | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1`                               |
+| S4 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 285 tests                                                              |
+| S5 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 299 tests                                                              |
+| S6 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 324 tests                                                              |
+| S7 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 334 pass, 0 fail, 82 files                                             |
+| Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                               |
+| Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                                    |
+| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`                      |
+| Capture script       | `bash -n` and `mp4-duration.py --self-test`            | pass        | syntax and muxer only; no simulator on this machine                    |
+| S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written               |
+| S27 Cursor CLI       | parent `agent -p` on react-native-web shots            | partial     | F3 pass; F12 cards fail; F6 suspected false positive                   |
+| S28 mobai-dev        | parent RN-web preview, head `1a8ed362b`                | ran         | 26 frames, not iOS; 241/250 labels; 9 card misses                      |
+| S31 web PNGs         | Next.js                                                | not_run     | `next dev` OOM; ubuntu job PNGs are react-native-web                   |
+| iOS simulator        | runs `38789917018`, `38797183648`, `38894137249`       | pass (S29)  | `38894137249` is the clean card-lane matrix, including iOS title pills |
+| 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                                          |
 
 ## Known Blockers
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S10 and S30 stay `not_run`. Recordings last 8s and each file's frames are identical, so motion is not shown.
-- [ ] Run `38877961991` shows the title pills on iOS `F12-light` and `F12-dark`. `F4-dark` and `F11-dark` in that artifact are Springboard, and `F1-light` missed the release-notes body. The capture script now rejects a home-screen shot and waits 15s after the ready line. That retry is not in the artifact.
+- [ ] Run `38877961991` is not a clean matrix (`F4-dark` and `F11-dark` are Springboard; `F1-light` missed the body). Run `38894137249` replaces it: those frames are the app, and `F1-light` shows the release notes. The right edge of the light "Message Queue" pill still has a gray fade. Collapsed card bodies are still off screen, so S27 F12 stays fail.
 - [ ] S31 stays `not_run`. Next.js screenshots were not produced.
 
 ## Handoff Notes
@@ -133,7 +133,7 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - S31 Next.js web PNGs were not produced (`next dev` OOM). Ubuntu `parity-rn-web` images are react-native-web and do not close S31.
 - S27 is partial: F3 pass, F12 cards fail, F6 suspected false positive pending confirmation. Shots are react-native-web.
 - S28 ran as react-native-web on scratch head `1a8ed362b` (26 frames, 241/250 labels). Not iOS.
-- The carousel and preview card lane are not in runs `38789917018` or `38797183648`. Run `38849287823` has the expanded permission card on iOS and still has no title pills in those frames. Run `38877961991` shows the pills on iOS F12 and is not a clean matrix.
+- The carousel and preview card lane are not in runs `38789917018` or `38797183648`. Run `38849287823` has the expanded permission card on iOS and still has no title pills in those frames. Run `38877961991` shows the pills and is not a clean matrix. Run `38894137249` is the clean card-lane matrix with the pills.
 - Run `38807875046` iOS capture is not a pass. Light frames and `F1-dark.png` were written. `F2-dark` onward and the `.mov` files were not. `structural` on that run did upload `parity-rn-web` (react-native-web, not Next, so S31 stays `not_run`).
 - Run `38816093468` iOS capture is not a pass. The shared clock worked. The 26 PNGs are not all distinct.
 - Run `38823255381` iOS capture is not a pass. The 90s hold worked through F6 light, then the next ready line never arrived.
@@ -144,10 +144,10 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 
 ### Next steps
 
-1. Watch the iOS run started after the home-screen rejection. Do not cancel `38803926761`, `38807875046`, `38816093468`, `38823255381`, `38831101582`, `38837550765`, `38843429024`, `38849287823`, `38857737524`, `38871450335`, or `38877961991`.
-2. Run `38877961991` shows the title pills on iOS F12. Do not treat `F4-dark`, `F11-dark`, or `F1-light` from that run as fixture frames.
+1. Run `38894137249` is the clean iOS matrix. Do not cancel it or the earlier runs, including `38877961991`.
+2. Do not treat `F4-dark`, `F11-dark`, or `F1-light` from `38877961991` as fixture frames. Use `38894137249` for those three.
 3. S10 and S30 stay `not_run`. The `.mov` files are still frames.
-4. Do not mark S27 F12 or S31 pass. Do not merge.
+4. Do not mark S27 F12 or S31 pass. Do not merge. `origin/main` still names `Atmos.SceneDelegate`; this branch does not.
 
 ### Relevant files/symbols
 
@@ -202,3 +202,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Run `38857737524` head `d48e7e5a9`: `structural` passed. `ios-simulator` was cancelled when the 120 minute job limit hit during capture. No `ios-parity` artifact, so the pill height is still unverified on iOS. The job limit is now 180 minutes.
 - Run `38871450335` head `695880ca2`: `structural` passed. Capture logged `[parity] ready F1 light #0`, then `simctl io screenshot` had not returned at 90s and the script killed it three times. Springboard's screenshot returned in 4s. The cap is now 240s, above the slow frames on run `38849287823`. [ios-parity](https://github.com/AruNi-01/atmos/actions/runs/38871450335/artifacts/12035551516) has the console and Springboard only.
 - Run `38877961991` head `b81686ddf`: `structural` and `ios-simulator` passed. [ios-parity](https://github.com/AruNi-01/atmos/actions/runs/38877961991/artifacts/12041953218). 26 fixture hashes differ, and `default-route.png` equals `F1-light` (`870b231a…`). iOS `F12-light` (`832fffe5…`) and `F12-dark` show "Questions for you", "Plan", and "Message Queue" between the permission card and the composer. `F11-light` shows the expanded permission card and the "Questions for you" pill. `F6-light` (`06f2df9b…`) still shows the "2 files changed" footer. `F4-dark` and `F11-dark` are the home screen (405 coarse colors). `F1-light` was written about 6s after ready, before the release-notes body; dominant fraction 0.848, so the flat check kept it. [parity-rn-web](https://github.com/AruNi-01/atmos/actions/runs/38877961991/artifacts/12036361467) is react-native-web, not iOS and not Next. `png-flat.py` now exits 3 on a home-screen shot, and capture waits 15s after ready, then relaunches when the shot is Springboard. That gate is not in this artifact.
+- Run `38894137249` head `d0dad93ae`: `structural` and `ios-simulator` passed. [ios-parity](https://github.com/AruNi-01/atmos/actions/runs/38894137249/artifacts/12049311013). 26 fixture hashes differ. `default-route.png` equals `F1-light` (`ffe20d90…`, dominant fraction 0.617) and shows the release notes, the table, the TypeScript block, and the mermaid fence. `F4-dark` (`1c623bdc…`) is "The export is ready.", not Springboard. `F11-dark` (`12d6f6e0…`) shows "Questions for you", Allow, Deny, and the "Questions for you" pill. `F12-light` is the same pixels as run `38877961991` (`832fffe5…`): the permission card, the three title pills, and the 15% trigger. The light "Message Queue" pill still fades gray on its right edge. `F6-light` is still `06f2df9b…` ("2 files changed"). `png-flat.py` exits 1 on every fixture PNG and exits 3 only on `springboard.png` (393 coarse colors). The first `F7-dark` shot was the home screen; the relaunch shows "Here is the plan." No `Maximum update depth`. [parity-rn-web](https://github.com/AruNi-01/atmos/actions/runs/38894137249/artifacts/12043376294) is react-native-web, not iOS and not Next. `origin/main` still names `Atmos.SceneDelegate`. This branch does not, and this Xcode 26.5 capture paints.
