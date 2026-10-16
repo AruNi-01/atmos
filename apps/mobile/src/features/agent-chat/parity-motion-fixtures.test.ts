@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   hasCollapsibleAssistantProcess,
+  parityFixtureById,
   segmentAssistantParts,
   toolGroupHasRunning,
 } from "@atmos/agent-transcript";
@@ -16,10 +17,12 @@ import {
   PARITY_SETTLED_ASSISTANT_ID,
   PARITY_SETTLED_FIXTURE,
   PARITY_STREAM_FIXTURE,
+  PARITY_TAIL_FIXTURE,
   parityMotionKind,
   paritySettledToolMessages,
   parityStreamToolFrame,
   parityStreamToolMessages,
+  parityTailMessages,
 } from "./parity-motion-fixtures";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -62,7 +65,9 @@ describe("parity motion fixtures", () => {
   test("the settled contrast is a finished group, and F4 stays the collapsed process", () => {
     expect(parityMotionKind(PARITY_STREAM_FIXTURE)).toBe("stream");
     expect(parityMotionKind(PARITY_SETTLED_FIXTURE)).toBe("settled");
+    expect(parityMotionKind(PARITY_TAIL_FIXTURE)).toBe("tail");
     expect(parityMotionKind("F4")).toBeNull();
+    expect(parityMotionKind("F13")).toBeNull();
     const assistant = paritySettledToolMessages().find((message) => message.role === "assistant");
     expect(assistant?.id).toBe(PARITY_SETTLED_ASSISTANT_ID);
     expect(assistant?.streaming).toBe(false);
@@ -75,5 +80,40 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain("PARITY_MOTION_ROW_MS");
     expect(preview).toContain("setInterval");
     expect(preview).toContain("agentChatProcessExpandKey(PARITY_SETTLED_ASSISTANT_ID)");
+  });
+
+  test("the F13 tail appends rows and the preview pill uses the measured below count", () => {
+    const fixture = parityFixtureById("F13");
+    if (!fixture) throw new Error("missing F13");
+    const baseLength = fixture.messages.length;
+    const baseLastId = fixture.messages[baseLength - 1]?.id;
+    expect(parityTailMessages(0)).toHaveLength(baseLength);
+    expect(parityTailMessages(0)[0]?.id).toBe(fixture.messages[0]?.id);
+
+    const grown = parityTailMessages(3);
+    expect(grown).toHaveLength(baseLength + 3);
+    expect(grown[baseLength]).toMatchObject({
+      id: "f13-tail-1",
+      role: "assistant",
+      streaming: false,
+    });
+    expect(grown[baseLength + 1]).toMatchObject({ id: "f13-tail-2", streaming: false });
+    expect(grown[baseLength + 2]).toMatchObject({
+      id: "f13-tail-3",
+      streaming: true,
+      parts: [{ type: "text", text: "Tail 3" }],
+    });
+    expect(fixture.messages).toHaveLength(baseLength);
+    expect(fixture.messages[baseLength - 1]?.id).toBe(baseLastId);
+    expect(grown[baseLength - 1]?.id).toBe(baseLastId);
+
+    const preview = readFileSync(join(here, "preview-chat-screen.tsx"), "utf8");
+    expect(preview).toContain("parityTailMessages");
+    expect(preview).toContain('motion === "tail" ? parityTailMessages(tailStep)');
+    expect(preview).toContain("onStickChange={liveTail ? onStickChange : undefined}");
+    expect(preview).toContain("belowCount={liveTail ? stick.belowCount : 0}");
+    expect(preview).toContain("stickToEnd={liveTail ? stick.stickToEnd : true}");
+    expect(preview).toContain("scrollToEndAnimated");
+    expect(preview).not.toContain("belowCount={0}");
   });
 });

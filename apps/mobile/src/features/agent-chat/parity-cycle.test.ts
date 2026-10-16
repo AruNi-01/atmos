@@ -92,6 +92,10 @@ describe("parity cycle", () => {
       id: "settled-tools",
       theme: "light",
     });
+    expect(parseParityDiskFrame('{"id":"f13-tail","theme":"dark"}')).toEqual({
+      id: "f13-tail",
+      theme: "dark",
+    });
     expect(parseParityDiskFrame('{"id":"nope","theme":"light"}')).toBeNull();
     expect(parseParityDiskFrame("")).toBeNull();
     expect(parseParityDiskFrame("{")).toBeNull();

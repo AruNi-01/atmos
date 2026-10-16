@@ -1,10 +1,12 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import { parityFixtureById } from "@atmos/agent-transcript";
 
 /** One new tool row per tick. Longer than the 400ms tree draw, so each line finishes before the next. */
 export const PARITY_MOTION_ROW_MS = 600;
 
 export const PARITY_STREAM_FIXTURE = "stream-tools";
 export const PARITY_SETTLED_FIXTURE = "settled-tools";
+export const PARITY_TAIL_FIXTURE = "f13-tail";
 export const PARITY_SETTLED_ASSISTANT_ID = "settled-tools-a";
 
 const STREAM_START = 2;
@@ -35,9 +37,10 @@ const SETTLED_SCRIPT: readonly MotionRow[] = [
   { id: "search-export", kind: "search", title: "export" },
 ];
 
-export function parityMotionKind(id: string): "stream" | "settled" | null {
+export function parityMotionKind(id: string): "stream" | "settled" | "tail" | null {
   if (id === PARITY_STREAM_FIXTURE) return "stream";
   if (id === PARITY_SETTLED_FIXTURE) return "settled";
+  if (id === PARITY_TAIL_FIXTURE) return "tail";
   return null;
 }
 
@@ -110,6 +113,27 @@ export function parityStreamToolMessages(step: number): AgentMessage[] {
       streaming: true,
     },
   ];
+}
+
+/**
+ * F13, then one new assistant row per step. Step 0 is the settled long
+ * transcript. Later steps append `Tail N` and do not rewrite earlier rows,
+ * so a marker the reader has scrolled to can stay put while the count grows.
+ */
+export function parityTailMessages(step: number): AgentMessage[] {
+  const base = parityFixtureById("F13")?.messages ?? [];
+  const extra = Math.max(0, Math.floor(step));
+  const tail: AgentMessage[] = [];
+  for (let n = 1; n <= extra; n += 1) {
+    tail.push({
+      id: `f13-tail-${n}`,
+      role: "assistant",
+      parts: [{ type: "text", text: `Tail ${n}` }],
+      created_at: "2026-10-16T12:00:00.000Z",
+      streaming: n === extra,
+    });
+  }
+  return [...base, ...tail];
 }
 
 /** Settled group. F4 is the same reopen path with the process starting closed. */

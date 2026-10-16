@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
@@ -6,7 +6,7 @@ import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { parityFixtureById } from "@/features/agent-chat/parity-tree";
 import { useThemeStore } from "@/theme/theme-store";
 import { AgentChatComposer } from "./AgentChatComposer";
-import { AgentChatTranscript } from "./AgentChatTranscript";
+import { AgentChatTranscript, type AgentChatTranscriptHandle } from "./AgentChatTranscript";
 import { cardPillTitle } from "./composer-cards";
 import { ComposerPillRow } from "./composer-pill-row";
 import { pillShowsAttention, reduceLane, type LaneState } from "./card-lane";
@@ -34,11 +34,12 @@ import {
   parityMotionKind,
   paritySettledToolMessages,
   parityStreamToolMessages,
+  parityTailMessages,
 } from "./parity-motion-fixtures";
 
 const NO_FAVORITES: FavoriteModel[] = [];
 
-function useParityStreamMessages(active: boolean): AgentMessage[] {
+function useParityClock(active: boolean): number {
   const [step, setStep] = useState(0);
   const [armed, setArmed] = useState(active);
   if (armed !== active) {
@@ -52,7 +53,7 @@ function useParityStreamMessages(active: boolean): AgentMessage[] {
     }, PARITY_MOTION_ROW_MS);
     return () => clearInterval(timer);
   }, [active]);
-  return useMemo(() => parityStreamToolMessages(step), [step]);
+  return step;
 }
 
 function param(value: string | string[] | undefined): string {
@@ -95,6 +96,15 @@ export function PreviewChatScreen() {
   const [cardHeight, setCardHeight] = useState(0);
   const [pillHeight, setPillHeight] = useState(0);
   const [text, setText] = useState("");
+  const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
+  const [stick, setStick] = useState({ belowCount: 0, stickToEnd: true });
+  const onStickChange = useCallback((next: { belowCount: number; stickToEnd: boolean }) => {
+    setStick((current) =>
+      current.belowCount === next.belowCount && current.stickToEnd === next.stickToEnd
+        ? current
+        : next,
+    );
+  }, []);
 
   useEffect(() => subscribeParityClock(setIndex), []);
 
@@ -112,7 +122,13 @@ export function PreviewChatScreen() {
   }, [frame, frames.length, index, pinned, preference]);
 
   const motion = parityMotionKind(frame.id);
-  const streamMessages = useParityStreamMessages(motion === "stream");
+  const streamStep = useParityClock(motion === "stream");
+  const tailStep = useParityClock(motion === "tail");
+  const streamMessages = useMemo(() => parityStreamToolMessages(streamStep), [streamStep]);
+  const tailMessages = useMemo(
+    () => (motion === "tail" ? parityTailMessages(tailStep) : []),
+    [motion, tailStep],
+  );
   const fixture = motion ? null : parityFixtureById(frame.id);
   const cards = composerCardsFromParity(fixture?.cards);
 
@@ -124,12 +140,15 @@ export function PreviewChatScreen() {
   }, [motion]);
   const laneKey = `${frame.id}:${frame.theme}`;
   const lane = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
+  const liveTail = motion === "tail";
   const messages = (
     motion === "stream"
       ? streamMessages
-      : motion === "settled"
-        ? paritySettledToolMessages()
-        : (fixture?.messages ?? [])
+      : liveTail
+        ? tailMessages
+        : motion === "settled"
+          ? paritySettledToolMessages()
+          : (fixture?.messages ?? [])
   ) as AgentMessage[];
   const pills = cards.available.map((id) => ({
     id,
@@ -173,8 +192,10 @@ export function PreviewChatScreen() {
         {fixture || motion ? (
           <AgentChatTranscript
             key={laneKey}
+            ref={transcriptRef}
             expandedCardHeight={lane.visible ? cardHeight : 0}
             messages={messages}
+            onStickChange={liveTail ? onStickChange : undefined}
             pillRowHeight={pillRowHeight}
           />
         ) : (
@@ -196,13 +217,13 @@ export function PreviewChatScreen() {
           </ExpandedCard>
         ) : null}
         <ComposerPillRow
-          belowCount={0}
+          belowCount={liveTail ? stick.belowCount : 0}
           messageCount={messages.length}
           onLayout={(event) => setPillHeight(event.nativeEvent.layout.height)}
           onPillPress={onPillPress}
-          onScrollToBottom={() => undefined}
+          onScrollToBottom={() => transcriptRef.current?.scrollToEndAnimated()}
           pills={pills}
-          stickToEnd
+          stickToEnd={liveTail ? stick.stickToEnd : true}
         />
         <View style={{ paddingHorizontal: 18 }}>
           <AgentChatComposer
