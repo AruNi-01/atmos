@@ -29,13 +29,15 @@ describe("parity cycle", () => {
 
   test("one clock serves every mounted preview", () => {
     const pending: Array<() => void> = [];
+    let now = 1_000;
     const clock = createParityClock(
-      PARITY_HOLD_MS,
+      1_000,
       (fn) => {
         pending.push(fn);
         return 1 as unknown as ReturnType<typeof setTimeout>;
       },
       () => undefined,
+      () => now,
     );
     const seen: number[] = [];
     clock.subscribe((next) => seen.push(next));
@@ -46,11 +48,15 @@ describe("parity cycle", () => {
     expect(clock.arm(26)).toBe(false);
     expect(pending).toHaveLength(1);
     pending[0]!();
+    expect(clock.index()).toBe(0);
+    expect(pending).toHaveLength(2);
+    now = 2_000;
+    pending[1]!();
     expect(clock.index()).toBe(1);
     expect(seen).toEqual([0, 1]);
     expect(clock.claim("F2:light:1")).toBe(true);
     expect(clock.arm(26)).toBe(true);
-    expect(pending).toHaveLength(2);
+    expect(pending).toHaveLength(3);
     clock.reset();
     expect(clock.index()).toBe(0);
     expect(clock.arm(1)).toBe(false);

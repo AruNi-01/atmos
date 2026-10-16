@@ -6,6 +6,12 @@ export const PARITY_THEMES = ["light", "dark"] as const;
  * Run 38816093468 blocked for 61s while the 15s hold had already moved on. */
 export const PARITY_HOLD_MS = 90_000;
 
+/** RCTTiming pauses its display link and arms an NSTimer once the next
+ * deadline is more than a second away. That sleep timer did not fire after
+ * F6 on run 38823255381, so the carousel stopped. Ticks stay under a second
+ * and the frame changes when wall time says the hold is over. */
+const PARITY_TICK_MS = 500;
+
 export type ParityTheme = (typeof PARITY_THEMES)[number];
 
 export type ParityFrame = {
@@ -58,6 +64,7 @@ export function createParityClock(
   holdMs: number,
   schedule: (fn: () => void, ms: number) => ReturnType<typeof setTimeout> = setTimeout,
   cancel: (id: ReturnType<typeof setTimeout>) => void = clearTimeout,
+  now: () => number = Date.now,
 ): ParityClock {
   let index = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -78,11 +85,19 @@ export function createParityClock(
     },
     arm(frameCount) {
       if (timer != null || index >= frameCount - 1) return false;
-      timer = schedule(() => {
+      const startedAt = now();
+      const tick = () => {
         timer = null;
-        index += 1;
-        for (const listener of listeners) listener(index);
-      }, holdMs);
+        if (index >= frameCount - 1) return;
+        if (now() - startedAt >= holdMs) {
+          index += 1;
+          for (const listener of listeners) listener(index);
+          return;
+        }
+        const remaining = holdMs - (now() - startedAt);
+        timer = schedule(tick, Math.min(PARITY_TICK_MS, remaining));
+      };
+      timer = schedule(tick, Math.min(PARITY_TICK_MS, holdMs));
       return true;
     },
     reset() {
