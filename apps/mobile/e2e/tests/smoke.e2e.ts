@@ -9,8 +9,21 @@ test(
   { skip: paired ? "app is paired; pair screen not shown" : false },
   async ({ app, screen }) => {
     await app.open();
-    await expect(screen.getByText("Pair this phone with your Computer.")).toBeVisible();
+    // A Release cold start can take a few seconds to draw its first frame.
+    await expect(screen.getByText("Pair this phone with your Computer.")).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(screen.getByText("Scan QR")).toBeVisible();
     await expect(screen.getByText("Continue with GitHub")).toBeVisible();
+  },
+);
+
+// Paired install: the app lands on the workspace list instead.
+test(
+  "paired launch shows the workspace list",
+  { skip: paired ? false : "app is not paired (set ATMOS_E2E_PAIRED=1 for a paired install)" },
+  async ({ app, screen }) => {
+    await app.open();
+    await expect(screen.getByTestId("Workspace")).toBeVisible({ timeout: 30_000 });
   },
 );

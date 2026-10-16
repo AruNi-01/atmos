@@ -8,11 +8,15 @@
 #   ATMOS_E2E_DEVICE            simulator UDID or name (default: see resolve-device.mjs)
 #   EVIDENCE_SCALE=0.4          screenshot scale (0.01-1)
 #   EVIDENCE_RECORD_SECONDS=0   >0 records the screen that long and adds a contact sheet
+#   EVIDENCE_LINK=atmos://...   open this deep link in the app before capturing
+#   EVIDENCE_WAIT_MS=3000       settle time after opening the app
 #   EVIDENCE_NO_PUSH=1          stage under .e2e/evidence/ only; do not push
 #   EVIDENCE_REMOTE=<url>       remote to push to (default: origin of this checkout)
 #
-# Captured: screen.png (scaled), a11y.txt (agent-device snapshot -i), report.json and
+# Captured: screen.png (simctl framebuffer, scaled), a11y.txt (agent-device snapshot -i), report.json and
 # failure traces from the last `e2e run`, contact-sheet.png (optional), meta.json, README.md.
+# The remote is usually PUBLIC: never push a paired app's real screens (workspace names,
+# chat text, Computer URLs). Use EVIDENCE_LINK for a neutral route, or EVIDENCE_NO_PUSH=1.
 # Videos stay local (.e2e/evidence/); only the contact sheet is pushed. Reads the
 # simulator only: it never installs, relaunches, erases or shuts anything down.
 set -euo pipefail
@@ -38,15 +42,20 @@ AD="$E2E_DIR/node_modules/.bin/agent-device"
 export E2E_TELEMETRY_DISABLED="${E2E_TELEMETRY_DISABLED:-1}"
 
 rm -rf "$OUT"; mkdir -p "$OUT"
-ad() { "$AD" "$@" --platform ios --device "$UDID" --session "$SESSION"; }
+ad() { "$AD" "$@" --platform ios --udid "$UDID" --session "$SESSION"; }
 cleanup() { ad close >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 echo "[evidence] ${REL} on simulator ${UDID}"
-ad open "$BUNDLE_ID" >/dev/null
-ad wait 1500 >/dev/null 2>&1 || true
+if [[ -n "${EVIDENCE_LINK:-}" ]]; then ad open "$BUNDLE_ID" "$EVIDENCE_LINK" >/dev/null; else ad open "$BUNDLE_ID" >/dev/null; fi
+ad wait "${EVIDENCE_WAIT_MS:-3000}" >/dev/null 2>&1 || true
 ad snapshot -i >"$OUT/a11y.txt"
-ad screenshot "$OUT/screen.png" --scale "$SCALE" >/dev/null
+# simctl framebuffer, not `agent-device screenshot`: the latter draws iOS 26.5 sheets black.
+xcrun simctl io "$UDID" screenshot --type=png "$OUT/screen-full.png" >/dev/null 2>&1
+FULL_W="$(sips -g pixelWidth "$OUT/screen-full.png" | awk '/pixelWidth/ {print $2}')"
+sips --resampleWidth "$(awk -v w="$FULL_W" -v s="$SCALE" 'BEGIN { printf "%d", w * s }')" \
+  "$OUT/screen-full.png" --out "$OUT/screen.png" >/dev/null
+rm -f "$OUT/screen-full.png"
 
 if [[ "$SECONDS_REC" -gt 0 ]]; then
   ad record start "$OUT/recording.mp4" >/dev/null

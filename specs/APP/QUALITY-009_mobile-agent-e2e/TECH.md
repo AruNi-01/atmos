@@ -63,13 +63,16 @@ Use a Release build: it carries its JS and needs no Metro. A Debug build opens t
 pr-<N>/<sha>/
 ├── README.md          index (branch, device, note, file list)
 ├── meta.json          pr, full sha, branch, device UDID, host, agent-device version, time, note
-├── screen.png         agent-device screenshot, scaled (EVIDENCE_SCALE, default 0.4)
+├── screen.png         simctl framebuffer screenshot, scaled (EVIDENCE_SCALE, default 0.4)
 ├── a11y.txt           agent-device snapshot -i
 ├── report.json        last `e2e run` report, if present
 ├── traces/*.md        failure traces from `.e2e/results`, if present
 └── contact-sheet.png  only with EVIDENCE_RECORD_SECONDS>0 (keyframes of a screen recording)
 ```
 
+- `EVIDENCE_LINK=atmos://<route>` opens a deep link before capturing; `EVIDENCE_WAIT_MS` sets the settle time (default 3000).
+- The screenshot comes from `xcrun simctl io screenshot`, not `agent-device screenshot`: on iOS 26.5 the latter drew sheets black while the a11y tree was correct.
+- **The remote is public.** Never push evidence of a paired app's real screens (workspace names, chat text, Computer URLs). Capture a neutral route with `EVIDENCE_LINK`, or use `EVIDENCE_NO_PUSH=1` and describe the result in the PR comment.
 - Videos stay local in `.e2e/evidence-video/`. Only text, scaled PNGs and the contact sheet are pushed.
 - `<sha>` is the 9-char HEAD of the checkout that built the app. Re-running at the same sha overwrites that folder.
 - The script publishes through a throwaway repo, so the working checkout is untouched. A push race is retried (fetch, re-copy, push); history is never force-pushed.
@@ -101,6 +104,7 @@ Cloud agent (Linux, edits code, no Simulator) and the Mac agent (Air, has Simula
 - Xcode 27 and iOS 27 Simulators: runner compatibility is unverified. Default is iOS 26.5.
 - First Simulator drive builds the XCUITest runner into `~/.agent-device/` (outside the repo).
 - iOS a11y limits: a plain RN `View` has no children in the tree; `accessibilityRole="tab"` reads as `other`. Parity checks of chat cards need `testID`s. They are intentionally out of scope here and belong to the APP-081 alignment work.
+- A Simulator keeps app data and the keychain across `simctl install`. An install that was paired earlier stays paired, so run `ATMOS_E2E_PAIRED=1` for it; the smoke file has a paired and an unpaired test.
 - Signed-in flows need a manually paired install (`ATMOS_E2E_PAIRED=1`). Pairing cannot be automated.
 - One Simulator, one run (`workers: 1`); two agents on one Mac must serialize.
 - e2e is pre-1.0 and sends anonymous telemetry unless disabled.
