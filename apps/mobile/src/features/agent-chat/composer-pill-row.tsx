@@ -170,10 +170,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 8,
+    height: 36,
     paddingHorizontal: 18,
   },
   scroller: {
     flex: 1,
+    // A horizontal ScrollView on iOS has no intrinsic height, so this row
+    // collapsed to 0 on the simulator while react-native-web still showed it.
+    height: 36,
   },
   scrollerContent: {
     alignItems: "center",

@@ -6,9 +6,9 @@
 
 - **State**: in_progress
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
-- **Last updated**: 2026-10-15
+- **Last updated**: 2026-10-16
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38843429024` relaunched once per fixture and passed the hash gate, but `F1-light` and `F11-dark` are empty backgrounds. The capture script now retakes a shot that is at least 95% one color. That retry is not in the `38843429024` artifact. S27 is partial. S28 ran. S31 stays `not_run`.
+- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38849287823` (head `37e873ad3`) is a green iOS matrix on the card-lane preview: 26 distinct contentful PNGs, `F1-light` is the release notes, `F11-dark` is the permission card. Those iOS frames do not show the title pills. react-native-web F12 from the same run does. The pill row now has an explicit 36pt height; that change is not in the `38849287823` artifact. S27 is partial. S28 ran. S31 stays `not_run`.
 
 ## Snapshot
 
@@ -73,29 +73,29 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 
 ## Verification Status
 
-| Area                 | Command / Method                                       | Last result | Notes                                                    |
-| -------------------- | ------------------------------------------------------ | ----------- | -------------------------------------------------------- |
-| Spec review          | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1`                 |
-| S4 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 285 tests                                                |
-| S5 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 299 tests                                                |
-| S6 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 324 tests                                                |
-| S7 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 334 pass, 0 fail, 82 files                               |
-| Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                 |
-| Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                      |
-| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`        |
-| Capture script       | `bash -n` and `mp4-duration.py --self-test`            | pass        | syntax and muxer only; no simulator on this machine      |
-| S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written |
-| S27 Cursor CLI       | parent `agent -p` on react-native-web shots            | partial     | F3 pass; F12 cards fail; F6 suspected false positive     |
-| S28 mobai-dev        | parent RN-web preview, head `1a8ed362b`                | ran         | 26 frames, not iOS; 241/250 labels; 9 card misses        |
-| S31 web PNGs         | Next.js                                                | not_run     | `next dev` OOM; ubuntu job PNGs are react-native-web     |
-| iOS simulator        | runs `38789917018`, `38797183648`                      | pass (S29)  | transcript-only 26 PNGs; later carousel captures failed  |
-| 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                            |
+| Area                 | Command / Method                                       | Last result | Notes                                                              |
+| -------------------- | ------------------------------------------------------ | ----------- | ------------------------------------------------------------------ |
+| Spec review          | read specs + web/mobile sources + runner-images readme | done        | pins still match image `20260907.0351.1`                           |
+| S4 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 285 tests                                                          |
+| S5 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 299 tests                                                          |
+| S6 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 324 tests                                                          |
+| S7 mobile tests      | `cd apps/mobile && bun test`                           | pass        | 334 pass, 0 fail, 82 files                                         |
+| Package              | `bun --filter @atmos/agent-transcript test`            | pass        | 31 pass, 0 fail, 5 files                                           |
+| Structural           | `bun scripts/agent-chat-parity/compare.ts`             | pass        | `13 fixtures match`                                                |
+| Export trees         | `bun scripts/agent-chat-parity/export-trees.ts`        | pass        | 13 files under gitignored `artifacts/structural/`                  |
+| Capture script       | `bash -n` and `mp4-duration.py --self-test`            | pass        | syntax and muxer only; no simulator on this machine                |
+| S9 / S15 / S20 / S26 | dedicated assertions                                   | not_run     | behavior exists; no test asserts the scenario as written           |
+| S27 Cursor CLI       | parent `agent -p` on react-native-web shots            | partial     | F3 pass; F12 cards fail; F6 suspected false positive               |
+| S28 mobai-dev        | parent RN-web preview, head `1a8ed362b`                | ran         | 26 frames, not iOS; 241/250 labels; 9 card misses                  |
+| S31 web PNGs         | Next.js                                                | not_run     | `next dev` OOM; ubuntu job PNGs are react-native-web               |
+| iOS simulator        | runs `38789917018`, `38797183648`, `38849287823`       | pass (S29)  | `38849287823` has contentful card-lane frames; pills absent on iOS |
+| 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                                      |
 
 ## Known Blockers
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S10 and S30 stay `not_run`. Recordings last 8s and each file's frames are identical, so motion is not shown.
-- [ ] The iOS fixture matrix is not proven. Run `38843429024` wrote 26 distinct PNGs and the permission card is visible on `F12-light`, but `F1-light` and `F11-dark` are empty backgrounds. The flat-screenshot retry is the follow-up and is not in that artifact.
+- [ ] Title pills are missing on the iOS frames of run `38849287823`. The same preview on react-native-web shows them. The row style now sets height 36. That change is not in the artifact.
 - [ ] S31 stays `not_run`. Next.js screenshots were not produced.
 
 ## Handoff Notes
@@ -133,7 +133,7 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - S31 Next.js web PNGs were not produced (`next dev` OOM). Ubuntu `parity-rn-web` images are react-native-web and do not close S31.
 - S27 is partial: F3 pass, F12 cards fail, F6 suspected false positive pending confirmation. Shots are react-native-web.
 - S28 ran as react-native-web on scratch head `1a8ed362b` (26 frames, 241/250 labels). Not iOS.
-- The carousel and preview card lane are not in runs `38789917018` or `38797183648`.
+- The carousel and preview card lane are not in runs `38789917018` or `38797183648`. Run `38849287823` has the expanded permission card on iOS and still has no title pills in those frames.
 - Run `38807875046` iOS capture is not a pass. Light frames and `F1-dark.png` were written. `F2-dark` onward and the `.mov` files were not. `structural` on that run did upload `parity-rn-web` (react-native-web, not Next, so S31 stays `not_run`).
 - Run `38816093468` iOS capture is not a pass. The shared clock worked. The 26 PNGs are not all distinct.
 - Run `38823255381` iOS capture is not a pass. The 90s hold worked through F6 light, then the next ready line never arrived.
@@ -144,8 +144,8 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 
 ### Next steps
 
-1. Watch the iOS run started by the flat-screenshot retry. Do not cancel `38803926761`, `38807875046`, `38816093468`, `38823255381`, `38831101582`, `38837550765`, or `38843429024`.
-2. Do not mark the iOS fixture matrix pass until `F1-light` shows the release notes and `F11-dark` shows the permission card, in addition to 26 distinct hashes.
+1. Watch the iOS run started by the pill-row height fix. Do not cancel `38803926761`, `38807875046`, `38816093468`, `38823255381`, `38831101582`, `38837550765`, `38843429024`, or `38849287823`.
+2. Run `38849287823` already shows the release notes on `F1-light` and the permission card on `F11-dark`, with 26 distinct hashes. Do not treat that run as proof of the title pills.
 3. S10 and S30 stay `not_run`. The `.mov` files are still frames.
 4. Do not mark S27 F12 or S31 pass. Do not merge.
 
@@ -198,3 +198,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Run `38831101582` head `993d9c2b8`: `structural` passed. iOS capture logged `F1 light #0`, wrote `F1-light.png`, and exited because `F2 light #1` was missing after 120s. The follow-up repeats a 15s timeout until the 90s hold has elapsed.
 - Run `38837550765` head `1ad359fc4`: `structural` passed. iOS capture logged `F1 light #0` through `F8 light #7` about 90.0s apart, then `F9 light #8` was missing. The expected F9 time was inside the 120s wait. No `Maximum update depth`. The follow-up writes `Documents/parity-frame.json` and relaunches for each fixture. The in-app clock is not the CI capture path.
 - Run `38843429024` head `8887761c4`: `structural` and `ios-simulator` passed. Each launch logged `[parity] disk <id> <theme>` and one `[parity] ready <id> <theme> #0`. 26 PNG hashes differ. `default-route.png` equals `F1-light`. `F1-dark` shows the release notes. `F12-light` shows the expanded permission card. `F1-light` is an empty `#f4f4f6` background and `F11-dark` is an empty black background. `png-flat.py` now rejects a shot that is at least 95% one color and the script takes it again. That retry is not in this artifact.
+- Run `38849287823` head `37e873ad3`: `structural` and `ios-simulator` passed. [ios-parity](https://github.com/AruNi-01/atmos/actions/runs/38849287823/artifacts/12027645661). 26 PNGs, all different, none at least 95% one color. `F1-light` (`b0b84429…`) shows the release notes. `F11-dark` (`68d2ab6f…`) shows Allow and Deny. `F6-light` shows the "2 files changed" footer. The iOS frames have no title pills between the card and the composer. [parity-rn-web](https://github.com/AruNi-01/atmos/actions/runs/38849287823/artifacts/12024279302) is react-native-web, not iOS and not Next, and its F12 shows "Questions for you", "Plan", and "Message Queue". The pill row style now sets height 36. That change is not in this artifact.
