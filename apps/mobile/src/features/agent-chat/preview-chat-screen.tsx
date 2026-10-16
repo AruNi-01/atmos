@@ -108,15 +108,18 @@ export function PreviewChatScreen() {
   const [stick, setStick] = useState({ belowCount: 0, stickToEnd: true });
   const stickTopRef = useRef(0);
   const stickEndRef = useRef(0);
+  const stickViewRef = useRef(0);
   const onStickChange = useCallback(
     (next: {
       belowCount: number;
       distanceFromEnd?: number;
       stickToEnd: boolean;
       scrollTop?: number;
+      viewport?: number;
     }) => {
       if (typeof next.scrollTop === "number") stickTopRef.current = next.scrollTop;
       if (typeof next.distanceFromEnd === "number") stickEndRef.current = next.distanceFromEnd;
+      if (typeof next.viewport === "number") stickViewRef.current = next.viewport;
       setStick((current) =>
         current.belowCount === next.belowCount && current.stickToEnd === next.stickToEnd
           ? current
@@ -174,13 +177,16 @@ export function PreviewChatScreen() {
   }, [scrollAway]);
   useEffect(() => {
     if (!liveTail) return;
+    const marker = transcriptRef.current?.measureMessage(PARITY_TAIL_MARKER_ID);
     console.error(
       parityTailLine({
         below: stick.belowCount,
         end: stickEndRef.current,
+        marker: marker?.start ?? -1,
         stick: stick.stickToEnd,
         step: tailStep,
         top: stickTopRef.current,
+        view: stickViewRef.current,
       }),
     );
   }, [liveTail, stick.belowCount, stick.stickToEnd, tailStep]);

@@ -128,37 +128,131 @@ describe("parity motion fixtures", () => {
     expect(marker?.parts).toEqual([{ type: "text", text: "Reply 50" }]);
   });
 
-  test("tail evidence requires a larger below count at the same scroll offset", () => {
+  test("tail evidence requires Reply 50 to stay in view while the below count grows", () => {
     const held = [
-      parityTailLine({ below: 0, end: 0, stick: true, step: 0, top: 0 }),
-      parityTailLine({ below: 40, end: 2400, stick: false, step: 1, top: 1200 }),
-      parityTailLine({ below: 41, end: 2401, stick: false, step: 2, top: 1201 }),
+      parityTailLine({ below: 0, end: 0, marker: -1, stick: true, step: 0, top: 0, view: 0 }),
+      parityTailLine({
+        below: 40,
+        end: 2400,
+        marker: 1210,
+        stick: false,
+        step: 1,
+        top: 1200,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 41,
+        end: 2401,
+        marker: 1211,
+        stick: false,
+        step: 2,
+        top: 1201,
+        view: 800,
+      }),
     ].join("\n");
     expect(parityTailReadingHeld(parityTailSamples(held))).toBe(true);
     expect(parityTailReadingHeld(parityTailSamples("no tail lines"))).toBe(false);
 
     const jumped = [
-      parityTailLine({ below: 40, end: 2400, stick: false, step: 1, top: 1200 }),
-      parityTailLine({ below: 41, end: 1800, stick: false, step: 2, top: 1800 }),
+      parityTailLine({
+        below: 40,
+        end: 2400,
+        marker: 1210,
+        stick: false,
+        step: 1,
+        top: 1200,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 41,
+        end: 1800,
+        marker: 1810,
+        stick: false,
+        step: 2,
+        top: 1800,
+        view: 800,
+      }),
     ].join("\n");
     expect(parityTailReadingHeld(parityTailSamples(jumped))).toBe(false);
 
     const stuck = [
-      parityTailLine({ below: 0, end: 0, stick: true, step: 0, top: 4000 }),
-      parityTailLine({ below: 0, end: 0, stick: true, step: 3, top: 4000 }),
+      parityTailLine({ below: 0, end: 0, marker: 100, stick: true, step: 0, top: 4000, view: 800 }),
+      parityTailLine({ below: 0, end: 0, marker: 100, stick: true, step: 3, top: 4000, view: 800 }),
     ].join("\n");
     expect(parityTailReadingHeld(parityTailSamples(stuck))).toBe(false);
 
     const unstuckAtEnd = [
-      parityTailLine({ below: 1, end: 0, stick: false, step: 1, top: 4000 }),
-      parityTailLine({ below: 2, end: 0, stick: false, step: 2, top: 4000 }),
+      parityTailLine({
+        below: 1,
+        end: 0,
+        marker: 100,
+        stick: false,
+        step: 1,
+        top: 4000,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 2,
+        end: 0,
+        marker: 100,
+        stick: false,
+        step: 2,
+        top: 4000,
+        view: 800,
+      }),
     ].join("\n");
     expect(parityTailReadingHeld(parityTailSamples(unstuckAtEnd))).toBe(false);
 
+    const markerOffscreen = [
+      parityTailLine({
+        below: 185,
+        end: 8000,
+        marker: -1,
+        stick: false,
+        step: 0,
+        top: 0,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 186,
+        end: 8040,
+        marker: -1,
+        stick: false,
+        step: 1,
+        top: 0,
+        view: 800,
+      }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(markerOffscreen))).toBe(false);
+
     const settling = [
-      parityTailLine({ below: 10, end: 800, stick: false, step: 0, top: 100 }),
-      parityTailLine({ below: 12, end: 2000, stick: false, step: 1, top: 900 }),
-      parityTailLine({ below: 13, end: 2001, stick: false, step: 2, top: 901 }),
+      parityTailLine({
+        below: 10,
+        end: 800,
+        marker: 100,
+        stick: false,
+        step: 0,
+        top: 100,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 12,
+        end: 2000,
+        marker: 910,
+        stick: false,
+        step: 1,
+        top: 900,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 13,
+        end: 2001,
+        marker: 911,
+        stick: false,
+        step: 2,
+        top: 901,
+        view: 800,
+      }),
     ].join("\n");
     expect(parityTailReadingHeld(parityTailSamples(settling))).toBe(true);
   });

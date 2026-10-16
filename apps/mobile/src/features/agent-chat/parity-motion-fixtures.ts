@@ -14,18 +14,22 @@ export const PARITY_SETTLED_ASSISTANT_ID = "settled-tools-a";
 export type ParityTailSample = {
   below: number;
   end: number;
+  /** Content y of Reply 50. -1 when that row is not measured. */
+  marker: number;
   stick: boolean;
   step: number;
   top: number;
+  view: number;
 };
 
 export function parityTailLine(sample: ParityTailSample): string {
-  return `[parity] tail below=${sample.below} stick=${sample.stick ? 1 : 0} step=${sample.step} top=${Math.round(sample.top)} end=${Math.round(sample.end)}`;
+  return `[parity] tail below=${sample.below} stick=${sample.stick ? 1 : 0} step=${sample.step} top=${Math.round(sample.top)} end=${Math.round(sample.end)} marker=${Math.round(sample.marker)} view=${Math.round(sample.view)}`;
 }
 
 export function parityTailSamples(log: string): ParityTailSample[] {
   const samples: ParityTailSample[] = [];
-  const pattern = /\[parity\] tail below=(\d+) stick=([01]) step=(\d+) top=(-?\d+) end=(-?\d+)/g;
+  const pattern =
+    /\[parity\] tail below=(\d+) stick=([01]) step=(\d+) top=(-?\d+) end=(-?\d+) marker=(-?\d+) view=(-?\d+)/g;
   for (const match of log.matchAll(pattern)) {
     samples.push({
       below: Number(match[1]),
@@ -33,14 +37,22 @@ export function parityTailSamples(log: string): ParityTailSample[] {
       step: Number(match[3]),
       top: Number(match[4]),
       end: Number(match[5]),
+      marker: Number(match[6]),
+      view: Number(match[7]),
     });
   }
   return samples;
 }
 
+function markerInView(sample: ParityTailSample): boolean {
+  if (sample.marker < 0 || sample.view <= 0) return false;
+  return sample.marker >= sample.top - 2 && sample.marker < sample.top + sample.view;
+}
+
 /**
  * True when a later unstuck step is still more than 24 px from the end,
- * has a larger below count, and the list offset is within 2 px.
+ * Reply 50 is inside the viewport, the below count grew, and both the list
+ * offset and the marker row stayed within 2 px.
  * Samples taken while the scroll is moving are ignored as long as one
  * settled pair exists.
  */
@@ -60,7 +72,10 @@ export function parityTailReadingHeld(samples: readonly ParityTailSample[]): boo
         next.below > start.below &&
         start.end > 24 &&
         next.end > 24 &&
-        Math.abs(next.top - start.top) <= 2
+        markerInView(start) &&
+        markerInView(next) &&
+        Math.abs(next.top - start.top) <= 2 &&
+        Math.abs(next.marker - start.marker) <= 2
       ) {
         return true;
       }

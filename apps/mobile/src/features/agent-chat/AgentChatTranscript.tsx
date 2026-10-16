@@ -85,6 +85,7 @@ import {
 import { UserMessage } from "./user-message";
 
 export type AgentChatTranscriptHandle = {
+  measureMessage: (id: string) => { start: number; size: number } | null;
   revealMessage: (id: string) => void;
   scrollToEndAnimated: () => void;
 };
@@ -94,6 +95,7 @@ type TranscriptStick = {
   distanceFromEnd: number;
   stickToEnd: boolean;
   scrollTop: number;
+  viewport: number;
 };
 
 type RowMeasureApi = {
@@ -415,6 +417,7 @@ export const AgentChatTranscript = forwardRef<
       distanceFromEnd: viewRef.current.distance,
       stickToEnd: stickRef.current.stickToEnd,
       scrollTop: viewRef.current.scrollTop,
+      viewport: viewRef.current.height,
     });
   }, []);
 
@@ -527,6 +530,13 @@ export const AgentChatTranscript = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
+      measureMessage(id: string) {
+        const index = rowsRef.current.findIndex((message) => message.id === id);
+        if (index < 0) return null;
+        const measurement = measurementsRef.current[index];
+        if (!measurement) return null;
+        return { size: measurement.size, start: measurement.start };
+      },
       revealMessage(id: string) {
         const index = rowsRef.current.findIndex((message) => message.id === id);
         if (index < 0) return;
