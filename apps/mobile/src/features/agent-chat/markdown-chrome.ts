@@ -24,6 +24,17 @@ export function agentChatHeadingStyle(color: string) {
   };
 }
 
+/**
+ * Tailwind preflight zeros `p` and `ul` margins. Streamdown list items are
+ * `py-1`. Agent fences and tables use `my-4`, and fence text is `text-sm leading-5`.
+ */
+export const agentChatBlockMetrics = {
+  paragraph: { marginTop: 0, marginBottom: 0 },
+  list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },
+  codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 8 },
+  table: { marginTop: 16, marginBottom: 16 },
+} as const;
+
 /** Zinc chrome from web `markdown-table.ts` and inline `MarkdownCodeBlock`. */
 export function agentChatMarkdownChrome(isDark: boolean) {
   if (isDark) {

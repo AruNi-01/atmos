@@ -3,7 +3,11 @@ import { Linking } from "react-native";
 import { StreamdownText } from "react-native-streamdown";
 import type { MarkdownStyle } from "react-native-enriched-markdown";
 import { useMobileTheme } from "@/theme/theme-store";
-import { agentChatHeadingStyle, agentChatMarkdownChrome } from "./markdown-chrome";
+import {
+  agentChatBlockMetrics,
+  agentChatHeadingStyle,
+  agentChatMarkdownChrome,
+} from "./markdown-chrome";
 
 function openHttpLink(url: string) {
   if (url.startsWith("https://") || url.startsWith("http://")) {
@@ -32,7 +36,12 @@ export function AgentChatMarkdown({
     const chrome = agentChatMarkdownChrome(theme.isDark);
 
     return {
-      paragraph: { color: proseColor, fontSize: resolvedFontSize, lineHeight: resolvedLineHeight },
+      paragraph: {
+        color: proseColor,
+        fontSize: resolvedFontSize,
+        lineHeight: resolvedLineHeight,
+        ...agentChatBlockMetrics.paragraph,
+      },
       ...headings,
       blockquote: {
         backgroundColor: theme.colors.cardSubtle,
@@ -55,6 +64,7 @@ export function AgentChatMarkdown({
         marginLeft: 24,
         markerColor: proseColor,
         markerMinWidth: 18,
+        ...agentChatBlockMetrics.list,
       },
       code: {
         backgroundColor: chrome.codeBackground,
@@ -66,12 +76,10 @@ export function AgentChatMarkdown({
       codeBlock: {
         backgroundColor: theme.colors.cardSubtle,
         borderColor: theme.colors.glassBorder,
-        borderRadius: 12,
         borderWidth: 1,
         color: theme.colors.label,
         fontFamily: "Menlo",
-        fontSize: 13,
-        lineHeight: 18,
+        ...agentChatBlockMetrics.codeBlock,
       },
       link: {
         color: theme.colors.accent,
@@ -94,6 +102,7 @@ export function AgentChatMarkdown({
         lineHeight: 20,
         rowEvenBackgroundColor: chrome.row,
         rowOddBackgroundColor: chrome.row,
+        ...agentChatBlockMetrics.table,
       },
     };
   }, [fontSize, lineHeight, theme, tone]);

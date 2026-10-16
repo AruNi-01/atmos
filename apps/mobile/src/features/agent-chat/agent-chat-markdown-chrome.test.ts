@@ -1,6 +1,10 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import { agentChatHeadingStyle, agentChatMarkdownChrome } from "./markdown-chrome";
+import {
+  agentChatBlockMetrics,
+  agentChatHeadingStyle,
+  agentChatMarkdownChrome,
+} from "./markdown-chrome";
 
 describe("agent chat markdown chrome", () => {
   test("uses zinc table and inline-code colors instead of the library defaults", () => {
@@ -33,5 +37,18 @@ describe("agent chat markdown chrome", () => {
     for (const heading of Object.values(headings)) {
       expect(heading.lineHeight).toBeGreaterThanOrEqual(heading.fontSize);
     }
+  });
+
+  test("matches web block margins", () => {
+    expect(agentChatBlockMetrics.paragraph).toEqual({ marginTop: 0, marginBottom: 0 });
+    expect(agentChatBlockMetrics.list).toEqual({ marginTop: 0, marginBottom: 0, itemSpacing: 8 });
+    expect(agentChatBlockMetrics.codeBlock).toMatchObject({
+      marginTop: 16,
+      marginBottom: 16,
+      fontSize: 14,
+      lineHeight: 20,
+      borderRadius: 8,
+    });
+    expect(agentChatBlockMetrics.table).toEqual({ marginTop: 16, marginBottom: 16 });
   });
 });
