@@ -67,6 +67,11 @@ import { useReducedMotion } from "./motion/use-reduced-motion";
 import { ProcessFold, WaitForBlock } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
 import { initialStickState, reduceStick, type StickAction } from "./stick";
+import {
+  offsetFromMeasuredStride,
+  stickScrollWhileJumping,
+  TRANSCRIPT_JUMP_FALLBACK_STRIDE,
+} from "./transcript-jump";
 import { ThinkingBlock } from "./thinking-block";
 import { ToolGroup, toolGroupKey } from "./tool-group";
 import { showToolRow, ToolCallRow } from "./tool-body";
@@ -383,6 +388,10 @@ export const AgentChatTranscript = forwardRef<
   const stickRef = useRef(initialStickState);
   const belowRef = useRef(0);
   const userDraggedRef = useRef(false);
+  const programmaticAwayRef = useRef(false);
+  const jumpSawAwayRef = useRef(false);
+  const jumpRetryIndexRef = useRef(-1);
+  const jumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listHeightRef = useRef(0);
   const seenFirstId = useRef<string | undefined>(undefined);
   const seenStickToken = useRef(stickToken);
@@ -452,27 +461,87 @@ export const AgentChatTranscript = forwardRef<
     listRef.current?.scrollToEnd({ animated });
   }, []);
 
+  const applyScrollStick = useCallback(
+    (distance: number) => {
+      if (programmaticAwayRef.current && distance > TRANSCRIPT_END_SLACK_PX) {
+        jumpSawAwayRef.current = true;
+      }
+      const decision = stickScrollWhileJumping(
+        distance,
+        programmaticAwayRef.current,
+        userDraggedRef.current,
+      );
+      if (decision === "ignore") return;
+      applyStick({
+        type: "scroll",
+        distance: decision.distance,
+        userDragged: decision.userDragged,
+      });
+    },
+    [applyStick],
+  );
+
+  const jumpToIndex = useCallback(
+    (index: number, animated: boolean) => {
+      programmaticAwayRef.current = true;
+      userDraggedRef.current = false;
+      jumpRetryIndexRef.current = -1;
+      if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
+      applyStick({
+        type: "scroll",
+        distance: TRANSCRIPT_END_SLACK_PX + 1,
+        userDragged: true,
+      });
+      listRef.current?.scrollToIndex({ animated, index, viewPosition: 0 });
+      // If the jump never leaves the end, follow the tail again. A jump that
+      // already landed away keeps ignoring a later stale end event.
+      jumpTimerRef.current = setTimeout(() => {
+        jumpTimerRef.current = null;
+        if (!programmaticAwayRef.current || jumpSawAwayRef.current) return;
+        programmaticAwayRef.current = false;
+        applyStick({
+          type: "scroll",
+          distance: viewRef.current.distance,
+          userDragged: false,
+        });
+      }, 800);
+    },
+    [applyStick],
+  );
+
+  const recoverScrollIndex = useCallback((index: number) => {
+    const offset = offsetFromMeasuredStride(
+      index,
+      measurementsRef.current,
+      AGENT_CHAT_TRANSCRIPT_GAP,
+      TRANSCRIPT_JUMP_FALLBACK_STRIDE,
+    );
+    listRef.current?.scrollToOffset({ animated: false, offset });
+    if (jumpRetryIndexRef.current === index) return;
+    jumpRetryIndexRef.current = index;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ animated: false, index, viewPosition: 0 });
+    });
+  }, []);
+
   useImperativeHandle(
     ref,
     () => ({
       revealMessage(id: string) {
         const index = rowsRef.current.findIndex((message) => message.id === id);
         if (index < 0) return;
-        userDraggedRef.current = false;
-        applyStick({
-          type: "scroll",
-          distance: TRANSCRIPT_END_SLACK_PX + 1,
-          userDragged: true,
-        });
-        listRef.current?.scrollToIndex({ animated: false, index, viewPosition: 0 });
+        jumpToIndex(index, false);
       },
       scrollToEndAnimated() {
+        programmaticAwayRef.current = false;
+        jumpSawAwayRef.current = false;
+        if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
         userDraggedRef.current = false;
         applyStick({ type: "scroll", distance: 0, userDragged: false });
         listRef.current?.scrollToEnd({ animated: true });
       },
     }),
-    [applyStick],
+    [applyStick, jumpToIndex],
   );
 
   const onScroll = useCallback(
@@ -484,17 +553,16 @@ export const AgentChatTranscript = forwardRef<
         scrollTop: native.contentOffset.y,
       };
       syncTopFade(native.contentOffset.y);
-      applyStick({
-        type: "scroll",
-        distance: viewRef.current.distance,
-        userDragged: userDraggedRef.current,
-      });
+      applyScrollStick(viewRef.current.distance);
       publishBelow();
     },
-    [applyStick, publishBelow, syncTopFade],
+    [applyScrollStick, publishBelow, syncTopFade],
   );
 
   const onScrollBeginDrag = useCallback(() => {
+    programmaticAwayRef.current = false;
+    jumpSawAwayRef.current = false;
+    if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
     userDraggedRef.current = true;
   }, []);
 
@@ -509,15 +577,11 @@ export const AgentChatTranscript = forwardRef<
         scrollTop: native.contentOffset.y,
       };
       syncTopFade(native.contentOffset.y);
-      applyStick({
-        type: "scroll",
-        distance: viewRef.current.distance,
-        userDragged: userDraggedRef.current,
-      });
+      applyScrollStick(viewRef.current.distance);
       userDraggedRef.current = false;
       publishBelow();
     },
-    [applyStick, publishBelow, syncTopFade],
+    [applyScrollStick, publishBelow, syncTopFade],
   );
 
   const onMomentumScrollEnd = useCallback(
@@ -529,15 +593,11 @@ export const AgentChatTranscript = forwardRef<
         scrollTop: native.contentOffset.y,
       };
       syncTopFade(native.contentOffset.y);
-      applyStick({
-        type: "scroll",
-        distance: distanceFromEnd(native),
-        userDragged: userDraggedRef.current,
-      });
+      applyScrollStick(distanceFromEnd(native));
       userDraggedRef.current = false;
       publishBelow();
     },
-    [applyStick, publishBelow, syncTopFade],
+    [applyScrollStick, publishBelow, syncTopFade],
   );
 
   const onContentSizeChange = useCallback(
@@ -589,6 +649,12 @@ export const AgentChatTranscript = forwardRef<
   }, [onStickChange, publishBelow, rows]);
 
   useEffect(() => {
+    return () => {
+      if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     const boundary = expandResetForFirstMessage(seenFirstId.current, firstMessageId);
     if (boundary.reset) useAgentChatExpandStore.getState().reset();
     seenFirstId.current = boundary.firstId;
@@ -611,14 +677,8 @@ export const AgentChatTranscript = forwardRef<
     const index = messages.findIndex((message) => message.id === focusMessageId);
     if (index < 0) return;
     scrolledFocusRef.current = focusMessageId;
-    userDraggedRef.current = false;
-    applyStick({
-      type: "scroll",
-      distance: TRANSCRIPT_END_SLACK_PX + 1,
-      userDragged: true,
-    });
-    listRef.current?.scrollToIndex({ animated: true, index, viewPosition: 0 });
-  }, [applyStick, focusMessageId, messages]);
+    jumpToIndex(index, true);
+  }, [focusMessageId, jumpToIndex, messages]);
 
   return (
     <RowMeasureContext.Provider value={measureApi}>
@@ -650,7 +710,7 @@ export const AgentChatTranscript = forwardRef<
           onScrollBeginDrag={onScrollBeginDrag}
           onScrollEndDrag={onScrollEndDrag}
           onScrollToIndexFailed={({ index }) => {
-            listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
+            recoverScrollIndex(index);
           }}
           renderItem={({ index, item }) => (
             <ChatMessage

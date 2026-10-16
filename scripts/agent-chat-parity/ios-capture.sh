@@ -185,6 +185,15 @@ capture_tail_away() {
     fi
     sleep 0.5
   done
+  # log stream has dropped the launch burst before. The lines are still in log show.
+  run_bounded 60 xcrun simctl spawn booted log show --last 3m --info --debug --style compact \
+    --predicate 'eventMessage CONTAINS "[parity]"' \
+    >"$OUT/device-log-fallback.txt" 2>&1 || true
+  if tail_reading_held; then
+    echo "f13-tail reading line held while the below count grew (via log show)"
+    take_screenshot "$OUT/f13-tail-away-light.png"
+    return 0
+  fi
   echo "f13-tail below count did not grow while the scroll offset held" >&2
   tail_log_path >/dev/null
   dump_runtime_logs

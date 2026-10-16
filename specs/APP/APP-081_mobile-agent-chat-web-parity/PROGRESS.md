@@ -95,7 +95,7 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S10 and S30 stay `not_run`. The F4/F12/F13 movies are still one repeated frame. The capture script now also samples `stream-tools` four times and muxes `stream-tools.mov` only when at least two hashes differ. That pass has not run on a simulator.
-- [ ] S14 stays `not_run`. The capture script launches `f13-tail` scrolled to Reply 50 and checks that the below count grows while the scroll offset holds. No simulator run of that phase yet. The manual preview link stays stuck to the end until the reader scrolls.
+- [ ] S14 stays `not_run`. The capture script launches `f13-tail` scrolled to Reply 50 and checks that the below count grows while the scroll offset holds. A jump in flight ignores a scroll event that is still inside the 24 px end slack, and a miss in `log stream` is checked once with `log show`. No simulator run of that phase yet. The manual preview link stays stuck to the end until the reader scrolls.
 - [ ] Run `38877961991` is not a clean matrix (`F4-dark` and `F11-dark` are Springboard; `F1-light` missed the body). Run `38894137249` replaces it: those frames are the app, and `F1-light` shows the release notes. The light "Message Queue" gray fade was the pill-row gradient (`transparent` fades through black). That overlay is removed; Air still needs to confirm the frame. Collapsed card bodies are still off screen, so S27 F12 stays fail.
 - [ ] S31 stays `not_run`. Next.js screenshots were not produced.
 

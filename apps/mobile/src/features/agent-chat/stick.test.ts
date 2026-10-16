@@ -129,6 +129,8 @@ describe("transcript stick wiring", () => {
     expect(transcript).toContain("stickToEnd ? undefined");
     expect(transcript).toContain("countMessagesBelowViewport");
     expect(transcript).toContain("stickToken");
+    expect(transcript).toContain("stickScrollWhileJumping");
+    expect(transcript).toContain("offsetFromMeasuredStride");
   });
 
   test("the thread flips stick when a send starts and hosts the pill row above the composer", () => {
