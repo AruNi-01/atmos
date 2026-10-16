@@ -45,6 +45,26 @@ export function parityPinnedFrame(fixture: string, theme: string): ParityFrame |
   return { id, theme: theme.trim() === "dark" ? "dark" : "light" };
 }
 
+/** Written into the app Documents directory before each iOS capture launch. */
+export const PARITY_FRAME_FILE = "parity-frame.json";
+
+/** A Documents pin must name a real fixture. A bad file falls through to the carousel. */
+export function parseParityDiskFrame(raw: string): ParityFrame | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== "object") return null;
+  const record = value as { id?: unknown; theme?: unknown };
+  if (typeof record.id !== "string") return null;
+  const id = record.id.trim();
+  if (!(PARITY_FIXTURE_IDS as readonly string[]).includes(id)) return null;
+  if (record.theme !== "light" && record.theme !== "dark") return null;
+  return { id, theme: record.theme };
+}
+
 export type ParityClock = {
   index: () => number;
   subscribe: (listener: (index: number) => void) => () => void;

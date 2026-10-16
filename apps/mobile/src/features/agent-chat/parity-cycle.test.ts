@@ -2,8 +2,10 @@
 import { describe, expect, test } from "bun:test";
 import { PARITY_FIXTURE_IDS } from "@atmos/agent-transcript";
 import {
+  PARITY_FRAME_FILE,
   PARITY_HOLD_MS,
   createParityClock,
+  parseParityDiskFrame,
   parityCycleFrames,
   parityPinnedFrame,
   parityReadyLine,
@@ -69,5 +71,21 @@ describe("parity cycle", () => {
     expect(parityPinnedFrame("F3", "dark")).toEqual({ id: "F3", theme: "dark" });
     expect(parityPinnedFrame("F3", "")).toEqual({ id: "F3", theme: "light" });
     expect(parityPinnedFrame(" F12 ", "nope")).toEqual({ id: "F12", theme: "light" });
+  });
+
+  test("parses a Documents pin and rejects a fixture the carousel does not know", () => {
+    expect(PARITY_FRAME_FILE).toBe("parity-frame.json");
+    expect(parseParityDiskFrame('{"id":"F12","theme":"dark"}')).toEqual({
+      id: "F12",
+      theme: "dark",
+    });
+    expect(parseParityDiskFrame('{"id":" F3 ","theme":"light"}')).toEqual({
+      id: "F3",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F1","theme":"nope"}')).toBeNull();
+    expect(parseParityDiskFrame('{"id":"nope","theme":"light"}')).toBeNull();
+    expect(parseParityDiskFrame("")).toBeNull();
+    expect(parseParityDiskFrame("{")).toBeNull();
   });
 });

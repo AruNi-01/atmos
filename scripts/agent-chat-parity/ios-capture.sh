@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Screenshot F1–F13 in light and dark from the in-app carousel.
-# The preview route logs `[parity] ready F# <theme> #<seq>` and holds each
-# frame for PARITY_HOLD_MS (90s). A screenshot that returns after the next
-# ready line fails the run. This script does not call simctl openurl.
+# Screenshot F1–F13 in light and dark.
+# Each frame is its own launch. This script writes Documents/parity-frame.json
+# first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
+# and does not arm the in-app carousel. A JS timer in one process stopped
+# after about 12 minutes (runs 38823255381, 38831101582, 38837550765).
+# This script does not call simctl openurl.
 # Requires a booted iOS Simulator with land.atmos.mobile already installed.
 # macOS runner only. Do not run this on Linux.
 set -euo pipefail
@@ -31,12 +33,52 @@ if ! xcrun simctl get_app_container booted "$BUNDLE_ID" >/dev/null 2>&1; then
   exit 1
 fi
 
+CURRENT_LOG="$OUT/console.log"
+console_pid=""
+
+stop_console() {
+  if [[ -n "$console_pid" ]]; then
+    kill "$console_pid" 2>/dev/null || true
+    wait "$console_pid" 2>/dev/null || true
+    console_pid=""
+  fi
+}
+
+write_frame_file() {
+  local id="$1"
+  local theme="$2"
+  local container docs
+  container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
+  docs="${container}/Documents"
+  mkdir -p "$docs"
+  printf '{"id":"%s","theme":"%s"}\n' "$id" "$theme" >"${docs}/parity-frame.json"
+  echo "wrote parity-frame.json ${id} ${theme}"
+}
+
+launch_frame() {
+  local id="$1"
+  local theme="$2"
+  stop_console
+  xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
+  sleep 1
+  CURRENT_LOG="$OUT/console-${id}-${theme}.log"
+  : >"$CURRENT_LOG"
+  xcrun simctl launch --console-pty --terminate-running-process booted "$BUNDLE_ID" >"$CURRENT_LOG" 2>&1 &
+  console_pid=$!
+  sleep 2
+  if ! kill -0 "$console_pid" 2>/dev/null; then
+    echo "console launch exited early for ${id} ${theme}; retrying without a pty" >&2
+    xcrun simctl launch booted "$BUNDLE_ID" || true
+    console_pid=""
+  fi
+}
+
 dump_runtime_logs() {
-  echo "----- console.log (tail) -----" >&2
-  if [[ -f "$OUT/console.log" ]]; then
-    tail -n 200 "$OUT/console.log" >&2 || true
+  echo "----- console (tail) -----" >&2
+  if [[ -f "$CURRENT_LOG" ]]; then
+    tail -n 200 "$CURRENT_LOG" >&2 || true
   else
-    echo "(no console.log)" >&2
+    echo "(no console log)" >&2
   fi
   echo "----- parity stream (tail) -----" >&2
   if [[ -f "$OUT/parity-stream.log" ]]; then
@@ -52,7 +94,7 @@ dump_runtime_logs() {
 
 log_has() {
   local needle="$1"
-  if [[ -f "$OUT/console.log" ]] && grep -F -q "$needle" "$OUT/console.log"; then
+  if [[ -f "$CURRENT_LOG" ]] && grep -F -q "$needle" "$CURRENT_LOG"; then
     return 0
   fi
   if [[ -f "$OUT/parity-stream.log" ]] && grep -F -q "$needle" "$OUT/parity-stream.log"; then
@@ -90,47 +132,23 @@ if [[ "$spring_hash" == "$black_scene" ]]; then
   exit 1
 fi
 
-xcrun simctl ui booted appearance light
-
 echo "streaming [parity] logs"
 xcrun simctl spawn booted log stream --level debug --style compact \
   --predicate 'eventMessage CONTAINS "[parity]"' >"$OUT/parity-stream.log" 2>&1 &
 stream_pid=$!
 
-echo "launching ${BUNDLE_ID}"
-xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
-xcrun simctl launch --console-pty --terminate-running-process booted "$BUNDLE_ID" >"$OUT/console.log" 2>&1 &
-console_pid=$!
-sleep 3
-if ! kill -0 "$console_pid" 2>/dev/null; then
-  echo "console launch exited early; retrying without a pty" >&2
-  xcrun simctl launch booted "$BUNDLE_ID" || true
-fi
-
-if ! wait_for_line "[parity] preview-chat module" 90; then
-  echo "missing [parity] preview-chat module" >&2
-  dump_runtime_logs
-  exit 1
-fi
-if ! wait_for_line "[parity] preview-chat route" 30; then
-  echo "missing [parity] preview-chat route" >&2
-  dump_runtime_logs
-  exit 1
-fi
-
 frame_rows="$(mktemp)"
 if ! (cd "$ROOT" && bun -e '
 import { parityCycleFrames, parityReadyLine } from "./apps/mobile/src/features/agent-chat/parity-cycle.ts";
-for (const [seq, frame] of parityCycleFrames().entries()) {
-  console.log(`${frame.id}\t${frame.theme}\t${parityReadyLine(frame, seq)}`);
+for (const frame of parityCycleFrames()) {
+  console.log(`${frame.id}\t${frame.theme}\t${parityReadyLine(frame, 0)}`);
 }
 ') >"$frame_rows"; then
-  echo "could not read the parity carousel from parity-cycle.ts" >&2
+  echo "could not read the parity frames from parity-cycle.ts" >&2
   dump_runtime_logs
   exit 1
 fi
 
-current_theme=""
 rows=()
 while IFS= read -r row; do
   if [[ -n "$row" ]]; then
@@ -139,33 +157,35 @@ while IFS= read -r row; do
 done <"$frame_rows"
 rm -f "$frame_rows"
 
-for i in "${!rows[@]}"; do
-  IFS=$'\t' read -r id theme needle <<<"${rows[$i]}"
-  if [[ "$theme" != "$current_theme" ]]; then
-    xcrun simctl ui booted appearance "$theme"
-    current_theme="$theme"
+for row in "${rows[@]}"; do
+  IFS=$'\t' read -r id theme needle <<<"$row"
+  xcrun simctl ui booted appearance "$theme"
+  write_frame_file "$id" "$theme"
+  echo "launch ${id} ${theme}"
+  launch_frame "$id" "$theme"
+  if ! wait_for_line "[parity] preview-chat module" 90; then
+    echo "missing [parity] preview-chat module for ${id} ${theme}" >&2
+    dump_runtime_logs
+    exit 1
   fi
   echo "wait ${needle}"
-  # The first frame includes JS boot. Later frames stay up for the 90s hold,
-  # so a fast screenshot still has to wait out the rest of that hold.
-  timeout=120
-  if ! wait_for_line "$needle" "$timeout"; then
+  if ! wait_for_line "$needle" 120; then
     echo "missing ${needle}" >&2
     dump_runtime_logs
     exit 1
   fi
   xcrun simctl io booted screenshot "$OUT/${id}-${theme}.png"
-  next_index=$((i + 1))
-  if (( next_index < ${#rows[@]} )); then
-    IFS=$'\t' read -r _next_id _next_theme next_needle <<<"${rows[$next_index]}"
-    if log_has "$next_needle"; then
-      echo "screenshot of ${id}-${theme} finished after ${next_needle} was already logged" >&2
-      echo "simctl io screenshot outlived the frame hold." >&2
+  if [[ -f "$CURRENT_LOG" ]]; then
+    other="$(grep -F '[parity] ready ' "$CURRENT_LOG" | grep -F -v -e "$needle" || true)"
+    if [[ -n "$other" ]]; then
+      echo "launch ${id} ${theme} also logged another frame:" >&2
+      printf '%s\n' "$other" >&2
       dump_runtime_logs
       exit 1
     fi
+    cp "$CURRENT_LOG" "$OUT/console.log"
   fi
-  if [[ "$needle" == *"#0" ]]; then
+  if [[ "$id" == "F1" && "$theme" == "light" ]]; then
     cp "$OUT/${id}-${theme}.png" "$OUT/default-route.png"
     xcrun simctl spawn booted log show --last 3m --info --style compact \
       --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \

@@ -8,7 +8,7 @@
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-15
 - **Current owner**: lead agent
-- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). A single 90s timer stopped before F7, and a 500ms tick stopped before F2. The hold is still 90s, counted with the 15s timeout that finished every frame. S27 is partial. S28 ran. S31 stays `not_run`.
+- **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38837550765` logged F1–F8 light on a 90s cadence and never logged F9. CI capture now relaunches once per fixture from `Documents/parity-frame.json`. That pin is not in the `38837550765` artifact. S27 is partial. S28 ran. S31 stays `not_run`.
 
 ## Snapshot
 
@@ -95,7 +95,7 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
 - [ ] S10 and S30 stay `not_run`. Recordings last 8s and each file's frames are identical, so motion is not shown.
-- [ ] The iOS carousel is not proven. Run `38807875046` died on the dark theme flip. Run `38816093468` logged all 26 frames, then duplicate PNGs. Run `38823255381` stopped before `F7 light`. Run `38831101582` stopped before `F2 light`. The 15s-step hold is not in that artifact.
+- [ ] The iOS fixture matrix is not proven. Run `38807875046` died on the dark theme flip. Run `38816093468` logged all 26 frames, then duplicate PNGs. Run `38823255381` stopped before `F7 light`. Run `38831101582` stopped before `F2 light`. Run `38837550765` stopped before `F9 light`. The per-launch Documents pin is the follow-up and is not in that artifact.
 - [ ] S31 stays `not_run`. Next.js screenshots were not produced.
 
 ## Handoff Notes
@@ -106,7 +106,7 @@ Phone Agent Chat matches web message/part/tool/motion/scroll/composer behavior, 
 
 ### Current progress
 
-S0–S8 are implemented and reviewed. Later green iOS runs painted the transcript-only preview after the scene manifest was removed. Run `38807875046` (head `e60400eb2`) proved the ubuntu react-native-web export (26 PNGs) and then the iOS carousel crashed: two mounted preview routes each held a timer, and at F1 dark their layout effects wrote opposite theme preferences for about 8 seconds before React threw `Maximum update depth exceeded` at `UserMessage`. One shared clock and a single ready-line claim replace those timers. Run `38816093468` (head `4d25dfa03`) logged every ready line through `F13 dark #25` with no exception, and `default-route.png` is F1 light. Capture still failed: `simctl io screenshot` blocked for 61s and 54s, the 15s hold moved on, and several PNGs are the same later frame. Each frame holds for 90s. Run `38823255381` (head `afd34968d`) logged ready lines 90s apart through `F6 light #5`, then `F7 light #6` never arrived. Run `38831101582` logged F1 and never logged F2. The clock now repeats a 15s timeout, the interval that finished every frame, until 90s of wall time has passed.
+S0–S8 are implemented and reviewed. Later green iOS runs painted the transcript-only preview after the scene manifest was removed. Run `38807875046` (head `e60400eb2`) proved the ubuntu react-native-web export (26 PNGs) and then the iOS carousel crashed: two mounted preview routes each held a timer, and at F1 dark their layout effects wrote opposite theme preferences for about 8 seconds before React threw `Maximum update depth exceeded` at `UserMessage`. One shared clock and a single ready-line claim replace those timers. Run `38816093468` (head `4d25dfa03`) logged every ready line through `F13 dark #25` with no exception, and `default-route.png` is F1 light. Capture still failed: `simctl io screenshot` blocked for 61s and 54s, the 15s hold moved on, and several PNGs are the same later frame. Run `38823255381` stopped before F7. Run `38831101582` stopped before F2. Run `38837550765` (head `1ad359fc4`) kept a 90s cadence through `F8 light #7` and never logged `F9 light #8`. CI no longer depends on one JS timer living through the whole matrix. `ios-capture.sh` writes `Documents/parity-frame.json` and relaunches for each fixture. The preview reads it with `File.textSync()` before logging `[parity] ready <id> <theme> #0`, and does not arm the clock.
 
 ### Completed work
 
@@ -138,13 +138,14 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Run `38816093468` iOS capture is not a pass. The shared clock worked. The 26 PNGs are not all distinct.
 - Run `38823255381` iOS capture is not a pass. The 90s hold worked through F6 light, then the next ready line never arrived.
 - Run `38831101582` iOS capture is not a pass. The 500ms tick logged F1 light and never logged F2.
+- Run `38837550765` iOS capture is not a pass. The 15s steps logged F1–F8 light on a 90s cadence and never logged F9. `structural` on that run succeeded.
 - S9, S15, S20, and S26 stay `not_run` because no dedicated test asserts them.
 - Pre-existing mobile typecheck errors in three files.
 
 ### Next steps
 
-1. Watch the iOS run started by the 15s-step push. Do not cancel `38803926761`, `38807875046`, `38816093468`, `38823255381`, or `38831101582`.
-2. Do not mark the carousel iOS path pass until that artifact has 26 distinct phone PNGs through `F13-dark`, and the race check did not fire.
+1. Watch the iOS run started by the per-launch pin. Do not cancel `38803926761`, `38807875046`, `38816093468`, `38823255381`, `38831101582`, or `38837550765`.
+2. Do not mark the iOS fixture matrix pass until that artifact has 26 distinct phone PNGs through `F13-dark`, `default-route.png` is the F1 light pin, and each launch logged only its own `#0` ready line.
 3. S10 and S30 stay `not_run`. The `.mov` files are still frames.
 4. Do not mark S27 F12 or S31 pass. Do not merge.
 
@@ -195,3 +196,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Run `38816093468` head `4d25dfa03`: `structural` passed. iOS capture logged every ready line through `F13 dark #25` and did not throw. `default-route.png` equals `F1-light` (`210adf69…`). The distinct-PNG check failed. `simctl io screenshot` blocked for 61s and 54s against the 15s hold. Duplicate groups: `F1-dark`+`F13-light`, `F2-light`+`F3-light`, `F3-dark`+`F4-dark`, `F6-light`+`F7-light`+`F8-light`. Hold is now 90s. The script fails if the next ready line is already logged when the screenshot returns. The iOS job timeout is 120 minutes.
 - Run `38823255381` head `afd34968d`: `structural` passed. iOS capture logged `F1 light #0` through `F6 light #5` on a 90s cadence. Screenshots of those frames returned before the next line. `F7 light #6` was still missing after a 120s wait. No `Maximum update depth`.
 - Run `38831101582` head `993d9c2b8`: `structural` passed. iOS capture logged `F1 light #0`, wrote `F1-light.png`, and exited because `F2 light #1` was missing after 120s. The follow-up repeats a 15s timeout until the 90s hold has elapsed.
+- Run `38837550765` head `1ad359fc4`: `structural` passed. iOS capture logged `F1 light #0` through `F8 light #7` about 90.0s apart, then `F9 light #8` was missing. The expected F9 time was inside the 120s wait. No `Maximum update depth`. The follow-up writes `Documents/parity-frame.json` and relaunches for each fixture. The in-app clock is not the CI capture path.

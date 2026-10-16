@@ -24,6 +24,7 @@ import {
   subscribeParityClock,
   type ParityFrame,
 } from "./parity-cycle";
+import { readParityDiskFrame } from "./read-parity-disk-frame";
 import { resolvedPillRowHeight } from "./transcript-pad";
 
 const NO_FAVORITES: FavoriteModel[] = [];
@@ -44,10 +45,17 @@ export function PreviewChatScreen() {
   }>();
   const fixtureParam = param(params.fixture);
   const themeParam = param(params.theme);
-  const pinned = useMemo(
+  const queryPin = useMemo(
     () => parityPinnedFrame(fixtureParam, themeParam),
     [fixtureParam, themeParam],
   );
+  const [diskFrame] = useState<ParityFrame | null>(() => {
+    if (queryPin) return null;
+    const next = readParityDiskFrame();
+    console.error(next ? `[parity] disk ${next.id} ${next.theme}` : "[parity] disk none");
+    return next;
+  });
+  const pinned = queryPin ?? diskFrame;
   const frames = useMemo(() => parityCycleFrames(), []);
   const [index, setIndex] = useState(() => parityClockIndex());
   const frame = useMemo<ParityFrame>(
