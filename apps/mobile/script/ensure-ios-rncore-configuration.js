@@ -166,23 +166,18 @@ function ensureIosRncoreConfiguration(options) {
     });
   };
 
-  try {
-    if (!fs.existsSync(desiredTarball)) {
-      throw new Error(`missing ${path.basename(desiredTarball)}`);
-    }
-    replaceOnce();
-  } catch (firstError) {
-    log(
-      `replace failed (${firstError instanceof Error ? firstError.message : firstError}); running pod install`,
-    );
+  // pod install only fills in a missing tarball. A failed extract or marker
+  // mismatch is a real error and must not be masked by a slow reinstall.
+  if (!fs.existsSync(desiredTarball)) {
+    log(`missing ${path.basename(desiredTarball)}; running pod install`);
     runPodInstall(iosDir);
     if (!fs.existsSync(desiredTarball)) {
       throw new Error(
         `React Native ${configuration} prebuilt tarball still missing after pod install: ${desiredTarball}`,
       );
     }
-    replaceOnce();
   }
+  replaceOnce();
 
   const after = readMarker(podsRoot);
   if (after !== configuration) {

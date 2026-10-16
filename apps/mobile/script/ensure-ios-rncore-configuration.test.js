@@ -228,6 +228,29 @@ describe("ensureIosRncoreConfiguration", () => {
     ]);
   });
 
+  test("does not run pod install when replace fails and the tarball exists", () => {
+    const { iosDir, podsRoot } = makeIosTree({ marker: "Release" });
+    let podInstallCalls = 0;
+    expect(() =>
+      ensureIosRncoreConfiguration({
+        configuration: "Debug",
+        iosDir,
+        resolveReactNative: () => ({
+          version: "0.85.3",
+          scriptPath: "/fake/replace-rncore-version.js",
+        }),
+        runReplace: () => {
+          throw new Error("tar extraction failed with exit code 2");
+        },
+        runPodInstall: () => {
+          podInstallCalls += 1;
+        },
+      }),
+    ).toThrow(/tar extraction failed with exit code 2/);
+    expect(podInstallCalls).toBe(0);
+    expect(fs.existsSync(tarballPath(podsRoot, "Debug"))).toBe(true);
+  });
+
   test("rejects an invalid configuration", () => {
     expect(() =>
       ensureIosRncoreConfiguration({ configuration: "Profile", iosDir: "/tmp" }),
@@ -275,6 +298,21 @@ describe("justfile and build_and_run wiring", () => {
     expect(justfile).toContain('derived="$ios_dir/DerivedData-Debug"');
     expect(justfile).toContain("-derivedDataPath");
     expect(justfile).toContain("restore_debug_rncore");
+  });
+
+  test("prepare does not extract Debug before a Release swap", () => {
+    const prepareStart = justfile.indexOf("\nmobile-ios-prepare:");
+    const releaseStart = justfile.indexOf("\nmobile-ios-release *args:");
+    const devStart = justfile.indexOf("\nmobile-ios-dev *args:");
+    expect(prepareStart).toBeGreaterThan(-1);
+    expect(releaseStart).toBeGreaterThan(prepareStart);
+    expect(devStart).toBeGreaterThan(releaseStart);
+    const prepare = justfile.slice(prepareStart, releaseStart);
+    expect(prepare).not.toContain("ensure-ios-rncore-configuration.js");
+    const release = justfile.slice(releaseStart, devStart);
+    expect(release).toContain("just mobile-ios-prepare");
+    expect(release).toContain("ensure-ios-rncore-configuration.js Release");
+    expect(release).toContain("restore_debug_rncore");
   });
 
   test("expo run:ios goes through the Debug ensure helper", () => {

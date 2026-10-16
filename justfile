@@ -121,6 +121,8 @@ mobile-ios:
 # Expo prebuild output is gitignored. Create it once per worktree.
 # An existing workspace still gets the pod deployment-target snippet if prebuild
 # ran before that plugin existed. pod install applies it.
+# Does not swap React-Core-prebuilt: Debug/Release recipes do that themselves
+# so mobile-ios-release does not extract Debug and then immediately extract Release.
 mobile-ios-prepare:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -137,10 +139,9 @@ mobile-ios-prepare:
             '
             (cd apps/mobile/ios && pod install)
         fi
-    else
-        (cd apps/mobile && CI=1 bunx expo prebuild --platform ios)
+        exit 0
     fi
-    node apps/mobile/script/ensure-ios-rncore-configuration.js Debug
+    (cd apps/mobile && CI=1 bunx expo prebuild --platform ios)
 
 # Build the Release app and install it on a connected iPhone. Does not use Metro.
 # Installs as Atmos (land.atmos.mobile). Does not replace Atmos Dev.
