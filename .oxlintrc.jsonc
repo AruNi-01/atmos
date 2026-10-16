@@ -240,5 +240,15 @@
         "typescript/no-explicit-any": "off",
       },
     },
+    {
+      // Node CLI + bun:test helpers. Same CJS shape as apps/mobile/plugins.
+      "files": [
+        "apps/mobile/script/ensure-ios-rncore-configuration.js",
+        "apps/mobile/script/ensure-ios-rncore-configuration.test.js",
+      ],
+      "rules": {
+        "typescript/no-require-imports": "off",
+      },
+    },
   ],
 }
