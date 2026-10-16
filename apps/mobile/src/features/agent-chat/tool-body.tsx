@@ -285,13 +285,77 @@ export function toolBodyModel(part: AgentToolCallPart): ToolBodyModel {
   return { ...fields, title };
 }
 
+function patchLineStats(patch: string): { additions: number; deletions: number } {
+  let additions = 0;
+  let deletions = 0;
+  for (const line of patch.split("\n")) {
+    if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("@@")) continue;
+    if (line.startsWith("+")) additions += 1;
+    else if (line.startsWith("-")) deletions += 1;
+  }
+  return { additions, deletions };
+}
+
+export function toolRowDiffStats(model: ToolBodyModel): { additions: number; deletions: number } {
+  if (model.kind === "diff") {
+    return model.files.reduce(
+      (sum, file) => ({
+        additions: sum.additions + file.additions,
+        deletions: sum.deletions + file.deletions,
+      }),
+      { additions: 0, deletions: 0 },
+    );
+  }
+  if (model.kind === "diff_stats") {
+    return { additions: model.additions, deletions: model.deletions };
+  }
+  if (model.kind === "patch") return patchLineStats(model.text);
+  return { additions: 0, deletions: 0 };
+}
+
+/** Edit tools only, matching web `sumToolGroupDiffStats`. */
+export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; deletions: number } {
+  let additions = 0;
+  let deletions = 0;
+  for (const part of parts) {
+    if (part.type !== "tool_call" || part.kind !== "edit") continue;
+    const result = part.result;
+    if (result?.type === "diff_stats") {
+      additions += result.additions;
+      deletions += result.deletions;
+      continue;
+    }
+    if (result?.type === "diff") {
+      const next = unifiedLineDiff(result.old_content ?? "", result.new_content);
+      additions += next.additions;
+      deletions += next.deletions;
+      continue;
+    }
+    const presentation = presentAgentTool(part).presentation;
+    if (presentation.kind === "patch") {
+      const next = patchLineStats(presentation.patch);
+      additions += next.additions;
+      deletions += next.deletions;
+    } else if (presentation.kind === "code" && presentation.hint === "new") {
+      additions += splitToolLines(presentation.code).length;
+    } else if (presentation.kind === "code" && presentation.hint === "deleted") {
+      deletions += splitToolLines(presentation.code).length;
+    }
+  }
+  return { additions, deletions };
+}
+
 // @view
 
 import { useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { XCircleIcon } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
+import { TextShimmer } from "./motion/text-shimmer";
+import { toolTriggerMetrics } from "./tool-chrome";
+import { ToolKindIcon } from "./tool-kind-icon";
 import { ExpandChevron } from "./tool-tree";
 
 const BODY_TEXT = { fontSize: 14, lineHeight: 20 } as const;
@@ -326,6 +390,20 @@ function PathChips({ paths }: { paths: string[] }) {
         <PathChip key={`${path}:${index}`} path={path} />
       ))}
     </View>
+  );
+}
+
+export function ToolDiffStats({ additions, deletions }: { additions: number; deletions: number }) {
+  const theme = useMobileTheme();
+  if (additions <= 0 && deletions <= 0) return null;
+  return (
+    <Text style={{ fontFamily: "Menlo", fontSize: 12, lineHeight: 16 }}>
+      {deletions > 0 ? <Text style={{ color: theme.colors.red }}>-{deletions}</Text> : null}
+      {deletions > 0 && additions > 0 ? (
+        <Text style={{ color: theme.colors.secondaryLabel }}> / </Text>
+      ) : null}
+      {additions > 0 ? <Text style={{ color: theme.colors.green }}>+{additions}</Text> : null}
+    </Text>
   );
 }
 
@@ -572,12 +650,35 @@ function SubagentCard({ status, title }: { status: string; title: string }) {
   const theme = useMobileTheme();
   const failed = status === copy.subagentStatus.failed;
   const color = failed ? theme.colors.red : theme.colors.secondaryLabel;
+  const metrics = toolTriggerMetrics;
   return (
-    <View style={{ gap: 2, paddingVertical: 2 }}>
-      <Text numberOfLines={2} style={{ color, fontSize: 12, lineHeight: 16 }}>
-        {title}
-      </Text>
-      <Text style={{ color, fontSize: 12, lineHeight: 16 }}>{status}</Text>
+    <View
+      style={{
+        alignItems: "center",
+        flexDirection: "row",
+        gap: metrics.gap,
+        paddingVertical: metrics.padY,
+      }}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          height: metrics.iconBox,
+          justifyContent: "center",
+          width: metrics.iconBox,
+        }}
+      >
+        <ToolKindIcon color={color} kind="subagent" size={metrics.iconSize} />
+      </View>
+      <View style={{ flexShrink: 1 }}>
+        <Text
+          numberOfLines={1}
+          style={{ color, fontSize: metrics.fontSize, lineHeight: metrics.lineHeight }}
+        >
+          {title}
+        </Text>
+        <Text style={{ color, fontSize: 12, lineHeight: 16 }}>{status}</Text>
+      </View>
     </View>
   );
 }
@@ -590,21 +691,54 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
     return <SubagentCard status={model.status} title={model.title} />;
   }
   const failed = model.kind === "error" || part.status === "failed";
+  const running = isActiveToolStatus(part.status);
   const color = failed ? theme.colors.red : theme.colors.secondaryLabel;
+  const metrics = toolTriggerMetrics;
+  const stats = toolRowDiffStats(model);
+  const titleStyle = {
+    color,
+    flexShrink: 1,
+    fontSize: metrics.fontSize,
+    lineHeight: metrics.lineHeight,
+  };
   return (
-    <View style={{ gap: 4, paddingVertical: 2 }}>
+    <View style={{ paddingVertical: metrics.padY }}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen(!open)}
-        style={{ alignItems: "center", flexDirection: "row", gap: 4 }}
+        style={{ alignItems: "center", flexDirection: "row", gap: metrics.gap }}
       >
-        <Text numberOfLines={2} style={{ color, flexShrink: 1, fontSize: 12, lineHeight: 16 }}>
-          {model.title}
-        </Text>
-        <ExpandChevron color={color} open={open} />
+        <View
+          style={{
+            alignItems: "center",
+            height: metrics.iconBox,
+            justifyContent: "center",
+            width: metrics.iconBox,
+          }}
+        >
+          <ToolKindIcon color={color} kind={part.kind} size={metrics.iconSize} />
+        </View>
+        {running ? (
+          <TextShimmer duration={1} numberOfLines={1} style={titleStyle}>
+            {model.title}
+          </TextShimmer>
+        ) : (
+          <Text numberOfLines={1} style={titleStyle}>
+            {model.title}
+          </Text>
+        )}
+        <ToolDiffStats additions={stats.additions} deletions={stats.deletions} />
+        {failed ? (
+          <XCircleIcon color={theme.colors.red} size={metrics.iconSize} strokeWidth={2} />
+        ) : null}
+        <ExpandChevron color={color} open={open} size={metrics.chevron} />
       </Pressable>
-      {open ? <ToolBodyView model={model} /> : null}
+      {open ? (
+        <View style={{ paddingTop: metrics.bodyPadTop }}>
+          <ToolBodyView model={model} />
+        </View>
+      ) : null}
     </View>
   );
 }

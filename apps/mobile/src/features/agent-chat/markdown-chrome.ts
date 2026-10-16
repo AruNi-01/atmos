@@ -35,17 +35,38 @@ export const agentChatBlockMetrics = {
   table: { marginTop: 16, marginBottom: 16 },
 } as const;
 
-/** Zinc chrome from web `markdown-table.ts` and inline `MarkdownCodeBlock`. */
+/**
+ * Zinc table chrome from `markdown-table.ts`, inline code from `MarkdownCodeBlock`,
+ * and the fenced frame from `CodeBlock` (`bg-neutral-200/40` / `dark:bg-neutral-800/70`).
+ * Dark header and border are those alphas composited on black. Inline code has no border.
+ * Fence syntax colors follow web Shiki `github-light` / `github-dark`.
+ */
 export function agentChatMarkdownChrome(isDark: boolean) {
   if (isDark) {
     return {
-      headerBackground: "#27272a",
+      headerBackground: "#1f1f22",
       headerText: "#d4d4d8",
       bodyText: "#a1a1aa",
-      border: "#3f3f46",
+      border: "#202023",
       row: "#000000",
       codeBackground: "#27272a",
       codeText: "#e4e4e7",
+      codeBorder: "rgba(0,0,0,0)",
+      fenceBackground: "#1b1b1b",
+      fenceBorder: "#262626",
+      fenceText: "#e6edf3",
+      syntax: {
+        keyword: "#ff7b72",
+        string: "#a5d6ff",
+        number: "#79c0ff",
+        constant: "#79c0ff",
+        comment: "#8b949e",
+        function: "#d2a8ff",
+        type: "#ffa657",
+        property: "#79c0ff",
+        tag: "#7ee787",
+        attribute: "#79c0ff",
+      },
     };
   }
   return {
@@ -56,5 +77,21 @@ export function agentChatMarkdownChrome(isDark: boolean) {
     row: "#f4f4f6",
     codeBackground: "#f4f4f5",
     codeText: "#27272a",
+    codeBorder: "rgba(0,0,0,0)",
+    fenceBackground: "#eeeeef",
+    fenceBorder: "#e5e5e5",
+    fenceText: "#1f2328",
+    syntax: {
+      keyword: "#cf222e",
+      string: "#0a3069",
+      number: "#0550ae",
+      constant: "#0550ae",
+      comment: "#6e7781",
+      function: "#8250df",
+      type: "#953800",
+      property: "#0550ae",
+      tag: "#116329",
+      attribute: "#0550ae",
+    },
   };
 }

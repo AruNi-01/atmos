@@ -68,17 +68,18 @@ export function AgentChatMarkdown({
       },
       code: {
         backgroundColor: chrome.codeBackground,
-        borderColor: chrome.codeBackground,
+        borderColor: chrome.codeBorder,
         color: chrome.codeText,
         fontFamily: "Menlo",
         fontSize: 13,
       },
       codeBlock: {
-        backgroundColor: theme.colors.cardSubtle,
-        borderColor: theme.colors.glassBorder,
+        backgroundColor: chrome.fenceBackground,
+        borderColor: chrome.fenceBorder,
         borderWidth: 1,
-        color: theme.colors.label,
+        color: chrome.fenceText,
         fontFamily: "Menlo",
+        syntaxColors: chrome.syntax,
         ...agentChatBlockMetrics.codeBlock,
       },
       link: {

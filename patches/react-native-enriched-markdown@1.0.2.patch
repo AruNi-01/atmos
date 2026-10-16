@@ -1,3 +1,110 @@
+diff --git a/ios/renderer/CodeRenderer.m b/ios/renderer/CodeRenderer.m
+index 7bc14aed5225eac421b4f3fa2d28b4b07f355e47..cdd5db2195d485466dc66ca2c5834adcd1dd2127 100644
+--- a/ios/renderer/CodeRenderer.m
++++ b/ios/renderer/CodeRenderer.m
+@@ -60,6 +60,23 @@
+     codeAttributes[@"BlockLineHeight"] = @(UIFontLineHeight(blockFont));
+ 
+     [output setAttributes:codeAttributes range:range];
++
++    // Room for the 6px horizontal chip padding. The background expands to cover it.
++    static const CGFloat kInlineCodePadX = 6.0;
++    NSUInteger last = NSMaxRange(range) - 1;
++    CGFloat trailing = 0;
++    NSNumber *existingKern = [output attribute:NSKernAttributeName atIndex:last effectiveRange:NULL];
++    if ([existingKern isKindOfClass:[NSNumber class]])
++      trailing = existingKern.doubleValue;
++    [output addAttribute:NSKernAttributeName value:@(trailing + kInlineCodePadX) range:NSMakeRange(last, 1)];
++    if (range.location > 0) {
++      NSUInteger prev = range.location - 1;
++      CGFloat leading = 0;
++      NSNumber *prevKern = [output attribute:NSKernAttributeName atIndex:prev effectiveRange:NULL];
++      if ([prevKern isKindOfClass:[NSNumber class]])
++        leading = prevKern.doubleValue;
++      [output addAttribute:NSKernAttributeName value:@(leading + kInlineCodePadX) range:NSMakeRange(prev, 1)];
++    }
+   }
+ }
+ 
+diff --git a/ios/utils/CodeBackground.m b/ios/utils/CodeBackground.m
+index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..8b06983bb50aac7580a9780a54ac815d6aa81c14 100644
+--- a/ios/utils/CodeBackground.m
++++ b/ios/utils/CodeBackground.m
+@@ -4,8 +4,17 @@
+ 
+ NSString *const CodeAttributeName = @"Code";
+ 
+-static const CGFloat kCodeBackgroundCornerRadius = 2.0;
++static const CGFloat kCodeBackgroundCornerRadius = 4.0;
+ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
++static const CGFloat kCodeBackgroundPadX = 6.0;
++static const CGFloat kCodeBackgroundPadY = 2.0;
++
++static BOOL ENRMColorIsVisible(RCTUIColor *color)
++{
++  if (!color)
++    return NO;
++  return CGColorGetAlpha(color.CGColor) > 0.01;
++}
+ 
+ @implementation CodeBackground {
+   StyleConfig *_config;
+@@ -100,6 +109,13 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
+                                    finalRect.size.height = referenceHeight;
+                                  }
+ 
++                                 // Web inline code is `rounded px-1.5 py-0.5` (4px radius, 6/2 padding).
++                                 CGFloat left = MIN(kCodeBackgroundPadX, MAX(0, finalRect.origin.x));
++                                 finalRect.origin.x -= left;
++                                 finalRect.size.width += left + kCodeBackgroundPadX;
++                                 finalRect.origin.y -= kCodeBackgroundPadY;
++                                 finalRect.size.height += kCodeBackgroundPadY * 2;
++
+                                  [self drawBackgroundAndBorders:finalRect
+                                                 backgroundColor:backgroundColor
+                                                     borderColor:borderColor
+@@ -120,7 +136,7 @@ static const CGFloat kCodeBackgroundBorderWidth = 0.5;
+   [backgroundColor setFill];
+   [path fill];
+ 
+-  if (borderColor) {
++  if (ENRMColorIsVisible(borderColor)) {
+     [borderColor setStroke];
+     UIBezierPath *strokePath =
+         (isFirst && isLast) ? path : [self openBorderPathForRect:rect isFirst:isFirst isLast:isLast];
+diff --git a/ios/utils/ENRMCodeBlockContent.mm b/ios/utils/ENRMCodeBlockContent.mm
+index 585044157a9a4e5ed9ebf69d4891f7b5a48eb5b1..01f09588d1dea3a5f29e91f558a90d640d82fafd 100644
+--- a/ios/utils/ENRMCodeBlockContent.mm
++++ b/ios/utils/ENRMCodeBlockContent.mm
+@@ -1,5 +1,4 @@
+ #import "ENRMCodeBlockContent.h"
+-#include "CodeBlockLanguages.hpp"
+ #import "ENRMUIKit.h"
+ #import "MarkdownASTNode.h"
+ #import "ParagraphStyleUtils.h"
+@@ -49,8 +48,8 @@ NSString *ENRMCodeBlockDisplayLanguageName(NSString *language)
+   if (language.length == 0) {
+     return @"";
+   }
+-  std::string display = Markdown::displayNameForLanguage(language.UTF8String ?: "");
+-  return [NSString stringWithUTF8String:display.c_str()] ?: language;
++  // Web CSS `uppercase` on the raw fence token (`ts` → `TS`).
++  return language.uppercaseString;
+ }
+ 
+ void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange range, StyleConfig *config)
+diff --git a/ios/views/ENRMCodeBlockContainerView.m b/ios/views/ENRMCodeBlockContainerView.m
+index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..0fa08c61ad1dbb98bfc30ddbe4877f3f37de9f4a 100644
+--- a/ios/views/ENRMCodeBlockContainerView.m
++++ b/ios/views/ENRMCodeBlockContainerView.m
+@@ -385,6 +385,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+   }
+   NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
+   labelAttributes[NSFontAttributeName] = _headerFont;
++  labelAttributes[NSKernAttributeName] = @(_headerFont.pointSize * 0.05);
+   RCTUIColor *labelColor = [[_config codeBlockColor] colorWithAlphaComponent:kENRMHeaderSecondaryAlpha];
+   if (labelColor) {
+     labelAttributes[NSForegroundColorAttributeName] = labelColor;
 diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
 index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a2eb0d3f4 100644
 --- a/ios/views/TableContainerView.m

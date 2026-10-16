@@ -336,4 +336,31 @@ describe("tool body presentation", () => {
     expect(collapsed.text.split("\n")).toHaveLength(12);
     expect(cap(lines, true).text.split("\n")).toHaveLength(13);
   });
+
+  test("group diff totals count edit stats and skip other kinds", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const totals = mod.toolGroupDiffTotals as (parts: AgentToolCallPart[]) => {
+      additions: number;
+      deletions: number;
+    };
+    const row = mod.toolRowDiffStats as (model: Body) => { additions: number; deletions: number };
+    expect(
+      totals([
+        part({
+          kind: "edit",
+          params: { type: "edit", path: "a.ts" },
+          result: { type: "diff_stats", path: "a.ts", additions: 3, deletions: 1 },
+        }),
+        part({
+          kind: "read",
+          params: { type: "read", path: "b.ts" },
+          result: { type: "diff_stats", path: "b.ts", additions: 9, deletions: 9 },
+        }),
+      ]),
+    ).toEqual({ additions: 3, deletions: 1 });
+    expect(
+      row({ kind: "diff_stats", title: "Edit", path: "a.ts", additions: 2, deletions: 4 }),
+    ).toEqual({ additions: 2, deletions: 4 });
+    expect(row({ kind: "mono", title: "Run", text: "ok" })).toEqual({ additions: 0, deletions: 0 });
+  });
 });

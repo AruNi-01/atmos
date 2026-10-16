@@ -161,6 +161,9 @@ describe("tool group", () => {
     expect(open(true, false)).toBe(true);
     expect(open(undefined, true)).toBe(true);
     expect(open(undefined, false)).toBe(false);
+    const lead = group.toolGroupLeadKind as (parts: AgentPart[]) => string;
+    expect(lead([tool("a")])).toBe("read");
+    expect(lead([{ type: "thinking", text: "hmm" }])).toBe("other");
   });
 });
 

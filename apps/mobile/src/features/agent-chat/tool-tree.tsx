@@ -39,6 +39,9 @@ import Animated, {
 import Svg, { Path } from "react-native-svg";
 import {
   TREE_DRAW_MS,
+  clampTreeShown,
+  nextTreeRevealDelay,
+  nextTreeWatermark,
   treeReachLength,
   treeSegmentDelayMs,
   treeStaggerDelayMs,
@@ -54,7 +57,51 @@ const CHEVRON_EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const DASH_ARRAY = ["stroke", "Dash", "array"].join("");
 const DASH_OFFSET = ["stroke", "Dash", "offset"].join("");
 
-export function ExpandChevron({ color, open }: { color?: string; open: boolean }) {
+/**
+ * Rows already on screen stay put. Only the delta that arrives while the group
+ * is open is released one row at a time. Folding does not replay the draw.
+ */
+export function useToolTreeReveal(
+  count: number,
+  active: boolean,
+): { shown: number; watermark: number } {
+  const reduced = useReducedMotion();
+  const play = active && !reduced;
+  const [seen, setSeen] = useState(count);
+  const [shown, setShown] = useState(count);
+
+  // Closed groups treat every current row as already seen. Doing it here keeps
+  // the watermark in the same render, so reopening does not replay the draw.
+  if (!play && seen !== count) setSeen(count);
+  if (!play && shown !== count) setShown(count);
+  if (play && shown > count) setShown(count);
+
+  const watermark = nextTreeWatermark(seen, count, play);
+
+  useEffect(() => {
+    if (!play || shown >= count) return;
+    const delay = nextTreeRevealDelay(shown, count - shown);
+    const timer = setTimeout(() => {
+      setShown((prev) => Math.min(count, prev + 1));
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [play, shown, count]);
+
+  return {
+    shown: play ? clampTreeShown(shown, count, watermark, true) : count,
+    watermark,
+  };
+}
+
+export function ExpandChevron({
+  color,
+  open,
+  size = 12,
+}: {
+  color?: string;
+  open: boolean;
+  size?: number;
+}) {
   const theme = useMobileTheme();
   const reduced = useReducedMotion();
   const rotation = useSharedValue(open ? 90 : 0);
@@ -76,7 +123,11 @@ export function ExpandChevron({ color, open }: { color?: string; open: boolean }
 
   return (
     <Animated.View style={style}>
-      <ChevronRightIcon color={color ?? theme.colors.secondaryLabel} size={12} strokeWidth={2.2} />
+      <ChevronRightIcon
+        color={color ?? theme.colors.secondaryLabel}
+        size={size}
+        strokeWidth={2.2}
+      />
     </Animated.View>
   );
 }
@@ -135,6 +186,7 @@ function DrawnPath({
 export function ToolTreeRow({
   children,
   count = 1,
+  delayMs,
   draw = false,
   first,
   index = 0,
@@ -142,6 +194,8 @@ export function ToolTreeRow({
 }: {
   children: ReactNode;
   count?: number;
+  /** Sequential arrivals start immediately. Omit to stagger a batch. */
+  delayMs?: number;
   draw?: boolean;
   first: boolean;
   index?: number;
@@ -150,7 +204,8 @@ export function ToolTreeRow({
   const theme = useMobileTheme();
   const [height, setHeight] = useState(0);
   const strokes = toolTreeStrokes({ first, last, height });
-  const delay = count <= 1 ? treeSegmentDelayMs(index) : treeStaggerDelayMs(index, count);
+  const delay =
+    delayMs ?? (count <= 1 ? treeSegmentDelayMs(index) : treeStaggerDelayMs(index, count));
   const reachLength = treeReachLength(first ? TREE_BRANCH_FIRST_START_Y : 0, TREE_BRANCH_MID_Y);
   const trunkFrom = TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS;
   const trunkLength = height > trunkFrom ? height - trunkFrom : 0;

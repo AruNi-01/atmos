@@ -1,7 +1,8 @@
-import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   countToolGroupOverview,
   formatToolGroupOverview,
+  iconKindForOverview,
   sentenceCaseOverview,
   toolCallPartsFromGroup,
   toolGroupHasRunning,
@@ -35,6 +36,12 @@ export function persistentToolGroupOpen(stored: boolean | undefined, running: bo
   return running;
 }
 
+/** First overview kind, otherwise the web fallback wrench (`other`). */
+export function toolGroupLeadKind(parts: AgentPart[]): AgentToolKind {
+  const lead = countToolGroupOverview(toolCallPartsFromGroup(parts))[0]?.kind;
+  return lead ? iconKindForOverview(lead) : "other";
+}
+
 // @view
 
 import type { ReactNode } from "react";
@@ -42,7 +49,11 @@ import { Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { agentChatToolGroupExpandKey, useAgentChatExpandStore } from "./expand-store";
 import { TextShimmer } from "./motion/text-shimmer";
-import { ExpandChevron, ToolTreeRow } from "./tool-tree";
+import { PartReveal } from "./motion/part-reveal";
+import { toolTriggerMetrics } from "./tool-chrome";
+import { ToolKindIcon } from "./tool-kind-icon";
+import { ToolDiffStats, toolGroupDiffTotals } from "./tool-body";
+import { ExpandChevron, ToolTreeRow, useToolTreeReveal } from "./tool-tree";
 
 function rowKey(part: AgentPart, origIndex: number): string {
   if (part.type === "tool_call") return part.tool_call_id;
@@ -71,20 +82,22 @@ export function ToolGroup({
   const running = toolGroupHasRunning(parts);
   const open = persistentToolGroupOpen(stored, running);
   const overview = toolGroupOverviewLabel(parts);
+  const metrics = toolTriggerMetrics;
+  const { shown, watermark } = useToolTreeReveal(parts.length, open);
+  const diff = toolGroupDiffTotals(parts);
   const overviewStyle = {
     color: theme.colors.secondaryLabel,
     flexShrink: 1,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: metrics.fontSize,
+    lineHeight: metrics.lineHeight,
   };
-  const rows = open
-    ? parts.flatMap((part, index) => {
-        const origIndex = origIndexes[index] ?? index;
-        const rendered = renderPart(part, origIndex);
-        if (rendered == null) return [];
-        return [{ key: rowKey(part, origIndex), rendered }];
-      })
-    : [];
+  const visible = open ? parts.slice(0, shown) : [];
+  const rows = visible.flatMap((part, index) => {
+    const origIndex = origIndexes[index] ?? index;
+    const rendered = renderPart(part, origIndex);
+    if (rendered == null) return [];
+    return [{ key: rowKey(part, origIndex), rendered }];
+  });
 
   return (
     <View>
@@ -96,8 +109,27 @@ export function ToolGroup({
           setExpand(expandKey, next);
           if (next) onInspect();
         }}
-        style={{ alignItems: "center", flexDirection: "row", gap: 4, paddingVertical: 2 }}
+        style={{
+          alignItems: "center",
+          flexDirection: "row",
+          gap: metrics.gap,
+          paddingVertical: metrics.padY,
+        }}
       >
+        <View
+          style={{
+            alignItems: "center",
+            height: metrics.iconBox,
+            justifyContent: "center",
+            width: metrics.iconBox,
+          }}
+        >
+          <ToolKindIcon
+            color={theme.colors.secondaryLabel}
+            kind={toolGroupLeadKind(parts)}
+            size={metrics.iconSize}
+          />
+        </View>
         {running ? (
           <TextShimmer duration={1} numberOfLines={1} style={overviewStyle}>
             {overview}
@@ -107,20 +139,23 @@ export function ToolGroup({
             {overview}
           </Text>
         )}
-        <ExpandChevron open={open} />
+        <ToolDiffStats additions={diff.additions} deletions={diff.deletions} />
+        <ExpandChevron open={open} size={metrics.chevron} />
       </Pressable>
       {open
         ? rows.map((row, index) => (
-            <ToolTreeRow
-              count={rows.length}
-              draw={running}
-              first={index === 0}
-              index={index}
-              key={row.key}
-              last={index === rows.length - 1}
-            >
-              {row.rendered}
-            </ToolTreeRow>
+            <PartReveal key={row.key} play={index >= watermark}>
+              <ToolTreeRow
+                count={rows.length}
+                delayMs={0}
+                draw={index >= watermark}
+                first={index === 0}
+                index={index}
+                last={index === rows.length - 1}
+              >
+                {row.rendered}
+              </ToolTreeRow>
+            </PartReveal>
           ))
         : null}
     </View>
