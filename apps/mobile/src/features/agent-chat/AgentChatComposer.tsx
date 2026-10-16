@@ -1,16 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
-import {
-  Image,
-  Keyboard,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -84,7 +74,6 @@ export function AgentChatComposer(props: {
   const chipsRef = useRef<readonly ComposerPasteChip[]>(props.pasteChips ?? []);
   const [modelsOpen, setModelsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [contentHeight, setContentHeight] = useState(LINE_HEIGHT);
   const suggestions = props.suggestions ?? [];
   const draftText = props.text.trim();
@@ -92,20 +81,15 @@ export function AgentChatComposer(props: {
   // Follow-up actions only. An empty field after send stays a normal composer.
   const showQueue = props.followUp === true && canSend;
   const showSteer = props.followUp === true && draftText.length > 0;
-  const stacked =
-    keyboardVisible ||
-    modelsOpen ||
-    addOpen ||
-    showQueue ||
-    contentHeight > LINE_HEIGHT * 1.7 ||
-    props.text.includes("\n");
   const sendReady = canSend && !props.busy;
   const sendIcon = sendReady
     ? theme.colors.labelInverse
     : props.busy
       ? theme.colors.label
       : theme.colors.secondaryLabel;
-  const modelLabel = props.picker.triggerLabel || props.picker.modelLabel || copy.model;
+  const modelLabel = props.picker.triggerLabel.trim();
+  const showModel = modelLabel.length > 0;
+  const showNoAgent = props.picker.agents.length === 0 && !showModel;
   const pasteChips = props.pasteChips ?? [];
   const contextLabel = contextTriggerLabel(props.sessionUsage);
   const showContext = contextLabel != null && props.onOpenCard != null;
@@ -146,17 +130,6 @@ export function AgentChatComposer(props: {
     props.onPasteChipsChange(removed.chips);
     props.onChangeText(removed.draft);
   };
-
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const show = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (props.text.length === 0) setContentHeight(LINE_HEIGHT);
@@ -270,7 +243,6 @@ export function AgentChatComposer(props: {
           flexShrink: 0,
           height: BUTTON_SIZE,
           justifyContent: "center",
-          marginRight: stacked ? 0 : 8,
         }}
       >
         <Pressable
@@ -440,59 +412,56 @@ export function AgentChatComposer(props: {
         <View
           style={{
             overflow: "hidden",
-            paddingBottom: stacked ? 8 : 18,
-            paddingLeft: stacked ? 16 : 60,
-            paddingRight: stacked ? 16 : showContext ? 132 : 60,
-            paddingTop: stacked ? 16 : 18,
+            paddingBottom: 8,
+            paddingHorizontal: 16,
+            paddingTop: 14,
           }}
         >
           <TextInput
             multiline
             onChangeText={onDraftChange}
             onContentSizeChange={(event) => {
+              if (props.text.length === 0) {
+                setContentHeight(LINE_HEIGHT);
+                return;
+              }
               const next = Math.ceil(event.nativeEvent.contentSize.height);
               setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
             }}
             placeholder={props.placeholder}
             placeholderTextColor={theme.colors.secondaryLabel}
-            scrollEnabled={stacked}
+            scrollEnabled={contentHeight > LINE_HEIGHT * MAX_LINES}
             style={{
               color: theme.colors.label,
               fontSize: 16,
               lineHeight: LINE_HEIGHT,
               margin: 0,
-              maxHeight: stacked ? LINE_HEIGHT * MAX_LINES : LINE_HEIGHT,
+              maxHeight: LINE_HEIGHT * MAX_LINES,
               minHeight: LINE_HEIGHT,
               padding: 0,
-              textAlignVertical: stacked ? "top" : "center",
+              textAlignVertical: "top",
+              width: "100%",
             }}
             value={props.text}
           />
         </View>
         <View
-          style={
-            stacked
-              ? {
-                  alignItems: "center",
-                  flexDirection: "row",
-                  gap: 8,
-                  minHeight: BUTTON_SIZE,
-                  paddingBottom: 8,
-                  paddingHorizontal: 8,
-                }
-              : {
-                  alignItems: "center",
-                  bottom: 0,
-                  flexDirection: "row",
-                  left: 8,
-                  position: "absolute",
-                  right: 8,
-                  top: 0,
-                }
-          }
+          style={{
+            alignItems: "center",
+            flexDirection: "row",
+            gap: 8,
+            minHeight: BUTTON_SIZE,
+            paddingBottom: 8,
+            paddingHorizontal: 8,
+          }}
         >
           {renderPlus()}
-          {stacked ? renderModel() : null}
+          {showModel ? renderModel() : null}
+          {showNoAgent ? (
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+              {copy.noAgent}
+            </Text>
+          ) : null}
           <View style={{ flex: 1 }} />
           {renderContext()}
           {showQueue ? renderFollowUp(props.queueLabel, props.onQueue) : null}

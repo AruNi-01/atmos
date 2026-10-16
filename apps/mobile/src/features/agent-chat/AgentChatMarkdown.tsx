@@ -3,6 +3,7 @@ import { Linking } from "react-native";
 import { StreamdownText } from "react-native-streamdown";
 import type { MarkdownStyle } from "react-native-enriched-markdown";
 import { useMobileTheme } from "@/theme/theme-store";
+import { agentChatMarkdownChrome } from "./markdown-chrome";
 
 function openHttpLink(url: string) {
   if (url.startsWith("https://") || url.startsWith("http://")) {
@@ -28,6 +29,7 @@ export function AgentChatMarkdown({
     const resolvedFontSize = fontSize ?? (tone === "thinking" ? 15 : 16);
     const resolvedLineHeight = lineHeight ?? (tone === "thinking" ? 21 : 22);
     const heading = { color: proseColor, lineHeight: resolvedLineHeight };
+    const chrome = agentChatMarkdownChrome(theme.isDark);
 
     return {
       paragraph: { color: proseColor, fontSize: resolvedFontSize, lineHeight: resolvedLineHeight },
@@ -46,15 +48,23 @@ export function AgentChatMarkdown({
         lineHeight: resolvedLineHeight,
       },
       list: {
+        // Web streamdown lists are `list-inside list-disc`. The default disc
+        // sat on the text with no marker column, so the item reads as a
+        // hanging bullet. Indent the line and keep the disc inside that column.
         bulletColor: proseColor,
+        bulletSize: 5,
         color: proseColor,
         fontSize: resolvedFontSize,
+        gapWidth: 8,
         lineHeight: resolvedLineHeight,
+        marginLeft: 24,
         markerColor: proseColor,
+        markerMinWidth: 18,
       },
       code: {
-        backgroundColor: theme.colors.cardSubtle,
-        color: theme.colors.label,
+        backgroundColor: chrome.codeBackground,
+        borderColor: chrome.codeBackground,
+        color: chrome.codeText,
         fontFamily: "Menlo",
         fontSize: 13,
       },
@@ -75,6 +85,20 @@ export function AgentChatMarkdown({
       thematicBreak: {
         color: theme.colors.separator,
         height: 1,
+      },
+      table: {
+        borderColor: chrome.border,
+        borderRadius: 8,
+        borderWidth: 1,
+        cellPaddingHorizontal: 16,
+        cellPaddingVertical: 10,
+        color: chrome.bodyText,
+        fontSize: 14,
+        headerBackgroundColor: chrome.headerBackground,
+        headerTextColor: chrome.headerText,
+        lineHeight: 20,
+        rowEvenBackgroundColor: chrome.row,
+        rowOddBackgroundColor: chrome.row,
       },
     };
   }, [fontSize, lineHeight, theme, tone]);

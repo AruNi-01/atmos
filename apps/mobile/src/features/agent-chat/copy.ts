@@ -19,6 +19,7 @@ export const copy = {
   steer: "Steer",
   agent: "Agent",
   model: "Model",
+  noAgent: "No agent",
   thinking: "Thinking",
   permissionTitle: "Permission needed",
   sendFailed: "Could not send that message",

@@ -45,6 +45,13 @@ describe("composer capabilities", () => {
     expect(composerSource).toContain("applyComposerPaste");
   });
 
+  test("keeps the placeholder on its own line and hides an empty model label", () => {
+    expect(composerSource).toContain("paddingHorizontal: 16");
+    expect(composerSource).not.toContain("paddingLeft: 60");
+    expect(composerSource).toContain("showNoAgent");
+    expect(composerSource).not.toContain("|| copy.model");
+  });
+
   test("labels the context trigger with the percent, or Context, only when that card is in the lane", () => {
     expect(contextTriggerLabel(null)).toBeNull();
     expect(contextTriggerLabel({ context_window: 1000 })).toBeNull();

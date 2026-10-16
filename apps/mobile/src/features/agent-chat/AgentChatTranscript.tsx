@@ -388,7 +388,12 @@ export const AgentChatTranscript = forwardRef<
   const viewRef = useRef({ height: 0, scrollTop: 0 });
   const onStickChangeRef = useRef(onStickChange);
   const [stickToEnd, setStickToEnd] = useState(initialStickState.stickToEnd);
+  const [topFade, setTopFade] = useState(false);
   const paddingBottom = useTranscriptBottomPad(expandedCardHeight, pillRowHeight);
+  const syncTopFade = useCallback((scrollTop: number) => {
+    const next = scrollTop > 12;
+    setTopFade((current) => (current === next ? current : next));
+  }, []);
 
   const emitStick = useCallback((belowCount: number) => {
     onStickChangeRef.current?.({
@@ -459,6 +464,7 @@ export const AgentChatTranscript = forwardRef<
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
+      syncTopFade(native.contentOffset.y);
       applyStick({
         type: "scroll",
         distance: distanceFromEnd(native),
@@ -466,7 +472,7 @@ export const AgentChatTranscript = forwardRef<
       });
       publishBelow();
     },
-    [applyStick, publishBelow],
+    [applyStick, publishBelow, syncTopFade],
   );
 
   const onScrollBeginDrag = useCallback(() => {
@@ -482,6 +488,7 @@ export const AgentChatTranscript = forwardRef<
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
+      syncTopFade(native.contentOffset.y);
       applyStick({
         type: "scroll",
         distance: distanceFromEnd(native),
@@ -490,7 +497,7 @@ export const AgentChatTranscript = forwardRef<
       userDraggedRef.current = false;
       publishBelow();
     },
-    [applyStick, publishBelow],
+    [applyStick, publishBelow, syncTopFade],
   );
 
   const onMomentumScrollEnd = useCallback(
@@ -500,6 +507,7 @@ export const AgentChatTranscript = forwardRef<
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
+      syncTopFade(native.contentOffset.y);
       applyStick({
         type: "scroll",
         distance: distanceFromEnd(native),
@@ -508,7 +516,7 @@ export const AgentChatTranscript = forwardRef<
       userDraggedRef.current = false;
       publishBelow();
     },
-    [applyStick, publishBelow],
+    [applyStick, publishBelow, syncTopFade],
   );
 
   const onContentSizeChange = useCallback(
@@ -635,7 +643,7 @@ export const AgentChatTranscript = forwardRef<
           scrollEventThrottle={16}
           style={{ backgroundColor: theme.colors.background, flex: 1 }}
         />
-        <EdgeFades />
+        <EdgeFades topActive={topFade} />
       </View>
     </RowMeasureContext.Provider>
   );

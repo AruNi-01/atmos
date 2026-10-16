@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -8,7 +7,6 @@ import {
   View,
   type LayoutChangeEvent,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import type { CardId } from "./card-lane";
@@ -39,20 +37,11 @@ export function ComposerPillRow({
   pills: readonly CardPill[];
   stickToEnd: boolean;
 }) {
-  const theme = useMobileTheme();
   const { width } = useWindowDimensions();
   const maxPillWidth = Math.round(width * 0.6);
   const showScroll = scrollPillVisible(messageCount, stickToEnd);
-  const [overflow, setOverflow] = useState(false);
-  const layoutWidth = useRef(0);
-  const contentWidth = useRef(0);
 
   if (!composerRowVisible(showScroll, pills.length)) return null;
-
-  const syncOverflow = () => {
-    const next = contentWidth.current > layoutWidth.current + 1;
-    setOverflow((current) => (current === next ? current : next));
-  };
 
   return (
     <View onLayout={onLayout} style={styles.row}>
@@ -62,14 +51,6 @@ export function ComposerPillRow({
           contentContainerStyle={styles.scrollerContent}
           horizontal
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={(content) => {
-            contentWidth.current = content;
-            syncOverflow();
-          }}
-          onLayout={(event) => {
-            layoutWidth.current = event.nativeEvent.layout.width;
-            syncOverflow();
-          }}
           showsHorizontalScrollIndicator={false}
           style={styles.scroller}
         >
@@ -82,15 +63,6 @@ export function ComposerPillRow({
             />
           ))}
         </ScrollView>
-        {overflow ? (
-          <LinearGradient
-            colors={["transparent", theme.colors.background]}
-            end={{ x: 1, y: 0 }}
-            pointerEvents="none"
-            start={{ x: 0, y: 0 }}
-            style={styles.fade}
-          />
-        ) : null}
       </View>
     </View>
   );
@@ -146,13 +118,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     height: 6,
     width: 6,
-  },
-  fade: {
-    bottom: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-    width: 28,
   },
   pill: {
     alignItems: "center",

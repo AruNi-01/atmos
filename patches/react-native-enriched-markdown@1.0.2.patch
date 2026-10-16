@@ -1,0 +1,68 @@
+diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
+index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a2eb0d3f4 100644
+--- a/ios/views/TableContainerView.m
++++ b/ios/views/TableContainerView.m
+@@ -224,6 +224,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   NSMutableArray<NSNumber *> *_rowHeights;
+   CGFloat _totalTableWidth;
+   CGFloat _totalTableHeight;
++  // Width already distributed to, so layoutSubviews does not restretch every frame.
++  CGFloat _distributedInnerWidth;
+ 
+   NSString *_cachedMarkdown;
+ 
+@@ -323,6 +325,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
+                              _writingDirectionMode, _resolvedLayoutDirection, &colCount);
+   _colCount = colCount;
++  _distributedInnerWidth = 0;
+   _cachedMarkdown = [self buildMarkdownFromRows];
+   _cachedAccessibilityElements = nil;
+   [self computeLayout];
+@@ -608,6 +611,30 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   return _totalTableHeight;
+ }
+ 
++// GFM tables on web are `w-full table-fixed`. Content-sized columns leave a
++// narrow grid; give the leftover container width to every column equally.
++- (void)distributeColumnsToContainerWidth:(CGFloat)innerWidth
++{
++  if (_colCount == 0 || innerWidth <= 1)
++    return;
++  if (fabs(_distributedInnerWidth - innerWidth) < 0.5)
++    return;
++
++  _distributedInnerWidth = innerWidth;
++  [self computeLayout];
++  if (_totalTableWidth <= 0 || _colWidths.count == 0 || _totalTableWidth + 0.5 >= innerWidth)
++    return;
++
++  CGFloat share = (innerWidth - _totalTableWidth) / (CGFloat)_colWidths.count;
++  NSMutableArray<NSNumber *> *expanded = [NSMutableArray arrayWithCapacity:_colWidths.count];
++  for (NSNumber *width in _colWidths) {
++    [expanded addObject:@(width.doubleValue + share)];
++  }
++  _colWidths = expanded;
++  _totalTableWidth = innerWidth;
++  [self renderGrid];
++}
++
+ - (CGFloat)alignOffsetForFreeSpace:(CGFloat)freeSpace
+ {
+   if (freeSpace <= 0)
+@@ -627,6 +654,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+ #if !TARGET_OS_OSX
+   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
+   CGFloat containerWidth = self.bounds.size.width;
++  [self distributeColumnsToContainerWidth:MAX(0, containerWidth - overhang * 2)];
+   BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
+ 
+   if (tableOverflows) {
+@@ -649,6 +677,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+ #else
+   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
+   CGFloat containerWidth = self.bounds.size.width;
++  [self distributeColumnsToContainerWidth:MAX(0, containerWidth - overhang * 2)];
+   BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
+ 
+   if (tableOverflows) {

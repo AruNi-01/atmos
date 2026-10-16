@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { parityFixtureById } from "@/features/agent-chat/parity-tree";
@@ -117,6 +118,7 @@ export function PreviewChatScreen() {
     [],
   );
   const theme = frame.theme;
+  const insets = useSafeAreaInsets();
   const backgroundColor = theme === "dark" ? "#000000" : "#f4f4f6";
   const color = theme === "dark" ? "#f4f4f6" : "#1a1a1a";
 
@@ -126,7 +128,7 @@ export function PreviewChatScreen() {
   };
 
   return (
-    <View style={{ backgroundColor, flex: 1 }} testID="parity-ready">
+    <View style={{ backgroundColor, flex: 1, paddingTop: insets.top }} testID="parity-ready">
       <View style={{ flex: 1 }}>
         {fixture ? (
           <AgentChatTranscript

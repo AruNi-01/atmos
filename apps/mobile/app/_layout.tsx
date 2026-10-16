@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { parityPreviewHref } from "@/features/agent-chat/parity-preview-route";
 import { AppProviders } from "@/providers/AppProviders";
+import { hiddenScrollEdgeEffects } from "@/ui/navigation/native-screen-options";
 import { useMobileTheme } from "@/theme/theme-store";
 
 function navigationTheme(
@@ -173,7 +174,10 @@ export default function RootLayout() {
                   headerBackButtonDisplayMode: "minimal",
                 }}
               />
-              <Stack.Screen name="preview-chat" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="preview-chat"
+                options={{ headerShown: false, scrollEdgeEffects: hiddenScrollEdgeEffects }}
+              />
               <Stack.Screen name="+not-found" />
             </Stack>
             {process.env.EXPO_PUBLIC_PARITY_PREVIEW === "1" ? <ParityPreviewRedirect /> : null}

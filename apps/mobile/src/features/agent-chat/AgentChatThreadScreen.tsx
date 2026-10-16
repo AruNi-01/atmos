@@ -10,7 +10,10 @@ import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronLeftIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
-import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
+import {
+  hiddenScrollEdgeEffects,
+  nativeCompactTitleOptions,
+} from "@/ui/navigation/native-screen-options";
 import { TitleSkeleton } from "@/ui/primitives/list-skeleton";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import { AgentChatComposer } from "./AgentChatComposer";
@@ -468,6 +471,7 @@ export function AgentChatThreadScreen({
     <Stack.Screen
       options={{
         ...nativeCompactTitleOptions(screenTitle, theme.colors),
+        scrollEdgeEffects: hiddenScrollEdgeEffects,
         ...(titlePending ? { headerTitle: () => <TitleSkeleton width={148} /> } : {}),
         headerBackButtonDisplayMode: "minimal",
         headerBackVisible: false,
