@@ -57,6 +57,7 @@
 | QUALITY | `QUALITY-003_playwright-e2e-harness`        | **shipped**     | quality program docs; not product Must Have blocker                                                            |
 | QUALITY | `QUALITY-004_architecture-review`           | **shipped**     | thin PRD; code may exist                                                                                       |
 | QUALITY | `QUALITY-005_typescript-7-upgrade`          | **shipped**     | quality program docs; not product Must Have blocker                                                            |
+| QUALITY | `QUALITY-009_mobile-agent-e2e`              | **in_progress** | local iOS Simulator agent e2e (e2e + agent-device), just mobile-e2e-*, agent-artifacts evidence branch         |
 
 ## Counts
 
