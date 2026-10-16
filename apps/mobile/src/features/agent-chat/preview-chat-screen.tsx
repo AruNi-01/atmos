@@ -31,9 +31,11 @@ import { agentChatProcessExpandKey, useAgentChatExpandStore } from "./expand-sto
 import {
   PARITY_MOTION_ROW_MS,
   PARITY_SETTLED_ASSISTANT_ID,
+  PARITY_TAIL_MARKER_ID,
   parityMotionKind,
   paritySettledToolMessages,
   parityStreamToolMessages,
+  parityTailLine,
   parityTailMessages,
 } from "./parity-motion-fixtures";
 
@@ -68,9 +70,11 @@ async function noopAsync(): Promise<void> {
 export function PreviewChatScreen() {
   const params = useLocalSearchParams<{
     fixture?: string | string[];
+    scroll?: string | string[];
     theme?: string | string[];
   }>();
   const fixtureParam = param(params.fixture);
+  const scrollParam = param(params.scroll);
   const themeParam = param(params.theme);
   const queryPin = useMemo(
     () => parityPinnedFrame(fixtureParam, themeParam),
@@ -79,7 +83,11 @@ export function PreviewChatScreen() {
   const [diskFrame] = useState<ParityFrame | null>(() => {
     if (queryPin) return null;
     const next = readParityDiskFrame();
-    console.error(next ? `[parity] disk ${next.id} ${next.theme}` : "[parity] disk none");
+    console.error(
+      next
+        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}`
+        : "[parity] disk none",
+    );
     return next;
   });
   const pinned = queryPin ?? diskFrame;
@@ -98,13 +106,18 @@ export function PreviewChatScreen() {
   const [text, setText] = useState("");
   const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
   const [stick, setStick] = useState({ belowCount: 0, stickToEnd: true });
-  const onStickChange = useCallback((next: { belowCount: number; stickToEnd: boolean }) => {
-    setStick((current) =>
-      current.belowCount === next.belowCount && current.stickToEnd === next.stickToEnd
-        ? current
-        : next,
-    );
-  }, []);
+  const stickTopRef = useRef(0);
+  const onStickChange = useCallback(
+    (next: { belowCount: number; stickToEnd: boolean; scrollTop?: number }) => {
+      if (typeof next.scrollTop === "number") stickTopRef.current = next.scrollTop;
+      setStick((current) =>
+        current.belowCount === next.belowCount && current.stickToEnd === next.stickToEnd
+          ? current
+          : { belowCount: next.belowCount, stickToEnd: next.stickToEnd },
+      );
+    },
+    [],
+  );
 
   useEffect(() => subscribeParityClock(setIndex), []);
 
@@ -141,6 +154,18 @@ export function PreviewChatScreen() {
   const laneKey = `${frame.id}:${frame.theme}`;
   const lane = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
   const liveTail = motion === "tail";
+  const scrollAway = liveTail && (scrollParam === "away" || pinned?.scroll === "away");
+  useEffect(() => {
+    if (!liveTail) return;
+    console.error(
+      parityTailLine({
+        below: stick.belowCount,
+        stick: stick.stickToEnd,
+        step: tailStep,
+        top: stickTopRef.current,
+      }),
+    );
+  }, [liveTail, stick.belowCount, stick.stickToEnd, tailStep]);
   const messages = (
     motion === "stream"
       ? streamMessages
@@ -194,6 +219,7 @@ export function PreviewChatScreen() {
             key={laneKey}
             ref={transcriptRef}
             expandedCardHeight={lane.visible ? cardHeight : 0}
+            focusMessageId={scrollAway ? PARITY_TAIL_MARKER_ID : null}
             messages={messages}
             onStickChange={liveTail ? onStickChange : undefined}
             pillRowHeight={pillRowHeight}

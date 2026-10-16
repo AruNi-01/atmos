@@ -18,6 +18,8 @@ export type ParityTheme = (typeof PARITY_THEMES)[number];
 export type ParityFrame = {
   id: string;
   theme: ParityTheme;
+  /** Capture-only. The manual `f13-tail` link leaves this unset and stays at the end. */
+  scroll?: "away";
 };
 
 /** Light F1–F13, then dark F1–F13. One pass. */
@@ -58,12 +60,14 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
     return null;
   }
   if (!value || typeof value !== "object") return null;
-  const record = value as { id?: unknown; theme?: unknown };
+  const record = value as { id?: unknown; scroll?: unknown; theme?: unknown };
   if (typeof record.id !== "string") return null;
   const id = record.id.trim();
   if (!(PARITY_FIXTURE_IDS as readonly string[]).includes(id) && !parityMotionKind(id)) return null;
   if (record.theme !== "light" && record.theme !== "dark") return null;
-  return { id, theme: record.theme };
+  return record.scroll === "away"
+    ? { id, theme: record.theme, scroll: "away" }
+    : { id, theme: record.theme };
 }
 
 export type ParityClock = {

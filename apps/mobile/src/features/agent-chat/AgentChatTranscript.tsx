@@ -86,6 +86,7 @@ export type AgentChatTranscriptHandle = {
 type TranscriptStick = {
   belowCount: number;
   stickToEnd: boolean;
+  scrollTop: number;
 };
 
 type RowMeasureApi = {
@@ -400,6 +401,7 @@ export const AgentChatTranscript = forwardRef<
     onStickChangeRef.current?.({
       belowCount,
       stickToEnd: stickRef.current.stickToEnd,
+      scrollTop: viewRef.current.scrollTop,
     });
   }, []);
 

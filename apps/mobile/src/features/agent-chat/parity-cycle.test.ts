@@ -96,6 +96,15 @@ describe("parity cycle", () => {
       id: "f13-tail",
       theme: "dark",
     });
+    expect(parseParityDiskFrame('{"id":"f13-tail","theme":"light","scroll":"away"}')).toEqual({
+      id: "f13-tail",
+      theme: "light",
+      scroll: "away",
+    });
+    expect(parseParityDiskFrame('{"id":"F1","theme":"light","scroll":"nope"}')).toEqual({
+      id: "F1",
+      theme: "light",
+    });
     expect(parseParityDiskFrame('{"id":"nope","theme":"light"}')).toBeNull();
     expect(parseParityDiskFrame("")).toBeNull();
     expect(parseParityDiskFrame("{")).toBeNull();

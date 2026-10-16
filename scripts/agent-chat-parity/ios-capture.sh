@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Screenshot F1–F13 in light and dark.
+# Screenshot F1–F13 in light and dark, then capture two motion passes:
+# f13-tail scrolled to Reply 50, and stream-tools sampled while rows append.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -47,12 +48,18 @@ stop_console() {
 write_frame_file() {
   local id="$1"
   local theme="$2"
+  local scroll="${3:-}"
   local container docs
   container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
   docs="${container}/Documents"
   mkdir -p "$docs"
-  printf '{"id":"%s","theme":"%s"}\n' "$id" "$theme" >"${docs}/parity-frame.json"
-  echo "wrote parity-frame.json ${id} ${theme}"
+  if [[ "$scroll" == "away" ]]; then
+    printf '{"id":"%s","theme":"%s","scroll":"away"}\n' "$id" "$theme" >"${docs}/parity-frame.json"
+    echo "wrote parity-frame.json ${id} ${theme} away"
+  else
+    printf '{"id":"%s","theme":"%s"}\n' "$id" "$theme" >"${docs}/parity-frame.json"
+    echo "wrote parity-frame.json ${id} ${theme}"
+  fi
 }
 
 launch_frame() {
@@ -113,7 +120,121 @@ wait_for_line() {
     fi
     sleep 0.2
   done
+  # Run 38946734946: log stream dropped the launch burst. log show still had it.
+  local fallback="$OUT/device-log-fallback.txt"
+  run_bounded 60 xcrun simctl spawn booted log show --last 3m --info --debug --style compact \
+    --predicate 'eventMessage CONTAINS "[parity]"' \
+    >"$fallback" 2>&1 || true
+  if grep -F -q -- "$needle" "$fallback"; then
+    echo "found ${needle} via log show"
+    return 0
+  fi
   return 1
+}
+
+tail_log_path() {
+  local combined="$OUT/f13-tail.log"
+  : >"$combined"
+  if [[ -f "$CURRENT_LOG" ]]; then
+    cat "$CURRENT_LOG" >>"$combined"
+  fi
+  if [[ -f "$OUT/parity-stream.log" ]]; then
+    cat "$OUT/parity-stream.log" >>"$combined"
+  fi
+  if [[ -f "$OUT/device-log-fallback.txt" ]]; then
+    cat "$OUT/device-log-fallback.txt" >>"$combined"
+  fi
+  printf '%s\n' "$combined"
+}
+
+tail_reading_held() {
+  local log
+  log="$(tail_log_path)"
+  (cd "$ROOT" && PARITY_TAIL_LOG="$log" bun -e '
+    import { parityTailReadingHeld, parityTailSamples } from "./apps/mobile/src/features/agent-chat/parity-motion-fixtures.ts";
+    const log = await Bun.file(process.env.PARITY_TAIL_LOG).text();
+    const samples = parityTailSamples(log);
+    const held = parityTailReadingHeld(samples);
+    if (!held) console.error(JSON.stringify(samples));
+    process.exit(held ? 0 : 1);
+  ')
+}
+
+capture_tail_away() {
+  local id="f13-tail"
+  local theme="light"
+  write_frame_file "$id" "$theme" "away"
+  echo "launch ${id} ${theme} away"
+  launch_frame "$id" "$theme"
+  if ! wait_for_line "[parity] preview-chat module" 90; then
+    echo "missing [parity] preview-chat module for ${id}" >&2
+    dump_runtime_logs
+    exit 1
+  fi
+  if ! wait_for_line "[parity] ready f13-tail light #0" 120; then
+    echo "missing [parity] ready f13-tail light #0" >&2
+    dump_runtime_logs
+    exit 1
+  fi
+  local deadline=$((SECONDS + 30))
+  while (( SECONDS < deadline )); do
+    if tail_reading_held; then
+      echo "f13-tail reading line held while the below count grew"
+      take_screenshot "$OUT/f13-tail-away-light.png"
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "f13-tail below count did not grow while the scroll offset held" >&2
+  tail_log_path >/dev/null
+  dump_runtime_logs
+  exit 1
+}
+
+capture_stream_motion() {
+  local id="stream-tools"
+  local theme="light"
+  write_frame_file "$id" "$theme"
+  echo "launch ${id} ${theme}"
+  launch_frame "$id" "$theme"
+  if ! wait_for_line "[parity] preview-chat module" 90; then
+    echo "missing [parity] preview-chat module for ${id}" >&2
+    dump_runtime_logs
+    exit 1
+  fi
+  if ! wait_for_line "[parity] ready stream-tools light #0" 120; then
+    echo "missing [parity] ready stream-tools light #0" >&2
+    dump_runtime_logs
+    exit 1
+  fi
+  local frames shot
+  frames="$(mktemp -d)"
+  for shot in 1 2 3 4; do
+    sleep 0.7
+    take_screenshot "$OUT/stream-tools-${shot}.png"
+    sips -s format jpeg "$OUT/stream-tools-${shot}.png" --out "$frames/00${shot}.jpg" >/dev/null
+  done
+  if ! python3 - "$OUT/stream-tools-1.png" "$OUT/stream-tools-2.png" "$OUT/stream-tools-3.png" "$OUT/stream-tools-4.png" <<'PY'
+import hashlib, pathlib, sys
+digests = {hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest() for path in sys.argv[1:]}
+print(f"stream-tools distinct frames {len(digests)}")
+if len(digests) < 2:
+    print("stream-tools screenshots are identical, so the movie would not show motion", file=sys.stderr)
+    sys.exit(1)
+PY
+  then
+    dump_runtime_logs
+    exit 1
+  fi
+  local video="$OUT/stream-tools.mov"
+  local duration
+  duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"
+  rm -rf "$frames"
+  echo "recording stream-tools duration ${duration}"
+  if [[ ! -s "$video" ]]; then
+    echo "recording ${video} is missing or empty" >&2
+    exit 1
+  fi
 }
 
 # A stuck simctl screenshot consumed the 120 minute job (run 38857737524).
@@ -339,6 +460,9 @@ if dupes:
     sys.exit(1)
 print(f"{len(files)} distinct fixture screenshots")
 PY
+
+capture_tail_away
+capture_stream_motion
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
 # honest. It does not show reveal, tree draw-in, or a pill swap.

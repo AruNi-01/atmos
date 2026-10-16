@@ -94,7 +94,8 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 ## Known Blockers
 
 - [ ] 图一 is not in the repo. Pixel pill metrics stay unverified.
-- [ ] S10 and S30 stay `not_run`. Recordings last 8s and each file's frames are identical, so motion is not shown.
+- [ ] S10 and S30 stay `not_run`. The F4/F12/F13 movies are still one repeated frame. The capture script now also samples `stream-tools` four times and muxes `stream-tools.mov` only when at least two hashes differ. That pass has not run on a simulator.
+- [ ] S14 stays `not_run`. The capture script launches `f13-tail` scrolled to Reply 50 and checks that the below count grows while the scroll offset holds. No simulator run of that phase yet. The manual preview link stays stuck to the end until the reader scrolls.
 - [ ] Run `38877961991` is not a clean matrix (`F4-dark` and `F11-dark` are Springboard; `F1-light` missed the body). Run `38894137249` replaces it: those frames are the app, and `F1-light` shows the release notes. The light "Message Queue" gray fade was the pill-row gradient (`transparent` fades through black). That overlay is removed; Air still needs to confirm the frame. Collapsed card bodies are still off screen, so S27 F12 stays fail.
 - [ ] S31 stays `not_run`. Next.js screenshots were not produced.
 
@@ -206,3 +207,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - S9, S15, S20, and S26 now have dedicated bun tests (`motion-constants`, `below-count`, `queue-actions`, `shared-rules`). 8 pass, 0 fail. Simulator scenarios and S31 stay `not_run`.
 - Visual pass after `38894137249`, not yet on an Air screenshot: preview root uses `insets.top`. Chat screens set `scrollEdgeEffects` to hidden. Edge fades no longer interpolate through black, and the top fade stays off at scroll 0. The pill-row end gradient is gone. The placeholder sits on its own line. An empty picker shows "No agent" instead of "Model". Markdown tables use zinc colors and a native stretch to the row width. Inline code uses zinc-100 / zinc-800 instead of the library pink fill and pink border. Code-block language headers stay, because web `MarkdownCodeBlock` has them. Do not add a 60-minute capture timeout: `38894137249` capture ran about 75 minutes. S27 F12 and S31 stay not pass.
 - The screen `scrollEdgeEffects` walk only the first descendant scroll view (`RNSScrollViewFinder`). The pill row is a later sibling, so iOS 26 still blurs its right edge. `HideScrollEdge` (`AtmosScrollEdge`) hides `UIScrollEdgeEffect` on the transcript and that row. The gamma scroll-view marker is excluded from the pod. Air still has to confirm the frame. Ignore the cloud capture.
+- Capture now has an unread `f13-tail` phase (`scroll: away`, marker `f13-a-50`) and a four-frame `stream-tools` movie. S14, S10, and S30 stay `not_run` until a simulator job runs them. The manual `f13-tail` link is unchanged.

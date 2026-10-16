@@ -18,11 +18,15 @@ import {
   PARITY_SETTLED_FIXTURE,
   PARITY_STREAM_FIXTURE,
   PARITY_TAIL_FIXTURE,
+  PARITY_TAIL_MARKER_ID,
   parityMotionKind,
   paritySettledToolMessages,
   parityStreamToolFrame,
   parityStreamToolMessages,
+  parityTailLine,
   parityTailMessages,
+  parityTailReadingHeld,
+  parityTailSamples,
 } from "./parity-motion-fixtures";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -114,6 +118,41 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain("belowCount={liveTail ? stick.belowCount : 0}");
     expect(preview).toContain("stickToEnd={liveTail ? stick.stickToEnd : true}");
     expect(preview).toContain("scrollToEndAnimated");
+    expect(preview).toContain("PARITY_TAIL_MARKER_ID");
+    expect(preview).toContain('scrollParam === "away" || pinned?.scroll === "away"');
+    expect(preview).toContain("parityTailLine");
     expect(preview).not.toContain("belowCount={0}");
+
+    const marker = fixture.messages.find((message) => message.id === PARITY_TAIL_MARKER_ID);
+    expect(marker?.parts).toEqual([{ type: "text", text: "Reply 50" }]);
+  });
+
+  test("tail evidence requires a larger below count at the same scroll offset", () => {
+    const held = [
+      parityTailLine({ below: 0, stick: true, step: 0, top: 0 }),
+      parityTailLine({ below: 40, stick: false, step: 1, top: 1200 }),
+      parityTailLine({ below: 41, stick: false, step: 2, top: 1201 }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(held))).toBe(true);
+    expect(parityTailReadingHeld(parityTailSamples("no tail lines"))).toBe(false);
+
+    const jumped = [
+      parityTailLine({ below: 40, stick: false, step: 1, top: 1200 }),
+      parityTailLine({ below: 41, stick: false, step: 2, top: 1800 }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(jumped))).toBe(false);
+
+    const stuck = [
+      parityTailLine({ below: 0, stick: true, step: 0, top: 4000 }),
+      parityTailLine({ below: 0, stick: true, step: 3, top: 4000 }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(stuck))).toBe(false);
+
+    const settling = [
+      parityTailLine({ below: 10, stick: false, step: 0, top: 100 }),
+      parityTailLine({ below: 12, stick: false, step: 1, top: 900 }),
+      parityTailLine({ below: 13, stick: false, step: 2, top: 901 }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(settling))).toBe(true);
   });
 });
