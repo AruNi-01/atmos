@@ -61,6 +61,7 @@ import {
   expandResetForFirstMessage,
   useAgentChatExpandStore,
 } from "./expand-store";
+import { HideScrollEdge } from "./hide-scroll-edge";
 import { HistoricPermission } from "./historic-permission";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { ProcessFold, WaitForBlock } from "./process-fold";
@@ -600,7 +601,7 @@ export const AgentChatTranscript = forwardRef<
 
   return (
     <RowMeasureContext.Provider value={measureApi}>
-      <View style={{ flex: 1 }}>
+      <HideScrollEdge style={{ flex: 1 }}>
         <FlatList
           ref={listRef}
           CellRendererComponent={MeasureCell}
@@ -644,7 +645,7 @@ export const AgentChatTranscript = forwardRef<
           style={{ backgroundColor: theme.colors.background, flex: 1 }}
         />
         <EdgeFades topActive={topFade} />
-      </View>
+      </HideScrollEdge>
     </RowMeasureContext.Provider>
   );
 });

@@ -10,6 +10,7 @@ import {
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import type { CardId } from "./card-lane";
+import { HideScrollEdge } from "./hide-scroll-edge";
 import { ScrollToBottomPill } from "./scroll-pill";
 import { composerRowVisible, scrollPillVisible } from "./stick";
 
@@ -46,7 +47,7 @@ export function ComposerPillRow({
   return (
     <View onLayout={onLayout} style={styles.row}>
       {showScroll ? <ScrollToBottomPill count={belowCount} onPress={onScrollToBottom} /> : null}
-      <View style={styles.scrollerWrap}>
+      <HideScrollEdge style={styles.scrollerWrap}>
         <ScrollView
           contentContainerStyle={styles.scrollerContent}
           horizontal
@@ -63,7 +64,7 @@ export function ComposerPillRow({
             />
           ))}
         </ScrollView>
-      </View>
+      </HideScrollEdge>
     </View>
   );
 }
