@@ -19,6 +19,7 @@ import {
   PARITY_STREAM_FIXTURE,
   PARITY_TAIL_FIXTURE,
   PARITY_TAIL_MARKER_ID,
+  motionSnapshotCenterIsBlank,
   parityMotionKind,
   paritySettledToolMessages,
   parityStreamToolFrame,
@@ -309,5 +310,11 @@ describe("parity motion fixtures", () => {
       }),
     ].join("\n");
     expect(parityTailReadingHeld(parityTailSamples(settling))).toBe(true);
+  });
+
+  test("a transparent snapshot center is a missed view", () => {
+    expect(motionSnapshotCenterIsBlank(null)).toBe(true);
+    expect(motionSnapshotCenterIsBlank(0)).toBe(true);
+    expect(motionSnapshotCenterIsBlank(255)).toBe(false);
   });
 });

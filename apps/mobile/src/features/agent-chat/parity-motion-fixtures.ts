@@ -22,6 +22,11 @@ export type ParityTailSample = {
   view: number;
 };
 
+/** Center alpha 0 means the snapshot missed the view that is on screen. */
+export function motionSnapshotCenterIsBlank(alpha: number | null): boolean {
+  return alpha == null || alpha <= 0;
+}
+
 export function parityTailLine(sample: ParityTailSample): string {
   return `[parity] tail below=${sample.below} stick=${sample.stick ? 1 : 0} step=${sample.step} top=${Math.round(sample.top)} end=${Math.round(sample.end)} marker=${Math.round(sample.marker)} view=${Math.round(sample.view)}`;
 }
