@@ -115,6 +115,8 @@ export function AgentChatMarkdown({
         lineHeight: resolvedLineHeight,
         marginLeft: 24,
         markerColor: proseColor,
+        // `list-decimal` inherits the item weight. The library default is 500.
+        markerFontWeight: "normal",
         ...(proseMetrics
           ? {
               itemSpacing: proseMetrics.itemSpacing,
