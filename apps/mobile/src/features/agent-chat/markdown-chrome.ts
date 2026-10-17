@@ -96,7 +96,8 @@ export function agentChatProseMetrics(kind: AgentChatProseKind): {
  * A list's first item pad stays 4px; the bottom also carries the 16px because
  * the following paragraph has no top margin. A list that ends the message
  * still drops that bottom margin. Fence text is `text-sm leading-5`. Fence
- * and table frames use web `rounded-lg` (`--radius`, 10px).
+ * and table frames use web `rounded-lg` (`--radius`, 10px). Table cells keep
+ * horizontal rules only; the last row has none, and the frame is the edge.
  */
 export const STREAMDOWN_BLOCK_GAP = 16;
 /**

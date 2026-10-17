@@ -362,3 +362,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Strong text is semibold. Streamdown uses `font-semibold`, and the native renderer was applying the bold trait. A link no longer replaces a semibold or bold run. This is not in run `39044805808`. It is not re-shot.
 - Table headers are semibold. `markdown-table.ts` uses `font-semibold`, and the native cell config was passing `bold`. Header cells now ask for weight 600. This is not in run `39044805808`. It is not re-shot.
 - A heading that opens the message no longer takes the 24px top spacer. Web clears that with `first:mt-0` and `[&>*:first-child]:mt-0`. Later headings keep it. This is not in run `39044805808`. It is not re-shot.
+- Tables no longer draw a vertical grid. Web cells are `border-x-0 border-b`, the last row drops that rule, and the rounded frame is the edge. This is not in run `39044805808`. It is not re-shot.
