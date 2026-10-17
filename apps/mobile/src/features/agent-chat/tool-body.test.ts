@@ -15,6 +15,7 @@ type Body = {
   status?: string;
   path?: string | null;
   text?: string;
+  hint?: "new" | "deleted" | null;
   from?: string;
   to?: string;
   query?: string;
@@ -99,7 +100,12 @@ describe("tool body presentation", () => {
         result: { type: "file_content", path: "a.ts", text: "const a = 1;\n" },
       }),
     );
-    expect(code).toMatchObject({ kind: "code", path: "a.ts", text: "const a = 1;\n" });
+    expect(code).toMatchObject({
+      kind: "code",
+      path: "a.ts",
+      text: "const a = 1;\n",
+      hint: null,
+    });
   });
 
   test("search, fetch, files, tree, markdown, and todos stay on the presentation", async () => {
@@ -830,5 +836,108 @@ describe("tool row chrome", () => {
       fileName: "a.ts",
       lineRange: null,
     });
+
+    const written = part({
+      kind: "edit",
+      name: "Write",
+      title: "src/hello.ts",
+      params: { type: "edit", path: "src/hello.ts" },
+      result: {
+        type: "diff",
+        path: "src/hello.ts",
+        old_content: "",
+        new_content: "export const n = 1;\n",
+      },
+    });
+    expect(chrome(written, present(written))).toEqual({
+      title: "Created",
+      fileName: "hello.ts",
+      lineRange: null,
+    });
+
+    const edited = part({
+      kind: "edit",
+      name: "Edit",
+      title: "src/hello.ts",
+      params: { type: "edit", path: "src/hello.ts" },
+      result: { type: "diff", path: "src/hello.ts", old_content: "a\n", new_content: "b\n" },
+    });
+    expect(chrome(edited, present(edited)).title).toBe("Edit");
+
+    const blankWrite = part({
+      kind: "edit",
+      name: "Write",
+      title: "src/empty.ts",
+      params: { type: "edit", path: "src/empty.ts" },
+      result: { type: "diff", path: "src/empty.ts", old_content: "", new_content: "" },
+    });
+    expect(chrome(blankWrite, present(blankWrite)).title).toBe("Edit");
+  });
+
+  test("a new or deleted code preview keeps the 11px word and the line count", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const present = (await import("@atmos/agent-transcript")).presentAgentTool;
+    const chrome = mod.toolRowChrome as (
+      part: AgentToolCallPart,
+      parsed: ReturnType<typeof present>,
+    ) => { title: string };
+    const created = mod.diffIsCreatedFile as (
+      presentation: ReturnType<typeof present>["presentation"],
+    ) => boolean;
+    const meta = mod.codePreviewMeta as (
+      hint: "new" | "deleted" | null | undefined,
+    ) => string | null;
+    const row = mod.toolRowDiffStats as (model: Body) => { additions: number; deletions: number };
+
+    expect(
+      created({ kind: "diff", files: [{ path: "a.ts", oldContent: "", newContent: "x" }] }),
+    ).toBe(true);
+    expect(
+      created({ kind: "diff", files: [{ path: "a.ts", oldContent: " ", newContent: "x" }] }),
+    ).toBe(false);
+    expect(created({ kind: "diff", files: [] })).toBe(false);
+    expect(meta("new")).toBe("New");
+    expect(meta("deleted")).toBe("Deleted");
+    expect(meta(null)).toBeNull();
+    expect(meta(undefined)).toBeNull();
+    expect(
+      row({ kind: "code", title: "Created", path: "a.ts", text: "a\nb\n", hint: "new" }),
+    ).toEqual({ additions: 2, deletions: 0 });
+    expect(
+      row({ kind: "code", title: "Remove", path: "a.ts", text: "a\nb\n", hint: "deleted" }),
+    ).toEqual({ additions: 0, deletions: 2 });
+    expect(row({ kind: "code", title: "Read", path: "a.ts", text: "a\nb\n", hint: null })).toEqual({
+      additions: 0,
+      deletions: 0,
+    });
+    expect(row({ kind: "code", title: "Created", path: "a.ts", text: "", hint: "new" })).toEqual({
+      additions: 0,
+      deletions: 0,
+    });
+
+    const file = part({
+      kind: "edit",
+      name: "Write",
+      title: "src/new.ts",
+      params: { type: "edit", path: "src/new.ts" },
+      result: { type: "file_content", path: "src/new.ts", text: "export const n = 1;\n" },
+    });
+    const parsed = present(file);
+    if (parsed.presentation.kind !== "code") throw new Error("expected a code preview");
+    expect(chrome(file, parsed).title).not.toBe("Created");
+    expect(
+      chrome(file, { ...parsed, presentation: { ...parsed.presentation, hint: "new" } }).title,
+    ).toBe("Created");
+    expect(
+      chrome(file, { ...parsed, presentation: { ...parsed.presentation, hint: "deleted" } }).title,
+    ).not.toBe("Created");
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const trigger = source.slice(source.indexOf("export function ToolCallRow"));
+    expect(trigger).toContain("codePreviewMeta");
+    expect(trigger).toContain("fontSize: 11");
   });
 });

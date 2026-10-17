@@ -38,7 +38,13 @@ export type ToolBodyModel =
     }
   | { kind: "diff_stats"; title: string; path: string | null; additions: number; deletions: number }
   | { kind: "patch"; title: string; path: string | null; text: string }
-  | { kind: "code"; title: string; path: string | null; text: string }
+  | {
+      kind: "code";
+      title: string;
+      path: string | null;
+      text: string;
+      hint: "new" | "deleted" | null;
+    }
   | {
       kind: "web_search";
       title: string;
@@ -180,9 +186,11 @@ export function toolRowChrome(part: AgentToolCallPart, parsed: ParsedToolResult)
   );
   const kindLabel = toolKindHeadlineLabel(part.kind);
   const skillName = skillNameFromPart(part);
-  const created = parsed.presentation.kind === "code" && parsed.presentation.hint === "new";
+  const created =
+    (parsed.presentation.kind === "code" && parsed.presentation.hint === "new") ||
+    diffIsCreatedFile(parsed.presentation);
   const title = created
-    ? "Created"
+    ? copy.createdFile
     : part.kind === "skill" && skillName
       ? `Skill: ${skillName}`
       : resolveAgentToolCardHeading({
@@ -524,7 +532,12 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
     case "patch":
       return { kind: "patch", path: presentation.path, text: presentation.patch };
     case "code":
-      return { kind: "code", path: presentation.path, text: presentation.code };
+      return {
+        kind: "code",
+        path: presentation.path,
+        text: presentation.code,
+        hint: presentation.hint ?? null,
+      };
     case "web_search":
       return {
         kind: "web_search",
@@ -647,7 +660,26 @@ export function toolRowDiffStats(model: ToolBodyModel): { additions: number; del
     return { additions: model.additions, deletions: model.deletions };
   }
   if (model.kind === "patch") return patchLineStats(model.text);
+  if (model.kind === "code" && model.hint === "new") {
+    return { additions: splitToolLines(model.text).length, deletions: 0 };
+  }
+  if (model.kind === "code" && model.hint === "deleted") {
+    return { additions: 0, deletions: splitToolLines(model.text).length };
+  }
   return { additions: 0, deletions: 0 };
+}
+
+/** Web titles a write Created when every file has no old body and some new body. */
+export function diffIsCreatedFile(presentation: ToolPresentation): boolean {
+  if (presentation.kind !== "diff" || presentation.files.length === 0) return false;
+  return presentation.files.every((file) => !file.oldContent && Boolean(file.newContent));
+}
+
+/** 11px word beside a new or deleted code preview. A plain read has none. */
+export function codePreviewMeta(hint: "new" | "deleted" | null | undefined): string | null {
+  if (hint === "new") return copy.newFile;
+  if (hint === "deleted") return copy.deletedFileStatus;
+  return null;
 }
 
 /** Edit tools only, matching web `sumToolGroupDiffStats`. */
@@ -1329,6 +1361,7 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const color = failed ? theme.colors.red : theme.colors.secondaryLabel;
   const metrics = toolTriggerMetrics;
   const stats = toolRowDiffStats(model);
+  const codeMeta = model.kind === "code" ? codePreviewMeta(model.hint) : null;
   const resultMeta =
     model.kind === "web_search"
       ? webSearchResultMeta(model.links.length)
@@ -1377,6 +1410,11 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
         )}
         {chrome.fileName ? (
           <ToolFileChip fileName={chrome.fileName} lineRange={chrome.lineRange} />
+        ) : null}
+        {codeMeta ? (
+          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 11, lineHeight: 16 }}>
+            {codeMeta}
+          </Text>
         ) : null}
         <ToolDiffStats additions={stats.additions} deletions={stats.deletions} />
         {resultMeta ? (
