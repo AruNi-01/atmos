@@ -6,7 +6,9 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { chatForeground, chatMutedForeground } from "./chat-ink";
 import { chipCompleteHttpUrls, HTTP_CHIP_LINK_VARIANT, httpChipTarget } from "./http-link-chip";
 import {
+  BLOCKQUOTE_MARGIN,
   THINKING_PARAGRAPH_MARGIN,
+  THEMATIC_BREAK_MARGIN,
   agentChatBlockMetrics,
   agentChatBlockquote,
   agentChatHeadingStyle,
@@ -41,7 +43,7 @@ export function AgentChatMarkdown({
   lineHeight?: number;
   /** Answer and thinking only. Matches web's hostname chip for complete http URLs. */
   chipHttpUrls?: boolean;
-  /** Tool fences use web's `my-2` (8). Answer fences keep `my-4`. */
+  /** Tool fences use web's `my-2` (8). Answer fences keep 16px below the block. */
   codeBlockMargin?: number;
   /** Tool and plan bodies use `MarkdownRenderer` spacing. Answers stay on streamdown. */
   prose?: AgentChatProseKind;
@@ -53,6 +55,9 @@ export function AgentChatMarkdown({
     const resolvedFontSize = fontSize ?? (tone === "thinking" ? 15 : 16);
     const resolvedLineHeight = lineHeight ?? (tone === "thinking" ? 21 : 22);
     const proseMetrics = prose ? agentChatProseMetrics(prose) : null;
+    // Answer text follows streamdown `space-y-4`. Thinking and tool prose keep
+    // a margin on both sides, because their paragraph gap is not that 16px.
+    const symmetricBlockMargin = Boolean(proseMetrics) || tone === "thinking";
     const headings = proseMetrics
       ? agentChatRendererHeadingStyle(proseColor, resolvedFontSize, resolvedLineHeight)
       : agentChatHeadingStyle(proseColor);
@@ -77,6 +82,9 @@ export function AgentChatMarkdown({
       ...headings,
       blockquote: {
         ...agentChatBlockquote(theme.isDark),
+        ...(symmetricBlockMargin
+          ? { marginBottom: BLOCKQUOTE_MARGIN, marginTop: BLOCKQUOTE_MARGIN }
+          : {}),
         fontSize: resolvedFontSize,
         lineHeight: resolvedLineHeight,
       },
@@ -99,7 +107,9 @@ export function AgentChatMarkdown({
               marginBottom: proseMetrics.listMargin,
               marginTop: proseMetrics.listMargin,
             }
-          : agentChatBlockMetrics.list),
+          : tone === "thinking"
+            ? { itemSpacing: 8, marginBottom: 4, marginTop: 4 }
+            : agentChatBlockMetrics.list),
       },
       code: {
         backgroundColor: chrome.codeBackground,
@@ -116,7 +126,11 @@ export function AgentChatMarkdown({
         fontFamily: "Menlo",
         syntaxColors: chrome.syntax,
         ...agentChatBlockMetrics.codeBlock,
-        ...(fenceMargin == null ? {} : { marginTop: fenceMargin, marginBottom: fenceMargin }),
+        ...(fenceMargin == null
+          ? tone === "thinking"
+            ? { marginBottom: 16, marginTop: 16 }
+            : {}
+          : { marginTop: fenceMargin, marginBottom: fenceMargin }),
       },
       link: {
         color: agentChatLinkColor(theme.isDark),
@@ -133,7 +147,12 @@ export function AgentChatMarkdown({
             },
           }
         : {}),
-      thematicBreak: agentChatThematicBreak(theme.isDark),
+      thematicBreak: {
+        ...agentChatThematicBreak(theme.isDark),
+        ...(symmetricBlockMargin
+          ? { marginBottom: THEMATIC_BREAK_MARGIN, marginTop: THEMATIC_BREAK_MARGIN }
+          : {}),
+      },
       table: {
         borderColor: chrome.border,
         borderWidth: 1,
@@ -147,6 +166,7 @@ export function AgentChatMarkdown({
         rowEvenBackgroundColor: chrome.row,
         rowOddBackgroundColor: chrome.row,
         ...agentChatBlockMetrics.table,
+        ...(symmetricBlockMargin ? { marginBottom: 16, marginTop: 16 } : {}),
       },
     };
   }, [chipHttpUrls, codeBlockMargin, fontSize, lineHeight, prose, theme, tone]);

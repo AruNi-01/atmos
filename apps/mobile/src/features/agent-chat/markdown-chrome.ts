@@ -85,13 +85,17 @@ export function agentChatProseMetrics(kind: AgentChatProseKind): {
 }
 
 /**
- * Tailwind preflight zeros `p` and `ul` margins. Streamdown list items are
- * `py-1` (4px). That pad is the list margin: 8px between items is the two
- * pads added, and the list's own 4px is the outer pad. A list that ends the
- * message still drops the bottom margin. Agent fences and tables use `my-4`,
- * and fence text is `text-sm leading-5`. Fence and table frames use web
- * `rounded-lg` (`--radius`, 10px).
+ * Streamdown's root is `space-y-4` (16px between blocks). Paragraphs have no
+ * margin of their own. A leading paragraph still receives `marginTop` through
+ * `applyBlockSpacingBefore`, so this gap sits on the bottom only. The next
+ * fence, quote, or table uses `applyBlockSpacingBefore` too, which does not
+ * collapse, so those blocks keep the top margin at 0 and the bottom at 16px.
+ * A list's first item pad stays 4px; the bottom also carries the 16px because
+ * the following paragraph has no top margin. A list that ends the message
+ * still drops that bottom margin. Fence text is `text-sm leading-5`. Fence
+ * and table frames use web `rounded-lg` (`--radius`, 10px).
  */
+export const STREAMDOWN_BLOCK_GAP = 16;
 /**
  * Web reasoning `[&_p]:my-1`, then `mt-0` on the first paragraph and `mb-0` on
  * the last. A block that opens the document still receives its top margin, so
@@ -104,6 +108,7 @@ export const THINKING_PARAGRAPH_MARGIN = 4;
 /**
  * Streamdown blockquote: `my-4 border-l-4 border-muted-foreground/30 pl-4 text-muted-foreground`.
  * The native indent is the border plus `gapWidth`, so `pl-4` is the gap.
+ * The top margin stays 0 so it does not stack on the previous block's 16px.
  * Italic stays off: the quote style has no italic flag.
  */
 export const BLOCKQUOTE_MARGIN = 16;
@@ -128,13 +133,15 @@ export function agentChatBlockquote(isDark: boolean): {
     color: chatMutedForeground(isDark),
     gapWidth: BLOCKQUOTE_GAP,
     marginBottom: BLOCKQUOTE_MARGIN,
-    marginTop: BLOCKQUOTE_MARGIN,
+    marginTop: 0,
   };
 }
 
 /**
  * Streamdown rule: `my-6 border-border`. `--border` is black or white at 10%.
- * A leading rule still keeps the top margin. Web clears the first block.
+ * The rule attachment adds its top margin on top of the previous block, so the
+ * top is 8px and a paragraph's 16px makes 24. A leading rule keeps that 8px.
+ * Web clears the first block.
  */
 export const THEMATIC_BREAK_MARGIN = 24;
 
@@ -148,7 +155,7 @@ export function agentChatThematicBreak(isDark: boolean): {
     color: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
     height: 1,
     marginBottom: THEMATIC_BREAK_MARGIN,
-    marginTop: THEMATIC_BREAK_MARGIN,
+    marginTop: THEMATIC_BREAK_MARGIN - STREAMDOWN_BLOCK_GAP,
   };
 }
 
@@ -162,10 +169,16 @@ export function agentChatLinkColor(isDark: boolean): string {
 }
 
 export const agentChatBlockMetrics = {
-  paragraph: { marginTop: 0, marginBottom: 0 },
-  list: { marginTop: 4, marginBottom: 4, itemSpacing: 8 },
-  codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 10 },
-  table: { marginTop: 16, marginBottom: 16, borderRadius: 10 },
+  paragraph: { marginTop: 0, marginBottom: STREAMDOWN_BLOCK_GAP },
+  list: { marginTop: 4, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, itemSpacing: 8 },
+  codeBlock: {
+    marginTop: 0,
+    marginBottom: STREAMDOWN_BLOCK_GAP,
+    fontSize: 14,
+    lineHeight: 20,
+    borderRadius: 10,
+  },
+  table: { marginTop: 0, marginBottom: STREAMDOWN_BLOCK_GAP, borderRadius: 10 },
 } as const;
 
 /**

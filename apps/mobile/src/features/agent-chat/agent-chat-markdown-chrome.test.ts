@@ -10,6 +10,7 @@ import {
   BLOCKQUOTE_BORDER,
   BLOCKQUOTE_GAP,
   BLOCKQUOTE_MARGIN,
+  STREAMDOWN_BLOCK_GAP,
   THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
   agentChatBlockquote,
@@ -109,19 +110,27 @@ describe("agent chat markdown chrome", () => {
   });
 
   test("matches web block margins", () => {
-    expect(agentChatBlockMetrics.paragraph).toEqual({ marginTop: 0, marginBottom: 0 });
+    expect(STREAMDOWN_BLOCK_GAP).toBe(16);
+    expect(agentChatBlockMetrics.paragraph).toEqual({
+      marginTop: 0,
+      marginBottom: STREAMDOWN_BLOCK_GAP,
+    });
     expect(THINKING_PARAGRAPH_MARGIN).toBe(4);
-    expect(agentChatBlockMetrics.list).toEqual({ marginTop: 4, marginBottom: 4, itemSpacing: 8 });
+    expect(agentChatBlockMetrics.list).toEqual({
+      marginTop: 4,
+      marginBottom: 4 + STREAMDOWN_BLOCK_GAP,
+      itemSpacing: 8,
+    });
     expect(agentChatBlockMetrics.codeBlock).toMatchObject({
-      marginTop: 16,
-      marginBottom: 16,
+      marginTop: 0,
+      marginBottom: STREAMDOWN_BLOCK_GAP,
       fontSize: 14,
       lineHeight: 20,
       borderRadius: 10,
     });
     expect(agentChatBlockMetrics.table).toEqual({
-      marginTop: 16,
-      marginBottom: 16,
+      marginTop: 0,
+      marginBottom: STREAMDOWN_BLOCK_GAP,
       borderRadius: 10,
     });
     const markdown = readFileSync(
@@ -130,6 +139,12 @@ describe("agent chat markdown chrome", () => {
     );
     expect(markdown).toContain("marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: 0");
     expect(markdown).not.toContain("marginTop: THINKING_PARAGRAPH_MARGIN");
+    expect(markdown).toContain("marginBottom: BLOCKQUOTE_MARGIN, marginTop: BLOCKQUOTE_MARGIN");
+    expect(markdown).toContain(
+      "marginBottom: THEMATIC_BREAK_MARGIN, marginTop: THEMATIC_BREAK_MARGIN",
+    );
+    expect(markdown).toContain("{ itemSpacing: 8, marginBottom: 4, marginTop: 4 }");
+    expect(markdown).toContain("{ marginBottom: 16, marginTop: 16 }");
     expect(markdown).toContain('tone === "thinking"');
     expect(markdown).toContain("agentChatProseMetrics(prose)");
     expect(markdown).toContain("agentChatRendererHeadingStyle");
@@ -146,7 +161,7 @@ describe("agent chat markdown chrome", () => {
       color: "#71717b",
       gapWidth: 16,
       marginBottom: 16,
-      marginTop: 16,
+      marginTop: 0,
     });
     expect(agentChatBlockquote(true).borderColor).toBe("rgba(159, 159, 169, 0.3)");
     expect(agentChatBlockquote(true).color).toBe("#9f9fa9");
@@ -159,10 +174,10 @@ describe("agent chat markdown chrome", () => {
       color: "rgba(0, 0, 0, 0.1)",
       height: 1,
       marginBottom: 24,
-      marginTop: 24,
+      marginTop: 8,
     });
     expect(agentChatThematicBreak(true).color).toBe("rgba(255, 255, 255, 0.1)");
-    expect(markdown).toContain("thematicBreak: agentChatThematicBreak(theme.isDark)");
+    expect(markdown).toContain("...agentChatThematicBreak(theme.isDark)");
     expect(markdown).not.toContain("theme.colors.separator");
     expect(agentChatLinkColor(false)).toBe("#18181b");
     expect(agentChatLinkColor(true)).toBe("#e4e4e7");
