@@ -34,7 +34,9 @@ export function agentChatHeadingStyle(color: string, marginBottom = 16) {
 /**
  * `MarkdownRenderer` heading classes: `text-2xl` through `text-base`,
  * `font-semibold`. h5 and h6 keep the body size and `prose-headings:my-2`.
- * A leading heading still keeps its top margin.
+ * The native renderer drops the opening spacer. Later headings keep marginTop.
+ * Tool h1 and h2 are `tracking-tight` on web. This style has no letter-spacing
+ * field, so that tracking stays on web.
  */
 export function agentChatRendererHeadingStyle(
   color: string,
