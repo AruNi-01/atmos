@@ -18,29 +18,29 @@ Let an agent (a Cursor cloud agent, or an agent on a Mac) prove mobile UI change
 
 ## Coexistence With CI Playwright E2E
 
-| | CI Playwright (`/e2e`, QUALITY-003) | Mobile agent e2e (`apps/mobile/e2e`) |
-| --- | --- | --- |
-| Runs in | GitHub Actions `ci-e2e.yml`, headless | Developer or agent Mac only, headed Simulator |
-| Package | Bun workspace `@atmos/e2e` | Standalone Bun package (own `bun.lock`), not in root `workspaces` |
-| Commands | `just test-e2e*`, `just e2e-report` | `just mobile-e2e-*` |
-| Trigger paths | `e2e/**`, `apps/web/**`, ... | None. `ci-e2e.yml` paths do not include `apps/mobile/**` |
-| Output | `e2e/playwright-report` | `apps/mobile/e2e/.e2e/` (gitignored) and branch `agent-artifacts` |
-| Telemetry | n/a | Off by default (`E2E_TELEMETRY_DISABLED=1`, set by `justfile` and `e2e.config.ts`) |
-| Device | Chromium | One Simulator pinned by UDID |
+|               | CI Playwright (`/e2e`, QUALITY-003)   | Mobile agent e2e (`apps/mobile/e2e`)                                               |
+| ------------- | ------------------------------------- | ---------------------------------------------------------------------------------- |
+| Runs in       | GitHub Actions `ci-e2e.yml`, headless | Developer or agent Mac only, headed Simulator                                      |
+| Package       | Bun workspace `@atmos/e2e`            | Standalone Bun package (own `bun.lock`), not in root `workspaces`                  |
+| Commands      | `just test-e2e*`, `just e2e-report`   | `just mobile-e2e-*`                                                                |
+| Trigger paths | `e2e/**`, `apps/web/**`, ...          | None. `ci-e2e.yml` paths do not include `apps/mobile/**`                           |
+| Output        | `e2e/playwright-report`               | `apps/mobile/e2e/.e2e/` (gitignored) and branch `agent-artifacts`                  |
+| Telemetry     | n/a                                   | Off by default (`E2E_TELEMETRY_DISABLED=1`, set by `justfile` and `e2e.config.ts`) |
+| Device        | Chromium                              | One Simulator pinned by UDID                                                       |
 
 Rules: do not add this suite to CI; do not import across the two packages; keep env names distinct (`E2E_*` for Playwright, `ATMOS_E2E_*` for mobile).
 
 ## Commands (`justfile`)
 
-| Command | What it does |
-| --- | --- |
-| `just mobile-e2e-install-deps` | `bun install --frozen-lockfile` in `apps/mobile/e2e` |
-| `just mobile-e2e-doctor` | Read-only: resolves the Simulator UDID, `agent-device doctor`, device claims, `e2e list` |
-| `just mobile-e2e-build` | `mobile-ios-prepare`, Release core swap, `xcodebuild` Release for the pinned Simulator into `apps/mobile/ios/DerivedData-Sim-Release`, then `simctl install`. `ATMOS_E2E_NO_INSTALL=1` builds only. Restores the Debug RN core on exit |
-| `just mobile-e2e-install` | Installs the last build onto the pinned Simulator |
-| `just mobile-e2e-smoke` | `tests/smoke.e2e.ts` (unpaired launch shows the pair screen) |
-| `just mobile-e2e-run [file]` | Whole suite, or one file |
-| `just mobile-e2e-evidence <pr> [note]` | Capture and push proof (see below) |
+| Command                                | What it does                                                                                                                                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `just mobile-e2e-install-deps`         | `bun install --frozen-lockfile` in `apps/mobile/e2e`                                                                                                                                                                                   |
+| `just mobile-e2e-doctor`               | Read-only: resolves the Simulator UDID, `agent-device doctor`, device claims, `e2e list`                                                                                                                                               |
+| `just mobile-e2e-build`                | `mobile-ios-prepare`, Release core swap, `xcodebuild` Release for the pinned Simulator into `apps/mobile/ios/DerivedData-Sim-Release`, then `simctl install`. `ATMOS_E2E_NO_INSTALL=1` builds only. Restores the Debug RN core on exit |
+| `just mobile-e2e-install`              | Installs the last build onto the pinned Simulator                                                                                                                                                                                      |
+| `just mobile-e2e-smoke`                | `tests/smoke.e2e.ts` (unpaired launch shows the pair screen)                                                                                                                                                                           |
+| `just mobile-e2e-run [file]`           | Whole suite, or one file                                                                                                                                                                                                               |
+| `just mobile-e2e-evidence <pr> [note]` | Capture and push proof (see below)                                                                                                                                                                                                     |
 
 ### Device pinning
 
@@ -92,6 +92,7 @@ Cloud agent (Linux, edits code, no Simulator) and the Mac agent (Air, has Simula
    ```
 
    `from` and `to` are `cloud` or `air`. `state=blocked` needs a reason after `next=`.
+
 3. **Start a turn:** `git fetch origin && git status -sb`, then `git pull --rebase --autostash`. HEAD must equal the handed-off `sha`; if not, stop and comment instead of working on stale code.
 4. **Never force-push.** On a conflict, rebase and resolve; for `bun.lock` regenerate with `bun install` instead of merging by hand.
 5. **Mac side uses a dedicated worktree** per PR (for example `~/atmos-verify-<N>`), never the owner's day-to-day checkout. Native output (`apps/mobile/ios`, `DerivedData-*`) is gitignored; nothing generated is committed.
