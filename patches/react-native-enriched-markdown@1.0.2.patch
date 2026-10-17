@@ -542,13 +542,6 @@ diff --git a/ios/renderer/LinkRenderer.m b/ios/renderer/LinkRenderer.m
                                }
                              }
  
-@@ -81,4 +87,4 @@
-   [context registerLinkRange:range url:url];
- }
- 
--@end
-+@end
-\ No newline at end of file
 diff --git a/ios/renderer/StrongRenderer.m b/ios/renderer/StrongRenderer.m
 --- a/ios/renderer/StrongRenderer.m
 +++ b/ios/renderer/StrongRenderer.m
@@ -601,6 +594,5 @@ diff --git a/ios/renderer/StrongRenderer.m b/ios/renderer/StrongRenderer.m
 -  return boldDescriptor ? [UIFont fontWithDescriptor:boldDescriptor size:0] : font;
 -}
 -
--@end
-+@end
+ @end
 \ No newline at end of file
