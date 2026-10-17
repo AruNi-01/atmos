@@ -128,34 +128,47 @@ dump_runtime_logs() {
 
 log_has() {
   local needle="$1"
-  if [[ -f "$CURRENT_LOG" ]] && grep -F -q "$needle" "$CURRENT_LOG"; then
-    return 0
-  fi
-  if [[ -f "$OUT/parity-stream.log" ]] && grep -F -q "$needle" "$OUT/parity-stream.log"; then
-    return 0
-  fi
+  local file
+  for file in "$CURRENT_LOG" "$OUT/parity-stream.log" "$OUT/device-log-fallback.txt"; do
+    if [[ -f "$file" ]] && grep -F -q -- "$needle" "$file"; then
+      return 0
+    fi
+  done
   return 1
+}
+
+refresh_parity_show() {
+  # Run 38985042070: the module line was in the first show. The ready line was
+  # in that same output, 169ms later. The next show used --last 3m and started
+  # after that line had aged out, so F1 failed with no tail frames.
+  run_bounded 45 xcrun simctl spawn booted log show --last 10m --info --debug --style compact \
+    --predicate 'eventMessage CONTAINS "[parity]"' \
+    >"$OUT/device-log-fallback.txt" 2>&1 || true
 }
 
 wait_for_line() {
   local needle="$1"
   local timeout="$2"
   local deadline=$((SECONDS + timeout))
+  local next_show=$((SECONDS + 4))
   while (( SECONDS < deadline )); do
     if log_has "$needle"; then
       return 0
     fi
-    sleep 0.2
+    if (( SECONDS >= next_show )); then
+      refresh_parity_show
+      if log_has "$needle"; then
+        echo "found ${needle} via log show"
+        return 0
+      fi
+      if [[ -f "$OUT/parity-stream.log" ]] && grep -F -q '[parity]' "$OUT/parity-stream.log"; then
+        next_show=$((SECONDS + 15))
+      else
+        next_show=$((SECONDS + 5))
+      fi
+    fi
+    sleep 0.5
   done
-  # Run 38946734946: log stream dropped the launch burst. log show still had it.
-  local fallback="$OUT/device-log-fallback.txt"
-  run_bounded 60 xcrun simctl spawn booted log show --last 3m --info --debug --style compact \
-    --predicate 'eventMessage CONTAINS "[parity]"' \
-    >"$fallback" 2>&1 || true
-  if grep -F -q -- "$needle" "$fallback"; then
-    echo "found ${needle} via log show"
-    return 0
-  fi
   return 1
 }
 
