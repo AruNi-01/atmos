@@ -202,6 +202,9 @@ describe("inline subagent tasks", () => {
     const card = readFileSync(join(here, "cards/subagent-card.tsx"), "utf8");
     expect(card).toContain("<InlineSubagentPanel");
     expect(card).toContain("tools.length > 0");
+    expect(card).toContain("chatMutedForeground(theme.isDark)");
+    expect(card).toContain("fontSize: 14");
+    expect(card).not.toContain("theme.colors.label");
     const lane = readFileSync(join(here, "cards/lane-body.tsx"), "utf8");
     expect(lane).toContain("cards.subagentTools");
     const frame = readFileSync(join(here, "cards/expanded-card.tsx"), "utf8");
