@@ -149,6 +149,13 @@ describe("process fold", () => {
     expect(foldView).toContain("paddingTop: 4");
     expect(foldView).not.toContain("hairlineWidth");
     expect(foldView).not.toContain("glassBorder");
+    expect(foldView).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(foldView).toContain("<ExpandChevron color={muted} open={expanded} size={12} />");
+    expect(foldView).not.toContain("theme.colors.secondaryLabel");
+    const wait = view.slice(view.indexOf("export function WaitForBlock"));
+    expect(wait).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(wait).toContain("<ExpandChevron color={muted} open={open} />");
+    expect(wait).not.toContain("theme.colors.secondaryLabel");
   });
 });
 

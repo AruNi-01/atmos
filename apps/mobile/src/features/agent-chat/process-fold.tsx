@@ -59,6 +59,7 @@ import { Children, isValidElement, useId, useLayoutEffect, useRef, type ReactNod
 import { Pressable, Text, View } from "react-native";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatMutedForeground } from "./chat-ink";
 import {
   agentChatInspectExpandKey,
   agentChatProcessExpandKey,
@@ -146,6 +147,7 @@ export function ProcessFold({
   message: AgentMessage;
 }) {
   const theme = useMobileTheme();
+  const muted = chatMutedForeground(theme.isDark);
   const processKey = agentChatProcessExpandKey(message.id);
   const [expanded, setExpanded] = useAgentChatExpand(processKey, false);
   const [userInspecting, setUserInspecting] = useAgentChatExpand(
@@ -198,9 +200,7 @@ export function ProcessFold({
   };
   const worked = message.worked_ms != null && message.worked_ms > 0;
   const headerLabel = (
-    <Text style={{ color: theme.colors.secondaryLabel, ...LABEL }}>
-      {processHeaderLabel(message.worked_ms)}
-    </Text>
+    <Text style={{ color: muted, ...LABEL }}>{processHeaderLabel(message.worked_ms)}</Text>
   );
   const ruleColor = processRuleColor(theme.isDark);
 
@@ -229,7 +229,7 @@ export function ProcessFold({
         ) : (
           headerLabel
         )}
-        <ExpandChevron open={expanded} size={12} />
+        <ExpandChevron color={muted} open={expanded} size={12} />
       </Pressable>
       {expanded ? <View style={{ paddingTop: 4 }}>{revealedRows}</View> : null}
       <Pressable
@@ -242,9 +242,7 @@ export function ProcessFold({
         <View style={{ backgroundColor: ruleColor, flex: 1, height: 1 }} />
         {expanded ? (
           <>
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 12 }}>
-              {copy.collapseLabel}
-            </Text>
+            <Text style={{ color: muted, fontSize: 12, lineHeight: 12 }}>{copy.collapseLabel}</Text>
             <View style={{ backgroundColor: ruleColor, flex: 1, height: 1 }} />
           </>
         ) : null}
@@ -263,6 +261,7 @@ export function WaitForBlock({
   renderPart: (part: AgentPart, index: number) => ReactNode;
 }) {
   const theme = useMobileTheme();
+  const muted = chatMutedForeground(theme.isDark);
   const section = waitForSection(parts);
   const [open, setOpen] = useAgentChatExpand(agentChatWaitExpandKey(messageId), false);
   if (!section) return null;
@@ -275,10 +274,8 @@ export function WaitForBlock({
         onPress={() => setOpen(!open)}
         style={{ alignItems: "center", flexDirection: "row", gap: 4, paddingVertical: 2 }}
       >
-        <Text style={{ color: theme.colors.secondaryLabel, ...LABEL }}>
-          {waitForLabel(section.anchors.length)}
-        </Text>
-        <ExpandChevron open={open} />
+        <Text style={{ color: muted, ...LABEL }}>{waitForLabel(section.anchors.length)}</Text>
+        <ExpandChevron color={muted} open={open} />
       </Pressable>
       {open
         ? section.rows.map((row) => (
