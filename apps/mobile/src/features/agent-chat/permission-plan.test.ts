@@ -110,6 +110,18 @@ Just a prose overview without todos.
     expect(plan).toContain("copy.viewTodos");
     expect(plan).toContain("copy.planTodosHeading");
     expect(plan).toContain("setViewingPlan");
+    const empty = plan.slice(
+      plan.indexOf("{copy.planViewerEmpty}") - 240,
+      plan.indexOf("{copy.planViewerEmpty}"),
+    );
+    expect(empty).toContain("chatMutedForeground(theme.isDark)");
+    expect(empty).not.toContain("theme.colors.secondaryLabel");
+    const lanePlan = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "cards/plan-card.tsx"),
+      "utf8",
+    );
+    expect(lanePlan).toContain("chatMutedForeground(theme.isDark)");
+    expect(lanePlan).not.toContain("theme.colors.secondaryLabel");
     expect(plan).not.toContain("option.name");
     const command = source.slice(source.indexOf("export function AgentChatPermissionCard"));
     expect(command).toContain("isPlanExitRequest(request)");

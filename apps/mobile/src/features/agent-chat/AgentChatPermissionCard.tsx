@@ -11,6 +11,7 @@ import {
 } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import { chatMutedForeground } from "./chat-ink";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
 import { commandPermissionActions, commandPermissionText } from "./permission-command";
 import {
@@ -330,7 +331,7 @@ function PlanPermission({
         ) : (
           <Text
             style={{
-              color: theme.colors.secondaryLabel,
+              color: chatMutedForeground(theme.isDark),
               fontSize: 14,
               lineHeight: 20,
               paddingHorizontal: 4,
