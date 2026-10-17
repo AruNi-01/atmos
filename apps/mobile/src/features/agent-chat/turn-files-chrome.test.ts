@@ -22,7 +22,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 describe("turn file card chrome", () => {
   test("matches web rounded-xl, border, and muted/40", () => {
     expect(TURN_FILES_RADIUS).toBe(14);
-    expect(TURN_FILES_MARGIN_TOP).toBe(4);
+    expect(TURN_FILES_MARGIN_TOP).toBe(12);
     expect(TURN_FILES_FILL_LIGHT).toBe("rgba(222, 222, 224, 0.4)");
     expect(TURN_FILES_FILL_DARK).toBe("rgba(39, 39, 42, 0.4)");
     expect(TURN_FILES_BORDER_LIGHT).toBe("rgba(0, 0, 0, 0.1)");

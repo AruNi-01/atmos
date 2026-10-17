@@ -141,7 +141,8 @@ describe("process fold", () => {
       view.indexOf("export function ProcessFold"),
       view.indexOf("export function WaitForBlock"),
     );
-    expect(view).toContain("marginBottom: PROCESS_ROW_GAP");
+    expect(view).toContain("gap={canCollapse ? PROCESS_ROW_GAP : 0}");
+    expect(view).toContain("marginBottom: gap");
     expect(foldView).toContain("processRuleColor");
     expect(foldView).toContain("height: 1");
     expect(foldView).toContain("lineHeight: 12");

@@ -50,6 +50,7 @@ describe("web source parity", () => {
     );
     const column = turn.slice(turn.indexOf("return ("), turn.indexOf("<WaitForBlock"));
     expect(column).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
+    expect(column).not.toContain("gap:");
     expect(column).not.toContain('width: "100%"');
     const message = transcript.slice(transcript.indexOf("const ChatMessage"));
     expect(message).toContain("return <UserMessage message={message} />");

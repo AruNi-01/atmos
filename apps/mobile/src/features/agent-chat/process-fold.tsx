@@ -106,11 +106,13 @@ function markRevealGate(key: string, ids: readonly string[], markSeen: boolean) 
 
 function ProcessRows({
   children,
+  gap,
   primed,
   seen,
   streaming,
 }: {
   children: ReactNode;
+  gap: number;
   primed: boolean;
   seen: Set<string>;
   streaming: boolean;
@@ -125,7 +127,7 @@ function ProcessRows({
             key={id}
             play={shouldPlayPartReveal({ primed, seen: seen.has(id), streaming })}
           >
-            <View style={index < nodes.length - 1 ? { marginBottom: PROCESS_ROW_GAP } : undefined}>
+            <View style={index < nodes.length - 1 && gap > 0 ? { marginBottom: gap } : undefined}>
               {child}
             </View>
           </PartReveal>
@@ -187,7 +189,12 @@ export function ProcessFold({
 
   const revealedRows = (
     <View>
-      <ProcessRows primed={gate.primed} seen={gate.seen} streaming={Boolean(message.streaming)}>
+      <ProcessRows
+        gap={canCollapse ? PROCESS_ROW_GAP : 0}
+        primed={gate.primed}
+        seen={gate.seen}
+        streaming={Boolean(message.streaming)}
+      >
         {children}
       </ProcessRows>
     </View>

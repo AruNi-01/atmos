@@ -47,6 +47,7 @@ import {
   shouldShowAssistantTurnEndedChrome,
   splitSegmentedAssistantParts,
   TRANSCRIPT_END_SLACK_PX,
+  waitForSection,
   transcriptVisibility,
   type AssistantSegment,
   type TranscriptMeasurement,
@@ -345,9 +346,11 @@ function AssistantTurn({
   const markInspecting = () => {
     useAgentChatExpandStore.getState().setExpand(agentChatInspectExpandKey(message.id), true);
   };
+  const hasTurnBody =
+    waitForSection(message.parts) != null || processSegments.length > 0 || tailSegments.length > 0;
 
   return (
-    <View style={{ gap: 8, marginHorizontal: ASSISTANT_COLUMN_INSET }}>
+    <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET }}>
       <WaitForBlock
         messageId={message.id}
         parts={message.parts}
@@ -368,7 +371,7 @@ function AssistantTurn({
         </ProcessFold>
       ) : null}
       {tailSegments.length > 0 ? (
-        <View style={{ gap: 8, width: "100%" }}>
+        <View style={{ width: "100%" }}>
           {tailSegments.map((segment) => (
             <SegmentView
               key={segmentKey(message.id, segment)}
@@ -382,9 +385,15 @@ function AssistantTurn({
       <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
       <AssistantTurnFiles parts={message.parts} visible={showChrome} />
       {inlineTools.length > 0 ? (
-        <InlineSubagentPanel messages={messages} tools={inlineTools} />
+        <View style={{ marginTop: 8 }}>
+          <InlineSubagentPanel messages={messages} tools={inlineTools} />
+        </View>
       ) : null}
-      {showActivity ? <ActivityRow message={message} turnOpen={showActivity} /> : null}
+      {showActivity ? (
+        <View style={hasTurnBody ? { marginTop: 8 } : undefined}>
+          <ActivityRow message={message} turnOpen={showActivity} />
+        </View>
+      ) : null}
     </View>
   );
 }

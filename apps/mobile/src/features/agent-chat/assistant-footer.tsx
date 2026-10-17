@@ -303,7 +303,14 @@ export function AssistantFooter({
 
   return (
     <View
-      style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}
+      style={{
+        alignItems: "center",
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+        // MessageContent `gap-2` plus this row's `mt-2`.
+        marginTop: 16,
+      }}
     >
       {text ? <CopyMessageButton label={copy.copyAssistantAria} text={text} /> : null}
       {showUsage && usage ? <UsageBadge usage={usage} /> : null}
