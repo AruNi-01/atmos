@@ -1,11 +1,14 @@
 import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import {
+  formatSearchScript,
   formatToolLineRange,
   hostFromUrl,
   isActiveToolStatus,
   isNestedSubagentChild,
+  matchCountFromSearchSummary,
   preferredCollapsedToolTitle,
   presentAgentTool,
+  relativeDisplayPath,
   resolveAgentToolCardHeading,
   resolveTreeEntryPaths,
   toolKindHeadlineLabel,
@@ -13,7 +16,7 @@ import {
   type ParsedToolResult,
   type ToolPresentation,
 } from "@atmos/agent-transcript";
-import { copy, fillTemplate } from "./copy";
+import { copy, fillTemplate, formatCountChoice } from "./copy";
 
 export const TOOL_BODY_LINE_CAP = 12;
 const DIFF_LINE_LIMIT = 120;
@@ -41,7 +44,19 @@ export type ToolBodyModel =
       links: Array<{ title: string; url: string; openable: boolean }>;
     }
   | { kind: "web_fetch"; title: string; url: string; openable: boolean; body: string }
-  | { kind: "search"; title: string; query: string; paths: string[]; summary: string }
+  | {
+      kind: "search";
+      title: string;
+      query: string;
+      script: string;
+      groups: Array<{
+        path: string;
+        shown: string;
+        hits: Array<{ line?: number; text: string }>;
+      }>;
+      summary: string;
+      matchCount: number | null;
+    }
   | { kind: "files"; title: string; paths: string[] }
   | { kind: "tree"; title: string; paths: string[] }
   | { kind: "markdown"; title: string; markdown: string }
@@ -243,8 +258,39 @@ function diffLines(oldLines: string[], newLines: string[]): UnifiedDiffLine[] {
   return lines;
 }
 
-function searchPath(path: string, line: number | undefined): string {
-  return line != null ? `${path}:${line}` : path;
+type SearchHitFields = { path: string; line?: number; text: string };
+
+export type SearchHitGroup = {
+  path: string;
+  shown: string;
+  hits: Array<{ line?: number; text: string }>;
+};
+
+/** Web shows the hit count, and falls back to the summary when there are no hits. */
+export function searchMatchCount(hitCount: number, summary: string | undefined): number | null {
+  if (hitCount > 0) return hitCount;
+  return matchCountFromSearchSummary(summary);
+}
+
+export function searchMatchLabel(count: number | null): string | null {
+  if (count == null) return null;
+  return formatCountChoice(copy.searchMatchCount, count);
+}
+
+/** First-seen path order. The label drops the shared directory, matching `relativeDisplayPath`. */
+export function groupSearchHits(hits: readonly SearchHitFields[]): SearchHitGroup[] {
+  const grouped = new Map<string, Array<{ line?: number; text: string }>>();
+  for (const hit of hits) {
+    const list = grouped.get(hit.path) ?? [];
+    list.push(hit.line != null ? { line: hit.line, text: hit.text } : { text: hit.text });
+    grouped.set(hit.path, list);
+  }
+  const paths = [...grouped.keys()];
+  return [...grouped.entries()].map(([path, pathHits]) => ({
+    path,
+    shown: relativeDisplayPath(path, paths),
+    hits: pathHits,
+  }));
 }
 
 type WithoutTitle<T> = T extends { title: string } ? Omit<T, "title"> : never;
@@ -294,13 +340,21 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
         openable: canOpenHttpUrl(presentation.url),
         body: presentation.markdown?.trim() || presentation.text?.trim() || "",
       };
-    case "search":
+    case "search": {
+      const hits = presentation.hits.map((hit) => ({
+        path: hit.path,
+        ...(hit.line != null ? { line: hit.line } : {}),
+        text: hit.text,
+      }));
       return {
         kind: "search",
         query: presentation.query,
-        paths: presentation.hits.map((hit) => searchPath(hit.path, hit.line)),
+        script: formatSearchScript(presentation.query, presentation.glob, presentation.path),
+        groups: groupSearchHits(hits),
         summary: presentation.summary?.trim() ?? "",
+        matchCount: searchMatchCount(hits.length, presentation.summary),
       };
+    }
     case "files":
       return { kind: "files", paths: presentation.paths };
     case "tree":
@@ -583,6 +637,57 @@ function HttpText({
   );
 }
 
+function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "search" }> }) {
+  const theme = useMobileTheme();
+  const line = { fontFamily: "Menlo", fontSize: 12, lineHeight: 16 } as const;
+  return (
+    <View style={{ gap: 4 }}>
+      {model.script ? (
+        <Text
+          style={{ color: theme.colors.label, fontFamily: "Menlo", fontSize: 13, lineHeight: 20 }}
+        >
+          <Text style={{ color: theme.colors.secondaryLabel }}>$ </Text>
+          {model.script}
+        </Text>
+      ) : null}
+      {model.groups.map((group) => (
+        <View key={group.path} style={{ gap: 2 }}>
+          <Text numberOfLines={1} style={{ ...line, color: theme.colors.label }}>
+            {group.shown}
+          </Text>
+          {group.hits.map((hit, index) => (
+            <View
+              key={`${group.path}:${hit.line ?? 0}:${index}`}
+              style={{ flexDirection: "row", gap: 8, paddingLeft: 24 }}
+            >
+              {hit.line != null ? (
+                <Text
+                  style={{
+                    ...line,
+                    color: theme.colors.secondaryLabel,
+                    textAlign: "right",
+                    width: 40,
+                  }}
+                >
+                  {hit.line}
+                </Text>
+              ) : null}
+              {hit.text ? (
+                <Text style={{ ...line, color: theme.colors.secondaryLabel, flexShrink: 1 }}>
+                  {hit.text}
+                </Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ))}
+      {model.groups.length === 0 && model.summary ? (
+        <Text style={{ color: theme.colors.label, ...BODY_TEXT }}>{model.summary}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subagent" }> }) {
   const theme = useMobileTheme();
   switch (model.kind) {
@@ -631,17 +736,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         </View>
       );
     case "search":
-      return (
-        <View style={{ gap: 4 }}>
-          {model.query ? (
-            <Text style={{ color: theme.colors.label, ...BODY_TEXT }}>{model.query}</Text>
-          ) : null}
-          <PathChips paths={model.paths} />
-          {model.summary ? (
-            <Text style={{ color: theme.colors.label, ...BODY_TEXT }}>{model.summary}</Text>
-          ) : null}
-        </View>
-      );
+      return <SearchHitsBody model={model} />;
     case "files":
     case "tree":
       return <PathChips paths={model.paths} />;
@@ -782,7 +877,12 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const color = failed ? theme.colors.red : theme.colors.secondaryLabel;
   const metrics = toolTriggerMetrics;
   const stats = toolRowDiffStats(model);
-  const resultMeta = model.kind === "web_search" ? webSearchResultMeta(model.links.length) : null;
+  const resultMeta =
+    model.kind === "web_search"
+      ? webSearchResultMeta(model.links.length)
+      : model.kind === "search"
+        ? searchMatchLabel(model.matchCount)
+        : null;
   const titleStyle = {
     color,
     flexShrink: 1,

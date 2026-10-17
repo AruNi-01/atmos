@@ -159,7 +159,28 @@ describe("tool body presentation", () => {
         },
       }),
     );
-    expect(hits).toMatchObject({ kind: "search", query: "fn main", paths: ["src/main.rs:4"] });
+    expect(hits).toMatchObject({
+      kind: "search",
+      query: "fn main",
+      script: "fn main",
+      matchCount: 1,
+      groups: [{ path: "src/main.rs", shown: "main.rs", hits: [{ line: 4, text: "fn main" }] }],
+    });
+
+    const summary = await call(
+      part({
+        kind: "search",
+        params: { type: "search", query: "fn", glob: "*.rs", path: "src" },
+        result: { type: "text", text: "found 3 matches" },
+      }),
+    );
+    expect(summary).toMatchObject({
+      kind: "search",
+      script: "fn *.rs src",
+      groups: [],
+      summary: "found 3 matches",
+      matchCount: 3,
+    });
 
     const files = await call(
       part({
@@ -375,6 +396,48 @@ describe("tool body presentation", () => {
       row({ kind: "diff_stats", title: "Edit", path: "a.ts", additions: 2, deletions: 4 }),
     ).toEqual({ additions: 2, deletions: 4 });
     expect(row({ kind: "mono", title: "Run", text: "ok" })).toEqual({ additions: 0, deletions: 0 });
+  });
+});
+
+describe("search hit groups", () => {
+  test("groups by path, drops the shared directory, and counts like web", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const group = mod.groupSearchHits as (
+      hits: Array<{ path: string; line?: number; text: string }>,
+    ) => Array<{
+      path: string;
+      shown: string;
+      hits: Array<{ line?: number; text: string }>;
+    }>;
+    const count = mod.searchMatchCount as (
+      hits: number,
+      summary: string | undefined,
+    ) => number | null;
+    const label = mod.searchMatchLabel as (count: number | null) => string | null;
+    expect(
+      group([
+        { path: "src/app/a.ts", line: 1, text: "a" },
+        { path: "src/app/a.ts", line: 2, text: "b" },
+        { path: "src/app/b.ts", text: "c" },
+      ]),
+    ).toEqual([
+      {
+        path: "src/app/a.ts",
+        shown: "a.ts",
+        hits: [
+          { line: 1, text: "a" },
+          { line: 2, text: "b" },
+        ],
+      },
+      { path: "src/app/b.ts", shown: "b.ts", hits: [{ text: "c" }] },
+    ]);
+    expect(count(2, "found 9 matches")).toBe(2);
+    expect(count(0, "found 3 matches")).toBe(3);
+    expect(count(0, "no matches")).toBe(0);
+    expect(count(0, "nothing here")).toBeNull();
+    expect(label(1)).toBe("1 match");
+    expect(label(0)).toBe("0 matches");
+    expect(label(null)).toBeNull();
   });
 });
 
