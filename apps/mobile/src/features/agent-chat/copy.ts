@@ -88,6 +88,8 @@ export const copy = {
   viewTodos: "View todos",
   planTodosHeading: "To-dos",
   sessionOpRequested: "Session action requested",
+  sessionOpFork: "Fork",
+  sessionOpRewind: "Rewind",
   bottom: "Bottom",
   planTitle: "Plan",
   messageQueueTitle: "Message Queue",

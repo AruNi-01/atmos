@@ -420,6 +420,7 @@ describe("laneCardDrawsOwnFrame", () => {
     expect(laneCardDrawsOwnFrame("workflow", empty)).toBe(true);
     expect(laneCardDrawsOwnFrame("context", empty)).toBe(true);
     expect(laneCardDrawsOwnFrame("permission", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("session_op", empty)).toBe(true);
     expect(laneCardDrawsOwnFrame("subagents", cards)).toBe(true);
     expect(laneCardDrawsOwnFrame("subagents", empty)).toBe(false);
     expect(laneCardDrawsOwnFrame("plan", empty)).toBe(false);

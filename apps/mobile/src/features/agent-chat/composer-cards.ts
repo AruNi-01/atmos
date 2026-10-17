@@ -83,7 +83,8 @@ export function laneCardDrawsOwnFrame(
     visible === "goal" ||
     visible === "workflow" ||
     visible === "context" ||
-    visible === "permission"
+    visible === "permission" ||
+    visible === "session_op"
   );
 }
 

@@ -28,6 +28,7 @@ import {
   Gauge,
   Globe,
   Goal,
+  GitFork,
   FileText,
   Folder,
   FolderInput,
@@ -119,6 +120,7 @@ export const FolderIcon = Folder;
 export const FolderInputIcon = FolderInput;
 export const GlobeIcon = Globe;
 export const GoalIcon = Goal;
+export const GitForkIcon = GitFork;
 export const FolderKanbanIcon = FolderKanban;
 export const FoldersIcon = Folders;
 export const ListFilterIcon = ListFilter;
