@@ -14,6 +14,26 @@ import {
   userMessageIsCollapsed,
 } from "./copy";
 import {
+  USER_ATTACHMENT_BORDER_DARK,
+  USER_ATTACHMENT_BORDER_LIGHT,
+  USER_ATTACHMENT_CHIP_RADIUS,
+  USER_ATTACHMENT_FILL_DARK,
+  USER_ATTACHMENT_FILL_LIGHT,
+  USER_ATTACHMENT_ICON_DARK,
+  USER_ATTACHMENT_ICON_LIGHT,
+  USER_ATTACHMENT_ICON_PX,
+  USER_ATTACHMENT_LABEL_DARK,
+  USER_ATTACHMENT_LABEL_LIGHT,
+  USER_ATTACHMENT_MAX_WIDTH,
+  userAttachmentBorder,
+  userAttachmentChipMetrics,
+  userAttachmentDensity,
+  userAttachmentFill,
+  userAttachmentIconColor,
+  userAttachmentLabelColor,
+  userAttachmentListGap,
+} from "./user-attachment-chip";
+import {
   USER_BUBBLE_RADIUS,
   userBubbleFill,
   userMessageCollapsedLineLimit,
@@ -97,5 +117,54 @@ describe("user message", () => {
     expect(source).not.toContain("#f2f1ef");
     expect(source).not.toContain("80%");
     expect(source).not.toContain("onLongPress");
+  });
+
+  test("attachment chips use the web file pill", () => {
+    expect(userAttachmentDensity(false)).toBe("compact");
+    expect(userAttachmentDensity(true)).toBe("composer");
+    expect(userAttachmentListGap("compact")).toBe(6);
+    expect(userAttachmentListGap("composer")).toBe(8);
+    expect(userAttachmentChipMetrics("compact")).toEqual({
+      fontSize: 12,
+      height: 28,
+      lineHeight: 16,
+    });
+    expect(userAttachmentChipMetrics("composer")).toEqual({
+      fontSize: 13,
+      height: 32,
+      lineHeight: 20,
+    });
+    expect(USER_ATTACHMENT_CHIP_RADIUS).toBe(999);
+    expect(USER_ATTACHMENT_ICON_PX).toBe(14);
+    expect(USER_ATTACHMENT_MAX_WIDTH).toBe(256);
+    expect(USER_ATTACHMENT_FILL_LIGHT).toBe("rgba(222, 222, 224, 0.4)");
+    expect(USER_ATTACHMENT_FILL_DARK).toBe("rgba(39, 39, 42, 0.4)");
+    expect(USER_ATTACHMENT_BORDER_LIGHT).toBe("rgba(0, 0, 0, 0.07)");
+    expect(USER_ATTACHMENT_BORDER_DARK).toBe("rgba(255, 255, 255, 0.07)");
+    expect(USER_ATTACHMENT_LABEL_LIGHT).toBe("rgba(9, 9, 11, 0.9)");
+    expect(USER_ATTACHMENT_LABEL_DARK).toBe("rgba(250, 250, 250, 0.9)");
+    expect(USER_ATTACHMENT_ICON_LIGHT).toBe("#71717b");
+    expect(USER_ATTACHMENT_ICON_DARK).toBe("#9f9fa9");
+    expect(userAttachmentFill(false)).toBe(USER_ATTACHMENT_FILL_LIGHT);
+    expect(userAttachmentFill(true)).toBe(USER_ATTACHMENT_FILL_DARK);
+    expect(userAttachmentBorder(false)).toBe(USER_ATTACHMENT_BORDER_LIGHT);
+    expect(userAttachmentBorder(true)).toBe(USER_ATTACHMENT_BORDER_DARK);
+    expect(userAttachmentLabelColor(false)).toBe(USER_ATTACHMENT_LABEL_LIGHT);
+    expect(userAttachmentLabelColor(true)).toBe(USER_ATTACHMENT_LABEL_DARK);
+    expect(userAttachmentIconColor(false)).toBe(USER_ATTACHMENT_ICON_LIGHT);
+    expect(userAttachmentIconColor(true)).toBe(USER_ATTACHMENT_ICON_DARK);
+
+    const chips = source.slice(source.indexOf("function UserAttachmentChips"));
+    expect(chips).toContain("userAttachmentDensity(expanded)");
+    expect(chips).toContain("userAttachmentFill(theme.isDark)");
+    expect(chips).toContain("userAttachmentBorder(theme.isDark)");
+    expect(chips).toContain("userAttachmentLabelColor(theme.isDark)");
+    expect(chips).toContain("userAttachmentIconColor(theme.isDark)");
+    expect(chips).toContain("borderWidth: 1");
+    expect(chips).toContain("numberOfLines={1}");
+    expect(chips).toContain("<File");
+    expect(chips).not.toContain("theme.colors.control");
+    expect(chips).not.toContain("glassBorder");
+    expect(chips).not.toContain("hairlineWidth");
   });
 });

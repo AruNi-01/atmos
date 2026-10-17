@@ -8,6 +8,7 @@ import {
   type TextLayoutEvent,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { File } from "lucide-react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -31,6 +32,20 @@ import {
   userMessageDisplayText,
   userMessageIsCollapsed,
 } from "./copy";
+import {
+  USER_ATTACHMENT_CHIP_RADIUS,
+  USER_ATTACHMENT_GAP,
+  USER_ATTACHMENT_ICON_PX,
+  USER_ATTACHMENT_MAX_WIDTH,
+  USER_ATTACHMENT_PAD_X,
+  userAttachmentBorder,
+  userAttachmentChipMetrics,
+  userAttachmentDensity,
+  userAttachmentFill,
+  userAttachmentIconColor,
+  userAttachmentLabelColor,
+  userAttachmentListGap,
+} from "./user-attachment-chip";
 import { CopyMessageButton } from "./copy-message-button";
 import {
   agentChatUserBodyExpandKey,
@@ -52,6 +67,67 @@ import {
 } from "./user-message-fade";
 
 const TEXT_LINE_HEIGHT = 20;
+
+function UserAttachmentChips({
+  attachments,
+  expanded,
+  hasText,
+}: {
+  attachments: ReadonlyArray<{ name?: string | null; path: string }>;
+  expanded: boolean;
+  hasText: boolean;
+}) {
+  const theme = useMobileTheme();
+  const density = userAttachmentDensity(expanded);
+  const chip = userAttachmentChipMetrics(density);
+  return (
+    <View
+      style={{
+        alignItems: "flex-start",
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: userAttachmentListGap(density),
+        marginBottom: hasText ? 8 : 0,
+      }}
+    >
+      {attachments.map((part, index) => (
+        <View
+          key={`${part.path}:${index}`}
+          style={{
+            alignItems: "center",
+            backgroundColor: userAttachmentFill(theme.isDark),
+            borderColor: userAttachmentBorder(theme.isDark),
+            borderRadius: USER_ATTACHMENT_CHIP_RADIUS,
+            borderWidth: 1,
+            flexDirection: "row",
+            gap: USER_ATTACHMENT_GAP,
+            height: chip.height,
+            maxWidth: USER_ATTACHMENT_MAX_WIDTH,
+            paddingLeft: USER_ATTACHMENT_PAD_X,
+            paddingRight: USER_ATTACHMENT_PAD_X,
+          }}
+        >
+          <File
+            color={userAttachmentIconColor(theme.isDark)}
+            size={USER_ATTACHMENT_ICON_PX}
+            strokeWidth={2}
+          />
+          <Text
+            numberOfLines={1}
+            style={{
+              color: userAttachmentLabelColor(theme.isDark),
+              flexShrink: 1,
+              fontSize: chip.fontSize,
+              lineHeight: chip.lineHeight,
+            }}
+          >
+            {attachmentChipLabel(part)}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 function UserMessageCollapseFade() {
   const theme = useMobileTheme();
@@ -229,28 +305,11 @@ export function UserMessage({ message }: { message: AgentMessage }) {
         onPress={() => setMetaOpen(!metaOpen)}
       >
         {attachments.length > 0 ? (
-          <View
-            style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: text ? 8 : 0 }}
-          >
-            {attachments.map((part, index) => (
-              <View
-                key={`${part.path}:${index}`}
-                style={{
-                  backgroundColor: theme.colors.control,
-                  borderColor: theme.colors.glassBorder,
-                  borderCurve: "continuous",
-                  borderRadius: 999,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                }}
-              >
-                <Text style={{ color: theme.colors.label, fontSize: 12, lineHeight: 16 }}>
-                  {attachmentChipLabel(part)}
-                </Text>
-              </View>
-            ))}
-          </View>
+          <UserAttachmentChips
+            attachments={attachments}
+            expanded={expanded}
+            hasText={Boolean(text)}
+          />
         ) : null}
         {text ? (
           <View style={{ position: "relative" }}>

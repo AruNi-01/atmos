@@ -286,3 +286,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - The worked-for slot is as wide as the wider of the clock and "Worked for …", matching the web grid. Both lines stay on one line inside the 24px row. This is not re-shot.
 - The turn usage badge uses a 1px dashed border at 70% of the web border token: black or white at 7%. This is not re-shot.
 - A user bubble uses web `bg-secondary` (`#dedee0` / `#27272a`) and `rounded-2xl` (18px). The fading line washes into that solid fill. This is not re-shot.
+- A user attachment is the web file pill: a 14px file glyph, a 1px `border-border/70`, and `bg-muted/40`. The label is `--foreground` at 90%. Until the message is expanded the pill is 28px with 12px type and 6px between chips. Expanded, it is 32px with 13px type and 8px between chips. There is no remove button. Image tiles stay on web because the phone does not load Computer file URLs. This is not re-shot.
