@@ -846,17 +846,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
-25. Lucide Code and FileDiff
+25. Lucide Code, FileDiff, Copy, and Check
 -------------------------------------------------------------------------------
 
 Source:    https://github.com/lucide-icons/lucide
 Location:  patches/react-native-enriched-markdown@1.0.2.patch
-           (ios/views/ENRMFenceIcons.m, the "code" and "file-diff" glyphs)
+           (ios/views/ENRMFenceIcons.m, the "code", "file-diff", "copy",
+           and "check" glyphs)
 License:   ISC
 Copyright: (c) 2026 Lucide Icons and Contributors
 
 A fence with no language uses the Lucide Code glyph. A diff fence uses the
-Lucide FileDiff glyph. These are the same icons web MarkdownCodeBlock draws.
+Lucide FileDiff glyph. The copy control uses Lucide Copy, then Lucide Check
+while the copy is confirmed. These are the same icons web MarkdownCodeBlock draws.
 
 ISC License
 

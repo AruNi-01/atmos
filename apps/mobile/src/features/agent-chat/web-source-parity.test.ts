@@ -91,7 +91,19 @@ describe("web source parity", () => {
     expect(patch).not.toContain("left + kCodeBackgroundPadX");
     expect(patch).toContain("kENRMWebCopyGlyph = 14.0");
     expect(patch).toContain("ENRMWebCopyGlyphImage");
+    expect(patch).toContain("ENRMWebCheckGlyphImage");
+    expect(patch).toContain("ENRMDrawNamedFenceIcon");
+    expect(patch).toContain('ENRMWebTemplateGlyph(@"copy")');
+    expect(patch).toContain('ENRMWebTemplateGlyph(@"check")');
+    expect(patch).toContain("text-green-900 / dark:text-green-400");
+    expect(patch).toContain("green:(0x53 / 255.0) blue:(0x2D / 255.0)");
+    expect(patch).toContain("green:(0xDE / 255.0) blue:(0x80 / 255.0)");
+    expect(patch).toContain("(int64_t)(2 * NSEC_PER_SEC)");
     expect(patch).toContain("UIImageRenderingModeAlwaysTemplate");
+    const addedLines = patch
+      .split("\n")
+      .filter((line) => line.startsWith("+") && !line.startsWith("+++"));
+    expect(addedLines.join("\n")).not.toContain("doc.on.doc");
     expect(patch).toContain("language.uppercaseString");
     expect(patch).toContain("pointSize * 0.05");
     expect(patch).toContain("kENRMWebHeaderHeight = 36.0");
