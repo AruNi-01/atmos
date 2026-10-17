@@ -1,8 +1,14 @@
+// @ts-expect-error bun:test is available at runtime but not in the mobile tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
 
-const thread = readFileSync(join(import.meta.dir, "use-agent-chat-thread.ts"), "utf8");
+const here = dirname(fileURLToPath(import.meta.url));
+const thread = readFileSync(join(here, "use-agent-chat-thread.ts"), "utf8");
 
 describe("useAgentChatThread restore", () => {
   test("loads the snapshot before subscribing from last_event_seq", () => {

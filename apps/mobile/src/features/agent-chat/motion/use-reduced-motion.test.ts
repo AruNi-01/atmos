@@ -1,12 +1,19 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+// @ts-expect-error bun:test is available at runtime but not in the mobile tsconfig types
 import { beforeEach, describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
 import {
   chatReducedMotion,
   parityReducedMotionActive,
   pushParityReducedMotion,
   resetParityReducedMotion,
 } from "./parity-reduced-motion";
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 describe("parity reduced motion", () => {
   beforeEach(() => {
@@ -33,7 +40,7 @@ describe("parity reduced motion", () => {
   });
 
   test("chat motion uses the parity pin ahead of the system setting", () => {
-    const hook = readFileSync(join(import.meta.dir, "use-reduced-motion.ts"), "utf8");
+    const hook = readFileSync(join(here, "use-reduced-motion.ts"), "utf8");
     expect(hook).toContain("parityReducedMotionActive");
     expect(hook).toContain("chatReducedMotion(system, forced)");
   });
