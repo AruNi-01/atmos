@@ -884,11 +884,10 @@ describe("execute terminal", () => {
     const trigger = source.slice(source.indexOf("export function ToolCallRow"));
     expect(trigger).toContain("executeTerminalFields(part).failed");
     expect(trigger).toContain("chatDestructiveColor(theme.isDark)");
-    expect(trigger).toContain(
-      "const titleColor = failed ? failedColor : theme.colors.secondaryLabel",
-    );
-    expect(trigger).toContain("<ToolKindIcon\n              color={theme.colors.secondaryLabel}");
-    expect(trigger).toContain("<ExpandChevron color={theme.colors.secondaryLabel}");
+    expect(trigger).toContain("const titleColor = failed ? failedColor : muted");
+    expect(trigger).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(trigger).toContain("<ToolKindIcon color={muted} kind={part.kind}");
+    expect(trigger).toContain("<ExpandChevron color={muted} open={open}");
     expect(trigger).toContain("<XCircleIcon color={failedColor}");
     expect(trigger).not.toContain("theme.colors.red");
   });
@@ -1478,6 +1477,8 @@ describe("tool file chip", () => {
     expect(chip).toContain("TOOL_FILE_CHIP_RADIUS");
     expect(chip).toContain('maxWidth: "46%"');
     expect(chip).toContain("FileTextIcon");
+    expect(chip).toContain("chatForeground(theme.isDark)");
+    expect(chip).toContain("chatMutedForeground(theme.isDark)");
     expect(chip).toContain("paddingHorizontal: 6");
     expect(chip).toContain("paddingVertical: 2");
     expect(chip).toContain("gap: 4");

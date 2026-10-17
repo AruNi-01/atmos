@@ -979,6 +979,7 @@ import {
   XCircleIcon,
 } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import { chatForeground, chatMutedForeground } from "./chat-ink";
 import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
@@ -1979,7 +1980,8 @@ function SubagentCard({ status, title }: { status: string; title: string }) {
   const theme = useMobileTheme();
   const failed = status === copy.subagentStatus.failed;
   const running = status === copy.subagentStatus.running;
-  const color = failed ? chatDestructiveColor(theme.isDark) : theme.colors.secondaryLabel;
+  const muted = chatMutedForeground(theme.isDark);
+  const color = failed ? chatDestructiveColor(theme.isDark) : muted;
   const metrics = toolTriggerMetrics;
   const titleStyle = {
     color,
@@ -2004,7 +2006,7 @@ function SubagentCard({ status, title }: { status: string; title: string }) {
           width: metrics.iconBox,
         }}
       >
-        <ToolKindIcon color={theme.colors.secondaryLabel} kind="subagent" size={metrics.iconSize} />
+        <ToolKindIcon color={muted} kind="subagent" size={metrics.iconSize} />
       </View>
       {running ? (
         <TextShimmer duration={1} numberOfLines={1} style={titleStyle}>
@@ -2035,12 +2037,15 @@ function ToolFileChip({ fileName, lineRange }: { fileName: string; lineRange: st
         paddingVertical: 2,
       }}
     >
-      <FileTextIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2} />
-      <Text numberOfLines={1} style={{ ...CHIP_TEXT, color: theme.colors.label, flexShrink: 1 }}>
+      <FileTextIcon color={chatForeground(theme.isDark)} size={14} strokeWidth={2} />
+      <Text
+        numberOfLines={1}
+        style={{ ...CHIP_TEXT, color: chatForeground(theme.isDark), flexShrink: 1 }}
+      >
         {fileName}
       </Text>
       {lineRange ? (
-        <Text style={{ ...CHIP_TEXT, color: theme.colors.secondaryLabel }}>{lineRange}</Text>
+        <Text style={{ ...CHIP_TEXT, color: chatMutedForeground(theme.isDark) }}>{lineRange}</Text>
       ) : null}
     </View>
   );
@@ -2065,7 +2070,8 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const failed = model.kind === "error" || executeFailed || part.status === "failed";
   const running = isActiveToolStatus(part.status);
   const failedColor = chatDestructiveColor(theme.isDark);
-  const titleColor = failed ? failedColor : theme.colors.secondaryLabel;
+  const muted = chatMutedForeground(theme.isDark);
+  const titleColor = failed ? failedColor : muted;
   const metrics = toolTriggerMetrics;
   const stats = toolRowDiffStats(model);
   const codeMeta = model.kind === "code" ? codePreviewMeta(model.hint) : null;
@@ -2101,19 +2107,11 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
           }}
         >
           {part.kind === "plan_document" ? (
-            <ScrollTextIcon
-              color={theme.colors.secondaryLabel}
-              size={metrics.iconSize}
-              strokeWidth={2}
-            />
+            <ScrollTextIcon color={muted} size={metrics.iconSize} strokeWidth={2} />
           ) : part.kind === "fetch" ? (
             <HttpFavicon url={fetchRowUrl(part)} size={metrics.iconBox} radius={3} />
           ) : (
-            <ToolKindIcon
-              color={theme.colors.secondaryLabel}
-              kind={part.kind}
-              size={metrics.iconSize}
-            />
+            <ToolKindIcon color={muted} kind={part.kind} size={metrics.iconSize} />
           )}
         </View>
         {running ? (
@@ -2129,20 +2127,16 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
           <ToolFileChip fileName={chrome.fileName} lineRange={chrome.lineRange} />
         ) : null}
         {codeMeta ? (
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 11, lineHeight: 16 }}>
-            {codeMeta}
-          </Text>
+          <Text style={{ color: muted, fontSize: 11, lineHeight: 16 }}>{codeMeta}</Text>
         ) : null}
         <ToolDiffStats additions={stats.additions} deletions={stats.deletions} />
         {resultMeta ? (
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 11, lineHeight: 16 }}>
-            {resultMeta}
-          </Text>
+          <Text style={{ color: muted, fontSize: 11, lineHeight: 16 }}>{resultMeta}</Text>
         ) : null}
         {failed ? (
           <XCircleIcon color={failedColor} size={metrics.iconSize} strokeWidth={2} />
         ) : null}
-        <ExpandChevron color={theme.colors.secondaryLabel} open={open} size={metrics.chevron} />
+        <ExpandChevron color={muted} open={open} size={metrics.chevron} />
       </Pressable>
       {open ? (
         <View
