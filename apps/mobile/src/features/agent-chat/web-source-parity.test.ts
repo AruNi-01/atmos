@@ -110,5 +110,7 @@ describe("web source parity", () => {
     expect(patch).toContain("Web clears the first heading");
     expect(patch).toContain("A later heading keeps its top margin");
     expect(patch).toContain("Web cells are border-x-0 border-b");
+    expect(patch).toContain("Web `[&>*:first-child]:mt-0` clears a leading rule");
+    expect(patch).toContain("A trailing rule bakes marginBottom");
   });
 });

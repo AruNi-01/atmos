@@ -145,8 +145,9 @@ export function agentChatBlockquote(isDark: boolean): {
 /**
  * Streamdown rule: `my-6 border-border`. `--border` is black or white at 10%.
  * The rule attachment adds its top margin on top of the previous block, so the
- * top is 8px and a paragraph's 16px makes 24. A leading rule keeps that 8px.
- * Web clears the first block.
+ * top is 8px and a paragraph's 16px makes 24. The native renderer clears a
+ * leading rule's top margin and a trailing rule's bottom margin, matching
+ * `[&>*:first-child]:mt-0` and `[&>*:last-child]:mb-0`.
  */
 export const THEMATIC_BREAK_MARGIN = 24;
 
