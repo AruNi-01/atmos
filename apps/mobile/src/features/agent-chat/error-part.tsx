@@ -28,7 +28,7 @@ export function ErrorPart({ part }: { part: Extract<AgentPart, { type: "error" }
         paddingVertical: 8,
       }}
     >
-      <TriangleAlert color={color} size={16} />
+      <TriangleAlert color={color} size={16} style={{ marginTop: 2 }} />
       <Text selectable style={{ color, flexShrink: 1, fontSize: 14, lineHeight: 20 }}>
         {part.message}
       </Text>

@@ -284,6 +284,7 @@ describe("assistant footer", () => {
     expect(error).toContain("chatDestructiveColor");
     expect(error).toContain("borderWidth: 1");
     expect(error).toContain("TriangleAlert");
+    expect(error).toContain("marginTop: 2");
     expect(error).toContain("if (!part.message) return null");
     expect(error).not.toContain("theme.colors.red");
     expect(error).not.toContain("hairlineWidth");
