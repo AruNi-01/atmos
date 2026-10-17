@@ -96,7 +96,8 @@ describe("web source parity", () => {
     expect(patch).toContain("pointSize * 0.05");
     expect(patch).toContain("kENRMWebHeaderHeight = 36.0");
     expect(patch).toContain("kENRMWebHeaderPadX = 8.0");
-    expect(patch).toContain("kENRMWebCodePad = 12.0");
+    expect(patch).toContain("kENRMWebCodePadX = 16.0");
+    expect(patch).toContain("kENRMWebCodePadY = 12.0");
     expect(patch).toContain("CODE BLOCK");
   });
 });

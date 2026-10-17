@@ -174,7 +174,7 @@ export const agentChatBlockMetrics = {
  * Dark header and border are those alphas composited on black. Inline code has no border.
  * Fence syntax colors follow web Shiki `github-light` / `github-dark`.
  * The native fence paints this frame, then a page-colored code pane (`h-9` header,
- * 12px code padding) in the enriched-markdown patch.
+ * 16px across and 12px down) in the enriched-markdown patch.
  */
 export function agentChatMarkdownChrome(isDark: boolean) {
   if (isDark) {
