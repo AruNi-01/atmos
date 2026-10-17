@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { Text, View } from "react-native";
+import { Text, View, type View as PreviewRoot } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused, useLocalSearchParams } from "expo-router";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
@@ -42,6 +42,8 @@ import {
   takeParityOwner,
   type ParityFrame,
 } from "./parity-cycle";
+import { writeParityMotionPng } from "./capture-parity-view";
+import { foldParityReplay, parityReplaySeed, parityReplayShotTimes } from "./parity-replay";
 import { readParityDiskFrame } from "./read-parity-disk-frame";
 import { resolvedPillRowHeight } from "./transcript-pad";
 import { agentChatProcessExpandKey, useAgentChatExpandStore } from "./expand-store";
@@ -88,23 +90,25 @@ export function PreviewChatScreen() {
   const params = useLocalSearchParams<{
     fixture?: string | string[];
     motion?: string | string[];
+    replay?: string | string[];
     scroll?: string | string[];
     theme?: string | string[];
   }>();
   const fixtureParam = param(params.fixture);
   const motionParam = param(params.motion);
+  const replayParam = param(params.replay);
   const scrollParam = param(params.scroll);
   const themeParam = param(params.theme);
   const queryPin = useMemo(
-    () => parityPinnedFrame(fixtureParam, themeParam, motionParam),
-    [fixtureParam, motionParam, themeParam],
+    () => parityPinnedFrame(fixtureParam, themeParam, motionParam, replayParam),
+    [fixtureParam, motionParam, replayParam, themeParam],
   );
   const [diskFrame] = useState<ParityFrame | null>(() => {
     if (queryPin) return null;
     const next = readParityDiskFrame();
     console.error(
       next
-        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}`
+        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}`
         : "[parity] disk none",
     );
     return next;
@@ -124,6 +128,12 @@ export function PreviewChatScreen() {
   const [pillHeight, setPillHeight] = useState(0);
   const [text, setText] = useState("");
   const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
+  const previewRootRef = useRef<PreviewRoot | null>(null);
+  const [reducedRelease] = useState<(() => void) | null>(() => {
+    if (frame.motion !== "reduced") return null;
+    console.error("[parity] motion reduced");
+    return pushParityReducedMotion({ notify: false });
+  });
   const tailMountId = useId();
   const tailOwner = useSyncExternalStore(
     subscribeParityOwner,
@@ -158,10 +168,8 @@ export function PreviewChatScreen() {
   useEffect(() => subscribeParityClock(setIndex), []);
 
   useEffect(() => {
-    if (frame.motion !== "reduced") return;
-    console.error("[parity] motion reduced");
-    return pushParityReducedMotion();
-  }, [frame.motion]);
+    return () => reducedRelease?.();
+  }, [reducedRelease]);
 
   useLayoutEffect(() => {
     if (preference !== frame.theme) setPreference(frame.theme);
@@ -196,10 +204,16 @@ export function PreviewChatScreen() {
   const laneKey = `${frame.id}:${frame.theme}`;
   const lane = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
   const liveTail = motion === "tail";
+  const replayOn = frame.replay === "script" && Boolean(fixture?.script?.length);
+  const replayKey = replayOn ? `${frame.id}:${frame.motion ?? ""}:${frame.theme}` : "";
+  const [replayClock, setReplayClock] = useState({ elapsed: 0, key: replayKey });
+  if (replayClock.key !== replayKey) setReplayClock({ elapsed: 0, key: replayKey });
+  const replayElapsed = replayClock.key === replayKey ? replayClock.elapsed : 0;
   const scrollAway = liveTail && (scrollParam === "away" || pinned?.scroll === "away");
   const ownsTail = parityTailOwned(focused, tailMountId, tailOwner);
+  const ownsReplay = replayOn && ownsTail;
   useLayoutEffect(() => {
-    if (!focused || !liveTail) return;
+    if (!focused || (!liveTail && !replayOn)) return;
     const generation = takeParityOwner();
     bindParityTailMount(tailMountId, generation);
     console.error(`[parity] tail owner ${generation}`);
@@ -207,7 +221,7 @@ export function PreviewChatScreen() {
       bindParityTailMount(tailMountId, 0);
       releaseParityOwner(generation);
     };
-  }, [focused, liveTail, tailMountId]);
+  }, [focused, liveTail, replayOn, tailMountId]);
   useEffect(() => {
     if (!scrollAway || !ownsTail) return;
     const generation = tailOwner.owner;
@@ -238,14 +252,54 @@ export function PreviewChatScreen() {
       }),
     );
   }, [liveTail, ownsTail, stick.belowCount, stick.stickToEnd, tailStep]);
+  useEffect(() => {
+    if (!ownsReplay || !fixture?.script) return;
+    const shots = parityReplayShotTimes(fixture.script);
+    const started = Date.now();
+    const taken = new Set<number>();
+    console.error(`[parity] replay start ${shots.length}`);
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - started;
+      setReplayClock((current) =>
+        current.key === replayKey ? { elapsed, key: replayKey } : current,
+      );
+      for (const shot of shots) {
+        if (elapsed < shot || taken.has(shot)) continue;
+        taken.add(shot);
+        const name = `f4-${String(shot).padStart(5, "0")}`;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            void writeParityMotionPng(previewRootRef, name);
+          });
+        });
+      }
+      const last = shots[shots.length - 1] ?? 0;
+      if (elapsed >= last) {
+        clearInterval(timer);
+        console.error(`[parity] replay done ${shots.length}`);
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, [fixture, ownsReplay, replayKey]);
+  const replayMessages = useMemo(() => {
+    if (!replayOn || !fixture?.script?.length) return null;
+    return foldParityReplay(
+      fixture.script[0]?.event.chat_id ?? frame.id,
+      parityReplaySeed(fixture.messages),
+      fixture.script,
+      replayElapsed,
+    );
+  }, [fixture, frame.id, replayElapsed, replayOn]);
   const messages = (
-    motion === "stream"
-      ? streamMessages
-      : liveTail
-        ? tailMessages
-        : motion === "settled"
-          ? paritySettledToolMessages()
-          : (fixture?.messages ?? [])
+    replayMessages
+      ? replayMessages
+      : motion === "stream"
+        ? streamMessages
+        : liveTail
+          ? tailMessages
+          : motion === "settled"
+            ? paritySettledToolMessages()
+            : (fixture?.messages ?? [])
   ) as AgentMessage[];
   const pills = cards.available.map((id) => ({
     id,
@@ -284,7 +338,11 @@ export function PreviewChatScreen() {
   };
 
   return (
-    <View style={{ backgroundColor, flex: 1, paddingTop: insets.top }} testID="parity-ready">
+    <View
+      ref={previewRootRef}
+      style={{ backgroundColor, flex: 1, paddingTop: insets.top }}
+      testID="parity-ready"
+    >
       <View style={{ flex: 1 }}>
         {fixture || motion ? (
           <AgentChatTranscript

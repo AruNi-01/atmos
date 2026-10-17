@@ -10,16 +10,21 @@ export function parityReducedMotionActive(): boolean {
   return requests > 0;
 }
 
-/** Preview-only. System reduced motion still applies when nothing is pushed. */
-export function pushParityReducedMotion(): () => void {
+/**
+ * Preview-only. System reduced motion still applies when nothing is pushed.
+ * `notify: false` is for the render that first shows the frame: children read
+ * the snapshot in that same pass, and a listener update would set state mid-render.
+ */
+export function pushParityReducedMotion(options?: { notify?: boolean }): () => void {
+  const notify = options?.notify !== false;
   requests += 1;
-  emit();
+  if (notify) emit();
   let released = false;
   return () => {
     if (released) return;
     released = true;
     requests = Math.max(0, requests - 1);
-    emit();
+    if (notify) emit();
   };
 }
 

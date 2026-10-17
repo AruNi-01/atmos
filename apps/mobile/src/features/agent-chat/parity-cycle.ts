@@ -22,6 +22,8 @@ export type ParityFrame = {
   scroll?: "away";
   /** Capture-only. Forces chat motion off. The manual link leaves this unset. */
   motion?: "reduced";
+  /** Capture-only. Replays the fixture script. The manual link leaves this unset. */
+  replay?: "script";
 };
 
 /** Light F1–F13, then dark F1–F13. One pass. */
@@ -48,11 +50,13 @@ export function parityPinnedFrame(
   fixture: string,
   theme: string,
   motion?: string,
+  replay?: string,
 ): ParityFrame | null {
   const id = fixture.trim();
   if (!id) return null;
   const frame: ParityFrame = { id, theme: theme.trim() === "dark" ? "dark" : "light" };
   if (motion?.trim() === "reduced") frame.motion = "reduced";
+  if (replay?.trim() === "script") frame.replay = "script";
   return frame;
 }
 
@@ -68,7 +72,13 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
     return null;
   }
   if (!value || typeof value !== "object") return null;
-  const record = value as { id?: unknown; motion?: unknown; scroll?: unknown; theme?: unknown };
+  const record = value as {
+    id?: unknown;
+    motion?: unknown;
+    replay?: unknown;
+    scroll?: unknown;
+    theme?: unknown;
+  };
   if (typeof record.id !== "string") return null;
   const id = record.id.trim();
   if (!(PARITY_FIXTURE_IDS as readonly string[]).includes(id) && !parityMotionKind(id)) return null;
@@ -76,6 +86,7 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
   const frame: ParityFrame = { id, theme: record.theme };
   if (record.scroll === "away") frame.scroll = "away";
   if (record.motion === "reduced") frame.motion = "reduced";
+  if (record.replay === "script") frame.replay = "script";
   return frame;
 }
 

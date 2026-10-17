@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Screenshot F1–F13 in light and dark, then capture two motion passes:
-# f13-tail scrolled to Reply 50 (three frames muxed when they differ), and
-# stream-tools sampled while rows append.
+# Screenshot F1–F13 in light and dark, then capture motion passes:
+# f13-tail scrolled to Reply 50 (three frames muxed when they differ),
+# stream-tools sampled while rows append, and an F4 script replay that
+# writes its own PNGs during the tree draw. The replay does not fail the job.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -50,17 +51,36 @@ write_frame_file() {
   local id="$1"
   local theme="$2"
   local scroll="${3:-}"
-  local container docs
+  local motion="${4:-}"
+  local replay="${5:-}"
+  local container docs extra=""
   container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
   docs="${container}/Documents"
   mkdir -p "$docs"
-  if [[ "$scroll" == "away" ]]; then
-    printf '{"id":"%s","theme":"%s","scroll":"away"}\n' "$id" "$theme" >"${docs}/parity-frame.json"
-    echo "wrote parity-frame.json ${id} ${theme} away"
-  else
-    printf '{"id":"%s","theme":"%s"}\n' "$id" "$theme" >"${docs}/parity-frame.json"
-    echo "wrote parity-frame.json ${id} ${theme}"
+  if [[ "$scroll" == "away" ]]; then extra+=',"scroll":"away"'; fi
+  if [[ "$motion" == "reduced" ]]; then extra+=',"motion":"reduced"'; fi
+  if [[ "$replay" == "script" ]]; then extra+=',"replay":"script"'; fi
+  printf '{"id":"%s","theme":"%s"%s}\n' "$id" "$theme" "$extra" >"${docs}/parity-frame.json"
+  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}"
+}
+
+clear_motion_shots() {
+  local container
+  container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
+  rm -rf "${container}/Documents/parity-motion"
+}
+
+copy_motion_shots() {
+  local dest="$1"
+  local container src count
+  container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
+  src="${container}/Documents/parity-motion"
+  mkdir -p "$dest"
+  if [[ -d "$src" ]]; then
+    cp -R "$src"/. "$dest"/ || true
   fi
+  count="$(find "$dest" -name '*.png' | wc -l | tr -d ' ')"
+  echo "copied ${count} parity motion pngs to ${dest}"
 }
 
 launch_frame() {
@@ -283,6 +303,51 @@ PY
     echo "recording ${video} is missing or empty" >&2
     exit 1
   fi
+}
+
+# In-app PNGs of the F4 script. simctl screenshots are too slow for the 400ms
+# draw. A miss is logged and the matrix artifacts still upload.
+capture_f4_replay() {
+  local label motion_arg dest frames video duration index shot
+  for label in live reduced; do
+    if [[ "$label" == "reduced" ]]; then motion_arg="reduced"; else motion_arg=""; fi
+    dest="$OUT/f4-replay-${label}"
+    clear_motion_shots || true
+    write_frame_file "F4" "light" "" "$motion_arg" "script"
+    echo "launch F4 light replay ${label}"
+    launch_frame "F4" "light"
+    if ! wait_for_line "[parity] preview-chat module" 90; then
+      echo "f4 replay ${label} missed the module" >&2
+      continue
+    fi
+    if ! wait_for_line "[parity] replay done" 90; then
+      echo "f4 replay ${label} did not finish" >&2
+      dump_runtime_logs || true
+      copy_motion_shots "$dest" || true
+      continue
+    fi
+    sleep 2
+    copy_motion_shots "$dest" || true
+    frames="$(mktemp -d)"
+    index=0
+    while IFS= read -r shot; do
+      [[ -n "$shot" ]] || continue
+      index=$((index + 1))
+      sips -s format jpeg "$shot" --out "$frames/$(printf '%03d' "$index").jpg" >/dev/null || true
+    done < <(find "$dest" -name 'f4-*.png' | sort)
+    if (( index < 2 )); then
+      echo "f4 replay ${label} has ${index} frames; not muxing" >&2
+      rm -rf "$frames"
+      continue
+    fi
+    video="$OUT/f4-replay-${label}.mov"
+    if duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"; then
+      echo "recording f4 replay ${label} duration ${duration} frames ${index}"
+    else
+      echo "f4 replay ${label} mux failed" >&2
+    fi
+    rm -rf "$frames"
+  done
 }
 
 # A stuck simctl screenshot consumed the 120 minute job (run 38857737524).
@@ -511,6 +576,7 @@ PY
 
 capture_tail_away
 capture_stream_motion
+capture_f4_replay || echo "f4 replay capture failed" >&2
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
 # honest. It does not show reveal, tree draw-in, or a pill swap.

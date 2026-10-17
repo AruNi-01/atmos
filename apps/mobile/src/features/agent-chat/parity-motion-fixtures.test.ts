@@ -133,6 +133,9 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain("parityTailOwned");
     expect(preview).toContain("pushParityReducedMotion");
     expect(preview).toContain('frame.motion !== "reduced"');
+    expect(preview).toContain('frame.replay === "script"');
+    expect(preview).toContain("foldParityReplay");
+    expect(preview).toContain("[parity] replay done");
     expect(preview).not.toContain("belowCount={0}");
 
     const marker = fixture.messages.find((message) => message.id === PARITY_TAIL_MARKER_ID);
