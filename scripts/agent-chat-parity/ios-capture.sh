@@ -341,7 +341,9 @@ capture_f4_replay() {
       echo "f4 replay ${label} missed the module" >&2
       continue
     fi
-    if ! wait_for_line "[parity] replay done" 90; then
+    # The live pass logs `replay done live`. Waiting for the bare line let the
+    # reduced pass match that older line and copy the live PNGs.
+    if ! wait_for_line "[parity] replay done ${label}" 90; then
       echo "f4 replay ${label} did not finish" >&2
       dump_runtime_logs || true
       copy_motion_shots "$dest" || true

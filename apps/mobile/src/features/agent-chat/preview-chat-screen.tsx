@@ -332,11 +332,12 @@ export function PreviewChatScreen() {
       const last = shots[shots.length - 1] ?? 0;
       if (elapsed >= last) {
         clearInterval(timer);
-        console.error(`[parity] replay done ${shots.length}`);
+        const pass = frame.motion === "reduced" ? "reduced" : "live";
+        console.error(`[parity] replay done ${pass} ${shots.length}`);
       }
     }, 50);
     return () => clearInterval(timer);
-  }, [fixture, ownsReplay, replayKey]);
+  }, [fixture, frame.motion, ownsReplay, replayKey]);
   useEffect(() => {
     if (!ownsLane) return;
     const initial = parityPreviewLane(cards);
