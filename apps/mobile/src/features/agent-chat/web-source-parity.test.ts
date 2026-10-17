@@ -133,6 +133,11 @@ describe("web source parity", () => {
     expect(patch).toContain("start + index");
     expect(patch).toContain("green:(0x71 / 255.0) blue:(0x7B / 255.0)");
     expect(patch).toContain("green:(0x9F / 255.0) blue:(0xA9 / 255.0)");
+    expect(patch).toContain("applyBaselineOffset(output, range)");
+    expect(patch).toContain("applyBaselineOffset(output, nonListRange)");
+    expect(patch).toContain("applyBaselineOffset(string, range)");
+    expect(patch).toContain("ENRMWebCodeBaselineRaise");
+    expect(patch).toContain("self.codeAscender - self.numberAscender + self.codeBaselineRaise");
     expect(patch).toContain("ENRMWebCodePaneHeight");
     expect(patch).toContain("bezierPathWithRoundedRect:paneRect cornerRadius:paneRadius");
     expect(patch).toContain("_scrollView.clipsToBounds = YES");
