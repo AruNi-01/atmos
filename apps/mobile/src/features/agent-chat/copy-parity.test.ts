@@ -76,7 +76,16 @@ type AgentComponents = {
   plan: { title: string };
   messageQueue: { title: string };
   backgroundCommands: { title: string };
-  subagentTasks: { title: string };
+  subagentTasks: {
+    title: string;
+    runningCount: string;
+    progressCount: string;
+    allDone: string;
+    collapseAria: string;
+    expandAria: string;
+    panelAria: string;
+    fallbackType: string;
+  };
   grokGoal: { title: string };
   grokWorkflow: { title: string };
   contextWindow: { title: string };
@@ -149,6 +158,13 @@ describe("agent chat copy parity", () => {
     expect(copy.messageQueueTitle).toBe(components.messageQueue.title);
     expect(copy.backgroundCommandsTitle).toBe(components.backgroundCommands.title);
     expect(copy.subagentTasksTitle).toBe(components.subagentTasks.title);
+    expect(copy.subagentTasksRunning).toBe(components.subagentTasks.runningCount);
+    expect(copy.subagentTasksProgress).toBe(components.subagentTasks.progressCount);
+    expect(copy.subagentTasksAllDone).toBe(components.subagentTasks.allDone);
+    expect(copy.subagentTasksCollapseAria).toBe(components.subagentTasks.collapseAria);
+    expect(copy.subagentTasksExpandAria).toBe(components.subagentTasks.expandAria);
+    expect(copy.subagentTasksPanelAria).toBe(components.subagentTasks.panelAria);
+    expect(copy.subagentTasksFallback).toBe(components.subagentTasks.fallbackType);
     expect(copy.grokGoalTitle).toBe(components.grokGoal.title);
     expect(copy.grokWorkflowTitle).toBe(components.grokWorkflow.title);
     expect(copy.grokWorkflowTitle).toBe("Research");

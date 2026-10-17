@@ -31,6 +31,7 @@ import {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentToolCallPart } from "@atmos/agent-transcript";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { EmptyState } from "@/ui/layout/app-screen";
@@ -63,6 +64,8 @@ import {
 } from "./expand-store";
 import { HideScrollEdge } from "./hide-scroll-edge";
 import { HistoricPermission } from "./historic-permission";
+import { InlineSubagentPanel } from "./inline-subagent-panel";
+import { inlineSubagentTasksByMessageId } from "./inline-subagent-tasks";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { ProcessFold, WaitForBlock } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
@@ -313,10 +316,14 @@ function assistantHasVisiblePart(message: AgentMessage): boolean {
 }
 
 function AssistantTurn({
+  inlineTools = [],
   message,
+  messages,
   showActivity = false,
 }: {
+  inlineTools?: readonly AgentToolCallPart[];
   message: AgentMessage;
+  messages: readonly AgentMessage[];
   showActivity?: boolean;
 }) {
   const assistantText = assistantCopyText(message);
@@ -367,20 +374,34 @@ function AssistantTurn({
       ) : null}
       <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
       <AssistantTurnFiles parts={message.parts} visible={showChrome} />
+      {inlineTools.length > 0 ? (
+        <InlineSubagentPanel messages={messages} tools={inlineTools} />
+      ) : null}
       {showActivity ? <ActivityRow message={message} turnOpen={showActivity} /> : null}
     </View>
   );
 }
 
 const ChatMessage = memo(function ChatMessage({
+  inlineTools,
   message,
+  messages,
   showActivity = false,
 }: {
+  inlineTools?: readonly AgentToolCallPart[];
   message: AgentMessage;
+  messages: readonly AgentMessage[];
   showActivity?: boolean;
 }) {
   if (message.role === "user") return <UserMessage message={message} />;
-  return <AssistantTurn message={message} showActivity={showActivity} />;
+  return (
+    <AssistantTurn
+      inlineTools={inlineTools}
+      message={message}
+      messages={messages}
+      showActivity={showActivity}
+    />
+  );
 });
 
 export const AgentChatTranscript = forwardRef<
@@ -390,6 +411,7 @@ export const AgentChatTranscript = forwardRef<
     focusMessageId?: string | null;
     messages: AgentMessage[];
     onStickChange?: (next: TranscriptStick) => void;
+    subagentExcludeIds?: ReadonlySet<string>;
     /** Real scroll offsets. The stick callback can lag behind `viewRef` during a jump. */
     onViewport?: (next: TranscriptStick) => void;
     pillRowHeight?: number;
@@ -402,6 +424,7 @@ export const AgentChatTranscript = forwardRef<
     focusMessageId,
     messages,
     onStickChange,
+    subagentExcludeIds,
     onViewport,
     pillRowHeight = 0,
     stickToken = 0,
@@ -431,6 +454,14 @@ export const AgentChatTranscript = forwardRef<
   const [stickToEnd, setStickToEnd] = useState(initialStickState.stickToEnd);
   const [topFade, setTopFade] = useState(false);
   const paddingBottom = useTranscriptBottomPad(expandedCardHeight, pillRowHeight);
+  const inlineTasks = useMemo(
+    () =>
+      inlineSubagentTasksByMessageId(messages, {
+        excludeIds: subagentExcludeIds,
+        mode: "live",
+      }),
+    [messages, subagentExcludeIds],
+  );
   const syncTopFade = useCallback((scrollTop: number) => {
     const next = scrollTop > 12;
     setTopFade((current) => (current === next ? current : next));
@@ -763,7 +794,9 @@ export const AgentChatTranscript = forwardRef<
           }}
           renderItem={({ index, item }) => (
             <ChatMessage
+              inlineTools={inlineTasks.get(item.id)}
               message={item}
+              messages={messages}
               showActivity={
                 index === rows.length - 1 &&
                 item.role === "assistant" &&

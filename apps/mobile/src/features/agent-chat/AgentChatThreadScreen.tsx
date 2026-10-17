@@ -29,6 +29,7 @@ import {
 import { ExpandedCard } from "./cards/expanded-card";
 import { LaneCardBody } from "./cards/lane-body";
 import { cardPillTitle, deriveComposerCards } from "./composer-cards";
+import { subagentRosterIds } from "./inline-subagent-tasks";
 import { ComposerPillRow } from "./composer-pill-row";
 import {
   expandComposerPaste,
@@ -219,6 +220,10 @@ export function AgentChatThreadScreen({
     respondPermission,
     respondSessionOp,
   } = useAgentChatThread(chatId);
+  const subagentExcludeIds = useMemo(
+    () => subagentRosterIds(grokGoal, grokWorkflow),
+    [grokGoal, grokWorkflow],
+  );
   const cards = useMemo(
     () =>
       deriveComposerCards({
@@ -627,6 +632,7 @@ export function AgentChatThreadScreen({
               focusMessageId={focusMessageId}
               messages={messages}
               onStickChange={onStickChange}
+              subagentExcludeIds={subagentExcludeIds}
               pillRowHeight={pillRowHeight}
               stickToken={stickToken}
               streaming={runningTurnId != null}
