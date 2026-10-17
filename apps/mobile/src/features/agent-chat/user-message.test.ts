@@ -103,7 +103,7 @@ describe("user message", () => {
     expect(source).toContain("lineHeight: TEXT_LINE_HEIGHT");
     expect(source).toContain("chatForeground(theme.isDark)");
     expect(source).toContain("chatMutedForeground(theme.isDark)");
-    expect(source).toContain("const TEXT_LINE_HEIGHT = 20");
+    expect(source).toContain("const TEXT_LINE_HEIGHT = 21");
     expect(source).toContain("opacity: pending ? 0.65 : 1");
     expect(source).toContain('width: "100%"');
     expect(source).toContain("formatUserMessageTime");

@@ -68,7 +68,8 @@ import {
   userMessageWashColors,
 } from "./user-message-fade";
 
-const TEXT_LINE_HEIGHT = 20;
+// Web user body is `text-sm leading-[1.5]` (14 × 1.5). The collapse wash is one line.
+const TEXT_LINE_HEIGHT = 21;
 
 function UserAttachmentChips({
   attachments,
