@@ -48,7 +48,6 @@ export function CommitActionsContainer({
     pullChanges,
     fetchChanges,
     syncChanges,
-    stageFiles,
     stageAllUnstaged,
   } = useGitStore();
 

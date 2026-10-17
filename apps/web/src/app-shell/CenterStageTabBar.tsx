@@ -290,7 +290,6 @@ export function CenterStageTabBar({
   handleCloseSimulatorTab,
   handleCloseGitHistoryTab,
   handleCloseToolTab,
-  handleRenameTerminalCenterTab,
   handleSelectTabGroupItem,
   handleTabGroupDragEnd,
   onTabStripOrderChange,

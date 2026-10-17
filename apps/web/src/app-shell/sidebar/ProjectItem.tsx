@@ -248,8 +248,6 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   groups = [],
   onAddProjectToGroup,
   onRemoveProjectFromGroup,
-  onAddWorkspaceToGroup,
-  onRemoveWorkspaceFromGroup,
   onSetWorkspaceGroup,
   onCreateGroup,
 }) {

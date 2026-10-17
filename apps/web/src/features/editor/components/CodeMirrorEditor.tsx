@@ -26,7 +26,6 @@ import {
   FileText,
   Settings2,
   ChevronRight,
-  File,
   Search,
 } from "lucide-react";
 import { useEditorStore, OpenFile } from "@/features/editor/store/use-editor-store";

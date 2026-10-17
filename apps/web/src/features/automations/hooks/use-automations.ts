@@ -7,9 +7,7 @@ import { wsRequest } from "@/api/ws/request";
 import type {
   AutomationAgentCapabilitiesResponse,
   AutomationArtifactKind,
-  AutomationContinueInTerminalResponse,
   AutomationCreateRequest,
-  AutomationRunDetail,
   AutomationScheduleInput,
   AutomationSummary,
   AutomationUpdateRequest,

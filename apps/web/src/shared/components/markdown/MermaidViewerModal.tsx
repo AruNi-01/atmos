@@ -34,12 +34,7 @@ function makeScalableSvg(svg: string): string {
   return result;
 }
 
-export function MermaidViewerModal({
-  open,
-  onOpenChange,
-  svgContent,
-  isDark,
-}: MermaidViewerModalProps) {
+export function MermaidViewerModal({ open, onOpenChange, svgContent }: MermaidViewerModalProps) {
   const t = useTranslations("shared.mermaidViewer");
   const [zoom, setZoom] = useState(1);
   const [zoomInput, setZoomInput] = useState("100");

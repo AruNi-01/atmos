@@ -450,13 +450,6 @@ const shapeCircle: ShapeFn = (i) => {
   return [Math.cos(a) * MORPH_R, Math.sin(a) * MORPH_R];
 };
 
-const shapeOctagon: ShapeFn = (i) => {
-  const a = (i / MORPH_N) * Math.PI * 2 - Math.PI / 2;
-  const r = MORPH_R * 0.92;
-  const sector = Math.round(a / (Math.PI / 4)) * (Math.PI / 4);
-  return [Math.cos(sector) * r, Math.sin(sector) * r];
-};
-
 const shapeSquare: ShapeFn = (i) => {
   const h = MORPH_R * 0.85;
   const corners: [number, number][] = [

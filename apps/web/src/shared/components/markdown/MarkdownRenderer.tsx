@@ -349,7 +349,7 @@ function detailsFileOpen(open: unknown): boolean {
 
 function MarkdownDetails({
   children,
-  open,
+  open: _open,
   startOpen = false,
   ...props
 }: React.ComponentProps<"details"> & { startOpen?: boolean }) {

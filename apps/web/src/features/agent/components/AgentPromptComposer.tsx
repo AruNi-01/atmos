@@ -135,7 +135,6 @@ function ComposerPromptInput({
   localDraft,
   setLocalDraft,
   persistedDraftRef,
-  canUseCurrentMode,
   isConnected,
   chatMode,
   instanceKey,

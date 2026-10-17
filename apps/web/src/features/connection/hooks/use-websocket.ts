@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { MappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
 import type { MappedWsEvent, WsEventPayload } from "@atmos/api-types/ws/event-contract";
-import type { WsMessage, WsRequest } from "@atmos/api-types/ws/frames";
+import type { WsMessage } from "@atmos/api-types/ws/frames";
 import {
   createWsSession,
   DEFAULT_DESKTOP_CONNECT_WAIT_MS,

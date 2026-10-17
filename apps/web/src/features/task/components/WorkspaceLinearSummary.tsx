@@ -30,7 +30,6 @@ export function WorkspaceLinearSummary({
   const t = useTranslations("AppShell.chrome.workspaceContent");
   if (!links.length) return null;
 
-  const primary = links[0]!;
   const overflow = links.length - 1;
 
   return (

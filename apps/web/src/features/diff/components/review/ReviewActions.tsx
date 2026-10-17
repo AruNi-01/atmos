@@ -52,7 +52,6 @@ export const ReviewActions: React.FC = () => {
     handleCreateSession,
     handleCopyAgentPrompt,
     handleRunAgentInTerminal,
-    handleCopyAgentReviewPrompt,
     handleMarkAgentRunFailed,
     loadSessions,
     loadComments,

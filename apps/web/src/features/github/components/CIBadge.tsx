@@ -1,7 +1,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { useGithubCIStatus } from "@/features/github/hooks/use-github";
-import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { AlertCircle, CheckCircle2, Workflow, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";

@@ -276,16 +276,6 @@ export async function resolveAppShotPermissionFlags(): Promise<AppShotResolvedPe
   }
 }
 
-async function macosPermissions(): Promise<AppshotPermissionState[]> {
-  const flags = await resolveAppShotPermissionFlags();
-  return buildMacosPermissions({
-    accessibility: flags.accessibility,
-    screenRecording: flags.screenRecording,
-    accessibilityProduct: flags.accessibilityProduct,
-    screenRecordingProduct: flags.screenRecordingProduct,
-  });
-}
-
 /**
  * Report live status and (re)arm the dual-shift listener when Accessibility is on.
  */

@@ -257,15 +257,6 @@ function parseAppDeviceId(
   return { ok: true, appDeviceId };
 }
 
-async function tableExists(env: Env, tableName: string): Promise<boolean> {
-  const row = await env.DB.prepare(
-    "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
-  )
-    .bind(tableName)
-    .first<{ ok: number }>();
-  return !!row;
-}
-
 function httpOrigin(url: URL): string {
   const originProto = url.protocol.startsWith("https") ? "https:" : "http:";
   const host = url.host || "localhost";

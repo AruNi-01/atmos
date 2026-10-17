@@ -629,7 +629,6 @@ function HueSlider({
 
 function AlphaSlider({
   a,
-  solidColor,
   solidR,
   solidG,
   solidB,

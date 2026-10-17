@@ -51,7 +51,6 @@ interface WikiUpdateDialogProps {
 export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
   open,
   onOpenChange,
-  effectivePath,
   catalogCommit,
   currentCommit,
   commitCount,
