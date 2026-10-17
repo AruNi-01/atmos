@@ -506,6 +506,9 @@ describe("tool body presentation", () => {
     expect(preview).toContain("TOOL_PLAIN_LINE_HEIGHT");
     expect(preview).toContain("TOOL_PLAIN_LINE_PAD_X");
     expect(preview).toContain("TOOL_PLAIN_LINE_PAD_Y");
+    expect(preview).toContain("TOOL_PLAIN_NUMBER_FONT");
+    expect(preview).toContain("toolPlainLineNumberWidth(lines.length)");
+    expect(preview).not.toContain("minWidth: 28");
     expect(preview).toContain('fontFamily: "Menlo"');
     expect(preview).not.toContain("fontSize: 14");
     expect(preview).toContain("lines.length >= 2");
@@ -520,6 +523,11 @@ describe("tool body presentation", () => {
     expect(previewMod.TOOL_PLAIN_LINE_HEIGHT).toBe(21);
     expect(previewMod.TOOL_PLAIN_LINE_PAD_X).toBe(12);
     expect(previewMod.TOOL_PLAIN_LINE_PAD_Y).toBe(2);
+    expect(previewMod.TOOL_PLAIN_NUMBER_FONT).toBe(12);
+    expect(previewMod.TOOL_PLAIN_NUMBER_CH).toBe(7.2);
+    expect(previewMod.toolPlainLineNumberWidth(2)).toBe(21.6);
+    expect(previewMod.toolPlainLineNumberWidth(100)).toBe(21.6);
+    expect(previewMod.toolPlainLineNumberWidth(1000)).toBe(28.8);
     const prose = previewView.slice(
       previewView.indexOf('case "prose":'),
       previewView.indexOf('case "execute":'),

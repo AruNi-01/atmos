@@ -788,13 +788,26 @@ export const TOOL_TEXT_PREVIEW_LIMIT = 160;
 
 /**
  * Web plaintext preview lines (`text-[13px] leading-relaxed`, `px-3 py-0.5`).
- * `leading-relaxed` is 1.625, so 13px type is a 21px line. Highlighted fences
- * stay on `text-sm leading-5`.
+ * `leading-relaxed` is 1.625, so 13px type is a 21px line. The row padding is
+ * that `py-0.5`, so each line's pitch is 25px. Highlighted fences stay on
+ * `text-sm leading-5`.
+ *
+ * Numbers are `text-xs` mono with `min-width: 3ch` and grow with the last
+ * label. Geist Mono's `0` is 0.6em, so 12px type makes one `ch` 7.2px.
  */
 export const TOOL_PLAIN_LINE_FONT = 13;
 export const TOOL_PLAIN_LINE_HEIGHT = 21;
 export const TOOL_PLAIN_LINE_PAD_X = 12;
 export const TOOL_PLAIN_LINE_PAD_Y = 2;
+export const TOOL_PLAIN_NUMBER_FONT = 12;
+export const TOOL_PLAIN_NUMBER_CH = 7.2;
+
+/** Web gutter: at least 3ch, wider once the last label needs more digits. */
+export function toolPlainLineNumberWidth(lastLine: number): number {
+  const digits = String(Math.max(1, Math.trunc(lastLine))).length;
+  const columns = Math.max(3, digits);
+  return Math.round(TOOL_PLAIN_NUMBER_FONT * 0.6 * columns * 10) / 10;
+}
 
 export function toolTextUsesPreview(text: string): boolean {
   return text.includes("\n") || text.length > TOOL_TEXT_PREVIEW_LIMIT;
@@ -1330,6 +1343,7 @@ function ToolPlainPreview({ text }: { text: string }) {
   if (!text) return null;
   const lines = text.split("\n");
   const numbered = lines.length >= 2;
+  const numberWidth = toolPlainLineNumberWidth(lines.length);
   const lineBox = {
     fontFamily: "Menlo",
     fontSize: TOOL_PLAIN_LINE_FONT,
@@ -1361,11 +1375,11 @@ function ToolPlainPreview({ text }: { text: string }) {
                   style={{
                     color: chatMutedForeground(theme.isDark),
                     fontFamily: "Menlo",
-                    fontSize: 12,
+                    fontSize: TOOL_PLAIN_NUMBER_FONT,
                     lineHeight: TOOL_PLAIN_LINE_HEIGHT,
                     marginLeft: 4,
                     marginRight: 16,
-                    minWidth: 28,
+                    minWidth: numberWidth,
                     textAlign: "right",
                   }}
                 >
