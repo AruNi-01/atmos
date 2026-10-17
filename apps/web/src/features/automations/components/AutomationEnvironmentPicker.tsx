@@ -216,6 +216,7 @@ function WorkspaceSelect({
       <PopoverTrigger asChild>
         <button
           type="button"
+          // oxlint-disable-next-line jsx-a11y/role-has-required-aria-props -- Radix PopoverTrigger injects aria-controls via asChild
           role="combobox"
           aria-expanded={open}
           disabled={disabled}

@@ -101,5 +101,6 @@ export const QuickOpenAppIcon = ({
     () => `/quick_open_app/${iconName}${themeSuffix}.svg`,
     [iconName, themeSuffix],
   );
+  // oxlint-disable-next-line next/no-img-element -- runtime/dynamic icon URL; next/image optimisation not applicable (static export)
   return <img src={iconPath} alt="" className={className} />;
 };

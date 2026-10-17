@@ -65,7 +65,7 @@ const githubWebhookRateByIp = new Map<string, { count: number; windowStart: numb
 const githubControlRateByIp = new Map<string, { count: number; windowStart: number }>();
 const ptDesignRoomRateByIp = new Map<string, { count: number; windowStart: number }>();
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
@@ -125,6 +125,8 @@ export default {
     return withCors(await handleApi(request, env, url));
   },
 };
+
+export default worker;
 
 export { ServerHub, PtDesignRoom };
 

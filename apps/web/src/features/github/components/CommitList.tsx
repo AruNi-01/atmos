@@ -28,6 +28,7 @@ function AuthorAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string })
   return (
     <div className="flex size-6 shrink-0 cursor-default items-center justify-center overflow-hidden rounded-full border border-sidebar-border bg-sidebar-accent text-[10px] font-bold text-muted-foreground">
       {avatarUrl && !imgFailed ? (
+        // oxlint-disable-next-line next/no-img-element -- remote GitHub avatar URL; next/image optimisation not applicable (static export)
         <img
           src={avatarUrl}
           alt={initials}
