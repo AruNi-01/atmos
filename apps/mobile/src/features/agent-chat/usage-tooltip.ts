@@ -1,6 +1,8 @@
 /**
  * Web `MessageTurnUsageBadge` tooltip: `bg-foreground` fill, `text-background` type,
  * `rounded-md` (8px), `w-52` (208px), `p-3`, and `bg-background/20` rules.
+ * `TooltipContent` uses `side="top"` and the default `sideOffset` of 4, so the card
+ * sits above the badge and the arrow points down.
  * Light foreground is `#09090b` and dark foreground is `#fafafa`.
  * Light background is white. Dark background is `#09090b`.
  */

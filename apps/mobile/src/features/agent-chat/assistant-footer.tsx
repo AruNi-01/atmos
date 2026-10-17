@@ -81,19 +81,7 @@ function UsageBreakdown({ usage }: { usage: AgentTurnUsage }) {
   const showCache = usage.cached_read_tokens != null || usage.cached_write_tokens != null;
 
   return (
-    <View style={{ marginTop: USAGE_TOOLTIP_OFFSET, width: USAGE_TOOLTIP_WIDTH, zIndex: 100 }}>
-      <View
-        style={{
-          alignSelf: "center",
-          backgroundColor: usageTooltipFill(isDark),
-          borderRadius: 2,
-          height: USAGE_TOOLTIP_ARROW,
-          marginBottom: -USAGE_TOOLTIP_ARROW / 2,
-          transform: [{ rotate: "45deg" }],
-          width: USAGE_TOOLTIP_ARROW,
-          zIndex: 1,
-        }}
-      />
+    <View style={{ width: USAGE_TOOLTIP_WIDTH, zIndex: 100 }}>
       <View
         style={{
           backgroundColor: usageTooltipFill(isDark),
@@ -140,6 +128,18 @@ function UsageBreakdown({ usage }: { usage: AgentTurnUsage }) {
           <View style={{ marginTop: 4 }}>{row(copy.usageTurn.total, total, true)}</View>
         </View>
       </View>
+      <View
+        style={{
+          alignSelf: "center",
+          backgroundColor: usageTooltipFill(isDark),
+          borderRadius: 2,
+          height: USAGE_TOOLTIP_ARROW,
+          marginTop: -(USAGE_TOOLTIP_ARROW / 2 + 1),
+          transform: [{ rotate: "45deg" }],
+          width: USAGE_TOOLTIP_ARROW,
+          zIndex: 1,
+        }}
+      />
     </View>
   );
 }
@@ -158,6 +158,21 @@ function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
 
   return (
     <View>
+      {open ? (
+        <View
+          pointerEvents="box-none"
+          style={{
+            bottom: "100%",
+            left: "50%",
+            marginBottom: USAGE_TOOLTIP_OFFSET,
+            position: "absolute",
+            transform: [{ translateX: -USAGE_TOOLTIP_WIDTH / 2 }],
+            zIndex: 100,
+          }}
+        >
+          <UsageBreakdown usage={usage} />
+        </View>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -186,7 +201,6 @@ function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
           {label}
         </Text>
       </Pressable>
-      {open ? <UsageBreakdown usage={usage} /> : null}
     </View>
   );
 }

@@ -70,6 +70,9 @@ describe("assistant footer", () => {
     expect(badge).toContain("borderWidth: 1");
     expect(badge).toContain("const muted = chatMutedForeground(theme.isDark)");
     expect(badge).toContain("<CoinsIcon color={muted} size={12} />");
+    expect(badge).toContain('bottom: "100%"');
+    expect(badge).toContain("marginBottom: USAGE_TOOLTIP_OFFSET");
+    expect(badge).toContain("translateX: -USAGE_TOOLTIP_WIDTH / 2");
     expect(badge).not.toContain("theme.colors.secondaryLabel");
     expect(badge).not.toContain("glassBorder");
     expect(badge).not.toContain("hairlineWidth");
@@ -85,6 +88,11 @@ describe("assistant footer", () => {
     expect(breakdown).toContain('fontFamily: "Menlo"');
     expect(breakdown).toContain('fontWeight: bold ? "700" : "400"');
     expect(breakdown).toContain('transform: [{ rotate: "45deg" }]');
+    expect(breakdown).toContain("marginTop: -(USAGE_TOOLTIP_ARROW / 2 + 1)");
+    expect(breakdown).not.toContain("marginBottom: -USAGE_TOOLTIP_ARROW / 2");
+    expect(breakdown.indexOf("borderRadius: USAGE_TOOLTIP_RADIUS")).toBeLessThan(
+      breakdown.indexOf('transform: [{ rotate: "45deg" }]'),
+    );
     expect(breakdown).not.toContain("glassBorder");
     expect(breakdown).not.toContain("hairlineWidth");
     expect(breakdown).not.toContain("cardElevated");
