@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { createTranslator, useTranslations } from "next-intl";
 import { Button, Skeleton, TabsSubtle, TabsSubtleItem, Textarea } from "@workspace/ui";

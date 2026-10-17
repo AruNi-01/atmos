@@ -318,6 +318,7 @@ export function MermaidPreviewPane({
             )}
             aria-label={t("mermaid.clickToEnlarge")}
           >
+            {/* oxlint-disable-next-line next/no-img-element -- runtime blob/data URL of the rendered diagram */}
             <img
               src={record.imageUrl}
               alt=""

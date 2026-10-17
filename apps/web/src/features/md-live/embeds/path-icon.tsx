@@ -16,5 +16,6 @@ export function MdLivePathIcon({
     isDir,
     className: cn("block size-4 max-h-4 max-w-4 shrink-0 object-contain", className),
   });
+  // oxlint-disable-next-line next/no-img-element -- runtime/dynamic icon URL; next/image optimisation not applicable (static export)
   return <img {...iconProps} alt="" width={16} height={16} />;
 }

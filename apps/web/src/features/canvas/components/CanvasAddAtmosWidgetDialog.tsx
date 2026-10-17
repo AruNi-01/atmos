@@ -48,7 +48,6 @@ import {
   type AddableCanvasItemType,
   type CanvasAddContextOption,
   buildCanvasAddContextOptions,
-  buildSearchText,
   getCanvasAddItemEntry,
   isCanvasWidgetAddItemType,
   normalizeQuery,
@@ -483,7 +482,6 @@ export function CanvasAddAtmosWidgetPopover({
     const createdShapeIds: TLShapeId[] = [];
     try {
       for (const [index, itemType] of selectedItemTypes.entries()) {
-        const entry = getCanvasAddItemEntry(itemType);
         const position = placements[index];
         const shapeId = isCanvasWidgetAddItemType(itemType)
           ? addWidget({

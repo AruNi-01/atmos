@@ -299,13 +299,6 @@ function addPinnedOverview(tabIds: readonly string[]): string[] {
   return [OVERVIEW_TAB_ID, ...tabIds.filter((id) => id !== OVERVIEW_TAB_ID)];
 }
 
-function pickNonOverviewTab(tabIds: readonly string[], preferred?: string | null): string | null {
-  if (preferred && preferred !== OVERVIEW_TAB_ID && tabIds.includes(preferred)) {
-    return preferred;
-  }
-  return tabIds.find((id) => id !== OVERVIEW_TAB_ID) ?? null;
-}
-
 /**
  * Next active tab after the current one leaves this pane.
  * Honor `preferred` (MRU) even when it is Overview; otherwise skip Overview
@@ -910,7 +903,6 @@ export function removeTabFromLayout(
   tabId: string,
   preferredNextActiveId?: string | null,
 ): CenterPaneLayout {
-  const primaryId = getPrimaryPaneId(layout);
   let changed = false;
   const panes = layout.panes.map((p) => {
     if (!p.tabIds.includes(tabId) && p.activeTabId !== tabId) return p;

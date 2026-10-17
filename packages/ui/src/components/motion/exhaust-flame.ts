@@ -320,7 +320,7 @@ function drawSparks(
   ctx: CanvasRenderingContext2D,
   sparks: Spark[],
   width: number,
-  height: number,
+  _height: number,
 ): void {
   const originX = width * FLAME_ORIGIN;
   const length = width * FLAME_LENGTH;

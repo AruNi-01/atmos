@@ -253,9 +253,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
   const [slashPopoverView, setSlashPopoverView] = React.useState<SlashPopoverView>("menu");
   const [skillDisableFilter, setSkillDisableFilter] = React.useState("");
-  const [skillDisableSessionActions, setSkillDisableSessionActions] = React.useState<
-    SkillDisableSessionAction[]
-  >([]);
+  const [, setSkillDisableSessionActions] = React.useState<SkillDisableSessionAction[]>([]);
   const suppressSlashCancelRef = React.useRef(false);
   const slashPopoverViewRef = React.useRef<SlashPopoverView>("menu");
   slashPopoverViewRef.current = slashPopoverView;

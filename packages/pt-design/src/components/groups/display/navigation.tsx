@@ -2,7 +2,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type { CSSProperties, ReactElement } from "react";
 import type { PtNode, PtOption } from "../../../protocol";
 import type { PtComponentModule, PtRendererProps } from "./contract";
-import { COPY_FIELDS, FILL, FONT, LABEL_FIELD, T, TITLE_FIELDS, ptNode } from "./node";
+import { FILL, FONT, LABEL_FIELD, T, TITLE_FIELDS, ptNode } from "./node";
 import { ControlRoot, emit, ghostBtn, propText, renderFlowChildren } from "./runtime";
 
 const accordionBBox = { width: 280, height: 160 };

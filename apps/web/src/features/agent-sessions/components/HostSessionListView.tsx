@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { motion } from "motion/react";
 import {
   Badge,
   Button,

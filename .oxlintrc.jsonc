@@ -115,8 +115,10 @@
     "react/set-state-in-render": "error",
     "react/unsupported-syntax": "warn",
     // Match apps/web + landing: Next 16 enables these as errors; pre-existing
-    // violations stay warn. CI (`bun lint` / `CI - JS`) uses --max-warnings
-    // equal to the current inventory so new warnings fail the job.
+    // violations stay warn (apps/mobile). For web/ui/pt-design/landing/md-live the
+    // React Compiler rules are downgraded per-directory below (see overrides).
+    // CI (`bun lint` / `CI - JS`) uses --max-warnings equal to the current
+    // inventory so new warnings fail the job.
     "react/set-state-in-effect": "warn",
     "react/refs": "warn",
     "react/immutability": "warn",
@@ -171,6 +173,50 @@
   },
   "overrides": [
     {
+      // React Compiler "advisory" rules (react/refs, set-state-in-effect,
+      // immutability, preserve-manual-memoization, purity, incompatible-library,
+      // static-components) flag ~900 pre-existing patterns in the DOM apps and
+      // shared packages (ref reads during render, setState in effects, manual
+      // memoization the compiler can't preserve). Fixing them means restructuring
+      // components/hooks (real behaviour/render-timing risk), not a lint cleanup,
+      // so they are off here rather than hidden behind a raised --max-warnings.
+      // apps/mobile intentionally keeps them as warnings. Tracked as follow-up:
+      // migrate per feature, then re-enable per directory.
+      "files": [
+        "apps/web/**",
+        "apps/landing/**",
+        "packages/ui/**",
+        "packages/pt-design/**",
+        "packages/md-live/**",
+        "scripts/**",
+      ],
+      "rules": {
+        "react/refs": "off",
+        "react/set-state-in-effect": "off",
+        "react/immutability": "off",
+        "react/preserve-manual-memoization": "off",
+        "react/purity": "off",
+        "react/incompatible-library": "off",
+        "react/static-components": "off",
+      },
+    },
+    {
+      // Landing/docs OG use plain <img> for static assets / satori (OG image
+      // renderer requires <img>); next/image is not applicable to the static export.
+      "files": ["apps/landing/**", "apps/docs/src/app/og/**"],
+      "rules": {
+        "nextjs/no-img-element": "off",
+      },
+    },
+    {
+      // Injected browser runtime IIFE (ES5-ish): `catch (_) {}` and the
+      // write-only `currentRect` must stay as-is (optional catch binding is ES2019).
+      "files": ["packages/shared/browser/browser-runtime.js", "extension/browser-runtime.js"],
+      "rules": {
+        "no-unused-vars": "off",
+      },
+    },
+    {
       // Next.js pages-dir / app-dir rules only make sense in Next apps.
       "files": [
         "packages/**",
@@ -217,13 +263,6 @@
       "files": ["apps/mobile/**"],
       "rules": {
         "typescript/no-require-imports": "warn",
-        "react/static-components": "warn",
-      },
-    },
-    {
-      // Pre-existing React Compiler static-components in the design system.
-      "files": ["packages/ui/**"],
-      "rules": {
         "react/static-components": "warn",
       },
     },

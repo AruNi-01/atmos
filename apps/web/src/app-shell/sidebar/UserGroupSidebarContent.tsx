@@ -8,7 +8,6 @@ import {
   DragOverlay,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -839,7 +838,6 @@ export function UserGroupOneColumnContent({
   sensors?: DndSensors;
   onGroupOrderChange?: (orderedGroupIds: string[]) => void | Promise<void>;
 }) {
-  const t = useTranslations("appShell.groups");
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
   const visibleViews = attentionFilterMode

@@ -2,7 +2,6 @@ import { toRichText, type Editor, type TLShape, type TLShapePartial } from "tldr
 
 import { CanvasAgentError } from "./canvas-agent-errors";
 import {
-  applyOptionalColor,
   applyOptionalFill,
   applyOptionalSize,
   sanitizeTldrawColor,

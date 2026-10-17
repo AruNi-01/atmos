@@ -9,7 +9,7 @@
  *   ELECTRON_RUN_AS_NODE helper under Atmos.app identity (legacy).
  */
 
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -206,7 +206,7 @@ export function startShiftFlagsEventTap(callbacks: ShiftTapCallbacks): TapHandle
 
   // Synchronous fallback immediately; host path upgrades when ready.
   // We arm host first asynchronously and only fall back if it fails.
-  let active: TapHandle | null = null;
+  let _active: TapHandle | null = null;
   let stopped = false;
   let hostHandle: HostShiftHandle | null = null;
   let electronHandle: TapHandle | null = null;
@@ -227,7 +227,7 @@ export function startShiftFlagsEventTap(callbacks: ShiftTapCallbacks): TapHandle
       }
       hostHandle = null;
       electronHandle = null;
-      active = null;
+      _active = null;
     },
   };
 
@@ -256,7 +256,7 @@ export function startShiftFlagsEventTap(callbacks: ShiftTapCallbacks): TapHandle
         }
         if (h) {
           hostHandle = h;
-          active = { stop: h.stop, mode: "host-inject" };
+          _active = { stop: h.stop, mode: "host-inject" };
           composite.mode = "host-inject";
           mainLog("[appshot-tap] armed via Atmos Desktop Use host inject");
           return;
@@ -270,7 +270,7 @@ export function startShiftFlagsEventTap(callbacks: ShiftTapCallbacks): TapHandle
     if (stopped) return;
     electronHandle = startElectronShiftHelper(callbacks.onElectronChord);
     if (electronHandle) {
-      active = electronHandle;
+      _active = electronHandle;
       composite.mode = "electron-helper";
       mainLog("[appshot-tap] armed via Atmos Electron helper");
     }
@@ -278,7 +278,7 @@ export function startShiftFlagsEventTap(callbacks: ShiftTapCallbacks): TapHandle
 
   // Return composite immediately so ensureTriggerListener can keep a handle.
   // Until async arm finishes, stop() is still safe.
-  active = composite;
+  _active = composite;
   return composite;
 }
 

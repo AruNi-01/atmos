@@ -129,7 +129,6 @@ describe("Electron production release notes", () => {
   });
 
   it("stripDesktopContributorsSection removes marker block", () => {
-    const body = `Hello\n\n${buildDesktopContributorsSection(["alice"])}\nMore`;
     // strip only removes marker-to-next-marker; trailing text may remain if after
     const withEnd = `Hello\n\n${buildDesktopContributorsSection(["alice"])}`;
     const stripped = stripDesktopContributorsSection(withEnd);

@@ -98,7 +98,7 @@ export async function getLinearIntegrationStatus(db: HubDb, userId: string) {
 }
 
 export async function deleteLinearIntegration(db: HubDb, userId: string): Promise<boolean> {
-  const res = await db
+  await db
     .delete(userIntegrations)
     .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, "linear")));
   return true;

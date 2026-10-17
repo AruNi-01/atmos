@@ -1,5 +1,4 @@
 import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
-import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import {
   changedLineRangesFromContents,
   changedLineRangesFromPatch,

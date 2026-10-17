@@ -12,7 +12,7 @@
  * (see the `.tldraw-wrapper .tl-canvas { content-visibility: visible }` block).
  * Don't try to "fix" blank-canvas here — the camera is fine in that case.
  */
-import type { Editor, TLEditorSnapshot } from "tldraw";
+import type { Editor } from "tldraw";
 
 import type { CanvasTldrawSession } from "@/shared/types/canvas";
 

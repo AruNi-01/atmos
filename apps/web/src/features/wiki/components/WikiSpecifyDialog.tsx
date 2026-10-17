@@ -36,13 +36,6 @@ import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-
 const PROJECT_WIKI_SPECIFY_SKILL_PATH = "~/.atmos/skills/.system/project-wiki-specify";
 
 /** Generic topic templates — user replaces [xxx] with their project-specific terms */
-const TOPIC_EXAMPLES = [
-  "Explore how [feature name] is implemented",
-  "Research why the project chose [technology] for [purpose]",
-  "Understand how [module/component] works",
-  "Document the [mechanism/flow] design",
-  "Explain the design decision behind [architecture choice]",
-];
 
 function buildSpecifyPrompt(topic: string, language: string, customLanguage: string): string {
   const lang = language === "other" ? customLanguage : language;

@@ -2452,26 +2452,6 @@ export function useAgentChatSession({
       cancelled = true;
     };
   }, [activeChatId, defaultRegistryId, historySessions, providerId]);
-  const resetConversation = useCallback(() => {
-    setActiveChatId("");
-    messagesRef.current = [];
-    setMessages([]);
-    setTitle(null);
-    setQueue([]);
-    setBusy(false);
-    setRunningTurnId(null);
-    setPendingPermission(null);
-    setPendingSessionOp(null);
-    setSessionCommands([]);
-    setSessionUsage(null);
-    setTurnStartedAt(null);
-    setElapsedMs(0);
-    setRuntimeStatus("detached");
-    setHasPersistenceHandle(false);
-    setDescriptor(null);
-    setSupportsSteer(false);
-    onOpenChat?.("");
-  }, [onOpenChat]);
 
   const handleSelectWorkingDirectory = useCallback(
     (selection: AgentChatWorkingDirectory) => {

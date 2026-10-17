@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { debugLog, errorLog } from "@/shared/lib/desktop-logger";
 import { desktopInvoke, desktopListen, isDesktopRuntime } from "@/shared/lib/desktop-bridge";

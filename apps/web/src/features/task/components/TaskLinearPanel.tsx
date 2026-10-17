@@ -107,7 +107,7 @@ export function TaskLinearPanel({ headerTrailingHost = null }: TaskLinearPanelPr
   const [page, setPage] = useState(1);
   const [afterByPage, setAfterByPage] = useState<Record<number, string>>({});
 
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [keysEpoch, setKeysEpoch] = useState(0);

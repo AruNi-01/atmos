@@ -93,7 +93,6 @@ export function BrowserViewport({
   projectId,
   previewLoadError,
   requestedIframeUrl,
-  resolvedTransportMode,
   selectionAnnotations,
   editingAnnotationId,
   selectionInfo,

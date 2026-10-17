@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Switch } from "@workspace/ui";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
   SettingsGroup,

@@ -5,7 +5,6 @@ import type { TLEditorSnapshot } from "tldraw";
 import {
   collectPageShapeBounds,
   findCanvasTerminalPlacement,
-  getViewportCenterFromSession,
 } from "../lib/canvas-terminal-placement";
 import { createCanvasSnapshot } from "../hooks/use-canvas-board";
 

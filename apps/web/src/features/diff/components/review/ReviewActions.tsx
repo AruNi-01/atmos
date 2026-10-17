@@ -40,7 +40,6 @@ export const ReviewActions: React.FC = () => {
     currentRevision,
     canEdit,
     openRevisionComments,
-    activeAgentRun,
     activeReviewRun,
     activeFixRun,
     isCreating,
@@ -53,8 +52,6 @@ export const ReviewActions: React.FC = () => {
     handleCreateSession,
     handleCopyAgentPrompt,
     handleRunAgentInTerminal,
-    handleRunAgentReview,
-    handleCopyAgentReviewPrompt,
     handleMarkAgentRunFailed,
     loadSessions,
     loadComments,
@@ -95,7 +92,7 @@ export const ReviewActions: React.FC = () => {
 
   const fixDisabled =
     !canEdit || openRevisionComments.length === 0 || !!activeFixRun || !!activeReviewRun;
-  const reviewDisabled = !canEdit || !!activeReviewRun || !!activeFixRun;
+
   const [archivedOpen, setArchivedOpen] = useState(false);
 
   const sessionGroups = useMemo<SessionGroup[]>(() => {

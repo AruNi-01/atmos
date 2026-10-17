@@ -5,10 +5,8 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function tryResolveElectron(): string | null {
   try {

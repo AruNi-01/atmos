@@ -63,8 +63,6 @@ export function KanbanWorkspaceCard({
   cardProperties,
   showUnpinnedBorder = false,
   groups = [],
-  sourceColumnKey,
-  dragDisabled = false,
   onEnterWorkspace,
   availableLabels,
   onUpdateWorkflowStatus,

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-  type HTMLMotionProps,
-  type Variants,
-} from "motion/react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 import {
   useLayoutEffect,
   useRef,

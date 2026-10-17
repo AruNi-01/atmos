@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
 import { EyeIcon } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@workspace/ui/components/ui/badge";

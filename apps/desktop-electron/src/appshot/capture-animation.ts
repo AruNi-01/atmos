@@ -37,8 +37,6 @@ export const OVERLAY_PADDING = 14;
 export const OVERLAY_DURATION_MS = 400;
 export const MIN_OVERLAY_EDGE = 32;
 
-const SELF_APP_NAMES = new Set(["Atmos", "Atmos Electron", "Electron"]);
-
 /** Pure: expand target window bounds with padding for the overlay window. */
 export function overlayFrameFromBounds(
   bounds: CaptureAnimationBounds,
