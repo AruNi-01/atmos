@@ -358,86 +358,42 @@ export function UserMessage({ message }: { message: AgentMessage }) {
     setLineCount((current) => (current === next ? current : next));
   };
 
+  const bubbleStyle = {
+    backgroundColor: userBubbleFill(theme.isDark),
+    borderCurve: "continuous" as const,
+    borderRadius: USER_BUBBLE_RADIUS,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    width: "100%" as const,
+  };
+
   return (
-    <View
-      onTouchStart={() => markUserMessageBodyPress(entryId)}
-      style={{
-        alignSelf: "stretch",
-        backgroundColor: userBubbleFill(theme.isDark),
-        borderCurve: "continuous",
-        borderRadius: USER_BUBBLE_RADIUS,
-        opacity: pending ? 0.65 : 1,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        width: "100%",
-      }}
-    >
-      <Pressable
-        accessibilityRole={hasMeta || opensBody ? "button" : undefined}
-        accessibilityState={hasMeta ? { expanded: metaOpen } : undefined}
-        disabled={!hasMeta && !opensBody}
-        onPressIn={beginUserMessageBodyPress}
-        onTouchStart={() => markUserMessageBodyPress(entryId)}
-        onPress={() => {
-          const pressEpoch = currentUserMessageBodyPress();
-          queueMicrotask(() => {
-            const effect = userMessageBodyPressEffect(takeUserMessageInnerPress(pressEpoch));
-            if (effect.expand && opensBody) setExpanded(true);
-            if (effect.toggleMeta && hasMeta) setMetaOpen(!metaOpen);
-          });
-        }}
-      >
-        {attachments.length > 0 ? (
-          <UserAttachmentChips
-            attachments={attachments}
-            expanded={expanded}
-            hasText={Boolean(text)}
-          />
-        ) : null}
-        {showPasteChips && paste ? (
-          <Text
-            selectable
-            style={{
-              color: chatForeground(theme.isDark),
-              fontSize: 14,
-              lineHeight: TEXT_LINE_HEIGHT,
-            }}
-          >
-            {paste.segments.map((segment, index) =>
-              segment.type === "paste" ? (
-                <Text
-                  key={`${segment.token}:${index}`}
-                  onPress={() => claimUserMessageInnerPress("paste")}
-                  style={{
-                    backgroundColor: pasteChipFill(theme.isDark),
-                    borderColor: pasteChipBorder(theme.isDark),
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    color: chatForeground(theme.isDark),
-                    fontSize: PASTE_CHIP_FONT,
-                    fontWeight: "500",
-                    lineHeight: PASTE_CHIP_HEIGHT,
-                    paddingHorizontal: PASTE_CHIP_PAD_X,
-                  }}
-                >
-                  <ClipboardIcon
-                    color={chatForeground(theme.isDark)}
-                    size={PASTE_CHIP_ICON}
-                    strokeWidth={2}
-                    style={{ marginRight: PASTE_CHIP_GAP }}
-                  />
-                  {pasteChipLabel(segment.lineCount)}
-                </Text>
-              ) : (
-                <UserMessageLinkedText key={`text:${index}`} text={segment.value} />
-              ),
-            )}
-          </Text>
-        ) : text ? (
-          <View style={{ position: "relative" }}>
+    <View style={{ alignSelf: "stretch", opacity: pending ? 0.65 : 1, width: "100%" }}>
+      <View onTouchStart={() => markUserMessageBodyPress(entryId)} style={bubbleStyle}>
+        <Pressable
+          accessibilityRole={hasMeta || opensBody ? "button" : undefined}
+          accessibilityState={hasMeta ? { expanded: metaOpen } : undefined}
+          disabled={!hasMeta && !opensBody}
+          onPressIn={beginUserMessageBodyPress}
+          onTouchStart={() => markUserMessageBodyPress(entryId)}
+          onPress={() => {
+            const pressEpoch = currentUserMessageBodyPress();
+            queueMicrotask(() => {
+              const effect = userMessageBodyPressEffect(takeUserMessageInnerPress(pressEpoch));
+              if (effect.expand && opensBody) setExpanded(true);
+              if (effect.toggleMeta && hasMeta) setMetaOpen(!metaOpen);
+            });
+          }}
+        >
+          {attachments.length > 0 ? (
+            <UserAttachmentChips
+              attachments={attachments}
+              expanded={expanded}
+              hasText={Boolean(text)}
+            />
+          ) : null}
+          {showPasteChips && paste ? (
             <Text
-              numberOfLines={collapsed ? userMessageCollapsedLineLimit() : undefined}
-              onTextLayout={onTextLayout}
               selectable
               style={{
                 color: chatForeground(theme.isDark),
@@ -445,12 +401,55 @@ export function UserMessage({ message }: { message: AgentMessage }) {
                 lineHeight: TEXT_LINE_HEIGHT,
               }}
             >
-              <UserMessageLinkedText text={display} />
+              {paste.segments.map((segment, index) =>
+                segment.type === "paste" ? (
+                  <Text
+                    key={`${segment.token}:${index}`}
+                    onPress={() => claimUserMessageInnerPress("paste")}
+                    style={{
+                      backgroundColor: pasteChipFill(theme.isDark),
+                      borderColor: pasteChipBorder(theme.isDark),
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      color: chatForeground(theme.isDark),
+                      fontSize: PASTE_CHIP_FONT,
+                      fontWeight: "500",
+                      lineHeight: PASTE_CHIP_HEIGHT,
+                      paddingHorizontal: PASTE_CHIP_PAD_X,
+                    }}
+                  >
+                    <ClipboardIcon
+                      color={chatForeground(theme.isDark)}
+                      size={PASTE_CHIP_ICON}
+                      strokeWidth={2}
+                      style={{ marginRight: PASTE_CHIP_GAP }}
+                    />
+                    {pasteChipLabel(segment.lineCount)}
+                  </Text>
+                ) : (
+                  <UserMessageLinkedText key={`text:${index}`} text={segment.value} />
+                ),
+              )}
             </Text>
-            {collapsed ? <UserMessageCollapseFade /> : null}
-          </View>
-        ) : null}
-      </Pressable>
+          ) : text ? (
+            <View style={{ position: "relative" }}>
+              <Text
+                numberOfLines={collapsed ? userMessageCollapsedLineLimit() : undefined}
+                onTextLayout={onTextLayout}
+                selectable
+                style={{
+                  color: chatForeground(theme.isDark),
+                  fontSize: 14,
+                  lineHeight: TEXT_LINE_HEIGHT,
+                }}
+              >
+                <UserMessageLinkedText text={display} />
+              </Text>
+              {collapsed ? <UserMessageCollapseFade /> : null}
+            </View>
+          ) : null}
+        </Pressable>
+      </View>
       {hasMeta ? (
         <UserMessageMeta entryId={entryId} open={metaOpen} text={text} time={time} />
       ) : null}

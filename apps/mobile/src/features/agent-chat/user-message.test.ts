@@ -133,6 +133,13 @@ describe("user message", () => {
     expect(source).toContain("const TEXT_LINE_HEIGHT = 21");
     expect(source).toContain("opacity: pending ? 0.65 : 1");
     expect(source).toContain('width: "100%"');
+    const bubbleRegion = source.slice(
+      source.indexOf("style={bubbleStyle}"),
+      source.indexOf("<UserMessageMeta"),
+    );
+    const bubbleOpens = bubbleRegion.match(/<View[\s>]/g)?.length ?? 0;
+    const bubbleCloses = bubbleRegion.match(/<\/View>/g)?.length ?? 0;
+    expect(bubbleCloses).toBe(bubbleOpens + 1);
     expect(source).toContain("formatUserMessageTime");
     expect(source).toContain("copy.copyUserAria");
     expect(source).toContain("CopyMessageButton");
