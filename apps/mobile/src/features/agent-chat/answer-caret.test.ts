@@ -1,6 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
 import { answerShowsBlockCaret } from "./answer-caret";
+import { copy } from "./copy";
 
 const show = (text: string, extra?: { reduced?: boolean; tail?: boolean }) =>
   answerShowsBlockCaret({
@@ -10,6 +11,10 @@ const show = (text: string, extra?: { reduced?: boolean; tail?: boolean }) =>
   });
 
 describe("answer block caret", () => {
+  test("uses Streamdown's block caret", () => {
+    expect(copy.answerCaret).toBe("\u258b");
+  });
+
   test("shows on the animating prose tail", () => {
     expect(show("Hello")).toBe(true);
     expect(show("Hello", { tail: false })).toBe(false);

@@ -172,7 +172,8 @@ export const copy = {
     failed: "Failed",
     completed: "Completed",
   },
-  answerCaret: "\u258d",
+  /** Streamdown `caret="block"` is a space plus U+258B. */
+  answerCaret: "\u258b",
   session: {
     creating: "Creating session...",
     created: "Created session",
