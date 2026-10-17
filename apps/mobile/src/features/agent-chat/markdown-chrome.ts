@@ -190,6 +190,26 @@ export const PROSE_BULLET_DARK = "#4a5565";
 export const PROSE_COUNTER_LIGHT = "#6a7282";
 export const PROSE_COUNTER_DARK = "#99a1af";
 
+/**
+ * Typography `prose-sm` lists keep the marker outside the text. The list pad is
+ * `em(22, 14)` and each item adds `em(6, 14)`. A nested list repeats that pair.
+ * The disc is centered on the list pad, so it sits half its width into the item
+ * pad. Answer lists stay `list-inside` and do not use this column.
+ */
+export function agentChatProseListLayout(fontSize: number): {
+  gapWidth: number;
+  marginLeft: number;
+  markerMinWidth: number;
+} {
+  const listPad = (22 / 14) * fontSize;
+  const itemPad = (6 / 14) * fontSize;
+  return {
+    gapWidth: itemPad,
+    marginLeft: listPad + itemPad,
+    markerMinWidth: listPad,
+  };
+}
+
 export function agentChatProseInk(isDark: boolean): {
   body: string;
   bold: string;

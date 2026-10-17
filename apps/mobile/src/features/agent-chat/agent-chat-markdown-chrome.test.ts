@@ -20,6 +20,7 @@ import {
   agentChatBlockquote,
   agentChatProseBlockquote,
   agentChatProseInk,
+  agentChatProseListLayout,
   agentChatHeadingStyle,
   agentChatLinkColor,
   agentChatMarkdownChrome,
@@ -225,6 +226,12 @@ describe("agent chat markdown chrome", () => {
       counter: "#99a1af",
       link: "#ffffff",
     });
+    expect(agentChatProseListLayout(13)).toEqual({
+      gapWidth: (6 / 14) * 13,
+      marginLeft: 26,
+      markerMinWidth: (22 / 14) * 13,
+    });
+    expect(markdown).toContain("...agentChatProseListLayout(resolvedFontSize)");
     expect(markdown).toContain("const bodyColor = proseInk?.body ?? proseColor");
     expect(markdown).toContain("bulletColor: proseInk?.bullet ?? proseColor");
     expect(markdown).toContain("markerColor: proseInk?.counter ?? proseColor");
