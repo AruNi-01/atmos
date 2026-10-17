@@ -17,6 +17,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { CHAT_AMBER } from "./amber-color";
 import type { CardId } from "./card-lane";
 import { HideScrollEdge } from "./hide-scroll-edge";
 import { useReducedMotion } from "./motion/use-reduced-motion";
@@ -210,9 +211,7 @@ function CardPillButton({
           >
             {pill.title}
           </Text>
-          {pill.attention ? (
-            <View style={[styles.dot, { backgroundColor: theme.colors.yellow }]} />
-          ) : null}
+          {pill.attention ? <View style={[styles.dot, { backgroundColor: CHAT_AMBER }]} /> : null}
         </View>
       </GlassPanel>
     </Pressable>

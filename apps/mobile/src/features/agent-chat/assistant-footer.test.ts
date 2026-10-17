@@ -301,7 +301,9 @@ describe("assistant footer", () => {
     expect(session).toContain("TriangleAlert");
     expect(session).toContain("size={14}");
     expect(session).toContain("chatDestructiveColor");
+    expect(session).toContain("CHAT_AMBER");
     expect(session).not.toContain("colors.red");
+    expect(session).not.toContain("colors.yellow");
   });
 
   test("file change counts use the same addition and deletion colors as the tool row", () => {

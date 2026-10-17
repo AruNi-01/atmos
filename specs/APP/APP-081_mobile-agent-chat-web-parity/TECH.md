@@ -130,7 +130,7 @@ Rules (unit-tested in `card-lane.test.ts`):
 5. On first load with no approval pending, `visible` is `null` and every available card has a pill. (Default-collapsed keeps the transcript readable on a phone; revisit after AruNi sees the first build.)
 6. Pill order is a fixed priority: `permission`, `session_op`, `plan`, `queue`, `background`, `subagents`, `goal`, `workflow`, `context`.
 7. The reducer knows nothing about scroll-to-bottom. That pill is not a card (D10).
-8. A pending `permission` / `session_op` pill that is collapsed shows an attention dot; the agent stays blocked until it is answered.
+8. A pending `permission` / `session_op` pill that is collapsed shows an attention dot; the agent stays blocked until it is answered. The dot is Tailwind `amber-500` (`#fe9a00` in both themes), the same solid as web `bg-amber-500` on a permission status.
 
 ### Pill row view (`ComposerPillRow.tsx`)
 
@@ -190,15 +190,15 @@ All durations and easings come from `agent-tree-branch.ts` constants (shared per
 
 Documented and tested (G-30). Values stay owned by their theme; this table fixes which role maps to which.
 
-| Web role (Tailwind token)              | Phone role (`useMobileTheme().colors`)                                                                    | Use                              |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `text-foreground`                      | `label`                                                                                                   | answer text, user text           |
-| `text-muted-foreground`                | `secondaryLabel`                                                                                          | group rows, thinking, worked-for |
-| `bg-secondary` (user bubble)           | `cardSubtle` on `background` (verify contrast in both schemes; replaces hard-coded `#242424` / `#f2f1ef`) | user bubble                      |
-| `border` / `bg-foreground/[0.04]`      | `glassBorder` / `cardSubtle`                                                                              | rails, card chrome, code blocks  |
-| `text-destructive`, `bg-destructive/5` | `red`, `redSurface`, `redBorder`                                                                          | error part, failed lifecycle     |
-| amber tone (hint warning)              | `yellow`                                                                                                  | session hint                     |
-| `text-sm` / `text-xs`                  | 14 px / 20 line and 12 px / 16 line                                                                       | text sizes                       |
+| Web role (Tailwind token)                        | Phone role (`useMobileTheme().colors`)                                                                    | Use                              |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `text-foreground`                                | `label`                                                                                                   | answer text, user text           |
+| `text-muted-foreground`                          | `secondaryLabel`                                                                                          | group rows, thinking, worked-for |
+| `bg-secondary` (user bubble)                     | `cardSubtle` on `background` (verify contrast in both schemes; replaces hard-coded `#242424` / `#f2f1ef`) | user bubble                      |
+| `border` / `bg-foreground/[0.04]`                | `glassBorder` / `cardSubtle`                                                                              | rails, card chrome, code blocks  |
+| `text-destructive`, `bg-destructive/5`           | `red`, `redSurface`, `redBorder`                                                                          | error part, failed lifecycle     |
+| `text-amber-500` (hint warning; no dark variant) | `#fe9a00` (`CHAT_AMBER`) in both themes. Not theme `yellow`.                                              | session hint                     |
+| `text-sm` / `text-xs`                            | 14 px / 20 line and 12 px / 16 line                                                                       | text sizes                       |
 
 ## Data model
 

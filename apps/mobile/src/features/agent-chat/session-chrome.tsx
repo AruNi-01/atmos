@@ -8,6 +8,7 @@ import {
   TriangleAlert,
 } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { CHAT_AMBER } from "./amber-color";
 import { sessionChromeCopy, type SessionChromeIcon, type SessionChromeTone } from "./copy";
 import { chatDestructiveColor } from "./destructive-color";
 
@@ -32,7 +33,7 @@ function toneColor(
   tone: SessionChromeTone,
 ): string {
   if (tone === "failed" || tone === "error") return chatDestructiveColor(isDark);
-  if (tone === "warning") return colors.yellow;
+  if (tone === "warning") return CHAT_AMBER;
   return colors.secondaryLabel;
 }
 
