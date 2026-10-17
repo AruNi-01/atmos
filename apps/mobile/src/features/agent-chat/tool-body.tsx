@@ -21,7 +21,12 @@ import { copy, fillTemplate, formatCountChoice } from "./copy";
 export const TOOL_BODY_LINE_CAP = 12;
 const DIFF_LINE_LIMIT = 120;
 
-export type UnifiedDiffLine = { op: "add" | "del" | "ctx"; text: string };
+export type UnifiedDiffLine = {
+  op: "add" | "del" | "ctx";
+  text: string;
+  oldNo: number | null;
+  newNo: number | null;
+};
 
 export type ImageGenStatus = "queued" | "generating" | "refining" | "complete" | "error";
 
@@ -447,26 +452,82 @@ function diffLines(oldLines: string[], newLines: string[]): UnifiedDiffLine[] {
   const lines: UnifiedDiffLine[] = [];
   let row = 0;
   let column = 0;
+  let oldNo = 1;
+  let newNo = 1;
+  const push = (op: UnifiedDiffLine["op"], text: string) => {
+    if (op === "ctx") {
+      lines.push({ op, text, oldNo, newNo });
+      oldNo += 1;
+      newNo += 1;
+      return;
+    }
+    if (op === "del") {
+      lines.push({ op, text, oldNo, newNo: null });
+      oldNo += 1;
+      return;
+    }
+    lines.push({ op, text, oldNo: null, newNo });
+    newNo += 1;
+  };
   while (row < oldLines.length && column < newLines.length) {
     if (oldLines[row] === newLines[column]) {
-      lines.push({ op: "ctx", text: oldLines[row]! });
+      push("ctx", oldLines[row]!);
       row += 1;
       column += 1;
     } else if (scores[row + 1]![column]! >= scores[row]![column + 1]!) {
-      lines.push({ op: "del", text: oldLines[row]! });
+      push("del", oldLines[row]!);
       row += 1;
     } else {
-      lines.push({ op: "add", text: newLines[column]! });
+      push("add", newLines[column]!);
       column += 1;
     }
   }
   while (row < oldLines.length) {
-    lines.push({ op: "del", text: oldLines[row]! });
+    push("del", oldLines[row]!);
     row += 1;
   }
   while (column < newLines.length) {
-    lines.push({ op: "add", text: newLines[column]! });
+    push("add", newLines[column]!);
     column += 1;
+  }
+  return lines;
+}
+
+/** Unified patch lines with hunk line numbers. File headers and hunk markers are skipped. */
+export function patchDiffLines(patch: string): UnifiedDiffLine[] {
+  const lines: UnifiedDiffLine[] = [];
+  let oldNo = 1;
+  let newNo = 1;
+  for (const raw of patch.split("\n")) {
+    if (
+      raw.startsWith("@@") ||
+      raw.startsWith("---") ||
+      raw.startsWith("+++") ||
+      raw.startsWith("diff ") ||
+      raw.startsWith("index ")
+    ) {
+      const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)/.exec(raw);
+      if (hunk) {
+        oldNo = Number(hunk[1]);
+        newNo = Number(hunk[2]);
+      }
+      continue;
+    }
+    if (raw.startsWith("+")) {
+      lines.push({ op: "add", text: raw.slice(1), oldNo: null, newNo });
+      newNo += 1;
+      continue;
+    }
+    if (raw.startsWith("-")) {
+      lines.push({ op: "del", text: raw.slice(1), oldNo, newNo: null });
+      oldNo += 1;
+      continue;
+    }
+    if (raw.startsWith(" ")) {
+      lines.push({ op: "ctx", text: raw.slice(1), oldNo, newNo });
+      oldNo += 1;
+      newNo += 1;
+    }
   }
   return lines;
 }
@@ -706,6 +767,9 @@ export const TOOL_CODE_MAX_HEIGHT = 384;
 /** Web `max-h-56` on the terminal command line. */
 export const TOOL_COMMAND_MAX_HEIGHT = 224;
 
+/** Web discussion diff `max-h-[28rem]`. */
+export const TOOL_DIFF_MAX_HEIGHT = 448;
+
 /**
  * Web `TerminalBlock` keeps the command and paints a failed run in red.
  * An empty command and empty output use the shared empty line instead.
@@ -848,17 +912,6 @@ export function ToolDiffStats({ additions, deletions }: { additions: number; del
         <Text style={{ color: theme.colors.secondaryLabel }}> / </Text>
       ) : null}
       {additions > 0 ? <Text style={{ color: theme.colors.green }}>+{additions}</Text> : null}
-    </Text>
-  );
-}
-
-function DiffCounts({ additions, deletions }: { additions: number; deletions: number }) {
-  const theme = useMobileTheme();
-  return (
-    <Text style={{ fontFamily: "Menlo", fontSize: 12, lineHeight: 16 }}>
-      <Text style={{ color: theme.colors.green }}>+{additions}</Text>
-      <Text style={{ color: theme.colors.secondaryLabel }}> </Text>
-      <Text style={{ color: theme.colors.red }}>-{deletions}</Text>
     </Text>
   );
 }
@@ -1028,35 +1081,102 @@ function CappedMono({ text }: { text: string }) {
   );
 }
 
-function DiffLines({ lines }: { lines: UnifiedDiffLine[] }) {
+function DiscussionDiff({
+  path,
+  lines,
+  fallback,
+}: {
+  path: string | null;
+  lines: UnifiedDiffLine[];
+  fallback?: string;
+}) {
   const theme = useMobileTheme();
-  const [expanded, setExpanded] = useState(false);
-  const shown =
-    expanded || lines.length <= TOOL_BODY_LINE_CAP ? lines : lines.slice(0, TOOL_BODY_LINE_CAP);
-  if (lines.length === 0) return null;
+  const gutter = {
+    color: theme.colors.secondaryLabel,
+    fontFamily: "Menlo",
+    fontSize: 12,
+    lineHeight: 20,
+    minWidth: 28,
+    paddingHorizontal: 4,
+    textAlign: "right",
+  } as const;
   return (
-    <View style={{ gap: 4 }}>
-      {shown.map((line, index) => {
-        const color =
-          line.op === "add"
-            ? theme.colors.green
-            : line.op === "del"
-              ? theme.colors.red
-              : theme.colors.label;
-        const prefix = line.op === "add" ? "+" : line.op === "del" ? "-" : " ";
-        return (
+    <View
+      style={{
+        borderColor: theme.colors.glassBorder,
+        borderRadius: 8,
+        borderWidth: 1,
+        overflow: "hidden",
+      }}
+    >
+      {path ? (
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: theme.colors.cardSubtle,
+            borderBottomColor: theme.colors.separator,
+            borderBottomWidth: 1,
+            flexDirection: "row",
+            gap: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+          }}
+        >
+          <FileTextIcon color={theme.colors.secondaryLabel} size={16} strokeWidth={2} />
           <Text
-            key={`${line.op}:${index}`}
-            selectable
-            style={{ color, fontFamily: "Menlo", fontSize: 14, lineHeight: 20 }}
+            numberOfLines={1}
+            style={{
+              color: theme.colors.label,
+              flexShrink: 1,
+              fontFamily: "Menlo",
+              fontSize: 12,
+              lineHeight: 16,
+              opacity: 0.8,
+            }}
           >
-            {prefix}
-            {line.text}
+            {path}
           </Text>
-        );
-      })}
-      {lines.length > TOOL_BODY_LINE_CAP ? (
-        <ShowMoreButton expanded={expanded} onPress={() => setExpanded((current) => !current)} />
+        </View>
+      ) : null}
+      {lines.length > 0 ? (
+        <HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT}>
+          {lines.map((line, index) => (
+            <View
+              key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
+              style={{
+                backgroundColor:
+                  line.op === "add"
+                    ? theme.colors.greenSurface
+                    : line.op === "del"
+                      ? theme.colors.redSurface
+                      : undefined,
+                flexDirection: "row",
+              }}
+            >
+              <Text style={gutter}>{line.oldNo ?? ""}</Text>
+              <Text style={gutter}>{line.newNo ?? ""}</Text>
+              <Text
+                selectable
+                style={{
+                  color:
+                    line.op === "add"
+                      ? theme.colors.green
+                      : line.op === "del"
+                        ? theme.colors.red
+                        : theme.colors.label,
+                  flexShrink: 1,
+                  fontFamily: "Menlo",
+                  fontSize: 13,
+                  lineHeight: 20,
+                }}
+              >
+                {line.text.length > 0 ? line.text : " "}
+              </Text>
+            </View>
+          ))}
+        </HeightClip>
+      ) : fallback ? (
+        <CappedMono text={fallback} />
       ) : null}
     </View>
   );
@@ -1341,13 +1461,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       return (
         <View style={{ gap: 8 }}>
           {model.files.map((file, index) => (
-            <View key={`${file.path}:${index}`} style={{ gap: 4 }}>
-              <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
-                <PathChip path={file.path} />
-                <DiffCounts additions={file.additions} deletions={file.deletions} />
-              </View>
-              <DiffLines lines={file.lines} />
-            </View>
+            <DiscussionDiff key={`${file.path}:${index}`} lines={file.lines} path={file.path} />
           ))}
         </View>
       );
@@ -1370,10 +1484,11 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       );
     case "patch":
       return (
-        <View style={{ gap: 4 }}>
-          {model.path ? <PathChip path={model.path} /> : null}
-          <CappedMono text={model.text} />
-        </View>
+        <DiscussionDiff
+          fallback={model.text}
+          lines={patchDiffLines(model.text)}
+          path={model.path}
+        />
       );
     case "code":
       return <ToolCodeFence language={model.language} text={model.text} />;

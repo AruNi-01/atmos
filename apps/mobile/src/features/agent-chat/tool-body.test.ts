@@ -32,7 +32,12 @@ type Body = {
     path: string;
     additions: number;
     deletions: number;
-    lines: Array<{ op: string; text: string }>;
+    lines: Array<{
+      op: string;
+      text: string;
+      oldNo?: number | null;
+      newNo?: number | null;
+    }>;
   }>;
   links?: Array<{ title: string; url: string; openable: boolean }>;
   items?: Array<{ content?: string; status?: string } | { uri: string } | { path: string }>;
@@ -71,7 +76,11 @@ describe("tool body presentation", () => {
     expect(diff.files?.[0]?.path).toBe("a.ts");
     expect(diff.files?.[0]?.additions).toBe(1);
     expect(diff.files?.[0]?.deletions).toBe(1);
-    expect(diff.files?.[0]?.lines.map((line) => line.op)).toEqual(["ctx", "del", "add"]);
+    expect(diff.files?.[0]?.lines).toEqual([
+      { op: "ctx", text: "a", oldNo: 1, newNo: 1 },
+      { op: "del", text: "b", oldNo: 2, newNo: null },
+      { op: "add", text: "c", oldNo: null, newNo: 2 },
+    ]);
 
     const stats = await call(
       part({
@@ -91,6 +100,35 @@ describe("tool body presentation", () => {
     expect(statsBody).toContain("ToolDiffStats");
     expect(statsBody).not.toContain("PathChip");
     expect(statsBody).not.toContain("DiffCounts");
+    const discussion = view.slice(
+      view.indexOf("function DiscussionDiff"),
+      view.indexOf("function fetchRowUrl"),
+    );
+    expect(discussion).toContain("TOOL_DIFF_MAX_HEIGHT");
+    expect(discussion).toContain("greenSurface");
+    expect(discussion).toContain("redSurface");
+    expect(discussion).toContain("FileTextIcon");
+    expect(discussion).not.toContain("PathChip");
+    expect(discussion).not.toContain("DiffCounts");
+    const diffCase = view.slice(view.indexOf('case "diff":'), view.indexOf('case "diff_stats":'));
+    expect(diffCase).toContain("DiscussionDiff");
+    const patchCase = view.slice(view.indexOf('case "patch":'), view.indexOf('case "code":'));
+    expect(patchCase).toContain("patchDiffLines");
+    expect(patchCase).not.toContain("CappedMono");
+    expect(patchCase).not.toContain("PathChip");
+    const mod = await importPure("tool-body.tsx");
+    expect(mod.TOOL_DIFF_MAX_HEIGHT).toBe(448);
+    const patchLines = mod.patchDiffLines as (patch: string) => Array<{
+      op: string;
+      text: string;
+      oldNo: number | null;
+      newNo: number | null;
+    }>;
+    expect(patchLines("@@ -1,2 +1,2 @@\n a\n-b\n+c\n")).toEqual([
+      { op: "ctx", text: "a", oldNo: 1, newNo: 1 },
+      { op: "del", text: "b", oldNo: 2, newNo: null },
+      { op: "add", text: "c", oldNo: null, newNo: 2 },
+    ]);
 
     const patch = await call(
       part({
