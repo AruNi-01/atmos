@@ -34,7 +34,8 @@ export async function importPure(filename: string): Promise<Record<string, unkno
       'from "@atmos/agent-transcript"',
       `from "${join(workspace, "packages/agent-transcript/src/index.ts")}"`,
     )
-    .replaceAll('from "./copy"', `from "${join(here, "copy.ts")}"`);
+    .replaceAll('from "./copy"', `from "${join(here, "copy.ts")}"`)
+    .replaceAll('from "./tool-diff-hunks"', `from "${join(here, "tool-diff-hunks.ts")}"`);
   // @ts-expect-error Bun.Transpiler is provided by the test runtime
   const js = new Bun.Transpiler({ loader: "tsx" }).transformSync(head);
   const out = join(tmpdir(), `atmos-pure-${filename.replace(/\.tsx$/, "")}.js`);

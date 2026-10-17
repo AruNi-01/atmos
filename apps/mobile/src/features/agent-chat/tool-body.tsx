@@ -20,9 +20,9 @@ import {
   type ToolPresentation,
 } from "@atmos/agent-transcript";
 import { copy, fillTemplate, formatCountChoice } from "./copy";
+import { toolDiffSegments, type ToolDiffSegment } from "./tool-diff-hunks";
 
 export const TOOL_BODY_LINE_CAP = 12;
-const DIFF_LINE_LIMIT = 120;
 
 export type UnifiedDiffLine = {
   op: "add" | "del" | "ctx";
@@ -50,6 +50,7 @@ export type ToolBodyModel =
         additions: number;
         deletions: number;
         lines: UnifiedDiffLine[];
+        segments: ToolDiffSegment[];
       }>;
     }
   | { kind: "diff_stats"; title: string; path: string | null; additions: number; deletions: number }
@@ -441,76 +442,13 @@ export function imageGenFields(
 export function unifiedLineDiff(
   oldContent: string,
   newContent: string,
-): { lines: UnifiedDiffLine[]; additions: number; deletions: number; clipped: boolean } {
-  const oldLines = splitToolLines(oldContent);
-  const newLines = splitToolLines(newContent);
-  const clipped = oldLines.length > DIFF_LINE_LIMIT || newLines.length > DIFF_LINE_LIMIT;
-  const lines = diffLines(oldLines.slice(0, DIFF_LINE_LIMIT), newLines.slice(0, DIFF_LINE_LIMIT));
-  let additions = 0;
-  let deletions = 0;
-  for (const line of lines) {
-    if (line.op === "add") additions += 1;
-    else if (line.op === "del") deletions += 1;
-  }
-  return { lines, additions, deletions, clipped };
-}
-
-function diffLines(oldLines: string[], newLines: string[]): UnifiedDiffLine[] {
-  const rowCount = oldLines.length + 1;
-  const columnCount = newLines.length + 1;
-  const scores: number[][] = Array.from({ length: rowCount }, () =>
-    new Array<number>(columnCount).fill(0),
-  );
-  for (let row = oldLines.length - 1; row >= 0; row -= 1) {
-    for (let column = newLines.length - 1; column >= 0; column -= 1) {
-      scores[row]![column] =
-        oldLines[row] === newLines[column]
-          ? scores[row + 1]![column + 1]! + 1
-          : Math.max(scores[row + 1]![column]!, scores[row]![column + 1]!);
-    }
-  }
-  const lines: UnifiedDiffLine[] = [];
-  let row = 0;
-  let column = 0;
-  let oldNo = 1;
-  let newNo = 1;
-  const push = (op: UnifiedDiffLine["op"], text: string) => {
-    if (op === "ctx") {
-      lines.push({ op, text, oldNo, newNo });
-      oldNo += 1;
-      newNo += 1;
-      return;
-    }
-    if (op === "del") {
-      lines.push({ op, text, oldNo, newNo: null });
-      oldNo += 1;
-      return;
-    }
-    lines.push({ op, text, oldNo: null, newNo });
-    newNo += 1;
-  };
-  while (row < oldLines.length && column < newLines.length) {
-    if (oldLines[row] === newLines[column]) {
-      push("ctx", oldLines[row]!);
-      row += 1;
-      column += 1;
-    } else if (scores[row + 1]![column]! >= scores[row]![column + 1]!) {
-      push("del", oldLines[row]!);
-      row += 1;
-    } else {
-      push("add", newLines[column]!);
-      column += 1;
-    }
-  }
-  while (row < oldLines.length) {
-    push("del", oldLines[row]!);
-    row += 1;
-  }
-  while (column < newLines.length) {
-    push("add", newLines[column]!);
-    column += 1;
-  }
-  return lines;
+): {
+  lines: UnifiedDiffLine[];
+  segments: ToolDiffSegment[];
+  additions: number;
+  deletions: number;
+} {
+  return toolDiffSegments(oldContent, newContent);
 }
 
 /** Unified patch lines with hunk line numbers. File headers and hunk markers are skipped. */
@@ -603,6 +541,7 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
             additions: diff.additions,
             deletions: diff.deletions,
             lines: diff.lines,
+            segments: diff.segments,
           };
         }),
       };
@@ -1139,6 +1078,17 @@ import { chatForeground, chatForeground80, chatMutedForeground } from "./chat-in
 import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
 import { toolDiffLineWordPieces, toolDiffWordFill } from "./tool-diff-words";
+import {
+  TOOL_DIFF_SEPARATOR_HEIGHT,
+  TOOL_DIFF_SEPARATOR_INSET,
+  TOOL_DIFF_SEPARATOR_RADIUS,
+  toolDiffRevealMore,
+  toolDiffSegmentsFromPatch,
+  toolDiffSeparatorFill,
+  toolDiffUnmodifiedLabel,
+  toolDiffVisibleRows,
+  type ToolDiffReveal,
+} from "./tool-diff-hunks";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { TextShimmer } from "./motion/text-shimmer";
@@ -1560,14 +1510,17 @@ function DiffDeletionBar({ band, ink }: { band: string; ink: string }) {
 
 function DiscussionDiff({
   path,
-  lines,
+  segments,
   fallback,
 }: {
   path: string | null;
-  lines: UnifiedDiffLine[];
+  segments: ToolDiffSegment[];
   fallback?: string;
 }) {
   const theme = useMobileTheme();
+  const [revealed, setRevealed] = useState<Record<number, ToolDiffReveal>>({});
+  const rows = toolDiffVisibleRows(segments, revealed);
+  const lines = rows.flatMap((row) => (row.kind === "line" ? [row.line] : []));
   const wordPieces = toolDiffLineWordPieces(lines);
   const numberWidth = toolDiffNumberColumnWidth(toolDiffLastNumber(lines));
   const borderColor = theme.isDark ? TOOL_DIFF_BORDER_DARK : TOOL_DIFF_BORDER_LIGHT;
@@ -1625,99 +1578,145 @@ function DiscussionDiff({
             </Text>
           </View>
         ) : null}
-        {lines.length > 0 ? (
+        {rows.length > 0 ? (
           <HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT}>
-            {lines.map((line, index) => {
-              const changed = line.op === "add" || line.op === "del";
-              const pieces = wordPieces[index];
-              const wordFill =
-                line.op === "add" || line.op === "del"
-                  ? toolDiffWordFill(line.op, theme.isDark)
-                  : undefined;
-              return (
-                <View
-                  key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
-                  style={{ flexDirection: "row" }}
-                >
-                  {line.op === "add" ? (
-                    <View
-                      pointerEvents="none"
-                      style={{
-                        backgroundColor: numberInk("add"),
-                        bottom: 0,
-                        left: 0,
-                        position: "absolute",
-                        top: 0,
-                        width: TOOL_DIFF_BAR,
+            {(() => {
+              let lineIndex = 0;
+              return rows.map((row, index) => {
+                if (row.kind === "gap") {
+                  return (
+                    <Pressable
+                      key={`gap:${row.segment}:${index}`}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setRevealed((current) => ({
+                          ...current,
+                          [row.segment]: toolDiffRevealMore(current[row.segment], row.edge),
+                        }));
                       }}
-                    />
-                  ) : null}
-                  {line.op === "del" ? (
-                    <DiffDeletionBar
-                      band={toolDiffLineFill("del", theme.isDark)}
-                      ink={numberInk("del")}
-                    />
-                  ) : null}
-                  <Text
-                    style={{
-                      backgroundColor: changed
-                        ? toolDiffNumberFill(line.op, theme.isDark)
-                        : undefined,
-                      color: numberInk(line.op),
-                      flexShrink: 0,
-                      fontFamily: "Menlo",
-                      fontSize: TOOL_DIFF_CODE_FONT,
-                      lineHeight: TOOL_DIFF_LINE_HEIGHT,
-                      minWidth: numberWidth,
-                      paddingLeft: TOOL_DIFF_NUMBER_PAD_LEFT,
-                      paddingRight: TOOL_DIFF_NUMBER_PAD_RIGHT,
-                      textAlign: "right",
-                    }}
-                  >
-                    {toolDiffUnifiedLineNo(line) ?? ""}
-                  </Text>
-                  <View
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      flexShrink: 0,
-                      width: TOOL_DIFF_GUTTER_RULE,
-                    }}
-                  />
-                  <View
-                    style={{
-                      backgroundColor: changed
-                        ? toolDiffLineFill(line.op, theme.isDark)
-                        : undefined,
-                      flex: 1,
-                    }}
-                  >
-                    <Text
-                      selectable
                       style={{
-                        color: chatForeground(theme.isDark),
+                        backgroundColor: theme.colors.background,
+                        height: TOOL_DIFF_SEPARATOR_HEIGHT,
+                        justifyContent: "center",
+                        paddingHorizontal: TOOL_DIFF_SEPARATOR_INSET,
+                      }}
+                    >
+                      <View
+                        style={{
+                          backgroundColor: toolDiffSeparatorFill(theme.isDark),
+                          borderRadius: TOOL_DIFF_SEPARATOR_RADIUS,
+                          flex: 1,
+                          justifyContent: "center",
+                          paddingHorizontal: TOOL_DIFF_SEPARATOR_INSET,
+                        }}
+                      >
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            color: toolDiffContextNumber(theme.isDark),
+                            fontSize: TOOL_DIFF_CODE_FONT,
+                            lineHeight: TOOL_DIFF_LINE_HEIGHT,
+                          }}
+                        >
+                          {toolDiffUnmodifiedLabel(row.count)}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                }
+                const line = row.line;
+                const changed = line.op === "add" || line.op === "del";
+                const pieces = wordPieces[lineIndex];
+                lineIndex += 1;
+                const wordFill =
+                  line.op === "add" || line.op === "del"
+                    ? toolDiffWordFill(line.op, theme.isDark)
+                    : undefined;
+                return (
+                  <View
+                    key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
+                    style={{ flexDirection: "row" }}
+                  >
+                    {line.op === "add" ? (
+                      <View
+                        pointerEvents="none"
+                        style={{
+                          backgroundColor: numberInk("add"),
+                          bottom: 0,
+                          left: 0,
+                          position: "absolute",
+                          top: 0,
+                          width: TOOL_DIFF_BAR,
+                        }}
+                      />
+                    ) : null}
+                    {line.op === "del" ? (
+                      <DiffDeletionBar
+                        band={toolDiffLineFill("del", theme.isDark)}
+                        ink={numberInk("del")}
+                      />
+                    ) : null}
+                    <Text
+                      style={{
+                        backgroundColor: changed
+                          ? toolDiffNumberFill(line.op, theme.isDark)
+                          : undefined,
+                        color: numberInk(line.op),
+                        flexShrink: 0,
                         fontFamily: "Menlo",
                         fontSize: TOOL_DIFF_CODE_FONT,
                         lineHeight: TOOL_DIFF_LINE_HEIGHT,
-                        paddingHorizontal: TOOL_DIFF_CODE_PAD,
+                        minWidth: numberWidth,
+                        paddingLeft: TOOL_DIFF_NUMBER_PAD_LEFT,
+                        paddingRight: TOOL_DIFF_NUMBER_PAD_RIGHT,
+                        textAlign: "right",
                       }}
                     >
-                      {pieces && pieces.length > 0
-                        ? pieces.map((piece, pieceIndex) => (
-                            <Text
-                              key={pieceIndex}
-                              style={piece.changed ? { backgroundColor: wordFill } : undefined}
-                            >
-                              {piece.text}
-                            </Text>
-                          ))
-                        : line.text.length > 0
-                          ? line.text
-                          : " "}
+                      {toolDiffUnifiedLineNo(line) ?? ""}
                     </Text>
+                    <View
+                      style={{
+                        backgroundColor: theme.colors.background,
+                        flexShrink: 0,
+                        width: TOOL_DIFF_GUTTER_RULE,
+                      }}
+                    />
+                    <View
+                      style={{
+                        backgroundColor: changed
+                          ? toolDiffLineFill(line.op, theme.isDark)
+                          : undefined,
+                        flex: 1,
+                      }}
+                    >
+                      <Text
+                        selectable
+                        style={{
+                          color: chatForeground(theme.isDark),
+                          fontFamily: "Menlo",
+                          fontSize: TOOL_DIFF_CODE_FONT,
+                          lineHeight: TOOL_DIFF_LINE_HEIGHT,
+                          paddingHorizontal: TOOL_DIFF_CODE_PAD,
+                        }}
+                      >
+                        {pieces && pieces.length > 0
+                          ? pieces.map((piece, pieceIndex) => (
+                              <Text
+                                key={pieceIndex}
+                                style={piece.changed ? { backgroundColor: wordFill } : undefined}
+                              >
+                                {piece.text}
+                              </Text>
+                            ))
+                          : line.text.length > 0
+                            ? line.text
+                            : " "}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              });
+            })()}
           </HeightClip>
         ) : fallback ? (
           <CappedMono text={fallback} />
@@ -2172,7 +2171,11 @@ function ToolBodyView({
       return (
         <View style={{ gap: 8 }}>
           {model.files.map((file, index) => (
-            <DiscussionDiff key={`${file.path}:${index}`} lines={file.lines} path={file.path} />
+            <DiscussionDiff
+              key={`${file.path}:${index}`}
+              path={file.path}
+              segments={file.segments}
+            />
           ))}
         </View>
       );
@@ -2197,8 +2200,8 @@ function ToolBodyView({
       return (
         <DiscussionDiff
           fallback={model.text}
-          lines={patchDiffLines(model.text)}
           path={model.path}
+          segments={toolDiffSegmentsFromPatch(model.text)}
         />
       );
     case "code":

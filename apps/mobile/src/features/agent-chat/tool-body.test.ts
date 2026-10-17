@@ -141,6 +141,9 @@ describe("tool body presentation", () => {
     expect(discussion).toContain("toolDiffLineWordPieces(lines)");
     expect(discussion).toContain("toolDiffWordFill(line.op, theme.isDark)");
     expect(discussion).toContain("piece.changed ? { backgroundColor: wordFill }");
+    expect(discussion).toContain("toolDiffVisibleRows(segments, revealed)");
+    expect(discussion).toContain("toolDiffUnmodifiedLabel(row.count)");
+    expect(discussion).toContain("TOOL_DIFF_SEPARATOR_HEIGHT");
     expect(discussion).not.toContain("minWidth: 28");
     expect(discussion).toContain("FileTextIcon");
     expect(discussion).not.toContain("PathChip");
@@ -150,7 +153,7 @@ describe("tool body presentation", () => {
     const diffCase = view.slice(view.indexOf('case "diff":'), view.indexOf('case "diff_stats":'));
     expect(diffCase).toContain("DiscussionDiff");
     const patchCase = view.slice(view.indexOf('case "patch":'), view.indexOf('case "code":'));
-    expect(patchCase).toContain("patchDiffLines");
+    expect(patchCase).toContain("toolDiffSegmentsFromPatch");
     expect(patchCase).not.toContain("CappedMono");
     expect(patchCase).not.toContain("PathChip");
     const mod = await importPure("tool-body.tsx");
