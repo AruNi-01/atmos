@@ -4,6 +4,7 @@ import {
   agentChatInspectExpandKey,
   agentChatPlanExpandKey,
   agentChatProcessExpandKey,
+  agentChatThinkingExpandKey,
   agentChatToolExpandKey,
   agentChatToolGroupExpandKey,
   agentChatUserBodyExpandKey,
@@ -22,6 +23,7 @@ describe("agent chat expand store", () => {
     expect(agentChatInspectExpandKey("a1")).toBe("inspect:a1");
     expect(agentChatToolGroupExpandKey("a1", "g2")).toBe("group:a1:g2");
     expect(agentChatToolExpandKey("call-1")).toBe("tool:call-1");
+    expect(agentChatThinkingExpandKey("a1", 2)).toBe("thinking:a1:2");
     expect(agentChatPlanExpandKey("chat-9")).toBe("plan:chat-9");
     expect(agentChatUserBodyExpandKey("entry-42")).toBe("user-body:entry-42");
     expect(agentChatUserMetaExpandKey("entry-42")).toBe("user-meta:entry-42");

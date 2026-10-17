@@ -52,6 +52,15 @@ export function agentChatToolExpandKey(toolCallId: string): string {
   return `tool:${toolCallId}`;
 }
 
+/**
+ * Parity-tree key for a thinking part.
+ * Web keeps this toggle on the Reasoning component. The phone stores it
+ * so a recycled row keeps the user's choice.
+ */
+export function agentChatThinkingExpandKey(messageId: string, origIndex: number): string {
+  return `thinking:${messageId}:${origIndex}`;
+}
+
 export function agentChatPlanExpandKey(scope: string): string {
   return `plan:${scope}`;
 }

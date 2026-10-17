@@ -222,10 +222,12 @@ function segmentKey(messageId: string, segment: AssistantSegment): string {
 
 function InlinePart({
   message,
+  origIndex,
   part,
   surface,
 }: {
   message: AgentMessage;
+  origIndex: number;
   part: AgentPart;
   surface: "timeline" | "wait";
 }) {
@@ -237,7 +239,15 @@ function InlinePart({
   }
   if (part.type === "text") return <AnswerText part={part} parts={message.parts} />;
   if (part.type === "thinking") {
-    return <ThinkingBlock part={part} parts={message.parts} thinkingMs={message.thinking_ms} />;
+    return (
+      <ThinkingBlock
+        messageId={message.id}
+        origIndex={origIndex}
+        part={part}
+        parts={message.parts}
+        thinkingMs={message.thinking_ms}
+      />
+    );
   }
   if (part.type === "error") return <ErrorPart part={part} />;
   if (
@@ -268,11 +278,20 @@ function SegmentView({
         onInspect={onInspect}
         origIndexes={segment.origIndexes}
         parts={segment.parts}
-        renderPart={(part) => <InlinePart message={message} part={part} surface="timeline" />}
+        renderPart={(part, origIndex) => (
+          <InlinePart message={message} origIndex={origIndex} part={part} surface="timeline" />
+        )}
       />
     );
   }
-  return <InlinePart message={message} part={segment.part} surface="timeline" />;
+  return (
+    <InlinePart
+      message={message}
+      origIndex={segment.origIndex}
+      part={segment.part}
+      surface="timeline"
+    />
+  );
 }
 
 function assistantHasVisiblePart(message: AgentMessage): boolean {
@@ -318,7 +337,9 @@ function AssistantTurn({
       <WaitForBlock
         messageId={message.id}
         parts={message.parts}
-        renderPart={(part) => <InlinePart message={message} part={part} surface="wait" />}
+        renderPart={(part, index) => (
+          <InlinePart message={message} origIndex={index} part={part} surface="wait" />
+        )}
       />
       {processSegments.length > 0 ? (
         <ProcessFold canCollapse={canCollapse} message={message}>
