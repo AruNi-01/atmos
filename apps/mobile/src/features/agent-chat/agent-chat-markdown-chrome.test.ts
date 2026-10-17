@@ -27,6 +27,15 @@ import {
   THEMATIC_BREAK_MARGIN,
 } from "./markdown-chrome";
 
+/** Same RGB step as `from` → `to`, applied to `page`. */
+function steppedFill(from: string, to: string, page: string): string {
+  const channels = (hex: string) =>
+    [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
+  const [fromRgb, toRgb, pageRgb] = [from, to, page].map((hex) => channels(hex.slice(1)));
+  const next = pageRgb.map((channel, index) => channel + toRgb[index]! - fromRgb[index]!);
+  return `#${next.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
 describe("agent chat markdown chrome", () => {
   test("uses zinc table and inline-code colors instead of the library defaults", () => {
     const light = agentChatMarkdownChrome(false);
@@ -36,7 +45,8 @@ describe("agent chat markdown chrome", () => {
     expect(light.codeBackground).not.toBe("#f4f4f6");
     expect(light.codeText).toBe("#27272a");
     expect(light.codeBorder).toBe("rgba(0,0,0,0)");
-    expect(light.headerBackground).toBe("#f4f4f5");
+    expect(light.headerBackground).toBe(steppedFill("#ffffff", "#f4f4f5", "#f4f4f6"));
+    expect(light.headerBackground).toBe("#e9e9ec");
     expect(light.border).toBe("#e4e4e7");
     expect(light.row).toBe("#f4f4f6");
     expect(light.fenceBackground).toBe("#eeeeef");

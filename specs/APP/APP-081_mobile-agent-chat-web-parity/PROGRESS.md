@@ -400,3 +400,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - A strikethrough line uses the surrounding text color. Streamdown draws `<del>` in `currentColor`, and the phone default was gray-400. Thinking uses the muted ink. This is not in run `39073054458`. It is not re-shot.
 - An ordered-list number uses the item weight. Streamdown's `list-decimal` does not set `font-medium`, and the phone marker default was 500. This is not in run `39073054458`. It is not re-shot.
 - A markdown image uses the 10px `rounded-lg` corner. Streamdown's image is `rounded-lg`, and this app's `--radius` is 10px. The phone default was 8. The height box stays the library default. This is not in run `39073054458`. It is not re-shot.
+- A light table header sits the same step below the phone page as zinc-100 sits below white. Zinc-100 on `#f4f4f6` disappears. The band is `#e9e9ec`, and the zinc-200 rule stays darker. This is not in run `39073054458`. It is not re-shot.

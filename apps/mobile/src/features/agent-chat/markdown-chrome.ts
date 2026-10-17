@@ -214,6 +214,8 @@ export const agentChatBlockMetrics = {
  * Dark header and border are those alphas composited on black. Inline code has no border.
  * Web paints inline code zinc-100 (`#f4f4f5`) on a white page. The phone page is
  * `#f4f4f6`, so that token disappears. Light chips use zinc-200 (`#e4e4e7`).
+ * The header band is the same step below the phone page as zinc-100 is below
+ * white (11, 11, 10), so the zinc-200 rule stays darker than the band.
  * Dark stays zinc-800 on black.
  * Fence syntax colors follow web Shiki `github-light` / `github-dark`.
  * The native fence paints this frame, then a page-colored code pane (`h-9` header,
@@ -248,7 +250,7 @@ export function agentChatMarkdownChrome(isDark: boolean) {
     };
   }
   return {
-    headerBackground: "#f4f4f5",
+    headerBackground: "#e9e9ec",
     headerText: "#3f3f46",
     bodyText: "#52525b",
     border: "#e4e4e7",
