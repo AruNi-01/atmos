@@ -104,6 +104,7 @@ describe("web source parity", () => {
       .split("\n")
       .filter((line) => line.startsWith("+") && !line.startsWith("+++"));
     expect(addedLines.join("\n")).not.toContain("doc.on.doc");
+    expect(addedLines.join("\n")).not.toContain('@"99."');
     expect(patch).toContain("language.uppercaseString");
     expect(patch).toContain("pointSize * 0.05");
     expect(patch).toContain("kENRMWebHeaderHeight = 36.0");
@@ -157,6 +158,10 @@ describe("web source parity", () => {
     expect(patch).toContain('weight:@"500"');
     expect(patch).toContain("Streamdown strong is font-semibold");
     expect(patch).toContain('weight:@"600"');
+    expect(patch).toContain("Streamdown ordered lists are `list-inside`");
+    expect(patch).toContain("effectiveListMarginLeftForNumber:(NSInteger)number");
+    expect(patch).toContain("effectiveListMarginLeftForNumber:currentPosition");
+    expect(patch).toContain('stringWithFormat:@"%ld."');
     expect(patch).toContain("Agent chat table headers are font-semibold");
     expect(patch).toContain('isHeader ? @"600"');
     expect(patch).toContain("Web clears the first heading");

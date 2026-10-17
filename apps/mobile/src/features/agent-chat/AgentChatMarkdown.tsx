@@ -106,6 +106,7 @@ export function AgentChatMarkdown({
         // Streamdown lists are `list-inside`. The disc's left edge is the
         // text edge; `gapWidth` is the space before the words. A marker
         // minimum would park that 5px disc at the right of a wide column.
+        // Ordered labels use the width of the digits they draw (`1.`, `10.`).
         // `marginLeft` is the nested-level indent (`[li_&]:pl-6`).
         bulletColor: proseColor,
         bulletSize: 5,

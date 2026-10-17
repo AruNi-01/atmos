@@ -232,6 +232,15 @@ diff --git a/ios/renderer/ListItemRenderer.m b/ios/renderer/ListItemRenderer.m
 index 204fc1851..6cbf9730e 100644
 --- a/ios/renderer/ListItemRenderer.m
 +++ b/ios/renderer/ListItemRenderer.m
+@@ -49,7 +49,7 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
+   // currentDepth - 1 handles the horizontal offset for nested lists
+   const NSInteger nestingLevel = currentDepth - 1;
+   const CGFloat baseMarkerWidth = isTask                                  ? [_config effectiveListMarginLeftForTask]
+-                                  : (context.listType == ListTypeOrdered) ? [_config effectiveListMarginLeftForNumber]
++                                  : (context.listType == ListTypeOrdered) ? [_config effectiveListMarginLeftForNumber:currentPosition]
+                                                                           : [_config effectiveListMarginLeftForBullet];
+ 
+   const CGFloat blockquoteIndent =
 @@ -137,6 +137,7 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
      NSMutableDictionary *attributesToApply = [metadata mutableCopy];
      attributesToApply[NSParagraphStyleAttributeName] = style;
@@ -314,6 +323,15 @@ diff --git a/ios/styles/StyleConfig.h b/ios/styles/StyleConfig.h
 index 89ff9e9c8..101254354 100644
 --- a/ios/styles/StyleConfig.h
 +++ b/ios/styles/StyleConfig.h
+@@ -288,7 +288,7 @@ NS_ASSUME_NONNULL_BEGIN
+ - (UIFont *)listStyleFont;
+ - (CGFloat)effectiveListGapWidth;
+ - (CGFloat)effectiveListMarginLeftForBullet;
+-- (CGFloat)effectiveListMarginLeftForNumber;
++- (CGFloat)effectiveListMarginLeftForNumber:(NSInteger)number;
+ - (CGFloat)effectiveListMarginLeftForTask;
+ // Code block properties
+ - (CGFloat)codeBlockFontSize;
 @@ -315,6 +315,10 @@ NS_ASSUME_NONNULL_BEGIN
  - (void)setCodeBlockBorderWidth:(CGFloat)newValue;
  - (CGFloat)codeBlockPadding;
@@ -361,7 +379,25 @@ index cabaa0873..73a9278a2 100644
                                               variant:nil
                                       scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_blockquoteFontSize]];
      _blockquoteFont.needsRecreation = NO;
-@@ -2103,6 +2108,26 @@ static const CGFloat kDefaultMinGap = 4.0;
+@@ -1963,11 +1968,15 @@ static const CGFloat kDefaultMinGap = 4.0;
+   return MAX(_listStyleMarkerMinWidth, _listStyleBulletSize / 2.0);
+ }
+ 
+-- (CGFloat)effectiveListMarginLeftForNumber
++// Streamdown ordered lists are `list-inside`. The label is only as wide as
++// the digits it draws, so `1.` starts on the text edge instead of in a
++// shared `99.` column.
++- (CGFloat)effectiveListMarginLeftForNumber:(NSInteger)number
+ {
+   UIFont *font = [self listMarkerFont];
++  NSString *text = [NSString stringWithFormat:@"%ld.", (long)number];
+   CGFloat natural =
+-      [@"99." sizeWithAttributes:@{NSFontAttributeName : font ?: [UIFont systemFontOfSize:_listStyleFontSize]}].width;
++      [text sizeWithAttributes:@{NSFontAttributeName : font ?: [UIFont systemFontOfSize:_listStyleFontSize]}].width;
+   return MAX(_listStyleMarkerMinWidth, natural);
+ }
+ 
+@@ -2103,6 +2112,26 @@ static const CGFloat kDefaultMinGap = 4.0;
    _codeBlockPadding = newValue;
  }
  
