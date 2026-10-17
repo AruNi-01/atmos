@@ -979,7 +979,7 @@ import {
   XCircleIcon,
 } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
-import { chatForeground, chatMutedForeground } from "./chat-ink";
+import { chatForeground, chatForeground80, chatMutedForeground } from "./chat-ink";
 import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
@@ -1009,7 +1009,7 @@ function PathChip({ path }: { path: string }) {
         paddingVertical: 2,
       }}
     >
-      <Text numberOfLines={1} style={{ ...CHIP_TEXT, color: theme.colors.label }}>
+      <Text numberOfLines={1} style={{ ...CHIP_TEXT, color: chatForeground(theme.isDark) }}>
         {path}
       </Text>
     </View>
@@ -1023,7 +1023,7 @@ export function ToolDiffStats({ additions, deletions }: { additions: number; del
     <Text style={{ fontFamily: "Menlo", fontSize: 12, lineHeight: 16 }}>
       {deletions > 0 ? <Text style={{ color: TOOL_DELETION_COLOR }}>-{deletions}</Text> : null}
       {deletions > 0 && additions > 0 ? (
-        <Text style={{ color: theme.colors.secondaryLabel, marginHorizontal: 4 }}>/</Text>
+        <Text style={{ color: chatMutedForeground(theme.isDark), marginHorizontal: 4 }}>/</Text>
       ) : null}
       {additions > 0 ? <Text style={{ color: TOOL_ADDITION_COLOR }}>+{additions}</Text> : null}
     </Text>
@@ -1104,13 +1104,13 @@ function ExecuteTerminal({
             selectable
             style={{
               ...mono,
-              color: theme.colors.label,
+              color: chatForeground(theme.isDark),
               paddingHorizontal: 12,
               paddingTop: 10,
               paddingBottom: output ? 0 : 10,
             }}
           >
-            <Text style={{ color: theme.colors.secondaryLabel }}>$ </Text>
+            <Text style={{ color: chatMutedForeground(theme.isDark) }}>$ </Text>
             {command}
           </Text>
         </HeightClip>
@@ -1121,7 +1121,9 @@ function ExecuteTerminal({
             selectable
             style={{
               ...mono,
-              color: failed ? chatDestructiveColor(theme.isDark) : theme.colors.secondaryLabel,
+              color: failed
+                ? chatDestructiveColor(theme.isDark)
+                : chatMutedForeground(theme.isDark),
               paddingHorizontal: 12,
               paddingTop: command ? 4 : 10,
               paddingBottom: 10,
@@ -1152,7 +1154,7 @@ function ToolPlainPreview({ text }: { text: string }) {
             {numbered ? (
               <Text
                 style={{
-                  color: theme.colors.secondaryLabel,
+                  color: chatMutedForeground(theme.isDark),
                   fontFamily: "Menlo",
                   fontSize: 12,
                   lineHeight: 20,
@@ -1168,7 +1170,7 @@ function ToolPlainPreview({ text }: { text: string }) {
             <Text
               selectable
               style={{
-                color: theme.colors.label,
+                color: chatForeground(theme.isDark),
                 flexShrink: 1,
                 fontFamily: "Menlo",
                 fontSize: 14,
@@ -1195,7 +1197,7 @@ function CappedMono({ text }: { text: string }) {
       <Text
         selectable
         style={{
-          color: theme.colors.label,
+          color: chatMutedForeground(theme.isDark),
           fontFamily: "Menlo",
           fontSize: 14,
           lineHeight: 20,
@@ -1268,12 +1270,11 @@ function DiscussionDiff({
             <Text
               numberOfLines={1}
               style={{
-                color: theme.colors.label,
+                color: chatForeground80(theme.isDark),
                 flexShrink: 1,
                 fontFamily: "Menlo",
                 fontSize: 12,
                 lineHeight: 16,
-                opacity: 0.8,
               }}
             >
               {path}
@@ -1305,7 +1306,7 @@ function DiscussionDiff({
                         ? theme.colors.green
                         : line.op === "del"
                           ? theme.colors.red
-                          : theme.colors.label,
+                          : chatForeground(theme.isDark),
                     flexShrink: 1,
                     fontFamily: "Menlo",
                     fontSize: 13,
@@ -1340,7 +1341,7 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
       {model.script ? (
         <Text
           style={{
-            color: theme.colors.label,
+            color: chatForeground(theme.isDark),
             fontFamily: "Menlo",
             fontSize: 13,
             lineHeight: 20,
@@ -1349,7 +1350,7 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
             paddingTop: 10,
           }}
         >
-          <Text style={{ color: theme.colors.secondaryLabel }}>$ </Text>
+          <Text style={{ color: chatMutedForeground(theme.isDark) }}>$ </Text>
           {model.script}
         </Text>
       ) : null}
@@ -1364,9 +1365,8 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
                     numberOfLines={1}
                     style={{
                       ...LISTED_PATH_TEXT,
-                      color: theme.colors.label,
+                      color: chatForeground80(theme.isDark),
                       flexShrink: 1,
-                      opacity: 0.8,
                     }}
                   >
                     {group.shown}
@@ -1381,7 +1381,7 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
                       <Text
                         style={{
                           ...line,
-                          color: theme.colors.secondaryLabel,
+                          color: chatMutedForeground(theme.isDark),
                           textAlign: "right",
                           width: 40,
                         }}
@@ -1390,7 +1390,9 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
                       </Text>
                     ) : null}
                     {hit.text ? (
-                      <Text style={{ ...line, color: theme.colors.secondaryLabel, flexShrink: 1 }}>
+                      <Text
+                        style={{ ...line, color: chatMutedForeground(theme.isDark), flexShrink: 1 }}
+                      >
                         {hit.text}
                       </Text>
                     ) : null}
@@ -1408,7 +1410,7 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
           <Text
             selectable
             style={{
-              color: theme.colors.secondaryLabel,
+              color: chatMutedForeground(theme.isDark),
               fontSize: 14,
               lineHeight: 23,
               paddingHorizontal: 12,
@@ -1457,9 +1459,8 @@ function FileListBody({ paths, shown }: { paths: string[]; shown: string[] }) {
               numberOfLines={1}
               style={{
                 ...LISTED_PATH_TEXT,
-                color: theme.colors.label,
+                color: chatForeground80(theme.isDark),
                 flexShrink: 1,
-                opacity: 0.8,
               }}
             >
               {shown[index] || path}
@@ -1494,7 +1495,7 @@ function TreeListBody({ rows }: { rows: ToolTreeRow[] }) {
                 numberOfLines={1}
                 style={{
                   ...LISTED_PATH_TEXT,
-                  color: theme.colors.secondaryLabel,
+                  color: chatMutedForeground(theme.isDark),
                   flexShrink: 1,
                 }}
               >
@@ -1507,9 +1508,8 @@ function TreeListBody({ rows }: { rows: ToolTreeRow[] }) {
                   numberOfLines={1}
                   style={{
                     ...LISTED_PATH_TEXT,
-                    color: theme.colors.label,
+                    color: chatForeground80(theme.isDark),
                     flexShrink: 1,
-                    opacity: 0.8,
                   }}
                 >
                   {row.name}
@@ -1542,7 +1542,7 @@ function TodoStatusRows({ items }: { items: Array<{ content: string; status: Tod
           >
             <View accessibilityLabel={todoStatusLabel(item.status)} style={{ marginTop: 2 }}>
               <Icon
-                color={completed ? TOOL_ADDITION_COLOR : theme.colors.secondaryLabel}
+                color={completed ? TOOL_ADDITION_COLOR : chatMutedForeground(theme.isDark)}
                 size={14}
                 strokeWidth={2}
               />
@@ -1550,7 +1550,7 @@ function TodoStatusRows({ items }: { items: Array<{ content: string; status: Tod
             <Text
               style={{
                 ...BODY_TEXT,
-                color: completed ? theme.colors.secondaryLabel : theme.colors.label,
+                color: completed ? chatMutedForeground(theme.isDark) : chatForeground(theme.isDark),
                 flexShrink: 1,
                 textDecorationLine: completed ? "line-through" : "none",
               }}
@@ -1578,7 +1578,7 @@ function ImageGenMark({ status }: { status: ImageGenStatus }) {
     return () => loop.stop();
   }, [active, reduced, spin]);
   if (status === "complete") {
-    return <CheckIcon color={theme.colors.label} size={14} strokeWidth={2} />;
+    return <CheckIcon color={chatForeground(theme.isDark)} size={14} strokeWidth={2} />;
   }
   if (status === "error") {
     return <CircleAlertIcon color={chatDestructiveColor(theme.isDark)} size={14} strokeWidth={2} />;
@@ -1589,7 +1589,7 @@ function ImageGenMark({ status }: { status: ImageGenStatus }) {
         <View
           key={index}
           style={{
-            backgroundColor: theme.colors.label,
+            backgroundColor: chatForeground(theme.isDark),
             borderRadius: 1,
             height: 4,
             opacity,
@@ -1671,7 +1671,7 @@ function ImageGenBody({ model }: { model: Extract<ToolBodyModel, { kind: "image_
                     color:
                       model.status === "error"
                         ? chatDestructiveColor(theme.isDark)
-                        : theme.colors.label,
+                        : chatForeground(theme.isDark),
                     flexShrink: 1,
                     fontSize: 14,
                     fontWeight: "500",
@@ -1685,7 +1685,7 @@ function ImageGenBody({ model }: { model: Extract<ToolBodyModel, { kind: "image_
             {model.prompt ? (
               <Text
                 numberOfLines={1}
-                style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}
+                style={{ color: chatMutedForeground(theme.isDark), fontSize: 12, lineHeight: 16 }}
               >
                 {`“${model.prompt}”`}
               </Text>
@@ -1708,7 +1708,7 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
       {model.overview ? (
         <Text
           style={{
-            color: theme.colors.secondaryLabel,
+            color: chatMutedForeground(theme.isDark),
             fontSize: 12,
             lineHeight: 16,
             paddingHorizontal: 12,
@@ -1725,11 +1725,11 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
           style={{ alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 4 }}
         >
           {showing === "body" ? (
-            <ListTodoIcon color={theme.colors.secondaryLabel} size={12} strokeWidth={2} />
+            <ListTodoIcon color={chatMutedForeground(theme.isDark)} size={12} strokeWidth={2} />
           ) : (
-            <ScrollTextIcon color={theme.colors.secondaryLabel} size={12} strokeWidth={2} />
+            <ScrollTextIcon color={chatMutedForeground(theme.isDark)} size={12} strokeWidth={2} />
           )}
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 11, lineHeight: 16 }}>
+          <Text style={{ color: chatMutedForeground(theme.isDark), fontSize: 11, lineHeight: 16 }}>
             {planPaneSwitchLabel(showing, model.todos.length)}
           </Text>
         </Pressable>
@@ -1743,7 +1743,7 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
       {!hasBody && !hasTodos ? (
         <Text
           style={{
-            color: theme.colors.secondaryLabel,
+            color: chatMutedForeground(theme.isDark),
             fontSize: 12,
             lineHeight: 16,
             paddingHorizontal: 12,
@@ -1760,12 +1760,11 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
 function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subagent" }> }) {
   const theme = useMobileTheme();
   const movePathStyle = {
-    color: theme.colors.label,
+    color: chatForeground80(theme.isDark),
     flexShrink: 1,
     fontFamily: "Menlo",
     fontSize: 12,
     lineHeight: 16,
-    opacity: 0.8,
   } as const;
   switch (model.kind) {
     case "diff":
@@ -1787,7 +1786,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
             paddingVertical: 4,
           }}
         >
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+          <Text style={{ color: chatMutedForeground(theme.isDark), fontSize: 12, lineHeight: 16 }}>
             {copy.lineChanges}
           </Text>
           <ToolDiffStats additions={model.additions} deletions={model.deletions} />
@@ -1826,7 +1825,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
             color:
               model.format === "error"
                 ? chatDestructiveColor(theme.isDark)
-                : theme.colors.secondaryLabel,
+                : chatMutedForeground(theme.isDark),
             ...(model.format === "error" ? BODY_TEXT : { fontSize: 14, lineHeight: 23 }),
             paddingHorizontal: 12,
             paddingVertical: 8,
@@ -1863,7 +1862,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         <Text
           selectable
           style={{
-            color: theme.colors.secondaryLabel,
+            color: chatMutedForeground(theme.isDark),
             fontSize: 14,
             lineHeight: 23,
             paddingHorizontal: 12,
@@ -1893,7 +1892,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
           </Text>
           <View accessibilityLabel={copy.moveTo}>
             <ArrowRightIcon
-              color={theme.colors.secondaryLabel}
+              color={chatMutedForeground(theme.isDark)}
               size={toolTriggerMetrics.iconSize}
               strokeWidth={2}
             />
@@ -1908,7 +1907,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         <Text
           style={{
             ...BODY_TEXT,
-            color: theme.colors.secondaryLabel,
+            color: chatMutedForeground(theme.isDark),
             paddingHorizontal: 12,
             paddingVertical: 8,
           }}
@@ -1938,7 +1937,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
           {model.message ? (
             <Text
               style={{
-                color: theme.colors.secondaryLabel,
+                color: chatMutedForeground(theme.isDark),
                 fontSize: 12,
                 lineHeight: 16,
                 paddingHorizontal: 12,

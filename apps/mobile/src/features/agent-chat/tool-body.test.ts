@@ -879,6 +879,8 @@ describe("execute terminal", () => {
     expect(terminal).toContain("paddingBottom: 10");
     expect(terminal).toContain("terminalAnsiPieces(output)");
     expect(terminal).toContain("chatDestructiveColor(theme.isDark)");
+    expect(terminal).toContain("chatForeground(theme.isDark)");
+    expect(terminal).toContain("chatMutedForeground(theme.isDark)");
     expect(terminal).not.toContain("theme.colors.red");
     expect(terminal).not.toContain("AgentChatMarkdown");
     const trigger = source.slice(source.indexOf("export function ToolCallRow"));

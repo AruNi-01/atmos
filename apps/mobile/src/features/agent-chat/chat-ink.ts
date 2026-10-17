@@ -16,6 +16,11 @@ export function chatForeground(isDark: boolean): string {
   return isDark ? CHAT_FOREGROUND_DARK : CHAT_FOREGROUND_LIGHT;
 }
 
+/** Web `text-foreground/80` on listed paths and the discussion diff header. */
+export function chatForeground80(isDark: boolean): string {
+  return isDark ? "rgba(250, 250, 250, 0.8)" : "rgba(9, 9, 11, 0.8)";
+}
+
 export function chatMutedForeground(isDark: boolean): string {
   return isDark ? CHAT_MUTED_DARK : CHAT_MUTED_LIGHT;
 }
