@@ -86,8 +86,11 @@ export function agentChatProseMetrics(kind: AgentChatProseKind): {
 
 /**
  * Tailwind preflight zeros `p` and `ul` margins. Streamdown list items are
- * `py-1`. Agent fences and tables use `my-4`, and fence text is `text-sm leading-5`.
- * Fence and table frames use web `rounded-lg` (`--radius`, 10px).
+ * `py-1` (4px). That pad is the list margin: 8px between items is the two
+ * pads added, and the list's own 4px is the outer pad. A list that ends the
+ * message still drops the bottom margin. Agent fences and tables use `my-4`,
+ * and fence text is `text-sm leading-5`. Fence and table frames use web
+ * `rounded-lg` (`--radius`, 10px).
  */
 /**
  * Web reasoning `[&_p]:my-1`, then `mt-0` on the first paragraph and `mb-0` on
@@ -160,7 +163,7 @@ export function agentChatLinkColor(isDark: boolean): string {
 
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: 0 },
-  list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },
+  list: { marginTop: 4, marginBottom: 4, itemSpacing: 8 },
   codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 10 },
   table: { marginTop: 16, marginBottom: 16, borderRadius: 10 },
 } as const;

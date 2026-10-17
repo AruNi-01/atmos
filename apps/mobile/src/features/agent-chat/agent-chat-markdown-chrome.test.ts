@@ -111,7 +111,7 @@ describe("agent chat markdown chrome", () => {
   test("matches web block margins", () => {
     expect(agentChatBlockMetrics.paragraph).toEqual({ marginTop: 0, marginBottom: 0 });
     expect(THINKING_PARAGRAPH_MARGIN).toBe(4);
-    expect(agentChatBlockMetrics.list).toEqual({ marginTop: 0, marginBottom: 0, itemSpacing: 8 });
+    expect(agentChatBlockMetrics.list).toEqual({ marginTop: 4, marginBottom: 4, itemSpacing: 8 });
     expect(agentChatBlockMetrics.codeBlock).toMatchObject({
       marginTop: 16,
       marginBottom: 16,
