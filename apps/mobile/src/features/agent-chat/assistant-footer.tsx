@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import type { AgentMessage, AgentPart, AgentTurnUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import { CoinsIcon } from "@/ui/icons/lucide-native";
@@ -10,7 +16,9 @@ import {
   filesChangedLabel,
   filesShowMoreLabel,
   workedForPresentation,
+  workedForVisibleKind,
 } from "./copy";
+import { useReducedMotion } from "./motion/use-reduced-motion";
 import {
   collectTurnFileChanges,
   fileChangeName,
@@ -119,6 +127,12 @@ function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
   );
 }
 
+const WORKED_FOR_SWAP_MS = 200;
+const WORKED_FOR_SWAP = {
+  duration: WORKED_FOR_SWAP_MS,
+  easing: Easing.bezier(0, 0, 0.58, 1),
+} as const;
+
 function WorkedForLabel({
   completedAt,
   workedMs,
@@ -127,32 +141,57 @@ function WorkedForLabel({
   workedMs: number | null | undefined;
 }) {
   const theme = useMobileTheme();
+  const reduced = useReducedMotion();
   const presentation = workedForPresentation(workedMs, completedAt);
-  const [showClock, setShowClock] = useState(false);
-  if (!presentation.durationLabel && !presentation.clock) return null;
-  const canSwap = Boolean(presentation.durationLabel && presentation.clock);
-  const text =
-    presentation.durationLabel && (!canSwap || !showClock)
-      ? presentation.durationLabel
-      : (presentation.clock ?? presentation.durationLabel);
+  const [showDuration, setShowDuration] = useState(false);
+  const hasDuration = presentation.durationLabel != null;
+  const hasClock = presentation.clock != null;
+  const visible = workedForVisibleKind({ hasClock, hasDuration, showDuration });
+  const durationOpacity = useSharedValue(visible === "duration" ? 1 : 0);
+  const clockOpacity = useSharedValue(visible === "clock" ? 1 : 0);
 
-  if (!canSwap) {
+  useEffect(() => {
+    const nextDuration = visible === "duration" ? 1 : 0;
+    const nextClock = visible === "clock" ? 1 : 0;
+    if (reduced) {
+      durationOpacity.set(nextDuration);
+      clockOpacity.set(nextClock);
+      return;
+    }
+    durationOpacity.set(withTiming(nextDuration, WORKED_FOR_SWAP));
+    clockOpacity.set(withTiming(nextClock, WORKED_FOR_SWAP));
+  }, [clockOpacity, durationOpacity, reduced, visible]);
+
+  const durationStyle = useAnimatedStyle(() => ({ opacity: durationOpacity.get() }));
+  const clockStyle = useAnimatedStyle(() => ({ opacity: clockOpacity.get() }));
+
+  if (visible == null) return null;
+  const textStyle = { color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 };
+  if (!hasDuration || !hasClock) {
     return (
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-        {text}
-      </Text>
+      <Text style={textStyle}>{hasDuration ? presentation.durationLabel : presentation.clock}</Text>
     );
   }
 
+  const label = visible === "duration" ? presentation.durationLabel : presentation.clock;
   return (
     <Pressable
+      accessibilityLabel={label ?? undefined}
       accessibilityRole="button"
       hitSlop={8}
-      onPress={() => setShowClock((current) => !current)}
+      onPress={() => setShowDuration((current) => !current)}
     >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-        {text}
-      </Text>
+      <View>
+        <Text accessible={false} style={[textStyle, styles.sizer]}>
+          {presentation.clock}
+        </Text>
+        <Animated.Text style={[textStyle, styles.overlay, clockStyle]}>
+          {presentation.clock}
+        </Animated.Text>
+        <Animated.Text style={[textStyle, styles.overlay, durationStyle]}>
+          {presentation.durationLabel}
+        </Animated.Text>
+      </View>
     </Pressable>
   );
 }
@@ -255,3 +294,14 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    left: 0,
+    position: "absolute",
+    top: 0,
+  },
+  sizer: {
+    opacity: 0,
+  },
+});

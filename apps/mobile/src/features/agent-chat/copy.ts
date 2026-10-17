@@ -220,6 +220,21 @@ export function workedForPresentation(
   };
 }
 
+/**
+ * Web footer uses `reveal="timestamp"`: the clock is showing until hover.
+ * A tap on the phone stands in for that hover.
+ */
+export function workedForVisibleKind(input: {
+  hasClock: boolean;
+  hasDuration: boolean;
+  showDuration: boolean;
+}): "clock" | "duration" | null {
+  if (input.hasClock && input.hasDuration) return input.showDuration ? "duration" : "clock";
+  if (input.hasDuration) return "duration";
+  if (input.hasClock) return "clock";
+  return null;
+}
+
 /** Matches web `getThinkingMessage`: open or zero seconds stays on the streaming title. */
 export function thinkingTitle(isStreaming: boolean, seconds: number | undefined): string {
   if (isStreaming || seconds === 0) return copy.thinkingStream;

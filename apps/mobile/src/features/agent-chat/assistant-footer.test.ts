@@ -16,6 +16,7 @@ import {
   sessionChromeCopy,
   thinkingTitle,
   workedForPresentation,
+  workedForVisibleKind,
 } from "./copy";
 import {
   collectTurnFileChanges,
@@ -47,6 +48,25 @@ describe("assistant footer", () => {
     expect(clockOnly.durationLabel).toBeNull();
     expect(clockOnly.clock).toBe(withWork.clock);
     expect(workedForPresentation(0, "not-a-date").clock).toBeNull();
+    expect(workedForVisibleKind({ hasClock: true, hasDuration: true, showDuration: false })).toBe(
+      "clock",
+    );
+    expect(workedForVisibleKind({ hasClock: true, hasDuration: true, showDuration: true })).toBe(
+      "duration",
+    );
+    expect(workedForVisibleKind({ hasClock: false, hasDuration: true, showDuration: false })).toBe(
+      "duration",
+    );
+    expect(workedForVisibleKind({ hasClock: true, hasDuration: false, showDuration: true })).toBe(
+      "clock",
+    );
+    expect(
+      workedForVisibleKind({ hasClock: false, hasDuration: false, showDuration: false }),
+    ).toBeNull();
+    const footer = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
+    expect(footer).toContain("workedForVisibleKind");
+    expect(footer).toContain("WORKED_FOR_SWAP_MS = 200");
+    expect(footer).toContain("setShowDuration");
   });
 
   test("hides ended chrome until the turn completes with text, usage, or work", () => {
