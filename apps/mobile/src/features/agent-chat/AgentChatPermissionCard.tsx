@@ -100,9 +100,11 @@ function ApprovalShell({ children }: { children: ReactNode }) {
 
 function QuestionPermission({
   onRespond,
+  readOnly = false,
   request,
 }: {
   onRespond: (input: { requestId: string; optionId: string }) => void;
+  readOnly?: boolean;
   request: AgentChatPermissionPrompt;
 }) {
   const theme = useMobileTheme();
@@ -114,6 +116,7 @@ function QuestionPermission({
   const safeStep = Math.min(step, Math.max(questions.length - 1, 0));
   const question = questions[safeStep];
   const canContinue = permissionQuestionsCanContinue(questions, answers);
+  const showQuestionFooter = !readOnly || questions.length > 1;
 
   useEffect(
     () => () => {
@@ -189,9 +192,13 @@ function QuestionPermission({
             return (
               <Pressable
                 accessibilityRole="radio"
-                accessibilityState={{ selected }}
+                accessibilityState={{ disabled: readOnly, selected }}
+                disabled={readOnly}
                 key={option}
-                onPress={() => selectOption(option)}
+                onPress={() => {
+                  if (readOnly) return;
+                  selectOption(option);
+                }}
                 style={{
                   alignItems: "center",
                   backgroundColor: selected ? tone.optionSelected : "transparent",
@@ -239,108 +246,116 @@ function QuestionPermission({
           })}
         </View>
       </View>
-      <View
-        style={{
-          alignItems: "center",
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 8,
-          justifyContent: "space-between",
-          paddingLeft: 2,
-          paddingTop: 4,
-        }}
-      >
+      {showQuestionFooter ? (
         <View
-          accessibilityLabel={`Question ${safeStep + 1} of ${questions.length}`}
-          style={{ alignItems: "center", flexDirection: "row", gap: 4 }}
+          style={{
+            alignItems: "center",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8,
+            justifyContent: "space-between",
+            paddingLeft: 2,
+            paddingTop: 4,
+          }}
         >
-          <Pressable
-            accessibilityLabel={copy.previousQuestion}
-            accessibilityState={{ disabled: safeStep <= 0 }}
-            disabled={safeStep <= 0}
-            hitSlop={6}
-            onPress={() => goToStep(safeStep - 1)}
-            style={{ opacity: safeStep <= 0 ? 0.28 : 1 }}
+          <View
+            accessibilityLabel={`Question ${safeStep + 1} of ${questions.length}`}
+            style={{ alignItems: "center", flexDirection: "row", gap: 4 }}
           >
-            <ChevronUp color={tone.quiet} size={14} strokeWidth={2} />
-          </Pressable>
-          <Text
-            style={{
-              color: tone.quiet,
-              fontSize: 12,
-              fontVariant: ["tabular-nums"],
-              fontWeight: "500",
-              lineHeight: 16,
-            }}
-          >
-            {`${safeStep + 1} / ${questions.length}`}
-          </Text>
-          <Pressable
-            accessibilityLabel={copy.nextQuestion}
-            accessibilityState={{ disabled: safeStep >= questions.length - 1 }}
-            disabled={safeStep >= questions.length - 1}
-            hitSlop={6}
-            onPress={() => goToStep(safeStep + 1)}
-            style={{ opacity: safeStep >= questions.length - 1 ? 0.28 : 1 }}
-          >
-            <ChevronDown color={tone.quiet} size={14} strokeWidth={2} />
-          </Pressable>
-        </View>
-        <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() =>
-              onRespond({
-                requestId: request.request_id,
-                optionId: PERMISSION_QUESTION_REJECT_ID,
-              })
-            }
-            style={{
-              backgroundColor: tone.ghost,
-              borderRadius: 999,
-              paddingHorizontal: 11,
-              paddingVertical: 5,
-            }}
-          >
-            <Text style={{ color: tone.ink, fontSize: 12.5, fontWeight: "500" }}>{copy.skip}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canContinue }}
-            disabled={!canContinue}
-            onPress={() =>
-              onRespond({
-                requestId: request.request_id,
-                optionId: permissionQuestionAnswersOptionId(answers),
-              })
-            }
-            style={{
-              alignItems: "center",
-              backgroundColor: tone.primaryFill,
-              borderRadius: 999,
-              flexDirection: "row",
-              gap: 5,
-              opacity: canContinue ? 1 : 0.38,
-              paddingHorizontal: 11,
-              paddingVertical: 5,
-            }}
-          >
-            <Text style={{ color: tone.primaryInk, fontSize: 12.5, fontWeight: "500" }}>
-              {copy.continue}
+            <Pressable
+              accessibilityLabel={copy.previousQuestion}
+              accessibilityState={{ disabled: safeStep <= 0 }}
+              disabled={safeStep <= 0}
+              hitSlop={6}
+              onPress={() => goToStep(safeStep - 1)}
+              style={{ opacity: safeStep <= 0 ? 0.28 : 1 }}
+            >
+              <ChevronUp color={tone.quiet} size={14} strokeWidth={2} />
+            </Pressable>
+            <Text
+              style={{
+                color: tone.quiet,
+                fontSize: 12,
+                fontVariant: ["tabular-nums"],
+                fontWeight: "500",
+                lineHeight: 16,
+              }}
+            >
+              {`${safeStep + 1} / ${questions.length}`}
             </Text>
-            <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
-          </Pressable>
+            <Pressable
+              accessibilityLabel={copy.nextQuestion}
+              accessibilityState={{ disabled: safeStep >= questions.length - 1 }}
+              disabled={safeStep >= questions.length - 1}
+              hitSlop={6}
+              onPress={() => goToStep(safeStep + 1)}
+              style={{ opacity: safeStep >= questions.length - 1 ? 0.28 : 1 }}
+            >
+              <ChevronDown color={tone.quiet} size={14} strokeWidth={2} />
+            </Pressable>
+          </View>
+          {readOnly ? null : (
+            <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  onRespond({
+                    requestId: request.request_id,
+                    optionId: PERMISSION_QUESTION_REJECT_ID,
+                  })
+                }
+                style={{
+                  backgroundColor: tone.ghost,
+                  borderRadius: 999,
+                  paddingHorizontal: 11,
+                  paddingVertical: 5,
+                }}
+              >
+                <Text style={{ color: tone.ink, fontSize: 12.5, fontWeight: "500" }}>
+                  {copy.skip}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !canContinue }}
+                disabled={!canContinue}
+                onPress={() =>
+                  onRespond({
+                    requestId: request.request_id,
+                    optionId: permissionQuestionAnswersOptionId(answers),
+                  })
+                }
+                style={{
+                  alignItems: "center",
+                  backgroundColor: tone.primaryFill,
+                  borderRadius: 999,
+                  flexDirection: "row",
+                  gap: 5,
+                  opacity: canContinue ? 1 : 0.38,
+                  paddingHorizontal: 11,
+                  paddingVertical: 5,
+                }}
+              >
+                <Text style={{ color: tone.primaryInk, fontSize: 12.5, fontWeight: "500" }}>
+                  {copy.continue}
+                </Text>
+                <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
+              </Pressable>
+            </View>
+          )}
         </View>
-      </View>
+      ) : null}
     </View>
   );
 }
 
 function PlanPermission({
   onRespond,
+  readOnly = false,
   request,
 }: {
   onRespond: (input: { requestId: string; optionId: string }) => void;
+  readOnly?: boolean;
   request: AgentChatPermissionPrompt;
 }) {
   const theme = useMobileTheme();
@@ -396,7 +411,7 @@ function PlanPermission({
       {showBody ? (
         model.markdown ? (
           <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.markdown} />
-        ) : (
+        ) : readOnly ? null : (
           <Text
             style={{
               color: chatMutedForeground(theme.isDark),
@@ -493,34 +508,20 @@ function PlanPermission({
           </View>
         </View>
       )}
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 6,
-          justifyContent: "flex-end",
-          paddingLeft: 2,
-          paddingTop: 4,
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onRespond({ requestId: request.request_id, optionId: model.rejectId })}
+      {readOnly ? null : (
+        <View
           style={{
-            backgroundColor: tone.ghost,
-            borderRadius: 999,
-            paddingHorizontal: 11,
-            paddingVertical: 5,
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 6,
+            justifyContent: "flex-end",
+            paddingLeft: 2,
+            paddingTop: 4,
           }}
         >
-          <Text style={{ color: tone.ink, fontSize: 12.5, fontWeight: "500" }}>
-            {copy.keepPlanning}
-          </Text>
-        </Pressable>
-        {hasTodos ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => setViewingPlan((open) => !open)}
+            onPress={() => onRespond({ requestId: request.request_id, optionId: model.rejectId })}
             style={{
               backgroundColor: tone.ghost,
               borderRadius: 999,
@@ -529,38 +530,56 @@ function PlanPermission({
             }}
           >
             <Text style={{ color: tone.ink, fontSize: 12.5, fontWeight: "500" }}>
-              {viewingPlan ? copy.viewTodos : copy.viewPlan}
+              {copy.keepPlanning}
             </Text>
           </Pressable>
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onRespond({ requestId: request.request_id, optionId: model.allowId })}
-          style={{
-            alignItems: "center",
-            backgroundColor: tone.primaryFill,
-            borderRadius: 999,
-            flexDirection: "row",
-            gap: 5,
-            paddingHorizontal: 11,
-            paddingVertical: 5,
-          }}
-        >
-          <Text style={{ color: tone.primaryInk, fontSize: 12.5, fontWeight: "500" }}>
-            {copy.approve}
-          </Text>
-          <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
-        </Pressable>
-      </View>
+          {hasTodos ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setViewingPlan((open) => !open)}
+              style={{
+                backgroundColor: tone.ghost,
+                borderRadius: 999,
+                paddingHorizontal: 11,
+                paddingVertical: 5,
+              }}
+            >
+              <Text style={{ color: tone.ink, fontSize: 12.5, fontWeight: "500" }}>
+                {viewingPlan ? copy.viewTodos : copy.viewPlan}
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onRespond({ requestId: request.request_id, optionId: model.allowId })}
+            style={{
+              alignItems: "center",
+              backgroundColor: tone.primaryFill,
+              borderRadius: 999,
+              flexDirection: "row",
+              gap: 5,
+              paddingHorizontal: 11,
+              paddingVertical: 5,
+            }}
+          >
+            <Text style={{ color: tone.primaryInk, fontSize: 12.5, fontWeight: "500" }}>
+              {copy.approve}
+            </Text>
+            <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
 
 function CommandPermission({
   onRespond,
+  readOnly = false,
   request,
 }: {
   onRespond: (input: { requestId: string; optionId: string }) => void;
+  readOnly?: boolean;
   request: AgentChatPermissionPrompt;
 }) {
   const theme = useMobileTheme();
@@ -633,79 +652,83 @@ function CommandPermission({
           {command}
         </Text>
       </View>
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 6,
-          justifyContent: "flex-end",
-          paddingLeft: 2,
-          paddingTop: 4,
-        }}
-      >
-        {actions.map((action) => {
-          const primary = action.variant === "primary";
-          return (
-            <Pressable
-              accessibilityRole="button"
-              key={action.id}
-              onPress={() => onRespond({ requestId: request.request_id, optionId: action.id })}
-              style={{
-                alignItems: "center",
-                backgroundColor: primary ? tone.primaryFill : tone.ghost,
-                borderRadius: 999,
-                flexDirection: "row",
-                gap: 5,
-                paddingHorizontal: 11,
-                paddingVertical: 5,
-              }}
-            >
-              <Text
+      {readOnly ? null : (
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 6,
+            justifyContent: "flex-end",
+            paddingLeft: 2,
+            paddingTop: 4,
+          }}
+        >
+          {actions.map((action) => {
+            const primary = action.variant === "primary";
+            return (
+              <Pressable
+                accessibilityRole="button"
+                key={action.id}
+                onPress={() => onRespond({ requestId: request.request_id, optionId: action.id })}
                 style={{
-                  color: primary ? tone.primaryInk : tone.ink,
-                  fontSize: 12.5,
-                  fontWeight: "500",
+                  alignItems: "center",
+                  backgroundColor: primary ? tone.primaryFill : tone.ghost,
+                  borderRadius: 999,
+                  flexDirection: "row",
+                  gap: 5,
+                  paddingHorizontal: 11,
+                  paddingVertical: 5,
                 }}
               >
-                {action.label}
-              </Text>
-              {primary ? (
-                <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </View>
+                <Text
+                  style={{
+                    color: primary ? tone.primaryInk : tone.ink,
+                    fontSize: 12.5,
+                    fontWeight: "500",
+                  }}
+                >
+                  {action.label}
+                </Text>
+                {primary ? (
+                  <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
 
 export function AgentChatPermissionCard({
-  request,
   onRespond,
+  readOnly = false,
+  request,
 }: {
   filePath?: string | null;
-  request: AgentChatPermissionPrompt;
   onRespond: (input: { requestId: string; optionId: string }) => void;
+  readOnly?: boolean;
+  request: AgentChatPermissionPrompt;
 }) {
   const questions = request.questions ?? [];
   if (questions.length > 0) {
     return (
       <ApprovalShell>
-        <QuestionPermission onRespond={onRespond} request={request} />
+        <QuestionPermission onRespond={onRespond} readOnly={readOnly} request={request} />
       </ApprovalShell>
     );
   }
   if (isPlanExitRequest(request)) {
     return (
       <ApprovalShell>
-        <PlanPermission onRespond={onRespond} request={request} />
+        <PlanPermission onRespond={onRespond} readOnly={readOnly} request={request} />
       </ApprovalShell>
     );
   }
   return (
     <ApprovalShell>
-      <CommandPermission onRespond={onRespond} request={request} />
+      <CommandPermission onRespond={onRespond} readOnly={readOnly} request={request} />
     </ApprovalShell>
   );
 }

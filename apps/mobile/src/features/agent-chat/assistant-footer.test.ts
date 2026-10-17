@@ -352,10 +352,11 @@ describe("assistant footer", () => {
     expect(error).not.toContain("hairlineWidth");
     const permission = readFileSync(join(dir, "historic-permission.tsx"), "utf8");
     expect(permission).toContain('part.request.status === "pending"');
-    expect(permission).toContain("cardElevated");
-    expect(permission).toContain("glassBorder");
-    expect(permission).toContain("borderRadius: 16");
+    expect(permission).toContain("<AgentChatPermissionCard");
+    expect(permission).toContain("readOnly");
+    expect(permission).toContain("onRespond={() => undefined}");
     expect(permission).not.toContain("Permission needed");
+    expect(permission).not.toContain("cardElevated");
     const session = readFileSync(join(dir, "session-chrome.tsx"), "utf8");
     expect(session).toContain("MessageCircleMore");
     expect(session).toContain("MessageCirclePlus");
