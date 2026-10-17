@@ -64,38 +64,54 @@ neither:
 
 ```ts
 // e2e.bugbash.config.ts
-import type { E2EConfig } from 'e2e';
-import { web } from '@e2e-dev/web';
-import { gateway } from 'ai';
-import base from './e2e.config.ts';
+import type { E2EConfig } from "e2e";
+import { web } from "@e2e-dev/web";
+import { gateway } from "ai";
+import base from "./e2e.config.ts";
 
 const shared: E2EConfig = base;
 
 // What the local app cannot do, plus the explorer's blind spots (step 5's artifact bucket).
 const context =
-  'Sign in with the credential the goal names. The local app sends no email and has no AI key. Never start a paid run or connect an integration. ' +
+  "Sign in with the credential the goal names. The local app sends no email and has no AI key. Never start a paid run or connect an integration. " +
   'Not bugs: a link that opens a new tab leaves this one unchanged; accessible text splits around inline links, so judge copy by the rendered screen when a screenshot is available and never report split text alone as broken copy; an infinite-scroll "Loading more" sentinel loads when scrolled into view; images lazy-load, so scroll and wait before calling one blank.';
-const persona = { model: gateway('openai/gpt-6-luna-fast'), maxSteps: 40, maxModelCalls: 40, context };
+const persona = {
+  model: gateway("openai/gpt-6-luna-fast"),
+  maxSteps: 40,
+  maxModelCalls: 40,
+  context,
+};
 
 export default {
   ...shared,
   // The project's tests, so a repro can use its setup tests' sessions, plus the repro tests from step 6.
-  tests: [shared.tests ?? 'tests/**/*.e2e.ts', 'tests/bugbash/**/*.e2e.ts'].flat(),
+  tests: [shared.tests ?? "tests/**/*.e2e.ts", "tests/bugbash/**/*.e2e.ts"].flat(),
   // The app already runs: no command.
-  targets: [{ name: 'web', engine: web(), app: { url: 'http://127.0.0.1:3000' } }],
+  targets: [{ name: "web", engine: web(), app: { url: "http://127.0.0.1:3000" } }],
   retries: 0,
-  reporters: ['list'],
+  reporters: ["list"],
   credentials: {
     ...shared.credentials,
     // The seed script's password, from the environment rather than the file.
-    'bb-cart': { username: 'bb-cart@example.test', password: process.env.BUGBASH_PASSWORD ?? '' },
-    'bb-account': { username: 'bb-account@example.test', password: process.env.BUGBASH_PASSWORD ?? '' },
+    "bb-cart": { username: "bb-cart@example.test", password: process.env.BUGBASH_PASSWORD ?? "" },
+    "bb-account": {
+      username: "bb-account@example.test",
+      password: process.env.BUGBASH_PASSWORD ?? "",
+    },
   },
   // The postures from step 2 as personas: same model and budgets, a different stance; each charter picks one with --agent (step 3).
   agents: {
     default: persona,
-    skeptic: { ...persona, system: 'Distrust every number, date, count, and claim on screen; cross-check each against every other place it appears.' },
-    fuzzer: { ...persona, system: "At every input, run the goal's input matrix before anything else, judging each entry before the next. Never take the happy path." },
+    skeptic: {
+      ...persona,
+      system:
+        "Distrust every number, date, count, and claim on screen; cross-check each against every other place it appears.",
+    },
+    fuzzer: {
+      ...persona,
+      system:
+        "At every input, run the goal's input matrix before anything else, judging each entry before the next. Never take the happy path.",
+    },
   },
 } satisfies E2EConfig;
 ```
@@ -111,13 +127,13 @@ naming the start route and, when needed, the credential (`Sign in as
 credential bb-cart. Starting at /cart, ...`). Read the routes, navigation,
 and forms first; for a branch, `git diff --stat` against the base.
 
-| Posture | Charter shape |
-| --- | --- |
-| First-time user | `Starting at /signup, sign up and complete onboarding like a first-time user; report anything confusing, broken, or inconsistent` |
-| Numbers and copy | `Starting at /cart, change quantities and apply a coupon; check every price, total, and label against the rest of the page` |
-| Edge input | `Starting at /settings/profile, submit each field empty, too long, with unicode and with leading spaces; report validation that is missing or wrong` |
-| State | `Starting at /projects, create, rename, and delete a project, reloading and going back after each; report state that is lost or stale` |
-| Error paths | `Starting at /login, try a wrong password, an unknown account, and a locked account; report errors that are missing, misleading, or leak detail` |
+| Posture          | Charter shape                                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First-time user  | `Starting at /signup, sign up and complete onboarding like a first-time user; report anything confusing, broken, or inconsistent`                    |
+| Numbers and copy | `Starting at /cart, change quantities and apply a coupon; check every price, total, and label against the rest of the page`                          |
+| Edge input       | `Starting at /settings/profile, submit each field empty, too long, with unicode and with leading spaces; report validation that is missing or wrong` |
+| State            | `Starting at /projects, create, rename, and delete a project, reloading and going back after each; report state that is lost or stale`               |
+| Error paths      | `Starting at /login, try a wrong password, an unknown account, and a locked account; report errors that are missing, misleading, or leak detail`     |
 
 Aim for five to ten charters, each with its own slug. Overlap is fine;
 duplicates merge in step 4. Give each posture its persona (config above),
@@ -174,13 +190,13 @@ secrets before sharing (topic `writing-tests`).
 
 Sort every finding before writing any test. Read the source to sort them.
 
-| Bucket | Sign | Outcome |
-| --- | --- | --- |
-| Explorer artifact | A "dead" `target="_blank"` link whose destination opens when clicked with popup capture or navigated to directly, a broken sentence the screenshot renders whole, a "Loading more" sentinel nothing scrolled to, a lazy-loading image or embed | Rejected with the check that settled it; settle this bucket first. A new-tab link whose destination never opens stays a candidate |
-| Environment | Fails on a key, a service, or a limit only the local stack lacks (an email provider, an AI key, a billing plan) | Rejected, naming the variable or service; note separately when the app handles the failure badly in a way production users would see, such as showing the raw error |
-| Design | The code, its tests, or its copy say the behavior is intended | Rejected, citing where |
-| Fixture | The seed data lacks a field real records always have | Rejected, naming the field |
-| Candidate | None of the above | Verify it (step 6) |
+| Bucket            | Sign                                                                                                                                                                                                                                           | Outcome                                                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Explorer artifact | A "dead" `target="_blank"` link whose destination opens when clicked with popup capture or navigated to directly, a broken sentence the screenshot renders whole, a "Loading more" sentinel nothing scrolled to, a lazy-loading image or embed | Rejected with the check that settled it; settle this bucket first. A new-tab link whose destination never opens stays a candidate                                   |
+| Environment       | Fails on a key, a service, or a limit only the local stack lacks (an email provider, an AI key, a billing plan)                                                                                                                                | Rejected, naming the variable or service; note separately when the app handles the failure badly in a way production users would see, such as showing the raw error |
+| Design            | The code, its tests, or its copy say the behavior is intended                                                                                                                                                                                  | Rejected, citing where                                                                                                                                              |
+| Fixture           | The seed data lacks a field real records always have                                                                                                                                                                                           | Rejected, naming the field                                                                                                                                          |
+| Candidate         | None of the above                                                                                                                                                                                                                              | Verify it (step 6)                                                                                                                                                  |
 
 ## 6. Verify
 
