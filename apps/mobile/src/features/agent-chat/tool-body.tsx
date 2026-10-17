@@ -800,6 +800,25 @@ export function toolTextUsesPreview(text: string): boolean {
 /** Web `max-h-96` on a collapsed Markdown code fence and on terminal output. */
 export const TOOL_CODE_MAX_HEIGHT = 384;
 
+/**
+ * Web `ExpandButton` is a 14px chevron, `text-neutral-600` /
+ * `dark:text-neutral-400`. A markdown fence header is 36px with `px-2`.
+ * The chevron sits one `gap-2` (8px) left of the 14px copy glyph, so its
+ * top is `(36 - 14) / 2` and its right inset is `8 + 14 + 8`.
+ * `AgentToolCodePreview` floats the same glyph at `top-1.5` `right-2`.
+ */
+export const CODE_EXPAND_ICON = 14;
+export const CODE_EXPAND_LIGHT = "#52525b";
+export const CODE_EXPAND_DARK = "#a3a3a3";
+export const CODE_FENCE_EXPAND_TOP = 11;
+export const CODE_FENCE_EXPAND_RIGHT = 30;
+export const CODE_PREVIEW_EXPAND_TOP = 6;
+export const CODE_PREVIEW_EXPAND_RIGHT = 8;
+
+export function codeExpandColor(isDark: boolean): string {
+  return isDark ? CODE_EXPAND_DARK : CODE_EXPAND_LIGHT;
+}
+
 /** Web `max-h-56` on the terminal command line. */
 export const TOOL_COMMAND_MAX_HEIGHT = 224;
 
@@ -986,6 +1005,8 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
   CheckIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
   CircleAlertIcon,
   CircleDashedIcon,
   CircleIcon,
@@ -1058,25 +1079,58 @@ function ShowMoreButton({ expanded, onPress }: { expanded: boolean; onPress: () 
   );
 }
 
+function CodeExpandButton({
+  expanded,
+  onPress,
+  top,
+  right,
+}: {
+  expanded: boolean;
+  onPress: () => void;
+  top: number;
+  right: number;
+}) {
+  const theme = useMobileTheme();
+  const Icon = expanded ? ChevronsDownUpIcon : ChevronsUpDownIcon;
+  return (
+    <Pressable
+      accessibilityLabel={expanded ? copy.collapseCode : copy.expandCode}
+      accessibilityRole="button"
+      hitSlop={6}
+      onPress={onPress}
+      style={{ position: "absolute", right, top, zIndex: 1 }}
+    >
+      <Icon color={codeExpandColor(theme.isDark)} size={CODE_EXPAND_ICON} strokeWidth={2} />
+    </Pressable>
+  );
+}
+
 function ToolCodeFence({ text, language }: { text: string; language: string }) {
   const [expanded, setExpanded] = useState(false);
   const [overflow, setOverflow] = useState(false);
   if (!text) return null;
   return (
-    <View style={{ gap: 4, paddingBottom: 8, paddingHorizontal: 8 }}>
-      <View
-        onLayout={(event) => {
-          if (!expanded && event.nativeEvent.layout.height >= TOOL_CODE_MAX_HEIGHT) {
-            setOverflow(true);
-          }
-        }}
-        style={expanded ? undefined : { maxHeight: TOOL_CODE_MAX_HEIGHT, overflow: "hidden" }}
-      >
-        <AgentChatMarkdown codeBlockMargin={8} text={fenceForMarkdown(text, language)} />
+    <View style={{ paddingBottom: 8, paddingHorizontal: 8 }}>
+      <View>
+        <View
+          onLayout={(event) => {
+            if (!expanded && event.nativeEvent.layout.height >= TOOL_CODE_MAX_HEIGHT) {
+              setOverflow(true);
+            }
+          }}
+          style={expanded ? undefined : { maxHeight: TOOL_CODE_MAX_HEIGHT, overflow: "hidden" }}
+        >
+          <AgentChatMarkdown codeBlockMargin={8} text={fenceForMarkdown(text, language)} />
+        </View>
+        {overflow ? (
+          <CodeExpandButton
+            expanded={expanded}
+            onPress={() => setExpanded((current) => !current)}
+            right={CODE_FENCE_EXPAND_RIGHT}
+            top={CODE_FENCE_EXPAND_TOP}
+          />
+        ) : null}
       </View>
-      {overflow ? (
-        <ShowMoreButton expanded={expanded} onPress={() => setExpanded((current) => !current)} />
-      ) : null}
     </View>
   );
 }
@@ -1160,6 +1214,8 @@ function ExecuteTerminal({
 
 function ToolPlainPreview({ text }: { text: string }) {
   const theme = useMobileTheme();
+  const [expanded, setExpanded] = useState(false);
+  const [overflow, setOverflow] = useState(false);
   if (!text) return null;
   const lines = text.split("\n");
   const numbered = lines.length >= 2;
@@ -1169,48 +1225,65 @@ function ToolPlainPreview({ text }: { text: string }) {
     lineHeight: TOOL_PLAIN_LINE_HEIGHT,
   } as const;
   return (
-    <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
-      <View style={{ paddingVertical: 12 }}>
-        {lines.map((line, index) => (
-          <View
-            key={`${index}:${line}`}
-            style={{
-              alignItems: "flex-start",
-              flexDirection: "row",
-              paddingHorizontal: TOOL_PLAIN_LINE_PAD_X,
-              paddingVertical: TOOL_PLAIN_LINE_PAD_Y,
-            }}
-          >
-            {numbered ? (
-              <Text
-                style={{
-                  color: chatMutedForeground(theme.isDark),
-                  fontFamily: "Menlo",
-                  fontSize: 12,
-                  lineHeight: TOOL_PLAIN_LINE_HEIGHT,
-                  marginLeft: 4,
-                  marginRight: 16,
-                  minWidth: 28,
-                  textAlign: "right",
-                }}
-              >
-                {index + 1}
-              </Text>
-            ) : null}
-            <Text
-              selectable
+    <View>
+      <View
+        onLayout={(event) => {
+          if (!expanded && event.nativeEvent.layout.height >= TOOL_CODE_MAX_HEIGHT) {
+            setOverflow(true);
+          }
+        }}
+        style={expanded ? undefined : { maxHeight: TOOL_CODE_MAX_HEIGHT, overflow: "hidden" }}
+      >
+        <View style={{ paddingVertical: 12 }}>
+          {lines.map((line, index) => (
+            <View
+              key={`${index}:${line}`}
               style={{
-                ...lineBox,
-                color: chatForeground(theme.isDark),
-                flexShrink: 1,
+                alignItems: "flex-start",
+                flexDirection: "row",
+                paddingHorizontal: TOOL_PLAIN_LINE_PAD_X,
+                paddingVertical: TOOL_PLAIN_LINE_PAD_Y,
               }}
             >
-              {line.length > 0 ? line : " "}
-            </Text>
-          </View>
-        ))}
+              {numbered ? (
+                <Text
+                  style={{
+                    color: chatMutedForeground(theme.isDark),
+                    fontFamily: "Menlo",
+                    fontSize: 12,
+                    lineHeight: TOOL_PLAIN_LINE_HEIGHT,
+                    marginLeft: 4,
+                    marginRight: 16,
+                    minWidth: 28,
+                    textAlign: "right",
+                  }}
+                >
+                  {index + 1}
+                </Text>
+              ) : null}
+              <Text
+                selectable
+                style={{
+                  ...lineBox,
+                  color: chatForeground(theme.isDark),
+                  flexShrink: 1,
+                }}
+              >
+                {line.length > 0 ? line : " "}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
-    </HeightClip>
+      {overflow ? (
+        <CodeExpandButton
+          expanded={expanded}
+          onPress={() => setExpanded((current) => !current)}
+          right={CODE_PREVIEW_EXPAND_RIGHT}
+          top={CODE_PREVIEW_EXPAND_TOP}
+        />
+      ) : null}
+    </View>
   );
 }
 

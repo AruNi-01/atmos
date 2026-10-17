@@ -500,6 +500,11 @@ describe("tool body presentation", () => {
     expect(preview).toContain('fontFamily: "Menlo"');
     expect(preview).not.toContain("fontSize: 14");
     expect(preview).toContain("lines.length >= 2");
+    expect(preview).toContain("CodeExpandButton");
+    expect(preview).toContain("CODE_PREVIEW_EXPAND_TOP");
+    expect(preview).toContain("CODE_PREVIEW_EXPAND_RIGHT");
+    expect(preview).not.toContain("ShowMoreButton");
+    expect(preview).not.toContain("HeightClip");
     expect(preview).not.toContain("AgentChatMarkdown");
     const previewMod = await importPure("tool-body.tsx");
     expect(previewMod.TOOL_PLAIN_LINE_FONT).toBe(13);
@@ -1435,7 +1440,7 @@ describe("tool row chrome", () => {
     const view = source.slice(source.indexOf("// @view"));
     const codeFence = view.slice(
       view.indexOf("function ToolCodeFence"),
-      view.indexOf("function CappedMono"),
+      view.indexOf("function HeightClip"),
     );
     expect(codeFence).toContain("AgentChatMarkdown");
     expect(codeFence).toContain("fenceForMarkdown");
@@ -1443,8 +1448,22 @@ describe("tool row chrome", () => {
     expect(codeFence).toContain("codeBlockMargin={8}");
     expect(codeFence).toContain("paddingHorizontal: 8");
     expect(codeFence).toContain("paddingBottom: 8");
+    expect(codeFence).toContain("CodeExpandButton");
+    expect(codeFence).toContain("CODE_FENCE_EXPAND_TOP");
+    expect(codeFence).toContain("CODE_FENCE_EXPAND_RIGHT");
+    expect(codeFence).not.toContain("ShowMoreButton");
     expect(codeFence).not.toContain("PathChip");
     expect(codeFence).not.toContain("CappedMono");
+    expect(mod.CODE_EXPAND_ICON).toBe(14);
+    expect(mod.CODE_EXPAND_LIGHT).toBe("#52525b");
+    expect(mod.CODE_EXPAND_DARK).toBe("#a3a3a3");
+    expect(mod.CODE_FENCE_EXPAND_TOP).toBe(11);
+    expect(mod.CODE_FENCE_EXPAND_RIGHT).toBe(30);
+    expect(mod.CODE_PREVIEW_EXPAND_TOP).toBe(6);
+    expect(mod.CODE_PREVIEW_EXPAND_RIGHT).toBe(8);
+    const expandColor = mod.codeExpandColor as (isDark: boolean) => string;
+    expect(expandColor(false)).toBe("#52525b");
+    expect(expandColor(true)).toBe("#a3a3a3");
   });
 });
 

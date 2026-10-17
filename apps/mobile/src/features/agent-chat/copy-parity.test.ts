@@ -145,6 +145,7 @@ const en = JSON.parse(
 ) as {
   Agent: { components: AgentComponents };
   agent: { chatHelpers: { activity: Record<string, string> } };
+  shared: { codeBlock: { collapseCode: string; expandCode: string } };
 };
 
 const components = en.Agent.components;
@@ -266,6 +267,10 @@ describe("agent chat copy parity", () => {
     expect(copy.showLess).toBe(components.assistantTurn.files.showLess);
     expect(copy.showLess).toBe("Show less");
     expect(copy.showMore).toBe("Show more");
+    expect(copy.expandCode).toBe(en.shared.codeBlock.expandCode);
+    expect(copy.expandCode).toBe("Expand code");
+    expect(copy.collapseCode).toBe(en.shared.codeBlock.collapseCode);
+    expect(copy.collapseCode).toBe("Collapse code");
     expect(copy.subagentRan).toBe(components.subAgent.ranTitle);
     expect(copy.subagentRan).toBe("Ran subagent {name}");
     expect(copy.subagentStatus.running).toBe(components.subAgent.status.running);

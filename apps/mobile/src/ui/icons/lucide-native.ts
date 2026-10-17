@@ -20,6 +20,8 @@ import {
   ChevronLeft,
   ChevronUp,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Clock,
   Clock3,
   DollarSign,
@@ -109,6 +111,8 @@ export const ChevronDownIcon = ChevronDown;
 export const ChevronLeftIcon = ChevronLeft;
 export const ChevronUpIcon = ChevronUp;
 export const ChevronRightIcon = ChevronRight;
+export const ChevronsDownUpIcon = ChevronsDownUp;
+export const ChevronsUpDownIcon = ChevronsUpDown;
 export const LayoutGridIcon = LayoutGrid;
 export const MessagesSquareIcon = MessagesSquare;
 export const ClockIcon = Clock;
