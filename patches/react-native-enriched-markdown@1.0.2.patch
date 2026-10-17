@@ -130,7 +130,7 @@ diff --git a/ios/views/ENRMCodeBlockContainerView.m b/ios/views/ENRMCodeBlockCon
 index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f20c315db4 100644
 --- a/ios/views/ENRMCodeBlockContainerView.m
 +++ b/ios/views/ENRMCodeBlockContainerView.m
-@@ -20,25 +20,89 @@
+@@ -20,25 +20,91 @@
  // header metrics, so the reported height matches the drawn height. Since
  // lines never wrap, the height is independent of the available width.
  
@@ -233,7 +233,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
-@@ -48,7 +112,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
+@@ -48,7 +114,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
  #else
  static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
  {
@@ -243,7 +243,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
-@@ -217,23 +282,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -217,23 +284,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [self addInteraction:contextMenu];
  
      _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -274,7 +274,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
      [self addSubview:_copyButton];
  #endif
    }
-@@ -274,14 +333,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -274,14 +335,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  {
    CGFloat borderW = ceil([_config codeBlockBorderWidth]);
    CGFloat headerH = [self headerHeight];
@@ -291,7 +291,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
    _codeContentView.frame = CGRectMake(0, 0, contentWidth, frame.size.height);
  #if !TARGET_OS_OSX
    _scrollView.contentSize = CGSizeMake(contentWidth, frame.size.height);
-@@ -289,25 +346,19 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -289,25 +348,19 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  #endif
  }
  
@@ -323,7 +323,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
  }
  
  #if !TARGET_OS_OSX
-@@ -385,7 +436,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -385,7 +438,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    }
    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
    labelAttributes[NSFontAttributeName] = _headerFont;
@@ -334,7 +334,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
    if (labelColor) {
      labelAttributes[NSForegroundColorAttributeName] = labelColor;
    }
-@@ -398,23 +451,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -398,23 +453,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
  }
  
@@ -360,7 +360,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
  }
  
  - (void)drawRect:(CGRect)rect
-@@ -434,6 +479,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -434,6 +481,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [backgroundColor setFill];
      [path fill];
    }
@@ -383,7 +383,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
    if (borderWidth > 0) {
      RCTUIColor *borderColor = [_config codeBlockBorderColor];
      if (borderColor) {
-@@ -443,24 +504,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -443,24 +506,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      }
    }
  
