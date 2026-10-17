@@ -825,10 +825,20 @@ describe("move and delete bodies", () => {
     const move = body.slice(body.indexOf('case "move":'), body.indexOf('case "delete":'));
     expect(move).toContain("ArrowRightIcon");
     expect(move).toContain("copy.moveTo");
+    expect(move).toContain("paddingHorizontal: 12");
+    expect(move).toContain("paddingVertical: 8");
     expect(move).not.toContain("→");
     const deleted = body.slice(body.indexOf('case "delete":'), body.indexOf('case "error":'));
     expect(deleted).toContain("deletedFileLabel");
+    expect(deleted).toContain("paddingHorizontal: 12");
+    expect(deleted).toContain("paddingVertical: 8");
     expect(deleted).not.toContain("PathChip");
+    const todos = body.slice(
+      body.indexOf("function TodoStatusRows"),
+      body.indexOf("function ImageGenMark"),
+    );
+    expect(todos).toContain("paddingHorizontal: 12");
+    expect(todos).toContain("paddingVertical: 8");
   });
 });
 

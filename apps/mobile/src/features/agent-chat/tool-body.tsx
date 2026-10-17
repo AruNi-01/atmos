@@ -1416,7 +1416,7 @@ function TreeListBody({ rows }: { rows: ToolTreeRow[] }) {
 function TodoStatusRows({ items }: { items: Array<{ content: string; status: TodoStatusKind }> }) {
   const theme = useMobileTheme();
   return (
-    <View style={{ gap: 4 }}>
+    <View style={{ gap: 4, paddingHorizontal: 12, paddingVertical: 8 }}>
       {items.map((item, index) => {
         const completed = item.status === "completed";
         const Icon =
@@ -1587,7 +1587,15 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
   return (
     <View style={{ gap: 8 }}>
       {model.overview ? (
-        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+        <Text
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: 12,
+            lineHeight: 16,
+            paddingHorizontal: 12,
+            paddingTop: 8,
+          }}
+        >
           {model.overview}
         </Text>
       ) : null}
@@ -1608,11 +1616,21 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
         </Pressable>
       ) : null}
       {showing === "body" && hasBody ? (
-        <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.plan} />
+        <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+          <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.plan} />
+        </View>
       ) : null}
       {showing === "todos" && hasTodos ? <TodoStatusRows items={model.todos} /> : null}
       {!hasBody && !hasTodos ? (
-        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+        <Text
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: 12,
+            lineHeight: 16,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+          }}
+        >
           {copy.noOutput}
         </Text>
       ) : null}
@@ -1739,7 +1757,15 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       );
     case "move":
       return (
-        <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
+        <View
+          style={{
+            alignItems: "center",
+            flexDirection: "row",
+            gap: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+          }}
+        >
           <Text numberOfLines={1} style={movePathStyle}>
             {model.from}
           </Text>
@@ -1757,13 +1783,28 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       );
     case "delete":
       return (
-        <Text style={{ color: theme.colors.secondaryLabel, ...BODY_TEXT }}>
+        <Text
+          style={{
+            ...BODY_TEXT,
+            color: theme.colors.secondaryLabel,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+          }}
+        >
           {deletedFileLabel(model.path)}
         </Text>
       );
     case "error":
       return (
-        <Text selectable style={{ color: theme.colors.red, ...BODY_TEXT }}>
+        <Text
+          selectable
+          style={{
+            ...BODY_TEXT,
+            color: theme.colors.red,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+          }}
+        >
           {model.text}
         </Text>
       );
@@ -1773,7 +1814,15 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         <View style={{ gap: 8 }}>
           {model.path ? <PathChip path={model.path} /> : null}
           {model.message ? (
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+            <Text
+              style={{
+                color: theme.colors.secondaryLabel,
+                fontSize: 12,
+                lineHeight: 16,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+            >
               {model.message}
             </Text>
           ) : null}
