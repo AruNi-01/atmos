@@ -7,6 +7,7 @@ import {
   type LayoutChangeEvent,
   type TextLayoutEvent,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
 import Animated, {
   Easing,
@@ -43,15 +44,19 @@ import {
   userMetaHeightMotion,
   userMetaItemMotion,
 } from "./user-message-meta";
+import { userMessageCollapsedLineLimit, userMessageWashColors } from "./user-message-fade";
 
 const TEXT_LINE_HEIGHT = 20;
-const FADE_STEPS = 5;
 
 function UserMessageCollapseFade() {
   const theme = useMobileTheme();
+  const [from, to] = userMessageWashColors(theme.colors.cardSubtle);
   return (
-    <View
+    <LinearGradient
+      colors={[from, to]}
+      end={{ x: 0, y: 1 }}
       pointerEvents="none"
+      start={{ x: 0, y: 0 }}
       style={{
         bottom: 0,
         height: TEXT_LINE_HEIGHT * USER_MESSAGE_COLLAPSE_FADE_LINES,
@@ -59,18 +64,7 @@ function UserMessageCollapseFade() {
         position: "absolute",
         right: 0,
       }}
-    >
-      {Array.from({ length: FADE_STEPS }, (_, index) => (
-        <View
-          key={index}
-          style={{
-            backgroundColor: theme.colors.background,
-            flex: 1,
-            opacity: (index + 1) / FADE_STEPS,
-          }}
-        />
-      ))}
-    </View>
+    />
   );
 }
 
@@ -274,7 +268,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
         {text ? (
           <View style={{ position: "relative" }}>
             <Text
-              numberOfLines={collapsed ? USER_MESSAGE_COLLAPSE_LINES : undefined}
+              numberOfLines={collapsed ? userMessageCollapsedLineLimit() : undefined}
               onTextLayout={onTextLayout}
               selectable
               style={{ color: theme.colors.label, fontSize: 14, lineHeight: TEXT_LINE_HEIGHT }}

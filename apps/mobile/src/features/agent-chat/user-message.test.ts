@@ -13,6 +13,7 @@ import {
   userMessageDisplayText,
   userMessageIsCollapsed,
 } from "./copy";
+import { userMessageCollapsedLineLimit, userMessageWashColors } from "./user-message-fade";
 
 const source = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "user-message.tsx"),
@@ -41,6 +42,19 @@ describe("user message", () => {
     expect(userMessageIsCollapsed(3, false)).toBe(false);
     expect(userMessageIsCollapsed(4, false)).toBe(true);
     expect(userMessageIsCollapsed(4, true)).toBe(false);
+    expect(userMessageCollapsedLineLimit()).toBe(4);
+  });
+
+  test("washes the fading line into the bubble instead of black", () => {
+    expect(userMessageWashColors("rgba(10, 10, 11, 0.05)")).toEqual([
+      "rgba(10, 10, 11, 0)",
+      "rgba(10, 10, 11, 0.05)",
+    ]);
+    expect(userMessageWashColors("rgba(255, 255, 255, 0.08)")).toEqual([
+      "rgba(255, 255, 255, 0)",
+      "rgba(255, 255, 255, 0.08)",
+    ]);
+    expect(userMessageWashColors("rgb(1, 2, 3)")).toEqual(["rgba(1, 2, 3, 0)", "rgba(1, 2, 3, 1)"]);
   });
 
   test("the bubble is full width card chrome, not the old right-aligned bubble", () => {
@@ -60,7 +74,8 @@ describe("user message", () => {
     expect(source).toContain("userMetaHeightMotion");
     expect(source).toContain("userMetaItemMotion");
     expect(source).toContain("USER_META_LIFT_PX");
-    expect(source).toContain("USER_MESSAGE_COLLAPSE_FADE_LINES");
+    expect(source).toContain("userMessageCollapsedLineLimit");
+    expect(source).toContain("userMessageWashColors(theme.colors.cardSubtle)");
     expect(source).not.toContain("#242424");
     expect(source).not.toContain("#f2f1ef");
     expect(source).not.toContain("80%");
