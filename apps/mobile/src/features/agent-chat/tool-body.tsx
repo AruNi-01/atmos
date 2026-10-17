@@ -782,6 +782,16 @@ export function diffIsCreatedFile(presentation: ToolPresentation): boolean {
 /** Web `AgentToolTextBody` opens a preview once the text has a newline or passes this length. */
 export const TOOL_TEXT_PREVIEW_LIMIT = 160;
 
+/**
+ * Web plaintext preview lines (`text-[13px] leading-relaxed`, `px-3 py-0.5`).
+ * `leading-relaxed` is 1.625, so 13px type is a 21px line. Highlighted fences
+ * stay on `text-sm leading-5`.
+ */
+export const TOOL_PLAIN_LINE_FONT = 13;
+export const TOOL_PLAIN_LINE_HEIGHT = 21;
+export const TOOL_PLAIN_LINE_PAD_X = 12;
+export const TOOL_PLAIN_LINE_PAD_Y = 2;
+
 export function toolTextUsesPreview(text: string): boolean {
   return text.includes("\n") || text.length > TOOL_TEXT_PREVIEW_LIMIT;
 }
@@ -1152,18 +1162,31 @@ function ToolPlainPreview({ text }: { text: string }) {
   if (!text) return null;
   const lines = text.split("\n");
   const numbered = lines.length >= 2;
+  const lineBox = {
+    fontFamily: "Menlo",
+    fontSize: TOOL_PLAIN_LINE_FONT,
+    lineHeight: TOOL_PLAIN_LINE_HEIGHT,
+  } as const;
   return (
     <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
       <View style={{ paddingVertical: 12 }}>
         {lines.map((line, index) => (
-          <View key={`${index}:${line}`} style={{ alignItems: "flex-start", flexDirection: "row" }}>
+          <View
+            key={`${index}:${line}`}
+            style={{
+              alignItems: "flex-start",
+              flexDirection: "row",
+              paddingHorizontal: TOOL_PLAIN_LINE_PAD_X,
+              paddingVertical: TOOL_PLAIN_LINE_PAD_Y,
+            }}
+          >
             {numbered ? (
               <Text
                 style={{
                   color: chatMutedForeground(theme.isDark),
                   fontFamily: "Menlo",
                   fontSize: 12,
-                  lineHeight: 20,
+                  lineHeight: TOOL_PLAIN_LINE_HEIGHT,
                   marginLeft: 4,
                   marginRight: 16,
                   minWidth: 28,
@@ -1176,12 +1199,9 @@ function ToolPlainPreview({ text }: { text: string }) {
             <Text
               selectable
               style={{
+                ...lineBox,
                 color: chatForeground(theme.isDark),
                 flexShrink: 1,
-                fontFamily: "Menlo",
-                fontSize: 14,
-                lineHeight: 20,
-                paddingHorizontal: numbered ? 0 : 12,
               }}
             >
               {line.length > 0 ? line : " "}

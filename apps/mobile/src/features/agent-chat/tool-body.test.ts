@@ -491,10 +491,19 @@ describe("tool body presentation", () => {
       previewView.indexOf("function CappedMono"),
     );
     expect(preview).toContain("TOOL_CODE_MAX_HEIGHT");
+    expect(preview).toContain("TOOL_PLAIN_LINE_FONT");
+    expect(preview).toContain("TOOL_PLAIN_LINE_HEIGHT");
+    expect(preview).toContain("TOOL_PLAIN_LINE_PAD_X");
+    expect(preview).toContain("TOOL_PLAIN_LINE_PAD_Y");
     expect(preview).toContain('fontFamily: "Menlo"');
-    expect(preview).toContain("fontSize: 14");
+    expect(preview).not.toContain("fontSize: 14");
     expect(preview).toContain("lines.length >= 2");
     expect(preview).not.toContain("AgentChatMarkdown");
+    const previewMod = await importPure("tool-body.tsx");
+    expect(previewMod.TOOL_PLAIN_LINE_FONT).toBe(13);
+    expect(previewMod.TOOL_PLAIN_LINE_HEIGHT).toBe(21);
+    expect(previewMod.TOOL_PLAIN_LINE_PAD_X).toBe(12);
+    expect(previewMod.TOOL_PLAIN_LINE_PAD_Y).toBe(2);
     const prose = previewView.slice(
       previewView.indexOf('case "prose":'),
       previewView.indexOf('case "execute":'),
