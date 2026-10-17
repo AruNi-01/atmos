@@ -27,6 +27,23 @@ export function motionSnapshotCenterIsBlank(alpha: number | null): boolean {
   return alpha == null || alpha <= 0;
 }
 
+export type MotionSnapshotPixel = {
+  a: number;
+  b: number;
+  g: number;
+  r: number;
+};
+
+/** True when every sample is the same color. A flat page fill is not a frame. */
+export function motionSnapshotIsFlat(samples: readonly MotionSnapshotPixel[]): boolean {
+  const first = samples[0];
+  if (!first || samples.length < 2) return false;
+  return samples.every(
+    (sample) =>
+      sample.r === first.r && sample.g === first.g && sample.b === first.b && sample.a === first.a,
+  );
+}
+
 export function parityTailLine(sample: ParityTailSample): string {
   return `[parity] tail below=${sample.below} stick=${sample.stick ? 1 : 0} step=${sample.step} top=${Math.round(sample.top)} end=${Math.round(sample.end)} marker=${Math.round(sample.marker)} view=${Math.round(sample.view)}`;
 }

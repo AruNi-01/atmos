@@ -22,21 +22,97 @@ diff --git a/apple/ViewScreenshotService.mm b/apple/ViewScreenshotService.mm
  
  #pragma clang diagnostic push
  #pragma clang diagnostic ignored "-Wdocumentation"
-@@ -40,13 +41,14 @@
+@@ -8,6 +9,68 @@
+ 
+ #pragma clang diagnostic pop
+ 
++#include <string.h>
++
++// A tagged host can draw as one fill while its children stay on the window.
++// Runs 38986732141 and 38994588242 wrote that fill for every in-app frame.
++static BOOL RNSkiaImageIsUniform(UIImage *image) {
++  CGImageRef cgImage = image.CGImage;
++  if (!cgImage) {
++    return YES;
++  }
++  const size_t width = CGImageGetWidth(cgImage);
++  const size_t height = CGImageGetHeight(cgImage);
++  if (width < 2 || height < 2) {
++    return NO;
++  }
++  CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(cgImage));
++  if (!data) {
++    return NO;
++  }
++  const UInt8 *bytes = CFDataGetBytePtr(data);
++  const size_t rowBytes = CGImageGetBytesPerRow(cgImage);
++  const size_t bytesPerPixel = CGImageGetBitsPerPixel(cgImage) / 8;
++  if (!bytes || bytesPerPixel < 4) {
++    CFRelease(data);
++    return NO;
++  }
++  const size_t samples[][2] = {
++      {width / 2, height / 2},
++      {width / 5, height / 5},
++      {(width * 4) / 5, height / 5},
++      {width / 5, (height * 4) / 5},
++      {(width * 4) / 5, (height * 4) / 5},
++      {2, height / 2},
++  };
++  const UInt8 *first =
++      bytes + samples[0][1] * rowBytes + samples[0][0] * bytesPerPixel;
++  BOOL uniform = YES;
++  for (size_t index = 1; index < sizeof(samples) / sizeof(samples[0]);
++       index++) {
++    const UInt8 *pixel = bytes + samples[index][1] * rowBytes +
++                         samples[index][0] * bytesPerPixel;
++    if (memcmp(pixel, first, 4) != 0) {
++      uniform = NO;
++      break;
++    }
++  }
++  CFRelease(data);
++  return uniform;
++}
++
++static UIImage *RNSkiaWindowImage(UIView *view, UIGraphicsImageRenderer *renderer) {
++  UIWindow *window = view.window;
++  if (window == nil) {
++    return nil;
++  }
++  CGPoint origin = [view convertPoint:CGPointZero toView:window];
++  return [renderer
++      imageWithActions:^(UIGraphicsImageRendererContext *_Nonnull context) {
++        CGContextTranslateCTM(context.CGContext, -origin.x, -origin.y);
++        [window.layer renderInContext:context.CGContext];
++      }];
++}
++
+ @implementation ViewScreenshotService {
+   RCTUIManager *_uiManager;
+ }
+@@ -40,13 +103,21 @@
    UIGraphicsImageRenderer *renderer =
        [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
  
 -  // Render to context - this is now the only part of this function that shows
 -  // up in the profiler!
 +  // YES forces a layout pass, which restarts a presented sheet spring. Disabling
-+  // animations around that pass also drew a transparent bitmap (parity F4 frames
-+  // on run 38986732141). NO keeps the pixels already on screen.
++  // animations around that pass also drew a flat bitmap (parity F4 frames on
++  // run 38986732141). NO keeps the pixels already on screen. When that bitmap
++  // is one color, the window layer still has the composited chat.
    UIImage *image = [renderer
        imageWithActions:^(UIGraphicsImageRendererContext *_Nonnull context) {
          [view drawViewHierarchyInRect:(CGRect){CGPointZero, size}
 -                   afterScreenUpdates:YES];
 +                   afterScreenUpdates:NO];
        }];
++  if (RNSkiaImageIsUniform(image)) {
++    UIImage *windowImage = RNSkiaWindowImage(view, renderer);
++    if (windowImage != nil && !RNSkiaImageIsUniform(windowImage)) {
++      image = windowImage;
++    }
++  }
  
    // Convert from UIImage -> CGImage -> SkImage
    CGImageRef cgImage = image.CGImage;

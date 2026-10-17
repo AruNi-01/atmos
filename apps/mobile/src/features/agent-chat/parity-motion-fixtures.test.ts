@@ -20,6 +20,7 @@ import {
   PARITY_TAIL_FIXTURE,
   PARITY_TAIL_MARKER_ID,
   motionSnapshotCenterIsBlank,
+  motionSnapshotIsFlat,
   parityMotionKind,
   paritySettledToolMessages,
   parityStreamToolFrame,
@@ -316,5 +317,9 @@ describe("parity motion fixtures", () => {
     expect(motionSnapshotCenterIsBlank(null)).toBe(true);
     expect(motionSnapshotCenterIsBlank(0)).toBe(true);
     expect(motionSnapshotCenterIsBlank(255)).toBe(false);
+    const fill = { a: 255, b: 246, g: 244, r: 244 };
+    expect(motionSnapshotIsFlat([fill])).toBe(false);
+    expect(motionSnapshotIsFlat([fill, fill, fill])).toBe(true);
+    expect(motionSnapshotIsFlat([fill, { ...fill, r: 26 }])).toBe(false);
   });
 });

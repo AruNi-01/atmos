@@ -507,6 +507,7 @@ export function PreviewChatScreen() {
 
   return (
     <View
+      collapsable={false}
       ref={previewRootRef}
       style={{ backgroundColor, flex: 1, paddingTop: insets.top }}
       testID="parity-ready"
