@@ -53,7 +53,7 @@ describe("agent chat markdown chrome", () => {
       fontWeight: "600",
       lineHeight: 36,
       marginBottom: 8,
-      marginTop: 0,
+      marginTop: 24,
     });
     expect(headings.h2.lineHeight).toBe(32);
     expect(headings.h6).toMatchObject({ fontSize: 14, lineHeight: 20 });
