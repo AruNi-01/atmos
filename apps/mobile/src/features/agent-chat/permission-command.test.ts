@@ -174,6 +174,9 @@ describe("command permission actions", () => {
     expect(card).toContain("isPlanExitRequest(request)");
     expect(card).toContain("PlanPermission");
     expect(card).toContain("CommandPermission");
+    expect(card).toContain("<ApprovalShell>");
     expect(card).not.toContain("borderRadius: 12");
+    expect(source).toContain("approvalInk");
+    expect(source).not.toContain("theme.colors.label");
   });
 });

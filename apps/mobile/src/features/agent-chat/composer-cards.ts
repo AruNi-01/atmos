@@ -78,7 +78,12 @@ export function laneCardDrawsOwnFrame(
   cards: Pick<ComposerCards, "subagentTools">,
 ): boolean {
   if (visible === "subagents") return cards.subagentTools.length > 0;
-  return visible === "goal" || visible === "workflow" || visible === "context";
+  return (
+    visible === "goal" ||
+    visible === "workflow" ||
+    visible === "context" ||
+    visible === "permission"
+  );
 }
 
 export function contextUsageStats(

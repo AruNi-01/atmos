@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import {
   ChevronDown,
@@ -11,6 +11,32 @@ import {
 } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import {
+  APPROVAL_COMMAND_ICON_DARK,
+  APPROVAL_COMMAND_ICON_FILL_DARK,
+  APPROVAL_COMMAND_ICON_FILL_LIGHT,
+  APPROVAL_COMMAND_ICON_LIGHT,
+  APPROVAL_OPTION_BORDER,
+  APPROVAL_PLAN_ICON_DARK,
+  APPROVAL_PLAN_ICON_FILL_DARK,
+  APPROVAL_PLAN_ICON_FILL_LIGHT,
+  APPROVAL_PLAN_ICON_LIGHT,
+  APPROVAL_QUESTION_ICON_DARK,
+  APPROVAL_QUESTION_ICON_FILL_DARK,
+  APPROVAL_QUESTION_ICON_FILL_LIGHT,
+  APPROVAL_QUESTION_ICON_LIGHT,
+  approvalCardFill,
+  approvalGhostFill,
+  approvalInk,
+  approvalKeyFill,
+  approvalMuted,
+  approvalOptionSelectedFill,
+  approvalPrimaryFill,
+  approvalPrimaryInk,
+  approvalQuiet,
+  approvalShadow,
+  approvalWell,
+} from "./approval-ink";
 import { chatMutedForeground } from "./chat-ink";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
 import { commandPermissionActions, commandPermissionText } from "./permission-command";
@@ -38,6 +64,40 @@ export type AgentChatPermissionPrompt = {
   plan_todos?: Array<{ id?: string | null; content: string; status?: string }> | null;
 };
 
+function useApprovalTone() {
+  const theme = useMobileTheme();
+  const dark = theme.isDark;
+  return {
+    dark,
+    ghost: approvalGhostFill(dark),
+    ink: approvalInk(dark),
+    keyFill: approvalKeyFill(dark),
+    muted: approvalMuted(dark),
+    optionSelected: approvalOptionSelectedFill(dark),
+    primaryFill: approvalPrimaryFill(dark),
+    primaryInk: approvalPrimaryInk(dark),
+    quiet: approvalQuiet(dark),
+    well: approvalWell(dark),
+  };
+}
+
+function ApprovalShell({ children }: { children: ReactNode }) {
+  const theme = useMobileTheme();
+  return (
+    <View
+      style={{
+        backgroundColor: approvalCardFill(theme.isDark),
+        borderRadius: 22,
+        boxShadow: approvalShadow(theme.isDark),
+        padding: 12,
+        width: "100%",
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
 function QuestionPermission({
   onRespond,
   request,
@@ -46,6 +106,7 @@ function QuestionPermission({
   request: AgentChatPermissionPrompt;
 }) {
   const theme = useMobileTheme();
+  const tone = useApprovalTone();
   const questions = request.questions ?? [];
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -77,8 +138,10 @@ function QuestionPermission({
     }, PERMISSION_QUESTION_ADVANCE_MS);
   };
 
-  const iconColor = theme.isDark ? "#60a5fa" : "#3b82f6";
-  const iconFill = theme.isDark ? "rgba(59, 130, 246, 0.18)" : "rgba(59, 130, 246, 0.12)";
+  const iconColor = theme.isDark ? APPROVAL_QUESTION_ICON_DARK : APPROVAL_QUESTION_ICON_LIGHT;
+  const iconFill = theme.isDark
+    ? APPROVAL_QUESTION_ICON_FILL_DARK
+    : APPROVAL_QUESTION_ICON_FILL_LIGHT;
 
   return (
     <View style={{ gap: 12 }}>
@@ -97,7 +160,7 @@ function QuestionPermission({
         </View>
         <Text
           style={{
-            color: theme.colors.label,
+            color: tone.ink,
             flexShrink: 1,
             fontSize: 13.5,
             fontWeight: "500",
@@ -111,7 +174,7 @@ function QuestionPermission({
       <View accessibilityLiveRegion="polite" style={{ gap: 8 }}>
         <Text
           style={{
-            color: theme.colors.label,
+            color: tone.ink,
             fontSize: 13,
             fontWeight: "500",
             lineHeight: 18,
@@ -131,10 +194,10 @@ function QuestionPermission({
                 onPress={() => selectOption(option)}
                 style={{
                   alignItems: "center",
-                  backgroundColor: selected ? theme.colors.card : "transparent",
-                  borderColor: selected ? "transparent" : theme.colors.glassBorder,
+                  backgroundColor: selected ? tone.optionSelected : "transparent",
+                  borderColor: selected || tone.dark ? "transparent" : APPROVAL_OPTION_BORDER,
                   borderRadius: 7,
-                  borderWidth: 0.5,
+                  borderWidth: selected || tone.dark ? 0 : 0.5,
                   flexDirection: "row",
                   gap: 8,
                   padding: 5,
@@ -143,7 +206,7 @@ function QuestionPermission({
                 <View
                   style={{
                     alignItems: "center",
-                    backgroundColor: selected ? theme.colors.primary : theme.colors.cardSubtle,
+                    backgroundColor: selected ? tone.primaryFill : tone.keyFill,
                     borderRadius: 4,
                     height: 18,
                     justifyContent: "center",
@@ -152,7 +215,7 @@ function QuestionPermission({
                 >
                   <Text
                     style={{
-                      color: selected ? theme.colors.labelInverse : theme.colors.tertiaryLabel,
+                      color: selected ? tone.primaryInk : tone.quiet,
                       fontSize: 10.5,
                       fontWeight: "600",
                       lineHeight: 14,
@@ -163,7 +226,7 @@ function QuestionPermission({
                 </View>
                 <Text
                   style={{
-                    color: theme.colors.label,
+                    color: tone.ink,
                     flexShrink: 1,
                     fontSize: 12.5,
                     lineHeight: 16,
@@ -199,11 +262,11 @@ function QuestionPermission({
             onPress={() => goToStep(safeStep - 1)}
             style={{ opacity: safeStep <= 0 ? 0.28 : 1 }}
           >
-            <ChevronUp color={theme.colors.tertiaryLabel} size={14} strokeWidth={2} />
+            <ChevronUp color={tone.quiet} size={14} strokeWidth={2} />
           </Pressable>
           <Text
             style={{
-              color: theme.colors.tertiaryLabel,
+              color: tone.quiet,
               fontSize: 12,
               fontVariant: ["tabular-nums"],
               fontWeight: "500",
@@ -220,7 +283,7 @@ function QuestionPermission({
             onPress={() => goToStep(safeStep + 1)}
             style={{ opacity: safeStep >= questions.length - 1 ? 0.28 : 1 }}
           >
-            <ChevronDown color={theme.colors.tertiaryLabel} size={14} strokeWidth={2} />
+            <ChevronDown color={tone.quiet} size={14} strokeWidth={2} />
           </Pressable>
         </View>
         <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
@@ -233,15 +296,13 @@ function QuestionPermission({
               })
             }
             style={{
-              backgroundColor: theme.colors.cardSubtle,
+              backgroundColor: tone.ghost,
               borderRadius: 999,
               paddingHorizontal: 11,
               paddingVertical: 5,
             }}
           >
-            <Text style={{ color: theme.colors.label, fontSize: 12.5, fontWeight: "500" }}>
-              {copy.skip}
-            </Text>
+            <Text style={{ color: tone.ink, fontSize: 12.5, fontWeight: "500" }}>{copy.skip}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -255,7 +316,7 @@ function QuestionPermission({
             }
             style={{
               alignItems: "center",
-              backgroundColor: theme.colors.primary,
+              backgroundColor: tone.primaryFill,
               borderRadius: 999,
               flexDirection: "row",
               gap: 5,
@@ -264,10 +325,10 @@ function QuestionPermission({
               paddingVertical: 5,
             }}
           >
-            <Text style={{ color: theme.colors.labelInverse, fontSize: 12.5, fontWeight: "500" }}>
+            <Text style={{ color: tone.primaryInk, fontSize: 12.5, fontWeight: "500" }}>
               {copy.continue}
             </Text>
-            <CornerDownLeft color={theme.colors.labelInverse} size={12} strokeWidth={2} />
+            <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
           </Pressable>
         </View>
       </View>
@@ -283,6 +344,7 @@ function PlanPermission({
   request: AgentChatPermissionPrompt;
 }) {
   const theme = useMobileTheme();
+  const tone = useApprovalTone();
   const model = planPermissionModel({
     description: request.description,
     markdown: request.content_markdown ?? "",
@@ -303,18 +365,24 @@ function PlanPermission({
         <View
           style={{
             alignItems: "center",
-            backgroundColor: theme.colors.greenSurface,
+            backgroundColor: tone.dark
+              ? APPROVAL_PLAN_ICON_FILL_DARK
+              : APPROVAL_PLAN_ICON_FILL_LIGHT,
             borderRadius: 6,
             height: 24,
             justifyContent: "center",
             width: 24,
           }}
         >
-          <ListTodo color={theme.colors.green} size={14} strokeWidth={2} />
+          <ListTodo
+            color={tone.dark ? APPROVAL_PLAN_ICON_DARK : APPROVAL_PLAN_ICON_LIGHT}
+            size={14}
+            strokeWidth={2}
+          />
         </View>
         <Text
           style={{
-            color: theme.colors.label,
+            color: tone.ink,
             flexShrink: 1,
             fontSize: 13.5,
             fontWeight: "500",
@@ -348,7 +416,7 @@ function PlanPermission({
               {model.title ? (
                 <Text
                   style={{
-                    color: theme.colors.label,
+                    color: tone.ink,
                     fontSize: 15,
                     fontWeight: "500",
                     letterSpacing: -0.15,
@@ -359,7 +427,7 @@ function PlanPermission({
                 </Text>
               ) : null}
               {model.summary ? (
-                <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 12.5, lineHeight: 18 }}>
+                <Text style={{ color: tone.muted, fontSize: 12.5, lineHeight: 18 }}>
                   {model.summary}
                 </Text>
               ) : null}
@@ -367,7 +435,7 @@ function PlanPermission({
           ) : null}
           <View
             style={{
-              backgroundColor: theme.isDark ? "#101010" : "#fafafa",
+              backgroundColor: tone.well,
               borderRadius: 8,
               paddingBottom: 10,
               paddingHorizontal: 12,
@@ -375,13 +443,13 @@ function PlanPermission({
             }}
           >
             <View style={{ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 22 }}>
-              <ListTodo color={theme.colors.label} size={14} strokeWidth={2} />
-              <Text style={{ color: theme.colors.label, fontSize: 13, fontWeight: "500" }}>
+              <ListTodo color={tone.ink} size={14} strokeWidth={2} />
+              <Text style={{ color: tone.ink, fontSize: 13, fontWeight: "500" }}>
                 {copy.planTodosHeading}
               </Text>
               <Text
                 style={{
-                  color: theme.colors.tertiaryLabel,
+                  color: tone.quiet,
                   fontSize: 13,
                   fontVariant: ["tabular-nums"],
                   marginLeft: "auto",
@@ -396,10 +464,10 @@ function PlanPermission({
                   key={step.id}
                   style={{ alignItems: "flex-start", flexDirection: "row", gap: 8 }}
                 >
-                  <CircleDashed color={theme.colors.tertiaryLabel} size={14} strokeWidth={2} />
+                  <CircleDashed color={tone.quiet} size={14} strokeWidth={2} />
                   <Text
                     style={{
-                      color: theme.colors.secondaryLabel,
+                      color: tone.quiet,
                       flexShrink: 1,
                       fontSize: 13,
                       lineHeight: 18,
@@ -417,7 +485,7 @@ function PlanPermission({
                 onPress={() => setExpanded((open) => !open)}
                 style={{ marginTop: 8 }}
               >
-                <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 13, lineHeight: 18 }}>
+                <Text style={{ color: tone.quiet, fontSize: 13, lineHeight: 18 }}>
                   {expanded ? copy.showLess : `${rest.length} more`}
                 </Text>
               </Pressable>
@@ -439,13 +507,13 @@ function PlanPermission({
           accessibilityRole="button"
           onPress={() => onRespond({ requestId: request.request_id, optionId: model.rejectId })}
           style={{
-            backgroundColor: theme.colors.cardSubtle,
+            backgroundColor: tone.ghost,
             borderRadius: 999,
             paddingHorizontal: 11,
             paddingVertical: 5,
           }}
         >
-          <Text style={{ color: theme.colors.label, fontSize: 12.5, fontWeight: "500" }}>
+          <Text style={{ color: tone.ink, fontSize: 12.5, fontWeight: "500" }}>
             {copy.keepPlanning}
           </Text>
         </Pressable>
@@ -454,13 +522,13 @@ function PlanPermission({
             accessibilityRole="button"
             onPress={() => setViewingPlan((open) => !open)}
             style={{
-              backgroundColor: theme.colors.cardSubtle,
+              backgroundColor: tone.ghost,
               borderRadius: 999,
               paddingHorizontal: 11,
               paddingVertical: 5,
             }}
           >
-            <Text style={{ color: theme.colors.label, fontSize: 12.5, fontWeight: "500" }}>
+            <Text style={{ color: tone.ink, fontSize: 12.5, fontWeight: "500" }}>
               {viewingPlan ? copy.viewTodos : copy.viewPlan}
             </Text>
           </Pressable>
@@ -470,7 +538,7 @@ function PlanPermission({
           onPress={() => onRespond({ requestId: request.request_id, optionId: model.allowId })}
           style={{
             alignItems: "center",
-            backgroundColor: theme.colors.primary,
+            backgroundColor: tone.primaryFill,
             borderRadius: 999,
             flexDirection: "row",
             gap: 5,
@@ -478,10 +546,10 @@ function PlanPermission({
             paddingVertical: 5,
           }}
         >
-          <Text style={{ color: theme.colors.labelInverse, fontSize: 12.5, fontWeight: "500" }}>
+          <Text style={{ color: tone.primaryInk, fontSize: 12.5, fontWeight: "500" }}>
             {copy.approve}
           </Text>
-          <CornerDownLeft color={theme.colors.labelInverse} size={12} strokeWidth={2} />
+          <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
         </Pressable>
       </View>
     </View>
@@ -496,6 +564,7 @@ function CommandPermission({
   request: AgentChatPermissionPrompt;
 }) {
   const theme = useMobileTheme();
+  const tone = useApprovalTone();
   const options = request.options ?? [];
   const wired = commandPermissionActions(options);
   const actions =
@@ -510,8 +579,10 @@ function CommandPermission({
     description: request.description,
     tool: request.tool,
   });
-  const iconColor = theme.isDark ? "#f5b14c" : "#d98404";
-  const iconFill = theme.isDark ? "rgba(245, 177, 76, 0.14)" : "rgba(217, 132, 4, 0.14)";
+  const iconColor = theme.isDark ? APPROVAL_COMMAND_ICON_DARK : APPROVAL_COMMAND_ICON_LIGHT;
+  const iconFill = theme.isDark
+    ? APPROVAL_COMMAND_ICON_FILL_DARK
+    : APPROVAL_COMMAND_ICON_FILL_LIGHT;
 
   return (
     <View style={{ gap: 12 }}>
@@ -530,7 +601,7 @@ function CommandPermission({
         </View>
         <Text
           style={{
-            color: theme.colors.label,
+            color: tone.ink,
             flexShrink: 1,
             fontSize: 13.5,
             fontWeight: "500",
@@ -543,7 +614,7 @@ function CommandPermission({
       </View>
       <View
         style={{
-          backgroundColor: theme.isDark ? "#101010" : "#fafafa",
+          backgroundColor: tone.well,
           borderRadius: 8,
           paddingBottom: 10,
           paddingHorizontal: 12,
@@ -553,7 +624,7 @@ function CommandPermission({
         <Text
           selectable
           style={{
-            color: theme.isDark ? "#f5f5f5" : "#1a1a1a",
+            color: tone.ink,
             fontFamily: "Menlo",
             fontSize: 12.5,
             lineHeight: 18,
@@ -581,7 +652,7 @@ function CommandPermission({
               onPress={() => onRespond({ requestId: request.request_id, optionId: action.id })}
               style={{
                 alignItems: "center",
-                backgroundColor: primary ? theme.colors.primary : theme.colors.cardSubtle,
+                backgroundColor: primary ? tone.primaryFill : tone.ghost,
                 borderRadius: 999,
                 flexDirection: "row",
                 gap: 5,
@@ -591,7 +662,7 @@ function CommandPermission({
             >
               <Text
                 style={{
-                  color: primary ? theme.colors.labelInverse : theme.colors.label,
+                  color: primary ? tone.primaryInk : tone.ink,
                   fontSize: 12.5,
                   fontWeight: "500",
                 }}
@@ -599,7 +670,7 @@ function CommandPermission({
                 {action.label}
               </Text>
               {primary ? (
-                <CornerDownLeft color={theme.colors.labelInverse} size={12} strokeWidth={2} />
+                <CornerDownLeft color={tone.primaryInk} size={12} strokeWidth={2} />
               ) : null}
             </Pressable>
           );
@@ -619,10 +690,22 @@ export function AgentChatPermissionCard({
 }) {
   const questions = request.questions ?? [];
   if (questions.length > 0) {
-    return <QuestionPermission onRespond={onRespond} request={request} />;
+    return (
+      <ApprovalShell>
+        <QuestionPermission onRespond={onRespond} request={request} />
+      </ApprovalShell>
+    );
   }
   if (isPlanExitRequest(request)) {
-    return <PlanPermission onRespond={onRespond} request={request} />;
+    return (
+      <ApprovalShell>
+        <PlanPermission onRespond={onRespond} request={request} />
+      </ApprovalShell>
+    );
   }
-  return <CommandPermission onRespond={onRespond} request={request} />;
+  return (
+    <ApprovalShell>
+      <CommandPermission onRespond={onRespond} request={request} />
+    </ApprovalShell>
+  );
 }
