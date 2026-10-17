@@ -1056,6 +1056,19 @@ describe("search hit groups", () => {
     expect(label(1)).toBe("1 match");
     expect(label(0)).toBe("0 matches");
     expect(label(null)).toBeNull();
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("// @view"));
+    const hits = view.slice(
+      view.indexOf("function SearchHitsBody"),
+      view.indexOf("function PathGlyph"),
+    );
+    expect(hits).toContain("TOOL_FILE_LIST_MAX_HEIGHT");
+    expect(hits).toContain("HeightClip");
+    expect(hits.indexOf("$ ")).toBeLessThan(hits.indexOf("HeightClip"));
   });
 });
 

@@ -1234,37 +1234,43 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
           {model.script}
         </Text>
       ) : null}
-      {model.groups.map((group) => (
-        <View key={group.path} style={{ gap: 2 }}>
-          <Text numberOfLines={1} style={{ ...line, color: theme.colors.label }}>
-            {group.shown}
-          </Text>
-          {group.hits.map((hit, index) => (
-            <View
-              key={`${group.path}:${hit.line ?? 0}:${index}`}
-              style={{ flexDirection: "row", gap: 8, paddingLeft: 24 }}
-            >
-              {hit.line != null ? (
-                <Text
-                  style={{
-                    ...line,
-                    color: theme.colors.secondaryLabel,
-                    textAlign: "right",
-                    width: 40,
-                  }}
-                >
-                  {hit.line}
+      {model.groups.length > 0 ? (
+        <HeightClip maxHeight={TOOL_FILE_LIST_MAX_HEIGHT}>
+          <View style={{ gap: 4, paddingVertical: 4 }}>
+            {model.groups.map((group) => (
+              <View key={group.path} style={{ gap: 2 }}>
+                <Text numberOfLines={1} style={{ ...line, color: theme.colors.label }}>
+                  {group.shown}
                 </Text>
-              ) : null}
-              {hit.text ? (
-                <Text style={{ ...line, color: theme.colors.secondaryLabel, flexShrink: 1 }}>
-                  {hit.text}
-                </Text>
-              ) : null}
-            </View>
-          ))}
-        </View>
-      ))}
+                {group.hits.map((hit, index) => (
+                  <View
+                    key={`${group.path}:${hit.line ?? 0}:${index}`}
+                    style={{ flexDirection: "row", gap: 8, paddingLeft: 24 }}
+                  >
+                    {hit.line != null ? (
+                      <Text
+                        style={{
+                          ...line,
+                          color: theme.colors.secondaryLabel,
+                          textAlign: "right",
+                          width: 40,
+                        }}
+                      >
+                        {hit.line}
+                      </Text>
+                    ) : null}
+                    {hit.text ? (
+                      <Text style={{ ...line, color: theme.colors.secondaryLabel, flexShrink: 1 }}>
+                        {hit.text}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        </HeightClip>
+      ) : null}
       {model.groups.length === 0 && model.summary ? (
         <Text style={{ color: theme.colors.label, ...BODY_TEXT }}>{model.summary}</Text>
       ) : null}
