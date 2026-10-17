@@ -6,6 +6,7 @@ import {
   isActiveToolStatus,
   isImageToolPath,
   isNestedSubagentChild,
+  isSubagentWaitTool,
   matchCountFromSearchSummary,
   preferredCollapsedToolTitle,
   presentAgentTool,
@@ -239,10 +240,10 @@ export function subagentStatusText(status: string | null | undefined): string {
   return copy.subagentStatus.completed;
 }
 
-/** Timeline rows skip nested children. The wait section is their only row. */
-export function showToolRow(part: AgentPart, surface: "timeline" | "wait"): boolean {
+/** Timeline rows skip nested children and vendor wait polls. Web omits both. */
+export function showToolRow(part: AgentPart): boolean {
   if (part.type !== "tool_call") return true;
-  if (surface === "wait") return true;
+  if (isSubagentWaitTool(part)) return false;
   return !isNestedSubagentChild(part);
 }
 

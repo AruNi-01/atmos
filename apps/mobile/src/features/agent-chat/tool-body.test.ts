@@ -680,10 +680,7 @@ describe("tool body presentation", () => {
 
   test("nested children are timeline-hidden, and long mono text caps at 12 lines", async () => {
     const mod = await importPure("tool-body.tsx");
-    const show = mod.showToolRow as (
-      part: AgentToolCallPart,
-      surface: "timeline" | "wait",
-    ) => boolean;
+    const show = mod.showToolRow as (part: AgentToolCallPart) => boolean;
     const cap = mod.cappedToolText as (
       text: string,
       expanded: boolean,
@@ -693,8 +690,20 @@ describe("tool body presentation", () => {
       parent_tool_call_id: "parent",
       params: { type: "read", path: "a.ts" },
     });
-    expect(show(nested, "timeline")).toBe(false);
-    expect(show(nested, "wait")).toBe(true);
+    expect(show(nested)).toBe(false);
+    expect(
+      show(
+        part({
+          kind: "other",
+          name: "TaskOutput",
+          title: "Waiting for subagent",
+          params: { type: "other", value: null },
+        }),
+      ),
+    ).toBe(false);
+    expect(show(part({ kind: "read", name: "Read", params: { type: "read", path: "a.ts" } }))).toBe(
+      true,
+    );
     const lines = Array.from({ length: 13 }, (_, index) => `line ${index + 1}`).join("\n");
     const collapsed = cap(lines, false);
     expect(collapsed.overflow).toBe(true);

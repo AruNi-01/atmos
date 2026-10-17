@@ -1,8 +1,4 @@
-import {
-  formatWorkDuration,
-  shouldAutoCollapseProcessOnSettle,
-  waitForSection,
-} from "@atmos/agent-transcript";
+import { formatWorkDuration, shouldAutoCollapseProcessOnSettle } from "@atmos/agent-transcript";
 import { copy, fillTemplate } from "./copy";
 
 /** Worked-for when the turn recorded time; otherwise the settled process label. */
@@ -32,15 +28,6 @@ export function processExpandOnSettle(input: {
   return { expanded, wasCollapsible: input.canCollapse };
 }
 
-export function waitForLabel(count: number): string {
-  const n = Math.max(1, count);
-  return n === 1 ? "Wait for 1 background agent" : `Wait for ${n} background agents`;
-}
-
-export function agentChatWaitExpandKey(messageId: string): string {
-  return `wait:${messageId}`;
-}
-
 /** Web process rule is `h-px bg-border`: 1px, black or white at 10%. */
 export const PROCESS_RULE_LIGHT = "rgba(0, 0, 0, 0.1)";
 export const PROCESS_RULE_DARK = "rgba(255, 255, 255, 0.1)";
@@ -57,7 +44,7 @@ export function processRuleColor(isDark: boolean): string {
 
 import { Children, isValidElement, useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import { chatMutedForeground } from "./chat-ink";
 import {
@@ -254,41 +241,6 @@ export function ProcessFold({
           </>
         ) : null}
       </Pressable>
-    </View>
-  );
-}
-
-export function WaitForBlock({
-  messageId,
-  parts,
-  renderPart,
-}: {
-  messageId: string;
-  parts: AgentPart[];
-  renderPart: (part: AgentPart, index: number) => ReactNode;
-}) {
-  const theme = useMobileTheme();
-  const muted = chatMutedForeground(theme.isDark);
-  const section = waitForSection(parts);
-  const [open, setOpen] = useAgentChatExpand(agentChatWaitExpandKey(messageId), false);
-  if (!section) return null;
-
-  return (
-    <View style={{ gap: 4 }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={() => setOpen(!open)}
-        style={{ alignItems: "center", flexDirection: "row", gap: 4, paddingVertical: 2 }}
-      >
-        <Text style={{ color: muted, ...LABEL }}>{waitForLabel(section.anchors.length)}</Text>
-        <ExpandChevron color={muted} open={open} />
-      </Pressable>
-      {open
-        ? section.rows.map((row) => (
-            <View key={`${row.part.type}:${row.index}`}>{renderPart(row.part, row.index)}</View>
-          ))
-        : null}
     </View>
   );
 }

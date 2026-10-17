@@ -67,7 +67,7 @@ import { HistoricPermission } from "./historic-permission";
 import { InlineSubagentPanel } from "./inline-subagent-panel";
 import { inlineSubagentTasksByMessageId } from "./inline-subagent-tasks";
 import { useReducedMotion } from "./motion/use-reduced-motion";
-import { ProcessFold, WaitForBlock } from "./process-fold";
+import { ProcessFold } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
 import { initialStickState, reduceStick, type StickAction } from "./stick";
 import {
@@ -228,17 +228,15 @@ function InlinePart({
   message,
   origIndex,
   part,
-  surface,
 }: {
   message: AgentMessage;
   origIndex: number;
   part: AgentPart;
-  surface: "timeline" | "wait";
 }) {
   if (isHiddenTranscriptChromePart(part) || isHiddenGrokChromePart(part, message.parts))
     return null;
   if (part.type === "tool_call") {
-    if (!showToolRow(part, surface)) return null;
+    if (!showToolRow(part)) return null;
     return <ToolCallRow part={part} />;
   }
   if (part.type === "text") return <AnswerText part={part} parts={message.parts} />;
@@ -283,19 +281,12 @@ function SegmentView({
         origIndexes={segment.origIndexes}
         parts={segment.parts}
         renderPart={(part, origIndex) => (
-          <InlinePart message={message} origIndex={origIndex} part={part} surface="timeline" />
+          <InlinePart message={message} origIndex={origIndex} part={part} />
         )}
       />
     );
   }
-  return (
-    <InlinePart
-      message={message}
-      origIndex={segment.origIndex}
-      part={segment.part}
-      surface="timeline"
-    />
-  );
+  return <InlinePart message={message} origIndex={segment.origIndex} part={segment.part} />;
 }
 
 function assistantHasVisiblePart(message: AgentMessage): boolean {
@@ -303,7 +294,8 @@ function assistantHasVisiblePart(message: AgentMessage): boolean {
     if (isHiddenTranscriptChromePart(part) || isHiddenGrokChromePart(part, message.parts)) {
       return false;
     }
-    if (transcriptVisibility(part) === "nested_child") return false;
+    const visibility = transcriptVisibility(part);
+    if (visibility === "nested_child" || visibility === "subagent_wait") return false;
     if (part.type === "text" || part.type === "thinking") return Boolean(part.text);
     if (part.type === "error") return Boolean(part.message);
     if (part.type === "permission") return part.request.status !== "pending";
@@ -347,13 +339,6 @@ function AssistantTurn({
   };
   return (
     <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET }}>
-      <WaitForBlock
-        messageId={message.id}
-        parts={message.parts}
-        renderPart={(part, index) => (
-          <InlinePart message={message} origIndex={index} part={part} surface="wait" />
-        )}
-      />
       {processSegments.length > 0 ? (
         <ProcessFold canCollapse={canCollapse} message={message}>
           {processSegments.map((segment) => (

@@ -86,6 +86,5 @@ describe("thinking stream", () => {
     const transcript = read("AgentChatTranscript.tsx");
     expect(transcript).toContain("origIndex={origIndex}");
     expect(transcript).toContain("origIndex={segment.origIndex}");
-    expect(transcript).toContain("origIndex={index}");
   });
 });

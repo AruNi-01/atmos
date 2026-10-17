@@ -118,16 +118,6 @@ describe("process fold", () => {
     ).toEqual({ expanded: false, wasCollapsible: true });
   });
 
-  test("wait section keeps its label and moves the open flag to the expand store", async () => {
-    const fold = await importPure("process-fold.tsx");
-    const label = fold.waitForLabel as (count: number) => string;
-    const key = fold.agentChatWaitExpandKey as (id: string) => string;
-    expect(label(1)).toBe("Wait for 1 background agent");
-    expect(label(0)).toBe("Wait for 1 background agent");
-    expect(label(3)).toBe("Wait for 3 background agents");
-    expect(key("m1")).toBe("wait:m1");
-  });
-
   test("the rule is a 1px border and the worked-for label is 24px", async () => {
     const fold = await importPure("process-fold.tsx");
     const color = fold.processRuleColor as (isDark: boolean) => string;
@@ -137,10 +127,7 @@ describe("process fold", () => {
     expect(fold.PROCESS_WORKED_FOR_HEIGHT).toBe(24);
     const source = readFileSync(join(here, "process-fold.tsx"), "utf8");
     const view = source.slice(source.indexOf("// @view"));
-    const foldView = view.slice(
-      view.indexOf("export function ProcessFold"),
-      view.indexOf("export function WaitForBlock"),
-    );
+    const foldView = view.slice(view.indexOf("export function ProcessFold"));
     expect(view).toContain("gap={canCollapse ? PROCESS_ROW_GAP : 0}");
     expect(view).toContain("marginBottom: gap");
     expect(foldView).toContain("processRuleColor");
@@ -153,10 +140,8 @@ describe("process fold", () => {
     expect(foldView).toContain("const muted = chatMutedForeground(theme.isDark)");
     expect(foldView).toContain("<ExpandChevron color={muted} open={expanded} size={12} />");
     expect(foldView).not.toContain("theme.colors.secondaryLabel");
-    const wait = view.slice(view.indexOf("export function WaitForBlock"));
-    expect(wait).toContain("const muted = chatMutedForeground(theme.isDark)");
-    expect(wait).toContain("<ExpandChevron color={muted} open={open} />");
-    expect(wait).not.toContain("theme.colors.secondaryLabel");
+    expect(foldView).not.toContain("WaitForBlock");
+    expect(foldView).not.toContain("Wait for ");
   });
 });
 

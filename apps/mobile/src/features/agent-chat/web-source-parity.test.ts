@@ -48,7 +48,7 @@ describe("web source parity", () => {
       transcript.indexOf("function AssistantTurn"),
       transcript.indexOf("const ChatMessage"),
     );
-    const column = turn.slice(turn.indexOf("return ("), turn.indexOf("<WaitForBlock"));
+    const column = turn.slice(turn.indexOf("return ("), turn.indexOf("<ProcessFold"));
     expect(column).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
     expect(column).not.toContain("gap:");
     expect(column).not.toContain('width: "100%"');
@@ -57,6 +57,9 @@ describe("web source parity", () => {
     expect(message).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
     expect(message).toContain("marginTop: 8");
     expect(transcript).not.toContain("stream-wait");
+    expect(transcript).not.toContain("WaitForBlock");
+    expect(transcript).not.toContain("Wait for ");
+    expect(transcript).toContain('visibility === "subagent_wait"');
   });
 
   test("the transcript content uses the web py-4", () => {
