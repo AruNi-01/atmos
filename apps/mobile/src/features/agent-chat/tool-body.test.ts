@@ -1341,3 +1341,52 @@ describe("tool row chrome", () => {
     expect(codeFence).not.toContain("CappedMono");
   });
 });
+
+describe("tool body panel", () => {
+  test("matches the web muted panel kinds", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const panel = mod.toolBodyUsesPanel as (
+      model: { kind: string; language?: string; format?: string; path?: string | null },
+      partKind: string,
+    ) => boolean;
+    expect(mod.TOOL_PANEL_RADIUS).toBe(8);
+    expect(mod.TOOL_PANEL_LIGHT).toBe("rgba(222, 222, 224, 0.5)");
+    expect(mod.TOOL_PANEL_DARK).toBe("rgba(39, 39, 42, 0.5)");
+    for (const kind of ["search", "files", "tree", "prose", "move", "delete", "error", "images"]) {
+      expect(panel({ kind }, "read")).toBe(true);
+    }
+    expect(panel({ kind: "empty", path: null }, "read")).toBe(true);
+    expect(panel({ kind: "empty", path: "note.md" }, "read")).toBe(true);
+    expect(panel({ kind: "empty", path: "shot.png" }, "read")).toBe(false);
+    expect(panel({ kind: "preview", language: "plaintext" }, "read")).toBe(true);
+    expect(panel({ kind: "preview", language: "json" }, "read")).toBe(false);
+    expect(panel({ kind: "preview", language: "json" }, "other")).toBe(true);
+    expect(panel({ kind: "empty", path: "shot.png" }, "execute")).toBe(true);
+    expect(panel({ kind: "web_fetch", format: "text" }, "fetch")).toBe(true);
+    expect(panel({ kind: "web_fetch", format: "error" }, "fetch")).toBe(true);
+    expect(panel({ kind: "web_fetch", format: "markdown" }, "fetch")).toBe(false);
+    for (const kind of [
+      "code",
+      "markdown",
+      "diff",
+      "diff_stats",
+      "patch",
+      "web_search",
+      "plan_document",
+      "image_gen",
+    ]) {
+      expect(panel({ kind }, "read")).toBe(false);
+    }
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const row = source.slice(source.indexOf("export function ToolCallRow"));
+    expect(row).toContain("toolBodyUsesPanel(model, part.kind)");
+    expect(row).toContain("TOOL_PANEL_RADIUS");
+    expect(row).toContain('overflow: "hidden"');
+    expect(row).toContain("marginTop: metrics.bodyPadTop");
+    expect(row).toContain("paddingTop: metrics.bodyPadTop");
+  });
+});

@@ -4,6 +4,7 @@ import {
   formatToolLineRange,
   hostFromUrl,
   isActiveToolStatus,
+  isImageToolPath,
   isNestedSubagentChild,
   matchCountFromSearchSummary,
   preferredCollapsedToolTitle,
@@ -887,6 +888,43 @@ export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; de
     }
   }
   return { additions, deletions };
+}
+
+/**
+ * Web `bg-muted/50` (`oklch(0.9 0.004 286)` / `oklch(0.274 0.006 286.033)` at 50%).
+ * `rounded-md` is `--radius` (10px) minus 2px.
+ */
+export const TOOL_PANEL_LIGHT = "rgba(222, 222, 224, 0.5)";
+export const TOOL_PANEL_DARK = "rgba(39, 39, 42, 0.5)";
+export const TOOL_PANEL_RADIUS = 8;
+
+/**
+ * Web wraps execute, other, and the default tool body in `mt-1 rounded-md bg-muted/50`.
+ * Code, markdown, json, diffs, search-the-web, plan, and image generation stay plain.
+ * A failed or non-markdown fetch uses the panel. An empty image read does not.
+ */
+export function toolBodyUsesPanel(model: ToolBodyModel, partKind: string): boolean {
+  if (partKind === "other" || partKind === "execute") return true;
+  switch (model.kind) {
+    case "search":
+    case "files":
+    case "tree":
+    case "prose":
+    case "execute":
+    case "move":
+    case "delete":
+    case "error":
+    case "images":
+      return true;
+    case "preview":
+      return model.language !== "json";
+    case "web_fetch":
+      return model.format !== "markdown";
+    case "empty":
+      return !(model.path && isImageToolPath(model.path));
+    default:
+      return false;
+  }
 }
 
 // @view
@@ -2037,7 +2075,18 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
         <ExpandChevron color={color} open={open} size={metrics.chevron} />
       </Pressable>
       {open ? (
-        <View style={{ paddingTop: metrics.bodyPadTop }}>
+        <View
+          style={
+            toolBodyUsesPanel(model, part.kind)
+              ? {
+                  backgroundColor: theme.isDark ? TOOL_PANEL_DARK : TOOL_PANEL_LIGHT,
+                  borderRadius: TOOL_PANEL_RADIUS,
+                  marginTop: metrics.bodyPadTop,
+                  overflow: "hidden",
+                }
+              : { paddingTop: metrics.bodyPadTop }
+          }
+        >
           <ToolBodyView model={model} />
         </View>
       ) : null}
