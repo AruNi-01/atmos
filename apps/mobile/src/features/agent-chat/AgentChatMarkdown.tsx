@@ -3,6 +3,7 @@ import { Linking } from "react-native";
 import { StreamdownText } from "react-native-streamdown";
 import type { MarkdownStyle } from "react-native-enriched-markdown";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chipCompleteHttpUrls, HTTP_CHIP_LINK_VARIANT, httpChipTarget } from "./http-link-chip";
 import {
   agentChatBlockMetrics,
   agentChatHeadingStyle,
@@ -10,8 +11,9 @@ import {
 } from "./markdown-chrome";
 
 function openHttpLink(url: string) {
-  if (url.startsWith("https://") || url.startsWith("http://")) {
-    void Linking.openURL(url);
+  const target = httpChipTarget(url) ?? url;
+  if (target.startsWith("https://") || target.startsWith("http://")) {
+    void Linking.openURL(target);
   }
 }
 
@@ -20,12 +22,15 @@ export function AgentChatMarkdown({
   tone = "body",
   fontSize,
   lineHeight,
+  chipHttpUrls = false,
 }: {
   text: string;
   tone?: "body" | "thinking";
   /** Overrides the tone default. Omitted body text stays 16 / 22. */
   fontSize?: number;
   lineHeight?: number;
+  /** Answer and thinking only. Matches web's hostname chip for complete http URLs. */
+  chipHttpUrls?: boolean;
 }) {
   const theme = useMobileTheme();
   const markdownStyle = useMemo<MarkdownStyle>(() => {
@@ -86,6 +91,17 @@ export function AgentChatMarkdown({
         color: theme.colors.accent,
         underline: true,
       },
+      ...(chipHttpUrls
+        ? {
+            linkVariants: {
+              [HTTP_CHIP_LINK_VARIANT]: {
+                backgroundColor: theme.colors.cardSubtle,
+                color: theme.colors.label,
+                underline: false,
+              },
+            },
+          }
+        : {}),
       thematicBreak: {
         color: theme.colors.separator,
         height: 1,
@@ -106,15 +122,20 @@ export function AgentChatMarkdown({
         ...agentChatBlockMetrics.table,
       },
     };
-  }, [fontSize, lineHeight, theme, tone]);
+  }, [chipHttpUrls, fontSize, lineHeight, theme, tone]);
 
-  if (text.length === 0) return null;
+  const markdown = useMemo(
+    () => (chipHttpUrls ? chipCompleteHttpUrls(text) : text),
+    [chipHttpUrls, text],
+  );
+
+  if (markdown.length === 0) return null;
 
   return (
     <StreamdownText
       enableTaskListItemToggle={false}
       flavor="github"
-      markdown={text}
+      markdown={markdown}
       markdownStyle={markdownStyle}
       onLinkPress={({ url }) => openHttpLink(url)}
     />

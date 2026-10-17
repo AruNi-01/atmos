@@ -37,7 +37,7 @@ export function ThinkingBlock({
       ) : (
         <Text style={titleStyle}>{title}</Text>
       )}
-      <AgentChatMarkdown text={part.text} tone="thinking" />
+      <AgentChatMarkdown chipHttpUrls text={part.text} tone="thinking" />
     </View>
   );
 }

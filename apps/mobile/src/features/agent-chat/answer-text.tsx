@@ -20,5 +20,5 @@ export function AnswerText({
   const text = answerShowsBlockCaret({ reduced, tail: streamingTail, text: paced })
     ? `${paced} ${copy.answerCaret}`
     : paced;
-  return <AgentChatMarkdown fontSize={14} lineHeight={20} text={text} />;
+  return <AgentChatMarkdown chipHttpUrls fontSize={14} lineHeight={20} text={text} />;
 }
