@@ -904,6 +904,18 @@ describe("plan document", () => {
     expect(card).toContain("ListTodoIcon");
     expect(card).toContain("ScrollTextIcon");
     expect(source).toContain("planDocumentStartsOpen(model)");
+    const row = source.slice(source.indexOf("export function ToolCallRow"));
+    expect(row).toContain('part.kind === "plan_document"');
+    expect(row).toContain("<ScrollTextIcon");
+    const kindIcon = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-kind-icon.tsx"),
+      "utf8",
+    );
+    const planKind = kindIcon.slice(
+      kindIcon.indexOf('case "plan_document":'),
+      kindIcon.indexOf('case "edit":'),
+    );
+    expect(planKind).toContain("FileTextIcon");
   });
 });
 

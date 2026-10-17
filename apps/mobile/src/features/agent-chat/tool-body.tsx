@@ -1730,7 +1730,9 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
             width: metrics.iconBox,
           }}
         >
-          {part.kind === "fetch" ? (
+          {part.kind === "plan_document" ? (
+            <ScrollTextIcon color={color} size={metrics.iconSize} strokeWidth={2} />
+          ) : part.kind === "fetch" ? (
             <HttpFavicon url={fetchRowUrl(part)} size={metrics.iconBox} radius={3} />
           ) : (
             <ToolKindIcon color={color} kind={part.kind} size={metrics.iconSize} />
