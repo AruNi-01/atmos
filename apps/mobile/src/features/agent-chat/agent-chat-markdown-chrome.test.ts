@@ -58,9 +58,10 @@ describe("agent chat markdown chrome", () => {
       fontSize: 30,
       fontWeight: "600",
       lineHeight: 36,
-      marginBottom: 8,
+      marginBottom: 16,
       marginTop: 24,
     });
+    expect(agentChatHeadingStyle("#111112", 8).h1.marginBottom).toBe(8);
     expect(headings.h2.lineHeight).toBe(32);
     expect(headings.h6).toMatchObject({ fontSize: 14, lineHeight: 20 });
     const renderer = agentChatRendererHeadingStyle("#111112", 13, 21);
@@ -148,6 +149,7 @@ describe("agent chat markdown chrome", () => {
     expect(markdown).toContain('tone === "thinking"');
     expect(markdown).toContain("agentChatProseMetrics(prose)");
     expect(markdown).toContain("agentChatRendererHeadingStyle");
+    expect(markdown).toContain('agentChatHeadingStyle(proseColor, tone === "thinking" ? 8 : 16)');
     expect(markdown).toContain("chatForeground(theme.isDark)");
     expect(markdown).toContain("chatMutedForeground(theme.isDark)");
     expect(BLOCKQUOTE_MARGIN).toBe(16);

@@ -2,10 +2,13 @@ import { chatMutedForeground } from "./chat-ink";
 
 /**
  * Streamdown heading scale (`text-3xl` … `text-sm`, `font-semibold`).
- * Every level is `mt-6 mb-2`. Answer text is `text-sm` (14/20).
- * Headings keep their own line box. A body line height of 20 clips the 30px h1.
- * A message that opens on a heading still gets this top spacer. Web clears it
- * with `[&>*:first-child]:mt-0`, and the native renderer has no first-child flag.
+ * Every level is `mt-6 mb-2`. The next block's `space-y-4` collapses with
+ * `mb-2`, so the painted gap under an answer heading is 16px. Thinking keeps
+ * 8px because its fences still carry a top margin. Answer text is `text-sm`
+ * (14/20). Headings keep their own line box. A body line height of 20 clips
+ * the 30px h1. A message that opens on a heading still gets this top spacer.
+ * Web clears it with `[&>*:first-child]:mt-0`, and the native renderer has no
+ * first-child flag.
  */
 export const agentChatHeadingScale = {
   h1: { fontSize: 30, lineHeight: 36 },
@@ -16,8 +19,8 @@ export const agentChatHeadingScale = {
   h6: { fontSize: 14, lineHeight: 20 },
 } as const;
 
-export function agentChatHeadingStyle(color: string) {
-  const shared = { color, fontWeight: "600", marginBottom: 8, marginTop: 24 };
+export function agentChatHeadingStyle(color: string, marginBottom = 16) {
+  const shared = { color, fontWeight: "600", marginBottom, marginTop: 24 };
   return {
     h1: { ...shared, ...agentChatHeadingScale.h1 },
     h2: { ...shared, ...agentChatHeadingScale.h2 },
