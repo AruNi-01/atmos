@@ -687,6 +687,55 @@ install-e2e-browsers:
 e2e-report:
     bun run --cwd e2e report
 
+# ----- Mobile agent e2e (QUALITY-009) -----
+# Local, headed iOS Simulator verification driven by agents (e2e + agent-device).
+# Separate from the headless CI Playwright suite above (/e2e); never run in CI.
+# The simulator is pinned by UDID: ATMOS_E2E_DEVICE=<UDID|name>, default iPhone 17 Pro on iOS 26.5.
+# Telemetry is off by default (set E2E_TELEMETRY_DISABLED=0 to opt in).
+export E2E_TELEMETRY_DISABLED := env_var_or_default("E2E_TELEMETRY_DISABLED", "1")
+
+# Install the mobile e2e dependencies (apps/mobile/e2e is its own bun package)
+mobile-e2e-install-deps:
+    cd apps/mobile/e2e && bun install --frozen-lockfile
+
+# Read-only: resolve the simulator, run agent-device doctor, show device claims, list tests
+mobile-e2e-doctor:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    udid="$(node apps/mobile/e2e/scripts/resolve-device.mjs)"
+    echo "simulator: $udid"
+    cd apps/mobile/e2e
+    ./node_modules/.bin/agent-device doctor --platform ios
+    ./node_modules/.bin/agent-device device status --platform ios --udid "$udid" || true
+    bun run list
+
+# Build the Release (no Metro) simulator app and install it. ATMOS_E2E_NO_INSTALL=1 builds only.
+mobile-e2e-build:
+    bash apps/mobile/e2e/scripts/build-sim-release.sh
+
+# Install the app built by mobile-e2e-build onto the e2e simulator
+mobile-e2e-install:
+    bash apps/mobile/e2e/scripts/install-sim-release.sh
+
+# Deterministic smoke test (no model, no paired Computer needed)
+mobile-e2e-smoke *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd apps/mobile/e2e
+    ATMOS_E2E_DEVICE="$(node scripts/resolve-device.mjs)" bun run test:smoke:ios -- "$@"
+
+# Run the mobile e2e suite on the pinned simulator (optionally one file: tests/workspace.e2e.ts)
+mobile-e2e-run *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd apps/mobile/e2e
+    ATMOS_E2E_DEVICE="$(node scripts/resolve-device.mjs)" bun run test:ios -- "$@"
+
+# Usage: just mobile-e2e-evidence 313 "after tool-fold change"   (EVIDENCE_NO_PUSH=1 stages only)
+# Capture screenshot + a11y tree (+ report.json) and push to branch agent-artifacts: pr-<N>/<sha>/
+mobile-e2e-evidence pr note="":
+    bash apps/mobile/e2e/scripts/evidence.sh "{{pr}}" "{{note}}"
+
 # Run frontend tests only
 test-web:
     bun test
