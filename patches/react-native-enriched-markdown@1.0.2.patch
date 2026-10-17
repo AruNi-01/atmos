@@ -227,7 +227,7 @@ index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f2
 +  if (dark) {
 +    return [RCTUIColor colorWithRed:(0xA3 / 255.0) green:(0xA3 / 255.0) blue:(0xA3 / 255.0) alpha:1];
 +  }
-+  return [RCTUIColor colorWithRed:(0x52 / 255.0) green:(0x52 / 255.0) blue:(0x5B / 255.0) alpha:1];
++  return [RCTUIColor colorWithRed:(0x52 / 255.0) green:(0x52 / 255.0) blue:(0x52 / 255.0) alpha:1];
 +}
 +
 +static RCTUIColor *ENRMWebCodePaneColor(BOOL dark)

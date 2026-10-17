@@ -368,3 +368,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - A leading rule drops its 8px top margin, and a trailing rule drops the 24px baked into the attachment. Web clears those with `[&>*:first-child]:mt-0` and `[&>*:last-child]:mb-0`. A rule between blocks keeps 8px and 24px. This is not in run `39044805808`. It is not re-shot.
 - Plus, a ready send, and stop fade their glyph to 80%. Web puts those icons in a button that fades every svg. The empty send stays the glass control at 0.45 with a solid arrow. This is not in run `39052486789`. It is not re-shot.
 - The streaming answer caret is U+258B. Streamdown's block caret is that character. This is not in run `39052486789`. It is not re-shot.
+- A fence header and its copy glyph use neutral-600 (`#525252`) in light. The previous ink was zinc-600. Dark stays neutral-400. This is not in run `39052486789`. It is not re-shot.
