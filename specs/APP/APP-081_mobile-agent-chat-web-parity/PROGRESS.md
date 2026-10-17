@@ -260,3 +260,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - An image generation body uses the web 8px horizontal inset and 8px bottom inset around the 208px box. This is not re-shot.
 - A code fence keeps the 8px side inset and adds the web 8px bottom inset. The fence's own 8px margin stays. This is not re-shot.
 - A permission with questions shows one prompt at a time, lettered choices, and Skip / Continue. Continue sends `answers:` plus the JSON map and stays disabled until every question has an answer. Skip sends `reject_once`. The wire Allow / Deny options stay on a permission that has no questions. This is not re-shot.
+- A plan-exit permission uses the web plan card: the plan title, a to-do well with the first three steps and "N more", and Keep planning / View plan / Approve. View plan swaps in the plan markdown. Structured to-dos win over a markdown checklist. A question card still wins over plan exit. This is not re-shot.

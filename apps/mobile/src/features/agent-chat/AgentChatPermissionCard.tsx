@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ChevronDown, ChevronUp, CornerDownLeft, MessageCircleQuestion } from "lucide-react-native";
+import {
+  ChevronDown,
+  ChevronUp,
+  CircleDashed,
+  CornerDownLeft,
+  ListTodo,
+  MessageCircleQuestion,
+} from "lucide-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
+import { PLAN_TODO_PREVIEW_COUNT, planPermissionModel } from "./permission-plan";
 import {
   PERMISSION_QUESTION_ADVANCE_MS,
   PERMISSION_QUESTION_REJECT_ID,
@@ -259,6 +267,219 @@ function QuestionPermission({
   );
 }
 
+function PlanPermission({
+  onRespond,
+  request,
+}: {
+  onRespond: (input: { requestId: string; optionId: string }) => void;
+  request: AgentChatPermissionPrompt;
+}) {
+  const theme = useMobileTheme();
+  const model = planPermissionModel({
+    description: request.description,
+    markdown: request.content_markdown ?? "",
+    options: request.options ?? [],
+    todos: request.plan_todos ?? [],
+  });
+  const [viewingPlan, setViewingPlan] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const hasTodos = model.steps.length > 0;
+  const showBody = !hasTodos || viewingPlan;
+  const preview = model.steps.slice(0, PLAN_TODO_PREVIEW_COUNT);
+  const rest = model.steps.slice(PLAN_TODO_PREVIEW_COUNT);
+  const shown = expanded ? model.steps : preview;
+
+  return (
+    <View style={{ gap: 12 }}>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: 8, height: 24 }}>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: theme.colors.greenSurface,
+            borderRadius: 6,
+            height: 24,
+            justifyContent: "center",
+            width: 24,
+          }}
+        >
+          <ListTodo color={theme.colors.green} size={14} strokeWidth={2} />
+        </View>
+        <Text
+          style={{
+            color: theme.colors.label,
+            flexShrink: 1,
+            fontSize: 13.5,
+            fontWeight: "500",
+            letterSpacing: -0.14,
+            lineHeight: 17,
+          }}
+        >
+          {copy.planApprovalTitle}
+        </Text>
+      </View>
+      {showBody ? (
+        model.markdown ? (
+          <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.markdown} />
+        ) : (
+          <Text
+            style={{
+              color: theme.colors.secondaryLabel,
+              fontSize: 14,
+              lineHeight: 20,
+              paddingHorizontal: 4,
+              paddingVertical: 8,
+            }}
+          >
+            {copy.planViewerEmpty}
+          </Text>
+        )
+      ) : (
+        <View style={{ gap: 12 }}>
+          {model.title || model.summary ? (
+            <View style={{ gap: 2, paddingLeft: 2 }}>
+              {model.title ? (
+                <Text
+                  style={{
+                    color: theme.colors.label,
+                    fontSize: 15,
+                    fontWeight: "500",
+                    letterSpacing: -0.15,
+                    lineHeight: 20,
+                  }}
+                >
+                  {model.title}
+                </Text>
+              ) : null}
+              {model.summary ? (
+                <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 12.5, lineHeight: 18 }}>
+                  {model.summary}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+          <View
+            style={{
+              backgroundColor: theme.isDark ? "#101010" : "#fafafa",
+              borderRadius: 8,
+              paddingBottom: 10,
+              paddingHorizontal: 12,
+              paddingTop: 8,
+            }}
+          >
+            <View style={{ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 22 }}>
+              <ListTodo color={theme.colors.label} size={14} strokeWidth={2} />
+              <Text style={{ color: theme.colors.label, fontSize: 13, fontWeight: "500" }}>
+                {copy.planTodosHeading}
+              </Text>
+              <Text
+                style={{
+                  color: theme.colors.tertiaryLabel,
+                  fontSize: 13,
+                  fontVariant: ["tabular-nums"],
+                  marginLeft: "auto",
+                }}
+              >
+                {model.steps.length}
+              </Text>
+            </View>
+            <View style={{ gap: 8, paddingTop: 8 }}>
+              {shown.map((step) => (
+                <View
+                  key={step.id}
+                  style={{ alignItems: "flex-start", flexDirection: "row", gap: 8 }}
+                >
+                  <CircleDashed color={theme.colors.tertiaryLabel} size={14} strokeWidth={2} />
+                  <Text
+                    style={{
+                      color: theme.colors.secondaryLabel,
+                      flexShrink: 1,
+                      fontSize: 13,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {step.title}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            {rest.length > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                onPress={() => setExpanded((open) => !open)}
+                style={{ marginTop: 8 }}
+              >
+                <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 13, lineHeight: 18 }}>
+                  {expanded ? copy.showLess : `${rest.length} more`}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      )}
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 6,
+          justifyContent: "flex-end",
+          paddingLeft: 2,
+          paddingTop: 4,
+        }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onRespond({ requestId: request.request_id, optionId: model.rejectId })}
+          style={{
+            backgroundColor: theme.colors.cardSubtle,
+            borderRadius: 999,
+            paddingHorizontal: 11,
+            paddingVertical: 5,
+          }}
+        >
+          <Text style={{ color: theme.colors.label, fontSize: 12.5, fontWeight: "500" }}>
+            {copy.keepPlanning}
+          </Text>
+        </Pressable>
+        {hasTodos ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setViewingPlan((open) => !open)}
+            style={{
+              backgroundColor: theme.colors.cardSubtle,
+              borderRadius: 999,
+              paddingHorizontal: 11,
+              paddingVertical: 5,
+            }}
+          >
+            <Text style={{ color: theme.colors.label, fontSize: 12.5, fontWeight: "500" }}>
+              {viewingPlan ? copy.viewTodos : copy.viewPlan}
+            </Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onRespond({ requestId: request.request_id, optionId: model.allowId })}
+          style={{
+            alignItems: "center",
+            backgroundColor: theme.colors.primary,
+            borderRadius: 999,
+            flexDirection: "row",
+            gap: 5,
+            paddingHorizontal: 11,
+            paddingVertical: 5,
+          }}
+        >
+          <Text style={{ color: theme.colors.labelInverse, fontSize: 12.5, fontWeight: "500" }}>
+            {copy.approve}
+          </Text>
+          <CornerDownLeft color={theme.colors.labelInverse} size={12} strokeWidth={2} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export function AgentChatPermissionCard({
   filePath,
   request,
@@ -275,6 +496,9 @@ export function AgentChatPermissionCard({
   const questions = request.questions ?? [];
   if (questions.length > 0) {
     return <QuestionPermission onRespond={onRespond} request={request} />;
+  }
+  if (isPlanExitRequest(request)) {
+    return <PlanPermission onRespond={onRespond} request={request} />;
   }
   const todos = request.plan_todos ?? [];
   const planExit = isPlanExitRequest(request);

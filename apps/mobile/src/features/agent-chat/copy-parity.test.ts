@@ -15,6 +15,10 @@ type ChatPanelCopy = {
   continue: string;
   skip: string;
   planApprovalTitle: string;
+  keepPlanning: string;
+  approve: string;
+  viewPlan: string;
+  viewTodos: string;
   sessionOpRequested: string;
   planViewerEmpty: string;
   bottom: string;
@@ -126,6 +130,10 @@ describe("agent chat copy parity", () => {
     expect(copy.continue).toBe(chatPanel.continue);
     expect(copy.skip).toBe(chatPanel.skip);
     expect(copy.planApprovalTitle).toBe(chatPanel.planApprovalTitle);
+    expect(copy.keepPlanning).toBe(chatPanel.keepPlanning);
+    expect(copy.approve).toBe(chatPanel.approve);
+    expect(copy.viewPlan).toBe(chatPanel.viewPlan);
+    expect(copy.viewTodos).toBe(chatPanel.viewTodos);
     expect(copy.sessionOpRequested).toBe(chatPanel.sessionOpRequested);
     expect(copy.planViewerEmpty).toBe(chatPanel.planViewerEmpty);
     expect(copy.planViewerEmpty).toBe("No plan content available yet.");
