@@ -51,7 +51,6 @@ import { writeParityMotionPng } from "./capture-parity-view";
 import { parityLaneSampleTaps, parityLaneShots } from "./parity-lane-steps";
 import { foldParityReplay, parityReplaySeed, parityReplayShotTimes } from "./parity-replay";
 import { readParityDiskFrame } from "./read-parity-disk-frame";
-import { resolvedPillRowHeight } from "./transcript-pad";
 import { agentChatProcessExpandKey, useAgentChatExpandStore } from "./expand-store";
 import {
   PARITY_MOTION_ROW_MS,
@@ -480,7 +479,7 @@ export function PreviewChatScreen() {
     selected: lane.visible === id,
     attention: pillShowsAttention(id, lane.visible),
   }));
-  const pillRowHeight = resolvedPillRowHeight(pills.length > 0, pillHeight);
+  const pillRowHeight = pillHeight;
   const picker = useMemo(
     () =>
       buildComposerPicker({
