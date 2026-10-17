@@ -989,6 +989,17 @@ export const TOOL_DIFF_NUMBER_ADD_LIGHT = "#0dbe4e";
 export const TOOL_DIFF_NUMBER_ADD_DARK = "#5ecc71";
 export const TOOL_DIFF_NUMBER_DEL_LIGHT = "#ff2e3f";
 export const TOOL_DIFF_NUMBER_DEL_DARK = "#ff6762";
+/**
+ * Pierre `--diffs-fg-number`: `color-mix(in lab, fg 65%, canvas)` with fg
+ * `#000` / `#fff`. Context rows are transparent, so the canvas is the chat
+ * page (`#f4f4f6` / `#000000`).
+ */
+export const TOOL_DIFF_NUMBER_CONTEXT_LIGHT = "#4f4f50";
+export const TOOL_DIFF_NUMBER_CONTEXT_DARK = "#9e9e9e";
+
+export function toolDiffContextNumber(isDark: boolean): string {
+  return isDark ? TOOL_DIFF_NUMBER_CONTEXT_DARK : TOOL_DIFF_NUMBER_CONTEXT_LIGHT;
+}
 
 /** Unified rows show the new-file number, and the old-file number on a deletion. */
 export function toolDiffUnifiedLineNo(
@@ -1560,7 +1571,7 @@ function DiscussionDiff({
   const numberInk = (op: UnifiedDiffLine["op"]) => {
     if (op === "add") return theme.isDark ? TOOL_DIFF_NUMBER_ADD_DARK : TOOL_DIFF_NUMBER_ADD_LIGHT;
     if (op === "del") return theme.isDark ? TOOL_DIFF_NUMBER_DEL_DARK : TOOL_DIFF_NUMBER_DEL_LIGHT;
-    return theme.colors.secondaryLabel;
+    return toolDiffContextNumber(theme.isDark);
   };
   return (
     <View

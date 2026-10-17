@@ -131,6 +131,7 @@ describe("tool body presentation", () => {
     expect(discussion).toContain('line.op === "add"');
     expect(discussion).toContain('line.op === "del"');
     expect(discussion).toContain('toolDiffLineFill("del", theme.isDark)');
+    expect(discussion).toContain("toolDiffContextNumber(theme.isDark)");
     expect(discussion).not.toContain("minWidth: 28");
     expect(discussion).toContain("FileTextIcon");
     expect(discussion).not.toContain("PathChip");
@@ -157,6 +158,10 @@ describe("tool body presentation", () => {
     expect(mod.TOOL_DIFF_NUMBER_ADD_DARK).toBe("#5ecc71");
     expect(mod.TOOL_DIFF_NUMBER_DEL_LIGHT).toBe("#ff2e3f");
     expect(mod.TOOL_DIFF_NUMBER_DEL_DARK).toBe("#ff6762");
+    expect(mod.TOOL_DIFF_NUMBER_CONTEXT_LIGHT).toBe("#4f4f50");
+    expect(mod.TOOL_DIFF_NUMBER_CONTEXT_DARK).toBe("#9e9e9e");
+    expect(mod.toolDiffContextNumber(false)).toBe("#4f4f50");
+    expect(mod.toolDiffContextNumber(true)).toBe("#9e9e9e");
     expect(mod.toolDiffNumberColumnWidth(2)).toBe(46.8);
     expect(mod.toolDiffNumberColumnWidth(999)).toBe(46.8);
     expect(mod.toolDiffNumberColumnWidth(1000)).toBe(54.6);
