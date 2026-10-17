@@ -53,6 +53,7 @@ write_frame_file() {
   local scroll="${3:-}"
   local motion="${4:-}"
   local replay="${5:-}"
+  local lane="${6:-}"
   local container docs extra=""
   container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
   docs="${container}/Documents"
@@ -60,8 +61,9 @@ write_frame_file() {
   if [[ "$scroll" == "away" ]]; then extra+=',"scroll":"away"'; fi
   if [[ "$motion" == "reduced" ]]; then extra+=',"motion":"reduced"'; fi
   if [[ "$replay" == "script" ]]; then extra+=',"replay":"script"'; fi
+  if [[ "$lane" == "steps" ]]; then extra+=',"lane":"steps"'; fi
   printf '{"id":"%s","theme":"%s"%s}\n' "$id" "$theme" "$extra" >"${docs}/parity-frame.json"
-  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}"
+  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}"
 }
 
 clear_motion_shots() {
@@ -350,6 +352,48 @@ capture_f4_replay() {
   done
 }
 
+# Pill handler steps for F12. This is not a Simulator tap, and it does not
+# answer the permission. A miss does not fail the job.
+capture_f12_lane() {
+  local dest frames video duration index shot
+  dest="$OUT/f12-lane"
+  clear_motion_shots || true
+  write_frame_file "F12" "light" "" "" "" "steps"
+  echo "launch F12 light lane steps"
+  launch_frame "F12" "light"
+  if ! wait_for_line "[parity] preview-chat module" 90; then
+    echo "f12 lane missed the module" >&2
+    return 0
+  fi
+  if ! wait_for_line "[parity] lane done" 60; then
+    echo "f12 lane did not finish" >&2
+    dump_runtime_logs || true
+    copy_motion_shots "$dest" || true
+    return 0
+  fi
+  sleep 1
+  copy_motion_shots "$dest" || true
+  frames="$(mktemp -d)"
+  index=0
+  while IFS= read -r shot; do
+    [[ -n "$shot" ]] || continue
+    index=$((index + 1))
+    sips -s format jpeg "$shot" --out "$frames/$(printf '%03d' "$index").jpg" >/dev/null || true
+  done < <(find "$dest" -name 'lane-*.png' | sort)
+  if (( index < 2 )); then
+    echo "f12 lane has ${index} frames; not muxing" >&2
+    rm -rf "$frames"
+    return 0
+  fi
+  video="$OUT/f12-lane.mov"
+  if duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"; then
+    echo "recording f12 lane duration ${duration} frames ${index}"
+  else
+    echo "f12 lane mux failed" >&2
+  fi
+  rm -rf "$frames"
+}
+
 # A stuck simctl screenshot consumed the 120 minute job (run 38857737524).
 # Run 38871450335 then showed the app was ready and the shot still had not
 # returned at 90s, while the previous green capture's slow frames took a few
@@ -577,6 +621,7 @@ PY
 capture_tail_away
 capture_stream_motion
 capture_f4_replay || echo "f4 replay capture failed" >&2
+capture_f12_lane || echo "f12 lane capture failed" >&2
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
 # honest. It does not show reveal, tree draw-in, or a pill swap.

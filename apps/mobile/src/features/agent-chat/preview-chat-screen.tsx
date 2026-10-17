@@ -43,6 +43,7 @@ import {
   type ParityFrame,
 } from "./parity-cycle";
 import { writeParityMotionPng } from "./capture-parity-view";
+import { parityLaneSampleTaps, parityLaneShots } from "./parity-lane-steps";
 import { foldParityReplay, parityReplaySeed, parityReplayShotTimes } from "./parity-replay";
 import { readParityDiskFrame } from "./read-parity-disk-frame";
 import { resolvedPillRowHeight } from "./transcript-pad";
@@ -90,25 +91,27 @@ export function PreviewChatScreen() {
   const params = useLocalSearchParams<{
     fixture?: string | string[];
     motion?: string | string[];
+    lane?: string | string[];
     replay?: string | string[];
     scroll?: string | string[];
     theme?: string | string[];
   }>();
   const fixtureParam = param(params.fixture);
+  const laneParam = param(params.lane);
   const motionParam = param(params.motion);
   const replayParam = param(params.replay);
   const scrollParam = param(params.scroll);
   const themeParam = param(params.theme);
   const queryPin = useMemo(
-    () => parityPinnedFrame(fixtureParam, themeParam, motionParam, replayParam),
-    [fixtureParam, motionParam, replayParam, themeParam],
+    () => parityPinnedFrame(fixtureParam, themeParam, motionParam, replayParam, laneParam),
+    [fixtureParam, laneParam, motionParam, replayParam, themeParam],
   );
   const [diskFrame] = useState<ParityFrame | null>(() => {
     if (queryPin) return null;
     const next = readParityDiskFrame();
     console.error(
       next
-        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}`
+        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}${next.lane === "steps" ? " lane" : ""}`
         : "[parity] disk none",
     );
     return next;
@@ -193,7 +196,7 @@ export function PreviewChatScreen() {
     [motion, tailStep],
   );
   const fixture = motion ? null : parityFixtureById(frame.id);
-  const cards = composerCardsFromParity(fixture?.cards);
+  const cards = useMemo(() => composerCardsFromParity(fixture?.cards), [fixture?.cards]);
 
   useLayoutEffect(() => {
     if (motion !== "settled") return;
@@ -205,6 +208,8 @@ export function PreviewChatScreen() {
   const lane = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
   const liveTail = motion === "tail";
   const replayOn = frame.replay === "script" && Boolean(fixture?.script?.length);
+  const laneStepsOn = frame.lane === "steps" && cards.available.length > 0;
+  const laneStepKey = laneStepsOn ? `${frame.id}:${cards.available.join(",")}` : "";
   const replayKey = replayOn ? `${frame.id}:${frame.motion ?? ""}:${frame.theme}` : "";
   const [replayClock, setReplayClock] = useState({ elapsed: 0, key: replayKey });
   if (replayClock.key !== replayKey) setReplayClock({ elapsed: 0, key: replayKey });
@@ -212,8 +217,9 @@ export function PreviewChatScreen() {
   const scrollAway = liveTail && (scrollParam === "away" || pinned?.scroll === "away");
   const ownsTail = parityTailOwned(focused, tailMountId, tailOwner);
   const ownsReplay = replayOn && ownsTail;
+  const ownsLane = laneStepsOn && ownsTail;
   useLayoutEffect(() => {
-    if (!focused || (!liveTail && !replayOn)) return;
+    if (!focused || (!liveTail && !replayOn && !laneStepsOn)) return;
     const generation = takeParityOwner();
     bindParityTailMount(tailMountId, generation);
     console.error(`[parity] tail owner ${generation}`);
@@ -221,7 +227,7 @@ export function PreviewChatScreen() {
       bindParityTailMount(tailMountId, 0);
       releaseParityOwner(generation);
     };
-  }, [focused, liveTail, replayOn, tailMountId]);
+  }, [focused, laneStepsOn, liveTail, replayOn, tailMountId]);
   useEffect(() => {
     if (!scrollAway || !ownsTail) return;
     const generation = tailOwner.owner;
@@ -281,6 +287,36 @@ export function PreviewChatScreen() {
     }, 50);
     return () => clearInterval(timer);
   }, [fixture, ownsReplay, replayKey]);
+  useEffect(() => {
+    if (!ownsLane) return;
+    const initial = parityPreviewLane(cards);
+    const shots = parityLaneShots(initial, parityLaneSampleTaps(cards.available, initial.visible));
+    if (shots.length < 2) return;
+    const started = Date.now();
+    const taken = new Set<number>();
+    console.error(`[parity] lane start ${shots.length}`);
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - started;
+      for (const shot of shots) {
+        if (elapsed < shot.atMs || taken.has(shot.atMs)) continue;
+        taken.add(shot.atMs);
+        setChoiceKey(laneKey);
+        setLaneChoice(shot.state);
+        const name = `lane-${String(shot.atMs).padStart(5, "0")}`;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            void writeParityMotionPng(previewRootRef, name);
+          });
+        });
+      }
+      const last = shots[shots.length - 1]?.atMs ?? 0;
+      if (elapsed >= last) {
+        clearInterval(timer);
+        console.error(`[parity] lane done ${shots.length}`);
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, [cards, laneKey, laneStepKey, ownsLane]);
   const replayMessages = useMemo(() => {
     if (!replayOn || !fixture?.script?.length) return null;
     return foldParityReplay(
