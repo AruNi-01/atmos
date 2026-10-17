@@ -47,7 +47,6 @@ import {
   shouldShowAssistantTurnEndedChrome,
   splitSegmentedAssistantParts,
   TRANSCRIPT_END_SLACK_PX,
-  waitForSection,
   transcriptVisibility,
   type AssistantSegment,
   type TranscriptMeasurement,
@@ -346,9 +345,6 @@ function AssistantTurn({
   const markInspecting = () => {
     useAgentChatExpandStore.getState().setExpand(agentChatInspectExpandKey(message.id), true);
   };
-  const hasTurnBody =
-    waitForSection(message.parts) != null || processSegments.length > 0 || tailSegments.length > 0;
-
   return (
     <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET }}>
       <WaitForBlock
@@ -390,8 +386,8 @@ function AssistantTurn({
         </View>
       ) : null}
       {showActivity ? (
-        <View style={hasTurnBody ? { marginTop: 8 } : undefined}>
-          <ActivityRow message={message} turnOpen={showActivity} />
+        <View style={{ marginTop: 8 }}>
+          <ActivityRow messages={messages} turnOpen />
         </View>
       ) : null}
     </View>
@@ -409,7 +405,18 @@ const ChatMessage = memo(function ChatMessage({
   messages: readonly AgentMessage[];
   showActivity?: boolean;
 }) {
-  if (message.role === "user") return <UserMessage message={message} />;
+  if (message.role === "user") {
+    return (
+      <>
+        <UserMessage message={message} />
+        {showActivity ? (
+          <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET, marginTop: 8 }}>
+            <ActivityRow messages={messages} turnOpen />
+          </View>
+        ) : null}
+      </>
+    );
+  }
   return (
     <AssistantTurn
       inlineTools={inlineTools}
@@ -719,20 +726,7 @@ export const AgentChatTranscript = forwardRef<
     [publishBelow, scrollToEndIfStuck],
   );
 
-  const rows = useMemo(() => {
-    if (streaming && !messages.some((message) => message.streaming)) {
-      return [
-        ...messages,
-        {
-          id: "stream-wait",
-          role: "assistant" as const,
-          parts: [{ type: "text" as const, text: "" }],
-          streaming: true,
-        },
-      ];
-    }
-    return messages;
-  }, [messages, streaming]);
+  const rows = messages;
   const firstMessageId = messages[0]?.id;
 
   useLayoutEffect(() => {
@@ -788,7 +782,7 @@ export const AgentChatTranscript = forwardRef<
           contentContainerStyle={{
             flexGrow: 1,
             gap: AGENT_CHAT_TRANSCRIPT_GAP,
-            justifyContent: rows.length === 0 ? "center" : "flex-start",
+            justifyContent: rows.length === 0 && !streaming ? "center" : "flex-start",
             paddingBottom: paddingBottom + TRANSCRIPT_CONTENT_PAD_Y,
             paddingHorizontal: 18,
             paddingTop: TRANSCRIPT_CONTENT_PAD_Y,
@@ -797,7 +791,15 @@ export const AgentChatTranscript = forwardRef<
           data={rows}
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
-          ListEmptyComponent={<EmptyChat />}
+          ListEmptyComponent={
+            streaming ? (
+              <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET }}>
+                <ActivityRow messages={messages} turnOpen />
+              </View>
+            ) : (
+              <EmptyChat />
+            )
+          }
           maintainVisibleContentPosition={
             stickToEnd ? undefined : { autoscrollToTopThreshold: 10, minIndexForVisible: 0 }
           }
@@ -815,11 +817,7 @@ export const AgentChatTranscript = forwardRef<
               inlineTools={inlineTasks.get(item.id)}
               message={item}
               messages={messages}
-              showActivity={
-                index === rows.length - 1 &&
-                item.role === "assistant" &&
-                (streaming || Boolean(item.streaming))
-              }
+              showActivity={index === rows.length - 1 && (streaming || Boolean(item.streaming))}
             />
           )}
           scrollEventThrottle={16}

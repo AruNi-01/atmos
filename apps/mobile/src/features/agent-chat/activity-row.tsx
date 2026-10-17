@@ -36,12 +36,9 @@ function activityCopy(state: Extract<AgentActivityState, { busy: true }>): strin
   }
 }
 
-export function activityRowLabel(
-  message: AgentMessage | null | undefined,
-  turnOpen = Boolean(message?.role === "assistant" && message.streaming),
-): string {
-  if (!message || message.role !== "assistant") return toolGroupLabels.working;
-  const state = deriveAgentActivityState([message], turnOpen);
+/** Web derives the footer from the whole thread, then paints it on the last row. */
+export function activityRowLabel(messages: readonly AgentMessage[], turnOpen: boolean): string {
+  const state = deriveAgentActivityState([...messages], turnOpen);
   if (!state.busy) return toolGroupLabels.working;
   return activityCopy(state);
 }
@@ -197,17 +194,24 @@ function ActivityClock({
   );
 }
 
-export function ActivityRow({ message, turnOpen }: { message: AgentMessage; turnOpen?: boolean }) {
+export function ActivityRow({
+  messages,
+  turnOpen,
+}: {
+  messages: readonly AgentMessage[];
+  turnOpen: boolean;
+}) {
   const theme = useMobileTheme();
-  const open = turnOpen ?? Boolean(message.streaming);
-  const state = deriveAgentActivityState([message], open);
+  const last = messages[messages.length - 1];
+  const clockId = last?.id ?? "activity";
+  const state = deriveAgentActivityState([...messages], turnOpen);
   const kind = state.busy && state.kind === "thinking" ? "thinking" : "working";
-  const label = activityRowLabel(message, turnOpen);
+  const label = activityRowLabel(messages, turnOpen);
   return (
     <View style={styles.row}>
       <ActivityGlyph kind={kind} />
       <ActivityStatus label={label} style={{ color: chatMutedForeground(theme.isDark) }} />
-      <ActivityClock key={message.id} messageId={message.id} workedMs={message.worked_ms} />
+      <ActivityClock key={clockId} messageId={clockId} workedMs={last?.worked_ms} />
     </View>
   );
 }

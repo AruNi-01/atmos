@@ -53,8 +53,10 @@ describe("web source parity", () => {
     expect(column).not.toContain("gap:");
     expect(column).not.toContain('width: "100%"');
     const message = transcript.slice(transcript.indexOf("const ChatMessage"));
-    expect(message).toContain("return <UserMessage message={message} />");
-    expect(message).not.toContain("ASSISTANT_COLUMN_INSET");
+    expect(message).toContain("<UserMessage message={message} />");
+    expect(message).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
+    expect(message).toContain("marginTop: 8");
+    expect(transcript).not.toContain("stream-wait");
   });
 
   test("the transcript content uses the web py-4", () => {

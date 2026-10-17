@@ -69,10 +69,15 @@ function thinking(open: boolean, parent?: string): AgentPart {
 describe("activity row label", () => {
   test("uses the same activity choice as the web footer", async () => {
     const row = await importPure("activity-row.tsx");
-    const label = row.activityRowLabel as (
-      message: AgentMessage | null | undefined,
-      turnOpen?: boolean,
+    const raw = row.activityRowLabel as (
+      messages: readonly AgentMessage[],
+      turnOpen: boolean,
     ) => string;
+    const label = (message: AgentMessage | null | undefined, turnOpen?: boolean) =>
+      raw(
+        message ? [message] : [],
+        turnOpen ?? Boolean(message?.role === "assistant" && message.streaming),
+      );
 
     expect(label(assistant([tool("running", "Read notes")]))).toBe("Read notes a.ts");
     expect(label(assistant([tool("pending", "Queued read")]))).toBe("Queued read a.ts");
@@ -115,6 +120,8 @@ describe("activity row label", () => {
     ).toBe("Resuming session...");
     expect(label(null)).toBe("Working");
     expect(label({ id: "u", parts: [], role: "user" })).toBe("Working");
+    expect(raw([{ id: "u", parts: [], role: "user" }], true)).toBe("Generating...");
+    expect(raw([], true)).toBe("Generating...");
   });
 });
 
