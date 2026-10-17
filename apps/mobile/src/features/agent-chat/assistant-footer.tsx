@@ -26,7 +26,12 @@ import {
   visibleTurnFileChanges,
 } from "./turn-file-changes";
 import { TOOL_ADDITION_COLOR, TOOL_DELETION_COLOR } from "./tool-body";
-import { TURN_FILES_RADIUS, turnFilesBorder, turnFilesFill } from "./turn-files-chrome";
+import {
+  TURN_FILES_MARGIN_TOP,
+  TURN_FILES_RADIUS,
+  turnFilesBorder,
+  turnFilesFill,
+} from "./turn-files-chrome";
 import {
   USAGE_TOOLTIP_ARROW,
   USAGE_TOOLTIP_GAP,
@@ -326,7 +331,7 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
         borderCurve: "continuous",
         borderRadius: TURN_FILES_RADIUS,
         borderWidth: 1,
-        marginTop: 12,
+        marginTop: TURN_FILES_MARGIN_TOP,
         paddingHorizontal: 12,
         paddingVertical: 10,
       }}

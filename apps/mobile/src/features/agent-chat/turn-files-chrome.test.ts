@@ -11,6 +11,7 @@ import {
   TURN_FILES_BORDER_LIGHT,
   TURN_FILES_FILL_DARK,
   TURN_FILES_FILL_LIGHT,
+  TURN_FILES_MARGIN_TOP,
   TURN_FILES_RADIUS,
   turnFilesBorder,
   turnFilesFill,
@@ -21,6 +22,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 describe("turn file card chrome", () => {
   test("matches web rounded-xl, border, and muted/40", () => {
     expect(TURN_FILES_RADIUS).toBe(14);
+    expect(TURN_FILES_MARGIN_TOP).toBe(4);
     expect(TURN_FILES_FILL_LIGHT).toBe("rgba(222, 222, 224, 0.4)");
     expect(TURN_FILES_FILL_DARK).toBe("rgba(39, 39, 42, 0.4)");
     expect(TURN_FILES_BORDER_LIGHT).toBe("rgba(0, 0, 0, 0.1)");
@@ -37,6 +39,8 @@ describe("turn file card chrome", () => {
     expect(card).toContain("turnFilesFill");
     expect(card).toContain("turnFilesBorder");
     expect(card).toContain("TURN_FILES_RADIUS");
+    expect(card).toContain("marginTop: TURN_FILES_MARGIN_TOP");
+    expect(card).not.toContain("marginTop: 12");
     expect(card).toContain("borderWidth: 1");
     expect(card).toContain("paddingHorizontal: 6");
     expect(card).toContain("size={16}");
