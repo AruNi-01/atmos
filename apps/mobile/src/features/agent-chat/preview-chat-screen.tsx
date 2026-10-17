@@ -57,6 +57,8 @@ import {
   parityStreamToolMessages,
   parityTailLine,
   parityTailMessages,
+  parityTailReturnPhase,
+  type ParityTailSample,
 } from "./parity-motion-fixtures";
 
 const NO_FAVORITES: FavoriteModel[] = [];
@@ -92,6 +94,7 @@ export function PreviewChatScreen() {
     fixture?: string | string[];
     motion?: string | string[];
     lane?: string | string[];
+    pill?: string | string[];
     replay?: string | string[];
     scroll?: string | string[];
     theme?: string | string[];
@@ -99,19 +102,21 @@ export function PreviewChatScreen() {
   const fixtureParam = param(params.fixture);
   const laneParam = param(params.lane);
   const motionParam = param(params.motion);
+  const pillParam = param(params.pill);
   const replayParam = param(params.replay);
   const scrollParam = param(params.scroll);
   const themeParam = param(params.theme);
   const queryPin = useMemo(
-    () => parityPinnedFrame(fixtureParam, themeParam, motionParam, replayParam, laneParam),
-    [fixtureParam, laneParam, motionParam, replayParam, themeParam],
+    () =>
+      parityPinnedFrame(fixtureParam, themeParam, motionParam, replayParam, laneParam, pillParam),
+    [fixtureParam, laneParam, motionParam, pillParam, replayParam, themeParam],
   );
   const [diskFrame] = useState<ParityFrame | null>(() => {
     if (queryPin) return null;
     const next = readParityDiskFrame();
     console.error(
       next
-        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}${next.lane === "steps" ? " lane" : ""}`
+        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}${next.lane === "steps" ? " lane" : ""}${next.pill === "return" ? " pill" : ""}`
         : "[parity] disk none",
     );
     return next;
@@ -148,6 +153,9 @@ export function PreviewChatScreen() {
   const stickTopRef = useRef(0);
   const stickEndRef = useRef(0);
   const stickViewRef = useRef(0);
+  const tailSamplesRef = useRef<ParityTailSample[]>([]);
+  const tailReturnPressedRef = useRef(false);
+  const tailReturnLoggedRef = useRef(false);
   const onStickChange = useCallback(
     (next: {
       belowCount: number;
@@ -215,6 +223,7 @@ export function PreviewChatScreen() {
   if (replayClock.key !== replayKey) setReplayClock({ elapsed: 0, key: replayKey });
   const replayElapsed = replayClock.key === replayKey ? replayClock.elapsed : 0;
   const scrollAway = liveTail && (scrollParam === "away" || pinned?.scroll === "away");
+  const pillReturn = scrollAway && frame.pill === "return";
   const ownsTail = parityTailOwned(focused, tailMountId, tailOwner);
   const ownsReplay = replayOn && ownsTail;
   const ownsLane = laneStepsOn && ownsTail;
@@ -246,18 +255,37 @@ export function PreviewChatScreen() {
   useEffect(() => {
     if (!liveTail || !ownsTail) return;
     const marker = transcriptRef.current?.measureMessage(PARITY_TAIL_MARKER_ID);
+    const sample: ParityTailSample = {
+      below: stick.belowCount,
+      end: stickEndRef.current,
+      marker: marker?.start ?? -1,
+      stick: stick.stickToEnd,
+      step: tailStep,
+      top: stickTopRef.current,
+      view: stickViewRef.current,
+    };
+    tailSamplesRef.current.push(sample);
+    console.error(parityTailLine(sample));
+    if (!pillReturn) return;
+    const phase = parityTailReturnPhase(tailSamplesRef.current, tailReturnPressedRef.current);
+    if (phase === "press") {
+      tailReturnPressedRef.current = true;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          void writeParityMotionPng(previewRootRef, "tail-held").finally(() => {
+            transcriptRef.current?.scrollToEndAnimated();
+          });
+        });
+      });
+      return;
+    }
+    if (phase !== "landed" || tailReturnLoggedRef.current) return;
+    tailReturnLoggedRef.current = true;
+    void writeParityMotionPng(previewRootRef, "tail-back");
     console.error(
-      parityTailLine({
-        below: stick.belowCount,
-        end: stickEndRef.current,
-        marker: marker?.start ?? -1,
-        stick: stick.stickToEnd,
-        step: tailStep,
-        top: stickTopRef.current,
-        view: stickViewRef.current,
-      }),
+      `[parity] tail returned below=${sample.below} stick=1 end=${Math.round(sample.end)} top=${Math.round(sample.top)}`,
     );
-  }, [liveTail, ownsTail, stick.belowCount, stick.stickToEnd, tailStep]);
+  }, [liveTail, ownsTail, pillReturn, stick.belowCount, stick.stickToEnd, tailStep]);
   useEffect(() => {
     if (!ownsReplay || !fixture?.script) return;
     const shots = parityReplayShotTimes(fixture.script);

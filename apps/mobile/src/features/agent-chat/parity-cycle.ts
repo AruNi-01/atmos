@@ -26,6 +26,8 @@ export type ParityFrame = {
   replay?: "script";
   /** Capture-only. Steps the pill handler. The manual link leaves this unset. */
   lane?: "steps";
+  /** Capture-only. After the tail hold, calls the scroll pill handler. The manual link leaves this unset. */
+  pill?: "return";
 };
 
 /** Light F1–F13, then dark F1–F13. One pass. */
@@ -54,6 +56,7 @@ export function parityPinnedFrame(
   motion?: string,
   replay?: string,
   lane?: string,
+  pill?: string,
 ): ParityFrame | null {
   const id = fixture.trim();
   if (!id) return null;
@@ -61,6 +64,7 @@ export function parityPinnedFrame(
   if (motion?.trim() === "reduced") frame.motion = "reduced";
   if (replay?.trim() === "script") frame.replay = "script";
   if (lane?.trim() === "steps") frame.lane = "steps";
+  if (pill?.trim() === "return") frame.pill = "return";
   return frame;
 }
 
@@ -80,6 +84,7 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
     id?: unknown;
     lane?: unknown;
     motion?: unknown;
+    pill?: unknown;
     replay?: unknown;
     scroll?: unknown;
     theme?: unknown;
@@ -93,6 +98,7 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
   if (record.motion === "reduced") frame.motion = "reduced";
   if (record.replay === "script") frame.replay = "script";
   if (record.lane === "steps") frame.lane = "steps";
+  if (record.pill === "return") frame.pill = "return";
   return frame;
 }
 

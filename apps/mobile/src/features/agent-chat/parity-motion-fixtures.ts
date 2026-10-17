@@ -1,5 +1,5 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
-import { parityFixtureById } from "@atmos/agent-transcript";
+import { TRANSCRIPT_END_SLACK_PX, parityFixtureById } from "@atmos/agent-transcript";
 
 /** One new tool row per tick. Longer than the 400ms tree draw, so each line finishes before the next. */
 export const PARITY_MOTION_ROW_MS = 600;
@@ -82,6 +82,22 @@ export function parityTailReadingHeld(samples: readonly ParityTailSample[]): boo
     }
   }
   return false;
+}
+
+export type ParityTailReturnPhase = "wait" | "press" | "landed";
+
+/**
+ * After the reading hold, the capture calls the scroll pill's handler once.
+ * Landed means a later sample is stuck and inside the end slack.
+ */
+export function parityTailReturnPhase(
+  samples: readonly ParityTailSample[],
+  pressed: boolean,
+): ParityTailReturnPhase {
+  if (!pressed) return parityTailReadingHeld(samples) ? "press" : "wait";
+  const last = samples.at(-1);
+  if (last?.stick && last.end <= TRANSCRIPT_END_SLACK_PX) return "landed";
+  return "wait";
 }
 
 const STREAM_START = 2;

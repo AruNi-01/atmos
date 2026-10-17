@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Screenshot F1–F13 in light and dark, then capture motion passes:
 # f13-tail scrolled to Reply 50 (three frames muxed when they differ),
+# a second f13-tail launch that calls the scroll-pill handler after that hold,
 # stream-tools sampled while rows append, and an F4 script replay that
-# writes its own PNGs during the tree draw. The replay does not fail the job.
+# writes its own PNGs during the tree draw. The replay and the pill return
+# do not fail the job.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -54,6 +56,7 @@ write_frame_file() {
   local motion="${4:-}"
   local replay="${5:-}"
   local lane="${6:-}"
+  local pill="${7:-}"
   local container docs extra=""
   container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
   docs="${container}/Documents"
@@ -62,8 +65,9 @@ write_frame_file() {
   if [[ "$motion" == "reduced" ]]; then extra+=',"motion":"reduced"'; fi
   if [[ "$replay" == "script" ]]; then extra+=',"replay":"script"'; fi
   if [[ "$lane" == "steps" ]]; then extra+=',"lane":"steps"'; fi
+  if [[ "$pill" == "return" ]]; then extra+=',"pill":"return"'; fi
   printf '{"id":"%s","theme":"%s"%s}\n' "$id" "$theme" "$extra" >"${docs}/parity-frame.json"
-  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}"
+  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}${pill:+ ${pill}}"
 }
 
 clear_motion_shots() {
@@ -618,7 +622,50 @@ if dupes:
 print(f"{len(files)} distinct fixture screenshots")
 PY
 
+# After the hold gate, call the scroll pill handler. A miss does not fail the job.
+# This is not a Simulator tap.
+capture_tail_return() {
+  local dest frames video duration index shot
+  dest="$OUT/f13-tail-return"
+  clear_motion_shots || true
+  write_frame_file "f13-tail" "light" "away" "" "" "" "return"
+  echo "launch f13-tail light away return"
+  launch_frame "f13-tail" "light"
+  if ! wait_for_line "[parity] preview-chat module" 90; then
+    echo "f13 tail return missed the module" >&2
+    return 0
+  fi
+  if ! wait_for_line "[parity] tail returned" 60; then
+    echo "f13 tail return did not land" >&2
+    dump_runtime_logs || true
+    copy_motion_shots "$dest" || true
+    return 0
+  fi
+  sleep 1
+  copy_motion_shots "$dest" || true
+  frames="$(mktemp -d)"
+  index=0
+  while IFS= read -r shot; do
+    [[ -n "$shot" ]] || continue
+    index=$((index + 1))
+    sips -s format jpeg "$shot" --out "$frames/$(printf '%03d' "$index").jpg" >/dev/null || true
+  done < <(find "$dest" -name 'tail-*.png' | sort)
+  if (( index < 2 )); then
+    echo "f13 tail return has ${index} frames; not muxing" >&2
+    rm -rf "$frames"
+    return 0
+  fi
+  video="$OUT/f13-tail-return.mov"
+  if duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"; then
+    echo "recording f13 tail return duration ${duration} frames ${index}"
+  else
+    echo "f13 tail return mux failed" >&2
+  fi
+  rm -rf "$frames"
+}
+
 capture_tail_away
+capture_tail_return || echo "f13 tail return capture failed" >&2
 capture_stream_motion
 capture_f4_replay || echo "f4 replay capture failed" >&2
 capture_f12_lane || echo "f12 lane capture failed" >&2

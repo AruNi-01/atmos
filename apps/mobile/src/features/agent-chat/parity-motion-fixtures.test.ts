@@ -26,6 +26,7 @@ import {
   parityTailLine,
   parityTailMessages,
   parityTailReadingHeld,
+  parityTailReturnPhase,
   parityTailSamples,
 } from "./parity-motion-fixtures";
 
@@ -139,6 +140,9 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain('frame.lane === "steps"');
     expect(preview).toContain("parityLaneShots");
     expect(preview).toContain("[parity] lane done");
+    expect(preview).toContain('frame.pill === "return"');
+    expect(preview).toContain("parityTailReturnPhase");
+    expect(preview).toContain("[parity] tail returned");
     expect(preview).not.toContain("belowCount={0}");
 
     const marker = fixture.messages.find((message) => message.id === PARITY_TAIL_MARKER_ID);
@@ -168,6 +172,22 @@ describe("parity motion fixtures", () => {
       }),
     ].join("\n");
     expect(parityTailReadingHeld(parityTailSamples(held))).toBe(true);
+    const heldSamples = parityTailSamples(held);
+    expect(parityTailReturnPhase(heldSamples, false)).toBe("press");
+    expect(parityTailReturnPhase(heldSamples, true)).toBe("wait");
+    const landed = parityTailSamples(
+      `${held}\n[parity] tail returned below=2 stick=1 end=0 top=9000\n${parityTailLine({
+        below: 2,
+        end: 0,
+        marker: 9000,
+        stick: true,
+        step: 3,
+        top: 9000,
+        view: 800,
+      })}`,
+    );
+    expect(landed).toHaveLength(heldSamples.length + 1);
+    expect(parityTailReturnPhase(landed, true)).toBe("landed");
     expect(parityTailReadingHeld(parityTailSamples("no tail lines"))).toBe(false);
 
     const jumped = [
