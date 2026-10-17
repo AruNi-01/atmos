@@ -56,6 +56,9 @@ import { ToolKindIcon } from "./tool-kind-icon";
 import { ToolDiffStats, toolGroupDiffTotals } from "./tool-body";
 import { ExpandChevron, ToolTreeRow, useToolTreeReveal } from "./tool-tree";
 
+/** Web group list is `mt-0.5`. The trunk already sits at x=8 (`ms-2`). */
+const TOOL_GROUP_LIST_MARGIN_TOP = 2;
+
 function rowKey(part: AgentPart, origIndex: number): string {
   if (part.type === "tool_call") return part.tool_call_id;
   return `${part.type}:${origIndex}`;
@@ -140,8 +143,9 @@ export function ToolGroup({
         <ToolDiffStats additions={diff.additions} deletions={diff.deletions} />
         <ExpandChevron color={muted} open={open} size={metrics.chevron} />
       </Pressable>
-      {open
-        ? rows.map((row, index) => (
+      {open ? (
+        <View style={{ marginTop: TOOL_GROUP_LIST_MARGIN_TOP }}>
+          {rows.map((row, index) => (
             <PartReveal key={row.key} play={index >= watermark}>
               <ToolTreeRow
                 count={rows.length}
@@ -154,8 +158,9 @@ export function ToolGroup({
                 {row.rendered}
               </ToolTreeRow>
             </PartReveal>
-          ))
-        : null}
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

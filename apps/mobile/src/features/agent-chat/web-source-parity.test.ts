@@ -35,6 +35,8 @@ describe("web source parity", () => {
     expect(group).toContain("toolTriggerMetrics");
     expect(group).toContain("const muted = chatMutedForeground(theme.isDark)");
     expect(group).toContain("<ExpandChevron color={muted} open={open} size={metrics.chevron} />");
+    expect(group).toContain("const TOOL_GROUP_LIST_MARGIN_TOP = 2");
+    expect(group).toContain("marginTop: TOOL_GROUP_LIST_MARGIN_TOP");
     expect(group).not.toContain("theme.colors.secondaryLabel");
     expect(tree).toContain("nextTreeWatermark");
     expect(tree).toContain("duration: TREE_DRAW_MS");
