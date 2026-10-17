@@ -404,6 +404,20 @@ describe("tool body presentation", () => {
     expect(markdown).toContain("paddingVertical: 8");
   });
 
+  test("fetch markdown clips and long text uses the preview", () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("// @view"));
+    const fetched = view.slice(view.indexOf('case "web_fetch":'), view.indexOf('case "search":'));
+    expect(fetched).toContain("TOOL_CODE_MAX_HEIGHT");
+    expect(fetched).toContain("fontSize={13}");
+    expect(fetched).toContain("lineHeight={21}");
+    expect(fetched).toContain("toolTextUsesPreview(model.body)");
+    expect(fetched).toContain("<ToolPlainPreview");
+  });
+
   test("mono, move, delete, error, empty, images, and subagent cards", async () => {
     const json = await call(
       part({

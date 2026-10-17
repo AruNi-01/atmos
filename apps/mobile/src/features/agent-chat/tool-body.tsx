@@ -1647,14 +1647,25 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
     case "web_fetch":
       if (!model.body) return null;
       if (model.format === "markdown") {
-        return <AgentChatMarkdown fontSize={13} lineHeight={20} text={model.body} />;
+        return (
+          <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
+            <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+              <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.body} />
+            </View>
+          </HeightClip>
+        );
+      }
+      if (model.format === "text" && toolTextUsesPreview(model.body)) {
+        return <ToolPlainPreview text={model.body} />;
       }
       return (
         <Text
           selectable
           style={{
             color: model.format === "error" ? theme.colors.red : theme.colors.secondaryLabel,
-            ...BODY_TEXT,
+            ...(model.format === "error" ? BODY_TEXT : { fontSize: 14, lineHeight: 23 }),
+            paddingHorizontal: 12,
+            paddingVertical: 8,
           }}
         >
           {model.body}
