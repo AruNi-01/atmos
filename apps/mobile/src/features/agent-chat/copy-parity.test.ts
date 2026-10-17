@@ -76,10 +76,14 @@ const en = JSON.parse(
     join(dirname(fileURLToPath(import.meta.url)), "../../../../web/messages/en.json"),
     "utf8",
   ),
-) as { Agent: { components: AgentComponents } };
+) as {
+  Agent: { components: AgentComponents };
+  agent: { chatHelpers: { activity: Record<string, string> } };
+};
 
 const components = en.Agent.components;
 const chatPanel = components.chatPanel;
+const activity = en.agent.chatHelpers.activity;
 
 describe("agent chat copy parity", () => {
   test("scroll-below prefix, suffix, and unit match web copy", () => {
@@ -116,6 +120,15 @@ describe("agent chat copy parity", () => {
     expect(copy.copyMessage).toBe("Copy message");
     expect(copy.thinkingStream).toBe(chatPanel.thinking);
     expect(copy.thinkingStream).toBe("Thinking...");
+    expect(copy.activityGenerating).toBe(activity.generating);
+    expect(copy.activityStreaming).toBe(activity.streaming);
+    expect(copy.activityCreatingSession).toBe(activity.creatingSession);
+    expect(copy.activityResumingSession).toBe(activity.resumingSession);
+    expect(copy.activityWaitingOne).toBe(activity.waitingForBackgroundAgent);
+    expect(copy.activityWaitingMany).toBe(activity.waitingForBackgroundAgents);
+    expect(`${copy.thinking}...`).toBe(copy.thinkingStream);
+    expect(`${copy.activityCreatingSession}...`).toBe(copy.session.creating);
+    expect(`${copy.activityResumingSession}...`).toBe(copy.session.resuming);
     expect(copy.thoughtFor).toBe(chatPanel.thoughtFor);
     expect(copy.thoughtForFew).toBe(chatPanel.thoughtForFew);
     expect(copy.thoughtForFew).toBe("Thought for a few seconds");

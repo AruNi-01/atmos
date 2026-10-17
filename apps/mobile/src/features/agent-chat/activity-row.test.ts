@@ -24,19 +24,29 @@ async function importPartReveal(): Promise<Record<string, unknown>> {
   return import(out) as Promise<Record<string, unknown>>;
 }
 
-function assistant(parts: AgentPart[]): AgentMessage {
-  return { id: "m", parts, role: "assistant", streaming: true };
+function assistant(parts: AgentPart[], streaming = true): AgentMessage {
+  return { id: "m", parts, role: "assistant", streaming };
 }
 
 function tool(
   status: string,
   title: string | null,
-  extra?: { name?: string; parent?: string },
+  extra?: {
+    kind?: "read" | "search";
+    name?: string;
+    parent?: string;
+    path?: string;
+    query?: string;
+  },
 ): AgentPart {
+  const kind = extra?.kind ?? "read";
   const part = {
-    kind: "read",
-    name: extra?.name ?? "Read",
-    params: { path: "a.ts", type: "read" },
+    kind,
+    name: extra?.name ?? (kind === "search" ? "Search" : "Read"),
+    params:
+      kind === "search"
+        ? { query: extra?.query ?? "ready", type: "search" }
+        : { path: extra?.path ?? "a.ts", type: "read" },
     status: "running",
     title,
     tool_call_id: extra?.parent ? "child" : "tool-1",
@@ -57,9 +67,12 @@ function thinking(open: boolean, parent?: string): AgentPart {
 }
 
 describe("activity row label", () => {
-  test("uses the latest active tool activity line, otherwise thinking, otherwise Working", async () => {
+  test("uses the same activity choice as the web footer", async () => {
     const row = await importPure("activity-row.tsx");
-    const label = row.activityRowLabel as (message: AgentMessage | null | undefined) => string;
+    const label = row.activityRowLabel as (
+      message: AgentMessage | null | undefined,
+      turnOpen?: boolean,
+    ) => string;
 
     expect(label(assistant([tool("running", "Read notes")]))).toBe("Read notes a.ts");
     expect(label(assistant([tool("pending", "Queued read")]))).toBe("Queued read a.ts");
@@ -77,10 +90,29 @@ describe("activity row label", () => {
     ).toBe("Shown a.ts");
     expect(
       label(assistant([tool("running", "Hidden", { parent: "parent" }), thinking(true, "parent")])),
-    ).toBe("Working");
+    ).toBe("Generating...");
     expect(label(assistant([tool("completed", "Done"), thinking(true)]))).toBe("Thinking...");
-    expect(label(assistant([thinking(false)]))).toBe("Working");
-    expect(label(assistant([thinking(true, "parent")]))).toBe("Working");
+    expect(label(assistant([thinking(false)]))).toBe("Thinking...");
+    expect(label(assistant([thinking(true, "parent")]))).toBe("Generating...");
+    expect(label(assistant([{ text: "Hello", type: "text" }]))).toBe("Streaming...");
+    expect(label(assistant([{ text: "Hello", type: "text" }], false), true)).toBe("Generating...");
+    expect(label(assistant([tool("running", "src/theme.ts", { path: "src/theme.ts" })]))).toBe(
+      "Read theme.ts",
+    );
+    expect(label(assistant([tool("running", "ready", { kind: "search", query: "ready" })]))).toBe(
+      "ready",
+    );
+    expect(
+      label(
+        assistant([
+          {
+            action: "resume",
+            status: "running",
+            type: "session_lifecycle",
+          },
+        ]),
+      ),
+    ).toBe("Resuming session...");
     expect(label(null)).toBe("Working");
     expect(label({ id: "u", parts: [], role: "user" })).toBe("Working");
   });

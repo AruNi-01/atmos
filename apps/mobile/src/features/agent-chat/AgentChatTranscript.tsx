@@ -346,7 +346,7 @@ function AssistantTurn({
       ) : null}
       <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
       <AssistantTurnFiles parts={message.parts} visible={showChrome} />
-      {showActivity ? <ActivityRow message={message} /> : null}
+      {showActivity ? <ActivityRow message={message} turnOpen={showActivity} /> : null}
     </View>
   );
 }

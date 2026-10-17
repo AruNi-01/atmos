@@ -1,29 +1,49 @@
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import {
-  foldedPartIsOpen,
+  deriveAgentActivityState,
   formatAgentToolActivityLine,
-  isNestedSubagentChild,
   toolKindHeadlineLabel,
+  type AgentActivityState,
 } from "@atmos/agent-transcript";
 import { copy, toolGroupLabels } from "./copy";
 
-const ACTIVE_TOOL_STATUS = new Set<string>(["running", "in_progress", "pending"]);
+function activityCopy(state: Extract<AgentActivityState, { busy: true }>): string {
+  const show = (base: string) => (state.trail === "none" ? base : `${base}...`);
+  switch (state.label.type) {
+    case "generating":
+      return show(copy.activityGenerating);
+    case "thinking":
+      return show(copy.thinking);
+    case "streaming":
+      return show(copy.activityStreaming);
+    case "creatingSession":
+      return show(copy.activityCreatingSession);
+    case "resumingSession":
+      return show(copy.activityResumingSession);
+    case "waiting":
+      return show(
+        state.label.count <= 1
+          ? copy.activityWaitingOne
+          : copy.activityWaitingMany.replaceAll("{count}", String(state.label.count)),
+      );
+    case "tool":
+      return (
+        formatAgentToolActivityLine(
+          state.label.part,
+          toolKindHeadlineLabel(state.label.part.kind),
+        ) || toolGroupLabels.working
+      );
+  }
+}
 
-export function activityRowLabel(message: AgentMessage | null | undefined): string {
-  const parts = message?.role === "assistant" ? message.parts : [];
-  for (let index = parts.length - 1; index >= 0; index -= 1) {
-    const part = parts[index];
-    if (!part || part.type !== "tool_call" || isNestedSubagentChild(part, parts)) continue;
-    if (!ACTIVE_TOOL_STATUS.has(part.status)) continue;
-    return (
-      formatAgentToolActivityLine(part, toolKindHeadlineLabel(part.kind)) || toolGroupLabels.working
-    );
-  }
-  for (const part of parts) {
-    if (part.type !== "thinking" || isNestedSubagentChild(part, parts)) continue;
-    if (foldedPartIsOpen(part)) return copy.thinkingStream;
-  }
-  return toolGroupLabels.working;
+export function activityRowLabel(
+  message: AgentMessage | null | undefined,
+  turnOpen = Boolean(message?.role === "assistant" && message.streaming),
+): string {
+  if (!message || message.role !== "assistant") return toolGroupLabels.working;
+  const state = deriveAgentActivityState([message], turnOpen);
+  if (!state.busy) return toolGroupLabels.working;
+  return activityCopy(state);
 }
 
 // @view
@@ -32,7 +52,7 @@ import { View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { TextShimmer } from "./motion/text-shimmer";
 
-export function ActivityRow({ message }: { message: AgentMessage }) {
+export function ActivityRow({ message, turnOpen }: { message: AgentMessage; turnOpen?: boolean }) {
   const theme = useMobileTheme();
   return (
     <View style={{ alignItems: "flex-start", paddingVertical: 2 }}>
@@ -41,7 +61,7 @@ export function ActivityRow({ message }: { message: AgentMessage }) {
         numberOfLines={1}
         style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}
       >
-        {activityRowLabel(message)}
+        {activityRowLabel(message, turnOpen)}
       </TextShimmer>
     </View>
   );

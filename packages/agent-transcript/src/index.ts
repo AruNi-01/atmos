@@ -1,6 +1,12 @@
 export { formatAgentToolActivityLine, toolKindHeadlineLabel } from "./tool-activity-line";
 
 export {
+  deriveAgentActivityState,
+  type AgentActivityLabel,
+  type AgentActivityState,
+} from "./agent-activity";
+
+export {
   defaultToolParams,
   isActiveToolStatus,
   isEmptyToolJson,

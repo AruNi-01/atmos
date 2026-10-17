@@ -21,18 +21,13 @@ import zhMessages from "../../../../messages/zh.json";
 import type { AgentChatPermissionOption } from "@/features/agent/lib/agent-chat-types";
 import type {
   AgentMessage,
-  AgentPart,
   AgentSessionOpRequest,
   AgentToolKind,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
-import {
-  isActiveToolStatus,
-  isSubagentWaitTool,
-  type AgentToolCallPart,
-} from "@/features/agent/lib/agent-tool-kind";
+import { deriveAgentActivityState } from "@atmos/agent-transcript";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { isLiveBackgroundToolCall } from "@/features/agent/lib/agent/background-command";
-import { isNestedSubagentChild } from "@/features/agent/lib/tool-group";
 import { formatAgentToolActivityLine } from "@/features/agent/lib/tool-results/tool-activity-line";
 
 export interface PendingPermission {
@@ -332,10 +327,6 @@ export function downloadChatMarkdown(filename: string, markdown: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function toolStatusIsActive(status?: string | null): boolean {
-  return isActiveToolStatus(status);
-}
-
 export function runningBackgroundTools(messages: AgentMessage[]): AgentToolCallPart[] {
   const found: AgentToolCallPart[] = [];
   const seen = new Set<string>();
@@ -380,58 +371,37 @@ function toolKindHeadlineLabel(kind: AgentToolKind): string {
   }
 }
 
-/** Nested wait/poll tools are parent-process chrome, not child work. */
-function isNestedChildWork(part: AgentPart): boolean {
-  if (!isNestedSubagentChild(part)) return false;
-  return part.type !== "tool_call" || !isSubagentWaitTool(part);
-}
-
-function runningWaitToolCount(message: AgentMessage): number {
-  let count = 0;
-  for (const part of message.parts) {
-    if (part.type !== "tool_call") continue;
-    if (isNestedChildWork(part)) continue;
-    if (!isSubagentWaitTool(part)) continue;
-    if (toolStatusIsActive(part.status)) count += 1;
+function activityLabel(
+  state: Extract<ReturnType<typeof deriveAgentActivityState>, { busy: true }>,
+): string {
+  switch (state.label.type) {
+    case "generating":
+      return chatHelpersT("activity.generating", "Generating");
+    case "thinking":
+      return chatHelpersT("activity.thinking", "Thinking");
+    case "streaming":
+      return chatHelpersT("activity.streaming", "Streaming");
+    case "creatingSession":
+      return chatHelpersT("activity.creatingSession", "Creating session");
+    case "resumingSession":
+      return chatHelpersT("activity.resumingSession", "Resuming session");
+    case "waiting":
+      return state.label.count <= 1
+        ? chatHelpersT(
+            "activity.waitingForBackgroundAgent",
+            "Waiting for 1 background agent to finish",
+          )
+        : chatHelpersT(
+            "activity.waitingForBackgroundAgents",
+            "Waiting for {count} background agents to finish",
+            { count: state.label.count },
+          );
+    case "tool":
+      return formatAgentToolActivityLine(
+        state.label.part,
+        toolKindHeadlineLabel(state.label.part.kind),
+      );
   }
-  return count;
-}
-
-function waitingForBackgroundAgentsActivity(count: number): AgentActivity {
-  const n = Math.max(1, count);
-  const label =
-    n === 1
-      ? chatHelpersT(
-          "activity.waitingForBackgroundAgent",
-          "Waiting for 1 background agent to finish",
-        )
-      : chatHelpersT(
-          "activity.waitingForBackgroundAgents",
-          "Waiting for {count} background agents to finish",
-          { count: n },
-        );
-  return { busy: true, label, kind: "working", trail: "none" };
-}
-
-function isParentProcessTool(part: Extract<AgentPart, { type: "tool_call" }>): boolean {
-  if (isSubagentWaitTool(part)) return false;
-  if (part.kind === "subagent") return false;
-  return true;
-}
-
-function activityForToolPart(
-  part: Extract<AgentPart, { type: "tool_call" }>,
-  message: AgentMessage,
-): AgentActivity {
-  if (isSubagentWaitTool(part) && toolStatusIsActive(part.status)) {
-    return waitingForBackgroundAgentsActivity(runningWaitToolCount(message));
-  }
-  return {
-    busy: true,
-    label: formatAgentToolActivityLine(part, toolKindHeadlineLabel(part.kind)),
-    kind: "working",
-    trail: "none",
-  };
 }
 
 export { isSessionChromeOnly, shouldShowAssistantTurnEndedChrome } from "@atmos/agent-transcript";
@@ -444,104 +414,14 @@ export { isSessionChromeOnly, shouldShowAssistantTurnEndedChrome } from "@atmos/
  * until real content or turn_completed.
  */
 export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean): AgentActivity {
-  const last = messages[messages.length - 1];
-  if (!last || last.role !== "assistant") {
-    if (turnOpen) {
-      return {
-        busy: true,
-        label: chatHelpersT("activity.generating", "Generating"),
-        kind: "working",
-      };
-    }
-    return { busy: false };
-  }
-
-  const session = last.parts.find(
-    (part) => part.type === "session_lifecycle" && toolStatusIsActive(part.status),
-  );
-  if (session?.type === "session_lifecycle") {
-    const label =
-      session.action === "resume"
-        ? chatHelpersT("activity.resumingSession", "Resuming session")
-        : chatHelpersT("activity.creatingSession", "Creating session");
-    return { busy: true, label, kind: "working" };
-  }
-
-  for (let i = last.parts.length - 1; i >= 0; i--) {
-    const part = last.parts[i];
-    if (isNestedChildWork(part)) continue;
-    if (
-      part.type === "tool_call" &&
-      toolStatusIsActive(part.status) &&
-      !isLiveBackgroundToolCall(part) &&
-      isParentProcessTool(part)
-    ) {
-      return activityForToolPart(part, last);
-    }
-  }
-
-  for (let i = last.parts.length - 1; i >= 0; i--) {
-    const part = last.parts[i];
-    if (isNestedChildWork(part)) continue;
-    if (part.type === "tool_call" && toolStatusIsActive(part.status) && isSubagentWaitTool(part)) {
-      return activityForToolPart(part, last);
-    }
-  }
-
-  for (let i = last.parts.length - 1; i >= 0; i--) {
-    const part = last.parts[i];
-    if (isNestedChildWork(part)) continue;
-    if (
-      part.type === "tool_call" &&
-      toolStatusIsActive(part.status) &&
-      !isLiveBackgroundToolCall(part)
-    ) {
-      return activityForToolPart(part, last);
-    }
-  }
-
-  if (last.streaming) {
-    for (let i = last.parts.length - 1; i >= 0; i--) {
-      const part = last.parts[i];
-      if (isNestedChildWork(part)) continue;
-      if (part.type === "tool_call") {
-        if (isLiveBackgroundToolCall(part)) continue;
-        if (isSubagentWaitTool(part) && !toolStatusIsActive(part.status)) continue;
-        return activityForToolPart(part, last);
-      }
-      if (part.type === "thinking") {
-        return {
-          busy: true,
-          label: chatHelpersT("activity.thinking", "Thinking"),
-          kind: "thinking",
-        };
-      }
-      if (part.type === "text") {
-        return {
-          busy: true,
-          label: chatHelpersT("activity.streaming", "Streaming"),
-          kind: "working",
-        };
-      }
-    }
-    return {
-      busy: true,
-      label: chatHelpersT("activity.generating", "Generating"),
-      kind: "working",
-    };
-  }
-
-  // Streaming cleared early (e.g. premature settle) but the host turn is still
-  // open — keep generating instead of a false idle/ended state.
-  if (turnOpen) {
-    return {
-      busy: true,
-      label: chatHelpersT("activity.generating", "Generating"),
-      kind: "working",
-    };
-  }
-
-  return { busy: false };
+  const state = deriveAgentActivityState(messages, turnOpen);
+  if (!state.busy) return { busy: false };
+  return {
+    busy: true,
+    kind: state.kind,
+    label: activityLabel(state),
+    ...(state.trail === "none" ? { trail: "none" as const } : {}),
+  };
 }
 
 /**
