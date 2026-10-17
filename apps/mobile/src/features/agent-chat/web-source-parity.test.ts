@@ -33,6 +33,9 @@ describe("web source parity", () => {
     expect(group).toContain("index >= watermark");
     expect(group).toContain("delayMs={0}");
     expect(group).toContain("toolTriggerMetrics");
+    expect(group).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(group).toContain("<ExpandChevron color={muted} open={open} size={metrics.chevron} />");
+    expect(group).not.toContain("theme.colors.secondaryLabel");
     expect(tree).toContain("nextTreeWatermark");
     expect(tree).toContain("duration: TREE_DRAW_MS");
     expect(tree).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
