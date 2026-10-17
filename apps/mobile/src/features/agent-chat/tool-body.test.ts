@@ -1320,6 +1320,8 @@ describe("tool row chrome", () => {
     expect(codeFence).toContain("fenceForMarkdown");
     expect(codeFence).toContain("TOOL_CODE_MAX_HEIGHT");
     expect(codeFence).toContain("codeBlockMargin={8}");
+    expect(codeFence).toContain("paddingHorizontal: 8");
+    expect(codeFence).toContain("paddingBottom: 8");
     expect(codeFence).not.toContain("PathChip");
     expect(codeFence).not.toContain("CappedMono");
   });

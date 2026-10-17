@@ -965,7 +965,7 @@ function ToolCodeFence({ text, language }: { text: string; language: string }) {
   const [overflow, setOverflow] = useState(false);
   if (!text) return null;
   return (
-    <View style={{ gap: 4, paddingHorizontal: 8 }}>
+    <View style={{ gap: 4, paddingBottom: 8, paddingHorizontal: 8 }}>
       <View
         onLayout={(event) => {
           if (!expanded && event.nativeEvent.layout.height >= TOOL_CODE_MAX_HEIGHT) {

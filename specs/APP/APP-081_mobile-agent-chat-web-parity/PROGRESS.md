@@ -258,3 +258,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - An execute command uses 12px of horizontal padding and 10px of top padding. The bottom 10px is present only when there is no output. The output uses 12px horizontal and 10px bottom padding, with 4px of top padding under a command and 10px when the command is empty. The copy menu's extra right inset stays on web. This is not re-shot.
 - The parity preview host is not collapsable. When the view snapshot is one color, the Skia capture draws the window layer instead. A still-flat frame logs `[parity] motion flat`. S10 stays `not_run` until those frames are reviewed.
 - An image generation body uses the web 8px horizontal inset and 8px bottom inset around the 208px box. This is not re-shot.
+- A code fence keeps the 8px side inset and adds the web 8px bottom inset. The fence's own 8px margin stays. This is not re-shot.
