@@ -60,5 +60,15 @@ describe("activity clock", () => {
     expect(row).toContain("ACTIVITY_STATUS_SPRING");
     expect(row).toContain("ACTIVITY_STATUS_SHIFT_PX");
     expect(row).toContain("if (reduced || outgoing == null)");
+    expect(row).toContain("chatMutedForeground(theme.isDark)");
+    expect(row).not.toContain("theme.colors.secondaryLabel");
+    const shimmer = readFileSync(join(dir, "motion/text-shimmer.tsx"), "utf8");
+    expect(shimmer).toContain('const SHIMMER_BASE_LIGHT = "#a1a1aa"');
+    expect(shimmer).toContain('const SHIMMER_BASE_DARK = "#71717a"');
+    expect(shimmer).toContain('const SHIMMER_HIGHLIGHT_LIGHT = "#000000"');
+    expect(shimmer).toContain('const SHIMMER_HIGHLIGHT_DARK = "#ffffff"');
+    expect(shimmer).toContain("const textStyle = [style, { color: base }]");
+    expect(shimmer).not.toContain("theme.colors.secondaryLabel");
+    expect(shimmer).not.toContain("theme.colors.label");
   });
 });

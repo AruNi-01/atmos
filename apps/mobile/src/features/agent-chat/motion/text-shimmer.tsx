@@ -21,6 +21,16 @@ import { useReducedMotion } from "./use-reduced-motion";
 
 const SWEEP = [0, 0.35, 0.5, 0.65, 1] as const;
 
+/**
+ * Web `TextShimmer` `--base-color` and `--base-gradient-color`.
+ * Light is `#a1a1aa` sweeping `#000`. Dark is `#71717a` sweeping `#ffffff`.
+ * The sweep replaces a caller color, the same way that gradient replaces inherited type.
+ */
+const SHIMMER_BASE_LIGHT = "#a1a1aa";
+const SHIMMER_BASE_DARK = "#71717a";
+const SHIMMER_HIGHLIGHT_LIGHT = "#000000";
+const SHIMMER_HIGHLIGHT_DARK = "#ffffff";
+
 export function TextShimmer({
   children,
   duration,
@@ -38,8 +48,8 @@ export function TextShimmer({
   const progress = useSharedValue(0);
   const widthSv = useSharedValue(0);
   const [layoutWidth, setLayoutWidth] = useState(0);
-  const base = theme.colors.secondaryLabel;
-  const highlight = theme.colors.label;
+  const base = theme.isDark ? SHIMMER_BASE_DARK : SHIMMER_BASE_LIGHT;
+  const highlight = theme.isDark ? SHIMMER_HIGHLIGHT_DARK : SHIMMER_HIGHLIGHT_LIGHT;
   const colors = [base, base, highlight, base, base] as const;
   const textStyle = [style, { color: base }];
 

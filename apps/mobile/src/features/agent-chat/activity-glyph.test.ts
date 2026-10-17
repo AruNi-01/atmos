@@ -59,6 +59,8 @@ describe("activity glyph", () => {
     expect(mark).toContain("pickWorkingStyle");
     expect(mark).toContain("RingGlyph");
     expect(mark).toContain("HelixGlyph");
+    expect(mark).toContain("chatMutedForeground(theme.isDark)");
+    expect(mark).not.toContain("theme.colors.secondaryLabel");
   });
 
   test("working rows share web's lattice, ring, and helix pool", () => {

@@ -10,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatMutedForeground } from "./chat-ink";
 import {
   GLYPH_BOX,
   GLYPH_SIZE,
@@ -388,7 +389,7 @@ export function ActivityGlyph({ kind }: { kind: "thinking" | "working" }) {
   const theme = useMobileTheme();
   const reduced = useReducedMotion();
   const [style] = useState(pickWorkingStyle);
-  const color = theme.colors.secondaryLabel;
+  const color = chatMutedForeground(theme.isDark);
   return (
     <View
       accessibilityElementsHidden

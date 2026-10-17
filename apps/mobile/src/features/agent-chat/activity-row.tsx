@@ -58,6 +58,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { NumberFlow } from "number-flow-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatMutedForeground } from "./chat-ink";
 import {
   ACTIVITY_CLOCK_TICK_MS,
   ACTIVITY_STATUS_SHIFT_PX,
@@ -175,7 +176,7 @@ function ActivityClock({
   }, [anchor]);
 
   const label = activityClockLabel(elapsed);
-  const style = { ...CLOCK_LINE, color: theme.colors.secondaryLabel };
+  const style = { ...CLOCK_LINE, color: chatMutedForeground(theme.isDark) };
   if (reduced) {
     return (
       <Text accessibilityLabel={label} style={style}>
@@ -205,7 +206,7 @@ export function ActivityRow({ message, turnOpen }: { message: AgentMessage; turn
   return (
     <View style={styles.row}>
       <ActivityGlyph kind={kind} />
-      <ActivityStatus label={label} style={{ color: theme.colors.secondaryLabel }} />
+      <ActivityStatus label={label} style={{ color: chatMutedForeground(theme.isDark) }} />
       <ActivityClock key={message.id} messageId={message.id} workedMs={message.worked_ms} />
     </View>
   );
