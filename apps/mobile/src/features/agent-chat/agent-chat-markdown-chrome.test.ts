@@ -200,10 +200,15 @@ describe("agent chat markdown chrome", () => {
     expect(markdown).not.toContain("theme.colors.separator");
     expect(agentChatLinkColor(false)).toBe("#18181b");
     expect(agentChatLinkColor(true)).toBe("#e4e4e7");
-    const link = markdown.slice(markdown.indexOf("link: {"), markdown.indexOf("thematicBreak:"));
+    const link = markdown.slice(markdown.indexOf("link: {"), markdown.indexOf("strikethrough:"));
     expect(link).toContain("agentChatLinkColor(theme.isDark)");
     expect(link).toContain("underline: true");
     expect(link).not.toContain("theme.colors.accent");
+    const strike = markdown.slice(
+      markdown.indexOf("strikethrough:"),
+      markdown.indexOf("thematicBreak:"),
+    );
+    expect(strike).toContain("color: proseColor");
     const table = markdown.slice(
       markdown.indexOf("table: {"),
       markdown.indexOf("const markdown ="),

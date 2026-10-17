@@ -152,6 +152,10 @@ export function AgentChatMarkdown({
         color: agentChatLinkColor(theme.isDark),
         underline: true,
       },
+      // `<del>` draws its line in `currentColor`. The library default is gray-400.
+      strikethrough: {
+        color: proseColor,
+      },
       ...(chipHttpUrls
         ? {
             linkVariants: {
