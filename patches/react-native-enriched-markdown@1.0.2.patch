@@ -476,3 +476,90 @@ index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a
    BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
  
    if (tableOverflows) {
+diff --git a/ios/views/ENRMTableIOSGridView.m b/ios/views/ENRMTableIOSGridView.m
+index 138435033005771ce0bb194f273316a5328e3057..0c00d0240b2a5554d384cd2f3bbacd409426c772 100644
+--- a/ios/views/ENRMTableIOSGridView.m
++++ b/ios/views/ENRMTableIOSGridView.m
+@@ -13,6 +13,7 @@
+   CGFloat _borderWidth;
+   CGFloat _horizontalCellPadding;
+   CGFloat _verticalCellPadding;
++  CGFloat _cornerRadius;
+ }
+ 
+ - (instancetype)initWithFrame:(CGRect)frame
+@@ -52,6 +53,7 @@
+   _borderWidth = borderWidth;
+   _horizontalCellPadding = horizontalCellPadding;
+   _verticalCellPadding = verticalCellPadding;
++  _cornerRadius = cornerRadius;
+   [self setNeedsDisplay];
+ }
+ 
+@@ -74,6 +76,21 @@
+   if (!_tableRows.count || !_columnWidths.count || !_rowHeights.count)
+     return;
+ 
++  // Web GFM tables are an outer rounded border plus horizontal row rules.
++  // The last row has no bottom rule (`[&_tr:last-child>td]:border-b-0`).
++  CGFloat tableWidth = 0;
++  for (NSNumber *width in _columnWidths) {
++    tableWidth += width.doubleValue;
++  }
++  CGFloat tableHeight = 0;
++  for (NSNumber *height in _rowHeights) {
++    tableHeight += height.doubleValue;
++  }
++  CGRect tableRect = CGRectMake(0, 0, tableWidth, tableHeight);
++  CGFloat radius = MAX(_cornerRadius, 0);
++  UIBezierPath *clip = [UIBezierPath bezierPathWithRoundedRect:tableRect cornerRadius:radius];
++  [clip addClip];
++
+   CGFloat yOffset = 0;
+   for (NSUInteger r = 0; r < _tableRows.count; r++) {
+     ENRMTableIOSRowData *rowData = _tableRows[r];
+@@ -83,16 +100,11 @@
+     NSUInteger colCount = MIN(rowData.cellTexts.count, _columnWidths.count);
+     for (NSUInteger c = 0; c < colCount; c++) {
+       CGFloat columnWidth = [_columnWidths[c] doubleValue];
+-      CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth + _borderWidth, rowHeight + _borderWidth);
++      CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth, rowHeight);
+ 
+       [rowData.backgroundColor setFill];
+       UIRectFill(cellRect);
+ 
+-      [_borderColor setStroke];
+-      UIBezierPath *border = [UIBezierPath bezierPathWithRect:cellRect];
+-      border.lineWidth = _borderWidth;
+-      [border stroke];
+-
+       NSAttributedString *text = rowData.cellTexts[c];
+       if (text.length > 0) {
+         CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding, yOffset + _verticalCellPadding,
+@@ -104,8 +116,26 @@
+ 
+       xOffset += columnWidth;
+     }
++
++    if (r + 1 < _tableRows.count && _borderWidth > 0 && _borderColor) {
++      [_borderColor setStroke];
++      UIBezierPath *rule = [UIBezierPath bezierPath];
++      [rule moveToPoint:CGPointMake(0, yOffset + rowHeight)];
++      [rule addLineToPoint:CGPointMake(tableWidth, yOffset + rowHeight)];
++      rule.lineWidth = _borderWidth;
++      [rule stroke];
++    }
+     yOffset += rowHeight;
+   }
++
++  if (_borderWidth > 0 && _borderColor) {
++    [_borderColor setStroke];
++    UIBezierPath *outer =
++        [UIBezierPath bezierPathWithRoundedRect:CGRectInset(tableRect, _borderWidth / 2.0, _borderWidth / 2.0)
++                                   cornerRadius:radius];
++    outer.lineWidth = _borderWidth;
++    [outer stroke];
++  }
+ }
+ 
+ #pragma mark - Link hit-testing
