@@ -16,6 +16,7 @@ import {
   sessionChromeCopy,
   thinkingTitle,
   workedForPresentation,
+  workedForRevealText,
 } from "./copy";
 import {
   collectTurnFileChanges,
@@ -47,6 +48,14 @@ describe("assistant footer", () => {
     expect(clockOnly.durationLabel).toBeNull();
     expect(clockOnly.clock).toBe(withWork.clock);
     expect(workedForPresentation(0, "not-a-date").clock).toBeNull();
+    expect(workedForRevealText(withWork, "timestamp", false)).toBe(withWork.clock);
+    expect(workedForRevealText(withWork, "timestamp", true)).toBe(withWork.durationLabel);
+    expect(workedForRevealText(withWork, "duration", false)).toBe(withWork.durationLabel);
+    expect(workedForRevealText(clockOnly, "timestamp", false)).toBe(clockOnly.clock);
+    const footer = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
+    expect(footer).toContain('reveal="timestamp"');
+    expect(footer).toContain('reveal = "timestamp"');
+    expect(footer).toContain("workedForRevealText");
   });
 
   test("hides ended chrome until the turn completes with text, usage, or work", () => {

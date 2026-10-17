@@ -214,6 +214,29 @@ export function workedForPresentation(
   };
 }
 
+export type WorkedForReveal = "duration" | "timestamp";
+
+/**
+ * Web `AgentWorkedForLabel`: fold uses duration; the turn footer uses
+ * `reveal="timestamp"` (clock first, duration on hover). Mobile tap is hover.
+ */
+export function workedForRevealText(
+  presentation: { durationLabel: string | null; clock: string | null },
+  reveal: WorkedForReveal,
+  swapped: boolean,
+): string | null {
+  const duration = presentation.durationLabel;
+  const clock = presentation.clock;
+  if (reveal === "timestamp") {
+    if (!duration) return clock;
+    if (!clock) return duration;
+    return swapped ? duration : clock;
+  }
+  if (!duration) return clock;
+  if (!clock) return duration;
+  return swapped ? clock : duration;
+}
+
 /** Matches web `getThinkingMessage`: open or zero seconds stays on the streaming title. */
 export function thinkingTitle(isStreaming: boolean, seconds: number | undefined): string {
   if (isStreaming || seconds === 0) return copy.thinkingStream;
