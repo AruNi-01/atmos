@@ -9,6 +9,7 @@ import Animated, {
 import type { AgentMessage, AgentPart, AgentTurnUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import { CoinsIcon, FileTextIcon } from "@/ui/icons/lucide-native";
+import { chatForeground, chatMutedForeground } from "./chat-ink";
 import {
   compactTurnTokenLabel,
   copy,
@@ -145,6 +146,7 @@ export function usageBadgeBorder(isDark: boolean): string {
 
 function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
   const theme = useMobileTheme();
+  const muted = chatMutedForeground(theme.isDark);
   const label = compactTurnTokenLabel(usage);
   const [open, setOpen] = useState(false);
   if (!label) return null;
@@ -167,10 +169,10 @@ function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
           paddingVertical: 4,
         }}
       >
-        <CoinsIcon color={theme.colors.secondaryLabel} size={12} />
+        <CoinsIcon color={muted} size={12} />
         <Text
           style={{
-            color: theme.colors.secondaryLabel,
+            color: muted,
             fontSize: 10,
             fontWeight: "500",
             lineHeight: 14,
@@ -223,7 +225,7 @@ function WorkedForLabel({
   const clockStyle = useAnimatedStyle(() => ({ opacity: clockOpacity.get() }));
 
   if (visible == null) return null;
-  const textStyle = { color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 };
+  const textStyle = { color: chatMutedForeground(theme.isDark), fontSize: 12, lineHeight: 16 };
   if (!hasDuration || !hasClock) {
     return (
       <View style={styles.workedFor}>
@@ -314,6 +316,7 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
   const changes = collectTurnFileChanges(parts);
   if (changes.length === 0) return null;
   const { shown, hidden } = visibleTurnFileChanges(changes, expanded);
+  const muted = chatMutedForeground(theme.isDark);
 
   return (
     <View
@@ -328,7 +331,7 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
         paddingVertical: 10,
       }}
     >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}>
+      <Text style={{ color: muted, fontSize: 14, lineHeight: 20 }}>
         {filesChangedLabel(changes.length)}
       </Text>
       <View style={{ marginTop: 4 }}>
@@ -343,10 +346,11 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
               paddingVertical: 4,
             }}
           >
+            {/* Web draws a per-extension glyph. This generic icon stays the theme secondary label. */}
             <FileTextIcon color={theme.colors.secondaryLabel} size={16} />
             <Text
               numberOfLines={1}
-              style={{ color: theme.colors.label, flex: 1, fontSize: 14, lineHeight: 20 }}
+              style={{ color: chatForeground(theme.isDark), flex: 1, fontSize: 14, lineHeight: 20 }}
             >
               {fileChangeName(change.path)}
             </Text>
@@ -360,7 +364,7 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
           onPress={() => setExpanded((current) => !current)}
           style={{ alignSelf: "flex-start", marginTop: 2, paddingVertical: 4 }}
         >
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}>
+          <Text style={{ color: muted, fontSize: 14, lineHeight: 20 }}>
             {expanded ? copy.filesShowLess : filesShowMoreLabel(hidden)}
           </Text>
         </Pressable>

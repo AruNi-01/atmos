@@ -68,6 +68,9 @@ describe("assistant footer", () => {
     expect(badge).toContain('return isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.07)"');
     expect(badge).toContain('borderStyle: "dashed"');
     expect(badge).toContain("borderWidth: 1");
+    expect(badge).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(badge).toContain("<CoinsIcon color={muted} size={12} />");
+    expect(badge).not.toContain("theme.colors.secondaryLabel");
     expect(badge).not.toContain("glassBorder");
     expect(badge).not.toContain("hairlineWidth");
     const breakdown = footer.slice(
@@ -115,6 +118,12 @@ describe("assistant footer", () => {
     expect(footer).toContain("workedForVisibleKind");
     expect(footer).toContain("WORKED_FOR_SWAP_MS = 200");
     expect(footer).toContain("setShowDuration");
+    const worked = footer.slice(
+      footer.indexOf("function WorkedForLabel"),
+      footer.indexOf("function FileStats"),
+    );
+    expect(worked).toContain("chatMutedForeground(theme.isDark)");
+    expect(worked).not.toContain("theme.colors.secondaryLabel");
     const slot = footer.slice(footer.indexOf("styles.workedFor"), footer.indexOf("FileStats"));
     const sizers = slot.split("styles.sizer").length - 1;
     expect(sizers).toBe(2);
@@ -371,5 +380,15 @@ describe("assistant footer", () => {
     expect(stats).toContain('" "');
     expect(stats).not.toContain("theme.colors.green");
     expect(stats).not.toContain("theme.colors.red");
+    const files = source.slice(
+      source.indexOf("export function AssistantTurnFiles"),
+      source.indexOf("const styles"),
+    );
+    expect(files).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(files).toContain("color: chatForeground(theme.isDark)");
+    expect(files).not.toContain("theme.colors.label");
+    const icon = files.slice(files.indexOf("<FileTextIcon"), files.indexOf("fileChangeName"));
+    expect(icon).toContain("theme.colors.secondaryLabel");
+    expect(files.split("theme.colors.secondaryLabel").length - 1).toBe(1);
   });
 });
