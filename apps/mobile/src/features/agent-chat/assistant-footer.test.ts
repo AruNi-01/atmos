@@ -279,10 +279,14 @@ describe("assistant footer", () => {
     expect(answer).toContain("if (!part.text) return null");
     expect(answer).not.toContain("\\u258b");
     const error = readFileSync(join(dir, "error-part.tsx"), "utf8");
-    expect(error).toContain("redSurface");
-    expect(error).toContain("redBorder");
+    expect(error).toContain("chatDestructiveSurface");
+    expect(error).toContain("chatDestructiveBorder");
+    expect(error).toContain("chatDestructiveColor");
+    expect(error).toContain("borderWidth: 1");
     expect(error).toContain("TriangleAlert");
     expect(error).toContain("if (!part.message) return null");
+    expect(error).not.toContain("theme.colors.red");
+    expect(error).not.toContain("hairlineWidth");
     const permission = readFileSync(join(dir, "historic-permission.tsx"), "utf8");
     expect(permission).toContain('part.request.status === "pending"');
     expect(permission).toContain("cardElevated");
@@ -296,6 +300,8 @@ describe("assistant footer", () => {
     expect(session).toContain("Layers");
     expect(session).toContain("TriangleAlert");
     expect(session).toContain("size={14}");
+    expect(session).toContain("chatDestructiveColor");
+    expect(session).not.toContain("colors.red");
   });
 
   test("file change counts use the same addition and deletion colors as the tool row", () => {

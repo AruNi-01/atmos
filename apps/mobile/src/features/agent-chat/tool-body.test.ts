@@ -827,9 +827,19 @@ describe("execute terminal", () => {
     expect(terminal).toContain("paddingTop: command ? 4 : 10");
     expect(terminal).toContain("paddingBottom: 10");
     expect(terminal).toContain("terminalAnsiPieces(output)");
+    expect(terminal).toContain("chatDestructiveColor(theme.isDark)");
+    expect(terminal).not.toContain("theme.colors.red");
     expect(terminal).not.toContain("AgentChatMarkdown");
     const trigger = source.slice(source.indexOf("export function ToolCallRow"));
     expect(trigger).toContain("executeTerminalFields(part).failed");
+    expect(trigger).toContain("chatDestructiveColor(theme.isDark)");
+    expect(trigger).toContain(
+      "const titleColor = failed ? failedColor : theme.colors.secondaryLabel",
+    );
+    expect(trigger).toContain("<ToolKindIcon\n              color={theme.colors.secondaryLabel}");
+    expect(trigger).toContain("<ExpandChevron color={theme.colors.secondaryLabel}");
+    expect(trigger).toContain("<XCircleIcon color={failedColor}");
+    expect(trigger).not.toContain("theme.colors.red");
   });
 });
 

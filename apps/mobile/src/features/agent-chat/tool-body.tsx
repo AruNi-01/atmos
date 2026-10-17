@@ -968,6 +968,7 @@ import {
   XCircleIcon,
 } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
 import { useReducedMotion } from "./motion/use-reduced-motion";
@@ -1108,7 +1109,7 @@ function ExecuteTerminal({
             selectable
             style={{
               ...mono,
-              color: failed ? theme.colors.red : theme.colors.secondaryLabel,
+              color: failed ? chatDestructiveColor(theme.isDark) : theme.colors.secondaryLabel,
               paddingHorizontal: 12,
               paddingTop: command ? 4 : 10,
               paddingBottom: 10,
@@ -1568,7 +1569,7 @@ function ImageGenMark({ status }: { status: ImageGenStatus }) {
     return <CheckIcon color={theme.colors.label} size={14} strokeWidth={2} />;
   }
   if (status === "error") {
-    return <CircleAlertIcon color={theme.colors.red} size={14} strokeWidth={2} />;
+    return <CircleAlertIcon color={chatDestructiveColor(theme.isDark)} size={14} strokeWidth={2} />;
   }
   const dots = (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 2, height: 14, width: 14 }}>
@@ -1655,7 +1656,10 @@ function ImageGenBody({ model }: { model: Extract<ToolBodyModel, { kind: "image_
                 <ImageGenMark status={model.status} />
                 <Text
                   style={{
-                    color: model.status === "error" ? theme.colors.red : theme.colors.label,
+                    color:
+                      model.status === "error"
+                        ? chatDestructiveColor(theme.isDark)
+                        : theme.colors.label,
                     flexShrink: 1,
                     fontSize: 14,
                     fontWeight: "500",
@@ -1807,7 +1811,10 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         <Text
           selectable
           style={{
-            color: model.format === "error" ? theme.colors.red : theme.colors.secondaryLabel,
+            color:
+              model.format === "error"
+                ? chatDestructiveColor(theme.isDark)
+                : theme.colors.secondaryLabel,
             ...(model.format === "error" ? BODY_TEXT : { fontSize: 14, lineHeight: 23 }),
             paddingHorizontal: 12,
             paddingVertical: 8,
@@ -1903,7 +1910,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
           selectable
           style={{
             ...BODY_TEXT,
-            color: theme.colors.red,
+            color: chatDestructiveColor(theme.isDark),
             paddingHorizontal: 12,
             paddingVertical: 8,
           }}
@@ -1960,7 +1967,8 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
 function SubagentCard({ status, title }: { status: string; title: string }) {
   const theme = useMobileTheme();
   const failed = status === copy.subagentStatus.failed;
-  const color = failed ? theme.colors.red : theme.colors.secondaryLabel;
+  const failedColor = chatDestructiveColor(theme.isDark);
+  const color = failed ? failedColor : theme.colors.secondaryLabel;
   const metrics = toolTriggerMetrics;
   return (
     <View
@@ -1979,7 +1987,7 @@ function SubagentCard({ status, title }: { status: string; title: string }) {
           width: metrics.iconBox,
         }}
       >
-        <ToolKindIcon color={color} kind="subagent" size={metrics.iconSize} />
+        <ToolKindIcon color={theme.colors.secondaryLabel} kind="subagent" size={metrics.iconSize} />
       </View>
       <View style={{ flexShrink: 1 }}>
         <Text
@@ -2039,7 +2047,8 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const executeFailed = part.kind === "execute" && executeTerminalFields(part).failed;
   const failed = model.kind === "error" || executeFailed || part.status === "failed";
   const running = isActiveToolStatus(part.status);
-  const color = failed ? theme.colors.red : theme.colors.secondaryLabel;
+  const failedColor = chatDestructiveColor(theme.isDark);
+  const titleColor = failed ? failedColor : theme.colors.secondaryLabel;
   const metrics = toolTriggerMetrics;
   const stats = toolRowDiffStats(model);
   const codeMeta = model.kind === "code" ? codePreviewMeta(model.hint) : null;
@@ -2050,7 +2059,7 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
         ? searchMatchLabel(model.matchCount)
         : null;
   const titleStyle = {
-    color,
+    color: titleColor,
     flexShrink: 1,
     fontSize: metrics.fontSize,
     lineHeight: metrics.lineHeight,
@@ -2075,11 +2084,19 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
           }}
         >
           {part.kind === "plan_document" ? (
-            <ScrollTextIcon color={color} size={metrics.iconSize} strokeWidth={2} />
+            <ScrollTextIcon
+              color={theme.colors.secondaryLabel}
+              size={metrics.iconSize}
+              strokeWidth={2}
+            />
           ) : part.kind === "fetch" ? (
             <HttpFavicon url={fetchRowUrl(part)} size={metrics.iconBox} radius={3} />
           ) : (
-            <ToolKindIcon color={color} kind={part.kind} size={metrics.iconSize} />
+            <ToolKindIcon
+              color={theme.colors.secondaryLabel}
+              kind={part.kind}
+              size={metrics.iconSize}
+            />
           )}
         </View>
         {running ? (
@@ -2106,9 +2123,9 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
           </Text>
         ) : null}
         {failed ? (
-          <XCircleIcon color={theme.colors.red} size={metrics.iconSize} strokeWidth={2} />
+          <XCircleIcon color={failedColor} size={metrics.iconSize} strokeWidth={2} />
         ) : null}
-        <ExpandChevron color={color} open={open} size={metrics.chevron} />
+        <ExpandChevron color={theme.colors.secondaryLabel} open={open} size={metrics.chevron} />
       </Pressable>
       {open ? (
         <View

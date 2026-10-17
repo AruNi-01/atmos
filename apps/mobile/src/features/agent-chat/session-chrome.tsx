@@ -9,6 +9,7 @@ import {
 } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { sessionChromeCopy, type SessionChromeIcon, type SessionChromeTone } from "./copy";
+import { chatDestructiveColor } from "./destructive-color";
 
 const ICONS: Record<
   SessionChromeIcon,
@@ -26,10 +27,11 @@ const ICONS: Record<
 };
 
 function toneColor(
+  isDark: boolean,
   colors: ReturnType<typeof useMobileTheme>["colors"],
   tone: SessionChromeTone,
 ): string {
-  if (tone === "failed" || tone === "error") return colors.red;
+  if (tone === "failed" || tone === "error") return chatDestructiveColor(isDark);
   if (tone === "warning") return colors.yellow;
   return colors.secondaryLabel;
 }
@@ -45,7 +47,7 @@ export function SessionChrome({
   const theme = useMobileTheme();
   const chrome = sessionChromeCopy(part);
   const Icon = ICONS[chrome.icon];
-  const textColor = toneColor(theme.colors, chrome.tone);
+  const textColor = toneColor(theme.isDark, theme.colors, chrome.tone);
   const iconColor = chrome.tone === "failed" ? theme.colors.secondaryLabel : textColor;
 
   return (
