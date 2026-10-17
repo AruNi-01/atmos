@@ -15,6 +15,7 @@ type Body = {
   status?: string;
   path?: string | null;
   text?: string;
+  language?: string;
   hint?: "new" | "deleted" | null;
   from?: string;
   to?: string;
@@ -291,7 +292,7 @@ describe("tool body presentation", () => {
         result: { type: "other", value: { a: 1 } },
       }),
     );
-    expect(json.kind).toBe("mono");
+    expect(json).toMatchObject({ kind: "preview", language: "json" });
     expect(json.text).toContain('"a": 1');
 
     const text = await call(
@@ -301,7 +302,55 @@ describe("tool body presentation", () => {
         result: { type: "text", text: "hello" },
       }),
     );
-    expect(text).toMatchObject({ kind: "mono", text: "hello" });
+    expect(text).toMatchObject({ kind: "prose", text: "hello" });
+
+    const wrapped = await call(
+      part({
+        kind: "other",
+        params: { type: "other", value: null },
+        result: { type: "text", text: "one\ntwo" },
+      }),
+    );
+    expect(wrapped).toMatchObject({ kind: "preview", language: "plaintext", text: "one\ntwo" });
+
+    const long = await call(
+      part({
+        kind: "other",
+        params: { type: "other", value: null },
+        result: { type: "text", text: "x".repeat(161) },
+      }),
+    );
+    expect(long).toMatchObject({ kind: "preview", language: "plaintext" });
+
+    const exact = await call(
+      part({
+        kind: "other",
+        params: { type: "other", value: null },
+        result: { type: "text", text: "x".repeat(160) },
+      }),
+    );
+    expect(exact).toMatchObject({ kind: "prose" });
+    const previewSource = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const previewView = previewSource.slice(previewSource.indexOf("// @view"));
+    const preview = previewView.slice(
+      previewView.indexOf("function ToolPlainPreview"),
+      previewView.indexOf("function CappedMono"),
+    );
+    expect(preview).toContain("TOOL_CODE_MAX_HEIGHT");
+    expect(preview).toContain('fontFamily: "Menlo"');
+    expect(preview).toContain("fontSize: 14");
+    expect(preview).toContain("lines.length >= 2");
+    expect(preview).not.toContain("AgentChatMarkdown");
+    const prose = previewView.slice(
+      previewView.indexOf('case "prose":'),
+      previewView.indexOf('case "execute":'),
+    );
+    expect(prose).toContain("fontSize: 14");
+    expect(prose).toContain("lineHeight: 23");
+    expect(prose).not.toContain("Menlo");
 
     const executed = await call(
       part({
@@ -464,7 +513,10 @@ describe("tool body presentation", () => {
     expect(
       row({ kind: "diff_stats", title: "Edit", path: "a.ts", additions: 2, deletions: 4 }),
     ).toEqual({ additions: 2, deletions: 4 });
-    expect(row({ kind: "mono", title: "Run", text: "ok" })).toEqual({ additions: 0, deletions: 0 });
+    expect(row({ kind: "prose", title: "Run", text: "ok" })).toEqual({
+      additions: 0,
+      deletions: 0,
+    });
   });
 });
 
@@ -597,6 +649,12 @@ describe("execute terminal", () => {
     });
     expect(chrome(named, present(named)).title).toBe("Typecheck files-related web sources");
 
+    expect(mod.TOOL_TEXT_PREVIEW_LIMIT).toBe(160);
+    const usesPreview = mod.toolTextUsesPreview as (text: string) => boolean;
+    expect(usesPreview("hello")).toBe(false);
+    expect(usesPreview("a\nb")).toBe(true);
+    expect(usesPreview("x".repeat(160))).toBe(false);
+    expect(usesPreview("x".repeat(161))).toBe(true);
     expect(mod.TOOL_COMMAND_MAX_HEIGHT).toBe(224);
     const source = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),

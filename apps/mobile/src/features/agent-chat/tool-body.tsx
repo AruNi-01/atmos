@@ -80,7 +80,8 @@ export type ToolBodyModel =
       title: string;
       items: Array<{ content: string; status: TodoStatusKind }>;
     }
-  | { kind: "mono"; title: string; text: string }
+  | { kind: "preview"; title: string; text: string; language: "json" | "plaintext" }
+  | { kind: "prose"; title: string; text: string }
   | { kind: "execute"; title: string; command: string; output: string; failed: boolean }
   | { kind: "move"; title: string; from: string; to: string }
   | { kind: "delete"; title: string; path: string }
@@ -593,9 +594,11 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
         })),
       };
     case "json":
-      return { kind: "mono", text: presentation.json };
+      return { kind: "preview", text: presentation.json, language: "json" };
     case "text":
-      return { kind: "mono", text: presentation.text };
+      return toolTextUsesPreview(presentation.text)
+        ? { kind: "preview", text: presentation.text, language: "plaintext" }
+        : { kind: "prose", text: presentation.text };
     case "move":
       return { kind: "move", from: presentation.from, to: presentation.to };
     case "delete":
@@ -688,6 +691,13 @@ export function toolRowDiffStats(model: ToolBodyModel): { additions: number; del
 export function diffIsCreatedFile(presentation: ToolPresentation): boolean {
   if (presentation.kind !== "diff" || presentation.files.length === 0) return false;
   return presentation.files.every((file) => !file.oldContent && Boolean(file.newContent));
+}
+
+/** Web `AgentToolTextBody` opens a preview once the text has a newline or passes this length. */
+export const TOOL_TEXT_PREVIEW_LIMIT = 160;
+
+export function toolTextUsesPreview(text: string): boolean {
+  return text.includes("\n") || text.length > TOOL_TEXT_PREVIEW_LIMIT;
 }
 
 /** Web `max-h-96` on a collapsed Markdown code fence and on terminal output. */
@@ -944,6 +954,52 @@ function ExecuteTerminal({
         </HeightClip>
       ) : null}
     </View>
+  );
+}
+
+function ToolPlainPreview({ text }: { text: string }) {
+  const theme = useMobileTheme();
+  if (!text) return null;
+  const lines = text.split("\n");
+  const numbered = lines.length >= 2;
+  return (
+    <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
+      <View style={{ paddingVertical: 12 }}>
+        {lines.map((line, index) => (
+          <View key={`${index}:${line}`} style={{ alignItems: "flex-start", flexDirection: "row" }}>
+            {numbered ? (
+              <Text
+                style={{
+                  color: theme.colors.secondaryLabel,
+                  fontFamily: "Menlo",
+                  fontSize: 12,
+                  lineHeight: 20,
+                  marginLeft: 4,
+                  marginRight: 16,
+                  minWidth: 28,
+                  textAlign: "right",
+                }}
+              >
+                {index + 1}
+              </Text>
+            ) : null}
+            <Text
+              selectable
+              style={{
+                color: theme.colors.label,
+                flexShrink: 1,
+                fontFamily: "Menlo",
+                fontSize: 14,
+                lineHeight: 20,
+                paddingHorizontal: numbered ? 0 : 12,
+              }}
+            >
+              {line.length > 0 ? line : " "}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </HeightClip>
   );
 }
 
@@ -1352,8 +1408,24 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       return <PlanDocumentBody model={model} />;
     case "image_gen":
       return <ImageGenBody model={model} />;
-    case "mono":
-      return <CappedMono text={model.text} />;
+    case "preview":
+      return <ToolPlainPreview text={model.text} />;
+    case "prose":
+      if (!model.text) return null;
+      return (
+        <Text
+          selectable
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: 14,
+            lineHeight: 23,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+          }}
+        >
+          {model.text}
+        </Text>
+      );
     case "execute":
       return (
         <ExecuteTerminal command={model.command} failed={model.failed} output={model.output} />
