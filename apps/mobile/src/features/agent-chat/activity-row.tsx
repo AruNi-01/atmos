@@ -67,6 +67,7 @@ import {
   activityClockUnits,
   activityElapsedMs,
 } from "./activity-clock";
+import { ActivityGlyph } from "./activity-mark";
 import { TextShimmer } from "./motion/text-shimmer";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 
@@ -197,9 +198,13 @@ function ActivityClock({
 
 export function ActivityRow({ message, turnOpen }: { message: AgentMessage; turnOpen?: boolean }) {
   const theme = useMobileTheme();
+  const open = turnOpen ?? Boolean(message.streaming);
+  const state = deriveAgentActivityState([message], open);
+  const kind = state.busy && state.kind === "thinking" ? "thinking" : "working";
   const label = activityRowLabel(message, turnOpen);
   return (
     <View style={styles.row}>
+      <ActivityGlyph kind={kind} />
       <ActivityStatus label={label} style={{ color: theme.colors.secondaryLabel }} />
       <ActivityClock key={message.id} messageId={message.id} workedMs={message.worked_ms} />
     </View>
