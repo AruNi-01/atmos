@@ -6,32 +6,40 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
-import { SCROLL_UNIT_SPRING, scrollUnitStack } from "./scroll-pill-unit";
+import { SCROLL_UNIT_SPRING, textMorphCharacters, textMorphFrame } from "./scroll-pill-unit";
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
 describe("scroll pill unit", () => {
-  test("keeps the previous plural so the strings can cross-fade", () => {
-    expect(scrollUnitStack("messages", "message")).toEqual({
-      current: "messages",
-      outgoing: "message",
-    });
-    expect(scrollUnitStack("message", "messages")).toEqual({
-      current: "message",
-      outgoing: "messages",
-    });
-    expect(scrollUnitStack("messages", "messages")).toEqual({
-      current: "messages",
-      outgoing: null,
-    });
+  test("keys characters the way TextMorph does and fades only the extra s", () => {
+    expect(textMorphCharacters("message").map((char) => char.id)).toEqual([
+      "m1",
+      "e1",
+      "s1",
+      "s2",
+      "a1",
+      "g1",
+      "e2",
+    ]);
+    const grown = textMorphFrame("messages", "message");
+    expect(grown.filter((slot) => slot.phase === "stay")).toHaveLength(7);
+    expect(grown.filter((slot) => slot.phase === "enter").map((slot) => slot.id)).toEqual(["s3"]);
+    expect(grown.some((slot) => slot.phase === "exit")).toBe(false);
+    const shrunk = textMorphFrame("message", "messages");
+    expect(shrunk.at(-1)).toEqual({ id: "s3", label: "s", phase: "exit" });
+    expect(shrunk.filter((slot) => slot.phase === "enter")).toHaveLength(0);
+    expect(textMorphFrame("messages", "messages").every((slot) => slot.phase === "stay")).toBe(
+      true,
+    );
+    expect(textMorphCharacters("a b")[1]).toEqual({ id: " 1", label: "\u00A0" });
   });
 
   test("uses TextMorph's opacity spring and snaps under reduced motion", () => {
     expect(SCROLL_UNIT_SPRING).toEqual({ damping: 18, mass: 0.3, stiffness: 280 });
     const pill = readFileSync(join(dir, "scroll-pill.tsx"), "utf8");
-    expect(pill).toContain("scrollUnitStack");
+    expect(pill).toContain("textMorphFrame");
     expect(pill).toContain("withSpring");
     expect(pill).toContain("SCROLL_UNIT_SPRING");
-    expect(pill).toContain("if (reduced || outgoing == null)");
+    expect(pill).toContain("if (reduced || !morphing)");
   });
 });

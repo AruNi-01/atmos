@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type TextStyle } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  type SharedValue,
+} from "react-native-reanimated";
 import { NumberFlow } from "number-flow-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronDownIcon } from "@/ui/icons/lucide-native";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { copy } from "./copy";
 import { useReducedMotion } from "./motion/use-reduced-motion";
-import { SCROLL_UNIT_SPRING, scrollUnitStack } from "./scroll-pill-unit";
+import { SCROLL_UNIT_SPRING, textMorphFrame, type TextMorphSlot } from "./scroll-pill-unit";
 import { scrollBelowUnit, scrollPillAccessibilityLabel } from "./stick";
 
 const labelMetrics = {
@@ -15,40 +21,74 @@ const labelMetrics = {
   lineHeight: 20,
 } as const;
 
+function MorphChar({
+  progress,
+  slot,
+  style,
+}: {
+  progress: SharedValue<number>;
+  slot: TextMorphSlot;
+  style: TextStyle;
+}) {
+  const animated = useAnimatedStyle(() => {
+    if (slot.phase === "stay") return { opacity: 1 };
+    const value = progress.get();
+    return { opacity: slot.phase === "enter" ? value : 1 - value };
+  });
+  return (
+    <Animated.Text accessible={false} style={[style, animated]}>
+      {slot.label}
+    </Animated.Text>
+  );
+}
+
 function ScrollUnit({ unit, style }: { unit: string; style: TextStyle }) {
   const reduced = useReducedMotion();
-  const [stack, setStack] = useState({ current: unit, previous: unit });
-  if (stack.current !== unit) {
-    setStack({ current: unit, previous: stack.current });
+  const [frame, setFrame] = useState({ slots: textMorphFrame(unit, unit), unit });
+  if (frame.unit !== unit) {
+    setFrame({ slots: textMorphFrame(unit, frame.unit), unit });
+  } else if (reduced && frame.slots.some((slot) => slot.phase !== "stay")) {
+    setFrame({
+      unit: frame.unit,
+      slots: frame.slots
+        .filter((slot) => slot.phase !== "exit")
+        .map((slot) => (slot.phase === "enter" ? { ...slot, phase: "stay" } : slot)),
+    });
   }
-  const { current, outgoing } = scrollUnitStack(stack.current, stack.previous);
-  const currentOpacity = useSharedValue(1);
-  const outgoingOpacity = useSharedValue(0);
+  const slots = reduced ? frame.slots.filter((slot) => slot.phase !== "exit") : frame.slots;
+  const morphing = slots.some((slot) => slot.phase !== "stay");
+  const progress = useSharedValue(1);
+  const settle = useCallback((settledUnit: string) => {
+    setFrame((current) => {
+      if (current.unit !== settledUnit) return current;
+      if (current.slots.every((slot) => slot.phase === "stay")) return current;
+      return {
+        unit: current.unit,
+        slots: current.slots
+          .filter((slot) => slot.phase !== "exit")
+          .map((slot) => (slot.phase === "enter" ? { ...slot, phase: "stay" } : slot)),
+      };
+    });
+  }, []);
 
   useEffect(() => {
-    if (reduced || outgoing == null) {
-      currentOpacity.set(1);
-      outgoingOpacity.set(0);
+    if (reduced || !morphing) {
+      progress.set(1);
       return;
     }
-    currentOpacity.set(0);
-    outgoingOpacity.set(1);
-    currentOpacity.set(withSpring(1, SCROLL_UNIT_SPRING));
-    outgoingOpacity.set(withSpring(0, SCROLL_UNIT_SPRING));
-  }, [current, currentOpacity, outgoing, outgoingOpacity, reduced]);
-
-  const currentStyle = useAnimatedStyle(() => ({ opacity: currentOpacity.get() }));
-  const outgoingStyle = useAnimatedStyle(() => ({ opacity: outgoingOpacity.get() }));
+    progress.set(0);
+    progress.set(
+      withSpring(1, SCROLL_UNIT_SPRING, (finished) => {
+        if (finished) runOnJS(settle)(unit);
+      }),
+    );
+  }, [morphing, progress, reduced, settle, unit]);
 
   return (
     <View style={styles.unit}>
-      <Text accessible={false} style={[style, styles.sizer]}>
-        {current}
-      </Text>
-      <Animated.Text style={[style, styles.overlay, currentStyle]}>{current}</Animated.Text>
-      {outgoing != null ? (
-        <Animated.Text style={[style, styles.overlay, outgoingStyle]}>{outgoing}</Animated.Text>
-      ) : null}
+      {slots.map((slot) => (
+        <MorphChar key={`${slot.phase}-${slot.id}`} progress={progress} slot={slot} style={style} />
+      ))}
     </View>
   );
 }
@@ -111,15 +151,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 4,
   },
-  overlay: {
-    left: 0,
-    position: "absolute",
-    top: 0,
-  },
-  sizer: {
-    opacity: 0,
-  },
   unit: {
+    flexDirection: "row",
     overflow: "hidden",
   },
 });
