@@ -251,7 +251,9 @@ describe("assistant footer", () => {
   test("answer, error, and permission views follow the transcript rules", () => {
     const answer = readFileSync(join(dir, "answer-text.tsx"), "utf8");
     expect(answer).toContain("copy.answerCaret");
-    expect(answer).toContain("foldedPartIsOpen");
+    expect(answer).toContain("foldedPartIsStreamingDisplayTail");
+    expect(answer).toContain("answerShowsBlockCaret");
+    expect(answer).toContain("`${paced} ${copy.answerCaret}`");
     expect(answer).toContain("fontSize={14}");
     expect(answer).toContain("lineHeight={20}");
     expect(answer).toContain("if (!part.text) return null");

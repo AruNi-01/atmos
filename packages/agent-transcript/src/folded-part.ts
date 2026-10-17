@@ -16,7 +16,7 @@ export function foldedPartIsOpen(part: AgentPart): boolean {
   return foldedAgentPart(part).closed_at === null;
 }
 
-/** Display-buffer the last open answer text; earlier open blocks keep caret only. */
+/** Pace only the last open answer text. Earlier open text blocks stay as written. */
 export function foldedPartIsStreamingDisplayTail(
   part: AgentPart,
   parts: readonly AgentPart[],
