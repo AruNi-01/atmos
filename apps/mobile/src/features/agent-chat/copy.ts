@@ -44,6 +44,7 @@ export const copy = {
   planDocument: "Plan",
   planBody: "View plan",
   planTodos: "{count, plural, one {# to-do} other {# to-dos}}",
+  imageGen: "Image",
   todoPending: "Pending",
   todoInProgress: "In progress",
   todoCompleted: "Completed",

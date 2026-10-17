@@ -82,6 +82,7 @@ type AgentComponents = {
     planDocument: string;
     planBody: string;
     planTodos: string;
+    imageGen: string;
     todo: { pending: string; inProgress: string; completed: string };
   };
 };
@@ -206,6 +207,8 @@ describe("agent chat copy parity", () => {
     expect(copy.planBody).toBe(components.toolResults.planBody);
     expect(copy.planBody).toBe("View plan");
     expect(copy.planTodos).toBe(components.toolResults.planTodos);
+    expect(copy.imageGen).toBe(components.toolResults.imageGen);
+    expect(copy.imageGen).toBe("Image");
     expect(copy.todoPending).toBe(components.toolResults.todo.pending);
     expect(copy.todoInProgress).toBe(components.toolResults.todo.inProgress);
     expect(copy.todoCompleted).toBe(components.toolResults.todo.completed);

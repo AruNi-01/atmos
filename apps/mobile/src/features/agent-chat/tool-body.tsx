@@ -23,6 +23,8 @@ const DIFF_LINE_LIMIT = 120;
 
 export type UnifiedDiffLine = { op: "add" | "del" | "ctx"; text: string };
 
+export type ImageGenStatus = "queued" | "generating" | "refining" | "complete" | "error";
+
 export type ToolBodyModel =
   | {
       kind: "diff";
@@ -88,6 +90,15 @@ export type ToolBodyModel =
       title: string;
       items: Array<{ uri: string } | { path: string }>;
     }
+  | {
+      kind: "image_gen";
+      title: string;
+      prompt: string;
+      path: string | null;
+      aspect: number;
+      status: ImageGenStatus;
+      items: Array<{ uri: string } | { path: string }>;
+    }
   | { kind: "subagent"; title: string; status: string };
 
 export function toolRowTitle(
@@ -124,6 +135,14 @@ function skillNameFromPart(part: AgentToolCallPart): string | null {
 export function toolRowChrome(part: AgentToolCallPart, parsed: ParsedToolResult): ToolRowChrome {
   const plan = planDocumentFields(part);
   if (plan) return { title: plan.title, fileName: null, lineRange: null };
+  const image = imageGenFields(part);
+  if (image) {
+    return {
+      title: image.title,
+      fileName: image.path ? fileNameFromPath(image.path) : null,
+      lineRange: null,
+    };
+  }
   if (parsed.presentation.kind === "web_search" || part.kind === "web_search") {
     const query =
       parsed.presentation.kind === "web_search"
@@ -281,11 +300,86 @@ export function imageBodyItem(image: {
   path?: string;
 }): { uri: string } | { path: string } | null {
   const url = image.url?.trim() ?? "";
-  if (canOpenHttpUrl(url)) return { uri: url };
+  if (canOpenHttpUrl(url) || url.startsWith("data:image/")) return { uri: url };
   const path = image.path?.trim() ?? "";
   if (path) return { path };
   if (url) return { path: url };
   return null;
+}
+
+/** Same words as web `ImageGeneration` STATUS_TEXT. They are not in en.json. */
+export const IMAGE_GEN_STATUS_TEXT: Record<ImageGenStatus, string> = {
+  queued: "Waiting to generate",
+  generating: "Generating image",
+  refining: "Refining details",
+  complete: "Image ready",
+  error: "Generation failed",
+};
+
+/** Web `statusFromPart`. Pending is queued; an active tool is generating. */
+export function imageGenStatus(part: AgentToolCallPart): ImageGenStatus {
+  const status = (part.status ?? "").toLowerCase();
+  if (status === "failed" || part.result?.type === "error") return "error";
+  if (status === "completed") return "complete";
+  if (status === "pending") return "queued";
+  if (isActiveToolStatus(status)) return "generating";
+  return "generating";
+}
+
+/** Web `aspectCss`, as a width/height number. `auto` and unknown values are square. */
+export function imageGenAspectRatio(ratio: string | null | undefined): number {
+  if (!ratio) return 1;
+  const trimmed = ratio.trim();
+  if (!trimmed || trimmed.toLowerCase() === "auto") return 1;
+  const match = trimmed.match(/^(\d+)\s*[:/x×]\s*(\d+)$/i);
+  if (match) {
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    if (width > 0 && height > 0) return width / height;
+  }
+  if (trimmed.includes("/")) {
+    const [widthText, heightText] = trimmed.split("/");
+    const width = Number(widthText?.trim());
+    const height = Number(heightText?.trim());
+    if (width > 0 && height > 0) return width / height;
+  }
+  return 1;
+}
+
+/** Web keeps the card open while `isActiveToolStatus` is true, including pending. */
+export function imageGenStaysOpen(status: string | null | undefined): boolean {
+  return isActiveToolStatus(status);
+}
+
+/** Web `AgentToolImageGen` fields. `presentAgentTool` drops a bare image_gen to empty. */
+export function imageGenFields(
+  part: AgentToolCallPart,
+): Extract<ToolBodyModel, { kind: "image_gen" }> | null {
+  if (part.kind !== "image_gen") return null;
+  const params = part.params?.type === "image_gen" ? part.params : null;
+  const images =
+    part.result?.type === "images"
+      ? part.result.images
+      : params?.path
+        ? [{ path: params.path }]
+        : [];
+  const path =
+    params?.path?.trim() || images.find((image) => image.path?.trim())?.path?.trim() || null;
+  return {
+    kind: "image_gen",
+    title: (part.title || part.name || copy.imageGen).trim() || copy.imageGen,
+    prompt: params?.prompt.trim() ?? "",
+    path,
+    aspect: imageGenAspectRatio(params?.aspect_ratio),
+    status: imageGenStatus(part),
+    items: images.flatMap((image) => {
+      const item = imageBodyItem({
+        url: image.url ?? undefined,
+        path: image.path ?? undefined,
+      });
+      return item ? [item] : [];
+    }),
+  };
 }
 
 export function unifiedLineDiff(
@@ -489,7 +583,7 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
   }
 }
 
-/** One switch on `presentAgentTool`. Image and plan tools use that presentation too. */
+/** Plan and image generation read the tool part. Other kinds use `presentAgentTool`. */
 export function toolBodyModel(part: AgentToolCallPart): ToolBodyModel {
   const parsed = presentAgentTool(part);
   const title = toolRowTitle(part, parsed);
@@ -498,6 +592,8 @@ export function toolBodyModel(part: AgentToolCallPart): ToolBodyModel {
   }
   const plan = planDocumentFields(part);
   if (plan) return plan;
+  const image = imageGenFields(part);
+  if (image) return image;
   const fields = fieldsForPresentation(part, parsed);
   return { ...fields, title };
 }
@@ -564,12 +660,14 @@ export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; de
 
 // @view
 
-import { useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Animated, Image, Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
   ArrowRightIcon,
   CheckCircleIcon,
+  CheckIcon,
+  CircleAlertIcon,
   CircleDashedIcon,
   CircleIcon,
   FileTextIcon,
@@ -579,6 +677,7 @@ import {
 } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
+import { useReducedMotion } from "./motion/use-reduced-motion";
 import { TextShimmer } from "./motion/text-shimmer";
 import { toolTriggerMetrics } from "./tool-chrome";
 import { ToolKindIcon } from "./tool-kind-icon";
@@ -815,6 +914,130 @@ function TodoStatusRows({ items }: { items: Array<{ content: string; status: Tod
   );
 }
 
+function ImageGenMark({ status }: { status: ImageGenStatus }) {
+  const theme = useMobileTheme();
+  const reduced = useReducedMotion();
+  const [spin] = useState(() => new Animated.Value(0));
+  const active = status === "queued" || status === "generating" || status === "refining";
+  useEffect(() => {
+    if (reduced || !active) return;
+    const loop = Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 2400, useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active, reduced, spin]);
+  if (status === "complete") {
+    return <CheckIcon color={theme.colors.label} size={14} strokeWidth={2} />;
+  }
+  if (status === "error") {
+    return <CircleAlertIcon color={theme.colors.red} size={14} strokeWidth={2} />;
+  }
+  const dots = (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 2, height: 14, width: 14 }}>
+      {[1, 0.55, 0.55, 1].map((opacity, index) => (
+        <View
+          key={index}
+          style={{
+            backgroundColor: theme.colors.label,
+            borderRadius: 1,
+            height: 4,
+            opacity,
+            width: 4,
+          }}
+        />
+      ))}
+    </View>
+  );
+  if (reduced) return dots;
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  return <Animated.View style={{ transform: [{ rotate }] }}>{dots}</Animated.View>;
+}
+
+function ImageGenPreview({ uri, aspect }: { uri: string; aspect: number }) {
+  const [ratio, setRatio] = useState(aspect);
+  return (
+    <Image
+      accessibilityIgnoresInvertColors
+      alt=""
+      onLoad={(event) => {
+        const width = event.nativeEvent.source?.width;
+        const height = event.nativeEvent.source?.height;
+        if (width > 0 && height > 0) setRatio(width / height);
+      }}
+      resizeMode="contain"
+      source={{ uri }}
+      style={{ aspectRatio: ratio, borderRadius: 12, width: "100%" }}
+    />
+  );
+}
+
+function ImageGenBody({ model }: { model: Extract<ToolBodyModel, { kind: "image_gen" }> }) {
+  const theme = useMobileTheme();
+  const showStatus = model.items.length === 0 || model.status !== "complete";
+  const statusText = IMAGE_GEN_STATUS_TEXT[model.status];
+  const label = model.prompt ? `${statusText}: ${model.prompt}` : statusText;
+  const active =
+    model.status === "queued" || model.status === "generating" || model.status === "refining";
+  return (
+    <View accessibilityState={{ busy: active }} style={{ gap: 12, maxWidth: 208, width: "100%" }}>
+      {model.items.length === 0 ? (
+        <View
+          accessibilityLabel={label}
+          accessibilityRole="image"
+          style={{
+            aspectRatio: model.aspect,
+            backgroundColor: theme.colors.cardSubtle,
+            borderRadius: 12,
+            width: "100%",
+          }}
+        />
+      ) : (
+        <View style={{ gap: 12 }}>
+          {model.items.map((item, index) =>
+            "uri" in item ? (
+              <ImageGenPreview key={`${item.uri}:${index}`} aspect={model.aspect} uri={item.uri} />
+            ) : (
+              <PathChip key={`${item.path}:${index}`} path={item.path} />
+            ),
+          )}
+        </View>
+      )}
+      {showStatus || model.prompt ? (
+        <View style={{ gap: 2 }}>
+          {showStatus ? (
+            <View
+              accessibilityLiveRegion="polite"
+              style={{ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 20 }}
+            >
+              <ImageGenMark status={model.status} />
+              <Text
+                style={{
+                  color: model.status === "error" ? theme.colors.red : theme.colors.label,
+                  flexShrink: 1,
+                  fontSize: 14,
+                  fontWeight: "500",
+                  lineHeight: 20,
+                }}
+              >
+                {statusText}
+              </Text>
+            </View>
+          ) : null}
+          {model.prompt ? (
+            <Text
+              numberOfLines={1}
+              style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}
+            >
+              {`“${model.prompt}”`}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "plan_document" }> }) {
   const theme = useMobileTheme();
   const hasBody = model.plan.length > 0;
@@ -926,6 +1149,8 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       return <TodoStatusRows items={model.items} />;
     case "plan_document":
       return <PlanDocumentBody model={model} />;
+    case "image_gen":
+      return <ImageGenBody model={model} />;
     case "mono":
       return <CappedMono text={model.text} />;
     case "move":
@@ -1054,10 +1279,14 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const theme = useMobileTheme();
   const model = toolBodyModel(part);
   const chrome = toolRowChrome(part, presentAgentTool(part));
+  const imageActive = model.kind === "image_gen" && imageGenStaysOpen(part.status);
   const [open, setOpen] = useAgentChatExpand(
     agentChatToolExpandKey(part.tool_call_id),
-    model.kind === "plan_document" && planDocumentStartsOpen(model),
+    (model.kind === "plan_document" && planDocumentStartsOpen(model)) || imageActive,
   );
+  useEffect(() => {
+    if (imageActive) setOpen(true);
+  }, [imageActive, setOpen]);
   if (model.kind === "subagent") {
     return <SubagentCard status={model.status} title={chrome.title} />;
   }
@@ -1083,7 +1312,10 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        onPress={() => setOpen(!open)}
+        onPress={() => {
+          if (imageActive && open) return;
+          setOpen(!open);
+        }}
         style={{ alignItems: "center", flexDirection: "row", gap: metrics.gap }}
       >
         <View

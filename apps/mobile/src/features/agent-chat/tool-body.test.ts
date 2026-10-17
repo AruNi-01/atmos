@@ -346,7 +346,12 @@ describe("tool body presentation", () => {
         },
       }),
     );
-    expect(images.kind).toBe("images");
+    expect(images).toMatchObject({
+      kind: "image_gen",
+      prompt: "cat",
+      status: "complete",
+      aspect: 1,
+    });
     expect(images.items).toEqual([{ uri: "https://example.com/cat.png" }, { path: "cat.png" }]);
 
     const imageGenEmpty = await call(
@@ -355,7 +360,13 @@ describe("tool body presentation", () => {
         params: { type: "image_gen", prompt: "cat", path: "out.png" },
       }),
     );
-    expect(imageGenEmpty).toMatchObject({ kind: "empty", path: null });
+    expect(imageGenEmpty).toMatchObject({
+      kind: "image_gen",
+      prompt: "cat",
+      path: "out.png",
+      status: "complete",
+      items: [{ path: "out.png" }],
+    });
 
     const plan = await call(
       part({
@@ -454,6 +465,107 @@ describe("move and delete bodies", () => {
     const deleted = body.slice(body.indexOf('case "delete":'), body.indexOf('case "error":'));
     expect(deleted).toContain("deletedFileLabel");
     expect(deleted).not.toContain("PathChip");
+  });
+});
+
+describe("image generation", () => {
+  test("uses the web status words, aspect, and stays open while the tool is active", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const model = mod.toolBodyModel as (value: AgentToolCallPart) => {
+      kind: string;
+      title: string;
+      prompt: string;
+      path: string | null;
+      aspect: number;
+      status: string;
+      items: Array<{ uri?: string; path?: string }>;
+    };
+    const status = mod.imageGenStatus as (value: AgentToolCallPart) => string;
+    const aspect = mod.imageGenAspectRatio as (ratio: string | null | undefined) => number;
+    const staysOpen = mod.imageGenStaysOpen as (value: string | null | undefined) => boolean;
+    const labels = mod.IMAGE_GEN_STATUS_TEXT as Record<string, string>;
+    const chrome = mod.toolRowChrome as (
+      value: AgentToolCallPart,
+      parsed: unknown,
+    ) => { title: string; fileName: string | null; lineRange: string | null };
+
+    expect(aspect("16:9")).toBeCloseTo(16 / 9);
+    expect(aspect("3 / 2")).toBe(1.5);
+    expect(aspect("auto")).toBe(1);
+    expect(aspect(null)).toBe(1);
+    expect(staysOpen("pending")).toBe(true);
+    expect(staysOpen("running")).toBe(true);
+    expect(staysOpen("completed")).toBe(false);
+
+    const queued = part({
+      kind: "image_gen",
+      name: "",
+      title: "",
+      status: "pending",
+      params: { type: "image_gen", prompt: "a glass mark", aspect_ratio: "16:9" },
+    });
+    expect(model(queued)).toMatchObject({
+      kind: "image_gen",
+      title: "Image",
+      prompt: "a glass mark",
+      path: null,
+      status: "queued",
+      items: [],
+    });
+    expect(model(queued).aspect).toBeCloseTo(16 / 9);
+    expect(status(queued)).toBe("queued");
+    expect(chrome(queued, {})).toEqual({ title: "Image", fileName: null, lineRange: null });
+
+    const failed = part({
+      kind: "image_gen",
+      status: "failed",
+      params: { type: "image_gen", prompt: "cat", path: "out.png" },
+      result: { type: "error", message: "nope" },
+    });
+    expect(model(failed).status).toBe("error");
+    expect(labels).toEqual({
+      queued: "Waiting to generate",
+      generating: "Generating image",
+      refining: "Refining details",
+      complete: "Image ready",
+      error: "Generation failed",
+    });
+
+    const data = part({
+      kind: "image_gen",
+      params: { type: "image_gen", prompt: "cat" },
+      result: { type: "images", images: [{ url: "data:image/png;base64,aaaa" }] },
+    });
+    expect(model(data).items).toEqual([{ uri: "data:image/png;base64,aaaa" }]);
+
+    const saved = part({
+      kind: "image_gen",
+      name: "Generate",
+      title: "Mark",
+      params: { type: "image_gen", prompt: "cat", path: "shots/out.png" },
+    });
+    expect(chrome(saved, {})).toEqual({ title: "Mark", fileName: "out.png", lineRange: null });
+
+    const web = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../../../../../packages/ui/src/components/ui/image-generation.tsx",
+      ),
+      "utf8",
+    );
+    expect(web).toContain('queued: "Waiting to generate"');
+    expect(web).toContain('generating: "Generating image"');
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("function ImageGenBody"));
+    const card = view.slice(0, view.indexOf("function PlanDocumentBody"));
+    expect(card).toContain("maxWidth: 208");
+    expect(card).toContain("IMAGE_GEN_STATUS_TEXT");
+    expect(card).not.toContain("DitherField");
+    expect(source).toContain("imageGenStaysOpen(part.status)");
+    expect(source).toContain("if (imageActive && open) return;");
   });
 });
 
