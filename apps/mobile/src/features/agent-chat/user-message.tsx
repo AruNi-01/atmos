@@ -1,12 +1,27 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View, type TextLayoutEvent } from "react-native";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+  type TextLayoutEvent,
+} from "react-native";
 import * as Clipboard from "expo-clipboard";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 import {
   USER_MESSAGE_COLLAPSE_FADE_LINES,
   USER_MESSAGE_COLLAPSE_LINES,
   formatUserMessageTime,
   textFromParts,
 } from "@atmos/agent-transcript";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronDownIcon, ChevronUpIcon } from "@/ui/icons/lucide-native";
 import {
@@ -21,7 +36,13 @@ import {
   agentChatUserMetaExpandKey,
   useAgentChatExpand,
 } from "./expand-store";
-import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+import { useReducedMotion } from "./motion/use-reduced-motion";
+import {
+  USER_META_EASE,
+  USER_META_LIFT_PX,
+  userMetaHeightMotion,
+  userMetaItemMotion,
+} from "./user-message-meta";
 
 const TEXT_LINE_HEIGHT = 20;
 const FADE_STEPS = 5;
@@ -50,6 +71,120 @@ function UserMessageCollapseFade() {
         />
       ))}
     </View>
+  );
+}
+
+const META_EASE = Easing.bezier(
+  USER_META_EASE[0],
+  USER_META_EASE[1],
+  USER_META_EASE[2],
+  USER_META_EASE[3],
+);
+
+function UserMetaItem({
+  children,
+  index,
+  open,
+}: {
+  children: ReactNode;
+  index: number;
+  open: boolean;
+}) {
+  const reduced = useReducedMotion();
+  const opacity = useSharedValue(open ? 1 : 0);
+  const lift = useSharedValue(open || reduced ? 0 : USER_META_LIFT_PX);
+
+  useEffect(() => {
+    if (reduced) {
+      opacity.set(open ? 1 : 0);
+      lift.set(0);
+      return;
+    }
+    const motion = userMetaItemMotion(open, index);
+    opacity.set(
+      withDelay(
+        motion.delay,
+        withTiming(open ? 1 : 0, { duration: motion.opacityMs, easing: META_EASE }),
+      ),
+    );
+    lift.set(
+      withDelay(
+        motion.delay,
+        withTiming(open ? 0 : USER_META_LIFT_PX, {
+          duration: motion.translateMs,
+          easing: META_EASE,
+        }),
+      ),
+    );
+  }, [index, lift, opacity, open, reduced]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.get(),
+    transform: [{ translateY: lift.get() }],
+  }));
+
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
+
+function UserMessageMeta({
+  open,
+  text,
+  time,
+}: {
+  open: boolean;
+  text: string;
+  time: string | null;
+}) {
+  const theme = useMobileTheme();
+  const reduced = useReducedMotion();
+  const measured = useSharedValue(0);
+  const progress = useSharedValue(open ? 1 : 0);
+
+  useEffect(() => {
+    const target = open ? 1 : 0;
+    if (reduced) {
+      progress.set(target);
+      return;
+    }
+    const motion = userMetaHeightMotion(open);
+    progress.set(
+      withDelay(motion.delay, withTiming(target, { duration: motion.duration, easing: META_EASE })),
+    );
+  }, [open, progress, reduced]);
+
+  const clipStyle = useAnimatedStyle(() => ({
+    height: measured.get() * progress.get(),
+  }));
+
+  const onLayout = (event: LayoutChangeEvent) => {
+    const next = event.nativeEvent.layout.height;
+    if (next > 0 && measured.get() !== next) measured.set(next);
+  };
+
+  const showCopy = text.trim().length > 0;
+  const timeIndex = time ? 0 : -1;
+  const copyIndex = showCopy ? (time ? 1 : 0) : -1;
+
+  return (
+    <Animated.View
+      accessibilityElementsHidden={!open}
+      importantForAccessibility={open ? "auto" : "no-hide-descendants"}
+      pointerEvents={open ? "auto" : "none"}
+      style={[{ overflow: "hidden" }, clipStyle]}
+    >
+      <View onLayout={onLayout} style={styles.metaRow}>
+        {time ? (
+          <UserMetaItem index={timeIndex} open={open}>
+            <Text style={[styles.metaTime, { color: theme.colors.secondaryLabel }]}>{time}</Text>
+          </UserMetaItem>
+        ) : null}
+        {showCopy ? (
+          <UserMetaItem index={copyIndex} open={open}>
+            <CopyMessageButton text={text} />
+          </UserMetaItem>
+        ) : null}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -165,24 +300,24 @@ export function UserMessage({ message }: { message: AgentMessage }) {
           )}
         </Pressable>
       ) : null}
-      {metaOpen && hasMeta ? (
-        <View
-          style={{
-            alignItems: "center",
-            flexDirection: "row",
-            gap: 8,
-            justifyContent: "flex-end",
-            marginTop: 8,
-          }}
-        >
-          {time ? (
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-              {time}
-            </Text>
-          ) : null}
-          {text.trim() ? <CopyMessageButton text={text} /> : null}
-        </View>
-      ) : null}
+      {hasMeta ? <UserMessageMeta open={metaOpen} text={text} time={time} /> : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  metaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+    justifyContent: "flex-end",
+    left: 0,
+    paddingTop: 4,
+    position: "absolute",
+    right: 0,
+  },
+  metaTime: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
+});

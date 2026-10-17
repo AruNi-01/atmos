@@ -57,6 +57,9 @@ describe("user message", () => {
     expect(source).toContain("copy.copyMessage");
     expect(source).toContain("agentChatUserBodyExpandKey");
     expect(source).toContain("agentChatUserMetaExpandKey");
+    expect(source).toContain("userMetaHeightMotion");
+    expect(source).toContain("userMetaItemMotion");
+    expect(source).toContain("USER_META_LIFT_PX");
     expect(source).toContain("USER_MESSAGE_COLLAPSE_FADE_LINES");
     expect(source).not.toContain("#242424");
     expect(source).not.toContain("#f2f1ef");
