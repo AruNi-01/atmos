@@ -101,5 +101,7 @@ describe("web source parity", () => {
     expect(patch).toContain("CODE BLOCK");
     expect(patch).toContain("Streamdown quotes are `italic`");
     expect(patch).toContain('style:@"italic"');
+    expect(patch).toContain("Streamdown links are font-medium");
+    expect(patch).toContain('weight:@"500"');
   });
 });

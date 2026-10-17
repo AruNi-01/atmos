@@ -495,3 +495,47 @@ index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a
    BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
  
    if (tableOverflows) {
+diff --git a/ios/renderer/LinkRenderer.m b/ios/renderer/LinkRenderer.m
+--- a/ios/renderer/LinkRenderer.m
++++ b/ios/renderer/LinkRenderer.m
+@@ -1,4 +1,5 @@
+ #import "LinkRenderer.h"
++#import "CodeBackground.h"
+ #import "FontUtils.h"
+ #import "RenderContext.h"
+ #import "RendererFactory.h"
+@@ -53,19 +54,21 @@
+                               newAttributes[NSUnderlineStyleAttributeName] = underlineStyle;
+                             }
+ 
+-                            if (linkFontFamily.length > 0) {
+-                              UIFont *currentFont = attrs[NSFontAttributeName];
+-                              if (currentFont) {
+-                                UIFont *linkFont = [RCTFont updateFont:currentFont
+-                                                            withFamily:linkFontFamily
+-                                                                  size:nil
+-                                                                weight:nil
+-                                                                 style:nil
+-                                                               variant:nil
+-                                                       scaleMultiplier:1.0];
+-                                if (linkFont && ![currentFont isEqual:linkFont]) {
+-                                  newAttributes[NSFontAttributeName] = linkFont;
+-                                }
++                            // Streamdown links are font-medium. The link style has no weight field.
++                            // A bold or inline-code run keeps its own face.
++                            UIFont *currentFont = attrs[NSFontAttributeName];
++                            BOOL keepsFace = attrs[CodeAttributeName] != nil ||
++                                             (currentFont.fontDescriptor.symbolicTraits & UIFontDescriptorTraitBold);
++                            if (currentFont && !keepsFace) {
++                              UIFont *linkFont = [RCTFont updateFont:currentFont
++                                                          withFamily:linkFontFamily.length > 0 ? linkFontFamily : nil
++                                                                size:nil
++                                                              weight:@"500"
++                                                               style:nil
++                                                             variant:nil
++                                                     scaleMultiplier:1.0];
++                              if (linkFont && ![currentFont isEqual:linkFont]) {
++                                newAttributes[NSFontAttributeName] = linkFont;
+                               }
+                             }
+ 
