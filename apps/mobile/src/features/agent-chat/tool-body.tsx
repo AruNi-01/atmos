@@ -1077,7 +1077,7 @@ import { TOOL_MARKDOWN_LINE_HEIGHT, TOOL_PROSE_LINE_HEIGHT } from "./markdown-ch
 import { chatForeground, chatForeground80, chatMutedForeground } from "./chat-ink";
 import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
-import { toolDiffLineWordPieces, toolDiffWordFill } from "./tool-diff-words";
+import { toolDiffLineWordPieces, toolDiffVisiblePieces, toolDiffWordFill } from "./tool-diff-words";
 import {
   TOOL_DIFF_EXPAND_ALL_ICON_PATH,
   TOOL_DIFF_EXPAND_BUTTON,
@@ -1794,6 +1794,7 @@ function DiscussionDiff({
                 const changed = line.op === "add" || line.op === "del";
                 const pieces = wordPieces[lineIndex];
                 lineIndex += 1;
+                const visible = toolDiffVisiblePieces(pieces, line.text);
                 const wordFill =
                   line.op === "add" || line.op === "del"
                     ? toolDiffWordFill(line.op, theme.isDark)
@@ -1864,18 +1865,14 @@ function DiscussionDiff({
                             paddingHorizontal: TOOL_DIFF_CODE_PAD,
                           }}
                         >
-                          {pieces && pieces.length > 0
-                            ? pieces.map((piece, pieceIndex) => (
-                                <Text
-                                  key={pieceIndex}
-                                  style={piece.changed ? { backgroundColor: wordFill } : undefined}
-                                >
-                                  {piece.text}
-                                </Text>
-                              ))
-                            : line.text.length > 0
-                              ? line.text
-                              : " "}
+                          {visible.map((piece, pieceIndex) => (
+                            <Text
+                              key={pieceIndex}
+                              style={piece.changed ? { backgroundColor: wordFill } : undefined}
+                            >
+                              {piece.text}
+                            </Text>
+                          ))}
                         </Text>
                       </View>
                     </View>

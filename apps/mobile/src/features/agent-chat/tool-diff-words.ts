@@ -8,6 +8,9 @@ import { diffWordsWithSpace } from "diff";
  */
 export const TOOL_DIFF_WORD_MAX = 1000;
 
+/** Pierre `[data-code] { tab-size: var(--diffs-tab-size, 2) }`. */
+export const TOOL_DIFF_TAB_SIZE = 2;
+
 /** `rgb(from addition/deletion base / .15)` in light and `/ .2` in dark. */
 export const TOOL_DIFF_WORD_ADD_LIGHT = "rgba(13, 190, 78, 0.15)";
 export const TOOL_DIFF_WORD_ADD_DARK = "rgba(94, 204, 113, 0.2)";
@@ -115,4 +118,46 @@ export function toolDiffLineWordPieces(
     }
   }
   return pieces;
+}
+
+/**
+ * Expand tabs to Pierre's stop of 2, measured in code points from the start
+ * of the line. A stop that the column already sits on advances a full stop.
+ */
+export function toolDiffExpandTabs(
+  text: string,
+  column = 0,
+  tabSize = TOOL_DIFF_TAB_SIZE,
+): { text: string; column: number } {
+  let col = column;
+  let out = "";
+  for (const char of text) {
+    if (char !== "\t") {
+      out += char;
+      col += 1;
+      continue;
+    }
+    const spaces = tabSize - (col % tabSize);
+    out += " ".repeat(spaces);
+    col += spaces;
+  }
+  return { text: out, column: col };
+}
+
+/** Paint text for one row. Tabs expand across word pieces. An empty line keeps one space so the row stays one line tall. */
+export function toolDiffVisiblePieces(
+  pieces: readonly ToolDiffWordPiece[] | null,
+  raw: string,
+): ToolDiffWordPiece[] {
+  const source =
+    pieces != null && pieces.length > 0
+      ? pieces
+      : [{ text: raw.length > 0 ? raw : " ", changed: false }];
+  let column = 0;
+  return source.map((piece) => {
+    const expanded = toolDiffExpandTabs(piece.text, column);
+    column = expanded.column;
+    if (expanded.text === piece.text) return piece;
+    return { text: expanded.text, changed: piece.changed };
+  });
 }

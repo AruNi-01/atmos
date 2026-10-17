@@ -142,6 +142,7 @@ describe("tool body presentation", () => {
     expect(discussion).toContain("toolDiffContextNumber(theme.isDark)");
     expect(discussion).toContain("toolDiffLineWordPieces(lines)");
     expect(discussion).toContain("toolDiffWordFill(line.op, theme.isDark)");
+    expect(discussion).toContain("toolDiffVisiblePieces(pieces, line.text)");
     expect(discussion).toContain("piece.changed ? { backgroundColor: wordFill }");
     expect(discussion).toContain("toolDiffVisibleRows(segments, revealed)");
     expect(discussion).toContain("DiffHunkSeparator");

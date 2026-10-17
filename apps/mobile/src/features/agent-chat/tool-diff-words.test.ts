@@ -5,7 +5,10 @@ import {
   TOOL_DIFF_WORD_DEL_DARK,
   TOOL_DIFF_WORD_DEL_LIGHT,
   TOOL_DIFF_WORD_MAX,
+  TOOL_DIFF_TAB_SIZE,
+  toolDiffExpandTabs,
   toolDiffLineWordPieces,
+  toolDiffVisiblePieces,
   toolDiffWordFill,
   toolDiffWordPieces,
 } from "./tool-diff-words";
@@ -53,6 +56,25 @@ describe("tool diff word marks", () => {
     expect(changedText(pieces[2])).toBe("there");
     expect(pieces[3]).toBeNull();
     expect(pieces[4]).toBeNull();
+  });
+
+  test("expands tabs to Pierre's stop of 2 and carries the column across pieces", () => {
+    expect(TOOL_DIFF_TAB_SIZE).toBe(2);
+    expect(toolDiffExpandTabs("\tfoo").text).toBe("  foo");
+    expect(toolDiffExpandTabs("a\tb").text).toBe("a b");
+    expect(toolDiffExpandTabs("ab\tc").text).toBe("ab  c");
+    expect(toolDiffExpandTabs("\t\t").text).toBe("    ");
+    const visible = toolDiffVisiblePieces(
+      [
+        { text: "a\t", changed: false },
+        { text: "b", changed: true },
+      ],
+      "a\tb",
+    );
+    expect(visible.map((piece) => piece.text)).toEqual(["a ", "b"]);
+    expect(visible[1]?.changed).toBe(true);
+    expect(toolDiffVisiblePieces(null, "")).toEqual([{ text: " ", changed: false }]);
+    expect(toolDiffVisiblePieces(null, "keep").map((piece) => piece.text)).toEqual(["keep"]);
   });
 
   test("uses Pierre's emphasis alpha on the addition and deletion bases", () => {
