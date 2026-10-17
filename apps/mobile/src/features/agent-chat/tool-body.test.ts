@@ -128,6 +128,12 @@ describe("tool body presentation", () => {
     expect(discussion).toContain("toolDiffNumberColumnWidth");
     expect(discussion).toContain("TOOL_DIFF_BAR");
     expect(discussion).toContain("DiffDeletionBar");
+    const hatch = view.slice(
+      view.indexOf("function DiffDeletionBar"),
+      view.indexOf("function DiscussionDiff"),
+    );
+    expect(hatch).toContain("<Rect fill={ink} height={1} width={TOOL_DIFF_BAR} />");
+    expect(hatch).toContain("<Rect fill={band} height={1} width={TOOL_DIFF_BAR} y={1} />");
     expect(discussion).toContain('line.op === "add"');
     expect(discussion).toContain('line.op === "del"');
     expect(discussion).toContain('toolDiffLineFill("del", theme.isDark)');

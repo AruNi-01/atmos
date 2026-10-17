@@ -1526,8 +1526,9 @@ function CappedMono({ text }: { text: string }) {
 }
 
 /**
- * Pierre's deletion indicator is a 4px bar of 1px bands. Each 2px tile is the
- * deletion line fill, then the deletion base. An addition bar stays solid.
+ * Pierre's deletion indicator is a 4px bar of 1px bands. `linear-gradient(0deg)`
+ * paints the deletion base at the top of each 2px tile, then the line fill.
+ * An addition bar stays solid.
  */
 function DiffDeletionBar({ band, ink }: { band: string; ink: string }) {
   const id = `diffDel${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -1546,8 +1547,8 @@ function DiffDeletionBar({ band, ink }: { band: string; ink: string }) {
       <Svg height={TOOL_DIFF_MAX_HEIGHT} width={TOOL_DIFF_BAR}>
         <Defs>
           <Pattern height={2} id={id} patternUnits="userSpaceOnUse" width={TOOL_DIFF_BAR}>
-            <Rect fill={band} height={1} width={TOOL_DIFF_BAR} />
-            <Rect fill={ink} height={1} width={TOOL_DIFF_BAR} y={1} />
+            <Rect fill={ink} height={1} width={TOOL_DIFF_BAR} />
+            <Rect fill={band} height={1} width={TOOL_DIFF_BAR} y={1} />
           </Pattern>
         </Defs>
         <Rect fill={`url(#${id})`} height={TOOL_DIFF_MAX_HEIGHT} width={TOOL_DIFF_BAR} />
