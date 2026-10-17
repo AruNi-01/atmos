@@ -37,6 +37,7 @@ export const copy = {
   webSearchSources: "Sources",
   webSearchResultCount: "{count, plural, one {# result} other {# results}}",
   searchMatchCount: "{count, plural, one {# match} other {# matches}}",
+  fetchUrl: "Fetch {host}",
   close: "Close",
   mode: "Mode",
   permission: "Permission",

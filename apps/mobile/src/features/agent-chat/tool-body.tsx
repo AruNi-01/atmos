@@ -43,7 +43,13 @@ export type ToolBodyModel =
       query: string;
       links: Array<{ title: string; url: string; openable: boolean }>;
     }
-  | { kind: "web_fetch"; title: string; url: string; openable: boolean; body: string }
+  | {
+      kind: "web_fetch";
+      title: string;
+      url: string;
+      body: string;
+      format: "markdown" | "text" | "error";
+    }
   | {
       kind: "search";
       title: string;
@@ -114,6 +120,20 @@ export function toolRowChrome(part: AgentToolCallPart, parsed: ParsedToolResult)
           : "";
     return {
       title: query ? fillTemplate(copy.webSearchSearchingFor, { query }) : copy.webSearch,
+      fileName: null,
+      lineRange: null,
+    };
+  }
+  if (parsed.presentation.kind === "web_fetch" || part.kind === "fetch") {
+    const url =
+      parsed.presentation.kind === "web_fetch"
+        ? parsed.presentation.url
+        : part.params?.type === "fetch"
+          ? part.params.url
+          : "";
+    const host = hostFromUrl(url) ?? url;
+    return {
+      title: fillTemplate(copy.fetchUrl, { host }),
       fileName: null,
       lineRange: null,
     };
@@ -333,13 +353,18 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
           openable: canOpenHttpUrl(link.url),
         })),
       };
-    case "web_fetch":
+    case "web_fetch": {
+      const markdown = presentation.markdown?.trim() ?? "";
+      const text = presentation.text?.trim() ?? "";
+      const failed = (part.status ?? "").toLowerCase() === "failed";
+      const format = failed ? "error" : markdown ? "markdown" : "text";
       return {
         kind: "web_fetch",
         url: presentation.url,
-        openable: canOpenHttpUrl(presentation.url),
-        body: presentation.markdown?.trim() || presentation.text?.trim() || "",
+        body: format === "markdown" ? markdown : text,
+        format,
       };
+    }
     case "search": {
       const hits = presentation.hits.map((hit) => ({
         path: hit.path,
@@ -469,8 +494,8 @@ export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; de
 
 // @view
 
-import { useState, type ReactNode } from "react";
-import { Image, Linking, Pressable, Text, View } from "react-native";
+import { useState } from "react";
+import { Image, Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { FileTextIcon, XCircleIcon } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
@@ -479,6 +504,7 @@ import { TextShimmer } from "./motion/text-shimmer";
 import { toolTriggerMetrics } from "./tool-chrome";
 import { ToolKindIcon } from "./tool-kind-icon";
 import { ExpandChevron } from "./tool-tree";
+import { HttpFavicon } from "./web-search-sources";
 import { webSearchResultMeta } from "./web-search-stack";
 import { WebSearchSources } from "./web-search-sources";
 
@@ -612,29 +638,10 @@ function DiffLines({ lines }: { lines: UnifiedDiffLine[] }) {
   );
 }
 
-function HttpText({
-  url,
-  openable,
-  children,
-}: {
-  url: string;
-  openable: boolean;
-  children: ReactNode;
-}) {
-  const theme = useMobileTheme();
-  if (!openable) {
-    return <Text style={{ color: theme.colors.label, ...BODY_TEXT }}>{children}</Text>;
-  }
-  return (
-    <Pressable
-      accessibilityRole="link"
-      onPress={() => {
-        void Linking.openURL(url);
-      }}
-    >
-      <Text style={{ color: theme.colors.accent, ...BODY_TEXT }}>{children}</Text>
-    </Pressable>
-  );
+function fetchRowUrl(part: AgentToolCallPart): string {
+  if (part.result?.type === "web_fetch") return part.result.url;
+  if (part.params?.type === "fetch") return part.params.url;
+  return "";
 }
 
 function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "search" }> }) {
@@ -723,17 +730,20 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
     case "web_search":
       return <WebSearchSources links={model.links} />;
     case "web_fetch":
+      if (!model.body) return null;
+      if (model.format === "markdown") {
+        return <AgentChatMarkdown fontSize={13} lineHeight={20} text={model.body} />;
+      }
       return (
-        <View style={{ gap: 4 }}>
-          {model.url ? (
-            <HttpText openable={model.openable} url={model.url}>
-              {model.url}
-            </HttpText>
-          ) : null}
-          {model.body ? (
-            <AgentChatMarkdown fontSize={14} lineHeight={20} text={model.body} />
-          ) : null}
-        </View>
+        <Text
+          selectable
+          style={{
+            color: model.format === "error" ? theme.colors.red : theme.colors.secondaryLabel,
+            ...BODY_TEXT,
+          }}
+        >
+          {model.body}
+        </Text>
       );
     case "search":
       return <SearchHitsBody model={model} />;
@@ -905,7 +915,11 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
             width: metrics.iconBox,
           }}
         >
-          <ToolKindIcon color={color} kind={part.kind} size={metrics.iconSize} />
+          {part.kind === "fetch" ? (
+            <HttpFavicon url={fetchRowUrl(part)} size={metrics.iconBox} radius={3} />
+          ) : (
+            <ToolKindIcon color={color} kind={part.kind} size={metrics.iconSize} />
+          )}
         </View>
         {running ? (
           <TextShimmer duration={1} numberOfLines={1} style={titleStyle}>

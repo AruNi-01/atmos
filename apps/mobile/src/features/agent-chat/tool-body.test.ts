@@ -144,9 +144,33 @@ describe("tool body presentation", () => {
     expect(fetched).toMatchObject({
       kind: "web_fetch",
       url: "https://atmos.dev/docs",
-      openable: true,
       body: "# Docs",
+      format: "markdown",
     });
+
+    const plain = await call(
+      part({
+        kind: "fetch",
+        params: { type: "fetch", url: "https://atmos.dev/plain" },
+        result: { type: "web_fetch", url: "https://atmos.dev/plain", text: "plain" },
+      }),
+    );
+    expect(plain).toMatchObject({ kind: "web_fetch", body: "plain", format: "text" });
+
+    const failed = await call(
+      part({
+        kind: "fetch",
+        status: "failed",
+        params: { type: "fetch", url: "https://atmos.dev/plain" },
+        result: {
+          type: "web_fetch",
+          url: "https://atmos.dev/plain",
+          markdown: "# Docs",
+          text: "boom",
+        },
+      }),
+    );
+    expect(failed).toMatchObject({ kind: "web_fetch", body: "boom", format: "error" });
 
     const hits = await call(
       part({
@@ -500,6 +524,27 @@ describe("tool row chrome", () => {
       fileName: null,
       lineRange: null,
     });
+
+    const fetched = part({
+      kind: "fetch",
+      name: "Fetch",
+      title: "https://www.example.com/docs",
+      params: { type: "fetch", url: "https://www.example.com/docs" },
+      result: { type: "web_fetch", url: "https://www.example.com/docs", markdown: "# Docs" },
+    });
+    expect(chrome(fetched, present(fetched))).toEqual({
+      title: "Fetch www.example.com",
+      fileName: null,
+      lineRange: null,
+    });
+
+    const failedFetch = part({
+      kind: "fetch",
+      status: "failed",
+      params: { type: "fetch", url: "https://atmos.dev/x" },
+      result: { type: "error", message: "nope" },
+    });
+    expect(chrome(failedFetch, present(failedFetch)).title).toBe("Fetch atmos.dev");
 
     const patch = part({
       kind: "edit",

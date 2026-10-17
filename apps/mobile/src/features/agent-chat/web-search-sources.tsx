@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { ChevronDownIcon } from "@/ui/icons/lucide-native";
+import { ChevronDownIcon, GlobeIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { copy } from "./copy";
 import { useReducedMotion } from "./motion/use-reduced-motion";
@@ -200,6 +200,37 @@ function SourceRow({
         </View>
       )}
     </Animated.View>
+  );
+}
+
+/** Web `SiteFavicon`: the site icon, then a globe once every candidate fails. */
+export function HttpFavicon({ url, size, radius }: { url: string; size: number; radius: number }) {
+  const theme = useMobileTheme();
+  const candidates = webSearchFaviconCandidates(url);
+  const [index, setIndex] = useState(0);
+  const src = candidates[index];
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        borderRadius: radius,
+        height: size,
+        justifyContent: "center",
+        overflow: "hidden",
+        width: size,
+      }}
+    >
+      {src ? (
+        <Image
+          alt=""
+          onError={() => setIndex((current) => current + 1)}
+          source={{ uri: src }}
+          style={{ height: size, width: size }}
+        />
+      ) : (
+        <GlobeIcon color={theme.colors.secondaryLabel} size={size} strokeWidth={2} />
+      )}
+    </View>
   );
 }
 

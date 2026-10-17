@@ -75,6 +75,7 @@ type AgentComponents = {
     sources: string;
     resultCount: string;
     matchCount: string;
+    fetchUrl: string;
   };
 };
 
@@ -185,5 +186,7 @@ describe("agent chat copy parity", () => {
     expect(copy.webSearchResultCount).toBe(components.toolResults.resultCount);
     expect(copy.searchMatchCount).toBe(components.toolResults.matchCount);
     expect(copy.searchMatchCount).toBe("{count, plural, one {# match} other {# matches}}");
+    expect(copy.fetchUrl).toBe(components.toolResults.fetchUrl);
+    expect(copy.fetchUrl).toBe("Fetch {host}");
   });
 });
