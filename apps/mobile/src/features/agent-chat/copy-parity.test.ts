@@ -69,6 +69,7 @@ type AgentComponents = {
   grokGoal: { title: string };
   grokWorkflow: { title: string };
   contextWindow: { title: string };
+  terminalBlock: { title: string };
   toolResults: {
     searchingFor: string;
     webSearch: string;
@@ -217,6 +218,8 @@ describe("agent chat copy parity", () => {
     expect(copy.processing).toBe("Processing...");
     expect(copy.executionFailed).toBe(components.toolResults.executionFailed);
     expect(copy.executionFailed).toBe("Execution failed");
+    expect(copy.runScript).toBe(components.terminalBlock.title);
+    expect(copy.runScript).toBe("Run Script");
     expect(copy.planDocument).toBe(components.toolResults.planDocument);
     expect(copy.planDocument).toBe("Plan");
     expect(copy.planBody).toBe(components.toolResults.planBody);

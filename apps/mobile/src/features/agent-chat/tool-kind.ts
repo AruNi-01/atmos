@@ -13,6 +13,7 @@ import {
   type AgentToolCallPart,
   type TranscriptVisibility,
 } from "@atmos/agent-transcript";
+import { copy } from "./copy";
 
 export {
   defaultToolParams,
@@ -32,7 +33,7 @@ export {
 export function collapsedToolTitle(part: AgentToolCallPart): string {
   const fallback =
     wireToolKind(part.kind) === "execute"
-      ? "Run Script"
+      ? copy.runScript
       : part.name.trim() || part.title?.trim() || wireToolKind(part.kind);
   return preferredCollapsedToolTitle(part, fallback);
 }

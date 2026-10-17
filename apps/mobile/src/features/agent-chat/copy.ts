@@ -46,6 +46,7 @@ export const copy = {
   noOutput: "No output",
   processing: "Processing...",
   executionFailed: "Execution failed",
+  runScript: "Run Script",
   planDocument: "Plan",
   planBody: "View plan",
   planTodos: "{count, plural, one {# to-do} other {# to-dos}}",

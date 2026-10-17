@@ -81,6 +81,7 @@ export type ToolBodyModel =
       items: Array<{ content: string; status: TodoStatusKind }>;
     }
   | { kind: "mono"; title: string; text: string }
+  | { kind: "execute"; title: string; command: string; output: string; failed: boolean }
   | { kind: "move"; title: string; from: string; to: string }
   | { kind: "delete"; title: string; path: string }
   | {
@@ -185,7 +186,7 @@ export function toolRowChrome(part: AgentToolCallPart, parsed: ParsedToolResult)
       part.kind === "delete" ||
       parsed.presentation.kind === "code"),
   );
-  const kindLabel = toolKindHeadlineLabel(part.kind);
+  const kindLabel = part.kind === "execute" ? copy.runScript : toolKindHeadlineLabel(part.kind);
   const skillName = skillNameFromPart(part);
   const created =
     (parsed.presentation.kind === "code" && parsed.presentation.hint === "new") ||
@@ -633,6 +634,18 @@ export function toolBodyModel(part: AgentToolCallPart): ToolBodyModel {
   if (plan) return plan;
   const image = imageGenFields(part);
   if (image) return image;
+  if (part.kind === "execute") {
+    const terminal = executeTerminalFields(part);
+    if (!terminal.command && !terminal.output) {
+      return {
+        kind: "empty",
+        title,
+        path: null,
+        message: emptyToolMessage(part.kind, part.status, null),
+      };
+    }
+    return { kind: "execute", title, ...terminal };
+  }
   const fields = fieldsForPresentation(part, parsed);
   return { ...fields, title };
 }
@@ -677,8 +690,34 @@ export function diffIsCreatedFile(presentation: ToolPresentation): boolean {
   return presentation.files.every((file) => !file.oldContent && Boolean(file.newContent));
 }
 
-/** Web `max-h-96` on a collapsed Markdown code fence. */
+/** Web `max-h-96` on a collapsed Markdown code fence and on terminal output. */
 export const TOOL_CODE_MAX_HEIGHT = 384;
+
+/** Web `max-h-56` on the terminal command line. */
+export const TOOL_COMMAND_MAX_HEIGHT = 224;
+
+/**
+ * Web `TerminalBlock` keeps the command and paints a failed run in red.
+ * An empty command and empty output use the shared empty line instead.
+ */
+export function executeTerminalFields(part: AgentToolCallPart): {
+  command: string;
+  output: string;
+  failed: boolean;
+} {
+  const command = part.params?.type === "execute" ? part.params.command : "";
+  const result = part.result;
+  const output =
+    result?.type === "execute"
+      ? result.output
+      : result?.type === "text"
+        ? result.text
+        : result?.type === "error"
+          ? result.message
+          : "";
+  const failed = (part.status ?? "").toLowerCase() === "failed" || result?.type === "error";
+  return { command, output, failed };
+}
 
 /** Same fence wrapper web uses before `MarkdownRenderer` for a read or code preview. */
 export function fenceForMarkdown(code: string, language: string): string {
@@ -728,7 +767,7 @@ export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; de
 
 // @view
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Image, Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
@@ -843,6 +882,66 @@ function ToolCodeFence({ text, language }: { text: string; language: string }) {
       </View>
       {overflow ? (
         <ShowMoreButton expanded={expanded} onPress={() => setExpanded((current) => !current)} />
+      ) : null}
+    </View>
+  );
+}
+
+function HeightClip({ maxHeight, children }: { maxHeight: number; children: ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflow, setOverflow] = useState(false);
+  return (
+    <View style={{ gap: 4 }}>
+      <View
+        onLayout={(event) => {
+          if (!expanded && event.nativeEvent.layout.height >= maxHeight) setOverflow(true);
+        }}
+        style={expanded ? undefined : { maxHeight, overflow: "hidden" }}
+      >
+        {children}
+      </View>
+      {overflow ? (
+        <ShowMoreButton expanded={expanded} onPress={() => setExpanded((current) => !current)} />
+      ) : null}
+    </View>
+  );
+}
+
+function ExecuteTerminal({
+  command,
+  output,
+  failed,
+}: {
+  command: string;
+  output: string;
+  failed: boolean;
+}) {
+  const theme = useMobileTheme();
+  if (!command && !output) return null;
+  const mono = { fontFamily: "Menlo", fontSize: 13, lineHeight: 20 } as const;
+  return (
+    <View>
+      {command ? (
+        <HeightClip maxHeight={TOOL_COMMAND_MAX_HEIGHT}>
+          <Text selectable style={{ ...mono, color: theme.colors.label }}>
+            <Text style={{ color: theme.colors.secondaryLabel }}>$ </Text>
+            {command}
+          </Text>
+        </HeightClip>
+      ) : null}
+      {output ? (
+        <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
+          <Text
+            selectable
+            style={{
+              ...mono,
+              color: failed ? theme.colors.red : theme.colors.secondaryLabel,
+              marginTop: command ? 4 : 0,
+            }}
+          >
+            {output}
+          </Text>
+        </HeightClip>
       ) : null}
     </View>
   );
@@ -1245,6 +1344,10 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       return <ImageGenBody model={model} />;
     case "mono":
       return <CappedMono text={model.text} />;
+    case "execute":
+      return (
+        <ExecuteTerminal command={model.command} failed={model.failed} output={model.output} />
+      );
     case "move":
       return (
         <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
@@ -1392,7 +1495,8 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   if (model.kind === "subagent") {
     return <SubagentCard status={model.status} title={chrome.title} />;
   }
-  const failed = model.kind === "error" || part.status === "failed";
+  const executeFailed = part.kind === "execute" && executeTerminalFields(part).failed;
+  const failed = model.kind === "error" || executeFailed || part.status === "failed";
   const running = isActiveToolStatus(part.status);
   const color = failed ? theme.colors.red : theme.colors.secondaryLabel;
   const metrics = toolTriggerMetrics;

@@ -300,7 +300,12 @@ describe("tool body presentation", () => {
         result: { type: "execute", output: "ok" },
       }),
     );
-    expect(executed).toMatchObject({ kind: "mono", text: "ok" });
+    expect(executed).toMatchObject({
+      kind: "execute",
+      command: "pwd",
+      output: "ok",
+      failed: false,
+    });
 
     const moved = await call(
       part({
@@ -485,12 +490,121 @@ describe("empty and failed tool fallbacks", () => {
 
     const blank = await call(
       part({
-        kind: "execute",
-        params: { type: "execute", command: "pwd", background: false },
+        kind: "read",
+        params: { type: "read", path: "a.ts" },
         result: { type: "error", message: " " },
       }),
     );
     expect(blank).toMatchObject({ kind: "error", text: "Execution failed" });
+  });
+});
+
+describe("execute terminal", () => {
+  test("keeps the command above output and titles a command echo Run Script", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const model = mod.toolBodyModel as (value: AgentToolCallPart) => {
+      kind: string;
+      command?: string;
+      output?: string;
+      failed?: boolean;
+      message?: string | null;
+    };
+    const present = (await import("@atmos/agent-transcript")).presentAgentTool;
+    const chrome = mod.toolRowChrome as (
+      part: AgentToolCallPart,
+      parsed: ReturnType<typeof present>,
+    ) => { title: string };
+
+    const ran = model(
+      part({
+        kind: "execute",
+        params: { type: "execute", command: " pwd ", background: false },
+        result: { type: "execute", output: "ok" },
+      }),
+    );
+    expect(ran).toMatchObject({ kind: "execute", command: " pwd ", output: "ok", failed: false });
+
+    const failed = model(
+      part({
+        kind: "execute",
+        status: "completed",
+        params: { type: "execute", command: "pwd", background: false },
+        result: { type: "error", message: " " },
+      }),
+    );
+    expect(failed).toMatchObject({ kind: "execute", command: "pwd", output: " ", failed: true });
+
+    const text = model(
+      part({
+        kind: "execute",
+        params: { type: "execute", command: "ls", background: false },
+        result: { type: "text", text: "a.ts" },
+      }),
+    );
+    expect(text).toMatchObject({ kind: "execute", command: "ls", output: "a.ts", failed: false });
+
+    const empty = model(
+      part({
+        kind: "execute",
+        params: { type: "execute", command: "", background: false },
+      }),
+    );
+    expect(empty).toMatchObject({ kind: "empty", message: "No output" });
+
+    const running = model(
+      part({
+        kind: "execute",
+        status: "running",
+        params: { type: "execute", command: "", background: false },
+      }),
+    );
+    expect(running).toMatchObject({ kind: "empty", message: "Processing..." });
+
+    const blankError = part({
+      kind: "execute",
+      status: "completed",
+      params: { type: "execute", command: "", background: false },
+      result: { type: "error", message: "" },
+    });
+    expect(model(blankError)).toMatchObject({ kind: "empty", message: "No output" });
+    const fields = mod.executeTerminalFields as (value: AgentToolCallPart) => { failed: boolean };
+    expect(fields(blankError).failed).toBe(true);
+
+    const echo = part({
+      name: "`ls`",
+      title: "Execute `ls`",
+      kind: "execute",
+      params: { type: "execute", command: "ls", background: false },
+      result: { type: "execute", output: "a.ts" },
+    });
+    expect(chrome(echo, present(echo)).title).toBe("Run Script");
+
+    const named = part({
+      name: "run_terminal_command",
+      title: "Typecheck files-related web sources",
+      kind: "execute",
+      params: { type: "execute", command: "cd apps/web && bunx tsc --noEmit", background: false },
+    });
+    expect(chrome(named, present(named)).title).toBe("Typecheck files-related web sources");
+
+    expect(mod.TOOL_COMMAND_MAX_HEIGHT).toBe(224);
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("// @view"));
+    const terminal = view.slice(
+      view.indexOf("function ExecuteTerminal"),
+      view.indexOf("function CappedMono"),
+    );
+    expect(terminal).toContain("TOOL_COMMAND_MAX_HEIGHT");
+    expect(terminal).toContain("TOOL_CODE_MAX_HEIGHT");
+    expect(terminal).toContain("$ ");
+    expect(terminal).toContain('fontFamily: "Menlo"');
+    expect(terminal).toContain("fontSize: 13");
+    expect(terminal).not.toContain("AgentChatMarkdown");
+    const trigger = source.slice(source.indexOf("export function ToolCallRow"));
+    expect(trigger).toContain("executeTerminalFields(part).failed");
   });
 });
 
