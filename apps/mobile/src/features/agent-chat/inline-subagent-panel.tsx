@@ -4,6 +4,7 @@ import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@atmos/agent-transcript";
 import { useMobileTheme } from "@/theme/theme-store";
 import { BotMessageSquareIcon, XCircleIcon } from "@/ui/icons/lucide-native";
+import { chatForeground, chatMutedForeground } from "./chat-ink";
 import { chatDestructiveColor } from "./destructive-color";
 import { copy } from "./copy";
 import {
@@ -76,14 +77,15 @@ function SubagentTaskRow({
   part: AgentToolCallPart;
 }) {
   const theme = useMobileTheme();
+  const muted = chatMutedForeground(theme.isDark);
   const status = subagentTaskStatus(part);
   const activity = subagentActivityLabel(messages, part);
   const color =
     status === "running"
-      ? theme.colors.label
+      ? chatForeground(theme.isDark)
       : status === "failed"
         ? chatDestructiveColor(theme.isDark)
-        : theme.colors.secondaryLabel;
+        : muted;
   return (
     <View
       style={{
@@ -114,7 +116,7 @@ function SubagentTaskRow({
           <Text
             numberOfLines={1}
             style={{
-              color: theme.colors.secondaryLabel,
+              color: muted,
               flexShrink: 999,
               fontSize: 14,
               lineHeight: 20,
@@ -137,6 +139,8 @@ export function InlineSubagentPanel({
   tools: readonly AgentToolCallPart[];
 }) {
   const theme = useMobileTheme();
+  const foreground = chatForeground(theme.isDark);
+  const muted = chatMutedForeground(theme.isDark);
   const [open, setOpen] = useState(true);
   if (tools.length === 0) return null;
   return (
@@ -165,11 +169,11 @@ export function InlineSubagentPanel({
           paddingVertical: 2,
         }}
       >
-        <BotMessageSquareIcon color={theme.colors.secondaryLabel} size={16} strokeWidth={2} />
+        <BotMessageSquareIcon color={muted} size={16} strokeWidth={2} />
         <Text
           numberOfLines={1}
           style={{
-            color: theme.colors.label,
+            color: foreground,
             flexShrink: 1,
             fontSize: 14,
             fontWeight: "500",
@@ -180,7 +184,7 @@ export function InlineSubagentPanel({
         </Text>
         <Text
           style={{
-            color: theme.colors.secondaryLabel,
+            color: muted,
             fontSize: 14,
             lineHeight: 20,
             marginLeft: "auto",

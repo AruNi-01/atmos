@@ -181,6 +181,16 @@ describe("inline subagent tasks", () => {
       source.indexOf("export function InlineSubagentPanel"),
     );
     expect(row).not.toContain("onPress");
+    expect(row).toContain("chatForeground(theme.isDark)");
+    expect(row).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(row).not.toContain("theme.colors.label");
+    expect(row).not.toContain("theme.colors.secondaryLabel");
+    const panel = source.slice(source.indexOf("export function InlineSubagentPanel"));
+    expect(panel).toContain("const foreground = chatForeground(theme.isDark)");
+    expect(panel).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(panel).toContain("<BotMessageSquareIcon color={muted}");
+    expect(panel).not.toContain("theme.colors.label");
+    expect(panel).not.toContain("theme.colors.secondaryLabel");
     const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");
     expect(transcript).toContain('mode: "live"');
     expect(transcript).toContain("<InlineSubagentPanel");
