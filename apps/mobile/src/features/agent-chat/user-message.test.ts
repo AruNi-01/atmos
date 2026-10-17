@@ -189,9 +189,9 @@ describe("user message", () => {
 
     const body = source.slice(source.indexOf("export function UserMessage"));
     expect(body).toContain("userAttachmentPressGrows(attachments.length, expanded)");
-    expect(body).toContain("if (opensBody) setExpanded(true)");
+    expect(body).toContain("if (effect.expand && opensBody) setExpanded(true)");
     expect(body).toContain("!expanded && lineCount > USER_MESSAGE_COLLAPSE_LINES");
-    expect(body).toContain("if (hasMeta) setMetaOpen(!metaOpen)");
+    expect(body).toContain("if (effect.toggleMeta && hasMeta) setMetaOpen(!metaOpen)");
     expect(body).toContain("disabled={!hasMeta && !opensBody}");
     expect(body).toContain("sentPasteDisplay(text)");
     expect(body).toContain("showPasteChips");
@@ -206,8 +206,13 @@ describe("user message", () => {
     );
     expect(linked).toContain("splitUserMessageHttpUrls");
     expect(linked).toContain("Linking.openURL");
+    expect(linked).toContain('claimUserMessageInnerPress("link")');
     expect(linked).toContain('textDecorationStyle: "dashed"');
     expect(linked).toContain("userMessageLinkDecoration");
+    expect(body).toContain("beginUserMessageBodyPress");
+    expect(body).toContain("queueMicrotask");
+    expect(body).toContain("userMessageBodyPressEffect");
+    expect(body).toContain('claimUserMessageInnerPress("paste")');
     expect(body).not.toContain("ChevronDownIcon");
     expect(body).not.toContain("ChevronUpIcon");
     const chips = source.slice(source.indexOf("function UserAttachmentChips"));

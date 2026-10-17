@@ -86,6 +86,13 @@ import {
   subscribeUserMessageOutsidePress,
   userMessageOutsidePressCloses,
 } from "./user-message-outside";
+import {
+  beginUserMessageBodyPress,
+  claimUserMessageInnerPress,
+  currentUserMessageBodyPress,
+  takeUserMessageInnerPress,
+  userMessageBodyPressEffect,
+} from "./user-message-press";
 
 // Web user body is `text-sm leading-[1.5]` (14 × 1.5). The collapse wash is one line.
 const TEXT_LINE_HEIGHT = 21;
@@ -298,6 +305,7 @@ function UserMessageLinkedText({ text }: { text: string }) {
       <Text
         key={`url:${index}:${segment.url}`}
         onPress={() => {
+          claimUserMessageInnerPress("link");
           void Linking.openURL(segment.url);
         }}
         style={{
@@ -368,10 +376,15 @@ export function UserMessage({ message }: { message: AgentMessage }) {
         accessibilityRole={hasMeta || opensBody ? "button" : undefined}
         accessibilityState={hasMeta ? { expanded: metaOpen } : undefined}
         disabled={!hasMeta && !opensBody}
+        onPressIn={beginUserMessageBodyPress}
         onTouchStart={() => markUserMessageBodyPress(entryId)}
         onPress={() => {
-          if (opensBody) setExpanded(true);
-          if (hasMeta) setMetaOpen(!metaOpen);
+          const pressEpoch = currentUserMessageBodyPress();
+          queueMicrotask(() => {
+            const effect = userMessageBodyPressEffect(takeUserMessageInnerPress(pressEpoch));
+            if (effect.expand && opensBody) setExpanded(true);
+            if (effect.toggleMeta && hasMeta) setMetaOpen(!metaOpen);
+          });
         }}
       >
         {attachments.length > 0 ? (
@@ -394,6 +407,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
               segment.type === "paste" ? (
                 <Text
                   key={`${segment.token}:${index}`}
+                  onPress={() => claimUserMessageInnerPress("paste")}
                   style={{
                     backgroundColor: pasteChipFill(theme.isDark),
                     borderColor: pasteChipBorder(theme.isDark),
