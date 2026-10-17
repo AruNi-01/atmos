@@ -932,6 +932,12 @@ export const TOOL_FILE_CHIP_DARK = "#27272a";
 export const TOOL_FILE_CHIP_RADIUS = 8;
 
 /**
+ * Web image box `rounded-xl` (`--radius` + 4px). The empty fill is opaque
+ * `bg-muted`, the same solid as the filename chip. The dither field stays on web.
+ */
+export const IMAGE_GEN_RADIUS = 14;
+
+/**
  * Web wraps execute, other, and the default tool body in `mt-1 rounded-md bg-muted/50`.
  * Code, markdown, json, diffs, search-the-web, plan, and image generation stay plain.
  * A failed or non-markdown fetch uses the panel. An empty image read does not.
@@ -1617,7 +1623,7 @@ function ImageGenPreview({ uri, aspect }: { uri: string; aspect: number }) {
       }}
       resizeMode="contain"
       source={{ uri }}
-      style={{ aspectRatio: ratio, borderRadius: 12, width: "100%" }}
+      style={{ aspectRatio: ratio, borderRadius: IMAGE_GEN_RADIUS, width: "100%" }}
     />
   );
 }
@@ -1638,8 +1644,8 @@ function ImageGenBody({ model }: { model: Extract<ToolBodyModel, { kind: "image_
             accessibilityRole="image"
             style={{
               aspectRatio: model.aspect,
-              backgroundColor: theme.colors.cardSubtle,
-              borderRadius: 12,
+              backgroundColor: theme.isDark ? TOOL_FILE_CHIP_DARK : TOOL_FILE_CHIP_LIGHT,
+              borderRadius: IMAGE_GEN_RADIUS,
               width: "100%",
             }}
           />

@@ -1026,7 +1026,18 @@ describe("image generation", () => {
     expect(card).toContain("paddingHorizontal: 8");
     expect(card).toContain("paddingBottom: 8");
     expect(card).toContain("IMAGE_GEN_STATUS_TEXT");
+    expect(card).toContain("IMAGE_GEN_RADIUS");
+    expect(card).toContain("TOOL_FILE_CHIP_LIGHT");
+    expect(card).toContain("TOOL_FILE_CHIP_DARK");
+    expect(card).not.toContain("theme.colors.cardSubtle");
+    expect(card).not.toContain("borderRadius: 12");
     expect(card).not.toContain("DitherField");
+    const preview = source.slice(
+      source.indexOf("function ImageGenPreview"),
+      source.indexOf("function ImageGenBody"),
+    );
+    expect(preview).toContain("IMAGE_GEN_RADIUS");
+    expect(mod.IMAGE_GEN_RADIUS).toBe(14);
     expect(source).toContain("imageGenStaysOpen(part.status)");
     expect(source).toContain("if (imageActive && open) return;");
   });
