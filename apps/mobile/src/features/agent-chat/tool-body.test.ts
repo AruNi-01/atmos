@@ -1068,6 +1068,9 @@ describe("search hit groups", () => {
     );
     expect(hits).toContain("TOOL_FILE_LIST_MAX_HEIGHT");
     expect(hits).toContain("HeightClip");
+    expect(hits).toContain("<PathGlyph");
+    expect(hits).toContain("pathLooksLikeDirectory(group.path)");
+    expect(hits).not.toContain("PathChip");
     expect(hits.indexOf("$ ")).toBeLessThan(hits.indexOf("HeightClip"));
   });
 });

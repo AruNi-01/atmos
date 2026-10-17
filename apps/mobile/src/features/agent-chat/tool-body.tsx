@@ -1236,12 +1236,23 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
       ) : null}
       {model.groups.length > 0 ? (
         <HeightClip maxHeight={TOOL_FILE_LIST_MAX_HEIGHT}>
-          <View style={{ gap: 4, paddingVertical: 4 }}>
+          <View style={{ paddingVertical: 4 }}>
             {model.groups.map((group) => (
-              <View key={group.path} style={{ gap: 2 }}>
-                <Text numberOfLines={1} style={{ ...line, color: theme.colors.label }}>
-                  {group.shown}
-                </Text>
+              <View key={group.path} style={{ gap: 2, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
+                  <PathGlyph isDir={pathLooksLikeDirectory(group.path)} />
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      ...LISTED_PATH_TEXT,
+                      color: theme.colors.label,
+                      flexShrink: 1,
+                      opacity: 0.8,
+                    }}
+                  >
+                    {group.shown}
+                  </Text>
+                </View>
                 {group.hits.map((hit, index) => (
                   <View
                     key={`${group.path}:${hit.line ?? 0}:${index}`}
