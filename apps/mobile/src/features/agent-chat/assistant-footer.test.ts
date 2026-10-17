@@ -37,6 +37,16 @@ describe("assistant footer", () => {
     expect(compactTurnTokenLabel({ total_tokens: 999 })).toBe("999");
     expect(compactTurnTokenLabel({ total_tokens: 1000 })).toBe("1.0k");
     expect(compactTurnTokenLabel({ total_tokens: 1500, input_tokens: 1 })).toBe("1.5k");
+    const footer = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
+    const badge = footer.slice(
+      footer.indexOf("function usageBadgeBorder"),
+      footer.indexOf("function WorkedForLabel"),
+    );
+    expect(badge).toContain('return isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.07)"');
+    expect(badge).toContain('borderStyle: "dashed"');
+    expect(badge).toContain("borderWidth: 1");
+    expect(badge).not.toContain("glassBorder");
+    expect(badge).not.toContain("hairlineWidth");
   });
 
   test("worked-for uses the duration only when worked_ms is positive", () => {

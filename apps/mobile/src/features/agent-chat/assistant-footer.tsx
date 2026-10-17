@@ -77,6 +77,11 @@ function UsageBreakdown({ usage }: { usage: AgentTurnUsage }) {
   );
 }
 
+/** Web `border-border/70`. `--border` is black or white at 10%, mixed 70% toward transparent. */
+export function usageBadgeBorder(isDark: boolean): string {
+  return isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.07)";
+}
+
 function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
   const theme = useMobileTheme();
   const label = compactTurnTokenLabel(usage);
@@ -91,10 +96,10 @@ function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
         onPress={() => setOpen((current) => !current)}
         style={{
           alignItems: "center",
-          borderColor: theme.colors.glassBorder,
+          borderColor: usageBadgeBorder(theme.isDark),
           borderRadius: 999,
           borderStyle: "dashed",
-          borderWidth: StyleSheet.hairlineWidth,
+          borderWidth: 1,
           flexDirection: "row",
           gap: 6,
           paddingHorizontal: 8,
