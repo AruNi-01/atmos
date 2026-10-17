@@ -23,6 +23,17 @@ import {
   presentedTurnFileChange,
   visibleTurnFileChanges,
 } from "./turn-file-changes";
+import {
+  USAGE_TOOLTIP_ARROW,
+  USAGE_TOOLTIP_GAP,
+  USAGE_TOOLTIP_OFFSET,
+  USAGE_TOOLTIP_PAD,
+  USAGE_TOOLTIP_RADIUS,
+  USAGE_TOOLTIP_WIDTH,
+  usageTooltipFill,
+  usageTooltipRule,
+  usageTooltipText,
+} from "./usage-tooltip";
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +48,18 @@ describe("assistant footer", () => {
     expect(compactTurnTokenLabel({ total_tokens: 999 })).toBe("999");
     expect(compactTurnTokenLabel({ total_tokens: 1000 })).toBe("1.0k");
     expect(compactTurnTokenLabel({ total_tokens: 1500, input_tokens: 1 })).toBe("1.5k");
+    expect(USAGE_TOOLTIP_WIDTH).toBe(208);
+    expect(USAGE_TOOLTIP_RADIUS).toBe(8);
+    expect(USAGE_TOOLTIP_PAD).toBe(12);
+    expect(USAGE_TOOLTIP_GAP).toBe(6);
+    expect(USAGE_TOOLTIP_OFFSET).toBe(4);
+    expect(USAGE_TOOLTIP_ARROW).toBe(10);
+    expect(usageTooltipFill(false)).toBe("#09090b");
+    expect(usageTooltipFill(true)).toBe("#fafafa");
+    expect(usageTooltipText(false)).toBe("#ffffff");
+    expect(usageTooltipText(true)).toBe("#09090b");
+    expect(usageTooltipRule(false)).toBe("rgba(255, 255, 255, 0.2)");
+    expect(usageTooltipRule(true)).toBe("rgba(9, 9, 11, 0.2)");
     const footer = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
     const badge = footer.slice(
       footer.indexOf("function usageBadgeBorder"),
@@ -47,6 +70,21 @@ describe("assistant footer", () => {
     expect(badge).toContain("borderWidth: 1");
     expect(badge).not.toContain("glassBorder");
     expect(badge).not.toContain("hairlineWidth");
+    const breakdown = footer.slice(
+      footer.indexOf("function UsageTooltipRule"),
+      footer.indexOf("function usageBadgeBorder"),
+    );
+    expect(breakdown).toContain("usageTooltipFill(isDark)");
+    expect(breakdown).toContain("usageTooltipText(isDark)");
+    expect(breakdown).toContain("usageTooltipRule(isDark)");
+    expect(breakdown).toContain("borderRadius: USAGE_TOOLTIP_RADIUS");
+    expect(breakdown).toContain("width: USAGE_TOOLTIP_WIDTH");
+    expect(breakdown).toContain('fontFamily: "Menlo"');
+    expect(breakdown).toContain('fontWeight: bold ? "700" : "400"');
+    expect(breakdown).toContain('transform: [{ rotate: "45deg" }]');
+    expect(breakdown).not.toContain("glassBorder");
+    expect(breakdown).not.toContain("hairlineWidth");
+    expect(breakdown).not.toContain("cardElevated");
   });
 
   test("worked-for uses the duration only when worked_ms is positive", () => {

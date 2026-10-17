@@ -26,53 +26,114 @@ import {
 } from "./turn-file-changes";
 import { TOOL_ADDITION_COLOR, TOOL_DELETION_COLOR } from "./tool-body";
 import { TURN_FILES_RADIUS, turnFilesBorder, turnFilesFill } from "./turn-files-chrome";
+import {
+  USAGE_TOOLTIP_ARROW,
+  USAGE_TOOLTIP_GAP,
+  USAGE_TOOLTIP_OFFSET,
+  USAGE_TOOLTIP_PAD,
+  USAGE_TOOLTIP_RADIUS,
+  USAGE_TOOLTIP_WIDTH,
+  usageTooltipFill,
+  usageTooltipRule,
+  usageTooltipText,
+} from "./usage-tooltip";
+
+function UsageTooltipRule({ isDark }: { isDark: boolean }) {
+  return <View style={{ backgroundColor: usageTooltipRule(isDark), height: 1, width: "100%" }} />;
+}
 
 function UsageBreakdown({ usage }: { usage: AgentTurnUsage }) {
   const theme = useMobileTheme();
+  const isDark = theme.isDark;
+  const text = usageTooltipText(isDark);
   const total = usage.total_tokens ?? (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
-  const row = (label: string, value: number) => (
+  const row = (label: string, value: number, bold = false) => (
     <View key={label} style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 11, lineHeight: 16 }}>
+      <Text
+        style={{
+          color: text,
+          fontSize: 11,
+          fontWeight: bold ? "700" : "400",
+          lineHeight: 16,
+        }}
+      >
         {label}
       </Text>
       <Text
-        style={{ color: theme.colors.label, fontFamily: "Menlo", fontSize: 11, lineHeight: 16 }}
+        style={{
+          color: text,
+          fontFamily: "Menlo",
+          fontSize: 11,
+          fontWeight: bold ? "700" : "400",
+          lineHeight: 16,
+        }}
       >
         {value.toLocaleString("en-US")}
       </Text>
     </View>
   );
+  const showCache = usage.cached_read_tokens != null || usage.cached_write_tokens != null;
 
   return (
-    <View
-      style={{
-        backgroundColor: theme.colors.cardElevated,
-        borderColor: theme.colors.glassBorder,
-        borderCurve: "continuous",
-        borderRadius: 12,
-        borderWidth: StyleSheet.hairlineWidth,
-        gap: 6,
-        marginTop: 8,
-        padding: 12,
-      }}
-    >
-      <Text style={{ color: theme.colors.label, fontSize: 12, fontWeight: "600", lineHeight: 16 }}>
-        {copy.usageTurn.title}
-      </Text>
-      {row(copy.usageTurn.input, usage.input_tokens ?? 0)}
-      {row(copy.usageTurn.output, usage.output_tokens ?? 0)}
-      {usage.thought_tokens != null ? row(copy.usageTurn.thought, usage.thought_tokens) : null}
-      {usage.cached_read_tokens != null || usage.cached_write_tokens != null ? (
-        <View style={{ gap: 6 }}>
-          {usage.cached_read_tokens != null
-            ? row(copy.usageTurn.cacheRead, usage.cached_read_tokens)
-            : null}
-          {usage.cached_write_tokens != null
-            ? row(copy.usageTurn.cacheWrite, usage.cached_write_tokens)
-            : null}
+    <View style={{ marginTop: USAGE_TOOLTIP_OFFSET, width: USAGE_TOOLTIP_WIDTH, zIndex: 100 }}>
+      <View
+        style={{
+          alignSelf: "center",
+          backgroundColor: usageTooltipFill(isDark),
+          borderRadius: 2,
+          height: USAGE_TOOLTIP_ARROW,
+          marginBottom: -USAGE_TOOLTIP_ARROW / 2,
+          transform: [{ rotate: "45deg" }],
+          width: USAGE_TOOLTIP_ARROW,
+          zIndex: 1,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: usageTooltipFill(isDark),
+          borderRadius: USAGE_TOOLTIP_RADIUS,
+          elevation: 4,
+          gap: USAGE_TOOLTIP_GAP,
+          padding: USAGE_TOOLTIP_PAD,
+          shadowColor: "#000000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 6,
+          width: USAGE_TOOLTIP_WIDTH,
+        }}
+      >
+        <Text
+          style={{
+            color: text,
+            fontSize: 12,
+            fontWeight: "600",
+            lineHeight: 16,
+            marginBottom: 4,
+            paddingBottom: 4,
+          }}
+        >
+          {copy.usageTurn.title}
+        </Text>
+        <UsageTooltipRule isDark={isDark} />
+        {row(copy.usageTurn.input, usage.input_tokens ?? 0)}
+        {row(copy.usageTurn.output, usage.output_tokens ?? 0)}
+        {usage.thought_tokens != null ? row(copy.usageTurn.thought, usage.thought_tokens) : null}
+        {showCache ? (
+          <View style={{ gap: 4, marginTop: 4, paddingTop: 4 }}>
+            <UsageTooltipRule isDark={isDark} />
+            {usage.cached_read_tokens != null
+              ? row(copy.usageTurn.cacheRead, usage.cached_read_tokens)
+              : null}
+            {usage.cached_write_tokens != null
+              ? row(copy.usageTurn.cacheWrite, usage.cached_write_tokens)
+              : null}
+          </View>
+        ) : null}
+        <View style={{ marginTop: 4, paddingTop: 4 }}>
+          <UsageTooltipRule isDark={isDark} />
+          <View style={{ marginTop: 4 }}>{row(copy.usageTurn.total, total, true)}</View>
         </View>
-      ) : null}
-      {row(copy.usageTurn.total, total)}
+      </View>
     </View>
   );
 }
