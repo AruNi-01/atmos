@@ -161,6 +161,7 @@ describe("agent chat markdown chrome", () => {
     expect(markdown).toContain("marginLeft: 24");
     expect(markdown).toContain("gapWidth: 8");
     expect(markdown).toContain('markerFontWeight: "normal"');
+    expect(markdown).toContain("borderRadius: agentChatBlockMetrics.codeBlock.borderRadius");
     expect(markdown).not.toContain("markerMinWidth");
     expect(markdown).toContain("{ itemSpacing: 8, marginBottom: 4, marginTop: 4 }");
     expect(markdown).toContain("{ marginBottom: 16, marginTop: 16 }");
