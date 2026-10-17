@@ -55,6 +55,8 @@ describe("activity clock", () => {
     expect(ACTIVITY_STATUS_SHIFT_PX).toBe(12);
     const row = readFileSync(join(dir, "activity-row.tsx"), "utf8");
     expect(row).toContain("NumberFlow");
+    expect(row).toContain("suffix={part.unit}");
+    expect(row).not.toContain("<Text style={style}>{part.unit}</Text>");
     expect(row).toContain("activityClockUnits");
     expect(row).toContain("ACTIVITY_CLOCK_TICK_MS");
     expect(row).toContain("ACTIVITY_STATUS_SPRING");

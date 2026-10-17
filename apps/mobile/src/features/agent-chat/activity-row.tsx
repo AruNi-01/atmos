@@ -186,8 +186,7 @@ function ActivityClock({
     <View accessibilityLabel={label} style={styles.clock}>
       {activityClockUnits(elapsed).map((part) => (
         <View key={part.unit} style={styles.clockUnit}>
-          <NumberFlow respectMotionPreference style={style} value={part.value} />
-          <Text style={style}>{part.unit}</Text>
+          <NumberFlow respectMotionPreference style={style} suffix={part.unit} value={part.value} />
         </View>
       ))}
     </View>
@@ -218,12 +217,12 @@ export function ActivityRow({
 
 const styles = {
   clock: {
-    alignItems: "baseline" as const,
+    alignItems: "center" as const,
     flexDirection: "row" as const,
     flexShrink: 0,
   },
   clockUnit: {
-    alignItems: "baseline" as const,
+    alignItems: "center" as const,
     flexDirection: "row" as const,
   },
   overlay: {
