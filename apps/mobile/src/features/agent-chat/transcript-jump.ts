@@ -4,6 +4,15 @@ import { TRANSCRIPT_END_SLACK_PX } from "@atmos/agent-transcript";
 export const TRANSCRIPT_JUMP_FALLBACK_STRIDE = 48;
 
 /**
+ * A jump that never leaves the end follows the tail only when its target is
+ * the last row. An earlier row stays unstuck even while the list is still
+ * clamped to the end, so a short tail can grow under that reading line.
+ */
+export function jumpFollowsTailAfterMiss(targetIndex: number, rowCount: number): boolean {
+  return rowCount <= 0 || targetIndex >= rowCount - 1;
+}
+
+/**
  * A programmatic jump away from the end must not be undone by a scroll event
  * that still reports the old end position. The caller keeps `jumping` set
  * until the user drags or an explicit scroll-to-end runs. Past the slack, the

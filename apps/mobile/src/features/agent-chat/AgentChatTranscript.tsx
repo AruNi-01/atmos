@@ -71,6 +71,7 @@ import { ProcessFold, WaitForBlock } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
 import { initialStickState, reduceStick, type StickAction } from "./stick";
 import {
+  jumpFollowsTailAfterMiss,
   offsetFromMeasuredStride,
   stickScrollWhileJumping,
   TRANSCRIPT_JUMP_FALLBACK_STRIDE,
@@ -562,11 +563,13 @@ export const AgentChatTranscript = forwardRef<
         userDragged: true,
       });
       listRef.current?.scrollToIndex({ animated, index, viewPosition: 0 });
-      // If the jump never leaves the end, follow the tail again. A jump that
-      // already landed away keeps ignoring a later stale end event.
+      // If the jump never leaves the end, follow the tail only when the target
+      // is the last row. An earlier row stays unstuck so a short tail can grow
+      // under it. A jump that already landed away keeps ignoring a stale end.
       jumpTimerRef.current = setTimeout(() => {
         jumpTimerRef.current = null;
         if (!programmaticAwayRef.current || jumpSawAwayRef.current) return;
+        if (!jumpFollowsTailAfterMiss(index, rowsRef.current.length)) return;
         programmaticAwayRef.current = false;
         applyStick({
           type: "scroll",

@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { TRANSCRIPT_END_SLACK_PX } from "@atmos/agent-transcript";
 import {
+  jumpFollowsTailAfterMiss,
   offsetFromMeasuredStride,
   stickScrollWhileJumping,
   TRANSCRIPT_JUMP_FALLBACK_STRIDE,
@@ -26,6 +27,14 @@ describe("stickScrollWhileJumping", () => {
       distance: TRANSCRIPT_END_SLACK_PX + 1,
       userDragged: true,
     });
+  });
+});
+
+describe("jumpFollowsTailAfterMiss", () => {
+  test("an earlier row stays put when the jump is still clamped to the end", () => {
+    expect(jumpFollowsTailAfterMiss(50, 120)).toBe(false);
+    expect(jumpFollowsTailAfterMiss(119, 120)).toBe(true);
+    expect(jumpFollowsTailAfterMiss(0, 0)).toBe(true);
   });
 });
 
