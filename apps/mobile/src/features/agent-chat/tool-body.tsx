@@ -890,6 +890,20 @@ export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; de
   return { additions, deletions };
 }
 
+/** Web discussion diff `rounded-lg` (`--radius` 0.625rem). */
+export const TOOL_DIFF_RADIUS = 10;
+/**
+ * `border-border/60` and `border-border/40`. `--border` is black or white at 10%,
+ * mixed toward transparent by the slash amount.
+ */
+export const TOOL_DIFF_BORDER_LIGHT = "rgba(0, 0, 0, 0.06)";
+export const TOOL_DIFF_BORDER_DARK = "rgba(255, 255, 255, 0.06)";
+export const TOOL_DIFF_HEADER_RULE_LIGHT = "rgba(0, 0, 0, 0.04)";
+export const TOOL_DIFF_HEADER_RULE_DARK = "rgba(255, 255, 255, 0.04)";
+/** `bg-muted/30`. */
+export const TOOL_DIFF_HEADER_LIGHT = "rgba(222, 222, 224, 0.3)";
+export const TOOL_DIFF_HEADER_DARK = "rgba(39, 39, 42, 0.3)";
+
 /**
  * Web `bg-muted/50` (`oklch(0.9 0.004 286)` / `oklch(0.274 0.006 286.033)` at 50%).
  * `rounded-md` is `--radius` (10px) minus 2px.
@@ -1194,84 +1208,98 @@ function DiscussionDiff({
     paddingHorizontal: 4,
     textAlign: "right",
   } as const;
+  const borderColor = theme.isDark ? TOOL_DIFF_BORDER_DARK : TOOL_DIFF_BORDER_LIGHT;
   return (
     <View
       style={{
-        borderColor: theme.colors.glassBorder,
-        borderRadius: 8,
-        borderWidth: 1,
-        overflow: "hidden",
+        borderRadius: TOOL_DIFF_RADIUS,
+        elevation: 1,
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
       }}
     >
-      {path ? (
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: theme.colors.cardSubtle,
-            borderBottomColor: theme.colors.separator,
-            borderBottomWidth: 1,
-            flexDirection: "row",
-            gap: 8,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-          }}
-        >
-          <FileTextIcon color={theme.colors.secondaryLabel} size={16} strokeWidth={2} />
-          <Text
-            numberOfLines={1}
+      <View
+        style={{
+          borderColor,
+          borderRadius: TOOL_DIFF_RADIUS,
+          borderWidth: 1,
+          overflow: "hidden",
+        }}
+      >
+        {path ? (
+          <View
             style={{
-              color: theme.colors.label,
-              flexShrink: 1,
-              fontFamily: "Menlo",
-              fontSize: 12,
-              lineHeight: 16,
-              opacity: 0.8,
+              alignItems: "center",
+              backgroundColor: theme.isDark ? TOOL_DIFF_HEADER_DARK : TOOL_DIFF_HEADER_LIGHT,
+              borderBottomColor: theme.isDark
+                ? TOOL_DIFF_HEADER_RULE_DARK
+                : TOOL_DIFF_HEADER_RULE_LIGHT,
+              borderBottomWidth: 1,
+              flexDirection: "row",
+              gap: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
             }}
           >
-            {path}
-          </Text>
-        </View>
-      ) : null}
-      {lines.length > 0 ? (
-        <HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT}>
-          {lines.map((line, index) => (
-            <View
-              key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
+            <FileTextIcon color={theme.colors.secondaryLabel} size={16} strokeWidth={2} />
+            <Text
+              numberOfLines={1}
               style={{
-                backgroundColor:
-                  line.op === "add"
-                    ? theme.colors.greenSurface
-                    : line.op === "del"
-                      ? theme.colors.redSurface
-                      : undefined,
-                flexDirection: "row",
+                color: theme.colors.label,
+                flexShrink: 1,
+                fontFamily: "Menlo",
+                fontSize: 12,
+                lineHeight: 16,
+                opacity: 0.8,
               }}
             >
-              <Text style={gutter}>{line.oldNo ?? ""}</Text>
-              <Text style={gutter}>{line.newNo ?? ""}</Text>
-              <Text
-                selectable
+              {path}
+            </Text>
+          </View>
+        ) : null}
+        {lines.length > 0 ? (
+          <HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT}>
+            {lines.map((line, index) => (
+              <View
+                key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
                 style={{
-                  color:
+                  backgroundColor:
                     line.op === "add"
-                      ? theme.colors.green
+                      ? theme.colors.greenSurface
                       : line.op === "del"
-                        ? theme.colors.red
-                        : theme.colors.label,
-                  flexShrink: 1,
-                  fontFamily: "Menlo",
-                  fontSize: 13,
-                  lineHeight: 20,
+                        ? theme.colors.redSurface
+                        : undefined,
+                  flexDirection: "row",
                 }}
               >
-                {line.text.length > 0 ? line.text : " "}
-              </Text>
-            </View>
-          ))}
-        </HeightClip>
-      ) : fallback ? (
-        <CappedMono text={fallback} />
-      ) : null}
+                <Text style={gutter}>{line.oldNo ?? ""}</Text>
+                <Text style={gutter}>{line.newNo ?? ""}</Text>
+                <Text
+                  selectable
+                  style={{
+                    color:
+                      line.op === "add"
+                        ? theme.colors.green
+                        : line.op === "del"
+                          ? theme.colors.red
+                          : theme.colors.label,
+                    flexShrink: 1,
+                    fontFamily: "Menlo",
+                    fontSize: 13,
+                    lineHeight: 20,
+                  }}
+                >
+                  {line.text.length > 0 ? line.text : " "}
+                </Text>
+              </View>
+            ))}
+          </HeightClip>
+        ) : fallback ? (
+          <CappedMono text={fallback} />
+        ) : null}
+      </View>
     </View>
   );
 }

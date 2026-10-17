@@ -113,10 +113,15 @@ describe("tool body presentation", () => {
       view.indexOf("function fetchRowUrl"),
     );
     expect(discussion).toContain("TOOL_DIFF_MAX_HEIGHT");
+    expect(discussion).toContain("TOOL_DIFF_RADIUS");
+    expect(discussion).toContain("TOOL_DIFF_HEADER_LIGHT");
+    expect(discussion).toContain("shadowOpacity: 0.1");
     expect(discussion).toContain("greenSurface");
     expect(discussion).toContain("redSurface");
     expect(discussion).toContain("FileTextIcon");
     expect(discussion).not.toContain("PathChip");
+    expect(discussion).not.toContain("theme.colors.glassBorder");
+    expect(discussion).not.toContain("theme.colors.cardSubtle");
     expect(discussion).not.toContain("DiffCounts");
     const diffCase = view.slice(view.indexOf('case "diff":'), view.indexOf('case "diff_stats":'));
     expect(diffCase).toContain("DiscussionDiff");
