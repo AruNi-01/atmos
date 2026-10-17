@@ -57,20 +57,24 @@ function thinking(open: boolean, parent?: string): AgentPart {
 }
 
 describe("activity row label", () => {
-  test("uses the latest active tool title, otherwise thinking, otherwise Working", async () => {
+  test("uses the latest active tool activity line, otherwise thinking, otherwise Working", async () => {
     const row = await importPure("activity-row.tsx");
     const label = row.activityRowLabel as (message: AgentMessage | null | undefined) => string;
 
-    expect(label(assistant([tool("running", "Read notes")]))).toBe("Read notes");
-    expect(label(assistant([tool("pending", "Queued read")]))).toBe("Queued read");
-    expect(label(assistant([tool("in_progress", "Still reading")]))).toBe("Still reading");
-    expect(label(assistant([tool("running", "  ", { name: "Read" })]))).toBe("Read");
-    expect(label(assistant([tool("running", "", { name: "" })]))).toBe("Working");
-    expect(label(assistant([tool("running", "First"), tool("completed", "Done")]))).toBe("First");
-    expect(label(assistant([tool("completed", "Done"), tool("running", "Latest")]))).toBe("Latest");
+    expect(label(assistant([tool("running", "Read notes")]))).toBe("Read notes a.ts");
+    expect(label(assistant([tool("pending", "Queued read")]))).toBe("Queued read a.ts");
+    expect(label(assistant([tool("in_progress", "Still reading")]))).toBe("Still reading a.ts");
+    expect(label(assistant([tool("running", "  ", { name: "Read" })]))).toBe("Read a.ts");
+    expect(label(assistant([tool("running", "", { name: "" })]))).toBe("Read a.ts");
+    expect(label(assistant([tool("running", "First"), tool("completed", "Done")]))).toBe(
+      "First a.ts",
+    );
+    expect(label(assistant([tool("completed", "Done"), tool("running", "Latest")]))).toBe(
+      "Latest a.ts",
+    );
     expect(
       label(assistant([tool("running", "Hidden", { parent: "parent" }), tool("running", "Shown")])),
-    ).toBe("Shown");
+    ).toBe("Shown a.ts");
     expect(
       label(assistant([tool("running", "Hidden", { parent: "parent" }), thinking(true, "parent")])),
     ).toBe("Working");

@@ -1,3 +1,5 @@
+export { formatAgentToolActivityLine, toolKindHeadlineLabel } from "./tool-activity-line";
+
 export {
   defaultToolParams,
   isActiveToolStatus,

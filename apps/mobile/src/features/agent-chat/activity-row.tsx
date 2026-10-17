@@ -1,22 +1,13 @@
-import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
-import { foldedPartIsOpen, isNestedSubagentChild, presentAgentTool } from "@atmos/agent-transcript";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+import {
+  foldedPartIsOpen,
+  formatAgentToolActivityLine,
+  isNestedSubagentChild,
+  toolKindHeadlineLabel,
+} from "@atmos/agent-transcript";
 import { copy, toolGroupLabels } from "./copy";
 
 const ACTIVE_TOOL_STATUS = new Set<string>(["running", "in_progress", "pending"]);
-
-/**
- * `presentAgentTool` has no title field. Prefer one if a future result adds it,
- * then the wire title, then the presented tool name.
- */
-function activityToolTitle(part: Extract<AgentPart, { type: "tool_call" }>): string {
-  const presented = presentAgentTool(part);
-  const presentedTitle =
-    "title" in presented && typeof presented.title === "string" ? presented.title.trim() : "";
-  if (presentedTitle) return presentedTitle;
-  const wireTitle = part.title?.trim() ?? "";
-  if (wireTitle) return wireTitle;
-  return presented.resolvedTool.trim();
-}
 
 export function activityRowLabel(message: AgentMessage | null | undefined): string {
   const parts = message?.role === "assistant" ? message.parts : [];
@@ -24,7 +15,9 @@ export function activityRowLabel(message: AgentMessage | null | undefined): stri
     const part = parts[index];
     if (!part || part.type !== "tool_call" || isNestedSubagentChild(part, parts)) continue;
     if (!ACTIVE_TOOL_STATUS.has(part.status)) continue;
-    return activityToolTitle(part) || toolGroupLabels.working;
+    return (
+      formatAgentToolActivityLine(part, toolKindHeadlineLabel(part.kind)) || toolGroupLabels.working
+    );
   }
   for (const part of parts) {
     if (part.type !== "thinking" || isNestedSubagentChild(part, parts)) continue;
