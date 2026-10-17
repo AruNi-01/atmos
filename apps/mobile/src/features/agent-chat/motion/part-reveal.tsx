@@ -18,39 +18,47 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { TREE_DRAW_MS } from "@atmos/agent-transcript/agent-tree-branch";
+import { LOG_ROW_EASE, LOG_ROW_REVEAL_HEIGHT_MS, LOG_ROW_REVEAL_MS } from "./log-row-motion";
 import { useReducedMotion } from "./use-reduced-motion";
 
-const REVEAL = {
-  duration: TREE_DRAW_MS,
-  easing: Easing.bezier(0.23, 1, 0.32, 1),
+const HEIGHT_REVEAL = {
+  duration: LOG_ROW_REVEAL_HEIGHT_MS,
+  easing: Easing.bezier(LOG_ROW_EASE[0], LOG_ROW_EASE[1], LOG_ROW_EASE[2], LOG_ROW_EASE[3]),
+};
+const FADE_REVEAL = {
+  duration: LOG_ROW_REVEAL_MS,
+  easing: HEIGHT_REVEAL.easing,
 };
 
 export function PartReveal({ children, play }: { children: ReactNode; play: boolean }) {
   const reduced = useReducedMotion();
   const [latchedPlay] = useState(play && !reduced);
   const animate = latchedPlay && !reduced;
-  const progress = useSharedValue(animate ? 0 : 1);
+  const fade = useSharedValue(animate ? 0 : 1);
+  const heightProgress = useSharedValue(animate ? 0 : 1);
   const heightSv = useSharedValue(0);
   const [done, setDone] = useState(!animate);
 
   useEffect(() => {
     if (!animate) {
-      progress.set(1);
+      fade.set(1);
+      heightProgress.set(1);
       return;
     }
-    progress.set(0);
-    progress.set(withTiming(1, REVEAL));
-    const timer = setTimeout(() => setDone(true), TREE_DRAW_MS);
+    fade.set(0);
+    heightProgress.set(0);
+    fade.set(withTiming(1, FADE_REVEAL));
+    heightProgress.set(withTiming(1, HEIGHT_REVEAL));
+    const timer = setTimeout(() => setDone(true), LOG_ROW_REVEAL_MS);
     return () => clearTimeout(timer);
-  }, [animate, progress]);
+  }, [animate, fade, heightProgress]);
 
   const clipStyle = useAnimatedStyle(() => ({
-    height: heightSv.get() * progress.get(),
+    height: heightSv.get() * heightProgress.get(),
   }));
   const motionStyle = useAnimatedStyle(() => ({
-    opacity: progress.get(),
-    transform: [{ translateY: (1 - progress.get()) * 4 }],
+    opacity: fade.get(),
+    transform: [{ translateY: (1 - fade.get()) * 4 }],
   }));
 
   const onLayout = (event: LayoutChangeEvent) => {

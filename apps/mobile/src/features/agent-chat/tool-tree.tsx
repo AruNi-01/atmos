@@ -38,21 +38,19 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import {
-  TREE_DRAW_MS,
   clampTreeShown,
   nextTreeRevealDelay,
   nextTreeWatermark,
   treeReachLength,
-  treeSegmentDelayMs,
-  treeStaggerDelayMs,
 } from "@atmos/agent-transcript/agent-tree-branch";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
+import { LOG_ROW_ELBOW_MS, LOG_ROW_TRUNK_MS, logRowElbowDelayMs } from "./motion/log-row-motion";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const CHEVRON_MS = 200;
-const DRAW_EASE = Easing.bezier(0.23, 1, 0.32, 1);
+const DRAW_EASE = Easing.linear;
 const CHEVRON_EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const DASH_ARRAY = ["stroke", "Dash", "array"].join("");
 const DASH_OFFSET = ["stroke", "Dash", "offset"].join("");
@@ -136,12 +134,14 @@ function DrawnPath({
   d,
   delay,
   draw,
+  duration,
   length,
   stroke,
 }: {
   d: string;
   delay: number;
   draw: boolean;
+  duration: number;
   length: number;
   stroke: string;
 }) {
@@ -166,8 +166,8 @@ function DrawnPath({
     if (started.current || length <= 0) return;
     started.current = true;
     offset.set(length);
-    offset.set(withDelay(delay, withTiming(0, { duration: TREE_DRAW_MS, easing: DRAW_EASE })));
-  }, [delay, length, lengthSv, offset, skip]);
+    offset.set(withDelay(delay, withTiming(0, { duration, easing: DRAW_EASE })));
+  }, [delay, duration, length, lengthSv, offset, skip]);
 
   const strokeProps = {
     d,
@@ -185,27 +185,19 @@ function DrawnPath({
 
 export function ToolTreeRow({
   children,
-  count = 1,
-  delayMs,
   draw = false,
   first,
-  index = 0,
   last,
 }: {
   children: ReactNode;
-  count?: number;
-  /** Sequential arrivals start immediately. Omit to stagger a batch. */
-  delayMs?: number;
   draw?: boolean;
   first: boolean;
-  index?: number;
   last: boolean;
 }) {
   const theme = useMobileTheme();
   const [height, setHeight] = useState(0);
   const strokes = toolTreeStrokes({ first, last, height });
-  const delay =
-    delayMs ?? (count <= 1 ? treeSegmentDelayMs(index) : treeStaggerDelayMs(index, count));
+  const elbowDelay = logRowElbowDelayMs(first);
   const reachLength = treeReachLength(first ? TREE_BRANCH_FIRST_START_Y : 0, TREE_BRANCH_MID_Y);
   const trunkFrom = TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS;
   const trunkLength = height > trunkFrom ? height - trunkFrom : 0;
@@ -222,16 +214,18 @@ export function ToolTreeRow({
             {strokes.trunk ? (
               <DrawnPath
                 d={strokes.trunk}
-                delay={delay}
+                delay={0}
                 draw={draw}
+                duration={LOG_ROW_TRUNK_MS}
                 length={trunkLength}
                 stroke={theme.colors.label}
               />
             ) : null}
             <DrawnPath
               d={strokes.reach}
-              delay={delay}
+              delay={elbowDelay}
               draw={draw}
+              duration={LOG_ROW_ELBOW_MS}
               length={reachLength}
               stroke={theme.colors.label}
             />

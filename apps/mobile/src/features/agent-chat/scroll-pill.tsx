@@ -6,16 +6,19 @@ import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { copy } from "./copy";
 import { scrollBelowUnit, scrollPillAccessibilityLabel } from "./stick";
 
+/** Web `AgentChatScrollBelowCopy` is `text-xs leading-none font-medium`. */
 const labelMetrics = {
-  fontSize: 14,
-  lineHeight: 20,
-} as const;
+  fontSize: 12,
+  fontWeight: "500" as const,
+  lineHeight: 12,
+};
 
 export function ScrollToBottomPill({ count, onPress }: { count: number; onPress: () => void }) {
   const theme = useMobileTheme();
   const label = {
     color: theme.colors.label,
     fontSize: labelMetrics.fontSize,
+    fontWeight: labelMetrics.fontWeight,
     lineHeight: labelMetrics.lineHeight,
   };
   const showCopy = count > 0;
@@ -32,7 +35,7 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
           importantForAccessibility="no-hide-descendants"
           style={styles.row}
         >
-          <ChevronDownIcon color={theme.colors.label} size={14} strokeWidth={2} />
+          <ChevronDownIcon color={theme.colors.label} size={16} strokeWidth={2} />
           {showCopy ? (
             <View style={styles.copy}>
               {copy.scrollBelowPrefix.length > 0 ? (

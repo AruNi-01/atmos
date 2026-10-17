@@ -1,10 +1,19 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
 import {
   agentChatBlockMetrics,
+  agentChatHeadingScale,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
 } from "./markdown-chrome";
+
+const workspace = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
 
 describe("agent chat markdown chrome", () => {
   test("uses zinc table and inline-code colors instead of the library defaults", () => {
@@ -51,6 +60,34 @@ describe("agent chat markdown chrome", () => {
     for (const heading of Object.values(headings)) {
       expect(heading.lineHeight).toBeGreaterThanOrEqual(heading.fontSize);
     }
+  });
+
+  test("agent answers follow Streamdown text-3xl, not MarkdownRenderer text-2xl", () => {
+    const partView = readFileSync(
+      join(workspace, "apps/web/src/features/agent/components/AgentPartView.tsx"),
+      "utf8",
+    );
+    const renderer = readFileSync(
+      join(workspace, "apps/web/src/shared/components/markdown/MarkdownRenderer.tsx"),
+      "utf8",
+    );
+    const chrome = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "markdown-chrome.ts"),
+      "utf8",
+    );
+    expect(partView).toContain("MessageResponse");
+    expect(partView).not.toContain("MarkdownRenderer");
+    expect(renderer).toContain("text-2xl font-semibold");
+    expect(renderer).toContain("text-xl font-semibold");
+    expect(chrome).toContain("Streamdown heading scale");
+    expect(agentChatHeadingScale).toEqual({
+      h1: { fontSize: 30, lineHeight: 36 },
+      h2: { fontSize: 24, lineHeight: 32 },
+      h3: { fontSize: 20, lineHeight: 28 },
+      h4: { fontSize: 18, lineHeight: 28 },
+      h5: { fontSize: 16, lineHeight: 24 },
+      h6: { fontSize: 14, lineHeight: 20 },
+    });
   });
 
   test("matches web block margins", () => {
