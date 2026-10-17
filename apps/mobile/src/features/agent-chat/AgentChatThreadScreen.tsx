@@ -33,6 +33,7 @@ import { subagentRosterIds } from "./inline-subagent-tasks";
 import { ComposerPillRow } from "./composer-pill-row";
 import {
   expandComposerPaste,
+  rememberSentPaste,
   retainComposerPasteChips,
   type ComposerPasteChip,
 } from "./composer-paste";
@@ -397,6 +398,7 @@ export function AgentChatThreadScreen({
     const draft = text;
     const chips = pasteChips;
     const expanded = expandComposerPaste(draft, chips);
+    rememberSentPaste(expanded, draft, chips);
     const pending = photos;
     if (expanded.trim() === "" && pending.length === 0) return;
     setStickToken((token) => token + 1);
@@ -417,6 +419,7 @@ export function AgentChatThreadScreen({
     const draft = text;
     const chips = pasteChips;
     const expanded = expandComposerPaste(draft, chips);
+    rememberSentPaste(expanded, draft, chips);
     const pending = photos;
     if (expanded.trim() === "" && pending.length === 0) return;
     setText("");
@@ -436,6 +439,7 @@ export function AgentChatThreadScreen({
     const draft = text;
     const chips = pasteChips;
     const expanded = expandComposerPaste(draft, chips);
+    rememberSentPaste(expanded, draft, chips);
     if (expanded.trim() === "") return;
     setText("");
     setPasteChips([]);

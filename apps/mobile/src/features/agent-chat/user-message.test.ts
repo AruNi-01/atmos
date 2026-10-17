@@ -166,6 +166,12 @@ describe("user message", () => {
     expect(body).toContain("!expanded && lineCount > USER_MESSAGE_COLLAPSE_LINES");
     expect(body).toContain("if (hasMeta) setMetaOpen(!metaOpen)");
     expect(body).toContain("disabled={!hasMeta && !opensBody}");
+    expect(body).toContain("sentPasteDisplay(text)");
+    expect(body).toContain("showPasteChips");
+    expect(body).toContain("pasteChipLabel(segment.lineCount)");
+    expect(body).toContain("ClipboardIcon");
+    expect(body).toContain('fontWeight: "500"');
+    expect(body).toContain("PASTE_CHIP_HEIGHT");
     expect(body).not.toContain("ChevronDownIcon");
     expect(body).not.toContain("ChevronUpIcon");
     const chips = source.slice(source.indexOf("function UserAttachmentChips"));

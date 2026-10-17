@@ -24,7 +24,19 @@ import {
 } from "@atmos/agent-transcript";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
+import { ClipboardIcon } from "@/ui/icons/lucide-native";
 import { chatForeground, chatMutedForeground } from "./chat-ink";
+import {
+  PASTE_CHIP_FONT,
+  PASTE_CHIP_GAP,
+  PASTE_CHIP_HEIGHT,
+  PASTE_CHIP_ICON,
+  PASTE_CHIP_PAD_X,
+  pasteChipBorder,
+  pasteChipFill,
+  pasteChipLabel,
+  sentPasteDisplay,
+} from "./composer-paste";
 import {
   attachmentChipLabel,
   copy,
@@ -281,6 +293,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
   const entryId = message.id;
   const text = textFromParts(message.parts);
   const display = userMessageDisplayText(text);
+  const paste = sentPasteDisplay(text);
   const attachments = message.parts.filter((part) => part.type === "attachment");
   const time = formatUserMessageTime(message.created_at, "en");
   const hasMeta = Boolean(time) || text.trim().length > 0;
@@ -289,7 +302,9 @@ export function UserMessage({ message }: { message: AgentMessage }) {
   const [lineCount, setLineCount] = useState(0);
   const collapsed = userMessageIsCollapsed(lineCount, expanded);
   const growsAttachments = userAttachmentPressGrows(attachments.length, expanded);
-  const opensBody = growsAttachments || (!expanded && lineCount > USER_MESSAGE_COLLAPSE_LINES);
+  const showPasteChips = paste != null && !expanded;
+  const opensBody =
+    growsAttachments || showPasteChips || (!expanded && lineCount > USER_MESSAGE_COLLAPSE_LINES);
   const pending = isPendingPhoneUserEcho(message);
 
   useEffect(() => {
@@ -340,7 +355,45 @@ export function UserMessage({ message }: { message: AgentMessage }) {
             hasText={Boolean(text)}
           />
         ) : null}
-        {text ? (
+        {showPasteChips && paste ? (
+          <Text
+            selectable
+            style={{
+              color: chatForeground(theme.isDark),
+              fontSize: 14,
+              lineHeight: TEXT_LINE_HEIGHT,
+            }}
+          >
+            {paste.segments.map((segment, index) =>
+              segment.type === "paste" ? (
+                <Text
+                  key={`${segment.token}:${index}`}
+                  style={{
+                    backgroundColor: pasteChipFill(theme.isDark),
+                    borderColor: pasteChipBorder(theme.isDark),
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    color: chatForeground(theme.isDark),
+                    fontSize: PASTE_CHIP_FONT,
+                    fontWeight: "500",
+                    lineHeight: PASTE_CHIP_HEIGHT,
+                    paddingHorizontal: PASTE_CHIP_PAD_X,
+                  }}
+                >
+                  <ClipboardIcon
+                    color={chatForeground(theme.isDark)}
+                    size={PASTE_CHIP_ICON}
+                    strokeWidth={2}
+                    style={{ marginRight: PASTE_CHIP_GAP }}
+                  />
+                  {pasteChipLabel(segment.lineCount)}
+                </Text>
+              ) : (
+                <Text key={`text:${index}`}>{segment.value}</Text>
+              ),
+            )}
+          </Text>
+        ) : text ? (
           <View style={{ position: "relative" }}>
             <Text
               numberOfLines={collapsed ? userMessageCollapsedLineLimit() : undefined}

@@ -269,7 +269,7 @@ export function attachmentChipLabel(part: { name?: string | null; path: string }
   return base || part.path;
 }
 
-/** Phone has no paste registry. The `[#paste:id]` token stays literal text. */
+/** A paste this phone did not send stays literal. This session's sends are chipped. */
 export function userMessageDisplayText(text: string): string {
   return text;
 }
