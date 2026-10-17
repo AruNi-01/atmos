@@ -121,6 +121,13 @@ describe("web source parity", () => {
     expect(patch).toContain("0.145, 0.388, 0.922");
     expect(patch).toContain("kENRMWebCodePadX = 16.0");
     expect(patch).toContain("kENRMWebCodePadY = 12.0");
+    expect(patch).toContain("shiki-line-numbers");
+    expect(patch).toContain("kENRMWebLineNumberSize = 12.0");
+    expect(patch).toContain("kENRMWebLineNumberGapLeft = 4.0");
+    expect(patch).toContain("kENRMWebLineNumberGapRight = 16.0");
+    expect(patch).toContain("if (count < 2)");
+    expect(patch).toContain("green:(0x71 / 255.0) blue:(0x7B / 255.0)");
+    expect(patch).toContain("green:(0x9F / 255.0) blue:(0xA9 / 255.0)");
     expect(patch).toContain("ENRMWebCodePaneHeight");
     expect(patch).toContain("bezierPathWithRoundedRect:paneRect cornerRadius:paneRadius");
     expect(patch).toContain("_scrollView.clipsToBounds = YES");
