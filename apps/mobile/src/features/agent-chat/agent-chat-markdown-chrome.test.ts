@@ -10,6 +10,7 @@ import {
   BLOCKQUOTE_BORDER,
   BLOCKQUOTE_GAP,
   BLOCKQUOTE_MARGIN,
+  ANSWER_FENCE_MAX_HEIGHT,
   STREAMDOWN_BLOCK_GAP,
   THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
@@ -123,6 +124,7 @@ describe("agent chat markdown chrome", () => {
       marginBottom: 4 + STREAMDOWN_BLOCK_GAP,
       itemSpacing: 8,
     });
+    expect(ANSWER_FENCE_MAX_HEIGHT).toBe(384);
     expect(agentChatBlockMetrics.codeBlock).toMatchObject({
       marginTop: 0,
       marginBottom: STREAMDOWN_BLOCK_GAP,
@@ -145,6 +147,8 @@ describe("agent chat markdown chrome", () => {
     expect(markdown).toContain(
       "marginBottom: THEMATIC_BREAK_MARGIN, marginTop: THEMATIC_BREAK_MARGIN",
     );
+    expect(markdown).toContain("codeBlockMaxHeight = ANSWER_FENCE_MAX_HEIGHT");
+    expect(markdown).toContain("maxHeight: codeBlockMaxHeight");
     expect(markdown).toContain("marginLeft: 24");
     expect(markdown).toContain("gapWidth: 8");
     expect(markdown).not.toContain("markerMinWidth");

@@ -101,6 +101,9 @@ describe("web source parity", () => {
     expect(patch).toContain("kENRMWebHeaderPadX = 8.0");
     expect(patch).toContain("kENRMWebCodePadX = 16.0");
     expect(patch).toContain("kENRMWebCodePadY = 12.0");
+    expect(patch).toContain("ENRMWebCodePaneHeight");
+    expect(patch).toContain("setCodeBlockMaxHeight");
+    expect(patch).toContain("max-h-96");
     expect(patch).toContain("CODE BLOCK");
     expect(patch).toContain("Streamdown quotes are `italic`");
     expect(patch).toContain('style:@"italic"');

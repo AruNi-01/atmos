@@ -9,6 +9,7 @@ import {
   BLOCKQUOTE_MARGIN,
   THINKING_PARAGRAPH_MARGIN,
   THEMATIC_BREAK_MARGIN,
+  ANSWER_FENCE_MAX_HEIGHT,
   agentChatBlockMetrics,
   agentChatBlockquote,
   agentChatHeadingStyle,
@@ -34,6 +35,7 @@ export function AgentChatMarkdown({
   lineHeight,
   chipHttpUrls = false,
   codeBlockMargin,
+  codeBlockMaxHeight = ANSWER_FENCE_MAX_HEIGHT,
   prose,
 }: {
   text: string;
@@ -45,6 +47,11 @@ export function AgentChatMarkdown({
   chipHttpUrls?: boolean;
   /** Tool fences use web's `my-2` (8). Answer fences keep 16px below the block. */
   codeBlockMargin?: number;
+  /**
+   * Pane cap passed to the native fence. Answers use `max-h-96`. Tool code
+   * fences pass `0` because their expand control removes a React clip.
+   */
+  codeBlockMaxHeight?: number;
   /** Tool and plan bodies use `MarkdownRenderer` spacing. Answers stay on streamdown. */
   prose?: AgentChatProseKind;
 }) {
@@ -126,6 +133,7 @@ export function AgentChatMarkdown({
         fontFamily: "Menlo",
         syntaxColors: chrome.syntax,
         ...agentChatBlockMetrics.codeBlock,
+        maxHeight: codeBlockMaxHeight,
         ...(fenceMargin == null
           ? tone === "thinking"
             ? { marginBottom: 16, marginTop: 16 }
@@ -169,7 +177,7 @@ export function AgentChatMarkdown({
         ...(symmetricBlockMargin ? { marginBottom: 16, marginTop: 16 } : {}),
       },
     };
-  }, [chipHttpUrls, codeBlockMargin, fontSize, lineHeight, prose, theme, tone]);
+  }, [chipHttpUrls, codeBlockMargin, codeBlockMaxHeight, fontSize, lineHeight, prose, theme, tone]);
 
   const markdown = useMemo(
     () => (chipHttpUrls ? chipCompleteHttpUrls(text) : text),

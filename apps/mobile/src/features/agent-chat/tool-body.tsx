@@ -1134,7 +1134,11 @@ function ToolCodeFence({ text, language }: { text: string; language: string }) {
           }}
           style={expanded ? undefined : { maxHeight: TOOL_CODE_MAX_HEIGHT, overflow: "hidden" }}
         >
-          <AgentChatMarkdown codeBlockMargin={8} text={fenceForMarkdown(text, language)} />
+          <AgentChatMarkdown
+            codeBlockMargin={8}
+            codeBlockMaxHeight={0}
+            text={fenceForMarkdown(text, language)}
+          />
         </View>
         {overflow ? (
           <CodeExpandButton

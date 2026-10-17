@@ -177,6 +177,12 @@ export function agentChatLinkColor(isDark: boolean): string {
   return isDark ? "#e4e4e7" : "#18181b";
 }
 
+/**
+ * Web `CodeBlockContent` collapses at `max-h-96`. `0` keeps the native fence at
+ * its full height so a tool fence can grow when its expand control opens.
+ */
+export const ANSWER_FENCE_MAX_HEIGHT = 384;
+
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: STREAMDOWN_BLOCK_GAP },
   list: { marginTop: 4, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, itemSpacing: 8 },
