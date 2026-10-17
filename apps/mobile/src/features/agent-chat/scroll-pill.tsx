@@ -21,6 +21,11 @@ import { agentChatTokenMap } from "./token-map";
 /** Web scroll button is `h-8` (`size-4` chevron). Card pills stay 36. */
 export const SCROLL_PILL_HEIGHT = 32;
 export const SCROLL_PILL_ICON = 16;
+/**
+ * `button.tsx` sets `[&_svg:not([class*='opacity-'])]:opacity-80`.
+ * The chevron class is `size-4`, so the icon is 80% and the words stay solid.
+ */
+export const SCROLL_PILL_ICON_OPACITY = 0.8;
 
 function MorphChar({
   progress,
@@ -129,7 +134,9 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
           importantForAccessibility="no-hide-descendants"
           style={styles.row}
         >
-          <ChevronDownIcon color={ink} size={SCROLL_PILL_ICON} strokeWidth={2} />
+          <View style={{ opacity: SCROLL_PILL_ICON_OPACITY }}>
+            <ChevronDownIcon color={ink} size={SCROLL_PILL_ICON} strokeWidth={2} />
+          </View>
           {showCopy ? (
             <View style={styles.copy}>
               {copy.scrollBelowPrefix.length > 0 ? (
