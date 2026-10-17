@@ -127,6 +127,10 @@ describe("tool body presentation", () => {
     expect(discussion.split("toolDiffUnifiedLineNo(line)").length - 1).toBe(1);
     expect(discussion).toContain("toolDiffNumberColumnWidth");
     expect(discussion).toContain("TOOL_DIFF_BAR");
+    expect(discussion).toContain("DiffDeletionBar");
+    expect(discussion).toContain('line.op === "add"');
+    expect(discussion).toContain('line.op === "del"');
+    expect(discussion).toContain('toolDiffLineFill("del", theme.isDark)');
     expect(discussion).not.toContain("minWidth: 28");
     expect(discussion).toContain("FileTextIcon");
     expect(discussion).not.toContain("PathChip");

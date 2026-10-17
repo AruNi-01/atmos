@@ -1101,8 +1101,9 @@ export function toolBodyUsesPanel(model: ToolBodyModel, partKind: string): boole
 
 // @view
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Animated, Image, Pressable, ScrollView, Text, View } from "react-native";
+import Svg, { Defs, Pattern, Rect } from "react-native-svg";
 import * as Clipboard from "expo-clipboard";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
@@ -1513,6 +1514,37 @@ function CappedMono({ text }: { text: string }) {
   );
 }
 
+/**
+ * Pierre's deletion indicator is a 4px bar of 1px bands. Each 2px tile is the
+ * deletion line fill, then the deletion base. An addition bar stays solid.
+ */
+function DiffDeletionBar({ band, ink }: { band: string; ink: string }) {
+  const id = `diffDel${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        bottom: 0,
+        left: 0,
+        overflow: "hidden",
+        position: "absolute",
+        top: 0,
+        width: TOOL_DIFF_BAR,
+      }}
+    >
+      <Svg height={TOOL_DIFF_MAX_HEIGHT} width={TOOL_DIFF_BAR}>
+        <Defs>
+          <Pattern height={2} id={id} patternUnits="userSpaceOnUse" width={TOOL_DIFF_BAR}>
+            <Rect fill={band} height={1} width={TOOL_DIFF_BAR} />
+            <Rect fill={ink} height={1} width={TOOL_DIFF_BAR} y={1} />
+          </Pattern>
+        </Defs>
+        <Rect fill={`url(#${id})`} height={TOOL_DIFF_MAX_HEIGHT} width={TOOL_DIFF_BAR} />
+      </Svg>
+    </View>
+  );
+}
+
 function DiscussionDiff({
   path,
   lines,
@@ -1588,17 +1620,23 @@ function DiscussionDiff({
                   key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
                   style={{ flexDirection: "row" }}
                 >
-                  {changed ? (
+                  {line.op === "add" ? (
                     <View
                       pointerEvents="none"
                       style={{
-                        backgroundColor: numberInk(line.op),
+                        backgroundColor: numberInk("add"),
                         bottom: 0,
                         left: 0,
                         position: "absolute",
                         top: 0,
                         width: TOOL_DIFF_BAR,
                       }}
+                    />
+                  ) : null}
+                  {line.op === "del" ? (
+                    <DiffDeletionBar
+                      band={toolDiffLineFill("del", theme.isDark)}
+                      ink={numberInk("del")}
                     />
                   ) : null}
                   <Text
