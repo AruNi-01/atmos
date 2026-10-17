@@ -12,6 +12,12 @@ on:
 permissions:
   contents: read
 
+# One simulator run per branch. A newer push cancels the older one so the
+# macOS queue follows the latest commit.
+concurrency:
+  group: ci-mobile-ios-parity-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   structural:
     name: structural
