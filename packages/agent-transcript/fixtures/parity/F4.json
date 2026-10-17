@@ -1,0 +1,251 @@
+{
+  "id": "F4",
+  "title": "Scripted settled turn",
+  "messages": [
+    {
+      "id": "f4-u",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Look through src/main.ts"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f4-a",
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "thinking",
+          "text": "Start with the export."
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f4-read",
+          "name": "Read",
+          "kind": "read",
+          "params": {
+            "type": "read",
+            "path": "src/main.ts"
+          },
+          "result": {
+            "type": "file_content",
+            "path": "src/main.ts",
+            "text": "export const ready = true;\n"
+          }
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f4-search",
+          "name": "Search",
+          "kind": "search",
+          "params": {
+            "type": "search",
+            "query": "ready",
+            "path": "src"
+          },
+          "result": {
+            "type": "search_hits",
+            "query": "ready",
+            "hits": [
+              {
+                "path": "src/main.ts",
+                "line": 1,
+                "snippet": "export const ready = true;"
+              }
+            ]
+          }
+        },
+        {
+          "type": "text",
+          "text": "The export is ready."
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "streaming": false,
+      "worked_ms": 15000,
+      "completed_at": "2026-10-15T12:00:42.000Z"
+    }
+  ],
+  "script": [
+    {
+      "atMs": 0,
+      "event": {
+        "chat_id": "parity-f4",
+        "event_id": "f4-e1",
+        "revision": 1,
+        "turn_id": "turn-f4",
+        "payload": {
+          "type": "text_chunk",
+          "part_id": "f4-think",
+          "message_id": "f4-a",
+          "ordinal": 0,
+          "kind": "thinking",
+          "offset": 0,
+          "text": "Start with the export."
+        }
+      }
+    },
+    {
+      "atMs": 200,
+      "event": {
+        "chat_id": "parity-f4",
+        "event_id": "f4-e2",
+        "revision": 2,
+        "turn_id": "turn-f4",
+        "payload": {
+          "type": "tool_call_started",
+          "tool_call": {
+            "tool_call_id": "f4-read",
+            "name": "Read",
+            "kind": "read",
+            "status": "running",
+            "params": {
+              "type": "read",
+              "path": "src/main.ts"
+            }
+          }
+        }
+      }
+    },
+    {
+      "atMs": 800,
+      "event": {
+        "chat_id": "parity-f4",
+        "event_id": "f4-e3",
+        "revision": 3,
+        "turn_id": "turn-f4",
+        "payload": {
+          "type": "tool_call_completed",
+          "tool_call": {
+            "tool_call_id": "f4-read",
+            "name": "Read",
+            "kind": "read",
+            "status": "completed",
+            "params": {
+              "type": "read",
+              "path": "src/main.ts"
+            },
+            "result": {
+              "type": "file_content",
+              "path": "src/main.ts",
+              "text": "export const ready = true;\n"
+            }
+          }
+        }
+      }
+    },
+    {
+      "atMs": 900,
+      "event": {
+        "chat_id": "parity-f4",
+        "event_id": "f4-e4",
+        "revision": 4,
+        "turn_id": "turn-f4",
+        "payload": {
+          "type": "tool_call_started",
+          "tool_call": {
+            "tool_call_id": "f4-search",
+            "name": "Search",
+            "kind": "search",
+            "status": "running",
+            "params": {
+              "type": "search",
+              "query": "ready",
+              "path": "src"
+            }
+          }
+        }
+      }
+    },
+    {
+      "atMs": 1400,
+      "event": {
+        "chat_id": "parity-f4",
+        "event_id": "f4-e5",
+        "revision": 5,
+        "turn_id": "turn-f4",
+        "payload": {
+          "type": "tool_call_completed",
+          "tool_call": {
+            "tool_call_id": "f4-search",
+            "name": "Search",
+            "kind": "search",
+            "status": "completed",
+            "params": {
+              "type": "search",
+              "query": "ready",
+              "path": "src"
+            },
+            "result": {
+              "type": "search_hits",
+              "query": "ready",
+              "hits": [
+                {
+                  "path": "src/main.ts",
+                  "line": 1,
+                  "snippet": "export const ready = true;"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "atMs": 1600,
+      "event": {
+        "chat_id": "parity-f4",
+        "event_id": "f4-e6",
+        "revision": 6,
+        "turn_id": "turn-f4",
+        "payload": {
+          "type": "text_chunk",
+          "part_id": "f4-answer",
+          "message_id": "f4-a",
+          "ordinal": 1,
+          "kind": "answer",
+          "offset": 0,
+          "text": "The export "
+        }
+      }
+    },
+    {
+      "atMs": 1800,
+      "event": {
+        "chat_id": "parity-f4",
+        "event_id": "f4-e7",
+        "revision": 7,
+        "turn_id": "turn-f4",
+        "payload": {
+          "type": "text_chunk",
+          "part_id": "f4-answer",
+          "message_id": "f4-a",
+          "ordinal": 2,
+          "kind": "answer",
+          "offset": 11,
+          "text": "is ready."
+        }
+      }
+    },
+    {
+      "atMs": 15000,
+      "event": {
+        "chat_id": "parity-f4",
+        "event_id": "f4-e8",
+        "revision": 8,
+        "turn_id": "turn-f4",
+        "payload": {
+          "type": "turn_completed",
+          "turn_id": "turn-f4",
+          "worked_ms": 15000,
+          "completed_at": "2026-10-15T12:00:42.000Z"
+        }
+      }
+    }
+  ]
+}

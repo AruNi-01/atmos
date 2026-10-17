@@ -1,0 +1,56 @@
+[
+  {
+    "kind": "user",
+    "label": "Collect the notes",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "process",
+    "label": "Worked for 9s",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "tool_group",
+        "label": "2 tools, 1 search",
+        "expanded": false,
+        "children": [
+          {
+            "kind": "web_search",
+            "label": "workspace path example",
+            "expanded": false,
+            "children": [
+              {
+                "kind": "link",
+                "label": "http://example.com/docs"
+              }
+            ]
+          },
+          {
+            "kind": "images",
+            "label": "src/diagram.png"
+          },
+          {
+            "kind": "markdown",
+            "label": "Ship the notes"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "Here is the plan.",
+    "children": [
+      {
+        "kind": "paragraph",
+        "label": "Here is the plan."
+      }
+    ]
+  }
+]

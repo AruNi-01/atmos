@@ -165,3 +165,7 @@ Steps 1–4 are the Must Have bar. Each step typechecks with `bun --filter @atmo
 ## Open questions
 
 None for product scope. Implementation must not invent a second chat protocol if a web helper is hard to call; stop and match the action names in this doc.
+
+## Post-Implementation Update (2026-10-15): transcript display superseded by APP-081
+
+[APP-081](../APP-081_mobile-agent-chat-web-parity/TECH.md) supersedes this spec's transcript **display** decisions: tool, thinking, and process detail in bottom sheets, "same information and order, mobile chrome" for conversation content, and duplicating the tool-kind table in mobile. The wire, hooks, navigation, composer wiring, and create-on-send rules here are unchanged. APP-079 REV-004 (live web-vs-phone compare) is absorbed by APP-081 TEST.

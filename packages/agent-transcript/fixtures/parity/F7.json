@@ -1,0 +1,100 @@
+{
+  "id": "F7",
+  "title": "Web search, image, and plan",
+  "messages": [
+    {
+      "id": "f7-u",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Collect the notes"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f7-a",
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f7-web",
+          "name": "WebSearch",
+          "kind": "web_search",
+          "params": {
+            "type": "web_search",
+            "query": "workspace path example"
+          },
+          "result": {
+            "type": "web_search",
+            "query": "workspace path example",
+            "links": [
+              {
+                "url": "http://example.com/docs",
+                "title": "Docs",
+                "snippet": "Workspace notes"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f7-image",
+          "name": "GenerateImage",
+          "kind": "image_gen",
+          "params": {
+            "type": "image_gen",
+            "prompt": "Diagram of the notes",
+            "path": "src/diagram.png"
+          },
+          "result": {
+            "type": "images",
+            "images": [
+              {
+                "path": "src/diagram.png",
+                "mime": "image/png"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f7-plan",
+          "name": "CreatePlan",
+          "kind": "plan_document",
+          "params": {
+            "type": "plan_document",
+            "name": "Ship the notes",
+            "plan": "## Ship the notes\n\n- Write the fixture",
+            "todos": [
+              {
+                "id": "todo-1",
+                "content": "Write the fixture",
+                "status": "pending"
+              }
+            ]
+          },
+          "result": {
+            "type": "other",
+            "value": {
+              "kind": "markdown",
+              "markdown": "## Ship the notes\n\n- Write the fixture"
+            }
+          }
+        },
+        {
+          "type": "text",
+          "text": "Here is the plan."
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "streaming": false,
+      "worked_ms": 9000,
+      "completed_at": "2026-10-15T12:00:42.000Z"
+    }
+  ]
+}

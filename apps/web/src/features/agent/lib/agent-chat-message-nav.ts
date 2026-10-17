@@ -1,12 +1,11 @@
+import type { TranscriptMeasurement } from "./agent-chat-below-count";
+
+export type { TranscriptMeasurement };
+
 export type UserMessageNavRect = {
   messageIndex: number;
   top: number;
   bottom: number;
-};
-
-export type TranscriptMeasurement = {
-  start: number;
-  size: number;
 };
 
 /** Viewport-relative user-message rects from the virtualizer cache (off-screen rows included). */

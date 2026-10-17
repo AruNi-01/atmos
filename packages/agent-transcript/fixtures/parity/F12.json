@@ -1,0 +1,107 @@
+{
+  "id": "F12",
+  "title": "Card lane",
+  "messages": [
+    {
+      "id": "f12-u",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Continue"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f12-a",
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "tool_call",
+          "status": "completed",
+          "tool_call_id": "f12-read",
+          "name": "Read",
+          "kind": "read",
+          "params": {
+            "type": "read",
+            "path": "src/main.ts"
+          },
+          "result": {
+            "type": "file_content",
+            "path": "src/main.ts",
+            "text": "export const ready = true;\n"
+          }
+        },
+        {
+          "type": "text",
+          "text": "Done."
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "streaming": false,
+      "worked_ms": 2000,
+      "completed_at": "2026-10-15T12:00:42.000Z"
+    }
+  ],
+  "cards": {
+    "plan": {
+      "title": "Ship",
+      "body": "Write the notes"
+    },
+    "queue": [
+      {
+        "id": "q1",
+        "prompt": "Check src/main.ts"
+      },
+      {
+        "id": "q2",
+        "prompt": "Update the notes"
+      },
+      {
+        "id": "q3",
+        "prompt": "Run the tests"
+      }
+    ],
+    "background": [
+      {
+        "id": "b1",
+        "command": "bun test src"
+      }
+    ],
+    "subagents": [
+      {
+        "id": "s1",
+        "title": "Inspect src/main.ts"
+      }
+    ],
+    "goal": {
+      "text": "Ship the notes"
+    },
+    "workflow": {
+      "text": "Research the API"
+    },
+    "context": {
+      "used": 2400,
+      "window": 16000
+    },
+    "permission": {
+      "request_id": "perm-f12",
+      "tool": "edit",
+      "description": "Edit src/lib.ts",
+      "status": "pending",
+      "questions": [
+        {
+          "id": "q1",
+          "prompt": "Allow the edit?"
+        }
+      ],
+      "options": [
+        {
+          "option_id": "allow",
+          "name": "Allow"
+        }
+      ]
+    }
+  }
+}

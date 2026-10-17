@@ -17,18 +17,7 @@ export function AgentChatSessionOpCard({
   const theme = useMobileTheme();
 
   return (
-    <View
-      style={{
-        backgroundColor: theme.colors.cardElevated,
-        borderColor: theme.colors.glassBorder,
-        borderCurve: "continuous",
-        borderRadius: 16,
-        borderWidth: StyleSheet.hairlineWidth,
-        gap: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-      }}
-    >
+    <View style={{ gap: 10 }}>
       <Text style={{ color: theme.colors.label, fontSize: 16, fontWeight: "700", lineHeight: 21 }}>
         {request.title}
       </Text>

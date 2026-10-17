@@ -1,0 +1,56 @@
+[
+  {
+    "kind": "user",
+    "label": "Inspect the file",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "process",
+    "label": "Worked for 11s",
+    "expanded": false,
+    "children": [
+      {
+        "kind": "text",
+        "label": "Inspect src/main.ts",
+        "expanded": false,
+        "children": [
+          {
+            "kind": "code",
+            "label": "src/main.ts"
+          },
+          {
+            "kind": "diff_stats",
+            "label": "src/main.ts +1"
+          }
+        ]
+      },
+      {
+        "kind": "text",
+        "label": "Waiting for subagent",
+        "expanded": false,
+        "children": [
+          {
+            "kind": "text",
+            "label": "Subagent finished."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "Inspection finished.",
+    "children": [
+      {
+        "kind": "paragraph",
+        "label": "Inspection finished."
+      }
+    ]
+  }
+]

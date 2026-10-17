@@ -1,9 +1,19 @@
 import "@/global.css";
 import { GlassProvider } from "@rbayuokt/expo-adaptive-glass";
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from "expo-router";
+import {
+  DarkTheme,
+  DefaultTheme,
+  Redirect,
+  Stack,
+  ThemeProvider,
+  usePathname,
+  type Theme,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { parityPreviewHref } from "@/features/agent-chat/parity-preview-route";
 import { AppProviders } from "@/providers/AppProviders";
+import { hiddenScrollEdgeEffects } from "@/ui/navigation/native-screen-options";
 import { useMobileTheme } from "@/theme/theme-store";
 
 function navigationTheme(
@@ -29,8 +39,15 @@ function navigationTheme(
 }
 
 export const unstable_settings = {
-  initialRouteName: "(home)",
+  initialRouteName: process.env.EXPO_PUBLIC_PARITY_PREVIEW === "1" ? "preview-chat" : "(home)",
 };
+
+function ParityPreviewRedirect() {
+  const pathname = usePathname();
+  const href = parityPreviewHref(process.env.EXPO_PUBLIC_PARITY_PREVIEW, pathname);
+  if (href == null) return null;
+  return <Redirect href={href} />;
+}
 
 export default function RootLayout() {
   const theme = useMobileTheme();
@@ -157,8 +174,13 @@ export default function RootLayout() {
                   headerBackButtonDisplayMode: "minimal",
                 }}
               />
+              <Stack.Screen
+                name="preview-chat"
+                options={{ headerShown: false, scrollEdgeEffects: hiddenScrollEdgeEffects }}
+              />
               <Stack.Screen name="+not-found" />
             </Stack>
+            {process.env.EXPO_PUBLIC_PARITY_PREVIEW === "1" ? <ParityPreviewRedirect /> : null}
           </GlassProvider>
           <StatusBar style={theme.statusBarStyle} />
         </ThemeProvider>

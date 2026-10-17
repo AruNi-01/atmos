@@ -1,0 +1,59 @@
+[
+  {
+    "kind": "user",
+    "label": "Show the release notes",
+    "children": [
+      {
+        "kind": "user-meta",
+        "label": "Meta",
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "kind": "text",
+    "label": "# Release notes",
+    "children": [
+      {
+        "kind": "heading",
+        "label": "Release notes"
+      },
+      {
+        "kind": "list",
+        "label": "Check the build, Update the notes"
+      },
+      {
+        "kind": "table",
+        "label": "Step, Owner"
+      },
+      {
+        "kind": "paragraph",
+        "label": "Run `bun test` in the tree."
+      },
+      {
+        "kind": "code",
+        "label": "bun test"
+      },
+      {
+        "kind": "code",
+        "label": "ts"
+      },
+      {
+        "kind": "mermaid",
+        "label": "mermaid"
+      },
+      {
+        "kind": "paragraph",
+        "label": "Open src/main.ts or http://example.com/docs for the rest."
+      },
+      {
+        "kind": "path",
+        "label": "src/main.ts"
+      },
+      {
+        "kind": "link",
+        "label": "http://example.com/docs"
+      }
+    ]
+  }
+]

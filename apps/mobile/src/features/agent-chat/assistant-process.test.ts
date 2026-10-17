@@ -1,13 +1,17 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import {
-  shouldCollapseAssistantProcess,
-  splitAssistantProcessParts,
-  splitAssistantSegments,
+  countToolGroupOverview,
+  formatToolGroupOverview,
+  hasCollapsibleAssistantProcess,
   segmentAssistantParts,
-  toolGroupOverview,
-} from "./assistant-process";
+  sentenceCaseOverview,
+  splitAssistantProcessParts,
+  splitSegmentedAssistantParts,
+  toolCallPartsFromGroup,
+} from "@atmos/agent-transcript";
+import { toolGroupCountLabel, toolGroupLabels } from "./copy";
 
 function tool(id: string, kind: "read" | "edit"): AgentPart {
   return {
@@ -18,6 +22,10 @@ function tool(id: string, kind: "read" | "edit"): AgentPart {
     status: "completed",
     params: kind === "read" ? { type: "read", path: "a.ts" } : { type: "edit", path: "a.ts" },
   };
+}
+
+function assistant(parts: AgentPart[], extra: Partial<AgentMessage> = {}): AgentMessage {
+  return { id: "m1", role: "assistant", parts, ...extra };
 }
 
 describe("assistant process fold", () => {
@@ -48,14 +56,13 @@ describe("assistant process fold", () => {
   test("a settled turn with tools can collapse, a running tool cannot", () => {
     const parts: AgentPart[] = [tool("t1", "read"), { type: "text", text: "ok" }];
     expect(
-      shouldCollapseAssistantProcess(
-        { streaming: false, completed_at: "2026-09-25T00:00:00Z" },
-        parts,
+      hasCollapsibleAssistantProcess(
+        assistant(parts, { streaming: false, completed_at: "2026-09-25T00:00:00Z" }),
       ),
     ).toBe(true);
-    expect(shouldCollapseAssistantProcess({ streaming: true, completed_at: null }, parts)).toBe(
-      false,
-    );
+    expect(
+      hasCollapsibleAssistantProcess(assistant(parts, { streaming: true, completed_at: null })),
+    ).toBe(false);
     const runningTool = tool("t1", "read");
     const running: AgentPart[] =
       runningTool.type === "tool_call"
@@ -65,9 +72,8 @@ describe("assistant process fold", () => {
           ]
         : [];
     expect(
-      shouldCollapseAssistantProcess(
-        { streaming: false, completed_at: "2026-09-25T00:00:00Z" },
-        running,
+      hasCollapsibleAssistantProcess(
+        assistant(running, { streaming: false, completed_at: "2026-09-25T00:00:00Z" }),
       ),
     ).toBe(false);
   });
@@ -83,12 +89,20 @@ describe("assistant process fold", () => {
     const segments = segmentAssistantParts(parts);
     expect(segments[0]).toMatchObject({ type: "tool_group" });
     if (segments[0]?.type === "tool_group") {
-      expect(toolGroupOverview(segments[0].parts)).toBe("1 write, 2 reads");
+      const overview = sentenceCaseOverview(
+        formatToolGroupOverview(
+          countToolGroupOverview(toolCallPartsFromGroup(segments[0].parts)),
+          toolGroupCountLabel,
+          toolGroupLabels.join,
+        ),
+        toolGroupLabels.locale,
+      );
+      expect(overview).toBe("1 write, 2 reads");
     }
-    const { process, tail } = splitAssistantSegments(segments);
-    expect(process).toHaveLength(1);
+    const { processSegments, tailSegments } = splitSegmentedAssistantParts(segments);
+    expect(processSegments).toHaveLength(1);
     expect(
-      tail.map((item) =>
+      tailSegments.map((item) =>
         item.type === "part" && item.part.type === "text" ? item.part.text : item.type,
       ),
     ).toEqual(["done"]);
@@ -96,10 +110,12 @@ describe("assistant process fold", () => {
 
   test("the last reply stays visible when the turn ends on a tool", () => {
     const parts: AgentPart[] = [{ type: "text", text: "the numbers" }, tool("t1", "read")];
-    const { process, tail } = splitAssistantSegments(segmentAssistantParts(parts));
-    expect(process.map((item) => item.type)).toEqual(["part"]);
+    const { processSegments, tailSegments } = splitSegmentedAssistantParts(
+      segmentAssistantParts(parts),
+    );
+    expect(processSegments.map((item) => item.type)).toEqual(["part"]);
     expect(
-      tail.map((item) =>
+      tailSegments.map((item) =>
         item.type === "part" && item.part.type === "text" ? item.part.text : item.type,
       ),
     ).toEqual(["the numbers"]);

@@ -1,0 +1,40 @@
+{
+  "id": "F2",
+  "title": "Thinking then answer",
+  "messages": [
+    {
+      "id": "f2-u",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Explain the change"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f2-a",
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "thinking",
+          "text": "First pass.",
+          "duration_ms": 2000
+        },
+        {
+          "type": "thinking",
+          "text": "Second pass."
+        },
+        {
+          "type": "text",
+          "text": "Here is the answer."
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "streaming": false,
+      "worked_ms": 4000,
+      "completed_at": "2026-10-15T12:00:42.000Z"
+    }
+  ]
+}

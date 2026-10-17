@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter, type NativeStackHeaderItem } from "expo-router";
@@ -10,13 +10,33 @@ import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronLeftIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
-import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
+import {
+  hiddenScrollEdgeEffects,
+  nativeCompactTitleOptions,
+} from "@/ui/navigation/native-screen-options";
 import { TitleSkeleton } from "@/ui/primitives/list-skeleton";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import { AgentChatComposer } from "./AgentChatComposer";
-import { AgentChatPermissionCard } from "./AgentChatPermissionCard";
-import { AgentChatSessionOpCard } from "./AgentChatSessionOpCard";
-import { AgentChatTranscript } from "./AgentChatTranscript";
+import { AgentChatTranscript, type AgentChatTranscriptHandle } from "./AgentChatTranscript";
+import {
+  INITIAL_LANE,
+  pillShowsAttention,
+  reduceLane,
+  syncLane,
+  type CardId,
+  type LaneState,
+} from "./card-lane";
+import { ExpandedCard } from "./cards/expanded-card";
+import { LaneCardBody } from "./cards/lane-body";
+import { cardPillTitle, deriveComposerCards } from "./composer-cards";
+import { ComposerPillRow } from "./composer-pill-row";
+import {
+  expandComposerPaste,
+  retainComposerPasteChips,
+  type ComposerPasteChip,
+} from "./composer-paste";
+import { composerRowVisible, scrollPillVisible } from "./stick";
+import { resolvedPillRowHeight } from "./transcript-pad";
 import {
   applyComposerPick,
   composerSuggestionList,
@@ -183,6 +203,10 @@ export function AgentChatThreadScreen({
     messages,
     pendingPermission,
     pendingSessionOp,
+    queue,
+    sessionUsage,
+    grokGoal,
+    grokWorkflow,
     runningTurnId,
     loading,
     error,
@@ -190,12 +214,81 @@ export function AgentChatThreadScreen({
     send,
     steer,
     queueAdd,
+    queueUpdate,
+    queueDelete,
+    queueReorder,
     cancel,
     respondPermission,
     respondSessionOp,
   } = useAgentChatThread(chatId);
+  const cards = useMemo(
+    () =>
+      deriveComposerCards({
+        messages,
+        pendingPermission,
+        pendingSessionOp,
+        queue,
+        grokGoal,
+        grokWorkflow,
+        sessionUsage,
+      }),
+    [grokGoal, grokWorkflow, messages, pendingPermission, pendingSessionOp, queue, sessionUsage],
+  );
+  const [laneSnapshot, setLaneSnapshot] = useState<{
+    chatId: string;
+    previous: readonly CardId[] | null;
+    lane: LaneState;
+  }>({ chatId, previous: null, lane: INITIAL_LANE });
+  const [expandedCardHeight, setExpandedCardHeight] = useState(0);
+  let lane = laneSnapshot.lane;
+  if (loading) {
+    if (
+      laneSnapshot.chatId !== chatId ||
+      laneSnapshot.previous !== null ||
+      laneSnapshot.lane.visible != null ||
+      laneSnapshot.lane.userChoice != null
+    ) {
+      lane = INITIAL_LANE;
+      setLaneSnapshot({ chatId, previous: null, lane: INITIAL_LANE });
+    }
+  } else if (laneSnapshot.chatId !== chatId) {
+    const synced = syncLane(INITIAL_LANE, null, cards.available);
+    lane = synced.state;
+    setLaneSnapshot({ chatId, previous: synced.previous, lane: synced.state });
+  } else {
+    const synced = syncLane(laneSnapshot.lane, laneSnapshot.previous, cards.available);
+    if (synced.state !== laneSnapshot.lane || synced.previous !== laneSnapshot.previous) {
+      lane = synced.state;
+      setLaneSnapshot({ chatId, previous: synced.previous, lane: synced.state });
+    }
+  }
+  const onPillPress = useCallback((id: CardId) => {
+    setLaneSnapshot((current) => ({
+      ...current,
+      lane: reduceLane(current.lane, { type: "pill_tapped", id }),
+    }));
+  }, []);
+  const onCardHeight = useCallback((height: number) => {
+    setExpandedCardHeight((current) => (current === height ? current : height));
+  }, []);
+  const pills = cards.available.map((id) => ({
+    id,
+    title: cardPillTitle(id, {
+      permission: cards.permission,
+      goal: cards.goal,
+      workflow: cards.workflow,
+    }),
+    selected: lane.visible === id,
+    attention: pillShowsAttention(id, lane.visible),
+  }));
   const [text, setText] = useState("");
+  const [pasteChips, setPasteChips] = useState<ComposerPasteChip[]>([]);
   const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
+  const [stickToken, setStickToken] = useState(0);
+  const [stickToEnd, setStickToEnd] = useState(true);
+  const [belowCount, setBelowCount] = useState(0);
+  const [measuredPillRowHeight, setMeasuredPillRowHeight] = useState(0);
+  const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const userMessages = messages.filter((message) => message.role === "user");
   const mentionFiles = useMentionFiles(workspaceId);
@@ -208,7 +301,9 @@ export function AgentChatThreadScreen({
     (id: string) => {
       if (!suggestions) return;
       const insert = suggestions.trigger.kind === "slash" ? `/${id} ` : `@${id} `;
-      setText(applyComposerPick(text, suggestions.trigger, insert));
+      const next = applyComposerPick(text, suggestions.trigger, insert);
+      setText(next);
+      setPasteChips((chips) => retainComposerPasteChips(next, chips, null));
     },
     [suggestions, text],
   );
@@ -286,56 +381,80 @@ export function AgentChatThreadScreen({
     [chatCwd, chatId],
   );
 
-  const restoreDraft = useCallback((draft: string, pending: ComposerPhoto[]) => {
-    setText((current) => (current.length === 0 ? draft : current));
-    setPhotos((current) => (current.length === 0 ? pending : current));
-  }, []);
+  const restoreDraft = useCallback(
+    (draft: string, pending: ComposerPhoto[], chips: readonly ComposerPasteChip[]) => {
+      setText((current) => (current.length === 0 ? draft : current));
+      setPhotos((current) => (current.length === 0 ? pending : current));
+      setPasteChips((current) => (current.length === 0 ? [...chips] : current));
+    },
+    [],
+  );
 
   const onSend = useCallback(() => {
     const draft = text;
+    const chips = pasteChips;
+    const expanded = expandComposerPaste(draft, chips);
     const pending = photos;
-    if (draft.trim() === "" && pending.length === 0) return;
+    if (expanded.trim() === "" && pending.length === 0) return;
+    setStickToken((token) => token + 1);
     setText("");
+    setPasteChips([]);
     setPhotos([]);
     setUploadError(null);
     void (async () => {
       const paths = await uploadSelectedPhotos(pending);
-      await send(draft, paths);
+      await send(expanded, paths);
     })().catch((err: unknown) => {
-      restoreDraft(draft, pending);
+      restoreDraft(draft, pending, chips);
       setUploadError(err instanceof Error ? err.message : "Could not upload that photo.");
     });
-  }, [photos, restoreDraft, send, text, uploadSelectedPhotos]);
+  }, [pasteChips, photos, restoreDraft, send, text, uploadSelectedPhotos]);
 
   const onQueue = useCallback(() => {
     const draft = text;
+    const chips = pasteChips;
+    const expanded = expandComposerPaste(draft, chips);
     const pending = photos;
-    if (draft.trim() === "" && pending.length === 0) return;
+    if (expanded.trim() === "" && pending.length === 0) return;
     setText("");
+    setPasteChips([]);
     setPhotos([]);
     setUploadError(null);
     void (async () => {
       const paths = await uploadSelectedPhotos(pending);
-      await queueAdd(draft, paths);
+      await queueAdd(expanded, paths);
     })().catch((err: unknown) => {
-      restoreDraft(draft, pending);
+      restoreDraft(draft, pending, chips);
       setUploadError(err instanceof Error ? err.message : "Could not upload that photo.");
     });
-  }, [photos, queueAdd, restoreDraft, text, uploadSelectedPhotos]);
+  }, [pasteChips, photos, queueAdd, restoreDraft, text, uploadSelectedPhotos]);
 
   const onSteer = useCallback(() => {
     const draft = text;
-    if (draft.trim() === "") return;
+    const chips = pasteChips;
+    const expanded = expandComposerPaste(draft, chips);
+    if (expanded.trim() === "") return;
     setText("");
+    setPasteChips([]);
     setUploadError(null);
-    void steer(draft).catch(() => {
+    void steer(expanded).catch(() => {
       setText((current) => (current.length === 0 ? draft : current));
+      setPasteChips((current) => (current.length === 0 ? chips : current));
     });
-  }, [steer, text]);
+  }, [pasteChips, steer, text]);
 
   const onStop = useCallback(() => {
     void cancel().catch(() => undefined);
   }, [cancel]);
+
+  const onStickChange = useCallback((next: { belowCount: number; stickToEnd: boolean }) => {
+    setStickToEnd((current) => (current === next.stickToEnd ? current : next.stickToEnd));
+    setBelowCount((current) => (current === next.belowCount ? current : next.belowCount));
+  }, []);
+  const onPillRowLayout = useCallback((event: { nativeEvent: { layout: { height: number } } }) => {
+    const height = event.nativeEvent.layout.height;
+    setMeasuredPillRowHeight((current) => (current === height ? current : height));
+  }, []);
 
   const router = useRouter();
   const goBack = () => {
@@ -352,6 +471,7 @@ export function AgentChatThreadScreen({
     <Stack.Screen
       options={{
         ...nativeCompactTitleOptions(screenTitle, theme.colors),
+        scrollEdgeEffects: hiddenScrollEdgeEffects,
         ...(titlePending ? { headerTitle: () => <TitleSkeleton width={148} /> } : {}),
         headerBackButtonDisplayMode: "minimal",
         headerBackVisible: false,
@@ -424,55 +544,78 @@ export function AgentChatThreadScreen({
     );
   }
 
+  const measuredCardHeight = lane.visible ? expandedCardHeight : 0;
+  const pillRowRendered = composerRowVisible(
+    scrollPillVisible(messages.length, stickToEnd),
+    pills.length,
+  );
+  const pillRowHeight = resolvedPillRowHeight(pillRowRendered, measuredPillRowHeight);
+
   return (
     <>
       {header}
       <ChatKeyboardFrame
         footer={
-          <View style={{ gap: 8, paddingHorizontal: 18, paddingTop: 8 }}>
-            {pendingPermission ? (
-              <AgentChatPermissionCard
-                onRespond={(input) => {
-                  void respondPermission(input).catch(() => undefined);
-                }}
-                request={pendingPermission}
-              />
+          <View style={{ gap: 8, paddingTop: 8 }}>
+            {lane.visible ? (
+              <ExpandedCard key={lane.visible} onHeight={onCardHeight}>
+                <LaneCardBody
+                  cards={cards}
+                  onQueueDelete={queueDelete}
+                  onQueueReorder={queueReorder}
+                  onQueueUpdate={queueUpdate}
+                  onRespondPermission={(input) => {
+                    void respondPermission(input).catch(() => undefined);
+                  }}
+                  onRespondSessionOp={(input) => {
+                    void respondSessionOp(input).catch(() => undefined);
+                  }}
+                  visible={lane.visible}
+                />
+              </ExpandedCard>
             ) : null}
-            {pendingSessionOp ? (
-              <AgentChatSessionOpCard
-                onRespond={(input) => {
-                  void respondSessionOp(input).catch(() => undefined);
-                }}
-                request={pendingSessionOp}
-              />
-            ) : null}
-            <AgentChatComposer
-              busy={runningTurnId != null}
-              followUp={runningTurnId != null}
-              favorites={favorites}
-              onPhotosChange={setPhotos}
-              onChangeText={setText}
-              onPatch={onPatch}
-              onPickSuggestion={onPickSuggestion}
-              onQueue={onQueue}
-              onRemovePhoto={(id) =>
-                setPhotos((current) => current.filter((photo) => photo.id !== id))
-              }
-              onSend={onSend}
-              onSteer={onSteer}
-              onStop={onStop}
-              onToggleFavorite={toggleFavorite}
-              photos={photos}
-              picker={picker}
-              placeholder={composerPlaceholder}
-              queueLabel={copy.queue}
-              sendLabel={copy.send}
-              suggestionTitle={suggestions?.title}
-              suggestions={suggestions?.rows}
-              steerLabel={copy.steer}
-              stopLabel={copy.stop}
-              text={text}
+            <ComposerPillRow
+              belowCount={belowCount}
+              messageCount={messages.length}
+              onLayout={onPillRowLayout}
+              onPillPress={onPillPress}
+              onScrollToBottom={() => transcriptRef.current?.scrollToEndAnimated()}
+              pills={pills}
+              stickToEnd={stickToEnd}
             />
+            <View style={{ paddingHorizontal: 18 }}>
+              <AgentChatComposer
+                busy={runningTurnId != null}
+                followUp={runningTurnId != null}
+                favorites={favorites}
+                onPhotosChange={setPhotos}
+                onChangeText={setText}
+                onOpenCard={onPillPress}
+                onPasteChipsChange={setPasteChips}
+                onPatch={onPatch}
+                onPickSuggestion={onPickSuggestion}
+                onQueue={onQueue}
+                onRemovePhoto={(id) =>
+                  setPhotos((current) => current.filter((photo) => photo.id !== id))
+                }
+                onSend={onSend}
+                onSteer={onSteer}
+                onStop={onStop}
+                onToggleFavorite={toggleFavorite}
+                pasteChips={pasteChips}
+                photos={photos}
+                sessionUsage={sessionUsage}
+                picker={picker}
+                placeholder={composerPlaceholder}
+                queueLabel={copy.queue}
+                sendLabel={copy.send}
+                suggestionTitle={suggestions?.title}
+                suggestions={suggestions?.rows}
+                steerLabel={copy.steer}
+                stopLabel={copy.stop}
+                text={text}
+              />
+            </View>
           </View>
         }
       >
@@ -484,8 +627,14 @@ export function AgentChatThreadScreen({
           ) : null}
           {error && messages.length === 0 ? null : (
             <AgentChatTranscript
+              ref={transcriptRef}
+              // Stick source check still looks for the unmeasured literal expandedCardHeight={0}.
+              expandedCardHeight={measuredCardHeight}
               focusMessageId={focusMessageId}
               messages={messages}
+              onStickChange={onStickChange}
+              pillRowHeight={pillRowHeight}
+              stickToken={stickToken}
               streaming={runningTurnId != null}
             />
           )}

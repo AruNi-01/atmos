@@ -1,0 +1,62 @@
+{
+  "id": "F9",
+  "title": "Session chrome and errors",
+  "messages": [
+    {
+      "id": "f9-u",
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Start the session"
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z"
+    },
+    {
+      "id": "f9-a",
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "session_lifecycle",
+          "action": "create",
+          "status": "running"
+        },
+        {
+          "type": "session_lifecycle",
+          "action": "create",
+          "status": "completed"
+        },
+        {
+          "type": "session_lifecycle",
+          "action": "create",
+          "status": "failed",
+          "error": "provider offline"
+        },
+        {
+          "type": "session_config_change",
+          "model": {
+            "from": "fast",
+            "to": "standard"
+          }
+        },
+        {
+          "type": "session_hint",
+          "tone": "warning",
+          "kind": "model_switch_failed"
+        },
+        {
+          "type": "session_hint",
+          "tone": "error",
+          "kind": "mode_switch_failed"
+        },
+        {
+          "type": "error",
+          "message": "The session could not continue."
+        }
+      ],
+      "created_at": "2026-10-15T12:00:00.000Z",
+      "streaming": false
+    }
+  ]
+}

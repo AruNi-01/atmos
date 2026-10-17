@@ -1,15 +1,6 @@
-import { useEffect, useState, type ReactElement } from "react";
-import {
-  Image,
-  Keyboard,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { useEffect, useRef, useState, type ReactElement } from "react";
+import type { AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -23,6 +14,14 @@ import {
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { AgentChatAddSheet } from "./AgentChatAddSheet";
 import { AgentChatModelSheet } from "./AgentChatModelSheet";
+import { contextTriggerLabel } from "./composer-capabilities";
+import {
+  applyComposerPaste,
+  pasteChipLabel,
+  removeComposerPaste,
+  retainComposerPasteChips,
+  type ComposerPasteChip,
+} from "./composer-paste";
 import { copy } from "./copy";
 import type { ComposerPatch, ComposerPicker, FavoriteModel } from "./model-picker";
 import type { ComposerPhoto } from "./photo-attachment";
@@ -63,11 +62,18 @@ export function AgentChatComposer(props: {
   suggestions?: Array<{ id: string; title: string; detail: string }>;
   suggestionTitle?: string;
   onPickSuggestion?: (id: string) => void;
+  /** Opens the context card already in the lane. Hidden when that card is absent. */
+  sessionUsage?: AgentSessionUsage | null;
+  onOpenCard?: (id: "context") => void;
+  /** Present when the parent expands tokens before send, queue, and steer. */
+  pasteChips?: readonly ComposerPasteChip[];
+  onPasteChipsChange?: (chips: ComposerPasteChip[]) => void;
 }): ReactElement {
   const theme = useMobileTheme();
+  const textRef = useRef(props.text);
+  const chipsRef = useRef<readonly ComposerPasteChip[]>(props.pasteChips ?? []);
   const [modelsOpen, setModelsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [contentHeight, setContentHeight] = useState(LINE_HEIGHT);
   const suggestions = props.suggestions ?? [];
   const draftText = props.text.trim();
@@ -75,31 +81,55 @@ export function AgentChatComposer(props: {
   // Follow-up actions only. An empty field after send stays a normal composer.
   const showQueue = props.followUp === true && canSend;
   const showSteer = props.followUp === true && draftText.length > 0;
-  const stacked =
-    keyboardVisible ||
-    modelsOpen ||
-    addOpen ||
-    showQueue ||
-    contentHeight > LINE_HEIGHT * 1.7 ||
-    props.text.includes("\n");
   const sendReady = canSend && !props.busy;
   const sendIcon = sendReady
     ? theme.colors.labelInverse
     : props.busy
       ? theme.colors.label
       : theme.colors.secondaryLabel;
-  const modelLabel = props.picker.triggerLabel || props.picker.modelLabel || copy.model;
+  const modelLabel = props.picker.triggerLabel.trim();
+  const showModel = modelLabel.length > 0;
+  const showNoAgent = props.picker.agents.length === 0 && !showModel;
+  const pasteChips = props.pasteChips ?? [];
+  const contextLabel = contextTriggerLabel(props.sessionUsage);
+  const showContext = contextLabel != null && props.onOpenCard != null;
+  const contextA11y =
+    contextLabel == null || contextLabel === copy.context
+      ? copy.context
+      : `${copy.context} ${contextLabel}`;
 
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const show = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
+    textRef.current = props.text;
+  }, [props.text]);
+
+  useEffect(() => {
+    chipsRef.current = props.pasteChips ?? [];
+  }, [props.pasteChips]);
+
+  const onDraftChange = (next: string) => {
+    const applied = applyComposerPaste(textRef.current, next);
+    if (!props.onPasteChipsChange) {
+      textRef.current = next;
+      props.onChangeText(next);
+      return;
+    }
+    const retained = retainComposerPasteChips(applied.draft, chipsRef.current, applied.chip);
+    textRef.current = applied.draft;
+    if (retained !== chipsRef.current) {
+      chipsRef.current = retained;
+      props.onPasteChipsChange(retained);
+    }
+    props.onChangeText(applied.draft);
+  };
+
+  const onRemovePaste = (id: string) => {
+    if (!props.onPasteChipsChange) return;
+    const removed = removeComposerPaste(props.text, chipsRef.current, id);
+    textRef.current = removed.draft;
+    chipsRef.current = removed.chips;
+    props.onPasteChipsChange(removed.chips);
+    props.onChangeText(removed.draft);
+  };
 
   useEffect(() => {
     if (props.text.length === 0) setContentHeight(LINE_HEIGHT);
@@ -202,6 +232,41 @@ export function AgentChatComposer(props: {
     </Pressable>
   );
 
+  const renderContext = () =>
+    showContext ? (
+      <GlassPanel
+        interactive
+        shadow={false}
+        style={{
+          alignItems: "center",
+          borderRadius: 18,
+          flexShrink: 0,
+          height: BUTTON_SIZE,
+          justifyContent: "center",
+        }}
+      >
+        <Pressable
+          accessibilityLabel={contextA11y}
+          accessibilityRole="button"
+          onPress={() => props.onOpenCard?.("context")}
+          style={({ pressed }) => ({
+            alignItems: "center",
+            height: BUTTON_SIZE,
+            justifyContent: "center",
+            opacity: pressed ? 0.6 : 1,
+            paddingHorizontal: 10,
+          })}
+        >
+          <Text
+            numberOfLines={1}
+            style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}
+          >
+            {contextLabel}
+          </Text>
+        </Pressable>
+      </GlassPanel>
+    ) : null;
+
   return (
     <View style={{ gap: 12 }}>
       {suggestions.length > 0 ? (
@@ -258,25 +323,78 @@ export function AgentChatComposer(props: {
           </ScrollView>
         </View>
       ) : null}
+      {pasteChips.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {pasteChips.map((chip) => (
+              <GlassPanel
+                key={chip.id}
+                shadow={false}
+                style={{
+                  alignItems: "center",
+                  borderRadius: 16,
+                  flexDirection: "row",
+                  gap: 6,
+                  height: 32,
+                  paddingLeft: 10,
+                  paddingRight: 6,
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{ color: theme.colors.label, fontSize: 13, lineHeight: 18 }}
+                >
+                  {pasteChipLabel(chip.lineCount)}
+                </Text>
+                <Pressable
+                  accessibilityLabel={copy.close}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => onRemovePaste(chip.id)}
+                >
+                  <XIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2.4} />
+                </Pressable>
+              </GlassPanel>
+            ))}
+          </View>
+        </ScrollView>
+      ) : null}
       {props.photos.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={{ flexDirection: "row", gap: 8 }}>
-            {props.photos.map((photo) => (
-              <View key={photo.id}>
-                <Image
-                  source={{ uri: photo.uri }}
-                  style={{ borderRadius: 12, height: 64, width: 64 }}
-                />
-                <Pressable
-                  accessibilityLabel={photo.filename}
-                  accessibilityRole="button"
-                  onPress={() => props.onRemovePhoto(photo.id)}
-                  style={{ position: "absolute", right: 4, top: 4 }}
-                >
-                  <XIcon color="#fff" size={14} strokeWidth={2.4} />
-                </Pressable>
-              </View>
-            ))}
+            {props.photos.map((photo) => {
+              const photoName = photo.filename.trim();
+              return (
+                <View key={photo.id} style={{ width: 64 }}>
+                  <Image
+                    alt=""
+                    source={{ uri: photo.uri }}
+                    style={{ borderRadius: 12, height: 64, width: 64 }}
+                  />
+                  <Pressable
+                    accessibilityLabel={photo.filename}
+                    accessibilityRole="button"
+                    onPress={() => props.onRemovePhoto(photo.id)}
+                    style={{ position: "absolute", right: 4, top: 4 }}
+                  >
+                    <XIcon color="#fff" size={14} strokeWidth={2.4} />
+                  </Pressable>
+                  {photoName.length > 0 ? (
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        color: theme.colors.secondaryLabel,
+                        fontSize: 11,
+                        lineHeight: 14,
+                        marginTop: 4,
+                      }}
+                    >
+                      {photoName}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         </ScrollView>
       ) : null}
@@ -294,60 +412,58 @@ export function AgentChatComposer(props: {
         <View
           style={{
             overflow: "hidden",
-            paddingBottom: stacked ? 8 : 18,
-            paddingLeft: stacked ? 16 : 60,
-            paddingRight: stacked ? 16 : 60,
-            paddingTop: stacked ? 16 : 18,
+            paddingBottom: 8,
+            paddingHorizontal: 16,
+            paddingTop: 14,
           }}
         >
           <TextInput
             multiline
-            onChangeText={props.onChangeText}
+            onChangeText={onDraftChange}
             onContentSizeChange={(event) => {
+              if (props.text.length === 0) {
+                setContentHeight(LINE_HEIGHT);
+                return;
+              }
               const next = Math.ceil(event.nativeEvent.contentSize.height);
               setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
             }}
             placeholder={props.placeholder}
             placeholderTextColor={theme.colors.secondaryLabel}
-            scrollEnabled={stacked}
+            scrollEnabled={contentHeight > LINE_HEIGHT * MAX_LINES}
             style={{
               color: theme.colors.label,
               fontSize: 16,
               lineHeight: LINE_HEIGHT,
               margin: 0,
-              maxHeight: stacked ? LINE_HEIGHT * MAX_LINES : LINE_HEIGHT,
+              maxHeight: LINE_HEIGHT * MAX_LINES,
               minHeight: LINE_HEIGHT,
               padding: 0,
-              textAlignVertical: stacked ? "top" : "center",
+              textAlignVertical: "top",
+              width: "100%",
             }}
             value={props.text}
           />
         </View>
         <View
-          style={
-            stacked
-              ? {
-                  alignItems: "center",
-                  flexDirection: "row",
-                  gap: 8,
-                  minHeight: BUTTON_SIZE,
-                  paddingBottom: 8,
-                  paddingHorizontal: 8,
-                }
-              : {
-                  alignItems: "center",
-                  bottom: 0,
-                  flexDirection: "row",
-                  left: 8,
-                  position: "absolute",
-                  right: 8,
-                  top: 0,
-                }
-          }
+          style={{
+            alignItems: "center",
+            flexDirection: "row",
+            gap: 8,
+            minHeight: BUTTON_SIZE,
+            paddingBottom: 8,
+            paddingHorizontal: 8,
+          }}
         >
           {renderPlus()}
-          {stacked ? renderModel() : null}
+          {showModel ? renderModel() : null}
+          {showNoAgent ? (
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+              {copy.noAgent}
+            </Text>
+          ) : null}
           <View style={{ flex: 1 }} />
+          {renderContext()}
           {showQueue ? renderFollowUp(props.queueLabel, props.onQueue) : null}
           {showSteer ? renderFollowUp(props.steerLabel, props.onSteer) : null}
           {renderSend()}
