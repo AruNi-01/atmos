@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Screenshot F1–F13 in light and dark, then capture two motion passes:
-# f13-tail scrolled to Reply 50, and stream-tools sampled while rows append.
+# f13-tail scrolled to Reply 50 (three frames muxed when they differ), and
+# stream-tools sampled while rows append.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -160,6 +161,43 @@ tail_reading_held() {
   ')
 }
 
+# Three shots while the tail is still appending. simctl screenshots are too
+# slow to sample a 400ms draw, and this list is held, so the gap between
+# shots is the motion: Reply 50 stays put and the below count changes.
+record_tail_hold() {
+  local frames shot duration video
+  frames="$(mktemp -d)"
+  for shot in 1 2 3; do
+    if [[ "$shot" != "1" ]]; then
+      sleep 2
+    fi
+    take_screenshot "$OUT/f13-tail-away-${shot}.png"
+    sips -s format jpeg "$OUT/f13-tail-away-${shot}.png" --out "$frames/00${shot}.jpg" >/dev/null
+  done
+  cp "$OUT/f13-tail-away-1.png" "$OUT/f13-tail-away-light.png"
+  if ! python3 - "$OUT/f13-tail-away-1.png" "$OUT/f13-tail-away-2.png" "$OUT/f13-tail-away-3.png" <<'PY'
+import hashlib, pathlib, sys
+digests = {hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest() for path in sys.argv[1:]}
+print(f"f13-tail distinct frames {len(digests)}")
+if len(digests) < 2:
+    print("f13-tail screenshots are identical, so the movie would not show the count growing", file=sys.stderr)
+    sys.exit(1)
+PY
+  then
+    rm -rf "$frames"
+    dump_runtime_logs
+    exit 1
+  fi
+  video="$OUT/f13-tail-away.mov"
+  duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"
+  rm -rf "$frames"
+  echo "recording f13-tail-away duration ${duration}"
+  if [[ ! -s "$video" ]]; then
+    echo "recording ${video} is missing or empty" >&2
+    exit 1
+  fi
+}
+
 capture_tail_away() {
   local id="f13-tail"
   local theme="light"
@@ -180,7 +218,7 @@ capture_tail_away() {
   while (( SECONDS < deadline )); do
     if tail_reading_held; then
       echo "f13-tail reading line held while the below count grew"
-      take_screenshot "$OUT/f13-tail-away-light.png"
+      record_tail_hold
       return 0
     fi
     sleep 0.5
@@ -191,10 +229,11 @@ capture_tail_away() {
     >"$OUT/device-log-fallback.txt" 2>&1 || true
   if tail_reading_held; then
     echo "f13-tail reading line held while the below count grew (via log show)"
-    take_screenshot "$OUT/f13-tail-away-light.png"
+    record_tail_hold
     return 0
   fi
   echo "f13-tail below count did not grow while the scroll offset held" >&2
+  take_screenshot "$OUT/f13-tail-away-light.png" || true
   tail_log_path >/dev/null
   dump_runtime_logs
   exit 1
