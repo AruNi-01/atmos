@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import type { AgentMessage, AgentPart, AgentTurnUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import { CoinsIcon } from "@/ui/icons/lucide-native";
+import { CopyMessageButton } from "./copy-message-button";
 import {
   compactTurnTokenLabel,
   copy,
@@ -18,24 +18,6 @@ import {
   fileChangeName,
   visibleTurnFileChanges,
 } from "./turn-file-changes";
-
-function CopyMessageButton({ text }: { text: string }) {
-  const theme = useMobileTheme();
-  return (
-    <Pressable
-      accessibilityLabel={copy.copyMessage}
-      accessibilityRole="button"
-      hitSlop={8}
-      onPress={() => {
-        void Clipboard.setStringAsync(text);
-      }}
-    >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-        {copy.copyMessage}
-      </Text>
-    </Pressable>
-  );
-}
 
 function UsageBreakdown({ usage }: { usage: AgentTurnUsage }) {
   const theme = useMobileTheme();

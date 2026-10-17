@@ -18,6 +18,10 @@ import {
 } from "@/lib/relay-secret-key";
 import { useSessionStore } from "@/stores/session-store";
 import { MobileThemeVariablesProvider } from "@/providers/MobileThemeVariablesProvider";
+import {
+  getParityPreviewThemeOverride,
+  nativeColorSchemeToApply,
+} from "@/theme/parity-preview-theme";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -78,9 +82,13 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (Platform.OS === "web") return;
-    Appearance.setColorScheme(theme.preference === "system" ? "unspecified" : theme.preference);
+    const next = nativeColorSchemeToApply({
+      preference: theme.preference,
+      preview: getParityPreviewThemeOverride(),
+    });
+    if (next != null) Appearance.setColorScheme(next);
     void SystemUI.setBackgroundColorAsync(theme.colors.background);
-  }, [theme.colors.background, theme.preference]);
+  }, [theme.colors.background, theme.colorScheme, theme.preference]);
 
   useEffect(() => {
     const updateNetwork = async () => {
