@@ -611,7 +611,7 @@ index a668c26..1f75655 100644
      [self addSubview:_copyButton];
  #endif
    }
-@@ -274,40 +346,38 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -274,40 +346,42 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  {
    CGFloat borderW = ceil([_config codeBlockBorderWidth]);
    CGFloat headerH = [self headerHeight];
@@ -638,6 +638,10 @@ index a668c26..1f75655 100644
 +  BOOL scrollsVertically = fullPane > frame.size.height + 1.0;
 +  _scrollView.scrollEnabled = contentWidth > frame.size.width || scrollsVertically;
 +  _scrollView.showsVerticalScrollIndicator = scrollsVertically;
++  // The page pane is rounded-lg. Clip scrolled glyphs to that inner radius so
++  // they stay out of the frame wash in the corners.
++  _scrollView.layer.cornerRadius = MAX(0, [_config codeBlockBorderRadius] - borderW);
++  _scrollView.clipsToBounds = YES;
  #endif
  }
  
@@ -718,9 +722,9 @@ index a668c26..1f75655 100644
 +                               MAX(self.bounds.size.height - headerH - borderWidth, 0));
 +  CGFloat paneRadius = MAX(0, radius - borderWidth);
 +#if !TARGET_OS_OSX
-+  UIBezierPath *panePath = [UIBezierPath bezierPathWithRoundedRect:paneRect
-+                                                 byRoundingCorners:(UIRectCornerTopLeft | UIRectCornerTopRight)
-+                                                       cornerRadii:CGSizeMake(paneRadius, paneRadius)];
++  // Web CodeBlockContent is `rounded-lg` on every corner. Rounding only the top
++  // leaves the page fill square in the bottom corners, covering the frame wash.
++  UIBezierPath *panePath = [UIBezierPath bezierPathWithRoundedRect:paneRect cornerRadius:paneRadius];
 +#else
 +  NSBezierPath *panePath = [NSBezierPath bezierPathWithRoundedRect:paneRect xRadius:paneRadius yRadius:paneRadius];
 +#endif

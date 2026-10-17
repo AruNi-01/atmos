@@ -102,6 +102,9 @@ describe("web source parity", () => {
     expect(patch).toContain("kENRMWebCodePadX = 16.0");
     expect(patch).toContain("kENRMWebCodePadY = 12.0");
     expect(patch).toContain("ENRMWebCodePaneHeight");
+    expect(patch).toContain("bezierPathWithRoundedRect:paneRect cornerRadius:paneRadius");
+    expect(patch).toContain("_scrollView.clipsToBounds = YES");
+    expect(patch).not.toContain("UIRectCornerTopLeft");
     expect(patch).toContain("setCodeBlockMaxHeight");
     expect(patch).toContain("max-h-96");
     expect(patch).toContain("CODE BLOCK");

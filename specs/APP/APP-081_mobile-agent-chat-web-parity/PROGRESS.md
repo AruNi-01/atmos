@@ -370,3 +370,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - The streaming answer caret is U+258B. Streamdown's block caret is that character. This is not in run `39052486789`. It is not re-shot.
 - A fence header and its copy glyph use neutral-600 (`#525252`) in light. The previous ink was zinc-600. Dark stays neutral-400. This is not in run `39052486789`. It is not re-shot.
 - An answer, thinking, or tool-markdown fence caps its code pane at 384px (`max-h-96`) and scrolls inside that pane. A tool code fence stays full height so its expand control can still open it. This is not in run `39052486789`. It is not re-shot.
+- The code pane rounds every corner. Web `CodeBlockContent` is `rounded-lg`, and a top-only curve left the page fill square in the bottom corners. The scroll view clips to that inner radius. This is not in run `39052486789`. It is not re-shot.
