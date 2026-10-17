@@ -11,6 +11,7 @@ import { NumberFlow } from "number-flow-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronDownIcon } from "@/ui/icons/lucide-native";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { chatSecondaryForeground } from "./chat-ink";
 import { copy } from "./copy";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { SCROLL_UNIT_SPRING, textMorphFrame, type TextMorphSlot } from "./scroll-pill-unit";
@@ -96,8 +97,9 @@ function ScrollUnit({ unit, style }: { unit: string; style: TextStyle }) {
 export function ScrollToBottomPill({ count, onPress }: { count: number; onPress: () => void }) {
   const theme = useMobileTheme();
   const showCopy = count > 0;
+  const ink = chatSecondaryForeground(theme.isDark);
   const label: TextStyle = {
-    color: theme.colors.label,
+    color: ink,
     fontSize: agentChatTokenMap.textXs.fontSize,
     fontVariant: ["tabular-nums"] as FontVariant[],
     fontWeight: "500",
@@ -127,7 +129,7 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
           importantForAccessibility="no-hide-descendants"
           style={styles.row}
         >
-          <ChevronDownIcon color={theme.colors.label} size={SCROLL_PILL_ICON} strokeWidth={2} />
+          <ChevronDownIcon color={ink} size={SCROLL_PILL_ICON} strokeWidth={2} />
           {showCopy ? (
             <View style={styles.copy}>
               {copy.scrollBelowPrefix.length > 0 ? (

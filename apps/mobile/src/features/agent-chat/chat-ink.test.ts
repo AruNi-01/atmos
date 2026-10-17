@@ -5,6 +5,7 @@ import {
   chatForeground80,
   chatForeground90,
   chatMutedForeground,
+  chatSecondaryForeground,
 } from "./chat-ink";
 
 describe("chat ink", () => {
@@ -17,5 +18,7 @@ describe("chat ink", () => {
     expect(chatForeground80(true)).toBe("rgba(250, 250, 250, 0.8)");
     expect(chatForeground90(false)).toBe("rgba(9, 9, 11, 0.9)");
     expect(chatForeground90(true)).toBe("rgba(250, 250, 250, 0.9)");
+    expect(chatSecondaryForeground(false)).toBe("#18181b");
+    expect(chatSecondaryForeground(true)).toBe("#fafafa");
   });
 });

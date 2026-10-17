@@ -303,6 +303,7 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Web search source labels, the overflow count, the chevron, the globe, and the empty favicon dot use `--muted-foreground`. The overflow stays at 80%, the chevron at 60%, and the dot at 30%. This is not re-shot.
 - The inline subagent panel title and a running row use `--foreground`. The header icon, the count, and a settled row use `--muted-foreground`. A failed row stays `--destructive`. The child activity sweeps with TextShimmer for 1.5s and yields to the title (`flexShrink: 9999`). Rows stay unpressable. This is not re-shot.
 - An empty plan viewer uses `text-sm text-muted-foreground`, including the lane plan card. This is not re-shot.
+- The scroll pill chevron and count use `text-secondary-foreground` (`#18181b` / `#fafafa`). Glass stays. This is not re-shot.
 - Tool tree trunks and elbows use `--foreground` at the shared line alpha. The theme label stays off those strokes. This is not re-shot.
 - A session lifecycle, config change, or hint uses `--muted-foreground` for the default label and icon. A failed lifecycle keeps the icon muted and paints only the text with `--destructive`. A warning hint stays amber-500, and an error hint stays `--destructive` on both. A running lifecycle wraps the label in TextShimmer for 1s and leaves the icon muted. This is not re-shot.
 - A settled permission in the transcript uses the same approval card as the live request, with the actions removed. A pending request stays off the transcript. This is not re-shot.

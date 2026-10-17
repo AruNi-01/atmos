@@ -29,3 +29,12 @@ export function chatForeground90(isDark: boolean): string {
 export function chatMutedForeground(isDark: boolean): string {
   return isDark ? CHAT_MUTED_DARK : CHAT_MUTED_LIGHT;
 }
+
+/**
+ * Web `text-secondary-foreground` on the scroll-to-bottom button.
+ * Light is `--primary` (`oklch(0.21 0.006 285.885)`, `#18181b`).
+ * Dark is `--foreground` (`oklch(0.985 0 0)`, `#fafafa`).
+ */
+export function chatSecondaryForeground(isDark: boolean): string {
+  return isDark ? CHAT_FOREGROUND_DARK : "#18181b";
+}

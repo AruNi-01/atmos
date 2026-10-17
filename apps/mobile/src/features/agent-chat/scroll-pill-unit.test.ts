@@ -46,6 +46,8 @@ describe("scroll pill unit", () => {
     expect(pill).toContain('fontVariant: ["tabular-nums"]');
     expect(pill).toContain("SCROLL_PILL_HEIGHT");
     expect(pill).toContain("SCROLL_PILL_ICON");
+    expect(pill).toContain("chatSecondaryForeground(theme.isDark)");
+    expect(pill).not.toContain("theme.colors.label");
     expect(pill).toContain("paddingLeft: showCopy ? 8 : 0");
     expect(pill).toContain("paddingRight: showCopy ? 10 : 0");
     expect(pill).toContain("gap: 6");
