@@ -6,9 +6,9 @@ import { chatMutedForeground } from "./chat-ink";
  * `mb-2`, so the painted gap under an answer heading is 16px. Thinking keeps
  * 8px because its fences still carry a top margin. Answer text is `text-sm`
  * (14/20). Headings keep their own line box. A body line height of 20 clips
- * the 30px h1. A message that opens on a heading still gets this top spacer.
- * Web clears it with `[&>*:first-child]:mt-0`, and the native renderer has no
- * first-child flag.
+ * the 30px h1. A heading that opens the message drops that top spacer.
+ * Web clears it with `first:mt-0` and `[&>*:first-child]:mt-0`. Later headings
+ * keep the 24px.
  */
 export const agentChatHeadingScale = {
   h1: { fontSize: 30, lineHeight: 36 },

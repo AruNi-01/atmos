@@ -606,3 +606,32 @@ diff --git a/ios/renderer/StrongRenderer.m b/ios/renderer/StrongRenderer.m
 -
  @end
 \ No newline at end of file
+diff --git a/ios/renderer/HeadingRenderer.m b/ios/renderer/HeadingRenderer.m
+--- a/ios/renderer/HeadingRenderer.m
++++ b/ios/renderer/HeadingRenderer.m
+@@ -42,15 +42,9 @@
+   [context setBlockStyle:BlockTypeHeading font:style.font color:style.color headingLevel:level];
+ 
+   NSUInteger start = output.length;
++  // Web clears the first heading: `first:mt-0` and `[&>*:first-child]:mt-0`.
+   NSUInteger contentStart = start;
+ 
+-  // Spacing at the very start of the document requires a spacer character (index 0 check)
+-  if (start == 0) {
+-    NSUInteger offset = applyBlockSpacingBefore(output, 0, style.marginTop);
+-    contentStart += offset;
+-    start += offset;
+-  }
+-
+   [_rendererFactory renderChildrenOfNode:node into:output context:context];
+ 
+   NSRange range = NSMakeRange(start, output.length - start);
+@@ -67,7 +61,7 @@
+   applyLineHeight(output, range, style.lineHeight);
+   applyTextAlignment(output, range, style.textAlign);
+ 
+-  // Skip marginTop for the first block — already handled by applyBlockSpacingBefore above
++  // A later heading keeps its top margin. Index 0 adds none.
+   if (contentStart != 1) {
+     NSUInteger inserted = applyParagraphSpacingBefore(output, range, style.marginTop);
+     start += inserted;

@@ -107,5 +107,7 @@ describe("web source parity", () => {
     expect(patch).toContain('weight:@"600"');
     expect(patch).toContain("Agent chat table headers are font-semibold");
     expect(patch).toContain('isHeader ? @"600"');
+    expect(patch).toContain("Web clears the first heading");
+    expect(patch).toContain("A later heading keeps its top margin");
   });
 });
