@@ -31,6 +31,7 @@ export function LaneCardBody({
     case "permission":
       return cards.permission ? (
         <AgentChatPermissionCard
+          key={cards.permission.request_id}
           filePath={cards.planFilePath}
           onRespond={onRespondPermission}
           request={cards.permission}

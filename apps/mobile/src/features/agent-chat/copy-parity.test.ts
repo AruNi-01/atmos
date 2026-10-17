@@ -12,6 +12,8 @@ type ChatPanelCopy = {
   scrollBelow: { prefix: string; suffix: string; unit: string };
   permissionRequested: string;
   askUserTitle: string;
+  continue: string;
+  skip: string;
   planApprovalTitle: string;
   sessionOpRequested: string;
   planViewerEmpty: string;
@@ -121,6 +123,8 @@ describe("agent chat copy parity", () => {
   test("card and panel titles match web copy", () => {
     expect(copy.permissionRequested).toBe(chatPanel.permissionRequested);
     expect(copy.askUserTitle).toBe(chatPanel.askUserTitle);
+    expect(copy.continue).toBe(chatPanel.continue);
+    expect(copy.skip).toBe(chatPanel.skip);
     expect(copy.planApprovalTitle).toBe(chatPanel.planApprovalTitle);
     expect(copy.sessionOpRequested).toBe(chatPanel.sessionOpRequested);
     expect(copy.planViewerEmpty).toBe(chatPanel.planViewerEmpty);

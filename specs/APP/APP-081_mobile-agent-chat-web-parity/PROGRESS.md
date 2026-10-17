@@ -259,3 +259,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - The parity preview host is not collapsable. When the view snapshot is one color, the Skia capture draws the window layer instead. A still-flat frame logs `[parity] motion flat`. S10 stays `not_run` until those frames are reviewed.
 - An image generation body uses the web 8px horizontal inset and 8px bottom inset around the 208px box. This is not re-shot.
 - A code fence keeps the 8px side inset and adds the web 8px bottom inset. The fence's own 8px margin stays. This is not re-shot.
+- A permission with questions shows one prompt at a time, lettered choices, and Skip / Continue. Continue sends `answers:` plus the JSON map and stays disabled until every question has an answer. Skip sends `reject_once`. The wire Allow / Deny options stay on a permission that has no questions. This is not re-shot.
