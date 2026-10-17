@@ -274,8 +274,8 @@ describe("assistant footer", () => {
     expect(thinkingTitle(false, undefined)).toBe("Thought for a few seconds");
     expect(thinkingTitle(false, 2)).toBe("Thought for 2s");
     expect(
-      sessionChromeCopy({ type: "session_lifecycle", action: "create", status: "running" }).text,
-    ).toBe("Creating session...");
+      sessionChromeCopy({ type: "session_lifecycle", action: "create", status: "running" }),
+    ).toMatchObject({ shimmer: true, text: "Creating session...", tone: "secondary" });
     expect(
       sessionChromeCopy({
         type: "session_lifecycle",
@@ -299,7 +299,12 @@ describe("assistant footer", () => {
         status: "failed",
         error: " timeout ",
       }),
-    ).toEqual({ icon: "resume", text: "Failed to resume session: timeout", tone: "failed" });
+    ).toEqual({
+      icon: "resume",
+      shimmer: false,
+      text: "Failed to resume session: timeout",
+      tone: "failed",
+    });
     expect(
       sessionChromeCopy({
         type: "session_config_change",
@@ -317,6 +322,7 @@ describe("assistant footer", () => {
       sessionChromeCopy({ type: "session_hint", tone: "warning", kind: "model_switch_failed" }),
     ).toEqual({
       icon: "hint",
+      shimmer: false,
       text: "Couldn't switch model in this session",
       tone: "warning",
     });
@@ -365,7 +371,11 @@ describe("assistant footer", () => {
     expect(session).toContain("TriangleAlert");
     expect(session).toContain("size={14}");
     expect(session).toContain("chatDestructiveColor");
+    expect(session).toContain("chatMutedForeground");
+    expect(session).toContain("TextShimmer");
+    expect(session).toContain("duration={1}");
     expect(session).toContain("CHAT_AMBER");
+    expect(session).not.toContain("theme.colors.secondaryLabel");
     expect(session).not.toContain("colors.red");
     expect(session).not.toContain("colors.yellow");
   });

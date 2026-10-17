@@ -331,6 +331,8 @@ type SessionChromePart = Extract<
 
 export function sessionChromeCopy(part: SessionChromePart): {
   icon: SessionChromeIcon;
+  /** Web wraps a running lifecycle label in `TextShimmer`. */
+  shimmer: boolean;
   text: string;
   tone: SessionChromeTone;
 } {
@@ -358,6 +360,7 @@ export function sessionChromeCopy(part: SessionChromePart): {
     const error = failed ? (part.error?.trim() ?? "") : "";
     return {
       icon: resume ? "resume" : "create",
+      shimmer: running,
       text: error ? `${label}: ${error}` : label,
       tone: failed ? "failed" : "secondary",
     };
@@ -378,7 +381,7 @@ export function sessionChromeCopy(part: SessionChromePart): {
           : modeFrom
             ? fillTemplate(copy.session.switchedModeFrom, { from: modeFrom, to: mode })
             : fillTemplate(copy.session.switchedMode, { to: mode });
-    return { icon: model && !mode ? "model" : "layers", text, tone: "secondary" };
+    return { icon: model && !mode ? "model" : "layers", shimmer: false, text, tone: "secondary" };
   }
 
   const text =
@@ -391,7 +394,7 @@ export function sessionChromeCopy(part: SessionChromePart): {
           : part.kind;
   const tone: SessionChromeTone =
     part.tone === "warning" ? "warning" : part.tone === "error" ? "error" : "secondary";
-  return { icon: "hint", text, tone };
+  return { icon: "hint", shimmer: false, text, tone };
 }
 
 export function isPlanExitRequest(request: {
