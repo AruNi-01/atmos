@@ -941,6 +941,8 @@ describe("image generation", () => {
     const view = source.slice(source.indexOf("function ImageGenBody"));
     const card = view.slice(0, view.indexOf("function PlanDocumentBody"));
     expect(card).toContain("maxWidth: 208");
+    expect(card).toContain("paddingHorizontal: 8");
+    expect(card).toContain("paddingBottom: 8");
     expect(card).toContain("IMAGE_GEN_STATUS_TEXT");
     expect(card).not.toContain("DitherField");
     expect(source).toContain("imageGenStaysOpen(part.status)");

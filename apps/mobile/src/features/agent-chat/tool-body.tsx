@@ -1531,60 +1531,66 @@ function ImageGenBody({ model }: { model: Extract<ToolBodyModel, { kind: "image_
   const active =
     model.status === "queued" || model.status === "generating" || model.status === "refining";
   return (
-    <View accessibilityState={{ busy: active }} style={{ gap: 12, maxWidth: 208, width: "100%" }}>
-      {model.items.length === 0 ? (
-        <View
-          accessibilityLabel={label}
-          accessibilityRole="image"
-          style={{
-            aspectRatio: model.aspect,
-            backgroundColor: theme.colors.cardSubtle,
-            borderRadius: 12,
-            width: "100%",
-          }}
-        />
-      ) : (
-        <View style={{ gap: 12 }}>
-          {model.items.map((item, index) =>
-            "uri" in item ? (
-              <ImageGenPreview key={`${item.uri}:${index}`} aspect={model.aspect} uri={item.uri} />
-            ) : (
-              <PathChip key={`${item.path}:${index}`} path={item.path} />
-            ),
-          )}
-        </View>
-      )}
-      {showStatus || model.prompt ? (
-        <View style={{ gap: 2 }}>
-          {showStatus ? (
-            <View
-              accessibilityLiveRegion="polite"
-              style={{ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 20 }}
-            >
-              <ImageGenMark status={model.status} />
-              <Text
-                style={{
-                  color: model.status === "error" ? theme.colors.red : theme.colors.label,
-                  flexShrink: 1,
-                  fontSize: 14,
-                  fontWeight: "500",
-                  lineHeight: 20,
-                }}
+    <View style={{ paddingBottom: 8, paddingHorizontal: 8 }}>
+      <View accessibilityState={{ busy: active }} style={{ gap: 12, maxWidth: 208, width: "100%" }}>
+        {model.items.length === 0 ? (
+          <View
+            accessibilityLabel={label}
+            accessibilityRole="image"
+            style={{
+              aspectRatio: model.aspect,
+              backgroundColor: theme.colors.cardSubtle,
+              borderRadius: 12,
+              width: "100%",
+            }}
+          />
+        ) : (
+          <View style={{ gap: 12 }}>
+            {model.items.map((item, index) =>
+              "uri" in item ? (
+                <ImageGenPreview
+                  key={`${item.uri}:${index}`}
+                  aspect={model.aspect}
+                  uri={item.uri}
+                />
+              ) : (
+                <PathChip key={`${item.path}:${index}`} path={item.path} />
+              ),
+            )}
+          </View>
+        )}
+        {showStatus || model.prompt ? (
+          <View style={{ gap: 2 }}>
+            {showStatus ? (
+              <View
+                accessibilityLiveRegion="polite"
+                style={{ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 20 }}
               >
-                {statusText}
+                <ImageGenMark status={model.status} />
+                <Text
+                  style={{
+                    color: model.status === "error" ? theme.colors.red : theme.colors.label,
+                    flexShrink: 1,
+                    fontSize: 14,
+                    fontWeight: "500",
+                    lineHeight: 20,
+                  }}
+                >
+                  {statusText}
+                </Text>
+              </View>
+            ) : null}
+            {model.prompt ? (
+              <Text
+                numberOfLines={1}
+                style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}
+              >
+                {`“${model.prompt}”`}
               </Text>
-            </View>
-          ) : null}
-          {model.prompt ? (
-            <Text
-              numberOfLines={1}
-              style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}
-            >
-              {`“${model.prompt}”`}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
+            ) : null}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
