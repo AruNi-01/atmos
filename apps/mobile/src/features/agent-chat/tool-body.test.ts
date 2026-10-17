@@ -104,6 +104,7 @@ describe("tool body presentation", () => {
       kind: "code",
       path: "a.ts",
       text: "const a = 1;\n",
+      language: "typescript",
       hint: null,
     });
   });
@@ -939,5 +940,22 @@ describe("tool row chrome", () => {
     const trigger = source.slice(source.indexOf("export function ToolCallRow"));
     expect(trigger).toContain("codePreviewMeta");
     expect(trigger).toContain("fontSize: 11");
+
+    const fence = mod.fenceForMarkdown as (code: string, language: string) => string;
+    expect(mod.TOOL_CODE_MAX_HEIGHT).toBe(384);
+    expect(fence("const a = 1;\n", "typescript")).toBe("```typescript\nconst a = 1;\n\n```");
+    expect(fence("```\n", "md")).toBe("````md\n```\n\n````");
+    expect(fence("plain", "")).toBe("```\nplain\n```");
+    const view = source.slice(source.indexOf("// @view"));
+    const codeFence = view.slice(
+      view.indexOf("function ToolCodeFence"),
+      view.indexOf("function CappedMono"),
+    );
+    expect(codeFence).toContain("AgentChatMarkdown");
+    expect(codeFence).toContain("fenceForMarkdown");
+    expect(codeFence).toContain("TOOL_CODE_MAX_HEIGHT");
+    expect(codeFence).toContain("codeBlockMargin={8}");
+    expect(codeFence).not.toContain("PathChip");
+    expect(codeFence).not.toContain("CappedMono");
   });
 });

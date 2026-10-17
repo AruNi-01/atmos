@@ -23,6 +23,7 @@ export function AgentChatMarkdown({
   fontSize,
   lineHeight,
   chipHttpUrls = false,
+  codeBlockMargin,
 }: {
   text: string;
   tone?: "body" | "thinking";
@@ -31,6 +32,8 @@ export function AgentChatMarkdown({
   lineHeight?: number;
   /** Answer and thinking only. Matches web's hostname chip for complete http URLs. */
   chipHttpUrls?: boolean;
+  /** Tool fences use web's `my-2` (8). Answer fences keep `my-4`. */
+  codeBlockMargin?: number;
 }) {
   const theme = useMobileTheme();
   const markdownStyle = useMemo<MarkdownStyle>(() => {
@@ -86,6 +89,9 @@ export function AgentChatMarkdown({
         fontFamily: "Menlo",
         syntaxColors: chrome.syntax,
         ...agentChatBlockMetrics.codeBlock,
+        ...(codeBlockMargin == null
+          ? {}
+          : { marginTop: codeBlockMargin, marginBottom: codeBlockMargin }),
       },
       link: {
         color: theme.colors.accent,
@@ -122,7 +128,7 @@ export function AgentChatMarkdown({
         ...agentChatBlockMetrics.table,
       },
     };
-  }, [chipHttpUrls, fontSize, lineHeight, theme, tone]);
+  }, [chipHttpUrls, codeBlockMargin, fontSize, lineHeight, theme, tone]);
 
   const markdown = useMemo(
     () => (chipHttpUrls ? chipCompleteHttpUrls(text) : text),

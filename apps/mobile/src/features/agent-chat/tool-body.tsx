@@ -43,6 +43,7 @@ export type ToolBodyModel =
       title: string;
       path: string | null;
       text: string;
+      language: string;
       hint: "new" | "deleted" | null;
     }
   | {
@@ -536,6 +537,7 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
         kind: "code",
         path: presentation.path,
         text: presentation.code,
+        language: presentation.language,
         hint: presentation.hint ?? null,
       };
     case "web_search":
@@ -675,6 +677,16 @@ export function diffIsCreatedFile(presentation: ToolPresentation): boolean {
   return presentation.files.every((file) => !file.oldContent && Boolean(file.newContent));
 }
 
+/** Web `max-h-96` on a collapsed Markdown code fence. */
+export const TOOL_CODE_MAX_HEIGHT = 384;
+
+/** Same fence wrapper web uses before `MarkdownRenderer` for a read or code preview. */
+export function fenceForMarkdown(code: string, language: string): string {
+  let ticks = "```";
+  while (code.includes(ticks)) ticks += "`";
+  return `${ticks}${language}\n${code}\n${ticks}`;
+}
+
 /** 11px word beside a new or deleted code preview. A plain read has none. */
 export function codePreviewMeta(hint: "new" | "deleted" | null | undefined): string | null {
   if (hint === "new") return copy.newFile;
@@ -810,6 +822,29 @@ function ShowMoreButton({ expanded, onPress }: { expanded: boolean; onPress: () 
         {expanded ? copy.showLess : copy.showMore}
       </Text>
     </Pressable>
+  );
+}
+
+function ToolCodeFence({ text, language }: { text: string; language: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflow, setOverflow] = useState(false);
+  if (!text) return null;
+  return (
+    <View style={{ gap: 4, paddingHorizontal: 8 }}>
+      <View
+        onLayout={(event) => {
+          if (!expanded && event.nativeEvent.layout.height >= TOOL_CODE_MAX_HEIGHT) {
+            setOverflow(true);
+          }
+        }}
+        style={expanded ? undefined : { maxHeight: TOOL_CODE_MAX_HEIGHT, overflow: "hidden" }}
+      >
+        <AgentChatMarkdown codeBlockMargin={8} text={fenceForMarkdown(text, language)} />
+      </View>
+      {overflow ? (
+        <ShowMoreButton expanded={expanded} onPress={() => setExpanded((current) => !current)} />
+      ) : null}
+    </View>
   );
 }
 
@@ -1169,13 +1204,14 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         </View>
       );
     case "patch":
-    case "code":
       return (
         <View style={{ gap: 4 }}>
           {model.path ? <PathChip path={model.path} /> : null}
           <CappedMono text={model.text} />
         </View>
       );
+    case "code":
+      return <ToolCodeFence language={model.language} text={model.text} />;
     case "web_search":
       return <WebSearchSources links={model.links} />;
     case "web_fetch":
