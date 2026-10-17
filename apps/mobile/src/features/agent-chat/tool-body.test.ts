@@ -883,6 +883,12 @@ describe("execute terminal", () => {
     expect(usesPreview("x".repeat(160))).toBe(false);
     expect(usesPreview("x".repeat(161))).toBe(true);
     expect(mod.TOOL_COMMAND_MAX_HEIGHT).toBe(224);
+    expect(mod.EXECUTE_MENU_INSET).toBe(6);
+    expect(mod.EXECUTE_MENU_BUTTON).toBe(24);
+    expect(mod.EXECUTE_MENU_ICON).toBe(14);
+    expect(mod.EXECUTE_MENU_RADIUS).toBe(8);
+    expect(mod.EXECUTE_MENU_MIN_WIDTH).toBe(160);
+    expect(mod.EXECUTE_COMMAND_PAD_RIGHT).toBe(36);
     const source = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
       "utf8",
@@ -898,6 +904,25 @@ describe("execute terminal", () => {
     expect(terminal).toContain('fontFamily: "Menlo"');
     expect(terminal).toContain("fontSize: 13");
     expect(terminal).toContain("paddingHorizontal: 12");
+    expect(terminal).toContain("paddingLeft: 12");
+    expect(terminal).toContain("paddingRight: EXECUTE_COMMAND_PAD_RIGHT");
+    expect(terminal).toContain("<ExecuteCopyMenu");
+    const menu = view.slice(
+      view.indexOf("function ExecuteCopyMenu"),
+      view.indexOf("function ExecuteTerminal"),
+    );
+    expect(menu).toContain("copy.terminalMore");
+    expect(menu).toContain("copy.copyCommand");
+    expect(menu).toContain("copy.copyResult");
+    expect(menu).toContain("MoreHorizontalIcon");
+    expect(menu).toContain("EXECUTE_MENU_INSET");
+    expect(menu).toContain("EXECUTE_MENU_BUTTON");
+    expect(menu).toContain("EXECUTE_MENU_ICON");
+    expect(menu).toContain("EXECUTE_MENU_MIN_WIDTH");
+    expect(menu).toContain("Clipboard.setStringAsync");
+    expect(menu).toContain("trimEnd()");
+    expect(menu).toContain("command.length > 0");
+    expect(menu).toContain("output.length > 0");
     expect(terminal).toContain("paddingTop: 10");
     expect(terminal).toContain("paddingBottom: output ? 0 : 10");
     expect(terminal).toContain("paddingTop: command ? 4 : 10");

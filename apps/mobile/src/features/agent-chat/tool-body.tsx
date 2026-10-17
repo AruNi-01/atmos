@@ -822,6 +822,18 @@ export function codeExpandColor(isDark: boolean): string {
 /** Web `max-h-56` on the terminal command line. */
 export const TOOL_COMMAND_MAX_HEIGHT = 224;
 
+/**
+ * Web execute copy menu: `top-1.5` `right-1.5`, `size-6` button,
+ * `size-3.5` glyph, `min-w-40` menu. The command uses `pr-9` so the
+ * text clears that button.
+ */
+export const EXECUTE_MENU_INSET = 6;
+export const EXECUTE_MENU_BUTTON = 24;
+export const EXECUTE_MENU_ICON = 14;
+export const EXECUTE_MENU_RADIUS = 8;
+export const EXECUTE_MENU_MIN_WIDTH = 160;
+export const EXECUTE_COMMAND_PAD_RIGHT = 36;
+
 /** Web discussion diff `max-h-[28rem]`. */
 export const TOOL_DIFF_MAX_HEIGHT = 448;
 
@@ -1000,6 +1012,7 @@ export function toolBodyUsesPanel(model: ToolBodyModel, partKind: string): boole
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Image, Pressable, ScrollView, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
   ArrowRightIcon,
@@ -1013,6 +1026,7 @@ import {
   FileTextIcon,
   FolderIcon,
   ListTodoIcon,
+  MoreHorizontalIcon,
   ScrollTextIcon,
   XCircleIcon,
 } from "@/ui/icons/lucide-native";
@@ -1152,6 +1166,88 @@ function HeightClip({ maxHeight, children }: { maxHeight: number; children: Reac
   );
 }
 
+function ExecuteCopyMenu({ command, output }: { command: string; output: string }) {
+  const theme = useMobileTheme();
+  const [open, setOpen] = useState(false);
+  const muted = chatMutedForeground(theme.isDark);
+  const copyText = (text: string) => {
+    const value = text.trimEnd();
+    if (!value) return;
+    void Clipboard.setStringAsync(value).catch(() => {});
+    setOpen(false);
+  };
+  const item = (label: string, text: string, enabled: boolean) => (
+    <Pressable
+      accessibilityRole="button"
+      disabled={!enabled}
+      onPress={() => copyText(text)}
+      style={{ borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 }}
+    >
+      <Text
+        style={{
+          color: enabled ? chatForeground(theme.isDark) : muted,
+          fontSize: 14,
+          lineHeight: 20,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+  return (
+    <>
+      {open ? (
+        <Pressable
+          onPress={() => setOpen(false)}
+          style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0, zIndex: 1 }}
+        />
+      ) : null}
+      <View
+        style={{
+          position: "absolute",
+          right: EXECUTE_MENU_INSET,
+          top: EXECUTE_MENU_INSET,
+          zIndex: 2,
+        }}
+      >
+        <Pressable
+          accessibilityLabel={copy.terminalMore}
+          accessibilityRole="button"
+          hitSlop={6}
+          onPress={() => setOpen((current) => !current)}
+          style={{
+            alignItems: "center",
+            borderRadius: EXECUTE_MENU_RADIUS,
+            height: EXECUTE_MENU_BUTTON,
+            justifyContent: "center",
+            width: EXECUTE_MENU_BUTTON,
+          }}
+        >
+          <MoreHorizontalIcon color={muted} size={EXECUTE_MENU_ICON} strokeWidth={2} />
+        </Pressable>
+        {open ? (
+          <View
+            style={{
+              backgroundColor: theme.colors.cardElevated,
+              borderColor: theme.colors.glassBorder,
+              borderRadius: EXECUTE_MENU_RADIUS,
+              borderWidth: 1,
+              minWidth: EXECUTE_MENU_MIN_WIDTH,
+              padding: 4,
+              position: "absolute",
+              right: 0,
+              top: EXECUTE_MENU_BUTTON + 4,
+            }}
+          >
+            {item(copy.copyCommand, command, command.length > 0)}
+            {item(copy.copyResult, output, output.length > 0)}
+          </View>
+        ) : null}
+      </View>
+    </>
+  );
+}
+
 function ExecuteTerminal({
   command,
   output,
@@ -1173,7 +1269,8 @@ function ExecuteTerminal({
             style={{
               ...mono,
               color: chatForeground(theme.isDark),
-              paddingHorizontal: 12,
+              paddingLeft: 12,
+              paddingRight: EXECUTE_COMMAND_PAD_RIGHT,
               paddingTop: 10,
               paddingBottom: output ? 0 : 10,
             }}
@@ -1205,6 +1302,7 @@ function ExecuteTerminal({
           </Text>
         </HeightClip>
       ) : null}
+      <ExecuteCopyMenu command={command} output={output} />
     </View>
   );
 }

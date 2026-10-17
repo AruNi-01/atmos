@@ -112,7 +112,12 @@ type AgentComponents = {
     panelAria: string;
   };
   contextWindow: { title: string; percentFull: string; tokensSummary: string };
-  terminalBlock: { title: string };
+  terminalBlock: {
+    title: string;
+    moreActions: string;
+    copyCommand: string;
+    copyResult: string;
+  };
   toolResults: {
     searchingFor: string;
     webSearch: string;
@@ -317,6 +322,12 @@ describe("agent chat copy parity", () => {
     expect(copy.executionFailed).toBe("Execution failed");
     expect(copy.runScript).toBe(components.terminalBlock.title);
     expect(copy.runScript).toBe("Run Script");
+    expect(copy.terminalMore).toBe(components.terminalBlock.moreActions);
+    expect(copy.terminalMore).toBe("More");
+    expect(copy.copyCommand).toBe(components.terminalBlock.copyCommand);
+    expect(copy.copyCommand).toBe("Copy command");
+    expect(copy.copyResult).toBe(components.terminalBlock.copyResult);
+    expect(copy.copyResult).toBe("Copy result");
     expect(copy.planDocument).toBe(components.toolResults.planDocument);
     expect(copy.planDocument).toBe("Plan");
     expect(copy.planBody).toBe(components.toolResults.planBody);

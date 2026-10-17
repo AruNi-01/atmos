@@ -51,6 +51,7 @@ import {
   MessageCircle,
   MessageSquare,
   MessagesSquare,
+  MoreHorizontal,
   ListFilter,
   Search,
   ScrollText,
@@ -139,6 +140,7 @@ export const LayersIcon = Layers;
 export const ListTodoIcon = ListTodo;
 export const MessageCircleIcon = MessageCircle;
 export const MessageSquareIcon = MessageSquare;
+export const MoreHorizontalIcon = MoreHorizontal;
 export const SearchIcon = Search;
 export const ScrollTextIcon = ScrollText;
 export const SendIcon = Send;
