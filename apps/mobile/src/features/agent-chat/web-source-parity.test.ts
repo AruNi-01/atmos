@@ -29,13 +29,18 @@ describe("web source parity", () => {
     });
     const group = source("apps/mobile/src/features/agent-chat/tool-group.tsx");
     const tree = source("apps/mobile/src/features/agent-chat/tool-tree.tsx");
+    const log = source("apps/web/src/features/agent/components/boardui/agent-log.tsx");
     expect(group).toContain("useToolTreeReveal");
     expect(group).toContain("index >= watermark");
-    expect(group).toContain("delayMs={0}");
+    expect(group).not.toContain("delayMs=");
     expect(group).toContain("toolTriggerMetrics");
     expect(tree).toContain("nextTreeWatermark");
-    expect(tree).toContain("duration: TREE_DRAW_MS");
-    expect(tree).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
+    expect(tree).toContain("LOG_ROW_ELBOW_MS");
+    expect(tree).toContain("LOG_ROW_TRUNK_MS");
+    expect(tree).toContain("Easing.linear");
+    expect(log).toContain("duration: 0.14");
+    expect(log).toContain("delay: first ? 0 : 0.12");
+    expect(log).toContain('ease: "linear"');
   });
 
   test("the composer stays the two-row iOS field", () => {
@@ -63,5 +68,11 @@ describe("web source parity", () => {
     expect(patch).toContain("kENRMWebHeaderPadX = 8.0");
     expect(patch).toContain("kENRMWebCodePad = 12.0");
     expect(patch).toContain("CODE BLOCK");
+    expect(patch).toContain("outer rounded border plus horizontal row rules");
+    expect(patch).toContain("[&_tr:last-child>td]:border-b-0");
+    expect(patch).toContain("bezierPathWithRoundedRect:CGRectInset(tableRect");
+    expect(patch).toContain(
+      "-      UIBezierPath *border = [UIBezierPath bezierPathWithRect:cellRect]",
+    );
   });
 });
