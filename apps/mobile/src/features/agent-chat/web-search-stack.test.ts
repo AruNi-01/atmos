@@ -57,4 +57,14 @@ describe("web search sources", () => {
     expect(fileSearch.startsWith('case "search":')).toBe(true);
     expect(fileSearch.slice(0, 500)).not.toContain("WebSearchSources");
   });
+
+  test("source labels use web muted type", () => {
+    const source = readFileSync(join(here, "web-search-sources.tsx"), "utf8");
+    expect(source).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(source).toContain("opacity: 0.8");
+    expect(source).toContain("opacity: 0.6");
+    expect(source).toContain("opacity: 0.3");
+    expect(source).toContain("chatMutedForeground(theme.isDark)");
+    expect(source).not.toContain("theme.colors.secondaryLabel");
+  });
 });

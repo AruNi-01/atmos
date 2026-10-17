@@ -10,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ChevronDownIcon, GlobeIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatMutedForeground } from "./chat-ink";
 import { copy } from "./copy";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import {
@@ -34,6 +35,7 @@ export function WebSearchSources({
   links: ReadonlyArray<{ title: string; url: string; openable: boolean }>;
 }) {
   const theme = useMobileTheme();
+  const muted = chatMutedForeground(theme.isDark);
   const reduced = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(0);
@@ -93,9 +95,7 @@ export function WebSearchSources({
         onPress={() => setOpen((current) => !current)}
         style={{ alignItems: "center", flexDirection: "row" }}
       >
-        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 20 }}>
-          {copy.webSearchSources}
-        </Text>
+        <Text style={{ color: muted, fontSize: 13, lineHeight: 20 }}>{copy.webSearchSources}</Text>
         <Animated.View style={[{ marginLeft: 8, overflow: "hidden" }, stackStyle]}>
           <View style={{ flexDirection: "row" }}>
             {stacked.map((link, index) =>
@@ -110,7 +110,7 @@ export function WebSearchSources({
         {overflow > 0 && visibleCount === 0 ? (
           <Text
             style={{
-              color: theme.colors.secondaryLabel,
+              color: muted,
               fontSize: 13,
               lineHeight: 20,
               marginLeft: 8,
@@ -121,7 +121,7 @@ export function WebSearchSources({
           </Text>
         ) : null}
         <Animated.View style={[{ marginLeft: 4, opacity: 0.6 }, chevronStyle]}>
-          <ChevronDownIcon color={theme.colors.secondaryLabel} size={16} strokeWidth={2} />
+          <ChevronDownIcon color={muted} size={16} strokeWidth={2} />
         </Animated.View>
       </Pressable>
       {links.map((link, index) =>
@@ -141,6 +141,7 @@ function SourceRow({
   reduced: boolean;
 }) {
   const theme = useMobileTheme();
+  const muted = chatMutedForeground(theme.isDark);
   const opacity = useSharedValue(reduced ? 1 : 0);
 
   useEffect(() => {
@@ -158,10 +159,7 @@ function SourceRow({
 
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
   const title = (
-    <Text
-      numberOfLines={1}
-      style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 13, lineHeight: 20 }}
-    >
+    <Text numberOfLines={1} style={{ color: muted, flexShrink: 1, fontSize: 13, lineHeight: 20 }}>
       {link.title}
     </Text>
   );
@@ -228,7 +226,7 @@ export function HttpFavicon({ url, size, radius }: { url: string; size: number; 
           style={{ height: size, width: size }}
         />
       ) : (
-        <GlobeIcon color={theme.colors.secondaryLabel} size={size} strokeWidth={2} />
+        <GlobeIcon color={chatMutedForeground(theme.isDark)} size={size} strokeWidth={2} />
       )}
     </View>
   );
@@ -263,7 +261,7 @@ function FaviconMark({ url }: { url: string }) {
       ) : (
         <View
           style={{
-            backgroundColor: theme.colors.secondaryLabel,
+            backgroundColor: chatMutedForeground(theme.isDark),
             borderRadius: 999,
             height: 8,
             opacity: 0.3,
