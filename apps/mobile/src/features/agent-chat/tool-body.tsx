@@ -1224,11 +1224,20 @@ function fetchRowUrl(part: AgentToolCallPart): string {
 function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "search" }> }) {
   const theme = useMobileTheme();
   const line = { fontFamily: "Menlo", fontSize: 12, lineHeight: 16 } as const;
+  const commandOnly = model.groups.length === 0 && !model.summary;
   return (
-    <View style={{ gap: 4 }}>
+    <View>
       {model.script ? (
         <Text
-          style={{ color: theme.colors.label, fontFamily: "Menlo", fontSize: 13, lineHeight: 20 }}
+          style={{
+            color: theme.colors.label,
+            fontFamily: "Menlo",
+            fontSize: 13,
+            lineHeight: 20,
+            paddingBottom: commandOnly ? 10 : 0,
+            paddingHorizontal: 12,
+            paddingTop: 10,
+          }}
         >
           <Text style={{ color: theme.colors.secondaryLabel }}>$ </Text>
           {model.script}
@@ -1283,7 +1292,22 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
         </HeightClip>
       ) : null}
       {model.groups.length === 0 && model.summary ? (
-        <Text style={{ color: theme.colors.label, ...BODY_TEXT }}>{model.summary}</Text>
+        toolTextUsesPreview(model.summary) ? (
+          <ToolPlainPreview text={model.summary} />
+        ) : (
+          <Text
+            selectable
+            style={{
+              color: theme.colors.secondaryLabel,
+              fontSize: 14,
+              lineHeight: 23,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
+          >
+            {model.summary}
+          </Text>
+        )
       ) : null}
     </View>
   );

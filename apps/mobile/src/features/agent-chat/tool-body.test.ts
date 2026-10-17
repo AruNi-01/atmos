@@ -1085,6 +1085,10 @@ describe("search hit groups", () => {
     expect(hits).toContain("<PathGlyph");
     expect(hits).toContain("pathLooksLikeDirectory(group.path)");
     expect(hits).not.toContain("PathChip");
+    expect(hits).toContain("toolTextUsesPreview(model.summary)");
+    expect(hits).toContain("<ToolPlainPreview");
+    expect(hits).toContain("paddingTop: 10");
+    expect(hits).not.toContain("BODY_TEXT");
     expect(hits.indexOf("$ ")).toBeLessThan(hits.indexOf("HeightClip"));
   });
 });
