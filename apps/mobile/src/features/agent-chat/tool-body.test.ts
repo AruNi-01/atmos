@@ -24,6 +24,14 @@ type Body = {
   additions?: number;
   deletions?: number;
   paths?: string[];
+  shown?: string[];
+  rows?: Array<{
+    name: string;
+    path: string;
+    indent: number;
+    isDir: boolean;
+    note: boolean;
+  }>;
   summary?: string;
   body?: string;
   url?: string;
@@ -275,7 +283,11 @@ describe("tool body presentation", () => {
         result: { type: "other", value: { kind: "files", paths: ["a.ts", "b.ts"] } },
       }),
     );
-    expect(files).toMatchObject({ kind: "files", paths: ["a.ts", "b.ts"] });
+    expect(files).toMatchObject({
+      kind: "files",
+      paths: ["a.ts", "b.ts"],
+      shown: ["a.ts", "b.ts"],
+    });
 
     const tree = await call(
       part({
@@ -293,7 +305,13 @@ describe("tool body presentation", () => {
         },
       }),
     );
-    expect(tree).toMatchObject({ kind: "tree", paths: ["src", "src/a.ts"] });
+    expect(tree).toMatchObject({
+      kind: "tree",
+      rows: [
+        { name: "src", path: "src", indent: 0, isDir: true, note: false },
+        { name: "a.ts", path: "src/a.ts", indent: 1, isDir: false, note: false },
+      ],
+    });
 
     const markdown = await call(
       part({
@@ -320,6 +338,55 @@ describe("tool body presentation", () => {
     );
     expect(todos.kind).toBe("todos");
     expect(todos.items?.[0]).toMatchObject({ content: "Ship it", status: "in_progress" });
+  });
+
+  test("file and tree lists shorten paths and keep tree shape", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const looksLikeDirectory = mod.pathLooksLikeDirectory as (path: string) => boolean;
+    expect(looksLikeDirectory("a.ts")).toBe(false);
+    expect(looksLikeDirectory("src")).toBe(true);
+    expect(looksLikeDirectory("src/")).toBe(true);
+    const shown = mod.fileListShown as (paths: readonly string[]) => string[];
+    expect(shown(["src/main.rs"])).toEqual(["main.rs"]);
+    expect(mod.TOOL_FILE_LIST_MAX_HEIGHT).toBe(288);
+
+    const note = await call(
+      part({
+        kind: "other",
+        params: { type: "other", value: null },
+        result: {
+          type: "other",
+          value: {
+            kind: "tree",
+            entries: [{ name: "truncated", indent: 0, isDir: false, kind: "note" }],
+          },
+        },
+      }),
+    );
+    expect(note.rows).toEqual([
+      { name: "truncated", path: "truncated", indent: 0, isDir: false, note: true },
+    ]);
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("// @view"));
+    const lists = view.slice(
+      view.indexOf("function PathGlyph"),
+      view.indexOf("function TodoStatusRows"),
+    );
+    expect(lists).toContain("HeightClip");
+    expect(lists).toContain("FolderIcon");
+    expect(lists).toContain("FileTextIcon");
+    expect(lists).toContain("TOOL_FILE_LIST_MAX_HEIGHT");
+    expect(lists).toContain("row.name");
+    expect(lists).toContain("12 + row.indent * 8");
+    expect(lists).not.toContain("PathChip");
+    const branch = view.slice(view.indexOf('case "files":'), view.indexOf('case "markdown":'));
+    expect(branch).toContain("<FileListBody");
+    expect(branch).toContain("<TreeListBody");
+    expect(branch).not.toContain("PathChips");
   });
 
   test("mono, move, delete, error, empty, images, and subagent cards", async () => {

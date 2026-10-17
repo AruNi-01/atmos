@@ -13,6 +13,7 @@ import {
   resolveTreeEntryPaths,
   toolKindHeadlineLabel,
   type AgentToolCallPart,
+  type TreeEntry,
   type ParsedToolResult,
   type ToolPresentation,
 } from "@atmos/agent-transcript";
@@ -29,6 +30,14 @@ export type UnifiedDiffLine = {
 };
 
 export type ImageGenStatus = "queued" | "generating" | "refining" | "complete" | "error";
+
+export type ToolTreeRow = {
+  name: string;
+  path: string;
+  indent: number;
+  isDir: boolean;
+  note: boolean;
+};
 
 export type ToolBodyModel =
   | {
@@ -77,8 +86,8 @@ export type ToolBodyModel =
       summary: string;
       matchCount: number | null;
     }
-  | { kind: "files"; title: string; paths: string[] }
-  | { kind: "tree"; title: string; paths: string[] }
+  | { kind: "files"; title: string; paths: string[]; shown: string[] }
+  | { kind: "tree"; title: string; rows: ToolTreeRow[] }
   | { kind: "markdown"; title: string; markdown: string }
   | {
       kind: "todos";
@@ -641,9 +650,13 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
       };
     }
     case "files":
-      return { kind: "files", paths: presentation.paths };
+      return {
+        kind: "files",
+        paths: presentation.paths,
+        shown: fileListShown(presentation.paths),
+      };
     case "tree":
-      return { kind: "tree", paths: resolveTreeEntryPaths(presentation.entries) };
+      return { kind: "tree", rows: treeRows(presentation.entries) };
     case "markdown":
       return { kind: "markdown", markdown: presentation.markdown };
     case "todos":
@@ -770,6 +783,36 @@ export const TOOL_COMMAND_MAX_HEIGHT = 224;
 /** Web discussion diff `max-h-[28rem]`. */
 export const TOOL_DIFF_MAX_HEIGHT = 448;
 
+/** Web file list `max-h-72`. */
+export const TOOL_FILE_LIST_MAX_HEIGHT = 288;
+
+/** Same directory guess as web `agentChatPathLooksLikeDirectory`. */
+export function pathLooksLikeDirectory(path: string): boolean {
+  const trimmed = path.trim().replace(/^['"`]+|['"`]+$/g, "");
+  if (!trimmed) return false;
+  if (/[/\\]$/.test(trimmed)) return true;
+  const name = trimmed.split(/[\\/]/).filter(Boolean).pop() || trimmed;
+  if (!name || name === "." || name === "..") return true;
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot <= 0) return true;
+  return !/^[A-Za-z0-9]{1,12}$/.test(name.slice(lastDot + 1));
+}
+
+export function fileListShown(paths: readonly string[]): string[] {
+  return paths.map((path) => relativeDisplayPath(path, [...paths]));
+}
+
+export function treeRows(entries: readonly TreeEntry[]): ToolTreeRow[] {
+  const paths = resolveTreeEntryPaths([...entries]);
+  return entries.map((entry, index) => ({
+    name: entry.name,
+    path: paths[index] ?? entry.name,
+    indent: entry.indent,
+    isDir: entry.kind === "note" ? false : entry.isDir,
+    note: entry.kind === "note",
+  }));
+}
+
 /**
  * Web `TerminalBlock` keeps the command and paints a failed run in red.
  * An empty command and empty output use the shared empty line instead.
@@ -852,6 +895,7 @@ import {
   CircleDashedIcon,
   CircleIcon,
   FileTextIcon,
+  FolderIcon,
   ListTodoIcon,
   ScrollTextIcon,
   XCircleIcon,
@@ -887,17 +931,6 @@ function PathChip({ path }: { path: string }) {
       <Text numberOfLines={1} style={{ ...CHIP_TEXT, color: theme.colors.label }}>
         {path}
       </Text>
-    </View>
-  );
-}
-
-function PathChips({ paths }: { paths: string[] }) {
-  if (paths.length === 0) return null;
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
-      {paths.map((path, index) => (
-        <PathChip key={`${path}:${index}`} path={path} />
-      ))}
     </View>
   );
 }
@@ -1239,6 +1272,106 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
   );
 }
 
+function PathGlyph({ isDir }: { isDir: boolean }) {
+  const theme = useMobileTheme();
+  const Icon = isDir ? FolderIcon : FileTextIcon;
+  return <Icon color={theme.colors.secondaryLabel} size={16} strokeWidth={2} />;
+}
+
+const LISTED_PATH_TEXT = {
+  fontFamily: "Menlo",
+  fontSize: 12,
+  lineHeight: 16,
+} as const;
+
+function FileListBody({ paths, shown }: { paths: string[]; shown: string[] }) {
+  const theme = useMobileTheme();
+  if (paths.length === 0) return null;
+  return (
+    <HeightClip maxHeight={TOOL_FILE_LIST_MAX_HEIGHT}>
+      <View style={{ paddingVertical: 4 }}>
+        {paths.map((path, index) => (
+          <View
+            key={`${path}:${index}`}
+            style={{
+              alignItems: "center",
+              flexDirection: "row",
+              gap: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+            }}
+          >
+            <PathGlyph isDir={pathLooksLikeDirectory(path)} />
+            <Text
+              numberOfLines={1}
+              style={{
+                ...LISTED_PATH_TEXT,
+                color: theme.colors.label,
+                flexShrink: 1,
+                opacity: 0.8,
+              }}
+            >
+              {shown[index] || path}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </HeightClip>
+  );
+}
+
+function TreeListBody({ rows }: { rows: ToolTreeRow[] }) {
+  const theme = useMobileTheme();
+  if (rows.length === 0) return null;
+  return (
+    <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
+      <View style={{ paddingVertical: 4 }}>
+        {rows.map((row, index) => (
+          <View
+            key={`${row.indent}:${row.name}:${index}`}
+            style={{
+              alignItems: "center",
+              flexDirection: "row",
+              gap: 8,
+              paddingLeft: 12 + row.indent * 8,
+              paddingRight: 12,
+              paddingVertical: 2,
+            }}
+          >
+            {row.note ? (
+              <Text
+                numberOfLines={1}
+                style={{
+                  ...LISTED_PATH_TEXT,
+                  color: theme.colors.secondaryLabel,
+                  flexShrink: 1,
+                }}
+              >
+                {row.name}
+              </Text>
+            ) : (
+              <>
+                <PathGlyph isDir={row.isDir || pathLooksLikeDirectory(row.path)} />
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    ...LISTED_PATH_TEXT,
+                    color: theme.colors.label,
+                    flexShrink: 1,
+                    opacity: 0.8,
+                  }}
+                >
+                  {row.name}
+                </Text>
+              </>
+            )}
+          </View>
+        ))}
+      </View>
+    </HeightClip>
+  );
+}
+
 function TodoStatusRows({ items }: { items: Array<{ content: string; status: TodoStatusKind }> }) {
   const theme = useMobileTheme();
   return (
@@ -1513,8 +1646,9 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
     case "search":
       return <SearchHitsBody model={model} />;
     case "files":
+      return <FileListBody paths={model.paths} shown={model.shown} />;
     case "tree":
-      return <PathChips paths={model.paths} />;
+      return <TreeListBody rows={model.rows} />;
     case "markdown":
       return <AgentChatMarkdown fontSize={14} lineHeight={20} text={model.markdown} />;
     case "todos":
