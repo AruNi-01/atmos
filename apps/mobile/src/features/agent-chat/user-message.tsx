@@ -45,6 +45,7 @@ import {
   userAttachmentIconColor,
   userAttachmentLabelColor,
   userAttachmentListGap,
+  userAttachmentPressGrows,
 } from "./user-attachment-chip";
 import { CopyMessageButton } from "./copy-message-button";
 import {
@@ -275,6 +276,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
   const [metaOpen, setMetaOpen] = useAgentChatExpand(agentChatUserMetaExpandKey(entryId), false);
   const [lineCount, setLineCount] = useState(0);
   const collapsed = userMessageIsCollapsed(lineCount, expanded);
+  const growsAttachments = userAttachmentPressGrows(attachments.length, expanded);
   const pending = isPendingPhoneUserEcho(message);
 
   if (!text && attachments.length === 0 && !time) return null;
@@ -299,10 +301,13 @@ export function UserMessage({ message }: { message: AgentMessage }) {
       }}
     >
       <Pressable
-        accessibilityRole={hasMeta ? "button" : undefined}
+        accessibilityRole={hasMeta || growsAttachments ? "button" : undefined}
         accessibilityState={hasMeta ? { expanded: metaOpen } : undefined}
-        disabled={!hasMeta}
-        onPress={() => setMetaOpen(!metaOpen)}
+        disabled={!hasMeta && !growsAttachments}
+        onPress={() => {
+          if (growsAttachments) setExpanded(true);
+          if (hasMeta) setMetaOpen(!metaOpen);
+        }}
       >
         {attachments.length > 0 ? (
           <UserAttachmentChips

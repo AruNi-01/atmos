@@ -32,6 +32,7 @@ import {
   userAttachmentIconColor,
   userAttachmentLabelColor,
   userAttachmentListGap,
+  userAttachmentPressGrows,
 } from "./user-attachment-chip";
 import {
   USER_BUBBLE_RADIUS,
@@ -122,6 +123,9 @@ describe("user message", () => {
   test("attachment chips use the web file pill", () => {
     expect(userAttachmentDensity(false)).toBe("compact");
     expect(userAttachmentDensity(true)).toBe("composer");
+    expect(userAttachmentPressGrows(1, false)).toBe(true);
+    expect(userAttachmentPressGrows(1, true)).toBe(false);
+    expect(userAttachmentPressGrows(0, false)).toBe(false);
     expect(userAttachmentListGap("compact")).toBe(6);
     expect(userAttachmentListGap("composer")).toBe(8);
     expect(userAttachmentChipMetrics("compact")).toEqual({
@@ -154,6 +158,11 @@ describe("user message", () => {
     expect(userAttachmentIconColor(false)).toBe(USER_ATTACHMENT_ICON_LIGHT);
     expect(userAttachmentIconColor(true)).toBe(USER_ATTACHMENT_ICON_DARK);
 
+    const body = source.slice(source.indexOf("export function UserMessage"));
+    expect(body).toContain("userAttachmentPressGrows(attachments.length, expanded)");
+    expect(body).toContain("if (growsAttachments) setExpanded(true)");
+    expect(body).toContain("if (hasMeta) setMetaOpen(!metaOpen)");
+    expect(body).toContain("disabled={!hasMeta && !growsAttachments}");
     const chips = source.slice(source.indexOf("function UserAttachmentChips"));
     expect(chips).toContain("userAttachmentDensity(expanded)");
     expect(chips).toContain("userAttachmentFill(theme.isDark)");

@@ -27,6 +27,16 @@ export function userAttachmentDensity(expanded: boolean): UserAttachmentDensity 
   return expanded ? "composer" : "compact";
 }
 
+/**
+ * Web sets `forceCollapsible` when the message has files, so a short note
+ * starts on the compact pill. The body click grows it to the composer size
+ * and leaves that size on a later click. An outside pointerdown shrinks it
+ * again on web. The phone has no outside dismiss.
+ */
+export function userAttachmentPressGrows(attachmentCount: number, expanded: boolean): boolean {
+  return attachmentCount > 0 && !expanded;
+}
+
 export function userAttachmentListGap(density: UserAttachmentDensity): number {
   return density === "compact" ? 6 : 8;
 }
