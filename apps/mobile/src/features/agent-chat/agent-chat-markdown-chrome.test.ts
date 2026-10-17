@@ -15,6 +15,8 @@ import {
   agentChatBlockquote,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
+  agentChatThematicBreak,
+  THEMATIC_BREAK_MARGIN,
 } from "./markdown-chrome";
 
 describe("agent chat markdown chrome", () => {
@@ -103,6 +105,16 @@ describe("agent chat markdown chrome", () => {
     expect(quote).toContain("agentChatBlockquote(theme.isDark)");
     expect(quote).not.toContain("glassBorder");
     expect(quote).not.toContain("cardSubtle");
+    expect(THEMATIC_BREAK_MARGIN).toBe(24);
+    expect(agentChatThematicBreak(false)).toEqual({
+      color: "rgba(0, 0, 0, 0.1)",
+      height: 1,
+      marginBottom: 24,
+      marginTop: 24,
+    });
+    expect(agentChatThematicBreak(true).color).toBe("rgba(255, 255, 255, 0.1)");
+    expect(markdown).toContain("thematicBreak: agentChatThematicBreak(theme.isDark)");
+    expect(markdown).not.toContain("theme.colors.separator");
     const table = markdown.slice(
       markdown.indexOf("table: {"),
       markdown.indexOf("const markdown ="),

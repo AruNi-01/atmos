@@ -68,6 +68,26 @@ export function agentChatBlockquote(isDark: boolean): {
   };
 }
 
+/**
+ * Streamdown rule: `my-6 border-border`. `--border` is black or white at 10%.
+ * A leading rule still keeps the top margin. Web clears the first block.
+ */
+export const THEMATIC_BREAK_MARGIN = 24;
+
+export function agentChatThematicBreak(isDark: boolean): {
+  color: string;
+  height: number;
+  marginBottom: number;
+  marginTop: number;
+} {
+  return {
+    color: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
+    height: 1,
+    marginBottom: THEMATIC_BREAK_MARGIN,
+    marginTop: THEMATIC_BREAK_MARGIN,
+  };
+}
+
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: 0 },
   list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },

@@ -10,6 +10,7 @@ import {
   agentChatBlockquote,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
+  agentChatThematicBreak,
 } from "./markdown-chrome";
 
 function openHttpLink(url: string) {
@@ -110,10 +111,7 @@ export function AgentChatMarkdown({
             },
           }
         : {}),
-      thematicBreak: {
-        color: theme.colors.separator,
-        height: 1,
-      },
+      thematicBreak: agentChatThematicBreak(theme.isDark),
       table: {
         borderColor: chrome.border,
         borderWidth: 1,
