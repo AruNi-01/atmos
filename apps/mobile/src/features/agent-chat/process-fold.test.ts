@@ -223,6 +223,8 @@ describe("transcript source", () => {
     expect(tree).toContain("treeReachPath");
     expect(tree).toContain("treeTrunkPath");
     expect(tree).toContain("TREE_LINE_ALPHA");
+    expect(tree).toContain("chatForeground(theme.isDark)");
+    expect(tree).not.toContain("theme.colors.label");
     expect(tree).not.toContain("strokeDashoffset");
     expect(tree).not.toContain("strokeDasharray");
   });
