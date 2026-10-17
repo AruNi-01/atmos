@@ -29,6 +29,12 @@ export function agentChatHeadingStyle(color: string) {
  * `py-1`. Agent fences and tables use `my-4`, and fence text is `text-sm leading-5`.
  * Fence and table frames use web `rounded-lg` (`--radius`, 10px).
  */
+/**
+ * Web reasoning `[&_p]:my-1`. The native view skips margin on the first block
+ * and drops margin on the last block, matching `:first-child` and `:last-child`.
+ */
+export const THINKING_PARAGRAPH_MARGIN = 4;
+
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: 0 },
   list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },

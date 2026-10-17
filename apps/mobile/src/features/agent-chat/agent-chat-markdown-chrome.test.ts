@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
 import {
+  THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
@@ -59,6 +60,7 @@ describe("agent chat markdown chrome", () => {
 
   test("matches web block margins", () => {
     expect(agentChatBlockMetrics.paragraph).toEqual({ marginTop: 0, marginBottom: 0 });
+    expect(THINKING_PARAGRAPH_MARGIN).toBe(4);
     expect(agentChatBlockMetrics.list).toEqual({ marginTop: 0, marginBottom: 0, itemSpacing: 8 });
     expect(agentChatBlockMetrics.codeBlock).toMatchObject({
       marginTop: 16,
@@ -76,6 +78,8 @@ describe("agent chat markdown chrome", () => {
       join(dirname(fileURLToPath(import.meta.url)), "AgentChatMarkdown.tsx"),
       "utf8",
     );
+    expect(markdown).toContain("THINKING_PARAGRAPH_MARGIN");
+    expect(markdown).toContain('tone === "thinking"');
     const table = markdown.slice(
       markdown.indexOf("table: {"),
       markdown.indexOf("const markdown ="),

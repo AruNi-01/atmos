@@ -5,6 +5,7 @@ import type { MarkdownStyle } from "react-native-enriched-markdown";
 import { useMobileTheme } from "@/theme/theme-store";
 import { chipCompleteHttpUrls, HTTP_CHIP_LINK_VARIANT, httpChipTarget } from "./http-link-chip";
 import {
+  THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
@@ -49,6 +50,9 @@ export function AgentChatMarkdown({
         fontSize: resolvedFontSize,
         lineHeight: resolvedLineHeight,
         ...agentChatBlockMetrics.paragraph,
+        ...(tone === "thinking"
+          ? { marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: THINKING_PARAGRAPH_MARGIN }
+          : {}),
       },
       ...headings,
       blockquote: {
