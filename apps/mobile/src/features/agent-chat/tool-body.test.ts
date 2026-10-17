@@ -364,3 +364,60 @@ describe("tool body presentation", () => {
     expect(row({ kind: "mono", title: "Run", text: "ok" })).toEqual({ additions: 0, deletions: 0 });
   });
 });
+
+describe("tool row chrome", () => {
+  test("uses the kind verb and a filename chip when the wire title is a path", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const present = (await import("@atmos/agent-transcript")).presentAgentTool;
+    const chrome = mod.toolRowChrome as (
+      part: AgentToolCallPart,
+      parsed: ReturnType<typeof present>,
+    ) => { title: string; fileName: string | null; lineRange: string | null };
+
+    const read = part({
+      kind: "read",
+      name: "Read",
+      title: "src/theme.ts",
+      status: "running",
+      params: { type: "read", path: "src/theme.ts" },
+    });
+    expect(chrome(read, present(read))).toEqual({
+      title: "Read",
+      fileName: "theme.ts",
+      lineRange: null,
+    });
+
+    const ranged = part({
+      kind: "read",
+      name: "Read",
+      title: "src/theme.ts",
+      params: { type: "read", path: "src/theme.ts", offset: 10, limit: 4 },
+    });
+    expect(chrome(ranged, present(ranged)).lineRange).toBe("(10-13)");
+
+    const search = part({
+      kind: "search",
+      name: "Search",
+      title: "ready",
+      status: "running",
+      params: { type: "search", query: "ready" },
+    });
+    expect(chrome(search, present(search))).toEqual({
+      title: "Search",
+      fileName: null,
+      lineRange: null,
+    });
+
+    const patch = part({
+      kind: "edit",
+      title: "Patch a.ts",
+      params: { type: "edit", path: "a.ts" },
+      result: { type: "text", text: "--- a/a.ts\n+++ b/a.ts\n" },
+    });
+    expect(chrome(patch, present(patch))).toEqual({
+      title: "Patch",
+      fileName: "a.ts",
+      lineRange: null,
+    });
+  });
+});

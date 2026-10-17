@@ -1,9 +1,13 @@
 import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import {
+  formatToolLineRange,
   isActiveToolStatus,
   isNestedSubagentChild,
+  preferredCollapsedToolTitle,
   presentAgentTool,
+  resolveAgentToolCardHeading,
   resolveTreeEntryPaths,
+  toolKindHeadlineLabel,
   type AgentToolCallPart,
   type ParsedToolResult,
   type ToolPresentation,
@@ -62,6 +66,56 @@ export function toolRowTitle(
   const resolved = parsed.resolvedTool.trim();
   if (resolved) return resolved;
   return part.name;
+}
+
+export type ToolRowChrome = {
+  title: string;
+  fileName: string | null;
+  lineRange: string | null;
+};
+
+function fileNameFromPath(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() || path;
+}
+
+function skillNameFromPart(part: AgentToolCallPart): string | null {
+  if (part.kind !== "skill") return null;
+  if (part.params?.type === "skill" && part.params.skill.trim()) return part.params.skill.trim();
+  const title = part.title?.trim();
+  if (title) return title;
+  const name = part.name?.trim();
+  return name || null;
+}
+
+/** Collapsed tool trigger: kind verb plus a filename chip, matching web. */
+export function toolRowChrome(part: AgentToolCallPart, parsed: ParsedToolResult): ToolRowChrome {
+  const path = parsed.path?.trim() || null;
+  const showChip = Boolean(
+    path &&
+    (part.kind === "read" ||
+      part.kind === "edit" ||
+      part.kind === "delete" ||
+      parsed.presentation.kind === "code"),
+  );
+  const kindLabel = toolKindHeadlineLabel(part.kind);
+  const skillName = skillNameFromPart(part);
+  const created = parsed.presentation.kind === "code" && parsed.presentation.hint === "new";
+  const title = created
+    ? "Created"
+    : part.kind === "skill" && skillName
+      ? `Skill: ${skillName}`
+      : resolveAgentToolCardHeading({
+          heading: preferredCollapsedToolTitle(part, kindLabel),
+          path,
+          kindLabel,
+          omitPathInTitle: showChip,
+          formatWithPath: (tool, filePath) => `${tool}: ${filePath}`,
+        });
+  return {
+    title,
+    fileName: showChip && path ? fileNameFromPath(path) : null,
+    lineRange: showChip && part.kind === "read" ? formatToolLineRange(parsed.lineRange) : null,
+  };
 }
 
 export function subagentStatusText(status: string | null | undefined): string {
@@ -350,7 +404,7 @@ export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; de
 import { useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
-import { XCircleIcon } from "@/ui/icons/lucide-native";
+import { FileTextIcon, XCircleIcon } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
 import { TextShimmer } from "./motion/text-shimmer";
@@ -683,12 +737,40 @@ function SubagentCard({ status, title }: { status: string; title: string }) {
   );
 }
 
+function ToolFileChip({ fileName, lineRange }: { fileName: string; lineRange: string | null }) {
+  const theme = useMobileTheme();
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: theme.colors.cardSubtle,
+        borderRadius: 6,
+        flexDirection: "row",
+        flexShrink: 1,
+        gap: 4,
+        maxWidth: "46%",
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+      }}
+    >
+      <FileTextIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2} />
+      <Text numberOfLines={1} style={{ ...CHIP_TEXT, color: theme.colors.label, flexShrink: 1 }}>
+        {fileName}
+      </Text>
+      {lineRange ? (
+        <Text style={{ ...CHIP_TEXT, color: theme.colors.secondaryLabel }}>{lineRange}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const theme = useMobileTheme();
   const model = toolBodyModel(part);
+  const chrome = toolRowChrome(part, presentAgentTool(part));
   const [open, setOpen] = useAgentChatExpand(agentChatToolExpandKey(part.tool_call_id), false);
   if (model.kind === "subagent") {
-    return <SubagentCard status={model.status} title={model.title} />;
+    return <SubagentCard status={model.status} title={chrome.title} />;
   }
   const failed = model.kind === "error" || part.status === "failed";
   const running = isActiveToolStatus(part.status);
@@ -721,13 +803,16 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
         </View>
         {running ? (
           <TextShimmer duration={1} numberOfLines={1} style={titleStyle}>
-            {model.title}
+            {chrome.title}
           </TextShimmer>
         ) : (
           <Text numberOfLines={1} style={titleStyle}>
-            {model.title}
+            {chrome.title}
           </Text>
         )}
+        {chrome.fileName ? (
+          <ToolFileChip fileName={chrome.fileName} lineRange={chrome.lineRange} />
+        ) : null}
         <ToolDiffStats additions={stats.additions} deletions={stats.deletions} />
         {failed ? (
           <XCircleIcon color={theme.colors.red} size={metrics.iconSize} strokeWidth={2} />
