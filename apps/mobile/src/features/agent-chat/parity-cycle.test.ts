@@ -127,6 +127,12 @@ describe("parity cycle", () => {
     expect(parityPinnedFrame("F3", "dark")).toEqual({ id: "F3", theme: "dark" });
     expect(parityPinnedFrame("F3", "")).toEqual({ id: "F3", theme: "light" });
     expect(parityPinnedFrame(" F12 ", "nope")).toEqual({ id: "F12", theme: "light" });
+    expect(parityPinnedFrame("F4", "light", "reduced")).toEqual({
+      id: "F4",
+      motion: "reduced",
+      theme: "light",
+    });
+    expect(parityPinnedFrame("F4", "light", "nope")).toEqual({ id: "F4", theme: "light" });
   });
 
   test("parses a Documents pin and rejects a fixture the carousel does not know", () => {
@@ -160,6 +166,15 @@ describe("parity cycle", () => {
     expect(parseParityDiskFrame('{"id":"F1","theme":"light","scroll":"nope"}')).toEqual({
       id: "F1",
       theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"light","motion":"reduced"}')).toEqual({
+      id: "F4",
+      motion: "reduced",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"dark","motion":"nope"}')).toEqual({
+      id: "F4",
+      theme: "dark",
     });
     expect(parseParityDiskFrame('{"id":"nope","theme":"light"}')).toBeNull();
     expect(parseParityDiskFrame("")).toBeNull();

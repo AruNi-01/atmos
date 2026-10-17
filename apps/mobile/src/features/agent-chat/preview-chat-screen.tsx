@@ -22,6 +22,7 @@ import { pillShowsAttention, reduceLane, type LaneState } from "./card-lane";
 import { ExpandedCard } from "./cards/expanded-card";
 import { LaneCardBody } from "./cards/lane-body";
 import { copy } from "./copy";
+import { pushParityReducedMotion } from "./motion/parity-reduced-motion";
 import { buildComposerPicker, type FavoriteModel } from "./model-picker";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
 import {
@@ -86,22 +87,24 @@ async function noopAsync(): Promise<void> {
 export function PreviewChatScreen() {
   const params = useLocalSearchParams<{
     fixture?: string | string[];
+    motion?: string | string[];
     scroll?: string | string[];
     theme?: string | string[];
   }>();
   const fixtureParam = param(params.fixture);
+  const motionParam = param(params.motion);
   const scrollParam = param(params.scroll);
   const themeParam = param(params.theme);
   const queryPin = useMemo(
-    () => parityPinnedFrame(fixtureParam, themeParam),
-    [fixtureParam, themeParam],
+    () => parityPinnedFrame(fixtureParam, themeParam, motionParam),
+    [fixtureParam, motionParam, themeParam],
   );
   const [diskFrame] = useState<ParityFrame | null>(() => {
     if (queryPin) return null;
     const next = readParityDiskFrame();
     console.error(
       next
-        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}`
+        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}`
         : "[parity] disk none",
     );
     return next;
@@ -153,6 +156,12 @@ export function PreviewChatScreen() {
   );
 
   useEffect(() => subscribeParityClock(setIndex), []);
+
+  useEffect(() => {
+    if (frame.motion !== "reduced") return;
+    console.error("[parity] motion reduced");
+    return pushParityReducedMotion();
+  }, [frame.motion]);
 
   useLayoutEffect(() => {
     if (preference !== frame.theme) setPreference(frame.theme);

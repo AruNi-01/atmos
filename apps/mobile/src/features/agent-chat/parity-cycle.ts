@@ -20,6 +20,8 @@ export type ParityFrame = {
   theme: ParityTheme;
   /** Capture-only. The manual `f13-tail` link leaves this unset and stays at the end. */
   scroll?: "away";
+  /** Capture-only. Forces chat motion off. The manual link leaves this unset. */
+  motion?: "reduced";
 };
 
 /** Light F1–F13, then dark F1–F13. One pass. */
@@ -42,10 +44,16 @@ export function parityReadyLine(frame: ParityFrame, seq: number): string {
 }
 
 /** A fixture query pins one frame and disables the carousel. */
-export function parityPinnedFrame(fixture: string, theme: string): ParityFrame | null {
+export function parityPinnedFrame(
+  fixture: string,
+  theme: string,
+  motion?: string,
+): ParityFrame | null {
   const id = fixture.trim();
   if (!id) return null;
-  return { id, theme: theme.trim() === "dark" ? "dark" : "light" };
+  const frame: ParityFrame = { id, theme: theme.trim() === "dark" ? "dark" : "light" };
+  if (motion?.trim() === "reduced") frame.motion = "reduced";
+  return frame;
 }
 
 /** Written into the app Documents directory before each iOS capture launch. */
@@ -60,14 +68,15 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
     return null;
   }
   if (!value || typeof value !== "object") return null;
-  const record = value as { id?: unknown; scroll?: unknown; theme?: unknown };
+  const record = value as { id?: unknown; motion?: unknown; scroll?: unknown; theme?: unknown };
   if (typeof record.id !== "string") return null;
   const id = record.id.trim();
   if (!(PARITY_FIXTURE_IDS as readonly string[]).includes(id) && !parityMotionKind(id)) return null;
   if (record.theme !== "light" && record.theme !== "dark") return null;
-  return record.scroll === "away"
-    ? { id, theme: record.theme, scroll: "away" }
-    : { id, theme: record.theme };
+  const frame: ParityFrame = { id, theme: record.theme };
+  if (record.scroll === "away") frame.scroll = "away";
+  if (record.motion === "reduced") frame.motion = "reduced";
+  return frame;
 }
 
 export type ParityClock = {
