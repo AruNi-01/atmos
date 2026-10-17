@@ -410,7 +410,7 @@ function PlanPermission({
       </View>
       {showBody ? (
         model.markdown ? (
-          <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.markdown} />
+          <AgentChatMarkdown fontSize={13} lineHeight={21} prose="approval" text={model.markdown} />
         ) : readOnly ? null : (
           <Text
             style={{

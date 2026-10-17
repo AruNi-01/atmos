@@ -16,6 +16,8 @@ import {
   agentChatHeadingStyle,
   agentChatLinkColor,
   agentChatMarkdownChrome,
+  agentChatProseMetrics,
+  agentChatRendererHeadingStyle,
   agentChatThematicBreak,
   THEMATIC_BREAK_MARGIN,
 } from "./markdown-chrome";
@@ -60,6 +62,47 @@ describe("agent chat markdown chrome", () => {
     });
     expect(headings.h2.lineHeight).toBe(32);
     expect(headings.h6).toMatchObject({ fontSize: 14, lineHeight: 20 });
+    const renderer = agentChatRendererHeadingStyle("#111112", 13, 21);
+    expect(renderer.h1).toEqual({
+      color: "#111112",
+      fontSize: 24,
+      fontWeight: "600",
+      lineHeight: 32,
+      marginBottom: 12,
+      marginTop: 24,
+    });
+    expect(renderer.h2).toMatchObject({
+      fontSize: 20,
+      lineHeight: 28,
+      marginTop: 20,
+      marginBottom: 10,
+    });
+    expect(renderer.h4).toMatchObject({
+      fontSize: 16,
+      lineHeight: 24,
+      marginTop: 12,
+      marginBottom: 6,
+    });
+    expect(renderer.h6).toMatchObject({
+      fontSize: 13,
+      lineHeight: 21,
+      marginTop: 8,
+      marginBottom: 8,
+    });
+    expect(agentChatProseMetrics("tool")).toEqual({
+      codeBlockMargin: 8,
+      itemSpacing: 0,
+      listMargin: 4,
+      paragraphMargin: 4,
+    });
+    expect(agentChatProseMetrics("plan")).toEqual({
+      codeBlockMargin: 16,
+      itemSpacing: 2,
+      listMargin: 6,
+      paragraphMargin: 6,
+    });
+    expect(agentChatProseMetrics("approval").codeBlockMargin).toBe(8);
+    expect(agentChatProseMetrics("approval").paragraphMargin).toBe(6);
     for (const heading of Object.values(headings)) {
       expect(heading.lineHeight).toBeGreaterThanOrEqual(heading.fontSize);
     }
@@ -87,6 +130,8 @@ describe("agent chat markdown chrome", () => {
     );
     expect(markdown).toContain("THINKING_PARAGRAPH_MARGIN");
     expect(markdown).toContain('tone === "thinking"');
+    expect(markdown).toContain("agentChatProseMetrics(prose)");
+    expect(markdown).toContain("agentChatRendererHeadingStyle");
     expect(markdown).toContain("chatForeground(theme.isDark)");
     expect(markdown).toContain("chatMutedForeground(theme.isDark)");
     expect(BLOCKQUOTE_MARGIN).toBe(16);

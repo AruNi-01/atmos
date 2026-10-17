@@ -417,6 +417,7 @@ describe("tool body presentation", () => {
     expect(markdown).toContain("TOOL_CODE_MAX_HEIGHT");
     expect(markdown).toContain("fontSize={13}");
     expect(markdown).toContain("lineHeight={21}");
+    expect(markdown).toContain('prose="tool"');
     expect(markdown).toContain("paddingHorizontal: 12");
     expect(markdown).toContain("paddingVertical: 8");
   });
@@ -431,6 +432,7 @@ describe("tool body presentation", () => {
     expect(fetched).toContain("TOOL_CODE_MAX_HEIGHT");
     expect(fetched).toContain("fontSize={13}");
     expect(fetched).toContain("lineHeight={21}");
+    expect(fetched).toContain('prose="tool"');
     expect(fetched).toContain("toolTextUsesPreview(model.body)");
     expect(fetched).toContain("<ToolPlainPreview");
   });
@@ -1114,6 +1116,7 @@ describe("plan document", () => {
     const view = source.slice(source.indexOf("function PlanDocumentBody"));
     const card = view.slice(0, view.indexOf("function ToolBodyView"));
     expect(card).toContain("AgentChatMarkdown");
+    expect(card).toContain('prose="plan"');
     expect(card).toContain("TodoStatusRows");
     expect(card).toContain("copy.noOutput");
     expect(card).toContain("ListTodoIcon");

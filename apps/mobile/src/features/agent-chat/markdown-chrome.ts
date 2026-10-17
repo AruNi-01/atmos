@@ -29,6 +29,62 @@ export function agentChatHeadingStyle(color: string) {
 }
 
 /**
+ * `MarkdownRenderer` heading classes: `text-2xl` through `text-base`,
+ * `font-semibold`. h5 and h6 keep the body size and `prose-headings:my-2`.
+ * A leading heading still keeps its top margin.
+ */
+export function agentChatRendererHeadingStyle(
+  color: string,
+  bodyFontSize: number,
+  bodyLineHeight: number,
+) {
+  const shared = { color, fontWeight: "600" };
+  return {
+    h1: { ...shared, fontSize: 24, lineHeight: 32, marginBottom: 12, marginTop: 24 },
+    h2: { ...shared, fontSize: 20, lineHeight: 28, marginBottom: 10, marginTop: 20 },
+    h3: { ...shared, fontSize: 18, lineHeight: 28, marginBottom: 8, marginTop: 16 },
+    h4: { ...shared, fontSize: 16, lineHeight: 24, marginBottom: 6, marginTop: 12 },
+    h5: {
+      ...shared,
+      fontSize: bodyFontSize,
+      lineHeight: bodyLineHeight,
+      marginBottom: 8,
+      marginTop: 8,
+    },
+    h6: {
+      ...shared,
+      fontSize: bodyFontSize,
+      lineHeight: bodyLineHeight,
+      marginBottom: 8,
+      marginTop: 8,
+    },
+  };
+}
+
+export type AgentChatProseKind = "tool" | "plan" | "approval";
+
+/**
+ * Tool markdown is `prose-p:my-1`, `prose-ul:my-1`, and `prose-li:my-0`, with
+ * fences pulled in to `my-2`. A plan document uses `my-1.5` and
+ * `prose-li:my-0.5`, and keeps the fence `my-4`. The approval plan matches
+ * that type and uses the permission card's fence `my-2`.
+ */
+export function agentChatProseMetrics(kind: AgentChatProseKind): {
+  codeBlockMargin: number;
+  itemSpacing: number;
+  listMargin: number;
+  paragraphMargin: number;
+} {
+  if (kind === "tool") {
+    return { codeBlockMargin: 8, itemSpacing: 0, listMargin: 4, paragraphMargin: 4 };
+  }
+  if (kind === "approval") {
+    return { codeBlockMargin: 8, itemSpacing: 2, listMargin: 6, paragraphMargin: 6 };
+  }
+  return { codeBlockMargin: 16, itemSpacing: 2, listMargin: 6, paragraphMargin: 6 };
+}
+
+/**
  * Tailwind preflight zeros `p` and `ul` margins. Streamdown list items are
  * `py-1`. Agent fences and tables use `my-4`, and fence text is `text-sm leading-5`.
  * Fence and table frames use web `rounded-lg` (`--radius`, 10px).

@@ -1762,7 +1762,7 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
       ) : null}
       {showing === "body" && hasBody ? (
         <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-          <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.plan} />
+          <AgentChatMarkdown fontSize={13} lineHeight={21} prose="plan" text={model.plan} />
         </View>
       ) : null}
       {showing === "todos" && hasTodos ? <TodoStatusRows items={model.todos} /> : null}
@@ -1836,7 +1836,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         return (
           <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
             <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-              <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.body} />
+              <AgentChatMarkdown fontSize={13} lineHeight={21} prose="tool" text={model.body} />
             </View>
           </HeightClip>
         );
@@ -1870,7 +1870,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       return (
         <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
           <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-            <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.markdown} />
+            <AgentChatMarkdown fontSize={13} lineHeight={21} prose="tool" text={model.markdown} />
           </View>
         </HeightClip>
       );

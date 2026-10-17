@@ -12,7 +12,10 @@ import {
   agentChatHeadingStyle,
   agentChatLinkColor,
   agentChatMarkdownChrome,
+  agentChatProseMetrics,
+  agentChatRendererHeadingStyle,
   agentChatThematicBreak,
+  type AgentChatProseKind,
 } from "./markdown-chrome";
 
 function openHttpLink(url: string) {
@@ -29,6 +32,7 @@ export function AgentChatMarkdown({
   lineHeight,
   chipHttpUrls = false,
   codeBlockMargin,
+  prose,
 }: {
   text: string;
   tone?: "body" | "thinking";
@@ -39,6 +43,8 @@ export function AgentChatMarkdown({
   chipHttpUrls?: boolean;
   /** Tool fences use web's `my-2` (8). Answer fences keep `my-4`. */
   codeBlockMargin?: number;
+  /** Tool and plan bodies use `MarkdownRenderer` spacing. Answers stay on streamdown. */
+  prose?: AgentChatProseKind;
 }) {
   const theme = useMobileTheme();
   const markdownStyle = useMemo<MarkdownStyle>(() => {
@@ -46,16 +52,25 @@ export function AgentChatMarkdown({
       tone === "thinking" ? chatMutedForeground(theme.isDark) : chatForeground(theme.isDark);
     const resolvedFontSize = fontSize ?? (tone === "thinking" ? 15 : 16);
     const resolvedLineHeight = lineHeight ?? (tone === "thinking" ? 21 : 22);
-    const headings = agentChatHeadingStyle(proseColor);
+    const proseMetrics = prose ? agentChatProseMetrics(prose) : null;
+    const headings = proseMetrics
+      ? agentChatRendererHeadingStyle(proseColor, resolvedFontSize, resolvedLineHeight)
+      : agentChatHeadingStyle(proseColor);
     const chrome = agentChatMarkdownChrome(theme.isDark);
+    const fenceMargin = codeBlockMargin ?? proseMetrics?.codeBlockMargin;
 
     return {
       paragraph: {
         color: proseColor,
         fontSize: resolvedFontSize,
         lineHeight: resolvedLineHeight,
-        ...agentChatBlockMetrics.paragraph,
-        ...(tone === "thinking"
+        ...(proseMetrics
+          ? {
+              marginBottom: proseMetrics.paragraphMargin,
+              marginTop: proseMetrics.paragraphMargin,
+            }
+          : agentChatBlockMetrics.paragraph),
+        ...(tone === "thinking" && !proseMetrics
           ? { marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: THINKING_PARAGRAPH_MARGIN }
           : {}),
       },
@@ -78,7 +93,13 @@ export function AgentChatMarkdown({
         marginLeft: 24,
         markerColor: proseColor,
         markerMinWidth: 18,
-        ...agentChatBlockMetrics.list,
+        ...(proseMetrics
+          ? {
+              itemSpacing: proseMetrics.itemSpacing,
+              marginBottom: proseMetrics.listMargin,
+              marginTop: proseMetrics.listMargin,
+            }
+          : agentChatBlockMetrics.list),
       },
       code: {
         backgroundColor: chrome.codeBackground,
@@ -95,9 +116,7 @@ export function AgentChatMarkdown({
         fontFamily: "Menlo",
         syntaxColors: chrome.syntax,
         ...agentChatBlockMetrics.codeBlock,
-        ...(codeBlockMargin == null
-          ? {}
-          : { marginTop: codeBlockMargin, marginBottom: codeBlockMargin }),
+        ...(fenceMargin == null ? {} : { marginTop: fenceMargin, marginBottom: fenceMargin }),
       },
       link: {
         color: agentChatLinkColor(theme.isDark),
@@ -130,7 +149,7 @@ export function AgentChatMarkdown({
         ...agentChatBlockMetrics.table,
       },
     };
-  }, [chipHttpUrls, codeBlockMargin, fontSize, lineHeight, theme, tone]);
+  }, [chipHttpUrls, codeBlockMargin, fontSize, lineHeight, prose, theme, tone]);
 
   const markdown = useMemo(
     () => (chipHttpUrls ? chipCompleteHttpUrls(text) : text),

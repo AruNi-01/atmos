@@ -110,6 +110,7 @@ Just a prose overview without todos.
     expect(plan).toContain("copy.viewTodos");
     expect(plan).toContain("copy.planTodosHeading");
     expect(plan).toContain("setViewingPlan");
+    expect(plan).toContain('prose="approval"');
     const empty = plan.slice(
       plan.indexOf("{copy.planViewerEmpty}") - 240,
       plan.indexOf("{copy.planViewerEmpty}"),
