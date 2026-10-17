@@ -1019,7 +1019,16 @@ function ExecuteTerminal({
     <View>
       {command ? (
         <HeightClip maxHeight={TOOL_COMMAND_MAX_HEIGHT}>
-          <Text selectable style={{ ...mono, color: theme.colors.label }}>
+          <Text
+            selectable
+            style={{
+              ...mono,
+              color: theme.colors.label,
+              paddingHorizontal: 12,
+              paddingTop: 10,
+              paddingBottom: output ? 0 : 10,
+            }}
+          >
             <Text style={{ color: theme.colors.secondaryLabel }}>$ </Text>
             {command}
           </Text>
@@ -1032,7 +1041,9 @@ function ExecuteTerminal({
             style={{
               ...mono,
               color: failed ? theme.colors.red : theme.colors.secondaryLabel,
-              marginTop: command ? 4 : 0,
+              paddingHorizontal: 12,
+              paddingTop: command ? 4 : 10,
+              paddingBottom: 10,
             }}
           >
             {output}

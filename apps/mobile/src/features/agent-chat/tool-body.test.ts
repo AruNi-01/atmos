@@ -804,6 +804,11 @@ describe("execute terminal", () => {
     expect(terminal).toContain("$ ");
     expect(terminal).toContain('fontFamily: "Menlo"');
     expect(terminal).toContain("fontSize: 13");
+    expect(terminal).toContain("paddingHorizontal: 12");
+    expect(terminal).toContain("paddingTop: 10");
+    expect(terminal).toContain("paddingBottom: output ? 0 : 10");
+    expect(terminal).toContain("paddingTop: command ? 4 : 10");
+    expect(terminal).toContain("paddingBottom: 10");
     expect(terminal).not.toContain("AgentChatMarkdown");
     const trigger = source.slice(source.indexOf("export function ToolCallRow"));
     expect(trigger).toContain("executeTerminalFields(part).failed");
