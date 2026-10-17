@@ -316,6 +316,9 @@ function assistantHasVisiblePart(message: AgentMessage): boolean {
   });
 }
 
+/** Web assistant column `w-[calc(100%-1rem)]`: 8px on each side of the gutter. */
+const ASSISTANT_COLUMN_INSET = 8;
+
 function AssistantTurn({
   inlineTools = [],
   message,
@@ -341,7 +344,7 @@ function AssistantTurn({
   };
 
   return (
-    <View style={{ gap: 8, width: "100%" }}>
+    <View style={{ gap: 8, marginHorizontal: ASSISTANT_COLUMN_INSET }}>
       <WaitForBlock
         messageId={message.id}
         parts={message.parts}

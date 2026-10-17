@@ -41,6 +41,21 @@ describe("web source parity", () => {
     expect(tree).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
   });
 
+  test("the assistant column is inset by half of 1rem", () => {
+    const transcript = source("apps/mobile/src/features/agent-chat/AgentChatTranscript.tsx");
+    expect(transcript).toContain("const ASSISTANT_COLUMN_INSET = 8");
+    const turn = transcript.slice(
+      transcript.indexOf("function AssistantTurn"),
+      transcript.indexOf("const ChatMessage"),
+    );
+    const column = turn.slice(turn.indexOf("return ("), turn.indexOf("<WaitForBlock"));
+    expect(column).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
+    expect(column).not.toContain('width: "100%"');
+    const message = transcript.slice(transcript.indexOf("const ChatMessage"));
+    expect(message).toContain("return <UserMessage message={message} />");
+    expect(message).not.toContain("ASSISTANT_COLUMN_INSET");
+  });
+
   test("the composer stays the two-row iOS field", () => {
     const composer = source("apps/mobile/src/features/agent-chat/AgentChatComposer.tsx");
     expect(composer).toContain('width: "100%"');
