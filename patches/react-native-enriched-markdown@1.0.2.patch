@@ -1,24 +1,26 @@
 diff --git a/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h b/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
-index 1416540..8825a7c 100644
+index 1416540..45e6ce1 100644
 --- a/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
 +++ b/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
-@@ -899,6 +899,7 @@ struct EnrichedMarkdownMarkdownStyleCodeBlockStruct {
+@@ -899,6 +899,8 @@ struct EnrichedMarkdownMarkdownStyleCodeBlockStruct {
    Float borderRadius{0.0};
    Float borderWidth{0.0};
    Float padding{0.0};
 +  Float maxHeight{0.0};
++  Float lineNumberStart{1.0};
    EnrichedMarkdownMarkdownStyleCodeBlockSyntaxColorsStruct syntaxColors{};
  
  
-@@ -919,6 +920,7 @@ struct EnrichedMarkdownMarkdownStyleCodeBlockStruct {
+@@ -919,6 +921,8 @@ struct EnrichedMarkdownMarkdownStyleCodeBlockStruct {
      result["borderRadius"] = borderRadius;
      result["borderWidth"] = borderWidth;
      result["padding"] = padding;
 +    result["maxHeight"] = maxHeight;
++    result["lineNumberStart"] = lineNumberStart;
      result["syntaxColors"] = ::facebook::react::toDynamic(syntaxColors);
      return result;
    }
-@@ -976,6 +978,10 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
+@@ -976,6 +980,14 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
    if (tmp_padding != map.end()) {
      fromRawValue(context, tmp_padding->second, result.padding);
    }
@@ -26,38 +28,48 @@ index 1416540..8825a7c 100644
 +  if (tmp_maxHeight != map.end()) {
 +    fromRawValue(context, tmp_maxHeight->second, result.maxHeight);
 +  }
++  auto tmp_lineNumberStart = map.find("lineNumberStart");
++  if (tmp_lineNumberStart != map.end()) {
++    fromRawValue(context, tmp_lineNumberStart->second, result.lineNumberStart);
++  }
    auto tmp_syntaxColors = map.find("syntaxColors");
    if (tmp_syntaxColors != map.end()) {
      fromRawValue(context, tmp_syntaxColors->second, result.syntaxColors);
-@@ -4613,6 +4619,7 @@ struct EnrichedMarkdownTextMarkdownStyleCodeBlockStruct {
+@@ -4613,6 +4625,8 @@ struct EnrichedMarkdownTextMarkdownStyleCodeBlockStruct {
    Float borderRadius{0.0};
    Float borderWidth{0.0};
    Float padding{0.0};
 +  Float maxHeight{0.0};
++  Float lineNumberStart{1.0};
    EnrichedMarkdownTextMarkdownStyleCodeBlockSyntaxColorsStruct syntaxColors{};
  
  
-@@ -4633,6 +4640,7 @@ struct EnrichedMarkdownTextMarkdownStyleCodeBlockStruct {
+@@ -4633,6 +4647,8 @@ struct EnrichedMarkdownTextMarkdownStyleCodeBlockStruct {
      result["borderRadius"] = borderRadius;
      result["borderWidth"] = borderWidth;
      result["padding"] = padding;
 +    result["maxHeight"] = maxHeight;
++    result["lineNumberStart"] = lineNumberStart;
      result["syntaxColors"] = ::facebook::react::toDynamic(syntaxColors);
      return result;
    }
-@@ -4690,6 +4698,10 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
+@@ -4690,6 +4706,14 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
    if (tmp_padding != map.end()) {
      fromRawValue(context, tmp_padding->second, result.padding);
    }
 +  auto tmp_maxHeight = map.find("maxHeight");
 +  if (tmp_maxHeight != map.end()) {
 +    fromRawValue(context, tmp_maxHeight->second, result.maxHeight);
++  }
++  auto tmp_lineNumberStart = map.find("lineNumberStart");
++  if (tmp_lineNumberStart != map.end()) {
++    fromRawValue(context, tmp_lineNumberStart->second, result.lineNumberStart);
 +  }
    auto tmp_syntaxColors = map.find("syntaxColors");
    if (tmp_syntaxColors != map.end()) {
      fromRawValue(context, tmp_syntaxColors->second, result.syntaxColors);
 diff --git a/ios/internals/MeasurementCache.h b/ios/internals/MeasurementCache.h
-index f5c6719..7dcb629 100644
+index f5c6719..6f164c6 100644
 --- a/ios/internals/MeasurementCache.h
 +++ b/ios/internals/MeasurementCache.h
 @@ -124,8 +124,8 @@ template <typename StyleStruct> inline size_t computeStyleFingerprint(const Styl
@@ -66,7 +78,7 @@ index f5c6719..7dcb629 100644
    hashFields(s.codeBlock.fontFamily, s.codeBlock.fontSize, s.codeBlock.fontWeight, s.codeBlock.marginTop,
 -             s.codeBlock.marginBottom, s.codeBlock.lineHeight, s.codeBlock.padding, s.codeBlock.borderRadius,
 -             s.codeBlock.borderWidth);
-+             s.codeBlock.marginBottom, s.codeBlock.lineHeight, s.codeBlock.padding, s.codeBlock.maxHeight,
++             s.codeBlock.marginBottom, s.codeBlock.lineHeight, s.codeBlock.padding, s.codeBlock.maxHeight, s.codeBlock.lineNumberStart,
 +             s.codeBlock.borderRadius, s.codeBlock.borderWidth);
    hashFields(s.code.fontFamily, s.code.fontSize);
    hashFields(s.link.fontFamily, s.strong.fontFamily, s.strong.fontWeight, s.em.fontFamily, s.em.fontStyle);
@@ -273,39 +285,43 @@ index efaa0b3..de24af5 100644
    NSDictionary *attributes = @{
      NSAttachmentAttributeName : attachment,
 diff --git a/ios/styles/StyleConfig.h b/ios/styles/StyleConfig.h
-index 89ff9e9..b74f4a5 100644
+index 89ff9e9..1012543 100644
 --- a/ios/styles/StyleConfig.h
 +++ b/ios/styles/StyleConfig.h
-@@ -315,6 +315,8 @@ NS_ASSUME_NONNULL_BEGIN
+@@ -315,6 +315,10 @@ NS_ASSUME_NONNULL_BEGIN
  - (void)setCodeBlockBorderWidth:(CGFloat)newValue;
  - (CGFloat)codeBlockPadding;
  - (void)setCodeBlockPadding:(CGFloat)newValue;
 +- (CGFloat)codeBlockMaxHeight;
 +- (void)setCodeBlockMaxHeight:(CGFloat)newValue;
++- (CGFloat)codeBlockLineNumberStart;
++- (void)setCodeBlockLineNumberStart:(CGFloat)newValue;
  - (UIFont *)codeBlockFont;
  // Syntax highlight colors, indexed by HighlightTokenType ordinal. Resolved on
  // the JS side; the getter returns a cached color with no allocation.
 diff --git a/ios/styles/StyleConfig.mm b/ios/styles/StyleConfig.mm
-index cabaa08..0d5661b 100644
+index cabaa08..73a9278 100644
 --- a/ios/styles/StyleConfig.mm
 +++ b/ios/styles/StyleConfig.mm
-@@ -193,6 +193,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
+@@ -193,6 +193,8 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
    CGFloat _codeBlockBorderRadius;
    CGFloat _codeBlockBorderWidth;
    CGFloat _codeBlockPadding;
 +  CGFloat _codeBlockMaxHeight;
++  CGFloat _codeBlockLineNumberStart;
    RCTUIColor *_codeBlockSyntaxColors[kENRMCodeBlockSyntaxColorCount];
    ENRMFontSlot *_codeBlockFont;
    // Thematic break properties
-@@ -468,6 +469,7 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
+@@ -468,6 +470,8 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
    copy->_codeBlockBorderRadius = _codeBlockBorderRadius;
    copy->_codeBlockBorderWidth = _codeBlockBorderWidth;
    copy->_codeBlockPadding = _codeBlockPadding;
 +  copy->_codeBlockMaxHeight = _codeBlockMaxHeight;
++  copy->_codeBlockLineNumberStart = _codeBlockLineNumberStart;
    for (NSInteger i = 0; i < kENRMCodeBlockSyntaxColorCount; i++) {
      copy->_codeBlockSyntaxColors[i] = [_codeBlockSyntaxColors[i] copy];
    }
-@@ -1689,11 +1691,12 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
+@@ -1689,11 +1693,12 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
  - (UIFont *)blockquoteFont
  {
    if (_blockquoteFont.needsRecreation || !_blockquoteFont.cachedFont) {
@@ -319,7 +335,7 @@ index cabaa08..0d5661b 100644
                                               variant:nil
                                       scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_blockquoteFontSize]];
      _blockquoteFont.needsRecreation = NO;
-@@ -2103,6 +2106,16 @@ static const CGFloat kDefaultMinGap = 4.0;
+@@ -2103,6 +2108,26 @@ static const CGFloat kDefaultMinGap = 4.0;
    _codeBlockPadding = newValue;
  }
  
@@ -331,6 +347,16 @@ index cabaa08..0d5661b 100644
 +- (void)setCodeBlockMaxHeight:(CGFloat)newValue
 +{
 +  _codeBlockMaxHeight = newValue;
++}
++
++- (CGFloat)codeBlockLineNumberStart
++{
++  return _codeBlockLineNumberStart;
++}
++
++- (void)setCodeBlockLineNumberStart:(CGFloat)newValue
++{
++  _codeBlockLineNumberStart = newValue;
 +}
 +
  - (UIFont *)codeBlockFont
@@ -437,10 +463,10 @@ index 5850441..670dae2 100644
  
  void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange range, StyleConfig *config)
 diff --git a/ios/utils/StylePropsUtils.h b/ios/utils/StylePropsUtils.h
-index 03c8db5..cc931e0 100644
+index 03c8db5..d0a201b 100644
 --- a/ios/utils/StylePropsUtils.h
 +++ b/ios/utils/StylePropsUtils.h
-@@ -887,6 +887,11 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
+@@ -887,6 +887,16 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
      changed = YES;
    }
  
@@ -449,11 +475,16 @@ index 03c8db5..cc931e0 100644
 +    changed = YES;
 +  }
 +
++  if (newStyle.codeBlock.lineNumberStart != oldStyle.codeBlock.lineNumberStart) {
++    [config setCodeBlockLineNumberStart:newStyle.codeBlock.lineNumberStart];
++    changed = YES;
++  }
++
  #define ENRM_SET_SYNTAX_COLOR(field, token)                                                                            \
    if (newStyle.codeBlock.syntaxColors.field != oldStyle.codeBlock.syntaxColors.field) {                                \
      [config setCodeBlockSyntaxColor:RCTUIColorFromSharedColor(newStyle.codeBlock.syntaxColors.field)                   \
 diff --git a/ios/views/ENRMCodeBlockContainerView.m b/ios/views/ENRMCodeBlockContainerView.m
-index a668c26..e5ff0c0 100644
+index a668c26..91f108d 100644
 --- a/ios/views/ENRMCodeBlockContainerView.m
 +++ b/ios/views/ENRMCodeBlockContainerView.m
 @@ -1,5 +1,8 @@
@@ -510,20 +541,22 @@ index a668c26..e5ff0c0 100644
 +  }
 +  return full;
 +}
-+
+ 
+-static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
 +// Lucide Copy / Check in the same 14px box as web `CopyButton`. Drawn from the
 +// fence-icon catalog so the stroke matches the web svg, then tinted by the button.
 +#if !TARGET_OS_OSX
 +static UIImage *ENRMWebTemplateGlyph(NSString *key)
-+{
+ {
+-  return [config codeBlockPadding] + [config codeBlockBorderWidth];
 +  CGSize size = CGSizeMake(kENRMWebCopyGlyph, kENRMWebCopyGlyph);
 +  UIGraphicsBeginImageContextWithOptions(size, NO, 0);
 +  ENRMDrawNamedFenceIcon(UIGraphicsGetCurrentContext(), key, CGRectMake(0, 0, size.width, size.height), NO);
 +  UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
 +  UIGraphicsEndImageContext();
 +  return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-+}
-+
+ }
+ 
 +static UIImage *ENRMWebCopyGlyphImage(void)
 +{
 +  return ENRMWebTemplateGlyph(@"copy");
@@ -574,17 +607,15 @@ index a668c26..e5ff0c0 100644
 +  }
 +  return [RCTUIColor colorWithRed:(0x52 / 255.0) green:(0x52 / 255.0) blue:(0x52 / 255.0) alpha:1];
 +}
- 
--static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
++
 +static RCTUIColor *ENRMWebCodePaneColor(BOOL dark)
- {
--  return [config codeBlockPadding] + [config codeBlockBorderWidth];
++{
 +  if (dark) {
 +    return [RCTUIColor colorWithRed:0 green:0 blue:0 alpha:1];
 +  }
 +  return [RCTUIColor colorWithRed:(0xF4 / 255.0) green:(0xF4 / 255.0) blue:(0xF6 / 255.0) alpha:1];
- }
- 
++}
++
 +// Height geometry and code-run construction shared by the instance layout path
 +// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
 +
@@ -607,7 +638,7 @@ index a668c26..e5ff0c0 100644
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
-@@ -107,11 +206,95 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -107,11 +206,107 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return (0.299 * r + 0.587 * g + 0.114 * b) < 0.5;
  }
  
@@ -615,6 +646,8 @@ index a668c26..e5ff0c0 100644
 +// is at least 3ch and grows with the last number. Numbers use the code face at
 +// 12px, `text-muted-foreground`, and share the code baseline. They scroll with
 +// the pane. A one-line fence keeps the 16px inset and draws no gutter.
++// `lineNumberStart` is the first label. Web `--shiki-line-offset` is that
++// value minus 1, so a Read of lines 40-80 shows 40. Below 1 still starts at 1.
 +static NSUInteger ENRMWebCodeLineCount(NSString *code)
 +{
 +  if (code.length == 0) {
@@ -653,16 +686,25 @@ index a668c26..e5ff0c0 100644
 +#endif
 +}
 +
-+static CGFloat ENRMWebLineNumberColumn(id font, NSUInteger count)
++static NSUInteger ENRMWebLineNumberStart(CGFloat start)
++{
++  if (start < 1.0) {
++    return 1;
++  }
++  return (NSUInteger)(start + 0.5);
++}
++
++static CGFloat ENRMWebLineNumberColumn(id font, NSUInteger count, NSUInteger start)
 +{
 +  NSDictionary *attrs = @{NSFontAttributeName : font};
 +  CGFloat zero = [@"0" sizeWithAttributes:attrs].width;
-+  NSString *widest = [NSString stringWithFormat:@"%lu", (unsigned long)MAX(count, (NSUInteger)1)];
++  NSUInteger last = start + count - 1;
++  NSString *widest = [NSString stringWithFormat:@"%lu", (unsigned long)last];
 +  CGFloat measured = [widest sizeWithAttributes:attrs].width;
 +  return MAX(ceil(zero * 3.0), ceil(measured));
 +}
 +
-+static CGFloat ENRMWebLineNumberGutter(NSString *code, id codeFont, CGFloat *columnOut)
++static CGFloat ENRMWebLineNumberGutter(NSString *code, id codeFont, NSUInteger start, CGFloat *columnOut)
 +{
 +  NSUInteger count = ENRMWebCodeLineCount(code);
 +  if (count < 2) {
@@ -672,7 +714,7 @@ index a668c26..e5ff0c0 100644
 +    return 0;
 +  }
 +  id font = ENRMWebLineNumberFont(codeFont);
-+  CGFloat column = ENRMWebLineNumberColumn(font, count);
++  CGFloat column = ENRMWebLineNumberColumn(font, count, start);
 +  if (columnOut) {
 +    *columnOut = column;
 +  }
@@ -694,6 +736,7 @@ index a668c26..e5ff0c0 100644
  @property (nonatomic, strong, nullable) NSAttributedString *attributedCode;
  @property (nonatomic, assign) CGPoint textOrigin;
 +@property (nonatomic, assign) NSUInteger lineCount;
++@property (nonatomic, assign) NSUInteger lineNumberStart;
 +@property (nonatomic, assign) CGFloat lineHeight;
 +@property (nonatomic, assign) CGFloat numberColumn;
 +@property (nonatomic, assign) CGFloat numberGutter;
@@ -703,7 +746,7 @@ index a668c26..e5ff0c0 100644
  #if TARGET_OS_OSX
  @property (nonatomic, copy, nullable) NSMenu * (^menuProvider)(void);
  #endif
-@@ -133,6 +316,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -133,6 +328,18 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  
  - (void)drawRect:(CGRect)rect
  {
@@ -711,7 +754,8 @@ index a668c26..e5ff0c0 100644
 +  if (self.lineCount >= 2 && self.lineHeight > 0 && self.numberColumn > 0 && self.numberAttributes) {
 +    CGFloat x = self.textOrigin.x - self.numberGutter + kENRMWebLineNumberGapLeft;
 +    for (NSUInteger index = 0; index < self.lineCount; index++) {
-+      NSString *label = [NSString stringWithFormat:@"%lu", (unsigned long)(index + 1)];
++      NSUInteger start = self.lineNumberStart > 0 ? self.lineNumberStart : 1;
++      NSString *label = [NSString stringWithFormat:@"%lu", (unsigned long)(start + index)];
 +      CGFloat lineTop = self.textOrigin.y + (CGFloat)index * self.lineHeight;
 +      CGFloat y = lineTop + self.codeAscender - self.numberAscender;
 +      CGRect box = CGRectMake(x, y, self.numberColumn, self.lineHeight);
@@ -721,7 +765,7 @@ index a668c26..e5ff0c0 100644
    if (self.attributedCode.length > 0) {
      [self.attributedCode drawAtPoint:self.textOrigin];
    }
-@@ -164,6 +358,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -164,6 +371,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    NSFont *_headerFont;
    NSButton *_copyButton;
  #endif
@@ -729,7 +773,7 @@ index a668c26..e5ff0c0 100644
  }
  
  @synthesize copyLabel = _copyLabel;
-@@ -217,23 +412,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -217,23 +425,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [self addInteraction:contextMenu];
  
      _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -760,7 +804,7 @@ index a668c26..e5ff0c0 100644
      [self addSubview:_copyButton];
  #endif
    }
-@@ -274,40 +463,75 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -274,40 +476,77 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  {
    CGFloat borderW = ceil([_config codeBlockBorderWidth]);
    CGFloat headerH = [self headerHeight];
@@ -775,7 +819,8 @@ index a668c26..e5ff0c0 100644
 -  _codeContentView.frame = CGRectMake(0, 0, contentWidth, frame.size.height);
 +  CGFloat numberColumn = 0;
 +  id codeFont = [_config codeBlockFont];
-+  CGFloat numberGutter = ENRMWebLineNumberGutter(_cachedCode, codeFont, &numberColumn);
++  NSUInteger lineStart = ENRMWebLineNumberStart([_config codeBlockLineNumberStart]);
++  CGFloat numberGutter = ENRMWebLineNumberGutter(_cachedCode, codeFont, lineStart, &numberColumn);
 +  CGFloat contentWidth = MAX(_codeSize.width + kENRMWebCodePadX * 2 + numberGutter, frame.size.width);
 +  CGFloat fullPane = _codeSize.height + kENRMWebCodePadY * 2.0;
 +  // A 1px border makes the frame slightly shorter than the pane. Only a real
@@ -783,6 +828,7 @@ index a668c26..e5ff0c0 100644
 +  CGFloat contentHeight = fullPane > frame.size.height + 1.0 ? fullPane : frame.size.height;
 +  _codeContentView.textOrigin = CGPointMake(kENRMWebCodePadX + numberGutter, kENRMWebCodePadY);
 +  _codeContentView.lineCount = ENRMWebCodeLineCount(_cachedCode);
++  _codeContentView.lineNumberStart = lineStart;
 +  CGFloat lineHeight = [_config codeBlockLineHeight];
 +  if (lineHeight <= 0 && _attributedCode.length > 0) {
 +    NSParagraphStyle *style =
@@ -855,7 +901,7 @@ index a668c26..e5ff0c0 100644
  }
  
  #if !TARGET_OS_OSX
-@@ -385,7 +609,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -385,7 +624,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    }
    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
    labelAttributes[NSFontAttributeName] = _headerFont;
@@ -866,7 +912,7 @@ index a668c26..e5ff0c0 100644
    if (labelColor) {
      labelAttributes[NSForegroundColorAttributeName] = labelColor;
    }
-@@ -398,23 +624,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -398,23 +639,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
  }
  
@@ -893,7 +939,7 @@ index a668c26..e5ff0c0 100644
  }
  
  - (void)drawRect:(CGRect)rect
-@@ -434,6 +653,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -434,6 +668,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [backgroundColor setFill];
      [path fill];
    }
@@ -916,7 +962,7 @@ index a668c26..e5ff0c0 100644
    if (borderWidth > 0) {
      RCTUIColor *borderColor = [_config codeBlockBorderColor];
      if (borderColor) {
-@@ -443,24 +678,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -443,24 +693,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      }
    }
  
@@ -950,7 +996,7 @@ index a668c26..e5ff0c0 100644
    }
  }
  
-@@ -469,12 +700,48 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -469,12 +715,48 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return ENRMCodeBlockFencedMarkdown(_cachedCode, _cachedLanguage, _fenceChar);
  }
  
@@ -999,7 +1045,7 @@ index a668c26..e5ff0c0 100644
  }
  
  - (void)copyMarkdownToPasteboard
-@@ -495,7 +762,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -495,7 +777,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
                     actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                       UIAction *copyCode =
                           [UIAction actionWithTitle:self.copyLabel
@@ -1008,7 +1054,7 @@ index a668c26..e5ff0c0 100644
                                          identifier:nil
                                             handler:^(__kindof UIAction *action) { [self copyCodeToPasteboard]; }];
  
-@@ -561,3 +828,803 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -561,3 +843,803 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  #endif
  
  @end
@@ -1932,172 +1978,188 @@ index b76936d..18aa1a1 100644
  
    if (tableOverflows) {
 diff --git a/lib/module/EnrichedMarkdownNativeComponent.ts b/lib/module/EnrichedMarkdownNativeComponent.ts
-index e69c364..98ddd24 100644
+index e69c364..18b20e2 100644
 --- a/lib/module/EnrichedMarkdownNativeComponent.ts
 +++ b/lib/module/EnrichedMarkdownNativeComponent.ts
-@@ -67,6 +67,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
+@@ -67,6 +67,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
    borderRadius: CodegenTypes.Float;
    borderWidth: CodegenTypes.Float;
    padding: CodegenTypes.Float;
 +  maxHeight?: CodegenTypes.Float;
++  lineNumberStart?: CodegenTypes.Float;
    syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  
 diff --git a/lib/module/EnrichedMarkdownTextNativeComponent.ts b/lib/module/EnrichedMarkdownTextNativeComponent.ts
-index e011cfc..d4f0b0e 100644
+index e011cfc..4272485 100644
 --- a/lib/module/EnrichedMarkdownTextNativeComponent.ts
 +++ b/lib/module/EnrichedMarkdownTextNativeComponent.ts
-@@ -67,6 +67,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
+@@ -67,6 +67,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
    borderRadius: CodegenTypes.Float;
    borderWidth: CodegenTypes.Float;
    padding: CodegenTypes.Float;
 +  maxHeight?: CodegenTypes.Float;
++  lineNumberStart?: CodegenTypes.Float;
    syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  
 diff --git a/lib/module/normalizeMarkdownStyle.js b/lib/module/normalizeMarkdownStyle.js
-index be187ef..dca5cdd 100644
+index be187ef..92ac7a3 100644
 --- a/lib/module/normalizeMarkdownStyle.js
 +++ b/lib/module/normalizeMarkdownStyle.js
-@@ -189,6 +189,7 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
+@@ -189,6 +189,8 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
      borderRadius: 8,
      borderWidth: 1,
      padding: 16,
 +    maxHeight: 0,
++    lineNumberStart: 1,
      syntaxColors: {
        ...DEFAULT_CODE_BLOCK_SYNTAX_COLORS
      }
 diff --git a/lib/module/normalizeMarkdownStyle.web.js b/lib/module/normalizeMarkdownStyle.web.js
-index 9bf1c94..7b4f4ff 100644
+index 9bf1c94..6a8d7d3 100644
 --- a/lib/module/normalizeMarkdownStyle.web.js
 +++ b/lib/module/normalizeMarkdownStyle.web.js
-@@ -105,6 +105,7 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
+@@ -105,6 +105,8 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
      borderRadius: 8,
      borderWidth: 1,
      padding: 16,
 +    maxHeight: 0,
++    lineNumberStart: 1,
      syntaxColors: {
        keyword: '#FF7B72',
        operatorColor: '#F3F4F6',
 diff --git a/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts b/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
-index 173e01c..1429c44 100644
+index 173e01c..5caf949 100644
 --- a/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
 +++ b/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
-@@ -54,6 +54,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
+@@ -54,6 +54,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
      borderRadius: CodegenTypes.Float;
      borderWidth: CodegenTypes.Float;
      padding: CodegenTypes.Float;
 +    maxHeight?: CodegenTypes.Float;
++    lineNumberStart?: CodegenTypes.Float;
      syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  interface LinkStyleInternal {
 diff --git a/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts b/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
-index b13b506..cda4d8d 100644
+index b13b506..b5a9178 100644
 --- a/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
 +++ b/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
-@@ -54,6 +54,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
+@@ -54,6 +54,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
      borderRadius: CodegenTypes.Float;
      borderWidth: CodegenTypes.Float;
      padding: CodegenTypes.Float;
 +    maxHeight?: CodegenTypes.Float;
++    lineNumberStart?: CodegenTypes.Float;
      syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  interface LinkStyleInternal {
 diff --git a/lib/typescript/src/types/MarkdownStyle.d.ts b/lib/typescript/src/types/MarkdownStyle.d.ts
-index a8e1af2..15ae957 100644
+index a8e1af2..68fc0fa 100644
 --- a/lib/typescript/src/types/MarkdownStyle.d.ts
 +++ b/lib/typescript/src/types/MarkdownStyle.d.ts
-@@ -73,6 +73,8 @@ interface CodeBlockStyle extends BaseBlockStyle {
+@@ -73,6 +73,10 @@ interface CodeBlockStyle extends BaseBlockStyle {
      borderRadius?: number;
      borderWidth?: number;
      padding?: number;
 +    /** Collapsed fence pane cap in px. `0` keeps the full height. */
 +    maxHeight?: number;
++    /** First gutter number. Web `--shiki-line-offset` is this minus 1. */
++    lineNumberStart?: number;
      syntaxColors?: CodeBlockSyntaxColors;
  }
  export interface LinkStyle {
 diff --git a/lib/typescript/src/types/MarkdownStyleInternal.d.ts b/lib/typescript/src/types/MarkdownStyleInternal.d.ts
-index 1d30cb2..0aeb8a6 100644
+index 1d30cb2..accf730 100644
 --- a/lib/typescript/src/types/MarkdownStyleInternal.d.ts
 +++ b/lib/typescript/src/types/MarkdownStyleInternal.d.ts
-@@ -57,6 +57,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
+@@ -57,6 +57,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
      borderRadius: number;
      borderWidth: number;
      padding: number;
 +    maxHeight: number;
++    lineNumberStart: number;
      syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  interface LinkStyleInternal {
 diff --git a/src/EnrichedMarkdownNativeComponent.ts b/src/EnrichedMarkdownNativeComponent.ts
-index e69c364..98ddd24 100644
+index e69c364..18b20e2 100644
 --- a/src/EnrichedMarkdownNativeComponent.ts
 +++ b/src/EnrichedMarkdownNativeComponent.ts
-@@ -67,6 +67,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
+@@ -67,6 +67,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
    borderRadius: CodegenTypes.Float;
    borderWidth: CodegenTypes.Float;
    padding: CodegenTypes.Float;
 +  maxHeight?: CodegenTypes.Float;
++  lineNumberStart?: CodegenTypes.Float;
    syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  
 diff --git a/src/EnrichedMarkdownTextNativeComponent.ts b/src/EnrichedMarkdownTextNativeComponent.ts
-index e011cfc..d4f0b0e 100644
+index e011cfc..4272485 100644
 --- a/src/EnrichedMarkdownTextNativeComponent.ts
 +++ b/src/EnrichedMarkdownTextNativeComponent.ts
-@@ -67,6 +67,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
+@@ -67,6 +67,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
    borderRadius: CodegenTypes.Float;
    borderWidth: CodegenTypes.Float;
    padding: CodegenTypes.Float;
 +  maxHeight?: CodegenTypes.Float;
++  lineNumberStart?: CodegenTypes.Float;
    syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  
 diff --git a/src/normalizeMarkdownStyle.ts b/src/normalizeMarkdownStyle.ts
-index 8c57c55..a883cc0 100644
+index 8c57c55..1076253 100644
 --- a/src/normalizeMarkdownStyle.ts
 +++ b/src/normalizeMarkdownStyle.ts
-@@ -176,6 +176,7 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
+@@ -176,6 +176,8 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
      borderRadius: 8,
      borderWidth: 1,
      padding: 16,
 +    maxHeight: 0,
++    lineNumberStart: 1,
      syntaxColors: { ...DEFAULT_CODE_BLOCK_SYNTAX_COLORS },
    },
    link: {
 diff --git a/src/normalizeMarkdownStyle.web.ts b/src/normalizeMarkdownStyle.web.ts
-index 73fe1eb..6afd7aa 100644
+index 73fe1eb..fa33a0e 100644
 --- a/src/normalizeMarkdownStyle.web.ts
 +++ b/src/normalizeMarkdownStyle.web.ts
-@@ -125,6 +125,7 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
+@@ -125,6 +125,8 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
      borderRadius: 8,
      borderWidth: 1,
      padding: 16,
 +    maxHeight: 0,
++    lineNumberStart: 1,
      syntaxColors: {
        keyword: '#FF7B72',
        operatorColor: '#F3F4F6',
 diff --git a/src/types/MarkdownStyle.ts b/src/types/MarkdownStyle.ts
-index 11158ab..d3d4219 100644
+index 11158ab..c234ea4 100644
 --- a/src/types/MarkdownStyle.ts
 +++ b/src/types/MarkdownStyle.ts
-@@ -81,6 +81,8 @@ interface CodeBlockStyle extends BaseBlockStyle {
+@@ -81,6 +81,10 @@ interface CodeBlockStyle extends BaseBlockStyle {
    borderRadius?: number;
    borderWidth?: number;
    padding?: number;
 +  /** Collapsed fence pane cap in px. `0` keeps the full height. */
 +  maxHeight?: number;
++  /** First gutter number. Web `--shiki-line-offset` is this minus 1. */
++  lineNumberStart?: number;
    syntaxColors?: CodeBlockSyntaxColors;
  }
  
 diff --git a/src/types/MarkdownStyleInternal.ts b/src/types/MarkdownStyleInternal.ts
-index 6be91c0..8b3d45a 100644
+index 6be91c0..4783092 100644
 --- a/src/types/MarkdownStyleInternal.ts
 +++ b/src/types/MarkdownStyleInternal.ts
-@@ -80,6 +80,7 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
+@@ -80,6 +80,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
    borderRadius: number;
    borderWidth: number;
    padding: number;
 +  maxHeight: number;
++  lineNumberStart: number;
    syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  

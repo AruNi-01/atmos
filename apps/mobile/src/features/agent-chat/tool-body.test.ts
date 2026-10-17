@@ -180,7 +180,16 @@ describe("tool body presentation", () => {
       text: "const a = 1;\n",
       language: "typescript",
       hint: null,
+      lineStart: 1,
     });
+    const ranged = await call(
+      part({
+        kind: "read",
+        params: { type: "read", path: "a.ts", offset: 40, limit: 3 },
+        result: { type: "file_content", path: "a.ts", text: "a\nb\nc\n" },
+      }),
+    );
+    expect(ranged).toMatchObject({ kind: "code", lineStart: 40 });
   });
 
   test("search, fetch, files, tree, markdown, and todos stay on the presentation", async () => {
@@ -1472,6 +1481,8 @@ describe("tool row chrome", () => {
     expect(codeFence).toContain("TOOL_CODE_MAX_HEIGHT");
     expect(codeFence).toContain("codeBlockMargin={8}");
     expect(codeFence).toContain("codeBlockMaxHeight={0}");
+    expect(codeFence).toContain("codeBlockLineStart={lineStart}");
+    expect(view).toContain("lineStart={model.lineStart}");
     expect(codeFence).toContain("paddingHorizontal: 8");
     expect(codeFence).toContain("paddingBottom: 8");
     expect(codeFence).toContain("CodeExpandButton");

@@ -37,6 +37,7 @@ export function AgentChatMarkdown({
   chipHttpUrls = false,
   codeBlockMargin,
   codeBlockMaxHeight = ANSWER_FENCE_MAX_HEIGHT,
+  codeBlockLineStart = 1,
   prose,
 }: {
   text: string;
@@ -53,6 +54,11 @@ export function AgentChatMarkdown({
    * fences pass `0` because their expand control removes a React clip.
    */
   codeBlockMaxHeight?: number;
+  /**
+   * First gutter number. A read slice passes the file line. Web's
+   * `--shiki-line-offset` is this value minus 1.
+   */
+  codeBlockLineStart?: number;
   /** Tool and plan bodies use `MarkdownRenderer` spacing. Answers stay on streamdown. */
   prose?: AgentChatProseKind;
 }) {
@@ -134,6 +140,7 @@ export function AgentChatMarkdown({
         fontFamily: "Menlo",
         syntaxColors: chrome.syntax,
         ...agentChatBlockMetrics.codeBlock,
+        lineNumberStart: codeBlockLineStart,
         maxHeight: codeBlockMaxHeight,
         ...(fenceMargin == null
           ? tone === "thinking"
@@ -178,7 +185,17 @@ export function AgentChatMarkdown({
         ...(symmetricBlockMargin ? { marginBottom: 16, marginTop: 16 } : {}),
       },
     };
-  }, [chipHttpUrls, codeBlockMargin, codeBlockMaxHeight, fontSize, lineHeight, prose, theme, tone]);
+  }, [
+    chipHttpUrls,
+    codeBlockLineStart,
+    codeBlockMargin,
+    codeBlockMaxHeight,
+    fontSize,
+    lineHeight,
+    prose,
+    theme,
+    tone,
+  ]);
 
   const markdown = useMemo(
     () => (chipHttpUrls ? chipCompleteHttpUrls(text) : text),

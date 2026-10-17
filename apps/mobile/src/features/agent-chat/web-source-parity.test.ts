@@ -126,6 +126,11 @@ describe("web source parity", () => {
     expect(patch).toContain("kENRMWebLineNumberGapLeft = 4.0");
     expect(patch).toContain("kENRMWebLineNumberGapRight = 16.0");
     expect(patch).toContain("if (count < 2)");
+    expect(patch).toContain("ENRMWebLineNumberStart");
+    expect(patch).toContain("codeBlockLineNumberStart");
+    expect(patch).toContain("lineNumberStart");
+    expect(patch).toContain("--shiki-line-offset");
+    expect(patch).toContain("start + index");
     expect(patch).toContain("green:(0x71 / 255.0) blue:(0x7B / 255.0)");
     expect(patch).toContain("green:(0x9F / 255.0) blue:(0xA9 / 255.0)");
     expect(patch).toContain("ENRMWebCodePaneHeight");

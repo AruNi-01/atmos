@@ -152,6 +152,8 @@ describe("agent chat markdown chrome", () => {
     );
     expect(markdown).toContain("codeBlockMaxHeight = ANSWER_FENCE_MAX_HEIGHT");
     expect(markdown).toContain("maxHeight: codeBlockMaxHeight");
+    expect(markdown).toContain("codeBlockLineStart = 1");
+    expect(markdown).toContain("lineNumberStart: codeBlockLineStart");
     expect(markdown).toContain("marginLeft: 24");
     expect(markdown).toContain("gapWidth: 8");
     expect(markdown).not.toContain("markerMinWidth");
