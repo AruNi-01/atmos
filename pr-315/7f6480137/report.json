@@ -1,0 +1,313 @@
+{
+  "schemaVersion": "report-1",
+  "run": {
+    "id": "01a1474f-94c7-7310-bc3b-0a6e80b1363f",
+    "specVersion": "0.1",
+    "runner": {
+      "name": "e2e",
+      "version": "0.21.2"
+    },
+    "status": "passed",
+    "exitCode": 0,
+    "startedAt": "2026-10-17T00:42:44.529Z",
+    "finishedAt": "2026-10-17T00:42:47.903Z",
+    "project": {
+      "id": "@atmos/mobile-e2e",
+      "configDigest": "b5b676bdb3b357f8b4eb631279ce9d92693521a0b4134179c4b6adc863f14e5e"
+    },
+    "environment": {
+      "ci": false,
+      "trustNoticeShown": false,
+      "os": "darwin 27.2.0",
+      "arch": "arm64",
+      "runtime": "node v25.9.0"
+    },
+    "vcs": {
+      "commit": "42796cf6558338bd6c79b20aef52b9e0b4529aeb",
+      "branch": "feat/mobile-agent-e2e",
+      "dirty": false
+    },
+    "targets": [
+      {
+        "id": "ios",
+        "index": 0,
+        "platform": "ios",
+        "environment": "test",
+        "engine": {
+          "name": "mobile",
+          "version": "0.12.2",
+          "spiVersion": 1
+        },
+        "capabilities": [
+          "actions",
+          "artifacts",
+          "device",
+          "keyboard",
+          "location",
+          "observation",
+          "pointer"
+        ],
+        "artifactCapabilities": [
+          "screenshot",
+          "video"
+        ],
+        "stateCapability": false
+      },
+      {
+        "id": "android",
+        "index": 1,
+        "platform": "android",
+        "environment": "test",
+        "engine": {
+          "name": "mobile",
+          "version": "0.12.2",
+          "spiVersion": 1
+        },
+        "capabilities": [
+          "actions",
+          "artifacts",
+          "device",
+          "keyboard",
+          "location",
+          "observation",
+          "pointer"
+        ],
+        "artifactCapabilities": [
+          "screenshot",
+          "video"
+        ],
+        "stateCapability": false
+      }
+    ],
+    "serialGroups": [],
+    "results": [
+      {
+        "id": "89e7c2d3793065c0f2688bb567731461c607b1510ab1afa716f61bd74f6c490c",
+        "testId": "tests/agent-chat.e2e.ts::sends%20an%20agent%20message",
+        "kind": "test",
+        "declarationIndex": 0,
+        "titlePath": [
+          "sends an agent message"
+        ],
+        "file": "tests/agent-chat.e2e.ts",
+        "source": {
+          "file": "tests/agent-chat.e2e.ts",
+          "line": 7,
+          "column": 1
+        },
+        "targetId": "ios",
+        "platform": "ios",
+        "agent": "default",
+        "repeat": 0,
+        "tags": [],
+        "selected": false,
+        "status": "skipped",
+        "skip": {
+          "cause": "filtered",
+          "reason": "file not selected by a positional argument"
+        },
+        "attempts": []
+      },
+      {
+        "id": "fa6a99d015cd37b9d6f742fdbd5947db2318c5148875879baf1646e2455f3a93",
+        "testId": "tests/smoke.e2e.ts::unpaired%20launch%20shows%20the%20pair%20screen",
+        "kind": "test",
+        "declarationIndex": 0,
+        "titlePath": [
+          "unpaired launch shows the pair screen"
+        ],
+        "file": "tests/smoke.e2e.ts",
+        "source": {
+          "file": "tests/smoke.e2e.ts",
+          "line": 7,
+          "column": 1
+        },
+        "targetId": "ios",
+        "platform": "ios",
+        "agent": "default",
+        "repeat": 0,
+        "tags": [],
+        "selected": true,
+        "status": "skipped",
+        "skip": {
+          "cause": "explicit",
+          "reason": "app is paired; pair screen not shown"
+        },
+        "attempts": []
+      },
+      {
+        "id": "09a75be6ea66f2c65919f068fa566a0380eac49f2f8fb93bbb274a56e0597f37",
+        "testId": "tests/smoke.e2e.ts::paired%20launch%20shows%20the%20workspace%20list",
+        "kind": "test",
+        "declarationIndex": 1,
+        "titlePath": [
+          "paired launch shows the workspace list"
+        ],
+        "file": "tests/smoke.e2e.ts",
+        "source": {
+          "file": "tests/smoke.e2e.ts",
+          "line": 22,
+          "column": 1
+        },
+        "targetId": "ios",
+        "platform": "ios",
+        "agent": "default",
+        "repeat": 0,
+        "tags": [],
+        "selected": true,
+        "status": "passed",
+        "attempts": [
+          {
+            "id": "01a1474f-a6ec-7c92-ab4b-16bab99e0379",
+            "index": 0,
+            "status": "passed",
+            "startedAt": "2026-10-17T00:42:44.845Z",
+            "durationMs": 3037,
+            "artifacts": [],
+            "secondaryErrors": [],
+            "cleanup": "complete",
+            "environment": {
+              "platform": "ios",
+              "device": "B3CE3FD6-769B-48A3-B0F7-5933C74D1E39"
+            },
+            "steps": [
+              {
+                "id": "01a1474f-a6ec-7c92-ab4b-16bab99e0379:0",
+                "index": 0,
+                "kind": "app",
+                "api": "app.open",
+                "label": "",
+                "status": "passed",
+                "startedAt": "2026-10-17T00:42:45.011Z",
+                "durationMs": 782,
+                "events": [],
+                "artifacts": [],
+                "source": {
+                  "file": "tests/smoke.e2e.ts",
+                  "line": 26,
+                  "column": 15
+                }
+              },
+              {
+                "id": "01a1474f-a6ec-7c92-ab4b-16bab99e0379:1",
+                "index": 1,
+                "kind": "assertion",
+                "api": "expect.toBeVisible",
+                "label": "getByTestId(\"Workspace\")",
+                "status": "passed",
+                "startedAt": "2026-10-17T00:42:45.794Z",
+                "durationMs": 2086,
+                "events": [
+                  {
+                    "kind": "poll",
+                    "name": "expect",
+                    "startedAt": "2026-10-17T00:42:45.795Z",
+                    "durationMs": 2085,
+                    "status": "passed",
+                    "count": 11,
+                    "detail": "no node (0 matches) x10 -> at 2085ms default states (1 match)"
+                  }
+                ],
+                "artifacts": [],
+                "screen": {
+                  "location": "land.atmos.mobile / Workspace",
+                  "nodes": 19,
+                  "changes": []
+                },
+                "source": {
+                  "file": "tests/smoke.e2e.ts",
+                  "line": 27,
+                  "column": 51
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "a954b4d7f0809230a50f6c08199263ebed0fd9d94eb1421928dc1cf1d1ef0686",
+        "testId": "tests/terminal.e2e.ts::opens%20a%20terminal",
+        "kind": "test",
+        "declarationIndex": 0,
+        "titlePath": [
+          "opens a terminal"
+        ],
+        "file": "tests/terminal.e2e.ts",
+        "source": {
+          "file": "tests/terminal.e2e.ts",
+          "line": 6,
+          "column": 1
+        },
+        "targetId": "ios",
+        "platform": "ios",
+        "agent": "default",
+        "repeat": 0,
+        "tags": [],
+        "selected": false,
+        "status": "skipped",
+        "skip": {
+          "cause": "filtered",
+          "reason": "file not selected by a positional argument"
+        },
+        "attempts": []
+      },
+      {
+        "id": "35be1fa8697cbc83f823a81b9be934f65a224f5b35b0e3729eeedb500ec4379b",
+        "testId": "tests/workspace.e2e.ts::opens%20a%20workspace%20from%20the%20list",
+        "kind": "test",
+        "declarationIndex": 0,
+        "titlePath": [
+          "opens a workspace from the list"
+        ],
+        "file": "tests/workspace.e2e.ts",
+        "source": {
+          "file": "tests/workspace.e2e.ts",
+          "line": 7,
+          "column": 1
+        },
+        "targetId": "ios",
+        "platform": "ios",
+        "agent": "default",
+        "repeat": 0,
+        "tags": [],
+        "selected": false,
+        "status": "skipped",
+        "skip": {
+          "cause": "filtered",
+          "reason": "file not selected by a positional argument"
+        },
+        "attempts": []
+      }
+    ],
+    "errors": [],
+    "summary": {
+      "discovered": 5,
+      "selected": 2,
+      "executed": 1,
+      "passed": 1,
+      "failed": 0,
+      "interrupted": 0,
+      "flaky": 0,
+      "skipped": 1
+    },
+    "limits": {
+      "maxAgentContextBytes": 16384,
+      "maxLedgerBytes": 8192,
+      "maxObservationBytes": 262144,
+      "maxEventsPerStep": 1000,
+      "maxModelTokensPerCall": 64000
+    },
+    "usage": {
+      "discoveredResults": 5,
+      "maxAgentContextBytes": 0,
+      "maxLedgerBytes": 0,
+      "maxObservationBytes": 0,
+      "artifactBytes": 0,
+      "downloads": 0,
+      "events": 1,
+      "modelTokens": 0,
+      "maxModelCallsInStep": 0,
+      "maxActionStepsInStep": 0
+    }
+  }
+}

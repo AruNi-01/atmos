@@ -1,0 +1,12 @@
+Page: land.atmos.mobile
+App: land.atmos.mobile
+Snapshot: 8 visible nodes
+@e1 [application] "Atmos"
+@e2 [navigation-bar] "Not Found"
+@e3 [button] "(home)"
+@e4 [text] "Not Found"
+@e5 [scroll-area] [scrollable]
+  [content below scroll-area hidden]
+@e6 [text] "Route not found"
+@e7 [text] "This mobile screen does not exist."
+@e8 [button] "Back to Workspaces"
