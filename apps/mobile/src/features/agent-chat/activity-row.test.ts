@@ -132,4 +132,19 @@ describe("part reveal gate", () => {
     expect(play({ primed: true, seen: false, streaming: false })).toBe(true);
     expect(play({ primed: true, seen: true, streaming: true })).toBe(false);
   });
+
+  test("shrinks the 22px bottom fade to the transcript background", async () => {
+    const reveal = await importPartReveal();
+    const height = reveal.revealEdgeFadeHeight as (progress: number, fadePx: number) => number;
+    const colors = reveal.revealEdgeFadeColors as (background: string) => [string, string];
+    expect(height(0, 22)).toBe(22);
+    expect(height(0.5, 22)).toBe(11);
+    expect(height(1, 22)).toBe(0);
+    expect(height(-1, 22)).toBe(22);
+    expect(colors("#f4f4f6")).toEqual(["rgba(244, 244, 246, 0)", "rgba(244, 244, 246, 1)"]);
+    expect(colors("#000000")[0]).toBe("rgba(0, 0, 0, 0)");
+    const source = readFileSync(join(here, "motion/part-reveal.tsx"), "utf8");
+    expect(source).toContain("TREE_REVEAL_FADE_PX");
+    expect(source).toContain("revealEdgeFadeHeight(progress.get(), TREE_REVEAL_FADE_PX)");
+  });
 });

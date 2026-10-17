@@ -5,7 +5,7 @@
 ## Status
 
 - **State**: in_progress
-- **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
+- **Branch**: `aarynlu/tail-scroll-capture-a689` (base `docs/mobile-chat-web-parity`)
 - **Last updated**: 2026-10-17
 - **Current owner**: lead agent
 - **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38894137249` (head `d0dad93ae`) is a clean iOS Simulator matrix on the card-lane preview: 26 distinct frames, `F1-light` shows the release notes, `F4-dark` and `F11-dark` are the app, and `F12-light` shows the title pills. Run `38877961991` is an earlier height-36 build whose `F4-dark` and `F11-dark` were Springboard and whose `F1-light` missed the body. S27 is partial. S28 ran as react-native-web. S31 stays `not_run`.
@@ -221,3 +221,5 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - The collapsed tool row uses the same heading as web: a path-only read is `Read` plus a `theme.ts` chip, and a search titled with its query is `Search`. The chip does not open an editor. Those frames are not re-shot.
 - The activity footer now picks its row with `deriveAgentActivityState` in `@atmos/agent-transcript`, the same order web uses: session chrome, parent tool, wait poll, then streaming thought or answer. A path-only read still renders `Read theme.ts`. Web still formats the tool line itself, because a full old/new file body stays on the web diff parser. The phone adds `...` only when that state says the trail is an ellipsis. S14 stays partial.
 - Run `38986732141` (head `40ad87afd`) `ios-simulator` succeeded. `f4-replay-live` has 12 PNGs and `f4-replay-reduced` has 2. They are one transparent 1206×2622 bitmap (`1af9d9ed2dab8cda`). `F4-light.png` from simctl is the settled fixture. S10 and S11 stay `not_run`. The Skia snapshot now uses `afterScreenUpdates:NO` so it keeps the pixels on screen instead of the layout pass that drew that empty bitmap. A blank center logs `[parity] motion blank`.
+- The answer caret follows Streamdown's paint gate: a leading space plus U+258D, only on the streaming display tail, hidden under reduced motion and when the visible markdown ends in an unclosed fence or a table. Earlier open text parts stay unmarked. The glyph stays U+258D. Web's `::after` uses U+258B and does not blink.
+- A revealing part fades its bottom `TREE_REVEAL_FADE_PX` (22) to the transcript background as the reveal progress goes from 0 to 1. Blur stays off. S10 and S11 stay `not_run`.
