@@ -114,6 +114,8 @@ describe("tool body presentation", () => {
       view.indexOf("function fetchRowUrl"),
     );
     expect(discussion).toContain("TOOL_DIFF_MAX_HEIGHT");
+    expect(discussion).toContain("<HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT} wrap>");
+    expect(discussion).toContain("minWidth: 0");
     expect(discussion).toContain("TOOL_DIFF_RADIUS");
     expect(discussion).toContain("TOOL_DIFF_HEADER_LIGHT");
     expect(discussion).toContain("shadowOpacity: 0.1");

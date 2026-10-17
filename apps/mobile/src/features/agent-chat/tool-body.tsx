@@ -1231,18 +1231,38 @@ function ToolCodeFence({
   );
 }
 
-function HeightClip({ maxHeight, children }: { maxHeight: number; children: ReactNode }) {
+function HeightClip({
+  maxHeight,
+  children,
+  wrap = false,
+}: {
+  maxHeight: number;
+  children: ReactNode;
+  /** Pin the content to the clip width so lines wrap instead of widening the card. */
+  wrap?: boolean;
+}) {
   const [contentHeight, setContentHeight] = useState(0);
+  const [width, setWidth] = useState(0);
   const height = contentHeight > 0 ? Math.min(contentHeight, maxHeight) : undefined;
   return (
-    <View style={{ height, maxHeight }}>
+    <View
+      onLayout={
+        wrap
+          ? (event) => {
+              const next = event.nativeEvent.layout.width;
+              setWidth((current) => (current === next ? current : next));
+            }
+          : undefined
+      }
+      style={{ height, maxHeight }}
+    >
       <ScrollView
         nestedScrollEnabled
         onContentSizeChange={(_width, next) => setContentHeight(next)}
         scrollEnabled={contentHeight > maxHeight}
         style={{ maxHeight }}
       >
-        {children}
+        {wrap && width > 0 ? <View style={{ width }}>{children}</View> : children}
       </ScrollView>
     </View>
   );
@@ -1750,7 +1770,7 @@ function DiscussionDiff({
           </View>
         ) : null}
         {rows.length > 0 ? (
-          <HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT}>
+          <HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT} wrap>
             {(() => {
               let lineIndex = 0;
               return rows.map((row, index) => {
@@ -1831,6 +1851,7 @@ function DiscussionDiff({
                             ? toolDiffLineFill(line.op, theme.isDark)
                             : undefined,
                           flex: 1,
+                          minWidth: 0,
                         }}
                       >
                         <Text
