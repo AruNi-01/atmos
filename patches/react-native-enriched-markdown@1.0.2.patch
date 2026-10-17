@@ -111,10 +111,24 @@ index 83c8b41de..cc590f422 100644
  }
  
 diff --git a/ios/renderer/BlockquoteRenderer.m b/ios/renderer/BlockquoteRenderer.m
-index 84a0132e0..5f81028d0 100644
+index 84a0132..816b618 100644
 --- a/ios/renderer/BlockquoteRenderer.m
 +++ b/ios/renderer/BlockquoteRenderer.m
-@@ -158,6 +158,7 @@ static NSString *const kNestedInfoRangeKey = @"range";
+@@ -56,7 +56,12 @@ static NSString *const kNestedInfoRangeKey = @"range";
+ {
+   NSUInteger contentStart = start;
+   if (currentDepth == 0) {
+-    contentStart += applyBlockSpacingBefore(output, start, [_config blockquoteMarginTop]);
++    // Prose quotes collapse with the previous block. Answer quotes keep a zero top.
++    if (start > 0 && ENRMCollapsesBlockMargins([_config paragraphMarginTop]) && [output.string hasSuffix:@"\n"]) {
++      contentStart += applyParagraphSpacingBefore(output, NSMakeRange(start, 0), [_config blockquoteMarginTop]);
++    } else {
++      contentStart += applyBlockSpacingBefore(output, start, [_config blockquoteMarginTop]);
++    }
+   }
+ 
+   // nested quotes pad their own box (matching web CSS padding)
+@@ -158,6 +163,7 @@ static NSString *const kNestedInfoRangeKey = @"range";
                          }
                          [output addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:nonListRange];
                          applyLineHeight(output, nonListRange, lineHeight);
@@ -565,6 +579,46 @@ index 585044157..53a2ff798 100644
    [string addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:range];
 +  applyBaselineOffset(string, range);
  }
+diff --git a/ios/utils/ParagraphStyleUtils.h b/ios/utils/ParagraphStyleUtils.h
+index 95a2138..cb2621f 100644
+--- a/ios/utils/ParagraphStyleUtils.h
++++ b/ios/utils/ParagraphStyleUtils.h
+@@ -43,6 +43,35 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
+ NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRange range, CGFloat marginTop);
+ NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger insertionPoint, CGFloat marginTop);
+ void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
++
++/// Prose sets a paragraph top margin. Those block gaps collapse with the
++/// previous bottom. Answer paragraphs keep a zero top, so their list pad stacks.
++static inline BOOL ENRMCollapsesBlockMargins(CGFloat paragraphMarginTop)
++{
++  return paragraphMarginTop > 0.0;
++}
++
++static inline CGFloat ENRMCollapsedMargin(CGFloat margin, CGFloat previous)
++{
++  if (previous <= 0.0) {
++    return margin;
++  }
++  return MAX(0.0, margin - previous);
++}
++
++/// A leading spacer is a 1pt newline. Its paragraph spacing plus that point is
++/// the block's top margin.
++static inline CGFloat ENRMLeadingBlockSpacer(NSAttributedString *text)
++{
++  if (text.length == 0 || [text.string characterAtIndex:0] != '\n') {
++    return 0.0;
++  }
++  NSParagraphStyle *style = [text attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL];
++  if (style != nil && style.minimumLineHeight == 1.0 && style.maximumLineHeight == 1.0) {
++    return 1.0 + style.paragraphSpacing;
++  }
++  return 0.0;
++}
+ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight);
+ void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
+ 
 diff --git a/ios/utils/ParagraphStyleUtils.m b/ios/utils/ParagraphStyleUtils.m
 index 24c7daaea..451b03427 100644
 --- a/ios/utils/ParagraphStyleUtils.m
@@ -2628,3 +2682,178 @@ index 3b5a5c6..b2775e8 100644
    private val cornerRadius = taskStyle.checkboxBorderRadius
    private val rect = RectF()
    private val checkPath = Path()
+diff --git a/ios/renderer/ListRenderer.m b/ios/renderer/ListRenderer.m
+index 47283dc..7fb8fb9 100644
+--- a/ios/renderer/ListRenderer.m
++++ b/ios/renderer/ListRenderer.m
+@@ -73,8 +73,13 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
+   const NSUInteger startLocation = output.length;
+ 
+   if (prevDepth == 0) {
+-    // Apply top margin for root-level list
+-    applyBlockSpacingBefore(output, startLocation, _config.listStyleMarginTop);
++    // Prose lists collapse with the previous block. Answer lists stack the 4px pad.
++    if (startLocation > 0 && ENRMCollapsesBlockMargins([_config paragraphMarginTop]) &&
++        [output.string hasSuffix:@"\n"]) {
++      applyParagraphSpacingBefore(output, NSMakeRange(startLocation, 0), _config.listStyleMarginTop);
++    } else {
++      applyBlockSpacingBefore(output, startLocation, _config.listStyleMarginTop);
++    }
+   } else if (output.length > 0 && ![output.string hasSuffix:@"\n"]) {
+     // Ensure nested lists start on a new line
+     [output appendAttributedString:kNewlineAttributedString];
+diff --git a/ios/EnrichedMarkdown.mm b/ios/EnrichedMarkdown.mm
+index ed8b53d..106a58f 100644
+--- a/ios/EnrichedMarkdown.mm
++++ b/ios/EnrichedMarkdown.mm
+@@ -321,6 +321,8 @@ static char kENRMSegmentFadeAnimatorKey;
+ 
+   __block CGFloat yOffset = 0.0;
+   __block CGFloat maxContentWidth = 0.0;
++  __block CGFloat previousTrailing = 0.0;
++  const BOOL collapseMargins = ENRMCollapsesBlockMargins([_config paragraphMarginTop]);
+   const NSUInteger lastIndex = _segmentViews.count - 1;
+ 
+   [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
+@@ -329,30 +331,50 @@ static char kENRMSegmentFadeAnimatorKey;
+ 
+     CGFloat segmentHeight = 0;
+     const BOOL isTable = [segment isKindOfClass:[TableContainerView class]];
++    CGFloat trailing = 0;
+ 
+     if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
+       EnrichedMarkdownInternalText *textView = (EnrichedMarkdownInternalText *)segment;
++      if (collapseMargins && previousTrailing > 0) {
++        yOffset -= MIN(previousTrailing, ENRMLeadingBlockSpacer(textView.textView.attributedText));
++      }
+       textView.allowTrailingMargin = shouldAddBottomMargin;
+       CGSize textSize = [textView measureSize:width];
+       segmentHeight = textSize.height;
+       maxContentWidth = MAX(maxContentWidth, textSize.width);
++      trailing = shouldAddBottomMargin ? textView.lastElementMarginBottom : 0;
+ 
+     } else if (isTable) {
+-      yOffset += _config.tableMarginTop;
++      CGFloat top = _config.tableMarginTop;
++      if (collapseMargins) {
++        top = ENRMCollapsedMargin(top, previousTrailing);
++      }
++      yOffset += top;
+       segmentHeight = [(TableContainerView *)segment measureHeight:width];
+       maxContentWidth = width;
++      trailing = shouldAddBottomMargin ? _config.tableMarginBottom : 0;
+     }
+ #if ENRICHED_MARKDOWN_MATH
+     else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
+-      yOffset += _config.mathMarginTop;
++      CGFloat top = _config.mathMarginTop;
++      if (collapseMargins) {
++        top = ENRMCollapsedMargin(top, previousTrailing);
++      }
++      yOffset += top;
+       segmentHeight = [(ENRMMathContainerView *)segment measureHeight:width];
+       maxContentWidth = width;
++      trailing = shouldAddBottomMargin ? _config.mathMarginBottom : 0;
+     }
+ #endif
+     else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
+-      yOffset += _config.codeBlockMarginTop;
++      CGFloat top = _config.codeBlockMarginTop;
++      if (collapseMargins) {
++        top = ENRMCollapsedMargin(top, previousTrailing);
++      }
++      yOffset += top;
+       segmentHeight = [(ENRMCodeBlockContainerView *)segment measureHeight:width];
+       maxContentWidth = width;
++      trailing = shouldAddBottomMargin ? _config.codeBlockMarginBottom : 0;
+     }
+ 
+     if (applyFrames) {
+@@ -391,6 +413,7 @@ static char kENRMSegmentFadeAnimatorKey;
+     else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
+       yOffset += _config.codeBlockMarginBottom;
+     }
++    previousTrailing = trailing;
+   }];
+ 
+   return CGSizeMake(maxContentWidth, yOffset);
+diff --git a/ios/internals/ENRMViewFreeMeasurement.h b/ios/internals/ENRMViewFreeMeasurement.h
+index 1905d45..195df82 100644
+--- a/ios/internals/ENRMViewFreeMeasurement.h
++++ b/ios/internals/ENRMViewFreeMeasurement.h
+@@ -272,21 +272,32 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+ 
+     CGFloat yOffset = 0.0;
+     CGFloat maxContentWidth = 0.0;
++    CGFloat previousTrailing = 0.0;
++    const BOOL collapseMargins = ENRMCollapsesBlockMargins([config paragraphMarginTop]);
+     const NSUInteger lastIndex = segments.count - 1;
+ 
+     for (NSUInteger i = 0; i < segments.count; i++) {
+       ENRMRenderedSegment *segment = segments[i];
+       const BOOL isLast = (i == lastIndex);
+       const BOOL shouldAddBottomMargin = (!isLast || typedProps.allowTrailingMargin);
++      CGFloat trailing = 0.0;
+ 
+       if (segment.kind == ENRMSegmentKindText && segment.textResult) {
++        if (collapseMargins && previousTrailing > 0.0) {
++          yOffset -= MIN(previousTrailing, ENRMLeadingBlockSpacer(segment.textResult.attributedText));
++        }
+         CGSize textSize = ENRMMeasureAttributedTextViewFree(
+             segment.textResult.attributedText, maxWidth, config, shouldAddBottomMargin,
+             segment.textResult.lastElementMarginBottom, pointScaleFactor);
+         yOffset += textSize.height;
+         maxContentWidth = MAX(maxContentWidth, textSize.width);
++        trailing = shouldAddBottomMargin ? segment.textResult.lastElementMarginBottom : 0.0;
+       } else if (segment.kind == ENRMSegmentKindTable && segment.tableSegment) {
+-        yOffset += config.tableMarginTop;
++        CGFloat top = config.tableMarginTop;
++        if (collapseMargins) {
++          top = ENRMCollapsedMargin(top, previousTrailing);
++        }
++        yOffset += top;
+         yOffset += [TableContainerView measureHeightForTableNode:segment.tableSegment.tableNode
+                                                           config:config
+                                                 allowFontScaling:typedProps.allowFontScaling
+@@ -297,18 +308,28 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+         if (shouldAddBottomMargin) {
+           yOffset += config.tableMarginBottom;
+         }
++        trailing = shouldAddBottomMargin ? config.tableMarginBottom : 0.0;
+       } else if (segment.kind == ENRMSegmentKindCodeBlock && segment.codeBlockSegment) {
+-        yOffset += config.codeBlockMarginTop;
++        CGFloat top = config.codeBlockMarginTop;
++        if (collapseMargins) {
++          top = ENRMCollapsedMargin(top, previousTrailing);
++        }
++        yOffset += top;
+         yOffset += [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:segment.codeBlockSegment.codeBlockNode
+                                                                       config:config];
+         maxContentWidth = maxWidth;
+         if (shouldAddBottomMargin) {
+           yOffset += config.codeBlockMarginBottom;
+         }
++        trailing = shouldAddBottomMargin ? config.codeBlockMarginBottom : 0.0;
+       }
+ #if ENRICHED_MARKDOWN_MATH
+       else if (segment.kind == ENRMSegmentKindMath && segment.mathSegment) {
+-        yOffset += config.mathMarginTop;
++        CGFloat top = config.mathMarginTop;
++        if (collapseMargins) {
++          top = ENRMCollapsedMargin(top, previousTrailing);
++        }
++        yOffset += top;
+         yOffset += [ENRMMathContainerView measureHeightForLatex:segment.mathSegment.latex
+                                                          config:config
+                                                        maxWidth:maxWidth];
+@@ -316,8 +337,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+         if (shouldAddBottomMargin) {
+           yOffset += config.mathMarginBottom;
+         }
++        trailing = shouldAddBottomMargin ? config.mathMarginBottom : 0.0;
+       }
+ #endif
++      previousTrailing = trailing;
+     }
+ 
+     if (yOffset == 0) {

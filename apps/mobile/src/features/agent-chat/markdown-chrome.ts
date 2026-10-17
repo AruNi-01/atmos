@@ -79,14 +79,34 @@ export function agentChatProseMetrics(kind: AgentChatProseKind): {
   itemSpacing: number;
   listMargin: number;
   paragraphMargin: number;
+  tableMargin: number;
 } {
   if (kind === "tool") {
-    return { codeBlockMargin: 8, itemSpacing: 0, listMargin: 4, paragraphMargin: 4 };
+    // `[&_.not-prose]:my-2` pulls fences and tables in to 8px.
+    return {
+      codeBlockMargin: 8,
+      itemSpacing: 0,
+      listMargin: 4,
+      paragraphMargin: 4,
+      tableMargin: 8,
+    };
   }
   if (kind === "approval") {
-    return { codeBlockMargin: 8, itemSpacing: 2, listMargin: 6, paragraphMargin: 6 };
+    return {
+      codeBlockMargin: 8,
+      itemSpacing: 2,
+      listMargin: 6,
+      paragraphMargin: 6,
+      tableMargin: 8,
+    };
   }
-  return { codeBlockMargin: 16, itemSpacing: 2, listMargin: 6, paragraphMargin: 6 };
+  return {
+    codeBlockMargin: 16,
+    itemSpacing: 2,
+    listMargin: 6,
+    paragraphMargin: 6,
+    tableMargin: 16,
+  };
 }
 
 /**
@@ -166,12 +186,18 @@ export function agentChatProseBlockquote(
   color: string;
   fontWeight: string;
   gapWidth: number;
+  marginBottom: number;
+  marginTop: number;
 } {
+  // `prose-sm` quote margin is `em(24, 18)` of the quote face.
+  const margin = (24 / 18) * fontSize;
   return {
     borderColor: isDark ? PROSE_QUOTE_BORDER_DARK : PROSE_QUOTE_BORDER_LIGHT,
     color: isDark ? PROSE_QUOTE_DARK : PROSE_QUOTE_LIGHT,
     fontWeight: "500",
     gapWidth: (20 / 18) * fontSize,
+    marginBottom: margin,
+    marginTop: margin,
   };
 }
 

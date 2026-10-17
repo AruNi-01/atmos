@@ -114,15 +114,18 @@ describe("agent chat markdown chrome", () => {
       itemSpacing: 0,
       listMargin: 4,
       paragraphMargin: 4,
+      tableMargin: 8,
     });
     expect(agentChatProseMetrics("plan")).toEqual({
       codeBlockMargin: 16,
       itemSpacing: 2,
       listMargin: 6,
       paragraphMargin: 6,
+      tableMargin: 16,
     });
     expect(agentChatProseMetrics("approval").codeBlockMargin).toBe(8);
     expect(agentChatProseMetrics("approval").paragraphMargin).toBe(6);
+    expect(agentChatProseMetrics("approval").tableMargin).toBe(8);
     for (const heading of Object.values(headings)) {
       expect(heading.lineHeight).toBeGreaterThanOrEqual(heading.fontSize);
     }
@@ -209,6 +212,8 @@ describe("agent chat markdown chrome", () => {
       color: "#101828",
       fontWeight: "500",
       gapWidth: (20 / 18) * 13,
+      marginBottom: (24 / 18) * 13,
+      marginTop: (24 / 18) * 13,
     });
     expect(agentChatProseBlockquote(true, 13).borderColor).toBe("#364153");
     expect(agentChatProseBlockquote(true, 13).color).toBe("#f3f4f6");

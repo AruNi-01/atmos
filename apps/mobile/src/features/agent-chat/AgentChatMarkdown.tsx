@@ -208,7 +208,11 @@ export function AgentChatMarkdown({
         rowEvenBackgroundColor: chrome.row,
         rowOddBackgroundColor: chrome.row,
         ...agentChatBlockMetrics.table,
-        ...(symmetricBlockMargin ? { marginBottom: 16, marginTop: 16 } : {}),
+        ...(proseMetrics
+          ? { marginBottom: proseMetrics.tableMargin, marginTop: proseMetrics.tableMargin }
+          : symmetricBlockMargin
+            ? { marginBottom: 16, marginTop: 16 }
+            : {}),
       },
     };
   }, [

@@ -175,5 +175,12 @@ describe("web source parity", () => {
     expect(patch).toContain("Web `[&>*:first-child]:mt-0` clears a leading rule");
     expect(patch).toContain("Equal sides are `my-6` and stay.");
     expect(patch).toContain("A trailing rule bakes marginBottom");
+    expect(patch).toContain("Answer paragraphs keep a zero top, so their list pad stacks.");
+    expect(patch).toContain(
+      "Prose lists collapse with the previous block. Answer lists stack the 4px pad.",
+    );
+    expect(patch).toContain(
+      "Prose quotes collapse with the previous block. Answer quotes keep a zero top.",
+    );
   });
 });
