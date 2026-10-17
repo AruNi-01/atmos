@@ -7,6 +7,7 @@ import { BotMessageSquareIcon, XCircleIcon } from "@/ui/icons/lucide-native";
 import { chatForeground, chatMutedForeground } from "./chat-ink";
 import { chatDestructiveColor } from "./destructive-color";
 import { copy } from "./copy";
+import { TextShimmer } from "./motion/text-shimmer";
 import {
   SUBAGENT_MARK_PX,
   SUBAGENT_PANEL_PAD,
@@ -113,18 +114,11 @@ function SubagentTaskRow({
           {formatSubagentTaskLine(part)}
         </Text>
         {activity ? (
-          <Text
-            numberOfLines={1}
-            style={{
-              color: muted,
-              flexShrink: 999,
-              fontSize: 14,
-              lineHeight: 20,
-              minWidth: 0,
-            }}
-          >
-            {activity}
-          </Text>
+          <View style={{ flexShrink: 9999, maxWidth: "100%", minWidth: 0 }}>
+            <TextShimmer duration={1.5} numberOfLines={1} style={{ fontSize: 14, lineHeight: 20 }}>
+              {activity}
+            </TextShimmer>
+          </View>
         ) : null}
       </View>
     </View>

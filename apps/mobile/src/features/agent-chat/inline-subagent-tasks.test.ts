@@ -183,6 +183,8 @@ describe("inline subagent tasks", () => {
     expect(row).not.toContain("onPress");
     expect(row).toContain("chatForeground(theme.isDark)");
     expect(row).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(row).toContain("<TextShimmer duration={1.5}");
+    expect(row).toContain("flexShrink: 9999");
     expect(row).not.toContain("theme.colors.label");
     expect(row).not.toContain("theme.colors.secondaryLabel");
     const panel = source.slice(source.indexOf("export function InlineSubagentPanel"));
