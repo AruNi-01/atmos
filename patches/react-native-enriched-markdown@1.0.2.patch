@@ -431,7 +431,17 @@ diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
 index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a2eb0d3f4 100644
 --- a/ios/views/TableContainerView.m
 +++ b/ios/views/TableContainerView.m
-@@ -224,6 +224,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -61,7 +61,8 @@
+   NSString *headerFamily =
+       config.tableHeaderFontFamily.length > 0 ? config.tableHeaderFontFamily : config.tableFontFamily;
+   [cellConfig setParagraphFontFamily:isHeader ? headerFamily : config.tableFontFamily];
+-  [cellConfig setParagraphFontWeight:isHeader ? @"bold" : config.tableFontWeight];
++  // Agent chat table headers are font-semibold, the same weight as strong.
++  [cellConfig setParagraphFontWeight:isHeader ? @"600" : config.tableFontWeight];
+   [cellConfig setParagraphColor:isHeader ? config.tableHeaderTextColor : config.tableColor];
+   [cellConfig setParagraphLineHeight:config.tableLineHeight];
+ 
+@@ -224,6 +225,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    NSMutableArray<NSNumber *> *_rowHeights;
    CGFloat _totalTableWidth;
    CGFloat _totalTableHeight;
@@ -440,7 +450,7 @@ index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a
  
    NSString *_cachedMarkdown;
  
-@@ -323,6 +325,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -323,6 +326,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
                               _writingDirectionMode, _resolvedLayoutDirection, &colCount);
    _colCount = colCount;
@@ -448,7 +458,7 @@ index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a
    _cachedMarkdown = [self buildMarkdownFromRows];
    _cachedAccessibilityElements = nil;
    [self computeLayout];
-@@ -608,6 +611,30 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -608,6 +612,30 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    return _totalTableHeight;
  }
  
@@ -479,7 +489,7 @@ index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a
  - (CGFloat)alignOffsetForFreeSpace:(CGFloat)freeSpace
  {
    if (freeSpace <= 0)
-@@ -627,6 +654,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -627,6 +655,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
  #if !TARGET_OS_OSX
    CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
    CGFloat containerWidth = self.bounds.size.width;
@@ -487,7 +497,7 @@ index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a
    BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
  
    if (tableOverflows) {
-@@ -649,6 +677,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -649,6 +678,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
  #else
    CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
    CGFloat containerWidth = self.bounds.size.width;

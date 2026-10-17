@@ -105,5 +105,7 @@ describe("web source parity", () => {
     expect(patch).toContain('weight:@"500"');
     expect(patch).toContain("Streamdown strong is font-semibold");
     expect(patch).toContain('weight:@"600"');
+    expect(patch).toContain("Agent chat table headers are font-semibold");
+    expect(patch).toContain('isHeader ? @"600"');
   });
 });

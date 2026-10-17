@@ -187,7 +187,9 @@ export const agentChatBlockMetrics = {
 } as const;
 
 /**
- * Zinc table chrome from `markdown-table.ts`, inline code from `MarkdownCodeBlock`,
+ * Zinc table chrome from `markdown-table.ts`. Header text is `font-semibold`;
+ * the native cell config asks for weight 600 instead of the bold trait.
+ * Inline code comes from `MarkdownCodeBlock`,
  * and the fenced frame from `CodeBlock` (`bg-neutral-200/40` / `dark:bg-neutral-800/70`).
  * Dark header and border are those alphas composited on black. Inline code has no border.
  * Web paints inline code zinc-100 (`#f4f4f5`) on a white page. The phone page is

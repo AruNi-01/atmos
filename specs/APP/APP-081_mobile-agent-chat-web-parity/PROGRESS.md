@@ -360,3 +360,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Blockquote text is italic. Streamdown quotes use `italic`, and the native quote style has no fontStyle field, so `blockquoteFont` asks RCTFont for an italic system face. This is not in run `39044805808`. It is not re-shot.
 - Markdown links use weight 500. Streamdown links and the URL chip are `font-medium`, and the link style has no weight field. Bold runs and inline code keep their own face. This is not in run `39044805808`. It is not re-shot.
 - Strong text is semibold. Streamdown uses `font-semibold`, and the native renderer was applying the bold trait. A link no longer replaces a semibold or bold run. This is not in run `39044805808`. It is not re-shot.
+- Table headers are semibold. `markdown-table.ts` uses `font-semibold`, and the native cell config was passing `bold`. Header cells now ask for weight 600. This is not in run `39044805808`. It is not re-shot.
