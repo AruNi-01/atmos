@@ -152,9 +152,11 @@ export function AgentChatMarkdown({
           : { marginTop: fenceMargin, marginBottom: fenceMargin }),
       },
       image: {
-        // Streamdown images are `rounded-lg`. This app's `--radius` is 10px.
-        // The library default is 8. The height box stays the library default.
+        // Streamdown images are `max-w-full rounded-lg`. This app's `--radius`
+        // is 10px. Height 0 keeps a narrower bitmap at its own width and fits
+        // a wider one to the line. The library default is a 200px box.
         borderRadius: agentChatBlockMetrics.codeBlock.borderRadius,
+        height: 0,
       },
       link: {
         color: agentChatLinkColor(theme.isDark),

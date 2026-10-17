@@ -158,6 +158,10 @@ describe("web source parity", () => {
     expect(patch).toContain('weight:@"500"');
     expect(patch).toContain("Streamdown strong is font-semibold");
     expect(patch).toContain('weight:@"600"');
+    expect(patch).toContain("Streamdown images are `max-w-full`");
+    expect(patch).toContain("resolvedBoxWidthForLineWidth");
+    expect(patch).toContain("intrinsicFit");
+    expect(patch).toContain("One image pixel is one CSS pixel");
     expect(patch).toContain("Streamdown ordered lists are `list-inside`");
     expect(patch).toContain("effectiveListMarginLeftForNumber:(NSInteger)number");
     expect(patch).toContain("effectiveListMarginLeftForNumber:currentPosition");

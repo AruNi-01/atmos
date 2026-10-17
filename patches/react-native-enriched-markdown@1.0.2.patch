@@ -2389,3 +2389,188 @@ index 6be91c078..478309225 100644
    syntaxColors: CodeBlockSyntaxColorsInternal;
  }
  
+diff --git a/ios/attachments/ENRMImageAttachment.m b/ios/attachments/ENRMImageAttachment.m
+index 3a8f80a..0252fef 100644
+--- a/ios/attachments/ENRMImageAttachment.m
++++ b/ios/attachments/ENRMImageAttachment.m
+@@ -126,9 +126,39 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
+     return self.cachedMaxHeight;
+   }
+ 
++  // Streamdown images are `max-w-full`. Height 0 follows the bitmap instead of
++  // the library's fixed 200px box.
++  if (self.cachedHeight <= 0 && !self.isInline) {
++    RCTUIImage *source = self.originalImage;
++    if (source && width > 0 && source.size.width > 0 && source.size.height > 0) {
++      return width * source.size.height / source.size.width;
++    }
++    return 0;
++  }
++
+   return self.cachedHeight;
+ }
+ 
++// A narrower bitmap keeps its own width. A wider one fits the line.
++- (CGFloat)resolvedBoxWidthForLineWidth:(CGFloat)lineWidth
++{
++  if (self.isInline || self.cachedHeight > 0 || self.cachedAspectRatio > 0 || lineWidth <= 0) {
++    return lineWidth;
++  }
++  RCTUIImage *source = self.originalImage;
++  if (!source || source.size.width <= 0 || source.size.height <= 0) {
++    return lineWidth;
++  }
++  CGFloat natural = source.size.width;
++  if (self.cachedMaxHeight > 0) {
++    CGFloat fitted = lineWidth * source.size.height / source.size.width;
++    if (fitted > self.cachedMaxHeight) {
++      natural = self.cachedMaxHeight * source.size.width / source.size.height;
++    }
++  }
++  return MIN(lineWidth, natural);
++}
++
+ // True when resizeMode is unset ('') - legacy always implies a fixed height box.
+ 
+ - (BOOL)isLegacyBlockSizing
+@@ -145,7 +175,12 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
+   CGFloat width = self.isInline ? height : (lineFragment.size.width > 0 ? lineFragment.size.width : height);
+ 
+   if (!self.isInline) {
++    width = [self resolvedBoxWidthForLineWidth:width];
+     height = [self resolvedBoxHeightForWidth:width];
++    // A pixel keeps the attachment in the layout until the bitmap arrives.
++    if (height <= 0 || width <= 0) {
++      return CGRectMake(0, 0, 1, 1);
++    }
+     return CGRectMake(0, 0, width, height);
+   }
+ 
+@@ -197,6 +232,16 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
+   self.image = image;
+   CGFloat targetWidth = self.isInline ? self.cachedHeight : self.bounds.size.width;
+ 
++  // The pre-load box is 1px. Baking that width would stick until the next pass.
++  if (!self.isInline && targetWidth <= 1.0 && self.cachedHeight <= 0 && self.cachedMaxHeight <= 0 &&
++      self.cachedAspectRatio <= 0) {
++    UITextView *textView = [self fetchAssociatedTextView];
++    if (textView) {
++      [self notifyImageLayoutObserver:textView];
++    }
++    return;
++  }
++
+   // Defer processing if we don't have valid bounds yet (common for non-inline block images)
+   if (!self.isInline && targetWidth <= 0) {
+     return;
+@@ -356,9 +401,10 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
+ // re-measuring would re-enter the layout manager.
+ - (void)notifyImageLayoutObserver:(UITextView *)textView
+ {
+-  // Only maxHeight/aspectRatio boxes can change height after load; a fixed
+-  // height box (legacy or explicit resizeMode) never needs a re-measure.
+-  if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0)
++  // maxHeight/aspectRatio boxes, and a height of 0, settle after the bitmap
++  // arrives. A fixed height box never needs a re-measure.
++  BOOL fitsBitmap = !self.isInline && self.cachedHeight <= 0 && self.cachedAspectRatio <= 0;
++  if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0 && !fitsBitmap)
+     return;
+ 
+   RCTUIView *candidate = textView;
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/spans/ImageSpan.kt b/android/src/main/java/com/swmansion/enriched/markdown/spans/ImageSpan.kt
+index 0bac034..a6d1a7c 100644
+--- a/android/src/main/java/com/swmansion/enriched/markdown/spans/ImageSpan.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/spans/ImageSpan.kt
+@@ -52,11 +52,16 @@ class ImageSpan(
+   // so legacy always implies a fixed height box.
+   private val legacySizing: Boolean = resizeMode.isEmpty()
+ 
+-  private val dynamicBoxHeight: Boolean = !isInline && (maxHeightPx > 0 || aspectRatio > 0f)
++  // Streamdown images are `max-w-full`. Height 0 follows the bitmap instead of
++  // the library's fixed 200px box.
++  private val intrinsicFit: Boolean = !isInline && height <= 0 && maxHeightPx <= 0 && aspectRatio <= 0f
++
++  private val dynamicBoxHeight: Boolean = !isInline && (maxHeightPx > 0 || aspectRatio > 0f || intrinsicFit)
+ 
+   private var boxHeight: Int =
+     when {
+       isInline -> height
++      intrinsicFit -> 1
+       maxHeightPx > 0 -> maxHeightPx
+       else -> height
+     }
+@@ -74,8 +79,23 @@ class ImageSpan(
+     return cached.width to cached.height
+   }
+ 
++  // One image pixel is one CSS pixel. The line width is device pixels.
++  private fun layoutPixels(imagePixels: Int): Int {
++    if (imagePixels <= 0) return 0
++    return (imagePixels * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
++  }
++
++  // A narrower bitmap keeps its own width. A wider one fits the line.
++  private fun resolveBoxWidth(available: Int): Int {
++    if (!intrinsicFit) return available
++    if (available <= 0) return available
++    val (intrinsicWidth, _) = intrinsicImageSize()
++    if (intrinsicWidth <= 0) return 1
++    return minOf(available, layoutPixels(intrinsicWidth))
++  }
++
+   // Sizing precedence: aspectRatio > maxHeight > height. Returns the legacy fixed
+-  // height when no new knob is set.
++  // height when no new knob is set. Height 0 follows the bitmap.
+   private fun resolveBoxHeight(targetWidth: Int): Int {
+     if (isInline) return height
+     if (aspectRatio > 0f && targetWidth > 0) {
+@@ -89,6 +109,13 @@ class ImageSpan(
+       }
+       return maxHeightPx
+     }
++    if (intrinsicFit) {
++      val (intrinsicWidth, intrinsicHeight) = intrinsicImageSize()
++      if (targetWidth > 0 && intrinsicWidth > 0 && intrinsicHeight > 0) {
++        return (targetWidth.toFloat() * intrinsicHeight / intrinsicWidth).toInt().coerceAtLeast(1)
++      }
++      return 1
++    }
+     return height
+   }
+ 
+@@ -98,7 +125,7 @@ class ImageSpan(
+   ) {
+     if (!dynamicBoxHeight || widthPx <= 0) return
+     val available = availableWidthIn(text, widthPx)
+-    if (available > 0) boxHeight = resolveBoxHeight(available)
++    if (available > 0) boxHeight = resolveBoxHeight(resolveBoxWidth(available))
+   }
+ 
+   init {
+@@ -127,13 +154,14 @@ class ImageSpan(
+ 
+   private fun wrapAndAssignDrawable() {
+     val base = sourceDrawable ?: return
+-    val targetWidth =
++    val available =
+       if (isInline) {
+         height
+       } else {
+-        val available = viewRef?.get()?.let { getAvailableWidth(it) } ?: cachedWidth
+-        available.coerceAtLeast(0)
++        val measured = viewRef?.get()?.let { getAvailableWidth(it) } ?: cachedWidth
++        measured.coerceAtLeast(0)
+       }
++    val targetWidth = resolveBoxWidth(available)
+ 
+     boxHeight = resolveBoxHeight(targetWidth)
+ 
+@@ -213,7 +241,7 @@ class ImageSpan(
+       return
+     }
+     if (dynamicBoxHeight) {
+-      val newBoxHeight = resolveBoxHeight(newWidth)
++      val newBoxHeight = resolveBoxHeight(resolveBoxWidth(newWidth))
+       if (newBoxHeight != boxHeight) {
+         boxHeight = newBoxHeight
+         requestReflow()
