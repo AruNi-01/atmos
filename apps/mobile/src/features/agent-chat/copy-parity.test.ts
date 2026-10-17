@@ -69,6 +69,12 @@ type AgentComponents = {
   grokGoal: { title: string };
   grokWorkflow: { title: string };
   contextWindow: { title: string };
+  toolResults: {
+    searchingFor: string;
+    webSearch: string;
+    sources: string;
+    resultCount: string;
+  };
 };
 
 const en = JSON.parse(
@@ -169,5 +175,12 @@ describe("agent chat copy parity", () => {
     expect(copy.usageTurn.cacheRead).toBe(components.usageBadges.turn.cacheRead);
     expect(copy.usageTurn.cacheWrite).toBe(components.usageBadges.turn.cacheWrite);
     expect(copy.usageTurn.total).toBe(components.usageBadges.turn.total);
+    expect(copy.webSearchSearchingFor).toBe(components.toolResults.searchingFor);
+    expect(copy.webSearchSearchingFor).toBe("Searching for {query}");
+    expect(copy.webSearch).toBe(components.toolResults.webSearch);
+    expect(copy.webSearch).toBe("Web search");
+    expect(copy.webSearchSources).toBe(components.toolResults.sources);
+    expect(copy.webSearchSources).toBe("Sources");
+    expect(copy.webSearchResultCount).toBe(components.toolResults.resultCount);
   });
 });

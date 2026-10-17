@@ -1,6 +1,7 @@
 import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   formatToolLineRange,
+  hostFromUrl,
   isActiveToolStatus,
   isNestedSubagentChild,
   preferredCollapsedToolTitle,
@@ -12,7 +13,7 @@ import {
   type ParsedToolResult,
   type ToolPresentation,
 } from "@atmos/agent-transcript";
-import { copy } from "./copy";
+import { copy, fillTemplate } from "./copy";
 
 export const TOOL_BODY_LINE_CAP = 12;
 const DIFF_LINE_LIMIT = 120;
@@ -89,6 +90,19 @@ function skillNameFromPart(part: AgentToolCallPart): string | null {
 
 /** Collapsed tool trigger: kind verb plus a filename chip, matching web. */
 export function toolRowChrome(part: AgentToolCallPart, parsed: ParsedToolResult): ToolRowChrome {
+  if (parsed.presentation.kind === "web_search" || part.kind === "web_search") {
+    const query =
+      parsed.presentation.kind === "web_search"
+        ? parsed.presentation.query.trim()
+        : part.params?.type === "web_search"
+          ? part.params.query
+          : "";
+    return {
+      title: query ? fillTemplate(copy.webSearchSearchingFor, { query }) : copy.webSearch,
+      fileName: null,
+      lineRange: null,
+    };
+  }
   const path = parsed.path?.trim() || null;
   const showChip = Boolean(
     path &&
@@ -268,7 +282,7 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
         kind: "web_search",
         query: presentation.query,
         links: presentation.links.map((link) => ({
-          title: link.title.trim() || link.url,
+          title: link.title.trim() || hostFromUrl(link.url) || link.url,
           url: link.url,
           openable: canOpenHttpUrl(link.url),
         })),
@@ -411,6 +425,8 @@ import { TextShimmer } from "./motion/text-shimmer";
 import { toolTriggerMetrics } from "./tool-chrome";
 import { ToolKindIcon } from "./tool-kind-icon";
 import { ExpandChevron } from "./tool-tree";
+import { webSearchResultMeta } from "./web-search-stack";
+import { WebSearchSources } from "./web-search-sources";
 
 const BODY_TEXT = { fontSize: 14, lineHeight: 20 } as const;
 const CHIP_TEXT = { fontFamily: "Menlo", fontSize: 12, lineHeight: 16 } as const;
@@ -600,18 +616,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         </View>
       );
     case "web_search":
-      return (
-        <View style={{ gap: 4 }}>
-          {model.query ? (
-            <Text style={{ color: theme.colors.label, ...BODY_TEXT }}>{model.query}</Text>
-          ) : null}
-          {model.links.map((link, index) => (
-            <HttpText key={`${link.url}:${index}`} openable={link.openable} url={link.url}>
-              {link.title}
-            </HttpText>
-          ))}
-        </View>
-      );
+      return <WebSearchSources links={model.links} />;
     case "web_fetch":
       return (
         <View style={{ gap: 4 }}>
@@ -777,6 +782,7 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const color = failed ? theme.colors.red : theme.colors.secondaryLabel;
   const metrics = toolTriggerMetrics;
   const stats = toolRowDiffStats(model);
+  const resultMeta = model.kind === "web_search" ? webSearchResultMeta(model.links.length) : null;
   const titleStyle = {
     color,
     flexShrink: 1,
@@ -814,6 +820,11 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
           <ToolFileChip fileName={chrome.fileName} lineRange={chrome.lineRange} />
         ) : null}
         <ToolDiffStats additions={stats.additions} deletions={stats.deletions} />
+        {resultMeta ? (
+          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 11, lineHeight: 16 }}>
+            {resultMeta}
+          </Text>
+        ) : null}
         {failed ? (
           <XCircleIcon color={theme.colors.red} size={metrics.iconSize} strokeWidth={2} />
         ) : null}

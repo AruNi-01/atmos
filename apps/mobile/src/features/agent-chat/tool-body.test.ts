@@ -116,6 +116,19 @@ describe("tool body presentation", () => {
     expect(search.links?.[0]).toMatchObject({ title: "Atmos", openable: true });
     expect(search.links?.[1]).toMatchObject({ title: "Blocked", openable: false });
 
+    const untitled = await call(
+      part({
+        kind: "web_search",
+        params: { type: "web_search", query: "atmos" },
+        result: {
+          type: "web_search",
+          query: "atmos",
+          links: [{ url: "https://www.example.com/docs", title: "  " }],
+        },
+      }),
+    );
+    expect(untitled.links?.[0]?.title).toBe("www.example.com");
+
     const fetched = await call(
       part({
         kind: "fetch",
@@ -404,6 +417,23 @@ describe("tool row chrome", () => {
     });
     expect(chrome(search, present(search))).toEqual({
       title: "Search",
+      fileName: null,
+      lineRange: null,
+    });
+
+    const web = part({
+      kind: "web_search",
+      name: "Search",
+      title: "atmos",
+      params: { type: "web_search", query: "atmos" },
+      result: {
+        type: "web_search",
+        query: "atmos",
+        links: [{ url: "https://atmos.dev", title: "Atmos" }],
+      },
+    });
+    expect(chrome(web, present(web))).toEqual({
+      title: "Searching for atmos",
       fileName: null,
       lineRange: null,
     });
