@@ -22,6 +22,7 @@ import { pillShowsAttention, reduceLane, type LaneState } from "./card-lane";
 import { ExpandedCard } from "./cards/expanded-card";
 import { LaneCardBody } from "./cards/lane-body";
 import { copy } from "./copy";
+import { userMessageOutsidePressCapture } from "./user-message-outside";
 import { pushParityReducedMotion } from "./motion/parity-reduced-motion";
 import { buildComposerPicker, type FavoriteModel } from "./model-picker";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
@@ -508,6 +509,7 @@ export function PreviewChatScreen() {
   return (
     <View
       collapsable={false}
+      {...userMessageOutsidePressCapture()}
       ref={previewRootRef}
       style={{ backgroundColor, flex: 1, paddingTop: insets.top }}
       testID="parity-ready"

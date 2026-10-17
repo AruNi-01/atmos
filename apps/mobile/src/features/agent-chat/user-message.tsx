@@ -67,6 +67,12 @@ import {
   userMessageCollapsedLineLimit,
   userMessageWashColors,
 } from "./user-message-fade";
+import {
+  markUserMessageBodyPress,
+  markUserMessageMetaPress,
+  subscribeUserMessageOutsidePress,
+  userMessageOutsidePressCloses,
+} from "./user-message-outside";
 
 // Web user body is `text-sm leading-[1.5]` (14 × 1.5). The collapse wash is one line.
 const TEXT_LINE_HEIGHT = 21;
@@ -205,10 +211,12 @@ function UserMetaItem({
 }
 
 function UserMessageMeta({
+  entryId,
   open,
   text,
   time,
 }: {
+  entryId: string;
   open: boolean;
   text: string;
   time: string | null;
@@ -247,6 +255,7 @@ function UserMessageMeta({
     <Animated.View
       accessibilityElementsHidden={!open}
       importantForAccessibility={open ? "auto" : "no-hide-descendants"}
+      onTouchStart={() => markUserMessageMetaPress(entryId)}
       pointerEvents={open ? "auto" : "none"}
       style={[{ overflow: "hidden" }, clipStyle]}
     >
@@ -283,6 +292,15 @@ export function UserMessage({ message }: { message: AgentMessage }) {
   const growsAttachments = userAttachmentPressGrows(attachments.length, expanded);
   const pending = isPendingPhoneUserEcho(message);
 
+  useEffect(() => {
+    if (!expanded && !metaOpen) return;
+    return subscribeUserMessageOutsidePress((press) => {
+      const close = userMessageOutsidePressCloses(entryId, press);
+      if (close.body) setExpanded(false);
+      if (close.meta) setMetaOpen(false);
+    });
+  }, [entryId, expanded, metaOpen, setExpanded, setMetaOpen]);
+
   if (!text && attachments.length === 0 && !time) return null;
 
   const onTextLayout = (event: TextLayoutEvent) => {
@@ -293,6 +311,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
 
   return (
     <View
+      onTouchStart={() => markUserMessageBodyPress(entryId)}
       style={{
         alignSelf: "stretch",
         backgroundColor: userBubbleFill(theme.isDark),
@@ -308,6 +327,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
         accessibilityRole={hasMeta || growsAttachments ? "button" : undefined}
         accessibilityState={hasMeta ? { expanded: metaOpen } : undefined}
         disabled={!hasMeta && !growsAttachments}
+        onTouchStart={() => markUserMessageBodyPress(entryId)}
         onPress={() => {
           if (growsAttachments) setExpanded(true);
           if (hasMeta) setMetaOpen(!metaOpen);
@@ -343,6 +363,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
           accessibilityRole="button"
           accessibilityState={{ expanded }}
           hitSlop={8}
+          onTouchStart={() => markUserMessageBodyPress(entryId)}
           onPress={() => setExpanded(!expanded)}
           style={{ alignSelf: "flex-start", marginTop: 4 }}
         >
@@ -353,7 +374,9 @@ export function UserMessage({ message }: { message: AgentMessage }) {
           )}
         </Pressable>
       ) : null}
-      {hasMeta ? <UserMessageMeta open={metaOpen} text={text} time={time} /> : null}
+      {hasMeta ? (
+        <UserMessageMeta entryId={entryId} open={metaOpen} text={text} time={time} />
+      ) : null}
     </View>
   );
 }
