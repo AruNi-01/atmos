@@ -167,7 +167,7 @@ export function agentChatThematicBreak(isDark: boolean): {
  * Streamdown link: `font-medium text-primary underline`.
  * `--primary` is `oklch(0.21 0.006 285.885)` / `oklch(0.92 0.004 286.32)`.
  * The link style has no weight field, so the renderer asks for weight 500.
- * Bold and inline code keep their own face.
+ * Inline code and a semibold run keep their own face. Strong is font-semibold.
  */
 export function agentChatLinkColor(isDark: boolean): string {
   return isDark ? "#e4e4e7" : "#18181b";

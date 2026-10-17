@@ -504,7 +504,7 @@ diff --git a/ios/renderer/LinkRenderer.m b/ios/renderer/LinkRenderer.m
  #import "FontUtils.h"
  #import "RenderContext.h"
  #import "RendererFactory.h"
-@@ -53,19 +54,21 @@
+@@ -53,19 +54,24 @@
                                newAttributes[NSUnderlineStyleAttributeName] = underlineStyle;
                              }
  
@@ -522,9 +522,12 @@ diff --git a/ios/renderer/LinkRenderer.m b/ios/renderer/LinkRenderer.m
 -                                  newAttributes[NSFontAttributeName] = linkFont;
 -                                }
 +                            // Streamdown links are font-medium. The link style has no weight field.
-+                            // A bold or inline-code run keeps its own face.
++                            // Inline code and a semibold or bold run keep their own face.
 +                            UIFont *currentFont = attrs[NSFontAttributeName];
-+                            BOOL keepsFace = attrs[CodeAttributeName] != nil ||
++                            NSDictionary *fontTraits =
++                                [currentFont.fontDescriptor objectForKey:UIFontDescriptorTraitsAttribute];
++                            BOOL heavierThanMedium = [fontTraits[UIFontWeightTrait] doubleValue] > UIFontWeightMedium;
++                            BOOL keepsFace = attrs[CodeAttributeName] != nil || heavierThanMedium ||
 +                                             (currentFont.fontDescriptor.symbolicTraits & UIFontDescriptorTraitBold);
 +                            if (currentFont && !keepsFace) {
 +                              UIFont *linkFont = [RCTFont updateFont:currentFont
@@ -539,3 +542,65 @@ diff --git a/ios/renderer/LinkRenderer.m b/ios/renderer/LinkRenderer.m
                                }
                              }
  
+@@ -81,4 +87,4 @@
+   [context registerLinkRange:range url:url];
+ }
+ 
+-@end
++@end
+\ No newline at end of file
+diff --git a/ios/renderer/StrongRenderer.m b/ios/renderer/StrongRenderer.m
+--- a/ios/renderer/StrongRenderer.m
++++ b/ios/renderer/StrongRenderer.m
+@@ -38,8 +38,9 @@
+ 
+                             UIFont *resolvedFont = currentFont;
+ 
++                            // Streamdown strong is font-semibold, not the bold trait.
+                             if (strongFontFamily.length > 0) {
+-                              NSString *weight = useNormalWeight ? nil : @"bold";
++                              NSString *weight = useNormalWeight ? nil : @"600";
+                               resolvedFont = [RCTFont updateFont:currentFont
+                                                       withFamily:strongFontFamily
+                                                             size:nil
+@@ -47,8 +48,14 @@
+                                                            style:nil
+                                                          variant:nil
+                                                  scaleMultiplier:1.0];
+-                            } else if (!([currentFont.fontDescriptor symbolicTraits] & UIFontDescriptorTraitBold)) {
+-                              resolvedFont = [self ensureFontIsBold:currentFont];
++                            } else if (!useNormalWeight) {
++                              resolvedFont = [RCTFont updateFont:currentFont
++                                                      withFamily:nil
++                                                            size:nil
++                                                          weight:@"600"
++                                                           style:nil
++                                                         variant:nil
++                                                 scaleMultiplier:1.0];
+                             }
+ 
+                             if (resolvedFont && ![resolvedFont isEqual:currentFont]) {
+@@ -68,21 +75,4 @@
+                           }];
+ }
+ 
+-#pragma mark - Helper Methods
+-
+-- (UIFont *)ensureFontIsBold:(UIFont *)font
+-{
+-  if (!font)
+-    return nil;
+-
+-  UIFontDescriptor *descriptor = font.fontDescriptor;
+-  UIFontDescriptorSymbolicTraits traits = descriptor.symbolicTraits;
+-
+-  // Create new descriptor combining current traits with Bold
+-  UIFontDescriptor *boldDescriptor = [descriptor fontDescriptorWithSymbolicTraits:(traits | UIFontDescriptorTraitBold)];
+-
+-  // Fallback to original font if bold version is unavailable
+-  return boldDescriptor ? [UIFont fontWithDescriptor:boldDescriptor size:0] : font;
+-}
+-
+-@end
++@end
+\ No newline at end of file

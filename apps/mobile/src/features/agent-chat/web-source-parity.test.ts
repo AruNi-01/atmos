@@ -103,5 +103,7 @@ describe("web source parity", () => {
     expect(patch).toContain('style:@"italic"');
     expect(patch).toContain("Streamdown links are font-medium");
     expect(patch).toContain('weight:@"500"');
+    expect(patch).toContain("Streamdown strong is font-semibold");
+    expect(patch).toContain('weight:@"600"');
   });
 });
