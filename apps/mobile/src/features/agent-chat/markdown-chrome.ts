@@ -35,6 +35,37 @@ export function agentChatHeadingStyle(color: string) {
  */
 export const THINKING_PARAGRAPH_MARGIN = 4;
 
+/**
+ * Streamdown blockquote: `my-4 border-l-4 border-muted-foreground/30 pl-4 text-muted-foreground`.
+ * The native indent is the border plus `gapWidth`, so `pl-4` is the gap.
+ * Italic stays off: the quote style has no italic flag.
+ */
+export const BLOCKQUOTE_MARGIN = 16;
+export const BLOCKQUOTE_BORDER = 4;
+export const BLOCKQUOTE_GAP = 16;
+
+export function agentChatBlockquote(isDark: boolean): {
+  backgroundColor: string;
+  borderColor: string;
+  borderRadius: number;
+  borderWidth: number;
+  color: string;
+  gapWidth: number;
+  marginBottom: number;
+  marginTop: number;
+} {
+  return {
+    backgroundColor: "transparent",
+    borderColor: isDark ? "rgba(159, 159, 169, 0.3)" : "rgba(113, 113, 123, 0.3)",
+    borderRadius: 0,
+    borderWidth: BLOCKQUOTE_BORDER,
+    color: isDark ? "#9f9fa9" : "#71717b",
+    gapWidth: BLOCKQUOTE_GAP,
+    marginBottom: BLOCKQUOTE_MARGIN,
+    marginTop: BLOCKQUOTE_MARGIN,
+  };
+}
+
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: 0 },
   list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },

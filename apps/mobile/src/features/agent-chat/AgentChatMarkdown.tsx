@@ -7,6 +7,7 @@ import { chipCompleteHttpUrls, HTTP_CHIP_LINK_VARIANT, httpChipTarget } from "./
 import {
   THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
+  agentChatBlockquote,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
 } from "./markdown-chrome";
@@ -56,10 +57,7 @@ export function AgentChatMarkdown({
       },
       ...headings,
       blockquote: {
-        backgroundColor: theme.colors.cardSubtle,
-        borderColor: theme.colors.glassBorder,
-        borderWidth: 3,
-        color: proseColor,
+        ...agentChatBlockquote(theme.isDark),
         fontSize: resolvedFontSize,
         lineHeight: resolvedLineHeight,
       },

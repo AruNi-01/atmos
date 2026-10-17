@@ -7,8 +7,12 @@ import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
 import {
+  BLOCKQUOTE_BORDER,
+  BLOCKQUOTE_GAP,
+  BLOCKQUOTE_MARGIN,
   THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
+  agentChatBlockquote,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
 } from "./markdown-chrome";
@@ -80,6 +84,25 @@ describe("agent chat markdown chrome", () => {
     );
     expect(markdown).toContain("THINKING_PARAGRAPH_MARGIN");
     expect(markdown).toContain('tone === "thinking"');
+    expect(BLOCKQUOTE_MARGIN).toBe(16);
+    expect(BLOCKQUOTE_BORDER).toBe(4);
+    expect(BLOCKQUOTE_GAP).toBe(16);
+    expect(agentChatBlockquote(false)).toEqual({
+      backgroundColor: "transparent",
+      borderColor: "rgba(113, 113, 123, 0.3)",
+      borderRadius: 0,
+      borderWidth: 4,
+      color: "#71717b",
+      gapWidth: 16,
+      marginBottom: 16,
+      marginTop: 16,
+    });
+    expect(agentChatBlockquote(true).borderColor).toBe("rgba(159, 159, 169, 0.3)");
+    expect(agentChatBlockquote(true).color).toBe("#9f9fa9");
+    const quote = markdown.slice(markdown.indexOf("blockquote:"), markdown.indexOf("list:"));
+    expect(quote).toContain("agentChatBlockquote(theme.isDark)");
+    expect(quote).not.toContain("glassBorder");
+    expect(quote).not.toContain("cardSubtle");
     const table = markdown.slice(
       markdown.indexOf("table: {"),
       markdown.indexOf("const markdown ="),
