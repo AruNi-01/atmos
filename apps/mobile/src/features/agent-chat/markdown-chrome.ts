@@ -36,9 +36,12 @@ export const agentChatBlockMetrics = {
 } as const;
 
 /**
- * Zinc table chrome from `markdown-table.ts`, inline code from `MarkdownCodeBlock`,
- * and the fenced frame from `CodeBlock` (`bg-neutral-200/40` / `dark:bg-neutral-800/70`).
- * Dark header and border are those alphas composited on black. Inline code has no border.
+ * Zinc table chrome from `markdown-table.ts`, inline code from `MarkdownRenderer`
+ * (`bg-zinc-100` / `dark:bg-zinc-800`), and the fenced frame from `CodeBlock`
+ * (`bg-neutral-200/40` / `dark:bg-neutral-800/70`). Dark header and border are
+ * those alphas composited on black. Inline code has no border.
+ * Light zinc-100 (`#f4f4f5`) vanishes on the mobile page (`#f4f4f6`); zinc-200
+ * is the same family with the contrast zinc-100 has on web's white page.
  * Fence syntax colors follow web Shiki `github-light` / `github-dark`.
  * The native fence paints this frame, then a page-colored code pane (`h-9` header,
  * 12px code padding) in the enriched-markdown patch.
@@ -77,7 +80,7 @@ export function agentChatMarkdownChrome(isDark: boolean) {
     bodyText: "#52525b",
     border: "#e4e4e7",
     row: "#f4f4f6",
-    codeBackground: "#f4f4f5",
+    codeBackground: "#e4e4e7",
     codeText: "#27272a",
     codeBorder: "rgba(0,0,0,0)",
     fenceBackground: "#eeeeef",
