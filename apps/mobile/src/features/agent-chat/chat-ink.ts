@@ -21,6 +21,11 @@ export function chatForeground80(isDark: boolean): string {
   return isDark ? "rgba(250, 250, 250, 0.8)" : "rgba(9, 9, 11, 0.8)";
 }
 
+/** Web `text-foreground/90` on the background-command header. */
+export function chatForeground90(isDark: boolean): string {
+  return isDark ? "rgba(250, 250, 250, 0.9)" : "rgba(9, 9, 11, 0.9)";
+}
+
 export function chatMutedForeground(isDark: boolean): string {
   return isDark ? CHAT_MUTED_DARK : CHAT_MUTED_LIGHT;
 }

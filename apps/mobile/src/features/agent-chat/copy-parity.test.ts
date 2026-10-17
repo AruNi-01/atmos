@@ -75,7 +75,7 @@ type AgentComponents = {
   };
   plan: { title: string };
   messageQueue: { title: string };
-  backgroundCommands: { title: string };
+  backgroundCommands: { title: string; running: string; runningCount: string };
   subagentTasks: {
     title: string;
     runningCount: string;
@@ -178,6 +178,8 @@ describe("agent chat copy parity", () => {
     expect(copy.planTitle).toBe(components.plan.title);
     expect(copy.messageQueueTitle).toBe(components.messageQueue.title);
     expect(copy.backgroundCommandsTitle).toBe(components.backgroundCommands.title);
+    expect(copy.backgroundCommandsRunning).toBe(components.backgroundCommands.running);
+    expect(copy.backgroundCommandsRunningCount).toBe(components.backgroundCommands.runningCount);
     expect(copy.subagentTasksTitle).toBe(components.subagentTasks.title);
     expect(copy.subagentTasksRunning).toBe(components.subagentTasks.runningCount);
     expect(copy.subagentTasksProgress).toBe(components.subagentTasks.progressCount);

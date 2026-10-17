@@ -92,6 +92,8 @@ export const copy = {
   planTitle: "Plan",
   messageQueueTitle: "Message Queue",
   backgroundCommandsTitle: "Background",
+  backgroundCommandsRunning: "Running",
+  backgroundCommandsRunningCount: "{count} running",
   subagentTasksTitle: "Subagent Tasks",
   subagentTasksRunning: "{count} running",
   subagentTasksProgress: "{completed}/{total} completed",

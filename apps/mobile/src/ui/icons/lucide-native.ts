@@ -69,6 +69,7 @@ import {
   Settings,
   ShieldAlert,
   SquareTerminal,
+  Terminal,
   Square,
   SunMoon,
   Tag,
@@ -159,6 +160,7 @@ export const ShieldAlertIcon = ShieldAlert;
 export const SquareIcon = Square;
 export const SunMoonIcon = SunMoon;
 export const TerminalIcon = SquareTerminal;
+export const CommandTerminalIcon = Terminal;
 export const TrashIcon = Trash2;
 export const UserIcon = User;
 export const WifiIcon = Wifi;

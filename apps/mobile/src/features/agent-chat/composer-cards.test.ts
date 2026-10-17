@@ -193,8 +193,62 @@ describe("deriveComposerCards", () => {
         ]),
       ],
     });
-    expect(cards.background).toEqual([{ id: "bg", command: "npm test" }]);
+    expect(cards.background).toEqual([{ id: "bg", command: "npm test", preview: "" }]);
     expect(cards.available).toContain("background");
+  });
+
+  test("background preview is the last non-empty output line", () => {
+    const cards = emptyCards({
+      messages: [
+        assistant("a1", [
+          {
+            type: "tool_call",
+            tool_call_id: "bg",
+            name: "bash",
+            kind: "execute",
+            status: "running",
+            params: { type: "execute", command: "npm test", background: true },
+            result: { type: "execute", output: "first\nready\n" },
+          },
+          {
+            type: "tool_call",
+            tool_call_id: "text",
+            name: "bash",
+            kind: "execute",
+            status: "running",
+            params: { type: "execute", command: "echo", background: true },
+            result: { type: "text", text: "  hello  \n" },
+          },
+          {
+            type: "tool_call",
+            tool_call_id: "err",
+            name: "bash",
+            kind: "execute",
+            status: "running",
+            params: { type: "execute", command: "fail", background: true },
+            result: { type: "error", message: "nope" },
+          },
+        ]),
+      ],
+    });
+    expect(cards.background).toEqual([
+      { id: "bg", command: "npm test", preview: "ready" },
+      { id: "text", command: "echo", preview: "hello" },
+      { id: "err", command: "fail", preview: "nope" },
+    ]);
+  });
+
+  test("the background dock uses the web header and row ink", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const card = readFileSync(join(here, "cards", "background-card.tsx"), "utf8");
+    expect(card).toContain("chatForeground90(theme.isDark)");
+    expect(card).toContain("chatForeground80(theme.isDark)");
+    expect(card).toContain("CommandTerminalIcon");
+    expect(card).toContain('fontFamily: "Menlo"');
+    expect(card).toContain("#00bc7d");
+    expect(card).not.toContain("theme.colors.label");
+    expect(card).not.toContain("Popover");
+    expect(laneCardDrawsOwnFrame("background", { subagentTools: [] })).toBe(false);
   });
 
   test("subagent titles skip chrome, nested rows, and finished tasks while a queue is pending", () => {

@@ -37,6 +37,7 @@ export type ComposerCardInput = {
 export type BackgroundCommand = {
   id: string;
   command: string;
+  preview: string;
 };
 
 export type SubagentTitle = {
@@ -240,6 +241,23 @@ function latestPlanValue(messages: AgentMessage[]): unknown | null {
   return null;
 }
 
+function backgroundOutputPreview(part: AgentToolCallPart): string {
+  const result = part.result;
+  const output =
+    result?.type === "execute"
+      ? result.output
+      : result?.type === "text"
+        ? result.text
+        : result?.type === "error"
+          ? result.message
+          : "";
+  const lines = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.at(-1) ?? "";
+}
+
 function liveBackgroundCommands(messages: AgentMessage[]): BackgroundCommand[] {
   const found: BackgroundCommand[] = [];
   const seen = new Set<string>();
@@ -249,7 +267,11 @@ function liveBackgroundCommands(messages: AgentMessage[]): BackgroundCommand[] {
       if (part.type !== "tool_call" || !isLiveBackgroundExecute(part)) continue;
       if (seen.has(part.tool_call_id)) continue;
       seen.add(part.tool_call_id);
-      found.push({ id: part.tool_call_id, command: part.params.command.trim() });
+      found.push({
+        id: part.tool_call_id,
+        command: part.params.command.trim(),
+        preview: backgroundOutputPreview(part),
+      });
     }
   }
   return found;
