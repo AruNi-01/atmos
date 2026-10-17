@@ -74,6 +74,13 @@ export type ToolBodyModel =
   | { kind: "mono"; title: string; text: string }
   | { kind: "move"; title: string; from: string; to: string }
   | { kind: "delete"; title: string; path: string }
+  | {
+      kind: "plan_document";
+      title: string;
+      overview: string | null;
+      plan: string;
+      todos: Array<{ content: string; status: TodoStatusKind }>;
+    }
   | { kind: "error"; title: string; text: string }
   | { kind: "empty"; title: string; path: string | null }
   | {
@@ -115,6 +122,8 @@ function skillNameFromPart(part: AgentToolCallPart): string | null {
 
 /** Collapsed tool trigger: kind verb plus a filename chip, matching web. */
 export function toolRowChrome(part: AgentToolCallPart, parsed: ParsedToolResult): ToolRowChrome {
+  const plan = planDocumentFields(part);
+  if (plan) return { title: plan.title, fileName: null, lineRange: null };
   if (parsed.presentation.kind === "web_search" || part.kind === "web_search") {
     const query =
       parsed.presentation.kind === "web_search"
@@ -208,6 +217,46 @@ export function todoStatusLabel(kind: TodoStatusKind): string {
 /** Web `deletedFileLabel`. The path is stored as-is; the phone row has no cwd. */
 export function deletedFileLabel(path: string): string {
   return fillTemplate(copy.deletedFile, { path });
+}
+
+/** Web `AgentToolPlanDocument` fields. `presentAgentTool` drops this kind to empty. */
+export function planDocumentFields(part: AgentToolCallPart): {
+  kind: "plan_document";
+  title: string;
+  overview: string | null;
+  plan: string;
+  todos: Array<{ content: string; status: TodoStatusKind }>;
+} | null {
+  if (part.kind !== "plan_document" || part.params?.type !== "plan_document") return null;
+  const params = part.params;
+  const todos = (params.todos ?? [])
+    .map((todo) => ({
+      content: todo.content?.trim() ?? "",
+      status: todoStatusKind(todo.status),
+    }))
+    .filter((todo) => todo.content.length > 0);
+  const plan = params.plan?.trim() ?? "";
+  return {
+    kind: "plan_document",
+    title: params.name?.trim() || part.title?.trim() || copy.planDocument,
+    overview: params.overview?.trim() || null,
+    plan,
+    todos,
+  };
+}
+
+/** Web opens a plan card when it has markdown or to-dos. */
+export function planDocumentStartsOpen(model: {
+  plan: string;
+  todos: readonly unknown[];
+}): boolean {
+  return model.plan.length > 0 || model.todos.length > 0;
+}
+
+/** Label on the plan pane switch. `showing` is the pane currently on screen. */
+export function planPaneSwitchLabel(showing: "body" | "todos", todoCount: number): string {
+  if (showing === "body") return formatCountChoice(copy.planTodos, todoCount);
+  return copy.planBody;
 }
 
 export function splitToolLines(text: string): string[] {
@@ -447,6 +496,8 @@ export function toolBodyModel(part: AgentToolCallPart): ToolBodyModel {
   if (part.kind === "subagent") {
     return { kind: "subagent", title, status: subagentStatusText(part.status) };
   }
+  const plan = planDocumentFields(part);
+  if (plan) return plan;
   const fields = fieldsForPresentation(part, parsed);
   return { ...fields, title };
 }
@@ -522,6 +573,8 @@ import {
   CircleDashedIcon,
   CircleIcon,
   FileTextIcon,
+  ListTodoIcon,
+  ScrollTextIcon,
   XCircleIcon,
 } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
@@ -721,6 +774,89 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
   );
 }
 
+function TodoStatusRows({ items }: { items: Array<{ content: string; status: TodoStatusKind }> }) {
+  const theme = useMobileTheme();
+  return (
+    <View style={{ gap: 4 }}>
+      {items.map((item, index) => {
+        const completed = item.status === "completed";
+        const Icon =
+          item.status === "completed"
+            ? CheckCircleIcon
+            : item.status === "in_progress"
+              ? CircleDashedIcon
+              : CircleIcon;
+        return (
+          <View
+            key={`${item.content}:${index}`}
+            style={{ alignItems: "flex-start", flexDirection: "row", gap: 8 }}
+          >
+            <View accessibilityLabel={todoStatusLabel(item.status)} style={{ marginTop: 2 }}>
+              <Icon
+                color={completed ? theme.colors.green : theme.colors.secondaryLabel}
+                size={14}
+                strokeWidth={2}
+              />
+            </View>
+            <Text
+              style={{
+                ...BODY_TEXT,
+                color: completed ? theme.colors.secondaryLabel : theme.colors.label,
+                flexShrink: 1,
+                textDecorationLine: completed ? "line-through" : "none",
+              }}
+            >
+              {item.content}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "plan_document" }> }) {
+  const theme = useMobileTheme();
+  const hasBody = model.plan.length > 0;
+  const hasTodos = model.todos.length > 0;
+  const [pane, setPane] = useState<"body" | "todos">(hasBody ? "body" : "todos");
+  const showing: "body" | "todos" = hasBody && hasTodos ? pane : hasBody ? "body" : "todos";
+  return (
+    <View style={{ gap: 8 }}>
+      {model.overview ? (
+        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+          {model.overview}
+        </Text>
+      ) : null}
+      {hasBody && hasTodos ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setPane(showing === "body" ? "todos" : "body")}
+          style={{ alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 4 }}
+        >
+          {showing === "body" ? (
+            <ListTodoIcon color={theme.colors.secondaryLabel} size={12} strokeWidth={2} />
+          ) : (
+            <ScrollTextIcon color={theme.colors.secondaryLabel} size={12} strokeWidth={2} />
+          )}
+          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 11, lineHeight: 16 }}>
+            {planPaneSwitchLabel(showing, model.todos.length)}
+          </Text>
+        </Pressable>
+      ) : null}
+      {showing === "body" && hasBody ? (
+        <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.plan} />
+      ) : null}
+      {showing === "todos" && hasTodos ? <TodoStatusRows items={model.todos} /> : null}
+      {!hasBody && !hasTodos ? (
+        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+          {copy.noOutput}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subagent" }> }) {
   const theme = useMobileTheme();
   const movePathStyle = {
@@ -787,43 +923,9 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
     case "markdown":
       return <AgentChatMarkdown fontSize={14} lineHeight={20} text={model.markdown} />;
     case "todos":
-      return (
-        <View style={{ gap: 4 }}>
-          {model.items.map((item, index) => {
-            const completed = item.status === "completed";
-            const Icon =
-              item.status === "completed"
-                ? CheckCircleIcon
-                : item.status === "in_progress"
-                  ? CircleDashedIcon
-                  : CircleIcon;
-            return (
-              <View
-                key={`${item.content}:${index}`}
-                style={{ alignItems: "flex-start", flexDirection: "row", gap: 8 }}
-              >
-                <View accessibilityLabel={todoStatusLabel(item.status)} style={{ marginTop: 2 }}>
-                  <Icon
-                    color={completed ? theme.colors.green : theme.colors.secondaryLabel}
-                    size={14}
-                    strokeWidth={2}
-                  />
-                </View>
-                <Text
-                  style={{
-                    ...BODY_TEXT,
-                    color: completed ? theme.colors.secondaryLabel : theme.colors.label,
-                    flexShrink: 1,
-                    textDecorationLine: completed ? "line-through" : "none",
-                  }}
-                >
-                  {item.content}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      );
+      return <TodoStatusRows items={model.items} />;
+    case "plan_document":
+      return <PlanDocumentBody model={model} />;
     case "mono":
       return <CappedMono text={model.text} />;
     case "move":
@@ -952,7 +1054,10 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const theme = useMobileTheme();
   const model = toolBodyModel(part);
   const chrome = toolRowChrome(part, presentAgentTool(part));
-  const [open, setOpen] = useAgentChatExpand(agentChatToolExpandKey(part.tool_call_id), false);
+  const [open, setOpen] = useAgentChatExpand(
+    agentChatToolExpandKey(part.tool_call_id),
+    model.kind === "plan_document" && planDocumentStartsOpen(model),
+  );
   if (model.kind === "subagent") {
     return <SubagentCard status={model.status} title={chrome.title} />;
   }

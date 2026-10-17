@@ -363,7 +363,13 @@ describe("tool body presentation", () => {
         params: { type: "plan_document", plan: "# Plan", todos: [] },
       }),
     );
-    expect(plan).toMatchObject({ kind: "empty", path: null });
+    expect(plan).toMatchObject({
+      kind: "plan_document",
+      title: "Plan",
+      overview: null,
+      plan: "# Plan",
+      todos: [],
+    });
 
     const subagent = await call(
       part({
@@ -448,6 +454,76 @@ describe("move and delete bodies", () => {
     const deleted = body.slice(body.indexOf('case "delete":'), body.indexOf('case "error":'));
     expect(deleted).toContain("deletedFileLabel");
     expect(deleted).not.toContain("PathChip");
+  });
+});
+
+describe("plan document", () => {
+  test("keeps the name, overview, markdown, and to-dos, and opens when any exist", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const model = mod.toolBodyModel as (value: AgentToolCallPart) => {
+      kind: string;
+      title: string;
+      overview: string | null;
+      plan: string;
+      todos: Array<{ content: string; status: string }>;
+    };
+    const startsOpen = mod.planDocumentStartsOpen as (value: {
+      plan: string;
+      todos: readonly unknown[];
+    }) => boolean;
+    const label = mod.planPaneSwitchLabel as (showing: "body" | "todos", count: number) => string;
+    const chrome = mod.toolRowChrome as (
+      value: AgentToolCallPart,
+      parsed: unknown,
+    ) => { title: string; fileName: string | null };
+
+    const named = part({
+      kind: "plan_document",
+      name: "createPlan",
+      title: "Old title",
+      params: {
+        type: "plan_document",
+        name: "Refactor",
+        overview: "  Tighten layout  ",
+        plan: "  # Refactor\n\nDo the work.  ",
+        todos: [
+          { content: "Inspect", status: "completed" },
+          { content: "   ", status: "pending" },
+          { content: "Ship", status: "in-progress" },
+        ],
+      },
+    });
+    const body = model(named);
+    expect(body).toMatchObject({
+      kind: "plan_document",
+      title: "Refactor",
+      overview: "Tighten layout",
+      plan: "# Refactor\n\nDo the work.",
+    });
+    expect(body.todos).toEqual([
+      { content: "Inspect", status: "completed" },
+      { content: "Ship", status: "in_progress" },
+    ]);
+    expect(startsOpen(body)).toBe(true);
+    expect(startsOpen({ plan: "", todos: [] })).toBe(false);
+    expect(startsOpen({ plan: "", todos: [{ content: "Ship" }] })).toBe(true);
+    expect(label("body", 1)).toBe("1 to-do");
+    expect(label("body", 2)).toBe("2 to-dos");
+    expect(label("todos", 2)).toBe("View plan");
+    expect(chrome(named, {})).toEqual({ title: "Refactor", fileName: null, lineRange: null });
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("function PlanDocumentBody"));
+    const card = view.slice(0, view.indexOf("function ToolBodyView"));
+    expect(card).toContain("AgentChatMarkdown");
+    expect(card).toContain("TodoStatusRows");
+    expect(card).toContain("copy.noOutput");
+    expect(card).toContain("ListTodoIcon");
+    expect(card).toContain("ScrollTextIcon");
+    expect(source).toContain("planDocumentStartsOpen(model)");
   });
 });
 

@@ -47,6 +47,7 @@ import {
   MessagesSquare,
   ListFilter,
   Search,
+  ScrollText,
   Send,
   Share2,
   Shield,
@@ -127,6 +128,7 @@ export const ListTodoIcon = ListTodo;
 export const MessageCircleIcon = MessageCircle;
 export const MessageSquareIcon = MessageSquare;
 export const SearchIcon = Search;
+export const ScrollTextIcon = ScrollText;
 export const SendIcon = Send;
 export const ShareIcon = Share2;
 export const ShieldIcon = Shield;
