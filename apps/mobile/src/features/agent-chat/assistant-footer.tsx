@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useState, useEffect, type ReactNode } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -21,6 +22,7 @@ import {
 import { CopyMessageButton } from "./copy-message-button";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import {
+  TURN_FILE_PREVIEW_COUNT,
   collectTurnFileChanges,
   fileChangeName,
   visibleTurnFileChanges,
@@ -28,8 +30,12 @@ import {
 import { TOOL_ADDITION_COLOR, TOOL_DELETION_COLOR } from "./tool-body";
 import {
   TURN_FILES_MARGIN_TOP,
+  TURN_FILES_MAX_HEIGHT,
   TURN_FILES_RADIUS,
+  compositeOver,
   turnFilesBorder,
+  turnFilesFadeClear,
+  turnFilesFadePx,
   turnFilesFill,
 } from "./turn-files-chrome";
 import {
@@ -335,6 +341,55 @@ export function AssistantFooter({
   );
 }
 
+function TurnFileScroller({
+  active,
+  fill,
+  page,
+  children,
+}: {
+  active: boolean;
+  fill: string;
+  page: string;
+  children: ReactNode;
+}) {
+  const [contentHeight, setContentHeight] = useState(0);
+  const [offset, setOffset] = useState(0);
+  if (!active) return <View style={{ marginTop: 4 }}>{children}</View>;
+  const height = contentHeight > 0 ? Math.min(contentHeight, TURN_FILES_MAX_HEIGHT) : undefined;
+  const fade = compositeOver(fill, page);
+  const fadeClear = turnFilesFadeClear(fade);
+  const fadeTop = turnFilesFadePx(offset);
+  const fadeBottom = turnFilesFadePx(contentHeight - (height ?? 0) - offset);
+  return (
+    <View style={{ height, marginTop: 4, maxHeight: TURN_FILES_MAX_HEIGHT }}>
+      <ScrollView
+        nestedScrollEnabled
+        onContentSizeChange={(_width, next) => setContentHeight(next)}
+        onScroll={(event) => setOffset(event.nativeEvent.contentOffset.y)}
+        scrollEnabled={contentHeight > TURN_FILES_MAX_HEIGHT}
+        scrollEventThrottle={16}
+        style={{ maxHeight: TURN_FILES_MAX_HEIGHT }}
+      >
+        {children}
+      </ScrollView>
+      {fadeTop > 0 ? (
+        <LinearGradient
+          colors={[fade, fadeClear]}
+          pointerEvents="none"
+          style={{ height: fadeTop, left: 0, position: "absolute", right: 0, top: 0 }}
+        />
+      ) : null}
+      {fadeBottom > 0 ? (
+        <LinearGradient
+          colors={[fadeClear, fade]}
+          pointerEvents="none"
+          style={{ bottom: 0, height: fadeBottom, left: 0, position: "absolute", right: 0 }}
+        />
+      ) : null}
+    </View>
+  );
+}
+
 export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; visible: boolean }) {
   const theme = useMobileTheme();
   const [expanded, setExpanded] = useState(false);
@@ -360,7 +415,11 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
       <Text style={{ color: muted, fontSize: 14, lineHeight: 20 }}>
         {filesChangedLabel(changes.length)}
       </Text>
-      <View style={{ marginTop: 4 }}>
+      <TurnFileScroller
+        active={changes.length > TURN_FILE_PREVIEW_COUNT}
+        fill={turnFilesFill(theme.isDark)}
+        page={theme.colors.background}
+      >
         {shown.map((change) => (
           <View
             key={change.path}
@@ -383,7 +442,7 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
             <FileStats additions={change.additions} deletions={change.deletions} />
           </View>
         ))}
-      </View>
+      </TurnFileScroller>
       {hidden > 0 ? (
         <Pressable
           accessibilityRole="button"

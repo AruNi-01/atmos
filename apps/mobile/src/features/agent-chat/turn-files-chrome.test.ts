@@ -11,9 +11,14 @@ import {
   TURN_FILES_BORDER_LIGHT,
   TURN_FILES_FILL_DARK,
   TURN_FILES_FILL_LIGHT,
+  TURN_FILES_FADE,
   TURN_FILES_MARGIN_TOP,
+  TURN_FILES_MAX_HEIGHT,
   TURN_FILES_RADIUS,
+  compositeOver,
   turnFilesBorder,
+  turnFilesFadeClear,
+  turnFilesFadePx,
   turnFilesFill,
 } from "./turn-files-chrome";
 
@@ -31,15 +36,26 @@ describe("turn file card chrome", () => {
     expect(turnFilesFill(true)).toBe(TURN_FILES_FILL_DARK);
     expect(turnFilesBorder(false)).toBe(TURN_FILES_BORDER_LIGHT);
     expect(turnFilesBorder(true)).toBe(TURN_FILES_BORDER_DARK);
+    expect(TURN_FILES_MAX_HEIGHT).toBe(176);
+    expect(TURN_FILES_FADE).toBe(24);
+    expect(compositeOver(TURN_FILES_FILL_LIGHT, "#f4f4f6")).toBe("rgb(235, 235, 237)");
+    expect(compositeOver(TURN_FILES_FILL_DARK, "#000000")).toBe("rgb(16, 16, 17)");
+    expect(turnFilesFadePx(0)).toBe(0);
+    expect(turnFilesFadePx(8)).toBe(8);
+    expect(turnFilesFadePx(40)).toBe(24);
+    expect(turnFilesFadeClear("rgb(235, 235, 237)")).toBe("rgba(235, 235, 237, 0)");
     const source = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
     const card = source.slice(
-      source.indexOf("export function AssistantTurnFiles"),
+      source.indexOf("function TurnFileScroller"),
       source.indexOf("const styles"),
     );
     expect(card).toContain("turnFilesFill");
     expect(card).toContain("turnFilesBorder");
     expect(card).toContain("TURN_FILES_RADIUS");
     expect(card).toContain("marginTop: TURN_FILES_MARGIN_TOP");
+    expect(card).toContain("TURN_FILES_MAX_HEIGHT");
+    expect(card).toContain("ScrollView");
+    expect(card).toContain("turnFilesFadePx");
     expect(card).not.toContain("marginTop: 12");
     expect(card).toContain("borderWidth: 1");
     expect(card).toContain("paddingHorizontal: 6");
