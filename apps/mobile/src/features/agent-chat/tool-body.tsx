@@ -84,7 +84,7 @@ export type ToolBodyModel =
       todos: Array<{ content: string; status: TodoStatusKind }>;
     }
   | { kind: "error"; title: string; text: string }
-  | { kind: "empty"; title: string; path: string | null }
+  | { kind: "empty"; title: string; path: string | null; message: string | null }
   | {
       kind: "images";
       title: string;
@@ -231,6 +231,26 @@ export function todoStatusLabel(kind: TodoStatusKind): string {
   if (kind === "completed") return copy.todoCompleted;
   if (kind === "in_progress") return copy.todoInProgress;
   return copy.todoPending;
+}
+
+/**
+ * Web `AgentToolEmptyBody`. A read, edit, or delete that already has a path
+ * keeps that path on the title chip instead of this line.
+ */
+export function emptyToolMessage(
+  kind: string,
+  status: string | null | undefined,
+  path: string | null,
+): string | null {
+  if (path && (kind === "read" || kind === "edit" || kind === "delete")) return null;
+  const completed = (status ?? "").toLowerCase() === "completed";
+  return completed ? copy.noOutput : copy.processing;
+}
+
+/** Web `AgentToolErrorBody`: blank errors say Execution failed. */
+export function toolErrorText(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.length > 0 ? trimmed : copy.executionFailed;
 }
 
 /** Web `deletedFileLabel`. The path is stored as-is; the phone row has no cwd. */
@@ -565,9 +585,13 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
     case "delete":
       return { kind: "delete", path: presentation.path };
     case "error":
-      return { kind: "error", text: presentation.text };
+      return { kind: "error", text: toolErrorText(presentation.text) };
     case "empty":
-      return { kind: "empty", path: part.kind === "read" ? parsed.path : null };
+      return {
+        kind: "empty",
+        path: part.kind === "read" ? parsed.path : null,
+        message: emptyToolMessage(part.kind, part.status, parsed.path),
+      };
     case "images":
       return {
         kind: "images",
@@ -1184,7 +1208,17 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
         </Text>
       );
     case "empty":
-      return model.path ? <PathChip path={model.path} /> : null;
+      if (!model.path && !model.message) return null;
+      return (
+        <View style={{ gap: 8 }}>
+          {model.path ? <PathChip path={model.path} /> : null}
+          {model.message ? (
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+              {model.message}
+            </Text>
+          ) : null}
+        </View>
+      );
     case "images":
       return (
         <View style={{ gap: 8 }}>

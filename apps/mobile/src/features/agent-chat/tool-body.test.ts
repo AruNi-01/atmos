@@ -326,7 +326,7 @@ describe("tool body presentation", () => {
         params: { type: "read", path: "a.ts" },
       }),
     );
-    expect(emptyRead).toMatchObject({ kind: "empty", path: "a.ts" });
+    expect(emptyRead).toMatchObject({ kind: "empty", path: "a.ts", message: null });
 
     const emptyOther = await call(
       part({
@@ -334,7 +334,7 @@ describe("tool body presentation", () => {
         params: { type: "other", value: null },
       }),
     );
-    expect(emptyOther).toMatchObject({ kind: "empty", path: null });
+    expect(emptyOther).toMatchObject({ kind: "empty", path: null, message: "No output" });
 
     const images = await call(
       part({
@@ -443,6 +443,47 @@ describe("tool body presentation", () => {
       row({ kind: "diff_stats", title: "Edit", path: "a.ts", additions: 2, deletions: 4 }),
     ).toEqual({ additions: 2, deletions: 4 });
     expect(row({ kind: "mono", title: "Run", text: "ok" })).toEqual({ additions: 0, deletions: 0 });
+  });
+});
+
+describe("empty and failed tool fallbacks", () => {
+  test("says Processing or No output, and Execution failed when the error is blank", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const message = mod.emptyToolMessage as (
+      kind: string,
+      status: string | null | undefined,
+      path: string | null,
+    ) => string | null;
+    const errorText = mod.toolErrorText as (text: string) => string;
+    expect(message("other", "completed", null)).toBe("No output");
+    expect(message("other", "running", null)).toBe("Processing...");
+    expect(message("other", "", null)).toBe("Processing...");
+    expect(message("read", "completed", "a.ts")).toBeNull();
+    expect(message("edit", "completed", "a.ts")).toBeNull();
+    expect(message("delete", "running", "gone.ts")).toBeNull();
+    expect(message("read", "completed", null)).toBe("No output");
+    expect(message("edit", "running", null)).toBe("Processing...");
+    expect(errorText(" missing ")).toBe("missing");
+    expect(errorText("")).toBe("Execution failed");
+    expect(errorText("   ")).toBe("Execution failed");
+
+    const running = await call(
+      part({
+        kind: "other",
+        status: "running",
+        params: { type: "other", value: null },
+      }),
+    );
+    expect(running).toMatchObject({ kind: "empty", path: null, message: "Processing..." });
+
+    const blank = await call(
+      part({
+        kind: "execute",
+        params: { type: "execute", command: "pwd", background: false },
+        result: { type: "error", message: " " },
+      }),
+    );
+    expect(blank).toMatchObject({ kind: "error", text: "Execution failed" });
   });
 });
 
