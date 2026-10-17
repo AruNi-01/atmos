@@ -1,5 +1,6 @@
 import {
   Archive,
+  ArrowRight,
   ArrowUp,
   Bell,
   Bot,
@@ -10,12 +11,18 @@ import {
   Check,
   Coins,
   Cpu,
+  Circle,
+  CircleAlert,
+  Clipboard,
   CircleCheck,
+  CircleDashed,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronUp,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Clock,
   Clock3,
   DollarSign,
@@ -23,6 +30,8 @@ import {
   Flag,
   Gauge,
   Globe,
+  Goal,
+  GitFork,
   FileText,
   Folder,
   FolderInput,
@@ -32,6 +41,7 @@ import {
   Hand,
   Image as ImageGlyph,
   Keyboard,
+  ListOrdered,
   KeyRound,
   Laptop,
   Layers,
@@ -42,8 +52,10 @@ import {
   MessageCircle,
   MessageSquare,
   MessagesSquare,
+  MoreHorizontal,
   ListFilter,
   Search,
+  ScrollText,
   Send,
   Share2,
   Shield,
@@ -63,6 +75,7 @@ import {
   Settings,
   ShieldAlert,
   SquareTerminal,
+  Terminal,
   Square,
   SunMoon,
   Tag,
@@ -78,6 +91,7 @@ import {
 } from "lucide-react-native";
 
 export const ArchiveIcon = Archive;
+export const ArrowRightIcon = ArrowRight;
 export const ArrowUpIcon = ArrowUp;
 export const BellIcon = Bell;
 export const BotIcon = Bot;
@@ -89,6 +103,10 @@ export const CoinsIcon = Coins;
 export const CpuIcon = Cpu;
 export const DollarSignIcon = DollarSign;
 export const GaugeIcon = Gauge;
+export const CircleAlertIcon = CircleAlert;
+export const ClipboardIcon = Clipboard;
+export const CircleIcon = Circle;
+export const CircleDashedIcon = CircleDashed;
 export const CircleCheckIcon = CircleCheck;
 export const CheckIcon = Check;
 export const CheckCircleIcon = CheckCircle2;
@@ -96,6 +114,8 @@ export const ChevronDownIcon = ChevronDown;
 export const ChevronLeftIcon = ChevronLeft;
 export const ChevronUpIcon = ChevronUp;
 export const ChevronRightIcon = ChevronRight;
+export const ChevronsDownUpIcon = ChevronsDownUp;
+export const ChevronsUpDownIcon = ChevronsUpDown;
 export const LayoutGridIcon = LayoutGrid;
 export const MessagesSquareIcon = MessagesSquare;
 export const ClockIcon = Clock;
@@ -106,6 +126,8 @@ export const FlagIcon = Flag;
 export const FolderIcon = Folder;
 export const FolderInputIcon = FolderInput;
 export const GlobeIcon = Globe;
+export const GoalIcon = Goal;
+export const GitForkIcon = GitFork;
 export const FolderKanbanIcon = FolderKanban;
 export const FoldersIcon = Folders;
 export const ListFilterIcon = ListFilter;
@@ -120,7 +142,9 @@ export const LayersIcon = Layers;
 export const ListTodoIcon = ListTodo;
 export const MessageCircleIcon = MessageCircle;
 export const MessageSquareIcon = MessageSquare;
+export const MoreHorizontalIcon = MoreHorizontal;
 export const SearchIcon = Search;
+export const ScrollTextIcon = ScrollText;
 export const SendIcon = Send;
 export const ShareIcon = Share2;
 export const ShieldIcon = Shield;
@@ -132,6 +156,7 @@ export const LaptopIcon = Laptop;
 export const LinkIcon = Link2;
 export const LoaderCircleIcon = LoaderCircle;
 export const LogOutIcon = LogOut;
+export const ListOrderedIcon = ListOrdered;
 export const PencilIcon = Pencil;
 export const PinIcon = Pin;
 export const PlugIcon = Plug;
@@ -147,6 +172,7 @@ export const ShieldAlertIcon = ShieldAlert;
 export const SquareIcon = Square;
 export const SunMoonIcon = SunMoon;
 export const TerminalIcon = SquareTerminal;
+export const CommandTerminalIcon = Terminal;
 export const TrashIcon = Trash2;
 export const UserIcon = User;
 export const WifiIcon = Wifi;

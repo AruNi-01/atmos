@@ -48,6 +48,7 @@ import {
 } from "@atmos/agent-transcript/agent-tree-branch";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
+import { chatForeground } from "./chat-ink";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -203,6 +204,7 @@ export function ToolTreeRow({
 }) {
   const theme = useMobileTheme();
   const [height, setHeight] = useState(0);
+  const stroke = chatForeground(theme.isDark);
   const strokes = toolTreeStrokes({ first, last, height });
   const delay =
     delayMs ?? (count <= 1 ? treeSegmentDelayMs(index) : treeStaggerDelayMs(index, count));
@@ -225,7 +227,7 @@ export function ToolTreeRow({
                 delay={delay}
                 draw={draw}
                 length={trunkLength}
-                stroke={theme.colors.label}
+                stroke={stroke}
               />
             ) : null}
             <DrawnPath
@@ -233,7 +235,7 @@ export function ToolTreeRow({
               delay={delay}
               draw={draw}
               length={reachLength}
-              stroke={theme.colors.label}
+              stroke={stroke}
             />
           </Svg>
         ) : null}

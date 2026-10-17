@@ -32,6 +32,32 @@ export const copy = {
   attach: "Attach",
   context: "Context",
   pasteChip: "Pasted: {count} lines",
+  webSearch: "Web search",
+  webSearchSearchingFor: "Searching for {query}",
+  webSearchSources: "Sources",
+  webSearchResultCount: "{count, plural, one {# result} other {# results}}",
+  searchMatchCount: "{count, plural, one {# match} other {# matches}}",
+  fetchUrl: "Fetch {host}",
+  moveTo: "To",
+  deletedFile: "Deleted {path}",
+  createdFile: "Created",
+  newFile: "New",
+  deletedFileStatus: "Deleted",
+  noOutput: "No output",
+  lineChanges: "Line changes",
+  processing: "Processing...",
+  executionFailed: "Execution failed",
+  runScript: "Run Script",
+  terminalMore: "More",
+  copyCommand: "Copy command",
+  copyResult: "Copy result",
+  planDocument: "Plan",
+  planBody: "View plan",
+  planTodos: "{count, plural, one {# to-do} other {# to-dos}}",
+  imageGen: "Image",
+  todoPending: "Pending",
+  todoInProgress: "In progress",
+  todoCompleted: "Completed",
   close: "Close",
   mode: "Mode",
   permission: "Permission",
@@ -51,17 +77,70 @@ export const copy = {
   scrollBelowSuffix: "below",
   scrollBelowUnit: "{count, plural, one {message} other {messages}}",
   permissionRequested: "Permission requested",
+  deny: "Deny",
+  allow: "Allow",
   askUserTitle: "Questions for you",
+  continue: "Continue",
+  skip: "Skip",
+  previousQuestion: "Previous question",
+  nextQuestion: "Next question",
   planApprovalTitle: "Plan ready",
+  keepPlanning: "Keep planning",
+  approve: "Approve",
+  viewPlan: "View plan",
+  viewTodos: "View todos",
+  planTodosHeading: "To-dos",
   sessionOpRequested: "Session action requested",
+  sessionOpFork: "Fork",
+  sessionOpRewind: "Rewind",
   bottom: "Bottom",
   planTitle: "Plan",
   messageQueueTitle: "Message Queue",
   backgroundCommandsTitle: "Background",
+  backgroundCommandsRunning: "Running",
+  backgroundCommandsRunningCount: "{count} running",
   subagentTasksTitle: "Subagent Tasks",
+  subagentTasksRunning: "{count} running",
+  subagentTasksProgress: "{completed}/{total} completed",
+  subagentTasksAllDone: "All done",
+  subagentTasksCollapseAria: "Collapse subagent tasks",
+  subagentTasksExpandAria: "Expand subagent tasks",
+  subagentTasksPanelAria: "Subagent tasks",
+  subagentTasksFallback: "Subagent",
   grokGoalTitle: "Goal",
+  grokGoalFallback: "Agent",
+  grokGoalCollapseAria: "Collapse goal agents",
+  grokGoalExpandAria: "Expand goal agents",
+  grokGoalPanelAria: "Grok goal agents",
+  grokGoalStatusLine: "Status: {status}",
+  grokGoalTokensLine: "{tokens} tokens",
+  grokGoalElapsedLine: "Elapsed {elapsed}",
+  grokGoalEmptyVerify: "Verification agents start after implement finishes.",
+  grokGoalEmptySummarize: "The summarizer starts after verification.",
+  grokGoalStatusActive: "Active",
+  grokGoalStatusComplete: "Complete",
+  grokGoalStatusUserPaused: "User paused",
+  grokGoalStatusBackOffPaused: "Back-off paused",
+  grokGoalStatusNoProgressPaused: "No-progress paused",
+  grokGoalStatusInfraPaused: "Infra paused",
+  grokGoalStatusBlocked: "Blocked",
+  grokGoalStatusFailed: "Failed",
+  grokGoalStatusInterrupted: "Interrupted",
+  grokGoalStatusBudgetLimited: "Budget limited",
+  grokGoalPhaseIdle: "Idle",
+  grokGoalPhasePlanning: "Planning",
+  grokGoalPhaseExecuting: "Executing",
+  grokGoalPhaseVerifying: "Verifying",
   grokWorkflowTitle: "Research",
+  grokWorkflowRunning: "{count} running",
+  grokWorkflowIdle: "Idle",
+  grokWorkflowFallback: "Agent",
+  grokWorkflowCollapseAria: "Collapse research agents",
+  grokWorkflowExpandAria: "Expand research agents",
+  grokWorkflowPanelAria: "Grok research agents",
   contextWindowTitle: "Context Usage",
+  contextWindowPercentFull: "{percent} Full",
+  contextWindowTokensSummary: "~{used} / {size} Tokens",
   planViewerEmpty: "No plan content available yet.",
   queueEdit: "Edit",
   queueSave: "Save",
@@ -69,7 +148,15 @@ export const copy = {
   queueMoveUp: "Move up",
   queueMoveDown: "Move down",
   copyMessage: "Copy message",
+  copyUserAria: "Copy user message",
+  copyAssistantAria: "Copy assistant message",
   thinkingStream: "Thinking...",
+  activityGenerating: "Generating",
+  activityStreaming: "Streaming",
+  activityCreatingSession: "Creating session",
+  activityResumingSession: "Resuming session",
+  activityWaitingOne: "Waiting for 1 background agent to finish",
+  activityWaitingMany: "Waiting for {count} background agents to finish",
   thoughtFor: "Thought for {duration}",
   thoughtForFew: "Thought for a few seconds",
   workedFor: "Worked for {duration}",
@@ -77,6 +164,9 @@ export const copy = {
   collapseLabel: "Collapse",
   showMore: "Show more",
   showLess: "Show less",
+  expandCode: "Expand code",
+  collapseCode: "Collapse code",
+  subagentRan: "Ran subagent {name}",
   subagentStatus: {
     running: "Running",
     failed: "Failed",
@@ -179,7 +269,7 @@ export function attachmentChipLabel(part: { name?: string | null; path: string }
   return base || part.path;
 }
 
-/** Phone has no paste registry. The `[#paste:id]` token stays literal text. */
+/** A paste this phone did not send stays literal. This session's sends are chipped. */
 export function userMessageDisplayText(text: string): string {
   return text;
 }
@@ -214,6 +304,21 @@ export function workedForPresentation(
   };
 }
 
+/**
+ * Web footer uses `reveal="timestamp"`: the clock is showing until hover.
+ * A tap on the phone stands in for that hover.
+ */
+export function workedForVisibleKind(input: {
+  hasClock: boolean;
+  hasDuration: boolean;
+  showDuration: boolean;
+}): "clock" | "duration" | null {
+  if (input.hasClock && input.hasDuration) return input.showDuration ? "duration" : "clock";
+  if (input.hasDuration) return "duration";
+  if (input.hasClock) return "clock";
+  return null;
+}
+
 /** Matches web `getThinkingMessage`: open or zero seconds stays on the streaming title. */
 export function thinkingTitle(isStreaming: boolean, seconds: number | undefined): string {
   if (isStreaming || seconds === 0) return copy.thinkingStream;
@@ -231,6 +336,8 @@ type SessionChromePart = Extract<
 
 export function sessionChromeCopy(part: SessionChromePart): {
   icon: SessionChromeIcon;
+  /** Web wraps a running lifecycle label in `TextShimmer`. */
+  shimmer: boolean;
   text: string;
   tone: SessionChromeTone;
 } {
@@ -258,6 +365,7 @@ export function sessionChromeCopy(part: SessionChromePart): {
     const error = failed ? (part.error?.trim() ?? "") : "";
     return {
       icon: resume ? "resume" : "create",
+      shimmer: running,
       text: error ? `${label}: ${error}` : label,
       tone: failed ? "failed" : "secondary",
     };
@@ -278,7 +386,7 @@ export function sessionChromeCopy(part: SessionChromePart): {
           : modeFrom
             ? fillTemplate(copy.session.switchedModeFrom, { from: modeFrom, to: mode })
             : fillTemplate(copy.session.switchedMode, { to: mode });
-    return { icon: model && !mode ? "model" : "layers", text, tone: "secondary" };
+    return { icon: model && !mode ? "model" : "layers", shimmer: false, text, tone: "secondary" };
   }
 
   const text =
@@ -291,7 +399,7 @@ export function sessionChromeCopy(part: SessionChromePart): {
           : part.kind;
   const tone: SessionChromeTone =
     part.tone === "warning" ? "warning" : part.tone === "error" ? "error" : "secondary";
-  return { icon: "hint", text, tone };
+  return { icon: "hint", shimmer: false, text, tone };
 }
 
 export function isPlanExitRequest(request: {

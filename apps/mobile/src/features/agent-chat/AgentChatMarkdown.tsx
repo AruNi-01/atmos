@@ -3,15 +3,27 @@ import { Linking } from "react-native";
 import { StreamdownText } from "react-native-streamdown";
 import type { MarkdownStyle } from "react-native-enriched-markdown";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatForeground, chatMutedForeground } from "./chat-ink";
+import { chipCompleteHttpUrls, HTTP_CHIP_LINK_VARIANT, httpChipTarget } from "./http-link-chip";
 import {
+  BLOCKQUOTE_MARGIN,
+  THINKING_PARAGRAPH_MARGIN,
+  THEMATIC_BREAK_MARGIN,
   agentChatBlockMetrics,
+  agentChatBlockquote,
   agentChatHeadingStyle,
+  agentChatLinkColor,
   agentChatMarkdownChrome,
+  agentChatProseMetrics,
+  agentChatRendererHeadingStyle,
+  agentChatThematicBreak,
+  type AgentChatProseKind,
 } from "./markdown-chrome";
 
 function openHttpLink(url: string) {
-  if (url.startsWith("https://") || url.startsWith("http://")) {
-    void Linking.openURL(url);
+  const target = httpChipTarget(url) ?? url;
+  if (target.startsWith("https://") || target.startsWith("http://")) {
+    void Linking.openURL(target);
   }
 }
 
@@ -20,41 +32,67 @@ export function AgentChatMarkdown({
   tone = "body",
   fontSize,
   lineHeight,
+  chipHttpUrls = false,
+  codeBlockMargin,
+  prose,
 }: {
   text: string;
   tone?: "body" | "thinking";
   /** Overrides the tone default. Omitted body text stays 16 / 22. */
   fontSize?: number;
   lineHeight?: number;
+  /** Answer and thinking only. Matches web's hostname chip for complete http URLs. */
+  chipHttpUrls?: boolean;
+  /** Tool fences use web's `my-2` (8). Answer fences keep 16px below the block. */
+  codeBlockMargin?: number;
+  /** Tool and plan bodies use `MarkdownRenderer` spacing. Answers stay on streamdown. */
+  prose?: AgentChatProseKind;
 }) {
   const theme = useMobileTheme();
   const markdownStyle = useMemo<MarkdownStyle>(() => {
-    const proseColor = tone === "thinking" ? theme.colors.secondaryLabel : theme.colors.label;
+    const proseColor =
+      tone === "thinking" ? chatMutedForeground(theme.isDark) : chatForeground(theme.isDark);
     const resolvedFontSize = fontSize ?? (tone === "thinking" ? 15 : 16);
     const resolvedLineHeight = lineHeight ?? (tone === "thinking" ? 21 : 22);
-    const headings = agentChatHeadingStyle(proseColor);
+    const proseMetrics = prose ? agentChatProseMetrics(prose) : null;
+    // Answer text follows streamdown `space-y-4`. Thinking and tool prose keep
+    // a margin on both sides, because their paragraph gap is not that 16px.
+    const symmetricBlockMargin = Boolean(proseMetrics) || tone === "thinking";
+    const headings = proseMetrics
+      ? agentChatRendererHeadingStyle(proseColor, resolvedFontSize, resolvedLineHeight)
+      : agentChatHeadingStyle(proseColor, tone === "thinking" ? 8 : 16);
     const chrome = agentChatMarkdownChrome(theme.isDark);
+    const fenceMargin = codeBlockMargin ?? proseMetrics?.codeBlockMargin;
 
     return {
       paragraph: {
         color: proseColor,
         fontSize: resolvedFontSize,
         lineHeight: resolvedLineHeight,
-        ...agentChatBlockMetrics.paragraph,
+        ...(proseMetrics
+          ? {
+              marginBottom: proseMetrics.paragraphMargin,
+              marginTop: proseMetrics.paragraphMargin,
+            }
+          : agentChatBlockMetrics.paragraph),
+        ...(tone === "thinking" && !proseMetrics
+          ? { marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: 0 }
+          : {}),
       },
       ...headings,
       blockquote: {
-        backgroundColor: theme.colors.cardSubtle,
-        borderColor: theme.colors.glassBorder,
-        borderWidth: 3,
-        color: proseColor,
+        ...agentChatBlockquote(theme.isDark),
+        ...(symmetricBlockMargin
+          ? { marginBottom: BLOCKQUOTE_MARGIN, marginTop: BLOCKQUOTE_MARGIN }
+          : {}),
         fontSize: resolvedFontSize,
         lineHeight: resolvedLineHeight,
       },
       list: {
-        // Web streamdown lists are `list-inside list-disc`. The default disc
-        // sat on the text with no marker column, so the item reads as a
-        // hanging bullet. Indent the line and keep the disc inside that column.
+        // Streamdown lists are `list-inside`. The disc's left edge is the
+        // text edge; `gapWidth` is the space before the words. A marker
+        // minimum would park that 5px disc at the right of a wide column.
+        // `marginLeft` is the nested-level indent (`[li_&]:pl-6`).
         bulletColor: proseColor,
         bulletSize: 5,
         color: proseColor,
@@ -63,8 +101,15 @@ export function AgentChatMarkdown({
         lineHeight: resolvedLineHeight,
         marginLeft: 24,
         markerColor: proseColor,
-        markerMinWidth: 18,
-        ...agentChatBlockMetrics.list,
+        ...(proseMetrics
+          ? {
+              itemSpacing: proseMetrics.itemSpacing,
+              marginBottom: proseMetrics.listMargin,
+              marginTop: proseMetrics.listMargin,
+            }
+          : tone === "thinking"
+            ? { itemSpacing: 8, marginBottom: 4, marginTop: 4 }
+            : agentChatBlockMetrics.list),
       },
       code: {
         backgroundColor: chrome.codeBackground,
@@ -81,18 +126,35 @@ export function AgentChatMarkdown({
         fontFamily: "Menlo",
         syntaxColors: chrome.syntax,
         ...agentChatBlockMetrics.codeBlock,
+        ...(fenceMargin == null
+          ? tone === "thinking"
+            ? { marginBottom: 16, marginTop: 16 }
+            : {}
+          : { marginTop: fenceMargin, marginBottom: fenceMargin }),
       },
       link: {
-        color: theme.colors.accent,
+        color: agentChatLinkColor(theme.isDark),
         underline: true,
       },
+      ...(chipHttpUrls
+        ? {
+            linkVariants: {
+              [HTTP_CHIP_LINK_VARIANT]: {
+                backgroundColor: theme.colors.cardSubtle,
+                color: theme.colors.label,
+                underline: false,
+              },
+            },
+          }
+        : {}),
       thematicBreak: {
-        color: theme.colors.separator,
-        height: 1,
+        ...agentChatThematicBreak(theme.isDark),
+        ...(symmetricBlockMargin
+          ? { marginBottom: THEMATIC_BREAK_MARGIN, marginTop: THEMATIC_BREAK_MARGIN }
+          : {}),
       },
       table: {
         borderColor: chrome.border,
-        borderRadius: 8,
         borderWidth: 1,
         cellPaddingHorizontal: 16,
         cellPaddingVertical: 10,
@@ -104,17 +166,23 @@ export function AgentChatMarkdown({
         rowEvenBackgroundColor: chrome.row,
         rowOddBackgroundColor: chrome.row,
         ...agentChatBlockMetrics.table,
+        ...(symmetricBlockMargin ? { marginBottom: 16, marginTop: 16 } : {}),
       },
     };
-  }, [fontSize, lineHeight, theme, tone]);
+  }, [chipHttpUrls, codeBlockMargin, fontSize, lineHeight, prose, theme, tone]);
 
-  if (text.length === 0) return null;
+  const markdown = useMemo(
+    () => (chipHttpUrls ? chipCompleteHttpUrls(text) : text),
+    [chipHttpUrls, text],
+  );
+
+  if (markdown.length === 0) return null;
 
   return (
     <StreamdownText
       enableTaskListItemToggle={false}
       flavor="github"
-      markdown={text}
+      markdown={markdown}
       markdownStyle={markdownStyle}
       onLinkPress={({ url }) => openHttpLink(url)}
     />

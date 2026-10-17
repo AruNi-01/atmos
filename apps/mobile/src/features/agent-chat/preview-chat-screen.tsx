@@ -1,40 +1,69 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { Text, View, type View as PreviewRoot } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useIsFocused, useLocalSearchParams } from "expo-router";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { parityFixtureById } from "@/features/agent-chat/parity-tree";
 import { useThemeStore } from "@/theme/theme-store";
 import { AgentChatComposer } from "./AgentChatComposer";
 import { AgentChatTranscript, type AgentChatTranscriptHandle } from "./AgentChatTranscript";
-import { cardPillTitle } from "./composer-cards";
+import { cardPillTitle, laneCardDrawsOwnFrame } from "./composer-cards";
 import { ComposerPillRow } from "./composer-pill-row";
 import { pillShowsAttention, reduceLane, type LaneState } from "./card-lane";
 import { ExpandedCard } from "./cards/expanded-card";
 import { LaneCardBody } from "./cards/lane-body";
 import { copy } from "./copy";
+import { userMessageOutsidePressCapture } from "./user-message-outside";
+import { pushParityReducedMotion } from "./motion/parity-reduced-motion";
 import { buildComposerPicker, type FavoriteModel } from "./model-picker";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
 import {
+  parityComposerShotName,
+  parityComposerSteps,
+  type ParityComposerStep,
+} from "./parity-composer-states";
+import {
   armParityClock,
+  bindParityTailMount,
   claimParityReady,
   parityClockIndex,
   parityCycleFrames,
+  parityOwnerIs,
   parityPinnedFrame,
   parityReadyLine,
+  parityTailOwned,
+  parityTailSnapshot,
+  releaseParityOwner,
   subscribeParityClock,
+  subscribeParityOwner,
+  takeParityOwner,
   type ParityFrame,
 } from "./parity-cycle";
+import { writeParityMotionPng } from "./capture-parity-view";
+import { parityLaneSampleTaps, parityLaneShots } from "./parity-lane-steps";
+import { foldParityReplay, parityReplaySeed, parityReplayShotTimes } from "./parity-replay";
 import { readParityDiskFrame } from "./read-parity-disk-frame";
-import { resolvedPillRowHeight } from "./transcript-pad";
 import { agentChatProcessExpandKey, useAgentChatExpandStore } from "./expand-store";
 import {
   PARITY_MOTION_ROW_MS,
   PARITY_SETTLED_ASSISTANT_ID,
+  PARITY_TAIL_MARKER_ID,
   parityMotionKind,
   paritySettledToolMessages,
   parityStreamToolMessages,
+  parityTailLine,
   parityTailMessages,
+  parityTailReturnPhase,
+  type ParityTailSample,
 } from "./parity-motion-fixtures";
 
 const NO_FAVORITES: FavoriteModel[] = [];
@@ -67,19 +96,44 @@ async function noopAsync(): Promise<void> {
 
 export function PreviewChatScreen() {
   const params = useLocalSearchParams<{
+    composer?: string | string[];
     fixture?: string | string[];
+    motion?: string | string[];
+    lane?: string | string[];
+    pill?: string | string[];
+    replay?: string | string[];
+    scroll?: string | string[];
     theme?: string | string[];
   }>();
+  const composerParam = param(params.composer);
   const fixtureParam = param(params.fixture);
+  const laneParam = param(params.lane);
+  const motionParam = param(params.motion);
+  const pillParam = param(params.pill);
+  const replayParam = param(params.replay);
+  const scrollParam = param(params.scroll);
   const themeParam = param(params.theme);
   const queryPin = useMemo(
-    () => parityPinnedFrame(fixtureParam, themeParam),
-    [fixtureParam, themeParam],
+    () =>
+      parityPinnedFrame(
+        fixtureParam,
+        themeParam,
+        motionParam,
+        replayParam,
+        laneParam,
+        pillParam,
+        composerParam,
+      ),
+    [composerParam, fixtureParam, laneParam, motionParam, pillParam, replayParam, themeParam],
   );
   const [diskFrame] = useState<ParityFrame | null>(() => {
     if (queryPin) return null;
     const next = readParityDiskFrame();
-    console.error(next ? `[parity] disk ${next.id} ${next.theme}` : "[parity] disk none");
+    console.error(
+      next
+        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}${next.lane === "steps" ? " lane" : ""}${next.pill === "return" ? " pill" : ""}${next.composer === "states" ? " composer" : ""}`
+        : "[parity] disk none",
+    );
     return next;
   });
   const pinned = queryPin ?? diskFrame;
@@ -96,17 +150,58 @@ export function PreviewChatScreen() {
   const [cardHeight, setCardHeight] = useState(0);
   const [pillHeight, setPillHeight] = useState(0);
   const [text, setText] = useState("");
+  const [composerStep, setComposerStep] = useState<ParityComposerStep>(() => {
+    const first = parityComposerSteps()[0];
+    if (!first) throw new Error("composer capture steps are empty");
+    return first;
+  });
   const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
+  const previewRootRef = useRef<PreviewRoot | null>(null);
+  const [reducedRelease] = useState<(() => void) | null>(() => {
+    if (frame.motion !== "reduced") return null;
+    console.error("[parity] motion reduced");
+    return pushParityReducedMotion({ notify: false });
+  });
+  const tailMountId = useId();
+  const tailOwner = useSyncExternalStore(
+    subscribeParityOwner,
+    parityTailSnapshot,
+    parityTailSnapshot,
+  );
+  const focused = useIsFocused();
   const [stick, setStick] = useState({ belowCount: 0, stickToEnd: true });
-  const onStickChange = useCallback((next: { belowCount: number; stickToEnd: boolean }) => {
-    setStick((current) =>
-      current.belowCount === next.belowCount && current.stickToEnd === next.stickToEnd
-        ? current
-        : next,
-    );
-  }, []);
+  const stickTopRef = useRef(0);
+  const stickEndRef = useRef(0);
+  const stickViewRef = useRef(0);
+  const tailSamplesRef = useRef<ParityTailSample[]>([]);
+  const tailReturnPressedRef = useRef(false);
+  const tailReturnLoggedRef = useRef(false);
+  const tailStepRef = useRef(0);
+  const onStickChange = useCallback(
+    (next: {
+      belowCount: number;
+      distanceFromEnd?: number;
+      stickToEnd: boolean;
+      scrollTop?: number;
+      viewport?: number;
+    }) => {
+      if (typeof next.scrollTop === "number") stickTopRef.current = next.scrollTop;
+      if (typeof next.distanceFromEnd === "number") stickEndRef.current = next.distanceFromEnd;
+      if (typeof next.viewport === "number") stickViewRef.current = next.viewport;
+      setStick((current) =>
+        current.belowCount === next.belowCount && current.stickToEnd === next.stickToEnd
+          ? current
+          : { belowCount: next.belowCount, stickToEnd: next.stickToEnd },
+      );
+    },
+    [],
+  );
 
   useEffect(() => subscribeParityClock(setIndex), []);
+
+  useEffect(() => {
+    return () => reducedRelease?.();
+  }, [reducedRelease]);
 
   useLayoutEffect(() => {
     if (preference !== frame.theme) setPreference(frame.theme);
@@ -130,7 +225,7 @@ export function PreviewChatScreen() {
     [motion, tailStep],
   );
   const fixture = motion ? null : parityFixtureById(frame.id);
-  const cards = composerCardsFromParity(fixture?.cards);
+  const cards = useMemo(() => composerCardsFromParity(fixture?.cards), [fixture?.cards]);
 
   useLayoutEffect(() => {
     if (motion !== "settled") return;
@@ -141,14 +236,242 @@ export function PreviewChatScreen() {
   const laneKey = `${frame.id}:${frame.theme}`;
   const lane = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
   const liveTail = motion === "tail";
+  const replayOn = frame.replay === "script" && Boolean(fixture?.script?.length);
+  const laneStepsOn = frame.lane === "steps" && cards.available.length > 0;
+  const composerStatesOn = frame.composer === "states";
+  const laneStepKey = laneStepsOn ? `${frame.id}:${cards.available.join(",")}` : "";
+  const replayKey = replayOn ? `${frame.id}:${frame.motion ?? ""}:${frame.theme}` : "";
+  const [replayClock, setReplayClock] = useState({ elapsed: 0, key: replayKey });
+  if (replayClock.key !== replayKey) setReplayClock({ elapsed: 0, key: replayKey });
+  const replayElapsed = replayClock.key === replayKey ? replayClock.elapsed : 0;
+  const scrollAway = liveTail && (scrollParam === "away" || pinned?.scroll === "away");
+  const pillReturn = scrollAway && frame.pill === "return";
+  const ownsTail = parityTailOwned(focused, tailMountId, tailOwner);
+  const ownsReplay = replayOn && ownsTail;
+  const ownsLane = laneStepsOn && ownsTail;
+  const ownsComposer = composerStatesOn && ownsTail;
+  useLayoutEffect(() => {
+    if (!focused || (!liveTail && !replayOn && !laneStepsOn && !composerStatesOn)) return;
+    const generation = takeParityOwner();
+    bindParityTailMount(tailMountId, generation);
+    console.error(`[parity] tail owner ${generation}`);
+    return () => {
+      bindParityTailMount(tailMountId, 0);
+      releaseParityOwner(generation);
+    };
+  }, [composerStatesOn, focused, laneStepsOn, liveTail, replayOn, tailMountId]);
+  useEffect(() => {
+    if (!scrollAway || !ownsTail) return;
+    const generation = tailOwner.owner;
+    const started = Date.now();
+    const reveal = () => {
+      if (!parityOwnerIs(generation)) return;
+      transcriptRef.current?.revealMessage(PARITY_TAIL_MARKER_ID);
+    };
+    const timer = setInterval(() => {
+      reveal();
+      if (Date.now() - started >= 2000) clearInterval(timer);
+    }, 250);
+    reveal();
+    return () => clearInterval(timer);
+  }, [ownsTail, scrollAway, tailOwner.owner]);
+  useEffect(() => {
+    tailStepRef.current = tailStep;
+  }, [tailStep]);
+  const logTailReturned = useCallback((sample: ParityTailSample) => {
+    if (tailReturnLoggedRef.current) return;
+    tailReturnLoggedRef.current = true;
+    const below = sample.below;
+    const end = Math.round(sample.end);
+    const top = Math.round(sample.top);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void writeParityMotionPng(previewRootRef, "tail-back").finally(() => {
+          console.error(`[parity] tail returned below=${below} stick=1 end=${end} top=${top}`);
+        });
+      });
+    });
+  }, []);
+  const onViewport = useCallback(
+    (next: {
+      belowCount: number;
+      distanceFromEnd: number;
+      stickToEnd: boolean;
+      scrollTop: number;
+      viewport: number;
+    }) => {
+      stickTopRef.current = next.scrollTop;
+      stickEndRef.current = next.distanceFromEnd;
+      stickViewRef.current = next.viewport;
+      if (!tailReturnPressedRef.current || tailReturnLoggedRef.current) return;
+      const marker = transcriptRef.current?.measureMessage(PARITY_TAIL_MARKER_ID);
+      const sample: ParityTailSample = {
+        below: next.belowCount,
+        end: next.distanceFromEnd,
+        marker: marker?.start ?? -1,
+        stick: next.stickToEnd,
+        step: tailStepRef.current,
+        top: next.scrollTop,
+        view: next.viewport,
+      };
+      if (parityTailReturnPhase([...tailSamplesRef.current, sample], true) !== "landed") return;
+      tailSamplesRef.current.push(sample);
+      logTailReturned(sample);
+    },
+    [logTailReturned],
+  );
+  useEffect(() => {
+    if (!liveTail || !ownsTail) return;
+    const marker = transcriptRef.current?.measureMessage(PARITY_TAIL_MARKER_ID);
+    const sample: ParityTailSample = {
+      below: stick.belowCount,
+      end: stickEndRef.current,
+      marker: marker?.start ?? -1,
+      stick: stick.stickToEnd,
+      step: tailStep,
+      top: stickTopRef.current,
+      view: stickViewRef.current,
+    };
+    tailSamplesRef.current.push(sample);
+    console.error(parityTailLine(sample));
+    if (!pillReturn) return;
+    const phase = parityTailReturnPhase(tailSamplesRef.current, tailReturnPressedRef.current);
+    if (phase === "press") {
+      tailReturnPressedRef.current = true;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          void writeParityMotionPng(previewRootRef, "tail-held").finally(() => {
+            transcriptRef.current?.scrollToEndAnimated();
+          });
+        });
+      });
+      return;
+    }
+    if (phase !== "landed" || tailReturnLoggedRef.current) return;
+    logTailReturned(sample);
+  }, [
+    liveTail,
+    logTailReturned,
+    ownsTail,
+    pillReturn,
+    stick.belowCount,
+    stick.stickToEnd,
+    tailStep,
+  ]);
+  useEffect(() => {
+    if (!ownsReplay || !fixture?.script) return;
+    const shots = parityReplayShotTimes(fixture.script);
+    const started = Date.now();
+    const taken = new Set<number>();
+    console.error(`[parity] replay start ${shots.length}`);
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - started;
+      setReplayClock((current) =>
+        current.key === replayKey ? { elapsed, key: replayKey } : current,
+      );
+      for (const shot of shots) {
+        if (elapsed < shot || taken.has(shot)) continue;
+        taken.add(shot);
+        // A Skia snapshot of the live shimmer never returned (run 39036378433,
+        // Atmos 47380). Reduced motion has no shimmer, and those files landed.
+        if (frame.motion !== "reduced") continue;
+        const name = `f4-${String(shot).padStart(5, "0")}`;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            void writeParityMotionPng(previewRootRef, name);
+          });
+        });
+      }
+      const last = shots[shots.length - 1] ?? 0;
+      if (elapsed >= last) {
+        clearInterval(timer);
+        const pass = frame.motion === "reduced" ? "reduced" : "live";
+        console.error(`[parity] replay done ${pass} ${shots.length}`);
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, [fixture, frame.motion, ownsReplay, replayKey]);
+  useEffect(() => {
+    if (!ownsLane) return;
+    const initial = parityPreviewLane(cards);
+    const shots = parityLaneShots(initial, parityLaneSampleTaps(cards.available, initial.visible));
+    if (shots.length < 2) return;
+    const started = Date.now();
+    const taken = new Set<number>();
+    console.error(`[parity] lane start ${shots.length}`);
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - started;
+      for (const shot of shots) {
+        if (elapsed < shot.atMs || taken.has(shot.atMs)) continue;
+        taken.add(shot.atMs);
+        setChoiceKey(laneKey);
+        setLaneChoice(shot.state);
+        const name = `lane-${String(shot.atMs).padStart(5, "0")}`;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            void writeParityMotionPng(previewRootRef, name);
+          });
+        });
+      }
+      const last = shots[shots.length - 1]?.atMs ?? 0;
+      if (elapsed >= last) {
+        clearInterval(timer);
+        console.error(`[parity] lane done ${shots.length}`);
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, [cards, laneKey, laneStepKey, ownsLane]);
+  useEffect(() => {
+    if (!ownsComposer) return;
+    const steps = parityComposerSteps();
+    const started = Date.now();
+    const taken = new Set<string>();
+    console.error(`[parity] composer start ${steps.length}`);
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - started;
+      for (const step of steps) {
+        if (elapsed < step.atMs || taken.has(step.id)) continue;
+        taken.add(step.id);
+        setComposerStep((current) => (current.id === step.id ? current : step));
+      }
+      const last = steps[steps.length - 1];
+      if (last && elapsed >= last.atMs) {
+        clearInterval(timer);
+        console.error(`[parity] composer done ${steps.length}`);
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, [ownsComposer]);
+  useEffect(() => {
+    if (!ownsComposer) return;
+    const name = parityComposerShotName(composerStep.id);
+    const frameId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void writeParityMotionPng(previewRootRef, name);
+      });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [composerStep.id, ownsComposer]);
+  const composerDriven = ownsComposer;
+  const replayMessages = useMemo(() => {
+    if (!replayOn || !fixture?.script?.length) return null;
+    return foldParityReplay(
+      fixture.script[0]?.event.chat_id ?? frame.id,
+      parityReplaySeed(fixture.messages),
+      fixture.script,
+      replayElapsed,
+    );
+  }, [fixture, frame.id, replayElapsed, replayOn]);
   const messages = (
-    motion === "stream"
-      ? streamMessages
-      : liveTail
-        ? tailMessages
-        : motion === "settled"
-          ? paritySettledToolMessages()
-          : (fixture?.messages ?? [])
+    replayMessages
+      ? replayMessages
+      : motion === "stream"
+        ? streamMessages
+        : liveTail
+          ? tailMessages
+          : motion === "settled"
+            ? paritySettledToolMessages()
+            : (fixture?.messages ?? [])
   ) as AgentMessage[];
   const pills = cards.available.map((id) => ({
     id,
@@ -160,7 +483,7 @@ export function PreviewChatScreen() {
     selected: lane.visible === id,
     attention: pillShowsAttention(id, lane.visible),
   }));
-  const pillRowHeight = resolvedPillRowHeight(pills.length > 0, pillHeight);
+  const pillRowHeight = pillHeight;
   const picker = useMemo(
     () =>
       buildComposerPicker({
@@ -187,7 +510,13 @@ export function PreviewChatScreen() {
   };
 
   return (
-    <View style={{ backgroundColor, flex: 1, paddingTop: insets.top }} testID="parity-ready">
+    <View
+      collapsable={false}
+      {...userMessageOutsidePressCapture()}
+      ref={previewRootRef}
+      style={{ backgroundColor, flex: 1, paddingTop: insets.top }}
+      testID="parity-ready"
+    >
       <View style={{ flex: 1 }}>
         {fixture || motion ? (
           <AgentChatTranscript
@@ -196,6 +525,7 @@ export function PreviewChatScreen() {
             expandedCardHeight={lane.visible ? cardHeight : 0}
             messages={messages}
             onStickChange={liveTail ? onStickChange : undefined}
+            onViewport={pillReturn ? onViewport : undefined}
             pillRowHeight={pillRowHeight}
           />
         ) : (
@@ -204,9 +534,14 @@ export function PreviewChatScreen() {
       </View>
       <View style={{ gap: 8, paddingBottom: 12, paddingTop: 8 }}>
         {lane.visible ? (
-          <ExpandedCard key={lane.visible} onHeight={setCardHeight}>
+          <ExpandedCard
+            bare={laneCardDrawsOwnFrame(lane.visible, cards)}
+            key={lane.visible}
+            onHeight={setCardHeight}
+          >
             <LaneCardBody
               cards={cards}
+              messages={messages}
               onQueueDelete={noopAsync}
               onQueueReorder={noopAsync}
               onQueueUpdate={noopAsync}
@@ -227,12 +562,15 @@ export function PreviewChatScreen() {
         />
         <View style={{ paddingHorizontal: 18 }}>
           <AgentChatComposer
-            busy={false}
+            autoFocus={composerDriven ? composerStep.focus : undefined}
+            busy={composerDriven ? composerStep.busy : false}
             favorites={NO_FAVORITES}
-            onChangeText={setText}
+            followUp={composerDriven ? composerStep.followUp : undefined}
+            onChangeText={composerDriven ? () => undefined : setText}
             onOpenCard={cards.context ? () => onPillPress("context") : undefined}
             onPatch={() => undefined}
             onPhotosChange={() => undefined}
+            onPickSuggestion={() => undefined}
             onQueue={() => undefined}
             onRemovePhoto={() => undefined}
             onSend={() => undefined}
@@ -251,7 +589,9 @@ export function PreviewChatScreen() {
             }
             steerLabel={copy.steer}
             stopLabel={copy.stop}
-            text={text}
+            suggestionTitle={composerDriven ? composerStep.suggestionTitle : undefined}
+            suggestions={composerDriven ? (composerStep.suggestions ?? undefined) : undefined}
+            text={composerDriven ? composerStep.text : text}
           />
         </View>
       </View>

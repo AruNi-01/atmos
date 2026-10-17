@@ -10,7 +10,8 @@ export const agentChatTokenMap = {
   red: "text-destructive",
   redSurface: "bg-destructive/5",
   redBorder: "text-destructive",
-  yellow: "amber",
+  /** Theme yellow. Session hints and the permission dot use `CHAT_AMBER`. */
+  yellow: "theme-yellow",
   textSm: { fontSize: 14, lineHeight: 20 },
   textXs: { fontSize: 12, lineHeight: 16 },
 } as const;

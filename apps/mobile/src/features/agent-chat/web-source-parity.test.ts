@@ -33,9 +33,44 @@ describe("web source parity", () => {
     expect(group).toContain("index >= watermark");
     expect(group).toContain("delayMs={0}");
     expect(group).toContain("toolTriggerMetrics");
+    expect(group).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(group).toContain("<ExpandChevron color={muted} open={open} size={metrics.chevron} />");
+    expect(group).toContain("const TOOL_GROUP_LIST_MARGIN_TOP = 2");
+    expect(group).toContain("marginTop: TOOL_GROUP_LIST_MARGIN_TOP");
+    expect(group).not.toContain("theme.colors.secondaryLabel");
     expect(tree).toContain("nextTreeWatermark");
     expect(tree).toContain("duration: TREE_DRAW_MS");
     expect(tree).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
+  });
+
+  test("the assistant column is inset by half of 1rem", () => {
+    const transcript = source("apps/mobile/src/features/agent-chat/AgentChatTranscript.tsx");
+    expect(transcript).toContain("const ASSISTANT_COLUMN_INSET = 8");
+    const turn = transcript.slice(
+      transcript.indexOf("function AssistantTurn"),
+      transcript.indexOf("const ChatMessage"),
+    );
+    const column = turn.slice(turn.indexOf("return ("), turn.indexOf("<ProcessFold"));
+    expect(column).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
+    expect(column).not.toContain("gap:");
+    expect(column).not.toContain('width: "100%"');
+    const message = transcript.slice(transcript.indexOf("const ChatMessage"));
+    expect(message).toContain("<UserMessage message={message} />");
+    expect(message).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
+    expect(message).toContain("marginTop: 8");
+    expect(transcript).not.toContain("stream-wait");
+    expect(transcript).not.toContain("WaitForBlock");
+    expect(transcript).not.toContain("Wait for ");
+    expect(transcript).toContain('visibility === "subagent_wait"');
+  });
+
+  test("the transcript content uses the web py-4", () => {
+    const transcript = source("apps/mobile/src/features/agent-chat/AgentChatTranscript.tsx");
+    expect(transcript).toContain("const TRANSCRIPT_CONTENT_PAD_Y = 16");
+    const list = transcript.slice(transcript.indexOf("contentContainerStyle"));
+    expect(list).toContain("paddingTop: TRANSCRIPT_CONTENT_PAD_Y");
+    expect(list).toContain("paddingBottom: paddingBottom + TRANSCRIPT_CONTENT_PAD_Y");
+    expect(list).not.toContain("paddingTop: 12");
   });
 
   test("the composer stays the two-row iOS field", () => {
@@ -61,7 +96,8 @@ describe("web source parity", () => {
     expect(patch).toContain("pointSize * 0.05");
     expect(patch).toContain("kENRMWebHeaderHeight = 36.0");
     expect(patch).toContain("kENRMWebHeaderPadX = 8.0");
-    expect(patch).toContain("kENRMWebCodePad = 12.0");
+    expect(patch).toContain("kENRMWebCodePadX = 16.0");
+    expect(patch).toContain("kENRMWebCodePadY = 12.0");
     expect(patch).toContain("CODE BLOCK");
   });
 });

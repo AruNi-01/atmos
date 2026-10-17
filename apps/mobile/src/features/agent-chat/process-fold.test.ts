@@ -118,14 +118,30 @@ describe("process fold", () => {
     ).toEqual({ expanded: false, wasCollapsible: true });
   });
 
-  test("wait section keeps its label and moves the open flag to the expand store", async () => {
+  test("the rule is a 1px border and the worked-for label is 24px", async () => {
     const fold = await importPure("process-fold.tsx");
-    const label = fold.waitForLabel as (count: number) => string;
-    const key = fold.agentChatWaitExpandKey as (id: string) => string;
-    expect(label(1)).toBe("Wait for 1 background agent");
-    expect(label(0)).toBe("Wait for 1 background agent");
-    expect(label(3)).toBe("Wait for 3 background agents");
-    expect(key("m1")).toBe("wait:m1");
+    const color = fold.processRuleColor as (isDark: boolean) => string;
+    expect(color(false)).toBe("rgba(0, 0, 0, 0.1)");
+    expect(color(true)).toBe("rgba(255, 255, 255, 0.1)");
+    expect(fold.PROCESS_ROW_GAP).toBe(8);
+    expect(fold.PROCESS_WORKED_FOR_HEIGHT).toBe(24);
+    const source = readFileSync(join(here, "process-fold.tsx"), "utf8");
+    const view = source.slice(source.indexOf("// @view"));
+    const foldView = view.slice(view.indexOf("export function ProcessFold"));
+    expect(view).toContain("gap={canCollapse ? PROCESS_ROW_GAP : 0}");
+    expect(view).toContain("marginBottom: gap");
+    expect(foldView).toContain("processRuleColor");
+    expect(foldView).toContain("height: 1");
+    expect(foldView).toContain("lineHeight: 12");
+    expect(foldView).toContain("PROCESS_WORKED_FOR_HEIGHT");
+    expect(foldView).toContain("paddingTop: 4");
+    expect(foldView).not.toContain("hairlineWidth");
+    expect(foldView).not.toContain("glassBorder");
+    expect(foldView).toContain("const muted = chatMutedForeground(theme.isDark)");
+    expect(foldView).toContain("<ExpandChevron color={muted} open={expanded} size={12} />");
+    expect(foldView).not.toContain("theme.colors.secondaryLabel");
+    expect(foldView).not.toContain("WaitForBlock");
+    expect(foldView).not.toContain("Wait for ");
   });
 });
 
@@ -193,6 +209,8 @@ describe("transcript source", () => {
     expect(tree).toContain("treeReachPath");
     expect(tree).toContain("treeTrunkPath");
     expect(tree).toContain("TREE_LINE_ALPHA");
+    expect(tree).toContain("chatForeground(theme.isDark)");
+    expect(tree).not.toContain("theme.colors.label");
     expect(tree).not.toContain("strokeDashoffset");
     expect(tree).not.toContain("strokeDasharray");
   });

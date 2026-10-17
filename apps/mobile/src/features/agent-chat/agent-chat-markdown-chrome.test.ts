@@ -1,9 +1,26 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
 import {
+  BLOCKQUOTE_BORDER,
+  BLOCKQUOTE_GAP,
+  BLOCKQUOTE_MARGIN,
+  STREAMDOWN_BLOCK_GAP,
+  THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
+  agentChatBlockquote,
   agentChatHeadingStyle,
+  agentChatLinkColor,
   agentChatMarkdownChrome,
+  agentChatProseMetrics,
+  agentChatRendererHeadingStyle,
+  agentChatThematicBreak,
+  THEMATIC_BREAK_MARGIN,
 } from "./markdown-chrome";
 
 describe("agent chat markdown chrome", () => {
@@ -11,7 +28,8 @@ describe("agent chat markdown chrome", () => {
     const light = agentChatMarkdownChrome(false);
     const dark = agentChatMarkdownChrome(true);
 
-    expect(light.codeBackground).toBe("#f4f4f5");
+    expect(light.codeBackground).toBe("#e4e4e7");
+    expect(light.codeBackground).not.toBe("#f4f4f6");
     expect(light.codeText).toBe("#27272a");
     expect(light.codeBorder).toBe("rgba(0,0,0,0)");
     expect(light.headerBackground).toBe("#f4f4f5");
@@ -41,26 +59,143 @@ describe("agent chat markdown chrome", () => {
       fontSize: 30,
       fontWeight: "600",
       lineHeight: 36,
-      marginBottom: 8,
-      marginTop: 0,
+      marginBottom: 16,
+      marginTop: 24,
     });
+    expect(agentChatHeadingStyle("#111112", 8).h1.marginBottom).toBe(8);
     expect(headings.h2.lineHeight).toBe(32);
     expect(headings.h6).toMatchObject({ fontSize: 14, lineHeight: 20 });
+    const renderer = agentChatRendererHeadingStyle("#111112", 13, 21);
+    expect(renderer.h1).toEqual({
+      color: "#111112",
+      fontSize: 24,
+      fontWeight: "600",
+      lineHeight: 32,
+      marginBottom: 12,
+      marginTop: 24,
+    });
+    expect(renderer.h2).toMatchObject({
+      fontSize: 20,
+      lineHeight: 28,
+      marginTop: 20,
+      marginBottom: 10,
+    });
+    expect(renderer.h4).toMatchObject({
+      fontSize: 16,
+      lineHeight: 24,
+      marginTop: 12,
+      marginBottom: 6,
+    });
+    expect(renderer.h6).toMatchObject({
+      fontSize: 13,
+      lineHeight: 21,
+      marginTop: 8,
+      marginBottom: 8,
+    });
+    expect(agentChatProseMetrics("tool")).toEqual({
+      codeBlockMargin: 8,
+      itemSpacing: 0,
+      listMargin: 4,
+      paragraphMargin: 4,
+    });
+    expect(agentChatProseMetrics("plan")).toEqual({
+      codeBlockMargin: 16,
+      itemSpacing: 2,
+      listMargin: 6,
+      paragraphMargin: 6,
+    });
+    expect(agentChatProseMetrics("approval").codeBlockMargin).toBe(8);
+    expect(agentChatProseMetrics("approval").paragraphMargin).toBe(6);
     for (const heading of Object.values(headings)) {
       expect(heading.lineHeight).toBeGreaterThanOrEqual(heading.fontSize);
     }
   });
 
   test("matches web block margins", () => {
-    expect(agentChatBlockMetrics.paragraph).toEqual({ marginTop: 0, marginBottom: 0 });
-    expect(agentChatBlockMetrics.list).toEqual({ marginTop: 0, marginBottom: 0, itemSpacing: 8 });
+    expect(STREAMDOWN_BLOCK_GAP).toBe(16);
+    expect(agentChatBlockMetrics.paragraph).toEqual({
+      marginTop: 0,
+      marginBottom: STREAMDOWN_BLOCK_GAP,
+    });
+    expect(THINKING_PARAGRAPH_MARGIN).toBe(4);
+    expect(agentChatBlockMetrics.list).toEqual({
+      marginTop: 4,
+      marginBottom: 4 + STREAMDOWN_BLOCK_GAP,
+      itemSpacing: 8,
+    });
     expect(agentChatBlockMetrics.codeBlock).toMatchObject({
-      marginTop: 16,
-      marginBottom: 16,
+      marginTop: 0,
+      marginBottom: STREAMDOWN_BLOCK_GAP,
       fontSize: 14,
       lineHeight: 20,
-      borderRadius: 8,
+      borderRadius: 10,
     });
-    expect(agentChatBlockMetrics.table).toEqual({ marginTop: 16, marginBottom: 16 });
+    expect(agentChatBlockMetrics.table).toEqual({
+      marginTop: 0,
+      marginBottom: STREAMDOWN_BLOCK_GAP,
+      borderRadius: 10,
+    });
+    const markdown = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "AgentChatMarkdown.tsx"),
+      "utf8",
+    );
+    expect(markdown).toContain("marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: 0");
+    expect(markdown).not.toContain("marginTop: THINKING_PARAGRAPH_MARGIN");
+    expect(markdown).toContain("marginBottom: BLOCKQUOTE_MARGIN, marginTop: BLOCKQUOTE_MARGIN");
+    expect(markdown).toContain(
+      "marginBottom: THEMATIC_BREAK_MARGIN, marginTop: THEMATIC_BREAK_MARGIN",
+    );
+    expect(markdown).toContain("marginLeft: 24");
+    expect(markdown).toContain("gapWidth: 8");
+    expect(markdown).not.toContain("markerMinWidth");
+    expect(markdown).toContain("{ itemSpacing: 8, marginBottom: 4, marginTop: 4 }");
+    expect(markdown).toContain("{ marginBottom: 16, marginTop: 16 }");
+    expect(markdown).toContain('tone === "thinking"');
+    expect(markdown).toContain("agentChatProseMetrics(prose)");
+    expect(markdown).toContain("agentChatRendererHeadingStyle");
+    expect(markdown).toContain('agentChatHeadingStyle(proseColor, tone === "thinking" ? 8 : 16)');
+    expect(markdown).toContain("chatForeground(theme.isDark)");
+    expect(markdown).toContain("chatMutedForeground(theme.isDark)");
+    expect(BLOCKQUOTE_MARGIN).toBe(16);
+    expect(BLOCKQUOTE_BORDER).toBe(4);
+    expect(BLOCKQUOTE_GAP).toBe(16);
+    expect(agentChatBlockquote(false)).toEqual({
+      backgroundColor: "transparent",
+      borderColor: "rgba(113, 113, 123, 0.3)",
+      borderRadius: 0,
+      borderWidth: 4,
+      color: "#71717b",
+      gapWidth: 16,
+      marginBottom: 16,
+      marginTop: 0,
+    });
+    expect(agentChatBlockquote(true).borderColor).toBe("rgba(159, 159, 169, 0.3)");
+    expect(agentChatBlockquote(true).color).toBe("#9f9fa9");
+    const quote = markdown.slice(markdown.indexOf("blockquote:"), markdown.indexOf("list:"));
+    expect(quote).toContain("agentChatBlockquote(theme.isDark)");
+    expect(quote).not.toContain("glassBorder");
+    expect(quote).not.toContain("cardSubtle");
+    expect(THEMATIC_BREAK_MARGIN).toBe(24);
+    expect(agentChatThematicBreak(false)).toEqual({
+      color: "rgba(0, 0, 0, 0.1)",
+      height: 1,
+      marginBottom: 24,
+      marginTop: 8,
+    });
+    expect(agentChatThematicBreak(true).color).toBe("rgba(255, 255, 255, 0.1)");
+    expect(markdown).toContain("...agentChatThematicBreak(theme.isDark)");
+    expect(markdown).not.toContain("theme.colors.separator");
+    expect(agentChatLinkColor(false)).toBe("#18181b");
+    expect(agentChatLinkColor(true)).toBe("#e4e4e7");
+    const link = markdown.slice(markdown.indexOf("link: {"), markdown.indexOf("thematicBreak:"));
+    expect(link).toContain("agentChatLinkColor(theme.isDark)");
+    expect(link).toContain("underline: true");
+    expect(link).not.toContain("theme.colors.accent");
+    const table = markdown.slice(
+      markdown.indexOf("table: {"),
+      markdown.indexOf("const markdown ="),
+    );
+    expect(table).toContain("agentChatBlockMetrics.table");
+    expect(table).not.toContain("borderRadius:");
   });
 });

@@ -37,6 +37,7 @@ export type ComposerCardInput = {
 export type BackgroundCommand = {
   id: string;
   command: string;
+  preview: string;
 };
 
 export type SubagentTitle = {
@@ -54,6 +55,8 @@ export type ComposerCards = {
   background: BackgroundCommand[];
   queue: AgentQueueItem[];
   subagents: SubagentTitle[];
+  /** Live tool parts for the current-turn panel. Fixture cards leave this empty. */
+  subagentTools: AgentToolCallPart[];
   goal: GrokGoal | null;
   workflow: GrokWorkflow | null;
   context: ContextUsageStats | null;
@@ -68,6 +71,21 @@ export function planBodyMarkdown(plan: unknown): string {
   if (typeof record.markdown === "string") return record.markdown;
   if (typeof record.content === "string") return record.content;
   return "";
+}
+
+/** Panels that paint their own `rounded-3xl` border sit outside the lane frame. */
+export function laneCardDrawsOwnFrame(
+  visible: CardId | null,
+  cards: Pick<ComposerCards, "subagentTools">,
+): boolean {
+  if (visible === "subagents") return cards.subagentTools.length > 0;
+  return (
+    visible === "goal" ||
+    visible === "workflow" ||
+    visible === "context" ||
+    visible === "permission" ||
+    visible === "session_op"
+  );
 }
 
 export function contextUsageStats(
@@ -153,7 +171,16 @@ export function deriveComposerCards(input: ComposerCardInput): ComposerCards {
   const planValue = latestPlanValue(input.messages);
   const plan = planValue != null && goal == null ? planValue : null;
   const background = liveBackgroundCommands(input.messages);
-  const subagents = currentSubagentTitles(input.messages, goal, workflow, input.queue.length > 0);
+  const subagentTools = visibleSubagentParts(
+    input.messages,
+    goal,
+    workflow,
+    input.queue.length > 0,
+  );
+  const subagents = subagentTools.map((part) => ({
+    id: part.tool_call_id,
+    title: subagentTitle(part),
+  }));
   const context = contextUsageStats(input.sessionUsage);
   const present: CardId[] = [];
   if (input.pendingPermission) present.push("permission");
@@ -176,6 +203,7 @@ export function deriveComposerCards(input: ComposerCardInput): ComposerCards {
     background,
     queue: input.queue,
     subagents,
+    subagentTools,
     goal,
     workflow,
     context,
@@ -214,6 +242,23 @@ function latestPlanValue(messages: AgentMessage[]): unknown | null {
   return null;
 }
 
+function backgroundOutputPreview(part: AgentToolCallPart): string {
+  const result = part.result;
+  const output =
+    result?.type === "execute"
+      ? result.output
+      : result?.type === "text"
+        ? result.text
+        : result?.type === "error"
+          ? result.message
+          : "";
+  const lines = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.at(-1) ?? "";
+}
+
 function liveBackgroundCommands(messages: AgentMessage[]): BackgroundCommand[] {
   const found: BackgroundCommand[] = [];
   const seen = new Set<string>();
@@ -223,7 +268,11 @@ function liveBackgroundCommands(messages: AgentMessage[]): BackgroundCommand[] {
       if (part.type !== "tool_call" || !isLiveBackgroundExecute(part)) continue;
       if (seen.has(part.tool_call_id)) continue;
       seen.add(part.tool_call_id);
-      found.push({ id: part.tool_call_id, command: part.params.command.trim() });
+      found.push({
+        id: part.tool_call_id,
+        command: part.params.command.trim(),
+        preview: backgroundOutputPreview(part),
+      });
     }
   }
   return found;
@@ -263,12 +312,12 @@ function subagentTitle(part: AgentToolCallPart): string {
   return part.title?.trim() || description || part.name.trim() || part.tool_call_id;
 }
 
-function currentSubagentTitles(
+function visibleSubagentParts(
   messages: AgentMessage[],
   goal: GrokGoal | null,
   workflow: GrokWorkflow | null,
   followUpPending: boolean,
-): SubagentTitle[] {
+): AgentToolCallPart[] {
   const exclude = grokChromeIds(goal, workflow);
   const start = lastPromptIndex(messages) + 1;
   const items: AgentToolCallPart[] = [];
@@ -284,8 +333,7 @@ function currentSubagentTitles(
       items.push(part);
     }
   }
-  const visible = followUpPending ? items.filter(subagentIsRunning) : items;
-  return visible.map((part) => ({ id: part.tool_call_id, title: subagentTitle(part) }));
+  return followUpPending ? items.filter(subagentIsRunning) : items;
 }
 
 function toolPath(part: AgentToolCallPart): string | null {

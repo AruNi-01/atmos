@@ -47,6 +47,7 @@ export function toolGroupLeadKind(parts: AgentPart[]): AgentToolKind {
 import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatMutedForeground } from "./chat-ink";
 import { agentChatToolGroupExpandKey, useAgentChatExpandStore } from "./expand-store";
 import { TextShimmer } from "./motion/text-shimmer";
 import { PartReveal } from "./motion/part-reveal";
@@ -54,6 +55,9 @@ import { toolTriggerMetrics } from "./tool-chrome";
 import { ToolKindIcon } from "./tool-kind-icon";
 import { ToolDiffStats, toolGroupDiffTotals } from "./tool-body";
 import { ExpandChevron, ToolTreeRow, useToolTreeReveal } from "./tool-tree";
+
+/** Web group list is `mt-0.5`. The trunk already sits at x=8 (`ms-2`). */
+const TOOL_GROUP_LIST_MARGIN_TOP = 2;
 
 function rowKey(part: AgentPart, origIndex: number): string {
   if (part.type === "tool_call") return part.tool_call_id;
@@ -85,8 +89,9 @@ export function ToolGroup({
   const metrics = toolTriggerMetrics;
   const { shown, watermark } = useToolTreeReveal(parts.length, open);
   const diff = toolGroupDiffTotals(parts);
+  const muted = chatMutedForeground(theme.isDark);
   const overviewStyle = {
-    color: theme.colors.secondaryLabel,
+    color: muted,
     flexShrink: 1,
     fontSize: metrics.fontSize,
     lineHeight: metrics.lineHeight,
@@ -124,11 +129,7 @@ export function ToolGroup({
             width: metrics.iconBox,
           }}
         >
-          <ToolKindIcon
-            color={theme.colors.secondaryLabel}
-            kind={toolGroupLeadKind(parts)}
-            size={metrics.iconSize}
-          />
+          <ToolKindIcon color={muted} kind={toolGroupLeadKind(parts)} size={metrics.iconSize} />
         </View>
         {running ? (
           <TextShimmer duration={1} numberOfLines={1} style={overviewStyle}>
@@ -140,10 +141,11 @@ export function ToolGroup({
           </Text>
         )}
         <ToolDiffStats additions={diff.additions} deletions={diff.deletions} />
-        <ExpandChevron open={open} size={metrics.chevron} />
+        <ExpandChevron color={muted} open={open} size={metrics.chevron} />
       </Pressable>
-      {open
-        ? rows.map((row, index) => (
+      {open ? (
+        <View style={{ marginTop: TOOL_GROUP_LIST_MARGIN_TOP }}>
+          {rows.map((row, index) => (
             <PartReveal key={row.key} play={index >= watermark}>
               <ToolTreeRow
                 count={rows.length}
@@ -156,8 +158,9 @@ export function ToolGroup({
                 {row.rendered}
               </ToolTreeRow>
             </PartReveal>
-          ))
-        : null}
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

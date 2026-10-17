@@ -6,6 +6,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Keyboard, LayoutAnimation, Platform, View, type KeyboardEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { userMessageOutsidePressCapture } from "./user-message-outside";
 
 function animateWithKeyboard(event: KeyboardEvent) {
   const duration = event.duration > 0 ? event.duration : 250;
@@ -45,7 +46,10 @@ export function ChatKeyboardFrame({
   const keyboardOpen = keyboardHeight > 0;
 
   return (
-    <View style={{ flex: 1, paddingBottom: keyboardOpen ? keyboardHeight : 0 }}>
+    <View
+      {...userMessageOutsidePressCapture()}
+      style={{ flex: 1, paddingBottom: keyboardOpen ? keyboardHeight : 0 }}
+    >
       <View style={{ flex: 1 }}>{children}</View>
       <View style={{ paddingBottom: keyboardOpen ? 0 : insets.bottom }}>{footer}</View>
     </View>

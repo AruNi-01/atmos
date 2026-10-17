@@ -31,6 +31,7 @@ import {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentToolCallPart } from "@atmos/agent-transcript";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { EmptyState } from "@/ui/layout/app-screen";
@@ -63,10 +64,21 @@ import {
 } from "./expand-store";
 import { HideScrollEdge } from "./hide-scroll-edge";
 import { HistoricPermission } from "./historic-permission";
+import { InlineSubagentPanel } from "./inline-subagent-panel";
+import { inlineSubagentTasksByMessageId } from "./inline-subagent-tasks";
 import { useReducedMotion } from "./motion/use-reduced-motion";
-import { ProcessFold, WaitForBlock } from "./process-fold";
+import { ProcessFold } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
 import { initialStickState, reduceStick, type StickAction } from "./stick";
+import {
+  jumpAlignOffset,
+  jumpExtendReadyToRelease,
+  jumpFollowsTailAfterMiss,
+  offsetFromMeasuredStride,
+  stickScrollWhileJumping,
+  transcriptItemLayout,
+  TRANSCRIPT_JUMP_FALLBACK_STRIDE,
+} from "./transcript-jump";
 import { ThinkingBlock } from "./thinking-block";
 import { ToolGroup, toolGroupKey } from "./tool-group";
 import { showToolRow, ToolCallRow } from "./tool-body";
@@ -80,12 +92,17 @@ import {
 import { UserMessage } from "./user-message";
 
 export type AgentChatTranscriptHandle = {
+  measureMessage: (id: string) => { start: number; size: number } | null;
+  revealMessage: (id: string) => void;
   scrollToEndAnimated: () => void;
 };
 
 type TranscriptStick = {
   belowCount: number;
+  distanceFromEnd: number;
   stickToEnd: boolean;
+  scrollTop: number;
+  viewport: number;
 };
 
 type RowMeasureApi = {
@@ -212,22 +229,30 @@ function segmentKey(messageId: string, segment: AssistantSegment): string {
 
 function InlinePart({
   message,
+  origIndex,
   part,
-  surface,
 }: {
   message: AgentMessage;
+  origIndex: number;
   part: AgentPart;
-  surface: "timeline" | "wait";
 }) {
   if (isHiddenTranscriptChromePart(part) || isHiddenGrokChromePart(part, message.parts))
     return null;
   if (part.type === "tool_call") {
-    if (!showToolRow(part, surface)) return null;
+    if (!showToolRow(part)) return null;
     return <ToolCallRow part={part} />;
   }
   if (part.type === "text") return <AnswerText part={part} parts={message.parts} />;
   if (part.type === "thinking") {
-    return <ThinkingBlock part={part} parts={message.parts} thinkingMs={message.thinking_ms} />;
+    return (
+      <ThinkingBlock
+        messageId={message.id}
+        origIndex={origIndex}
+        part={part}
+        parts={message.parts}
+        thinkingMs={message.thinking_ms}
+      />
+    );
   }
   if (part.type === "error") return <ErrorPart part={part} />;
   if (
@@ -258,11 +283,13 @@ function SegmentView({
         onInspect={onInspect}
         origIndexes={segment.origIndexes}
         parts={segment.parts}
-        renderPart={(part) => <InlinePart message={message} part={part} surface="timeline" />}
+        renderPart={(part, origIndex) => (
+          <InlinePart message={message} origIndex={origIndex} part={part} />
+        )}
       />
     );
   }
-  return <InlinePart message={message} part={segment.part} surface="timeline" />;
+  return <InlinePart message={message} origIndex={segment.origIndex} part={segment.part} />;
 }
 
 function assistantHasVisiblePart(message: AgentMessage): boolean {
@@ -270,7 +297,8 @@ function assistantHasVisiblePart(message: AgentMessage): boolean {
     if (isHiddenTranscriptChromePart(part) || isHiddenGrokChromePart(part, message.parts)) {
       return false;
     }
-    if (transcriptVisibility(part) === "nested_child") return false;
+    const visibility = transcriptVisibility(part);
+    if (visibility === "nested_child" || visibility === "subagent_wait") return false;
     if (part.type === "text" || part.type === "thinking") return Boolean(part.text);
     if (part.type === "error") return Boolean(part.message);
     if (part.type === "permission") return part.request.status !== "pending";
@@ -283,11 +311,21 @@ function assistantHasVisiblePart(message: AgentMessage): boolean {
   });
 }
 
+/** Web assistant column `w-[calc(100%-1rem)]`: 8px on each side of the gutter. */
+const ASSISTANT_COLUMN_INSET = 8;
+
+/** Web `ConversationContent` `py-4`. The overlay spacer stays on top of this. */
+const TRANSCRIPT_CONTENT_PAD_Y = 16;
+
 function AssistantTurn({
+  inlineTools = [],
   message,
+  messages,
   showActivity = false,
 }: {
+  inlineTools?: readonly AgentToolCallPart[];
   message: AgentMessage;
+  messages: readonly AgentMessage[];
   showActivity?: boolean;
 }) {
   const assistantText = assistantCopyText(message);
@@ -302,14 +340,8 @@ function AssistantTurn({
   const markInspecting = () => {
     useAgentChatExpandStore.getState().setExpand(agentChatInspectExpandKey(message.id), true);
   };
-
   return (
-    <View style={{ gap: 8, width: "100%" }}>
-      <WaitForBlock
-        messageId={message.id}
-        parts={message.parts}
-        renderPart={(part) => <InlinePart message={message} part={part} surface="wait" />}
-      />
+    <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET }}>
       {processSegments.length > 0 ? (
         <ProcessFold canCollapse={canCollapse} message={message}>
           {processSegments.map((segment) => (
@@ -323,7 +355,7 @@ function AssistantTurn({
         </ProcessFold>
       ) : null}
       {tailSegments.length > 0 ? (
-        <View style={{ gap: 8, width: "100%" }}>
+        <View style={{ width: "100%" }}>
           {tailSegments.map((segment) => (
             <SegmentView
               key={segmentKey(message.id, segment)}
@@ -336,20 +368,51 @@ function AssistantTurn({
       ) : null}
       <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
       <AssistantTurnFiles parts={message.parts} visible={showChrome} />
-      {showActivity ? <ActivityRow message={message} /> : null}
+      {inlineTools.length > 0 ? (
+        <View style={{ marginTop: 8 }}>
+          <InlineSubagentPanel messages={messages} tools={inlineTools} />
+        </View>
+      ) : null}
+      {showActivity ? (
+        <View style={{ marginTop: 8 }}>
+          <ActivityRow messages={messages} turnOpen />
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const ChatMessage = memo(function ChatMessage({
+  inlineTools,
   message,
+  messages,
   showActivity = false,
 }: {
+  inlineTools?: readonly AgentToolCallPart[];
   message: AgentMessage;
+  messages: readonly AgentMessage[];
   showActivity?: boolean;
 }) {
-  if (message.role === "user") return <UserMessage message={message} />;
-  return <AssistantTurn message={message} showActivity={showActivity} />;
+  if (message.role === "user") {
+    return (
+      <>
+        <UserMessage message={message} />
+        {showActivity ? (
+          <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET, marginTop: 8 }}>
+            <ActivityRow messages={messages} turnOpen />
+          </View>
+        ) : null}
+      </>
+    );
+  }
+  return (
+    <AssistantTurn
+      inlineTools={inlineTools}
+      message={message}
+      messages={messages}
+      showActivity={showActivity}
+    />
+  );
 });
 
 export const AgentChatTranscript = forwardRef<
@@ -359,6 +422,9 @@ export const AgentChatTranscript = forwardRef<
     focusMessageId?: string | null;
     messages: AgentMessage[];
     onStickChange?: (next: TranscriptStick) => void;
+    subagentExcludeIds?: ReadonlySet<string>;
+    /** Real scroll offsets. The stick callback can lag behind `viewRef` during a jump. */
+    onViewport?: (next: TranscriptStick) => void;
     pillRowHeight?: number;
     stickToken?: number;
     streaming?: boolean;
@@ -369,6 +435,8 @@ export const AgentChatTranscript = forwardRef<
     focusMessageId,
     messages,
     onStickChange,
+    subagentExcludeIds,
+    onViewport,
     pillRowHeight = 0,
     stickToken = 0,
     streaming = false,
@@ -380,17 +448,38 @@ export const AgentChatTranscript = forwardRef<
   const stickRef = useRef(initialStickState);
   const belowRef = useRef(0);
   const userDraggedRef = useRef(false);
+  const programmaticAwayRef = useRef(false);
+  const jumpSawAwayRef = useRef(false);
+  const jumpRetryIndexRef = useRef(-1);
+  const jumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listHeightRef = useRef(0);
   const seenFirstId = useRef<string | undefined>(undefined);
   const seenStickToken = useRef(stickToken);
   const scrolledFocusRef = useRef<string | null>(null);
   const measurementsRef = useRef<Array<TranscriptMeasurement | undefined>>([]);
+  const jumpIndexRef = useRef(-1);
+  const extendTailRef = useRef(false);
+  const extendCommittedRef = useRef(false);
+  const pendingJumpRef = useRef<{ animated: boolean; index: number } | null>(null);
+  const lastAlignOffsetRef = useRef<number | null>(null);
+  const alignJumpRef = useRef<() => void>(() => {});
+  const [extendTail, setExtendTailState] = useState(false);
   const rowCountRef = useRef(0);
-  const viewRef = useRef({ height: 0, scrollTop: 0 });
+  const viewRef = useRef({ distance: 0, height: 0, scrollTop: 0 });
+  const rowsRef = useRef<AgentMessage[]>([]);
   const onStickChangeRef = useRef(onStickChange);
+  const onViewportRef = useRef(onViewport);
   const [stickToEnd, setStickToEnd] = useState(initialStickState.stickToEnd);
   const [topFade, setTopFade] = useState(false);
   const paddingBottom = useTranscriptBottomPad(expandedCardHeight, pillRowHeight);
+  const inlineTasks = useMemo(
+    () =>
+      inlineSubagentTasksByMessageId(messages, {
+        excludeIds: subagentExcludeIds,
+        mode: "live",
+      }),
+    [messages, subagentExcludeIds],
+  );
   const syncTopFade = useCallback((scrollTop: number) => {
     const next = scrollTop > 12;
     setTopFade((current) => (current === next ? current : next));
@@ -399,7 +488,10 @@ export const AgentChatTranscript = forwardRef<
   const emitStick = useCallback((belowCount: number) => {
     onStickChangeRef.current?.({
       belowCount,
+      distanceFromEnd: viewRef.current.distance,
       stickToEnd: stickRef.current.stickToEnd,
+      scrollTop: viewRef.current.scrollTop,
+      viewport: viewRef.current.height,
     });
   }, []);
 
@@ -425,6 +517,93 @@ export const AgentChatTranscript = forwardRef<
     [emitStick],
   );
 
+  const emitViewport = useCallback(() => {
+    onViewportRef.current?.({
+      belowCount: belowRef.current,
+      distanceFromEnd: viewRef.current.distance,
+      stickToEnd: stickRef.current.stickToEnd,
+      scrollTop: viewRef.current.scrollTop,
+      viewport: viewRef.current.height,
+    });
+  }, []);
+
+  const setExtendTail = useCallback((next: boolean) => {
+    if (extendTailRef.current === next) return;
+    extendTailRef.current = next;
+    if (!next) {
+      extendCommittedRef.current = false;
+      pendingJumpRef.current = null;
+    }
+    setExtendTailState(next);
+  }, []);
+  useLayoutEffect(() => {
+    if (!extendTail) {
+      extendCommittedRef.current = false;
+      return;
+    }
+    extendCommittedRef.current = true;
+    const pending = pendingJumpRef.current;
+    if (!pending) return;
+    pendingJumpRef.current = null;
+    let cancelled = false;
+    // The native list applies `getItemLayout` after this commit.
+    const outer = requestAnimationFrame(() => {
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        listRef.current?.scrollToIndex({
+          animated: pending.animated,
+          index: pending.index,
+          viewPosition: 0,
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outer);
+    };
+  }, [extendTail]);
+  const layoutForJump = useCallback(
+    (_data: ArrayLike<AgentMessage> | null | undefined, index: number) =>
+      transcriptItemLayout(index, measurementsRef.current, AGENT_CHAT_TRANSCRIPT_GAP),
+    [],
+  );
+  const releaseExtendIfRoom = useCallback(() => {
+    if (!extendTailRef.current) return;
+    if (
+      !jumpExtendReadyToRelease(
+        jumpIndexRef.current,
+        measurementsRef.current,
+        viewRef.current.height,
+        AGENT_CHAT_TRANSCRIPT_GAP,
+        viewRef.current.scrollTop,
+      )
+    ) {
+      return;
+    }
+    setExtendTail(false);
+  }, [setExtendTail]);
+  const alignActiveJump = useCallback(() => {
+    if (!programmaticAwayRef.current || jumpIndexRef.current < 0) return;
+    const target = measurementsRef.current[jumpIndexRef.current];
+    if (!target || target.start == null || !(target.size > 0)) return;
+    const next = jumpAlignOffset(viewRef.current.scrollTop, target.start);
+    if (next == null) {
+      releaseExtendIfRoom();
+      return;
+    }
+    if (lastAlignOffsetRef.current === next) return;
+    lastAlignOffsetRef.current = next;
+    listRef.current?.scrollToOffset({ animated: false, offset: next });
+  }, [releaseExtendIfRoom]);
+  useLayoutEffect(() => {
+    alignJumpRef.current = alignActiveJump;
+  }, [alignActiveJump]);
+  const stopExtend = useCallback(() => {
+    jumpIndexRef.current = -1;
+    setExtendTail(false);
+  }, [setExtendTail]);
+
   const measureApi = useRef<RowMeasureApi>({
     clear(index) {
       if (measurementsRef.current[index] === undefined) return;
@@ -438,6 +617,8 @@ export const AgentChatTranscript = forwardRef<
       }
       measurementsRef.current[index] = measurement;
       publishBelow();
+      releaseExtendIfRoom();
+      alignJumpRef.current();
     },
   });
 
@@ -446,39 +627,137 @@ export const AgentChatTranscript = forwardRef<
     listRef.current?.scrollToEnd({ animated });
   }, []);
 
+  const applyScrollStick = useCallback(
+    (distance: number) => {
+      if (programmaticAwayRef.current && distance > TRANSCRIPT_END_SLACK_PX) {
+        jumpSawAwayRef.current = true;
+      }
+      const decision = stickScrollWhileJumping(
+        distance,
+        programmaticAwayRef.current,
+        userDraggedRef.current,
+      );
+      if (decision === "ignore") return;
+      applyStick({
+        type: "scroll",
+        distance: decision.distance,
+        userDragged: decision.userDragged,
+      });
+    },
+    [applyStick],
+  );
+
+  const jumpToIndex = useCallback(
+    (index: number, animated: boolean) => {
+      programmaticAwayRef.current = true;
+      userDraggedRef.current = false;
+      jumpRetryIndexRef.current = -1;
+      jumpIndexRef.current = index;
+      lastAlignOffsetRef.current = null;
+      if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
+      applyStick({
+        type: "scroll",
+        distance: TRANSCRIPT_END_SLACK_PX + 1,
+        userDragged: true,
+      });
+      const earlier = !jumpFollowsTailAfterMiss(index, rowsRef.current.length);
+      const needsLayout = earlier && !extendCommittedRef.current;
+      const scroll = () => {
+        listRef.current?.scrollToIndex({ animated, index, viewPosition: 0 });
+      };
+      // The estimated tail is on the next commit. Scrolling before that clamps.
+      if (needsLayout) {
+        pendingJumpRef.current = { animated, index };
+        setExtendTail(true);
+      } else {
+        pendingJumpRef.current = null;
+        scroll();
+      }
+      // If the jump never leaves the end, follow the tail only when the target
+      // is the last row. An earlier row stays unstuck so a short tail can grow
+      // under it. A jump that already landed away keeps ignoring a stale end.
+      jumpTimerRef.current = setTimeout(() => {
+        jumpTimerRef.current = null;
+        if (!programmaticAwayRef.current || jumpSawAwayRef.current) return;
+        if (!jumpFollowsTailAfterMiss(index, rowsRef.current.length)) return;
+        programmaticAwayRef.current = false;
+        applyStick({
+          type: "scroll",
+          distance: viewRef.current.distance,
+          userDragged: false,
+        });
+      }, 800);
+    },
+    [applyStick, setExtendTail],
+  );
+
+  const recoverScrollIndex = useCallback((index: number) => {
+    const offset = offsetFromMeasuredStride(
+      index,
+      measurementsRef.current,
+      AGENT_CHAT_TRANSCRIPT_GAP,
+      TRANSCRIPT_JUMP_FALLBACK_STRIDE,
+    );
+    listRef.current?.scrollToOffset({ animated: false, offset });
+    if (jumpRetryIndexRef.current === index) return;
+    jumpRetryIndexRef.current = index;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ animated: false, index, viewPosition: 0 });
+    });
+  }, []);
+
   useImperativeHandle(
     ref,
     () => ({
+      measureMessage(id: string) {
+        const index = rowsRef.current.findIndex((message) => message.id === id);
+        if (index < 0) return null;
+        const measurement = measurementsRef.current[index];
+        if (!measurement) return null;
+        return { size: measurement.size, start: measurement.start };
+      },
+      revealMessage(id: string) {
+        const index = rowsRef.current.findIndex((message) => message.id === id);
+        if (index < 0) return;
+        jumpToIndex(index, false);
+      },
       scrollToEndAnimated() {
+        programmaticAwayRef.current = false;
+        jumpSawAwayRef.current = false;
+        if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
         userDraggedRef.current = false;
+        stopExtend();
         applyStick({ type: "scroll", distance: 0, userDragged: false });
         listRef.current?.scrollToEnd({ animated: true });
       },
     }),
-    [applyStick],
+    [applyStick, jumpToIndex, stopExtend],
   );
 
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const native = event.nativeEvent;
       viewRef.current = {
+        distance: distanceFromEnd(native),
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
       syncTopFade(native.contentOffset.y);
-      applyStick({
-        type: "scroll",
-        distance: distanceFromEnd(native),
-        userDragged: userDraggedRef.current,
-      });
+      applyScrollStick(viewRef.current.distance);
       publishBelow();
+      emitViewport();
+      alignJumpRef.current();
     },
-    [applyStick, publishBelow, syncTopFade],
+    [applyScrollStick, emitViewport, publishBelow, syncTopFade],
   );
 
   const onScrollBeginDrag = useCallback(() => {
+    programmaticAwayRef.current = false;
+    jumpSawAwayRef.current = false;
+    if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
     userDraggedRef.current = true;
-  }, []);
+    stopExtend();
+  }, [stopExtend]);
 
   const onScrollEndDrag = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -486,38 +765,34 @@ export const AgentChatTranscript = forwardRef<
       const velocity = native.velocity?.y;
       if (velocity != null && Math.abs(velocity) >= 0.05) return;
       viewRef.current = {
+        distance: distanceFromEnd(native),
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
       syncTopFade(native.contentOffset.y);
-      applyStick({
-        type: "scroll",
-        distance: distanceFromEnd(native),
-        userDragged: userDraggedRef.current,
-      });
+      applyScrollStick(viewRef.current.distance);
       userDraggedRef.current = false;
       publishBelow();
+      emitViewport();
     },
-    [applyStick, publishBelow, syncTopFade],
+    [applyScrollStick, emitViewport, publishBelow, syncTopFade],
   );
 
   const onMomentumScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const native = event.nativeEvent;
       viewRef.current = {
+        distance: distanceFromEnd(native),
         height: native.layoutMeasurement.height,
         scrollTop: native.contentOffset.y,
       };
       syncTopFade(native.contentOffset.y);
-      applyStick({
-        type: "scroll",
-        distance: distanceFromEnd(native),
-        userDragged: userDraggedRef.current,
-      });
+      applyScrollStick(distanceFromEnd(native));
       userDraggedRef.current = false;
       publishBelow();
+      emitViewport();
     },
-    [applyStick, publishBelow, syncTopFade],
+    [applyScrollStick, emitViewport, publishBelow, syncTopFade],
   );
 
   const onContentSizeChange = useCallback(
@@ -535,37 +810,33 @@ export const AgentChatTranscript = forwardRef<
       const height = event.nativeEvent.layout.height;
       viewRef.current = { ...viewRef.current, height };
       publishBelow();
+      releaseExtendIfRoom();
       if (height === listHeightRef.current) return;
       listHeightRef.current = height;
       scrollToEndIfStuck(false);
     },
-    [publishBelow, scrollToEndIfStuck],
+    [publishBelow, releaseExtendIfRoom, scrollToEndIfStuck],
   );
 
-  const rows = useMemo(() => {
-    if (streaming && !messages.some((message) => message.streaming)) {
-      return [
-        ...messages,
-        {
-          id: "stream-wait",
-          role: "assistant" as const,
-          parts: [{ type: "text" as const, text: "" }],
-          streaming: true,
-        },
-      ];
-    }
-    return messages;
-  }, [messages, streaming]);
+  const rows = messages;
   const firstMessageId = messages[0]?.id;
 
   useLayoutEffect(() => {
     onStickChangeRef.current = onStickChange;
+    onViewportRef.current = onViewport;
+    rowsRef.current = rows;
     rowCountRef.current = rows.length;
     if (measurementsRef.current.length > rows.length) {
       measurementsRef.current.length = rows.length;
     }
     publishBelow();
-  }, [onStickChange, publishBelow, rows]);
+  }, [onStickChange, onViewport, publishBelow, rows]);
+
+  useEffect(() => {
+    return () => {
+      if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const boundary = expandResetForFirstMessage(seenFirstId.current, firstMessageId);
@@ -590,14 +861,8 @@ export const AgentChatTranscript = forwardRef<
     const index = messages.findIndex((message) => message.id === focusMessageId);
     if (index < 0) return;
     scrolledFocusRef.current = focusMessageId;
-    userDraggedRef.current = false;
-    applyStick({
-      type: "scroll",
-      distance: TRANSCRIPT_END_SLACK_PX + 1,
-      userDragged: true,
-    });
-    listRef.current?.scrollToIndex({ animated: true, index, viewPosition: 0 });
-  }, [applyStick, focusMessageId, messages]);
+    jumpToIndex(index, true);
+  }, [focusMessageId, jumpToIndex, messages]);
 
   return (
     <RowMeasureContext.Provider value={measureApi}>
@@ -609,16 +874,25 @@ export const AgentChatTranscript = forwardRef<
           contentContainerStyle={{
             flexGrow: 1,
             gap: AGENT_CHAT_TRANSCRIPT_GAP,
-            justifyContent: rows.length === 0 ? "center" : "flex-start",
-            paddingBottom,
+            justifyContent: rows.length === 0 && !streaming ? "center" : "flex-start",
+            paddingBottom: paddingBottom + TRANSCRIPT_CONTENT_PAD_Y,
             paddingHorizontal: 18,
-            paddingTop: 12,
+            paddingTop: TRANSCRIPT_CONTENT_PAD_Y,
           }}
           contentInsetAdjustmentBehavior="never"
           data={rows}
+          getItemLayout={extendTail ? layoutForJump : undefined}
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
-          ListEmptyComponent={<EmptyChat />}
+          ListEmptyComponent={
+            streaming ? (
+              <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET }}>
+                <ActivityRow messages={messages} turnOpen />
+              </View>
+            ) : (
+              <EmptyChat />
+            )
+          }
           maintainVisibleContentPosition={
             stickToEnd ? undefined : { autoscrollToTopThreshold: 10, minIndexForVisible: 0 }
           }
@@ -629,16 +903,14 @@ export const AgentChatTranscript = forwardRef<
           onScrollBeginDrag={onScrollBeginDrag}
           onScrollEndDrag={onScrollEndDrag}
           onScrollToIndexFailed={({ index }) => {
-            listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
+            recoverScrollIndex(index);
           }}
           renderItem={({ index, item }) => (
             <ChatMessage
+              inlineTools={inlineTasks.get(item.id)}
               message={item}
-              showActivity={
-                index === rows.length - 1 &&
-                item.role === "assistant" &&
-                (streaming || Boolean(item.streaming))
-              }
+              messages={messages}
+              showActivity={index === rows.length - 1 && (streaming || Boolean(item.streaming))}
             />
           )}
           scrollEventThrottle={16}

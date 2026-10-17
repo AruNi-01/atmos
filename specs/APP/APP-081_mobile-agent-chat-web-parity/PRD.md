@@ -72,7 +72,7 @@ Parity is "same product, native client". These are intentional and must be liste
 
 - Pointer-only affordances (hover rail, hover swap of worked-for ↔ time) become tap or long-press.
 - The right file directory and editor routes stay out (APP-079 M6); paths are shown as chips that do not navigate.
-- Effects with no iOS/Android primitive (CSS `blur()` filter, `mask-image`) use opacity + translate + height fallbacks (TECH).
+- CSS `blur()` has no iOS/Android primitive and stays an opacity + translate + height fallback. The part-reveal `mask-image` is a 22 px gradient to the transcript background (TECH V1).
 - The composer keeps native glass controls and the keyboard-lift behavior; it does not copy web button chrome.
 - Single-card rule and pill row (M6): web stacks cards and floats a centered scroll button; the phone shows one expanded card, a scrollable pill row, and the scroll-to-bottom pill pinned left in that row.
 

@@ -1,5 +1,11 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
 import type {
   AgentMessage,
   AgentPart,
@@ -10,6 +16,7 @@ import type {
 import {
   cardPillTitle,
   deriveComposerCards,
+  laneCardDrawsOwnFrame,
   moveQueueItem,
   planBodyMarkdown,
 } from "./composer-cards";
@@ -186,8 +193,62 @@ describe("deriveComposerCards", () => {
         ]),
       ],
     });
-    expect(cards.background).toEqual([{ id: "bg", command: "npm test" }]);
+    expect(cards.background).toEqual([{ id: "bg", command: "npm test", preview: "" }]);
     expect(cards.available).toContain("background");
+  });
+
+  test("background preview is the last non-empty output line", () => {
+    const cards = emptyCards({
+      messages: [
+        assistant("a1", [
+          {
+            type: "tool_call",
+            tool_call_id: "bg",
+            name: "bash",
+            kind: "execute",
+            status: "running",
+            params: { type: "execute", command: "npm test", background: true },
+            result: { type: "execute", output: "first\nready\n" },
+          },
+          {
+            type: "tool_call",
+            tool_call_id: "text",
+            name: "bash",
+            kind: "execute",
+            status: "running",
+            params: { type: "execute", command: "echo", background: true },
+            result: { type: "text", text: "  hello  \n" },
+          },
+          {
+            type: "tool_call",
+            tool_call_id: "err",
+            name: "bash",
+            kind: "execute",
+            status: "running",
+            params: { type: "execute", command: "fail", background: true },
+            result: { type: "error", message: "nope" },
+          },
+        ]),
+      ],
+    });
+    expect(cards.background).toEqual([
+      { id: "bg", command: "npm test", preview: "ready" },
+      { id: "text", command: "echo", preview: "hello" },
+      { id: "err", command: "fail", preview: "nope" },
+    ]);
+  });
+
+  test("the background dock uses the web header and row ink", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const card = readFileSync(join(here, "cards", "background-card.tsx"), "utf8");
+    expect(card).toContain("chatForeground90(theme.isDark)");
+    expect(card).toContain("chatForeground80(theme.isDark)");
+    expect(card).toContain("CommandTerminalIcon");
+    expect(card).toContain('fontFamily: "Menlo"');
+    expect(card).toContain("#00bc7d");
+    expect(card).not.toContain("theme.colors.label");
+    expect(card).not.toContain("Popover");
+    expect(laneCardDrawsOwnFrame("background", { subagentTools: [] })).toBe(false);
   });
 
   test("subagent titles skip chrome, nested rows, and finished tasks while a queue is pending", () => {
@@ -268,8 +329,10 @@ describe("deriveComposerCards", () => {
       grokWorkflow: workflow,
     });
     expect(pending.subagents).toEqual([{ id: "live", title: "Find the bug" }]);
+    expect(pending.subagentTools.map((part) => part.tool_call_id)).toEqual(["live"]);
     const settled = emptyCards({ messages, grokGoal: goal, grokWorkflow: workflow });
     expect(settled.subagents.map((item) => item.id)).toEqual(["live", "done-sub"]);
+    expect(settled.subagentTools.map((part) => part.tool_call_id)).toEqual(["live", "done-sub"]);
   });
 
   test("context stats need used and a positive window", () => {
@@ -346,5 +409,55 @@ describe("moveQueueItem", () => {
     expect(moveQueueItem(["a", "b", "c"], "b", "down")).toEqual(["a", "c", "b"]);
     expect(moveQueueItem(["a", "b"], "a", "up")).toBeNull();
     expect(moveQueueItem(["a", "b"], "b", "down")).toBeNull();
+  });
+});
+
+describe("laneCardDrawsOwnFrame", () => {
+  test("goal, workflow, context, and a live subagent panel draw their own border", () => {
+    const cards = { subagentTools: [{ tool_call_id: "a" }] } as never;
+    const empty = { subagentTools: [] } as never;
+    expect(laneCardDrawsOwnFrame("goal", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("workflow", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("context", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("permission", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("session_op", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("subagents", cards)).toBe(true);
+    expect(laneCardDrawsOwnFrame("subagents", empty)).toBe(false);
+    expect(laneCardDrawsOwnFrame("plan", empty)).toBe(false);
+    expect(laneCardDrawsOwnFrame(null, empty)).toBe(false);
+  });
+});
+
+describe("lane goal and workflow type", () => {
+  test("the phase panel uses web type and agent rows stay unpressable", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const panel = readFileSync(join(here, "grok-chrome-panel.tsx"), "utf8");
+    expect(panel).toContain("chatForeground(theme.isDark)");
+    expect(panel).toContain("chatMutedForeground(theme.isDark)");
+    expect(panel).toContain("fontSize: 14");
+    expect(panel).toContain('fontWeight: "500"');
+    expect(panel).toContain("lineHeight: 20");
+    expect(panel).toContain("<SubagentTaskRow");
+    expect(panel).toContain("gap: 4");
+    expect(panel).not.toContain("onPress={() => open");
+    expect(panel).not.toContain("theme.colors.label");
+    expect(panel).not.toContain("theme.colors.secondaryLabel");
+    const goal = readFileSync(join(here, "cards", "goal-card.tsx"), "utf8");
+    expect(goal).toContain("grokGoalPhaseSections");
+    expect(goal).toContain("messages={messages}");
+    expect(goal).toContain("chatMutedForeground(theme.isDark)");
+    expect(goal).not.toContain("theme.colors.label");
+    const workflow = readFileSync(join(here, "cards", "workflow-card.tsx"), "utf8");
+    expect(workflow).toContain("grokWorkflowPhaseSections");
+    expect(workflow).toContain("messages={messages}");
+    expect(workflow).not.toContain("theme.colors.label");
+    const lane = readFileSync(join(here, "cards", "lane-body.tsx"), "utf8");
+    expect(lane).toContain("<GoalCard goal={cards.goal} messages={messages} />");
+    const row = readFileSync(join(here, "inline-subagent-panel.tsx"), "utf8");
+    const taskRow = row.slice(
+      row.indexOf("export function SubagentTaskRow"),
+      row.indexOf("export function InlineSubagentPanel"),
+    );
+    expect(taskRow).not.toContain("onPress");
   });
 });

@@ -1,5 +1,5 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
-import { parityFixtureById } from "@atmos/agent-transcript";
+import { TRANSCRIPT_END_SLACK_PX, parityFixtureById } from "@atmos/agent-transcript";
 
 /** One new tool row per tick. Longer than the 400ms tree draw, so each line finishes before the next. */
 export const PARITY_MOTION_ROW_MS = 600;
@@ -7,7 +7,122 @@ export const PARITY_MOTION_ROW_MS = 600;
 export const PARITY_STREAM_FIXTURE = "stream-tools";
 export const PARITY_SETTLED_FIXTURE = "settled-tools";
 export const PARITY_TAIL_FIXTURE = "f13-tail";
+/** Reply 50 in F13. Capture scrolls here; the manual link does not. */
+export const PARITY_TAIL_MARKER_ID = "f13-a-50";
 export const PARITY_SETTLED_ASSISTANT_ID = "settled-tools-a";
+
+export type ParityTailSample = {
+  below: number;
+  end: number;
+  /** Content y of Reply 50. -1 when that row is not measured. */
+  marker: number;
+  stick: boolean;
+  step: number;
+  top: number;
+  view: number;
+};
+
+/** Center alpha 0 means the snapshot missed the view that is on screen. */
+export function motionSnapshotCenterIsBlank(alpha: number | null): boolean {
+  return alpha == null || alpha <= 0;
+}
+
+export type MotionSnapshotPixel = {
+  a: number;
+  b: number;
+  g: number;
+  r: number;
+};
+
+/** True when every sample is the same color. A flat page fill is not a frame. */
+export function motionSnapshotIsFlat(samples: readonly MotionSnapshotPixel[]): boolean {
+  const first = samples[0];
+  if (!first || samples.length < 2) return false;
+  return samples.every(
+    (sample) =>
+      sample.r === first.r && sample.g === first.g && sample.b === first.b && sample.a === first.a,
+  );
+}
+
+export function parityTailLine(sample: ParityTailSample): string {
+  return `[parity] tail below=${sample.below} stick=${sample.stick ? 1 : 0} step=${sample.step} top=${Math.round(sample.top)} end=${Math.round(sample.end)} marker=${Math.round(sample.marker)} view=${Math.round(sample.view)}`;
+}
+
+export function parityTailSamples(log: string): ParityTailSample[] {
+  const samples: ParityTailSample[] = [];
+  const pattern =
+    /\[parity\] tail below=(\d+) stick=([01]) step=(\d+) top=(-?\d+) end=(-?\d+) marker=(-?\d+) view=(-?\d+)/g;
+  for (const match of log.matchAll(pattern)) {
+    samples.push({
+      below: Number(match[1]),
+      stick: match[2] === "1",
+      step: Number(match[3]),
+      top: Number(match[4]),
+      end: Number(match[5]),
+      marker: Number(match[6]),
+      view: Number(match[7]),
+    });
+  }
+  return samples;
+}
+
+function markerInView(sample: ParityTailSample): boolean {
+  if (sample.marker < 0 || sample.view <= 0) return false;
+  return sample.marker >= sample.top - 2 && sample.marker < sample.top + sample.view;
+}
+
+/**
+ * True when a later unstuck step is still more than 24 px from the end,
+ * Reply 50 is inside the viewport, the below count grew, and both the list
+ * offset and the marker row stayed within 2 px.
+ * Samples taken while the scroll is moving are ignored as long as one
+ * settled pair exists.
+ */
+export function parityTailReadingHeld(samples: readonly ParityTailSample[]): boolean {
+  const byStep = new Map<number, ParityTailSample>();
+  for (const sample of samples) {
+    if (!sample.stick) byStep.set(sample.step, sample);
+  }
+  const steps = [...byStep.keys()].sort((left, right) => left - right);
+  for (let i = 0; i < steps.length; i += 1) {
+    const start = byStep.get(steps[i] ?? -1);
+    if (!start) continue;
+    for (let j = i + 1; j < steps.length; j += 1) {
+      const next = byStep.get(steps[j] ?? -1);
+      if (!next) continue;
+      if (
+        next.below > start.below &&
+        start.end > 24 &&
+        next.end > 24 &&
+        markerInView(start) &&
+        markerInView(next) &&
+        Math.abs(next.top - start.top) <= 2 &&
+        Math.abs(next.marker - start.marker) <= 2
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export type ParityTailReturnPhase = "wait" | "press" | "landed";
+
+/**
+ * After the reading hold, the capture calls the scroll pill's handler once.
+ * Landed means a later sample is stuck and inside the end slack. The handler
+ * flips `stickToEnd` before the list moves, and that sample still carries the
+ * reading distance, so it stays `wait`.
+ */
+export function parityTailReturnPhase(
+  samples: readonly ParityTailSample[],
+  pressed: boolean,
+): ParityTailReturnPhase {
+  if (!pressed) return parityTailReadingHeld(samples) ? "press" : "wait";
+  const last = samples.at(-1);
+  if (last?.stick && last.end <= TRANSCRIPT_END_SLACK_PX) return "landed";
+  return "wait";
+}
 
 const STREAM_START = 2;
 const STREAM_HOLD_STEPS = 2;

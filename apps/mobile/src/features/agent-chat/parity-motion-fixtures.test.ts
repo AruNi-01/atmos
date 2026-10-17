@@ -18,11 +18,18 @@ import {
   PARITY_SETTLED_FIXTURE,
   PARITY_STREAM_FIXTURE,
   PARITY_TAIL_FIXTURE,
+  PARITY_TAIL_MARKER_ID,
+  motionSnapshotCenterIsBlank,
+  motionSnapshotIsFlat,
   parityMotionKind,
   paritySettledToolMessages,
   parityStreamToolFrame,
   parityStreamToolMessages,
+  parityTailLine,
   parityTailMessages,
+  parityTailReadingHeld,
+  parityTailReturnPhase,
+  parityTailSamples,
 } from "./parity-motion-fixtures";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -114,6 +121,206 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain("belowCount={liveTail ? stick.belowCount : 0}");
     expect(preview).toContain("stickToEnd={liveTail ? stick.stickToEnd : true}");
     expect(preview).toContain("scrollToEndAnimated");
+    expect(preview).toContain("PARITY_TAIL_MARKER_ID");
+    expect(preview).toContain("revealMessage");
+    expect(preview).toContain('scrollParam === "away" || pinned?.scroll === "away"');
+    expect(preview).toContain("parityTailLine");
+    expect(preview).toContain("useIsFocused");
+    expect(preview).toContain("useSyncExternalStore");
+    expect(preview).toContain("takeParityOwner");
+    expect(preview).toContain("bindParityTailMount");
+    expect(preview).toContain("releaseParityOwner");
+    expect(preview).toContain("if (!scrollAway || !ownsTail) return");
+    expect(preview).toContain("if (!liveTail || !ownsTail) return");
+    expect(preview).toContain("parityOwnerIs");
+    expect(preview).toContain("parityTailOwned");
+    expect(preview).toContain("pushParityReducedMotion");
+    expect(preview).toContain('frame.motion !== "reduced"');
+    expect(preview).toContain('frame.replay === "script"');
+    expect(preview).toContain("foldParityReplay");
+    expect(preview).toContain("[parity] replay done ${pass}");
+    expect(preview).toContain('if (frame.motion !== "reduced") continue;');
+    expect(preview).toContain('frame.motion === "reduced" ? "reduced" : "live"');
+    expect(preview).toContain('frame.lane === "steps"');
+    expect(preview).toContain("parityLaneShots");
+    expect(preview).toContain("[parity] lane done");
+    expect(preview).toContain('frame.pill === "return"');
+    expect(preview).toContain("parityTailReturnPhase");
+    expect(preview).toContain("[parity] tail returned");
+    expect(preview).toContain("onViewport={pillReturn ? onViewport : undefined}");
+    const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");
+    expect(transcript).toContain("emitViewport");
+    expect(transcript).toContain("onViewportRef");
     expect(preview).not.toContain("belowCount={0}");
+
+    const marker = fixture.messages.find((message) => message.id === PARITY_TAIL_MARKER_ID);
+    expect(marker?.parts).toEqual([{ type: "text", text: "Reply 50" }]);
+  });
+
+  test("tail evidence requires Reply 50 to stay in view while the below count grows", () => {
+    const held = [
+      parityTailLine({ below: 0, end: 0, marker: -1, stick: true, step: 0, top: 0, view: 0 }),
+      parityTailLine({
+        below: 40,
+        end: 2400,
+        marker: 1210,
+        stick: false,
+        step: 1,
+        top: 1200,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 41,
+        end: 2401,
+        marker: 1211,
+        stick: false,
+        step: 2,
+        top: 1201,
+        view: 800,
+      }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(held))).toBe(true);
+    const heldSamples = parityTailSamples(held);
+    expect(parityTailReturnPhase(heldSamples, false)).toBe("press");
+    expect(parityTailReturnPhase(heldSamples, true)).toBe("wait");
+    const stickFlip = parityTailSamples(
+      `${held}\n${parityTailLine({
+        below: 112,
+        end: 293,
+        marker: 4380,
+        stick: true,
+        step: 28,
+        top: 4380,
+        view: 659,
+      })}`,
+    );
+    expect(parityTailReturnPhase(stickFlip, true)).toBe("wait");
+    const landed = parityTailSamples(
+      `${held}\n[parity] tail returned below=2 stick=1 end=0 top=9000\n${parityTailLine({
+        below: 2,
+        end: 0,
+        marker: 9000,
+        stick: true,
+        step: 3,
+        top: 9000,
+        view: 800,
+      })}`,
+    );
+    expect(landed).toHaveLength(heldSamples.length + 1);
+    expect(parityTailReturnPhase(landed, true)).toBe("landed");
+    expect(parityTailReadingHeld(parityTailSamples("no tail lines"))).toBe(false);
+
+    const jumped = [
+      parityTailLine({
+        below: 40,
+        end: 2400,
+        marker: 1210,
+        stick: false,
+        step: 1,
+        top: 1200,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 41,
+        end: 1800,
+        marker: 1810,
+        stick: false,
+        step: 2,
+        top: 1800,
+        view: 800,
+      }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(jumped))).toBe(false);
+
+    const stuck = [
+      parityTailLine({ below: 0, end: 0, marker: 100, stick: true, step: 0, top: 4000, view: 800 }),
+      parityTailLine({ below: 0, end: 0, marker: 100, stick: true, step: 3, top: 4000, view: 800 }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(stuck))).toBe(false);
+
+    const unstuckAtEnd = [
+      parityTailLine({
+        below: 1,
+        end: 0,
+        marker: 100,
+        stick: false,
+        step: 1,
+        top: 4000,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 2,
+        end: 0,
+        marker: 100,
+        stick: false,
+        step: 2,
+        top: 4000,
+        view: 800,
+      }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(unstuckAtEnd))).toBe(false);
+
+    const markerOffscreen = [
+      parityTailLine({
+        below: 185,
+        end: 8000,
+        marker: -1,
+        stick: false,
+        step: 0,
+        top: 0,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 186,
+        end: 8040,
+        marker: -1,
+        stick: false,
+        step: 1,
+        top: 0,
+        view: 800,
+      }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(markerOffscreen))).toBe(false);
+
+    const settling = [
+      parityTailLine({
+        below: 10,
+        end: 800,
+        marker: 100,
+        stick: false,
+        step: 0,
+        top: 100,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 12,
+        end: 2000,
+        marker: 910,
+        stick: false,
+        step: 1,
+        top: 900,
+        view: 800,
+      }),
+      parityTailLine({
+        below: 13,
+        end: 2001,
+        marker: 911,
+        stick: false,
+        step: 2,
+        top: 901,
+        view: 800,
+      }),
+    ].join("\n");
+    expect(parityTailReadingHeld(parityTailSamples(settling))).toBe(true);
+  });
+
+  test("a transparent snapshot center is a missed view", () => {
+    expect(motionSnapshotCenterIsBlank(null)).toBe(true);
+    expect(motionSnapshotCenterIsBlank(0)).toBe(true);
+    expect(motionSnapshotCenterIsBlank(255)).toBe(false);
+    const fill = { a: 255, b: 246, g: 244, r: 244 };
+    expect(motionSnapshotIsFlat([fill])).toBe(false);
+    expect(motionSnapshotIsFlat([fill, fill, fill])).toBe(true);
+    expect(motionSnapshotIsFlat([fill, { ...fill, r: 26 }])).toBe(false);
   });
 });

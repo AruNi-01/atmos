@@ -1,13 +1,23 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
 import {
+  PASTE_CHIP_BORDER_DARK,
+  PASTE_CHIP_BORDER_LIGHT,
+  PASTE_CHIP_FILL_DARK,
+  PASTE_CHIP_FILL_LIGHT,
+  PASTE_CHIP_HEIGHT,
   PASTE_LINE_THRESHOLD,
   applyComposerPaste,
   expandComposerPaste,
+  pasteChipBorder,
+  pasteChipFill,
   pasteChipLabel,
   pasteToken,
+  rememberSentPaste,
   removeComposerPaste,
+  resetSentPasteForTests,
   retainComposerPasteChips,
+  sentPasteDisplay,
 } from "./composer-paste";
 
 function lines(count: number, prefix = "line"): string {
@@ -85,5 +95,35 @@ describe("composer paste chips", () => {
 
   test("labels the chip in sentence case", () => {
     expect(pasteChipLabel(11)).toBe("Pasted: 11 lines");
+  });
+
+  test("a sent paste is a chip for this session and full text everywhere else", () => {
+    resetSentPasteForTests();
+    const body = lines(12);
+    const applied = applyComposerPaste("note ", `note ${body}`);
+    const chip = applied.chip;
+    if (!chip) throw new Error("expected a paste chip");
+    const expanded = expandComposerPaste(applied.draft, [chip]);
+    expect(sentPasteDisplay(expanded)).toBeNull();
+    rememberSentPaste(expanded, applied.draft, [chip]);
+    const shown = sentPasteDisplay(expanded);
+    expect(shown?.segments).toEqual([
+      { type: "text", value: "note " },
+      { type: "paste", token: pasteToken(chip.id), text: body, lineCount: 12 },
+    ]);
+    expect(sentPasteDisplay(`  ${expanded}  `)?.segments[1]).toMatchObject({ type: "paste" });
+    expect(sentPasteDisplay("a different message")).toBeNull();
+    expect(sentPasteDisplay(`see ${pasteToken("missing")} now`)).toBeNull();
+    rememberSentPaste(expanded, expanded, [chip]);
+    expect(PASTE_CHIP_HEIGHT).toBe(20);
+    expect(pasteChipFill(false)).toBe(PASTE_CHIP_FILL_LIGHT);
+    expect(pasteChipFill(true)).toBe(PASTE_CHIP_FILL_DARK);
+    expect(pasteChipBorder(false)).toBe(PASTE_CHIP_BORDER_LIGHT);
+    expect(pasteChipBorder(true)).toBe(PASTE_CHIP_BORDER_DARK);
+    expect(PASTE_CHIP_FILL_LIGHT).toBe("rgba(222, 222, 224, 0.6)");
+    expect(PASTE_CHIP_FILL_DARK).toBe("rgba(39, 39, 42, 0.6)");
+    expect(PASTE_CHIP_BORDER_LIGHT).toBe("rgba(0, 0, 0, 0.07)");
+    expect(PASTE_CHIP_BORDER_DARK).toBe("rgba(255, 255, 255, 0.07)");
+    resetSentPasteForTests();
   });
 });

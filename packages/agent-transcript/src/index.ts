@@ -1,3 +1,11 @@
+export { formatAgentToolActivityLine, toolKindHeadlineLabel } from "./tool-activity-line";
+
+export {
+  deriveAgentActivityState,
+  type AgentActivityLabel,
+  type AgentActivityState,
+} from "./agent-activity";
+
 export {
   defaultToolParams,
   isActiveToolStatus,
@@ -172,9 +180,18 @@ export {
 
 export {
   GROK_CHROME_SUBAGENT_NAME,
+  GROK_IMPLEMENTER_ID,
+  formatGrokElapsed,
+  formatGrokTokens,
+  grokChromeAgentIds,
   grokChromeDuplicatesUserSpawn,
+  grokGoalPhaseSections,
+  grokGoalStatusKey,
+  grokWorkflowPhaseSections,
+  isGrokChromeRosterSubagent,
   isGrokChromeSubagent,
   isHiddenGrokChromePart,
+  type GrokChromePhaseSection,
 } from "./grok-chrome";
 
 export {

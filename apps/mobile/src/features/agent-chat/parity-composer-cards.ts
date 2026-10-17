@@ -21,6 +21,7 @@ export function composerCardsFromParity(cards: ParityCards | undefined): Compose
   const background = (cards?.background ?? []).map((item) => ({
     id: item.id,
     command: item.command,
+    preview: "",
   }));
   const subagents = (cards?.subagents ?? []).map((item) => ({
     id: item.id,
@@ -91,6 +92,7 @@ export function composerCardsFromParity(cards: ParityCards | undefined): Compose
     background,
     queue,
     subagents,
+    subagentTools: [],
     goal,
     workflow,
     context,

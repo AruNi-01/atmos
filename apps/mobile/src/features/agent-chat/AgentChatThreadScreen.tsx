@@ -28,15 +28,15 @@ import {
 } from "./card-lane";
 import { ExpandedCard } from "./cards/expanded-card";
 import { LaneCardBody } from "./cards/lane-body";
-import { cardPillTitle, deriveComposerCards } from "./composer-cards";
+import { cardPillTitle, deriveComposerCards, laneCardDrawsOwnFrame } from "./composer-cards";
+import { subagentRosterIds } from "./inline-subagent-tasks";
 import { ComposerPillRow } from "./composer-pill-row";
 import {
   expandComposerPaste,
+  rememberSentPaste,
   retainComposerPasteChips,
   type ComposerPasteChip,
 } from "./composer-paste";
-import { composerRowVisible, scrollPillVisible } from "./stick";
-import { resolvedPillRowHeight } from "./transcript-pad";
 import {
   applyComposerPick,
   composerSuggestionList,
@@ -221,6 +221,10 @@ export function AgentChatThreadScreen({
     respondPermission,
     respondSessionOp,
   } = useAgentChatThread(chatId);
+  const subagentExcludeIds = useMemo(
+    () => subagentRosterIds(grokGoal, grokWorkflow),
+    [grokGoal, grokWorkflow],
+  );
   const cards = useMemo(
     () =>
       deriveComposerCards({
@@ -394,6 +398,7 @@ export function AgentChatThreadScreen({
     const draft = text;
     const chips = pasteChips;
     const expanded = expandComposerPaste(draft, chips);
+    rememberSentPaste(expanded, draft, chips);
     const pending = photos;
     if (expanded.trim() === "" && pending.length === 0) return;
     setStickToken((token) => token + 1);
@@ -414,6 +419,7 @@ export function AgentChatThreadScreen({
     const draft = text;
     const chips = pasteChips;
     const expanded = expandComposerPaste(draft, chips);
+    rememberSentPaste(expanded, draft, chips);
     const pending = photos;
     if (expanded.trim() === "" && pending.length === 0) return;
     setText("");
@@ -433,6 +439,7 @@ export function AgentChatThreadScreen({
     const draft = text;
     const chips = pasteChips;
     const expanded = expandComposerPaste(draft, chips);
+    rememberSentPaste(expanded, draft, chips);
     if (expanded.trim() === "") return;
     setText("");
     setPasteChips([]);
@@ -545,11 +552,7 @@ export function AgentChatThreadScreen({
   }
 
   const measuredCardHeight = lane.visible ? expandedCardHeight : 0;
-  const pillRowRendered = composerRowVisible(
-    scrollPillVisible(messages.length, stickToEnd),
-    pills.length,
-  );
-  const pillRowHeight = resolvedPillRowHeight(pillRowRendered, measuredPillRowHeight);
+  const pillRowHeight = measuredPillRowHeight;
 
   return (
     <>
@@ -558,9 +561,14 @@ export function AgentChatThreadScreen({
         footer={
           <View style={{ gap: 8, paddingTop: 8 }}>
             {lane.visible ? (
-              <ExpandedCard key={lane.visible} onHeight={onCardHeight}>
+              <ExpandedCard
+                bare={laneCardDrawsOwnFrame(lane.visible, cards)}
+                key={lane.visible}
+                onHeight={onCardHeight}
+              >
                 <LaneCardBody
                   cards={cards}
+                  messages={messages}
                   onQueueDelete={queueDelete}
                   onQueueReorder={queueReorder}
                   onQueueUpdate={queueUpdate}
@@ -633,6 +641,7 @@ export function AgentChatThreadScreen({
               focusMessageId={focusMessageId}
               messages={messages}
               onStickChange={onStickChange}
+              subagentExcludeIds={subagentExcludeIds}
               pillRowHeight={pillRowHeight}
               stickToken={stickToken}
               streaming={runningTurnId != null}
