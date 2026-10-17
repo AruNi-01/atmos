@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View, type TextStyle } from "react-native";
+import { Pressable, StyleSheet, Text, View, type FontVariant, type TextStyle } from "react-native";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -15,11 +15,11 @@ import { copy } from "./copy";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { SCROLL_UNIT_SPRING, textMorphFrame, type TextMorphSlot } from "./scroll-pill-unit";
 import { scrollBelowUnit, scrollPillAccessibilityLabel } from "./stick";
+import { agentChatTokenMap } from "./token-map";
 
-const labelMetrics = {
-  fontSize: 14,
-  lineHeight: 20,
-} as const;
+/** Web scroll button is `h-8` (`size-4` chevron). Card pills stay 36. */
+export const SCROLL_PILL_HEIGHT = 32;
+export const SCROLL_PILL_ICON = 16;
 
 function MorphChar({
   progress,
@@ -95,12 +95,14 @@ function ScrollUnit({ unit, style }: { unit: string; style: TextStyle }) {
 
 export function ScrollToBottomPill({ count, onPress }: { count: number; onPress: () => void }) {
   const theme = useMobileTheme();
-  const label = {
-    color: theme.colors.label,
-    fontSize: labelMetrics.fontSize,
-    lineHeight: labelMetrics.lineHeight,
-  };
   const showCopy = count > 0;
+  const label: TextStyle = {
+    color: theme.colors.label,
+    fontSize: agentChatTokenMap.textXs.fontSize,
+    fontVariant: ["tabular-nums"] as FontVariant[],
+    fontWeight: "500",
+    lineHeight: agentChatTokenMap.textXs.lineHeight,
+  };
 
   return (
     <Pressable
@@ -108,13 +110,24 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
       accessibilityRole="button"
       onPress={onPress}
     >
-      <GlassPanel interactive style={styles.pill}>
+      <GlassPanel
+        interactive
+        style={{
+          alignItems: "center",
+          borderRadius: SCROLL_PILL_HEIGHT / 2,
+          height: SCROLL_PILL_HEIGHT,
+          justifyContent: "center",
+          minWidth: SCROLL_PILL_HEIGHT,
+          paddingLeft: showCopy ? 8 : 0,
+          paddingRight: showCopy ? 10 : 0,
+        }}
+      >
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           style={styles.row}
         >
-          <ChevronDownIcon color={theme.colors.label} size={14} strokeWidth={2} />
+          <ChevronDownIcon color={theme.colors.label} size={SCROLL_PILL_ICON} strokeWidth={2} />
           {showCopy ? (
             <View style={styles.copy}>
               {copy.scrollBelowPrefix.length > 0 ? (
@@ -139,17 +152,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 4,
   },
-  pill: {
-    alignItems: "center",
-    borderRadius: 18,
-    height: 36,
-    justifyContent: "center",
-    paddingHorizontal: 14,
-  },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 4,
+    gap: 6,
   },
   unit: {
     flexDirection: "row",

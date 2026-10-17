@@ -41,5 +41,17 @@ describe("scroll pill unit", () => {
     expect(pill).toContain("withSpring");
     expect(pill).toContain("SCROLL_UNIT_SPRING");
     expect(pill).toContain("if (reduced || !morphing)");
+    expect(pill).toContain("agentChatTokenMap.textXs");
+    expect(pill).toContain('fontWeight: "500"');
+    expect(pill).toContain('fontVariant: ["tabular-nums"]');
+    expect(pill).toContain("SCROLL_PILL_HEIGHT");
+    expect(pill).toContain("SCROLL_PILL_ICON");
+    expect(pill).toContain("paddingLeft: showCopy ? 8 : 0");
+    expect(pill).toContain("paddingRight: showCopy ? 10 : 0");
+    expect(pill).toContain("gap: 6");
+    expect(pill).not.toContain("fontSize: 14");
+    expect(pill).not.toContain("height: 36");
+    expect(pill).not.toContain("paddingHorizontal: 14");
+    expect(pill).not.toContain("size={14}");
   });
 });
