@@ -8,7 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import type { AgentMessage, AgentPart, AgentTurnUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
-import { CoinsIcon } from "@/ui/icons/lucide-native";
+import { CoinsIcon, FileTextIcon } from "@/ui/icons/lucide-native";
 import {
   compactTurnTokenLabel,
   copy,
@@ -25,6 +25,7 @@ import {
   visibleTurnFileChanges,
 } from "./turn-file-changes";
 import { TOOL_ADDITION_COLOR, TOOL_DELETION_COLOR } from "./tool-body";
+import { TURN_FILES_RADIUS, turnFilesBorder, turnFilesFill } from "./turn-files-chrome";
 
 function UsageBreakdown({ usage }: { usage: AgentTurnUsage }) {
   const theme = useMobileTheme();
@@ -95,13 +96,20 @@ function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
           borderStyle: "dashed",
           borderWidth: StyleSheet.hairlineWidth,
           flexDirection: "row",
-          gap: 4,
+          gap: 6,
           paddingHorizontal: 8,
           paddingVertical: 4,
         }}
       >
         <CoinsIcon color={theme.colors.secondaryLabel} size={12} />
-        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 10, lineHeight: 14 }}>
+        <Text
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: 10,
+            fontWeight: "500",
+            lineHeight: 14,
+          }}
+        >
           {label}
         </Text>
       </Pressable>
@@ -152,7 +160,11 @@ function WorkedForLabel({
   const textStyle = { color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 };
   if (!hasDuration || !hasClock) {
     return (
-      <Text style={textStyle}>{hasDuration ? presentation.durationLabel : presentation.clock}</Text>
+      <View style={styles.workedFor}>
+        <Text style={textStyle}>
+          {hasDuration ? presentation.durationLabel : presentation.clock}
+        </Text>
+      </View>
     );
   }
 
@@ -164,16 +176,18 @@ function WorkedForLabel({
       hitSlop={8}
       onPress={() => setShowDuration((current) => !current)}
     >
-      <View>
+      <View style={styles.workedFor}>
         <Text accessible={false} style={[textStyle, styles.sizer]}>
           {presentation.clock}
         </Text>
-        <Animated.Text style={[textStyle, styles.overlay, clockStyle]}>
-          {presentation.clock}
-        </Animated.Text>
-        <Animated.Text style={[textStyle, styles.overlay, durationStyle]}>
-          {presentation.durationLabel}
-        </Animated.Text>
+        <View pointerEvents="none" style={styles.overlay}>
+          <Animated.Text style={[textStyle, clockStyle]}>{presentation.clock}</Animated.Text>
+        </View>
+        <View pointerEvents="none" style={styles.overlay}>
+          <Animated.Text style={[textStyle, durationStyle]}>
+            {presentation.durationLabel}
+          </Animated.Text>
+        </View>
       </View>
     </Pressable>
   );
@@ -233,11 +247,11 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
   return (
     <View
       style={{
-        backgroundColor: theme.colors.cardSubtle,
-        borderColor: theme.colors.glassBorder,
+        backgroundColor: turnFilesFill(theme.isDark),
+        borderColor: turnFilesBorder(theme.isDark),
         borderCurve: "continuous",
-        borderRadius: 16,
-        borderWidth: StyleSheet.hairlineWidth,
+        borderRadius: TURN_FILES_RADIUS,
+        borderWidth: 1,
         marginTop: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
@@ -250,8 +264,15 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
         {shown.map((change) => (
           <View
             key={change.path}
-            style={{ alignItems: "center", flexDirection: "row", gap: 8, paddingVertical: 4 }}
+            style={{
+              alignItems: "center",
+              flexDirection: "row",
+              gap: 8,
+              paddingHorizontal: 6,
+              paddingVertical: 4,
+            }}
           >
+            <FileTextIcon color={theme.colors.secondaryLabel} size={16} />
             <Text
               numberOfLines={1}
               style={{ color: theme.colors.label, flex: 1, fontSize: 14, lineHeight: 20 }}
@@ -266,7 +287,7 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
         <Pressable
           accessibilityRole="button"
           onPress={() => setExpanded((current) => !current)}
-          style={{ alignSelf: "flex-start", marginTop: 4, paddingVertical: 4 }}
+          style={{ alignSelf: "flex-start", marginTop: 2, paddingVertical: 4 }}
         >
           <Text style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}>
             {expanded ? copy.filesShowLess : filesShowMoreLabel(hidden)}
@@ -279,11 +300,18 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
 
 const styles = StyleSheet.create({
   overlay: {
+    bottom: 0,
+    justifyContent: "center",
     left: 0,
     position: "absolute",
+    right: 0,
     top: 0,
   },
   sizer: {
     opacity: 0,
+  },
+  workedFor: {
+    height: 24,
+    justifyContent: "center",
   },
 });
