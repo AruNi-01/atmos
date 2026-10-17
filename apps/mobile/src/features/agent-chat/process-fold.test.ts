@@ -127,6 +127,29 @@ describe("process fold", () => {
     expect(label(3)).toBe("Wait for 3 background agents");
     expect(key("m1")).toBe("wait:m1");
   });
+
+  test("the rule is a 1px border and the worked-for label is 24px", async () => {
+    const fold = await importPure("process-fold.tsx");
+    const color = fold.processRuleColor as (isDark: boolean) => string;
+    expect(color(false)).toBe("rgba(0, 0, 0, 0.1)");
+    expect(color(true)).toBe("rgba(255, 255, 255, 0.1)");
+    expect(fold.PROCESS_ROW_GAP).toBe(8);
+    expect(fold.PROCESS_WORKED_FOR_HEIGHT).toBe(24);
+    const source = readFileSync(join(here, "process-fold.tsx"), "utf8");
+    const view = source.slice(source.indexOf("// @view"));
+    const foldView = view.slice(
+      view.indexOf("export function ProcessFold"),
+      view.indexOf("export function WaitForBlock"),
+    );
+    expect(view).toContain("marginBottom: PROCESS_ROW_GAP");
+    expect(foldView).toContain("processRuleColor");
+    expect(foldView).toContain("height: 1");
+    expect(foldView).toContain("lineHeight: 12");
+    expect(foldView).toContain("PROCESS_WORKED_FOR_HEIGHT");
+    expect(foldView).toContain("paddingTop: 4");
+    expect(foldView).not.toContain("hairlineWidth");
+    expect(foldView).not.toContain("glassBorder");
+  });
 });
 
 describe("tool group", () => {

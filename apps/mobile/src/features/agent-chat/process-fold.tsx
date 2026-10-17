@@ -41,10 +41,22 @@ export function agentChatWaitExpandKey(messageId: string): string {
   return `wait:${messageId}`;
 }
 
+/** Web process rule is `h-px bg-border`: 1px, black or white at 10%. */
+export const PROCESS_RULE_LIGHT = "rgba(0, 0, 0, 0.1)";
+export const PROCESS_RULE_DARK = "rgba(255, 255, 255, 0.1)";
+/** Web `space-y-2` / message `gap-2` between process rows. */
+export const PROCESS_ROW_GAP = 8;
+/** Web `AgentWorkedForLabel` is `min-h-6`. */
+export const PROCESS_WORKED_FOR_HEIGHT = 24;
+
+export function processRuleColor(isDark: boolean): string {
+  return isDark ? PROCESS_RULE_DARK : PROCESS_RULE_LIGHT;
+}
+
 // @view
 
 import { Children, isValidElement, useId, useLayoutEffect, useRef, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
@@ -112,7 +124,9 @@ function ProcessRows({
             key={id}
             play={shouldPlayPartReveal({ primed, seen: seen.has(id), streaming })}
           >
-            <View style={index < nodes.length - 1 ? { marginBottom: 6 } : undefined}>{child}</View>
+            <View style={index < nodes.length - 1 ? { marginBottom: PROCESS_ROW_GAP } : undefined}>
+              {child}
+            </View>
           </PartReveal>
         );
       })}
@@ -177,62 +191,64 @@ export function ProcessFold({
     </View>
   );
 
+  const toggle = () => {
+    const next = !expanded;
+    setExpanded(next);
+    if (next) setUserInspecting(true);
+  };
+  const worked = message.worked_ms != null && message.worked_ms > 0;
+  const headerLabel = (
+    <Text style={{ color: theme.colors.secondaryLabel, ...LABEL }}>
+      {processHeaderLabel(message.worked_ms)}
+    </Text>
+  );
+  const ruleColor = processRuleColor(theme.isDark);
+
   if (!canCollapse) {
     return revealedRows;
   }
 
   return (
-    <View style={{ gap: 4 }}>
+    <View>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        onPress={() => {
-          const next = !expanded;
-          setExpanded(next);
-          if (next) setUserInspecting(true);
-        }}
+        onPress={toggle}
         style={{
           alignItems: "center",
-          alignSelf: "flex-start",
+          alignSelf: "stretch",
           flexDirection: "row",
           gap: 4,
           paddingVertical: 2,
         }}
       >
-        <Text style={{ color: theme.colors.secondaryLabel, ...LABEL }}>
-          {processHeaderLabel(message.worked_ms)}
-        </Text>
-        <ExpandChevron open={expanded} />
+        {worked ? (
+          <View style={{ height: PROCESS_WORKED_FOR_HEIGHT, justifyContent: "center" }}>
+            {headerLabel}
+          </View>
+        ) : (
+          headerLabel
+        )}
+        <ExpandChevron open={expanded} size={12} />
       </Pressable>
-      {expanded ? (
-        <>
-          {revealedRows}
-          <Pressable
-            accessibilityLabel={copy.collapseLabel}
-            accessibilityRole="button"
-            onPress={() => setExpanded(false)}
-            style={{ alignItems: "center", flexDirection: "row", gap: 8, paddingVertical: 4 }}
-          >
-            <View
-              style={{
-                backgroundColor: theme.colors.glassBorder,
-                flex: 1,
-                height: StyleSheet.hairlineWidth,
-              }}
-            />
-            <Text style={{ color: theme.colors.secondaryLabel, ...LABEL }}>
+      {expanded ? <View style={{ paddingTop: 4 }}>{revealedRows}</View> : null}
+      <Pressable
+        accessibilityLabel={expanded ? copy.collapseLabel : undefined}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        onPress={toggle}
+        style={{ alignItems: "center", flexDirection: "row", gap: 8, paddingVertical: 4 }}
+      >
+        <View style={{ backgroundColor: ruleColor, flex: 1, height: 1 }} />
+        {expanded ? (
+          <>
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 12 }}>
               {copy.collapseLabel}
             </Text>
-            <View
-              style={{
-                backgroundColor: theme.colors.glassBorder,
-                flex: 1,
-                height: StyleSheet.hairlineWidth,
-              }}
-            />
-          </Pressable>
-        </>
-      ) : null}
+            <View style={{ backgroundColor: ruleColor, flex: 1, height: 1 }} />
+          </>
+        ) : null}
+      </Pressable>
     </View>
   );
 }
