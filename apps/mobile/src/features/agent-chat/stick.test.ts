@@ -131,6 +131,9 @@ describe("transcript stick wiring", () => {
     expect(transcript).toContain("stickToken");
     expect(transcript).toContain("stickScrollWhileJumping");
     expect(transcript).toContain("offsetFromMeasuredStride");
+    expect(transcript).toContain("transcriptItemLayout");
+    expect(transcript).toContain("jumpHasTailRoom");
+    expect(transcript).toContain("getItemLayout={extendTail ? layoutForJump : undefined}");
   });
 
   test("the thread flips stick when a send starts and hosts the pill row above the composer", () => {

@@ -3,8 +3,10 @@ import { describe, expect, test } from "bun:test";
 import { TRANSCRIPT_END_SLACK_PX } from "@atmos/agent-transcript";
 import {
   jumpFollowsTailAfterMiss,
+  jumpHasTailRoom,
   offsetFromMeasuredStride,
   stickScrollWhileJumping,
+  transcriptItemLayout,
   TRANSCRIPT_JUMP_FALLBACK_STRIDE,
 } from "./transcript-jump";
 
@@ -46,5 +48,34 @@ describe("offsetFromMeasuredStride", () => {
 
   test("uses the measured row size plus the list gap", () => {
     expect(offsetFromMeasuredStride(10, [{ size: 40 }, undefined, { size: 0 }], 12)).toBe(520);
+  });
+});
+
+describe("transcriptItemLayout", () => {
+  test("uses the short fallback before any row is measured", () => {
+    expect(transcriptItemLayout(99, [], 12)).toEqual({
+      index: 99,
+      length: TRANSCRIPT_JUMP_FALLBACK_STRIDE,
+      offset: 99 * TRANSCRIPT_JUMP_FALLBACK_STRIDE,
+    });
+  });
+
+  test("keeps a measured row and continues later rows from its bottom", () => {
+    const measurements = [{ size: 40, start: 16 }];
+    expect(transcriptItemLayout(0, measurements, 12)).toEqual({ index: 0, length: 40, offset: 16 });
+    expect(transcriptItemLayout(3, measurements, 12)).toEqual({
+      index: 3,
+      length: 40,
+      offset: 172,
+    });
+  });
+});
+
+describe("jumpHasTailRoom", () => {
+  test("waits until measured rows below the target cover the viewport and the slack", () => {
+    const short = [{ size: 20 }, { size: 100 }];
+    expect(jumpHasTailRoom(0, short, 100, 12)).toBe(false);
+    expect(jumpHasTailRoom(0, [{ size: 20 }, { size: 200 }], 100, 12)).toBe(true);
+    expect(jumpHasTailRoom(0, [{ size: 20 }, undefined, { size: 400 }], 100, 12)).toBe(false);
   });
 });

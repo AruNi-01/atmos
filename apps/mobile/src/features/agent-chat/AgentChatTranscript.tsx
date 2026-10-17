@@ -72,8 +72,10 @@ import { SessionChrome } from "./session-chrome";
 import { initialStickState, reduceStick, type StickAction } from "./stick";
 import {
   jumpFollowsTailAfterMiss,
+  jumpHasTailRoom,
   offsetFromMeasuredStride,
   stickScrollWhileJumping,
+  transcriptItemLayout,
   TRANSCRIPT_JUMP_FALLBACK_STRIDE,
 } from "./transcript-jump";
 import { ThinkingBlock } from "./thinking-block";
@@ -454,6 +456,9 @@ export const AgentChatTranscript = forwardRef<
   const seenStickToken = useRef(stickToken);
   const scrolledFocusRef = useRef<string | null>(null);
   const measurementsRef = useRef<Array<TranscriptMeasurement | undefined>>([]);
+  const jumpIndexRef = useRef(-1);
+  const extendTailRef = useRef(false);
+  const [extendTail, setExtendTailState] = useState(false);
   const rowCountRef = useRef(0);
   const viewRef = useRef({ distance: 0, height: 0, scrollTop: 0 });
   const rowsRef = useRef<AgentMessage[]>([]);
@@ -517,6 +522,35 @@ export const AgentChatTranscript = forwardRef<
     });
   }, []);
 
+  const setExtendTail = useCallback((next: boolean) => {
+    if (extendTailRef.current === next) return;
+    extendTailRef.current = next;
+    setExtendTailState(next);
+  }, []);
+  const layoutForJump = useCallback(
+    (_data: ArrayLike<AgentMessage> | null | undefined, index: number) =>
+      transcriptItemLayout(index, measurementsRef.current, AGENT_CHAT_TRANSCRIPT_GAP),
+    [],
+  );
+  const releaseExtendIfRoom = useCallback(() => {
+    if (!extendTailRef.current) return;
+    if (
+      !jumpHasTailRoom(
+        jumpIndexRef.current,
+        measurementsRef.current,
+        viewRef.current.height,
+        AGENT_CHAT_TRANSCRIPT_GAP,
+      )
+    ) {
+      return;
+    }
+    setExtendTail(false);
+  }, [setExtendTail]);
+  const stopExtend = useCallback(() => {
+    jumpIndexRef.current = -1;
+    setExtendTail(false);
+  }, [setExtendTail]);
+
   const measureApi = useRef<RowMeasureApi>({
     clear(index) {
       if (measurementsRef.current[index] === undefined) return;
@@ -530,6 +564,7 @@ export const AgentChatTranscript = forwardRef<
       }
       measurementsRef.current[index] = measurement;
       publishBelow();
+      releaseExtendIfRoom();
     },
   });
 
@@ -563,13 +598,22 @@ export const AgentChatTranscript = forwardRef<
       programmaticAwayRef.current = true;
       userDraggedRef.current = false;
       jumpRetryIndexRef.current = -1;
+      jumpIndexRef.current = index;
       if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
       applyStick({
         type: "scroll",
         distance: TRANSCRIPT_END_SLACK_PX + 1,
         userDragged: true,
       });
-      listRef.current?.scrollToIndex({ animated, index, viewPosition: 0 });
+      const earlier = !jumpFollowsTailAfterMiss(index, rowsRef.current.length);
+      const needsLayout = earlier && !extendTailRef.current;
+      if (needsLayout) setExtendTail(true);
+      const scroll = () => {
+        listRef.current?.scrollToIndex({ animated, index, viewPosition: 0 });
+      };
+      // The estimated tail is on the next commit. Scrolling before that clamps.
+      if (needsLayout) requestAnimationFrame(() => requestAnimationFrame(scroll));
+      else scroll();
       // If the jump never leaves the end, follow the tail only when the target
       // is the last row. An earlier row stays unstuck so a short tail can grow
       // under it. A jump that already landed away keeps ignoring a stale end.
@@ -585,7 +629,7 @@ export const AgentChatTranscript = forwardRef<
         });
       }, 800);
     },
-    [applyStick],
+    [applyStick, setExtendTail],
   );
 
   const recoverScrollIndex = useCallback((index: number) => {
@@ -623,11 +667,12 @@ export const AgentChatTranscript = forwardRef<
         jumpSawAwayRef.current = false;
         if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
         userDraggedRef.current = false;
+        stopExtend();
         applyStick({ type: "scroll", distance: 0, userDragged: false });
         listRef.current?.scrollToEnd({ animated: true });
       },
     }),
-    [applyStick, jumpToIndex],
+    [applyStick, jumpToIndex, stopExtend],
   );
 
   const onScroll = useCallback(
@@ -642,8 +687,9 @@ export const AgentChatTranscript = forwardRef<
       applyScrollStick(viewRef.current.distance);
       publishBelow();
       emitViewport();
+      releaseExtendIfRoom();
     },
-    [applyScrollStick, emitViewport, publishBelow, syncTopFade],
+    [applyScrollStick, emitViewport, publishBelow, releaseExtendIfRoom, syncTopFade],
   );
 
   const onScrollBeginDrag = useCallback(() => {
@@ -651,7 +697,8 @@ export const AgentChatTranscript = forwardRef<
     jumpSawAwayRef.current = false;
     if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
     userDraggedRef.current = true;
-  }, []);
+    stopExtend();
+  }, [stopExtend]);
 
   const onScrollEndDrag = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -704,11 +751,12 @@ export const AgentChatTranscript = forwardRef<
       const height = event.nativeEvent.layout.height;
       viewRef.current = { ...viewRef.current, height };
       publishBelow();
+      releaseExtendIfRoom();
       if (height === listHeightRef.current) return;
       listHeightRef.current = height;
       scrollToEndIfStuck(false);
     },
-    [publishBelow, scrollToEndIfStuck],
+    [publishBelow, releaseExtendIfRoom, scrollToEndIfStuck],
   );
 
   const rows = messages;
@@ -774,6 +822,7 @@ export const AgentChatTranscript = forwardRef<
           }}
           contentInsetAdjustmentBehavior="never"
           data={rows}
+          getItemLayout={extendTail ? layoutForJump : undefined}
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
