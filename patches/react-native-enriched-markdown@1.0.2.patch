@@ -453,17 +453,19 @@ index 03c8db575..cc931e069 100644
    if (newStyle.codeBlock.syntaxColors.field != oldStyle.codeBlock.syntaxColors.field) {                                \
      [config setCodeBlockSyntaxColor:RCTUIColorFromSharedColor(newStyle.codeBlock.syntaxColors.field)                   \
 diff --git a/ios/views/ENRMCodeBlockContainerView.m b/ios/views/ENRMCodeBlockContainerView.m
-index a668c26eb..8fded3713 100644
+index a668c26eb..28d0d66e7 100644
 --- a/ios/views/ENRMCodeBlockContainerView.m
 +++ b/ios/views/ENRMCodeBlockContainerView.m
-@@ -1,5 +1,6 @@
+@@ -1,5 +1,8 @@
  #import "ENRMCodeBlockContainerView.h"
  #import "ENRMCodeBlockContent.h"
-+#import "ENRMFenceIcons.h"
++// Fence glyphs live in this file. Bun 1.3.14 cannot apply a patch that adds a file.
++void ENRMDrawNamedFenceIcon(CGContextRef context, NSString *key, CGRect box, BOOL darkInk);
++void ENRMDrawFenceIcon(CGContextRef context, NSString *_Nullable language, CGRect box, BOOL darkInk);
  #import "ENRMCodeBlockHighlighter.h"
  #import "MarkdownASTNode.h"
  #import "PasteboardUtils.h"
-@@ -20,25 +21,115 @@
+@@ -20,25 +23,115 @@
  // header metrics, so the reported height matches the drawn height. Since
  // lines never wrap, the height is independent of the available width.
  
@@ -490,7 +492,9 @@ index a668c26eb..8fded3713 100644
 +static const CGFloat kENRMWebHeaderFontSize = 12.0;
 +// Lucide `CopyIcon` default is `size={14}`: a 14px box, not an SF Symbol font size.
 +static const CGFloat kENRMWebCopyGlyph = 14.0;
-+
+ 
+-// Height geometry and code-run construction shared by the instance layout path
+-// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
 +// Collapsed web `CodeBlockContent` is `max-h-96` (384). Zero keeps the full pane
 +// so a tool fence can grow when React removes its clip.
 +static CGFloat ENRMWebCodePaneHeight(CGFloat codeHeight, CGFloat maxHeight)
@@ -501,9 +505,7 @@ index a668c26eb..8fded3713 100644
 +  }
 +  return full;
 +}
- 
--// Height geometry and code-run construction shared by the instance layout path
--// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
++
 +// Lucide Copy / Check in the same 14px box as web `CopyButton`. Drawn from the
 +// fence-icon catalog so the stroke matches the web svg, then tinted by the button.
 +#if !TARGET_OS_OSX
@@ -543,9 +545,11 @@ index a668c26eb..8fded3713 100644
 +{
 +  return ENRMWebTemplateGlyph(@"copy");
 +}
-+
+ 
+-static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
 +static NSImage *ENRMWebCheckGlyphImage(void)
-+{
+ {
+-  return [config codeBlockPadding] + [config codeBlockBorderWidth];
 +  return ENRMWebTemplateGlyph(@"check");
 +}
 +#endif
@@ -566,18 +570,16 @@ index a668c26eb..8fded3713 100644
 +    return [RCTUIColor colorWithRed:(0xA3 / 255.0) green:(0xA3 / 255.0) blue:(0xA3 / 255.0) alpha:1];
 +  }
 +  return [RCTUIColor colorWithRed:(0x52 / 255.0) green:(0x52 / 255.0) blue:(0x52 / 255.0) alpha:1];
-+}
+ }
  
--static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
 +static RCTUIColor *ENRMWebCodePaneColor(BOOL dark)
- {
--  return [config codeBlockPadding] + [config codeBlockBorderWidth];
++{
 +  if (dark) {
 +    return [RCTUIColor colorWithRed:0 green:0 blue:0 alpha:1];
 +  }
 +  return [RCTUIColor colorWithRed:(0xF4 / 255.0) green:(0xF4 / 255.0) blue:(0xF6 / 255.0) alpha:1];
- }
- 
++}
++
 +// Height geometry and code-run construction shared by the instance layout path
 +// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
 +
@@ -590,7 +592,7 @@ index a668c26eb..8fded3713 100644
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
-@@ -48,7 +139,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
+@@ -48,7 +141,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
  #else
  static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
  {
@@ -600,7 +602,7 @@ index a668c26eb..8fded3713 100644
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
-@@ -164,6 +256,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -164,6 +258,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    NSFont *_headerFont;
    NSButton *_copyButton;
  #endif
@@ -608,7 +610,7 @@ index a668c26eb..8fded3713 100644
  }
  
  @synthesize copyLabel = _copyLabel;
-@@ -217,23 +310,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -217,23 +312,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [self addInteraction:contextMenu];
  
      _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -639,7 +641,7 @@ index a668c26eb..8fded3713 100644
      [self addSubview:_copyButton];
  #endif
    }
-@@ -274,40 +361,42 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -274,40 +363,42 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  {
    CGFloat borderW = ceil([_config codeBlockBorderWidth]);
    CGFloat headerH = [self headerHeight];
@@ -701,7 +703,7 @@ index a668c26eb..8fded3713 100644
  }
  
  #if !TARGET_OS_OSX
-@@ -385,7 +474,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -385,7 +476,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    }
    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
    labelAttributes[NSFontAttributeName] = _headerFont;
@@ -712,7 +714,7 @@ index a668c26eb..8fded3713 100644
    if (labelColor) {
      labelAttributes[NSForegroundColorAttributeName] = labelColor;
    }
-@@ -398,23 +489,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -398,23 +491,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
  }
  
@@ -739,7 +741,7 @@ index a668c26eb..8fded3713 100644
  }
  
  - (void)drawRect:(CGRect)rect
-@@ -434,6 +518,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -434,6 +520,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [backgroundColor setFill];
      [path fill];
    }
@@ -762,7 +764,7 @@ index a668c26eb..8fded3713 100644
    if (borderWidth > 0) {
      RCTUIColor *borderColor = [_config codeBlockBorderColor];
      if (borderColor) {
-@@ -443,24 +543,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -443,24 +545,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      }
    }
  
@@ -796,7 +798,7 @@ index a668c26eb..8fded3713 100644
    }
  }
  
-@@ -469,12 +565,48 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -469,12 +567,48 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return ENRMCodeBlockFencedMarkdown(_cachedCode, _cachedLanguage, _fenceChar);
  }
  
@@ -845,7 +847,7 @@ index a668c26eb..8fded3713 100644
  }
  
  - (void)copyMarkdownToPasteboard
-@@ -495,7 +627,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -495,7 +629,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
                     actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                       UIAction *copyCode =
                           [UIAction actionWithTitle:self.copyLabel
@@ -854,37 +856,16 @@ index a668c26eb..8fded3713 100644
                                          identifier:nil
                                             handler:^(__kindof UIAction *action) { [self copyCodeToPasteboard]; }];
  
-diff --git a/ios/views/ENRMFenceIcons.h b/ios/views/ENRMFenceIcons.h
-new file mode 100644
-index 000000000..297132d4d
---- /dev/null
-+++ b/ios/views/ENRMFenceIcons.h
-@@ -0,0 +1,14 @@
-+#import <CoreGraphics/CoreGraphics.h>
-+#import <Foundation/Foundation.h>
+@@ -561,3 +695,803 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+ #endif
+ 
+ @end
 +
-+NS_ASSUME_NONNULL_BEGIN
-+
-+// Web MarkdownCodeBlock header glyph in a 16pt box. `language` is the raw fence
-+// token. An empty token draws Lucide Code. `diff` draws Lucide FileDiff. Other
-+// tokens draw the FileIcon web uses for that language.
-+void ENRMDrawFenceIcon(CGContextRef context, NSString *_Nullable language, CGRect box, BOOL darkInk);
-+
-+// Draws one catalog glyph by key (`copy`, `check`, `code`, `ts`, ...).
-+void ENRMDrawNamedFenceIcon(CGContextRef context, NSString *key, CGRect box, BOOL darkInk);
-+
-+NS_ASSUME_NONNULL_END
-diff --git a/ios/views/ENRMFenceIcons.m b/ios/views/ENRMFenceIcons.m
-new file mode 100644
-index 000000000..8224d1b70
---- /dev/null
-+++ b/ios/views/ENRMFenceIcons.m
-@@ -0,0 +1,799 @@
 +// Generated by scripts/agent-chat-parity/fence-icons.mjs.
++// Appended to ENRMCodeBlockContainerView.m. Bun 1.3.14 rejects a patch that
++// adds a file (EACCES on mkdir).
 +// Web MarkdownCodeBlock header glyphs: Lucide Code, Copy, Check, and FileDiff,
 +// plus @react-symbols/icons FileIcon. Coordinates are a 16×16 box.
-+#import "ENRMFenceIcons.h"
-+#import <CoreGraphics/CoreGraphics.h>
 +
 +static const float kENRMFence_code[] = {
 +    1, 10.667, 12, 2, 14.667, 8, 2, 10.667, 4, 11, -1, -1,

@@ -851,8 +851,8 @@ SOFTWARE.
 
 Source:    https://github.com/lucide-icons/lucide
 Location:  patches/react-native-enriched-markdown@1.0.2.patch
-           (ios/views/ENRMFenceIcons.m, the "code", "file-diff", "copy",
-           and "check" glyphs)
+           (ios/views/ENRMCodeBlockContainerView.m, the "code", "file-diff",
+           "copy", and "check" glyphs)
 License:   ISC
 Copyright: (c) 2026 Lucide Icons and Contributors
 

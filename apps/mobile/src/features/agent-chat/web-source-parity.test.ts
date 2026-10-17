@@ -114,6 +114,8 @@ describe("web source parity", () => {
     expect(patch).toContain("kENRMWebHeaderIcon = 16.0");
     expect(patch).toContain("kENRMWebHeaderIconGap = 8.0");
     expect(patch).toContain("ENRMDrawFenceIcon");
+    expect(patch).not.toContain("new file mode");
+    expect(patch).not.toContain("ENRMFenceIcons.h");
     expect(patch).toContain('@"file-diff"');
     expect(patch).toContain('if ([lang isEqualToString:@"typescript"]) return @"ts";');
     expect(patch).toContain("0.145, 0.388, 0.922");
