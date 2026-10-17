@@ -142,8 +142,18 @@ describe("tool body presentation", () => {
     expect(discussion).toContain("toolDiffWordFill(line.op, theme.isDark)");
     expect(discussion).toContain("piece.changed ? { backgroundColor: wordFill }");
     expect(discussion).toContain("toolDiffVisibleRows(segments, revealed)");
-    expect(discussion).toContain("toolDiffUnmodifiedLabel(row.count)");
-    expect(discussion).toContain("TOOL_DIFF_SEPARATOR_HEIGHT");
+    expect(discussion).toContain("DiffHunkSeparator");
+    expect(discussion).toContain("toolDiffRevealMore(current[row.segment], direction)");
+    const separator = view.slice(
+      view.indexOf("function DiffExpandGlyph"),
+      view.indexOf("function DiscussionDiff"),
+    );
+    expect(separator).toContain("toolDiffUnmodifiedLabel(row.count)");
+    expect(separator).toContain("TOOL_DIFF_SEPARATOR_HEIGHT");
+    expect(separator).toContain("TOOL_DIFF_EXPAND_BUTTON");
+    expect(separator).toContain("toolDiffExpandButtons(row.place, row.range)");
+    expect(separator).toContain("toolDiffSeparatorMargin(row.place)");
+    expect(separator).toContain('direction === "down" ? { transform: [{ scaleY: -1 }] }');
     expect(discussion).not.toContain("minWidth: 28");
     expect(discussion).toContain("FileTextIcon");
     expect(discussion).not.toContain("PathChip");

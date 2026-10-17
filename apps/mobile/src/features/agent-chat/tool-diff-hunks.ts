@@ -10,7 +10,23 @@ export const TOOL_DIFF_CONTEXT_THRESHOLD = 1;
 export const TOOL_DIFF_EXPAND_LINES = 100;
 export const TOOL_DIFF_SEPARATOR_HEIGHT = 32;
 export const TOOL_DIFF_SEPARATOR_INSET = 8;
+export const TOOL_DIFF_SEPARATOR_MARGIN = 8;
 export const TOOL_DIFF_SEPARATOR_RADIUS = 6;
+/** `@media (pointer: fine)` column. Web discussion diffs use that layout. */
+export const TOOL_DIFF_EXPAND_BUTTON = 34;
+export const TOOL_DIFF_EXPAND_RULE = 2;
+export const TOOL_DIFF_EXPAND_ICON = 16;
+/** `padding: 0 1ch` on the 13px header font. Same 0.6em advance as the code gutter. */
+export const TOOL_DIFF_SEPARATOR_TEXT_PAD = (13 * 6) / 10;
+/**
+ * Pierre `diffs-icon-expand`. The path points down. `[data-expand-down]`
+ * applies `scaleY(-1)`, so a leading separator's button points up.
+ */
+export const TOOL_DIFF_EXPAND_ICON_PATH =
+  "M3.47 5.47a.75.75 0 0 1 1.06 0L8 8.94l3.47-3.47a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 0 1 0-1.06";
+/** Pierre `diffs-icon-expand-all`, used when one button reveals both ends. */
+export const TOOL_DIFF_EXPAND_ALL_ICON_PATH =
+  "M11.47 9.47a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06L8 12.94zM7.526 1.418a.75.75 0 0 1 1.004.052l4 4a.75.75 0 1 1-1.06 1.06L8 3.06 4.53 6.53a.75.75 0 1 1-1.06-1.06l4-4z";
 /** `color-mix(in lab, page 96%, #000)` and `color-mix(in lab, page 85%, #fff)`. */
 export const TOOL_DIFF_SEPARATOR_LIGHT = "#e9e9eb";
 export const TOOL_DIFF_SEPARATOR_DARK = "#262626";
@@ -28,9 +44,19 @@ export type ToolDiffSegment =
 
 export type ToolDiffReveal = { fromStart: number; fromEnd: number };
 
+export type ToolDiffGapPlace = "first" | "middle" | "last" | "only";
+export type ToolDiffExpandDirection = "up" | "down" | "both";
+
 export type ToolDiffVisibleRow =
   | { kind: "line"; line: ToolDiffHunkLine }
-  | { kind: "gap"; segment: number; count: number; edge: "start" | "end" };
+  | {
+      kind: "gap";
+      segment: number;
+      count: number;
+      /** Original gap length. Pierre stacks two buttons when this exceeds 100. */
+      range: number;
+      place: ToolDiffGapPlace;
+    };
 
 export function toolDiffUnmodifiedLabel(count: number): string {
   return `${count} unmodified line${count === 1 ? "" : "s"}`;
@@ -175,18 +201,50 @@ export function toolDiffSegmentsFromPatch(patch: string): ToolDiffSegment[] {
 
 export function toolDiffRevealMore(
   current: ToolDiffReveal | undefined,
-  edge: "start" | "end",
+  direction: ToolDiffExpandDirection,
 ): ToolDiffReveal {
   const base = current ?? { fromStart: 0, fromEnd: 0 };
-  if (edge === "end") return { ...base, fromEnd: base.fromEnd + TOOL_DIFF_EXPAND_LINES };
-  return { ...base, fromStart: base.fromStart + TOOL_DIFF_EXPAND_LINES };
+  return {
+    fromStart:
+      base.fromStart + (direction === "up" || direction === "both" ? TOOL_DIFF_EXPAND_LINES : 0),
+    fromEnd:
+      base.fromEnd + (direction === "down" || direction === "both" ? TOOL_DIFF_EXPAND_LINES : 0),
+  };
+}
+
+/** Pierre's button set for a line-info separator. The label itself is always "both". */
+export function toolDiffExpandButtons(
+  place: ToolDiffGapPlace,
+  range: number,
+): ToolDiffExpandDirection[] {
+  const chunked = range > TOOL_DIFF_EXPAND_LINES;
+  if (!chunked) {
+    if (place === "last") return ["up"];
+    if (place === "middle") return ["both"];
+    return ["down"];
+  }
+  const buttons: ToolDiffExpandDirection[] = [];
+  if (place !== "first" && place !== "only") buttons.push("up");
+  if (place !== "last" && place !== "only") buttons.push("down");
+  return buttons;
+}
+
+/** `margin-block: 8px`, with the outer edge of a leading or trailing separator cleared. */
+export function toolDiffSeparatorMargin(place: ToolDiffGapPlace): {
+  marginBottom: number;
+  marginTop: number;
+} {
+  return {
+    marginTop: place === "first" || place === "only" ? 0 : TOOL_DIFF_SEPARATOR_MARGIN,
+    marginBottom: place === "last" || place === "only" ? 0 : TOOL_DIFF_SEPARATOR_MARGIN,
+  };
 }
 
 function gapRows(
   segment: number,
   lines: readonly ToolDiffHunkLine[],
   reveal: ToolDiffReveal | undefined,
-  edge: "start" | "end",
+  place: ToolDiffGapPlace,
 ): ToolDiffVisibleRow[] {
   const fromStart = reveal?.fromStart ?? 0;
   const fromEnd = reveal?.fromEnd ?? 0;
@@ -199,7 +257,8 @@ function gapRows(
     kind: "gap",
     segment,
     count: lines.length - fromStart - fromEnd,
-    edge,
+    range: lines.length,
+    place,
   });
   if (fromEnd > 0) {
     for (const line of lines.slice(lines.length - fromEnd)) rows.push({ kind: "line", line });
@@ -207,21 +266,26 @@ function gapRows(
   return rows;
 }
 
+function gapPlace(segments: readonly ToolDiffSegment[], index: number): ToolDiffGapPlace {
+  const hasLinesBefore = segments.slice(0, index).some((segment) => segment.kind === "lines");
+  const hasLinesAfter = segments.slice(index + 1).some((segment) => segment.kind === "lines");
+  if (!hasLinesBefore && !hasLinesAfter) return "only";
+  if (!hasLinesBefore) return "first";
+  if (!hasLinesAfter) return "last";
+  return "middle";
+}
+
 /** Collapsed gaps stay hidden until `revealed` pulls lines in from one edge. */
 export function toolDiffVisibleRows(
   segments: readonly ToolDiffSegment[],
   revealed: Readonly<Record<number, ToolDiffReveal>> = {},
 ): ToolDiffVisibleRow[] {
-  const onlyGap = segments.length === 1 && segments[0]?.kind === "gap";
   const rows: ToolDiffVisibleRow[] = [];
-  let seenLines = false;
   segments.forEach((segment, index) => {
     if (segment.kind === "gap") {
-      const edge = seenLines || onlyGap ? "start" : "end";
-      rows.push(...gapRows(index, segment.lines, revealed[index], edge));
+      rows.push(...gapRows(index, segment.lines, revealed[index], gapPlace(segments, index)));
       return;
     }
-    seenLines = true;
     for (const line of segment.lines) rows.push({ kind: "line", line });
   });
   return rows;

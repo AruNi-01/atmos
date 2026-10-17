@@ -1053,7 +1053,7 @@ export function toolBodyUsesPanel(model: ToolBodyModel, partKind: string): boole
 
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Animated, Image, Pressable, ScrollView, Text, View } from "react-native";
-import Svg, { Defs, Pattern, Rect } from "react-native-svg";
+import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
 import * as Clipboard from "expo-clipboard";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
@@ -1079,15 +1079,25 @@ import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
 import { toolDiffLineWordPieces, toolDiffWordFill } from "./tool-diff-words";
 import {
+  TOOL_DIFF_EXPAND_ALL_ICON_PATH,
+  TOOL_DIFF_EXPAND_BUTTON,
+  TOOL_DIFF_EXPAND_ICON,
+  TOOL_DIFF_EXPAND_ICON_PATH,
+  TOOL_DIFF_EXPAND_RULE,
   TOOL_DIFF_SEPARATOR_HEIGHT,
   TOOL_DIFF_SEPARATOR_INSET,
   TOOL_DIFF_SEPARATOR_RADIUS,
+  TOOL_DIFF_SEPARATOR_TEXT_PAD,
+  toolDiffExpandButtons,
   toolDiffRevealMore,
   toolDiffSegmentsFromPatch,
   toolDiffSeparatorFill,
+  toolDiffSeparatorMargin,
   toolDiffUnmodifiedLabel,
   toolDiffVisibleRows,
+  type ToolDiffExpandDirection,
   type ToolDiffReveal,
+  type ToolDiffVisibleRow,
 } from "./tool-diff-hunks";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
 import { useReducedMotion } from "./motion/use-reduced-motion";
@@ -1508,6 +1518,119 @@ function DiffDeletionBar({ band, ink }: { band: string; ink: string }) {
   );
 }
 
+function DiffExpandGlyph({
+  direction,
+  color,
+}: {
+  direction: ToolDiffExpandDirection;
+  color: string;
+}) {
+  return (
+    <Svg
+      height={TOOL_DIFF_EXPAND_ICON}
+      style={direction === "down" ? { transform: [{ scaleY: -1 }] } : undefined}
+      viewBox="0 0 16 16"
+      width={TOOL_DIFF_EXPAND_ICON}
+    >
+      <Path
+        d={direction === "both" ? TOOL_DIFF_EXPAND_ALL_ICON_PATH : TOOL_DIFF_EXPAND_ICON_PATH}
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+function DiffHunkSeparator({
+  page,
+  row,
+  isDark,
+  onExpand,
+}: {
+  page: string;
+  row: Extract<ToolDiffVisibleRow, { kind: "gap" }>;
+  isDark: boolean;
+  onExpand: (direction: ToolDiffExpandDirection) => void;
+}) {
+  const fill = toolDiffSeparatorFill(isDark);
+  const ink = toolDiffContextNumber(isDark);
+  const buttons = toolDiffExpandButtons(row.place, row.range);
+  const margin = toolDiffSeparatorMargin(row.place);
+  const stacked = buttons.length > 1;
+  return (
+    <View
+      style={{
+        backgroundColor: page,
+        height: TOOL_DIFF_SEPARATOR_HEIGHT,
+        marginBottom: margin.marginBottom,
+        marginTop: margin.marginTop,
+      }}
+    >
+      <View
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          marginHorizontal: TOOL_DIFF_SEPARATOR_INSET,
+        }}
+      >
+        {buttons.length > 0 ? (
+          <View style={{ width: TOOL_DIFF_EXPAND_BUTTON }}>
+            {buttons.map((direction) => (
+              <Pressable
+                key={direction}
+                accessibilityRole="button"
+                onPress={() => onExpand(direction)}
+                style={{
+                  alignItems: "center",
+                  backgroundColor: fill,
+                  borderBottomLeftRadius:
+                    !stacked || direction === "down" ? TOOL_DIFF_SEPARATOR_RADIUS : 0,
+                  borderBottomWidth: stacked && direction === "up" ? 1 : 0,
+                  borderColor: page,
+                  borderRightWidth: TOOL_DIFF_EXPAND_RULE,
+                  borderTopLeftRadius:
+                    !stacked || direction === "up" || direction === "both"
+                      ? TOOL_DIFF_SEPARATOR_RADIUS
+                      : 0,
+                  borderTopWidth: stacked && direction === "down" ? 1 : 0,
+                  flex: 1,
+                  justifyContent: "center",
+                }}
+              >
+                <DiffExpandGlyph color={ink} direction={direction} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onExpand("both")}
+          style={{
+            backgroundColor: fill,
+            borderBottomLeftRadius: buttons.length > 0 ? 0 : TOOL_DIFF_SEPARATOR_RADIUS,
+            borderBottomRightRadius: TOOL_DIFF_SEPARATOR_RADIUS,
+            borderTopLeftRadius: buttons.length > 0 ? 0 : TOOL_DIFF_SEPARATOR_RADIUS,
+            borderTopRightRadius: TOOL_DIFF_SEPARATOR_RADIUS,
+            flex: 1,
+            justifyContent: "center",
+            paddingHorizontal: TOOL_DIFF_SEPARATOR_TEXT_PAD,
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={{
+              color: ink,
+              fontSize: TOOL_DIFF_CODE_FONT,
+              lineHeight: TOOL_DIFF_LINE_HEIGHT,
+            }}
+          >
+            {toolDiffUnmodifiedLabel(row.count)}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function DiscussionDiff({
   path,
   segments,
@@ -1585,43 +1708,18 @@ function DiscussionDiff({
               return rows.map((row, index) => {
                 if (row.kind === "gap") {
                   return (
-                    <Pressable
+                    <DiffHunkSeparator
                       key={`gap:${row.segment}:${index}`}
-                      accessibilityRole="button"
-                      onPress={() => {
+                      isDark={theme.isDark}
+                      onExpand={(direction) => {
                         setRevealed((current) => ({
                           ...current,
-                          [row.segment]: toolDiffRevealMore(current[row.segment], row.edge),
+                          [row.segment]: toolDiffRevealMore(current[row.segment], direction),
                         }));
                       }}
-                      style={{
-                        backgroundColor: theme.colors.background,
-                        height: TOOL_DIFF_SEPARATOR_HEIGHT,
-                        justifyContent: "center",
-                        paddingHorizontal: TOOL_DIFF_SEPARATOR_INSET,
-                      }}
-                    >
-                      <View
-                        style={{
-                          backgroundColor: toolDiffSeparatorFill(theme.isDark),
-                          borderRadius: TOOL_DIFF_SEPARATOR_RADIUS,
-                          flex: 1,
-                          justifyContent: "center",
-                          paddingHorizontal: TOOL_DIFF_SEPARATOR_INSET,
-                        }}
-                      >
-                        <Text
-                          numberOfLines={1}
-                          style={{
-                            color: toolDiffContextNumber(theme.isDark),
-                            fontSize: TOOL_DIFF_CODE_FONT,
-                            lineHeight: TOOL_DIFF_LINE_HEIGHT,
-                          }}
-                        >
-                          {toolDiffUnmodifiedLabel(row.count)}
-                        </Text>
-                      </View>
-                    </Pressable>
+                      page={theme.colors.background}
+                      row={row}
+                    />
                   );
                 }
                 const line = row.line;
