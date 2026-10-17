@@ -1724,14 +1724,19 @@ function ImageGenBody({ model }: { model: Extract<ToolBodyModel, { kind: "image_
   );
 }
 
-function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "plan_document" }> }) {
+function PlanDocumentBody({
+  model,
+  pane,
+}: {
+  model: Extract<ToolBodyModel, { kind: "plan_document" }>;
+  pane: "body" | "todos";
+}) {
   const theme = useMobileTheme();
   const hasBody = model.plan.length > 0;
   const hasTodos = model.todos.length > 0;
-  const [pane, setPane] = useState<"body" | "todos">(hasBody ? "body" : "todos");
   const showing: "body" | "todos" = hasBody && hasTodos ? pane : hasBody ? "body" : "todos";
   return (
-    <View style={{ gap: 8 }}>
+    <View>
       {model.overview ? (
         <Text
           style={{
@@ -1744,22 +1749,6 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
         >
           {model.overview}
         </Text>
-      ) : null}
-      {hasBody && hasTodos ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setPane(showing === "body" ? "todos" : "body")}
-          style={{ alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 4 }}
-        >
-          {showing === "body" ? (
-            <ListTodoIcon color={chatMutedForeground(theme.isDark)} size={12} strokeWidth={2} />
-          ) : (
-            <ScrollTextIcon color={chatMutedForeground(theme.isDark)} size={12} strokeWidth={2} />
-          )}
-          <Text style={{ color: chatMutedForeground(theme.isDark), fontSize: 11, lineHeight: 16 }}>
-            {planPaneSwitchLabel(showing, model.todos.length)}
-          </Text>
-        </Pressable>
       ) : null}
       {showing === "body" && hasBody ? (
         <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
@@ -1784,7 +1773,13 @@ function PlanDocumentBody({ model }: { model: Extract<ToolBodyModel, { kind: "pl
   );
 }
 
-function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subagent" }> }) {
+function ToolBodyView({
+  model,
+  planPane,
+}: {
+  model: Exclude<ToolBodyModel, { kind: "subagent" }>;
+  planPane: "body" | "todos";
+}) {
   const theme = useMobileTheme();
   const movePathStyle = {
     color: chatForeground80(theme.isDark),
@@ -1878,7 +1873,7 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
     case "todos":
       return <TodoStatusRows items={model.items} />;
     case "plan_document":
-      return <PlanDocumentBody model={model} />;
+      return <PlanDocumentBody model={model} pane={planPane} />;
     case "image_gen":
       return <ImageGenBody model={model} />;
     case "preview":
@@ -2082,6 +2077,10 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const model = toolBodyModel(part);
   const chrome = toolRowChrome(part, presentAgentTool(part));
   const imageActive = model.kind === "image_gen" && imageGenStaysOpen(part.status);
+  const planTodoCount = model.kind === "plan_document" ? model.todos.length : 0;
+  const planCanSwitch =
+    model.kind === "plan_document" && model.plan.length > 0 && planTodoCount > 0;
+  const [planPane, setPlanPane] = useState<"body" | "todos">("body");
   const [open, setOpen] = useAgentChatExpand(
     agentChatToolExpandKey(part.tool_call_id),
     (model.kind === "plan_document" && planDocumentStartsOpen(model)) || imageActive,
@@ -2113,57 +2112,96 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
     fontSize: metrics.fontSize,
     lineHeight: metrics.lineHeight,
   };
+  const toggleOpen = () => {
+    if (imageActive && open) return;
+    setOpen(!open);
+  };
   return (
     <View style={{ paddingVertical: metrics.padY }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={() => {
-          if (imageActive && open) return;
-          setOpen(!open);
+      <View
+        style={{
+          alignItems: "center",
+          flexDirection: "row",
+          gap: planCanSwitch ? 4 : 0,
         }}
-        style={{ alignItems: "center", flexDirection: "row", gap: metrics.gap }}
       >
-        <View
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          onPress={toggleOpen}
           style={{
             alignItems: "center",
-            height: metrics.iconBox,
-            justifyContent: "center",
-            width: metrics.iconBox,
+            flexDirection: "row",
+            flexShrink: 1,
+            gap: metrics.gap,
+            ...(planCanSwitch ? null : { flex: 1 }),
           }}
         >
-          {part.kind === "plan_document" ? (
-            <ScrollTextIcon color={muted} size={metrics.iconSize} strokeWidth={2} />
-          ) : part.kind === "fetch" ? (
-            <HttpFavicon url={fetchRowUrl(part)} size={metrics.iconBox} radius={3} />
+          <View
+            style={{
+              alignItems: "center",
+              height: metrics.iconBox,
+              justifyContent: "center",
+              width: metrics.iconBox,
+            }}
+          >
+            {part.kind === "plan_document" ? (
+              <ScrollTextIcon color={muted} size={metrics.iconSize} strokeWidth={2} />
+            ) : part.kind === "fetch" ? (
+              <HttpFavicon url={fetchRowUrl(part)} size={metrics.iconBox} radius={3} />
+            ) : (
+              <ToolKindIcon color={muted} kind={part.kind} size={metrics.iconSize} />
+            )}
+          </View>
+          {running ? (
+            <TextShimmer duration={1} numberOfLines={1} style={titleStyle}>
+              {chrome.title}
+            </TextShimmer>
           ) : (
-            <ToolKindIcon color={muted} kind={part.kind} size={metrics.iconSize} />
+            <Text numberOfLines={1} style={titleStyle}>
+              {chrome.title}
+            </Text>
           )}
-        </View>
-        {running ? (
-          <TextShimmer duration={1} numberOfLines={1} style={titleStyle}>
-            {chrome.title}
-          </TextShimmer>
-        ) : (
-          <Text numberOfLines={1} style={titleStyle}>
-            {chrome.title}
-          </Text>
-        )}
-        {chrome.fileName ? (
-          <ToolFileChip fileName={chrome.fileName} lineRange={chrome.lineRange} />
+          {chrome.fileName ? (
+            <ToolFileChip fileName={chrome.fileName} lineRange={chrome.lineRange} />
+          ) : null}
+          {codeMeta ? (
+            <Text style={{ color: muted, fontSize: 11, lineHeight: 16 }}>{codeMeta}</Text>
+          ) : null}
+          <ToolDiffStats additions={stats.additions} deletions={stats.deletions} />
+          {resultMeta ? (
+            <Text style={{ color: muted, fontSize: 11, lineHeight: 16 }}>{resultMeta}</Text>
+          ) : null}
+          {failed ? (
+            <XCircleIcon color={failedColor} size={metrics.iconSize} strokeWidth={2} />
+          ) : null}
+          <ExpandChevron color={muted} open={open} size={metrics.chevron} />
+        </Pressable>
+        {planCanSwitch ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setPlanPane((current) => (current === "body" ? "todos" : "body"))}
+            style={{
+              alignItems: "center",
+              borderRadius: 8,
+              flexDirection: "row",
+              flexShrink: 0,
+              gap: 4,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+            }}
+          >
+            {planPane === "body" ? (
+              <ListTodoIcon color={muted} size={12} strokeWidth={2} />
+            ) : (
+              <ScrollTextIcon color={muted} size={12} strokeWidth={2} />
+            )}
+            <Text style={{ color: muted, fontSize: 11, lineHeight: 16 }}>
+              {planPaneSwitchLabel(planPane, planTodoCount)}
+            </Text>
+          </Pressable>
         ) : null}
-        {codeMeta ? (
-          <Text style={{ color: muted, fontSize: 11, lineHeight: 16 }}>{codeMeta}</Text>
-        ) : null}
-        <ToolDiffStats additions={stats.additions} deletions={stats.deletions} />
-        {resultMeta ? (
-          <Text style={{ color: muted, fontSize: 11, lineHeight: 16 }}>{resultMeta}</Text>
-        ) : null}
-        {failed ? (
-          <XCircleIcon color={failedColor} size={metrics.iconSize} strokeWidth={2} />
-        ) : null}
-        <ExpandChevron color={muted} open={open} size={metrics.chevron} />
-      </Pressable>
+      </View>
       {open ? (
         <View
           style={
@@ -2177,7 +2215,7 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
               : { paddingTop: metrics.bodyPadTop }
           }
         >
-          <ToolBodyView model={model} />
+          <ToolBodyView model={model} planPane={planPane} />
         </View>
       ) : null}
     </View>

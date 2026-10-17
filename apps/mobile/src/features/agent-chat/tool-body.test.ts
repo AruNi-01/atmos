@@ -1128,12 +1128,19 @@ describe("plan document", () => {
     expect(card).toContain('prose="plan"');
     expect(card).toContain("TodoStatusRows");
     expect(card).toContain("copy.noOutput");
-    expect(card).toContain("ListTodoIcon");
-    expect(card).toContain("ScrollTextIcon");
+    expect(card).toContain("paddingTop: 8");
+    expect(card).not.toContain("gap: 8");
+    expect(card).not.toContain("planPaneSwitchLabel");
     expect(source).toContain("planDocumentStartsOpen(model)");
     const row = source.slice(source.indexOf("export function ToolCallRow"));
     expect(row).toContain('part.kind === "plan_document"');
     expect(row).toContain("<ScrollTextIcon");
+    expect(row).toContain("planPaneSwitchLabel");
+    expect(row).toContain("<ListTodoIcon");
+    expect(row).toContain("paddingHorizontal: 6");
+    expect(row).toContain("paddingVertical: 2");
+    expect(row).toContain("borderRadius: 8");
+    expect(row).toContain("gap: planCanSwitch ? 4 : 0");
     const kindIcon = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "tool-kind-icon.tsx"),
       "utf8",
