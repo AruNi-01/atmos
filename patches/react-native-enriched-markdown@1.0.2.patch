@@ -535,19 +535,20 @@ index 03c8db575..d0a201b7d 100644
    if (newStyle.codeBlock.syntaxColors.field != oldStyle.codeBlock.syntaxColors.field) {                                \
      [config setCodeBlockSyntaxColor:RCTUIColorFromSharedColor(newStyle.codeBlock.syntaxColors.field)                   \
 diff --git a/ios/views/ENRMCodeBlockContainerView.m b/ios/views/ENRMCodeBlockContainerView.m
-index a668c26eb..f3a8036dc 100644
+index a668c26eb..9d29b46a8 100644
 --- a/ios/views/ENRMCodeBlockContainerView.m
 +++ b/ios/views/ENRMCodeBlockContainerView.m
-@@ -1,5 +1,8 @@
+@@ -1,5 +1,9 @@
  #import "ENRMCodeBlockContainerView.h"
  #import "ENRMCodeBlockContent.h"
++#import "ParagraphStyleUtils.h"
 +// Fence glyphs live in this file. Bun 1.3.14 cannot apply a patch that adds a file.
 +void ENRMDrawNamedFenceIcon(CGContextRef context, NSString *key, CGRect box, BOOL darkInk);
 +void ENRMDrawFenceIcon(CGContextRef context, NSString *_Nullable language, CGRect box, BOOL darkInk);
  #import "ENRMCodeBlockHighlighter.h"
  #import "MarkdownASTNode.h"
  #import "PasteboardUtils.h"
-@@ -20,25 +23,120 @@
+@@ -20,25 +24,127 @@
  // header metrics, so the reported height matches the drawn height. Since
  // lines never wrap, the height is independent of the available width.
  
@@ -560,8 +561,10 @@ index a668c26eb..f3a8036dc 100644
 +// Web MarkdownCodeBlock (`code-block.tsx`): the header is `h-9` (36) with
 +// `px-2`, the language is `text-xs` (12) `tracking-wider`, and the code pane
 +// is `bg-background`. Shiki lines are `px-4` and `pre.shiki` is `py-3`, so the
-+// text inset is 16px across and 12px down. A fence with a second line adds the
-+// `shiki-line-numbers` gutter inside that inset. The frame wash stays
++// text inset is 16px across and 12px down. A fence with no language, or a
++// language Shiki does not highlight, uses `PlainTextWithLineNumbers`: 13px
++// `leading-relaxed` on a `block` line with `py-0.5`, and `px-3`. A fence with
++// a second line adds the `shiki-line-numbers` gutter inside that inset. The frame wash stays
 +// `codeBlockBackgroundColor`. There is no divider between the header and the
 +// pane. Page colors are the phone canvas (`colors.ts`), the role of
 +// `bg-background`.
@@ -572,6 +575,11 @@ index a668c26eb..f3a8036dc 100644
 +static const CGFloat kENRMWebHeaderIconGap = 8.0;
 +static const CGFloat kENRMWebCodePadX = 16.0;
 +static const CGFloat kENRMWebCodePadY = 12.0;
++// `PlainTextWithLineNumbers` is `px-3` and `text-[13px] leading-relaxed`.
++// `py-0.5` on the block line adds 4px to the 21.125px line box.
++static const CGFloat kENRMWebPlainCodePadX = 12.0;
++static const CGFloat kENRMWebPlainCodeFont = 13.0;
++static const CGFloat kENRMWebPlainCodeLine = 13.0 * 1.625 + 4.0;
 +static const CGFloat kENRMWebHeaderFontSize = 12.0;
 +// Lucide `CopyIcon` default is `size={14}`: a 14px box, not an SF Symbol font size.
 +static const CGFloat kENRMWebCopyGlyph = 14.0;
@@ -592,34 +600,34 @@ index a668c26eb..f3a8036dc 100644
 +  }
 +  return full;
 +}
-+
+ 
+-static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
 +// Lucide Copy / Check in the same 14px box as web `CopyButton`. Drawn from the
 +// fence-icon catalog so the stroke matches the web svg, then tinted by the button.
 +#if !TARGET_OS_OSX
 +static UIImage *ENRMWebTemplateGlyph(NSString *key)
-+{
+ {
+-  return [config codeBlockPadding] + [config codeBlockBorderWidth];
 +  CGSize size = CGSizeMake(kENRMWebCopyGlyph, kENRMWebCopyGlyph);
 +  UIGraphicsBeginImageContextWithOptions(size, NO, 0);
 +  ENRMDrawNamedFenceIcon(UIGraphicsGetCurrentContext(), key, CGRectMake(0, 0, size.width, size.height), NO);
 +  UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
 +  UIGraphicsEndImageContext();
 +  return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-+}
-+
+ }
+ 
 +static UIImage *ENRMWebCopyGlyphImage(void)
 +{
 +  return ENRMWebTemplateGlyph(@"copy");
 +}
- 
--static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
++
 +static UIImage *ENRMWebCheckGlyphImage(void)
 +{
 +  return ENRMWebTemplateGlyph(@"check");
 +}
 +#else
 +static NSImage *ENRMWebTemplateGlyph(NSString *key)
- {
--  return [config codeBlockPadding] + [config codeBlockBorderWidth];
++{
 +  NSSize size = NSMakeSize(kENRMWebCopyGlyph, kENRMWebCopyGlyph);
 +  NSImage *image = [[NSImage alloc] initWithSize:size];
 +  [image lockFocus];
@@ -628,8 +636,8 @@ index a668c26eb..f3a8036dc 100644
 +  [image unlockFocus];
 +  [image setTemplate:YES];
 +  return image;
- }
- 
++}
++
 +static NSImage *ENRMWebCopyGlyphImage(void)
 +{
 +  return ENRMWebTemplateGlyph(@"copy");
@@ -679,7 +687,7 @@ index a668c26eb..f3a8036dc 100644
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
-@@ -48,7 +146,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
+@@ -48,7 +154,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
  #else
  static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
  {
@@ -689,7 +697,99 @@ index a668c26eb..f3a8036dc 100644
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
-@@ -107,11 +206,130 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -57,13 +164,90 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
+ }
+ #endif
+ 
+-static NSAttributedString *ENRMCodeBlockPlainAttributedCode(NSString *code, StyleConfig *config)
++// Web `MarkdownCodeBlock` sends a known language through Shiki (`text-sm leading-5`,
++// `px-4`). Anything else is `PlainTextWithLineNumbers`.
++static NSString *ENRMWebNormalizeFenceLanguage(NSString *language)
++{
++  if (language.length == 0) {
++    return nil;
++  }
++  NSString *lower = language.lowercaseString;
++  if ([lower isEqualToString:@"sh"] || [lower isEqualToString:@"shell"] || [lower isEqualToString:@"zsh"]) {
++    return @"bash";
++  }
++  if ([lower isEqualToString:@"js"]) return @"javascript";
++  if ([lower isEqualToString:@"ts"]) return @"typescript";
++  if ([lower isEqualToString:@"py"]) return @"python";
++  if ([lower isEqualToString:@"rs"]) return @"rust";
++  if ([lower isEqualToString:@"yml"]) return @"yaml";
++  if ([lower isEqualToString:@"c++"]) return @"cpp";
++  if ([lower isEqualToString:@"md"]) return @"markdown";
++  return lower;
++}
++
++static BOOL ENRMWebFenceUsesShiki(NSString *language)
++{
++  NSString *normalized = ENRMWebNormalizeFenceLanguage(language);
++  if (normalized.length == 0) {
++    return NO;
++  }
++  return [@[
++    @"html", @"javascript", @"typescript", @"tsx", @"jsx", @"css", @"json", @"bash",
++    @"shellscript", @"markdown", @"python", @"rust", @"go", @"java", @"yaml", @"toml",
++    @"sql", @"dockerfile", @"c", @"cpp", @"diff", @"plaintext", @"text", @"txt"
++  ] containsObject:normalized];
++}
++
++static CGFloat ENRMWebCodePadXForLanguage(NSString *language)
++{
++  return ENRMWebFenceUsesShiki(language) ? kENRMWebCodePadX : kENRMWebPlainCodePadX;
++}
++
++static void ENRMWebApplyPlainFenceMetrics(NSMutableAttributedString *string)
++{
++  if (string.length == 0) {
++    return;
++  }
++  NSRange range = NSMakeRange(0, string.length);
++  [string enumerateAttribute:NSFontAttributeName
++                     inRange:range
++                     options:0
++                  usingBlock:^(id font, NSRange subrange, BOOL *stop) {
++                    (void)stop;
++                    if (!font) {
++                      return;
++                    }
++#if !TARGET_OS_OSX
++                    id resized = [(UIFont *)font fontWithSize:kENRMWebPlainCodeFont];
++#else
++                    id resized = [(NSFont *)font fontWithSize:kENRMWebPlainCodeFont];
++#endif
++                    [string addAttribute:NSFontAttributeName value:resized range:subrange];
++                  }];
++  [string enumerateAttribute:NSParagraphStyleAttributeName
++                     inRange:range
++                     options:0
++                  usingBlock:^(NSParagraphStyle *style, NSRange subrange, BOOL *stop) {
++                    (void)stop;
++                    NSMutableParagraphStyle *next = style ? [style mutableCopy] : [[NSMutableParagraphStyle alloc] init];
++                    next.minimumLineHeight = kENRMWebPlainCodeLine;
++                    next.maximumLineHeight = kENRMWebPlainCodeLine;
++                    [string addAttribute:NSParagraphStyleAttributeName value:next range:subrange];
++                  }];
++  [string removeAttribute:NSBaselineOffsetAttributeName range:range];
++  applyBaselineOffset(string, range);
++}
++
++static NSAttributedString *ENRMCodeBlockPlainAttributedCode(NSString *code, StyleConfig *config, NSString *language)
+ {
+   if (code.length == 0) {
+     return [[NSAttributedString alloc] initWithString:@""];
+   }
+   NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:code];
+   ENRMApplyCodeBlockTextAttributes(attributed, NSMakeRange(0, attributed.length), config);
++  if (!ENRMWebFenceUsesShiki(language)) {
++    ENRMWebApplyPlainFenceMetrics(attributed);
++  }
+   return attributed;
+ }
+ 
+@@ -107,11 +291,130 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return (0.299 * r + 0.587 * g + 0.114 * b) < 0.5;
  }
  
@@ -820,7 +920,7 @@ index a668c26eb..f3a8036dc 100644
  #if TARGET_OS_OSX
  @property (nonatomic, copy, nullable) NSMenu * (^menuProvider)(void);
  #endif
-@@ -133,6 +351,18 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -133,6 +436,18 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  
  - (void)drawRect:(CGRect)rect
  {
@@ -839,7 +939,7 @@ index a668c26eb..f3a8036dc 100644
    if (self.attributedCode.length > 0) {
      [self.attributedCode drawAtPoint:self.textOrigin];
    }
-@@ -164,6 +394,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -164,6 +479,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    NSFont *_headerFont;
    NSButton *_copyButton;
  #endif
@@ -847,7 +947,7 @@ index a668c26eb..f3a8036dc 100644
  }
  
  @synthesize copyLabel = _copyLabel;
-@@ -217,23 +448,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -217,23 +533,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [self addInteraction:contextMenu];
  
      _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -878,7 +978,7 @@ index a668c26eb..f3a8036dc 100644
      [self addSubview:_copyButton];
  #endif
    }
-@@ -274,40 +499,78 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -274,40 +584,87 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  {
    CGFloat borderW = ceil([_config codeBlockBorderWidth]);
    CGFloat headerH = [self headerHeight];
@@ -893,17 +993,19 @@ index a668c26eb..f3a8036dc 100644
 -  _codeContentView.frame = CGRectMake(0, 0, contentWidth, frame.size.height);
 +  CGFloat numberColumn = 0;
 +  id codeFont = [_config codeBlockFont];
++  BOOL shikiFence = ENRMWebFenceUsesShiki(_cachedLanguage);
 +  NSUInteger lineStart = ENRMWebLineNumberStart([_config codeBlockLineNumberStart]);
 +  CGFloat numberGutter = ENRMWebLineNumberGutter(_cachedCode, codeFont, lineStart, &numberColumn);
-+  CGFloat contentWidth = MAX(_codeSize.width + kENRMWebCodePadX * 2 + numberGutter, frame.size.width);
++  CGFloat padX = ENRMWebCodePadXForLanguage(_cachedLanguage);
++  CGFloat contentWidth = MAX(_codeSize.width + padX * 2 + numberGutter, frame.size.width);
 +  CGFloat fullPane = _codeSize.height + kENRMWebCodePadY * 2.0;
 +  // A 1px border makes the frame slightly shorter than the pane. Only a real
 +  // cap should turn on vertical scrolling.
 +  CGFloat contentHeight = fullPane > frame.size.height + 1.0 ? fullPane : frame.size.height;
-+  _codeContentView.textOrigin = CGPointMake(kENRMWebCodePadX + numberGutter, kENRMWebCodePadY);
++  _codeContentView.textOrigin = CGPointMake(padX + numberGutter, kENRMWebCodePadY);
 +  _codeContentView.lineCount = ENRMWebCodeLineCount(_cachedCode);
 +  _codeContentView.lineNumberStart = lineStart;
-+  CGFloat lineHeight = [_config codeBlockLineHeight];
++  CGFloat lineHeight = shikiFence ? [_config codeBlockLineHeight] : kENRMWebPlainCodeLine;
 +  if (lineHeight <= 0 && _attributedCode.length > 0) {
 +    NSParagraphStyle *style =
 +        [_attributedCode attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL];
@@ -913,7 +1015,14 @@ index a668c26eb..f3a8036dc 100644
 +  _codeContentView.numberColumn = numberColumn;
 +  _codeContentView.numberGutter = numberGutter;
 +  id numberFont = numberGutter > 0 ? ENRMWebLineNumberFont(codeFont) : nil;
-+  _codeContentView.codeAscender = ENRMFontAscender(codeFont);
++  id drawnFont = codeFont;
++  if (_attributedCode.length > 0) {
++    id face = [_attributedCode attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
++    if (face) {
++      drawnFont = face;
++    }
++  }
++  _codeContentView.codeAscender = ENRMFontAscender(drawnFont);
 +  _codeContentView.numberAscender = ENRMFontAscender(numberFont);
 +  _codeContentView.codeBaselineRaise = ENRMWebCodeBaselineRaise(_attributedCode);
 +  if (numberFont) {
@@ -976,7 +1085,7 @@ index a668c26eb..f3a8036dc 100644
  }
  
  #if !TARGET_OS_OSX
-@@ -385,7 +648,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -385,7 +742,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    }
    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
    labelAttributes[NSFontAttributeName] = _headerFont;
@@ -987,15 +1096,19 @@ index a668c26eb..f3a8036dc 100644
    if (labelColor) {
      labelAttributes[NSForegroundColorAttributeName] = labelColor;
    }
-@@ -398,23 +663,16 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
-   return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
- }
+@@ -395,26 +754,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  
+ - (NSAttributedString *)plainAttributedCode
+ {
+-  return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
+-}
+-
 -- (CGFloat)contentInset
 -{
 -  return ENRMCodeBlockContentInset(_config);
--}
--
++  return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config, _cachedLanguage);
+ }
+ 
  - (CGFloat)measureHeight:(CGFloat)maxWidth
  {
 -  CGFloat inset = [self contentInset];
@@ -1007,14 +1120,16 @@ index a668c26eb..f3a8036dc 100644
  {
 -  CGFloat inset = ENRMCodeBlockContentInset(config);
 -  CGFloat headerH = inset + ENRMCodeBlockHeaderLabelLineHeight(ENRMCodeBlockHeaderFont(config));
-   NSAttributedString *code = ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config);
+-  NSAttributedString *code = ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config);
 -  return ENRMCodeBlockCodeSize(code).height + inset * 2 + headerH;
++  NSAttributedString *code =
++      ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config, ENRMCodeBlockLanguage(node));
 +  return ENRMWebCodePaneHeight(ENRMCodeBlockCodeSize(code).height, [config codeBlockMaxHeight]) +
 +         kENRMWebHeaderHeight;
  }
  
  - (void)drawRect:(CGRect)rect
-@@ -434,6 +692,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -434,6 +787,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [backgroundColor setFill];
      [path fill];
    }
@@ -1037,7 +1152,7 @@ index a668c26eb..f3a8036dc 100644
    if (borderWidth > 0) {
      RCTUIColor *borderColor = [_config codeBlockBorderColor];
      if (borderColor) {
-@@ -443,24 +717,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -443,24 +812,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      }
    }
  
@@ -1071,7 +1186,7 @@ index a668c26eb..f3a8036dc 100644
    }
  }
  
-@@ -469,12 +739,48 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -469,12 +834,48 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    return ENRMCodeBlockFencedMarkdown(_cachedCode, _cachedLanguage, _fenceChar);
  }
  
@@ -1120,7 +1235,7 @@ index a668c26eb..f3a8036dc 100644
  }
  
  - (void)copyMarkdownToPasteboard
-@@ -495,7 +801,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -495,7 +896,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
                     actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
                       UIAction *copyCode =
                           [UIAction actionWithTitle:self.copyLabel
@@ -1129,7 +1244,7 @@ index a668c26eb..f3a8036dc 100644
                                          identifier:nil
                                             handler:^(__kindof UIAction *action) { [self copyCodeToPasteboard]; }];
  
-@@ -561,3 +867,803 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -561,3 +962,803 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  #endif
  
  @end

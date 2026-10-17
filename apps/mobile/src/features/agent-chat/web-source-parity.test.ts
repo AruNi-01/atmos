@@ -137,6 +137,12 @@ describe("web source parity", () => {
     expect(patch).toContain("applyBaselineOffset(output, nonListRange)");
     expect(patch).toContain("applyBaselineOffset(string, range)");
     expect(patch).toContain("ENRMWebCodeBaselineRaise");
+    expect(patch).toContain("ENRMWebFenceUsesShiki");
+    expect(patch).toContain("kENRMWebPlainCodePadX = 12.0");
+    expect(patch).toContain("kENRMWebPlainCodeFont = 13.0");
+    expect(patch).toContain("kENRMWebPlainCodeLine = 13.0 * 1.625 + 4.0");
+    expect(patch).toContain("PlainTextWithLineNumbers");
+    expect(patch).toContain('@"plaintext"');
     expect(patch).toContain("self.codeAscender - self.numberAscender + self.codeBaselineRaise");
     expect(patch).toContain("ENRMWebCodePaneHeight");
     expect(patch).toContain("bezierPathWithRoundedRect:paneRect cornerRadius:paneRadius");
