@@ -44,13 +44,18 @@ import {
   userMetaHeightMotion,
   userMetaItemMotion,
 } from "./user-message-meta";
-import { userMessageCollapsedLineLimit, userMessageWashColors } from "./user-message-fade";
+import {
+  USER_BUBBLE_RADIUS,
+  userBubbleFill,
+  userMessageCollapsedLineLimit,
+  userMessageWashColors,
+} from "./user-message-fade";
 
 const TEXT_LINE_HEIGHT = 20;
 
 function UserMessageCollapseFade() {
   const theme = useMobileTheme();
-  const [from, to] = userMessageWashColors(theme.colors.cardSubtle);
+  const [from, to] = userMessageWashColors(userBubbleFill(theme.isDark));
   return (
     <LinearGradient
       colors={[from, to]}
@@ -208,9 +213,9 @@ export function UserMessage({ message }: { message: AgentMessage }) {
     <View
       style={{
         alignSelf: "stretch",
-        backgroundColor: theme.colors.cardSubtle,
+        backgroundColor: userBubbleFill(theme.isDark),
         borderCurve: "continuous",
-        borderRadius: 16,
+        borderRadius: USER_BUBBLE_RADIUS,
         opacity: pending ? 0.65 : 1,
         paddingHorizontal: 16,
         paddingVertical: 12,

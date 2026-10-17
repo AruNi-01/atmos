@@ -285,3 +285,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - The current-turn composer card uses the same subagent task panel as a settled turn when the live tool parts are present. The lane frame stays out of the way so the panel draws its own border. A fixture that only has titles still shows those titles. A row tap does not open the conversation. The structural title stays the description, then the wire title, then the tool name. This is not re-shot.
 - The worked-for slot is as wide as the wider of the clock and "Worked for …", matching the web grid. Both lines stay on one line inside the 24px row. This is not re-shot.
 - The turn usage badge uses a 1px dashed border at 70% of the web border token: black or white at 7%. This is not re-shot.
+- A user bubble uses web `bg-secondary` (`#dedee0` / `#27272a`) and `rounded-2xl` (18px). The fading line washes into that solid fill. This is not re-shot.

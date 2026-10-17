@@ -13,7 +13,12 @@ import {
   userMessageDisplayText,
   userMessageIsCollapsed,
 } from "./copy";
-import { userMessageCollapsedLineLimit, userMessageWashColors } from "./user-message-fade";
+import {
+  USER_BUBBLE_RADIUS,
+  userBubbleFill,
+  userMessageCollapsedLineLimit,
+  userMessageWashColors,
+} from "./user-message-fade";
 
 const source = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "user-message.tsx"),
@@ -55,11 +60,22 @@ describe("user message", () => {
       "rgba(255, 255, 255, 0.08)",
     ]);
     expect(userMessageWashColors("rgb(1, 2, 3)")).toEqual(["rgba(1, 2, 3, 0)", "rgba(1, 2, 3, 1)"]);
+    expect(userBubbleFill(false)).toBe("#dedee0");
+    expect(userBubbleFill(true)).toBe("#27272a");
+    expect(USER_BUBBLE_RADIUS).toBe(18);
+    expect(userMessageWashColors(userBubbleFill(false))).toEqual([
+      "rgba(222, 222, 224, 0)",
+      "rgba(222, 222, 224, 1)",
+    ]);
+    expect(userMessageWashColors(userBubbleFill(true))).toEqual([
+      "rgba(39, 39, 42, 0)",
+      "rgba(39, 39, 42, 1)",
+    ]);
   });
 
   test("the bubble is full width card chrome, not the old right-aligned bubble", () => {
-    expect(source).toContain("theme.colors.cardSubtle");
-    expect(source).toContain("borderRadius: 16");
+    expect(source).toContain("userBubbleFill(theme.isDark)");
+    expect(source).toContain("borderRadius: USER_BUBBLE_RADIUS");
     expect(source).toContain("paddingHorizontal: 16");
     expect(source).toContain("paddingVertical: 12");
     expect(source).toContain("fontSize: 14");
@@ -76,7 +92,7 @@ describe("user message", () => {
     expect(source).toContain("userMetaItemMotion");
     expect(source).toContain("USER_META_LIFT_PX");
     expect(source).toContain("userMessageCollapsedLineLimit");
-    expect(source).toContain("userMessageWashColors(theme.colors.cardSubtle)");
+    expect(source).toContain("userMessageWashColors(userBubbleFill(theme.isDark))");
     expect(source).not.toContain("#242424");
     expect(source).not.toContain("#f2f1ef");
     expect(source).not.toContain("80%");
