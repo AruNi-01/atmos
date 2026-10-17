@@ -99,6 +99,12 @@ describe("web source parity", () => {
     expect(patch).toContain("blue:(0x52 / 255.0) alpha:1");
     expect(patch).not.toContain("blue:(0x5B / 255.0)");
     expect(patch).toContain("kENRMWebHeaderPadX = 8.0");
+    expect(patch).toContain("kENRMWebHeaderIcon = 16.0");
+    expect(patch).toContain("kENRMWebHeaderIconGap = 8.0");
+    expect(patch).toContain("ENRMDrawFenceIcon");
+    expect(patch).toContain('@"file-diff"');
+    expect(patch).toContain('if ([lang isEqualToString:@"typescript"]) return @"ts";');
+    expect(patch).toContain("0.145, 0.388, 0.922");
     expect(patch).toContain("kENRMWebCodePadX = 16.0");
     expect(patch).toContain("kENRMWebCodePadY = 12.0");
     expect(patch).toContain("ENRMWebCodePaneHeight");
