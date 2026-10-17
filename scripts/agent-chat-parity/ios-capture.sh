@@ -3,8 +3,9 @@
 # f13-tail scrolled to Reply 50 (three frames muxed when they differ),
 # a second f13-tail launch that calls the scroll-pill handler after that hold,
 # stream-tools sampled while rows append, and an F4 script replay that
-# writes its own PNGs during the tree draw. The replay and the pill return
-# do not fail the job.
+# writes its own PNGs during the reduced tree. The live pass is simctl
+# screenshots; an in-app snapshot of that shimmer did not return. The replay
+# and the pill return do not fail the job.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -326,8 +327,24 @@ PY
   fi
 }
 
-# In-app PNGs of the F4 script. simctl screenshots are too slow for the 400ms
-# draw. A miss is logged and the matrix artifacts still upload.
+# Reduced F4 writes in-app PNGs. The live pass uses simctl screenshots: a Skia
+# snapshot of that shimmer never returned. A miss is logged and the matrix
+# artifacts still upload.
+capture_f4_live_screen() {
+  local dest="$1"
+  local start="${SECONDS}"
+  local marks=(1 2 4 16)
+  local mark pause
+  mkdir -p "$dest"
+  for mark in "${marks[@]}"; do
+    pause=$((mark - (SECONDS - start)))
+    if (( pause > 0 )); then
+      sleep "$pause"
+    fi
+    take_screenshot "$dest/f4-$(printf '%05d' $((mark * 1000))).png" || true
+  done
+}
+
 capture_f4_replay() {
   local label motion_arg dest frames video duration index shot
   for label in live reduced; do
@@ -341,16 +358,23 @@ capture_f4_replay() {
       echo "f4 replay ${label} missed the module" >&2
       continue
     fi
+    if [[ "$label" == "live" ]]; then
+      capture_f4_live_screen "$dest" || true
+    fi
     # The live pass logs `replay done live`. Waiting for the bare line let the
     # reduced pass match that older line and copy the live PNGs.
     if ! wait_for_line "[parity] replay done ${label}" 90; then
       echo "f4 replay ${label} did not finish" >&2
       dump_runtime_logs || true
       copy_motion_shots "$dest" || true
-      continue
+      # Live simctl frames are already in dest. Reduced has nothing to mux.
+      if [[ "$label" != "live" ]]; then
+        continue
+      fi
+    else
+      sleep 2
+      copy_motion_shots "$dest" || true
     fi
-    sleep 2
-    copy_motion_shots "$dest" || true
     frames="$(mktemp -d)"
     index=0
     while IFS= read -r shot; do

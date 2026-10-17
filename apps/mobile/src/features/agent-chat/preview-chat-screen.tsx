@@ -372,6 +372,9 @@ export function PreviewChatScreen() {
       for (const shot of shots) {
         if (elapsed < shot || taken.has(shot)) continue;
         taken.add(shot);
+        // A Skia snapshot of the live shimmer never returned (run 39036378433,
+        // Atmos 47380). Reduced motion has no shimmer, and those files landed.
+        if (frame.motion !== "reduced") continue;
         const name = `f4-${String(shot).padStart(5, "0")}`;
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
