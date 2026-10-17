@@ -14,6 +14,7 @@ import {
   agentChatBlockMetrics,
   agentChatBlockquote,
   agentChatProseBlockquote,
+  agentChatProseInk,
   agentChatHeadingStyle,
   agentChatLinkColor,
   agentChatMarkdownChrome,
@@ -70,6 +71,8 @@ export function AgentChatMarkdown({
     const resolvedFontSize = fontSize ?? (tone === "thinking" ? 15 : 16);
     const resolvedLineHeight = lineHeight ?? (tone === "thinking" ? 21 : 22);
     const proseMetrics = prose ? agentChatProseMetrics(prose) : null;
+    const proseInk = proseMetrics ? agentChatProseInk(theme.isDark) : null;
+    const bodyColor = proseInk?.body ?? proseColor;
     // Answer text follows streamdown `space-y-4`. Thinking and tool prose keep
     // a margin on both sides, because their paragraph gap is not that 16px.
     const symmetricBlockMargin = Boolean(proseMetrics) || tone === "thinking";
@@ -81,7 +84,7 @@ export function AgentChatMarkdown({
 
     return {
       paragraph: {
-        color: proseColor,
+        color: bodyColor,
         fontSize: resolvedFontSize,
         lineHeight: resolvedLineHeight,
         ...(proseMetrics
@@ -110,14 +113,14 @@ export function AgentChatMarkdown({
         // minimum would park that 5px disc at the right of a wide column.
         // Ordered labels use the width of the digits they draw (`1.`, `10.`).
         // `marginLeft` is the nested-level indent (`[li_&]:pl-6`).
-        bulletColor: proseColor,
+        bulletColor: proseInk?.bullet ?? proseColor,
         bulletSize: 5,
-        color: proseColor,
+        color: bodyColor,
         fontSize: resolvedFontSize,
         gapWidth: 8,
         lineHeight: resolvedLineHeight,
         marginLeft: 24,
-        markerColor: proseColor,
+        markerColor: proseInk?.counter ?? proseColor,
         // `list-decimal` inherits the item weight. The library default is 500.
         markerFontWeight: "normal",
         ...(proseMetrics
@@ -161,12 +164,13 @@ export function AgentChatMarkdown({
         height: 0,
       },
       link: {
-        color: agentChatLinkColor(theme.isDark),
+        color: proseInk?.link ?? agentChatLinkColor(theme.isDark),
         underline: true,
       },
+      ...(proseInk ? { strong: { color: proseInk.bold } } : {}),
       // `<del>` draws its line in `currentColor`. The library default is gray-400.
       strikethrough: {
-        color: proseColor,
+        color: bodyColor,
       },
       ...(chipHttpUrls
         ? {

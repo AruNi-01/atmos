@@ -19,6 +19,7 @@ import {
   agentChatBlockMetrics,
   agentChatBlockquote,
   agentChatProseBlockquote,
+  agentChatProseInk,
   agentChatHeadingStyle,
   agentChatLinkColor,
   agentChatMarkdownChrome,
@@ -209,6 +210,23 @@ describe("agent chat markdown chrome", () => {
     });
     expect(agentChatProseBlockquote(true, 13).borderColor).toBe("#364153");
     expect(agentChatProseBlockquote(true, 13).color).toBe("#f3f4f6");
+    expect(agentChatProseInk(false)).toEqual({
+      body: "#364153",
+      bold: "#101828",
+      bullet: "#d1d5dc",
+      counter: "#6a7282",
+      link: "#101828",
+    });
+    expect(agentChatProseInk(true)).toEqual({
+      body: "#d1d5dc",
+      bold: "#ffffff",
+      bullet: "#4a5565",
+      counter: "#99a1af",
+      link: "#ffffff",
+    });
+    expect(markdown).toContain("const bodyColor = proseInk?.body ?? proseColor");
+    expect(markdown).toContain("bulletColor: proseInk?.bullet ?? proseColor");
+    expect(markdown).toContain("markerColor: proseInk?.counter ?? proseColor");
     const quote = markdown.slice(markdown.indexOf("blockquote:"), markdown.indexOf("list:"));
     expect(quote).toContain("agentChatBlockquote(theme.isDark)");
     expect(quote).toContain(
@@ -236,7 +254,8 @@ describe("agent chat markdown chrome", () => {
       markdown.indexOf("strikethrough:"),
       markdown.indexOf("thematicBreak:"),
     );
-    expect(strike).toContain("color: proseColor");
+    expect(strike).toContain("color: bodyColor");
+    expect(markdown).toContain("strong: { color: proseInk.bold }");
     const table = markdown.slice(
       markdown.indexOf("table: {"),
       markdown.indexOf("const markdown ="),

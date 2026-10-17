@@ -176,6 +176,46 @@ export function agentChatProseBlockquote(
 }
 
 /**
+ * Tailwind typography body ink on tool, plan, and approval markdown.
+ * Headings stay `--foreground` because `MarkdownRenderer` sets `text-foreground`
+ * on those tags. Body is gray-700 / gray-300, strong and links are gray-900 /
+ * white, discs are gray-300 / gray-600, and numbers are gray-500 / gray-400.
+ */
+export const PROSE_BODY_LIGHT = "#364153";
+export const PROSE_BODY_DARK = "#d1d5dc";
+export const PROSE_BOLD_LIGHT = "#101828";
+export const PROSE_BOLD_DARK = "#ffffff";
+export const PROSE_BULLET_LIGHT = "#d1d5dc";
+export const PROSE_BULLET_DARK = "#4a5565";
+export const PROSE_COUNTER_LIGHT = "#6a7282";
+export const PROSE_COUNTER_DARK = "#99a1af";
+
+export function agentChatProseInk(isDark: boolean): {
+  body: string;
+  bold: string;
+  bullet: string;
+  counter: string;
+  link: string;
+} {
+  if (isDark) {
+    return {
+      body: PROSE_BODY_DARK,
+      bold: PROSE_BOLD_DARK,
+      bullet: PROSE_BULLET_DARK,
+      counter: PROSE_COUNTER_DARK,
+      link: PROSE_BOLD_DARK,
+    };
+  }
+  return {
+    body: PROSE_BODY_LIGHT,
+    bold: PROSE_BOLD_LIGHT,
+    bullet: PROSE_BULLET_LIGHT,
+    counter: PROSE_COUNTER_LIGHT,
+    link: PROSE_BOLD_LIGHT,
+  };
+}
+
+/**
  * Streamdown rule: `my-6 border-border`. `--border` is black or white at 10%.
  * The rule attachment adds its top margin on top of the previous block, so the
  * top is 8px and a paragraph's 16px makes 24. The native renderer clears a
