@@ -112,7 +112,8 @@ export const THINKING_PARAGRAPH_MARGIN = 4;
  * Streamdown blockquote: `my-4 border-l-4 border-muted-foreground/30 pl-4 text-muted-foreground`.
  * The native indent is the border plus `gapWidth`, so `pl-4` is the gap.
  * The top margin stays 0 so it does not stack on the previous block's 16px.
- * Italic stays off: the quote style has no italic flag.
+ * The quote font is italic. The style object has no fontStyle field, so the
+ * native font builder sets it.
  */
 export const BLOCKQUOTE_MARGIN = 16;
 export const BLOCKQUOTE_BORDER = 4;

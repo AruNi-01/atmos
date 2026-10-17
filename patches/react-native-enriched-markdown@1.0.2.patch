@@ -26,6 +26,23 @@ index 7bc14aed5225eac421b4f3fa2d28b4b07f355e47..cdd5db2195d485466dc66ca2c5834adc
    }
  }
  
+diff --git a/ios/styles/StyleConfig.mm b/ios/styles/StyleConfig.mm
+--- a/ios/styles/StyleConfig.mm
++++ b/ios/styles/StyleConfig.mm
+@@ -1689,11 +1689,12 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
+ - (UIFont *)blockquoteFont
+ {
+   if (_blockquoteFont.needsRecreation || !_blockquoteFont.cachedFont) {
++    // Streamdown quotes are `italic`. The quote style has no fontStyle field.
+     _blockquoteFont.cachedFont = [RCTFont updateFont:nil
+                                           withFamily:_blockquoteFontFamily
+                                                 size:@(_blockquoteFontSize)
+                                               weight:normalizedFontWeight(_blockquoteFontWeight)
+-                                               style:nil
++                                               style:@"italic"
+                                              variant:nil
+                                      scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_blockquoteFontSize]];
+     _blockquoteFont.needsRecreation = NO;
 diff --git a/ios/utils/CodeBackground.m b/ios/utils/CodeBackground.m
 index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..eb7db5dbb94a3ddda4074dce9f8a5aacf7d01b37 100644
 --- a/ios/utils/CodeBackground.m

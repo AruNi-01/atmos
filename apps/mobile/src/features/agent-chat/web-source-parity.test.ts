@@ -99,5 +99,7 @@ describe("web source parity", () => {
     expect(patch).toContain("kENRMWebCodePadX = 16.0");
     expect(patch).toContain("kENRMWebCodePadY = 12.0");
     expect(patch).toContain("CODE BLOCK");
+    expect(patch).toContain("Streamdown quotes are `italic`");
+    expect(patch).toContain('style:@"italic"');
   });
 });
