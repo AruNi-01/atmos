@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View, type TextLayoutEvent } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import {
   USER_MESSAGE_COLLAPSE_FADE_LINES,
   USER_MESSAGE_COLLAPSE_LINES,
@@ -9,9 +8,9 @@ import {
 } from "@atmos/agent-transcript";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronDownIcon, ChevronUpIcon } from "@/ui/icons/lucide-native";
+import { CopyMessageButton } from "./copy-message-button";
 import {
   attachmentChipLabel,
-  copy,
   isPendingPhoneUserEcho,
   userMessageDisplayText,
   userMessageIsCollapsed,
@@ -50,24 +49,6 @@ function UserMessageCollapseFade() {
         />
       ))}
     </View>
-  );
-}
-
-function CopyMessageButton({ text }: { text: string }) {
-  const theme = useMobileTheme();
-  return (
-    <Pressable
-      accessibilityLabel={copy.copyMessage}
-      accessibilityRole="button"
-      hitSlop={8}
-      onPress={() => {
-        void Clipboard.setStringAsync(text);
-      }}
-    >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-        {copy.copyMessage}
-      </Text>
-    </Pressable>
   );
 }
 
