@@ -28,6 +28,7 @@ import { buildComposerPicker, type FavoriteModel } from "./model-picker";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
 import {
   parityComposerShotName,
+  parityComposerStepAt,
   parityComposerSteps,
   type ParityComposerStep,
 } from "./parity-composer-states";
@@ -50,7 +51,13 @@ import {
 } from "./parity-cycle";
 import { writeParityMotionPng } from "./capture-parity-view";
 import { parityLaneSampleTaps, parityLaneShots } from "./parity-lane-steps";
-import { foldParityReplay, parityReplaySeed, parityReplayShotTimes } from "./parity-replay";
+import {
+  foldParityReplay,
+  parityDrawHoldProgress,
+  parityReplaySeed,
+  parityReplayShotTimes,
+} from "./parity-replay";
+import { ParityDrawHoldContext } from "./parity-draw-hold";
 import { readParityDiskFrame } from "./read-parity-disk-frame";
 import { agentChatProcessExpandKey, useAgentChatExpandStore } from "./expand-store";
 import {
@@ -136,6 +143,7 @@ export function PreviewChatScreen() {
     );
     return next;
   });
+  const [heldAtMs, setHeldAtMs] = useState<number | null>(() => diskFrame?.atMs ?? null);
   const pinned = queryPin ?? diskFrame;
   const frames = useMemo(() => parityCycleFrames(), []);
   const [index, setIndex] = useState(() => parityClockIndex());
@@ -203,6 +211,16 @@ export function PreviewChatScreen() {
     return () => reducedRelease?.();
   }, [reducedRelease]);
 
+  useEffect(() => {
+    if (diskFrame?.atMs == null) return;
+    const timer = setInterval(() => {
+      const next = readParityDiskFrame({ quiet: true });
+      if (next?.atMs == null) return;
+      setHeldAtMs((current) => (current === next.atMs ? current : (next.atMs ?? null)));
+    }, 250);
+    return () => clearInterval(timer);
+  }, [diskFrame?.atMs]);
+
   useLayoutEffect(() => {
     if (preference !== frame.theme) setPreference(frame.theme);
   }, [frame.theme, preference, setPreference]);
@@ -234,7 +252,6 @@ export function PreviewChatScreen() {
     store.setExpand(agentChatProcessExpandKey(PARITY_SETTLED_ASSISTANT_ID), true);
   }, [motion]);
   const laneKey = `${frame.id}:${frame.theme}`;
-  const lane = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
   const liveTail = motion === "tail";
   const replayOn = frame.replay === "script" && Boolean(fixture?.script?.length);
   const laneStepsOn = frame.lane === "steps" && cards.available.length > 0;
@@ -243,13 +260,27 @@ export function PreviewChatScreen() {
   const replayKey = replayOn ? `${frame.id}:${frame.motion ?? ""}:${frame.theme}` : "";
   const [replayClock, setReplayClock] = useState({ elapsed: 0, key: replayKey });
   if (replayClock.key !== replayKey) setReplayClock({ elapsed: 0, key: replayKey });
-  const replayElapsed = replayClock.key === replayKey ? replayClock.elapsed : 0;
+  const holdOn = heldAtMs != null;
+  const replayElapsed = heldAtMs ?? (replayClock.key === replayKey ? replayClock.elapsed : 0);
   const scrollAway = liveTail && (scrollParam === "away" || pinned?.scroll === "away");
   const pillReturn = scrollAway && frame.pill === "return";
   const ownsTail = parityTailOwned(focused, tailMountId, tailOwner);
   const ownsReplay = replayOn && ownsTail;
   const ownsLane = laneStepsOn && ownsTail;
   const ownsComposer = composerStatesOn && ownsTail;
+  const heldLaneShot = useMemo(() => {
+    if (!holdOn || heldAtMs == null || !laneStepsOn) return null;
+    const initial = parityPreviewLane(cards);
+    const shots = parityLaneShots(initial, parityLaneSampleTaps(cards.available, initial.visible));
+    return [...shots].reverse().find((item) => heldAtMs >= item.atMs) ?? shots[0] ?? null;
+  }, [cards, heldAtMs, holdOn, laneStepsOn]);
+  const lane =
+    heldLaneShot?.state ??
+    (choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards));
+  const heldComposerStep =
+    holdOn && composerStatesOn && heldAtMs != null ? parityComposerStepAt(heldAtMs) : null;
+  const heldComposerAt = heldComposerStep?.atMs ?? null;
+  const composerShown = heldComposerStep ?? composerStep;
   useLayoutEffect(() => {
     if (!focused || (!liveTail && !replayOn && !laneStepsOn && !composerStatesOn)) return;
     const generation = takeParityOwner();
@@ -359,7 +390,15 @@ export function PreviewChatScreen() {
     tailStep,
   ]);
   useEffect(() => {
-    if (!ownsReplay || !fixture?.script) return;
+    if (!holdOn || !ownsReplay || !fixture?.script) return;
+    console.error(`[parity] replay shots ${parityReplayShotTimes(fixture.script).join(" ")}`);
+  }, [fixture, holdOn, ownsReplay]);
+  useEffect(() => {
+    if (!holdOn || !ownsReplay) return;
+    console.error(`[parity] replay held ${heldAtMs}`);
+  }, [heldAtMs, holdOn, ownsReplay]);
+  useEffect(() => {
+    if (!ownsReplay || !fixture?.script || holdOn) return;
     const shots = parityReplayShotTimes(fixture.script);
     const started = Date.now();
     const taken = new Set<number>();
@@ -390,9 +429,19 @@ export function PreviewChatScreen() {
       }
     }, 50);
     return () => clearInterval(timer);
-  }, [fixture, frame.motion, ownsReplay, replayKey]);
+  }, [fixture, frame.motion, holdOn, ownsReplay, replayKey]);
   useEffect(() => {
-    if (!ownsLane) return;
+    if (!holdOn || !ownsLane) return;
+    const initial = parityPreviewLane(cards);
+    const shots = parityLaneShots(initial, parityLaneSampleTaps(cards.available, initial.visible));
+    console.error(`[parity] lane shots ${shots.map((shot) => shot.atMs).join(" ")}`);
+  }, [cards, holdOn, ownsLane]);
+  useEffect(() => {
+    if (!heldLaneShot || !ownsLane) return;
+    console.error(`[parity] lane held ${heldLaneShot.atMs}`);
+  }, [heldLaneShot, ownsLane]);
+  useEffect(() => {
+    if (!ownsLane || holdOn) return;
     const initial = parityPreviewLane(cards);
     const shots = parityLaneShots(initial, parityLaneSampleTaps(cards.available, initial.visible));
     if (shots.length < 2) return;
@@ -420,9 +469,21 @@ export function PreviewChatScreen() {
       }
     }, 50);
     return () => clearInterval(timer);
-  }, [cards, laneKey, laneStepKey, ownsLane]);
+  }, [cards, holdOn, laneKey, laneStepKey, ownsLane]);
   useEffect(() => {
-    if (!ownsComposer) return;
+    if (!holdOn || !ownsComposer) return;
+    console.error(
+      `[parity] composer shots ${parityComposerSteps()
+        .map((step) => step.atMs)
+        .join(" ")}`,
+    );
+  }, [holdOn, ownsComposer]);
+  useEffect(() => {
+    if (heldComposerAt == null || !ownsComposer) return;
+    console.error(`[parity] composer held ${heldComposerAt}`);
+  }, [heldComposerAt, ownsComposer]);
+  useEffect(() => {
+    if (!ownsComposer || holdOn) return;
     const steps = parityComposerSteps();
     const started = Date.now();
     const taken = new Set<string>();
@@ -441,18 +502,20 @@ export function PreviewChatScreen() {
       }
     }, 50);
     return () => clearInterval(timer);
-  }, [ownsComposer]);
+  }, [holdOn, ownsComposer]);
   useEffect(() => {
     if (!ownsComposer) return;
-    const name = parityComposerShotName(composerStep.id);
+    const name = parityComposerShotName(composerShown.id);
     const frameId = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         void writeParityMotionPng(previewRootRef, name);
       });
     });
     return () => cancelAnimationFrame(frameId);
-  }, [composerStep.id, ownsComposer]);
+  }, [composerShown.id, ownsComposer]);
   const composerDriven = ownsComposer;
+  const drawHold =
+    holdOn && fixture?.script ? parityDrawHoldProgress(fixture.script, heldAtMs ?? 0) : null;
   const replayMessages = useMemo(() => {
     if (!replayOn || !fixture?.script?.length) return null;
     return foldParityReplay(
@@ -519,15 +582,17 @@ export function PreviewChatScreen() {
     >
       <View style={{ flex: 1 }}>
         {fixture || motion ? (
-          <AgentChatTranscript
-            key={laneKey}
-            ref={transcriptRef}
-            expandedCardHeight={lane.visible ? cardHeight : 0}
-            messages={messages}
-            onStickChange={liveTail ? onStickChange : undefined}
-            onViewport={pillReturn ? onViewport : undefined}
-            pillRowHeight={pillRowHeight}
-          />
+          <ParityDrawHoldContext.Provider value={drawHold}>
+            <AgentChatTranscript
+              key={laneKey}
+              ref={transcriptRef}
+              expandedCardHeight={lane.visible ? cardHeight : 0}
+              messages={messages}
+              onStickChange={liveTail ? onStickChange : undefined}
+              onViewport={pillReturn ? onViewport : undefined}
+              pillRowHeight={pillRowHeight}
+            />
+          </ParityDrawHoldContext.Provider>
         ) : (
           <Text style={{ color, fontSize: 15, paddingHorizontal: 16 }}>Missing fixture</Text>
         )}
@@ -562,10 +627,10 @@ export function PreviewChatScreen() {
         />
         <View style={{ paddingHorizontal: 18 }}>
           <AgentChatComposer
-            autoFocus={composerDriven ? composerStep.focus : undefined}
-            busy={composerDriven ? composerStep.busy : false}
+            autoFocus={composerDriven ? composerShown.focus : undefined}
+            busy={composerDriven ? composerShown.busy : false}
             favorites={NO_FAVORITES}
-            followUp={composerDriven ? composerStep.followUp : undefined}
+            followUp={composerDriven ? composerShown.followUp : undefined}
             onChangeText={composerDriven ? () => undefined : setText}
             onOpenCard={cards.context ? () => onPillPress("context") : undefined}
             onPatch={() => undefined}
@@ -589,9 +654,9 @@ export function PreviewChatScreen() {
             }
             steerLabel={copy.steer}
             stopLabel={copy.stop}
-            suggestionTitle={composerDriven ? composerStep.suggestionTitle : undefined}
-            suggestions={composerDriven ? (composerStep.suggestions ?? undefined) : undefined}
-            text={composerDriven ? composerStep.text : text}
+            suggestionTitle={composerDriven ? composerShown.suggestionTitle : undefined}
+            suggestions={composerDriven ? (composerShown.suggestions ?? undefined) : undefined}
+            text={composerDriven ? composerShown.text : text}
           />
         </View>
       </View>

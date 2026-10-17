@@ -2,10 +2,10 @@
 # Screenshot F1–F13 in light and dark, then capture motion passes:
 # f13-tail scrolled to Reply 50 (three frames muxed when they differ),
 # a second f13-tail launch that calls the scroll-pill handler after that hold,
-# stream-tools sampled while rows append, and an F4 script replay that
-# writes its own PNGs during the reduced tree. The live pass is simctl
-# screenshots; an in-app snapshot of that shimmer did not return. The replay
-# and the pill return do not fail the job.
+# stream-tools sampled while rows append, and F4 / F12 / composer passes that
+# freeze each script step (`atMs` in the pin) and take a simctl screenshot.
+# A wall-clock draw finishes before a slow screenshot returns. The replay,
+# lane, composer, and pill return do not fail the job.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -59,6 +59,7 @@ write_frame_file() {
   local lane="${6:-}"
   local pill="${7:-}"
   local composer="${8:-}"
+  local at_ms="${9:-}"
   local container docs extra=""
   container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
   docs="${container}/Documents"
@@ -69,8 +70,9 @@ write_frame_file() {
   if [[ "$lane" == "steps" ]]; then extra+=',"lane":"steps"'; fi
   if [[ "$pill" == "return" ]]; then extra+=',"pill":"return"'; fi
   if [[ "$composer" == "states" ]]; then extra+=',"composer":"states"'; fi
+  if [[ "$at_ms" =~ ^[0-9]+$ ]]; then extra+=",\"atMs\":${at_ms}"; fi
   printf '{"id":"%s","theme":"%s"%s}\n' "$id" "$theme" "$extra" >"${docs}/parity-frame.json"
-  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}${pill:+ ${pill}}${composer:+ ${composer}}"
+  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}${pill:+ ${pill}}${composer:+ ${composer}}${at_ms:+ at ${at_ms}}"
 }
 
 clear_motion_shots() {
@@ -327,159 +329,121 @@ PY
   fi
 }
 
-# Reduced F4 writes in-app PNGs. The live pass uses simctl screenshots: a Skia
-# snapshot of that shimmer never returned. A miss is logged and the matrix
-# artifacts still upload.
-capture_f4_live_screen() {
-  local dest="$1"
-  local start="${SECONDS}"
-  local marks=(1 2 4 16)
-  local mark pause
+# The pin's atMs freezes replay, lane, and composer. simctl then shoots that
+# step. A miss is logged and the matrix artifacts still upload.
+held_shot_list() {
+  local kind="$1"
+  refresh_parity_show || true
+  python3 - "$kind" "$CURRENT_LOG" "$OUT/parity-stream.log" "$OUT/device-log-fallback.txt" <<'PY'
+import pathlib, re, sys
+kind = sys.argv[1]
+blob = []
+for path in sys.argv[2:]:
+    file = pathlib.Path(path)
+    if file.exists():
+        blob.append(file.read_text(errors="replace"))
+found = re.findall(r"\[parity\] " + re.escape(kind) + r" shots ([0-9 ]+)", "\n".join(blob))
+if not found:
+    sys.exit(1)
+print(found[-1].strip())
+PY
+}
+
+capture_pinned_steps() {
+  local id="$1"
+  local theme="$2"
+  local scroll="$3"
+  local motion="$4"
+  local replay="$5"
+  local lane="$6"
+  local pill="$7"
+  local composer="$8"
+  local kind="$9"
+  local dest="${10}"
+  local prefix="${11}"
+  local shots ms png frames index shot video duration
+  write_frame_file "$id" "$theme" "$scroll" "$motion" "$replay" "$lane" "$pill" "$composer" "0"
+  echo "launch ${id} ${theme} ${kind} hold"
+  launch_frame "$id" "$theme"
+  if ! wait_for_line "[parity] preview-chat module" 90; then
+    echo "${kind} missed the module" >&2
+    return 0
+  fi
+  if ! wait_for_line "[parity] ${kind} shots " 60; then
+    echo "${kind} did not publish shots" >&2
+    dump_runtime_logs || true
+    return 0
+  fi
+  if ! shots="$(held_shot_list "$kind")"; then
+    echo "${kind} shot list missing" >&2
+    return 0
+  fi
+  echo "${kind} shots ${shots}"
   mkdir -p "$dest"
-  for mark in "${marks[@]}"; do
-    pause=$((mark - (SECONDS - start)))
-    if (( pause > 0 )); then
-      sleep "$pause"
+  for ms in $shots; do
+    write_frame_file "$id" "$theme" "$scroll" "$motion" "$replay" "$lane" "$pill" "$composer" "$ms"
+    if ! wait_for_line "[parity] ${kind} held ${ms}" 45; then
+      echo "${kind} missed hold ${ms}" >&2
+      continue
     fi
-    take_screenshot "$dest/f4-$(printf '%05d' $((mark * 1000))).png" || true
+    sleep 0.4
+    png="$dest/${prefix}-$(printf '%05d' "$ms").png"
+    take_screenshot "$png" || true
   done
+  frames="$(mktemp -d)"
+  index=0
+  while IFS= read -r shot; do
+    [[ -n "$shot" ]] || continue
+    index=$((index + 1))
+    sips -s format jpeg "$shot" --out "$frames/$(printf '%03d' "$index").jpg" >/dev/null || true
+  done < <(find "$dest" -name "${prefix}-*.png" | sort)
+  if (( index < 2 )); then
+    echo "${kind} has ${index} frames; not muxing" >&2
+    rm -rf "$frames"
+    return 0
+  fi
+  if ! python3 - "$dest" "$prefix" <<'PY'
+import hashlib, pathlib, sys
+dest = pathlib.Path(sys.argv[1])
+prefix = sys.argv[2]
+files = sorted(dest.glob(f"{prefix}-*.png"))
+digests = {hashlib.sha256(path.read_bytes()).hexdigest() for path in files if path.stat().st_size}
+print(f"{prefix} distinct frames {len(digests)} of {len(files)}")
+if len(digests) < 2:
+    sys.exit(1)
+PY
+  then
+    echo "${kind} screenshots are identical; not muxing" >&2
+    rm -rf "$frames"
+    return 0
+  fi
+  video="$dest.mov"
+  if duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"; then
+    echo "recording ${kind} duration ${duration} frames ${index}"
+  else
+    echo "${kind} mux failed" >&2
+  fi
+  rm -rf "$frames"
 }
 
 capture_f4_replay() {
-  local label motion_arg dest frames video duration index shot
+  local label motion_arg
   for label in live reduced; do
     if [[ "$label" == "reduced" ]]; then motion_arg="reduced"; else motion_arg=""; fi
-    dest="$OUT/f4-replay-${label}"
-    clear_motion_shots || true
-    write_frame_file "F4" "light" "" "$motion_arg" "script"
-    echo "launch F4 light replay ${label}"
-    launch_frame "F4" "light"
-    if ! wait_for_line "[parity] preview-chat module" 90; then
-      echo "f4 replay ${label} missed the module" >&2
-      continue
-    fi
-    if [[ "$label" == "live" ]]; then
-      capture_f4_live_screen "$dest" || true
-    fi
-    # The live pass logs `replay done live`. Waiting for the bare line let the
-    # reduced pass match that older line and copy the live PNGs.
-    if ! wait_for_line "[parity] replay done ${label}" 90; then
-      echo "f4 replay ${label} did not finish" >&2
-      dump_runtime_logs || true
-      copy_motion_shots "$dest" || true
-      # Live simctl frames are already in dest. Reduced has nothing to mux.
-      if [[ "$label" != "live" ]]; then
-        continue
-      fi
-    else
-      sleep 2
-      copy_motion_shots "$dest" || true
-    fi
-    frames="$(mktemp -d)"
-    index=0
-    while IFS= read -r shot; do
-      [[ -n "$shot" ]] || continue
-      index=$((index + 1))
-      sips -s format jpeg "$shot" --out "$frames/$(printf '%03d' "$index").jpg" >/dev/null || true
-    done < <(find "$dest" -name 'f4-*.png' | sort)
-    if (( index < 2 )); then
-      echo "f4 replay ${label} has ${index} frames; not muxing" >&2
-      rm -rf "$frames"
-      continue
-    fi
-    video="$OUT/f4-replay-${label}.mov"
-    if duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"; then
-      echo "recording f4 replay ${label} duration ${duration} frames ${index}"
-    else
-      echo "f4 replay ${label} mux failed" >&2
-    fi
-    rm -rf "$frames"
+    capture_pinned_steps "F4" "light" "" "$motion_arg" "script" "" "" "" "replay" "$OUT/f4-replay-${label}" "f4" || true
   done
 }
 
-# Pill handler steps for F12. This is not a Simulator tap, and it does not
-# answer the permission. A miss does not fail the job.
+# Pill steps for F12. The pin freezes each reducer state for a simctl shot.
+# This is not a Simulator tap, and it does not answer the permission.
 capture_f12_lane() {
-  local dest frames video duration index shot
-  dest="$OUT/f12-lane"
-  clear_motion_shots || true
-  write_frame_file "F12" "light" "" "" "" "steps"
-  echo "launch F12 light lane steps"
-  launch_frame "F12" "light"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
-    echo "f12 lane missed the module" >&2
-    return 0
-  fi
-  if ! wait_for_line "[parity] lane done" 60; then
-    echo "f12 lane did not finish" >&2
-    dump_runtime_logs || true
-    copy_motion_shots "$dest" || true
-    return 0
-  fi
-  sleep 1
-  copy_motion_shots "$dest" || true
-  frames="$(mktemp -d)"
-  index=0
-  while IFS= read -r shot; do
-    [[ -n "$shot" ]] || continue
-    index=$((index + 1))
-    sips -s format jpeg "$shot" --out "$frames/$(printf '%03d' "$index").jpg" >/dev/null || true
-  done < <(find "$dest" -name 'lane-*.png' | sort)
-  if (( index < 2 )); then
-    echo "f12 lane has ${index} frames; not muxing" >&2
-    rm -rf "$frames"
-    return 0
-  fi
-  video="$OUT/f12-lane.mov"
-  if duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"; then
-    echo "recording f12 lane duration ${duration} frames ${index}"
-  else
-    echo "f12 lane mux failed" >&2
-  fi
-  rm -rf "$frames"
+  capture_pinned_steps "F12" "light" "" "" "" "steps" "" "" "lane" "$OUT/f12-lane" "lane" || true
 }
 
 # Composer states for S23. Keyboard is a TextInput focus call, not a Simulator
-# tap, and a miss does not fail the job. The manual preview link does not set
-# this pin.
+# tap. The manual preview link does not set this pin.
 capture_composer_states() {
-  local dest frames video duration index shot
-  dest="$OUT/composer-states"
-  clear_motion_shots || true
-  write_frame_file "F1" "light" "" "" "" "" "" "states"
-  echo "launch F1 light composer states"
-  launch_frame "F1" "light"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
-    echo "composer states missed the module" >&2
-    return 0
-  fi
-  if ! wait_for_line "[parity] composer done" 60; then
-    echo "composer states did not finish" >&2
-    dump_runtime_logs || true
-    copy_motion_shots "$dest" || true
-    return 0
-  fi
-  sleep 2
-  copy_motion_shots "$dest" || true
-  frames="$(mktemp -d)"
-  index=0
-  while IFS= read -r shot; do
-    [[ -n "$shot" ]] || continue
-    index=$((index + 1))
-    sips -s format jpeg "$shot" --out "$frames/$(printf '%03d' "$index").jpg" >/dev/null || true
-  done < <(find "$dest" -name 'composer-*.png' | sort)
-  if (( index < 2 )); then
-    echo "composer states has ${index} frames; not muxing" >&2
-    rm -rf "$frames"
-    return 0
-  fi
-  video="$OUT/composer-states.mov"
-  if duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"; then
-    echo "recording composer states duration ${duration} frames ${index}"
-  else
-    echo "composer states mux failed" >&2
-  fi
-  rm -rf "$frames"
+  capture_pinned_steps "F1" "light" "" "" "" "" "" "states" "composer" "$OUT/composer-states" "composer" || true
 }
 
 # A stuck simctl screenshot consumed the 120 minute job (run 38857737524).

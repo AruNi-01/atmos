@@ -38,6 +38,7 @@ describe("motion constants", () => {
     expect(web.trim()).toBe('export * from "@atmos/agent-transcript/agent-tree-branch";');
     expect(tree).toContain('from "@atmos/agent-transcript/agent-tree-branch"');
     expect(tree).toContain("duration: TREE_DRAW_MS");
+    expect(tree).toContain("useParityDrawHold");
     expect(tree).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
     expect(reveal).toContain("duration: TREE_DRAW_MS");
     expect(reveal).toContain("Easing.bezier(0.23, 1, 0.32, 1)");

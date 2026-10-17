@@ -2,7 +2,12 @@
 import { describe, expect, test } from "bun:test";
 import { parityFixtureById } from "@atmos/agent-transcript";
 import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
-import { foldParityReplay, parityReplaySeed, parityReplayShotTimes } from "./parity-replay";
+import {
+  foldParityReplay,
+  parityDrawHoldProgress,
+  parityReplaySeed,
+  parityReplayShotTimes,
+} from "./parity-replay";
 
 function toolStatus(parts: readonly AgentPart[], id: string): string | null {
   for (const part of parts) {
@@ -22,6 +27,12 @@ describe("F4 script replay", () => {
     expect(parityReplayShotTimes(script)).toEqual([
       0, 200, 400, 600, 800, 900, 1100, 1300, 1400, 1600, 1800, 15000,
     ]);
+    expect(parityDrawHoldProgress(script, 0)).toBeNull();
+    expect(parityDrawHoldProgress(script, 200)).toBe(0);
+    expect(parityDrawHoldProgress(script, 400)).toBe(0.5);
+    expect(parityDrawHoldProgress(script, 600)).toBe(1);
+    expect(parityDrawHoldProgress(script, 900)).toBe(0);
+    expect(parityDrawHoldProgress(script, 1100)).toBe(0.5);
   });
 
   test("grows the settled user row through the script instead of showing the finished turn", () => {

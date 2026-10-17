@@ -24,6 +24,26 @@ export function parityReplayShotTimes(steps: readonly ParityReplayStep[]): numbe
   return [...times].sort((left, right) => left - right);
 }
 
+/**
+ * 0..1 stroke progress for the latest tool that has started.
+ * Null before the first tool. A capture hold paints this fraction instead of
+ * letting the 400ms draw finish before a slow screenshot returns.
+ */
+export function parityDrawHoldProgress(
+  steps: readonly ParityReplayStep[],
+  elapsedMs: number,
+): number | null {
+  let startedAt: number | null = null;
+  for (const step of steps) {
+    if (step.atMs > elapsedMs) break;
+    if (step.event.payload.type === "tool_call_started") startedAt = step.atMs;
+  }
+  if (startedAt == null) return null;
+  const age = elapsedMs - startedAt;
+  if (age >= TREE_DRAW_MS) return 1;
+  return age / TREE_DRAW_MS;
+}
+
 export function parityReplaySeed(messages: readonly AgentMessage[]): AgentMessage[] {
   return messages.filter((message) => message.role === "user");
 }

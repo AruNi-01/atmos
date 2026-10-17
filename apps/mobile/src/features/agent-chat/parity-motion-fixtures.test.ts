@@ -139,6 +139,10 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain('frame.replay === "script"');
     expect(preview).toContain("foldParityReplay");
     expect(preview).toContain("[parity] replay done ${pass}");
+    expect(preview).toContain("[parity] replay held");
+    expect(preview).toContain("[parity] replay shots");
+    expect(preview).toContain("ParityDrawHoldContext");
+    expect(preview).toContain("if (!ownsReplay || !fixture?.script || holdOn) return;");
     expect(preview).toContain('if (frame.motion !== "reduced") continue;');
     expect(preview).toContain('frame.motion === "reduced" ? "reduced" : "live"');
     expect(preview).toContain('frame.lane === "steps"');

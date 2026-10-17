@@ -223,6 +223,22 @@ describe("parity cycle", () => {
       id: "F4",
       theme: "light",
     });
+    expect(
+      parseParityDiskFrame('{"id":"F4","theme":"light","replay":"script","atMs":400}'),
+    ).toEqual({
+      atMs: 400,
+      id: "F4",
+      replay: "script",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"light","atMs":"400"}')).toEqual({
+      id: "F4",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"light","atMs":-1}')).toEqual({
+      id: "F4",
+      theme: "light",
+    });
     expect(parseParityDiskFrame('{"id":"F12","theme":"dark","lane":"steps"}')).toEqual({
       id: "F12",
       lane: "steps",

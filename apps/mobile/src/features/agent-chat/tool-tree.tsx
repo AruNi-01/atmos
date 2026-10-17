@@ -50,6 +50,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
 import { chatForeground } from "./chat-ink";
 import { useReducedMotion } from "./motion/use-reduced-motion";
+import { useParityDrawHold } from "./parity-draw-hold";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const CHEVRON_MS = 200;
@@ -147,6 +148,7 @@ function DrawnPath({
   stroke: string;
 }) {
   const reduced = useReducedMotion();
+  const hold = useParityDrawHold();
   const skip = reduced || !draw;
   const offset = useSharedValue(skip || length <= 0 ? 0 : length);
   const lengthSv = useSharedValue(length);
@@ -164,11 +166,18 @@ function DrawnPath({
       offset.set(0);
       return;
     }
+    // A capture hold paints a fraction of the stroke. The product path still
+    // runs the 400ms timing from when the row mounts.
+    if (hold != null) {
+      const fraction = Math.min(1, Math.max(0, hold));
+      offset.set(length * (1 - fraction));
+      return;
+    }
     if (started.current || length <= 0) return;
     started.current = true;
     offset.set(length);
     offset.set(withDelay(delay, withTiming(0, { duration: TREE_DRAW_MS, easing: DRAW_EASE })));
-  }, [delay, length, lengthSv, offset, skip]);
+  }, [delay, hold, length, lengthSv, offset, skip]);
 
   const strokeProps = {
     d,

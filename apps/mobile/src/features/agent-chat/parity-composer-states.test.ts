@@ -62,9 +62,9 @@ describe("parity composer capture steps", () => {
     expect(preview).toContain('frame.composer === "states"');
     expect(preview).toContain("parityComposerSteps");
     expect(preview).toContain("[parity] composer done");
-    expect(preview).toContain("busy={composerDriven ? composerStep.busy : false}");
-    expect(preview).toContain("followUp={composerDriven ? composerStep.followUp : undefined}");
-    expect(preview).toContain("autoFocus={composerDriven ? composerStep.focus : undefined}");
+    expect(preview).toContain("busy={composerDriven ? composerShown.busy : false}");
+    expect(preview).toContain("followUp={composerDriven ? composerShown.followUp : undefined}");
+    expect(preview).toContain("autoFocus={composerDriven ? composerShown.focus : undefined}");
     expect(composer).toContain("if (props.autoFocus == null) return;");
   });
 });
