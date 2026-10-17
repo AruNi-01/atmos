@@ -177,14 +177,19 @@ function WorkedForLabel({
       onPress={() => setShowDuration((current) => !current)}
     >
       <View style={styles.workedFor}>
-        <Text accessible={false} style={[textStyle, styles.sizer]}>
+        <Text accessible={false} numberOfLines={1} style={[textStyle, styles.sizer]}>
           {presentation.clock}
         </Text>
+        <Text accessible={false} numberOfLines={1} style={[textStyle, styles.sizer]}>
+          {presentation.durationLabel}
+        </Text>
         <View pointerEvents="none" style={styles.overlay}>
-          <Animated.Text style={[textStyle, clockStyle]}>{presentation.clock}</Animated.Text>
+          <Animated.Text numberOfLines={1} style={[textStyle, clockStyle]}>
+            {presentation.clock}
+          </Animated.Text>
         </View>
         <View pointerEvents="none" style={styles.overlay}>
-          <Animated.Text style={[textStyle, durationStyle]}>
+          <Animated.Text numberOfLines={1} style={[textStyle, durationStyle]}>
             {presentation.durationLabel}
           </Animated.Text>
         </View>
@@ -313,5 +318,6 @@ const styles = StyleSheet.create({
   workedFor: {
     height: 24,
     justifyContent: "center",
+    overflow: "hidden",
   },
 });

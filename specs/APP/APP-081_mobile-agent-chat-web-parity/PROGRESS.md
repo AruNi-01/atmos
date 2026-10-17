@@ -283,3 +283,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Thinking paragraphs use the web 4px gap. The first block has no top margin and the last block drops the bottom margin. Answer paragraphs stay flush. This is not re-shot.
 - An error part offsets the alert icon by 2px, matching web `mt-0.5`. The icon stays 16px. This is not re-shot.
 - The current-turn composer card uses the same subagent task panel as a settled turn when the live tool parts are present. The lane frame stays out of the way so the panel draws its own border. A fixture that only has titles still shows those titles. A row tap does not open the conversation. The structural title stays the description, then the wire title, then the tool name. This is not re-shot.
+- The worked-for slot is as wide as the wider of the clock and "Worked for …", matching the web grid. Both lines stay on one line inside the 24px row. This is not re-shot.

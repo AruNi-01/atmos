@@ -67,6 +67,11 @@ describe("assistant footer", () => {
     expect(footer).toContain("workedForVisibleKind");
     expect(footer).toContain("WORKED_FOR_SWAP_MS = 200");
     expect(footer).toContain("setShowDuration");
+    const slot = footer.slice(footer.indexOf("styles.workedFor"), footer.indexOf("FileStats"));
+    const sizers = slot.split("styles.sizer").length - 1;
+    expect(sizers).toBe(2);
+    expect(slot).toContain("{presentation.clock}");
+    expect(slot).toContain("{presentation.durationLabel}");
   });
 
   test("hides ended chrome until the turn completes with text, usage, or work", () => {
