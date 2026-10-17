@@ -176,6 +176,7 @@ export function PreviewChatScreen() {
   const tailSamplesRef = useRef<ParityTailSample[]>([]);
   const tailReturnPressedRef = useRef(false);
   const tailReturnLoggedRef = useRef(false);
+  const tailStepRef = useRef(0);
   const onStickChange = useCallback(
     (next: {
       belowCount: number;
@@ -275,6 +276,51 @@ export function PreviewChatScreen() {
     return () => clearInterval(timer);
   }, [ownsTail, scrollAway, tailOwner.owner]);
   useEffect(() => {
+    tailStepRef.current = tailStep;
+  }, [tailStep]);
+  const logTailReturned = useCallback((sample: ParityTailSample) => {
+    if (tailReturnLoggedRef.current) return;
+    tailReturnLoggedRef.current = true;
+    const below = sample.below;
+    const end = Math.round(sample.end);
+    const top = Math.round(sample.top);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void writeParityMotionPng(previewRootRef, "tail-back").finally(() => {
+          console.error(`[parity] tail returned below=${below} stick=1 end=${end} top=${top}`);
+        });
+      });
+    });
+  }, []);
+  const onViewport = useCallback(
+    (next: {
+      belowCount: number;
+      distanceFromEnd: number;
+      stickToEnd: boolean;
+      scrollTop: number;
+      viewport: number;
+    }) => {
+      stickTopRef.current = next.scrollTop;
+      stickEndRef.current = next.distanceFromEnd;
+      stickViewRef.current = next.viewport;
+      if (!tailReturnPressedRef.current || tailReturnLoggedRef.current) return;
+      const marker = transcriptRef.current?.measureMessage(PARITY_TAIL_MARKER_ID);
+      const sample: ParityTailSample = {
+        below: next.belowCount,
+        end: next.distanceFromEnd,
+        marker: marker?.start ?? -1,
+        stick: next.stickToEnd,
+        step: tailStepRef.current,
+        top: next.scrollTop,
+        view: next.viewport,
+      };
+      if (parityTailReturnPhase([...tailSamplesRef.current, sample], true) !== "landed") return;
+      tailSamplesRef.current.push(sample);
+      logTailReturned(sample);
+    },
+    [logTailReturned],
+  );
+  useEffect(() => {
     if (!liveTail || !ownsTail) return;
     const marker = transcriptRef.current?.measureMessage(PARITY_TAIL_MARKER_ID);
     const sample: ParityTailSample = {
@@ -302,12 +348,16 @@ export function PreviewChatScreen() {
       return;
     }
     if (phase !== "landed" || tailReturnLoggedRef.current) return;
-    tailReturnLoggedRef.current = true;
-    void writeParityMotionPng(previewRootRef, "tail-back");
-    console.error(
-      `[parity] tail returned below=${sample.below} stick=1 end=${Math.round(sample.end)} top=${Math.round(sample.top)}`,
-    );
-  }, [liveTail, ownsTail, pillReturn, stick.belowCount, stick.stickToEnd, tailStep]);
+    logTailReturned(sample);
+  }, [
+    liveTail,
+    logTailReturned,
+    ownsTail,
+    pillReturn,
+    stick.belowCount,
+    stick.stickToEnd,
+    tailStep,
+  ]);
   useEffect(() => {
     if (!ownsReplay || !fixture?.script) return;
     const shots = parityReplayShotTimes(fixture.script);
@@ -470,6 +520,7 @@ export function PreviewChatScreen() {
             expandedCardHeight={lane.visible ? cardHeight : 0}
             messages={messages}
             onStickChange={liveTail ? onStickChange : undefined}
+            onViewport={pillReturn ? onViewport : undefined}
             pillRowHeight={pillRowHeight}
           />
         ) : (

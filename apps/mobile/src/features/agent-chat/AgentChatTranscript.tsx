@@ -369,6 +369,8 @@ export const AgentChatTranscript = forwardRef<
     focusMessageId?: string | null;
     messages: AgentMessage[];
     onStickChange?: (next: TranscriptStick) => void;
+    /** Real scroll offsets. The stick callback can lag behind `viewRef` during a jump. */
+    onViewport?: (next: TranscriptStick) => void;
     pillRowHeight?: number;
     stickToken?: number;
     streaming?: boolean;
@@ -379,6 +381,7 @@ export const AgentChatTranscript = forwardRef<
     focusMessageId,
     messages,
     onStickChange,
+    onViewport,
     pillRowHeight = 0,
     stickToken = 0,
     streaming = false,
@@ -403,6 +406,7 @@ export const AgentChatTranscript = forwardRef<
   const viewRef = useRef({ distance: 0, height: 0, scrollTop: 0 });
   const rowsRef = useRef<AgentMessage[]>([]);
   const onStickChangeRef = useRef(onStickChange);
+  const onViewportRef = useRef(onViewport);
   const [stickToEnd, setStickToEnd] = useState(initialStickState.stickToEnd);
   const [topFade, setTopFade] = useState(false);
   const paddingBottom = useTranscriptBottomPad(expandedCardHeight, pillRowHeight);
@@ -442,6 +446,16 @@ export const AgentChatTranscript = forwardRef<
     },
     [emitStick],
   );
+
+  const emitViewport = useCallback(() => {
+    onViewportRef.current?.({
+      belowCount: belowRef.current,
+      distanceFromEnd: viewRef.current.distance,
+      stickToEnd: stickRef.current.stickToEnd,
+      scrollTop: viewRef.current.scrollTop,
+      viewport: viewRef.current.height,
+    });
+  }, []);
 
   const measureApi = useRef<RowMeasureApi>({
     clear(index) {
@@ -565,8 +579,9 @@ export const AgentChatTranscript = forwardRef<
       syncTopFade(native.contentOffset.y);
       applyScrollStick(viewRef.current.distance);
       publishBelow();
+      emitViewport();
     },
-    [applyScrollStick, publishBelow, syncTopFade],
+    [applyScrollStick, emitViewport, publishBelow, syncTopFade],
   );
 
   const onScrollBeginDrag = useCallback(() => {
@@ -590,8 +605,9 @@ export const AgentChatTranscript = forwardRef<
       applyScrollStick(viewRef.current.distance);
       userDraggedRef.current = false;
       publishBelow();
+      emitViewport();
     },
-    [applyScrollStick, publishBelow, syncTopFade],
+    [applyScrollStick, emitViewport, publishBelow, syncTopFade],
   );
 
   const onMomentumScrollEnd = useCallback(
@@ -606,8 +622,9 @@ export const AgentChatTranscript = forwardRef<
       applyScrollStick(distanceFromEnd(native));
       userDraggedRef.current = false;
       publishBelow();
+      emitViewport();
     },
-    [applyScrollStick, publishBelow, syncTopFade],
+    [applyScrollStick, emitViewport, publishBelow, syncTopFade],
   );
 
   const onContentSizeChange = useCallback(
@@ -650,13 +667,14 @@ export const AgentChatTranscript = forwardRef<
 
   useLayoutEffect(() => {
     onStickChangeRef.current = onStickChange;
+    onViewportRef.current = onViewport;
     rowsRef.current = rows;
     rowCountRef.current = rows.length;
     if (measurementsRef.current.length > rows.length) {
       measurementsRef.current.length = rows.length;
     }
     publishBelow();
-  }, [onStickChange, publishBelow, rows]);
+  }, [onStickChange, onViewport, publishBelow, rows]);
 
   useEffect(() => {
     return () => {

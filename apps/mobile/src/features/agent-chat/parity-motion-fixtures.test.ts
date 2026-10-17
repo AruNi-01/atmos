@@ -144,6 +144,10 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain('frame.pill === "return"');
     expect(preview).toContain("parityTailReturnPhase");
     expect(preview).toContain("[parity] tail returned");
+    expect(preview).toContain("onViewport={pillReturn ? onViewport : undefined}");
+    const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");
+    expect(transcript).toContain("emitViewport");
+    expect(transcript).toContain("onViewportRef");
     expect(preview).not.toContain("belowCount={0}");
 
     const marker = fixture.messages.find((message) => message.id === PARITY_TAIL_MARKER_ID);
@@ -176,6 +180,18 @@ describe("parity motion fixtures", () => {
     const heldSamples = parityTailSamples(held);
     expect(parityTailReturnPhase(heldSamples, false)).toBe("press");
     expect(parityTailReturnPhase(heldSamples, true)).toBe("wait");
+    const stickFlip = parityTailSamples(
+      `${held}\n${parityTailLine({
+        below: 112,
+        end: 293,
+        marker: 4380,
+        stick: true,
+        step: 28,
+        top: 4380,
+        view: 659,
+      })}`,
+    );
+    expect(parityTailReturnPhase(stickFlip, true)).toBe("wait");
     const landed = parityTailSamples(
       `${held}\n[parity] tail returned below=2 stick=1 end=0 top=9000\n${parityTailLine({
         below: 2,
