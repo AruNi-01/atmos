@@ -162,9 +162,12 @@ describe("user message", () => {
 
     const body = source.slice(source.indexOf("export function UserMessage"));
     expect(body).toContain("userAttachmentPressGrows(attachments.length, expanded)");
-    expect(body).toContain("if (growsAttachments) setExpanded(true)");
+    expect(body).toContain("if (opensBody) setExpanded(true)");
+    expect(body).toContain("!expanded && lineCount > USER_MESSAGE_COLLAPSE_LINES");
     expect(body).toContain("if (hasMeta) setMetaOpen(!metaOpen)");
-    expect(body).toContain("disabled={!hasMeta && !growsAttachments}");
+    expect(body).toContain("disabled={!hasMeta && !opensBody}");
+    expect(body).not.toContain("ChevronDownIcon");
+    expect(body).not.toContain("ChevronUpIcon");
     const chips = source.slice(source.indexOf("function UserAttachmentChips"));
     expect(chips).toContain("userAttachmentDensity(expanded)");
     expect(chips).toContain("userAttachmentFill(theme.isDark)");

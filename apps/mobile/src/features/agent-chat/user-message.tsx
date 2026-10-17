@@ -25,7 +25,6 @@ import {
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import { chatForeground, chatMutedForeground } from "./chat-ink";
-import { ChevronDownIcon, ChevronUpIcon } from "@/ui/icons/lucide-native";
 import {
   attachmentChipLabel,
   copy,
@@ -290,6 +289,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
   const [lineCount, setLineCount] = useState(0);
   const collapsed = userMessageIsCollapsed(lineCount, expanded);
   const growsAttachments = userAttachmentPressGrows(attachments.length, expanded);
+  const opensBody = growsAttachments || (!expanded && lineCount > USER_MESSAGE_COLLAPSE_LINES);
   const pending = isPendingPhoneUserEcho(message);
 
   useEffect(() => {
@@ -324,12 +324,12 @@ export function UserMessage({ message }: { message: AgentMessage }) {
       }}
     >
       <Pressable
-        accessibilityRole={hasMeta || growsAttachments ? "button" : undefined}
+        accessibilityRole={hasMeta || opensBody ? "button" : undefined}
         accessibilityState={hasMeta ? { expanded: metaOpen } : undefined}
-        disabled={!hasMeta && !growsAttachments}
+        disabled={!hasMeta && !opensBody}
         onTouchStart={() => markUserMessageBodyPress(entryId)}
         onPress={() => {
-          if (growsAttachments) setExpanded(true);
+          if (opensBody) setExpanded(true);
           if (hasMeta) setMetaOpen(!metaOpen);
         }}
       >
@@ -358,22 +358,6 @@ export function UserMessage({ message }: { message: AgentMessage }) {
           </View>
         ) : null}
       </Pressable>
-      {lineCount > USER_MESSAGE_COLLAPSE_LINES ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded }}
-          hitSlop={8}
-          onTouchStart={() => markUserMessageBodyPress(entryId)}
-          onPress={() => setExpanded(!expanded)}
-          style={{ alignSelf: "flex-start", marginTop: 4 }}
-        >
-          {expanded ? (
-            <ChevronUpIcon color={theme.colors.secondaryLabel} size={16} />
-          ) : (
-            <ChevronDownIcon color={theme.colors.secondaryLabel} size={16} />
-          )}
-        </Pressable>
-      ) : null}
       {hasMeta ? (
         <UserMessageMeta entryId={entryId} open={metaOpen} text={text} time={time} />
       ) : null}
