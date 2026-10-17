@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Image, Linking, Pressable, Text, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -28,6 +29,19 @@ import {
 
 const MARK = 20;
 const STACK_SPRING = { damping: 36, stiffness: 420 };
+
+/**
+ * An empty-label web search step is one `LogRow` (`ps-4`) around a `py-1` block.
+ * The elbow is the web `RowConnector`: a 12px box, stroke width 1, ending at y=14.
+ * `color-mix(muted-foreground 45%, background)` is muted ink at 45% on the page.
+ * The tool-group gutter stays 28px. This elbow is only the sources row.
+ */
+const SOURCES_INSET = 16;
+const SOURCES_PAD_Y = 4;
+const SOURCES_ELBOW_WIDTH = 12;
+const SOURCES_ELBOW_HEIGHT = 15;
+const SOURCES_ELBOW_PATH = "M0.5 0 V8 Q0.5 14 6.5 14 H11.5";
+const SOURCES_ELBOW_ALPHA = 0.45;
 
 export function WebSearchSources({
   links,
@@ -89,46 +103,61 @@ export function WebSearchSources({
 
   return (
     <View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={() => setOpen((current) => !current)}
-        style={{ alignItems: "center", flexDirection: "row" }}
-      >
-        <Text style={{ color: muted, fontSize: 13, lineHeight: 20 }}>{copy.webSearchSources}</Text>
-        <Animated.View style={[{ marginLeft: 8, overflow: "hidden" }, stackStyle]}>
-          <View style={{ flexDirection: "row" }}>
-            {stacked.map((link, index) =>
-              webSearchRowVisible(index, visibleCount, total) ? null : (
-                <View key={`${link.url}:${index}`} style={{ marginLeft: index === 0 ? 0 : -6 }}>
-                  <FaviconMark url={link.url} />
-                </View>
-              ),
-            )}
-          </View>
-        </Animated.View>
-        {overflow > 0 && visibleCount === 0 ? (
-          <Text
-            style={{
-              color: muted,
-              fontSize: 13,
-              lineHeight: 20,
-              marginLeft: 8,
-              opacity: 0.8,
-            }}
-          >
-            +{overflow}
+      <View pointerEvents="none" style={{ left: 0, position: "absolute", top: 0 }}>
+        <Svg height={SOURCES_ELBOW_HEIGHT} width={SOURCES_ELBOW_WIDTH}>
+          <Path
+            d={SOURCES_ELBOW_PATH}
+            fill="none"
+            stroke={muted}
+            strokeOpacity={SOURCES_ELBOW_ALPHA}
+            strokeWidth={1}
+          />
+        </Svg>
+      </View>
+      <View style={{ paddingLeft: SOURCES_INSET, paddingVertical: SOURCES_PAD_Y }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          onPress={() => setOpen((current) => !current)}
+          style={{ alignItems: "center", flexDirection: "row" }}
+        >
+          <Text style={{ color: muted, fontSize: 13, lineHeight: 20 }}>
+            {copy.webSearchSources}
           </Text>
-        ) : null}
-        <Animated.View style={[{ marginLeft: 4, opacity: 0.6 }, chevronStyle]}>
-          <ChevronDownIcon color={muted} size={16} strokeWidth={2} />
-        </Animated.View>
-      </Pressable>
-      {links.map((link, index) =>
-        webSearchRowVisible(index, visibleCount, total) ? (
-          <SourceRow key={`${link.url}:${index}`} link={link} reduced={reduced} />
-        ) : null,
-      )}
+          <Animated.View style={[{ marginLeft: 8, overflow: "hidden" }, stackStyle]}>
+            <View style={{ flexDirection: "row" }}>
+              {stacked.map((link, index) =>
+                webSearchRowVisible(index, visibleCount, total) ? null : (
+                  <View key={`${link.url}:${index}`} style={{ marginLeft: index === 0 ? 0 : -6 }}>
+                    <FaviconMark url={link.url} />
+                  </View>
+                ),
+              )}
+            </View>
+          </Animated.View>
+          {overflow > 0 && visibleCount === 0 ? (
+            <Text
+              style={{
+                color: muted,
+                fontSize: 13,
+                lineHeight: 20,
+                marginLeft: 8,
+                opacity: 0.8,
+              }}
+            >
+              +{overflow}
+            </Text>
+          ) : null}
+          <Animated.View style={[{ marginLeft: 4, opacity: 0.6 }, chevronStyle]}>
+            <ChevronDownIcon color={muted} size={16} strokeWidth={2} />
+          </Animated.View>
+        </Pressable>
+        {links.map((link, index) =>
+          webSearchRowVisible(index, visibleCount, total) ? (
+            <SourceRow key={`${link.url}:${index}`} link={link} reduced={reduced} />
+          ) : null,
+        )}
+      </View>
     </View>
   );
 }

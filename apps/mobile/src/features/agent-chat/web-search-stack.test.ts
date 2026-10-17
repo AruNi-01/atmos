@@ -67,4 +67,16 @@ describe("web search sources", () => {
     expect(source).toContain("chatMutedForeground(theme.isDark)");
     expect(source).not.toContain("theme.colors.secondaryLabel");
   });
+
+  test("sources sit in the web search elbow, not the tool-group gutter", () => {
+    const source = readFileSync(join(here, "web-search-sources.tsx"), "utf8");
+    expect(source).toContain("const SOURCES_INSET = 16");
+    expect(source).toContain("const SOURCES_PAD_Y = 4");
+    expect(source).toContain('const SOURCES_ELBOW_PATH = "M0.5 0 V8 Q0.5 14 6.5 14 H11.5"');
+    expect(source).toContain("const SOURCES_ELBOW_ALPHA = 0.45");
+    expect(source).toContain("paddingLeft: SOURCES_INSET");
+    expect(source).toContain("paddingVertical: SOURCES_PAD_Y");
+    expect(source).toContain("strokeOpacity={SOURCES_ELBOW_ALPHA}");
+    expect(source).not.toContain("TREE_BRANCH_GUTTER");
+  });
 });
