@@ -999,7 +999,7 @@ export function toolBodyUsesPanel(model: ToolBodyModel, partKind: string): boole
 // @view
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Animated, Image, Pressable, Text, View } from "react-native";
+import { Animated, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
   ArrowRightIcon,
@@ -1136,21 +1136,18 @@ function ToolCodeFence({ text, language }: { text: string; language: string }) {
 }
 
 function HeightClip({ maxHeight, children }: { maxHeight: number; children: ReactNode }) {
-  const [expanded, setExpanded] = useState(false);
-  const [overflow, setOverflow] = useState(false);
+  const [contentHeight, setContentHeight] = useState(0);
+  const height = contentHeight > 0 ? Math.min(contentHeight, maxHeight) : undefined;
   return (
-    <View style={{ gap: 4 }}>
-      <View
-        onLayout={(event) => {
-          if (!expanded && event.nativeEvent.layout.height >= maxHeight) setOverflow(true);
-        }}
-        style={expanded ? undefined : { maxHeight, overflow: "hidden" }}
+    <View style={{ height, maxHeight }}>
+      <ScrollView
+        nestedScrollEnabled
+        onContentSizeChange={(_width, next) => setContentHeight(next)}
+        scrollEnabled={contentHeight > maxHeight}
+        style={{ maxHeight }}
       >
         {children}
-      </View>
-      {overflow ? (
-        <ShowMoreButton expanded={expanded} onPress={() => setExpanded((current) => !current)} />
-      ) : null}
+      </ScrollView>
     </View>
   );
 }

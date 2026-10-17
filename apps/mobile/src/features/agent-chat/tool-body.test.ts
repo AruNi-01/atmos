@@ -1454,6 +1454,16 @@ describe("tool row chrome", () => {
     expect(codeFence).not.toContain("ShowMoreButton");
     expect(codeFence).not.toContain("PathChip");
     expect(codeFence).not.toContain("CappedMono");
+    const clip = view.slice(
+      view.indexOf("function HeightClip"),
+      view.indexOf("function ExecuteTerminal"),
+    );
+    expect(clip).toContain("ScrollView");
+    expect(clip).toContain("nestedScrollEnabled");
+    expect(clip).toContain("onContentSizeChange");
+    expect(clip).toContain("scrollEnabled={contentHeight > maxHeight}");
+    expect(clip).not.toContain("ShowMoreButton");
+    expect(clip).not.toContain('overflow: "hidden"');
     expect(mod.CODE_EXPAND_ICON).toBe(14);
     expect(mod.CODE_EXPAND_LIGHT).toBe("#52525b");
     expect(mod.CODE_EXPAND_DARK).toBe("#a3a3a3");
