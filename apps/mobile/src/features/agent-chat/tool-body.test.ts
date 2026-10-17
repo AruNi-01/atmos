@@ -143,6 +143,16 @@ describe("tool body presentation", () => {
     expect(discussion).toContain("piece.changed ? { backgroundColor: wordFill }");
     expect(discussion).toContain("toolDiffVisibleRows(segments, revealed)");
     expect(discussion).toContain("DiffHunkSeparator");
+    expect(discussion).toContain("line.noNewline");
+    expect(discussion).toContain("DiffNoNewlineNote");
+    const newlineNote = view.slice(
+      view.indexOf("function DiffNoNewlineNote"),
+      view.indexOf("function DiscussionDiff"),
+    );
+    expect(newlineNote).toContain("TOOL_DIFF_NO_NEWLINE_LABEL");
+    expect(newlineNote).toContain("TOOL_DIFF_NO_NEWLINE_OPACITY");
+    expect(newlineNote).toContain("TOOL_DIFF_FG_LIGHT");
+    expect(newlineNote).not.toContain("TOOL_DIFF_BAR");
     expect(discussion).toContain("toolDiffRevealMore(current[row.segment], direction)");
     const separator = view.slice(
       view.indexOf("function DiffExpandGlyph"),

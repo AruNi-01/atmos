@@ -36,7 +36,17 @@ export type ToolDiffHunkLine = {
   text: string;
   oldNo: number | null;
   newNo: number | null;
+  /** Pierre's "No newline at end of file" row follows this line. */
+  noNewline?: boolean;
 };
+
+/** Pierre's English `createNoNewlineElement` copy. Shown in every locale. */
+export const TOOL_DIFF_NO_NEWLINE_LABEL = "No newline at end of file";
+/** `[data-no-newline] span { opacity: .6 }`. */
+export const TOOL_DIFF_NO_NEWLINE_OPACITY = 0.6;
+/** `--diffs-fg` is `light-dark(#000, #fff)`. */
+export const TOOL_DIFF_FG_LIGHT = "#000000";
+export const TOOL_DIFF_FG_DARK = "#ffffff";
 
 export type ToolDiffSegment =
   | { kind: "lines"; lines: ToolDiffHunkLine[] }
@@ -136,7 +146,11 @@ export function toolDiffSegments(
     let oldNo = hunk.oldStart;
     let newNo = hunk.newStart;
     for (const raw of hunk.lines) {
-      if (raw.startsWith("\\")) continue;
+      if (raw.startsWith("\\")) {
+        const last = lines[lines.length - 1];
+        if (last) last.noNewline = true;
+        continue;
+      }
       const text = raw.slice(1).replace(/\n$/, "");
       if (raw.startsWith("+")) {
         lines.push({ op: "add", text, oldNo: null, newNo });

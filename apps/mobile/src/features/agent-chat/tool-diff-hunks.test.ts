@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
   TOOL_DIFF_EXPAND_BUTTON,
   TOOL_DIFF_EXPAND_LINES,
+  TOOL_DIFF_FG_DARK,
+  TOOL_DIFF_FG_LIGHT,
+  TOOL_DIFF_NO_NEWLINE_LABEL,
+  TOOL_DIFF_NO_NEWLINE_OPACITY,
   TOOL_DIFF_SEPARATOR_DARK,
   TOOL_DIFF_SEPARATOR_HEIGHT,
   TOOL_DIFF_SEPARATOR_LIGHT,
@@ -87,13 +91,28 @@ describe("tool diff hunks", () => {
   });
 
   test("renumbers a patch snippet from line 1", () => {
+    // Web joins the snippet without a trailing newline, so both changed lines
+    // carry Pierre's missing-newline note.
     const segments = toolDiffSegmentsFromPatch("@@ -40,3 +40,3 @@\n a\n-b\n+c\n");
     const rows = toolDiffVisibleRows(segments);
     expect(rows.map((row) => (row.kind === "line" ? row.line : row))).toEqual([
       { op: "ctx", text: "a", oldNo: 1, newNo: 1 },
-      { op: "del", text: "b", oldNo: 2, newNo: null },
-      { op: "add", text: "c", oldNo: null, newNo: 2 },
+      { op: "del", text: "b", oldNo: 2, newNo: null, noNewline: true },
+      { op: "add", text: "c", oldNo: null, newNo: 2, noNewline: true },
     ]);
+  });
+
+  test("a missing newline follows the line the marker names", () => {
+    const dropped = toolDiffSegments("alpha\nbeta", "alpha\nbeta\n");
+    expect(dropped.lines.find((line) => line.op === "del")?.noNewline).toBe(true);
+    expect(dropped.lines.find((line) => line.op === "add")?.noNewline).toBeUndefined();
+    const added = toolDiffSegments("alpha\nbeta\n", "alpha\ngamma");
+    expect(added.lines.find((line) => line.op === "del")?.noNewline).toBeUndefined();
+    expect(added.lines.find((line) => line.op === "add")?.noNewline).toBe(true);
+    expect(TOOL_DIFF_NO_NEWLINE_LABEL).toBe("No newline at end of file");
+    expect(TOOL_DIFF_NO_NEWLINE_OPACITY).toBe(0.6);
+    expect(TOOL_DIFF_FG_LIGHT).toBe("#000000");
+    expect(TOOL_DIFF_FG_DARK).toBe("#ffffff");
   });
 
   test("uses Pierre's separator label and fill", () => {

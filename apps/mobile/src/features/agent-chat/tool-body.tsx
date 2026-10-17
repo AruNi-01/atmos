@@ -1084,6 +1084,10 @@ import {
   TOOL_DIFF_EXPAND_ICON,
   TOOL_DIFF_EXPAND_ICON_PATH,
   TOOL_DIFF_EXPAND_RULE,
+  TOOL_DIFF_FG_DARK,
+  TOOL_DIFF_FG_LIGHT,
+  TOOL_DIFF_NO_NEWLINE_LABEL,
+  TOOL_DIFF_NO_NEWLINE_OPACITY,
   TOOL_DIFF_SEPARATOR_HEIGHT,
   TOOL_DIFF_SEPARATOR_INSET,
   TOOL_DIFF_SEPARATOR_RADIUS,
@@ -1631,6 +1635,50 @@ function DiffHunkSeparator({
   );
 }
 
+function DiffNoNewlineNote({
+  op,
+  isDark,
+  numberWidth,
+  page,
+}: {
+  op: "add" | "del" | "ctx";
+  isDark: boolean;
+  numberWidth: number;
+  page: string;
+}) {
+  const tone = op === "add" || op === "del" ? op : null;
+  return (
+    <View style={{ flexDirection: "row" }}>
+      <View
+        style={{
+          backgroundColor: tone ? toolDiffNumberFill(tone, isDark) : undefined,
+          width: numberWidth,
+        }}
+      />
+      <View style={{ backgroundColor: page, width: TOOL_DIFF_GUTTER_RULE }} />
+      <View
+        style={{
+          backgroundColor: tone ? toolDiffLineFill(tone, isDark) : undefined,
+          flex: 1,
+        }}
+      >
+        <Text
+          style={{
+            color: isDark ? TOOL_DIFF_FG_DARK : TOOL_DIFF_FG_LIGHT,
+            fontFamily: "Menlo",
+            fontSize: TOOL_DIFF_CODE_FONT,
+            lineHeight: TOOL_DIFF_LINE_HEIGHT,
+            opacity: TOOL_DIFF_NO_NEWLINE_OPACITY,
+            paddingHorizontal: TOOL_DIFF_CODE_PAD,
+          }}
+        >
+          {TOOL_DIFF_NO_NEWLINE_LABEL}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function DiscussionDiff({
   path,
   segments,
@@ -1731,86 +1779,93 @@ function DiscussionDiff({
                     ? toolDiffWordFill(line.op, theme.isDark)
                     : undefined;
                 return (
-                  <View
-                    key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
-                    style={{ flexDirection: "row" }}
-                  >
-                    {line.op === "add" ? (
-                      <View
-                        pointerEvents="none"
-                        style={{
-                          backgroundColor: numberInk("add"),
-                          bottom: 0,
-                          left: 0,
-                          position: "absolute",
-                          top: 0,
-                          width: TOOL_DIFF_BAR,
-                        }}
-                      />
-                    ) : null}
-                    {line.op === "del" ? (
-                      <DiffDeletionBar
-                        band={toolDiffLineFill("del", theme.isDark)}
-                        ink={numberInk("del")}
-                      />
-                    ) : null}
-                    <Text
-                      style={{
-                        backgroundColor: changed
-                          ? toolDiffNumberFill(line.op, theme.isDark)
-                          : undefined,
-                        color: numberInk(line.op),
-                        flexShrink: 0,
-                        fontFamily: "Menlo",
-                        fontSize: TOOL_DIFF_CODE_FONT,
-                        lineHeight: TOOL_DIFF_LINE_HEIGHT,
-                        minWidth: numberWidth,
-                        paddingLeft: TOOL_DIFF_NUMBER_PAD_LEFT,
-                        paddingRight: TOOL_DIFF_NUMBER_PAD_RIGHT,
-                        textAlign: "right",
-                      }}
-                    >
-                      {toolDiffUnifiedLineNo(line) ?? ""}
-                    </Text>
-                    <View
-                      style={{
-                        backgroundColor: theme.colors.background,
-                        flexShrink: 0,
-                        width: TOOL_DIFF_GUTTER_RULE,
-                      }}
-                    />
-                    <View
-                      style={{
-                        backgroundColor: changed
-                          ? toolDiffLineFill(line.op, theme.isDark)
-                          : undefined,
-                        flex: 1,
-                      }}
-                    >
+                  <View key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}>
+                    <View style={{ flexDirection: "row" }}>
+                      {line.op === "add" ? (
+                        <View
+                          pointerEvents="none"
+                          style={{
+                            backgroundColor: numberInk("add"),
+                            bottom: 0,
+                            left: 0,
+                            position: "absolute",
+                            top: 0,
+                            width: TOOL_DIFF_BAR,
+                          }}
+                        />
+                      ) : null}
+                      {line.op === "del" ? (
+                        <DiffDeletionBar
+                          band={toolDiffLineFill("del", theme.isDark)}
+                          ink={numberInk("del")}
+                        />
+                      ) : null}
                       <Text
-                        selectable
                         style={{
-                          color: chatForeground(theme.isDark),
+                          backgroundColor: changed
+                            ? toolDiffNumberFill(line.op, theme.isDark)
+                            : undefined,
+                          color: numberInk(line.op),
+                          flexShrink: 0,
                           fontFamily: "Menlo",
                           fontSize: TOOL_DIFF_CODE_FONT,
                           lineHeight: TOOL_DIFF_LINE_HEIGHT,
-                          paddingHorizontal: TOOL_DIFF_CODE_PAD,
+                          minWidth: numberWidth,
+                          paddingLeft: TOOL_DIFF_NUMBER_PAD_LEFT,
+                          paddingRight: TOOL_DIFF_NUMBER_PAD_RIGHT,
+                          textAlign: "right",
                         }}
                       >
-                        {pieces && pieces.length > 0
-                          ? pieces.map((piece, pieceIndex) => (
-                              <Text
-                                key={pieceIndex}
-                                style={piece.changed ? { backgroundColor: wordFill } : undefined}
-                              >
-                                {piece.text}
-                              </Text>
-                            ))
-                          : line.text.length > 0
-                            ? line.text
-                            : " "}
+                        {toolDiffUnifiedLineNo(line) ?? ""}
                       </Text>
+                      <View
+                        style={{
+                          backgroundColor: theme.colors.background,
+                          flexShrink: 0,
+                          width: TOOL_DIFF_GUTTER_RULE,
+                        }}
+                      />
+                      <View
+                        style={{
+                          backgroundColor: changed
+                            ? toolDiffLineFill(line.op, theme.isDark)
+                            : undefined,
+                          flex: 1,
+                        }}
+                      >
+                        <Text
+                          selectable
+                          style={{
+                            color: chatForeground(theme.isDark),
+                            fontFamily: "Menlo",
+                            fontSize: TOOL_DIFF_CODE_FONT,
+                            lineHeight: TOOL_DIFF_LINE_HEIGHT,
+                            paddingHorizontal: TOOL_DIFF_CODE_PAD,
+                          }}
+                        >
+                          {pieces && pieces.length > 0
+                            ? pieces.map((piece, pieceIndex) => (
+                                <Text
+                                  key={pieceIndex}
+                                  style={piece.changed ? { backgroundColor: wordFill } : undefined}
+                                >
+                                  {piece.text}
+                                </Text>
+                              ))
+                            : line.text.length > 0
+                              ? line.text
+                              : " "}
+                        </Text>
+                      </View>
                     </View>
+                    {line.noNewline ? (
+                      <DiffNoNewlineNote
+                        isDark={theme.isDark}
+                        numberWidth={numberWidth}
+                        op={line.op}
+                        page={theme.colors.background}
+                      />
+                    ) : null}
                   </View>
                 );
               });
