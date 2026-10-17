@@ -37,6 +37,7 @@ import {
   Hand,
   Image as ImageGlyph,
   Keyboard,
+  ListOrdered,
   KeyRound,
   Laptop,
   Layers,
@@ -145,6 +146,7 @@ export const LaptopIcon = Laptop;
 export const LinkIcon = Link2;
 export const LoaderCircleIcon = LoaderCircle;
 export const LogOutIcon = LogOut;
+export const ListOrderedIcon = ListOrdered;
 export const PencilIcon = Pencil;
 export const PinIcon = Pin;
 export const PlugIcon = Plug;
