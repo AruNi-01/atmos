@@ -7,9 +7,12 @@ import { useReducedMotion } from "../motion/use-reduced-motion";
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
 
 export function ExpandedCard({
+  bare = false,
   children,
   onHeight,
 }: {
+  /** The child draws its own frame. Used by the subagent task panel. */
+  bare?: boolean;
   children: ReactNode;
   onHeight: (height: number) => void;
 }) {
@@ -26,29 +29,32 @@ export function ExpandedCard({
       exiting={FadeOut.duration(motion.duration).easing(motion.easing)}
       onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
       style={{
-        backgroundColor: theme.colors.cardElevated,
+        backgroundColor: bare ? "transparent" : theme.colors.cardElevated,
         borderColor: theme.colors.glassBorder,
         borderCurve: "continuous",
-        borderRadius: 16,
-        borderWidth: StyleSheet.hairlineWidth,
+        borderRadius: bare ? 0 : 16,
+        borderWidth: bare ? 0 : StyleSheet.hairlineWidth,
         marginHorizontal: 18,
         maxHeight,
         overflow: "hidden",
       }}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={bare ? styles.bareContent : styles.content}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
         style={{ flexGrow: 0, maxHeight }}
       >
-        <View style={styles.body}>{children}</View>
+        <View style={bare ? undefined : styles.body}>{children}</View>
       </ScrollView>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  bareContent: {
+    padding: 0,
+  },
   body: {
     gap: 10,
   },

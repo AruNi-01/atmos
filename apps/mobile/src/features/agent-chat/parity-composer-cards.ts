@@ -91,6 +91,7 @@ export function composerCardsFromParity(cards: ParityCards | undefined): Compose
     background,
     queue,
     subagents,
+    subagentTools: [],
     goal,
     workflow,
     context,

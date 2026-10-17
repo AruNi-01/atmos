@@ -268,8 +268,10 @@ describe("deriveComposerCards", () => {
       grokWorkflow: workflow,
     });
     expect(pending.subagents).toEqual([{ id: "live", title: "Find the bug" }]);
+    expect(pending.subagentTools.map((part) => part.tool_call_id)).toEqual(["live"]);
     const settled = emptyCards({ messages, grokGoal: goal, grokWorkflow: workflow });
     expect(settled.subagents.map((item) => item.id)).toEqual(["live", "done-sub"]);
+    expect(settled.subagentTools.map((part) => part.tool_call_id)).toEqual(["live", "done-sub"]);
   });
 
   test("context stats need used and a positive window", () => {

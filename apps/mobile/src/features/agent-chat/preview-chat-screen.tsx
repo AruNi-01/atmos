@@ -529,9 +529,14 @@ export function PreviewChatScreen() {
       </View>
       <View style={{ gap: 8, paddingBottom: 12, paddingTop: 8 }}>
         {lane.visible ? (
-          <ExpandedCard key={lane.visible} onHeight={setCardHeight}>
+          <ExpandedCard
+            bare={lane.visible === "subagents" && cards.subagentTools.length > 0}
+            key={lane.visible}
+            onHeight={setCardHeight}
+          >
             <LaneCardBody
               cards={cards}
+              messages={messages}
               onQueueDelete={noopAsync}
               onQueueReorder={noopAsync}
               onQueueUpdate={noopAsync}

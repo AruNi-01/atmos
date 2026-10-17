@@ -54,6 +54,8 @@ export type ComposerCards = {
   background: BackgroundCommand[];
   queue: AgentQueueItem[];
   subagents: SubagentTitle[];
+  /** Live tool parts for the current-turn panel. Fixture cards leave this empty. */
+  subagentTools: AgentToolCallPart[];
   goal: GrokGoal | null;
   workflow: GrokWorkflow | null;
   context: ContextUsageStats | null;
@@ -153,7 +155,16 @@ export function deriveComposerCards(input: ComposerCardInput): ComposerCards {
   const planValue = latestPlanValue(input.messages);
   const plan = planValue != null && goal == null ? planValue : null;
   const background = liveBackgroundCommands(input.messages);
-  const subagents = currentSubagentTitles(input.messages, goal, workflow, input.queue.length > 0);
+  const subagentTools = visibleSubagentParts(
+    input.messages,
+    goal,
+    workflow,
+    input.queue.length > 0,
+  );
+  const subagents = subagentTools.map((part) => ({
+    id: part.tool_call_id,
+    title: subagentTitle(part),
+  }));
   const context = contextUsageStats(input.sessionUsage);
   const present: CardId[] = [];
   if (input.pendingPermission) present.push("permission");
@@ -176,6 +187,7 @@ export function deriveComposerCards(input: ComposerCardInput): ComposerCards {
     background,
     queue: input.queue,
     subagents,
+    subagentTools,
     goal,
     workflow,
     context,
@@ -263,12 +275,12 @@ function subagentTitle(part: AgentToolCallPart): string {
   return part.title?.trim() || description || part.name.trim() || part.tool_call_id;
 }
 
-function currentSubagentTitles(
+function visibleSubagentParts(
   messages: AgentMessage[],
   goal: GrokGoal | null,
   workflow: GrokWorkflow | null,
   followUpPending: boolean,
-): SubagentTitle[] {
+): AgentToolCallPart[] {
   const exclude = grokChromeIds(goal, workflow);
   const start = lastPromptIndex(messages) + 1;
   const items: AgentToolCallPart[] = [];
@@ -284,8 +296,7 @@ function currentSubagentTitles(
       items.push(part);
     }
   }
-  const visible = followUpPending ? items.filter(subagentIsRunning) : items;
-  return visible.map((part) => ({ id: part.tool_call_id, title: subagentTitle(part) }));
+  return followUpPending ? items.filter(subagentIsRunning) : items;
 }
 
 function toolPath(part: AgentToolCallPart): string | null {

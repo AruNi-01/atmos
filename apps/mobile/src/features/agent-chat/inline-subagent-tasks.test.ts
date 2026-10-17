@@ -185,4 +185,22 @@ describe("inline subagent tasks", () => {
     expect(transcript).toContain('mode: "live"');
     expect(transcript).toContain("<InlineSubagentPanel");
   });
+
+  test("the composer card uses the same panel when the live parts are present", () => {
+    const card = readFileSync(join(here, "cards/subagent-card.tsx"), "utf8");
+    expect(card).toContain("<InlineSubagentPanel");
+    expect(card).toContain("tools.length > 0");
+    const lane = readFileSync(join(here, "cards/lane-body.tsx"), "utf8");
+    expect(lane).toContain("cards.subagentTools");
+    const frame = readFileSync(join(here, "cards/expanded-card.tsx"), "utf8");
+    expect(frame).toContain("bare");
+    const thread = readFileSync(join(here, "AgentChatThreadScreen.tsx"), "utf8");
+    expect(thread).toContain('lane.visible === "subagents" && cards.subagentTools.length > 0');
+    const titles = readFileSync(join(here, "composer-cards.ts"), "utf8");
+    const titleFn = titles.slice(
+      titles.indexOf("function subagentTitle"),
+      titles.indexOf("function visibleSubagentParts"),
+    );
+    expect(titleFn).toContain("part.title?.trim() || description || part.name.trim()");
+  });
 });

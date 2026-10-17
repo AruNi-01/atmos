@@ -557,9 +557,14 @@ export function AgentChatThreadScreen({
         footer={
           <View style={{ gap: 8, paddingTop: 8 }}>
             {lane.visible ? (
-              <ExpandedCard key={lane.visible} onHeight={onCardHeight}>
+              <ExpandedCard
+                bare={lane.visible === "subagents" && cards.subagentTools.length > 0}
+                key={lane.visible}
+                onHeight={onCardHeight}
+              >
                 <LaneCardBody
                   cards={cards}
+                  messages={messages}
                   onQueueDelete={queueDelete}
                   onQueueReorder={queueReorder}
                   onQueueUpdate={queueUpdate}
