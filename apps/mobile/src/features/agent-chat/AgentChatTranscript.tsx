@@ -319,6 +319,9 @@ function assistantHasVisiblePart(message: AgentMessage): boolean {
 /** Web assistant column `w-[calc(100%-1rem)]`: 8px on each side of the gutter. */
 const ASSISTANT_COLUMN_INSET = 8;
 
+/** Web `ConversationContent` `py-4`. The overlay spacer stays on top of this. */
+const TRANSCRIPT_CONTENT_PAD_Y = 16;
+
 function AssistantTurn({
   inlineTools = [],
   message,
@@ -777,9 +780,9 @@ export const AgentChatTranscript = forwardRef<
             flexGrow: 1,
             gap: AGENT_CHAT_TRANSCRIPT_GAP,
             justifyContent: rows.length === 0 ? "center" : "flex-start",
-            paddingBottom,
+            paddingBottom: paddingBottom + TRANSCRIPT_CONTENT_PAD_Y,
             paddingHorizontal: 18,
-            paddingTop: 12,
+            paddingTop: TRANSCRIPT_CONTENT_PAD_Y,
           }}
           contentInsetAdjustmentBehavior="never"
           data={rows}

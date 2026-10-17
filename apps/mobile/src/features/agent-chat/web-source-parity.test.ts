@@ -56,6 +56,15 @@ describe("web source parity", () => {
     expect(message).not.toContain("ASSISTANT_COLUMN_INSET");
   });
 
+  test("the transcript content uses the web py-4", () => {
+    const transcript = source("apps/mobile/src/features/agent-chat/AgentChatTranscript.tsx");
+    expect(transcript).toContain("const TRANSCRIPT_CONTENT_PAD_Y = 16");
+    const list = transcript.slice(transcript.indexOf("contentContainerStyle"));
+    expect(list).toContain("paddingTop: TRANSCRIPT_CONTENT_PAD_Y");
+    expect(list).toContain("paddingBottom: paddingBottom + TRANSCRIPT_CONTENT_PAD_Y");
+    expect(list).not.toContain("paddingTop: 12");
+  });
+
   test("the composer stays the two-row iOS field", () => {
     const composer = source("apps/mobile/src/features/agent-chat/AgentChatComposer.tsx");
     expect(composer).toContain('width: "100%"');
