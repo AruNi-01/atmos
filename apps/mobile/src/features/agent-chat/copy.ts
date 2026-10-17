@@ -103,6 +103,8 @@ export const copy = {
   queueMoveUp: "Move up",
   queueMoveDown: "Move down",
   copyMessage: "Copy message",
+  copyUserAria: "Copy user message",
+  copyAssistantAria: "Copy assistant message",
   thinkingStream: "Thinking...",
   activityGenerating: "Generating",
   activityStreaming: "Streaming",

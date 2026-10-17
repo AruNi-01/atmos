@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -18,6 +17,7 @@ import {
   workedForPresentation,
   workedForVisibleKind,
 } from "./copy";
+import { CopyMessageButton } from "./copy-message-button";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import {
   collectTurnFileChanges,
@@ -25,24 +25,6 @@ import {
   visibleTurnFileChanges,
 } from "./turn-file-changes";
 import { TOOL_ADDITION_COLOR, TOOL_DELETION_COLOR } from "./tool-body";
-
-function CopyMessageButton({ text }: { text: string }) {
-  const theme = useMobileTheme();
-  return (
-    <Pressable
-      accessibilityLabel={copy.copyMessage}
-      accessibilityRole="button"
-      hitSlop={8}
-      onPress={() => {
-        void Clipboard.setStringAsync(text);
-      }}
-    >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-        {copy.copyMessage}
-      </Text>
-    </Pressable>
-  );
-}
 
 function UsageBreakdown({ usage }: { usage: AgentTurnUsage }) {
   const theme = useMobileTheme();
@@ -231,7 +213,7 @@ export function AssistantFooter({
     <View
       style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}
     >
-      {text ? <CopyMessageButton text={text} /> : null}
+      {text ? <CopyMessageButton label={copy.copyAssistantAria} text={text} /> : null}
       {showUsage && usage ? <UsageBadge usage={usage} /> : null}
       {showWorked && message.completed_at ? (
         <WorkedForLabel completedAt={message.completed_at} workedMs={message.worked_ms} />

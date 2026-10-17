@@ -8,7 +8,6 @@ import {
   type TextLayoutEvent,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Clipboard from "expo-clipboard";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -32,6 +31,7 @@ import {
   userMessageDisplayText,
   userMessageIsCollapsed,
 } from "./copy";
+import { CopyMessageButton } from "./copy-message-button";
 import {
   agentChatUserBodyExpandKey,
   agentChatUserMetaExpandKey,
@@ -174,29 +174,11 @@ function UserMessageMeta({
         ) : null}
         {showCopy ? (
           <UserMetaItem index={copyIndex} open={open}>
-            <CopyMessageButton text={text} />
+            <CopyMessageButton label={copy.copyUserAria} text={text} />
           </UserMetaItem>
         ) : null}
       </View>
     </Animated.View>
-  );
-}
-
-function CopyMessageButton({ text }: { text: string }) {
-  const theme = useMobileTheme();
-  return (
-    <Pressable
-      accessibilityLabel={copy.copyMessage}
-      accessibilityRole="button"
-      hitSlop={8}
-      onPress={() => {
-        void Clipboard.setStringAsync(text);
-      }}
-    >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-        {copy.copyMessage}
-      </Text>
-    </Pressable>
   );
 }
 

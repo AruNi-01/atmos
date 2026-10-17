@@ -68,7 +68,8 @@ describe("user message", () => {
     expect(source).toContain("opacity: pending ? 0.65 : 1");
     expect(source).toContain('width: "100%"');
     expect(source).toContain("formatUserMessageTime");
-    expect(source).toContain("copy.copyMessage");
+    expect(source).toContain("copy.copyUserAria");
+    expect(source).toContain("CopyMessageButton");
     expect(source).toContain("agentChatUserBodyExpandKey");
     expect(source).toContain("agentChatUserMetaExpandKey");
     expect(source).toContain("userMetaHeightMotion");

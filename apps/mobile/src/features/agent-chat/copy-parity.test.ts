@@ -24,7 +24,7 @@ type ChatPanelCopy = {
   sessionOpRequested: string;
   planViewerEmpty: string;
   bottom: string;
-  copy: { message: string };
+  copy: { assistantAria: string; message: string; userAria: string };
   paste: { chip: string };
   thinking: string;
   thoughtFor: string;
@@ -157,6 +157,10 @@ describe("agent chat copy parity", () => {
   test("transcript chrome strings match web copy", () => {
     expect(copy.copyMessage).toBe(chatPanel.copy.message);
     expect(copy.copyMessage).toBe("Copy message");
+    expect(copy.copyUserAria).toBe(chatPanel.copy.userAria);
+    expect(copy.copyUserAria).toBe("Copy user message");
+    expect(copy.copyAssistantAria).toBe(chatPanel.copy.assistantAria);
+    expect(copy.copyAssistantAria).toBe("Copy assistant message");
     expect(copy.thinkingStream).toBe(chatPanel.thinking);
     expect(copy.thinkingStream).toBe("Thinking...");
     expect(copy.activityGenerating).toBe(activity.generating);
