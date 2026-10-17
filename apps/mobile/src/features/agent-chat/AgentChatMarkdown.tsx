@@ -114,7 +114,6 @@ export function AgentChatMarkdown({
       },
       table: {
         borderColor: chrome.border,
-        borderRadius: 8,
         borderWidth: 1,
         cellPaddingHorizontal: 16,
         cellPaddingVertical: 10,

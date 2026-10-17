@@ -27,12 +27,13 @@ export function agentChatHeadingStyle(color: string) {
 /**
  * Tailwind preflight zeros `p` and `ul` margins. Streamdown list items are
  * `py-1`. Agent fences and tables use `my-4`, and fence text is `text-sm leading-5`.
+ * Fence and table frames use web `rounded-lg` (`--radius`, 10px).
  */
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: 0 },
   list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },
-  codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 8 },
-  table: { marginTop: 16, marginBottom: 16 },
+  codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 10 },
+  table: { marginTop: 16, marginBottom: 16, borderRadius: 10 },
 } as const;
 
 /**

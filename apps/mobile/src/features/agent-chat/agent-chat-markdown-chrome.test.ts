@@ -1,5 +1,11 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
 import {
   agentChatBlockMetrics,
   agentChatHeadingStyle,
@@ -59,8 +65,22 @@ describe("agent chat markdown chrome", () => {
       marginBottom: 16,
       fontSize: 14,
       lineHeight: 20,
-      borderRadius: 8,
+      borderRadius: 10,
     });
-    expect(agentChatBlockMetrics.table).toEqual({ marginTop: 16, marginBottom: 16 });
+    expect(agentChatBlockMetrics.table).toEqual({
+      marginTop: 16,
+      marginBottom: 16,
+      borderRadius: 10,
+    });
+    const markdown = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "AgentChatMarkdown.tsx"),
+      "utf8",
+    );
+    const table = markdown.slice(
+      markdown.indexOf("table: {"),
+      markdown.indexOf("const markdown ="),
+    );
+    expect(table).toContain("agentChatBlockMetrics.table");
+    expect(table).not.toContain("borderRadius:");
   });
 });
