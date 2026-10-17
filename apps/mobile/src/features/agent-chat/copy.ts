@@ -132,6 +132,8 @@ export const copy = {
   grokWorkflowExpandAria: "Expand research agents",
   grokWorkflowPanelAria: "Grok research agents",
   contextWindowTitle: "Context Usage",
+  contextWindowPercentFull: "{percent} Full",
+  contextWindowTokensSummary: "~{used} / {size} Tokens",
   planViewerEmpty: "No plan content available yet.",
   queueEdit: "Edit",
   queueSave: "Save",

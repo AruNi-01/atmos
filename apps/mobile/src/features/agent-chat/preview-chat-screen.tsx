@@ -16,7 +16,7 @@ import { parityFixtureById } from "@/features/agent-chat/parity-tree";
 import { useThemeStore } from "@/theme/theme-store";
 import { AgentChatComposer } from "./AgentChatComposer";
 import { AgentChatTranscript, type AgentChatTranscriptHandle } from "./AgentChatTranscript";
-import { cardPillTitle } from "./composer-cards";
+import { cardPillTitle, laneCardDrawsOwnFrame } from "./composer-cards";
 import { ComposerPillRow } from "./composer-pill-row";
 import { pillShowsAttention, reduceLane, type LaneState } from "./card-lane";
 import { ExpandedCard } from "./cards/expanded-card";
@@ -530,7 +530,7 @@ export function PreviewChatScreen() {
       <View style={{ gap: 8, paddingBottom: 12, paddingTop: 8 }}>
         {lane.visible ? (
           <ExpandedCard
-            bare={lane.visible === "subagents" && cards.subagentTools.length > 0}
+            bare={laneCardDrawsOwnFrame(lane.visible, cards)}
             key={lane.visible}
             onHeight={setCardHeight}
           >

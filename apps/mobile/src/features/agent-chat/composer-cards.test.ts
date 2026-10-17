@@ -16,6 +16,7 @@ import type {
 import {
   cardPillTitle,
   deriveComposerCards,
+  laneCardDrawsOwnFrame,
   moveQueueItem,
   planBodyMarkdown,
 } from "./composer-cards";
@@ -354,6 +355,20 @@ describe("moveQueueItem", () => {
     expect(moveQueueItem(["a", "b", "c"], "b", "down")).toEqual(["a", "c", "b"]);
     expect(moveQueueItem(["a", "b"], "a", "up")).toBeNull();
     expect(moveQueueItem(["a", "b"], "b", "down")).toBeNull();
+  });
+});
+
+describe("laneCardDrawsOwnFrame", () => {
+  test("goal, workflow, context, and a live subagent panel draw their own border", () => {
+    const cards = { subagentTools: [{ tool_call_id: "a" }] } as never;
+    const empty = { subagentTools: [] } as never;
+    expect(laneCardDrawsOwnFrame("goal", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("workflow", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("context", empty)).toBe(true);
+    expect(laneCardDrawsOwnFrame("subagents", cards)).toBe(true);
+    expect(laneCardDrawsOwnFrame("subagents", empty)).toBe(false);
+    expect(laneCardDrawsOwnFrame("plan", empty)).toBe(false);
+    expect(laneCardDrawsOwnFrame(null, empty)).toBe(false);
   });
 });
 

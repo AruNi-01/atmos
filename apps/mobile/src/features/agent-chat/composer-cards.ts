@@ -72,6 +72,15 @@ export function planBodyMarkdown(plan: unknown): string {
   return "";
 }
 
+/** Panels that paint their own `rounded-3xl` border sit outside the lane frame. */
+export function laneCardDrawsOwnFrame(
+  visible: CardId | null,
+  cards: Pick<ComposerCards, "subagentTools">,
+): boolean {
+  if (visible === "subagents") return cards.subagentTools.length > 0;
+  return visible === "goal" || visible === "workflow" || visible === "context";
+}
+
 export function contextUsageStats(
   usage: AgentSessionUsage | null | undefined,
 ): ContextUsageStats | null {

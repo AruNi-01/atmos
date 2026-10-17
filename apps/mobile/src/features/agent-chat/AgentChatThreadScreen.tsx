@@ -28,7 +28,7 @@ import {
 } from "./card-lane";
 import { ExpandedCard } from "./cards/expanded-card";
 import { LaneCardBody } from "./cards/lane-body";
-import { cardPillTitle, deriveComposerCards } from "./composer-cards";
+import { cardPillTitle, deriveComposerCards, laneCardDrawsOwnFrame } from "./composer-cards";
 import { subagentRosterIds } from "./inline-subagent-tasks";
 import { ComposerPillRow } from "./composer-pill-row";
 import {
@@ -558,7 +558,7 @@ export function AgentChatThreadScreen({
           <View style={{ gap: 8, paddingTop: 8 }}>
             {lane.visible ? (
               <ExpandedCard
-                bare={lane.visible === "subagents" && cards.subagentTools.length > 0}
+                bare={laneCardDrawsOwnFrame(lane.visible, cards)}
                 key={lane.visible}
                 onHeight={onCardHeight}
               >

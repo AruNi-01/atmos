@@ -109,7 +109,7 @@ type AgentComponents = {
     expandAria: string;
     panelAria: string;
   };
-  contextWindow: { title: string };
+  contextWindow: { title: string; percentFull: string; tokensSummary: string };
   terminalBlock: { title: string };
   toolResults: {
     searchingFor: string;
@@ -209,6 +209,8 @@ describe("agent chat copy parity", () => {
     expect(copy.grokWorkflowPanelAria).toBe(components.grokWorkflow.panelAria);
     expect(copy.grokWorkflowTitle).toBe("Research");
     expect(copy.contextWindowTitle).toBe(components.contextWindow.title);
+    expect(copy.contextWindowPercentFull).toBe(components.contextWindow.percentFull);
+    expect(copy.contextWindowTokensSummary).toBe(components.contextWindow.tokensSummary);
     expect(copy.pasteChip).toBe(chatPanel.paste.chip);
     expect(copy.pasteChip).toBe("Pasted: {count} lines");
   });

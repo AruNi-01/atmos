@@ -207,8 +207,16 @@ describe("inline subagent tasks", () => {
     const frame = readFileSync(join(here, "cards/expanded-card.tsx"), "utf8");
     expect(frame).toContain("bare");
     const thread = readFileSync(join(here, "AgentChatThreadScreen.tsx"), "utf8");
-    expect(thread).toContain('lane.visible === "subagents" && cards.subagentTools.length > 0');
+    expect(thread).toContain("laneCardDrawsOwnFrame(lane.visible, cards)");
+    const preview = readFileSync(join(here, "preview-chat-screen.tsx"), "utf8");
+    expect(preview).toContain("laneCardDrawsOwnFrame(lane.visible, cards)");
     const titles = readFileSync(join(here, "composer-cards.ts"), "utf8");
+    const ownFrame = titles.slice(
+      titles.indexOf("function laneCardDrawsOwnFrame"),
+      titles.indexOf("function contextUsageStats"),
+    );
+    expect(ownFrame).toContain('visible === "subagents"');
+    expect(ownFrame).toContain("cards.subagentTools.length > 0");
     const titleFn = titles.slice(
       titles.indexOf("function subagentTitle"),
       titles.indexOf("function visibleSubagentParts"),
