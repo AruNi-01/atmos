@@ -24,6 +24,7 @@ import {
   fileChangeName,
   visibleTurnFileChanges,
 } from "./turn-file-changes";
+import { TOOL_ADDITION_COLOR, TOOL_DELETION_COLOR } from "./tool-body";
 
 function CopyMessageButton({ text }: { text: string }) {
   const theme = useMobileTheme();
@@ -197,13 +198,12 @@ function WorkedForLabel({
 }
 
 function FileStats({ additions, deletions }: { additions: number; deletions: number }) {
-  const theme = useMobileTheme();
   if (additions <= 0 && deletions <= 0) return null;
   return (
     <Text style={{ fontFamily: "Menlo", fontSize: 12, lineHeight: 16 }}>
-      {additions > 0 ? <Text style={{ color: theme.colors.green }}>+{additions}</Text> : null}
+      {additions > 0 ? <Text style={{ color: TOOL_ADDITION_COLOR }}>+{additions}</Text> : null}
       {additions > 0 && deletions > 0 ? " " : null}
-      {deletions > 0 ? <Text style={{ color: theme.colors.red }}>-{deletions}</Text> : null}
+      {deletions > 0 ? <Text style={{ color: TOOL_DELETION_COLOR }}>-{deletions}</Text> : null}
     </Text>
   );
 }

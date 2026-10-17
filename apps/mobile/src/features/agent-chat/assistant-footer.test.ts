@@ -297,4 +297,17 @@ describe("assistant footer", () => {
     expect(session).toContain("TriangleAlert");
     expect(session).toContain("size={14}");
   });
+
+  test("file change counts use the same addition and deletion colors as the tool row", () => {
+    const source = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
+    const stats = source.slice(
+      source.indexOf("function FileStats"),
+      source.indexOf("export function AssistantFooter"),
+    );
+    expect(stats).toContain("TOOL_ADDITION_COLOR");
+    expect(stats).toContain("TOOL_DELETION_COLOR");
+    expect(stats).toContain('" "');
+    expect(stats).not.toContain("theme.colors.green");
+    expect(stats).not.toContain("theme.colors.red");
+  });
 });

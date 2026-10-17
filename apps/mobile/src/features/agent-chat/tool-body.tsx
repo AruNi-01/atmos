@@ -786,6 +786,13 @@ export const TOOL_DIFF_MAX_HEIGHT = 448;
 /** Web file list `max-h-72`. */
 export const TOOL_FILE_LIST_MAX_HEIGHT = 288;
 
+/**
+ * Tailwind v4 `text-green-500` and `text-red-500`.
+ * Those utilities do not change in dark mode. Values are the sRGB clip of the theme OKLCH.
+ */
+export const TOOL_ADDITION_COLOR = "#00c950";
+export const TOOL_DELETION_COLOR = "#fb2c36";
+
 /** Same directory guess as web `agentChatPathLooksLikeDirectory`. */
 export function pathLooksLikeDirectory(path: string): boolean {
   const trimmed = path.trim().replace(/^['"`]+|['"`]+$/g, "");
@@ -940,11 +947,11 @@ export function ToolDiffStats({ additions, deletions }: { additions: number; del
   if (additions <= 0 && deletions <= 0) return null;
   return (
     <Text style={{ fontFamily: "Menlo", fontSize: 12, lineHeight: 16 }}>
-      {deletions > 0 ? <Text style={{ color: theme.colors.red }}>-{deletions}</Text> : null}
+      {deletions > 0 ? <Text style={{ color: TOOL_DELETION_COLOR }}>-{deletions}</Text> : null}
       {deletions > 0 && additions > 0 ? (
-        <Text style={{ color: theme.colors.secondaryLabel }}> / </Text>
+        <Text style={{ color: theme.colors.secondaryLabel, marginHorizontal: 4 }}>/</Text>
       ) : null}
-      {additions > 0 ? <Text style={{ color: theme.colors.green }}>+{additions}</Text> : null}
+      {additions > 0 ? <Text style={{ color: TOOL_ADDITION_COLOR }}>+{additions}</Text> : null}
     </Text>
   );
 }
@@ -1443,7 +1450,7 @@ function TodoStatusRows({ items }: { items: Array<{ content: string; status: Tod
           >
             <View accessibilityLabel={todoStatusLabel(item.status)} style={{ marginTop: 2 }}>
               <Icon
-                color={completed ? theme.colors.green : theme.colors.secondaryLabel}
+                color={completed ? TOOL_ADDITION_COLOR : theme.colors.secondaryLabel}
                 size={14}
                 strokeWidth={2}
               />

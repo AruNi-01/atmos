@@ -126,6 +126,18 @@ describe("tool body presentation", () => {
     expect(patchCase).not.toContain("PathChip");
     const mod = await importPure("tool-body.tsx");
     expect(mod.TOOL_DIFF_MAX_HEIGHT).toBe(448);
+    expect(mod.TOOL_ADDITION_COLOR).toBe("#00c950");
+    expect(mod.TOOL_DELETION_COLOR).toBe("#fb2c36");
+    const counts = view.slice(
+      view.indexOf("function ToolDiffStats"),
+      view.indexOf("function ShowMoreButton"),
+    );
+    expect(counts).toContain("TOOL_DELETION_COLOR");
+    expect(counts).toContain("TOOL_ADDITION_COLOR");
+    expect(counts).toContain("marginHorizontal: 4");
+    expect(counts).not.toContain(" / ");
+    expect(counts).not.toContain("theme.colors.green");
+    expect(counts).not.toContain("theme.colors.red");
     const patchLines = mod.patchDiffLines as (patch: string) => Array<{
       op: string;
       text: string;
@@ -844,6 +856,8 @@ describe("move and delete bodies", () => {
     );
     expect(todos).toContain("paddingHorizontal: 12");
     expect(todos).toContain("paddingVertical: 8");
+    expect(todos).toContain("TOOL_ADDITION_COLOR");
+    expect(todos).not.toContain("theme.colors.green");
   });
 });
 
