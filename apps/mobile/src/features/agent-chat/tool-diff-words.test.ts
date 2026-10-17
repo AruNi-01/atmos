@@ -83,8 +83,8 @@ describe("tool diff word marks", () => {
     expect(toolDiffWordFill("add", true)).toBe(TOOL_DIFF_WORD_ADD_DARK);
     expect(toolDiffWordFill("del", false)).toBe(TOOL_DIFF_WORD_DEL_LIGHT);
     expect(toolDiffWordFill("del", true)).toBe(TOOL_DIFF_WORD_DEL_DARK);
-    expect(TOOL_DIFF_WORD_ADD_LIGHT).toBe("rgba(13, 190, 78, 0.15)");
-    expect(TOOL_DIFF_WORD_ADD_DARK).toBe("rgba(94, 204, 113, 0.2)");
+    expect(TOOL_DIFF_WORD_ADD_LIGHT).toBe("rgba(7, 196, 128, 0.15)");
+    expect(TOOL_DIFF_WORD_ADD_DARK).toBe("rgba(96, 209, 153, 0.2)");
     expect(TOOL_DIFF_WORD_DEL_LIGHT).toBe("rgba(255, 46, 63, 0.15)");
     expect(TOOL_DIFF_WORD_DEL_DARK).toBe("rgba(255, 103, 98, 0.2)");
     expect(TOOL_DIFF_WORD_RADIUS).toBe(3);

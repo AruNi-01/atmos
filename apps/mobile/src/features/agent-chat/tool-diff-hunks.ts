@@ -44,9 +44,12 @@ export type ToolDiffHunkLine = {
 export const TOOL_DIFF_NO_NEWLINE_LABEL = "No newline at end of file";
 /** `[data-no-newline] span { opacity: .6 }`. */
 export const TOOL_DIFF_NO_NEWLINE_OPACITY = 0.6;
-/** `--diffs-fg` is `light-dark(#000, #fff)`. */
-export const TOOL_DIFF_FG_LIGHT = "#000000";
-export const TOOL_DIFF_FG_DARK = "#ffffff";
+/**
+ * `--diffs-fg` from `pierre-light-soft` / `pierre-dark-soft`
+ * (`editor.foreground`). The theme sets `--diffs-light` and `--diffs-dark`.
+ */
+export const TOOL_DIFF_FG_LIGHT = "#525252";
+export const TOOL_DIFF_FG_DARK = "#d4d4d4";
 
 export type ToolDiffSegment =
   | { kind: "lines"; lines: ToolDiffHunkLine[] }

@@ -111,8 +111,8 @@ describe("tool diff hunks", () => {
     expect(added.lines.find((line) => line.op === "add")?.noNewline).toBe(true);
     expect(TOOL_DIFF_NO_NEWLINE_LABEL).toBe("No newline at end of file");
     expect(TOOL_DIFF_NO_NEWLINE_OPACITY).toBe(0.6);
-    expect(TOOL_DIFF_FG_LIGHT).toBe("#000000");
-    expect(TOOL_DIFF_FG_DARK).toBe("#ffffff");
+    expect(TOOL_DIFF_FG_LIGHT).toBe("#525252");
+    expect(TOOL_DIFF_FG_DARK).toBe("#d4d4d4");
   });
 
   test("uses Pierre's separator label and fill", () => {

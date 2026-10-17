@@ -146,6 +146,7 @@ describe("tool body presentation", () => {
     expect(discussion).toContain("borderRadius: TOOL_DIFF_WORD_RADIUS");
     expect(discussion).toContain("toolDiffVisibleRows(segments, revealed)");
     expect(discussion).toContain("DiffHunkSeparator");
+    expect(discussion).toContain("TOOL_DIFF_FG_LIGHT");
     expect(discussion).toContain("line.noNewline");
     expect(discussion).toContain("DiffNoNewlineNote");
     const newlineNote = view.slice(
@@ -189,14 +190,14 @@ describe("tool body presentation", () => {
     expect(mod.TOOL_DIFF_NUMBER_PAD_RIGHT).toBe(7.8);
     expect(mod.TOOL_DIFF_CODE_PAD).toBe(7.8);
     expect(mod.TOOL_DIFF_BAR).toBe(4);
-    expect(mod.TOOL_DIFF_NUMBER_ADD_LIGHT).toBe("#0dbe4e");
-    expect(mod.TOOL_DIFF_NUMBER_ADD_DARK).toBe("#5ecc71");
+    expect(mod.TOOL_DIFF_NUMBER_ADD_LIGHT).toBe("#07c480");
+    expect(mod.TOOL_DIFF_NUMBER_ADD_DARK).toBe("#60d199");
     expect(mod.TOOL_DIFF_NUMBER_DEL_LIGHT).toBe("#ff2e3f");
     expect(mod.TOOL_DIFF_NUMBER_DEL_DARK).toBe("#ff6762");
-    expect(mod.TOOL_DIFF_NUMBER_CONTEXT_LIGHT).toBe("#4f4f50");
-    expect(mod.TOOL_DIFF_NUMBER_CONTEXT_DARK).toBe("#9e9e9e");
-    expect(mod.toolDiffContextNumber(false)).toBe("#4f4f50");
-    expect(mod.toolDiffContextNumber(true)).toBe("#9e9e9e");
+    expect(mod.TOOL_DIFF_NUMBER_CONTEXT_LIGHT).toBe("#878788");
+    expect(mod.TOOL_DIFF_NUMBER_CONTEXT_DARK).toBe("#848484");
+    expect(mod.toolDiffContextNumber(false)).toBe("#878788");
+    expect(mod.toolDiffContextNumber(true)).toBe("#848484");
     expect(mod.toolDiffNumberColumnWidth(2)).toBe(46.8);
     expect(mod.toolDiffNumberColumnWidth(999)).toBe(46.8);
     expect(mod.toolDiffNumberColumnWidth(1000)).toBe(54.6);
@@ -204,13 +205,13 @@ describe("tool body presentation", () => {
     expect(mod.toolDiffUnifiedLineNo({ op: "del", oldNo: 2, newNo: null })).toBe(2);
     expect(mod.toolDiffUnifiedLineNo({ op: "add", oldNo: null, newNo: 9 })).toBe(9);
     expect(mod.TOOL_DIFF_GUTTER_RULE).toBe(2);
-    expect(mod.toolDiffLineFill("add", false)).toBe("#dfeee2");
+    expect(mod.toolDiffLineFill("add", false)).toBe("#dfefe7");
     expect(mod.toolDiffLineFill("del", false)).toBe("#fbe0de");
-    expect(mod.toolDiffLineFill("add", true)).toBe("#1a291b");
+    expect(mod.toolDiffLineFill("add", true)).toBe("#1a2a21");
     expect(mod.toolDiffLineFill("del", true)).toBe("#321a18");
-    expect(mod.toolDiffNumberFill("add", false)).toBe("#e4f0e7");
+    expect(mod.toolDiffNumberFill("add", false)).toBe("#e5f0eb");
     expect(mod.toolDiffNumberFill("del", false)).toBe("#fae5e4");
-    expect(mod.toolDiffNumberFill("add", true)).toBe("#152016");
+    expect(mod.toolDiffNumberFill("add", true)).toBe("#16211b");
     expect(mod.toolDiffNumberFill("del", true)).toBe("#271614");
     expect(lightColors.background).toBe("#f4f4f6");
     expect(darkColors.background).toBe("#000000");

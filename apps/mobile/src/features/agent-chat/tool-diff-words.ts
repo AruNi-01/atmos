@@ -11,9 +11,12 @@ export const TOOL_DIFF_WORD_MAX = 1000;
 /** Pierre `[data-code] { tab-size: var(--diffs-tab-size, 2) }`. */
 export const TOOL_DIFF_TAB_SIZE = 2;
 
-/** `rgb(from addition/deletion base / .15)` in light and `/ .2` in dark. */
-export const TOOL_DIFF_WORD_ADD_LIGHT = "rgba(13, 190, 78, 0.15)";
-export const TOOL_DIFF_WORD_ADD_DARK = "rgba(94, 204, 113, 0.2)";
+/**
+ * `rgb(from addition/deletion base / .15)` in light and `/ .2` in dark.
+ * The addition base is the soft theme's added-file color.
+ */
+export const TOOL_DIFF_WORD_ADD_LIGHT = "rgba(7, 196, 128, 0.15)";
+export const TOOL_DIFF_WORD_ADD_DARK = "rgba(96, 209, 153, 0.2)";
 export const TOOL_DIFF_WORD_DEL_LIGHT = "rgba(255, 46, 63, 0.15)";
 export const TOOL_DIFF_WORD_DEL_DARK = "rgba(255, 103, 98, 0.2)";
 /** `[data-diff-span] { border-radius: 3px }`. */

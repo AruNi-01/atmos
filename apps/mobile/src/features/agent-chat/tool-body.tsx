@@ -924,17 +924,21 @@ export const TOOL_DIFF_NUMBER_PAD_LEFT = 15.6;
 export const TOOL_DIFF_NUMBER_PAD_RIGHT = 7.8;
 export const TOOL_DIFF_CODE_PAD = 7.8;
 export const TOOL_DIFF_BAR = 4;
-export const TOOL_DIFF_NUMBER_ADD_LIGHT = "#0dbe4e";
-export const TOOL_DIFF_NUMBER_ADD_DARK = "#5ecc71";
+/**
+ * `pierre-light-soft` / `pierre-dark-soft` set the addition base from
+ * `gitDecoration.addedResourceForeground`. Deletion stays `#ff2e3f` / `#ff6762`.
+ */
+export const TOOL_DIFF_NUMBER_ADD_LIGHT = "#07c480";
+export const TOOL_DIFF_NUMBER_ADD_DARK = "#60d199";
 export const TOOL_DIFF_NUMBER_DEL_LIGHT = "#ff2e3f";
 export const TOOL_DIFF_NUMBER_DEL_DARK = "#ff6762";
 /**
- * Pierre `--diffs-fg-number`: `color-mix(in lab, fg 65%, canvas)` with fg
- * `#000` / `#fff`. Context rows are transparent, so the canvas is the chat
- * page (`#f4f4f6` / `#000000`).
+ * Pierre `--diffs-fg-number`: `color-mix(in lab, fg 65%, canvas)`. The soft
+ * theme foreground is `#525252` / `#d4d4d4`. Context rows are transparent, so
+ * the canvas is the chat page (`#f4f4f6` / `#000000`).
  */
-export const TOOL_DIFF_NUMBER_CONTEXT_LIGHT = "#4f4f50";
-export const TOOL_DIFF_NUMBER_CONTEXT_DARK = "#9e9e9e";
+export const TOOL_DIFF_NUMBER_CONTEXT_LIGHT = "#878788";
+export const TOOL_DIFF_NUMBER_CONTEXT_DARK = "#848484";
 
 export function toolDiffContextNumber(isDark: boolean): string {
   return isDark ? TOOL_DIFF_NUMBER_CONTEXT_DARK : TOOL_DIFF_NUMBER_CONTEXT_LIGHT;
@@ -977,12 +981,12 @@ export const TOOL_DIFF_GUTTER_RULE = 2;
  * The canvas is this chat page (`#f4f4f6` / `#000000`). Web mixes the same
  * percentages against its own `--background`.
  */
-export const TOOL_DIFF_LINE_ADD_LIGHT = "#dfeee2";
-export const TOOL_DIFF_LINE_ADD_DARK = "#1a291b";
+export const TOOL_DIFF_LINE_ADD_LIGHT = "#dfefe7";
+export const TOOL_DIFF_LINE_ADD_DARK = "#1a2a21";
 export const TOOL_DIFF_LINE_DEL_LIGHT = "#fbe0de";
 export const TOOL_DIFF_LINE_DEL_DARK = "#321a18";
-export const TOOL_DIFF_NUMBER_FILL_ADD_LIGHT = "#e4f0e7";
-export const TOOL_DIFF_NUMBER_FILL_ADD_DARK = "#152016";
+export const TOOL_DIFF_NUMBER_FILL_ADD_LIGHT = "#e5f0eb";
+export const TOOL_DIFF_NUMBER_FILL_ADD_DARK = "#16211b";
 export const TOOL_DIFF_NUMBER_FILL_DEL_LIGHT = "#fae5e4";
 export const TOOL_DIFF_NUMBER_FILL_DEL_DARK = "#271614";
 
@@ -1863,7 +1867,7 @@ function DiscussionDiff({
                         <Text
                           selectable
                           style={{
-                            color: chatForeground(theme.isDark),
+                            color: theme.isDark ? TOOL_DIFF_FG_DARK : TOOL_DIFF_FG_LIGHT,
                             fontFamily: "Menlo",
                             fontSize: TOOL_DIFF_CODE_FONT,
                             lineHeight: TOOL_DIFF_LINE_HEIGHT,
