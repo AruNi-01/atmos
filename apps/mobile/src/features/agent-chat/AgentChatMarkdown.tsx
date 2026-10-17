@@ -89,9 +89,10 @@ export function AgentChatMarkdown({
         lineHeight: resolvedLineHeight,
       },
       list: {
-        // Web streamdown lists are `list-inside list-disc`. The default disc
-        // sat on the text with no marker column, so the item reads as a
-        // hanging bullet. Indent the line and keep the disc inside that column.
+        // Streamdown lists are `list-inside`. The disc's left edge is the
+        // text edge; `gapWidth` is the space before the words. A marker
+        // minimum would park that 5px disc at the right of a wide column.
+        // `marginLeft` is the nested-level indent (`[li_&]:pl-6`).
         bulletColor: proseColor,
         bulletSize: 5,
         color: proseColor,
@@ -100,7 +101,6 @@ export function AgentChatMarkdown({
         lineHeight: resolvedLineHeight,
         marginLeft: 24,
         markerColor: proseColor,
-        markerMinWidth: 18,
         ...(proseMetrics
           ? {
               itemSpacing: proseMetrics.itemSpacing,
