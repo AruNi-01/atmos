@@ -71,8 +71,8 @@ import { ProcessFold } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
 import { initialStickState, reduceStick, type StickAction } from "./stick";
 import {
+  jumpExtendReadyToRelease,
   jumpFollowsTailAfterMiss,
-  jumpHasTailRoom,
   offsetFromMeasuredStride,
   stickScrollWhileJumping,
   transcriptItemLayout,
@@ -458,6 +458,8 @@ export const AgentChatTranscript = forwardRef<
   const measurementsRef = useRef<Array<TranscriptMeasurement | undefined>>([]);
   const jumpIndexRef = useRef(-1);
   const extendTailRef = useRef(false);
+  const extendCommittedRef = useRef(false);
+  const pendingJumpRef = useRef<{ animated: boolean; index: number } | null>(null);
   const [extendTail, setExtendTailState] = useState(false);
   const rowCountRef = useRef(0);
   const viewRef = useRef({ distance: 0, height: 0, scrollTop: 0 });
@@ -525,8 +527,39 @@ export const AgentChatTranscript = forwardRef<
   const setExtendTail = useCallback((next: boolean) => {
     if (extendTailRef.current === next) return;
     extendTailRef.current = next;
+    if (!next) {
+      extendCommittedRef.current = false;
+      pendingJumpRef.current = null;
+    }
     setExtendTailState(next);
   }, []);
+  useLayoutEffect(() => {
+    if (!extendTail) {
+      extendCommittedRef.current = false;
+      return;
+    }
+    extendCommittedRef.current = true;
+    const pending = pendingJumpRef.current;
+    if (!pending) return;
+    pendingJumpRef.current = null;
+    let cancelled = false;
+    // The native list applies `getItemLayout` after this commit.
+    const outer = requestAnimationFrame(() => {
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        listRef.current?.scrollToIndex({
+          animated: pending.animated,
+          index: pending.index,
+          viewPosition: 0,
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outer);
+    };
+  }, [extendTail]);
   const layoutForJump = useCallback(
     (_data: ArrayLike<AgentMessage> | null | undefined, index: number) =>
       transcriptItemLayout(index, measurementsRef.current, AGENT_CHAT_TRANSCRIPT_GAP),
@@ -535,11 +568,12 @@ export const AgentChatTranscript = forwardRef<
   const releaseExtendIfRoom = useCallback(() => {
     if (!extendTailRef.current) return;
     if (
-      !jumpHasTailRoom(
+      !jumpExtendReadyToRelease(
         jumpIndexRef.current,
         measurementsRef.current,
         viewRef.current.height,
         AGENT_CHAT_TRANSCRIPT_GAP,
+        viewRef.current.scrollTop,
       )
     ) {
       return;
@@ -606,14 +640,18 @@ export const AgentChatTranscript = forwardRef<
         userDragged: true,
       });
       const earlier = !jumpFollowsTailAfterMiss(index, rowsRef.current.length);
-      const needsLayout = earlier && !extendTailRef.current;
-      if (needsLayout) setExtendTail(true);
+      const needsLayout = earlier && !extendCommittedRef.current;
       const scroll = () => {
         listRef.current?.scrollToIndex({ animated, index, viewPosition: 0 });
       };
       // The estimated tail is on the next commit. Scrolling before that clamps.
-      if (needsLayout) requestAnimationFrame(() => requestAnimationFrame(scroll));
-      else scroll();
+      if (needsLayout) {
+        pendingJumpRef.current = { animated, index };
+        setExtendTail(true);
+      } else {
+        pendingJumpRef.current = null;
+        scroll();
+      }
       // If the jump never leaves the end, follow the tail only when the target
       // is the last row. An earlier row stays unstuck so a short tail can grow
       // under it. A jump that already landed away keeps ignoring a stale end.

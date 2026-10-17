@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { TRANSCRIPT_END_SLACK_PX } from "@atmos/agent-transcript";
 import {
+  jumpExtendReadyToRelease,
   jumpFollowsTailAfterMiss,
   jumpHasTailRoom,
   offsetFromMeasuredStride,
@@ -77,5 +78,26 @@ describe("jumpHasTailRoom", () => {
     expect(jumpHasTailRoom(0, short, 100, 12)).toBe(false);
     expect(jumpHasTailRoom(0, [{ size: 20 }, { size: 200 }], 100, 12)).toBe(true);
     expect(jumpHasTailRoom(0, [{ size: 20 }, undefined, { size: 400 }], 100, 12)).toBe(false);
+  });
+});
+
+describe("jumpExtendReadyToRelease", () => {
+  test("a top offset does not release while the marker is still far below", () => {
+    const measurements: Array<{ size: number; start: number } | undefined> = [];
+    measurements[50] = { size: 40, start: 4434 };
+    measurements[51] = { size: 800, start: 4486 };
+    expect(jumpHasTailRoom(50, measurements, 668, 12)).toBe(true);
+    expect(jumpExtendReadyToRelease(50, measurements, 668, 12, 10)).toBe(false);
+    expect(jumpExtendReadyToRelease(50, measurements, 668, 12, 4434)).toBe(true);
+    expect(jumpExtendReadyToRelease(50, measurements, 668, 12, 4436)).toBe(true);
+    expect(jumpExtendReadyToRelease(50, measurements, 668, 12, 4437)).toBe(false);
+  });
+
+  test("a matching offset still waits for a measured tail", () => {
+    const measurements = [
+      { size: 40, start: 0 },
+      { size: 20, start: 52 },
+    ];
+    expect(jumpExtendReadyToRelease(0, measurements, 100, 12, 0)).toBe(false);
   });
 });

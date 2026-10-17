@@ -127,3 +127,22 @@ export function jumpHasTailRoom(
   }
   return false;
 }
+
+/**
+ * The estimated tail stays until the viewport is on the target row.
+ * Turning that layout on can drop the offset to the top. Releasing it
+ * there collapses the content and clamps the list.
+ */
+export function jumpExtendReadyToRelease(
+  targetIndex: number,
+  measurements: ReadonlyArray<TranscriptJumpMeasurement | undefined>,
+  viewport: number,
+  gap: number,
+  scrollTop: number,
+  alignSlack = 2,
+): boolean {
+  if (!jumpHasTailRoom(targetIndex, measurements, viewport, gap)) return false;
+  const target = measurements[targetIndex];
+  if (!target || target.start == null || !(target.size > 0)) return false;
+  return Math.abs(scrollTop - target.start) <= alignSlack;
+}
