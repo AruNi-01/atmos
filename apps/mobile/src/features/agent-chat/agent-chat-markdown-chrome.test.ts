@@ -177,6 +177,7 @@ describe("agent chat markdown chrome", () => {
     expect(markdown).toContain("Streamdown images are `max-w-full rounded-lg`");
     const imageStyle = markdown.slice(markdown.indexOf("image:"), markdown.indexOf("link:"));
     expect(imageStyle).toContain("height: 0");
+    expect(imageStyle).toContain("proseMetrics ? { marginBottom: 0, marginTop: 0 }");
     expect(markdown.split("height: 0").length).toBe(2);
     expect(markdown).not.toContain("markerMinWidth");
     expect(markdown).toContain("{ itemSpacing: 8, marginBottom: 4, marginTop: 4 }");
