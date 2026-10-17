@@ -54,6 +54,11 @@ describe("composer capabilities", () => {
     expect(composerSource).toContain("const FIELD_FONT_SIZE = 14");
     expect(composerSource).toContain("const MAX_LINES = 8");
     expect(composerSource).toContain("const BUTTON_SIZE = 32");
+    expect(composerSource).toContain("export const COMPOSER_GLYPH_OPACITY = 0.8");
+    expect(composerSource).toContain("opacity: COMPOSER_GLYPH_OPACITY");
+    expect(composerSource).toContain(
+      "opacity: props.busy || sendReady ? COMPOSER_GLYPH_OPACITY : 1",
+    );
     expect(composerSource).toContain("const SHELL_RADIUS = 22");
     expect(composerSource).toContain("composerShellFill");
     expect(composerSource).not.toContain("ChevronDownIcon");

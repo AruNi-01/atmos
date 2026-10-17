@@ -38,6 +38,11 @@ const FIELD_FONT_SIZE = 14;
 const MAX_LINES = 8;
 /** Web plus and send are `size-8`. The shell is `rounded-3xl` (`--radius` + 12). */
 const BUTTON_SIZE = 32;
+/**
+ * Those controls are `Button`s. Every svg without its own opacity is 80%.
+ * The empty send stays a glass control at 0.45, so its arrow is not faded again.
+ */
+export const COMPOSER_GLYPH_OPACITY = 0.8;
 const SHELL_RADIUS = 22;
 const glassButton = {
   alignItems: "center" as const,
@@ -217,7 +222,9 @@ export function AgentChatComposer(props: {
           width: BUTTON_SIZE,
         })}
       >
-        <PlusIcon color={chatForeground(theme.isDark)} size={16} strokeWidth={2} />
+        <View style={{ opacity: COMPOSER_GLYPH_OPACITY }}>
+          <PlusIcon color={chatForeground(theme.isDark)} size={16} strokeWidth={2} />
+        </View>
       </Pressable>
     </GlassPanel>
   );
@@ -243,11 +250,13 @@ export function AgentChatComposer(props: {
           width: BUTTON_SIZE,
         })}
       >
-        {props.busy ? (
-          <SquareIcon color={sendIcon} fill={sendIcon} size={12} strokeWidth={2} />
-        ) : (
-          <ArrowUpIcon color={sendIcon} size={16} strokeWidth={2} />
-        )}
+        <View style={{ opacity: props.busy || sendReady ? COMPOSER_GLYPH_OPACITY : 1 }}>
+          {props.busy ? (
+            <SquareIcon color={sendIcon} fill={sendIcon} size={12} strokeWidth={2} />
+          ) : (
+            <ArrowUpIcon color={sendIcon} size={16} strokeWidth={2} />
+          )}
+        </View>
       </Pressable>
     );
     if (sendReady) return button;
