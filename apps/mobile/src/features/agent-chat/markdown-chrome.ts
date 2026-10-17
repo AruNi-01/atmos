@@ -188,6 +188,10 @@ export const ANSWER_FENCE_MAX_HEIGHT = 384;
  * `text-sm` alone is 20px. The table rule wins, so a cell line is 22.75px.
  */
 export const TABLE_LINE_HEIGHT = 14 * 1.625;
+/** Short tool prose is `text-sm leading-relaxed`. */
+export const TOOL_PROSE_LINE_HEIGHT = 14 * 1.625;
+/** Tool, plan, and approval markdown are `text-[13px] leading-relaxed`. */
+export const TOOL_MARKDOWN_LINE_HEIGHT = 13 * 1.625;
 
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: STREAMDOWN_BLOCK_GAP },

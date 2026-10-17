@@ -462,7 +462,8 @@ describe("tool body presentation", () => {
     expect(markdown).toContain("HeightClip");
     expect(markdown).toContain("TOOL_CODE_MAX_HEIGHT");
     expect(markdown).toContain("fontSize={13}");
-    expect(markdown).toContain("lineHeight={21}");
+    expect(markdown).toContain("lineHeight={TOOL_MARKDOWN_LINE_HEIGHT}");
+    expect(markdown).not.toContain("lineHeight={21}");
     expect(markdown).toContain('prose="tool"');
     expect(markdown).toContain("paddingHorizontal: 12");
     expect(markdown).toContain("paddingVertical: 8");
@@ -477,7 +478,8 @@ describe("tool body presentation", () => {
     const fetched = view.slice(view.indexOf('case "web_fetch":'), view.indexOf('case "search":'));
     expect(fetched).toContain("TOOL_CODE_MAX_HEIGHT");
     expect(fetched).toContain("fontSize={13}");
-    expect(fetched).toContain("lineHeight={21}");
+    expect(fetched).toContain("lineHeight={TOOL_MARKDOWN_LINE_HEIGHT}");
+    expect(fetched).not.toContain("lineHeight={21}");
     expect(fetched).toContain('prose="tool"');
     expect(fetched).toContain("toolTextUsesPreview(model.body)");
     expect(fetched).toContain("<ToolPlainPreview");
@@ -570,7 +572,8 @@ describe("tool body presentation", () => {
       previewView.indexOf('case "execute":'),
     );
     expect(prose).toContain("fontSize: 14");
-    expect(prose).toContain("lineHeight: 23");
+    expect(prose).toContain("lineHeight: TOOL_PROSE_LINE_HEIGHT");
+    expect(prose).not.toContain("lineHeight: 23");
     expect(prose).not.toContain("Menlo");
 
     const executed = await call(

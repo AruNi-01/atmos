@@ -1122,6 +1122,7 @@ import {
   XCircleIcon,
 } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import { TOOL_MARKDOWN_LINE_HEIGHT, TOOL_PROSE_LINE_HEIGHT } from "./markdown-chrome";
 import { chatForeground, chatForeground80, chatMutedForeground } from "./chat-ink";
 import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
@@ -1744,7 +1745,7 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
             style={{
               color: chatMutedForeground(theme.isDark),
               fontSize: 14,
-              lineHeight: 23,
+              lineHeight: TOOL_PROSE_LINE_HEIGHT,
               paddingHorizontal: 12,
               paddingVertical: 8,
             }}
@@ -2057,7 +2058,12 @@ function PlanDocumentBody({
       ) : null}
       {showing === "body" && hasBody ? (
         <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-          <AgentChatMarkdown fontSize={13} lineHeight={21} prose="plan" text={model.plan} />
+          <AgentChatMarkdown
+            fontSize={13}
+            lineHeight={TOOL_MARKDOWN_LINE_HEIGHT}
+            prose="plan"
+            text={model.plan}
+          />
         </View>
       ) : null}
       {showing === "todos" && hasTodos ? <TodoStatusRows items={model.todos} /> : null}
@@ -2139,7 +2145,12 @@ function ToolBodyView({
         return (
           <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
             <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-              <AgentChatMarkdown fontSize={13} lineHeight={21} prose="tool" text={model.body} />
+              <AgentChatMarkdown
+                fontSize={13}
+                lineHeight={TOOL_MARKDOWN_LINE_HEIGHT}
+                prose="tool"
+                text={model.body}
+              />
             </View>
           </HeightClip>
         );
@@ -2155,7 +2166,9 @@ function ToolBodyView({
               model.format === "error"
                 ? chatDestructiveColor(theme.isDark)
                 : chatMutedForeground(theme.isDark),
-            ...(model.format === "error" ? BODY_TEXT : { fontSize: 14, lineHeight: 23 }),
+            ...(model.format === "error"
+              ? BODY_TEXT
+              : { fontSize: 14, lineHeight: TOOL_PROSE_LINE_HEIGHT }),
             paddingHorizontal: 12,
             paddingVertical: 8,
           }}
@@ -2173,7 +2186,12 @@ function ToolBodyView({
       return (
         <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
           <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-            <AgentChatMarkdown fontSize={13} lineHeight={21} prose="tool" text={model.markdown} />
+            <AgentChatMarkdown
+              fontSize={13}
+              lineHeight={TOOL_MARKDOWN_LINE_HEIGHT}
+              prose="tool"
+              text={model.markdown}
+            />
           </View>
         </HeightClip>
       );
@@ -2193,7 +2211,7 @@ function ToolBodyView({
           style={{
             color: chatMutedForeground(theme.isDark),
             fontSize: 14,
-            lineHeight: 23,
+            lineHeight: TOOL_PROSE_LINE_HEIGHT,
             paddingHorizontal: 12,
             paddingVertical: 8,
           }}

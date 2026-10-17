@@ -11,6 +11,7 @@ import {
 } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import { TOOL_MARKDOWN_LINE_HEIGHT } from "./markdown-chrome";
 import {
   APPROVAL_COMMAND_ICON_DARK,
   APPROVAL_COMMAND_ICON_FILL_DARK,
@@ -410,7 +411,12 @@ function PlanPermission({
       </View>
       {showBody ? (
         model.markdown ? (
-          <AgentChatMarkdown fontSize={13} lineHeight={21} prose="approval" text={model.markdown} />
+          <AgentChatMarkdown
+            fontSize={13}
+            lineHeight={TOOL_MARKDOWN_LINE_HEIGHT}
+            prose="approval"
+            text={model.markdown}
+          />
         ) : readOnly ? null : (
           <Text
             style={{
