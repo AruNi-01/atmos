@@ -70,10 +70,12 @@ function SubagentTaskGlyph({ part }: { part: AgentToolCallPart }) {
   );
 }
 
-function SubagentTaskRow({
+export function SubagentTaskRow({
+  fallbackType,
   messages,
   part,
 }: {
+  fallbackType?: string;
   messages: readonly AgentMessage[];
   part: AgentToolCallPart;
 }) {
@@ -111,7 +113,7 @@ function SubagentTaskRow({
             lineHeight: 20,
           }}
         >
-          {formatSubagentTaskLine(part)}
+          {formatSubagentTaskLine(part, fallbackType)}
         </Text>
         {activity ? (
           <View style={{ flexShrink: 9999, maxWidth: "100%", minWidth: 0 }}>

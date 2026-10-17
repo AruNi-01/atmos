@@ -62,9 +62,9 @@ export function LaneCardBody({
         <SubagentCard items={cards.subagents} messages={messages} tools={cards.subagentTools} />
       );
     case "goal":
-      return cards.goal ? <GoalCard goal={cards.goal} /> : null;
+      return cards.goal ? <GoalCard goal={cards.goal} messages={messages} /> : null;
     case "workflow":
-      return cards.workflow ? <WorkflowCard workflow={cards.workflow} /> : null;
+      return cards.workflow ? <WorkflowCard messages={messages} workflow={cards.workflow} /> : null;
     case "context":
       return cards.context ? <ContextCard stats={cards.context} /> : null;
     default: {

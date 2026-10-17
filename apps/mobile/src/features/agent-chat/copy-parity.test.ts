@@ -86,8 +86,29 @@ type AgentComponents = {
     panelAria: string;
     fallbackType: string;
   };
-  grokGoal: { title: string };
-  grokWorkflow: { title: string };
+  grokGoal: {
+    title: string;
+    fallbackType: string;
+    collapseAria: string;
+    expandAria: string;
+    panelAria: string;
+    statusLine: string;
+    tokensLine: string;
+    elapsedLine: string;
+    emptyVerify: string;
+    emptySummarize: string;
+    status: Record<string, string>;
+    phaseLabel: Record<string, string>;
+  };
+  grokWorkflow: {
+    title: string;
+    runningCount: string;
+    idleCount: string;
+    fallbackType: string;
+    collapseAria: string;
+    expandAria: string;
+    panelAria: string;
+  };
   contextWindow: { title: string };
   terminalBlock: { title: string };
   toolResults: {
@@ -166,7 +187,26 @@ describe("agent chat copy parity", () => {
     expect(copy.subagentTasksPanelAria).toBe(components.subagentTasks.panelAria);
     expect(copy.subagentTasksFallback).toBe(components.subagentTasks.fallbackType);
     expect(copy.grokGoalTitle).toBe(components.grokGoal.title);
+    expect(copy.grokGoalFallback).toBe(components.grokGoal.fallbackType);
+    expect(copy.grokGoalCollapseAria).toBe(components.grokGoal.collapseAria);
+    expect(copy.grokGoalExpandAria).toBe(components.grokGoal.expandAria);
+    expect(copy.grokGoalPanelAria).toBe(components.grokGoal.panelAria);
+    expect(copy.grokGoalStatusLine).toBe(components.grokGoal.statusLine);
+    expect(copy.grokGoalTokensLine).toBe(components.grokGoal.tokensLine);
+    expect(copy.grokGoalElapsedLine).toBe(components.grokGoal.elapsedLine);
+    expect(copy.grokGoalEmptyVerify).toBe(components.grokGoal.emptyVerify);
+    expect(copy.grokGoalEmptySummarize).toBe(components.grokGoal.emptySummarize);
+    expect(copy.grokGoalStatusActive).toBe(components.grokGoal.status.active);
+    expect(copy.grokGoalStatusComplete).toBe(components.grokGoal.status.complete);
+    expect(copy.grokGoalStatusInfraPaused).toBe(components.grokGoal.status.infra_paused);
+    expect(copy.grokGoalPhaseExecuting).toBe(components.grokGoal.phaseLabel.executing);
     expect(copy.grokWorkflowTitle).toBe(components.grokWorkflow.title);
+    expect(copy.grokWorkflowRunning).toBe(components.grokWorkflow.runningCount);
+    expect(copy.grokWorkflowIdle).toBe(components.grokWorkflow.idleCount);
+    expect(copy.grokWorkflowFallback).toBe(components.grokWorkflow.fallbackType);
+    expect(copy.grokWorkflowCollapseAria).toBe(components.grokWorkflow.collapseAria);
+    expect(copy.grokWorkflowExpandAria).toBe(components.grokWorkflow.expandAria);
+    expect(copy.grokWorkflowPanelAria).toBe(components.grokWorkflow.panelAria);
     expect(copy.grokWorkflowTitle).toBe("Research");
     expect(copy.contextWindowTitle).toBe(components.contextWindow.title);
     expect(copy.pasteChip).toBe(chatPanel.paste.chip);

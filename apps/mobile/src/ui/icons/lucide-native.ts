@@ -27,6 +27,7 @@ import {
   Flag,
   Gauge,
   Globe,
+  Goal,
   FileText,
   Folder,
   FolderInput,
@@ -115,6 +116,7 @@ export const FlagIcon = Flag;
 export const FolderIcon = Folder;
 export const FolderInputIcon = FolderInput;
 export const GlobeIcon = Globe;
+export const GoalIcon = Goal;
 export const FolderKanbanIcon = FolderKanban;
 export const FoldersIcon = Folders;
 export const ListFilterIcon = ListFilter;

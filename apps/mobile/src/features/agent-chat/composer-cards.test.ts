@@ -358,18 +358,35 @@ describe("moveQueueItem", () => {
 });
 
 describe("lane goal and workflow type", () => {
-  test("titles use web text-sm medium foreground and body lines stay muted", () => {
+  test("the phase panel uses web type and agent rows stay unpressable", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    for (const name of ["goal-card.tsx", "workflow-card.tsx"]) {
-      const source = readFileSync(join(here, "cards", name), "utf8");
-      expect(source).toContain("chatForeground(theme.isDark)");
-      expect(source).toContain("chatMutedForeground(theme.isDark)");
-      expect(source).toContain("fontSize: 14");
-      expect(source).toContain('fontWeight: "500"');
-      expect(source).toContain("lineHeight: 20");
-      expect(source).not.toContain("theme.colors.label");
-      expect(source).not.toContain("theme.colors.secondaryLabel");
-      expect(source).not.toContain('fontWeight: "700"');
-    }
+    const panel = readFileSync(join(here, "grok-chrome-panel.tsx"), "utf8");
+    expect(panel).toContain("chatForeground(theme.isDark)");
+    expect(panel).toContain("chatMutedForeground(theme.isDark)");
+    expect(panel).toContain("fontSize: 14");
+    expect(panel).toContain('fontWeight: "500"');
+    expect(panel).toContain("lineHeight: 20");
+    expect(panel).toContain("<SubagentTaskRow");
+    expect(panel).toContain("gap: 4");
+    expect(panel).not.toContain("onPress={() => open");
+    expect(panel).not.toContain("theme.colors.label");
+    expect(panel).not.toContain("theme.colors.secondaryLabel");
+    const goal = readFileSync(join(here, "cards", "goal-card.tsx"), "utf8");
+    expect(goal).toContain("grokGoalPhaseSections");
+    expect(goal).toContain("messages={messages}");
+    expect(goal).toContain("chatMutedForeground(theme.isDark)");
+    expect(goal).not.toContain("theme.colors.label");
+    const workflow = readFileSync(join(here, "cards", "workflow-card.tsx"), "utf8");
+    expect(workflow).toContain("grokWorkflowPhaseSections");
+    expect(workflow).toContain("messages={messages}");
+    expect(workflow).not.toContain("theme.colors.label");
+    const lane = readFileSync(join(here, "cards", "lane-body.tsx"), "utf8");
+    expect(lane).toContain("<GoalCard goal={cards.goal} messages={messages} />");
+    const row = readFileSync(join(here, "inline-subagent-panel.tsx"), "utf8");
+    const taskRow = row.slice(
+      row.indexOf("export function SubagentTaskRow"),
+      row.indexOf("export function InlineSubagentPanel"),
+    );
+    expect(taskRow).not.toContain("onPress");
   });
 });

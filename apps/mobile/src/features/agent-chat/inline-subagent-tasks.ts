@@ -57,7 +57,7 @@ function subagentDescription(part: AgentToolCallPart): string {
 
 export function displaySubagentType(
   part: AgentToolCallPart,
-  fallbackType = copy.subagentTasksFallback,
+  fallbackType: string = copy.subagentTasksFallback,
 ): string {
   const raw = subagentAgentType(part);
   if (!raw) return fallbackType;
@@ -71,7 +71,7 @@ function subagentTaskSummary(part: AgentToolCallPart): string {
 /** Web `formatSubagentTaskLine`: "{Type} - {summary}". */
 export function formatSubagentTaskLine(
   part: AgentToolCallPart,
-  fallbackType = copy.subagentTasksFallback,
+  fallbackType: string = copy.subagentTasksFallback,
 ): string {
   const type = displaySubagentType(part, fallbackType);
   const summary = subagentTaskSummary(part);
