@@ -95,9 +95,18 @@ describe("activity row label", () => {
     expect(duplicates(assistant([tool("completed", "Done")]))).toBe(false);
     expect(duplicates(assistant([tool("running", "Hidden", { parent: "parent" })]))).toBe(false);
     expect(duplicates(null)).toBe(false);
+    const duplicatesVisible = row.activityRowDuplicatesVisibleTree as (
+      hasActiveParentTool: boolean,
+      groups: ReadonlyArray<{ key: string; running: boolean }>,
+      storedByKey: Readonly<Record<string, boolean | undefined>>,
+    ) => boolean;
+    expect(duplicatesVisible(true, [{ key: "g", running: true }], {})).toBe(true);
+    expect(duplicatesVisible(true, [{ key: "g", running: true }], { g: false })).toBe(false);
+    expect(duplicatesVisible(true, [], {})).toBe(true);
+    expect(duplicatesVisible(false, [{ key: "g", running: true }], {})).toBe(false);
     const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");
-    expect(transcript).toContain("activityRowDuplicatesOpenTree");
-    expect(transcript).toContain("showActivity && !activityRowDuplicatesOpenTree(message)");
+    expect(transcript).toContain("activityRowDuplicatesVisibleTree");
+    expect(transcript).toContain("showActivity && !hideDuplicateActivity");
   });
 });
 

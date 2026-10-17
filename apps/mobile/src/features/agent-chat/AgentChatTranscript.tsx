@@ -45,12 +45,17 @@ import {
   segmentAssistantParts,
   shouldShowAssistantTurnEndedChrome,
   splitSegmentedAssistantParts,
+  toolGroupHasRunning,
   TRANSCRIPT_END_SLACK_PX,
   transcriptVisibility,
   type AssistantSegment,
   type TranscriptMeasurement,
 } from "@atmos/agent-transcript";
-import { ActivityRow, activityRowDuplicatesOpenTree } from "./activity-row";
+import {
+  ActivityRow,
+  activityRowDuplicatesOpenTree,
+  activityRowDuplicatesVisibleTree,
+} from "./activity-row";
 import { AnswerText } from "./answer-text";
 import { AssistantFooter, AssistantTurnFiles } from "./assistant-footer";
 import { copy } from "./copy";
@@ -58,6 +63,7 @@ import { EdgeFades } from "./edge-fades";
 import { ErrorPart } from "./error-part";
 import {
   agentChatInspectExpandKey,
+  agentChatToolGroupExpandKey,
   expandResetForFirstMessage,
   useAgentChatExpandStore,
 } from "./expand-store";
@@ -290,6 +296,7 @@ function AssistantTurn({
   message: AgentMessage;
   showActivity?: boolean;
 }) {
+  const expandValues = useAgentChatExpandStore((state) => state.values);
   const assistantText = assistantCopyText(message);
   const showChrome = shouldShowAssistantTurnEndedChrome(message, assistantText);
   if (!assistantHasVisiblePart(message) && !showChrome && !message.streaming && !showActivity) {
@@ -299,6 +306,26 @@ function AssistantTurn({
   const segments = segmentAssistantParts(message.parts, DEFAULT_TOOL_CALL_DENSITY);
   const { processSegments, tailSegments } = splitSegmentedAssistantParts(segments);
   const canCollapse = processSegments.length > 0 && hasCollapsibleAssistantProcess(message);
+  const runningGroups = segments.flatMap((segment) => {
+    if (segment.type !== "tool_group") return [];
+    return [
+      {
+        key: toolGroupKey(segment.parts, segment.origIndexes),
+        running: toolGroupHasRunning(segment.parts),
+      },
+    ];
+  });
+  const storedByKey = Object.fromEntries(
+    runningGroups.map((group) => [
+      group.key,
+      expandValues[agentChatToolGroupExpandKey(message.id, group.key)],
+    ]),
+  );
+  const hideDuplicateActivity = activityRowDuplicatesVisibleTree(
+    activityRowDuplicatesOpenTree(message),
+    runningGroups,
+    storedByKey,
+  );
   const markInspecting = () => {
     useAgentChatExpandStore.getState().setExpand(agentChatInspectExpandKey(message.id), true);
   };
@@ -336,9 +363,7 @@ function AssistantTurn({
       ) : null}
       <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
       <AssistantTurnFiles parts={message.parts} visible={showChrome} />
-      {showActivity && !activityRowDuplicatesOpenTree(message) ? (
-        <ActivityRow message={message} />
-      ) : null}
+      {showActivity && !hideDuplicateActivity ? <ActivityRow message={message} /> : null}
     </View>
   );
 }
