@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -60,6 +61,7 @@ import {
   userAttachmentPressGrows,
 } from "./user-attachment-chip";
 import { CopyMessageButton } from "./copy-message-button";
+import { splitUserMessageHttpUrls, userMessageLinkDecoration } from "./user-message-link";
 import {
   agentChatUserBodyExpandKey,
   agentChatUserMetaExpandKey,
@@ -288,6 +290,30 @@ function UserMessageMeta({
   );
 }
 
+function UserMessageLinkedText({ text }: { text: string }) {
+  const theme = useMobileTheme();
+  const decoration = userMessageLinkDecoration(theme.isDark);
+  return splitUserMessageHttpUrls(text).map((segment, index) =>
+    segment.type === "url" ? (
+      <Text
+        key={`url:${index}:${segment.url}`}
+        onPress={() => {
+          void Linking.openURL(segment.url);
+        }}
+        style={{
+          textDecorationColor: decoration,
+          textDecorationLine: "underline",
+          textDecorationStyle: "dashed",
+        }}
+      >
+        {segment.url}
+      </Text>
+    ) : (
+      <Text key={`text:${index}`}>{segment.value}</Text>
+    ),
+  );
+}
+
 export function UserMessage({ message }: { message: AgentMessage }) {
   const theme = useMobileTheme();
   const entryId = message.id;
@@ -389,7 +415,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
                   {pasteChipLabel(segment.lineCount)}
                 </Text>
               ) : (
-                <Text key={`text:${index}`}>{segment.value}</Text>
+                <UserMessageLinkedText key={`text:${index}`} text={segment.value} />
               ),
             )}
           </Text>
@@ -405,7 +431,7 @@ export function UserMessage({ message }: { message: AgentMessage }) {
                 lineHeight: TEXT_LINE_HEIGHT,
               }}
             >
-              {display}
+              <UserMessageLinkedText text={display} />
             </Text>
             {collapsed ? <UserMessageCollapseFade /> : null}
           </View>

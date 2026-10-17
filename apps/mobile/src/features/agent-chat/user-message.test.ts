@@ -35,6 +35,12 @@ import {
   userAttachmentPressGrows,
 } from "./user-attachment-chip";
 import {
+  splitUserMessageHttpUrls,
+  USER_LINK_DECORATION_DARK,
+  USER_LINK_DECORATION_LIGHT,
+  userMessageLinkDecoration,
+} from "./user-message-link";
+import {
   USER_BUBBLE_RADIUS,
   userBubbleFill,
   userMessageCollapsedLineLimit,
@@ -57,6 +63,27 @@ describe("user message", () => {
     expect(attachmentChipLabel({ name: " notes.md ", path: "/tmp/other.txt" })).toBe("notes.md");
     expect(attachmentChipLabel({ name: "  ", path: "C:\\docs\\plan.md" })).toBe("plan.md");
     expect(attachmentChipLabel({ path: "readme" })).toBe("readme");
+  });
+
+  test("an http address splits out of the message and keeps trailing punctuation", () => {
+    expect(splitUserMessageHttpUrls("see https://example.com/a, thanks")).toEqual([
+      { type: "text", value: "see " },
+      { type: "url", url: "https://example.com/a" },
+      { type: "text", value: ", thanks" },
+    ]);
+    expect(splitUserMessageHttpUrls("see https://example.com.")).toEqual([
+      { type: "text", value: "see " },
+      { type: "url", url: "https://example.com/" },
+      { type: "text", value: "." },
+    ]);
+    expect(splitUserMessageHttpUrls("hello")).toEqual([{ type: "text", value: "hello" }]);
+    expect(splitUserMessageHttpUrls("javascript:alert(1)")).toEqual([
+      { type: "text", value: "javascript:alert(1)" },
+    ]);
+    expect(userMessageLinkDecoration(false)).toBe(USER_LINK_DECORATION_LIGHT);
+    expect(userMessageLinkDecoration(true)).toBe(USER_LINK_DECORATION_DARK);
+    expect(USER_LINK_DECORATION_LIGHT).toBe("rgba(9, 9, 11, 0.4)");
+    expect(USER_LINK_DECORATION_DARK).toBe("rgba(250, 250, 250, 0.4)");
   });
 
   test("paste tokens stay literal because the phone has no registry", () => {
@@ -172,6 +199,15 @@ describe("user message", () => {
     expect(body).toContain("ClipboardIcon");
     expect(body).toContain('fontWeight: "500"');
     expect(body).toContain("PASTE_CHIP_HEIGHT");
+    expect(body).toContain("<UserMessageLinkedText");
+    const linked = source.slice(
+      source.indexOf("function UserMessageLinkedText"),
+      source.indexOf("export function UserMessage"),
+    );
+    expect(linked).toContain("splitUserMessageHttpUrls");
+    expect(linked).toContain("Linking.openURL");
+    expect(linked).toContain('textDecorationStyle: "dashed"');
+    expect(linked).toContain("userMessageLinkDecoration");
     expect(body).not.toContain("ChevronDownIcon");
     expect(body).not.toContain("ChevronUpIcon");
     const chips = source.slice(source.indexOf("function UserAttachmentChips"));
