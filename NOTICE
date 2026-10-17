@@ -272,9 +272,9 @@ Location: packages/ui/src/components/ui/orb.tsx
 Author:   Kevin (@kvnkld) / AIcss
 Notes:    Free-tier copy-paste UI component (React + CSS Module), vendored
           and lightly adapted for Atmos theme (html.dark) and sizing.
-          The phone draws the lattice (S1–S5) timings only. Ring and helix
-          orbs stay on web. No external runtime dependency beyond the vendored
-          source.
+          The phone draws the lattice (S1–S5), ring (C1–C5), and helix
+          (G1–G5) timings. Lens and morph orbs stay on web. No external
+          runtime dependency beyond the vendored source.
 
 -------------------------------------------------------------------------------
 8b. AIcss Approval Card

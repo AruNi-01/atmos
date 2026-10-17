@@ -7,13 +7,21 @@ import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
 import {
+  helixDots,
+  helixDurationMs,
+  helixSample,
   latticeCells,
   latticeDurationMs,
   latticeMotion,
   latticeSample,
   pickLatticeVariant,
+  pickWorkingStyle,
+  ringDots,
+  ringDurationMs,
+  ringSample,
   starDelayMs,
   starTwinkle,
+  workingFamily,
 } from "./activity-glyph";
 
 const dir = dirname(fileURLToPath(import.meta.url));
@@ -47,5 +55,52 @@ describe("activity glyph", () => {
     const row = readFileSync(join(dir, "activity-row.tsx"), "utf8");
     expect(row).toContain("ActivityGlyph");
     expect(row).toContain('kind === "thinking"');
+    const mark = readFileSync(join(dir, "activity-mark.tsx"), "utf8");
+    expect(mark).toContain("pickWorkingStyle");
+    expect(mark).toContain("RingGlyph");
+    expect(mark).toContain("HelixGlyph");
+  });
+
+  test("working rows share web's lattice, ring, and helix pool", () => {
+    expect(pickWorkingStyle(0)).toBe("S1");
+    expect(pickWorkingStyle(5 / 15)).toBe("C1");
+    expect(pickWorkingStyle(10 / 15)).toBe("G1");
+    expect(pickWorkingStyle(0.99)).toBe("G5");
+    expect(workingFamily("S4")).toBe("lattice");
+    expect(workingFamily("C3")).toBe("ring");
+    expect(workingFamily("G2")).toBe("helix");
+
+    const ring = ringDots("C1");
+    expect(ring).toHaveLength(8);
+    expect(ring[0]?.ry).toBeCloseTo(-8);
+    expect(ring[7]?.delay).toBeCloseTo(0);
+    expect(ringDurationMs("C5")).toBe(1800);
+    expect(ringDots("C5")[0]?.delay).toBe(-(((0 * 3) % 8) / 8) * 2200);
+    expect(ringSample(0, "C1", 0.22)).toEqual({ opacity: 1, scale: 1 });
+    expect(ringSample(0.5, "C1", 0.22)).toEqual({ opacity: 0.22, scale: 1 });
+    expect(ringSample(0, "C2", 0.22)).toEqual({ opacity: 0.18, scale: 0.7 });
+    expect(ringSample(0.5, "C2", 0.22)).toEqual({ opacity: 1, scale: 1.15 });
+    expect(ringSample(0, "C4", 0.22).opacity).toBe(1);
+    expect(ringSample(0.5, "C4", 0.22).opacity).toBeCloseTo(0.15);
+    expect(ringSample(0, "C3", 0.22).opacity).toBeCloseTo(0.08);
+    expect(ringSample(0.12, "C3", 0.22).opacity).toBe(1);
+
+    const globe = helixDots();
+    expect(globe).toHaveLength(40);
+    expect(helixDurationMs("G1")).toBe(4500);
+    expect(helixDurationMs("G3")).toBe(2800);
+    const front = globe[16];
+    expect(front?.ring).toBe(2);
+    const still = helixSample(front!, "G1", 0);
+    const turned = helixSample(front!, "G1", 0.125);
+    expect(still.x).not.toBeCloseTo(turned.x);
+    expect(helixSample(front!, "G1", 0).opacity).toBeCloseTo(helixSample(front!, "G1", 1).opacity);
+    const ring0 = globe[0];
+    const ring1 = globe[8];
+    const held = helixSample(ring1!, "G3", 0.05);
+    const start = helixSample(ring1!, "G3", 0);
+    expect(held.x).toBeCloseTo(start.x);
+    expect(held.y).toBeCloseTo(start.y);
+    expect(helixSample(ring0!, "G3", 0.05).x).not.toBeCloseTo(helixSample(ring0!, "G3", 0).x);
   });
 });

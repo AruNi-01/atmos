@@ -13,6 +13,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 import {
   GLYPH_BOX,
   GLYPH_SIZE,
+  HELIX_DOT,
   LATTICE_DIM,
   LATTICE_DIM_DARK,
   LATTICE_DOT,
@@ -20,19 +21,33 @@ import {
   LATTICE_REST,
   LATTICE_REST_DARK,
   LATTICE_STAGE,
+  RING_DOT,
+  RING_REST,
+  RING_REST_DARK,
   STAR_LAYOUT,
   STAR_PATH,
   STAR_PERIOD_MS,
   glyphPhase,
+  helixDots,
+  helixDurationMs,
+  helixSample,
   latticeCells,
   latticeDurationMs,
   latticeMotion,
   latticeSample,
-  pickLatticeVariant,
+  pickWorkingStyle,
+  ringDots,
+  ringDurationMs,
+  ringSample,
   starDelayMs,
   starTwinkle,
+  type HelixDot,
+  type HelixVariant,
   type LatticeCell,
   type LatticeVariant,
+  type RingDot,
+  type RingVariant,
+  type WorkingStyle,
 } from "./activity-glyph";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 
@@ -197,10 +212,182 @@ function StarDot({
   );
 }
 
+function RingDotView({
+  color,
+  dot,
+  duration,
+  progress,
+  reduced,
+  rest,
+  variant,
+}: {
+  color: string;
+  dot: RingDot;
+  duration: number;
+  progress: SharedValue<number>;
+  reduced: boolean;
+  rest: number;
+  variant: RingVariant;
+}) {
+  const style = useAnimatedStyle(() => {
+    if (reduced) return { opacity: 0.7, transform: [{ scale: 1 }] };
+    const sample = ringSample(glyphPhase(progress.get(), dot.delay, duration), variant, rest);
+    return { opacity: sample.opacity, transform: [{ scale: sample.scale }] };
+  });
+  const size = RING_DOT * SCALE;
+  return (
+    <Animated.View
+      style={[
+        {
+          backgroundColor: color,
+          borderRadius: size / 2,
+          height: size,
+          left: GLYPH_SIZE / 2 + dot.rx * SCALE - size / 2,
+          position: "absolute",
+          top: GLYPH_SIZE / 2 + dot.ry * SCALE - size / 2,
+          width: size,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+function RingGlyph({
+  color,
+  reduced,
+  variant,
+}: {
+  color: string;
+  reduced: boolean;
+  variant: RingVariant;
+}) {
+  const theme = useMobileTheme();
+  const rest = theme.isDark ? RING_REST_DARK : RING_REST;
+  const duration = ringDurationMs(variant);
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    if (reduced) {
+      progress.set(0);
+      return;
+    }
+    progress.set(0);
+    progress.set(withRepeat(withTiming(1, { duration, easing: Easing.linear }), -1, false));
+  }, [duration, progress, reduced]);
+  return (
+    <View style={{ height: GLYPH_SIZE, width: GLYPH_SIZE }}>
+      {ringDots(variant).map((dot) => (
+        <RingDotView
+          key={dot.index}
+          color={color}
+          dot={dot}
+          duration={duration}
+          progress={progress}
+          reduced={reduced}
+          rest={rest}
+          variant={variant}
+        />
+      ))}
+    </View>
+  );
+}
+
+function HelixDotView({
+  color,
+  dot,
+  progress,
+  reduced,
+  variant,
+}: {
+  color: string;
+  dot: HelixDot;
+  progress: SharedValue<number>;
+  reduced: boolean;
+  variant: HelixVariant;
+}) {
+  const style = useAnimatedStyle(() => {
+    const sample = helixSample(dot, variant, reduced ? 0 : progress.get());
+    return {
+      opacity: sample.opacity,
+      transform: [{ translateX: sample.x * SCALE }, { translateY: sample.y * SCALE }],
+    };
+  });
+  const size = HELIX_DOT * SCALE;
+  return (
+    <Animated.View
+      style={[
+        {
+          backgroundColor: color,
+          borderRadius: size / 2,
+          height: size,
+          left: GLYPH_SIZE / 2 - size / 2,
+          position: "absolute",
+          top: GLYPH_SIZE / 2 - size / 2,
+          width: size,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+function HelixGlyph({
+  color,
+  reduced,
+  variant,
+}: {
+  color: string;
+  reduced: boolean;
+  variant: HelixVariant;
+}) {
+  const duration = helixDurationMs(variant);
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    if (reduced) {
+      progress.set(0);
+      return;
+    }
+    progress.set(0);
+    progress.set(withRepeat(withTiming(1, { duration, easing: Easing.linear }), -1, false));
+  }, [duration, progress, reduced]);
+  return (
+    <View style={{ height: GLYPH_SIZE, width: GLYPH_SIZE }}>
+      {helixDots().map((dot) => (
+        <HelixDotView
+          key={dot.index}
+          color={color}
+          dot={dot}
+          progress={progress}
+          reduced={reduced}
+          variant={variant}
+        />
+      ))}
+    </View>
+  );
+}
+
+function WorkingGlyph({
+  color,
+  reduced,
+  style,
+}: {
+  color: string;
+  reduced: boolean;
+  style: WorkingStyle;
+}) {
+  if (style === "C1" || style === "C2" || style === "C3" || style === "C4" || style === "C5") {
+    return <RingGlyph color={color} reduced={reduced} variant={style} />;
+  }
+  if (style === "G1" || style === "G2" || style === "G3" || style === "G4" || style === "G5") {
+    return <HelixGlyph color={color} reduced={reduced} variant={style} />;
+  }
+  return <LatticeGlyph color={color} reduced={reduced} variant={style} />;
+}
+
 export function ActivityGlyph({ kind }: { kind: "thinking" | "working" }) {
   const theme = useMobileTheme();
   const reduced = useReducedMotion();
-  const [lattice] = useState(pickLatticeVariant);
+  const [style] = useState(pickWorkingStyle);
   const color = theme.colors.secondaryLabel;
   return (
     <View
@@ -217,7 +404,7 @@ export function ActivityGlyph({ kind }: { kind: "thinking" | "working" }) {
       {kind === "thinking" ? (
         <StarGlyph color={color} reduced={reduced} />
       ) : (
-        <LatticeGlyph color={color} reduced={reduced} variant={lattice} />
+        <WorkingGlyph color={color} reduced={reduced} style={style} />
       )}
     </View>
   );
