@@ -257,7 +257,7 @@ describe("tool body presentation", () => {
       }),
     );
     expect(todos.kind).toBe("todos");
-    expect(todos.items?.[0]).toMatchObject({ content: "Ship it", status: "In progress" });
+    expect(todos.items?.[0]).toMatchObject({ content: "Ship it", status: "in_progress" });
   });
 
   test("mono, move, delete, error, empty, images, and subagent cards", async () => {
@@ -420,6 +420,22 @@ describe("tool body presentation", () => {
       row({ kind: "diff_stats", title: "Edit", path: "a.ts", additions: 2, deletions: 4 }),
     ).toEqual({ additions: 2, deletions: 4 });
     expect(row({ kind: "mono", title: "Run", text: "ok" })).toEqual({ additions: 0, deletions: 0 });
+  });
+});
+
+describe("todo status", () => {
+  test("matches the web icon branches and labels", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const kind = mod.todoStatusKind as (status: string) => string;
+    const label = mod.todoStatusLabel as (kind: string) => string;
+    expect(kind("completed")).toBe("completed");
+    expect(kind("in-progress")).toBe("in_progress");
+    expect(kind("in_progress")).toBe("in_progress");
+    expect(kind("pending")).toBe("pending");
+    expect(kind("later")).toBe("pending");
+    expect(label("completed")).toBe("Completed");
+    expect(label("in_progress")).toBe("In progress");
+    expect(label("pending")).toBe("Pending");
   });
 });
 

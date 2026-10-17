@@ -66,7 +66,11 @@ export type ToolBodyModel =
   | { kind: "files"; title: string; paths: string[] }
   | { kind: "tree"; title: string; paths: string[] }
   | { kind: "markdown"; title: string; markdown: string }
-  | { kind: "todos"; title: string; items: Array<{ content: string; status: string }> }
+  | {
+      kind: "todos";
+      title: string;
+      items: Array<{ content: string; status: TodoStatusKind }>;
+    }
   | { kind: "mono"; title: string; text: string }
   | { kind: "move"; title: string; from: string; to: string }
   | { kind: "delete"; title: string; path: string }
@@ -185,10 +189,20 @@ export function canOpenHttpUrl(url: string): boolean {
   return url.startsWith("https://") || url.startsWith("http://");
 }
 
-export function sentenceStatus(status: string): string {
-  const words = status.trim().replace(/[_-]+/g, " ").toLowerCase();
-  if (!words) return "";
-  return words.charAt(0).toUpperCase() + words.slice(1);
+export type TodoStatusKind = "pending" | "in_progress" | "completed";
+
+/** Same branches as web `AgentToolTodosBody`. Unknown statuses stay pending. */
+export function todoStatusKind(status: string): TodoStatusKind {
+  const value = status.trim().toLowerCase().replace(/-/g, "_");
+  if (value === "completed") return "completed";
+  if (value === "in_progress") return "in_progress";
+  return "pending";
+}
+
+export function todoStatusLabel(kind: TodoStatusKind): string {
+  if (kind === "completed") return copy.todoCompleted;
+  if (kind === "in_progress") return copy.todoInProgress;
+  return copy.todoPending;
 }
 
 export function splitToolLines(text: string): string[] {
@@ -391,7 +405,7 @@ function fieldsForPresentation(part: AgentToolCallPart, parsed: ParsedToolResult
         kind: "todos",
         items: presentation.todos.map((todo) => ({
           content: todo.content,
-          status: sentenceStatus(todo.status),
+          status: todoStatusKind(todo.status),
         })),
       };
     case "json":
@@ -497,7 +511,13 @@ export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; de
 import { useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
-import { FileTextIcon, XCircleIcon } from "@/ui/icons/lucide-native";
+import {
+  CheckCircleIcon,
+  CircleDashedIcon,
+  CircleIcon,
+  FileTextIcon,
+  XCircleIcon,
+} from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
 import { TextShimmer } from "./motion/text-shimmer";
@@ -755,15 +775,39 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
     case "todos":
       return (
         <View style={{ gap: 4 }}>
-          {model.items.map((item, index) => (
-            <Text
-              key={`${item.content}:${index}`}
-              style={{ color: theme.colors.label, ...BODY_TEXT }}
-            >
-              {item.content}
-              {item.status ? ` · ${item.status}` : ""}
-            </Text>
-          ))}
+          {model.items.map((item, index) => {
+            const completed = item.status === "completed";
+            const Icon =
+              item.status === "completed"
+                ? CheckCircleIcon
+                : item.status === "in_progress"
+                  ? CircleDashedIcon
+                  : CircleIcon;
+            return (
+              <View
+                key={`${item.content}:${index}`}
+                style={{ alignItems: "flex-start", flexDirection: "row", gap: 8 }}
+              >
+                <View accessibilityLabel={todoStatusLabel(item.status)} style={{ marginTop: 2 }}>
+                  <Icon
+                    color={completed ? theme.colors.green : theme.colors.secondaryLabel}
+                    size={14}
+                    strokeWidth={2}
+                  />
+                </View>
+                <Text
+                  style={{
+                    ...BODY_TEXT,
+                    color: completed ? theme.colors.secondaryLabel : theme.colors.label,
+                    flexShrink: 1,
+                    textDecorationLine: completed ? "line-through" : "none",
+                  }}
+                >
+                  {item.content}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       );
     case "mono":

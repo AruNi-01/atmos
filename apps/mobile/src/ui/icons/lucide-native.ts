@@ -10,7 +10,9 @@ import {
   Check,
   Coins,
   Cpu,
+  Circle,
   CircleCheck,
+  CircleDashed,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -89,6 +91,8 @@ export const CoinsIcon = Coins;
 export const CpuIcon = Cpu;
 export const DollarSignIcon = DollarSign;
 export const GaugeIcon = Gauge;
+export const CircleIcon = Circle;
+export const CircleDashedIcon = CircleDashed;
 export const CircleCheckIcon = CircleCheck;
 export const CheckIcon = Check;
 export const CheckCircleIcon = CheckCircle2;
