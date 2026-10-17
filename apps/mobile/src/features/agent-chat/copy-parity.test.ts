@@ -58,7 +58,10 @@ type AgentComponents = {
     process: { label: string; collapseLabel: string };
     files: { changed: string; showMore: string; showLess: string };
   };
-  subAgent: { status: { running: string; failed: string; completed: string } };
+  subAgent: {
+    ranTitle: string;
+    status: { running: string; failed: string; completed: string };
+  };
   usageBadges: {
     turn: {
       title: string;
@@ -199,6 +202,8 @@ describe("agent chat copy parity", () => {
     expect(copy.showLess).toBe(components.assistantTurn.files.showLess);
     expect(copy.showLess).toBe("Show less");
     expect(copy.showMore).toBe("Show more");
+    expect(copy.subagentRan).toBe(components.subAgent.ranTitle);
+    expect(copy.subagentRan).toBe("Ran subagent {name}");
     expect(copy.subagentStatus.running).toBe(components.subAgent.status.running);
     expect(copy.subagentStatus.failed).toBe(components.subAgent.status.failed);
     expect(copy.subagentStatus.completed).toBe(components.subAgent.status.completed);

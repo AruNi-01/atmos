@@ -119,6 +119,7 @@ export const copy = {
   collapseLabel: "Collapse",
   showMore: "Show more",
   showLess: "Show less",
+  subagentRan: "Ran subagent {name}",
   subagentStatus: {
     running: "Running",
     failed: "Failed",

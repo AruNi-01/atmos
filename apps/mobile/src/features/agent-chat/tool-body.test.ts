@@ -613,7 +613,58 @@ describe("tool body presentation", () => {
         params: { type: "subagent", description: "look around" },
       }),
     );
-    expect(subagent).toMatchObject({ kind: "subagent", title: "Scout", status: "Running" });
+    expect(subagent).toMatchObject({
+      kind: "subagent",
+      title: "Ran subagent look around",
+      status: "Running",
+    });
+  });
+
+  test("subagent row title follows description, then title, then name", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const title = mod.subagentRowTitle as (row: AgentToolCallPart) => string;
+    expect(
+      title(
+        part({
+          kind: "subagent",
+          title: "Scout",
+          name: "Task",
+          params: { type: "subagent", description: "look around" },
+        }),
+      ),
+    ).toBe("Ran subagent look around");
+    expect(
+      title(
+        part({
+          kind: "subagent",
+          title: "Scout",
+          name: "Task",
+          params: { type: "subagent", description: "  " },
+        }),
+      ),
+    ).toBe("Ran subagent Scout");
+    expect(
+      title(
+        part({
+          kind: "subagent",
+          name: "Task",
+          params: { type: "subagent", description: "" },
+        }),
+      ),
+    ).toBe("Ran subagent Task");
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const card = source.slice(
+      source.indexOf("function SubagentCard"),
+      source.indexOf("function ToolFileChip"),
+    );
+    expect(card).toContain("<TextShimmer ");
+    expect(card).toContain("copy.subagentStatus.running");
+    expect(card).toContain("chatDestructiveColor");
+    expect(card).not.toContain("{status}");
+    expect(source).toContain("title={model.title}");
   });
 
   test("nested children are timeline-hidden, and long mono text caps at 12 lines", async () => {

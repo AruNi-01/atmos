@@ -225,6 +225,13 @@ export function toolRowChrome(part: AgentToolCallPart, parsed: ParsedToolResult)
   };
 }
 
+/** Web `SubAgentBlockView`: description, then the wire title, then the tool name. */
+export function subagentRowTitle(part: AgentToolCallPart): string {
+  const description = part.params?.type === "subagent" ? part.params.description.trim() : "";
+  const name = description || part.title?.trim() || part.name.trim();
+  return fillTemplate(copy.subagentRan, { name });
+}
+
 export function subagentStatusText(status: string | null | undefined): string {
   const value = (status ?? "").trim().toLowerCase();
   if (value === "failed" || value === "error") return copy.subagentStatus.failed;
@@ -706,7 +713,11 @@ export function toolBodyModel(part: AgentToolCallPart): ToolBodyModel {
   const parsed = presentAgentTool(part);
   const title = toolRowTitle(part, parsed);
   if (part.kind === "subagent") {
-    return { kind: "subagent", title, status: subagentStatusText(part.status) };
+    return {
+      kind: "subagent",
+      title: subagentRowTitle(part),
+      status: subagentStatusText(part.status),
+    };
   }
   const plan = planDocumentFields(part);
   if (plan) return plan;
@@ -1967,9 +1978,15 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
 function SubagentCard({ status, title }: { status: string; title: string }) {
   const theme = useMobileTheme();
   const failed = status === copy.subagentStatus.failed;
-  const failedColor = chatDestructiveColor(theme.isDark);
-  const color = failed ? failedColor : theme.colors.secondaryLabel;
+  const running = status === copy.subagentStatus.running;
+  const color = failed ? chatDestructiveColor(theme.isDark) : theme.colors.secondaryLabel;
   const metrics = toolTriggerMetrics;
+  const titleStyle = {
+    color,
+    flexShrink: 1,
+    fontSize: metrics.fontSize,
+    lineHeight: metrics.lineHeight,
+  };
   return (
     <View
       style={{
@@ -1989,15 +2006,15 @@ function SubagentCard({ status, title }: { status: string; title: string }) {
       >
         <ToolKindIcon color={theme.colors.secondaryLabel} kind="subagent" size={metrics.iconSize} />
       </View>
-      <View style={{ flexShrink: 1 }}>
-        <Text
-          numberOfLines={1}
-          style={{ color, fontSize: metrics.fontSize, lineHeight: metrics.lineHeight }}
-        >
+      {running ? (
+        <TextShimmer duration={1} numberOfLines={1} style={titleStyle}>
+          {title}
+        </TextShimmer>
+      ) : (
+        <Text numberOfLines={1} style={titleStyle}>
           {title}
         </Text>
-        <Text style={{ color, fontSize: 12, lineHeight: 16 }}>{status}</Text>
-      </View>
+      )}
     </View>
   );
 }
@@ -2042,7 +2059,7 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
     if (imageActive) setOpen(true);
   }, [imageActive, setOpen]);
   if (model.kind === "subagent") {
-    return <SubagentCard status={model.status} title={chrome.title} />;
+    return <SubagentCard status={model.status} title={model.title} />;
   }
   const executeFailed = part.kind === "execute" && executeTerminalFields(part).failed;
   const failed = model.kind === "error" || executeFailed || part.status === "failed";
