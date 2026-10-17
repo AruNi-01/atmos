@@ -57,8 +57,9 @@ export type TranscriptJumpMeasurement = {
 
 /**
  * Row layout for a jump that has to scroll past the measured tail.
- * Measured rows keep their real origin. Later rows continue from the last
- * measured bottom so the list can reach them before those cells exist.
+ * Measured rows keep their real origin. An unmeasured row continues from the
+ * nearest measured neighbor. Neighbors below the target are estimated
+ * backward: placing them after the anchor scrolls past Reply 50.
  */
 export function transcriptItemLayout(
   index: number,
@@ -70,35 +71,67 @@ export function transcriptItemLayout(
   const safeGap = Math.max(0, gap);
   let count = 0;
   let size = 0;
-  let anchorIndex = -1;
-  let anchorEnd = 0;
+  let prevIndex = -1;
+  let nextIndex = -1;
   for (let i = 0; i < measurements.length; i += 1) {
     const measurement = measurements[i];
     if (!measurement || !(measurement.size > 0) || measurement.start == null) continue;
     count += 1;
     size += measurement.size;
-    anchorIndex = i;
-    anchorEnd = measurement.start + measurement.size;
+    if (i <= safeIndex) prevIndex = i;
+    else if (nextIndex < 0) nextIndex = i;
   }
   const average = count > 0 ? size / count : fallbackStride;
   const stride = average + safeGap;
   const measured = measurements[safeIndex];
-  if (measured && measured.size > 0 && measured.start != null && safeIndex <= anchorIndex) {
+  if (measured && measured.size > 0 && measured.start != null) {
     return {
       index: safeIndex,
       length: Math.max(1, Math.round(measured.size)),
       offset: Math.max(0, Math.round(measured.start)),
     };
   }
-  const offset =
-    anchorIndex >= 0
-      ? anchorEnd + safeGap + Math.max(0, safeIndex - anchorIndex - 1) * stride
-      : safeIndex * fallbackStride;
+  if (prevIndex >= 0) {
+    const prev = measurements[prevIndex];
+    const offset =
+      (prev?.start ?? 0) +
+      (prev?.size ?? 0) +
+      safeGap +
+      Math.max(0, safeIndex - prevIndex - 1) * stride;
+    return {
+      index: safeIndex,
+      length: Math.max(1, Math.round(average)),
+      offset: Math.max(0, Math.round(offset)),
+    };
+  }
+  if (nextIndex >= 0) {
+    const next = measurements[nextIndex];
+    const offset = (next?.start ?? 0) - (nextIndex - safeIndex) * stride;
+    return {
+      index: safeIndex,
+      length: Math.max(1, Math.round(average)),
+      offset: Math.max(0, Math.round(offset)),
+    };
+  }
   return {
     index: safeIndex,
-    length: Math.max(1, Math.round(average)),
-    offset: Math.max(0, Math.round(offset)),
+    length: fallbackStride,
+    offset: safeIndex * fallbackStride,
   };
+}
+
+/**
+ * Offset that puts a measured jump target at the top of the viewport.
+ * Null means the list is already there, or the target has no origin yet.
+ */
+export function jumpAlignOffset(
+  scrollTop: number,
+  targetStart: number | null | undefined,
+  alignSlack = 2,
+): number | null {
+  if (targetStart == null || !(targetStart >= 0)) return null;
+  if (Math.abs(scrollTop - targetStart) <= alignSlack) return null;
+  return targetStart;
 }
 
 /**

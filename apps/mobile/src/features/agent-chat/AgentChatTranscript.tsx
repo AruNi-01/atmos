@@ -71,6 +71,7 @@ import { ProcessFold } from "./process-fold";
 import { SessionChrome } from "./session-chrome";
 import { initialStickState, reduceStick, type StickAction } from "./stick";
 import {
+  jumpAlignOffset,
   jumpExtendReadyToRelease,
   jumpFollowsTailAfterMiss,
   offsetFromMeasuredStride,
@@ -460,6 +461,8 @@ export const AgentChatTranscript = forwardRef<
   const extendTailRef = useRef(false);
   const extendCommittedRef = useRef(false);
   const pendingJumpRef = useRef<{ animated: boolean; index: number } | null>(null);
+  const lastAlignOffsetRef = useRef<number | null>(null);
+  const alignJumpRef = useRef<() => void>(() => {});
   const [extendTail, setExtendTailState] = useState(false);
   const rowCountRef = useRef(0);
   const viewRef = useRef({ distance: 0, height: 0, scrollTop: 0 });
@@ -580,6 +583,22 @@ export const AgentChatTranscript = forwardRef<
     }
     setExtendTail(false);
   }, [setExtendTail]);
+  const alignActiveJump = useCallback(() => {
+    if (!programmaticAwayRef.current || jumpIndexRef.current < 0) return;
+    const target = measurementsRef.current[jumpIndexRef.current];
+    if (!target || target.start == null || !(target.size > 0)) return;
+    const next = jumpAlignOffset(viewRef.current.scrollTop, target.start);
+    if (next == null) {
+      releaseExtendIfRoom();
+      return;
+    }
+    if (lastAlignOffsetRef.current === next) return;
+    lastAlignOffsetRef.current = next;
+    listRef.current?.scrollToOffset({ animated: false, offset: next });
+  }, [releaseExtendIfRoom]);
+  useLayoutEffect(() => {
+    alignJumpRef.current = alignActiveJump;
+  }, [alignActiveJump]);
   const stopExtend = useCallback(() => {
     jumpIndexRef.current = -1;
     setExtendTail(false);
@@ -599,6 +618,7 @@ export const AgentChatTranscript = forwardRef<
       measurementsRef.current[index] = measurement;
       publishBelow();
       releaseExtendIfRoom();
+      alignJumpRef.current();
     },
   });
 
@@ -633,6 +653,7 @@ export const AgentChatTranscript = forwardRef<
       userDraggedRef.current = false;
       jumpRetryIndexRef.current = -1;
       jumpIndexRef.current = index;
+      lastAlignOffsetRef.current = null;
       if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
       applyStick({
         type: "scroll",
@@ -725,9 +746,9 @@ export const AgentChatTranscript = forwardRef<
       applyScrollStick(viewRef.current.distance);
       publishBelow();
       emitViewport();
-      releaseExtendIfRoom();
+      alignJumpRef.current();
     },
-    [applyScrollStick, emitViewport, publishBelow, releaseExtendIfRoom, syncTopFade],
+    [applyScrollStick, emitViewport, publishBelow, syncTopFade],
   );
 
   const onScrollBeginDrag = useCallback(() => {

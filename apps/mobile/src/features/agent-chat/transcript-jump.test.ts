@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { TRANSCRIPT_END_SLACK_PX } from "@atmos/agent-transcript";
 import {
+  jumpAlignOffset,
   jumpExtendReadyToRelease,
   jumpFollowsTailAfterMiss,
   jumpHasTailRoom,
@@ -69,6 +70,29 @@ describe("transcriptItemLayout", () => {
       length: 40,
       offset: 172,
     });
+  });
+
+  test("estimates an earlier unmeasured row back from the measured tail", () => {
+    const measurements: Array<{ size: number; start: number } | undefined> = [];
+    measurements[120] = { size: 40, start: 8000 };
+    const layout = transcriptItemLayout(50, measurements, 12);
+    expect(layout.offset).toBe(8000 - 70 * 52);
+    expect(layout.offset).toBeLessThan(8000);
+    measurements[50] = { size: 36, start: 4434 };
+    expect(transcriptItemLayout(50, measurements, 12)).toEqual({
+      index: 50,
+      length: 36,
+      offset: 4434,
+    });
+  });
+});
+
+describe("jumpAlignOffset", () => {
+  test("snaps when the viewport is still below the measured row", () => {
+    expect(jumpAlignOffset(6044, 4434)).toBe(4434);
+    expect(jumpAlignOffset(4434, 4434)).toBeNull();
+    expect(jumpAlignOffset(4436, 4434)).toBeNull();
+    expect(jumpAlignOffset(10, undefined)).toBeNull();
   });
 });
 
