@@ -90,8 +90,11 @@ export function agentChatProseMetrics(kind: AgentChatProseKind): {
  * Fence and table frames use web `rounded-lg` (`--radius`, 10px).
  */
 /**
- * Web reasoning `[&_p]:my-1`. The native view skips margin on the first block
- * and drops margin on the last block, matching `:first-child` and `:last-child`.
+ * Web reasoning `[&_p]:my-1`, then `mt-0` on the first paragraph and `mb-0` on
+ * the last. A block that opens the document still receives its top margin, so
+ * thinking paragraphs keep this gap on the bottom only. The body's 4px pad is
+ * the first line's offset, later paragraphs keep a 4px gap, and the native
+ * view still drops the last block's bottom margin.
  */
 export const THINKING_PARAGRAPH_MARGIN = 4;
 

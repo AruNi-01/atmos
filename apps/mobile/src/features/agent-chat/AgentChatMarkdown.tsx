@@ -71,7 +71,7 @@ export function AgentChatMarkdown({
             }
           : agentChatBlockMetrics.paragraph),
         ...(tone === "thinking" && !proseMetrics
-          ? { marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: THINKING_PARAGRAPH_MARGIN }
+          ? { marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: 0 }
           : {}),
       },
       ...headings,
