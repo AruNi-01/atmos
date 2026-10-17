@@ -183,6 +183,12 @@ export function agentChatLinkColor(isDark: boolean): string {
  */
 export const ANSWER_FENCE_MAX_HEIGHT = 384;
 
+/**
+ * `.atmos-markdown-table` cells set `line-height: 1.625` on 14px type.
+ * `text-sm` alone is 20px. The table rule wins, so a cell line is 22.75px.
+ */
+export const TABLE_LINE_HEIGHT = 14 * 1.625;
+
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: STREAMDOWN_BLOCK_GAP },
   list: { marginTop: 4, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, itemSpacing: 8 },

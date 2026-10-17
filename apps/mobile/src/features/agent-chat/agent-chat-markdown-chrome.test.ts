@@ -11,6 +11,7 @@ import {
   BLOCKQUOTE_GAP,
   BLOCKQUOTE_MARGIN,
   ANSWER_FENCE_MAX_HEIGHT,
+  TABLE_LINE_HEIGHT,
   STREAMDOWN_BLOCK_GAP,
   THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
@@ -137,10 +138,12 @@ describe("agent chat markdown chrome", () => {
       marginBottom: STREAMDOWN_BLOCK_GAP,
       borderRadius: 10,
     });
+    expect(TABLE_LINE_HEIGHT).toBe(22.75);
     const markdown = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "AgentChatMarkdown.tsx"),
       "utf8",
     );
+    expect(markdown).toContain("lineHeight: TABLE_LINE_HEIGHT");
     expect(markdown).toContain("marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: 0");
     expect(markdown).not.toContain("marginTop: THINKING_PARAGRAPH_MARGIN");
     expect(markdown).toContain("marginBottom: BLOCKQUOTE_MARGIN, marginTop: BLOCKQUOTE_MARGIN");
