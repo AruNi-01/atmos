@@ -908,6 +908,7 @@ import {
   XCircleIcon,
 } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import { terminalAnsiPieces } from "./terminal-ansi";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { TextShimmer } from "./motion/text-shimmer";
@@ -1053,7 +1054,11 @@ function ExecuteTerminal({
               paddingBottom: 10,
             }}
           >
-            {output}
+            {terminalAnsiPieces(output).map((piece, index) => (
+              <Text key={`${index}:${piece.text}`} style={piece.style}>
+                {piece.text}
+              </Text>
+            ))}
           </Text>
         </HeightClip>
       ) : null}

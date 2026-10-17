@@ -821,6 +821,7 @@ describe("execute terminal", () => {
     expect(terminal).toContain("paddingBottom: output ? 0 : 10");
     expect(terminal).toContain("paddingTop: command ? 4 : 10");
     expect(terminal).toContain("paddingBottom: 10");
+    expect(terminal).toContain("terminalAnsiPieces(output)");
     expect(terminal).not.toContain("AgentChatMarkdown");
     const trigger = source.slice(source.indexOf("export function ToolCallRow"));
     expect(trigger).toContain("executeTerminalFields(part).failed");
