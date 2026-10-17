@@ -205,6 +205,11 @@ export function todoStatusLabel(kind: TodoStatusKind): string {
   return copy.todoPending;
 }
 
+/** Web `deletedFileLabel`. The path is stored as-is; the phone row has no cwd. */
+export function deletedFileLabel(path: string): string {
+  return fillTemplate(copy.deletedFile, { path });
+}
+
 export function splitToolLines(text: string): string[] {
   if (text.length === 0) return [];
   const lines = text.split("\n");
@@ -512,6 +517,7 @@ import { useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
+  ArrowRightIcon,
   CheckCircleIcon,
   CircleDashedIcon,
   CircleIcon,
@@ -717,6 +723,14 @@ function SearchHitsBody({ model }: { model: Extract<ToolBodyModel, { kind: "sear
 
 function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subagent" }> }) {
   const theme = useMobileTheme();
+  const movePathStyle = {
+    color: theme.colors.label,
+    flexShrink: 1,
+    fontFamily: "Menlo",
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.8,
+  } as const;
   switch (model.kind) {
     case "diff":
       return (
@@ -814,12 +828,28 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       return <CappedMono text={model.text} />;
     case "move":
       return (
-        <Text style={{ color: theme.colors.label, ...BODY_TEXT }}>
-          {model.from} → {model.to}
-        </Text>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
+          <Text numberOfLines={1} style={movePathStyle}>
+            {model.from}
+          </Text>
+          <View accessibilityLabel={copy.moveTo}>
+            <ArrowRightIcon
+              color={theme.colors.secondaryLabel}
+              size={toolTriggerMetrics.iconSize}
+              strokeWidth={2}
+            />
+          </View>
+          <Text numberOfLines={1} style={movePathStyle}>
+            {model.to}
+          </Text>
+        </View>
       );
     case "delete":
-      return <PathChip path={model.path} />;
+      return (
+        <Text style={{ color: theme.colors.secondaryLabel, ...BODY_TEXT }}>
+          {deletedFileLabel(model.path)}
+        </Text>
+      );
     case "error":
       return (
         <Text selectable style={{ color: theme.colors.red, ...BODY_TEXT }}>

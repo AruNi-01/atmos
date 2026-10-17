@@ -1,5 +1,11 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
 import type { AgentToolCallPart } from "@atmos/agent-transcript";
 import { importPure } from "./process-fold.test";
 
@@ -420,6 +426,28 @@ describe("tool body presentation", () => {
       row({ kind: "diff_stats", title: "Edit", path: "a.ts", additions: 2, deletions: 4 }),
     ).toEqual({ additions: 2, deletions: 4 });
     expect(row({ kind: "mono", title: "Run", text: "ok" })).toEqual({ additions: 0, deletions: 0 });
+  });
+});
+
+describe("move and delete bodies", () => {
+  test("labels a delete with the stored path and draws a move arrow", async () => {
+    const mod = await importPure("tool-body.tsx");
+    const label = mod.deletedFileLabel as (path: string) => string;
+    expect(label("gone.ts")).toBe("Deleted gone.ts");
+    expect(label("src/a ts")).toBe("Deleted src/a ts");
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const body = source.slice(source.indexOf("// @view"));
+    const move = body.slice(body.indexOf('case "move":'), body.indexOf('case "delete":'));
+    expect(move).toContain("ArrowRightIcon");
+    expect(move).toContain("copy.moveTo");
+    expect(move).not.toContain("→");
+    const deleted = body.slice(body.indexOf('case "delete":'), body.indexOf('case "error":'));
+    expect(deleted).toContain("deletedFileLabel");
+    expect(deleted).not.toContain("PathChip");
   });
 });
 

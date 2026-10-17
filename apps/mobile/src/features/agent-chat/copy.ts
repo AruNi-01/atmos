@@ -38,6 +38,8 @@ export const copy = {
   webSearchResultCount: "{count, plural, one {# result} other {# results}}",
   searchMatchCount: "{count, plural, one {# match} other {# matches}}",
   fetchUrl: "Fetch {host}",
+  moveTo: "To",
+  deletedFile: "Deleted {path}",
   todoPending: "Pending",
   todoInProgress: "In progress",
   todoCompleted: "Completed",

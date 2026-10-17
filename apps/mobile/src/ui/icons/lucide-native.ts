@@ -1,5 +1,6 @@
 import {
   Archive,
+  ArrowRight,
   ArrowUp,
   Bell,
   Bot,
@@ -80,6 +81,7 @@ import {
 } from "lucide-react-native";
 
 export const ArchiveIcon = Archive;
+export const ArrowRightIcon = ArrowRight;
 export const ArrowUpIcon = ArrowUp;
 export const BellIcon = Bell;
 export const BotIcon = Bot;
