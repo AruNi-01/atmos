@@ -50,7 +50,7 @@ import {
   type AssistantSegment,
   type TranscriptMeasurement,
 } from "@atmos/agent-transcript";
-import { ActivityRow } from "./activity-row";
+import { ActivityRow, activityRowDuplicatesOpenTree } from "./activity-row";
 import { AnswerText } from "./answer-text";
 import { AssistantFooter, AssistantTurnFiles } from "./assistant-footer";
 import { copy } from "./copy";
@@ -336,7 +336,9 @@ function AssistantTurn({
       ) : null}
       <AssistantFooter assistantText={assistantText} message={message} visible={showChrome} />
       <AssistantTurnFiles parts={message.parts} visible={showChrome} />
-      {showActivity ? <ActivityRow message={message} /> : null}
+      {showActivity && !activityRowDuplicatesOpenTree(message) ? (
+        <ActivityRow message={message} />
+      ) : null}
     </View>
   );
 }

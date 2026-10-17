@@ -18,6 +18,21 @@ function activityToolTitle(part: Extract<AgentPart, { type: "tool_call" }>): str
   return presented.resolvedTool.trim();
 }
 
+/**
+ * The last active parent tool is already a tree row in the open group.
+ * A sibling activity label would repeat that last title (e.g. lone "fixture").
+ */
+export function activityRowDuplicatesOpenTree(message: AgentMessage | null | undefined): boolean {
+  const parts = message?.role === "assistant" ? message.parts : [];
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (!part || part.type !== "tool_call" || isNestedSubagentChild(part, parts)) continue;
+    if (!ACTIVE_TOOL_STATUS.has(part.status)) continue;
+    return true;
+  }
+  return false;
+}
+
 export function activityRowLabel(message: AgentMessage | null | undefined): string {
   const parts = message?.role === "assistant" ? message.parts : [];
   for (let index = parts.length - 1; index >= 0; index -= 1) {
