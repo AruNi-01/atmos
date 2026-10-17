@@ -3,6 +3,7 @@ import { Linking } from "react-native";
 import { StreamdownText } from "react-native-streamdown";
 import type { MarkdownStyle } from "react-native-enriched-markdown";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatForeground, chatMutedForeground } from "./chat-ink";
 import { chipCompleteHttpUrls, HTTP_CHIP_LINK_VARIANT, httpChipTarget } from "./http-link-chip";
 import {
   THINKING_PARAGRAPH_MARGIN,
@@ -41,7 +42,8 @@ export function AgentChatMarkdown({
 }) {
   const theme = useMobileTheme();
   const markdownStyle = useMemo<MarkdownStyle>(() => {
-    const proseColor = tone === "thinking" ? theme.colors.secondaryLabel : theme.colors.label;
+    const proseColor =
+      tone === "thinking" ? chatMutedForeground(theme.isDark) : chatForeground(theme.isDark);
     const resolvedFontSize = fontSize ?? (tone === "thinking" ? 15 : 16);
     const resolvedLineHeight = lineHeight ?? (tone === "thinking" ? 21 : 22);
     const headings = agentChatHeadingStyle(proseColor);

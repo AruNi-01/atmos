@@ -87,6 +87,8 @@ describe("agent chat markdown chrome", () => {
     );
     expect(markdown).toContain("THINKING_PARAGRAPH_MARGIN");
     expect(markdown).toContain('tone === "thinking"');
+    expect(markdown).toContain("chatForeground(theme.isDark)");
+    expect(markdown).toContain("chatMutedForeground(theme.isDark)");
     expect(BLOCKQUOTE_MARGIN).toBe(16);
     expect(BLOCKQUOTE_BORDER).toBe(4);
     expect(BLOCKQUOTE_GAP).toBe(16);

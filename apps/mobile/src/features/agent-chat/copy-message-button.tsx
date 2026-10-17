@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatMutedForeground } from "./chat-ink";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { TOOL_ADDITION_COLOR } from "./tool-body";
 
@@ -78,7 +79,7 @@ export function CopyMessageButton({ label, text }: { label: string; text: string
         {copied ? (
           <Check color={TOOL_ADDITION_COLOR} size={COPY_ICON_PX} />
         ) : (
-          <Copy color={theme.colors.secondaryLabel} size={COPY_ICON_PX} />
+          <Copy color={chatMutedForeground(theme.isDark)} size={COPY_ICON_PX} />
         )}
       </Animated.View>
     </Pressable>

@@ -21,6 +21,7 @@ describe("message copy button", () => {
     expect(source).toContain("scale.set(0.85)");
     expect(source).toContain("<Check ");
     expect(source).toContain("<Copy ");
+    expect(source).toContain("chatMutedForeground(theme.isDark)");
     expect(source).not.toContain("copy.copyMessage");
     const user = readFileSync(join(dir, "user-message.tsx"), "utf8");
     const footer = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");

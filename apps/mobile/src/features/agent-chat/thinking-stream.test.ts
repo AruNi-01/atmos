@@ -78,6 +78,8 @@ describe("thinking stream", () => {
     expect(source).toContain("thinkingStreamAction");
     expect(source).toContain("agentChatThinkingExpandKey");
     expect(source).toContain("thinkingRailColor");
+    expect(source).toContain("chatMutedForeground(theme.isDark)");
+    expect(source).not.toContain("theme.colors.secondaryLabel");
     expect(source).toContain("fontSize={metrics.fontSize}");
     expect(source).toContain("lineHeight={metrics.lineHeight}");
     expect(source).toContain("width: 1");

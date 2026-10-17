@@ -8,6 +8,7 @@ import {
 } from "@atmos/agent-transcript";
 import { Brain } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatMutedForeground } from "./chat-ink";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { thinkingTitle } from "./copy";
 import { agentChatThinkingExpandKey, useAgentChatExpandStore } from "./expand-store";
@@ -72,8 +73,9 @@ export function ThinkingBlock({
     ? undefined
     : thinkingDurationSeconds(thinkingBlockDurationMs(part, parts, thinkingMs));
   const title = thinkingTitle(streaming, seconds);
+  const muted = chatMutedForeground(theme.isDark);
   const titleStyle = {
-    color: theme.colors.secondaryLabel,
+    color: muted,
     flexShrink: 1,
     fontSize: metrics.fontSize,
     lineHeight: metrics.lineHeight,
@@ -100,7 +102,7 @@ export function ThinkingBlock({
             width: metrics.iconBox,
           }}
         >
-          <Brain color={theme.colors.secondaryLabel} size={metrics.iconSize} />
+          <Brain color={muted} size={metrics.iconSize} />
         </View>
         {streaming ? (
           <TextShimmer duration={1} numberOfLines={1} style={titleStyle}>
@@ -111,7 +113,7 @@ export function ThinkingBlock({
             {title}
           </Text>
         )}
-        <ExpandChevron color={theme.colors.secondaryLabel} open={open} size={metrics.chevron} />
+        <ExpandChevron color={muted} open={open} size={metrics.chevron} />
       </Pressable>
       {open ? (
         <View

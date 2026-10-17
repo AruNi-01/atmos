@@ -1,3 +1,5 @@
+import { chatMutedForeground } from "./chat-ink";
+
 /**
  * Streamdown heading scale (`text-3xl` … `text-sm`, `font-semibold`).
  * Every level is `mt-6 mb-2`. Answer text is `text-sm` (14/20).
@@ -61,7 +63,7 @@ export function agentChatBlockquote(isDark: boolean): {
     borderColor: isDark ? "rgba(159, 159, 169, 0.3)" : "rgba(113, 113, 123, 0.3)",
     borderRadius: 0,
     borderWidth: BLOCKQUOTE_BORDER,
-    color: isDark ? "#9f9fa9" : "#71717b",
+    color: chatMutedForeground(isDark),
     gapWidth: BLOCKQUOTE_GAP,
     marginBottom: BLOCKQUOTE_MARGIN,
     marginTop: BLOCKQUOTE_MARGIN,

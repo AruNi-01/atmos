@@ -24,6 +24,7 @@ import {
 } from "@atmos/agent-transcript";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
+import { chatForeground, chatMutedForeground } from "./chat-ink";
 import { ChevronDownIcon, ChevronUpIcon } from "@/ui/icons/lucide-native";
 import {
   attachmentChipLabel,
@@ -251,7 +252,9 @@ function UserMessageMeta({
       <View onLayout={onLayout} style={styles.metaRow}>
         {time ? (
           <UserMetaItem index={timeIndex} open={open}>
-            <Text style={[styles.metaTime, { color: theme.colors.secondaryLabel }]}>{time}</Text>
+            <Text style={[styles.metaTime, { color: chatMutedForeground(theme.isDark) }]}>
+              {time}
+            </Text>
           </UserMetaItem>
         ) : null}
         {showCopy ? (
@@ -322,7 +325,11 @@ export function UserMessage({ message }: { message: AgentMessage }) {
               numberOfLines={collapsed ? userMessageCollapsedLineLimit() : undefined}
               onTextLayout={onTextLayout}
               selectable
-              style={{ color: theme.colors.label, fontSize: 14, lineHeight: TEXT_LINE_HEIGHT }}
+              style={{
+                color: chatForeground(theme.isDark),
+                fontSize: 14,
+                lineHeight: TEXT_LINE_HEIGHT,
+              }}
             >
               {display}
             </Text>
