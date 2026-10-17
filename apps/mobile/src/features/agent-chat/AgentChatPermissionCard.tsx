@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import {
   ChevronDown,
   ChevronUp,
@@ -7,11 +7,18 @@ import {
   CornerDownLeft,
   ListTodo,
   MessageCircleQuestion,
+  Terminal,
 } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
-import { PLAN_TODO_PREVIEW_COUNT, planPermissionModel } from "./permission-plan";
+import { commandPermissionActions, commandPermissionText } from "./permission-command";
+import {
+  PLAN_TODO_PREVIEW_COUNT,
+  defaultAllowOptionId,
+  defaultRejectOptionId,
+  planPermissionModel,
+} from "./permission-plan";
 import {
   PERMISSION_QUESTION_ADVANCE_MS,
   PERMISSION_QUESTION_REJECT_ID,
@@ -25,7 +32,7 @@ export type AgentChatPermissionPrompt = {
   tool?: string;
   description: string;
   content_markdown?: string | null;
-  options?: Array<{ option_id: string; name: string }> | null;
+  options?: Array<{ option_id: string; name: string; kind?: string }> | null;
   questions?: Array<{ id: string; prompt: string; options?: string[] }> | null;
   plan_todos?: Array<{ id?: string | null; content: string; status?: string }> | null;
 };
@@ -480,8 +487,128 @@ function PlanPermission({
   );
 }
 
+function CommandPermission({
+  onRespond,
+  request,
+}: {
+  onRespond: (input: { requestId: string; optionId: string }) => void;
+  request: AgentChatPermissionPrompt;
+}) {
+  const theme = useMobileTheme();
+  const options = request.options ?? [];
+  const wired = commandPermissionActions(options);
+  const actions =
+    wired.length > 0
+      ? wired
+      : [
+          { id: defaultRejectOptionId(options), label: copy.deny, variant: "ghost" as const },
+          { id: defaultAllowOptionId(options), label: copy.allow, variant: "primary" as const },
+        ];
+  const command = commandPermissionText({
+    contentMarkdown: request.content_markdown,
+    description: request.description,
+    tool: request.tool,
+  });
+  const iconColor = theme.isDark ? "#f5b14c" : "#d98404";
+  const iconFill = theme.isDark ? "rgba(245, 177, 76, 0.14)" : "rgba(217, 132, 4, 0.14)";
+
+  return (
+    <View style={{ gap: 12 }}>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: 8, height: 24 }}>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: iconFill,
+            borderRadius: 6,
+            height: 24,
+            justifyContent: "center",
+            width: 24,
+          }}
+        >
+          <Terminal color={iconColor} size={14} strokeWidth={2} />
+        </View>
+        <Text
+          style={{
+            color: theme.colors.label,
+            flexShrink: 1,
+            fontSize: 13.5,
+            fontWeight: "500",
+            letterSpacing: -0.14,
+            lineHeight: 17,
+          }}
+        >
+          {copy.permissionRequested}
+        </Text>
+      </View>
+      <View
+        style={{
+          backgroundColor: theme.isDark ? "#101010" : "#fafafa",
+          borderRadius: 8,
+          paddingBottom: 10,
+          paddingHorizontal: 12,
+          paddingTop: 8,
+        }}
+      >
+        <Text
+          selectable
+          style={{
+            color: theme.isDark ? "#f5f5f5" : "#1a1a1a",
+            fontFamily: "Menlo",
+            fontSize: 12.5,
+            lineHeight: 18,
+          }}
+        >
+          {command}
+        </Text>
+      </View>
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 6,
+          justifyContent: "flex-end",
+          paddingLeft: 2,
+          paddingTop: 4,
+        }}
+      >
+        {actions.map((action) => {
+          const primary = action.variant === "primary";
+          return (
+            <Pressable
+              accessibilityRole="button"
+              key={action.id}
+              onPress={() => onRespond({ requestId: request.request_id, optionId: action.id })}
+              style={{
+                alignItems: "center",
+                backgroundColor: primary ? theme.colors.primary : theme.colors.cardSubtle,
+                borderRadius: 999,
+                flexDirection: "row",
+                gap: 5,
+                paddingHorizontal: 11,
+                paddingVertical: 5,
+              }}
+            >
+              <Text
+                style={{
+                  color: primary ? theme.colors.labelInverse : theme.colors.label,
+                  fontSize: 12.5,
+                  fontWeight: "500",
+                }}
+              >
+                {action.label}
+              </Text>
+              {primary ? (
+                <CornerDownLeft color={theme.colors.labelInverse} size={12} strokeWidth={2} />
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export function AgentChatPermissionCard({
-  filePath,
   request,
   onRespond,
 }: {
@@ -489,10 +616,6 @@ export function AgentChatPermissionCard({
   request: AgentChatPermissionPrompt;
   onRespond: (input: { requestId: string; optionId: string }) => void;
 }) {
-  const theme = useMobileTheme();
-  const description = request.description.trim();
-  const markdown = request.content_markdown?.trim() ?? "";
-  const options = request.options ?? [];
   const questions = request.questions ?? [];
   if (questions.length > 0) {
     return <QuestionPermission onRespond={onRespond} request={request} />;
@@ -500,77 +623,5 @@ export function AgentChatPermissionCard({
   if (isPlanExitRequest(request)) {
     return <PlanPermission onRespond={onRespond} request={request} />;
   }
-  const todos = request.plan_todos ?? [];
-  const planExit = isPlanExitRequest(request);
-  const path = planExit ? (filePath?.trim() ?? "") : "";
-  const intent = description && description !== path ? description : "";
-  const showEmpty = planExit && !intent && !path && markdown.length === 0 && todos.length === 0;
-  const body = { color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 };
-
-  return (
-    <View style={{ gap: 10 }}>
-      <Text style={{ color: theme.colors.label, fontSize: 16, fontWeight: "700", lineHeight: 21 }}>
-        {historicPermissionTitle(request)}
-      </Text>
-      {todos.map((todo) => (
-        <Text key={todo.id ?? todo.content} selectable style={body}>
-          {todo.content}
-        </Text>
-      ))}
-      {intent ? (
-        <Text selectable style={body}>
-          {intent}
-        </Text>
-      ) : null}
-      {path ? (
-        <Text selectable style={body}>
-          {path}
-        </Text>
-      ) : null}
-      {markdown.length > 0 && markdown !== description ? (
-        <AgentChatMarkdown text={markdown} />
-      ) : null}
-      {showEmpty ? (
-        <Text selectable style={body}>
-          {copy.planViewerEmpty}
-        </Text>
-      ) : null}
-      {options.length > 0 ? (
-        <View style={{ gap: 8 }}>
-          {options.map((option) => {
-            const label = option.name.trim() || option.option_id;
-            return (
-              <Pressable
-                accessibilityRole="button"
-                key={option.option_id}
-                onPress={() =>
-                  onRespond({ requestId: request.request_id, optionId: option.option_id })
-                }
-                style={({ pressed }) => ({
-                  backgroundColor: pressed ? theme.colors.mutedPressed : theme.colors.control,
-                  borderColor: theme.colors.controlBorder,
-                  borderCurve: "continuous",
-                  borderRadius: 12,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                })}
-              >
-                <Text
-                  style={{
-                    color: theme.colors.label,
-                    fontSize: 15,
-                    fontWeight: "600",
-                    lineHeight: 20,
-                  }}
-                >
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-    </View>
-  );
+  return <CommandPermission onRespond={onRespond} request={request} />;
 }

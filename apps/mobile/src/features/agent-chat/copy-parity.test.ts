@@ -11,6 +11,8 @@ import { copy } from "./copy";
 type ChatPanelCopy = {
   scrollBelow: { prefix: string; suffix: string; unit: string };
   permissionRequested: string;
+  deny: string;
+  allow: string;
   askUserTitle: string;
   continue: string;
   skip: string;
@@ -126,6 +128,8 @@ describe("agent chat copy parity", () => {
 
   test("card and panel titles match web copy", () => {
     expect(copy.permissionRequested).toBe(chatPanel.permissionRequested);
+    expect(copy.deny).toBe(chatPanel.deny);
+    expect(copy.allow).toBe(chatPanel.allow);
     expect(copy.askUserTitle).toBe(chatPanel.askUserTitle);
     expect(copy.continue).toBe(chatPanel.continue);
     expect(copy.skip).toBe(chatPanel.skip);

@@ -74,6 +74,8 @@ export const copy = {
   scrollBelowSuffix: "below",
   scrollBelowUnit: "{count, plural, one {message} other {messages}}",
   permissionRequested: "Permission requested",
+  deny: "Deny",
+  allow: "Allow",
   askUserTitle: "Questions for you",
   continue: "Continue",
   skip: "Skip",
