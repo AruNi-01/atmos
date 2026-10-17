@@ -14,6 +14,7 @@ import {
   agentChatBlockMetrics,
   agentChatBlockquote,
   agentChatHeadingStyle,
+  agentChatLinkColor,
   agentChatMarkdownChrome,
   agentChatThematicBreak,
   THEMATIC_BREAK_MARGIN,
@@ -115,6 +116,12 @@ describe("agent chat markdown chrome", () => {
     expect(agentChatThematicBreak(true).color).toBe("rgba(255, 255, 255, 0.1)");
     expect(markdown).toContain("thematicBreak: agentChatThematicBreak(theme.isDark)");
     expect(markdown).not.toContain("theme.colors.separator");
+    expect(agentChatLinkColor(false)).toBe("#18181b");
+    expect(agentChatLinkColor(true)).toBe("#e4e4e7");
+    const link = markdown.slice(markdown.indexOf("link: {"), markdown.indexOf("thematicBreak:"));
+    expect(link).toContain("agentChatLinkColor(theme.isDark)");
+    expect(link).toContain("underline: true");
+    expect(link).not.toContain("theme.colors.accent");
     const table = markdown.slice(
       markdown.indexOf("table: {"),
       markdown.indexOf("const markdown ="),

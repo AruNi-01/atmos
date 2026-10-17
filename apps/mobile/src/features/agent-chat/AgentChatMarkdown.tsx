@@ -9,6 +9,7 @@ import {
   agentChatBlockMetrics,
   agentChatBlockquote,
   agentChatHeadingStyle,
+  agentChatLinkColor,
   agentChatMarkdownChrome,
   agentChatThematicBreak,
 } from "./markdown-chrome";
@@ -97,7 +98,7 @@ export function AgentChatMarkdown({
           : { marginTop: codeBlockMargin, marginBottom: codeBlockMargin }),
       },
       link: {
-        color: theme.colors.accent,
+        color: agentChatLinkColor(theme.isDark),
         underline: true,
       },
       ...(chipHttpUrls
