@@ -28,7 +28,8 @@ describe("agent chat markdown chrome", () => {
     const light = agentChatMarkdownChrome(false);
     const dark = agentChatMarkdownChrome(true);
 
-    expect(light.codeBackground).toBe("#f4f4f5");
+    expect(light.codeBackground).toBe("#e4e4e7");
+    expect(light.codeBackground).not.toBe("#f4f4f6");
     expect(light.codeText).toBe("#27272a");
     expect(light.codeBorder).toBe("rgba(0,0,0,0)");
     expect(light.headerBackground).toBe("#f4f4f5");
