@@ -1297,9 +1297,19 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
       );
     case "diff_stats":
       return (
-        <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
-          {model.path ? <PathChip path={model.path} /> : null}
-          <DiffCounts additions={model.additions} deletions={model.deletions} />
+        <View
+          style={{
+            alignItems: "center",
+            flexDirection: "row",
+            gap: 8,
+            paddingHorizontal: 4,
+            paddingVertical: 4,
+          }}
+        >
+          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+            {copy.lineChanges}
+          </Text>
+          <ToolDiffStats additions={model.additions} deletions={model.deletions} />
         </View>
       );
     case "patch":

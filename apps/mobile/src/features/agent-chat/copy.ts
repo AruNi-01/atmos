@@ -44,6 +44,7 @@ export const copy = {
   newFile: "New",
   deletedFileStatus: "Deleted",
   noOutput: "No output",
+  lineChanges: "Line changes",
   processing: "Processing...",
   executionFailed: "Execution failed",
   runScript: "Run Script",

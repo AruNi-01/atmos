@@ -80,6 +80,16 @@ describe("tool body presentation", () => {
       }),
     );
     expect(stats).toMatchObject({ kind: "diff_stats", path: "a.ts", additions: 2, deletions: 1 });
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("// @view"));
+    const statsBody = view.slice(view.indexOf('case "diff_stats":'), view.indexOf('case "patch":'));
+    expect(statsBody).toContain("copy.lineChanges");
+    expect(statsBody).toContain("ToolDiffStats");
+    expect(statsBody).not.toContain("PathChip");
+    expect(statsBody).not.toContain("DiffCounts");
 
     const patch = await call(
       part({

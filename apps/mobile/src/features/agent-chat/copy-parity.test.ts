@@ -83,6 +83,7 @@ type AgentComponents = {
     newFile: string;
     deletedFile: string;
     noOutput: string;
+    lineChanges: string;
     processing: string;
     executionFailed: string;
     planDocument: string;
@@ -214,6 +215,8 @@ describe("agent chat copy parity", () => {
     expect(copy.deletedFileStatus).toBe("Deleted");
     expect(copy.noOutput).toBe(components.toolResults.noOutput);
     expect(copy.noOutput).toBe("No output");
+    expect(copy.lineChanges).toBe(components.toolResults.lineChanges);
+    expect(copy.lineChanges).toBe("Line changes");
     expect(copy.processing).toBe(components.toolResults.processing);
     expect(copy.processing).toBe("Processing...");
     expect(copy.executionFailed).toBe(components.toolResults.executionFailed);
