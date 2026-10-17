@@ -2,7 +2,6 @@
  * Web WS API response types.
  * Multi-client shared DTOs re-exported from `@atmos/api-types`.
  */
-import type { WorkspaceModel } from "@atmos/api-types/ws/dto/workspace";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws/github-api";
 
 export type {

@@ -126,8 +126,6 @@ export async function desktopUseCaptureInProcess(
   options: { selfAppNames?: Set<string> } = {},
 ): Promise<DesktopUseCaptureResult> {
   const warnings: string[] = [];
-  const selfNames =
-    options.selfAppNames ?? new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
   let frontmost: DesktopUseFrontmost;
   try {

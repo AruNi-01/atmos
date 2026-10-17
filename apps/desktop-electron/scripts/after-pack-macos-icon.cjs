@@ -12,7 +12,6 @@
  */
 const { spawnSync } = require("node:child_process");
 const {
-  copyFileSync,
   existsSync,
   mkdtempSync,
   mkdirSync,

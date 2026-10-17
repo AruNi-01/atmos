@@ -200,7 +200,7 @@ export function PRChecksTab({
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const setConflictPreview = usePrConflictPreviewStore((s) => s.setPreview);
-  const [openAgentFixId, setOpenAgentFixId] = React.useState<string | null>(null);
+  const [, setOpenAgentFixId] = React.useState<string | null>(null);
 
   const buckets = React.useMemo(() => {
     const result: Record<CheckBucket, StatusCheck[]> = {

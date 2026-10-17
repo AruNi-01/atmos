@@ -16,7 +16,6 @@ interface CIBadgeProps {
 export const CIBadge: React.FC<CIBadgeProps> = ({ owner, repo, branch, className }) => {
   const t = useTranslations("github.ciBadge");
   const ciStatus = useGithubCIStatus({ owner, repo, branch });
-  const send = useWebSocketStore((s) => s.send);
 
   if (!ciStatus) return null;
 

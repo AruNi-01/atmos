@@ -1,4 +1,3 @@
-import type { WsEmpty } from "../dto/common";
 import type {
   AppOpenRequest,
   AppOpenResponse,

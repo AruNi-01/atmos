@@ -100,7 +100,7 @@ const RING_INDEX = new Map(RING.map(([x, y], i) => [x + "," + y, i]));
 function cellDelay(v: LatticeVariant, x: number, y: number): number {
   const dx = x - MID;
   const dy = y - MID;
-  const ring = Math.max(Math.abs(dx), Math.abs(dy));
+
   switch (v) {
     // Radiates from the centre on a round wavefront. Centre leads a beat
     // early so the next swell doesn't sit behind the outer fade.
@@ -368,7 +368,7 @@ function globeKeyframeStyle(
   z0: number,
   variant: HelixVariant,
   ringIndex: number,
-  j = 0,
+  _j = 0,
 ): Record<string, string> {
   const style: Record<string, string> = {};
 
@@ -479,8 +479,6 @@ const shapeCircleAt =
     const a = (i / MORPH_N) * Math.PI * 2 - Math.PI / 2 + turn;
     return [Math.cos(a) * MORPH_R, Math.sin(a) * MORPH_R];
   };
-
-const SCATTER_TRAIL = 0.12;
 
 const shapeScatterA: ShapeFn = (i) => {
   const a = (i / MORPH_N) * Math.PI * 2 - Math.PI / 2;

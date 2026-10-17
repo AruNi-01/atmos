@@ -19,7 +19,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
   toastManager,
-  getFileIconProps,
 } from "@workspace/ui";
 import {
   Loader2 as LucideLoader2,
@@ -27,7 +26,6 @@ import {
   FileText,
   Settings2,
   ChevronRight,
-  Folder,
   File,
   Search,
 } from "lucide-react";

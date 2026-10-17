@@ -35,7 +35,6 @@ import { useDiffSettingsStore } from "@/features/settings/store/diff-settings-st
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   DIFF_GROUP_TAB_LABELS,
-  type DiffChangeGroupKind,
   getDiffGroupKind,
   getFilesForDiffGroup,
 } from "@/features/diff/lib/diff-editor-paths";

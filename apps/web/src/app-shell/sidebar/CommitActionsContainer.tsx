@@ -77,13 +77,6 @@ export function CommitActionsContainer({
     await stageAllUnstaged(unstagedFiles.map((f) => f.path));
   }, [stageAllUnstaged, unstagedFiles]);
 
-  const stageFilesFn = React.useCallback(
-    async (files: string[]) => {
-      if (currentProjectPath) await stageFiles(files);
-    },
-    [stageFiles, currentProjectPath],
-  );
-
   return (
     <CommitActions
       className={className}

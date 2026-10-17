@@ -11,7 +11,6 @@ import type {
 import { normalizeWorkspaceCreateSource } from "@/shared/lib/workspace-create-source";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws/github-api";
 import type {
-  ArchivedWorkspace,
   FsDeletePathResponse,
   FsDuplicatePathResponse,
   FsCreateDirResponse,

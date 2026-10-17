@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 const requireCjs = createRequire(import.meta.url);
 const slim = requireCjs("./slim-electron-runtime.cjs") as {

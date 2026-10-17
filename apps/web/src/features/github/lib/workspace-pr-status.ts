@@ -187,7 +187,7 @@ export function resolveWorkspacePrPresentation(input: {
 export function resolvePrIconColorClass(
   state: WorkspacePrLifecycleState,
   checksTone: WorkspacePrChecksTone,
-  fallback = "text-muted-foreground",
+  _fallback = "text-muted-foreground",
 ): string {
   if (state === "draft") return "text-muted-foreground";
   if (state === "merged") return "text-purple-500";

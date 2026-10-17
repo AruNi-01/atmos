@@ -910,7 +910,6 @@ export function removeTabFromLayout(
   tabId: string,
   preferredNextActiveId?: string | null,
 ): CenterPaneLayout {
-  const primaryId = getPrimaryPaneId(layout);
   let changed = false;
   const panes = layout.panes.map((p) => {
     if (!p.tabIds.includes(tabId) && p.activeTabId !== tabId) return p;

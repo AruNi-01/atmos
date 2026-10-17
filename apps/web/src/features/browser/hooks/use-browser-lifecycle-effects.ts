@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
-import { isDesktopRuntime, isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import type { BrowserBridgeController, BrowserTransportMode } from "../lib/browser-bridge/types";
 import {

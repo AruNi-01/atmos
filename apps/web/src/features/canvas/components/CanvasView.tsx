@@ -188,7 +188,6 @@ export const CanvasView: React.FC = () => {
     toggleIsToolbarCollapsed,
   } = useCanvasChromePrefs();
   const {
-    board,
     boardIdentity,
     fileName,
     title: documentTitle,
@@ -217,7 +216,7 @@ export const CanvasView: React.FC = () => {
   const [connectionBootstrapReady, setConnectionBootstrapReady] = React.useState(
     () => typeof window === "undefined" || isHostedAtmosOrigin(),
   );
-  const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
+  const [, setLastSavedAt] = React.useState<Date | null>(null);
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
   const queuePendingTerminalRun = useCanvasRuntimeStore((state) => state.queuePendingTerminalRun);
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);

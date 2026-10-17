@@ -200,7 +200,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         }
       }
       doRunGenerate(run);
-    } catch (_err) {
+    } catch {
       setPendingCommand(run);
       setConflictDialogOpen(true);
     } finally {

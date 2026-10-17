@@ -4,7 +4,6 @@ import React from "react";
 import { shellQuote } from "@/shared/lib/shell-quote";
 import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
 import {
-  DEFAULT_AGENT_YOLO_MODE,
   readYoloModeFromSettings,
   resolveAgentLaunchFlags,
 } from "@/features/agent/lib/terminal-agent-yolo";

@@ -1,11 +1,6 @@
 /** APP-016: Worker — relay REST + WebSocket + HTTP gateway to ServerHub DO. */
 
-import {
-  collectForwardHeaders,
-  gatewayBaseUrl,
-  matchGatewayPath,
-  validateGatewayAccess,
-} from "./http-gateway";
+import { collectForwardHeaders, matchGatewayPath, validateGatewayAccess } from "./http-gateway";
 import { buildClientSessionUrls } from "./client-session";
 import {
   createGithubSetupSession,

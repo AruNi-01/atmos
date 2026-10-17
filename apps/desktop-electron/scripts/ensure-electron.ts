@@ -8,7 +8,6 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function tryResolveElectron(): string | null {
   try {

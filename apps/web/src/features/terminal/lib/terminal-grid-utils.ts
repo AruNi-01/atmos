@@ -1,12 +1,7 @@
 "use client";
 
 import { isIdleCwdTitle } from "@atmos/shared/terminal";
-import type {
-  TerminalLayoutBranch,
-  TerminalLayoutNode,
-  TerminalPaneAgent,
-  TerminalPaneProps,
-} from "../types/index";
+import type { TerminalLayoutNode, TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
 
 export type TerminalGridScope = "default" | "project-wiki" | "code-review";

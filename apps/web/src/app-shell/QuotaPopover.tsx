@@ -39,11 +39,7 @@ import {
   restrictToParentElement,
 } from "@workspace/ui";
 
-import {
-  quotaUsageApi,
-  type QuotaAggregateResponse,
-  type QuotaOverviewResponse,
-} from "@/api/ws-api";
+import { quotaUsageApi, type QuotaAggregateResponse } from "@/api/ws-api";
 import {
   useQuotaOverviewCache,
   useQuotaOverviewQuery,

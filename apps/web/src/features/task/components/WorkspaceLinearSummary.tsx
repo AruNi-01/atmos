@@ -32,7 +32,6 @@ export function WorkspaceLinearSummary({
 
   const primary = links[0]!;
   const overflow = links.length - 1;
-  const label = `${primary.identifier} ${primary.title}`.trim();
 
   return (
     <TooltipProvider delayDuration={250}>

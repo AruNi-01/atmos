@@ -12,7 +12,6 @@ import {
   DropdownMenuSubContent,
   Copy,
   ChevronDown,
-  Blocks,
   toastManager,
   cn,
 } from "@workspace/ui";
@@ -41,8 +40,8 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const t = useTranslations("appShell");
 
   const [lastUsedApp, setLastUsedApp] = useState<QuickOpenAppName>("Finder");
-  const [homeDir, setHomeDir] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const [, setHomeDir] = useState<string>("");
+  const [, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
