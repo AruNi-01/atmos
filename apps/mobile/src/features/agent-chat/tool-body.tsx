@@ -1016,6 +1016,39 @@ function toolDiffLastNumber(lines: readonly UnifiedDiffLine[]): number {
 }
 
 /**
+ * Pierre's gutter rule. `[data-column-number]` is content-box, and the gutter
+ * adds `2px solid var(--diffs-bg)` after that column.
+ */
+export const TOOL_DIFF_GUTTER_RULE = 2;
+
+/**
+ * Pierre row fills. `color-mix(in lab, canvas P%, base)` with the line at
+ * 88% light / 80% dark and the number column at 91% light / 85% dark.
+ * The canvas is this chat page (`#f4f4f6` / `#000000`). Web mixes the same
+ * percentages against its own `--background`.
+ */
+export const TOOL_DIFF_LINE_ADD_LIGHT = "#dfeee2";
+export const TOOL_DIFF_LINE_ADD_DARK = "#1a291b";
+export const TOOL_DIFF_LINE_DEL_LIGHT = "#fbe0de";
+export const TOOL_DIFF_LINE_DEL_DARK = "#321a18";
+export const TOOL_DIFF_NUMBER_FILL_ADD_LIGHT = "#e4f0e7";
+export const TOOL_DIFF_NUMBER_FILL_ADD_DARK = "#152016";
+export const TOOL_DIFF_NUMBER_FILL_DEL_LIGHT = "#fae5e4";
+export const TOOL_DIFF_NUMBER_FILL_DEL_DARK = "#271614";
+
+export function toolDiffLineFill(op: "add" | "del", isDark: boolean): string {
+  if (op === "add") return isDark ? TOOL_DIFF_LINE_ADD_DARK : TOOL_DIFF_LINE_ADD_LIGHT;
+  return isDark ? TOOL_DIFF_LINE_DEL_DARK : TOOL_DIFF_LINE_DEL_LIGHT;
+}
+
+export function toolDiffNumberFill(op: "add" | "del", isDark: boolean): string {
+  if (op === "add") {
+    return isDark ? TOOL_DIFF_NUMBER_FILL_ADD_DARK : TOOL_DIFF_NUMBER_FILL_ADD_LIGHT;
+  }
+  return isDark ? TOOL_DIFF_NUMBER_FILL_DEL_DARK : TOOL_DIFF_NUMBER_FILL_DEL_LIGHT;
+}
+
+/**
  * Web `bg-muted/50` (`oklch(0.9 0.004 286)` / `oklch(0.274 0.006 286.033)` at 50%).
  * `rounded-md` is `--radius` (10px) minus 2px.
  */
@@ -1547,61 +1580,75 @@ function DiscussionDiff({
         ) : null}
         {lines.length > 0 ? (
           <HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT}>
-            {lines.map((line, index) => (
-              <View
-                key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
-                style={{
-                  backgroundColor:
-                    line.op === "add"
-                      ? theme.colors.greenSurface
-                      : line.op === "del"
-                        ? theme.colors.redSurface
-                        : undefined,
-                  flexDirection: "row",
-                }}
-              >
-                {line.op === "ctx" ? null : (
-                  <View
-                    pointerEvents="none"
+            {lines.map((line, index) => {
+              const changed = line.op === "add" || line.op === "del";
+              return (
+                <View
+                  key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
+                  style={{ flexDirection: "row" }}
+                >
+                  {changed ? (
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        backgroundColor: numberInk(line.op),
+                        bottom: 0,
+                        left: 0,
+                        position: "absolute",
+                        top: 0,
+                        width: TOOL_DIFF_BAR,
+                      }}
+                    />
+                  ) : null}
+                  <Text
                     style={{
-                      backgroundColor: numberInk(line.op),
-                      bottom: 0,
-                      left: 0,
-                      position: "absolute",
-                      top: 0,
-                      width: TOOL_DIFF_BAR,
+                      backgroundColor: changed
+                        ? toolDiffNumberFill(line.op, theme.isDark)
+                        : undefined,
+                      color: numberInk(line.op),
+                      flexShrink: 0,
+                      fontFamily: "Menlo",
+                      fontSize: TOOL_DIFF_CODE_FONT,
+                      lineHeight: TOOL_DIFF_LINE_HEIGHT,
+                      minWidth: numberWidth,
+                      paddingLeft: TOOL_DIFF_NUMBER_PAD_LEFT,
+                      paddingRight: TOOL_DIFF_NUMBER_PAD_RIGHT,
+                      textAlign: "right",
+                    }}
+                  >
+                    {toolDiffUnifiedLineNo(line) ?? ""}
+                  </Text>
+                  <View
+                    style={{
+                      backgroundColor: theme.colors.background,
+                      flexShrink: 0,
+                      width: TOOL_DIFF_GUTTER_RULE,
                     }}
                   />
-                )}
-                <Text
-                  style={{
-                    color: numberInk(line.op),
-                    fontFamily: "Menlo",
-                    fontSize: TOOL_DIFF_CODE_FONT,
-                    lineHeight: TOOL_DIFF_LINE_HEIGHT,
-                    minWidth: numberWidth,
-                    paddingLeft: TOOL_DIFF_NUMBER_PAD_LEFT,
-                    paddingRight: TOOL_DIFF_NUMBER_PAD_RIGHT,
-                    textAlign: "right",
-                  }}
-                >
-                  {toolDiffUnifiedLineNo(line) ?? ""}
-                </Text>
-                <Text
-                  selectable
-                  style={{
-                    color: chatForeground(theme.isDark),
-                    flexShrink: 1,
-                    fontFamily: "Menlo",
-                    fontSize: TOOL_DIFF_CODE_FONT,
-                    lineHeight: TOOL_DIFF_LINE_HEIGHT,
-                    paddingHorizontal: TOOL_DIFF_CODE_PAD,
-                  }}
-                >
-                  {line.text.length > 0 ? line.text : " "}
-                </Text>
-              </View>
-            ))}
+                  <View
+                    style={{
+                      backgroundColor: changed
+                        ? toolDiffLineFill(line.op, theme.isDark)
+                        : undefined,
+                      flex: 1,
+                    }}
+                  >
+                    <Text
+                      selectable
+                      style={{
+                        color: chatForeground(theme.isDark),
+                        fontFamily: "Menlo",
+                        fontSize: TOOL_DIFF_CODE_FONT,
+                        lineHeight: TOOL_DIFF_LINE_HEIGHT,
+                        paddingHorizontal: TOOL_DIFF_CODE_PAD,
+                      }}
+                    >
+                      {line.text.length > 0 ? line.text : " "}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
           </HeightClip>
         ) : fallback ? (
           <CappedMono text={fallback} />

@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
 import type { AgentToolCallPart } from "@atmos/agent-transcript";
+import { darkColors, lightColors } from "../../theme/colors";
 import { importPure } from "./process-fold.test";
 
 type Body = {
@@ -116,8 +117,12 @@ describe("tool body presentation", () => {
     expect(discussion).toContain("TOOL_DIFF_RADIUS");
     expect(discussion).toContain("TOOL_DIFF_HEADER_LIGHT");
     expect(discussion).toContain("shadowOpacity: 0.1");
-    expect(discussion).toContain("greenSurface");
-    expect(discussion).toContain("redSurface");
+    expect(discussion).toContain("toolDiffLineFill(line.op, theme.isDark)");
+    expect(discussion).toContain("toolDiffNumberFill(line.op, theme.isDark)");
+    expect(discussion).toContain("TOOL_DIFF_GUTTER_RULE");
+    expect(discussion).toContain("theme.colors.background");
+    expect(discussion).not.toContain("greenSurface");
+    expect(discussion).not.toContain("redSurface");
     expect(discussion).toContain("toolDiffUnifiedLineNo(line)");
     expect(discussion.split("toolDiffUnifiedLineNo(line)").length - 1).toBe(1);
     expect(discussion).toContain("toolDiffNumberColumnWidth");
@@ -154,6 +159,17 @@ describe("tool body presentation", () => {
     expect(mod.toolDiffUnifiedLineNo({ op: "ctx", oldNo: 1, newNo: 4 })).toBe(4);
     expect(mod.toolDiffUnifiedLineNo({ op: "del", oldNo: 2, newNo: null })).toBe(2);
     expect(mod.toolDiffUnifiedLineNo({ op: "add", oldNo: null, newNo: 9 })).toBe(9);
+    expect(mod.TOOL_DIFF_GUTTER_RULE).toBe(2);
+    expect(mod.toolDiffLineFill("add", false)).toBe("#dfeee2");
+    expect(mod.toolDiffLineFill("del", false)).toBe("#fbe0de");
+    expect(mod.toolDiffLineFill("add", true)).toBe("#1a291b");
+    expect(mod.toolDiffLineFill("del", true)).toBe("#321a18");
+    expect(mod.toolDiffNumberFill("add", false)).toBe("#e4f0e7");
+    expect(mod.toolDiffNumberFill("del", false)).toBe("#fae5e4");
+    expect(mod.toolDiffNumberFill("add", true)).toBe("#152016");
+    expect(mod.toolDiffNumberFill("del", true)).toBe("#271614");
+    expect(lightColors.background).toBe("#f4f4f6");
+    expect(darkColors.background).toBe("#000000");
     const counts = view.slice(
       view.indexOf("function ToolDiffStats"),
       view.indexOf("function ShowMoreButton"),
