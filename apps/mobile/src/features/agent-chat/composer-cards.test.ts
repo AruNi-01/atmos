@@ -1,5 +1,11 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
 import type {
   AgentMessage,
   AgentPart,
@@ -348,5 +354,22 @@ describe("moveQueueItem", () => {
     expect(moveQueueItem(["a", "b", "c"], "b", "down")).toEqual(["a", "c", "b"]);
     expect(moveQueueItem(["a", "b"], "a", "up")).toBeNull();
     expect(moveQueueItem(["a", "b"], "b", "down")).toBeNull();
+  });
+});
+
+describe("lane goal and workflow type", () => {
+  test("titles use web text-sm medium foreground and body lines stay muted", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    for (const name of ["goal-card.tsx", "workflow-card.tsx"]) {
+      const source = readFileSync(join(here, "cards", name), "utf8");
+      expect(source).toContain("chatForeground(theme.isDark)");
+      expect(source).toContain("chatMutedForeground(theme.isDark)");
+      expect(source).toContain("fontSize: 14");
+      expect(source).toContain('fontWeight: "500"');
+      expect(source).toContain("lineHeight: 20");
+      expect(source).not.toContain("theme.colors.label");
+      expect(source).not.toContain("theme.colors.secondaryLabel");
+      expect(source).not.toContain('fontWeight: "700"');
+    }
   });
 });
