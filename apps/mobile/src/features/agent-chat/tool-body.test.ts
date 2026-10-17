@@ -389,6 +389,21 @@ describe("tool body presentation", () => {
     expect(branch).not.toContain("PathChips");
   });
 
+  test("tool markdown clips at the web preview height", () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("// @view"));
+    const markdown = view.slice(view.indexOf('case "markdown":'), view.indexOf('case "todos":'));
+    expect(markdown).toContain("HeightClip");
+    expect(markdown).toContain("TOOL_CODE_MAX_HEIGHT");
+    expect(markdown).toContain("fontSize={13}");
+    expect(markdown).toContain("lineHeight={21}");
+    expect(markdown).toContain("paddingHorizontal: 12");
+    expect(markdown).toContain("paddingVertical: 8");
+  });
+
   test("mono, move, delete, error, empty, images, and subagent cards", async () => {
     const json = await call(
       part({

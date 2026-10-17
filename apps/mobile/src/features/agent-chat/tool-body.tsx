@@ -1650,7 +1650,13 @@ function ToolBodyView({ model }: { model: Exclude<ToolBodyModel, { kind: "subage
     case "tree":
       return <TreeListBody rows={model.rows} />;
     case "markdown":
-      return <AgentChatMarkdown fontSize={14} lineHeight={20} text={model.markdown} />;
+      return (
+        <HeightClip maxHeight={TOOL_CODE_MAX_HEIGHT}>
+          <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+            <AgentChatMarkdown fontSize={13} lineHeight={21} text={model.markdown} />
+          </View>
+        </HeightClip>
+      );
     case "todos":
       return <TodoStatusRows items={model.items} />;
     case "plan_document":
