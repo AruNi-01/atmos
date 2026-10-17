@@ -229,10 +229,10 @@ index 5fdc4a78b..d90ebe266 100644
                              }
  
 diff --git a/ios/renderer/ListItemRenderer.m b/ios/renderer/ListItemRenderer.m
-index 204fc1851..6cbf9730e 100644
+index 204fc18..d29f48d 100644
 --- a/ios/renderer/ListItemRenderer.m
 +++ b/ios/renderer/ListItemRenderer.m
-@@ -49,7 +49,7 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
+@@ -49,14 +49,19 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
    // currentDepth - 1 handles the horizontal offset for nested lists
    const NSInteger nestingLevel = currentDepth - 1;
    const CGFloat baseMarkerWidth = isTask                                  ? [_config effectiveListMarginLeftForTask]
@@ -241,7 +241,21 @@ index 204fc1851..6cbf9730e 100644
                                                                            : [_config effectiveListMarginLeftForBullet];
  
    const CGFloat blockquoteIndent =
-@@ -137,6 +137,7 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
+       blockquoteIndentForDepth(context.blockquoteDepth, [_config blockquoteBorderWidth] + [_config blockquoteGapWidth]);
+ 
+-  const CGFloat totalIndent = blockquoteIndent + baseMarkerWidth + [_config effectiveListGapWidth] +
+-                              (nestingLevel * [_config listStyleMarginLeft]);
++  // Web task rows are `pl-0` with `gap-2` (8) after the checkbox. The shared
++  // list gap is the bullet and number column, so it does not apply here.
++  const CGFloat taskTrail = 8.0;
++  const CGFloat totalIndent =
++      blockquoteIndent +
++      (isTask ? [_config taskListCheckboxSize] + taskTrail : baseMarkerWidth + [_config effectiveListGapWidth]) +
++      (nestingLevel * [_config listStyleMarginLeft]);
+ 
+   const NSUInteger startLocation = output.length;
+ 
+@@ -137,6 +142,7 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
      NSMutableDictionary *attributesToApply = [metadata mutableCopy];
      attributesToApply[NSParagraphStyleAttributeName] = style;
      [output addAttributes:attributesToApply range:range];
@@ -249,6 +263,24 @@ index 204fc1851..6cbf9730e 100644
    };
  
    NSUInteger pos = itemRange.location;
+diff --git a/ios/utils/ListMarkerDrawer.m b/ios/utils/ListMarkerDrawer.m
+index 315ec08..70a7bca 100644
+--- a/ios/utils/ListMarkerDrawer.m
++++ b/ios/utils/ListMarkerDrawer.m
+@@ -65,7 +65,12 @@ extern NSString *const ListItemMarkerStartAttribute;
+ 
+                                    if (marker.isTask) {
+                                      const CGFloat size = [_config taskListCheckboxSize];
+-                                     CGFloat checkboxX = isRTL ? markerX + size / 2.0 : markerX - size / 2.0;
++                                     // Same `gap-2` (8) as the indent. The shared list gap
++                                     // belongs to bullets and numbers.
++                                     const CGFloat trail = 8.0;
++                                     CGFloat rightEdge = isRTL ? origin.x + container.size.width - marker.indent + trail
++                                                               : origin.x + marker.indent - trail;
++                                     CGFloat checkboxX = isRTL ? rightEdge + size / 2.0 : rightEdge - size / 2.0;
+                                      [self drawCheckboxAtX:checkboxX
+                                                    centerY:baselineY - (font.capHeight / 2.0)
+                                                    checked:marker.isChecked];
 diff --git a/ios/renderer/StrongRenderer.m b/ios/renderer/StrongRenderer.m
 index 15a76af85..f9ad1e401 100644
 --- a/ios/renderer/StrongRenderer.m
@@ -2574,3 +2606,22 @@ index 0bac034..a6d1a7c 100644
        if (newBoxHeight != boxHeight) {
          boxHeight = newBoxHeight
          requestReflow()
+diff --git a/android/src/main/java/com/swmansion/enriched/markdown/spans/TaskListSpan.kt b/android/src/main/java/com/swmansion/enriched/markdown/spans/TaskListSpan.kt
+index 3b5a5c6..b2775e8 100644
+--- a/android/src/main/java/com/swmansion/enriched/markdown/spans/TaskListSpan.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/spans/TaskListSpan.kt
+@@ -32,11 +32,12 @@ class TaskListSpan(
+         color = listStyle.color,
+       ),
+     marginLeft = listStyle.marginLeft,
+-    gapWidth = listStyle.gapWidth,
++    // Web task rows are `pl-0` with `gap-2` (8) after the checkbox.
++    gapWidth = 8f * context.resources.displayMetrics.density,
+     drawsMarker = drawsMarker,
+   ) {
+   private val checkboxSize = taskStyle.checkboxSize
+-  private val markerColumnWidth = listStyle.effectiveMarkerWidth(checkboxSize)
++  private val markerColumnWidth = checkboxSize
+   private val cornerRadius = taskStyle.checkboxBorderRadius
+   private val rect = RectF()
+   private val checkPath = Path()

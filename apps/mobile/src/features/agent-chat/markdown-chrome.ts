@@ -194,7 +194,8 @@ export const PROSE_COUNTER_DARK = "#99a1af";
  * Typography `prose-sm` lists keep the marker outside the text. The list pad is
  * `em(22, 14)` and each item adds `em(6, 14)`. A nested list repeats that pair.
  * The disc is centered on the list pad, so it sits half its width into the item
- * pad. Answer lists stay `list-inside` and do not use this column.
+ * pad. Answer lists stay `list-inside` and do not use this column. Task rows
+ * ignore it: web sets `pl-0` and `gap-2` after the checkbox.
  */
 export function agentChatProseListLayout(fontSize: number): {
   gapWidth: number;

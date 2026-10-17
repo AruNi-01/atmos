@@ -162,6 +162,7 @@ describe("web source parity", () => {
     expect(patch).toContain("resolvedBoxWidthForLineWidth");
     expect(patch).toContain("intrinsicFit");
     expect(patch).toContain("One image pixel is one CSS pixel");
+    expect(patch).toContain("Web task rows are `pl-0` with `gap-2` (8)");
     expect(patch).toContain("Streamdown ordered lists are `list-inside`");
     expect(patch).toContain("effectiveListMarginLeftForNumber:(NSInteger)number");
     expect(patch).toContain("effectiveListMarginLeftForNumber:currentPosition");
