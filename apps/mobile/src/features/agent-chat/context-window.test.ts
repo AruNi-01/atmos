@@ -6,7 +6,12 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
-import { contextWindowBarTone, formatCompactTokenCount } from "./context-window";
+import {
+  CONTEXT_RING_RADIUS,
+  contextRingDash,
+  contextWindowBarTone,
+  formatCompactTokenCount,
+} from "./context-window";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +30,17 @@ describe("contextWindowBarTone", () => {
     expect(contextWindowBarTone(69.9)).toBe("default");
     expect(contextWindowBarTone(70)).toBe("warning");
     expect(contextWindowBarTone(95)).toBe("warning");
+  });
+});
+
+describe("context ring", () => {
+  test("draws the same dash as the web footer ring", () => {
+    const full = 2 * Math.PI * CONTEXT_RING_RADIUS;
+    expect(contextRingDash(0)).toEqual({ circumference: full, offset: full });
+    expect(contextRingDash(100).offset).toBe(0);
+    expect(contextRingDash(50).offset).toBeCloseTo(full / 2);
+    expect(contextRingDash(150).offset).toBe(0);
+    expect(contextRingDash(Number.NaN).offset).toBe(full);
   });
 });
 

@@ -36,3 +36,21 @@ export function contextBarTrack(isDark: boolean): string {
 export function contextBarWarning(isDark: boolean): string {
   return isDark ? CONTEXT_BAR_WARNING_DARK : CONTEXT_BAR_WARNING_LIGHT;
 }
+
+/** Web context trigger ring: `size-3.5`, radius 6, stroke 1.5, track at muted 35%. */
+export const CONTEXT_RING_SIZE = 14;
+export const CONTEXT_RING_RADIUS = 6;
+export const CONTEXT_RING_STROKE = 1.5;
+
+export function contextRingDash(percent: number): { circumference: number; offset: number } {
+  const circumference = 2 * Math.PI * CONTEXT_RING_RADIUS;
+  const clamped = Math.min(100, Math.max(0, Number.isFinite(percent) ? percent : 0));
+  return {
+    circumference,
+    offset: circumference * (1 - clamped / 100),
+  };
+}
+
+export function contextRingTrack(isDark: boolean): string {
+  return isDark ? "rgba(159, 159, 169, 0.35)" : "rgba(113, 113, 123, 0.35)";
+}

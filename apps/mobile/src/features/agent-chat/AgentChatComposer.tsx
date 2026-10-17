@@ -1,20 +1,26 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
-import {
-  ArrowUpIcon,
-  ChevronDownIcon,
-  PlusIcon,
-  SquareIcon,
-  XIcon,
-} from "@/ui/icons/lucide-native";
+import { ArrowUpIcon, PlusIcon, SquareIcon, XIcon } from "@/ui/icons/lucide-native";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { AgentChatAddSheet } from "./AgentChatAddSheet";
 import { AgentChatModelSheet } from "./AgentChatModelSheet";
 import { contextTriggerLabel } from "./composer-capabilities";
+import { contextUsageStats } from "./composer-cards";
+import { chatForeground, chatMutedForeground } from "./chat-ink";
+import {
+  CONTEXT_RING_RADIUS,
+  CONTEXT_RING_SIZE,
+  CONTEXT_RING_STROKE,
+  contextBarWarning,
+  contextRingDash,
+  contextRingTrack,
+  contextWindowBarTone,
+} from "./context-window";
 import {
   applyComposerPaste,
   pasteChipLabel,
@@ -26,16 +32,65 @@ import { copy } from "./copy";
 import type { ComposerPatch, ComposerPicker, FavoriteModel } from "./model-picker";
 import type { ComposerPhoto } from "./photo-attachment";
 
-const LINE_HEIGHT = 22;
-const BUTTON_SIZE = 36;
-const MAX_LINES = 6;
+/** Web prompt field is `text-sm leading-5`, capped at `max-h-40`. */
+const LINE_HEIGHT = 20;
+const FIELD_FONT_SIZE = 14;
+const MAX_LINES = 8;
+/** Web plus and send are `size-8`. The shell is `rounded-3xl` (`--radius` + 12). */
+const BUTTON_SIZE = 32;
+const SHELL_RADIUS = 22;
 const glassButton = {
   alignItems: "center" as const,
-  borderRadius: 18,
+  borderRadius: BUTTON_SIZE / 2,
   height: BUTTON_SIZE,
   justifyContent: "center" as const,
   width: BUTTON_SIZE,
 };
+
+function composerPlaceholder(isDark: boolean): string {
+  return isDark ? "rgba(159, 159, 169, 0.55)" : "rgba(113, 113, 123, 0.55)";
+}
+
+function composerShellFill(isDark: boolean): string {
+  return isDark ? "rgba(250, 250, 250, 0.04)" : "rgba(9, 9, 11, 0.04)";
+}
+
+function composerShellBorder(isDark: boolean): string {
+  return isDark ? "rgba(250, 250, 250, 0.1)" : "rgba(9, 9, 11, 0.1)";
+}
+
+function ContextRing({ isDark, percent }: { isDark: boolean; percent: number }) {
+  const dash = contextRingDash(percent);
+  const progress =
+    contextWindowBarTone(percent) === "warning"
+      ? contextBarWarning(isDark)
+      : chatForeground(isDark);
+  return (
+    <Svg height={CONTEXT_RING_SIZE} viewBox="0 0 16 16" width={CONTEXT_RING_SIZE}>
+      <Circle
+        cx={8}
+        cy={8}
+        fill="none"
+        r={CONTEXT_RING_RADIUS}
+        stroke={contextRingTrack(isDark)}
+        strokeWidth={CONTEXT_RING_STROKE}
+      />
+      <Circle
+        cx={8}
+        cy={8}
+        fill="none"
+        origin="8, 8"
+        r={CONTEXT_RING_RADIUS}
+        rotation={-90}
+        stroke={progress}
+        strokeDasharray={dash.circumference}
+        strokeDashoffset={dash.offset}
+        strokeLinecap="round"
+        strokeWidth={CONTEXT_RING_STROKE}
+      />
+    </Svg>
+  );
+}
 
 export function AgentChatComposer(props: {
   text: string;
@@ -97,6 +152,7 @@ export function AgentChatComposer(props: {
   const showModel = modelLabel.length > 0;
   const showNoAgent = props.picker.agents.length === 0 && !showModel;
   const pasteChips = props.pasteChips ?? [];
+  const contextStats = contextUsageStats(props.sessionUsage);
   const contextLabel = contextTriggerLabel(props.sessionUsage);
   const showContext = contextLabel != null && props.onOpenCard != null;
   const contextA11y =
@@ -155,13 +211,13 @@ export function AgentChatComposer(props: {
         onPressIn={() => setAddOpen(true)}
         style={({ pressed }) => ({
           alignItems: "center",
-          height: 36,
+          height: BUTTON_SIZE,
           justifyContent: "center",
           opacity: pressed ? 0.6 : 1,
-          width: 36,
+          width: BUTTON_SIZE,
         })}
       >
-        <PlusIcon color={theme.colors.label} size={20} strokeWidth={2.2} />
+        <PlusIcon color={chatForeground(theme.isDark)} size={16} strokeWidth={2} />
       </Pressable>
     </GlassPanel>
   );
@@ -180,17 +236,17 @@ export function AgentChatComposer(props: {
               ? theme.colors.primaryPressed
               : theme.colors.label
             : "transparent",
-          borderRadius: 18,
-          height: 36,
+          borderRadius: BUTTON_SIZE / 2,
+          height: BUTTON_SIZE,
           justifyContent: "center",
           opacity: !props.busy && !canSend ? 0.45 : pressed && !sendReady ? 0.6 : 1,
-          width: 36,
+          width: BUTTON_SIZE,
         })}
       >
         {props.busy ? (
-          <SquareIcon color={sendIcon} size={12} strokeWidth={2.4} />
+          <SquareIcon color={sendIcon} fill={sendIcon} size={12} strokeWidth={2} />
         ) : (
-          <ArrowUpIcon color={sendIcon} size={18} strokeWidth={2.6} />
+          <ArrowUpIcon color={sendIcon} size={16} strokeWidth={2} />
         )}
       </Pressable>
     );
@@ -209,7 +265,7 @@ export function AgentChatComposer(props: {
       onPress={onPress}
       style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingHorizontal: 2 })}
     >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>
+      <Text style={{ color: chatMutedForeground(theme.isDark), fontSize: 12, lineHeight: 16 }}>
         {label}
       </Text>
     </Pressable>
@@ -224,59 +280,66 @@ export function AgentChatComposer(props: {
         alignItems: "center",
         flexDirection: "row",
         flexShrink: 1,
-        gap: 4,
+        gap: 6,
+        height: BUTTON_SIZE,
+        maxWidth: 352,
         opacity: pressed ? 0.6 : 1,
-        paddingRight: 8,
+        paddingHorizontal: 8,
       })}
     >
-      <MobileAgentIcon
-        agentId={props.picker.agentId}
-        iconUrl={props.picker.agentIconUrl}
-        size={16}
-      />
+      <View style={{ alignItems: "center", height: 16, justifyContent: "center", width: 16 }}>
+        <MobileAgentIcon
+          agentId={props.picker.agentId}
+          iconUrl={props.picker.agentIconUrl}
+          size={14}
+        />
+      </View>
       <Text
         numberOfLines={1}
-        style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}
+        style={{
+          color: chatMutedForeground(theme.isDark),
+          flexShrink: 1,
+          fontSize: 12,
+          lineHeight: 16,
+        }}
       >
         {modelLabel}
       </Text>
-      <ChevronDownIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2.4} />
     </Pressable>
   );
 
   const renderContext = () =>
     showContext ? (
-      <GlassPanel
-        interactive
-        shadow={false}
-        style={{
+      <Pressable
+        accessibilityLabel={contextA11y}
+        accessibilityRole="button"
+        onPress={() => props.onOpenCard?.("context")}
+        style={({ pressed }) => ({
           alignItems: "center",
-          borderRadius: 18,
+          borderRadius: 999,
+          flexDirection: "row",
           flexShrink: 0,
+          gap: 6,
           height: BUTTON_SIZE,
           justifyContent: "center",
-        }}
+          opacity: pressed ? 0.6 : 1,
+          paddingHorizontal: 8,
+        })}
       >
-        <Pressable
-          accessibilityLabel={contextA11y}
-          accessibilityRole="button"
-          onPress={() => props.onOpenCard?.("context")}
-          style={({ pressed }) => ({
-            alignItems: "center",
-            height: BUTTON_SIZE,
-            justifyContent: "center",
-            opacity: pressed ? 0.6 : 1,
-            paddingHorizontal: 10,
-          })}
+        {contextStats ? <ContextRing isDark={theme.isDark} percent={contextStats.percent} /> : null}
+        <Text
+          numberOfLines={1}
+          style={{
+            color: chatMutedForeground(theme.isDark),
+            fontSize: 11,
+            fontVariant: ["tabular-nums"],
+            fontWeight: "500",
+            lineHeight: 14,
+          }}
         >
-          <Text
-            numberOfLines={1}
-            style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}
-          >
-            {contextLabel}
-          </Text>
-        </Pressable>
-      </GlassPanel>
+          {contextLabel}
+        </Text>
+      </Pressable>
     ) : null;
 
   return (
@@ -412,11 +475,11 @@ export function AgentChatComposer(props: {
       ) : null}
       <View
         style={{
-          backgroundColor: theme.colors.control,
-          borderColor: theme.colors.controlBorder,
+          backgroundColor: composerShellFill(theme.isDark),
+          borderColor: composerShellBorder(theme.isDark),
           borderCurve: "continuous",
-          borderRadius: 28,
-          borderWidth: StyleSheet.hairlineWidth,
+          borderRadius: SHELL_RADIUS,
+          borderWidth: 1,
           overflow: "hidden",
           width: "100%",
         }}
@@ -424,7 +487,7 @@ export function AgentChatComposer(props: {
         <View
           style={{
             overflow: "hidden",
-            paddingBottom: 8,
+            paddingBottom: 4,
             paddingHorizontal: 16,
             paddingTop: 14,
           }}
@@ -442,11 +505,11 @@ export function AgentChatComposer(props: {
               setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
             }}
             placeholder={props.placeholder}
-            placeholderTextColor={theme.colors.secondaryLabel}
+            placeholderTextColor={composerPlaceholder(theme.isDark)}
             scrollEnabled={contentHeight > LINE_HEIGHT * MAX_LINES}
             style={{
-              color: theme.colors.label,
-              fontSize: 16,
+              color: chatForeground(theme.isDark),
+              fontSize: FIELD_FONT_SIZE,
               lineHeight: LINE_HEIGHT,
               margin: 0,
               maxHeight: LINE_HEIGHT * MAX_LINES,
@@ -462,7 +525,7 @@ export function AgentChatComposer(props: {
           style={{
             alignItems: "center",
             flexDirection: "row",
-            gap: 8,
+            gap: 4,
             minHeight: BUTTON_SIZE,
             paddingBottom: 8,
             paddingHorizontal: 8,
