@@ -1138,6 +1138,7 @@ import { TOOL_MARKDOWN_LINE_HEIGHT, TOOL_PROSE_LINE_HEIGHT } from "./markdown-ch
 import { chatForeground, chatForeground80, chatMutedForeground } from "./chat-ink";
 import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
+import { toolDiffLineWordPieces, toolDiffWordFill } from "./tool-diff-words";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { TextShimmer } from "./motion/text-shimmer";
@@ -1567,6 +1568,7 @@ function DiscussionDiff({
   fallback?: string;
 }) {
   const theme = useMobileTheme();
+  const wordPieces = toolDiffLineWordPieces(lines);
   const numberWidth = toolDiffNumberColumnWidth(toolDiffLastNumber(lines));
   const borderColor = theme.isDark ? TOOL_DIFF_BORDER_DARK : TOOL_DIFF_BORDER_LIGHT;
   const numberInk = (op: UnifiedDiffLine["op"]) => {
@@ -1627,6 +1629,11 @@ function DiscussionDiff({
           <HeightClip maxHeight={TOOL_DIFF_MAX_HEIGHT}>
             {lines.map((line, index) => {
               const changed = line.op === "add" || line.op === "del";
+              const pieces = wordPieces[index];
+              const wordFill =
+                line.op === "add" || line.op === "del"
+                  ? toolDiffWordFill(line.op, theme.isDark)
+                  : undefined;
               return (
                 <View
                   key={`${line.op}:${line.oldNo ?? ""}:${line.newNo ?? ""}:${index}`}
@@ -1694,7 +1701,18 @@ function DiscussionDiff({
                         paddingHorizontal: TOOL_DIFF_CODE_PAD,
                       }}
                     >
-                      {line.text.length > 0 ? line.text : " "}
+                      {pieces && pieces.length > 0
+                        ? pieces.map((piece, pieceIndex) => (
+                            <Text
+                              key={pieceIndex}
+                              style={piece.changed ? { backgroundColor: wordFill } : undefined}
+                            >
+                              {piece.text}
+                            </Text>
+                          ))
+                        : line.text.length > 0
+                          ? line.text
+                          : " "}
                     </Text>
                   </View>
                 </View>

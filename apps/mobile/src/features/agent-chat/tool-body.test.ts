@@ -138,6 +138,9 @@ describe("tool body presentation", () => {
     expect(discussion).toContain('line.op === "del"');
     expect(discussion).toContain('toolDiffLineFill("del", theme.isDark)');
     expect(discussion).toContain("toolDiffContextNumber(theme.isDark)");
+    expect(discussion).toContain("toolDiffLineWordPieces(lines)");
+    expect(discussion).toContain("toolDiffWordFill(line.op, theme.isDark)");
+    expect(discussion).toContain("piece.changed ? { backgroundColor: wordFill }");
     expect(discussion).not.toContain("minWidth: 28");
     expect(discussion).toContain("FileTextIcon");
     expect(discussion).not.toContain("PathChip");
