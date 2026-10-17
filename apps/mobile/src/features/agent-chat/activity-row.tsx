@@ -18,6 +18,41 @@ function activityToolTitle(part: Extract<AgentPart, { type: "tool_call" }>): str
   return presented.resolvedTool.trim();
 }
 
+/**
+ * The last active parent tool is already a tree row in the open group.
+ * A sibling activity label would repeat that last title (e.g. lone "fixture").
+ */
+export function activityRowDuplicatesOpenTree(message: AgentMessage | null | undefined): boolean {
+  const parts = message?.role === "assistant" ? message.parts : [];
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (!part || part.type !== "tool_call" || isNestedSubagentChild(part, parts)) continue;
+    if (!ACTIVE_TOOL_STATUS.has(part.status)) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Hide the sibling only while that tool is actually on screen. A user-closed
+ * running group still needs the activity title — the tree rows are gone.
+ */
+export function activityRowDuplicatesVisibleTree(
+  hasActiveParentTool: boolean,
+  groups: ReadonlyArray<{ key: string; running: boolean }>,
+  storedByKey: Readonly<Record<string, boolean | undefined>>,
+): boolean {
+  if (!hasActiveParentTool) return false;
+  if (groups.length === 0) return true;
+  for (const group of groups) {
+    if (!group.running) continue;
+    const stored = storedByKey[group.key];
+    const open = typeof stored === "boolean" ? stored : true;
+    if (open) return true;
+  }
+  return false;
+}
+
 export function activityRowLabel(message: AgentMessage | null | undefined): string {
   const parts = message?.role === "assistant" ? message.parts : [];
   for (let index = parts.length - 1; index >= 0; index -= 1) {

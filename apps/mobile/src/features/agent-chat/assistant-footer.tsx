@@ -10,6 +10,8 @@ import {
   filesChangedLabel,
   filesShowMoreLabel,
   workedForPresentation,
+  workedForRevealText,
+  type WorkedForReveal,
 } from "./copy";
 import {
   collectTurnFileChanges,
@@ -121,22 +123,22 @@ function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
 
 function WorkedForLabel({
   completedAt,
+  reveal = "timestamp",
   workedMs,
 }: {
   completedAt: string;
+  reveal?: WorkedForReveal;
   workedMs: number | null | undefined;
 }) {
   const theme = useMobileTheme();
   const presentation = workedForPresentation(workedMs, completedAt);
-  const [showClock, setShowClock] = useState(false);
-  if (!presentation.durationLabel && !presentation.clock) return null;
+  const [swapped, setSwapped] = useState(false);
+  const text = workedForRevealText(presentation, reveal, swapped);
+  if (!text) return null;
   const canSwap = Boolean(presentation.durationLabel && presentation.clock);
-  const text =
-    presentation.durationLabel && (!canSwap || !showClock)
-      ? presentation.durationLabel
-      : (presentation.clock ?? presentation.durationLabel);
+  const swapOnPress = canSwap && reveal === "timestamp";
 
-  if (!canSwap) {
+  if (!swapOnPress) {
     return (
       <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
         {text}
@@ -148,7 +150,7 @@ function WorkedForLabel({
     <Pressable
       accessibilityRole="button"
       hitSlop={8}
-      onPress={() => setShowClock((current) => !current)}
+      onPress={() => setSwapped((current) => !current)}
     >
       <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
         {text}
@@ -195,7 +197,11 @@ export function AssistantFooter({
       {text ? <CopyMessageButton text={text} /> : null}
       {showUsage && usage ? <UsageBadge usage={usage} /> : null}
       {showWorked && message.completed_at ? (
-        <WorkedForLabel completedAt={message.completed_at} workedMs={message.worked_ms} />
+        <WorkedForLabel
+          completedAt={message.completed_at}
+          reveal="timestamp"
+          workedMs={message.worked_ms}
+        />
       ) : null}
     </View>
   );

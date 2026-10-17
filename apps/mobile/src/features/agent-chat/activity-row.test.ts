@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import { parityStreamToolMessages } from "./parity-motion-fixtures";
 import { importPure } from "./process-fold.test";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -79,6 +80,33 @@ describe("activity row label", () => {
     expect(label(assistant([thinking(true, "parent")]))).toBe("Working");
     expect(label(null)).toBe("Working");
     expect(label({ id: "u", parts: [], role: "user" })).toBe("Working");
+  });
+
+  test("hides the sibling when the last active tool is already a tree row", async () => {
+    const row = await importPure("activity-row.tsx");
+    const duplicates = row.activityRowDuplicatesOpenTree as (
+      message: AgentMessage | null | undefined,
+    ) => boolean;
+    const label = row.activityRowLabel as (message: AgentMessage | null | undefined) => string;
+    const streaming = parityStreamToolMessages(4)[1];
+    expect(label(streaming)).toBe("fixture");
+    expect(duplicates(streaming)).toBe(true);
+    expect(duplicates(assistant([thinking(true)]))).toBe(false);
+    expect(duplicates(assistant([tool("completed", "Done")]))).toBe(false);
+    expect(duplicates(assistant([tool("running", "Hidden", { parent: "parent" })]))).toBe(false);
+    expect(duplicates(null)).toBe(false);
+    const duplicatesVisible = row.activityRowDuplicatesVisibleTree as (
+      hasActiveParentTool: boolean,
+      groups: ReadonlyArray<{ key: string; running: boolean }>,
+      storedByKey: Readonly<Record<string, boolean | undefined>>,
+    ) => boolean;
+    expect(duplicatesVisible(true, [{ key: "g", running: true }], {})).toBe(true);
+    expect(duplicatesVisible(true, [{ key: "g", running: true }], { g: false })).toBe(false);
+    expect(duplicatesVisible(true, [], {})).toBe(true);
+    expect(duplicatesVisible(false, [{ key: "g", running: true }], {})).toBe(false);
+    const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");
+    expect(transcript).toContain("activityRowDuplicatesVisibleTree");
+    expect(transcript).toContain("showActivity && !hideDuplicateActivity");
   });
 });
 
