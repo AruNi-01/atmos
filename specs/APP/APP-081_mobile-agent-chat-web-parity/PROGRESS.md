@@ -22,7 +22,7 @@
 - S6 done and reviewed: one expanded card above title pills; `reduceLane` preempts permission / session-op without clearing `userChoice`. Mobile `bun test` 324.
 - S7 done and reviewed: paste chips and context trigger. Microphone stays off. Mobile `bun test` 334.
 - S8 done and reviewed: `.github/workflows/ci-mobile-ios-parity.yml` (`structural` on `ubuntu-latest`, `ios-simulator` on `macos-26`, Xcode 26.5, iPhone 17 Pro / iOS 26.5). No label gate. Simulator scenarios stay `not_run` until that job uploads artifacts.
-- `bun --filter @atmos/mobile typecheck` still reports errors only in `fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, and `expo-drawer.web.tsx`. Those files predate this work.
+- `cd apps/mobile && bun run typecheck` passes at `90cdc9e9c`. The search-tool fixtures include `params`, `HideScrollEdge` is a `ComponentType`, the web drawer spreads `touchAction` as `ViewStyle`, and the two source-reading tests use the same Bun import comments as the other tests.
 - Blocked: nothing in code. 图一 pixel metrics stay unverified. Do not install Cursor agent CLI or mobai-dev in this session; the parent already ran both.
 - Do not change web behavior beyond the D2(a) re-exports. Do not add a web route. Do not add `WsAction`s. Do not merge the PR.
 
@@ -90,6 +90,7 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 | S31 web PNGs         | Next.js                                                | not_run     | `next dev` OOM; ubuntu job PNGs are react-native-web                   |
 | iOS simulator        | runs `38789917018`, `38797183648`, `38894137249`       | pass (S29)  | `38894137249` is the clean card-lane matrix, including iOS title pills |
 | 图一 pixels          | image missing                                          | not_run     | pill height 36 is provisional                                          |
+| Mobile typecheck     | `cd apps/mobile && bun run typecheck`                  | pass        | `90cdc9e9c`; agent-chat bun test 186 pass on the same tree             |
 
 ## Known Blockers
 
@@ -141,7 +142,7 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Run `38831101582` iOS capture is not a pass. The 500ms tick logged F1 light and never logged F2.
 - Run `38837550765` iOS capture is not a pass. The 15s steps logged F1–F8 light on a 90s cadence and never logged F9. `structural` on that run succeeded.
 - S9, S15, S20, and S26 pass in `motion-constants.test.ts`, `below-count.test.ts`, `queue-actions.test.ts`, and `shared-rules.test.ts`.
-- Pre-existing mobile typecheck errors in three files.
+- Mobile typecheck passes at `90cdc9e9c` (`cd apps/mobile && bun run typecheck`). The earlier errors in `fold-transcript.test.ts`, `use-agent-chat-thread.test.ts`, `hide-scroll-edge.tsx`, `use-reduced-motion.test.ts`, and `expo-drawer.web.tsx` are fixed.
 
 ### Next steps
 
@@ -210,3 +211,4 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - Capture now has an unread `f13-tail` phase (`scroll: away`, marker `f13-a-50`) and a four-frame `stream-tools` movie. S14, S10, and S30 stay `not_run` until a simulator job runs them. The manual `f13-tail` link is unchanged.
 - Run `38979601063` head `90c9b6a1c`: `structural` and `ios-simulator` passed. [ios-parity](https://github.com/AruNi-01/atmos/actions/runs/38979601063). One `[parity] tail owner 1`. Steps 3–27 keep `top=4380` and `marker=4380` while `below` goes 88→112. The still shows Reply 50 and "184 messages below". S14 is partial: no pill tap, no video. S10 and S30 stay `not_run`.
 - The tail capture now writes `f13-tail-away-1.png` through `f13-tail-away-3.png` after the hold and muxes `f13-tail-away.mov` when two hashes differ. A failed hold still saves `f13-tail-away-light.png`. That movie is not in run `38979601063`.
+- `90cdc9e9c`: `cd apps/mobile && bun run typecheck` passes. Agent-chat bun test stays 186 pass, 0 fail. S14 stays partial. S10, S11, and S30 stay `not_run`.
