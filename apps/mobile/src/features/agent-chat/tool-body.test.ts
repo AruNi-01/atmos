@@ -1395,3 +1395,33 @@ describe("tool body panel", () => {
     expect(row).toContain("paddingTop: metrics.bodyPadTop");
   });
 });
+
+describe("tool file chip", () => {
+  test("uses the web muted filename chip", async () => {
+    const mod = await importPure("tool-body.tsx");
+    expect(mod.TOOL_FILE_CHIP_LIGHT).toBe("#dedee0");
+    expect(mod.TOOL_FILE_CHIP_DARK).toBe("#27272a");
+    expect(mod.TOOL_FILE_CHIP_RADIUS).toBe(8);
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tool-body.tsx"),
+      "utf8",
+    );
+    const view = source.slice(source.indexOf("// @view"));
+    const chip = view.slice(
+      view.indexOf("function ToolFileChip"),
+      view.indexOf("export function ToolCallRow"),
+    );
+    expect(chip).toContain("TOOL_FILE_CHIP_LIGHT");
+    expect(chip).toContain("TOOL_FILE_CHIP_DARK");
+    expect(chip).toContain("TOOL_FILE_CHIP_RADIUS");
+    expect(chip).toContain('maxWidth: "46%"');
+    expect(chip).toContain("FileTextIcon");
+    expect(chip).toContain("paddingHorizontal: 6");
+    expect(chip).toContain("paddingVertical: 2");
+    expect(chip).toContain("gap: 4");
+    expect(chip).not.toContain("theme.colors.cardSubtle");
+    expect(chip).not.toContain("borderRadius: 6");
+    expect(chip).not.toContain("PathChip");
+  });
+});

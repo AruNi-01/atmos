@@ -913,6 +913,14 @@ export const TOOL_PANEL_DARK = "rgba(39, 39, 42, 0.5)";
 export const TOOL_PANEL_RADIUS = 8;
 
 /**
+ * Web row filename chip `rounded-md bg-muted`. Opaque muted, unlike the panel's `/50`.
+ * Hover, tooltip, and click stay on web. Per-extension glyphs stay on web.
+ */
+export const TOOL_FILE_CHIP_LIGHT = "#dedee0";
+export const TOOL_FILE_CHIP_DARK = "#27272a";
+export const TOOL_FILE_CHIP_RADIUS = 8;
+
+/**
  * Web wraps execute, other, and the default tool body in `mt-1 rounded-md bg-muted/50`.
  * Code, markdown, json, diffs, search-the-web, plan, and image generation stay plain.
  * A failed or non-markdown fetch uses the panel. An empty image read does not.
@@ -1992,8 +2000,8 @@ function ToolFileChip({ fileName, lineRange }: { fileName: string; lineRange: st
     <View
       style={{
         alignItems: "center",
-        backgroundColor: theme.colors.cardSubtle,
-        borderRadius: 6,
+        backgroundColor: theme.isDark ? TOOL_FILE_CHIP_DARK : TOOL_FILE_CHIP_LIGHT,
+        borderRadius: TOOL_FILE_CHIP_RADIUS,
         flexDirection: "row",
         flexShrink: 1,
         gap: 4,
