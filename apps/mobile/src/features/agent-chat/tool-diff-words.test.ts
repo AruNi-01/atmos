@@ -5,6 +5,7 @@ import {
   TOOL_DIFF_WORD_DEL_DARK,
   TOOL_DIFF_WORD_DEL_LIGHT,
   TOOL_DIFF_WORD_MAX,
+  TOOL_DIFF_WORD_RADIUS,
   TOOL_DIFF_TAB_SIZE,
   toolDiffExpandTabs,
   toolDiffLineWordPieces,
@@ -86,5 +87,6 @@ describe("tool diff word marks", () => {
     expect(TOOL_DIFF_WORD_ADD_DARK).toBe("rgba(94, 204, 113, 0.2)");
     expect(TOOL_DIFF_WORD_DEL_LIGHT).toBe("rgba(255, 46, 63, 0.15)");
     expect(TOOL_DIFF_WORD_DEL_DARK).toBe("rgba(255, 103, 98, 0.2)");
+    expect(TOOL_DIFF_WORD_RADIUS).toBe(3);
   });
 });

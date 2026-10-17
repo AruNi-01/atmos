@@ -1077,7 +1077,12 @@ import { TOOL_MARKDOWN_LINE_HEIGHT, TOOL_PROSE_LINE_HEIGHT } from "./markdown-ch
 import { chatForeground, chatForeground80, chatMutedForeground } from "./chat-ink";
 import { chatDestructiveColor } from "./destructive-color";
 import { terminalAnsiPieces } from "./terminal-ansi";
-import { toolDiffLineWordPieces, toolDiffVisiblePieces, toolDiffWordFill } from "./tool-diff-words";
+import {
+  TOOL_DIFF_WORD_RADIUS,
+  toolDiffLineWordPieces,
+  toolDiffVisiblePieces,
+  toolDiffWordFill,
+} from "./tool-diff-words";
 import {
   TOOL_DIFF_EXPAND_ALL_ICON_PATH,
   TOOL_DIFF_EXPAND_BUTTON,
@@ -1868,7 +1873,14 @@ function DiscussionDiff({
                           {visible.map((piece, pieceIndex) => (
                             <Text
                               key={pieceIndex}
-                              style={piece.changed ? { backgroundColor: wordFill } : undefined}
+                              style={
+                                piece.changed
+                                  ? {
+                                      backgroundColor: wordFill,
+                                      borderRadius: TOOL_DIFF_WORD_RADIUS,
+                                    }
+                                  : undefined
+                              }
                             >
                               {piece.text}
                             </Text>

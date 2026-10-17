@@ -16,6 +16,8 @@ export const TOOL_DIFF_WORD_ADD_LIGHT = "rgba(13, 190, 78, 0.15)";
 export const TOOL_DIFF_WORD_ADD_DARK = "rgba(94, 204, 113, 0.2)";
 export const TOOL_DIFF_WORD_DEL_LIGHT = "rgba(255, 46, 63, 0.15)";
 export const TOOL_DIFF_WORD_DEL_DARK = "rgba(255, 103, 98, 0.2)";
+/** `[data-diff-span] { border-radius: 3px }`. */
+export const TOOL_DIFF_WORD_RADIUS = 3;
 
 export type ToolDiffWordPiece = { text: string; changed: boolean };
 
