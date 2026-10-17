@@ -118,6 +118,11 @@ describe("tool body presentation", () => {
     expect(discussion).toContain("shadowOpacity: 0.1");
     expect(discussion).toContain("greenSurface");
     expect(discussion).toContain("redSurface");
+    expect(discussion).toContain("toolDiffUnifiedLineNo(line)");
+    expect(discussion.split("toolDiffUnifiedLineNo(line)").length - 1).toBe(1);
+    expect(discussion).toContain("toolDiffNumberColumnWidth");
+    expect(discussion).toContain("TOOL_DIFF_BAR");
+    expect(discussion).not.toContain("minWidth: 28");
     expect(discussion).toContain("FileTextIcon");
     expect(discussion).not.toContain("PathChip");
     expect(discussion).not.toContain("theme.colors.glassBorder");
@@ -133,6 +138,22 @@ describe("tool body presentation", () => {
     expect(mod.TOOL_DIFF_MAX_HEIGHT).toBe(448);
     expect(mod.TOOL_ADDITION_COLOR).toBe("#00c950");
     expect(mod.TOOL_DELETION_COLOR).toBe("#fb2c36");
+    expect(mod.TOOL_DIFF_CODE_FONT).toBe(13);
+    expect(mod.TOOL_DIFF_LINE_HEIGHT).toBe(20);
+    expect(mod.TOOL_DIFF_NUMBER_PAD_LEFT).toBe(15.6);
+    expect(mod.TOOL_DIFF_NUMBER_PAD_RIGHT).toBe(7.8);
+    expect(mod.TOOL_DIFF_CODE_PAD).toBe(7.8);
+    expect(mod.TOOL_DIFF_BAR).toBe(4);
+    expect(mod.TOOL_DIFF_NUMBER_ADD_LIGHT).toBe("#0dbe4e");
+    expect(mod.TOOL_DIFF_NUMBER_ADD_DARK).toBe("#5ecc71");
+    expect(mod.TOOL_DIFF_NUMBER_DEL_LIGHT).toBe("#ff2e3f");
+    expect(mod.TOOL_DIFF_NUMBER_DEL_DARK).toBe("#ff6762");
+    expect(mod.toolDiffNumberColumnWidth(2)).toBe(46.8);
+    expect(mod.toolDiffNumberColumnWidth(999)).toBe(46.8);
+    expect(mod.toolDiffNumberColumnWidth(1000)).toBe(54.6);
+    expect(mod.toolDiffUnifiedLineNo({ op: "ctx", oldNo: 1, newNo: 4 })).toBe(4);
+    expect(mod.toolDiffUnifiedLineNo({ op: "del", oldNo: 2, newNo: null })).toBe(2);
+    expect(mod.toolDiffUnifiedLineNo({ op: "add", oldNo: null, newNo: 9 })).toBe(9);
     const counts = view.slice(
       view.indexOf("function ToolDiffStats"),
       view.indexOf("function ShowMoreButton"),

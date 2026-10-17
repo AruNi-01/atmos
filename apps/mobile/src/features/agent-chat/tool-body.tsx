@@ -974,6 +974,48 @@ export const TOOL_DIFF_HEADER_LIGHT = "rgba(222, 222, 224, 0.3)";
 export const TOOL_DIFF_HEADER_DARK = "rgba(39, 39, 42, 0.3)";
 
 /**
+ * Pierre unified diff (`diffStyle: "unified"`). One number column, 13px on a
+ * 20px line. `ch` is 0.6em of that face. Web sizes the column as content-box:
+ * 2ch before the digits, at least 3ch of digits, and 1ch after. The code line
+ * has 1ch of side padding. A changed number carries a 4px bar on its left edge.
+ */
+export const TOOL_DIFF_CODE_FONT = 13;
+export const TOOL_DIFF_LINE_HEIGHT = 20;
+export const TOOL_DIFF_NUMBER_PAD_LEFT = 15.6;
+export const TOOL_DIFF_NUMBER_PAD_RIGHT = 7.8;
+export const TOOL_DIFF_CODE_PAD = 7.8;
+export const TOOL_DIFF_BAR = 4;
+export const TOOL_DIFF_NUMBER_ADD_LIGHT = "#0dbe4e";
+export const TOOL_DIFF_NUMBER_ADD_DARK = "#5ecc71";
+export const TOOL_DIFF_NUMBER_DEL_LIGHT = "#ff2e3f";
+export const TOOL_DIFF_NUMBER_DEL_DARK = "#ff6762";
+
+/** Unified rows show the new-file number, and the old-file number on a deletion. */
+export function toolDiffUnifiedLineNo(
+  line: Pick<UnifiedDiffLine, "op" | "oldNo" | "newNo">,
+): number | null {
+  if (line.op === "del") return line.oldNo;
+  return line.newNo ?? line.oldNo;
+}
+
+/** Border-box width of the Pierre number column for the widest label. */
+export function toolDiffNumberColumnWidth(lastLine: number): number {
+  const digits = String(Math.max(1, Math.trunc(lastLine))).length;
+  const columns = Math.max(3, digits);
+  const chTenths = TOOL_DIFF_CODE_FONT * 6;
+  return (chTenths * 2 + chTenths * columns + chTenths) / 10;
+}
+
+function toolDiffLastNumber(lines: readonly UnifiedDiffLine[]): number {
+  let last = 1;
+  for (const line of lines) {
+    const value = toolDiffUnifiedLineNo(line);
+    if (value != null && value > last) last = value;
+  }
+  return last;
+}
+
+/**
  * Web `bg-muted/50` (`oklch(0.9 0.004 286)` / `oklch(0.274 0.006 286.033)` at 50%).
  * `rounded-md` is `--radius` (10px) minus 2px.
  */
@@ -1447,16 +1489,13 @@ function DiscussionDiff({
   fallback?: string;
 }) {
   const theme = useMobileTheme();
-  const gutter = {
-    color: theme.colors.secondaryLabel,
-    fontFamily: "Menlo",
-    fontSize: 12,
-    lineHeight: 20,
-    minWidth: 28,
-    paddingHorizontal: 4,
-    textAlign: "right",
-  } as const;
+  const numberWidth = toolDiffNumberColumnWidth(toolDiffLastNumber(lines));
   const borderColor = theme.isDark ? TOOL_DIFF_BORDER_DARK : TOOL_DIFF_BORDER_LIGHT;
+  const numberInk = (op: UnifiedDiffLine["op"]) => {
+    if (op === "add") return theme.isDark ? TOOL_DIFF_NUMBER_ADD_DARK : TOOL_DIFF_NUMBER_ADD_LIGHT;
+    if (op === "del") return theme.isDark ? TOOL_DIFF_NUMBER_DEL_DARK : TOOL_DIFF_NUMBER_DEL_LIGHT;
+    return theme.colors.secondaryLabel;
+  };
   return (
     <View
       style={{
@@ -1521,21 +1560,42 @@ function DiscussionDiff({
                   flexDirection: "row",
                 }}
               >
-                <Text style={gutter}>{line.oldNo ?? ""}</Text>
-                <Text style={gutter}>{line.newNo ?? ""}</Text>
+                {line.op === "ctx" ? null : (
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      backgroundColor: numberInk(line.op),
+                      bottom: 0,
+                      left: 0,
+                      position: "absolute",
+                      top: 0,
+                      width: TOOL_DIFF_BAR,
+                    }}
+                  />
+                )}
+                <Text
+                  style={{
+                    color: numberInk(line.op),
+                    fontFamily: "Menlo",
+                    fontSize: TOOL_DIFF_CODE_FONT,
+                    lineHeight: TOOL_DIFF_LINE_HEIGHT,
+                    minWidth: numberWidth,
+                    paddingLeft: TOOL_DIFF_NUMBER_PAD_LEFT,
+                    paddingRight: TOOL_DIFF_NUMBER_PAD_RIGHT,
+                    textAlign: "right",
+                  }}
+                >
+                  {toolDiffUnifiedLineNo(line) ?? ""}
+                </Text>
                 <Text
                   selectable
                   style={{
-                    color:
-                      line.op === "add"
-                        ? theme.colors.green
-                        : line.op === "del"
-                          ? theme.colors.red
-                          : chatForeground(theme.isDark),
+                    color: chatForeground(theme.isDark),
                     flexShrink: 1,
                     fontFamily: "Menlo",
-                    fontSize: 13,
-                    lineHeight: 20,
+                    fontSize: TOOL_DIFF_CODE_FONT,
+                    lineHeight: TOOL_DIFF_LINE_HEIGHT,
+                    paddingHorizontal: TOOL_DIFF_CODE_PAD,
                   }}
                 >
                   {line.text.length > 0 ? line.text : " "}
