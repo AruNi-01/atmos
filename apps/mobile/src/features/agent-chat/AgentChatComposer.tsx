@@ -68,9 +68,15 @@ export function AgentChatComposer(props: {
   /** Present when the parent expands tokens before send, queue, and steer. */
   pasteChips?: readonly ComposerPasteChip[];
   onPasteChipsChange?: (chips: ComposerPasteChip[]) => void;
+  /**
+   * Capture pin only. Omitted on the live composer so this effect does not
+   * blur a field the user is typing in.
+   */
+  autoFocus?: boolean;
 }): ReactElement {
   const theme = useMobileTheme();
   const textRef = useRef(props.text);
+  const inputRef = useRef<TextInput>(null);
   const chipsRef = useRef<readonly ComposerPasteChip[]>(props.pasteChips ?? []);
   const [modelsOpen, setModelsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -134,6 +140,12 @@ export function AgentChatComposer(props: {
   useEffect(() => {
     if (props.text.length === 0) setContentHeight(LINE_HEIGHT);
   }, [props.text]);
+
+  useEffect(() => {
+    if (props.autoFocus == null) return;
+    if (props.autoFocus) inputRef.current?.focus();
+    else inputRef.current?.blur();
+  }, [props.autoFocus]);
 
   const renderPlus = () => (
     <GlassPanel interactive shadow={false} style={glassButton}>
@@ -418,6 +430,7 @@ export function AgentChatComposer(props: {
           }}
         >
           <TextInput
+            ref={inputRef}
             multiline
             onChangeText={onDraftChange}
             onContentSizeChange={(event) => {

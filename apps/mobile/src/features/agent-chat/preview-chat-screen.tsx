@@ -26,6 +26,11 @@ import { pushParityReducedMotion } from "./motion/parity-reduced-motion";
 import { buildComposerPicker, type FavoriteModel } from "./model-picker";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
 import {
+  parityComposerShotName,
+  parityComposerSteps,
+  type ParityComposerStep,
+} from "./parity-composer-states";
+import {
   armParityClock,
   bindParityTailMount,
   claimParityReady,
@@ -91,6 +96,7 @@ async function noopAsync(): Promise<void> {
 
 export function PreviewChatScreen() {
   const params = useLocalSearchParams<{
+    composer?: string | string[];
     fixture?: string | string[];
     motion?: string | string[];
     lane?: string | string[];
@@ -99,6 +105,7 @@ export function PreviewChatScreen() {
     scroll?: string | string[];
     theme?: string | string[];
   }>();
+  const composerParam = param(params.composer);
   const fixtureParam = param(params.fixture);
   const laneParam = param(params.lane);
   const motionParam = param(params.motion);
@@ -108,15 +115,23 @@ export function PreviewChatScreen() {
   const themeParam = param(params.theme);
   const queryPin = useMemo(
     () =>
-      parityPinnedFrame(fixtureParam, themeParam, motionParam, replayParam, laneParam, pillParam),
-    [fixtureParam, laneParam, motionParam, pillParam, replayParam, themeParam],
+      parityPinnedFrame(
+        fixtureParam,
+        themeParam,
+        motionParam,
+        replayParam,
+        laneParam,
+        pillParam,
+        composerParam,
+      ),
+    [composerParam, fixtureParam, laneParam, motionParam, pillParam, replayParam, themeParam],
   );
   const [diskFrame] = useState<ParityFrame | null>(() => {
     if (queryPin) return null;
     const next = readParityDiskFrame();
     console.error(
       next
-        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}${next.lane === "steps" ? " lane" : ""}${next.pill === "return" ? " pill" : ""}`
+        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}${next.lane === "steps" ? " lane" : ""}${next.pill === "return" ? " pill" : ""}${next.composer === "states" ? " composer" : ""}`
         : "[parity] disk none",
     );
     return next;
@@ -135,6 +150,11 @@ export function PreviewChatScreen() {
   const [cardHeight, setCardHeight] = useState(0);
   const [pillHeight, setPillHeight] = useState(0);
   const [text, setText] = useState("");
+  const [composerStep, setComposerStep] = useState<ParityComposerStep>(() => {
+    const first = parityComposerSteps()[0];
+    if (!first) throw new Error("composer capture steps are empty");
+    return first;
+  });
   const transcriptRef = useRef<AgentChatTranscriptHandle>(null);
   const previewRootRef = useRef<PreviewRoot | null>(null);
   const [reducedRelease] = useState<(() => void) | null>(() => {
@@ -217,6 +237,7 @@ export function PreviewChatScreen() {
   const liveTail = motion === "tail";
   const replayOn = frame.replay === "script" && Boolean(fixture?.script?.length);
   const laneStepsOn = frame.lane === "steps" && cards.available.length > 0;
+  const composerStatesOn = frame.composer === "states";
   const laneStepKey = laneStepsOn ? `${frame.id}:${cards.available.join(",")}` : "";
   const replayKey = replayOn ? `${frame.id}:${frame.motion ?? ""}:${frame.theme}` : "";
   const [replayClock, setReplayClock] = useState({ elapsed: 0, key: replayKey });
@@ -227,8 +248,9 @@ export function PreviewChatScreen() {
   const ownsTail = parityTailOwned(focused, tailMountId, tailOwner);
   const ownsReplay = replayOn && ownsTail;
   const ownsLane = laneStepsOn && ownsTail;
+  const ownsComposer = composerStatesOn && ownsTail;
   useLayoutEffect(() => {
-    if (!focused || (!liveTail && !replayOn && !laneStepsOn)) return;
+    if (!focused || (!liveTail && !replayOn && !laneStepsOn && !composerStatesOn)) return;
     const generation = takeParityOwner();
     bindParityTailMount(tailMountId, generation);
     console.error(`[parity] tail owner ${generation}`);
@@ -236,7 +258,7 @@ export function PreviewChatScreen() {
       bindParityTailMount(tailMountId, 0);
       releaseParityOwner(generation);
     };
-  }, [focused, laneStepsOn, liveTail, replayOn, tailMountId]);
+  }, [composerStatesOn, focused, laneStepsOn, liveTail, replayOn, tailMountId]);
   useEffect(() => {
     if (!scrollAway || !ownsTail) return;
     const generation = tailOwner.owner;
@@ -345,6 +367,38 @@ export function PreviewChatScreen() {
     }, 50);
     return () => clearInterval(timer);
   }, [cards, laneKey, laneStepKey, ownsLane]);
+  useEffect(() => {
+    if (!ownsComposer) return;
+    const steps = parityComposerSteps();
+    const started = Date.now();
+    const taken = new Set<string>();
+    console.error(`[parity] composer start ${steps.length}`);
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - started;
+      for (const step of steps) {
+        if (elapsed < step.atMs || taken.has(step.id)) continue;
+        taken.add(step.id);
+        setComposerStep((current) => (current.id === step.id ? current : step));
+      }
+      const last = steps[steps.length - 1];
+      if (last && elapsed >= last.atMs) {
+        clearInterval(timer);
+        console.error(`[parity] composer done ${steps.length}`);
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, [ownsComposer]);
+  useEffect(() => {
+    if (!ownsComposer) return;
+    const name = parityComposerShotName(composerStep.id);
+    const frameId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void writeParityMotionPng(previewRootRef, name);
+      });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [composerStep.id, ownsComposer]);
+  const composerDriven = ownsComposer;
   const replayMessages = useMemo(() => {
     if (!replayOn || !fixture?.script?.length) return null;
     return foldParityReplay(
@@ -446,12 +500,15 @@ export function PreviewChatScreen() {
         />
         <View style={{ paddingHorizontal: 18 }}>
           <AgentChatComposer
-            busy={false}
+            autoFocus={composerDriven ? composerStep.focus : undefined}
+            busy={composerDriven ? composerStep.busy : false}
             favorites={NO_FAVORITES}
-            onChangeText={setText}
+            followUp={composerDriven ? composerStep.followUp : undefined}
+            onChangeText={composerDriven ? () => undefined : setText}
             onOpenCard={cards.context ? () => onPillPress("context") : undefined}
             onPatch={() => undefined}
             onPhotosChange={() => undefined}
+            onPickSuggestion={() => undefined}
             onQueue={() => undefined}
             onRemovePhoto={() => undefined}
             onSend={() => undefined}
@@ -470,7 +527,9 @@ export function PreviewChatScreen() {
             }
             steerLabel={copy.steer}
             stopLabel={copy.stop}
-            text={text}
+            suggestionTitle={composerDriven ? composerStep.suggestionTitle : undefined}
+            suggestions={composerDriven ? (composerStep.suggestions ?? undefined) : undefined}
+            text={composerDriven ? composerStep.text : text}
           />
         </View>
       </View>

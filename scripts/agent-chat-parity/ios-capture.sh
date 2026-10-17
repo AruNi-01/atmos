@@ -57,6 +57,7 @@ write_frame_file() {
   local replay="${5:-}"
   local lane="${6:-}"
   local pill="${7:-}"
+  local composer="${8:-}"
   local container docs extra=""
   container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
   docs="${container}/Documents"
@@ -66,8 +67,9 @@ write_frame_file() {
   if [[ "$replay" == "script" ]]; then extra+=',"replay":"script"'; fi
   if [[ "$lane" == "steps" ]]; then extra+=',"lane":"steps"'; fi
   if [[ "$pill" == "return" ]]; then extra+=',"pill":"return"'; fi
+  if [[ "$composer" == "states" ]]; then extra+=',"composer":"states"'; fi
   printf '{"id":"%s","theme":"%s"%s}\n' "$id" "$theme" "$extra" >"${docs}/parity-frame.json"
-  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}${pill:+ ${pill}}"
+  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}${pill:+ ${pill}}${composer:+ ${composer}}"
 }
 
 clear_motion_shots() {
@@ -411,6 +413,49 @@ capture_f12_lane() {
   rm -rf "$frames"
 }
 
+# Composer states for S23. Keyboard is a TextInput focus call, not a Simulator
+# tap, and a miss does not fail the job. The manual preview link does not set
+# this pin.
+capture_composer_states() {
+  local dest frames video duration index shot
+  dest="$OUT/composer-states"
+  clear_motion_shots || true
+  write_frame_file "F1" "light" "" "" "" "" "" "states"
+  echo "launch F1 light composer states"
+  launch_frame "F1" "light"
+  if ! wait_for_line "[parity] preview-chat module" 90; then
+    echo "composer states missed the module" >&2
+    return 0
+  fi
+  if ! wait_for_line "[parity] composer done" 60; then
+    echo "composer states did not finish" >&2
+    dump_runtime_logs || true
+    copy_motion_shots "$dest" || true
+    return 0
+  fi
+  sleep 2
+  copy_motion_shots "$dest" || true
+  frames="$(mktemp -d)"
+  index=0
+  while IFS= read -r shot; do
+    [[ -n "$shot" ]] || continue
+    index=$((index + 1))
+    sips -s format jpeg "$shot" --out "$frames/$(printf '%03d' "$index").jpg" >/dev/null || true
+  done < <(find "$dest" -name 'composer-*.png' | sort)
+  if (( index < 2 )); then
+    echo "composer states has ${index} frames; not muxing" >&2
+    rm -rf "$frames"
+    return 0
+  fi
+  video="$OUT/composer-states.mov"
+  if duration="$(python3 "$ROOT/scripts/agent-chat-parity/mp4-duration.py" --write-mjpeg "$video" "$frames" "$RECORD_SECONDS")"; then
+    echo "recording composer states duration ${duration} frames ${index}"
+  else
+    echo "composer states mux failed" >&2
+  fi
+  rm -rf "$frames"
+}
+
 # A stuck simctl screenshot consumed the 120 minute job (run 38857737524).
 # Run 38871450335 then showed the app was ready and the shot still had not
 # returned at 90s, while the previous green capture's slow frames took a few
@@ -682,6 +727,7 @@ capture_tail_return || echo "f13 tail return capture failed" >&2
 capture_stream_motion
 capture_f4_replay || echo "f4 replay capture failed" >&2
 capture_f12_lane || echo "f12 lane capture failed" >&2
+capture_composer_states || echo "composer states capture failed" >&2
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
 # honest. It does not show reveal, tree draw-in, or a pill swap.

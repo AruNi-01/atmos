@@ -6,7 +6,7 @@
 
 - **State**: in_progress
 - **Branch**: `feat/mobile-chat-web-parity` (base `docs/mobile-chat-web-parity`)
-- **Last updated**: 2026-10-16
+- **Last updated**: 2026-10-17
 - **Current owner**: lead agent
 - **Current phase**: S0–S8 implemented and reviewed. Runs `38789917018` and `38797183648` are green iOS runs for the transcript-only preview (S29). Run `38894137249` (head `d0dad93ae`) is a clean iOS Simulator matrix on the card-lane preview: 26 distinct frames, `F1-light` shows the release notes, `F4-dark` and `F11-dark` are the app, and `F12-light` shows the title pills. Run `38877961991` is an earlier height-36 build whose `F4-dark` and `F11-dark` were Springboard and whose `F1-light` missed the body. S27 is partial. S28 ran as react-native-web. S31 stays `not_run`.
 
@@ -99,6 +99,7 @@ Later slice cards were filled in the impl briefs. Owns stayed disjoint from the 
 - [ ] S14 is partial. Run `38979601063` (head `90c9b6a1c`) held Reply 50: one tail owner, `top` and `marker` stayed at 4380 from step 3 through step 27 while `below` climbed 88→112, and the still shows Reply 50 with a "184 messages below" pill. Run `38974111777` (head `1e3c94357`) is a false green (Reply 94 through Tail 3, no pill). A later launch pins `pill: "return"` and calls the scroll pill handler after the hold. That pass is not a Simulator tap and its frames are not reviewed. The hold now also takes three screenshots and muxes `f13-tail-away.mov` when two hashes differ. That movie is not reviewed. Run `38985042070` failed on F1 before writing it: the ready line aged out of `log show --last 3m`. The manual preview link stays stuck to the end until the reader scrolls.
 - [ ] Run `38877961991` is not a clean matrix (`F4-dark` and `F11-dark` are Springboard; `F1-light` missed the body). Run `38894137249` replaces it: those frames are the app, and `F1-light` shows the release notes. The light "Message Queue" gray fade was the pill-row gradient (`transparent` fades through black). That overlay is removed; Air still needs to confirm the frame. Collapsed card bodies are still off screen, so S27 F12 stays fail.
 - [ ] S31 stays `not_run`. Next.js screenshots were not produced.
+- [ ] S23 stays `not_run`. A capture pin `composer: "states"` steps idle, multiline, busy (stop / queue / steer), suggestions, then a TextInput focus, and writes `composer-*.png`. Those frames are not reviewed. The focus call is not a software-keyboard proof. The manual preview link does not set the pin.
 
 ## Handoff Notes
 
