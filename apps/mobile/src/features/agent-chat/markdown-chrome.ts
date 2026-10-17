@@ -145,6 +145,37 @@ export function agentChatBlockquote(isDark: boolean): {
 }
 
 /**
+ * Tool, plan, and approval quotes are Tailwind typography on `prose-sm`.
+ * The rail stays 4px. Ink is `--tw-prose-quotes` (gray-900 / gray-100) and the
+ * border is `--tw-prose-quote-borders` (gray-200 / gray-700). Those oklch
+ * stops are `#101828` / `#f3f4f6` and `#e5e7eb` / `#364153`. Weight is 500.
+ * `padding-inline-start` is `em(20, 18)` of the quote face. Answer quotes stay
+ * on the Streamdown rail above. The curly quotation marks are `::before` and
+ * `::after`, so they stay on web.
+ */
+export const PROSE_QUOTE_LIGHT = "#101828";
+export const PROSE_QUOTE_DARK = "#f3f4f6";
+export const PROSE_QUOTE_BORDER_LIGHT = "#e5e7eb";
+export const PROSE_QUOTE_BORDER_DARK = "#364153";
+
+export function agentChatProseBlockquote(
+  isDark: boolean,
+  fontSize: number,
+): {
+  borderColor: string;
+  color: string;
+  fontWeight: string;
+  gapWidth: number;
+} {
+  return {
+    borderColor: isDark ? PROSE_QUOTE_BORDER_DARK : PROSE_QUOTE_BORDER_LIGHT,
+    color: isDark ? PROSE_QUOTE_DARK : PROSE_QUOTE_LIGHT,
+    fontWeight: "500",
+    gapWidth: (20 / 18) * fontSize,
+  };
+}
+
+/**
  * Streamdown rule: `my-6 border-border`. `--border` is black or white at 10%.
  * The rule attachment adds its top margin on top of the previous block, so the
  * top is 8px and a paragraph's 16px makes 24. The native renderer clears a

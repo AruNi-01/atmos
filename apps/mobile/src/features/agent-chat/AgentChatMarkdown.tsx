@@ -13,6 +13,7 @@ import {
   TABLE_LINE_HEIGHT,
   agentChatBlockMetrics,
   agentChatBlockquote,
+  agentChatProseBlockquote,
   agentChatHeadingStyle,
   agentChatLinkColor,
   agentChatMarkdownChrome,
@@ -99,6 +100,7 @@ export function AgentChatMarkdown({
         ...(symmetricBlockMargin
           ? { marginBottom: BLOCKQUOTE_MARGIN, marginTop: BLOCKQUOTE_MARGIN }
           : {}),
+        ...(proseMetrics ? agentChatProseBlockquote(theme.isDark, resolvedFontSize) : {}),
         fontSize: resolvedFontSize,
         lineHeight: resolvedLineHeight,
       },

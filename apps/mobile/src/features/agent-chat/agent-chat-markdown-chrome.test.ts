@@ -18,6 +18,7 @@ import {
   THINKING_PARAGRAPH_MARGIN,
   agentChatBlockMetrics,
   agentChatBlockquote,
+  agentChatProseBlockquote,
   agentChatHeadingStyle,
   agentChatLinkColor,
   agentChatMarkdownChrome,
@@ -200,8 +201,19 @@ describe("agent chat markdown chrome", () => {
     });
     expect(agentChatBlockquote(true).borderColor).toBe("rgba(159, 159, 169, 0.3)");
     expect(agentChatBlockquote(true).color).toBe("#9f9fa9");
+    expect(agentChatProseBlockquote(false, 13)).toEqual({
+      borderColor: "#e5e7eb",
+      color: "#101828",
+      fontWeight: "500",
+      gapWidth: (20 / 18) * 13,
+    });
+    expect(agentChatProseBlockquote(true, 13).borderColor).toBe("#364153");
+    expect(agentChatProseBlockquote(true, 13).color).toBe("#f3f4f6");
     const quote = markdown.slice(markdown.indexOf("blockquote:"), markdown.indexOf("list:"));
     expect(quote).toContain("agentChatBlockquote(theme.isDark)");
+    expect(quote).toContain(
+      "proseMetrics ? agentChatProseBlockquote(theme.isDark, resolvedFontSize)",
+    );
     expect(quote).not.toContain("glassBorder");
     expect(quote).not.toContain("cardSubtle");
     expect(THEMATIC_BREAK_MARGIN).toBe(24);
