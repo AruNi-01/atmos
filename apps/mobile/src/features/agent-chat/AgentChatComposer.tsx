@@ -15,6 +15,7 @@ import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { AgentChatAddSheet } from "./AgentChatAddSheet";
 import { AgentChatModelSheet } from "./AgentChatModelSheet";
 import { contextTriggerLabel } from "./composer-capabilities";
+import { COMPOSER_GLASS_CONTROL_RADIUS, COMPOSER_GLASS_CONTROL_SIZE } from "./composer-glass";
 import {
   applyComposerPaste,
   pasteChipLabel,
@@ -27,11 +28,11 @@ import type { ComposerPatch, ComposerPicker, FavoriteModel } from "./model-picke
 import type { ComposerPhoto } from "./photo-attachment";
 
 const LINE_HEIGHT = 22;
-const BUTTON_SIZE = 36;
+const BUTTON_SIZE = COMPOSER_GLASS_CONTROL_SIZE;
 const MAX_LINES = 6;
 const glassButton = {
   alignItems: "center" as const,
-  borderRadius: 18,
+  borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
   height: BUTTON_SIZE,
   justifyContent: "center" as const,
   width: BUTTON_SIZE,
@@ -143,10 +144,10 @@ export function AgentChatComposer(props: {
         onPressIn={() => setAddOpen(true)}
         style={({ pressed }) => ({
           alignItems: "center",
-          height: 36,
+          height: BUTTON_SIZE,
           justifyContent: "center",
           opacity: pressed ? 0.6 : 1,
-          width: 36,
+          width: BUTTON_SIZE,
         })}
       >
         <PlusIcon color={theme.colors.label} size={20} strokeWidth={2.2} />
@@ -168,11 +169,11 @@ export function AgentChatComposer(props: {
               ? theme.colors.primaryPressed
               : theme.colors.label
             : "transparent",
-          borderRadius: 18,
-          height: 36,
+          borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
+          height: BUTTON_SIZE,
           justifyContent: "center",
           opacity: !props.busy && !canSend ? 0.45 : pressed && !sendReady ? 0.6 : 1,
-          width: 36,
+          width: BUTTON_SIZE,
         })}
       >
         {props.busy ? (
@@ -239,7 +240,7 @@ export function AgentChatComposer(props: {
         shadow={false}
         style={{
           alignItems: "center",
-          borderRadius: 18,
+          borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
           flexShrink: 0,
           height: BUTTON_SIZE,
           justifyContent: "center",

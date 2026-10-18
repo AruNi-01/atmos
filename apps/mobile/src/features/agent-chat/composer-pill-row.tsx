@@ -10,6 +10,7 @@ import {
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import type { CardId } from "./card-lane";
+import { COMPOSER_GLASS_CONTROL_RADIUS, COMPOSER_GLASS_CONTROL_SIZE } from "./composer-glass";
 import { HideScrollEdge } from "./hide-scroll-edge";
 import { ScrollToBottomPill } from "./scroll-pill";
 import { composerRowVisible, scrollPillVisible } from "./stick";
@@ -80,17 +81,25 @@ function CardPillButton({
 }) {
   const theme = useMobileTheme();
   return (
-    <Pressable
-      accessibilityLabel={pill.title}
-      accessibilityRole="button"
-      accessibilityState={{ selected: pill.selected }}
-      onPress={() => onPress(pill.id)}
-      style={{ maxWidth }}
+    <GlassPanel
+      interactive
+      shadow={false}
+      style={[styles.pill, { maxWidth }]}
+      tintColor={pill.selected ? theme.colors.glassTint : theme.colors.controlGlassTint}
     >
-      <GlassPanel
-        interactive
-        style={[styles.pill, { maxWidth }]}
-        tintColor={pill.selected ? theme.colors.glassTint : theme.colors.controlGlassTint}
+      <Pressable
+        accessibilityLabel={pill.title}
+        accessibilityRole="button"
+        accessibilityState={{ selected: pill.selected }}
+        onPress={() => onPress(pill.id)}
+        style={({ pressed }) => ({
+          alignItems: "center",
+          height: COMPOSER_GLASS_CONTROL_SIZE,
+          justifyContent: "center",
+          maxWidth,
+          opacity: pressed ? 0.6 : 1,
+          paddingHorizontal: 14,
+        })}
       >
         <View style={styles.pillInner}>
           <Text
@@ -109,8 +118,8 @@ function CardPillButton({
             <View style={[styles.dot, { backgroundColor: theme.colors.yellow }]} />
           ) : null}
         </View>
-      </GlassPanel>
-    </Pressable>
+      </Pressable>
+    </GlassPanel>
   );
 }
 
@@ -122,10 +131,9 @@ const styles = StyleSheet.create({
   },
   pill: {
     alignItems: "center",
-    borderRadius: 18,
-    height: 36,
+    borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
+    height: COMPOSER_GLASS_CONTROL_SIZE,
     justifyContent: "center",
-    paddingHorizontal: 14,
   },
   pillInner: {
     alignItems: "center",
@@ -136,14 +144,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 8,
-    height: 36,
+    height: COMPOSER_GLASS_CONTROL_SIZE,
     paddingHorizontal: 18,
   },
   scroller: {
     flex: 1,
     // A horizontal ScrollView on iOS has no intrinsic height, so this row
     // collapsed to 0 on the simulator while react-native-web still showed it.
-    height: 36,
+    height: COMPOSER_GLASS_CONTROL_SIZE,
   },
   scrollerContent: {
     alignItems: "center",
