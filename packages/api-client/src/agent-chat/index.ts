@@ -9,6 +9,22 @@ export {
   sliceBytes,
   toolStatusRank,
 } from "./fold";
+export {
+  AGENT_CHAT_EVENT_ID_WINDOW,
+  AGENT_CHAT_REVISION_GAP_RESYNC,
+  agentChatEventStateKey,
+  createAgentChatEventGate,
+} from "./event-gate";
+export type {
+  AgentChatEventGate,
+  AgentChatEventGateOptions,
+  AgentChatGateDecision,
+  AgentChatGateDropReason,
+  AgentChatGateGap,
+  AgentChatGateGapRecommend,
+} from "./event-gate";
+export { createAgentChatEventPump } from "./event-pump";
+export type { AgentChatEventPump, AgentChatPumpIngest } from "./event-pump";
 export type {
   BackfillRequest,
   Part,
