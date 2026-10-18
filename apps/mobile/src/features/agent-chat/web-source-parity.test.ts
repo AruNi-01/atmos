@@ -185,5 +185,10 @@ describe("web source parity", () => {
     expect(patch).toContain("A prose rule keeps its own margins.");
     expect(patch).toContain("A fence before this segment collapses against it.");
     expect(patch).toContain("ENRMFollowingTextGapAdjustment");
+    expect(patch).toContain(
+      "A rule's bottom is inside the rule, so the next block collapses against it.",
+    );
+    expect(patch).toContain("A following rule gives the overlap back to the previous rule.");
+    expect(patch).toContain("A rule that ends the text already includes its bottom.");
   });
 });

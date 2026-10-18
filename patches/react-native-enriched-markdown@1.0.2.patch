@@ -359,7 +359,7 @@ index 15a76af85..f9ad1e401 100644
  @end
 \ No newline at end of file
 diff --git a/ios/renderer/ThematicBreakRenderer.m b/ios/renderer/ThematicBreakRenderer.m
-index efaa0b3..6aab62c 100644
+index efaa0b3..9f2cf39 100644
 --- a/ios/renderer/ThematicBreakRenderer.m
 +++ b/ios/renderer/ThematicBreakRenderer.m
 @@ -1,5 +1,6 @@
@@ -369,7 +369,7 @@ index efaa0b3..6aab62c 100644
  #import "StyleConfig.h"
  #import "ThematicBreakAttachment.h"
  
-@@ -18,6 +19,29 @@
+@@ -18,6 +19,39 @@
    attachment.lineHeight = _config.thematicBreakHeight > 0 ? _config.thematicBreakHeight : 1.0;
    attachment.marginTop = _config.thematicBreakMarginTop;
    attachment.marginBottom = _config.thematicBreakMarginBottom;
@@ -380,21 +380,31 @@ index efaa0b3..6aab62c 100644
 +  }
 +  // A prose rule keeps its own margins. The overlap goes back to the previous
 +  // block, so a smaller top does not clear the trailing 24px.
-+  if (ENRMCollapsesBlockMargins([_config paragraphMarginTop]) && attachment.marginTop > 0 && output.length > 0 &&
-+      [output.string hasSuffix:@"\n"]) {
-+    NSRange prevParagraph = [output.string paragraphRangeForRange:NSMakeRange(output.length - 1, 0)];
-+    [output enumerateAttribute:NSParagraphStyleAttributeName
-+                       inRange:prevParagraph
-+                       options:0
-+                    usingBlock:^(NSParagraphStyle *style, NSRange range, BOOL *stop) {
-+                      CGFloat prevBottom = style.paragraphSpacing;
-+                      if (prevBottom <= 0) {
-+                        return;
-+                      }
-+                      NSMutableParagraphStyle *updated = [style mutableCopy];
-+                      updated.paragraphSpacing = MAX(0, prevBottom - attachment.marginTop);
-+                      [output addAttribute:NSParagraphStyleAttributeName value:updated range:range];
-+                    }];
++  if (attachment.marginTop > 0 && output.length > 0 && [output.string hasSuffix:@"\n"]) {
++    NSUInteger newlineIndex = output.length - 1;
++    id previous = newlineIndex > 0
++                      ? [output attribute:NSAttachmentAttributeName atIndex:newlineIndex - 1 effectiveRange:NULL]
++                      : nil;
++    if ([previous isKindOfClass:[ThematicBreakAttachment class]]) {
++      // A following rule gives the overlap back to the previous rule.
++      // A rule that ends the block keeps its own bottom.
++      ThematicBreakAttachment *previousRule = (ThematicBreakAttachment *)previous;
++      previousRule.marginBottom = MAX(0.0, previousRule.marginBottom - attachment.marginTop);
++    } else if (ENRMCollapsesBlockMargins([_config paragraphMarginTop])) {
++      NSRange prevParagraph = [output.string paragraphRangeForRange:NSMakeRange(newlineIndex, 0)];
++      [output enumerateAttribute:NSParagraphStyleAttributeName
++                         inRange:prevParagraph
++                         options:0
++                      usingBlock:^(NSParagraphStyle *style, NSRange range, BOOL *stop) {
++                        CGFloat prevBottom = style.paragraphSpacing;
++                        if (prevBottom <= 0) {
++                          return;
++                        }
++                        NSMutableParagraphStyle *updated = [style mutableCopy];
++                        updated.paragraphSpacing = MAX(0, prevBottom - attachment.marginTop);
++                        [output addAttribute:NSParagraphStyleAttributeName value:updated range:range];
++                      }];
++    }
 +  }
  
    NSDictionary *attributes = @{
@@ -611,10 +621,16 @@ index 585044157..53a2ff798 100644
 +  applyBaselineOffset(string, range);
  }
 diff --git a/ios/utils/ParagraphStyleUtils.h b/ios/utils/ParagraphStyleUtils.h
-index 95a2138..c203a1c 100644
+index 95a2138..9970231 100644
 --- a/ios/utils/ParagraphStyleUtils.h
 +++ b/ios/utils/ParagraphStyleUtils.h
-@@ -43,6 +43,65 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
+@@ -1,4 +1,5 @@
+ #import "ENRMUIKit.h"
++#import "ThematicBreakAttachment.h"
+ #import <Foundation/Foundation.h>
+ 
+ NS_ASSUME_NONNULL_BEGIN
+@@ -43,6 +44,104 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
  NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRange range, CGFloat marginTop);
  NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger insertionPoint, CGFloat marginTop);
  void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
@@ -677,14 +693,62 @@ index 95a2138..c203a1c 100644
 +  }
 +  return ENRMCollapsedMargin(ENRMHeadingOpenMargin(text), previousTrailing);
 +}
++
++static inline CGFloat ENRMThematicBreakMarginBottomAt(NSAttributedString *text, NSUInteger index)
++{
++  if (text.length == 0 || index >= text.length) {
++    return 0.0;
++  }
++  id attachment = [text attribute:NSAttachmentAttributeName atIndex:index effectiveRange:NULL];
++  if ([attachment isKindOfClass:[ThematicBreakAttachment class]]) {
++    return ((ThematicBreakAttachment *)attachment).marginBottom;
++  }
++  return 0.0;
++}
++
++/// The bottom margin baked into a rule that sits on the character before this newline.
++static inline CGFloat ENRMThematicBreakBottomBeforeNewline(NSAttributedString *text, NSUInteger newlineIndex)
++{
++  if (newlineIndex == 0 || newlineIndex >= text.length) {
++    return 0.0;
++  }
++  if ([text.string characterAtIndex:newlineIndex] != '\n') {
++    return 0.0;
++  }
++  return ENRMThematicBreakMarginBottomAt(text, newlineIndex - 1);
++}
++
++/// A rule that ends the text already includes its bottom. The next segment
++/// collapses against that value. Measurement must not add it a second time.
++static inline CGFloat ENRMThematicBreakTrailingMargin(NSAttributedString *text)
++{
++  if (text.length == 0) {
++    return 0.0;
++  }
++  NSRange lastContent = [text.string rangeOfCharacterFromSet:[[NSCharacterSet newlineCharacterSet] invertedSet]
++                                                     options:NSBackwardsSearch];
++  if (lastContent.location == NSNotFound) {
++    return 0.0;
++  }
++  return ENRMThematicBreakMarginBottomAt(text, lastContent.location);
++}
  void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight);
  void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
  
 diff --git a/ios/utils/ParagraphStyleUtils.m b/ios/utils/ParagraphStyleUtils.m
-index 24c7daaea..451b03427 100644
+index 24c7daa..34108be 100644
 --- a/ios/utils/ParagraphStyleUtils.m
 +++ b/ios/utils/ParagraphStyleUtils.m
-@@ -292,10 +292,10 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
+@@ -192,6 +192,8 @@ NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRang
+   NSParagraphStyle *prevStyle = [output attribute:NSParagraphStyleAttributeName atIndex:prevIdx effectiveRange:NULL];
+ 
+   CGFloat prevMarginBottom = prevStyle.paragraphSpacing;
++  // A rule's bottom is inside the rule, so the next block collapses against it.
++  prevMarginBottom = MAX(prevMarginBottom, ENRMThematicBreakBottomBeforeNewline(output, prevIdx));
+   if (prevMarginBottom >= marginTop)
+     return 0;
+ 
+@@ -292,10 +294,10 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
    [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
  }
  
@@ -2764,7 +2828,7 @@ index 47283dc..7fb8fb9 100644
      // Ensure nested lists start on a new line
      [output appendAttributedString:kNewlineAttributedString];
 diff --git a/ios/EnrichedMarkdown.mm b/ios/EnrichedMarkdown.mm
-index ed8b53d..2a6df96 100644
+index ed8b53d..679bebf 100644
 --- a/ios/EnrichedMarkdown.mm
 +++ b/ios/EnrichedMarkdown.mm
 @@ -321,6 +321,8 @@ static char kENRMSegmentFadeAnimatorKey;
@@ -2776,7 +2840,7 @@ index ed8b53d..2a6df96 100644
    const NSUInteger lastIndex = _segmentViews.count - 1;
  
    [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
-@@ -329,30 +331,50 @@ static char kENRMSegmentFadeAnimatorKey;
+@@ -329,30 +331,55 @@ static char kENRMSegmentFadeAnimatorKey;
  
      CGFloat segmentHeight = 0;
      const BOOL isTable = [segment isKindOfClass:[TableContainerView class]];
@@ -2792,6 +2856,11 @@ index ed8b53d..2a6df96 100644
        segmentHeight = textSize.height;
        maxContentWidth = MAX(maxContentWidth, textSize.width);
 +      trailing = shouldAddBottomMargin ? textView.lastElementMarginBottom : 0;
++      if (collapseMargins && shouldAddBottomMargin) {
++        // A rule that ends the text already includes its bottom, so the next
++        // segment collapses against it. Do not add that bottom again.
++        trailing = MAX(trailing, ENRMThematicBreakTrailingMargin(textView.textView.attributedText));
++      }
  
      } else if (isTable) {
 -      yOffset += _config.tableMarginTop;
@@ -2830,7 +2899,7 @@ index ed8b53d..2a6df96 100644
      }
  
      if (applyFrames) {
-@@ -391,6 +413,7 @@ static char kENRMSegmentFadeAnimatorKey;
+@@ -391,6 +418,7 @@ static char kENRMSegmentFadeAnimatorKey;
      else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
        yOffset += _config.codeBlockMarginBottom;
      }
@@ -2839,10 +2908,10 @@ index ed8b53d..2a6df96 100644
  
    return CGSizeMake(maxContentWidth, yOffset);
 diff --git a/ios/internals/ENRMViewFreeMeasurement.h b/ios/internals/ENRMViewFreeMeasurement.h
-index 1905d45..87bb255 100644
+index 1905d45..9426712 100644
 --- a/ios/internals/ENRMViewFreeMeasurement.h
 +++ b/ios/internals/ENRMViewFreeMeasurement.h
-@@ -272,21 +272,32 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -272,21 +272,37 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
  
      CGFloat yOffset = 0.0;
      CGFloat maxContentWidth = 0.0;
@@ -2866,6 +2935,11 @@ index 1905d45..87bb255 100644
          yOffset += textSize.height;
          maxContentWidth = MAX(maxContentWidth, textSize.width);
 +        trailing = shouldAddBottomMargin ? segment.textResult.lastElementMarginBottom : 0.0;
++        if (collapseMargins && shouldAddBottomMargin) {
++          // A rule that ends the text already includes its bottom, so the next
++          // segment collapses against it. Do not add that bottom again.
++          trailing = MAX(trailing, ENRMThematicBreakTrailingMargin(segment.textResult.attributedText));
++        }
        } else if (segment.kind == ENRMSegmentKindTable && segment.tableSegment) {
 -        yOffset += config.tableMarginTop;
 +        CGFloat top = config.tableMarginTop;
@@ -2876,7 +2950,7 @@ index 1905d45..87bb255 100644
          yOffset += [TableContainerView measureHeightForTableNode:segment.tableSegment.tableNode
                                                            config:config
                                                  allowFontScaling:typedProps.allowFontScaling
-@@ -297,18 +308,28 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -297,18 +313,28 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
          if (shouldAddBottomMargin) {
            yOffset += config.tableMarginBottom;
          }
@@ -2907,7 +2981,7 @@ index 1905d45..87bb255 100644
          yOffset += [ENRMMathContainerView measureHeightForLatex:segment.mathSegment.latex
                                                           config:config
                                                         maxWidth:maxWidth];
-@@ -316,8 +337,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -316,8 +342,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
          if (shouldAddBottomMargin) {
            yOffset += config.mathMarginBottom;
          }
