@@ -14,7 +14,7 @@ import {
   type AgentToolCallPart,
 } from "@atmos/agent-transcript";
 import { type CardId, orderedCardIds } from "./card-lane";
-import { copy, historicPermissionTitle } from "./copy";
+import { copy, fillTemplate, historicPermissionTitle } from "./copy";
 
 export type PendingPermission = NonNullable<AgentChatSnapshot["pending_permission"]>;
 
@@ -39,8 +39,11 @@ export type BackgroundCommand = {
   command: string;
 };
 
+export type SubagentTaskStatus = "running" | "failed" | "completed";
+
 export type SubagentTitle = {
   id: string;
+  status: SubagentTaskStatus;
   title: string;
 };
 
@@ -285,7 +288,11 @@ function currentSubagentTitles(
     }
   }
   const visible = followUpPending ? items.filter(subagentIsRunning) : items;
-  return visible.map((part) => ({ id: part.tool_call_id, title: subagentTitle(part) }));
+  return visible.map((part) => ({
+    id: part.tool_call_id,
+    status: subagentCardStatus(part),
+    title: subagentTitle(part),
+  }));
 }
 
 function toolPath(part: AgentToolCallPart): string | null {
@@ -326,4 +333,52 @@ export function planExitFilePath(
 
 export function queueItemText(item: Pick<AgentQueueItem, "display_prompt" | "prompt">): string {
   return item.display_prompt ?? item.prompt;
+}
+
+export function subagentCardStatus(part: { status?: string | null }): SubagentTaskStatus {
+  const status = (part.status ?? "").trim().toLowerCase();
+  if (status === "failed" || status === "error") return "failed";
+  if (isActiveToolStatus(status)) return "running";
+  return "completed";
+}
+
+export function subagentCountLabel(items: readonly SubagentTitle[]): string {
+  const total = items.length;
+  const completed = items.filter((item) => item.status === "completed").length;
+  const running = items.filter((item) => item.status === "running").length;
+  if (total > 0 && completed === total) return copy.subagentAllDone;
+  if (running > 0) return fillTemplate(copy.subagentRunningCount, { count: running });
+  return fillTemplate(copy.subagentProgressCount, { completed, total });
+}
+
+export function backgroundRunningCountLabel(count: number): string {
+  return fillTemplate(copy.backgroundRunningCount, { count });
+}
+
+export function workflowCountLabel(workflow: GrokWorkflow): string {
+  const running = workflow.phases.filter((phase) => {
+    const state = phase.state.trim().toLowerCase();
+    return state === "active" || state === "running";
+  }).length;
+  if (running > 0) return fillTemplate(copy.subagentRunningCount, { count: running });
+  return copy.workflowIdleCount;
+}
+
+export function contextBarTone(percent: number): "default" | "warning" {
+  return percent >= 70 ? "warning" : "default";
+}
+
+/** Compact token counts for the context card: `114k`, `1M`, or plain integers. */
+export function formatCompactTokenCount(count: number): string {
+  const n = Math.max(0, Math.round(count));
+  if (n >= 1_000_000) {
+    const millions = n / 1_000_000;
+    return Number.isInteger(millions) ? `${millions}M` : `${millions.toFixed(1)}M`;
+  }
+  if (n >= 1000) {
+    const thousands = n / 1000;
+    if (thousands >= 100) return `${Math.round(thousands)}k`;
+    return Number.isInteger(thousands) ? `${thousands}k` : `${thousands.toFixed(1)}k`;
+  }
+  return String(n);
 }

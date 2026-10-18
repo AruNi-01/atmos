@@ -23,7 +23,9 @@ import {
   Download,
   Flag,
   Gauge,
+  GitFork,
   Globe,
+  Goal,
   FileText,
   Folder,
   FolderInput,
@@ -38,6 +40,7 @@ import {
   Layers,
   LayoutGrid,
   Link2,
+  ListOrdered,
   ListTodo,
   LoaderCircle,
   MessageCircle,
@@ -65,6 +68,7 @@ import {
   ShieldAlert,
   SquareTerminal,
   Square,
+  Terminal,
   SunMoon,
   Tag,
   Tags,
@@ -90,6 +94,8 @@ export const CoinsIcon = Coins;
 export const CpuIcon = Cpu;
 export const DollarSignIcon = DollarSign;
 export const GaugeIcon = Gauge;
+export const GitForkIcon = GitFork;
+export const GoalIcon = Goal;
 export const CircleCheckIcon = CircleCheck;
 export const CheckIcon = Check;
 export const CheckCircleIcon = CheckCircle2;
@@ -119,6 +125,7 @@ export const HandIcon = Hand;
 export const ImageIcon = ImageGlyph;
 export const KeyboardIcon = Keyboard;
 export const LayersIcon = Layers;
+export const ListOrderedIcon = ListOrdered;
 export const ListTodoIcon = ListTodo;
 export const MessageCircleIcon = MessageCircle;
 export const MessageSquareIcon = MessageSquare;
@@ -148,6 +155,8 @@ export const SettingsIcon = Settings;
 export const ShieldAlertIcon = ShieldAlert;
 export const SquareIcon = Square;
 export const SunMoonIcon = SunMoon;
+export const SquareTerminalIcon = SquareTerminal;
+export const PromptTerminalIcon = Terminal;
 export const TerminalIcon = SquareTerminal;
 export const TrashIcon = Trash2;
 export const UserIcon = User;

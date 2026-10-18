@@ -1,7 +1,9 @@
 import { Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { ShieldIcon } from "@/ui/icons/lucide-native";
 import { GlassTextButton } from "@/ui/primitives/glass-action-buttons";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import { CARD_BODY, CARD_GAP, CardHeader, ChipRow } from "./cards/expanded-card";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
 
 export type AgentChatPermissionPrompt = {
@@ -33,13 +35,11 @@ export function AgentChatPermissionCard({
   const path = planExit ? (filePath?.trim() ?? "") : "";
   const intent = description && description !== path ? description : "";
   const showEmpty = planExit && !intent && !path && markdown.length === 0 && todos.length === 0;
-  const body = { color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 };
+  const body = { color: theme.colors.secondaryLabel, ...CARD_BODY };
 
   return (
-    <View style={{ gap: 10 }}>
-      <Text style={{ color: theme.colors.label, fontSize: 16, fontWeight: "700", lineHeight: 21 }}>
-        {historicPermissionTitle(request)}
-      </Text>
+    <View style={{ gap: CARD_GAP }}>
+      <CardHeader icon={ShieldIcon} title={historicPermissionTitle(request)} />
       {questions.map((question) => (
         <Text key={question.id} selectable style={body}>
           {question.prompt}
@@ -61,7 +61,7 @@ export function AgentChatPermissionCard({
         </Text>
       ) : null}
       {markdown.length > 0 && markdown !== description ? (
-        <AgentChatMarkdown text={markdown} />
+        <AgentChatMarkdown fontSize={14} lineHeight={20} text={markdown} variant="card" />
       ) : null}
       {showEmpty ? (
         <Text selectable style={body}>
@@ -69,7 +69,7 @@ export function AgentChatPermissionCard({
         </Text>
       ) : null}
       {options.length > 0 ? (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <ChipRow>
           {options.map((option) => {
             const label = option.name.trim() || option.option_id;
             return (
@@ -82,7 +82,7 @@ export function AgentChatPermissionCard({
               />
             );
           })}
-        </View>
+        </ChipRow>
       ) : null}
     </View>
   );

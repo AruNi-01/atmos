@@ -8,12 +8,18 @@ import type {
   GrokWorkflow,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import {
+  backgroundRunningCountLabel,
   cardPillTitle,
+  contextBarTone,
   deriveComposerCards,
+  formatCompactTokenCount,
   moveQueueItem,
   planBodyMarkdown,
+  subagentCardStatus,
+  subagentCountLabel,
+  workflowCountLabel,
 } from "./composer-cards";
-import { copy } from "./copy";
+import { copy, sentenceStatus } from "./copy";
 
 function user(id: string, text: string): AgentMessage {
   return { id, role: "user", parts: [{ type: "text", text }] };
@@ -267,9 +273,10 @@ describe("deriveComposerCards", () => {
       grokGoal: goal,
       grokWorkflow: workflow,
     });
-    expect(pending.subagents).toEqual([{ id: "live", title: "Find the bug" }]);
+    expect(pending.subagents).toEqual([{ id: "live", status: "running", title: "Find the bug" }]);
     const settled = emptyCards({ messages, grokGoal: goal, grokWorkflow: workflow });
     expect(settled.subagents.map((item) => item.id)).toEqual(["live", "done-sub"]);
+    expect(settled.subagents.map((item) => item.status)).toEqual(["running", "completed"]);
   });
 
   test("context stats need used and a positive window", () => {
@@ -337,6 +344,39 @@ describe("deriveComposerCards", () => {
       "workflow",
       "context",
     ]);
+  });
+});
+
+describe("card chrome helpers", () => {
+  test("subagent status, counts, tokens, and sentence-case match web copy", () => {
+    expect(subagentCardStatus({ status: "running" })).toBe("running");
+    expect(subagentCardStatus({ status: "failed" })).toBe("failed");
+    expect(subagentCardStatus({ status: "completed" })).toBe("completed");
+    expect(subagentCountLabel([{ id: "a", status: "completed", title: "A" }])).toBe("All done");
+    expect(
+      subagentCountLabel([
+        { id: "a", status: "running", title: "A" },
+        { id: "b", status: "completed", title: "B" },
+      ]),
+    ).toBe("1 running");
+    expect(
+      subagentCountLabel([
+        { id: "a", status: "completed", title: "A" },
+        { id: "b", status: "failed", title: "B" },
+      ]),
+    ).toBe("1/2 completed");
+    expect(backgroundRunningCountLabel(3)).toBe("3 running");
+    expect(workflowCountLabel(workflow)).toBe("1 running");
+    expect(
+      workflowCountLabel({ ...workflow, phases: [{ id: "p1", title: "Search", state: "idle" }] }),
+    ).toBe("Idle");
+    expect(contextBarTone(69.9)).toBe("default");
+    expect(contextBarTone(70)).toBe("warning");
+    expect(formatCompactTokenCount(114_000)).toBe("114k");
+    expect(formatCompactTokenCount(1_000_000)).toBe("1M");
+    expect(formatCompactTokenCount(50)).toBe("50");
+    expect(sentenceStatus("active")).toBe("Active");
+    expect(sentenceStatus("user_paused")).toBe("User paused");
   });
 });
 

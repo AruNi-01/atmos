@@ -64,6 +64,9 @@ mock.module("@expo/ui", () => ({
 const {
   GLASS_CHIP_DISABLED_OPACITY,
   GLASS_CHIP_FONT_SIZE,
+  GLASS_CHIP_HEIGHT,
+  GLASS_CHIP_HOST_INSET,
+  GLASS_CHIP_HOST_STYLE,
   GLASS_CHIP_PADDING,
   GlassActionButtons,
   GlassTextButton,
@@ -100,6 +103,14 @@ describe("iosGlassChipModifiers", () => {
     expect(GLASS_CHIP_DISABLED_OPACITY).toBeGreaterThan(0.4);
     expect(GLASS_CHIP_DISABLED_OPACITY).toBeLessThan(0.7);
     expect(GLASS_CHIP_PADDING).toEqual({ horizontal: 12, vertical: 8 });
+    expect(GLASS_CHIP_HEIGHT).toBe(28);
+    expect(GLASS_CHIP_HOST_INSET).toBe(2.5);
+    expect(GLASS_CHIP_HOST_STYLE).toEqual({
+      height: 28,
+      justifyContent: "center",
+      marginBottom: -2.5,
+      marginTop: -2.5,
+    });
   });
 
   test("Reduce Transparency uses neutral fill and label ink, not system bordered tint", () => {

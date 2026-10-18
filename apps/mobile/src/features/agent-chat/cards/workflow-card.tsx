@@ -1,22 +1,20 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import type { GrokWorkflow } from "@atmos/api-types/ws/dto/agent-chat";
-import { useMobileTheme } from "@/theme/theme-store";
-import { copy } from "../copy";
+import { LayersIcon } from "@/ui/icons/lucide-native";
+import { workflowCountLabel } from "../composer-cards";
+import { copy, sentenceStatus } from "../copy";
+import { CARD_GAP, CardBulletRow, CardHeader, CardStatusBadge } from "./expanded-card";
 
 export function WorkflowCard({ workflow }: { workflow: GrokWorkflow }) {
-  const theme = useMobileTheme();
   const heading = workflow.objective.trim() || workflow.name.trim() || copy.grokWorkflowTitle;
-  const body = { color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 };
   return (
-    <View style={{ gap: 8 }}>
-      <Text style={{ color: theme.colors.label, fontSize: 16, fontWeight: "700", lineHeight: 21 }}>
-        {heading}
-      </Text>
-      <Text style={body}>{workflow.status}</Text>
+    <View style={{ gap: CARD_GAP }}>
+      <CardHeader count={workflowCountLabel(workflow)} icon={LayersIcon} title={heading} />
+      <View style={{ alignItems: "baseline", flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <CardStatusBadge label={sentenceStatus(workflow.status)} />
+      </View>
       {workflow.phases.map((phase) => (
-        <Text key={phase.id} style={body}>
-          {phase.title}
-        </Text>
+        <CardBulletRow key={phase.id} text={phase.title} />
       ))}
     </View>
   );

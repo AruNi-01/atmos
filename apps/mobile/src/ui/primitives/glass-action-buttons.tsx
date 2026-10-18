@@ -23,9 +23,19 @@ import { shouldUseLiquidGlass } from "./glass-availability";
 /** Matches the old filled chip: padding 12×8, 14pt semibold. */
 export const GLASS_CHIP_FONT_SIZE = 14;
 export const GLASS_CHIP_PADDING = { horizontal: 12, vertical: 8 } as const;
+/** Visual chip height after clipping SwiftUI Host chrome. */
+export const GLASS_CHIP_HEIGHT = 28;
+/** SwiftUI Host adds ~2.5pt above/below the visual capsule. */
+export const GLASS_CHIP_HOST_INSET = 2.5;
+export const GLASS_CHIP_HOST_STYLE = {
+  height: GLASS_CHIP_HEIGHT,
+  justifyContent: "center" as const,
+  marginBottom: -GLASS_CHIP_HOST_INSET,
+  marginTop: -GLASS_CHIP_HOST_INSET,
+};
 /** Slight dim — SwiftUI `disabled()` on glass nearly vanishes in light. */
 export const GLASS_CHIP_DISABLED_OPACITY = 0.55;
-const FALLBACK_CHIP_HEIGHT = 36;
+const FALLBACK_CHIP_HEIGHT = GLASS_CHIP_HEIGHT;
 
 export type GlassAction = {
   disabled?: boolean;
@@ -123,21 +133,27 @@ function IosGlassTextButton({ disabled, label, onPress, role }: GlassAction) {
   const fillColor = theme.colors.control;
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents>
-      <HStack alignment="center" spacing={0}>
-        <Button
-          label={label}
-          modifiers={iosGlassChipModifiers({
-            fillColor,
-            inkColor,
-            isDisabled,
-            useLiquidGlass,
-          })}
-          onPress={isDisabled ? undefined : onPress}
-          role={useLiquidGlass ? (role ?? "default") : "default"}
-        />
-      </HStack>
-    </Host>
+    <View style={GLASS_CHIP_HOST_STYLE}>
+      <Host
+        colorScheme={theme.colorScheme}
+        matchContents={{ horizontal: true, vertical: false }}
+        style={{ height: GLASS_CHIP_HEIGHT }}
+      >
+        <HStack alignment="center" spacing={0}>
+          <Button
+            label={label}
+            modifiers={iosGlassChipModifiers({
+              fillColor,
+              inkColor,
+              isDisabled,
+              useLiquidGlass,
+            })}
+            onPress={isDisabled ? undefined : onPress}
+            role={useLiquidGlass ? (role ?? "default") : "default"}
+          />
+        </HStack>
+      </Host>
+    </View>
   );
 }
 
@@ -150,22 +166,24 @@ function FallbackGlassTextButton({ disabled, label, onPress, role }: GlassAction
   const isDisabled = Boolean(disabled);
 
   return (
-    <ExpoHost
-      colorScheme={theme.colorScheme}
-      matchContents={{ vertical: true }}
-      seedColor={look.seedColor}
-    >
-      <ExpoButton
-        disabled={isDisabled}
-        label={label}
-        onPress={isDisabled ? undefined : onPress}
-        style={{
-          height: FALLBACK_CHIP_HEIGHT,
-          opacity: isDisabled ? GLASS_CHIP_DISABLED_OPACITY : 1,
-        }}
-        variant="outlined"
-      />
-    </ExpoHost>
+    <View style={GLASS_CHIP_HOST_STYLE}>
+      <ExpoHost
+        colorScheme={theme.colorScheme}
+        matchContents={{ vertical: true }}
+        seedColor={look.seedColor}
+      >
+        <ExpoButton
+          disabled={isDisabled}
+          label={label}
+          onPress={isDisabled ? undefined : onPress}
+          style={{
+            height: FALLBACK_CHIP_HEIGHT,
+            opacity: isDisabled ? GLASS_CHIP_DISABLED_OPACITY : 1,
+          }}
+          variant="outlined"
+        />
+      </ExpoHost>
+    </View>
   );
 }
 

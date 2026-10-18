@@ -8,6 +8,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   agentChatBlockMetrics,
+  agentChatCardHeadingMetrics,
+  agentChatCardHeadingStyle,
+  agentChatCardListMetrics,
   agentChatHeadingScale,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
@@ -87,6 +90,24 @@ describe("agent chat markdown chrome", () => {
       h4: { fontSize: 18, lineHeight: 28 },
       h5: { fontSize: 16, lineHeight: 24 },
       h6: { fontSize: 14, lineHeight: 20 },
+    });
+  });
+
+  test("composer-card headings stay 16/700 with no extra top margin", () => {
+    const headings = agentChatCardHeadingStyle("#111112");
+    expect(agentChatCardHeadingMetrics).toEqual({
+      fontSize: 16,
+      fontWeight: "700",
+      lineHeight: 21,
+      marginBottom: 8,
+      marginTop: 0,
+    });
+    expect(headings.h2).toEqual({ color: "#111112", ...agentChatCardHeadingMetrics });
+    expect(headings.h1).toEqual(headings.h2);
+    expect(agentChatCardListMetrics).toEqual({
+      gapWidth: 8,
+      marginLeft: 24,
+      markerMinWidth: 22,
     });
   });
 

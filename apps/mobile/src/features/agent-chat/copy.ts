@@ -63,6 +63,14 @@ export const copy = {
   grokWorkflowTitle: "Research",
   contextWindowTitle: "Context Usage",
   planViewerEmpty: "No plan content available yet.",
+  backgroundRunningCount: "{count} running",
+  backgroundRunning: "Running",
+  subagentRunningCount: "{count} running",
+  subagentProgressCount: "{completed}/{total} completed",
+  subagentAllDone: "All done",
+  workflowIdleCount: "Idle",
+  contextPercentFull: "{percent} Full",
+  contextTokensSummary: "~{used} / {size} Tokens",
   queueEdit: "Edit",
   queueSave: "Save",
   queueDelete: "Delete",
@@ -150,6 +158,14 @@ export function fillTemplate(template: string, values: Record<string, string | n
   return template.replace(/\{(\w+)\}/g, (_, key: string) =>
     Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : `{${key}}`,
   );
+}
+
+/** Sentence-case a raw status/phase token (`active` → `Active`). */
+export function sentenceStatus(status: string): string {
+  const trimmed = status.trim();
+  if (!trimmed) return "";
+  const spaced = trimmed.replace(/[_-]+/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
 }
 
 /** Renders an en.json `{count, plural, one {# …} other {# …}}` string. */

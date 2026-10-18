@@ -1,12 +1,19 @@
 import { Text, View } from "react-native";
+import type { AgentSessionOpRequest } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
+import { GitForkIcon, RotateIcon } from "@/ui/icons/lucide-native";
 import { GlassTextButton } from "@/ui/primitives/glass-action-buttons";
+import {
+  CARD_BODY,
+  CARD_GAP,
+  CARD_ICON_SIZE,
+  CARD_TITLE,
+  ChipRow,
+  SESSION_OP_SKY,
+} from "./cards/expanded-card";
+import { copy } from "./copy";
 
-export type AgentChatSessionOpPrompt = {
-  request_id: string;
-  title: string;
-  options: Array<{ option_id: string; name: string }>;
-};
+export type AgentChatSessionOpPrompt = AgentSessionOpRequest;
 
 export function AgentChatSessionOpCard({
   request,
@@ -16,13 +23,32 @@ export function AgentChatSessionOpCard({
   onRespond: (input: { requestId: string; optionId: string }) => void;
 }) {
   const theme = useMobileTheme();
+  const Icon = request.kind === "fork" ? GitForkIcon : RotateIcon;
+  const heading = request.title.trim();
+  const body = { color: theme.colors.secondaryLabel, ...CARD_BODY };
 
   return (
-    <View style={{ gap: 10 }}>
-      <Text style={{ color: theme.colors.label, fontSize: 16, fontWeight: "700", lineHeight: 21 }}>
-        {request.title}
-      </Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+    <View style={{ gap: CARD_GAP }}>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
+        <Icon color={SESSION_OP_SKY} size={CARD_ICON_SIZE} strokeWidth={2} />
+        <Text
+          style={{
+            color: SESSION_OP_SKY,
+            flexShrink: 1,
+            fontSize: CARD_TITLE.fontSize,
+            fontWeight: "600",
+            lineHeight: CARD_TITLE.lineHeight,
+          }}
+        >
+          {copy.sessionOpRequested}
+        </Text>
+      </View>
+      {heading ? (
+        <Text selectable style={body}>
+          {heading}
+        </Text>
+      ) : null}
+      <ChipRow>
         {request.options.map((option) => {
           const label = option.name.trim() || option.option_id;
           return (
@@ -35,7 +61,7 @@ export function AgentChatSessionOpCard({
             />
           );
         })}
-      </View>
+      </ChipRow>
     </View>
   );
 }

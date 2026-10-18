@@ -216,7 +216,9 @@ describe("card lane glass chrome", () => {
     ];
     for (const file of files) {
       const text = source(file);
-      expect(text).toMatch(/theme\.colors\.(label|secondaryLabel)/);
+      expect(text).toMatch(
+        /theme\.colors\.(label|secondaryLabel)|CardHeader|CardStatusBadge|SESSION_OP_SKY/,
+      );
       expect(text).not.toContain('color: "#');
       expect(text).not.toContain("cardElevated");
       expect(text).not.toContain("GlassPanel");
