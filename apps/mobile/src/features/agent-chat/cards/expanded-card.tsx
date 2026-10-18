@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import { radii } from "@/theme/radii";
-import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { COMPOSER_GLASS_WELL } from "../composer-glass";
 import { useReducedMotion } from "../motion/use-reduced-motion";
 
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
@@ -15,7 +15,6 @@ export function ExpandedCard({
   children: ReactNode;
   onHeight: (height: number) => void;
 }) {
-  const theme = useMobileTheme();
   const reduced = useReducedMotion();
   const { height } = useWindowDimensions();
   const maxHeight = Math.round(height * 0.4);
@@ -30,10 +29,9 @@ export function ExpandedCard({
       style={{ marginHorizontal: 18, maxHeight }}
     >
       <GlassPanel
-        fallbackStyle={{ backgroundColor: theme.colors.glassFallbackStrong }}
-        shadow={false}
+        {...COMPOSER_GLASS_WELL}
+        interactive={false}
         style={{ borderRadius: radii.card, maxHeight }}
-        tintColor={theme.colors.glassTint}
       >
         <ScrollView
           contentContainerStyle={styles.content}

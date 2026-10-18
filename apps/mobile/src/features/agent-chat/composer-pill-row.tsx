@@ -10,7 +10,11 @@ import {
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import type { CardId } from "./card-lane";
-import { COMPOSER_GLASS_CONTROL_RADIUS, COMPOSER_GLASS_CONTROL_SIZE } from "./composer-glass";
+import {
+  COMPOSER_GLASS_CONTROL_RADIUS,
+  COMPOSER_GLASS_CONTROL_SIZE,
+  COMPOSER_GLASS_WELL,
+} from "./composer-glass";
 import { HideScrollEdge } from "./hide-scroll-edge";
 import { ScrollToBottomPill } from "./scroll-pill";
 import { composerRowVisible, scrollPillVisible } from "./stick";
@@ -81,12 +85,7 @@ function CardPillButton({
 }) {
   const theme = useMobileTheme();
   return (
-    <GlassPanel
-      interactive
-      shadow={false}
-      style={[styles.pill, { maxWidth }]}
-      tintColor={pill.selected ? theme.colors.glassTint : theme.colors.controlGlassTint}
-    >
+    <GlassPanel {...COMPOSER_GLASS_WELL} style={[styles.pill, { maxWidth }]}>
       <Pressable
         accessibilityLabel={pill.title}
         accessibilityRole="button"

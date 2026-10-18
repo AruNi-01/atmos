@@ -157,6 +157,10 @@ Card chrome is unchanged from today's `cardElevated` + `glassBorder` + radius 16
 
 **Implementation delta (2026-10-18):** Title pills, the pinned scroll-to-bottom pill, and the expanded card shell now use the same `GlassPanel` as the composer wells (`expo-glass-effect` `GlassView` on iOS 26). Fallback fill is `glassFallback` / `glassFallbackStrong` when Liquid Glass is unavailable, the effect API is missing, or Reduce Transparency is on. Lane interaction (one expanded card, re-tap to collapse, pill order, 180 ms fade) is unchanged. Inner card actions stay filled `control` chips so they stay distinct on the glass shell. Transcript historic permission cards stay `cardElevated`.
 
+<!-- updated 2026-10-18: native untinted Liquid Glass, matching composer wells -->
+
+**Implementation delta (2026-10-18, native glass):** `#322` still painted lane chrome with `glassTint` / `controlGlassTint` and `GlassPanel`'s default hairline border, so pills and the expanded shell looked like tinted plates instead of iOS 26 Liquid Glass (header `UIBarButtonItem` / composer `+` wells). Lane chrome now spreads `COMPOSER_GLASS_WELL` (`interactive: true`, `shadow: false`, no `tintColor`). `GlassPanel` only forwards `tintColor` when a caller sets it, and the Liquid Glass path has no extra fill or border — the system material owns the highlight stroke. Fallback (old OS / missing API / Reduce Transparency) still uses `glassFallback` + `glassBorder`. Expanded-card copy stays `theme.colors.label`.
+
 ## Motion mapping
 
 All durations and easings come from `agent-tree-branch.ts` constants (shared per D2). Reduced Motion: every row below becomes an immediate state change.

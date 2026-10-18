@@ -15,7 +15,11 @@ import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { AgentChatAddSheet } from "./AgentChatAddSheet";
 import { AgentChatModelSheet } from "./AgentChatModelSheet";
 import { contextTriggerLabel } from "./composer-capabilities";
-import { COMPOSER_GLASS_CONTROL_RADIUS, COMPOSER_GLASS_CONTROL_SIZE } from "./composer-glass";
+import {
+  COMPOSER_GLASS_CONTROL_RADIUS,
+  COMPOSER_GLASS_CONTROL_SIZE,
+  COMPOSER_GLASS_WELL,
+} from "./composer-glass";
 import {
   applyComposerPaste,
   pasteChipLabel,
@@ -137,7 +141,7 @@ export function AgentChatComposer(props: {
   }, [props.text]);
 
   const renderPlus = () => (
-    <GlassPanel interactive shadow={false} style={glassButton}>
+    <GlassPanel {...COMPOSER_GLASS_WELL} style={glassButton}>
       <Pressable
         accessibilityLabel={copy.add}
         accessibilityRole="button"
@@ -185,7 +189,7 @@ export function AgentChatComposer(props: {
     );
     if (sendReady) return button;
     return (
-      <GlassPanel interactive={props.busy} shadow={false} style={glassButton}>
+      <GlassPanel {...COMPOSER_GLASS_WELL} interactive={props.busy} style={glassButton}>
         {button}
       </GlassPanel>
     );
@@ -236,8 +240,7 @@ export function AgentChatComposer(props: {
   const renderContext = () =>
     showContext ? (
       <GlassPanel
-        interactive
-        shadow={false}
+        {...COMPOSER_GLASS_WELL}
         style={{
           alignItems: "center",
           borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
@@ -330,7 +333,8 @@ export function AgentChatComposer(props: {
             {pasteChips.map((chip) => (
               <GlassPanel
                 key={chip.id}
-                shadow={false}
+                {...COMPOSER_GLASS_WELL}
+                interactive={false}
                 style={{
                   alignItems: "center",
                   borderRadius: 16,

@@ -7,7 +7,11 @@ import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
 import { shouldUseLiquidGlass } from "../../ui/primitives/glass-availability";
-import { COMPOSER_GLASS_CONTROL_RADIUS, COMPOSER_GLASS_CONTROL_SIZE } from "./composer-glass";
+import {
+  COMPOSER_GLASS_CONTROL_RADIUS,
+  COMPOSER_GLASS_CONTROL_SIZE,
+  COMPOSER_GLASS_WELL,
+} from "./composer-glass";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -24,13 +28,14 @@ function listTsx(dir: string): string[] {
 }
 
 describe("composer glass tokens", () => {
-  test("lane pills share the composer well size", () => {
+  test("lane pills share the composer well size and native glass args", () => {
     expect(COMPOSER_GLASS_CONTROL_SIZE).toBe(36);
     expect(COMPOSER_GLASS_CONTROL_RADIUS).toBe(18);
+    expect(COMPOSER_GLASS_WELL).toEqual({ interactive: true, shadow: false });
     const composer = source("AgentChatComposer.tsx");
-    expect(composer).toContain("COMPOSER_GLASS_CONTROL_SIZE");
-    expect(composer).toContain("COMPOSER_GLASS_CONTROL_RADIUS");
-    expect(composer).toContain("shadow={false}");
+    expect(composer).toContain("COMPOSER_GLASS_WELL");
+    expect(composer).not.toContain("tintColor");
+    expect(composer).not.toContain("glassTint");
   });
 });
 
@@ -66,13 +71,15 @@ describe("Liquid Glass fallback", () => {
     ).toBe(false);
   });
 
-  test("GlassPanel is the only expo-glass-effect owner and watches Reduce Transparency", () => {
+  test("GlassPanel is the only expo-glass-effect owner and does not tint by default", () => {
     const panel = readFileSync(join(here, "../../ui/primitives/glass-panel.tsx"), "utf8");
     expect(panel).toContain("shouldUseLiquidGlass");
     expect(panel).toContain("isReduceTransparencyEnabled");
     expect(panel).toContain("reduceTransparencyChanged");
     expect(panel).toContain("theme.colors.glassFallback");
-    expect(panel).toContain("theme.colors.glassTint");
+    expect(panel).toContain("tintColor != null");
+    expect(panel).not.toContain("tintColor ?? theme.colors.glassTint");
+    expect(panel).not.toContain("resolvedTintColor");
     const chatSources = [
       source("AgentChatComposer.tsx"),
       source("composer-pill-row.tsx"),
@@ -88,32 +95,36 @@ describe("Liquid Glass fallback", () => {
 });
 
 describe("card lane glass chrome", () => {
-  test("title pills and the N below pill are GlassPanel wells with label ink", () => {
+  test("title pills and the N below pill reuse COMPOSER_GLASS_WELL with label ink", () => {
     const pills = source("composer-pill-row.tsx");
     const below = source("scroll-pill.tsx");
     for (const text of [pills, below]) {
       expect(text).toContain("GlassPanel");
-      expect(text).toContain("shadow={false}");
+      expect(text).toContain("COMPOSER_GLASS_WELL");
       expect(text).toContain("COMPOSER_GLASS_CONTROL_SIZE");
       expect(text).toContain("COMPOSER_GLASS_CONTROL_RADIUS");
       expect(text).toContain("theme.colors.label");
       expect(text).toContain("opacity: pressed ? 0.6 : 1");
+      expect(text).not.toContain("tintColor");
+      expect(text).not.toContain("glassTint");
+      expect(text).not.toContain("controlGlassTint");
+      expect(text).not.toContain("glassFallback");
     }
-    expect(pills).toContain("theme.colors.glassTint");
-    expect(pills).toContain("theme.colors.controlGlassTint");
-    expect(below).toContain("theme.colors.glassTint");
   });
 
-  test("the expanded shell is GlassPanel and every lane body still mounts inside it", () => {
+  test("the expanded shell is the same GlassPanel well without tint or extra fill", () => {
     const expanded = source("cards/expanded-card.tsx");
     expect(expanded).toContain("GlassPanel");
-    expect(expanded).toContain("glassFallbackStrong");
-    expect(expanded).toContain("theme.colors.glassTint");
-    expect(expanded).toContain("shadow={false}");
+    expect(expanded).toContain("COMPOSER_GLASS_WELL");
+    expect(expanded).toContain("interactive={false}");
     expect(expanded).toContain("FadeIn");
     expect(expanded).toContain("FadeOut");
     expect(expanded).toContain("0.4");
     expect(expanded).not.toContain("cardElevated");
+    expect(expanded).not.toContain("tintColor");
+    expect(expanded).not.toContain("glassTint");
+    expect(expanded).not.toContain("glassFallback");
+    expect(expanded).not.toContain("glassFallbackStrong");
     const lane = source("cards/lane-body.tsx");
     for (const id of [
       "permission",

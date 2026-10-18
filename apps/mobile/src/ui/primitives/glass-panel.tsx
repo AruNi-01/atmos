@@ -37,8 +37,7 @@ export function GlassPanel({
     liquidGlassAvailable: isLiquidGlassAvailable(),
     reduceTransparency,
   });
-  const resolvedTintColor = tintColor ?? theme.colors.glassTint;
-  const panelStyle = [styles.panel, { borderColor: theme.colors.glassBorder }, style];
+  const shadowStyle = shadow ? (isDark ? styles.darkShadow : styles.lightShadow) : null;
 
   if (useLiquidGlass) {
     return (
@@ -46,8 +45,8 @@ export function GlassPanel({
         colorScheme={resolvedScheme}
         glassEffectStyle={glassEffectStyle}
         isInteractive={interactive}
-        style={[shadow ? (isDark ? styles.darkShadow : styles.lightShadow) : null, panelStyle]}
-        tintColor={resolvedTintColor}
+        style={[shadowStyle, styles.shape, style]}
+        {...(tintColor != null ? { tintColor } : null)}
       >
         {children}
       </GlassView>
@@ -57,11 +56,15 @@ export function GlassPanel({
   return (
     <View
       style={[
+        styles.shape,
         styles.fallback,
-        shadow ? (isDark ? styles.darkShadow : styles.lightShadow) : null,
-        { backgroundColor: theme.colors.glassFallback },
+        shadowStyle,
+        {
+          backgroundColor: theme.colors.glassFallback,
+          borderColor: theme.colors.glassBorder,
+        },
         fallbackStyle,
-        panelStyle,
+        style,
       ]}
     >
       {children}
@@ -100,15 +103,15 @@ const styles = StyleSheet.create({
   },
   fallback: {
     backgroundColor: colors.glassFallback,
+    borderColor: colors.glassBorder,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   lightShadow: {
     boxShadow: shadows.glassPanelLight,
   },
-  panel: {
-    borderColor: colors.glassBorder,
+  shape: {
     borderCurve: "continuous",
     borderRadius: radii.card,
-    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
 });
