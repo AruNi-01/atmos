@@ -181,6 +181,26 @@ describe("tool tree", () => {
     expect(strokes({ first: false, last: true, height: 40 }).trunk).toBeNull();
     expect(strokes({ first: false, last: false, height: 0 }).trunk).toBeNull();
   });
+
+  test("mixes opaque ink so a shared joint stays the same tone as the stroke", async () => {
+    const tree = await importPure("tool-tree.tsx");
+    const mix = tree.mixOpaqueSrgb as (
+      foreground: string,
+      background: string,
+      amount: number,
+    ) => string;
+    const ink = tree.toolTreeInk as (foreground: string, background: string) => string;
+    const light = ink("#111112", "#f4f4f6");
+    const dark = ink("#f5f5f7", "#000000");
+    expect(light).toBe("#dddddf");
+    expect(dark).toBe("#191919");
+    expect(mix("#111112", "#f4f4f6", 0.1)).toBe(light);
+    expect(mix("#abc", "#000", 1)).toBe("#aabbcc");
+    expect(mix("not-a-color", "#f4f4f6", 0.1)).toBe("not-a-color");
+    // Two overlapping translucent strokes pick up extra foreground; opaque ink does not.
+    expect(mix("#111112", "#f4f4f6", 0.19)).not.toBe(light);
+    expect(mix(light, light, 1)).toBe(light);
+  });
 });
 
 describe("transcript source", () => {
@@ -193,6 +213,9 @@ describe("transcript source", () => {
     expect(tree).toContain("treeReachPath");
     expect(tree).toContain("treeTrunkPath");
     expect(tree).toContain("TREE_LINE_ALPHA");
+    expect(tree).toContain("toolTreeInk");
+    expect(tree).toContain("mixOpaqueSrgb");
+    expect(tree).not.toContain("strokeOpacity");
     expect(tree).not.toContain("strokeDashoffset");
     expect(tree).not.toContain("strokeDasharray");
   });

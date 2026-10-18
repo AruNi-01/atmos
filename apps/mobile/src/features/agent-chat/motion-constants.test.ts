@@ -52,6 +52,10 @@ describe("motion constants", () => {
     expect(tree).toContain("duration={LOG_ROW_ELBOW_MS}");
     expect(tree).toContain("duration={LOG_ROW_TRUNK_MS}");
     expect(tree).toContain("Easing.linear");
+    expect(tree).toContain('strokeLinecap: "butt"');
+    expect(tree).toContain("toolTreeInk(theme.colors.label, theme.colors.background)");
+    expect(tree).not.toContain("strokeOpacity");
+    expect(log).toContain("color-mix(in srgb, var(--muted-foreground) 45%, var(--background))");
     expect(reveal).toContain("LOG_ROW_REVEAL_HEIGHT_MS");
     expect(reveal).toContain("LOG_ROW_REVEAL_MS");
     expect(reveal).toContain(
