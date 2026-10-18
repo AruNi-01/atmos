@@ -8,11 +8,12 @@ type SocketEvent = {
 
 type NativeSocket = {
   addListener(
-    event: "open" | "message" | "error" | "close",
+    event: "open" | "message" | "error" | "close" | "pong",
     listener: (payload: SocketEvent) => void,
   ): { remove: () => void };
   close(code: number, reason: string): void;
   connect(url: string): void;
+  ping?: () => void;
   release?: () => void;
   send(text: string): void;
 };
@@ -29,6 +30,7 @@ export type PreferredWebSocket = {
   onopen: (() => void) | null;
   close: (code?: number, reason?: string) => void;
   send: (data: string) => void;
+  ping?: (onPong: (error?: Error) => void) => void;
 };
 
 const WEBSOCKET_CONNECTING = 0;
@@ -67,6 +69,7 @@ export class UrlSessionWebSocket implements PreferredWebSocket {
 
   private readonly native: NativeSocket;
   private readonly subscriptions: Array<{ remove: () => void }>;
+  private readonly pongWaiters: Array<(error?: Error) => void> = [];
   private connectCancelled = false;
   private released = false;
 
@@ -84,11 +87,18 @@ export class UrlSessionWebSocket implements PreferredWebSocket {
       }),
       this.native.addListener("error", (payload) => {
         if (this.released) return;
+        this.failPongWaiters(new Error(payload.message || payload.reason || "WebSocket error"));
         this.onerror?.(payload);
+      }),
+      this.native.addListener("pong", () => {
+        if (this.released) return;
+        const waiter = this.pongWaiters.shift();
+        waiter?.();
       }),
       this.native.addListener("close", (payload) => {
         if (this.released) return;
         this.readyState = WEBSOCKET_CLOSED;
+        this.failPongWaiters(new Error(payload.reason || payload.message || "WebSocket closed"));
         this.onclose?.(payload);
         this.release();
       }),
@@ -102,8 +112,23 @@ export class UrlSessionWebSocket implements PreferredWebSocket {
   }
 
   send(data: string) {
-    if (this.readyState !== WEBSOCKET_OPEN) return;
+    if (this.readyState !== WEBSOCKET_OPEN) {
+      throw new Error("WebSocket is not open");
+    }
     this.native.send(data);
+  }
+
+  ping(onPong: (error?: Error) => void) {
+    if (this.readyState !== WEBSOCKET_OPEN) {
+      onPong(new Error("WebSocket is not open"));
+      return;
+    }
+    if (typeof this.native.ping !== "function") {
+      onPong();
+      return;
+    }
+    this.pongWaiters.push(onPong);
+    this.native.ping();
   }
 
   close(code = 1000, reason = "") {
@@ -111,6 +136,11 @@ export class UrlSessionWebSocket implements PreferredWebSocket {
     if (this.released) return;
     this.readyState = WEBSOCKET_CLOSED;
     this.native.close(code, reason);
+  }
+
+  private failPongWaiters(error: Error) {
+    const waiters = this.pongWaiters.splice(0, this.pongWaiters.length);
+    for (const waiter of waiters) waiter(error);
   }
 
   private release() {

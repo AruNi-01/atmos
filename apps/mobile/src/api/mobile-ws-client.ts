@@ -1,7 +1,10 @@
 import type { MappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
 import {
   createWsSession,
+  DEFAULT_MOBILE_HEARTBEAT_INTERVAL_MS,
+  DEFAULT_MOBILE_HEARTBEAT_TIMEOUT_MS,
   DEFAULT_MOBILE_RECONNECT,
+  DEFAULT_MOBILE_REQUEST_TIMEOUT_MS,
   type ConnectionState as KernelState,
   type WsRequestCallOpts,
   type WsSession,
@@ -9,8 +12,15 @@ import {
 import type { WebSocketLike } from "@atmos/api-client/platform";
 import { redactUrl } from "@/lib/relay-url";
 import { preferredComputerWebSocket } from "@/api/url-session-websocket";
+import {
+  AgentChatCursorTracker,
+  agentChatCursorFromMessage,
+  parseRelayCtrl,
+} from "@/api/mobile-ws-transport";
 
 const MOBILE_HANDSHAKE_TIMEOUT_MS = 15_000;
+const RELAY_RESUBSCRIBE_INITIAL_MS = 250;
+const RELAY_RESUBSCRIBE_MAX_MS = 15_000;
 
 type MobileSocketEvent = {
   code?: number;
@@ -27,6 +37,7 @@ type MobileWebSocketLike = {
   onopen: (() => void) | null;
   close: (code?: number, reason?: string) => void;
   send: (data: string) => void;
+  ping?: (onPong: (error?: Error) => void) => void;
 };
 
 type MobileWebSocketCtor = new (url: string) => MobileWebSocketLike;
@@ -38,10 +49,13 @@ export type MobileWsState = "idle" | "connecting" | "open" | "reconnecting" | "c
 type MobileWsClientOptions = {
   WebSocketCtor?: MobileWebSocketCtor;
   clearTimeout?: (timer: MobileTimer) => void;
+  heartbeatIntervalMs?: number;
+  heartbeatTimeoutMs?: number;
   maxReconnectAttempts?: number;
   reconnect?: boolean;
   reconnectInitialDelayMs?: number;
   reconnectMaxDelayMs?: number;
+  requestTimeoutMs?: number;
   setTimeout?: (callback: () => void, delayMs: number) => MobileTimer;
 };
 
@@ -52,6 +66,7 @@ function mapState(state: KernelState): MobileWsState {
     case "connecting":
       return "connecting";
     case "reconnecting":
+    case "disconnected":
       return "reconnecting";
     case "error":
       return "error";
@@ -59,7 +74,6 @@ function mapState(state: KernelState): MobileWsState {
       return "closed";
     case "idle":
       return "idle";
-    case "disconnected":
     default:
       return "closed";
   }
@@ -89,6 +103,11 @@ function adaptSocket(
     close: (code, reason) => {
       raw.close(code, reason);
     },
+    ping: raw.ping
+      ? (onPong) => {
+          raw.ping!(onPong);
+        }
+      : undefined,
     get onopen() {
       return raw.onopen as WebSocketLike["onopen"];
     },
@@ -136,6 +155,20 @@ function adaptSocket(
   };
 }
 
+function subscribePayload(data: unknown): { chatId: string; afterSequence: number | null } | null {
+  if (!data || typeof data !== "object") return null;
+  const record = data as { chat_id?: unknown; after_sequence?: unknown };
+  if (typeof record.chat_id !== "string" || record.chat_id.length === 0) return null;
+  const after =
+    typeof record.after_sequence === "number" && Number.isFinite(record.after_sequence)
+      ? record.after_sequence
+      : record.after_sequence == null
+        ? 0
+        : null;
+  if (after == null) return { chatId: record.chat_id, afterSequence: 0 };
+  return { chatId: record.chat_id, afterSequence: after };
+}
+
 /**
  * Mobile façade over `@atmos/api-client` WsSession (APP-049).
  * Preserves historical state names (`open`) and constructor options for tests.
@@ -143,18 +176,28 @@ function adaptSocket(
 export class MobileWsClient {
   private session: WsSession;
   private stateListeners = new Set<(state: MobileWsState) => void>();
+  private alertListeners = new Set<(alert: string | null) => void>();
   private messageUnsub: (() => void) | null = null;
   private stateUnsub: (() => void) | null = null;
   private currentState: MobileWsState = "idle";
   private lastFailureMessage = "";
+  private currentAlert: string | null = null;
+  private disposed = false;
+  private foreground = true;
+  private networkOnline = true;
+  private readonly cursors = new AgentChatCursorTracker();
+  private readonly setTimer: (callback: () => void, delayMs: number) => MobileTimer;
+  private readonly clearTimer: (timer: MobileTimer) => void;
+  private resubscribeTimer: MobileTimer | null = null;
+  private resubscribeAttempt = 0;
 
   constructor(
     private readonly wsUrl: string,
     options: MobileWsClientOptions = {},
   ) {
     const WebSocketCtor = options.WebSocketCtor;
-    const setTimer = options.setTimeout ?? setTimeout;
-    const clearTimer = options.clearTimeout ?? clearTimeout;
+    this.setTimer = options.setTimeout ?? setTimeout;
+    this.clearTimer = options.clearTimeout ?? clearTimeout;
     const maxAttempts = options.maxReconnectAttempts ?? DEFAULT_MOBILE_RECONNECT.maxAttempts;
     const reconnectEnabled = options.reconnect ?? true;
 
@@ -170,8 +213,8 @@ export class MobileWsClient {
             },
           ),
         timers: {
-          setTimeout: (fn, ms) => setTimer(fn, ms),
-          clearTimeout: (id) => clearTimer(id as MobileTimer),
+          setTimeout: (fn, ms) => this.setTimer(fn, ms),
+          clearTimeout: (id) => this.clearTimer(id as MobileTimer),
         },
         log: (level, msg) => {
           if (level === "error") {
@@ -188,15 +231,21 @@ export class MobileWsClient {
         initialDelayMs: options.reconnectInitialDelayMs ?? DEFAULT_MOBILE_RECONNECT.initialDelayMs,
         maxDelayMs: options.reconnectMaxDelayMs ?? DEFAULT_MOBILE_RECONNECT.maxDelayMs,
       },
-      requestTimeoutMs: 0,
+      requestTimeoutMs: options.requestTimeoutMs ?? DEFAULT_MOBILE_REQUEST_TIMEOUT_MS,
+      heartbeatIntervalMs: options.heartbeatIntervalMs ?? DEFAULT_MOBILE_HEARTBEAT_INTERVAL_MS,
+      heartbeatTimeoutMs: options.heartbeatTimeoutMs ?? DEFAULT_MOBILE_HEARTBEAT_TIMEOUT_MS,
     });
 
     this.stateUnsub = this.session.onState((s) => {
-      if (s === "connected") this.lastFailureMessage = "";
+      if (s === "connected") {
+        this.lastFailureMessage = "";
+        if (this.currentAlert !== "No network connection.") this.setAlert(null);
+      }
       this.currentState = mapState(s);
       this.stateListeners.forEach((l) => l(this.currentState));
     });
     this.messageUnsub = this.session.onMessage((msg) => {
+      this.handleTransportMessage(msg);
       this.messageListeners.forEach((l) => l(msg));
     });
   }
@@ -211,15 +260,38 @@ export class MobileWsClient {
     return this.lastFailureMessage;
   }
 
+  get transportAlert() {
+    return this.currentAlert;
+  }
+
   connect() {
+    if (this.disposed) return;
     if (this.currentState === "open") return;
     void this.session.connect().catch(() => undefined);
   }
 
   close() {
+    this.disposed = true;
+    this.clearResubscribeTimer();
+    this.messageUnsub?.();
+    this.stateUnsub?.();
+    this.messageUnsub = null;
+    this.stateUnsub = null;
     this.session.disconnect();
     this.currentState = "closed";
     this.stateListeners.forEach((l) => l(this.currentState));
+  }
+
+  setForeground(active: boolean) {
+    this.foreground = active;
+    this.applyLifecycle();
+  }
+
+  setNetworkOnline(online: boolean) {
+    this.networkOnline = online;
+    if (!online) this.setAlert("No network connection.");
+    else if (this.currentAlert === "No network connection.") this.setAlert(null);
+    this.applyLifecycle();
   }
 
   request<A extends MappedWsAction>(
@@ -228,8 +300,16 @@ export class MobileWsClient {
     opts?: WsRequestCallOpts,
   ): Promise<WsContract[A]["output"]>;
   request(action: string, data?: unknown, opts?: WsRequestCallOpts): Promise<unknown> {
+    if (action === "agent_chat_subscribe") {
+      const payload = subscribePayload(data);
+      if (payload) this.cursors.noteSubscribe(payload.chatId, payload.afterSequence);
+    } else if (action === "agent_chat_unsubscribe") {
+      const payload = subscribePayload(data);
+      if (payload) this.cursors.noteUnsubscribe(payload.chatId);
+    }
     return this.session.request(action as never, data as never, opts).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
+      this.lastFailureMessage = message;
       if (message.includes("not connected")) {
         return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
       }
@@ -243,8 +323,92 @@ export class MobileWsClient {
     return () => this.stateListeners.delete(listener);
   }
 
+  subscribeAlerts(listener: (alert: string | null) => void) {
+    this.alertListeners.add(listener);
+    listener(this.currentAlert);
+    return () => this.alertListeners.delete(listener);
+  }
+
   subscribeMessages(listener: (message: unknown) => void) {
     this.messageListeners.add(listener);
     return () => this.messageListeners.delete(listener);
+  }
+
+  private handleTransportMessage(message: unknown) {
+    const cursor = agentChatCursorFromMessage(message);
+    if (cursor) this.cursors.noteRevision(cursor.chatId, cursor.revision);
+
+    const ctrl = parseRelayCtrl(message);
+    if (!ctrl) return;
+    this.lastFailureMessage = `relay_ctrl: ${ctrl.code}`;
+    this.session.failPending(new Error(`relay_ctrl: ${ctrl.code}`));
+    if (this.cursors.snapshots().length === 0) return;
+    this.setAlert("Atmos Computer went offline. Catching up this chat.");
+    this.scheduleResubscribe();
+  }
+
+  private scheduleResubscribe() {
+    if (this.disposed || this.resubscribeTimer != null) return;
+    const delay =
+      this.resubscribeAttempt === 0
+        ? 0
+        : Math.min(
+            RELAY_RESUBSCRIBE_INITIAL_MS * 2 ** (this.resubscribeAttempt - 1),
+            RELAY_RESUBSCRIBE_MAX_MS,
+          );
+    this.resubscribeAttempt += 1;
+    this.resubscribeTimer = this.setTimer(() => {
+      this.resubscribeTimer = null;
+      void this.resubscribeNow();
+    }, delay);
+  }
+
+  private async resubscribeNow() {
+    if (this.disposed) return;
+    const chats = this.cursors.snapshots();
+    if (chats.length === 0) {
+      this.resubscribeAttempt = 0;
+      if (this.currentAlert !== "No network connection.") this.setAlert(null);
+      return;
+    }
+    if (this.currentState !== "open") {
+      this.scheduleResubscribe();
+      return;
+    }
+    try {
+      await Promise.all(
+        chats.map((chat) =>
+          this.session.request("agent_chat_subscribe", {
+            chat_id: chat.chat_id,
+            after_sequence: chat.after_sequence,
+          }),
+        ),
+      );
+      this.resubscribeAttempt = 0;
+      if (this.currentAlert !== "No network connection.") this.setAlert(null);
+    } catch {
+      this.scheduleResubscribe();
+    }
+  }
+
+  private applyLifecycle() {
+    if (this.disposed) return;
+    const wantLive = this.foreground && this.networkOnline;
+    if (!wantLive) {
+      this.session.pauseReconnect();
+      return;
+    }
+    this.session.resumeReconnect();
+  }
+
+  private setAlert(alert: string | null) {
+    this.currentAlert = alert;
+    this.alertListeners.forEach((listener) => listener(alert));
+  }
+
+  private clearResubscribeTimer() {
+    if (this.resubscribeTimer == null) return;
+    this.clearTimer(this.resubscribeTimer);
+    this.resubscribeTimer = null;
   }
 }

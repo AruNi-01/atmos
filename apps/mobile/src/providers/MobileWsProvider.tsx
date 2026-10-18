@@ -1,5 +1,7 @@
 import type { PropsWithChildren } from "react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { AppState } from "react-native";
+import * as Network from "expo-network";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TerminalTitleUpdatedNotification } from "@atmos/api-types/ws/dto/events";
 import type { TerminalWorkspaceCandidate } from "@/api/types";
@@ -48,8 +50,12 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
       return undefined;
     }
 
-    const unsubscribe = client.subscribeState((nextState) => {
-      setWsState(nextState);
+    const applyBanner = (nextState: MobileWsState) => {
+      const alert = client.transportAlert;
+      if (alert) {
+        setDisconnectedReason(alert);
+        return;
+      }
       if (nextState === "closed" || nextState === "error") {
         const detail = client.lastFailure.trim();
         setDisconnectedReason(
@@ -62,6 +68,27 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
       } else if (nextState === "open") {
         setDisconnectedReason(null);
       }
+    };
+
+    const unsubscribe = client.subscribeState((nextState) => {
+      setWsState(nextState);
+      applyBanner(nextState);
+    });
+    const unsubscribeAlerts = client.subscribeAlerts(() => {
+      applyBanner(client.state);
+    });
+
+    client.setForeground(AppState.currentState === "active");
+    void Network.getNetworkStateAsync()
+      .then((state) => {
+        client.setNetworkOnline(state.isConnected !== false);
+      })
+      .catch(() => undefined);
+    const appSub = AppState.addEventListener("change", (status) => {
+      client.setForeground(status === "active");
+    });
+    const netSub = Network.addNetworkStateListener((state) => {
+      client.setNetworkOnline(state.isConnected !== false);
     });
 
     client.connect();
@@ -83,7 +110,10 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
       );
     });
     return () => {
+      appSub.remove();
+      netSub.remove();
       unsubscribeTitles();
+      unsubscribeAlerts();
       unsubscribe();
       client.close();
     };
