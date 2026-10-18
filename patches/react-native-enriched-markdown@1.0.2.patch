@@ -633,7 +633,7 @@ index 585044157..53a2ff798 100644
 +  applyBaselineOffset(string, range);
  }
 diff --git a/ios/utils/ParagraphStyleUtils.h b/ios/utils/ParagraphStyleUtils.h
-index 95a2138..748de1d 100644
+index 95a2138..cdf6022 100644
 --- a/ios/utils/ParagraphStyleUtils.h
 +++ b/ios/utils/ParagraphStyleUtils.h
 @@ -1,4 +1,5 @@
@@ -642,7 +642,7 @@ index 95a2138..748de1d 100644
  #import <Foundation/Foundation.h>
  
  NS_ASSUME_NONNULL_BEGIN
-@@ -43,6 +44,115 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
+@@ -43,6 +44,131 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
  NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRange range, CGFloat marginTop);
  NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger insertionPoint, CGFloat marginTop);
  void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
@@ -671,6 +671,22 @@ index 95a2138..748de1d 100644
 +    return 0.0;
 +  }
 +  return ENRMCollapsedMargin(margin, previousTrailing);
++}
++
++/// Part of a list's bottom margin that is the item pad. It stays painted
++/// when the next block collapses.
++#define ENRMNonCollapsingPadAttributeName @"ENRMNonCollapsingPad"
++
++static inline CGFloat ENRMNonCollapsingPadAt(NSAttributedString *text, NSUInteger index)
++{
++  if (text.length == 0 || index >= text.length) {
++    return 0.0;
++  }
++  id value = [text attribute:ENRMNonCollapsingPadAttributeName atIndex:index effectiveRange:NULL];
++  if (![value isKindOfClass:[NSNumber class]]) {
++    return 0.0;
++  }
++  return [value doubleValue];
 +}
 +
 +/// A leading spacer is a 1pt newline. Its paragraph spacing plus that point is
@@ -759,19 +775,24 @@ index 95a2138..748de1d 100644
  void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
  
 diff --git a/ios/utils/ParagraphStyleUtils.m b/ios/utils/ParagraphStyleUtils.m
-index 24c7daa..34108be 100644
+index 24c7daa..ca16bf4 100644
 --- a/ios/utils/ParagraphStyleUtils.m
 +++ b/ios/utils/ParagraphStyleUtils.m
-@@ -192,6 +192,8 @@ NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRang
+@@ -192,6 +192,13 @@ NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRang
    NSParagraphStyle *prevStyle = [output attribute:NSParagraphStyleAttributeName atIndex:prevIdx effectiveRange:NULL];
  
    CGFloat prevMarginBottom = prevStyle.paragraphSpacing;
++  // A list bottom keeps its item pad. Only the block gap collapses.
++  CGFloat pad = ENRMNonCollapsingPadAt(output, prevIdx);
++  if (pad > 0.0 && pad < prevMarginBottom) {
++    prevMarginBottom -= pad;
++  }
 +  // A rule's bottom is inside the rule, so the next block collapses against it.
 +  prevMarginBottom = MAX(prevMarginBottom, ENRMThematicBreakBottomBeforeNewline(output, prevIdx));
    if (prevMarginBottom >= marginTop)
      return 0;
  
-@@ -292,10 +294,10 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
+@@ -292,10 +299,10 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
    [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
  }
  
@@ -2831,7 +2852,7 @@ index 3b5a5c6..b2775e8 100644
    private val rect = RectF()
    private val checkPath = Path()
 diff --git a/ios/renderer/ListRenderer.m b/ios/renderer/ListRenderer.m
-index 47283dc..7fb8fb9 100644
+index 47283dc..982c02f 100644
 --- a/ios/renderer/ListRenderer.m
 +++ b/ios/renderer/ListRenderer.m
 @@ -73,8 +73,13 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
@@ -2850,6 +2871,21 @@ index 47283dc..7fb8fb9 100644
    } else if (output.length > 0 && ![output.string hasSuffix:@"\n"]) {
      // Ensure nested lists start on a new line
      [output appendAttributedString:kNewlineAttributedString];
+@@ -102,6 +107,14 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
+     applyListItemSpacing(output, context, startLocation, [_config listStyleItemSpacing]);
+     // Apply bottom margin for root-level list
+     applyBlockSpacingAfter(output, _config.listStyleMarginBottom);
++    // The item pad in the list's bottom does not collapse with the next block.
++    CGFloat pad = [_config listStyleMarginTop];
++    if (!ENRMCollapsesBlockMargins([_config paragraphMarginTop]) && pad > 0.0 &&
++        [_config listStyleMarginBottom] > pad && output.length > 0) {
++      [output addAttribute:ENRMNonCollapsingPadAttributeName
++                     value:@(pad)
++                     range:NSMakeRange(output.length - 1, 1)];
++    }
+   }
+ }
+ 
 diff --git a/ios/EnrichedMarkdown.mm b/ios/EnrichedMarkdown.mm
 index ed8b53d..eae38d0 100644
 --- a/ios/EnrichedMarkdown.mm

@@ -179,6 +179,10 @@ describe("web source parity", () => {
     expect(patch).toContain(
       "Prose lists collapse with the previous block. Answer lists stack the 4px pad.",
     );
+    expect(patch).toContain(
+      "The item pad in the list's bottom does not collapse with the next block.",
+    );
+    expect(patch).toContain("A list bottom keeps its item pad. Only the block gap collapses.");
     expect(patch).toContain("The first answer or thinking quote stays clear.");
     expect(patch).toContain("A prose rule keeps its own margins.");
     expect(patch).toContain("A fence before this segment collapses against it.");
