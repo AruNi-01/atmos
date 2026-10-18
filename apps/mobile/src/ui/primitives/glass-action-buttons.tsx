@@ -2,13 +2,17 @@ import { useEffect, useState } from "react";
 import { Button as ExpoButton, Host as ExpoHost } from "@expo/ui";
 import { Button, Host, HStack } from "@expo/ui/swift-ui";
 import {
+  background,
   buttonStyle,
   controlSize,
   disabled as disabledModifier,
   font,
+  foregroundStyle,
   glassEffect,
   opacity,
   padding,
+  shapes,
+  tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import { AccessibilityInfo, Platform, View } from "react-native";
@@ -30,7 +34,12 @@ export type GlassAction = {
   role?: "destructive";
 };
 
-export function iosGlassChipModifiers(input: { isDisabled: boolean; useLiquidGlass: boolean }) {
+export function iosGlassChipModifiers(input: {
+  fillColor: string;
+  inkColor: string;
+  isDisabled: boolean;
+  useLiquidGlass: boolean;
+}) {
   const dim = opacity(input.isDisabled ? GLASS_CHIP_DISABLED_OPACITY : 1);
   const type = font({ size: GLASS_CHIP_FONT_SIZE, weight: "semibold" });
   if (input.useLiquidGlass) {
@@ -46,7 +55,16 @@ export function iosGlassChipModifiers(input: { isDisabled: boolean; useLiquidGla
       dim,
     ];
   }
-  return [buttonStyle("bordered"), controlSize("mini"), type, dim];
+  return [
+    buttonStyle("plain"),
+    controlSize("mini"),
+    type,
+    padding(GLASS_CHIP_PADDING),
+    background(input.fillColor, shapes.capsule()),
+    foregroundStyle(input.inkColor),
+    tint(input.inkColor),
+    dim,
+  ];
 }
 
 /** Compact labeled glass chip. iOS uses `glassEffect` on a plain button. */
@@ -101,15 +119,22 @@ function IosGlassTextButton({ disabled, label, onPress, role }: GlassAction) {
     reduceTransparency,
   });
   const isDisabled = Boolean(disabled);
+  const inkColor = role === "destructive" ? theme.colors.red : theme.colors.label;
+  const fillColor = theme.colors.control;
 
   return (
     <Host colorScheme={theme.colorScheme} matchContents>
       <HStack alignment="center" spacing={0}>
         <Button
           label={label}
-          modifiers={iosGlassChipModifiers({ isDisabled, useLiquidGlass })}
+          modifiers={iosGlassChipModifiers({
+            fillColor,
+            inkColor,
+            isDisabled,
+            useLiquidGlass,
+          })}
           onPress={isDisabled ? undefined : onPress}
-          role={role ?? "default"}
+          role={useLiquidGlass ? (role ?? "default") : "default"}
         />
       </HStack>
     </Host>

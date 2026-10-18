@@ -37,6 +37,33 @@ export function composerDockExpanded(input: {
   return input.contentHeight > COMPOSER_LINE_HEIGHT * COMPOSER_MULTILINE_HEIGHT_RATIO;
 }
 
+export function composerDockLineHeight(text: string): number {
+  if (text.length === 0) return COMPOSER_LINE_HEIGHT;
+  return Math.min(text.split("\n").length, COMPOSER_MAX_LINES) * COMPOSER_LINE_HEIGHT;
+}
+
+/**
+ * Field height in the expanded dock. Newlines are a floor so Enter can grow
+ * the box even if `onContentSizeChange` is still reporting the compact line.
+ * Soft-wrap uses `measured` once the input is allowed to lay out past one line.
+ */
+export function composerDockContentHeight(text: string, measured: number): number {
+  if (text.length === 0) return COMPOSER_LINE_HEIGHT;
+  return Math.min(
+    Math.max(measured, composerDockLineHeight(text), COMPOSER_LINE_HEIGHT),
+    COMPOSER_LINE_HEIGHT * COMPOSER_MAX_LINES,
+  );
+}
+
+export function composerDockFieldHeight(input: {
+  expanded: boolean;
+  measuredHeight: number;
+  text: string;
+}): number {
+  if (!input.expanded) return COMPOSER_LINE_HEIGHT;
+  return composerDockContentHeight(input.text, input.measuredHeight);
+}
+
 export function composerDockMinHeight(input: { expanded: boolean; contentHeight: number }): number {
   if (!input.expanded) return COMPOSER_DOCK_COMPACT_HEIGHT;
   const text = Math.min(
@@ -45,6 +72,11 @@ export function composerDockMinHeight(input: { expanded: boolean; contentHeight:
   );
   return COMPOSER_EXPANDED_PAD_TOP + text + COMPOSER_EXPANDED_PAD_BOTTOM;
 }
+
+export const COMPOSER_DOCK_EXPANDED_MAX_HEIGHT = composerDockMinHeight({
+  contentHeight: COMPOSER_LINE_HEIGHT * COMPOSER_MAX_LINES,
+  expanded: true,
+});
 
 export function composerDockInputPadding(expanded: boolean): {
   paddingBottom: number;

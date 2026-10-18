@@ -25,6 +25,8 @@ import { contextTriggerLabel } from "./composer-capabilities";
 import {
   COMPOSER_COMPACT_PAD_HORIZONTAL,
   COMPOSER_COMPACT_PAD_VERTICAL,
+  COMPOSER_DOCK_COMPACT_HEIGHT,
+  COMPOSER_DOCK_EXPANDED_MAX_HEIGHT,
   COMPOSER_EXPANDED_PAD_BOTTOM,
   COMPOSER_EXPANDED_PAD_HORIZONTAL,
   COMPOSER_EXPANDED_PAD_TOP,
@@ -32,7 +34,7 @@ import {
   COMPOSER_MAX_LINES,
   COMPOSER_TOOLBAR_INSET,
   composerDockExpanded,
-  composerDockMinHeight,
+  composerDockFieldHeight,
   composerDockMotionDuration,
 } from "./composer-dock";
 import {
@@ -134,9 +136,16 @@ export function AgentChatComposer(props: {
     showSteer,
     text: props.text,
   });
+  const fieldHeight = composerDockFieldHeight({
+    expanded,
+    measuredHeight: contentHeight,
+    text: props.text,
+  });
   const reduceMotion = useReducedMotion();
   const expandProgress = useSharedValue(expanded ? 1 : 0);
-  const dockHeight = useSharedValue(composerDockMinHeight({ contentHeight, expanded }));
+  const dockMaxHeight = useSharedValue(
+    expanded ? COMPOSER_DOCK_EXPANDED_MAX_HEIGHT : COMPOSER_DOCK_COMPACT_HEIGHT,
+  );
   const wasExpanded = useRef(expanded);
 
   useEffect(() => {
@@ -147,11 +156,15 @@ export function AgentChatComposer(props: {
     wasExpanded.current = expanded;
     const timing = { duration, easing: DOCK_EXPAND_EASE };
     expandProgress.set(withTiming(expanded ? 1 : 0, timing));
-    dockHeight.set(withTiming(composerDockMinHeight({ contentHeight, expanded }), timing));
-  }, [contentHeight, dockHeight, expandProgress, expanded, reduceMotion]);
+    if (expanded) {
+      dockMaxHeight.set(COMPOSER_DOCK_EXPANDED_MAX_HEIGHT);
+    } else {
+      dockMaxHeight.set(withTiming(COMPOSER_DOCK_COMPACT_HEIGHT, timing));
+    }
+  }, [dockMaxHeight, expandProgress, expanded, reduceMotion]);
 
   const dockStyle = useAnimatedStyle(() => ({
-    height: dockHeight.get(),
+    maxHeight: dockMaxHeight.get(),
     overflow: "hidden" as const,
   }));
   const inputPadStyle = useAnimatedStyle(() => ({
@@ -496,37 +509,57 @@ export function AgentChatComposer(props: {
       >
         <Animated.View style={dockStyle}>
           <Animated.View style={inputPadStyle}>
-            <TextInput
-              multiline
-              onBlur={() => setFocused(false)}
-              onChangeText={onDraftChange}
-              onContentSizeChange={(event) => {
-                if (props.text.length === 0) {
-                  setContentHeight(LINE_HEIGHT);
-                  return;
-                }
-                const next = Math.ceil(event.nativeEvent.contentSize.height);
-                setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
-              }}
-              onFocus={() => setFocused(true)}
-              placeholder={props.placeholder}
-              placeholderTextColor={theme.colors.secondaryLabel}
-              scrollEnabled={expanded && contentHeight > LINE_HEIGHT * MAX_LINES}
-              style={{
-                backgroundColor: "transparent",
-                color: theme.colors.label,
-                fontSize: 16,
-                lineHeight: LINE_HEIGHT,
-                margin: 0,
-                maxHeight: expanded ? LINE_HEIGHT * MAX_LINES : LINE_HEIGHT,
-                minHeight: LINE_HEIGHT,
-                padding: 0,
-                textAlignVertical: expanded ? "top" : "center",
-                width: "100%",
-              }}
-              underlineColorAndroid="transparent"
-              value={props.text}
-            />
+            <View>
+              <TextInput
+                multiline
+                onBlur={() => setFocused(false)}
+                onChangeText={onDraftChange}
+                onContentSizeChange={(event) => {
+                  if (props.text.length === 0) {
+                    setContentHeight(LINE_HEIGHT);
+                    return;
+                  }
+                  const next = Math.ceil(event.nativeEvent.contentSize.height);
+                  setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
+                }}
+                onFocus={() => setFocused(true)}
+                placeholder={props.placeholder}
+                placeholderTextColor={expanded ? theme.colors.secondaryLabel : "transparent"}
+                scrollEnabled={fieldHeight >= LINE_HEIGHT * MAX_LINES}
+                style={{
+                  backgroundColor: "transparent",
+                  color: theme.colors.label,
+                  fontSize: 16,
+                  lineHeight: LINE_HEIGHT,
+                  margin: 0,
+                  maxHeight: LINE_HEIGHT * MAX_LINES,
+                  minHeight: fieldHeight,
+                  padding: 0,
+                  textAlignVertical: expanded ? "top" : "center",
+                  width: "100%",
+                }}
+                underlineColorAndroid="transparent"
+                value={props.text}
+              />
+              {!expanded && props.text.length === 0 ? (
+                <Text
+                  ellipsizeMode="tail"
+                  numberOfLines={1}
+                  pointerEvents="none"
+                  style={{
+                    color: theme.colors.secondaryLabel,
+                    fontSize: 16,
+                    left: 0,
+                    lineHeight: LINE_HEIGHT,
+                    position: "absolute",
+                    right: 0,
+                    top: 0,
+                  }}
+                >
+                  {props.placeholder}
+                </Text>
+              ) : null}
+            </View>
           </Animated.View>
           <View pointerEvents="box-none" style={toolbarStyle}>
             {renderPlus()}

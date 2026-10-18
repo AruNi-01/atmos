@@ -182,6 +182,10 @@ describe("card lane glass chrome", () => {
     expect(buttons).toContain("glassEffect(");
     expect(buttons).toContain('controlSize("mini")');
     expect(buttons).toContain('buttonStyle("glass")');
+    expect(buttons).toContain("foregroundStyle");
+    expect(buttons).toContain("theme.colors.control");
+    expect(buttons).toContain("theme.colors.red");
+    expect(buttons).not.toContain('buttonStyle("bordered")');
     expect(buttons).not.toContain("tintColor");
     expect(buttons).not.toContain("GlassEffectContainer");
     const permission = source("AgentChatPermissionCard.tsx");

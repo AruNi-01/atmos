@@ -10,10 +10,13 @@ import {
   COMPOSER_COMPACT_PAD_HORIZONTAL,
   COMPOSER_DOCK_COMPACT_HEIGHT,
   COMPOSER_DOCK_EXPAND_MS,
+  COMPOSER_DOCK_EXPANDED_MAX_HEIGHT,
   COMPOSER_EXPANDED_PAD_HORIZONTAL,
   COMPOSER_LINE_HEIGHT,
   COMPOSER_MAX_LINES,
+  composerDockContentHeight,
   composerDockExpanded,
+  composerDockFieldHeight,
   composerDockInputPadding,
   composerDockMinHeight,
   composerDockMotionDuration,
@@ -74,6 +77,39 @@ describe("composer dock expand", () => {
     ).toBe(true);
   });
 
+  test("four Enter lines grow the field even if measured height is still one line", () => {
+    const fourLines = "one\ntwo\nthree\nfour";
+    const staleMeasure = COMPOSER_LINE_HEIGHT;
+    expect(composerDockContentHeight(fourLines, staleMeasure)).toBe(COMPOSER_LINE_HEIGHT * 4);
+    expect(
+      composerDockFieldHeight({
+        expanded: true,
+        measuredHeight: staleMeasure,
+        text: fourLines,
+      }),
+    ).toBe(COMPOSER_LINE_HEIGHT * 4);
+    expect(
+      composerDockMinHeight({
+        contentHeight: composerDockContentHeight(fourLines, staleMeasure),
+        expanded: true,
+      }),
+    ).toBe(14 + COMPOSER_LINE_HEIGHT * 4 + 52);
+    expect(
+      composerDockFieldHeight({
+        expanded: false,
+        measuredHeight: COMPOSER_LINE_HEIGHT * 4,
+        text: fourLines,
+      }),
+    ).toBe(COMPOSER_LINE_HEIGHT);
+    expect(composerDockContentHeight("wraps without breaks", 80)).toBe(80);
+    expect(composerDockContentHeight("a\nb\nc\nd\ne\nf\ng\nh", staleMeasure)).toBe(
+      COMPOSER_LINE_HEIGHT * COMPOSER_MAX_LINES,
+    );
+    expect(COMPOSER_DOCK_EXPANDED_MAX_HEIGHT).toBe(
+      14 + COMPOSER_LINE_HEIGHT * COMPOSER_MAX_LINES + 52,
+    );
+  });
+
   test("compact is one row; expanded clears a toolbar row under the field", () => {
     expect(COMPOSER_DOCK_COMPACT_HEIGHT).toBe(52);
     expect(composerDockMinHeight({ expanded: false, contentHeight: 80 })).toBe(52);
@@ -101,6 +137,7 @@ describe("composer dock expand", () => {
 
   test("the composer animates the dock from focus with reanimated", () => {
     expect(composer).toContain("composerDockExpanded");
+    expect(composer).toContain("composerDockFieldHeight");
     expect(composer).toContain("onFocus");
     expect(composer).toContain("onBlur");
     expect(composer).toContain("withTiming");
@@ -108,5 +145,9 @@ describe("composer dock expand", () => {
     expect(composer).toContain("Easing.out(Easing.cubic)");
     expect(composer).toContain('pointerEvents="box-none"');
     expect(composer).toContain('pointerEvents="none"');
+    expect(composer).toContain("COMPOSER_DOCK_EXPANDED_MAX_HEIGHT");
+    expect(composer).not.toContain("height: dockHeight");
+    expect(composer).toContain("ellipsizeMode");
+    expect(composer).toContain("numberOfLines={1}");
   });
 });

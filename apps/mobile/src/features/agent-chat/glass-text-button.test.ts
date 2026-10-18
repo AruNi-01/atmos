@@ -18,6 +18,7 @@ mock.module("@/theme/theme-store", () => ({
   useMobileTheme: () => ({
     colorScheme: "light",
     colors: {
+      control: "#f8f8f9",
       label: "#111111",
       red: "#ff3b30",
       tertiaryLabel: "#8e8e93",
@@ -31,13 +32,17 @@ mock.module("expo-glass-effect", () => ({
 }));
 
 mock.module("@expo/ui/swift-ui/modifiers", () => ({
+  background: (color: string, shape?: unknown) => ({ type: "background", color, shape }),
   buttonStyle: (style: string) => ({ type: "buttonStyle", style }),
   controlSize: (size: string) => ({ type: "controlSize", size }),
   disabled: (value: boolean) => ({ type: "disabled", value }),
   font: (params: unknown) => ({ type: "font", params }),
+  foregroundStyle: (style: string) => ({ type: "foregroundStyle", style }),
   glassEffect: (params: unknown) => ({ type: "glassEffect", params }),
   opacity: (value: number) => ({ type: "opacity", value }),
   padding: (params: unknown) => ({ type: "padding", params }),
+  shapes: { capsule: () => ({ shape: "capsule" }) },
+  tint: (color: string) => ({ type: "tint", color }),
 }));
 
 mock.module("@expo/ui/swift-ui", () => ({
@@ -67,8 +72,18 @@ const {
 
 describe("iosGlassChipModifiers", () => {
   test("liquid glass chips are mini, padded like the old fill, and only slightly dim when disabled", () => {
-    const enabled = iosGlassChipModifiers({ isDisabled: false, useLiquidGlass: true });
-    const disabledChip = iosGlassChipModifiers({ isDisabled: true, useLiquidGlass: true });
+    const enabled = iosGlassChipModifiers({
+      fillColor: "#f8f8f9",
+      inkColor: "#111111",
+      isDisabled: false,
+      useLiquidGlass: true,
+    });
+    const disabledChip = iosGlassChipModifiers({
+      fillColor: "#f8f8f9",
+      inkColor: "#111111",
+      isDisabled: true,
+      useLiquidGlass: true,
+    });
     expect(enabled).toContainEqual({ type: "buttonStyle", style: "plain" });
     expect(enabled).toContainEqual({ type: "controlSize", size: "mini" });
     expect(enabled).toContainEqual({ type: "padding", params: GLASS_CHIP_PADDING });
@@ -87,10 +102,39 @@ describe("iosGlassChipModifiers", () => {
     expect(GLASS_CHIP_PADDING).toEqual({ horizontal: 12, vertical: 8 });
   });
 
-  test("Reduce Transparency uses bordered, not glassEffect", () => {
-    const fallback = iosGlassChipModifiers({ isDisabled: false, useLiquidGlass: false });
-    expect(fallback).toContainEqual({ type: "buttonStyle", style: "bordered" });
+  test("Reduce Transparency uses neutral fill and label ink, not system bordered tint", () => {
+    const fallback = iosGlassChipModifiers({
+      fillColor: "#f8f8f9",
+      inkColor: "#111111",
+      isDisabled: false,
+      useLiquidGlass: false,
+    });
+    expect(fallback).toContainEqual({ type: "buttonStyle", style: "plain" });
+    expect(fallback).not.toContainEqual({ type: "buttonStyle", style: "bordered" });
+    expect(fallback).toContainEqual({ type: "foregroundStyle", style: "#111111" });
+    expect(fallback).toContainEqual({ type: "tint", color: "#111111" });
+    expect(fallback).toContainEqual({
+      type: "background",
+      color: "#f8f8f9",
+      shape: { shape: "capsule" },
+    });
     expect(fallback.some((item) => item.type === "glassEffect")).toBe(false);
+  });
+
+  test("Delete fallback keeps semantic red ink on a neutral capsule", () => {
+    const fallback = iosGlassChipModifiers({
+      fillColor: "#f8f8f9",
+      inkColor: "#ff3b30",
+      isDisabled: false,
+      useLiquidGlass: false,
+    });
+    expect(fallback).toContainEqual({ type: "foregroundStyle", style: "#ff3b30" });
+    expect(fallback).toContainEqual({ type: "tint", color: "#ff3b30" });
+    expect(fallback).toContainEqual({
+      type: "background",
+      color: "#f8f8f9",
+      shape: { shape: "capsule" },
+    });
   });
 });
 
