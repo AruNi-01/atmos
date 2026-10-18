@@ -159,7 +159,8 @@ describe("card lane glass chrome", () => {
     expect(composer).toContain("COMPOSER_GLASS_DOCK_RADIUS");
     expect(composer).toContain('backgroundColor: "transparent"');
     expect(composer).toContain("Math.abs(current - next) < 2");
-    expect(composer).toContain("paddingHorizontal: 16");
+    expect(composer).toContain("COMPOSER_EXPANDED_PAD_HORIZONTAL");
+    expect(composer).toContain("composerDockExpanded");
     expect(composer).toContain("LINE_HEIGHT * MAX_LINES");
     expect(composer).not.toContain("theme.colors.control");
     expect(composer).not.toContain("controlBorder");

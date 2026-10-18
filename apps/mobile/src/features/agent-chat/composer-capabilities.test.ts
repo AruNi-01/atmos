@@ -45,9 +45,9 @@ describe("composer capabilities", () => {
     expect(composerSource).toContain("applyComposerPaste");
   });
 
-  test("keeps the placeholder on its own line and hides an empty model label", () => {
-    expect(composerSource).toContain("paddingHorizontal: 16");
-    expect(composerSource).not.toContain("paddingLeft: 60");
+  test("hides an empty model label and keeps compact side padding for the idle field", () => {
+    expect(composerSource).toContain("COMPOSER_COMPACT_PAD_HORIZONTAL");
+    expect(composerSource).toContain("COMPOSER_EXPANDED_PAD_HORIZONTAL");
     expect(composerSource).toContain("showNoAgent");
     expect(composerSource).not.toContain("|| copy.model");
   });

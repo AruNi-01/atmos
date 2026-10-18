@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -16,6 +23,19 @@ import { AgentChatAddSheet } from "./AgentChatAddSheet";
 import { AgentChatModelSheet } from "./AgentChatModelSheet";
 import { contextTriggerLabel } from "./composer-capabilities";
 import {
+  COMPOSER_COMPACT_PAD_HORIZONTAL,
+  COMPOSER_COMPACT_PAD_VERTICAL,
+  COMPOSER_EXPANDED_PAD_BOTTOM,
+  COMPOSER_EXPANDED_PAD_HORIZONTAL,
+  COMPOSER_EXPANDED_PAD_TOP,
+  COMPOSER_LINE_HEIGHT,
+  COMPOSER_MAX_LINES,
+  COMPOSER_TOOLBAR_INSET,
+  composerDockExpanded,
+  composerDockMinHeight,
+  composerDockMotionDuration,
+} from "./composer-dock";
+import {
   COMPOSER_GLASS_CONTROL_RADIUS,
   COMPOSER_GLASS_CONTROL_SIZE,
   COMPOSER_GLASS_DOCK_RADIUS,
@@ -29,12 +49,14 @@ import {
   type ComposerPasteChip,
 } from "./composer-paste";
 import { copy } from "./copy";
+import { useReducedMotion } from "./motion/use-reduced-motion";
 import type { ComposerPatch, ComposerPicker, FavoriteModel } from "./model-picker";
 import type { ComposerPhoto } from "./photo-attachment";
 
-const LINE_HEIGHT = 22;
+const LINE_HEIGHT = COMPOSER_LINE_HEIGHT;
 const BUTTON_SIZE = COMPOSER_GLASS_CONTROL_SIZE;
-const MAX_LINES = 6;
+const MAX_LINES = COMPOSER_MAX_LINES;
+const DOCK_EXPAND_EASE = Easing.out(Easing.cubic);
 const glassButton = {
   alignItems: "center" as const,
   borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
@@ -80,6 +102,7 @@ export function AgentChatComposer(props: {
   const chipsRef = useRef<readonly ComposerPasteChip[]>(props.pasteChips ?? []);
   const [modelsOpen, setModelsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [contentHeight, setContentHeight] = useState(LINE_HEIGHT);
   const suggestions = props.suggestions ?? [];
   const draftText = props.text.trim();
@@ -103,6 +126,66 @@ export function AgentChatComposer(props: {
     contextLabel == null || contextLabel === copy.context
       ? copy.context
       : `${copy.context} ${contextLabel}`;
+  const expanded = composerDockExpanded({
+    contentHeight,
+    focused,
+    modelsOpen,
+    showQueue,
+    showSteer,
+    text: props.text,
+  });
+  const reduceMotion = useReducedMotion();
+  const expandProgress = useSharedValue(expanded ? 1 : 0);
+  const dockHeight = useSharedValue(composerDockMinHeight({ contentHeight, expanded }));
+  const wasExpanded = useRef(expanded);
+
+  useEffect(() => {
+    const duration = composerDockMotionDuration({
+      expandedChanged: wasExpanded.current !== expanded,
+      reduceMotion,
+    });
+    wasExpanded.current = expanded;
+    const timing = { duration, easing: DOCK_EXPAND_EASE };
+    expandProgress.set(withTiming(expanded ? 1 : 0, timing));
+    dockHeight.set(withTiming(composerDockMinHeight({ contentHeight, expanded }), timing));
+  }, [contentHeight, dockHeight, expandProgress, expanded, reduceMotion]);
+
+  const dockStyle = useAnimatedStyle(() => ({
+    height: dockHeight.get(),
+    overflow: "hidden" as const,
+  }));
+  const inputPadStyle = useAnimatedStyle(() => ({
+    paddingBottom: interpolate(
+      expandProgress.get(),
+      [0, 1],
+      [COMPOSER_COMPACT_PAD_VERTICAL, COMPOSER_EXPANDED_PAD_BOTTOM],
+    ),
+    paddingLeft: interpolate(
+      expandProgress.get(),
+      [0, 1],
+      [COMPOSER_COMPACT_PAD_HORIZONTAL, COMPOSER_EXPANDED_PAD_HORIZONTAL],
+    ),
+    paddingRight: interpolate(
+      expandProgress.get(),
+      [0, 1],
+      [COMPOSER_COMPACT_PAD_HORIZONTAL, COMPOSER_EXPANDED_PAD_HORIZONTAL],
+    ),
+    paddingTop: interpolate(
+      expandProgress.get(),
+      [0, 1],
+      [COMPOSER_COMPACT_PAD_VERTICAL, COMPOSER_EXPANDED_PAD_TOP],
+    ),
+  }));
+  const toolbarStyle = {
+    alignItems: "center" as const,
+    bottom: COMPOSER_TOOLBAR_INSET,
+    flexDirection: "row" as const,
+    gap: 8,
+    height: BUTTON_SIZE,
+    left: COMPOSER_TOOLBAR_INSET,
+    position: "absolute" as const,
+    right: COMPOSER_TOOLBAR_INSET,
+  };
 
   useEffect(() => {
     textRef.current = props.text;
@@ -411,67 +494,55 @@ export function AgentChatComposer(props: {
           width: "100%",
         }}
       >
-        <View
-          style={{
-            overflow: "hidden",
-            paddingBottom: 8,
-            paddingHorizontal: 16,
-            paddingTop: 14,
-          }}
-        >
-          <TextInput
-            multiline
-            onChangeText={onDraftChange}
-            onContentSizeChange={(event) => {
-              if (props.text.length === 0) {
-                setContentHeight(LINE_HEIGHT);
-                return;
-              }
-              const next = Math.ceil(event.nativeEvent.contentSize.height);
-              setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
-            }}
-            placeholder={props.placeholder}
-            placeholderTextColor={theme.colors.secondaryLabel}
-            scrollEnabled={contentHeight > LINE_HEIGHT * MAX_LINES}
-            style={{
-              backgroundColor: "transparent",
-              color: theme.colors.label,
-              fontSize: 16,
-              lineHeight: LINE_HEIGHT,
-              margin: 0,
-              maxHeight: LINE_HEIGHT * MAX_LINES,
-              minHeight: LINE_HEIGHT,
-              padding: 0,
-              textAlignVertical: "top",
-              width: "100%",
-            }}
-            underlineColorAndroid="transparent"
-            value={props.text}
-          />
-        </View>
-        <View
-          style={{
-            alignItems: "center",
-            flexDirection: "row",
-            gap: 8,
-            minHeight: BUTTON_SIZE,
-            paddingBottom: 8,
-            paddingHorizontal: 8,
-          }}
-        >
-          {renderPlus()}
-          {showModel ? renderModel() : null}
-          {showNoAgent ? (
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-              {copy.noAgent}
-            </Text>
-          ) : null}
-          <View style={{ flex: 1 }} />
-          {renderContext()}
-          {showQueue ? renderFollowUp(props.queueLabel, props.onQueue) : null}
-          {showSteer ? renderFollowUp(props.steerLabel, props.onSteer) : null}
-          {renderSend()}
-        </View>
+        <Animated.View style={dockStyle}>
+          <Animated.View style={inputPadStyle}>
+            <TextInput
+              multiline
+              onBlur={() => setFocused(false)}
+              onChangeText={onDraftChange}
+              onContentSizeChange={(event) => {
+                if (props.text.length === 0) {
+                  setContentHeight(LINE_HEIGHT);
+                  return;
+                }
+                const next = Math.ceil(event.nativeEvent.contentSize.height);
+                setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
+              }}
+              onFocus={() => setFocused(true)}
+              placeholder={props.placeholder}
+              placeholderTextColor={theme.colors.secondaryLabel}
+              scrollEnabled={expanded && contentHeight > LINE_HEIGHT * MAX_LINES}
+              style={{
+                backgroundColor: "transparent",
+                color: theme.colors.label,
+                fontSize: 16,
+                lineHeight: LINE_HEIGHT,
+                margin: 0,
+                maxHeight: expanded ? LINE_HEIGHT * MAX_LINES : LINE_HEIGHT,
+                minHeight: LINE_HEIGHT,
+                padding: 0,
+                textAlignVertical: expanded ? "top" : "center",
+                width: "100%",
+              }}
+              underlineColorAndroid="transparent"
+              value={props.text}
+            />
+          </Animated.View>
+          <View pointerEvents="box-none" style={toolbarStyle}>
+            {renderPlus()}
+            {expanded && showModel ? renderModel() : null}
+            {expanded && showNoAgent ? (
+              <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+                {copy.noAgent}
+              </Text>
+            ) : null}
+            <View pointerEvents="none" style={{ flex: 1 }} />
+            {expanded ? renderContext() : null}
+            {expanded && showQueue ? renderFollowUp(props.queueLabel, props.onQueue) : null}
+            {expanded && showSteer ? renderFollowUp(props.steerLabel, props.onSteer) : null}
+            {renderSend()}
+          </View>
+        </Animated.View>
       </GlassPanel>
       <AgentChatModelSheet
         favorites={props.favorites}

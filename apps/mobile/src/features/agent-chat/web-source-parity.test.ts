@@ -43,10 +43,12 @@ describe("web source parity", () => {
     expect(log).toContain('ease: "linear"');
   });
 
-  test("the composer stays the two-row iOS field", () => {
+  test("the idle composer is a compact one-row field that expands on focus", () => {
     const composer = source("apps/mobile/src/features/agent-chat/AgentChatComposer.tsx");
     expect(composer).toContain('width: "100%"');
-    expect(composer).toContain("paddingHorizontal: 16");
+    expect(composer).toContain("composerDockExpanded");
+    expect(composer).toContain("COMPOSER_EXPANDED_PAD_HORIZONTAL");
+    expect(composer).toContain("onFocus");
   });
 
   test("the markdown patch matches web inline code and the raw fence token", () => {
