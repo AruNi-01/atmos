@@ -551,7 +551,7 @@ function shouldAdoptSnapshotAssistant(prev: AgentMessage, snap: AgentMessage): b
   return !prev.parts.some((part) => part.type === "text" || part.type === "thinking");
 }
 
-/** Skip WS events already covered by `get()` `last_event_seq`. */
+/** Snapshot-seq filter for tests. Live hydrate uses EventGate instead of `revision <= after`. */
 export function pendingEventsAfterSeq<T extends { revision?: number | null }>(
   events: readonly T[],
   snapshotSeq: number,

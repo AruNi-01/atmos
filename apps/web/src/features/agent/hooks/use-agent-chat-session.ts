@@ -40,6 +40,7 @@ import type {
   AgentQueueItem,
   AgentSessionUsage,
 } from "@atmos/api-types/ws/dto/agent-chat";
+import { createAgentChatEventPump } from "@atmos/api-client/agent-chat";
 import {
   persistAgentChatLastSession,
   readAgentChatLastSessions,
@@ -98,7 +99,6 @@ import {
   currentPlanFromMessages,
   currentTurnHasRunningSubagent,
   foldAgentChatEventResult,
-  pendingEventsAfterSeq,
   releaseBackfillRequest,
   takeBackfillRequest,
 } from "@/features/agent/lib/agent-chat-events";
@@ -1032,6 +1032,8 @@ export function useAgentChatSession({
     pendingEventsRef.current = [];
     backfillInFlightRef.current = new Set();
     pendingChromeRef.current = [];
+    const eventPump = createAgentChatEventPump();
+    eventPump.startHydrate();
     const applyLiveChrome = (event: AgentChatEvent) => {
       const payload = event.payload;
       if (payload.type === "turn_started") {
@@ -1206,7 +1208,7 @@ export function useAgentChatSession({
     const flushTimer = window.setInterval(() => {
       commitBuffer.maybeFlush();
     }, AGENT_CHAT_COMMIT_FLUSH_MS);
-    const applyEvent = (event: AgentChatEvent) => {
+    const foldLiveEvent = (event: AgentChatEvent) => {
       if (!agentChatEventFor(event, activeIdRef.current)) return;
       const folded = foldAgentChatEventResult(messagesRef.current, event, activeIdRef.current);
       messagesRef.current = folded.messages;
@@ -1228,17 +1230,20 @@ export function useAgentChatSession({
       pendingChromeRef.current.push(event);
       commitBuffer.deliver(event.payload.type);
     };
+    const applyEvent = (event: AgentChatEvent) => {
+      const decision = eventPump.ingest(event);
+      if (decision.action !== "apply") return;
+      foldLiveEvent(event);
+    };
     void load(id)
       .then(async (snapshotSeq) => {
-        const pending = pendingEventsAfterSeq(pendingEventsRef.current, snapshotSeq ?? 0);
         pendingEventsRef.current = [];
         hydratingRef.current = false;
-        let after = snapshotSeq ?? 0;
-        for (const event of pending) {
-          after = Math.max(after, event.revision ?? 0);
-          applyEvent(event);
+        for (const decision of eventPump.finishHydrate(snapshotSeq ?? 0)) {
+          if (decision.action !== "apply") continue;
+          foldLiveEvent(decision.event);
         }
-        await agentChatApi.subscribe(id, after);
+        await agentChatApi.subscribe(id, eventPump.cursor);
         const queued = pendingSendRef.current;
         pendingSendRef.current = null;
         if (queued) {
@@ -1247,6 +1252,7 @@ export function useAgentChatSession({
         }
       })
       .catch(() => {
+        eventPump.abandonHydrate();
         hydratingRef.current = false;
         setHydrated(true);
         setIsResumingHistory(false);
@@ -1257,10 +1263,6 @@ export function useAgentChatSession({
       .getState()
       .onEvent("agent_chat_event", (event: AgentChatEvent) => {
         if (!agentChatEventFor(event, activeIdRef.current)) return;
-        if (hydratingRef.current) {
-          pendingEventsRef.current.push(event);
-          return;
-        }
         applyEvent(event);
       });
     return () => {
