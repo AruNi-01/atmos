@@ -4,6 +4,7 @@ import { StreamdownText } from "react-native-streamdown";
 import type { MarkdownStyle } from "react-native-enriched-markdown";
 import { useMobileTheme } from "@/theme/theme-store";
 import { chatForeground, chatMutedForeground } from "./chat-ink";
+import { useReducedMotion } from "./motion/use-reduced-motion";
 import { chipCompleteHttpUrls, HTTP_CHIP_LINK_VARIANT, httpChipTarget } from "./http-link-chip";
 import {
   BLOCKQUOTE_MARGIN,
@@ -67,6 +68,7 @@ export function AgentChatMarkdown({
   prose?: AgentChatProseKind;
 }) {
   const theme = useMobileTheme();
+  const reduced = useReducedMotion();
   const markdownStyle = useMemo<MarkdownStyle>(() => {
     const proseColor =
       tone === "thinking" ? chatMutedForeground(theme.isDark) : chatForeground(theme.isDark);
@@ -258,6 +260,9 @@ export function AgentChatMarkdown({
       flavor="github"
       markdown={markdown}
       markdownStyle={markdownStyle}
+      // Streamdown turns the 200ms tail fade on. That animator only reads the
+      // system Reduce Motion setting, so the chat gate has to pass false.
+      streamingAnimation={!reduced}
       onLinkPress={({ url }) => openHttpLink(url)}
     />
   );

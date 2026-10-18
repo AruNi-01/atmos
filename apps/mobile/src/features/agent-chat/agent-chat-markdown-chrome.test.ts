@@ -163,6 +163,7 @@ describe("agent chat markdown chrome", () => {
       join(dirname(fileURLToPath(import.meta.url)), "AgentChatMarkdown.tsx"),
       "utf8",
     );
+    expect(markdown).toContain("streamingAnimation={!reduced}");
     expect(markdown).toContain("lineHeight: TABLE_LINE_HEIGHT");
     expect(markdown).toContain("marginBottom: THINKING_PARAGRAPH_MARGIN, marginTop: 0");
     expect(markdown).not.toContain("marginTop: THINKING_PARAGRAPH_MARGIN");
