@@ -97,10 +97,15 @@ copy_motion_shots() {
 launch_frame() {
   local id="$1"
   local theme="$2"
+  local suffix="${3:-}"
   stop_console
   xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
   sleep 1
-  CURRENT_LOG="$OUT/console-${id}-${theme}.log"
+  if [[ -n "$suffix" ]]; then
+    CURRENT_LOG="$OUT/console-${id}-${theme}-${suffix}.log"
+  else
+    CURRENT_LOG="$OUT/console-${id}-${theme}.log"
+  fi
   : >"$CURRENT_LOG"
   xcrun simctl launch --console-pty --terminate-running-process booted "$BUNDLE_ID" >"$CURRENT_LOG" 2>&1 &
   console_pid=$!
@@ -131,6 +136,39 @@ dump_runtime_logs() {
   screencapture -x "$OUT/desktop-on-failure.png" || true
 }
 
+log_mark() {
+  if [[ -f "$OUT/parity-stream.log" ]]; then
+    wc -c <"$OUT/parity-stream.log" | tr -d ' '
+  else
+    echo 0
+  fi
+}
+
+# Lines already in the stream belong to an earlier launch. Replay start and
+# replay done are only counted after this mark.
+log_has_since() {
+  local needle="$1"
+  local mark="$2"
+  if [[ -f "$CURRENT_LOG" ]] && grep -F -q -- "$needle" "$CURRENT_LOG"; then
+    return 0
+  fi
+  if [[ ! -f "$OUT/parity-stream.log" ]]; then
+    return 1
+  fi
+  # set -e does not fail this function when the caller is an if. Return the
+  # search status explicitly so a missing line stays missing.
+  python3 - "$OUT/parity-stream.log" "$mark" "$needle" <<'PY'
+import sys
+
+path, mark, needle = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+with open(path, "rb") as handle:
+    handle.seek(max(0, mark))
+    data = handle.read()
+sys.exit(0 if needle.encode() in data else 1)
+PY
+  return $?
+}
+
 log_has() {
   local needle="$1"
   local file
@@ -149,6 +187,33 @@ refresh_parity_show() {
   run_bounded 45 xcrun simctl spawn booted log show --last 10m --info --debug --style compact \
     --predicate 'eventMessage CONTAINS "[parity]"' \
     >"$OUT/device-log-fallback.txt" 2>&1 || true
+}
+
+screen_record_alive() {
+  local pid
+  pid="$(tr -d '[:space:]' <"$1" 2>/dev/null || true)"
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+# Same as wait_for_line, but only lines written after `mark`. When pidfile is
+# set, a dead recorder returns 2 so the caller can start again.
+wait_for_since() {
+  local needle="$1"
+  local timeout="$2"
+  local mark="$3"
+  local pidfile="${4:-}"
+  local deadline=$((SECONDS + timeout))
+  while (( SECONDS < deadline )); do
+    if log_has_since "$needle" "$mark"; then
+      return 0
+    fi
+    if [[ -n "$pidfile" && -s "$pidfile" ]] && ! screen_record_alive "$pidfile"; then
+      echo "screen record exited before ${needle}" >&2
+      return 2
+    fi
+    sleep 0.5
+  done
+  return 1
 }
 
 wait_for_line() {
@@ -431,15 +496,19 @@ PY
 start_screen_record() {
   local video="$1"
   local pidfile="$2"
+  local errlog="$3"
   rm -f "$pidfile" "$video"
-  python3 - "$video" "$pidfile" <<'PY' &
+  python3 - "$video" "$pidfile" "$errlog" <<'PY' &
 import subprocess
 import sys
 
-video, pidfile = sys.argv[1], sys.argv[2]
+video, pidfile, errlog = sys.argv[1], sys.argv[2], sys.argv[3]
+err = open(errlog, "w", encoding="utf-8", buffering=1)
 proc = subprocess.Popen(
     ["xcrun", "simctl", "io", "booted", "recordVideo", "--codec", "h264", "--force", video],
     start_new_session=True,
+    stdout=err,
+    stderr=err,
 )
 with open(pidfile, "w", encoding="utf-8") as handle:
     handle.write(str(proc.pid))
@@ -489,25 +558,37 @@ os.killpg(pid, signal.SIGKILL)
 PY
 }
 
+# Run 39131560794: recordVideo started on Springboard, exited after 9.5s as F4
+# launched, and the app never logged replay done. Record after this launch's
+# replay start, and try once more when the recorder exits or the done line
+# does not arrive.
 record_replay_movie() {
   local motion="$1"
   local label="$2"
   local done_line="$3"
   local video="$OUT/f4-${label}-motion.mov"
   local pidfile="$OUT/f4-${label}-record.pid"
+  local errlog="$OUT/f4-${label}-record.log"
+  local attempt mark
   open -a Simulator || true
   write_frame_file "F4" "light" "" "$motion" "script"
-  echo "record f4 ${label} replay"
-  start_screen_record "$video" "$pidfile"
-  launch_frame "F4" "light"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
-    echo "f4 ${label} replay missed the module" >&2
-  elif ! wait_for_line "$done_line" 60; then
+  for attempt in 1 2; do
+    echo "record f4 ${label} replay attempt ${attempt}"
+    mark="$(log_mark)"
+    launch_frame "F4" "light" "$label"
+    if ! wait_for_since "[parity] replay start" 90 "$mark"; then
+      echo "f4 ${label} replay missed the start" >&2
+      continue
+    fi
+    start_screen_record "$video" "$pidfile" "$errlog"
+    if wait_for_since "$done_line" 40 "$mark" "$pidfile"; then
+      sleep 0.5
+      stop_screen_record "$pidfile" || true
+      break
+    fi
     echo "f4 ${label} replay missed ${done_line}" >&2
-  else
-    sleep 0.5
-  fi
-  stop_screen_record "$pidfile" || true
+    stop_screen_record "$pidfile" || true
+  done
   if [[ -s "$video" ]]; then
     echo "recorded f4 ${label} bytes $(wc -c <"$video" | tr -d ' ')"
   else
@@ -777,7 +858,14 @@ if len(booted) == 1:
     return 1
   fi
   echo "tapping agent-chat-scroll-pill on ${udid}"
-  run_bounded 360 xcodebuild test \
+  # Run 39131560794 printed the suite passed line, then xcodebuild stayed open
+  # until the 360s SIGKILL. Stop once the suite has passed.
+  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
+    --seconds 360 \
+    --grace 20 \
+    --needle "Test Suite 'Selected tests' passed" \
+    -- \
+    xcodebuild test \
     -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
     -scheme PillTap \
     -sdk iphonesimulator \

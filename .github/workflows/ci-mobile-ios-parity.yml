@@ -29,6 +29,9 @@ jobs:
       - name: Recording duration self-test
         run: python3 scripts/agent-chat-parity/mp4-duration.py --self-test
 
+      - name: Command watcher self-test
+        run: python3 scripts/agent-chat-parity/run-until-line.py --self-test
+
       - name: Screenshot flatness self-test
         run: python3 scripts/agent-chat-parity/png-flat.py --self-test
 
