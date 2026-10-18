@@ -109,10 +109,10 @@ export function parityTailReadingHeld(samples: readonly ParityTailSample[]): boo
 export type ParityTailReturnPhase = "wait" | "press" | "landed";
 
 /**
- * After the reading hold, the capture calls the scroll pill's handler once.
- * Landed means a later sample is stuck and inside the end slack. The handler
- * flips `stickToEnd` before the list moves, and that sample still carries the
- * reading distance, so it stays `wait`.
+ * After the reading hold, the capture taps the scroll pill.
+ * Landed means a later sample is stuck and inside the end slack. The pill
+ * handler flips `stickToEnd` before the list moves, and that sample still
+ * carries the reading distance, so it stays `wait`.
  */
 export function parityTailReturnPhase(
   samples: readonly ParityTailSample[],

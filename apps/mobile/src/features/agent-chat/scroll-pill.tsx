@@ -20,6 +20,8 @@ import { agentChatTokenMap } from "./token-map";
 
 /** Web scroll button is `h-8` (`size-4` chevron). Card pills stay 36. */
 export const SCROLL_PILL_HEIGHT = 32;
+/** Stable XCUITest identifier. The spoken label changes with the below count. */
+export const SCROLL_PILL_TEST_ID = "agent-chat-scroll-pill";
 export const SCROLL_PILL_ICON = 16;
 /**
  * `button.tsx` sets `[&_svg:not([class*='opacity-'])]:opacity-80`.
@@ -116,6 +118,7 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
       accessibilityLabel={scrollPillAccessibilityLabel(count)}
       accessibilityRole="button"
       onPress={onPress}
+      testID={SCROLL_PILL_TEST_ID}
     >
       <GlassPanel
         interactive

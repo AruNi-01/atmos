@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Screenshot F1–F13 in light and dark, then capture motion passes:
 # f13-tail scrolled to Reply 50 (three frames muxed when they differ),
-# a second f13-tail launch that calls the scroll-pill handler after that hold,
+# a second f13-tail launch that taps the scroll pill after that hold,
 # stream-tools sampled while rows append, and F4 / F12 / composer passes that
 # freeze each script step (`atMs` in the pin) and take a simctl screenshot.
 # A wall-clock draw finishes before a slow screenshot returns. The replay,
@@ -670,8 +670,37 @@ if dupes:
 print(f"{len(files)} distinct fixture screenshots")
 PY
 
-# After the hold gate, call the scroll pill handler. A miss does not fail the job.
-# This is not a Simulator tap.
+# After the hold gate, tap the scroll pill. A miss does not fail the job.
+# The preview logs `[parity] pill awaiting tap` and does not call the handler.
+tap_scroll_pill() {
+  local udid
+  udid="$(xcrun simctl list devices booted -j | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+booted = []
+for devices in data.get("devices", {}).values():
+    for device in devices:
+        if device.get("state") == "Booted" and device.get("udid"):
+            booted.append(device["udid"])
+if len(booted) == 1:
+    print(booted[0])
+')"
+  if [[ -z "$udid" ]]; then
+    echo "scroll pill tap has no single booted simulator" >&2
+    return 1
+  fi
+  echo "tapping agent-chat-scroll-pill on ${udid}"
+  run_bounded 360 xcodebuild test \
+    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+    -scheme PillTap \
+    -destination "platform=iOS Simulator,id=${udid}" \
+    -derivedDataPath /tmp/pill-tap-derived \
+    -only-testing:PillTapUITests/PillTapUITests/testTapScrollPill \
+    -parallel-testing-enabled NO \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO
+}
+
 capture_tail_return() {
   local dest frames video duration index shot
   dest="$OUT/f13-tail-return"
@@ -682,6 +711,17 @@ capture_tail_return() {
   if ! wait_for_line "[parity] preview-chat module" 90; then
     echo "f13 tail return missed the module" >&2
     return 0
+  fi
+  if ! wait_for_line "[parity] pill awaiting tap" 90; then
+    echo "f13 tail return never offered the pill" >&2
+    dump_runtime_logs || true
+    copy_motion_shots "$dest" || true
+    return 0
+  fi
+  echo "tapping the scroll pill" >&2
+  if ! tap_scroll_pill >"$OUT/pill-tap.log" 2>&1; then
+    echo "f13 tail return tap failed" >&2
+    tail -n 80 "$OUT/pill-tap.log" >&2 || true
   fi
   if ! wait_for_line "[parity] tail returned" 60; then
     echo "f13 tail return did not land" >&2

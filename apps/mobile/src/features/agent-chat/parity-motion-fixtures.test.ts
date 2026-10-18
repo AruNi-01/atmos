@@ -150,7 +150,29 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain("[parity] lane done");
     expect(preview).toContain('frame.pill === "return"');
     expect(preview).toContain("parityTailReturnPhase");
+    expect(preview).toContain("[parity] pill awaiting tap");
+    expect(preview).toContain("[parity] scroll pill press");
     expect(preview).toContain("[parity] tail returned");
+    expect(preview).not.toMatch(/tail-held"\)\.finally\(\(\) => \{\s*transcriptRef/);
+    const pill = readFileSync(join(here, "scroll-pill.tsx"), "utf8");
+    expect(pill).toContain("testID={SCROLL_PILL_TEST_ID}");
+    expect(pill).toContain('SCROLL_PILL_TEST_ID = "agent-chat-scroll-pill"');
+    const tap = readFileSync(
+      join(
+        here,
+        "../../../../../scripts/agent-chat-parity/pill-tap/PillTapUITests/PillTapUITests.swift",
+      ),
+      "utf8",
+    );
+    expect(tap).toContain('bundleIdentifier: "land.atmos.mobile"');
+    expect(tap).toContain('buttons["agent-chat-scroll-pill"]');
+    const capture = readFileSync(
+      join(here, "../../../../../scripts/agent-chat-parity/ios-capture.sh"),
+      "utf8",
+    );
+    expect(capture).toContain("[parity] pill awaiting tap");
+    expect(capture).toContain("tap_scroll_pill");
+    expect(capture).not.toContain("This is not a Simulator tap.");
     expect(preview).toContain("onViewport={pillReturn ? onViewport : undefined}");
     const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");
     expect(transcript).toContain("emitViewport");

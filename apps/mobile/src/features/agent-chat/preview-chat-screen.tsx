@@ -184,6 +184,7 @@ export function PreviewChatScreen() {
   const tailSamplesRef = useRef<ParityTailSample[]>([]);
   const tailReturnPressedRef = useRef(false);
   const tailReturnLoggedRef = useRef(false);
+  const tailAwaitLoggedRef = useRef(false);
   const tailStepRef = useRef(0);
   const onStickChange = useCallback(
     (next: {
@@ -368,11 +369,12 @@ export function PreviewChatScreen() {
     if (!pillReturn) return;
     const phase = parityTailReturnPhase(tailSamplesRef.current, tailReturnPressedRef.current);
     if (phase === "press") {
-      tailReturnPressedRef.current = true;
+      if (tailAwaitLoggedRef.current) return;
+      tailAwaitLoggedRef.current = true;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           void writeParityMotionPng(previewRootRef, "tail-held").finally(() => {
-            transcriptRef.current?.scrollToEndAnimated();
+            console.error("[parity] pill awaiting tap");
           });
         });
       });
@@ -621,7 +623,13 @@ export function PreviewChatScreen() {
           messageCount={messages.length}
           onLayout={(event) => setPillHeight(event.nativeEvent.layout.height)}
           onPillPress={onPillPress}
-          onScrollToBottom={() => transcriptRef.current?.scrollToEndAnimated()}
+          onScrollToBottom={() => {
+            if (pillReturn) {
+              tailReturnPressedRef.current = true;
+              console.error("[parity] scroll pill press");
+            }
+            transcriptRef.current?.scrollToEndAnimated();
+          }}
           pills={pills}
           stickToEnd={liveTail ? stick.stickToEnd : true}
         />
