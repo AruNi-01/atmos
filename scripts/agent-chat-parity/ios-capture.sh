@@ -426,12 +426,99 @@ PY
   rm -rf "$frames"
 }
 
-capture_f4_replay() {
-  local label motion_arg
-  for label in live reduced; do
-    if [[ "$label" == "reduced" ]]; then motion_arg="reduced"; else motion_arg=""; fi
-    capture_pinned_steps "F4" "light" "" "$motion_arg" "script" "" "" "" "replay" "$OUT/f4-replay-${label}" "f4" || true
+# simctl screenshot does not return while the live shimmer is painting, and the
+# file that eventually lands is Springboard. Record the unfrozen replay instead.
+start_screen_record() {
+  local video="$1"
+  local pidfile="$2"
+  rm -f "$pidfile" "$video"
+  python3 - "$video" "$pidfile" <<'PY' &
+import subprocess
+import sys
+
+video, pidfile = sys.argv[1], sys.argv[2]
+proc = subprocess.Popen(
+    ["xcrun", "simctl", "io", "booted", "recordVideo", "--codec", "h264", "--force", video],
+    start_new_session=True,
+)
+with open(pidfile, "w", encoding="utf-8") as handle:
+    handle.write(str(proc.pid))
+raise SystemExit(proc.wait())
+PY
+  local waited=0
+  while [[ ! -s "$pidfile" && "$waited" -lt 25 ]]; do
+    sleep 0.2
+    waited=$((waited + 1))
   done
+}
+
+stop_screen_record() {
+  local pidfile="$1"
+  local pid
+  pid="$(tr -d '[:space:]' <"$pidfile" 2>/dev/null || true)"
+  if [[ -z "$pid" ]]; then
+    echo "screen record has no pid" >&2
+    return 0
+  fi
+  python3 - "$pid" <<'PY'
+import os
+import signal
+import sys
+import time
+
+pid = int(sys.argv[1])
+
+def alive() -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+if not alive():
+    sys.exit(0)
+try:
+    os.killpg(pid, signal.SIGINT)
+except ProcessLookupError:
+    sys.exit(0)
+for _ in range(20):
+    if not alive():
+        sys.exit(0)
+    time.sleep(1)
+os.killpg(pid, signal.SIGKILL)
+PY
+}
+
+record_replay_movie() {
+  local motion="$1"
+  local label="$2"
+  local done_line="$3"
+  local video="$OUT/f4-${label}-motion.mov"
+  local pidfile="$OUT/f4-${label}-record.pid"
+  open -a Simulator || true
+  write_frame_file "F4" "light" "" "$motion" "script"
+  echo "record f4 ${label} replay"
+  start_screen_record "$video" "$pidfile"
+  launch_frame "F4" "light"
+  if ! wait_for_line "[parity] preview-chat module" 90; then
+    echo "f4 ${label} replay missed the module" >&2
+  elif ! wait_for_line "$done_line" 60; then
+    echo "f4 ${label} replay missed ${done_line}" >&2
+  else
+    sleep 0.5
+  fi
+  stop_screen_record "$pidfile" || true
+  if [[ -s "$video" ]]; then
+    echo "recorded f4 ${label} bytes $(wc -c <"$video" | tr -d ' ')"
+  else
+    echo "f4 ${label} recording is missing" >&2
+  fi
+}
+
+capture_f4_replay() {
+  record_replay_movie "" "live" "[parity] replay done live" || true
+  record_replay_movie "reduced" "reduced" "[parity] replay done reduced" || true
+  capture_pinned_steps "F4" "light" "" "reduced" "script" "" "" "" "replay" "$OUT/f4-replay-reduced" "f4" || true
 }
 
 # Pill steps for F12. The pin freezes each reducer state for a simctl shot.

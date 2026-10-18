@@ -172,6 +172,9 @@ describe("parity motion fixtures", () => {
     );
     expect(capture).toContain("[parity] pill awaiting tap");
     expect(capture).toContain("tap_scroll_pill");
+    expect(capture).toContain('recordVideo", "--codec", "h264"');
+    expect(capture).toContain("[parity] replay done live");
+    expect(capture).toContain("[parity] replay done reduced");
     expect(capture).not.toContain("This is not a Simulator tap.");
     expect(preview).toContain("onViewport={pillReturn ? onViewport : undefined}");
     const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");
