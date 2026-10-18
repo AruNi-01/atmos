@@ -193,6 +193,10 @@ describe("web source parity", () => {
     expect(patch).toContain("A following rule gives the overlap back to the previous rule.");
     expect(patch).toContain("A rule that ends the text already includes its bottom.");
     expect(patch).toContain("Answer headings are `mt-6`. Tailwind 4 `space-y-4` is `:where()`, so");
+    expect(patch).toContain("A cleared leading rule remembers its 24px top for the next segment.");
+    expect(patch).toContain(
+      "A rule that opens the segment after a fence or table keeps the part of its 24px top that exceeds that block.",
+    );
     expect(patch).toContain("Answer lists keep their spacer.");
     expect(patch).toContain("Answer and thinking blocks are `my-4`");
     expect(patch).toContain("Answer rules are `my-6` (24).");

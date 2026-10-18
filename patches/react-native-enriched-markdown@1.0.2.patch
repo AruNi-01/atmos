@@ -362,7 +362,7 @@ index 15a76af85..f9ad1e401 100644
  @end
 \ No newline at end of file
 diff --git a/ios/renderer/ThematicBreakRenderer.m b/ios/renderer/ThematicBreakRenderer.m
-index efaa0b3..71b7068 100644
+index efaa0b3..b265d1d 100644
 --- a/ios/renderer/ThematicBreakRenderer.m
 +++ b/ios/renderer/ThematicBreakRenderer.m
 @@ -1,5 +1,6 @@
@@ -372,13 +372,16 @@ index efaa0b3..71b7068 100644
  #import "StyleConfig.h"
  #import "ThematicBreakAttachment.h"
  
-@@ -18,6 +19,48 @@
+@@ -18,11 +19,59 @@
    attachment.lineHeight = _config.thematicBreakHeight > 0 ? _config.thematicBreakHeight : 1.0;
    attachment.marginTop = _config.thematicBreakMarginTop;
    attachment.marginBottom = _config.thematicBreakMarginBottom;
 +  // Web `[&>*:first-child]:mt-0` clears a leading rule. The 8px stays after a block.
 +  // Equal sides are `my-6` and stay.
++  // A cleared leading rule remembers its 24px top for the next segment.
++  CGFloat clearedRuleTop = 0;
 +  if (output.length == 0 && attachment.marginTop < attachment.marginBottom) {
++    clearedRuleTop = attachment.marginBottom;
 +    attachment.marginTop = 0;
 +  }
 +  // A prose rule keeps its own margins. The overlap goes back to the previous
@@ -419,8 +422,18 @@ index efaa0b3..71b7068 100644
 +    }
 +  }
  
-   NSDictionary *attributes = @{
+-  NSDictionary *attributes = @{
++  NSMutableDictionary *attributes = [@{
      NSAttachmentAttributeName : attachment,
+     NSParagraphStyleAttributeName : [NSParagraphStyle defaultParagraphStyle]
+-  };
++  } mutableCopy];
++  if (clearedRuleTop > 0.0) {
++    attributes[ENRMLeadingRuleOpenMarginAttributeName] = @(clearedRuleTop);
++  }
+ 
+   NSAttributedString *breakString = [[NSAttributedString alloc] initWithString:@"\uFFFC" attributes:attributes];
+ 
 diff --git a/ios/styles/StyleConfig.h b/ios/styles/StyleConfig.h
 index 89ff9e9c8..101254354 100644
 --- a/ios/styles/StyleConfig.h
@@ -633,7 +646,7 @@ index 585044157..53a2ff798 100644
 +  applyBaselineOffset(string, range);
  }
 diff --git a/ios/utils/ParagraphStyleUtils.h b/ios/utils/ParagraphStyleUtils.h
-index 95a2138..cdf6022 100644
+index 95a2138..fbf40d1 100644
 --- a/ios/utils/ParagraphStyleUtils.h
 +++ b/ios/utils/ParagraphStyleUtils.h
 @@ -1,4 +1,5 @@
@@ -642,7 +655,7 @@ index 95a2138..cdf6022 100644
  #import <Foundation/Foundation.h>
  
  NS_ASSUME_NONNULL_BEGIN
-@@ -43,6 +44,131 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
+@@ -43,6 +44,146 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
  NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRange range, CGFloat marginTop);
  NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger insertionPoint, CGFloat marginTop);
  void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
@@ -683,6 +696,21 @@ index 95a2138..cdf6022 100644
 +    return 0.0;
 +  }
 +  id value = [text attribute:ENRMNonCollapsingPadAttributeName atIndex:index effectiveRange:NULL];
++  if (![value isKindOfClass:[NSNumber class]]) {
++    return 0.0;
++  }
++  return [value doubleValue];
++}
++
++/// Web top of a rule whose own top was cleared because it opened a segment.
++#define ENRMLeadingRuleOpenMarginAttributeName @"ENRMLeadingRuleOpenMargin"
++
++static inline CGFloat ENRMLeadingRuleOpenMargin(NSAttributedString *text)
++{
++  if (text.length == 0) {
++    return 0.0;
++  }
++  id value = [text attribute:ENRMLeadingRuleOpenMarginAttributeName atIndex:0 effectiveRange:NULL];
 +  if (![value isKindOfClass:[NSNumber class]]) {
 +    return 0.0;
 +  }
@@ -2887,7 +2915,7 @@ index 47283dc..982c02f 100644
  }
  
 diff --git a/ios/EnrichedMarkdown.mm b/ios/EnrichedMarkdown.mm
-index ed8b53d..eae38d0 100644
+index ed8b53d..df595d8 100644
 --- a/ios/EnrichedMarkdown.mm
 +++ b/ios/EnrichedMarkdown.mm
 @@ -321,6 +321,8 @@ static char kENRMSegmentFadeAnimatorKey;
@@ -2899,7 +2927,7 @@ index ed8b53d..eae38d0 100644
    const NSUInteger lastIndex = _segmentViews.count - 1;
  
    [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
-@@ -329,30 +331,53 @@ static char kENRMSegmentFadeAnimatorKey;
+@@ -329,30 +331,58 @@ static char kENRMSegmentFadeAnimatorKey;
  
      CGFloat segmentHeight = 0;
      const BOOL isTable = [segment isKindOfClass:[TableContainerView class]];
@@ -2915,6 +2943,11 @@ index ed8b53d..eae38d0 100644
 +        // bottom, and only the excess is added here. The first segment stays
 +        // clear because previousTrailing is 0. Answer lists keep their spacer.
 +        yOffset += ENRMCollapsedMargin(ENRMHeadingOpenMargin(textView.textView.attributedText),
++                                       previousTrailing);
++      }
++      if (previousTrailing > 0.0) {
++        // A rule that opens the segment after a fence or table keeps the part of its 24px top that exceeds that block.
++        yOffset += ENRMCollapsedMargin(ENRMLeadingRuleOpenMargin(textView.textView.attributedText),
 +                                       previousTrailing);
 +      }
        textView.allowTrailingMargin = shouldAddBottomMargin;
@@ -2956,7 +2989,7 @@ index ed8b53d..eae38d0 100644
      }
  
      if (applyFrames) {
-@@ -391,6 +416,7 @@ static char kENRMSegmentFadeAnimatorKey;
+@@ -391,6 +421,7 @@ static char kENRMSegmentFadeAnimatorKey;
      else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
        yOffset += _config.codeBlockMarginBottom;
      }
@@ -2965,10 +2998,10 @@ index ed8b53d..eae38d0 100644
  
    return CGSizeMake(maxContentWidth, yOffset);
 diff --git a/ios/internals/ENRMViewFreeMeasurement.h b/ios/internals/ENRMViewFreeMeasurement.h
-index 1905d45..290e98e 100644
+index 1905d45..25f0877 100644
 --- a/ios/internals/ENRMViewFreeMeasurement.h
 +++ b/ios/internals/ENRMViewFreeMeasurement.h
-@@ -272,21 +272,41 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -272,21 +272,46 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
  
      CGFloat yOffset = 0.0;
      CGFloat maxContentWidth = 0.0;
@@ -2993,6 +3026,11 @@ index 1905d45..290e98e 100644
 +          yOffset += ENRMCollapsedMargin(ENRMHeadingOpenMargin(segment.textResult.attributedText),
 +                                         previousTrailing);
 +        }
++        if (previousTrailing > 0.0) {
++          // A rule that opens the segment after a fence or table keeps the part of its 24px top that exceeds that block.
++          yOffset +=
++              ENRMCollapsedMargin(ENRMLeadingRuleOpenMargin(segment.textResult.attributedText), previousTrailing);
++        }
          CGSize textSize = ENRMMeasureAttributedTextViewFree(
              segment.textResult.attributedText, maxWidth, config, shouldAddBottomMargin,
              segment.textResult.lastElementMarginBottom, pointScaleFactor);
@@ -3011,7 +3049,7 @@ index 1905d45..290e98e 100644
          yOffset += [TableContainerView measureHeightForTableNode:segment.tableSegment.tableNode
                                                            config:config
                                                  allowFontScaling:typedProps.allowFontScaling
-@@ -297,18 +317,22 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -297,18 +322,22 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
          if (shouldAddBottomMargin) {
            yOffset += config.tableMarginBottom;
          }
@@ -3036,7 +3074,7 @@ index 1905d45..290e98e 100644
          yOffset += [ENRMMathContainerView measureHeightForLatex:segment.mathSegment.latex
                                                           config:config
                                                         maxWidth:maxWidth];
-@@ -316,8 +340,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -316,8 +345,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
          if (shouldAddBottomMargin) {
            yOffset += config.mathMarginBottom;
          }
