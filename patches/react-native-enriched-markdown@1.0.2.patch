@@ -165,7 +165,7 @@ index 7bc14aed5..cdd5db219 100644
  }
  
 diff --git a/ios/renderer/HeadingRenderer.m b/ios/renderer/HeadingRenderer.m
-index ef94e2b67..c183f1886 100644
+index ef94e2b..99b4b5d 100644
 --- a/ios/renderer/HeadingRenderer.m
 +++ b/ios/renderer/HeadingRenderer.m
 @@ -42,15 +42,9 @@ static NSString *const kHeadingTypes[] = {nil,          @"heading-1", @"heading-
@@ -185,11 +185,17 @@ index ef94e2b67..c183f1886 100644
    [_rendererFactory renderChildrenOfNode:node into:output context:context];
  
    NSRange range = NSMakeRange(start, output.length - start);
-@@ -66,8 +60,9 @@ static NSString *const kHeadingTypes[] = {nil,          @"heading-1", @"heading-
+@@ -66,8 +60,15 @@ static NSString *const kHeadingTypes[] = {nil,          @"heading-1", @"heading-
  
    applyLineHeight(output, range, style.lineHeight);
    applyTextAlignment(output, range, style.textAlign);
 +  applyBaselineOffset(output, range);
++
++  // A heading that opens the segment stores its top margin. The first segment
++  // still clears it. A fence before this segment collapses against it.
++  if (start == 0 && style.marginTop > 0) {
++    [output addAttribute:ENRMHeadingOpenMarginAttributeName value:@(style.marginTop) range:NSMakeRange(0, 1)];
++  }
  
 -  // Skip marginTop for the first block — already handled by applyBlockSpacingBefore above
 +  // A later heading keeps its top margin. Index 0 adds none.
@@ -353,10 +359,17 @@ index 15a76af85..f9ad1e401 100644
  @end
 \ No newline at end of file
 diff --git a/ios/renderer/ThematicBreakRenderer.m b/ios/renderer/ThematicBreakRenderer.m
-index efaa0b364..de24af539 100644
+index efaa0b3..6aab62c 100644
 --- a/ios/renderer/ThematicBreakRenderer.m
 +++ b/ios/renderer/ThematicBreakRenderer.m
-@@ -18,6 +18,11 @@
+@@ -1,5 +1,6 @@
+ #import "ThematicBreakRenderer.h"
+ #import "MarkdownASTNode.h"
++#import "ParagraphStyleUtils.h"
+ #import "StyleConfig.h"
+ #import "ThematicBreakAttachment.h"
+ 
+@@ -18,6 +19,29 @@
    attachment.lineHeight = _config.thematicBreakHeight > 0 ? _config.thematicBreakHeight : 1.0;
    attachment.marginTop = _config.thematicBreakMarginTop;
    attachment.marginBottom = _config.thematicBreakMarginBottom;
@@ -364,6 +377,24 @@ index efaa0b364..de24af539 100644
 +  // Equal sides are `my-6` and stay.
 +  if (output.length == 0 && attachment.marginTop < attachment.marginBottom) {
 +    attachment.marginTop = 0;
++  }
++  // A prose rule keeps its own margins. The overlap goes back to the previous
++  // block, so a smaller top does not clear the trailing 24px.
++  if (ENRMCollapsesBlockMargins([_config paragraphMarginTop]) && attachment.marginTop > 0 && output.length > 0 &&
++      [output.string hasSuffix:@"\n"]) {
++    NSRange prevParagraph = [output.string paragraphRangeForRange:NSMakeRange(output.length - 1, 0)];
++    [output enumerateAttribute:NSParagraphStyleAttributeName
++                       inRange:prevParagraph
++                       options:0
++                    usingBlock:^(NSParagraphStyle *style, NSRange range, BOOL *stop) {
++                      CGFloat prevBottom = style.paragraphSpacing;
++                      if (prevBottom <= 0) {
++                        return;
++                      }
++                      NSMutableParagraphStyle *updated = [style mutableCopy];
++                      updated.paragraphSpacing = MAX(0, prevBottom - attachment.marginTop);
++                      [output addAttribute:NSParagraphStyleAttributeName value:updated range:range];
++                    }];
 +  }
  
    NSDictionary *attributes = @{
@@ -580,10 +611,10 @@ index 585044157..53a2ff798 100644
 +  applyBaselineOffset(string, range);
  }
 diff --git a/ios/utils/ParagraphStyleUtils.h b/ios/utils/ParagraphStyleUtils.h
-index 95a2138..cb2621f 100644
+index 95a2138..c203a1c 100644
 --- a/ios/utils/ParagraphStyleUtils.h
 +++ b/ios/utils/ParagraphStyleUtils.h
-@@ -43,6 +43,35 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
+@@ -43,6 +43,65 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
  NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRange range, CGFloat marginTop);
  NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger insertionPoint, CGFloat marginTop);
  void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
@@ -615,6 +646,36 @@ index 95a2138..cb2621f 100644
 +    return 1.0 + style.paragraphSpacing;
 +  }
 +  return 0.0;
++}
++
++/// A heading that opens a segment stores its top margin here. The first
++/// segment still clears that margin. A later segment collapses it.
++#define ENRMHeadingOpenMarginAttributeName @"ENRMHeadingOpenMargin"
++
++static inline CGFloat ENRMHeadingOpenMargin(NSAttributedString *text)
++{
++  if (text.length == 0) {
++    return 0.0;
++  }
++  id value = [text attribute:ENRMHeadingOpenMarginAttributeName atIndex:0 effectiveRange:NULL];
++  if (![value isKindOfClass:[NSNumber class]]) {
++    return 0.0;
++  }
++  return [value doubleValue];
++}
++
++/// Pull a following text segment up by its leading spacer, or add the part of
++/// an opening heading's top margin that exceeds the previous block.
++static inline CGFloat ENRMFollowingTextGapAdjustment(NSAttributedString *text, CGFloat previousTrailing)
++{
++  if (previousTrailing <= 0.0 || text.length == 0) {
++    return 0.0;
++  }
++  CGFloat spacer = ENRMLeadingBlockSpacer(text);
++  if (spacer > 0.0) {
++    return -MIN(previousTrailing, spacer);
++  }
++  return ENRMCollapsedMargin(ENRMHeadingOpenMargin(text), previousTrailing);
 +}
  void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight);
  void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
@@ -2703,7 +2764,7 @@ index 47283dc..7fb8fb9 100644
      // Ensure nested lists start on a new line
      [output appendAttributedString:kNewlineAttributedString];
 diff --git a/ios/EnrichedMarkdown.mm b/ios/EnrichedMarkdown.mm
-index ed8b53d..106a58f 100644
+index ed8b53d..2a6df96 100644
 --- a/ios/EnrichedMarkdown.mm
 +++ b/ios/EnrichedMarkdown.mm
 @@ -321,6 +321,8 @@ static char kENRMSegmentFadeAnimatorKey;
@@ -2723,8 +2784,8 @@ index ed8b53d..106a58f 100644
  
      if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
        EnrichedMarkdownInternalText *textView = (EnrichedMarkdownInternalText *)segment;
-+      if (collapseMargins && previousTrailing > 0) {
-+        yOffset -= MIN(previousTrailing, ENRMLeadingBlockSpacer(textView.textView.attributedText));
++      if (collapseMargins) {
++        yOffset += ENRMFollowingTextGapAdjustment(textView.textView.attributedText, previousTrailing);
 +      }
        textView.allowTrailingMargin = shouldAddBottomMargin;
        CGSize textSize = [textView measureSize:width];
@@ -2778,7 +2839,7 @@ index ed8b53d..106a58f 100644
  
    return CGSizeMake(maxContentWidth, yOffset);
 diff --git a/ios/internals/ENRMViewFreeMeasurement.h b/ios/internals/ENRMViewFreeMeasurement.h
-index 1905d45..195df82 100644
+index 1905d45..87bb255 100644
 --- a/ios/internals/ENRMViewFreeMeasurement.h
 +++ b/ios/internals/ENRMViewFreeMeasurement.h
 @@ -272,21 +272,32 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
@@ -2796,8 +2857,8 @@ index 1905d45..195df82 100644
 +      CGFloat trailing = 0.0;
  
        if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-+        if (collapseMargins && previousTrailing > 0.0) {
-+          yOffset -= MIN(previousTrailing, ENRMLeadingBlockSpacer(segment.textResult.attributedText));
++        if (collapseMargins) {
++          yOffset += ENRMFollowingTextGapAdjustment(segment.textResult.attributedText, previousTrailing);
 +        }
          CGSize textSize = ENRMMeasureAttributedTextViewFree(
              segment.textResult.attributedText, maxWidth, config, shouldAddBottomMargin,

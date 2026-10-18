@@ -182,5 +182,8 @@ describe("web source parity", () => {
     expect(patch).toContain(
       "Prose quotes collapse with the previous block. Answer quotes keep a zero top.",
     );
+    expect(patch).toContain("A prose rule keeps its own margins.");
+    expect(patch).toContain("A fence before this segment collapses against it.");
+    expect(patch).toContain("ENRMFollowingTextGapAdjustment");
   });
 });
