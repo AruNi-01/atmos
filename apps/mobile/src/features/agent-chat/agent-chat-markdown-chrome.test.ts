@@ -188,6 +188,7 @@ describe("agent chat markdown chrome", () => {
     expect(markdown).toContain("{ marginBottom: 16, marginTop: 16 }");
     expect(markdown).toContain('tone === "thinking"');
     expect(markdown).toContain("agentChatProseMetrics(prose)");
+    expect(markdown).toContain("allowTrailingMargin={prose != null}");
     expect(markdown).toContain("agentChatRendererHeadingStyle");
     expect(markdown).toContain('agentChatHeadingStyle(proseColor, tone === "thinking" ? 8 : 16)');
     expect(markdown).toContain("chatForeground(theme.isDark)");

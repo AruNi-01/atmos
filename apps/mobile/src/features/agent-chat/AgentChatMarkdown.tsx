@@ -236,6 +236,8 @@ export function AgentChatMarkdown({
 
   return (
     <StreamdownText
+      // Tool prose keeps the last block's bottom margin. Answers clear it.
+      allowTrailingMargin={prose != null}
       enableTaskListItemToggle={false}
       flavor="github"
       markdown={markdown}
