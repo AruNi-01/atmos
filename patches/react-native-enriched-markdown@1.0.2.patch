@@ -2412,10 +2412,20 @@ index 138435033..7f1c30422 100644
  
  #pragma mark - Link hit-testing
 diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
-index b76936d86..bc2450eff 100644
+index b76936d86..1b23e3584 100644
 --- a/ios/views/TableContainerView.m
 +++ b/ios/views/TableContainerView.m
-@@ -61,7 +61,8 @@ static StyleConfig *ENRMTableCellConfig(StyleConfig *config, BOOL isHeader)
+@@ -19,6 +19,9 @@
+ 
+ @interface TableCellData : NSObject
+ @property (nonatomic, strong) NSMutableAttributedString *attributedText;
++// Display copy. Web cells are `break-words`, so a token wider than the column
++// gains a break. The source string stays intact for copy.
++@property (nonatomic, strong) NSAttributedString *wrappedText;
+ @property (nonatomic, copy) NSString *plainText;
+ @property (nonatomic, copy) NSString *markdownText;
+ @property (nonatomic, assign) BOOL isHeader;
+@@ -61,7 +64,8 @@ static StyleConfig *ENRMTableCellConfig(StyleConfig *config, BOOL isHeader)
    NSString *headerFamily =
        config.tableHeaderFontFamily.length > 0 ? config.tableHeaderFontFamily : config.tableFontFamily;
    [cellConfig setParagraphFontFamily:isHeader ? headerFamily : config.tableFontFamily];
@@ -2425,9 +2435,50 @@ index b76936d86..bc2450eff 100644
    [cellConfig setParagraphColor:isHeader ? config.tableHeaderTextColor : config.tableColor];
    [cellConfig setParagraphLineHeight:config.tableLineHeight];
  
-@@ -155,7 +156,8 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
+@@ -154,8 +158,49 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
+   return [allRows copy];
  }
  
++// Web table cells are `break-words`. A token wider than the column breaks,
++// and a word that fits stays whole.
++static NSAttributedString *ENRMTableBreakWords(NSAttributedString *text, CGFloat availableWidth)
++{
++  if (text.length == 0 || availableWidth <= 1.0)
++    return text;
++
++  NSString *source = text.string;
++  NSMutableAttributedString *wrapped = [[NSMutableAttributedString alloc] init];
++  CGFloat used = 0;
++  BOOL broke = NO;
++  NSUInteger index = 0;
++  while (index < source.length) {
++    NSRange range = [source rangeOfComposedCharacterSequenceAtIndex:index];
++    unichar first = [source characterAtIndex:range.location];
++    BOOL whitespace = [[NSCharacterSet whitespaceAndNewlineCharacterSet] characterIsMember:first];
++    NSAttributedString *piece = [text attributedSubstringFromRange:range];
++    if (whitespace) {
++      [wrapped appendAttributedString:piece];
++      used = 0;
++    } else {
++      UIFont *font = [text attribute:NSFontAttributeName atIndex:range.location effectiveRange:NULL];
++      NSDictionary *measureAttributes = font ? @{NSFontAttributeName : font} : @{};
++      NSString *character = [source substringWithRange:range];
++      CGFloat width = ceil([character sizeWithAttributes:measureAttributes].width);
++      if (used > 0.0 && used + width > availableWidth) {
++        NSDictionary *attributes = [text attributesAtIndex:range.location effectiveRange:NULL];
++        NSAttributedString *gap = [[NSAttributedString alloc] initWithString:@"\u200B" attributes:attributes];
++        [wrapped appendAttributedString:gap];
++        used = 0;
++        broke = YES;
++      }
++      [wrapped appendAttributedString:piece];
++      used += width;
++    }
++    index = NSMaxRange(range);
++  }
++  return broke ? wrapped : text;
++}
++
  static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NSUInteger colCount, StyleConfig *config,
 -                                   CGFloat borderWidth, NSMutableArray<NSNumber *> *_Nullable *_Nullable outColWidths,
 +                                   CGFloat borderWidth, CGFloat containerWidth,
@@ -2435,7 +2486,7 @@ index b76936d86..bc2450eff 100644
                                     NSMutableArray<NSNumber *> *_Nullable *_Nullable outRowHeights,
                                     CGFloat *_Nullable outTotalWidth, CGFloat *_Nullable outTotalHeight)
  {
-@@ -165,6 +167,47 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -165,6 +210,48 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    const CGFloat horizontalPadding = config.tableCellPaddingHorizontal * 2;
    const CGFloat verticalPadding = config.tableCellPaddingVertical * 2;
  
@@ -2460,10 +2511,11 @@ index b76936d86..bc2450eff 100644
 +      CGFloat maxHeight = 0;
 +      for (NSUInteger column = 0; column < row.count && column < colCount; column++) {
 +        CGFloat availableWidth = MAX([fixedWidths[column] doubleValue] - horizontalPadding, 1.0);
-+        CGRect boundingRect = [row[column].attributedText
-+            boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
-+                         options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-+                         context:nil];
++        NSAttributedString *measured = ENRMTableBreakWords(row[column].attributedText, availableWidth);
++        row[column].wrappedText = measured;
++        CGRect boundingRect = [measured boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
++                                                     options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
++                                                     context:nil];
 +        maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
 +      }
 +      [fixedHeights addObject:@(maxHeight)];
@@ -2483,7 +2535,25 @@ index b76936d86..bc2450eff 100644
    NSMutableArray<NSNumber *> *colWidths = [NSMutableArray arrayWithCapacity:colCount];
    for (NSUInteger i = 0; i < colCount; i++)
      [colWidths addObject:@0];
-@@ -224,6 +267,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -186,11 +273,12 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   for (NSArray<TableCellData *> *row in rows) {
+     CGFloat maxHeight = 0;
+     for (NSUInteger column = 0; column < row.count; column++) {
+-      CGFloat availableWidth = [colWidths[column] doubleValue] - horizontalPadding;
+-      CGRect boundingRect = [row[column].attributedText
+-          boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
+-                       options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+-                       context:nil];
++      CGFloat availableWidth = MAX([colWidths[column] doubleValue] - horizontalPadding, 1.0);
++      NSAttributedString *measured = ENRMTableBreakWords(row[column].attributedText, availableWidth);
++      row[column].wrappedText = measured;
++      CGRect boundingRect = [measured boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
++                                                   options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
++                                                   context:nil];
+       maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
+     }
+     [rowHeights addObject:@(maxHeight)];
+@@ -224,6 +312,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    NSMutableArray<NSNumber *> *_rowHeights;
    CGFloat _totalTableWidth;
    CGFloat _totalTableHeight;
@@ -2492,7 +2562,7 @@ index b76936d86..bc2450eff 100644
  
    NSString *_cachedMarkdown;
  
-@@ -323,6 +368,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -323,6 +413,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
                               _writingDirectionMode, _resolvedLayoutDirection, &colCount);
    _colCount = colCount;
@@ -2500,7 +2570,7 @@ index b76936d86..bc2450eff 100644
    _cachedMarkdown = [self buildMarkdownFromRows];
    _cachedAccessibilityElements = nil;
    [self computeLayout];
-@@ -335,7 +381,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -335,7 +426,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    NSMutableArray<NSNumber *> *rowHeights = nil;
    CGFloat totalWidth = 0;
    CGFloat totalHeight = 0;
@@ -2509,7 +2579,7 @@ index b76936d86..bc2450eff 100644
                           &totalWidth, &totalHeight);
    _colWidths = colWidths;
    _rowHeights = rowHeights;
-@@ -349,6 +395,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -349,6 +440,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
                 maxFontSizeMultiplier:(CGFloat)maxFontSizeMultiplier
                  writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
               resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
@@ -2517,7 +2587,7 @@ index b76936d86..bc2450eff 100644
  {
    NSUInteger colCount = 0;
    NSArray<NSArray<TableCellData *> *> *rows =
-@@ -358,7 +405,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -358,7 +450,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
      return 0;
  
    CGFloat totalHeight = 0;
@@ -2526,7 +2596,17 @@ index b76936d86..bc2450eff 100644
    return totalHeight;
  }
  
-@@ -603,11 +650,35 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -383,7 +475,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+ {
+   NSMutableArray<NSAttributedString *> *cellTexts = [NSMutableArray arrayWithCapacity:_colCount];
+   for (NSUInteger columnIndex = 0; columnIndex < _colCount; columnIndex++) {
+-    NSAttributedString *text = (columnIndex < rowCells.count) ? rowCells[columnIndex].attributedText : nil;
++    TableCellData *cell = (columnIndex < rowCells.count) ? rowCells[columnIndex] : nil;
++    NSAttributedString *text = cell.wrappedText ?: cell.attributedText;
+     [cellTexts addObject:text ?: [[NSAttributedString alloc] init]];
+   }
+   return [cellTexts copy];
+@@ -603,11 +696,35 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
  {
    if (_rows.count == 0)
      return 0;
@@ -2562,7 +2642,7 @@ index b76936d86..bc2450eff 100644
  - (CGFloat)alignOffsetForFreeSpace:(CGFloat)freeSpace
  {
    if (freeSpace <= 0)
-@@ -627,6 +698,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -627,6 +744,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
  #if !TARGET_OS_OSX
    CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
    CGFloat containerWidth = self.bounds.size.width;
@@ -2570,7 +2650,7 @@ index b76936d86..bc2450eff 100644
    BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
  
    if (tableOverflows) {
-@@ -643,12 +715,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -643,12 +761,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
      _scrollView.contentInset = UIEdgeInsetsZero;
      _scrollView.contentOffset = CGPointZero;
      _scrollView.contentSize = CGSizeMake(MAX(_totalTableWidth, containerWidth), _totalTableHeight);

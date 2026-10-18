@@ -209,5 +209,8 @@ describe("web source parity", () => {
     expect(patch).toContain(
       "A fitted table matches the container, so the horizontal scroller stays off.",
     );
+    expect(patch).toContain("Web table cells are `break-words`.");
+    expect(patch).toContain("A token wider than the column breaks,");
+    expect(patch).toContain("and a word that fits stays whole.");
   });
 });
