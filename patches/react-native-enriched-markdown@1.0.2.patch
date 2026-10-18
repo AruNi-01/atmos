@@ -3085,3 +3085,30 @@ index 1905d45..25f0877 100644
      }
  
      if (yOffset == 0) {
+diff --git a/ios/renderer/ParagraphRenderer.m b/ios/renderer/ParagraphRenderer.m
+index cae2734..ac6dd39 100644
+--- a/ios/renderer/ParagraphRenderer.m
++++ b/ios/renderer/ParagraphRenderer.m
+@@ -40,8 +40,10 @@
+ 
+   NSUInteger contentStart = start;
+ 
++  // A block image that opens the segment stores its 16px top. The first segment still clears it.
++  BOOL imageOpensSegment = isBlockImage && start == 0 && marginTop > 0;
+   // Handle leading margin for the first element in the document (Index 0 check)
+-  if (shouldApplyMargin && start == 0) {
++  if (shouldApplyMargin && start == 0 && !imageOpensSegment) {
+     NSUInteger offset = applyBlockSpacingBefore(output, 0, marginTop);
+     contentStart += offset;
+     start += offset;
+@@ -61,6 +63,10 @@
+ 
+   applyTextAlignment(output, range, _config.paragraphTextAlign);
+ 
++  if (imageOpensSegment) {
++    [output addAttribute:ENRMHeadingOpenMarginAttributeName value:@(marginTop) range:NSMakeRange(0, 1)];
++  }
++
+   // Skip marginTop for the first block — already handled by applyBlockSpacingBefore above
+   if (shouldApplyMargin && contentStart != 1) {
+     NSUInteger inserted = applyParagraphSpacingBefore(output, range, marginTop);

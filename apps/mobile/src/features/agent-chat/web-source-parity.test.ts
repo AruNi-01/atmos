@@ -197,6 +197,9 @@ describe("web source parity", () => {
     expect(patch).toContain(
       "A rule that opens the segment after a fence or table keeps the part of its 24px top that exceeds that block.",
     );
+    expect(patch).toContain(
+      "A block image that opens the segment stores its 16px top. The first segment still clears it.",
+    );
     expect(patch).toContain("Answer lists keep their spacer.");
     expect(patch).toContain("Answer and thinking blocks are `my-4`");
     expect(patch).toContain("Answer rules are `my-6` (24).");

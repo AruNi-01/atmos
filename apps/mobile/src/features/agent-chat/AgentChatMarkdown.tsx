@@ -163,14 +163,16 @@ export function AgentChatMarkdown({
           : { marginTop: fenceMargin, marginBottom: fenceMargin }),
       },
       image: {
-        // Streamdown images are `max-w-full rounded-lg`. This app's `--radius`
-        // is 10px. Height 0 keeps a narrower bitmap at its own width and fits
-        // a wider one to the line. The library default is a 200px box.
-        // Tool markdown clears the 16px bottom margin. `MarkdownRenderer` sets
-        // `prose-img:m-0` and `[&_img]:m-0`.
+        // Streamdown images are `my-4 max-w-full rounded-lg`. This app's
+        // `--radius` is 10px. Height 0 keeps a narrower bitmap at its own width
+        // and fits a wider one to the line. The library default is a 200px box
+        // with no top margin, so a heading's 8px bottom stayed 8px. Both sides
+        // are 16px and collapse with the previous block. Tool markdown clears
+        // them. `MarkdownRenderer` sets `prose-img:m-0` and `[&_img]:m-0`.
         borderRadius: agentChatBlockMetrics.codeBlock.borderRadius,
         height: 0,
-        ...(proseMetrics ? { marginBottom: 0, marginTop: 0 } : {}),
+        marginBottom: proseMetrics ? 0 : STREAMDOWN_BLOCK_GAP,
+        marginTop: proseMetrics ? 0 : STREAMDOWN_BLOCK_GAP,
       },
       link: {
         color: proseInk?.link ?? agentChatLinkColor(theme.isDark),
