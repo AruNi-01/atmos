@@ -190,5 +190,7 @@ describe("web source parity", () => {
     );
     expect(patch).toContain("A following rule gives the overlap back to the previous rule.");
     expect(patch).toContain("A rule that ends the text already includes its bottom.");
+    expect(patch).toContain("Answer headings are `mt-6`. Tailwind 4 `space-y-4` is `:where()`, so");
+    expect(patch).toContain("Answer lists keep their spacer.");
   });
 });

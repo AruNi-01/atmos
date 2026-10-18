@@ -2828,7 +2828,7 @@ index 47283dc..7fb8fb9 100644
      // Ensure nested lists start on a new line
      [output appendAttributedString:kNewlineAttributedString];
 diff --git a/ios/EnrichedMarkdown.mm b/ios/EnrichedMarkdown.mm
-index ed8b53d..679bebf 100644
+index ed8b53d..e33bf74 100644
 --- a/ios/EnrichedMarkdown.mm
 +++ b/ios/EnrichedMarkdown.mm
 @@ -321,6 +321,8 @@ static char kENRMSegmentFadeAnimatorKey;
@@ -2840,7 +2840,7 @@ index ed8b53d..679bebf 100644
    const NSUInteger lastIndex = _segmentViews.count - 1;
  
    [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
-@@ -329,30 +331,55 @@ static char kENRMSegmentFadeAnimatorKey;
+@@ -329,30 +331,62 @@ static char kENRMSegmentFadeAnimatorKey;
  
      CGFloat segmentHeight = 0;
      const BOOL isTable = [segment isKindOfClass:[TableContainerView class]];
@@ -2850,6 +2850,13 @@ index ed8b53d..679bebf 100644
        EnrichedMarkdownInternalText *textView = (EnrichedMarkdownInternalText *)segment;
 +      if (collapseMargins) {
 +        yOffset += ENRMFollowingTextGapAdjustment(textView.textView.attributedText, previousTrailing);
++      } else if (previousTrailing > 0.0) {
++        // Answer headings are `mt-6`. Tailwind 4 `space-y-4` is `:where()`, so
++        // it does not override that top. A fence or table already added its
++        // bottom, and only the excess is added here. The first segment stays
++        // clear because previousTrailing is 0. Answer lists keep their spacer.
++        yOffset += ENRMCollapsedMargin(ENRMHeadingOpenMargin(textView.textView.attributedText),
++                                       previousTrailing);
 +      }
        textView.allowTrailingMargin = shouldAddBottomMargin;
        CGSize textSize = [textView measureSize:width];
@@ -2899,7 +2906,7 @@ index ed8b53d..679bebf 100644
      }
  
      if (applyFrames) {
-@@ -391,6 +418,7 @@ static char kENRMSegmentFadeAnimatorKey;
+@@ -391,6 +425,7 @@ static char kENRMSegmentFadeAnimatorKey;
      else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
        yOffset += _config.codeBlockMarginBottom;
      }
@@ -2908,10 +2915,10 @@ index ed8b53d..679bebf 100644
  
    return CGSizeMake(maxContentWidth, yOffset);
 diff --git a/ios/internals/ENRMViewFreeMeasurement.h b/ios/internals/ENRMViewFreeMeasurement.h
-index 1905d45..9426712 100644
+index 1905d45..dfa704a 100644
 --- a/ios/internals/ENRMViewFreeMeasurement.h
 +++ b/ios/internals/ENRMViewFreeMeasurement.h
-@@ -272,21 +272,37 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -272,21 +272,44 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
  
      CGFloat yOffset = 0.0;
      CGFloat maxContentWidth = 0.0;
@@ -2928,6 +2935,13 @@ index 1905d45..9426712 100644
        if (segment.kind == ENRMSegmentKindText && segment.textResult) {
 +        if (collapseMargins) {
 +          yOffset += ENRMFollowingTextGapAdjustment(segment.textResult.attributedText, previousTrailing);
++        } else if (previousTrailing > 0.0) {
++          // Answer headings are `mt-6`. Tailwind 4 `space-y-4` is `:where()`, so
++          // it does not override that top. A fence or table already added its
++          // bottom, and only the excess is added here. The first segment stays
++          // clear because previousTrailing is 0. Answer lists keep their spacer.
++          yOffset += ENRMCollapsedMargin(ENRMHeadingOpenMargin(segment.textResult.attributedText),
++                                         previousTrailing);
 +        }
          CGSize textSize = ENRMMeasureAttributedTextViewFree(
              segment.textResult.attributedText, maxWidth, config, shouldAddBottomMargin,
@@ -2950,7 +2964,7 @@ index 1905d45..9426712 100644
          yOffset += [TableContainerView measureHeightForTableNode:segment.tableSegment.tableNode
                                                            config:config
                                                  allowFontScaling:typedProps.allowFontScaling
-@@ -297,18 +313,28 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -297,18 +320,28 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
          if (shouldAddBottomMargin) {
            yOffset += config.tableMarginBottom;
          }
@@ -2981,7 +2995,7 @@ index 1905d45..9426712 100644
          yOffset += [ENRMMathContainerView measureHeightForLatex:segment.mathSegment.latex
                                                           config:config
                                                         maxWidth:maxWidth];
-@@ -316,8 +342,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -316,8 +349,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
          if (shouldAddBottomMargin) {
            yOffset += config.mathMarginBottom;
          }
