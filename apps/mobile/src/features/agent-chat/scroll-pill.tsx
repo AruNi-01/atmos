@@ -3,6 +3,7 @@ import { NumberFlow } from "number-flow-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronDownIcon } from "@/ui/icons/lucide-native";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { COMPOSER_GLASS_CONTROL_RADIUS, COMPOSER_GLASS_CONTROL_SIZE } from "./composer-glass";
 import { copy } from "./copy";
 import { scrollBelowUnit, scrollPillAccessibilityLabel } from "./stick";
 
@@ -24,12 +25,19 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
   const showCopy = count > 0;
 
   return (
-    <Pressable
-      accessibilityLabel={scrollPillAccessibilityLabel(count)}
-      accessibilityRole="button"
-      onPress={onPress}
-    >
-      <GlassPanel interactive style={styles.pill}>
+    <GlassPanel interactive shadow={false} style={styles.pill} tintColor={theme.colors.glassTint}>
+      <Pressable
+        accessibilityLabel={scrollPillAccessibilityLabel(count)}
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => ({
+          alignItems: "center",
+          height: COMPOSER_GLASS_CONTROL_SIZE,
+          justifyContent: "center",
+          opacity: pressed ? 0.6 : 1,
+          paddingHorizontal: 14,
+        })}
+      >
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
@@ -49,8 +57,8 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
             </View>
           ) : null}
         </View>
-      </GlassPanel>
-    </Pressable>
+      </Pressable>
+    </GlassPanel>
   );
 }
 
@@ -62,10 +70,9 @@ const styles = StyleSheet.create({
   },
   pill: {
     alignItems: "center",
-    borderRadius: 18,
-    height: 36,
+    borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
+    height: COMPOSER_GLASS_CONTROL_SIZE,
     justifyContent: "center",
-    paddingHorizontal: 14,
   },
   row: {
     alignItems: "center",

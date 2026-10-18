@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
+import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
+import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { useReducedMotion } from "../motion/use-reduced-motion";
 
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
@@ -25,25 +27,23 @@ export function ExpandedCard({
       entering={FadeIn.duration(motion.duration).easing(motion.easing)}
       exiting={FadeOut.duration(motion.duration).easing(motion.easing)}
       onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
-      style={{
-        backgroundColor: theme.colors.cardElevated,
-        borderColor: theme.colors.glassBorder,
-        borderCurve: "continuous",
-        borderRadius: 16,
-        borderWidth: StyleSheet.hairlineWidth,
-        marginHorizontal: 18,
-        maxHeight,
-        overflow: "hidden",
-      }}
+      style={{ marginHorizontal: 18, maxHeight }}
     >
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled
-        style={{ flexGrow: 0, maxHeight }}
+      <GlassPanel
+        fallbackStyle={{ backgroundColor: theme.colors.glassFallbackStrong }}
+        shadow={false}
+        style={{ borderRadius: radii.card, maxHeight }}
+        tintColor={theme.colors.glassTint}
       >
-        <View style={styles.body}>{children}</View>
-      </ScrollView>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          style={{ flexGrow: 0, maxHeight }}
+        >
+          <View style={styles.body}>{children}</View>
+        </ScrollView>
+      </GlassPanel>
     </Animated.View>
   );
 }

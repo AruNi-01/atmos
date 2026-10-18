@@ -1,11 +1,12 @@
-import type { PropsWithChildren } from "react";
+import { useEffect, useState, type PropsWithChildren } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
-import { StyleSheet, View } from "react-native";
+import { AccessibilityInfo, StyleSheet, View } from "react-native";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import type { GlassViewProps } from "expo-glass-effect";
 import { colors, radii, type MobileThemeColorScheme } from "@/theme/colors";
 import { shadows } from "@/theme/shadows";
 import { useMobileTheme } from "@/theme/theme-store";
+import { shouldUseLiquidGlass } from "./glass-availability";
 
 type GlassPanelProps = PropsWithChildren<{
   colorScheme?: MobileThemeColorScheme;
@@ -28,13 +29,18 @@ export function GlassPanel({
   tintColor,
 }: GlassPanelProps) {
   const theme = useMobileTheme();
+  const reduceTransparency = useReduceTransparencyEnabled();
   const resolvedScheme = colorScheme ?? theme.colorScheme;
   const isDark = resolvedScheme === "dark";
-  const shouldUseLiquidGlass = isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+  const useLiquidGlass = shouldUseLiquidGlass({
+    apiAvailable: isGlassEffectAPIAvailable(),
+    liquidGlassAvailable: isLiquidGlassAvailable(),
+    reduceTransparency,
+  });
   const resolvedTintColor = tintColor ?? theme.colors.glassTint;
   const panelStyle = [styles.panel, { borderColor: theme.colors.glassBorder }, style];
 
-  if (shouldUseLiquidGlass) {
+  if (useLiquidGlass) {
     return (
       <GlassView
         colorScheme={resolvedScheme}
@@ -61,6 +67,31 @@ export function GlassPanel({
       {children}
     </View>
   );
+}
+
+function useReduceTransparencyEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const read = AccessibilityInfo.isReduceTransparencyEnabled;
+    if (typeof read !== "function") return undefined;
+    void read()
+      .then((value) => {
+        if (alive) setEnabled(value);
+      })
+      .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceTransparencyChanged",
+      setEnabled,
+    );
+    return () => {
+      alive = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return enabled;
 }
 
 const styles = StyleSheet.create({
