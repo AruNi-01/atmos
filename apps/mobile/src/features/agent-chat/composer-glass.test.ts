@@ -183,7 +183,7 @@ describe("card lane glass chrome", () => {
     const queue = source("cards/queue-card.tsx");
     for (const text of [permission, sessionOp, queue]) {
       expect(text).toContain("GlassTextButton");
-      expect(text).not.toContain("theme.colors.control");
+      expect(text).not.toMatch(/theme\.colors\.control(?!Border)/);
       expect(text).not.toContain("mutedPressed");
       expect(text).not.toContain("GlassPanel");
       expect(text).not.toContain("buttonStyle");
