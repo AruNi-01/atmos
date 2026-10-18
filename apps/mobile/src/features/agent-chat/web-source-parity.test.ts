@@ -203,5 +203,11 @@ describe("web source parity", () => {
     expect(patch).toContain("Answer lists keep their spacer.");
     expect(patch).toContain("Answer and thinking blocks are `my-4`");
     expect(patch).toContain("Answer rules are `my-6` (24).");
+    expect(patch).toContain("Web tables are `w-full table-fixed` inside `overflow-hidden`.");
+    expect(patch).toContain("container splits into equal columns and wraps.");
+    expect(patch).toContain("contentWidth / (CGFloat)colCount");
+    expect(patch).toContain(
+      "A fitted table matches the container, so the horizontal scroller stays off.",
+    );
   });
 });

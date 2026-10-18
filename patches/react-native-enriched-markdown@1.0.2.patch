@@ -2412,7 +2412,7 @@ index 138435033..7f1c30422 100644
  
  #pragma mark - Link hit-testing
 diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
-index b76936d86..18aa1a1f9 100644
+index b76936d86..bc2450eff 100644
 --- a/ios/views/TableContainerView.m
 +++ b/ios/views/TableContainerView.m
 @@ -61,7 +61,8 @@ static StyleConfig *ENRMTableCellConfig(StyleConfig *config, BOOL isHeader)
@@ -2425,7 +2425,65 @@ index b76936d86..18aa1a1f9 100644
    [cellConfig setParagraphColor:isHeader ? config.tableHeaderTextColor : config.tableColor];
    [cellConfig setParagraphLineHeight:config.tableLineHeight];
  
-@@ -224,6 +225,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -155,7 +156,8 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
+ }
+ 
+ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NSUInteger colCount, StyleConfig *config,
+-                                   CGFloat borderWidth, NSMutableArray<NSNumber *> *_Nullable *_Nullable outColWidths,
++                                   CGFloat borderWidth, CGFloat containerWidth,
++                                   NSMutableArray<NSNumber *> *_Nullable *_Nullable outColWidths,
+                                    NSMutableArray<NSNumber *> *_Nullable *_Nullable outRowHeights,
+                                    CGFloat *_Nullable outTotalWidth, CGFloat *_Nullable outTotalHeight)
+ {
+@@ -165,6 +167,47 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   const CGFloat horizontalPadding = config.tableCellPaddingHorizontal * 2;
+   const CGFloat verticalPadding = config.tableCellPaddingVertical * 2;
+ 
++  // Web tables are `w-full table-fixed` inside `overflow-hidden`. A known
++  // container splits into equal columns and wraps. It does not scroll.
++  if (containerWidth > 1.0 && colCount > 0) {
++    CGFloat contentWidth = containerWidth - borderWidth;
++    if (contentWidth < (CGFloat)colCount)
++      contentWidth = (CGFloat)colCount;
++
++    NSMutableArray<NSNumber *> *fixedWidths = [NSMutableArray arrayWithCapacity:colCount];
++    CGFloat share = contentWidth / (CGFloat)colCount;
++    CGFloat assigned = 0;
++    for (NSUInteger column = 0; column < colCount; column++) {
++      CGFloat width = (column + 1 == colCount) ? (contentWidth - assigned) : share;
++      assigned += width;
++      [fixedWidths addObject:@(width)];
++    }
++
++    NSMutableArray<NSNumber *> *fixedHeights = [NSMutableArray arrayWithCapacity:rows.count];
++    for (NSArray<TableCellData *> *row in rows) {
++      CGFloat maxHeight = 0;
++      for (NSUInteger column = 0; column < row.count && column < colCount; column++) {
++        CGFloat availableWidth = MAX([fixedWidths[column] doubleValue] - horizontalPadding, 1.0);
++        CGRect boundingRect = [row[column].attributedText
++            boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
++                         options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
++                         context:nil];
++        maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
++      }
++      [fixedHeights addObject:@(maxHeight)];
++    }
++
++    if (outColWidths != NULL)
++      *outColWidths = fixedWidths;
++    if (outRowHeights != NULL)
++      *outRowHeights = fixedHeights;
++    if (outTotalWidth != NULL)
++      *outTotalWidth = contentWidth + borderWidth;
++    if (outTotalHeight != NULL)
++      *outTotalHeight = [[fixedHeights valueForKeyPath:@"@sum.self"] doubleValue] + borderWidth;
++    return;
++  }
++
+   NSMutableArray<NSNumber *> *colWidths = [NSMutableArray arrayWithCapacity:colCount];
+   for (NSUInteger i = 0; i < colCount; i++)
+     [colWidths addObject:@0];
+@@ -224,6 +267,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    NSMutableArray<NSNumber *> *_rowHeights;
    CGFloat _totalTableWidth;
    CGFloat _totalTableHeight;
@@ -2434,7 +2492,7 @@ index b76936d86..18aa1a1f9 100644
  
    NSString *_cachedMarkdown;
  
-@@ -323,6 +326,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -323,6 +368,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
    _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
                               _writingDirectionMode, _resolvedLayoutDirection, &colCount);
    _colCount = colCount;
@@ -2442,12 +2500,44 @@ index b76936d86..18aa1a1f9 100644
    _cachedMarkdown = [self buildMarkdownFromRows];
    _cachedAccessibilityElements = nil;
    [self computeLayout];
-@@ -608,6 +612,30 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -335,7 +381,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   NSMutableArray<NSNumber *> *rowHeights = nil;
+   CGFloat totalWidth = 0;
+   CGFloat totalHeight = 0;
+-  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, &colWidths, &rowHeights,
++  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, 0, &colWidths, &rowHeights,
+                          &totalWidth, &totalHeight);
+   _colWidths = colWidths;
+   _rowHeights = rowHeights;
+@@ -349,6 +395,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+                maxFontSizeMultiplier:(CGFloat)maxFontSizeMultiplier
+                 writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
+              resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
++                            maxWidth:(CGFloat)maxWidth
+ {
+   NSUInteger colCount = 0;
+   NSArray<NSArray<TableCellData *> *> *rows =
+@@ -358,7 +405,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+     return 0;
+ 
+   CGFloat totalHeight = 0;
+-  ENRMTableComputeLayout(rows, colCount, config, config.tableBorderWidth, NULL, NULL, NULL, &totalHeight);
++  ENRMTableComputeLayout(rows, colCount, config, config.tableBorderWidth, maxWidth, NULL, NULL, NULL, &totalHeight);
+   return totalHeight;
+ }
+ 
+@@ -603,11 +650,35 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+ {
+   if (_rows.count == 0)
+     return 0;
++  [self distributeColumnsToContainerWidth:maxWidth];
+   if (_rowHeights.count == 0)
+     [self computeLayout];
    return _totalTableHeight;
  }
  
-+// GFM tables on web are `w-full table-fixed`. Content-sized columns leave a
-+// narrow grid; give the leftover container width to every column equally.
++// The container width is known here. Equal columns replace the content-sized
++// grid, including a grid that would otherwise scroll sideways.
 +- (void)distributeColumnsToContainerWidth:(CGFloat)innerWidth
 +{
 +  if (_colCount == 0 || innerWidth <= 1)
@@ -2456,24 +2546,23 @@ index b76936d86..18aa1a1f9 100644
 +    return;
 +
 +  _distributedInnerWidth = innerWidth;
-+  [self computeLayout];
-+  if (_totalTableWidth <= 0 || _colWidths.count == 0 || _totalTableWidth + 0.5 >= innerWidth)
-+    return;
-+
-+  CGFloat share = (innerWidth - _totalTableWidth) / (CGFloat)_colWidths.count;
-+  NSMutableArray<NSNumber *> *expanded = [NSMutableArray arrayWithCapacity:_colWidths.count];
-+  for (NSNumber *width in _colWidths) {
-+    [expanded addObject:@(width.doubleValue + share)];
-+  }
-+  _colWidths = expanded;
-+  _totalTableWidth = innerWidth;
++  NSMutableArray<NSNumber *> *colWidths = nil;
++  NSMutableArray<NSNumber *> *rowHeights = nil;
++  CGFloat totalWidth = 0;
++  CGFloat totalHeight = 0;
++  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, innerWidth, &colWidths,
++                         &rowHeights, &totalWidth, &totalHeight);
++  _colWidths = colWidths;
++  _rowHeights = rowHeights;
++  _totalTableWidth = totalWidth;
++  _totalTableHeight = totalHeight;
 +  [self renderGrid];
 +}
 +
  - (CGFloat)alignOffsetForFreeSpace:(CGFloat)freeSpace
  {
    if (freeSpace <= 0)
-@@ -627,6 +655,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -627,6 +698,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
  #if !TARGET_OS_OSX
    CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
    CGFloat containerWidth = self.bounds.size.width;
@@ -2481,7 +2570,17 @@ index b76936d86..18aa1a1f9 100644
    BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
  
    if (tableOverflows) {
-@@ -649,6 +678,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+@@ -643,12 +715,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+     _scrollView.contentInset = UIEdgeInsetsZero;
+     _scrollView.contentOffset = CGPointZero;
+     _scrollView.contentSize = CGSizeMake(MAX(_totalTableWidth, containerWidth), _totalTableHeight);
+-    _scrollView.scrollEnabled = (_totalTableWidth > containerWidth);
++    // A fitted table matches the container, so the horizontal scroller stays off.
++    _scrollView.scrollEnabled = (_distributedInnerWidth > 1.0 && _totalTableWidth <= containerWidth + 0.5)
++                                    ? NO
++                                    : (_totalTableWidth > containerWidth);
+     _gridContainer.frame = CGRectMake(overhang + alignOffset, 0, _totalTableWidth, _totalTableHeight);
+   }
  #else
    CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
    CGFloat containerWidth = self.bounds.size.width;
@@ -2998,10 +3097,10 @@ index ed8b53d..df595d8 100644
  
    return CGSizeMake(maxContentWidth, yOffset);
 diff --git a/ios/internals/ENRMViewFreeMeasurement.h b/ios/internals/ENRMViewFreeMeasurement.h
-index 1905d45..25f0877 100644
+index 1905d4505..cf23e6dfd 100644
 --- a/ios/internals/ENRMViewFreeMeasurement.h
 +++ b/ios/internals/ENRMViewFreeMeasurement.h
-@@ -272,21 +272,46 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -272,43 +272,73 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
  
      CGFloat yOffset = 0.0;
      CGFloat maxContentWidth = 0.0;
@@ -3049,7 +3148,12 @@ index 1905d45..25f0877 100644
          yOffset += [TableContainerView measureHeightForTableNode:segment.tableSegment.tableNode
                                                            config:config
                                                  allowFontScaling:typedProps.allowFontScaling
-@@ -297,18 +322,22 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+                                            maxFontSizeMultiplier:typedProps.maxFontSizeMultiplier
+                                             writingDirectionMode:writingDirectionMode
+-                                         resolvedLayoutDirection:resolvedLayoutDirection];
++                                         resolvedLayoutDirection:resolvedLayoutDirection
++                                                        maxWidth:maxWidth];
+         maxContentWidth = maxWidth;
          if (shouldAddBottomMargin) {
            yOffset += config.tableMarginBottom;
          }
@@ -3074,7 +3178,7 @@ index 1905d45..25f0877 100644
          yOffset += [ENRMMathContainerView measureHeightForLatex:segment.mathSegment.latex
                                                           config:config
                                                         maxWidth:maxWidth];
-@@ -316,8 +345,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
+@@ -316,8 +346,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
          if (shouldAddBottomMargin) {
            yOffset += config.mathMarginBottom;
          }
@@ -3112,3 +3216,26 @@ index cae2734..ac6dd39 100644
    // Skip marginTop for the first block — already handled by applyBlockSpacingBefore above
    if (shouldApplyMargin && contentStart != 1) {
      NSUInteger inserted = applyParagraphSpacingBefore(output, range, marginTop);
+diff --git a/ios/views/TableContainerView.h b/ios/views/TableContainerView.h
+index 5c21bfefd..a5198914c 100644
+--- a/ios/views/TableContainerView.h
++++ b/ios/views/TableContainerView.h
+@@ -23,14 +23,15 @@ typedef void (^TableLinkPressBlock)(NSString *url);
+ /// runs in `applyTableNode:`/`computeLayout` — shared statics, so measured and
+ /// rendered heights cannot drift — without creating any view. Safe on any
+ /// thread; the iOS counterpart of Android's
+-/// `TableContainerView.measureTableNodeHeight`. Table height is intrinsic
+-/// (content-sized columns, horizontal scroll), so no maxWidth parameter.
++/// `TableContainerView.measureTableNodeHeight`. A known width uses equal
++/// `table-fixed` columns. Width 0 keeps the content-sized fallback.
+ + (CGFloat)measureHeightForTableNode:(MarkdownASTNode *)tableNode
+                               config:(StyleConfig *)config
+                     allowFontScaling:(BOOL)allowFontScaling
+                maxFontSizeMultiplier:(CGFloat)maxFontSizeMultiplier
+                 writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
+-             resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection;
++             resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
++                            maxWidth:(CGFloat)maxWidth;
+ 
+ @property (nonatomic, strong) StyleConfig *config;
+ 
