@@ -560,21 +560,26 @@ PY
 
 # Run 39149992854 froze the live replay at atMs 0, which is the thinking
 # chunk. recordVideo then silenced that process and saved one Springboard
-# frame. The finished card at 15000ms is the still frame. Attach the recorder
-# there, then drop atMs so the replay, including the thinking shimmer, runs
+# frame. Run 39156539680 attached the recorder on the finished card at
+# 15000ms. Attempt 1 logged replay start and then nothing. Attempt 2 kept
+# the finished card for one frame and then Springboard, and that short file
+# replaced attempt 1. Keep each attempt. The parity replay draws a text
+# highlight instead of the masked gradient so the replay interval can finish
 # while recording is already open. Reduced motion already finishes when
 # recording starts after replay start.
 record_replay_movie() {
   local motion="$1"
   local label="$2"
   local done_line="$3"
-  local video="$OUT/f4-${label}-motion.mov"
-  local pidfile="$OUT/f4-${label}-record.pid"
-  local errlog="$OUT/f4-${label}-record.log"
-  local attempt mark
+  local attempt mark video pidfile errlog
+  local canonical="$OUT/f4-${label}-motion.mov"
+  local best="" best_size=0 candidate size
   open -a Simulator || true
   for attempt in 1 2; do
     echo "record f4 ${label} replay attempt ${attempt}"
+    video="$OUT/f4-${label}-motion-${attempt}.mov"
+    pidfile="$OUT/f4-${label}-record-${attempt}.pid"
+    errlog="$OUT/f4-${label}-record-${attempt}.log"
     mark="$(log_mark)"
     if [[ "$label" == "live" ]]; then
       write_frame_file "F4" "light" "" "" "script" "" "" "" 15000
@@ -584,8 +589,9 @@ record_replay_movie() {
         continue
       fi
       start_screen_record "$video" "$pidfile" "$errlog"
+      echo "f4 live recorder open attempt ${attempt}"
       write_frame_file "F4" "light" "" "" "script"
-      if wait_for_since "[parity] replay done live" 30 "$mark" "$pidfile"; then
+      if wait_for_since "[parity] replay done live" 40 "$mark" "$pidfile"; then
         sleep 0.5
         stop_screen_record "$pidfile" || true
         break
@@ -609,8 +615,19 @@ record_replay_movie() {
     echo "f4 ${label} replay missed ${done_line}" >&2
     stop_screen_record "$pidfile" || true
   done
-  if [[ -s "$video" ]]; then
-    echo "recorded f4 ${label} bytes $(wc -c <"$video" | tr -d ' ')"
+  for attempt in 1 2; do
+    candidate="$OUT/f4-${label}-motion-${attempt}.mov"
+    if [[ -s "$candidate" ]]; then
+      size="$(wc -c <"$candidate" | tr -d ' ')"
+      if (( size > best_size )); then
+        best="$candidate"
+        best_size="$size"
+      fi
+    fi
+  done
+  if [[ -n "$best" ]]; then
+    cp "$best" "$canonical"
+    echo "recorded f4 ${label} bytes ${best_size} from $(basename "$best")"
   else
     echo "f4 ${label} recording is missing" >&2
   fi
