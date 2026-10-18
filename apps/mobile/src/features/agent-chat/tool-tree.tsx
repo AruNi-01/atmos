@@ -11,6 +11,50 @@ import {
 
 export { TREE_BRANCH_GUTTER, TREE_LINE_ALPHA, TREE_LINE_WIDTH };
 
+type Srgb = { r: number; g: number; b: number };
+
+function parseHexSrgb(hex: string): Srgb | null {
+  const value = hex.trim();
+  const short = /^#([0-9a-fA-F]{3})$/.exec(value)?.[1];
+  if (short) {
+    return {
+      r: Number.parseInt(short[0]! + short[0], 16),
+      g: Number.parseInt(short[1]! + short[1], 16),
+      b: Number.parseInt(short[2]! + short[2], 16),
+    };
+  }
+  const full = /^#([0-9a-fA-F]{6})$/.exec(value)?.[1];
+  if (!full) return null;
+  return {
+    r: Number.parseInt(full.slice(0, 2), 16),
+    g: Number.parseInt(full.slice(2, 4), 16),
+    b: Number.parseInt(full.slice(4, 6), 16),
+  };
+}
+
+function hexChannel(value: number): string {
+  return Math.round(value).toString(16).padStart(2, "0");
+}
+
+/**
+ * Web LogRow mixes muted ink into `--background` so the stroke is opaque.
+ * Elbow and trunk share a vertex, and neighbouring rows abut; translucent
+ * strokes composite twice there and read as a different colour. Mixing once
+ * keeps a joint the same tone as the rest of the line.
+ */
+export function mixOpaqueSrgb(foreground: string, background: string, amount: number): string {
+  const fg = parseHexSrgb(foreground);
+  const bg = parseHexSrgb(background);
+  if (!fg || !bg) return foreground;
+  const t = Math.min(1, Math.max(0, amount));
+  return `#${hexChannel(fg.r * t + bg.r * (1 - t))}${hexChannel(fg.g * t + bg.g * (1 - t))}${hexChannel(fg.b * t + bg.b * (1 - t))}`;
+}
+
+/** Opaque tree ink at `TREE_LINE_ALPHA` over the transcript background. */
+export function toolTreeInk(foreground: string, background: string): string {
+  return mixOpaqueSrgb(foreground, background, TREE_LINE_ALPHA);
+}
+
 /** Fully drawn elbow plus the trunk that continues into the next row. */
 export function toolTreeStrokes(input: { first: boolean; last: boolean; height: number }): {
   reach: string;
@@ -175,7 +219,6 @@ function DrawnPath({
     stroke,
     strokeLinecap: "butt" as const,
     strokeLinejoin: "round" as const,
-    strokeOpacity: TREE_LINE_ALPHA,
     strokeWidth: TREE_LINE_WIDTH,
   };
 
@@ -201,10 +244,11 @@ export function ToolTreeRow({
   const reachLength = treeReachLength(first ? TREE_BRANCH_FIRST_START_Y : 0, TREE_BRANCH_MID_Y);
   const trunkFrom = TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS;
   const trunkLength = height > trunkFrom ? height - trunkFrom : 0;
+  const ink = toolTreeInk(theme.colors.label, theme.colors.background);
 
   return (
     <View style={{ flexDirection: "row", minHeight: 24 }}>
-      <View pointerEvents="none" style={{ width: TREE_BRANCH_GUTTER }}>
+      <View pointerEvents="none" style={{ overflow: "hidden", width: TREE_BRANCH_GUTTER }}>
         {height > 0 ? (
           <Svg
             height={height}
@@ -218,7 +262,7 @@ export function ToolTreeRow({
                 draw={draw}
                 duration={LOG_ROW_TRUNK_MS}
                 length={trunkLength}
-                stroke={theme.colors.label}
+                stroke={ink}
               />
             ) : null}
             <DrawnPath
@@ -227,7 +271,7 @@ export function ToolTreeRow({
               draw={draw}
               duration={LOG_ROW_ELBOW_MS}
               length={reachLength}
-              stroke={theme.colors.label}
+              stroke={ink}
             />
           </Svg>
         ) : null}
