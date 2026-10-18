@@ -60,11 +60,17 @@ export class WsSession {
   private readonly requestTimeoutMs: number;
   private readonly connectWaitMs: number;
   private readonly handshakeTimeoutMs: number;
+  private readonly heartbeatIntervalMs: number;
+  private readonly heartbeatTimeoutMs: number;
   private readonly urlOption: string | (() => string);
   private readonly timers: {
     setTimeout: (fn: () => void, ms: number) => unknown;
     clearTimeout: (id: unknown) => void;
   };
+  private heartbeatTimer: unknown = null;
+  private pingWatchdog: unknown = null;
+  private reconnectPaused = false;
+  private closedByClient = false;
 
   constructor(private readonly options: WsSessionOptions) {
     this.platform = options.platform;
@@ -72,6 +78,8 @@ export class WsSession {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 0;
     this.connectWaitMs = options.connectWaitMs ?? 15_000;
     this.handshakeTimeoutMs = options.handshakeTimeoutMs ?? Math.min(this.connectWaitMs, 3_000);
+    this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? 0;
+    this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 10_000;
     this.urlOption = options.url;
     this.timers = options.platform.timers ?? {
       setTimeout: (fn, ms) => setTimeout(fn, ms),
@@ -97,6 +105,7 @@ export class WsSession {
       return this.connectInFlight;
     }
 
+    this.closedByClient = false;
     this.shouldReconnect = this.policy.enabled;
     const state: ConnectionState =
       this.currentState === "reconnecting" ? "reconnecting" : "connecting";
@@ -119,8 +128,10 @@ export class WsSession {
   }
 
   disconnect(): void {
+    this.closedByClient = true;
     this.shouldReconnect = false;
     this.clearReconnectTimer();
+    this.clearHeartbeat();
     this.failConnect(new Error("WebSocket disconnected"));
     const sock = this.socket;
     this.socket = null;
@@ -300,6 +311,40 @@ export class WsSession {
     };
   }
 
+  failPending(error: Error): void {
+    this.rejectAll(error);
+  }
+
+  pauseReconnect(): void {
+    this.reconnectPaused = true;
+    this.clearReconnectTimer();
+    this.clearHeartbeat();
+  }
+
+  resumeReconnect(): void {
+    if (this.closedByClient) return;
+    this.reconnectPaused = false;
+    if (this.currentState === "connected" && this.socket?.readyState === WEBSOCKET_OPEN) {
+      this.startHeartbeat();
+      return;
+    }
+    this.retryNow();
+  }
+
+  retryNow(): void {
+    if (this.closedByClient || this.reconnectPaused) return;
+    if (this.currentState === "connected" && this.socket?.readyState === WEBSOCKET_OPEN) {
+      return;
+    }
+    if (this.connectWaiters && !this.connectWaiters.settled) {
+      return;
+    }
+    this.clearReconnectTimer();
+    this.reconnectAttempt = 0;
+    this.shouldReconnect = this.policy.enabled;
+    void this.connect().catch(() => undefined);
+  }
+
   private beginOpenSocket(state: ConnectionState): void {
     this.clearReconnectTimer();
     this.setState(state);
@@ -351,6 +396,7 @@ export class WsSession {
       this.everConnected = true;
       this.setState("connected");
       this.succeedConnect();
+      this.startHeartbeat();
     };
 
     socket.onmessage = (event) => {
@@ -360,6 +406,7 @@ export class WsSession {
     socket.onerror = (event) => {
       const detail = websocketFailureDetail(event);
       this.log("error", detail ? `ws error: ${detail}` : "ws error", { url: redactUrl(url) });
+      this.clearHeartbeat();
       this.rejectAll(new Error(`WebSocket error: ${redactUrl(url)}`));
       this.setState("error");
       try {
@@ -371,6 +418,7 @@ export class WsSession {
 
     socket.onclose = (event) => {
       this.timers.clearTimeout(handshakeTimer);
+      this.clearHeartbeat();
       if (this.socket !== socket) {
         return;
       }
@@ -395,8 +443,12 @@ export class WsSession {
   }
 
   private scheduleReconnect(): void {
-    if (!this.shouldReconnect || !this.policy.enabled) {
+    if (!this.shouldReconnect || !this.policy.enabled || this.closedByClient) {
       this.setState("closed");
+      return;
+    }
+    if (this.reconnectPaused) {
+      this.setState("disconnected");
       return;
     }
 
@@ -430,6 +482,77 @@ export class WsSession {
     if (this.reconnectTimer == null) return;
     this.timers.clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+  }
+
+  private startHeartbeat(): void {
+    this.clearHeartbeat();
+    if (this.heartbeatIntervalMs <= 0 || this.reconnectPaused) return;
+    this.heartbeatTimer = this.timers.setTimeout(() => {
+      this.heartbeatTimer = null;
+      this.beat();
+    }, this.heartbeatIntervalMs);
+  }
+
+  private beat(): void {
+    const sock = this.socket;
+    if (!sock || this.currentState !== "connected" || sock.readyState !== WEBSOCKET_OPEN) {
+      return;
+    }
+    if (typeof sock.ping !== "function") {
+      return;
+    }
+    let settled = false;
+    this.pingWatchdog = this.timers.setTimeout(() => {
+      this.pingWatchdog = null;
+      if (settled) return;
+      settled = true;
+      try {
+        sock.close(4008, "ping timeout");
+      } catch {
+        /* ignore */
+      }
+    }, this.heartbeatTimeoutMs);
+    try {
+      sock.ping((error) => {
+        if (settled) return;
+        settled = true;
+        if (this.pingWatchdog != null) {
+          this.timers.clearTimeout(this.pingWatchdog);
+          this.pingWatchdog = null;
+        }
+        if (error) {
+          try {
+            sock.close(4008, "ping failed");
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
+        this.startHeartbeat();
+      });
+    } catch {
+      settled = true;
+      if (this.pingWatchdog != null) {
+        this.timers.clearTimeout(this.pingWatchdog);
+        this.pingWatchdog = null;
+      }
+      try {
+        sock.close(4008, "ping failed");
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  private clearHeartbeat(): void {
+    if (this.heartbeatTimer != null) {
+      this.timers.clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    if (this.pingWatchdog != null) {
+      this.timers.clearTimeout(this.pingWatchdog);
+      this.pingWatchdog = null;
+    }
   }
 
   private handleMessage(raw: unknown): void {

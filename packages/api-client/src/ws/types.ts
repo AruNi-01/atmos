@@ -41,6 +41,10 @@ export type WsSessionOptions = {
    * cap was aborting a phone's relay upgrade before it could finish.
    */
   handshakeTimeoutMs?: number;
+  /** 0 or omitted = no protocol heartbeat. */
+  heartbeatIntervalMs?: number;
+  /** Wait for ping pong before closing as stale. Default 10s when heartbeat is on. */
+  heartbeatTimeoutMs?: number;
 };
 
 export type WsRequestCallOpts = {

@@ -11,14 +11,21 @@ class MockSocket implements WebSocketLike {
   onclose: ((ev: { code: number; reason: string; wasClean: boolean }) => void) | null = null;
   onerror: ((ev?: unknown) => void) | null = null;
   sent: string[] = [];
+  pingWaiters: Array<(error?: Error) => void> = [];
+  throwOnSend: Error | null = null;
 
   send(data: string) {
+    if (this.throwOnSend) throw this.throwOnSend;
     this.sent.push(data);
   }
 
-  close(_code?: number, _reason?: string) {
+  ping(onPong: (error?: Error) => void) {
+    this.pingWaiters.push(onPong);
+  }
+
+  close(code = 1000, reason = "close") {
     this.readyState = 3;
-    this.onclose?.({ code: 1000, reason: "close", wasClean: true });
+    this.onclose?.({ code, reason, wasClean: code === 1000 });
   }
 
   open() {
@@ -33,6 +40,11 @@ class MockSocket implements WebSocketLike {
   uncleanClose() {
     this.readyState = 3;
     this.onclose?.({ code: 1006, reason: "drop", wasClean: false });
+  }
+
+  pong(error?: Error) {
+    const waiter = this.pingWaiters.shift();
+    waiter?.(error);
   }
 }
 
@@ -147,7 +159,7 @@ describe("@atmos/api-client WsSession", () => {
     await expect(req).rejects.toThrow(/closed/);
   });
 
-  test("mobile exhausted stop schedules no more timers", async () => {
+  test("exhausted stop schedules no more timers", async () => {
     const ft = fakeTimers();
     let sock: MockSocket | null = null;
     const session = createWsSession({
@@ -164,20 +176,53 @@ describe("@atmos/api-client WsSession", () => {
         maxAttempts: 1,
         initialDelayMs: 100,
         maxDelayMs: 100,
+        exhausted: { type: "stop" },
       },
     });
     const p = session.connect();
     sock!.open();
     await p;
     sock!.uncleanClose();
-    // first reconnect attempt scheduled
     expect(session.state).toBe("reconnecting");
     ft.flush(100);
-    // fail reconnect without open so attempt counter is not reset
     sock!.uncleanClose();
-    // exhausted stop
     expect(session.state).toBe("closed");
     expect(ft.pending()).toBe(0);
+  });
+
+  test("mobile exhausted slow_retry keeps retrying after a long delay", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    let created = 0;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          created += 1;
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: {
+        ...DEFAULT_MOBILE_RECONNECT,
+        maxAttempts: 1,
+        initialDelayMs: 100,
+        maxDelayMs: 100,
+      },
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    sock!.uncleanClose();
+    ft.flush(100);
+    sock!.uncleanClose();
+    expect(session.state).toBe("disconnected");
+    expect(ft.pending()).toBe(1);
+    ft.flush(60_000);
+    expect(created).toBe(3);
+    sock!.open();
+    expect(session.state).toBe("connected");
   });
 
   test("web exhausted slow_retry schedules long delay", async () => {
@@ -409,6 +454,234 @@ describe("@atmos/api-client WsSession", () => {
     expect(sock).not.toBeNull();
     session.disconnect();
     await expect(p).rejects.toThrow(/disconnected/);
+    expect(session.state).toBe("closed");
+  });
+
+  test("request times out and releases the pending slot", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: { enabled: false },
+      requestTimeoutMs: 50,
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    const req = session.request("agent_chat_backfill", {
+      chat_id: "c1",
+      parts: [{ part_id: "p", from_offset: 0 }],
+    });
+    ft.flush(50);
+    await expect(req).rejects.toThrow(/timeout: agent_chat_backfill/);
+    sock!.emit({
+      type: "response",
+      payload: { request_id: "stale", success: true, data: {} },
+    });
+  });
+
+  test("send throw rejects the request", async () => {
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          sock = new MockSocket();
+          return sock;
+        },
+      },
+      reconnect: { enabled: false },
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    sock!.throwOnSend = new Error("send failed");
+    await expect(session.request("fs_get_home_dir")).rejects.toThrow("send failed");
+  });
+
+  test("failPending rejects in-flight requests without closing the socket", async () => {
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          sock = new MockSocket();
+          return sock;
+        },
+      },
+      reconnect: { enabled: false },
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    const req = session.request("agent_chat_subscribe", { chat_id: "c1", after_sequence: 3 });
+    session.failPending(new Error("relay_ctrl: server_offline"));
+    await expect(req).rejects.toThrow(/server_offline/);
+    expect(session.state).toBe("connected");
+    expect(sock!.readyState).toBe(1);
+  });
+
+  test("pauseReconnect skips backoff until resumeReconnect", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    let created = 0;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          created += 1;
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: {
+        ...DEFAULT_MOBILE_RECONNECT,
+        initialDelayMs: 100,
+        maxDelayMs: 100,
+      },
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    session.pauseReconnect();
+    sock!.uncleanClose();
+    expect(session.state).toBe("disconnected");
+    expect(ft.pending()).toBe(0);
+    expect(created).toBe(1);
+    session.resumeReconnect();
+    expect(created).toBe(2);
+    sock!.open();
+    expect(session.state).toBe("connected");
+  });
+
+  test("retryNow reconnects immediately after exhausted stop", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    let created = 0;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          created += 1;
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: {
+        enabled: true,
+        initialDelayMs: 100,
+        maxDelayMs: 100,
+        maxAttempts: 1,
+        exhausted: { type: "stop" },
+        reconnectOnCleanClose: false,
+        reconnectBeforeOpen: true,
+      },
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    sock!.uncleanClose();
+    ft.flush(100);
+    sock!.uncleanClose();
+    expect(session.state).toBe("closed");
+    expect(created).toBe(2);
+    session.retryNow();
+    expect(created).toBe(3);
+    sock!.open();
+    expect(session.state).toBe("connected");
+  });
+
+  test("heartbeat ping timeout closes the socket so reconnect can run", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    let created = 0;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          created += 1;
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: {
+        ...DEFAULT_MOBILE_RECONNECT,
+        initialDelayMs: 25,
+        maxDelayMs: 25,
+      },
+      heartbeatIntervalMs: 40,
+      heartbeatTimeoutMs: 10,
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    ft.flush(40);
+    expect(sock!.pingWaiters).toHaveLength(1);
+    ft.flush(10);
+    expect(session.state).toBe("reconnecting");
+    ft.flush(25);
+    expect(created).toBe(2);
+  });
+
+  test("heartbeat pong keeps the socket open", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: { enabled: false },
+      heartbeatIntervalMs: 40,
+      heartbeatTimeoutMs: 10,
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    ft.flush(40);
+    sock!.pong();
+    ft.flush(10);
+    expect(session.state).toBe("connected");
+    expect(sock!.readyState).toBe(1);
+  });
+
+  test("intentional disconnect does not resume on retryNow", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    let created = 0;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          created += 1;
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: DEFAULT_MOBILE_RECONNECT,
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    session.disconnect();
+    session.retryNow();
+    session.resumeReconnect();
+    expect(created).toBe(1);
     expect(session.state).toBe("closed");
   });
 
