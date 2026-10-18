@@ -74,7 +74,9 @@ import {
   jumpAlignOffset,
   jumpExtendReadyToRelease,
   jumpFollowsTailAfterMiss,
+  nextJumpAlign,
   offsetFromMeasuredStride,
+  type JumpAlignMemory,
   stickScrollWhileJumping,
   transcriptItemLayout,
   TRANSCRIPT_JUMP_FALLBACK_STRIDE,
@@ -462,7 +464,7 @@ export const AgentChatTranscript = forwardRef<
   const extendTailRef = useRef(false);
   const extendCommittedRef = useRef(false);
   const pendingJumpRef = useRef<{ animated: boolean; index: number } | null>(null);
-  const lastAlignOffsetRef = useRef<number | null>(null);
+  const alignMemoryRef = useRef<JumpAlignMemory | null>(null);
   const alignJumpRef = useRef<() => void>(() => {});
   const [extendTail, setExtendTailState] = useState(false);
   const rowCountRef = useRef(0);
@@ -589,14 +591,13 @@ export const AgentChatTranscript = forwardRef<
     if (!programmaticAwayRef.current || jumpIndexRef.current < 0) return;
     const target = measurementsRef.current[jumpIndexRef.current];
     if (!target || target.start == null || !(target.size > 0)) return;
-    const next = jumpAlignOffset(viewRef.current.scrollTop, target.start);
-    if (next == null) {
-      releaseExtendIfRoom();
+    const decision = nextJumpAlign(alignMemoryRef.current, viewRef.current.scrollTop, target.start);
+    alignMemoryRef.current = decision.memory;
+    if (decision.offset == null) {
+      if (decision.memory == null) releaseExtendIfRoom();
       return;
     }
-    if (lastAlignOffsetRef.current === next) return;
-    lastAlignOffsetRef.current = next;
-    listRef.current?.scrollToOffset({ animated: false, offset: next });
+    listRef.current?.scrollToOffset({ animated: false, offset: decision.offset });
   }, [releaseExtendIfRoom]);
   useLayoutEffect(() => {
     alignJumpRef.current = alignActiveJump;
@@ -669,11 +670,21 @@ export const AgentChatTranscript = forwardRef<
 
   const jumpToIndex = useCallback(
     (index: number, animated: boolean) => {
+      const measured = measurementsRef.current[index];
+      if (
+        programmaticAwayRef.current &&
+        jumpIndexRef.current === index &&
+        measured?.start != null &&
+        measured.size > 0 &&
+        jumpAlignOffset(viewRef.current.scrollTop, measured.start) == null
+      ) {
+        return;
+      }
       programmaticAwayRef.current = true;
       userDraggedRef.current = false;
       jumpRetryIndexRef.current = -1;
       jumpIndexRef.current = index;
-      lastAlignOffsetRef.current = null;
+      alignMemoryRef.current = null;
       if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
       applyStick({
         type: "scroll",
@@ -712,12 +723,16 @@ export const AgentChatTranscript = forwardRef<
   );
 
   const recoverScrollIndex = useCallback((index: number) => {
-    const offset = offsetFromMeasuredStride(
-      index,
-      measurementsRef.current,
-      AGENT_CHAT_TRANSCRIPT_GAP,
-      TRANSCRIPT_JUMP_FALLBACK_STRIDE,
-    );
+    const measured = measurementsRef.current[index];
+    const offset =
+      measured?.start != null && measured.size > 0
+        ? Math.max(0, Math.round(measured.start))
+        : offsetFromMeasuredStride(
+            index,
+            measurementsRef.current,
+            AGENT_CHAT_TRANSCRIPT_GAP,
+            TRANSCRIPT_JUMP_FALLBACK_STRIDE,
+          );
     listRef.current?.scrollToOffset({ animated: false, offset });
     if (jumpRetryIndexRef.current === index) return;
     jumpRetryIndexRef.current = index;

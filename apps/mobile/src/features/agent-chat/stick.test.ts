@@ -133,6 +133,7 @@ describe("transcript stick wiring", () => {
     expect(transcript).toContain("offsetFromMeasuredStride");
     expect(transcript).toContain("transcriptItemLayout");
     expect(transcript).toContain("jumpAlignOffset");
+    expect(transcript).toContain("nextJumpAlign");
     expect(transcript).toContain("jumpExtendReadyToRelease");
     expect(transcript).toContain("extendCommittedRef");
     expect(transcript).toContain("pendingJumpRef");

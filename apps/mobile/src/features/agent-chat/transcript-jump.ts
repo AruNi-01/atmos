@@ -134,6 +134,31 @@ export function jumpAlignOffset(
   return targetStart;
 }
 
+/** The offset we already asked for, and the scroll position that ignored it. */
+export type JumpAlignMemory = {
+  offset: number;
+  scrollTop: number;
+};
+
+/**
+ * Ask for the measured row once while the list is still on the offset that
+ * ignored that ask. Landing clears the memory. A later scroll, including a
+ * return to the same missed offset, asks again.
+ */
+export function nextJumpAlign(
+  memory: JumpAlignMemory | null,
+  scrollTop: number,
+  targetStart: number | null | undefined,
+  alignSlack = 2,
+): { memory: JumpAlignMemory | null; offset: number | null } {
+  const offset = jumpAlignOffset(scrollTop, targetStart, alignSlack);
+  if (offset == null) return { memory: null, offset: null };
+  if (memory && memory.offset === offset && Math.abs(scrollTop - memory.scrollTop) <= alignSlack) {
+    return { memory, offset: null };
+  }
+  return { memory: { offset, scrollTop }, offset };
+}
+
 /**
  * True when measured rows below the target already fill the viewport plus the
  * end slack. The estimated tail can come off without clamping the jump back

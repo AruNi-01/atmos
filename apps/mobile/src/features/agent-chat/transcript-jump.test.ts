@@ -4,6 +4,7 @@ import { TRANSCRIPT_END_SLACK_PX } from "@atmos/agent-transcript";
 import {
   jumpAlignOffset,
   jumpExtendReadyToRelease,
+  nextJumpAlign,
   jumpFollowsTailAfterMiss,
   jumpHasTailRoom,
   offsetFromMeasuredStride,
@@ -93,6 +94,32 @@ describe("jumpAlignOffset", () => {
     expect(jumpAlignOffset(4434, 4434)).toBeNull();
     expect(jumpAlignOffset(4436, 4434)).toBeNull();
     expect(jumpAlignOffset(10, undefined)).toBeNull();
+  });
+});
+
+describe("nextJumpAlign", () => {
+  test("asks again after the list leaves the row and comes back to the missed offset", () => {
+    const first = nextJumpAlign(null, 6787, 4434);
+    expect(first).toEqual({ memory: { offset: 4434, scrollTop: 6787 }, offset: 4434 });
+    expect(nextJumpAlign(first.memory, 6787, 4434)).toEqual({
+      memory: first.memory,
+      offset: null,
+    });
+    const landed = nextJumpAlign(first.memory, 4434, 4434);
+    expect(landed).toEqual({ memory: null, offset: null });
+    expect(nextJumpAlign(landed.memory, 6787, 4434)).toEqual({
+      memory: { offset: 4434, scrollTop: 6787 },
+      offset: 4434,
+    });
+  });
+
+  test("asks again when a later scroll stops somewhere else", () => {
+    const first = nextJumpAlign(null, 5000, 4434);
+    expect(nextJumpAlign(first.memory, 6787, 4434)).toEqual({
+      memory: { offset: 4434, scrollTop: 6787 },
+      offset: 4434,
+    });
+    expect(nextJumpAlign(null, 4436, 4434)).toEqual({ memory: null, offset: null });
   });
 });
 
