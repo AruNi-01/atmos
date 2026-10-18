@@ -27,13 +27,19 @@ export function pushAgentChatCommit(
 // @hook
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { BackfillRequest } from "@atmos/api-client/agent-chat";
+import {
+  createAgentChatEventPump,
+  type AgentChatEventPump,
+  type AgentChatPumpIngest,
+  type BackfillRequest,
+} from "@atmos/api-client/agent-chat";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
 import { applyChatEvent, createChatTranscript, type ChatTranscriptState } from "./fold-transcript";
 import { agentChatEventFromMessage, eventsForChat } from "./foreign-event";
 import { useReducedMotion } from "./motion/use-reduced-motion";
+import { canResumeAgentChatSession } from "./session-resume";
 
 function backfillKey(request: BackfillRequest): string {
   return `${request.partId}:${request.fromOffset}`;
@@ -46,8 +52,13 @@ export function useAgentChatThread(chatId: string) {
     reducedMotionRef.current = reducedMotion;
   }, [reducedMotion]);
   const { client, state: wsState } = useMobileWs();
-  const transcriptRef = useRef<ChatTranscriptState>(createChatTranscript(chatId));
-  const [transcript, setTranscript] = useState<ChatTranscriptState>(transcriptRef.current);
+  const [transcript, setTranscript] = useState<ChatTranscriptState>(() =>
+    createChatTranscript(chatId),
+  );
+  const transcriptRef = useRef(transcript);
+  const pumpRef = useRef<AgentChatEventPump | null>(null);
+  const loadedChatRef = useRef<string | null>(null);
+  const loadedClientRef = useRef<object | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,21 +66,37 @@ export function useAgentChatThread(chatId: string) {
     if (chatId.trim() === "") {
       return;
     }
+    const isResume =
+      pumpRef.current != null &&
+      canResumeAgentChatSession({
+        chatId,
+        client,
+        loadedChatId: loadedChatRef.current,
+        loadedClient: loadedClientRef.current,
+      });
     if (!client || wsState !== "open") {
-      setLoading(false);
-      setError("Atmos mobile WebSocket is not connected");
+      if (!isResume) {
+        setLoading(false);
+        setError("Atmos mobile WebSocket is not connected");
+      }
       return;
     }
 
     let cancelled = false;
-    let ready = false;
-    const buffer: ReturnType<typeof agentChatEventFromMessage>[] = [];
+    let resyncing = false;
     const inflight = new Set<string>();
-    const empty = createChatTranscript(chatId);
-    transcriptRef.current = empty;
-    setTranscript(empty);
-    setLoading(true);
-    setError(null);
+    if (!isResume) {
+      pumpRef.current = createAgentChatEventPump();
+      loadedChatRef.current = null;
+      loadedClientRef.current = null;
+      const empty = createChatTranscript(chatId);
+      transcriptRef.current = empty;
+      setTranscript(empty);
+      setLoading(true);
+      setError(null);
+    }
+    const pump = pumpRef.current ?? createAgentChatEventPump();
+    pumpRef.current = pump;
 
     const commitBuffer = createAgentChatCommitBuffer({
       flushMs: AGENT_CHAT_COMMIT_FLUSH_MS,
@@ -100,65 +127,90 @@ export function useAgentChatThread(chatId: string) {
         });
     };
 
+    const applyDecision = (decision: AgentChatPumpIngest) => {
+      if (decision.action !== "apply") return;
+      const next = applyChatEvent(transcriptRef.current, decision.event);
+      transcriptRef.current = next.state;
+      if (next.backfill) requestBackfill(next.backfill);
+      pushAgentChatCommit(commitBuffer, decision.event.payload.type, reducedMotionRef.current);
+    };
+
+    const applySnapshot = (snapshot: Awaited<ReturnType<typeof wsActions.agentChatGet>>) => {
+      const state = {
+        ...createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta),
+        pendingPermission: snapshot.pending_permission ?? null,
+        pendingSessionOp: snapshot.pending_session_op ?? null,
+        queue: snapshot.queue ?? [],
+        runningTurnId: snapshot.running_turn_id ?? null,
+      };
+      transcriptRef.current = state;
+      const seq = snapshot.meta?.last_event_seq ?? 0;
+      for (const decision of pump.finishHydrate(seq)) applyDecision(decision);
+      setTranscript(transcriptRef.current);
+    };
+
+    const subscribeFromCursor = async () => {
+      const subscribed = await wsActions.agentChatSubscribe(client, {
+        chat_id: chatId,
+        after_sequence: pump.cursor,
+      });
+      return subscribed.last_event_seq ?? pump.cursor;
+    };
+
+    const resyncFromSnapshot = async () => {
+      if (resyncing || cancelled) return;
+      resyncing = true;
+      pump.startHydrate();
+      try {
+        const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
+        if (cancelled) return;
+        applySnapshot(snapshot);
+        await subscribeFromCursor();
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error && err.message ? err.message : "Could not load this chat.");
+        }
+      } finally {
+        resyncing = false;
+      }
+    };
+
     const unsubscribeMessages = client.subscribeMessages((message) => {
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
-      if (!ready) {
-        buffer.push(event);
-        return;
+      const decision = pump.ingest(event);
+      applyDecision(decision);
+      if (decision.action === "apply" && decision.gap?.recommend === "resync") {
+        void resyncFromSnapshot();
       }
-      const next = applyChatEvent(transcriptRef.current, event);
-      transcriptRef.current = next.state;
-      if (next.backfill) requestBackfill(next.backfill);
-      pushAgentChatCommit(commitBuffer, event.payload.type, reducedMotionRef.current);
     });
 
     void (async () => {
       let liveError: string | null = null;
       try {
-        const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
-        if (cancelled) return;
-        let state = createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta);
-        state = {
-          ...state,
-          pendingPermission: snapshot.pending_permission ?? null,
-          pendingSessionOp: snapshot.pending_session_op ?? null,
-          queue: snapshot.queue ?? [],
-          runningTurnId: snapshot.running_turn_id ?? null,
-        };
-        let after = snapshot.meta?.last_event_seq ?? 0;
-        const drain = () => {
-          const queued = buffer.splice(0, buffer.length);
-          for (const event of queued) {
-            if (!event) continue;
-            const revision = event.revision ?? 0;
-            if (revision <= after) continue;
-            after = Math.max(after, revision);
-            const next = applyChatEvent(state, event);
-            state = next.state;
-            if (next.backfill) requestBackfill(next.backfill);
-          }
-        };
-        drain();
-        drain();
-        transcriptRef.current = state;
-        ready = true;
-        setTranscript(state);
+        if (!isResume) {
+          pump.startHydrate();
+          const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
+          if (cancelled) return;
+          applySnapshot(snapshot);
+        }
         try {
-          await wsActions.agentChatSubscribe(client, {
-            chat_id: chatId,
-            after_sequence: after,
-          });
+          const serverSeq = await subscribeFromCursor();
+          if (!cancelled && pump.shouldResyncFromServer(serverSeq)) {
+            await resyncFromSnapshot();
+          }
         } catch (err) {
           liveError =
             err instanceof Error && err.message ? err.message : "Could not subscribe to this chat.";
         }
         if (cancelled) return;
+        loadedChatRef.current = chatId;
+        loadedClientRef.current = client;
         setError(liveError);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        ready = true;
+        pump.abandonHydrate();
         setError(err instanceof Error && err.message ? err.message : "Could not load this chat.");
         setLoading(false);
       }
@@ -167,7 +219,6 @@ export function useAgentChatThread(chatId: string) {
     return () => {
       cancelled = true;
       clearInterval(flushTimer);
-      ready = false;
       unsubscribeMessages();
       void wsActions.agentChatUnsubscribe(client, { chat_id: chatId }).catch(() => undefined);
     };
