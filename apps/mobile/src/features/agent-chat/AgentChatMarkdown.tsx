@@ -7,6 +7,7 @@ import { chatForeground, chatMutedForeground } from "./chat-ink";
 import { chipCompleteHttpUrls, HTTP_CHIP_LINK_VARIANT, httpChipTarget } from "./http-link-chip";
 import {
   BLOCKQUOTE_MARGIN,
+  STREAMDOWN_BLOCK_GAP,
   THINKING_PARAGRAPH_MARGIN,
   THEMATIC_BREAK_MARGIN,
   ANSWER_FENCE_MAX_HEIGHT,
@@ -133,7 +134,9 @@ export function AgentChatMarkdown({
               marginTop: proseMetrics.listMargin,
             }
           : tone === "thinking"
-            ? { itemSpacing: 8, marginBottom: 4, marginTop: 4 }
+            ? // `py-1` is the 4px pad. `space-y-4` is the 16px bottom. The top pad
+              // still stacks on a paragraph's 4px.
+              { itemSpacing: 8, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, marginTop: 4 }
             : agentChatBlockMetrics.list),
       },
       code: {
@@ -191,7 +194,9 @@ export function AgentChatMarkdown({
         : {}),
       thematicBreak: {
         ...agentChatThematicBreak(theme.isDark),
-        ...(symmetricBlockMargin
+        // Tool prose is `my-6` on both sides. Answer and thinking rules keep the
+        // 8px top so a short previous block can grow it to 24px.
+        ...(proseMetrics
           ? { marginBottom: THEMATIC_BREAK_MARGIN, marginTop: THEMATIC_BREAK_MARGIN }
           : {}),
       },

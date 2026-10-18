@@ -184,7 +184,9 @@ describe("agent chat markdown chrome", () => {
     expect(imageStyle).toContain("proseMetrics ? { marginBottom: 0, marginTop: 0 }");
     expect(markdown.split("height: 0").length).toBe(2);
     expect(markdown).not.toContain("markerMinWidth");
-    expect(markdown).toContain("{ itemSpacing: 8, marginBottom: 4, marginTop: 4 }");
+    expect(markdown).toContain(
+      "{ itemSpacing: 8, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, marginTop: 4 }",
+    );
     expect(markdown).toContain("{ marginBottom: 16, marginTop: 16 }");
     expect(markdown).toContain('tone === "thinking"');
     expect(markdown).toContain("agentChatProseMetrics(prose)");

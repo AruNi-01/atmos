@@ -267,8 +267,9 @@ export function agentChatProseInk(isDark: boolean): {
  * The rule attachment adds its top margin on top of the previous block. The
  * configured top is 8px, so a paragraph's 16px makes 24. After a heading the
  * renderer raises that top until the gap is 24. A list's 20px plus this 8px
- * stays 28. The native renderer clears a leading rule's top margin and a
- * trailing rule's bottom margin when the top is the smaller side, matching
+ * stays 28. Thinking uses this same top: a 4px paragraph leaves 24px and a
+ * 20px list leaves 28px. The native renderer clears a leading rule's top and a
+ * trailing rule's bottom when the top is the smaller side, matching
  * `[&>*:first-child]:mt-0` and `[&>*:last-child]:mb-0`. Tool prose sets both
  * sides to 24px, and those stay.
  */
