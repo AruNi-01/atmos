@@ -86,6 +86,7 @@ import {
   resolvedPillRowHeight,
   TRANSCRIPT_PAD_SHRINK_BEZIER,
   TRANSCRIPT_PAD_SHRINK_MS,
+  transcriptContentEndOffset,
   transcriptListBottomPad,
   transcriptPadShouldEase,
 } from "./transcript-pad";
@@ -466,6 +467,7 @@ export const AgentChatTranscript = forwardRef<
   const [extendTail, setExtendTailState] = useState(false);
   const rowCountRef = useRef(0);
   const viewRef = useRef({ distance: 0, height: 0, scrollTop: 0 });
+  const contentHeightRef = useRef(0);
   const rowsRef = useRef<AgentMessage[]>([]);
   const onStickChangeRef = useRef(onStickChange);
   const onViewportRef = useRef(onViewport);
@@ -622,10 +624,28 @@ export const AgentChatTranscript = forwardRef<
     },
   });
 
-  const scrollToEndIfStuck = useCallback((animated: boolean) => {
-    if (!stickRef.current.stickToEnd) return;
-    listRef.current?.scrollToEnd({ animated });
+  const scrollContentEnd = useCallback((animated: boolean) => {
+    const contentHeight = contentHeightRef.current;
+    const viewportHeight = viewRef.current.height;
+    // FlatList `scrollToEnd` stops on the last cell. The content size includes
+    // the bottom pad, so an unknown size is the only path that keeps that call.
+    if (contentHeight <= 0 || viewportHeight <= 0) {
+      listRef.current?.scrollToEnd({ animated });
+      return;
+    }
+    listRef.current?.scrollToOffset({
+      animated,
+      offset: transcriptContentEndOffset(contentHeight, viewportHeight),
+    });
   }, []);
+
+  const scrollToEndIfStuck = useCallback(
+    (animated: boolean) => {
+      if (!stickRef.current.stickToEnd) return;
+      scrollContentEnd(animated);
+    },
+    [scrollContentEnd],
+  );
 
   const applyScrollStick = useCallback(
     (distance: number) => {
@@ -728,10 +748,10 @@ export const AgentChatTranscript = forwardRef<
         userDraggedRef.current = false;
         stopExtend();
         applyStick({ type: "scroll", distance: 0, userDragged: false });
-        listRef.current?.scrollToEnd({ animated: true });
+        scrollContentEnd(true);
       },
     }),
-    [applyStick, jumpToIndex, stopExtend],
+    [applyStick, jumpToIndex, scrollContentEnd, stopExtend],
   );
 
   const onScroll = useCallback(
@@ -798,6 +818,7 @@ export const AgentChatTranscript = forwardRef<
   const onContentSizeChange = useCallback(
     (_width: number, height: number) => {
       if (height <= 0) return;
+      contentHeightRef.current = height;
       stickRef.current = reduceStick(stickRef.current, { type: "content_growth" });
       if (!stickRef.current.stickToEnd) return;
       scrollToEndIfStuck(false);
@@ -849,8 +870,8 @@ export const AgentChatTranscript = forwardRef<
     seenStickToken.current = stickToken;
     userDraggedRef.current = false;
     applyStick({ type: "own_send" });
-    listRef.current?.scrollToEnd({ animated: false });
-  }, [applyStick, stickToken]);
+    scrollContentEnd(false);
+  }, [applyStick, scrollContentEnd, stickToken]);
 
   useEffect(() => {
     if (!focusMessageId) {
