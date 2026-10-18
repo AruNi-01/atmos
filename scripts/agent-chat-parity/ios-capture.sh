@@ -558,10 +558,12 @@ os.killpg(pid, signal.SIGKILL)
 PY
 }
 
-# Run 39131560794: recordVideo started on Springboard, exited after 9.5s as F4
-# launched, and the app never logged replay done. Record after this launch's
-# replay start, and try once more when the recorder exits or the done line
-# does not arrive.
+# Run 39143002574 attached recordVideo after the live replay had started.
+# Both attempts stayed up for 40s, the app never logged replay done live, and
+# the file is one Springboard frame. Freeze the live replay, attach the
+# recorder to that still frame, then drop atMs so the clock runs while
+# recording. Reduced motion already finishes when recording starts after
+# replay start.
 record_replay_movie() {
   local motion="$1"
   local label="$2"
@@ -571,10 +573,28 @@ record_replay_movie() {
   local errlog="$OUT/f4-${label}-record.log"
   local attempt mark
   open -a Simulator || true
-  write_frame_file "F4" "light" "" "$motion" "script"
   for attempt in 1 2; do
     echo "record f4 ${label} replay attempt ${attempt}"
     mark="$(log_mark)"
+    if [[ "$label" == "live" ]]; then
+      write_frame_file "F4" "light" "" "" "script" "" "" "" 0
+      launch_frame "F4" "light" "$label"
+      if ! wait_for_since "[parity] replay held 0" 90 "$mark"; then
+        echo "f4 live replay missed the held frame" >&2
+        continue
+      fi
+      start_screen_record "$video" "$pidfile" "$errlog"
+      write_frame_file "F4" "light" "" "" "script"
+      if wait_for_since "[parity] replay done live" 30 "$mark" "$pidfile"; then
+        sleep 0.5
+        stop_screen_record "$pidfile" || true
+        break
+      fi
+      echo "f4 live replay missed [parity] replay done live" >&2
+      stop_screen_record "$pidfile" || true
+      continue
+    fi
+    write_frame_file "F4" "light" "" "$motion" "script"
     launch_frame "F4" "light" "$label"
     if ! wait_for_since "[parity] replay start" 90 "$mark"; then
       echo "f4 ${label} replay missed the start" >&2
@@ -861,7 +881,7 @@ if len(booted) == 1:
   # Run 39131560794 printed the suite passed line, then xcodebuild stayed open
   # until the 360s SIGKILL. Stop once the suite has passed.
   python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 360 \
+    --seconds 720 \
     --grace 20 \
     --needle "Test Suite 'Selected tests' passed" \
     -- \

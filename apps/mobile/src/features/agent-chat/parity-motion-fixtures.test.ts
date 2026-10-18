@@ -140,6 +140,7 @@ describe("parity motion fixtures", () => {
     expect(preview).toContain("foldParityReplay");
     expect(preview).toContain("[parity] replay done ${pass}");
     expect(preview).toContain("[parity] replay held");
+    expect(preview).toContain("setHeldAtMs(null)");
     expect(preview).toContain("[parity] replay shots");
     expect(preview).toContain("ParityDrawHoldContext");
     expect(preview).toContain("if (!ownsReplay || !fixture?.script || holdOn) return;");
@@ -173,7 +174,9 @@ describe("parity motion fixtures", () => {
     expect(capture).toContain("[parity] pill awaiting tap");
     expect(capture).toContain("tap_scroll_pill");
     expect(capture).toContain('recordVideo", "--codec", "h264"');
+    expect(capture).toContain("[parity] replay held 0");
     expect(capture).toContain("[parity] replay start");
+    expect(capture).toContain("--seconds 720");
     expect(capture).toContain("[parity] replay done live");
     expect(capture).toContain("[parity] replay done reduced");
     expect(capture).toContain("screen record exited before");

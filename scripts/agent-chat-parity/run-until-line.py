@@ -44,6 +44,8 @@ def _signal_and_wait(pid: int, sig: int, seconds: float) -> bool:
         os.killpg(pid, sig)
     except ProcessLookupError:
         return True
+    except PermissionError:
+        return False
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         if not _alive(pid):
@@ -61,7 +63,7 @@ def _stop(pid: int) -> None:
         return
     try:
         os.killpg(pid, signal.SIGKILL)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         return
 
 
@@ -112,7 +114,10 @@ def run_until_line(cmd: list[str], needle: str, seconds: float, grace: float) ->
         os.close(master)
     print(f"timed out after {seconds}s: {' '.join(cmd)}", file=sys.stderr)
     _stop(proc.pid)
-    proc.wait()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
     return 124
 
 

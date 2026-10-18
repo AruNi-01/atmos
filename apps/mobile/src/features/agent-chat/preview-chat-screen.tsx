@@ -216,7 +216,14 @@ export function PreviewChatScreen() {
     if (diskFrame?.atMs == null) return;
     const timer = setInterval(() => {
       const next = readParityDiskFrame({ quiet: true });
-      if (next?.atMs == null) return;
+      // A missing read keeps the freeze. The capture starts the recorder on
+      // the held frame, then rewrites the pin without atMs. That parsed pin
+      // is what starts the clock while recording.
+      if (!next) return;
+      if (next.atMs == null) {
+        setHeldAtMs(null);
+        return;
+      }
       setHeldAtMs((current) => (current === next.atMs ? current : (next.atMs ?? null)));
     }, 250);
     return () => clearInterval(timer);
