@@ -558,12 +558,12 @@ os.killpg(pid, signal.SIGKILL)
 PY
 }
 
-# Run 39143002574 attached recordVideo after the live replay had started.
-# Both attempts stayed up for 40s, the app never logged replay done live, and
-# the file is one Springboard frame. Freeze the live replay, attach the
-# recorder to that still frame, then drop atMs so the clock runs while
-# recording. Reduced motion already finishes when recording starts after
-# replay start.
+# Run 39149992854 froze the live replay at atMs 0, which is the thinking
+# chunk. recordVideo then silenced that process and saved one Springboard
+# frame. The finished card at 15000ms is the still frame. Attach the recorder
+# there, then drop atMs so the replay, including the thinking shimmer, runs
+# while recording is already open. Reduced motion already finishes when
+# recording starts after replay start.
 record_replay_movie() {
   local motion="$1"
   local label="$2"
@@ -577,9 +577,9 @@ record_replay_movie() {
     echo "record f4 ${label} replay attempt ${attempt}"
     mark="$(log_mark)"
     if [[ "$label" == "live" ]]; then
-      write_frame_file "F4" "light" "" "" "script" "" "" "" 0
+      write_frame_file "F4" "light" "" "" "script" "" "" "" 15000
       launch_frame "F4" "light" "$label"
-      if ! wait_for_since "[parity] replay held 0" 90 "$mark"; then
+      if ! wait_for_since "[parity] replay held 15000" 90 "$mark"; then
         echo "f4 live replay missed the held frame" >&2
         continue
       fi

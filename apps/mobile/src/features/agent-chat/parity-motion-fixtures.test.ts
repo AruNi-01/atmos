@@ -174,7 +174,7 @@ describe("parity motion fixtures", () => {
     expect(capture).toContain("[parity] pill awaiting tap");
     expect(capture).toContain("tap_scroll_pill");
     expect(capture).toContain('recordVideo", "--codec", "h264"');
-    expect(capture).toContain("[parity] replay held 0");
+    expect(capture).toContain("[parity] replay held 15000");
     expect(capture).toContain("[parity] replay start");
     expect(capture).toContain("--seconds 720");
     expect(capture).toContain("[parity] replay done live");
