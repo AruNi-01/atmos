@@ -267,6 +267,13 @@
       },
     },
     {
+      // Catch `disabled` props shadowing `@expo/ui/swift-ui/modifiers` `disabled`.
+      "files": ["apps/mobile/src/ui/primitives/glass-action-buttons.tsx"],
+      "rules": {
+        "no-shadow": "error",
+      },
+    },
+    {
       // Asset module + motion factory are not tag-generic; `any` is the
       // published type. Tightening them breaks `logo-svg` / `auth-shell` /
       // `MotionPreset` typecheck (see CI).

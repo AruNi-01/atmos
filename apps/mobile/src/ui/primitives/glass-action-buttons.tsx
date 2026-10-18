@@ -1,10 +1,26 @@
+import { useEffect, useState } from "react";
 import { Button as ExpoButton, Host as ExpoHost } from "@expo/ui";
 import { Button, Host, HStack } from "@expo/ui/swift-ui";
-import { buttonStyle, controlSize, disabled } from "@expo/ui/swift-ui/modifiers";
-import { Platform, View } from "react-native";
+import {
+  buttonStyle,
+  controlSize,
+  disabled as disabledModifier,
+  font,
+  glassEffect,
+  opacity,
+  padding,
+} from "@expo/ui/swift-ui/modifiers";
+import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
+import { AccessibilityInfo, Platform, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { expoUiDangerStyle, expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
+import { shouldUseLiquidGlass } from "./glass-availability";
 
+/** Matches the old filled chip: padding 12×8, 14pt semibold. */
+export const GLASS_CHIP_FONT_SIZE = 14;
+export const GLASS_CHIP_PADDING = { horizontal: 12, vertical: 8 } as const;
+/** Slight dim — SwiftUI `disabled()` on glass nearly vanishes in light. */
+export const GLASS_CHIP_DISABLED_OPACITY = 0.55;
 const FALLBACK_CHIP_HEIGHT = 36;
 
 export type GlassAction = {
@@ -14,7 +30,26 @@ export type GlassAction = {
   role?: "destructive";
 };
 
-/** Compact labeled glass chip. iOS uses SwiftUI `buttonStyle("glass")`. */
+export function iosGlassChipModifiers(input: { isDisabled: boolean; useLiquidGlass: boolean }) {
+  const dim = opacity(input.isDisabled ? GLASS_CHIP_DISABLED_OPACITY : 1);
+  const type = font({ size: GLASS_CHIP_FONT_SIZE, weight: "semibold" });
+  if (input.useLiquidGlass) {
+    return [
+      buttonStyle("plain"),
+      controlSize("mini"),
+      type,
+      padding(GLASS_CHIP_PADDING),
+      glassEffect({
+        glass: { interactive: true, variant: "regular" },
+        shape: "capsule",
+      }),
+      dim,
+    ];
+  }
+  return [buttonStyle("bordered"), controlSize("mini"), type, dim];
+}
+
+/** Compact labeled glass chip. iOS uses `glassEffect` on a plain button. */
 export function GlassTextButton({ disabled, label, onPress, role }: GlassAction) {
   if (Platform.OS === "ios") {
     return <IosGlassTextButton disabled={disabled} label={label} onPress={onPress} role={role} />;
@@ -32,16 +67,48 @@ export function GlassActionButtons({ actions }: { actions: GlassAction[] }) {
   return <FallbackActionButtons actions={actions} />;
 }
 
+function useReduceTransparencyEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const read = AccessibilityInfo.isReduceTransparencyEnabled;
+    if (typeof read !== "function") return undefined;
+    void read()
+      .then((value) => {
+        if (alive) setEnabled(value);
+      })
+      .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceTransparencyChanged",
+      setEnabled,
+    );
+    return () => {
+      alive = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return enabled;
+}
+
 function IosGlassTextButton({ disabled, label, onPress, role }: GlassAction) {
   const theme = useMobileTheme();
+  const reduceTransparency = useReduceTransparencyEnabled();
+  const useLiquidGlass = shouldUseLiquidGlass({
+    apiAvailable: isGlassEffectAPIAvailable(),
+    liquidGlassAvailable: isLiquidGlassAvailable(),
+    reduceTransparency,
+  });
+  const isDisabled = Boolean(disabled);
 
   return (
     <Host colorScheme={theme.colorScheme} matchContents>
       <HStack alignment="center" spacing={0}>
         <Button
           label={label}
-          modifiers={[buttonStyle("glass"), controlSize("regular"), disabled(Boolean(disabled))]}
-          onPress={disabled ? undefined : onPress}
+          modifiers={iosGlassChipModifiers({ isDisabled, useLiquidGlass })}
+          onPress={isDisabled ? undefined : onPress}
           role={role ?? "default"}
         />
       </HStack>
@@ -55,6 +122,7 @@ function FallbackGlassTextButton({ disabled, label, onPress, role }: GlassAction
     role === "destructive"
       ? expoUiDangerStyle(theme.colors, disabled)
       : expoUiSecondaryStyle(theme.colors, disabled);
+  const isDisabled = Boolean(disabled);
 
   return (
     <ExpoHost
@@ -63,10 +131,13 @@ function FallbackGlassTextButton({ disabled, label, onPress, role }: GlassAction
       seedColor={look.seedColor}
     >
       <ExpoButton
-        disabled={disabled}
+        disabled={isDisabled}
         label={label}
-        onPress={disabled ? undefined : onPress}
-        style={{ height: FALLBACK_CHIP_HEIGHT }}
+        onPress={isDisabled ? undefined : onPress}
+        style={{
+          height: FALLBACK_CHIP_HEIGHT,
+          opacity: isDisabled ? GLASS_CHIP_DISABLED_OPACITY : 1,
+        }}
         variant="outlined"
       />
     </ExpoHost>
@@ -87,7 +158,7 @@ function IosGlassActionButtons({ actions }: { actions: GlassAction[] }) {
               modifiers={[
                 buttonStyle("glass"),
                 controlSize("regular"),
-                disabled(Boolean(action.disabled)),
+                disabledModifier(Boolean(action.disabled)),
               ]}
               onPress={action.disabled ? undefined : action.onPress}
               role={action.role ?? "default"}

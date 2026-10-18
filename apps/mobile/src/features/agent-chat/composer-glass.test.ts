@@ -174,9 +174,14 @@ describe("card lane glass chrome", () => {
       "utf8",
     );
     expect(buttons).toContain("export function GlassTextButton");
+    expect(buttons).toContain("disabled as disabledModifier");
+    expect(buttons).toContain("iosGlassChipModifiers");
+    expect(buttons).toContain("GLASS_CHIP_DISABLED_OPACITY");
+    expect(buttons).toContain('buttonStyle("plain")');
+    expect(buttons).toContain("glassEffect(");
+    expect(buttons).toContain('controlSize("mini")');
     expect(buttons).toContain('buttonStyle("glass")');
     expect(buttons).not.toContain("tintColor");
-    expect(buttons).not.toContain("glassEffect(");
     expect(buttons).not.toContain("GlassEffectContainer");
     const permission = source("AgentChatPermissionCard.tsx");
     const sessionOp = source("AgentChatSessionOpCard.tsx");
