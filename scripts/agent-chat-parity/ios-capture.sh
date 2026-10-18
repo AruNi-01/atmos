@@ -693,6 +693,7 @@ if len(booted) == 1:
   run_bounded 360 xcodebuild test \
     -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
     -scheme PillTap \
+    -sdk iphonesimulator \
     -destination "platform=iOS Simulator,id=${udid}" \
     -derivedDataPath /tmp/pill-tap-derived \
     -only-testing:PillTapUITests/PillTapUITests/testTapScrollPill \
