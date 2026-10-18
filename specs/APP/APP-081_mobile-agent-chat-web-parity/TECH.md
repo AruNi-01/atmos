@@ -155,11 +155,17 @@ Card chrome is unchanged from today's `cardElevated` + `glassBorder` + radius 16
 
 <!-- updated 2026-10-18: composer-adjacent lane chrome uses GlassPanel -->
 
-**Implementation delta (2026-10-18):** Title pills, the pinned scroll-to-bottom pill, and the expanded card shell now use the same `GlassPanel` as the composer wells (`expo-glass-effect` `GlassView` on iOS 26). Fallback fill is `glassFallback` / `glassFallbackStrong` when Liquid Glass is unavailable, the effect API is missing, or Reduce Transparency is on. Lane interaction (one expanded card, re-tap to collapse, pill order, 180 ms fade) is unchanged. Inner card actions stay filled `control` chips so they stay distinct on the glass shell. Transcript historic permission cards stay `cardElevated`.
+**Implementation delta (2026-10-18):** Title pills, the pinned scroll-to-bottom pill, and the expanded card shell now use the same `GlassPanel` as the composer wells (`expo-glass-effect` `GlassView` on iOS 26). Fallback fill is `glassFallback` / `glassFallbackStrong` when Liquid Glass is unavailable, the effect API is missing, or Reduce Transparency is on. Lane interaction (one expanded card, re-tap to collapse, pill order, 180 ms fade) is unchanged. Inner card actions later moved off filled `control` chips (see the Expo UI glass split below). Transcript historic permission cards stay `cardElevated`.
 
 <!-- updated 2026-10-18: native untinted Liquid Glass, matching composer wells -->
 
 **Implementation delta (2026-10-18, native glass):** `#322` still painted lane chrome with `glassTint` / `controlGlassTint` and `GlassPanel`'s default hairline border, so pills and the expanded shell looked like tinted plates instead of iOS 26 Liquid Glass (header `UIBarButtonItem` / composer `+` wells). Lane chrome now spreads `COMPOSER_GLASS_WELL` (`interactive: true`, `shadow: false`, no `tintColor`). `GlassPanel` only forwards `tintColor` when a caller sets it, and the Liquid Glass path has no extra fill or border — the system material owns the highlight stroke. Fallback (old OS / missing API / Reduce Transparency) still uses `glassFallback` + `glassBorder`. Expanded-card copy stays `theme.colors.label`.
+
+<!-- updated 2026-10-18: composer dock restored to GlassPanel; in-card actions use Expo UI glass -->
+
+**Implementation delta (2026-10-18, composer dock + Expo UI split):** `23964b7` (2026-10-08) swapped the composer dock from `GlassPanel` to a filled `View` (`theme.colors.control` + hairline `controlBorder`, radius 28). The dock is `GlassPanel {...COMPOSER_GLASS_WELL}` again (same args as the `+` well), keeping the later two-row layout, radius 28 (`COMPOSER_GLASS_DOCK_RADIUS` / `radii.control`), multiline height hysteresis, and Skia effort flame. Liquid Glass still has no extra fill or stroke; Reduce Transparency / old OS still uses `GlassPanel`'s solid fallback.
+
+Installed `@expo/ui@~56.0.25` does expose SwiftUI `buttonStyle("glass" | "glassProminent")`, `glassEffect({ glass, shape, cornerRadius })`, and `GlassEffectContainer`. Those modifiers only apply inside a SwiftUI `Host`. The dock, title pills, N-below pill, and expanded card wrap RN `TextInput` / NumberFlow / Lucide / `ScrollView`, so they stay on `expo-glass-effect` `GlassView` via `GlassPanel`. In-card permission / session-op / queue actions are labeled chips and now use `GlassTextButton` → iOS `buttonStyle("glass")` (no tint). `GlassEffectContainer` is unused: it only groups SwiftUI glass children and cannot wrap a wrapping RN action row.
 
 ## Motion mapping
 

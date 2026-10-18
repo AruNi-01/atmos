@@ -18,6 +18,7 @@ import { contextTriggerLabel } from "./composer-capabilities";
 import {
   COMPOSER_GLASS_CONTROL_RADIUS,
   COMPOSER_GLASS_CONTROL_SIZE,
+  COMPOSER_GLASS_DOCK_RADIUS,
   COMPOSER_GLASS_WELL,
 } from "./composer-glass";
 import {
@@ -403,14 +404,10 @@ export function AgentChatComposer(props: {
           </View>
         </ScrollView>
       ) : null}
-      <View
+      <GlassPanel
+        {...COMPOSER_GLASS_WELL}
         style={{
-          backgroundColor: theme.colors.control,
-          borderColor: theme.colors.controlBorder,
-          borderCurve: "continuous",
-          borderRadius: 28,
-          borderWidth: StyleSheet.hairlineWidth,
-          overflow: "hidden",
+          borderRadius: COMPOSER_GLASS_DOCK_RADIUS,
           width: "100%",
         }}
       >
@@ -437,6 +434,7 @@ export function AgentChatComposer(props: {
             placeholderTextColor={theme.colors.secondaryLabel}
             scrollEnabled={contentHeight > LINE_HEIGHT * MAX_LINES}
             style={{
+              backgroundColor: "transparent",
               color: theme.colors.label,
               fontSize: 16,
               lineHeight: LINE_HEIGHT,
@@ -447,6 +445,7 @@ export function AgentChatComposer(props: {
               textAlignVertical: "top",
               width: "100%",
             }}
+            underlineColorAndroid="transparent"
             value={props.text}
           />
         </View>
@@ -473,7 +472,7 @@ export function AgentChatComposer(props: {
           {showSteer ? renderFollowUp(props.steerLabel, props.onSteer) : null}
           {renderSend()}
         </View>
-      </View>
+      </GlassPanel>
       <AgentChatModelSheet
         favorites={props.favorites}
         onClose={() => setModelsOpen(false)}

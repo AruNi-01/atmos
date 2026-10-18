@@ -10,6 +10,7 @@ import { shouldUseLiquidGlass } from "../../ui/primitives/glass-availability";
 import {
   COMPOSER_GLASS_CONTROL_RADIUS,
   COMPOSER_GLASS_CONTROL_SIZE,
+  COMPOSER_GLASS_DOCK_RADIUS,
   COMPOSER_GLASS_WELL,
 } from "./composer-glass";
 
@@ -31,6 +32,7 @@ describe("composer glass tokens", () => {
   test("lane pills share the composer well size and native glass args", () => {
     expect(COMPOSER_GLASS_CONTROL_SIZE).toBe(36);
     expect(COMPOSER_GLASS_CONTROL_RADIUS).toBe(18);
+    expect(COMPOSER_GLASS_DOCK_RADIUS).toBe(28);
     expect(COMPOSER_GLASS_WELL).toEqual({ interactive: true, shadow: false });
     const composer = source("AgentChatComposer.tsx");
     expect(composer).toContain("COMPOSER_GLASS_WELL");
@@ -148,6 +150,46 @@ describe("card lane glass chrome", () => {
     expect(preview).toContain("<LaneCardBody");
     expect(preview.indexOf("<ExpandedCard")).toBeLessThan(preview.indexOf("<LaneCardBody"));
     expect(thread.indexOf("<ExpandedCard")).toBeLessThan(thread.indexOf("<LaneCardBody"));
+  });
+
+  test("the composer dock is the same GlassPanel well, not a solid control plate", () => {
+    const composer = source("AgentChatComposer.tsx");
+    expect(composer).toContain("<GlassPanel");
+    expect(composer).toContain("COMPOSER_GLASS_WELL");
+    expect(composer).toContain("COMPOSER_GLASS_DOCK_RADIUS");
+    expect(composer).toContain('backgroundColor: "transparent"');
+    expect(composer).toContain("Math.abs(current - next) < 2");
+    expect(composer).toContain("paddingHorizontal: 16");
+    expect(composer).toContain("LINE_HEIGHT * MAX_LINES");
+    expect(composer).not.toContain("theme.colors.control");
+    expect(composer).not.toContain("controlBorder");
+    expect(composer).not.toContain("buttonStyle");
+    expect(composer).not.toContain("@expo/ui/swift-ui");
+    expect(composer).not.toContain("glassEffect(");
+  });
+
+  test("in-card actions use Expo UI glass buttons instead of solid control chips", () => {
+    const buttons = readFileSync(
+      join(here, "../../ui/primitives/glass-action-buttons.tsx"),
+      "utf8",
+    );
+    expect(buttons).toContain("export function GlassTextButton");
+    expect(buttons).toContain('buttonStyle("glass")');
+    expect(buttons).not.toContain("tintColor");
+    expect(buttons).not.toContain("glassEffect(");
+    expect(buttons).not.toContain("GlassEffectContainer");
+    const permission = source("AgentChatPermissionCard.tsx");
+    const sessionOp = source("AgentChatSessionOpCard.tsx");
+    const queue = source("cards/queue-card.tsx");
+    for (const text of [permission, sessionOp, queue]) {
+      expect(text).toContain("GlassTextButton");
+      expect(text).not.toContain("theme.colors.control");
+      expect(text).not.toContain("mutedPressed");
+      expect(text).not.toContain("GlassPanel");
+      expect(text).not.toContain("buttonStyle");
+    }
+    expect(queue).toContain('role="destructive"');
+    expect(queue).toContain("theme.colors.controlBorder");
   });
 
   test("card copy uses theme labels instead of hardcoded ink", () => {

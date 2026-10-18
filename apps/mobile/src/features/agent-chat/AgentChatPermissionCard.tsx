@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { GlassTextButton } from "@/ui/primitives/glass-action-buttons";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
 
@@ -68,37 +69,17 @@ export function AgentChatPermissionCard({
         </Text>
       ) : null}
       {options.length > 0 ? (
-        <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {options.map((option) => {
             const label = option.name.trim() || option.option_id;
             return (
-              <Pressable
-                accessibilityRole="button"
+              <GlassTextButton
                 key={option.option_id}
+                label={label}
                 onPress={() =>
                   onRespond({ requestId: request.request_id, optionId: option.option_id })
                 }
-                style={({ pressed }) => ({
-                  backgroundColor: pressed ? theme.colors.mutedPressed : theme.colors.control,
-                  borderColor: theme.colors.controlBorder,
-                  borderCurve: "continuous",
-                  borderRadius: 12,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                })}
-              >
-                <Text
-                  style={{
-                    color: theme.colors.label,
-                    fontSize: 15,
-                    fontWeight: "600",
-                    lineHeight: 20,
-                  }}
-                >
-                  {label}
-                </Text>
-              </Pressable>
+              />
             );
           })}
         </View>
