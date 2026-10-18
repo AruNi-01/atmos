@@ -36,7 +36,7 @@ export function AgentChatSessionOpCard({
             color: SESSION_OP_SKY,
             flexShrink: 1,
             fontSize: CARD_TITLE.fontSize,
-            fontWeight: "600",
+            fontWeight: CARD_TITLE.fontWeight,
             lineHeight: CARD_TITLE.lineHeight,
           }}
         >

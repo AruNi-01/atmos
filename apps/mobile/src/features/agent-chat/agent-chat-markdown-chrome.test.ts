@@ -93,12 +93,12 @@ describe("agent chat markdown chrome", () => {
     });
   });
 
-  test("composer-card headings stay 16/700 with no extra top margin", () => {
+  test("composer-card headings stay 14/500 with no extra top margin", () => {
     const headings = agentChatCardHeadingStyle("#111112");
     expect(agentChatCardHeadingMetrics).toEqual({
-      fontSize: 16,
-      fontWeight: "700",
-      lineHeight: 21,
+      fontSize: 14,
+      fontWeight: "500",
+      lineHeight: 20,
       marginBottom: 8,
       marginTop: 0,
     });
@@ -113,7 +113,7 @@ describe("agent chat markdown chrome", () => {
 
   test("matches web block margins", () => {
     expect(agentChatBlockMetrics.paragraph).toEqual({ marginTop: 0, marginBottom: 0 });
-    expect(agentChatBlockMetrics.list).toEqual({ marginTop: 0, marginBottom: 0, itemSpacing: 8 });
+    expect(agentChatBlockMetrics.list).toEqual({ marginTop: 0, marginBottom: 8, itemSpacing: 8 });
     expect(agentChatBlockMetrics.codeBlock).toMatchObject({
       marginTop: 16,
       marginBottom: 16,

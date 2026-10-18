@@ -23,35 +23,42 @@ import { shouldUseLiquidGlass } from "./glass-availability";
 /** Matches the old filled chip: padding 12×8, 14pt semibold. */
 export const GLASS_CHIP_FONT_SIZE = 14;
 export const GLASS_CHIP_PADDING = { horizontal: 12, vertical: 8 } as const;
-/** Visual chip height after clipping SwiftUI Host chrome. */
-export const GLASS_CHIP_HEIGHT = 28;
-/** SwiftUI Host adds ~2.5pt above/below the visual capsule. */
-export const GLASS_CHIP_HOST_INSET = 2.5;
+/**
+ * Air-measured visual chip height (32.3–33.0pt). Pill is 36, compact composer 52.
+ * Do not clip with negative vertical margin — that overlaps wrap rows.
+ */
+export const GLASS_CHIP_HEIGHT = 33;
 export const GLASS_CHIP_HOST_STYLE = {
   height: GLASS_CHIP_HEIGHT,
   justifyContent: "center" as const,
-  marginBottom: -GLASS_CHIP_HOST_INSET,
-  marginTop: -GLASS_CHIP_HOST_INSET,
 };
 /** Slight dim — SwiftUI `disabled()` on glass nearly vanishes in light. */
 export const GLASS_CHIP_DISABLED_OPACITY = 0.55;
 const FALLBACK_CHIP_HEIGHT = GLASS_CHIP_HEIGHT;
+
+export type GlassChipTone = "primary" | "ghost";
 
 export type GlassAction = {
   disabled?: boolean;
   label: string;
   onPress: () => void;
   role?: "destructive";
+  /** Permission Allow is primary; Deny and other options are ghost. */
+  tone?: GlassChipTone;
 };
 
 export function iosGlassChipModifiers(input: {
   fillColor: string;
   inkColor: string;
   isDisabled: boolean;
+  isGhost?: boolean;
   useLiquidGlass: boolean;
 }) {
   const dim = opacity(input.isDisabled ? GLASS_CHIP_DISABLED_OPACITY : 1);
-  const type = font({ size: GLASS_CHIP_FONT_SIZE, weight: "semibold" });
+  const type = font({
+    size: GLASS_CHIP_FONT_SIZE,
+    weight: input.isGhost ? "medium" : "semibold",
+  });
   if (input.useLiquidGlass) {
     return [
       buttonStyle("plain"),
@@ -62,6 +69,7 @@ export function iosGlassChipModifiers(input: {
         glass: { interactive: true, variant: "regular" },
         shape: "capsule",
       }),
+      ...(input.isGhost ? [foregroundStyle(input.inkColor), tint(input.inkColor)] : []),
       dim,
     ];
   }
@@ -78,12 +86,26 @@ export function iosGlassChipModifiers(input: {
 }
 
 /** Compact labeled glass chip. iOS uses `glassEffect` on a plain button. */
-export function GlassTextButton({ disabled, label, onPress, role }: GlassAction) {
+export function GlassTextButton({ disabled, label, onPress, role, tone }: GlassAction) {
   if (Platform.OS === "ios") {
-    return <IosGlassTextButton disabled={disabled} label={label} onPress={onPress} role={role} />;
+    return (
+      <IosGlassTextButton
+        disabled={disabled}
+        label={label}
+        onPress={onPress}
+        role={role}
+        tone={tone}
+      />
+    );
   }
   return (
-    <FallbackGlassTextButton disabled={disabled} label={label} onPress={onPress} role={role} />
+    <FallbackGlassTextButton
+      disabled={disabled}
+      label={label}
+      onPress={onPress}
+      role={role}
+      tone={tone}
+    />
   );
 }
 
@@ -120,7 +142,17 @@ function useReduceTransparencyEnabled(): boolean {
   return enabled;
 }
 
-function IosGlassTextButton({ disabled, label, onPress, role }: GlassAction) {
+function chipInkColor(
+  colors: { label: string; red: string; secondaryLabel: string },
+  role: GlassAction["role"],
+  tone: GlassAction["tone"],
+) {
+  if (role === "destructive") return colors.red;
+  if (tone === "ghost") return colors.secondaryLabel;
+  return colors.label;
+}
+
+function IosGlassTextButton({ disabled, label, onPress, role, tone }: GlassAction) {
   const theme = useMobileTheme();
   const reduceTransparency = useReduceTransparencyEnabled();
   const useLiquidGlass = shouldUseLiquidGlass({
@@ -129,7 +161,8 @@ function IosGlassTextButton({ disabled, label, onPress, role }: GlassAction) {
     reduceTransparency,
   });
   const isDisabled = Boolean(disabled);
-  const inkColor = role === "destructive" ? theme.colors.red : theme.colors.label;
+  const isGhost = tone === "ghost";
+  const inkColor = chipInkColor(theme.colors, role, tone);
   const fillColor = theme.colors.control;
 
   return (
@@ -146,6 +179,7 @@ function IosGlassTextButton({ disabled, label, onPress, role }: GlassAction) {
               fillColor,
               inkColor,
               isDisabled,
+              isGhost,
               useLiquidGlass,
             })}
             onPress={isDisabled ? undefined : onPress}
@@ -157,7 +191,7 @@ function IosGlassTextButton({ disabled, label, onPress, role }: GlassAction) {
   );
 }
 
-function FallbackGlassTextButton({ disabled, label, onPress, role }: GlassAction) {
+function FallbackGlassTextButton({ disabled, label, onPress, role, tone }: GlassAction) {
   const theme = useMobileTheme();
   const look =
     role === "destructive"
@@ -170,7 +204,7 @@ function FallbackGlassTextButton({ disabled, label, onPress, role }: GlassAction
       <ExpoHost
         colorScheme={theme.colorScheme}
         matchContents={{ vertical: true }}
-        seedColor={look.seedColor}
+        seedColor={tone === "ghost" ? theme.colors.secondaryLabel : look.seedColor}
       >
         <ExpoButton
           disabled={isDisabled}

@@ -21,6 +21,7 @@ mock.module("@/theme/theme-store", () => ({
       control: "#f8f8f9",
       label: "#111111",
       red: "#ff3b30",
+      secondaryLabel: "#52525b",
       tertiaryLabel: "#8e8e93",
     },
   }),
@@ -65,7 +66,6 @@ const {
   GLASS_CHIP_DISABLED_OPACITY,
   GLASS_CHIP_FONT_SIZE,
   GLASS_CHIP_HEIGHT,
-  GLASS_CHIP_HOST_INSET,
   GLASS_CHIP_HOST_STYLE,
   GLASS_CHIP_PADDING,
   GlassActionButtons,
@@ -103,13 +103,31 @@ describe("iosGlassChipModifiers", () => {
     expect(GLASS_CHIP_DISABLED_OPACITY).toBeGreaterThan(0.4);
     expect(GLASS_CHIP_DISABLED_OPACITY).toBeLessThan(0.7);
     expect(GLASS_CHIP_PADDING).toEqual({ horizontal: 12, vertical: 8 });
-    expect(GLASS_CHIP_HEIGHT).toBe(28);
-    expect(GLASS_CHIP_HOST_INSET).toBe(2.5);
+    expect(GLASS_CHIP_HEIGHT).toBe(33);
     expect(GLASS_CHIP_HOST_STYLE).toEqual({
-      height: 28,
+      height: 33,
       justifyContent: "center",
-      marginBottom: -2.5,
-      marginTop: -2.5,
+    });
+    expect("marginTop" in GLASS_CHIP_HOST_STYLE).toBe(false);
+    expect("marginBottom" in GLASS_CHIP_HOST_STYLE).toBe(false);
+  });
+
+  test("ghost chips use medium weight and muted ink", () => {
+    const ghost = iosGlassChipModifiers({
+      fillColor: "#f8f8f9",
+      inkColor: "#52525b",
+      isDisabled: false,
+      isGhost: true,
+      useLiquidGlass: true,
+    });
+    expect(ghost).toContainEqual({
+      type: "font",
+      params: { size: GLASS_CHIP_FONT_SIZE, weight: "medium" },
+    });
+    expect(ghost).toContainEqual({ type: "foregroundStyle", style: "#52525b" });
+    expect(ghost).toContainEqual({
+      type: "glassEffect",
+      params: { glass: { interactive: true, variant: "regular" }, shape: "capsule" },
     });
   });
 

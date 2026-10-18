@@ -26,7 +26,7 @@ export function AgentChatMarkdown({
 }: {
   text: string;
   tone?: "body" | "thinking";
-  /** Card markdown uses the 16/700 title scale and a shared list indent. */
+  /** Card markdown uses the 14/500 title scale and a shared list indent. */
   variant?: "prose" | "card";
   /** Overrides the tone default. Omitted body text stays 16 / 22. */
   fontSize?: number;

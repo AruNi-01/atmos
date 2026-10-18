@@ -3,7 +3,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { PromptTerminalIcon, SquareTerminalIcon } from "@/ui/icons/lucide-native";
 import { backgroundRunningCountLabel, type BackgroundCommand } from "../composer-cards";
 import { copy } from "../copy";
-import { CARD_GAP, CARD_ICON_SIZE, CARD_MONO, CardHeader } from "./expanded-card";
+import { CARD_GAP, CARD_ICON_SIZE, CARD_META, CARD_MONO, CardHeader } from "./expanded-card";
 
 export function BackgroundCard({ commands }: { commands: BackgroundCommand[] }) {
   const theme = useMobileTheme();
@@ -26,6 +26,16 @@ export function BackgroundCard({ commands }: { commands: BackgroundCommand[] }) 
             style={{ color: theme.colors.label, flex: 1, ...CARD_MONO }}
           >
             {command.command}
+          </Text>
+          <Text
+            style={{
+              color: theme.colors.secondaryLabel,
+              flexShrink: 0,
+              fontSize: CARD_META.fontSize,
+              lineHeight: CARD_META.lineHeight,
+            }}
+          >
+            {copy.backgroundRunning}
           </Text>
         </View>
       ))}

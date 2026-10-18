@@ -19,8 +19,10 @@ function source(relative: string): string {
 describe("composer card chrome alignment", () => {
   test("chip, pill, and compact composer keep three distinct heights", () => {
     const chips = source("../../ui/primitives/glass-action-buttons.tsx");
-    expect(chips).toContain("export const GLASS_CHIP_HEIGHT = 28");
-    expect(chips).toContain("export const GLASS_CHIP_HOST_INSET = 2.5");
+    expect(chips).toContain("export const GLASS_CHIP_HEIGHT = 33");
+    expect(chips).not.toContain("GLASS_CHIP_HOST_INSET");
+    expect(chips).not.toContain("marginBottom: -");
+    expect(chips).not.toContain("marginTop: -");
     expect(COMPOSER_GLASS_CONTROL_SIZE).toBe(36);
     expect(COMPOSER_DOCK_COMPACT_HEIGHT).toBe(52);
   });
@@ -29,10 +31,12 @@ describe("composer card chrome alignment", () => {
     const expanded = source("cards/expanded-card.tsx");
     expect(expanded).toContain("export const CARD_GAP = 8");
     expect(expanded).toContain("export const CARD_CHIP_GAP = 8");
-    expect(expanded).toContain('fontSize: 16, fontWeight: "700" as const, lineHeight: 21');
+    expect(expanded).toContain('fontSize: 14, fontWeight: "500" as const, lineHeight: 20');
     expect(expanded).toContain("fontSize: 14, lineHeight: 20");
     expect(expanded).toContain('fontFamily: "Menlo", fontSize: 13, lineHeight: 18');
+    expect(expanded).toContain("fontSize: 11, lineHeight: 14");
     expect(expanded).toContain('export const SESSION_OP_SKY = "#0ea5e9"');
+    expect(expanded).toContain("export const CARD_PAD_VERTICAL = 14");
   });
 
   test("pill row uses one 18pt content inset and does not pad the row twice", () => {
@@ -48,12 +52,17 @@ describe("composer card chrome alignment", () => {
   test("expanded card keeps the passing 18pt margin and 14pt body pad", () => {
     const expanded = source("cards/expanded-card.tsx");
     expect(expanded).toContain("marginHorizontal: 18");
-    expect(expanded).toContain("paddingHorizontal: 14");
-    expect(expanded).toContain("paddingVertical: 12");
+    expect(expanded).toContain("paddingHorizontal: CARD_PAD_HORIZONTAL");
+    expect(expanded).toContain("paddingVertical: CARD_PAD_VERTICAL");
+    expect(expanded).toContain("export const CARD_PAD_HORIZONTAL = 14");
     expect(expanded).toContain("export function CardHeader");
     expect(expanded).toContain("columnGap: CARD_CHIP_GAP");
     expect(expanded).toContain("rowGap: CARD_CHIP_GAP");
     expect(expanded).toContain('flexWrap: "wrap"');
+    expect(expanded).toContain('justifyContent: "flex-end"');
+    expect(expanded).not.toContain("numberOfLines={1}");
+    expect(expanded).toContain('alignItems: "baseline"');
+    expect(expanded).toContain("includeFontPadding: false");
   });
 
   test("every dock card uses CardHeader or the session-op sky row", () => {
@@ -79,10 +88,19 @@ describe("composer card chrome alignment", () => {
     expect(background).toContain("CARD_MONO");
     expect(background).toContain("numberOfLines={1}");
     expect(background).toContain("PromptTerminalIcon");
+    expect(background).toContain("copy.backgroundRunning");
+    expect(background).toContain("CARD_META");
     expect(source("cards/context-card.tsx")).toContain("contextBarTone");
     expect(source("cards/subagent-card.tsx")).toContain("SubagentStatusIcon");
-    expect(source("cards/goal-card.tsx")).toContain("CardStatusBadge");
+    expect(source("cards/subagent-card.tsx")).toContain("rowLast");
+    expect(source("cards/subagent-card.tsx")).toContain("paddingBottom: 0");
+    expect(source("cards/goal-card.tsx")).toContain("CardStatusRow");
     expect(source("cards/goal-card.tsx")).toContain("CardBulletRow");
+    expect(source("cards/workflow-card.tsx")).toContain("CardStatusRow");
     expect(source("cards/queue-card.tsx")).toContain("<ChipRow");
+    const permission = source("AgentChatPermissionCard.tsx");
+    expect(permission).toContain('justify="end"');
+    expect(permission).toContain("permissionOptionTone");
+    expect(permission).toContain("historicPermissionTitle");
   });
 });

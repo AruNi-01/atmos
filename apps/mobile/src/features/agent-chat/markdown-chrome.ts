@@ -24,11 +24,11 @@ export function agentChatHeadingStyle(color: string) {
   };
 }
 
-/** Composer-card markdown: match the 16/700 card title, not Streamdown H2. */
+/** Composer-card markdown: match the 14/500 dock title, not Streamdown H2. */
 export const agentChatCardHeadingMetrics = {
-  fontSize: 16,
-  fontWeight: "700" as const,
-  lineHeight: 21,
+  fontSize: 14,
+  fontWeight: "500" as const,
+  lineHeight: 20,
   marginBottom: 8,
   marginTop: 0,
 };
@@ -61,7 +61,7 @@ export const agentChatCardListMetrics = {
  */
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: 0 },
-  list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },
+  list: { marginTop: 0, marginBottom: 8, itemSpacing: 8 },
   codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 8 },
   table: { marginTop: 16, marginBottom: 16 },
 } as const;

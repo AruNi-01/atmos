@@ -14,11 +14,17 @@ const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
 export const CARD_GAP = 8;
 export const CARD_CHIP_GAP = 8;
 export const CARD_ICON_SIZE = 16;
-export const CARD_TITLE = { fontSize: 16, fontWeight: "700" as const, lineHeight: 21 };
+/** Web dock title: `text-sm font-medium` (14/500, line-height 20). */
+export const CARD_TITLE = { fontSize: 14, fontWeight: "500" as const, lineHeight: 20 };
 export const CARD_BODY = { fontSize: 14, lineHeight: 20 };
 export const CARD_MONO = { fontFamily: "Menlo", fontSize: 13, lineHeight: 18 };
+/** Web background row `text-[11px] text-muted-foreground`. */
+export const CARD_META = { fontSize: 11, lineHeight: 14 };
 /** Web `text-sky-500` on AgentSessionOpCard. */
 export const SESSION_OP_SKY = "#0ea5e9";
+/** Matches title left edge (margin 18 + pad 14 = 32) and last-chip-to-bottom. */
+export const CARD_PAD_HORIZONTAL = 14;
+export const CARD_PAD_VERTICAL = 14;
 
 type CardHeaderIcon = typeof ShieldIcon;
 
@@ -41,15 +47,17 @@ export function CardHeader({
   const countText = count == null ? "" : String(count);
   return (
     <View style={styles.header}>
-      <Icon color={ink} size={CARD_ICON_SIZE} strokeWidth={2} />
+      <View style={styles.headerIcon}>
+        <Icon color={ink} size={CARD_ICON_SIZE} strokeWidth={2} />
+      </View>
       <Text
-        numberOfLines={1}
         style={{
           color: titleInk,
           flexGrow: 1,
           flexShrink: 1,
           fontSize: CARD_TITLE.fontSize,
           fontWeight: CARD_TITLE.fontWeight,
+          includeFontPadding: false,
           lineHeight: CARD_TITLE.lineHeight,
         }}
       >
@@ -60,6 +68,7 @@ export function CardHeader({
           style={{
             color: theme.colors.secondaryLabel,
             fontSize: CARD_BODY.fontSize,
+            includeFontPadding: false,
             lineHeight: CARD_BODY.lineHeight,
           }}
         >
@@ -70,8 +79,16 @@ export function CardHeader({
   );
 }
 
-export function ChipRow({ children }: { children: ReactNode }) {
-  return <View style={styles.chipRow}>{children}</View>;
+export function ChipRow({
+  children,
+  justify = "start",
+}: {
+  children: ReactNode;
+  justify?: "start" | "end";
+}) {
+  return (
+    <View style={[styles.chipRow, justify === "end" ? styles.chipRowEnd : null]}>{children}</View>
+  );
 }
 
 export function CardStatusBadge({ label }: { label: string }) {
@@ -83,14 +100,36 @@ export function CardStatusBadge({ label }: { label: string }) {
         borderRadius: 6,
         color: theme.colors.label,
         fontSize: CARD_BODY.fontSize,
+        includeFontPadding: false,
         lineHeight: CARD_BODY.lineHeight,
         overflow: "hidden",
         paddingHorizontal: 8,
-        paddingVertical: 2,
+        textAlignVertical: "center",
       }}
     >
       {label}
     </Text>
+  );
+}
+
+export function CardStatusRow({ badge, text }: { badge: string; text?: string | null }) {
+  const theme = useMobileTheme();
+  return (
+    <View style={styles.statusRow}>
+      <CardStatusBadge label={badge} />
+      {text ? (
+        <Text
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: CARD_BODY.fontSize,
+            includeFontPadding: false,
+            lineHeight: CARD_BODY.lineHeight,
+          }}
+        >
+          {text}
+        </Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -161,13 +200,26 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     rowGap: CARD_CHIP_GAP,
   },
+  chipRowEnd: {
+    justifyContent: "flex-end",
+  },
   content: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: CARD_PAD_HORIZONTAL,
+    paddingVertical: CARD_PAD_VERTICAL,
   },
   header: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
+    gap: 8,
+  },
+  headerIcon: {
+    // First-line optical center: (CARD_TITLE.lineHeight - CARD_ICON_SIZE) / 2.
+    marginTop: 2,
+  },
+  statusRow: {
+    alignItems: "baseline",
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
 });

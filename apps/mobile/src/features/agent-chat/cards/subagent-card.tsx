@@ -36,7 +36,7 @@ export function SubagentCard({ items }: { items: SubagentTitle[] }) {
                 }}
               />
             ) : null}
-            <View style={styles.row}>
+            <View style={[styles.row, index === items.length - 1 ? styles.rowLast : null]}>
               <SubagentStatusIcon color={color} status={item.status} />
               <Text numberOfLines={1} style={{ color, flex: 1, ...CARD_BODY }}>
                 {item.title}
@@ -65,5 +65,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     paddingVertical: 6,
+  },
+  rowLast: {
+    paddingBottom: 0,
   },
 });
