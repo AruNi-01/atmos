@@ -47,6 +47,10 @@ describe("activity glyph", () => {
     expect(latticeSample(0, 0.14, "comet")).toEqual({ opacity: 1, scale: 1.2 });
     expect(latticeSample(0.45, 0.14, "comet")).toEqual({ opacity: 0.14, scale: 1 });
     expect(starDelayMs(1)).toBe((1400 * 0.7) / 5);
+    const glyph = readFileSync(join(dir, "activity-glyph.ts"), "utf8");
+    expect(glyph).toMatch(
+      /export function starDelayMs\(index: number\): number \{\n {2}"worklet";/,
+    );
     expect(starTwinkle(0)).toEqual({ opacity: 0, scale: 0 });
     expect(starTwinkle(0.4)).toEqual({ opacity: 1, scale: 1 });
     expect(starTwinkle(0.6).opacity).toBeCloseTo(0.9);

@@ -24,7 +24,6 @@ import { LaneCardBody } from "./cards/lane-body";
 import { copy } from "./copy";
 import { userMessageOutsidePressCapture } from "./user-message-outside";
 import { pushParityReducedMotion } from "./motion/parity-reduced-motion";
-import { ParityTextSweepContext } from "./motion/text-shimmer";
 import { buildComposerPicker, type FavoriteModel } from "./model-picker";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
 import {
@@ -582,103 +581,100 @@ export function PreviewChatScreen() {
     setLaneChoice(reduceLane(lane, { type: "pill_tapped", id }));
   };
 
-  const parityTextSweep = Boolean(ownsReplay && frame.motion !== "reduced" && !holdOn);
   return (
-    <ParityTextSweepContext.Provider value={parityTextSweep}>
-      <View
-        collapsable={false}
-        {...userMessageOutsidePressCapture()}
-        ref={previewRootRef}
-        style={{ backgroundColor, flex: 1, paddingTop: insets.top }}
-        testID="parity-ready"
-      >
-        <View style={{ flex: 1 }}>
-          {fixture || motion ? (
-            <ParityDrawHoldContext.Provider value={drawHold}>
-              <AgentChatTranscript
-                key={laneKey}
-                ref={transcriptRef}
-                expandedCardHeight={lane.visible ? cardHeight : 0}
-                messages={messages}
-                onStickChange={liveTail ? onStickChange : undefined}
-                onViewport={pillReturn ? onViewport : undefined}
-                pillRowHeight={pillRowHeight}
-              />
-            </ParityDrawHoldContext.Provider>
-          ) : (
-            <Text style={{ color, fontSize: 15, paddingHorizontal: 16 }}>Missing fixture</Text>
-          )}
-        </View>
-        <View style={{ gap: 8, paddingBottom: 12, paddingTop: 8 }}>
-          {lane.visible ? (
-            <ExpandedCard
-              bare={laneCardDrawsOwnFrame(lane.visible, cards)}
-              key={lane.visible}
-              onHeight={setCardHeight}
-            >
-              <LaneCardBody
-                cards={cards}
-                messages={messages}
-                onQueueDelete={noopAsync}
-                onQueueReorder={noopAsync}
-                onQueueUpdate={noopAsync}
-                onRespondPermission={() => undefined}
-                onRespondSessionOp={() => undefined}
-                visible={lane.visible}
-              />
-            </ExpandedCard>
-          ) : null}
-          <ComposerPillRow
-            belowCount={liveTail ? stick.belowCount : 0}
-            messageCount={messages.length}
-            onLayout={(event) => setPillHeight(event.nativeEvent.layout.height)}
-            onPillPress={onPillPress}
-            onScrollToBottom={() => {
-              if (pillReturn) {
-                tailReturnPressedRef.current = true;
-                console.error("[parity] scroll pill press");
-              }
-              transcriptRef.current?.scrollToEndAnimated();
-            }}
-            pills={pills}
-            stickToEnd={liveTail ? stick.stickToEnd : true}
-          />
-          <View style={{ paddingHorizontal: 18 }}>
-            <AgentChatComposer
-              autoFocus={composerDriven ? composerShown.focus : undefined}
-              busy={composerDriven ? composerShown.busy : false}
-              favorites={NO_FAVORITES}
-              followUp={composerDriven ? composerShown.followUp : undefined}
-              onChangeText={composerDriven ? () => undefined : setText}
-              onOpenCard={cards.context ? () => onPillPress("context") : undefined}
-              onPatch={() => undefined}
-              onPhotosChange={() => undefined}
-              onPickSuggestion={() => undefined}
-              onQueue={() => undefined}
-              onRemovePhoto={() => undefined}
-              onSend={() => undefined}
-              onSteer={() => undefined}
-              onStop={() => undefined}
-              onToggleFavorite={() => undefined}
-              photos={[]}
-              picker={picker}
-              placeholder={copy.placeholder}
-              queueLabel={copy.queue}
-              sendLabel={copy.send}
-              sessionUsage={
-                cards.context
-                  ? { used: cards.context.used, context_window: cards.context.context_window }
-                  : null
-              }
-              steerLabel={copy.steer}
-              stopLabel={copy.stop}
-              suggestionTitle={composerDriven ? composerShown.suggestionTitle : undefined}
-              suggestions={composerDriven ? (composerShown.suggestions ?? undefined) : undefined}
-              text={composerDriven ? composerShown.text : text}
+    <View
+      collapsable={false}
+      {...userMessageOutsidePressCapture()}
+      ref={previewRootRef}
+      style={{ backgroundColor, flex: 1, paddingTop: insets.top }}
+      testID="parity-ready"
+    >
+      <View style={{ flex: 1 }}>
+        {fixture || motion ? (
+          <ParityDrawHoldContext.Provider value={drawHold}>
+            <AgentChatTranscript
+              key={laneKey}
+              ref={transcriptRef}
+              expandedCardHeight={lane.visible ? cardHeight : 0}
+              messages={messages}
+              onStickChange={liveTail ? onStickChange : undefined}
+              onViewport={pillReturn ? onViewport : undefined}
+              pillRowHeight={pillRowHeight}
             />
-          </View>
+          </ParityDrawHoldContext.Provider>
+        ) : (
+          <Text style={{ color, fontSize: 15, paddingHorizontal: 16 }}>Missing fixture</Text>
+        )}
+      </View>
+      <View style={{ gap: 8, paddingBottom: 12, paddingTop: 8 }}>
+        {lane.visible ? (
+          <ExpandedCard
+            bare={laneCardDrawsOwnFrame(lane.visible, cards)}
+            key={lane.visible}
+            onHeight={setCardHeight}
+          >
+            <LaneCardBody
+              cards={cards}
+              messages={messages}
+              onQueueDelete={noopAsync}
+              onQueueReorder={noopAsync}
+              onQueueUpdate={noopAsync}
+              onRespondPermission={() => undefined}
+              onRespondSessionOp={() => undefined}
+              visible={lane.visible}
+            />
+          </ExpandedCard>
+        ) : null}
+        <ComposerPillRow
+          belowCount={liveTail ? stick.belowCount : 0}
+          messageCount={messages.length}
+          onLayout={(event) => setPillHeight(event.nativeEvent.layout.height)}
+          onPillPress={onPillPress}
+          onScrollToBottom={() => {
+            if (pillReturn) {
+              tailReturnPressedRef.current = true;
+              console.error("[parity] scroll pill press");
+            }
+            transcriptRef.current?.scrollToEndAnimated();
+          }}
+          pills={pills}
+          stickToEnd={liveTail ? stick.stickToEnd : true}
+        />
+        <View style={{ paddingHorizontal: 18 }}>
+          <AgentChatComposer
+            autoFocus={composerDriven ? composerShown.focus : undefined}
+            busy={composerDriven ? composerShown.busy : false}
+            favorites={NO_FAVORITES}
+            followUp={composerDriven ? composerShown.followUp : undefined}
+            onChangeText={composerDriven ? () => undefined : setText}
+            onOpenCard={cards.context ? () => onPillPress("context") : undefined}
+            onPatch={() => undefined}
+            onPhotosChange={() => undefined}
+            onPickSuggestion={() => undefined}
+            onQueue={() => undefined}
+            onRemovePhoto={() => undefined}
+            onSend={() => undefined}
+            onSteer={() => undefined}
+            onStop={() => undefined}
+            onToggleFavorite={() => undefined}
+            photos={[]}
+            picker={picker}
+            placeholder={copy.placeholder}
+            queueLabel={copy.queue}
+            sendLabel={copy.send}
+            sessionUsage={
+              cards.context
+                ? { used: cards.context.used, context_window: cards.context.context_window }
+                : null
+            }
+            steerLabel={copy.steer}
+            stopLabel={copy.stop}
+            suggestionTitle={composerDriven ? composerShown.suggestionTitle : undefined}
+            suggestions={composerDriven ? (composerShown.suggestions ?? undefined) : undefined}
+            text={composerDriven ? composerShown.text : text}
+          />
         </View>
       </View>
-    </ParityTextSweepContext.Provider>
+    </View>
   );
 }

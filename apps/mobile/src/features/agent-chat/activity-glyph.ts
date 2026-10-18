@@ -456,6 +456,7 @@ export function helixSample(
 }
 
 export function starDelayMs(index: number): number {
+  "worklet";
   return (index * STAR_PERIOD_MS * 0.7) / STAR_LAYOUT.length;
 }
 

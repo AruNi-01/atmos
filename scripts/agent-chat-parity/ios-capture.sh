@@ -563,10 +563,12 @@ PY
 # frame. Run 39156539680 attached the recorder on the finished card at
 # 15000ms. Attempt 1 logged replay start and then nothing. Attempt 2 kept
 # the finished card for one frame and then Springboard, and that short file
-# replaced attempt 1. Keep each attempt. The parity replay draws a text
-# highlight instead of the masked gradient so the replay interval can finish
-# while recording is already open. Reduced motion already finishes when
-# recording starts after replay start.
+# replaced attempt 1. Run 39163914482 kept each attempt and still aborted
+# both live launches. The Release console says the thinking-star worklet
+# called starDelayMs, which was not a worklet, so the UI runtime tried to
+# call it as a remote function and terminated the process. Reduced motion
+# returns before that call and already finishes. The product shimmer stays
+# the masked gradient. Keep each attempt and copy the larger file.
 record_replay_movie() {
   local motion="$1"
   local label="$2"

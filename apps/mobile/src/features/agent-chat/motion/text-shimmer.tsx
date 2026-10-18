@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -31,15 +31,6 @@ const SHIMMER_BASE_DARK = "#71717a";
 const SHIMMER_HIGHLIGHT_LIGHT = "#000000";
 const SHIMMER_HIGHLIGHT_DARK = "#ffffff";
 
-/**
- * The product sweep is a masked gradient. Run 39156539680 logged
- * `[parity] replay start` after `recordVideo` was already open, then that
- * process never logged again. The masked view mounts inside the replay
- * render. The parity replay uses a text highlight instead, so the replay
- * interval can reach `[parity] replay done live`.
- */
-export const ParityTextSweepContext = createContext(false);
-
 export function TextShimmer({
   children,
   duration,
@@ -52,88 +43,7 @@ export function TextShimmer({
   numberOfLines?: number;
   style?: StyleProp<TextStyle>;
 }) {
-  const paritySweep = useContext(ParityTextSweepContext);
   const reduced = useReducedMotion();
-  if (reduced || paritySweep) {
-    return (
-      <TextHighlight
-        duration={duration}
-        moving={paritySweep && !reduced}
-        numberOfLines={numberOfLines}
-        style={style}
-      >
-        {children}
-      </TextHighlight>
-    );
-  }
-  return (
-    <MaskedShimmer duration={duration} numberOfLines={numberOfLines} style={style}>
-      {children}
-    </MaskedShimmer>
-  );
-}
-
-function TextHighlight({
-  children,
-  duration,
-  moving,
-  numberOfLines,
-  style,
-}: {
-  children: string;
-  duration: number;
-  moving: boolean;
-  numberOfLines?: number;
-  style?: StyleProp<TextStyle>;
-}) {
-  const theme = useMobileTheme();
-  const [cursor, setCursor] = useState(0);
-  const base = theme.isDark ? SHIMMER_BASE_DARK : SHIMMER_BASE_LIGHT;
-  const highlight = theme.isDark ? SHIMMER_HIGHLIGHT_DARK : SHIMMER_HIGHLIGHT_LIGHT;
-  const textStyle = [style, { color: base }];
-  const length = children.length;
-
-  useEffect(() => {
-    if (!moving || length === 0) return;
-    const step = Math.max((Math.max(duration, 0.05) * 1000) / (length + 2), 48);
-    const timer = setInterval(() => {
-      setCursor((current) => (current + 1) % (length + 2));
-    }, step);
-    return () => clearInterval(timer);
-  }, [duration, length, moving]);
-
-  if (!moving || length === 0) {
-    return (
-      <Text numberOfLines={numberOfLines} style={textStyle}>
-        {children}
-      </Text>
-    );
-  }
-
-  const lead = Math.max(0, cursor - 2);
-  const head = children.slice(0, lead);
-  const band = children.slice(lead, cursor + 1);
-  const tail = children.slice(cursor + 1);
-  return (
-    <Text accessibilityLabel={children} numberOfLines={numberOfLines} style={textStyle}>
-      {head}
-      {band ? <Text style={{ color: highlight }}>{band}</Text> : null}
-      {tail}
-    </Text>
-  );
-}
-
-function MaskedShimmer({
-  children,
-  duration,
-  numberOfLines,
-  style,
-}: {
-  children: string;
-  duration: number;
-  numberOfLines?: number;
-  style?: StyleProp<TextStyle>;
-}) {
   const theme = useMobileTheme();
   const progress = useSharedValue(0);
   const widthSv = useSharedValue(0);
@@ -144,6 +54,7 @@ function MaskedShimmer({
   const textStyle = [style, { color: base }];
 
   useEffect(() => {
+    if (reduced) return;
     progress.set(0);
     progress.set(
       withRepeat(
@@ -155,7 +66,7 @@ function MaskedShimmer({
         false,
       ),
     );
-  }, [duration, progress]);
+  }, [duration, progress, reduced]);
 
   const shift = useAnimatedStyle(() => ({
     transform: [{ translateX: -2 * widthSv.get() * progress.get() }],
@@ -167,6 +78,14 @@ function MaskedShimmer({
     widthSv.set(width);
     setLayoutWidth(width);
   };
+
+  if (reduced) {
+    return (
+      <Text numberOfLines={numberOfLines} style={textStyle}>
+        {children}
+      </Text>
+    );
+  }
 
   return (
     <MaskedView
