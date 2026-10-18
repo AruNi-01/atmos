@@ -183,6 +183,15 @@ export function AgentChatMarkdown({
       strikethrough: {
         color: bodyColor,
       },
+      // Streamdown `<sup>` and `<sub>` are `text-sm`, the same size as the
+      // answer. The library draws them at 0.75. Tool markdown keeps that,
+      // because `MarkdownRenderer` leaves the browser's smaller mark.
+      ...(proseMetrics
+        ? {}
+        : {
+            subscript: { fontScale: 1 },
+            superscript: { fontScale: 1 },
+          }),
       ...(chipHttpUrls
         ? {
             linkVariants: {

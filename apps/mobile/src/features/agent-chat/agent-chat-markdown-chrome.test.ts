@@ -179,6 +179,8 @@ describe("agent chat markdown chrome", () => {
     expect(markdown).toContain('markerFontWeight: "normal"');
     expect(markdown).toContain("borderRadius: agentChatBlockMetrics.codeBlock.borderRadius");
     expect(markdown).toContain("Streamdown images are `my-4 max-w-full rounded-lg`");
+    expect(markdown).toContain("subscript: { fontScale: 1 }");
+    expect(markdown).toContain("superscript: { fontScale: 1 }");
     const imageStyle = markdown.slice(markdown.indexOf("image:"), markdown.indexOf("link:"));
     expect(imageStyle).toContain("height: 0");
     expect(imageStyle).toContain("marginBottom: proseMetrics ? 0 : STREAMDOWN_BLOCK_GAP");
