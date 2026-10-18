@@ -179,9 +179,7 @@ describe("web source parity", () => {
     expect(patch).toContain(
       "Prose lists collapse with the previous block. Answer lists stack the 4px pad.",
     );
-    expect(patch).toContain(
-      "Prose quotes collapse with the previous block. Answer quotes keep a zero top.",
-    );
+    expect(patch).toContain("The first answer or thinking quote stays clear.");
     expect(patch).toContain("A prose rule keeps its own margins.");
     expect(patch).toContain("A fence before this segment collapses against it.");
     expect(patch).toContain("ENRMFollowingTextGapAdjustment");
@@ -192,5 +190,7 @@ describe("web source parity", () => {
     expect(patch).toContain("A rule that ends the text already includes its bottom.");
     expect(patch).toContain("Answer headings are `mt-6`. Tailwind 4 `space-y-4` is `:where()`, so");
     expect(patch).toContain("Answer lists keep their spacer.");
+    expect(patch).toContain("Answer and thinking blocks are `my-4`");
+    expect(patch).toContain("Answer rules are `my-6` (24).");
   });
 });

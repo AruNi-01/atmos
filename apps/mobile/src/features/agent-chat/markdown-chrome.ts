@@ -3,9 +3,9 @@ import { chatMutedForeground } from "./chat-ink";
 /**
  * Streamdown heading scale (`text-3xl` … `text-sm`, `font-semibold`).
  * Every level is `mt-6 mb-2`. Tailwind 4 `space-y-4` is `:where()`, so it
- * does not override `mt-6`. A heading after a fence keeps a 24px gap. This
- * style keeps a 16px answer bottom. Thinking uses 8px because its fences
- * still carry a top margin. Answer text is `text-sm` (14/20).
+ * does not override either side. A heading after a fence keeps a 24px gap.
+ * The bottom is 8px. A paragraph under it stays 8px. A fence, quote, or rule
+ * collapses its own top with that 8px. Answer text is `text-sm` (14/20).
  * Headings keep their own line box. A body line height of 20 clips the 30px
  * h1. A heading that opens the message drops that top spacer. Web clears it
  * with `first:mt-0` and `[&>*:first-child]:mt-0`. Later headings keep the 24px.
@@ -19,7 +19,7 @@ export const agentChatHeadingScale = {
   h6: { fontSize: 14, lineHeight: 20 },
 } as const;
 
-export function agentChatHeadingStyle(color: string, marginBottom = 16) {
+export function agentChatHeadingStyle(color: string, marginBottom = 8) {
   const shared = { color, fontWeight: "600", marginBottom, marginTop: 24 };
   return {
     h1: { ...shared, ...agentChatHeadingScale.h1 },
@@ -112,13 +112,13 @@ export function agentChatProseMetrics(kind: AgentChatProseKind): {
 /**
  * Streamdown's root is `space-y-4` (16px between blocks). Paragraphs have no
  * margin of their own. A leading paragraph still receives `marginTop` through
- * `applyBlockSpacingBefore`, so this gap sits on the bottom only. The next
- * fence, quote, or table uses `applyBlockSpacingBefore` too, which does not
- * collapse, so those blocks keep the top margin at 0 and the bottom at 16px.
- * A list's first item pad stays 4px; the bottom also carries the 16px because
- * the following paragraph has no top margin. A list that ends the message
- * still drops that bottom margin. Fence text is `text-sm leading-5`. Fence
- * and table frames use web `rounded-lg` (`--radius`, 10px). Table cells keep
+ * `applyBlockSpacingBefore`, so this gap sits on the bottom only. A fence or
+ * table is `my-4`. The first one clears its top. A later one keeps only the
+ * part of that 16px that exceeds the previous block. A list's first item pad
+ * stays 4px and still stacks; the bottom also carries the 16px because the
+ * following paragraph has no top margin. A list that ends the message still
+ * drops that bottom margin. Fence text is `text-sm leading-5`. Fence and
+ * table frames use web `rounded-lg` (`--radius`, 10px). Table cells keep
  * horizontal rules only; the last row has none, and the frame is the edge.
  */
 export const STREAMDOWN_BLOCK_GAP = 16;
@@ -134,9 +134,9 @@ export const THINKING_PARAGRAPH_MARGIN = 4;
 /**
  * Streamdown blockquote: `my-4 border-l-4 border-muted-foreground/30 pl-4 text-muted-foreground`.
  * The native indent is the border plus `gapWidth`, so `pl-4` is the gap.
- * The top margin stays 0 so it does not stack on the previous block's 16px.
- * The quote font is italic. The style object has no fontStyle field, so the
- * native font builder sets it.
+ * Both sides are 16px. The top collapses with the previous block, and a quote
+ * that opens the message clears it. The quote font is italic. The style object
+ * has no fontStyle field, so the native font builder sets it.
  */
 export const BLOCKQUOTE_MARGIN = 16;
 export const BLOCKQUOTE_BORDER = 4;
@@ -160,7 +160,7 @@ export function agentChatBlockquote(isDark: boolean): {
     color: chatMutedForeground(isDark),
     gapWidth: BLOCKQUOTE_GAP,
     marginBottom: BLOCKQUOTE_MARGIN,
-    marginTop: 0,
+    marginTop: BLOCKQUOTE_MARGIN,
   };
 }
 
@@ -264,11 +264,13 @@ export function agentChatProseInk(isDark: boolean): {
 
 /**
  * Streamdown rule: `my-6 border-border`. `--border` is black or white at 10%.
- * The rule attachment adds its top margin on top of the previous block, so the
- * top is 8px and a paragraph's 16px makes 24. The native renderer clears a
- * leading rule's top margin and a trailing rule's bottom margin when the top
- * is the smaller side, matching `[&>*:first-child]:mt-0` and
- * `[&>*:last-child]:mb-0`. Tool prose sets both sides to 24px, and those stay.
+ * The rule attachment adds its top margin on top of the previous block. The
+ * configured top is 8px, so a paragraph's 16px makes 24. After a heading the
+ * renderer raises that top until the gap is 24. A list's 20px plus this 8px
+ * stays 28. The native renderer clears a leading rule's top margin and a
+ * trailing rule's bottom margin when the top is the smaller side, matching
+ * `[&>*:first-child]:mt-0` and `[&>*:last-child]:mb-0`. Tool prose sets both
+ * sides to 24px, and those stay.
  */
 export const THEMATIC_BREAK_MARGIN = 24;
 
@@ -316,13 +318,13 @@ export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: STREAMDOWN_BLOCK_GAP },
   list: { marginTop: 4, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, itemSpacing: 8 },
   codeBlock: {
-    marginTop: 0,
+    marginTop: STREAMDOWN_BLOCK_GAP,
     marginBottom: STREAMDOWN_BLOCK_GAP,
     fontSize: 14,
     lineHeight: 20,
     borderRadius: 10,
   },
-  table: { marginTop: 0, marginBottom: STREAMDOWN_BLOCK_GAP, borderRadius: 10 },
+  table: { marginTop: STREAMDOWN_BLOCK_GAP, marginBottom: STREAMDOWN_BLOCK_GAP, borderRadius: 10 },
 } as const;
 
 /**

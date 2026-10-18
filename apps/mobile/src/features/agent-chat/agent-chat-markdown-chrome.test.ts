@@ -76,10 +76,10 @@ describe("agent chat markdown chrome", () => {
       fontSize: 30,
       fontWeight: "600",
       lineHeight: 36,
-      marginBottom: 16,
+      marginBottom: 8,
       marginTop: 24,
     });
-    expect(agentChatHeadingStyle("#111112", 8).h1.marginBottom).toBe(8);
+    expect(agentChatHeadingStyle("#111112", 12).h1.marginBottom).toBe(12);
     expect(headings.h2.lineHeight).toBe(32);
     expect(headings.h6).toMatchObject({ fontSize: 14, lineHeight: 20 });
     const renderer = agentChatRendererHeadingStyle("#111112", 13, 21);
@@ -145,14 +145,14 @@ describe("agent chat markdown chrome", () => {
     });
     expect(ANSWER_FENCE_MAX_HEIGHT).toBe(384);
     expect(agentChatBlockMetrics.codeBlock).toMatchObject({
-      marginTop: 0,
+      marginTop: STREAMDOWN_BLOCK_GAP,
       marginBottom: STREAMDOWN_BLOCK_GAP,
       fontSize: 14,
       lineHeight: 20,
       borderRadius: 10,
     });
     expect(agentChatBlockMetrics.table).toEqual({
-      marginTop: 0,
+      marginTop: STREAMDOWN_BLOCK_GAP,
       marginBottom: STREAMDOWN_BLOCK_GAP,
       borderRadius: 10,
     });
@@ -190,7 +190,8 @@ describe("agent chat markdown chrome", () => {
     expect(markdown).toContain("agentChatProseMetrics(prose)");
     expect(markdown).toContain("allowTrailingMargin={prose != null}");
     expect(markdown).toContain("agentChatRendererHeadingStyle");
-    expect(markdown).toContain('agentChatHeadingStyle(proseColor, tone === "thinking" ? 8 : 16)');
+    expect(markdown).toContain("agentChatHeadingStyle(proseColor)");
+    expect(markdown).not.toContain('tone === "thinking" ? 8 : 16');
     expect(markdown).toContain("chatForeground(theme.isDark)");
     expect(markdown).toContain("chatMutedForeground(theme.isDark)");
     expect(BLOCKQUOTE_MARGIN).toBe(16);
@@ -204,7 +205,7 @@ describe("agent chat markdown chrome", () => {
       color: "#71717b",
       gapWidth: 16,
       marginBottom: 16,
-      marginTop: 0,
+      marginTop: 16,
     });
     expect(agentChatBlockquote(true).borderColor).toBe("rgba(159, 159, 169, 0.3)");
     expect(agentChatBlockquote(true).color).toBe("#9f9fa9");

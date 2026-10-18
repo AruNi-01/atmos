@@ -79,7 +79,7 @@ export function AgentChatMarkdown({
     const symmetricBlockMargin = Boolean(proseMetrics) || tone === "thinking";
     const headings = proseMetrics
       ? agentChatRendererHeadingStyle(proseColor, resolvedFontSize, resolvedLineHeight)
-      : agentChatHeadingStyle(proseColor, tone === "thinking" ? 8 : 16);
+      : agentChatHeadingStyle(proseColor);
     const chrome = agentChatMarkdownChrome(theme.isDark);
     const fenceMargin = codeBlockMargin ?? proseMetrics?.codeBlockMargin;
 
