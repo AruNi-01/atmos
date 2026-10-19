@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 import type { AgentQueueItem } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
+import { ListOrderedIcon } from "@/ui/icons/lucide-native";
+import { GlassTextButton } from "@/ui/primitives/glass-action-buttons";
 import { moveQueueItem, queueItemText } from "../composer-cards";
 import { copy } from "../copy";
+import { CARD_BODY, CARD_GAP, CardHeader, ChipRow } from "./expanded-card";
 
 export function QueueCard({
   items,
@@ -23,14 +26,16 @@ export function QueueCard({
     editingId != null && items.some((item) => item.id === editingId) ? editingId : null;
 
   const ids = items.map((item) => item.id);
+  const body = { color: theme.colors.label, ...CARD_BODY };
 
   return (
-    <View style={{ gap: 12 }}>
+    <View style={{ gap: CARD_GAP }}>
+      <CardHeader count={items.length} icon={ListOrderedIcon} title={copy.messageQueueTitle} />
       {items.map((item) => {
         const editing = activeEditId === item.id;
         const prompt = queueItemText(item);
         return (
-          <View key={item.id} style={{ gap: 8 }}>
+          <View key={item.id} style={{ gap: CARD_GAP }}>
             {editing ? (
               <TextInput
                 multiline
@@ -41,21 +46,21 @@ export function QueueCard({
                   borderRadius: 12,
                   borderWidth: StyleSheet.hairlineWidth,
                   color: theme.colors.label,
-                  fontSize: 15,
-                  lineHeight: 20,
+                  fontSize: CARD_BODY.fontSize,
+                  lineHeight: CARD_BODY.lineHeight,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                 }}
                 value={draft}
               />
             ) : (
-              <Text selectable style={{ color: theme.colors.label, fontSize: 15, lineHeight: 20 }}>
+              <Text selectable style={body}>
                 {prompt}
               </Text>
             )}
-            <View style={styles.actions}>
+            <ChipRow>
               {editing ? (
-                <QueueAction
+                <GlassTextButton
                   label={copy.queueSave}
                   onPress={() => {
                     void onUpdate(item.id, draft)
@@ -64,7 +69,7 @@ export function QueueCard({
                   }}
                 />
               ) : (
-                <QueueAction
+                <GlassTextButton
                   label={copy.queueEdit}
                   onPress={() => {
                     setEditingId(item.id);
@@ -72,13 +77,14 @@ export function QueueCard({
                   }}
                 />
               )}
-              <QueueAction
+              <GlassTextButton
                 label={copy.queueDelete}
                 onPress={() => {
                   void onDelete(item.id).catch(() => undefined);
                 }}
+                role="destructive"
               />
-              <QueueAction
+              <GlassTextButton
                 disabled={moveQueueItem(ids, item.id, "up") == null}
                 label={copy.queueMoveUp}
                 onPress={() => {
@@ -87,7 +93,7 @@ export function QueueCard({
                   void onReorder(next).catch(() => undefined);
                 }}
               />
-              <QueueAction
+              <GlassTextButton
                 disabled={moveQueueItem(ids, item.id, "down") == null}
                 label={copy.queueMoveDown}
                 onPress={() => {
@@ -96,52 +102,10 @@ export function QueueCard({
                   void onReorder(next).catch(() => undefined);
                 }}
               />
-            </View>
+            </ChipRow>
           </View>
         );
       })}
     </View>
   );
 }
-
-function QueueAction({
-  disabled,
-  label,
-  onPress,
-}: {
-  disabled?: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  const theme = useMobileTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled) }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        backgroundColor: pressed ? theme.colors.mutedPressed : theme.colors.control,
-        borderColor: theme.colors.controlBorder,
-        borderCurve: "continuous",
-        borderRadius: 12,
-        borderWidth: StyleSheet.hairlineWidth,
-        opacity: disabled ? 0.4 : 1,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-      })}
-    >
-      <Text style={{ color: theme.colors.label, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  actions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-});

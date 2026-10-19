@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
 # QUALITY-011. Structural checks run on Linux after prebuild.
 # Simulator checks need a Mac with the iOS 27.0 and iOS 26.5 runtimes.
-# `simulator` exits 2 when xcrun is missing and prints NOT RUN. It does not
-# claim a launch that did not happen.
+#
+# Exit codes for every mode:
+#   0  PASS. Every check this mode ran succeeded.
+#   1  FAIL. A check ran and failed (plist, Swift, build, a pod install
+#      error that is not a prebuilt miss, cold launch, or deep link).
+#   2  NOT RUN. The simulator proof did not run. xcrun is missing, or pod
+#      install fell back to a source build / did not download
+#      reactnative-dependencies-*-release.tar.gz. Not a pass, and not a
+#      product failure. structural and built-plist do not use this code.
+#
+# `simulator` prints NOT RUN and exits 2 in those cases. It does not claim
+# a launch that did not happen, and it does not xcodebuild after a bad
+# prebuilt download. Cold launch waits COLD_LAUNCH_WAIT_SECONDS (4, at
+# least 3) and passes only if that pid is still alive and no new Atmos
+# .ips appeared. Deep links still use the JS unmatched-route judge.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,6 +25,8 @@ BUNDLE_ID="land.atmos.mobile"
 URL_LOG="AtmosSceneLifecycle delivered URL to RCTLinkingManager"
 ACTIVITY_LOG="AtmosSceneLifecycle delivered userActivity to RCTLinkingManager"
 RUNTIME_ISSUE="UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption"
+# 4 seconds is past the 3 second cold-launch bar and matches the old log window.
+COLD_LAUNCH_WAIT_SECONDS=4
 
 usage() {
   cat <<'EOF'
@@ -24,13 +39,43 @@ structural   After expo prebuild. Checks ios/Atmos/Info.plist and AppDelegate.sw
 built-plist  Checks a built Atmos.app Info.plist expands to Atmos.SceneDelegate.
 simulator    Release-builds and cold-starts iOS 27.0, then iOS 26.5.
              A deep-link failure on the first runtime still runs the second.
+             Exits 2 without building when the Release prebuilt tarball is missing.
+
+Exit codes:
+  0  PASS
+  1  FAIL (a check ran and did not pass)
+  2  NOT RUN (no xcrun, or pod install has no usable Release prebuilt)
+
+Linux checks, no simulator:
+  verify-ios-scene-lifecycle.sh judge-prebuilt <pod-log> <artifacts-dir>
+  verify-ios-scene-lifecycle.sh judge-cold <label> <launch-status> <launch-output> <alive> <seconds> <runtime-log> <before-ips> <after-ips>
+  verify-ios-scene-lifecycle.sh list-ips <diagnostic-reports-dir> [more-dirs]
+  verify-ios-scene-lifecycle.sh parse-launch-pid <launch-output>
 
 Environment for simulator:
-  ATMOS_IOS27_DEVICE   default: iPhone 18 Pro
-  ATMOS_IOS27_RUNTIME  default: 27.0
-  ATMOS_IOS26_DEVICE   default: iPhone 17 Pro
-  ATMOS_IOS26_RUNTIME  default: 26.5
+  ATMOS_IOS27_DEVICE         default: iPhone 18 Pro
+  ATMOS_IOS27_RUNTIME        default: 27.0
+  ATMOS_IOS26_DEVICE         default: iPhone 17 Pro
+  ATMOS_IOS26_RUNTIME        default: 26.5
+  ATMOS_DIAGNOSTIC_REPORTS   one crash-report directory instead of the Mac defaults
 EOF
+}
+
+parse_launch_pid() {
+  local out="$1"
+  local line rest pid
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    case "$line" in
+      "${BUNDLE_ID}:"*)
+        rest="${line#"${BUNDLE_ID}:"}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        pid="${rest%%[^0-9]*}"
+        printf '%s\n' "$pid"
+        return 0
+        ;;
+    esac
+  done <<<"$out"
 }
 
 python_check_plist() {
@@ -228,10 +273,41 @@ log_since() {
   xcrun simctl spawn "$udid" log show --start "$start" --style compact --predicate 'processImagePath CONTAINS "Atmos" OR subsystem == "com.facebook.react.log" OR composedMessage CONTAINS "ATMOS_ROUTE unmatched" OR eventMessage CONTAINS "ATMOS_ROUTE unmatched" OR composedMessage CONTAINS "AtmosSceneLifecycle" OR eventMessage CONTAINS "AtmosSceneLifecycle" OR composedMessage CONTAINS "UIApplicationEvaluateRuntimeIssue" OR eventMessage CONTAINS "UIApplicationEvaluateRuntimeIssue"' || true
 }
 
+snapshot_atmos_ips() {
+  local dest="$1"
+  shift
+  # `|| return` keeps bash 3.2 `set -e` from exiting the simulator script
+  # when this function is used in `if !`.
+  bun "$SCRIPT_DIR/scene-launch-evidence.js" list-ips "$@" >"$dest" || return $?
+}
+
 assert_cold_launch() {
   local udid="$1"
   local label="$2"
   xcrun simctl terminate "$udid" "$BUNDLE_ID" || true
+  local before after launch_file runtime_file roots_host roots_device
+  before="$(mktemp)"
+  after="$(mktemp)"
+  launch_file="$(mktemp)"
+  runtime_file="$(mktemp)"
+  cleanup_cold() {
+    rm -f "$before" "$after" "$launch_file" "$runtime_file"
+  }
+  if [[ -n "${ATMOS_DIAGNOSTIC_REPORTS:-}" ]]; then
+    if ! snapshot_atmos_ips "$before" "$ATMOS_DIAGNOSTIC_REPORTS"; then
+      echo "FAIL ${label}: could not list crash reports" >&2
+      cleanup_cold
+      return 1
+    fi
+  else
+    roots_host="${HOME}/Library/Logs/DiagnosticReports"
+    roots_device="${HOME}/Library/Developer/CoreSimulator/Devices/${udid}/data/Library/Logs/DiagnosticReports"
+    if ! snapshot_atmos_ips "$before" "$roots_host" "$roots_device"; then
+      echo "FAIL ${label}: could not list crash reports" >&2
+      cleanup_cold
+      return 1
+    fi
+  fi
   local start out status
   start="$(date '+%Y-%m-%d %H:%M:%S')"
   set +e
@@ -239,25 +315,39 @@ assert_cold_launch() {
   status=$?
   set -e
   printf '%s\n' "$out"
-  sleep 4
-  local logs
+  printf '%s\n' "$out" >"$launch_file"
+  sleep "$COLD_LAUNCH_WAIT_SECONDS"
+  local pid alive
+  pid="$(parse_launch_pid "$out")"
+  alive=0
+  if [[ "$status" -eq 0 && "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+    alive=1
+  fi
+  if [[ -n "${ATMOS_DIAGNOSTIC_REPORTS:-}" ]]; then
+    if ! snapshot_atmos_ips "$after" "$ATMOS_DIAGNOSTIC_REPORTS"; then
+      echo "FAIL ${label}: could not list crash reports" >&2
+      cleanup_cold
+      return 1
+    fi
+  else
+    if ! snapshot_atmos_ips "$after" "$roots_host" "$roots_device"; then
+      echo "FAIL ${label}: could not list crash reports" >&2
+      cleanup_cold
+      return 1
+    fi
+  fi
+  local logs judge_status
   logs="$(log_since "$udid" "$start")"
-  if [[ "$status" -ne 0 ]] || grep -q 'EXC_BREAKPOINT\|Terminated' <<<"$out"; then
-    echo "FAIL ${label}: cold launch did not stay up" >&2
+  printf '%s\n' "$logs" >"$runtime_file"
+  judge_status=0
+  bun "$SCRIPT_DIR/scene-launch-evidence.js" judge-cold \
+    "$label" "$status" "$launch_file" "$alive" "$COLD_LAUNCH_WAIT_SECONDS" \
+    "$runtime_file" "$before" "$after" || judge_status=$?
+  cleanup_cold
+  if [[ "$judge_status" -ne 0 ]]; then
     printf '%s\n' "$logs" >&2
     return 1
   fi
-  if grep -q "$RUNTIME_ISSUE" <<<"$logs"; then
-    echo "FAIL ${label}: UIKit reported no scene lifecycle" >&2
-    printf '%s\n' "$logs" >&2
-    return 1
-  fi
-  if grep -q 'EXC_BREAKPOINT' <<<"$logs"; then
-    echo "FAIL ${label}: EXC_BREAKPOINT in Atmos logs" >&2
-    printf '%s\n' "$logs" >&2
-    return 1
-  fi
-  echo "PASS ${label}: cold launch"
 }
 
 assert_deep_links() {
@@ -334,7 +424,31 @@ simulator() {
   structural
 
   echo "pod install"
-  (cd "$IOS_DIR" && pod install)
+  local pod_log pod_status artifacts prebuilt_status
+  pod_log="$(mktemp)"
+  pod_status=0
+  set +e
+  (cd "$IOS_DIR" && pod install) 2>&1 | tee "$pod_log"
+  pod_status="${PIPESTATUS[0]}"
+  set -e
+  artifacts="$IOS_DIR/Pods/ReactNativeDependencies-artifacts"
+  prebuilt_status=0
+  bun "$SCRIPT_DIR/scene-launch-evidence.js" judge-prebuilt "$pod_log" "$artifacts" || prebuilt_status=$?
+  rm -f "$pod_log"
+  if [[ "$prebuilt_status" -eq 2 ]]; then
+    if [[ "$pod_status" -ne 0 ]]; then
+      echo "pod install exited ${pod_status}" >&2
+    fi
+    exit 2
+  fi
+  if [[ "$prebuilt_status" -ne 0 ]]; then
+    echo "FAIL simulator: prebuilt check exited ${prebuilt_status}" >&2
+    exit 1
+  fi
+  if [[ "$pod_status" -ne 0 ]]; then
+    echo "FAIL simulator: pod install exited ${pod_status}" >&2
+    exit 1
+  fi
 
   local udid27 udid26 failed
   udid27="$(resolve_device "$runtime27" "$device27")"
@@ -359,6 +473,35 @@ case "$mode" in
   structural) structural ;;
   built-plist) built_plist "${2:-}" || exit 1 ;;
   simulator) simulator ;;
+  judge-prebuilt)
+    if [[ -z "${2:-}" || -z "${3:-}" ]]; then
+      echo "judge-prebuilt needs a pod log and an artifacts directory" >&2
+      exit 1
+    fi
+    bun "$SCRIPT_DIR/scene-launch-evidence.js" judge-prebuilt "$2" "$3"
+    ;;
+  judge-cold)
+    if [[ -z "${9:-}" ]]; then
+      echo "judge-cold needs label, launch status, launch output, alive, seconds, runtime log, before list, and after list" >&2
+      exit 1
+    fi
+    bun "$SCRIPT_DIR/scene-launch-evidence.js" judge-cold "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9"
+    ;;
+  list-ips)
+    shift
+    if [[ "$#" -lt 1 ]]; then
+      echo "list-ips needs at least one directory" >&2
+      exit 1
+    fi
+    bun "$SCRIPT_DIR/scene-launch-evidence.js" list-ips "$@"
+    ;;
+  parse-launch-pid)
+    if [[ -z "${2:-}" || ! -f "$2" ]]; then
+      echo "parse-launch-pid needs a launch output file" >&2
+      exit 1
+    fi
+    parse_launch_pid "$(cat "$2")"
+    ;;
   -h|--help|help) usage ;;
   *)
     usage >&2

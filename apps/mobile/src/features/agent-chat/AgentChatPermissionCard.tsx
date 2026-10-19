@@ -1,14 +1,18 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { ShieldIcon } from "@/ui/icons/lucide-native";
+import { GlassTextButton } from "@/ui/primitives/glass-action-buttons";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
+import { CARD_BODY, CARD_GAP, CardHeader, ChipRow } from "./cards/expanded-card";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
+import { permissionOptionTone } from "./permission-actions";
 
 export type AgentChatPermissionPrompt = {
   request_id: string;
   tool?: string;
   description: string;
   content_markdown?: string | null;
-  options?: Array<{ option_id: string; name: string }> | null;
+  options?: Array<{ option_id: string; name: string; kind?: string }> | null;
   questions?: Array<{ id: string; prompt: string; options?: string[] }> | null;
   plan_todos?: Array<{ id?: string | null; content: string; status?: string }> | null;
 };
@@ -32,13 +36,11 @@ export function AgentChatPermissionCard({
   const path = planExit ? (filePath?.trim() ?? "") : "";
   const intent = description && description !== path ? description : "";
   const showEmpty = planExit && !intent && !path && markdown.length === 0 && todos.length === 0;
-  const body = { color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 };
+  const body = { color: theme.colors.secondaryLabel, ...CARD_BODY };
 
   return (
-    <View style={{ gap: 10 }}>
-      <Text style={{ color: theme.colors.label, fontSize: 16, fontWeight: "700", lineHeight: 21 }}>
-        {historicPermissionTitle(request)}
-      </Text>
+    <View style={{ gap: CARD_GAP }}>
+      <CardHeader icon={ShieldIcon} title={historicPermissionTitle(request)} />
       {questions.map((question) => (
         <Text key={question.id} selectable style={body}>
           {question.prompt}
@@ -60,7 +62,7 @@ export function AgentChatPermissionCard({
         </Text>
       ) : null}
       {markdown.length > 0 && markdown !== description ? (
-        <AgentChatMarkdown text={markdown} />
+        <AgentChatMarkdown fontSize={14} lineHeight={20} text={markdown} variant="card" />
       ) : null}
       {showEmpty ? (
         <Text selectable style={body}>
@@ -68,40 +70,21 @@ export function AgentChatPermissionCard({
         </Text>
       ) : null}
       {options.length > 0 ? (
-        <View style={{ gap: 8 }}>
+        <ChipRow justify="end">
           {options.map((option) => {
             const label = option.name.trim() || option.option_id;
             return (
-              <Pressable
-                accessibilityRole="button"
+              <GlassTextButton
                 key={option.option_id}
+                label={label}
                 onPress={() =>
                   onRespond({ requestId: request.request_id, optionId: option.option_id })
                 }
-                style={({ pressed }) => ({
-                  backgroundColor: pressed ? theme.colors.mutedPressed : theme.colors.control,
-                  borderColor: theme.colors.controlBorder,
-                  borderCurve: "continuous",
-                  borderRadius: 12,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                })}
-              >
-                <Text
-                  style={{
-                    color: theme.colors.label,
-                    fontSize: 15,
-                    fontWeight: "600",
-                    lineHeight: 20,
-                  }}
-                >
-                  {label}
-                </Text>
-              </Pressable>
+                tone={permissionOptionTone(option, options)}
+              />
             );
           })}
-        </View>
+        </ChipRow>
       ) : null}
     </View>
   );

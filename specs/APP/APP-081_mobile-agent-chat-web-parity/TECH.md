@@ -155,7 +155,41 @@ Card chrome is unchanged from today's `cardElevated` + `glassBorder` + radius 16
 
 <!-- updated 2026-10-18: composer-adjacent lane chrome uses GlassPanel -->
 
-**Implementation delta (2026-10-18):** Title pills, the pinned scroll-to-bottom pill, and the expanded card shell now use the same `GlassPanel` as the composer wells (`expo-glass-effect` `GlassView` on iOS 26). Fallback fill is `glassFallback` / `glassFallbackStrong` when Liquid Glass is unavailable, the effect API is missing, or Reduce Transparency is on. Lane interaction (one expanded card, re-tap to collapse, pill order, 180 ms fade) is unchanged. Inner card actions stay filled `control` chips so they stay distinct on the glass shell. Transcript historic permission cards stay `cardElevated`.
+**Implementation delta (2026-10-18):** Title pills, the pinned scroll-to-bottom pill, and the expanded card shell now use the same `GlassPanel` as the composer wells (`expo-glass-effect` `GlassView` on iOS 26). Fallback fill is `glassFallback` / `glassFallbackStrong` when Liquid Glass is unavailable, the effect API is missing, or Reduce Transparency is on. Lane interaction (one expanded card, re-tap to collapse, pill order, 180 ms fade) is unchanged. Transcript historic permission cards stay `cardElevated`.
+
+<!-- updated 2026-10-18: native untinted Liquid Glass, matching composer wells -->
+
+**Implementation delta (2026-10-18, native glass):** `#322` still painted lane chrome with `glassTint` / `controlGlassTint` and `GlassPanel`'s default hairline border, so pills and the expanded shell looked like tinted plates instead of iOS 26 Liquid Glass (header `UIBarButtonItem` / composer `+` wells). Lane chrome now spreads `COMPOSER_GLASS_WELL` (`interactive: true`, `shadow: false`, no `tintColor`). `GlassPanel` only forwards `tintColor` when a caller sets it, and the Liquid Glass path has no extra fill or border — the system material owns the highlight stroke. Fallback (old OS / missing API / Reduce Transparency) still uses `glassFallback` + `glassBorder`. Expanded-card copy stays `theme.colors.label`.
+
+<!-- updated 2026-10-18: composer dock restored to GlassPanel; in-card actions use Expo UI glass -->
+
+**Implementation delta (2026-10-18, composer dock + Expo UI split):** `23964b7` (2026-10-08) swapped the composer dock from `GlassPanel` to a filled `View` (`theme.colors.control` + hairline `controlBorder`, radius 28). The dock is `GlassPanel {...COMPOSER_GLASS_WELL}` again (same args as the `+` well), keeping radius 28 (`COMPOSER_GLASS_DOCK_RADIUS` / `radii.control`), multiline height hysteresis, and Skia effort flame. Liquid Glass still has no extra fill or stroke; Reduce Transparency / old OS still uses `GlassPanel`'s solid fallback.
+
+<!-- updated 2026-10-18: restore focus-driven compact composer -->
+
+**Implementation delta (2026-10-18, composer compact/expand):** Idle composer is a one-row field (`+` / input / send on the same row). The dock expands when any of these is true: field focused, model sheet open, add sheet open, queue shown, steer shown, the draft contains a newline, or the draft wraps to two or more lines at the compact inner width. `git log -p` on `AgentChatComposer.tsx`:
+
+- `4985b81` (2026-09-28) introduced `COLLAPSED_HEIGHT` / `EXPANDED_HEIGHT` and a 280 ms `Animated.timing` cubic-out driven by `keyboardVisible || modelsOpen || addOpen`. Compact overlaid `+` and send on one row.
+- `23964b7` (2026-10-08) deleted that animation and the interpolated height, but kept a `stacked` boolean (keyboard / sheets / queue / wrapped text) so compact still existed as an instant layout switch. It also grew the field with content height and filled the dock (glass restored above).
+- `6b9876b89` (#313, 2026-10-16, "clear chat safe area and match web markdown chrome") deleted `keyboardVisible` / `stacked` so the dock was **always** the two-row expanded layout. The commit text called out "the placeholder uses the full field width". `#316` / `#320` did not further change this layout. `44ee7efc5` then encoded the always-two-row chrome in `web-source-parity.test.ts`.
+
+APP-081 G-25's reference image is a compact row (`+` left, microphone right, "Follow up…" in between). G-26 left "existing AgentChatComposer" in place. Microphone stays out of scope (`composerCapabilities.microphone = false`); send occupies that slot. Restore uses `onFocus` / `onBlur` (not keyboard visibility), reanimated `withTiming` 280 ms `Easing.out(Easing.cubic)`, and duration 0 when Reduce Motion is on.
+
+<!-- updated 2026-10-18: multiline dock height, Reduce Transparency chip colors, compact placeholder ellipsis -->
+
+**Implementation delta (2026-10-18, `8125704`):** The compact restore locked the dock to an animated `height`, so a 4-line draft stayed clipped to the first line (`onContentSizeChange` could not grow past the parent). The dock now clips with `maxHeight` only (compact 52 / expanded 6-line cap); the `TextInput` keeps `maxHeight: LINE_HEIGHT * MAX_LINES` and `minHeight` from `composerDockFieldHeight` (newline count floors a stale 1-line measure). Compact empty placeholder is an overlay `Text` with `numberOfLines={1}` `ellipsizeMode="tail"`; the native placeholder stays on the field for e2e but is transparent while compact.
+
+Installed `@expo/ui@~56.0.25` does expose SwiftUI `buttonStyle("glass" | "glassProminent")`, `glassEffect({ glass, shape, cornerRadius })`, and `GlassEffectContainer`. Those modifiers only apply inside a SwiftUI `Host`. The dock, title pills, N-below pill, and expanded card wrap RN `TextInput` / NumberFlow / Lucide / `ScrollView`, so they stay on `expo-glass-effect` `GlassView` via `GlassPanel`. In-card permission / session-op / queue actions are labeled chips and now use `GlassTextButton` → iOS `buttonStyle("plain")` + `glassEffect` capsule at `controlSize("mini")` with the old 12×8 / 14pt metrics (system `buttonStyle("glass")` was too large and wrapped the queue row). Disabled chips use opacity 0.55 instead of SwiftUI `disabled()`, which nearly vanished in light. Reduce Transparency / old OS uses `buttonStyle("plain")` + capsule `background(control)` + `foregroundStyle(label)` (Delete uses `red`) so chips stay neutral instead of system blue/red bordered tints. `IosGlassTextButton` imports `disabled as disabledModifier` so the prop cannot shadow the modifier (that crash took down every card). `GlassEffectContainer` is unused: it only groups SwiftUI glass children and cannot wrap a wrapping RN action row.
+
+<!-- updated 2026-10-19: compact wrap hysteresis, sizes, Reduce Transparency hook -->
+
+**Implementation delta (2026-10-19, compact wrap hysteresis):** Compact side padding is 60pt; expanded is 16pt. Measuring wrap from `onContentSizeChange` at the _current_ animated width made drafts that wrap only while compact expand, reflow to one line, collapse, and loop on blur / keyboard dismiss / model-sheet close. Expand wrap is now `compactLineCount >= 2` from a hidden `Text` laid out at `dockWidth - 2*60`. Field `contentHeight` still grows the expanded box; it does not drive expand/collapse. Overlay placeholder stays decorative (`accessible={false}`).
+
+**Implementation delta (2026-10-19, size contract):** In-card chips are 33pt visual (`GLASS_CHIP_HEIGHT`), title/scroll pills are 36pt (`COMPOSER_GLASS_CONTROL_SIZE`), compact composer is 52pt. Selected pills stay untinted glass and use `label` ink vs unselected `secondaryLabel`. Reduce Transparency is one hook in `glass-availability.ts`. Disabled chips expose `accessibilityState.disabled` on the host without SwiftUI `disabled()`.
+
+<!-- updated 2026-10-19: Reduce Transparency hook file, CARD_TITLE metrics -->
+
+**Implementation delta (2026-10-19, Reduce Transparency hook file):** `shouldUseLiquidGlass` stays RN-free in `glass-availability.ts`. The `AccessibilityInfo` subscription lives in `use-reduce-transparency.ts` so bun tests of the pure gate do not import `react-native`. Composer-card markdown headings (`agentChatCardHeadingMetrics`) are the source for `CARD_TITLE` (14/500), so dock titles and card markdown cannot drift.
 
 ## Motion mapping
 

@@ -18,6 +18,9 @@ function fadeColor(background: string, opacity: number): string {
   return background;
 }
 
+/** Pill scroller inset — same 18pt as composer/card margins, used as a fade. */
+export const PILL_SCROLL_FADE_PX = 18;
+
 /** Same-hue stops. `transparent` is rgba(0,0,0,0) and turns a light fade gray. */
 export function agentChatEdgeFadeGradient(
   background: string,
@@ -35,4 +38,20 @@ export function agentChatEdgeFadeGradient(
     colors: colors as [string, string, ...string[]],
     locations: locations as [number, number, ...number[]],
   };
+}
+
+export function agentChatHorizontalEdgeFadeGradient(
+  background: string,
+  edge: "left" | "right",
+): {
+  colors: [string, string];
+  end: { x: number; y: number };
+  start: { x: number; y: number };
+} {
+  const opaque = fadeColor(background, 1);
+  const clear = fadeColor(background, 0);
+  if (edge === "left") {
+    return { colors: [opaque, clear], end: { x: 1, y: 0 }, start: { x: 0, y: 0 } };
+  }
+  return { colors: [clear, opaque], end: { x: 1, y: 0 }, start: { x: 0, y: 0 } };
 }
