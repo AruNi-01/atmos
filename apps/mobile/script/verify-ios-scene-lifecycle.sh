@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QUALITY-010. Structural checks run on Linux after prebuild.
+# QUALITY-011. Structural checks run on Linux after prebuild.
 # Simulator checks need a Mac with the iOS 27.0 and iOS 26.5 runtimes.
 # `simulator` exits 2 when xcrun is missing and prints NOT RUN. It does not
 # claim a launch that did not happen.

@@ -1,6 +1,6 @@
-# TEST · QUALITY-010: Mobile iOS 27 UIScene lifecycle
+# TEST · QUALITY-011: Mobile iOS 27 UIScene lifecycle
 
-> Test Plan · how we verify the iOS 27 cold start and that deep links still reach `RCTLinkingManager`. References TECH QUALITY-010.
+> Test Plan · how we verify the iOS 27 cold start and that deep links still reach `RCTLinkingManager`. References TECH QUALITY-011.
 
 ## Test strategy
 

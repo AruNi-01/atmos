@@ -1,4 +1,4 @@
-# TECH · QUALITY-010: Mobile iOS 27 UIScene lifecycle
+# TECH · QUALITY-011: Mobile iOS 27 UIScene lifecycle
 
 > Technical Design · HOW. Cold start of `apps/mobile` on the iOS 27 SDK dies in UIKit before JavaScript runs. This spec adopts the scene lifecycle without an Expo SDK upgrade.
 
