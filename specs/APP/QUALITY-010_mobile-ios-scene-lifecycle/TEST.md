@@ -106,12 +106,12 @@ None. Scene connection replaces the old window allocation. No extra JavaScript w
 
 ## Acceptance criteria
 
-- [ ] S1, S2, S5, and S7 pass on the implementation commit.
-- [ ] `verify-ios-scene-lifecycle.sh structural` exits 0 after prebuild.
-- [ ] CI `oxlint` and `oxfmt` jobs are green, and the mobile `bun test` job is green.
-- [ ] The parity workflow no longer fails because a scene delegate exists. It fails when the class or the built plist name is wrong.
-- [ ] S4 and S6 stay `not_run` in this session. The PR does not claim a simulator launch.
-- [ ] No `EVIDENCE_PUSH` and no push to `agent-artifacts`.
+- [x] S1, S2, S5, and S7 pass on the implementation commit.
+- [x] `verify-ios-scene-lifecycle.sh structural` exits 0 after prebuild.
+- [x] CI `oxlint` and `oxfmt` jobs are green, and the mobile `bun test` job is green.
+- [x] The parity workflow no longer fails because a scene delegate exists. It fails when the class or the built plist name is wrong. Run [39206606309](https://github.com/AruNi-01/atmos/actions/runs/39206606309) on `01075c6024a9f4a05d4b641991034ffcf1bf3188` concluded success.
+- [ ] S4 and S6 stay `not_run`. This session did not run `verify-ios-scene-lifecycle.sh simulator`. S3 is the GitHub iOS 26.5 parity job, not that script.
+- [x] No `EVIDENCE_PUSH` and no push to `agent-artifacts`.
 
 ## Manual verification steps
 
@@ -154,7 +154,7 @@ bash script/verify-ios-scene-lifecycle.sh built-plist path/to/Atmos.app/Info.pli
 
 ## Coverage Status
 
-Recorded 2026-10-19 on the Linux cloud VM. Simulator rows are `not_run`.
+Recorded 2026-10-19. Local commands ran on the Linux cloud VM. S3 is the GitHub Actions result below. S4 and S6 stay `not_run`.
 
 ### Commands
 
@@ -166,18 +166,20 @@ Recorded 2026-10-19 on the Linux cloud VM. Simulator rows are `not_run`.
 - A copy of the prebuild plist with the class string replaced by `Atmos.SceneDelegate` passed `verify-ios-scene-lifecycle.sh built-plist`. The unexpanded source plist failed that mode, as intended. This is not a built `.app`.
 - `bunx oxlint --max-warnings=450` from the repo root → pass, exit 0.
 - `bash apps/mobile/script/verify-ios-scene-lifecycle.sh simulator` → **not run**. This machine has no `xcrun`. The script is written to exit 2 in that case. It was not executed, so this session did not observe that exit.
-- iOS 27.0 and iOS 26.5 Release launch, cold URL, and warm URL → **not run**.
+- iOS 27.0 Release cold start, and both runtimes' cold/warm `simctl openurl` → **not run**. The iOS 26.5 Release launch that did happen is the parity capture in S3, which does not open a URL and does not search for the runtime-issue symbol.
 - Universal links → **not run** (no associated domain). S5 covers the Swift wiring only.
-- `ci-mobile-ios-parity.yml` → **not run** in this session. It is the CI check for the iOS 26.5 Release build and `Atmos.SceneDelegate` in the built plist.
+- `ci-mobile-ios-parity.yml` on `01075c6024a9f4a05d4b641991034ffcf1bf3188` → pass. Run [39206606309](https://github.com/AruNi-01/atmos/actions/runs/39206606309). `structural` job success (2m20s), including mobile `bun test`. `ios-simulator` job success (1h0m15s): Xcode 26.5, iPhone 17 Pro, iOS 26.5, Release. The job runs `verify-ios-scene-lifecycle.sh built-plist` and then the parity capture, which cold-launches `land.atmos.mobile` and rejects a black window. This VM did not download the PNG artifacts. The job does not grep `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` and does not call `simctl openurl`.
+- CI - JS run [39206606232](https://github.com/AruNi-01/atmos/actions/runs/39206606232) → `oxlint` pass (51s), `oxfmt` pass (54s).
+- CodeQL run [39206604231](https://github.com/AruNi-01/atmos/actions/runs/39206604231) → pass. Not a functional check for this change.
 
 ### Status
 
-| Scenario | Status                                                                                                  |
-| -------- | ------------------------------------------------------------------------------------------------------- |
-| S1       | pass — `plugins/with-ios-scene-lifecycle.test.js`                                                       |
-| S2       | pass — `verify-ios-scene-lifecycle.sh structural` after prebuild, including the parity-preview prebuild |
-| S3       | not_run — GitHub `ios-simulator` job                                                                    |
-| S4       | partial — Swift strings pass in S1; simulator log not_run                                               |
-| S5       | pass — same unit test (user-activity keys and `scene(_:continue:)`)                                     |
-| S6       | not_run — simulator cold start                                                                          |
-| S7       | pass — `app.config.test.js`                                                                             |
+| Scenario | Status                                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| S1       | pass — `plugins/with-ios-scene-lifecycle.test.js`                                                                                    |
+| S2       | pass — `verify-ios-scene-lifecycle.sh structural` after prebuild, including the parity-preview prebuild                              |
+| S3       | pass — GitHub `ios-simulator` job on run 39206606309 (iOS 26.5 Release, built plist, parity capture). PNGs were not downloaded here. |
+| S4       | partial — Swift strings pass in S1; simulator log not_run                                                                            |
+| S5       | pass — same unit test (user-activity keys and `scene(_:continue:)`)                                                                  |
+| S6       | not_run — simulator cold start                                                                                                       |
+| S7       | pass — `app.config.test.js`                                                                                                          |
