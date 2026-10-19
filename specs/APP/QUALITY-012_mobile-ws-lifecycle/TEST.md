@@ -74,7 +74,7 @@ No Playwright mobile journey. `apps/mobile/e2e` is frozen.
 | S22      | Unit      | Bun       | fold-transcript test                                                     | snapshot seq 40 + live revision 41 kept; revision 39 dropped                        | pass    |
 | S23      | Unit      | Bun       | fold-transcript test                                                     | `meta.available_commands` → `state.commands`                                        | pass    |
 | S24      | Unit      | Bun       | open-thread-resync test                                                  | overflow + failed get publishes nothing; overflowed stays true                      | pass    |
-| S25      | Unit      | Bun       | same                                                                     | overlapping resyncs: stale get is held; newer replacement publishes                 | pass    |
+| S25      | Unit      | Bun       | same                                                                     | overlapping resyncs and unmount `cancelled` hold without publishing                 | pass    |
 
 ## Scenarios
 
@@ -235,8 +235,8 @@ No Playwright mobile journey. `apps/mobile/e2e` is frozen.
 - **Level**: Unit
 - **Given**: an overflow follow-up get is in flight, then a newer resync starts.
 - **When**: the older get resolves after the newer replacement has published.
-- **Then**: the stale get returns `"held"` and does not publish. Only the newer replacement is published.
-- **Signals**: overlapping promises in `open-thread-resync.test.ts`.
+- **Then**: the stale get returns `"held"` and does not publish. Only the newer replacement is published. Setting `ctrl.cancelled` while a replacement get is in flight (hook unmount) also returns `"held"` and does not publish.
+- **Signals**: overlapping promises and cancelled-during-get in `open-thread-resync.test.ts`.
 
 ### S17 — Swift close code
 

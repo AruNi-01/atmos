@@ -82,4 +82,25 @@ describe("applyOpenThreadResync", () => {
     expect(published).toEqual(["replacement-2"]);
     expect(state.overflowed).toBe(false);
   });
+
+  test("holds when the effect is cancelled during the replacement get", async () => {
+    const published: string[] = [];
+    const state = ctrl(true);
+    let release: (snapshot: string) => void = () => undefined;
+    const pending = applyOpenThreadResync({
+      ctrl: state,
+      incoming: "incoming",
+      fetchReplacement: () =>
+        new Promise<string>((resolve) => {
+          release = resolve;
+        }),
+      publish: (snapshot) => published.push(snapshot),
+    });
+    await Promise.resolve();
+    state.cancelled = true;
+    release("replacement");
+    expect(await pending).toBe("held");
+    expect(published).toEqual([]);
+    expect(state.overflowed).toBe(true);
+  });
 });
