@@ -72,6 +72,7 @@ export function useAgentChatThread(chatId: string) {
     let cancelled = false;
     let ready = false;
     let overflowed = false;
+    let resyncFetchGen = 0;
     const recentEvents: AgentChatEvent[] = [];
     const inflight = new Set<string>();
     const empty = createChatTranscript(chatId);
@@ -126,19 +127,19 @@ export function useAgentChatThread(chatId: string) {
     const unsubscribeMessages = client.subscribeMessages((message) => {
       const resync = parseAgentChatResync(message);
       if (resync && resync.chat_id === chatId) {
-        const dropped = overflowed;
-        overflowed = false;
-        publishResync(resync.snapshot, dropped ? [] : recentEvents);
-        if (dropped) {
-          recentEvents.length = 0;
+        const gen = ++resyncFetchGen;
+        if (overflowed) {
           void wsActions
             .agentChatGet(client, { chat_id: chatId })
             .then((snapshot) => {
-              if (cancelled) return;
+              if (cancelled || gen !== resyncFetchGen) return;
+              overflowed = false;
               publishResync(snapshot, recentEvents);
             })
             .catch(() => undefined);
+          return;
         }
+        publishResync(resync.snapshot, recentEvents);
         return;
       }
       const event = agentChatEventFromMessage(message);

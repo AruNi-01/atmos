@@ -139,10 +139,14 @@ This is **not** a `WsEvent` and must not be added to the Rust enum / `@atmos/api
 The open thread hook applies the snapshot **in place** via `applyAgentChatResync`:
 
 - `transcriptFromAgentChatSnapshot` fills messages, permission, queue, running turn, and `meta.available_commands`.
-- A bounded ring (256) of live `agent_chat_event`s is replayed when `revision > snapshot.meta.last_event_seq`, so a notification that landed during `agent_chat_get` is not overwritten. If the ring overflows, skip replay and fetch a fresh `agent_chat_get` instead of applying a gapped stream. This is not EventGate (QUALITY-013).
-- Each `resyncChat` / unsubscribe bumps a per-chat generation; a stale in-flight `agent_chat_get` must not emit `agent_chat_resync` or clear `pendingSnapshots`.
+- A bounded ring (256) of live `agent_chat_event`s is replayed when `revision > snapshot.meta.last_event_seq`, so a notification that landed during `agent_chat_get` is not overwritten. This is not EventGate (QUALITY-013).
 - Resync does not clear a composer `sendFailed` error.
 - The effect deps / `loading` flag stay put; the user must not see an empty flash.
+
+### Implementation delta (2026-10-19)
+
+- Ring overflow: do **not** apply the incoming snapshot (it would drop already-folded events). Fetch a replacement `agent_chat_get` and apply only if that fetch succeeds; keep `overflowed` and the current transcript until then. The follow-up get is generation-guarded so a newer resync cannot be overwritten.
+- `MobileWsClient` per-chat generation: stale in-flight `agent_chat_get` must not emit `agent_chat_resync` or clear `pendingSnapshots`.
 
 ## iOS socket
 
