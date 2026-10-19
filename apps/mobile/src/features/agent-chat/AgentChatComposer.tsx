@@ -214,8 +214,15 @@ export function AgentChatComposer(props: {
     chipsRef.current = props.pasteChips ?? [];
   }, [props.pasteChips]);
 
+  const resetEmptyDraftMeasures = () => {
+    setMeasuredHeight((current) => (current === LINE_HEIGHT ? current : LINE_HEIGHT));
+    setMeasuredLines((current) => (current === 1 ? current : 1));
+  };
+
   const onDraftChange = (next: string) => {
     const applied = applyComposerPaste(textRef.current, next);
+    const draft = props.onPasteChipsChange ? applied.draft : next;
+    if (draft.length === 0) resetEmptyDraftMeasures();
     if (!props.onPasteChipsChange) {
       textRef.current = next;
       props.onChangeText(next);
@@ -550,7 +557,10 @@ export function AgentChatComposer(props: {
                   onBlur={() => setFocused(false)}
                   onChangeText={onDraftChange}
                   onContentSizeChange={(event) => {
-                    if (props.text.length === 0) return;
+                    if (props.text.length === 0) {
+                      resetEmptyDraftMeasures();
+                      return;
+                    }
                     const next = Math.ceil(event.nativeEvent.contentSize.height);
                     setMeasuredHeight((current) => (Math.abs(current - next) < 2 ? current : next));
                   }}

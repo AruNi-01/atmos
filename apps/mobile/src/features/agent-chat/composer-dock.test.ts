@@ -170,5 +170,6 @@ describe("composer dock expand", () => {
     expect(composer).toMatch(
       /ellipsizeMode="tail"\s+importantForAccessibility="no-hide-descendants"\s+numberOfLines=\{1\}\s+pointerEvents="none"/,
     );
+    expect(composer).toContain("resetEmptyDraftMeasures");
   });
 });
