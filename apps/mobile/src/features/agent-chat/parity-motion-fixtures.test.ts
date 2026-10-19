@@ -148,7 +148,10 @@ describe("parity motion fixtures", () => {
     const shimmer = readFileSync(join(here, "motion/text-shimmer.tsx"), "utf8");
     expect(shimmer).toContain("MaskedView");
     expect(shimmer).not.toContain("ParityTextSweepContext");
-    expect(preview).toContain('if (frame.motion !== "reduced") continue;');
+    const replayStart = preview.indexOf("[parity] replay start");
+    const replayDone = preview.indexOf("[parity] replay done ${pass}");
+    expect(replayStart).toBeGreaterThan(-1);
+    expect(preview.slice(replayStart, replayDone)).not.toContain("writeParityMotionPng");
     expect(preview).toContain('frame.motion === "reduced" ? "reduced" : "live"');
     expect(preview).toContain('frame.lane === "steps"');
     expect(preview).toContain("parityLaneShots");

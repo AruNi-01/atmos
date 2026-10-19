@@ -558,17 +558,12 @@ os.killpg(pid, signal.SIGKILL)
 PY
 }
 
-# Run 39149992854 froze the live replay at atMs 0, which is the thinking
-# chunk. recordVideo then silenced that process and saved one Springboard
-# frame. Run 39156539680 attached the recorder on the finished card at
-# 15000ms. Attempt 1 logged replay start and then nothing. Attempt 2 kept
-# the finished card for one frame and then Springboard, and that short file
-# replaced attempt 1. Run 39163914482 kept each attempt and still aborted
-# both live launches. The Release console says the thinking-star worklet
-# called starDelayMs, which was not a worklet, so the UI runtime tried to
-# call it as a remote function and terminated the process. Reduced motion
-# returns before that call and already finishes. The product shimmer stays
-# the masked gradient. Keep each attempt and copy the larger file.
+# Both passes freeze on the finished card at atMs 15000, open recordVideo,
+# then drop atMs. Reduced motion stays on that pin. Run 39174689600's reduced
+# movie never received a moov atom, and run 39180040384's playable reduced
+# movie jumped 5.5s across the answer, while the replay was taking simctl
+# screenshots. Those stills are written by the pinned pass after this
+# function. Keep each attempt and copy the larger file.
 record_replay_movie() {
   local motion="$1"
   local label="$2"
@@ -583,32 +578,20 @@ record_replay_movie() {
     pidfile="$OUT/f4-${label}-record-${attempt}.pid"
     errlog="$OUT/f4-${label}-record-${attempt}.log"
     mark="$(log_mark)"
-    if [[ "$label" == "live" ]]; then
-      write_frame_file "F4" "light" "" "" "script" "" "" "" 15000
-      launch_frame "F4" "light" "$label"
-      if ! wait_for_since "[parity] replay held 15000" 90 "$mark"; then
-        echo "f4 live replay missed the held frame" >&2
-        continue
-      fi
-      start_screen_record "$video" "$pidfile" "$errlog"
-      echo "f4 live recorder open attempt ${attempt}"
-      write_frame_file "F4" "light" "" "" "script"
-      if wait_for_since "[parity] replay done live" 40 "$mark" "$pidfile"; then
-        sleep 0.5
-        stop_screen_record "$pidfile" || true
-        break
-      fi
-      echo "f4 live replay missed [parity] replay done live" >&2
-      stop_screen_record "$pidfile" || true
-      continue
-    fi
-    write_frame_file "F4" "light" "" "$motion" "script"
+    write_frame_file "F4" "light" "" "$motion" "script" "" "" "" 15000
     launch_frame "F4" "light" "$label"
-    if ! wait_for_since "[parity] replay start" 90 "$mark"; then
-      echo "f4 ${label} replay missed the start" >&2
+    if ! wait_for_since "[parity] replay held 15000" 90 "$mark"; then
+      echo "f4 ${label} replay missed the held frame" >&2
       continue
     fi
     start_screen_record "$video" "$pidfile" "$errlog"
+    echo "f4 ${label} recorder open attempt ${attempt}"
+    write_frame_file "F4" "light" "" "$motion" "script"
+    if ! wait_for_since "[parity] replay start" 20 "$mark" "$pidfile"; then
+      echo "f4 ${label} replay missed the start" >&2
+      stop_screen_record "$pidfile" || true
+      continue
+    fi
     if wait_for_since "$done_line" 40 "$mark" "$pidfile"; then
       sleep 0.5
       stop_screen_record "$pidfile" || true

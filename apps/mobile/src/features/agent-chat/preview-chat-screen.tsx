@@ -410,26 +410,15 @@ export function PreviewChatScreen() {
     if (!ownsReplay || !fixture?.script || holdOn) return;
     const shots = parityReplayShotTimes(fixture.script);
     const started = Date.now();
-    const taken = new Set<number>();
     console.error(`[parity] replay start ${shots.length}`);
     const timer = setInterval(() => {
       const elapsed = Date.now() - started;
       setReplayClock((current) =>
         current.key === replayKey ? { elapsed, key: replayKey } : current,
       );
-      for (const shot of shots) {
-        if (elapsed < shot || taken.has(shot)) continue;
-        taken.add(shot);
-        // A Skia snapshot of the live shimmer never returned (run 39036378433,
-        // Atmos 47380). Reduced motion has no shimmer, and those files landed.
-        if (frame.motion !== "reduced") continue;
-        const name = `f4-${String(shot).padStart(5, "0")}`;
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            void writeParityMotionPng(previewRootRef, name);
-          });
-        });
-      }
+      // simctl screenshots during recordVideo left run 39174689600 without a
+      // moov atom and left run 39180040384 with a 5.5s gap across the answer.
+      // The pinned pass writes the stills after the recorder closes.
       const last = shots[shots.length - 1] ?? 0;
       if (elapsed >= last) {
         clearInterval(timer);
