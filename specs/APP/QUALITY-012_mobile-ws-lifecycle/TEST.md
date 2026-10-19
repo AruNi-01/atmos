@@ -48,33 +48,33 @@ No Playwright mobile journey. `apps/mobile/e2e` is frozen.
 
 ## Execution map
 
-| Scenario | Level     | Tool      | Command / method                                                         | Signals                                                                                | Status  |
-| -------- | --------- | --------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ------- |
-| S1       | Unit      | Bun       | `bun test src/ws/session.test.ts` in `packages/api-client`               | timeout reject; late response ignored; next request still correlates                   | pass    |
-| S2       | Unit      | Bun       | same                                                                     | after exhaust, 59_999 ms no new socket; +1 ms creates one                              | pass    |
-| S3       | Unit      | Bun       | same                                                                     | ping watchdog close → reconnect                                                        | pass    |
-| S4       | Unit      | Bun       | same                                                                     | old-socket pong then current watchdog still fires                                      | pass    |
-| S5       | Unit      | Bun       | same                                                                     | no `ping`; two intervals later still `connected` and a timer remains                   | pass    |
-| S6       | Unit      | Bun       | same                                                                     | `pauseReconnect` then `connect()` does not create a socket; resume does                | pass    |
-| S7       | Unit      | Bun       | same                                                                     | close + `retryNow` + `connect()` in one turn; after microtask open, promise settles    | pass    |
-| S8       | Unit      | Bun       | `bun test apps/mobile/src/api/mobile-ws-client.test.ts`                  | `reconnect: false` + unclean close → `closed`                                          | pass    |
-| S9       | Unit      | Bun       | same                                                                     | background close: no timer; foreground creates a socket                                | pass    |
-| S10      | Unit      | Bun       | same                                                                     | network offline pause; online retries                                                  | pass    |
-| S11      | Unit      | Bun       | `bun test apps/mobile/src/api/mobile-ws-transport.test.ts`               | `NetworkUpdateGate`: live event then stale async id is ignored                         | pass    |
-| S12      | Unit      | Bun       | mobile-ws-client test                                                    | `relay_ctrl` keeps one socket `open`; subscribe from cursor                            | pass    |
-| S13      | Unit      | Bun       | same                                                                     | `relay_ctrl` then `setForeground(false)` clears timer; foreground re-arms              | pass    |
-| S14      | Unit      | Bun       | same                                                                     | subscribe `last_event_seq` > cursor → `agent_chat_get` + `agent_chat_resync`           | pass    |
-| S15      | Unit      | Bun       | same                                                                     | equal seq → no `agent_chat_get`; alert clears                                          | pass    |
-| S16      | Unit      | Bun       | fold-transcript + hook source                                            | `applyAgentChatResync` + hook `parseAgentChatResync` in `subscribeMessages`            | pass    |
-| S17      | Review    | File read | Swift `receiveNext`                                                      | closeCode `0` defers; non-zero used; 1000 not forced as 1006                           | pass    |
-| S18      | Review    | File read | `defaults.ts` + APP-049 TECH §6                                          | mobile exhausted `slow_retry` 60s; timeout 30s; `reconnectBeforeOpen` on the type      | pass    |
-| S19      | Toolchain | bun/oxc   | api-client + mobile typecheck; `bun lint`; `bunx oxfmt` on touched paths | typecheck 0; lint 0 errors at cap 455; oxfmt writes/check on touched files             | pass    |
-| S20      | Manual    | Simulator | `just mobile-ios*`                                                       | **not run** (no iOS Simulator in this environment)                                     | not run |
-| S21      | Unit      | Bun       | mobile-ws-client test                                                    | failed `agent_chat_get` → retry subscribe still uses old cursor and gets again         | pass    |
-| S22      | Unit      | Bun       | fold-transcript test                                                     | snapshot seq 40 + live revision 41 kept; revision 39 dropped                           | pass    |
-| S23      | Unit      | Bun       | fold-transcript test                                                     | `meta.available_commands` → `state.commands`                                           | pass    |
-| S24      | Unit      | Bun       | hook source                                                              | overflow path does not call `publishResync(resync.snapshot)`; waits on replacement get | pass    |
-| S25      | Unit      | Bun       | hook source                                                              | `resyncFetchGen` + `gen !== resyncFetchGen` guards the overflow follow-up get          | pass    |
+| Scenario | Level     | Tool      | Command / method                                                         | Signals                                                                             | Status  |
+| -------- | --------- | --------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | ------- |
+| S1       | Unit      | Bun       | `bun test src/ws/session.test.ts` in `packages/api-client`               | timeout reject; late response ignored; next request still correlates                | pass    |
+| S2       | Unit      | Bun       | same                                                                     | after exhaust, 59_999 ms no new socket; +1 ms creates one                           | pass    |
+| S3       | Unit      | Bun       | same                                                                     | ping watchdog close → reconnect                                                     | pass    |
+| S4       | Unit      | Bun       | same                                                                     | old-socket pong then current watchdog still fires                                   | pass    |
+| S5       | Unit      | Bun       | same                                                                     | no `ping`; two intervals later still `connected` and a timer remains                | pass    |
+| S6       | Unit      | Bun       | same                                                                     | `pauseReconnect` then `connect()` does not create a socket; resume does             | pass    |
+| S7       | Unit      | Bun       | same                                                                     | close + `retryNow` + `connect()` in one turn; after microtask open, promise settles | pass    |
+| S8       | Unit      | Bun       | `bun test apps/mobile/src/api/mobile-ws-client.test.ts`                  | `reconnect: false` + unclean close → `closed`                                       | pass    |
+| S9       | Unit      | Bun       | same                                                                     | background close: no timer; foreground creates a socket                             | pass    |
+| S10      | Unit      | Bun       | same                                                                     | network offline pause; online retries                                               | pass    |
+| S11      | Unit      | Bun       | `bun test apps/mobile/src/api/mobile-ws-transport.test.ts`               | `NetworkUpdateGate`: live event then stale async id is ignored                      | pass    |
+| S12      | Unit      | Bun       | mobile-ws-client test                                                    | `relay_ctrl` keeps one socket `open`; subscribe from cursor                         | pass    |
+| S13      | Unit      | Bun       | same                                                                     | `relay_ctrl` then `setForeground(false)` clears timer; foreground re-arms           | pass    |
+| S14      | Unit      | Bun       | same                                                                     | subscribe `last_event_seq` > cursor → `agent_chat_get` + `agent_chat_resync`        | pass    |
+| S15      | Unit      | Bun       | same                                                                     | equal seq → no `agent_chat_get`; alert clears                                       | pass    |
+| S16      | Unit      | Bun       | fold-transcript + hook source                                            | `applyAgentChatResync` + hook `parseAgentChatResync` in `subscribeMessages`         | pass    |
+| S17      | Review    | File read | Swift `receiveNext`                                                      | closeCode `0` defers; non-zero used; 1000 not forced as 1006                        | pass    |
+| S18      | Review    | File read | `defaults.ts` + APP-049 TECH §6                                          | mobile exhausted `slow_retry` 60s; timeout 30s; `reconnectBeforeOpen` on the type   | pass    |
+| S19      | Toolchain | bun/oxc   | api-client + mobile typecheck; `bun lint`; `bunx oxfmt` on touched paths | typecheck 0; lint 0 errors at cap 455; oxfmt writes/check on touched files          | pass    |
+| S20      | Manual    | Simulator | `just mobile-ios*`                                                       | **not run** (no iOS Simulator in this environment)                                  | not run |
+| S21      | Unit      | Bun       | mobile-ws-client test                                                    | failed `agent_chat_get` → retry subscribe still uses old cursor and gets again      | pass    |
+| S22      | Unit      | Bun       | fold-transcript test                                                     | snapshot seq 40 + live revision 41 kept; revision 39 dropped                        | pass    |
+| S23      | Unit      | Bun       | fold-transcript test                                                     | `meta.available_commands` → `state.commands`                                        | pass    |
+| S24      | Unit      | Bun       | open-thread-resync test                                                  | overflow + failed get publishes nothing; overflowed stays true                      | pass    |
+| S25      | Unit      | Bun       | same                                                                     | overlapping resyncs: stale get is held; newer replacement publishes                 | pass    |
 
 ## Scenarios
 
@@ -225,18 +225,18 @@ No Playwright mobile journey. `apps/mobile/e2e` is frozen.
 ### S24 — Overflow keeps the current transcript
 
 - **Level**: Unit
-- **Given**: the 256-event ring overflowed (`overflowed === true`) and `agent_chat_resync` arrives.
-- **When**: the hook resync branch runs.
-- **Then**: it does **not** apply the incoming snapshot or clear `recentEvents`. It fetches a replacement `agent_chat_get` and applies only if that fetch succeeds. `overflowed` stays true on failure so the next resync still recovers.
-- **Signals**: hook source contains `if (overflowed)` then `agentChatGet` then `return` before `publishResync(resync.snapshot, recentEvents)`.
+- **Given**: `applyOpenThreadResync` with `overflowed === true`.
+- **When**: the replacement get rejects, or succeeds.
+- **Then**: a failed get publishes nothing and leaves `overflowed` true. A successful get publishes the **replacement** snapshot, not the incoming one. Non-overflow publishes incoming and does not fetch.
+- **Signals**: `open-thread-resync.test.ts` published array + result `"held"` / `"applied-replacement"` / `"applied-incoming"`.
 
 ### S25 — Overflow follow-up get is generation-guarded
 
 - **Level**: Unit
-- **Given**: an overflow follow-up `agent_chat_get` is in flight, then a newer resync starts.
-- **When**: the older get resolves.
-- **Then**: `gen !== resyncFetchGen` (or `cancelled`) skips `publishResync`, so an older snapshot cannot overwrite a newer transcript.
-- **Signals**: hook source contains `resyncFetchGen` and `gen !== resyncFetchGen`.
+- **Given**: an overflow follow-up get is in flight, then a newer resync starts.
+- **When**: the older get resolves after the newer replacement has published.
+- **Then**: the stale get returns `"held"` and does not publish. Only the newer replacement is published.
+- **Signals**: overlapping promises in `open-thread-resync.test.ts`.
 
 ### S17 — Swift close code
 
@@ -307,8 +307,8 @@ Recorded on `aarynlu/mobile-ws-lifecycle-d365` after review fixes (Linux cloud a
 | S21      | pass    | `failed snapshot fetch keeps the old cursor so retry still gets`                                |
 | S22      | pass    | `replays live events newer than the snapshot sequence`                                          |
 | S23      | pass    | snapshot restores `/fork` into `state.commands`                                                 |
-| S24      | pass    | hook source: overflow returns before `publishResync(resync.snapshot, recentEvents)`             |
-| S25      | pass    | hook source: `resyncFetchGen` and `gen !== resyncFetchGen`                                      |
+| S24      | pass    | `holds the current transcript when the replacement get fails` + apply-replacement test          |
+| S25      | pass    | `ignores a stale replacement get after a newer resync`                                          |
 
 Commands:
 
@@ -316,7 +316,7 @@ Commands:
 bun run --filter @atmos/api-client typecheck
 bun run --filter @atmos/api-client test          # 49 pass
 bun run --filter @atmos/mobile typecheck
-bun test src/api src/features/agent-chat/fold-transcript.test.ts src/features/agent-chat/use-agent-chat-thread.test.ts
+bun test src/api src/features/agent-chat/fold-transcript.test.ts src/features/agent-chat/use-agent-chat-thread.test.ts src/features/agent-chat/open-thread-resync.test.ts
 # in apps/mobile
 bun lint                                         # oxlint --max-warnings=455, exit 0
 bunx oxfmt <touched paths>

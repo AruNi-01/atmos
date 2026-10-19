@@ -32,6 +32,7 @@ import { parseAgentChatResync } from "@/api/mobile-ws-transport";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
+import { applyOpenThreadResync, type OpenThreadResyncCtrl } from "./open-thread-resync";
 import {
   applyAgentChatResync,
   applyChatEvent,
@@ -71,8 +72,11 @@ export function useAgentChatThread(chatId: string) {
 
     let cancelled = false;
     let ready = false;
-    let overflowed = false;
-    let resyncFetchGen = 0;
+    const resyncCtrl: OpenThreadResyncCtrl = {
+      overflowed: false,
+      resyncFetchGen: 0,
+      cancelled: false,
+    };
     const recentEvents: AgentChatEvent[] = [];
     const inflight = new Set<string>();
     const empty = createChatTranscript(chatId);
@@ -127,24 +131,17 @@ export function useAgentChatThread(chatId: string) {
     const unsubscribeMessages = client.subscribeMessages((message) => {
       const resync = parseAgentChatResync(message);
       if (resync && resync.chat_id === chatId) {
-        const gen = ++resyncFetchGen;
-        if (overflowed) {
-          void wsActions
-            .agentChatGet(client, { chat_id: chatId })
-            .then((snapshot) => {
-              if (cancelled || gen !== resyncFetchGen) return;
-              overflowed = false;
-              publishResync(snapshot, recentEvents);
-            })
-            .catch(() => undefined);
-          return;
-        }
-        publishResync(resync.snapshot, recentEvents);
+        void applyOpenThreadResync({
+          ctrl: resyncCtrl,
+          incoming: resync.snapshot,
+          fetchReplacement: () => wsActions.agentChatGet(client, { chat_id: chatId }),
+          publish: (snapshot) => publishResync(snapshot, recentEvents),
+        });
         return;
       }
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
-      if (rememberChatEvent(recentEvents, event)) overflowed = true;
+      if (rememberChatEvent(recentEvents, event)) resyncCtrl.overflowed = true;
       if (!ready) return;
       const next = applyChatEvent(transcriptRef.current, event);
       transcriptRef.current = next.state;
@@ -189,6 +186,7 @@ export function useAgentChatThread(chatId: string) {
 
     return () => {
       cancelled = true;
+      resyncCtrl.cancelled = true;
       clearInterval(flushTimer);
       ready = false;
       unsubscribeMessages();
