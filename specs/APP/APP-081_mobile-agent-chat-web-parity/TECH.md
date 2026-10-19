@@ -187,6 +187,10 @@ Installed `@expo/ui@~56.0.25` does expose SwiftUI `buttonStyle("glass" | "glassP
 
 **Implementation delta (2026-10-19, size contract):** In-card chips are 33pt visual (`GLASS_CHIP_HEIGHT`), title/scroll pills are 36pt (`COMPOSER_GLASS_CONTROL_SIZE`), compact composer is 52pt. Selected pills stay untinted glass and use `label` ink vs unselected `secondaryLabel`. Reduce Transparency is one hook in `glass-availability.ts`. Disabled chips expose `accessibilityState.disabled` on the host without SwiftUI `disabled()`.
 
+<!-- updated 2026-10-19: Reduce Transparency hook file, CARD_TITLE metrics -->
+
+**Implementation delta (2026-10-19, Reduce Transparency hook file):** `shouldUseLiquidGlass` stays RN-free in `glass-availability.ts`. The `AccessibilityInfo` subscription lives in `use-reduce-transparency.ts` so bun tests of the pure gate do not import `react-native`. Composer-card markdown headings (`agentChatCardHeadingMetrics`) are the source for `CARD_TITLE` (14/500), so dock titles and card markdown cannot drift.
+
 ## Motion mapping
 
 All durations and easings come from `agent-tree-branch.ts` constants (shared per D2). Reduced Motion: every row below becomes an immediate state change.

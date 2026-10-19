@@ -373,6 +373,7 @@ Marked only where the test file exists and the command above ran it.
 - **S34** — `composer-dock.test.ts` expand sequences (blur / model sheet / add sheet / one-line vs wrapped). Status `pass` once `cd apps/mobile && bun test src/features/agent-chat/composer-dock.test.ts` is green on this head.
 - **S35** — `composer-glass.test.ts`, `card-chrome.test.ts`, `glass-text-button.test.ts`, `glass-availability.test.ts`. Status `pass` on the same bun run.
 - **S36** — `not_run`. No iOS simulator or physical device in this environment. Visual Liquid Glass, 280 ms motion, and Reduce Transparency fallback are unspecified by screenshots here.
+- **Review P3 follow-up** — compact placeholder ellipsis is asserted as `ellipsizeMode` + `numberOfLines` + `pointerEvents` together; `CARD_TITLE` is derived from `agentChatCardHeadingMetrics`; `tool-body.tsx` uses `copy.sentenceStatus`. Covered by `composer-dock.test.ts`, `card-chrome.test.ts`, `agent-chat-markdown-chrome.test.ts`.
 
 ### Scene lifecycle gate (QUALITY-011)
 
