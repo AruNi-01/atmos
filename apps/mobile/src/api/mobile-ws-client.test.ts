@@ -99,17 +99,41 @@ function createClient({
   });
 }
 
-function lastRequest(socket: FakeMobileWebSocket) {
-  const raw = socket.sent.at(-1);
-  if (!raw) throw new Error("no request sent");
+function parseSent(raw: string) {
   return JSON.parse(raw) as {
     type: string;
     payload: { request_id: string; action: string; data?: Record<string, unknown> };
   };
 }
 
+function lastRequest(socket: FakeMobileWebSocket) {
+  const raw = socket.sent.at(-1);
+  if (!raw) throw new Error("no request sent");
+  return parseSent(raw);
+}
+
+function requestByAction(socket: FakeMobileWebSocket, action: string) {
+  for (let index = socket.sent.length - 1; index >= 0; index -= 1) {
+    const sent = parseSent(socket.sent[index]!);
+    if (sent.payload.action === action) return sent;
+  }
+  throw new Error(`no ${action} request`);
+}
+
 function replyOk(socket: FakeMobileWebSocket, data: unknown = {}) {
   const sent = lastRequest(socket);
+  socket.emit({
+    type: "response",
+    payload: {
+      request_id: sent.payload.request_id,
+      success: true,
+      data,
+    },
+  });
+}
+
+function replyOkAction(socket: FakeMobileWebSocket, action: string, data: unknown = {}) {
+  const sent = requestByAction(socket, action);
   socket.emit({
     type: "response",
     payload: {
@@ -492,6 +516,45 @@ describe("MobileWsClient", () => {
     expect(lastRequest(socket)).toMatchObject({
       payload: { action: "agent_chat_get", data: { chat_id: "chat-1" } },
     });
+  });
+
+  test("unsubscribe invalidates an in-flight snapshot so a stale resync is not emitted", async () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const seen: unknown[] = [];
+    const client = createClient({ timers });
+    client.subscribeMessages((message) => seen.push(message));
+    client.connect();
+    const socket = FakeMobileWebSocket.instances[0]!;
+    socket.open();
+    const subscribed = client.request("agent_chat_subscribe", {
+      chat_id: "chat-1",
+      after_sequence: 10,
+    });
+    replyOk(socket, { last_event_seq: 10 });
+    await subscribed;
+
+    socket.emit({ type: "relay_ctrl", code: "server_offline" });
+    const first = timers.find((timer) => timer.delayMs === 0);
+    expect(first).toBeDefined();
+    first!.callback();
+    await flushMicrotasks();
+    replyOk(socket, { last_event_seq: 40 });
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: { action: "agent_chat_get", data: { chat_id: "chat-1" } },
+    });
+
+    const unsubscribed = client.request("agent_chat_unsubscribe", { chat_id: "chat-1" });
+    replyOkAction(socket, "agent_chat_unsubscribe", {});
+    await unsubscribed;
+    replyOkAction(socket, "agent_chat_get", {
+      meta: { id: "chat-1", last_event_seq: 40 },
+      messages: [],
+      queue: [],
+    });
+    await flushMicrotasks();
+    expect(seen.some((message) => isResync(message, "chat-1"))).toBe(false);
   });
 });
 

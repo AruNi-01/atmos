@@ -159,10 +159,12 @@ export function rememberChatEvent(
   recent: AgentChatEvent[],
   event: AgentChatEvent,
   limit = AGENT_CHAT_RESYNC_REPLAY_LIMIT,
-): void {
+): boolean {
   recent.push(event);
   const extra = recent.length - limit;
-  if (extra > 0) recent.splice(0, extra);
+  if (extra <= 0) return false;
+  recent.splice(0, extra);
+  return true;
 }
 
 export function pruneChatEvents(recent: AgentChatEvent[], after: number): void {

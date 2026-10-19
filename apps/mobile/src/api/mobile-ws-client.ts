@@ -191,6 +191,7 @@ export class MobileWsClient {
   private networkOnline = true;
   private readonly cursors = new AgentChatCursorTracker();
   private readonly pendingSnapshots = new Set<string>();
+  private readonly resyncGeneration = new Map<string, number>();
   private readonly setTimer: (callback: () => void, delayMs: number) => MobileTimer;
   private readonly clearTimer: (timer: MobileTimer) => void;
   private readonly reconnectEnabled: boolean;
@@ -314,6 +315,7 @@ export class MobileWsClient {
     } else if (action === "agent_chat_unsubscribe") {
       const payload = subscribePayload(data);
       if (payload) {
+        this.bumpResyncGeneration(payload.chatId);
         this.cursors.noteUnsubscribe(payload.chatId);
         this.pendingSnapshots.delete(payload.chatId);
       }
@@ -404,11 +406,20 @@ export class MobileWsClient {
     }
   }
 
+  private bumpResyncGeneration(chatId: string): number {
+    const next = (this.resyncGeneration.get(chatId) ?? 0) + 1;
+    this.resyncGeneration.set(chatId, next);
+    return next;
+  }
+
   private async resyncChat(chat: { chat_id: string; after_sequence: number }) {
+    const generation = this.bumpResyncGeneration(chat.chat_id);
+    const live = () => !this.disposed && this.resyncGeneration.get(chat.chat_id) === generation;
     const subscribed = await this.session.request("agent_chat_subscribe", {
       chat_id: chat.chat_id,
       after_sequence: chat.after_sequence,
     });
+    if (!live()) return;
     const lastSeq = lastEventSeqFromSubscribe(subscribed);
     const needsSnapshot =
       lastSeq !== chat.after_sequence || this.pendingSnapshots.has(chat.chat_id);
@@ -421,6 +432,7 @@ export class MobileWsClient {
     const snapshot = (await this.session.request("agent_chat_get", {
       chat_id: chat.chat_id,
     })) as AgentChatSnapshot;
+    if (!live()) return;
     const snapshotSeq = snapshot.meta?.last_event_seq;
     if (typeof snapshotSeq === "number") this.cursors.noteRevision(chat.chat_id, snapshotSeq);
     else if (lastSeq != null) this.cursors.noteRevision(chat.chat_id, lastSeq);

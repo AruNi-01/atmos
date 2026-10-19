@@ -71,6 +71,7 @@ export function useAgentChatThread(chatId: string) {
 
     let cancelled = false;
     let ready = false;
+    let overflowed = false;
     const recentEvents: AgentChatEvent[] = [];
     const inflight = new Set<string>();
     const empty = createChatTranscript(chatId);
@@ -108,22 +109,41 @@ export function useAgentChatThread(chatId: string) {
         });
     };
 
+    const publishResync = (
+      snapshot: Parameters<typeof applyAgentChatResync>[1],
+      replay: AgentChatEvent[],
+    ) => {
+      const applied = applyAgentChatResync(chatId, snapshot, replay);
+      pruneChatEvents(recentEvents, snapshot.meta?.last_event_seq ?? 0);
+      transcriptRef.current = applied.state;
+      for (const request of applied.backfills) requestBackfill(request);
+      if (ready) {
+        setTranscript(applied.state);
+        setError((prev) => (prev === copy.sendFailed ? prev : null));
+      }
+    };
+
     const unsubscribeMessages = client.subscribeMessages((message) => {
       const resync = parseAgentChatResync(message);
       if (resync && resync.chat_id === chatId) {
-        const applied = applyAgentChatResync(chatId, resync.snapshot, recentEvents);
-        pruneChatEvents(recentEvents, resync.snapshot.meta?.last_event_seq ?? 0);
-        transcriptRef.current = applied.state;
-        for (const request of applied.backfills) requestBackfill(request);
-        if (ready) {
-          setTranscript(applied.state);
-          setError((prev) => (prev === copy.sendFailed ? prev : null));
+        const dropped = overflowed;
+        overflowed = false;
+        publishResync(resync.snapshot, dropped ? [] : recentEvents);
+        if (dropped) {
+          recentEvents.length = 0;
+          void wsActions
+            .agentChatGet(client, { chat_id: chatId })
+            .then((snapshot) => {
+              if (cancelled) return;
+              publishResync(snapshot, recentEvents);
+            })
+            .catch(() => undefined);
         }
         return;
       }
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
-      rememberChatEvent(recentEvents, event);
+      if (rememberChatEvent(recentEvents, event)) overflowed = true;
       if (!ready) return;
       const next = applyChatEvent(transcriptRef.current, event);
       transcriptRef.current = next.state;

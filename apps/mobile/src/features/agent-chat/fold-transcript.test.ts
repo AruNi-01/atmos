@@ -337,21 +337,27 @@ describe("applyAgentChatResync", () => {
 
   test("rememberChatEvent drops the oldest events past the ring limit", () => {
     const recent: AgentChatEvent[] = [];
-    rememberChatEvent(
-      recent,
-      event("chat-1", { type: "user_message", turn_id: "t", message_id: "a", text: "a" }, 1),
-      2,
-    );
-    rememberChatEvent(
-      recent,
-      event("chat-1", { type: "user_message", turn_id: "t", message_id: "b", text: "b" }, 2),
-      2,
-    );
-    rememberChatEvent(
-      recent,
-      event("chat-1", { type: "user_message", turn_id: "t", message_id: "c", text: "c" }, 3),
-      2,
-    );
+    expect(
+      rememberChatEvent(
+        recent,
+        event("chat-1", { type: "user_message", turn_id: "t", message_id: "a", text: "a" }, 1),
+        2,
+      ),
+    ).toBe(false);
+    expect(
+      rememberChatEvent(
+        recent,
+        event("chat-1", { type: "user_message", turn_id: "t", message_id: "b", text: "b" }, 2),
+        2,
+      ),
+    ).toBe(false);
+    expect(
+      rememberChatEvent(
+        recent,
+        event("chat-1", { type: "user_message", turn_id: "t", message_id: "c", text: "c" }, 3),
+        2,
+      ),
+    ).toBe(true);
     expect(recent.map((item) => item.revision)).toEqual([2, 3]);
   });
 });

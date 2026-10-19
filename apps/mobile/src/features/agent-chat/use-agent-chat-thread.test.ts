@@ -27,11 +27,14 @@ describe("useAgentChatThread restore", () => {
     expect(thread).toContain("applyAgentChatResync");
     expect(thread).toContain("resync.chat_id === chatId");
     const resyncAt = thread.indexOf("parseAgentChatResync(message)");
-    const applyAt = thread.indexOf("applyAgentChatResync(chatId, resync.snapshot, recentEvents)");
+    const publishAt = thread.indexOf("publishResync(resync.snapshot");
     const setTranscriptAt = thread.indexOf("setTranscript(applied.state)");
     expect(resyncAt).toBeGreaterThan(-1);
-    expect(applyAt).toBeGreaterThan(resyncAt);
-    expect(setTranscriptAt).toBeGreaterThan(applyAt);
+    expect(publishAt).toBeGreaterThan(resyncAt);
+    expect(setTranscriptAt).toBeGreaterThan(-1);
+    expect(thread).toContain("dropped ? [] : recentEvents");
     expect(thread).toContain("prev === copy.sendFailed ? prev : null");
+    expect(thread).toContain("overflowed");
+    expect(thread).toContain("agentChatGet");
   });
 });

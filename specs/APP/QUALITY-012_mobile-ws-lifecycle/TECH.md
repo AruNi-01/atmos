@@ -139,7 +139,8 @@ This is **not** a `WsEvent` and must not be added to the Rust enum / `@atmos/api
 The open thread hook applies the snapshot **in place** via `applyAgentChatResync`:
 
 - `transcriptFromAgentChatSnapshot` fills messages, permission, queue, running turn, and `meta.available_commands`.
-- A bounded ring (256) of live `agent_chat_event`s is replayed when `revision > snapshot.meta.last_event_seq`, so a notification that landed during `agent_chat_get` is not overwritten. This is not EventGate (QUALITY-013).
+- A bounded ring (256) of live `agent_chat_event`s is replayed when `revision > snapshot.meta.last_event_seq`, so a notification that landed during `agent_chat_get` is not overwritten. If the ring overflows, skip replay and fetch a fresh `agent_chat_get` instead of applying a gapped stream. This is not EventGate (QUALITY-013).
+- Each `resyncChat` / unsubscribe bumps a per-chat generation; a stale in-flight `agent_chat_get` must not emit `agent_chat_resync` or clear `pendingSnapshots`.
 - Resync does not clear a composer `sendFailed` error.
 - The effect deps / `loading` flag stay put; the user must not see an empty flash.
 
