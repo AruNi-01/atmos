@@ -1,6 +1,7 @@
 const { describe, expect, test } = require("bun:test");
 const {
   MARKER,
+  SCENE_CLASS_LINE,
   SCENE_DELEGATE_CLASS,
   ensureSceneLifecycle,
   sceneManifest,
@@ -69,6 +70,52 @@ function launchBody(source) {
   return source.slice(start, end);
 }
 
+function balancedBlock(source, openBraceAt) {
+  let depth = 0;
+  for (let index = openBraceAt; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(openBraceAt + 1, index);
+    }
+  }
+  throw new Error("unbalanced braces");
+}
+
+function swiftFunctionBody(source, signature) {
+  const start = source.indexOf(signature);
+  if (start < 0) throw new Error(`missing ${signature}`);
+  const open = source.indexOf("{", start);
+  return balancedBlock(source, open);
+}
+
+/** Fails when notify() runs even if RCTLinkingManager already posted. */
+function expectNotifyOnlyWhenLinkingManagerDidNotPost(source) {
+  const deliver = swiftFunctionBody(source, "static func deliver(");
+  const guard = "if !observer.wasNotified {";
+  const guardAt = deliver.indexOf(guard);
+  expect(guardAt).toBeGreaterThan(-1);
+  const bodyCall = deliver.indexOf("body()");
+  expect(bodyCall).toBeGreaterThan(-1);
+  expect(bodyCall).toBeLessThan(guardAt);
+  const guardBody = balancedBlock(deliver, deliver.indexOf("{", guardAt));
+  expect(guardBody).toContain("notify()");
+  const outsideGuard = `${deliver.slice(0, guardAt)}${deliver.slice(guardAt + guard.length + guardBody.length + 1)}`;
+  expect(outsideGuard).not.toContain("notify()");
+}
+
+function expectLogOnlyInsideNotify(source, signature, logLine) {
+  const fn = swiftFunctionBody(source, signature);
+  const notifyAt = fn.indexOf("notify: {");
+  expect(notifyAt).toBeGreaterThan(-1);
+  const notifyBody = balancedBlock(fn, fn.indexOf("{", notifyAt));
+  expect(notifyBody).toContain("RCTLinkingManager.application");
+  expect(notifyBody).toContain(logLine);
+  const outsideNotify = `${fn.slice(0, notifyAt)}${fn.slice(notifyAt + "notify: ".length + notifyBody.length + 2)}`;
+  expect(outsideNotify).not.toContain("NSLog(");
+}
+
 describe("ensureSceneLifecycle", () => {
   test("moves React Native startup onto SceneDelegate and keeps link forwarding", () => {
     const next = ensureSceneLifecycle(FIXTURE);
@@ -100,9 +147,20 @@ describe("ensureSceneLifecycle", () => {
     expect(next).toContain(
       "RCTLinkingManager.application(\n        UIApplication.shared,\n        continue: userActivity,",
     );
-    expect(next).toContain("AtmosSceneLifecycle delivered URL to RCTLinkingManager");
-    expect(next).toContain("AtmosSceneLifecycle delivered userActivity to RCTLinkingManager");
+    expect(next).toContain("func sceneDidDisconnect(_ scene: UIScene)");
+    expect(next).toContain("window = nil");
     expect(next).not.toContain('NSLog("%@');
+    expectNotifyOnlyWhenLinkingManagerDidNotPost(next);
+    expectLogOnlyInsideNotify(
+      next,
+      "private func deliverOpen(",
+      "AtmosSceneLifecycle delivered URL to RCTLinkingManager",
+    );
+    expectLogOnlyInsideNotify(
+      next,
+      "private func deliverContinue(",
+      "AtmosSceneLifecycle delivered userActivity to RCTLinkingManager",
+    );
     expect(next.match(/startReactNative\(/g)).toHaveLength(1);
     expect(launch.indexOf("HomeTabBarClearGlass.install()")).toBeLessThan(
       launch.indexOf("return super.application"),
@@ -112,6 +170,19 @@ describe("ensureSceneLifecycle", () => {
   test("leaves an already patched AppDelegate unchanged", () => {
     const once = ensureSceneLifecycle(FIXTURE);
     expect(ensureSceneLifecycle(once)).toBe(once);
+  });
+
+  test("rewrites SceneDelegate when the marker remains and the class is gone", () => {
+    const once = ensureSceneLifecycle(FIXTURE);
+    const broken = once.replace(/class SceneDelegate:[\s\S]*$/, "class SceneDelegateRemoved {}\n");
+    expect(broken).toContain(MARKER);
+    expect(broken).not.toContain(SCENE_CLASS_LINE);
+    const again = ensureSceneLifecycle(broken);
+    expect(again).toContain(SCENE_CLASS_LINE);
+    expect(again.match(/class SceneDelegate:/g)).toHaveLength(1);
+    expect(again).not.toContain("SceneDelegateRemoved");
+    expect(again).toContain("func sceneDidDisconnect(_ scene: UIScene)");
+    expectNotifyOnlyWhenLinkingManagerDidNotPost(again);
   });
 
   test("refuses an AppDelegate Expo did not generate", () => {

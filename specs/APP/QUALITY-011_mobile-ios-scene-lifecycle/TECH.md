@@ -81,7 +81,7 @@ Parity preview (`EXPO_PUBLIC_PARITY_PREVIEW=1`) still drops `expo-dev-client`. I
 Pure helpers, unit-tested without prebuild:
 
 - `sceneManifest()` — plist dictionary written by `withInfoPlist`.
-- `ensureSceneLifecycle(contents)` — rewrites the Swift AppDelegate. Idempotent when the marker `Atmos adopts the UIScene lifecycle` is present and `UIWindow(frame:` is gone. Throws if the Expo window block is missing, or if the marker and the old window block are both present.
+- `ensureSceneLifecycle(contents)` — rewrites the Swift AppDelegate. When the marker `Atmos adopts the UIScene lifecycle` is present, `UIWindow(frame:` is gone, and `class SceneDelegate: UIResponder, UIWindowSceneDelegate` is still in the file, it returns the same string. If the marker is present and that class line is missing, it deletes from the marker comment through the end of the file and writes the scene source again. It does not treat a marker alone as success. Throws if the Expo window block is missing, or if the marker and the old window block are both present.
 
 `withAppDelegate` runs only for Swift and throws otherwise. The current template is Swift.
 
@@ -100,6 +100,10 @@ Pure helpers, unit-tested without prebuild:
 `scene(_:continue:)` forwards a warm user activity.
 
 Scene active / resign / foreground / background call the matching `ExpoAppDelegate` methods. SDK 56 subscribers (`expo-linking`, `expo-dev-launcher`, and the rest) only observe app-delegate callbacks. UIKit stops delivering those once a scene manifest is present. This is the same split Expo's `SceneEventForwarder` documents.
+
+`sceneDidDisconnect` sets `window = nil`. UIKit calls it when the scene session is discarded. A single-scene iPhone rarely does that.
+
+`RCTAppState` in React Native 0.85.3 observes `UIApplicationDidBecomeActiveNotification`, `UIApplicationWillResignActiveNotification`, `UIApplicationDidEnterBackgroundNotification`, and `UIApplicationWillEnterForegroundNotification`. Calling the app-delegate methods does not post those notifications. UIKit may still post them under a scene lifecycle. That has not been checked on a simulator. See TEST S8.
 
 No shortcut-item forwarding. The app has no quick actions.
 
@@ -139,12 +143,12 @@ Universal links (not configured; path still implemented):
 
 Keys are built with `UIApplication.LaunchOptionsKey(rawValue:)` so the code does not touch the iOS 26-deprecated `.url` accessor. React Native 0.85 still reads the raw strings.
 
-One `NSLog` per delivered URL or browsing-web activity, with a fixed string and no URL:
+The fixed `NSLog` strings sit inside the `notify` closure, so they run only when this path calls `RCTLinkingManager`. A body that already posted `RCTOpenURLNotification` does not log. The strings do not include the URL:
 
 - `AtmosSceneLifecycle delivered URL to RCTLinkingManager`
 - `AtmosSceneLifecycle delivered userActivity to RCTLinkingManager`
 
-The Mac verification script greps for these. The URL itself is not logged (OAuth codes use the same path).
+The Mac script greps for the URL line. That count is the scene path's own `RCTLinkingManager` call, not a log that always prints after `deliver`. The 2026-10-19 simulator run was the older unconditional log. This placement has not been run on a simulator.
 
 ## Info.plist shape
 
@@ -183,7 +187,8 @@ Single scene. `supportsTablet: true` stays. iOS 27 resizability does not require
 - **Lifecycle forwarded twice.** If a future iOS still calls both scene and app-delegate lifecycle methods, subscribers run twice. URL delivery is deduped. Lifecycle is not. Splash and dev-menu code in SDK 56 is idempotent enough that a double active/resign should not blank the window. The iOS 26.5 parity job is the regression net for painting.
 - **Debug + `expo-dev-launcher`.** The launcher stores an external cold URL as a pending deep link and returns true. We still call `RCTLinkingManager` when that happens. A debug cold start can therefore surface the URL both as `getInitialURL` and as the launcher's pending link. Release parity builds exclude the dev client. Do not "fix" that by removing the direct `RCTLinkingManager` call.
 - **Template drift.** `ensureSceneLifecycle` throws when the `UIWindow(frame: UIScreen.main.bounds)` block disappears from the Expo template. Prebuild fails instead of shipping an app delegate that still owns the window.
-- **Rollback.** Revert the plugin and restore the parity "no scene delegate" gate. The app returns to the iOS 26 behavior and the iOS 27 crash.
+- **Rollback.** Revert the plugin and the iOS 27 crash returns. Do not restore a workflow gate that fails when `Info.plist` contains `UISceneDelegateClassName`. Draft #326 (`QUALITY-010`) still has that negative gate. This branch's workflow requires `Atmos.SceneDelegate` instead. After #326 merges, keep the positive check and keep `specs/README.md` rows QUALITY-009, QUALITY-010, and QUALITY-011 in that order.
+- **AppState.** Scene method forwarding and `RCTAppState`'s notification observers are different channels. S8 is pending.
 
 ## Dependencies & compatibility
 

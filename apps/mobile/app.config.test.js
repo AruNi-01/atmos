@@ -55,6 +55,7 @@ describe("applyParityPreviewConfig", () => {
   test("keeps a scene manifest for parity preview builds", () => {
     const withScene = {
       ...base,
+      plugins: [...base.plugins, "./plugins/with-ios-scene-lifecycle.js"],
       ios: {
         infoPlist: {
           UIApplicationSceneManifest: { UISceneDelegateClassName: "Atmos.SceneDelegate" },
@@ -71,6 +72,7 @@ describe("applyParityPreviewConfig", () => {
       );
       expect(next.ios.infoPlist.NSCameraUsageDescription).toBe("camera");
       expect(pluginNames(next)).not.toContain("expo-dev-client");
+      expect(pluginNames(next)).toContain("./plugins/with-ios-scene-lifecycle.js");
     } finally {
       if (previous === undefined) delete process.env.EXPO_PUBLIC_PARITY_PREVIEW;
       else process.env.EXPO_PUBLIC_PARITY_PREVIEW = previous;

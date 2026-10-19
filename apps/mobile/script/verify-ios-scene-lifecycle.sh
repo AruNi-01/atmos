@@ -107,6 +107,9 @@ check_swift() {
     'NSUserActivityTypeBrowsingWeb' \
     'RCTOpenURLNotification' \
     'RCTLinkingManager.application' \
+    'func sceneDidDisconnect' \
+    'window = nil' \
+    'if !observer.wasNotified' \
     "$URL_LOG" \
     "$ACTIVITY_LOG"
   do
@@ -250,8 +253,8 @@ assert_deep_links() {
     printf '%s\n' "$logs" >&2
     exit 1
   fi
-  echo "PASS deep link: cold and warm URL reached RCTLinkingManager (${count} log lines)"
-  echo "The fixed NSLog does not include the URL. The system log may still mention it."
+  echo "PASS deep link: scene notify called RCTLinkingManager (${count} log lines)"
+  echo "The NSLog is inside notify and does not include the URL. The system log may still mention it."
 }
 
 build_release() {

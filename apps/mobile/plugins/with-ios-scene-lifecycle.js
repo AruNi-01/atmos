@@ -2,6 +2,7 @@ const { withAppDelegate, withInfoPlist } = require("expo/config-plugins");
 
 const MARKER = "Atmos adopts the UIScene lifecycle";
 const WINDOW_LINE = "window = UIWindow(frame: UIScreen.main.bounds)";
+const SCENE_CLASS_LINE = "class SceneDelegate: UIResponder, UIWindowSceneDelegate";
 
 const SCENE_DELEGATE_CLASS = "$(PRODUCT_MODULE_NAME).SceneDelegate";
 
@@ -43,18 +44,30 @@ function removeAppDelegateWindow(contents) {
   return contents.slice(0, ifAt) + replacement + contents.slice(endAt + endMarker.length);
 }
 
+function withSceneSource(contents) {
+  const markerAt = contents.indexOf(MARKER);
+  if (markerAt < 0) {
+    return `${contents.replace(/\s*$/, "")}\n${SCENE_SOURCE}`;
+  }
+  const lineStart = contents.lastIndexOf("\n", markerAt) + 1;
+  return `${contents.slice(0, lineStart).replace(/\s*$/, "")}\n${SCENE_SOURCE}`;
+}
+
 function ensureSceneLifecycle(contents) {
   if (contents.includes(MARKER)) {
     if (contents.includes(WINDOW_LINE)) {
       throw new Error("AppDelegate still creates a UIWindow after the scene lifecycle marker.");
     }
-    return contents;
+    if (contents.includes(SCENE_CLASS_LINE)) {
+      return contents;
+    }
+    return withSceneSource(contents);
   }
   const next = removeAppDelegateWindow(contents);
   if (!next.includes("RCTLinkingManager.application")) {
     throw new Error("AppDelegate no longer forwards links to RCTLinkingManager.");
   }
-  return `${next}\n${SCENE_SOURCE}`;
+  return withSceneSource(next);
 }
 
 function withIosSceneLifecycle(config) {
@@ -223,6 +236,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
       .applicationDidEnterBackground(UIApplication.shared)
   }
 
+  func sceneDidDisconnect(_ scene: UIScene) {
+    window = nil
+  }
+
   private func deliverOpen(
     _ url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any],
@@ -232,8 +249,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
       _ = appDelegate.application(UIApplication.shared, open: url, options: options)
     }, notify: {
       _ = RCTLinkingManager.application(UIApplication.shared, open: url, options: options)
+      NSLog("AtmosSceneLifecycle delivered URL to RCTLinkingManager")
     })
-    NSLog("AtmosSceneLifecycle delivered URL to RCTLinkingManager")
   }
 
   private func deliverContinue(_ userActivity: NSUserActivity, appDelegate: AppDelegate) {
@@ -247,10 +264,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         UIApplication.shared,
         continue: userActivity,
         restorationHandler: { _ in })
-    })
-    if userActivity.webpageURL != nil {
       NSLog("AtmosSceneLifecycle delivered userActivity to RCTLinkingManager")
-    }
+    })
   }
 }
 `;
@@ -260,3 +275,4 @@ module.exports.ensureSceneLifecycle = ensureSceneLifecycle;
 module.exports.sceneManifest = sceneManifest;
 module.exports.MARKER = MARKER;
 module.exports.SCENE_DELEGATE_CLASS = SCENE_DELEGATE_CLASS;
+module.exports.SCENE_CLASS_LINE = SCENE_CLASS_LINE;
