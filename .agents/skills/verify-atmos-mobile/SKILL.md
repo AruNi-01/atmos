@@ -47,7 +47,7 @@ Proof standards: drive the real user path (pair screen, list tap, composer, head
 
 Topic `bug-bash`. Charters come from `features/*.md`. Bug-bash config: copy `e2e.config.ts` to `e2e.bugbash.config.ts` (untracked) keeping `workers: 1` — there is one simulator and one paired app, never drive it from two runs at once. Add `.e2e/bugbash/` output under the already-ignored `.e2e/`. A finding is a bug only once `tests/bugbash/<slug>.e2e.ts` fails with `ASSERTION_FAILED`.
 
-Share proof with a cloud agent: `just mobile-e2e-evidence <pr> "<note>"` pushes screenshot, a11y tree and report to branch `agent-artifacts` at `pr-<N>/<sha>/`. Hand the branch over with a `HANDOFF:` PR comment. Rules: `specs/APP/QUALITY-009_mobile-agent-e2e/TECH.md`.
+Share proof with a cloud agent: `just mobile-e2e-evidence <pr> "<note>"` stages a screenshot, a11y tree, and report under `apps/mobile/e2e/.e2e/evidence/pr-<N>/<sha>/`. It does not push. Set `EVIDENCE_PUSH=1` to publish that folder to branch `agent-artifacts` at `pr-<N>/<sha>/`. Warning: that remote is a PUBLIC repo. Do not push screenshots or chat content of a paired app. Hand the branch over with a `HANDOFF:` PR comment only after an explicit push of a neutral route. Rules: `specs/APP/QUALITY-009_mobile-agent-e2e/TECH.md`.
 
 ## Cleanup
 

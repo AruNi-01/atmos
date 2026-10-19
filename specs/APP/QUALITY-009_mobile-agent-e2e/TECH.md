@@ -40,7 +40,7 @@ Rules: do not add this suite to CI; do not import across the two packages; keep 
 | `just mobile-e2e-install`              | Installs the last build onto the pinned Simulator                                                                                                                                                                                      |
 | `just mobile-e2e-smoke`                | `tests/smoke.e2e.ts` (unpaired launch shows the pair screen)                                                                                                                                                                           |
 | `just mobile-e2e-run [file]`           | Whole suite, or one file                                                                                                                                                                                                               |
-| `just mobile-e2e-evidence <pr> [note]` | Capture and push proof (see below)                                                                                                                                                                                                     |
+| `just mobile-e2e-evidence <pr> [note]` | Capture proof locally. Push only when `EVIDENCE_PUSH=1` (see below; QUALITY-010)                                                                                                                                                       |
 
 ### Device pinning
 
@@ -57,12 +57,12 @@ Use a Release build: it carries its JS and needs no Metro. A Debug build opens t
 
 ## Evidence
 
-`just mobile-e2e-evidence <pr> [note]` writes `apps/mobile/e2e/.e2e/evidence/pr-<N>/<sha>/` then pushes the same folder to the orphan branch `agent-artifacts`:
+`just mobile-e2e-evidence <pr> [note]` writes `apps/mobile/e2e/.e2e/evidence/pr-<N>/<sha>/`. It pushes that folder to the orphan branch `agent-artifacts` only when `EVIDENCE_PUSH=1` (QUALITY-010; previously the script pushed unless `EVIDENCE_NO_PUSH=1`):
 
 ```text
 pr-<N>/<sha>/
 ├── README.md          index (branch, device, note, file list)
-├── meta.json          pr, full sha, branch, device UDID, host, agent-device version, time, note
+├── meta.json          pr, full sha, branch, device UDID, agent-device version, time, note (no hostname)
 ├── screen.png         simctl framebuffer screenshot, scaled (EVIDENCE_SCALE, default 0.4)
 ├── a11y.txt           agent-device snapshot -i
 ├── report.json        last `e2e run` report, if present
@@ -72,7 +72,7 @@ pr-<N>/<sha>/
 
 - `EVIDENCE_LINK=atmos://<route>` opens a deep link before capturing; `EVIDENCE_WAIT_MS` sets the settle time (default 3000).
 - The screenshot comes from `xcrun simctl io screenshot`, not `agent-device screenshot`: on iOS 26.5 the latter drew sheets black while the a11y tree was correct.
-- **The remote is public.** Never push evidence of a paired app's real screens (workspace names, chat text, Computer URLs). Capture a neutral route with `EVIDENCE_LINK`, or use `EVIDENCE_NO_PUSH=1` and describe the result in the PR comment.
+- **The remote is public.** Never push evidence of a paired app's real screens (workspace names, chat text, Computer URLs). The script does not push unless `EVIDENCE_PUSH=1`. Use that only with a neutral `EVIDENCE_LINK`. `meta.json` must not include a hostname.
 - Videos stay local in `.e2e/evidence-video/`. Only text, scaled PNGs and the contact sheet are pushed.
 - `<sha>` is the 9-char HEAD of the checkout that built the app. Re-running at the same sha overwrites that folder.
 - The script publishes through a throwaway repo, so the working checkout is untouched. A push race is retried (fetch, re-copy, push); history is never force-pushed.
