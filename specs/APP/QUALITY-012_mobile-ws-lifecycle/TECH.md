@@ -133,8 +133,11 @@ For each tracked chat:
 This is **not** a `WsEvent` and must not be added to the Rust enum / `@atmos/api-types` contract in this spec.
 
 5. **Do not** advance the cursor from subscribe `last_event_seq` until the snapshot emits. Mark `pendingSnapshots` before `agent_chat_get`; clear it only after emitting `agent_chat_resync`. If get throws, the next retry still snapshots even when subscribe seq matches the (possibly live-advanced) cursor.
-6. After a successful snapshot, advance the cursor to `max(cursor, snapshot.meta.last_event_seq, last_event_seq)`.
-7. Clear the catching-up alert only after **every** tracked chat finished subscribe + optional snapshot without throwing. Failures back off and keep the alert.
+6. After a successful snapshot, advance the cursor with `noteRevision` (`max(current, next)` so a live cursor is never pulled back):
+   - if `snapshot.meta.last_event_seq` is a number, use that;
+   - otherwise fall back to subscribe `last_event_seq`.
+     Do **not** `max(..., last_event_seq)` when snapshot seq is present — subscribe seq can sit ahead of the persisted snapshot and must not skip that floor.
+7. Clear the catching-up alert only after **every** tracked chat finished subscribe + optional snapshot without throwing, **and** this `resubscribeNow` generation is still current. A newer overlapping round (for example `setForeground(true)` scheduling delay-0 while a get is in flight) bumps the generation so a stale round whose `live()` returned early cannot clear the banner. Failures back off and keep the alert.
 
 The open thread hook applies the snapshot **in place** via `applyAgentChatResync`:
 
@@ -145,8 +148,10 @@ The open thread hook applies the snapshot **in place** via `applyAgentChatResync
 
 ### Implementation delta (2026-10-19)
 
-- Ring overflow: do **not** apply the incoming snapshot (it would drop already-folded events). Fetch a replacement `agent_chat_get` and apply only if that fetch succeeds; keep `overflowed` and the current transcript until then. The follow-up get is generation-guarded so a newer resync cannot be overwritten.
+- Ring overflow: do **not** apply the incoming snapshot (it would drop already-folded events). Fetch a replacement `agent_chat_get` and apply only if that fetch succeeds; keep `overflowed` and the current transcript until then. The follow-up get is generation-guarded so a newer resync cannot be overwritten. Clear `overflowed` only when `overflowGen` is unchanged during that get — another ring overflow while the replacement is in flight must keep the flag so the next façade resync fetches again.
 - `MobileWsClient` per-chat generation: stale in-flight `agent_chat_get` must not emit `agent_chat_resync` or clear `pendingSnapshots`.
+- `resubscribeNow` generation: overlapping rounds (second `relay_ctrl`, or `setForeground(true)` while a get is in flight) must not let the older `Promise.all` clear the catching-up alert.
+- Kernel socket replace: unbind `onopen` / `onmessage` / `onerror` / `onclose` on the previous socket (same as `disconnect()`), and ignore those callbacks unless `this.socket === socket`. A late error from the replaced connection must not `setState("error")` (the open-thread hook would otherwise remount and clear transcript).
 
 ## iOS socket
 
