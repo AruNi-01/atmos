@@ -24,15 +24,53 @@ export function agentChatHeadingStyle(color: string) {
   };
 }
 
+/** Composer-card markdown: match the 14/500 dock title, not Streamdown H2. */
+export const agentChatCardHeadingMetrics = {
+  fontSize: 14,
+  fontWeight: "500" as const,
+  lineHeight: 20,
+  marginBottom: 8,
+  marginTop: 0,
+};
+
+export function agentChatCardHeadingStyle(color: string) {
+  const shared = { color, ...agentChatCardHeadingMetrics };
+  return {
+    h1: shared,
+    h2: shared,
+    h3: shared,
+    h4: shared,
+    h5: shared,
+    h6: shared,
+  };
+}
+
+/**
+ * Ordered markers (`1.`) were wider than discs, so list text started at
+ * different x. One marker column keeps ul/ol copy aligned.
+ */
+export const agentChatCardListMetrics = {
+  gapWidth: 8,
+  marginLeft: 24,
+  markerMinWidth: 22,
+} as const;
+
 /**
  * Tailwind preflight zeros `p` and `ul` margins. Streamdown list items are
  * `py-1`. Agent fences and tables use `my-4`, and fence text is `text-sm leading-5`.
+ * Prose lists keep a zero block margin; composer-card lists keep an 8pt gap.
  */
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: 0 },
   list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },
   codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 8 },
   table: { marginTop: 16, marginBottom: 16 },
+} as const;
+
+export const agentChatCardListBlock = {
+  marginTop: 0,
+  marginBottom: 8,
+  itemSpacing: 8,
 } as const;
 
 /**

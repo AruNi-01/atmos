@@ -1,12 +1,13 @@
-import { useEffect, useState, type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
-import { AccessibilityInfo, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import type { GlassViewProps } from "expo-glass-effect";
 import { colors, radii, type MobileThemeColorScheme } from "@/theme/colors";
 import { shadows } from "@/theme/shadows";
 import { useMobileTheme } from "@/theme/theme-store";
 import { shouldUseLiquidGlass } from "./glass-availability";
+import { useReduceTransparencyEnabled } from "./use-reduce-transparency";
 
 type GlassPanelProps = PropsWithChildren<{
   colorScheme?: MobileThemeColorScheme;
@@ -37,8 +38,7 @@ export function GlassPanel({
     liquidGlassAvailable: isLiquidGlassAvailable(),
     reduceTransparency,
   });
-  const resolvedTintColor = tintColor ?? theme.colors.glassTint;
-  const panelStyle = [styles.panel, { borderColor: theme.colors.glassBorder }, style];
+  const shadowStyle = shadow ? (isDark ? styles.darkShadow : styles.lightShadow) : null;
 
   if (useLiquidGlass) {
     return (
@@ -46,8 +46,8 @@ export function GlassPanel({
         colorScheme={resolvedScheme}
         glassEffectStyle={glassEffectStyle}
         isInteractive={interactive}
-        style={[shadow ? (isDark ? styles.darkShadow : styles.lightShadow) : null, panelStyle]}
-        tintColor={resolvedTintColor}
+        style={[shadowStyle, styles.shape, style]}
+        {...(tintColor != null ? { tintColor } : null)}
       >
         {children}
       </GlassView>
@@ -57,41 +57,20 @@ export function GlassPanel({
   return (
     <View
       style={[
+        styles.shape,
         styles.fallback,
-        shadow ? (isDark ? styles.darkShadow : styles.lightShadow) : null,
-        { backgroundColor: theme.colors.glassFallback },
+        shadowStyle,
+        {
+          backgroundColor: theme.colors.glassFallback,
+          borderColor: theme.colors.glassBorder,
+        },
         fallbackStyle,
-        panelStyle,
+        style,
       ]}
     >
       {children}
     </View>
   );
-}
-
-function useReduceTransparencyEnabled(): boolean {
-  const [enabled, setEnabled] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    const read = AccessibilityInfo.isReduceTransparencyEnabled;
-    if (typeof read !== "function") return undefined;
-    void read()
-      .then((value) => {
-        if (alive) setEnabled(value);
-      })
-      .catch(() => undefined);
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceTransparencyChanged",
-      setEnabled,
-    );
-    return () => {
-      alive = false;
-      subscription.remove();
-    };
-  }, []);
-
-  return enabled;
 }
 
 const styles = StyleSheet.create({
@@ -100,15 +79,15 @@ const styles = StyleSheet.create({
   },
   fallback: {
     backgroundColor: colors.glassFallback,
+    borderColor: colors.glassBorder,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   lightShadow: {
     boxShadow: shadows.glassPanelLight,
   },
-  panel: {
-    borderColor: colors.glassBorder,
+  shape: {
     borderCurve: "continuous",
     borderRadius: radii.card,
-    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
 });

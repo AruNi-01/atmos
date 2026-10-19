@@ -45,9 +45,14 @@ describe("composer capabilities", () => {
     expect(composerSource).toContain("applyComposerPaste");
   });
 
-  test("keeps the placeholder on its own line and hides an empty model label", () => {
-    expect(composerSource).toContain("paddingHorizontal: 16");
-    expect(composerSource).not.toContain("paddingLeft: 60");
+  test("hides an empty model label and interpolates compact vs expanded padding from the helper", () => {
+    expect(composerSource).toContain("composerDockInputPadding(false)");
+    expect(composerSource).toContain("composerDockInputPadding(true)");
+    expect(composerSource).toContain("COMPACT_PAD.paddingLeft");
+    expect(composerSource).toContain("EXPANDED_PAD.paddingLeft");
+    expect(composerSource).not.toContain(
+      "[COMPOSER_COMPACT_PAD_HORIZONTAL, COMPOSER_EXPANDED_PAD_HORIZONTAL]",
+    );
     expect(composerSource).toContain("showNoAgent");
     expect(composerSource).not.toContain("|| copy.model");
   });
