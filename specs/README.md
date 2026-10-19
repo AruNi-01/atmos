@@ -172,6 +172,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **QUALITY-009**      | Mobile Agent E2E (local iOS Simulator harness; not CI Playwright)                                                                                                                               | `specs/APP/QUALITY-009_mobile-agent-e2e/` (`TECH.md`, `TEST.md`)                                                                        |
 | **QUALITY-010**      | Audit safety hardening (Settings theme stays on the JS layer, evidence push opt-in, just quoting, iOS parity CI, oxlint ratchet, small tsc fixes)                                               | `specs/APP/QUALITY-010_audit-safety-hardening/` (`TECH.md`, `TEST.md`)                                                                  |
 | **QUALITY-011**      | Mobile iOS 27 UIScene lifecycle (cold start; deep links still reach `RCTLinkingManager`)                                                                                                        | `specs/APP/QUALITY-011_mobile-ios-scene-lifecycle/` (`TECH.md`, `TEST.md`)                                                              |
+| **QUALITY-012**      | Mobile WebSocket lifecycle (timeout, heartbeat ping-pong, slow_retry, AppState/network pause, `retryNow`, `relay_ctrl` resubscribe + snapshot resync)                                           | `specs/APP/QUALITY-012_mobile-ws-lifecycle/` (`TECH.md`, `TEST.md`)                                                                     |
 
 ### Landing
 

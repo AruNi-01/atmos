@@ -70,11 +70,13 @@
 - **When** max attempts exhausted
 - **Then** next schedule uses ~60000ms slow retry (fake timers), not permanent silent death
 
-### T-RCN-02 — Mobile exhausted behavior
+### T-RCN-02 — Exhausted `stop` (injected policy)
 
-- **Given** `DEFAULT_MOBILE_RECONNECT`
+- **Given** a reconnect policy with `exhausted: { type: "stop" }` (not the mobile default)
 - **When** max attempts exhausted
-- **Then** no further reconnect timers; state terminal closed/disconnected per mapping
+- **Then** no further reconnect timers; state terminal `closed`
+
+Mobile **default** exhausted behavior is `slow_retry` 60s (QUALITY-012 S2). T-RCN-03 covers the delay.
 
 ### T-SCOPE-02 — After wait invalidation
 
