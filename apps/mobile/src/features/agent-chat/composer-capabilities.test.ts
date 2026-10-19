@@ -50,27 +50,6 @@ describe("composer capabilities", () => {
     expect(composerSource).not.toContain("paddingLeft: 60");
     expect(composerSource).toContain("showNoAgent");
     expect(composerSource).not.toContain("|| copy.model");
-    expect(composerSource).toContain("const LINE_HEIGHT = 20");
-    expect(composerSource).toContain("const FIELD_FONT_SIZE = 14");
-    expect(composerSource).toContain("const MAX_LINES = 8");
-    expect(composerSource).toContain("const BUTTON_SIZE = 32");
-    expect(composerSource).toContain("export const COMPOSER_GLYPH_OPACITY = 0.8");
-    expect(composerSource).toContain("opacity: COMPOSER_GLYPH_OPACITY");
-    expect(composerSource).toContain(
-      "opacity: props.busy || sendReady ? COMPOSER_GLYPH_OPACITY : 1",
-    );
-    expect(composerSource).toContain("const SHELL_RADIUS = 22");
-    expect(composerSource).toContain("composerShellFill");
-    expect(composerSource).not.toContain("ChevronDownIcon");
-  });
-
-  test("the context trigger is the web ring and percent", () => {
-    const contextAt = composerSource.indexOf("const renderContext");
-    const context = composerSource.slice(contextAt, composerSource.indexOf("return (", contextAt));
-    expect(context).toContain("<ContextRing");
-    expect(context).toContain("fontSize: 11");
-    expect(context).toContain('fontWeight: "500"');
-    expect(context).not.toContain("GlassPanel");
   });
 
   test("labels the context trigger with the percent, or Context, only when that card is in the lane", () => {

@@ -16,24 +16,13 @@ import {
   sessionChromeCopy,
   thinkingTitle,
   workedForPresentation,
-  workedForVisibleKind,
+  workedForRevealText,
 } from "./copy";
 import {
   collectTurnFileChanges,
   presentedTurnFileChange,
   visibleTurnFileChanges,
 } from "./turn-file-changes";
-import {
-  USAGE_TOOLTIP_ARROW,
-  USAGE_TOOLTIP_GAP,
-  USAGE_TOOLTIP_OFFSET,
-  USAGE_TOOLTIP_PAD,
-  USAGE_TOOLTIP_RADIUS,
-  USAGE_TOOLTIP_WIDTH,
-  usageTooltipFill,
-  usageTooltipRule,
-  usageTooltipText,
-} from "./usage-tooltip";
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
@@ -48,54 +37,6 @@ describe("assistant footer", () => {
     expect(compactTurnTokenLabel({ total_tokens: 999 })).toBe("999");
     expect(compactTurnTokenLabel({ total_tokens: 1000 })).toBe("1.0k");
     expect(compactTurnTokenLabel({ total_tokens: 1500, input_tokens: 1 })).toBe("1.5k");
-    expect(USAGE_TOOLTIP_WIDTH).toBe(208);
-    expect(USAGE_TOOLTIP_RADIUS).toBe(8);
-    expect(USAGE_TOOLTIP_PAD).toBe(12);
-    expect(USAGE_TOOLTIP_GAP).toBe(6);
-    expect(USAGE_TOOLTIP_OFFSET).toBe(4);
-    expect(USAGE_TOOLTIP_ARROW).toBe(10);
-    expect(usageTooltipFill(false)).toBe("#09090b");
-    expect(usageTooltipFill(true)).toBe("#fafafa");
-    expect(usageTooltipText(false)).toBe("#ffffff");
-    expect(usageTooltipText(true)).toBe("#09090b");
-    expect(usageTooltipRule(false)).toBe("rgba(255, 255, 255, 0.2)");
-    expect(usageTooltipRule(true)).toBe("rgba(9, 9, 11, 0.2)");
-    const footer = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
-    const badge = footer.slice(
-      footer.indexOf("function usageBadgeBorder"),
-      footer.indexOf("function WorkedForLabel"),
-    );
-    expect(badge).toContain('return isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.07)"');
-    expect(badge).toContain('borderStyle: "dashed"');
-    expect(badge).toContain("borderWidth: 1");
-    expect(badge).toContain("const muted = chatMutedForeground(theme.isDark)");
-    expect(badge).toContain("<CoinsIcon color={muted} size={12} />");
-    expect(badge).toContain('bottom: "100%"');
-    expect(badge).toContain("marginBottom: USAGE_TOOLTIP_OFFSET");
-    expect(badge).toContain("translateX: -USAGE_TOOLTIP_WIDTH / 2");
-    expect(badge).not.toContain("theme.colors.secondaryLabel");
-    expect(badge).not.toContain("glassBorder");
-    expect(badge).not.toContain("hairlineWidth");
-    const breakdown = footer.slice(
-      footer.indexOf("function UsageTooltipRule"),
-      footer.indexOf("function usageBadgeBorder"),
-    );
-    expect(breakdown).toContain("usageTooltipFill(isDark)");
-    expect(breakdown).toContain("usageTooltipText(isDark)");
-    expect(breakdown).toContain("usageTooltipRule(isDark)");
-    expect(breakdown).toContain("borderRadius: USAGE_TOOLTIP_RADIUS");
-    expect(breakdown).toContain("width: USAGE_TOOLTIP_WIDTH");
-    expect(breakdown).toContain('fontFamily: "Menlo"');
-    expect(breakdown).toContain('fontWeight: bold ? "700" : "400"');
-    expect(breakdown).toContain('transform: [{ rotate: "45deg" }]');
-    expect(breakdown).toContain("marginTop: -(USAGE_TOOLTIP_ARROW / 2 + 1)");
-    expect(breakdown).not.toContain("marginBottom: -USAGE_TOOLTIP_ARROW / 2");
-    expect(breakdown.indexOf("borderRadius: USAGE_TOOLTIP_RADIUS")).toBeLessThan(
-      breakdown.indexOf('transform: [{ rotate: "45deg" }]'),
-    );
-    expect(breakdown).not.toContain("glassBorder");
-    expect(breakdown).not.toContain("hairlineWidth");
-    expect(breakdown).not.toContain("cardElevated");
   });
 
   test("worked-for uses the duration only when worked_ms is positive", () => {
@@ -107,36 +48,14 @@ describe("assistant footer", () => {
     expect(clockOnly.durationLabel).toBeNull();
     expect(clockOnly.clock).toBe(withWork.clock);
     expect(workedForPresentation(0, "not-a-date").clock).toBeNull();
-    expect(workedForVisibleKind({ hasClock: true, hasDuration: true, showDuration: false })).toBe(
-      "clock",
-    );
-    expect(workedForVisibleKind({ hasClock: true, hasDuration: true, showDuration: true })).toBe(
-      "duration",
-    );
-    expect(workedForVisibleKind({ hasClock: false, hasDuration: true, showDuration: false })).toBe(
-      "duration",
-    );
-    expect(workedForVisibleKind({ hasClock: true, hasDuration: false, showDuration: true })).toBe(
-      "clock",
-    );
-    expect(
-      workedForVisibleKind({ hasClock: false, hasDuration: false, showDuration: false }),
-    ).toBeNull();
+    expect(workedForRevealText(withWork, "timestamp", false)).toBe(withWork.clock);
+    expect(workedForRevealText(withWork, "timestamp", true)).toBe(withWork.durationLabel);
+    expect(workedForRevealText(withWork, "duration", false)).toBe(withWork.durationLabel);
+    expect(workedForRevealText(clockOnly, "timestamp", false)).toBe(clockOnly.clock);
     const footer = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
-    expect(footer).toContain("workedForVisibleKind");
-    expect(footer).toContain("WORKED_FOR_SWAP_MS = 200");
-    expect(footer).toContain("setShowDuration");
-    const worked = footer.slice(
-      footer.indexOf("function WorkedForLabel"),
-      footer.indexOf("function FileStats"),
-    );
-    expect(worked).toContain("chatMutedForeground(theme.isDark)");
-    expect(worked).not.toContain("theme.colors.secondaryLabel");
-    const slot = footer.slice(footer.indexOf("styles.workedFor"), footer.indexOf("FileStats"));
-    const sizers = slot.split("styles.sizer").length - 1;
-    expect(sizers).toBe(2);
-    expect(slot).toContain("{presentation.clock}");
-    expect(slot).toContain("{presentation.durationLabel}");
+    expect(footer).toContain('reveal="timestamp"');
+    expect(footer).toContain('reveal = "timestamp"');
+    expect(footer).toContain("workedForRevealText");
   });
 
   test("hides ended chrome until the turn completes with text, usage, or work", () => {
@@ -282,8 +201,8 @@ describe("assistant footer", () => {
     expect(thinkingTitle(false, undefined)).toBe("Thought for a few seconds");
     expect(thinkingTitle(false, 2)).toBe("Thought for 2s");
     expect(
-      sessionChromeCopy({ type: "session_lifecycle", action: "create", status: "running" }),
-    ).toMatchObject({ shimmer: true, text: "Creating session...", tone: "secondary" });
+      sessionChromeCopy({ type: "session_lifecycle", action: "create", status: "running" }).text,
+    ).toBe("Creating session...");
     expect(
       sessionChromeCopy({
         type: "session_lifecycle",
@@ -348,8 +267,6 @@ describe("assistant footer", () => {
     const answer = readFileSync(join(dir, "answer-text.tsx"), "utf8");
     expect(answer).toContain("copy.answerCaret");
     expect(answer).toContain("foldedPartIsStreamingDisplayTail");
-    expect(answer).toContain("answerShowsBlockCaret");
-    expect(answer).toContain("`${paced} ${copy.answerCaret}`");
     expect(answer).toContain("fontSize={14}");
     expect(answer).toContain("lineHeight={20}");
     expect(answer).toContain("if (!part.text) return null");
@@ -357,20 +274,12 @@ describe("assistant footer", () => {
     const error = readFileSync(join(dir, "error-part.tsx"), "utf8");
     expect(error).toContain("chatDestructiveSurface");
     expect(error).toContain("chatDestructiveBorder");
-    expect(error).toContain("chatDestructiveColor");
-    expect(error).toContain("borderWidth: 1");
     expect(error).toContain("TriangleAlert");
-    expect(error).toContain("marginTop: 2");
     expect(error).toContain("if (!part.message) return null");
-    expect(error).not.toContain("theme.colors.red");
-    expect(error).not.toContain("hairlineWidth");
     const permission = readFileSync(join(dir, "historic-permission.tsx"), "utf8");
     expect(permission).toContain('part.request.status === "pending"');
-    expect(permission).toContain("<AgentChatPermissionCard");
-    expect(permission).toContain("readOnly");
-    expect(permission).toContain("onRespond={() => undefined}");
+    expect(permission).toContain("AgentChatPermissionCard");
     expect(permission).not.toContain("Permission needed");
-    expect(permission).not.toContain("cardElevated");
     const session = readFileSync(join(dir, "session-chrome.tsx"), "utf8");
     expect(session).toContain("MessageCircleMore");
     expect(session).toContain("MessageCirclePlus");
@@ -378,36 +287,5 @@ describe("assistant footer", () => {
     expect(session).toContain("Layers");
     expect(session).toContain("TriangleAlert");
     expect(session).toContain("size={14}");
-    expect(session).toContain("chatDestructiveColor");
-    expect(session).toContain("chatMutedForeground");
-    expect(session).toContain("TextShimmer");
-    expect(session).toContain("duration={1}");
-    expect(session).toContain("CHAT_AMBER");
-    expect(session).not.toContain("theme.colors.secondaryLabel");
-    expect(session).not.toContain("colors.red");
-    expect(session).not.toContain("colors.yellow");
-  });
-
-  test("file change counts use the same addition and deletion colors as the tool row", () => {
-    const source = readFileSync(join(dir, "assistant-footer.tsx"), "utf8");
-    const stats = source.slice(
-      source.indexOf("function FileStats"),
-      source.indexOf("export function AssistantFooter"),
-    );
-    expect(stats).toContain("TOOL_ADDITION_COLOR");
-    expect(stats).toContain("TOOL_DELETION_COLOR");
-    expect(stats).toContain('" "');
-    expect(stats).not.toContain("theme.colors.green");
-    expect(stats).not.toContain("theme.colors.red");
-    const files = source.slice(
-      source.indexOf("export function AssistantTurnFiles"),
-      source.indexOf("const styles"),
-    );
-    expect(files).toContain("const muted = chatMutedForeground(theme.isDark)");
-    expect(files).toContain("color: chatForeground(theme.isDark)");
-    expect(files).not.toContain("theme.colors.label");
-    const icon = files.slice(files.indexOf("<FileTextIcon"), files.indexOf("fileChangeName"));
-    expect(icon).toContain("theme.colors.secondaryLabel");
-    expect(files.split("theme.colors.secondaryLabel").length - 1).toBe(1);
   });
 });

@@ -3,9 +3,10 @@
 //! Auto-reconnect: when the upstream WebSocket drops for any non-terminal reason
 //! (network blip, Cloudflare edge restart, daemon laptop returning from sleep),
 //! the supervisor reconnects with exponential backoff (1 s → 2 s → 4 s … capped
-//! at 60 s). Connectivity flips to `false` while disconnected; the next
-//! successful upgrade flips it back to `true` and resets backoff. Terminal
-//! errors (401/403, bad URL) stop the loop and surface via `last_error`.
+//! at 60 s). Connectivity flips to `false` while disconnected. A successful
+//! upstream upgrade (HTTP 101) flips it back to `true` and resets backoff to
+//! 1 s so later drops start the schedule over instead of staying at the cap.
+//! Terminal errors (401/403, bad URL) stop the loop and surface via `last_error`.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -23,6 +24,31 @@ use crate::relay::ingest::{self, RelayLifecycle, RunOutcome};
 /// Backoff schedule for relay reconnect attempts.
 const RECONNECT_BACKOFF_INITIAL: Duration = Duration::from_secs(1);
 const RECONNECT_BACKOFF_MAX: Duration = Duration::from_secs(60);
+
+/// Exponential reconnect delay. Failed attempts double the wait (capped at
+/// 60 s). A successful upstream upgrade resets the next wait to 1 s.
+struct ReconnectBackoff {
+    delay: Duration,
+}
+
+impl ReconnectBackoff {
+    fn new() -> Self {
+        Self {
+            delay: RECONNECT_BACKOFF_INITIAL,
+        }
+    }
+
+    /// Duration to sleep after this disconnect, then climb toward the cap.
+    /// `established` is true when the dropped attempt had completed upgrade.
+    fn next_delay(&mut self, established: bool) -> Duration {
+        if established {
+            self.delay = RECONNECT_BACKOFF_INITIAL;
+        }
+        let wait = self.delay;
+        self.delay = (self.delay * 2).min(RECONNECT_BACKOFF_MAX);
+        wait
+    }
+}
 
 struct SupervisorInner {
     cancel: Option<CancellationToken>,
@@ -94,7 +120,7 @@ impl RelaySupervisor {
         let last_error = Arc::clone(&self.last_error);
 
         let handle = tokio::spawn(async move {
-            let mut backoff = RECONNECT_BACKOFF_INITIAL;
+            let mut backoff = ReconnectBackoff::new();
 
             loop {
                 if task_cancel.is_cancelled() {
@@ -123,28 +149,25 @@ impl RelaySupervisor {
                         );
                         break;
                     }
-                    RunOutcome::Disconnected => {
+                    RunOutcome::Disconnected { established } => {
                         if task_cancel.is_cancelled() {
                             break;
                         }
+                        let wait = backoff.next_delay(established);
                         warn!(
                             target: "atmos_relay",
-                            backoff_secs = backoff.as_secs(),
+                            backoff_secs = wait.as_secs(),
+                            established,
                             "relay disconnected; reconnecting after backoff"
                         );
                         tokio::select! {
                             _ = task_cancel.cancelled() => break,
-                            _ = tokio::time::sleep(backoff) => {}
+                            _ = tokio::time::sleep(wait) => {}
                         }
-                        backoff = (backoff * 2).min(RECONNECT_BACKOFF_MAX);
                         continue;
                     }
                 }
             }
-
-            // Reset for the next call to `start`.
-            backoff = RECONNECT_BACKOFF_INITIAL;
-            let _ = backoff;
         });
 
         let mut guard = self.inner.lock().await;
@@ -238,5 +261,35 @@ fn join_error_message(e: &tokio::task::JoinError) -> String {
         "Relay worker was cancelled.".into()
     } else {
         format!("Relay worker failed: {e}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_connects_double_until_sixty_second_cap() {
+        let mut backoff = ReconnectBackoff::new();
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(1));
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(2));
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(4));
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(8));
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(16));
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(32));
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(60));
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(60));
+    }
+
+    #[test]
+    fn successful_upgrade_resets_backoff_to_one_second() {
+        let mut backoff = ReconnectBackoff::new();
+        for _ in 0..6 {
+            let _ = backoff.next_delay(false);
+        }
+        // Without a reset this would wait 60 s (the cap). After a successful
+        // upgrade the next drop starts the schedule at 1 s again.
+        assert_eq!(backoff.next_delay(true), Duration::from_secs(1));
+        assert_eq!(backoff.next_delay(false), Duration::from_secs(2));
     }
 }

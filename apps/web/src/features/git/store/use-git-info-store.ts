@@ -73,7 +73,7 @@ const initialState: GitInfoState = {
   targetBranch: null,
 };
 
-export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
+export const useGitInfoStore = create<GitInfoStore>((set, _get) => ({
   ...initialState,
 
   setCurrentContext: (projectId, workspaceId, projectPath) => {

@@ -214,6 +214,8 @@ const styles = StyleSheet.create({
     boxShadow: "0 12px 40px rgba(0, 0, 0, 0.28)",
     overflow: "hidden",
     position: "absolute",
+    // RN ViewStyle omits this web CSS property. The cast keeps drag from
+    // scrolling the page behind the sheet.
     ...({ touchAction: "none" } as ViewStyle),
   },
 });

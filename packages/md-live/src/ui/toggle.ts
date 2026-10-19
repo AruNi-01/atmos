@@ -194,7 +194,7 @@ export const mdLiveToggleView = $prose(() => {
   });
 });
 
-export const mdLiveToggleKeys = $prose((ctx) => {
+export const mdLiveToggleKeys = $prose((_ctx) => {
   return new Plugin({
     key: new PluginKey("mdLiveToggleKeys"),
     props: {

@@ -1,7 +1,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { useGithubCIStatus } from "@/features/github/hooks/use-github";
-import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { AlertCircle, CheckCircle2, Workflow, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
@@ -16,7 +15,6 @@ interface CIBadgeProps {
 export const CIBadge: React.FC<CIBadgeProps> = ({ owner, repo, branch, className }) => {
   const t = useTranslations("github.ciBadge");
   const ciStatus = useGithubCIStatus({ owner, repo, branch });
-  const send = useWebSocketStore((s) => s.send);
 
   if (!ciStatus) return null;
 

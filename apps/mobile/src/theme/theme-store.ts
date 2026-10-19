@@ -1,9 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { getMobileThemeColors } from "@/theme/colors";
+import {
+  getParityPreviewThemeOverride,
+  subscribeParityPreviewTheme,
+} from "@/theme/parity-preview-theme";
 import {
   resolveMobileThemePreference,
   themePreferenceOptions,
@@ -34,7 +38,13 @@ export function useMobileTheme() {
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
   const systemColorScheme = useColorScheme();
-  const colorScheme = resolveMobileThemePreference(preference, systemColorScheme);
+  const preview = useSyncExternalStore(
+    subscribeParityPreviewTheme,
+    getParityPreviewThemeOverride,
+    getParityPreviewThemeOverride,
+  );
+  const colorScheme =
+    preview?.colorScheme ?? resolveMobileThemePreference(preference, systemColorScheme);
   const colors = getMobileThemeColors(colorScheme);
 
   return useMemo(

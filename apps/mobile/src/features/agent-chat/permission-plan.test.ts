@@ -115,14 +115,14 @@ Just a prose overview without todos.
       plan.indexOf("{copy.planViewerEmpty}") - 240,
       plan.indexOf("{copy.planViewerEmpty}"),
     );
-    expect(empty).toContain("chatMutedForeground(theme.isDark)");
-    expect(empty).not.toContain("theme.colors.secondaryLabel");
+    expect(empty).toContain("theme.colors.secondaryLabel");
+    expect(empty).not.toContain("chatMutedForeground");
     const lanePlan = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "cards/plan-card.tsx"),
       "utf8",
     );
-    expect(lanePlan).toContain("chatMutedForeground(theme.isDark)");
-    expect(lanePlan).not.toContain("theme.colors.secondaryLabel");
+    expect(lanePlan).toContain("theme.colors.secondaryLabel");
+    expect(lanePlan).not.toContain("chatMutedForeground");
     expect(plan).not.toContain("option.name");
     const command = source.slice(source.indexOf("export function AgentChatPermissionCard"));
     expect(command).toContain("isPlanExitRequest(request)");

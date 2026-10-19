@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
-import { isDesktopRuntime, isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import type { BrowserBridgeController, BrowserTransportMode } from "../lib/browser-bridge/types";
 import {
@@ -64,9 +64,7 @@ type UsePreviewLifecycleEffectsParams = {
 export function useBrowserLifecycleEffects({
   connectIframeTransport,
   desktopCommittedUrl,
-  desktopPreviewViewportRef,
   desktopCommittedUrlRef,
-  desktopViewportRef,
   extensionConnectingRef,
   hideDesktopPreview,
   iframeKey,
@@ -75,7 +73,6 @@ export function useBrowserLifecycleEffects({
   isActive,
   keepGuestPainted = false,
   isElementPickerEnabled,
-  isMaximized,
   isPreviewLoading,
   navigationToken,
   preferredTransportMode,
@@ -88,13 +85,10 @@ export function useBrowserLifecycleEffects({
   setIsPreviewLoading,
   setPreviewLoadError,
   setTransportState,
-  shouldSuspendDesktopPreview,
-  showDesktopPreview,
   syncDesktopPreview,
   teardownTransport,
   transportConnected,
   transportControllerRef,
-  viewMode,
 }: UsePreviewLifecycleEffectsParams) {
   const handledNavigationRequestRef = useRef<string | null>(null);
   const paintGuest = isActive || keepGuestPainted;

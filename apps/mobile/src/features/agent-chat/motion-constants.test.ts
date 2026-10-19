@@ -13,6 +13,14 @@ import {
   TREE_STEP_MS,
   treeStaggerDelayMs,
 } from "@atmos/agent-transcript/agent-tree-branch";
+import {
+  LOG_ROW_ELBOW_DELAY_MS,
+  LOG_ROW_ELBOW_MS,
+  LOG_ROW_REVEAL_HEIGHT_MS,
+  LOG_ROW_REVEAL_MS,
+  LOG_ROW_TRUNK_MS,
+  logRowElbowDelayMs,
+} from "./motion/log-row-motion";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const workspace = join(here, "../../../../..");
@@ -28,20 +36,42 @@ describe("motion constants", () => {
     expect(treeStaggerDelayMs(2, 21)).toBe(56);
   });
 
-  test("web re-exports the package module and the phone uses those timings", () => {
+  test("web re-exports the package module; live tool groups use LogRow timings", () => {
     const web = readFileSync(
       join(workspace, "apps/web/src/features/agent/lib/agent-tree-branch.ts"),
+      "utf8",
+    );
+    const log = readFileSync(
+      join(workspace, "apps/web/src/features/agent/components/boardui/agent-log.tsx"),
       "utf8",
     );
     const tree = readFileSync(join(here, "tool-tree.tsx"), "utf8");
     const reveal = readFileSync(join(here, "motion/part-reveal.tsx"), "utf8");
     expect(web.trim()).toBe('export * from "@atmos/agent-transcript/agent-tree-branch";');
     expect(tree).toContain('from "@atmos/agent-transcript/agent-tree-branch"');
-    expect(tree).toContain("duration: TREE_DRAW_MS");
-    expect(tree).toContain("useParityDrawHold");
-    expect(tree).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
-    expect(reveal).toContain("duration: TREE_DRAW_MS");
-    expect(reveal).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
+    expect(tree).toContain("duration={LOG_ROW_ELBOW_MS}");
+    expect(tree).toContain("duration={LOG_ROW_TRUNK_MS}");
+    expect(tree).toContain("Easing.linear");
+    expect(tree).toContain('strokeLinecap: "butt"');
+    expect(tree).toContain("toolTreeInk(theme.colors.label, theme.colors.background)");
+    expect(tree).not.toContain("strokeOpacity");
+    expect(log).toContain("color-mix(in srgb, var(--muted-foreground) 45%, var(--background))");
+    expect(reveal).toContain("LOG_ROW_REVEAL_HEIGHT_MS");
+    expect(reveal).toContain("LOG_ROW_REVEAL_MS");
+    expect(reveal).toContain(
+      "Easing.bezier(LOG_ROW_EASE[0], LOG_ROW_EASE[1], LOG_ROW_EASE[2], LOG_ROW_EASE[3])",
+    );
     expect(tree).not.toMatch(/const TREE_DRAW_MS\s*=/);
+    expect(log).toContain("duration: 0.14");
+    expect(log).toContain("duration: 0.12");
+    expect(log).toContain("height: { duration: 0.38");
+    expect(log).toContain("opacity: { duration: 0.42");
+    expect(LOG_ROW_ELBOW_MS).toBe(140);
+    expect(LOG_ROW_ELBOW_DELAY_MS).toBe(120);
+    expect(LOG_ROW_TRUNK_MS).toBe(120);
+    expect(LOG_ROW_REVEAL_HEIGHT_MS).toBe(380);
+    expect(LOG_ROW_REVEAL_MS).toBe(420);
+    expect(logRowElbowDelayMs(true)).toBe(0);
+    expect(logRowElbowDelayMs(false)).toBe(120);
   });
 });

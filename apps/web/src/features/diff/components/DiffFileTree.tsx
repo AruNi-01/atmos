@@ -286,6 +286,7 @@ function defaultDirectoryDecoration(
 
 function FileIcon({ name }: { name: string }) {
   const iconProps = getFileIconProps({ name, isDir: false, className: "size-4 shrink-0" });
+  // oxlint-disable-next-line next/no-img-element -- runtime/dynamic icon URL; next/image optimisation not applicable (static export)
   return <img {...iconProps} alt="" />;
 }
 

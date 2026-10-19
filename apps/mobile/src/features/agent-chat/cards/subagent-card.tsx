@@ -2,7 +2,6 @@ import { Text, View } from "react-native";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@atmos/agent-transcript";
 import { useMobileTheme } from "@/theme/theme-store";
-import { chatMutedForeground } from "../chat-ink";
 import type { SubagentTitle } from "../composer-cards";
 import { InlineSubagentPanel } from "../inline-subagent-panel";
 
@@ -22,10 +21,7 @@ export function SubagentCard({
   return (
     <View style={{ gap: 8 }}>
       {items.map((item) => (
-        <Text
-          key={item.id}
-          style={{ color: chatMutedForeground(theme.isDark), fontSize: 14, lineHeight: 20 }}
-        >
+        <Text key={item.id} style={{ color: theme.colors.label, fontSize: 15, lineHeight: 20 }}>
           {item.title}
         </Text>
       ))}

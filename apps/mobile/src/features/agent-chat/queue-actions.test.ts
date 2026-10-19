@@ -39,10 +39,10 @@ describe("queue edit, reorder, and remove", () => {
     expect(card).toContain("onUpdate(item.id, draft)");
     expect(card).toContain("onDelete(item.id)");
     expect(card).toContain("onReorder(next)");
-    expect(card).toContain("chatForeground90(theme.isDark)");
-    expect(card).toContain("chatForeground(theme.isDark)");
+    expect(card).toContain("theme.colors.label");
+    expect(card).toContain("theme.colors.secondaryLabel");
     expect(card).toContain("ListOrderedIcon");
     expect(card).toContain("fontSize: 12");
-    expect(card).not.toContain("theme.colors.label");
+    expect(card).not.toContain("chatForeground");
   });
 });

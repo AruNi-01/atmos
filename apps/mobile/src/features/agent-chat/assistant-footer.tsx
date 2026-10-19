@@ -1,303 +1,154 @@
-import { useState, useEffect, type ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { AgentMessage, AgentPart, AgentTurnUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
-import { CoinsIcon, FileTextIcon } from "@/ui/icons/lucide-native";
-import { chatForeground, chatMutedForeground } from "./chat-ink";
+import { CoinsIcon } from "@/ui/icons/lucide-native";
+import { CopyMessageButton } from "./copy-message-button";
 import {
   compactTurnTokenLabel,
   copy,
   filesChangedLabel,
   filesShowMoreLabel,
   workedForPresentation,
-  workedForVisibleKind,
+  workedForRevealText,
+  type WorkedForReveal,
 } from "./copy";
-import { CopyMessageButton } from "./copy-message-button";
-import { useReducedMotion } from "./motion/use-reduced-motion";
 import {
-  TURN_FILE_PREVIEW_COUNT,
   collectTurnFileChanges,
   fileChangeName,
   visibleTurnFileChanges,
 } from "./turn-file-changes";
-import { TOOL_ADDITION_COLOR, TOOL_DELETION_COLOR } from "./tool-body";
-import {
-  TURN_FILES_MARGIN_TOP,
-  TURN_FILES_MAX_HEIGHT,
-  TURN_FILES_RADIUS,
-  compositeOver,
-  turnFilesBorder,
-  turnFilesFadeClear,
-  turnFilesFadePx,
-  turnFilesFill,
-} from "./turn-files-chrome";
-import {
-  USAGE_TOOLTIP_ARROW,
-  USAGE_TOOLTIP_GAP,
-  USAGE_TOOLTIP_OFFSET,
-  USAGE_TOOLTIP_PAD,
-  USAGE_TOOLTIP_RADIUS,
-  USAGE_TOOLTIP_WIDTH,
-  usageTooltipFill,
-  usageTooltipRule,
-  usageTooltipText,
-} from "./usage-tooltip";
-
-function UsageTooltipRule({ isDark }: { isDark: boolean }) {
-  return <View style={{ backgroundColor: usageTooltipRule(isDark), height: 1, width: "100%" }} />;
-}
 
 function UsageBreakdown({ usage }: { usage: AgentTurnUsage }) {
   const theme = useMobileTheme();
-  const isDark = theme.isDark;
-  const text = usageTooltipText(isDark);
   const total = usage.total_tokens ?? (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
-  const row = (label: string, value: number, bold = false) => (
+  const row = (label: string, value: number) => (
     <View key={label} style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-      <Text
-        style={{
-          color: text,
-          fontSize: 11,
-          fontWeight: bold ? "700" : "400",
-          lineHeight: 16,
-        }}
-      >
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 11, lineHeight: 16 }}>
         {label}
       </Text>
       <Text
-        style={{
-          color: text,
-          fontFamily: "Menlo",
-          fontSize: 11,
-          fontWeight: bold ? "700" : "400",
-          lineHeight: 16,
-        }}
+        style={{ color: theme.colors.label, fontFamily: "Menlo", fontSize: 11, lineHeight: 16 }}
       >
         {value.toLocaleString("en-US")}
       </Text>
     </View>
   );
-  const showCache = usage.cached_read_tokens != null || usage.cached_write_tokens != null;
 
   return (
-    <View style={{ width: USAGE_TOOLTIP_WIDTH, zIndex: 100 }}>
-      <View
-        style={{
-          backgroundColor: usageTooltipFill(isDark),
-          borderRadius: USAGE_TOOLTIP_RADIUS,
-          elevation: 4,
-          gap: USAGE_TOOLTIP_GAP,
-          padding: USAGE_TOOLTIP_PAD,
-          shadowColor: "#000000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 6,
-          width: USAGE_TOOLTIP_WIDTH,
-        }}
-      >
-        <Text
-          style={{
-            color: text,
-            fontSize: 12,
-            fontWeight: "600",
-            lineHeight: 16,
-            marginBottom: 4,
-            paddingBottom: 4,
-          }}
-        >
-          {copy.usageTurn.title}
-        </Text>
-        <UsageTooltipRule isDark={isDark} />
-        {row(copy.usageTurn.input, usage.input_tokens ?? 0)}
-        {row(copy.usageTurn.output, usage.output_tokens ?? 0)}
-        {usage.thought_tokens != null ? row(copy.usageTurn.thought, usage.thought_tokens) : null}
-        {showCache ? (
-          <View style={{ gap: 4, marginTop: 4, paddingTop: 4 }}>
-            <UsageTooltipRule isDark={isDark} />
-            {usage.cached_read_tokens != null
-              ? row(copy.usageTurn.cacheRead, usage.cached_read_tokens)
-              : null}
-            {usage.cached_write_tokens != null
-              ? row(copy.usageTurn.cacheWrite, usage.cached_write_tokens)
-              : null}
-          </View>
-        ) : null}
-        <View style={{ marginTop: 4, paddingTop: 4 }}>
-          <UsageTooltipRule isDark={isDark} />
-          <View style={{ marginTop: 4 }}>{row(copy.usageTurn.total, total, true)}</View>
+    <View
+      style={{
+        backgroundColor: theme.colors.cardElevated,
+        borderColor: theme.colors.glassBorder,
+        borderCurve: "continuous",
+        borderRadius: 12,
+        borderWidth: StyleSheet.hairlineWidth,
+        gap: 6,
+        marginTop: 8,
+        padding: 12,
+      }}
+    >
+      <Text style={{ color: theme.colors.label, fontSize: 12, fontWeight: "600", lineHeight: 16 }}>
+        {copy.usageTurn.title}
+      </Text>
+      {row(copy.usageTurn.input, usage.input_tokens ?? 0)}
+      {row(copy.usageTurn.output, usage.output_tokens ?? 0)}
+      {usage.thought_tokens != null ? row(copy.usageTurn.thought, usage.thought_tokens) : null}
+      {usage.cached_read_tokens != null || usage.cached_write_tokens != null ? (
+        <View style={{ gap: 6 }}>
+          {usage.cached_read_tokens != null
+            ? row(copy.usageTurn.cacheRead, usage.cached_read_tokens)
+            : null}
+          {usage.cached_write_tokens != null
+            ? row(copy.usageTurn.cacheWrite, usage.cached_write_tokens)
+            : null}
         </View>
-      </View>
-      <View
-        style={{
-          alignSelf: "center",
-          backgroundColor: usageTooltipFill(isDark),
-          borderRadius: 2,
-          height: USAGE_TOOLTIP_ARROW,
-          marginTop: -(USAGE_TOOLTIP_ARROW / 2 + 1),
-          transform: [{ rotate: "45deg" }],
-          width: USAGE_TOOLTIP_ARROW,
-          zIndex: 1,
-        }}
-      />
+      ) : null}
+      {row(copy.usageTurn.total, total)}
     </View>
   );
 }
 
-/** Web `border-border/70`. `--border` is black or white at 10%, mixed 70% toward transparent. */
-export function usageBadgeBorder(isDark: boolean): string {
-  return isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.07)";
-}
-
 function UsageBadge({ usage }: { usage: AgentTurnUsage }) {
   const theme = useMobileTheme();
-  const muted = chatMutedForeground(theme.isDark);
   const label = compactTurnTokenLabel(usage);
   const [open, setOpen] = useState(false);
   if (!label) return null;
 
   return (
     <View>
-      {open ? (
-        <View
-          pointerEvents="box-none"
-          style={{
-            bottom: "100%",
-            left: "50%",
-            marginBottom: USAGE_TOOLTIP_OFFSET,
-            position: "absolute",
-            transform: [{ translateX: -USAGE_TOOLTIP_WIDTH / 2 }],
-            zIndex: 100,
-          }}
-        >
-          <UsageBreakdown usage={usage} />
-        </View>
-      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((current) => !current)}
         style={{
           alignItems: "center",
-          borderColor: usageBadgeBorder(theme.isDark),
+          borderColor: theme.colors.glassBorder,
           borderRadius: 999,
           borderStyle: "dashed",
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           flexDirection: "row",
-          gap: 6,
+          gap: 4,
           paddingHorizontal: 8,
           paddingVertical: 4,
         }}
       >
-        <CoinsIcon color={muted} size={12} />
-        <Text
-          style={{
-            color: muted,
-            fontSize: 10,
-            fontWeight: "500",
-            lineHeight: 14,
-          }}
-        >
+        <CoinsIcon color={theme.colors.secondaryLabel} size={12} />
+        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 10, lineHeight: 14 }}>
           {label}
         </Text>
       </Pressable>
+      {open ? <UsageBreakdown usage={usage} /> : null}
     </View>
   );
 }
 
-const WORKED_FOR_SWAP_MS = 200;
-const WORKED_FOR_SWAP = {
-  duration: WORKED_FOR_SWAP_MS,
-  easing: Easing.bezier(0, 0, 0.58, 1),
-} as const;
-
 function WorkedForLabel({
   completedAt,
+  reveal = "timestamp",
   workedMs,
 }: {
   completedAt: string;
+  reveal?: WorkedForReveal;
   workedMs: number | null | undefined;
 }) {
   const theme = useMobileTheme();
-  const reduced = useReducedMotion();
   const presentation = workedForPresentation(workedMs, completedAt);
-  const [showDuration, setShowDuration] = useState(false);
-  const hasDuration = presentation.durationLabel != null;
-  const hasClock = presentation.clock != null;
-  const visible = workedForVisibleKind({ hasClock, hasDuration, showDuration });
-  const durationOpacity = useSharedValue(visible === "duration" ? 1 : 0);
-  const clockOpacity = useSharedValue(visible === "clock" ? 1 : 0);
+  const [swapped, setSwapped] = useState(false);
+  const text = workedForRevealText(presentation, reveal, swapped);
+  if (!text) return null;
+  const canSwap = Boolean(presentation.durationLabel && presentation.clock);
+  const swapOnPress = canSwap && reveal === "timestamp";
 
-  useEffect(() => {
-    const nextDuration = visible === "duration" ? 1 : 0;
-    const nextClock = visible === "clock" ? 1 : 0;
-    if (reduced) {
-      durationOpacity.set(nextDuration);
-      clockOpacity.set(nextClock);
-      return;
-    }
-    durationOpacity.set(withTiming(nextDuration, WORKED_FOR_SWAP));
-    clockOpacity.set(withTiming(nextClock, WORKED_FOR_SWAP));
-  }, [clockOpacity, durationOpacity, reduced, visible]);
-
-  const durationStyle = useAnimatedStyle(() => ({ opacity: durationOpacity.get() }));
-  const clockStyle = useAnimatedStyle(() => ({ opacity: clockOpacity.get() }));
-
-  if (visible == null) return null;
-  const textStyle = { color: chatMutedForeground(theme.isDark), fontSize: 12, lineHeight: 16 };
-  if (!hasDuration || !hasClock) {
+  if (!swapOnPress) {
     return (
-      <View style={styles.workedFor}>
-        <Text style={textStyle}>
-          {hasDuration ? presentation.durationLabel : presentation.clock}
-        </Text>
-      </View>
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+        {text}
+      </Text>
     );
   }
 
-  const label = visible === "duration" ? presentation.durationLabel : presentation.clock;
   return (
     <Pressable
-      accessibilityLabel={label ?? undefined}
       accessibilityRole="button"
       hitSlop={8}
-      onPress={() => setShowDuration((current) => !current)}
+      onPress={() => setSwapped((current) => !current)}
     >
-      <View style={styles.workedFor}>
-        <Text accessible={false} numberOfLines={1} style={[textStyle, styles.sizer]}>
-          {presentation.clock}
-        </Text>
-        <Text accessible={false} numberOfLines={1} style={[textStyle, styles.sizer]}>
-          {presentation.durationLabel}
-        </Text>
-        <View pointerEvents="none" style={styles.overlay}>
-          <Animated.Text numberOfLines={1} style={[textStyle, clockStyle]}>
-            {presentation.clock}
-          </Animated.Text>
-        </View>
-        <View pointerEvents="none" style={styles.overlay}>
-          <Animated.Text numberOfLines={1} style={[textStyle, durationStyle]}>
-            {presentation.durationLabel}
-          </Animated.Text>
-        </View>
-      </View>
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+        {text}
+      </Text>
     </Pressable>
   );
 }
 
 function FileStats({ additions, deletions }: { additions: number; deletions: number }) {
+  const theme = useMobileTheme();
   if (additions <= 0 && deletions <= 0) return null;
   return (
     <Text style={{ fontFamily: "Menlo", fontSize: 12, lineHeight: 16 }}>
-      {additions > 0 ? <Text style={{ color: TOOL_ADDITION_COLOR }}>+{additions}</Text> : null}
+      {additions > 0 ? <Text style={{ color: theme.colors.green }}>+{additions}</Text> : null}
       {additions > 0 && deletions > 0 ? " " : null}
-      {deletions > 0 ? <Text style={{ color: TOOL_DELETION_COLOR }}>-{deletions}</Text> : null}
+      {deletions > 0 ? <Text style={{ color: theme.colors.red }}>-{deletions}</Text> : null}
     </Text>
   );
 }
@@ -323,67 +174,15 @@ export function AssistantFooter({
 
   return (
     <View
-      style={{
-        alignItems: "center",
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 8,
-        // MessageContent `gap-2` plus this row's `mt-2`.
-        marginTop: 16,
-      }}
+      style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}
     >
-      {text ? <CopyMessageButton label={copy.copyAssistantAria} text={text} /> : null}
+      {text ? <CopyMessageButton text={text} /> : null}
       {showUsage && usage ? <UsageBadge usage={usage} /> : null}
       {showWorked && message.completed_at ? (
-        <WorkedForLabel completedAt={message.completed_at} workedMs={message.worked_ms} />
-      ) : null}
-    </View>
-  );
-}
-
-function TurnFileScroller({
-  active,
-  fill,
-  page,
-  children,
-}: {
-  active: boolean;
-  fill: string;
-  page: string;
-  children: ReactNode;
-}) {
-  const [contentHeight, setContentHeight] = useState(0);
-  const [offset, setOffset] = useState(0);
-  if (!active) return <View style={{ marginTop: 4 }}>{children}</View>;
-  const height = contentHeight > 0 ? Math.min(contentHeight, TURN_FILES_MAX_HEIGHT) : undefined;
-  const fade = compositeOver(fill, page);
-  const fadeClear = turnFilesFadeClear(fade);
-  const fadeTop = turnFilesFadePx(offset);
-  const fadeBottom = turnFilesFadePx(contentHeight - (height ?? 0) - offset);
-  return (
-    <View style={{ height, marginTop: 4, maxHeight: TURN_FILES_MAX_HEIGHT }}>
-      <ScrollView
-        nestedScrollEnabled
-        onContentSizeChange={(_width, next) => setContentHeight(next)}
-        onScroll={(event) => setOffset(event.nativeEvent.contentOffset.y)}
-        scrollEnabled={contentHeight > TURN_FILES_MAX_HEIGHT}
-        scrollEventThrottle={16}
-        style={{ maxHeight: TURN_FILES_MAX_HEIGHT }}
-      >
-        {children}
-      </ScrollView>
-      {fadeTop > 0 ? (
-        <LinearGradient
-          colors={[fade, fadeClear]}
-          pointerEvents="none"
-          style={{ height: fadeTop, left: 0, position: "absolute", right: 0, top: 0 }}
-        />
-      ) : null}
-      {fadeBottom > 0 ? (
-        <LinearGradient
-          colors={[fadeClear, fade]}
-          pointerEvents="none"
-          style={{ bottom: 0, height: fadeBottom, left: 0, position: "absolute", right: 0 }}
+        <WorkedForLabel
+          completedAt={message.completed_at}
+          reveal="timestamp"
+          workedMs={message.worked_ms}
         />
       ) : null}
     </View>
@@ -397,59 +196,46 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
   const changes = collectTurnFileChanges(parts);
   if (changes.length === 0) return null;
   const { shown, hidden } = visibleTurnFileChanges(changes, expanded);
-  const muted = chatMutedForeground(theme.isDark);
 
   return (
     <View
       style={{
-        backgroundColor: turnFilesFill(theme.isDark),
-        borderColor: turnFilesBorder(theme.isDark),
+        backgroundColor: theme.colors.cardSubtle,
+        borderColor: theme.colors.glassBorder,
         borderCurve: "continuous",
-        borderRadius: TURN_FILES_RADIUS,
-        borderWidth: 1,
-        marginTop: TURN_FILES_MARGIN_TOP,
+        borderRadius: 16,
+        borderWidth: StyleSheet.hairlineWidth,
+        marginTop: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
       }}
     >
-      <Text style={{ color: muted, fontSize: 14, lineHeight: 20 }}>
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}>
         {filesChangedLabel(changes.length)}
       </Text>
-      <TurnFileScroller
-        active={changes.length > TURN_FILE_PREVIEW_COUNT}
-        fill={turnFilesFill(theme.isDark)}
-        page={theme.colors.background}
-      >
+      <View style={{ marginTop: 4 }}>
         {shown.map((change) => (
           <View
             key={change.path}
-            style={{
-              alignItems: "center",
-              flexDirection: "row",
-              gap: 8,
-              paddingHorizontal: 6,
-              paddingVertical: 4,
-            }}
+            style={{ alignItems: "center", flexDirection: "row", gap: 8, paddingVertical: 4 }}
           >
-            {/* Web draws a per-extension glyph. This generic icon stays the theme secondary label. */}
-            <FileTextIcon color={theme.colors.secondaryLabel} size={16} />
             <Text
               numberOfLines={1}
-              style={{ color: chatForeground(theme.isDark), flex: 1, fontSize: 14, lineHeight: 20 }}
+              style={{ color: theme.colors.label, flex: 1, fontSize: 14, lineHeight: 20 }}
             >
               {fileChangeName(change.path)}
             </Text>
             <FileStats additions={change.additions} deletions={change.deletions} />
           </View>
         ))}
-      </TurnFileScroller>
+      </View>
       {hidden > 0 ? (
         <Pressable
           accessibilityRole="button"
           onPress={() => setExpanded((current) => !current)}
-          style={{ alignSelf: "flex-start", marginTop: 2, paddingVertical: 4 }}
+          style={{ alignSelf: "flex-start", marginTop: 4, paddingVertical: 4 }}
         >
-          <Text style={{ color: muted, fontSize: 14, lineHeight: 20 }}>
+          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}>
             {expanded ? copy.filesShowLess : filesShowMoreLabel(hidden)}
           </Text>
         </Pressable>
@@ -457,22 +243,3 @@ export function AssistantTurnFiles({ parts, visible }: { parts: AgentPart[]; vis
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    bottom: 0,
-    justifyContent: "center",
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  sizer: {
-    opacity: 0,
-  },
-  workedFor: {
-    height: 24,
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-});

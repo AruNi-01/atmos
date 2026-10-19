@@ -37,7 +37,6 @@ interface WikiViewerProps {
 export const WikiViewer: React.FC<WikiViewerProps> = ({
   contextId,
   effectivePath,
-  projectName,
   wikiPage,
   onWikiPageChange,
   isWikiTabActive = false,

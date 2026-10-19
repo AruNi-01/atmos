@@ -148,11 +148,8 @@ export function ToolGroup({
           {rows.map((row, index) => (
             <PartReveal key={row.key} play={index >= watermark}>
               <ToolTreeRow
-                count={rows.length}
-                delayMs={0}
                 draw={index >= watermark}
                 first={index === 0}
-                index={index}
                 last={index === rows.length - 1}
               >
                 {row.rendered}

@@ -4,11 +4,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/api/query/query-keys";
 import { wsQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import {
-  tokenUsageApi,
-  type TokenUsageOverviewResponse,
-  type TokenUsageGroupBy,
-} from "@/api/ws/token-usage-api";
+import { tokenUsageApi, type TokenUsageGroupBy } from "@/api/ws/token-usage-api";
 
 export interface TokenUsageQueryFilters {
   year?: string | null;

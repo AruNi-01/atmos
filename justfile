@@ -103,16 +103,26 @@ dev-mobile-phone:
     cd apps/mobile
     REACT_NATIVE_PACKAGER_HOSTNAME="$host" bunx expo start --dev-client --scheme atmos-dev --lan
 
+# Align Pods/React-Core-prebuilt with Debug or Release.
+# RN 0.85 replace-rncore-version.js assumes a missing
+# .last_build_configuration marker is already Debug and skips the swap.
+# A leftover Release core then fails Debug links (RCTPackagerConnection).
+mobile-ios-ensure-rncore configuration:
+    node apps/mobile/script/ensure-ios-rncore-configuration.js {{configuration}}
+
 # Build and install on the iOS simulator (first run, or after a native dependency change)
 mobile-ios:
     #!/usr/bin/env bash
     set -euo pipefail
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+    node apps/mobile/script/ensure-ios-rncore-configuration.js Debug
     cd apps/mobile && bun run ios
 
 # Expo prebuild output is gitignored. Create it once per worktree.
 # An existing workspace still gets the pod deployment-target snippet if prebuild
 # ran before that plugin existed. pod install applies it.
+# Does not swap React-Core-prebuilt: Debug/Release recipes do that themselves
+# so mobile-ios-release does not extract Debug and then immediately extract Release.
 mobile-ios-prepare:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -131,11 +141,12 @@ mobile-ios-prepare:
         fi
         exit 0
     fi
-    cd apps/mobile
-    CI=1 bunx expo prebuild --platform ios
+    (cd apps/mobile && CI=1 bunx expo prebuild --platform ios)
 
 # Build the Release app and install it on a connected iPhone. Does not use Metro.
 # Installs as Atmos (land.atmos.mobile). Does not replace Atmos Dev.
+# Uses ios/DerivedData-Release so Release objects do not share Expo's ios/build
+# or the Debug DerivedData tree. Restores Debug React-Core-prebuilt on EXIT.
 # Usage: just mobile-ios-release
 #       just mobile-ios-release 00008120-000108901432201E
 mobile-ios-release *args:
@@ -161,10 +172,17 @@ mobile-ios-release *args:
 
     just mobile-ios-prepare
     ios_dir="apps/mobile/ios"
+    derived="$ios_dir/DerivedData-Release"
+    restore_debug_rncore() {
+        node apps/mobile/script/ensure-ios-rncore-configuration.js Debug || true
+    }
+    trap restore_debug_rncore EXIT
+    node apps/mobile/script/ensure-ios-rncore-configuration.js Release
     xcodebuild \
         -workspace "$ios_dir/Atmos.xcworkspace" \
         -scheme Atmos \
         -configuration Release \
+        -derivedDataPath "$derived" \
         -destination "generic/platform=iOS" \
         -allowProvisioningUpdates \
         PRODUCT_BUNDLE_IDENTIFIER=land.atmos.mobile \
@@ -172,11 +190,9 @@ mobile-ios-release *args:
         CODE_SIGN_STYLE=Automatic \
         build
 
-    # find -quit can return a stale DerivedData tree first. Install the newest Release app.
-    app="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Release-iphoneos/Atmos.app/Info.plist' ! -path '*/Index.noindex/*' -print0 | xargs -0 stat -f '%m %N' | sort -nr | head -1 | cut -d' ' -f2-)"
-    app="${app%/Info.plist}"
-    if [[ -z "$app" || ! -d "$app" ]]; then
-        echo "Built Atmos.app was not found." >&2
+    app="$derived/Build/Products/Release-iphoneos/Atmos.app"
+    if [[ ! -d "$app" ]]; then
+        echo "Built Atmos.app was not found at $app." >&2
         exit 1
     fi
     bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
@@ -190,6 +206,7 @@ mobile-ios-release *args:
 
 # Build Atmos Dev and install it on a connected iPhone. Live reload needs Metro.
 # Installs as Atmos Dev (land.atmos.mobile.dev). Does not replace the Release Atmos app.
+# Uses ios/DerivedData-Debug so device Debug builds do not share Release output.
 # After install, start Metro with just dev-mobile-phone.
 # Usage: just mobile-ios-dev
 #       just mobile-ios-dev 00008120-000108901432201E
@@ -215,6 +232,8 @@ mobile-ios-dev *args:
 
     just mobile-ios-prepare
     ios_dir="apps/mobile/ios"
+    derived="$ios_dir/DerivedData-Debug"
+    node apps/mobile/script/ensure-ios-rncore-configuration.js Debug
     plist="$ios_dir/Atmos/Info.plist"
     backup="$(mktemp)"
     cp "$plist" "$backup"
@@ -229,6 +248,7 @@ mobile-ios-dev *args:
         -workspace "$ios_dir/Atmos.xcworkspace" \
         -scheme Atmos \
         -configuration Debug \
+        -derivedDataPath "$derived" \
         -destination "generic/platform=iOS" \
         -allowProvisioningUpdates \
         PRODUCT_BUNDLE_IDENTIFIER=land.atmos.mobile.dev \
@@ -236,10 +256,9 @@ mobile-ios-dev *args:
         CODE_SIGN_STYLE=Automatic \
         build
 
-    app="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Debug-iphoneos/Atmos.app/Info.plist' ! -path '*/Index.noindex/*' -print0 | xargs -0 stat -f '%m %N' | sort -nr | head -1 | cut -d' ' -f2-)"
-    app="${app%/Info.plist}"
-    if [[ -z "$app" || ! -d "$app" ]]; then
-        echo "Built Atmos Dev app was not found." >&2
+    app="$derived/Build/Products/Debug-iphoneos/Atmos.app"
+    if [[ ! -d "$app" ]]; then
+        echo "Built Atmos Dev app was not found at $app." >&2
         exit 1
     fi
     bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
@@ -259,6 +278,7 @@ mobile-ios-device *args:
     #!/usr/bin/env bash
     set -euo pipefail
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+    node apps/mobile/script/ensure-ios-rncore-configuration.js Debug
     cd apps/mobile
     if [[ $# -gt 0 ]]; then
         bunx expo run:ios --device "$@"
@@ -666,6 +686,56 @@ install-e2e-browsers:
 # Open the latest Playwright HTML report
 e2e-report:
     bun run --cwd e2e report
+
+# ----- Mobile agent e2e (QUALITY-009) -----
+# Local, headed iOS Simulator verification driven by agents (e2e + agent-device).
+# Separate from the headless CI Playwright suite above (/e2e); never run in CI.
+# The simulator is pinned by UDID: ATMOS_E2E_DEVICE=<UDID|name>, default iPhone 17 Pro on iOS 26.5.
+# Telemetry is off by default (set E2E_TELEMETRY_DISABLED=0 to opt in).
+export E2E_TELEMETRY_DISABLED := env_var_or_default("E2E_TELEMETRY_DISABLED", "1")
+
+# Install the mobile e2e dependencies (apps/mobile/e2e is its own bun package)
+mobile-e2e-install-deps:
+    cd apps/mobile/e2e && bun install --frozen-lockfile
+
+# Read-only: resolve the simulator, run agent-device doctor, show device claims, list tests
+mobile-e2e-doctor:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    udid="$(node apps/mobile/e2e/scripts/resolve-device.mjs)"
+    echo "simulator: $udid"
+    cd apps/mobile/e2e
+    ./node_modules/.bin/agent-device doctor --platform ios
+    ./node_modules/.bin/agent-device device status --platform ios --udid "$udid" || true
+    bun run list
+
+# Build the Release (no Metro) simulator app and install it. ATMOS_E2E_NO_INSTALL=1 builds only.
+mobile-e2e-build:
+    bash apps/mobile/e2e/scripts/build-sim-release.sh
+
+# Install the app built by mobile-e2e-build onto the e2e simulator
+mobile-e2e-install:
+    bash apps/mobile/e2e/scripts/install-sim-release.sh
+
+# Deterministic smoke test (no model, no paired Computer needed)
+mobile-e2e-smoke *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd apps/mobile/e2e
+    ATMOS_E2E_DEVICE="$(node scripts/resolve-device.mjs)" bun run test:smoke:ios -- "$@"
+
+# Run the mobile e2e suite on the pinned simulator (optionally one file: tests/workspace.e2e.ts)
+mobile-e2e-run *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd apps/mobile/e2e
+    ATMOS_E2E_DEVICE="$(node scripts/resolve-device.mjs)" bun run test:ios -- "$@"
+
+# Usage: just mobile-e2e-evidence 313 "after tool-fold change"
+# Stages screenshot + a11y tree (+ report.json). Does not push unless EVIDENCE_PUSH=1.
+# $1/$2 are positional (set positional-arguments). Do not interpolate {{pr}}/{{note}}.
+mobile-e2e-evidence pr note="":
+    bash apps/mobile/e2e/scripts/evidence.sh "$1" "$2"
 
 # Run frontend tests only
 test-web:

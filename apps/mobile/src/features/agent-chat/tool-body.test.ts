@@ -181,6 +181,18 @@ describe("tool body presentation", () => {
     expect(patchCase).not.toContain("CappedMono");
     expect(patchCase).not.toContain("PathChip");
     const mod = await importPure("tool-body.tsx");
+    const toolDiffContextNumber = mod.toolDiffContextNumber as (isDark: boolean) => string;
+    const toolDiffNumberColumnWidth = mod.toolDiffNumberColumnWidth as (digits: number) => number;
+    const toolDiffUnifiedLineNo = mod.toolDiffUnifiedLineNo as (line: {
+      op: string;
+      oldNo: number | null;
+      newNo: number | null;
+    }) => number | null;
+    const toolDiffLineFill = mod.toolDiffLineFill as (op: "add" | "del", isDark: boolean) => string;
+    const toolDiffNumberFill = mod.toolDiffNumberFill as (
+      op: "add" | "del",
+      isDark: boolean,
+    ) => string;
     expect(mod.TOOL_DIFF_MAX_HEIGHT).toBe(448);
     expect(mod.TOOL_ADDITION_COLOR).toBe("#00c950");
     expect(mod.TOOL_DELETION_COLOR).toBe("#fb2c36");
@@ -196,23 +208,23 @@ describe("tool body presentation", () => {
     expect(mod.TOOL_DIFF_NUMBER_DEL_DARK).toBe("#ff6762");
     expect(mod.TOOL_DIFF_NUMBER_CONTEXT_LIGHT).toBe("#878788");
     expect(mod.TOOL_DIFF_NUMBER_CONTEXT_DARK).toBe("#848484");
-    expect(mod.toolDiffContextNumber(false)).toBe("#878788");
-    expect(mod.toolDiffContextNumber(true)).toBe("#848484");
-    expect(mod.toolDiffNumberColumnWidth(2)).toBe(46.8);
-    expect(mod.toolDiffNumberColumnWidth(999)).toBe(46.8);
-    expect(mod.toolDiffNumberColumnWidth(1000)).toBe(54.6);
-    expect(mod.toolDiffUnifiedLineNo({ op: "ctx", oldNo: 1, newNo: 4 })).toBe(4);
-    expect(mod.toolDiffUnifiedLineNo({ op: "del", oldNo: 2, newNo: null })).toBe(2);
-    expect(mod.toolDiffUnifiedLineNo({ op: "add", oldNo: null, newNo: 9 })).toBe(9);
+    expect(toolDiffContextNumber(false)).toBe("#878788");
+    expect(toolDiffContextNumber(true)).toBe("#848484");
+    expect(toolDiffNumberColumnWidth(2)).toBe(46.8);
+    expect(toolDiffNumberColumnWidth(999)).toBe(46.8);
+    expect(toolDiffNumberColumnWidth(1000)).toBe(54.6);
+    expect(toolDiffUnifiedLineNo({ op: "ctx", oldNo: 1, newNo: 4 })).toBe(4);
+    expect(toolDiffUnifiedLineNo({ op: "del", oldNo: 2, newNo: null })).toBe(2);
+    expect(toolDiffUnifiedLineNo({ op: "add", oldNo: null, newNo: 9 })).toBe(9);
     expect(mod.TOOL_DIFF_GUTTER_RULE).toBe(2);
-    expect(mod.toolDiffLineFill("add", false)).toBe("#dfefe7");
-    expect(mod.toolDiffLineFill("del", false)).toBe("#fbe0de");
-    expect(mod.toolDiffLineFill("add", true)).toBe("#1a2a21");
-    expect(mod.toolDiffLineFill("del", true)).toBe("#321a18");
-    expect(mod.toolDiffNumberFill("add", false)).toBe("#e5f0eb");
-    expect(mod.toolDiffNumberFill("del", false)).toBe("#fae5e4");
-    expect(mod.toolDiffNumberFill("add", true)).toBe("#16211b");
-    expect(mod.toolDiffNumberFill("del", true)).toBe("#271614");
+    expect(toolDiffLineFill("add", false)).toBe("#dfefe7");
+    expect(toolDiffLineFill("del", false)).toBe("#fbe0de");
+    expect(toolDiffLineFill("add", true)).toBe("#1a2a21");
+    expect(toolDiffLineFill("del", true)).toBe("#321a18");
+    expect(toolDiffNumberFill("add", false)).toBe("#e5f0eb");
+    expect(toolDiffNumberFill("del", false)).toBe("#fae5e4");
+    expect(toolDiffNumberFill("add", true)).toBe("#16211b");
+    expect(toolDiffNumberFill("del", true)).toBe("#271614");
     expect(lightColors.background).toBe("#f4f4f6");
     expect(darkColors.background).toBe("#000000");
     const counts = view.slice(
@@ -603,15 +615,18 @@ describe("tool body presentation", () => {
     expect(preview).not.toContain("HeightClip");
     expect(preview).not.toContain("AgentChatMarkdown");
     const previewMod = await importPure("tool-body.tsx");
+    const toolPlainLineNumberWidth = previewMod.toolPlainLineNumberWidth as (
+      count: number,
+    ) => number;
     expect(previewMod.TOOL_PLAIN_LINE_FONT).toBe(13);
     expect(previewMod.TOOL_PLAIN_LINE_HEIGHT).toBe(21);
     expect(previewMod.TOOL_PLAIN_LINE_PAD_X).toBe(12);
     expect(previewMod.TOOL_PLAIN_LINE_PAD_Y).toBe(2);
     expect(previewMod.TOOL_PLAIN_NUMBER_FONT).toBe(12);
     expect(previewMod.TOOL_PLAIN_NUMBER_CH).toBe(7.2);
-    expect(previewMod.toolPlainLineNumberWidth(2)).toBe(21.6);
-    expect(previewMod.toolPlainLineNumberWidth(100)).toBe(21.6);
-    expect(previewMod.toolPlainLineNumberWidth(1000)).toBe(28.8);
+    expect(toolPlainLineNumberWidth(2)).toBe(21.6);
+    expect(toolPlainLineNumberWidth(100)).toBe(21.6);
+    expect(toolPlainLineNumberWidth(1000)).toBe(28.8);
     const prose = previewView.slice(
       previewView.indexOf('case "prose":'),
       previewView.indexOf('case "execute":'),

@@ -1,146 +1,5 @@
-diff --git a/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h b/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
-index 141654031..45e6ce1fe 100644
---- a/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
-+++ b/ios/generated/ReactCodegen/EnrichedMarkdownTextSpec/Props.h
-@@ -899,6 +899,8 @@ struct EnrichedMarkdownMarkdownStyleCodeBlockStruct {
-   Float borderRadius{0.0};
-   Float borderWidth{0.0};
-   Float padding{0.0};
-+  Float maxHeight{0.0};
-+  Float lineNumberStart{1.0};
-   EnrichedMarkdownMarkdownStyleCodeBlockSyntaxColorsStruct syntaxColors{};
- 
- 
-@@ -919,6 +921,8 @@ struct EnrichedMarkdownMarkdownStyleCodeBlockStruct {
-     result["borderRadius"] = borderRadius;
-     result["borderWidth"] = borderWidth;
-     result["padding"] = padding;
-+    result["maxHeight"] = maxHeight;
-+    result["lineNumberStart"] = lineNumberStart;
-     result["syntaxColors"] = ::facebook::react::toDynamic(syntaxColors);
-     return result;
-   }
-@@ -976,6 +980,14 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
-   if (tmp_padding != map.end()) {
-     fromRawValue(context, tmp_padding->second, result.padding);
-   }
-+  auto tmp_maxHeight = map.find("maxHeight");
-+  if (tmp_maxHeight != map.end()) {
-+    fromRawValue(context, tmp_maxHeight->second, result.maxHeight);
-+  }
-+  auto tmp_lineNumberStart = map.find("lineNumberStart");
-+  if (tmp_lineNumberStart != map.end()) {
-+    fromRawValue(context, tmp_lineNumberStart->second, result.lineNumberStart);
-+  }
-   auto tmp_syntaxColors = map.find("syntaxColors");
-   if (tmp_syntaxColors != map.end()) {
-     fromRawValue(context, tmp_syntaxColors->second, result.syntaxColors);
-@@ -4613,6 +4625,8 @@ struct EnrichedMarkdownTextMarkdownStyleCodeBlockStruct {
-   Float borderRadius{0.0};
-   Float borderWidth{0.0};
-   Float padding{0.0};
-+  Float maxHeight{0.0};
-+  Float lineNumberStart{1.0};
-   EnrichedMarkdownTextMarkdownStyleCodeBlockSyntaxColorsStruct syntaxColors{};
- 
- 
-@@ -4633,6 +4647,8 @@ struct EnrichedMarkdownTextMarkdownStyleCodeBlockStruct {
-     result["borderRadius"] = borderRadius;
-     result["borderWidth"] = borderWidth;
-     result["padding"] = padding;
-+    result["maxHeight"] = maxHeight;
-+    result["lineNumberStart"] = lineNumberStart;
-     result["syntaxColors"] = ::facebook::react::toDynamic(syntaxColors);
-     return result;
-   }
-@@ -4690,6 +4706,14 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
-   if (tmp_padding != map.end()) {
-     fromRawValue(context, tmp_padding->second, result.padding);
-   }
-+  auto tmp_maxHeight = map.find("maxHeight");
-+  if (tmp_maxHeight != map.end()) {
-+    fromRawValue(context, tmp_maxHeight->second, result.maxHeight);
-+  }
-+  auto tmp_lineNumberStart = map.find("lineNumberStart");
-+  if (tmp_lineNumberStart != map.end()) {
-+    fromRawValue(context, tmp_lineNumberStart->second, result.lineNumberStart);
-+  }
-   auto tmp_syntaxColors = map.find("syntaxColors");
-   if (tmp_syntaxColors != map.end()) {
-     fromRawValue(context, tmp_syntaxColors->second, result.syntaxColors);
-diff --git a/ios/internals/MeasurementCache.h b/ios/internals/MeasurementCache.h
-index f5c671934..6f164c630 100644
---- a/ios/internals/MeasurementCache.h
-+++ b/ios/internals/MeasurementCache.h
-@@ -124,8 +124,8 @@ template <typename StyleStruct> inline size_t computeStyleFingerprint(const Styl
- 
-   // Code & Inlines
-   hashFields(s.codeBlock.fontFamily, s.codeBlock.fontSize, s.codeBlock.fontWeight, s.codeBlock.marginTop,
--             s.codeBlock.marginBottom, s.codeBlock.lineHeight, s.codeBlock.padding, s.codeBlock.borderRadius,
--             s.codeBlock.borderWidth);
-+             s.codeBlock.marginBottom, s.codeBlock.lineHeight, s.codeBlock.padding, s.codeBlock.maxHeight, s.codeBlock.lineNumberStart,
-+             s.codeBlock.borderRadius, s.codeBlock.borderWidth);
-   hashFields(s.code.fontFamily, s.code.fontSize);
-   hashFields(s.link.fontFamily, s.strong.fontFamily, s.strong.fontWeight, s.em.fontFamily, s.em.fontStyle);
-   hashFields(s.highlight.backgroundColor, s.highlight.color);
-diff --git a/ios/renderer/AttributedRenderer.m b/ios/renderer/AttributedRenderer.m
-index 83c8b41de..cc590f422 100644
---- a/ios/renderer/AttributedRenderer.m
-+++ b/ios/renderer/AttributedRenderer.m
-@@ -8,6 +8,7 @@
- #import "RenderContext.h"
- #import "RendererFactory.h"
- #import "StyleConfig.h"
-+#import "ThematicBreakAttachment.h"
- 
- @implementation AttributedRenderer {
-   StyleConfig *_config;
-@@ -176,6 +177,14 @@
-       NSRange safeRange = NSIntersectionRange(styleRange, NSMakeRange(0, output.length));
-       [output addAttribute:NSParagraphStyleAttributeName value:mutableStyle range:safeRange];
-     }
-+
-+    // A trailing rule bakes marginBottom into the attachment. Web clears `[&>*:last-child]:mb-0`.
-+    // Equal sides are `my-6` and stay.
-+    id attachment = [output attribute:NSAttachmentAttributeName atIndex:lastContent.location effectiveRange:NULL];
-+    if ([attachment isKindOfClass:[ThematicBreakAttachment class]] &&
-+        ((ThematicBreakAttachment *)attachment).marginTop < ((ThematicBreakAttachment *)attachment).marginBottom) {
-+      ((ThematicBreakAttachment *)attachment).marginBottom = 0;
-+    }
-   }
- }
- 
-diff --git a/ios/renderer/BlockquoteRenderer.m b/ios/renderer/BlockquoteRenderer.m
-index 84a0132..2dee567 100644
---- a/ios/renderer/BlockquoteRenderer.m
-+++ b/ios/renderer/BlockquoteRenderer.m
-@@ -56,7 +56,15 @@ static NSString *const kNestedInfoRangeKey = @"range";
- {
-   NSUInteger contentStart = start;
-   if (currentDepth == 0) {
--    contentStart += applyBlockSpacingBefore(output, start, [_config blockquoteMarginTop]);
-+    // Quote `my-4` collapses with the previous block. The first answer or thinking quote stays clear.
-+    // A prose quote that opens the message keeps its top.
-+    BOOL collapses = ENRMCollapsesBlockMargins([_config paragraphMarginTop]);
-+    BOOL afterBlock = start > 0 && [output.string hasSuffix:@"\n"];
-+    if (afterBlock) {
-+      contentStart += applyParagraphSpacingBefore(output, NSMakeRange(start, 0), [_config blockquoteMarginTop]);
-+    } else if (collapses || start > 0) {
-+      contentStart += applyBlockSpacingBefore(output, start, [_config blockquoteMarginTop]);
-+    }
-   }
- 
-   // nested quotes pad their own box (matching web CSS padding)
-@@ -158,6 +166,7 @@ static NSString *const kNestedInfoRangeKey = @"range";
-                         }
-                         [output addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:nonListRange];
-                         applyLineHeight(output, nonListRange, lineHeight);
-+                        applyBaselineOffset(output, nonListRange);
-                       }];
- 
-   if (padding > 0) {
 diff --git a/ios/renderer/CodeRenderer.m b/ios/renderer/CodeRenderer.m
-index 7bc14aed5..cdd5db219 100644
+index 7bc14aed5225eac421b4f3fa2d28b4b07f355e47..cdd5db2195d485466dc66ca2c5834adcd1dd2127 100644
 --- a/ios/renderer/CodeRenderer.m
 +++ b/ios/renderer/CodeRenderer.m
 @@ -60,6 +60,23 @@
@@ -167,380 +26,8 @@ index 7bc14aed5..cdd5db219 100644
    }
  }
  
-diff --git a/ios/renderer/HeadingRenderer.m b/ios/renderer/HeadingRenderer.m
-index ef94e2b..99b4b5d 100644
---- a/ios/renderer/HeadingRenderer.m
-+++ b/ios/renderer/HeadingRenderer.m
-@@ -42,15 +42,9 @@ static NSString *const kHeadingTypes[] = {nil,          @"heading-1", @"heading-
-   [context setBlockStyle:BlockTypeHeading font:style.font color:style.color headingLevel:level];
- 
-   NSUInteger start = output.length;
-+  // Web clears the first heading: `first:mt-0` and `[&>*:first-child]:mt-0`.
-   NSUInteger contentStart = start;
- 
--  // Spacing at the very start of the document requires a spacer character (index 0 check)
--  if (start == 0) {
--    NSUInteger offset = applyBlockSpacingBefore(output, 0, style.marginTop);
--    contentStart += offset;
--    start += offset;
--  }
--
-   [_rendererFactory renderChildrenOfNode:node into:output context:context];
- 
-   NSRange range = NSMakeRange(start, output.length - start);
-@@ -66,8 +60,15 @@ static NSString *const kHeadingTypes[] = {nil,          @"heading-1", @"heading-
- 
-   applyLineHeight(output, range, style.lineHeight);
-   applyTextAlignment(output, range, style.textAlign);
-+  applyBaselineOffset(output, range);
-+
-+  // A heading that opens the segment stores its top margin. The first segment
-+  // still clears it. A fence before this segment collapses against it.
-+  if (start == 0 && style.marginTop > 0) {
-+    [output addAttribute:ENRMHeadingOpenMarginAttributeName value:@(style.marginTop) range:NSMakeRange(0, 1)];
-+  }
- 
--  // Skip marginTop for the first block — already handled by applyBlockSpacingBefore above
-+  // A later heading keeps its top margin. Index 0 adds none.
-   if (contentStart != 1) {
-     NSUInteger inserted = applyParagraphSpacingBefore(output, range, style.marginTop);
-     start += inserted;
-diff --git a/ios/renderer/LinkRenderer.m b/ios/renderer/LinkRenderer.m
-index 5fdc4a78b..d90ebe266 100644
---- a/ios/renderer/LinkRenderer.m
-+++ b/ios/renderer/LinkRenderer.m
-@@ -1,4 +1,5 @@
- #import "LinkRenderer.h"
-+#import "CodeBackground.h"
- #import "FontUtils.h"
- #import "RenderContext.h"
- #import "RendererFactory.h"
-@@ -53,19 +54,24 @@
-                               newAttributes[NSUnderlineStyleAttributeName] = underlineStyle;
-                             }
- 
--                            if (linkFontFamily.length > 0) {
--                              UIFont *currentFont = attrs[NSFontAttributeName];
--                              if (currentFont) {
--                                UIFont *linkFont = [RCTFont updateFont:currentFont
--                                                            withFamily:linkFontFamily
--                                                                  size:nil
--                                                                weight:nil
--                                                                 style:nil
--                                                               variant:nil
--                                                       scaleMultiplier:1.0];
--                                if (linkFont && ![currentFont isEqual:linkFont]) {
--                                  newAttributes[NSFontAttributeName] = linkFont;
--                                }
-+                            // Streamdown links are font-medium. The link style has no weight field.
-+                            // Inline code and a semibold or bold run keep their own face.
-+                            UIFont *currentFont = attrs[NSFontAttributeName];
-+                            NSDictionary *fontTraits =
-+                                [currentFont.fontDescriptor objectForKey:UIFontDescriptorTraitsAttribute];
-+                            BOOL heavierThanMedium = [fontTraits[UIFontWeightTrait] doubleValue] > UIFontWeightMedium;
-+                            BOOL keepsFace = attrs[CodeAttributeName] != nil || heavierThanMedium ||
-+                                             (currentFont.fontDescriptor.symbolicTraits & UIFontDescriptorTraitBold);
-+                            if (currentFont && !keepsFace) {
-+                              UIFont *linkFont = [RCTFont updateFont:currentFont
-+                                                          withFamily:linkFontFamily.length > 0 ? linkFontFamily : nil
-+                                                                size:nil
-+                                                              weight:@"500"
-+                                                               style:nil
-+                                                             variant:nil
-+                                                     scaleMultiplier:1.0];
-+                              if (linkFont && ![currentFont isEqual:linkFont]) {
-+                                newAttributes[NSFontAttributeName] = linkFont;
-                               }
-                             }
- 
-diff --git a/ios/renderer/ListItemRenderer.m b/ios/renderer/ListItemRenderer.m
-index 204fc18..d29f48d 100644
---- a/ios/renderer/ListItemRenderer.m
-+++ b/ios/renderer/ListItemRenderer.m
-@@ -49,14 +49,19 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
-   // currentDepth - 1 handles the horizontal offset for nested lists
-   const NSInteger nestingLevel = currentDepth - 1;
-   const CGFloat baseMarkerWidth = isTask                                  ? [_config effectiveListMarginLeftForTask]
--                                  : (context.listType == ListTypeOrdered) ? [_config effectiveListMarginLeftForNumber]
-+                                  : (context.listType == ListTypeOrdered) ? [_config effectiveListMarginLeftForNumber:currentPosition]
-                                                                           : [_config effectiveListMarginLeftForBullet];
- 
-   const CGFloat blockquoteIndent =
-       blockquoteIndentForDepth(context.blockquoteDepth, [_config blockquoteBorderWidth] + [_config blockquoteGapWidth]);
- 
--  const CGFloat totalIndent = blockquoteIndent + baseMarkerWidth + [_config effectiveListGapWidth] +
--                              (nestingLevel * [_config listStyleMarginLeft]);
-+  // Web task rows are `pl-0` with `gap-2` (8) after the checkbox. The shared
-+  // list gap is the bullet and number column, so it does not apply here.
-+  const CGFloat taskTrail = 8.0;
-+  const CGFloat totalIndent =
-+      blockquoteIndent +
-+      (isTask ? [_config taskListCheckboxSize] + taskTrail : baseMarkerWidth + [_config effectiveListGapWidth]) +
-+      (nestingLevel * [_config listStyleMarginLeft]);
- 
-   const NSUInteger startLocation = output.length;
- 
-@@ -137,6 +142,7 @@ NSString *const TaskIndexAttribute = @"TaskIndex";
-     NSMutableDictionary *attributesToApply = [metadata mutableCopy];
-     attributesToApply[NSParagraphStyleAttributeName] = style;
-     [output addAttributes:attributesToApply range:range];
-+    applyBaselineOffset(output, range);
-   };
- 
-   NSUInteger pos = itemRange.location;
-diff --git a/ios/utils/ListMarkerDrawer.m b/ios/utils/ListMarkerDrawer.m
-index 315ec08..70a7bca 100644
---- a/ios/utils/ListMarkerDrawer.m
-+++ b/ios/utils/ListMarkerDrawer.m
-@@ -65,7 +65,12 @@ extern NSString *const ListItemMarkerStartAttribute;
- 
-                                    if (marker.isTask) {
-                                      const CGFloat size = [_config taskListCheckboxSize];
--                                     CGFloat checkboxX = isRTL ? markerX + size / 2.0 : markerX - size / 2.0;
-+                                     // Same `gap-2` (8) as the indent. The shared list gap
-+                                     // belongs to bullets and numbers.
-+                                     const CGFloat trail = 8.0;
-+                                     CGFloat rightEdge = isRTL ? origin.x + container.size.width - marker.indent + trail
-+                                                               : origin.x + marker.indent - trail;
-+                                     CGFloat checkboxX = isRTL ? rightEdge + size / 2.0 : rightEdge - size / 2.0;
-                                      [self drawCheckboxAtX:checkboxX
-                                                    centerY:baselineY - (font.capHeight / 2.0)
-                                                    checked:marker.isChecked];
-diff --git a/ios/renderer/StrongRenderer.m b/ios/renderer/StrongRenderer.m
-index 15a76af85..f9ad1e401 100644
---- a/ios/renderer/StrongRenderer.m
-+++ b/ios/renderer/StrongRenderer.m
-@@ -38,8 +38,9 @@
- 
-                             UIFont *resolvedFont = currentFont;
- 
-+                            // Streamdown strong is font-semibold, not the bold trait.
-                             if (strongFontFamily.length > 0) {
--                              NSString *weight = useNormalWeight ? nil : @"bold";
-+                              NSString *weight = useNormalWeight ? nil : @"600";
-                               resolvedFont = [RCTFont updateFont:currentFont
-                                                       withFamily:strongFontFamily
-                                                             size:nil
-@@ -47,8 +48,14 @@
-                                                            style:nil
-                                                          variant:nil
-                                                  scaleMultiplier:1.0];
--                            } else if (!([currentFont.fontDescriptor symbolicTraits] & UIFontDescriptorTraitBold)) {
--                              resolvedFont = [self ensureFontIsBold:currentFont];
-+                            } else if (!useNormalWeight) {
-+                              resolvedFont = [RCTFont updateFont:currentFont
-+                                                      withFamily:nil
-+                                                            size:nil
-+                                                          weight:@"600"
-+                                                           style:nil
-+                                                         variant:nil
-+                                                 scaleMultiplier:1.0];
-                             }
- 
-                             if (resolvedFont && ![resolvedFont isEqual:currentFont]) {
-@@ -68,21 +75,4 @@
-                           }];
- }
- 
--#pragma mark - Helper Methods
--
--- (UIFont *)ensureFontIsBold:(UIFont *)font
--{
--  if (!font)
--    return nil;
--
--  UIFontDescriptor *descriptor = font.fontDescriptor;
--  UIFontDescriptorSymbolicTraits traits = descriptor.symbolicTraits;
--
--  // Create new descriptor combining current traits with Bold
--  UIFontDescriptor *boldDescriptor = [descriptor fontDescriptorWithSymbolicTraits:(traits | UIFontDescriptorTraitBold)];
--
--  // Fallback to original font if bold version is unavailable
--  return boldDescriptor ? [UIFont fontWithDescriptor:boldDescriptor size:0] : font;
--}
--
- @end
-\ No newline at end of file
-diff --git a/ios/renderer/ThematicBreakRenderer.m b/ios/renderer/ThematicBreakRenderer.m
-index efaa0b3..b265d1d 100644
---- a/ios/renderer/ThematicBreakRenderer.m
-+++ b/ios/renderer/ThematicBreakRenderer.m
-@@ -1,5 +1,6 @@
- #import "ThematicBreakRenderer.h"
- #import "MarkdownASTNode.h"
-+#import "ParagraphStyleUtils.h"
- #import "StyleConfig.h"
- #import "ThematicBreakAttachment.h"
- 
-@@ -18,11 +19,59 @@
-   attachment.lineHeight = _config.thematicBreakHeight > 0 ? _config.thematicBreakHeight : 1.0;
-   attachment.marginTop = _config.thematicBreakMarginTop;
-   attachment.marginBottom = _config.thematicBreakMarginBottom;
-+  // Web `[&>*:first-child]:mt-0` clears a leading rule. The 8px stays after a block.
-+  // Equal sides are `my-6` and stay.
-+  // A cleared leading rule remembers its 24px top for the next segment.
-+  CGFloat clearedRuleTop = 0;
-+  if (output.length == 0 && attachment.marginTop < attachment.marginBottom) {
-+    clearedRuleTop = attachment.marginBottom;
-+    attachment.marginTop = 0;
-+  }
-+  // A prose rule keeps its own margins. The overlap goes back to the previous
-+  // block, so a smaller top does not clear the trailing 24px.
-+  if (attachment.marginTop > 0 && output.length > 0 && [output.string hasSuffix:@"\n"]) {
-+    NSUInteger newlineIndex = output.length - 1;
-+    id previous = newlineIndex > 0
-+                      ? [output attribute:NSAttachmentAttributeName atIndex:newlineIndex - 1 effectiveRange:NULL]
-+                      : nil;
-+    if ([previous isKindOfClass:[ThematicBreakAttachment class]]) {
-+      // A following rule gives the overlap back to the previous rule.
-+      // A rule that ends the block keeps its own bottom.
-+      ThematicBreakAttachment *previousRule = (ThematicBreakAttachment *)previous;
-+      previousRule.marginBottom = MAX(0.0, previousRule.marginBottom - attachment.marginTop);
-+    } else if (ENRMCollapsesBlockMargins([_config paragraphMarginTop])) {
-+      NSRange prevParagraph = [output.string paragraphRangeForRange:NSMakeRange(newlineIndex, 0)];
-+      [output enumerateAttribute:NSParagraphStyleAttributeName
-+                         inRange:prevParagraph
-+                         options:0
-+                      usingBlock:^(NSParagraphStyle *style, NSRange range, BOOL *stop) {
-+                        CGFloat prevBottom = style.paragraphSpacing;
-+                        if (prevBottom <= 0) {
-+                          return;
-+                        }
-+                        NSMutableParagraphStyle *updated = [style mutableCopy];
-+                        updated.paragraphSpacing = MAX(0, prevBottom - attachment.marginTop);
-+                        [output addAttribute:NSParagraphStyleAttributeName value:updated range:range];
-+                      }];
-+    } else if (attachment.marginTop < attachment.marginBottom) {
-+      // Answer rules are `my-6` (24). The line stacks, so a heading bottom of 8
-+      // needs the rest of that 24. A paragraph or a list already covers it.
-+      NSParagraphStyle *prevStyle =
-+          [output attribute:NSParagraphStyleAttributeName atIndex:newlineIndex effectiveRange:NULL];
-+      CGFloat prevBottom = prevStyle.paragraphSpacing;
-+      if (prevBottom > 0.0) {
-+        attachment.marginTop = MAX(attachment.marginTop, attachment.marginBottom - prevBottom);
-+      }
-+    }
-+  }
- 
--  NSDictionary *attributes = @{
-+  NSMutableDictionary *attributes = [@{
-     NSAttachmentAttributeName : attachment,
-     NSParagraphStyleAttributeName : [NSParagraphStyle defaultParagraphStyle]
--  };
-+  } mutableCopy];
-+  if (clearedRuleTop > 0.0) {
-+    attributes[ENRMLeadingRuleOpenMarginAttributeName] = @(clearedRuleTop);
-+  }
- 
-   NSAttributedString *breakString = [[NSAttributedString alloc] initWithString:@"\uFFFC" attributes:attributes];
- 
-diff --git a/ios/styles/StyleConfig.h b/ios/styles/StyleConfig.h
-index 89ff9e9c8..101254354 100644
---- a/ios/styles/StyleConfig.h
-+++ b/ios/styles/StyleConfig.h
-@@ -288,7 +288,7 @@ NS_ASSUME_NONNULL_BEGIN
- - (UIFont *)listStyleFont;
- - (CGFloat)effectiveListGapWidth;
- - (CGFloat)effectiveListMarginLeftForBullet;
--- (CGFloat)effectiveListMarginLeftForNumber;
-+- (CGFloat)effectiveListMarginLeftForNumber:(NSInteger)number;
- - (CGFloat)effectiveListMarginLeftForTask;
- // Code block properties
- - (CGFloat)codeBlockFontSize;
-@@ -315,6 +315,10 @@ NS_ASSUME_NONNULL_BEGIN
- - (void)setCodeBlockBorderWidth:(CGFloat)newValue;
- - (CGFloat)codeBlockPadding;
- - (void)setCodeBlockPadding:(CGFloat)newValue;
-+- (CGFloat)codeBlockMaxHeight;
-+- (void)setCodeBlockMaxHeight:(CGFloat)newValue;
-+- (CGFloat)codeBlockLineNumberStart;
-+- (void)setCodeBlockLineNumberStart:(CGFloat)newValue;
- - (UIFont *)codeBlockFont;
- // Syntax highlight colors, indexed by HighlightTokenType ordinal. Resolved on
- // the JS side; the getter returns a cached color with no allocation.
-diff --git a/ios/styles/StyleConfig.mm b/ios/styles/StyleConfig.mm
-index cabaa0873..73a9278a2 100644
---- a/ios/styles/StyleConfig.mm
-+++ b/ios/styles/StyleConfig.mm
-@@ -193,6 +193,8 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
-   CGFloat _codeBlockBorderRadius;
-   CGFloat _codeBlockBorderWidth;
-   CGFloat _codeBlockPadding;
-+  CGFloat _codeBlockMaxHeight;
-+  CGFloat _codeBlockLineNumberStart;
-   RCTUIColor *_codeBlockSyntaxColors[kENRMCodeBlockSyntaxColorCount];
-   ENRMFontSlot *_codeBlockFont;
-   // Thematic break properties
-@@ -468,6 +470,8 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
-   copy->_codeBlockBorderRadius = _codeBlockBorderRadius;
-   copy->_codeBlockBorderWidth = _codeBlockBorderWidth;
-   copy->_codeBlockPadding = _codeBlockPadding;
-+  copy->_codeBlockMaxHeight = _codeBlockMaxHeight;
-+  copy->_codeBlockLineNumberStart = _codeBlockLineNumberStart;
-   for (NSInteger i = 0; i < kENRMCodeBlockSyntaxColorCount; i++) {
-     copy->_codeBlockSyntaxColors[i] = [_codeBlockSyntaxColors[i] copy];
-   }
-@@ -1689,11 +1693,12 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
- - (UIFont *)blockquoteFont
- {
-   if (_blockquoteFont.needsRecreation || !_blockquoteFont.cachedFont) {
-+    // Streamdown quotes are `italic`. The quote style has no fontStyle field.
-     _blockquoteFont.cachedFont = [RCTFont updateFont:nil
-                                           withFamily:_blockquoteFontFamily
-                                                 size:@(_blockquoteFontSize)
-                                               weight:normalizedFontWeight(_blockquoteFontWeight)
--                                               style:nil
-+                                               style:@"italic"
-                                              variant:nil
-                                      scaleMultiplier:[self effectiveScaleMultiplierForFontSize:_blockquoteFontSize]];
-     _blockquoteFont.needsRecreation = NO;
-@@ -1963,11 +1968,15 @@ static const CGFloat kDefaultMinGap = 4.0;
-   return MAX(_listStyleMarkerMinWidth, _listStyleBulletSize / 2.0);
- }
- 
--- (CGFloat)effectiveListMarginLeftForNumber
-+// Streamdown ordered lists are `list-inside`. The label is only as wide as
-+// the digits it draws, so `1.` starts on the text edge instead of in a
-+// shared `99.` column.
-+- (CGFloat)effectiveListMarginLeftForNumber:(NSInteger)number
- {
-   UIFont *font = [self listMarkerFont];
-+  NSString *text = [NSString stringWithFormat:@"%ld.", (long)number];
-   CGFloat natural =
--      [@"99." sizeWithAttributes:@{NSFontAttributeName : font ?: [UIFont systemFontOfSize:_listStyleFontSize]}].width;
-+      [text sizeWithAttributes:@{NSFontAttributeName : font ?: [UIFont systemFontOfSize:_listStyleFontSize]}].width;
-   return MAX(_listStyleMarkerMinWidth, natural);
- }
- 
-@@ -2103,6 +2112,26 @@ static const CGFloat kDefaultMinGap = 4.0;
-   _codeBlockPadding = newValue;
- }
- 
-+- (CGFloat)codeBlockMaxHeight
-+{
-+  return _codeBlockMaxHeight;
-+}
-+
-+- (void)setCodeBlockMaxHeight:(CGFloat)newValue
-+{
-+  _codeBlockMaxHeight = newValue;
-+}
-+
-+- (CGFloat)codeBlockLineNumberStart
-+{
-+  return _codeBlockLineNumberStart;
-+}
-+
-+- (void)setCodeBlockLineNumberStart:(CGFloat)newValue
-+{
-+  _codeBlockLineNumberStart = newValue;
-+}
-+
- - (UIFont *)codeBlockFont
- {
-   if (_codeBlockFont.needsRecreation || !_codeBlockFont.cachedFont) {
 diff --git a/ios/utils/CodeBackground.m b/ios/utils/CodeBackground.m
-index 5e5d5bf06..eb7db5dbb 100644
+index 5e5d5bf06370c9a94ed5645ccba4436894fe2bdb..eb7db5dbb94a3ddda4074dce9f8a5aacf7d01b37 100644
 --- a/ios/utils/CodeBackground.m
 +++ b/ios/utils/CodeBackground.m
 @@ -4,8 +4,17 @@
@@ -615,7 +102,7 @@ index 5e5d5bf06..eb7db5dbb 100644
      UIBezierPath *strokePath =
          (isFirst && isLast) ? path : [self openBorderPathForRect:rect isFirst:isFirst isLast:isLast];
 diff --git a/ios/utils/ENRMCodeBlockContent.mm b/ios/utils/ENRMCodeBlockContent.mm
-index 585044157..53a2ff798 100644
+index 585044157a9a4e5ed9ebf69d4891f7b5a48eb5b1..670dae208f28d7d6c4ec8b994edc2a9d1a0b9174 100644
 --- a/ios/utils/ENRMCodeBlockContent.mm
 +++ b/ios/utils/ENRMCodeBlockContent.mm
 @@ -1,5 +1,4 @@
@@ -639,238 +126,11 @@ index 585044157..53a2ff798 100644
  }
  
  void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange range, StyleConfig *config)
-@@ -76,4 +76,5 @@ void ENRMApplyCodeBlockTextAttributes(NSMutableAttributedString *string, NSRange
-   paragraphStyle.baseWritingDirection = NSWritingDirectionLeftToRight;
-   paragraphStyle.alignment = NSTextAlignmentLeft;
-   [string addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:range];
-+  applyBaselineOffset(string, range);
- }
-diff --git a/ios/utils/ParagraphStyleUtils.h b/ios/utils/ParagraphStyleUtils.h
-index 95a2138..fbf40d1 100644
---- a/ios/utils/ParagraphStyleUtils.h
-+++ b/ios/utils/ParagraphStyleUtils.h
-@@ -1,4 +1,5 @@
- #import "ENRMUIKit.h"
-+#import "ThematicBreakAttachment.h"
- #import <Foundation/Foundation.h>
- 
- NS_ASSUME_NONNULL_BEGIN
-@@ -43,6 +44,146 @@ void applyParagraphSpacingAfter(NSMutableAttributedString *output, NSUInteger st
- NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRange range, CGFloat marginTop);
- NSUInteger applyBlockSpacingBefore(NSMutableAttributedString *output, NSUInteger insertionPoint, CGFloat marginTop);
- void applyBlockSpacingAfter(NSMutableAttributedString *output, CGFloat marginBottom);
-+
-+/// Prose sets a paragraph top margin. Those block gaps collapse with the
-+/// previous bottom. Answer paragraphs keep a zero top, so their list pad stacks.
-+static inline BOOL ENRMCollapsesBlockMargins(CGFloat paragraphMarginTop)
-+{
-+  return paragraphMarginTop > 0.0;
-+}
-+
-+static inline CGFloat ENRMCollapsedMargin(CGFloat margin, CGFloat previous)
-+{
-+  if (previous <= 0.0) {
-+    return margin;
-+  }
-+  return MAX(0.0, margin - previous);
-+}
-+
-+/// A fence, table, or math block. Prose keeps a full top on the first block.
-+/// Answer and thinking blocks are `my-4`: the first one clears that top, and
-+/// a later one keeps only the part above the previous block.
-+static inline CGFloat ENRMBlockSegmentTop(CGFloat margin, CGFloat previousTrailing, BOOL collapseMargins)
-+{
-+  if (!collapseMargins && previousTrailing <= 0.0) {
-+    return 0.0;
-+  }
-+  return ENRMCollapsedMargin(margin, previousTrailing);
-+}
-+
-+/// Part of a list's bottom margin that is the item pad. It stays painted
-+/// when the next block collapses.
-+#define ENRMNonCollapsingPadAttributeName @"ENRMNonCollapsingPad"
-+
-+static inline CGFloat ENRMNonCollapsingPadAt(NSAttributedString *text, NSUInteger index)
-+{
-+  if (text.length == 0 || index >= text.length) {
-+    return 0.0;
-+  }
-+  id value = [text attribute:ENRMNonCollapsingPadAttributeName atIndex:index effectiveRange:NULL];
-+  if (![value isKindOfClass:[NSNumber class]]) {
-+    return 0.0;
-+  }
-+  return [value doubleValue];
-+}
-+
-+/// Web top of a rule whose own top was cleared because it opened a segment.
-+#define ENRMLeadingRuleOpenMarginAttributeName @"ENRMLeadingRuleOpenMargin"
-+
-+static inline CGFloat ENRMLeadingRuleOpenMargin(NSAttributedString *text)
-+{
-+  if (text.length == 0) {
-+    return 0.0;
-+  }
-+  id value = [text attribute:ENRMLeadingRuleOpenMarginAttributeName atIndex:0 effectiveRange:NULL];
-+  if (![value isKindOfClass:[NSNumber class]]) {
-+    return 0.0;
-+  }
-+  return [value doubleValue];
-+}
-+
-+/// A leading spacer is a 1pt newline. Its paragraph spacing plus that point is
-+/// the block's top margin.
-+static inline CGFloat ENRMLeadingBlockSpacer(NSAttributedString *text)
-+{
-+  if (text.length == 0 || [text.string characterAtIndex:0] != '\n') {
-+    return 0.0;
-+  }
-+  NSParagraphStyle *style = [text attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL];
-+  if (style != nil && style.minimumLineHeight == 1.0 && style.maximumLineHeight == 1.0) {
-+    return 1.0 + style.paragraphSpacing;
-+  }
-+  return 0.0;
-+}
-+
-+/// A heading that opens a segment stores its top margin here. The first
-+/// segment still clears that margin. A later segment collapses it.
-+#define ENRMHeadingOpenMarginAttributeName @"ENRMHeadingOpenMargin"
-+
-+static inline CGFloat ENRMHeadingOpenMargin(NSAttributedString *text)
-+{
-+  if (text.length == 0) {
-+    return 0.0;
-+  }
-+  id value = [text attribute:ENRMHeadingOpenMarginAttributeName atIndex:0 effectiveRange:NULL];
-+  if (![value isKindOfClass:[NSNumber class]]) {
-+    return 0.0;
-+  }
-+  return [value doubleValue];
-+}
-+
-+/// Pull a following text segment up by its leading spacer, or add the part of
-+/// an opening heading's top margin that exceeds the previous block.
-+static inline CGFloat ENRMFollowingTextGapAdjustment(NSAttributedString *text, CGFloat previousTrailing)
-+{
-+  if (previousTrailing <= 0.0 || text.length == 0) {
-+    return 0.0;
-+  }
-+  CGFloat spacer = ENRMLeadingBlockSpacer(text);
-+  if (spacer > 0.0) {
-+    return -MIN(previousTrailing, spacer);
-+  }
-+  return ENRMCollapsedMargin(ENRMHeadingOpenMargin(text), previousTrailing);
-+}
-+
-+static inline CGFloat ENRMThematicBreakMarginBottomAt(NSAttributedString *text, NSUInteger index)
-+{
-+  if (text.length == 0 || index >= text.length) {
-+    return 0.0;
-+  }
-+  id attachment = [text attribute:NSAttachmentAttributeName atIndex:index effectiveRange:NULL];
-+  if ([attachment isKindOfClass:[ThematicBreakAttachment class]]) {
-+    return ((ThematicBreakAttachment *)attachment).marginBottom;
-+  }
-+  return 0.0;
-+}
-+
-+/// The bottom margin baked into a rule that sits on the character before this newline.
-+static inline CGFloat ENRMThematicBreakBottomBeforeNewline(NSAttributedString *text, NSUInteger newlineIndex)
-+{
-+  if (newlineIndex == 0 || newlineIndex >= text.length) {
-+    return 0.0;
-+  }
-+  if ([text.string characterAtIndex:newlineIndex] != '\n') {
-+    return 0.0;
-+  }
-+  return ENRMThematicBreakMarginBottomAt(text, newlineIndex - 1);
-+}
-+
-+/// A rule that ends the text already includes its bottom. The next segment
-+/// collapses against that value. Measurement must not add it a second time.
-+static inline CGFloat ENRMThematicBreakTrailingMargin(NSAttributedString *text)
-+{
-+  if (text.length == 0) {
-+    return 0.0;
-+  }
-+  NSRange lastContent = [text.string rangeOfCharacterFromSet:[[NSCharacterSet newlineCharacterSet] invertedSet]
-+                                                     options:NSBackwardsSearch];
-+  if (lastContent.location == NSNotFound) {
-+    return 0.0;
-+  }
-+  return ENRMThematicBreakMarginBottomAt(text, lastContent.location);
-+}
- void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat lineHeight);
- void applyBaselineOffset(NSMutableAttributedString *output, NSRange range);
- 
-diff --git a/ios/utils/ParagraphStyleUtils.m b/ios/utils/ParagraphStyleUtils.m
-index 24c7daa..ca16bf4 100644
---- a/ios/utils/ParagraphStyleUtils.m
-+++ b/ios/utils/ParagraphStyleUtils.m
-@@ -192,6 +192,13 @@ NSUInteger applyParagraphSpacingBefore(NSMutableAttributedString *output, NSRang
-   NSParagraphStyle *prevStyle = [output attribute:NSParagraphStyleAttributeName atIndex:prevIdx effectiveRange:NULL];
- 
-   CGFloat prevMarginBottom = prevStyle.paragraphSpacing;
-+  // A list bottom keeps its item pad. Only the block gap collapses.
-+  CGFloat pad = ENRMNonCollapsingPadAt(output, prevIdx);
-+  if (pad > 0.0 && pad < prevMarginBottom) {
-+    prevMarginBottom -= pad;
-+  }
-+  // A rule's bottom is inside the rule, so the next block collapses against it.
-+  prevMarginBottom = MAX(prevMarginBottom, ENRMThematicBreakBottomBeforeNewline(output, prevIdx));
-   if (prevMarginBottom >= marginTop)
-     return 0;
- 
-@@ -292,10 +299,10 @@ void applyLineHeight(NSMutableAttributedString *output, NSRange range, CGFloat l
-   [output addAttribute:NSParagraphStyleAttributeName value:style range:range];
- }
- 
--// TODO: Extend baseline offset to every block that calls applyLineHeight (headings, blockquotes,
--// code blocks, list items). Keep per-block range scoping — not a whole-document pass like RN Text,
--// since blocks can use different line heights. Optionally consolidate into a single post-pass in
--// AttributedRenderer; evaluate RN's per-line mode (enableIOSTextBaselineOffsetPerLine) if needed.
-+// CSS centers glyphs in the line box. iOS pins them to the bottom when min and max
-+// line height match, so a positive offset of half the extra leading raises them.
-+// Headings, quotes, list items, and fences call this on their own range. A range
-+// that already carries an offset (a paragraph, or sub/superscript) stays as it is.
- void applyBaselineOffset(NSMutableAttributedString *output, NSRange range)
- {
-   if (range.length == 0) {
-diff --git a/ios/utils/StylePropsUtils.h b/ios/utils/StylePropsUtils.h
-index 03c8db575..d0a201b7d 100644
---- a/ios/utils/StylePropsUtils.h
-+++ b/ios/utils/StylePropsUtils.h
-@@ -887,6 +887,16 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
-     changed = YES;
-   }
- 
-+  if (newStyle.codeBlock.maxHeight != oldStyle.codeBlock.maxHeight) {
-+    [config setCodeBlockMaxHeight:newStyle.codeBlock.maxHeight];
-+    changed = YES;
-+  }
-+
-+  if (newStyle.codeBlock.lineNumberStart != oldStyle.codeBlock.lineNumberStart) {
-+    [config setCodeBlockLineNumberStart:newStyle.codeBlock.lineNumberStart];
-+    changed = YES;
-+  }
-+
- #define ENRM_SET_SYNTAX_COLOR(field, token)                                                                            \
-   if (newStyle.codeBlock.syntaxColors.field != oldStyle.codeBlock.syntaxColors.field) {                                \
-     [config setCodeBlockSyntaxColor:RCTUIColorFromSharedColor(newStyle.codeBlock.syntaxColors.field)                   \
 diff --git a/ios/views/ENRMCodeBlockContainerView.m b/ios/views/ENRMCodeBlockContainerView.m
-index a668c26eb..9d29b46a8 100644
+index a668c26ebc9da0c7bda60da80c580ccbdd3571cd..135a92e47486d091a68901f8a39685f20c315db4 100644
 --- a/ios/views/ENRMCodeBlockContainerView.m
 +++ b/ios/views/ENRMCodeBlockContainerView.m
-@@ -1,5 +1,9 @@
- #import "ENRMCodeBlockContainerView.h"
- #import "ENRMCodeBlockContent.h"
-+#import "ParagraphStyleUtils.h"
-+// Fence glyphs live in this file. Bun 1.3.14 cannot apply a patch that adds a file.
-+void ENRMDrawNamedFenceIcon(CGContextRef context, NSString *key, CGRect box, BOOL darkInk);
-+void ENRMDrawFenceIcon(CGContextRef context, NSString *_Nullable language, CGRect box, BOOL darkInk);
- #import "ENRMCodeBlockHighlighter.h"
- #import "MarkdownASTNode.h"
- #import "PasteboardUtils.h"
-@@ -20,25 +24,127 @@
+@@ -20,25 +20,89 @@
  // header metrics, so the reported height matches the drawn height. Since
  // lines never wrap, the height is independent of the available width.
  
@@ -882,111 +142,73 @@ index a668c26eb..9d29b46a8 100644
 -static const CGFloat kENRMHeaderDividerAlpha = 0.2;
 +// Web MarkdownCodeBlock (`code-block.tsx`): the header is `h-9` (36) with
 +// `px-2`, the language is `text-xs` (12) `tracking-wider`, and the code pane
-+// is `bg-background`. Shiki lines are `px-4` and `pre.shiki` is `py-3`, so the
-+// text inset is 16px across and 12px down. A fence with no language, or a
-+// language Shiki does not highlight, uses `PlainTextWithLineNumbers`: 13px
-+// `leading-relaxed` on a `block` line with `py-0.5`, and `px-3`. A fence with
-+// a second line adds the `shiki-line-numbers` gutter inside that inset. The frame wash stays
++// is `bg-background` with 12px padding. The frame wash stays
 +// `codeBlockBackgroundColor`. There is no divider between the header and the
 +// pane. Page colors are the phone canvas (`colors.ts`), the role of
 +// `bg-background`.
 +static const CGFloat kENRMWebHeaderHeight = 36.0;
 +static const CGFloat kENRMWebHeaderPadX = 8.0;
-+// Web CodeBlockGroup is `gap-2` with a 16px glyph before the language.
-+static const CGFloat kENRMWebHeaderIcon = 16.0;
-+static const CGFloat kENRMWebHeaderIconGap = 8.0;
-+static const CGFloat kENRMWebCodePadX = 16.0;
-+static const CGFloat kENRMWebCodePadY = 12.0;
-+// `PlainTextWithLineNumbers` is `px-3` and `text-[13px] leading-relaxed`.
-+// `py-0.5` on the block line adds 4px to the 21.125px line box.
-+static const CGFloat kENRMWebPlainCodePadX = 12.0;
-+static const CGFloat kENRMWebPlainCodeFont = 13.0;
-+static const CGFloat kENRMWebPlainCodeLine = 13.0 * 1.625 + 4.0;
++static const CGFloat kENRMWebCodePad = 12.0;
 +static const CGFloat kENRMWebHeaderFontSize = 12.0;
 +// Lucide `CopyIcon` default is `size={14}`: a 14px box, not an SF Symbol font size.
 +static const CGFloat kENRMWebCopyGlyph = 14.0;
-+// `text-xs` numbers, `min-width: 3ch`, `margin-left: 0.25rem`, `margin-right: 1rem`.
-+static const CGFloat kENRMWebLineNumberSize = 12.0;
-+static const CGFloat kENRMWebLineNumberGapLeft = 4.0;
-+static const CGFloat kENRMWebLineNumberGapRight = 16.0;
  
 -// Height geometry and code-run construction shared by the instance layout path
 -// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
-+// Collapsed web `CodeBlockContent` is `max-h-96` (384). Zero keeps the full pane
-+// so a tool fence can grow when React removes its clip.
-+static CGFloat ENRMWebCodePaneHeight(CGFloat codeHeight, CGFloat maxHeight)
-+{
-+  CGFloat full = codeHeight + kENRMWebCodePadY * 2.0;
-+  if (maxHeight > 0.0 && full > maxHeight) {
-+    return maxHeight;
-+  }
-+  return full;
-+}
- 
--static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
-+// Lucide Copy / Check in the same 14px box as web `CopyButton`. Drawn from the
-+// fence-icon catalog so the stroke matches the web svg, then tinted by the button.
 +#if !TARGET_OS_OSX
-+static UIImage *ENRMWebTemplateGlyph(NSString *key)
- {
--  return [config codeBlockPadding] + [config codeBlockBorderWidth];
-+  CGSize size = CGSizeMake(kENRMWebCopyGlyph, kENRMWebCopyGlyph);
-+  UIGraphicsBeginImageContextWithOptions(size, NO, 0);
-+  ENRMDrawNamedFenceIcon(UIGraphicsGetCurrentContext(), key, CGRectMake(0, 0, size.width, size.height), NO);
-+  UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-+  UIGraphicsEndImageContext();
-+  return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
- }
- 
 +static UIImage *ENRMWebCopyGlyphImage(void)
 +{
-+  return ENRMWebTemplateGlyph(@"copy");
-+}
-+
-+static UIImage *ENRMWebCheckGlyphImage(void)
-+{
-+  return ENRMWebTemplateGlyph(@"check");
++  UIImageSymbolConfiguration *symbolConfig =
++      [UIImageSymbolConfiguration configurationWithPointSize:kENRMWebCopyGlyph
++                                                      weight:UIImageSymbolWeightRegular];
++  UIImage *symbol = [UIImage systemImageNamed:@"doc.on.doc" withConfiguration:symbolConfig];
++  if (!symbol || symbol.size.width <= 0 || symbol.size.height <= 0)
++    return symbol;
++  CGFloat longest = MAX(symbol.size.width, symbol.size.height);
++  UIImage *image = symbol;
++  if (longest > kENRMWebCopyGlyph) {
++    CGFloat factor = kENRMWebCopyGlyph / longest;
++    CGSize target = CGSizeMake(symbol.size.width * factor, symbol.size.height * factor);
++    UIGraphicsBeginImageContextWithOptions(target, NO, 0);
++    [symbol drawInRect:CGRectMake(0, 0, target.width, target.height)];
++    image = UIGraphicsGetImageFromCurrentImageContext() ?: symbol;
++    UIGraphicsEndImageContext();
++  }
++  return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
 +}
 +#else
-+static NSImage *ENRMWebTemplateGlyph(NSString *key)
++static NSImage *ENRMWebCopyGlyphImage(void)
 +{
-+  NSSize size = NSMakeSize(kENRMWebCopyGlyph, kENRMWebCopyGlyph);
-+  NSImage *image = [[NSImage alloc] initWithSize:size];
-+  [image lockFocus];
-+  ENRMDrawNamedFenceIcon([[NSGraphicsContext currentContext] CGContext], key,
-+                          CGRectMake(0, 0, size.width, size.height), NO);
-+  [image unlockFocus];
++  NSImageSymbolConfiguration *symbolConfig =
++      [NSImageSymbolConfiguration configurationWithPointSize:kENRMWebCopyGlyph weight:NSFontWeightRegular];
++  NSImage *symbol = [[NSImage imageWithSystemSymbolName:@"doc.on.doc" accessibilityDescription:nil]
++      imageWithSymbolConfiguration:symbolConfig];
++  if (!symbol || symbol.size.width <= 0 || symbol.size.height <= 0)
++    return symbol;
++  CGFloat longest = MAX(symbol.size.width, symbol.size.height);
++  NSImage *image = symbol;
++  if (longest > kENRMWebCopyGlyph) {
++    CGFloat factor = kENRMWebCopyGlyph / longest;
++    NSSize target = NSMakeSize(symbol.size.width * factor, symbol.size.height * factor);
++    image = [[NSImage alloc] initWithSize:target];
++    [image lockFocus];
++    [symbol drawInRect:NSMakeRect(0, 0, target.width, target.height)];
++    [image unlockFocus];
++  }
 +  [image setTemplate:YES];
 +  return image;
 +}
-+
-+static NSImage *ENRMWebCopyGlyphImage(void)
-+{
-+  return ENRMWebTemplateGlyph(@"copy");
-+}
-+
-+static NSImage *ENRMWebCheckGlyphImage(void)
-+{
-+  return ENRMWebTemplateGlyph(@"check");
-+}
 +#endif
-+
-+static RCTUIColor *ENRMWebCopiedGlyphColor(BOOL dark)
-+{
-+  // text-green-900 / dark:text-green-400
-+  if (dark) {
-+    return [RCTUIColor colorWithRed:(0x4A / 255.0) green:(0xDE / 255.0) blue:(0x80 / 255.0) alpha:1];
-+  }
-+  return [RCTUIColor colorWithRed:(0x14 / 255.0) green:(0x53 / 255.0) blue:(0x2D / 255.0) alpha:1];
-+}
-+
+ 
+-static CGFloat ENRMCodeBlockContentInset(StyleConfig *config)
 +static RCTUIColor *ENRMWebHeaderLabelColor(BOOL dark)
-+{
+ {
+-  return [config codeBlockPadding] + [config codeBlockBorderWidth];
 +  // text-neutral-600 / dark:text-neutral-400
 +  if (dark) {
 +    return [RCTUIColor colorWithRed:(0xA3 / 255.0) green:(0xA3 / 255.0) blue:(0xA3 / 255.0) alpha:1];
 +  }
-+  return [RCTUIColor colorWithRed:(0x52 / 255.0) green:(0x52 / 255.0) blue:(0x52 / 255.0) alpha:1];
++  return [RCTUIColor colorWithRed:(0x52 / 255.0) green:(0x52 / 255.0) blue:(0x5B / 255.0) alpha:1];
 +}
 +
 +static RCTUIColor *ENRMWebCodePaneColor(BOOL dark)
@@ -995,8 +217,8 @@ index a668c26eb..9d29b46a8 100644
 +    return [RCTUIColor colorWithRed:0 green:0 blue:0 alpha:1];
 +  }
 +  return [RCTUIColor colorWithRed:(0xF4 / 255.0) green:(0xF4 / 255.0) blue:(0xF6 / 255.0) alpha:1];
-+}
-+
+ }
+ 
 +// Height geometry and code-run construction shared by the instance layout path
 +// and the view-free measureHeightForCodeBlockNode:, so the two cannot drift.
 +
@@ -1009,7 +231,7 @@ index a668c26eb..9d29b46a8 100644
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
-@@ -48,7 +154,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
+@@ -48,7 +112,8 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(UIFont *headerFont)
  #else
  static NSFont *ENRMCodeBlockHeaderFont(StyleConfig *config)
  {
@@ -1019,257 +241,7 @@ index a668c26eb..9d29b46a8 100644
  }
  
  static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
-@@ -57,13 +164,90 @@ static CGFloat ENRMCodeBlockHeaderLabelLineHeight(NSFont *headerFont)
- }
- #endif
- 
--static NSAttributedString *ENRMCodeBlockPlainAttributedCode(NSString *code, StyleConfig *config)
-+// Web `MarkdownCodeBlock` sends a known language through Shiki (`text-sm leading-5`,
-+// `px-4`). Anything else is `PlainTextWithLineNumbers`.
-+static NSString *ENRMWebNormalizeFenceLanguage(NSString *language)
-+{
-+  if (language.length == 0) {
-+    return nil;
-+  }
-+  NSString *lower = language.lowercaseString;
-+  if ([lower isEqualToString:@"sh"] || [lower isEqualToString:@"shell"] || [lower isEqualToString:@"zsh"]) {
-+    return @"bash";
-+  }
-+  if ([lower isEqualToString:@"js"]) return @"javascript";
-+  if ([lower isEqualToString:@"ts"]) return @"typescript";
-+  if ([lower isEqualToString:@"py"]) return @"python";
-+  if ([lower isEqualToString:@"rs"]) return @"rust";
-+  if ([lower isEqualToString:@"yml"]) return @"yaml";
-+  if ([lower isEqualToString:@"c++"]) return @"cpp";
-+  if ([lower isEqualToString:@"md"]) return @"markdown";
-+  return lower;
-+}
-+
-+static BOOL ENRMWebFenceUsesShiki(NSString *language)
-+{
-+  NSString *normalized = ENRMWebNormalizeFenceLanguage(language);
-+  if (normalized.length == 0) {
-+    return NO;
-+  }
-+  return [@[
-+    @"html", @"javascript", @"typescript", @"tsx", @"jsx", @"css", @"json", @"bash",
-+    @"shellscript", @"markdown", @"python", @"rust", @"go", @"java", @"yaml", @"toml",
-+    @"sql", @"dockerfile", @"c", @"cpp", @"diff", @"plaintext", @"text", @"txt"
-+  ] containsObject:normalized];
-+}
-+
-+static CGFloat ENRMWebCodePadXForLanguage(NSString *language)
-+{
-+  return ENRMWebFenceUsesShiki(language) ? kENRMWebCodePadX : kENRMWebPlainCodePadX;
-+}
-+
-+static void ENRMWebApplyPlainFenceMetrics(NSMutableAttributedString *string)
-+{
-+  if (string.length == 0) {
-+    return;
-+  }
-+  NSRange range = NSMakeRange(0, string.length);
-+  [string enumerateAttribute:NSFontAttributeName
-+                     inRange:range
-+                     options:0
-+                  usingBlock:^(id font, NSRange subrange, BOOL *stop) {
-+                    (void)stop;
-+                    if (!font) {
-+                      return;
-+                    }
-+#if !TARGET_OS_OSX
-+                    id resized = [(UIFont *)font fontWithSize:kENRMWebPlainCodeFont];
-+#else
-+                    id resized = [(NSFont *)font fontWithSize:kENRMWebPlainCodeFont];
-+#endif
-+                    [string addAttribute:NSFontAttributeName value:resized range:subrange];
-+                  }];
-+  [string enumerateAttribute:NSParagraphStyleAttributeName
-+                     inRange:range
-+                     options:0
-+                  usingBlock:^(NSParagraphStyle *style, NSRange subrange, BOOL *stop) {
-+                    (void)stop;
-+                    NSMutableParagraphStyle *next = style ? [style mutableCopy] : [[NSMutableParagraphStyle alloc] init];
-+                    next.minimumLineHeight = kENRMWebPlainCodeLine;
-+                    next.maximumLineHeight = kENRMWebPlainCodeLine;
-+                    [string addAttribute:NSParagraphStyleAttributeName value:next range:subrange];
-+                  }];
-+  [string removeAttribute:NSBaselineOffsetAttributeName range:range];
-+  applyBaselineOffset(string, range);
-+}
-+
-+static NSAttributedString *ENRMCodeBlockPlainAttributedCode(NSString *code, StyleConfig *config, NSString *language)
- {
-   if (code.length == 0) {
-     return [[NSAttributedString alloc] initWithString:@""];
-   }
-   NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:code];
-   ENRMApplyCodeBlockTextAttributes(attributed, NSMakeRange(0, attributed.length), config);
-+  if (!ENRMWebFenceUsesShiki(language)) {
-+    ENRMWebApplyPlainFenceMetrics(attributed);
-+  }
-   return attributed;
- }
- 
-@@ -107,11 +291,130 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
-   return (0.299 * r + 0.587 * g + 0.114 * b) < 0.5;
- }
- 
-+// Web `shiki-line-numbers` draws only once a second `.line` exists. The column
-+// is at least 3ch and grows with the last number. Numbers use the code face at
-+// 12px, `text-muted-foreground`, and share the code baseline. They scroll with
-+// the pane. A one-line fence keeps the 16px inset and draws no gutter.
-+// `lineNumberStart` is the first label. Web `--shiki-line-offset` is that
-+// value minus 1, so a Read of lines 40-80 shows 40. Below 1 still starts at 1.
-+static NSUInteger ENRMWebCodeLineCount(NSString *code)
-+{
-+  if (code.length == 0) {
-+    return 0;
-+  }
-+  NSUInteger count = 1;
-+  for (NSUInteger index = 0; index < code.length; index++) {
-+    if ([code characterAtIndex:index] == '\n') {
-+      count++;
-+    }
-+  }
-+  return count;
-+}
-+
-+static id ENRMWebLineNumberFont(id codeFont)
-+{
-+  if (codeFont) {
-+    return [codeFont fontWithSize:kENRMWebLineNumberSize];
-+  }
-+#if !TARGET_OS_OSX
-+  return [UIFont monospacedSystemFontOfSize:kENRMWebLineNumberSize weight:UIFontWeightRegular];
-+#else
-+  return [NSFont monospacedSystemFontOfSize:kENRMWebLineNumberSize weight:NSFontWeightRegular];
-+#endif
-+}
-+
-+static CGFloat ENRMFontAscender(id font)
-+{
-+  if (!font) {
-+    return 0;
-+  }
-+#if !TARGET_OS_OSX
-+  return ((UIFont *)font).ascender;
-+#else
-+  return ((NSFont *)font).ascender;
-+#endif
-+}
-+
-+// Positive NSBaselineOffset raises code off the bottom of the line box by half
-+// the extra leading. The gutter is placed from the top of that box, so the same
-+// distance drops each number onto the centered code baseline.
-+static CGFloat ENRMWebCodeBaselineRaise(NSAttributedString *code)
-+{
-+  if (code.length == 0) {
-+    return 0;
-+  }
-+  __block CGFloat raise = 0;
-+  [code enumerateAttribute:NSBaselineOffsetAttributeName
-+                   inRange:NSMakeRange(0, code.length)
-+                   options:0
-+                usingBlock:^(NSNumber *value, __unused NSRange range, BOOL *stop) {
-+                  if (![value isKindOfClass:[NSNumber class]]) {
-+                    return;
-+                  }
-+                  raise = value.doubleValue;
-+                  *stop = YES;
-+                }];
-+  return raise;
-+}
-+
-+static NSUInteger ENRMWebLineNumberStart(CGFloat start)
-+{
-+  if (start < 1.0) {
-+    return 1;
-+  }
-+  return (NSUInteger)(start + 0.5);
-+}
-+
-+static CGFloat ENRMWebLineNumberColumn(id font, NSUInteger count, NSUInteger start)
-+{
-+  NSDictionary *attrs = @{NSFontAttributeName : font};
-+  CGFloat zero = [@"0" sizeWithAttributes:attrs].width;
-+  NSUInteger last = start + count - 1;
-+  NSString *widest = [NSString stringWithFormat:@"%lu", (unsigned long)last];
-+  CGFloat measured = [widest sizeWithAttributes:attrs].width;
-+  return MAX(ceil(zero * 3.0), ceil(measured));
-+}
-+
-+static CGFloat ENRMWebLineNumberGutter(NSString *code, id codeFont, NSUInteger start, CGFloat *columnOut)
-+{
-+  NSUInteger count = ENRMWebCodeLineCount(code);
-+  if (count < 2) {
-+    if (columnOut) {
-+      *columnOut = 0;
-+    }
-+    return 0;
-+  }
-+  id font = ENRMWebLineNumberFont(codeFont);
-+  CGFloat column = ENRMWebLineNumberColumn(font, count, start);
-+  if (columnOut) {
-+    *columnOut = column;
-+  }
-+  return kENRMWebLineNumberGapLeft + column + kENRMWebLineNumberGapRight;
-+}
-+
-+static RCTUIColor *ENRMWebLineNumberColor(BOOL dark)
-+{
-+  // text-muted-foreground on `text-xs` line numbers.
-+  if (dark) {
-+    return [RCTUIColor colorWithRed:(0x9F / 255.0) green:(0x9F / 255.0) blue:(0xA9 / 255.0) alpha:1];
-+  }
-+  return [RCTUIColor colorWithRed:(0x71 / 255.0) green:(0x71 / 255.0) blue:(0x7B / 255.0) alpha:1];
-+}
-+
- // Scrollable code pane content. Draws the attributed code unwrapped at a
- // fixed origin; the hosting ENRMCodeBlockContainerView draws everything else.
- @interface ENRMCodeBlockContentView : RCTUIView
- @property (nonatomic, strong, nullable) NSAttributedString *attributedCode;
- @property (nonatomic, assign) CGPoint textOrigin;
-+@property (nonatomic, assign) NSUInteger lineCount;
-+@property (nonatomic, assign) NSUInteger lineNumberStart;
-+@property (nonatomic, assign) CGFloat lineHeight;
-+@property (nonatomic, assign) CGFloat numberColumn;
-+@property (nonatomic, assign) CGFloat numberGutter;
-+@property (nonatomic, assign) CGFloat codeAscender;
-+@property (nonatomic, assign) CGFloat numberAscender;
-+@property (nonatomic, assign) CGFloat codeBaselineRaise;
-+@property (nonatomic, copy, nullable) NSDictionary *numberAttributes;
- #if TARGET_OS_OSX
- @property (nonatomic, copy, nullable) NSMenu * (^menuProvider)(void);
- #endif
-@@ -133,6 +436,18 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
- 
- - (void)drawRect:(CGRect)rect
- {
-+  (void)rect;
-+  if (self.lineCount >= 2 && self.lineHeight > 0 && self.numberColumn > 0 && self.numberAttributes) {
-+    CGFloat x = self.textOrigin.x - self.numberGutter + kENRMWebLineNumberGapLeft;
-+    for (NSUInteger index = 0; index < self.lineCount; index++) {
-+      NSUInteger start = self.lineNumberStart > 0 ? self.lineNumberStart : 1;
-+      NSString *label = [NSString stringWithFormat:@"%lu", (unsigned long)(start + index)];
-+      CGFloat lineTop = self.textOrigin.y + (CGFloat)index * self.lineHeight;
-+      CGFloat y = lineTop + self.codeAscender - self.numberAscender + self.codeBaselineRaise;
-+      CGRect box = CGRectMake(x, y, self.numberColumn, self.lineHeight);
-+      [label drawInRect:box withAttributes:self.numberAttributes];
-+    }
-+  }
-   if (self.attributedCode.length > 0) {
-     [self.attributedCode drawAtPoint:self.textOrigin];
-   }
-@@ -164,6 +479,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
-   NSFont *_headerFont;
-   NSButton *_copyButton;
- #endif
-+  NSInteger _copiedEpoch;
- }
- 
- @synthesize copyLabel = _copyLabel;
-@@ -217,23 +533,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -217,23 +282,17 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [self addInteraction:contextMenu];
  
      _copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -1300,7 +272,7 @@ index a668c26eb..9d29b46a8 100644
      [self addSubview:_copyButton];
  #endif
    }
-@@ -274,40 +584,87 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -274,14 +333,12 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  {
    CGFloat borderW = ceil([_config codeBlockBorderWidth]);
    CGFloat headerH = [self headerHeight];
@@ -1312,70 +284,12 @@ index a668c26eb..9d29b46a8 100644
 -  CGFloat horizontalPad = MAX(inset - borderW, 0);
 -  CGFloat contentWidth = MAX(_codeSize.width + horizontalPad * 2, frame.size.width);
 -  _codeContentView.textOrigin = CGPointMake(horizontalPad, inset);
--  _codeContentView.frame = CGRectMake(0, 0, contentWidth, frame.size.height);
-+  CGFloat numberColumn = 0;
-+  id codeFont = [_config codeBlockFont];
-+  BOOL shikiFence = ENRMWebFenceUsesShiki(_cachedLanguage);
-+  NSUInteger lineStart = ENRMWebLineNumberStart([_config codeBlockLineNumberStart]);
-+  CGFloat numberGutter = ENRMWebLineNumberGutter(_cachedCode, codeFont, lineStart, &numberColumn);
-+  CGFloat padX = ENRMWebCodePadXForLanguage(_cachedLanguage);
-+  CGFloat contentWidth = MAX(_codeSize.width + padX * 2 + numberGutter, frame.size.width);
-+  CGFloat fullPane = _codeSize.height + kENRMWebCodePadY * 2.0;
-+  // A 1px border makes the frame slightly shorter than the pane. Only a real
-+  // cap should turn on vertical scrolling.
-+  CGFloat contentHeight = fullPane > frame.size.height + 1.0 ? fullPane : frame.size.height;
-+  _codeContentView.textOrigin = CGPointMake(padX + numberGutter, kENRMWebCodePadY);
-+  _codeContentView.lineCount = ENRMWebCodeLineCount(_cachedCode);
-+  _codeContentView.lineNumberStart = lineStart;
-+  CGFloat lineHeight = shikiFence ? [_config codeBlockLineHeight] : kENRMWebPlainCodeLine;
-+  if (lineHeight <= 0 && _attributedCode.length > 0) {
-+    NSParagraphStyle *style =
-+        [_attributedCode attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL];
-+    lineHeight = style.maximumLineHeight > 0 ? style.maximumLineHeight : style.minimumLineHeight;
-+  }
-+  _codeContentView.lineHeight = lineHeight;
-+  _codeContentView.numberColumn = numberColumn;
-+  _codeContentView.numberGutter = numberGutter;
-+  id numberFont = numberGutter > 0 ? ENRMWebLineNumberFont(codeFont) : nil;
-+  id drawnFont = codeFont;
-+  if (_attributedCode.length > 0) {
-+    id face = [_attributedCode attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
-+    if (face) {
-+      drawnFont = face;
-+    }
-+  }
-+  _codeContentView.codeAscender = ENRMFontAscender(drawnFont);
-+  _codeContentView.numberAscender = ENRMFontAscender(numberFont);
-+  _codeContentView.codeBaselineRaise = ENRMWebCodeBaselineRaise(_attributedCode);
-+  if (numberFont) {
-+    NSMutableParagraphStyle *align = [[NSMutableParagraphStyle alloc] init];
-+    align.alignment = NSTextAlignmentRight;
-+    _codeContentView.numberAttributes = @{
-+      NSFontAttributeName : numberFont,
-+      NSForegroundColorAttributeName :
-+          ENRMWebLineNumberColor(ENRMColorIsDark([_config codeBlockBackgroundColor])),
-+      NSParagraphStyleAttributeName : align,
-+    };
-+  } else {
-+    _codeContentView.numberAttributes = nil;
-+  }
-+  _codeContentView.frame = CGRectMake(0, 0, contentWidth, contentHeight);
++  CGFloat contentWidth = MAX(_codeSize.width + kENRMWebCodePad * 2, frame.size.width);
++  _codeContentView.textOrigin = CGPointMake(kENRMWebCodePad, kENRMWebCodePad);
+   _codeContentView.frame = CGRectMake(0, 0, contentWidth, frame.size.height);
  #if !TARGET_OS_OSX
--  _scrollView.contentSize = CGSizeMake(contentWidth, frame.size.height);
--  _scrollView.scrollEnabled = contentWidth > frame.size.width;
-+  [_codeContentView setNeedsDisplay];
-+#else
-+  [_codeContentView setNeedsDisplay:YES];
-+#endif
-+#if !TARGET_OS_OSX
-+  _scrollView.contentSize = CGSizeMake(contentWidth, contentHeight);
-+  BOOL scrollsVertically = fullPane > frame.size.height + 1.0;
-+  _scrollView.scrollEnabled = contentWidth > frame.size.width || scrollsVertically;
-+  _scrollView.showsVerticalScrollIndicator = scrollsVertically;
-+  // The page pane is rounded-lg. Clip scrolled glyphs to that inner radius so
-+  // they stay out of the frame wash in the corners.
-+  _scrollView.layer.cornerRadius = MAX(0, [_config codeBlockBorderRadius] - borderW);
-+  _scrollView.clipsToBounds = YES;
+   _scrollView.contentSize = CGSizeMake(contentWidth, frame.size.height);
+@@ -289,25 +346,19 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
  #endif
  }
  
@@ -1407,7 +321,7 @@ index a668c26eb..9d29b46a8 100644
  }
  
  #if !TARGET_OS_OSX
-@@ -385,7 +742,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -385,7 +436,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
    }
    NSMutableDictionary *labelAttributes = [NSMutableDictionary dictionary];
    labelAttributes[NSFontAttributeName] = _headerFont;
@@ -1418,40 +332,33 @@ index a668c26eb..9d29b46a8 100644
    if (labelColor) {
      labelAttributes[NSForegroundColorAttributeName] = labelColor;
    }
-@@ -395,26 +754,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -398,23 +451,15 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+   return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
+ }
  
- - (NSAttributedString *)plainAttributedCode
- {
--  return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config);
--}
--
 -- (CGFloat)contentInset
 -{
 -  return ENRMCodeBlockContentInset(_config);
-+  return ENRMCodeBlockPlainAttributedCode(_cachedCode, _config, _cachedLanguage);
- }
- 
+-}
+-
  - (CGFloat)measureHeight:(CGFloat)maxWidth
  {
 -  CGFloat inset = [self contentInset];
 -  return _codeSize.height + inset * 2 + [self headerHeight];
-+  return ENRMWebCodePaneHeight(_codeSize.height, [_config codeBlockMaxHeight]) + [self headerHeight];
++  return _codeSize.height + kENRMWebCodePad * 2 + [self headerHeight];
  }
  
  + (CGFloat)measureHeightForCodeBlockNode:(MarkdownASTNode *)node config:(StyleConfig *)config
  {
 -  CGFloat inset = ENRMCodeBlockContentInset(config);
 -  CGFloat headerH = inset + ENRMCodeBlockHeaderLabelLineHeight(ENRMCodeBlockHeaderFont(config));
--  NSAttributedString *code = ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config);
+   NSAttributedString *code = ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config);
 -  return ENRMCodeBlockCodeSize(code).height + inset * 2 + headerH;
-+  NSAttributedString *code =
-+      ENRMCodeBlockPlainAttributedCode(ENRMCodeBlockExtractCode(node), config, ENRMCodeBlockLanguage(node));
-+  return ENRMWebCodePaneHeight(ENRMCodeBlockCodeSize(code).height, [config codeBlockMaxHeight]) +
-+         kENRMWebHeaderHeight;
++  return ENRMCodeBlockCodeSize(code).height + kENRMWebCodePad * 2 + kENRMWebHeaderHeight;
  }
  
  - (void)drawRect:(CGRect)rect
-@@ -434,6 +787,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -434,6 +479,22 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      [backgroundColor setFill];
      [path fill];
    }
@@ -1462,9 +369,9 @@ index a668c26eb..9d29b46a8 100644
 +                               MAX(self.bounds.size.height - headerH - borderWidth, 0));
 +  CGFloat paneRadius = MAX(0, radius - borderWidth);
 +#if !TARGET_OS_OSX
-+  // Web CodeBlockContent is `rounded-lg` on every corner. Rounding only the top
-+  // leaves the page fill square in the bottom corners, covering the frame wash.
-+  UIBezierPath *panePath = [UIBezierPath bezierPathWithRoundedRect:paneRect cornerRadius:paneRadius];
++  UIBezierPath *panePath = [UIBezierPath bezierPathWithRoundedRect:paneRect
++                                                 byRoundingCorners:(UIRectCornerTopLeft | UIRectCornerTopRight)
++                                                       cornerRadii:CGSizeMake(paneRadius, paneRadius)];
 +#else
 +  NSBezierPath *panePath = [NSBezierPath bezierPathWithRoundedRect:paneRect xRadius:paneRadius yRadius:paneRadius];
 +#endif
@@ -1474,7 +381,7 @@ index a668c26eb..9d29b46a8 100644
    if (borderWidth > 0) {
      RCTUIColor *borderColor = [_config codeBlockBorderColor];
      if (borderColor) {
-@@ -443,24 +812,20 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
+@@ -443,24 +504,9 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
      }
    }
  
@@ -1487,894 +394,137 @@ index a668c26eb..9d29b46a8 100644
 -  if (dividerColor) {
 -    CGRect dividerRect = CGRectMake(borderWidth, headerH + inset / 2, self.bounds.size.width - borderWidth * 2, 1);
 -    [dividerColor setFill];
-+  // The glyph sits in the header's left pad. The label follows it by gap-2.
-+  CGRect iconRect = CGRectMake(kENRMWebHeaderPadX, (headerH - kENRMWebHeaderIcon) / 2.0, kENRMWebHeaderIcon,
-+                                kENRMWebHeaderIcon);
- #if !TARGET_OS_OSX
+-#if !TARGET_OS_OSX
 -    [[UIBezierPath bezierPathWithRect:dividerRect] fill];
-+  CGContextRef iconCtx = UIGraphicsGetCurrentContext();
- #else
+-#else
 -    [[NSBezierPath bezierPathWithRect:dividerRect] fill];
-+  CGContextRef iconCtx = [[NSGraphicsContext currentContext] CGContext];
- #endif
+-#endif
 -  }
-+  ENRMDrawFenceIcon(iconCtx, _cachedLanguage, iconRect, darkFrame);
- 
+-
    if (_languageLabel.length > 0) {
 -    [_languageLabel drawAtPoint:CGPointMake(inset, headerH - _languageLabelSize.height)];
 +    CGFloat labelY = MAX(0, (headerH - _languageLabelSize.height) / 2);
-+    CGFloat labelX = kENRMWebHeaderPadX + kENRMWebHeaderIcon + kENRMWebHeaderIconGap;
-+    [_languageLabel drawAtPoint:CGPointMake(labelX, labelY)];
++    [_languageLabel drawAtPoint:CGPointMake(kENRMWebHeaderPadX, labelY)];
    }
  }
  
-@@ -469,12 +834,48 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
-   return ENRMCodeBlockFencedMarkdown(_cachedCode, _cachedLanguage, _fenceChar);
+diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
+index b76936d8620a3748be375ec8f3e35f47c03c0edd..7e7ed7b04d3da346ab695fd280488b0a2eb0d3f4 100644
+--- a/ios/views/TableContainerView.m
++++ b/ios/views/TableContainerView.m
+@@ -224,6 +224,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   NSMutableArray<NSNumber *> *_rowHeights;
+   CGFloat _totalTableWidth;
+   CGFloat _totalTableHeight;
++  // Width already distributed to, so layoutSubviews does not restretch every frame.
++  CGFloat _distributedInnerWidth;
+ 
+   NSString *_cachedMarkdown;
+ 
+@@ -323,6 +325,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
+                              _writingDirectionMode, _resolvedLayoutDirection, &colCount);
+   _colCount = colCount;
++  _distributedInnerWidth = 0;
+   _cachedMarkdown = [self buildMarkdownFromRows];
+   _cachedAccessibilityElements = nil;
+   [self computeLayout];
+@@ -608,6 +611,30 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+   return _totalTableHeight;
  }
  
-+- (void)restoreCopyGlyph
++// GFM tables on web are `w-full table-fixed`. Content-sized columns leave a
++// narrow grid; give the leftover container width to every column equally.
++- (void)distributeColumnsToContainerWidth:(CGFloat)innerWidth
 +{
-+  BOOL dark = ENRMColorIsDark([_config codeBlockBackgroundColor]);
-+#if !TARGET_OS_OSX
-+  [_copyButton setImage:ENRMWebCopyGlyphImage() forState:UIControlStateNormal];
-+  _copyButton.tintColor = ENRMWebHeaderLabelColor(dark);
-+#else
-+  [_copyButton setImage:ENRMWebCopyGlyphImage()];
-+  _copyButton.contentTintColor = ENRMWebHeaderLabelColor(dark);
-+#endif
-+}
-+
-+- (void)showCopiedGlyph
-+{
-+  // Web CopyButton shows Lucide Check for 2000ms, then returns to Copy.
-+  _copiedEpoch += 1;
-+  NSInteger epoch = _copiedEpoch;
-+  BOOL dark = ENRMColorIsDark([_config codeBlockBackgroundColor]);
-+#if !TARGET_OS_OSX
-+  [_copyButton setImage:ENRMWebCheckGlyphImage() forState:UIControlStateNormal];
-+  _copyButton.tintColor = ENRMWebCopiedGlyphColor(dark);
-+#else
-+  [_copyButton setImage:ENRMWebCheckGlyphImage()];
-+  _copyButton.contentTintColor = ENRMWebCopiedGlyphColor(dark);
-+#endif
-+  __weak ENRMCodeBlockContainerView *weakSelf = self;
-+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-+    ENRMCodeBlockContainerView *strongSelf = weakSelf;
-+    if (!strongSelf || epoch != strongSelf->_copiedEpoch) {
-+      return;
-+    }
-+    [strongSelf restoreCopyGlyph];
-+  });
-+}
-+
- - (void)copyCodeToPasteboard
- {
-   copyStringToPasteboard(_cachedCode);
-   if (self.onCopyPress) {
-     self.onCopyPress(_cachedCode ?: @"", _cachedLanguage ?: @"");
-   }
-+  [self showCopiedGlyph];
- }
- 
- - (void)copyMarkdownToPasteboard
-@@ -495,7 +896,7 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
-                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
-                      UIAction *copyCode =
-                          [UIAction actionWithTitle:self.copyLabel
--                                             image:[RCTUIImage systemImageNamed:@"doc.on.doc"]
-+                                             image:ENRMWebCopyGlyphImage()
-                                         identifier:nil
-                                            handler:^(__kindof UIAction *action) { [self copyCodeToPasteboard]; }];
- 
-@@ -561,3 +962,803 @@ static BOOL ENRMColorIsDark(RCTUIColor *color)
- #endif
- 
- @end
-+
-+// Generated by scripts/agent-chat-parity/fence-icons.mjs.
-+// Appended to ENRMCodeBlockContainerView.m. Bun 1.3.14 rejects a patch that
-+// adds a file (EACCES on mkdir).
-+// Web MarkdownCodeBlock header glyphs: Lucide Code, Copy, Check, and FileDiff,
-+// plus @react-symbols/icons FileIcon. Coordinates are a 16×16 box.
-+
-+static const float kENRMFence_code[] = {
-+    1, 10.667, 12, 2, 14.667, 8, 2, 10.667, 4, 11, -1, -1,
-+    -1, 1, 1.333, 1, 1, 1, 5.333, 4, 2, 1.333, 8, 2,
-+    5.333, 12, 11, -1, -1, -1, 1, 1.333, 1, 1
-+};
-+
-+static const float kENRMFence_file_diff[] = {
-+    1, 4, 14.667, 3, 3.264, 14.667, 2.667, 14.07, 2.667, 13.333, 2, 2.667,
-+    2.667, 3, 2.667, 1.93, 3.264, 1.333, 4, 1.333, 2, 9.333, 1.333, 3,
-+    9.76, 1.333, 10.168, 1.502, 10.469, 1.804, 2, 12.861, 4.196, 3, 13.164, 4.497,
-+    13.334, 4.906, 13.333, 5.333, 2, 13.333, 13.333, 3, 13.333, 14.07, 12.736, 14.667,
-+    12, 14.667, 4, 11, -1, -1, -1, 1, 1.333, 1, 1, 1,
-+    6, 6.667, 2, 10, 6.667, 11, -1, -1, -1, 1, 1.333, 1,
-+    1, 1, 8, 8.667, 2, 8, 4.667, 11, -1, -1, -1, 1,
-+    1.333, 1, 1, 1, 6, 11.333, 2, 10, 11.333, 11, -1, -1,
-+    -1, 1, 1.333, 1, 1
-+};
-+
-+static const float kENRMFence_copy[] = {
-+    1, 6.667, 5.333, 2, 13.333, 5.333, 3, 14.07, 5.333, 14.667, 5.93, 14.667,
-+    6.667, 2, 14.667, 13.333, 3, 14.667, 14.07, 14.07, 14.667, 13.333, 14.667, 2,
-+    6.667, 14.667, 3, 5.93, 14.667, 5.333, 14.07, 5.333, 13.333, 2, 5.333, 6.667,
-+    3, 5.333, 5.93, 5.93, 5.333, 6.667, 5.333, 4, 11, -1, -1, -1,
-+    1, 1.333, 1, 1, 1, 2.667, 10.667, 3, 1.933, 10.667, 1.333, 10.067,
-+    1.333, 9.333, 2, 1.333, 2.667, 3, 1.333, 1.933, 1.933, 1.333, 2.667, 1.333,
-+    2, 9.333, 1.333, 3, 10.067, 1.333, 10.667, 1.933, 10.667, 2.667, 11, -1,
-+    -1, -1, 1, 1.333, 1, 1
-+};
-+
-+static const float kENRMFence_check[] = {
-+    1, 13.333, 4, 2, 6, 11.333, 2, 2.667, 8, 11, -1, -1,
-+    -1, 1, 1.333, 1, 1
-+};
-+
-+static const float kENRMFence_file[] = {
-+    1, 4, 2, 3, 3.632, 2, 3.333, 2.298, 3.333, 2.667, 2, 3.333,
-+    13.333, 3, 3.333, 13.702, 3.632, 14, 4, 14, 2, 12, 14, 3,
-+    12.368, 14, 12.667, 13.702, 12.667, 13.333, 2, 12.667, 5.333, 3, 12.667, 5.131,
-+    12.575, 4.94, 12.417, 4.813, 2, 9.083, 2.147, 3, 8.965, 2.052, 8.818, 2,
-+    8.667, 2, 2, 4, 2, 4, 11, 0.392, 0.455, 0.545, 1, 1.333,
-+    0, 1, 1, 8, 2.667, 2, 8, 6, 2, 12, 6, 11,
-+    0.392, 0.455, 0.545, 1, 1.333, 0, 1
-+};
-+
-+static const float kENRMFence_js[] = {
-+    1, 5.589, 4.879, 2, 7.007, 4.879, 2, 7.007, 9.612, 3, 7.007, 10.049,
-+    6.909, 10.429, 6.712, 10.752, 3, 6.519, 11.073, 6.237, 11.332, 5.9, 11.497, 3,
-+    5.553, 11.672, 5.15, 11.759, 4.69, 11.759, 3, 4.281, 11.759, 3.91, 11.688, 3.577,
-+    11.544, 3, 3.254, 11.406, 2.98, 11.175, 2.788, 10.881, 3, 2.593, 10.583, 2.497,
-+    10.208, 2.499, 9.757, 2, 3.928, 9.757, 3, 3.932, 9.937, 3.969, 10.091, 4.037,
-+    10.218, 3, 4.108, 10.345, 4.204, 10.441, 4.325, 10.51, 3, 4.449, 10.577, 4.595,
-+    10.61, 4.763, 10.61, 3, 4.94, 10.61, 5.089, 10.572, 5.21, 10.497, 3, 5.334,
-+    10.419, 5.428, 10.307, 5.492, 10.159, 3, 5.556, 10.011, 5.589, 9.828, 5.589, 9.612,
-+    2, 5.589, 4.879, 4, 1, 11.875, 6.831, 3, 11.849, 6.564, 11.735, 6.356,
-+    11.535, 6.208, 3, 11.333, 6.06, 11.061, 5.986, 10.716, 5.986, 3, 10.481, 5.986,
-+    10.284, 6.019, 10.123, 6.085, 3, 9.961, 6.149, 9.837, 6.239, 9.751, 6.354, 3,
-+    9.668, 6.467, 9.623, 6.604, 9.625, 6.745, 3, 9.618, 6.856, 9.645, 6.967, 9.701,
-+    7.063, 3, 9.759, 7.153, 9.837, 7.232, 9.937, 7.298, 3, 10.037, 7.363, 10.151,
-+    7.419, 10.281, 7.467, 3, 10.412, 7.514, 10.551, 7.554, 10.699, 7.587, 2, 11.309,
-+    7.733, 3, 11.605, 7.799, 11.877, 7.887, 12.125, 7.997, 3, 12.371, 8.108, 12.586,
-+    8.244, 12.767, 8.405, 3, 12.949, 8.567, 13.089, 8.757, 13.188, 8.975, 3, 13.294,
-+    9.212, 13.347, 9.469, 13.344, 9.728, 3, 13.342, 10.143, 13.236, 10.503, 13.026, 10.808,
-+    3, 12.818, 11.111, 12.517, 11.346, 12.124, 11.515, 3, 11.733, 11.68, 11.261, 11.763,
-+    10.709, 11.763, 3, 10.161, 11.763, 9.684, 11.679, 9.277, 11.511, 3, 8.873, 11.343,
-+    8.557, 11.095, 8.329, 10.765, 3, 8.104, 10.434, 7.986, 10.024, 7.975, 9.535, 2,
-+    9.363, 9.535, 3, 9.379, 9.763, 9.444, 9.953, 9.559, 10.105, 3, 9.676, 10.256,
-+    9.832, 10.37, 10.027, 10.447, 3, 10.223, 10.522, 10.445, 10.559, 10.693, 10.559, 3,
-+    10.935, 10.559, 11.146, 10.524, 11.326, 10.453, 3, 11.507, 10.383, 11.647, 10.285, 11.746,
-+    10.159, 3, 11.846, 10.033, 11.895, 9.888, 11.895, 9.725, 3, 11.9, 9.584, 11.852,
-+    9.447, 11.76, 9.34, 3, 11.671, 9.236, 11.541, 9.148, 11.369, 9.075, 3, 11.166,
-+    8.991, 10.956, 8.925, 10.742, 8.876, 2, 10.003, 8.691, 3, 9.431, 8.551, 8.979,
-+    8.333, 8.647, 8.037, 3, 8.316, 7.741, 8.151, 7.343, 8.154, 6.841, 3, 8.151,
-+    6.43, 8.261, 6.071, 8.482, 5.764, 3, 8.705, 5.457, 9.011, 5.217, 9.4, 5.044,
-+    3, 9.789, 4.872, 10.231, 4.786, 10.726, 4.786, 3, 11.229, 4.786, 11.669, 4.873,
-+    12.045, 5.045, 3, 12.423, 5.217, 12.717, 5.457, 12.927, 5.764, 3, 13.136, 6.071,
-+    13.245, 6.427, 13.251, 6.831, 2, 11.876, 6.831, 4, 10, 0.961, 0.62, 0.043,
-+    1, 0
-+};
-+
-+static const float kENRMFence_jsx[] = {
-+    1, 8, 9.118, 3, 8.399, 9.118, 8.769, 8.905, 8.968, 8.559, 3, 9.168,
-+    8.213, 9.168, 7.787, 8.968, 7.441, 3, 8.769, 7.095, 8.399, 6.882, 8, 6.882,
-+    3, 7.383, 6.882, 6.882, 7.383, 6.882, 8, 3, 6.882, 8.617, 7.383, 9.118,
-+    8, 9.118, 4, 10, 0.22, 0.741, 0.973, 1, 0, 1, 8, 10.291,
-+    3, 11.313, 10.291, 14, 9.265, 14, 8, 3, 14, 6.735, 11.313, 5.709,
-+    8, 5.709, 3, 4.687, 5.709, 2, 6.735, 2, 8, 3, 2, 9.265,
-+    4.687, 10.291, 8, 10.291, 4, 11, 0.22, 0.741, 0.973, 1, 0.667, 0,
-+    0, 1, 6.016, 9.145, 3, 7.673, 12.015, 9.904, 13.829, 11, 13.196, 3,
-+    12.096, 12.563, 11.641, 9.724, 9.984, 6.855, 3, 8.327, 3.985, 6.096, 2.171, 5,
-+    2.804, 3, 3.904, 3.437, 4.359, 6.276, 6.016, 9.145, 4, 11, 0.22, 0.741,
-+    0.973, 1, 0.667, 0, 0, 1, 6.016, 6.855, 3, 4.359, 9.724, 3.904,
-+    12.563, 5, 13.196, 3, 6.096, 13.829, 8.327, 12.015, 9.984, 9.145, 3, 11.641,
-+    6.276, 12.096, 3.437, 11, 2.804, 3, 9.904, 2.171, 7.673, 3.985, 6.016, 6.855,
-+    4, 11, 0.22, 0.741, 0.973, 1, 0.667, 0, 0
-+};
-+
-+static const float kENRMFence_ts[] = {
-+    1, 2.156, 6.062, 2, 2.156, 4.879, 2, 7.731, 4.879, 2, 7.731, 6.062,
-+    2, 5.653, 6.062, 2, 5.653, 11.667, 2, 4.235, 11.667, 2, 4.235, 6.062,
-+    2, 2.156, 6.062, 4, 1, 12.331, 6.831, 3, 12.305, 6.564, 12.191, 6.356,
-+    11.99, 6.208, 3, 11.789, 6.06, 11.517, 5.986, 11.171, 5.986, 3, 10.937, 5.986,
-+    10.739, 6.019, 10.578, 6.085, 3, 10.417, 6.149, 10.293, 6.239, 10.207, 6.354, 3,
-+    10.123, 6.467, 10.079, 6.604, 10.081, 6.745, 3, 10.074, 6.856, 10.101, 6.967, 10.157,
-+    7.063, 3, 10.215, 7.153, 10.293, 7.232, 10.393, 7.298, 3, 10.492, 7.363, 10.607,
-+    7.419, 10.737, 7.467, 3, 10.867, 7.514, 11.007, 7.554, 11.155, 7.587, 2, 11.765,
-+    7.733, 3, 12.061, 7.799, 12.333, 7.887, 12.58, 7.997, 3, 12.827, 8.108, 13.042,
-+    8.244, 13.223, 8.405, 3, 13.404, 8.567, 13.545, 8.757, 13.644, 8.975, 3, 13.745,
-+    9.194, 13.797, 9.445, 13.8, 9.728, 3, 13.797, 10.143, 13.691, 10.503, 13.481, 10.808,
-+    3, 13.274, 11.111, 12.973, 11.346, 12.58, 11.515, 3, 12.189, 11.68, 11.717, 11.763,
-+    11.165, 11.763, 3, 10.617, 11.763, 10.139, 11.679, 9.733, 11.511, 3, 9.329, 11.343,
-+    9.013, 11.095, 8.785, 10.765, 3, 8.56, 10.434, 8.441, 10.024, 8.431, 9.535, 2,
-+    9.819, 9.535, 3, 9.835, 9.763, 9.899, 9.953, 10.015, 10.105, 3, 10.132, 10.256,
-+    10.288, 10.37, 10.482, 10.447, 3, 10.679, 10.522, 10.901, 10.559, 11.149, 10.559, 3,
-+    11.391, 10.559, 11.602, 10.524, 11.781, 10.453, 3, 11.963, 10.383, 12.103, 10.285, 12.202,
-+    10.159, 3, 12.302, 10.033, 12.351, 9.888, 12.351, 9.725, 3, 12.356, 9.584, 12.307,
-+    9.447, 12.215, 9.34, 3, 12.127, 9.236, 11.997, 9.148, 11.825, 9.075, 3, 11.622,
-+    8.991, 11.412, 8.925, 11.198, 8.876, 2, 10.459, 8.691, 3, 9.887, 8.551, 9.435,
-+    8.333, 9.103, 8.037, 3, 8.772, 7.741, 8.607, 7.343, 8.61, 6.841, 3, 8.607,
-+    6.43, 8.717, 6.071, 8.937, 5.764, 3, 9.161, 5.457, 9.467, 5.217, 9.855, 5.044,
-+    3, 10.245, 4.872, 10.687, 4.786, 11.182, 4.786, 3, 11.685, 4.786, 12.125, 4.873,
-+    12.501, 5.045, 3, 12.879, 5.217, 13.172, 5.457, 13.382, 5.764, 3, 13.592, 6.071,
-+    13.7, 6.427, 13.707, 6.831, 2, 12.331, 6.831, 4, 10, 0.145, 0.388, 0.922,
-+    1, 0
-+};
-+
-+static const float kENRMFence_tsx[] = {
-+    1, 8, 9.118, 3, 8.399, 9.118, 8.769, 8.905, 8.968, 8.559, 3, 9.168,
-+    8.213, 9.168, 7.787, 8.968, 7.441, 3, 8.769, 7.095, 8.399, 6.882, 8, 6.882,
-+    3, 7.383, 6.882, 6.882, 7.383, 6.882, 8, 3, 6.882, 8.617, 7.383, 9.118,
-+    8, 9.118, 4, 10, 0.055, 0.541, 0.863, 1, 0, 1, 8, 10.291,
-+    3, 11.313, 10.291, 14, 9.265, 14, 8, 3, 14, 6.735, 11.313, 5.709,
-+    8, 5.709, 3, 4.687, 5.709, 2, 6.735, 2, 8, 3, 2, 9.265,
-+    4.687, 10.291, 8, 10.291, 4, 11, 0.055, 0.541, 0.863, 1, 0.667, 0,
-+    0, 1, 6.016, 9.145, 3, 7.673, 12.015, 9.904, 13.829, 11, 13.196, 3,
-+    12.096, 12.563, 11.641, 9.724, 9.984, 6.855, 3, 8.327, 3.985, 6.096, 2.171, 5,
-+    2.804, 3, 3.904, 3.437, 4.359, 6.276, 6.016, 9.145, 4, 11, 0.055, 0.541,
-+    0.863, 1, 0.667, 0, 0, 1, 6.016, 6.855, 3, 4.359, 9.724, 3.904,
-+    12.563, 5, 13.196, 3, 6.096, 13.829, 8.327, 12.015, 9.984, 9.145, 3, 11.641,
-+    6.276, 12.096, 3.437, 11, 2.804, 3, 9.904, 2.171, 7.673, 3.985, 6.016, 6.855,
-+    4, 11, 0.055, 0.541, 0.863, 1, 0.667, 0, 0
-+};
-+
-+static const float kENRMFence_py[] = {
-+    1, 9.748, 14.215, 3, 9.348, 14.288, 8.892, 14.331, 8.415, 14.333, 3, 7.929,
-+    14.336, 7.443, 14.297, 6.963, 14.215, 3, 6.205, 14.083, 5.568, 13.491, 5.568, 12.702,
-+    2, 5.568, 9.931, 3, 5.568, 9.12, 6.188, 8.453, 6.963, 8.453, 2, 9.748,
-+    8.453, 3, 10.693, 8.453, 11.49, 7.606, 11.49, 6.645, 2, 11.49, 5.316, 2,
-+    12.449, 5.316, 3, 13.259, 5.316, 13.733, 5.929, 13.931, 6.791, 3, 14.198, 7.948,
-+    14.187, 8.64, 13.931, 9.748, 3, 13.709, 10.715, 12.999, 11.223, 12.189, 11.223, 2,
-+    8.354, 11.223, 2, 8.354, 11.593, 2, 11.143, 11.593, 2, 11.143, 12.702, 3,
-+    11.143, 13.542, 10.928, 13.997, 9.748, 14.215, 4, 1, 9.631, 12.323, 3, 9.276,
-+    12.323, 8.989, 12.623, 8.989, 12.993, 3, 8.989, 13.363, 9.275, 13.663, 9.631, 13.663,
-+    3, 9.985, 13.663, 10.273, 13.363, 10.273, 12.993, 3, 10.273, 12.623, 9.986, 12.323,
-+    9.631, 12.323, 4, 10, 0.078, 0.722, 0.651, 1, 1, 1, 6.252, 1.785,
-+    3, 6.652, 1.712, 7.108, 1.669, 7.585, 1.667, 3, 8.061, 1.665, 8.558, 1.702,
-+    9.037, 1.785, 3, 9.795, 1.917, 10.432, 2.509, 10.432, 3.298, 2, 10.432, 6.069,
-+    3, 10.432, 6.88, 9.812, 7.547, 9.037, 7.547, 2, 6.252, 7.547, 3, 5.307,
-+    7.547, 4.51, 8.394, 4.51, 9.355, 2, 4.51, 10.684, 2, 3.551, 10.684, 3,
-+    2.741, 10.684, 2.267, 10.071, 2.069, 9.209, 3, 1.802, 8.052, 1.813, 7.36, 2.069,
-+    6.252, 3, 2.291, 5.285, 3.001, 4.777, 3.811, 4.777, 2, 7.646, 4.777, 2,
-+    7.646, 4.407, 2, 4.857, 4.407, 2, 4.857, 3.298, 3, 4.857, 2.458, 5.072,
-+    2.003, 6.252, 1.785, 4, 1, 6.369, 3.677, 3, 6.724, 3.677, 7.011, 3.377,
-+    7.011, 3.007, 3, 7.011, 2.637, 6.725, 2.337, 6.369, 2.337, 3, 6.015, 2.337,
-+    5.727, 2.637, 5.727, 3.007, 3, 5.727, 3.377, 6.015, 3.677, 6.369, 3.677, 4,
-+    10, 0.078, 0.722, 0.651, 1, 1
-+};
-+
-+static const float kENRMFence_rs[] = {
-+    1, 8.051, 1.687, 3, 8.018, 1.633, 7.959, 1.6, 7.895, 1.6, 3, 7.831,
-+    1.6, 7.772, 1.633, 7.739, 1.687, 2, 7.402, 2.231, 3, 7.353, 2.235, 7.303,
-+    2.24, 7.254, 2.245, 2, 6.817, 1.778, 3, 6.773, 1.732, 6.709, 1.711, 6.647,
-+    1.724, 3, 6.584, 1.736, 6.533, 1.78, 6.511, 1.839, 2, 6.287, 2.438, 3,
-+    6.239, 2.451, 6.191, 2.466, 6.143, 2.481, 2, 5.624, 2.108, 3, 5.572, 2.071,
-+    5.505, 2.063, 5.446, 2.087, 3, 5.388, 2.112, 5.346, 2.165, 5.336, 2.227, 2,
-+    5.232, 2.86, 3, 5.188, 2.883, 5.145, 2.907, 5.101, 2.931, 2, 4.517, 2.664,
-+    3, 4.459, 2.637, 4.392, 2.643, 4.339, 2.678, 3, 4.286, 2.714, 4.255, 2.774,
-+    4.257, 2.838, 2, 4.28, 3.481, 3, 4.243, 3.511, 4.205, 3.542, 4.168, 3.573,
-+    2, 3.541, 3.425, 3, 3.479, 3.411, 3.414, 3.429, 3.369, 3.474, 3, 3.324,
-+    3.519, 3.306, 3.584, 3.32, 3.646, 2, 3.468, 4.273, 3, 3.437, 4.31, 3.406,
-+    4.348, 3.376, 4.385, 2, 2.733, 4.362, 3, 2.669, 4.36, 2.609, 4.391, 2.574,
-+    4.444, 3, 2.538, 4.497, 2.533, 4.564, 2.559, 4.622, 2, 2.826, 5.206, 3,
-+    2.802, 5.249, 2.778, 5.293, 2.755, 5.336, 2, 2.123, 5.44, 3, 2.06, 5.45,
-+    2.007, 5.492, 1.983, 5.551, 3, 1.959, 5.609, 1.966, 5.676, 2.003, 5.728, 2,
-+    2.377, 6.248, 3, 2.362, 6.296, 2.347, 6.343, 2.333, 6.391, 2, 1.735, 6.615,
-+    3, 1.675, 6.637, 1.632, 6.689, 1.619, 6.751, 3, 1.607, 6.814, 1.628, 6.878,
-+    1.674, 6.922, 2, 2.141, 7.358, 3, 2.136, 7.408, 2.131, 7.457, 2.127, 7.507,
-+    2, 1.583, 7.844, 3, 1.529, 7.877, 1.496, 7.936, 1.496, 8, 3, 1.496,
-+    8.064, 1.529, 8.123, 1.583, 8.156, 2, 2.127, 8.493, 3, 2.131, 8.543, 2.136,
-+    8.593, 2.141, 8.642, 2, 1.674, 9.078, 3, 1.628, 9.122, 1.607, 9.186, 1.619,
-+    9.249, 3, 1.632, 9.311, 1.675, 9.363, 1.735, 9.385, 2, 2.333, 9.609, 2,
-+    2.377, 9.752, 2, 2.003, 10.271, 3, 1.966, 10.323, 1.958, 10.39, 1.983, 10.449,
-+    3, 2.007, 10.508, 2.06, 10.55, 2.123, 10.56, 2, 2.756, 10.664, 3, 2.779,
-+    10.707, 2.803, 10.75, 2.826, 10.794, 2, 2.56, 11.378, 3, 2.534, 11.436, 2.539,
-+    11.503, 2.574, 11.556, 3, 2.61, 11.609, 2.67, 11.64, 2.733, 11.638, 2, 3.377,
-+    11.615, 3, 3.407, 11.652, 3.438, 11.69, 3.469, 11.726, 2, 3.322, 12.354, 3,
-+    3.307, 12.416, 3.326, 12.481, 3.37, 12.525, 3, 3.415, 12.57, 3.48, 12.589, 3.542,
-+    12.575, 2, 4.17, 12.428, 3, 4.206, 12.458, 4.243, 12.488, 4.281, 12.518, 2,
-+    4.258, 13.162, 3, 4.255, 13.226, 4.286, 13.286, 4.339, 13.322, 3, 4.392, 13.357,
-+    4.46, 13.363, 4.518, 13.336, 2, 5.103, 13.069, 3, 5.146, 13.094, 5.189, 13.117,
-+    5.233, 13.14, 2, 5.336, 13.773, 3, 5.346, 13.836, 5.388, 13.889, 5.447, 13.913,
-+    3, 5.506, 13.938, 5.573, 13.93, 5.624, 13.892, 2, 6.145, 13.519, 3, 6.192,
-+    13.534, 6.239, 13.548, 6.287, 13.562, 2, 6.511, 14.161, 3, 6.534, 14.22, 6.585,
-+    14.264, 6.647, 14.276, 3, 6.71, 14.288, 6.774, 14.268, 6.817, 14.221, 2, 7.254,
-+    13.754, 3, 7.304, 13.761, 7.353, 13.765, 7.403, 13.769, 2, 7.74, 14.313, 3,
-+    7.773, 14.367, 7.832, 14.4, 7.896, 14.4, 3, 7.96, 14.4, 8.019, 14.367, 8.052,
-+    14.313, 2, 8.389, 13.769, 3, 8.439, 13.765, 8.488, 13.76, 8.538, 13.754, 2,
-+    8.974, 14.221, 3, 9.017, 14.268, 9.082, 14.289, 9.144, 14.277, 3, 9.207, 14.264,
-+    9.258, 14.22, 9.281, 14.161, 2, 9.505, 13.562, 3, 9.553, 13.548, 9.601, 13.534,
-+    9.647, 13.519, 2, 10.168, 13.892, 3, 10.219, 13.929, 10.286, 13.937, 10.345, 13.913,
-+    3, 10.404, 13.888, 10.445, 13.835, 10.456, 13.773, 2, 10.559, 13.139, 3, 10.603,
-+    13.117, 10.646, 13.093, 10.689, 13.069, 2, 11.274, 13.336, 3, 11.332, 13.363, 11.399,
-+    13.357, 11.452, 13.322, 3, 11.505, 13.286, 11.536, 13.226, 11.533, 13.162, 2, 11.511,
-+    12.518, 3, 11.548, 12.488, 11.585, 12.458, 11.622, 12.427, 2, 12.25, 12.575, 3,
-+    12.312, 12.59, 12.377, 12.571, 12.422, 12.526, 3, 12.467, 12.481, 12.486, 12.416, 12.471,
-+    12.354, 2, 12.323, 11.727, 2, 12.415, 11.615, 2, 13.059, 11.638, 3, 13.122,
-+    11.64, 13.182, 11.609, 13.218, 11.556, 3, 13.253, 11.503, 13.258, 11.436, 13.232, 11.378,
-+    2, 12.966, 10.794, 3, 12.99, 10.751, 13.013, 10.707, 13.036, 10.664, 2, 13.669,
-+    10.56, 3, 13.732, 10.55, 13.785, 10.508, 13.809, 10.449, 3, 13.833, 10.391, 13.826,
-+    10.324, 13.789, 10.272, 2, 13.415, 9.752, 3, 13.43, 9.704, 13.444, 9.657, 13.458,
-+    9.609, 2, 14.056, 9.385, 3, 14.116, 9.363, 14.16, 9.311, 14.173, 9.249, 3,
-+    14.185, 9.186, 14.164, 9.122, 14.118, 9.078, 2, 13.651, 8.642, 3, 13.656, 8.593,
-+    13.661, 8.543, 13.665, 8.493, 2, 14.209, 8.156, 3, 14.263, 8.123, 14.296, 8.064,
-+    14.296, 8, 3, 14.296, 7.936, 14.263, 7.877, 14.209, 7.844, 2, 13.665, 7.507,
-+    3, 13.661, 7.457, 13.656, 7.408, 13.651, 7.358, 2, 14.118, 6.922, 3, 14.164,
-+    6.878, 14.185, 6.814, 14.173, 6.751, 3, 14.16, 6.689, 14.116, 6.637, 14.056, 6.615,
-+    2, 13.459, 6.391, 3, 13.445, 6.343, 13.43, 6.296, 13.415, 6.248, 2, 13.789,
-+    5.729, 3, 13.826, 5.677, 13.834, 5.61, 13.809, 5.551, 3, 13.785, 5.492, 13.731,
-+    5.45, 13.668, 5.44, 2, 13.035, 5.336, 3, 13.012, 5.293, 12.989, 5.249, 12.964,
-+    5.206, 2, 13.231, 4.622, 3, 13.258, 4.564, 13.252, 4.497, 13.217, 4.444, 3,
-+    13.182, 4.391, 13.122, 4.36, 13.058, 4.362, 2, 12.414, 4.385, 3, 12.384, 4.348,
-+    12.354, 4.311, 12.323, 4.274, 2, 12.47, 3.646, 3, 12.484, 3.584, 12.466, 3.519,
-+    12.421, 3.474, 3, 12.376, 3.429, 12.311, 3.411, 12.249, 3.425, 2, 11.622, 3.572,
-+    3, 11.585, 3.542, 11.548, 3.511, 11.51, 3.482, 2, 11.533, 2.838, 3, 11.535,
-+    2.774, 11.504, 2.714, 11.452, 2.679, 3, 11.399, 2.643, 11.332, 2.638, 11.274, 2.664,
-+    2, 10.689, 2.931, 3, 10.646, 2.907, 10.602, 2.883, 10.559, 2.86, 2, 10.455,
-+    2.227, 3, 10.445, 2.164, 10.403, 2.111, 10.344, 2.087, 3, 10.285, 2.063, 10.219,
-+    2.071, 10.167, 2.108, 2, 9.647, 2.481, 3, 9.599, 2.466, 9.552, 2.452, 9.504,
-+    2.438, 2, 9.28, 1.839, 3, 9.258, 1.78, 9.206, 1.736, 9.144, 1.723, 3,
-+    9.081, 1.711, 9.017, 1.732, 8.973, 1.779, 2, 8.537, 2.246, 3, 8.488, 2.24,
-+    8.438, 2.235, 8.388, 2.231, 2, 8.052, 1.687, 4, 1, 7.887, 2.724, 3,
-+    8.093, 2.729, 8.258, 2.898, 8.257, 3.105, 3, 8.257, 3.26, 8.163, 3.4, 8.019,
-+    3.458, 3, 7.875, 3.516, 7.711, 3.482, 7.603, 3.37, 3, 7.495, 3.259, 7.465,
-+    3.094, 7.527, 2.952, 3, 7.59, 2.81, 7.732, 2.72, 7.887, 2.724, 4, 1,
-+    8.759, 3.351, 3, 10.113, 3.605, 11.286, 4.441, 11.968, 5.638, 2, 11.519, 6.652,
-+    3, 11.442, 6.828, 11.52, 7.032, 11.695, 7.111, 2, 12.56, 7.495, 3, 12.586,
-+    7.765, 12.59, 8.037, 12.57, 8.308, 2, 12.088, 8.308, 3, 12.04, 8.308, 12.02,
-+    8.34, 12.02, 8.387, 2, 12.02, 8.607, 3, 12.02, 9.126, 11.728, 9.24, 11.471,
-+    9.268, 3, 11.226, 9.297, 10.955, 9.165, 10.92, 9.016, 3, 10.78, 8.223, 10.547,
-+    8.04, 10.183, 7.752, 2, 10.157, 7.731, 3, 10.628, 7.432, 11.118, 6.99, 11.118,
-+    6.4, 3, 11.118, 5.761, 10.681, 5.36, 10.383, 5.162, 3, 9.964, 4.887, 9.501,
-+    4.832, 9.376, 4.832, 2, 4.403, 4.832, 3, 5.091, 4.064, 6.013, 3.544, 7.026,
-+    3.352, 2, 7.612, 3.967, 3, 7.675, 4.034, 7.763, 4.072, 7.855, 4.074, 3,
-+    7.947, 4.077, 8.036, 4.042, 8.102, 3.978, 2, 8.759, 3.352, 4, 1, 3.345,
-+    6.172, 3, 3.481, 6.175, 3.604, 6.252, 3.669, 6.371, 3, 3.734, 6.491, 3.729,
-+    6.636, 3.658, 6.752, 3, 3.587, 6.868, 3.459, 6.937, 3.323, 6.933, 3, 3.113,
-+    6.927, 2.947, 6.752, 2.953, 6.541, 3, 2.959, 6.331, 3.134, 6.166, 3.345, 6.172,
-+    4, 1, 12.428, 6.188, 3, 12.638, 6.194, 12.803, 6.37, 12.797, 6.58, 3,
-+    12.791, 6.79, 12.615, 6.956, 12.405, 6.95, 3, 12.195, 6.944, 12.029, 6.768, 12.036,
-+    6.558, 3, 12.042, 6.347, 12.217, 6.182, 12.428, 6.188, 4, 1, 4.063, 6.25,
-+    2, 4.726, 6.25, 2, 4.726, 9.244, 2, 3.386, 9.244, 3, 3.221, 8.662,
-+    3.169, 8.054, 3.235, 7.453, 2, 4.055, 7.089, 3, 4.139, 7.051, 4.205, 6.982,
-+    4.238, 6.896, 3, 4.272, 6.81, 4.269, 6.715, 4.232, 6.63, 2, 4.063, 6.25,
-+    4, 1, 6.834, 6.282, 2, 8.415, 6.282, 3, 8.497, 6.282, 8.991, 6.376,
-+    8.991, 6.747, 3, 8.991, 7.054, 8.612, 7.165, 8.3, 7.165, 2, 6.832, 7.165,
-+    2, 6.833, 6.282, 4, 1, 6.834, 8.432, 2, 8.045, 8.432, 3, 8.155,
-+    8.432, 8.636, 8.464, 8.79, 9.079, 3, 8.806, 9.146, 8.831, 9.265, 8.858, 9.401,
-+    3, 8.908, 9.65, 8.97, 9.952, 9.016, 10.079, 3, 9.089, 10.3, 9.381, 10.741,
-+    9.693, 10.741, 2, 11.67, 10.741, 3, 11.538, 10.918, 11.393, 11.087, 11.237, 11.244,
-+    2, 10.432, 11.071, 3, 10.244, 11.031, 10.06, 11.15, 10.019, 11.338, 2, 9.828,
-+    12.23, 3, 8.585, 12.793, 7.157, 12.786, 5.919, 12.211, 2, 5.729, 11.32, 3,
-+    5.71, 11.23, 5.656, 11.151, 5.578, 11.101, 3, 5.501, 11.05, 5.407, 11.033, 5.317,
-+    11.052, 2, 4.53, 11.221, 3, 4.384, 11.07, 4.248, 10.91, 4.123, 10.741, 2,
-+    7.953, 10.741, 3, 7.996, 10.741, 8.025, 10.734, 8.025, 10.694, 2, 8.025, 9.339,
-+    3, 8.025, 9.3, 7.996, 9.291, 7.953, 9.291, 2, 6.833, 9.291, 2, 6.833,
-+    8.433, 4, 1, 5.066, 11.535, 3, 5.276, 11.541, 5.442, 11.716, 5.436, 11.926,
-+    3, 5.43, 12.137, 5.254, 12.302, 5.044, 12.296, 3, 4.834, 12.29, 4.668, 12.115,
-+    4.674, 11.905, 3, 4.68, 11.694, 4.855, 11.529, 5.066, 11.535, 4, 1, 10.707,
-+    11.552, 3, 10.847, 11.549, 10.978, 11.624, 11.047, 11.747, 3, 11.116, 11.87, 11.112,
-+    12.02, 11.036, 12.139, 3, 10.96, 12.258, 10.825, 12.325, 10.684, 12.314, 3, 10.482,
-+    12.297, 10.327, 12.125, 10.333, 11.922, 3, 10.339, 11.719, 10.503, 11.556, 10.707, 11.552,
-+    4, 10, 0.918, 0.345, 0.047, 1, 1
-+};
-+
-+static const float kENRMFence_sh[] = {
-+    1, 2.775, 11.2, 2, 6.615, 7.36, 2, 2.775, 3.52, 1, 7.895, 12.48,
-+    2, 13.015, 12.48, 11, 0.078, 0.722, 0.651, 1, 1.28, 1, 1
-+};
-+
-+static const float kENRMFence_md[] = {
-+    1, 2, 10.476, 2, 2, 5.333, 2, 3.549, 5.333, 2, 5.097, 7.224,
-+    2, 6.645, 5.333, 2, 8.193, 5.333, 2, 8.193, 10.476, 2, 6.645, 10.476,
-+    2, 6.645, 7.527, 2, 5.097, 9.417, 2, 3.549, 7.527, 2, 3.549, 10.476,
-+    2, 2, 10.476, 4, 1, 11.677, 10.476, 2, 9.355, 7.981, 2, 10.903,
-+    7.981, 2, 10.903, 5.333, 2, 12.451, 5.333, 2, 12.451, 7.98, 2, 14,
-+    7.98, 2, 11.677, 10.476, 4, 10, 0.376, 0.647, 0.98, 1, 0
-+};
-+
-+static const float kENRMFence_yml[] = {
-+    1, 4.355, 3.909, 2, 6.192, 3.909, 2, 7.961, 7.25, 2, 8.037, 7.25,
-+    2, 9.806, 3.909, 2, 11.643, 3.909, 2, 8.813, 8.924, 2, 8.813, 11.667,
-+    2, 7.185, 11.667, 2, 7.185, 8.924, 2, 4.355, 3.909, 4, 10, 0.655,
-+    0.545, 0.98, 1, 0
-+};
-+
-+static const float kENRMFence_toml[] = {
-+    1, 3.959, 3.58, 3, 4.148, 4.235, 4.062, 4.939, 3.721, 5.53, 3, 3.38,
-+    6.121, 2.813, 6.547, 2.151, 6.711, 2, 1.419, 6.892, 3, 1.301, 7.643, 1.304,
-+    8.408, 1.427, 9.159, 2, 2.103, 9.321, 3, 2.772, 9.482, 3.344, 9.91, 3.688,
-+    10.505, 3, 4.032, 11.101, 4.116, 11.811, 3.922, 12.47, 2, 3.689, 13.261, 3,
-+    4.241, 13.747, 4.87, 14.138, 5.55, 14.417, 2, 6.169, 13.767, 3, 6.642, 13.269,
-+    7.3, 12.987, 7.987, 12.987, 3, 8.674, 12.987, 9.331, 13.269, 9.805, 13.767, 2,
-+    10.43, 14.425, 3, 11.109, 14.149, 11.738, 13.762, 12.29, 13.281, 2, 12.041, 12.421,
-+    3, 11.852, 11.765, 11.938, 11.061, 12.279, 10.47, 3, 12.62, 9.879, 13.187, 9.453,
-+    13.849, 9.289, 2, 14.581, 9.109, 3, 14.699, 8.357, 14.696, 7.592, 14.573, 6.842,
-+    2, 13.897, 6.679, 3, 13.229, 6.518, 12.656, 6.09, 12.312, 5.495, 3, 11.969,
-+    4.899, 11.884, 4.189, 12.079, 3.53, 2, 12.312, 2.739, 3, 11.76, 2.253, 11.131,
-+    1.862, 10.451, 1.583, 2, 9.832, 2.233, 3, 9.358, 2.731, 8.701, 3.013, 8.014,
-+    3.013, 3, 7.327, 3.013, 6.669, 2.731, 6.196, 2.233, 2, 5.571, 1.575, 3,
-+    4.892, 1.851, 4.263, 2.237, 3.711, 2.719, 2, 3.959, 3.579, 4, 1, 8,
-+    9.881, 3, 6.996, 9.881, 6.182, 9.039, 6.182, 8, 3, 6.182, 6.961, 6.995,
-+    6.119, 8, 6.119, 3, 9.004, 6.119, 9.818, 6.961, 9.818, 8, 3, 9.818,
-+    9.039, 9.005, 9.881, 8, 9.881, 4, 10, 0.392, 0.455, 0.545, 1, 0
-+};
-+
-+static const float kENRMFence_json[] = {
-+    1, 3.185, 4.445, 3, 3.185, 3.463, 3.981, 2.667, 4.963, 2.667, 3, 5.29,
-+    2.667, 5.555, 2.932, 5.555, 3.259, 3, 5.555, 3.587, 5.29, 3.852, 4.963, 3.852,
-+    3, 4.636, 3.852, 4.371, 4.118, 4.371, 4.445, 2, 4.371, 6.778, 3, 4.371,
-+    7.245, 4.189, 7.678, 3.884, 8, 3, 4.189, 8.322, 4.371, 8.755, 4.371, 9.221,
-+    2, 4.371, 11.555, 3, 4.371, 11.883, 4.636, 12.149, 4.963, 12.149, 3, 5.282,
-+    12.159, 5.535, 12.421, 5.535, 12.741, 3, 5.535, 13.061, 5.282, 13.323, 4.963, 13.333,
-+    3, 3.981, 13.333, 3.185, 12.537, 3.185, 11.555, 2, 3.185, 9.222, 3, 3.185,
-+    8.95, 3, 8.712, 2.736, 8.647, 2, 2.449, 8.575, 3, 2.186, 8.508, 2.002,
-+    8.271, 2.002, 8, 3, 2.002, 7.729, 2.186, 7.492, 2.449, 7.425, 2, 2.736,
-+    7.353, 3, 3, 7.288, 3.185, 7.051, 3.185, 6.779, 2, 3.185, 4.445, 4,
-+    1, 12.667, 4.445, 3, 12.667, 3.973, 12.479, 3.521, 12.146, 3.187, 3, 11.812,
-+    2.854, 11.36, 2.667, 10.889, 2.667, 3, 10.561, 2.667, 10.296, 2.932, 10.296, 3.259,
-+    3, 10.296, 3.587, 10.561, 3.852, 10.889, 3.852, 3, 11.216, 3.852, 11.482, 4.117,
-+    11.482, 4.445, 2, 11.482, 6.778, 3, 11.482, 7.245, 11.663, 7.678, 11.968, 8,
-+    3, 11.656, 8.33, 11.481, 8.767, 11.481, 9.221, 2, 11.481, 11.555, 3, 11.482,
-+    11.713, 11.419, 11.864, 11.308, 11.975, 3, 11.197, 12.086, 11.046, 12.149, 10.889, 12.149,
-+    3, 10.569, 12.159, 10.316, 12.421, 10.316, 12.741, 3, 10.316, 13.061, 10.569, 13.323,
-+    10.889, 13.333, 3, 11.36, 13.333, 11.812, 13.146, 12.146, 12.813, 3, 12.479, 12.479,
-+    12.667, 12.027, 12.667, 11.555, 2, 12.667, 9.222, 3, 12.667, 8.95, 12.852, 8.713,
-+    13.115, 8.647, 2, 13.403, 8.575, 3, 13.666, 8.508, 13.85, 8.271, 13.85, 8,
-+    3, 13.85, 7.729, 13.666, 7.492, 13.403, 7.425, 2, 13.116, 7.353, 3, 12.852,
-+    7.288, 12.667, 7.051, 12.667, 6.779, 2, 12.667, 4.445, 4, 10, 0.961, 0.62,
-+    0.043, 1, 0
-+};
-+
-+static const float kENRMFence_html[] = {
-+    1, 4.519, 5.679, 2, 2, 8.198, 2, 4.519, 10.717, 1, 11.481, 5.679,
-+    2, 14, 8.198, 2, 11.481, 10.717, 1, 6.181, 12.397, 2, 9.82, 4,
-+    11, 0.918, 0.345, 0.047, 1, 1.333, 1, 1
-+};
-+
-+static const float kENRMFence_css[] = {
-+    1, 3.185, 4.445, 3, 3.185, 3.463, 3.981, 2.667, 4.963, 2.667, 3, 5.29,
-+    2.667, 5.555, 2.932, 5.555, 3.259, 3, 5.555, 3.587, 5.29, 3.852, 4.963, 3.852,
-+    3, 4.636, 3.852, 4.371, 4.118, 4.371, 4.445, 2, 4.371, 6.778, 3, 4.371,
-+    7.245, 4.189, 7.678, 3.884, 8, 3, 4.189, 8.322, 4.371, 8.755, 4.371, 9.221,
-+    2, 4.371, 11.555, 3, 4.371, 11.883, 4.636, 12.149, 4.963, 12.149, 3, 5.282,
-+    12.159, 5.535, 12.421, 5.535, 12.741, 3, 5.535, 13.061, 5.282, 13.323, 4.963, 13.333,
-+    3, 3.981, 13.333, 3.185, 12.537, 3.185, 11.555, 2, 3.185, 9.222, 3, 3.185,
-+    8.95, 3, 8.712, 2.736, 8.647, 2, 2.449, 8.575, 3, 2.186, 8.508, 2.002,
-+    8.271, 2.002, 8, 3, 2.002, 7.729, 2.186, 7.492, 2.449, 7.425, 2, 2.736,
-+    7.353, 3, 3, 7.288, 3.185, 7.051, 3.185, 6.779, 2, 3.185, 4.445, 4,
-+    1, 12.667, 4.445, 3, 12.667, 3.973, 12.479, 3.521, 12.146, 3.187, 3, 11.812,
-+    2.854, 11.36, 2.667, 10.889, 2.667, 3, 10.561, 2.667, 10.296, 2.932, 10.296, 3.259,
-+    3, 10.296, 3.587, 10.561, 3.852, 10.889, 3.852, 3, 11.216, 3.852, 11.482, 4.117,
-+    11.482, 4.445, 2, 11.482, 6.778, 3, 11.482, 7.245, 11.663, 7.678, 11.968, 8,
-+    3, 11.656, 8.33, 11.481, 8.767, 11.481, 9.221, 2, 11.481, 11.555, 3, 11.482,
-+    11.713, 11.419, 11.864, 11.308, 11.975, 3, 11.197, 12.086, 11.046, 12.149, 10.889, 12.149,
-+    3, 10.569, 12.159, 10.316, 12.421, 10.316, 12.741, 3, 10.316, 13.061, 10.569, 13.323,
-+    10.889, 13.333, 3, 11.36, 13.333, 11.812, 13.146, 12.146, 12.813, 3, 12.479, 12.479,
-+    12.667, 12.027, 12.667, 11.555, 2, 12.667, 9.222, 3, 12.667, 8.95, 12.852, 8.713,
-+    13.115, 8.647, 2, 13.403, 8.575, 3, 13.666, 8.508, 13.85, 8.271, 13.85, 8,
-+    3, 13.85, 7.729, 13.666, 7.492, 13.403, 7.425, 2, 13.116, 7.353, 3, 12.852,
-+    7.288, 12.667, 7.051, 12.667, 6.779, 2, 12.667, 4.445, 4, 10, 0.545, 0.361,
-+    0.965, 1, 0
-+};
-+
-+static const float kENRMFence_go[] = {
-+    13, 1, 0.215, 0.32, 2, 15.575, 0.32, 2, 15.575, 15.68, 2, 0.215,
-+    15.68, 4, 12, 0, 1, 1.202, 6.588, 3, 1.172, 6.588, 1.165, 6.573,
-+    1.18, 6.551, 2, 1.336, 6.351, 3, 1.35, 6.328, 1.388, 6.314, 1.417, 6.314,
-+    2, 4.067, 6.314, 3, 4.096, 6.314, 4.104, 6.336, 4.088, 6.358, 2, 3.962,
-+    6.551, 3, 3.948, 6.573, 3.911, 6.596, 3.888, 6.596, 2, 1.202, 6.588, 4,
-+    1, 0.082, 7.27, 3, 0.052, 7.27, 0.045, 7.256, 0.06, 7.234, 2, 0.215,
-+    7.034, 3, 0.23, 7.011, 0.267, 6.996, 0.297, 6.996, 2, 3.68, 6.996, 3,
-+    3.709, 6.996, 3.725, 7.019, 3.717, 7.041, 2, 3.658, 7.219, 3, 3.65, 7.249,
-+    3.62, 7.264, 3.591, 7.264, 2, 0.081, 7.27, 4, 1, 1.877, 7.954, 3,
-+    1.848, 7.954, 1.84, 7.932, 1.855, 7.909, 2, 1.959, 7.724, 3, 1.974, 7.701,
-+    2.004, 7.679, 2.033, 7.679, 2, 3.517, 7.679, 3, 3.547, 7.679, 3.562, 7.701,
-+    3.562, 7.731, 2, 3.547, 7.909, 3, 3.547, 7.939, 3.517, 7.961, 3.495, 7.961,
-+    2, 1.877, 7.954, 4, 1, 9.58, 6.454, 3, 9.112, 6.573, 8.793, 6.662,
-+    8.333, 6.781, 3, 8.221, 6.811, 8.214, 6.819, 8.118, 6.707, 3, 8.006, 6.581,
-+    7.925, 6.499, 7.769, 6.426, 3, 7.302, 6.195, 6.849, 6.262, 6.426, 6.536, 3,
-+    5.921, 6.863, 5.661, 7.345, 5.669, 7.946, 3, 5.677, 8.54, 6.085, 9.03, 6.671,
-+    9.111, 3, 7.176, 9.178, 7.599, 9, 7.932, 8.621, 3, 7.999, 8.54, 8.058,
-+    8.451, 8.132, 8.347, 2, 6.701, 8.347, 3, 6.545, 8.347, 6.509, 8.251, 6.56,
-+    8.124, 3, 6.657, 7.894, 6.835, 7.508, 6.939, 7.315, 3, 6.972, 7.242, 7.045,
-+    7.196, 7.124, 7.197, 2, 9.825, 7.197, 3, 9.81, 7.397, 9.81, 7.597, 9.78,
-+    7.798, 3, 9.699, 8.332, 9.499, 8.822, 9.172, 9.252, 3, 8.638, 9.956, 7.94,
-+    10.395, 7.057, 10.513, 3, 6.33, 10.61, 5.655, 10.468, 5.061, 10.024, 3, 4.512,
-+    9.608, 4.2, 9.059, 4.119, 8.376, 3, 4.022, 7.568, 4.26, 6.84, 4.749, 6.202,
-+    3, 5.276, 5.512, 5.974, 5.075, 6.828, 4.918, 3, 7.525, 4.792, 8.193, 4.874,
-+    8.794, 5.283, 3, 9.178, 5.538, 9.478, 5.902, 9.654, 6.328, 3, 9.699, 6.396,
-+    9.669, 6.433, 9.58, 6.454, 4, 10, 0.376, 0.647, 0.98, 1, 1, 1,
-+    12.036, 10.558, 3, 11.361, 10.543, 10.744, 10.35, 10.225, 9.905, 3, 9.793, 9.541,
-+    9.508, 9.032, 9.424, 8.473, 3, 9.29, 7.635, 9.52, 6.892, 10.025, 6.232, 3,
-+    10.566, 5.52, 11.219, 5.149, 12.102, 4.993, 3, 12.86, 4.86, 13.572, 4.934, 14.218,
-+    5.372, 3, 14.803, 5.772, 15.167, 6.314, 15.263, 7.026, 3, 15.389, 8.028, 15.1,
-+    8.844, 14.41, 9.541, 3, 13.921, 10.038, 13.32, 10.35, 12.629, 10.492, 3, 12.429,
-+    10.529, 12.228, 10.536, 12.036, 10.558, 4, 1, 13.802, 7.56, 3, 13.795, 7.464,
-+    13.795, 7.389, 13.779, 7.315, 3, 13.646, 6.581, 12.971, 6.165, 12.266, 6.328, 3,
-+    11.576, 6.484, 11.13, 6.922, 10.967, 7.62, 3, 10.833, 8.198, 11.116, 8.785, 11.65,
-+    9.022, 3, 12.058, 9.2, 12.466, 9.178, 12.86, 8.977, 3, 13.446, 8.673, 13.764,
-+    8.198, 13.802, 7.56, 4, 10, 0.376, 0.647, 0.98, 1, 0, 14
-+};
-+
-+static const float kENRMFence_java[] = {
-+    1, 3.414, 2.72, 3, 2.796, 2.72, 2.295, 3.22, 2.295, 3.837, 2, 2.295,
-+    6.752, 3, 2.292, 9.165, 4.152, 11.171, 6.558, 11.353, 3, 8.964, 11.534, 11.102,
-+    9.828, 11.461, 7.442, 3, 11.484, 4.8, 11.484, 6.08, 11.484, 3.583, 3, 11.365,
-+    3.077, 10.914, 2.719, 10.394, 2.719, 2, 3.414, 2.719, 4, 11, 0.973, 0.443,
-+    0.443, 1, 1.28, 0, 0, 1, 2.615, 13.281, 2, 12.855, 13.281, 11,
-+    0.973, 0.443, 0.443, 1, 1.28, 1, 0, 13, 1, 13.495, 3.2, 2,
-+    14.775, 3.2, 2, 14.775, 7.04, 2, 13.495, 7.04, 4, 15, 0, 0.64,
-+    0, 0, 1, 11.924, 5.44, 3, 11.924, 6.147, 12.498, 6.72, 13.204, 6.72,
-+    3, 13.911, 6.72, 14.484, 6.147, 14.484, 5.44, 3, 14.484, 4.733, 13.911, 4.16,
-+    13.204, 4.16, 3, 12.498, 4.16, 11.924, 4.733, 11.924, 5.44, 11, 0.973, 0.443,
-+    0.443, 1, 1.28, 0, 0, 14
-+};
-+
-+static const float kENRMFence_sql[] = {
-+    1, 3.2, 4.4, 3, 3.2, 3.987, 3.387, 3.627, 3.667, 3.333, 3, 3.933,
-+    3.04, 4.313, 2.8, 4.74, 2.613, 3, 5.6, 2.227, 6.753, 2, 8, 2,
-+    3, 9.247, 2, 10.4, 2.227, 11.26, 2.613, 3, 11.687, 2.8, 12.06, 3.04,
-+    12.333, 3.333, 3, 12.613, 3.627, 12.8, 3.987, 12.8, 4.4, 2, 12.8, 11.6,
-+    3, 12.8, 12.013, 12.613, 12.373, 12.333, 12.667, 3, 12.067, 12.96, 11.687, 13.2,
-+    11.26, 13.387, 3, 10.4, 13.773, 9.247, 14, 8, 14, 3, 6.753, 14,
-+    5.6, 13.773, 4.74, 13.387, 3, 4.339, 13.218, 3.975, 12.974, 3.667, 12.667, 3,
-+    3.387, 12.373, 3.2, 12.013, 3.2, 11.6, 2, 3.2, 4.4, 4, 1, 4.1,
-+    4.4, 3, 4.1, 4.527, 4.153, 4.673, 4.32, 4.853, 3, 4.487, 5.027, 4.747,
-+    5.207, 5.107, 5.367, 3, 5.827, 5.687, 6.847, 5.9, 8, 5.9, 3, 9.153,
-+    5.9, 10.173, 5.687, 10.893, 5.367, 3, 11.253, 5.207, 11.513, 5.033, 11.68, 4.853,
-+    3, 11.847, 4.673, 11.9, 4.52, 11.9, 4.4, 3, 11.9, 4.273, 11.847, 4.127,
-+    11.68, 3.947, 3, 11.453, 3.727, 11.186, 3.553, 10.893, 3.433, 3, 10.173, 3.113,
-+    9.153, 2.9, 8, 2.9, 3, 6.847, 2.9, 5.827, 3.113, 5.107, 3.433, 3,
-+    4.747, 3.593, 4.487, 3.767, 4.32, 3.947, 3, 4.153, 4.127, 4.1, 4.28, 4.1,
-+    4.4, 4, 1, 11.9, 5.833, 3, 11.707, 5.967, 11.493, 6.087, 11.26, 6.187,
-+    3, 10.4, 6.573, 9.247, 6.8, 8, 6.8, 3, 6.753, 6.8, 5.6, 6.573,
-+    4.74, 6.187, 3, 4.517, 6.088, 4.302, 5.97, 4.1, 5.833, 2, 4.1, 11.6,
-+    3, 4.1, 11.727, 4.153, 11.873, 4.32, 12.053, 3, 4.487, 12.227, 4.747, 12.407,
-+    5.107, 12.567, 3, 5.827, 12.887, 6.847, 13.1, 8, 13.1, 3, 9.153, 13.1,
-+    10.173, 12.887, 10.893, 12.567, 3, 11.253, 12.407, 11.513, 12.233, 11.68, 12.053, 3,
-+    11.847, 11.873, 11.9, 11.72, 11.9, 11.6, 2, 11.9, 5.833, 4, 10, 0.957,
-+    0.447, 0.714, 1, 0, 1, 4.667, 2.46, 3, 5.553, 2.06, 6.733, 1.833,
-+    8, 1.833, 3, 9.267, 1.833, 10.447, 2.06, 11.333, 2.46, 3, 11.767, 2.66,
-+    12.167, 2.907, 12.46, 3.22, 3, 12.753, 3.533, 12.967, 3.933, 12.967, 4.4, 2,
-+    12.967, 11.6, 3, 12.967, 12.067, 12.753, 12.467, 12.46, 12.78, 3, 12.135, 13.105,
-+    11.75, 13.363, 11.327, 13.54, 3, 10.447, 13.94, 9.267, 14.167, 8, 14.167, 3,
-+    6.733, 14.167, 5.553, 13.94, 4.667, 13.54, 3, 4.245, 13.362, 3.863, 13.104, 3.54,
-+    12.78, 3, 3.225, 12.467, 3.044, 12.044, 3.033, 11.6, 2, 3.033, 4.4, 3,
-+    3.033, 3.933, 3.247, 3.533, 3.54, 3.22, 3, 3.865, 2.895, 4.25, 2.637, 4.673,
-+    2.46, 4, 1, 4.447, 4.733, 3, 4.593, 4.893, 4.84, 5.067, 5.18, 5.213,
-+    3, 5.873, 5.527, 6.873, 5.733, 8.007, 5.733, 3, 9.14, 5.733, 10.14, 5.527,
-+    10.833, 5.213, 3, 11.173, 5.06, 11.42, 4.893, 11.567, 4.733, 3, 11.713, 4.58,
-+    11.74, 4.467, 11.74, 4.4, 3, 11.74, 4.333, 11.713, 4.22, 11.567, 4.067, 3,
-+    11.355, 3.862, 11.106, 3.699, 10.833, 3.587, 3, 9.934, 3.223, 8.97, 3.046, 8,
-+    3.067, 3, 6.867, 3.067, 5.867, 3.273, 5.173, 3.587, 3, 4.833, 3.74, 4.587,
-+    3.907, 4.44, 4.067, 3, 4.293, 4.22, 4.267, 4.333, 4.267, 4.4, 3, 4.267,
-+    4.467, 4.293, 4.58, 4.44, 4.733, 4, 1, 11.687, 3.947, 3, 11.853, 4.127,
-+    11.907, 4.28, 11.907, 4.4, 3, 11.907, 4.527, 11.853, 4.673, 11.687, 4.853, 3,
-+    11.52, 5.027, 11.26, 5.207, 10.9, 5.367, 3, 10.18, 5.687, 9.16, 5.9, 8.007,
-+    5.9, 3, 6.853, 5.9, 5.833, 5.687, 5.113, 5.367, 3, 4.821, 5.247, 4.554,
-+    5.073, 4.327, 4.853, 3, 4.16, 4.673, 4.107, 4.52, 4.107, 4.4, 3, 4.107,
-+    4.273, 4.16, 4.127, 4.327, 3.947, 3, 4.493, 3.773, 4.753, 3.593, 5.113, 3.433,
-+    3, 5.833, 3.113, 6.853, 2.9, 8.007, 2.9, 3, 9.16, 2.9, 10.18, 3.113,
-+    10.9, 3.433, 3, 11.26, 3.593, 11.52, 3.767, 11.687, 3.947, 4, 1, 4.74,
-+    13.387, 3, 4.339, 13.218, 3.975, 12.974, 3.667, 12.667, 3, 3.387, 12.373, 3.2,
-+    12.013, 3.2, 11.6, 2, 3.2, 4.4, 3, 3.2, 3.987, 3.387, 3.627, 3.667,
-+    3.333, 3, 3.933, 3.04, 4.313, 2.8, 4.74, 2.613, 3, 5.6, 2.227, 6.753,
-+    2, 8, 2, 3, 9.247, 2, 10.4, 2.227, 11.26, 2.613, 3, 11.687,
-+    2.8, 12.06, 3.04, 12.333, 3.333, 3, 12.613, 3.627, 12.8, 3.987, 12.8, 4.4,
-+    2, 12.8, 11.6, 3, 12.8, 12.013, 12.613, 12.373, 12.333, 12.667, 3, 12.067,
-+    12.96, 11.687, 13.2, 11.26, 13.387, 3, 10.4, 13.773, 9.247, 14, 8, 14,
-+    3, 6.753, 14, 5.6, 13.773, 4.74, 13.387, 4, 1, 4.44, 11.933, 3,
-+    4.587, 12.093, 4.833, 12.267, 5.173, 12.413, 3, 5.867, 12.727, 6.867, 12.933, 8,
-+    12.933, 3, 9.133, 12.933, 10.133, 12.727, 10.827, 12.413, 3, 11.167, 12.26, 11.413,
-+    12.093, 11.56, 11.933, 3, 11.707, 11.78, 11.733, 11.667, 11.733, 11.6, 2, 11.733,
-+    6.133, 3, 11.6, 6.213, 11.467, 6.28, 11.333, 6.34, 3, 10.447, 6.74, 9.267,
-+    6.967, 8, 6.967, 3, 6.733, 6.967, 5.553, 6.74, 4.667, 6.34, 2, 4.267,
-+    6.14, 2, 4.267, 11.6, 3, 4.267, 11.667, 4.293, 11.78, 4.44, 11.933, 4,
-+    1, 4.1, 5.833, 3, 4.3, 5.973, 4.515, 6.092, 4.74, 6.187, 3, 5.6,
-+    6.573, 6.753, 6.8, 8, 6.8, 3, 9.247, 6.8, 10.4, 6.573, 11.26, 6.187,
-+    3, 11.483, 6.087, 11.697, 5.969, 11.9, 5.833, 2, 11.9, 11.6, 3, 11.9,
-+    11.727, 11.847, 11.873, 11.68, 12.053, 3, 11.513, 12.227, 11.253, 12.407, 10.893, 12.567,
-+    3, 10.173, 12.887, 9.153, 13.1, 8, 13.1, 3, 6.847, 13.1, 5.827, 12.887,
-+    5.107, 12.567, 3, 4.814, 12.447, 4.547, 12.273, 4.32, 12.053, 3, 4.153, 11.873,
-+    4.1, 11.72, 4.1, 11.6, 2, 4.1, 5.833, 4, 10, 0.957, 0.447, 0.714,
-+    1, 1
-+};
-+
-+static const float kENRMFence_dockerfile[] = {
-+    1, 14.535, 7.02, 3, 14.499, 6.991, 14.161, 6.731, 13.45, 6.731, 3, 13.262,
-+    6.731, 13.074, 6.748, 12.889, 6.78, 3, 12.751, 5.816, 11.97, 5.346, 11.935, 5.325,
-+    2, 11.744, 5.212, 2, 11.618, 5.397, 3, 11.461, 5.646, 11.346, 5.92, 11.278,
-+    6.208, 3, 11.151, 6.759, 11.228, 7.276, 11.502, 7.717, 3, 11.171, 7.906, 10.641,
-+    7.952, 10.534, 7.956, 2, 1.751, 7.956, 3, 1.521, 7.956, 1.335, 8.146, 1.334,
-+    8.38, 3, 1.324, 9.165, 1.454, 9.946, 1.719, 10.683, 3, 2.021, 11.493, 2.471,
-+    12.09, 3.057, 12.455, 3, 3.713, 12.865, 4.779, 13.1, 5.988, 13.1, 3, 6.534,
-+    13.101, 7.079, 13.051, 7.615, 12.949, 3, 8.361, 12.809, 9.079, 12.543, 9.74, 12.161,
-+    3, 10.283, 11.84, 10.773, 11.431, 11.189, 10.95, 3, 11.885, 10.146, 12.3, 9.251,
-+    12.608, 8.455, 2, 12.731, 8.455, 3, 13.493, 8.455, 13.961, 8.143, 14.219, 7.883,
-+    3, 14.391, 7.716, 14.525, 7.514, 14.612, 7.289, 2, 14.667, 7.126, 2, 14.535,
-+    7.02, 4, 10, 0.376, 0.647, 0.98, 1, 0, 1, 2.565, 7.693, 2,
-+    3.742, 7.693, 3, 3.799, 7.693, 3.845, 7.646, 3.845, 7.589, 2, 3.845, 6.518,
-+    3, 3.845, 6.46, 3.799, 6.413, 3.742, 6.413, 2, 2.565, 6.413, 3, 2.508,
-+    6.413, 2.462, 6.46, 2.462, 6.518, 2, 2.462, 7.589, 3, 2.462, 7.646, 2.508,
-+    7.693, 2.565, 7.693, 4, 1, 4.187, 7.693, 2, 5.364, 7.693, 3, 5.42,
-+    7.693, 5.466, 7.646, 5.466, 7.589, 2, 5.466, 6.518, 3, 5.467, 6.46, 5.421,
-+    6.413, 5.364, 6.413, 2, 4.187, 6.413, 3, 4.13, 6.413, 4.083, 6.46, 4.083,
-+    6.518, 2, 4.083, 7.589, 3, 4.084, 7.647, 4.13, 7.693, 4.187, 7.693, 1,
-+    5.833, 7.693, 2, 7.01, 7.693, 3, 7.067, 7.693, 7.113, 7.646, 7.113, 7.589,
-+    2, 7.113, 6.518, 3, 7.113, 6.46, 7.068, 6.413, 7.011, 6.413, 2, 5.833,
-+    6.413, 3, 5.776, 6.413, 5.73, 6.46, 5.73, 6.518, 2, 5.73, 7.589, 3,
-+    5.73, 7.646, 5.777, 7.693, 5.833, 7.693, 4, 1, 7.46, 7.693, 2, 8.637,
-+    7.693, 3, 8.694, 7.693, 8.74, 7.647, 8.741, 7.589, 2, 8.741, 6.518, 3,
-+    8.741, 6.46, 8.694, 6.413, 8.637, 6.413, 2, 7.46, 6.413, 3, 7.404, 6.413,
-+    7.358, 6.46, 7.358, 6.518, 2, 7.358, 7.589, 3, 7.358, 7.646, 7.404, 7.693,
-+    7.46, 7.693, 4, 1, 4.187, 6.154, 2, 5.364, 6.154, 3, 5.42, 6.154,
-+    5.466, 6.106, 5.466, 6.048, 2, 5.466, 4.978, 3, 5.466, 4.92, 5.42, 4.873,
-+    5.364, 4.873, 2, 4.187, 4.873, 3, 4.13, 4.873, 4.084, 4.92, 4.083, 4.978,
-+    2, 4.083, 6.048, 3, 4.084, 6.107, 4.13, 6.154, 4.187, 6.154, 4, 1,
-+    5.833, 6.154, 2, 7.01, 6.154, 3, 7.067, 6.154, 7.113, 6.106, 7.113, 6.048,
-+    2, 7.113, 4.978, 3, 7.113, 4.92, 7.067, 4.873, 7.01, 4.873, 2, 5.833,
-+    4.873, 3, 5.776, 4.873, 5.73, 4.92, 5.73, 4.978, 2, 5.73, 6.048, 3,
-+    5.73, 6.106, 5.776, 6.154, 5.833, 6.154, 4, 1, 7.46, 6.154, 2, 8.637,
-+    6.154, 3, 8.694, 6.154, 8.74, 6.107, 8.741, 6.048, 2, 8.741, 4.978, 3,
-+    8.74, 4.92, 8.694, 4.873, 8.637, 4.873, 2, 7.46, 4.873, 3, 7.404, 4.873,
-+    7.358, 4.92, 7.358, 4.978, 2, 7.358, 6.048, 3, 7.358, 6.106, 7.403, 6.154,
-+    7.46, 6.154, 4, 1, 7.46, 4.614, 2, 8.637, 4.614, 3, 8.694, 4.614,
-+    8.74, 4.567, 8.741, 4.509, 2, 8.741, 3.438, 3, 8.74, 3.38, 8.694, 3.333,
-+    8.637, 3.333, 2, 7.46, 3.333, 3, 7.404, 3.333, 7.358, 3.38, 7.358, 3.438,
-+    2, 7.358, 4.509, 3, 7.358, 4.567, 7.404, 4.614, 7.46, 4.614, 4, 1,
-+    9.102, 7.693, 2, 10.279, 7.693, 3, 10.336, 7.693, 10.382, 7.647, 10.382, 7.589,
-+    2, 10.382, 6.518, 3, 10.382, 6.46, 10.336, 6.413, 10.279, 6.413, 2, 9.102,
-+    6.413, 3, 9.045, 6.413, 8.999, 6.46, 8.999, 6.518, 2, 8.999, 7.589, 3,
-+    8.999, 7.646, 9.045, 7.693, 9.102, 7.693, 10, 0.376, 0.647, 0.98, 1, 0
-+};
-+
-+static const float kENRMFence_c[] = {
-+    1, 11.368, 6.68, 2, 9.775, 6.68, 3, 9.751, 6.488, 9.69, 6.302, 9.597,
-+    6.131, 3, 9.508, 5.969, 9.393, 5.83, 9.252, 5.716, 3, 9.107, 5.6, 8.942,
-+    5.511, 8.765, 5.454, 3, 8.573, 5.392, 8.373, 5.362, 8.172, 5.364, 3, 7.786,
-+    5.364, 7.451, 5.46, 7.165, 5.651, 3, 6.879, 5.84, 6.657, 6.116, 6.499, 6.48,
-+    3, 6.342, 6.841, 6.262, 7.28, 6.262, 7.796, 3, 6.262, 8.328, 6.342, 8.773,
-+    6.499, 9.134, 3, 6.659, 9.496, 6.882, 9.768, 7.168, 9.953, 3, 7.454, 10.137,
-+    7.785, 10.229, 8.161, 10.229, 3, 8.372, 10.229, 8.567, 10.201, 8.746, 10.146, 3,
-+    8.928, 10.09, 9.089, 10.008, 9.23, 9.902, 3, 9.371, 9.793, 9.487, 9.661, 9.579,
-+    9.505, 3, 9.674, 9.35, 9.739, 9.173, 9.775, 8.974, 2, 11.368, 8.982, 3,
-+    11.277, 9.69, 10.934, 10.342, 10.401, 10.819, 3, 10.113, 11.074, 9.78, 11.274, 9.419,
-+    11.407, 3, 9.041, 11.55, 8.612, 11.622, 8.136, 11.622, 3, 7.471, 11.622, 6.877,
-+    11.471, 6.354, 11.171, 3, 5.832, 10.87, 5.42, 10.435, 5.117, 9.866, 3, 4.817,
-+    9.296, 4.666, 8.606, 4.666, 7.796, 3, 4.666, 6.984, 4.819, 6.293, 5.124, 5.724,
-+    3, 5.43, 5.154, 5.844, 4.72, 6.368, 4.422, 3, 6.892, 4.121, 7.481, 3.971,
-+    8.136, 3.971, 3, 8.567, 3.971, 8.967, 4.031, 9.336, 4.153, 3, 9.707, 4.274,
-+    10.035, 4.451, 10.321, 4.684, 3, 10.607, 4.914, 10.84, 5.196, 11.019, 5.531, 3,
-+    11.201, 5.866, 11.317, 6.248, 11.368, 6.68, 4, 10, 0.376, 0.647, 0.98, 1,
-+    0
-+};
-+
-+static const float kENRMFence_cpp[] = {
-+    13, 1, 0.215, 0.32, 2, 15.575, 0.32, 2, 15.575, 15.68, 2, 0.215,
-+    15.68, 4, 12, 0, 1, 10.645, 9.398, 2, 10.645, 6.602, 2, 11.352,
-+    6.602, 2, 11.352, 9.398, 2, 10.645, 9.398, 4, 1, 9.6, 8.353, 2,
-+    9.6, 7.647, 2, 12.397, 7.647, 2, 12.397, 8.353, 2, 9.6, 8.353, 4,
-+    1, 13.823, 9.398, 2, 13.823, 6.602, 2, 14.531, 6.602, 2, 14.531, 9.398,
-+    2, 13.823, 9.398, 4, 1, 12.778, 8.353, 2, 12.778, 7.647, 2, 15.575,
-+    7.647, 2, 15.575, 8.353, 2, 12.778, 8.353, 4, 1, 9.344, 6.68, 2,
-+    7.75, 6.68, 3, 7.726, 6.488, 7.665, 6.302, 7.572, 6.131, 3, 7.483, 5.969,
-+    7.368, 5.83, 7.227, 5.716, 3, 7.082, 5.6, 6.917, 5.511, 6.74, 5.454, 3,
-+    6.548, 5.392, 6.348, 5.362, 6.147, 5.364, 3, 5.762, 5.364, 5.426, 5.46, 5.14,
-+    5.651, 3, 4.854, 5.84, 4.632, 6.116, 4.474, 6.48, 3, 4.317, 6.841, 4.237,
-+    7.28, 4.237, 7.796, 3, 4.237, 8.328, 4.317, 8.773, 4.474, 9.134, 3, 4.634,
-+    9.496, 4.858, 9.768, 5.144, 9.953, 3, 5.43, 10.137, 5.761, 10.229, 6.136, 10.229,
-+    3, 6.347, 10.229, 6.542, 10.201, 6.722, 10.146, 3, 6.904, 10.09, 7.065, 10.008,
-+    7.205, 9.902, 3, 7.346, 9.793, 7.462, 9.661, 7.555, 9.505, 3, 7.649, 9.35,
-+    7.715, 9.173, 7.751, 8.974, 2, 9.343, 8.982, 3, 9.252, 9.69, 8.909, 10.342,
-+    8.376, 10.819, 3, 8.088, 11.074, 7.756, 11.274, 7.395, 11.407, 3, 7.016, 11.55,
-+    6.588, 11.622, 6.111, 11.622, 3, 5.446, 11.622, 4.852, 11.471, 4.329, 11.171, 3,
-+    3.808, 10.87, 3.396, 10.435, 3.092, 9.866, 3, 2.792, 9.296, 2.642, 8.606, 2.642,
-+    7.796, 3, 2.642, 6.984, 2.794, 6.293, 3.1, 5.724, 3, 3.405, 5.154, 3.82,
-+    4.72, 4.344, 4.422, 3, 4.867, 4.121, 5.456, 3.971, 6.111, 3.971, 3, 6.542,
-+    3.971, 6.943, 4.031, 7.311, 4.153, 3, 7.682, 4.274, 8.01, 4.451, 8.296, 4.684,
-+    3, 8.582, 4.914, 8.815, 5.196, 8.994, 5.531, 3, 9.176, 5.866, 9.293, 6.248,
-+    9.343, 6.68, 4, 10, 0.376, 0.647, 0.98, 1, 0, 14
-+};
-+
-+static const float kENRMFence_txt[] = {
-+    1, 3.333, 4, 2, 12.667, 4, 3, 13.035, 4, 13.333, 4.298, 13.333,
-+    4.667, 2, 13.333, 4.667, 3, 13.333, 5.035, 13.035, 5.333, 12.667, 5.333, 2,
-+    3.333, 5.333, 3, 2.965, 5.333, 2.667, 5.035, 2.667, 4.667, 2, 2.667, 4.667,
-+    3, 2.667, 4.298, 2.965, 4, 3.333, 4, 4, 10, 0.392, 0.455, 0.545,
-+    1, 0, 1, 3.333, 7.333, 2, 10, 7.333, 3, 10.368, 7.333, 10.667,
-+    7.632, 10.667, 8, 2, 10.667, 8, 3, 10.667, 8.368, 10.368, 8.667, 10,
-+    8.667, 2, 3.333, 8.667, 3, 2.965, 8.667, 2.667, 8.368, 2.667, 8, 2,
-+    2.667, 8, 3, 2.667, 7.632, 2.965, 7.333, 3.333, 7.333, 4, 10, 0.392,
-+    0.455, 0.545, 1, 0, 1, 3.333, 10.667, 2, 12.667, 10.667, 3, 13.035,
-+    10.667, 13.333, 10.965, 13.333, 11.333, 2, 13.333, 11.333, 3, 13.333, 11.702, 13.035,
-+    12, 12.667, 12, 2, 3.333, 12, 3, 2.965, 12, 2.667, 11.702, 2.667,
-+    11.333, 2, 2.667, 11.333, 3, 2.667, 10.965, 2.965, 10.667, 3.333, 10.667, 4,
-+    10, 0.392, 0.455, 0.545, 1, 0
-+};
-+
-+typedef struct {
-+  __unsafe_unretained NSString *key;
-+  const float *ops;
-+  int count;
-+} ENRMFenceIconRow;
-+
-+static const ENRMFenceIconRow kENRMFenceIcons[] = {
-+    {@"code", kENRMFence_code, (int)(sizeof(kENRMFence_code) / sizeof(float))},
-+    {@"file-diff", kENRMFence_file_diff, (int)(sizeof(kENRMFence_file_diff) / sizeof(float))},
-+    {@"copy", kENRMFence_copy, (int)(sizeof(kENRMFence_copy) / sizeof(float))},
-+    {@"check", kENRMFence_check, (int)(sizeof(kENRMFence_check) / sizeof(float))},
-+    {@"file", kENRMFence_file, (int)(sizeof(kENRMFence_file) / sizeof(float))},
-+    {@"js", kENRMFence_js, (int)(sizeof(kENRMFence_js) / sizeof(float))},
-+    {@"jsx", kENRMFence_jsx, (int)(sizeof(kENRMFence_jsx) / sizeof(float))},
-+    {@"ts", kENRMFence_ts, (int)(sizeof(kENRMFence_ts) / sizeof(float))},
-+    {@"tsx", kENRMFence_tsx, (int)(sizeof(kENRMFence_tsx) / sizeof(float))},
-+    {@"py", kENRMFence_py, (int)(sizeof(kENRMFence_py) / sizeof(float))},
-+    {@"rs", kENRMFence_rs, (int)(sizeof(kENRMFence_rs) / sizeof(float))},
-+    {@"sh", kENRMFence_sh, (int)(sizeof(kENRMFence_sh) / sizeof(float))},
-+    {@"md", kENRMFence_md, (int)(sizeof(kENRMFence_md) / sizeof(float))},
-+    {@"yml", kENRMFence_yml, (int)(sizeof(kENRMFence_yml) / sizeof(float))},
-+    {@"toml", kENRMFence_toml, (int)(sizeof(kENRMFence_toml) / sizeof(float))},
-+    {@"json", kENRMFence_json, (int)(sizeof(kENRMFence_json) / sizeof(float))},
-+    {@"html", kENRMFence_html, (int)(sizeof(kENRMFence_html) / sizeof(float))},
-+    {@"css", kENRMFence_css, (int)(sizeof(kENRMFence_css) / sizeof(float))},
-+    {@"go", kENRMFence_go, (int)(sizeof(kENRMFence_go) / sizeof(float))},
-+    {@"java", kENRMFence_java, (int)(sizeof(kENRMFence_java) / sizeof(float))},
-+    {@"sql", kENRMFence_sql, (int)(sizeof(kENRMFence_sql) / sizeof(float))},
-+    {@"dockerfile", kENRMFence_dockerfile, (int)(sizeof(kENRMFence_dockerfile) / sizeof(float))},
-+    {@"c", kENRMFence_c, (int)(sizeof(kENRMFence_c) / sizeof(float))},
-+    {@"cpp", kENRMFence_cpp, (int)(sizeof(kENRMFence_cpp) / sizeof(float))},
-+    {@"txt", kENRMFence_txt, (int)(sizeof(kENRMFence_txt) / sizeof(float))},
-+};
-+
-+static NSString *ENRMFenceIconKey(NSString *language)
-+{
-+  if (language.length == 0) {
-+    return @"code";
-+  }
-+  NSString *lang = language.lowercaseString;
-+  if ([lang isEqualToString:@"shell"] || [lang isEqualToString:@"zsh"]) lang = @"bash";
-+  else if ([lang isEqualToString:@"js"]) lang = @"javascript";
-+  else if ([lang isEqualToString:@"ts"]) lang = @"typescript";
-+  else if ([lang isEqualToString:@"py"]) lang = @"python";
-+  else if ([lang isEqualToString:@"rs"]) lang = @"rust";
-+  else if ([lang isEqualToString:@"yml"]) lang = @"yaml";
-+  else if ([lang isEqualToString:@"c++"]) lang = @"cpp";
-+  else if ([lang isEqualToString:@"md"]) lang = @"markdown";
-+  if ([lang isEqualToString:@"diff"]) {
-+    return @"file-diff";
-+  }
-+  if ([lang isEqualToString:@"javascript"]) return @"js";
-+  if ([lang isEqualToString:@"typescript"]) return @"ts";
-+  if ([lang isEqualToString:@"python"]) return @"py";
-+  if ([lang isEqualToString:@"rust"]) return @"rs";
-+  if ([lang isEqualToString:@"bash"] || [lang isEqualToString:@"shellscript"]) return @"sh";
-+  if ([lang isEqualToString:@"markdown"]) return @"md";
-+  if ([lang isEqualToString:@"yaml"]) return @"yml";
-+  static NSSet<NSString *> *direct;
-+  static dispatch_once_t once;
-+  dispatch_once(&once, ^{
-+    direct = [NSSet setWithArray:@[
-+      @"tsx", @"jsx", @"toml", @"json", @"html", @"css", @"go", @"java", @"sql",
-+      @"dockerfile", @"c", @"cpp", @"txt"
-+    ]];
-+  });
-+  if ([direct containsObject:lang]) {
-+    return lang;
-+  }
-+  return @"file";
-+}
-+
-+static const ENRMFenceIconRow *ENRMFenceIconRowForKey(NSString *key)
-+{
-+  const ENRMFenceIconRow *fallback = &kENRMFenceIcons[0];
-+  for (size_t i = 0; i < sizeof(kENRMFenceIcons) / sizeof(kENRMFenceIcons[0]); i++) {
-+    if ([kENRMFenceIcons[i].key isEqualToString:@"file"]) {
-+      fallback = &kENRMFenceIcons[i];
-+    }
-+    if ([key isEqualToString:kENRMFenceIcons[i].key]) {
-+      return &kENRMFenceIcons[i];
-+    }
-+  }
-+  return fallback;
-+}
-+
-+static void ENRMFenceInk(BOOL dark, CGFloat *r, CGFloat *g, CGFloat *b)
-+{
-+  CGFloat ink = dark ? (0xA3 / 255.0) : (0x52 / 255.0);
-+  *r = ink;
-+  *g = ink;
-+  *b = ink;
-+}
-+
-+void ENRMDrawNamedFenceIcon(CGContextRef ctx, NSString *key, CGRect box, BOOL darkInk)
-+{
-+  if (!ctx || key.length == 0 || box.size.width <= 0 || box.size.height <= 0) {
++  if (_colCount == 0 || innerWidth <= 1)
 +    return;
++  if (fabs(_distributedInnerWidth - innerWidth) < 0.5)
++    return;
++
++  _distributedInnerWidth = innerWidth;
++  [self computeLayout];
++  if (_totalTableWidth <= 0 || _colWidths.count == 0 || _totalTableWidth + 0.5 >= innerWidth)
++    return;
++
++  CGFloat share = (innerWidth - _totalTableWidth) / (CGFloat)_colWidths.count;
++  NSMutableArray<NSNumber *> *expanded = [NSMutableArray arrayWithCapacity:_colWidths.count];
++  for (NSNumber *width in _colWidths) {
++    [expanded addObject:@(width.doubleValue + share)];
 +  }
-+  const ENRMFenceIconRow *row = ENRMFenceIconRowForKey(key);
-+  const float *ops = row->ops;
-+  int count = row->count;
-+  CGContextSaveGState(ctx);
-+  CGContextTranslateCTM(ctx, box.origin.x, box.origin.y);
-+  CGContextScaleCTM(ctx, box.size.width / 16.0, box.size.height / 16.0);
-+  CGMutablePathRef path = CGPathCreateMutable();
-+  int i = 0;
-+  while (i < count) {
-+    int op = (int)ops[i++];
-+    if (op == 1 && i + 1 < count) {
-+      CGPathMoveToPoint(path, NULL, ops[i], ops[i + 1]);
-+      i += 2;
-+    } else if (op == 2 && i + 1 < count) {
-+      CGPathAddLineToPoint(path, NULL, ops[i], ops[i + 1]);
-+      i += 2;
-+    } else if (op == 3 && i + 5 < count) {
-+      CGPathAddCurveToPoint(path, NULL, ops[i], ops[i + 1], ops[i + 2], ops[i + 3], ops[i + 4], ops[i + 5]);
-+      i += 6;
-+    } else if (op == 4) {
-+      CGPathCloseSubpath(path);
-+    } else if (op == 10 && i + 4 < count) {
-+      CGFloat r = ops[i++], g = ops[i++], b = ops[i++], a = ops[i++];
-+      int even = (int)ops[i++];
-+      if (r < 0) ENRMFenceInk(darkInk, &r, &g, &b);
-+      CGContextAddPath(ctx, path);
-+      CGPathRelease(path);
-+      path = CGPathCreateMutable();
-+      CGContextSetRGBFillColor(ctx, r, g, b, a);
-+      if (even) CGContextEOFillPath(ctx);
-+      else CGContextFillPath(ctx);
-+    } else if (op == 11 && i + 6 < count) {
-+      CGFloat r = ops[i++], g = ops[i++], b = ops[i++], a = ops[i++], width = ops[i++];
-+      CGLineCap cap = (CGLineCap)(int)ops[i++];
-+      CGLineJoin join = (CGLineJoin)(int)ops[i++];
-+      if (r < 0) ENRMFenceInk(darkInk, &r, &g, &b);
-+      CGContextAddPath(ctx, path);
-+      CGPathRelease(path);
-+      path = CGPathCreateMutable();
-+      CGContextSetRGBStrokeColor(ctx, r, g, b, a);
-+      CGContextSetLineWidth(ctx, width);
-+      CGContextSetLineCap(ctx, cap);
-+      CGContextSetLineJoin(ctx, join);
-+      CGContextStrokePath(ctx);
-+    } else if ((op == 12 || op == 15) && i < count) {
-+      int even = (int)ops[i++];
-+      CGPathRef clipPath = path;
-+      CGPathRef stroked = NULL;
-+      if (op == 15 && i + 2 < count) {
-+        CGFloat width = ops[i++];
-+        CGLineCap cap = (CGLineCap)(int)ops[i++];
-+        CGLineJoin join = (CGLineJoin)(int)ops[i++];
-+        stroked = CGPathCreateCopyByStrokingPath(path, NULL, width, cap, join, 10);
-+      }
-+      CGContextAddPath(ctx, clipPath);
-+      if (stroked) CGContextAddPath(ctx, stroked);
-+      CGPathRelease(path);
-+      if (stroked) CGPathRelease(stroked);
-+      path = CGPathCreateMutable();
-+      if (even) CGContextEOClip(ctx);
-+      else CGContextClip(ctx);
-+    } else if (op == 13) {
-+      CGContextSaveGState(ctx);
-+    } else if (op == 14) {
-+      CGContextRestoreGState(ctx);
-+    } else {
-+      break;
-+    }
-+  }
-+  CGPathRelease(path);
-+  CGContextRestoreGState(ctx);
++  _colWidths = expanded;
++  _totalTableWidth = innerWidth;
++  [self renderGrid];
 +}
 +
-+void ENRMDrawFenceIcon(CGContextRef ctx, NSString *_Nullable language, CGRect box, BOOL darkInk)
-+{
-+  ENRMDrawNamedFenceIcon(ctx, ENRMFenceIconKey(language), box, darkInk);
-+}
+ - (CGFloat)alignOffsetForFreeSpace:(CGFloat)freeSpace
+ {
+   if (freeSpace <= 0)
+@@ -627,6 +654,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+ #if !TARGET_OS_OSX
+   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
+   CGFloat containerWidth = self.bounds.size.width;
++  [self distributeColumnsToContainerWidth:MAX(0, containerWidth - overhang * 2)];
+   BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
+ 
+   if (tableOverflows) {
+@@ -649,6 +677,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
+ #else
+   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
+   CGFloat containerWidth = self.bounds.size.width;
++  [self distributeColumnsToContainerWidth:MAX(0, containerWidth - overhang * 2)];
+   BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
+ 
+   if (tableOverflows) {
 diff --git a/ios/views/ENRMTableIOSGridView.m b/ios/views/ENRMTableIOSGridView.m
-index 138435033..7f1c30422 100644
+index 138435033005771ce0bb194f273316a5328e3057..0c00d0240b2a5554d384cd2f3bbacd409426c772 100644
 --- a/ios/views/ENRMTableIOSGridView.m
 +++ b/ios/views/ENRMTableIOSGridView.m
-@@ -88,11 +88,6 @@
+@@ -13,6 +13,7 @@
+   CGFloat _borderWidth;
+   CGFloat _horizontalCellPadding;
+   CGFloat _verticalCellPadding;
++  CGFloat _cornerRadius;
+ }
+ 
+ - (instancetype)initWithFrame:(CGRect)frame
+@@ -52,6 +53,7 @@
+   _borderWidth = borderWidth;
+   _horizontalCellPadding = horizontalCellPadding;
+   _verticalCellPadding = verticalCellPadding;
++  _cornerRadius = cornerRadius;
+   [self setNeedsDisplay];
+ }
+ 
+@@ -74,6 +76,21 @@
+   if (!_tableRows.count || !_columnWidths.count || !_rowHeights.count)
+     return;
+ 
++  // Web GFM tables are an outer rounded border plus horizontal row rules.
++  // The last row has no bottom rule (`[&_tr:last-child>td]:border-b-0`).
++  CGFloat tableWidth = 0;
++  for (NSNumber *width in _columnWidths) {
++    tableWidth += width.doubleValue;
++  }
++  CGFloat tableHeight = 0;
++  for (NSNumber *height in _rowHeights) {
++    tableHeight += height.doubleValue;
++  }
++  CGRect tableRect = CGRectMake(0, 0, tableWidth, tableHeight);
++  CGFloat radius = MAX(_cornerRadius, 0);
++  UIBezierPath *clip = [UIBezierPath bezierPathWithRoundedRect:tableRect cornerRadius:radius];
++  [clip addClip];
++
+   CGFloat yOffset = 0;
+   for (NSUInteger r = 0; r < _tableRows.count; r++) {
+     ENRMTableIOSRowData *rowData = _tableRows[r];
+@@ -83,16 +100,11 @@
+     NSUInteger colCount = MIN(rowData.cellTexts.count, _columnWidths.count);
+     for (NSUInteger c = 0; c < colCount; c++) {
+       CGFloat columnWidth = [_columnWidths[c] doubleValue];
+-      CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth + _borderWidth, rowHeight + _borderWidth);
++      CGRect cellRect = CGRectMake(xOffset, yOffset, columnWidth, rowHeight);
+ 
        [rowData.backgroundColor setFill];
        UIRectFill(cellRect);
  
@@ -2386,936 +536,30 @@ index 138435033..7f1c30422 100644
        NSAttributedString *text = rowData.cellTexts[c];
        if (text.length > 0) {
          CGRect textRect = CGRectMake(xOffset + _horizontalCellPadding, yOffset + _verticalCellPadding,
-@@ -106,6 +101,24 @@
+@@ -104,8 +116,26 @@
+ 
+       xOffset += columnWidth;
      }
++
++    if (r + 1 < _tableRows.count && _borderWidth > 0 && _borderColor) {
++      [_borderColor setStroke];
++      UIBezierPath *rule = [UIBezierPath bezierPath];
++      [rule moveToPoint:CGPointMake(0, yOffset + rowHeight)];
++      [rule addLineToPoint:CGPointMake(tableWidth, yOffset + rowHeight)];
++      rule.lineWidth = _borderWidth;
++      [rule stroke];
++    }
      yOffset += rowHeight;
    }
 +
-+  // Web cells are border-x-0 border-b. The last row drops that rule; the frame is the edge.
 +  if (_borderWidth > 0 && _borderColor) {
-+    [_borderColor setFill];
-+    CGFloat ruleY = 0;
-+    for (NSUInteger r = 0; r + 1 < _rowHeights.count; r++) {
-+      ruleY += [_rowHeights[r] doubleValue];
-+      UIRectFill(CGRectMake(0, ruleY, self.bounds.size.width, _borderWidth));
-+    }
-+
-+    CGFloat inset = _borderWidth / 2.0;
-+    CGRect frame = CGRectInset(self.bounds, inset, inset);
-+    CGFloat radius = MAX(0, self.layer.cornerRadius - inset);
-+    UIBezierPath *outline = [UIBezierPath bezierPathWithRoundedRect:frame cornerRadius:radius];
-+    outline.lineWidth = _borderWidth;
 +    [_borderColor setStroke];
-+    [outline stroke];
++    UIBezierPath *outer =
++        [UIBezierPath bezierPathWithRoundedRect:CGRectInset(tableRect, _borderWidth / 2.0, _borderWidth / 2.0)
++                                   cornerRadius:radius];
++    outer.lineWidth = _borderWidth;
++    [outer stroke];
 +  }
  }
  
  #pragma mark - Link hit-testing
-diff --git a/ios/views/TableContainerView.m b/ios/views/TableContainerView.m
-index b76936d86..1b23e3584 100644
---- a/ios/views/TableContainerView.m
-+++ b/ios/views/TableContainerView.m
-@@ -19,6 +19,9 @@
- 
- @interface TableCellData : NSObject
- @property (nonatomic, strong) NSMutableAttributedString *attributedText;
-+// Display copy. Web cells are `break-words`, so a token wider than the column
-+// gains a break. The source string stays intact for copy.
-+@property (nonatomic, strong) NSAttributedString *wrappedText;
- @property (nonatomic, copy) NSString *plainText;
- @property (nonatomic, copy) NSString *markdownText;
- @property (nonatomic, assign) BOOL isHeader;
-@@ -61,7 +64,8 @@ static StyleConfig *ENRMTableCellConfig(StyleConfig *config, BOOL isHeader)
-   NSString *headerFamily =
-       config.tableHeaderFontFamily.length > 0 ? config.tableHeaderFontFamily : config.tableFontFamily;
-   [cellConfig setParagraphFontFamily:isHeader ? headerFamily : config.tableFontFamily];
--  [cellConfig setParagraphFontWeight:isHeader ? @"bold" : config.tableFontWeight];
-+  // Agent chat table headers are font-semibold, the same weight as strong.
-+  [cellConfig setParagraphFontWeight:isHeader ? @"600" : config.tableFontWeight];
-   [cellConfig setParagraphColor:isHeader ? config.tableHeaderTextColor : config.tableColor];
-   [cellConfig setParagraphLineHeight:config.tableLineHeight];
- 
-@@ -154,8 +158,49 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
-   return [allRows copy];
- }
- 
-+// Web table cells are `break-words`. A token wider than the column breaks,
-+// and a word that fits stays whole.
-+static NSAttributedString *ENRMTableBreakWords(NSAttributedString *text, CGFloat availableWidth)
-+{
-+  if (text.length == 0 || availableWidth <= 1.0)
-+    return text;
-+
-+  NSString *source = text.string;
-+  NSMutableAttributedString *wrapped = [[NSMutableAttributedString alloc] init];
-+  CGFloat used = 0;
-+  BOOL broke = NO;
-+  NSUInteger index = 0;
-+  while (index < source.length) {
-+    NSRange range = [source rangeOfComposedCharacterSequenceAtIndex:index];
-+    unichar first = [source characterAtIndex:range.location];
-+    BOOL whitespace = [[NSCharacterSet whitespaceAndNewlineCharacterSet] characterIsMember:first];
-+    NSAttributedString *piece = [text attributedSubstringFromRange:range];
-+    if (whitespace) {
-+      [wrapped appendAttributedString:piece];
-+      used = 0;
-+    } else {
-+      UIFont *font = [text attribute:NSFontAttributeName atIndex:range.location effectiveRange:NULL];
-+      NSDictionary *measureAttributes = font ? @{NSFontAttributeName : font} : @{};
-+      NSString *character = [source substringWithRange:range];
-+      CGFloat width = ceil([character sizeWithAttributes:measureAttributes].width);
-+      if (used > 0.0 && used + width > availableWidth) {
-+        NSDictionary *attributes = [text attributesAtIndex:range.location effectiveRange:NULL];
-+        NSAttributedString *gap = [[NSAttributedString alloc] initWithString:@"\u200B" attributes:attributes];
-+        [wrapped appendAttributedString:gap];
-+        used = 0;
-+        broke = YES;
-+      }
-+      [wrapped appendAttributedString:piece];
-+      used += width;
-+    }
-+    index = NSMaxRange(range);
-+  }
-+  return broke ? wrapped : text;
-+}
-+
- static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NSUInteger colCount, StyleConfig *config,
--                                   CGFloat borderWidth, NSMutableArray<NSNumber *> *_Nullable *_Nullable outColWidths,
-+                                   CGFloat borderWidth, CGFloat containerWidth,
-+                                   NSMutableArray<NSNumber *> *_Nullable *_Nullable outColWidths,
-                                    NSMutableArray<NSNumber *> *_Nullable *_Nullable outRowHeights,
-                                    CGFloat *_Nullable outTotalWidth, CGFloat *_Nullable outTotalHeight)
- {
-@@ -165,6 +210,48 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
-   const CGFloat horizontalPadding = config.tableCellPaddingHorizontal * 2;
-   const CGFloat verticalPadding = config.tableCellPaddingVertical * 2;
- 
-+  // Web tables are `w-full table-fixed` inside `overflow-hidden`. A known
-+  // container splits into equal columns and wraps. It does not scroll.
-+  if (containerWidth > 1.0 && colCount > 0) {
-+    CGFloat contentWidth = containerWidth - borderWidth;
-+    if (contentWidth < (CGFloat)colCount)
-+      contentWidth = (CGFloat)colCount;
-+
-+    NSMutableArray<NSNumber *> *fixedWidths = [NSMutableArray arrayWithCapacity:colCount];
-+    CGFloat share = contentWidth / (CGFloat)colCount;
-+    CGFloat assigned = 0;
-+    for (NSUInteger column = 0; column < colCount; column++) {
-+      CGFloat width = (column + 1 == colCount) ? (contentWidth - assigned) : share;
-+      assigned += width;
-+      [fixedWidths addObject:@(width)];
-+    }
-+
-+    NSMutableArray<NSNumber *> *fixedHeights = [NSMutableArray arrayWithCapacity:rows.count];
-+    for (NSArray<TableCellData *> *row in rows) {
-+      CGFloat maxHeight = 0;
-+      for (NSUInteger column = 0; column < row.count && column < colCount; column++) {
-+        CGFloat availableWidth = MAX([fixedWidths[column] doubleValue] - horizontalPadding, 1.0);
-+        NSAttributedString *measured = ENRMTableBreakWords(row[column].attributedText, availableWidth);
-+        row[column].wrappedText = measured;
-+        CGRect boundingRect = [measured boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
-+                                                     options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-+                                                     context:nil];
-+        maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
-+      }
-+      [fixedHeights addObject:@(maxHeight)];
-+    }
-+
-+    if (outColWidths != NULL)
-+      *outColWidths = fixedWidths;
-+    if (outRowHeights != NULL)
-+      *outRowHeights = fixedHeights;
-+    if (outTotalWidth != NULL)
-+      *outTotalWidth = contentWidth + borderWidth;
-+    if (outTotalHeight != NULL)
-+      *outTotalHeight = [[fixedHeights valueForKeyPath:@"@sum.self"] doubleValue] + borderWidth;
-+    return;
-+  }
-+
-   NSMutableArray<NSNumber *> *colWidths = [NSMutableArray arrayWithCapacity:colCount];
-   for (NSUInteger i = 0; i < colCount; i++)
-     [colWidths addObject:@0];
-@@ -186,11 +273,12 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
-   for (NSArray<TableCellData *> *row in rows) {
-     CGFloat maxHeight = 0;
-     for (NSUInteger column = 0; column < row.count; column++) {
--      CGFloat availableWidth = [colWidths[column] doubleValue] - horizontalPadding;
--      CGRect boundingRect = [row[column].attributedText
--          boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
--                       options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
--                       context:nil];
-+      CGFloat availableWidth = MAX([colWidths[column] doubleValue] - horizontalPadding, 1.0);
-+      NSAttributedString *measured = ENRMTableBreakWords(row[column].attributedText, availableWidth);
-+      row[column].wrappedText = measured;
-+      CGRect boundingRect = [measured boundingRectWithSize:CGSizeMake(availableWidth, CGFLOAT_MAX)
-+                                                   options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
-+                                                   context:nil];
-       maxHeight = MAX(maxHeight, ceil(boundingRect.size.height) + verticalPadding);
-     }
-     [rowHeights addObject:@(maxHeight)];
-@@ -224,6 +312,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
-   NSMutableArray<NSNumber *> *_rowHeights;
-   CGFloat _totalTableWidth;
-   CGFloat _totalTableHeight;
-+  // Width already distributed to, so layoutSubviews does not restretch every frame.
-+  CGFloat _distributedInnerWidth;
- 
-   NSString *_cachedMarkdown;
- 
-@@ -323,6 +413,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
-   _rows = ENRMTableBuildRows(tableNode, self.config, self.allowFontScaling, self.maxFontSizeMultiplier,
-                              _writingDirectionMode, _resolvedLayoutDirection, &colCount);
-   _colCount = colCount;
-+  _distributedInnerWidth = 0;
-   _cachedMarkdown = [self buildMarkdownFromRows];
-   _cachedAccessibilityElements = nil;
-   [self computeLayout];
-@@ -335,7 +426,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
-   NSMutableArray<NSNumber *> *rowHeights = nil;
-   CGFloat totalWidth = 0;
-   CGFloat totalHeight = 0;
--  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, &colWidths, &rowHeights,
-+  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, 0, &colWidths, &rowHeights,
-                          &totalWidth, &totalHeight);
-   _colWidths = colWidths;
-   _rowHeights = rowHeights;
-@@ -349,6 +440,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
-                maxFontSizeMultiplier:(CGFloat)maxFontSizeMultiplier
-                 writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
-              resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
-+                            maxWidth:(CGFloat)maxWidth
- {
-   NSUInteger colCount = 0;
-   NSArray<NSArray<TableCellData *> *> *rows =
-@@ -358,7 +450,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
-     return 0;
- 
-   CGFloat totalHeight = 0;
--  ENRMTableComputeLayout(rows, colCount, config, config.tableBorderWidth, NULL, NULL, NULL, &totalHeight);
-+  ENRMTableComputeLayout(rows, colCount, config, config.tableBorderWidth, maxWidth, NULL, NULL, NULL, &totalHeight);
-   return totalHeight;
- }
- 
-@@ -383,7 +475,8 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
- {
-   NSMutableArray<NSAttributedString *> *cellTexts = [NSMutableArray arrayWithCapacity:_colCount];
-   for (NSUInteger columnIndex = 0; columnIndex < _colCount; columnIndex++) {
--    NSAttributedString *text = (columnIndex < rowCells.count) ? rowCells[columnIndex].attributedText : nil;
-+    TableCellData *cell = (columnIndex < rowCells.count) ? rowCells[columnIndex] : nil;
-+    NSAttributedString *text = cell.wrappedText ?: cell.attributedText;
-     [cellTexts addObject:text ?: [[NSAttributedString alloc] init]];
-   }
-   return [cellTexts copy];
-@@ -603,11 +696,35 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
- {
-   if (_rows.count == 0)
-     return 0;
-+  [self distributeColumnsToContainerWidth:maxWidth];
-   if (_rowHeights.count == 0)
-     [self computeLayout];
-   return _totalTableHeight;
- }
- 
-+// The container width is known here. Equal columns replace the content-sized
-+// grid, including a grid that would otherwise scroll sideways.
-+- (void)distributeColumnsToContainerWidth:(CGFloat)innerWidth
-+{
-+  if (_colCount == 0 || innerWidth <= 1)
-+    return;
-+  if (fabs(_distributedInnerWidth - innerWidth) < 0.5)
-+    return;
-+
-+  _distributedInnerWidth = innerWidth;
-+  NSMutableArray<NSNumber *> *colWidths = nil;
-+  NSMutableArray<NSNumber *> *rowHeights = nil;
-+  CGFloat totalWidth = 0;
-+  CGFloat totalHeight = 0;
-+  ENRMTableComputeLayout(_rows, _colCount, self.config, self.config.tableBorderWidth, innerWidth, &colWidths,
-+                         &rowHeights, &totalWidth, &totalHeight);
-+  _colWidths = colWidths;
-+  _rowHeights = rowHeights;
-+  _totalTableWidth = totalWidth;
-+  _totalTableHeight = totalHeight;
-+  [self renderGrid];
-+}
-+
- - (CGFloat)alignOffsetForFreeSpace:(CGFloat)freeSpace
- {
-   if (freeSpace <= 0)
-@@ -627,6 +744,7 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
- #if !TARGET_OS_OSX
-   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
-   CGFloat containerWidth = self.bounds.size.width;
-+  [self distributeColumnsToContainerWidth:MAX(0, containerWidth - overhang * 2)];
-   BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
- 
-   if (tableOverflows) {
-@@ -643,12 +761,16 @@ static void ENRMTableComputeLayout(NSArray<NSArray<TableCellData *> *> *rows, NS
-     _scrollView.contentInset = UIEdgeInsetsZero;
-     _scrollView.contentOffset = CGPointZero;
-     _scrollView.contentSize = CGSizeMake(MAX(_totalTableWidth, containerWidth), _totalTableHeight);
--    _scrollView.scrollEnabled = (_totalTableWidth > containerWidth);
-+    // A fitted table matches the container, so the horizontal scroller stays off.
-+    _scrollView.scrollEnabled = (_distributedInnerWidth > 1.0 && _totalTableWidth <= containerWidth + 0.5)
-+                                    ? NO
-+                                    : (_totalTableWidth > containerWidth);
-     _gridContainer.frame = CGRectMake(overhang + alignOffset, 0, _totalTableWidth, _totalTableHeight);
-   }
- #else
-   CGFloat overhang = MAX(self.config.tableHorizontalOverflow, 0);
-   CGFloat containerWidth = self.bounds.size.width;
-+  [self distributeColumnsToContainerWidth:MAX(0, containerWidth - overhang * 2)];
-   BOOL tableOverflows = (overhang > 0 && _totalTableWidth > containerWidth);
- 
-   if (tableOverflows) {
-diff --git a/lib/module/EnrichedMarkdownNativeComponent.ts b/lib/module/EnrichedMarkdownNativeComponent.ts
-index e69c3644d..18b20e29a 100644
---- a/lib/module/EnrichedMarkdownNativeComponent.ts
-+++ b/lib/module/EnrichedMarkdownNativeComponent.ts
-@@ -67,6 +67,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
-   borderRadius: CodegenTypes.Float;
-   borderWidth: CodegenTypes.Float;
-   padding: CodegenTypes.Float;
-+  maxHeight?: CodegenTypes.Float;
-+  lineNumberStart?: CodegenTypes.Float;
-   syntaxColors: CodeBlockSyntaxColorsInternal;
- }
- 
-diff --git a/lib/module/EnrichedMarkdownTextNativeComponent.ts b/lib/module/EnrichedMarkdownTextNativeComponent.ts
-index e011cfc77..427248560 100644
---- a/lib/module/EnrichedMarkdownTextNativeComponent.ts
-+++ b/lib/module/EnrichedMarkdownTextNativeComponent.ts
-@@ -67,6 +67,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
-   borderRadius: CodegenTypes.Float;
-   borderWidth: CodegenTypes.Float;
-   padding: CodegenTypes.Float;
-+  maxHeight?: CodegenTypes.Float;
-+  lineNumberStart?: CodegenTypes.Float;
-   syntaxColors: CodeBlockSyntaxColorsInternal;
- }
- 
-diff --git a/lib/module/normalizeMarkdownStyle.js b/lib/module/normalizeMarkdownStyle.js
-index be187efd5..92ac7a3c2 100644
---- a/lib/module/normalizeMarkdownStyle.js
-+++ b/lib/module/normalizeMarkdownStyle.js
-@@ -189,6 +189,8 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
-     borderRadius: 8,
-     borderWidth: 1,
-     padding: 16,
-+    maxHeight: 0,
-+    lineNumberStart: 1,
-     syntaxColors: {
-       ...DEFAULT_CODE_BLOCK_SYNTAX_COLORS
-     }
-diff --git a/lib/module/normalizeMarkdownStyle.web.js b/lib/module/normalizeMarkdownStyle.web.js
-index 9bf1c941c..6a8d7d30f 100644
---- a/lib/module/normalizeMarkdownStyle.web.js
-+++ b/lib/module/normalizeMarkdownStyle.web.js
-@@ -105,6 +105,8 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
-     borderRadius: 8,
-     borderWidth: 1,
-     padding: 16,
-+    maxHeight: 0,
-+    lineNumberStart: 1,
-     syntaxColors: {
-       keyword: '#FF7B72',
-       operatorColor: '#F3F4F6',
-diff --git a/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts b/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
-index 173e01ccd..5caf9491c 100644
---- a/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
-+++ b/lib/typescript/src/EnrichedMarkdownNativeComponent.d.ts
-@@ -54,6 +54,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
-     borderRadius: CodegenTypes.Float;
-     borderWidth: CodegenTypes.Float;
-     padding: CodegenTypes.Float;
-+    maxHeight?: CodegenTypes.Float;
-+    lineNumberStart?: CodegenTypes.Float;
-     syntaxColors: CodeBlockSyntaxColorsInternal;
- }
- interface LinkStyleInternal {
-diff --git a/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts b/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
-index b13b50661..b5a9178f7 100644
---- a/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
-+++ b/lib/typescript/src/EnrichedMarkdownTextNativeComponent.d.ts
-@@ -54,6 +54,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
-     borderRadius: CodegenTypes.Float;
-     borderWidth: CodegenTypes.Float;
-     padding: CodegenTypes.Float;
-+    maxHeight?: CodegenTypes.Float;
-+    lineNumberStart?: CodegenTypes.Float;
-     syntaxColors: CodeBlockSyntaxColorsInternal;
- }
- interface LinkStyleInternal {
-diff --git a/lib/typescript/src/types/MarkdownStyle.d.ts b/lib/typescript/src/types/MarkdownStyle.d.ts
-index a8e1af282..68fc0fa6a 100644
---- a/lib/typescript/src/types/MarkdownStyle.d.ts
-+++ b/lib/typescript/src/types/MarkdownStyle.d.ts
-@@ -73,6 +73,10 @@ interface CodeBlockStyle extends BaseBlockStyle {
-     borderRadius?: number;
-     borderWidth?: number;
-     padding?: number;
-+    /** Collapsed fence pane cap in px. `0` keeps the full height. */
-+    maxHeight?: number;
-+    /** First gutter number. Web `--shiki-line-offset` is this minus 1. */
-+    lineNumberStart?: number;
-     syntaxColors?: CodeBlockSyntaxColors;
- }
- export interface LinkStyle {
-diff --git a/lib/typescript/src/types/MarkdownStyleInternal.d.ts b/lib/typescript/src/types/MarkdownStyleInternal.d.ts
-index 1d30cb28e..accf7303c 100644
---- a/lib/typescript/src/types/MarkdownStyleInternal.d.ts
-+++ b/lib/typescript/src/types/MarkdownStyleInternal.d.ts
-@@ -57,6 +57,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
-     borderRadius: number;
-     borderWidth: number;
-     padding: number;
-+    maxHeight: number;
-+    lineNumberStart: number;
-     syntaxColors: CodeBlockSyntaxColorsInternal;
- }
- interface LinkStyleInternal {
-diff --git a/src/EnrichedMarkdownNativeComponent.ts b/src/EnrichedMarkdownNativeComponent.ts
-index e69c3644d..18b20e29a 100644
---- a/src/EnrichedMarkdownNativeComponent.ts
-+++ b/src/EnrichedMarkdownNativeComponent.ts
-@@ -67,6 +67,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
-   borderRadius: CodegenTypes.Float;
-   borderWidth: CodegenTypes.Float;
-   padding: CodegenTypes.Float;
-+  maxHeight?: CodegenTypes.Float;
-+  lineNumberStart?: CodegenTypes.Float;
-   syntaxColors: CodeBlockSyntaxColorsInternal;
- }
- 
-diff --git a/src/EnrichedMarkdownTextNativeComponent.ts b/src/EnrichedMarkdownTextNativeComponent.ts
-index e011cfc77..427248560 100644
---- a/src/EnrichedMarkdownTextNativeComponent.ts
-+++ b/src/EnrichedMarkdownTextNativeComponent.ts
-@@ -67,6 +67,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
-   borderRadius: CodegenTypes.Float;
-   borderWidth: CodegenTypes.Float;
-   padding: CodegenTypes.Float;
-+  maxHeight?: CodegenTypes.Float;
-+  lineNumberStart?: CodegenTypes.Float;
-   syntaxColors: CodeBlockSyntaxColorsInternal;
- }
- 
-diff --git a/src/normalizeMarkdownStyle.ts b/src/normalizeMarkdownStyle.ts
-index 8c57c55b5..1076253bd 100644
---- a/src/normalizeMarkdownStyle.ts
-+++ b/src/normalizeMarkdownStyle.ts
-@@ -176,6 +176,8 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
-     borderRadius: 8,
-     borderWidth: 1,
-     padding: 16,
-+    maxHeight: 0,
-+    lineNumberStart: 1,
-     syntaxColors: { ...DEFAULT_CODE_BLOCK_SYNTAX_COLORS },
-   },
-   link: {
-diff --git a/src/normalizeMarkdownStyle.web.ts b/src/normalizeMarkdownStyle.web.ts
-index 73fe1eb54..fa33a0ed1 100644
---- a/src/normalizeMarkdownStyle.web.ts
-+++ b/src/normalizeMarkdownStyle.web.ts
-@@ -125,6 +125,8 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
-     borderRadius: 8,
-     borderWidth: 1,
-     padding: 16,
-+    maxHeight: 0,
-+    lineNumberStart: 1,
-     syntaxColors: {
-       keyword: '#FF7B72',
-       operatorColor: '#F3F4F6',
-diff --git a/src/types/MarkdownStyle.ts b/src/types/MarkdownStyle.ts
-index 11158ab13..c234ea4b5 100644
---- a/src/types/MarkdownStyle.ts
-+++ b/src/types/MarkdownStyle.ts
-@@ -81,6 +81,10 @@ interface CodeBlockStyle extends BaseBlockStyle {
-   borderRadius?: number;
-   borderWidth?: number;
-   padding?: number;
-+  /** Collapsed fence pane cap in px. `0` keeps the full height. */
-+  maxHeight?: number;
-+  /** First gutter number. Web `--shiki-line-offset` is this minus 1. */
-+  lineNumberStart?: number;
-   syntaxColors?: CodeBlockSyntaxColors;
- }
- 
-diff --git a/src/types/MarkdownStyleInternal.ts b/src/types/MarkdownStyleInternal.ts
-index 6be91c078..478309225 100644
---- a/src/types/MarkdownStyleInternal.ts
-+++ b/src/types/MarkdownStyleInternal.ts
-@@ -80,6 +80,8 @@ interface CodeBlockStyleInternal extends BaseBlockStyleInternal {
-   borderRadius: number;
-   borderWidth: number;
-   padding: number;
-+  maxHeight: number;
-+  lineNumberStart: number;
-   syntaxColors: CodeBlockSyntaxColorsInternal;
- }
- 
-diff --git a/ios/attachments/ENRMImageAttachment.m b/ios/attachments/ENRMImageAttachment.m
-index 3a8f80a..0252fef 100644
---- a/ios/attachments/ENRMImageAttachment.m
-+++ b/ios/attachments/ENRMImageAttachment.m
-@@ -126,9 +126,39 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
-     return self.cachedMaxHeight;
-   }
- 
-+  // Streamdown images are `max-w-full`. Height 0 follows the bitmap instead of
-+  // the library's fixed 200px box.
-+  if (self.cachedHeight <= 0 && !self.isInline) {
-+    RCTUIImage *source = self.originalImage;
-+    if (source && width > 0 && source.size.width > 0 && source.size.height > 0) {
-+      return width * source.size.height / source.size.width;
-+    }
-+    return 0;
-+  }
-+
-   return self.cachedHeight;
- }
- 
-+// A narrower bitmap keeps its own width. A wider one fits the line.
-+- (CGFloat)resolvedBoxWidthForLineWidth:(CGFloat)lineWidth
-+{
-+  if (self.isInline || self.cachedHeight > 0 || self.cachedAspectRatio > 0 || lineWidth <= 0) {
-+    return lineWidth;
-+  }
-+  RCTUIImage *source = self.originalImage;
-+  if (!source || source.size.width <= 0 || source.size.height <= 0) {
-+    return lineWidth;
-+  }
-+  CGFloat natural = source.size.width;
-+  if (self.cachedMaxHeight > 0) {
-+    CGFloat fitted = lineWidth * source.size.height / source.size.width;
-+    if (fitted > self.cachedMaxHeight) {
-+      natural = self.cachedMaxHeight * source.size.width / source.size.height;
-+    }
-+  }
-+  return MIN(lineWidth, natural);
-+}
-+
- // True when resizeMode is unset ('') - legacy always implies a fixed height box.
- 
- - (BOOL)isLegacyBlockSizing
-@@ -145,7 +175,12 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
-   CGFloat width = self.isInline ? height : (lineFragment.size.width > 0 ? lineFragment.size.width : height);
- 
-   if (!self.isInline) {
-+    width = [self resolvedBoxWidthForLineWidth:width];
-     height = [self resolvedBoxHeightForWidth:width];
-+    // A pixel keeps the attachment in the layout until the bitmap arrives.
-+    if (height <= 0 || width <= 0) {
-+      return CGRectMake(0, 0, 1, 1);
-+    }
-     return CGRectMake(0, 0, width, height);
-   }
- 
-@@ -197,6 +232,16 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
-   self.image = image;
-   CGFloat targetWidth = self.isInline ? self.cachedHeight : self.bounds.size.width;
- 
-+  // The pre-load box is 1px. Baking that width would stick until the next pass.
-+  if (!self.isInline && targetWidth <= 1.0 && self.cachedHeight <= 0 && self.cachedMaxHeight <= 0 &&
-+      self.cachedAspectRatio <= 0) {
-+    UITextView *textView = [self fetchAssociatedTextView];
-+    if (textView) {
-+      [self notifyImageLayoutObserver:textView];
-+    }
-+    return;
-+  }
-+
-   // Defer processing if we don't have valid bounds yet (common for non-inline block images)
-   if (!self.isInline && targetWidth <= 0) {
-     return;
-@@ -356,9 +401,10 @@ static NSMapTable<NSString *, ENRMImageAttachment *> *_attachmentRegistry;
- // re-measuring would re-enter the layout manager.
- - (void)notifyImageLayoutObserver:(UITextView *)textView
- {
--  // Only maxHeight/aspectRatio boxes can change height after load; a fixed
--  // height box (legacy or explicit resizeMode) never needs a re-measure.
--  if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0)
-+  // maxHeight/aspectRatio boxes, and a height of 0, settle after the bitmap
-+  // arrives. A fixed height box never needs a re-measure.
-+  BOOL fitsBitmap = !self.isInline && self.cachedHeight <= 0 && self.cachedAspectRatio <= 0;
-+  if (self.cachedMaxHeight <= 0 && self.cachedAspectRatio <= 0 && !fitsBitmap)
-     return;
- 
-   RCTUIView *candidate = textView;
-diff --git a/android/src/main/java/com/swmansion/enriched/markdown/spans/ImageSpan.kt b/android/src/main/java/com/swmansion/enriched/markdown/spans/ImageSpan.kt
-index 0bac034..a6d1a7c 100644
---- a/android/src/main/java/com/swmansion/enriched/markdown/spans/ImageSpan.kt
-+++ b/android/src/main/java/com/swmansion/enriched/markdown/spans/ImageSpan.kt
-@@ -52,11 +52,16 @@ class ImageSpan(
-   // so legacy always implies a fixed height box.
-   private val legacySizing: Boolean = resizeMode.isEmpty()
- 
--  private val dynamicBoxHeight: Boolean = !isInline && (maxHeightPx > 0 || aspectRatio > 0f)
-+  // Streamdown images are `max-w-full`. Height 0 follows the bitmap instead of
-+  // the library's fixed 200px box.
-+  private val intrinsicFit: Boolean = !isInline && height <= 0 && maxHeightPx <= 0 && aspectRatio <= 0f
-+
-+  private val dynamicBoxHeight: Boolean = !isInline && (maxHeightPx > 0 || aspectRatio > 0f || intrinsicFit)
- 
-   private var boxHeight: Int =
-     when {
-       isInline -> height
-+      intrinsicFit -> 1
-       maxHeightPx > 0 -> maxHeightPx
-       else -> height
-     }
-@@ -74,8 +79,23 @@ class ImageSpan(
-     return cached.width to cached.height
-   }
- 
-+  // One image pixel is one CSS pixel. The line width is device pixels.
-+  private fun layoutPixels(imagePixels: Int): Int {
-+    if (imagePixels <= 0) return 0
-+    return (imagePixels * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
-+  }
-+
-+  // A narrower bitmap keeps its own width. A wider one fits the line.
-+  private fun resolveBoxWidth(available: Int): Int {
-+    if (!intrinsicFit) return available
-+    if (available <= 0) return available
-+    val (intrinsicWidth, _) = intrinsicImageSize()
-+    if (intrinsicWidth <= 0) return 1
-+    return minOf(available, layoutPixels(intrinsicWidth))
-+  }
-+
-   // Sizing precedence: aspectRatio > maxHeight > height. Returns the legacy fixed
--  // height when no new knob is set.
-+  // height when no new knob is set. Height 0 follows the bitmap.
-   private fun resolveBoxHeight(targetWidth: Int): Int {
-     if (isInline) return height
-     if (aspectRatio > 0f && targetWidth > 0) {
-@@ -89,6 +109,13 @@ class ImageSpan(
-       }
-       return maxHeightPx
-     }
-+    if (intrinsicFit) {
-+      val (intrinsicWidth, intrinsicHeight) = intrinsicImageSize()
-+      if (targetWidth > 0 && intrinsicWidth > 0 && intrinsicHeight > 0) {
-+        return (targetWidth.toFloat() * intrinsicHeight / intrinsicWidth).toInt().coerceAtLeast(1)
-+      }
-+      return 1
-+    }
-     return height
-   }
- 
-@@ -98,7 +125,7 @@ class ImageSpan(
-   ) {
-     if (!dynamicBoxHeight || widthPx <= 0) return
-     val available = availableWidthIn(text, widthPx)
--    if (available > 0) boxHeight = resolveBoxHeight(available)
-+    if (available > 0) boxHeight = resolveBoxHeight(resolveBoxWidth(available))
-   }
- 
-   init {
-@@ -127,13 +154,14 @@ class ImageSpan(
- 
-   private fun wrapAndAssignDrawable() {
-     val base = sourceDrawable ?: return
--    val targetWidth =
-+    val available =
-       if (isInline) {
-         height
-       } else {
--        val available = viewRef?.get()?.let { getAvailableWidth(it) } ?: cachedWidth
--        available.coerceAtLeast(0)
-+        val measured = viewRef?.get()?.let { getAvailableWidth(it) } ?: cachedWidth
-+        measured.coerceAtLeast(0)
-       }
-+    val targetWidth = resolveBoxWidth(available)
- 
-     boxHeight = resolveBoxHeight(targetWidth)
- 
-@@ -213,7 +241,7 @@ class ImageSpan(
-       return
-     }
-     if (dynamicBoxHeight) {
--      val newBoxHeight = resolveBoxHeight(newWidth)
-+      val newBoxHeight = resolveBoxHeight(resolveBoxWidth(newWidth))
-       if (newBoxHeight != boxHeight) {
-         boxHeight = newBoxHeight
-         requestReflow()
-diff --git a/android/src/main/java/com/swmansion/enriched/markdown/spans/TaskListSpan.kt b/android/src/main/java/com/swmansion/enriched/markdown/spans/TaskListSpan.kt
-index 3b5a5c6..b2775e8 100644
---- a/android/src/main/java/com/swmansion/enriched/markdown/spans/TaskListSpan.kt
-+++ b/android/src/main/java/com/swmansion/enriched/markdown/spans/TaskListSpan.kt
-@@ -32,11 +32,12 @@ class TaskListSpan(
-         color = listStyle.color,
-       ),
-     marginLeft = listStyle.marginLeft,
--    gapWidth = listStyle.gapWidth,
-+    // Web task rows are `pl-0` with `gap-2` (8) after the checkbox.
-+    gapWidth = 8f * context.resources.displayMetrics.density,
-     drawsMarker = drawsMarker,
-   ) {
-   private val checkboxSize = taskStyle.checkboxSize
--  private val markerColumnWidth = listStyle.effectiveMarkerWidth(checkboxSize)
-+  private val markerColumnWidth = checkboxSize
-   private val cornerRadius = taskStyle.checkboxBorderRadius
-   private val rect = RectF()
-   private val checkPath = Path()
-diff --git a/ios/renderer/ListRenderer.m b/ios/renderer/ListRenderer.m
-index 47283dc..982c02f 100644
---- a/ios/renderer/ListRenderer.m
-+++ b/ios/renderer/ListRenderer.m
-@@ -73,8 +73,13 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
-   const NSUInteger startLocation = output.length;
- 
-   if (prevDepth == 0) {
--    // Apply top margin for root-level list
--    applyBlockSpacingBefore(output, startLocation, _config.listStyleMarginTop);
-+    // Prose lists collapse with the previous block. Answer lists stack the 4px pad.
-+    if (startLocation > 0 && ENRMCollapsesBlockMargins([_config paragraphMarginTop]) &&
-+        [output.string hasSuffix:@"\n"]) {
-+      applyParagraphSpacingBefore(output, NSMakeRange(startLocation, 0), _config.listStyleMarginTop);
-+    } else {
-+      applyBlockSpacingBefore(output, startLocation, _config.listStyleMarginTop);
-+    }
-   } else if (output.length > 0 && ![output.string hasSuffix:@"\n"]) {
-     // Ensure nested lists start on a new line
-     [output appendAttributedString:kNewlineAttributedString];
-@@ -102,6 +107,14 @@ static void applyListItemSpacing(NSMutableAttributedString *output, RenderContex
-     applyListItemSpacing(output, context, startLocation, [_config listStyleItemSpacing]);
-     // Apply bottom margin for root-level list
-     applyBlockSpacingAfter(output, _config.listStyleMarginBottom);
-+    // The item pad in the list's bottom does not collapse with the next block.
-+    CGFloat pad = [_config listStyleMarginTop];
-+    if (!ENRMCollapsesBlockMargins([_config paragraphMarginTop]) && pad > 0.0 &&
-+        [_config listStyleMarginBottom] > pad && output.length > 0) {
-+      [output addAttribute:ENRMNonCollapsingPadAttributeName
-+                     value:@(pad)
-+                     range:NSMakeRange(output.length - 1, 1)];
-+    }
-   }
- }
- 
-diff --git a/ios/EnrichedMarkdown.mm b/ios/EnrichedMarkdown.mm
-index ed8b53d..df595d8 100644
---- a/ios/EnrichedMarkdown.mm
-+++ b/ios/EnrichedMarkdown.mm
-@@ -321,6 +321,8 @@ static char kENRMSegmentFadeAnimatorKey;
- 
-   __block CGFloat yOffset = 0.0;
-   __block CGFloat maxContentWidth = 0.0;
-+  __block CGFloat previousTrailing = 0.0;
-+  const BOOL collapseMargins = ENRMCollapsesBlockMargins([_config paragraphMarginTop]);
-   const NSUInteger lastIndex = _segmentViews.count - 1;
- 
-   [_segmentViews enumerateObjectsUsingBlock:^(RCTUIView *segment, NSUInteger i, BOOL *stop) {
-@@ -329,30 +331,58 @@ static char kENRMSegmentFadeAnimatorKey;
- 
-     CGFloat segmentHeight = 0;
-     const BOOL isTable = [segment isKindOfClass:[TableContainerView class]];
-+    CGFloat trailing = 0;
- 
-     if ([segment isKindOfClass:[EnrichedMarkdownInternalText class]]) {
-       EnrichedMarkdownInternalText *textView = (EnrichedMarkdownInternalText *)segment;
-+      if (collapseMargins) {
-+        yOffset += ENRMFollowingTextGapAdjustment(textView.textView.attributedText, previousTrailing);
-+      } else if (previousTrailing > 0.0) {
-+        // Answer headings are `mt-6`. Tailwind 4 `space-y-4` is `:where()`, so
-+        // it does not override that top. A fence or table already added its
-+        // bottom, and only the excess is added here. The first segment stays
-+        // clear because previousTrailing is 0. Answer lists keep their spacer.
-+        yOffset += ENRMCollapsedMargin(ENRMHeadingOpenMargin(textView.textView.attributedText),
-+                                       previousTrailing);
-+      }
-+      if (previousTrailing > 0.0) {
-+        // A rule that opens the segment after a fence or table keeps the part of its 24px top that exceeds that block.
-+        yOffset += ENRMCollapsedMargin(ENRMLeadingRuleOpenMargin(textView.textView.attributedText),
-+                                       previousTrailing);
-+      }
-       textView.allowTrailingMargin = shouldAddBottomMargin;
-       CGSize textSize = [textView measureSize:width];
-       segmentHeight = textSize.height;
-       maxContentWidth = MAX(maxContentWidth, textSize.width);
-+      trailing = shouldAddBottomMargin ? textView.lastElementMarginBottom : 0;
-+      if (collapseMargins && shouldAddBottomMargin) {
-+        // A rule that ends the text already includes its bottom, so the next
-+        // segment collapses against it. Do not add that bottom again.
-+        trailing = MAX(trailing, ENRMThematicBreakTrailingMargin(textView.textView.attributedText));
-+      }
- 
-     } else if (isTable) {
--      yOffset += _config.tableMarginTop;
-+      CGFloat top = ENRMBlockSegmentTop(_config.tableMarginTop, previousTrailing, collapseMargins);
-+      yOffset += top;
-       segmentHeight = [(TableContainerView *)segment measureHeight:width];
-       maxContentWidth = width;
-+      trailing = shouldAddBottomMargin ? _config.tableMarginBottom : 0;
-     }
- #if ENRICHED_MARKDOWN_MATH
-     else if ([segment isKindOfClass:[ENRMMathContainerView class]]) {
--      yOffset += _config.mathMarginTop;
-+      CGFloat top = ENRMBlockSegmentTop(_config.mathMarginTop, previousTrailing, collapseMargins);
-+      yOffset += top;
-       segmentHeight = [(ENRMMathContainerView *)segment measureHeight:width];
-       maxContentWidth = width;
-+      trailing = shouldAddBottomMargin ? _config.mathMarginBottom : 0;
-     }
- #endif
-     else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]]) {
--      yOffset += _config.codeBlockMarginTop;
-+      CGFloat top = ENRMBlockSegmentTop(_config.codeBlockMarginTop, previousTrailing, collapseMargins);
-+      yOffset += top;
-       segmentHeight = [(ENRMCodeBlockContainerView *)segment measureHeight:width];
-       maxContentWidth = width;
-+      trailing = shouldAddBottomMargin ? _config.codeBlockMarginBottom : 0;
-     }
- 
-     if (applyFrames) {
-@@ -391,6 +421,7 @@ static char kENRMSegmentFadeAnimatorKey;
-     else if ([segment isKindOfClass:[ENRMCodeBlockContainerView class]] && shouldAddBottomMargin) {
-       yOffset += _config.codeBlockMarginBottom;
-     }
-+    previousTrailing = trailing;
-   }];
- 
-   return CGSizeMake(maxContentWidth, yOffset);
-diff --git a/ios/internals/ENRMViewFreeMeasurement.h b/ios/internals/ENRMViewFreeMeasurement.h
-index 1905d4505..cf23e6dfd 100644
---- a/ios/internals/ENRMViewFreeMeasurement.h
-+++ b/ios/internals/ENRMViewFreeMeasurement.h
-@@ -272,43 +272,73 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
- 
-     CGFloat yOffset = 0.0;
-     CGFloat maxContentWidth = 0.0;
-+    CGFloat previousTrailing = 0.0;
-+    const BOOL collapseMargins = ENRMCollapsesBlockMargins([config paragraphMarginTop]);
-     const NSUInteger lastIndex = segments.count - 1;
- 
-     for (NSUInteger i = 0; i < segments.count; i++) {
-       ENRMRenderedSegment *segment = segments[i];
-       const BOOL isLast = (i == lastIndex);
-       const BOOL shouldAddBottomMargin = (!isLast || typedProps.allowTrailingMargin);
-+      CGFloat trailing = 0.0;
- 
-       if (segment.kind == ENRMSegmentKindText && segment.textResult) {
-+        if (collapseMargins) {
-+          yOffset += ENRMFollowingTextGapAdjustment(segment.textResult.attributedText, previousTrailing);
-+        } else if (previousTrailing > 0.0) {
-+          // Answer headings are `mt-6`. Tailwind 4 `space-y-4` is `:where()`, so
-+          // it does not override that top. A fence or table already added its
-+          // bottom, and only the excess is added here. The first segment stays
-+          // clear because previousTrailing is 0. Answer lists keep their spacer.
-+          yOffset += ENRMCollapsedMargin(ENRMHeadingOpenMargin(segment.textResult.attributedText),
-+                                         previousTrailing);
-+        }
-+        if (previousTrailing > 0.0) {
-+          // A rule that opens the segment after a fence or table keeps the part of its 24px top that exceeds that block.
-+          yOffset +=
-+              ENRMCollapsedMargin(ENRMLeadingRuleOpenMargin(segment.textResult.attributedText), previousTrailing);
-+        }
-         CGSize textSize = ENRMMeasureAttributedTextViewFree(
-             segment.textResult.attributedText, maxWidth, config, shouldAddBottomMargin,
-             segment.textResult.lastElementMarginBottom, pointScaleFactor);
-         yOffset += textSize.height;
-         maxContentWidth = MAX(maxContentWidth, textSize.width);
-+        trailing = shouldAddBottomMargin ? segment.textResult.lastElementMarginBottom : 0.0;
-+        if (collapseMargins && shouldAddBottomMargin) {
-+          // A rule that ends the text already includes its bottom, so the next
-+          // segment collapses against it. Do not add that bottom again.
-+          trailing = MAX(trailing, ENRMThematicBreakTrailingMargin(segment.textResult.attributedText));
-+        }
-       } else if (segment.kind == ENRMSegmentKindTable && segment.tableSegment) {
--        yOffset += config.tableMarginTop;
-+        CGFloat top = ENRMBlockSegmentTop(config.tableMarginTop, previousTrailing, collapseMargins);
-+        yOffset += top;
-         yOffset += [TableContainerView measureHeightForTableNode:segment.tableSegment.tableNode
-                                                           config:config
-                                                 allowFontScaling:typedProps.allowFontScaling
-                                            maxFontSizeMultiplier:typedProps.maxFontSizeMultiplier
-                                             writingDirectionMode:writingDirectionMode
--                                         resolvedLayoutDirection:resolvedLayoutDirection];
-+                                         resolvedLayoutDirection:resolvedLayoutDirection
-+                                                        maxWidth:maxWidth];
-         maxContentWidth = maxWidth;
-         if (shouldAddBottomMargin) {
-           yOffset += config.tableMarginBottom;
-         }
-+        trailing = shouldAddBottomMargin ? config.tableMarginBottom : 0.0;
-       } else if (segment.kind == ENRMSegmentKindCodeBlock && segment.codeBlockSegment) {
--        yOffset += config.codeBlockMarginTop;
-+        CGFloat top = ENRMBlockSegmentTop(config.codeBlockMarginTop, previousTrailing, collapseMargins);
-+        yOffset += top;
-         yOffset += [ENRMCodeBlockContainerView measureHeightForCodeBlockNode:segment.codeBlockSegment.codeBlockNode
-                                                                       config:config];
-         maxContentWidth = maxWidth;
-         if (shouldAddBottomMargin) {
-           yOffset += config.codeBlockMarginBottom;
-         }
-+        trailing = shouldAddBottomMargin ? config.codeBlockMarginBottom : 0.0;
-       }
- #if ENRICHED_MARKDOWN_MATH
-       else if (segment.kind == ENRMSegmentKindMath && segment.mathSegment) {
--        yOffset += config.mathMarginTop;
-+        CGFloat top = ENRMBlockSegmentTop(config.mathMarginTop, previousTrailing, collapseMargins);
-+        yOffset += top;
-         yOffset += [ENRMMathContainerView measureHeightForLatex:segment.mathSegment.latex
-                                                          config:config
-                                                        maxWidth:maxWidth];
-@@ -316,8 +346,10 @@ static inline CGSize ENRMMeasureSegmentedMarkdownViewFree(const PropsT &typedPro
-         if (shouldAddBottomMargin) {
-           yOffset += config.mathMarginBottom;
-         }
-+        trailing = shouldAddBottomMargin ? config.mathMarginBottom : 0.0;
-       }
- #endif
-+      previousTrailing = trailing;
-     }
- 
-     if (yOffset == 0) {
-diff --git a/ios/renderer/ParagraphRenderer.m b/ios/renderer/ParagraphRenderer.m
-index cae2734..ac6dd39 100644
---- a/ios/renderer/ParagraphRenderer.m
-+++ b/ios/renderer/ParagraphRenderer.m
-@@ -40,8 +40,10 @@
- 
-   NSUInteger contentStart = start;
- 
-+  // A block image that opens the segment stores its 16px top. The first segment still clears it.
-+  BOOL imageOpensSegment = isBlockImage && start == 0 && marginTop > 0;
-   // Handle leading margin for the first element in the document (Index 0 check)
--  if (shouldApplyMargin && start == 0) {
-+  if (shouldApplyMargin && start == 0 && !imageOpensSegment) {
-     NSUInteger offset = applyBlockSpacingBefore(output, 0, marginTop);
-     contentStart += offset;
-     start += offset;
-@@ -61,6 +63,10 @@
- 
-   applyTextAlignment(output, range, _config.paragraphTextAlign);
- 
-+  if (imageOpensSegment) {
-+    [output addAttribute:ENRMHeadingOpenMarginAttributeName value:@(marginTop) range:NSMakeRange(0, 1)];
-+  }
-+
-   // Skip marginTop for the first block — already handled by applyBlockSpacingBefore above
-   if (shouldApplyMargin && contentStart != 1) {
-     NSUInteger inserted = applyParagraphSpacingBefore(output, range, marginTop);
-diff --git a/ios/views/TableContainerView.h b/ios/views/TableContainerView.h
-index 5c21bfefd..a5198914c 100644
---- a/ios/views/TableContainerView.h
-+++ b/ios/views/TableContainerView.h
-@@ -23,14 +23,15 @@ typedef void (^TableLinkPressBlock)(NSString *url);
- /// runs in `applyTableNode:`/`computeLayout` — shared statics, so measured and
- /// rendered heights cannot drift — without creating any view. Safe on any
- /// thread; the iOS counterpart of Android's
--/// `TableContainerView.measureTableNodeHeight`. Table height is intrinsic
--/// (content-sized columns, horizontal scroll), so no maxWidth parameter.
-+/// `TableContainerView.measureTableNodeHeight`. A known width uses equal
-+/// `table-fixed` columns. Width 0 keeps the content-sized fallback.
- + (CGFloat)measureHeightForTableNode:(MarkdownASTNode *)tableNode
-                               config:(StyleConfig *)config
-                     allowFontScaling:(BOOL)allowFontScaling
-                maxFontSizeMultiplier:(CGFloat)maxFontSizeMultiplier
-                 writingDirectionMode:(ENRMWritingDirectionMode)writingDirectionMode
--             resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection;
-+             resolvedLayoutDirection:(NSWritingDirection)resolvedLayoutDirection
-+                            maxWidth:(CGFloat)maxWidth;
- 
- @property (nonatomic, strong) StyleConfig *config;
- 

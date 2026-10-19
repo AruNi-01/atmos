@@ -2,13 +2,8 @@ import { chatMutedForeground } from "./chat-ink";
 
 /**
  * Streamdown heading scale (`text-3xl` … `text-sm`, `font-semibold`).
- * Every level is `mt-6 mb-2`. Tailwind 4 `space-y-4` is `:where()`, so it
- * does not override either side. A heading after a fence keeps a 24px gap.
- * The bottom is 8px. A paragraph under it stays 8px. A fence, quote, or rule
- * collapses its own top with that 8px. Answer text is `text-sm` (14/20).
- * Headings keep their own line box. A body line height of 20 clips the 30px
- * h1. A heading that opens the message drops that top spacer. Web clears it
- * with `first:mt-0` and `[&>*:first-child]:mt-0`. Later headings keep the 24px.
+ * Answer text is `text-sm` (14/20). Headings keep their own line box.
+ * A body line height of 20 clips the 30px h1.
  */
 export const agentChatHeadingScale = {
   h1: { fontSize: 30, lineHeight: 36 },
@@ -19,8 +14,8 @@ export const agentChatHeadingScale = {
   h6: { fontSize: 14, lineHeight: 20 },
 } as const;
 
-export function agentChatHeadingStyle(color: string, marginBottom = 8) {
-  const shared = { color, fontWeight: "600", marginBottom, marginTop: 24 };
+export function agentChatHeadingStyle(color: string) {
+  const shared = { color, fontWeight: "600", marginBottom: 8, marginTop: 0 };
   return {
     h1: { ...shared, ...agentChatHeadingScale.h1 },
     h2: { ...shared, ...agentChatHeadingScale.h2 },
@@ -28,6 +23,83 @@ export function agentChatHeadingStyle(color: string, marginBottom = 8) {
     h4: { ...shared, ...agentChatHeadingScale.h4 },
     h5: { ...shared, ...agentChatHeadingScale.h5 },
     h6: { ...shared, ...agentChatHeadingScale.h6 },
+  };
+}
+
+/**
+ * Tailwind preflight zeros `p` and `ul` margins. Streamdown list items are
+ * `py-1`. Agent fences and tables use `my-4`, and fence text is `text-sm leading-5`.
+ */
+export const agentChatBlockMetrics = {
+  paragraph: { marginTop: 0, marginBottom: 0 },
+  list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },
+  codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 8 },
+  table: { marginTop: 16, marginBottom: 16 },
+} as const;
+
+/**
+ * Zinc table chrome from `markdown-table.ts`, inline code from `MarkdownRenderer`
+ * (`bg-zinc-100` / `dark:bg-zinc-800`), and the fenced frame from `CodeBlock`
+ * (`bg-neutral-200/40` / `dark:bg-neutral-800/70`). Dark header and border are
+ * those alphas composited on black. Inline code has no border.
+ * Light zinc-100 (`#f4f4f5`) vanishes on the mobile page (`#f4f4f6`); zinc-200
+ * is the same family with the contrast zinc-100 has on web's white page.
+ * Fence syntax colors follow web Shiki `github-light` / `github-dark`.
+ * The native fence paints this frame, then a page-colored code pane (`h-9` header,
+ * 12px code padding) in the enriched-markdown patch.
+ */
+export function agentChatMarkdownChrome(isDark: boolean) {
+  if (isDark) {
+    return {
+      headerBackground: "#1f1f22",
+      headerText: "#d4d4d8",
+      bodyText: "#a1a1aa",
+      border: "#202023",
+      row: "#000000",
+      codeBackground: "#27272a",
+      codeText: "#e4e4e7",
+      codeBorder: "rgba(0,0,0,0)",
+      fenceBackground: "#1b1b1b",
+      fenceBorder: "#262626",
+      fenceText: "#e6edf3",
+      syntax: {
+        keyword: "#ff7b72",
+        string: "#a5d6ff",
+        number: "#79c0ff",
+        constant: "#79c0ff",
+        comment: "#8b949e",
+        function: "#d2a8ff",
+        type: "#ffa657",
+        property: "#79c0ff",
+        tag: "#7ee787",
+        attribute: "#79c0ff",
+      },
+    };
+  }
+  return {
+    headerBackground: "#f4f4f5",
+    headerText: "#3f3f46",
+    bodyText: "#52525b",
+    border: "#e4e4e7",
+    row: "#f4f4f6",
+    codeBackground: "#e4e4e7",
+    codeText: "#27272a",
+    codeBorder: "rgba(0,0,0,0)",
+    fenceBackground: "#eeeeef",
+    fenceBorder: "#e5e5e5",
+    fenceText: "#1f2328",
+    syntax: {
+      keyword: "#cf222e",
+      string: "#0a3069",
+      number: "#0550ae",
+      constant: "#0550ae",
+      comment: "#6e7781",
+      function: "#8250df",
+      type: "#953800",
+      property: "#0550ae",
+      tag: "#116329",
+      attribute: "#0550ae",
+    },
   };
 }
 
@@ -314,86 +386,3 @@ export const TABLE_LINE_HEIGHT = 14 * 1.625;
 export const TOOL_PROSE_LINE_HEIGHT = 14 * 1.625;
 /** Tool, plan, and approval markdown are `text-[13px] leading-relaxed`. */
 export const TOOL_MARKDOWN_LINE_HEIGHT = 13 * 1.625;
-
-export const agentChatBlockMetrics = {
-  paragraph: { marginTop: 0, marginBottom: STREAMDOWN_BLOCK_GAP },
-  list: { marginTop: 4, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, itemSpacing: 8 },
-  codeBlock: {
-    marginTop: STREAMDOWN_BLOCK_GAP,
-    marginBottom: STREAMDOWN_BLOCK_GAP,
-    fontSize: 14,
-    lineHeight: 20,
-    borderRadius: 10,
-  },
-  table: { marginTop: STREAMDOWN_BLOCK_GAP, marginBottom: STREAMDOWN_BLOCK_GAP, borderRadius: 10 },
-} as const;
-
-/**
- * Zinc table chrome from `markdown-table.ts`. Header text is `font-semibold`;
- * the native cell config asks for weight 600 instead of the bold trait.
- * Inline code comes from `MarkdownCodeBlock`,
- * and the fenced frame from `CodeBlock` (`bg-neutral-200/40` / `dark:bg-neutral-800/70`).
- * Dark header and border are those alphas composited on black. Inline code has no border.
- * Web paints inline code zinc-100 (`#f4f4f5`) on a white page. The phone page is
- * `#f4f4f6`, so that token disappears. Light chips use zinc-200 (`#e4e4e7`).
- * The header band is the same step below the phone page as zinc-100 is below
- * white (11, 11, 10), so the zinc-200 rule stays darker than the band.
- * Dark stays zinc-800 on black.
- * Fence syntax colors follow web Shiki `github-light` / `github-dark`.
- * The native fence paints this frame, then a page-colored code pane (`h-9` header,
- * 16px across and 12px down) in the enriched-markdown patch.
- */
-export function agentChatMarkdownChrome(isDark: boolean) {
-  if (isDark) {
-    return {
-      headerBackground: "#1f1f22",
-      headerText: "#d4d4d8",
-      bodyText: "#a1a1aa",
-      border: "#202023",
-      row: "#000000",
-      codeBackground: "#27272a",
-      codeText: "#e4e4e7",
-      codeBorder: "rgba(0,0,0,0)",
-      fenceBackground: "#1b1b1b",
-      fenceBorder: "#262626",
-      fenceText: "#e6edf3",
-      syntax: {
-        keyword: "#ff7b72",
-        string: "#a5d6ff",
-        number: "#79c0ff",
-        constant: "#79c0ff",
-        comment: "#8b949e",
-        function: "#d2a8ff",
-        type: "#ffa657",
-        property: "#79c0ff",
-        tag: "#7ee787",
-        attribute: "#79c0ff",
-      },
-    };
-  }
-  return {
-    headerBackground: "#e9e9ec",
-    headerText: "#3f3f46",
-    bodyText: "#52525b",
-    border: "#e4e4e7",
-    row: "#f4f4f6",
-    codeBackground: "#e4e4e7",
-    codeText: "#27272a",
-    codeBorder: "rgba(0,0,0,0)",
-    fenceBackground: "#eeeeef",
-    fenceBorder: "#e5e5e5",
-    fenceText: "#1f2328",
-    syntax: {
-      keyword: "#cf222e",
-      string: "#0a3069",
-      number: "#0550ae",
-      constant: "#0550ae",
-      comment: "#6e7781",
-      function: "#8250df",
-      type: "#953800",
-      property: "#0550ae",
-      tag: "#116329",
-      attribute: "#0550ae",
-    },
-  };
-}

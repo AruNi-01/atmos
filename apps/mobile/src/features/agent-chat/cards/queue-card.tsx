@@ -10,7 +10,6 @@ import {
   PencilIcon,
   TrashIcon,
 } from "@/ui/icons/lucide-native";
-import { chatForeground, chatForeground90, chatMutedForeground } from "../chat-ink";
 import { moveQueueItem, queueItemText } from "../composer-cards";
 import { copy } from "../copy";
 
@@ -26,8 +25,8 @@ export function QueueCard({
   onUpdate: (itemId: string, text: string) => Promise<void>;
 }) {
   const theme = useMobileTheme();
-  const muted = chatMutedForeground(theme.isDark);
-  const foreground = chatForeground(theme.isDark);
+  const muted = theme.colors.secondaryLabel;
+  const foreground = theme.colors.label;
   const [open, setOpen] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -46,7 +45,7 @@ export function QueueCard({
         <ListOrderedIcon color={muted} size={16} strokeWidth={2} />
         <Text
           style={{
-            color: chatForeground90(theme.isDark),
+            color: theme.colors.label,
             fontSize: 14,
             fontWeight: "500",
             lineHeight: 20,
@@ -156,7 +155,7 @@ function QueueIcon({
       style={styles.iconButton}
     >
       <Icon
-        color={chatMutedForeground(theme.isDark)}
+        color={theme.colors.secondaryLabel}
         size={14}
         strokeWidth={2}
         style={{ opacity: disabled ? 0.4 : 1 }}

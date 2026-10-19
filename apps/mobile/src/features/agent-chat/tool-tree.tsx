@@ -11,6 +11,50 @@ import {
 
 export { TREE_BRANCH_GUTTER, TREE_LINE_ALPHA, TREE_LINE_WIDTH };
 
+type Srgb = { r: number; g: number; b: number };
+
+function parseHexSrgb(hex: string): Srgb | null {
+  const value = hex.trim();
+  const short = /^#([0-9a-fA-F]{3})$/.exec(value)?.[1];
+  if (short) {
+    return {
+      r: Number.parseInt(short[0]! + short[0], 16),
+      g: Number.parseInt(short[1]! + short[1], 16),
+      b: Number.parseInt(short[2]! + short[2], 16),
+    };
+  }
+  const full = /^#([0-9a-fA-F]{6})$/.exec(value)?.[1];
+  if (!full) return null;
+  return {
+    r: Number.parseInt(full.slice(0, 2), 16),
+    g: Number.parseInt(full.slice(2, 4), 16),
+    b: Number.parseInt(full.slice(4, 6), 16),
+  };
+}
+
+function hexChannel(value: number): string {
+  return Math.round(value).toString(16).padStart(2, "0");
+}
+
+/**
+ * Web LogRow mixes muted ink into `--background` so the stroke is opaque.
+ * Elbow and trunk share a vertex, and neighbouring rows abut; translucent
+ * strokes composite twice there and read as a different colour. Mixing once
+ * keeps a joint the same tone as the rest of the line.
+ */
+export function mixOpaqueSrgb(foreground: string, background: string, amount: number): string {
+  const fg = parseHexSrgb(foreground);
+  const bg = parseHexSrgb(background);
+  if (!fg || !bg) return foreground;
+  const t = Math.min(1, Math.max(0, amount));
+  return `#${hexChannel(fg.r * t + bg.r * (1 - t))}${hexChannel(fg.g * t + bg.g * (1 - t))}${hexChannel(fg.b * t + bg.b * (1 - t))}`;
+}
+
+/** Opaque tree ink at `TREE_LINE_ALPHA` over the transcript background. */
+export function toolTreeInk(foreground: string, background: string): string {
+  return mixOpaqueSrgb(foreground, background, TREE_LINE_ALPHA);
+}
+
 /** Fully drawn elbow plus the trunk that continues into the next row. */
 export function toolTreeStrokes(input: { first: boolean; last: boolean; height: number }): {
   reach: string;
@@ -38,23 +82,19 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import {
-  TREE_DRAW_MS,
   clampTreeShown,
   nextTreeRevealDelay,
   nextTreeWatermark,
   treeReachLength,
-  treeSegmentDelayMs,
-  treeStaggerDelayMs,
 } from "@atmos/agent-transcript/agent-tree-branch";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
-import { chatForeground } from "./chat-ink";
+import { LOG_ROW_ELBOW_MS, LOG_ROW_TRUNK_MS, logRowElbowDelayMs } from "./motion/log-row-motion";
 import { useReducedMotion } from "./motion/use-reduced-motion";
-import { useParityDrawHold } from "./parity-draw-hold";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const CHEVRON_MS = 200;
-const DRAW_EASE = Easing.bezier(0.23, 1, 0.32, 1);
+const DRAW_EASE = Easing.linear;
 const CHEVRON_EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const DASH_ARRAY = ["stroke", "Dash", "array"].join("");
 const DASH_OFFSET = ["stroke", "Dash", "offset"].join("");
@@ -138,17 +178,18 @@ function DrawnPath({
   d,
   delay,
   draw,
+  duration,
   length,
   stroke,
 }: {
   d: string;
   delay: number;
   draw: boolean;
+  duration: number;
   length: number;
   stroke: string;
 }) {
   const reduced = useReducedMotion();
-  const hold = useParityDrawHold();
   const skip = reduced || !draw;
   const offset = useSharedValue(skip || length <= 0 ? 0 : length);
   const lengthSv = useSharedValue(length);
@@ -166,18 +207,11 @@ function DrawnPath({
       offset.set(0);
       return;
     }
-    // A capture hold paints a fraction of the stroke. The product path still
-    // runs the 400ms timing from when the row mounts.
-    if (hold != null) {
-      const fraction = Math.min(1, Math.max(0, hold));
-      offset.set(length * (1 - fraction));
-      return;
-    }
     if (started.current || length <= 0) return;
     started.current = true;
     offset.set(length);
-    offset.set(withDelay(delay, withTiming(0, { duration: TREE_DRAW_MS, easing: DRAW_EASE })));
-  }, [delay, hold, length, lengthSv, offset, skip]);
+    offset.set(withDelay(delay, withTiming(0, { duration, easing: DRAW_EASE })));
+  }, [delay, duration, length, lengthSv, offset, skip]);
 
   const strokeProps = {
     d,
@@ -185,7 +219,6 @@ function DrawnPath({
     stroke,
     strokeLinecap: "butt" as const,
     strokeLinejoin: "round" as const,
-    strokeOpacity: TREE_LINE_ALPHA,
     strokeWidth: TREE_LINE_WIDTH,
   };
 
@@ -195,35 +228,27 @@ function DrawnPath({
 
 export function ToolTreeRow({
   children,
-  count = 1,
-  delayMs,
   draw = false,
   first,
-  index = 0,
   last,
 }: {
   children: ReactNode;
-  count?: number;
-  /** Sequential arrivals start immediately. Omit to stagger a batch. */
-  delayMs?: number;
   draw?: boolean;
   first: boolean;
-  index?: number;
   last: boolean;
 }) {
   const theme = useMobileTheme();
   const [height, setHeight] = useState(0);
-  const stroke = chatForeground(theme.isDark);
   const strokes = toolTreeStrokes({ first, last, height });
-  const delay =
-    delayMs ?? (count <= 1 ? treeSegmentDelayMs(index) : treeStaggerDelayMs(index, count));
+  const elbowDelay = logRowElbowDelayMs(first);
   const reachLength = treeReachLength(first ? TREE_BRANCH_FIRST_START_Y : 0, TREE_BRANCH_MID_Y);
   const trunkFrom = TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS;
   const trunkLength = height > trunkFrom ? height - trunkFrom : 0;
+  const ink = toolTreeInk(theme.colors.label, theme.colors.background);
 
   return (
     <View style={{ flexDirection: "row", minHeight: 24 }}>
-      <View pointerEvents="none" style={{ width: TREE_BRANCH_GUTTER }}>
+      <View pointerEvents="none" style={{ overflow: "hidden", width: TREE_BRANCH_GUTTER }}>
         {height > 0 ? (
           <Svg
             height={height}
@@ -233,18 +258,20 @@ export function ToolTreeRow({
             {strokes.trunk ? (
               <DrawnPath
                 d={strokes.trunk}
-                delay={delay}
+                delay={0}
                 draw={draw}
+                duration={LOG_ROW_TRUNK_MS}
                 length={trunkLength}
-                stroke={stroke}
+                stroke={ink}
               />
             ) : null}
             <DrawnPath
               d={strokes.reach}
-              delay={delay}
+              delay={elbowDelay}
               draw={draw}
+              duration={LOG_ROW_ELBOW_MS}
               length={reachLength}
-              stroke={stroke}
+              stroke={ink}
             />
           </Svg>
         ) : null}

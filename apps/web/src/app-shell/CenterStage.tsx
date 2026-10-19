@@ -502,7 +502,6 @@ const CenterStage: React.FC = () => {
     setActiveTerminalTab,
     setTabCustomTitle,
     primeWorkspace,
-    evictWorkspaceRuntime,
   } = useTerminalStore(
     useShallow((state) => ({
       terminalTabs: effectiveContextId
@@ -549,10 +548,7 @@ const CenterStage: React.FC = () => {
     visibleTerminalTabs.some((tab) => tab.id === workspaceActiveTerminalTabId)
       ? workspaceActiveTerminalTabId
       : visibleTerminalTabs[0]?.id) ?? "";
-  const mountedTerminalTabs = React.useMemo(
-    () => (effectiveContextId ? (mountedTerminalTabsByContext[effectiveContextId] ?? []) : []),
-    [effectiveContextId, mountedTerminalTabsByContext],
-  );
+
   // When the workspace/project context changes, hold off on persisting the transient
   // fallback tab until we've tried to restore the last active center tab for that context.
   // `restoringCenterTabToRef` tracks an in-flight restore target so we do not persist the

@@ -1,3 +1,4 @@
+// @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
 import {
   TOOL_DIFF_EXPAND_BUTTON,

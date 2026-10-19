@@ -19,13 +19,14 @@ describe("session op card", () => {
     expect(source).toContain("copy.sessionOpRewind");
     expect(source).toContain('request.kind === "fork" ? GitForkIcon : RotateIcon');
     expect(source).toContain("#00a6f4");
-    expect(source).toContain("chatMutedForeground(isDark)");
+    expect(source).toContain("theme.colors.secondaryLabel");
+    expect(source).toContain("theme.colors.label");
     expect(source).toContain('normalized.includes("cancel")');
     expect(source).toContain('normalized.includes("reject")');
     expect(source).toContain('normalized.includes("deny")');
     expect(source).toContain("borderRadius: 22");
     expect(source).toContain("borderRadius: 999");
     expect(source).not.toContain("ShineBorder");
-    expect(source).not.toContain("theme.colors.label");
+    expect(source).not.toContain("chatMutedForeground");
   });
 });

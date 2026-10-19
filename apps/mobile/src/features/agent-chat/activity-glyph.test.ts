@@ -57,8 +57,8 @@ describe("activity glyph", () => {
     expect(starTwinkle(0.6).scale).toBeCloseTo(0.8);
     expect(starTwinkle(1)).toEqual({ opacity: 0, scale: 0 });
     const row = readFileSync(join(dir, "activity-row.tsx"), "utf8");
-    expect(row).toContain("ActivityGlyph");
-    expect(row).toContain('kind === "thinking"');
+    expect(row).toContain("TextShimmer");
+    expect(row).not.toContain("ActivityGlyph");
     const mark = readFileSync(join(dir, "activity-mark.tsx"), "utf8");
     expect(mark).toContain("pickWorkingStyle");
     expect(mark).toContain("RingGlyph");

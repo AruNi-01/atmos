@@ -12,7 +12,7 @@ const show = (text: string, extra?: { reduced?: boolean; tail?: boolean }) =>
 
 describe("answer block caret", () => {
   test("uses Streamdown's block caret", () => {
-    expect(copy.answerCaret).toBe("\u258b");
+    expect(copy.answerCaret).toBe("\u258d");
   });
 
   test("shows on the animating prose tail", () => {

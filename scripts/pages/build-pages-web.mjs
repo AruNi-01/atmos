@@ -10,11 +10,6 @@ const webPackageJsonPath = join(webDir, "package.json");
 const proxyFile = join(webDir, "src/proxy.ts");
 const proxyBackupFile = join(webDir, "src/_proxy_pages_backup.ts");
 
-function fail(message) {
-  console.error(message);
-  process.exit(1);
-}
-
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     stdio: "inherit",

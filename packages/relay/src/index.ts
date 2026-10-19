@@ -1,11 +1,6 @@
 /** APP-016: Worker — relay REST + WebSocket + HTTP gateway to ServerHub DO. */
 
-import {
-  collectForwardHeaders,
-  gatewayBaseUrl,
-  matchGatewayPath,
-  validateGatewayAccess,
-} from "./http-gateway";
+import { collectForwardHeaders, matchGatewayPath, validateGatewayAccess } from "./http-gateway";
 import { buildClientSessionUrls } from "./client-session";
 import {
   createGithubSetupSession,
@@ -70,7 +65,7 @@ const githubWebhookRateByIp = new Map<string, { count: number; windowStart: numb
 const githubControlRateByIp = new Map<string, { count: number; windowStart: number }>();
 const ptDesignRoomRateByIp = new Map<string, { count: number; windowStart: number }>();
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
@@ -130,6 +125,8 @@ export default {
     return withCors(await handleApi(request, env, url));
   },
 };
+
+export default worker;
 
 export { ServerHub, PtDesignRoom };
 
@@ -260,15 +257,6 @@ function parseAppDeviceId(
     return { ok: false, error: "invalid_app_device_id" };
   }
   return { ok: true, appDeviceId };
-}
-
-async function tableExists(env: Env, tableName: string): Promise<boolean> {
-  const row = await env.DB.prepare(
-    "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
-  )
-    .bind(tableName)
-    .first<{ ok: number }>();
-  return !!row;
 }
 
 function httpOrigin(url: URL): string {

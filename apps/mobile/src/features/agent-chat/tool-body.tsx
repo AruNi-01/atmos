@@ -990,16 +990,26 @@ export const TOOL_DIFF_NUMBER_FILL_ADD_DARK = "#16211b";
 export const TOOL_DIFF_NUMBER_FILL_DEL_LIGHT = "#fae5e4";
 export const TOOL_DIFF_NUMBER_FILL_DEL_DARK = "#271614";
 
-export function toolDiffLineFill(op: "add" | "del", isDark: boolean): string {
+export function toolDiffLineFill(op: "add" | "del", isDark: boolean): string;
+export function toolDiffLineFill(op: "ctx", isDark: boolean): undefined;
+export function toolDiffLineFill(op: "add" | "del" | "ctx", isDark: boolean): string | undefined;
+export function toolDiffLineFill(op: "add" | "del" | "ctx", isDark: boolean): string | undefined {
   if (op === "add") return isDark ? TOOL_DIFF_LINE_ADD_DARK : TOOL_DIFF_LINE_ADD_LIGHT;
-  return isDark ? TOOL_DIFF_LINE_DEL_DARK : TOOL_DIFF_LINE_DEL_LIGHT;
+  if (op === "del") return isDark ? TOOL_DIFF_LINE_DEL_DARK : TOOL_DIFF_LINE_DEL_LIGHT;
+  return undefined;
 }
 
-export function toolDiffNumberFill(op: "add" | "del", isDark: boolean): string {
+export function toolDiffNumberFill(op: "add" | "del", isDark: boolean): string;
+export function toolDiffNumberFill(op: "ctx", isDark: boolean): undefined;
+export function toolDiffNumberFill(op: "add" | "del" | "ctx", isDark: boolean): string | undefined;
+export function toolDiffNumberFill(op: "add" | "del" | "ctx", isDark: boolean): string | undefined {
   if (op === "add") {
     return isDark ? TOOL_DIFF_NUMBER_FILL_ADD_DARK : TOOL_DIFF_NUMBER_FILL_ADD_LIGHT;
   }
-  return isDark ? TOOL_DIFF_NUMBER_FILL_DEL_DARK : TOOL_DIFF_NUMBER_FILL_DEL_LIGHT;
+  if (op === "del") {
+    return isDark ? TOOL_DIFF_NUMBER_FILL_DEL_DARK : TOOL_DIFF_NUMBER_FILL_DEL_LIGHT;
+  }
+  return undefined;
 }
 
 /**

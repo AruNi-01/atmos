@@ -38,7 +38,6 @@ import {
   approvalShadow,
   approvalWell,
 } from "./approval-ink";
-import { chatMutedForeground } from "./chat-ink";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
 import { commandPermissionActions, commandPermissionText } from "./permission-command";
 import {
@@ -422,7 +421,7 @@ function PlanPermission({
         ) : readOnly ? null : (
           <Text
             style={{
-              color: chatMutedForeground(theme.isDark),
+              color: theme.colors.secondaryLabel,
               fontSize: 14,
               lineHeight: 20,
               paddingHorizontal: 4,

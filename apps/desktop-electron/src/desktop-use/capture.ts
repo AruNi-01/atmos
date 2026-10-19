@@ -123,11 +123,9 @@ export async function desktopUseReadFrontmost(): Promise<DesktopUseFrontmost> {
  * This helper is only the pre-ensure fallback (see `appshot/frontmost.ts`).
  */
 export async function desktopUseCaptureInProcess(
-  options: { selfAppNames?: Set<string> } = {},
+  _options: { selfAppNames?: Set<string> } = {},
 ): Promise<DesktopUseCaptureResult> {
   const warnings: string[] = [];
-  const selfNames =
-    options.selfAppNames ?? new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
   let frontmost: DesktopUseFrontmost;
   try {

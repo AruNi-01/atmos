@@ -1,6 +1,5 @@
 import { Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
-import { chatForeground, chatMutedForeground } from "../chat-ink";
 import type { ContextUsageStats } from "../composer-cards";
 import { copy, fillTemplate } from "../copy";
 import {
@@ -17,8 +16,8 @@ import {
 
 export function ContextCard({ stats }: { stats: ContextUsageStats }) {
   const theme = useMobileTheme();
-  const foreground = chatForeground(theme.isDark);
-  const muted = chatMutedForeground(theme.isDark);
+  const foreground = theme.colors.label;
+  const muted = theme.colors.secondaryLabel;
   const percentLabel = `${Math.round(stats.percent)}%`;
   const tone = contextWindowBarTone(stats.percent);
   const fill = tone === "warning" ? contextBarWarning(theme.isDark) : foreground;

@@ -2,7 +2,6 @@ import type { AgentMessage, GrokWorkflow } from "@atmos/api-types/ws/dto/agent-c
 import { grokWorkflowPhaseSections } from "@atmos/agent-transcript";
 import { LayersIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
-import { chatMutedForeground } from "../chat-ink";
 import { copy } from "../copy";
 import { GrokChromePanel } from "../grok-chrome-panel";
 import { grokWorkflowCountLabel } from "../grok-chrome-label";
@@ -22,7 +21,7 @@ export function WorkflowCard({
       emptyHint={() => null}
       expandAria={copy.grokWorkflowExpandAria}
       fallbackType={copy.grokWorkflowFallback}
-      icon={<LayersIcon color={chatMutedForeground(theme.isDark)} size={16} strokeWidth={2} />}
+      icon={<LayersIcon color={theme.colors.secondaryLabel} size={16} strokeWidth={2} />}
       messages={messages}
       meta={grokWorkflowCountLabel(sections)}
       panelAria={copy.grokWorkflowPanelAria}

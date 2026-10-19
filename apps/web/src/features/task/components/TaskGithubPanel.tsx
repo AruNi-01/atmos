@@ -45,7 +45,6 @@ import { GithubListPagination } from "@/features/github/components/GithubListPag
 import {
   TaskGithubFilterMenu,
   type TaskGithubFilters,
-  type TaskGithubStateFilter,
 } from "@/features/task/components/TaskGithubFilterMenu";
 import { TaskGithubTable } from "@/features/task/components/TaskGithubTable";
 import { TaskGithubCreateIssueDialog } from "@/features/task/components/TaskGithubCreateIssueDialog";

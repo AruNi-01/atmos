@@ -1,14 +1,7 @@
 import React, { useEffect } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useGithubPRPage } from "@/features/github/hooks/use-github";
-import {
-  GitPullRequest,
-  Loader2,
-  GitBranch,
-  MessageSquare,
-  GitCommit,
-  ArrowLeft,
-} from "lucide-react";
+import { Loader2, GitBranch, GitCommit, ArrowLeft } from "lucide-react";
 import {
   Tooltip,
   TooltipTrigger,

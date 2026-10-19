@@ -49,7 +49,6 @@ const PtDesignStandaloneStage = dynamic(
 );
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
-type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
 
 export function CenterStageNoContextView({
   currentView,

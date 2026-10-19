@@ -25,6 +25,7 @@ import {
   ChevronsUpDown,
   Clock,
   Clock3,
+  Copy,
   DollarSign,
   Download,
   Flag,
@@ -120,6 +121,7 @@ export const LayoutGridIcon = LayoutGrid;
 export const MessagesSquareIcon = MessagesSquare;
 export const ClockIcon = Clock;
 export const Clock3Icon = Clock3;
+export const CopyIcon = Copy;
 export const DownloadIcon = Download;
 export const FileTextIcon = FileText;
 export const FlagIcon = Flag;

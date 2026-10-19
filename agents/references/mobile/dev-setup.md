@@ -298,6 +298,30 @@ cd apps/mobile
 bunx expo run:android -d Atmos_Mobile_API_36 --binary ./android/app/build/outputs/apk/debug/app-debug.apk --port 8092
 ```
 
+### iOS Debug link fails with `Undefined symbols: RCTPackagerConnection`
+
+React Native 0.85 ships prebuilt Debug and Release cores and swaps them in place under `apps/mobile/ios/Pods/React-Core-prebuilt`. The Release core does not export `RCTPackagerConnection`. After `just mobile-ios-release`, a Debug build (`just mobile-ios` / `just mobile-ios-dev`) can keep that Release core if `Pods/React-Core-prebuilt/.last_build_configuration` is missing: RN's `replace-rncore-version.js` then assumes the tree is already Debug and skips the swap. `libexpo-dev-launcher.a` still needs the Debug symbol.
+
+Daily recipes now call `apps/mobile/script/ensure-ios-rncore-configuration.js` before the build. Release uses `apps/mobile/ios/DerivedData-Release`, Debug device builds use `DerivedData-Debug`, and the Release recipe restores a Debug core on EXIT.
+
+If a Debug link still reports `RCTPackagerConnection`:
+
+```bash
+node apps/mobile/script/ensure-ios-rncore-configuration.js Debug
+just mobile-ios
+```
+
+Nuclear reset (confirmed by AruNi) when the helper cannot recover:
+
+```bash
+rm -rf apps/mobile/ios/Pods apps/mobile/ios/build apps/mobile/ios/DerivedData-Debug apps/mobile/ios/DerivedData-Release
+rm -rf ~/Library/Developer/Xcode/DerivedData/Atmos-*
+cd apps/mobile/ios && pod install
+just mobile-ios
+```
+
+Do not upgrade Expo or React Native to work around this. Do not mix Debug and Release in the same `DerivedData` tree.
+
 ### iOS red screen says `No script URL provided`
 
 This app needs `expo-dev-client`; do not rely on Expo Go for the final smoke. Rebuild the native dev client:

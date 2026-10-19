@@ -29,48 +29,18 @@ describe("web source parity", () => {
     });
     const group = source("apps/mobile/src/features/agent-chat/tool-group.tsx");
     const tree = source("apps/mobile/src/features/agent-chat/tool-tree.tsx");
+    const log = source("apps/web/src/features/agent/components/boardui/agent-log.tsx");
     expect(group).toContain("useToolTreeReveal");
     expect(group).toContain("index >= watermark");
-    expect(group).toContain("delayMs={0}");
+    expect(group).not.toContain("delayMs=");
     expect(group).toContain("toolTriggerMetrics");
-    expect(group).toContain("const muted = chatMutedForeground(theme.isDark)");
-    expect(group).toContain("<ExpandChevron color={muted} open={open} size={metrics.chevron} />");
-    expect(group).toContain("const TOOL_GROUP_LIST_MARGIN_TOP = 2");
-    expect(group).toContain("marginTop: TOOL_GROUP_LIST_MARGIN_TOP");
-    expect(group).not.toContain("theme.colors.secondaryLabel");
     expect(tree).toContain("nextTreeWatermark");
-    expect(tree).toContain("duration: TREE_DRAW_MS");
-    expect(tree).toContain("Easing.bezier(0.23, 1, 0.32, 1)");
-  });
-
-  test("the assistant column is inset by half of 1rem", () => {
-    const transcript = source("apps/mobile/src/features/agent-chat/AgentChatTranscript.tsx");
-    expect(transcript).toContain("const ASSISTANT_COLUMN_INSET = 8");
-    const turn = transcript.slice(
-      transcript.indexOf("function AssistantTurn"),
-      transcript.indexOf("const ChatMessage"),
-    );
-    const column = turn.slice(turn.indexOf("return ("), turn.indexOf("<ProcessFold"));
-    expect(column).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
-    expect(column).not.toContain("gap:");
-    expect(column).not.toContain('width: "100%"');
-    const message = transcript.slice(transcript.indexOf("const ChatMessage"));
-    expect(message).toContain("<UserMessage message={message} />");
-    expect(message).toContain("marginHorizontal: ASSISTANT_COLUMN_INSET");
-    expect(message).toContain("marginTop: 8");
-    expect(transcript).not.toContain("stream-wait");
-    expect(transcript).not.toContain("WaitForBlock");
-    expect(transcript).not.toContain("Wait for ");
-    expect(transcript).toContain('visibility === "subagent_wait"');
-  });
-
-  test("the transcript content uses the web py-4", () => {
-    const transcript = source("apps/mobile/src/features/agent-chat/AgentChatTranscript.tsx");
-    expect(transcript).toContain("const TRANSCRIPT_CONTENT_PAD_Y = 16");
-    const list = transcript.slice(transcript.indexOf("contentContainerStyle"));
-    expect(list).toContain("paddingTop: TRANSCRIPT_CONTENT_PAD_Y");
-    expect(list).toContain("paddingBottom: paddingBottom + TRANSCRIPT_CONTENT_PAD_Y");
-    expect(list).not.toContain("paddingTop: 12");
+    expect(tree).toContain("LOG_ROW_ELBOW_MS");
+    expect(tree).toContain("LOG_ROW_TRUNK_MS");
+    expect(tree).toContain("Easing.linear");
+    expect(log).toContain("duration: 0.14");
+    expect(log).toContain("delay: first ? 0 : 0.12");
+    expect(log).toContain('ease: "linear"');
   });
 
   test("the composer stays the two-row iOS field", () => {
@@ -91,126 +61,18 @@ describe("web source parity", () => {
     expect(patch).not.toContain("left + kCodeBackgroundPadX");
     expect(patch).toContain("kENRMWebCopyGlyph = 14.0");
     expect(patch).toContain("ENRMWebCopyGlyphImage");
-    expect(patch).toContain("ENRMWebCheckGlyphImage");
-    expect(patch).toContain("ENRMDrawNamedFenceIcon");
-    expect(patch).toContain('ENRMWebTemplateGlyph(@"copy")');
-    expect(patch).toContain('ENRMWebTemplateGlyph(@"check")');
-    expect(patch).toContain("text-green-900 / dark:text-green-400");
-    expect(patch).toContain("green:(0x53 / 255.0) blue:(0x2D / 255.0)");
-    expect(patch).toContain("green:(0xDE / 255.0) blue:(0x80 / 255.0)");
-    expect(patch).toContain("(int64_t)(2 * NSEC_PER_SEC)");
     expect(patch).toContain("UIImageRenderingModeAlwaysTemplate");
-    const addedLines = patch
-      .split("\n")
-      .filter((line) => line.startsWith("+") && !line.startsWith("+++"));
-    expect(addedLines.join("\n")).not.toContain("doc.on.doc");
-    expect(addedLines.join("\n")).not.toContain('@"99."');
     expect(patch).toContain("language.uppercaseString");
     expect(patch).toContain("pointSize * 0.05");
     expect(patch).toContain("kENRMWebHeaderHeight = 36.0");
-    expect(patch).toContain("text-neutral-600 / dark:text-neutral-400");
-    expect(patch).toContain("blue:(0x52 / 255.0) alpha:1");
-    expect(patch).not.toContain("blue:(0x5B / 255.0)");
     expect(patch).toContain("kENRMWebHeaderPadX = 8.0");
-    expect(patch).toContain("kENRMWebHeaderIcon = 16.0");
-    expect(patch).toContain("kENRMWebHeaderIconGap = 8.0");
-    expect(patch).toContain("ENRMDrawFenceIcon");
-    expect(patch).not.toContain("new file mode");
-    expect(patch).not.toContain("ENRMFenceIcons.h");
-    expect(patch).toContain('@"file-diff"');
-    expect(patch).toContain('if ([lang isEqualToString:@"typescript"]) return @"ts";');
-    expect(patch).toContain("0.145, 0.388, 0.922");
-    expect(patch).toContain("kENRMWebCodePadX = 16.0");
-    expect(patch).toContain("kENRMWebCodePadY = 12.0");
-    expect(patch).toContain("shiki-line-numbers");
-    expect(patch).toContain("kENRMWebLineNumberSize = 12.0");
-    expect(patch).toContain("kENRMWebLineNumberGapLeft = 4.0");
-    expect(patch).toContain("kENRMWebLineNumberGapRight = 16.0");
-    expect(patch).toContain("if (count < 2)");
-    expect(patch).toContain("ENRMWebLineNumberStart");
-    expect(patch).toContain("codeBlockLineNumberStart");
-    expect(patch).toContain("lineNumberStart");
-    expect(patch).toContain("--shiki-line-offset");
-    expect(patch).toContain("start + index");
-    expect(patch).toContain("green:(0x71 / 255.0) blue:(0x7B / 255.0)");
-    expect(patch).toContain("green:(0x9F / 255.0) blue:(0xA9 / 255.0)");
-    expect(patch).toContain("applyBaselineOffset(output, range)");
-    expect(patch).toContain("applyBaselineOffset(output, nonListRange)");
-    expect(patch).toContain("applyBaselineOffset(string, range)");
-    expect(patch).toContain("ENRMWebCodeBaselineRaise");
-    expect(patch).toContain("ENRMWebFenceUsesShiki");
-    expect(patch).toContain("kENRMWebPlainCodePadX = 12.0");
-    expect(patch).toContain("kENRMWebPlainCodeFont = 13.0");
-    expect(patch).toContain("kENRMWebPlainCodeLine = 13.0 * 1.625 + 4.0");
-    expect(patch).toContain("PlainTextWithLineNumbers");
-    expect(patch).toContain('@"plaintext"');
-    expect(patch).toContain("self.codeAscender - self.numberAscender + self.codeBaselineRaise");
-    expect(patch).toContain("ENRMWebCodePaneHeight");
-    expect(patch).toContain("bezierPathWithRoundedRect:paneRect cornerRadius:paneRadius");
-    expect(patch).toContain("_scrollView.clipsToBounds = YES");
-    expect(patch).not.toContain("UIRectCornerTopLeft");
-    expect(patch).toContain("setCodeBlockMaxHeight");
-    expect(patch).toContain("max-h-96");
+    expect(patch).toContain("kENRMWebCodePad = 12.0");
     expect(patch).toContain("CODE BLOCK");
-    expect(patch).toContain("Streamdown quotes are `italic`");
-    expect(patch).toContain('style:@"italic"');
-    expect(patch).toContain("Streamdown links are font-medium");
-    expect(patch).toContain('weight:@"500"');
-    expect(patch).toContain("Streamdown strong is font-semibold");
-    expect(patch).toContain('weight:@"600"');
-    expect(patch).toContain("Streamdown images are `max-w-full`");
-    expect(patch).toContain("resolvedBoxWidthForLineWidth");
-    expect(patch).toContain("intrinsicFit");
-    expect(patch).toContain("One image pixel is one CSS pixel");
-    expect(patch).toContain("Web task rows are `pl-0` with `gap-2` (8)");
-    expect(patch).toContain("Streamdown ordered lists are `list-inside`");
-    expect(patch).toContain("effectiveListMarginLeftForNumber:(NSInteger)number");
-    expect(patch).toContain("effectiveListMarginLeftForNumber:currentPosition");
-    expect(patch).toContain('stringWithFormat:@"%ld."');
-    expect(patch).toContain("Agent chat table headers are font-semibold");
-    expect(patch).toContain('isHeader ? @"600"');
-    expect(patch).toContain("Web clears the first heading");
-    expect(patch).toContain("A later heading keeps its top margin");
-    expect(patch).toContain("Web cells are border-x-0 border-b");
-    expect(patch).toContain("Web `[&>*:first-child]:mt-0` clears a leading rule");
-    expect(patch).toContain("Equal sides are `my-6` and stay.");
-    expect(patch).toContain("A trailing rule bakes marginBottom");
-    expect(patch).toContain("Answer paragraphs keep a zero top, so their list pad stacks.");
+    expect(patch).toContain("outer rounded border plus horizontal row rules");
+    expect(patch).toContain("[&_tr:last-child>td]:border-b-0");
+    expect(patch).toContain("bezierPathWithRoundedRect:CGRectInset(tableRect");
     expect(patch).toContain(
-      "Prose lists collapse with the previous block. Answer lists stack the 4px pad.",
+      "-      UIBezierPath *border = [UIBezierPath bezierPathWithRect:cellRect]",
     );
-    expect(patch).toContain(
-      "The item pad in the list's bottom does not collapse with the next block.",
-    );
-    expect(patch).toContain("A list bottom keeps its item pad. Only the block gap collapses.");
-    expect(patch).toContain("The first answer or thinking quote stays clear.");
-    expect(patch).toContain("A prose rule keeps its own margins.");
-    expect(patch).toContain("A fence before this segment collapses against it.");
-    expect(patch).toContain("ENRMFollowingTextGapAdjustment");
-    expect(patch).toContain(
-      "A rule's bottom is inside the rule, so the next block collapses against it.",
-    );
-    expect(patch).toContain("A following rule gives the overlap back to the previous rule.");
-    expect(patch).toContain("A rule that ends the text already includes its bottom.");
-    expect(patch).toContain("Answer headings are `mt-6`. Tailwind 4 `space-y-4` is `:where()`, so");
-    expect(patch).toContain("A cleared leading rule remembers its 24px top for the next segment.");
-    expect(patch).toContain(
-      "A rule that opens the segment after a fence or table keeps the part of its 24px top that exceeds that block.",
-    );
-    expect(patch).toContain(
-      "A block image that opens the segment stores its 16px top. The first segment still clears it.",
-    );
-    expect(patch).toContain("Answer lists keep their spacer.");
-    expect(patch).toContain("Answer and thinking blocks are `my-4`");
-    expect(patch).toContain("Answer rules are `my-6` (24).");
-    expect(patch).toContain("Web tables are `w-full table-fixed` inside `overflow-hidden`.");
-    expect(patch).toContain("container splits into equal columns and wraps.");
-    expect(patch).toContain("contentWidth / (CGFloat)colCount");
-    expect(patch).toContain(
-      "A fitted table matches the container, so the horizontal scroller stays off.",
-    );
-    expect(patch).toContain("Web table cells are `break-words`.");
-    expect(patch).toContain("A token wider than the column breaks,");
-    expect(patch).toContain("and a word that fits stays whole.");
   });
 });

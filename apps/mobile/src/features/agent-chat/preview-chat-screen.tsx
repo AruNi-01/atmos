@@ -20,7 +20,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused, useLocalSearchParams } from "expo-router";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { parityFixtureById } from "@/features/agent-chat/parity-tree";
-import { useThemeStore } from "@/theme/theme-store";
+import {
+  getParityPreviewThemeOverride,
+  parityPreviewThemeOverride,
+  parityPreviewThemeSource,
+  setParityPreviewThemeOverride,
+  subscribeParityPreviewTheme,
+} from "@/theme/parity-preview-theme";
 import { AgentChatComposer } from "./AgentChatComposer";
 import { AgentChatTranscript, type AgentChatTranscriptHandle } from "./AgentChatTranscript";
 import { cardPillTitle, laneCardDrawsOwnFrame } from "./composer-cards";
@@ -158,8 +164,11 @@ export function PreviewChatScreen() {
     () => pinned ?? frames[index] ?? { id: "F1", theme: "light" },
     [frames, index, pinned],
   );
-  const preference = useThemeStore((state) => state.preference);
-  const setPreference = useThemeStore((state) => state.setPreference);
+  const preview = useSyncExternalStore(
+    subscribeParityPreviewTheme,
+    getParityPreviewThemeOverride,
+    getParityPreviewThemeOverride,
+  );
   const [laneChoice, setLaneChoice] = useState<LaneState | null>(null);
   const [choiceKey, setChoiceKey] = useState("");
   const [permissionAnsweredKey, setPermissionAnsweredKey] = useState("");
@@ -269,17 +278,25 @@ export function PreviewChatScreen() {
   }, [diskFrame?.atMs]);
 
   useLayoutEffect(() => {
-    if (preference !== frame.theme) setPreference(frame.theme);
-  }, [frame.theme, preference, setPreference]);
+    const source = parityPreviewThemeSource({
+      queryPin: Boolean(queryPin),
+      diskPin: Boolean(diskFrame),
+    });
+    setParityPreviewThemeOverride(parityPreviewThemeOverride(frame.theme, source));
+  }, [diskFrame, frame.theme, queryPin]);
 
   useEffect(() => {
-    if (preference !== frame.theme) return;
+    return () => setParityPreviewThemeOverride(null);
+  }, []);
+
+  useEffect(() => {
+    if (preview?.colorScheme !== frame.theme) return;
     const token = `${frame.id}:${frame.theme}:${pinned ? "pin" : index}`;
     if (!claimParityReady(token)) return;
     console.error(parityReadyLine(frame, pinned ? 0 : index));
     if (pinned || index >= frames.length - 1) return;
     armParityClock(frames.length);
-  }, [frame, frames.length, index, pinned, preference]);
+  }, [frame, frames.length, index, pinned, preview]);
 
   const motion = parityMotionKind(frame.id);
   const streamStep = useParityClock(motion === "stream");

@@ -241,12 +241,12 @@ describe("deriveComposerCards", () => {
   test("the background dock uses the web header and row ink", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const card = readFileSync(join(here, "cards", "background-card.tsx"), "utf8");
-    expect(card).toContain("chatForeground90(theme.isDark)");
-    expect(card).toContain("chatForeground80(theme.isDark)");
+    expect(card).toContain("theme.colors.label");
+    expect(card).toContain("theme.colors.secondaryLabel");
     expect(card).toContain("CommandTerminalIcon");
     expect(card).toContain('fontFamily: "Menlo"');
     expect(card).toContain("#00bc7d");
-    expect(card).not.toContain("theme.colors.label");
+    expect(card).not.toContain("chatForeground");
     expect(card).not.toContain("Popover");
     expect(laneCardDrawsOwnFrame("background", { subagentTools: [] })).toBe(false);
   });
@@ -445,12 +445,11 @@ describe("lane goal and workflow type", () => {
     const goal = readFileSync(join(here, "cards", "goal-card.tsx"), "utf8");
     expect(goal).toContain("grokGoalPhaseSections");
     expect(goal).toContain("messages={messages}");
-    expect(goal).toContain("chatMutedForeground(theme.isDark)");
-    expect(goal).not.toContain("theme.colors.label");
+    expect(goal).toContain("theme.colors.secondaryLabel");
     const workflow = readFileSync(join(here, "cards", "workflow-card.tsx"), "utf8");
     expect(workflow).toContain("grokWorkflowPhaseSections");
     expect(workflow).toContain("messages={messages}");
-    expect(workflow).not.toContain("theme.colors.label");
+    expect(workflow).toContain("theme.colors.secondaryLabel");
     const lane = readFileSync(join(here, "cards", "lane-body.tsx"), "utf8");
     expect(lane).toContain("<GoalCard goal={cards.goal} messages={messages} />");
     const row = readFileSync(join(here, "inline-subagent-panel.tsx"), "utf8");

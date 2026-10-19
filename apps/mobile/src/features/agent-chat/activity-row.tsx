@@ -1,248 +1,90 @@
-import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
-import {
-  deriveAgentActivityState,
-  formatAgentToolActivityLine,
-  toolKindHeadlineLabel,
-  type AgentActivityState,
-} from "@atmos/agent-transcript";
+import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import { foldedPartIsOpen, isNestedSubagentChild, presentAgentTool } from "@atmos/agent-transcript";
 import { copy, toolGroupLabels } from "./copy";
 
-function activityCopy(state: Extract<AgentActivityState, { busy: true }>): string {
-  const show = (base: string) => (state.trail === "none" ? base : `${base}...`);
-  switch (state.label.type) {
-    case "generating":
-      return show(copy.activityGenerating);
-    case "thinking":
-      return show(copy.thinking);
-    case "streaming":
-      return show(copy.activityStreaming);
-    case "creatingSession":
-      return show(copy.activityCreatingSession);
-    case "resumingSession":
-      return show(copy.activityResumingSession);
-    case "waiting":
-      return show(
-        state.label.count <= 1
-          ? copy.activityWaitingOne
-          : copy.activityWaitingMany.replaceAll("{count}", String(state.label.count)),
-      );
-    case "tool":
-      return (
-        formatAgentToolActivityLine(
-          state.label.part,
-          toolKindHeadlineLabel(state.label.part.kind),
-        ) || toolGroupLabels.working
-      );
-  }
+const ACTIVE_TOOL_STATUS = new Set<string>(["running", "in_progress", "pending"]);
+
+/**
+ * `presentAgentTool` has no title field. Prefer one if a future result adds it,
+ * then the wire title, then the presented tool name.
+ */
+function activityToolTitle(part: Extract<AgentPart, { type: "tool_call" }>): string {
+  const presented = presentAgentTool(part);
+  const presentedTitle =
+    "title" in presented && typeof presented.title === "string" ? presented.title.trim() : "";
+  if (presentedTitle) return presentedTitle;
+  const wireTitle = part.title?.trim() ?? "";
+  if (wireTitle) return wireTitle;
+  return presented.resolvedTool.trim();
 }
 
-/** Web derives the footer from the whole thread, then paints it on the last row. */
-export function activityRowLabel(messages: readonly AgentMessage[], turnOpen: boolean): string {
-  const state = deriveAgentActivityState([...messages], turnOpen);
-  if (!state.busy) return toolGroupLabels.working;
-  return activityCopy(state);
+/**
+ * The last active parent tool is already a tree row in the open group.
+ * A sibling activity label would repeat that last title (e.g. lone "fixture").
+ */
+export function activityRowDuplicatesOpenTree(message: AgentMessage | null | undefined): boolean {
+  const parts = message?.role === "assistant" ? message.parts : [];
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (!part || part.type !== "tool_call" || isNestedSubagentChild(part, parts)) continue;
+    if (!ACTIVE_TOOL_STATUS.has(part.status)) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Hide the sibling only while that tool is actually on screen. A user-closed
+ * running group still needs the activity title — the tree rows are gone.
+ */
+export function activityRowDuplicatesVisibleTree(
+  hasActiveParentTool: boolean,
+  groups: ReadonlyArray<{ key: string; running: boolean }>,
+  storedByKey: Readonly<Record<string, boolean | undefined>>,
+): boolean {
+  if (!hasActiveParentTool) return false;
+  if (groups.length === 0) return true;
+  for (const group of groups) {
+    if (!group.running) continue;
+    const stored = storedByKey[group.key];
+    const open = typeof stored === "boolean" ? stored : true;
+    if (open) return true;
+  }
+  return false;
+}
+
+export function activityRowLabel(message: AgentMessage | null | undefined): string {
+  const parts = message?.role === "assistant" ? message.parts : [];
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (!part || part.type !== "tool_call" || isNestedSubagentChild(part, parts)) continue;
+    if (!ACTIVE_TOOL_STATUS.has(part.status)) continue;
+    return activityToolTitle(part) || toolGroupLabels.working;
+  }
+  for (const part of parts) {
+    if (part.type !== "thinking" || isNestedSubagentChild(part, parts)) continue;
+    if (foldedPartIsOpen(part)) return copy.thinkingStream;
+  }
+  return toolGroupLabels.working;
 }
 
 // @view
 
-import { useEffect, useState } from "react";
-import { Text, View, type TextStyle } from "react-native";
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
-import { NumberFlow } from "number-flow-react-native";
+import { View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
-import { chatMutedForeground } from "./chat-ink";
-import {
-  ACTIVITY_CLOCK_TICK_MS,
-  ACTIVITY_STATUS_SHIFT_PX,
-  ACTIVITY_STATUS_SPRING,
-  activityClockAnchor,
-  activityClockLabel,
-  activityClockUnits,
-  activityElapsedMs,
-} from "./activity-clock";
-import { ActivityGlyph } from "./activity-mark";
 import { TextShimmer } from "./motion/text-shimmer";
-import { useReducedMotion } from "./motion/use-reduced-motion";
 
-const STATUS_LINE: TextStyle = { fontSize: 14, lineHeight: 20 };
-const CLOCK_LINE: TextStyle = {
-  fontFamily: "Menlo",
-  fontSize: 14,
-  lineHeight: 14,
-};
-
-function ActivityStatus({ label, style }: { label: string; style: TextStyle }) {
-  const reduced = useReducedMotion();
-  const [stack, setStack] = useState({ current: label, previous: label });
-  if (stack.current !== label) {
-    setStack({ current: label, previous: stack.current });
-  }
-  const outgoing = stack.current === stack.previous ? null : stack.previous;
-  const currentY = useSharedValue(0);
-  const currentOpacity = useSharedValue(1);
-  const outgoingY = useSharedValue(0);
-  const outgoingOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    if (reduced || outgoing == null) {
-      currentY.set(0);
-      currentOpacity.set(1);
-      outgoingY.set(0);
-      outgoingOpacity.set(0);
-      return;
-    }
-    let cancel = false;
-    const settle = () => {
-      if (cancel) return;
-      setStack((state) => (state.current === label ? { current: label, previous: label } : state));
-    };
-    currentY.set(ACTIVITY_STATUS_SHIFT_PX);
-    currentOpacity.set(0);
-    outgoingY.set(0);
-    outgoingOpacity.set(1);
-    currentY.set(withSpring(0, ACTIVITY_STATUS_SPRING));
-    currentOpacity.set(
-      withSpring(1, ACTIVITY_STATUS_SPRING, (finished) => {
-        if (finished) runOnJS(settle)();
-      }),
-    );
-    outgoingY.set(withSpring(-ACTIVITY_STATUS_SHIFT_PX, ACTIVITY_STATUS_SPRING));
-    outgoingOpacity.set(withSpring(0, ACTIVITY_STATUS_SPRING));
-    return () => {
-      cancel = true;
-    };
-  }, [currentOpacity, currentY, label, outgoing, outgoingOpacity, outgoingY, reduced]);
-
-  const currentStyle = useAnimatedStyle(() => ({
-    opacity: currentOpacity.get(),
-    transform: [{ translateY: currentY.get() }],
-  }));
-  const outgoingStyle = useAnimatedStyle(() => ({
-    opacity: outgoingOpacity.get(),
-    transform: [{ translateY: outgoingY.get() }],
-  }));
-  const textStyle = [style, STATUS_LINE];
-
-  return (
-    <View style={styles.status}>
-      <Text accessible={false} numberOfLines={1} style={[textStyle, styles.sizer]}>
-        {stack.current}
-      </Text>
-      <Animated.View style={[styles.overlay, currentStyle]}>
-        <TextShimmer duration={1.5} numberOfLines={1} style={textStyle}>
-          {stack.current}
-        </TextShimmer>
-      </Animated.View>
-      {outgoing != null ? (
-        <Animated.View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={[styles.overlay, outgoingStyle]}
-        >
-          <TextShimmer duration={1.5} numberOfLines={1} style={textStyle}>
-            {outgoing}
-          </TextShimmer>
-        </Animated.View>
-      ) : null}
-    </View>
-  );
-}
-
-function ActivityClock({
-  messageId,
-  workedMs,
-}: {
-  messageId: string;
-  workedMs: number | null | undefined;
-}) {
+export function ActivityRow({ message }: { message: AgentMessage }) {
   const theme = useMobileTheme();
-  const reduced = useReducedMotion();
-  const [anchor] = useState(() => activityClockAnchor(messageId, workedMs));
-  const [elapsed, setElapsed] = useState(() => activityElapsedMs(anchor));
-
-  useEffect(() => {
-    const tick = () => setElapsed(activityElapsedMs(anchor));
-    tick();
-    const timer = setInterval(tick, ACTIVITY_CLOCK_TICK_MS);
-    return () => clearInterval(timer);
-  }, [anchor]);
-
-  const label = activityClockLabel(elapsed);
-  const style = { ...CLOCK_LINE, color: chatMutedForeground(theme.isDark) };
-  if (reduced) {
-    return (
-      <Text accessibilityLabel={label} style={style}>
-        {label}
-      </Text>
-    );
-  }
-
   return (
-    <View accessibilityLabel={label} style={styles.clock}>
-      {activityClockUnits(elapsed).map((part) => (
-        <View key={part.unit} style={styles.clockUnit}>
-          <NumberFlow respectMotionPreference style={style} suffix={part.unit} value={part.value} />
-        </View>
-      ))}
+    <View style={{ alignItems: "flex-start", paddingVertical: 2 }}>
+      <TextShimmer
+        duration={1.5}
+        numberOfLines={1}
+        style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}
+      >
+        {activityRowLabel(message)}
+      </TextShimmer>
     </View>
   );
 }
-
-export function ActivityRow({
-  messages,
-  turnOpen,
-}: {
-  messages: readonly AgentMessage[];
-  turnOpen: boolean;
-}) {
-  const theme = useMobileTheme();
-  const last = messages[messages.length - 1];
-  const clockId = last?.id ?? "activity";
-  const state = deriveAgentActivityState([...messages], turnOpen);
-  const kind = state.busy && state.kind === "thinking" ? "thinking" : "working";
-  const label = activityRowLabel(messages, turnOpen);
-  return (
-    <View style={styles.row}>
-      <ActivityGlyph kind={kind} />
-      <ActivityStatus label={label} style={{ color: chatMutedForeground(theme.isDark) }} />
-      <ActivityClock key={clockId} messageId={clockId} workedMs={last?.worked_ms} />
-    </View>
-  );
-}
-
-const styles = {
-  clock: {
-    alignItems: "center" as const,
-    flexDirection: "row" as const,
-    flexShrink: 0,
-  },
-  clockUnit: {
-    alignItems: "center" as const,
-    flexDirection: "row" as const,
-  },
-  overlay: {
-    left: 0,
-    position: "absolute" as const,
-    top: 0,
-  },
-  row: {
-    alignItems: "center" as const,
-    flexDirection: "row" as const,
-    gap: 8,
-    paddingVertical: 2,
-  },
-  sizer: {
-    opacity: 0,
-  },
-  status: {
-    flexShrink: 1,
-    height: 20,
-    justifyContent: "center" as const,
-    overflow: "hidden" as const,
-  },
-};

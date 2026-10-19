@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import { parityStreamToolMessages } from "./parity-motion-fixtures";
 import { importPure } from "./process-fold.test";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -24,29 +25,19 @@ async function importPartReveal(): Promise<Record<string, unknown>> {
   return import(out) as Promise<Record<string, unknown>>;
 }
 
-function assistant(parts: AgentPart[], streaming = true): AgentMessage {
-  return { id: "m", parts, role: "assistant", streaming };
+function assistant(parts: AgentPart[]): AgentMessage {
+  return { id: "m", parts, role: "assistant", streaming: true };
 }
 
 function tool(
   status: string,
   title: string | null,
-  extra?: {
-    kind?: "read" | "search";
-    name?: string;
-    parent?: string;
-    path?: string;
-    query?: string;
-  },
+  extra?: { name?: string; parent?: string },
 ): AgentPart {
-  const kind = extra?.kind ?? "read";
   const part = {
-    kind,
-    name: extra?.name ?? (kind === "search" ? "Search" : "Read"),
-    params:
-      kind === "search"
-        ? { query: extra?.query ?? "ready", type: "search" }
-        : { path: extra?.path ?? "a.ts", type: "read" },
+    kind: "read",
+    name: extra?.name ?? "Read",
+    params: { path: "a.ts", type: "read" },
     status: "running",
     title,
     tool_call_id: extra?.parent ? "child" : "tool-1",
@@ -67,61 +58,55 @@ function thinking(open: boolean, parent?: string): AgentPart {
 }
 
 describe("activity row label", () => {
-  test("uses the same activity choice as the web footer", async () => {
+  test("uses the latest active tool title, otherwise thinking, otherwise Working", async () => {
     const row = await importPure("activity-row.tsx");
-    const raw = row.activityRowLabel as (
-      messages: readonly AgentMessage[],
-      turnOpen: boolean,
-    ) => string;
-    const label = (message: AgentMessage | null | undefined, turnOpen?: boolean) =>
-      raw(
-        message ? [message] : [],
-        turnOpen ?? Boolean(message?.role === "assistant" && message.streaming),
-      );
+    const label = row.activityRowLabel as (message: AgentMessage | null | undefined) => string;
 
-    expect(label(assistant([tool("running", "Read notes")]))).toBe("Read notes a.ts");
-    expect(label(assistant([tool("pending", "Queued read")]))).toBe("Queued read a.ts");
-    expect(label(assistant([tool("in_progress", "Still reading")]))).toBe("Still reading a.ts");
-    expect(label(assistant([tool("running", "  ", { name: "Read" })]))).toBe("Read a.ts");
-    expect(label(assistant([tool("running", "", { name: "" })]))).toBe("Read a.ts");
-    expect(label(assistant([tool("running", "First"), tool("completed", "Done")]))).toBe(
-      "First a.ts",
-    );
-    expect(label(assistant([tool("completed", "Done"), tool("running", "Latest")]))).toBe(
-      "Latest a.ts",
-    );
+    expect(label(assistant([tool("running", "Read notes")]))).toBe("Read notes");
+    expect(label(assistant([tool("pending", "Queued read")]))).toBe("Queued read");
+    expect(label(assistant([tool("in_progress", "Still reading")]))).toBe("Still reading");
+    expect(label(assistant([tool("running", "  ", { name: "Read" })]))).toBe("Read");
+    expect(label(assistant([tool("running", "", { name: "" })]))).toBe("Working");
+    expect(label(assistant([tool("running", "First"), tool("completed", "Done")]))).toBe("First");
+    expect(label(assistant([tool("completed", "Done"), tool("running", "Latest")]))).toBe("Latest");
     expect(
       label(assistant([tool("running", "Hidden", { parent: "parent" }), tool("running", "Shown")])),
-    ).toBe("Shown a.ts");
+    ).toBe("Shown");
     expect(
       label(assistant([tool("running", "Hidden", { parent: "parent" }), thinking(true, "parent")])),
-    ).toBe("Generating...");
+    ).toBe("Working");
     expect(label(assistant([tool("completed", "Done"), thinking(true)]))).toBe("Thinking...");
-    expect(label(assistant([thinking(false)]))).toBe("Thinking...");
-    expect(label(assistant([thinking(true, "parent")]))).toBe("Generating...");
-    expect(label(assistant([{ text: "Hello", type: "text" }]))).toBe("Streaming...");
-    expect(label(assistant([{ text: "Hello", type: "text" }], false), true)).toBe("Generating...");
-    expect(label(assistant([tool("running", "src/theme.ts", { path: "src/theme.ts" })]))).toBe(
-      "Read theme.ts",
-    );
-    expect(label(assistant([tool("running", "ready", { kind: "search", query: "ready" })]))).toBe(
-      "ready",
-    );
-    expect(
-      label(
-        assistant([
-          {
-            action: "resume",
-            status: "running",
-            type: "session_lifecycle",
-          },
-        ]),
-      ),
-    ).toBe("Resuming session...");
+    expect(label(assistant([thinking(false)]))).toBe("Working");
+    expect(label(assistant([thinking(true, "parent")]))).toBe("Working");
     expect(label(null)).toBe("Working");
     expect(label({ id: "u", parts: [], role: "user" })).toBe("Working");
-    expect(raw([{ id: "u", parts: [], role: "user" }], true)).toBe("Generating...");
-    expect(raw([], true)).toBe("Generating...");
+  });
+
+  test("hides the sibling when the last active tool is already a tree row", async () => {
+    const row = await importPure("activity-row.tsx");
+    const duplicates = row.activityRowDuplicatesOpenTree as (
+      message: AgentMessage | null | undefined,
+    ) => boolean;
+    const label = row.activityRowLabel as (message: AgentMessage | null | undefined) => string;
+    const streaming = parityStreamToolMessages(4)[1];
+    expect(label(streaming)).toBe("fixture");
+    expect(duplicates(streaming)).toBe(true);
+    expect(duplicates(assistant([thinking(true)]))).toBe(false);
+    expect(duplicates(assistant([tool("completed", "Done")]))).toBe(false);
+    expect(duplicates(assistant([tool("running", "Hidden", { parent: "parent" })]))).toBe(false);
+    expect(duplicates(null)).toBe(false);
+    const duplicatesVisible = row.activityRowDuplicatesVisibleTree as (
+      hasActiveParentTool: boolean,
+      groups: ReadonlyArray<{ key: string; running: boolean }>,
+      storedByKey: Readonly<Record<string, boolean | undefined>>,
+    ) => boolean;
+    expect(duplicatesVisible(true, [{ key: "g", running: true }], {})).toBe(true);
+    expect(duplicatesVisible(true, [{ key: "g", running: true }], { g: false })).toBe(false);
+    expect(duplicatesVisible(true, [], {})).toBe(true);
+    expect(duplicatesVisible(false, [{ key: "g", running: true }], {})).toBe(false);
+    const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");
+    expect(transcript).toContain("activityRowDuplicatesVisibleTree");
+    expect(transcript).toContain("showActivity && !hideDuplicateActivity");
   });
 });
 
@@ -138,20 +123,5 @@ describe("part reveal gate", () => {
     expect(play({ primed: false, seen: false, streaming: true })).toBe(true);
     expect(play({ primed: true, seen: false, streaming: false })).toBe(true);
     expect(play({ primed: true, seen: true, streaming: true })).toBe(false);
-  });
-
-  test("shrinks the 22px bottom fade to the transcript background", async () => {
-    const reveal = await importPartReveal();
-    const height = reveal.revealEdgeFadeHeight as (progress: number, fadePx: number) => number;
-    const colors = reveal.revealEdgeFadeColors as (background: string) => [string, string];
-    expect(height(0, 22)).toBe(22);
-    expect(height(0.5, 22)).toBe(11);
-    expect(height(1, 22)).toBe(0);
-    expect(height(-1, 22)).toBe(22);
-    expect(colors("#f4f4f6")).toEqual(["rgba(244, 244, 246, 0)", "rgba(244, 244, 246, 1)"]);
-    expect(colors("#000000")[0]).toBe("rgba(0, 0, 0, 0)");
-    const source = readFileSync(join(here, "motion/part-reveal.tsx"), "utf8");
-    expect(source).toContain("TREE_REVEAL_FADE_PX");
-    expect(source).toContain("revealEdgeFadeHeight(progress.get(), TREE_REVEAL_FADE_PX)");
   });
 });

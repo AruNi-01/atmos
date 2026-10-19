@@ -64,6 +64,7 @@ function CommandPanel(props: PtRendererProps): ReactElement {
               key={option.value}
               type="button"
               role="option"
+              aria-selected={false}
               onClick={() => emitValue(props.node, option.value, props.onCommit, props.onAction)}
               style={{
                 appearance: "none",

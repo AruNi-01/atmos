@@ -7,12 +7,15 @@
 ## Build And Test
 
 - **Dev server**: `just dev-mobile` or `cd apps/mobile && bun run start`
-- **iOS dev build**: `cd apps/mobile && bun run ios`
+- **iOS simulator Debug**: `just mobile-ios` (or `cd apps/mobile && bun run ios`)
+- **iOS device Debug**: `just mobile-ios-dev`
+- **iOS device Release**: `just mobile-ios-release`
 - **Android dev build**: `cd apps/mobile && bun run android`
 - **Typecheck**: `bun --filter @atmos/mobile typecheck`
 - **Doctor**: `apps/mobile/script/build_and_run.sh --doctor`
 - **Fresh machine setup**: [agents/references/mobile/dev-setup.md](../../agents/references/mobile/dev-setup.md)
 - **iOS Simulator keyboard**: If a `TextInput` accepts Mac keyboard input but the on-screen keyboard does not appear, follow [references/ios-simulator-keyboard.md](references/ios-simulator-keyboard.md) before changing mobile input code.
+- **iOS scene lifecycle**: `plugins/with-ios-scene-lifecycle.js` is what lets a cold start survive the iOS 27 SDK. It writes `UIApplicationSceneManifest` and a `SceneDelegate` into the generated `AppDelegate.swift`, and moves `startReactNative` out of `didFinishLaunchingWithOptions`. Do not declare that manifest in `app.json` without the class, and do not strip the manifest to clear a black window. Spec: [QUALITY-011](../../specs/APP/QUALITY-011_mobile-ios-scene-lifecycle/TECH.md).
 
 Use `expo run:ios` / `expo run:android` for acceptance smoke because the app uses native modules and `expo-dev-client`. Expo Go is useful for quick checks only when native module coverage is not under test.
 
@@ -41,6 +44,7 @@ apps/mobile/
 │   └── ui/                  # Expo UI wrappers, IosPopover, ExpoDrawer
 ├── references/              # Mobile-local troubleshooting notes
 ├── script/build_and_run.sh
+├── script/ensure-ios-rncore-configuration.js
 ├── app.json
 └── package.json
 ```
@@ -113,7 +117,7 @@ Spec: [specs/APP/APP-077_mobile-terminal-main-path](../../specs/APP/APP-077_mobi
 - Run `bun --filter @atmos/mobile typecheck` after mobile code changes.
 - For environment/setup work, follow [agents/references/mobile/dev-setup.md](../../agents/references/mobile/dev-setup.md).
 - For navigation/header/title work, follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md).
-- Smoke iOS and Android dev builds before claiming platform readiness.
+- Smoke iOS and Android native builds through the `just mobile-ios*` / `just mobile-android` recipes before claiming platform readiness. The iOS recipes keep Debug/Release prebuilt RN cores from sharing one output tree.
 - Keep Relay URL overrides and token switching out of this dogfood cut (APP-077); restore later via a slim settings sheet if needed.
 
 ---

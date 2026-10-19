@@ -26,7 +26,6 @@ import {
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useAgentAttentionSummaryStore } from "@/features/agent/store/agent-attention-summary-store";
 import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
-import { useShallow } from "zustand/react/shallow";
 import { FooterAgentStatusIcon } from "@/features/agent/components/FooterAgentStatusIcon";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { AnimatePresence, motion } from "motion/react";

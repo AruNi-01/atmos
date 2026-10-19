@@ -15,12 +15,15 @@ describe("chat amber", () => {
     expect(CHAT_AMBER).toBe("#fe9a00");
   });
 
-  test("session hints and the attention dot use that amber, not theme yellow", () => {
+  test("session hints use that amber", () => {
     const session = readFileSync(join(dir, "session-chrome.tsx"), "utf8");
-    const pills = readFileSync(join(dir, "composer-pill-row.tsx"), "utf8");
     expect(session).toContain("CHAT_AMBER");
     expect(session).not.toContain("colors.yellow");
-    expect(pills).toContain("backgroundColor: CHAT_AMBER");
-    expect(pills).not.toContain("theme.colors.yellow");
+  });
+
+  test("the glass lane attention dot uses theme yellow", () => {
+    const pills = readFileSync(join(dir, "composer-pill-row.tsx"), "utf8");
+    expect(pills).toContain("backgroundColor: theme.colors.yellow");
+    expect(pills).not.toContain("CHAT_AMBER");
   });
 });

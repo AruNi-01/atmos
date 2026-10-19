@@ -12,7 +12,7 @@ import {
   DialogFooter,
   toastManager,
 } from "@workspace/ui";
-import { Download, Loader2, LoaderCircle, RotateCw } from "lucide-react";
+import { Download, Loader2, RotateCw } from "lucide-react";
 import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
@@ -51,7 +51,6 @@ interface WikiUpdateDialogProps {
 export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
   open,
   onOpenChange,
-  effectivePath,
   catalogCommit,
   currentCommit,
   commitCount,

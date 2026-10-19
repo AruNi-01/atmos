@@ -26,7 +26,7 @@
     "deploy:docs:pages": "bun run --filter docs deploy:pages",
     "deploy:landing:pages": "bun run --filter landing deploy:pages",
     "deploy:web:pages": "bun run --filter web deploy:pages",
-    "lint": "oxlint --max-warnings=1401",
+    "lint": "oxlint --max-warnings=455",
     "lint:web": "oxlint apps/web",
     "fmt": "oxfmt \"**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css,json,jsonc,md,mdx}\"",
     "fmt:check": "oxfmt --check \"**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css,json,jsonc,md,mdx}\"",

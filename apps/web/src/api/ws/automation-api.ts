@@ -2,7 +2,6 @@
 
 import { wsRequest } from "@/api/ws/request";
 import { parseGithubTriggerConfig } from "@/api/ws/automation-dtos";
-import type { AutomationListResponse } from "@/features/automations/types";
 
 export const automationApi = {
   async markActiveGithubAutomationsNeedsSetup(): Promise<number> {

@@ -48,7 +48,6 @@ export function CommitActionsContainer({
     pullChanges,
     fetchChanges,
     syncChanges,
-    stageFiles,
     stageAllUnstaged,
   } = useGitStore();
 
@@ -76,13 +75,6 @@ export function CommitActionsContainer({
   const stageAllUnstagedFn = React.useCallback(async () => {
     await stageAllUnstaged(unstagedFiles.map((f) => f.path));
   }, [stageAllUnstaged, unstagedFiles]);
-
-  const stageFilesFn = React.useCallback(
-    async (files: string[]) => {
-      if (currentProjectPath) await stageFiles(files);
-    },
-    [stageFiles, currentProjectPath],
-  );
 
   return (
     <CommitActions

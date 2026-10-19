@@ -2,7 +2,6 @@ import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-na
 import type { AgentSessionOpRequest } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GitForkIcon, RotateIcon } from "@/ui/icons/lucide-native";
-import { chatForeground, chatMutedForeground } from "./chat-ink";
 import { copy } from "./copy";
 
 /** Tailwind v4 `sky-500`: `oklch(68.5% 0.169 237.323)`. */
@@ -32,8 +31,8 @@ export function AgentChatSessionOpCard({
   const theme = useMobileTheme();
   const { height } = useWindowDimensions();
   const isDark = theme.isDark;
-  const foreground = chatForeground(isDark);
-  const muted = chatMutedForeground(isDark);
+  const foreground = theme.colors.label;
+  const muted = theme.colors.secondaryLabel;
   const Icon = request.kind === "fork" ? GitForkIcon : RotateIcon;
   const heading =
     request.title.trim() || (request.kind === "fork" ? copy.sessionOpFork : copy.sessionOpRewind);

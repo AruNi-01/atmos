@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import {

@@ -148,9 +148,11 @@ impl RelayLifecycle {
 pub enum RunOutcome {
     /// Caller asked us to stop (`shutdown` fired). Do not reconnect.
     Shutdown,
-    /// Connection dropped (peer close, write/read error, timeout). Supervisor
-    /// should reconnect with backoff.
-    Disconnected,
+    /// Connection dropped (peer close, write/read error, timeout) or the
+    /// upgrade never completed. `established` is true when the upstream
+    /// handshake succeeded before the drop — the supervisor resets backoff
+    /// in that case so later reconnects start at 1 s again.
+    Disconnected { established: bool },
     /// Authentication or other terminal failure where retrying without
     /// operator intervention is pointless (bad credentials, computer revoked).
     Terminal(String),
@@ -201,7 +203,7 @@ pub async fn run(
         Err(e) => {
             let msg = format!("WebSocket connect failed: {e}");
             lifecycle.set_failed(&msg);
-            return RunOutcome::Disconnected;
+            return RunOutcome::Disconnected { established: false };
         }
     };
 
@@ -214,7 +216,7 @@ pub async fn run(
         if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
             return RunOutcome::Terminal(msg);
         }
-        return RunOutcome::Disconnected;
+        return RunOutcome::Disconnected { established: false };
     }
 
     lifecycle.set_connected();
@@ -466,7 +468,7 @@ pub async fn run(
                     frame = ?frame,
                     "relay websocket closed by peer"
                 );
-                break RunOutcome::Disconnected;
+                break RunOutcome::Disconnected { established: true };
             }
             Some(Ok(Message::Binary(_))) | Some(Ok(Message::Frame(_))) => {
                 // Atmos relay only uses text envelopes; ignore stray binary frames.
@@ -477,9 +479,9 @@ pub async fn run(
                     error = ?e,
                     "relay read error",
                 );
-                break RunOutcome::Disconnected;
+                break RunOutcome::Disconnected { established: true };
             }
-            None => break RunOutcome::Disconnected,
+            None => break RunOutcome::Disconnected { established: true },
         }
     };
 

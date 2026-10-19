@@ -153,6 +153,10 @@ Rules (unit-tested in `card-lane.test.ts`):
 
 Card chrome is unchanged from today's `cardElevated` + `glassBorder` + radius 16. Enter/exit is a 180 ms opacity fade (reanimated), same easing as web `EASE_OUT`; no slide, no scale. Card max height is a fraction of the available column so the transcript stays reachable; card body scrolls. Transcript bottom padding = base 40 + (expanded card height + pill row height), easing 350 ms when it shrinks (G-18), measured via `onLayout`.
 
+<!-- updated 2026-10-18: composer-adjacent lane chrome uses GlassPanel -->
+
+**Implementation delta (2026-10-18):** Title pills, the pinned scroll-to-bottom pill, and the expanded card shell now use the same `GlassPanel` as the composer wells (`expo-glass-effect` `GlassView` on iOS 26). Fallback fill is `glassFallback` / `glassFallbackStrong` when Liquid Glass is unavailable, the effect API is missing, or Reduce Transparency is on. Lane interaction (one expanded card, re-tap to collapse, pill order, 180 ms fade) is unchanged. Inner card actions stay filled `control` chips so they stay distinct on the glass shell. Transcript historic permission cards stay `cardElevated`.
+
 ## Motion mapping
 
 All durations and easings come from `agent-tree-branch.ts` constants (shared per D2). Reduced Motion: every row below becomes an immediate state change.

@@ -172,8 +172,7 @@ export const copy = {
     failed: "Failed",
     completed: "Completed",
   },
-  /** Streamdown `caret="block"` is a space plus U+258B. */
-  answerCaret: "\u258b",
+  answerCaret: "\u258d",
   session: {
     creating: "Creating session...",
     created: "Created session",
@@ -270,7 +269,7 @@ export function attachmentChipLabel(part: { name?: string | null; path: string }
   return base || part.path;
 }
 
-/** A paste this phone did not send stays literal. This session's sends are chipped. */
+/** Phone has no paste registry. The `[#paste:id]` token stays literal text. */
 export function userMessageDisplayText(text: string): string {
   return text;
 }
@@ -305,19 +304,27 @@ export function workedForPresentation(
   };
 }
 
+export type WorkedForReveal = "duration" | "timestamp";
+
 /**
- * Web footer uses `reveal="timestamp"`: the clock is showing until hover.
- * A tap on the phone stands in for that hover.
+ * Web `AgentWorkedForLabel`: fold uses duration; the turn footer uses
+ * `reveal="timestamp"` (clock first, duration on hover). Mobile tap is hover.
  */
-export function workedForVisibleKind(input: {
-  hasClock: boolean;
-  hasDuration: boolean;
-  showDuration: boolean;
-}): "clock" | "duration" | null {
-  if (input.hasClock && input.hasDuration) return input.showDuration ? "duration" : "clock";
-  if (input.hasDuration) return "duration";
-  if (input.hasClock) return "clock";
-  return null;
+export function workedForRevealText(
+  presentation: { durationLabel: string | null; clock: string | null },
+  reveal: WorkedForReveal,
+  swapped: boolean,
+): string | null {
+  const duration = presentation.durationLabel;
+  const clock = presentation.clock;
+  if (reveal === "timestamp") {
+    if (!duration) return clock;
+    if (!clock) return duration;
+    return swapped ? duration : clock;
+  }
+  if (!duration) return clock;
+  if (!clock) return duration;
+  return swapped ? clock : duration;
 }
 
 /** Matches web `getThinkingMessage`: open or zero seconds stays on the streaming title. */

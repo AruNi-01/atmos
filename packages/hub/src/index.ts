@@ -89,7 +89,7 @@ async function ensureProfile(env: HubEnv, userId: string) {
   return getOrCreateProfile(db, userId);
 }
 
-export default {
+const worker = {
   async fetch(request: Request, env: HubEnv): Promise<Response> {
     if (request.method === "OPTIONS") {
       return preflight(env, request);
@@ -801,3 +801,5 @@ export default {
     await refreshUsageLeaderboards(db);
   },
 };
+
+export default worker;

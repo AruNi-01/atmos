@@ -92,6 +92,20 @@ describe("scroll pill rules", () => {
     expect(scrollPillAccessibilityLabel(0)).toBe("Bottom");
   });
 
+  test("the pill uses web text-xs leading-none and a size-4 chevron", () => {
+    const pill = readFileSync(join(here, "scroll-pill.tsx"), "utf8");
+    const web = readFileSync(
+      join(here, "../../../../web/src/features/agent/components/AgentChatScrollToBottom.tsx"),
+      "utf8",
+    );
+    expect(web).toContain("text-xs leading-none font-medium");
+    expect(web).toContain('className="size-4"');
+    expect(pill).toContain("fontSize: 12");
+    expect(pill).toContain('fontWeight: "500"');
+    expect(pill).toContain("lineHeight: 12");
+    expect(pill).toContain("size={16}");
+  });
+
   test("the pill and the row follow message count, stick, and cards", () => {
     expect(scrollPillVisible(0, true)).toBe(false);
     expect(composerRowVisible(false, 0)).toBe(false);

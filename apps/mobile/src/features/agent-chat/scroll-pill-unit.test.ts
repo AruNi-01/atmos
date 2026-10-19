@@ -34,28 +34,20 @@ describe("scroll pill unit", () => {
     expect(textMorphCharacters("a b")[1]).toEqual({ id: " 1", label: "\u00A0" });
   });
 
-  test("uses TextMorph's opacity spring and snaps under reduced motion", () => {
+  test("uses TextMorph's opacity spring", () => {
     expect(SCROLL_UNIT_SPRING).toEqual({ damping: 18, mass: 0.3, stiffness: 280 });
+  });
+
+  test("the below pill is the glass well and keeps a stable test id", () => {
     const pill = readFileSync(join(dir, "scroll-pill.tsx"), "utf8");
-    expect(pill).toContain("textMorphFrame");
-    expect(pill).toContain("withSpring");
-    expect(pill).toContain("SCROLL_UNIT_SPRING");
-    expect(pill).toContain("if (reduced || !morphing)");
-    expect(pill).toContain("agentChatTokenMap.textXs");
-    expect(pill).toContain('fontWeight: "500"');
-    expect(pill).toContain('fontVariant: ["tabular-nums"]');
-    expect(pill).toContain("SCROLL_PILL_HEIGHT");
-    expect(pill).toContain("SCROLL_PILL_ICON");
-    expect(pill).toContain("export const SCROLL_PILL_ICON_OPACITY = 0.8");
-    expect(pill).toContain("opacity: SCROLL_PILL_ICON_OPACITY");
-    expect(pill).toContain("chatSecondaryForeground(theme.isDark)");
-    expect(pill).not.toContain("theme.colors.label");
-    expect(pill).toContain("paddingLeft: showCopy ? 8 : 0");
-    expect(pill).toContain("paddingRight: showCopy ? 10 : 0");
-    expect(pill).toContain("gap: 6");
-    expect(pill).not.toContain("fontSize: 14");
-    expect(pill).not.toContain("height: 36");
-    expect(pill).not.toContain("paddingHorizontal: 14");
-    expect(pill).not.toContain("size={14}");
+    expect(pill).toContain('SCROLL_PILL_TEST_ID = "agent-chat-scroll-pill"');
+    expect(pill).toContain("testID={SCROLL_PILL_TEST_ID}");
+    expect(pill).toContain("COMPOSER_GLASS_CONTROL_SIZE");
+    expect(pill).toContain("COMPOSER_GLASS_CONTROL_RADIUS");
+    expect(pill).toContain("shadow={false}");
+    expect(pill).toContain("theme.colors.label");
+    expect(pill).toContain("theme.colors.glassTint");
+    expect(pill).toContain("opacity: pressed ? 0.6 : 1");
+    expect(pill).toContain("NumberFlow");
   });
 });

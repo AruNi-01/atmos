@@ -124,6 +124,7 @@ export const AgentIcon: React.FC<{
   }
 
   return (
+    // oxlint-disable-next-line next/no-img-element -- runtime/dynamic icon URL; next/image optimisation not applicable (static export)
     <img
       src={currentSrc}
       alt={`${name} icon`}

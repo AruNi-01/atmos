@@ -8,9 +8,7 @@ type NativeEdgeProps = {
 };
 
 const NativeScrollEdge: ComponentType<NativeEdgeProps> | null =
-  process.env.EXPO_OS !== "ios"
-    ? null
-    : (requireNativeView("AtmosScrollEdge") as ComponentType<NativeEdgeProps>);
+  process.env.EXPO_OS !== "ios" ? null : requireNativeView("AtmosScrollEdge");
 
 /** iOS 26 draws a blur on each scroll edge. This view hides that blur underneath it. */
 export function HideScrollEdge({

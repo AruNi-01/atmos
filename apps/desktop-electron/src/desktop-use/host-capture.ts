@@ -6,7 +6,6 @@
  */
 
 import {
-  appNamesLooselyEqual,
   hostWindowToFrontmost,
   matchWindowForFrontmost,
   mergeFrontmostIdentity,
@@ -29,12 +28,7 @@ import {
   desktopUseReadFrontmost,
   type DesktopUseFrontmost,
 } from "./capture.js";
-import {
-  desktopUseDriveScreenshot,
-  desktopUseDriveVerify,
-  desktopUseStatus,
-  type DesktopUseStatusJson,
-} from "./client.js";
+import { desktopUseDriveScreenshot, desktopUseDriveVerify, desktopUseStatus } from "./client.js";
 import {
   computeWindowCropPixels,
   cropPngBytesToRect,

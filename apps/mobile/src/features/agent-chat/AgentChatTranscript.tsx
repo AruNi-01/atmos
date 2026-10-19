@@ -46,12 +46,17 @@ import {
   segmentAssistantParts,
   shouldShowAssistantTurnEndedChrome,
   splitSegmentedAssistantParts,
+  toolGroupHasRunning,
   TRANSCRIPT_END_SLACK_PX,
   transcriptVisibility,
   type AssistantSegment,
   type TranscriptMeasurement,
 } from "@atmos/agent-transcript";
-import { ActivityRow } from "./activity-row";
+import {
+  ActivityRow,
+  activityRowDuplicatesOpenTree,
+  activityRowDuplicatesVisibleTree,
+} from "./activity-row";
 import { AnswerText } from "./answer-text";
 import { AssistantFooter, AssistantTurnFiles } from "./assistant-footer";
 import { copy } from "./copy";
@@ -59,6 +64,7 @@ import { EdgeFades } from "./edge-fades";
 import { ErrorPart } from "./error-part";
 import {
   agentChatInspectExpandKey,
+  agentChatToolGroupExpandKey,
   expandResetForFirstMessage,
   useAgentChatExpandStore,
 } from "./expand-store";
@@ -320,6 +326,14 @@ const ASSISTANT_COLUMN_INSET = 8;
 /** Web `ConversationContent` `py-4`. The overlay spacer stays on top of this. */
 const TRANSCRIPT_CONTENT_PAD_Y = 16;
 
+/** Empty list while the turn is open. There is no assistant message to label yet. */
+const STREAMING_ACTIVITY_MESSAGE: AgentMessage = {
+  id: "streaming-activity",
+  parts: [],
+  role: "assistant",
+  streaming: true,
+};
+
 function AssistantTurn({
   inlineTools = [],
   message,
@@ -331,6 +345,7 @@ function AssistantTurn({
   messages: readonly AgentMessage[];
   showActivity?: boolean;
 }) {
+  const expandValues = useAgentChatExpandStore((state) => state.values);
   const assistantText = assistantCopyText(message);
   const showChrome = shouldShowAssistantTurnEndedChrome(message, assistantText);
   if (!assistantHasVisiblePart(message) && !showChrome && !message.streaming && !showActivity) {
@@ -340,6 +355,26 @@ function AssistantTurn({
   const segments = segmentAssistantParts(message.parts, DEFAULT_TOOL_CALL_DENSITY);
   const { processSegments, tailSegments } = splitSegmentedAssistantParts(segments);
   const canCollapse = processSegments.length > 0 && hasCollapsibleAssistantProcess(message);
+  const runningGroups = segments.flatMap((segment) => {
+    if (segment.type !== "tool_group") return [];
+    return [
+      {
+        key: toolGroupKey(segment.parts, segment.origIndexes),
+        running: toolGroupHasRunning(segment.parts),
+      },
+    ];
+  });
+  const storedByKey = Object.fromEntries(
+    runningGroups.map((group) => [
+      group.key,
+      expandValues[agentChatToolGroupExpandKey(message.id, group.key)],
+    ]),
+  );
+  const hideDuplicateActivity = activityRowDuplicatesVisibleTree(
+    activityRowDuplicatesOpenTree(message),
+    runningGroups,
+    storedByKey,
+  );
   const markInspecting = () => {
     useAgentChatExpandStore.getState().setExpand(agentChatInspectExpandKey(message.id), true);
   };
@@ -376,11 +411,7 @@ function AssistantTurn({
           <InlineSubagentPanel messages={messages} tools={inlineTools} />
         </View>
       ) : null}
-      {showActivity ? (
-        <View style={{ marginTop: 8 }}>
-          <ActivityRow messages={messages} turnOpen />
-        </View>
-      ) : null}
+      {showActivity && !hideDuplicateActivity ? <ActivityRow message={message} /> : null}
     </View>
   );
 }
@@ -402,7 +433,7 @@ const ChatMessage = memo(function ChatMessage({
         <UserMessage message={message} />
         {showActivity ? (
           <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET, marginTop: 8 }}>
-            <ActivityRow messages={messages} turnOpen />
+            <ActivityRow message={message} />
           </View>
         ) : null}
       </>
@@ -923,7 +954,7 @@ export const AgentChatTranscript = forwardRef<
           ListEmptyComponent={
             streaming ? (
               <View style={{ marginHorizontal: ASSISTANT_COLUMN_INSET }}>
-                <ActivityRow messages={messages} turnOpen />
+                <ActivityRow message={STREAMING_ACTIVITY_MESSAGE} />
               </View>
             ) : (
               <EmptyChat />

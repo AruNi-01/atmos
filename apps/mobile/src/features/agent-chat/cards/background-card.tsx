@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { CommandTerminalIcon, TerminalIcon } from "@/ui/icons/lucide-native";
-import { chatForeground80, chatForeground90, chatMutedForeground } from "../chat-ink";
 import type { BackgroundCommand } from "../composer-cards";
 import { copy, fillTemplate } from "../copy";
 
@@ -11,7 +10,7 @@ const LIVE_DOT = "#00bc7d";
 
 export function BackgroundCard({ commands }: { commands: BackgroundCommand[] }) {
   const theme = useMobileTheme();
-  const muted = chatMutedForeground(theme.isDark);
+  const muted = theme.colors.secondaryLabel;
   const [open, setOpen] = useState(true);
   return (
     <View>
@@ -30,7 +29,7 @@ export function BackgroundCard({ commands }: { commands: BackgroundCommand[] }) 
         <TerminalIcon color={muted} size={16} strokeWidth={2} />
         <Text
           style={{
-            color: chatForeground90(theme.isDark),
+            color: theme.colors.label,
             fontSize: 14,
             fontWeight: "500",
             lineHeight: 20,
@@ -87,7 +86,7 @@ export function BackgroundCard({ commands }: { commands: BackgroundCommand[] }) 
               <Text
                 numberOfLines={1}
                 style={{
-                  color: chatForeground80(theme.isDark),
+                  color: theme.colors.secondaryLabel,
                   flex: 1,
                   fontFamily: "Menlo",
                   fontSize: 12,

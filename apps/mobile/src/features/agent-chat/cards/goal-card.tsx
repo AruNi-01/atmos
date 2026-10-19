@@ -6,7 +6,6 @@ import {
 } from "@atmos/agent-transcript";
 import { GoalIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
-import { chatMutedForeground } from "../chat-ink";
 import { copy, fillTemplate } from "../copy";
 import { GrokChromePanel } from "../grok-chrome-panel";
 import { grokGoalEmptyHint, grokGoalHeadline } from "../grok-chrome-label";
@@ -28,7 +27,7 @@ export function GoalCard({
       emptyHint={grokGoalEmptyHint}
       expandAria={copy.grokGoalExpandAria}
       fallbackType={copy.grokGoalFallback}
-      icon={<GoalIcon color={chatMutedForeground(theme.isDark)} size={16} strokeWidth={2} />}
+      icon={<GoalIcon color={theme.colors.secondaryLabel} size={16} strokeWidth={2} />}
       messages={messages}
       meta={status}
       panelAria={copy.grokGoalPanelAria}

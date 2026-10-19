@@ -177,6 +177,6 @@ describe("command permission actions", () => {
     expect(card).toContain("<ApprovalShell>");
     expect(card).not.toContain("borderRadius: 12");
     expect(source).toContain("approvalInk");
-    expect(source).not.toContain("theme.colors.label");
+    expect(source).toContain("theme.colors.secondaryLabel");
   });
 });
