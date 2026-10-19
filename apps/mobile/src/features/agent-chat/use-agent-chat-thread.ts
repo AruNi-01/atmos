@@ -1,4 +1,4 @@
-import type { AgentChatPayload } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentChatEvent, AgentChatPayload } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   AGENT_CHAT_COMMIT_FLUSH_MS,
   classifyCommitCadence,
@@ -33,9 +33,11 @@ import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
 import {
+  applyAgentChatResync,
   applyChatEvent,
   createChatTranscript,
-  transcriptFromAgentChatSnapshot,
+  pruneChatEvents,
+  rememberChatEvent,
   type ChatTranscriptState,
 } from "./fold-transcript";
 import { agentChatEventFromMessage, eventsForChat } from "./foreign-event";
@@ -69,7 +71,7 @@ export function useAgentChatThread(chatId: string) {
 
     let cancelled = false;
     let ready = false;
-    const buffer: ReturnType<typeof agentChatEventFromMessage>[] = [];
+    const recentEvents: AgentChatEvent[] = [];
     const inflight = new Set<string>();
     const empty = createChatTranscript(chatId);
     transcriptRef.current = empty;
@@ -109,20 +111,20 @@ export function useAgentChatThread(chatId: string) {
     const unsubscribeMessages = client.subscribeMessages((message) => {
       const resync = parseAgentChatResync(message);
       if (resync && resync.chat_id === chatId) {
-        const next = transcriptFromAgentChatSnapshot(chatId, resync.snapshot);
-        transcriptRef.current = next;
+        const applied = applyAgentChatResync(chatId, resync.snapshot, recentEvents);
+        pruneChatEvents(recentEvents, resync.snapshot.meta?.last_event_seq ?? 0);
+        transcriptRef.current = applied.state;
+        for (const request of applied.backfills) requestBackfill(request);
         if (ready) {
-          setTranscript(next);
-          setError(null);
+          setTranscript(applied.state);
+          setError((prev) => (prev === copy.sendFailed ? prev : null));
         }
         return;
       }
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
-      if (!ready) {
-        buffer.push(event);
-        return;
-      }
+      rememberChatEvent(recentEvents, event);
+      if (!ready) return;
       const next = applyChatEvent(transcriptRef.current, event);
       transcriptRef.current = next.state;
       if (next.backfill) requestBackfill(next.backfill);
@@ -134,25 +136,16 @@ export function useAgentChatThread(chatId: string) {
       try {
         const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
         if (cancelled) return;
-        let state = transcriptFromAgentChatSnapshot(chatId, snapshot);
-        let after = snapshot.meta?.last_event_seq ?? 0;
-        const drain = () => {
-          const queued = buffer.splice(0, buffer.length);
-          for (const event of queued) {
-            if (!event) continue;
-            const revision = event.revision ?? 0;
-            if (revision <= after) continue;
-            after = Math.max(after, revision);
-            const next = applyChatEvent(state, event);
-            state = next.state;
-            if (next.backfill) requestBackfill(next.backfill);
-          }
-        };
-        drain();
-        drain();
-        transcriptRef.current = state;
+        const applied = applyAgentChatResync(chatId, snapshot, recentEvents);
+        const after = Math.max(
+          snapshot.meta?.last_event_seq ?? 0,
+          ...recentEvents.map((event) => event.revision ?? 0),
+        );
+        pruneChatEvents(recentEvents, after);
+        for (const request of applied.backfills) requestBackfill(request);
+        transcriptRef.current = applied.state;
         ready = true;
-        setTranscript(state);
+        setTranscript(applied.state);
         try {
           await wsActions.agentChatSubscribe(client, {
             chat_id: chatId,

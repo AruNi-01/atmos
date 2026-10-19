@@ -120,20 +120,28 @@ For each tracked chat:
 1. `agent_chat_subscribe({ chat_id, after_sequence: cursor })`.
 2. Read `last_event_seq` from the response.
 3. If `last_event_seq === cursor`, incremental path is done (nothing missed, or replay already landed as notifications).
-4. If `last_event_seq == null` **or** `last_event_seq !== cursor`, call `agent_chat_get({ chat_id })` and emit a **façade** message:
+4. If `last_event_seq == null` **or** `last_event_seq !== cursor` **or** the chat is in `pendingSnapshots`, call `agent_chat_get({ chat_id })` and emit a **façade** message:
 
 ```ts
 {
-  type: ("agent_chat_resync", chat_id, snapshot);
+  type: "agent_chat_resync",
+  chat_id,
+  snapshot,
 }
 ```
 
 This is **not** a `WsEvent` and must not be added to the Rust enum / `@atmos/api-types` contract in this spec.
 
-5. Advance the cursor to `max(cursor, snapshot.meta.last_event_seq, last_event_seq)`.
-6. Clear the catching-up alert only after **every** tracked chat finished subscribe + optional snapshot without throwing. Failures back off and keep the alert.
+5. **Do not** advance the cursor from subscribe `last_event_seq` until the snapshot emits. Mark `pendingSnapshots` before `agent_chat_get`; clear it only after emitting `agent_chat_resync`. If get throws, the next retry still snapshots even when subscribe seq matches the (possibly live-advanced) cursor.
+6. After a successful snapshot, advance the cursor to `max(cursor, snapshot.meta.last_event_seq, last_event_seq)`.
+7. Clear the catching-up alert only after **every** tracked chat finished subscribe + optional snapshot without throwing. Failures back off and keep the alert.
 
-The open thread hook applies the snapshot **in place** (`transcriptFromAgentChatSnapshot`) without setting `loading` or replacing the effect deps. The user must not see an empty flash. Permission / queue / running turn come from the snapshot. QUALITY-013 may later fold this through EventGate.
+The open thread hook applies the snapshot **in place** via `applyAgentChatResync`:
+
+- `transcriptFromAgentChatSnapshot` fills messages, permission, queue, running turn, and `meta.available_commands`.
+- A bounded ring (256) of live `agent_chat_event`s is replayed when `revision > snapshot.meta.last_event_seq`, so a notification that landed during `agent_chat_get` is not overwritten. This is not EventGate (QUALITY-013).
+- Resync does not clear a composer `sendFailed` error.
+- The effect deps / `loading` flag stay put; the user must not see an empty flash.
 
 ## iOS socket
 

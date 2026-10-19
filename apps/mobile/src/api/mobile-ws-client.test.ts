@@ -120,6 +120,17 @@ function replyOk(socket: FakeMobileWebSocket, data: unknown = {}) {
   });
 }
 
+function replyFail(socket: FakeMobileWebSocket) {
+  const sent = lastRequest(socket);
+  socket.emit({
+    type: "response",
+    payload: {
+      request_id: sent.payload.request_id,
+      success: false,
+    },
+  });
+}
+
 describe("MobileWsClient", () => {
   test("reconnects with backoff after a server-side close", () => {
     const timers: TimerCall[] = [];
@@ -440,6 +451,47 @@ describe("MobileWsClient", () => {
     expect(seen.some((message) => isResync(message, "chat-1"))).toBe(true);
     expect(client.transportAlert).toBeNull();
     expect(client.state).toBe("open");
+  });
+
+  test("failed snapshot fetch keeps the old cursor so retry still gets", async () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const client = createClient({ timers });
+    client.connect();
+    const socket = FakeMobileWebSocket.instances[0]!;
+    socket.open();
+    const subscribed = client.request("agent_chat_subscribe", {
+      chat_id: "chat-1",
+      after_sequence: 10,
+    });
+    replyOk(socket, { last_event_seq: 10 });
+    await subscribed;
+
+    socket.emit({ type: "relay_ctrl", code: "server_offline" });
+    const first = timers.find((timer) => timer.delayMs === 0);
+    expect(first).toBeDefined();
+    first!.callback();
+    await flushMicrotasks();
+    replyOk(socket, { last_event_seq: 40 });
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: { action: "agent_chat_get", data: { chat_id: "chat-1" } },
+    });
+    replyFail(socket);
+    await flushMicrotasks();
+
+    const retry = timers.find((timer) => timer.delayMs === 250);
+    expect(retry).toBeDefined();
+    retry!.callback();
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: { action: "agent_chat_subscribe", data: { chat_id: "chat-1", after_sequence: 10 } },
+    });
+    replyOk(socket, { last_event_seq: 40 });
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: { action: "agent_chat_get", data: { chat_id: "chat-1" } },
+    });
   });
 });
 

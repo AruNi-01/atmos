@@ -190,6 +190,7 @@ export class MobileWsClient {
   private foreground = true;
   private networkOnline = true;
   private readonly cursors = new AgentChatCursorTracker();
+  private readonly pendingSnapshots = new Set<string>();
   private readonly setTimer: (callback: () => void, delayMs: number) => MobileTimer;
   private readonly clearTimer: (timer: MobileTimer) => void;
   private readonly reconnectEnabled: boolean;
@@ -312,7 +313,10 @@ export class MobileWsClient {
       if (payload) this.cursors.noteSubscribe(payload.chatId, payload.afterSequence);
     } else if (action === "agent_chat_unsubscribe") {
       const payload = subscribePayload(data);
-      if (payload) this.cursors.noteUnsubscribe(payload.chatId);
+      if (payload) {
+        this.cursors.noteUnsubscribe(payload.chatId);
+        this.pendingSnapshots.delete(payload.chatId);
+      }
     }
     return this.session.request(action as never, data as never, opts).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
@@ -406,14 +410,21 @@ export class MobileWsClient {
       after_sequence: chat.after_sequence,
     });
     const lastSeq = lastEventSeqFromSubscribe(subscribed);
-    if (lastSeq != null) this.cursors.noteRevision(chat.chat_id, lastSeq);
-    if (lastSeq === chat.after_sequence) return;
+    const needsSnapshot =
+      lastSeq !== chat.after_sequence || this.pendingSnapshots.has(chat.chat_id);
+    if (!needsSnapshot) {
+      if (lastSeq != null) this.cursors.noteRevision(chat.chat_id, lastSeq);
+      return;
+    }
+    this.pendingSnapshots.add(chat.chat_id);
     if (!this.lifecycleLive()) throw new Error("lifecycle paused");
     const snapshot = (await this.session.request("agent_chat_get", {
       chat_id: chat.chat_id,
     })) as AgentChatSnapshot;
     const snapshotSeq = snapshot.meta?.last_event_seq;
     if (typeof snapshotSeq === "number") this.cursors.noteRevision(chat.chat_id, snapshotSeq);
+    else if (lastSeq != null) this.cursors.noteRevision(chat.chat_id, lastSeq);
+    this.pendingSnapshots.delete(chat.chat_id);
     const resync = agentChatResyncMessage(chat.chat_id, snapshot);
     this.messageListeners.forEach((listener) => listener(resync));
   }

@@ -106,6 +106,12 @@ type ReconnectPolicy = {
   exhausted: ExhaustedBehavior;
   /** if false, clean close (wasClean) does not schedule reconnect */
   reconnectOnCleanClose: boolean;
+  /**
+   * Retry when the socket never reaches open. Web keeps this off so a bad
+   * local URL does not spin; mobile turns it on because the first relay
+   * upgrade is the one that fails on a phone.
+   */
+  reconnectBeforeOpen: boolean;
 };
 
 type WsSessionOptions = {
@@ -214,6 +220,7 @@ export const DEFAULT_WEB_RECONNECT: ReconnectPolicy = {
   maxAttempts: 10,
   exhausted: { type: "slow_retry", delayMs: 60_000 },
   reconnectOnCleanClose: false,
+  reconnectBeforeOpen: false,
 };
 
 export const DEFAULT_MOBILE_RECONNECT: ReconnectPolicy = {

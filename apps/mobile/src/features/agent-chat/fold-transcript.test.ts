@@ -6,8 +6,10 @@ import type {
   AgentChatSnapshot,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import {
+  applyAgentChatResync,
   applyChatEvent,
   createChatTranscript,
+  rememberChatEvent,
   transcriptFromAgentChatSnapshot,
 } from "./fold-transcript";
 
@@ -266,9 +268,14 @@ describe("applyChatEvent", () => {
 });
 
 describe("transcriptFromAgentChatSnapshot", () => {
-  test("applies messages and pending permission without clearing first", () => {
+  test("applies messages, pending permission, and slash commands without clearing first", () => {
     const snapshot = {
-      meta: { id: "chat-1", last_event_seq: 40, session_usage: null },
+      meta: {
+        id: "chat-1",
+        last_event_seq: 40,
+        session_usage: null,
+        available_commands: [{ name: "/fork", description: "Fork this chat" }],
+      },
       messages: [
         {
           id: "m-new",
@@ -289,5 +296,62 @@ describe("transcriptFromAgentChatSnapshot", () => {
     expect(state.messages.map((message) => message.id)).toEqual(["m-new"]);
     expect(state.pendingPermission?.request_id).toBe("perm-1");
     expect(state.runningTurnId).toBe("turn-9");
+    expect(state.commands).toEqual([{ name: "fork", description: "Fork this chat", hint: null }]);
+  });
+});
+
+describe("applyAgentChatResync", () => {
+  test("replays live events newer than the snapshot sequence", () => {
+    const snapshot = {
+      meta: { id: "chat-1", last_event_seq: 40 },
+      messages: [
+        {
+          id: "m-snap",
+          role: "assistant",
+          parts: [{ type: "text", text: "caught up" }],
+        },
+      ],
+      queue: [],
+    } as unknown as AgentChatSnapshot;
+    const recent = [
+      event(
+        "chat-1",
+        { type: "user_message", turn_id: "t1", message_id: "u-old", text: "old" },
+        39,
+      ),
+      event(
+        "chat-1",
+        { type: "user_message", turn_id: "t2", message_id: "u-new", text: "live" },
+        41,
+      ),
+      event(
+        "chat-other",
+        { type: "user_message", turn_id: "t3", message_id: "u-x", text: "no" },
+        50,
+      ),
+    ];
+    const applied = applyAgentChatResync("chat-1", snapshot, recent);
+    expect(applied.state.messages.map((message) => message.id)).toEqual(["m-snap", "u-new"]);
+    expect(applied.backfills).toEqual([]);
+  });
+
+  test("rememberChatEvent drops the oldest events past the ring limit", () => {
+    const recent: AgentChatEvent[] = [];
+    rememberChatEvent(
+      recent,
+      event("chat-1", { type: "user_message", turn_id: "t", message_id: "a", text: "a" }, 1),
+      2,
+    );
+    rememberChatEvent(
+      recent,
+      event("chat-1", { type: "user_message", turn_id: "t", message_id: "b", text: "b" }, 2),
+      2,
+    );
+    rememberChatEvent(
+      recent,
+      event("chat-1", { type: "user_message", turn_id: "t", message_id: "c", text: "c" }, 3),
+      2,
+    );
+    expect(recent.map((item) => item.revision)).toEqual([2, 3]);
   });
 });

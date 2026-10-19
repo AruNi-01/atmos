@@ -53,9 +53,20 @@ describe("mobile ws transport helpers", () => {
       messages: [],
       queue: [],
     };
-    const message = agentChatResyncMessage("chat-1", snapshot as never);
-    expect(parseAgentChatResync(message)).toEqual(message);
+    const wire = {
+      type: "agent_chat_resync",
+      chat_id: "chat-1",
+      snapshot,
+    };
+    expect(parseAgentChatResync(wire)).toEqual(wire);
+    expect(agentChatResyncMessage("chat-1", snapshot as never)).toEqual(wire);
     expect(lastEventSeqFromSubscribe({ last_event_seq: 9 })).toBe(9);
     expect(parseAgentChatResync({ type: "relay_ctrl" })).toBeNull();
+    expect(parseAgentChatResync({ type: "agent_chat_resync", snapshot })).toBeNull();
+    expect(parseAgentChatResync({ type: "agent_chat_resync", chat_id: "", snapshot })).toBeNull();
+    expect(
+      parseAgentChatResync({ type: "agent_chat_resync", chat_id: "chat-1", snapshot: null }),
+    ).toBeNull();
+    expect(parseAgentChatResync({ type: "agent_chat_resync", chat_id: 1, snapshot })).toBeNull();
   });
 });
