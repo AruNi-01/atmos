@@ -105,9 +105,11 @@ export function AgentChatComposer(props: {
   const [modelsOpen, setModelsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [focused, setFocused] = useState(false);
-  const [contentHeight, setContentHeight] = useState(LINE_HEIGHT);
-  const [compactLineCount, setCompactLineCount] = useState(1);
+  const [measuredHeight, setMeasuredHeight] = useState(LINE_HEIGHT);
+  const [measuredLines, setMeasuredLines] = useState(1);
   const [dockWidth, setDockWidth] = useState(0);
+  const contentHeight = props.text.length === 0 ? LINE_HEIGHT : measuredHeight;
+  const compactLineCount = props.text.length === 0 ? 1 : measuredLines;
   const suggestions = props.suggestions ?? [];
   const draftText = props.text.trim();
   const canSend = draftText.length > 0 || props.photos.length > 0;
@@ -236,13 +238,6 @@ export function AgentChatComposer(props: {
     props.onPasteChipsChange(removed.chips);
     props.onChangeText(removed.draft);
   };
-
-  useEffect(() => {
-    if (props.text.length === 0) {
-      setContentHeight(LINE_HEIGHT);
-      setCompactLineCount(1);
-    }
-  }, [props.text]);
 
   const renderPlus = () => (
     <GlassPanel {...COMPOSER_GLASS_WELL} style={glassButton}>
@@ -531,7 +526,7 @@ export function AgentChatComposer(props: {
                   measuredLines,
                   text: props.text,
                 });
-                setCompactLineCount((current) => (current === next ? current : next));
+                setMeasuredLines((current) => (current === next ? current : next));
               }}
               pointerEvents="none"
               style={{
@@ -555,12 +550,9 @@ export function AgentChatComposer(props: {
                   onBlur={() => setFocused(false)}
                   onChangeText={onDraftChange}
                   onContentSizeChange={(event) => {
-                    if (props.text.length === 0) {
-                      setContentHeight(LINE_HEIGHT);
-                      return;
-                    }
+                    if (props.text.length === 0) return;
                     const next = Math.ceil(event.nativeEvent.contentSize.height);
-                    setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
+                    setMeasuredHeight((current) => (Math.abs(current - next) < 2 ? current : next));
                   }}
                   onFocus={() => setFocused(true)}
                   placeholder={props.placeholder}
