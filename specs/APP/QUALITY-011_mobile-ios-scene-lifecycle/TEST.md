@@ -8,33 +8,37 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 
 - Unit: `bun test` on the pure plugin rewrite and the plist dictionary. No prebuild, no simulator.
 - Structural: `expo prebuild --platform ios --no-install`, then `apps/mobile/script/verify-ios-scene-lifecycle.sh structural`. The parity workflow runs the same script on the generated project and `built-plist` on the built app.
-- Manual simulator: `verify-ios-scene-lifecycle.sh simulator` on a Mac. The 2026-10-19 run on `3929803de` counted an unconditional URL `NSLog`. `42801c19` reached the JS unmatched route with that log at 0, and the script's old count failed closed. The script now requires `ATMOS_ROUTE unmatched` to increase on the cold open and again on the warm open. That Mac rerun is not done yet.
+- Manual simulator: `verify-ios-scene-lifecycle.sh simulator` on a Mac. The 2026-10-19 run on `3929803de` counted an unconditional URL `NSLog`. `42801c19` reached the JS unmatched route with that log at 0, and the script's old count failed closed. The script now requires `ATMOS_ROUTE unmatched` to increase on the cold open and again on the warm open. That rerun passed on `19521d7` (`19521d798311b4dac99b8067605bc10e0367d860`).
+- Launch proof on Linux: `bun test` on `script/scene-launch-evidence.test.js`. Fake pod install logs and a fake DiagnosticReports directory drive the shell. A cold launch passes only when the pid is still alive at least 3 seconds later, no new Atmos `.ips` appeared, and the old runtime-issue checks still pass. The failure line names the seconds actually waited (`4s` when the shell waited `COLD_LAUNCH_WAIT_SECONDS`), not the 3 second minimum. A prebuilt miss prints `NOT RUN` and exits 2, which is neither 0 nor 1.
 - Exploratory agent-browser: omitted. The app under test is a native iOS binary, not a browser page.
 
 ## Coverage map
 
-| Requirement                                                                                                 | Scenario IDs |
-| ----------------------------------------------------------------------------------------------------------- | ------------ |
-| M1. iOS 27.0 Release cold start does not hit `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` | S1, S2, S6   |
-| M2. iOS 26.5 Release cold start still launches                                                              | S3, S6       |
-| M3. Cold-start custom URL reaches `RCTLinkingManager`                                                       | S4, S6       |
-| M4. Warm `openURL` reaches `RCTLinkingManager`                                                              | S4, S6       |
-| M5. Browsing-web user activity is forwarded even though no associated domain is configured                  | S5           |
-| M6. Parity preview must not strip the scene class or the scene plugin                                       | S3, S7       |
-| M7. iOS 27 background and foreground still reach React Native `AppState`                                    | S8           |
+| Requirement                                                                                                 | Scenario IDs   |
+| ----------------------------------------------------------------------------------------------------------- | -------------- |
+| M1. iOS 27.0 Release cold start does not hit `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` | S1, S2, S6, S9 |
+| Prebuilt download failure is NOT RUN, not PASS and not FAIL                                                 | S10            |
+| M2. iOS 26.5 Release cold start still launches                                                              | S3, S6         |
+| M3. Cold-start custom URL reaches `RCTLinkingManager`                                                       | S4, S6         |
+| M4. Warm `openURL` reaches `RCTLinkingManager`                                                              | S4, S6         |
+| M5. Browsing-web user activity is forwarded even though no associated domain is configured                  | S5             |
+| M6. Parity preview must not strip the scene class or the scene plugin                                       | S3, S7         |
+| M7. iOS 27 background and foreground still reach React Native `AppState`                                    | S8             |
 
 ## Execution map
 
-| Scenario | Level      | Expected tool                             | Target command / method                                                                                                         | Fixture / data                                                             | Signals                                                                                                                  | Status  |
-| -------- | ---------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------- |
-| S1       | Unit       | `bun test`                                | `cd apps/mobile && bun test plugins/with-ios-scene-lifecycle.test.js ios-launch-scene.test.js app.config.test.js`               | Expo SDK 56 AppDelegate fixture in the test                                | `class SceneDelegate`; no `UIWindow(frame:`; launch-option key strings; `openURLContexts`                                | pass    |
-| S2       | Structural | shell                                     | `cd apps/mobile && CI=1 bunx expo prebuild --platform ios --no-install && bash script/verify-ios-scene-lifecycle.sh structural` | clean prebuild                                                             | source plist class is `$(PRODUCT_MODULE_NAME).SceneDelegate`; Swift checks from S1 hold on `ios/Atmos/AppDelegate.swift` | pass    |
-| S3       | CI build   | GitHub Actions                            | `.github/workflows/ci-mobile-ios-parity.yml` `ios-simulator` job                                                                | `EXPO_PUBLIC_PARITY_PREVIEW=1`, iPhone 17 Pro, iOS 26.5, Release           | job green; built plist class is `Atmos.SceneDelegate`; parity PNGs are not the black scene                               | pass    |
-| S4       | Manual     | `verify-ios-scene-lifecycle.sh simulator` | see Manual verification steps                                                                                                   | iPhone 18 Pro, iOS 27.0, Release                                           | `ATMOS_ROUTE unmatched` once after the cold URL and again after the warm URL; no URL on an Atmos line                    | partial |
-| S5       | Unit       | `bun test`                                | same file as S1                                                                                                                 | fixture                                                                    | `userActivities`, `NSUserActivityTypeBrowsingWeb`, both user-activity launch-option keys                                 | pass    |
-| S6       | Manual     | same script, both runtimes                | see Manual verification steps                                                                                                   | iOS 27.0 and iOS 26.5 Release                                              | `simctl launch` exit 0; no `EXC_BREAKPOINT` / runtime-issue line                                                         | partial |
-| S7       | Unit       | `bun test`                                | `app.config.test.js`                                                                                                            | `EXPO_PUBLIC_PARITY_PREVIEW=1` and `./plugins/with-ios-scene-lifecycle.js` | parity config keeps the manifest and that plugin                                                                         | pass    |
-| S8       | Manual     | iOS 27 and iOS 26.5 simulators            | background, then foreground, without terminating                                                                                | iPhone 18 Pro / iOS 27.0, and one iOS 26.5 control round                   | each round JS `AppState` is `active`, `inactive`, `background`, `active`                                                 | pass    |
+| Scenario | Level      | Expected tool                             | Target command / method                                                                                                         | Fixture / data                                                              | Signals                                                                                                                  | Status |
+| -------- | ---------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------ |
+| S1       | Unit       | `bun test`                                | `cd apps/mobile && bun test plugins/with-ios-scene-lifecycle.test.js ios-launch-scene.test.js app.config.test.js`               | Expo SDK 56 AppDelegate fixture in the test                                 | `class SceneDelegate`; no `UIWindow(frame:`; launch-option key strings; `openURLContexts`                                | pass   |
+| S2       | Structural | shell                                     | `cd apps/mobile && CI=1 bunx expo prebuild --platform ios --no-install && bash script/verify-ios-scene-lifecycle.sh structural` | clean prebuild                                                              | source plist class is `$(PRODUCT_MODULE_NAME).SceneDelegate`; Swift checks from S1 hold on `ios/Atmos/AppDelegate.swift` | pass   |
+| S3       | CI build   | GitHub Actions                            | `.github/workflows/ci-mobile-ios-parity.yml` `ios-simulator` job                                                                | `EXPO_PUBLIC_PARITY_PREVIEW=1`, iPhone 17 Pro, iOS 26.5, Release            | job green; built plist class is `Atmos.SceneDelegate`; parity PNGs are not the black scene                               | pass   |
+| S4       | Manual     | `verify-ios-scene-lifecycle.sh simulator` | see Manual verification steps                                                                                                   | iPhone 18 Pro, iOS 27.0, Release                                            | `ATMOS_ROUTE unmatched` once after the cold URL and again after the warm URL; no URL on an Atmos line                    | pass   |
+| S5       | Unit       | `bun test`                                | same file as S1                                                                                                                 | fixture                                                                     | `userActivities`, `NSUserActivityTypeBrowsingWeb`, both user-activity launch-option keys                                 | pass   |
+| S6       | Manual     | same script, both runtimes                | see Manual verification steps                                                                                                   | iOS 27.0 and iOS 26.5 Release                                               | launch exit 0; pid alive after the 4s wait; no new Atmos `.ips`; no runtime-issue / `EXC_BREAKPOINT` line                | pass   |
+| S7       | Unit       | `bun test`                                | `app.config.test.js`                                                                                                            | `EXPO_PUBLIC_PARITY_PREVIEW=1` and `./plugins/with-ios-scene-lifecycle.js`  | parity config keeps the manifest and that plugin                                                                         | pass   |
+| S8       | Manual     | iOS 27 and iOS 26.5 simulators            | background, then foreground, without terminating                                                                                | iPhone 18 Pro / iOS 27.0, and one iOS 26.5 control round                    | each round JS `AppState` is `active`, `inactive`, `background`, `active`                                                 | pass   |
+| S9       | Unit       | `bun test` + bash                         | `cd apps/mobile && bun test script/scene-launch-evidence.test.js`                                                               | fake launch output; fake DiagnosticReports with an old `.ips` and a new one | dead pid or a new `Atmos-*.ips` exits 1 and does not print `PASS`; an old `.ips` alone does not fail                     | pass   |
+| S10      | Unit       | `bun test` + bash                         | same file as S9                                                                                                                 | fake pod install log; fake `ReactNativeDependencies-artifacts`              | `Building from source: true`, `No prebuilt artifacts found`, or a missing release tarball exits 2 with `NOT RUN`         | pass   |
 
 ## Scenarios
 
@@ -68,7 +72,7 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 - **Given**: a Release install on the iOS 27.0 simulator.
 - **When**: the app is terminated and `xcrun simctl openurl` opens `atmos://scene-lifecycle-probe`, then opened again while the process is up with `atmos://scene-lifecycle-probe-warm`.
 - **Then**: the Atmos process log contains `ATMOS_ROUTE unmatched` at least once after the cold URL, and the count from the same start time is strictly greater after the warm URL. The string is a fixed `console.error` in `app/+not-found.tsx`, keyed on `pathname`, and it does not include the path. An Atmos line that contains `atmos://` or `scene-lifecycle-probe` fails. `CoreSimulatorBridge` may still print the URL. The notify `NSLog` stays inside `notify` and is not the pass signal: with the generated `super || RCTLinkingManager` path it is absent, which is the dedupe. Zero unmatched-route markers, a warm open that adds none, or the URL on an Atmos line fails `script/scene-deep-link-evidence.js`. A failure on iOS 27 still runs the iOS 26.5 section.
-- **Signals**: `scene-deep-link-evidence.test.js`. On `42801c19` the screen reached Expo Router "Route not found" for both opens, the notify `NSLog` was 0, and the Atmos process log did not contain the URL. The script that counted the `NSLog` exited 1 before this change. The new judge has not been run on a simulator.
+- **Signals**: `scene-deep-link-evidence.test.js`. On `42801c19` the screen reached Expo Router "Route not found" for both opens, the notify `NSLog` was 0, and the Atmos process log did not contain the URL. The script that counted the `NSLog` exited 1 before this change. On `19521d7` the hardened `simulator` script passed the cold and warm deep links on iOS 27.0 and iOS 26.5.
 
 ### S5 — Browsing-web user activities are wired
 
@@ -78,13 +82,13 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 - **Then**: `willConnectTo` walks `connectionOptions.userActivities`, `scene(_:continue:)` exists, and launch options include `UIApplicationLaunchOptionsUserActivityDictionaryKey`, `UIApplicationLaunchOptionsUserActivityTypeKey`, and `UIApplicationLaunchOptionsUserActivityKey` gated on `NSUserActivityTypeBrowsingWeb`.
 - **Signals**: those substrings in the unit test. No simulator universal link: `app.json` has no associated domain.
 
-### S6 — Cold start does not hit the UIKit runtime issue
+### S6 — Cold start stays up and does not hit the UIKit runtime issue
 
-- **Level**: Manual
-- **Given**: Release builds installed on iOS 27.0 (iPhone 18 Pro) and iOS 26.5.
-- **When**: `xcrun simctl launch` starts `land.atmos.mobile` with no URL.
-- **Then**: launch exits 0. A `log show` of the last few minutes does not contain `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` or `EXC_BREAKPOINT` for that launch.
-- **Signals**: script sections `cold-start`. The Mac run is in Coverage Status.
+- **Level**: Manual on a Mac; the decision itself is the Linux judge in S9
+- **Given**: Release builds installed on iOS 27.0 (iPhone 18 Pro) and iOS 26.5, and a snapshot of Atmos `.ips` files taken before launch.
+- **When**: `xcrun simctl launch` starts `land.atmos.mobile` with no URL, then the script waits 4 seconds (at least 3).
+- **Then**: launch exits 0 and its output does not contain `EXC_BREAKPOINT` or `Terminated`. The printed pid is still alive after the wait. No new Atmos `.ips` basename appeared under the DiagnosticReports roots. The unified log does not contain `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` or `EXC_BREAKPOINT`. A log line with `OS_REASON_DYLD` or `Library not loaded: @rpath/React.framework/React` also fails. Launch exit 0 alone is not a pass.
+- **Signals**: `scene-launch-evidence.js judge-cold`. On `19521d7` the hardened `simulator` script passed both runtimes: the process was still alive after 4 seconds, and no new Atmos `.ips` appeared.
 
 ### S7 — Parity config keeps the manifest and the scene plugin
 
@@ -103,6 +107,22 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 - **Session reconnect**: not run. The simulator had no paired Computer, so there was no relay or WebSocket traffic to observe.
 - **Signals**: the manual run on `42801c19`. `RCTAppState` in React Native 0.85.3 listens for `UIApplicationDidBecomeActiveNotification`, `UIApplicationWillResignActiveNotification`, `UIApplicationDidEnterBackgroundNotification`, and `UIApplicationWillEnterForegroundNotification`. `SceneDelegate` calls the matching app-delegate methods and does not post those notifications. UIKit still posted them on this run.
 
+### S9 — A dyld death is not a cold-launch pass
+
+- **Level**: Unit (shell subcommands, no simulator)
+- **Given**: `simctl launch` output `land.atmos.mobile: <pid>` with exit 0, a runtime log that has neither `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` nor `EXC_BREAKPOINT`, and a crash-report directory that already contains an older `Atmos-*.ips`.
+- **When**: `judge-cold` is run for a process that is not alive after the wait, and the directory gained a new Atmos `.ips` during the launch. Separate cases drop only the liveness bit, or only add the new `.ips`, or wait fewer than 3 seconds.
+- **Then**: the command exits 1, prints `FAIL`, and does not print `PASS`. The pre-existing `.ips` is not the failure. `Atmosphere.ips` is not an Atmos crash report. The same inputs with a live pid, a wait of at least 3 seconds, and no new `.ips` exit 0 and print `PASS`. A dead process after a 4 second wait prints `process was not alive 4s after launch`. A 2 second wait prints `2s`. The line names the seconds actually waited, not the 3 second minimum.
+- **Signals**: `script/scene-launch-evidence.test.js`.
+
+### S10 — Pod install without the Release prebuilt does not build
+
+- **Level**: Unit (shell subcommand, no CocoaPods and no Xcode)
+- **Given**: a fake pod install log and a fake `ReactNativeDependencies-artifacts` directory.
+- **When**: `judge-prebuilt` sees `Building from source: true`, or `No prebuilt artifacts found`, or no `reactnative-dependencies-*-release.tar.gz`. `Building from source: false` plus that Release tarball is the clean case. A debug-only tarball is not clean.
+- **Then**: each anomaly exits 2 and prints `NOT RUN` with `network` or `missing prebuilt`. The clean case exits 0. Exit 2 is not 0 and not 1. `simulator` calls this judge after `pod install` and before `install_and_verify`. `structural` and `built-plist` still exit 1 on a missing tree. `simulator` with no `xcrun` still exits 2 before prebuild.
+- **Signals**: `script/scene-launch-evidence.test.js`.
+
 ## Performance & load budgets
 
 None. Scene connection replaces the old window allocation. No extra JavaScript work.
@@ -114,6 +134,9 @@ None. Scene connection replaces the old window allocation. No extra JavaScript w
 - [ ] Generated URL schemes `atmos`, `land.atmos.mobile`, and `exp+atmos-mobile` are unchanged.
 - [ ] The scene delegate does not log the URL or the user-activity webpage.
 - [ ] `apps/mobile/ios` stays gitignored.
+- [x] A pod log with `Building from source: true` or a missing `reactnative-dependencies-*-release.tar.gz` does not reach `xcodebuild` and does not print `PASS`.
+- [x] Cold launch does not print `PASS` when the pid is gone or a new Atmos `.ips` appeared, even if `simctl launch` exited 0 and the runtime-issue line is absent.
+- [x] Deep link still fails closed on a missing `ATMOS_ROUTE unmatched` marker. `structural` and `built-plist` stay exit 0 or 1.
 
 ## Acceptance criteria
 
@@ -121,8 +144,10 @@ None. Scene connection replaces the old window allocation. No extra JavaScript w
 - [x] `verify-ios-scene-lifecycle.sh structural` exits 0 after prebuild.
 - [x] CI `oxlint` and `oxfmt` jobs are green, and the mobile `bun test` job is green.
 - [x] The parity workflow no longer fails because a scene delegate exists. It fails when the class or the built plist name is wrong. Run [39236707389](https://github.com/AruNi-01/atmos/actions/runs/39236707389) on `74a2e1841a97f36667a88164b02078d3f5f215b6` concluded success (`ios-simulator` built `Atmos.SceneDelegate`). The earlier run [39206606309](https://github.com/AruNi-01/atmos/actions/runs/39206606309) on `01075c6024a9f4a05d4b641991034ffcf1bf3188` also succeeded.
-- [x] S4's screen result and S6 passed on `42801c19fe297253f726da0ff0cf37ca6e872262` by manual simulator checks. The script on that SHA exited 1 because it still required two notify `NSLog` lines, which the dedupe correctly omits. Universal links stay `not_run`. S8 AppState passed on that SHA. Session reconnect stays `not_run`. The revised script has not been run on a Mac.
+- [x] S4's screen result and S6 passed on `42801c19fe297253f726da0ff0cf37ca6e872262` by manual simulator checks. The script on that SHA exited 1 because it still required two notify `NSLog` lines, which the dedupe correctly omits. Universal links stay `not_run`. S8 AppState passed on that SHA. Session reconnect stays `not_run`.
+- [x] On `19521d7` (`19521d798311b4dac99b8067605bc10e0367d860`) `verify-ios-scene-lifecycle.sh simulator` exited 0. Both runtimes passed build, cold launch, and the cold and warm deep links. A bad app with `React.framework` removed failed `assert_cold_launch` with exit 1. Forged prebuilt logs exited 2. A real network-down `pod install` stays not run.
 - [x] No `EVIDENCE_PUSH` and no push to `agent-artifacts`.
+- [x] S9 and S10 pass from the Linux fixture tests and from the Mac checks on `19521d7`. A real network-down end-to-end `pod install` stays not run: blocking Maven would affect the whole Mac.
 
 ## Manual verification steps
 
@@ -139,9 +164,9 @@ The script:
 
 1. Runs `CI=1 bunx expo prebuild --platform ios --no-install --clean`.
 2. Runs the structural checks (S2).
-3. Runs `pod install` in `ios/`.
+3. Runs `pod install` in `ios/`, then checks the log and `ios/Pods/ReactNativeDependencies-artifacts/`. `Building from source: true`, `No prebuilt artifacts found`, or a missing `reactnative-dependencies-*-release.tar.gz` prints `NOT RUN` with `network` or `missing prebuilt` and exits 2. It does not `xcodebuild`. A non-zero `pod install` without those signals is exit 1.
 4. Release-builds `Atmos` for the iOS 27.0 simulator. Default device name is `iPhone 18 Pro` (`ATMOS_IOS27_DEVICE`, `ATMOS_IOS27_RUNTIME`).
-5. Installs, cold-launches `land.atmos.mobile`, and fails if launch exits non-zero or the unified log contains `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` or `EXC_BREAKPOINT`.
+5. Installs and cold-launches `land.atmos.mobile`. Pass requires launch exit 0, the pid still alive after 4 seconds (at least 3), no new Atmos `.ips` since the pre-launch snapshot, and no `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` or `EXC_BREAKPOINT` in the unified log. `OS_REASON_DYLD` / `Library not loaded: @rpath/React.framework/React` in that log also fails.
 6. Terminates, `simctl openurl atmos://scene-lifecycle-probe` (cold URL), then `openurl atmos://scene-lifecycle-probe-warm` (warm URL). Fails unless the Atmos process log gains `ATMOS_ROUTE unmatched` on the cold URL and again on the warm URL, or if an Atmos line contains the URL. The notify `NSLog` is not counted.
 7. Repeats the cold launch and the same two `openurl` calls on iOS 26.5 even when the iOS 27 section failed. Default device is `iPhone 17 Pro` (`ATMOS_IOS26_DEVICE`, `ATMOS_IOS26_RUNTIME`), matching the parity workflow pin. The script exits 1 at the end if either runtime failed.
 8. Prints `NOT RUN: universal links` because `app.json` has no associated domain. S5 remains the structural proof for that path.
@@ -154,7 +179,12 @@ bash script/verify-ios-scene-lifecycle.sh structural
 bash script/verify-ios-scene-lifecycle.sh built-plist path/to/Atmos.app/Info.plist
 ```
 
-`structural` is the Linux command. `simulator` exits 2 when `xcrun` is missing and prints `NOT RUN`.
+`structural` is the Linux command. `simulator` exits 2 when `xcrun` is missing, or when the prebuilt gate fails, and prints `NOT RUN`. Exit 0 is PASS. Exit 1 is a check that ran and failed.
+
+```bash
+# Linux, no simulator: fake pod log and a fake crash-report directory.
+cd apps/mobile && bun test script/scene-launch-evidence.test.js
+```
 
 ## Non-coverage
 
@@ -162,10 +192,11 @@ bash script/verify-ios-scene-lifecycle.sh built-plist path/to/Atmos.app/Info.pli
 - A physical device. The reported crash was the iOS 27.0 simulator.
 - Debug + Metro + `expo-dev-launcher` cold-start dedupe. Release is the crash configuration. The dev launcher can also store the URL; see TECH risks.
 - Expo SDK 58 upgrade behavior.
+- A real network-down end-to-end `pod install`. Blocking Maven would affect the whole Mac. The four forged pod logs on `19521d7` cover the gate. Linux still cannot boot the iOS 27 simulator.
 
 ## Coverage Status
 
-Recorded 2026-10-19. Linux commands ran on the cloud VM. S3 is the GitHub Actions parity job. The Mac script on `3929803de` counted an unconditional URL `NSLog`. `42801c19` is the manual Release run below. The revised deep-link judge has not been run on a simulator. Universal links and session reconnect stay not run.
+Recorded 2026-10-19. Linux commands ran on the cloud VM. S3 is the GitHub Actions parity job. The Mac script on `3929803de` counted an unconditional URL `NSLog`. `42801c19` is the older manual Release run below. The hardened script, including the revised deep-link judge, ran on a Mac at `19521d7`. Universal links and session reconnect stay not run. A real network-down `pod install` stays not run.
 
 ### Commands
 
@@ -190,18 +221,26 @@ Recorded 2026-10-19. Linux commands ran on the cloud VM. S3 is the GitHub Action
   - Cold and warm `openurl` both reached JS and both showed the Expo Router screen "Route not found". Notify `NSLog` was 0 on both. The Atmos process log contained neither the URL nor `scene-lifecycle-probe`. `CoreSimulatorBridge` did print the URL.
   - iOS 26.5 used that same Release `.app` (iphonesimulator SDK 27.0), installed manually on iPhone 17 Pro. Cold launch did not crash. Cold and warm deep links reached the same "Route not found" screen. Notify `NSLog` was 0. No regression.
   - S8 AppState pass. iOS 27: two rounds, process not terminated between them. Each round JS `AppState` was `active`, `inactive`, `background`, `active`, matching the native events. iOS 26.5: one control round, same sequence. The JS sequence used a temporary `console.error` that was removed and is not in the tree. Session reconnect **not run**: the simulator was not paired, and the Atmos process had no relay or WebSocket log during S8.
-  - The revised script, which judges `ATMOS_ROUTE unmatched` instead of the notify `NSLog`, is **not run** on a simulator.
+  - The revised script, which judges `ATMOS_ROUTE unmatched` instead of the notify `NSLog`, is **not run** on a simulator for `42801c19`. The `19521d7` run below is that script.
 - Undelivered-URL proof, on this commit, Linux only: `cd apps/mobile && bun test script/scene-deep-link-evidence.test.js`. Empty logs and a warm open that does not add a marker fail the judge. The CLI test writes two logs that contain only a `CoreSimulatorBridge` URL line and expects exit 1 with `FAIL deep link: cold open did not reach`. A temporary edit that deleted the `cold < 1` and `total <= cold` checks made that suite exit 1: `fails when nothing reached the unmatched route` got `Expected: false` / `Received: true`, and the CLI test got `Expected: 1` / `Received: 0`. Restoring those checks made the file exit 0. Native `UIOpenURLAction` lines with no marker also fail.
+- Linux, 2026-10-19, cold-launch and prebuilt gate: `bash -n apps/mobile/script/verify-ios-scene-lifecycle.sh` → pass, exit 0. `cd apps/mobile && bun test script/scene-launch-evidence.test.js script/scene-deep-link-evidence.test.js` → pass, exit 0. 36 pass, 0 fail, 136 expect() calls, 2 files. `bunx oxlint` on the two new JS files → pass, no warnings. A launch line `land.atmos.mobile: 4242`, exit 0, a runtime log with no runtime-issue line, a dead pid, and a new `Atmos-2026-10-19-120000.ips` (old `Atmos-2026-10-18-010000.ips` already present) exits 1 and does not print `PASS ios27: cold launch`. The same lists with a live pid and no new `.ips` exit 0 and print `PASS`. `Building from source: true`, `No prebuilt artifacts found`, and a debug-only artifacts dir each exit 2 with `NOT RUN` and `network` or `missing prebuilt`. A clean log plus `reactnative-dependencies-0.85.3-release.tar.gz` exits 0. `structural` and `built-plist` with no `ios/` tree exit 1. `simulator` with no `xcrun` exits 2 and does not print `pod install`. `cd apps/mobile && bun test` → pass, exit 0. 460 pass, 0 fail, 1999 expect() calls, 105 files.
+- Mac, 2026-10-19, tested SHA `19521d7` (`19521d798311b4dac99b8067605bc10e0367d860`).
+  - (a) `verify-ios-scene-lifecycle.sh simulator` in a normal environment → exit 0. `pod install` logged `Building from source: false` and the script printed `prebuilt ok`. iOS 27.0 / iPhone 18 Pro and iOS 26.5 / iPhone 17 Pro each passed build, cold launch, and the cold and warm deep links. Cold launch passed because the process was still alive after 4 seconds and no new `.ips` appeared. Universal links printed the expected `NOT RUN`.
+  - (b) Counterexample: an app with `React.framework` removed. `assert_cold_launch` was called directly from a copy of the script → FAIL, return 1. The process was not alive, and 2 new `.ips` files were detected. The intact app, as a control, returned 0.
+  - (c) Counterexample: `judge-prebuilt` on four forged pod logs. `Building from source: true`, `No prebuilt artifacts found`, a missing tarball, and an SSL error plus a missing tarball each returned 2. A normal log, as a control, returned 0.
+  - (d) A real network-down end-to-end test → **not run**. Blocking Maven would affect the whole Mac.
 
 ### Status
 
-| Scenario | Status                                                                                                                                                                                                                                                                                                                      |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S1       | pass — `plugins/with-ios-scene-lifecycle.test.js`                                                                                                                                                                                                                                                                           |
-| S2       | pass — `verify-ios-scene-lifecycle.sh structural` after prebuild, including the parity-preview prebuild                                                                                                                                                                                                                     |
-| S3       | pass — GitHub `ios-simulator` on run 39236707389 (`74a2e1841`, iOS 26.5 Release, built plist `Atmos.SceneDelegate`, parity capture). PNGs were not downloaded here.                                                                                                                                                         |
-| S4       | partial — on `42801c19` cold and warm both reached "Route not found". Notify `NSLog` was 0 and the Atmos process log had no URL. The script on that SHA exited 1 because it still required two notify lines. The new `ATMOS_ROUTE unmatched` judge is unit-tested here and not run on a simulator. Universal links not_run. |
-| S5       | pass — unit test (user-activity keys and `scene(_:continue:)`). Universal-link end to end not_run.                                                                                                                                                                                                                          |
-| S6       | partial — iOS 27 cold start on `42801c19` passed with 0 new Atmos `.ips`. iOS 26.5 passed by installing that same Release `.app` manually. The script exited before its own iOS 26.5 section. GitHub iOS 26.5 parity of `74a2e1841` also passed.                                                                            |
-| S7       | pass — `app.config.test.js` keeps `UIApplicationSceneManifest` and `./plugins/with-ios-scene-lifecycle.js` under `EXPO_PUBLIC_PARITY_PREVIEW=1`.                                                                                                                                                                            |
-| S8       | pass — `42801c19` AppState. iOS 27: two rounds. iOS 26.5: one control round. Each round was `active`, `inactive`, `background`, `active`, matching the native events. The temporary JS log was not committed. Session reconnect not_run (simulator not paired).                                                             |
+| Scenario | Status                                                                                                                                                                                                                                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1       | pass — `plugins/with-ios-scene-lifecycle.test.js`                                                                                                                                                                                                                                                                |
+| S2       | pass — `verify-ios-scene-lifecycle.sh structural` after prebuild, including the parity-preview prebuild                                                                                                                                                                                                          |
+| S3       | pass — GitHub `ios-simulator` on run 39236707389 (`74a2e1841`, iOS 26.5 Release, built plist `Atmos.SceneDelegate`, parity capture). PNGs were not downloaded here.                                                                                                                                              |
+| S4       | pass — on `19521d7` the hardened `simulator` script passed the cold and warm deep links on iOS 27.0 / iPhone 18 Pro and iOS 26.5 / iPhone 17 Pro. On `42801c19` both opens reached "Route not found"; that older script exited 1 because it still required two notify lines. Universal links not_run.            |
+| S5       | pass — unit test (user-activity keys and `scene(_:continue:)`). Universal-link end to end not_run.                                                                                                                                                                                                               |
+| S6       | pass — on `19521d7` both runtimes passed cold launch: the process was still alive after 4 seconds and no new `.ips` appeared. Removing `React.framework` made `assert_cold_launch` return 1 (process not alive, 2 new `.ips`). The intact app returned 0. The older `42801c19` cold start also had 0 new `.ips`. |
+| S7       | pass — `app.config.test.js` keeps `UIApplicationSceneManifest` and `./plugins/with-ios-scene-lifecycle.js` under `EXPO_PUBLIC_PARITY_PREVIEW=1`.                                                                                                                                                                 |
+| S8       | pass — `42801c19` AppState. iOS 27: two rounds. iOS 26.5: one control round. Each round was `active`, `inactive`, `background`, `active`, matching the native events. The temporary JS log was not committed. Session reconnect not_run (simulator not paired).                                                  |
+| S9       | pass — `scene-launch-evidence.test.js`. Dead pid plus a new Atmos `.ips` exits 1 and does not print `PASS`. A live pid with only the pre-existing report exits 0.                                                                                                                                                |
+| S10      | pass — same file. `Building from source: true`, `No prebuilt artifacts found`, and a missing `reactnative-dependencies-*-release.tar.gz` exit 2 with `NOT RUN`. A clean log plus the Release tarball exits 0.                                                                                                    |
