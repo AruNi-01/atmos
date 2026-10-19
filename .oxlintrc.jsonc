@@ -280,9 +280,12 @@
     },
     {
       // Node CLI + bun:test helpers. Same CJS shape as apps/mobile/plugins.
+      // The scene-lifecycle plugin is new CJS. Leave it out of the warning cap.
       "files": [
         "apps/mobile/script/ensure-ios-rncore-configuration.js",
         "apps/mobile/script/ensure-ios-rncore-configuration.test.js",
+        "apps/mobile/plugins/with-ios-scene-lifecycle.js",
+        "apps/mobile/plugins/with-ios-scene-lifecycle.test.js",
       ],
       "rules": {
         "typescript/no-require-imports": "off",
