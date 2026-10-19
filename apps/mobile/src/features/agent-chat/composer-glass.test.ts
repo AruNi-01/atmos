@@ -92,7 +92,9 @@ describe("Liquid Glass fallback", () => {
     expect(panel).not.toContain("tintColor ?? theme.colors.glassTint");
     expect(panel).not.toContain("resolvedTintColor");
     const shapeStart = panel.indexOf("shape: {");
+    expect(shapeStart).toBeGreaterThan(-1);
     const shapeEnd = panel.indexOf("},", shapeStart);
+    expect(shapeEnd).toBeGreaterThan(shapeStart);
     expect(panel.slice(shapeStart, shapeEnd)).not.toContain("borderWidth");
     expect(panel).toContain("borderWidth: StyleSheet.hairlineWidth");
     const chatSources = [
@@ -200,7 +202,9 @@ describe("card lane glass chrome", () => {
     expect(buttons).toMatch(/theme\.colors\.control(?!Border)/);
     expect(buttons).toContain("theme.colors.red");
     expect(buttons).toContain('role={role ?? "default"}');
-    expect(buttons).toContain("accessibilityState={{ disabled: isDisabled }}");
+    expect(buttons).toContain("accessibilityState: { disabled: input.isDisabled }");
+    expect(buttons).toContain('name: "activate"');
+    expect(buttons).toContain("onAccessibilityAction");
     expect(buttons).not.toContain('buttonStyle("bordered")');
     expect(buttons).not.toContain("tintColor");
     expect(buttons).not.toContain("GlassEffectContainer");

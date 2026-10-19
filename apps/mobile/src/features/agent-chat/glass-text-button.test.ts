@@ -204,7 +204,7 @@ describe("GlassTextButton render", () => {
     expect(html).toContain("data-disabled");
   });
 
-  test("iOS chips pass role default and keep an accessibility disabled state", () => {
+  test("iOS chips pass the role prop through to the Button", () => {
     platform.OS = "ios";
     captured.length = 0;
     renderToStaticMarkup(
@@ -217,6 +217,20 @@ describe("GlassTextButton render", () => {
     );
     expect(captured[0]).toMatchObject({ label: "Allow" });
     expect((captured[0] as { role?: string }).role).toBe("destructive");
+  });
+
+  test("iOS chips default role to default when omitted", () => {
+    platform.OS = "ios";
+    captured.length = 0;
+    const html = renderToStaticMarkup(
+      createElement(GlassTextButton, {
+        disabled: true,
+        label: "Allow",
+        onPress: () => undefined,
+      }),
+    );
+    expect((captured[0] as { role?: string }).role).toBe("default");
+    expect(html).toContain("data-disabled");
   });
 
   test("GlassActionButtons still calls the disabled modifier, not a shadowed prop", () => {

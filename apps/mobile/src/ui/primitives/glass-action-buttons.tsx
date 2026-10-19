@@ -14,7 +14,7 @@ import {
   tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
-import { Platform, View } from "react-native";
+import { Platform, View, type AccessibilityActionEvent } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { expoUiDangerStyle, expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 import { shouldUseLiquidGlass } from "./glass-availability";
@@ -35,6 +35,23 @@ export const GLASS_CHIP_HOST_STYLE = {
 /** Slight dim — SwiftUI `disabled()` on glass nearly vanishes in light. */
 export const GLASS_CHIP_DISABLED_OPACITY = 0.55;
 const FALLBACK_CHIP_HEIGHT = GLASS_CHIP_HEIGHT;
+const CHIP_ACTIVATE_ACTION = { name: "activate" as const };
+
+function chipHostA11y(input: { isDisabled: boolean; label: string; onPress: () => void }) {
+  return {
+    accessibilityActions: input.isDisabled ? undefined : [CHIP_ACTIVATE_ACTION],
+    accessibilityLabel: input.label,
+    accessibilityRole: "button" as const,
+    accessibilityState: { disabled: input.isDisabled },
+    accessible: true as const,
+    importantForAccessibility: "yes" as const,
+    onAccessibilityAction: input.isDisabled
+      ? undefined
+      : (event: AccessibilityActionEvent) => {
+          if (event.nativeEvent.actionName === "activate") input.onPress();
+        },
+  };
+}
 
 export type GlassChipTone = "primary" | "ghost";
 
@@ -141,14 +158,7 @@ function IosGlassTextButton({ disabled, label, onPress, role, tone }: GlassActio
   const fillColor = theme.colors.control;
 
   return (
-    <View
-      accessibilityLabel={label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled }}
-      accessible
-      importantForAccessibility="yes"
-      style={GLASS_CHIP_HOST_STYLE}
-    >
+    <View {...chipHostA11y({ isDisabled, label, onPress })} style={GLASS_CHIP_HOST_STYLE}>
       <Host
         colorScheme={theme.colorScheme}
         matchContents={{ horizontal: true, vertical: false }}
@@ -182,14 +192,7 @@ function FallbackGlassTextButton({ disabled, label, onPress, role, tone }: Glass
   const isDisabled = Boolean(disabled);
 
   return (
-    <View
-      accessibilityLabel={label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled }}
-      accessible
-      importantForAccessibility="yes"
-      style={GLASS_CHIP_HOST_STYLE}
-    >
+    <View {...chipHostA11y({ isDisabled, label, onPress })} style={GLASS_CHIP_HOST_STYLE}>
       <ExpoHost
         colorScheme={theme.colorScheme}
         matchContents={{ vertical: true }}
