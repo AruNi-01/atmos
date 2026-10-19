@@ -489,10 +489,19 @@ jobs:
             });
 
       - name: Write GitHub summary with published report URL
-        if: needs.plan.outputs.publish_report == 'true' && steps.wait_pages.outcome == 'success'
+        if: needs.plan.outputs.publish_report == 'true' && steps.wait_pages.outputs.pages_ready == 'true'
         run: |
           {
             echo "### Published HTML report"
             echo
             echo "- GitHub Pages URL: ${{ steps.pages_meta.outputs.report_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write GitHub summary when Pages is still publishing
+        if: needs.plan.outputs.publish_report == 'true' && steps.wait_pages.outputs.pages_ready != 'true'
+        run: |
+          {
+            echo "### HTML report (Pages not confirmed ready)"
+            echo
+            echo "- Wait timed out; use the \`playwright-html-report\` artifact. The Pages URL may 404 until the build finishes: ${{ steps.pages_meta.outputs.report_url }}"
           } >> "$GITHUB_STEP_SUMMARY"
