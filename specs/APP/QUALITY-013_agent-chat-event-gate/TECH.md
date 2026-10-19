@@ -112,14 +112,10 @@ Hydrate generations: `startHydrate()` returns a token. `finishHydrate(seq, token
 
 ## Gaps, backfill, resync (Q4)
 
-`revision > cursor + 1` attaches `gap: { from, to, size, recommend }`. Measured against the cursor **before** this revision is absorbed, so `revision === cursor + 1` is the next expected seq and is not a hole.
+`revision > cursor + 1` attaches `gap: { from, to, size, recommend }`.
 
-- `ahead = revision - cursor` (same number as `shouldResyncFromServer`: `serverLastSeq - cursor`).
-- `size` is the missing seq count in `(cursor+1)..(revision-1)` = `ahead - 1`.
-- `ahead < AGENT_CHAT_REVISION_GAP_RESYNC` (32) → `catch_up` (keep subscribing from `cursor`).
-- `ahead >= 32` → `resync` (snapshot).
-
-At cursor 10: live rev 41 / subscribe 41 → `ahead` 31, `catch_up`. Live rev 42 / subscribe 42 → `ahead` 32, `resync`. Do not compare `size` to 32; that was one off from the subscribe watermark.
+- `size < AGENT_CHAT_REVISION_GAP_RESYNC` (32) → `catch_up` (keep subscribing from `cursor`).
+- otherwise → `resync` (snapshot).
 
 Text holes inside a part still use QUALITY-006 `BackfillRequest` / `agent_chat_backfill`. That is independent of revision gaps.
 
@@ -146,7 +142,6 @@ Do not require `action === "apply"` to start another resync after a failed hydra
 - Same chat + same WS client → `canResumeAgentChatSession`; keep pump and transcript; `subscribe(after_sequence: pump.cursor)`.
 - Chat or client change → new pump, snapshot hydrate, then subscribe.
 - `wsState !== "open"` during resume does not wipe the transcript.
-- `#324` `agent_chat_resync` is **not** in this PR. After #324 is on `main`, merge `main` and route that notification through `finishHydrate` / `observeSnapshot`. Do not add a parallel snapshot floor.
 
 **Web** `use-agent-chat-session`:
 
@@ -195,7 +190,7 @@ Chat id scoping stays in the app (`eventsForChat` / `agentChatEventFor`). The ga
 ## Dependencies & compatibility
 
 - Depends on: QUALITY-006 part fold, existing `agent_chat_*` WS.
-- Sibling: QUALITY-012 (#324) transport. **Merge #324 first.** #325 is not stacked on #324; after #324 lands on `main`, merge `main` into #325 and wire `agent_chat_resync` through `finishHydrate` / `observeSnapshot` (do not add a second snapshot floor). README may contain both 012 and 013; keep both rows on conflict.
+- Sibling: QUALITY-012 (#324) transport. Merge order **#324 then #325**. README may contain both 012 and 013; keep both rows on conflict.
 - Blocks: none. PR5 can land after.
 
 ## Open questions
@@ -203,3 +198,21 @@ Chat id scoping stays in the app (`eventsForChat` / `agentChatEventFor`). The ga
 - [x] Duplicate key vs unique server ids — client composite key now; PR5 unique ids later.
 - [ ] Web cursor resume without splitting `use-agent-chat-session`.
 - [ ] Confirm `next_seq` vs `broadcast::send` atomicity on the server (PR5).
+
+## Implementation Delta · 2026-10-19
+
+Commit: `618396a98` (behavior) + this note.
+
+Q4 originally recommended resync when `size >= 32` (`size` = missing seqs in the hole). Live `gap.recommend` used that, while `shouldResyncFromServer` used `ahead = high - cursor >= 32`. Those disagree by one at the boundary.
+
+Current code (keep Q4 above as the original decision):
+
+- Measure the hole against the cursor **before** absorbing this revision. `revision === cursor + 1` is not a hole.
+- `ahead = revision - cursor` (same number as `serverLastSeq - cursor`).
+- `size = ahead - 1`.
+- `ahead < 32` → `catch_up`; `ahead >= 32` → `resync`.
+- Cursor 10: rev/subscribe 41 → catch_up; 42 → resync.
+
+Files: `packages/api-client/src/agent-chat/event-gate.ts`, `event-gate.test.ts`. Verification: `bun run --filter @atmos/api-client test` (65 pass), including `live gap and shouldResyncFromServer share the ahead >= 32 boundary`.
+
+Merge order (original: **#324 then #325**). Clarification: #325 is not stacked on #324. After #324 is on `main`, merge `main` into #325 and route `agent_chat_resync` through `finishHydrate` / `observeSnapshot`. Do not add a second snapshot floor. `observeSnapshot` is monotonic (`seq > snapshotFloor` only).
