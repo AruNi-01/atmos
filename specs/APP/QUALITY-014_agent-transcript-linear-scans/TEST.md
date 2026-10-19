@@ -25,16 +25,16 @@ This is a pure-function cleanup. Proof is Bun unit tests on `@atmos/agent-transc
 
 ## Execution map
 
-| Scenario | Level     | Expected tool | Target command / method                                                      | Fixture / data                                                | Signals                                                         | Status  |
-| -------- | --------- | ------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------- | ------- |
-| S1       | Unit      | `bun test`    | `bun --filter @atmos/agent-transcript test src/present.test.ts`              | Path fixture table                                            | Each `normalizeFsPath` body equals the old-regex output         | planned |
-| S2       | Unit      | `bun test`    | same                                                                         | `""`, `"/"`, `"////"`, `"foo///"`                             | Empty → `null`; all slashes → `"/"`; trailing slash stripped    | planned |
-| S3       | Unit      | `bun test`    | same                                                                         | Heading fixture table                                         | `stripPathEchoFromToolHeading` equals old-regex heading cleanup | planned |
-| S4       | Unit      | `bun test`    | same                                                                         | `":"`, `":::foo:::"`, `"  :  : foo"`                          | One colon per edge; leftover inner colons kept                  | planned |
-| S5       | Unit      | `bun test`    | same                                                                         | 20_000 `/` and 20_000 spaces around `:`                       | Each scan < 250 ms                                              | planned |
-| S6       | Unit      | `bun test`    | same                                                                         | Independent oracle (`replaceAll("//")`, `trimEnd`/`endsWith`) | Oracle and public API agree on the same tables                  | planned |
-| S7       | Unit      | `bun test`    | same file reads `present.ts` source                                          | Source text                                                   | No `/{2,}`, `/+$`, or `\s*[:：]\s*` literals                    | planned |
-| S8       | Toolchain | shell         | `bun lint`; package `typecheck`; `bun --filter @atmos/agent-transcript test` | Clean tree                                                    | lint exit 0 at cap 455; tests pass                              | planned |
+| Scenario | Level     | Expected tool | Target command / method                                                      | Fixture / data                                                | Signals                                                         | Status |
+| -------- | --------- | ------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------- | ------ |
+| S1       | Unit      | `bun test`    | `bun --filter @atmos/agent-transcript test src/present.test.ts`              | Path fixture table                                            | Each `normalizeFsPath` body equals the old-regex output         | pass   |
+| S2       | Unit      | `bun test`    | same                                                                         | `""`, `"/"`, `"////"`, `"foo///"`                             | Empty → `null`; all slashes → `"/"`; trailing slash stripped    | pass   |
+| S3       | Unit      | `bun test`    | same                                                                         | Heading fixture table                                         | `stripPathEchoFromToolHeading` equals old-regex heading cleanup | pass   |
+| S4       | Unit      | `bun test`    | same                                                                         | `":"`, `":::foo:::"`, `"  :  : foo"`                          | One colon per edge; leftover inner colons kept                  | pass   |
+| S5       | Unit      | `bun test`    | same                                                                         | 20_000 `/` and 20_000 spaces around `:`                       | Each scan < 250 ms                                              | pass   |
+| S6       | Unit      | `bun test`    | same                                                                         | Independent oracle (`replaceAll("//")`, `trimEnd`/`endsWith`) | Oracle and public API agree on the same tables                  | pass   |
+| S7       | Unit      | `bun test`    | same file reads `present.ts` source                                          | Source text                                                   | No `/{2,}`, `/+$`, or `\s*[:：]\s*` literals                    | pass   |
+| S8       | Toolchain | shell         | `bun lint`; package `typecheck`; `bun --filter @atmos/agent-transcript test` | Clean tree                                                    | lint exit 0 at cap 455; tests pass                              | pass   |
 
 ## Scenarios
 
@@ -137,4 +137,8 @@ None. Simulator is not required.
 
 ## Coverage Status
 
-> Filled after implementation by the test-run pass.
+2026-10-19, branch `aarynlu/present-linear-scans-2330`:
+
+- S1–S7 — pass. `bun --filter @atmos/agent-transcript test`: 38 pass, 0 fail (7 in `src/present.test.ts`). Pathological slash/colon scans 2.8–3.5 ms (budget 250 ms).
+- S8 — pass. `bun lint` (`oxlint --max-warnings=455`) exit 0, 455 problems (at cap, not raised). `bun --filter @atmos/agent-transcript typecheck` exit 0. `apps/web` `parse-tool-result.test.ts` 36 pass.
+- Draft PR CI (including CodeQL) recorded after the GitHub run finishes. `ios-simulator` is skipped without the `ios-parity` label.
