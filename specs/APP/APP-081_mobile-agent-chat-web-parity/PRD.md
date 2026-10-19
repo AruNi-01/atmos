@@ -101,6 +101,15 @@ Parity is "same product, native client". These are intentional and must be liste
 - **Confirmed (AruNi, 2026-10-15)**: expanded card above the pill row; microphone out of scope; D2(a) import-path extraction allowed; real text shimmer via `expo-linear-gradient` + masked view allowed (list both in the PR); lane starts collapsed; re-tap collapses; permission / session-op preempt without clearing the user's last card choice.
 - **Closed for this delivery**: density stays compact (N3 not built).
 
+## Implementation delta (2026-10-19)
+
+Append-only record of native glass / composer behavior shipped after M6–M7. Does not reopen out-of-scope items.
+
+- **Native Liquid Glass.** Composer-adjacent chrome (dock, title pills, N-below pill, expanded card shell) uses untinted `expo-glass-effect` `GlassView` via `GlassPanel` + `COMPOSER_GLASS_WELL`. Reduce Transparency, missing API, or pre-iOS 26 falls back to solid `glassFallback` + `glassBorder` (composer-well match; not a stronger card plate). In-card permission / session-op / queue actions are Expo UI glass chips, not filled `control` plates.
+- **Focus-driven compact composer.** Idle dock is one 52pt row. It expands (280 ms cubic-out; duration 0 under Reduce Motion) when focused, the model or add sheet is open, queue/steer is shown, the draft has a newline, or the draft wraps at the compact inner width. Blur / keyboard dismiss / sheet close must not oscillate that state. Expanded dock grows with `maxHeight` up to six lines.
+- **Size contract.** Chip 33 / pill 36 / compact composer 52. Card copy matches the web dock (`text-sm` 14/500 title, 14/20 body). Goal/workflow header titles wrap; subagent titles and background commands wrap inside the card.
+- **Disabled chip crash.** In-card chips must not call SwiftUI `disabled()` through a shadowed prop; dim with opacity 0.55 and expose an accessibility disabled state. Visual / device confirmation stays a TEST `not_run` item until a simulator or device pass exists.
+
 ## Milestones
 
 - Phase 0 — Specs reviewed (this directory); shared pure logic extracted or parity-tested (S0).
