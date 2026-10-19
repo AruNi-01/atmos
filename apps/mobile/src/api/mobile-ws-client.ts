@@ -1,3 +1,4 @@
+import type { AgentChatSnapshot } from "@atmos/api-types/ws/dto/agent-chat";
 import type { MappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
 import {
   createWsSession,
@@ -15,6 +16,8 @@ import { preferredComputerWebSocket } from "@/api/url-session-websocket";
 import {
   AgentChatCursorTracker,
   agentChatCursorFromMessage,
+  agentChatResyncMessage,
+  lastEventSeqFromSubscribe,
   parseRelayCtrl,
 } from "@/api/mobile-ws-transport";
 
@@ -59,15 +62,16 @@ type MobileWsClientOptions = {
   setTimeout?: (callback: () => void, delayMs: number) => MobileTimer;
 };
 
-function mapState(state: KernelState): MobileWsState {
+function mapState(state: KernelState, reconnectEnabled: boolean): MobileWsState {
   switch (state) {
     case "connected":
       return "open";
     case "connecting":
       return "connecting";
     case "reconnecting":
-    case "disconnected":
       return "reconnecting";
+    case "disconnected":
+      return reconnectEnabled ? "reconnecting" : "closed";
     case "error":
       return "error";
     case "closed":
@@ -188,8 +192,10 @@ export class MobileWsClient {
   private readonly cursors = new AgentChatCursorTracker();
   private readonly setTimer: (callback: () => void, delayMs: number) => MobileTimer;
   private readonly clearTimer: (timer: MobileTimer) => void;
+  private readonly reconnectEnabled: boolean;
   private resubscribeTimer: MobileTimer | null = null;
   private resubscribeAttempt = 0;
+  private resubscribeNeeded = false;
 
   constructor(
     private readonly wsUrl: string,
@@ -200,6 +206,7 @@ export class MobileWsClient {
     this.clearTimer = options.clearTimeout ?? clearTimeout;
     const maxAttempts = options.maxReconnectAttempts ?? DEFAULT_MOBILE_RECONNECT.maxAttempts;
     const reconnectEnabled = options.reconnect ?? true;
+    this.reconnectEnabled = reconnectEnabled;
 
     this.session = createWsSession({
       url: wsUrl,
@@ -241,7 +248,7 @@ export class MobileWsClient {
         this.lastFailureMessage = "";
         if (this.currentAlert !== "No network connection.") this.setAlert(null);
       }
-      this.currentState = mapState(s);
+      this.currentState = mapState(s, this.reconnectEnabled);
       this.stateListeners.forEach((l) => l(this.currentState));
     });
     this.messageUnsub = this.session.onMessage((msg) => {
@@ -347,10 +354,17 @@ export class MobileWsClient {
     this.scheduleResubscribe();
   }
 
-  private scheduleResubscribe() {
-    if (this.disposed || this.resubscribeTimer != null) return;
+  private lifecycleLive() {
+    return this.foreground && this.networkOnline;
+  }
+
+  private scheduleResubscribe(immediate = false) {
+    if (this.disposed) return;
+    this.resubscribeNeeded = true;
+    if (!this.lifecycleLive()) return;
+    if (this.resubscribeTimer != null) return;
     const delay =
-      this.resubscribeAttempt === 0
+      immediate || this.resubscribeAttempt === 0
         ? 0
         : Math.min(
             RELAY_RESUBSCRIBE_INITIAL_MS * 2 ** (this.resubscribeAttempt - 1),
@@ -364,9 +378,10 @@ export class MobileWsClient {
   }
 
   private async resubscribeNow() {
-    if (this.disposed) return;
+    if (this.disposed || !this.lifecycleLive()) return;
     const chats = this.cursors.snapshots();
     if (chats.length === 0) {
+      this.resubscribeNeeded = false;
       this.resubscribeAttempt = 0;
       if (this.currentAlert !== "No network connection.") this.setAlert(null);
       return;
@@ -376,14 +391,8 @@ export class MobileWsClient {
       return;
     }
     try {
-      await Promise.all(
-        chats.map((chat) =>
-          this.session.request("agent_chat_subscribe", {
-            chat_id: chat.chat_id,
-            after_sequence: chat.after_sequence,
-          }),
-        ),
-      );
+      await Promise.all(chats.map((chat) => this.resyncChat(chat)));
+      this.resubscribeNeeded = false;
       this.resubscribeAttempt = 0;
       if (this.currentAlert !== "No network connection.") this.setAlert(null);
     } catch {
@@ -391,14 +400,33 @@ export class MobileWsClient {
     }
   }
 
+  private async resyncChat(chat: { chat_id: string; after_sequence: number }) {
+    const subscribed = await this.session.request("agent_chat_subscribe", {
+      chat_id: chat.chat_id,
+      after_sequence: chat.after_sequence,
+    });
+    const lastSeq = lastEventSeqFromSubscribe(subscribed);
+    if (lastSeq != null) this.cursors.noteRevision(chat.chat_id, lastSeq);
+    if (lastSeq === chat.after_sequence) return;
+    if (!this.lifecycleLive()) throw new Error("lifecycle paused");
+    const snapshot = (await this.session.request("agent_chat_get", {
+      chat_id: chat.chat_id,
+    })) as AgentChatSnapshot;
+    const snapshotSeq = snapshot.meta?.last_event_seq;
+    if (typeof snapshotSeq === "number") this.cursors.noteRevision(chat.chat_id, snapshotSeq);
+    const resync = agentChatResyncMessage(chat.chat_id, snapshot);
+    this.messageListeners.forEach((listener) => listener(resync));
+  }
+
   private applyLifecycle() {
     if (this.disposed) return;
-    const wantLive = this.foreground && this.networkOnline;
-    if (!wantLive) {
+    if (!this.lifecycleLive()) {
+      this.clearResubscribeTimer();
       this.session.pauseReconnect();
       return;
     }
     this.session.resumeReconnect();
+    if (this.resubscribeNeeded) this.scheduleResubscribe(true);
   }
 
   private setAlert(alert: string | null) {

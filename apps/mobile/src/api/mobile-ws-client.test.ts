@@ -59,12 +59,14 @@ function createClient({
   heartbeatIntervalMs = 0,
   heartbeatTimeoutMs = 10,
   maxReconnectAttempts = 5,
+  reconnect,
   requestTimeoutMs,
   timers,
 }: {
   heartbeatIntervalMs?: number;
   heartbeatTimeoutMs?: number;
   maxReconnectAttempts?: number;
+  reconnect?: boolean;
   requestTimeoutMs?: number;
   timers: TimerCall[];
 }) {
@@ -84,6 +86,7 @@ function createClient({
       if (idx >= 0) timers.splice(idx, 1);
     },
     maxReconnectAttempts,
+    reconnect,
     reconnectInitialDelayMs: 100,
     reconnectMaxDelayMs: 1_000,
     setTimeout: (callback, delayMs) => {
@@ -350,4 +353,104 @@ describe("MobileWsClient", () => {
     reconnect!.callback();
     expect(FakeMobileWebSocket.instances).toHaveLength(2);
   });
+
+  test("disabled reconnect maps a drop to closed instead of reconnecting", () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const client = createClient({ reconnect: false, timers });
+
+    client.connect();
+    FakeMobileWebSocket.instances[0]!.open();
+    FakeMobileWebSocket.instances[0]!.closeFromServer();
+
+    expect(client.state).toBe("closed");
+    expect(timers.filter((timer) => timer.delayMs === 100 || timer.delayMs === 60_000)).toEqual([]);
+  });
+
+  test("background pause cancels relay_ctrl resubscribe until foreground", async () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const client = createClient({ timers });
+    client.connect();
+    const socket = FakeMobileWebSocket.instances[0]!;
+    socket.open();
+    const subscribed = client.request("agent_chat_subscribe", {
+      chat_id: "chat-1",
+      after_sequence: 10,
+    });
+    replyOk(socket, { last_event_seq: 10 });
+    await subscribed;
+
+    socket.emit({ type: "relay_ctrl", code: "server_offline" });
+    expect(timers.some((timer) => timer.delayMs === 0)).toBe(true);
+    const sentBefore = socket.sent.length;
+    client.setForeground(false);
+    expect(timers.some((timer) => timer.delayMs === 0)).toBe(false);
+    expect(socket.sent.length).toBe(sentBefore);
+
+    client.setForeground(true);
+    const retry = timers.find((timer) => timer.delayMs === 0);
+    expect(retry).toBeDefined();
+    retry!.callback();
+    expect(lastRequest(socket).payload.action).toBe("agent_chat_subscribe");
+  });
+
+  test("resubscribe with a seq gap fetches a snapshot and emits agent_chat_resync", async () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const seen: unknown[] = [];
+    const client = createClient({ timers });
+    client.subscribeMessages((message) => seen.push(message));
+    client.connect();
+    const socket = FakeMobileWebSocket.instances[0]!;
+    socket.open();
+    const subscribed = client.request("agent_chat_subscribe", {
+      chat_id: "chat-1",
+      after_sequence: 10,
+    });
+    replyOk(socket, { last_event_seq: 10 });
+    await subscribed;
+
+    socket.emit({ type: "relay_ctrl", code: "server_offline" });
+    const retry = timers.find((timer) => timer.delayMs === 0);
+    expect(retry).toBeDefined();
+    retry!.callback();
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: { action: "agent_chat_subscribe", data: { chat_id: "chat-1", after_sequence: 10 } },
+    });
+    const snapshot = {
+      meta: { id: "chat-1", last_event_seq: 40 },
+      messages: [{ id: "m-new", role: "assistant", parts: [{ type: "text", text: "caught up" }] }],
+      queue: [],
+      pending_permission: {
+        request_id: "perm-1",
+        tool: "edit",
+        description: "edit file",
+        status: "pending",
+      },
+    };
+    replyOk(socket, { last_event_seq: 40 });
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: { action: "agent_chat_get", data: { chat_id: "chat-1" } },
+    });
+    replyOk(socket, snapshot);
+    await flushMicrotasks();
+    expect(seen.some((message) => isResync(message, "chat-1"))).toBe(true);
+    expect(client.transportAlert).toBeNull();
+    expect(client.state).toBe("open");
+  });
 });
+
+function isResync(message: unknown, chatId: string) {
+  if (!message || typeof message !== "object") return false;
+  const record = message as { type?: unknown; chat_id?: unknown; snapshot?: unknown };
+  return (
+    record.type === "agent_chat_resync" && record.chat_id === chatId && record.snapshot != null
+  );
+}
+
+async function flushMicrotasks() {
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+}

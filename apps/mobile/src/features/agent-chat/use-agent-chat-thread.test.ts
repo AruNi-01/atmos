@@ -1,8 +1,14 @@
+// @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error Node types are not in the Expo tsconfig
 import { readFileSync } from "node:fs";
+// @ts-expect-error Node types are not in the Expo tsconfig
 import { join } from "node:path";
 
-const thread = readFileSync(join(import.meta.dir, "use-agent-chat-thread.ts"), "utf8");
+const thread = readFileSync(
+  join((import.meta as ImportMeta & { dir: string }).dir, "use-agent-chat-thread.ts"),
+  "utf8",
+);
 
 describe("useAgentChatThread restore", () => {
   test("loads the snapshot before subscribing from last_event_seq", () => {
@@ -14,5 +20,11 @@ describe("useAgentChatThread restore", () => {
     const subscribeAt = thread.indexOf("wsActions.agentChatSubscribe");
     expect(getAt).toBeGreaterThan(-1);
     expect(subscribeAt).toBeGreaterThan(getAt);
+  });
+
+  test("applies agent_chat_resync in place without remounting", () => {
+    expect(thread).toContain("parseAgentChatResync");
+    expect(thread).toContain("transcriptFromAgentChatSnapshot");
+    expect(thread).toContain("resync.chat_id === chatId");
   });
 });

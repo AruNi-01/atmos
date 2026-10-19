@@ -28,10 +28,16 @@ export function pushAgentChatCommit(
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BackfillRequest } from "@atmos/api-client/agent-chat";
+import { parseAgentChatResync } from "@/api/mobile-ws-transport";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
-import { applyChatEvent, createChatTranscript, type ChatTranscriptState } from "./fold-transcript";
+import {
+  applyChatEvent,
+  createChatTranscript,
+  transcriptFromAgentChatSnapshot,
+  type ChatTranscriptState,
+} from "./fold-transcript";
 import { agentChatEventFromMessage, eventsForChat } from "./foreign-event";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 
@@ -101,6 +107,16 @@ export function useAgentChatThread(chatId: string) {
     };
 
     const unsubscribeMessages = client.subscribeMessages((message) => {
+      const resync = parseAgentChatResync(message);
+      if (resync && resync.chat_id === chatId) {
+        const next = transcriptFromAgentChatSnapshot(chatId, resync.snapshot);
+        transcriptRef.current = next;
+        if (ready) {
+          setTranscript(next);
+          setError(null);
+        }
+        return;
+      }
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
       if (!ready) {
@@ -118,14 +134,7 @@ export function useAgentChatThread(chatId: string) {
       try {
         const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
         if (cancelled) return;
-        let state = createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta);
-        state = {
-          ...state,
-          pendingPermission: snapshot.pending_permission ?? null,
-          pendingSessionOp: snapshot.pending_session_op ?? null,
-          queue: snapshot.queue ?? [],
-          runningTurnId: snapshot.running_turn_id ?? null,
-        };
+        let state = transcriptFromAgentChatSnapshot(chatId, snapshot);
         let after = snapshot.meta?.last_event_seq ?? 0;
         const drain = () => {
           const queued = buffer.splice(0, buffer.length);

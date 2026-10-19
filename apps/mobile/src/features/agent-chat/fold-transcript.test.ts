@@ -1,7 +1,15 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import type { AgentChatEvent, AgentChatPayload } from "@atmos/api-types/ws/dto/agent-chat";
-import { applyChatEvent, createChatTranscript } from "./fold-transcript";
+import type {
+  AgentChatEvent,
+  AgentChatPayload,
+  AgentChatSnapshot,
+} from "@atmos/api-types/ws/dto/agent-chat";
+import {
+  applyChatEvent,
+  createChatTranscript,
+  transcriptFromAgentChatSnapshot,
+} from "./fold-transcript";
 
 function event(chatId: string, payload: AgentChatPayload, revision = 1): AgentChatEvent {
   return {
@@ -254,5 +262,32 @@ describe("applyChatEvent", () => {
     expect(next.state.commands).toEqual([
       { name: "fork", description: "Fork this chat", hint: null },
     ]);
+  });
+});
+
+describe("transcriptFromAgentChatSnapshot", () => {
+  test("applies messages and pending permission without clearing first", () => {
+    const snapshot = {
+      meta: { id: "chat-1", last_event_seq: 40, session_usage: null },
+      messages: [
+        {
+          id: "m-new",
+          role: "assistant",
+          parts: [{ type: "text", text: "caught up" }],
+        },
+      ],
+      queue: [],
+      pending_permission: {
+        request_id: "perm-1",
+        tool: "edit",
+        description: "edit file",
+        status: "pending",
+      },
+      running_turn_id: "turn-9",
+    } as unknown as AgentChatSnapshot;
+    const state = transcriptFromAgentChatSnapshot("chat-1", snapshot);
+    expect(state.messages.map((message) => message.id)).toEqual(["m-new"]);
+    expect(state.pendingPermission?.request_id).toBe("perm-1");
+    expect(state.runningTurnId).toBe("turn-9");
   });
 });

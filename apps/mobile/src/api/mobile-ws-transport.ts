@@ -1,3 +1,5 @@
+import type { AgentChatSnapshot } from "@atmos/api-types/ws/dto/agent-chat";
+
 export type RelayCtrl = {
   code: string;
 };
@@ -6,6 +8,56 @@ export type AgentChatCursor = {
   chat_id: string;
   after_sequence: number;
 };
+
+export const AGENT_CHAT_RESYNC_TYPE = "agent_chat_resync";
+
+export type AgentChatResyncMessage = {
+  type: typeof AGENT_CHAT_RESYNC_TYPE;
+  chat_id: string;
+  snapshot: AgentChatSnapshot;
+};
+
+export class NetworkUpdateGate {
+  private generation = 0;
+
+  nextAsync(): number {
+    return ++this.generation;
+  }
+
+  live(): void {
+    this.generation += 1;
+  }
+
+  isCurrent(id: number): boolean {
+    return id === this.generation;
+  }
+}
+
+export function lastEventSeqFromSubscribe(data: unknown): number | null {
+  if (!data || typeof data !== "object") return null;
+  const seq = (data as { last_event_seq?: unknown }).last_event_seq;
+  return typeof seq === "number" && Number.isFinite(seq) ? seq : null;
+}
+
+export function agentChatResyncMessage(
+  chatId: string,
+  snapshot: AgentChatSnapshot,
+): AgentChatResyncMessage {
+  return { type: AGENT_CHAT_RESYNC_TYPE, chat_id: chatId, snapshot };
+}
+
+export function parseAgentChatResync(message: unknown): AgentChatResyncMessage | null {
+  if (!message || typeof message !== "object") return null;
+  const record = message as { type?: unknown; chat_id?: unknown; snapshot?: unknown };
+  if (record.type !== AGENT_CHAT_RESYNC_TYPE) return null;
+  if (typeof record.chat_id !== "string" || record.chat_id.length === 0) return null;
+  if (!record.snapshot || typeof record.snapshot !== "object") return null;
+  return {
+    type: AGENT_CHAT_RESYNC_TYPE,
+    chat_id: record.chat_id,
+    snapshot: record.snapshot as AgentChatSnapshot,
+  };
+}
 
 export function parseRelayCtrl(message: unknown): RelayCtrl | null {
   if (!message || typeof message !== "object") return null;

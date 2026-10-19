@@ -3,6 +3,10 @@ import { describe, expect, test } from "bun:test";
 import {
   AgentChatCursorTracker,
   agentChatCursorFromMessage,
+  agentChatResyncMessage,
+  lastEventSeqFromSubscribe,
+  NetworkUpdateGate,
+  parseAgentChatResync,
   parseRelayCtrl,
 } from "./mobile-ws-transport";
 
@@ -33,5 +37,25 @@ describe("mobile ws transport helpers", () => {
     ).toEqual({ chatId: "chat-1", revision: 11 });
     tracker.noteUnsubscribe("chat-1");
     expect(tracker.snapshots()).toEqual([]);
+  });
+
+  test("NetworkUpdateGate ignores a stale async snapshot after a live event", () => {
+    const gate = new NetworkUpdateGate();
+    const id = gate.nextAsync();
+    expect(gate.isCurrent(id)).toBe(true);
+    gate.live();
+    expect(gate.isCurrent(id)).toBe(false);
+  });
+
+  test("parseAgentChatResync reads a façade snapshot message", () => {
+    const snapshot = {
+      meta: { id: "chat-1", last_event_seq: 9 },
+      messages: [],
+      queue: [],
+    };
+    const message = agentChatResyncMessage("chat-1", snapshot as never);
+    expect(parseAgentChatResync(message)).toEqual(message);
+    expect(lastEventSeqFromSubscribe({ last_event_seq: 9 })).toBe(9);
+    expect(parseAgentChatResync({ type: "relay_ctrl" })).toBeNull();
   });
 });

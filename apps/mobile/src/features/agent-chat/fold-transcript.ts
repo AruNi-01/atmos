@@ -133,6 +133,20 @@ export function createChatTranscript(
   };
 }
 
+export function transcriptFromAgentChatSnapshot(
+  chatId: string,
+  snapshot: AgentChatSnapshot,
+): ChatTranscriptState {
+  const state = createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta);
+  return {
+    ...state,
+    pendingPermission: snapshot.pending_permission ?? null,
+    pendingSessionOp: snapshot.pending_session_op ?? null,
+    queue: snapshot.queue ?? [],
+    runningTurnId: snapshot.running_turn_id ?? null,
+  };
+}
+
 function mergeUsageSession(
   existing: AgentSessionUsage | null,
   session: AgentSessionUsage,
