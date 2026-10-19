@@ -34,6 +34,6 @@ describe("useAgentChatThread restore", () => {
     expect(setTranscriptAt).toBeGreaterThan(-1);
     expect(thread).toContain("prev === copy.sendFailed ? prev : null");
     expect(thread).toContain("applyOpenThreadResync");
-    expect(thread).toContain("resyncCtrl.overflowed");
+    expect(thread).toContain("markOpenThreadOverflow");
   });
 });

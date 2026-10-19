@@ -32,7 +32,11 @@ import { parseAgentChatResync } from "@/api/mobile-ws-transport";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
-import { applyOpenThreadResync, type OpenThreadResyncCtrl } from "./open-thread-resync";
+import {
+  applyOpenThreadResync,
+  markOpenThreadOverflow,
+  type OpenThreadResyncCtrl,
+} from "./open-thread-resync";
 import {
   applyAgentChatResync,
   applyChatEvent,
@@ -74,6 +78,7 @@ export function useAgentChatThread(chatId: string) {
     let ready = false;
     const resyncCtrl: OpenThreadResyncCtrl = {
       overflowed: false,
+      overflowGen: 0,
       resyncFetchGen: 0,
       cancelled: false,
     };
@@ -141,7 +146,7 @@ export function useAgentChatThread(chatId: string) {
       }
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
-      if (rememberChatEvent(recentEvents, event)) resyncCtrl.overflowed = true;
+      if (rememberChatEvent(recentEvents, event)) markOpenThreadOverflow(resyncCtrl);
       if (!ready) return;
       const next = applyChatEvent(transcriptRef.current, event);
       transcriptRef.current = next.state;

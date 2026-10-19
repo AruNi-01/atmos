@@ -1,9 +1,13 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import { applyOpenThreadResync, type OpenThreadResyncCtrl } from "./open-thread-resync";
+import {
+  applyOpenThreadResync,
+  markOpenThreadOverflow,
+  type OpenThreadResyncCtrl,
+} from "./open-thread-resync";
 
 function ctrl(overflowed = false): OpenThreadResyncCtrl {
-  return { overflowed, resyncFetchGen: 0, cancelled: false };
+  return { overflowed, overflowGen: overflowed ? 1 : 0, resyncFetchGen: 0, cancelled: false };
 }
 
 describe("applyOpenThreadResync", () => {
@@ -81,6 +85,27 @@ describe("applyOpenThreadResync", () => {
     expect(await first).toBe("held");
     expect(published).toEqual(["replacement-2"]);
     expect(state.overflowed).toBe(false);
+  });
+
+  test("keeps overflowed when the ring overflows during the replacement get", async () => {
+    const published: string[] = [];
+    const state = ctrl(true);
+    let release: (snapshot: string) => void = () => undefined;
+    const pending = applyOpenThreadResync({
+      ctrl: state,
+      incoming: "incoming",
+      fetchReplacement: () =>
+        new Promise<string>((resolve) => {
+          release = resolve;
+        }),
+      publish: (snapshot) => published.push(snapshot),
+    });
+    await Promise.resolve();
+    markOpenThreadOverflow(state);
+    release("replacement");
+    expect(await pending).toBe("applied-replacement");
+    expect(published).toEqual(["replacement"]);
+    expect(state.overflowed).toBe(true);
   });
 
   test("holds when the effect is cancelled during the replacement get", async () => {

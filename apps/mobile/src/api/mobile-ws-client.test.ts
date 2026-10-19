@@ -518,6 +518,87 @@ describe("MobileWsClient", () => {
     });
   });
 
+  test("late error from a replaced socket does not mark the client error", async () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const client = createClient({ timers });
+    client.connect();
+    const previous = FakeMobileWebSocket.instances[0]!;
+    previous.open();
+    expect(client.state).toBe("open");
+
+    const staleError = previous.onerror;
+    previous.readyState = 2;
+    client.setForeground(false);
+    client.setForeground(true);
+    expect(FakeMobileWebSocket.instances).toHaveLength(2);
+    const next = FakeMobileWebSocket.instances[1]!;
+    next.open();
+    expect(client.state).toBe("open");
+
+    staleError?.({ message: "late error from replaced socket" });
+    expect(client.state).toBe("open");
+    expect(next.readyState).toBe(1);
+  });
+
+  test("overlapping resubscribe keeps the catching-up alert until the latest round finishes", async () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const client = createClient({ timers });
+    client.connect();
+    const socket = FakeMobileWebSocket.instances[0]!;
+    socket.open();
+    const subscribed = client.request("agent_chat_subscribe", {
+      chat_id: "chat-1",
+      after_sequence: 10,
+    });
+    replyOk(socket, { last_event_seq: 10 });
+    await subscribed;
+
+    socket.emit({ type: "relay_ctrl", code: "server_offline" });
+    expect(client.transportAlert).toBe("Atmos Computer went offline. Catching up this chat.");
+    const first = timers.find((timer) => timer.delayMs === 0);
+    expect(first).toBeDefined();
+    first!.callback();
+    await flushMicrotasks();
+    replyOk(socket, { last_event_seq: 40 });
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: { action: "agent_chat_get", data: { chat_id: "chat-1" } },
+    });
+
+    const timerCount = timers.length;
+    client.setForeground(true);
+    const second = timers.slice(timerCount).find((timer) => timer.delayMs === 0);
+    expect(second).toBeDefined();
+    second!.callback();
+    await flushMicrotasks();
+    expect(lastRequest(socket).payload.action).toBe("agent_chat_subscribe");
+
+    replyOkAction(socket, "agent_chat_get", {
+      meta: { id: "chat-1", last_event_seq: 40 },
+      messages: [],
+      queue: [],
+    });
+    await flushMicrotasks();
+    expect(client.transportAlert).toBe("Atmos Computer went offline. Catching up this chat.");
+    expect(client.state).toBe("open");
+
+    replyOkAction(socket, "agent_chat_subscribe", { last_event_seq: 40 });
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: { action: "agent_chat_get", data: { chat_id: "chat-1" } },
+    });
+    replyOkAction(socket, "agent_chat_get", {
+      meta: { id: "chat-1", last_event_seq: 40 },
+      messages: [],
+      queue: [],
+    });
+    await flushMicrotasks();
+    expect(client.transportAlert).toBeNull();
+    expect(client.state).toBe("open");
+  });
+
   test("unsubscribe invalidates an in-flight snapshot so a stale resync is not emitted", async () => {
     const timers: TimerCall[] = [];
     FakeMobileWebSocket.instances = [];

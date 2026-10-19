@@ -198,6 +198,7 @@ export class MobileWsClient {
   private resubscribeTimer: MobileTimer | null = null;
   private resubscribeAttempt = 0;
   private resubscribeNeeded = false;
+  private resubscribeGeneration = 0;
 
   constructor(
     private readonly wsUrl: string,
@@ -396,12 +397,15 @@ export class MobileWsClient {
       this.scheduleResubscribe();
       return;
     }
+    const generation = ++this.resubscribeGeneration;
     try {
       await Promise.all(chats.map((chat) => this.resyncChat(chat)));
+      if (generation !== this.resubscribeGeneration) return;
       this.resubscribeNeeded = false;
       this.resubscribeAttempt = 0;
       if (this.currentAlert !== "No network connection.") this.setAlert(null);
     } catch {
+      if (generation !== this.resubscribeGeneration) return;
       this.scheduleResubscribe();
     }
   }
