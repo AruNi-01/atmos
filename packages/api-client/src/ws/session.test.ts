@@ -219,8 +219,11 @@ describe("@atmos/api-client WsSession", () => {
     sock!.uncleanClose();
     expect(session.state).toBe("disconnected");
     expect(ft.pending()).toBe(1);
-    ft.flush(60_000);
-    expect(created).toBe(3);
+    const afterFast = created;
+    ft.flush(59_999);
+    expect(created).toBe(afterFast);
+    ft.flush(1);
+    expect(created).toBe(afterFast + 1);
     sock!.open();
     expect(session.state).toBe("connected");
   });
@@ -479,12 +482,27 @@ describe("@atmos/api-client WsSession", () => {
       chat_id: "c1",
       parts: [{ part_id: "p", from_offset: 0 }],
     });
+    const firstId = (JSON.parse(sock!.sent[0]!) as { payload: { request_id: string } }).payload
+      .request_id;
     ft.flush(50);
     await expect(req).rejects.toThrow(/timeout: agent_chat_backfill/);
     sock!.emit({
       type: "response",
-      payload: { request_id: "stale", success: true, data: {} },
+      payload: { request_id: firstId, success: true, data: { leaked: true } },
     });
+    const second = session.request("fs_get_home_dir", {});
+    const secondId = (JSON.parse(sock!.sent[1]!) as { payload: { request_id: string } }).payload
+      .request_id;
+    expect(secondId).not.toBe(firstId);
+    sock!.emit({
+      type: "response",
+      payload: { request_id: firstId, success: true, data: { leaked: true } },
+    });
+    sock!.emit({
+      type: "response",
+      payload: { request_id: secondId, success: true, data: { path: "/home" } },
+    });
+    await expect(second).resolves.toEqual({ path: "/home" });
   });
 
   test("send throw rejects the request", async () => {
@@ -657,6 +675,160 @@ describe("@atmos/api-client WsSession", () => {
     ft.flush(10);
     expect(session.state).toBe("connected");
     expect(sock!.readyState).toBe(1);
+  });
+
+  test("late pong after pause/resume does not cancel the new watchdog", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: { enabled: false },
+      heartbeatIntervalMs: 40,
+      heartbeatTimeoutMs: 10,
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    ft.flush(40);
+    expect(sock!.pingWaiters).toHaveLength(1);
+    session.pauseReconnect();
+    session.resumeReconnect();
+    ft.flush(40);
+    expect(sock!.pingWaiters).toHaveLength(2);
+    sock!.pong();
+    ft.flush(10);
+    expect(sock!.readyState).toBe(3);
+  });
+
+  test("late pong from a replaced socket does not cancel the current watchdog", async () => {
+    const ft = fakeTimers();
+    const sockets: MockSocket[] = [];
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          const next = new MockSocket();
+          sockets.push(next);
+          return next;
+        },
+        timers: ft,
+      },
+      reconnect: {
+        ...DEFAULT_MOBILE_RECONNECT,
+        initialDelayMs: 25,
+        maxDelayMs: 25,
+      },
+      heartbeatIntervalMs: 40,
+      heartbeatTimeoutMs: 10,
+    });
+    const p = session.connect();
+    sockets[0]!.open();
+    await p;
+    ft.flush(40);
+    expect(sockets[0]!.pingWaiters).toHaveLength(1);
+    ft.flush(10);
+    ft.flush(25);
+    expect(sockets).toHaveLength(2);
+    sockets[1]!.open();
+    ft.flush(40);
+    expect(sockets[1]!.pingWaiters).toHaveLength(1);
+    sockets[0]!.pong();
+    ft.flush(10);
+    expect(sockets[1]!.readyState).toBe(3);
+    expect(session.state).toBe("reconnecting");
+  });
+
+  test("ping-less sockets keep the heartbeat interval looping", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          sock = new MockSocket();
+          Object.defineProperty(sock, "ping", { value: undefined });
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: { enabled: false },
+      heartbeatIntervalMs: 40,
+      heartbeatTimeoutMs: 10,
+    });
+    const p = session.connect();
+    sock!.open();
+    await p;
+    ft.flush(40);
+    expect(session.state).toBe("connected");
+    expect(sock!.readyState).toBe(1);
+    ft.flush(40);
+    expect(session.state).toBe("connected");
+    expect(ft.pending()).toBeGreaterThan(0);
+  });
+
+  test("pauseReconnect blocks a direct connect until resume", async () => {
+    const ft = fakeTimers();
+    let created = 0;
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          created += 1;
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: DEFAULT_MOBILE_RECONNECT,
+    });
+    session.pauseReconnect();
+    await session.connect();
+    expect(created).toBe(0);
+    session.resumeReconnect();
+    expect(created).toBe(1);
+    sock!.open();
+    expect(session.state).toBe("connected");
+  });
+
+  test("retryNow connect promise survives the previous finally", async () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    let created = 0;
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          created += 1;
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: {
+        ...DEFAULT_MOBILE_RECONNECT,
+        initialDelayMs: 100,
+        maxDelayMs: 100,
+      },
+    });
+    const first = session.connect();
+    sock!.open();
+    sock!.uncleanClose();
+    session.retryNow();
+    const second = session.connect();
+    expect(created).toBe(2);
+    await Promise.resolve();
+    sock!.open();
+    await second;
+    expect(session.state).toBe("connected");
+    await first;
   });
 
   test("intentional disconnect does not resume on retryNow", async () => {

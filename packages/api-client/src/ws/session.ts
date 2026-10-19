@@ -69,6 +69,8 @@ export class WsSession {
   };
   private heartbeatTimer: unknown = null;
   private pingWatchdog: unknown = null;
+  private heartbeatGeneration = 0;
+  private connectGeneration = 0;
   private reconnectPaused = false;
   private closedByClient = false;
 
@@ -96,6 +98,9 @@ export class WsSession {
   }
 
   connect(): Promise<void> {
+    if (this.reconnectPaused) {
+      return this.connectInFlight ?? Promise.resolve();
+    }
     if (this.currentState === "connected" && this.socket?.readyState === WEBSOCKET_OPEN) {
       return Promise.resolve();
     }
@@ -110,6 +115,7 @@ export class WsSession {
     const state: ConnectionState =
       this.currentState === "reconnecting" ? "reconnecting" : "connecting";
 
+    const generation = ++this.connectGeneration;
     this.connectInFlight = new Promise<void>((resolve, reject) => {
       this.connectWaiters = { resolve, reject, settled: false };
       try {
@@ -118,6 +124,7 @@ export class WsSession {
         this.failConnect(err instanceof Error ? err : new Error(String(err)));
       }
     }).finally(() => {
+      if (this.connectGeneration !== generation) return;
       this.connectInFlight = null;
       this.connectWaiters = null;
     });
@@ -487,24 +494,29 @@ export class WsSession {
   private startHeartbeat(): void {
     this.clearHeartbeat();
     if (this.heartbeatIntervalMs <= 0 || this.reconnectPaused) return;
+    const generation = this.heartbeatGeneration;
     this.heartbeatTimer = this.timers.setTimeout(() => {
       this.heartbeatTimer = null;
-      this.beat();
+      if (generation !== this.heartbeatGeneration) return;
+      this.beat(generation);
     }, this.heartbeatIntervalMs);
   }
 
-  private beat(): void {
+  private beat(generation: number): void {
     const sock = this.socket;
     if (!sock || this.currentState !== "connected" || sock.readyState !== WEBSOCKET_OPEN) {
       return;
     }
+    if (generation !== this.heartbeatGeneration) return;
     if (typeof sock.ping !== "function") {
+      this.startHeartbeat();
       return;
     }
     let settled = false;
     this.pingWatchdog = this.timers.setTimeout(() => {
       this.pingWatchdog = null;
       if (settled) return;
+      if (generation !== this.heartbeatGeneration || this.socket !== sock) return;
       settled = true;
       try {
         sock.close(4008, "ping timeout");
@@ -515,6 +527,7 @@ export class WsSession {
     try {
       sock.ping((error) => {
         if (settled) return;
+        if (generation !== this.heartbeatGeneration || this.socket !== sock) return;
         settled = true;
         if (this.pingWatchdog != null) {
           this.timers.clearTimeout(this.pingWatchdog);
@@ -545,6 +558,7 @@ export class WsSession {
   }
 
   private clearHeartbeat(): void {
+    this.heartbeatGeneration += 1;
     if (this.heartbeatTimer != null) {
       this.timers.clearTimeout(this.heartbeatTimer);
       this.heartbeatTimer = null;
