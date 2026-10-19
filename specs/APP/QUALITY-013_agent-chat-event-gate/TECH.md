@@ -119,7 +119,9 @@ Hydrate generations: `startHydrate()` returns a token. `finishHydrate(seq, token
 
 Text holes inside a part still use QUALITY-006 `BackfillRequest` / `agent_chat_backfill`. That is independent of revision gaps.
 
-After subscribe, if `shouldResyncFromServer(last_event_seq)` the consumer reloads the snapshot. Mobile always does this. Web does it on the initial hydrate subscribe response (reconnect-from-cursor remains deferred).
+After subscribe, if `shouldResyncFromServer(last_event_seq)` the consumer loads **one extra snapshot per burst**. Mobile does this on the initial subscribe **and** on the subscribe that closes a snapshot resync. Web does it on the initial hydrate subscribe (reconnect-from-cursor remains deferred).
+
+`last_event_seq` is the watermark the subscribe **response** reports. It cannot close a server race where the handler snapshots/replays before registering the connection (apps/api `handle_agent_chat_subscribe`). Atomic subscribe+watermark is PR5 / server, not this spec.
 
 ## resyncFromSnapshot failure (Q5)
 
@@ -128,8 +130,8 @@ Failure modes: `agent_chat_get` throws, socket closes, effect cancelled.
 Rules:
 
 1. Every non-success exit calls `abandonHydrate(token)` so `hydrating` is false. The live buffer is **drained through the gate without a new snapshot floor** (no `observeSnapshot`). A buffered `turn_completed` applies against the last known transcript instead of being deleted. Callers fold those `apply` decisions.
-2. Cleanup of the session effect also abandons if still hydrating (resume must not inherit a stuck gate). Drain+fold keeps the events on `transcriptRef` when the same pump resumes.
-3. Retry: `nextAgentChatResyncDelayMs(failedAttemptCount)` — 400 ms × 2^n, max 3 attempts. Success resets the counter and may still replace the transcript with a later snapshot. Exhaustion leaves live apply + an error string; a later `gap.recommend === "resync"` or reconnect subscribe can try again.
+2. **Mobile** cleanup of the session effect also abandons if still hydrating (`pumpRef` survives resume). Drain+fold keeps the events on `transcriptRef`. Web creates a **new** pump per effect; failed `load` drains in `catch`.
+3. Retry: `nextAgentChatResyncDelayMs(failedAttemptCount)` — 400 ms × 2^n, max 3 attempts. Starting a resync **cancels** any armed backoff timer. Success resets the counter and may still replace the transcript with a later snapshot. Exhaustion leaves live apply + an error string; a later `gap.recommend === "resync"` or reconnect subscribe can try again.
 
 Do not require `action === "apply"` to start another resync after a failed hydrate: the failed path must leave the pump in live mode first.
 

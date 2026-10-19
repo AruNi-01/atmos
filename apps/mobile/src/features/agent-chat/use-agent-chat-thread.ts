@@ -87,6 +87,11 @@ export function useAgentChatThread(chatId: string) {
     let resyncing = false;
     let failedResyncs = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearResyncRetry = () => {
+      if (retryTimer == null) return;
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    };
     const inflight = new Set<string>();
     if (!isResume) {
       pumpRef.current = createAgentChatEventPump();
@@ -167,10 +172,12 @@ export function useAgentChatThread(chatId: string) {
       return subscribed.last_event_seq ?? pump.cursor;
     };
 
-    const resyncFromSnapshot = async () => {
+    const resyncFromSnapshot = async (extraRounds = 1) => {
+      clearResyncRetry();
       if (resyncing || cancelled) return;
       resyncing = true;
       const generation = pump.startHydrate();
+      let stillBehind = false;
       try {
         const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
         if (cancelled) {
@@ -178,8 +185,9 @@ export function useAgentChatThread(chatId: string) {
           return;
         }
         applySnapshot(snapshot, generation);
-        await subscribeFromCursor();
+        const serverSeq = await subscribeFromCursor();
         failedResyncs = 0;
+        stillBehind = pump.shouldResyncFromServer(serverSeq);
       } catch (err) {
         if (shouldAbandonAgentChatHydrate("error")) drainAbandonedHydrate(generation);
         if (!cancelled) {
@@ -189,12 +197,15 @@ export function useAgentChatThread(chatId: string) {
           if (delay != null) {
             retryTimer = setTimeout(() => {
               retryTimer = null;
-              void resyncFromSnapshot();
+              void resyncFromSnapshot(extraRounds);
             }, delay);
           }
         }
       } finally {
         resyncing = false;
+      }
+      if (stillBehind && extraRounds > 0 && !cancelled) {
+        await resyncFromSnapshot(extraRounds - 1);
       }
     };
 
@@ -244,7 +255,7 @@ export function useAgentChatThread(chatId: string) {
 
     return () => {
       cancelled = true;
-      if (retryTimer != null) clearTimeout(retryTimer);
+      clearResyncRetry();
       if (pump.hydrating) drainAbandonedHydrate();
       clearInterval(flushTimer);
       unsubscribeMessages();

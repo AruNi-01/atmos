@@ -119,7 +119,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 ### S15–S16 — Mobile resume
 
 - **Level**: Unit
-- **Then**: resume only same chat on same client. Hook source calls `abandonHydrate` on resync catch/cancel, `nextAgentChatResyncDelayMs`, and subscribes at `pump.cursor` after snapshot.
+- **Then**: resume only same chat on same client. Hook source calls `drainAbandonedHydrate` on resync catch/cancel, `clearResyncRetry` before a new resync, `pump.shouldResyncFromServer` after the resync subscribe, and subscribes at `pump.cursor` after snapshot.
 - **Signals**: boolean resume; source order and strings.
 
 ### S17–S18 — Web
