@@ -302,35 +302,35 @@ No Playwright mobile journey. `apps/mobile/e2e` is frozen.
 
 Recorded on `aarynlu/mobile-ws-lifecycle-d365` after review fixes (Linux cloud agent, no iOS Simulator).
 
-| Scenario | Status  | Evidence                                                                                        |
-| -------- | ------- | ----------------------------------------------------------------------------------------------- |
-| S1       | pass    | `packages/api-client` `request times out and releases the pending slot`                         |
-| S2       | pass    | `mobile exhausted slow_retry` flushes 59_999 then 1                                             |
-| S3       | pass    | `heartbeat ping timeout closes the socket so reconnect can run`                                 |
-| S4       | pass    | late pong after pause/resume **and** replaced-socket tests                                      |
-| S5       | pass    | `ping-less sockets keep the heartbeat interval looping`                                         |
-| S6       | pass    | `pauseReconnect blocks a direct connect until resume`                                           |
-| S7       | pass    | `retryNow connect promise survives the previous finally`                                        |
-| S8       | pass    | `disabled reconnect maps a drop to closed instead of reconnecting`                              |
-| S9       | pass    | AppState background/foreground client test                                                      |
-| S10      | pass    | network recovery client test                                                                    |
-| S11      | pass    | `NetworkUpdateGate ignores a stale async snapshot`                                              |
-| S12      | pass    | `relay_ctrl resubscribes from the current cursor`                                               |
-| S13      | pass    | `background pause cancels relay_ctrl resubscribe until foreground`                              |
-| S14      | pass    | `resubscribe with a seq gap fetches a snapshot and emits agent_chat_resync`                     |
-| S15      | pass    | S12 reply `{ last_event_seq: 12 }` with cursor 12; no get                                       |
-| S16      | pass    | `applyAgentChatResync` + hook source `parseAgentChatResync` then `applyAgentChatResync`         |
-| S17      | pass    | Swift `receiveNext` defers `closeCode == 0`; uses real code otherwise                           |
-| S18      | pass    | `defaults.ts` + APP-049 TECH §6 including `reconnectBeforeOpen`                                 |
-| S19      | pass    | `@atmos/api-client` and `@atmos/mobile` typecheck 0; `bun lint` exit 0; `bunx oxfmt` on touched |
-| S20      | not run | No iOS Simulator in this environment                                                            |
-| S21      | pass    | `failed snapshot fetch keeps the old cursor so retry still gets`                                |
-| S22      | pass    | `replays live events newer than the snapshot sequence`                                          |
-| S23      | pass    | snapshot restores `/fork` into `state.commands`                                                 |
-| S24      | pass    | `holds the current transcript when the replacement get fails` + apply-replacement test          |
+| Scenario | Status  | Evidence                                                                                                |
+| -------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| S1       | pass    | `packages/api-client` `request times out and releases the pending slot`                                 |
+| S2       | pass    | `mobile exhausted slow_retry` flushes 59_999 then 1                                                     |
+| S3       | pass    | `heartbeat ping timeout closes the socket so reconnect can run`                                         |
+| S4       | pass    | late pong after pause/resume **and** replaced-socket tests                                              |
+| S5       | pass    | `ping-less sockets keep the heartbeat interval looping`                                                 |
+| S6       | pass    | `pauseReconnect blocks a direct connect until resume`                                                   |
+| S7       | pass    | `retryNow connect promise survives the previous finally`                                                |
+| S8       | pass    | `disabled reconnect maps a drop to closed instead of reconnecting`                                      |
+| S9       | pass    | AppState background/foreground client test                                                              |
+| S10      | pass    | network recovery client test                                                                            |
+| S11      | pass    | `NetworkUpdateGate ignores a stale async snapshot`                                                      |
+| S12      | pass    | `relay_ctrl resubscribes from the current cursor`                                                       |
+| S13      | pass    | `background pause cancels relay_ctrl resubscribe until foreground`                                      |
+| S14      | pass    | `resubscribe with a seq gap fetches a snapshot and emits agent_chat_resync`                             |
+| S15      | pass    | S12 reply `{ last_event_seq: 12 }` with cursor 12; no get                                               |
+| S16      | pass    | `applyAgentChatResync` + hook source `parseAgentChatResync` then `applyAgentChatResync`                 |
+| S17      | pass    | Swift `receiveNext` defers `closeCode == 0`; uses real code otherwise                                   |
+| S18      | pass    | `defaults.ts` + APP-049 TECH §6 including `reconnectBeforeOpen`                                         |
+| S19      | pass    | `@atmos/api-client` and `@atmos/mobile` typecheck 0; `bun lint` exit 0; `bunx oxfmt` on touched         |
+| S20      | not run | No iOS Simulator in this environment                                                                    |
+| S21      | pass    | `failed snapshot fetch keeps the old cursor so retry still gets`                                        |
+| S22      | pass    | `replays live events newer than the snapshot sequence`                                                  |
+| S23      | pass    | snapshot restores `/fork` into `state.commands`                                                         |
+| S24      | pass    | `holds the current transcript when the replacement get fails` + apply-replacement test                  |
 | S25      | pass    | stale get held; newer replacement publishes; cancelled-during-get holds; overflow-during-get keeps flag |
-| S26      | pass    | kernel + mobile replaced-socket late `onerror` stay `connected` / `open`                        |
-| S27      | pass    | overlapping `resubscribeNow` keeps catching-up alert until the latest round                     |
+| S26      | pass    | kernel + mobile replaced-socket late `onerror` stay `connected` / `open`                                |
+| S27      | pass    | overlapping `resubscribeNow` keeps catching-up alert until the latest round                             |
 
 Commands:
 
