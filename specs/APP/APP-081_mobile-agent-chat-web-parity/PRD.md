@@ -110,7 +110,7 @@ Append-only record of native glass / composer behavior shipped after M6–M7. Do
 - **Focus-driven compact composer.** Idle dock is one 52pt row. It expands (280 ms cubic-out; duration 0 under Reduce Motion) when focused, the model or add sheet is open, queue/steer is shown, the draft has a newline, or the draft wraps at the compact inner width. Blur / keyboard dismiss / sheet close must not oscillate that state. Expanded dock grows with `maxHeight` up to six lines.
 - **Size contract.** Chip 33 / pill 36 / compact composer 52. Card copy matches the web dock (`text-sm` 14/500 title, 14/20 body). Goal/workflow header titles wrap; subagent titles and background commands wrap inside the card.
 - **Disabled chip crash.** In-card chips must not call SwiftUI `disabled()` through a shadowed prop; dim with opacity 0.55 and expose an accessibility disabled state. Visual / device confirmation stays a TEST `not_run` item until a simulator or device pass exists.
-- **Files.** `apps/mobile/src/ui/primitives/glass-panel.tsx`, `glass-action-buttons.tsx`, `use-reduce-transparency.ts`; `apps/mobile/src/features/agent-chat/{AgentChatComposer,composer-dock,composer-pill-row,composer-glass,cards/expanded-card}.tsx`.
+- **Files.** `apps/mobile/src/ui/primitives/glass-panel.tsx`, `glass-action-buttons.tsx`, `use-reduce-transparency.ts`; `apps/mobile/src/features/agent-chat/{AgentChatComposer.tsx,composer-dock.ts,composer-pill-row.tsx,composer-glass.ts,cards/expanded-card.tsx}`.
 - **Verification.** `cd apps/mobile && bun test` (S34/S35). S36 visual / device remains `not_run` in this environment.
 
 ## Milestones
