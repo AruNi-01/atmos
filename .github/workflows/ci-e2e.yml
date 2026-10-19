@@ -405,15 +405,16 @@ jobs:
               }
               await new Promise((resolve) => setTimeout(resolve, 15_000));
             }
-            core.setFailed(
+            core.warning(
               `Timed out waiting for GitHub Pages build of ${expectedSha.slice(0, 7)}; skipping report comment so prior links stay usable.`,
             );
+            core.setOutput("pages_ready", "false");
 
       - name: Comment on pull request with report URL
         if: >-
           needs.plan.outputs.publish_report == 'true'
           && github.event_name == 'pull_request'
-          && steps.wait_pages.outcome == 'success'
+          && steps.wait_pages.outputs.pages_ready == 'true'
         uses: actions/github-script@v7
         env:
           REPORT_URL: ${{ steps.pages_meta.outputs.report_url }}
