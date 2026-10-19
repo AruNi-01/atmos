@@ -75,13 +75,26 @@ describe("Liquid Glass fallback", () => {
 
   test("GlassPanel is the only expo-glass-effect owner and does not tint by default", () => {
     const panel = readFileSync(join(here, "../../ui/primitives/glass-panel.tsx"), "utf8");
+    const reduceTransparency = readFileSync(
+      join(here, "../../ui/primitives/use-reduce-transparency.ts"),
+      "utf8",
+    );
     expect(panel).toContain("shouldUseLiquidGlass");
-    expect(panel).toContain("isReduceTransparencyEnabled");
-    expect(panel).toContain("reduceTransparencyChanged");
+    expect(panel).toContain("useReduceTransparencyEnabled");
+    expect(reduceTransparency).toContain("isReduceTransparencyEnabled");
+    expect(reduceTransparency).toContain("reduceTransparencyChanged");
     expect(panel).toContain("theme.colors.glassFallback");
+    expect(panel).toContain("theme.colors.glassBorder");
     expect(panel).toContain("tintColor != null");
+    expect(panel).toContain("{...(tintColor != null ? { tintColor } : null)}");
+    expect(panel).toContain("style={[shadowStyle, styles.shape, style]}");
+    expect(panel).not.toContain("glassTint");
     expect(panel).not.toContain("tintColor ?? theme.colors.glassTint");
     expect(panel).not.toContain("resolvedTintColor");
+    const shapeStart = panel.indexOf("shape: {");
+    const shapeEnd = panel.indexOf("},", shapeStart);
+    expect(panel.slice(shapeStart, shapeEnd)).not.toContain("borderWidth");
+    expect(panel).toContain("borderWidth: StyleSheet.hairlineWidth");
     const chatSources = [
       source("AgentChatComposer.tsx"),
       source("composer-pill-row.tsx"),
@@ -112,6 +125,7 @@ describe("card lane glass chrome", () => {
       expect(text).not.toContain("controlGlassTint");
       expect(text).not.toContain("glassFallback");
     }
+    expect(pills).toContain("pill.selected ? theme.colors.label : theme.colors.secondaryLabel");
   });
 
   test("the expanded shell is the same GlassPanel well without tint or extra fill", () => {
@@ -159,7 +173,7 @@ describe("card lane glass chrome", () => {
     expect(composer).toContain("COMPOSER_GLASS_DOCK_RADIUS");
     expect(composer).toContain('backgroundColor: "transparent"');
     expect(composer).toContain("Math.abs(current - next) < 2");
-    expect(composer).toContain("COMPOSER_EXPANDED_PAD_HORIZONTAL");
+    expect(composer).toContain("composerDockInputPadding");
     expect(composer).toContain("composerDockExpanded");
     expect(composer).toContain("LINE_HEIGHT * MAX_LINES");
     expect(composer).not.toContain("theme.colors.control");
@@ -183,8 +197,10 @@ describe("card lane glass chrome", () => {
     expect(buttons).toContain('controlSize("mini")');
     expect(buttons).toContain('buttonStyle("glass")');
     expect(buttons).toContain("foregroundStyle");
-    expect(buttons).toContain("theme.colors.control");
+    expect(buttons).toMatch(/theme\.colors\.control(?!Border)/);
     expect(buttons).toContain("theme.colors.red");
+    expect(buttons).toContain('role={role ?? "default"}');
+    expect(buttons).toContain("accessibilityState={{ disabled: isDisabled }}");
     expect(buttons).not.toContain('buttonStyle("bordered")');
     expect(buttons).not.toContain("tintColor");
     expect(buttons).not.toContain("GlassEffectContainer");
@@ -216,9 +232,14 @@ describe("card lane glass chrome", () => {
     ];
     for (const file of files) {
       const text = source(file);
-      expect(text).toMatch(
-        /theme\.colors\.(label|secondaryLabel)|CardHeader|CardStatusBadge|SESSION_OP_SKY/,
-      );
+      if (file.includes("AgentChatSessionOpCard")) {
+        expect(text).toContain("SESSION_OP_SKY");
+        expect(text).toContain("theme.colors");
+      } else {
+        const hasThemeInk = /theme\.colors\.(label|secondaryLabel)/.test(text);
+        const usesCardChrome = /CardHeader|CardStatusBadge|CardStatusRow|CardBulletRow/.test(text);
+        expect(hasThemeInk || usesCardChrome).toBe(true);
+      }
       expect(text).not.toContain('color: "#');
       expect(text).not.toContain("cardElevated");
       expect(text).not.toContain("GlassPanel");

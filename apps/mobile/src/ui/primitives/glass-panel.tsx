@@ -1,12 +1,13 @@
-import { useEffect, useState, type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
-import { AccessibilityInfo, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import type { GlassViewProps } from "expo-glass-effect";
 import { colors, radii, type MobileThemeColorScheme } from "@/theme/colors";
 import { shadows } from "@/theme/shadows";
 import { useMobileTheme } from "@/theme/theme-store";
 import { shouldUseLiquidGlass } from "./glass-availability";
+import { useReduceTransparencyEnabled } from "./use-reduce-transparency";
 
 type GlassPanelProps = PropsWithChildren<{
   colorScheme?: MobileThemeColorScheme;
@@ -70,31 +71,6 @@ export function GlassPanel({
       {children}
     </View>
   );
-}
-
-function useReduceTransparencyEnabled(): boolean {
-  const [enabled, setEnabled] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    const read = AccessibilityInfo.isReduceTransparencyEnabled;
-    if (typeof read !== "function") return undefined;
-    void read()
-      .then((value) => {
-        if (alive) setEnabled(value);
-      })
-      .catch(() => undefined);
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceTransparencyChanged",
-      setEnabled,
-    );
-    return () => {
-      alive = false;
-      subscription.remove();
-    };
-  }, []);
-
-  return enabled;
 }
 
 const styles = StyleSheet.create({

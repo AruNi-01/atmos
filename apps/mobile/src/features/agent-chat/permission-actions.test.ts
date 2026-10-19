@@ -23,6 +23,16 @@ describe("permission option tones", () => {
   });
 
   test("a reject-only primary candidate stays ghost", () => {
+    expect(preferredPrimaryPermissionOptionId([skip])).toBeNull();
     expect(permissionOptionTone(skip, [skip])).toBe("ghost");
+  });
+
+  test("bare once is not treated as allow-once; reject is never chosen as primary", () => {
+    const once = { option_id: "once", name: "Once" };
+    const options = [deny, once, allowOnce];
+    expect(preferredPrimaryPermissionOptionId(options)).toBe("allow_once");
+    expect(permissionOptionTone(once, options)).toBe("ghost");
+    expect(permissionOptionTone(deny, options)).toBe("ghost");
+    expect(preferredPrimaryPermissionOptionId([deny, skip])).toBeNull();
   });
 });

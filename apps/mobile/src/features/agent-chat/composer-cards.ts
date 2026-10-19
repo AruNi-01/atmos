@@ -256,9 +256,7 @@ function isRosterSubagent(part: AgentToolCallPart, ids: Set<string>): boolean {
 }
 
 function subagentIsRunning(part: AgentToolCallPart): boolean {
-  const status = (part.status ?? "").trim().toLowerCase();
-  if (status === "failed" || status === "error") return false;
-  return isActiveToolStatus(status);
+  return subagentCardStatus(part) === "running";
 }
 
 function subagentTitle(part: AgentToolCallPart): string {
@@ -356,10 +354,15 @@ export function backgroundRunningCountLabel(count: number): string {
 }
 
 export function workflowCountLabel(workflow: GrokWorkflow): string {
-  const running = workflow.phases.filter((phase) => {
-    const state = phase.state.trim().toLowerCase();
-    return state === "active" || state === "running";
-  }).length;
+  const activePhaseIds = new Set(
+    workflow.phases
+      .filter((phase) => {
+        const state = phase.state.trim().toLowerCase();
+        return state === "active" || state === "running";
+      })
+      .map((phase) => phase.id),
+  );
+  const running = workflow.agents.filter((agent) => activePhaseIds.has(agent.phase_id)).length;
   if (running > 0) return fillTemplate(copy.subagentRunningCount, { count: running });
   return copy.workflowIdleCount;
 }

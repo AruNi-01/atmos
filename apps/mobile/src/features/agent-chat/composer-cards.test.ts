@@ -368,6 +368,15 @@ describe("card chrome helpers", () => {
     expect(backgroundRunningCountLabel(3)).toBe("3 running");
     expect(workflowCountLabel(workflow)).toBe("1 running");
     expect(
+      workflowCountLabel({
+        ...workflow,
+        agents: [
+          { id: "agent-1", label: "Searcher", phase_id: "p1" },
+          { id: "agent-2", label: "Reader", phase_id: "p1" },
+        ],
+      }),
+    ).toBe("2 running");
+    expect(
       workflowCountLabel({ ...workflow, phases: [{ id: "p1", title: "Search", state: "idle" }] }),
     ).toBe("Idle");
     expect(contextBarTone(69.9)).toBe("default");

@@ -6,6 +6,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 import {
   agentChatBlockMetrics,
   agentChatCardHeadingStyle,
+  agentChatCardListBlock,
   agentChatCardListMetrics,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
@@ -72,7 +73,7 @@ export function AgentChatMarkdown({
         marginLeft: variant === "card" ? agentChatCardListMetrics.marginLeft : 24,
         markerColor: proseColor,
         markerMinWidth: variant === "card" ? agentChatCardListMetrics.markerMinWidth : 18,
-        ...agentChatBlockMetrics.list,
+        ...(variant === "card" ? agentChatCardListBlock : agentChatBlockMetrics.list),
       },
       code: {
         backgroundColor: chrome.codeBackground,

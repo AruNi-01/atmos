@@ -21,8 +21,8 @@ export function isAllowOncePermissionOption(option: PermissionActionOption): boo
   const kind = option.kind ?? "";
   const name = option.name;
   return (
-    /allow[_-]?once|^allow$|^accept$|^once$|^yes$/i.test(id) ||
-    /allow[_-]?once|^allow$|^accept$|^once$/i.test(kind) ||
+    /allow[_-]?once|^allow$|^accept$|^yes$/i.test(id) ||
+    /allow[_-]?once|^allow$|^accept$/i.test(kind) ||
     /^allow once$|^yes$|^accept$/i.test(name.trim())
   );
 }
@@ -31,15 +31,17 @@ export function isAllowOncePermissionOption(option: PermissionActionOption): boo
 export function preferredPrimaryPermissionOptionId(
   options: PermissionActionOption[],
 ): string | null {
-  const once = options.find(isAllowOncePermissionOption);
+  const candidates = options.filter((option) => !isRejectPermissionOption(option));
+  if (candidates.length === 0) return null;
+  const once = candidates.find(isAllowOncePermissionOption);
   if (once) return once.option_id;
-  const allow = options.find(
+  const allow = candidates.find(
     (option) =>
       /allow|accept|approve/i.test(option.option_id) ||
       /allow|accept|approve/i.test(option.kind ?? "") ||
       /allow|accept|approve/i.test(option.name),
   );
-  return allow?.option_id ?? options[0]?.option_id ?? null;
+  return allow?.option_id ?? candidates[0]?.option_id ?? null;
 }
 
 /** Web command actions: Allow is primary, Deny and the rest are ghost. */
@@ -48,5 +50,5 @@ export function permissionOptionTone(
   options: PermissionActionOption[],
 ): PermissionActionTone {
   const primaryId = preferredPrimaryPermissionOptionId(options);
-  return option.option_id === primaryId && !isRejectPermissionOption(option) ? "primary" : "ghost";
+  return option.option_id === primaryId ? "primary" : "ghost";
 }

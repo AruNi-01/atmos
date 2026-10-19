@@ -43,7 +43,7 @@ describe("composer card chrome alignment", () => {
     const pills = source("composer-pill-row.tsx");
     expect(pills).toContain("paddingHorizontal: 18");
     expect(pills).toContain("scrollerContentWithScroll");
-    expect(pills).toContain("paddingLeft: 0");
+    expect(pills).toContain("paddingLeft: PILL_SCROLL_FADE_PX");
     expect(pills).toContain("PILL_SCROLL_FADE_PX");
     expect(pills).not.toMatch(/row:\s*\{[^}]*paddingHorizontal:\s*18/s);
     expect(PILL_SCROLL_FADE_PX).toBe(18);
@@ -81,16 +81,17 @@ describe("composer card chrome alignment", () => {
     expect(sessionOp).not.toContain("<CardHeader");
   });
 
-  test("plan markdown overrides headings; background truncates in mono", () => {
+  test("plan markdown overrides headings; background commands wrap in mono", () => {
     expect(source("cards/plan-card.tsx")).toContain('variant="card"');
     expect(source("AgentChatPermissionCard.tsx")).toContain('variant="card"');
     const background = source("cards/background-card.tsx");
     expect(background).toContain("CARD_MONO");
-    expect(background).toContain("numberOfLines={1}");
+    expect(background).not.toContain("numberOfLines={1}");
     expect(background).toContain("PromptTerminalIcon");
     expect(background).toContain("copy.backgroundRunning");
     expect(background).toContain("CARD_META");
     expect(source("cards/context-card.tsx")).toContain("contextBarTone");
+    expect(source("cards/subagent-card.tsx")).not.toContain("numberOfLines={1}");
     expect(source("cards/subagent-card.tsx")).toContain("SubagentStatusIcon");
     expect(source("cards/subagent-card.tsx")).toContain("rowLast");
     expect(source("cards/subagent-card.tsx")).toContain("paddingBottom: 0");

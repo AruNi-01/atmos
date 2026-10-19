@@ -125,7 +125,7 @@ function CardPillButton({
           <Text
             numberOfLines={1}
             style={{
-              color: theme.colors.label,
+              color: pill.selected ? theme.colors.label : theme.colors.secondaryLabel,
               flexShrink: 1,
               fontSize: 14,
               fontWeight: "600",
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   scrollerContentWithScroll: {
-    paddingLeft: 0,
+    paddingLeft: PILL_SCROLL_FADE_PX,
   },
   scrollerWrap: {
     flex: 1,

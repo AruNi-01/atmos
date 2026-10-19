@@ -58,12 +58,19 @@ export const agentChatCardListMetrics = {
 /**
  * Tailwind preflight zeros `p` and `ul` margins. Streamdown list items are
  * `py-1`. Agent fences and tables use `my-4`, and fence text is `text-sm leading-5`.
+ * Prose lists keep a zero block margin; composer-card lists keep an 8pt gap.
  */
 export const agentChatBlockMetrics = {
   paragraph: { marginTop: 0, marginBottom: 0 },
-  list: { marginTop: 0, marginBottom: 8, itemSpacing: 8 },
+  list: { marginTop: 0, marginBottom: 0, itemSpacing: 8 },
   codeBlock: { marginTop: 16, marginBottom: 16, fontSize: 14, lineHeight: 20, borderRadius: 8 },
   table: { marginTop: 16, marginBottom: 16 },
+} as const;
+
+export const agentChatCardListBlock = {
+  marginTop: 0,
+  marginBottom: 8,
+  itemSpacing: 8,
 } as const;
 
 /**

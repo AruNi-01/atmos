@@ -20,11 +20,7 @@ export function BackgroundCard({ commands }: { commands: BackgroundCommand[] }) 
             <PromptTerminalIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2} />
             <View style={{ backgroundColor: theme.colors.green, ...stylesDot }} />
           </View>
-          <Text
-            numberOfLines={1}
-            selectable
-            style={{ color: theme.colors.label, flex: 1, ...CARD_MONO }}
-          >
+          <Text selectable style={{ color: theme.colors.label, flex: 1, ...CARD_MONO }}>
             {command.command}
           </Text>
           <Text

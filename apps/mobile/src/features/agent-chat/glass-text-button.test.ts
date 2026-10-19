@@ -3,7 +3,12 @@ import { describe, expect, mock, test } from "bun:test";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-const captured: Array<{ label?: string; modifiers?: unknown; onPress?: unknown }> = [];
+const captured: Array<{
+  label?: string;
+  modifiers?: unknown;
+  onPress?: unknown;
+  role?: string;
+}> = [];
 const platform = { OS: "ios" };
 
 mock.module("react-native", () => ({
@@ -11,7 +16,18 @@ mock.module("react-native", () => ({
     addEventListener: () => ({ remove: () => undefined }),
   },
   Platform: platform,
-  View: ({ children }: { children?: ReactNode }) => createElement("div", null, children),
+  View: ({
+    children,
+    accessibilityState,
+  }: {
+    children?: ReactNode;
+    accessibilityState?: { disabled?: boolean };
+  }) =>
+    createElement(
+      "div",
+      { "data-disabled": accessibilityState?.disabled ? "true" : undefined },
+      children,
+    ),
 }));
 
 mock.module("@/theme/theme-store", () => ({
@@ -51,7 +67,7 @@ mock.module("@expo/ui/swift-ui", () => ({
     createElement("div", { "data-host": "" }, children),
   HStack: ({ children }: { children?: ReactNode }) =>
     createElement("div", { "data-hstack": "" }, children),
-  Button: (props: { label?: string; modifiers?: unknown; onPress?: unknown }) => {
+  Button: (props: { label?: string; modifiers?: unknown; onPress?: unknown; role?: string }) => {
     captured.push(props);
     return createElement("button", { type: "button" }, props.label);
   },
@@ -185,6 +201,22 @@ describe("GlassTextButton render", () => {
     expect(modifiers.some((item) => item.type === "disabled")).toBe(false);
     expect(modifiers).toContainEqual({ type: "opacity", value: GLASS_CHIP_DISABLED_OPACITY });
     expect(modifiers).toContainEqual({ type: "buttonStyle", style: "plain" });
+    expect(html).toContain("data-disabled");
+  });
+
+  test("iOS chips pass role default and keep an accessibility disabled state", () => {
+    platform.OS = "ios";
+    captured.length = 0;
+    renderToStaticMarkup(
+      createElement(GlassTextButton, {
+        disabled: true,
+        label: "Allow",
+        onPress: () => undefined,
+        role: "destructive",
+      }),
+    );
+    expect(captured[0]).toMatchObject({ label: "Allow" });
+    expect((captured[0] as { role?: string }).role).toBe("destructive");
   });
 
   test("GlassActionButtons still calls the disabled modifier, not a shadowed prop", () => {
