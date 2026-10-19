@@ -29,6 +29,13 @@ function websocketFailureDetail(event: unknown): string {
   return redactUrl(raw).replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
+function unbindSocket(socket: WebSocketLike): void {
+  socket.onclose = null;
+  socket.onerror = null;
+  socket.onmessage = null;
+  socket.onopen = null;
+}
+
 function createRequestId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -143,10 +150,7 @@ export class WsSession {
     const sock = this.socket;
     this.socket = null;
     if (sock) {
-      sock.onclose = null;
-      sock.onerror = null;
-      sock.onmessage = null;
-      sock.onopen = null;
+      unbindSocket(sock);
       try {
         sock.close(1000, "client disconnect");
       } catch {
@@ -371,7 +375,7 @@ export class WsSession {
 
     const prev = this.socket;
     if (prev) {
-      prev.onclose = null;
+      unbindSocket(prev);
       try {
         prev.close(1000, "Replaced");
       } catch {
@@ -398,6 +402,7 @@ export class WsSession {
     }, this.handshakeTimeoutMs);
 
     socket.onopen = () => {
+      if (this.socket !== socket) return;
       this.timers.clearTimeout(handshakeTimer);
       this.reconnectAttempt = 0;
       this.everConnected = true;
@@ -407,10 +412,12 @@ export class WsSession {
     };
 
     socket.onmessage = (event) => {
+      if (this.socket !== socket) return;
       this.handleMessage(event.data);
     };
 
     socket.onerror = (event) => {
+      if (this.socket !== socket) return;
       const detail = websocketFailureDetail(event);
       this.log("error", detail ? `ws error: ${detail}` : "ws error", { url: redactUrl(url) });
       this.clearHeartbeat();

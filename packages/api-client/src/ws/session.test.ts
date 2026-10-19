@@ -707,6 +707,53 @@ describe("@atmos/api-client WsSession", () => {
     expect(sock!.readyState).toBe(3);
   });
 
+  test("late error from a replaced socket does not error the new connection", async () => {
+    const sockets: MockSocket[] = [];
+    const session = createWsSession({
+      url: "ws://x",
+      platform: {
+        createWebSocket: () => {
+          const next = new MockSocket();
+          sockets.push(next);
+          return next;
+        },
+      },
+      reconnect: { ...DEFAULT_MOBILE_RECONNECT, initialDelayMs: 25, maxDelayMs: 25 },
+      requestTimeoutMs: 5000,
+    });
+    const opened = session.connect();
+    sockets[0]!.open();
+    await opened;
+    expect(session.state).toBe("connected");
+
+    const staleError = sockets[0]!.onerror;
+    sockets[0]!.readyState = 2;
+    session.retryNow();
+    expect(sockets).toHaveLength(2);
+    expect(sockets[0]!.onerror).toBeNull();
+    expect(sockets[0]!.onmessage).toBeNull();
+    expect(sockets[0]!.onclose).toBeNull();
+    expect(sockets[0]!.onopen).toBeNull();
+    sockets[1]!.open();
+    expect(session.state).toBe("connected");
+
+    const pending = session.request("fs_get_home_dir", {});
+    staleError?.({ message: "late error from replaced socket" });
+    expect(session.state).toBe("connected");
+    expect(sockets[1]!.readyState).toBe(1);
+
+    const sent = JSON.parse(sockets[1]!.sent[0]!) as { payload: { request_id: string } };
+    sockets[1]!.emit({
+      type: "response",
+      payload: {
+        request_id: sent.payload.request_id,
+        success: true,
+        data: { path: "/home" },
+      },
+    });
+    await expect(pending).resolves.toEqual({ path: "/home" });
+  });
+
   test("late pong from a replaced socket does not cancel the current watchdog", async () => {
     const ft = fakeTimers();
     const sockets: MockSocket[] = [];
