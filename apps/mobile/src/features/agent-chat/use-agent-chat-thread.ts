@@ -138,6 +138,10 @@ export function useAgentChatThread(chatId: string) {
       pushAgentChatCommit(commitBuffer, decision.event.payload.type, reducedMotionRef.current);
     };
 
+    const drainAbandonedHydrate = (generation?: number) => {
+      for (const decision of pump.abandonHydrate(generation)) applyDecision(decision);
+    };
+
     const applySnapshot = (
       snapshot: Awaited<ReturnType<typeof wsActions.agentChatGet>>,
       generation?: number,
@@ -170,14 +174,14 @@ export function useAgentChatThread(chatId: string) {
       try {
         const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
         if (cancelled) {
-          if (shouldAbandonAgentChatHydrate("cancelled")) pump.abandonHydrate(generation);
+          if (shouldAbandonAgentChatHydrate("cancelled")) drainAbandonedHydrate(generation);
           return;
         }
         applySnapshot(snapshot, generation);
         await subscribeFromCursor();
         failedResyncs = 0;
       } catch (err) {
-        if (shouldAbandonAgentChatHydrate("error")) pump.abandonHydrate(generation);
+        if (shouldAbandonAgentChatHydrate("error")) drainAbandonedHydrate(generation);
         if (!cancelled) {
           setError(err instanceof Error && err.message ? err.message : "Could not load this chat.");
           const delay = nextAgentChatResyncDelayMs(failedResyncs);
@@ -211,7 +215,7 @@ export function useAgentChatThread(chatId: string) {
           const generation = pump.startHydrate();
           const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
           if (cancelled) {
-            if (shouldAbandonAgentChatHydrate("cancelled")) pump.abandonHydrate(generation);
+            if (shouldAbandonAgentChatHydrate("cancelled")) drainAbandonedHydrate(generation);
             return;
           }
           applySnapshot(snapshot, generation);
@@ -232,7 +236,7 @@ export function useAgentChatThread(chatId: string) {
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        pump.abandonHydrate();
+        drainAbandonedHydrate();
         setError(err instanceof Error && err.message ? err.message : "Could not load this chat.");
         setLoading(false);
       }
@@ -241,7 +245,7 @@ export function useAgentChatThread(chatId: string) {
     return () => {
       cancelled = true;
       if (retryTimer != null) clearTimeout(retryTimer);
-      if (pump.hydrating) pump.abandonHydrate();
+      if (pump.hydrating) drainAbandonedHydrate();
       clearInterval(flushTimer);
       unsubscribeMessages();
       void wsActions.agentChatUnsubscribe(client, { chat_id: chatId }).catch(() => undefined);

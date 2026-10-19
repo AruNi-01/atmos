@@ -39,7 +39,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 | S10      | Unit       | `bun test`    | hydrate generation                         | stale `finishHydrate`                                       | empty drain; later gen wins   | planned |
 | S11      | Unit       | `bun test`    | one-event hole                             | snapshot 10 then rev 12                                     | `catch_up`; cursor 10 then 12 | planned |
 | S12      | Unit       | `bun test`    | jump ≥ 32                                  | `recommend: "resync"` and apply                             | planned                       |
-| S13      | Unit       | `bun test`    | `abandonHydrate` after start               | later ingest applies                                        | planned                       |
+| S13      | Unit       | `bun test`    | `abandonHydrate` after start               | buffer drains as apply; later ingest applies                | planned                       |
 | S14      | Unit       | `bun test`    | `nextAgentChatResyncDelayMs`               | 3 retries then null                                         | planned                       |
 | S15      | Unit       | `bun test`    | `canResumeAgentChatSession`                | same chat+client only                                       | planned                       |
 | S16      | Unit       | `bun test`    | thread source order                        | get before subscribe from `pump.cursor`; abandon on fail    | planned                       |
@@ -111,10 +111,10 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 ### S13–S14 — Failed resync does not freeze
 
 - **Level**: Unit
-- **Given**: pump hydrating; `abandonHydrate`.
-- **When**: a live event arrives; retry helper is queried for attempts 0..3.
-- **Then**: the event applies; delays are 400, 800, 1600, then `null`.
-- **Signals**: ingest action; delay values.
+- **Given**: pump hydrating; buffered `turn_started` then `turn_completed`; `abandonHydrate`.
+- **When**: the buffer drains; a later live event arrives; retry helper is queried for attempts 0..3.
+- **Then**: the buffered events `apply` (no new snapshot floor); later ingest applies; delays are 400, 800, 1600, then `null`.
+- **Signals**: drain decisions; ingest action; delay values.
 
 ### S15–S16 — Mobile resume
 
@@ -137,6 +137,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 
 - [ ] `turn_completed` is not dropped when it shares an adapter `event_id` with `part_closed`.
 - [ ] Failed `agentChatGet` during resync does not leave `hydrating === true`.
+- [ ] Failed resync drains a buffered `turn_completed` through the gate instead of deleting it.
 - [ ] Snapshot seq 50 then queue rev 20 does not refill a cleared queue.
 - [ ] Text/tool behind the snapshot floor still apply.
 - [ ] Subscribe cursor is contiguous, not `maxRevision`.
@@ -181,7 +182,7 @@ Implemented on `aarynlu/agent-chat-event-gate-1212`. iOS Simulator: **not run**.
 | S8       | pass   | snapshot floor test; mobile delayed queue                                                     |
 | S9–S10   | pass   | `event-pump.test.ts` hydrate + generation                                                     |
 | S11–S12  | pass   | catch_up / resync gap tests                                                                   |
-| S13–S14  | pass   | `abandonHydrate` pump test; `hydrate-recovery.test.ts`                                        |
+| S13–S14  | pass   | `abandonHydrate` drain + live apply; `hydrate-recovery.test.ts`                               |
 | S15–S16  | pass   | `session-resume.test.ts`; `use-agent-chat-thread.test.ts`                                     |
 | S17–S18  | pass   | transcript-window structural order; `agent-chat-events` 73 pass                               |
 

@@ -56,6 +56,26 @@ describe("AgentChatEventPump hydrate", () => {
     expect(pump.shouldResyncFromServer(11 + AGENT_CHAT_REVISION_GAP_RESYNC)).toBe(true);
   });
 
+  test("abandonHydrate drains the buffer through the gate without a snapshot floor", () => {
+    const pump = createAgentChatEventPump();
+    const gen = pump.startHydrate();
+    const started = chatEvent(1, { type: "turn_started", turn_id: "t1" });
+    const completed = chatEvent(2, { type: "turn_completed", turn_id: "t1" });
+    expect(pump.ingest(started).action).toBe("buffer");
+    expect(pump.ingest(completed).action).toBe("buffer");
+    const drained = pump.abandonHydrate(gen);
+    expect(drained).toEqual([
+      { action: "apply", event: started },
+      { action: "apply", event: completed },
+    ]);
+    expect(pump.hydrating).toBe(false);
+    expect(pump.cursor).toBe(2);
+    expect(pump.ingest(completed)).toMatchObject({
+      action: "drop",
+      reason: "duplicate_event_id",
+    });
+  });
+
   test("abandonHydrate leaves later live events applying", () => {
     const pump = createAgentChatEventPump();
     const gen = pump.startHydrate();

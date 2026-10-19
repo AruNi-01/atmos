@@ -1261,7 +1261,10 @@ export function useAgentChatSession({
         }
       })
       .catch(() => {
-        eventPump.abandonHydrate();
+        for (const decision of eventPump.abandonHydrate()) {
+          if (decision.action !== "apply") continue;
+          foldLiveEvent(decision.event);
+        }
         hydratingRef.current = false;
         setHydrated(true);
         setIsResumingHistory(false);

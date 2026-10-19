@@ -273,6 +273,7 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("eventPump.finishHydrate(snapshotSeq ?? 0)");
     expect(session).toContain("agentChatApi.subscribe(id, eventPump.cursor)");
     expect(session).toContain("eventPump.shouldResyncFromServer");
+    expect(session).toContain("eventPump.abandonHydrate()");
     expect(session.indexOf("eventPump.finishHydrate")).toBeLessThan(
       session.indexOf("agentChatApi.subscribe(id, eventPump.cursor)"),
     );

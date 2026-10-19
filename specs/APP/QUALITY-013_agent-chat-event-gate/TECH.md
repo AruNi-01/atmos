@@ -127,9 +127,9 @@ Failure modes: `agent_chat_get` throws, socket closes, effect cancelled.
 
 Rules:
 
-1. Every non-success exit calls `abandonHydrate(token)` so `hydrating` is false. Later live events `apply`, they are not buffered forever.
-2. Cleanup of the session effect also abandons if still hydrating (resume must not inherit a stuck gate).
-3. Retry: `nextAgentChatResyncDelayMs(failedAttemptCount)` — 400 ms × 2^n, max 3 attempts. Success resets the counter. Exhaustion leaves live apply + an error string; a later `gap.recommend === "resync"` or reconnect subscribe can try again.
+1. Every non-success exit calls `abandonHydrate(token)` so `hydrating` is false. The live buffer is **drained through the gate without a new snapshot floor** (no `observeSnapshot`). A buffered `turn_completed` applies against the last known transcript instead of being deleted. Callers fold those `apply` decisions.
+2. Cleanup of the session effect also abandons if still hydrating (resume must not inherit a stuck gate). Drain+fold keeps the events on `transcriptRef` when the same pump resumes.
+3. Retry: `nextAgentChatResyncDelayMs(failedAttemptCount)` — 400 ms × 2^n, max 3 attempts. Success resets the counter and may still replace the transcript with a later snapshot. Exhaustion leaves live apply + an error string; a later `gap.recommend === "resync"` or reconnect subscribe can try again.
 
 Do not require `action === "apply"` to start another resync after a failed hydrate: the failed path must leave the pump in live mode first.
 

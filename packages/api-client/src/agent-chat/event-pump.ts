@@ -23,7 +23,7 @@ export type AgentChatEventPump = {
     snapshotSeq: number,
     generation?: AgentChatHydrateGeneration,
   ): AgentChatGateDecision[];
-  abandonHydrate(generation?: AgentChatHydrateGeneration): void;
+  abandonHydrate(generation?: AgentChatHydrateGeneration): AgentChatGateDecision[];
   shouldResyncFromServer(serverLastSeq: number): boolean;
   reset(): void;
 };
@@ -31,6 +31,8 @@ export type AgentChatEventPump = {
 /**
  * Hydrate buffer in front of {@link createAgentChatEventGate}. Live events that
  * arrive during `get()` stay queued until the snapshot floor is observed.
+ * Failed hydrate (`abandonHydrate`) drains that buffer through the gate without
+ * a new floor so a buffered completion is not deleted.
  */
 export function createAgentChatEventPump(
   options: AgentChatEventGateOptions = {},
@@ -81,9 +83,10 @@ export function createAgentChatEventPump(
       return queued.map((event) => gate.admit(event));
     },
     abandonHydrate(token?: AgentChatHydrateGeneration) {
-      if (!isCurrent(token)) return;
+      if (!isCurrent(token)) return [];
       hydrating = false;
-      pending.length = 0;
+      const queued = pending.splice(0, pending.length);
+      return queued.map((event) => gate.admit(event));
     },
     shouldResyncFromServer(serverLastSeq: number) {
       return gate.shouldResyncFromServer(serverLastSeq);
