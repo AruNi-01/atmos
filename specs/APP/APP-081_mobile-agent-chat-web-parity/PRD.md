@@ -53,7 +53,7 @@
   - **At most one card is expanded at a time.** Expanding another card collapses the previous one; its pill stays in the row.
   - **The scroll-to-bottom pill is part of the same row, pinned as the leftmost item.** It stays in place while the card pills scroll. It is not a card: it never expands anything and does not count toward the one-card rule. It shows when the transcript is not at its end; with unread rows below it reads "N below"; tapping it scrolls to the end and resumes bottom-stick. When there is nothing to show (no cards, at the end) the row is not rendered.
   - A new permission or session-operation request takes the visible slot automatically (it blocks the agent). When it is answered, the slot returns to the card the user last chose, otherwise nothing is expanded.
-  - Cards keep the phone's existing card style (`cardElevated`, hairline `glassBorder`, radius 16). Pills are `GlassPanel` capsules. Fade in and out only (180 ms), no slide or scale, as on web.
+  - Cards keep the phone's existing card style (`cardElevated`, hairline `glassBorder`, radius 16). Pills are `GlassPanel` capsules. Fade in and out only (180 ms), no slide or scale, as on web. **2026-10-19:** expanded card shell and lane pills are superseded by the Native Liquid Glass implementation delta below; transcript historic permission cards stay `cardElevated`.
   - Permission card content matches web: questions, plan todos, plan-exit intent and file path, option kinds. Queue card supports edit, reorder, remove, as on web.
 - **M7 — Composer parity (G-26, G-28).** Same capabilities as the web composer: attachments, paste handling, slash and `@` suggestions, mode / permission / model / thinking / fast / context options, context-usage trigger and card, queue / steer / stop while busy. Controls stay native (filled input, glass buttons, native sheets) per `agents/references/design/mobile.md`.
 - **M8 — No logic drift (G-29, G-30).** Segmentation, settle, density, timing, motion constants, and copy strings come from shared code or are asserted equal to web in tests. A token mapping table (web token → phone token) is part of TECH and is tested for presence.
@@ -75,6 +75,7 @@ Parity is "same product, native client". These are intentional and must be liste
 - Effects with no iOS/Android primitive (CSS `blur()` filter, `mask-image`) use opacity + translate + height fallbacks (TECH).
 - The composer keeps native glass controls and the keyboard-lift behavior; it does not copy web button chrome.
 - Single-card rule and pill row (M6): web stacks cards and floats a centered scroll button; the phone shows one expanded card, a scrollable pill row, and the scroll-to-bottom pill pinned left in that row.
+- Expanded card shell, title pills, and the N-below pill use the same untinted composer `GlassPanel` well as the dock (not `cardElevated`). Historic permission cards in the transcript stay `cardElevated`.
 
 ## Out of Scope
 
@@ -109,6 +110,8 @@ Append-only record of native glass / composer behavior shipped after M6–M7. Do
 - **Focus-driven compact composer.** Idle dock is one 52pt row. It expands (280 ms cubic-out; duration 0 under Reduce Motion) when focused, the model or add sheet is open, queue/steer is shown, the draft has a newline, or the draft wraps at the compact inner width. Blur / keyboard dismiss / sheet close must not oscillate that state. Expanded dock grows with `maxHeight` up to six lines.
 - **Size contract.** Chip 33 / pill 36 / compact composer 52. Card copy matches the web dock (`text-sm` 14/500 title, 14/20 body). Goal/workflow header titles wrap; subagent titles and background commands wrap inside the card.
 - **Disabled chip crash.** In-card chips must not call SwiftUI `disabled()` through a shadowed prop; dim with opacity 0.55 and expose an accessibility disabled state. Visual / device confirmation stays a TEST `not_run` item until a simulator or device pass exists.
+- **Files.** `apps/mobile/src/ui/primitives/glass-panel.tsx`, `glass-action-buttons.tsx`, `use-reduce-transparency.ts`; `apps/mobile/src/features/agent-chat/{AgentChatComposer,composer-dock,composer-pill-row,composer-glass,cards/expanded-card}.tsx`.
+- **Verification.** `cd apps/mobile && bun test` (S34/S35). S36 visual / device remains `not_run` in this environment.
 
 ## Milestones
 

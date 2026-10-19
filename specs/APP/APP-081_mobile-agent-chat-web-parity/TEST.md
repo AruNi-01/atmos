@@ -168,10 +168,13 @@ Committed under `packages/agent-transcript/fixtures/parity/` (TECH D7), scrubbed
 
 ### S36 Native visual glass / compact motion
 
-- **Given**: iOS 26 simulator or device, and a Reduce Transparency pass.
+- **Given**: iOS 26 simulator or device. Run three separate passes: default, Reduce Transparency, Reduce Motion.
 - **When**: idle compact composer, focus expand, multiline grow, chip/pill/card glass.
-- **Then**: untinted Liquid Glass, 280 ms expand (instant under Reduce Motion), sizes match S35.
-- **Signals**: screenshots / recordings. This environment cannot run the iOS simulator or a physical device; status `not_run`.
+- **Then**:
+  - Default: untinted Liquid Glass; compact→expand is 280 ms cubic-out; sizes match S35.
+  - Reduce Transparency: solid `glassFallback` + `glassBorder` (composer-well match, not `glassFallbackStrong`); chips are neutral capsules (Delete stays red).
+  - Reduce Motion: expand/collapse is instant (duration 0); layout still matches S35.
+- **Signals**: screenshots / recordings per pass. This environment cannot run the iOS simulator or a physical device; status `not_run`.
 
 ### S27 Cursor agent CLI rubric (advisory)
 
@@ -373,7 +376,7 @@ Marked only where the test file exists and the command above ran it.
 - **S34** — `composer-dock.test.ts` expand sequences (blur / model sheet / add sheet / one-line vs wrapped). Status `pass` once `cd apps/mobile && bun test src/features/agent-chat/composer-dock.test.ts` is green on this head.
 - **S35** — `composer-glass.test.ts`, `card-chrome.test.ts`, `glass-text-button.test.ts`, `glass-availability.test.ts`. Status `pass` on the same bun run.
 - **S36** — `not_run`. No iOS simulator or physical device in this environment. Visual Liquid Glass, 280 ms motion, and Reduce Transparency fallback are unspecified by screenshots here.
-- **Review P3 follow-up** — compact placeholder ellipsis is asserted as `ellipsizeMode` + `numberOfLines` + `pointerEvents` together; `CARD_TITLE` is derived from `agentChatCardHeadingMetrics`; `tool-body.tsx` uses `copy.sentenceStatus`. Covered by `composer-dock.test.ts`, `card-chrome.test.ts`, `agent-chat-markdown-chrome.test.ts`.
+- **Review P3 follow-up** — compact placeholder ellipsis is asserted as `ellipsizeMode` + `numberOfLines` + `pointerEvents` together; `CARD_TITLE` is derived from `agentChatCardHeadingMetrics`; `tool-body.tsx` imports the top-level `sentenceStatus` export from `./copy`. Covered by `composer-dock.test.ts`, `card-chrome.test.ts`, `agent-chat-markdown-chrome.test.ts`.
 
 ### Scene lifecycle gate (QUALITY-011)
 

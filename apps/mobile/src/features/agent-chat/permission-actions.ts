@@ -15,7 +15,10 @@ export function isRejectPermissionOption(option: PermissionActionOption): boolea
   );
 }
 
-/** Mirrors web `isAllowOnceOption`. */
+/**
+ * Prefer allow-once / allow / accept. Unlike web `isAllowOnceOption`, bare
+ * `once` is not a match — that id is too easy to confuse with other options.
+ */
 export function isAllowOncePermissionOption(option: PermissionActionOption): boolean {
   const id = option.option_id;
   const kind = option.kind ?? "";
