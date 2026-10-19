@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Capture proof from the e2e simulator and publish it to the orphan branch
-# `agent-artifacts` under pr-<N>/<sha>/, so a cloud agent can `git fetch` it.
+# Capture proof from the e2e simulator. Publish to the orphan branch
+# `agent-artifacts` under pr-<N>/<sha>/ only when EVIDENCE_PUSH=1.
 #
 #   just mobile-e2e-evidence <pr-number> [note]
 #
@@ -10,20 +10,65 @@
 #   EVIDENCE_RECORD_SECONDS=0   >0 records the screen that long and adds a contact sheet
 #   EVIDENCE_LINK=atmos://...   open this deep link in the app before capturing
 #   EVIDENCE_WAIT_MS=3000       settle time after opening the app
-#   EVIDENCE_NO_PUSH=1          stage under .e2e/evidence/ only; do not push
+#   EVIDENCE_PUSH=1             publish to agent-artifacts (default: do not push)
 #   EVIDENCE_REMOTE=<url>       remote to push to (default: origin of this checkout)
 #
 # Captured: screen.png (simctl framebuffer, scaled), a11y.txt (agent-device snapshot -i), report.json and
 # failure traces from the last `e2e run`, contact-sheet.png (optional), meta.json, README.md.
-# The remote is usually PUBLIC: never push a paired app's real screens (workspace names,
-# chat text, Computer URLs). Use EVIDENCE_LINK for a neutral route, or EVIDENCE_NO_PUSH=1.
+# The remote is PUBLIC. Do not push screenshots or chat content of a paired app
+# (workspace names, chat text, Computer URLs). Default is local only. Set
+# EVIDENCE_PUSH=1 only for a neutral route (EVIDENCE_LINK).
 # Videos stay local (.e2e/evidence/); only the contact sheet is pushed. Reads the
 # simulator only: it never installs, relaunches, erases or shuts anything down.
 set -euo pipefail
 
+evidence_should_push() {
+  [[ "${EVIDENCE_PUSH:-}" == "1" ]]
+}
+
+evidence_write_meta() {
+  local out="$1"
+  local pr="$2"
+  local sha="$3"
+  local branch="$4"
+  local device="$5"
+  local bundle="$6"
+  local captured_at="$7"
+  local agent_device="$8"
+  local note="$9"
+  local note_json="${note//\"/\\\"}"
+  cat >"$out/meta.json" <<JSON
+{
+  "pr": ${pr},
+  "sha": "${sha}",
+  "branch": "${branch}",
+  "device": "${device}",
+  "bundleId": "${bundle}",
+  "capturedAt": "${captured_at}",
+  "agentDevice": "${agent_device}",
+  "note": "${note_json}"
+}
+JSON
+}
+
 PR="${1:?usage: evidence.sh <pr-number> [note]}"
 NOTE="${2:-}"
 [[ "$PR" =~ ^[0-9]+$ ]] || { echo "pr-number must be numeric" >&2; exit 2; }
+
+if [[ "${EVIDENCE_ARG_PROBE:-}" == "1" ]]; then
+  printf '%s\n' "$PR"
+  printf '%s\n' "$NOTE"
+  exit 0
+fi
+
+if [[ "${EVIDENCE_POLICY_PROBE:-}" == "1" ]]; then
+  OUT="${EVIDENCE_POLICY_OUT:?EVIDENCE_POLICY_OUT is required}"
+  mkdir -p "$OUT"
+  evidence_write_meta "$OUT" "$PR" "probe-sha" "probe-branch" "probe-device" \
+    "land.atmos.mobile" "2026-01-01T00:00:00Z" "agent-device probe" "$NOTE"
+  if evidence_should_push; then printf '%s\n' PUSH; else printf '%s\n' NO_PUSH; fi
+  exit 0
+fi
 
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT="$(cd "$E2E_DIR/../../.." && pwd)"
@@ -74,19 +119,8 @@ if [[ -d "$E2E_DIR/.e2e/results" ]]; then
   done
 fi
 
-cat >"$OUT/meta.json" <<JSON
-{
-  "pr": ${PR},
-  "sha": "$(git -C "$ROOT" rev-parse HEAD)",
-  "branch": "${BRANCH}",
-  "device": "${UDID}",
-  "bundleId": "${BUNDLE_ID}",
-  "capturedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "host": "$(scutil --get LocalHostName 2>/dev/null || hostname)",
-  "agentDevice": "$("$AD" --version 2>/dev/null | head -1)",
-  "note": "${NOTE//\"/\\\"}"
-}
-JSON
+evidence_write_meta "$OUT" "$PR" "$(git -C "$ROOT" rev-parse HEAD)" "$BRANCH" "$UDID" \
+  "$BUNDLE_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$("$AD" --version 2>/dev/null | head -1)" "$NOTE"
 {
   echo "# PR #${PR} @ ${SHA}"
   echo
@@ -95,7 +129,10 @@ JSON
 } >"$OUT/README.md"
 
 echo "[evidence] staged at ${OUT}"
-if [[ "${EVIDENCE_NO_PUSH:-0}" == "1" ]]; then exit 0; fi
+if ! evidence_should_push; then
+  echo "[evidence] not pushed (set EVIDENCE_PUSH=1 to publish; the remote is public)"
+  exit 0
+fi
 
 # Publish through a throwaway repo so the working checkout is never touched.
 STAGE="$(mktemp -d)"
