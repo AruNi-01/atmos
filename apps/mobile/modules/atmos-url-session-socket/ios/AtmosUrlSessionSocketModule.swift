@@ -170,7 +170,17 @@ final class AtmosUrlSessionSocket: SharedObject {
         }
         self.receiveNext(on: task)
       case .failure(let error):
-        self.complete(error: error, code: 1006, reason: error.localizedDescription)
+        let rawCode = task.closeCode.rawValue
+        if rawCode == 0 {
+          // Close code is still invalid; urlSession(_:task:didCompleteWithError:) reports it.
+          return
+        }
+        let isNormal = rawCode == URLSessionWebSocketTask.CloseCode.normalClosure.rawValue
+        self.complete(
+          error: isNormal ? nil : error,
+          code: rawCode,
+          reason: error.localizedDescription
+        )
       }
     }
   }
