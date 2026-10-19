@@ -108,11 +108,11 @@ This is a pure-function cleanup. Proof is Bun unit tests on `@atmos/agent-transc
 
 ## Regression checklist
 
-- [ ] `normalizeFsPath("/")` stays `"/"`.
-- [ ] `file://` decoding still happens before slash collapse.
-- [ ] `stripPathEchoFromToolHeading` still removes path aliases before colon cleanup (`resolveAgentToolCardHeading` omit-path cases).
-- [ ] `toolTitleLooksLikePath("Tool: /abs/path", path)` stays true.
-- [ ] `package.json` `lint` script remains `oxlint --max-warnings=455`.
+- [x] `normalizeFsPath("/")` stays `"/"`.
+- [x] `file://` decoding still happens before slash collapse.
+- [x] `stripPathEchoFromToolHeading` still removes path aliases before colon cleanup (`resolveAgentToolCardHeading` omit-path cases).
+- [x] `toolTitleLooksLikePath("Tool: /abs/path", path)` stays true.
+- [x] `package.json` `lint` script remains `oxlint --max-warnings=455`.
 
 ## Exploratory agent-browser checks
 
@@ -120,11 +120,11 @@ Omitted. No browser surface.
 
 ## Acceptance criteria
 
-- [ ] S1–S7 pass in `present.test.ts`.
-- [ ] S8 `bun lint` does not raise the 455 cap.
+- [x] S1–S7 pass in `present.test.ts`.
+- [x] S8 `bun lint` does not raise the 455 cap.
 - [ ] Draft PR CI is green except `ios-simulator` (skipped without `ios-parity`).
 - [ ] CodeQL `Analyze (javascript-typescript)` is green.
-- [ ] No #317 files other than this `present.ts` port and its tests.
+- [x] No #317 files other than this `present.ts` port and its tests.
 
 ## Manual verification steps
 
