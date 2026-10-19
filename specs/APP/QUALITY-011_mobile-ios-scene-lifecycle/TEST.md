@@ -59,7 +59,7 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 - **Level**: CI build (GitHub-hosted macOS)
 - **Given**: the parity workflow with `EXPO_PUBLIC_PARITY_PREVIEW=1`.
 - **When**: the `ios-simulator` job prebuilds, builds Release, and checks the built plist.
-- **Then**: `verify-ios-scene-lifecycle.sh built-plist` reads `Atmos.SceneDelegate`. The job does not fail for the presence of a scene delegate. Existing parity screenshot gates still reject a black window.
+- **Then**: `verify-ios-scene-lifecycle.sh built-plist` reads `Atmos.SceneDelegate`. The job does not fail for the presence of a scene delegate. Existing parity screenshot gates still reject a black window. After main includes #326, `ios-simulator` runs on `workflow_dispatch` or when the PR has the `ios-parity` label. The positive class check stays.
 - **Signals**: workflow job conclusion success. This Linux session does not download those artifacts until the job exists.
 
 ### S4 — Cold and warm custom URLs reach RCTLinkingManager

@@ -731,10 +731,11 @@ mobile-e2e-run *args:
     cd apps/mobile/e2e
     ATMOS_E2E_DEVICE="$(node scripts/resolve-device.mjs)" bun run test:ios -- "$@"
 
-# Usage: just mobile-e2e-evidence 313 "after tool-fold change"   (EVIDENCE_NO_PUSH=1 stages only)
-# Capture screenshot + a11y tree (+ report.json) and push to branch agent-artifacts: pr-<N>/<sha>/
+# Usage: just mobile-e2e-evidence 313 "after tool-fold change"
+# Stages screenshot + a11y tree (+ report.json). Does not push unless EVIDENCE_PUSH=1.
+# $1/$2 are positional (set positional-arguments). Do not interpolate {{pr}}/{{note}}.
 mobile-e2e-evidence pr note="":
-    bash apps/mobile/e2e/scripts/evidence.sh "{{pr}}" "{{note}}"
+    bash apps/mobile/e2e/scripts/evidence.sh "$1" "$2"
 
 # Run frontend tests only
 test-web:
