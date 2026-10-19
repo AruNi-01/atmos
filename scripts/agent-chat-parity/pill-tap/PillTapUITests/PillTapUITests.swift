@@ -35,4 +35,20 @@ final class PillTapUITests: XCTestCase {
     XCTAssertTrue(skip.waitForExistence(timeout: 10), "skip was not in the accessibility tree")
     skip.tap()
   }
+
+  func testSwipeCardPills() {
+    let atmos = XCUIApplication(bundleIdentifier: "land.atmos.mobile")
+    atmos.activate()
+    let row = atmos.scrollViews["agent-chat-card-pill-scroller"]
+    XCTAssertTrue(row.waitForExistence(timeout: 30), "card pill scroller was not in the accessibility tree")
+    let scroll = atmos.buttons["agent-chat-scroll-pill"]
+    XCTAssertTrue(scroll.waitForExistence(timeout: 20), "scroll pill was not in the accessibility tree")
+    row.swipeLeft()
+    Thread.sleep(forTimeInterval: 0.8)
+    let plan = atmos.buttons["agent-chat-card-pill-plan"]
+    XCTAssertTrue(plan.waitForExistence(timeout: 10), "plan pill was not in the accessibility tree")
+    plan.tap()
+    Thread.sleep(forTimeInterval: 0.8)
+    scroll.tap()
+  }
 }

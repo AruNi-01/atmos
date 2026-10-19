@@ -260,6 +260,18 @@ describe("parity cycle", () => {
       id: "f13-tail",
       theme: "light",
     });
+    expect(
+      parseParityDiskFrame('{"id":"f13-tail","theme":"light","scroll":"away","cards":"lane"}'),
+    ).toEqual({
+      cards: "lane",
+      id: "f13-tail",
+      scroll: "away",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"f13-tail","theme":"light","cards":"nope"}')).toEqual({
+      id: "f13-tail",
+      theme: "light",
+    });
     expect(parseParityDiskFrame('{"id":"F1","theme":"light","composer":"states"}')).toEqual({
       composer: "states",
       id: "F1",

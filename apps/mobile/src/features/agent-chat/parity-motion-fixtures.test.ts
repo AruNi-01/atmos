@@ -179,12 +179,17 @@ describe("parity motion fixtures", () => {
     expect(tap).toContain('buttons["agent-chat-card-pill-permission"]');
     expect(tap).toContain('buttons["agent-chat-permission-skip"]');
     expect(tap).toContain("func testTapCardPills()");
+    expect(tap).toContain('scrollViews["agent-chat-card-pill-scroller"]');
+    expect(tap).toContain("func testSwipeCardPills()");
     const cardPills = readFileSync(join(here, "composer-pill-row.tsx"), "utf8");
     expect(cardPills).toContain("testID={`agent-chat-card-pill-${pill.id}`}");
+    expect(cardPills).toContain('testID="agent-chat-card-pill-scroller"');
     expect(preview).toContain('[parity] card pill press ${id} visible=${next.visible ?? "none"}');
     expect(preview).toContain(
       '[parity] permission answer ${input.optionId} visible=${next.visible ?? "none"}',
     );
+    expect(preview).toContain("[parity] card pills x=${next}");
+    expect(preview).toContain('frame.cards === "lane"');
     expect(preview).toContain('id !== "permission"');
     const permissionCard = readFileSync(join(here, "AgentChatPermissionCard.tsx"), "utf8");
     expect(permissionCard).toContain('testID="agent-chat-permission-skip"');
@@ -197,6 +202,9 @@ describe("parity motion fixtures", () => {
     expect(capture).toContain("tap_card_pills");
     expect(capture).toContain("testTapCardPills");
     expect(capture).toContain("f12-pill-tap.mov");
+    expect(capture).toContain("testSwipeCardPills");
+    expect(capture).toContain("f12f13-pill-row.mov");
+    expect(capture).toContain('"cards":"lane"');
     expect(capture).toContain('recordVideo", "--codec", "h264"');
     expect(capture).toContain("[parity] replay held 15000");
     expect(capture).toContain("[parity] replay start");

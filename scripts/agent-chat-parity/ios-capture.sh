@@ -3,10 +3,11 @@
 # f13-tail scrolled to Reply 50 (three frames muxed when they differ),
 # a second f13-tail launch that taps the scroll pill after that hold,
 # stream-tools sampled while rows append, an F12 launch that taps the plan
-# and queue pills and then Skip on the Questions card, and F4 / F12 / composer passes that
+# and queue pills and then Skip on the Questions card, an f13-tail launch
+# that swipes the F12 card pills under the pinned scroll pill, and F4 / F12 / composer passes that
 # freeze each script step (`atMs` in the pin) and take a simctl screenshot.
 # A wall-clock draw finishes before a slow screenshot returns. The replay,
-# lane, composer, pill return, and F12 card-pill tap do not fail the job.
+# lane, composer, pill return, F12 card-pill tap, and card-row swipe do not fail the job.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -61,6 +62,7 @@ write_frame_file() {
   local pill="${7:-}"
   local composer="${8:-}"
   local at_ms="${9:-}"
+  local cards="${10:-}"
   local container docs extra=""
   container="$(xcrun simctl get_app_container booted "$BUNDLE_ID" data)"
   docs="${container}/Documents"
@@ -71,9 +73,10 @@ write_frame_file() {
   if [[ "$lane" == "steps" ]]; then extra+=',"lane":"steps"'; fi
   if [[ "$pill" == "return" ]]; then extra+=',"pill":"return"'; fi
   if [[ "$composer" == "states" ]]; then extra+=',"composer":"states"'; fi
+  if [[ "$cards" == "lane" ]]; then extra+=',"cards":"lane"'; fi
   if [[ "$at_ms" =~ ^[0-9]+$ ]]; then extra+=",\"atMs\":${at_ms}"; fi
   printf '{"id":"%s","theme":"%s"%s}\n' "$id" "$theme" "$extra" >"${docs}/parity-frame.json"
-  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}${pill:+ ${pill}}${composer:+ ${composer}}${at_ms:+ at ${at_ms}}"
+  echo "wrote parity-frame.json ${id} ${theme}${scroll:+ ${scroll}}${motion:+ ${motion}}${replay:+ ${replay}}${lane:+ ${lane}}${pill:+ ${pill}}${composer:+ ${composer}}${cards:+ ${cards}}${at_ms:+ at ${at_ms}}"
 }
 
 clear_motion_shots() {
@@ -693,6 +696,67 @@ capture_f12_pill_taps() {
   stop_screen_record "$pidfile" || true
 }
 
+# f13-tail scrolled away, with the F12 card lane mounted. The scroll pill stays
+# pinned while the test swipes the card pills, taps plan, then taps the scroll
+# pill. A miss does not fail the job. recordVideo stays open and this pass
+# does not take simctl screenshots.
+tap_card_row() {
+  local udid
+  udid="$(xcrun simctl list devices booted -j | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+booted = []
+for devices in data.get("devices", {}).values():
+    for device in devices:
+        if device.get("state") == "Booted" and device.get("udid"):
+            booted.append(device["udid"])
+if len(booted) == 1:
+    print(booted[0])
+')"
+  if [[ -z "$udid" ]]; then
+    echo "card row swipe has no single booted simulator" >&2
+    return 1
+  fi
+  echo "swiping agent-chat-card-pill-scroller on ${udid}"
+  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
+    --seconds 720 \
+    --grace 20 \
+    --needle "Test Suite 'Selected tests' passed" \
+    -- \
+    xcodebuild test \
+    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+    -scheme PillTap \
+    -sdk iphonesimulator \
+    -destination "platform=iOS Simulator,id=${udid}" \
+    -derivedDataPath /tmp/pill-tap-derived \
+    -only-testing:PillTapUITests/PillTapUITests/testSwipeCardPills \
+    -parallel-testing-enabled NO \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO
+}
+
+capture_f12_card_row() {
+  local mark video pidfile errlog
+  video="$OUT/f12f13-pill-row.mov"
+  pidfile="$OUT/f12f13-pill-row-record.pid"
+  errlog="$OUT/f12f13-pill-row-record.log"
+  mark="$(log_mark)"
+  write_frame_file "f13-tail" "light" "away" "" "" "" "" "" "" "lane"
+  launch_frame "f13-tail" "light" "cards"
+  if ! wait_for_since "[parity] ready f13-tail light" 90 "$mark"; then
+    echo "f12 card row missed ready" >&2
+    return 0
+  fi
+  start_screen_record "$video" "$pidfile" "$errlog"
+  echo "f12 card row recorder open"
+  if ! tap_card_row >"$OUT/f12f13-pill-row.log" 2>&1; then
+    echo "f12 card row swipe failed" >&2
+    tail -n 40 "$OUT/f12f13-pill-row.log" >&2 || true
+  fi
+  sleep 0.5
+  stop_screen_record "$pidfile" || true
+}
+
 # Composer states for S23. Keyboard is a TextInput focus call, not a Simulator
 # tap. The manual preview link does not set this pin.
 capture_composer_states() {
@@ -1019,6 +1083,7 @@ capture_stream_motion
 capture_f4_replay || echo "f4 replay capture failed" >&2
 capture_f12_lane || echo "f12 lane capture failed" >&2
 capture_f12_pill_taps || echo "f12 pill tap capture failed" >&2
+capture_f12_card_row || echo "f12 card row capture failed" >&2
 capture_composer_states || echo "composer states capture failed" >&2
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays

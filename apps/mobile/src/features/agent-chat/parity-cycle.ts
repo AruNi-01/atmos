@@ -30,6 +30,8 @@ export type ParityFrame = {
   pill?: "return";
   /** Capture-only. Steps the composer. The manual link leaves this unset. */
   composer?: "states";
+  /** Capture-only. Mounts the F12 card lane on a tail frame. The manual link leaves this unset. */
+  cards?: "lane";
   /**
    * Capture-only clock. When set, replay, lane, and composer stay on this
    * script time instead of running from the wall clock. A slow screenshot can
@@ -96,6 +98,7 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
     motion?: unknown;
     atMs?: unknown;
     composer?: unknown;
+    cards?: unknown;
     pill?: unknown;
     replay?: unknown;
     scroll?: unknown;
@@ -112,6 +115,7 @@ export function parseParityDiskFrame(raw: string): ParityFrame | null {
   if (record.lane === "steps") frame.lane = "steps";
   if (record.pill === "return") frame.pill = "return";
   if (record.composer === "states") frame.composer = "states";
+  if (record.cards === "lane") frame.cards = "lane";
   if (typeof record.atMs === "number" && Number.isFinite(record.atMs) && record.atMs >= 0) {
     frame.atMs = record.atMs;
   }

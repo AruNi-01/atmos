@@ -138,7 +138,7 @@ export function PreviewChatScreen() {
     const next = readParityDiskFrame();
     console.error(
       next
-        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}${next.lane === "steps" ? " lane" : ""}${next.pill === "return" ? " pill" : ""}${next.composer === "states" ? " composer" : ""}`
+        ? `[parity] disk ${next.id} ${next.theme}${next.scroll === "away" ? " away" : ""}${next.motion === "reduced" ? " reduced" : ""}${next.replay === "script" ? " replay" : ""}${next.lane === "steps" ? " lane" : ""}${next.pill === "return" ? " pill" : ""}${next.composer === "states" ? " composer" : ""}${next.cards === "lane" ? " cards" : ""}`
         : "[parity] disk none",
     );
     return next;
@@ -184,6 +184,7 @@ export function PreviewChatScreen() {
   const stickViewRef = useRef(0);
   const tailSamplesRef = useRef<ParityTailSample[]>([]);
   const tailReturnPressedRef = useRef(false);
+  const cardScrollLoggedRef = useRef(-1);
   const tailReturnLoggedRef = useRef(false);
   const tailAwaitLoggedRef = useRef(false);
   const tailStepRef = useRef(0);
@@ -253,7 +254,8 @@ export function PreviewChatScreen() {
   );
   const fixture = motion ? null : parityFixtureById(frame.id);
   const laneKey = `${frame.id}:${frame.theme}`;
-  const fixtureCards = useMemo(() => composerCardsFromParity(fixture?.cards), [fixture?.cards]);
+  const cardSource = frame.cards === "lane" ? parityFixtureById("F12")?.cards : fixture?.cards;
+  const fixtureCards = useMemo(() => composerCardsFromParity(cardSource), [cardSource]);
   const cards = useMemo(
     () =>
       permissionAnsweredKey === laneKey
@@ -577,6 +579,12 @@ export function PreviewChatScreen() {
   const backgroundColor = theme === "dark" ? "#000000" : "#f4f4f6";
   const color = theme === "dark" ? "#f4f4f6" : "#1a1a1a";
 
+  const onCardScroll = (x: number) => {
+    const next = Math.round(x);
+    if (Math.abs(next - cardScrollLoggedRef.current) < 12) return;
+    cardScrollLoggedRef.current = next;
+    console.error(`[parity] card pills x=${next}`);
+  };
   const onPillPress = (id: (typeof cards.available)[number]) => {
     const next = reduceLane(lane, { type: "pill_tapped", id });
     console.error(`[parity] card pill press ${id} visible=${next.visible ?? "none"}`);
@@ -639,10 +647,11 @@ export function PreviewChatScreen() {
         <ComposerPillRow
           belowCount={liveTail ? stick.belowCount : 0}
           messageCount={messages.length}
+          onCardScroll={frame.cards === "lane" ? onCardScroll : undefined}
           onLayout={(event) => setPillHeight(event.nativeEvent.layout.height)}
           onPillPress={onPillPress}
           onScrollToBottom={() => {
-            if (pillReturn) {
+            if (pillReturn || frame.cards === "lane") {
               tailReturnPressedRef.current = true;
               console.error("[parity] scroll pill press");
             }

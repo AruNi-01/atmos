@@ -107,6 +107,7 @@ function ScrollPillSlot({
 export function ComposerPillRow({
   belowCount,
   messageCount,
+  onCardScroll,
   onLayout,
   onPillPress,
   onScrollToBottom,
@@ -115,6 +116,7 @@ export function ComposerPillRow({
 }: {
   belowCount: number;
   messageCount: number;
+  onCardScroll?: (x: number) => void;
   onLayout?: (event: LayoutChangeEvent) => void;
   onPillPress: (id: CardId) => void;
   onScrollToBottom: () => void;
@@ -158,8 +160,11 @@ export function ComposerPillRow({
           contentContainerStyle={styles.scrollerContent}
           horizontal
           keyboardShouldPersistTaps="handled"
+          onScroll={(event) => onCardScroll?.(event.nativeEvent.contentOffset.x)}
+          scrollEventThrottle={48}
           showsHorizontalScrollIndicator={false}
           style={styles.scroller}
+          testID="agent-chat-card-pill-scroller"
         >
           {pills.map((pill) => (
             <CardPillButton
