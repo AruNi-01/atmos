@@ -566,8 +566,10 @@ export function PreviewChatScreen() {
   const color = theme === "dark" ? "#f4f4f6" : "#1a1a1a";
 
   const onPillPress = (id: (typeof cards.available)[number]) => {
+    const next = reduceLane(lane, { type: "pill_tapped", id });
+    console.error(`[parity] card pill press ${id} visible=${next.visible ?? "none"}`);
     setChoiceKey(laneKey);
-    setLaneChoice(reduceLane(lane, { type: "pill_tapped", id }));
+    setLaneChoice(next);
   };
 
   return (

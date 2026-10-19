@@ -192,6 +192,7 @@ function CardPillButton({
       accessibilityState={{ selected: pill.selected }}
       onPress={() => onPress(pill.id)}
       style={{ maxWidth }}
+      testID={`agent-chat-card-pill-${pill.id}`}
     >
       <GlassPanel
         interactive

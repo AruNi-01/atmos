@@ -174,12 +174,21 @@ describe("parity motion fixtures", () => {
     );
     expect(tap).toContain('bundleIdentifier: "land.atmos.mobile"');
     expect(tap).toContain('buttons["agent-chat-scroll-pill"]');
+    expect(tap).toContain('buttons["agent-chat-card-pill-plan"]');
+    expect(tap).toContain('buttons["agent-chat-card-pill-queue"]');
+    expect(tap).toContain("func testTapCardPills()");
+    const cardPills = readFileSync(join(here, "composer-pill-row.tsx"), "utf8");
+    expect(cardPills).toContain("testID={`agent-chat-card-pill-${pill.id}`}");
+    expect(preview).toContain('[parity] card pill press ${id} visible=${next.visible ?? "none"}');
     const capture = readFileSync(
       join(here, "../../../../../scripts/agent-chat-parity/ios-capture.sh"),
       "utf8",
     );
     expect(capture).toContain("[parity] pill awaiting tap");
     expect(capture).toContain("tap_scroll_pill");
+    expect(capture).toContain("tap_card_pills");
+    expect(capture).toContain("testTapCardPills");
+    expect(capture).toContain("f12-pill-tap.mov");
     expect(capture).toContain('recordVideo", "--codec", "h264"');
     expect(capture).toContain("[parity] replay held 15000");
     expect(capture).toContain("[parity] replay start");

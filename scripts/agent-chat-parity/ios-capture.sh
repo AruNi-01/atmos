@@ -2,10 +2,11 @@
 # Screenshot F1–F13 in light and dark, then capture motion passes:
 # f13-tail scrolled to Reply 50 (three frames muxed when they differ),
 # a second f13-tail launch that taps the scroll pill after that hold,
-# stream-tools sampled while rows append, and F4 / F12 / composer passes that
+# stream-tools sampled while rows append, an F12 launch that taps the plan
+# and queue pills, and F4 / F12 / composer passes that
 # freeze each script step (`atMs` in the pin) and take a simctl screenshot.
 # A wall-clock draw finishes before a slow screenshot returns. The replay,
-# lane, composer, and pill return do not fail the job.
+# lane, composer, pill return, and F12 card-pill tap do not fail the job.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -630,6 +631,67 @@ capture_f12_lane() {
   capture_pinned_steps "F12" "light" "" "" "" "steps" "" "" "lane" "$OUT/f12-lane" "lane" || true
 }
 
+# F12 with no lane pin, so the pill row is the live reducer. The test activates
+# the running app and taps plan, then queue, then queue again. A miss does not
+# fail the job. recordVideo stays open across the taps and this pass does not
+# take simctl screenshots.
+tap_card_pills() {
+  local udid
+  udid="$(xcrun simctl list devices booted -j | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+booted = []
+for devices in data.get("devices", {}).values():
+    for device in devices:
+        if device.get("state") == "Booted" and device.get("udid"):
+            booted.append(device["udid"])
+if len(booted) == 1:
+    print(booted[0])
+')"
+  if [[ -z "$udid" ]]; then
+    echo "card pill tap has no single booted simulator" >&2
+    return 1
+  fi
+  echo "tapping agent-chat-card-pill-plan on ${udid}"
+  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
+    --seconds 720 \
+    --grace 20 \
+    --needle "Test Suite 'Selected tests' passed" \
+    -- \
+    xcodebuild test \
+    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+    -scheme PillTap \
+    -sdk iphonesimulator \
+    -destination "platform=iOS Simulator,id=${udid}" \
+    -derivedDataPath /tmp/pill-tap-derived \
+    -only-testing:PillTapUITests/PillTapUITests/testTapCardPills \
+    -parallel-testing-enabled NO \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO
+}
+
+capture_f12_pill_taps() {
+  local mark video pidfile errlog
+  video="$OUT/f12-pill-tap.mov"
+  pidfile="$OUT/f12-pill-tap-record.pid"
+  errlog="$OUT/f12-pill-tap-record.log"
+  mark="$(log_mark)"
+  write_frame_file "F12" "light"
+  launch_frame "F12" "light" "pills"
+  if ! wait_for_since "[parity] ready F12 light" 90 "$mark"; then
+    echo "f12 pill tap missed ready" >&2
+    return 0
+  fi
+  start_screen_record "$video" "$pidfile" "$errlog"
+  echo "f12 pill recorder open"
+  if ! tap_card_pills >"$OUT/f12-pill-tap.log" 2>&1; then
+    echo "f12 card pill tap failed" >&2
+    tail -n 40 "$OUT/f12-pill-tap.log" >&2 || true
+  fi
+  sleep 0.5
+  stop_screen_record "$pidfile" || true
+}
+
 # Composer states for S23. Keyboard is a TextInput focus call, not a Simulator
 # tap. The manual preview link does not set this pin.
 capture_composer_states() {
@@ -955,6 +1017,7 @@ capture_tail_return || echo "f13 tail return capture failed" >&2
 capture_stream_motion
 capture_f4_replay || echo "f4 replay capture failed" >&2
 capture_f12_lane || echo "f12 lane capture failed" >&2
+capture_f12_pill_taps || echo "f12 pill tap capture failed" >&2
 capture_composer_states || echo "composer states capture failed" >&2
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
