@@ -19,6 +19,9 @@ describe("useAgentChatThread restore", () => {
     expect(thread).toContain("snapshot.meta?.last_event_seq");
     expect(thread).toContain("finishHydrate");
     expect(thread).toContain("canResumeAgentChatSession");
+    expect(thread).toContain("abandonHydrate");
+    expect(thread).toContain("nextAgentChatResyncDelayMs");
+    expect(thread).toContain('shouldAbandonAgentChatHydrate("error")');
     expect(thread).not.toContain("if (revision <= after) continue");
     const getAt = thread.indexOf("wsActions.agentChatGet");
     const subscribeAt = thread.indexOf("wsActions.agentChatSubscribe");

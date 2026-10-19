@@ -38,6 +38,7 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
 import { applyChatEvent, createChatTranscript, type ChatTranscriptState } from "./fold-transcript";
 import { agentChatEventFromMessage, eventsForChat } from "./foreign-event";
+import { nextAgentChatResyncDelayMs, shouldAbandonAgentChatHydrate } from "./hydrate-recovery";
 import { useReducedMotion } from "./motion/use-reduced-motion";
 import { canResumeAgentChatSession } from "./session-resume";
 
@@ -84,6 +85,8 @@ export function useAgentChatThread(chatId: string) {
 
     let cancelled = false;
     let resyncing = false;
+    let failedResyncs = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const inflight = new Set<string>();
     if (!isResume) {
       pumpRef.current = createAgentChatEventPump();
@@ -135,7 +138,10 @@ export function useAgentChatThread(chatId: string) {
       pushAgentChatCommit(commitBuffer, decision.event.payload.type, reducedMotionRef.current);
     };
 
-    const applySnapshot = (snapshot: Awaited<ReturnType<typeof wsActions.agentChatGet>>) => {
+    const applySnapshot = (
+      snapshot: Awaited<ReturnType<typeof wsActions.agentChatGet>>,
+      generation?: number,
+    ) => {
       const state = {
         ...createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta),
         pendingPermission: snapshot.pending_permission ?? null,
@@ -145,7 +151,7 @@ export function useAgentChatThread(chatId: string) {
       };
       transcriptRef.current = state;
       const seq = snapshot.meta?.last_event_seq ?? 0;
-      for (const decision of pump.finishHydrate(seq)) applyDecision(decision);
+      for (const decision of pump.finishHydrate(seq, generation)) applyDecision(decision);
       setTranscript(transcriptRef.current);
     };
 
@@ -160,15 +166,28 @@ export function useAgentChatThread(chatId: string) {
     const resyncFromSnapshot = async () => {
       if (resyncing || cancelled) return;
       resyncing = true;
-      pump.startHydrate();
+      const generation = pump.startHydrate();
       try {
         const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
-        if (cancelled) return;
-        applySnapshot(snapshot);
+        if (cancelled) {
+          if (shouldAbandonAgentChatHydrate("cancelled")) pump.abandonHydrate(generation);
+          return;
+        }
+        applySnapshot(snapshot, generation);
         await subscribeFromCursor();
+        failedResyncs = 0;
       } catch (err) {
+        if (shouldAbandonAgentChatHydrate("error")) pump.abandonHydrate(generation);
         if (!cancelled) {
           setError(err instanceof Error && err.message ? err.message : "Could not load this chat.");
+          const delay = nextAgentChatResyncDelayMs(failedResyncs);
+          failedResyncs += 1;
+          if (delay != null) {
+            retryTimer = setTimeout(() => {
+              retryTimer = null;
+              void resyncFromSnapshot();
+            }, delay);
+          }
         }
       } finally {
         resyncing = false;
@@ -189,10 +208,13 @@ export function useAgentChatThread(chatId: string) {
       let liveError: string | null = null;
       try {
         if (!isResume) {
-          pump.startHydrate();
+          const generation = pump.startHydrate();
           const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
-          if (cancelled) return;
-          applySnapshot(snapshot);
+          if (cancelled) {
+            if (shouldAbandonAgentChatHydrate("cancelled")) pump.abandonHydrate(generation);
+            return;
+          }
+          applySnapshot(snapshot, generation);
         }
         try {
           const serverSeq = await subscribeFromCursor();
@@ -218,6 +240,8 @@ export function useAgentChatThread(chatId: string) {
 
     return () => {
       cancelled = true;
+      if (retryTimer != null) clearTimeout(retryTimer);
+      if (pump.hydrating) pump.abandonHydrate();
       clearInterval(flushTimer);
       unsubscribeMessages();
       void wsActions.agentChatUnsubscribe(client, { chat_id: chatId }).catch(() => undefined);

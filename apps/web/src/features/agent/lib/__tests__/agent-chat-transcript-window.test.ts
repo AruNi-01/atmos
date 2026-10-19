@@ -268,9 +268,14 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("isRestoringTranscript: isResumingHistory");
     expect(session).toContain("isResumingHistory: isResumingHistory && messages.length === 0");
     expect(session).toContain("scrollToIndexRef: ui.scrollToIndexRef");
-    expect(session).toContain("createAgentChatEventPump");
-    expect(session).toContain("eventPump.finishHydrate");
+    expect(session).toContain("const eventPump = createAgentChatEventPump();");
+    expect(session).toContain("eventPump.startHydrate();");
+    expect(session).toContain("eventPump.finishHydrate(snapshotSeq ?? 0)");
     expect(session).toContain("agentChatApi.subscribe(id, eventPump.cursor)");
+    expect(session).toContain("eventPump.shouldResyncFromServer");
+    expect(session.indexOf("eventPump.finishHydrate")).toBeLessThan(
+      session.indexOf("agentChatApi.subscribe(id, eventPump.cursor)"),
+    );
     expect(session).toContain("useAgentChatExpandStore.getState().reset()");
     expect(session).toContain("withStableAgentMessageIds");
     expect(session).not.toContain("hydrateAgentChatMessages");

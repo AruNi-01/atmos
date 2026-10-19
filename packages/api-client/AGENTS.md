@@ -12,7 +12,7 @@ bun run --filter @atmos/api-client typecheck
 ## Ownership
 
 - **Owns**: connect/disconnect/reconnect, pending map, `request` / `requestWhenReady` / `requestUnchecked`, notification fan-out
-- **Also owns** (pure `./agent-chat` export, not on `WsSession`): part-store fold and `EventGate` / event pump (event_id window, state-revision rollback guard, revision-gap catch-up/resync)
+- **Also owns** (pure `./agent-chat` export, not on `WsSession`): part-store fold and `EventGate` / event pump (emission identity `event_id+type+instance`, state-revision rollback vs snapshot floor, revision-gap catch-up/resync)
 - **Does not own**: URL/auth/bootstrap (apps), Query (APP-035), terminal PTY, desktop IPC, wire types (`@atmos/api-types`), `gitApi` / `workspaceApi`, event→message UI fold
 
 `request()` infers input/output from `@atmos/api-types` `WsContract`. New Computer RPC methods belong in app wrappers (`apps/web/src/api/ws/*`, `apps/mobile/src/api/ws-actions.ts`), not on `WsSession`.

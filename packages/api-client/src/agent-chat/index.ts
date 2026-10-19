@@ -12,6 +12,7 @@ export {
 export {
   AGENT_CHAT_EVENT_ID_WINDOW,
   AGENT_CHAT_REVISION_GAP_RESYNC,
+  agentChatEventDuplicateKey,
   agentChatEventStateKey,
   createAgentChatEventGate,
 } from "./event-gate";
@@ -24,7 +25,11 @@ export type {
   AgentChatGateGapRecommend,
 } from "./event-gate";
 export { createAgentChatEventPump } from "./event-pump";
-export type { AgentChatEventPump, AgentChatPumpIngest } from "./event-pump";
+export type {
+  AgentChatEventPump,
+  AgentChatHydrateGeneration,
+  AgentChatPumpIngest,
+} from "./event-pump";
 export type {
   BackfillRequest,
   Part,

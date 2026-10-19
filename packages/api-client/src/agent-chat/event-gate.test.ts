@@ -151,6 +151,24 @@ describe("agentChatEventStateKey", () => {
         tool_call: { tool_call_id: "c1", name: "Read", status: "completed" },
       }),
     ).toBeNull();
+    expect(
+      agentChatEventStateKey({
+        type: "session_lifecycle",
+        turn_id: "t1",
+        message_id: "m1",
+        action: "create",
+        status: "running",
+      }),
+    ).toBe("session_lifecycle:t1");
+    expect(
+      agentChatEventStateKey({
+        type: "session_lifecycle",
+        turn_id: "t1",
+        message_id: "m1",
+        action: "resume",
+        status: "completed",
+      }),
+    ).toBe("session_lifecycle:t1");
   });
 });
 
@@ -173,6 +191,32 @@ describe("EventGate duplicates", () => {
     const second = chatEvent(2, { type: "turn_started", turn_id: "t2" }, "");
     expect(gate.admit(first).action).toBe("apply");
     expect(gate.admit(second).action).toBe("apply");
+  });
+
+  test("one adapter event_id can emit runtime_status then available_commands_updated", () => {
+    const gate = createAgentChatEventGate();
+    const status = chatEvent(1, { type: "runtime_status", status: "ready" }, "session-started");
+    const commands = chatEvent(
+      2,
+      { type: "available_commands_updated", commands: [{ name: "help" }] },
+      "session-started",
+    );
+    expect(gate.admit(status).action).toBe("apply");
+    expect(gate.admit(commands).action).toBe("apply");
+    expect(gate.admit(status).reason).toBe("duplicate_event_id");
+  });
+
+  test("finish_turn part_closed then turn_completed with the same adapter id both apply", () => {
+    const gate = createAgentChatEventGate();
+    const closed = chatEvent(4, { type: "part_closed", part_id: "p1" }, "finish-turn");
+    const completed = chatEvent(
+      5,
+      { type: "turn_completed", turn_id: "t1", status: "ok" },
+      "finish-turn",
+    );
+    expect(gate.admit(closed).action).toBe("apply");
+    expect(gate.admit(completed).action).toBe("apply");
+    expect(gate.admit(completed).reason).toBe("duplicate_event_id");
   });
 });
 
@@ -365,5 +409,49 @@ describe("EventGate gap detection", () => {
     expect(jumped.action).toBe("apply");
     expect(jumped.gap?.recommend).toBe("resync");
     expect(jumped.gap?.size).toBeGreaterThanOrEqual(AGENT_CHAT_REVISION_GAP_RESYNC);
+  });
+});
+
+describe("EventGate snapshot floor", () => {
+  test("a delayed state event cannot overwrite a newer snapshot", () => {
+    const gate = createAgentChatEventGate();
+    expect(gate.admit(chatEvent(10, queueItems("q1"))).action).toBe("apply");
+    gate.observeSnapshot(50);
+    const delayed = chatEvent(20, queueItems("old"), "unseen-old-queue");
+    expect(gate.admit(delayed)).toMatchObject({
+      action: "drop",
+      reason: "stale_state",
+    });
+  });
+
+  test("session_lifecycle create and resume share one floor per turn", () => {
+    const gate = createAgentChatEventGate();
+    const create = chatEvent(
+      12,
+      {
+        type: "session_lifecycle",
+        turn_id: "t1",
+        message_id: "m1",
+        action: "create",
+        status: "completed",
+      },
+      "life-create",
+    );
+    const resume = chatEvent(
+      8,
+      {
+        type: "session_lifecycle",
+        turn_id: "t1",
+        message_id: "m1",
+        action: "resume",
+        status: "running",
+      },
+      "life-resume",
+    );
+    expect(gate.admit(create).action).toBe("apply");
+    expect(gate.admit(resume)).toMatchObject({
+      action: "drop",
+      reason: "stale_state",
+    });
   });
 });

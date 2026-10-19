@@ -1243,7 +1243,16 @@ export function useAgentChatSession({
           if (decision.action !== "apply") continue;
           foldLiveEvent(decision.event);
         }
-        await agentChatApi.subscribe(id, eventPump.cursor);
+        const subscribed = await agentChatApi.subscribe(id, eventPump.cursor);
+        if (eventPump.shouldResyncFromServer(subscribed.last_event_seq ?? 0)) {
+          const hydrateGen = eventPump.startHydrate();
+          const resyncSeq = await load(id);
+          for (const decision of eventPump.finishHydrate(resyncSeq ?? 0, hydrateGen)) {
+            if (decision.action !== "apply") continue;
+            foldLiveEvent(decision.event);
+          }
+          await agentChatApi.subscribe(id, eventPump.cursor);
+        }
         const queued = pendingSendRef.current;
         pendingSendRef.current = null;
         if (queued) {

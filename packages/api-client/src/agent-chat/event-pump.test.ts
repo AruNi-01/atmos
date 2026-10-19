@@ -55,4 +55,44 @@ describe("AgentChatEventPump hydrate", () => {
     expect(pump.shouldResyncFromServer(11)).toBe(false);
     expect(pump.shouldResyncFromServer(11 + AGENT_CHAT_REVISION_GAP_RESYNC)).toBe(true);
   });
+
+  test("abandonHydrate leaves later live events applying", () => {
+    const pump = createAgentChatEventPump();
+    const gen = pump.startHydrate();
+    expect(pump.ingest(chatEvent(4, { type: "turn_started", turn_id: "t1" })).action).toBe(
+      "buffer",
+    );
+    pump.abandonHydrate(gen);
+    expect(pump.hydrating).toBe(false);
+    expect(pump.ingest(chatEvent(5, { type: "turn_completed", turn_id: "t1" })).action).toBe(
+      "apply",
+    );
+  });
+
+  test("a stale finishHydrate does not complete a newer hydrate", () => {
+    const pump = createAgentChatEventPump();
+    const first = pump.startHydrate();
+    pump.ingest(chatEvent(11, { type: "turn_started", turn_id: "t2" }));
+    const second = pump.startHydrate();
+    expect(pump.finishHydrate(10, first)).toEqual([]);
+    expect(pump.hydrating).toBe(true);
+    const drained = pump.finishHydrate(10, second);
+    expect(drained).toEqual([
+      {
+        action: "apply",
+        event: chatEvent(11, { type: "turn_started", turn_id: "t2" }),
+      },
+    ]);
+    expect(pump.hydrating).toBe(false);
+  });
+
+  test("a stale abandonHydrate does not drop a newer hydrate buffer", () => {
+    const pump = createAgentChatEventPump();
+    const first = pump.startHydrate();
+    const second = pump.startHydrate();
+    pump.ingest(chatEvent(12, { type: "turn_completed", turn_id: "t2" }));
+    pump.abandonHydrate(first);
+    expect(pump.hydrating).toBe(true);
+    expect(pump.finishHydrate(10, second)).toHaveLength(1);
+  });
 });

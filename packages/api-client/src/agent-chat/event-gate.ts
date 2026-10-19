@@ -1,6 +1,6 @@
 import type { AgentChatEvent, AgentChatPayload } from "@atmos/api-types/ws/dto/agent-chat";
 
-/** Seen `event_id` ring. Sized above the server recent-event cap (2048). */
+/** Seen emission ring. Sized above the server recent-event cap (2048). */
 export const AGENT_CHAT_EVENT_ID_WINDOW = 4096;
 
 /**
@@ -81,7 +81,7 @@ export function agentChatEventStateKey(payload: AgentChatPayload): string | null
     case "rewind_view_updated":
       return "rewind";
     case "session_lifecycle":
-      return `session_lifecycle:${payload.turn_id}:${payload.action}`;
+      return `session_lifecycle:${payload.turn_id}`;
     case "session_config_change":
       return `session_config_change:${payload.turn_id}`;
     case "session_hint":
@@ -99,12 +99,71 @@ export function agentChatEventStateKey(payload: AgentChatPayload): string | null
   }
 }
 
-function revisionOf(event: AgentChatEvent): number {
-  return event.revision ?? 0;
+function payloadInstanceKey(payload: AgentChatPayload): string {
+  switch (payload.type) {
+    case "part_closed":
+      return payload.part_id;
+    case "text_chunk":
+      return `${payload.part_id}:${payload.offset}`;
+    case "tool_call_started":
+    case "tool_call_updated":
+    case "tool_call_completed":
+    case "tool_call_failed":
+      return payload.tool_call.tool_call_id;
+    case "turn_started":
+    case "turn_completed":
+    case "turn_snapshot":
+    case "session_lifecycle":
+    case "session_config_change":
+      return payload.turn_id;
+    case "user_message":
+      return payload.message_id;
+    case "permission_requested":
+      return payload.request.request_id;
+    case "permission_resolved":
+      return payload.request_id;
+    case "session_op_requested":
+      return payload.request.request_id;
+    case "session_op_resolved":
+      return payload.request_id;
+    case "session_hint":
+      return `${payload.message_id}:${payload.kind}`;
+    case "session_forked":
+      return payload.chat_id;
+    case "unknown":
+      return payload.event_type;
+    case "plan_updated":
+    case "usage_updated":
+    case "context_usage_updated":
+    case "queue_updated":
+    case "runtime_status":
+    case "title_updated":
+    case "available_commands_updated":
+    case "grok_goal_updated":
+    case "grok_workflow_updated":
+    case "config_updated":
+    case "rewind_view_updated":
+      return "";
+  }
 }
 
 function eventIdOf(event: AgentChatEvent): string {
   return typeof event.event_id === "string" ? event.event_id : "";
+}
+
+/**
+ * Identity of one emitted payload. Adapter `event_id` is reused across
+ * payloads from the same envelope (`SessionStarted`, `finish_turn`), so the
+ * key includes type and a per-payload instance id.
+ */
+export function agentChatEventDuplicateKey(event: AgentChatEvent): string {
+  const id = eventIdOf(event);
+  if (id.length === 0) return "";
+  return `${id}\0${event.payload.type}\0${payloadInstanceKey(event.payload)}`;
+}
+
+function revisionOf(event: AgentChatEvent): number {
+  return event.revision ?? 0;
 }
 
 function gapFor(
@@ -139,11 +198,11 @@ export function createAgentChatEventGate(
   let contiguous = 0;
   let maxRevision = 0;
 
-  function rememberEventId(id: string): boolean {
-    if (id.length === 0) return false;
-    if (seenIds.has(id)) return true;
-    seenIds.add(id);
-    seenIdOrder.push(id);
+  function rememberDuplicateKey(key: string): boolean {
+    if (key.length === 0) return false;
+    if (seenIds.has(key)) return true;
+    seenIds.add(key);
+    seenIdOrder.push(key);
     if (seenIdOrder.length > eventIdWindow) {
       const oldest = seenIdOrder.shift();
       if (oldest) seenIds.delete(oldest);
@@ -162,7 +221,7 @@ export function createAgentChatEventGate(
   }
 
   function lastStateRevision(key: string): number {
-    return stateRevision.get(key) ?? snapshotFloor;
+    return Math.max(stateRevision.get(key) ?? 0, snapshotFloor);
   }
 
   function observeSnapshot(lastEventSeq: number): void {
@@ -182,7 +241,7 @@ export function createAgentChatEventGate(
   }
 
   function admit(event: AgentChatEvent): AgentChatGateDecision {
-    if (rememberEventId(eventIdOf(event))) {
+    if (rememberDuplicateKey(agentChatEventDuplicateKey(event))) {
       return { action: "drop", event, reason: "duplicate_event_id" };
     }
 

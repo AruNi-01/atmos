@@ -10,15 +10,20 @@ export type AgentChatPumpIngest =
   | AgentChatGateDecision
   | { action: "buffer"; event: AgentChatEvent };
 
+export type AgentChatHydrateGeneration = number;
+
 export type AgentChatEventPump = {
   readonly cursor: number;
   readonly maxRevision: number;
   readonly hydrating: boolean;
   readonly gate: AgentChatEventGate;
-  startHydrate(): void;
+  startHydrate(): AgentChatHydrateGeneration;
   ingest(event: AgentChatEvent): AgentChatPumpIngest;
-  finishHydrate(snapshotSeq: number): AgentChatGateDecision[];
-  abandonHydrate(): void;
+  finishHydrate(
+    snapshotSeq: number,
+    generation?: AgentChatHydrateGeneration,
+  ): AgentChatGateDecision[];
+  abandonHydrate(generation?: AgentChatHydrateGeneration): void;
   shouldResyncFromServer(serverLastSeq: number): boolean;
   reset(): void;
 };
@@ -33,6 +38,11 @@ export function createAgentChatEventPump(
   const gate = createAgentChatEventGate(options);
   const pending: AgentChatEvent[] = [];
   let hydrating = false;
+  let generation = 0;
+
+  function isCurrent(token?: AgentChatHydrateGeneration): boolean {
+    return token == null || token === generation;
+  }
 
   return {
     get cursor() {
@@ -48,8 +58,10 @@ export function createAgentChatEventPump(
       return gate;
     },
     startHydrate() {
+      if (!hydrating) pending.length = 0;
       hydrating = true;
-      pending.length = 0;
+      generation += 1;
+      return generation;
     },
     ingest(event: AgentChatEvent): AgentChatPumpIngest {
       if (hydrating) {
@@ -58,13 +70,18 @@ export function createAgentChatEventPump(
       }
       return gate.admit(event);
     },
-    finishHydrate(snapshotSeq: number): AgentChatGateDecision[] {
+    finishHydrate(
+      snapshotSeq: number,
+      token?: AgentChatHydrateGeneration,
+    ): AgentChatGateDecision[] {
+      if (!isCurrent(token)) return [];
       gate.observeSnapshot(snapshotSeq);
       hydrating = false;
       const queued = pending.splice(0, pending.length);
       return queued.map((event) => gate.admit(event));
     },
-    abandonHydrate() {
+    abandonHydrate(token?: AgentChatHydrateGeneration) {
+      if (!isCurrent(token)) return;
       hydrating = false;
       pending.length = 0;
     },
@@ -75,6 +92,7 @@ export function createAgentChatEventPump(
       gate.reset();
       hydrating = false;
       pending.length = 0;
+      generation = 0;
     },
   };
 }

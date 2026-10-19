@@ -105,6 +105,34 @@ describe("mobile fold + EventGate probe regressions", () => {
     expect(foldThrough(events, true).queue).toEqual([]);
   });
 
+  test("delayed queue cannot overwrite a newer snapshot floor", () => {
+    const gate = createAgentChatEventGate();
+    const filled = chatEvent(10, {
+      type: "queue_updated",
+      items: [{ id: "q1", seq: 1, status: "queued", prompt: "next" }],
+    });
+    expect(gate.admit(filled).action).toBe("apply");
+    gate.observeSnapshot(50);
+    const delayed = chatEvent(
+      20,
+      {
+        type: "queue_updated",
+        items: [{ id: "q1", seq: 1, status: "queued", prompt: "stale" }],
+      },
+      "unseen-old-queue",
+    );
+    expect(gate.admit(delayed).action).toBe("drop");
+  });
+
+  test("shared adapter event_id does not drop turn_completed after part_closed", () => {
+    const events = [
+      chatEvent(1, { type: "turn_started", turn_id: "t1" }, "start"),
+      chatEvent(4, { type: "part_closed", part_id: "p1" }, "finish-turn"),
+      chatEvent(5, { type: "turn_completed", turn_id: "t1" }, "finish-turn"),
+    ];
+    expect(foldThrough(events, true).runningTurnId).toBeNull();
+  });
+
   test("old turn_snapshot does not roll assistant text back", () => {
     const events = [
       chatEvent(11, {
