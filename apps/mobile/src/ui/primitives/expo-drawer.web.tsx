@@ -8,6 +8,7 @@ import {
   StyleSheet,
   View,
   useWindowDimensions,
+  type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MobileThemeColorScheme } from "@/theme/colors";
@@ -213,6 +214,8 @@ const styles = StyleSheet.create({
     boxShadow: "0 12px 40px rgba(0, 0, 0, 0.28)",
     overflow: "hidden",
     position: "absolute",
-    touchAction: "none",
+    // RN ViewStyle omits this web CSS property. The cast keeps drag from
+    // scrolling the page behind the sheet.
+    ...({ touchAction: "none" } as ViewStyle),
   },
 });

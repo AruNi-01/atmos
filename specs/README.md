@@ -169,6 +169,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **QUALITY-006**      | Idempotent Agent Chat Event Model (append-only text + byte offsets, part tree, tool status lattice, log equals wire)                                                                            | `specs/APP/QUALITY-006_agent-event-identity/` (`TECH.md`, `TEST.md`)                                                                    |
 | **QUALITY-007**      | oxc lint + format toolchain (oxlint + oxfmt; ESLint/Prettier removed)                                                                                                                           | `specs/APP/QUALITY-007_oxc-lint-format-toolchain/` (`TECH.md`, `TEST.md`)                                                               |
 | **QUALITY-008**      | Agent Chat UI optimization (virtual list + 56 ms `TurnSnapshot` + display buffer + expand store; as-built backfill of #305 / #307)                                                              | `specs/APP/QUALITY-008_agent-chat-ui-optimization/` (`TECH.md`, `TEST.md`)                                                              |
+| **QUALITY-010**      | Audit safety hardening (Settings theme stays on the JS layer, evidence push opt-in, just quoting, iOS parity CI, oxlint ratchet, small tsc fixes)                                               | `specs/APP/QUALITY-010_audit-safety-hardening/` (`TECH.md`, `TEST.md`)                                                                  |
 
 ### Landing
 

@@ -1,4 +1,5 @@
-import type { Env } from "./index";
+/** Delivery helpers only read D1. Callers such as ServerHub do not carry every Worker binding. */
+type DeliveryDbEnv = { DB: D1Database };
 
 export type DeliveryProvider = "github";
 export type DeliveryDispatchStatus = "dispatched" | "missed_offline" | "error";
@@ -43,7 +44,7 @@ export function providerFromRelayAddress(value: string | undefined): DeliveryPro
 }
 
 export async function insertDelivery(
-  env: Env,
+  env: DeliveryDbEnv,
   delivery: DeliveryInsert,
 ): Promise<{ duplicate: boolean }> {
   assertGithubProvider(delivery.provider);
@@ -85,7 +86,7 @@ export async function insertDelivery(
 }
 
 export async function githubMonthlyDispatchLimitExceeded(
-  env: Env,
+  env: DeliveryDbEnv,
   route: { user_id: string; installation_id: string },
   now: number,
 ): Promise<string | null> {
@@ -112,7 +113,7 @@ export async function githubMonthlyDispatchLimitExceeded(
 }
 
 export async function updateDeliveryDispatchStatus(
-  env: Env,
+  env: DeliveryDbEnv,
   identity: DeliveryIdentity,
   status: DeliveryDispatchStatus,
   options: { dispatchedAt?: number; errorCode?: string | null } = {},
@@ -135,7 +136,7 @@ export async function updateDeliveryDispatchStatus(
 }
 
 export async function ackDelivery(
-  env: Env,
+  env: DeliveryDbEnv,
   identity: DeliveryIdentity,
   status: DeliveryAckStatus,
   errorCode: string | null = null,
@@ -164,7 +165,7 @@ function assertGithubProvider(provider: DeliveryProvider): void {
 }
 
 async function countGithubWebhookDeliveries(
-  env: Env,
+  env: DeliveryDbEnv,
   predicate: string,
   args: unknown[],
 ): Promise<number> {
