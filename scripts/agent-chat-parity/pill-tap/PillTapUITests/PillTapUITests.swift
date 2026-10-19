@@ -39,17 +39,38 @@ final class PillTapUITests: XCTestCase {
   func testSwipeCardPills() {
     let atmos = XCUIApplication(bundleIdentifier: "land.atmos.mobile")
     atmos.activate()
-    let row = atmos.scrollViews["agent-chat-card-pill-scroller"]
-    XCTAssertTrue(row.waitForExistence(timeout: 30), "card pill scroller was not in the accessibility tree")
     let scroll = atmos.buttons["agent-chat-scroll-pill"]
-    XCTAssertTrue(scroll.waitForExistence(timeout: 20), "scroll pill was not in the accessibility tree")
-    row.swipeLeft()
+    XCTAssertTrue(scroll.waitForExistence(timeout: 30), "scroll pill was not in the accessibility tree")
+    if let row = cardPillScroller(atmos) {
+      row.swipeLeft()
+    } else {
+      let questions = atmos.buttons["agent-chat-card-pill-permission"]
+      XCTAssertTrue(questions.waitForExistence(timeout: 10), "questions pill was not in the accessibility tree")
+      let start = questions.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+      let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+      start.press(forDuration: 0.05, thenDragTo: end)
+    }
     Thread.sleep(forTimeInterval: 0.8)
     let plan = atmos.buttons["agent-chat-card-pill-plan"]
     XCTAssertTrue(plan.waitForExistence(timeout: 10), "plan pill was not in the accessibility tree")
     plan.tap()
     Thread.sleep(forTimeInterval: 0.8)
     scroll.tap()
+  }
+
+  /// React Native puts the ScrollView testID on the wrapper, not on UIScrollView.
+  /// Run 39234251245 found three ScrollViews and none named this id, while the
+  /// scroll pill button was on screen.
+  private func cardPillScroller(_ atmos: XCUIApplication) -> XCUIElement? {
+    let scrollView = atmos.scrollViews["agent-chat-card-pill-scroller"]
+    if scrollView.waitForExistence(timeout: 3) {
+      return scrollView
+    }
+    let other = atmos.otherElements["agent-chat-card-pill-scroller"]
+    if other.waitForExistence(timeout: 5) {
+      return other
+    }
+    return nil
   }
 
   func testTapComposerField() {

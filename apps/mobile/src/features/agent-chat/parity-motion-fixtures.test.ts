@@ -180,6 +180,8 @@ describe("parity motion fixtures", () => {
     expect(tap).toContain('buttons["agent-chat-permission-skip"]');
     expect(tap).toContain("func testTapCardPills()");
     expect(tap).toContain('scrollViews["agent-chat-card-pill-scroller"]');
+    expect(tap).toContain('otherElements["agent-chat-card-pill-scroller"]');
+    expect(tap).toContain("thenDragTo");
     expect(tap).toContain("func testSwipeCardPills()");
     const cardPills = readFileSync(join(here, "composer-pill-row.tsx"), "utf8");
     expect(cardPills).toContain("testID={`agent-chat-card-pill-${pill.id}`}");
