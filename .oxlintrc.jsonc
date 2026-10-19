@@ -286,6 +286,8 @@
         "apps/mobile/script/ensure-ios-rncore-configuration.test.js",
         "apps/mobile/plugins/with-ios-scene-lifecycle.js",
         "apps/mobile/plugins/with-ios-scene-lifecycle.test.js",
+        "apps/mobile/script/scene-deep-link-evidence.js",
+        "apps/mobile/script/scene-deep-link-evidence.test.js",
       ],
       "rules": {
         "typescript/no-require-imports": "off",

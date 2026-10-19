@@ -22,7 +22,8 @@ Usage:
 
 structural   After expo prebuild. Checks ios/Atmos/Info.plist and AppDelegate.swift.
 built-plist  Checks a built Atmos.app Info.plist expands to Atmos.SceneDelegate.
-simulator    Release-builds and cold-starts iOS 27.0 and iOS 26.5. Mac only.
+simulator    Release-builds and cold-starts iOS 27.0, then iOS 26.5.
+             A deep-link failure on the first runtime still runs the second.
 
 Environment for simulator:
   ATMOS_IOS27_DEVICE   default: iPhone 18 Pro
@@ -121,7 +122,30 @@ check_swift() {
   echo "AppDelegate.swift scene lifecycle ok"
 }
 
+check_route_signal() {
+  local screen="$MOBILE_DIR/app/+not-found.tsx"
+  if [[ ! -f "$screen" ]]; then
+    echo "Missing $screen" >&2
+    exit 1
+  fi
+  if ! grep -q -F 'console.error("ATMOS_ROUTE unmatched")' "$screen"; then
+    echo "NotFoundRoute is missing the fixed unmatched-route log" >&2
+    exit 1
+  fi
+  if ! grep -q -F '[pathname]' "$screen"; then
+    echo "NotFoundRoute must log again when the unmatched path changes" >&2
+    exit 1
+  fi
+  local log_line
+  log_line="$(grep -F 'console.error' "$screen")"
+  if grep -q 'pathname\|atmos://\|scene-lifecycle-probe\|`' <<<"$log_line"; then
+    echo "NotFoundRoute log must not include the URL" >&2
+    exit 1
+  fi
+}
+
 structural() {
+  check_route_signal
   local plist="$IOS_DIR/Atmos/Info.plist"
   if [[ ! -f "$plist" ]]; then
     echo "Missing $plist. Run expo prebuild --platform ios first." >&2
@@ -135,7 +159,7 @@ built_plist() {
   local plist="${1:-}"
   if [[ -z "$plist" || ! -f "$plist" ]]; then
     echo "built-plist needs a path to Info.plist" >&2
-    exit 1
+    return 1
   fi
   python_check_plist "$plist" built
 }
@@ -194,13 +218,14 @@ boot_device() {
   if [[ "$status" -ne 0 ]]; then
     echo "simctl boot exited ${status}; waiting for bootstatus"
   fi
-  xcrun simctl bootstatus "$udid" -b
+  # simulator() invokes this under `||`, which disables set -e for the call.
+  xcrun simctl bootstatus "$udid" -b || return 1
 }
 
 log_since() {
   local udid="$1"
   local start="$2"
-  xcrun simctl spawn "$udid" log show --start "$start" --style compact --predicate 'processImagePath CONTAINS "Atmos" OR composedMessage CONTAINS "AtmosSceneLifecycle" OR eventMessage CONTAINS "AtmosSceneLifecycle" OR composedMessage CONTAINS "UIApplicationEvaluateRuntimeIssue" OR eventMessage CONTAINS "UIApplicationEvaluateRuntimeIssue"' || true
+  xcrun simctl spawn "$udid" log show --start "$start" --style compact --predicate 'processImagePath CONTAINS "Atmos" OR subsystem == "com.facebook.react.log" OR composedMessage CONTAINS "ATMOS_ROUTE unmatched" OR eventMessage CONTAINS "ATMOS_ROUTE unmatched" OR composedMessage CONTAINS "AtmosSceneLifecycle" OR eventMessage CONTAINS "AtmosSceneLifecycle" OR composedMessage CONTAINS "UIApplicationEvaluateRuntimeIssue" OR eventMessage CONTAINS "UIApplicationEvaluateRuntimeIssue"' || true
 }
 
 assert_cold_launch() {
@@ -220,41 +245,44 @@ assert_cold_launch() {
   if [[ "$status" -ne 0 ]] || grep -q 'EXC_BREAKPOINT\|Terminated' <<<"$out"; then
     echo "FAIL ${label}: cold launch did not stay up" >&2
     printf '%s\n' "$logs" >&2
-    exit 1
+    return 1
   fi
   if grep -q "$RUNTIME_ISSUE" <<<"$logs"; then
     echo "FAIL ${label}: UIKit reported no scene lifecycle" >&2
     printf '%s\n' "$logs" >&2
-    exit 1
+    return 1
   fi
   if grep -q 'EXC_BREAKPOINT' <<<"$logs"; then
     echo "FAIL ${label}: EXC_BREAKPOINT in Atmos logs" >&2
     printf '%s\n' "$logs" >&2
-    exit 1
+    return 1
   fi
   echo "PASS ${label}: cold launch"
 }
 
 assert_deep_links() {
   local udid="$1"
+  local label="$2"
   xcrun simctl terminate "$udid" "$BUNDLE_ID" || true
   sleep 1
-  local start
+  local start cold_log all_log
   start="$(date '+%Y-%m-%d %H:%M:%S')"
+  cold_log="$(mktemp)"
+  all_log="$(mktemp)"
   xcrun simctl openurl "$udid" "atmos://scene-lifecycle-probe"
   sleep 4
+  log_since "$udid" "$start" >"$cold_log"
   xcrun simctl openurl "$udid" "atmos://scene-lifecycle-probe-warm"
   sleep 3
-  local logs count
-  logs="$(log_since "$udid" "$start")"
-  count="$(grep -c -F "$URL_LOG" <<<"$logs" || true)"
-  if [[ "$count" -lt 2 ]]; then
-    echo "FAIL deep link: expected two '$URL_LOG' lines, found ${count}" >&2
-    printf '%s\n' "$logs" >&2
-    exit 1
+  log_since "$udid" "$start" >"$all_log"
+  local status=0
+  bun "$SCRIPT_DIR/scene-deep-link-evidence.js" judge "$cold_log" "$all_log" || status=$?
+  rm -f "$cold_log" "$all_log"
+  if [[ "$status" -ne 0 ]]; then
+    echo "FAIL ${label}: deep link did not reach the JS unmatched route" >&2
+    return 1
   fi
-  echo "PASS deep link: scene notify called RCTLinkingManager (${count} log lines)"
-  echo "The NSLog is inside notify and does not include the URL. The system log may still mention it."
+  echo "PASS ${label}: cold and warm URLs reached the JS unmatched route"
 }
 
 build_release() {
@@ -270,28 +298,28 @@ build_release() {
     -sdk iphonesimulator \
     -destination "platform=iOS Simulator,id=${udid}" \
     -derivedDataPath "$derived" \
-    build >&2
+    build >&2 || return 1
   local app="$derived/Build/Products/Release-iphonesimulator/Atmos.app"
   if [[ ! -d "$app" ]]; then
     echo "Release app not found at $app" >&2
-    exit 1
+    return 1
   fi
-  built_plist "$app/Info.plist" >&2
+  built_plist "$app/Info.plist" >&2 || return 1
   printf '%s\n' "$app"
 }
 
 install_and_verify() {
   local udid="$1"
   local label="$2"
-  local check_links="$3"
   local app
-  app="$(build_release "$udid" "$label")"
-  boot_device "$udid"
-  xcrun simctl install "$udid" "$app"
-  assert_cold_launch "$udid" "$label"
-  if [[ "$check_links" == "yes" ]]; then
-    assert_deep_links "$udid"
+  if ! app="$(build_release "$udid" "$label")"; then
+    echo "FAIL ${label}: release build" >&2
+    return 1
   fi
+  boot_device "$udid" || return 1
+  xcrun simctl install "$udid" "$app" || return 1
+  assert_cold_launch "$udid" "$label" || return 1
+  assert_deep_links "$udid" "$label" || return 1
 }
 
 simulator() {
@@ -308,23 +336,28 @@ simulator() {
   echo "pod install"
   (cd "$IOS_DIR" && pod install)
 
-  local udid27 udid26
+  local udid27 udid26 failed
   udid27="$(resolve_device "$runtime27" "$device27")"
   echo "iOS ${runtime27} ${device27} udid=${udid27}"
-  install_and_verify "$udid27" "ios27" yes
+  failed=0
+  install_and_verify "$udid27" "ios27" || failed=1
 
   udid26="$(resolve_device "$runtime26" "$device26")"
   echo "iOS ${runtime26} ${device26} udid=${udid26}"
-  install_and_verify "$udid26" "ios26" yes
+  install_and_verify "$udid26" "ios26" || failed=1
 
   echo "NOT RUN: universal links. app.json has no associatedDomains; S5 is the structural user-activity wiring."
+  if [[ "$failed" -ne 0 ]]; then
+    echo "FAIL simulator: iOS ${runtime27} or iOS ${runtime26} did not pass" >&2
+    exit 1
+  fi
   echo "PASS simulator: iOS ${runtime27} and iOS ${runtime26} cold start + custom-scheme deep links"
 }
 
 mode="${1:-structural}"
 case "$mode" in
   structural) structural ;;
-  built-plist) built_plist "${2:-}" ;;
+  built-plist) built_plist "${2:-}" || exit 1 ;;
   simulator) simulator ;;
   -h|--help|help) usage ;;
   *)

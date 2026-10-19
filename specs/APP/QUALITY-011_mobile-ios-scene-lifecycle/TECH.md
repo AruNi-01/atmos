@@ -148,7 +148,9 @@ The fixed `NSLog` strings sit inside the `notify` closure, so they run only when
 - `AtmosSceneLifecycle delivered URL to RCTLinkingManager`
 - `AtmosSceneLifecycle delivered userActivity to RCTLinkingManager`
 
-The Mac script greps for the URL line. That count is the scene path's own `RCTLinkingManager` call, not a log that always prints after `deliver`. The 2026-10-19 simulator run was the older unconditional log. This placement has not been run on a simulator.
+The generated AppDelegate returns `super.application(...) || RCTLinkingManager.application(...)`. On a Release build without a subscriber that returns true, `super` returns false, `RCTLinkingManager` runs inside `body`, and the notify log stays at zero. That zero count is the dedupe working. It is not evidence that JavaScript missed the URL.
+
+The Mac script therefore does not count that NSLog. `app/+not-found.tsx` logs the fixed string `ATMOS_ROUTE unmatched` from an effect keyed on `pathname`, and the string does not include the path. `LogBox.ignoreLogs` hides that string in dev so the Not Found screen stays visible. Release still records the error-level line. After the cold `openurl`, the log must contain that marker at least once on a line with `Atmos[<pid>]` or the `com.facebook.react.log` subsystem. After the warm `openurl`, the count from the same start time must be strictly greater. `UIOpenURLAction` alone is not enough. A system line from `CoreSimulatorBridge` may contain the URL; an Atmos or JavaScript log line must not. Zero markers, a warm open that does not add a marker, or the URL on an app line fails the judge. A failure on iOS 27 still continues to the iOS 26.5 section.
 
 ## Info.plist shape
 
