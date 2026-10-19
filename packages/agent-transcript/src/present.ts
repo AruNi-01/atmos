@@ -211,9 +211,27 @@ export function normalizeFsPath(path: string | null | undefined): string | null 
       value = value.slice("file://".length);
     }
   }
-  value = value.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
-  if (value !== "/") value = value.replace(/\/+$/, "");
+  value = collapseDuplicateSlashes(value.replaceAll("\\", "/"));
+  if (value !== "/") value = stripTrailingSlashes(value);
   return value || null;
+}
+
+function collapseDuplicateSlashes(value: string): string {
+  let out = "";
+  let previousSlash = false;
+  for (const char of value) {
+    const slash = char === "/";
+    if (slash && previousSlash) continue;
+    previousSlash = slash;
+    out += char;
+  }
+  return out;
+}
+
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1;
+  return end === value.length ? value : value.slice(0, end);
 }
 
 function pathCompareKey(path: string): string {
@@ -419,9 +437,14 @@ export function toolTitleLooksLikePath(title: string, path: string | null | unde
   if (!path || !title) return false;
   const trimmed = title.trim();
   if (trimmed === path) return true;
-  const prefixed = /^(?:tool|read|edit|search|execute|fetch|write|delete):\s*(.*)$/i.exec(trimmed);
-  if (prefixed?.[1] === path) return true;
-  return trimmed.endsWith(path) && (trimmed.length === path.length || /[:\s/]/.test(trimmed.slice(0, -path.length).slice(-1)));
+  const prefixed = /^(?:tool|read|edit|search|execute|fetch|write|delete):/i.exec(trimmed);
+  if (prefixed && trimmed.slice(prefixed[0].length).trimStart() === path) return true;
+  const before =
+    trimmed.length > path.length ? trimmed.charAt(trimmed.length - path.length - 1) : "";
+  return (
+    trimmed.endsWith(path) &&
+    (trimmed.length === path.length || before === ":" || before === "/" || isUnicodeSpace(before))
+  );
 }
 
 /**
@@ -455,11 +478,51 @@ export function stripPathEchoFromToolHeading(
     if (result.includes(alias)) result = result.split(alias).join("");
   }
 
-  return result
-    .replace(/\s*[:：]\s*$/g, "")
-    .replace(/^\s*[:：]\s*/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  return collapseSpaceRuns(stripEdgeColons(result)).trim();
+}
+
+function isUnicodeSpace(char: string): boolean {
+  return char !== "" && char.trim() === "";
+}
+
+/** One trailing `\s*[:：]\s*` and one leading `\s*[:：]\s*`. */
+function stripEdgeColons(value: string): string {
+  let start = 0;
+  let end = value.length;
+  let index = end;
+  while (index > start && isUnicodeSpace(value[index - 1] ?? "")) index -= 1;
+  const trailing = value[index - 1];
+  if (index > start && (trailing === ":" || trailing === "：")) {
+    index -= 1;
+    while (index > start && isUnicodeSpace(value[index - 1] ?? "")) index -= 1;
+    end = index;
+  }
+  index = start;
+  while (index < end && isUnicodeSpace(value[index] ?? "")) index += 1;
+  const leading = value[index];
+  if (index < end && (leading === ":" || leading === "：")) {
+    index += 1;
+    while (index < end && isUnicodeSpace(value[index] ?? "")) index += 1;
+    start = index;
+  }
+  return value.slice(start, end);
+}
+
+/** Collapse a whitespace run of length 2 or more to one space. A single space stays. */
+function collapseSpaceRuns(value: string): string {
+  let out = "";
+  let run = 0;
+  for (const char of value) {
+    if (!isUnicodeSpace(char)) {
+      run = 0;
+      out += char;
+      continue;
+    }
+    run += 1;
+    if (run === 1) out += char;
+    else if (run === 2) out = `${out.slice(0, -1)} `;
+  }
+  return out;
 }
 
 /**
