@@ -74,7 +74,7 @@ No Playwright mobile journey. `apps/mobile/e2e` is frozen.
 | S22      | Unit      | Bun       | fold-transcript test                                                     | snapshot seq 40 + live revision 41 kept; revision 39 dropped                        | pass    |
 | S23      | Unit      | Bun       | fold-transcript test                                                     | `meta.available_commands` → `state.commands`                                        | pass    |
 | S24      | Unit      | Bun       | open-thread-resync test                                                  | overflow + failed get publishes nothing; overflowed stays true                      | pass    |
-| S25      | Unit      | Bun       | same                                                                     | overlapping resyncs and unmount `cancelled` hold without publishing                 | pass    |
+| S25      | Unit      | Bun       | same                                                                     | stale overlapping get held; newer replacement publishes; cancelled get holds        | pass    |
 
 ## Scenarios
 
@@ -308,7 +308,7 @@ Recorded on `aarynlu/mobile-ws-lifecycle-d365` after review fixes (Linux cloud a
 | S22      | pass    | `replays live events newer than the snapshot sequence`                                          |
 | S23      | pass    | snapshot restores `/fork` into `state.commands`                                                 |
 | S24      | pass    | `holds the current transcript when the replacement get fails` + apply-replacement test          |
-| S25      | pass    | `ignores a stale replacement get after a newer resync`                                          |
+| S25      | pass    | stale get held; newer replacement publishes; cancelled-during-get holds                         |
 
 Commands:
 
