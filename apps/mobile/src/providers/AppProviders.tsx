@@ -82,13 +82,12 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (Platform.OS === "web") return;
-    const next = nativeColorSchemeToApply({
-      preference: theme.preference,
-      preview: getParityPreviewThemeOverride(),
-    });
+    // Settings preference never reaches Appearance. Only a disk-pin preview
+    // (`nativeAppearance`) may, and `null` skips the call. See QUALITY-010.
+    const next = nativeColorSchemeToApply(getParityPreviewThemeOverride());
     if (next != null) Appearance.setColorScheme(next);
     void SystemUI.setBackgroundColorAsync(theme.colors.background);
-  }, [theme.colors.background, theme.colorScheme, theme.preference]);
+  }, [theme.colors.background, theme.colorScheme]);
 
   useEffect(() => {
     const updateNetwork = async () => {

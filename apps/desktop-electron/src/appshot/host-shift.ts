@@ -19,11 +19,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app } from "electron";
 import { mainLog } from "../main-log.js";
-import { parseHostShiftLine } from "./host-shift-protocol.js";
+import {
+  parseHostShiftLine,
+  type HostShiftCapturedPayload,
+  type HostShiftParsedLine,
+} from "./host-shift-protocol.js";
 
 export type HostShiftHandle = { stop: () => void; mode: "host-inject" };
-export type { HostShiftCapturedPayload, HostShiftParsedLine } from "./host-shift-protocol.js";
-export { parseHostShiftLine } from "./host-shift-protocol.js";
+export type { HostShiftCapturedPayload, HostShiftParsedLine };
+export { parseHostShiftLine };
 
 let staleChordRestartAt = 0;
 

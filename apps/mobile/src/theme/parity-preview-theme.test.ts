@@ -33,39 +33,17 @@ describe("parity preview theme override", () => {
   });
 
   test("openurl dark does not call Appearance.setColorScheme", () => {
-    expect(
-      nativeColorSchemeToApply({
-        preference: "light",
-        preview: parityPreviewThemeOverride("dark", "query"),
-      }),
-    ).toBeNull();
-    expect(
-      nativeColorSchemeToApply({
-        preference: "system",
-        preview: parityPreviewThemeOverride("dark", "carousel"),
-      }),
-    ).toBeNull();
+    expect(nativeColorSchemeToApply(parityPreviewThemeOverride("dark", "query"))).toBeNull();
+    expect(nativeColorSchemeToApply(parityPreviewThemeOverride("dark", "carousel"))).toBeNull();
   });
 
   test("disk-pin applies the override scheme even when the store is still light", () => {
-    expect(
-      nativeColorSchemeToApply({
-        preference: "light",
-        preview: parityPreviewThemeOverride("dark", "disk"),
-      }),
-    ).toBe("dark");
-    expect(
-      nativeColorSchemeToApply({
-        preference: "dark",
-        preview: parityPreviewThemeOverride("light", "disk"),
-      }),
-    ).toBe("light");
+    expect(nativeColorSchemeToApply(parityPreviewThemeOverride("dark", "disk"))).toBe("dark");
+    expect(nativeColorSchemeToApply(parityPreviewThemeOverride("light", "disk"))).toBe("light");
   });
 
-  test("without a preview override the persisted preference still drives Appearance", () => {
-    expect(nativeColorSchemeToApply({ preference: "system", preview: null })).toBe("unspecified");
-    expect(nativeColorSchemeToApply({ preference: "dark", preview: null })).toBe("dark");
-    expect(nativeColorSchemeToApply({ preference: "light", preview: null })).toBe("light");
+  test("settings preference never selects a native color scheme", () => {
+    expect(nativeColorSchemeToApply(null)).toBeNull();
   });
 
   test("subscribers see the session override and a reset clears it", () => {
@@ -97,9 +75,23 @@ describe("parity preview theme override", () => {
     expect(preview).not.toContain("setPreference");
     expect(preview).not.toContain("useThemeStore");
     expect(preview).toContain("preview?.colorScheme !== frame.theme");
-    expect(providers).toContain("nativeColorSchemeToApply");
-    expect(providers).toContain("getParityPreviewThemeOverride");
-    expect(providers).toContain("if (next != null)");
+    expect(providers).toContain("nativeColorSchemeToApply(getParityPreviewThemeOverride())");
+    expect(providers).not.toContain("preference: theme.preference");
+    const schemeCalls = providers.match(/Appearance\.setColorScheme/g) ?? [];
+    expect(schemeCalls).toHaveLength(1);
+    expect(providers).toMatch(/if \(next != null\)\s*\{?\s*Appearance\.setColorScheme\(/);
+    const settings = readFileSync(
+      join(here, "../features/settings/SettingsIndexScreen.tsx"),
+      "utf8",
+    );
+    const account = readFileSync(
+      join(here, "../features/onboarding/AccountPopoverButton.tsx"),
+      "utf8",
+    );
+    expect(settings).toContain("theme.setPreference");
+    expect(settings).not.toContain("Appearance");
+    expect(account).toContain("theme.setPreference");
+    expect(account).not.toContain("Appearance");
     expect(store).toContain("getParityPreviewThemeOverride");
     expect(store).toContain("preview?.colorScheme");
   });

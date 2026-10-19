@@ -118,7 +118,7 @@
     // violations stay warn (apps/mobile). For web/ui/pt-design/landing/md-live the
     // React Compiler rules are downgraded per-directory below (see overrides).
     // CI (`bun lint` / `CI - JS`) uses --max-warnings equal to the current
-    // inventory so new warnings fail the job.
+    // inventory (package.json "lint") so new warnings fail the job.
     "react/set-state-in-effect": "warn",
     "react/refs": "warn",
     "react/immutability": "warn",
@@ -173,15 +173,14 @@
   },
   "overrides": [
     {
-      // React Compiler "advisory" rules (react/refs, set-state-in-effect,
-      // immutability, preserve-manual-memoization, purity, incompatible-library,
-      // static-components) flag ~900 pre-existing patterns in the DOM apps and
-      // shared packages (ref reads during render, setState in effects, manual
-      // memoization the compiler can't preserve). Fixing them means restructuring
-      // components/hooks (real behaviour/render-timing risk), not a lint cleanup,
-      // so they are off here rather than hidden behind a raised --max-warnings.
-      // apps/mobile intentionally keeps them as warnings. Tracked as follow-up:
-      // migrate per feature, then re-enable per directory.
+      // React Compiler advisory rules (react/refs, set-state-in-effect,
+      // immutability, preserve-manual-memoization, purity, incompatible-library)
+      // flag hundreds of pre-existing patterns in the DOM apps and shared
+      // packages. Fixing them means restructuring components (render-timing
+      // risk), so they stay off. react/static-components is warn (QUALITY-010):
+      // the inventory is small and the cap in package.json tracks it.
+      // apps/mobile keeps the advisory set as warnings. Follow-up: re-enable
+      // the off rules per directory.
       "files": [
         "apps/web/**",
         "apps/landing/**",
@@ -197,7 +196,7 @@
         "react/preserve-manual-memoization": "off",
         "react/purity": "off",
         "react/incompatible-library": "off",
-        "react/static-components": "off",
+        "react/static-components": "warn",
       },
     },
     {
@@ -281,9 +280,14 @@
     },
     {
       // Node CLI + bun:test helpers. Same CJS shape as apps/mobile/plugins.
+      // The scene-lifecycle plugin is new CJS. Leave it out of the warning cap.
       "files": [
         "apps/mobile/script/ensure-ios-rncore-configuration.js",
         "apps/mobile/script/ensure-ios-rncore-configuration.test.js",
+        "apps/mobile/plugins/with-ios-scene-lifecycle.js",
+        "apps/mobile/plugins/with-ios-scene-lifecycle.test.js",
+        "apps/mobile/script/scene-deep-link-evidence.js",
+        "apps/mobile/script/scene-deep-link-evidence.test.js",
       ],
       "rules": {
         "typescript/no-require-imports": "off",
