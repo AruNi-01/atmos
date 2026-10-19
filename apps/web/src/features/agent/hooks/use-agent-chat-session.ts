@@ -763,6 +763,10 @@ export function useAgentChatSession({
           }),
         );
         setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+      } catch {
+        // History is secondary. A list() failure must not reject load() after
+        // get() already installed the snapshot, or abandonHydrate would fold
+        // buffered live events without a snapshot floor.
       } finally {
         setHistoryLoading(false);
       }

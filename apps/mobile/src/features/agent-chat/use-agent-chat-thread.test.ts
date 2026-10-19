@@ -21,6 +21,7 @@ describe("useAgentChatThread restore", () => {
     expect(thread).toContain("canResumeAgentChatSession");
     expect(thread).toContain("abandonHydrate");
     expect(thread).toContain("drainAbandonedHydrate");
+    expect(thread).toContain("setTranscript(transcriptRef.current)");
     expect(thread).toContain("clearResyncRetry");
     expect(thread).toContain("pump.shouldResyncFromServer");
     expect(thread).toContain("nextAgentChatResyncDelayMs");

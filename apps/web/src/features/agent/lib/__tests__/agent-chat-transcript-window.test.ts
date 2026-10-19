@@ -274,6 +274,7 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("agentChatApi.subscribe(id, eventPump.cursor)");
     expect(session).toContain("eventPump.shouldResyncFromServer");
     expect(session).toContain("eventPump.abandonHydrate()");
+    expect(session).toContain("A list() failure must not reject load() after");
     expect(session.indexOf("eventPump.finishHydrate")).toBeLessThan(
       session.indexOf("agentChatApi.subscribe(id, eventPump.cursor)"),
     );

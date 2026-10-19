@@ -79,6 +79,8 @@ export function useAgentChatThread(chatId: string) {
       if (!isResume) {
         setLoading(false);
         setError("Atmos mobile WebSocket is not connected");
+      } else {
+        setTranscript(transcriptRef.current);
       }
       return;
     }
@@ -102,6 +104,8 @@ export function useAgentChatThread(chatId: string) {
       setTranscript(empty);
       setLoading(true);
       setError(null);
+    } else {
+      setTranscript(transcriptRef.current);
     }
     const pump = pumpRef.current ?? createAgentChatEventPump();
     pumpRef.current = pump;
@@ -145,6 +149,7 @@ export function useAgentChatThread(chatId: string) {
 
     const drainAbandonedHydrate = (generation?: number) => {
       for (const decision of pump.abandonHydrate(generation)) applyDecision(decision);
+      setTranscript(transcriptRef.current);
     };
 
     const applySnapshot = (
