@@ -76,8 +76,10 @@ describe("parity preview theme override", () => {
     expect(preview).not.toContain("useThemeStore");
     expect(preview).toContain("preview?.colorScheme !== frame.theme");
     expect(providers).toContain("nativeColorSchemeToApply(getParityPreviewThemeOverride())");
-    expect(providers).toContain("if (next != null)");
     expect(providers).not.toContain("preference: theme.preference");
+    const schemeCalls = providers.match(/Appearance\.setColorScheme/g) ?? [];
+    expect(schemeCalls).toHaveLength(1);
+    expect(providers).toMatch(/if \(next != null\)\s*\{?\s*Appearance\.setColorScheme\(/);
     const settings = readFileSync(
       join(here, "../features/settings/SettingsIndexScreen.tsx"),
       "utf8",

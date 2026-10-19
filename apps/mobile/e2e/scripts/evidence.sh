@@ -36,19 +36,19 @@ evidence_write_meta() {
   local captured_at="$7"
   local agent_device="$8"
   local note="$9"
-  local note_json="${note//\"/\\\"}"
-  cat >"$out/meta.json" <<JSON
-{
-  "pr": ${pr},
-  "sha": "${sha}",
-  "branch": "${branch}",
-  "device": "${device}",
-  "bundleId": "${bundle}",
-  "capturedAt": "${captured_at}",
-  "agentDevice": "${agent_device}",
-  "note": "${note_json}"
-}
-JSON
+  # jq --arg keeps newlines, backslashes, and quotes as data. A raw heredoc
+  # only escaped quotes and wrote invalid JSON for the other two.
+  jq -n \
+    --argjson pr "$pr" \
+    --arg sha "$sha" \
+    --arg branch "$branch" \
+    --arg device "$device" \
+    --arg bundleId "$bundle" \
+    --arg capturedAt "$captured_at" \
+    --arg agentDevice "$agent_device" \
+    --arg note "$note" \
+    '{pr:$pr, sha:$sha, branch:$branch, device:$device, bundleId:$bundleId, capturedAt:$capturedAt, agentDevice:$agentDevice, note:$note}' \
+    >"$out/meta.json"
 }
 
 PR="${1:?usage: evidence.sh <pr-number> [note]}"

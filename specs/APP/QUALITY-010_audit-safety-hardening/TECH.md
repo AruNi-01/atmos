@@ -79,11 +79,11 @@ No Simulator or Release binary is available in this environment. Verification is
 - Delete `EVIDENCE_NO_PUSH`. No backward compatibility.
 - `evidence_should_push` is true only when `EVIDENCE_PUSH=1`.
 - Default path prints the local stage directory and exits 0 before any `git push`.
-- `evidence_write_meta` writes `pr`, `sha`, `branch`, `device`, `bundleId`, `capturedAt`, `agentDevice`, `note`. No `host`, no `scutil`, no `hostname`.
+- `evidence_write_meta` writes `pr`, `sha`, `branch`, `device`, `bundleId`, `capturedAt`, `agentDevice`, `note` with `jq -n` (newlines, backslashes, and quotes stay valid JSON). No `host`, no `scutil`, no `hostname`.
 - `EVIDENCE_ARG_PROBE=1` prints the two received arguments and exits before Simulator work, so the just quoting test can call the real script.
 - `EVIDENCE_POLICY_PROBE=1` writes meta to `EVIDENCE_POLICY_OUT` and prints `PUSH` or `NO_PUSH`, then exits. Same reason.
 
-Sync the contract text in `specs/APP/QUALITY-009_mobile-agent-e2e/TECH.md` (command table, meta layout, public-remote bullet) so agents do not keep the old default. Leave QUALITY-009 TEST historical "S5 pass" as history; the new behavior is this spec.
+Sync the contract text in `specs/APP/QUALITY-009_mobile-agent-e2e/TECH.md` (command table, meta layout, public-remote bullet) and in that spec's TEST S5 plus manual step 3. The historical coverage line may still record that the original run pushed; the current contract is no push by default, only `EVIDENCE_PUSH=1`.
 
 `.agents/skills/verify-atmos-mobile/SKILL.md` Evidence section: the command stages locally; push is `EVIDENCE_PUSH=1` only; warn that `agent-artifacts` is a **public** repo and must not receive screenshots or chat content from a paired app.
 

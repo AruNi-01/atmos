@@ -58,11 +58,29 @@ describe("evidence publish policy", () => {
     }
   });
 
+  test("meta.json stays valid when the note has newlines, backslashes, and quotes", () => {
+    const note = 'line "one"\npath\\to\\file\nthird';
+    const out = mkdtempSync(join(tmpdir(), "evidence-meta-"));
+    try {
+      const result = run("bash", [evidenceSh, "315", note], {
+        EVIDENCE_POLICY_PROBE: "1",
+        EVIDENCE_POLICY_OUT: out,
+      });
+      expect(result.status, result.stderr).toBe(0);
+      const raw = readFileSync(join(out, "meta.json"), "utf8");
+      const meta = JSON.parse(raw) as { note: string };
+      expect(meta.note).toBe(note);
+    } finally {
+      rmSync(out, { recursive: true, force: true });
+    }
+  });
+
   test("git push stays behind the push guard and the script never reads a hostname", () => {
     expect(evidenceSrc).not.toContain("EVIDENCE_NO_PUSH");
     expect(evidenceSrc).not.toContain("scutil");
     expect(evidenceSrc).not.toContain("hostname");
     expect(evidenceSrc).not.toContain('"host"');
+    expect(evidenceSrc).toContain("jq -n");
     const guard = evidenceSrc.indexOf("if ! evidence_should_push; then");
     const push = evidenceSrc.indexOf('git -C "$STAGE" push');
     expect(guard).toBeGreaterThan(-1);
@@ -120,6 +138,19 @@ describe("evidence skill and ios parity workflow", () => {
     );
     expect(structural).not.toContain("ios-parity");
     expect(structural).not.toContain("workflow_dispatch");
+  });
+});
+
+describe("oxlint static-components cap", () => {
+  test("the DOM override keeps react/static-components at warn", () => {
+    const config = readFileSync(join(root, ".oxlintrc.jsonc"), "utf8");
+    const domStart = config.indexOf('"apps/web/**"');
+    const domEnd = config.indexOf('"apps/landing/**", "apps/docs/src/app/og/**"');
+    expect(domStart).toBeGreaterThan(-1);
+    expect(domEnd).toBeGreaterThan(domStart);
+    const domOverride = config.slice(domStart, domEnd);
+    expect(domOverride).toContain('"react/static-components": "warn"');
+    expect(domOverride).not.toContain('"react/static-components": "off"');
   });
 });
 
