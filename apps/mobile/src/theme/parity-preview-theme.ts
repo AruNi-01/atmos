@@ -1,5 +1,4 @@
 import type { MobileThemeColorScheme } from "@/theme/colors";
-import type { MobileThemePreference } from "@/theme/theme-preference";
 
 export type ParityPreviewThemeSource = "query" | "disk" | "carousel";
 
@@ -65,15 +64,16 @@ export function parityPreviewThemeSource(input: {
 }
 
 /**
- * `null` means skip `Appearance.setColorScheme`. Query-pin and carousel
- * return null so a live `openurl` dark deep link cannot flip native
- * appearance after the first JS frame.
+ * `null` means skip `Appearance.setColorScheme`.
+ *
+ * Persisted Settings preference is JS-only (`useMobileTheme`, CSS variables,
+ * `Host colorScheme`, `StatusBar`). Passing it to `Appearance.setColorScheme`
+ * mid-session crashes Hermes in `localtime_r`. Query-pin and carousel also
+ * return null. Disk-pin (`nativeAppearance`) may still apply once.
  */
-export function nativeColorSchemeToApply(input: {
-  preference: MobileThemePreference;
-  preview: ParityPreviewThemeOverride | null;
-}): MobileThemeColorScheme | "unspecified" | null {
-  if (input.preview && !input.preview.nativeAppearance) return null;
-  if (input.preview?.nativeAppearance) return input.preview.colorScheme;
-  return input.preference === "system" ? "unspecified" : input.preference;
+export function nativeColorSchemeToApply(
+  preview: ParityPreviewThemeOverride | null,
+): MobileThemeColorScheme | null {
+  if (!preview?.nativeAppearance) return null;
+  return preview.colorScheme;
 }

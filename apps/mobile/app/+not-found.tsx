@@ -1,12 +1,17 @@
+import { useEffect } from "react";
 import { radii } from "@/theme/radii";
-import { Platform } from "react-native";
+import { LogBox, Platform } from "react-native";
 import { Button, Host } from "@expo/ui";
 import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
 import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
-import { Stack, useRouter } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import { AppScreen, EmptyState } from "@/ui/layout/app-screen";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { useMobileTheme } from "@/theme/theme-store";
+
+// Fixed string, no path. Release keeps error-level console output in os_log.
+// Dev LogBox would otherwise cover this screen; the native log still fires.
+LogBox.ignoreLogs(["ATMOS_ROUTE unmatched"]);
 
 const buttonStretchModifiers = Platform.select({
   ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
@@ -17,6 +22,10 @@ const buttonStretchModifiers = Platform.select({
 export default function NotFoundRoute() {
   const router = useRouter();
   const theme = useMobileTheme();
+  const pathname = usePathname();
+  useEffect(() => {
+    console.error("ATMOS_ROUTE unmatched");
+  }, [pathname]);
 
   return (
     <>
