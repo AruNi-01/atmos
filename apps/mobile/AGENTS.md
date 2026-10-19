@@ -15,6 +15,7 @@
 - **Doctor**: `apps/mobile/script/build_and_run.sh --doctor`
 - **Fresh machine setup**: [agents/references/mobile/dev-setup.md](../../agents/references/mobile/dev-setup.md)
 - **iOS Simulator keyboard**: If a `TextInput` accepts Mac keyboard input but the on-screen keyboard does not appear, follow [references/ios-simulator-keyboard.md](references/ios-simulator-keyboard.md) before changing mobile input code.
+- **iOS scene lifecycle**: `plugins/with-ios-scene-lifecycle.js` is what lets a cold start survive the iOS 27 SDK. It writes `UIApplicationSceneManifest` and a `SceneDelegate` into the generated `AppDelegate.swift`, and moves `startReactNative` out of `didFinishLaunchingWithOptions`. Do not declare that manifest in `app.json` without the class, and do not strip the manifest to clear a black window. Spec: [QUALITY-011](../../specs/APP/QUALITY-011_mobile-ios-scene-lifecycle/TECH.md).
 
 Use `expo run:ios` / `expo run:android` for acceptance smoke because the app uses native modules and `expo-dev-client`. Expo Go is useful for quick checks only when native module coverage is not under test.
 

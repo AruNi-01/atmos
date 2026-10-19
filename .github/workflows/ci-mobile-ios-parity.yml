@@ -239,10 +239,9 @@ jobs:
             find ios -name Info.plist >&2 || true
             exit 1
           fi
-          if grep -q 'UISceneDelegateClassName' "$info_plist"; then
-            echo "Info.plist names a scene delegate. Expo does not generate that class, so the scene window stays black while React Native draws into AppDelegate's window." >&2
-            exit 1
-          fi
+          # QUALITY-011 requires Atmos.SceneDelegate. Do not restore the gate that
+          # failed whenever Info.plist contained UISceneDelegateClassName.
+          bash script/verify-ios-scene-lifecycle.sh structural
 
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
@@ -358,13 +357,8 @@ jobs:
           # Run 38780693297 painted fixtures with that default, so Fabric is not
           # the black-window cause. Print the built value and keep going.
           echo "RCTNewArchEnabled=$(plutil -extract RCTNewArchEnabled raw -o - "$app/Info.plist" 2>/dev/null || echo absent)"
-          plist_text="$(plutil -p "$app/Info.plist")"
-          if grep -q 'UISceneDelegateClassName' <<<"$plist_text"; then
-            echo "built Info.plist still names a scene delegate" >&2
-            printf '%s\n' "$plist_text" >&2
-            exit 1
-          fi
-          echo "built Info.plist has no scene delegate"
+          # Same rule on the built plist: Atmos.SceneDelegate must be present.
+          bash apps/mobile/script/verify-ios-scene-lifecycle.sh built-plist "$app/Info.plist"
           printf '%s\n' "$app" > "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt"
 
       - name: Install, launch, and capture
