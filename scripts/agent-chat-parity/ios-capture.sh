@@ -3,7 +3,7 @@
 # f13-tail scrolled to Reply 50 (three frames muxed when they differ),
 # a second f13-tail launch that taps the scroll pill after that hold,
 # stream-tools sampled while rows append, an F12 launch that taps the plan
-# and queue pills, and F4 / F12 / composer passes that
+# and queue pills and then Skip on the Questions card, and F4 / F12 / composer passes that
 # freeze each script step (`atMs` in the pin) and take a simctl screenshot.
 # A wall-clock draw finishes before a slow screenshot returns. The replay,
 # lane, composer, pill return, and F12 card-pill tap do not fail the job.
@@ -632,9 +632,10 @@ capture_f12_lane() {
 }
 
 # F12 with no lane pin, so the pill row is the live reducer. The test activates
-# the running app and taps plan, then queue, then queue again. A miss does not
-# fail the job. recordVideo stays open across the taps and this pass does not
-# take simctl screenshots.
+# the running app and taps plan, then queue, then queue again, then the
+# Questions pill, then Skip. Continue stays disabled because the F12 question
+# has no options. A miss does not fail the job. recordVideo stays open across
+# the taps and this pass does not take simctl screenshots.
 tap_card_pills() {
   local udid
   udid="$(xcrun simctl list devices booted -j | python3 -c '

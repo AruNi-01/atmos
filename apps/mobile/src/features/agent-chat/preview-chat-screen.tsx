@@ -155,6 +155,7 @@ export function PreviewChatScreen() {
   const setPreference = useThemeStore((state) => state.setPreference);
   const [laneChoice, setLaneChoice] = useState<LaneState | null>(null);
   const [choiceKey, setChoiceKey] = useState("");
+  const [permissionAnsweredKey, setPermissionAnsweredKey] = useState("");
   const [cardHeight, setCardHeight] = useState(0);
   const [pillHeight, setPillHeight] = useState(0);
   const [text, setText] = useState("");
@@ -251,7 +252,19 @@ export function PreviewChatScreen() {
     [motion, tailStep],
   );
   const fixture = motion ? null : parityFixtureById(frame.id);
-  const cards = useMemo(() => composerCardsFromParity(fixture?.cards), [fixture?.cards]);
+  const laneKey = `${frame.id}:${frame.theme}`;
+  const fixtureCards = useMemo(() => composerCardsFromParity(fixture?.cards), [fixture?.cards]);
+  const cards = useMemo(
+    () =>
+      permissionAnsweredKey === laneKey
+        ? {
+            ...fixtureCards,
+            permission: null,
+            available: fixtureCards.available.filter((id) => id !== "permission"),
+          }
+        : fixtureCards,
+    [fixtureCards, laneKey, permissionAnsweredKey],
+  );
 
   useLayoutEffect(() => {
     if (motion !== "settled") return;
@@ -259,7 +272,6 @@ export function PreviewChatScreen() {
     store.reset();
     store.setExpand(agentChatProcessExpandKey(PARITY_SETTLED_ASSISTANT_ID), true);
   }, [motion]);
-  const laneKey = `${frame.id}:${frame.theme}`;
   const liveTail = motion === "tail";
   const replayOn = frame.replay === "script" && Boolean(fixture?.script?.length);
   const laneStepsOn = frame.lane === "steps" && cards.available.length > 0;
@@ -571,6 +583,14 @@ export function PreviewChatScreen() {
     setChoiceKey(laneKey);
     setLaneChoice(next);
   };
+  const onRespondPermission = (input: { requestId: string; optionId: string }) => {
+    const base = choiceKey === laneKey && laneChoice ? laneChoice : parityPreviewLane(cards);
+    const next = reduceLane(base, { type: "card_dismissed", id: "permission" });
+    console.error(`[parity] permission answer ${input.optionId} visible=${next.visible ?? "none"}`);
+    setChoiceKey(laneKey);
+    setLaneChoice(next);
+    setPermissionAnsweredKey(laneKey);
+  };
 
   return (
     <View
@@ -610,7 +630,7 @@ export function PreviewChatScreen() {
               onQueueDelete={noopAsync}
               onQueueReorder={noopAsync}
               onQueueUpdate={noopAsync}
-              onRespondPermission={() => undefined}
+              onRespondPermission={onRespondPermission}
               onRespondSessionOp={() => undefined}
               visible={lane.visible}
             />

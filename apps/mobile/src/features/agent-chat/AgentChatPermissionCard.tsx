@@ -299,6 +299,7 @@ function QuestionPermission({
             <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
               <Pressable
                 accessibilityRole="button"
+                testID="agent-chat-permission-skip"
                 onPress={() =>
                   onRespond({
                     requestId: request.request_id,
@@ -320,6 +321,7 @@ function QuestionPermission({
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !canContinue }}
                 disabled={!canContinue}
+                testID="agent-chat-permission-continue"
                 onPress={() =>
                   onRespond({
                     requestId: request.request_id,

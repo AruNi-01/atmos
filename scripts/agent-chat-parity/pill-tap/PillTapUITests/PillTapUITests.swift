@@ -26,5 +26,13 @@ final class PillTapUITests: XCTestCase {
     queue.tap()
     Thread.sleep(forTimeInterval: 1.2)
     queue.tap()
+    Thread.sleep(forTimeInterval: 1.2)
+    let questions = atmos.buttons["agent-chat-card-pill-permission"]
+    XCTAssertTrue(questions.waitForExistence(timeout: 10), "questions pill was not in the accessibility tree")
+    questions.tap()
+    Thread.sleep(forTimeInterval: 1.2)
+    let skip = atmos.buttons["agent-chat-permission-skip"]
+    XCTAssertTrue(skip.waitForExistence(timeout: 10), "skip was not in the accessibility tree")
+    skip.tap()
   }
 }
