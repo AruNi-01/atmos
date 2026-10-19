@@ -191,7 +191,9 @@ describe("parity motion fixtures", () => {
       '[parity] permission answer ${input.optionId} visible=${next.visible ?? "none"}',
     );
     expect(preview).toContain("[parity] card pills x=${next}");
+    expect(preview).toContain("[parity] scroll pill x=${pageX}");
     expect(preview).toContain('frame.cards === "lane"');
+    expect(cardPills).toContain("measureInWindow");
     expect(preview).toContain('id !== "permission"');
     const permissionCard = readFileSync(join(here, "AgentChatPermissionCard.tsx"), "utf8");
     expect(permissionCard).toContain('testID="agent-chat-permission-skip"');
@@ -206,6 +208,8 @@ describe("parity motion fixtures", () => {
     expect(capture).toContain("f12-pill-tap.mov");
     expect(capture).toContain("testSwipeCardPills");
     expect(capture).toContain("f12f13-pill-row.mov");
+    expect(capture).toContain("f12f13-pill-row-dark.mov");
+    expect(capture).toContain("capture_f12_card_row dark");
     expect(capture).toContain('"cards":"lane"');
     expect(capture).toContain('recordVideo", "--codec", "h264"');
     expect(capture).toContain("[parity] replay held 15000");

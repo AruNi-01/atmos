@@ -194,26 +194,35 @@ export function PreviewChatScreen() {
   const tailSamplesRef = useRef<ParityTailSample[]>([]);
   const tailReturnPressedRef = useRef(false);
   const cardScrollLoggedRef = useRef(-1);
+  const scrollPillXLoggedRef = useRef(-1);
   const tailReturnLoggedRef = useRef(false);
   const tailAwaitLoggedRef = useRef(false);
   const tailStepRef = useRef(0);
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const show = Keyboard.addListener(showEvent, (event: KeyboardEvent) => {
+    const showNames =
+      Platform.OS === "ios"
+        ? (["keyboardWillShow", "keyboardDidShow"] as const)
+        : (["keyboardDidShow"] as const);
+    const hideNames =
+      Platform.OS === "ios"
+        ? (["keyboardWillHide", "keyboardDidHide"] as const)
+        : (["keyboardDidHide"] as const);
+    const remember = (event: KeyboardEvent) => {
       const height = Math.round(event.endCoordinates.height);
       setKeyboardHeight(event.endCoordinates.height);
       if (height <= 0 || height === keyboardLoggedRef.current) return;
       keyboardLoggedRef.current = height;
       console.error(`[parity] keyboard height=${height}`);
-    });
-    const hide = Keyboard.addListener(hideEvent, () => {
+    };
+    const forget = () => {
       keyboardLoggedRef.current = -1;
       setKeyboardHeight(0);
-    });
+    };
+    const shows = showNames.map((name) => Keyboard.addListener(name, remember));
+    const hides = hideNames.map((name) => Keyboard.addListener(name, forget));
     return () => {
-      show.remove();
-      hide.remove();
+      for (const sub of shows) sub.remove();
+      for (const sub of hides) sub.remove();
     };
   }, []);
   const onStickChange = useCallback(
@@ -607,11 +616,21 @@ export function PreviewChatScreen() {
   const backgroundColor = theme === "dark" ? "#000000" : "#f4f4f6";
   const color = theme === "dark" ? "#f4f4f6" : "#1a1a1a";
 
-  const onCardScroll = (x: number) => {
-    const next = Math.round(x);
-    if (Math.abs(next - cardScrollLoggedRef.current) < 12) return;
-    cardScrollLoggedRef.current = next;
-    console.error(`[parity] card pills x=${next}`);
+  const onScrollPillX = (pageX: number, contentX?: number) => {
+    if (contentX != null) {
+      const next = contentX;
+      if (Math.abs(next - cardScrollLoggedRef.current) >= 12) {
+        cardScrollLoggedRef.current = next;
+        console.error(`[parity] card pills x=${next}`);
+        scrollPillXLoggedRef.current = pageX;
+        console.error(`[parity] scroll pill x=${pageX}`);
+        return;
+      }
+    }
+    if (scrollPillXLoggedRef.current < 0 || pageX !== scrollPillXLoggedRef.current) {
+      scrollPillXLoggedRef.current = pageX;
+      console.error(`[parity] scroll pill x=${pageX}`);
+    }
   };
   const onPillPress = (id: (typeof cards.available)[number]) => {
     const next = reduceLane(lane, { type: "pill_tapped", id });
@@ -680,7 +699,7 @@ export function PreviewChatScreen() {
         <ComposerPillRow
           belowCount={liveTail ? stick.belowCount : 0}
           messageCount={messages.length}
-          onCardScroll={frame.cards === "lane" ? onCardScroll : undefined}
+          onScrollPillX={frame.cards === "lane" ? onScrollPillX : undefined}
           onLayout={(event) => setPillHeight(event.nativeEvent.layout.height)}
           onPillPress={onPillPress}
           onScrollToBottom={() => {

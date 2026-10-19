@@ -68,6 +68,7 @@ describe("parity composer capture steps", () => {
     expect(composer).toContain("if (props.autoFocus == null) return;");
     expect(composer).toContain('testID="agent-chat-composer-input"');
     expect(preview).toContain("[parity] keyboard height=${height}");
+    expect(preview).toContain("keyboardDidShow");
     expect(preview).toContain("paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0");
     const tap = readFileSync(
       join(

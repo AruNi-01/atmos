@@ -110,6 +110,7 @@ export function ComposerPillRow({
   onCardScroll,
   onLayout,
   onPillPress,
+  onScrollPillX,
   onScrollToBottom,
   pills,
   stickToEnd,
@@ -119,6 +120,7 @@ export function ComposerPillRow({
   onCardScroll?: (x: number) => void;
   onLayout?: (event: LayoutChangeEvent) => void;
   onPillPress: (id: CardId) => void;
+  onScrollPillX?: (pageX: number, contentX?: number) => void;
   onScrollToBottom: () => void;
   pills: readonly CardPill[];
   stickToEnd: boolean;
@@ -131,6 +133,8 @@ export function ComposerPillRow({
   const [slotClosed, setSlotClosed] = useState(!showScroll);
   const onLayoutRef = useRef(onLayout);
   const wasMounted = useRef(mounted);
+  const pillAnchorRef = useRef<View>(null);
+  const pillSampleSeq = useRef(0);
   if (showScroll && slotClosed) setSlotClosed(false);
   if (wantsRow && !mounted) setMounted(true);
   else if (mounted && !wantsRow && slotClosed) setMounted(false);
@@ -150,17 +154,44 @@ export function ComposerPillRow({
 
   if (!mounted) return null;
 
+  const publishPillX = (contentX?: number) => {
+    if (!onScrollPillX) return;
+    const seq = ++pillSampleSeq.current;
+    pillAnchorRef.current?.measureInWindow((x) => {
+      if (seq !== pillSampleSeq.current) return;
+      onScrollPillX(Math.round(x), contentX);
+    });
+  };
+
   return (
     <View onLayout={onLayout} style={styles.row}>
       <ScrollPillSlot onClosed={onSlotClosed} visible={showScroll}>
-        <ScrollToBottomPill count={belowCount} onPress={onScrollToBottom} />
+        {onScrollPillX ? (
+          <View
+            collapsable={false}
+            onLayout={() => publishPillX()}
+            ref={pillAnchorRef}
+            style={styles.pillAnchor}
+          >
+            <ScrollToBottomPill count={belowCount} onPress={onScrollToBottom} />
+          </View>
+        ) : (
+          <ScrollToBottomPill count={belowCount} onPress={onScrollToBottom} />
+        )}
       </ScrollPillSlot>
       <HideScrollEdge style={styles.scrollerWrap}>
         <ScrollView
           contentContainerStyle={styles.scrollerContent}
           horizontal
           keyboardShouldPersistTaps="handled"
-          onScroll={(event) => onCardScroll?.(event.nativeEvent.contentOffset.x)}
+          onScroll={(event) => {
+            const contentX = Math.round(event.nativeEvent.contentOffset.x);
+            if (onScrollPillX && pillAnchorRef.current) {
+              publishPillX(contentX);
+              return;
+            }
+            onCardScroll?.(event.nativeEvent.contentOffset.x);
+          }}
           scrollEventThrottle={48}
           showsHorizontalScrollIndicator={false}
           style={styles.scroller}
@@ -236,6 +267,9 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: "center",
     paddingHorizontal: 14,
+  },
+  pillAnchor: {
+    alignSelf: "flex-start",
   },
   pillInner: {
     alignItems: "center",

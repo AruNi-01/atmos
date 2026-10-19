@@ -4,7 +4,7 @@
 # a second f13-tail launch that taps the scroll pill after that hold,
 # stream-tools sampled while rows append, an F12 launch that taps the plan
 # and queue pills and then Skip on the Questions card, an f13-tail launch
-# that swipes the F12 card pills under the pinned scroll pill, an F1 launch that
+# that swipes the F12 card pills under the pinned scroll pill in light and dark, an F1 launch that
 # taps the composer so the software keyboard opens, and F4 / F12 / composer passes that
 # freeze each script step (`atMs` in the pin) and take a simctl screenshot.
 # A wall-clock draw finishes before a slow screenshot returns. The replay,
@@ -700,7 +700,8 @@ capture_f12_pill_taps() {
 
 # f13-tail scrolled away, with the F12 card lane mounted. The scroll pill stays
 # pinned while the test swipes the card pills, taps plan, then taps the scroll
-# pill. A miss does not fail the job. recordVideo stays open and this pass
+# pill. Light keeps f12f13-pill-row.mov. Dark writes f12f13-pill-row-dark.mov.
+# A miss does not fail the job. recordVideo stays open and this pass
 # does not take simctl screenshots.
 tap_card_row() {
   local udid
@@ -738,22 +739,31 @@ if len(booted) == 1:
 }
 
 capture_f12_card_row() {
-  local mark video pidfile errlog
-  video="$OUT/f12f13-pill-row.mov"
-  pidfile="$OUT/f12f13-pill-row-record.pid"
-  errlog="$OUT/f12f13-pill-row-record.log"
+  local theme="${1:-light}"
+  local mark video pidfile errlog taplog
+  if [[ "$theme" == "light" ]]; then
+    video="$OUT/f12f13-pill-row.mov"
+    pidfile="$OUT/f12f13-pill-row-record.pid"
+    errlog="$OUT/f12f13-pill-row-record.log"
+    taplog="$OUT/f12f13-pill-row.log"
+  else
+    video="$OUT/f12f13-pill-row-${theme}.mov"
+    pidfile="$OUT/f12f13-pill-row-${theme}-record.pid"
+    errlog="$OUT/f12f13-pill-row-${theme}-record.log"
+    taplog="$OUT/f12f13-pill-row-${theme}.log"
+  fi
   mark="$(log_mark)"
-  write_frame_file "f13-tail" "light" "away" "" "" "" "" "" "" "lane"
-  launch_frame "f13-tail" "light" "cards"
-  if ! wait_for_since "[parity] ready f13-tail light" 90 "$mark"; then
-    echo "f12 card row missed ready" >&2
+  write_frame_file "f13-tail" "$theme" "away" "" "" "" "" "" "" "lane"
+  launch_frame "f13-tail" "$theme" "cards"
+  if ! wait_for_since "[parity] ready f13-tail ${theme}" 90 "$mark"; then
+    echo "f12 card row ${theme} missed ready" >&2
     return 0
   fi
   start_screen_record "$video" "$pidfile" "$errlog"
-  echo "f12 card row recorder open"
-  if ! tap_card_row >"$OUT/f12f13-pill-row.log" 2>&1; then
-    echo "f12 card row swipe failed" >&2
-    tail -n 40 "$OUT/f12f13-pill-row.log" >&2 || true
+  echo "f12 card row ${theme} recorder open"
+  if ! tap_card_row >"$taplog" 2>&1; then
+    echo "f12 card row ${theme} swipe failed" >&2
+    tail -n 40 "$taplog" >&2 || true
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -1145,7 +1155,8 @@ capture_stream_motion
 capture_f4_replay || echo "f4 replay capture failed" >&2
 capture_f12_lane || echo "f12 lane capture failed" >&2
 capture_f12_pill_taps || echo "f12 pill tap capture failed" >&2
-capture_f12_card_row || echo "f12 card row capture failed" >&2
+capture_f12_card_row light || echo "f12 card row capture failed" >&2
+capture_f12_card_row dark || echo "f12 card row dark capture failed" >&2
 capture_composer_states || echo "composer states capture failed" >&2
 capture_composer_keyboard || echo "composer keyboard capture failed" >&2
 
