@@ -167,8 +167,8 @@ describe("composer dock expand", () => {
     expect(composer).not.toMatch(/composerDockExpanded\(\{[^}]*contentHeight/);
     expect(composer).toContain("accessible={false}");
     expect(composer).toContain("accessibilityElementsHidden");
-    expect(composer).toContain('importantForAccessibility="no-hide-descendants"');
-    expect(composer).toContain('ellipsizeMode="tail"');
-    expect(composer).toContain("numberOfLines={1}");
+    expect(composer).toMatch(
+      /ellipsizeMode="tail"\s+importantForAccessibility="no-hide-descendants"\s+numberOfLines=\{1\}\s+pointerEvents="none"/,
+    );
   });
 });

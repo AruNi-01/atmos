@@ -6,6 +6,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { ShieldIcon } from "@/ui/icons/lucide-native";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { COMPOSER_GLASS_WELL } from "../composer-glass";
+import { agentChatCardHeadingMetrics } from "../markdown-chrome";
 import { useReducedMotion } from "../motion/use-reduced-motion";
 
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
@@ -15,7 +16,11 @@ export const CARD_GAP = 8;
 export const CARD_CHIP_GAP = 8;
 export const CARD_ICON_SIZE = 16;
 /** Web dock title: `text-sm font-medium` (14/500, line-height 20). */
-export const CARD_TITLE = { fontSize: 14, fontWeight: "500" as const, lineHeight: 20 };
+export const CARD_TITLE = {
+  fontSize: agentChatCardHeadingMetrics.fontSize,
+  fontWeight: agentChatCardHeadingMetrics.fontWeight,
+  lineHeight: agentChatCardHeadingMetrics.lineHeight,
+};
 export const CARD_BODY = { fontSize: 14, lineHeight: 20 };
 export const CARD_MONO = { fontFamily: "Menlo", fontSize: 13, lineHeight: 18 };
 /** Web background row `text-[11px] text-muted-foreground`. */

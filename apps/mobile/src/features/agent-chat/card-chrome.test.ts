@@ -31,7 +31,8 @@ describe("composer card chrome alignment", () => {
     const expanded = source("cards/expanded-card.tsx");
     expect(expanded).toContain("export const CARD_GAP = 8");
     expect(expanded).toContain("export const CARD_CHIP_GAP = 8");
-    expect(expanded).toContain('fontSize: 14, fontWeight: "500" as const, lineHeight: 20');
+    expect(expanded).toContain("agentChatCardHeadingMetrics");
+    expect(expanded).toContain("fontSize: agentChatCardHeadingMetrics.fontSize");
     expect(expanded).toContain("fontSize: 14, lineHeight: 20");
     expect(expanded).toContain('fontFamily: "Menlo", fontSize: 13, lineHeight: 18');
     expect(expanded).toContain("fontSize: 11, lineHeight: 14");

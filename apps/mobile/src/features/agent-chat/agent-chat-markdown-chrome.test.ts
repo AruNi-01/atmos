@@ -105,6 +105,13 @@ describe("agent chat markdown chrome", () => {
     });
     expect(headings.h2).toEqual({ color: "#111112", ...agentChatCardHeadingMetrics });
     expect(headings.h1).toEqual(headings.h2);
+    const expanded = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "cards/expanded-card.tsx"),
+      "utf8",
+    );
+    expect(expanded).toContain("fontSize: agentChatCardHeadingMetrics.fontSize");
+    expect(expanded).toContain("fontWeight: agentChatCardHeadingMetrics.fontWeight");
+    expect(expanded).toContain("lineHeight: agentChatCardHeadingMetrics.lineHeight");
     expect(agentChatCardListMetrics).toEqual({
       gapWidth: 8,
       marginLeft: 24,
