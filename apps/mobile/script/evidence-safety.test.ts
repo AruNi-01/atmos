@@ -82,21 +82,15 @@ describe("just mobile-e2e-evidence quoting", () => {
     const marker = join(tmpdir(), `quality-010-inject-${process.pid}`);
     rmSync(marker, { force: true });
     const payload = `$(touch ${marker}); echo "a'b"; say "hi"`;
-    const justBin = spawnSync("just", ["--version"], { encoding: "utf8" });
+    // justfile sets `shell := ["zsh", "-cu"]`. Use just only when both exist
+    // (local and the injection proof). CI structural is ubuntu without just
+    // or zsh; bash still passes the note as argv, which is the script contract.
+    const justOk = spawnSync("just", ["--version"], { encoding: "utf8" }).status === 0;
+    const zshOk = spawnSync("zsh", ["-c", "exit 0"], { encoding: "utf8" }).status === 0;
     const result =
-      justBin.status === 0
+      justOk && zshOk
         ? run("just", ["mobile-e2e-evidence", "315", payload], { EVIDENCE_ARG_PROBE: "1" })
-        : run(
-            "zsh",
-            [
-              "-cu",
-              'bash apps/mobile/e2e/scripts/evidence.sh "$1" "$2"',
-              "quality-010",
-              "315",
-              payload,
-            ],
-            { EVIDENCE_ARG_PROBE: "1" },
-          );
+        : run("bash", [evidenceSh, "315", payload], { EVIDENCE_ARG_PROBE: "1" });
     expect(result.status, result.stderr).toBe(0);
     expect(existsSync(marker)).toBe(false);
     const lines = result.stdout.split("\n");
