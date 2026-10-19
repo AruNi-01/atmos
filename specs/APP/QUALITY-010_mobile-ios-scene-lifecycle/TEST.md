@@ -65,8 +65,8 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 - **Level**: Unit for the source shape; manual for the running process
 - **Given**: a Release install on the iOS 27.0 simulator.
 - **When**: the app is terminated and `xcrun simctl openurl` opens `atmos://scene-lifecycle-probe`, then opened again while the process is up with `atmos://scene-lifecycle-probe-warm`.
-- **Then**: the simulator log contains `AtmosSceneLifecycle delivered URL to RCTLinkingManager` at least twice. The source path that prints that line calls `RCTLinkingManager.application` unless `RCTOpenURLNotification` was already posted for that URL. Launch options include `UIApplicationLaunchOptionsURLKey` for the cold URL.
-- **Signals**: unit assertions on the Swift strings; simulator log lines from the script. The log must not contain the URL.
+- **Then**: the simulator log contains `AtmosSceneLifecycle delivered URL to RCTLinkingManager` at least twice. The source path that prints that line calls `RCTLinkingManager.application` unless `RCTOpenURLNotification` was already posted for that URL. Launch options include `UIApplicationLaunchOptionsURLKey` for the cold URL. The `NSLog` format string does not interpolate the URL.
+- **Signals**: unit assertions on the Swift strings; simulator log lines from the script. UIKit may still write the URL into the system log.
 
 ### S5 — Browsing-web user activities are wired
 
@@ -132,7 +132,7 @@ The script:
 4. Release-builds `Atmos` for the iOS 27.0 simulator. Default device name is `iPhone 18 Pro` (`ATMOS_IOS27_DEVICE`, `ATMOS_IOS27_RUNTIME`).
 5. Installs, cold-launches `land.atmos.mobile`, and fails if launch exits non-zero or the unified log contains `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` or `EXC_BREAKPOINT`.
 6. Terminates, `simctl openurl atmos://scene-lifecycle-probe` (cold URL), then `openurl atmos://scene-lifecycle-probe-warm` (warm URL). Fails unless the log contains `AtmosSceneLifecycle delivered URL to RCTLinkingManager` twice.
-7. Repeats the cold launch on iOS 26.5. Default device is `iPhone 17 Pro` (`ATMOS_IOS26_DEVICE`, `ATMOS_IOS26_RUNTIME`), matching the parity workflow pin.
+7. Repeats the cold launch and the same two `openurl` calls on iOS 26.5. Default device is `iPhone 17 Pro` (`ATMOS_IOS26_DEVICE`, `ATMOS_IOS26_RUNTIME`), matching the parity workflow pin.
 8. Prints `NOT RUN: universal links` because `app.json` has no associated domain. S5 remains the structural proof for that path.
 
 Override examples:
@@ -154,4 +154,30 @@ bash script/verify-ios-scene-lifecycle.sh built-plist path/to/Atmos.app/Info.pli
 
 ## Coverage Status
 
-> Filled after the commands below. Simulator rows stay `not_run`.
+Recorded 2026-10-19 on the Linux cloud VM. Simulator rows are `not_run`.
+
+### Commands
+
+- `cd apps/mobile && bun test plugins/with-ios-scene-lifecycle.test.js ios-launch-scene.test.js app.config.test.js` → pass, exit 0. 9 pass, 0 fail, 47 expect() calls.
+- `cd apps/mobile && bun test` → pass, exit 0. 414 pass, 0 fail, 1776 expect() calls, 102 files.
+- `cd apps/mobile && rm -rf ios && CI=1 bunx expo prebuild --platform ios --no-install && bash script/verify-ios-scene-lifecycle.sh structural` → pass, exit 0. Printed `source UISceneDelegateClassName=$(PRODUCT_MODULE_NAME).SceneDelegate` and `AppDelegate.swift scene lifecycle ok`.
+- Same structural script after `EXPO_PUBLIC_PARITY_PREVIEW=1` via `apps/mobile/.env` and `expo prebuild --clean` → pass, exit 0. `.env` was deleted and is not part of the diff.
+- `bash -n apps/mobile/script/verify-ios-scene-lifecycle.sh` → pass, exit 0.
+- A copy of the prebuild plist with the class string replaced by `Atmos.SceneDelegate` passed `verify-ios-scene-lifecycle.sh built-plist`. The unexpanded source plist failed that mode, as intended. This is not a built `.app`.
+- `bunx oxlint --max-warnings=450` from the repo root → pass, exit 0.
+- `bash apps/mobile/script/verify-ios-scene-lifecycle.sh simulator` → **not run**. This machine has no `xcrun`. The script is written to exit 2 in that case. It was not executed, so this session did not observe that exit.
+- iOS 27.0 and iOS 26.5 Release launch, cold URL, and warm URL → **not run**.
+- Universal links → **not run** (no associated domain). S5 covers the Swift wiring only.
+- `ci-mobile-ios-parity.yml` → **not run** in this session. It is the CI check for the iOS 26.5 Release build and `Atmos.SceneDelegate` in the built plist.
+
+### Status
+
+| Scenario | Status                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------- |
+| S1       | pass — `plugins/with-ios-scene-lifecycle.test.js`                                                       |
+| S2       | pass — `verify-ios-scene-lifecycle.sh structural` after prebuild, including the parity-preview prebuild |
+| S3       | not_run — GitHub `ios-simulator` job                                                                    |
+| S4       | partial — Swift strings pass in S1; simulator log not_run                                               |
+| S5       | pass — same unit test (user-activity keys and `scene(_:continue:)`)                                     |
+| S6       | not_run — simulator cold start                                                                          |
+| S7       | pass — `app.config.test.js`                                                                             |

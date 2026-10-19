@@ -52,7 +52,7 @@ describe("applyParityPreviewConfig", () => {
     }
   });
 
-  test("drops a scene manifest only for the parity preview", () => {
+  test("keeps a scene manifest for parity preview builds", () => {
     const withScene = {
       ...base,
       ios: {
@@ -63,20 +63,14 @@ describe("applyParityPreviewConfig", () => {
       },
     };
     const previous = process.env.EXPO_PUBLIC_PARITY_PREVIEW;
-    delete process.env.EXPO_PUBLIC_PARITY_PREVIEW;
-    try {
-      const kept = applyParityPreviewConfig({ config: structuredClone(withScene) });
-      expect(kept.ios.infoPlist.UIApplicationSceneManifest).toBeDefined();
-    } finally {
-      if (previous === undefined) delete process.env.EXPO_PUBLIC_PARITY_PREVIEW;
-      else process.env.EXPO_PUBLIC_PARITY_PREVIEW = previous;
-    }
-
     process.env.EXPO_PUBLIC_PARITY_PREVIEW = "1";
     try {
       const next = applyParityPreviewConfig({ config: structuredClone(withScene) });
-      expect(next.ios.infoPlist.UIApplicationSceneManifest).toBeUndefined();
+      expect(next.ios.infoPlist.UIApplicationSceneManifest).toEqual(
+        withScene.ios.infoPlist.UIApplicationSceneManifest,
+      );
       expect(next.ios.infoPlist.NSCameraUsageDescription).toBe("camera");
+      expect(pluginNames(next)).not.toContain("expo-dev-client");
     } finally {
       if (previous === undefined) delete process.env.EXPO_PUBLIC_PARITY_PREVIEW;
       else process.env.EXPO_PUBLIC_PARITY_PREVIEW = previous;
