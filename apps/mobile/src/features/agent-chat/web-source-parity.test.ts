@@ -43,12 +43,12 @@ describe("web source parity", () => {
     expect(log).toContain('ease: "linear"');
   });
 
-  test("the idle composer is a compact one-row field that expands on focus", () => {
+  test("the composer source still calls the compact/expand dock helpers", () => {
     const composer = source("apps/mobile/src/features/agent-chat/AgentChatComposer.tsx");
     expect(composer).toContain('width: "100%"');
     expect(composer).toContain("composerDockExpanded");
-    expect(composer).toContain("COMPOSER_EXPANDED_PAD_HORIZONTAL");
-    expect(composer).toContain("onFocus");
+    expect(composer).toContain("composerDockInputPadding");
+    expect(composer).toContain("onFocus={() => setFocused(true)}");
   });
 
   test("the markdown patch matches web inline code and the raw fence token", () => {

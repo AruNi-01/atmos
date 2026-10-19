@@ -45,9 +45,14 @@ describe("composer capabilities", () => {
     expect(composerSource).toContain("applyComposerPaste");
   });
 
-  test("hides an empty model label and keeps compact side padding for the idle field", () => {
-    expect(composerSource).toContain("COMPOSER_COMPACT_PAD_HORIZONTAL");
-    expect(composerSource).toContain("COMPOSER_EXPANDED_PAD_HORIZONTAL");
+  test("hides an empty model label and interpolates compact vs expanded padding from the helper", () => {
+    expect(composerSource).toContain("composerDockInputPadding(false)");
+    expect(composerSource).toContain("composerDockInputPadding(true)");
+    expect(composerSource).toContain("COMPACT_PAD.paddingLeft");
+    expect(composerSource).toContain("EXPANDED_PAD.paddingLeft");
+    expect(composerSource).not.toContain(
+      "[COMPOSER_COMPACT_PAD_HORIZONTAL, COMPOSER_EXPANDED_PAD_HORIZONTAL]",
+    );
     expect(composerSource).toContain("showNoAgent");
     expect(composerSource).not.toContain("|| copy.model");
   });

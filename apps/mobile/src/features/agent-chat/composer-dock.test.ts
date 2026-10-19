@@ -14,6 +14,8 @@ import {
   COMPOSER_EXPANDED_PAD_HORIZONTAL,
   COMPOSER_LINE_HEIGHT,
   COMPOSER_MAX_LINES,
+  composerDockCompactInnerWidth,
+  composerDockCompactLineCount,
   composerDockContentHeight,
   composerDockExpanded,
   composerDockFieldHeight,
@@ -27,54 +29,62 @@ const composer = readFileSync(
   "utf8",
 );
 
+const idle = {
+  addOpen: false,
+  compactLineCount: 1,
+  focused: false,
+  modelsOpen: false,
+  showQueue: false,
+  showSteer: false,
+  text: "one line",
+};
+
 describe("composer dock expand", () => {
   test("idle empty unfocused stays compact", () => {
-    expect(
-      composerDockExpanded({ focused: false, text: "", contentHeight: COMPOSER_LINE_HEIGHT }),
-    ).toBe(false);
-    expect(
-      composerDockExpanded({
-        focused: false,
-        text: "one line",
-        contentHeight: COMPOSER_LINE_HEIGHT,
-      }),
-    ).toBe(false);
+    expect(composerDockExpanded({ ...idle, text: "", compactLineCount: 1 })).toBe(false);
+    expect(composerDockExpanded(idle)).toBe(false);
   });
 
-  test("focus, the model sheet, follow-up, or wrapped text expand", () => {
-    expect(
-      composerDockExpanded({ focused: true, text: "", contentHeight: COMPOSER_LINE_HEIGHT }),
-    ).toBe(true);
-    expect(
-      composerDockExpanded({
-        focused: false,
-        text: "",
-        contentHeight: COMPOSER_LINE_HEIGHT,
-        modelsOpen: true,
-      }),
-    ).toBe(true);
-    expect(
-      composerDockExpanded({
-        focused: false,
-        text: "queued",
-        contentHeight: COMPOSER_LINE_HEIGHT,
-        showQueue: true,
-      }),
-    ).toBe(true);
-    expect(
-      composerDockExpanded({
-        focused: false,
-        text: "a\nb",
-        contentHeight: COMPOSER_LINE_HEIGHT,
-      }),
-    ).toBe(true);
-    expect(
-      composerDockExpanded({
-        focused: false,
-        text: "wraps",
-        contentHeight: COMPOSER_LINE_HEIGHT * 2,
-      }),
-    ).toBe(true);
+  test("focus, sheets, follow-up, newline, or compact wrap expand", () => {
+    expect(composerDockExpanded({ ...idle, focused: true, text: "" })).toBe(true);
+    expect(composerDockExpanded({ ...idle, modelsOpen: true, text: "" })).toBe(true);
+    expect(composerDockExpanded({ ...idle, addOpen: true, text: "" })).toBe(true);
+    expect(composerDockExpanded({ ...idle, showQueue: true, text: "queued" })).toBe(true);
+    expect(composerDockExpanded({ ...idle, showSteer: true, text: "steer" })).toBe(true);
+    expect(composerDockExpanded({ ...idle, text: "a\nb" })).toBe(true);
+    expect(composerDockExpanded({ ...idle, compactLineCount: 2, text: "wraps" })).toBe(true);
+  });
+
+  test("compact line count is measured at the compact inner width only", () => {
+    expect(composerDockCompactInnerWidth(390)).toBe(390 - COMPOSER_COMPACT_PAD_HORIZONTAL * 2);
+    expect(composerDockCompactLineCount({ measuredLines: 0, text: "" })).toBe(1);
+    expect(composerDockCompactLineCount({ measuredLines: 2, text: "" })).toBe(1);
+    expect(composerDockCompactLineCount({ measuredLines: 2, text: "wraps" })).toBe(2);
+    expect(composerDockExpanded({ ...idle, compactLineCount: 1, text: "wraps" })).toBe(false);
+    expect(composerDockExpanded({ ...idle, compactLineCount: 2, text: "wraps" })).toBe(true);
+  });
+
+  test("blur, keyboard dismiss, and model/add sheet close do not oscillate a wrapped draft", () => {
+    const text = "this draft wraps at the compact inner width";
+    const wrapped = { ...idle, compactLineCount: 2, text };
+    const sequence = [
+      composerDockExpanded({ ...wrapped, focused: true }),
+      composerDockExpanded({ ...wrapped, focused: false }),
+      composerDockExpanded({ ...wrapped, focused: false, modelsOpen: true }),
+      composerDockExpanded({ ...wrapped, focused: false, modelsOpen: false }),
+      composerDockExpanded({ ...wrapped, focused: false, addOpen: true }),
+      composerDockExpanded({ ...wrapped, focused: false, addOpen: false }),
+      composerDockExpanded({ ...wrapped, focused: false, showQueue: false, showSteer: false }),
+    ];
+    expect(sequence).toEqual([true, true, true, true, true, true, true]);
+
+    const oneLine = { ...idle, compactLineCount: 1, text: "short" };
+    expect(composerDockExpanded({ ...oneLine, focused: true })).toBe(true);
+    expect(composerDockExpanded({ ...oneLine, focused: false })).toBe(false);
+    expect(composerDockExpanded({ ...oneLine, modelsOpen: true })).toBe(true);
+    expect(composerDockExpanded({ ...oneLine, modelsOpen: false })).toBe(false);
+    expect(composerDockExpanded({ ...oneLine, addOpen: true })).toBe(true);
+    expect(composerDockExpanded({ ...oneLine, addOpen: false })).toBe(false);
   });
 
   test("four Enter lines grow the field even if measured height is still one line", () => {
@@ -135,19 +145,30 @@ describe("composer dock expand", () => {
     expect(composerDockMotionDuration({ expandedChanged: false, reduceMotion: false })).toBe(0);
   });
 
-  test("the composer animates the dock from focus with reanimated", () => {
+  test("the composer wires reanimated maxHeight, compact-width measure, and dock helpers", () => {
+    expect(composer).toContain('from "react-native-reanimated"');
     expect(composer).toContain("composerDockExpanded");
     expect(composer).toContain("composerDockFieldHeight");
+    expect(composer).toContain("composerDockInputPadding(false)");
+    expect(composer).toContain("composerDockInputPadding(true)");
+    expect(composer).toContain("composerDockCompactLineCount");
+    expect(composer).toContain("composerDockCompactInnerWidth");
+    expect(composer).toContain("onTextLayout");
     expect(composer).toContain("onFocus");
     expect(composer).toContain("onBlur");
     expect(composer).toContain("withTiming");
+    expect(composer).toContain("dockMaxHeight");
     expect(composer).toContain("useReducedMotion");
     expect(composer).toContain("Easing.out(Easing.cubic)");
     expect(composer).toContain('pointerEvents="box-none"');
     expect(composer).toContain('pointerEvents="none"');
     expect(composer).toContain("COMPOSER_DOCK_EXPANDED_MAX_HEIGHT");
     expect(composer).not.toContain("height: dockHeight");
-    expect(composer).toContain("ellipsizeMode");
+    expect(composer).not.toMatch(/composerDockExpanded\(\{[^}]*contentHeight/);
+    expect(composer).toContain("accessible={false}");
+    expect(composer).toContain("accessibilityElementsHidden");
+    expect(composer).toContain('importantForAccessibility="no-hide-descendants"');
+    expect(composer).toContain('ellipsizeMode="tail"');
     expect(composer).toContain("numberOfLines={1}");
   });
 });
