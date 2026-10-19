@@ -66,5 +66,30 @@ describe("parity composer capture steps", () => {
     expect(preview).toContain("followUp={composerDriven ? composerShown.followUp : undefined}");
     expect(preview).toContain("autoFocus={composerDriven ? composerShown.focus : undefined}");
     expect(composer).toContain("if (props.autoFocus == null) return;");
+    expect(composer).toContain('testID="agent-chat-composer-input"');
+    expect(preview).toContain("[parity] keyboard height=${height}");
+    expect(preview).toContain("paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0");
+    const tap = readFileSync(
+      join(
+        here,
+        "../../../../../scripts/agent-chat-parity/pill-tap/PillTapUITests/PillTapUITests.swift",
+      ),
+      "utf8",
+    );
+    const capture = readFileSync(
+      join(here, "../../../../../scripts/agent-chat-parity/ios-capture.sh"),
+      "utf8",
+    );
+    const workflow = readFileSync(
+      join(here, "../../../../../.github/workflows/ci-mobile-ios-parity.yml"),
+      "utf8",
+    );
+    expect(tap).toContain("func testTapComposerField()");
+    expect(tap).toContain('textViews["agent-chat-composer-input"]');
+    expect(tap).toContain("keyboards.firstMatch");
+    expect(capture).toContain("testTapComposerField");
+    expect(capture).toContain("composer-keyboard.mov");
+    expect(capture).toContain("capture_composer_keyboard");
+    expect(workflow).toContain("ConnectHardwareKeyboard -bool false");
   });
 });

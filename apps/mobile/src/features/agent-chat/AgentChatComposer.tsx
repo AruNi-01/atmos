@@ -505,6 +505,7 @@ export function AgentChatComposer(props: {
             ref={inputRef}
             multiline
             onChangeText={onDraftChange}
+            testID="agent-chat-composer-input"
             onContentSizeChange={(event) => {
               if (props.text.length === 0) {
                 setContentHeight(LINE_HEIGHT);

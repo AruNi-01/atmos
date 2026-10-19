@@ -201,6 +201,10 @@ jobs:
           fi
           echo "udid: ${udid}"
 
+          # A connected hardware keyboard hides the software keyboard, so a
+          # composer tap cannot show it. Write this before the simulator boots.
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+
           boot_status=0
           xcrun simctl boot "$udid" || boot_status=$?
           if [[ "$boot_status" -ne 0 ]]; then

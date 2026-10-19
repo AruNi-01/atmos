@@ -8,7 +8,14 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { Text, View, type View as PreviewRoot } from "react-native";
+import {
+  Keyboard,
+  Platform,
+  Text,
+  View,
+  type KeyboardEvent,
+  type View as PreviewRoot,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused, useLocalSearchParams } from "expo-router";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
@@ -159,6 +166,8 @@ export function PreviewChatScreen() {
   const [cardHeight, setCardHeight] = useState(0);
   const [pillHeight, setPillHeight] = useState(0);
   const [text, setText] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardLoggedRef = useRef(-1);
   const [composerStep, setComposerStep] = useState<ParityComposerStep>(() => {
     const first = parityComposerSteps()[0];
     if (!first) throw new Error("composer capture steps are empty");
@@ -188,6 +197,25 @@ export function PreviewChatScreen() {
   const tailReturnLoggedRef = useRef(false);
   const tailAwaitLoggedRef = useRef(false);
   const tailStepRef = useRef(0);
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, (event: KeyboardEvent) => {
+      const height = Math.round(event.endCoordinates.height);
+      setKeyboardHeight(event.endCoordinates.height);
+      if (height <= 0 || height === keyboardLoggedRef.current) return;
+      keyboardLoggedRef.current = height;
+      console.error(`[parity] keyboard height=${height}`);
+    });
+    const hide = Keyboard.addListener(hideEvent, () => {
+      keyboardLoggedRef.current = -1;
+      setKeyboardHeight(0);
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
   const onStickChange = useCallback(
     (next: {
       belowCount: number;
@@ -605,7 +633,12 @@ export function PreviewChatScreen() {
       collapsable={false}
       {...userMessageOutsidePressCapture()}
       ref={previewRootRef}
-      style={{ backgroundColor, flex: 1, paddingTop: insets.top }}
+      style={{
+        backgroundColor,
+        flex: 1,
+        paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0,
+        paddingTop: insets.top,
+      }}
       testID="parity-ready"
     >
       <View style={{ flex: 1 }}>

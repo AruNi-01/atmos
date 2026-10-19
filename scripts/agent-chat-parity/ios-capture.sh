@@ -4,10 +4,12 @@
 # a second f13-tail launch that taps the scroll pill after that hold,
 # stream-tools sampled while rows append, an F12 launch that taps the plan
 # and queue pills and then Skip on the Questions card, an f13-tail launch
-# that swipes the F12 card pills under the pinned scroll pill, and F4 / F12 / composer passes that
+# that swipes the F12 card pills under the pinned scroll pill, an F1 launch that
+# taps the composer so the software keyboard opens, and F4 / F12 / composer passes that
 # freeze each script step (`atMs` in the pin) and take a simctl screenshot.
 # A wall-clock draw finishes before a slow screenshot returns. The replay,
-# lane, composer, pill return, F12 card-pill tap, and card-row swipe do not fail the job.
+# lane, composer, pill return, F12 card-pill tap, card-row swipe, and composer
+# keyboard tap do not fail the job.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -763,6 +765,66 @@ capture_composer_states() {
   capture_pinned_steps "F1" "light" "" "" "" "" "" "states" "composer" "$OUT/composer-states" "composer" || true
 }
 
+# Idle F1 composer. The test activates the running app and taps the field.
+# The software keyboard is the proof. A miss does not fail the job.
+# recordVideo stays open and this pass does not take simctl screenshots.
+tap_composer() {
+  local udid
+  udid="$(xcrun simctl list devices booted -j | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+booted = []
+for devices in data.get("devices", {}).values():
+    for device in devices:
+        if device.get("state") == "Booted" and device.get("udid"):
+            booted.append(device["udid"])
+if len(booted) == 1:
+    print(booted[0])
+')"
+  if [[ -z "$udid" ]]; then
+    echo "composer tap has no single booted simulator" >&2
+    return 1
+  fi
+  echo "tapping agent-chat-composer-input on ${udid}"
+  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
+    --seconds 720 \
+    --grace 20 \
+    --needle "Test Suite 'Selected tests' passed" \
+    -- \
+    xcodebuild test \
+    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+    -scheme PillTap \
+    -sdk iphonesimulator \
+    -destination "platform=iOS Simulator,id=${udid}" \
+    -derivedDataPath /tmp/pill-tap-derived \
+    -only-testing:PillTapUITests/PillTapUITests/testTapComposerField \
+    -parallel-testing-enabled NO \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO
+}
+
+capture_composer_keyboard() {
+  local mark video pidfile errlog
+  video="$OUT/composer-keyboard.mov"
+  pidfile="$OUT/composer-keyboard-record.pid"
+  errlog="$OUT/composer-keyboard-record.log"
+  mark="$(log_mark)"
+  write_frame_file "F1" "light"
+  launch_frame "F1" "light" "keys"
+  if ! wait_for_since "[parity] ready F1 light" 90 "$mark"; then
+    echo "composer keyboard missed ready" >&2
+    return 0
+  fi
+  start_screen_record "$video" "$pidfile" "$errlog"
+  echo "composer keyboard recorder open"
+  if ! tap_composer >"$OUT/composer-keyboard.log" 2>&1; then
+    echo "composer keyboard tap failed" >&2
+    tail -n 40 "$OUT/composer-keyboard.log" >&2 || true
+  fi
+  sleep 0.5
+  stop_screen_record "$pidfile" || true
+}
+
 # A stuck simctl screenshot consumed the 120 minute job (run 38857737524).
 # Run 38871450335 then showed the app was ready and the shot still had not
 # returned at 90s, while the previous green capture's slow frames took a few
@@ -1085,6 +1147,7 @@ capture_f12_lane || echo "f12 lane capture failed" >&2
 capture_f12_pill_taps || echo "f12 pill tap capture failed" >&2
 capture_f12_card_row || echo "f12 card row capture failed" >&2
 capture_composer_states || echo "composer states capture failed" >&2
+capture_composer_keyboard || echo "composer keyboard capture failed" >&2
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
 # honest. It does not show reveal, tree draw-in, or a pill swap.

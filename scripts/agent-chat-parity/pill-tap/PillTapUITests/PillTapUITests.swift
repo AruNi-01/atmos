@@ -51,4 +51,19 @@ final class PillTapUITests: XCTestCase {
     Thread.sleep(forTimeInterval: 0.8)
     scroll.tap()
   }
+
+  func testTapComposerField() {
+    let atmos = XCUIApplication(bundleIdentifier: "land.atmos.mobile")
+    atmos.activate()
+    let view = atmos.textViews["agent-chat-composer-input"]
+    if view.waitForExistence(timeout: 30) {
+      view.tap()
+    } else {
+      let field = atmos.textFields["agent-chat-composer-input"]
+      XCTAssertTrue(field.waitForExistence(timeout: 5), "composer field was not in the accessibility tree")
+      field.tap()
+    }
+    XCTAssertTrue(atmos.keyboards.firstMatch.waitForExistence(timeout: 8), "software keyboard did not open")
+    Thread.sleep(forTimeInterval: 0.6)
+  }
 }
