@@ -93,7 +93,7 @@ Admit state when `revision >= last`. Drop when `revision < last` (`stale_state`)
 last = max(stateRevision.get(key) ?? 0, snapshotFloor);
 ```
 
-A key written at 10, then a snapshot at 50, then a delayed unseen queue at 20 must drop. Using only the map entry (10) would resurrect the old queue over the snapshot.
+A key written at 10, then a snapshot at 50, then a delayed unseen queue at 20 must drop. Using only the map entry (10) would resurrect the old queue over the snapshot. `observeSnapshot` is monotonic: a later call with a lower seq must not lower `snapshotFloor`.
 
 Equal revision after the floor is allowed so a unique payload at `last_event_seq` is not discarded if seq and broadcast race.
 
@@ -112,10 +112,14 @@ Hydrate generations: `startHydrate()` returns a token. `finishHydrate(seq, token
 
 ## Gaps, backfill, resync (Q4)
 
-`revision > cursor + 1` attaches `gap: { from, to, size, recommend }`.
+`revision > cursor + 1` attaches `gap: { from, to, size, recommend }`. Measured against the cursor **before** this revision is absorbed, so `revision === cursor + 1` is the next expected seq and is not a hole.
 
-- `size < AGENT_CHAT_REVISION_GAP_RESYNC` (32) → `catch_up` (keep subscribing from `cursor`).
-- otherwise → `resync` (snapshot).
+- `ahead = revision - cursor` (same number as `shouldResyncFromServer`: `serverLastSeq - cursor`).
+- `size` is the missing seq count in `(cursor+1)..(revision-1)` = `ahead - 1`.
+- `ahead < AGENT_CHAT_REVISION_GAP_RESYNC` (32) → `catch_up` (keep subscribing from `cursor`).
+- `ahead >= 32` → `resync` (snapshot).
+
+At cursor 10: live rev 41 / subscribe 41 → `ahead` 31, `catch_up`. Live rev 42 / subscribe 42 → `ahead` 32, `resync`. Do not compare `size` to 32; that was one off from the subscribe watermark.
 
 Text holes inside a part still use QUALITY-006 `BackfillRequest` / `agent_chat_backfill`. That is independent of revision gaps.
 
@@ -142,6 +146,7 @@ Do not require `action === "apply"` to start another resync after a failed hydra
 - Same chat + same WS client → `canResumeAgentChatSession`; keep pump and transcript; `subscribe(after_sequence: pump.cursor)`.
 - Chat or client change → new pump, snapshot hydrate, then subscribe.
 - `wsState !== "open"` during resume does not wipe the transcript.
+- `#324` `agent_chat_resync` is **not** in this PR. After #324 is on `main`, merge `main` and route that notification through `finishHydrate` / `observeSnapshot`. Do not add a parallel snapshot floor.
 
 **Web** `use-agent-chat-session`:
 
@@ -190,7 +195,7 @@ Chat id scoping stays in the app (`eventsForChat` / `agentChatEventFor`). The ga
 ## Dependencies & compatibility
 
 - Depends on: QUALITY-006 part fold, existing `agent_chat_*` WS.
-- Sibling: QUALITY-012 (#324) transport. Merge order **#324 then #325**. README may contain both 012 and 013; keep both rows on conflict.
+- Sibling: QUALITY-012 (#324) transport. **Merge #324 first.** #325 is not stacked on #324; after #324 lands on `main`, merge `main` into #325 and wire `agent_chat_resync` through `finishHydrate` / `observeSnapshot` (do not add a second snapshot floor). README may contain both 012 and 013; keep both rows on conflict.
 - Blocks: none. PR5 can land after.
 
 ## Open questions

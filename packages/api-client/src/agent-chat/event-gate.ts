@@ -166,6 +166,14 @@ function revisionOf(event: AgentChatEvent): number {
   return event.revision ?? 0;
 }
 
+/**
+ * Hole relative to `contiguous` **before** this revision is absorbed.
+ * `revision === contiguous + 1` is the next expected seq, not a hole.
+ *
+ * `ahead = revision - contiguous` (same measure as `shouldResyncFromServer`).
+ * `size` is the missing seq count in `(contiguous+1)..(revision-1)` = `ahead - 1`.
+ * Resync when `ahead >= threshold` (32), so live admit and subscribe watermark agree.
+ */
 function gapFor(
   contiguous: number,
   revision: number,
@@ -175,11 +183,12 @@ function gapFor(
   const from = contiguous + 1;
   const to = revision - 1;
   const size = to - from + 1;
+  const ahead = revision - contiguous;
   return {
     from,
     to,
     size,
-    recommend: size >= threshold ? "resync" : "catch_up",
+    recommend: ahead >= threshold ? "resync" : "catch_up",
   };
 }
 
@@ -246,8 +255,8 @@ export function createAgentChatEventGate(
     }
 
     const revision = revisionOf(event);
-    noteRevision(revision);
     const gap = gapFor(contiguous, revision, gapResyncThreshold);
+    noteRevision(revision);
     const key = agentChatEventStateKey(event.payload);
     if (key && revision < lastStateRevision(key)) {
       return { action: "drop", event, reason: "stale_state", gap };

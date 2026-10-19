@@ -273,6 +273,15 @@ describe("EventGate out of order", () => {
     expect(filled.gap).toBeUndefined();
     expect(gate.cursor).toBe(12);
   });
+
+  test("the next contiguous revision is not a gap", () => {
+    const gate = createAgentChatEventGate();
+    gate.observeSnapshot(10);
+    const next = gate.admit(chatEvent(11, { type: "turn_started", turn_id: "t2" }));
+    expect(next.action).toBe("apply");
+    expect(next.gap).toBeUndefined();
+    expect(gate.cursor).toBe(11);
+  });
 });
 
 describe("EventGate reconnect replay", () => {
@@ -408,7 +417,41 @@ describe("EventGate gap detection", () => {
     );
     expect(jumped.action).toBe("apply");
     expect(jumped.gap?.recommend).toBe("resync");
-    expect(jumped.gap?.size).toBeGreaterThanOrEqual(AGENT_CHAT_REVISION_GAP_RESYNC);
+    expect(jumped.gap?.size).toBeGreaterThanOrEqual(AGENT_CHAT_REVISION_GAP_RESYNC - 1);
+  });
+
+  test("live gap and shouldResyncFromServer share the ahead >= 32 boundary", () => {
+    const cursor = 10;
+    const catchUpRev = cursor + AGENT_CHAT_REVISION_GAP_RESYNC - 1;
+    const resyncRev = cursor + AGENT_CHAT_REVISION_GAP_RESYNC;
+
+    const catchUpGate = createAgentChatEventGate();
+    catchUpGate.observeSnapshot(cursor);
+    const catchUp = catchUpGate.admit(
+      chatEvent(catchUpRev, { type: "turn_started", turn_id: "t-catch" }),
+    );
+    expect(catchUp.action).toBe("apply");
+    expect(catchUp.gap).toEqual({
+      from: cursor + 1,
+      to: catchUpRev - 1,
+      size: AGENT_CHAT_REVISION_GAP_RESYNC - 2,
+      recommend: "catch_up",
+    });
+    expect(catchUpGate.shouldResyncFromServer(catchUpRev)).toBe(false);
+
+    const resyncGate = createAgentChatEventGate();
+    resyncGate.observeSnapshot(cursor);
+    const resync = resyncGate.admit(
+      chatEvent(resyncRev, { type: "turn_started", turn_id: "t-resync" }),
+    );
+    expect(resync.action).toBe("apply");
+    expect(resync.gap).toEqual({
+      from: cursor + 1,
+      to: resyncRev - 1,
+      size: AGENT_CHAT_REVISION_GAP_RESYNC - 1,
+      recommend: "resync",
+    });
+    expect(resyncGate.shouldResyncFromServer(resyncRev)).toBe(true);
   });
 });
 
@@ -418,6 +461,18 @@ describe("EventGate snapshot floor", () => {
     expect(gate.admit(chatEvent(10, queueItems("q1"))).action).toBe("apply");
     gate.observeSnapshot(50);
     const delayed = chatEvent(20, queueItems("old"), "unseen-old-queue");
+    expect(gate.admit(delayed)).toMatchObject({
+      action: "drop",
+      reason: "stale_state",
+    });
+  });
+
+  test("observeSnapshot cannot lower the snapshot floor", () => {
+    const gate = createAgentChatEventGate();
+    expect(gate.admit(chatEvent(10, queueItems("q1"))).action).toBe("apply");
+    gate.observeSnapshot(50);
+    gate.observeSnapshot(20);
+    const delayed = chatEvent(25, queueItems("old"), "unseen-after-stale-snapshot");
     expect(gate.admit(delayed)).toMatchObject({
       action: "drop",
       reason: "stale_state",

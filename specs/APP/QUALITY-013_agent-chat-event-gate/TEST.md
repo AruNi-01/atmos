@@ -13,38 +13,40 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 
 ## Coverage map
 
-| Quality target               | Scenario IDs       |
-| ---------------------------- | ------------------ |
-| Q1 emission identity         | S1, S2, S3         |
-| Q2 state anti-rollback       | S4, S5, S6, S7, S8 |
-| Q3 snapshot then incremental | S9, S10, S16       |
-| Q4 gap catch_up / resync     | S11, S12           |
-| Q5 resync failure recovery   | S13, S14           |
-| Q6 mobile cursor resume      | S15, S16           |
-| Q7 web admit                 | S17, S18           |
+| Quality target               | Scenario IDs            |
+| ---------------------------- | ----------------------- |
+| Q1 emission identity         | S1, S2, S3              |
+| Q2 state anti-rollback       | S4, S5, S6, S7, S8, S8b |
+| Q3 snapshot then incremental | S9, S10, S16            |
+| Q4 gap catch_up / resync     | S11, S12, S12b          |
+| Q5 resync failure recovery   | S13, S14                |
+| Q6 mobile cursor resume      | S15, S16                |
+| Q7 web admit                 | S17, S18                |
 
 ## Execution map
 
-| Scenario | Level      | Expected tool | Target command / method                    | Fixture / data                                              | Signals                       | Status  |
-| -------- | ---------- | ------------- | ------------------------------------------ | ----------------------------------------------------------- | ----------------------------- | ------- |
-| S1       | Unit       | `bun test`    | `packages/api-client` EventGate duplicates | shared adapter `event_id`, distinct payload types           | both apply                    | planned |
-| S2       | Unit       | `bun test`    | same                                       | `part_closed` then `turn_completed`, same id                | `turn_completed` applies      | planned |
-| S3       | Unit       | `bun test`    | Lagged replay                              | same id+type+instance                                       | `duplicate_event_id`          | planned |
-| S4       | Unit       | `bun test`    | probe `turn_started` replay                | completed then started                                      | `runningTurnId` null          | planned |
-| S5       | Unit       | `bun test`    | probe permission                           | resolved then requested                                     | pending null                  | planned |
-| S6       | Unit       | `bun test`    | probe queue                                | cleared then old items                                      | queue empty                   | planned |
-| S7       | Unit       | `bun test`    | probe snapshot                             | long text then short                                        | text stays long               | planned |
-| S8       | Unit       | `bun test`    | snapshot floor vs key map                  | queue@10, snapshot@50, queue@20                             | `stale_state`                 | planned |
-| S9       | Unit       | `bun test`    | EventPump hydrate                          | live during get                                             | buffer then drain             | planned |
-| S10      | Unit       | `bun test`    | hydrate generation                         | stale `finishHydrate`                                       | empty drain; later gen wins   | planned |
-| S11      | Unit       | `bun test`    | one-event hole                             | snapshot 10 then rev 12                                     | `catch_up`; cursor 10 then 12 | planned |
-| S12      | Unit       | `bun test`    | jump ≥ 32                                  | `recommend: "resync"` and apply                             | planned                       |
-| S13      | Unit       | `bun test`    | `abandonHydrate` after start               | buffer drains as apply; later ingest applies                | planned                       |
-| S14      | Unit       | `bun test`    | `nextAgentChatResyncDelayMs`               | 3 retries then null                                         | planned                       |
-| S15      | Unit       | `bun test`    | `canResumeAgentChatSession`                | same chat+client only                                       | planned                       |
-| S16      | Unit       | `bun test`    | thread source order                        | get before subscribe from `pump.cursor`; abandon on fail    | planned                       |
-| S17      | Unit       | `bun test`    | web session source                         | `finishHydrate` index < subscribe; `shouldResyncFromServer` | planned                       |
-| S18      | Regression | `bun test`    | web `agent-chat-events`                    | existing corpus                                             | pass                          | planned |
+| Scenario | Level      | Expected tool | Target command / method                    | Fixture / data                                              | Signals                     | Status  |
+| -------- | ---------- | ------------- | ------------------------------------------ | ----------------------------------------------------------- | --------------------------- | ------- |
+| S1       | Unit       | `bun test`    | `packages/api-client` EventGate duplicates | shared adapter `event_id`, distinct payload types           | both apply                  | planned |
+| S2       | Unit       | `bun test`    | same                                       | `part_closed` then `turn_completed`, same id                | `turn_completed` applies    | planned |
+| S3       | Unit       | `bun test`    | Lagged replay                              | same id+type+instance                                       | `duplicate_event_id`        | planned |
+| S4       | Unit       | `bun test`    | probe `turn_started` replay                | completed then started                                      | `runningTurnId` null        | planned |
+| S5       | Unit       | `bun test`    | probe permission                           | resolved then requested                                     | pending null                | planned |
+| S6       | Unit       | `bun test`    | probe queue                                | cleared then old items                                      | queue empty                 | planned |
+| S7       | Unit       | `bun test`    | probe snapshot                             | long text then short                                        | text stays long             | planned |
+| S8       | Unit       | `bun test`    | snapshot floor vs key map                  | queue@10, snapshot@50, queue@20                             | `stale_state`               | planned |
+| S8b      | Unit       | `bun test`    | snapshot floor monotonic                   | snapshot@50 then snapshot@20 then queue@25                  | `stale_state`               | planned |
+| S9       | Unit       | `bun test`    | EventPump hydrate                          | live during get                                             | buffer then drain           | planned |
+| S10      | Unit       | `bun test`    | hydrate generation                         | stale `finishHydrate`                                       | empty drain; later gen wins | planned |
+| S11      | Unit       | `bun test`    | one-event hole / next seq                  | snapshot 10 then rev 12; also rev 11                        | `catch_up`; next seq no gap | planned |
+| S12      | Unit       | `bun test`    | jump `ahead >= 32`                         | `recommend: "resync"` and apply                             | `gap.recommend`             | planned |
+| S12b     | Unit       | `bun test`    | ahead 31 vs 32                             | cursor 10, rev 41 catch_up, rev 42 resync                   | live gap matches subscribe  | planned |
+| S13      | Unit       | `bun test`    | `abandonHydrate` after start               | buffer drains as apply; later ingest applies                | drain decisions             | planned |
+| S14      | Unit       | `bun test`    | `nextAgentChatResyncDelayMs`               | 3 retries then null                                         | 400, 800, 1600, null        | planned |
+| S15      | Unit       | `bun test`    | `canResumeAgentChatSession`                | same chat+client only                                       | boolean                     | planned |
+| S16      | Unit       | `bun test`    | thread source order                        | get before subscribe from `pump.cursor`; abandon on fail    | source strings              | planned |
+| S17      | Unit       | `bun test`    | web session source                         | `finishHydrate` index < subscribe; `shouldResyncFromServer` | `indexOf` order             | planned |
+| S18      | Regression | `bun test`    | web `agent-chat-events`                    | existing corpus                                             | pass                        | planned |
 
 ## Scenarios
 
@@ -86,6 +88,14 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 - **Then**: `stale_state`. Queue from the snapshot stays empty if the fold reset on snapshot.
 - **Signals**: drop reason.
 
+### S8b — Snapshot floor does not recede
+
+- **Level**: Unit
+- **Given**: `observeSnapshot(50)` then `observeSnapshot(20)`.
+- **When**: unseen `queue_updated` at 25 arrives.
+- **Then**: still `stale_state`. A lower seq must not lower the floor.
+- **Signals**: drop reason.
+
 ### S9 — Hydrate buffer
 
 - **Level**: Unit
@@ -105,8 +115,8 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 ### S11–S12 — Gaps
 
 - **Level**: Unit
-- **Then**: hole of 1 is `catch_up`; jump ≥ 32 is `resync` and still `apply`. Cursor stays on the contiguous prefix.
-- **Signals**: `gap.recommend`, `cursor`, `maxRevision`.
+- **Then**: next seq (`cursor + 1`) has no gap. Hole of 1 is `catch_up`. `ahead = revision - cursor`; `ahead` 31 is `catch_up`, `ahead` 32 is `resync` and still `apply`. `shouldResyncFromServer` uses the same `ahead`. Cursor stays on the contiguous prefix.
+- **Signals**: `gap` undefined / `gap.recommend`, `cursor`, `maxRevision`.
 
 ### S13–S14 — Failed resync does not freeze
 
@@ -139,6 +149,8 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 - [ ] Failed `agentChatGet` during resync does not leave `hydrating === true`.
 - [ ] Failed resync drains a buffered `turn_completed` through the gate instead of deleting it.
 - [ ] Snapshot seq 50 then queue rev 20 does not refill a cleared queue.
+- [ ] `observeSnapshot(50)` then `observeSnapshot(20)` still drops queue rev 25.
+- [ ] `ahead` 31 is `catch_up`; `ahead` 32 is `resync` for both live `gap` and `shouldResyncFromServer`.
 - [ ] Text/tool behind the snapshot floor still apply.
 - [ ] Subscribe cursor is contiguous, not `maxRevision`.
 - [ ] `session_lifecycle` create/resume share one revision floor per `turn_id`.
@@ -180,8 +192,10 @@ Implemented on `aarynlu/agent-chat-event-gate-1212`. iOS Simulator: **not run**.
 | S3       | pass   | Lagged replay tests in `event-gate.test.ts`                                                   |
 | S4–S7    | pass   | probe regressions in api-client and mobile fold                                               |
 | S8       | pass   | snapshot floor test; mobile delayed queue                                                     |
+| S8b      | pass   | `event-gate.test.ts` `observeSnapshot cannot lower the snapshot floor`                        |
 | S9–S10   | pass   | `event-pump.test.ts` hydrate + generation                                                     |
-| S11–S12  | pass   | catch_up / resync gap tests                                                                   |
+| S11–S12  | pass   | catch_up / resync gap tests; next seq is not a gap                                            |
+| S12b     | pass   | `event-gate.test.ts` `live gap and shouldResyncFromServer share the ahead >= 32 boundary`     |
 | S13–S14  | pass   | `abandonHydrate` drain + live apply; `hydrate-recovery.test.ts`                               |
 | S15–S16  | pass   | `session-resume.test.ts`; `use-agent-chat-thread.test.ts`                                     |
 | S17–S18  | pass   | transcript-window structural order; `agent-chat-events` 73 pass                               |
@@ -189,7 +203,7 @@ Implemented on `aarynlu/agent-chat-event-gate-1212`. iOS Simulator: **not run**.
 Commands:
 
 ```bash
-bun run --filter @atmos/api-client test   # 61 pass
+bun run --filter @atmos/api-client test   # 65 pass
 bun test apps/mobile/src/features/agent-chat/{event-gate-probes,hydrate-recovery,session-resume,use-agent-chat-thread,fold-transcript,fold-cards,commit-buffer-wire}.test.ts
 bun test apps/web/src/features/agent/lib/__tests__/agent-chat-{events,stream-wiring,transcript-window}.test.ts
 bun run --filter @atmos/api-client typecheck
