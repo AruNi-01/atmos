@@ -133,7 +133,11 @@ export function judgeColdLaunch(input) {
     errors.push("cold launch did not stay up");
   }
   if (!alive || !Number.isFinite(waitedSeconds) || waitedSeconds < MIN_COLD_LAUNCH_SECONDS) {
-    errors.push(`process was not alive ${MIN_COLD_LAUNCH_SECONDS}s after launch`);
+    // The shell passes COLD_LAUNCH_WAIT_SECONDS. Print that value.
+    const reportedSeconds = Number.isFinite(waitedSeconds)
+      ? waitedSeconds
+      : MIN_COLD_LAUNCH_SECONDS;
+    errors.push(`process was not alive ${reportedSeconds}s after launch`);
   }
   if (added.length > 0) {
     errors.push(`new Atmos crash report: ${added.join(", ")}`);

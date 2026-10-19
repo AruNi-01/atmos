@@ -104,7 +104,7 @@ describe("judgeColdLaunch", () => {
       afterIps: [...oldIps, "/tmp/reports/Atmos-2026-10-19-120000.ips"],
     });
     expect(result.ok).toBe(false);
-    expect(result.errors.join("\n")).toContain("process was not alive 3s after launch");
+    expect(result.errors.join("\n")).toContain("process was not alive 4s after launch");
     expect(result.errors.join("\n")).toContain("Atmos-2026-10-19-120000.ips");
     expect(result.errors.join("\n")).not.toContain("Atmos-2026-10-18-010000.ips");
   });
@@ -121,7 +121,7 @@ describe("judgeColdLaunch", () => {
       afterIps: oldIps,
     });
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain("process was not alive 3s after launch");
+    expect(result.errors).toContain("process was not alive 4s after launch");
   });
 
   test("fails on a new ips even when the pid is still alive", () => {
@@ -151,7 +151,7 @@ describe("judgeColdLaunch", () => {
       afterIps: [],
     });
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain("process was not alive 3s after launch");
+    expect(result.errors).toContain("process was not alive 2s after launch");
   });
 
   test("keeps the runtime-issue and EXC_BREAKPOINT failures", () => {
@@ -341,7 +341,7 @@ describe("verify script", () => {
       afterFile,
     ]);
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("FAIL ios27: process was not alive 3s after launch");
+    expect(result.stderr).toContain("FAIL ios27: process was not alive 4s after launch");
     expect(result.stderr).toContain("FAIL ios27: new Atmos crash report:");
     expect(result.stderr).toContain("Atmos-2026-10-19-120000.ips");
     expect(result.stderr).not.toContain("Atmos-2026-10-18-010000.ips");
