@@ -8,7 +8,7 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 
 - Unit: `bun test` on the pure plugin rewrite and the plist dictionary. No prebuild, no simulator.
 - Structural: `expo prebuild --platform ios --no-install`, then `apps/mobile/script/verify-ios-scene-lifecycle.sh structural`. The parity workflow runs the same script on the generated project and `built-plist` on the built app.
-- Manual simulator: `verify-ios-scene-lifecycle.sh simulator` on a Mac. The 2026-10-19 run tested `3929803de`, before `NSLog` moved into `notify` and before `sceneDidDisconnect`. That run does not cover this head. S8 is pending.
+- Manual simulator: `verify-ios-scene-lifecycle.sh simulator` on a Mac. The 2026-10-19 run tested `3929803de`, before `NSLog` moved into `notify` and before `sceneDidDisconnect`. That Mac run does not cover this head. GitHub `ios-simulator` on `74a2e1841` built and cold-launched the parity Release app on iOS 26.5. iOS 27 of this head, the notify log, and S8 are not run.
 - Exploratory agent-browser: omitted. The app under test is a native iOS binary, not a browser page.
 
 ## Coverage map
@@ -120,8 +120,8 @@ None. Scene connection replaces the old window allocation. No extra JavaScript w
 - [x] S1, S2, S5, and S7 pass on the implementation commit.
 - [x] `verify-ios-scene-lifecycle.sh structural` exits 0 after prebuild.
 - [x] CI `oxlint` and `oxfmt` jobs are green, and the mobile `bun test` job is green.
-- [x] The parity workflow no longer fails because a scene delegate exists. It fails when the class or the built plist name is wrong. Run [39206606309](https://github.com/AruNi-01/atmos/actions/runs/39206606309) on `01075c6024a9f4a05d4b641991034ffcf1bf3188` concluded success.
-- [x] S4 and S6 passed on `3929803de674dec8cd916355848620502dd95471` (`verify-ios-scene-lifecycle.sh simulator` exit 0). This head changes `SceneDelegate` (`sceneDidDisconnect`, `NSLog` only inside `notify`). Those simulator checks are not run again. Universal links stay `not_run`. S8 stays pending. S3 remains the GitHub iOS 26.5 parity job.
+- [x] The parity workflow no longer fails because a scene delegate exists. It fails when the class or the built plist name is wrong. Run [39236707389](https://github.com/AruNi-01/atmos/actions/runs/39236707389) on `74a2e1841a97f36667a88164b02078d3f5f215b6` concluded success (`ios-simulator` built `Atmos.SceneDelegate`). The earlier run [39206606309](https://github.com/AruNi-01/atmos/actions/runs/39206606309) on `01075c6024a9f4a05d4b641991034ffcf1bf3188` also succeeded.
+- [x] S4 and S6 passed on `3929803de674dec8cd916355848620502dd95471` (`verify-ios-scene-lifecycle.sh simulator` exit 0). `74a2e1841` changes `SceneDelegate` (`sceneDidDisconnect`, `NSLog` only inside `notify`). The Mac script is not run again on that Swift. Universal links stay `not_run`. S8 stays pending. S3 is the GitHub iOS 26.5 parity job, which did rebuild `74a2e1841`.
 - [x] No `EVIDENCE_PUSH` and no push to `agent-artifacts`.
 
 ## Manual verification steps
@@ -165,12 +165,12 @@ bash script/verify-ios-scene-lifecycle.sh built-plist path/to/Atmos.app/Info.pli
 
 ## Coverage Status
 
-Recorded 2026-10-19. Linux commands ran on the cloud VM. S3 is the GitHub Actions parity job. The Mac simulator script on `3929803de674dec8cd916355848620502dd95471` is historical: that binary logged unconditionally and had no `sceneDidDisconnect`. This head is not rebuilt there. Universal links and S8 stay not run.
+Recorded 2026-10-19. Linux commands ran on the cloud VM. S3 is the GitHub Actions parity job on `74a2e1841a97f36667a88164b02078d3f5f215b6`. The Mac simulator script on `3929803de674dec8cd916355848620502dd95471` is historical: that binary logged unconditionally and had no `sceneDidDisconnect`. This head is not rebuilt on that Mac. Universal links and S8 stay not run.
 
 ### Commands
 
-- `cd apps/mobile && bun test plugins/with-ios-scene-lifecycle.test.js ios-launch-scene.test.js app.config.test.js` → pass, exit 0. 9 pass, 0 fail, 47 expect() calls.
-- `cd apps/mobile && bun test` → pass, exit 0. 414 pass, 0 fail, 1776 expect() calls, 102 files.
+- `cd apps/mobile && bun test plugins/with-ios-scene-lifecycle.test.js ios-launch-scene.test.js app.config.test.js` → pass, exit 0. 10 pass, 0 fail, 72 expect() calls.
+- `cd apps/mobile && bun test` → pass, exit 0. 415 pass, 0 fail, 1801 expect() calls, 102 files.
 - `cd apps/mobile && rm -rf ios && CI=1 bunx expo prebuild --platform ios --no-install && bash script/verify-ios-scene-lifecycle.sh structural` → pass, exit 0. Printed `source UISceneDelegateClassName=$(PRODUCT_MODULE_NAME).SceneDelegate` and `AppDelegate.swift scene lifecycle ok`.
 - Same structural script after `EXPO_PUBLIC_PARITY_PREVIEW=1` via `apps/mobile/.env` and `expo prebuild --clean` → pass, exit 0. `.env` was deleted and is not part of the diff.
 - `bash -n apps/mobile/script/verify-ios-scene-lifecycle.sh` → pass, exit 0.
@@ -179,11 +179,12 @@ Recorded 2026-10-19. Linux commands ran on the cloud VM. S3 is the GitHub Action
 - Mac, 2026-10-19, tested SHA `3929803de674dec8cd916355848620502dd95471`: `cd apps/mobile && bun install && bash script/verify-ios-scene-lifecycle.sh simulator` with the script defaults (iPhone 18 Pro / iOS 27.0, then iPhone 17 Pro / iOS 26.5). No `ATMOS_IOS27_*` or `ATMOS_IOS26_*` overrides. Not a parity preview (`EXPO_PUBLIC_PARITY_PREVIEW` unset). Prebuild structural check printed `source UISceneDelegateClassName=$(PRODUCT_MODULE_NAME).SceneDelegate` and `AppDelegate.swift scene lifecycle ok`.
   - Attempt 1: `pod install` failed on a transient hermes-engine fetch (maven existence check, then `git ls-remote` hit `SSL_ERROR_SYSCALL` and an empty commit, `[!] Error installing hermes-engine`). Unrelated to this change. Script exit 1.
   - Attempt 2: the same script, rerun, exit 0. Both runtimes: Release `BUILD SUCCEEDED`; built `UISceneDelegateClassName=Atmos.SceneDelegate`; cold launch pass (no `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`, no `EXC_BREAKPOINT`, 0 new Atmos `.ips`). `AtmosSceneLifecycle delivered URL to RCTLinkingManager` twice on each runtime (cold `atmos://scene-lifecycle-probe`, then warm `atmos://scene-lifecycle-probe-warm`). After each probe the app showed Expo Router "Route not found". That route is not a product screen; it shows the URL reached the JS router. Script printed `NOT RUN: universal links` and `PASS simulator: iOS 27.0 and iOS 26.5 cold start + custom-scheme deep links`.
-- `5c2f5072c8bb6606a9e7ec28d41eb1c497f35f14` only renames the spec. It was not rebuilt, and its native code matches `3929803de`. The review follow-up changes `SceneDelegate` again (`NSLog` only inside `notify`, `sceneDidDisconnect`, rewrite when the class line is missing). That Swift has no simulator run.
-- Dedup lock: `expectNotifyOnlyWhenLinkingManagerDidNotPost` parses `static func deliver`. Replacing the guard with unconditional `body(); notify()` fails that test. See the command log in the PR. Universal links → **not run**. S8 → **pending / not run**.
-- `ci-mobile-ios-parity.yml` on `01075c6024a9f4a05d4b641991034ffcf1bf3188` → pass. Run [39206606309](https://github.com/AruNi-01/atmos/actions/runs/39206606309). `structural` job success (2m20s), including mobile `bun test`. `ios-simulator` job success (1h0m15s): Xcode 26.5, iPhone 17 Pro, iOS 26.5, Release. The job runs `verify-ios-scene-lifecycle.sh built-plist` and then the parity capture, which cold-launches `land.atmos.mobile` and rejects a black window. This VM did not download the PNG artifacts. The job does not grep `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` and does not call `simctl openurl`.
-- CI - JS run [39206606232](https://github.com/AruNi-01/atmos/actions/runs/39206606232) → `oxlint` pass (51s), `oxfmt` pass (54s).
-- CodeQL run [39206604231](https://github.com/AruNi-01/atmos/actions/runs/39206604231) → pass. Not a functional check for this change.
+- `5c2f5072c8bb6606a9e7ec28d41eb1c497f35f14` only renames the spec. It was not rebuilt, and its native code matches `3929803de`.
+- Dedup lock: `expectNotifyOnlyWhenLinkingManagerDidNotPost` parses `static func deliver`. Replacing the guard with unconditional `body(); notify()` fails that test (`expect(guardAt).toBeGreaterThan(-1)` received -1). Keeping the guard and adding a second `notify()` also fails (`expect(outsideGuard).not.toContain("notify()")`). Restored plugin exits 0. Universal links → **not run**. S8 → **pending / not run**.
+- `ci-mobile-ios-parity.yml` on `74a2e1841a97f36667a88164b02078d3f5f215b6` → pass. Run [39236707389](https://github.com/AruNi-01/atmos/actions/runs/39236707389). `structural` job success (2m39s), including mobile `bun test`. `ios-simulator` job success (50m2s): Xcode 26.5, iPhone 17 Pro, iOS 26.5, Release, `EXPO_PUBLIC_PARITY_PREVIEW=1`. Prebuild printed `source UISceneDelegateClassName=$(PRODUCT_MODULE_NAME).SceneDelegate` and `AppDelegate.swift scene lifecycle ok`. The Release build printed `BUILD SUCCEEDED` and `built UISceneDelegateClassName=Atmos.SceneDelegate`. The parity capture cold-launches `land.atmos.mobile` and rejects a black window. This VM did not download the PNG artifacts. The job does not grep `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` and does not call `simctl openurl`. The earlier run [39206606309](https://github.com/AruNi-01/atmos/actions/runs/39206606309) on `01075c602` is the same gate before `sceneDidDisconnect`.
+- CI - JS run [39236707320](https://github.com/AruNi-01/atmos/actions/runs/39236707320) on the same SHA → `oxlint` pass (52s), `oxfmt` pass (51s).
+- CodeQL run [39236702328](https://github.com/AruNi-01/atmos/actions/runs/39236702328) → pass. Not a functional check for this change.
+- Mac rebuild of `74a2e1841` (iOS 27.0 cold start, notify-only URL log, `sceneDidDisconnect`) → **not run**.
 
 ### Status
 
@@ -191,9 +192,9 @@ Recorded 2026-10-19. Linux commands ran on the cloud VM. S3 is the GitHub Action
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | S1       | pass — `plugins/with-ios-scene-lifecycle.test.js`                                                                                                                                                                                        |
 | S2       | pass — `verify-ios-scene-lifecycle.sh structural` after prebuild, including the parity-preview prebuild                                                                                                                                  |
-| S3       | pass — GitHub `ios-simulator` job on run 39206606309 (iOS 26.5 Release, built plist, parity capture). PNGs were not downloaded here.                                                                                                     |
+| S3       | pass — GitHub `ios-simulator` on run 39236707389 (`74a2e1841`, iOS 26.5 Release, built plist `Atmos.SceneDelegate`, parity capture). PNGs were not downloaded here.                                                                      |
 | S4       | partial — unit lock passes (`notify()` only inside `if !observer.wasNotified`, log only inside `notify`). Simulator 2× log on `3929803de` used the unconditional `NSLog`. This head's log placement is not_run. Universal links not_run. |
 | S5       | pass — unit test (user-activity keys and `scene(_:continue:)`). Universal-link end to end not_run.                                                                                                                                       |
-| S6       | partial — cold start passed on `3929803de` (iOS 27.0 iPhone 18 Pro and iOS 26.5 iPhone 17 Pro, 0 new Atmos `.ips`). This head adds `sceneDidDisconnect` and was not rebuilt. not_run for this head.                                      |
+| S6       | partial — GitHub iOS 26.5 Release of `74a2e1841` built and the parity job cold-launched it (no runtime-issue grep). Mac cold start, including iOS 27.0, passed on `3929803de` only. This head's Mac script is not_run.                   |
 | S7       | pass — `app.config.test.js` keeps `UIApplicationSceneManifest` and `./plugins/with-ios-scene-lifecycle.js` under `EXPO_PUBLIC_PARITY_PREVIEW=1`.                                                                                         |
 | S8       | pending — iOS 27 background then foreground `AppState`. not_run.                                                                                                                                                                         |
