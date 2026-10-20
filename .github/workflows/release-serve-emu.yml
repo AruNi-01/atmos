@@ -36,16 +36,21 @@ jobs:
       - name: Resolve release tag
         id: meta
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CREATE_RELEASE: ${{ github.event.inputs.create_release }}
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+          PRERELEASE_INPUT: ${{ github.event.inputs.prerelease }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "$EVENT_NAME" = "push" ]; then
             echo "create_release=true" >> "$GITHUB_OUTPUT"
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           else
-            echo "create_release=${{ github.event.inputs.create_release }}" >> "$GITHUB_OUTPUT"
-            echo "tag=${{ github.event.inputs.release_tag }}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=${{ github.event.inputs.prerelease }}" >> "$GITHUB_OUTPUT"
+            echo "create_release=$CREATE_RELEASE" >> "$GITHUB_OUTPUT"
+            echo "tag=$RELEASE_TAG_INPUT" >> "$GITHUB_OUTPUT"
+            echo "prerelease=$PRERELEASE_INPUT" >> "$GITHUB_OUTPUT"
           fi
       - name: Upload GitHub Release
         if: steps.meta.outputs.create_release == 'true'

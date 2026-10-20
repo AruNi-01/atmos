@@ -54,19 +54,21 @@ jobs:
         env:
           RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
           WORKFLOW_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             TAG="$RELEASE_TAG_INPUT"
             if [ -z "$TAG" ]; then
               echo "release_tag is required when running manually."
               exit 1
             fi
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+          elif [ "$EVENT_NAME" = "workflow_run" ]; then
             TAG="$WORKFLOW_HEAD_BRANCH"
           else
-            TAG="${{ github.event.release.tag_name }}"
+            TAG="$RELEASE_TAG_NAME"
           fi
 
           # Prefer Electron production tags; keep legacy Tauri `desktop-*`.
@@ -83,7 +85,7 @@ jobs:
           # overwrite the stable cask. workflow_dispatch is always allowed
           # because the operator opts in explicitly. The release-event path
           # is already filtered by github.event.release.prerelease at job level.
-          if [ "${{ github.event_name }}" = "workflow_run" ] && [[ "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
+          if [ "$EVENT_NAME" = "workflow_run" ] && [[ "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
             echo "Detected prerelease tag $TAG; skipping Homebrew tap sync."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0

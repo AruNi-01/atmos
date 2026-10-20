@@ -116,10 +116,16 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          CREATE_RELEASE: ${{ github.event.inputs.create_release }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
+          CHECKOUT_REF: ${{ github.event.inputs.ref }}
+          PLATFORM: ${{ github.event.inputs.platform }}
         run: |
           set -euo pipefail
 
-          EVENT="${{ github.event_name }}"
+          EVENT="$EVENT_NAME"
 
           matrix_for_platform() {
             case "$1" in
@@ -195,12 +201,6 @@ jobs:
             echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
-          CREATE_RELEASE="${{ github.event.inputs.create_release }}"
-          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
-          PRERELEASE="${{ github.event.inputs.prerelease }}"
-          CHECKOUT_REF="${{ github.event.inputs.ref }}"
-          PLATFORM="${{ github.event.inputs.platform }}"
 
           if [ -z "$CHECKOUT_REF" ]; then
             CHECKOUT_REF="main"

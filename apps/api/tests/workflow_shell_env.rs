@@ -1,9 +1,25 @@
-//! QUALITY-015: release sync scripts must not interpolate untrusted refs in `run:`.
+//! QUALITY-015: release scripts must not interpolate untrusted refs in `run:`.
 
 use std::path::Path;
 
 const HEAD_BRANCH_EXPR: &str = "${{ github.event.workflow_run.head_branch }}";
 const RELEASE_TAG_EXPR: &str = "${{ github.event.inputs.release_tag }}";
+
+/// Sync workflows plus the release workflows whose `inputs.*` moved into `env:`.
+const SCANNED_WORKFLOWS: &[&str] = &[
+    "sync-homebrew-tap.yml",
+    "sync-r2.yml",
+    "release-cli.yml",
+    "release-desktop.yml",
+    "release-desktop-electron.yml",
+    "release-local-runtime.yml",
+    "release-local-model-runtime.yml",
+    "release-serve-emu.yml",
+    "release-serve-sim.yml",
+];
+
+/// Direct context expressions inside `run:`. Job `if:` and step `env:` may keep them.
+const RUN_BODY_FORBIDDEN: &[&str] = &["${{ github.event.", "${{ github.event_name", "${{ inputs."];
 
 fn workflow_text(name: &str) -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -47,6 +63,17 @@ fn run_bodies(yaml: &str) -> String {
 
 #[test]
 fn release_workflows_pass_untrusted_refs_through_env() {
+    for name in SCANNED_WORKFLOWS {
+        let yaml = workflow_text(name);
+        let bodies = run_bodies(&yaml);
+        for expression in RUN_BODY_FORBIDDEN {
+            assert!(
+                !bodies.contains(expression),
+                "{name} run body still interpolates {expression}\n{bodies}"
+            );
+        }
+    }
+
     for name in ["sync-homebrew-tap.yml", "sync-r2.yml"] {
         let yaml = workflow_text(name);
         let bodies = run_bodies(&yaml);
