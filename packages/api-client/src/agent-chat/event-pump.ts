@@ -18,6 +18,7 @@ export type AgentChatEventPump = {
   readonly hydrating: boolean;
   readonly gate: AgentChatEventGate;
   startHydrate(): AgentChatHydrateGeneration;
+  isHydrateGeneration(generation?: AgentChatHydrateGeneration): boolean;
   ingest(event: AgentChatEvent): AgentChatPumpIngest;
   finishHydrate(
     snapshotSeq: number,
@@ -64,6 +65,9 @@ export function createAgentChatEventPump(
       hydrating = true;
       generation += 1;
       return generation;
+    },
+    isHydrateGeneration(token?: AgentChatHydrateGeneration) {
+      return isCurrent(token);
     },
     ingest(event: AgentChatEvent): AgentChatPumpIngest {
       if (hydrating) {

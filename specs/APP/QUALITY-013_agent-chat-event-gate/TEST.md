@@ -214,7 +214,7 @@ Implemented on `aarynlu/agent-chat-event-gate-1212`. iOS Simulator: **not run**.
 Commands:
 
 ```bash
-bun run --filter @atmos/api-client test   # 82 pass
+bun run --filter @atmos/api-client test   # 83 pass
 bun test apps/mobile/src/features/agent-chat/{event-gate-probes,hydrate-recovery,session-resume,use-agent-chat-thread,fold-transcript,fold-cards,commit-buffer-wire}.test.ts
 bun test apps/web/src/features/agent/lib/__tests__/agent-chat-{events,stream-wiring,transcript-window}.test.ts
 bun run --filter @atmos/api-client typecheck

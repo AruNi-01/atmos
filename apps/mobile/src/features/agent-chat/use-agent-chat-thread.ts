@@ -177,6 +177,7 @@ export function useAgentChatThread(chatId: string) {
       snapshot: Awaited<ReturnType<typeof wsActions.agentChatGet>>,
       generation?: number,
     ) => {
+      if (!pump.isHydrateGeneration(generation)) return;
       const applied = applyAgentChatResync(chatId, snapshot, recentEvents);
       transcriptRef.current = applied.state;
       for (const request of applied.backfills) requestBackfill(request);
@@ -258,11 +259,11 @@ export function useAgentChatThread(chatId: string) {
       }
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
-      if (rememberChatEvent(recentEvents, event)) markOpenThreadOverflow(resyncCtrl);
       const decision = pump.ingest(event);
-      applyDecision(decision);
-      if (decision.action === "apply" && decision.gap?.recommend === "resync") {
-        void resyncFromSnapshot();
+      if (decision.action === "apply") {
+        if (rememberChatEvent(recentEvents, event)) markOpenThreadOverflow(resyncCtrl);
+        applyDecision(decision);
+        if (decision.gap?.recommend === "resync") void resyncFromSnapshot();
       }
     });
 

@@ -41,6 +41,11 @@ describe("useAgentChatThread restore", () => {
     expect(thread).toContain("applyAgentChatResync");
     expect(thread).toContain("pump.finishHydrate(seq, generation)");
     expect(thread).toContain("pump.startHydrate()");
+    expect(thread).toContain("pump.isHydrateGeneration(generation)");
+    expect(thread.indexOf("pump.isHydrateGeneration(generation)")).toBeLessThan(
+      thread.indexOf("applyAgentChatResync(chatId, snapshot, recentEvents)"),
+    );
+    expect(thread.indexOf("pump.ingest(event)")).toBeLessThan(thread.indexOf("rememberChatEvent("));
     expect(thread).toContain("prev === copy.sendFailed ? prev : null");
     const resyncAt = thread.indexOf("parseAgentChatResync(message)");
     const publishAt = thread.indexOf("applyOpenThreadResync({");

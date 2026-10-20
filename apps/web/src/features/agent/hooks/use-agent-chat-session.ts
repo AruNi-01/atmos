@@ -663,6 +663,7 @@ export function useAgentChatSession({
     async (id = activeChatId) => {
       if (!id) return;
       const snapshot = await agentChatApi.get(id);
+      if (id !== activeIdRef.current) return;
       const meta = snapshot.meta;
       setTitle(meta.title?.trim() || null);
       const loadedMessages = withStableAgentMessageIds(
@@ -770,6 +771,7 @@ export function useAgentChatSession({
       } finally {
         setHistoryLoading(false);
       }
+      if (id !== activeIdRef.current) return meta.last_event_seq ?? 0;
       persistAgentChatLastSession({
         workspaceId: meta.workspace_id ?? (isolatedModal ? null : paintHostScope.workspaceId),
         projectId: meta.project_id ?? (isolatedModal ? null : paintHostScope.projectId),
@@ -1032,6 +1034,7 @@ export function useAgentChatSession({
       setIsResumingHistory(false);
     }
     const id = activeChatId;
+    let cancelled = false;
     hydratingRef.current = true;
     pendingEventsRef.current = [];
     backfillInFlightRef.current = new Set();
@@ -1241,6 +1244,7 @@ export function useAgentChatSession({
     };
     void load(id)
       .then(async (snapshotSeq) => {
+        if (cancelled) return;
         pendingEventsRef.current = [];
         hydratingRef.current = false;
         for (const decision of eventPump.finishHydrate(snapshotSeq ?? 0)) {
@@ -1248,15 +1252,21 @@ export function useAgentChatSession({
           foldLiveEvent(decision.event);
         }
         const subscribed = await agentChatApi.subscribe(id, eventPump.cursor);
+        if (cancelled) return;
         if (eventPump.shouldResyncFromServer(subscribed.last_event_seq ?? 0)) {
           const hydrateGen = eventPump.startHydrate();
           const resyncSeq = await load(id);
+          if (cancelled) {
+            eventPump.abandonHydrate(hydrateGen);
+            return;
+          }
           for (const decision of eventPump.finishHydrate(resyncSeq ?? 0, hydrateGen)) {
             if (decision.action !== "apply") continue;
             foldLiveEvent(decision.event);
           }
           await agentChatApi.subscribe(id, eventPump.cursor);
         }
+        if (cancelled) return;
         const queued = pendingSendRef.current;
         pendingSendRef.current = null;
         if (queued) {
@@ -1265,6 +1275,7 @@ export function useAgentChatSession({
         }
       })
       .catch(() => {
+        if (cancelled) return;
         for (const decision of eventPump.abandonHydrate()) {
           if (decision.action !== "apply") continue;
           foldLiveEvent(decision.event);
@@ -1282,6 +1293,7 @@ export function useAgentChatSession({
         applyEvent(event);
       });
     return () => {
+      cancelled = true;
       flushChatCommitRef.current = () => {};
       window.clearInterval(flushTimer);
       off();

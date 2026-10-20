@@ -116,6 +116,15 @@ describe("AgentChatEventPump hydrate", () => {
     expect(pump.finishHydrate(10, second)).toHaveLength(1);
   });
 
+  test("isHydrateGeneration is false for a superseded hydrate token", () => {
+    const pump = createAgentChatEventPump();
+    const first = pump.startHydrate();
+    const second = pump.startHydrate();
+    expect(pump.isHydrateGeneration(first)).toBe(false);
+    expect(pump.isHydrateGeneration(second)).toBe(true);
+    expect(pump.isHydrateGeneration()).toBe(true);
+  });
+
   test("a later façade snapshot reuses the same floor and cannot recede", () => {
     const pump = createAgentChatEventPump();
     pump.startHydrate();
