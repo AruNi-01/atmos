@@ -11,6 +11,9 @@ import {
 import { copy } from "./copy";
 import { scrollBelowUnit, scrollPillAccessibilityLabel } from "./stick";
 
+/** Stable XCUITest identifier. The spoken label changes with the below count. */
+export const SCROLL_PILL_TEST_ID = "agent-chat-scroll-pill";
+
 /** Web `AgentChatScrollBelowCopy` is `text-xs leading-none font-medium`. */
 const labelMetrics = {
   fontSize: 12,
@@ -34,6 +37,7 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
         accessibilityLabel={scrollPillAccessibilityLabel(count)}
         accessibilityRole="button"
         onPress={onPress}
+        testID={SCROLL_PILL_TEST_ID}
         style={({ pressed }) => ({
           alignItems: "center",
           height: COMPOSER_GLASS_CONTROL_SIZE,
