@@ -1,6 +1,6 @@
 //! Git operations for workspace management.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::error::{EngineError, Result};
@@ -27,23 +27,112 @@ pub(crate) use worktrees::is_linked_worktree;
 
 /// Run a git command in the given repo directory and return stdout on success.
 fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
-    let bytes = run_git_bytes(repo_path, args)?;
+    run_git_with_ceiling(repo_path, args, None, false)
+}
+
+fn run_git_with_ceiling(
+    repo_path: &Path,
+    args: &[&str],
+    ceiling: Option<&Path>,
+    omit_no_lazy_fetch: bool,
+) -> Result<String> {
+    let bytes = run_git_bytes_with_ceiling(repo_path, args, ceiling, omit_no_lazy_fetch)?;
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
 
+/// Config overrides for the git-blob subprocesses.
+///
+/// `protocol.allow` does not override a local `protocol.<name>.allow`, so the
+/// built-in transports are locked individually. That includes `ftp`, `ftps`,
+/// and `fd`, which git ships as remote helpers. `core.fsmonitor=false`
+/// overrides a command in the repository config. An arbitrary `foo::` helper
+/// is not in this list; git-blob refuses promisor and partial-clone repos
+/// before any object command instead of trying to name every helper.
+const GIT_BLOB_LOCKED_CONFIG: &[&str] = &[
+    "protocol.allow=never",
+    "protocol.file.allow=never",
+    "protocol.ext.allow=never",
+    "protocol.ssh.allow=never",
+    "protocol.http.allow=never",
+    "protocol.https.allow=never",
+    "protocol.git.allow=never",
+    "protocol.ftp.allow=never",
+    "protocol.ftps.allow=never",
+    "protocol.fd.allow=never",
+    "core.fsmonitor=false",
+];
+
+struct GitCommandOutput {
+    status: std::process::ExitStatus,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
+fn git_blob_command(repo_path: &Path, ceiling: Option<&Path>, omit_no_lazy_fetch: bool) -> Command {
+    let mut command = Command::new("git");
+    command.current_dir(repo_path);
+    if let Some(ceiling) = ceiling {
+        // Git stops the upward repository search before entering this directory.
+        // The git-blob path is the only caller that sets a ceiling. It also drops
+        // inherited repository-location variables so a parent `GIT_DIR` cannot
+        // redirect the read. Following a `.git` gitdir file is not a ceiling walk.
+        // `GIT_NO_LAZY_FETCH=1` is defense in depth for git 2.44+. Callers pass
+        // `omit_no_lazy_fetch` only from a test build. Production passes false
+        // and always exports the variable. The `-c` values override repository
+        // config for the locked transports and fsmonitor, and they sit before
+        // the subcommand.
+        command.env("GIT_CEILING_DIRECTORIES", ceiling);
+        if omit_no_lazy_fetch {
+            command.env_remove("GIT_NO_LAZY_FETCH");
+        } else {
+            command.env("GIT_NO_LAZY_FETCH", "1");
+        }
+        for key in [
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_COMMON_DIR",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        ] {
+            command.env_remove(key);
+        }
+        for setting in GIT_BLOB_LOCKED_CONFIG {
+            command.arg("-c").arg(*setting);
+        }
+    }
+    command
+}
+
+fn run_git_command_with_ceiling(
+    repo_path: &Path,
+    args: &[&str],
+    ceiling: Option<&Path>,
+    omit_no_lazy_fetch: bool,
+) -> Result<GitCommandOutput> {
+    let mut command = git_blob_command(repo_path, ceiling, omit_no_lazy_fetch);
+    command.args(args);
+    let output = command.output().map_err(|e| {
+        EngineError::Git(format!(
+            "Failed to execute git {}: {}",
+            args.first().unwrap_or(&""),
+            e
+        ))
+    })?;
+    Ok(GitCommandOutput {
+        status: output.status,
+        stdout: output.stdout,
+        stderr: output.stderr,
+    })
+}
+
 /// Run a git command and return raw stdout bytes on success.
-fn run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Vec<u8>> {
-    let output = Command::new("git")
-        .current_dir(repo_path)
-        .args(args)
-        .output()
-        .map_err(|e| {
-            EngineError::Git(format!(
-                "Failed to execute git {}: {}",
-                args.first().unwrap_or(&""),
-                e
-            ))
-        })?;
+fn run_git_bytes_with_ceiling(
+    repo_path: &Path,
+    args: &[&str],
+    ceiling: Option<&Path>,
+    omit_no_lazy_fetch: bool,
+) -> Result<Vec<u8>> {
+    let output = run_git_command_with_ceiling(repo_path, args, ceiling, omit_no_lazy_fetch)?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(EngineError::Git(format!(
@@ -83,21 +172,263 @@ fn try_run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Option<Vec<u8>>>
     }
 }
 
+/// Whether local or worktree config marks this repository as a partial clone
+/// or a promisor remote.
+///
+/// Called before any git command that can fetch. The read is
+/// `git config --local/--worktree --includes` from `repo_path`, so `include`,
+/// `includeIf`, and `config.worktree` match the repository a later object
+/// command would see. Global and system config are not consulted. A missing
+/// key is `Ok(false)`. `extensions.partialClone` with any value, or any
+/// `remote.*.promisor` boolean that is true, is `Ok(true)`. A failed read is
+/// `Err` so the caller can fail closed.
+pub fn git_blob_repo_has_promisor(
+    repo_path: &Path,
+    ceiling: &Path,
+    omit_no_lazy_fetch: bool,
+) -> Result<bool> {
+    if config_scope_has_promisor(repo_path, ceiling, "--local", omit_no_lazy_fetch)? {
+        return Ok(true);
+    }
+    config_scope_has_promisor(repo_path, ceiling, "--worktree", omit_no_lazy_fetch)
+}
+
+fn config_scope_has_promisor(
+    repo_path: &Path,
+    ceiling: &Path,
+    scope: &str,
+    omit_no_lazy_fetch: bool,
+) -> Result<bool> {
+    let partial = run_git_command_with_ceiling(
+        repo_path,
+        &[
+            "config",
+            scope,
+            "--includes",
+            "--get",
+            "extensions.partialclone",
+        ],
+        Some(ceiling),
+        omit_no_lazy_fetch,
+    )?;
+    if partial.status.success() {
+        return Ok(true);
+    }
+    if !config_key_absent(&partial) {
+        return Err(config_read_error(scope, &partial));
+    }
+
+    let promisor = run_git_command_with_ceiling(
+        repo_path,
+        &[
+            "config",
+            scope,
+            "--includes",
+            "--type=bool",
+            "--get-regexp",
+            r"^remote\..*\.promisor$",
+        ],
+        Some(ceiling),
+        omit_no_lazy_fetch,
+    )?;
+    if promisor.status.success() {
+        return promisor_values_include_true(&promisor.stdout);
+    }
+    if config_key_absent(&promisor) {
+        return Ok(false);
+    }
+    Err(config_read_error(scope, &promisor))
+}
+
+/// Exit 1 with no key is "not set".
+///
+/// A linked worktree without `extensions.worktreeConfig` makes
+/// `git config --worktree` exit 128 and print that the extension is required.
+/// That is "no worktree promisor", not a broken config file.
+fn config_key_absent(output: &GitCommandOutput) -> bool {
+    if !output.stdout.iter().all(|byte| byte.is_ascii_whitespace()) {
+        return false;
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let trimmed = stderr.trim();
+    match output.status.code() {
+        Some(1) => trimmed.is_empty(),
+        Some(128) => worktree_config_extension_disabled(trimmed),
+        _ => false,
+    }
+}
+
+fn worktree_config_extension_disabled(stderr: &str) -> bool {
+    let lower = stderr.to_ascii_lowercase();
+    lower.contains("multiple working trees") && lower.contains("worktreeconfig")
+}
+
+fn config_read_error(scope: &str, output: &GitCommandOutput) -> EngineError {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    EngineError::Git(format!(
+        "git config {scope} failed ({}): {}",
+        output.status.code().unwrap_or(-1),
+        stderr.trim()
+    ))
+}
+
+fn promisor_values_include_true(stdout: &[u8]) -> Result<bool> {
+    let text = std::str::from_utf8(stdout)
+        .map_err(|_| EngineError::Git("git config promisor output was not utf-8".to_string()))?;
+    let mut saw_line = false;
+    let mut any_true = false;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        saw_line = true;
+        let Some((key, value)) = line.rsplit_once(' ') else {
+            return Err(EngineError::Git(format!(
+                "git config promisor line was not a key and a bool: {line}"
+            )));
+        };
+        if !is_remote_promisor_key(key) {
+            return Err(EngineError::Git(format!(
+                "git config returned an unexpected promisor key: {key}"
+            )));
+        }
+        match value {
+            "true" => any_true = true,
+            "false" => {}
+            other => {
+                return Err(EngineError::Git(format!(
+                    "git config promisor bool was {other}"
+                )));
+            }
+        }
+    }
+    if !saw_line {
+        return Err(EngineError::Git(
+            "git config reported a promisor key with empty output".to_string(),
+        ));
+    }
+    Ok(any_true)
+}
+
+fn is_remote_promisor_key(key: &str) -> bool {
+    let Some(rest) = key.strip_prefix("remote.") else {
+        return false;
+    };
+    let Some((name, field)) = rest.rsplit_once('.') else {
+        return false;
+    };
+    field == "promisor" && !name.is_empty()
+}
+
+/// Toplevel checkout, git directory, and common directory from `rev-parse`.
+///
+/// `common_dir` is where objects live. For a linked worktree it is the main
+/// repository's git dir, which may differ from `git_dir`. A normal repository
+/// often reports it as a relative `.git`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitRepoIdentity {
+    pub toplevel: PathBuf,
+    pub git_dir: PathBuf,
+    pub common_dir: PathBuf,
+}
+
+/// `rev-parse --show-toplevel --absolute-git-dir --git-common-dir` with an upward-search ceiling.
+///
+/// `ceiling` is `GIT_CEILING_DIRECTORIES`. Git will not walk into that directory
+/// or above it while discovering a repository. A `gitdir:` file under the
+/// starting directory is still followed.
+pub fn resolve_git_repo_identity(
+    repo_path: &Path,
+    ceiling: &Path,
+    omit_no_lazy_fetch: bool,
+) -> Result<GitRepoIdentity> {
+    let text = run_git_with_ceiling(
+        repo_path,
+        &[
+            "rev-parse",
+            "--show-toplevel",
+            "--absolute-git-dir",
+            "--git-common-dir",
+        ],
+        Some(ceiling),
+        omit_no_lazy_fetch,
+    )?;
+    let mut lines = text.lines().map(str::trim).filter(|line| !line.is_empty());
+    let Some(toplevel) = lines.next() else {
+        return Err(EngineError::Git(
+            "git rev-parse returned no toplevel".to_string(),
+        ));
+    };
+    let Some(git_dir) = lines.next() else {
+        return Err(EngineError::Git(
+            "git rev-parse returned no git dir".to_string(),
+        ));
+    };
+    let Some(common_dir) = lines.next() else {
+        return Err(EngineError::Git(
+            "git rev-parse returned no common dir".to_string(),
+        ));
+    };
+    if lines.next().is_some() {
+        return Err(EngineError::Git(
+            "git rev-parse returned extra lines".to_string(),
+        ));
+    }
+    Ok(GitRepoIdentity {
+        toplevel: PathBuf::from(toplevel),
+        git_dir: PathBuf::from(git_dir),
+        common_dir: PathBuf::from(common_dir),
+    })
+}
+
 /// Show a blob (`rev:path` or `:path`) as raw bytes.
 ///
 /// Resolves the object with `rev-parse` then reads via `cat-file blob` so the
 /// spec is never parsed as a `git show` option (e.g. `--output=...`).
 pub fn show_git_blob_bytes(repo_path: &Path, rev_path_spec: &str) -> Result<Vec<u8>> {
+    read_git_blob(repo_path, rev_path_spec, None, false)
+}
+
+/// Same as [`show_git_blob_bytes`], but git will not search above `ceiling`.
+///
+/// `omit_no_lazy_fetch` drops `GIT_NO_LAZY_FETCH` for a test build. Production
+/// passes `false`, which always sets the variable to `1`.
+pub fn show_git_blob_bytes_with_ceiling(
+    repo_path: &Path,
+    rev_path_spec: &str,
+    ceiling: &Path,
+    omit_no_lazy_fetch: bool,
+) -> Result<Vec<u8>> {
+    read_git_blob(repo_path, rev_path_spec, Some(ceiling), omit_no_lazy_fetch)
+}
+
+fn read_git_blob(
+    repo_path: &Path,
+    rev_path_spec: &str,
+    ceiling: Option<&Path>,
+    omit_no_lazy_fetch: bool,
+) -> Result<Vec<u8>> {
     let spec = rev_path_spec.trim();
     if !is_safe_blob_show_spec(spec) {
         return Err(EngineError::Git("Invalid git blob show-spec".to_string()));
     }
-    let oid = run_git(repo_path, &["rev-parse", "--verify", "--quiet", spec])?;
+    let oid = run_git_with_ceiling(
+        repo_path,
+        &["rev-parse", "--verify", "--quiet", spec],
+        ceiling,
+        omit_no_lazy_fetch,
+    )?;
     let oid = oid.trim();
     if oid.is_empty() {
         return Err(EngineError::Git("Blob object not found".to_string()));
     }
-    run_git_bytes(repo_path, &["cat-file", "blob", oid])
+    run_git_bytes_with_ceiling(
+        repo_path,
+        &["cat-file", "blob", oid],
+        ceiling,
+        omit_no_lazy_fetch,
+    )
 }
 
 fn is_safe_blob_show_spec(spec: &str) -> bool {
