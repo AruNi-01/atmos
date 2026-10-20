@@ -276,10 +276,16 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("eventPump.abandonHydrate()");
     expect(session).toContain("let cancelled = false");
     expect(session).toContain("cancelled = true");
-    expect(session).toContain("async (id = activeChatId, epoch?: number)");
+    expect(session).toContain("async (id = activeChatId, hydrateEpoch?: number)");
+    expect(session).toContain("const snapshotEpoch = ++snapshotEpochRef.current");
     expect(session).toContain("if (id !== activeIdRef.current) return");
-    expect(session).toContain("if (epoch != null && epoch !== loadEpochRef.current) return");
+    expect(session).toContain("if (snapshotEpoch !== snapshotEpochRef.current) return");
+    expect(session).toContain(
+      "if (hydrateEpoch != null && hydrateEpoch !== hydrateEpochRef.current) return",
+    );
     expect(session).toContain("A list() failure must not reject load() after");
+    expect(session).toContain("if (id) void load(id)");
+    expect(session).toContain("void load(activeChatId)");
     const hydrateThenAt = session.indexOf(
       "const hydrateStale = () => cancelled || id !== activeIdRef.current",
     );
@@ -287,13 +293,14 @@ describe("transcript virtual list wiring", () => {
     expect(hydrateThenAt).toBeGreaterThan(-1);
     expect(hydrateCleanupAt).toBeGreaterThan(hydrateThenAt);
     const hydrateThen = session.slice(hydrateThenAt, hydrateCleanupAt);
-    expect(hydrateThen).toContain("const epoch = ++loadEpochRef.current");
-    expect(hydrateThen).toContain("void load(id, epoch)");
+    expect(hydrateThen).toContain("const hydrateEpoch = ++hydrateEpochRef.current");
+    expect(hydrateThen).toContain("void load(id, hydrateEpoch)");
     expect(hydrateThen).toContain("if (snapshotSeq == null)");
     expect(hydrateThen).toContain("drainHydrate()");
-    expect(hydrateThen).toContain("const resyncSeq = await load(id, epoch)");
+    expect(hydrateThen).toContain("const resyncSeq = await load(id, hydrateEpoch)");
     expect(hydrateThen).toContain("drainHydrate(hydrateGen)");
     expect(hydrateThen).toContain("if (hydrateStale()) return");
+    expect(hydrateThen).not.toContain("++snapshotEpochRef");
     expect(session.indexOf("eventPump.finishHydrate")).toBeLessThan(
       session.indexOf("agentChatApi.subscribe(id, eventPump.cursor)"),
     );
