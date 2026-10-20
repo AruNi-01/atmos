@@ -58,14 +58,17 @@ describe("useAgentChatThread restore", () => {
     expect(thread).toContain("prev === copy.sendFailed ? prev : null");
     const resyncAt = thread.indexOf("parseAgentChatResync(message)");
     const publishAt = thread.indexOf("applyOpenThreadResync({");
-    const facadeAt = thread.indexOf("facadeHydrateGen ?? pump.startHydrate()");
+    const facadeAt = thread.indexOf("createFacadeHydrateSession(pump,");
     const finishAt = thread.indexOf("pump.finishHydrate(seq, generation)");
     expect(resyncAt).toBeGreaterThan(-1);
     expect(publishAt).toBeGreaterThan(resyncAt);
-    expect(facadeAt).toBeGreaterThan(publishAt);
-    expect(thread.indexOf("applySnapshot(snapshot, generation)", publishAt)).toBeGreaterThan(
+    expect(facadeAt).toBeGreaterThan(resyncAt);
+    expect(facadeAt).toBeLessThan(publishAt);
+    expect(thread.indexOf("applySnapshot(snapshot, facade.takeGeneration())")).toBeGreaterThan(
       publishAt,
     );
+    expect(thread).toContain("return applied");
+    expect(thread).not.toContain("let facadeHydrateGen");
     expect(finishAt).toBeGreaterThan(-1);
     expect(thread).not.toContain("if (!ready) return");
   });

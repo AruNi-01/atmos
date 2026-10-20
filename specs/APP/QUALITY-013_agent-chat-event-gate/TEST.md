@@ -145,7 +145,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 - **Given**: QUALITY-012 `agent_chat_resync` after #324 (`ad35a233`) is on `main`.
 - **When**: the open-thread hook receives the façade message.
 - **Then**: it parses `chat_id`, publishes through `applyOpenThreadResync`, and `applySnapshot` calls `pump.finishHydrate(seq)` → `observeSnapshot`. A later lower seq cannot recede the floor. Live events buffered during that hydrate drain through the same gate; drain `apply` decisions are remembered for the next snapshot replay.
-- **Signals**: hook source strings; `event-pump.test.ts` façade snapshot tests.
+- **Signals**: hook source strings; `event-pump.test.ts` façade snapshot tests; `open-thread-resync.test.ts` `keeps overflowed when publish does not apply`; `facade-hydrate.test.ts` fail-then-success interleave and stale generation.
 
 ## Performance & load budgets
 
@@ -195,27 +195,27 @@ Omitted. No new user-facing chrome.
 
 Implemented on `aarynlu/agent-chat-event-gate-1212`. iOS Simulator: **not run**.
 
-| Scenario | Status | Proof                                                                                                                                |
-| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| S1       | pass   | `event-gate.test.ts` SessionStarted shared `event_id`                                                                                |
-| S2       | pass   | `event-gate.test.ts` + mobile `event-gate-probes.test.ts` `part_closed` then `turn_completed`                                        |
-| S3       | pass   | Lagged replay tests in `event-gate.test.ts`                                                                                          |
-| S4–S7    | pass   | probe regressions in api-client and mobile fold                                                                                      |
-| S8       | pass   | snapshot floor test; mobile delayed queue                                                                                            |
-| S8b      | pass   | `event-gate.test.ts` `observeSnapshot cannot lower the snapshot floor`                                                               |
-| S9–S10   | pass   | `event-pump.test.ts` hydrate + generation                                                                                            |
-| S11–S12  | pass   | catch_up / resync gap tests; next seq is not a gap                                                                                   |
-| S12b     | pass   | `event-gate.test.ts` `live gap and shouldResyncFromServer share the ahead >= 32 boundary`                                            |
-| S13–S14  | pass   | `abandonHydrate` drain + live apply; `hydrate-recovery.test.ts`                                                                      |
-| S15–S16  | pass   | `session-resume.test.ts`; `use-agent-chat-thread.test.ts`                                                                            |
-| S17–S18  | pass   | transcript-window structural order; `agent-chat-events` 73 pass                                                                      |
-| S19      | pass   | `use-agent-chat-thread.test.ts` `applies agent_chat_resync through EventGate finishHydrate`; `event-pump.test.ts` façade floor tests |
+| Scenario | Status | Proof                                                                                                      |
+| -------- | ------ | ---------------------------------------------------------------------------------------------------------- |
+| S1       | pass   | `event-gate.test.ts` SessionStarted shared `event_id`                                                      |
+| S2       | pass   | `event-gate.test.ts` + mobile `event-gate-probes.test.ts` `part_closed` then `turn_completed`              |
+| S3       | pass   | Lagged replay tests in `event-gate.test.ts`                                                                |
+| S4–S7    | pass   | probe regressions in api-client and mobile fold                                                            |
+| S8       | pass   | snapshot floor test; mobile delayed queue                                                                  |
+| S8b      | pass   | `event-gate.test.ts` `observeSnapshot cannot lower the snapshot floor`                                     |
+| S9–S10   | pass   | `event-pump.test.ts` hydrate + generation                                                                  |
+| S11–S12  | pass   | catch_up / resync gap tests; next seq is not a gap                                                         |
+| S12b     | pass   | `event-gate.test.ts` `live gap and shouldResyncFromServer share the ahead >= 32 boundary`                  |
+| S13–S14  | pass   | `abandonHydrate` drain + live apply; `hydrate-recovery.test.ts`                                            |
+| S15–S16  | pass   | `session-resume.test.ts`; `use-agent-chat-thread.test.ts`                                                  |
+| S17–S18  | pass   | transcript-window structural order; `agent-chat-events` 73 pass                                            |
+| S19      | pass   | hook finishHydrate wiring; `facade-hydrate.test.ts` interleave + stale gen; publish-false keeps overflowed |
 
 Commands:
 
 ```bash
 bun run --filter @atmos/api-client test   # 83 pass
-bun test apps/mobile/src/features/agent-chat/{event-gate-probes,hydrate-recovery,session-resume,use-agent-chat-thread,fold-transcript,fold-cards,commit-buffer-wire}.test.ts
+bun test apps/mobile/src/features/agent-chat/{event-gate-probes,hydrate-recovery,session-resume,use-agent-chat-thread,open-thread-resync,facade-hydrate,fold-transcript,fold-cards,commit-buffer-wire}.test.ts
 bun test apps/web/src/features/agent/lib/__tests__/agent-chat-{events,stream-wiring,transcript-window}.test.ts
 bun run --filter @atmos/api-client typecheck
 bun --filter web typecheck

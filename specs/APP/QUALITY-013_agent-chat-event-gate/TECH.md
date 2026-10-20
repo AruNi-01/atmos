@@ -232,3 +232,9 @@ Merge-order copy: **#324 is already on main (`ad35a233`); #325 is based on it.**
 ## Implementation Delta · 2026-10-20 (drain replay)
 
 Gate-admitted events from `finishHydrate` / `abandonHydrate` are remembered in `applyDecision` so a later façade snapshot can fold them. Dropped live events stay out of the ring. Web hydrate continuation treats `load()` abort (`undefined`) as stale and checks `id !== activeIdRef.current` with `cancelled` (`hydrateStale`). Every `load()` uses `snapshotEpochRef` so an older same-chat snapshot cannot overwrite a newer one. The hydrate effect holds `hydrateEpochRef` so rewind/queue `load()` cannot bump that epoch. An aborted hydrate `load()` drains via `abandonHydrate`.
+
+## Implementation Delta · 2026-10-20 (overflow publish)
+
+`applyOpenThreadResync` clears `overflowed` only after `publish` returns a successful apply (`boolean | void`, not `false`) and `overflowGen` is still unchanged. `applySnapshot` returns `false` when the hydrate generation is stale, so a no-op replacement cannot drop the overflow flag.
+
+Each `agent_chat_resync` owns a `createFacadeHydrateSession` closure. The earlier fetch's error path abandons **its** generation; it cannot `abandonHydrate` a later overflow get.

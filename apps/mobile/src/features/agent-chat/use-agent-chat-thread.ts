@@ -37,6 +37,7 @@ import { parseAgentChatResync } from "@/api/mobile-ws-transport";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
+import { createFacadeHydrateSession } from "./facade-hydrate";
 import {
   applyOpenThreadResync,
   markOpenThreadOverflow,
@@ -102,7 +103,6 @@ export function useAgentChatThread(chatId: string) {
     let resyncing = false;
     let failedResyncs = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    let facadeHydrateGen: number | undefined;
     const clearResyncRetry = () => {
       if (retryTimer == null) return;
       clearTimeout(retryTimer);
@@ -177,8 +177,8 @@ export function useAgentChatThread(chatId: string) {
     const applySnapshot = (
       snapshot: Awaited<ReturnType<typeof wsActions.agentChatGet>>,
       generation?: number,
-    ) => {
-      if (!pump.isHydrateGeneration(generation)) return;
+    ): boolean => {
+      if (!pump.isHydrateGeneration(generation)) return false;
       const applied = applyAgentChatResync(chatId, snapshot, recentEvents);
       transcriptRef.current = applied.state;
       for (const request of applied.backfills) requestBackfill(request);
@@ -186,6 +186,7 @@ export function useAgentChatThread(chatId: string) {
       pruneChatEvents(recentEvents, seq);
       for (const decision of pump.finishHydrate(seq, generation)) applyDecision(decision);
       setTranscript(transcriptRef.current);
+      return true;
     };
 
     const subscribeFromCursor = async () => {
@@ -236,24 +237,18 @@ export function useAgentChatThread(chatId: string) {
     const unsubscribeMessages = client.subscribeMessages((message) => {
       const resync = parseAgentChatResync(message);
       if (resync && resync.chat_id === chatId) {
+        const facade = createFacadeHydrateSession(pump, (generation) => {
+          drainAbandonedHydrate(generation);
+        });
         void applyOpenThreadResync({
           ctrl: resyncCtrl,
           incoming: resync.snapshot,
-          fetchReplacement: async () => {
-            facadeHydrateGen = pump.startHydrate();
-            try {
-              return await wsActions.agentChatGet(client, { chat_id: chatId });
-            } catch (err) {
-              if (shouldAbandonAgentChatHydrate("error")) drainAbandonedHydrate(facadeHydrateGen);
-              facadeHydrateGen = undefined;
-              throw err;
-            }
-          },
+          fetchReplacement: () =>
+            facade.fetchSnapshot(() => wsActions.agentChatGet(client, { chat_id: chatId })),
           publish: (snapshot) => {
-            const generation = facadeHydrateGen ?? pump.startHydrate();
-            facadeHydrateGen = undefined;
-            applySnapshot(snapshot, generation);
-            setError((prev) => (prev === copy.sendFailed ? prev : null));
+            const applied = applySnapshot(snapshot, facade.takeGeneration());
+            if (applied) setError((prev) => (prev === copy.sendFailed ? prev : null));
+            return applied;
           },
         });
         return;
