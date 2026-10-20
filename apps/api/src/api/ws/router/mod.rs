@@ -36,6 +36,7 @@ mod workspace_notifications;
 mod workspace_setup;
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::{message::*, subscription::ConnectionTaskRegistry, WsManager, WsMessageHandler};
@@ -114,6 +115,88 @@ impl WsMessageService {
         agent_status_service: Arc<AgentStatusService>,
         db: Arc<DatabaseConnection>,
     ) -> Self {
+        Self::assemble(
+            project_service,
+            workspace_service,
+            group_service,
+            terminal_service,
+            agent_service,
+            automation_service,
+            review_service,
+            quota_usage_service,
+            canvas_agent_relay,
+            pt_design_agent_relay,
+            notification_service,
+            token_usage_service,
+            agent_status_service,
+            db,
+            default_chats_dir(),
+            default_agent_data_dir(),
+            options_probe_dir(),
+        )
+    }
+
+    /// Chat files and the options probe live under `agent_data_dir` (tests pass a temp root).
+    #[cfg(test)]
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new_with_agent_data_dir(
+        project_service: Arc<ProjectService>,
+        workspace_service: Arc<WorkspaceService>,
+        group_service: Arc<GroupService>,
+        terminal_service: Arc<TerminalService>,
+        agent_service: Arc<AgentService>,
+        automation_service: Arc<AutomationService>,
+        review_service: Arc<ReviewService>,
+        quota_usage_service: Arc<QuotaUsageService>,
+        canvas_agent_relay: Arc<CanvasAgentRelay>,
+        pt_design_agent_relay: Arc<CanvasAgentRelay>,
+        notification_service: Arc<NotificationService>,
+        token_usage_service: Arc<token_usage::TokenUsageService>,
+        agent_status_service: Arc<AgentStatusService>,
+        db: Arc<DatabaseConnection>,
+        agent_data_dir: PathBuf,
+    ) -> Self {
+        Self::assemble(
+            project_service,
+            workspace_service,
+            group_service,
+            terminal_service,
+            agent_service,
+            automation_service,
+            review_service,
+            quota_usage_service,
+            canvas_agent_relay,
+            pt_design_agent_relay,
+            notification_service,
+            token_usage_service,
+            agent_status_service,
+            db,
+            agent_data_dir.join("chats"),
+            agent_data_dir.clone(),
+            agent_data_dir.join("options-probe"),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn assemble(
+        project_service: Arc<ProjectService>,
+        workspace_service: Arc<WorkspaceService>,
+        group_service: Arc<GroupService>,
+        terminal_service: Arc<TerminalService>,
+        agent_service: Arc<AgentService>,
+        automation_service: Arc<AutomationService>,
+        review_service: Arc<ReviewService>,
+        quota_usage_service: Arc<QuotaUsageService>,
+        canvas_agent_relay: Arc<CanvasAgentRelay>,
+        pt_design_agent_relay: Arc<CanvasAgentRelay>,
+        notification_service: Arc<NotificationService>,
+        token_usage_service: Arc<token_usage::TokenUsageService>,
+        agent_status_service: Arc<AgentStatusService>,
+        db: Arc<DatabaseConnection>,
+        chats_dir: PathBuf,
+        agent_data_dir: PathBuf,
+        options_probe_dir: PathBuf,
+    ) -> Self {
         let local_services_service = Arc::new(LocalServicesService::new(
             Arc::clone(&project_service),
             Arc::clone(&workspace_service),
@@ -130,22 +213,22 @@ impl WsMessageService {
             Arc::new(ResourceMetricsEngine::new()),
         ));
         let agent_chat_service = Arc::new(AgentChatService::new(
-            Arc::new(AgentChatStore::new(default_chats_dir())),
+            Arc::new(AgentChatStore::new(chats_dir.clone())),
             Arc::new(DefaultAgentProviderFactory::new(Arc::clone(&agent_service))),
         ));
         let host_session_service = Arc::new(
-            HostSessionService::with_defaults(
-                AgentChatStore::new(default_chats_dir()),
-                Arc::clone(&db),
-            )
-            .with_workspace_lookup(Arc::clone(&project_service), Arc::clone(&workspace_service)),
+            HostSessionService::with_defaults(AgentChatStore::new(chats_dir), Arc::clone(&db))
+                .with_workspace_lookup(
+                    Arc::clone(&project_service),
+                    Arc::clone(&workspace_service),
+                ),
         );
         resource_monitor_service.set_chat_service(Arc::clone(&agent_chat_service));
         let options_worker = Arc::new(
             OptionsPrefetchWorker::with_plans(
-                default_agent_data_dir(),
+                agent_data_dir.clone(),
                 agent::OptionsProbe::with_acp_probe(
-                    options_probe_dir(),
+                    options_probe_dir,
                     Box::new(agent::StdioAcpOptionsProbe::new(Arc::new(
                         AgentServiceOptionsResolver::new(Arc::clone(&agent_service)),
                     ))),

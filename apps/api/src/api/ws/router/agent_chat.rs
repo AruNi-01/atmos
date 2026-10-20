@@ -166,14 +166,37 @@ impl WsMessageService {
         Ok(json!({ "ok": true }))
     }
 
+    async fn register_agent_chat_sub(&self, chat_id: &str, conn_id: &str) {
+        let mut subs = self.agent_chat_subs.write().await;
+        subs.entry(chat_id.to_string())
+            .or_default()
+            .insert(conn_id.to_string());
+    }
+
+    async fn unregister_agent_chat_sub(&self, chat_id: &str, conn_id: &str) {
+        let mut subs = self.agent_chat_subs.write().await;
+        if let Some(conns) = subs.get_mut(chat_id) {
+            conns.remove(conn_id);
+        }
+    }
+
     pub(super) async fn handle_agent_chat_subscribe(
         &self,
         conn_id: &str,
         req: AgentChatSubscribeRequest,
     ) -> Result<Value> {
-        let snapshot = self.agent_chat().get(&req.chat_id).await?;
+        // Register before snapshot and replay. A live emit after this insert is
+        // fanned out to conn_id. Replay may deliver the same event; the client
+        // EventGate dedupes on event_id. This handler does not filter that overlap.
+        self.register_agent_chat_sub(&req.chat_id, conn_id).await;
+        if let Err(error) = self.agent_chat().get(&req.chat_id).await {
+            self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
+            return Err(error);
+        }
         let after = req.after_sequence.unwrap_or(0);
         let missed = self.agent_chat().events_after(&req.chat_id, after);
+        #[cfg(test)]
+        subscribe_race_pause::pause(conn_id).await;
         if let Some(manager) = self.ws_manager.get() {
             for event in missed {
                 if let Ok(payload) = serde_json::to_value(&event) {
@@ -185,11 +208,14 @@ impl WsMessageService {
                 }
             }
         }
-        let mut subs = self.agent_chat_subs.write().await;
-        subs.entry(req.chat_id.clone())
-            .or_default()
-            .insert(conn_id.to_string());
-        Ok(json!({ "last_event_seq": snapshot.meta.last_event_seq }))
+        let last_event_seq = match self.agent_chat().store().get_meta(&req.chat_id) {
+            Ok(meta) => meta.last_event_seq,
+            Err(error) => {
+                self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
+                return Err(error);
+            }
+        };
+        Ok(json!({ "last_event_seq": last_event_seq }))
     }
 
     pub(super) async fn handle_agent_chat_backfill(
@@ -420,4 +446,330 @@ fn bound_cwd(requested: Option<PathBuf>, root: PathBuf) -> Result<String> {
     Err(ServiceError::Validation(
         "cwd must be inside the workspace or project".into(),
     ))
+}
+
+#[cfg(test)]
+mod subscribe_race_pause {
+    use std::sync::Mutex;
+
+    use tokio::sync::oneshot;
+
+    struct Pause {
+        conn_id: String,
+        entered: oneshot::Sender<()>,
+        release: oneshot::Receiver<()>,
+    }
+
+    static PAUSE: Mutex<Option<Pause>> = Mutex::new(None);
+
+    pub(super) struct Guard {
+        conn_id: String,
+        entered: Option<oneshot::Receiver<()>>,
+        release: Option<oneshot::Sender<()>>,
+    }
+
+    impl Guard {
+        pub(super) async fn entered(&mut self) -> bool {
+            match self.entered.take() {
+                Some(entered) => entered.await.is_ok(),
+                None => false,
+            }
+        }
+
+        pub(super) fn release(&mut self) {
+            if let Some(release) = self.release.take() {
+                let _ = release.send(());
+            }
+        }
+    }
+
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.release();
+            if let Ok(mut slot) = PAUSE.lock() {
+                if slot
+                    .as_ref()
+                    .is_some_and(|pause| pause.conn_id == self.conn_id)
+                {
+                    slot.take();
+                }
+            }
+        }
+    }
+
+    pub(super) fn arm(conn_id: &str) -> Guard {
+        let (entered_tx, entered_rx) = oneshot::channel();
+        let (release_tx, release_rx) = oneshot::channel();
+        *PAUSE.lock().expect("subscribe replay pause") = Some(Pause {
+            conn_id: conn_id.to_string(),
+            entered: entered_tx,
+            release: release_rx,
+        });
+        Guard {
+            conn_id: conn_id.to_string(),
+            entered: Some(entered_rx),
+            release: Some(release_tx),
+        }
+    }
+
+    pub(super) async fn pause(conn_id: &str) {
+        let release = {
+            let mut slot = PAUSE.lock().expect("subscribe replay pause");
+            let matches = slot.as_ref().is_some_and(|pause| pause.conn_id == conn_id);
+            if !matches {
+                return;
+            }
+            slot.take().map(|pause| {
+                let _ = pause.entered.send(());
+                pause.release
+            })
+        };
+        if let Some(release) = release {
+            let _ = release.await;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use core_service::{
+        AgentChatOrigin, AgentService, AgentStatusService, AutomationService, CanvasAgentRelay,
+        CreateAgentChatRequest, GroupService, NotificationService, ProjectService, ReviewService,
+        TerminalService, WorkspaceService,
+    };
+    use quota_usage::{QuotaProvider, QuotaUsageService};
+    use sea_orm_migration::sea_orm::Database;
+    use token_usage::TokenUsageService;
+    use tokio::sync::mpsc;
+
+    use super::super::WsMessageService;
+    use super::subscribe_race_pause;
+    use crate::api::ws::message::AgentChatSubscribeRequest;
+    use crate::api::ws::{ClientType, WsManager};
+
+    const SEED_MARKER: &str = "subscribe-race-seed";
+    const GAP_MARKER: &str = "subscribe-race-gap";
+
+    struct TempRoot(PathBuf);
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    async fn service_at(root: &std::path::Path) -> Arc<WsMessageService> {
+        let db = Arc::new(
+            Database::connect("sqlite::memory:")
+                .await
+                .expect("sqlite memory"),
+        );
+        let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
+        let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
+        let terminal_service = Arc::new(TerminalService::new());
+        let notification_service = Arc::new(NotificationService::new());
+        Arc::new(WsMessageService::new_with_agent_data_dir(
+            Arc::clone(&project_service),
+            Arc::clone(&workspace_service),
+            Arc::new(GroupService::new(Arc::clone(&db))),
+            Arc::clone(&terminal_service),
+            Arc::new(AgentService::new()),
+            Arc::new(AutomationService::new(
+                Arc::clone(&db),
+                Arc::clone(&project_service),
+                Arc::clone(&workspace_service),
+                Arc::clone(&terminal_service),
+                Arc::clone(&notification_service),
+            )),
+            Arc::new(ReviewService::new(Arc::clone(&db))),
+            Arc::new(QuotaUsageService::new(Vec::<Arc<dyn QuotaProvider>>::new())),
+            Arc::new(CanvasAgentRelay::new()),
+            Arc::new(CanvasAgentRelay::new()),
+            notification_service,
+            Arc::new(TokenUsageService::default()),
+            Arc::new(AgentStatusService::new()),
+            db,
+            root.to_path_buf(),
+        ))
+    }
+
+    async fn recv_contains(
+        rx: &mut mpsc::Receiver<String>,
+        marker: &str,
+        budget: Duration,
+    ) -> bool {
+        let deadline = tokio::time::Instant::now() + budget;
+        loop {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                return false;
+            }
+            match tokio::time::timeout(remaining, rx.recv()).await {
+                Ok(Some(message)) if message.contains(marker) => return true,
+                Ok(Some(_)) => continue,
+                _ => return false,
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn subscribe_rolls_back_registration_when_chat_is_missing() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-subscribe-missing-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = uuid::Uuid::new_v4().to_string();
+        let conn_id = "conn-missing";
+
+        assert!(
+            service
+                .handle_agent_chat_subscribe(
+                    conn_id,
+                    AgentChatSubscribeRequest {
+                        chat_id: chat_id.clone(),
+                        after_sequence: Some(0),
+                    },
+                )
+                .await
+                .is_err(),
+            "missing chat must not subscribe"
+        );
+        let subs = service.agent_chat_subs.read().await;
+        assert!(
+            !subs
+                .get(&chat_id)
+                .is_some_and(|conns| conns.contains(conn_id)),
+            "failed subscribe must not leave the connection registered"
+        );
+    }
+
+    #[tokio::test]
+    async fn subscribe_delivers_event_emitted_in_the_pre_register_gap() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-subscribe-race-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let manager = Arc::new(WsManager::new());
+        let (tx_observer, mut rx_observer) = mpsc::channel(8);
+        let (tx_joiner, mut rx_joiner) = mpsc::channel(8);
+        let observer = manager
+            .register_connection(ClientType::Web, tx_observer)
+            .await;
+        let joiner = manager
+            .register_connection(ClientType::Web, tx_joiner)
+            .await;
+        service
+            .set_ws_manager(Arc::clone(&manager))
+            .expect("ws manager");
+
+        let meta = service
+            .agent_chat()
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: root.0.to_string_lossy().into_owned(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: Some("opus".into()),
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: None,
+                source: None,
+                automation_run_guid: None,
+            })
+            .expect("create chat");
+        let chat_id = meta.id;
+        service
+            .agent_chat()
+            .queue_add(&chat_id, SEED_MARKER, Vec::new())
+            .expect("seed queue");
+        let seed_seq = service
+            .agent_chat()
+            .store()
+            .get_meta(&chat_id)
+            .expect("seed meta")
+            .last_event_seq;
+
+        service
+            .handle_agent_chat_subscribe(
+                &observer,
+                AgentChatSubscribeRequest {
+                    chat_id: chat_id.clone(),
+                    after_sequence: Some(seed_seq),
+                },
+            )
+            .await
+            .expect("observer subscribe");
+
+        let mut pause = subscribe_race_pause::arm(&joiner);
+        let service_for_join = Arc::clone(&service);
+        let chat_for_join = chat_id.clone();
+        let joiner_id = joiner.clone();
+        let join = tokio::spawn(async move {
+            service_for_join
+                .handle_agent_chat_subscribe(
+                    &joiner_id,
+                    AgentChatSubscribeRequest {
+                        chat_id: chat_for_join,
+                        after_sequence: Some(seed_seq),
+                    },
+                )
+                .await
+        });
+
+        let entered = tokio::time::timeout(Duration::from_secs(2), pause.entered())
+            .await
+            .expect("subscribe did not reach the post-replay pause");
+        assert!(
+            entered,
+            "pause gate was not armed for the joining connection"
+        );
+
+        let registered_while_paused = {
+            let subs = service.agent_chat_subs.read().await;
+            subs.get(&chat_id)
+                .is_some_and(|conns| conns.contains(&joiner))
+        };
+        service
+            .agent_chat()
+            .queue_add(&chat_id, GAP_MARKER, Vec::new())
+            .expect("gap queue");
+        let gap_seq = service
+            .agent_chat()
+            .store()
+            .get_meta(&chat_id)
+            .expect("gap meta")
+            .last_event_seq;
+
+        let observer_saw_gap =
+            recv_contains(&mut rx_observer, GAP_MARKER, Duration::from_secs(2)).await;
+        assert!(
+            observer_saw_gap,
+            "observer must receive the gap so fan-out has snapshotted subscribers"
+        );
+        let delivered = recv_contains(&mut rx_joiner, GAP_MARKER, Duration::from_secs(2)).await;
+
+        pause.release();
+        let response = tokio::time::timeout(Duration::from_secs(2), join)
+            .await
+            .expect("subscribe did not finish after the pause released")
+            .expect("subscribe task")
+            .expect("subscribe");
+        let last_event_seq = response["last_event_seq"].as_u64().expect("last_event_seq");
+
+        assert!(
+            registered_while_paused && delivered && last_event_seq >= gap_seq,
+            "pre-register gap leaked: registered_while_paused={registered_while_paused} delivered={delivered} last_event_seq={last_event_seq} gap_seq={gap_seq}"
+        );
+    }
 }
