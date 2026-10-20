@@ -317,3 +317,45 @@ Each slice typechecks (`bun --filter @atmos/mobile typecheck`) and runs `cd apps
 ## Spec review (2026-10-15)
 
 Amendments above override any earlier sentence that still says otherwise (static pill titles, icon/count on pills, opacity-pulse shimmer, D2 still awaiting approval, label-gated iOS workflow). Tool bodies render `ToolPresentation` from `presentAgentTool` in this package. Do not add a second parser beside it. `event-model.ts` sheet frames are deleted (D1).
+
+## Tail jump while the streaming tail grows (2026-10-20)
+
+Port of the scroll slice from closed PR #317 (`2b1f66b82`) onto `main` `557991da` (already includes #323 glass lane, #324 WebSocket lifecycle, #325 EventGate, #329 linear scans, #331 local API hardening). This section is the HOW for holding an earlier row (F13 Reply 50) while content below it grows. It does not reopen #317 and does not replace the glass lane.
+
+Addresses M5 and the reading-line half of S14. Simulator frame sign-off stays out of this slice.
+
+### Decisions
+
+- **D11 — A programmatic jump is not a user drag, and a stale end event must not cancel it.** `stickScrollWhileJumping` ignores scroll events still inside `TRANSCRIPT_END_SLACK_PX` (24) while a jump is in flight. Past that slack the jump counts as a drag so stick lets go of the end. A jump that never leaves the end follows the tail only when its target is the last row (`jumpFollowsTailAfterMiss`). An earlier row stays unstuck so a short tail can grow under it.
+- **D12 — Scroll-to-end uses the content size, not the last cell.** `transcriptContentEndOffset` is `max(0, contentHeight - viewportHeight)`. Unknown sizes are the only remaining `scrollToEnd` path. Own-send and the scroll pill use the same offset.
+- **D13 — An earlier row that the list has not laid out gets an estimated tail, then a measured align.** `getItemLayout` is on only while `extendTail` is true. Measured rows keep their origin. Unmeasured rows continue from the nearest measured neighbor; neighbors below the target are estimated backward so the anchor is not placed after Reply 50. `nextJumpAlign` asks for the measured offset once per missed scroll position and asks again after the list moves. The estimated tail comes off only when measured rows below the target fill the viewport plus the slack and the viewport is on the target (`jumpExtendReadyToRelease`).
+- **D14 — The pinned scroll pill's slot width animates with the pill.** `scrollPillSlotWidth` is the pill width plus an 8 px gap, or 0 when the pill is hidden. The slot fades over 180 ms (`SCROLL_PILL_SLOT_MS`), instant under Reduced Motion. The row stays mounted until that exit finishes, then reports height 0. Transcript bottom pad uses the measured row height (`measuredPillRowHeight` / preview `pillHeight`), so the pad does not drop before the exit. #323's glass well, fades, and pill chrome stay.
+
+### Modules
+
+```
+AgentChatTranscript.tsx
+  scrollContentEnd / jumpToIndex / revealMessage / onViewport
+        │
+        ├── transcript-jump.ts     pure jump, align, stick-while-jumping
+        └── transcript-pad.ts      transcriptContentEndOffset
+
+ComposerPillRow.tsx
+  ScrollPillSlot
+        └── scroll-pill-slot.ts    width + 180 ms timing constants
+```
+
+`revealMessage(id)` and `measureMessage(id)` are on the transcript handle so a later capture slice can drive Reply 50 without owning the list. `onViewport` reports the live offset when the stick callback is still on the previous end. Neither prop is required.
+
+### Explicitly not in this slice
+
+- Inline subagent panel, `subagentExcludeIds`, and the assistant-column inset that shared the #317 `AgentChatTranscript.tsx` diff.
+- Tool body, permission card, markdown chrome, grok panel, and the other second UI implementation already represented on `main` by #318–#323.
+- Capture hooks, `ios-capture.sh`, PillTap, the Skia screenshot patch, and `fence-icons.mjs`.
+- `present.ts` linear scans (QUALITY-014 / #329).
+
+### Risks
+
+- `getItemLayout` is wrong if it stays on after the real tail is measured. Mitigation: release only through `jumpExtendReadyToRelease`, and turn it off on user drag and scroll-to-end.
+- Estimated strides before the first measurement use 48 px (`TRANSCRIPT_JUMP_FALLBACK_STRIDE`). A list of very tall rows can undershoot once; the measured align corrects it.
+- The slot's 8 px gap sits inside the animated width, on top of the glass row's existing 8 px `gap`. Card spacing while the pill is open is wider by that inner gap. The glass row structure from #323 is otherwise unchanged.

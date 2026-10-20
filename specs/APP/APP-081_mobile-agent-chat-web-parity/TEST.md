@@ -381,3 +381,86 @@ Marked only where the test file exists and the command above ran it.
 ### Scene lifecycle gate (QUALITY-011)
 
 The workflow no longer fails when `Info.plist` names a scene delegate. `script/verify-ios-scene-lifecycle.sh structural` requires `$(PRODUCT_MODULE_NAME).SceneDelegate` in the prebuild plist and `class SceneDelegate` in `AppDelegate.swift`. `built-plist` requires the built value `Atmos.SceneDelegate`. Parity preview still removes `expo-dev-client` and does not remove `UIApplicationSceneManifest`. The 2026-10-15 notes above describe the old missing-class black window; they are not the current gate.
+
+## Tail jump (2026-10-20)
+
+Unit contract for the tail-jump slice in TECH "Tail jump while the streaming tail grows". S14's simulator frames stay `not_run`. These tests do not change warning caps or screenshot gates.
+
+### Coverage map
+
+| TECH | Scenario | Level              |
+| ---- | -------- | ------------------ |
+| D11  | TJ1, TJ2 | unit               |
+| D12  | TJ3      | unit + source scan |
+| D13  | TJ4, TJ5 | unit + source scan |
+| D14  | TJ6      | unit + source scan |
+
+### Execution map
+
+| Id  | Level         | Command                                                                      | Signal                                                                                                                                                                                                                                    | Status |
+| --- | ------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| TJ1 | unit          | `cd apps/mobile && bun test src/features/agent-chat/transcript-jump.test.ts` | `stickScrollWhileJumping` ignores distance `<= 24` while jumping; past slack it reports `userDragged: true`. `jumpFollowsTailAfterMiss(50, 120)` is false                                                                                 | pass   |
+| TJ2 | unit          | same file                                                                    | earlier-row and last-row cases above                                                                                                                                                                                                      | pass   |
+| TJ3 | unit          | `cd apps/mobile && bun test src/features/agent-chat/transcript-pad.test.ts`  | `transcriptContentEndOffset(10_000, 668)` equals `content - viewport`; unknown sizes return 0. Transcript source contains one `scrollToEnd({`                                                                                             | pass   |
+| TJ4 | unit          | `transcript-jump.test.ts`                                                    | Reply 50 layout offset is `8000 - 70 * 52` when only row 120 is measured. `nextJumpAlign` asks once per missed offset and asks again after the list moves                                                                                 | pass   |
+| TJ5 | unit + source | `transcript-jump.test.ts` and `stick.test.ts`                                | `jumpExtendReadyToRelease` is false at scroll 10 and true at 4434 for the Reply 50 fixture. Transcript source names `nextJumpAlign`, `extendCommittedRef`, `pendingJumpRef`, and `getItemLayout={extendTail ? layoutForJump : undefined}` | pass   |
+| TJ6 | unit + source | `scroll-pill-slot.test.ts`                                                   | width 0 → 0, width 72 → 80. Pill row source contains `SCROLL_PILL_SLOT_MS` and `duration: reduced ? 0 : SCROLL_PILL_SLOT_MS`. Thread assigns `pillRowHeight = measuredPillRowHeight`. Preview assigns `pillRowHeight = pillHeight`        | pass   |
+
+### Scenarios
+
+#### TJ1 Stale end event during a jump
+
+- **Given**: a jump is in flight and the list still reports distance `<= TRANSCRIPT_END_SLACK_PX`.
+- **When**: `stickScrollWhileJumping` runs.
+- **Then**: the result is `"ignore"`.
+- **Signals**: `transcript-jump.test.ts`.
+
+#### TJ2 Earlier row does not resume tail follow
+
+- **Given**: 120 rows and a jump target at index 50.
+- **When**: the jump never leaves the end.
+- **Then**: `jumpFollowsTailAfterMiss` is false. Index 119 (last row) is true.
+- **Signals**: `transcript-jump.test.ts`.
+
+#### TJ3 Content end includes the bottom pad
+
+- **Given**: content height 10_000 and viewport 668.
+- **When**: the list scrolls to the end.
+- **Then**: the offset is `contentHeight - viewportHeight`, and `scrollToEnd` remains only the unknown-size fallback.
+- **Signals**: `transcript-pad.test.ts` source scan of `AgentChatTranscript.tsx`.
+
+#### TJ4 Reply 50 is estimated backward from the measured tail
+
+- **Given**: only row 120 is measured at start 8000, size 40, gap 12.
+- **When**: layout is requested for index 50.
+- **Then**: the offset is less than 8000 (`8000 - 70 * 52`).
+- **Signals**: `transcriptItemLayout` in `transcript-jump.test.ts`.
+
+#### TJ5 Align retries without fighting a landed row
+
+- **Given**: target start 4434 and the list still at 6787.
+- **When**: `nextJumpAlign` runs twice at that scroll position, then again after the list reports 4434, then again after it returns to 6787.
+- **Then**: the first call asks for 4434, the second call at the same position does not, landing clears memory, and the return asks again.
+- **Signals**: `transcript-jump.test.ts`. Release waits until the viewport is on the target and the tail fills the viewport (`jumpExtendReadyToRelease`).
+
+#### TJ6 Scroll pill slot keeps its gap and its row height
+
+- **Given**: a pinned pill 72 px wide, then a closed pill.
+- **When**: the slot width is computed and the row exits.
+- **Then**: open width is 80 (pill + 8). Closed width is 0. The 180 ms timing is in the pill row and snaps under Reduced Motion. Thread and preview pad use the measured height, not `resolvedPillRowHeight`.
+- **Signals**: `scroll-pill-slot.test.ts`.
+
+### Non-coverage
+
+- S14 simulator frames, pill x ±1 px (S33), and any screenshot artifact. This slice does not run `ci-mobile-ios-parity.yml` and does not add the `ios-parity` label.
+- Capture hooks, Skia flat-frame fallback, and `fence-icons.mjs`.
+- The second mobile chat UI implementation carried in #317 (tool body, permission questions, inline subagent). `main` keeps #323's glass lane.
+
+### Coverage Status
+
+Recorded 2026-10-20 on this branch, before the pull request. S14 simulator frames stay `not_run`.
+
+- `cd apps/mobile && bun test` → pass, exit 0. 554 pass, 0 fail, 2559 expect() calls, 118 files.
+- `cd apps/mobile && bun test src/features/agent-chat/transcript-jump.test.ts src/features/agent-chat/transcript-pad.test.ts src/features/agent-chat/scroll-pill-slot.test.ts src/features/agent-chat/stick.test.ts src/features/agent-chat/composer-glass.test.ts` → pass, exit 0. 42 pass, 0 fail, 319 expect() calls, 5 files. Covers TJ1–TJ6.
+- `bunx oxlint --max-warnings=455` at the repo root → exit 0, 452 problems. The cap stays 455.
+- `bun --filter @atmos/mobile typecheck` still fails on files this slice does not touch: `glass-text-button.test.ts` (`react-dom/server` has no declaration) and `open-thread-resync.test.ts` (publish callback typed as `void | boolean` while the test returns a number). Those errors are on `main` `557991da` (#325). This slice adds no typecheck diagnostic in the tail-jump files.
