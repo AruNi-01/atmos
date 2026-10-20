@@ -100,32 +100,19 @@ Just a prose overview without todos.
       join(dirname(fileURLToPath(import.meta.url)), "AgentChatPermissionCard.tsx"),
       "utf8",
     );
-    const plan = source.slice(
-      source.indexOf("function PlanPermission"),
-      source.indexOf("export function AgentChatPermissionCard"),
-    );
-    expect(plan).toContain("copy.keepPlanning");
-    expect(plan).toContain("copy.approve");
-    expect(plan).toContain("copy.viewPlan");
-    expect(plan).toContain("copy.viewTodos");
-    expect(plan).toContain("copy.planTodosHeading");
-    expect(plan).toContain("setViewingPlan");
-    expect(plan).toContain('prose="approval"');
-    const empty = plan.slice(
-      plan.indexOf("{copy.planViewerEmpty}") - 240,
-      plan.indexOf("{copy.planViewerEmpty}"),
-    );
-    expect(empty).toContain("theme.colors.secondaryLabel");
-    expect(empty).not.toContain("chatMutedForeground");
+    expect(source).toContain("isPlanExitRequest(request)");
+    expect(source).toContain("copy.planViewerEmpty");
+    expect(source).toContain("{todo.content}");
+    expect(source).toContain('variant="card"');
+    expect(source).toContain("theme.colors.secondaryLabel");
+    expect(source).not.toContain("function PlanPermission");
+    expect(source).not.toContain("copy.keepPlanning");
+    expect(source).not.toContain("setViewingPlan");
     const lanePlan = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "cards/plan-card.tsx"),
       "utf8",
     );
     expect(lanePlan).toContain("theme.colors.secondaryLabel");
     expect(lanePlan).not.toContain("chatMutedForeground");
-    expect(plan).not.toContain("option.name");
-    const command = source.slice(source.indexOf("export function AgentChatPermissionCard"));
-    expect(command).toContain("isPlanExitRequest(request)");
-    expect(command).toContain("PlanPermission");
   });
 });

@@ -18,14 +18,13 @@ describe("scroll pill slot", () => {
     expect(scrollPillSlotWidth(72)).toBe(80);
   });
 
-  test("fades the slot over 180ms and keeps the row height until the exit finishes", () => {
+  test("pins the scroll pill in the glass row and keeps the measured row height", () => {
     const row = readFileSync(join(dir, "composer-pill-row.tsx"), "utf8");
     const thread = readFileSync(join(dir, "AgentChatThreadScreen.tsx"), "utf8");
     const preview = readFileSync(join(dir, "preview-chat-screen.tsx"), "utf8");
-    expect(row).toContain("SCROLL_PILL_SLOT_MS");
-    expect(row).toContain("withTiming");
-    expect(row).toContain("duration: reduced ? 0 : SCROLL_PILL_SLOT_MS");
-    expect(row).toContain("scrollPillSlotWidth");
+    expect(row).toContain("styles.rowWithScroll");
+    expect(row).toContain("measureInWindow");
+    expect(row).toContain('testID="agent-chat-card-pill-scroller"');
     expect(thread).toContain("const pillRowHeight = measuredPillRowHeight;");
     expect(thread).not.toContain("resolvedPillRowHeight");
     expect(preview).toContain("const pillRowHeight = pillHeight;");

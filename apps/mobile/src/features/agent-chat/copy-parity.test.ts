@@ -11,22 +11,12 @@ import { copy } from "./copy";
 type ChatPanelCopy = {
   scrollBelow: { prefix: string; suffix: string; unit: string };
   permissionRequested: string;
-  deny: string;
-  allow: string;
   askUserTitle: string;
-  continue: string;
-  skip: string;
   planApprovalTitle: string;
-  keepPlanning: string;
-  approve: string;
-  viewPlan: string;
-  viewTodos: string;
   sessionOpRequested: string;
-  sessionOpFork: string;
-  sessionOpRewind: string;
   planViewerEmpty: string;
   bottom: string;
-  copy: { assistantAria: string; message: string; userAria: string };
+  copy: { message: string };
   paste: { chip: string };
   thinking: string;
   thoughtFor: string;
@@ -60,10 +50,7 @@ type AgentComponents = {
     process: { label: string; collapseLabel: string };
     files: { changed: string; showMore: string; showLess: string };
   };
-  subAgent: {
-    ranTitle: string;
-    status: { running: string; failed: string; completed: string };
-  };
+  subAgent: { status: { running: string; failed: string; completed: string } };
   usageBadges: {
     turn: {
       title: string;
@@ -77,69 +64,16 @@ type AgentComponents = {
   };
   plan: { title: string };
   messageQueue: { title: string };
-  backgroundCommands: { title: string; running: string; runningCount: string };
+  backgroundCommands: { title: string; runningCount: string; running: string };
   subagentTasks: {
     title: string;
     runningCount: string;
     progressCount: string;
     allDone: string;
-    collapseAria: string;
-    expandAria: string;
-    panelAria: string;
-    fallbackType: string;
   };
-  grokGoal: {
-    title: string;
-    fallbackType: string;
-    collapseAria: string;
-    expandAria: string;
-    panelAria: string;
-    statusLine: string;
-    tokensLine: string;
-    elapsedLine: string;
-    emptyVerify: string;
-    emptySummarize: string;
-    status: Record<string, string>;
-    phaseLabel: Record<string, string>;
-  };
-  grokWorkflow: {
-    title: string;
-    runningCount: string;
-    idleCount: string;
-    fallbackType: string;
-    collapseAria: string;
-    expandAria: string;
-    panelAria: string;
-  };
+  grokGoal: { title: string };
+  grokWorkflow: { title: string; idleCount: string };
   contextWindow: { title: string; percentFull: string; tokensSummary: string };
-  terminalBlock: {
-    title: string;
-    moreActions: string;
-    copyCommand: string;
-    copyResult: string;
-  };
-  toolResults: {
-    searchingFor: string;
-    webSearch: string;
-    sources: string;
-    resultCount: string;
-    matchCount: string;
-    fetchUrl: string;
-    to: string;
-    deletedFileLabel: string;
-    created: string;
-    newFile: string;
-    deletedFile: string;
-    noOutput: string;
-    lineChanges: string;
-    processing: string;
-    executionFailed: string;
-    planDocument: string;
-    planBody: string;
-    planTodos: string;
-    imageGen: string;
-    todo: { pending: string; inProgress: string; completed: string };
-  };
 };
 
 const en = JSON.parse(
@@ -147,15 +81,10 @@ const en = JSON.parse(
     join(dirname(fileURLToPath(import.meta.url)), "../../../../web/messages/en.json"),
     "utf8",
   ),
-) as {
-  Agent: { components: AgentComponents };
-  agent: { chatHelpers: { activity: Record<string, string> } };
-  shared: { codeBlock: { collapseCode: string; expandCode: string } };
-};
+) as { Agent: { components: AgentComponents } };
 
 const components = en.Agent.components;
 const chatPanel = components.chatPanel;
-const activity = en.agent.chatHelpers.activity;
 
 describe("agent chat copy parity", () => {
   test("scroll-below prefix, suffix, and unit match web copy", () => {
@@ -169,60 +98,28 @@ describe("agent chat copy parity", () => {
 
   test("card and panel titles match web copy", () => {
     expect(copy.permissionRequested).toBe(chatPanel.permissionRequested);
-    expect(copy.deny).toBe(chatPanel.deny);
-    expect(copy.allow).toBe(chatPanel.allow);
     expect(copy.askUserTitle).toBe(chatPanel.askUserTitle);
-    expect(copy.continue).toBe(chatPanel.continue);
-    expect(copy.skip).toBe(chatPanel.skip);
     expect(copy.planApprovalTitle).toBe(chatPanel.planApprovalTitle);
-    expect(copy.keepPlanning).toBe(chatPanel.keepPlanning);
-    expect(copy.approve).toBe(chatPanel.approve);
-    expect(copy.viewPlan).toBe(chatPanel.viewPlan);
-    expect(copy.viewTodos).toBe(chatPanel.viewTodos);
     expect(copy.sessionOpRequested).toBe(chatPanel.sessionOpRequested);
-    expect(copy.sessionOpFork).toBe(chatPanel.sessionOpFork);
-    expect(copy.sessionOpRewind).toBe(chatPanel.sessionOpRewind);
     expect(copy.planViewerEmpty).toBe(chatPanel.planViewerEmpty);
     expect(copy.planViewerEmpty).toBe("No plan content available yet.");
     expect(copy.bottom).toBe(chatPanel.bottom);
     expect(copy.planTitle).toBe(components.plan.title);
     expect(copy.messageQueueTitle).toBe(components.messageQueue.title);
     expect(copy.backgroundCommandsTitle).toBe(components.backgroundCommands.title);
-    expect(copy.backgroundCommandsRunning).toBe(components.backgroundCommands.running);
-    expect(copy.backgroundCommandsRunningCount).toBe(components.backgroundCommands.runningCount);
     expect(copy.subagentTasksTitle).toBe(components.subagentTasks.title);
-    expect(copy.subagentTasksRunning).toBe(components.subagentTasks.runningCount);
-    expect(copy.subagentTasksProgress).toBe(components.subagentTasks.progressCount);
-    expect(copy.subagentTasksAllDone).toBe(components.subagentTasks.allDone);
-    expect(copy.subagentTasksCollapseAria).toBe(components.subagentTasks.collapseAria);
-    expect(copy.subagentTasksExpandAria).toBe(components.subagentTasks.expandAria);
-    expect(copy.subagentTasksPanelAria).toBe(components.subagentTasks.panelAria);
-    expect(copy.subagentTasksFallback).toBe(components.subagentTasks.fallbackType);
     expect(copy.grokGoalTitle).toBe(components.grokGoal.title);
-    expect(copy.grokGoalFallback).toBe(components.grokGoal.fallbackType);
-    expect(copy.grokGoalCollapseAria).toBe(components.grokGoal.collapseAria);
-    expect(copy.grokGoalExpandAria).toBe(components.grokGoal.expandAria);
-    expect(copy.grokGoalPanelAria).toBe(components.grokGoal.panelAria);
-    expect(copy.grokGoalStatusLine).toBe(components.grokGoal.statusLine);
-    expect(copy.grokGoalTokensLine).toBe(components.grokGoal.tokensLine);
-    expect(copy.grokGoalElapsedLine).toBe(components.grokGoal.elapsedLine);
-    expect(copy.grokGoalEmptyVerify).toBe(components.grokGoal.emptyVerify);
-    expect(copy.grokGoalEmptySummarize).toBe(components.grokGoal.emptySummarize);
-    expect(copy.grokGoalStatusActive).toBe(components.grokGoal.status.active);
-    expect(copy.grokGoalStatusComplete).toBe(components.grokGoal.status.complete);
-    expect(copy.grokGoalStatusInfraPaused).toBe(components.grokGoal.status.infra_paused);
-    expect(copy.grokGoalPhaseExecuting).toBe(components.grokGoal.phaseLabel.executing);
     expect(copy.grokWorkflowTitle).toBe(components.grokWorkflow.title);
-    expect(copy.grokWorkflowRunning).toBe(components.grokWorkflow.runningCount);
-    expect(copy.grokWorkflowIdle).toBe(components.grokWorkflow.idleCount);
-    expect(copy.grokWorkflowFallback).toBe(components.grokWorkflow.fallbackType);
-    expect(copy.grokWorkflowCollapseAria).toBe(components.grokWorkflow.collapseAria);
-    expect(copy.grokWorkflowExpandAria).toBe(components.grokWorkflow.expandAria);
-    expect(copy.grokWorkflowPanelAria).toBe(components.grokWorkflow.panelAria);
     expect(copy.grokWorkflowTitle).toBe("Research");
     expect(copy.contextWindowTitle).toBe(components.contextWindow.title);
-    expect(copy.contextWindowPercentFull).toBe(components.contextWindow.percentFull);
-    expect(copy.contextWindowTokensSummary).toBe(components.contextWindow.tokensSummary);
+    expect(copy.backgroundRunningCount).toBe(components.backgroundCommands.runningCount);
+    expect(copy.backgroundRunning).toBe(components.backgroundCommands.running);
+    expect(copy.subagentRunningCount).toBe(components.subagentTasks.runningCount);
+    expect(copy.subagentProgressCount).toBe(components.subagentTasks.progressCount);
+    expect(copy.subagentAllDone).toBe(components.subagentTasks.allDone);
+    expect(copy.workflowIdleCount).toBe(components.grokWorkflow.idleCount);
+    expect(copy.contextPercentFull).toBe(components.contextWindow.percentFull);
+    expect(copy.contextTokensSummary).toBe(components.contextWindow.tokensSummary);
     expect(copy.pasteChip).toBe(chatPanel.paste.chip);
     expect(copy.pasteChip).toBe("Pasted: {count} lines");
   });
@@ -230,21 +127,8 @@ describe("agent chat copy parity", () => {
   test("transcript chrome strings match web copy", () => {
     expect(copy.copyMessage).toBe(chatPanel.copy.message);
     expect(copy.copyMessage).toBe("Copy message");
-    expect(copy.copyUserAria).toBe(chatPanel.copy.userAria);
-    expect(copy.copyUserAria).toBe("Copy user message");
-    expect(copy.copyAssistantAria).toBe(chatPanel.copy.assistantAria);
-    expect(copy.copyAssistantAria).toBe("Copy assistant message");
     expect(copy.thinkingStream).toBe(chatPanel.thinking);
     expect(copy.thinkingStream).toBe("Thinking...");
-    expect(copy.activityGenerating).toBe(activity.generating);
-    expect(copy.activityStreaming).toBe(activity.streaming);
-    expect(copy.activityCreatingSession).toBe(activity.creatingSession);
-    expect(copy.activityResumingSession).toBe(activity.resumingSession);
-    expect(copy.activityWaitingOne).toBe(activity.waitingForBackgroundAgent);
-    expect(copy.activityWaitingMany).toBe(activity.waitingForBackgroundAgents);
-    expect(`${copy.thinking}...`).toBe(copy.thinkingStream);
-    expect(`${copy.activityCreatingSession}...`).toBe(copy.session.creating);
-    expect(`${copy.activityResumingSession}...`).toBe(copy.session.resuming);
     expect(copy.thoughtFor).toBe(chatPanel.thoughtFor);
     expect(copy.thoughtForFew).toBe(chatPanel.thoughtForFew);
     expect(copy.thoughtForFew).toBe("Thought for a few seconds");
@@ -272,12 +156,6 @@ describe("agent chat copy parity", () => {
     expect(copy.showLess).toBe(components.assistantTurn.files.showLess);
     expect(copy.showLess).toBe("Show less");
     expect(copy.showMore).toBe("Show more");
-    expect(copy.expandCode).toBe(en.shared.codeBlock.expandCode);
-    expect(copy.expandCode).toBe("Expand code");
-    expect(copy.collapseCode).toBe(en.shared.codeBlock.collapseCode);
-    expect(copy.collapseCode).toBe("Collapse code");
-    expect(copy.subagentRan).toBe(components.subAgent.ranTitle);
-    expect(copy.subagentRan).toBe("Ran subagent {name}");
     expect(copy.subagentStatus.running).toBe(components.subAgent.status.running);
     expect(copy.subagentStatus.failed).toBe(components.subAgent.status.failed);
     expect(copy.subagentStatus.completed).toBe(components.subAgent.status.completed);
@@ -291,52 +169,5 @@ describe("agent chat copy parity", () => {
     expect(copy.usageTurn.cacheRead).toBe(components.usageBadges.turn.cacheRead);
     expect(copy.usageTurn.cacheWrite).toBe(components.usageBadges.turn.cacheWrite);
     expect(copy.usageTurn.total).toBe(components.usageBadges.turn.total);
-    expect(copy.webSearchSearchingFor).toBe(components.toolResults.searchingFor);
-    expect(copy.webSearchSearchingFor).toBe("Searching for {query}");
-    expect(copy.webSearch).toBe(components.toolResults.webSearch);
-    expect(copy.webSearch).toBe("Web search");
-    expect(copy.webSearchSources).toBe(components.toolResults.sources);
-    expect(copy.webSearchSources).toBe("Sources");
-    expect(copy.webSearchResultCount).toBe(components.toolResults.resultCount);
-    expect(copy.searchMatchCount).toBe(components.toolResults.matchCount);
-    expect(copy.searchMatchCount).toBe("{count, plural, one {# match} other {# matches}}");
-    expect(copy.fetchUrl).toBe(components.toolResults.fetchUrl);
-    expect(copy.fetchUrl).toBe("Fetch {host}");
-    expect(copy.moveTo).toBe(components.toolResults.to);
-    expect(copy.moveTo).toBe("To");
-    expect(copy.deletedFile).toBe(components.toolResults.deletedFileLabel);
-    expect(copy.deletedFile).toBe("Deleted {path}");
-    expect(copy.createdFile).toBe(components.toolResults.created);
-    expect(copy.createdFile).toBe("Created");
-    expect(copy.newFile).toBe(components.toolResults.newFile);
-    expect(copy.newFile).toBe("New");
-    expect(copy.deletedFileStatus).toBe(components.toolResults.deletedFile);
-    expect(copy.deletedFileStatus).toBe("Deleted");
-    expect(copy.noOutput).toBe(components.toolResults.noOutput);
-    expect(copy.noOutput).toBe("No output");
-    expect(copy.lineChanges).toBe(components.toolResults.lineChanges);
-    expect(copy.lineChanges).toBe("Line changes");
-    expect(copy.processing).toBe(components.toolResults.processing);
-    expect(copy.processing).toBe("Processing...");
-    expect(copy.executionFailed).toBe(components.toolResults.executionFailed);
-    expect(copy.executionFailed).toBe("Execution failed");
-    expect(copy.runScript).toBe(components.terminalBlock.title);
-    expect(copy.runScript).toBe("Run Script");
-    expect(copy.terminalMore).toBe(components.terminalBlock.moreActions);
-    expect(copy.terminalMore).toBe("More");
-    expect(copy.copyCommand).toBe(components.terminalBlock.copyCommand);
-    expect(copy.copyCommand).toBe("Copy command");
-    expect(copy.copyResult).toBe(components.terminalBlock.copyResult);
-    expect(copy.copyResult).toBe("Copy result");
-    expect(copy.planDocument).toBe(components.toolResults.planDocument);
-    expect(copy.planDocument).toBe("Plan");
-    expect(copy.planBody).toBe(components.toolResults.planBody);
-    expect(copy.planBody).toBe("View plan");
-    expect(copy.planTodos).toBe(components.toolResults.planTodos);
-    expect(copy.imageGen).toBe(components.toolResults.imageGen);
-    expect(copy.imageGen).toBe("Image");
-    expect(copy.todoPending).toBe(components.toolResults.todo.pending);
-    expect(copy.todoInProgress).toBe(components.toolResults.todo.inProgress);
-    expect(copy.todoCompleted).toBe(components.toolResults.todo.completed);
   });
 });

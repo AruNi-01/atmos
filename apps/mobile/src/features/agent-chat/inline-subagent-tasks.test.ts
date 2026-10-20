@@ -198,15 +198,14 @@ describe("inline subagent tasks", () => {
     expect(transcript).toContain("<InlineSubagentPanel");
   });
 
-  test("the composer card uses the same panel when the live parts are present", () => {
+  test("the composer card lists glass rows and leaves the frame to ExpandedCard", () => {
     const card = readFileSync(join(here, "cards/subagent-card.tsx"), "utf8");
-    expect(card).toContain("<InlineSubagentPanel");
-    expect(card).toContain("tools.length > 0");
-    expect(card).toContain("theme.colors.label");
-    expect(card).toContain("fontSize: 15");
+    expect(card).toContain("<CardHeader");
+    expect(card).not.toContain("<InlineSubagentPanel");
     const lane = readFileSync(join(here, "cards/lane-body.tsx"), "utf8");
-    expect(lane).toContain("cards.subagentTools");
+    expect(lane).toContain("<SubagentCard items={cards.subagents} />");
     const frame = readFileSync(join(here, "cards/expanded-card.tsx"), "utf8");
+    expect(frame).toContain("COMPOSER_GLASS_WELL");
     expect(frame).toContain("bare");
     const thread = readFileSync(join(here, "AgentChatThreadScreen.tsx"), "utf8");
     expect(thread).toContain("laneCardDrawsOwnFrame(lane.visible, cards)");
@@ -215,14 +214,8 @@ describe("inline subagent tasks", () => {
     const titles = readFileSync(join(here, "composer-cards.ts"), "utf8");
     const ownFrame = titles.slice(
       titles.indexOf("function laneCardDrawsOwnFrame"),
-      titles.indexOf("function contextUsageStats"),
+      titles.indexOf("function planBodyMarkdown"),
     );
-    expect(ownFrame).toContain('visible === "subagents"');
-    expect(ownFrame).toContain("cards.subagentTools.length > 0");
-    const titleFn = titles.slice(
-      titles.indexOf("function subagentTitle"),
-      titles.indexOf("function visibleSubagentParts"),
-    );
-    expect(titleFn).toContain("part.title?.trim() || description || part.name.trim()");
+    expect(ownFrame).toContain("return false");
   });
 });

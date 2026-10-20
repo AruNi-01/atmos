@@ -13,19 +13,16 @@ const source = readFileSync(
 );
 
 describe("session op card", () => {
-  test("uses the web confirmation ink and leaves the shine border off", () => {
+  test("uses the sky glass row and leaves the shine border off", () => {
     expect(source).toContain("copy.sessionOpRequested");
-    expect(source).toContain("copy.sessionOpFork");
-    expect(source).toContain("copy.sessionOpRewind");
     expect(source).toContain('request.kind === "fork" ? GitForkIcon : RotateIcon');
-    expect(source).toContain("#00a6f4");
+    expect(source).toContain("SESSION_OP_SKY");
+    expect(source).toContain("GlassTextButton");
     expect(source).toContain("theme.colors.secondaryLabel");
-    expect(source).toContain("theme.colors.label");
-    expect(source).toContain('normalized.includes("cancel")');
-    expect(source).toContain('normalized.includes("reject")');
-    expect(source).toContain('normalized.includes("deny")');
-    expect(source).toContain("borderRadius: 22");
-    expect(source).toContain("borderRadius: 999");
+    expect(source).toContain("option.name.trim()");
+    expect(source).not.toContain("copy.sessionOpFork");
+    expect(source).not.toContain("#00a6f4");
+    expect(source).not.toContain('normalized.includes("cancel")');
     expect(source).not.toContain("ShineBorder");
     expect(source).not.toContain("chatMutedForeground");
   });

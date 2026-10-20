@@ -15,6 +15,9 @@ import {
   TABLE_LINE_HEIGHT,
   agentChatBlockMetrics,
   agentChatBlockquote,
+  agentChatCardHeadingStyle,
+  agentChatCardListBlock,
+  agentChatCardListMetrics,
   agentChatProseBlockquote,
   agentChatProseInk,
   agentChatProseListLayout,
@@ -37,6 +40,7 @@ function openHttpLink(url: string) {
 export function AgentChatMarkdown({
   text,
   tone = "body",
+  variant = "prose",
   fontSize,
   lineHeight,
   chipHttpUrls = false,
@@ -47,6 +51,8 @@ export function AgentChatMarkdown({
 }: {
   text: string;
   tone?: "body" | "thinking";
+  /** Card markdown uses the 14/500 title scale and a shared list indent. */
+  variant?: "prose" | "card";
   /** Overrides the tone default. Omitted body text stays 16 / 22. */
   fontSize?: number;
   lineHeight?: number;
@@ -80,9 +86,12 @@ export function AgentChatMarkdown({
     // Answer text follows streamdown `space-y-4`. Thinking and tool prose keep
     // a margin on both sides, because their paragraph gap is not that 16px.
     const symmetricBlockMargin = Boolean(proseMetrics) || tone === "thinking";
-    const headings = proseMetrics
-      ? agentChatRendererHeadingStyle(proseColor, resolvedFontSize, resolvedLineHeight)
-      : agentChatHeadingStyle(proseColor);
+    const cardList = variant === "card" && !proseMetrics;
+    const headings = cardList
+      ? agentChatCardHeadingStyle(proseColor)
+      : proseMetrics
+        ? agentChatRendererHeadingStyle(proseColor, resolvedFontSize, resolvedLineHeight)
+        : agentChatHeadingStyle(proseColor);
     const chrome = agentChatMarkdownChrome(theme.isDark);
     const fenceMargin = codeBlockMargin ?? proseMetrics?.codeBlockMargin;
 
@@ -122,24 +131,27 @@ export function AgentChatMarkdown({
         bulletSize: 5,
         color: bodyColor,
         fontSize: resolvedFontSize,
-        gapWidth: 8,
+        gapWidth: cardList ? agentChatCardListMetrics.gapWidth : 8,
         lineHeight: resolvedLineHeight,
-        marginLeft: 24,
+        marginLeft: cardList ? agentChatCardListMetrics.marginLeft : 24,
         markerColor: proseInk?.counter ?? proseColor,
         // `list-decimal` inherits the item weight. The library default is 500.
         markerFontWeight: "normal",
-        ...(proseMetrics
-          ? {
-              ...agentChatProseListLayout(resolvedFontSize),
-              itemSpacing: proseMetrics.itemSpacing,
-              marginBottom: proseMetrics.listMargin,
-              marginTop: proseMetrics.listMargin,
-            }
-          : tone === "thinking"
-            ? // `py-1` is the 4px pad. `space-y-4` is the 16px bottom. The top pad
-              // still stacks on a paragraph's 4px.
-              { itemSpacing: 8, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, marginTop: 4 }
-            : agentChatBlockMetrics.list),
+        ...(cardList ? { markerMinWidth: agentChatCardListMetrics.markerMinWidth } : {}),
+        ...(cardList
+          ? agentChatCardListBlock
+          : proseMetrics
+            ? {
+                ...agentChatProseListLayout(resolvedFontSize),
+                itemSpacing: proseMetrics.itemSpacing,
+                marginBottom: proseMetrics.listMargin,
+                marginTop: proseMetrics.listMargin,
+              }
+            : tone === "thinking"
+              ? // `py-1` is the 4px pad. `space-y-4` is the 16px bottom. The top pad
+                // still stacks on a paragraph's 4px.
+                { itemSpacing: 8, marginBottom: 4 + STREAMDOWN_BLOCK_GAP, marginTop: 4 }
+              : agentChatBlockMetrics.list),
       },
       code: {
         backgroundColor: chrome.codeBackground,
@@ -243,6 +255,7 @@ export function AgentChatMarkdown({
     prose,
     theme,
     tone,
+    variant,
   ]);
 
   const markdown = useMemo(

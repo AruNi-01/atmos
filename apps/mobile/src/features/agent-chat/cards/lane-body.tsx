@@ -1,4 +1,3 @@
-import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { AgentChatPermissionCard } from "../AgentChatPermissionCard";
 import { AgentChatSessionOpCard } from "../AgentChatSessionOpCard";
 import type { CardId } from "../card-lane";
@@ -13,7 +12,6 @@ import { WorkflowCard } from "./workflow-card";
 
 export function LaneCardBody({
   cards,
-  messages,
   onQueueDelete,
   onQueueReorder,
   onQueueUpdate,
@@ -22,7 +20,6 @@ export function LaneCardBody({
   visible,
 }: {
   cards: ComposerCards;
-  messages: readonly AgentMessage[];
   onQueueDelete: (itemId: string) => Promise<void>;
   onQueueReorder: (itemIds: string[]) => Promise<void>;
   onQueueUpdate: (itemId: string, text: string) => Promise<void>;
@@ -58,13 +55,11 @@ export function LaneCardBody({
         />
       );
     case "subagents":
-      return (
-        <SubagentCard items={cards.subagents} messages={messages} tools={cards.subagentTools} />
-      );
+      return <SubagentCard items={cards.subagents} />;
     case "goal":
-      return cards.goal ? <GoalCard goal={cards.goal} messages={messages} /> : null;
+      return cards.goal ? <GoalCard goal={cards.goal} /> : null;
     case "workflow":
-      return cards.workflow ? <WorkflowCard messages={messages} workflow={cards.workflow} /> : null;
+      return cards.workflow ? <WorkflowCard workflow={cards.workflow} /> : null;
     case "context":
       return cards.context ? <ContextCard stats={cards.context} /> : null;
     default: {

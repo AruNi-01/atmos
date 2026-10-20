@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 // @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
 import { fileURLToPath } from "node:url";
+import { COMPOSER_GLASS_WELL } from "./composer-glass";
 import { SCROLL_UNIT_SPRING, textMorphCharacters, textMorphFrame } from "./scroll-pill-unit";
 
 const dir = dirname(fileURLToPath(import.meta.url));
@@ -44,9 +45,10 @@ describe("scroll pill unit", () => {
     expect(pill).toContain("testID={SCROLL_PILL_TEST_ID}");
     expect(pill).toContain("COMPOSER_GLASS_CONTROL_SIZE");
     expect(pill).toContain("COMPOSER_GLASS_CONTROL_RADIUS");
-    expect(pill).toContain("shadow={false}");
+    expect(pill).toContain("{...COMPOSER_GLASS_WELL}");
+    expect(COMPOSER_GLASS_WELL.shadow).toBe(false);
     expect(pill).toContain("theme.colors.label");
-    expect(pill).toContain("theme.colors.glassTint");
+    expect(pill).not.toContain("glassTint");
     expect(pill).toContain("opacity: pressed ? 0.6 : 1");
     expect(pill).toContain("NumberFlow");
   });

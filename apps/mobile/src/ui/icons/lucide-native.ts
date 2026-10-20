@@ -9,13 +9,12 @@ import {
   Calendar,
   ChartColumnBig,
   Check,
-  Coins,
-  Cpu,
   Circle,
   CircleAlert,
-  Clipboard,
-  CircleCheck,
   CircleDashed,
+  Coins,
+  Cpu,
+  CircleCheck,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -30,9 +29,9 @@ import {
   Download,
   Flag,
   Gauge,
+  GitFork,
   Globe,
   Goal,
-  GitFork,
   FileText,
   Folder,
   FolderInput,
@@ -42,12 +41,12 @@ import {
   Hand,
   Image as ImageGlyph,
   Keyboard,
-  ListOrdered,
   KeyRound,
   Laptop,
   Layers,
   LayoutGrid,
   Link2,
+  ListOrdered,
   ListTodo,
   LoaderCircle,
   MessageCircle,
@@ -55,8 +54,8 @@ import {
   MessagesSquare,
   MoreHorizontal,
   ListFilter,
-  Search,
   ScrollText,
+  Search,
   Send,
   Share2,
   Shield,
@@ -76,8 +75,8 @@ import {
   Settings,
   ShieldAlert,
   SquareTerminal,
-  Terminal,
   Square,
+  Terminal,
   SunMoon,
   Tag,
   Tags,
@@ -104,12 +103,13 @@ export const CoinsIcon = Coins;
 export const CpuIcon = Cpu;
 export const DollarSignIcon = DollarSign;
 export const GaugeIcon = Gauge;
-export const CircleAlertIcon = CircleAlert;
-export const ClipboardIcon = Clipboard;
-export const CircleIcon = Circle;
-export const CircleDashedIcon = CircleDashed;
+export const GitForkIcon = GitFork;
+export const GoalIcon = Goal;
 export const CircleCheckIcon = CircleCheck;
 export const CheckIcon = Check;
+export const CircleAlertIcon = CircleAlert;
+export const CircleDashedIcon = CircleDashed;
+export const CircleIcon = Circle;
 export const CheckCircleIcon = CheckCircle2;
 export const ChevronDownIcon = ChevronDown;
 export const ChevronLeftIcon = ChevronLeft;
@@ -128,8 +128,6 @@ export const FlagIcon = Flag;
 export const FolderIcon = Folder;
 export const FolderInputIcon = FolderInput;
 export const GlobeIcon = Globe;
-export const GoalIcon = Goal;
-export const GitForkIcon = GitFork;
 export const FolderKanbanIcon = FolderKanban;
 export const FoldersIcon = Folders;
 export const ListFilterIcon = ListFilter;
@@ -141,12 +139,13 @@ export const HandIcon = Hand;
 export const ImageIcon = ImageGlyph;
 export const KeyboardIcon = Keyboard;
 export const LayersIcon = Layers;
+export const ListOrderedIcon = ListOrdered;
 export const ListTodoIcon = ListTodo;
 export const MessageCircleIcon = MessageCircle;
 export const MessageSquareIcon = MessageSquare;
 export const MoreHorizontalIcon = MoreHorizontal;
-export const SearchIcon = Search;
 export const ScrollTextIcon = ScrollText;
+export const SearchIcon = Search;
 export const SendIcon = Send;
 export const ShareIcon = Share2;
 export const ShieldIcon = Shield;
@@ -158,7 +157,6 @@ export const LaptopIcon = Laptop;
 export const LinkIcon = Link2;
 export const LoaderCircleIcon = LoaderCircle;
 export const LogOutIcon = LogOut;
-export const ListOrderedIcon = ListOrdered;
 export const PencilIcon = Pencil;
 export const PinIcon = Pin;
 export const PlugIcon = Plug;
@@ -173,8 +171,9 @@ export const SettingsIcon = Settings;
 export const ShieldAlertIcon = ShieldAlert;
 export const SquareIcon = Square;
 export const SunMoonIcon = SunMoon;
+export const SquareTerminalIcon = SquareTerminal;
+export const PromptTerminalIcon = Terminal;
 export const TerminalIcon = SquareTerminal;
-export const CommandTerminalIcon = Terminal;
 export const TrashIcon = Trash2;
 export const UserIcon = User;
 export const WifiIcon = Wifi;

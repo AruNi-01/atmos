@@ -47,13 +47,15 @@ describe("context ring", () => {
 describe("context usage card", () => {
   test("uses the web panel type and leaves quota and close off", () => {
     const source = readFileSync(join(here, "cards", "context-card.tsx"), "utf8");
+    expect(source).toContain("<CardHeader");
     expect(source).toContain("theme.colors.label");
     expect(source).toContain("theme.colors.secondaryLabel");
-    expect(source).toContain('fontWeight: "500"');
-    expect(source).toContain("fontSize: 12");
+    expect(source).toContain("CARD_BODY");
     expect(source).toContain("height: 6");
-    expect(source).toContain("contextWindowBarTone");
+    expect(source).toContain("contextBarTone");
     expect(source).toContain("formatCompactTokenCount");
+    expect(source).not.toContain("fontSize: 12");
+    expect(source).not.toContain("contextWindowBarTone");
     expect(source).not.toContain("chatForeground");
     expect(source).not.toContain("quota");
     expect(source).not.toContain("onClose");

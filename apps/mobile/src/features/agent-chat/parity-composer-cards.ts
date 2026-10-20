@@ -25,6 +25,7 @@ export function composerCardsFromParity(cards: ParityCards | undefined): Compose
   }));
   const subagents = (cards?.subagents ?? []).map((item) => ({
     id: item.id,
+    status: "running" as const,
     title: item.title,
   }));
   const goal: GrokGoal | null = cards?.goal?.text
@@ -92,7 +93,6 @@ export function composerCardsFromParity(cards: ParityCards | undefined): Compose
     background,
     queue,
     subagents,
-    subagentTools: [],
     goal,
     workflow,
     context,

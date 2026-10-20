@@ -148,35 +148,21 @@ describe("command permission actions", () => {
     ]);
   });
 
-  test("renders the web command card instead of full-width option buttons", () => {
+  test("renders command options as glass chips on the shared permission card", () => {
     const source = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "AgentChatPermissionCard.tsx"),
       "utf8",
     );
-    const command = source.slice(
-      source.indexOf("function CommandPermission"),
-      source.indexOf("export function AgentChatPermissionCard"),
-    );
-    expect(command).toContain("commandPermissionText");
-    expect(command).toContain("commandPermissionActions");
-    expect(command).toContain("copy.permissionRequested");
-    expect(command).toContain("copy.allow");
-    expect(command).toContain("copy.deny");
-    expect(command).toContain('variant === "primary"');
-    expect(command).toContain("Menlo");
-    expect(command).toContain("Terminal");
-    expect(command).not.toContain("borderRadius: 12");
-    expect(command).not.toContain("option.name");
-    expect(command).not.toContain("AgentChatMarkdown");
-    const card = source.slice(source.indexOf("export function AgentChatPermissionCard"));
-    expect(card).toContain("if (questions.length > 0)");
-    expect(card).toContain("QuestionPermission");
-    expect(card).toContain("isPlanExitRequest(request)");
-    expect(card).toContain("PlanPermission");
-    expect(card).toContain("CommandPermission");
-    expect(card).toContain("<ApprovalShell>");
-    expect(card).not.toContain("borderRadius: 12");
-    expect(source).toContain("approvalInk");
+    expect(source).toContain("GlassTextButton");
+    expect(source).toContain("permissionOptionTone");
+    expect(source).toContain("option.name.trim()");
+    expect(source).toContain("isPlanExitRequest(request)");
+    expect(source).toContain("questions.length > 0");
+    expect(source).toContain('variant="card"');
     expect(source).toContain("theme.colors.secondaryLabel");
+    expect(source).not.toContain("function CommandPermission");
+    expect(source).not.toContain("<ApprovalShell>");
+    expect(source).not.toContain("borderRadius: 12");
+    expect(source).not.toContain("commandPermissionText");
   });
 });

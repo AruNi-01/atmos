@@ -568,7 +568,6 @@ export function AgentChatThreadScreen({
               >
                 <LaneCardBody
                   cards={cards}
-                  messages={messages}
                   onQueueDelete={queueDelete}
                   onQueueReorder={queueReorder}
                   onQueueUpdate={queueUpdate}

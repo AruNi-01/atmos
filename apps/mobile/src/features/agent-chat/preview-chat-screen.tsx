@@ -703,7 +703,6 @@ export function PreviewChatScreen() {
           >
             <LaneCardBody
               cards={cards}
-              messages={messages}
               onQueueDelete={noopAsync}
               onQueueReorder={noopAsync}
               onQueueUpdate={noopAsync}

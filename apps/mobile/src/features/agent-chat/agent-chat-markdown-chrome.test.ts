@@ -8,6 +8,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   agentChatBlockMetrics,
+  agentChatCardHeadingMetrics,
+  agentChatCardHeadingStyle,
+  agentChatCardListBlock,
+  agentChatCardListMetrics,
   agentChatHeadingScale,
   agentChatHeadingStyle,
   agentChatMarkdownChrome,
@@ -90,9 +94,35 @@ describe("agent chat markdown chrome", () => {
     });
   });
 
+  test("composer-card headings stay 14/500 with no extra top margin", () => {
+    const headings = agentChatCardHeadingStyle("#111112");
+    expect(agentChatCardHeadingMetrics).toEqual({
+      fontSize: 14,
+      fontWeight: "500",
+      lineHeight: 20,
+      marginBottom: 8,
+      marginTop: 0,
+    });
+    expect(headings.h2).toEqual({ color: "#111112", ...agentChatCardHeadingMetrics });
+    expect(headings.h1).toEqual(headings.h2);
+    const expanded = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "cards/expanded-card.tsx"),
+      "utf8",
+    );
+    expect(expanded).toContain("fontSize: agentChatCardHeadingMetrics.fontSize");
+    expect(expanded).toContain("fontWeight: agentChatCardHeadingMetrics.fontWeight");
+    expect(expanded).toContain("lineHeight: agentChatCardHeadingMetrics.lineHeight");
+    expect(agentChatCardListMetrics).toEqual({
+      gapWidth: 8,
+      marginLeft: 24,
+      markerMinWidth: 22,
+    });
+  });
+
   test("matches web block margins", () => {
     expect(agentChatBlockMetrics.paragraph).toEqual({ marginTop: 0, marginBottom: 0 });
     expect(agentChatBlockMetrics.list).toEqual({ marginTop: 0, marginBottom: 0, itemSpacing: 8 });
+    expect(agentChatCardListBlock).toEqual({ marginTop: 0, marginBottom: 8, itemSpacing: 8 });
     expect(agentChatBlockMetrics.codeBlock).toMatchObject({
       marginTop: 16,
       marginBottom: 16,

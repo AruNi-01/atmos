@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef } from "react";
 import {
   Pressable,
   ScrollView,
@@ -8,30 +8,19 @@ import {
   View,
   type LayoutChangeEvent,
 } from "react-native";
-import Animated, {
-  Easing,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import type { CardId } from "./card-lane";
-import { COMPOSER_GLASS_CONTROL_RADIUS, COMPOSER_GLASS_CONTROL_SIZE } from "./composer-glass";
+import {
+  COMPOSER_GLASS_CONTROL_RADIUS,
+  COMPOSER_GLASS_CONTROL_SIZE,
+  COMPOSER_GLASS_WELL,
+} from "./composer-glass";
+import { PILL_SCROLL_FADE_PX, agentChatHorizontalEdgeFadeGradient } from "./edge-fade-stops";
 import { HideScrollEdge } from "./hide-scroll-edge";
-import { useReducedMotion } from "./motion/use-reduced-motion";
 import { ScrollToBottomPill } from "./scroll-pill";
-import { SCROLL_PILL_SLOT_MS, scrollPillSlotWidth } from "./scroll-pill-slot";
 import { composerRowVisible, scrollPillVisible } from "./stick";
-
-const SLOT_EASE = Easing.bezier(0.16, 1, 0.3, 1);
-
-function emptyLayout(): LayoutChangeEvent {
-  return {
-    nativeEvent: { layout: { height: 0, width: 0, x: 0, y: 0 } },
-  } as LayoutChangeEvent;
-}
 
 export type CardPill = {
   id: CardId;
@@ -39,70 +28,6 @@ export type CardPill = {
   selected: boolean;
   attention: boolean;
 };
-
-function ScrollPillSlot({
-  children,
-  onClosed,
-  visible,
-}: {
-  children: ReactNode;
-  onClosed: () => void;
-  visible: boolean;
-}) {
-  const reduced = useReducedMotion();
-  const width = useSharedValue(0);
-  const opacity = useSharedValue(0);
-  const measured = useRef(0);
-  const opened = useRef(false);
-
-  const animate = useCallback(
-    (nextWidth: number, nextOpacity: number, onEnd?: () => void) => {
-      const timing = { duration: reduced ? 0 : SCROLL_PILL_SLOT_MS, easing: SLOT_EASE };
-      width.set(withTiming(nextWidth, timing));
-      opacity.set(
-        withTiming(nextOpacity, timing, (finished) => {
-          if (finished && onEnd) runOnJS(onEnd)();
-        }),
-      );
-    },
-    [opacity, reduced, width],
-  );
-
-  useEffect(() => {
-    if (!opened.current) return;
-    animate(visible ? measured.current : 0, visible ? 1 : 0, visible ? undefined : onClosed);
-  }, [animate, onClosed, visible]);
-
-  const onMeasure = (event: LayoutChangeEvent) => {
-    const next = scrollPillSlotWidth(Math.ceil(event.nativeEvent.layout.width));
-    if (next <= 0 || next === measured.current) return;
-    measured.current = next;
-    if (!opened.current) {
-      opened.current = true;
-      animate(visible ? next : 0, visible ? 1 : 0, visible ? undefined : onClosed);
-      return;
-    }
-    if (visible) animate(next, 1);
-  };
-
-  const slotStyle = useAnimatedStyle(() => ({
-    opacity: opacity.get(),
-    width: width.get(),
-  }));
-
-  return (
-    <Animated.View
-      accessibilityElementsHidden={!visible}
-      importantForAccessibility={visible ? "auto" : "no-hide-descendants"}
-      pointerEvents={visible ? "auto" : "none"}
-      style={[styles.slot, slotStyle]}
-    >
-      <View onLayout={onMeasure} style={styles.measure}>
-        {children}
-      </View>
-    </Animated.View>
-  );
-}
 
 export function ComposerPillRow({
   belowCount,
@@ -128,31 +53,10 @@ export function ComposerPillRow({
   const { width } = useWindowDimensions();
   const maxPillWidth = Math.round(width * 0.6);
   const showScroll = scrollPillVisible(messageCount, stickToEnd);
-  const wantsRow = composerRowVisible(showScroll, pills.length);
-  const [mounted, setMounted] = useState(wantsRow);
-  const [slotClosed, setSlotClosed] = useState(!showScroll);
-  const onLayoutRef = useRef(onLayout);
-  const wasMounted = useRef(mounted);
   const pillAnchorRef = useRef<View>(null);
   const pillSampleSeq = useRef(0);
-  if (showScroll && slotClosed) setSlotClosed(false);
-  if (wantsRow && !mounted) setMounted(true);
-  else if (mounted && !wantsRow && slotClosed) setMounted(false);
 
-  const onSlotClosed = useCallback(() => {
-    setSlotClosed(true);
-  }, []);
-
-  useEffect(() => {
-    onLayoutRef.current = onLayout;
-  }, [onLayout]);
-
-  useEffect(() => {
-    if (wasMounted.current && !mounted) onLayoutRef.current?.(emptyLayout());
-    wasMounted.current = mounted;
-  }, [mounted]);
-
-  if (!mounted) return null;
+  if (!composerRowVisible(showScroll, pills.length)) return null;
 
   const publishPillX = (contentX?: number) => {
     if (!onScrollPillX) return;
@@ -164,9 +68,9 @@ export function ComposerPillRow({
   };
 
   return (
-    <View onLayout={onLayout} style={styles.row}>
-      <ScrollPillSlot onClosed={onSlotClosed} visible={showScroll}>
-        {onScrollPillX ? (
+    <View onLayout={onLayout} style={[styles.row, showScroll ? styles.rowWithScroll : null]}>
+      {showScroll ? (
+        onScrollPillX ? (
           <View
             collapsable={false}
             onLayout={() => publishPillX()}
@@ -177,11 +81,14 @@ export function ComposerPillRow({
           </View>
         ) : (
           <ScrollToBottomPill count={belowCount} onPress={onScrollToBottom} />
-        )}
-      </ScrollPillSlot>
+        )
+      ) : null}
       <HideScrollEdge style={styles.scrollerWrap}>
         <ScrollView
-          contentContainerStyle={styles.scrollerContent}
+          contentContainerStyle={[
+            styles.scrollerContent,
+            showScroll ? styles.scrollerContentWithScroll : null,
+          ]}
           horizontal
           keyboardShouldPersistTaps="handled"
           onScroll={(event) => {
@@ -190,7 +97,7 @@ export function ComposerPillRow({
               publishPillX(contentX);
               return;
             }
-            onCardScroll?.(event.nativeEvent.contentOffset.x);
+            onCardScroll?.(contentX);
           }}
           scrollEventThrottle={48}
           showsHorizontalScrollIndicator={false}
@@ -206,8 +113,24 @@ export function ComposerPillRow({
             />
           ))}
         </ScrollView>
+        <PillScrollerFade edge="left" />
+        <PillScrollerFade edge="right" />
       </HideScrollEdge>
     </View>
+  );
+}
+
+function PillScrollerFade({ edge }: { edge: "left" | "right" }) {
+  const theme = useMobileTheme();
+  const fade = agentChatHorizontalEdgeFadeGradient(theme.colors.background, edge);
+  return (
+    <LinearGradient
+      colors={fade.colors}
+      end={fade.end}
+      pointerEvents="none"
+      start={fade.start}
+      style={[styles.fade, edge === "left" ? styles.fadeLeft : styles.fadeRight]}
+    />
   );
 }
 
@@ -222,12 +145,7 @@ function CardPillButton({
 }) {
   const theme = useMobileTheme();
   return (
-    <GlassPanel
-      interactive
-      shadow={false}
-      style={[styles.pill, { maxWidth }]}
-      tintColor={pill.selected ? theme.colors.glassTint : theme.colors.controlGlassTint}
-    >
+    <GlassPanel {...COMPOSER_GLASS_WELL} style={[styles.pill, { maxWidth }]}>
       <Pressable
         accessibilityLabel={pill.title}
         accessibilityRole="button"
@@ -247,7 +165,7 @@ function CardPillButton({
           <Text
             numberOfLines={1}
             style={{
-              color: theme.colors.label,
+              color: pill.selected ? theme.colors.label : theme.colors.secondaryLabel,
               flexShrink: 1,
               fontSize: 14,
               fontWeight: "600",
@@ -271,6 +189,18 @@ const styles = StyleSheet.create({
     height: 6,
     width: 6,
   },
+  fade: {
+    bottom: 0,
+    position: "absolute",
+    top: 0,
+    width: PILL_SCROLL_FADE_PX,
+  },
+  fadeLeft: {
+    left: 0,
+  },
+  fadeRight: {
+    right: 0,
+  },
   pill: {
     alignItems: "center",
     borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
@@ -285,21 +215,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
   },
-  measure: {
-    left: 0,
-    position: "absolute",
-    top: 0,
-  },
   row: {
     alignItems: "center",
     flexDirection: "row",
     gap: 8,
     height: COMPOSER_GLASS_CONTROL_SIZE,
-    paddingHorizontal: 18,
   },
-  slot: {
-    height: 36,
-    overflow: "hidden",
+  rowWithScroll: {
+    paddingLeft: 18,
   },
   scroller: {
     flex: 1,
@@ -310,7 +233,10 @@ const styles = StyleSheet.create({
   scrollerContent: {
     alignItems: "center",
     gap: 8,
-    paddingRight: 18,
+    paddingHorizontal: 18,
+  },
+  scrollerContentWithScroll: {
+    paddingLeft: PILL_SCROLL_FADE_PX,
   },
   scrollerWrap: {
     flex: 1,

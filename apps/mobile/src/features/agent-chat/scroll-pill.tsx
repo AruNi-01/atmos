@@ -3,7 +3,11 @@ import { NumberFlow } from "number-flow-react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronDownIcon } from "@/ui/icons/lucide-native";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
-import { COMPOSER_GLASS_CONTROL_RADIUS, COMPOSER_GLASS_CONTROL_SIZE } from "./composer-glass";
+import {
+  COMPOSER_GLASS_CONTROL_RADIUS,
+  COMPOSER_GLASS_CONTROL_SIZE,
+  COMPOSER_GLASS_WELL,
+} from "./composer-glass";
 import { copy } from "./copy";
 import { scrollBelowUnit, scrollPillAccessibilityLabel } from "./stick";
 
@@ -28,7 +32,7 @@ export function ScrollToBottomPill({ count, onPress }: { count: number; onPress:
   const showCopy = count > 0;
 
   return (
-    <GlassPanel interactive shadow={false} style={styles.pill} tintColor={theme.colors.glassTint}>
+    <GlassPanel {...COMPOSER_GLASS_WELL} style={styles.pill}>
       <Pressable
         accessibilityLabel={scrollPillAccessibilityLabel(count)}
         accessibilityRole="button"

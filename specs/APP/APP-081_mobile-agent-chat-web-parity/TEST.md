@@ -37,18 +37,18 @@ Committed under `packages/agent-transcript/fixtures/parity/` (TECH D7), scrubbed
 
 ## Coverage map
 
-| PRD item | Scenario ids                 |
-| -------- | ---------------------------- |
-| M1       | S1, S2, S3, S4               |
-| M2       | S5, S6, S7, S8               |
-| M3       | S9, S10, S11                 |
-| M4       | S12                          |
-| M5       | S13, S14, S15, S16, S32, S33 |
-| M6       | S17, S18, S19, S20, S21, S33 |
-| M7       | S22, S23                     |
-| M8       | S24, S25, S26                |
-| M9       | S27, S28, S29, S30, S31      |
-| N1–N4    | Not in the acceptance bar    |
+| PRD item | Scenario ids                      |
+| -------- | --------------------------------- |
+| M1       | S1, S2, S3, S4                    |
+| M2       | S5, S6, S7, S8                    |
+| M3       | S9, S10, S11                      |
+| M4       | S12                               |
+| M5       | S13, S14, S15, S16, S32, S33      |
+| M6       | S17, S18, S19, S20, S21, S33, S35 |
+| M7       | S22, S23, S34                     |
+| M8       | S24, S25, S26                     |
+| M9       | S27, S28, S29, S30, S31           |
+| N1–N4    | Not in the acceptance bar         |
 
 ## Execution map
 
@@ -87,6 +87,9 @@ Committed under `packages/agent-transcript/fixtures/parity/` (TECH D7), scrubbed
 | S31      | Web capture      | Playwright (`scripts/agent-chat-parity/web-capture.ts`) | same fixtures at 390×844, DPR 3, light and dark                                                                                                                                      | F1–F13         | web PNG + web tree JSON artifacts used by S3–S8, S19, S27                                                                                                                        | not_run |
 | S32      | Bun unit         | `bun test`                                              | scroll-pill rules: visible iff `messages.length > 0` and not at end (slack 24 px); label "N below" iff N > 0; not part of `LaneState`; row rendered iff any card pill or scroll pill | F12, F13       | booleans and labels match the rule table                                                                                                                                         | pass    |
 | S33      | iOS simulator    | workflow + scripted scroll                              | F12 + F13: pill row layout, scroll pill pinned left while card pills scroll, expanded card above the row                                                                             | F12, F13       | screenshots and recording show pinned left pill, scrolling pills, one card                                                                                                       | not_run |
+| S34      | Bun unit         | `bun test`                                              | compact composer does not oscillate on blur, keyboard dismiss, or model/add sheet close; wrap is measured at compact inner width                                                     | —              | `composerDockExpanded` stays stable across those sequences; source uses hidden `onTextLayout` measure                                                                            | pass    |
+| S35      | Bun unit         | `bun test`                                              | chip 33 / pill 36 / compact 52; shared Reduce Transparency hook; no default glass tint; disabled chip a11y; selected pill ink                                                        | —              | token and source assertions in `composer-glass.test.ts`, `card-chrome.test.ts`, `glass-text-button.test.ts`                                                                      | pass    |
+| S36      | iOS simulator    | workflow / device                                       | visual Liquid Glass, compact↔expand 280 ms, Reduce Transparency fallback, chip/pill/composer sizes                                                                                   | —              | screenshots / recordings on iOS 26 and Reduce Transparency                                                                                                                       | not_run |
 
 ## Scenarios
 
@@ -148,6 +151,30 @@ Committed under `packages/agent-transcript/fixtures/parity/` (TECH D7), scrubbed
 - **When**: scroll the transcript up ~1.5 screens; swipe the card pills horizontally with more pills than fit; tap a pill; scroll back to the end by tapping the scroll pill.
 - **Then**: the scroll pill stays at the left end of the row while card pills scroll beneath the row's remaining width (never under the pinned pill); the expanded card appears above the row (confirmed by AruNi, 2026-10-15) and the row does not move; tapping the scroll pill returns to the end and it fades out, card pills slide left; no horizontal scroll indicator; the row sits directly on top of the composer.
 - **Signals**: screenshots `F12F13-<step>-<scheme>.png`; frame positions of the pinned pill (x constant ±1 px during the swipe).
+
+### S34 Compact composer does not oscillate
+
+- **Given**: a draft that wraps at compact inner width (60pt side pad) but fits on one line at expanded width (16pt side pad); also a one-line draft.
+- **When**: focus, blur, open/close the model sheet, open/close the add sheet, and dismiss the keyboard (`focused=false`).
+- **Then**: the wrapped draft stays expanded across that sequence; the one-line draft expands only while focused or a sheet is open and returns to compact without flipping back.
+- **Signals**: `composer-dock.test.ts` sequence assertions; `AgentChatComposer.tsx` measures wrap with `onTextLayout` at `composerDockCompactInnerWidth`.
+
+### S35 Glass size contract and Reduce Transparency
+
+- **Given**: composer lane chrome and in-card chips.
+- **When**: unit tests read tokens and source.
+- **Then**: chips are 33pt, pills 36pt, compact composer 52pt; Liquid Glass has no default tint; Reduce Transparency is one shared hook; disabled chips keep opacity dim plus `accessibilityState.disabled`; selected pills use `label` vs `secondaryLabel` ink without tint.
+- **Signals**: `composer-glass.test.ts`, `card-chrome.test.ts`, `glass-text-button.test.ts`, `glass-availability.test.ts`.
+
+### S36 Native visual glass / compact motion
+
+- **Given**: iOS 26 simulator or device. Run three separate passes: default, Reduce Transparency, Reduce Motion.
+- **When**: idle compact composer, focus expand, multiline grow, chip/pill/card glass.
+- **Then**:
+  - Default: untinted Liquid Glass; compact→expand is 280 ms cubic-out; sizes match S35.
+  - Reduce Transparency: solid `glassFallback` + `glassBorder` (composer-well match, not `glassFallbackStrong`); chips are neutral capsules (Delete stays red).
+  - Reduce Motion: expand/collapse is instant (duration 0); layout still matches S35.
+- **Signals**: screenshots / recordings per pass. This environment cannot run the iOS simulator or a physical device; status `not_run`.
 
 ### S27 Cursor agent CLI rubric (advisory)
 
@@ -249,7 +276,7 @@ Known risks: first Pod/Xcode build is slow (budget 20–30 min uncached); simula
 
 ## Acceptance criteria
 
-1. S1–S9, S12–S13, S15–S18, S20, S22, S24–S26, S32 pass in CI (`bun test`).
+1. S1–S9, S12–S13, S15–S18, S20, S22, S24–S26, S32, S34, S35 pass in CI (`bun test`).
 2. Structural comparison (S3–S8, S19) has zero unexplained mismatches for F1–F12; every known mismatch is listed and mapped to a deviation (V1–V7) or an accepted limitation.
 3. The macOS workflow ran on the PR head, pinned as in the table, and produced downloadable artifacts: screenshots for every fixture in light and dark, and recordings for F4, F12, F13.
 4. At most one card is expanded in every F12 screenshot; every other card is a glass title pill in a horizontally scrollable row above the input; tapping swaps cards, re-tapping collapses. The scroll-to-bottom pill is pinned at the left end of that row, appears only when the transcript is not at its end, and shows "N below" when rows are below (S32, S33).
@@ -273,6 +300,7 @@ Known risks: first Pod/Xcode build is slow (budget 20–30 min uncached); simula
 - Mermaid diagram rendering (stays a fence unless F1 shows it matters).
 - The Linux preview as proof of iOS look (S28 is structure only).
 - Live agent behavior; fixtures replay recorded events.
+- S36 visual / device Liquid Glass and compact-motion confirmation (no iOS simulator in this environment).
 
 ## Coverage Status
 
@@ -345,7 +373,14 @@ Marked only where the test file exists and the command above ran it.
 - **Table borders** — iOS `ENRMTableIOSGridView` now fills cells, draws horizontal rules except the last row, and an outer rounded stroke. No vertical internals. Matches web `border-x-0` + last-row `border-b-0`.
 - **F12 cards** — M6 one expanded card + title pills is accepted. Full web `ApprovalCard` chrome is not ported. Collapsed bodies off-screen stays by design. S21 / S27 F12 card items stay fail / `not_run` until a new simulator matrix.
 - **Accepted / unchanged** — Mermaid-as-fence; URL underline vs globe pill; iOS chrome; MarkdownRenderer 24px (not the Agent Chat surface).
-- **Still `not_run`** — S3, S4, S6, S8, S10, S11, S14, S19, S21, S23, S30, S31, S33. S27 partial. S28 advisory RN-web. S31 Next PNGs OOM. This environment cannot run `ci-mobile-ios-parity.yml`.
+- **Still `not_run`** — S3, S4, S6, S8, S10, S11, S14, S19, S21, S23, S30, S31, S33, S36. S27 partial. S28 advisory RN-web. S31 Next PNGs OOM. This environment cannot run `ci-mobile-ios-parity.yml`.
+
+### Follow-up (2026-10-19, compact wrap hysteresis + glass tokens)
+
+- **S34** — `composer-dock.test.ts` expand sequences (blur / model sheet / add sheet / one-line vs wrapped). Status `pass` once `cd apps/mobile && bun test src/features/agent-chat/composer-dock.test.ts` is green on this head.
+- **S35** — `composer-glass.test.ts`, `card-chrome.test.ts`, `glass-text-button.test.ts`, `glass-availability.test.ts`. Status `pass` on the same bun run.
+- **S36** — `not_run`. No iOS simulator or physical device in this environment. Visual Liquid Glass, 280 ms motion, and Reduce Transparency fallback are unspecified by screenshots here.
+- **Review P3 follow-up** — compact placeholder ellipsis is asserted as `ellipsizeMode` + `numberOfLines` + `pointerEvents` together; `CARD_TITLE` is derived from `agentChatCardHeadingMetrics`; `tool-body.tsx` imports the top-level `sentenceStatus` export from `./copy`. Covered by `composer-dock.test.ts`, `card-chrome.test.ts`, `agent-chat-markdown-chrome.test.ts`.
 
 ### Scene lifecycle gate (QUALITY-011)
 

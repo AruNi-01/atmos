@@ -442,8 +442,8 @@ export function toolTitleLooksLikePath(title: string, path: string | null | unde
   const before =
     trimmed.length > path.length ? trimmed.charAt(trimmed.length - path.length - 1) : "";
   return (
-    trimmed.endsWith(path) &&
-    (trimmed.length === path.length || before === ":" || before === "/" || isUnicodeSpace(before))
+    trimmed.endsWith(path)
+    && (trimmed.length === path.length || before === ":" || before === "/" || isUnicodeSpace(before))
   );
 }
 

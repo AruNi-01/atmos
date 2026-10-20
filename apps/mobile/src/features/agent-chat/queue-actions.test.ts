@@ -40,9 +40,12 @@ describe("queue edit, reorder, and remove", () => {
     expect(card).toContain("onDelete(item.id)");
     expect(card).toContain("onReorder(next)");
     expect(card).toContain("theme.colors.label");
-    expect(card).toContain("theme.colors.secondaryLabel");
     expect(card).toContain("ListOrderedIcon");
-    expect(card).toContain("fontSize: 12");
+    expect(card).toContain("<CardHeader");
+    expect(card).toContain("GlassTextButton");
+    expect(card).toContain("CARD_BODY");
+    expect(card).not.toContain("fontSize: 12");
+    expect(card).not.toContain("theme.colors.secondaryLabel");
     expect(card).not.toContain("chatForeground");
   });
 });

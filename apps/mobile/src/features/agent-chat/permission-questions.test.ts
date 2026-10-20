@@ -32,18 +32,12 @@ describe("permission questions", () => {
       join(dirname(fileURLToPath(import.meta.url)), "AgentChatPermissionCard.tsx"),
       "utf8",
     );
-    const questions = source.slice(
-      source.indexOf("function QuestionPermission"),
-      source.indexOf("export function AgentChatPermissionCard"),
-    );
-    expect(questions).toContain("permissionQuestionAnswersOptionId");
-    expect(questions).toContain("PERMISSION_QUESTION_REJECT_ID");
-    expect(questions).toContain("copy.continue");
-    expect(questions).toContain("copy.skip");
-    expect(questions).toContain("permissionQuestionLetter");
-    expect(questions).not.toContain("option.name");
-    const command = source.slice(source.indexOf("export function AgentChatPermissionCard"));
-    expect(command).toContain("if (questions.length > 0)");
-    expect(command).toContain("QuestionPermission");
+    expect(source).toContain("{question.prompt}");
+    expect(source).toContain("questions.length > 0");
+    expect(source).toContain("PERMISSION_QUESTION_REJECT_ID");
+    expect(source).toContain("copy.skip");
+    expect(source).toContain('testID="agent-chat-permission-skip"');
+    expect(source).not.toContain("function QuestionPermission");
+    expect(source).not.toContain("permissionQuestionLetter");
   });
 });

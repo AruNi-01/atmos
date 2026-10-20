@@ -14,7 +14,7 @@ import {
   type AgentToolCallPart,
 } from "@atmos/agent-transcript";
 import { type CardId, orderedCardIds } from "./card-lane";
-import { copy, historicPermissionTitle } from "./copy";
+import { copy, fillTemplate, historicPermissionTitle } from "./copy";
 
 export type PendingPermission = NonNullable<AgentChatSnapshot["pending_permission"]>;
 
@@ -37,11 +37,13 @@ export type ComposerCardInput = {
 export type BackgroundCommand = {
   id: string;
   command: string;
-  preview: string;
 };
+
+export type SubagentTaskStatus = "running" | "failed" | "completed";
 
 export type SubagentTitle = {
   id: string;
+  status: SubagentTaskStatus;
   title: string;
 };
 
@@ -55,14 +57,20 @@ export type ComposerCards = {
   background: BackgroundCommand[];
   queue: AgentQueueItem[];
   subagents: SubagentTitle[];
-  /** Live tool parts for the current-turn panel. Fixture cards leave this empty. */
-  subagentTools: AgentToolCallPart[];
   goal: GrokGoal | null;
   workflow: GrokWorkflow | null;
   context: ContextUsageStats | null;
 };
 
 const PLAN_FILE_RE = /(?:^|[/\\])(?:plan|PLAN)\.md$/i;
+
+/** Glass cards paint inside ExpandedCard, so the lane never asks for a bare frame. */
+export function laneCardDrawsOwnFrame(
+  _visible: CardId,
+  _cards: Pick<ComposerCards, "subagents">,
+): boolean {
+  return false;
+}
 
 export function planBodyMarkdown(plan: unknown): string {
   if (typeof plan === "string") return plan;
@@ -71,21 +79,6 @@ export function planBodyMarkdown(plan: unknown): string {
   if (typeof record.markdown === "string") return record.markdown;
   if (typeof record.content === "string") return record.content;
   return "";
-}
-
-/** Panels that paint their own `rounded-3xl` border sit outside the lane frame. */
-export function laneCardDrawsOwnFrame(
-  visible: CardId | null,
-  cards: Pick<ComposerCards, "subagentTools">,
-): boolean {
-  if (visible === "subagents") return cards.subagentTools.length > 0;
-  return (
-    visible === "goal" ||
-    visible === "workflow" ||
-    visible === "context" ||
-    visible === "permission" ||
-    visible === "session_op"
-  );
 }
 
 export function contextUsageStats(
@@ -171,16 +164,7 @@ export function deriveComposerCards(input: ComposerCardInput): ComposerCards {
   const planValue = latestPlanValue(input.messages);
   const plan = planValue != null && goal == null ? planValue : null;
   const background = liveBackgroundCommands(input.messages);
-  const subagentTools = visibleSubagentParts(
-    input.messages,
-    goal,
-    workflow,
-    input.queue.length > 0,
-  );
-  const subagents = subagentTools.map((part) => ({
-    id: part.tool_call_id,
-    title: subagentTitle(part),
-  }));
+  const subagents = currentSubagentTitles(input.messages, goal, workflow, input.queue.length > 0);
   const context = contextUsageStats(input.sessionUsage);
   const present: CardId[] = [];
   if (input.pendingPermission) present.push("permission");
@@ -203,7 +187,6 @@ export function deriveComposerCards(input: ComposerCardInput): ComposerCards {
     background,
     queue: input.queue,
     subagents,
-    subagentTools,
     goal,
     workflow,
     context,
@@ -242,23 +225,6 @@ function latestPlanValue(messages: AgentMessage[]): unknown | null {
   return null;
 }
 
-function backgroundOutputPreview(part: AgentToolCallPart): string {
-  const result = part.result;
-  const output =
-    result?.type === "execute"
-      ? result.output
-      : result?.type === "text"
-        ? result.text
-        : result?.type === "error"
-          ? result.message
-          : "";
-  const lines = output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  return lines.at(-1) ?? "";
-}
-
 function liveBackgroundCommands(messages: AgentMessage[]): BackgroundCommand[] {
   const found: BackgroundCommand[] = [];
   const seen = new Set<string>();
@@ -268,11 +234,7 @@ function liveBackgroundCommands(messages: AgentMessage[]): BackgroundCommand[] {
       if (part.type !== "tool_call" || !isLiveBackgroundExecute(part)) continue;
       if (seen.has(part.tool_call_id)) continue;
       seen.add(part.tool_call_id);
-      found.push({
-        id: part.tool_call_id,
-        command: part.params.command.trim(),
-        preview: backgroundOutputPreview(part),
-      });
+      found.push({ id: part.tool_call_id, command: part.params.command.trim() });
     }
   }
   return found;
@@ -302,9 +264,7 @@ function isRosterSubagent(part: AgentToolCallPart, ids: Set<string>): boolean {
 }
 
 function subagentIsRunning(part: AgentToolCallPart): boolean {
-  const status = (part.status ?? "").trim().toLowerCase();
-  if (status === "failed" || status === "error") return false;
-  return isActiveToolStatus(status);
+  return subagentCardStatus(part) === "running";
 }
 
 function subagentTitle(part: AgentToolCallPart): string {
@@ -312,12 +272,12 @@ function subagentTitle(part: AgentToolCallPart): string {
   return part.title?.trim() || description || part.name.trim() || part.tool_call_id;
 }
 
-function visibleSubagentParts(
+function currentSubagentTitles(
   messages: AgentMessage[],
   goal: GrokGoal | null,
   workflow: GrokWorkflow | null,
   followUpPending: boolean,
-): AgentToolCallPart[] {
+): SubagentTitle[] {
   const exclude = grokChromeIds(goal, workflow);
   const start = lastPromptIndex(messages) + 1;
   const items: AgentToolCallPart[] = [];
@@ -333,7 +293,12 @@ function visibleSubagentParts(
       items.push(part);
     }
   }
-  return followUpPending ? items.filter(subagentIsRunning) : items;
+  const visible = followUpPending ? items.filter(subagentIsRunning) : items;
+  return visible.map((part) => ({
+    id: part.tool_call_id,
+    status: subagentCardStatus(part),
+    title: subagentTitle(part),
+  }));
 }
 
 function toolPath(part: AgentToolCallPart): string | null {
@@ -374,4 +339,57 @@ export function planExitFilePath(
 
 export function queueItemText(item: Pick<AgentQueueItem, "display_prompt" | "prompt">): string {
   return item.display_prompt ?? item.prompt;
+}
+
+export function subagentCardStatus(part: { status?: string | null }): SubagentTaskStatus {
+  const status = (part.status ?? "").trim().toLowerCase();
+  if (status === "failed" || status === "error") return "failed";
+  if (isActiveToolStatus(status)) return "running";
+  return "completed";
+}
+
+export function subagentCountLabel(items: readonly SubagentTitle[]): string {
+  const total = items.length;
+  const completed = items.filter((item) => item.status === "completed").length;
+  const running = items.filter((item) => item.status === "running").length;
+  if (total > 0 && completed === total) return copy.subagentAllDone;
+  if (running > 0) return fillTemplate(copy.subagentRunningCount, { count: running });
+  return fillTemplate(copy.subagentProgressCount, { completed, total });
+}
+
+export function backgroundRunningCountLabel(count: number): string {
+  return fillTemplate(copy.backgroundRunningCount, { count });
+}
+
+export function workflowCountLabel(workflow: GrokWorkflow): string {
+  const activePhaseIds = new Set(
+    workflow.phases
+      .filter((phase) => {
+        const state = phase.state.trim().toLowerCase();
+        return state === "active" || state === "running";
+      })
+      .map((phase) => phase.id),
+  );
+  const running = workflow.agents.filter((agent) => activePhaseIds.has(agent.phase_id)).length;
+  if (running > 0) return fillTemplate(copy.subagentRunningCount, { count: running });
+  return copy.workflowIdleCount;
+}
+
+export function contextBarTone(percent: number): "default" | "warning" {
+  return percent >= 70 ? "warning" : "default";
+}
+
+/** Compact token counts for the context card: `114k`, `1M`, or plain integers. */
+export function formatCompactTokenCount(count: number): string {
+  const n = Math.max(0, Math.round(count));
+  if (n >= 1_000_000) {
+    const millions = n / 1_000_000;
+    return Number.isInteger(millions) ? `${millions}M` : `${millions.toFixed(1)}M`;
+  }
+  if (n >= 1000) {
+    const thousands = n / 1000;
+    if (thousands >= 100) return `${Math.round(thousands)}k`;
+    return Number.isInteger(thousands) ? `${thousands}k` : `${thousands.toFixed(1)}k`;
+  }
+  return String(n);
 }
