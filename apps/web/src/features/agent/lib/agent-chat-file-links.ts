@@ -103,8 +103,10 @@ function resolveAbsoluteUnderRoots(
 }
 
 /**
- * Absolute path for tool expand preview. Allows files outside the project
- * workspace (e.g. ~/.grok/sessions/.../plan.md) via /api/system/file.
+ * Absolute path for tool expand preview. Paths outside the project workspace
+ * are still returned so the client can request them. /api/system/file serves
+ * the file only from an allowlisted root or a stored project logo; other
+ * paths fail and the preview shows the missing state.
  */
 export function resolveAgentChatPreviewPath(
   raw: string,

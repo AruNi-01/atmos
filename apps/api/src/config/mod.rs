@@ -1,5 +1,5 @@
 use std::env;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::info;
@@ -106,6 +106,18 @@ impl ServerConfig {
         config
     }
 
+    /// Non-loopback binds must have a real `ATMOS_LOCAL_TOKEN` before listen.
+    /// Loopback (`127.0.0.1`, `localhost`, `::1`) stays open when the token is unset.
+    pub fn ensure_exposed_bind_has_token(&self) -> Result<(), BindAuthError> {
+        if host_is_loopback(&self.host) || token_is_configured(&self.local_api_token) {
+            Ok(())
+        } else {
+            Err(BindAuthError {
+                host: self.host.clone(),
+            })
+        }
+    }
+
     pub fn socket_addr(&self) -> SocketAddr {
         format!("{}:{}", self.host, self.port)
             .parse()
@@ -205,6 +217,56 @@ fn split_host_port(authority: &str) -> Option<(&str, Option<u16>)> {
     }
 }
 
+/// A configured token is `Some` and not blank. Whitespace-only is unset.
+pub fn token_is_configured(token: &Option<String>) -> bool {
+    configured_token(token).is_some()
+}
+
+/// Borrow the raw token when it is non-blank. Comparison uses this string as stored.
+pub fn configured_token(token: &Option<String>) -> Option<&str> {
+    token.as_deref().filter(|value| !value.trim().is_empty())
+}
+
+/// `localhost`, `127.0.0.0/8`, `::1`, and IPv4-mapped loopback.
+/// `0.0.0.0`, `::`, other addresses, and DNS names are not loopback.
+pub fn host_is_loopback(host: &str) -> bool {
+    let host = host.trim();
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    let host = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
+    match host.parse::<IpAddr>() {
+        Ok(IpAddr::V4(ip)) => ip.is_loopback(),
+        Ok(IpAddr::V6(ip)) => {
+            ip.is_loopback()
+                || ip
+                    .to_ipv4_mapped()
+                    .is_some_and(|mapped| mapped.is_loopback())
+        }
+        Err(_) => false,
+    }
+}
+
+#[derive(Debug)]
+pub struct BindAuthError {
+    host: String,
+}
+
+impl std::fmt::Display for BindAuthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Refusing to start: SERVER_HOST '{}' is not a loopback address and ATMOS_LOCAL_TOKEN is unset. Set ATMOS_LOCAL_TOKEN, or bind 127.0.0.1 / localhost / ::1.",
+            self.host
+        )
+    }
+}
+
+impl std::error::Error for BindAuthError {}
+
 fn is_local_host_origin(origin: &str) -> bool {
     let Some((scheme, authority)) = origin.split_once("://") else {
         return false;
@@ -223,7 +285,7 @@ fn is_local_host_origin(origin: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_local_host_origin, CorsOriginConfig, ServerConfig};
+    use super::{is_local_host_origin, token_is_configured, CorsOriginConfig, ServerConfig};
 
     fn config(
         cors_origins: CorsOriginConfig,
@@ -306,6 +368,70 @@ mod tests {
         let config = strict_config();
         assert!(!config.is_host_allowed("evil.example:30303"));
         assert!(!config.is_host_allowed("rebind.local:30303"));
+    }
+
+    fn config_with(host: &str, token: Option<&str>, allow_lan_without_token: bool) -> ServerConfig {
+        ServerConfig {
+            host: host.to_string(),
+            port: 30303,
+            cors_origins: CorsOriginConfig::List(Vec::new()),
+            allow_dynamic_localhost_origins: false,
+            local_api_token: token.map(str::to_string),
+            allow_lan_without_token,
+            allowed_hosts: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn loopback_bind_starts_without_a_token() {
+        for host in [
+            "127.0.0.1",
+            "127.1.2.3",
+            "localhost",
+            "LOCALHOST",
+            "::1",
+            "[::1]",
+            "::ffff:127.0.0.1",
+        ] {
+            assert!(
+                config_with(host, None, false)
+                    .ensure_exposed_bind_has_token()
+                    .is_ok(),
+                "{host}"
+            );
+        }
+    }
+
+    #[test]
+    fn non_loopback_bind_without_token_refuses_to_start() {
+        for host in ["0.0.0.0", "::", "192.168.0.10", "example.com", ""] {
+            let error = config_with(host, None, true)
+                .ensure_exposed_bind_has_token()
+                .expect_err(host);
+            let message = error.to_string();
+            assert!(message.contains("SERVER_HOST"), "{message}");
+            assert!(message.contains("ATMOS_LOCAL_TOKEN"), "{message}");
+            assert!(message.contains(host), "{message}");
+            assert!(!message.contains("s3cr3t"), "{message}");
+        }
+    }
+
+    #[test]
+    fn non_loopback_bind_with_token_starts() {
+        assert!(config_with("0.0.0.0", Some("set"), false)
+            .ensure_exposed_bind_has_token()
+            .is_ok());
+    }
+
+    #[test]
+    fn whitespace_token_does_not_allow_a_public_bind() {
+        let error = config_with("0.0.0.0", Some("   "), false)
+            .ensure_exposed_bind_has_token()
+            .expect_err("blank token");
+        assert!(error.to_string().contains("ATMOS_LOCAL_TOKEN"));
+        assert!(!token_is_configured(&Some("   ".to_string())));
+        assert!(token_is_configured(&Some("set".to_string())));
+        assert!(!token_is_configured(&None));
     }
 
     #[test]

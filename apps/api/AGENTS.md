@@ -37,7 +37,7 @@ apps/api/
 │   │   ├── project/
 │   │   ├── system/
 │   │   └── test/
-│   ├── middleware/          # Loopback token (optional), destructive routes
+│   ├── middleware/          # Loopback trust, token for other peers, destructive routes
 │   └── config/
 └── Cargo.toml               # runtime-manager (client feature)
 ```
@@ -53,7 +53,9 @@ On successful `TcpListener::bind`:
 3. If `relay_identity.json` exists and `ATMOS_RELAY_DISABLE != 1` — spawn **`relay::run`** (outbound WSS to `packages/relay`).
 4. If `ATMOS_REGISTER_TOKEN` set at startup — **`relay::try_consume_register_token`** then clear env.
 
-**Auth**: `require_local_token` applies only when `ATMOS_LOCAL_TOKEN` is configured. Default dev/Desktop path is **open loopback**.
+**Auth**: Loopback clients are trusted without a token (default dev/Desktop bind `127.0.0.1`). `is_request_authorized` returns false when `ATMOS_LOCAL_TOKEN` is unset or blank, so other clients are rejected. If `SERVER_HOST` is not a loopback address and no token is set, the process refuses to listen. `ATMOS_ALLOW_LAN_TRUST=1` still trusts private and link-local clients without a token, but it does not waive that startup refusal. Rejection logs redact `token` query values.
+
+**File serve**: `GET /api/system/file` canonicalizes `path` and serves it only from a project root, `~/.atmos/data/workspaces`, the agent data directory, `ATMOS_FILE_SERVE_ROOTS`, or the exact stored project `logo_path`. A symlink whose target leaves those directories is rejected.
 
 **Origin guard**: `require_allowed_origin` is the outermost layer and is the control that keeps a random web page from driving this Server. A WebSocket handshake is exempt from CORS, so the `Origin` allowlist must be enforced as a request guard — `CorsLayer` alone does not protect `/ws*`. Rules: a request with no `Origin` is allowed (non-browser clients such as the relay/tunnel bridge and CLI never send one); a request with `Origin` must satisfy `ServerConfig::is_origin_allowed`; and the `Host` header must be an IP literal, `localhost`, or listed in `ATMOS_ALLOWED_HOSTS` (blocks DNS rebinding, which arrives without an `Origin` header). Keep CORS and the guard on the same predicate — never add a second origin rule.
 

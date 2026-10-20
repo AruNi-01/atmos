@@ -929,6 +929,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    if let Err(error) = server_config.ensure_exposed_bind_has_token() {
+        tracing::error!("{error}");
+        return Err(error.into());
+    }
+
     let addr = server_config.socket_addr();
     let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
         if e.kind() == std::io::ErrorKind::AddrInUse {

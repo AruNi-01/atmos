@@ -88,9 +88,9 @@ pub async fn require_local_token(
 
     if !is_request_authorized(&headers, query.as_deref(), &expected_token) {
         tracing::warn!(
-            "Unauthorized API request: path={}, query={:?}, remote={}",
+            "Unauthorized API request: path={}, query={}, remote={}",
             path,
-            query,
+            redact_query_token(query.as_deref()),
             remote_ip
         );
         return Err(StatusCode::UNAUTHORIZED);
@@ -155,13 +155,33 @@ fn is_loopback_ip(ip: &std::net::IpAddr) -> bool {
     }
 }
 
+/// Replace `token` query values so rejection logs cannot keep a bearer secret.
+pub fn redact_query_token(query: Option<&str>) -> String {
+    let Some(query) = query else {
+        return "<none>".to_string();
+    };
+    query
+        .split('&')
+        .map(|pair| {
+            if pair.len() >= 6 && pair.as_bytes()[..6].eq_ignore_ascii_case(b"token=") {
+                "token=REDACTED"
+            } else {
+                pair
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("&")
+}
+
 pub fn is_request_authorized(
     headers: &HeaderMap,
     query: Option<&str>,
     token: &Option<String>,
 ) -> bool {
-    let Some(expected_token) = token.as_ref() else {
-        return true;
+    // Missing or blank ATMOS_LOCAL_TOKEN is not a pass. Loopback is allowed
+    // earlier by require_local_token / require_loopback_or_token.
+    let Some(expected_token) = crate::config::configured_token(token) else {
+        return false;
     };
 
     let by_header = headers
@@ -285,5 +305,175 @@ mod tests {
             status_for(&[("host", "100.101.102.103:30303")]).await,
             StatusCode::OK
         );
+    }
+
+    fn auth_header(token: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            AUTHORIZATION,
+            format!("Bearer {token}").parse().expect("header value"),
+        );
+        headers
+    }
+
+    #[test]
+    fn unset_token_is_not_authorization() {
+        let headers = auth_header("anything");
+        assert!(!is_request_authorized(&headers, None, &None));
+        assert!(!is_request_authorized(
+            &HeaderMap::new(),
+            Some("token=anything"),
+            &None
+        ));
+        assert!(!is_request_authorized(
+            &headers,
+            Some("token=anything"),
+            &Some("   ".to_string())
+        ));
+    }
+
+    #[test]
+    fn configured_token_matches_bearer_or_query() {
+        let token = Some("expected".to_string());
+        assert!(is_request_authorized(
+            &auth_header("expected"),
+            None,
+            &token
+        ));
+        assert!(is_request_authorized(
+            &HeaderMap::new(),
+            Some("foo=1&token=expected"),
+            &token
+        ));
+        assert!(!is_request_authorized(&HeaderMap::new(), None, &token));
+        assert!(!is_request_authorized(
+            &auth_header("other"),
+            Some("token=other"),
+            &token
+        ));
+    }
+
+    #[test]
+    fn redact_query_token_hides_token_values() {
+        assert_eq!(redact_query_token(None), "<none>");
+        assert_eq!(redact_query_token(Some("a=1")), "a=1");
+        assert_eq!(redact_query_token(Some("token=SECRET")), "token=REDACTED");
+        assert_eq!(
+            redact_query_token(Some("a=1&token=SECRET&b=2")),
+            "a=1&token=REDACTED&b=2"
+        );
+        assert_eq!(redact_query_token(Some("Token=SECRET")), "token=REDACTED");
+        let redacted = redact_query_token(Some("a=1&token=SECRET&b=2"));
+        assert!(!redacted.contains("SECRET"));
+    }
+
+    fn token_router(token: Option<String>, allow_lan: bool) -> Router {
+        Router::new()
+            .route("/api/system/file", get(|| async { "ok" }))
+            .layer(from_fn(move |connect_info, headers, request, next| {
+                let token = token.clone();
+                async move {
+                    require_local_token(connect_info, headers, request, next, token, allow_lan)
+                        .await
+                }
+            }))
+    }
+
+    async fn token_status(
+        token: Option<String>,
+        allow_lan: bool,
+        peer: [u8; 4],
+        query: &str,
+    ) -> StatusCode {
+        let mut request = HttpRequest::builder()
+            .uri(format!("/api/system/file?{query}"))
+            .body(Body::empty())
+            .expect("request builds");
+        request
+            .extensions_mut()
+            .insert(ConnectInfo(SocketAddr::from((peer, 4242))));
+        token_router(token, allow_lan)
+            .oneshot(request)
+            .await
+            .expect("router responds")
+            .status()
+    }
+
+    #[tokio::test]
+    async fn loopback_without_token_is_allowed_and_public_is_not() {
+        assert_eq!(
+            token_status(None, false, [127, 0, 0, 1], "path=%2Ftmp%2Fa").await,
+            StatusCode::OK
+        );
+        assert_eq!(
+            token_status(None, false, [10, 0, 0, 1], "path=%2Ftmp%2Fa").await,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    #[tokio::test]
+    async fn lan_trust_allows_private_peers_only() {
+        assert_eq!(
+            token_status(None, true, [10, 1, 2, 3], "path=%2Ftmp%2Fa").await,
+            StatusCode::OK
+        );
+        assert_eq!(
+            token_status(None, true, [8, 8, 8, 8], "path=%2Ftmp%2Fa").await,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    #[test]
+    fn unauthorized_log_redacts_query_token() {
+        let captured = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+        let writer_buf = captured.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_ansi(false)
+            .with_max_level(tracing::Level::WARN)
+            .with_writer(move || LogWriter(writer_buf.clone()))
+            .finish();
+
+        // Current-thread runtime keeps the thread-local subscriber across the
+        // middleware poll. A multi-thread runtime can resume the task elsewhere
+        // and drop the captured line.
+        let status = std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            let _guard = tracing::subscriber::set_default(subscriber);
+            runtime.block_on(token_status(
+                None,
+                false,
+                [1, 2, 3, 4],
+                "token=s3cr3t-token-value&path=%2Fetc%2Fpasswd",
+            ))
+        })
+        .join()
+        .expect("log thread panicked");
+
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        let log = captured.lock().expect("log mutex").clone();
+        assert!(
+            !log.contains("s3cr3t-token-value"),
+            "log leaked the query token: {log}"
+        );
+        assert!(log.contains("REDACTED"), "log was: {log}");
+    }
+
+    struct LogWriter(std::sync::Arc<std::sync::Mutex<String>>);
+
+    impl std::io::Write for LogWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0
+                .lock()
+                .expect("log mutex")
+                .push_str(&String::from_utf8_lossy(buf));
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
     }
 }
