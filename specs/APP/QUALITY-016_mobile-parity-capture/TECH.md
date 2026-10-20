@@ -91,10 +91,11 @@ F12's permission request includes a reject-class option next to Allow: `{ "optio
 
 `ios-capture.sh` used to continue after a PillTap miss (`A miss does not fail the job`, and callers that only echoed the failure). A miss now prints `PillTap missed:` and exits non-zero. That covers the scroll pill, the F12 card-pill pass (plan, queue, permission pill, Skip chip), the card-row swipe, and the composer field. A timeout waiting for the app to become ready (`[parity] ready …`) on the F12 pill-tap, card-row, and composer-keyboard passes also prints `PillTap missed:` and exits 1. Comments name the Skip chip on the permission card. They do not say Skip lives on a Questions card, and they do not say the F12 question has no options. Replay, pinned lane, and composer-state screenshots still do not fail the job.
 
+`PillTapUITests.setUp` sets `continueAfterFailure = false`. Source: eng-larry's #336 MacBook Air run report, approved by the Eng Manager. After the first failed assertion in a test method, XCTest stops that method. One missed tap records one failure and does not also fail the later assertion in the same method.
+
 ## Risks
 
-- PillTap looks up `buttons["agent-chat-permission-skip"]`. F12 now has the Skip option that renders that id. Whether XCUITest classifies the chip `View` as a button is still unverified here: there is no iOS Simulator in this environment, and the job stays opt-in. The Bun tests lock the fixture option, the source string, and that a miss is no longer swallowed.
-- `PillTapUITests` does not set `continueAfterFailure = false`. A follow-up read #336's issue comments, review threads, commit comments, and review bodies for that XCTest setting and for an eng-larry note. Neither is there. The class is unchanged. One missed tap can still produce a later assertion failure in the same test method.
+- PillTap looks up `buttons["agent-chat-permission-skip"]`. F12 now has the Skip option that renders that id. Whether XCUITest classifies the chip `View` as a button is still unverified here: there is no iOS Simulator in this environment, and the job stays opt-in. The Bun tests lock the fixture option, the source string, `continueAfterFailure = false` in `setUp`, and that a miss is no longer swallowed. The single-failure stop itself is not observed on a simulator here.
 - `capture-parity-view.ts` calls `makeImageFromView` / `readPixels` on the installed Skia. The flat-fill patch is not applied. A uniform-frame shot can still log `[parity] motion flat`. That is a log, not a patch.
 - Slot width is pill width + 8, and the glass row already has `gap: 8`. APP-081 records that double gap. This spec does not change it.
 - `writeParityMotionPng` writes under the app Documents directory at capture time. It is not a repo path.

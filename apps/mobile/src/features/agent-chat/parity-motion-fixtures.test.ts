@@ -178,6 +178,8 @@ describe("parity motion fixtures", () => {
     expect(tap).toContain('buttons["agent-chat-card-pill-queue"]');
     expect(tap).toContain('buttons["agent-chat-card-pill-permission"]');
     expect(tap).toContain('buttons["agent-chat-permission-skip"]');
+    expect(tap).toContain("override func setUp()");
+    expect(tap).toContain("continueAfterFailure = false");
     expect(tap).toContain("func testTapCardPills()");
     expect(tap).toContain('scrollViews["agent-chat-card-pill-scroller"]');
     expect(tap).toContain('otherElements["agent-chat-card-pill-scroller"]');

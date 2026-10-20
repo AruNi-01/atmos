@@ -26,17 +26,17 @@
 
 ## Execution map
 
-| Scenario | Level     | Expected tool | Target command / method                                                                                | Fixture / data      | Signals                                                         | Status  |
-| -------- | --------- | ------------- | ------------------------------------------------------------------------------------------------------ | ------------------- | --------------------------------------------------------------- | ------- |
-| C1       | Unit      | `bun test`    | `parity-replay.test.ts`, `parity-lane-steps.test.ts`, `parity-composer-states.test.ts`                 | In-file fixtures    | Shot times and step order                                       | pass    |
-| C2       | Unit      | `bun test`    | `parity-cycle.test.ts`, `motion/use-reduced-motion.test.ts`                                            | Owner + pin counter | Second mount keeps the pin; last release clears it              | pass    |
-| C3       | Unit      | `bun test`    | `parity-motion-fixtures.test.ts`                                                                       | Preview source      | Reply 50 hold lines and `revealMessage`                         | pass    |
-| C4       | Unit      | `bun test`    | same file, reads component sources                                                                     | Glass components    | Exact `testID` strings and `measureInWindow`                    | pass    |
-| C5       | Unit      | `bun test`    | same file, reads `ios-capture.sh` and PillTap                                                          | Script source       | `tap_scroll_pill`, h264, `--seconds 720`, no tap note           | pass    |
-| C6       | Shell     | `rg`          | search the branch diff                                                                                 | Changed paths       | No patch, no `EVIDENCE_PUSH`, no hostname, no png/mov           | pass    |
-| C7       | Toolchain | shell         | `bun lint`; `oxfmt --check` on changed paths                                                           | Repo                | lint exit 0 at cap 455                                          | pass    |
-| C8       | E2E       | GHA           | `ios-simulator` job                                                                                    | `ios-parity` label  | Job skipped without the label                                   | not_run |
-| C9       | Unit      | `bun test`    | `parity-composer-cards.test.ts`, `parity-tree.test.ts`, `parity-motion-fixtures.test.ts`, `compare.ts` | F12 Allow + Skip    | Skip is reject-class; a PillTap miss or a ready timeout exits 1 | pass    |
+| Scenario | Level     | Expected tool | Target command / method                                                                                | Fixture / data      | Signals                                                                             | Status  |
+| -------- | --------- | ------------- | ------------------------------------------------------------------------------------------------------ | ------------------- | ----------------------------------------------------------------------------------- | ------- |
+| C1       | Unit      | `bun test`    | `parity-replay.test.ts`, `parity-lane-steps.test.ts`, `parity-composer-states.test.ts`                 | In-file fixtures    | Shot times and step order                                                           | pass    |
+| C2       | Unit      | `bun test`    | `parity-cycle.test.ts`, `motion/use-reduced-motion.test.ts`                                            | Owner + pin counter | Second mount keeps the pin; last release clears it                                  | pass    |
+| C3       | Unit      | `bun test`    | `parity-motion-fixtures.test.ts`                                                                       | Preview source      | Reply 50 hold lines and `revealMessage`                                             | pass    |
+| C4       | Unit      | `bun test`    | same file, reads component sources                                                                     | Glass components    | Exact `testID` strings and `measureInWindow`                                        | pass    |
+| C5       | Unit      | `bun test`    | same file, reads `ios-capture.sh` and PillTap                                                          | Script source       | `tap_scroll_pill`, h264, `--seconds 720`, no tap note; one miss records one failure | pass    |
+| C6       | Shell     | `rg`          | search the branch diff                                                                                 | Changed paths       | No patch, no `EVIDENCE_PUSH`, no hostname, no png/mov                               | pass    |
+| C7       | Toolchain | shell         | `bun lint`; `oxfmt --check` on changed paths                                                           | Repo                | lint exit 0 at cap 455                                                              | pass    |
+| C8       | E2E       | GHA           | `ios-simulator` job                                                                                    | `ios-parity` label  | Job skipped without the label                                                       | not_run |
+| C9       | Unit      | `bun test`    | `parity-composer-cards.test.ts`, `parity-tree.test.ts`, `parity-motion-fixtures.test.ts`, `compare.ts` | F12 Allow + Skip    | Skip is reject-class; a PillTap miss or a ready timeout exits 1                     | pass    |
 
 ## Scenarios
 
@@ -77,7 +77,7 @@
 - **Level**: Unit
 - **Given**: `ios-capture.sh` and `PillTapUITests.swift`.
 - **When**: the fixture test and `run-until-line.py --self-test` run.
-- **Then**: the script mentions `tap_scroll_pill`, `tap_card_pills`, `f12-pill-tap.mov`, `"cards":"lane"`, h264, `[parity] replay held 15000`, `--seconds 720`, and `run-until-line.py`. It does not contain `This is not a Simulator tap.` PillTap looks up the scroll, plan, queue, permission, and permission-skip buttons. `bash -n` accepts the shell script.
+- **Then**: the script mentions `tap_scroll_pill`, `tap_card_pills`, `f12-pill-tap.mov`, `"cards":"lane"`, h264, `[parity] replay held 15000`, `--seconds 720`, and `run-until-line.py`. It does not contain `This is not a Simulator tap.` PillTap looks up the scroll, plan, queue, permission, and permission-skip buttons. `PillTapUITests.setUp` sets `continueAfterFailure = false`, so one missed tap records one failure and does not run the later assertion in that method. `bash -n` accepts the shell script.
 - **Signals**: fixture test, Python self-test, `bash -n`.
 
 ### C6 — Nothing sensitive or discarded is in the diff
@@ -137,3 +137,5 @@ C9 (2026-10-20), after #334 and #335 were on `main` (`c3cd96b59`). F12 had only 
 - `bash -n scripts/agent-chat-parity/ios-capture.sh` exited 0.
 - C7 re-run: `bun lint` (`oxlint --max-warnings=455`) exited 0 with 452 warnings. `oxfmt --check` on the changed paths exited 0. The cap in `package.json` is still 455.
 - C8 stays `not_run`. This environment has no iOS Simulator, so PillTap itself is not executed.
+
+C5 `continueAfterFailure` (2026-10-20). `PillTapUITests.setUp` sets `continueAfterFailure = false` (eng-larry's #336 MacBook Air run report, approved by the Eng Manager). One missed tap records one failure and does not run the later assertion in that method. `cd apps/mobile && bun test src/features/agent-chat/parity-motion-fixtures.test.ts` → 5 pass, 0 fail, 158 expect() calls. The UI test was not executed.
