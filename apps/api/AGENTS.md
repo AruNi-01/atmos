@@ -53,7 +53,7 @@ On successful `TcpListener::bind`:
 3. If `relay_identity.json` exists and `ATMOS_RELAY_DISABLE != 1` — spawn **`relay::run`** (outbound WSS to `packages/relay`).
 4. If `ATMOS_REGISTER_TOKEN` set at startup — **`relay::try_consume_register_token`** then clear env.
 
-**Auth**: Loopback clients are trusted without a token (default dev/Desktop bind `127.0.0.1`). `is_request_authorized` returns false when `ATMOS_LOCAL_TOKEN` is unset or blank, so other clients are rejected. If `SERVER_HOST` is not a loopback address and no token is set, the process refuses to listen. `ATMOS_ALLOW_LAN_TRUST=1` still trusts private and link-local clients without a token, but it does not waive that startup refusal. Rejection logs redact `token` query values.
+**Auth**: Loopback clients are trusted without a token (default dev/Desktop bind `127.0.0.1`). `is_request_authorized` returns false when `ATMOS_LOCAL_TOKEN` is unset or blank, so other clients are rejected. If `SERVER_HOST` is not a loopback address and no token is set, the process refuses to listen. `ATMOS_ALLOW_LAN_TRUST=1` still trusts private and link-local clients without a token, but it does not waive that startup refusal. Rejection logs and the HTTP access-log span redact `token` query values, including percent-encoded key names. Among IPv4-mapped addresses, only `::ffff:127.0.0.0/8` is loopback.
 
 **File serve**: `GET /api/system/file` canonicalizes `path` and serves it only from a project root, `~/.atmos/data/workspaces`, the agent data directory, `ATMOS_FILE_SERVE_ROOTS`, or the exact stored project `logo_path`. A symlink whose target leaves those directories is rejected.
 

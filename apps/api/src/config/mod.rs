@@ -227,8 +227,9 @@ pub fn configured_token(token: &Option<String>) -> Option<&str> {
     token.as_deref().filter(|value| !value.trim().is_empty())
 }
 
-/// `localhost`, `127.0.0.0/8`, `::1`, and IPv4-mapped loopback.
-/// `0.0.0.0`, `::`, other addresses, and DNS names are not loopback.
+/// `localhost`, `127.0.0.0/8`, `::1`, and IPv4-mapped loopback (`::ffff:127.0.0.0/8`).
+/// `::ffff:0.0.0.0`, other IPv4-mapped addresses, `0.0.0.0`, `::`, other addresses,
+/// and DNS names are not loopback.
 pub fn host_is_loopback(host: &str) -> bool {
     let host = host.trim();
     if host.eq_ignore_ascii_case("localhost") {
@@ -285,7 +286,9 @@ fn is_local_host_origin(origin: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_local_host_origin, token_is_configured, CorsOriginConfig, ServerConfig};
+    use super::{
+        host_is_loopback, is_local_host_origin, token_is_configured, CorsOriginConfig, ServerConfig,
+    };
 
     fn config(
         cors_origins: CorsOriginConfig,
@@ -413,6 +416,34 @@ mod tests {
             assert!(message.contains("ATMOS_LOCAL_TOKEN"), "{message}");
             assert!(message.contains(host), "{message}");
             assert!(!message.contains("s3cr3t"), "{message}");
+        }
+    }
+
+    #[test]
+    fn only_ipv4_mapped_loopback_counts_as_loopback() {
+        for host in ["::ffff:127.0.0.1", "::ffff:127.1.2.3", "[::ffff:127.0.0.1]"] {
+            assert!(host_is_loopback(host), "{host}");
+            assert!(
+                config_with(host, None, false)
+                    .ensure_exposed_bind_has_token()
+                    .is_ok(),
+                "{host}"
+            );
+        }
+        for host in [
+            "::ffff:0.0.0.0",
+            "::ffff:8.8.8.8",
+            "::ffff:10.1.2.3",
+            "::ffff:192.168.0.1",
+            "[::ffff:8.8.8.8]",
+        ] {
+            assert!(!host_is_loopback(host), "{host}");
+            assert!(
+                config_with(host, None, true)
+                    .ensure_exposed_bind_has_token()
+                    .is_err(),
+                "{host}"
+            );
         }
     }
 
