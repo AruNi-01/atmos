@@ -27,11 +27,16 @@ pub(crate) use worktrees::is_linked_worktree;
 
 /// Run a git command in the given repo directory and return stdout on success.
 fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
-    run_git_with_ceiling(repo_path, args, None)
+    run_git_with_ceiling(repo_path, args, None, false)
 }
 
-fn run_git_with_ceiling(repo_path: &Path, args: &[&str], ceiling: Option<&Path>) -> Result<String> {
-    let bytes = run_git_bytes_with_ceiling(repo_path, args, ceiling)?;
+fn run_git_with_ceiling(
+    repo_path: &Path,
+    args: &[&str],
+    ceiling: Option<&Path>,
+    omit_no_lazy_fetch: bool,
+) -> Result<String> {
+    let bytes = run_git_bytes_with_ceiling(repo_path, args, ceiling, omit_no_lazy_fetch)?;
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
 
@@ -57,19 +62,13 @@ const GIT_BLOB_LOCKED_CONFIG: &[&str] = &[
     "core.fsmonitor=false",
 ];
 
-/// Test seam. When this is `1`, git-blob subprocesses do not export
-/// `GIT_NO_LAZY_FETCH`. Git before 2.44 ignores that variable, so tests set
-/// this to prove the promisor rejection does not depend on it. Production
-/// does not set it.
-const GIT_BLOB_OMIT_NO_LAZY_FETCH: &str = "ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH";
-
 struct GitCommandOutput {
     status: std::process::ExitStatus,
     stdout: Vec<u8>,
     stderr: Vec<u8>,
 }
 
-fn git_blob_command(repo_path: &Path, ceiling: Option<&Path>) -> Command {
+fn git_blob_command(repo_path: &Path, ceiling: Option<&Path>, omit_no_lazy_fetch: bool) -> Command {
     let mut command = Command::new("git");
     command.current_dir(repo_path);
     if let Some(ceiling) = ceiling {
@@ -77,11 +76,13 @@ fn git_blob_command(repo_path: &Path, ceiling: Option<&Path>) -> Command {
         // The git-blob path is the only caller that sets a ceiling. It also drops
         // inherited repository-location variables so a parent `GIT_DIR` cannot
         // redirect the read. Following a `.git` gitdir file is not a ceiling walk.
-        // `GIT_NO_LAZY_FETCH` is defense in depth for git 2.44+. Older git ignores
-        // it. The `-c` values override repository config for the locked transports
-        // and fsmonitor, and they sit before the subcommand.
+        // `GIT_NO_LAZY_FETCH=1` is defense in depth for git 2.44+. Callers pass
+        // `omit_no_lazy_fetch` only from a test build. Production passes false
+        // and always exports the variable. The `-c` values override repository
+        // config for the locked transports and fsmonitor, and they sit before
+        // the subcommand.
         command.env("GIT_CEILING_DIRECTORIES", ceiling);
-        if std::env::var(GIT_BLOB_OMIT_NO_LAZY_FETCH).ok().as_deref() == Some("1") {
+        if omit_no_lazy_fetch {
             command.env_remove("GIT_NO_LAZY_FETCH");
         } else {
             command.env("GIT_NO_LAZY_FETCH", "1");
@@ -106,8 +107,9 @@ fn run_git_command_with_ceiling(
     repo_path: &Path,
     args: &[&str],
     ceiling: Option<&Path>,
+    omit_no_lazy_fetch: bool,
 ) -> Result<GitCommandOutput> {
-    let mut command = git_blob_command(repo_path, ceiling);
+    let mut command = git_blob_command(repo_path, ceiling, omit_no_lazy_fetch);
     command.args(args);
     let output = command.output().map_err(|e| {
         EngineError::Git(format!(
@@ -128,8 +130,9 @@ fn run_git_bytes_with_ceiling(
     repo_path: &Path,
     args: &[&str],
     ceiling: Option<&Path>,
+    omit_no_lazy_fetch: bool,
 ) -> Result<Vec<u8>> {
-    let output = run_git_command_with_ceiling(repo_path, args, ceiling)?;
+    let output = run_git_command_with_ceiling(repo_path, args, ceiling, omit_no_lazy_fetch)?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(EngineError::Git(format!(
@@ -179,14 +182,23 @@ fn try_run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Option<Vec<u8>>>
 /// key is `Ok(false)`. `extensions.partialClone` with any value, or any
 /// `remote.*.promisor` boolean that is true, is `Ok(true)`. A failed read is
 /// `Err` so the caller can fail closed.
-pub fn git_blob_repo_has_promisor(repo_path: &Path, ceiling: &Path) -> Result<bool> {
-    if config_scope_has_promisor(repo_path, ceiling, "--local")? {
+pub fn git_blob_repo_has_promisor(
+    repo_path: &Path,
+    ceiling: &Path,
+    omit_no_lazy_fetch: bool,
+) -> Result<bool> {
+    if config_scope_has_promisor(repo_path, ceiling, "--local", omit_no_lazy_fetch)? {
         return Ok(true);
     }
-    config_scope_has_promisor(repo_path, ceiling, "--worktree")
+    config_scope_has_promisor(repo_path, ceiling, "--worktree", omit_no_lazy_fetch)
 }
 
-fn config_scope_has_promisor(repo_path: &Path, ceiling: &Path, scope: &str) -> Result<bool> {
+fn config_scope_has_promisor(
+    repo_path: &Path,
+    ceiling: &Path,
+    scope: &str,
+    omit_no_lazy_fetch: bool,
+) -> Result<bool> {
     let partial = run_git_command_with_ceiling(
         repo_path,
         &[
@@ -197,6 +209,7 @@ fn config_scope_has_promisor(repo_path: &Path, ceiling: &Path, scope: &str) -> R
             "extensions.partialclone",
         ],
         Some(ceiling),
+        omit_no_lazy_fetch,
     )?;
     if partial.status.success() {
         return Ok(true);
@@ -216,6 +229,7 @@ fn config_scope_has_promisor(repo_path: &Path, ceiling: &Path, scope: &str) -> R
             r"^remote\..*\.promisor$",
         ],
         Some(ceiling),
+        omit_no_lazy_fetch,
     )?;
     if promisor.status.success() {
         return promisor_values_include_true(&promisor.stdout);
@@ -324,7 +338,11 @@ pub struct GitRepoIdentity {
 /// `ceiling` is `GIT_CEILING_DIRECTORIES`. Git will not walk into that directory
 /// or above it while discovering a repository. A `gitdir:` file under the
 /// starting directory is still followed.
-pub fn resolve_git_repo_identity(repo_path: &Path, ceiling: &Path) -> Result<GitRepoIdentity> {
+pub fn resolve_git_repo_identity(
+    repo_path: &Path,
+    ceiling: &Path,
+    omit_no_lazy_fetch: bool,
+) -> Result<GitRepoIdentity> {
     let text = run_git_with_ceiling(
         repo_path,
         &[
@@ -334,6 +352,7 @@ pub fn resolve_git_repo_identity(repo_path: &Path, ceiling: &Path) -> Result<Git
             "--git-common-dir",
         ],
         Some(ceiling),
+        omit_no_lazy_fetch,
     )?;
     let mut lines = text.lines().map(str::trim).filter(|line| !line.is_empty());
     let Some(toplevel) = lines.next() else {
@@ -368,19 +387,28 @@ pub fn resolve_git_repo_identity(repo_path: &Path, ceiling: &Path) -> Result<Git
 /// Resolves the object with `rev-parse` then reads via `cat-file blob` so the
 /// spec is never parsed as a `git show` option (e.g. `--output=...`).
 pub fn show_git_blob_bytes(repo_path: &Path, rev_path_spec: &str) -> Result<Vec<u8>> {
-    read_git_blob(repo_path, rev_path_spec, None)
+    read_git_blob(repo_path, rev_path_spec, None, false)
 }
 
 /// Same as [`show_git_blob_bytes`], but git will not search above `ceiling`.
+///
+/// `omit_no_lazy_fetch` drops `GIT_NO_LAZY_FETCH` for a test build. Production
+/// passes `false`, which always sets the variable to `1`.
 pub fn show_git_blob_bytes_with_ceiling(
     repo_path: &Path,
     rev_path_spec: &str,
     ceiling: &Path,
+    omit_no_lazy_fetch: bool,
 ) -> Result<Vec<u8>> {
-    read_git_blob(repo_path, rev_path_spec, Some(ceiling))
+    read_git_blob(repo_path, rev_path_spec, Some(ceiling), omit_no_lazy_fetch)
 }
 
-fn read_git_blob(repo_path: &Path, rev_path_spec: &str, ceiling: Option<&Path>) -> Result<Vec<u8>> {
+fn read_git_blob(
+    repo_path: &Path,
+    rev_path_spec: &str,
+    ceiling: Option<&Path>,
+    omit_no_lazy_fetch: bool,
+) -> Result<Vec<u8>> {
     let spec = rev_path_spec.trim();
     if !is_safe_blob_show_spec(spec) {
         return Err(EngineError::Git("Invalid git blob show-spec".to_string()));
@@ -389,12 +417,18 @@ fn read_git_blob(repo_path: &Path, rev_path_spec: &str, ceiling: Option<&Path>) 
         repo_path,
         &["rev-parse", "--verify", "--quiet", spec],
         ceiling,
+        omit_no_lazy_fetch,
     )?;
     let oid = oid.trim();
     if oid.is_empty() {
         return Err(EngineError::Git("Blob object not found".to_string()));
     }
-    run_git_bytes_with_ceiling(repo_path, &["cat-file", "blob", oid], ceiling)
+    run_git_bytes_with_ceiling(
+        repo_path,
+        &["cat-file", "blob", oid],
+        ceiling,
+        omit_no_lazy_fetch,
+    )
 }
 
 fn is_safe_blob_show_spec(spec: &str) -> bool {

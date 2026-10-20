@@ -150,7 +150,7 @@ No new WebSocket message. No new REST route.
   - textconv and smudge filters are not cleared. `cat-file blob <oid>` does not pass `--textconv` or `--filters`.
   - `url.<base>.insteadOf` and `remote.<name>.vcs` only matter if a fetch runs. The promisor rejection is what stops that fetch. They are not separately tested.
   - Global and system config are the operator's, so git-blob does not set `GIT_CONFIG_NOSYSTEM` or `GIT_CONFIG_GLOBAL=/dev/null`, and a promisor remote that exists only there does not 403 every repository. Command-line `-c` still overrides those files for the locked keys. That is the lower-risk tradeoff.
-  - `ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH=1` is a test seam so a git that honors `GIT_NO_LAZY_FETCH` can still exercise the promisor rejection. Production does not set it. The promisor rejection and the `-c` locks still apply when it is set.
+  - `ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH=1` is compiled only in the api crate's `cfg(test)` build. The api test binary, including a child restarted with `current_exe`, reads it and passes a flag that `env_remove`s `GIT_NO_LAZY_FETCH`. A non-test build does not contain that name and always sets `GIT_NO_LAZY_FETCH=1`. `core-engine` does not read the variable. The promisor rejection and the `-c` locks still apply when the test flag is on.
 - **Residual**: replacing `objects/info/alternates`, or the repository config, between this check and `cat-file` is still the existing TOCTOU window.
 - **If this breaks a preview**: add the checkout's parent to `ATMOS_FILE_SERVE_ROOTS`, or revert the allowlist check in `serve_allowed_git_blob`.
 

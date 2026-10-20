@@ -401,14 +401,16 @@ const GIT_ALTERNATE_MAX_DEPTH: u32 = 5;
 ///
 /// Promisor and partial-clone config is rejected before identity and before
 /// any object command. `GIT_NO_LAZY_FETCH` is ignored by git before 2.44, so
-/// it is not the gate. A failed config read is 403.
+/// it is not the gate. A failed config read is 403. A non-test build always
+/// exports `GIT_NO_LAZY_FETCH=1`.
 fn read_confined_git_blob(
     repo: &Path,
     roots: &[PathBuf],
     ceiling: &Path,
     show_spec: &str,
 ) -> std::result::Result<Vec<u8>, ConfinedBlobError> {
-    match core_engine::git_blob_repo_has_promisor(repo, ceiling) {
+    let omit_no_lazy_fetch = git_blob_omit_no_lazy_fetch();
+    match core_engine::git_blob_repo_has_promisor(repo, ceiling, omit_no_lazy_fetch) {
         Ok(false) => {}
         Ok(true) => {
             warn!(
@@ -422,7 +424,7 @@ fn read_confined_git_blob(
             return Err(ConfinedBlobError::Outside);
         }
     }
-    let identity = core_engine::resolve_git_repo_identity(repo, ceiling)
+    let identity = core_engine::resolve_git_repo_identity(repo, ceiling, omit_no_lazy_fetch)
         .map_err(|error| git_failure_kind(&error, true))?;
     let mut common_dir = PathBuf::new();
     for (index, raw) in [&identity.toplevel, &identity.git_dir, &identity.common_dir]
@@ -445,8 +447,29 @@ fn read_confined_git_blob(
         }
     }
     validate_object_alternates(&common_dir, roots)?;
-    core_engine::show_git_blob_bytes_with_ceiling(repo, show_spec, ceiling)
+    core_engine::show_git_blob_bytes_with_ceiling(repo, show_spec, ceiling, omit_no_lazy_fetch)
         .map_err(|error| git_failure_kind(&error, false))
+}
+
+/// Non-test builds return false and always export `GIT_NO_LAZY_FETCH=1`.
+/// The variable name of the test switch lives only in the `cfg(test)` helper.
+fn git_blob_omit_no_lazy_fetch() -> bool {
+    #[cfg(test)]
+    {
+        git_blob_test_omits_no_lazy_fetch()
+    }
+    #[cfg(not(test))]
+    {
+        false
+    }
+}
+
+#[cfg(test)]
+fn git_blob_test_omits_no_lazy_fetch() -> bool {
+    std::env::var("ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH")
+        .ok()
+        .as_deref()
+        == Some("1")
 }
 
 fn validate_object_alternates(
@@ -1806,9 +1829,17 @@ mod tests {
         let root = PathBuf::from(std::env::var("ATMOS_GIT_BLOB_PROBE_ROOT").expect("probe root"));
         let marker =
             PathBuf::from(std::env::var("ATMOS_GIT_BLOB_PROBE_MARKER").expect("probe marker"));
+        let record = PathBuf::from(
+            std::env::var("ATMOS_GIT_BLOB_PROBE_LAZY_FETCH_RECORD").expect("probe record"),
+        );
         let (status, _) = git_blob_status_and_body(&repo, "HEAD", "s.txt", &roots(&[root])).await;
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert!(!marker.exists(), "remote helper must not run");
+        let observed = std::fs::read_to_string(&record).unwrap_or_default();
+        assert!(
+            !observed.is_empty() && observed.lines().all(|line| line == "unset"),
+            "git-blob subprocesses must not export GIT_NO_LAZY_FETCH, saw {observed:?}"
+        );
     }
 
     fn shell_single_quote(path: &Path) -> String {
@@ -1876,14 +1907,39 @@ mod tests {
         (tree, repo, workspace)
     }
 
+    fn install_git_env_recorder(tree: &Path, record: &Path) -> PathBuf {
+        let wrap = tree.join("git-wrap");
+        std::fs::create_dir_all(&wrap).unwrap();
+        let real = std::process::Command::new("which")
+            .arg("git")
+            .output()
+            .expect("which git");
+        assert!(real.status.success(), "which git failed");
+        let real_git = PathBuf::from(String::from_utf8(real.stdout).expect("which utf8").trim());
+        write_executable(
+            &wrap.join("git"),
+            &format!(
+                "#!/bin/sh\nif [ -n \"${{GIT_NO_LAZY_FETCH+x}}\" ]; then printf 'set\\n' >> {}; else printf 'unset\\n' >> {}; fi\nexec {} \"$@\"\n",
+                shell_single_quote(record),
+                shell_single_quote(record),
+                shell_single_quote(&real_git)
+            ),
+        );
+        wrap
+    }
+
     async fn reject_promisor_without_lazy_fetch(repo: &Path, root: &Path, marker: &Path) {
-        let exec_path = install_marker_helpers(marker.parent().expect("marker parent"), marker);
+        let tree = marker.parent().expect("marker parent");
+        let exec_path = install_marker_helpers(tree, marker);
+        let record = tree.join("lazy-fetch-record");
+        let wrap = install_git_env_recorder(tree, &record);
         let repo_for_child = repo.to_path_buf();
         let root_for_child = root.to_path_buf();
         let marker_for_child = marker.to_path_buf();
+        let record_for_child = record.clone();
         let output = tokio::task::spawn_blocking(move || {
             let inherited = std::env::var("PATH").unwrap_or_default();
-            let path = format!("{}:{inherited}", exec_path.display());
+            let path = format!("{}:{}:{inherited}", wrap.display(), exec_path.display());
             std::process::Command::new(std::env::current_exe().expect("test executable"))
                 .env("ATMOS_GIT_BLOB_PROMISOR_PROBE", "1")
                 .env("ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH", "1")
@@ -1891,6 +1947,7 @@ mod tests {
                 .env("ATMOS_GIT_BLOB_PROBE_REPO", &repo_for_child)
                 .env("ATMOS_GIT_BLOB_PROBE_ROOT", &root_for_child)
                 .env("ATMOS_GIT_BLOB_PROBE_MARKER", &marker_for_child)
+                .env("ATMOS_GIT_BLOB_PROBE_LAZY_FETCH_RECORD", &record_for_child)
                 .env("GIT_EXEC_PATH", &exec_path)
                 .env("PATH", path)
                 .args([
@@ -1911,6 +1968,11 @@ mod tests {
             output.status.code()
         );
         assert!(!marker.exists(), "remote helper must not run");
+        let observed = std::fs::read_to_string(&record).unwrap_or_default();
+        assert!(
+            !observed.is_empty() && observed.lines().all(|line| line == "unset"),
+            "recorded git env was {observed:?}"
+        );
     }
 
     #[tokio::test]

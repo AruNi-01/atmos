@@ -321,7 +321,7 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 ### S29 — Promisor `ftp` is 403 when `GIT_NO_LAZY_FETCH` is absent
 
 - **Level**: Unit
-- **Given**: the missing-blob layout. The promisor URL is `ftp://127.0.0.1:1/x` and local config sets `protocol.ftp.allow=always`. A child process omits `GIT_NO_LAZY_FETCH` (`ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH=1`) and points `GIT_EXEC_PATH` at a `git-remote-ftp` that would create a marker. Git before 2.44 ignores `GIT_NO_LAZY_FETCH`; this child imitates that.
+- **Given**: the missing-blob layout. The promisor URL is `ftp://127.0.0.1:1/x` and local config sets `protocol.ftp.allow=always`. A child process is the api test binary (`current_exe`), so it is a `cfg(test)` build. It sets `ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH=1`, which that build alone reads, and therefore does not export `GIT_NO_LAZY_FETCH`. A wrapper records whether each git subprocess saw the variable. `GIT_EXEC_PATH` points at a `git-remote-ftp` that would create a marker. Git before 2.44 ignores `GIT_NO_LAZY_FETCH`; this child imitates that. A non-test binary does not contain the switch name and always sets `GIT_NO_LAZY_FETCH=1`.
 - **When**: `rev` is `HEAD` and `path` is `s.txt`.
 - **Then**: status is 403. The marker file does not exist.
 - **Signals**: status and the marker path.
@@ -474,7 +474,7 @@ None. The handler tests observe status and body without a browser.
 - Windows symlink privileges. The symlink cases use `std::os::unix::fs::symlink`, same as the file-serve tests.
 - Replacing `objects/info/alternates` or `.git/config` after the check and before `cat-file`. That remains the existing canonicalize-then-`git` TOCTOU window.
 - Global and system git config. They are the operator's. The tests do not set `GIT_CONFIG_NOSYSTEM` or `GIT_CONFIG_GLOBAL`. Command-line `-c` still overrides them for the locked keys.
-- A git binary that actually ignores `GIT_NO_LAZY_FETCH` (stock git 2.43). This runner's git is 2.43 and does contain the variable. The tests omit it with `ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH=1` instead of relying on that binary.
+- A git binary that actually ignores `GIT_NO_LAZY_FETCH` (stock git 2.43). This runner's git is 2.43 and does contain the variable. The api `cfg(test)` binary omits it when `ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH=1`. A non-test build does not read that name.
 - `url.<base>.insteadOf` and `remote.<name>.vcs`. They matter only if a fetch runs. The promisor rejection happens first. There is no separate test.
 - A promisor remote that exists only in global or system config. Those files are the operator's and are not a reason to 403 every repository.
 - `core.hooksPath`, textconv, and smudge. `cat-file blob` does not pass `--textconv` or `--filters`. Those probes were not turned into API tests.
