@@ -15,12 +15,15 @@
 # a launch that did not happen, and it does not xcodebuild after a bad
 # prebuilt download. Cold launch waits COLD_LAUNCH_WAIT_SECONDS (4, at
 # least 3) and passes only if that pid is still alive and no new Atmos
-# .ips appeared. Deep links still use the JS unmatched-route judge.
+# .ips appeared. A bad ATMOS_DIAGNOSTIC_REPORTS path warns. An empty failed
+# `log show` fails the launch instead of skipping the runtime-issue check.
+# Deep links still use the JS unmatched-route judge.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOBILE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-IOS_DIR="$MOBILE_DIR/ios"
+# Tests point this at an empty tree so a developer prebuild cannot satisfy `structural`.
+IOS_DIR="${ATMOS_IOS_DIR:-$MOBILE_DIR/ios}"
 BUNDLE_ID="land.atmos.mobile"
 URL_LOG="AtmosSceneLifecycle delivered URL to RCTLinkingManager"
 ACTIVITY_LOG="AtmosSceneLifecycle delivered userActivity to RCTLinkingManager"
@@ -58,6 +61,7 @@ Environment for simulator:
   ATMOS_IOS26_DEVICE         default: iPhone 17 Pro
   ATMOS_IOS26_RUNTIME        default: 26.5
   ATMOS_DIAGNOSTIC_REPORTS   one crash-report directory instead of the Mac defaults
+  ATMOS_IOS_DIR              ios project directory (default: apps/mobile/ios). Tests only.
 EOF
 }
 
@@ -270,7 +274,23 @@ boot_device() {
 log_since() {
   local udid="$1"
   local start="$2"
-  xcrun simctl spawn "$udid" log show --start "$start" --style compact --predicate 'processImagePath CONTAINS "Atmos" OR subsystem == "com.facebook.react.log" OR composedMessage CONTAINS "ATMOS_ROUTE unmatched" OR eventMessage CONTAINS "ATMOS_ROUTE unmatched" OR composedMessage CONTAINS "AtmosSceneLifecycle" OR eventMessage CONTAINS "AtmosSceneLifecycle" OR composedMessage CONTAINS "UIApplicationEvaluateRuntimeIssue" OR eventMessage CONTAINS "UIApplicationEvaluateRuntimeIssue"' || true
+  local status=0
+  set +e
+  xcrun simctl spawn "$udid" log show --start "$start" --style compact --predicate 'processImagePath CONTAINS "Atmos" OR subsystem == "com.facebook.react.log" OR composedMessage CONTAINS "ATMOS_ROUTE unmatched" OR eventMessage CONTAINS "ATMOS_ROUTE unmatched" OR composedMessage CONTAINS "AtmosSceneLifecycle" OR eventMessage CONTAINS "AtmosSceneLifecycle" OR composedMessage CONTAINS "UIApplicationEvaluateRuntimeIssue" OR eventMessage CONTAINS "UIApplicationEvaluateRuntimeIssue"'
+  status=$?
+  set -e
+  if [[ "$status" -ne 0 ]]; then
+    echo "WARN: log show exited ${status}; runtime-issue check did not see a complete log" >&2
+    return "$status"
+  fi
+}
+
+warn_diagnostic_root() {
+  local label="$1"
+  local root="$2"
+  if [[ ! -d "$root" ]]; then
+    echo "WARN ${label}: ATMOS_DIAGNOSTIC_REPORTS is not a directory: ${root}" >&2
+  fi
 }
 
 snapshot_atmos_ips() {
@@ -294,6 +314,7 @@ assert_cold_launch() {
     rm -f "$before" "$after" "$launch_file" "$runtime_file"
   }
   if [[ -n "${ATMOS_DIAGNOSTIC_REPORTS:-}" ]]; then
+    warn_diagnostic_root "$label" "$ATMOS_DIAGNOSTIC_REPORTS"
     if ! snapshot_atmos_ips "$before" "$ATMOS_DIAGNOSTIC_REPORTS"; then
       echo "FAIL ${label}: could not list crash reports" >&2
       cleanup_cold
@@ -336,8 +357,15 @@ assert_cold_launch() {
       return 1
     fi
   fi
-  local logs judge_status
-  logs="$(log_since "$udid" "$start")"
+  local logs judge_status log_status trimmed
+  log_status=0
+  logs="$(log_since "$udid" "$start")" || log_status=$?
+  trimmed="${logs//[[:space:]]/}"
+  if [[ "$log_status" -ne 0 && -z "$trimmed" ]]; then
+    echo "FAIL ${label}: could not read the unified log" >&2
+    cleanup_cold
+    return 1
+  fi
   printf '%s\n' "$logs" >"$runtime_file"
   judge_status=0
   bun "$SCRIPT_DIR/scene-launch-evidence.js" judge-cold \
@@ -361,10 +389,21 @@ assert_deep_links() {
   all_log="$(mktemp)"
   xcrun simctl openurl "$udid" "atmos://scene-lifecycle-probe"
   sleep 4
-  log_since "$udid" "$start" >"$cold_log"
+  local cold_log_status=0 warm_log_status=0
+  log_since "$udid" "$start" >"$cold_log" || cold_log_status=$?
+  if [[ "$cold_log_status" -ne 0 && ! -s "$cold_log" ]]; then
+    echo "FAIL ${label}: could not read the unified log" >&2
+    rm -f "$cold_log" "$all_log"
+    return 1
+  fi
   xcrun simctl openurl "$udid" "atmos://scene-lifecycle-probe-warm"
   sleep 3
-  log_since "$udid" "$start" >"$all_log"
+  log_since "$udid" "$start" >"$all_log" || warm_log_status=$?
+  if [[ "$warm_log_status" -ne 0 && ! -s "$all_log" ]]; then
+    echo "FAIL ${label}: could not read the unified log" >&2
+    rm -f "$cold_log" "$all_log"
+    return 1
+  fi
   local status=0
   bun "$SCRIPT_DIR/scene-deep-link-evidence.js" judge "$cold_log" "$all_log" || status=$?
   rm -f "$cold_log" "$all_log"
@@ -467,6 +506,11 @@ simulator() {
   fi
   echo "PASS simulator: iOS ${runtime27} and iOS ${runtime26} cold start + custom-scheme deep links"
 }
+
+# Sourced by the Linux cold-launch driver. Executing the file still runs a mode.
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+  return 0
+fi
 
 mode="${1:-structural}"
 case "$mode" in

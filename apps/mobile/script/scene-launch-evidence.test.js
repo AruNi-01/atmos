@@ -17,8 +17,11 @@ const CLEAN_POD_LOG = [
   "[ReactNativeDependencies] Using tarball from URL: https://repo1.maven.org/maven2/reactnative-dependencies-debug.tar.gz",
 ].join("\n");
 
-function runScript(args) {
-  return spawnSync("bash", [SCRIPT, ...args], { encoding: "utf8" });
+function runScript(args, extraEnv = {}) {
+  const env = { ...process.env, ...extraEnv };
+  // A replaced PATH must not hide the shell that launches the script.
+  const bash = Object.hasOwn(extraEnv, "PATH") ? "/bin/bash" : "bash";
+  return spawnSync(bash, [SCRIPT, ...args], { encoding: "utf8", env });
 }
 
 function tempDir() {
@@ -245,7 +248,21 @@ describe("verify script", () => {
     expect(cold).toContain("judge-cold");
     expect(cold).toContain("ATMOS_DIAGNOSTIC_REPORTS");
     expect(cold).toContain("Library/Logs/DiagnosticReports");
+    expect(script).toContain("ATMOS_DIAGNOSTIC_REPORTS is not a directory");
+    expect(cold).toContain("could not read the unified log");
     expect(cold).not.toContain('echo "PASS ${label}: cold launch"');
+    const logSince = script.slice(
+      script.indexOf("log_since() {"),
+      script.indexOf("snapshot_atmos_ips() {"),
+    );
+    expect(logSince).toContain("WARN: log show exited");
+    expect(logSince).not.toContain("|| true");
+    const deepLinks = script.slice(
+      script.indexOf("assert_deep_links() {"),
+      script.indexOf("build_release() {"),
+    );
+    expect(deepLinks).toContain("could not read the unified log");
+    expect(script).toContain('IOS_DIR="${ATMOS_IOS_DIR:-$MOBILE_DIR/ios}"');
     expect(script).toContain("COLD_LAUNCH_WAIT_SECONDS=4");
     expect(script).toContain('scene-deep-link-evidence.js" judge');
   });
@@ -411,22 +428,68 @@ describe("verify script", () => {
   });
 
   test("structural and built-plist still fail with exit 1", () => {
-    const structural = runScript(["structural"]);
+    const ios = path.join(tempDir(), "ios");
+    fs.mkdirSync(ios);
+    const structural = runScript(["structural"], { ATMOS_IOS_DIR: ios });
     expect(structural.status).toBe(1);
-    expect(structural.stderr).toContain("Missing");
+    expect(structural.stderr).toContain(`Missing ${path.join(ios, "Atmos", "Info.plist")}`);
     expect(structural.stderr).not.toContain("NOT RUN");
     const built = runScript(["built-plist"]);
     expect(built.status).toBe(1);
     expect(built.stderr).toContain("built-plist needs a path");
   });
 
+  test("judge-prebuilt exits 2 when the artifacts path is a file", () => {
+    const dir = tempDir();
+    const log = writeFile(dir, "pod.log", CLEAN_POD_LOG);
+    const artifacts = writeFile(dir, "not-a-directory", "file");
+    const result = runScript(["judge-prebuilt", log, artifacts]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("NOT RUN:");
+    expect(result.stderr).toContain("artifacts path is not a directory");
+    expect(result.stderr).not.toContain("listReleaseDepsTarballs");
+    expect(`${result.stdout}${result.stderr}`).not.toContain("PASS");
+  });
+
   test("simulator without xcrun is NOT RUN exit 2 and does not build", () => {
-    const which = spawnSync("bash", ["-lc", "command -v xcrun"], { encoding: "utf8" });
+    const bin = path.join(tempDir(), "bin");
+    fs.mkdirSync(bin);
+    const isolated = { PATH: bin };
+    const which = spawnSync("/bin/bash", ["-lc", "command -v xcrun"], {
+      encoding: "utf8",
+      env: { ...process.env, ...isolated },
+    });
     expect(which.status).not.toBe(0);
-    const result = runScript(["simulator"]);
+    const result = runScript(["simulator"], isolated);
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("NOT RUN: simulator. xcrun is not available");
     expect(`${result.stdout}${result.stderr}`).not.toContain("PASS");
     expect(`${result.stdout}${result.stderr}`).not.toContain("pod install");
+  });
+
+  test("assert_cold_launch runs kill and the ips snapshots", () => {
+    const driver = path.join(__dirname, "scene-launch-cold-launch.driver.sh");
+    const result = spawnSync("/bin/bash", [driver], { encoding: "utf8" });
+    if (result.status !== 0) {
+      throw new Error(
+        `cold-launch driver exited ${result.status}\n${result.stdout}\n${result.stderr}`,
+      );
+    }
+    expect(result.stdout).toContain("ok alive-pass");
+    expect(result.stdout).toContain("ok dies-during-wait");
+    expect(result.stdout).toContain("ok new-ips");
+    expect(result.stdout).toContain("ok no-pid");
+    expect(result.stdout).toContain("ok launch-failed");
+    expect(result.stdout).toContain("ok unreadable-reports");
+    if (typeof process.getuid === "function" && process.getuid() === 0) {
+      expect(result.stdout).toContain("skipped: uid 0 can read a mode 000 directory");
+    } else {
+      expect(result.stdout).not.toContain("skipped: uid 0 can read a mode 000 directory");
+    }
+    expect(result.stdout).toContain("ok missing-reports-warn");
+    expect(result.stdout).toContain("ok file-reports-warn");
+    expect(result.stdout).toContain("ok default-roots-quiet");
+    expect(result.stdout).toContain("ok empty-log");
+    expect(result.stdout).toContain("ok partial-log");
   });
 });

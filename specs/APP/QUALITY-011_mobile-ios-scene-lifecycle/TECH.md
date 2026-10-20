@@ -103,7 +103,7 @@ Scene active / resign / foreground / background call the matching `ExpoAppDelega
 
 `sceneDidDisconnect` sets `window = nil`. UIKit calls it when the scene session is discarded. A single-scene iPhone rarely does that.
 
-`RCTAppState` in React Native 0.85.3 observes `UIApplicationDidBecomeActiveNotification`, `UIApplicationWillResignActiveNotification`, `UIApplicationDidEnterBackgroundNotification`, and `UIApplicationWillEnterForegroundNotification`. Calling the app-delegate methods does not post those notifications. UIKit may still post them under a scene lifecycle. That has not been checked on a simulator. See TEST S8.
+`RCTAppState` in React Native 0.85.3 observes `UIApplicationDidBecomeActiveNotification`, `UIApplicationWillResignActiveNotification`, `UIApplicationDidEnterBackgroundNotification`, and `UIApplicationWillEnterForegroundNotification`. Calling the app-delegate methods does not post those notifications. UIKit may still post them under a scene lifecycle. TEST S8 records that they did, on `42801c19`: each round JS `AppState` was `active`, `inactive`, `background`, `active` (iOS 27, two rounds; iOS 26.5, one control round).
 
 No shortcut-item forwarding. The app has no quick actions.
 
@@ -190,7 +190,7 @@ Single scene. `supportsTablet: true` stays. iOS 27 resizability does not require
 - **Debug + `expo-dev-launcher`.** The launcher stores an external cold URL as a pending deep link and returns true. We still call `RCTLinkingManager` when that happens. A debug cold start can therefore surface the URL both as `getInitialURL` and as the launcher's pending link. Release parity builds exclude the dev client. Do not "fix" that by removing the direct `RCTLinkingManager` call.
 - **Template drift.** `ensureSceneLifecycle` throws when the `UIWindow(frame: UIScreen.main.bounds)` block disappears from the Expo template. Prebuild fails instead of shipping an app delegate that still owns the window.
 - **Rollback.** Revert the plugin and the iOS 27 crash returns. Do not restore a workflow gate that fails when `Info.plist` contains `UISceneDelegateClassName`. After #326 landed on main, this branch keeps that PR's `concurrency` group and the `ios-parity` label gate on `ios-simulator`. The job still requires `Atmos.SceneDelegate` through `verify-ios-scene-lifecycle.sh structural` and `built-plist`. `specs/README.md` keeps QUALITY-009, QUALITY-010, and QUALITY-011 in that order.
-- **AppState.** Scene method forwarding and `RCTAppState`'s notification observers are different channels. S8 is pending.
+- **AppState.** Scene method forwarding and `RCTAppState`'s notification observers are different channels. S8 passed on the `42801c19` simulator run recorded in TEST.md. The earlier "S8 is pending" line was stale after that run (#327, called out in the #328 review).
 - **Source build is NOT RUN.** `RCT_USE_RN_DEP=0` or a Maven miss exits 2 before `xcodebuild`. Re-run `simulator` when `reactnative-dependencies-*-release.tar.gz` is on disk and the log says `Building from source: false`. Do not treat that exit as a scene-lifecycle regression.
 - **Crash-report snapshot.** Only Atmos `.ips` basenames that appear after the pre-launch snapshot fail the cold start. A pid that dies inside the 4 second wait fails even when the `.ips` has not been flushed yet.
 
@@ -221,6 +221,7 @@ The gate reads the captured pod install log and `ios/Pods/ReactNativeDependencie
 - The log contains `Building from source: true`. Reason: network (the download fell back to a source build). `Building from source: false` does not match.
 - The log contains `No prebuilt artifacts found`. Reason: missing prebuilt.
 - No file in that directory matches `reactnative-dependencies-*-release.tar.gz` (RN writes `reactnative-dependencies-<version>-release.tar.gz`). Reason: missing prebuilt.
+- The artifacts path exists and is not a directory. `judge-prebuilt` exits 2 with `NOT RUN` and does not print a bun stack. A missing directory is still the "tarball was not downloaded" case, also exit 2.
 
 Do not start `xcodebuild` after that. A deliberate source build (`RCT_USE_RN_DEP=0`) is also NOT RUN: this script will not call a source-built app a cold-start pass. If none of the three hit and `pod install` itself exited non-zero, that is FAIL exit 1.
 
@@ -232,14 +233,16 @@ The check lives in `apps/mobile/script/scene-launch-evidence.js` (`judge-prebuil
 
 1. `xcrun simctl launch` exits 0, and its output does not contain `EXC_BREAKPOINT` or `Terminated`.
 2. The pid on the `land.atmos.mobile: <pid>` line is still alive after `COLD_LAUNCH_WAIT_SECONDS` (4, which is at least 3). The check is `kill -0` on that host pid. Simulator processes are host processes. A missing or non-numeric pid counts as not alive.
-3. No new Atmos `.ips` appeared during that launch. Before `simctl launch`, the script lists Atmos crash reports. After the wait, it lists them again and fails if a basename is new. Roots, unless `ATMOS_DIAGNOSTIC_REPORTS` is set to one directory: `~/Library/Logs/DiagnosticReports` (walked, so `Retired/` counts) and `~/Library/Developer/CoreSimulator/Devices/<udid>/data/Library/Logs/DiagnosticReports`. A name counts when it ends in `.ips` and contains the token `Atmos` (`Atmos-2026-10-19-120000.ips`, `ExcUserFault_Atmos-….ips`). `Atmosphere.ips` does not count. Reports that already existed are ignored.
-4. The unified log from `log_since` still must not contain `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` or `EXC_BREAKPOINT`. It also fails on `OS_REASON_DYLD` or `Library not loaded: @rpath/React.framework/React` when that text is in the log. The pid and `.ips` checks stay even when the log predicate misses the dyld line.
+3. No new Atmos `.ips` appeared during that launch. Before `simctl launch`, the script lists Atmos crash reports. After the wait, it lists them again and fails if a basename is new. Roots, unless `ATMOS_DIAGNOSTIC_REPORTS` is set to one directory: `~/Library/Logs/DiagnosticReports` (walked, so `Retired/` counts) and `~/Library/Developer/CoreSimulator/Devices/<udid>/data/Library/Logs/DiagnosticReports`. A name counts when it ends in `.ips` and contains the token `Atmos` (`Atmos-2026-10-19-120000.ips`, `ExcUserFault_Atmos-….ips`). `Atmosphere.ips` does not count. Reports that already existed are ignored. When `ATMOS_DIAGNOSTIC_REPORTS` is set and that path is not a directory, the script prints `WARN <label>: ATMOS_DIAGNOSTIC_REPORTS is not a directory: …`. A missing path is still an empty list (the pid check still runs). A path that exists but cannot be listed, including a file, fails with `could not list crash reports`. The default Mac roots do not warn when they are absent.
+4. The unified log from `log_since` still must not contain `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` or `EXC_BREAKPOINT`. It also fails on `OS_REASON_DYLD` or `Library not loaded: @rpath/React.framework/React` when that text is in the log. The pid and `.ips` checks stay even when the log predicate misses the dyld line. `log show` is not swallowed. A non-zero `log show` prints `WARN: log show exited <status>`. If that run also produced no log text, cold launch and deep links fail with `could not read the unified log`. A non-zero `log show` that still printed text is judged as a partial log.
 
 The judge is `scene-launch-evidence.js judge-cold`. iOS 27 still continues to iOS 26.5 when this section fails. The prebuilt gate is earlier and stops both runtimes.
 
 Deep links are unchanged: `assert_deep_links` still calls `scene-deep-link-evidence.js`, and the pass signal is still `ATMOS_ROUTE unmatched` on the cold URL and again on the warm URL.
 
-Linux can run `judge-prebuilt`, `judge-cold`, `list-ips`, and `parse-launch-pid` against a fake pod log and a fake crash-report directory. It cannot boot the iOS 27 simulator.
+Linux can run `judge-prebuilt`, `judge-cold`, `list-ips`, and `parse-launch-pid` against a fake pod log and a fake crash-report directory. It cannot boot the iOS 27 simulator. `script/scene-launch-cold-launch.driver.sh` sources this script and runs `assert_cold_launch` with stubbed `xcrun` and `sleep`. `kill -0` and the before/after `.ips` snapshots are the real function. That driver is what locks the #328 review notes: a pid that dies during the wait, a new `.ips` while the pid stays up, launch exit 0 with no pid, a non-zero launch, an unreadable reports directory, a missing or non-directory `ATMOS_DIAGNOSTIC_REPORTS`, quiet default roots, an empty failed `log show`, and a partial log that still contains the runtime-issue line. The unreadable directory is mode 000. uid 0 can still read that directory, so the driver skips the case and prints `skipped: uid 0 can read a mode 000 directory`. A non-root run still expects `could not list crash reports`.
+
+`simulator` with no `xcrun` is tested under a `PATH` that does not contain `xcrun`, so the test does not depend on the developer machine. `structural` is pointed at an empty `ATMOS_IOS_DIR`, so a local `apps/mobile/ios` prebuild does not make that test pass.
 
 ## Open questions
 

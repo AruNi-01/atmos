@@ -1,6 +1,11 @@
 import XCTest
 
 final class PillTapUITests: XCTestCase {
+  override func setUp() {
+    super.setUp()
+    continueAfterFailure = false
+  }
+
   func testTapScrollPill() {
     let atmos = XCUIApplication(bundleIdentifier: "land.atmos.mobile")
     atmos.activate()
