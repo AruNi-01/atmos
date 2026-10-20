@@ -94,6 +94,7 @@ F12's permission request includes a reject-class option next to Allow: `{ "optio
 ## Risks
 
 - PillTap looks up `buttons["agent-chat-permission-skip"]`. F12 now has the Skip option that renders that id. Whether XCUITest classifies the chip `View` as a button is still unverified here: there is no iOS Simulator in this environment, and the job stays opt-in. The Bun tests lock the fixture option, the source string, and that a miss is no longer swallowed.
+- `PillTapUITests` does not set `continueAfterFailure = false`. A follow-up read #336's issue comments, review threads, commit comments, and review bodies for that XCTest setting and for an eng-larry note. Neither is there. The class is unchanged. One missed tap can still produce a later assertion failure in the same test method.
 - `capture-parity-view.ts` calls `makeImageFromView` / `readPixels` on the installed Skia. The flat-fill patch is not applied. A uniform-frame shot can still log `[parity] motion flat`. That is a log, not a patch.
 - Slot width is pill width + 8, and the glass row already has `gap: 8`. APP-081 records that double gap. This spec does not change it.
 - `writeParityMotionPng` writes under the app Documents directory at capture time. It is not a repo path.

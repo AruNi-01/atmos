@@ -25,7 +25,9 @@ function listReleaseDepsTarballs(dir) {
   if (!fs.existsSync(dir)) return [];
   const stat = fs.statSync(dir);
   if (!stat.isDirectory()) {
-    throw new Error(`artifacts path is not a directory: ${dir}`);
+    const error = new Error(`artifacts path is not a directory: ${dir}`);
+    error.code = "ENOTDIR";
+    throw error;
   }
   return fs
     .readdirSync(dir)
@@ -169,10 +171,19 @@ function printColdResult(result) {
 }
 
 function judgePrebuiltMain(logPath, artifactsDir) {
-  const result = judgePrebuilt(
-    fs.readFileSync(logPath, "utf8"),
-    listReleaseDepsTarballs(artifactsDir),
-  );
+  let tarballNames;
+  try {
+    tarballNames = listReleaseDepsTarballs(artifactsDir);
+  } catch (error) {
+    if (error && error.code === "ENOTDIR") {
+      const reason = `missing prebuilt: artifacts path is not a directory: ${artifactsDir}`;
+      console.error(prebuiltSummary([reason]));
+      console.error(`- ${reason}`);
+      return 2;
+    }
+    throw error;
+  }
+  const result = judgePrebuilt(fs.readFileSync(logPath, "utf8"), tarballNames);
   if (!result.ok) {
     console.error(prebuiltSummary(result.reasons));
     for (const reason of result.reasons) {
