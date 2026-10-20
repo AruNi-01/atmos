@@ -29,6 +29,13 @@ function websocketFailureDetail(event: unknown): string {
   return redactUrl(raw).replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
+function unbindSocket(socket: WebSocketLike): void {
+  socket.onclose = null;
+  socket.onerror = null;
+  socket.onmessage = null;
+  socket.onopen = null;
+}
+
 function createRequestId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -60,11 +67,19 @@ export class WsSession {
   private readonly requestTimeoutMs: number;
   private readonly connectWaitMs: number;
   private readonly handshakeTimeoutMs: number;
+  private readonly heartbeatIntervalMs: number;
+  private readonly heartbeatTimeoutMs: number;
   private readonly urlOption: string | (() => string);
   private readonly timers: {
     setTimeout: (fn: () => void, ms: number) => unknown;
     clearTimeout: (id: unknown) => void;
   };
+  private heartbeatTimer: unknown = null;
+  private pingWatchdog: unknown = null;
+  private heartbeatGeneration = 0;
+  private connectGeneration = 0;
+  private reconnectPaused = false;
+  private closedByClient = false;
 
   constructor(private readonly options: WsSessionOptions) {
     this.platform = options.platform;
@@ -72,6 +87,8 @@ export class WsSession {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 0;
     this.connectWaitMs = options.connectWaitMs ?? 15_000;
     this.handshakeTimeoutMs = options.handshakeTimeoutMs ?? Math.min(this.connectWaitMs, 3_000);
+    this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? 0;
+    this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 10_000;
     this.urlOption = options.url;
     this.timers = options.platform.timers ?? {
       setTimeout: (fn, ms) => setTimeout(fn, ms),
@@ -88,6 +105,9 @@ export class WsSession {
   }
 
   connect(): Promise<void> {
+    if (this.reconnectPaused) {
+      return this.connectInFlight ?? Promise.resolve();
+    }
     if (this.currentState === "connected" && this.socket?.readyState === WEBSOCKET_OPEN) {
       return Promise.resolve();
     }
@@ -97,10 +117,12 @@ export class WsSession {
       return this.connectInFlight;
     }
 
+    this.closedByClient = false;
     this.shouldReconnect = this.policy.enabled;
     const state: ConnectionState =
       this.currentState === "reconnecting" ? "reconnecting" : "connecting";
 
+    const generation = ++this.connectGeneration;
     this.connectInFlight = new Promise<void>((resolve, reject) => {
       this.connectWaiters = { resolve, reject, settled: false };
       try {
@@ -109,6 +131,7 @@ export class WsSession {
         this.failConnect(err instanceof Error ? err : new Error(String(err)));
       }
     }).finally(() => {
+      if (this.connectGeneration !== generation) return;
       this.connectInFlight = null;
       this.connectWaiters = null;
     });
@@ -119,16 +142,15 @@ export class WsSession {
   }
 
   disconnect(): void {
+    this.closedByClient = true;
     this.shouldReconnect = false;
     this.clearReconnectTimer();
+    this.clearHeartbeat();
     this.failConnect(new Error("WebSocket disconnected"));
     const sock = this.socket;
     this.socket = null;
     if (sock) {
-      sock.onclose = null;
-      sock.onerror = null;
-      sock.onmessage = null;
-      sock.onopen = null;
+      unbindSocket(sock);
       try {
         sock.close(1000, "client disconnect");
       } catch {
@@ -300,6 +322,40 @@ export class WsSession {
     };
   }
 
+  failPending(error: Error): void {
+    this.rejectAll(error);
+  }
+
+  pauseReconnect(): void {
+    this.reconnectPaused = true;
+    this.clearReconnectTimer();
+    this.clearHeartbeat();
+  }
+
+  resumeReconnect(): void {
+    if (this.closedByClient) return;
+    this.reconnectPaused = false;
+    if (this.currentState === "connected" && this.socket?.readyState === WEBSOCKET_OPEN) {
+      this.startHeartbeat();
+      return;
+    }
+    this.retryNow();
+  }
+
+  retryNow(): void {
+    if (this.closedByClient || this.reconnectPaused) return;
+    if (this.currentState === "connected" && this.socket?.readyState === WEBSOCKET_OPEN) {
+      return;
+    }
+    if (this.connectWaiters && !this.connectWaiters.settled) {
+      return;
+    }
+    this.clearReconnectTimer();
+    this.reconnectAttempt = 0;
+    this.shouldReconnect = this.policy.enabled;
+    void this.connect().catch(() => undefined);
+  }
+
   private beginOpenSocket(state: ConnectionState): void {
     this.clearReconnectTimer();
     this.setState(state);
@@ -319,7 +375,7 @@ export class WsSession {
 
     const prev = this.socket;
     if (prev) {
-      prev.onclose = null;
+      unbindSocket(prev);
       try {
         prev.close(1000, "Replaced");
       } catch {
@@ -346,20 +402,25 @@ export class WsSession {
     }, this.handshakeTimeoutMs);
 
     socket.onopen = () => {
+      if (this.socket !== socket) return;
       this.timers.clearTimeout(handshakeTimer);
       this.reconnectAttempt = 0;
       this.everConnected = true;
       this.setState("connected");
       this.succeedConnect();
+      this.startHeartbeat();
     };
 
     socket.onmessage = (event) => {
+      if (this.socket !== socket) return;
       this.handleMessage(event.data);
     };
 
     socket.onerror = (event) => {
+      if (this.socket !== socket) return;
       const detail = websocketFailureDetail(event);
       this.log("error", detail ? `ws error: ${detail}` : "ws error", { url: redactUrl(url) });
+      this.clearHeartbeat();
       this.rejectAll(new Error(`WebSocket error: ${redactUrl(url)}`));
       this.setState("error");
       try {
@@ -371,6 +432,7 @@ export class WsSession {
 
     socket.onclose = (event) => {
       this.timers.clearTimeout(handshakeTimer);
+      this.clearHeartbeat();
       if (this.socket !== socket) {
         return;
       }
@@ -395,8 +457,12 @@ export class WsSession {
   }
 
   private scheduleReconnect(): void {
-    if (!this.shouldReconnect || !this.policy.enabled) {
+    if (!this.shouldReconnect || !this.policy.enabled || this.closedByClient) {
       this.setState("closed");
+      return;
+    }
+    if (this.reconnectPaused) {
+      this.setState("disconnected");
       return;
     }
 
@@ -430,6 +496,84 @@ export class WsSession {
     if (this.reconnectTimer == null) return;
     this.timers.clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+  }
+
+  private startHeartbeat(): void {
+    this.clearHeartbeat();
+    if (this.heartbeatIntervalMs <= 0 || this.reconnectPaused) return;
+    const generation = this.heartbeatGeneration;
+    this.heartbeatTimer = this.timers.setTimeout(() => {
+      this.heartbeatTimer = null;
+      if (generation !== this.heartbeatGeneration) return;
+      this.beat(generation);
+    }, this.heartbeatIntervalMs);
+  }
+
+  private beat(generation: number): void {
+    const sock = this.socket;
+    if (!sock || this.currentState !== "connected" || sock.readyState !== WEBSOCKET_OPEN) {
+      return;
+    }
+    if (generation !== this.heartbeatGeneration) return;
+    if (typeof sock.ping !== "function") {
+      this.startHeartbeat();
+      return;
+    }
+    let settled = false;
+    this.pingWatchdog = this.timers.setTimeout(() => {
+      this.pingWatchdog = null;
+      if (settled) return;
+      if (generation !== this.heartbeatGeneration || this.socket !== sock) return;
+      settled = true;
+      try {
+        sock.close(4008, "ping timeout");
+      } catch {
+        /* ignore */
+      }
+    }, this.heartbeatTimeoutMs);
+    try {
+      sock.ping((error) => {
+        if (settled) return;
+        if (generation !== this.heartbeatGeneration || this.socket !== sock) return;
+        settled = true;
+        if (this.pingWatchdog != null) {
+          this.timers.clearTimeout(this.pingWatchdog);
+          this.pingWatchdog = null;
+        }
+        if (error) {
+          try {
+            sock.close(4008, "ping failed");
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
+        this.startHeartbeat();
+      });
+    } catch {
+      settled = true;
+      if (this.pingWatchdog != null) {
+        this.timers.clearTimeout(this.pingWatchdog);
+        this.pingWatchdog = null;
+      }
+      try {
+        sock.close(4008, "ping failed");
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  private clearHeartbeat(): void {
+    this.heartbeatGeneration += 1;
+    if (this.heartbeatTimer != null) {
+      this.timers.clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    if (this.pingWatchdog != null) {
+      this.timers.clearTimeout(this.pingWatchdog);
+      this.pingWatchdog = null;
+    }
   }
 
   private handleMessage(raw: unknown): void {

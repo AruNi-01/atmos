@@ -6,6 +6,8 @@ export type WebSocketLike = {
   onmessage: ((ev: { data: unknown }) => void) | null;
   onclose: ((ev: { code: number; reason: string; wasClean: boolean }) => void) | null;
   onerror: ((ev?: unknown) => void) | null;
+  /** Protocol ping. Omitted on stacks that cannot send WebSocket ping frames. */
+  ping?: (onPong: (error?: Error) => void) => void;
 };
 
 export type PlatformTimers = {
