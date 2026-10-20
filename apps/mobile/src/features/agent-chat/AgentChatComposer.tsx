@@ -98,9 +98,15 @@ export function AgentChatComposer(props: {
   /** Present when the parent expands tokens before send, queue, and steer. */
   pasteChips?: readonly ComposerPasteChip[];
   onPasteChipsChange?: (chips: ComposerPasteChip[]) => void;
+  /**
+   * Capture pin only. Omitted on the live composer so this effect does not
+   * blur a field the user is typing in.
+   */
+  autoFocus?: boolean;
 }): ReactElement {
   const theme = useMobileTheme();
   const textRef = useRef(props.text);
+  const inputRef = useRef<TextInput>(null);
   const chipsRef = useRef<readonly ComposerPasteChip[]>(props.pasteChips ?? []);
   const [modelsOpen, setModelsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -213,6 +219,12 @@ export function AgentChatComposer(props: {
   useEffect(() => {
     chipsRef.current = props.pasteChips ?? [];
   }, [props.pasteChips]);
+
+  useEffect(() => {
+    if (props.autoFocus == null) return;
+    if (props.autoFocus) inputRef.current?.focus();
+    else inputRef.current?.blur();
+  }, [props.autoFocus]);
 
   const resetEmptyDraftMeasures = () => {
     setMeasuredHeight((current) => (current === LINE_HEIGHT ? current : LINE_HEIGHT));
@@ -556,6 +568,8 @@ export function AgentChatComposer(props: {
                   multiline
                   onBlur={() => setFocused(false)}
                   onChangeText={onDraftChange}
+                  ref={inputRef}
+                  testID="agent-chat-composer-input"
                   onContentSizeChange={(event) => {
                     if (props.text.length === 0) {
                       resetEmptyDraftMeasures();

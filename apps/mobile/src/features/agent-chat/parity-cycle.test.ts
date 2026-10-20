@@ -9,6 +9,7 @@ import {
   parityCycleFrames,
   parityPinnedFrame,
   parityReadyLine,
+  parityTailOwned,
 } from "./parity-cycle";
 
 describe("parity cycle", () => {
@@ -65,12 +66,108 @@ describe("parity cycle", () => {
     expect(clock.arm(1)).toBe(false);
   });
 
+  test("the latest preview owns the tail until it releases", () => {
+    const clock = createParityClock(
+      30_000,
+      () => 1 as unknown as ReturnType<typeof setTimeout>,
+      () => undefined,
+      () => 0,
+    );
+    const seen: number[] = [];
+    clock.subscribeOwner(() => seen.push(clock.owner()));
+    const first = clock.takeOwner();
+    const second = clock.takeOwner();
+    expect(first).toBe(1);
+    expect(second).toBe(2);
+    expect(clock.owner()).toBe(second);
+    expect(seen).toEqual([1, 2]);
+    clock.releaseOwner(first);
+    expect(clock.owner()).toBe(second);
+    expect(seen).toEqual([1, 2]);
+    clock.releaseOwner(second);
+    expect(clock.owner()).toBe(0);
+    expect(seen).toEqual([1, 2, 0]);
+    clock.releaseOwner(second);
+    expect(seen).toEqual([1, 2, 0]);
+
+    const earlier = clock.takeOwner();
+    const later = clock.takeOwner();
+    const beforeBind = clock.tailSnapshot();
+    clock.bindMount("earlier", earlier);
+    clock.bindMount("later", later);
+    expect(clock.tailSnapshot()).not.toBe(beforeBind);
+    expect(clock.tailSnapshot()).toEqual({
+      owner: later,
+      byMount: { earlier, later },
+    });
+    expect(clock.tailSnapshot()).toBe(clock.tailSnapshot());
+    clock.releaseOwner(later);
+    expect(clock.owner()).toBe(earlier);
+    expect(clock.tailSnapshot().byMount).toEqual({ earlier, later });
+    clock.bindMount("later", 0);
+    expect(clock.tailSnapshot()).toEqual({ owner: earlier, byMount: { earlier } });
+    clock.bindMount("later", 0);
+    expect(clock.tailSnapshot().byMount).toEqual({ earlier });
+    clock.reset();
+    expect(clock.owner()).toBe(0);
+    expect(clock.tailSnapshot()).toEqual({ owner: 0, byMount: {} });
+    expect(clock.takeOwner()).toBe(1);
+    const visible = clock.takeOwner();
+    clock.bindMount("covered", 1);
+    clock.bindMount("visible", visible);
+    const snapshot = clock.tailSnapshot();
+    expect(parityTailOwned(true, "visible", snapshot)).toBe(true);
+    expect(parityTailOwned(true, "covered", snapshot)).toBe(false);
+    expect(parityTailOwned(false, "visible", snapshot)).toBe(false);
+  });
+
   test("pins a query fixture and defaults a missing theme to light", () => {
     expect(parityPinnedFrame("", "dark")).toBeNull();
     expect(parityPinnedFrame("  ", "dark")).toBeNull();
     expect(parityPinnedFrame("F3", "dark")).toEqual({ id: "F3", theme: "dark" });
     expect(parityPinnedFrame("F3", "")).toEqual({ id: "F3", theme: "light" });
     expect(parityPinnedFrame(" F12 ", "nope")).toEqual({ id: "F12", theme: "light" });
+    expect(parityPinnedFrame("F4", "light", "reduced")).toEqual({
+      id: "F4",
+      motion: "reduced",
+      theme: "light",
+    });
+    expect(parityPinnedFrame("F4", "light", "nope")).toEqual({ id: "F4", theme: "light" });
+    expect(parityPinnedFrame("F4", "light", "", "script")).toEqual({
+      id: "F4",
+      replay: "script",
+      theme: "light",
+    });
+    expect(parityPinnedFrame("F4", "dark", "reduced", "script")).toEqual({
+      id: "F4",
+      motion: "reduced",
+      replay: "script",
+      theme: "dark",
+    });
+    expect(parityPinnedFrame("F4", "light", "", "nope")).toEqual({ id: "F4", theme: "light" });
+    expect(parityPinnedFrame("F12", "light", "", "", "steps")).toEqual({
+      id: "F12",
+      lane: "steps",
+      theme: "light",
+    });
+    expect(parityPinnedFrame("f13-tail", "light", "", "", "", "return")).toEqual({
+      id: "f13-tail",
+      pill: "return",
+      theme: "light",
+    });
+    expect(parityPinnedFrame("f13-tail", "light", "", "", "", "nope")).toEqual({
+      id: "f13-tail",
+      theme: "light",
+    });
+    expect(parityPinnedFrame("F1", "light", "", "", "", "", "states")).toEqual({
+      id: "F1",
+      composer: "states",
+      theme: "light",
+    });
+    expect(parityPinnedFrame("F1", "dark", "", "", "", "", "nope")).toEqual({
+      id: "F1",
+      theme: "dark",
+    });
   });
 
   test("parses a Documents pin and rejects a fixture the carousel does not know", () => {
@@ -94,6 +191,94 @@ describe("parity cycle", () => {
     });
     expect(parseParityDiskFrame('{"id":"f13-tail","theme":"dark"}')).toEqual({
       id: "f13-tail",
+      theme: "dark",
+    });
+    expect(parseParityDiskFrame('{"id":"f13-tail","theme":"light","scroll":"away"}')).toEqual({
+      id: "f13-tail",
+      theme: "light",
+      scroll: "away",
+    });
+    expect(parseParityDiskFrame('{"id":"F1","theme":"light","scroll":"nope"}')).toEqual({
+      id: "F1",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"light","motion":"reduced"}')).toEqual({
+      id: "F4",
+      motion: "reduced",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"dark","motion":"nope"}')).toEqual({
+      id: "F4",
+      theme: "dark",
+    });
+    expect(
+      parseParityDiskFrame('{"id":"F4","theme":"light","motion":"reduced","replay":"script"}'),
+    ).toEqual({
+      id: "F4",
+      motion: "reduced",
+      replay: "script",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"light","replay":"nope"}')).toEqual({
+      id: "F4",
+      theme: "light",
+    });
+    expect(
+      parseParityDiskFrame('{"id":"F4","theme":"light","replay":"script","atMs":400}'),
+    ).toEqual({
+      atMs: 400,
+      id: "F4",
+      replay: "script",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"light","atMs":"400"}')).toEqual({
+      id: "F4",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F4","theme":"light","atMs":-1}')).toEqual({
+      id: "F4",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F12","theme":"dark","lane":"steps"}')).toEqual({
+      id: "F12",
+      lane: "steps",
+      theme: "dark",
+    });
+    expect(parseParityDiskFrame('{"id":"F12","theme":"light","lane":"nope"}')).toEqual({
+      id: "F12",
+      theme: "light",
+    });
+    expect(
+      parseParityDiskFrame('{"id":"f13-tail","theme":"light","scroll":"away","pill":"return"}'),
+    ).toEqual({
+      id: "f13-tail",
+      pill: "return",
+      scroll: "away",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"f13-tail","theme":"light","pill":"nope"}')).toEqual({
+      id: "f13-tail",
+      theme: "light",
+    });
+    expect(
+      parseParityDiskFrame('{"id":"f13-tail","theme":"light","scroll":"away","cards":"lane"}'),
+    ).toEqual({
+      cards: "lane",
+      id: "f13-tail",
+      scroll: "away",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"f13-tail","theme":"light","cards":"nope"}')).toEqual({
+      id: "f13-tail",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F1","theme":"light","composer":"states"}')).toEqual({
+      composer: "states",
+      id: "F1",
+      theme: "light",
+    });
+    expect(parseParityDiskFrame('{"id":"F1","theme":"dark","composer":"nope"}')).toEqual({
+      id: "F1",
       theme: "dark",
     });
     expect(parseParityDiskFrame('{"id":"nope","theme":"light"}')).toBeNull();

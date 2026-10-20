@@ -5,7 +5,7 @@ import { GlassTextButton } from "@/ui/primitives/glass-action-buttons";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { CARD_BODY, CARD_GAP, CardHeader, ChipRow } from "./cards/expanded-card";
 import { copy, historicPermissionTitle, isPlanExitRequest } from "./copy";
-import { permissionOptionTone } from "./permission-actions";
+import { isRejectPermissionOption, permissionOptionTone } from "./permission-actions";
 
 export type AgentChatPermissionPrompt = {
   request_id: string;
@@ -73,15 +73,22 @@ export function AgentChatPermissionCard({
         <ChipRow justify="end">
           {options.map((option) => {
             const label = option.name.trim() || option.option_id;
+            const onPress = () =>
+              onRespond({ requestId: request.request_id, optionId: option.option_id });
+            const tone = permissionOptionTone(option, options);
+            if (isRejectPermissionOption(option)) {
+              return (
+                <GlassTextButton
+                  key={option.option_id}
+                  label={label}
+                  onPress={onPress}
+                  testID="agent-chat-permission-skip"
+                  tone={tone}
+                />
+              );
+            }
             return (
-              <GlassTextButton
-                key={option.option_id}
-                label={label}
-                onPress={() =>
-                  onRespond({ requestId: request.request_id, optionId: option.option_id })
-                }
-                tone={permissionOptionTone(option, options)}
-              />
+              <GlassTextButton key={option.option_id} label={label} onPress={onPress} tone={tone} />
             );
           })}
         </ChipRow>
