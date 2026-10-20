@@ -300,7 +300,7 @@ No Playwright mobile journey. `apps/mobile/e2e` is frozen.
 
 ## Coverage Status
 
-Recorded on `aarynlu/mobile-ws-lifecycle-d365` after review fixes (Linux cloud agent, no iOS Simulator).
+Recorded on `aarynlu/mobile-ws-lifecycle-d365` after review fixes, then merge of `origin/main` (`#323` / `#328` / `#329`; Linux cloud agent, no iOS Simulator).
 
 | Scenario | Status  | Evidence                                                                                                |
 | -------- | ------- | ------------------------------------------------------------------------------------------------------- |
