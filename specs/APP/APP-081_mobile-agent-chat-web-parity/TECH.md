@@ -359,3 +359,35 @@ ComposerPillRow.tsx
 - `getItemLayout` is wrong if it stays on after the real tail is measured. Mitigation: release only through `jumpExtendReadyToRelease`, and turn it off on user drag and scroll-to-end.
 - Estimated strides before the first measurement use 48 px (`TRANSCRIPT_JUMP_FALLBACK_STRIDE`). A list of very tall rows can undershoot once; the measured align corrects it.
 - The slot's 8 px gap sits inside the animated width, on top of the glass row's existing 8 px `gap`. Card spacing while the pill is open is wider by that inner gap. The glass row structure from #323 is otherwise unchanged.
+
+## Reslice of #317 (2026-10-20)
+
+Closed PR #317 (`2b1f66b82`) is not reopened. Three drafts replace it. This file keeps the product contract. Capture mechanics live in [QUALITY-016](../QUALITY-016_mobile-parity-capture/TECH.md), not here.
+
+| Draft         | Spec                                                  | What it owns                                                                 |
+| ------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Tail jump     | This file, "Tail jump while the streaming tail grows" | Hold an earlier row while the streaming tail grows                           |
+| Capture hooks | QUALITY-016                                           | Preview owner, glass testIDs, `ios-capture.sh`, PillTap, `run-until-line.py` |
+| This note     | This section                                          | What #317's spec edit does not become the contract                           |
+
+#323 glass notes above stay. Do not replace `COMPOSER_GLASS_WELL`, the 2026-10-18 / 2026-10-19 implementation deltas, or V1's current fallback (opacity + translate + height, no CSS blur and no `mask-image`).
+
+#317's TECH edit is not copied. It described UI this reslice does not ship:
+
+- A 22 px part-reveal gradient in place of `mask-image`.
+- Attention dot as Tailwind `amber-500` / `#fe9a00`, and `CHAT_AMBER` instead of theme `yellow`.
+- User-meta clip timings, the activity-clock / star-cluster / lattice morph, and the streaming caret `▋`.
+- V10 hostname http chips.
+
+Those rows would claim behavior the tree does not have. The motion table, deviation register, and token map stay as they are on `main`.
+
+### Left in #317 on purpose
+
+- Unwired chrome: activity glyph and mark, turn-files chrome, activity clock, user attachment chip, scroll-pill unit, user-message press / fade / link / meta / outside, usage tooltip, and their tests. The `NOTICE` activity-glyph line stays out with them.
+- A second UI pass that fights #323: tool body, diff and ANSI, http chip, web search, markdown chrome, permission / plan / command multi-step, lane `bare`, composer paste, thinking, ink and color, inline subagent, grok panel, and moving web `grok-chrome.ts` / `chat-helpers.ts` into `@atmos/agent-transcript`.
+- `scripts/agent-chat-parity/fence-icons.mjs`, the Skia flat-fill patch `patches/@shopify%2Freact-native-skia@2.6.2.patch`, and the long `PROGRESS.md` run log from that branch.
+- `parity-composer-cards.ts` fields `preview` and `subagentTools`. `ComposerCards` has no such fields. #323 already sets subagent `status: "running"`.
+
+Already on `main`, so this reslice does not port or delete them: QUALITY-014 `present.ts` (#329), QUALITY-013 EventGate (#325), QUALITY-012 WebSocket lifecycle (#324), QUALITY-015 local API (#331), QUALITY-011 iOS scene lifecycle. A two-dot diff of #317 against current `main` shows those specs as deleted only because #317 predates them.
+
+S14 simulator frames stay `not_run` on these drafts. #317's later coverage notes are not evidence for this head.

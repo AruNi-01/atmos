@@ -464,3 +464,15 @@ Recorded 2026-10-20 on this branch, before the pull request. S14 simulator frame
 - `cd apps/mobile && bun test src/features/agent-chat/transcript-jump.test.ts src/features/agent-chat/transcript-pad.test.ts src/features/agent-chat/scroll-pill-slot.test.ts src/features/agent-chat/stick.test.ts src/features/agent-chat/composer-glass.test.ts` → pass, exit 0. 42 pass, 0 fail, 319 expect() calls, 5 files. Covers TJ1–TJ6.
 - `bunx oxlint --max-warnings=455` at the repo root → exit 0, 452 problems. The cap stays 455.
 - `bun --filter @atmos/mobile typecheck` still fails on files this slice does not touch: `glass-text-button.test.ts` (`react-dom/server` has no declaration) and `open-thread-resync.test.ts` (publish callback typed as `void | boolean` while the test returns a number). Those errors are on `main` `557991da` (#325). This slice adds no typecheck diagnostic in the tail-jump files.
+
+## Reslice record (2026-10-20)
+
+#317's TEST edit marked S14 `partial` and appended a long simulator run log. That log is not copied. S14 stays `not_run` on these drafts: no new `ios-parity` artifact was produced for this head, and old runs are not this tree.
+
+Capture checks are QUALITY-016 C1–C8. They do not change S10, S11, S14, S21, S23, S30, or S33. C8 (the label-gated `ios-simulator` job) stays `not_run` until that job is observed. A skip without the `ios-parity` label is the expected CI result, not a failure.
+
+The PRD deviation for `blur()` and `mask-image` stays the opacity + translate + height fallback. #317's sentence that the 22 px mask ships is not adopted.
+
+### Coverage Status
+
+No new product test in this note. Proof that the discarded UI is absent is the file list of the tail-jump and capture drafts, recorded in TECH "Reslice of #317". `bunx oxfmt --check` on this file is the format gate.

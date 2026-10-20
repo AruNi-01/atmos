@@ -206,3 +206,14 @@ S0–S8 are implemented and reviewed. Later green iOS runs painted the transcrip
 - S9, S15, S20, and S26 now have dedicated bun tests (`motion-constants`, `below-count`, `queue-actions`, `shared-rules`). 8 pass, 0 fail. Simulator scenarios and S31 stay `not_run`.
 - Visual pass after `38894137249`, not yet on an Air screenshot: preview root uses `insets.top`. Chat screens set `scrollEdgeEffects` to hidden. Edge fades no longer interpolate through black, and the top fade stays off at scroll 0. The pill-row end gradient is gone. The placeholder sits on its own line. An empty picker shows "No agent" instead of "Model". Markdown tables use zinc colors and a native stretch to the row width. Inline code uses zinc-100 / zinc-800 instead of the library pink fill and pink border. Code-block language headers stay, because web `MarkdownCodeBlock` has them. Do not add a 60-minute capture timeout: `38894137249` capture ran about 75 minutes. S27 F12 and S31 stay not pass.
 - The screen `scrollEdgeEffects` walk only the first descendant scroll view (`RNSScrollViewFinder`). The pill row is a later sibling, so iOS 26 still blurs its right edge. `HideScrollEdge` (`AtmosScrollEdge`) hides `UIScrollEdgeEffect` on the transcript and that row. The gamma scroll-view marker is excluded from the pod. Air still has to confirm the frame. Ignore the cloud capture.
+
+## Handoff (2026-10-20) — #317 reslice
+
+Not a requirements source. The long run log on closed PR #317 is not copied here.
+
+- **State**: three draft PRs, not merged.
+- **Tail jump**: APP-081 section "Tail jump while the streaming tail grows". Unit tests TJ1–TJ6. S14 simulator frames stay `not_run`.
+- **Capture**: QUALITY-016. Preview owner, glass testIDs, `ios-capture.sh`, PillTap, `run-until-line.py`. No Skia patch. No `EVIDENCE_PUSH`. No screenshots in git. `ios-simulator` stays label-gated.
+- **Left behind**: unwired activity/user-message chrome, the second chat UI that fights #323 glass, `fence-icons.mjs`, the Skia flat-fill patch. Do not delete QUALITY-011 through QUALITY-015; they landed on `main` after #317's base.
+- **Glass**: #323 notes in TECH stay. Do not restore tinted lane plates or the multi-question permission card.
+- **Blocked**: no Simulator in this environment. Do not add the `ios-parity` label just to turn the heavy job on.
