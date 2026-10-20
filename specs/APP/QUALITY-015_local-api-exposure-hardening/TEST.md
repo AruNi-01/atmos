@@ -36,28 +36,30 @@ API behavior is Rust unit tests on `apps/api`. The workflow change is a Rust tex
 
 ## Execution map
 
-| Scenario | Level     | Expected tool       | Target command / method                                                | Fixture / data                                                      | Signals                                                                                             | Status |
-| -------- | --------- | ------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------ |
-| S1       | Rust unit | `cargo test -p api` | `is_request_authorized` tests                                          | `token = None`, bearer and query set                                | returns `false`                                                                                     | pass   |
-| S2       | Rust unit | `cargo test -p api` | `require_local_token` oneshot                                          | `127.0.0.1` and `10.0.0.1`, no token                                | loopback 200; public 401                                                                            | pass   |
-| S3       | Rust unit | `cargo test -p api` | `is_request_authorized`                                                | `Some("  ")`                                                        | returns `false`                                                                                     | pass   |
-| S4       | Rust unit | `cargo test -p api` | `ensure_exposed_bind_has_token`                                        | hosts `0.0.0.0`, `::`, `192.168.0.10`, `example.com`                | `Err`                                                                                               | pass   |
-| S5       | Rust unit | `cargo test -p api` | `ensure_exposed_bind_has_token`                                        | `127.0.0.1`, `localhost`, `::1` without token; `0.0.0.0` with token | `Ok` / `Err` as specified                                                                           | pass   |
-| S6       | Rust unit | `cargo test -p api` | `is_request_authorized`                                                | bearer and `token=` query                                           | match true; mismatch false                                                                          | pass   |
-| S7       | Rust unit | `cargo test -p api` | `redact_query_token`                                                   | `a=1&token=SECRET&b=2`, `Token=SECRET`                              | value is `REDACTED`; `SECRET` absent                                                                | pass   |
-| S8       | Rust unit | `cargo test -p api` | middleware log capture                                                 | public IP, query `token=s3cr3t-token-value`                         | status 401; captured log has no secret                                                              | pass   |
-| S9       | Rust unit | `cargo test -p api` | `require_local_token`                                                  | `10.1.2.3` with LAN trust; `8.8.8.8` with LAN trust; no token       | private 200; public 401                                                                             | pass   |
-| S10      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | temp root + `readme.txt`                                            | 200 and file bytes                                                                                  | pass   |
-| S11      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | file outside the root                                               | 403                                                                                                 | pass   |
-| S12      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | `workspace-evil` sibling and `..` escape                            | 403                                                                                                 | pass   |
-| S13      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | symlink inside root → outside file                                  | 403; body does not contain the secret                                                               | pass   |
-| S14      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | symlink inside root → file inside root                              | 200 and in-root bytes                                                                               | pass   |
-| S15      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | relative path, missing file, directory                              | 400, 404, 400                                                                                       | pass   |
-| S16      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | exact file outside roots; sibling file                              | exact 200; sibling 403                                                                              | pass   |
-| S17      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | extra directory root; allowlist root `/`                            | extra file 200; `/` does not allow a temp file                                                      | pass   |
-| S18      | Shell     | `rg`                | path search below                                                      | web, desktop, mobile trees                                          | only the web callers in TECH; desktop and mobile have no matches                                    | pass   |
-| S19      | Rust unit | `cargo test -p api` | `workflow_shell_env`                                                   | the two workflow files                                              | expressions absent from `run:` bodies; `"$RELEASE_TAG_INPUT"` and `"$WORKFLOW_HEAD_BRANCH"` present | pass   |
-| S20      | Toolchain | shell               | `bun lint` is not re-run repo-wide unless CI does; confirm script text | `package.json`                                                      | `oxlint --max-warnings=455` unchanged                                                               | pass   |
+| Scenario | Level     | Expected tool       | Target command / method                                                | Fixture / data                                                               | Signals                                                                                     | Status |
+| -------- | --------- | ------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------ |
+| S1       | Rust unit | `cargo test -p api` | `is_request_authorized` tests                                          | `token = None`, bearer and query set                                         | returns `false`                                                                             | pass   |
+| S2       | Rust unit | `cargo test -p api` | `require_local_token` oneshot                                          | `127.0.0.1` and `10.0.0.1`, no token                                         | loopback 200; public 401                                                                    | pass   |
+| S3       | Rust unit | `cargo test -p api` | `is_request_authorized`                                                | `Some("  ")`                                                                 | returns `false`                                                                             | pass   |
+| S4       | Rust unit | `cargo test -p api` | `ensure_exposed_bind_has_token`                                        | hosts `0.0.0.0`, `::`, `192.168.0.10`, `example.com`                         | `Err`                                                                                       | pass   |
+| S5       | Rust unit | `cargo test -p api` | `ensure_exposed_bind_has_token`                                        | `127.0.0.1`, `localhost`, `::1` without token; `0.0.0.0` with token          | `Ok` / `Err` as specified                                                                   | pass   |
+| S6       | Rust unit | `cargo test -p api` | `is_request_authorized`                                                | bearer and `token=` query                                                    | match true; mismatch false                                                                  | pass   |
+| S7       | Rust unit | `cargo test -p api` | `redact_query_token`                                                   | `token=`, `Token=`, `%74oken=`, `token%3D`, `%54%4f%4b%45%4e=`               | value is `REDACTED`; secret absent; non-token pairs unchanged                               | pass   |
+| S8       | Rust unit | `cargo test -p api` | middleware log capture and TraceLayer span                             | public IP 401, and a 200 with `token=` / `%74oken=` / `token%3D`             | status as expected; captured log has no secret and contains `token=REDACTED`                | pass   |
+| S9       | Rust unit | `cargo test -p api` | `require_local_token`                                                  | `10.1.2.3` with LAN trust; `8.8.8.8` with LAN trust; no token                | private 200; public 401                                                                     | pass   |
+| S10      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | temp root + `readme.txt`                                                     | 200 and file bytes                                                                          | pass   |
+| S11      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | file outside the root                                                        | 403                                                                                         | pass   |
+| S12      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | `workspace-evil` sibling and `..` escape                                     | 403                                                                                         | pass   |
+| S13      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | symlink inside root → outside file                                           | 403; body does not contain the secret                                                       | pass   |
+| S14      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | symlink inside root → file inside root                                       | 200 and in-root bytes                                                                       | pass   |
+| S15      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | relative path, missing file, directory                                       | 400, 404, 400                                                                               | pass   |
+| S16      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | exact file outside roots; sibling file                                       | exact 200; sibling 403                                                                      | pass   |
+| S17      | Rust unit | `cargo test -p api` | `serve_allowed_file`                                                   | extra directory root; allowlist root `/`                                     | extra file 200; `/` does not allow a temp file                                              | pass   |
+| S18      | Shell     | `rg`                | path search below                                                      | web, desktop, mobile trees                                                   | only the web callers in TECH; desktop and mobile have no matches                            | pass   |
+| S19      | Rust unit | `cargo test -p api` | `workflow_shell_env`                                                   | sync workflows and the release workflows                                     | no `github.event.*`, `github.event_name`, or `inputs.*` inside `run:`; shell reads `"$VAR"` | pass   |
+| S20      | Toolchain | shell               | `bun lint` is not re-run repo-wide unless CI does; confirm script text | `package.json`                                                               | `oxlint --max-warnings=455` unchanged                                                       | pass   |
+| S21      | Rust unit | `cargo test -p api` | bind check and both token middlewares                                  | `::ffff:127.0.0.1`, `::ffff:0.0.0.0`, `::ffff:8.8.8.8`, `::ffff:192.168.0.1` | only `::ffff:127.x` is loopback; other mapped addresses are not                             | pass   |
+| S22      | Rust unit | `cargo test -p api` | source assertion on `constant_time_eq`                                 | `middleware/mod.rs`                                                          | body is the SHA-256 XOR fold; no `==` on the secrets and no `.eq(`                          | pass   |
 
 ## Scenarios
 
@@ -112,17 +114,17 @@ API behavior is Rust unit tests on `apps/api`. The workflow change is a Rust tex
 ### S7 — Redaction helper
 
 - **Level**: Unit
-- **Given**: `None`, `a=1`, `token=SECRET`, `a=1&token=SECRET&b=2`, `Token=SECRET`.
+- **Given**: `None`, `a=1`, `token=SECRET`, `Token=SECRET`, `%74oken=secret`, `token%3Dsecret`, `%74oken%3Dsecret`, `TOKEN%3dSECRET`, `%54%4f%4b%45%4e=secret`, and `notoken=secret`.
 - **When**: `redact_query_token` runs.
-- **Then**: `None` is `<none>`; pairs without a token key are unchanged; token values are `REDACTED`. The string `SECRET` is absent.
+- **Then**: `None` is `<none>`; pairs without a token key are unchanged; token values, including percent-encoded keys and `token%3D`, are `token=REDACTED`. The secret text is absent.
 - **Signals**: string equality.
 
 ### S8 — Middleware log does not contain the query token
 
 - **Level**: Unit
-- **Given**: a tracing subscriber capturing warn output, a public peer, and query `token=s3cr3t-token-value`.
-- **When**: `require_local_token` rejects the request.
-- **Then**: status is 401 and the captured text does not contain `s3cr3t-token-value`. It does contain `REDACTED`.
+- **Given**: a tracing subscriber capturing warn output, a public peer, and query `token=s3cr3t-token-value`. A second subscriber captures DEBUG span events for a successful `TraceLayer` request whose query contains `token=`, `%74oken=`, and `token%3D`.
+- **When**: `require_local_token` rejects the first request, and the traced router serves the second with 200.
+- **Then**: the 401 log and the DEBUG access log do not contain `s3cr3t-token-value`. Both contain `token=REDACTED`.
 - **Signals**: status and captured log text.
 
 ### S9 — LAN trust regression
@@ -208,9 +210,9 @@ API behavior is Rust unit tests on `apps/api`. The workflow change is a Rust tex
 ### S19 — Workflow shell env
 
 - **Level**: Unit
-- **Given**: `.github/workflows/sync-homebrew-tap.yml` and `sync-r2.yml`.
+- **Given**: `sync-homebrew-tap.yml`, `sync-r2.yml`, and the release workflows (`release-cli`, `release-desktop`, `release-desktop-electron`, `release-local-runtime`, `release-local-model-runtime`, `release-serve-emu`, `release-serve-sim`).
 - **When**: the test extracts `run:` bodies.
-- **Then**: neither body contains `${{ github.event.workflow_run.head_branch }}` or `${{ github.event.inputs.release_tag }}`. Both files still contain those expressions under `env:`. Both `run:` bodies contain `"$RELEASE_TAG_INPUT"` and `"$WORKFLOW_HEAD_BRANCH"`.
+- **Then**: no body contains `${{ github.event.`, `${{ github.event_name`, or `${{ inputs.`. The two sync files still map `head_branch` and `release_tag` under `env:` and their shells read `"$RELEASE_TAG_INPUT"` and `"$WORKFLOW_HEAD_BRANCH"`. Job-level `if:` expressions stay outside the scanner.
 - **Signals**: string search over the extracted bodies.
 
 ### S20 — Lint cap
@@ -221,6 +223,22 @@ API behavior is Rust unit tests on `apps/api`. The workflow change is a Rust tex
 - **Then**: it is still `oxlint --max-warnings=455`.
 - **Signals**: file text. This PR does not edit that script.
 
+### S21 — Only IPv4-mapped loopback is loopback
+
+- **Level**: Unit
+- **Given**: hosts and peers `::ffff:127.0.0.1`, `::ffff:0.0.0.0`, `::ffff:8.8.8.8`, and `::ffff:192.168.0.1`.
+- **When**: `host_is_loopback`, `ensure_exposed_bind_has_token`, `require_local_token`, and `require_loopback_or_token` run.
+- **Then**: only the `::ffff:127.x` address is treated as loopback. The others are refused at bind and rejected by both middlewares when no token is set. A mapped private address is still allowed only when LAN trust is on.
+- **Signals**: `Result` and response status.
+
+### S22 — Token compare cannot fall back to `==`
+
+- **Level**: Unit
+- **Given**: the source of `constant_time_eq` in `apps/api/src/middleware/mod.rs`.
+- **When**: the test reads that function body.
+- **Then**: it hashes both strings with SHA-256 and folds XOR. The only `==` is the accumulator check against `0`. The body does not call `.eq(`.
+- **Signals**: source text assertions.
+
 ## Performance & load budgets
 
 None. The file handler canonicalizes the registered project roots per request. That is a metadata walk, not a product hot path beyond existing image fetches.
@@ -228,7 +246,8 @@ None. The file handler canonicalizes the registered project roots per request. T
 ## Regression checklist
 
 - [x] Loopback `require_local_token` without a token still returns 200.
-- [x] Bearer and query token checks still use `constant_time_eq` when a token is set.
+- [x] Bearer and query token checks still use the SHA-256 XOR fold. A source assertion fails if that function compares the secrets with `==`.
+- [x] `::ffff:127.0.0.1` is loopback. `::ffff:0.0.0.0` and `::ffff:8.8.8.8` are not.
 - [x] `ATMOS_ALLOW_LAN_TRUST` still allows private IPv4 without a token.
 - [x] Origin guard tests in `middleware/mod.rs` still pass.
 - [x] `/api/system/git-blob` is unchanged.
@@ -241,7 +260,7 @@ Omitted. No user-facing screen. Outside-root file reads fail closed in the API; 
 
 ## Acceptance criteria
 
-- [x] S1–S17 and S19 pass under `cargo test -p api`.
+- [x] S1–S17, S19, S21, and S22 pass under `cargo test -p api`.
 - [x] S18 `rg` matches TECH's caller table.
 - [x] S20 lint cap unchanged.
 - [x] `cargo fmt -p api -- --check` passes.
@@ -255,17 +274,19 @@ None. Do not dispatch the release or Homebrew workflows from this PR.
 ## Non-coverage
 
 - Executing `sync-homebrew-tap.yml` or `sync-r2.yml` against GitHub. S19 checks the script text only.
-- `GET /api/system/git-blob`.
+- `GET /api/system/git-blob` behavior. The missing directory allowlist is https://github.com/AruNi-01/atmos/issues/332.
+- `ci-e2e.yml`, the deploy-pages workflows, and `pullfrog.yml`. Those still expand `github.event.*` or `inputs.*` inside `run:`. S19 scans the sync workflows and the release workflows.
+- Later release steps that interpolate `steps.*.outputs`, other than the Homebrew cask and commit steps already moved to env.
 - A live browser click-through of logo, diff, and attachment images. Callers keep the same URL shape; confinement is proven in Rust.
 - CodeQL alerts other than the three findings in TECH.
 
 ## Coverage Status
 
-2026-10-19, branch `aarynlu/security-audit-auth-files-ci-5061`:
+2026-10-20, branch `aarynlu/security-audit-auth-files-ci-5061` (review follow-up; the 2026-10-19 run was 110 bin tests before these cases):
 
-- S1–S9, S10–S17 — pass. `cargo test -p api --bin api`: 110 pass, 0 fail. Includes unset-token denial, loopback 200 / public 401, blank token, bind refusal, bearer and query match, query redaction (`s3cr3t-token-value` absent, `REDACTED` present), LAN trust, in-root serve, outside and sibling and `..` 403, symlink escape 403 without the secret, in-root symlink 200, relative 400 / missing 404 / directory 400, exact logo vs sibling, extra root 200, filesystem root `/` 403.
+- S1–S9, S10–S17, S21, S22 — pass. `cargo test -p api --bin api`: 115 pass, 0 fail. Includes unset-token denial, loopback 200 / public 401, blank token, bind refusal, bearer and query match, query redaction of literal, case-variant, and percent-encoded keys (`s3cr3t-token-value` absent, `token=REDACTED` present on the 401 line and on the DEBUG access-log span for a 200), IPv4-mapped loopback only for `::ffff:127.x`, SHA-256 XOR-fold source assertion, LAN trust, in-root serve, outside and sibling and `..` 403, symlink escape 403 without the secret, in-root symlink 200, relative 400 / missing 404 / directory 400, exact logo vs sibling, extra root 200, filesystem root `/` 403.
 - S18 — pass. `rg -n "/api/system/file"` matches only `apps/web` URL builders (`ProjectItem.tsx`, `use-project-logo-url.ts`, `AgentToolPathPreviewBody.tsx`, `agent-chat-file-links.ts`, `agent-composer-attachment.ts`, `resolve-blob-url.ts`, `FileViewer.tsx`, `md-live-media-plugin.tsx`, plus web tests). `apps/desktop`, `apps/desktop-electron`, `apps/mobile`, `apps/cli`, and `packages` have no matches. URL builders were not changed.
-- S19 — pass. `cargo test -p api --test workflow_shell_env`: 1 pass. The same check also rejects `${{ steps.release.outputs.tag }}` and `${{ steps.release.outputs.version }}` inside Homebrew `run:` bodies after CodeQL flagged the tag output.
+- S19 — pass. `cargo test -p api --test workflow_shell_env`: 1 pass. The scanner rejects `${{ github.event.`, `${{ github.event_name`, and `${{ inputs.` inside `run:` bodies of the two sync workflows and the release workflows. It still rejects `${{ steps.release.outputs.tag }}` and `${{ steps.release.outputs.version }}` inside Homebrew `run:` bodies. Job `if:` expressions are not scanned.
 - S20 — pass. `package.json` `lint` is still `oxlint --max-warnings=455`.
 - `cargo clippy -p api --all-targets --all-features -- -D warnings` exit 0. `cargo fmt -p api` applied.
 - Draft PR CI (including CodeQL) recorded after the GitHub run finishes. `ios-simulator` may be skipped without the `ios-parity` label. Release workflows were not dispatched.

@@ -10,18 +10,18 @@ Three server-side holes, one draft PR:
 2. **M2.** `GET /api/system/file` opens the query `path` with no root check (CodeQL `rust/path-injection` #57 #59 #60 #61: `exists`, `is_file`, `metadata`, `open`).
 3. **M3.** `sync-homebrew-tap.yml` and `sync-r2.yml` interpolate `github.event.workflow_run.head_branch` and `github.event.inputs.release_tag` inside `run:` (CodeQL actions command injection #1 #2).
 
-Out of scope: other CodeQL alerts, `GET /api/system/git-blob`, raising the oxlint cap above 455, and persisting a new bearer secret.
+Out of scope: other CodeQL alerts, raising the oxlint cap above 455, and persisting a new bearer secret. `GET /api/system/git-blob` still has no directory allowlist; that follow-up is https://github.com/AruNi-01/atmos/issues/332 and this spec does not change that handler.
 
 ## Quality target
 
-| Item                        | Before                                  | After                                                                                          |
-| --------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Unset token                 | `is_request_authorized` returns `true`  | Returns `false`. Loopback is still short-circuited earlier in `require_local_token`            |
-| Non-loopback bind, no token | Process listens                         | Process exits before `TcpListener::bind`                                                       |
-| Rejection log               | `query={:?}` includes `token=` values   | `token` query values replaced with `REDACTED`                                                  |
-| `/api/system/file`          | Any existing file the API user can read | Canonical path must sit under an allowlisted directory, or match a stored project logo file    |
-| Symlink escape              | Followed                                | Canonical target fails the prefix check; response is 403 and does not contain the target bytes |
-| Workflow shell              | `${{ github.event... }}` inside `run:`  | Same values passed through step `env:` and read as `"$VAR"`                                    |
+| Item                         | Before                                        | After                                                                                           |
+| ---------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Unset token                  | `is_request_authorized` returns `true`        | Returns `false`. Loopback is still short-circuited earlier in `require_local_token`             |
+| Non-loopback bind, no token  | Process listens                               | Process exits before `TcpListener::bind`                                                        |
+| Rejection log and access log | `query={:?}` and DEBUG `uri` include `token=` | `token` query values, including encoded keys, replaced with `REDACTED` on every access-log path |
+| `/api/system/file`           | Any existing file the API user can read       | Canonical path must sit under an allowlisted directory, or match a stored project logo file     |
+| Symlink escape               | Followed                                      | Canonical target fails the prefix check; response is 403 and does not contain the target bytes  |
+| Workflow shell               | `${{ github.event... }}` inside `run:`        | Same values passed through step `env:` and read as `"$VAR"`                                     |
 
 ## Decision for M1: refuse to start
 
@@ -35,7 +35,7 @@ Why:
 - Dev and Desktop bind `127.0.0.1` (`apps/desktop-electron/src/runtime/ensure.ts` `DEFAULT_HOST`). Those processes keep starting with no token. Loopback requests stay authorized by `is_trusted_local_source` / `is_loopback_ip` before `is_request_authorized` runs.
 - `ATMOS_ALLOW_LAN_TRUST` is not a waiver. It only skips the per-request check for private and link-local peers. A non-loopback listen socket still requires an explicit token before bind. After a token is set, LAN trust keeps exempting those peers from presenting it.
 
-Loopback hosts: `localhost` (any case), `127.0.0.0/8`, `::1`, and IPv4-mapped loopback. `0.0.0.0`, `::`, other IPs, and DNS names are not loopback.
+Loopback hosts: `localhost` (any case), `127.0.0.0/8`, `::1`, and IPv4-mapped loopback (`::ffff:127.0.0.0/8` only). `::ffff:0.0.0.0`, every other IPv4-mapped address, `0.0.0.0`, `::`, other IPs, and DNS names are not loopback.
 
 Blank or whitespace-only `ATMOS_LOCAL_TOKEN` counts as unset in both the startup check and `is_request_authorized`. A non-blank token keeps today's header and `token=` query comparison, including `constant_time_eq`.
 
@@ -89,10 +89,13 @@ impl ServerConfig {
 `redact_query_token(query: Option<&str>) -> String`:
 
 - `None` → `<none>`
-- Split on `&`. A pair whose first six bytes equal `token=` ignoring ASCII case becomes `token=REDACTED`.
-- Other pairs are unchanged.
+- Split on `&`. The key is the text before the first raw `=` or an earlier `%3D` / `%3d`. Percent-decode that key (up to four times). If it equals `token` ignoring ASCII case, the pair becomes `token=REDACTED`.
+- That covers `token=`, `Token=`, `%74oken=`, `token%3D`, and `%54%4f%4b%45%4e=`. Other pairs stay as written.
+- Authorization still matches only a literal `token=` key. Encoded keys are redacted in logs and are not accepted as credentials.
 
-`require_local_token` logs `path`, the redacted query, and `remote`. It does not log `Authorization`.
+`redacted_request_uri` is `path`, or `path?` plus the redacted query. `main.rs` builds the `TraceLayer` span with `http_access_span`, so DEBUG start, finish, and failure events all record that URI. `require_local_token` logs `path`, the redacted query, and `remote`. It does not log `Authorization`.
+
+Token comparison stays the SHA-256 XOR fold in `constant_time_eq`. A source assertion rejects a change to `==` or `.eq(`.
 
 `require_loopback_or_token` already omits the query. It picks up the new `false` return for free, so a non-loopback destructive call with no token is 401.
 
@@ -155,7 +158,7 @@ run: |
   TAG="$WORKFLOW_HEAD_BRANCH"    # workflow_run
 ```
 
-Job-level `if:` expressions stay as expressions. They are not shell. Other `${{ }}` inside the resolve `run:` blocks (`github.event_name`, `github.event.release.tag_name`) stay as expressions.
+Job-level `if:` expressions stay as expressions. They are not shell. Resolve `run:` blocks do not expand `${{ github.event.* }}`, `${{ github.event_name }}`, or `${{ inputs.* }}`. Those values are step `env:` entries (`EVENT_NAME`, `RELEASE_TAG_NAME`, `RELEASE_PRERELEASE`, and the input names) and the shell reads `"$VAR"`. The same env move covers the other release workflows where `inputs.*` was expanded directly in `run:` (`release-cli`, `release-desktop`, `release-local-runtime`, `release-local-model-runtime`, `release-serve-emu`, `release-serve-sim`). `release-desktop-electron` already used `env:`.
 
 The Homebrew cask step and the tap commit also read the resolved tag and version from env (`RELEASE_TAG`, `RELEASE_VERSION`). Those outputs are derived from the workflow_run branch, so interpolating them inside `run:` is the same injection.
 
@@ -180,7 +183,7 @@ No new WebSocket message. No new REST route.
 
 - Loopback without a token stays the dev/Desktop default.
 - Non-loopback without a token is denied at request time and refused at bind time.
-- Query tokens are not written to the unauthorized-request log.
+- Query tokens are not written to the unauthorized-request log or to HTTP access logs, including when the key is percent-encoded.
 - File bytes are read only after canonicalize + prefix check, or exact logo equality.
 - `ATMOS_FILE_SERVE_ROOTS` is an operator opt-in. It cannot be the filesystem root.
 - Tokens are not added to `runtime_manifest.json`.
@@ -190,7 +193,7 @@ No new WebSocket message. No new REST route.
 1. Add this spec and the `specs/README.md` QUALITY-015 row.
 2. Startup refusal + `is_request_authorized` + query redaction, with Rust tests.
 3. File allowlist, canonicalize, prefix check, symlink-escape tests.
-4. Workflow env move, plus a Rust check that those two expressions are absent from `run:` bodies.
+4. Workflow env move, plus a Rust check that `github.event.*`, `github.event_name`, and `inputs.*` are absent from the scanned release `run:` bodies.
 5. Draft PR against `main`. Do not merge. Do not mark ready.
 
 ## Risks & tradeoffs
