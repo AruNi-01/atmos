@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Linux stand-in for assert_cold_launch. sleep is local so the wait is instant.
 # kill -0 and the before/after .ips snapshots are the real script path.
+# unreadable-reports uses chmod 000. uid 0 can still read that directory, so the
+# case is skipped there and the reason is printed.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -185,14 +187,20 @@ export ATMOS_DIAGNOSTIC_REPORTS
 expect_fail launch-failed "cold launch did not stay up"
 
 reset_case unreadable-reports
-LOCKED="$WORKDIR/locked-reports"
-mkdir -p "$LOCKED"
-chmod 000 "$LOCKED"
-ATMOS_DIAGNOSTIC_REPORTS="$LOCKED"
-export ATMOS_DIAGNOSTIC_REPORTS
-spawn_sleeper
-LAUNCH_OUT="land.atmos.mobile: $SLEEPER_PID"
-expect_fail unreadable-reports "could not list crash reports"
+if [[ "$(id -u)" -eq 0 ]]; then
+  # Root ignores mode 000, so the list would succeed and this case would
+  # fail for the wrong reason. Non-root still hits EACCES.
+  echo "ok unreadable-reports (skipped: uid 0 can read a mode 000 directory)"
+else
+  LOCKED="$WORKDIR/locked-reports"
+  mkdir -p "$LOCKED"
+  chmod 000 "$LOCKED"
+  ATMOS_DIAGNOSTIC_REPORTS="$LOCKED"
+  export ATMOS_DIAGNOSTIC_REPORTS
+  spawn_sleeper
+  LAUNCH_OUT="land.atmos.mobile: $SLEEPER_PID"
+  expect_fail unreadable-reports "could not list crash reports"
+fi
 
 reset_case missing-reports-warn
 ATMOS_DIAGNOSTIC_REPORTS="$WORKDIR/missing-reports"

@@ -481,6 +481,11 @@ describe("verify script", () => {
     expect(result.stdout).toContain("ok no-pid");
     expect(result.stdout).toContain("ok launch-failed");
     expect(result.stdout).toContain("ok unreadable-reports");
+    if (typeof process.getuid === "function" && process.getuid() === 0) {
+      expect(result.stdout).toContain("skipped: uid 0 can read a mode 000 directory");
+    } else {
+      expect(result.stdout).not.toContain("skipped: uid 0 can read a mode 000 directory");
+    }
     expect(result.stdout).toContain("ok missing-reports-warn");
     expect(result.stdout).toContain("ok file-reports-warn");
     expect(result.stdout).toContain("ok default-roots-quiet");
