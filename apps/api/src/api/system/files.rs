@@ -321,9 +321,10 @@ pub(crate) async fn serve_allowed_file(
 ///
 /// `repo` is canonicalized and must sit inside the same directory roots as
 /// `GET /api/system/file`. A symlink target outside those roots is 403.
-/// Git will not search above the matched root, and both the discovered
-/// toplevel and git dir must canonicalize inside that same root. Exact project
-/// logo files are not git roots. Rev/path checks and the 8 MiB cap are unchanged.
+/// Git will not search above the matched root. The discovered toplevel, git
+/// dir, and common dir must each canonicalize inside some directory root (not
+/// necessarily the same one). Exact project logo files are not git roots.
+/// Rev/path checks and the 8 MiB cap are unchanged.
 #[allow(clippy::result_large_err)]
 pub async fn serve_git_blob(
     State(state): State<AppState>,
@@ -362,33 +363,52 @@ fn git_failure_kind(
     }
 }
 
-/// Read a blob only when git's toplevel and git dir stay inside `root`.
+fn canonical_directory_roots(roots: &[PathBuf]) -> Vec<PathBuf> {
+    roots
+        .iter()
+        .filter_map(|root| canonicalize_directory_root(root))
+        .collect()
+}
+
+/// Resolve a path printed by `rev-parse`. Relative values are relative to the
+/// repo directory git was started in, not the API process cwd.
+fn canonicalize_reported_git_path(repo: &Path, raw: &Path) -> std::io::Result<PathBuf> {
+    let candidate = if raw.is_absolute() {
+        raw.to_path_buf()
+    } else {
+        repo.join(raw)
+    };
+    std::fs::canonicalize(candidate)
+}
+
+/// Read a blob only when toplevel, git dir, and common dir each sit in some
+/// allowlist root.
 ///
-/// `ceiling` is the parent of `root` (`GIT_CEILING_DIRECTORIES`), so git does
-/// not walk into an ancestor repository outside the allowlist.
+/// `ceiling` is the parent of the root that contained `repo`
+/// (`GIT_CEILING_DIRECTORIES`). That stops an ancestor walk. It does not stop
+/// git from following a `gitdir:` file, so a worktree can keep its git dir in
+/// a different allowlisted root. `roots` are already canonical, and filesystem
+/// roots are absent.
 fn read_confined_git_blob(
     repo: &Path,
-    root: &Path,
+    roots: &[PathBuf],
     ceiling: &Path,
     show_spec: &str,
 ) -> std::result::Result<Vec<u8>, ConfinedBlobError> {
     let identity = core_engine::resolve_git_repo_identity(repo, ceiling)
         .map_err(|error| git_failure_kind(&error, true))?;
-    let toplevel = std::fs::canonicalize(&identity.toplevel).map_err(|error| {
-        warn!("Failed to resolve git-blob toplevel: {error}");
-        ConfinedBlobError::Outside
-    })?;
-    let git_dir = std::fs::canonicalize(&identity.git_dir).map_err(|error| {
-        warn!("Failed to resolve git-blob git dir: {error}");
-        ConfinedBlobError::Outside
-    })?;
-    if !toplevel.starts_with(root) || !git_dir.starts_with(root) {
-        warn!(
-            "Rejected git-blob identity outside allowlist: toplevel={} git_dir={}",
-            toplevel.display(),
-            git_dir.display()
-        );
-        return Err(ConfinedBlobError::Outside);
+    for raw in [&identity.toplevel, &identity.git_dir, &identity.common_dir] {
+        let canonical = canonicalize_reported_git_path(repo, raw).map_err(|error| {
+            warn!("Failed to resolve git-blob identity path: {error}");
+            ConfinedBlobError::Outside
+        })?;
+        if !roots.iter().any(|root| canonical.starts_with(root)) {
+            warn!(
+                "Rejected git-blob identity outside allowlist: {}",
+                canonical.display()
+            );
+            return Err(ConfinedBlobError::Outside);
+        }
     }
     core_engine::show_git_blob_bytes_with_ceiling(repo, show_spec, ceiling)
         .map_err(|error| git_failure_kind(&error, false))
@@ -453,9 +473,9 @@ pub(crate) async fn serve_allowed_git_blob(
                 return Err(reject_git_blob_repo(repo_path));
             };
             let repo_for_git = repo_path.to_path_buf();
-            let root_for_check = root.clone();
+            let directory_roots = canonical_directory_roots(&allow.directory_roots);
             let bytes = tokio::task::spawn_blocking(move || {
-                read_confined_git_blob(&repo_for_git, &root_for_check, &ceiling, &show_spec)
+                read_confined_git_blob(&repo_for_git, &directory_roots, &ceiling, &show_spec)
             })
             .await
             .map_err(|e| {
@@ -1062,5 +1082,127 @@ mod tests {
             git_blob_status_and_body(&worktree, "HEAD", "hello.txt", &roots(&[root])).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, b"worktree-blob");
+    }
+
+    #[tokio::test]
+    async fn serves_worktree_under_workspaces_with_git_dir_in_project_root() {
+        let projects = TempTree::new("git-project-root");
+        let workspaces = TempTree::new("git-workspaces-root");
+        let project = projects.path().join("project");
+        init_repo(&project);
+        commit_bytes(&project, "hello.txt", b"cross-root-worktree-blob");
+        let worktree = workspaces.path().join("wt");
+        git(
+            &project,
+            &[
+                "worktree",
+                "add",
+                "--detach",
+                worktree.to_str().expect("worktree path"),
+                "HEAD",
+            ],
+        );
+
+        // `.git` is a gitdir file pointing at `<project>/.git/worktrees/wt`.
+        // The ceiling is the parent of the workspaces root, which is not the
+        // project root. A 200 means git followed that pointer anyway.
+        let git_link = std::fs::read_to_string(worktree.join(".git")).unwrap();
+        assert!(
+            git_link.contains(project.to_str().expect("project path")),
+            "worktree gitdir should point into the project root, got {git_link}"
+        );
+
+        let allow = roots(&[project.clone(), workspaces.path().to_path_buf()]);
+        let (status, body) = git_blob_status_and_body(&worktree, "HEAD", "hello.txt", &allow).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, b"cross-root-worktree-blob");
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_when_commondir_is_outside_allowlist() {
+        let tree = TempTree::new("git-commondir");
+        let outside = tree.path().join("outside");
+        init_repo(&outside);
+        let secret = b"commondir-escape-secret-9f3a";
+        commit_bytes(&outside, "s.txt", secret);
+        let workspace = tree.path().join("ws");
+        let sub = workspace.join("sub");
+        let private_git = workspace.join("priv.git");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::create_dir_all(&private_git).unwrap();
+        std::fs::write(
+            sub.join(".git"),
+            format!("gitdir: {}\n", private_git.display()),
+        )
+        .unwrap();
+        std::fs::write(
+            private_git.join("commondir"),
+            format!("{}\n", outside.join(".git").display()),
+        )
+        .unwrap();
+        std::fs::copy(outside.join(".git").join("HEAD"), private_git.join("HEAD")).unwrap();
+        std::fs::write(
+            private_git.join("gitdir"),
+            format!("gitdir: {}\n", sub.join(".git").display()),
+        )
+        .unwrap();
+
+        let (status, body) =
+            git_blob_status_and_body(&sub, "HEAD", "s.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(!body_contains(&body, secret));
+    }
+
+    /// Real assertion lives in the child process. The suite also runs this
+    /// test without the probe env; that pass only checks the harness entry.
+    #[tokio::test]
+    async fn git_dir_env_probe() {
+        if std::env::var("ATMOS_GIT_BLOB_ENV_PROBE").ok().as_deref() != Some("1") {
+            return;
+        }
+        let repo = PathBuf::from(std::env::var("ATMOS_GIT_BLOB_PROBE_REPO").expect("probe repo"));
+        let other =
+            PathBuf::from(std::env::var("ATMOS_GIT_BLOB_PROBE_OTHER").expect("probe other"));
+        let allow = roots(&[repo.clone(), other]);
+        let (status, body) = git_blob_status_and_body(&repo, "HEAD", "hello.txt", &allow).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, b"from-repo-a");
+    }
+
+    #[tokio::test]
+    async fn ignores_inherited_git_dir_for_allowlisted_repo() {
+        let tree = TempTree::new("git-inherited-dir");
+        let repo_a = tree.path().join("repo-a");
+        let repo_b = tree.path().join("repo-b");
+        init_repo(&repo_a);
+        init_repo(&repo_b);
+        commit_bytes(&repo_a, "hello.txt", b"from-repo-a");
+        commit_bytes(&repo_b, "hello.txt", b"from-repo-b-secret");
+
+        let repo_a_for_child = repo_a.clone();
+        let repo_b_for_child = repo_b.clone();
+        let output = tokio::task::spawn_blocking(move || {
+            std::process::Command::new(std::env::current_exe().expect("test executable"))
+                .env("ATMOS_GIT_BLOB_ENV_PROBE", "1")
+                .env("GIT_DIR", repo_b_for_child.join(".git"))
+                .env("ATMOS_GIT_BLOB_PROBE_REPO", &repo_a_for_child)
+                .env("ATMOS_GIT_BLOB_PROBE_OTHER", &repo_b_for_child)
+                .args([
+                    "--exact",
+                    "--test-threads=1",
+                    "api::system::files::tests::git_dir_env_probe",
+                ])
+                .output()
+                .expect("spawn git dir probe")
+        })
+        .await
+        .expect("probe join");
+        assert!(
+            output.status.success(),
+            "probe status {:?}\nstdout {}\nstderr {}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }

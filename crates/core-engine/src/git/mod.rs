@@ -45,7 +45,19 @@ fn run_git_bytes_with_ceiling(
     command.current_dir(repo_path).args(args);
     if let Some(ceiling) = ceiling {
         // Git stops the upward repository search before entering this directory.
+        // The git-blob path is the only caller that sets a ceiling. It also drops
+        // inherited repository-location variables so a parent `GIT_DIR` cannot
+        // redirect the read. Following a `.git` gitdir file is not a ceiling walk.
         command.env("GIT_CEILING_DIRECTORIES", ceiling);
+        for key in [
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_COMMON_DIR",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        ] {
+            command.env_remove(key);
+        }
     }
     let output = command.output().map_err(|e| {
         EngineError::Git(format!(
@@ -93,21 +105,32 @@ fn try_run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Option<Vec<u8>>>
     }
 }
 
-/// Toplevel checkout and git directory from `rev-parse`.
+/// Toplevel checkout, git directory, and common directory from `rev-parse`.
+///
+/// `common_dir` is where objects live. For a linked worktree it is the main
+/// repository's git dir, which may differ from `git_dir`. A normal repository
+/// often reports it as a relative `.git`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitRepoIdentity {
     pub toplevel: PathBuf,
     pub git_dir: PathBuf,
+    pub common_dir: PathBuf,
 }
 
-/// `rev-parse --show-toplevel --absolute-git-dir` with an upward-search ceiling.
+/// `rev-parse --show-toplevel --absolute-git-dir --git-common-dir` with an upward-search ceiling.
 ///
 /// `ceiling` is `GIT_CEILING_DIRECTORIES`. Git will not walk into that directory
-/// or above it while discovering a repository.
+/// or above it while discovering a repository. A `gitdir:` file under the
+/// starting directory is still followed.
 pub fn resolve_git_repo_identity(repo_path: &Path, ceiling: &Path) -> Result<GitRepoIdentity> {
     let text = run_git_with_ceiling(
         repo_path,
-        &["rev-parse", "--show-toplevel", "--absolute-git-dir"],
+        &[
+            "rev-parse",
+            "--show-toplevel",
+            "--absolute-git-dir",
+            "--git-common-dir",
+        ],
         Some(ceiling),
     )?;
     let mut lines = text.lines().map(str::trim).filter(|line| !line.is_empty());
@@ -121,6 +144,11 @@ pub fn resolve_git_repo_identity(repo_path: &Path, ceiling: &Path) -> Result<Git
             "git rev-parse returned no git dir".to_string(),
         ));
     };
+    let Some(common_dir) = lines.next() else {
+        return Err(EngineError::Git(
+            "git rev-parse returned no common dir".to_string(),
+        ));
+    };
     if lines.next().is_some() {
         return Err(EngineError::Git(
             "git rev-parse returned extra lines".to_string(),
@@ -129,6 +157,7 @@ pub fn resolve_git_repo_identity(repo_path: &Path, ceiling: &Path) -> Result<Git
     Ok(GitRepoIdentity {
         toplevel: PathBuf::from(toplevel),
         git_dir: PathBuf::from(git_dir),
+        common_dir: PathBuf::from(common_dir),
     })
 }
 
