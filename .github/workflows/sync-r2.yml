@@ -53,17 +53,20 @@ jobs:
       - name: Resolve release tag
         id: resolve
         shell: bash
+        env:
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+          WORKFLOW_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.release_tag }}"
+            TAG="$RELEASE_TAG_INPUT"
             if [ -z "$TAG" ]; then
               echo "release_tag is required when running manually." >&2
               exit 1
             fi
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            TAG="${{ github.event.workflow_run.head_branch }}"
+            TAG="$WORKFLOW_HEAD_BRANCH"
           else
             TAG="${{ github.event.release.tag_name }}"
           fi
