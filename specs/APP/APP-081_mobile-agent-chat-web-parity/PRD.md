@@ -72,7 +72,7 @@ Parity is "same product, native client". These are intentional and must be liste
 
 - Pointer-only affordances (hover rail, hover swap of worked-for ↔ time) become tap or long-press.
 - The right file directory and editor routes stay out (APP-079 M6); paths are shown as chips that do not navigate.
-- Effects with no iOS/Android primitive (CSS `blur()` filter, `mask-image`) use opacity + translate + height fallbacks (TECH).
+- Effects with no iOS/Android primitive (CSS `blur()` filter, `mask-image`) use opacity + translate + height fallbacks (TECH). A 22 px background fade is not a shipped substitute.
 - The composer keeps native glass controls and the keyboard-lift behavior; it does not copy web button chrome.
 - Single-card rule and pill row (M6): web stacks cards and floats a centered scroll button; the phone shows one expanded card, a scrollable pill row, and the scroll-to-bottom pill pinned left in that row.
 - Expanded card shell, title pills, and the N-below pill use the same untinted composer `GlassPanel` well as the dock (not `cardElevated`). Historic permission cards in the transcript stay `cardElevated`.
@@ -86,6 +86,7 @@ Parity is "same product, native client". These are intentional and must be liste
 - Chat session list screen and workspace/session home screens.
 - Microphone / dictation / voice input in the composer (AruNi, 2026-10-15). The reference image shows a microphone beside "Follow up…"; it is not built and not tested.
 - Pixel-identical fonts: iOS system fonts vs web fonts. Parity is layout, spacing scale, color roles, copy, and motion.
+- The #317 UI that the 2026-10-20 reslice left behind: activity glyph, user-message chrome, http chips, a second tool/diff/permission implementation, `fence-icons.mjs`, and the Skia flat-fill patch. Capture hooks are QUALITY-016, not a new product behavior.
 
 ## Success Metrics
 
