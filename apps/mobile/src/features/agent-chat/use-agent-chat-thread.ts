@@ -27,11 +27,17 @@ export function pushAgentChatCommit(
 // @hook
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { BackfillRequest } from "@atmos/api-client/agent-chat";
+import {
+  createAgentChatEventPump,
+  type AgentChatEventPump,
+  type AgentChatPumpIngest,
+  type BackfillRequest,
+} from "@atmos/api-client/agent-chat";
 import { parseAgentChatResync } from "@/api/mobile-ws-transport";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
+import { createFacadeHydrateSession } from "./facade-hydrate";
 import {
   applyOpenThreadResync,
   markOpenThreadOverflow,
@@ -46,7 +52,9 @@ import {
   type ChatTranscriptState,
 } from "./fold-transcript";
 import { agentChatEventFromMessage, eventsForChat } from "./foreign-event";
+import { nextAgentChatResyncDelayMs, shouldAbandonAgentChatHydrate } from "./hydrate-recovery";
 import { useReducedMotion } from "./motion/use-reduced-motion";
+import { canResumeAgentChatSession } from "./session-resume";
 
 function backfillKey(request: BackfillRequest): string {
   return `${request.partId}:${request.fromOffset}`;
@@ -59,8 +67,13 @@ export function useAgentChatThread(chatId: string) {
     reducedMotionRef.current = reducedMotion;
   }, [reducedMotion]);
   const { client, state: wsState } = useMobileWs();
-  const transcriptRef = useRef<ChatTranscriptState>(createChatTranscript(chatId));
-  const [transcript, setTranscript] = useState<ChatTranscriptState>(transcriptRef.current);
+  const [transcript, setTranscript] = useState<ChatTranscriptState>(() =>
+    createChatTranscript(chatId),
+  );
+  const transcriptRef = useRef(transcript);
+  const pumpRef = useRef<AgentChatEventPump | null>(null);
+  const loadedChatRef = useRef<string | null>(null);
+  const loadedClientRef = useRef<object | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,14 +81,33 @@ export function useAgentChatThread(chatId: string) {
     if (chatId.trim() === "") {
       return;
     }
+    const isResume =
+      pumpRef.current != null &&
+      canResumeAgentChatSession({
+        chatId,
+        client,
+        loadedChatId: loadedChatRef.current,
+        loadedClient: loadedClientRef.current,
+      });
     if (!client || wsState !== "open") {
-      setLoading(false);
-      setError("Atmos mobile WebSocket is not connected");
+      if (!isResume) {
+        setLoading(false);
+        setError("Atmos mobile WebSocket is not connected");
+      } else {
+        setTranscript(transcriptRef.current);
+      }
       return;
     }
 
     let cancelled = false;
-    let ready = false;
+    let resyncing = false;
+    let failedResyncs = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearResyncRetry = () => {
+      if (retryTimer == null) return;
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    };
     const resyncCtrl: OpenThreadResyncCtrl = {
       overflowed: false,
       overflowGen: 0,
@@ -84,11 +116,20 @@ export function useAgentChatThread(chatId: string) {
     };
     const recentEvents: AgentChatEvent[] = [];
     const inflight = new Set<string>();
-    const empty = createChatTranscript(chatId);
-    transcriptRef.current = empty;
-    setTranscript(empty);
-    setLoading(true);
-    setError(null);
+    if (!isResume) {
+      pumpRef.current = createAgentChatEventPump();
+      loadedChatRef.current = null;
+      loadedClientRef.current = null;
+      const empty = createChatTranscript(chatId);
+      transcriptRef.current = empty;
+      setTranscript(empty);
+      setLoading(true);
+      setError(null);
+    } else {
+      setTranscript(transcriptRef.current);
+    }
+    const pump = pumpRef.current ?? createAgentChatEventPump();
+    pumpRef.current = pump;
 
     const commitBuffer = createAgentChatCommitBuffer({
       flushMs: AGENT_CHAT_COMMIT_FLUSH_MS,
@@ -119,71 +160,137 @@ export function useAgentChatThread(chatId: string) {
         });
     };
 
-    const publishResync = (
-      snapshot: Parameters<typeof applyAgentChatResync>[1],
-      replay: AgentChatEvent[],
-    ) => {
-      const applied = applyAgentChatResync(chatId, snapshot, replay);
-      pruneChatEvents(recentEvents, snapshot.meta?.last_event_seq ?? 0);
+    const applyDecision = (decision: AgentChatPumpIngest) => {
+      if (decision.action !== "apply") return;
+      if (rememberChatEvent(recentEvents, decision.event)) markOpenThreadOverflow(resyncCtrl);
+      const next = applyChatEvent(transcriptRef.current, decision.event);
+      transcriptRef.current = next.state;
+      if (next.backfill) requestBackfill(next.backfill);
+      pushAgentChatCommit(commitBuffer, decision.event.payload.type, reducedMotionRef.current);
+    };
+
+    const drainAbandonedHydrate = (generation?: number) => {
+      for (const decision of pump.abandonHydrate(generation)) applyDecision(decision);
+      setTranscript(transcriptRef.current);
+    };
+
+    const applySnapshot = (
+      snapshot: Awaited<ReturnType<typeof wsActions.agentChatGet>>,
+      generation?: number,
+    ): boolean => {
+      if (!pump.isHydrateGeneration(generation)) return false;
+      const applied = applyAgentChatResync(chatId, snapshot, recentEvents);
       transcriptRef.current = applied.state;
       for (const request of applied.backfills) requestBackfill(request);
-      if (ready) {
-        setTranscript(applied.state);
-        setError((prev) => (prev === copy.sendFailed ? prev : null));
+      const seq = snapshot.meta?.last_event_seq ?? 0;
+      pruneChatEvents(recentEvents, seq);
+      for (const decision of pump.finishHydrate(seq, generation)) applyDecision(decision);
+      setTranscript(transcriptRef.current);
+      return true;
+    };
+
+    const subscribeFromCursor = async () => {
+      const subscribed = await wsActions.agentChatSubscribe(client, {
+        chat_id: chatId,
+        after_sequence: pump.cursor,
+      });
+      return subscribed.last_event_seq ?? pump.cursor;
+    };
+
+    const resyncFromSnapshot = async (extraRounds = 1) => {
+      clearResyncRetry();
+      if (resyncing || cancelled) return;
+      resyncing = true;
+      const generation = pump.startHydrate();
+      let stillBehind = false;
+      try {
+        const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
+        if (cancelled) {
+          if (shouldAbandonAgentChatHydrate("cancelled")) drainAbandonedHydrate(generation);
+          return;
+        }
+        applySnapshot(snapshot, generation);
+        const serverSeq = await subscribeFromCursor();
+        failedResyncs = 0;
+        stillBehind = pump.shouldResyncFromServer(serverSeq);
+      } catch (err) {
+        if (shouldAbandonAgentChatHydrate("error")) drainAbandonedHydrate(generation);
+        if (!cancelled) {
+          setError(err instanceof Error && err.message ? err.message : "Could not load this chat.");
+          const delay = nextAgentChatResyncDelayMs(failedResyncs);
+          failedResyncs += 1;
+          if (delay != null) {
+            retryTimer = setTimeout(() => {
+              retryTimer = null;
+              void resyncFromSnapshot(extraRounds);
+            }, delay);
+          }
+        }
+      } finally {
+        resyncing = false;
+      }
+      if (stillBehind && extraRounds > 0 && !cancelled) {
+        await resyncFromSnapshot(extraRounds - 1);
       }
     };
 
     const unsubscribeMessages = client.subscribeMessages((message) => {
       const resync = parseAgentChatResync(message);
       if (resync && resync.chat_id === chatId) {
+        const facade = createFacadeHydrateSession(pump, (generation) => {
+          drainAbandonedHydrate(generation);
+        });
         void applyOpenThreadResync({
           ctrl: resyncCtrl,
           incoming: resync.snapshot,
-          fetchReplacement: () => wsActions.agentChatGet(client, { chat_id: chatId }),
-          publish: (snapshot) => publishResync(snapshot, recentEvents),
+          fetchReplacement: () =>
+            facade.fetchSnapshot(() => wsActions.agentChatGet(client, { chat_id: chatId })),
+          publish: (snapshot) => {
+            const applied = applySnapshot(snapshot, facade.takeGeneration());
+            if (applied) setError((prev) => (prev === copy.sendFailed ? prev : null));
+            return applied;
+          },
         });
         return;
       }
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
-      if (rememberChatEvent(recentEvents, event)) markOpenThreadOverflow(resyncCtrl);
-      if (!ready) return;
-      const next = applyChatEvent(transcriptRef.current, event);
-      transcriptRef.current = next.state;
-      if (next.backfill) requestBackfill(next.backfill);
-      pushAgentChatCommit(commitBuffer, event.payload.type, reducedMotionRef.current);
+      const decision = pump.ingest(event);
+      if (decision.action === "apply") {
+        applyDecision(decision);
+        if (decision.gap?.recommend === "resync") void resyncFromSnapshot();
+      }
     });
 
     void (async () => {
       let liveError: string | null = null;
       try {
-        const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
-        if (cancelled) return;
-        const applied = applyAgentChatResync(chatId, snapshot, recentEvents);
-        const after = Math.max(
-          snapshot.meta?.last_event_seq ?? 0,
-          ...recentEvents.map((event) => event.revision ?? 0),
-        );
-        pruneChatEvents(recentEvents, after);
-        for (const request of applied.backfills) requestBackfill(request);
-        transcriptRef.current = applied.state;
-        ready = true;
-        setTranscript(applied.state);
+        if (!isResume) {
+          const generation = pump.startHydrate();
+          const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
+          if (cancelled) {
+            if (shouldAbandonAgentChatHydrate("cancelled")) drainAbandonedHydrate(generation);
+            return;
+          }
+          applySnapshot(snapshot, generation);
+        }
         try {
-          await wsActions.agentChatSubscribe(client, {
-            chat_id: chatId,
-            after_sequence: after,
-          });
+          const serverSeq = await subscribeFromCursor();
+          if (!cancelled && pump.shouldResyncFromServer(serverSeq)) {
+            await resyncFromSnapshot();
+          }
         } catch (err) {
           liveError =
             err instanceof Error && err.message ? err.message : "Could not subscribe to this chat.";
         }
         if (cancelled) return;
+        loadedChatRef.current = chatId;
+        loadedClientRef.current = client;
         setError(liveError);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        ready = true;
+        drainAbandonedHydrate();
         setError(err instanceof Error && err.message ? err.message : "Could not load this chat.");
         setLoading(false);
       }
@@ -192,8 +299,9 @@ export function useAgentChatThread(chatId: string) {
     return () => {
       cancelled = true;
       resyncCtrl.cancelled = true;
+      clearResyncRetry();
+      if (pump.hydrating) drainAbandonedHydrate();
       clearInterval(flushTimer);
-      ready = false;
       unsubscribeMessages();
       void wsActions.agentChatUnsubscribe(client, { chat_id: chatId }).catch(() => undefined);
     };

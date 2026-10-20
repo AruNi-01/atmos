@@ -231,7 +231,7 @@ No Playwright mobile journey. `apps/mobile/e2e` is frozen.
 - **Level**: Unit
 - **Given**: `applyOpenThreadResync` with `overflowed === true`.
 - **When**: the replacement get rejects, or succeeds.
-- **Then**: a failed get publishes nothing and leaves `overflowed` true. A successful get publishes the **replacement** snapshot, not the incoming one. Non-overflow publishes incoming and does not fetch.
+- **Then**: a failed get publishes nothing and leaves `overflowed` true. A successful get publishes the **replacement** snapshot, not the incoming one. Non-overflow publishes incoming and does not fetch. `publish` returning `false` (stale hydrate generation) also leaves `overflowed` true and returns `"held"`.
 - **Signals**: `open-thread-resync.test.ts` published array + result `"held"` / `"applied-replacement"` / `"applied-incoming"`.
 
 ### S25 — Overflow follow-up get is generation-guarded
@@ -327,7 +327,7 @@ Recorded on `aarynlu/mobile-ws-lifecycle-d365` after review fixes, then merge of
 | S21      | pass    | `failed snapshot fetch keeps the old cursor so retry still gets`                                        |
 | S22      | pass    | `replays live events newer than the snapshot sequence`                                                  |
 | S23      | pass    | snapshot restores `/fork` into `state.commands`                                                         |
-| S24      | pass    | `holds the current transcript when the replacement get fails` + apply-replacement test                  |
+| S24      | pass    | replacement fail/success + `keeps overflowed when publish does not apply`                               |
 | S25      | pass    | stale get held; newer replacement publishes; cancelled-during-get holds; overflow-during-get keeps flag |
 | S26      | pass    | kernel + mobile replaced-socket late `onerror` stay `connected` / `open`                                |
 | S27      | pass    | overlapping `resubscribeNow` keeps catching-up alert until the latest round                             |

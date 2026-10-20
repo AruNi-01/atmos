@@ -153,6 +153,11 @@ The open thread hook applies the snapshot **in place** via `applyAgentChatResync
 - `resubscribeNow` generation: overlapping rounds (second `relay_ctrl`, or `setForeground(true)` while a get is in flight) must not let the older `Promise.all` clear the catching-up alert.
 - Kernel socket replace: unbind `onopen` / `onmessage` / `onerror` / `onclose` on the previous socket (same as `disconnect()`), and ignore those callbacks unless `this.socket === socket`. A late error from the replaced connection must not `setState("error")` (the open-thread hook would otherwise remount and clear transcript).
 
+### Implementation delta (2026-10-20)
+
+- Clear `overflowed` only after `publish` actually applies the snapshot. `publish` returning `false` (stale EventGate hydrate generation) keeps the flag so the next façade resync still fetches a replacement.
+- Overflow `fetchReplacement` hydrates through a per-call `createFacadeHydrateSession`. A failed earlier get abandons only that call's generation.
+
 ## iOS socket
 
 - `send` throws if not open; async send error emits `error`.

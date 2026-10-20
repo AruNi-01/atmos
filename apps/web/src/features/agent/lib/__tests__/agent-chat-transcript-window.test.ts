@@ -268,8 +268,51 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("isRestoringTranscript: isResumingHistory");
     expect(session).toContain("isResumingHistory: isResumingHistory && messages.length === 0");
     expect(session).toContain("scrollToIndexRef: ui.scrollToIndexRef");
-    expect(session).toContain("pendingEventsAfterSeq");
-    expect(session).toContain("agentChatApi.subscribe(id, after)");
+    expect(session).toContain("const eventPump = createAgentChatEventPump();");
+    expect(session).toContain("eventPump.startHydrate();");
+    expect(session).toContain("eventPump.finishHydrate(snapshotSeq)");
+    expect(session).toContain("agentChatApi.subscribe(id, eventPump.cursor)");
+    expect(session).toContain("eventPump.shouldResyncFromServer");
+    expect(session).toContain("eventPump.abandonHydrate()");
+    expect(session).toContain("let cancelled = false");
+    expect(session).toContain("cancelled = true");
+    expect(session).toContain("async (id = activeChatId, hydrateEpoch?: number)");
+    expect(session).toContain("if (!id) return");
+    const loadAt = session.indexOf("async (id = activeChatId, hydrateEpoch?: number)");
+    const snapshotIncAt = session.indexOf(
+      "const snapshotEpoch = ++snapshotEpochRef.current",
+      loadAt,
+    );
+    const firstIdCheckAt = session.indexOf("if (id !== activeIdRef.current) return", loadAt);
+    expect(snapshotIncAt).toBeGreaterThan(loadAt);
+    expect(firstIdCheckAt).toBeGreaterThan(loadAt);
+    expect(firstIdCheckAt).toBeLessThan(snapshotIncAt);
+    expect(session).toContain("if (id !== activeIdRef.current) return");
+    expect(session).toContain("if (snapshotEpoch !== snapshotEpochRef.current) return");
+    expect(session).toContain(
+      "if (hydrateEpoch != null && hydrateEpoch !== hydrateEpochRef.current) return",
+    );
+    expect(session).toContain("A list() failure must not reject load() after");
+    expect(session).toContain("if (id) void load(id)");
+    expect(session).toContain("void load(activeChatId)");
+    const hydrateThenAt = session.indexOf(
+      "const hydrateStale = () => cancelled || id !== activeIdRef.current",
+    );
+    const hydrateCleanupAt = session.indexOf("cancelled = true", hydrateThenAt);
+    expect(hydrateThenAt).toBeGreaterThan(-1);
+    expect(hydrateCleanupAt).toBeGreaterThan(hydrateThenAt);
+    const hydrateThen = session.slice(hydrateThenAt, hydrateCleanupAt);
+    expect(hydrateThen).toContain("const hydrateEpoch = ++hydrateEpochRef.current");
+    expect(hydrateThen).toContain("void load(id, hydrateEpoch)");
+    expect(hydrateThen).toContain("if (snapshotSeq == null)");
+    expect(hydrateThen).toContain("drainHydrate()");
+    expect(hydrateThen).toContain("const resyncSeq = await load(id, hydrateEpoch)");
+    expect(hydrateThen).toContain("drainHydrate(hydrateGen)");
+    expect(hydrateThen).toContain("if (hydrateStale()) return");
+    expect(hydrateThen).not.toContain("++snapshotEpochRef");
+    expect(session.indexOf("eventPump.finishHydrate")).toBeLessThan(
+      session.indexOf("agentChatApi.subscribe(id, eventPump.cursor)"),
+    );
     expect(session).toContain("useAgentChatExpandStore.getState().reset()");
     expect(session).toContain("withStableAgentMessageIds");
     expect(session).not.toContain("hydrateAgentChatMessages");

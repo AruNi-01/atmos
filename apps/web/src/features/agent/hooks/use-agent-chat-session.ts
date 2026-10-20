@@ -40,6 +40,7 @@ import type {
   AgentQueueItem,
   AgentSessionUsage,
 } from "@atmos/api-types/ws/dto/agent-chat";
+import { createAgentChatEventPump } from "@atmos/api-client/agent-chat";
 import {
   persistAgentChatLastSession,
   readAgentChatLastSessions,
@@ -98,7 +99,6 @@ import {
   currentPlanFromMessages,
   currentTurnHasRunningSubagent,
   foldAgentChatEventResult,
-  pendingEventsAfterSeq,
   releaseBackfillRequest,
   takeBackfillRequest,
 } from "@/features/agent/lib/agent-chat-events";
@@ -493,6 +493,8 @@ export function useAgentChatSession({
   const resumeTranscriptRef = useRef(resumeTranscript);
   resumeTranscriptRef.current = resumeTranscript;
   const activeIdRef = useRef(chatId);
+  const snapshotEpochRef = useRef(0);
+  const hydrateEpochRef = useRef(0);
   const providerIdRef = useRef(providerId);
   providerIdRef.current = providerId;
   const restoreAttemptedRef = useRef(false);
@@ -660,9 +662,14 @@ export function useAgentChatSession({
   );
 
   const load = useCallback(
-    async (id = activeChatId) => {
+    async (id = activeChatId, hydrateEpoch?: number) => {
       if (!id) return;
+      if (id !== activeIdRef.current) return;
+      const snapshotEpoch = ++snapshotEpochRef.current;
       const snapshot = await agentChatApi.get(id);
+      if (id !== activeIdRef.current) return;
+      if (snapshotEpoch !== snapshotEpochRef.current) return;
+      if (hydrateEpoch != null && hydrateEpoch !== hydrateEpochRef.current) return;
       const meta = snapshot.meta;
       setTitle(meta.title?.trim() || null);
       const loadedMessages = withStableAgentMessageIds(
@@ -763,9 +770,16 @@ export function useAgentChatSession({
           }),
         );
         setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+      } catch {
+        // History is secondary. A list() failure must not reject load() after
+        // get() already installed the snapshot, or abandonHydrate would fold
+        // buffered live events without a snapshot floor.
       } finally {
         setHistoryLoading(false);
       }
+      if (id !== activeIdRef.current) return;
+      if (snapshotEpoch !== snapshotEpochRef.current) return;
+      if (hydrateEpoch != null && hydrateEpoch !== hydrateEpochRef.current) return;
       persistAgentChatLastSession({
         workspaceId: meta.workspace_id ?? (isolatedModal ? null : paintHostScope.workspaceId),
         projectId: meta.project_id ?? (isolatedModal ? null : paintHostScope.projectId),
@@ -1028,10 +1042,13 @@ export function useAgentChatSession({
       setIsResumingHistory(false);
     }
     const id = activeChatId;
+    let cancelled = false;
     hydratingRef.current = true;
     pendingEventsRef.current = [];
     backfillInFlightRef.current = new Set();
     pendingChromeRef.current = [];
+    const eventPump = createAgentChatEventPump();
+    eventPump.startHydrate();
     const applyLiveChrome = (event: AgentChatEvent) => {
       const payload = event.payload;
       if (payload.type === "turn_started") {
@@ -1206,7 +1223,7 @@ export function useAgentChatSession({
     const flushTimer = window.setInterval(() => {
       commitBuffer.maybeFlush();
     }, AGENT_CHAT_COMMIT_FLUSH_MS);
-    const applyEvent = (event: AgentChatEvent) => {
+    const foldLiveEvent = (event: AgentChatEvent) => {
       if (!agentChatEventFor(event, activeIdRef.current)) return;
       const folded = foldAgentChatEventResult(messagesRef.current, event, activeIdRef.current);
       messagesRef.current = folded.messages;
@@ -1228,17 +1245,53 @@ export function useAgentChatSession({
       pendingChromeRef.current.push(event);
       commitBuffer.deliver(event.payload.type);
     };
-    void load(id)
+    const applyEvent = (event: AgentChatEvent) => {
+      const decision = eventPump.ingest(event);
+      if (decision.action !== "apply") return;
+      foldLiveEvent(event);
+    };
+    const hydrateStale = () => cancelled || id !== activeIdRef.current;
+    const drainHydrate = (generation?: number) => {
+      for (const decision of eventPump.abandonHydrate(generation)) {
+        if (decision.action !== "apply") continue;
+        foldLiveEvent(decision.event);
+      }
+      hydratingRef.current = false;
+    };
+    const hydrateEpoch = ++hydrateEpochRef.current;
+    void load(id, hydrateEpoch)
       .then(async (snapshotSeq) => {
-        const pending = pendingEventsAfterSeq(pendingEventsRef.current, snapshotSeq ?? 0);
+        if (hydrateStale()) return;
+        if (snapshotSeq == null) {
+          drainHydrate();
+          return;
+        }
         pendingEventsRef.current = [];
         hydratingRef.current = false;
-        let after = snapshotSeq ?? 0;
-        for (const event of pending) {
-          after = Math.max(after, event.revision ?? 0);
-          applyEvent(event);
+        for (const decision of eventPump.finishHydrate(snapshotSeq)) {
+          if (decision.action !== "apply") continue;
+          foldLiveEvent(decision.event);
         }
-        await agentChatApi.subscribe(id, after);
+        const subscribed = await agentChatApi.subscribe(id, eventPump.cursor);
+        if (hydrateStale()) return;
+        if (eventPump.shouldResyncFromServer(subscribed.last_event_seq ?? 0)) {
+          const hydrateGen = eventPump.startHydrate();
+          const resyncSeq = await load(id, hydrateEpoch);
+          if (hydrateStale()) {
+            eventPump.abandonHydrate(hydrateGen);
+            return;
+          }
+          if (resyncSeq == null) {
+            drainHydrate(hydrateGen);
+            return;
+          }
+          for (const decision of eventPump.finishHydrate(resyncSeq, hydrateGen)) {
+            if (decision.action !== "apply") continue;
+            foldLiveEvent(decision.event);
+          }
+          await agentChatApi.subscribe(id, eventPump.cursor);
+        }
+        if (hydrateStale()) return;
         const queued = pendingSendRef.current;
         pendingSendRef.current = null;
         if (queued) {
@@ -1247,6 +1300,11 @@ export function useAgentChatSession({
         }
       })
       .catch(() => {
+        if (hydrateStale()) return;
+        for (const decision of eventPump.abandonHydrate()) {
+          if (decision.action !== "apply") continue;
+          foldLiveEvent(decision.event);
+        }
         hydratingRef.current = false;
         setHydrated(true);
         setIsResumingHistory(false);
@@ -1257,13 +1315,10 @@ export function useAgentChatSession({
       .getState()
       .onEvent("agent_chat_event", (event: AgentChatEvent) => {
         if (!agentChatEventFor(event, activeIdRef.current)) return;
-        if (hydratingRef.current) {
-          pendingEventsRef.current.push(event);
-          return;
-        }
         applyEvent(event);
       });
     return () => {
+      cancelled = true;
       flushChatCommitRef.current = () => {};
       window.clearInterval(flushTimer);
       off();
