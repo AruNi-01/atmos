@@ -21,6 +21,7 @@ The bug is a server ordering race. One Rust test on `WsMessageService` pauses af
 | M2. Failed subscribe does not leave `conn_id` registered                   | S2                                                                                     |
 | M2. Failed repeat subscribe keeps a conn that was already registered       | S5                                                                                     |
 | M2. Rollback removes the chat key when the set becomes empty               | S6                                                                                     |
+| Unsubscribe and disconnect leave no empty set in `agent_chat_subs`         | S7, S8                                                                                 |
 | Lint cap unchanged                                                         | S3                                                                                     |
 | Pre-fix handler still fails S1                                             | S4                                                                                     |
 
@@ -32,6 +33,8 @@ The bug is a server ordering race. One Rust test on `WsMessageService` pauses af
 | S2       | Rust unit      | `cargo test -p api` | `subscribe_rolls_back_registration_when_chat_is_missing`   | temp dir, random UUID, no row                                    | `Err`; `agent_chat_subs` does not contain the conn                               | pass   |
 | S5       | Rust unit      | `cargo test -p api` | `subscribe_failure_keeps_conn_that_was_already_registered` | temp dir, one successful subscribe, then the chat dir is removed | `Err` on the second subscribe; the same `conn_id` is still in the set            | pass   |
 | S6       | Rust unit      | `cargo test -p api` | `subscribe_rollback_removes_empty_chat_key`                | temp dir, random UUID, no row                                    | `Err`; `agent_chat_subs` has no key for that chat                                | pass   |
+| S7       | Rust unit      | `cargo test -p api` | `unsubscribe_drops_empty_chat_set`                         | temp dir, two chats, two conns                                   | after unsubscribe, no empty set; last-subscriber key is gone                     | pass   |
+| S8       | Rust unit      | `cargo test -p api` | `disconnect_drops_empty_chat_sets`                         | temp dir, two chats, two conns                                   | after `on_disconnect`, no empty set; shared chat keeps the other conn            | pass   |
 | S3       | Toolchain      | shell               | `package.json` script text                                 | repo root                                                        | `oxlint --max-warnings=455`                                                      | pass   |
 | S4       | Manual reorder | `cargo test -p api` | same test as S1 after restoring the old handler order      | same fixture                                                     | assertion fails with `registered_while_paused=false`                             | pass   |
 
@@ -69,6 +72,22 @@ The bug is a server ordering race. One Rust test on `WsMessageService` pauses af
 - **Then**: the call returns `Err`, and `agent_chat_subs` does not contain a key for that chat. The set is not left empty under the key.
 - **Signals**: `Result::Err` and `HashMap::contains_key`.
 
+### S7 — Unsubscribe does not leave an empty set
+
+- **Level**: Rust unit
+- **Given**: one chat whose only subscriber is `conn-a`, and a second chat subscribed by both `conn-a` and `conn-b`.
+- **When**: `conn-a` unsubscribes from both chats.
+- **Then**: `agent_chat_subs` contains no empty set. The first chat key is gone. The second chat still contains only `conn-b`.
+- **Signals**: `unsubscribe_drops_empty_chat_set`.
+
+### S8 — Disconnect does not leave an empty set
+
+- **Level**: Rust unit
+- **Given**: one chat whose only subscriber is `conn-leaving`, and a second chat subscribed by both `conn-leaving` and `conn-staying`.
+- **When**: `on_disconnect("conn-leaving")` runs.
+- **Then**: `agent_chat_subs` contains no empty set. The first chat key is gone. The second chat still contains only `conn-staying`.
+- **Signals**: `disconnect_drops_empty_chat_sets`.
+
 ### S3 — oxlint cap stays 455
 
 - **Level**: Toolchain
@@ -94,7 +113,7 @@ None. Subscribe does one extra `get_meta` after replay. It does not take the sub
 ## Regression checklist
 
 - [x] Replay still sends every `events_after` item. The handler does not skip events that fan-out might also send.
-- [x] `agent_chat_unsubscribe` and disconnect still remove `conn_id`.
+- [x] `agent_chat_unsubscribe` and disconnect still remove `conn_id`, and neither leaves an empty set in `agent_chat_subs`.
 - [x] `package.json` lint script is still `--max-warnings=455`.
 - [x] The race test uses a temp agent-data directory, not `~/.atmos/data/agent/chats`.
 
@@ -108,6 +127,7 @@ Omitted. No screen, copy, or route change. The lost event is a server ordering b
 - [x] S2 passes.
 - [x] S5 passes.
 - [x] S6 passes.
+- [x] S7 and S8 pass: after unsubscribe and after disconnect, `agent_chat_subs` has no empty set.
 - [x] S4 was run once on the old order and failed as specified, and that failure is written up in the PR.
 - [x] `cargo test -p api` and `cargo clippy -p api --all-targets --all-features -- -D warnings` pass.
 - [x] No new REST route and no EventGate change.
@@ -129,6 +149,9 @@ S4 is the only manual step, and it is a code reorder plus `cargo test`, not a UI
 - S2 — pass. `cargo test -p api subscribe_rolls_back_registration_when_chat_is_missing -- --test-threads=1`. Missing chat returns `Err` (`Processing` / os error 2 from the store, not only `NotFound`); the connection is not left in `agent_chat_subs`.
 - S5 — pass. `cargo test -p api subscribe_failure_keeps_conn_that_was_already_registered`. A second subscribe after the chat directory is removed returns `Err`, and the `conn_id` from the first subscribe stays in the set.
 - S6 — pass. `cargo test -p api subscribe_rollback_removes_empty_chat_key`. After rollback, `agent_chat_subs` has no key for that chat.
+- S7 — pass. `cargo test -p api unsubscribe_drops_empty_chat_set`. After unsubscribe, `agent_chat_subs` has no empty set.
+- S8 — pass. `cargo test -p api disconnect_drops_empty_chat_sets`. After `on_disconnect`, `agent_chat_subs` has no empty set.
+- 2026-10-20 follow-up: `cargo test -p api -- --test-threads=8` passed (121 unit tests and `tests/workflow_shell_env.rs`). `cargo clippy -p api --all-targets --all-features -- -D warnings` passed. `cargo fmt --all -- --check` passed. `bun lint` stayed at `oxlint --max-warnings=455`.
 - S3 — pass. `package.json` `lint` is `oxlint --max-warnings=455`. No lint config edit.
 - S4 — pass (expected failure on the old order). With snapshot-then-register and `Ok(snapshot.meta.last_event_seq)` restored, the same test panicked: `pre-register gap leaked: registered_while_paused=false delivered=false last_event_seq=1 gap_seq=2`. The register-first handler was restored after that run. Log: local `pre-fix-subscribe-race.log`.
 - `cargo clippy -p api --all-targets --all-features -- -D warnings` passed after the register-first handler and the `options_probe_dir` argument on `assemble`.
