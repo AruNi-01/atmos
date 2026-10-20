@@ -227,8 +227,8 @@ Merge order (original: **#324 then #325**). Clarification: #325 is not stacked o
 2. Overflow still uses `applyOpenThreadResync`; the replacement `agent_chat_get` calls `startHydrate` first.
 3. `publish` → `applySnapshot` → `pump.finishHydrate(seq)` → `EventGate.observeSnapshot`. Fold replay of the get race stays in `applyAgentChatResync` using that same `last_event_seq`; it is not a second gate floor.
 
-Merge-order copy: **#324 已合入 main（ad35a233），#325 基于其之上。**
+Merge-order copy: **#324 is already on main (`ad35a233`); #325 is based on it.** (PR body quote: 「#324 已合入 main（ad35a233），#325 基于其之上。」)
 
 ## Implementation Delta · 2026-10-20 (drain replay)
 
-Gate-admitted events from `finishHydrate` / `abandonHydrate` are remembered in `applyDecision` so a later façade snapshot can fold them. Dropped live events stay out of the ring. Web hydrate continuation treats `load()` abort (`undefined`) as stale, checks `id !== activeIdRef.current` with `cancelled` (`hydrateStale`), and `loadEpochRef` drops overlapping same-id snapshots.
+Gate-admitted events from `finishHydrate` / `abandonHydrate` are remembered in `applyDecision` so a later façade snapshot can fold them. Dropped live events stay out of the ring. Web hydrate continuation treats `load()` abort (`undefined`) as stale, checks `id !== activeIdRef.current` with `cancelled` (`hydrateStale`), and the hydrate effect holds `loadEpochRef` so rewind/queue `load()` cannot bump that epoch. An aborted hydrate `load()` drains via `abandonHydrate`.

@@ -136,7 +136,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 ### S17–S18 — Web
 
 - **Level**: Unit
-- **Then**: `eventPump.startHydrate` before get; `finishHydrate` before `subscribe(id, eventPump.cursor)`; `shouldResyncFromServer` on subscribe `last_event_seq`. Hydrate continuation uses `hydrateStale` (`cancelled` or `id !== activeIdRef.current`) and ignores aborted `load()` (`snapshotSeq == null`). Fold corpus still passes.
+- **Then**: `eventPump.startHydrate` before get; `finishHydrate` before `subscribe(id, eventPump.cursor)`; `shouldResyncFromServer` on subscribe `last_event_seq`. Hydrate continuation uses `hydrateStale` (`cancelled` or `id !== activeIdRef.current`). Same-chat `load()` from rewind/queue does not bump the hydrate epoch; an aborted hydrate `load()` drains via `abandonHydrate`. Fold corpus still passes.
 - **Signals**: `indexOf` order; bun test pass.
 
 ### S19 — Façade `agent_chat_resync` reuses the EventGate floor

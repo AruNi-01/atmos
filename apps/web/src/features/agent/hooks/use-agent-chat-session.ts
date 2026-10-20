@@ -661,11 +661,11 @@ export function useAgentChatSession({
   );
 
   const load = useCallback(
-    async (id = activeChatId) => {
+    async (id = activeChatId, epoch?: number) => {
       if (!id) return;
-      const epoch = ++loadEpochRef.current;
       const snapshot = await agentChatApi.get(id);
-      if (epoch !== loadEpochRef.current || id !== activeIdRef.current) return;
+      if (id !== activeIdRef.current) return;
+      if (epoch != null && epoch !== loadEpochRef.current) return;
       const meta = snapshot.meta;
       setTitle(meta.title?.trim() || null);
       const loadedMessages = withStableAgentMessageIds(
@@ -773,7 +773,8 @@ export function useAgentChatSession({
       } finally {
         setHistoryLoading(false);
       }
-      if (epoch !== loadEpochRef.current || id !== activeIdRef.current) return;
+      if (id !== activeIdRef.current) return;
+      if (epoch != null && epoch !== loadEpochRef.current) return;
       persistAgentChatLastSession({
         workspaceId: meta.workspace_id ?? (isolatedModal ? null : paintHostScope.workspaceId),
         projectId: meta.project_id ?? (isolatedModal ? null : paintHostScope.projectId),
@@ -1245,9 +1246,21 @@ export function useAgentChatSession({
       foldLiveEvent(event);
     };
     const hydrateStale = () => cancelled || id !== activeIdRef.current;
-    void load(id)
+    const drainHydrate = (generation?: number) => {
+      for (const decision of eventPump.abandonHydrate(generation)) {
+        if (decision.action !== "apply") continue;
+        foldLiveEvent(decision.event);
+      }
+      hydratingRef.current = false;
+    };
+    const epoch = ++loadEpochRef.current;
+    void load(id, epoch)
       .then(async (snapshotSeq) => {
-        if (hydrateStale() || snapshotSeq == null) return;
+        if (hydrateStale()) return;
+        if (snapshotSeq == null) {
+          drainHydrate();
+          return;
+        }
         pendingEventsRef.current = [];
         hydratingRef.current = false;
         for (const decision of eventPump.finishHydrate(snapshotSeq)) {
@@ -1258,9 +1271,13 @@ export function useAgentChatSession({
         if (hydrateStale()) return;
         if (eventPump.shouldResyncFromServer(subscribed.last_event_seq ?? 0)) {
           const hydrateGen = eventPump.startHydrate();
-          const resyncSeq = await load(id);
-          if (hydrateStale() || resyncSeq == null) {
+          const resyncSeq = await load(id, epoch);
+          if (hydrateStale()) {
             eventPump.abandonHydrate(hydrateGen);
+            return;
+          }
+          if (resyncSeq == null) {
+            drainHydrate(hydrateGen);
             return;
           }
           for (const decision of eventPump.finishHydrate(resyncSeq, hydrateGen)) {
