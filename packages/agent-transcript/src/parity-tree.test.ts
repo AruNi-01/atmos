@@ -268,6 +268,7 @@ describe("projectParityTree", () => {
         "Context Usage",
         "2400 / 16000",
         "Questions for you",
+        "Skip",
       ]),
     );
   });

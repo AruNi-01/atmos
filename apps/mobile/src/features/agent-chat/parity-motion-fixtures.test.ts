@@ -221,6 +221,10 @@ describe("parity motion fixtures", () => {
     expect(capture).toContain("record f4 ${label} replay attempt");
     expect(capture).toContain("run-until-line.py");
     expect(capture).toContain("Test Suite 'Selected tests' passed");
+    expect(capture).toContain("agent-chat-permission-skip");
+    expect(capture).toContain("PillTap missed:");
+    expect(capture).not.toContain("A miss does not fail the job");
+    expect(capture).not.toContain("Questions card");
     expect(capture).not.toContain("This is not a Simulator tap.");
     expect(preview).toContain("onViewport={pillReturn ? onViewport : undefined}");
     const transcript = readFileSync(join(here, "AgentChatTranscript.tsx"), "utf8");

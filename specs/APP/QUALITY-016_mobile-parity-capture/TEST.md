@@ -22,19 +22,21 @@
 | M6. No Skia patch, no `EVIDENCE_PUSH`, no hostname, no committed shots     | C6           |
 | M7. Lint cap stays 455; format check passes                                | C7           |
 | M8. Real simulator recording                                               | C8           |
+| M9. F12 Skip renders the reject chip; a PillTap miss fails the job         | C9           |
 
 ## Execution map
 
-| Scenario | Level     | Expected tool | Target command / method                                                                | Fixture / data      | Signals                                               | Status  |
-| -------- | --------- | ------------- | -------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------- | ------- |
-| C1       | Unit      | `bun test`    | `parity-replay.test.ts`, `parity-lane-steps.test.ts`, `parity-composer-states.test.ts` | In-file fixtures    | Shot times and step order                             | pass    |
-| C2       | Unit      | `bun test`    | `parity-cycle.test.ts`, `motion/use-reduced-motion.test.ts`                            | Owner + pin counter | Second mount keeps the pin; last release clears it    | pass    |
-| C3       | Unit      | `bun test`    | `parity-motion-fixtures.test.ts`                                                       | Preview source      | Reply 50 hold lines and `revealMessage`               | pass    |
-| C4       | Unit      | `bun test`    | same file, reads component sources                                                     | Glass components    | Exact `testID` strings and `measureInWindow`          | pass    |
-| C5       | Unit      | `bun test`    | same file, reads `ios-capture.sh` and PillTap                                          | Script source       | `tap_scroll_pill`, h264, `--seconds 720`, no tap note | pass    |
-| C6       | Shell     | `rg`          | search the branch diff                                                                 | Changed paths       | No patch, no `EVIDENCE_PUSH`, no hostname, no png/mov | pass    |
-| C7       | Toolchain | shell         | `bun lint`; `oxfmt --check` on changed paths                                           | Repo                | lint exit 0 at cap 455                                | pass    |
-| C8       | E2E       | GHA           | `ios-simulator` job                                                                    | `ios-parity` label  | Job skipped without the label                         | not_run |
+| Scenario | Level     | Expected tool | Target command / method                                                                                | Fixture / data      | Signals                                                         | Status  |
+| -------- | --------- | ------------- | ------------------------------------------------------------------------------------------------------ | ------------------- | --------------------------------------------------------------- | ------- |
+| C1       | Unit      | `bun test`    | `parity-replay.test.ts`, `parity-lane-steps.test.ts`, `parity-composer-states.test.ts`                 | In-file fixtures    | Shot times and step order                                       | pass    |
+| C2       | Unit      | `bun test`    | `parity-cycle.test.ts`, `motion/use-reduced-motion.test.ts`                                            | Owner + pin counter | Second mount keeps the pin; last release clears it              | pass    |
+| C3       | Unit      | `bun test`    | `parity-motion-fixtures.test.ts`                                                                       | Preview source      | Reply 50 hold lines and `revealMessage`                         | pass    |
+| C4       | Unit      | `bun test`    | same file, reads component sources                                                                     | Glass components    | Exact `testID` strings and `measureInWindow`                    | pass    |
+| C5       | Unit      | `bun test`    | same file, reads `ios-capture.sh` and PillTap                                                          | Script source       | `tap_scroll_pill`, h264, `--seconds 720`, no tap note           | pass    |
+| C6       | Shell     | `rg`          | search the branch diff                                                                                 | Changed paths       | No patch, no `EVIDENCE_PUSH`, no hostname, no png/mov           | pass    |
+| C7       | Toolchain | shell         | `bun lint`; `oxfmt --check` on changed paths                                                           | Repo                | lint exit 0 at cap 455                                          | pass    |
+| C8       | E2E       | GHA           | `ios-simulator` job                                                                                    | `ios-parity` label  | Job skipped without the label                                   | not_run |
+| C9       | Unit      | `bun test`    | `parity-composer-cards.test.ts`, `parity-tree.test.ts`, `parity-motion-fixtures.test.ts`, `compare.ts` | F12 Allow + Skip    | Skip is reject-class; a PillTap miss or a ready timeout exits 1 | pass    |
 
 ## Scenarios
 
@@ -102,6 +104,14 @@
 - **Then**: `structural` runs (including the command-watcher self-test). `ios-simulator` is skipped.
 - **Signals**: the check rollup. This scenario is `not_run` until that rollup is observed, and it is not a Bun test.
 
+### C9 — F12 Skip is rendered, and a PillTap miss fails
+
+- **Level**: Unit
+- **Given**: F12's permission options are Allow and Skip, and `ios-capture.sh` drives PillTap.
+- **When**: the fixture tests and `bun scripts/agent-chat-parity/compare.ts` run.
+- **Then**: Skip's `option_id` is `skip` and `isRejectPermissionOption` is true for it and false for Allow. The F12 expected tree has an option labeled Skip. The script names `agent-chat-permission-skip`, prints `PillTap missed:` and exits non-zero on a miss, and does not contain `A miss does not fail the job` or `Questions card`. A timeout waiting for `[parity] ready` on the F12 pill-tap, card-row, and composer-keyboard passes also exits 1.
+- **Signals**: `parity-composer-cards.test.ts`, `parity-tree.test.ts`, `parity-motion-fixtures.test.ts`, `compare.ts`.
+
 ## Non-coverage
 
 - Pixel comparison of captured PNGs. The flat-fill Skia patch is intentionally absent, so a flat frame is logged rather than patched.
@@ -118,3 +128,12 @@ Ran on this branch against the APP-081 tail-jump parent (2026-10-20).
 - C7 pass. `bun lint` (`oxlint --max-warnings=455`) exited 0 with 452 warnings. `oxfmt --check` on the changed Markdown and TypeScript paths exited 0. `package.json` still says `--max-warnings=455`.
 - Mobile `bun ../../scripts/run-tsc7.ts --noEmit` reports only the pre-existing `glass-text-button.test.ts` (1) and `open-thread-resync.test.ts` (7) errors. No diagnostic in the capture files.
 - C8 `not_run` until GitHub Actions reports the `ios-simulator` job. Expected result without the `ios-parity` label: skipped.
+
+C9 (2026-10-20), after #334 and #335 were on `main` (`c3cd96b59`). F12 had only Allow, so the Skip chip never rendered, and PillTap misses were logged and ignored.
+
+- `cd apps/mobile && bun test` on `parity-composer-cards.test.ts`, `parity-lane-steps.test.ts`, `parity-motion-fixtures.test.ts`: 9 pass, 0 fail, 179 expect() calls.
+- `bun --filter @atmos/agent-transcript test`: 38 pass, 0 fail, including `parity-tree.test.ts` (`matches every committed tree`).
+- `bun scripts/agent-chat-parity/compare.ts` printed `13 fixtures match`.
+- `bash -n scripts/agent-chat-parity/ios-capture.sh` exited 0.
+- C7 re-run: `bun lint` (`oxlint --max-warnings=455`) exited 0 with 452 warnings. `oxfmt --check` on the changed paths exited 0. The cap in `package.json` is still 455.
+- C8 stays `not_run`. This environment has no iOS Simulator, so PillTap itself is not executed.

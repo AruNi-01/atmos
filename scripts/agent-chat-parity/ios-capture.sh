@@ -3,13 +3,14 @@
 # f13-tail scrolled to Reply 50 (three frames muxed when they differ),
 # a second f13-tail launch that taps the scroll pill after that hold,
 # stream-tools sampled while rows append, an F12 launch that taps the plan
-# and queue pills and then Skip on the Questions card, an f13-tail launch
-# that swipes the F12 card pills under the pinned scroll pill in light and dark, an F1 launch that
-# taps the composer so the software keyboard opens, and F4 / F12 / composer passes that
-# freeze each script step (`atMs` in the pin) and take a simctl screenshot.
+# and queue pills and then the Skip chip (agent-chat-permission-skip) on the
+# permission card, an f13-tail launch that swipes the F12 card pills under the
+# pinned scroll pill in light and dark, an F1 launch that taps the composer so
+# the software keyboard opens, and F4 / F12 / composer passes that freeze each
+# script step (`atMs` in the pin) and take a simctl screenshot.
 # A wall-clock draw finishes before a slow screenshot returns. The replay,
-# lane, composer, pill return, F12 card-pill tap, card-row swipe, and composer
-# keyboard tap do not fail the job.
+# pinned lane, and composer-state screenshots do not fail the job. A PillTap
+# miss exits non-zero.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
 # and does not arm the in-app carousel. A JS timer in one process stopped
@@ -638,9 +639,10 @@ capture_f12_lane() {
 
 # F12 with no lane pin, so the pill row is the live reducer. The test activates
 # the running app and taps plan, then queue, then queue again, then the
-# Questions pill, then Skip. Continue stays disabled because the F12 question
-# has no options. A miss does not fail the job. recordVideo stays open across
-# the taps and this pass does not take simctl screenshots.
+# permission pill, then the Skip chip (agent-chat-permission-skip). F12's
+# permission options are Allow and Skip. A PillTap miss exits non-zero.
+# recordVideo stays open across the taps and this pass does not take simctl
+# screenshots.
 tap_card_pills() {
   local udid
   udid="$(xcrun simctl list devices booted -j | python3 -c '
@@ -685,14 +687,16 @@ capture_f12_pill_taps() {
   write_frame_file "F12" "light"
   launch_frame "F12" "light" "pills"
   if ! wait_for_since "[parity] ready F12 light" 90 "$mark"; then
-    echo "f12 pill tap missed ready" >&2
-    return 0
+    echo "PillTap missed: f12 pill tap never became ready" >&2
+    exit 1
   fi
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "f12 pill recorder open"
   if ! tap_card_pills >"$OUT/f12-pill-tap.log" 2>&1; then
-    echo "f12 card pill tap failed" >&2
+    echo "PillTap missed: f12 card pill tap failed" >&2
     tail -n 40 "$OUT/f12-pill-tap.log" >&2 || true
+    stop_screen_record "$pidfile" || true
+    exit 1
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -701,7 +705,7 @@ capture_f12_pill_taps() {
 # f13-tail scrolled away, with the F12 card lane mounted. The scroll pill stays
 # pinned while the test swipes the card pills, taps plan, then taps the scroll
 # pill. Light keeps f12f13-pill-row.mov. Dark writes f12f13-pill-row-dark.mov.
-# A miss does not fail the job. recordVideo stays open and this pass
+# A PillTap miss exits non-zero. recordVideo stays open and this pass
 # does not take simctl screenshots.
 tap_card_row() {
   local udid
@@ -756,14 +760,16 @@ capture_f12_card_row() {
   write_frame_file "f13-tail" "$theme" "away" "" "" "" "" "" "" "lane"
   launch_frame "f13-tail" "$theme" "cards"
   if ! wait_for_since "[parity] ready f13-tail ${theme}" 90 "$mark"; then
-    echo "f12 card row ${theme} missed ready" >&2
-    return 0
+    echo "PillTap missed: f12 card row ${theme} never became ready" >&2
+    exit 1
   fi
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "f12 card row ${theme} recorder open"
   if ! tap_card_row >"$taplog" 2>&1; then
-    echo "f12 card row ${theme} swipe failed" >&2
+    echo "PillTap missed: f12 card row ${theme} swipe failed" >&2
     tail -n 40 "$taplog" >&2 || true
+    stop_screen_record "$pidfile" || true
+    exit 1
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -776,7 +782,7 @@ capture_composer_states() {
 }
 
 # Idle F1 composer. The test activates the running app and taps the field.
-# The software keyboard is the proof. A miss does not fail the job.
+# The software keyboard is the proof. A PillTap miss exits non-zero.
 # recordVideo stays open and this pass does not take simctl screenshots.
 tap_composer() {
   local udid
@@ -822,14 +828,16 @@ capture_composer_keyboard() {
   write_frame_file "F1" "light"
   launch_frame "F1" "light" "keys"
   if ! wait_for_since "[parity] ready F1 light" 90 "$mark"; then
-    echo "composer keyboard missed ready" >&2
-    return 0
+    echo "PillTap missed: composer keyboard never became ready" >&2
+    exit 1
   fi
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "composer keyboard recorder open"
   if ! tap_composer >"$OUT/composer-keyboard.log" 2>&1; then
-    echo "composer keyboard tap failed" >&2
+    echo "PillTap missed: composer keyboard tap failed" >&2
     tail -n 40 "$OUT/composer-keyboard.log" >&2 || true
+    stop_screen_record "$pidfile" || true
+    exit 1
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -1059,7 +1067,7 @@ if dupes:
 print(f"{len(files)} distinct fixture screenshots")
 PY
 
-# After the hold gate, tap the scroll pill. A miss does not fail the job.
+# After the hold gate, tap the scroll pill. A PillTap miss exits non-zero.
 # The preview logs `[parity] pill awaiting tap` and does not call the handler.
 tap_scroll_pill() {
   local udid
@@ -1117,8 +1125,9 @@ capture_tail_return() {
   fi
   echo "tapping the scroll pill" >&2
   if ! tap_scroll_pill >"$OUT/pill-tap.log" 2>&1; then
-    echo "f13 tail return tap failed" >&2
+    echo "PillTap missed: scroll pill tap failed" >&2
     tail -n 80 "$OUT/pill-tap.log" >&2 || true
+    exit 1
   fi
   if ! wait_for_line "[parity] tail returned" 60; then
     echo "f13 tail return did not land" >&2
@@ -1154,11 +1163,11 @@ capture_tail_return || echo "f13 tail return capture failed" >&2
 capture_stream_motion
 capture_f4_replay || echo "f4 replay capture failed" >&2
 capture_f12_lane || echo "f12 lane capture failed" >&2
-capture_f12_pill_taps || echo "f12 pill tap capture failed" >&2
-capture_f12_card_row light || echo "f12 card row capture failed" >&2
-capture_f12_card_row dark || echo "f12 card row dark capture failed" >&2
+capture_f12_pill_taps
+capture_f12_card_row light
+capture_f12_card_row dark
 capture_composer_states || echo "composer states capture failed" >&2
-capture_composer_keyboard || echo "composer keyboard capture failed" >&2
+capture_composer_keyboard
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
 # honest. It does not show reveal, tree draw-in, or a pill swap.

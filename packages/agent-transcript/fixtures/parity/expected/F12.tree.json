@@ -129,6 +129,10 @@
       {
         "kind": "option",
         "label": "Allow"
+      },
+      {
+        "kind": "option",
+        "label": "Skip"
       }
     ]
   }
