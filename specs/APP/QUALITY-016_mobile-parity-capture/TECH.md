@@ -89,7 +89,7 @@ Two additions on top of QUALITY-010:
 
 F12's permission request includes a reject-class option next to Allow: `{ "option_id": "skip", "name": "Skip" }`. `isRejectPermissionOption` matches that id and name, so the existing glass chip renders `testID="agent-chat-permission-skip"`. Allow stays without a test id. The expected structural tree records the Skip option label. No second permission UI is added.
 
-`ios-capture.sh` used to continue after a PillTap miss (`A miss does not fail the job`, and callers that only echoed the failure). A miss now prints `PillTap missed:` and exits non-zero. That covers the scroll pill, the F12 card-pill pass (plan, queue, permission pill, Skip chip), the card-row swipe, and the composer field. Comments name the Skip chip on the permission card. They do not say Skip lives on a Questions card, and they do not say the F12 question has no options. Replay, pinned lane, and composer-state screenshots still do not fail the job.
+`ios-capture.sh` used to continue after a PillTap miss (`A miss does not fail the job`, and callers that only echoed the failure). A miss now prints `PillTap missed:` and exits non-zero. That covers the scroll pill, the F12 card-pill pass (plan, queue, permission pill, Skip chip), the card-row swipe, and the composer field. A timeout waiting for the app to become ready (`[parity] ready …`) on the F12 pill-tap, card-row, and composer-keyboard passes also prints `PillTap missed:` and exits 1. Comments name the Skip chip on the permission card. They do not say Skip lives on a Questions card, and they do not say the F12 question has no options. Replay, pinned lane, and composer-state screenshots still do not fail the job.
 
 ## Risks
 
