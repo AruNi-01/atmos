@@ -106,6 +106,12 @@ type ReconnectPolicy = {
   exhausted: ExhaustedBehavior;
   /** if false, clean close (wasClean) does not schedule reconnect */
   reconnectOnCleanClose: boolean;
+  /**
+   * Retry when the socket never reaches open. Web keeps this off so a bad
+   * local URL does not spin; mobile turns it on because the first relay
+   * upgrade is the one that fails on a phone.
+   */
+  reconnectBeforeOpen: boolean;
 };
 
 type WsSessionOptions = {
@@ -191,17 +197,17 @@ Document mapping in web/mobile façade once to avoid Query `enabled` regressions
 
 ### 6.1 Current product behavior (source of defaults)
 
-| Field                      | Web today                                        | Mobile today                        |
-| -------------------------- | ------------------------------------------------ | ----------------------------------- |
-| initialDelayMs             | 1000                                             | 500                                 |
-| maxDelayMs                 | 30000                                            | 5000                                |
-| maxAttempts                | 10                                               | 5                                   |
-| delay curve                | `min(1000 * 2^attempt, 30000)`                   | similar mobile caps                 |
-| exhausted                  | reset attempts; retry every **60000** ms forever | **stop** → closed                   |
-| reconnect on unclean close | yes (`!wasClean`)                                | yes if shouldReconnect              |
-| reconnect on clean close   | no                                               | treat carefully via disconnect flag |
-| requestTimeoutMs           | 30000                                            | none                                |
-| connectWaitMs              | 15000; **30000** desktop runtime                 | n/a (provider auto-connect)         |
+| Field                      | Web today                                        | Mobile today                                                |
+| -------------------------- | ------------------------------------------------ | ----------------------------------------------------------- |
+| initialDelayMs             | 1000                                             | 500                                                         |
+| maxDelayMs                 | 30000                                            | 5000                                                        |
+| maxAttempts                | 10                                               | 5                                                           |
+| delay curve                | `min(1000 * 2^attempt, 30000)`                   | similar mobile caps                                         |
+| exhausted                  | reset attempts; retry every **60000** ms forever | **slow_retry** every **60000** ms (QUALITY-012; was `stop`) |
+| reconnect on unclean close | yes (`!wasClean`)                                | yes if shouldReconnect                                      |
+| reconnect on clean close   | no                                               | treat carefully via disconnect flag                         |
+| requestTimeoutMs           | 30000                                            | **30000** (QUALITY-012; was none)                           |
+| connectWaitMs              | 15000; **30000** desktop runtime                 | n/a (provider auto-connect)                                 |
 
 ### 6.2 Exported defaults
 
@@ -214,6 +220,7 @@ export const DEFAULT_WEB_RECONNECT: ReconnectPolicy = {
   maxAttempts: 10,
   exhausted: { type: "slow_retry", delayMs: 60_000 },
   reconnectOnCleanClose: false,
+  reconnectBeforeOpen: false,
 };
 
 export const DEFAULT_MOBILE_RECONNECT: ReconnectPolicy = {
@@ -221,8 +228,9 @@ export const DEFAULT_MOBILE_RECONNECT: ReconnectPolicy = {
   initialDelayMs: 500,
   maxDelayMs: 5_000,
   maxAttempts: 5,
-  exhausted: { type: "stop" },
+  exhausted: { type: "slow_retry", delayMs: 60_000 },
   reconnectOnCleanClose: false, // intentional disconnect uses disconnect()
+  reconnectBeforeOpen: true,
 };
 
 export const DEFAULT_WEB_REQUEST_TIMEOUT_MS = 30_000;
@@ -268,7 +276,7 @@ Request id: generate UUID (or compatible unique string); wire-compatible with se
 - Façade keeps existing public methods used by tests where cheap.
 - Map `open` ↔ `connected` for UI if needed.
 - Wire `onMessage` for screens that parse envelopes.
-- Inject `DEFAULT_MOBILE_RECONNECT` and no request timeout unless product changes.
+- Inject `DEFAULT_MOBILE_RECONNECT` and `DEFAULT_MOBILE_REQUEST_TIMEOUT_MS` (30s). Exhausted behavior is `slow_retry` 60s (QUALITY-012).
 
 ### 9.2 Web (Phase 3)
 

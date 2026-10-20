@@ -30,8 +30,14 @@ class FakeNativeSocket {
     return { remove: () => {} };
   }
 
+  pingCalls = 0;
+
   connect(url: string) {
     this.connectCalls.push(url);
+  }
+
+  ping() {
+    this.pingCalls += 1;
   }
 
   send(text: string) {
@@ -104,5 +110,25 @@ describe("UrlSessionWebSocket", () => {
     expect(closes).toEqual([{ code: 1006, reason: "timed out", wasClean: false }]);
     expect(socket.readyState).toBe(3);
     expect(native.released).toBe(true);
+  });
+
+  test("throws when sending before the socket is open", () => {
+    FakeNativeSocket.instances = [];
+    const socket = new UrlSessionWebSocket("wss://relay.example/ws/client", nativeModule);
+    expect(() => socket.send("hello")).toThrow("WebSocket is not open");
+    expect(FakeNativeSocket.instances[0]!.sent).toEqual([]);
+  });
+
+  test("forwards ping and resolves on native pong", async () => {
+    FakeNativeSocket.instances = [];
+    const socket = new UrlSessionWebSocket("wss://relay.example/ws/client", nativeModule);
+    const native = FakeNativeSocket.instances[0]!;
+    native.emit("open");
+    const pong = new Promise<Error | undefined>((resolve) => {
+      socket.ping((error) => resolve(error));
+    });
+    expect(native.pingCalls).toBe(1);
+    native.emit("pong");
+    await expect(pong).resolves.toBeUndefined();
   });
 });
