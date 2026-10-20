@@ -190,7 +190,7 @@ Chat id scoping stays in the app (`eventsForChat` / `agentChatEventFor`). The ga
 ## Dependencies & compatibility
 
 - Depends on: QUALITY-006 part fold, existing `agent_chat_*` WS.
-- Sibling: QUALITY-012 (#324) transport. Merge order **#324 then #325**. README may contain both 012 and 013; keep both rows on conflict.
+- Sibling: QUALITY-012 (#324) transport. **#324 is already on main (`ad35a233`); #325 is based on it.** README may contain both 012 and 013; keep both rows on conflict.
 - Blocks: none. PR5 can land after.
 
 ## Open questions
@@ -215,7 +215,7 @@ Current code (keep Q4 above as the original decision):
 
 Files: `packages/api-client/src/agent-chat/event-gate.ts`, `event-gate.test.ts`. Verification: `bun run --filter @atmos/api-client test` (65 pass), including `live gap and shouldResyncFromServer share the ahead >= 32 boundary`.
 
-Merge order (original: **#324 then #325**). Clarification: #325 is not stacked on #324. After #324 is on `main`, merge `main` into #325 and route `agent_chat_resync` through `finishHydrate` / `observeSnapshot`. Do not add a second snapshot floor. `observeSnapshot` is monotonic (`seq > snapshotFloor` only).
+Merge order: **#324 is already on main (`ad35a233`); #325 is based on it.** (PR: 「#324 已合入 main（ad35a233），#325 基于其之上。」) Route `agent_chat_resync` through `finishHydrate` / `observeSnapshot`. Do not add a second snapshot floor. `observeSnapshot` is monotonic (`seq > snapshotFloor` only).
 
 ## Implementation Delta · 2026-10-20
 
