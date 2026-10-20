@@ -1,6 +1,6 @@
-# TEST · QUALITY-017: Agent Chat Subscribe Race
+# TEST · QUALITY-018: Agent Chat Subscribe Race
 
-> Test Plan · how we verify `agent_chat_subscribe` cannot drop a live event between replay and registration. References TECH QUALITY-017.
+> Test Plan · how we verify `agent_chat_subscribe` cannot drop a live event between replay and registration. References TECH QUALITY-018.
 
 ## Test strategy
 

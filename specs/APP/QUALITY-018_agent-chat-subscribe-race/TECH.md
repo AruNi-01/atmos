@@ -1,4 +1,4 @@
-# TECH · QUALITY-017: Agent Chat Subscribe Race
+# TECH · QUALITY-018: Agent Chat Subscribe Race
 
 > Technical Design · HOW. Closes the server gap in `handle_agent_chat_subscribe` that [QUALITY-013](../QUALITY-013_agent-chat-event-gate/TECH.md) left as a server follow-up (issue #330). No BRAINSTORM or PRD (quality spec).
 
