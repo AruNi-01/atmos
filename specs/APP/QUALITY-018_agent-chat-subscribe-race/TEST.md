@@ -19,17 +19,21 @@ The bug is a server ordering race. One Rust test on `WsMessageService` pauses af
 | M1. `last_event_seq` is sampled after registration and includes that event | S1                                                                                     |
 | M1. Server does not drop the overlap                                       | S1 (the test accepts either live delivery or replay; it does not assert a single copy) |
 | M2. Failed subscribe does not leave `conn_id` registered                   | S2                                                                                     |
+| M2. Failed repeat subscribe keeps a conn that was already registered       | S5                                                                                     |
+| M2. Rollback removes the chat key when the set becomes empty               | S6                                                                                     |
 | Lint cap unchanged                                                         | S3                                                                                     |
 | Pre-fix handler still fails S1                                             | S4                                                                                     |
 
 ## Execution map
 
-| Scenario | Level          | Expected tool       | Target command / method                                    | Fixture / data                                               | Signals                                                                          | Status |
-| -------- | -------------- | ------------------- | ---------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------- | ------ |
-| S1       | Rust unit      | `cargo test -p api` | `subscribe_delivers_event_emitted_in_the_pre_register_gap` | temp agent-data dir, two WS conns, `queue_add` seed then gap | registered while paused; gap marker on the joining conn; `last_event_seq >= gap` | pass   |
-| S2       | Rust unit      | `cargo test -p api` | `subscribe_rolls_back_registration_when_chat_is_missing`   | temp dir, random UUID, no row                                | `Err`; `agent_chat_subs` does not contain the conn                               | pass   |
-| S3       | Toolchain      | shell               | `package.json` script text                                 | repo root                                                    | `oxlint --max-warnings=455`                                                      | pass   |
-| S4       | Manual reorder | `cargo test -p api` | same test as S1 after restoring the old handler order      | same fixture                                                 | assertion fails with `registered_while_paused=false`                             | pass   |
+| Scenario | Level          | Expected tool       | Target command / method                                    | Fixture / data                                                   | Signals                                                                          | Status |
+| -------- | -------------- | ------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------ |
+| S1       | Rust unit      | `cargo test -p api` | `subscribe_delivers_event_emitted_in_the_pre_register_gap` | temp agent-data dir, two WS conns, `queue_add` seed then gap     | registered while paused; gap marker on the joining conn; `last_event_seq >= gap` | pass   |
+| S2       | Rust unit      | `cargo test -p api` | `subscribe_rolls_back_registration_when_chat_is_missing`   | temp dir, random UUID, no row                                    | `Err`; `agent_chat_subs` does not contain the conn                               | pass   |
+| S5       | Rust unit      | `cargo test -p api` | `subscribe_failure_keeps_conn_that_was_already_registered` | temp dir, one successful subscribe, then the chat dir is removed | `Err` on the second subscribe; the same `conn_id` is still in the set            | pass   |
+| S6       | Rust unit      | `cargo test -p api` | `subscribe_rollback_removes_empty_chat_key`                | temp dir, random UUID, no row                                    | `Err`; `agent_chat_subs` has no key for that chat                                | pass   |
+| S3       | Toolchain      | shell               | `package.json` script text                                 | repo root                                                        | `oxlint --max-warnings=455`                                                      | pass   |
+| S4       | Manual reorder | `cargo test -p api` | same test as S1 after restoring the old handler order      | same fixture                                                     | assertion fails with `registered_while_paused=false`                             | pass   |
 
 ## Scenarios
 
@@ -48,6 +52,22 @@ The bug is a server ordering race. One Rust test on `WsMessageService` pauses af
 - **When**: `handle_agent_chat_subscribe` runs for that id.
 - **Then**: the call returns `Err`, and `agent_chat_subs` does not contain the connection.
 - **Signals**: `Result::Err` and the subscription map.
+
+### S5 — A failed repeat subscribe keeps the earlier registration
+
+- **Level**: Rust unit
+- **Given**: a chat and a connection that already subscribed successfully.
+- **When**: the chat directory is removed and the same `conn_id` subscribes again.
+- **Then**: the second call returns `Err`, and `agent_chat_subs` still contains that `conn_id` for the chat. `HashSet::insert` returned false, so rollback does not run.
+- **Signals**: `Result::Err` and set membership of the original `conn_id`.
+
+### S6 — Rollback drops an empty chat key
+
+- **Level**: Rust unit
+- **Given**: a service and a UUID that was never created. No other connection is registered for that id.
+- **When**: `handle_agent_chat_subscribe` runs and `get` fails.
+- **Then**: the call returns `Err`, and `agent_chat_subs` does not contain a key for that chat. The set is not left empty under the key.
+- **Signals**: `Result::Err` and `HashMap::contains_key`.
 
 ### S3 — oxlint cap stays 455
 
@@ -86,6 +106,8 @@ Omitted. No screen, copy, or route change. The lost event is a server ordering b
 
 - [x] S1 passes on the register-first handler.
 - [x] S2 passes.
+- [x] S5 passes.
+- [x] S6 passes.
 - [x] S4 was run once on the old order and failed as specified, and that failure is written up in the PR.
 - [x] `cargo test -p api` and `cargo clippy -p api --all-targets --all-features -- -D warnings` pass.
 - [x] No new REST route and no EventGate change.
@@ -105,6 +127,8 @@ S4 is the only manual step, and it is a code reorder plus `cargo test`, not a UI
 
 - S1 — pass. `cargo test -p api subscribe_delivers_event_emitted_in_the_pre_register_gap -- --test-threads=1`.
 - S2 — pass. `cargo test -p api subscribe_rolls_back_registration_when_chat_is_missing -- --test-threads=1`. Missing chat returns `Err` (`Processing` / os error 2 from the store, not only `NotFound`); the connection is not left in `agent_chat_subs`.
+- S5 — pass. `cargo test -p api subscribe_failure_keeps_conn_that_was_already_registered`. A second subscribe after the chat directory is removed returns `Err`, and the `conn_id` from the first subscribe stays in the set.
+- S6 — pass. `cargo test -p api subscribe_rollback_removes_empty_chat_key`. After rollback, `agent_chat_subs` has no key for that chat.
 - S3 — pass. `package.json` `lint` is `oxlint --max-warnings=455`. No lint config edit.
 - S4 — pass (expected failure on the old order). With snapshot-then-register and `Ok(snapshot.meta.last_event_seq)` restored, the same test panicked: `pre-register gap leaked: registered_while_paused=false delivered=false last_event_seq=1 gap_seq=2`. The register-first handler was restored after that run. Log: local `pre-fix-subscribe-race.log`.
 - `cargo clippy -p api --all-targets --all-features -- -D warnings` passed after the register-first handler and the `options_probe_dir` argument on `assemble`.

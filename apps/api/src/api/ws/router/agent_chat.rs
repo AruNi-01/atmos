@@ -166,17 +166,22 @@ impl WsMessageService {
         Ok(json!({ "ok": true }))
     }
 
-    async fn register_agent_chat_sub(&self, chat_id: &str, conn_id: &str) {
+    /// Returns whether this call inserted `conn_id`. `false` means it was already subscribed.
+    async fn register_agent_chat_sub(&self, chat_id: &str, conn_id: &str) -> bool {
         let mut subs = self.agent_chat_subs.write().await;
         subs.entry(chat_id.to_string())
             .or_default()
-            .insert(conn_id.to_string());
+            .insert(conn_id.to_string())
     }
 
     async fn unregister_agent_chat_sub(&self, chat_id: &str, conn_id: &str) {
         let mut subs = self.agent_chat_subs.write().await;
-        if let Some(conns) = subs.get_mut(chat_id) {
-            conns.remove(conn_id);
+        let Some(conns) = subs.get_mut(chat_id) else {
+            return;
+        };
+        conns.remove(conn_id);
+        if conns.is_empty() {
+            subs.remove(chat_id);
         }
     }
 
@@ -188,9 +193,13 @@ impl WsMessageService {
         // Register before snapshot and replay. A live emit after this insert is
         // fanned out to conn_id. Replay may deliver the same event; the client
         // EventGate dedupes on event_id. This handler does not filter that overlap.
-        self.register_agent_chat_sub(&req.chat_id, conn_id).await;
+        // Roll back only a conn this call inserted. A repeat subscribe that fails
+        // must leave the earlier registration in place.
+        let inserted = self.register_agent_chat_sub(&req.chat_id, conn_id).await;
         if let Err(error) = self.agent_chat().get(&req.chat_id).await {
-            self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
+            if inserted {
+                self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
+            }
             return Err(error);
         }
         let after = req.after_sequence.unwrap_or(0);
@@ -211,7 +220,9 @@ impl WsMessageService {
         let last_event_seq = match self.agent_chat().store().get_meta(&req.chat_id) {
             Ok(meta) => meta.last_event_seq,
             Err(error) => {
-                self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
+                if inserted {
+                    self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
+                }
                 return Err(error);
             }
         };
@@ -645,6 +656,99 @@ mod tests {
                 .get(&chat_id)
                 .is_some_and(|conns| conns.contains(conn_id)),
             "failed subscribe must not leave the connection registered"
+        );
+    }
+
+    #[tokio::test]
+    async fn subscribe_failure_keeps_conn_that_was_already_registered() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-subscribe-repeat-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let meta = service
+            .agent_chat()
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: root.0.to_string_lossy().into_owned(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: Some("opus".into()),
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: None,
+                source: None,
+                automation_run_guid: None,
+            })
+            .expect("create chat");
+        let chat_id = meta.id;
+        let conn_id = "conn-repeat";
+        service
+            .handle_agent_chat_subscribe(
+                conn_id,
+                AgentChatSubscribeRequest {
+                    chat_id: chat_id.clone(),
+                    after_sequence: Some(0),
+                },
+            )
+            .await
+            .expect("first subscribe");
+
+        std::fs::remove_dir_all(root.0.join("chats").join(&chat_id)).expect("remove chat dir");
+        assert!(
+            service
+                .handle_agent_chat_subscribe(
+                    conn_id,
+                    AgentChatSubscribeRequest {
+                        chat_id: chat_id.clone(),
+                        after_sequence: Some(0),
+                    },
+                )
+                .await
+                .is_err(),
+            "subscribe after the chat dir is gone must fail"
+        );
+
+        let subs = service.agent_chat_subs.read().await;
+        assert!(
+            subs.get(&chat_id)
+                .is_some_and(|conns| conns.contains(conn_id)),
+            "a failed repeat subscribe must keep the earlier registration"
+        );
+    }
+
+    #[tokio::test]
+    async fn subscribe_rollback_removes_empty_chat_key() {
+        let root = TempRoot(std::env::temp_dir().join(format!(
+            "atmos-subscribe-empty-key-{}",
+            uuid::Uuid::new_v4()
+        )));
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = uuid::Uuid::new_v4().to_string();
+
+        assert!(
+            service
+                .handle_agent_chat_subscribe(
+                    "conn-empty",
+                    AgentChatSubscribeRequest {
+                        chat_id: chat_id.clone(),
+                        after_sequence: Some(0),
+                    },
+                )
+                .await
+                .is_err(),
+            "missing chat must not subscribe"
+        );
+        let subs = service.agent_chat_subs.read().await;
+        assert!(
+            !subs.contains_key(&chat_id),
+            "rollback of the only subscriber must drop the chat key"
         );
     }
 

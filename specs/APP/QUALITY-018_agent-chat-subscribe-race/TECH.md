@@ -61,23 +61,27 @@ No new crate, table, `WsAction`, or REST route.
 ### `apps/api/src/api/ws/router/agent_chat.rs`
 
 ```rust
-async fn register_agent_chat_sub(&self, chat_id: &str, conn_id: &str)
+async fn register_agent_chat_sub(&self, chat_id: &str, conn_id: &str) -> bool
 async fn unregister_agent_chat_sub(&self, chat_id: &str, conn_id: &str)
 
 pub(super) async fn handle_agent_chat_subscribe(...) -> Result<Value>
 ```
 
+`register_agent_chat_sub` returns the `HashSet::insert` result. `true` means this call added `conn_id`. `false` means that connection was already in the set for this chat. The set has no reference count, so a failed repeat subscribe must not remove the earlier membership.
+
+`unregister_agent_chat_sub` removes `conn_id`. If that chat's set is then empty, it removes the chat key from `agent_chat_subs`.
+
 Order inside `handle_agent_chat_subscribe`:
 
-1. `register_agent_chat_sub`.
-2. `agent_chat().get`. On error, `unregister_agent_chat_sub` and return the error. The snapshot seq is not the response.
+1. `register_agent_chat_sub`, and keep the `inserted` flag.
+2. `agent_chat().get`. On error, unregister only when `inserted` is true, then return the error. The snapshot seq is not the response.
 3. `events_after`.
 4. Test-only pause (`subscribe_race_pause::pause`) so a unit test can emit while the replay list is already captured and the connection is already registered. Absent from release builds.
 5. Replay via `WsManager::send_to` when a manager is set. Send every missed event, including ones fan-out may also deliver.
-6. `store().get_meta` for `last_event_seq`. On error, unregister and return the error.
+6. `store().get_meta` for `last_event_seq`. On error, unregister only when `inserted` is true, then return the error.
 7. `Ok({ "last_event_seq": last_event_seq })`.
 
-`handle_agent_chat_unsubscribe` stays as it is.
+`handle_agent_chat_unsubscribe` stays as it is. It still removes only `conn_id` and can leave an empty set. Empty-key removal is the subscribe rollback path.
 
 ### `apps/api/src/api/ws/router/mod.rs`
 
@@ -119,7 +123,7 @@ One PR. No feature flag. No backward-compatible response field.
 
 ## Risks & tradeoffs
 
-- **Risk**: Register-then-fail leaks `conn_id` if a later error path forgets `unregister_agent_chat_sub`. The unknown-chat test locks the `get` failure path.
+- **Risk**: Register-then-fail leaks `conn_id` if a later error path forgets `unregister_agent_chat_sub`. The unknown-chat test locks the `get` failure path. Rollback runs only when this call's `insert` returned true, so a failed repeat subscribe does not drop a connection that was already registered.
 - **Risk**: Watermark can be one or more revisions ahead of what the client has applied, when the event was also live-sent. EventGate applies that event once and ignores the duplicate. A gap under 32 does not resync; the event must actually be sent. Register-first is what makes the send happen.
 - **Tradeoff**: A single `agent_chat_subs` write guard around snapshot, replay, and the watermark read would also close the gap, and would block every chat's fan-out on transcript IO. Register-first does not.
 - **Tradeoff**: Two reads (`get` for the leftover-part close, `get_meta` for the watermark) instead of returning the first snapshot. Subscribe is not the token stream.
