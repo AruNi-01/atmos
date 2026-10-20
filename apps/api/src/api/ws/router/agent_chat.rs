@@ -247,10 +247,7 @@ impl WsMessageService {
         conn_id: &str,
         req: AgentChatIdRequest,
     ) -> Result<Value> {
-        let mut subs = self.agent_chat_subs.write().await;
-        if let Some(conns) = subs.get_mut(&req.chat_id) {
-            conns.remove(conn_id);
-        }
+        self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
         Ok(json!({ "ok": true }))
     }
 
@@ -559,8 +556,8 @@ mod tests {
 
     use super::super::WsMessageService;
     use super::subscribe_race_pause;
-    use crate::api::ws::message::AgentChatSubscribeRequest;
-    use crate::api::ws::{ClientType, WsManager};
+    use crate::api::ws::message::{AgentChatIdRequest, AgentChatSubscribeRequest};
+    use crate::api::ws::{ClientType, WsManager, WsMessageHandler};
 
     const SEED_MARKER: &str = "subscribe-race-seed";
     const GAP_MARKER: &str = "subscribe-race-gap";
@@ -874,6 +871,130 @@ mod tests {
         assert!(
             registered_while_paused && delivered && last_event_seq >= gap_seq,
             "pre-register gap leaked: registered_while_paused={registered_while_paused} delivered={delivered} last_event_seq={last_event_seq} gap_seq={gap_seq}"
+        );
+    }
+
+    fn create_chat(service: &WsMessageService, root: &std::path::Path) -> String {
+        service
+            .agent_chat()
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: root.to_string_lossy().into_owned(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: Some("opus".into()),
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: None,
+                source: None,
+                automation_run_guid: None,
+            })
+            .expect("create chat")
+            .id
+    }
+
+    async fn subscribe(service: &WsMessageService, conn_id: &str, chat_id: &str) {
+        service
+            .handle_agent_chat_subscribe(
+                conn_id,
+                AgentChatSubscribeRequest {
+                    chat_id: chat_id.to_string(),
+                    after_sequence: Some(0),
+                },
+            )
+            .await
+            .expect("subscribe");
+    }
+
+    fn assert_no_empty_sets(
+        subs: &std::collections::HashMap<String, std::collections::HashSet<String>>,
+    ) {
+        assert!(
+            subs.values().all(|conns| !conns.is_empty()),
+            "agent_chat_subs must not retain an empty set, got {subs:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn unsubscribe_drops_empty_chat_set() {
+        let root = TempRoot(std::env::temp_dir().join(format!(
+            "atmos-unsubscribe-empty-set-{}",
+            uuid::Uuid::new_v4()
+        )));
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let only = create_chat(&service, &root.0);
+        let shared = create_chat(&service, &root.0);
+        subscribe(&service, "conn-a", &only).await;
+        subscribe(&service, "conn-a", &shared).await;
+        subscribe(&service, "conn-b", &shared).await;
+
+        service
+            .handle_agent_chat_unsubscribe(
+                "conn-a",
+                AgentChatIdRequest {
+                    chat_id: only.clone(),
+                },
+            )
+            .await
+            .expect("unsubscribe last subscriber");
+        service
+            .handle_agent_chat_unsubscribe(
+                "conn-a",
+                AgentChatIdRequest {
+                    chat_id: shared.clone(),
+                },
+            )
+            .await
+            .expect("unsubscribe one of two subscribers");
+
+        let subs = service.agent_chat_subs.read().await;
+        assert_no_empty_sets(&subs);
+        assert!(
+            !subs.contains_key(&only),
+            "unsubscribing the last connection must drop the chat key"
+        );
+        assert!(
+            subs.get(&shared)
+                .is_some_and(|conns| conns.len() == 1 && conns.contains("conn-b")),
+            "a remaining subscriber must stay registered"
+        );
+    }
+
+    #[tokio::test]
+    async fn disconnect_drops_empty_chat_sets() {
+        let root = TempRoot(std::env::temp_dir().join(format!(
+            "atmos-disconnect-empty-set-{}",
+            uuid::Uuid::new_v4()
+        )));
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let only = create_chat(&service, &root.0);
+        let shared = create_chat(&service, &root.0);
+        subscribe(&service, "conn-leaving", &only).await;
+        subscribe(&service, "conn-leaving", &shared).await;
+        subscribe(&service, "conn-staying", &shared).await;
+
+        service.on_disconnect("conn-leaving").await;
+
+        let subs = service.agent_chat_subs.read().await;
+        assert_no_empty_sets(&subs);
+        assert!(
+            !subs.contains_key(&only),
+            "disconnect of the last connection must drop the chat key"
+        );
+        assert!(
+            subs.get(&shared).is_some_and(|conns| {
+                conns.len() == 1
+                    && conns.contains("conn-staying")
+                    && !conns.contains("conn-leaving")
+            }),
+            "disconnect must drop only the closed connection"
         );
     }
 }

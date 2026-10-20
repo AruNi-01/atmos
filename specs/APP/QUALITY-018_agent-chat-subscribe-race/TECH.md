@@ -81,7 +81,7 @@ Order inside `handle_agent_chat_subscribe`:
 6. `store().get_meta` for `last_event_seq`. On error, unregister only when `inserted` is true, then return the error.
 7. `Ok({ "last_event_seq": last_event_seq })`.
 
-`handle_agent_chat_unsubscribe` stays as it is. It still removes only `conn_id` and can leave an empty set. Empty-key removal is the subscribe rollback path.
+`handle_agent_chat_unsubscribe` and subscribe rollback both call `unregister_agent_chat_sub`, which removes `conn_id` and deletes the chat key when the set is empty; `on_disconnect` removes `conn_id` from every set and `retain`s the map so `agent_chat_subs` does not keep an empty `HashSet`.
 
 ### `apps/api/src/api/ws/router/mod.rs`
 

@@ -1845,9 +1845,10 @@ impl WsMessageHandler for WsMessageService {
             self.options_worker.on_web_disconnect();
         }
         let mut subs = self.agent_chat_subs.write().await;
-        for conns in subs.values_mut() {
+        subs.retain(|_, conns| {
             conns.remove(conn_id);
-        }
+            !conns.is_empty()
+        });
     }
 }
 
