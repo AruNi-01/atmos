@@ -664,6 +664,7 @@ export function useAgentChatSession({
   const load = useCallback(
     async (id = activeChatId, hydrateEpoch?: number) => {
       if (!id) return;
+      if (id !== activeIdRef.current) return;
       const snapshotEpoch = ++snapshotEpochRef.current;
       const snapshot = await agentChatApi.get(id);
       if (id !== activeIdRef.current) return;

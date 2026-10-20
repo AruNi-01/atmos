@@ -277,7 +277,16 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("let cancelled = false");
     expect(session).toContain("cancelled = true");
     expect(session).toContain("async (id = activeChatId, hydrateEpoch?: number)");
-    expect(session).toContain("const snapshotEpoch = ++snapshotEpochRef.current");
+    expect(session).toContain("if (!id) return");
+    const loadAt = session.indexOf("async (id = activeChatId, hydrateEpoch?: number)");
+    const snapshotIncAt = session.indexOf(
+      "const snapshotEpoch = ++snapshotEpochRef.current",
+      loadAt,
+    );
+    const firstIdCheckAt = session.indexOf("if (id !== activeIdRef.current) return", loadAt);
+    expect(snapshotIncAt).toBeGreaterThan(loadAt);
+    expect(firstIdCheckAt).toBeGreaterThan(loadAt);
+    expect(firstIdCheckAt).toBeLessThan(snapshotIncAt);
     expect(session).toContain("if (id !== activeIdRef.current) return");
     expect(session).toContain("if (snapshotEpoch !== snapshotEpochRef.current) return");
     expect(session).toContain(
