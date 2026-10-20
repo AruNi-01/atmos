@@ -270,15 +270,27 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("scrollToIndexRef: ui.scrollToIndexRef");
     expect(session).toContain("const eventPump = createAgentChatEventPump();");
     expect(session).toContain("eventPump.startHydrate();");
-    expect(session).toContain("eventPump.finishHydrate(snapshotSeq ?? 0)");
+    expect(session).toContain("eventPump.finishHydrate(snapshotSeq)");
     expect(session).toContain("agentChatApi.subscribe(id, eventPump.cursor)");
     expect(session).toContain("eventPump.shouldResyncFromServer");
     expect(session).toContain("eventPump.abandonHydrate()");
     expect(session).toContain("let cancelled = false");
     expect(session).toContain("cancelled = true");
-    expect(session).toContain("if (cancelled) return");
-    expect(session).toContain("if (id !== activeIdRef.current) return");
+    expect(session).toContain("const epoch = ++loadEpochRef.current");
+    expect(session).toContain(
+      "if (epoch !== loadEpochRef.current || id !== activeIdRef.current) return",
+    );
     expect(session).toContain("A list() failure must not reject load() after");
+    const hydrateThenAt = session.indexOf(
+      "const hydrateStale = () => cancelled || id !== activeIdRef.current",
+    );
+    const hydrateCleanupAt = session.indexOf("cancelled = true", hydrateThenAt);
+    expect(hydrateThenAt).toBeGreaterThan(-1);
+    expect(hydrateCleanupAt).toBeGreaterThan(hydrateThenAt);
+    const hydrateThen = session.slice(hydrateThenAt, hydrateCleanupAt);
+    expect(hydrateThen).toContain("if (hydrateStale() || snapshotSeq == null) return");
+    expect(hydrateThen).toContain("if (hydrateStale() || resyncSeq == null)");
+    expect(hydrateThen).toContain("if (hydrateStale()) return");
     expect(session.indexOf("eventPump.finishHydrate")).toBeLessThan(
       session.indexOf("agentChatApi.subscribe(id, eventPump.cursor)"),
     );

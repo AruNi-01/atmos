@@ -162,6 +162,7 @@ export function useAgentChatThread(chatId: string) {
 
     const applyDecision = (decision: AgentChatPumpIngest) => {
       if (decision.action !== "apply") return;
+      if (rememberChatEvent(recentEvents, decision.event)) markOpenThreadOverflow(resyncCtrl);
       const next = applyChatEvent(transcriptRef.current, decision.event);
       transcriptRef.current = next.state;
       if (next.backfill) requestBackfill(next.backfill);
@@ -261,7 +262,6 @@ export function useAgentChatThread(chatId: string) {
       if (!event || !eventsForChat(event, chatId)) return;
       const decision = pump.ingest(event);
       if (decision.action === "apply") {
-        if (rememberChatEvent(recentEvents, event)) markOpenThreadOverflow(resyncCtrl);
         applyDecision(decision);
         if (decision.gap?.recommend === "resync") void resyncFromSnapshot();
       }

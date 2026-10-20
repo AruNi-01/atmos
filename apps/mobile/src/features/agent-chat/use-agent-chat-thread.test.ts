@@ -45,7 +45,16 @@ describe("useAgentChatThread restore", () => {
     expect(thread.indexOf("pump.isHydrateGeneration(generation)")).toBeLessThan(
       thread.indexOf("applyAgentChatResync(chatId, snapshot, recentEvents)"),
     );
-    expect(thread.indexOf("pump.ingest(event)")).toBeLessThan(thread.indexOf("rememberChatEvent("));
+    expect(thread).toContain("pump.ingest(event)");
+    expect(thread).toContain("rememberChatEvent(recentEvents, decision.event)");
+    expect(thread.indexOf("const applyDecision")).toBeLessThan(
+      thread.indexOf("rememberChatEvent(recentEvents, decision.event)"),
+    );
+    const ingestAt = thread.indexOf("const decision = pump.ingest(event)");
+    const ingestApplyAt = thread.indexOf("applyDecision(decision);", ingestAt);
+    expect(ingestAt).toBeGreaterThan(-1);
+    expect(ingestApplyAt).toBeGreaterThan(ingestAt);
+    expect(thread.slice(ingestAt, ingestApplyAt)).not.toContain("rememberChatEvent");
     expect(thread).toContain("prev === copy.sendFailed ? prev : null");
     const resyncAt = thread.indexOf("parseAgentChatResync(message)");
     const publishAt = thread.indexOf("applyOpenThreadResync({");

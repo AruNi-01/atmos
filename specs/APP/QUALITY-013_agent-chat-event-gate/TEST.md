@@ -136,7 +136,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 ### S17–S18 — Web
 
 - **Level**: Unit
-- **Then**: `eventPump.startHydrate` before get; `finishHydrate` before `subscribe(id, eventPump.cursor)`; `shouldResyncFromServer` on subscribe `last_event_seq`. Fold corpus still passes.
+- **Then**: `eventPump.startHydrate` before get; `finishHydrate` before `subscribe(id, eventPump.cursor)`; `shouldResyncFromServer` on subscribe `last_event_seq`. Hydrate continuation uses `hydrateStale` (`cancelled` or `id !== activeIdRef.current`) and ignores aborted `load()` (`snapshotSeq == null`). Fold corpus still passes.
 - **Signals**: `indexOf` order; bun test pass.
 
 ### S19 — Façade `agent_chat_resync` reuses the EventGate floor
@@ -144,7 +144,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 - **Level**: Unit
 - **Given**: QUALITY-012 `agent_chat_resync` after #324 (`ad35a233`) is on `main`.
 - **When**: the open-thread hook receives the façade message.
-- **Then**: it parses `chat_id`, publishes through `applyOpenThreadResync`, and `applySnapshot` calls `pump.finishHydrate(seq)` → `observeSnapshot`. A later lower seq cannot recede the floor. Live events buffered during that hydrate drain through the same gate.
+- **Then**: it parses `chat_id`, publishes through `applyOpenThreadResync`, and `applySnapshot` calls `pump.finishHydrate(seq)` → `observeSnapshot`. A later lower seq cannot recede the floor. Live events buffered during that hydrate drain through the same gate; drain `apply` decisions are remembered for the next snapshot replay.
 - **Signals**: hook source strings; `event-pump.test.ts` façade snapshot tests.
 
 ## Performance & load budgets
