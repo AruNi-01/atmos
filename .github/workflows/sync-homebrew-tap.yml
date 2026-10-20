@@ -51,19 +51,24 @@ jobs:
       - name: Resolve release tag
         id: release
         shell: bash
+        env:
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+          WORKFLOW_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.release_tag }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$RELEASE_TAG_INPUT"
             if [ -z "$TAG" ]; then
               echo "release_tag is required when running manually."
               exit 1
             fi
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            TAG="${{ github.event.workflow_run.head_branch }}"
+          elif [ "$EVENT_NAME" = "workflow_run" ]; then
+            TAG="$WORKFLOW_HEAD_BRANCH"
           else
-            TAG="${{ github.event.release.tag_name }}"
+            TAG="$RELEASE_TAG_NAME"
           fi
 
           # Prefer Electron production tags; keep legacy Tauri `desktop-*`.
@@ -80,7 +85,7 @@ jobs:
           # overwrite the stable cask. workflow_dispatch is always allowed
           # because the operator opts in explicitly. The release-event path
           # is already filtered by github.event.release.prerelease at job level.
-          if [ "${{ github.event_name }}" = "workflow_run" ] && [[ "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
+          if [ "$EVENT_NAME" = "workflow_run" ] && [[ "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
             echo "Detected prerelease tag $TAG; skipping Homebrew tap sync."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -101,11 +106,12 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           mkdir -p tap/Casks
           cd source
           node scripts/homebrew/generate-cask.mjs \
-            --tag "${{ steps.release.outputs.tag }}" \
+            --tag "$RELEASE_TAG" \
             --owner "${SOURCE_REPO%%/*}" \
             --repo "${SOURCE_REPO##*/}" \
             --token atmos \
@@ -163,6 +169,8 @@ jobs:
       - name: Commit and push tap update
         if: steps.release.outputs.skip != 'true'
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           cd homebrew-tap
 
@@ -177,5 +185,5 @@ jobs:
           fi
 
           git add README.md "${CASK_PATH}"
-          git commit -m "atmos ${{ steps.release.outputs.version }}"
+          git commit -m "atmos $RELEASE_VERSION"
           git push origin HEAD:main

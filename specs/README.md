@@ -174,6 +174,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **QUALITY-011**      | Mobile iOS 27 UIScene lifecycle (cold start; deep links still reach `RCTLinkingManager`)                                                                                                        | `specs/APP/QUALITY-011_mobile-ios-scene-lifecycle/` (`TECH.md`, `TEST.md`)                                                              |
 | **QUALITY-012**      | Mobile WebSocket lifecycle (timeout, heartbeat ping-pong, slow_retry, AppState/network pause, `retryNow`, `relay_ctrl` resubscribe + snapshot resync)                                           | `specs/APP/QUALITY-012_mobile-ws-lifecycle/` (`TECH.md`, `TEST.md`)                                                                     |
 | **QUALITY-014**      | Agent transcript linear path scans (replace CodeQL-high `present.ts` slash/colon regexes; port of #317 `2b1f66b82` only)                                                                        | `specs/APP/QUALITY-014_agent-transcript-linear-scans/` (`TECH.md`, `TEST.md`)                                                           |
+| **QUALITY-015**      | Local API exposure hardening (unset token denies non-loopback and refuses a non-loopback bind, `/api/system/file` canonical prefix check, workflow shell env)                                   | `specs/APP/QUALITY-015_local-api-exposure-hardening/` (`TECH.md`, `TEST.md`)                                                            |
 
 ### Landing
 

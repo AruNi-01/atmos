@@ -897,7 +897,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .merge(destructive)
         .merge(protected)
         .with_state(app_state)
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<_>| {
+                middleware::http_access_span(request)
+            }),
+        )
         .layer(map_response(add_private_network_header))
         .layer(cors)
         .layer(from_fn(move |headers, req, next| {
@@ -927,6 +931,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .service(serve_dir);
             app = app.fallback_service(serve_static);
         }
+    }
+
+    if let Err(error) = server_config.ensure_exposed_bind_has_token() {
+        tracing::error!("{error}");
+        return Err(error.into());
     }
 
     let addr = server_config.socket_addr();

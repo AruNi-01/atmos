@@ -33,8 +33,10 @@ function looksBinary(text: string): boolean {
 
 /**
  * When a Read tool result has a path but no usable embedded content, load the
- * local file via /api/system/file — including absolute paths outside the
- * current workspace. Image files render a compact thumbnail (click to enlarge).
+ * local file via /api/system/file. The API serves that path only when it is
+ * under a project, worktree, agent-data, or operator allowlist root, or it is
+ * the stored project logo. Any other path is non-OK, and this preview shows
+ * the missing state. Image files render a compact thumbnail (click to enlarge).
  *
  * Write/Edit results must not use this path: they prefer patch/diff bodies when
  * available, and must not fetch the whole file as the primary preview.

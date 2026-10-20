@@ -53,25 +53,31 @@ jobs:
       - name: Resolve release tag
         id: resolve
         shell: bash
+        env:
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+          WORKFLOW_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.release_tag }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$RELEASE_TAG_INPUT"
             if [ -z "$TAG" ]; then
               echo "release_tag is required when running manually." >&2
               exit 1
             fi
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            TAG="${{ github.event.workflow_run.head_branch }}"
+          elif [ "$EVENT_NAME" = "workflow_run" ]; then
+            TAG="$WORKFLOW_HEAD_BRANCH"
           else
-            TAG="${{ github.event.release.tag_name }}"
+            TAG="$RELEASE_TAG_NAME"
           fi
 
           SKIP_ASSETS=false
           # desktop-electron-* is production; desktop-* is legacy Tauri.
           if [[ ! "$TAG" =~ ^(desktop-electron|desktop|cli|local-web-runtime)-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "workflow_run" ]; then
               echo "Unsupported release tag: $TAG" >&2
               exit 1
             fi
@@ -91,7 +97,7 @@ jobs:
             local-web-runtime-*) VERSION="${TAG#local-web-runtime-}" ;;
           esac
 
-          if [ "${{ github.event_name }}" = "release" ] && [ "${{ github.event.release.prerelease }}" = "true" ]; then
+          if [ "$EVENT_NAME" = "release" ] && [ "$RELEASE_PRERELEASE" = "true" ]; then
             SKIP_ASSETS=true
           fi
           if [[ "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
@@ -100,7 +106,7 @@ jobs:
 
           # workflow_dispatch opts in explicitly, but R2 latest paths only accept
           # stable calendar versions. Fail loudly instead of silently no-op'ing.
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SKIP_ASSETS" = "true" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$SKIP_ASSETS" = "true" ]; then
             echo "R2 sync only accepts stable calendar tags for asset upload. Got: $TAG" >&2
             exit 1
           fi

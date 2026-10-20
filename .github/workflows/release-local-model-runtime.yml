@@ -40,6 +40,12 @@ jobs:
       - uses: actions/checkout@v5
       - id: resolve
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CREATE_RELEASE: ${{ github.event.inputs.create_release }}
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+          LLAMA_CPP_REF: ${{ github.event.inputs.llama_cpp_ref }}
+          PRERELEASE_INPUT: ${{ github.event.inputs.prerelease }}
         run: |
           set -euo pipefail
           validate_tag() {
@@ -50,7 +56,7 @@ jobs:
             fi
           }
 
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "$EVENT_NAME" = "push" ]; then
             validate_tag "${GITHUB_REF_NAME}"
             echo "create_release=true" >> $GITHUB_OUTPUT
             echo "release_tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
@@ -58,9 +64,9 @@ jobs:
             echo "llama_cpp_ref=b9041" >> $GITHUB_OUTPUT
             echo "prerelease=false" >> $GITHUB_OUTPUT
           else
-            echo "create_release=${{ github.event.inputs.create_release }}" >> $GITHUB_OUTPUT
-            release_tag="${{ github.event.inputs.release_tag }}"
-            if [ "${{ github.event.inputs.create_release }}" = "true" ] && [ -z "$release_tag" ]; then
+            echo "create_release=$CREATE_RELEASE" >> $GITHUB_OUTPUT
+            release_tag="$RELEASE_TAG_INPUT"
+            if [ "$CREATE_RELEASE" = "true" ] && [ -z "$release_tag" ]; then
               echo "release_tag is required when create_release=true" >&2
               exit 1
             fi
@@ -69,8 +75,8 @@ jobs:
             fi
             echo "release_tag=${release_tag}" >> $GITHUB_OUTPUT
             echo "release_version=${release_tag#local-model-runtime-}" >> $GITHUB_OUTPUT
-            echo "llama_cpp_ref=${{ github.event.inputs.llama_cpp_ref }}" >> $GITHUB_OUTPUT
-            echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_OUTPUT
+            echo "llama_cpp_ref=$LLAMA_CPP_REF" >> $GITHUB_OUTPUT
+            echo "prerelease=$PRERELEASE_INPUT" >> $GITHUB_OUTPUT
           fi
 
   create-release:
