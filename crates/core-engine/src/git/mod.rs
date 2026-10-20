@@ -35,6 +35,22 @@ fn run_git_with_ceiling(repo_path: &Path, args: &[&str], ceiling: Option<&Path>)
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
 
+/// Config overrides for the git-blob subprocesses.
+///
+/// `protocol.allow` does not override a local `protocol.<name>.allow`, so the
+/// built-in transports are locked individually. `core.fsmonitor=false` overrides
+/// a command in the repository config.
+const GIT_BLOB_LOCKED_CONFIG: &[&str] = &[
+    "protocol.allow=never",
+    "protocol.file.allow=never",
+    "protocol.ext.allow=never",
+    "protocol.ssh.allow=never",
+    "protocol.http.allow=never",
+    "protocol.https.allow=never",
+    "protocol.git.allow=never",
+    "core.fsmonitor=false",
+];
+
 /// Run a git command and return raw stdout bytes on success.
 fn run_git_bytes_with_ceiling(
     repo_path: &Path,
@@ -42,13 +58,17 @@ fn run_git_bytes_with_ceiling(
     ceiling: Option<&Path>,
 ) -> Result<Vec<u8>> {
     let mut command = Command::new("git");
-    command.current_dir(repo_path).args(args);
+    command.current_dir(repo_path);
     if let Some(ceiling) = ceiling {
         // Git stops the upward repository search before entering this directory.
         // The git-blob path is the only caller that sets a ceiling. It also drops
         // inherited repository-location variables so a parent `GIT_DIR` cannot
         // redirect the read. Following a `.git` gitdir file is not a ceiling walk.
+        // `GIT_NO_LAZY_FETCH` stops a promisor remote in local config from fetching
+        // or running `ext::` / `core.sshCommand`. The `-c` values override that
+        // config for transports and fsmonitor.
         command.env("GIT_CEILING_DIRECTORIES", ceiling);
+        command.env("GIT_NO_LAZY_FETCH", "1");
         for key in [
             "GIT_DIR",
             "GIT_WORK_TREE",
@@ -58,7 +78,11 @@ fn run_git_bytes_with_ceiling(
         ] {
             command.env_remove(key);
         }
+        for setting in GIT_BLOB_LOCKED_CONFIG {
+            command.arg("-c").arg(setting);
+        }
     }
+    command.args(args);
     let output = command.output().map_err(|e| {
         EngineError::Git(format!(
             "Failed to execute git {}: {}",

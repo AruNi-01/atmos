@@ -37,6 +37,9 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 | M1. Alternates nested past git's depth are 403                           | S23          |
 | M1. An unparseable alternates line is 403                                | S24          |
 | M1. A cycle in alternates is 403                                         | S25          |
+| M1. A promisor `file://` remote does not supply an outside blob          | S26          |
+| M1. `ext::` and `core.sshCommand` do not run                             | S27          |
+| M1. `core.fsmonitor` does not run on an index blob                       | S28          |
 | M1. A missing blob in an allowed repo stays 404                          | S1           |
 | M3. File-serve allowlist behavior unchanged                              | S12          |
 | M3. Lint cap unchanged                                                   | S13          |
@@ -70,6 +73,9 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 | S23      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_nesting_exceeds_git_depth`    | alternates file at depth 6; blob also exists locally                                     | 403; body is not the local blob                                      | pass   |
 | S24      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_line_is_unparseable`          | local blob; alternates line is an unterminated quote                                     | 403; body is not the local blob                                      | pass   |
 | S25      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_form_a_cycle`                 | borrower and a second in-root store name each other                                      | 403; body is not the local blob                                      | pass   |
+| S26      | Rust unit | `cargo test -p api` | `does_not_lazy_fetch_promisor_file_outside_allowlist`           | promisor `file://` outside repo; local `protocol.file.allow=always`; blob absent locally | 404; body has no secret; no loose object and no pack                 | pass   |
+| S27      | Rust unit | `cargo test -p api` | `does_not_run_promisor_ext_or_ssh_command`                      | promisor `ext::touch <marker>`; `core.sshCommand` touches a second marker                | 404; neither marker file exists                                      | pass   |
+| S28      | Rust unit | `cargo test -p api` | `does_not_run_fsmonitor_command_for_index_blob`                 | `core.fsmonitor` touches a marker; request is `:note.txt`                                | 200 and the staged bytes; marker file does not exist                 | pass   |
 
 ## Scenarios
 
@@ -273,6 +279,30 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - **Then**: status is 403 and the body is not the local blob. A path already on the walk stack is a cycle, not a successful revisit.
 - **Signals**: status and body.
 
+### S26 — Promisor `file://` does not read an outside object
+
+- **Level**: Unit
+- **Given**: an outside repo has a committed secret. An allowlisted repo has that commit and tree, but not the blob. Its config sets `remote.origin.promisor=true`, `url=file://` to the outside repo, and `protocol.file.allow=always`.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 404. The body does not contain the secret. The blob is still not a loose object, and no pack file was written.
+- **Signals**: status, body, and the object store.
+
+### S27 — `ext::` and `core.sshCommand` do not run
+
+- **Level**: Unit
+- **Given**: the same missing-blob layout. The promisor URL is `ext::touch <marker>`. Local config sets `protocol.ext.allow=always`, `protocol.ssh.allow=always`, and `core.sshCommand` to `touch` a second marker.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 404. Neither marker file exists.
+- **Signals**: status and the two marker paths.
+
+### S28 — `core.fsmonitor` does not run for an index blob
+
+- **Level**: Unit
+- **Given**: an allowlisted repo has `note.txt` staged. `core.fsmonitor` is `touch <marker>`.
+- **When**: `rev` is `:note.txt`.
+- **Then**: status is 200 and the body is the staged bytes. The marker file does not exist.
+- **Signals**: status, body, and the marker path.
+
 ## Regression checklist
 
 - [x] `serve_allowed_file` still 403s a symlink that leaves its root, and still 200s an in-root file.
@@ -292,6 +322,9 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - [x] An alternates file nested past git's depth is 403.
 - [x] An unparseable alternates line is 403.
 - [x] An alternates cycle is 403.
+- [x] A promisor `file://` remote does not return an outside blob and does not write a pack.
+- [x] An `ext::` promisor command and `core.sshCommand` do not run.
+- [x] `core.fsmonitor` does not run when an index blob is read.
 - [x] A missing blob in an allowed repo is 404, not 403.
 
 ## Exploratory agent-browser checks
@@ -318,6 +351,9 @@ Omitted. This endpoint has no new screen, label, or client flow.
 - [x] S23 passes: alternates nested past depth 5 are 403.
 - [x] S24 passes: an unparseable alternates line is 403.
 - [x] S25 passes: an alternates cycle is 403.
+- [x] S26 passes: a promisor `file://` fetch does not return the outside blob.
+- [x] S27 passes: `ext::` and `core.sshCommand` do not create their marker files.
+- [x] S28 passes: `core.fsmonitor` does not create its marker file, and the index blob is still served.
 - [x] No new REST route.
 - [x] Coverage Status names the commands that ran and any command that did not run.
 
@@ -331,13 +367,16 @@ None. The handler tests observe status and body without a browser.
 - The 500 path when `list_projects` fails. Git-blob calls the same `allowlist_for_state` as file serve; tests pass the allowlist in directly.
 - A live `git` binary other than the one on the test runner. Tests skip nothing when `git` is missing; they fail.
 - Windows symlink privileges. The symlink cases use `std::os::unix::fs::symlink`, same as the file-serve tests.
-- Replacing `objects/info/alternates` after the check and before `cat-file`. That remains the existing canonicalize-then-`git` TOCTOU window.
+- Replacing `objects/info/alternates` or `.git/config` after the check and before `cat-file`. That remains the existing canonicalize-then-`git` TOCTOU window.
+- Global and system git config. They are the operator's. The tests do not set `GIT_CONFIG_NOSYSTEM` or `GIT_CONFIG_GLOBAL`. Command-line `-c` still overrides them for the locked keys.
+- A custom remote helper other than `ext`, `ssh`, `file`, `http`, `https`, and `git`. `GIT_NO_LAZY_FETCH=1` is what stops that fetch. There is no per-helper test.
+- `core.hooksPath`, textconv, and smudge. On git 2.43, `rev-parse --verify :path` and `cat-file blob` did not run the hooks that were probed, and plain `cat-file blob` did not run textconv or smudge. Those probes were not turned into API tests.
 
 ## Coverage Status
 
 2026-10-20. Handler tests live in `apps/api/src/api/system/files.rs`.
 
-- S1–S12, S14–S25 — pass. `cargo test -p api --bin api` (140 unit tests, including every `api::system::files::tests` case). Allowed repo (missing blob stays 404), repo-as-root, outside path, `..`, symlink escape, in-root symlink, sibling prefix, filesystem root, exact logo file, unsafe rev/path, index spec, 8 MiB + 1, ancestor discovery (`rejects_git_blob_discovered_above_allowlist`), external `gitdir:` (`rejects_git_blob_external_gitdir_file`), in-root linked worktree (`serves_linked_worktree_whose_git_dir_stays_inside_root`), cross-root worktree (`serves_worktree_under_workspaces_with_git_dir_in_project_root`), external `commondir` (`rejects_git_blob_when_commondir_is_outside_allowlist`), inherited `GIT_DIR` (`ignores_inherited_git_dir_for_allowlisted_repo` plus `git_dir_env_probe`), outside alternate (`rejects_git_blob_alternate_outside_allowlist`), in-allowlist alternate (`serves_git_blob_from_allowlisted_alternate`), nested outside alternate (`rejects_git_blob_when_nested_alternate_is_outside_allowlist`), depth 6 (`rejects_git_blob_when_alternates_nesting_exceeds_git_depth`), unparseable quote (`rejects_git_blob_when_alternates_line_is_unparseable` plus `parses_git_alternate_quoting`), alternates cycle (`rejects_git_blob_when_alternates_form_a_cycle`), and the existing file-serve cases all passed.
+- S1–S12, S14–S28 — pass. `cargo test -p api --bin api` (143 unit tests, including every `api::system::files::tests` case). Allowed repo (missing blob stays 404), repo-as-root, outside path, `..`, symlink escape, in-root symlink, sibling prefix, filesystem root, exact logo file, unsafe rev/path, index spec, 8 MiB + 1, ancestor discovery (`rejects_git_blob_discovered_above_allowlist`), external `gitdir:` (`rejects_git_blob_external_gitdir_file`), in-root linked worktree (`serves_linked_worktree_whose_git_dir_stays_inside_root`), cross-root worktree (`serves_worktree_under_workspaces_with_git_dir_in_project_root`), external `commondir` (`rejects_git_blob_when_commondir_is_outside_allowlist`), inherited `GIT_DIR` (`ignores_inherited_git_dir_for_allowlisted_repo` plus `git_dir_env_probe`), outside alternate (`rejects_git_blob_alternate_outside_allowlist`), in-allowlist alternate (`serves_git_blob_from_allowlisted_alternate`), nested outside alternate (`rejects_git_blob_when_nested_alternate_is_outside_allowlist`), depth 6 (`rejects_git_blob_when_alternates_nesting_exceeds_git_depth`), unparseable quote (`rejects_git_blob_when_alternates_line_is_unparseable` plus `parses_git_alternate_quoting`), alternates cycle (`rejects_git_blob_when_alternates_form_a_cycle`), promisor `file://` (`does_not_lazy_fetch_promisor_file_outside_allowlist`), `ext::` / `core.sshCommand` (`does_not_run_promisor_ext_or_ssh_command`), `core.fsmonitor` (`does_not_run_fsmonitor_command_for_index_blob`), and the existing file-serve cases all passed.
 - `cargo test -p core-engine --lib show_git_blob` — pass (2). `show_git_blob_bytes` still rejects an option-like spec and still reads an index blob. Ceiling is not set on that path.
 - S13 — pass by inspection. `package.json` `lint` is still `oxlint --max-warnings=455`. `.oxlintrc.jsonc` was not edited.
 - `cargo clippy -p core-engine -p api --all-targets --all-features -- -D warnings` passed.

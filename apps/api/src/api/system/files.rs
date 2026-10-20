@@ -1465,6 +1465,53 @@ mod tests {
         objects_dir(repo).join(prefix).join(rest).exists()
     }
 
+    fn copy_loose_object(from: &Path, to: &Path, oid: &str) {
+        let (prefix, rest) = oid.split_at(2);
+        let dest_dir = objects_dir(to).join(prefix);
+        std::fs::create_dir_all(&dest_dir).unwrap();
+        std::fs::copy(
+            objects_dir(from).join(prefix).join(rest),
+            dest_dir.join(rest),
+        )
+        .unwrap();
+    }
+
+    fn configure_promisor(repo: &Path, url: &str) {
+        git(repo, &["config", "remote.origin.url", url]);
+        git(repo, &["config", "remote.origin.promisor", "true"]);
+        git(
+            repo,
+            &["config", "remote.origin.partialclonefilter", "blob:none"],
+        );
+        git(repo, &["config", "extensions.partialclone", "origin"]);
+    }
+
+    fn pack_file_exists(repo: &Path) -> bool {
+        let pack = objects_dir(repo).join("pack");
+        std::fs::read_dir(pack).is_ok_and(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .any(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("pack"))
+        })
+    }
+
+    /// Commit and tree are present. The blob object is not, so only a promisor
+    /// fetch can supply it.
+    fn repo_missing_blob(repo: &Path, source: &Path) -> String {
+        init_repo(repo);
+        let commit = git_stdout(source, &["rev-parse", "HEAD"]);
+        let tree = git_stdout(source, &["rev-parse", "HEAD^{tree}"]);
+        let blob = git_stdout(source, &["rev-parse", "HEAD:s.txt"]);
+        let commit = commit.trim();
+        let tree = tree.trim();
+        let blob = blob.trim();
+        copy_loose_object(source, repo, commit);
+        copy_loose_object(source, repo, tree);
+        git(repo, &["update-ref", "HEAD", commit]);
+        assert!(!loose_object_exists(repo, blob));
+        blob.to_string()
+    }
+
     #[test]
     fn parses_git_alternate_quoting() {
         assert_eq!(parse_alternate_line("").unwrap(), None);
@@ -1637,5 +1684,89 @@ mod tests {
             git_blob_status_and_body(&repo, "HEAD", "hello.txt", &roots(&[workspace])).await;
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert_ne!(body, b"local-blob");
+    }
+
+    #[tokio::test]
+    async fn does_not_lazy_fetch_promisor_file_outside_allowlist() {
+        let tree = TempTree::new("git-promisor");
+        let outside = tree.path().join("outside");
+        init_repo(&outside);
+        let secret = b"promisor-file-secret-9f3a";
+        commit_bytes(&outside, "s.txt", secret);
+        let workspace = tree.path().join("ws");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let repo = workspace.join("repo");
+        let blob = repo_missing_blob(&repo, &outside);
+        let url = format!("file://{}", outside.display());
+        configure_promisor(&repo, &url);
+        git(&repo, &["config", "protocol.file.allow", "always"]);
+
+        let (status, body) =
+            git_blob_status_and_body(&repo, "HEAD", "s.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert!(!body_contains(&body, secret));
+        assert!(!loose_object_exists(&repo, &blob));
+        assert!(
+            !pack_file_exists(&repo),
+            "promisor fetch must not write a pack"
+        );
+    }
+
+    #[tokio::test]
+    async fn does_not_run_promisor_ext_or_ssh_command() {
+        let tree = TempTree::new("git-ext");
+        let outside = tree.path().join("outside");
+        init_repo(&outside);
+        commit_bytes(&outside, "s.txt", b"ext-secret-not-local");
+        let workspace = tree.path().join("ws");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let repo = workspace.join("repo");
+        repo_missing_blob(&repo, &outside);
+        let ext_marker = tree.path().join("ext-ran");
+        let ssh_marker = tree.path().join("ssh-ran");
+        configure_promisor(&repo, &format!("ext::touch {}", ext_marker.display()));
+        git(&repo, &["config", "protocol.ext.allow", "always"]);
+        git(&repo, &["config", "protocol.ssh.allow", "always"]);
+        git(
+            &repo,
+            &[
+                "config",
+                "core.sshCommand",
+                &format!("touch {}", ssh_marker.display()),
+            ],
+        );
+
+        let (status, body) =
+            git_blob_status_and_body(&repo, "HEAD", "s.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert!(!body_contains(&body, b"ext-secret-not-local"));
+        assert!(!ext_marker.exists(), "ext:: command must not run");
+        assert!(!ssh_marker.exists(), "core.sshCommand must not run");
+    }
+
+    #[tokio::test]
+    async fn does_not_run_fsmonitor_command_for_index_blob() {
+        let tree = TempTree::new("git-fsmonitor");
+        let workspace = tree.path().join("ws");
+        let repo = workspace.join("repo");
+        init_repo(&repo);
+        commit_bytes(&repo, "keep.txt", b"anchor");
+        std::fs::write(repo.join("note.txt"), b"staged-note").unwrap();
+        git(&repo, &["add", "--", "note.txt"]);
+        let marker = tree.path().join("fsmonitor-ran");
+        git(
+            &repo,
+            &[
+                "config",
+                "core.fsmonitor",
+                &format!("touch {}", marker.display()),
+            ],
+        );
+
+        let (status, body) =
+            git_blob_status_and_body(&repo, ":note.txt", "", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, b"staged-note");
+        assert!(!marker.exists(), "core.fsmonitor command must not run");
     }
 }
