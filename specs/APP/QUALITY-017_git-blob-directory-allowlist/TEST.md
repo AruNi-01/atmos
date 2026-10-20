@@ -13,69 +13,84 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 
 ## Coverage map
 
-| Requirement                                                              | Scenario IDs |
-| ------------------------------------------------------------------------ | ------------ |
-| M1. Repo inside a directory root returns the blob                        | S1, S2       |
-| M1. Repo outside the roots is 403 and body is not the blob               | S3           |
-| M1. `..` that leaves the roots is 403                                    | S4           |
-| M1. Symlink whose target repo is outside is 403 and body is not the blob | S5           |
-| M1. Symlink whose target repo stays inside still returns the blob        | S6           |
-| M1. Sibling prefix and filesystem root do not allow a repo               | S7           |
-| M1. Exact logo files do not authorize git-blob                           | S8           |
-| M2. Unsafe rev, path, and index spec stay 400                            | S9           |
-| M2. A safe index spec on an allowed repo still returns the blob          | S10          |
-| M2. Blob larger than 8 MiB is 413                                        | S11          |
-| M1. Git does not discover an ancestor repo above the matched root        | S14          |
-| M1. A `.git` file with `gitdir:` outside the root is 403                 | S15          |
-| M1. A linked worktree whose git dir stays in that same root still serves | S16          |
-| M1. A worktree under one root whose git dir is in another root is served | S17          |
-| M1. `commondir` outside every directory root is 403                      | S18          |
-| M1. Inherited `GIT_DIR` does not redirect the blob                       | S19          |
-| M1. `objects/info/alternates` outside the allowlist is 403               | S20          |
-| M1. An alternate inside the allowlist can supply the blob                | S21          |
-| M1. A nested alternate outside the allowlist is 403                      | S22          |
-| M1. Alternates nested past git's depth are 403                           | S23          |
-| M1. An unparseable alternates line is 403                                | S24          |
-| M1. A cycle in alternates is 403                                         | S25          |
-| M1. A promisor `file://` remote does not supply an outside blob          | S26          |
-| M1. `ext::` and `core.sshCommand` do not run                             | S27          |
-| M1. `core.fsmonitor` does not run on an index blob                       | S28          |
-| M1. A missing blob in an allowed repo stays 404                          | S1           |
-| M3. File-serve allowlist behavior unchanged                              | S12          |
-| M3. Lint cap unchanged                                                   | S13          |
+| Requirement                                                                    | Scenario IDs |
+| ------------------------------------------------------------------------------ | ------------ |
+| M1. Repo inside a directory root returns the blob                              | S1, S2       |
+| M1. Repo outside the roots is 403 and body is not the blob                     | S3           |
+| M1. `..` that leaves the roots is 403                                          | S4           |
+| M1. Symlink whose target repo is outside is 403 and body is not the blob       | S5           |
+| M1. Symlink whose target repo stays inside still returns the blob              | S6           |
+| M1. Sibling prefix and filesystem root do not allow a repo                     | S7           |
+| M1. Exact logo files do not authorize git-blob                                 | S8           |
+| M2. Unsafe rev, path, and index spec stay 400                                  | S9           |
+| M2. A safe index spec on an allowed repo still returns the blob                | S10          |
+| M2. Blob larger than 8 MiB is 413                                              | S11          |
+| M1. Git does not discover an ancestor repo above the matched root              | S14          |
+| M1. A `.git` file with `gitdir:` outside the root is 403                       | S15          |
+| M1. A linked worktree whose git dir stays in that same root still serves       | S16          |
+| M1. A worktree under one root whose git dir is in another root is served       | S17          |
+| M1. `commondir` outside every directory root is 403                            | S18          |
+| M1. Inherited `GIT_DIR` does not redirect the blob                             | S19          |
+| M1. `objects/info/alternates` outside the allowlist is 403                     | S20          |
+| M1. An alternate inside the allowlist can supply the blob                      | S21          |
+| M1. A nested alternate outside the allowlist is 403                            | S22          |
+| M1. Alternates nested past git's depth are 403                                 | S23          |
+| M1. An unparseable alternates line is 403                                      | S24          |
+| M1. A cycle in alternates is 403                                               | S25          |
+| M1. A promisor `file://` remote is 403 and does not supply an outside blob     | S26          |
+| M1. `ext::` and `core.sshCommand` do not run                                   | S27          |
+| M1. `core.fsmonitor` does not run on an index blob                             | S28          |
+| M1. Promisor `ftp` / `ftps` / `fd` / `foo::` is 403 when lazy fetch is ignored | S29–S32      |
+| M1. `extensions.partialClone` alone is 403                                     | S33          |
+| M1. Promisor via `include`, `includeIf`, or worktree config is 403             | S34–S36      |
+| M1. `remote.*.promisor=false` still serves a local blob                        | S37          |
+| M1. Unreadable repository config is 403                                        | S38          |
+| M1. A missing blob in an allowed repo stays 404                                | S1           |
+| M3. File-serve allowlist behavior unchanged                                    | S12          |
+| M3. Lint cap unchanged                                                         | S13          |
 
 ## Execution map
 
-| Scenario | Level     | Expected tool       | Target command / method                                         | Fixture / data                                                                           | Signals                                                              | Status |
-| -------- | --------- | ------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------ |
-| S1       | Rust unit | `cargo test -p api` | `serves_git_blob_inside_allowlisted_directory`                  | temp git repo; parent dir is the only root                                               | 200 and committed bytes; missing path 404                            | pass   |
-| S2       | Rust unit | `cargo test -p api` | `serves_git_blob_when_repo_itself_is_the_root`                  | temp git repo; the repo path is the root                                                 | 200 and committed bytes                                              | pass   |
-| S3       | Rust unit | `cargo test -p api` | `rejects_git_blob_outside_allowlist`                            | second repo outside the root                                                             | 403; body has no secret bytes                                        | pass   |
-| S4       | Rust unit | `cargo test -p api` | `rejects_git_blob_dotdot_escape`                                | `root/../outside-repo`                                                                   | 403; body has no secret bytes                                        | pass   |
-| S5       | Rust unit | `cargo test -p api` | `rejects_git_blob_symlink_escape`                               | symlink inside root → outside repo                                                       | 403; body has no secret bytes                                        | pass   |
-| S6       | Rust unit | `cargo test -p api` | `serves_git_blob_symlink_inside_root`                           | symlink inside root → repo inside root                                                   | 200 and committed bytes                                              | pass   |
-| S7       | Rust unit | `cargo test -p api` | `rejects_git_blob_sibling_prefix_and_filesystem_root`           | `workspace-evil` repo; allowlist `/`                                                     | 403                                                                  | pass   |
-| S8       | Rust unit | `cargo test -p api` | `ignores_exact_logo_file_for_git_blob`                          | repo path listed only in `exact_files`                                                   | 403                                                                  | pass   |
-| S9       | Rust unit | `cargo test -p api` | `rejects_unsafe_rev_and_path`                                   | allowed repo; `--output=…`, `../x`, `:../x`, relative repo                               | 400                                                                  | pass   |
-| S10      | Rust unit | `cargo test -p api` | `serves_index_blob_inside_allowlist`                            | allowed repo; staged `:note.txt`                                                         | 200 and staged bytes                                                 | pass   |
-| S11      | Rust unit | `cargo test -p api` | `rejects_git_blob_over_size_cap`                                | allowed repo; file of 8 MiB + 1                                                          | 413 `Blob too large`; body is not the file                           | pass   |
-| S12      | Rust unit | `cargo test -p api` | existing `serve_allowed_file` tests                             | temp files from QUALITY-015                                                              | same 200 / 403 / 404 / 400 as before                                 | pass   |
-| S13      | Toolchain | shell               | read `package.json` `lint`                                      | repo `package.json`                                                                      | script is `oxlint --max-warnings=455`                                | pass   |
-| S14      | Rust unit | `cargo test -p api` | `rejects_git_blob_discovered_above_allowlist`                   | ancestor repo at `home`; request `home/ws/sub`; root `ws`                                | 403; body has no secret bytes                                        | pass   |
-| S15      | Rust unit | `cargo test -p api` | `rejects_git_blob_external_gitdir_file`                         | `ws/sub/.git` is `gitdir:` to an outside repo                                            | 403; body has no secret bytes                                        | pass   |
-| S16      | Rust unit | `cargo test -p api` | `serves_linked_worktree_whose_git_dir_stays_inside_root`        | main repo and linked worktree under one root                                             | 200 and committed bytes                                              | pass   |
-| S17      | Rust unit | `cargo test -p api` | `serves_worktree_under_workspaces_with_git_dir_in_project_root` | project root and workspaces root; worktree checkout under workspaces                     | 200 and committed bytes; `.git` is a `gitdir:` file into the project | pass   |
-| S18      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_commondir_is_outside_allowlist`          | git dir inside the root; `commondir` points at an outside repo                           | 403; body has no secret bytes                                        | pass   |
-| S19      | Rust unit | `cargo test -p api` | `ignores_inherited_git_dir_for_allowlisted_repo`                | child process `GIT_DIR` points at a second allowlisted repo                              | 200 and the requested repo's bytes                                   | pass   |
-| S20      | Rust unit | `cargo test -p api` | `rejects_git_blob_alternate_outside_allowlist`                  | `git clone --shared` of an outside repo into the allowlist                               | 403; body has no secret bytes                                        | pass   |
-| S21      | Rust unit | `cargo test -p api` | `serves_git_blob_from_allowlisted_alternate`                    | shared clone; quoted relative `objects/info/alternates`; no loose object in the borrower | 200 and the alternate's bytes                                        | pass   |
-| S22      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_nested_alternate_is_outside_allowlist`   | borrower → inside alternate → outside object store                                       | 403; body has no secret bytes                                        | pass   |
-| S23      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_nesting_exceeds_git_depth`    | alternates file at depth 6; blob also exists locally                                     | 403; body is not the local blob                                      | pass   |
-| S24      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_line_is_unparseable`          | local blob; alternates line is an unterminated quote                                     | 403; body is not the local blob                                      | pass   |
-| S25      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_form_a_cycle`                 | borrower and a second in-root store name each other                                      | 403; body is not the local blob                                      | pass   |
-| S26      | Rust unit | `cargo test -p api` | `does_not_lazy_fetch_promisor_file_outside_allowlist`           | promisor `file://` outside repo; local `protocol.file.allow=always`; blob absent locally | 404; body has no secret; no loose object and no pack                 | pass   |
-| S27      | Rust unit | `cargo test -p api` | `does_not_run_promisor_ext_or_ssh_command`                      | promisor `ext::touch <marker>`; `core.sshCommand` touches a second marker                | 404; neither marker file exists                                      | pass   |
-| S28      | Rust unit | `cargo test -p api` | `does_not_run_fsmonitor_command_for_index_blob`                 | `core.fsmonitor` touches a marker; request is `:note.txt`                                | 200 and the staged bytes; marker file does not exist                 | pass   |
+| Scenario | Level     | Expected tool       | Target command / method                                         | Fixture / data                                                                                 | Signals                                                              | Status |
+| -------- | --------- | ------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------ |
+| S1       | Rust unit | `cargo test -p api` | `serves_git_blob_inside_allowlisted_directory`                  | temp git repo; parent dir is the only root                                                     | 200 and committed bytes; missing path 404                            | pass   |
+| S2       | Rust unit | `cargo test -p api` | `serves_git_blob_when_repo_itself_is_the_root`                  | temp git repo; the repo path is the root                                                       | 200 and committed bytes                                              | pass   |
+| S3       | Rust unit | `cargo test -p api` | `rejects_git_blob_outside_allowlist`                            | second repo outside the root                                                                   | 403; body has no secret bytes                                        | pass   |
+| S4       | Rust unit | `cargo test -p api` | `rejects_git_blob_dotdot_escape`                                | `root/../outside-repo`                                                                         | 403; body has no secret bytes                                        | pass   |
+| S5       | Rust unit | `cargo test -p api` | `rejects_git_blob_symlink_escape`                               | symlink inside root → outside repo                                                             | 403; body has no secret bytes                                        | pass   |
+| S6       | Rust unit | `cargo test -p api` | `serves_git_blob_symlink_inside_root`                           | symlink inside root → repo inside root                                                         | 200 and committed bytes                                              | pass   |
+| S7       | Rust unit | `cargo test -p api` | `rejects_git_blob_sibling_prefix_and_filesystem_root`           | `workspace-evil` repo; allowlist `/`                                                           | 403                                                                  | pass   |
+| S8       | Rust unit | `cargo test -p api` | `ignores_exact_logo_file_for_git_blob`                          | repo path listed only in `exact_files`                                                         | 403                                                                  | pass   |
+| S9       | Rust unit | `cargo test -p api` | `rejects_unsafe_rev_and_path`                                   | allowed repo; `--output=…`, `../x`, `:../x`, relative repo                                     | 400                                                                  | pass   |
+| S10      | Rust unit | `cargo test -p api` | `serves_index_blob_inside_allowlist`                            | allowed repo; staged `:note.txt`                                                               | 200 and staged bytes                                                 | pass   |
+| S11      | Rust unit | `cargo test -p api` | `rejects_git_blob_over_size_cap`                                | allowed repo; file of 8 MiB + 1                                                                | 413 `Blob too large`; body is not the file                           | pass   |
+| S12      | Rust unit | `cargo test -p api` | existing `serve_allowed_file` tests                             | temp files from QUALITY-015                                                                    | same 200 / 403 / 404 / 400 as before                                 | pass   |
+| S13      | Toolchain | shell               | read `package.json` `lint`                                      | repo `package.json`                                                                            | script is `oxlint --max-warnings=455`                                | pass   |
+| S14      | Rust unit | `cargo test -p api` | `rejects_git_blob_discovered_above_allowlist`                   | ancestor repo at `home`; request `home/ws/sub`; root `ws`                                      | 403; body has no secret bytes                                        | pass   |
+| S15      | Rust unit | `cargo test -p api` | `rejects_git_blob_external_gitdir_file`                         | `ws/sub/.git` is `gitdir:` to an outside repo                                                  | 403; body has no secret bytes                                        | pass   |
+| S16      | Rust unit | `cargo test -p api` | `serves_linked_worktree_whose_git_dir_stays_inside_root`        | main repo and linked worktree under one root                                                   | 200 and committed bytes                                              | pass   |
+| S17      | Rust unit | `cargo test -p api` | `serves_worktree_under_workspaces_with_git_dir_in_project_root` | project root and workspaces root; worktree checkout under workspaces                           | 200 and committed bytes; `.git` is a `gitdir:` file into the project | pass   |
+| S18      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_commondir_is_outside_allowlist`          | git dir inside the root; `commondir` points at an outside repo                                 | 403; body has no secret bytes                                        | pass   |
+| S19      | Rust unit | `cargo test -p api` | `ignores_inherited_git_dir_for_allowlisted_repo`                | child process `GIT_DIR` points at a second allowlisted repo                                    | 200 and the requested repo's bytes                                   | pass   |
+| S20      | Rust unit | `cargo test -p api` | `rejects_git_blob_alternate_outside_allowlist`                  | `git clone --shared` of an outside repo into the allowlist                                     | 403; body has no secret bytes                                        | pass   |
+| S21      | Rust unit | `cargo test -p api` | `serves_git_blob_from_allowlisted_alternate`                    | shared clone; quoted relative `objects/info/alternates`; no loose object in the borrower       | 200 and the alternate's bytes                                        | pass   |
+| S22      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_nested_alternate_is_outside_allowlist`   | borrower → inside alternate → outside object store                                             | 403; body has no secret bytes                                        | pass   |
+| S23      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_nesting_exceeds_git_depth`    | alternates file at depth 6; blob also exists locally                                           | 403; body is not the local blob                                      | pass   |
+| S24      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_line_is_unparseable`          | local blob; alternates line is an unterminated quote                                           | 403; body is not the local blob                                      | pass   |
+| S25      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_alternates_form_a_cycle`                 | borrower and a second in-root store name each other                                            | 403; body is not the local blob                                      | pass   |
+| S26      | Rust unit | `cargo test -p api` | `does_not_lazy_fetch_promisor_file_outside_allowlist`           | promisor `file://` outside repo; local `protocol.file.allow=always`; blob absent locally       | 403; body has no secret; no loose object and no pack                 | pass   |
+| S27      | Rust unit | `cargo test -p api` | `does_not_run_promisor_ext_or_ssh_command`                      | promisor `ext::touch <marker>`; `core.sshCommand` touches a second marker                      | 403; neither marker file exists                                      | pass   |
+| S28      | Rust unit | `cargo test -p api` | `does_not_run_fsmonitor_command_for_index_blob`                 | `core.fsmonitor` touches a marker; request is `:note.txt`                                      | 200 and the staged bytes; marker file does not exist                 | pass   |
+| S29      | Rust unit | `cargo test -p api` | `rejects_promisor_ftp_without_lazy_fetch_env`                   | promisor `ftp://`; `protocol.ftp.allow=always`; child omits `GIT_NO_LAZY_FETCH`; marker helper | 403; marker file does not exist                                      | pass   |
+| S30      | Rust unit | `cargo test -p api` | `rejects_promisor_ftps_without_lazy_fetch_env`                  | promisor `ftps://`; `protocol.ftps.allow=always`; child omits `GIT_NO_LAZY_FETCH`              | 403; marker file does not exist                                      | pass   |
+| S31      | Rust unit | `cargo test -p api` | `rejects_promisor_fd_without_lazy_fetch_env`                    | promisor `fd::`; `protocol.fd.allow=always`; child omits `GIT_NO_LAZY_FETCH`                   | 403; marker file does not exist                                      | pass   |
+| S32      | Rust unit | `cargo test -p api` | `rejects_promisor_foo_helper_without_lazy_fetch_env`            | promisor `foo::bar`; `protocol.foo.allow=always`; `git-remote-foo` touches a marker            | 403; marker file does not exist                                      | pass   |
+| S33      | Rust unit | `cargo test -p api` | `rejects_partial_clone_extension_without_promisor_flag`         | `extensions.partialclone` only; no `remote.*.promisor=true`; `foo::` helper                    | 403; marker file does not exist                                      | pass   |
+| S34      | Rust unit | `cargo test -p api` | `rejects_promisor_set_only_through_include`                     | `include.path` sets `remote.origin.promisor=true`; main config does not                        | 403; marker file does not exist                                      | pass   |
+| S35      | Rust unit | `cargo test -p api` | `rejects_promisor_set_only_through_include_if_on_worktree`      | `includeIf.gitdir:**` on a linked worktree; promisor only in the included file                 | 403; marker file does not exist                                      | pass   |
+| S36      | Rust unit | `cargo test -p api` | `rejects_promisor_set_only_in_worktree_config`                  | `extensions.worktreeConfig`; promisor only in worktree config                                  | 403; marker file does not exist                                      | pass   |
+| S37      | Rust unit | `cargo test -p api` | `serves_git_blob_when_promisor_remote_is_false`                 | `remote.origin.promisor=false`; local blob                                                     | 200 and the committed bytes                                          | pass   |
+| S38      | Rust unit | `cargo test -p api` | `rejects_git_blob_when_repo_config_cannot_be_read`              | local blob; `.git/config` has a broken line                                                    | 403; body is not the local blob                                      | pass   |
 
 ## Scenarios
 
@@ -284,7 +299,7 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - **Level**: Unit
 - **Given**: an outside repo has a committed secret. An allowlisted repo has that commit and tree, but not the blob. Its config sets `remote.origin.promisor=true`, `url=file://` to the outside repo, and `protocol.file.allow=always`.
 - **When**: `rev` is `HEAD` and `path` is `s.txt`.
-- **Then**: status is 404. The body does not contain the secret. The blob is still not a loose object, and no pack file was written.
+- **Then**: status is 403. The body does not contain the secret. The blob is still not a loose object, and no pack file was written. The repository is rejected before `cat-file`.
 - **Signals**: status, body, and the object store.
 
 ### S27 — `ext::` and `core.sshCommand` do not run
@@ -292,7 +307,7 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - **Level**: Unit
 - **Given**: the same missing-blob layout. The promisor URL is `ext::touch <marker>`. Local config sets `protocol.ext.allow=always`, `protocol.ssh.allow=always`, and `core.sshCommand` to `touch` a second marker.
 - **When**: `rev` is `HEAD` and `path` is `s.txt`.
-- **Then**: status is 404. Neither marker file exists.
+- **Then**: status is 403. Neither marker file exists.
 - **Signals**: status and the two marker paths.
 
 ### S28 — `core.fsmonitor` does not run for an index blob
@@ -302,6 +317,86 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - **When**: `rev` is `:note.txt`.
 - **Then**: status is 200 and the body is the staged bytes. The marker file does not exist.
 - **Signals**: status, body, and the marker path.
+
+### S29 — Promisor `ftp` is 403 when `GIT_NO_LAZY_FETCH` is absent
+
+- **Level**: Unit
+- **Given**: the missing-blob layout. The promisor URL is `ftp://127.0.0.1:1/x` and local config sets `protocol.ftp.allow=always`. A child process omits `GIT_NO_LAZY_FETCH` (`ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH=1`) and points `GIT_EXEC_PATH` at a `git-remote-ftp` that would create a marker. Git before 2.44 ignores `GIT_NO_LAZY_FETCH`; this child imitates that.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 403. The marker file does not exist.
+- **Signals**: status and the marker path.
+
+### S30 — Promisor `ftps` is 403 when `GIT_NO_LAZY_FETCH` is absent
+
+- **Level**: Unit
+- **Given**: the same child as S29, with `ftps://127.0.0.1:1/x` and `protocol.ftps.allow=always`. The overlay helper is `git-remote-ftps`.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 403. The marker file does not exist.
+- **Signals**: status and the marker path.
+
+### S31 — Promisor `fd` is 403 when `GIT_NO_LAZY_FETCH` is absent
+
+- **Level**: Unit
+- **Given**: the same child as S29, with `fd::99,99` and `protocol.fd.allow=always`. The overlay helper is `git-remote-fd`.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 403. The marker file does not exist.
+- **Signals**: status and the marker path.
+
+### S32 — Promisor `foo::` does not run a third-party helper
+
+- **Level**: Unit
+- **Given**: the same child as S29, with `foo::bar` and `protocol.foo.allow=always`. `git-remote-foo` on the exec path would create a marker. There is no per-protocol lock for `foo`.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 403. The marker file does not exist.
+- **Signals**: status and the marker path.
+
+### S33 — `extensions.partialClone` alone is 403
+
+- **Level**: Unit
+- **Given**: the missing-blob layout and the S29 child. Config sets `extensions.partialclone=origin` and `url=foo::bar`. It does not set `remote.*.promisor=true`.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 403. The marker file does not exist.
+- **Signals**: status and the marker path.
+
+### S34 — Promisor only in an included config file is 403
+
+- **Level**: Unit
+- **Given**: the missing-blob layout and the S29 child. `include.path` points at a file whose only promisor key is `remote.origin.promisor=true`. The main config sets `url=foo::bar` and `protocol.foo.allow=always` and does not set promisor itself.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 403. The marker file does not exist.
+- **Signals**: status and the marker path.
+
+### S35 — Promisor only via `includeIf` on a linked worktree is 403
+
+- **Level**: Unit
+- **Given**: the S34 layout, except the include is `includeIf.gitdir:**`. The request `repo` is a linked worktree of that repository (`git worktree add --detach --no-checkout`) inside the same allowlist root.
+- **When**: `rev` is `HEAD` and `path` is `s.txt` on the worktree.
+- **Then**: status is 403. The marker file does not exist.
+- **Signals**: status and the marker path.
+
+### S36 — Promisor only in worktree config is 403
+
+- **Level**: Unit
+- **Given**: the missing-blob layout and the S29 child. `extensions.worktreeConfig=true` and `remote.origin.promisor=true` is set with `git config --worktree` only. The local config has the `foo::` URL and `protocol.foo.allow=always`, and does not set promisor.
+- **When**: `rev` is `HEAD` and `path` is `s.txt`.
+- **Then**: status is 403. The marker file does not exist.
+- **Signals**: status and the marker path.
+
+### S37 — `promisor=false` still serves a local blob
+
+- **Level**: Unit
+- **Given**: an allowlisted repo has a committed blob. Config sets `remote.origin.promisor=false`, `url=foo::bar`, and `protocol.foo.allow=always`. `extensions.partialClone` is unset.
+- **When**: that blob is requested.
+- **Then**: status is 200 and the body is the committed bytes.
+- **Signals**: status and body.
+
+### S38 — Unreadable repository config is 403
+
+- **Level**: Unit
+- **Given**: an allowlisted repo has a committed blob, and `.git/config` ends with a broken `[` line.
+- **When**: that blob is requested.
+- **Then**: status is 403 and the body is not the local blob.
+- **Signals**: status and body.
 
 ## Regression checklist
 
@@ -322,10 +417,15 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - [x] An alternates file nested past git's depth is 403.
 - [x] An unparseable alternates line is 403.
 - [x] An alternates cycle is 403.
-- [x] A promisor `file://` remote does not return an outside blob and does not write a pack.
+- [x] A promisor `file://` remote is 403, does not return an outside blob, and does not write a pack.
 - [x] An `ext::` promisor command and `core.sshCommand` do not run.
 - [x] `core.fsmonitor` does not run when an index blob is read.
-- [x] A missing blob in an allowed repo is 404, not 403.
+- [x] A missing blob in an allowed repo that is not a promisor is 404, not 403.
+- [x] Promisor `ftp`, `ftps`, `fd`, and `foo::` are 403 when `GIT_NO_LAZY_FETCH` is not set, and the helper marker is absent.
+- [x] `extensions.partialClone` without `remote.*.promisor=true` is 403.
+- [x] A promisor key that exists only via `include`, `includeIf`, or worktree config is 403.
+- [x] `remote.*.promisor=false` still returns a local blob.
+- [x] A repository config that git cannot parse is 403.
 
 ## Exploratory agent-browser checks
 
@@ -351,9 +451,14 @@ Omitted. This endpoint has no new screen, label, or client flow.
 - [x] S23 passes: alternates nested past depth 5 are 403.
 - [x] S24 passes: an unparseable alternates line is 403.
 - [x] S25 passes: an alternates cycle is 403.
-- [x] S26 passes: a promisor `file://` fetch does not return the outside blob.
+- [x] S26 passes: a promisor `file://` repository is 403 and does not return the outside blob.
 - [x] S27 passes: `ext::` and `core.sshCommand` do not create their marker files.
 - [x] S28 passes: `core.fsmonitor` does not create its marker file, and the index blob is still served.
+- [x] S29–S32 pass: promisor `ftp`, `ftps`, `fd`, and `foo::` are 403 when `GIT_NO_LAZY_FETCH` is omitted, and the helper marker is absent.
+- [x] S33 passes: `extensions.partialClone` alone is 403.
+- [x] S34–S36 pass: promisor config that arrives only through `include`, `includeIf` on a linked worktree, or worktree config is 403.
+- [x] S37 passes: `remote.*.promisor=false` still returns the local blob.
+- [x] S38 passes: unreadable repository config is 403.
 - [x] No new REST route.
 - [x] Coverage Status names the commands that ran and any command that did not run.
 
@@ -369,14 +474,18 @@ None. The handler tests observe status and body without a browser.
 - Windows symlink privileges. The symlink cases use `std::os::unix::fs::symlink`, same as the file-serve tests.
 - Replacing `objects/info/alternates` or `.git/config` after the check and before `cat-file`. That remains the existing canonicalize-then-`git` TOCTOU window.
 - Global and system git config. They are the operator's. The tests do not set `GIT_CONFIG_NOSYSTEM` or `GIT_CONFIG_GLOBAL`. Command-line `-c` still overrides them for the locked keys.
-- A custom remote helper other than `ext`, `ssh`, `file`, `http`, `https`, and `git`. `GIT_NO_LAZY_FETCH=1` is what stops that fetch. There is no per-helper test.
-- `core.hooksPath`, textconv, and smudge. On git 2.43, `rev-parse --verify :path` and `cat-file blob` did not run the hooks that were probed, and plain `cat-file blob` did not run textconv or smudge. Those probes were not turned into API tests.
+- A git binary that actually ignores `GIT_NO_LAZY_FETCH` (stock git 2.43). This runner's git is 2.43 and does contain the variable. The tests omit it with `ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH=1` instead of relying on that binary.
+- `url.<base>.insteadOf` and `remote.<name>.vcs`. They matter only if a fetch runs. The promisor rejection happens first. There is no separate test.
+- A promisor remote that exists only in global or system config. Those files are the operator's and are not a reason to 403 every repository.
+- `core.hooksPath`, textconv, and smudge. `cat-file blob` does not pass `--textconv` or `--filters`. Those probes were not turned into API tests.
+- The index FSMN extension. `-c core.fsmonitor=false` is what ignores it. S28 covers a `core.fsmonitor` command, not the extension.
+- `ftps` is covered (S30). A helper name other than `ftp`, `ftps`, `fd`, and `foo` is the same rejection as S32: any promisor remote is 403 before the helper name matters.
 
 ## Coverage Status
 
 2026-10-20. Handler tests live in `apps/api/src/api/system/files.rs`.
 
-- S1–S12, S14–S28 — pass. `cargo test -p api --bin api` (143 unit tests, including every `api::system::files::tests` case). Allowed repo (missing blob stays 404), repo-as-root, outside path, `..`, symlink escape, in-root symlink, sibling prefix, filesystem root, exact logo file, unsafe rev/path, index spec, 8 MiB + 1, ancestor discovery (`rejects_git_blob_discovered_above_allowlist`), external `gitdir:` (`rejects_git_blob_external_gitdir_file`), in-root linked worktree (`serves_linked_worktree_whose_git_dir_stays_inside_root`), cross-root worktree (`serves_worktree_under_workspaces_with_git_dir_in_project_root`), external `commondir` (`rejects_git_blob_when_commondir_is_outside_allowlist`), inherited `GIT_DIR` (`ignores_inherited_git_dir_for_allowlisted_repo` plus `git_dir_env_probe`), outside alternate (`rejects_git_blob_alternate_outside_allowlist`), in-allowlist alternate (`serves_git_blob_from_allowlisted_alternate`), nested outside alternate (`rejects_git_blob_when_nested_alternate_is_outside_allowlist`), depth 6 (`rejects_git_blob_when_alternates_nesting_exceeds_git_depth`), unparseable quote (`rejects_git_blob_when_alternates_line_is_unparseable` plus `parses_git_alternate_quoting`), alternates cycle (`rejects_git_blob_when_alternates_form_a_cycle`), promisor `file://` (`does_not_lazy_fetch_promisor_file_outside_allowlist`), `ext::` / `core.sshCommand` (`does_not_run_promisor_ext_or_ssh_command`), `core.fsmonitor` (`does_not_run_fsmonitor_command_for_index_blob`), and the existing file-serve cases all passed.
+- S1–S12, S14–S38 — pass. `cargo test -p api --bin api` (154 unit tests, including every `api::system::files::tests` case). Allowed repo (missing blob stays 404), repo-as-root, outside path, `..`, symlink escape, in-root symlink, sibling prefix, filesystem root, exact logo file, unsafe rev/path, index spec, 8 MiB + 1, ancestor discovery (`rejects_git_blob_discovered_above_allowlist`), external `gitdir:` (`rejects_git_blob_external_gitdir_file`), in-root linked worktree (`serves_linked_worktree_whose_git_dir_stays_inside_root`), cross-root worktree (`serves_worktree_under_workspaces_with_git_dir_in_project_root`), external `commondir` (`rejects_git_blob_when_commondir_is_outside_allowlist`), inherited `GIT_DIR` (`ignores_inherited_git_dir_for_allowlisted_repo` plus `git_dir_env_probe`), outside alternate (`rejects_git_blob_alternate_outside_allowlist`), in-allowlist alternate (`serves_git_blob_from_allowlisted_alternate`), nested outside alternate (`rejects_git_blob_when_nested_alternate_is_outside_allowlist`), depth 6 (`rejects_git_blob_when_alternates_nesting_exceeds_git_depth`), unparseable quote (`rejects_git_blob_when_alternates_line_is_unparseable` plus `parses_git_alternate_quoting`), alternates cycle (`rejects_git_blob_when_alternates_form_a_cycle`), promisor `file://` (`does_not_lazy_fetch_promisor_file_outside_allowlist`, now 403), `ext::` / `core.sshCommand` (`does_not_run_promisor_ext_or_ssh_command`, now 403), `core.fsmonitor` (`does_not_run_fsmonitor_command_for_index_blob`), promisor `ftp` / `ftps` / `fd` / `foo::` with `GIT_NO_LAZY_FETCH` omitted (`rejects_promisor_ftp_without_lazy_fetch_env`, `rejects_promisor_ftps_without_lazy_fetch_env`, `rejects_promisor_fd_without_lazy_fetch_env`, `rejects_promisor_foo_helper_without_lazy_fetch_env`, child `promisor_fetch_probe`), `extensions.partialClone` alone (`rejects_partial_clone_extension_without_promisor_flag`), include / includeIf / worktree config (`rejects_promisor_set_only_through_include`, `rejects_promisor_set_only_through_include_if_on_worktree`, `rejects_promisor_set_only_in_worktree_config`), `promisor=false` (`serves_git_blob_when_promisor_remote_is_false`), unreadable config (`rejects_git_blob_when_repo_config_cannot_be_read`), and the existing file-serve cases all passed.
 - `cargo test -p core-engine --lib show_git_blob` — pass (2). `show_git_blob_bytes` still rejects an option-like spec and still reads an index blob. Ceiling is not set on that path.
 - S13 — pass by inspection. `package.json` `lint` is still `oxlint --max-warnings=455`. `.oxlintrc.jsonc` was not edited.
 - `cargo clippy -p core-engine -p api --all-targets --all-features -- -D warnings` passed.

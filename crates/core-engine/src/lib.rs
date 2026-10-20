@@ -37,13 +37,13 @@ pub use fs::{
     compensate_path, CompensateStrategy, FileTreeItem, FsEngine, FsEntry, GitValidationResult,
 };
 pub use git::{
-    clear_file_blame_cache, file_blame_compute_count, last_file_blame_was_cache_hit,
-    list_ignored_paths, list_ignored_paths_for_many, resolve_git_repo_identity,
-    show_git_blob_bytes, show_git_blob_bytes_with_ceiling, sync_worktree_local_excludes,
-    BlameCommit, BlameRange, ChangedFileInfo, ChangedFilesInfo, CommitDetailInfo, CommitInfo,
-    DiffContentKind, DiffPreviewKind, FileBlameInfo, FileBlameKind, FileDiffInfo, GitBlobLocator,
-    GitEngine, GitRepoIdentity, GitStatus, HistoryCommit, HistoryPage, HistoryRef, HistoryRefKind,
-    WorktreeInfo,
+    clear_file_blame_cache, file_blame_compute_count, git_blob_repo_has_promisor,
+    last_file_blame_was_cache_hit, list_ignored_paths, list_ignored_paths_for_many,
+    resolve_git_repo_identity, show_git_blob_bytes, show_git_blob_bytes_with_ceiling,
+    sync_worktree_local_excludes, BlameCommit, BlameRange, ChangedFileInfo, ChangedFilesInfo,
+    CommitDetailInfo, CommitInfo, DiffContentKind, DiffPreviewKind, FileBlameInfo, FileBlameKind,
+    FileDiffInfo, GitBlobLocator, GitEngine, GitRepoIdentity, GitStatus, HistoryCommit,
+    HistoryPage, HistoryRef, HistoryRefKind, WorktreeInfo,
 };
 pub use github::{attach_base_ref_changes, timeline_has_base_ref_change, GithubEngine};
 pub use host_devices::{

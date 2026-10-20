@@ -325,8 +325,10 @@ pub(crate) async fn serve_allowed_file(
 /// dir, and common dir must each canonicalize inside some directory root (not
 /// necessarily the same one). Alternate object stores named by
 /// `objects/info/alternates` must too, including nested files up to git's
-/// depth limit. Exact project logo files are not git roots. Rev/path checks
-/// and the 8 MiB cap are unchanged.
+/// depth limit. A repository with `extensions.partialClone` or
+/// `remote.*.promisor=true` in local or worktree config (including included
+/// files) is 403 before any object read. Exact project logo files are not git
+/// roots. Rev/path checks and the 8 MiB cap are unchanged.
 #[allow(clippy::result_large_err)]
 pub async fn serve_git_blob(
     State(state): State<AppState>,
@@ -388,7 +390,7 @@ fn canonicalize_reported_git_path(repo: &Path, raw: &Path) -> std::io::Result<Pa
 const GIT_ALTERNATE_MAX_DEPTH: u32 = 5;
 
 /// Read a blob only when toplevel, git dir, common dir, and every alternate
-/// object store sit in some allowlist root.
+/// object store sit in some allowlist root, and the repo is not a promisor.
 ///
 /// `ceiling` is the parent of the root that contained `repo`
 /// (`GIT_CEILING_DIRECTORIES`). That stops an ancestor walk. It does not stop
@@ -396,12 +398,30 @@ const GIT_ALTERNATE_MAX_DEPTH: u32 = 5;
 /// a different allowlisted root. `roots` are already canonical, and filesystem
 /// roots are absent. Clearing `GIT_ALTERNATE_OBJECT_DIRECTORIES` does not stop
 /// git from reading `<common-dir>/objects/info/alternates`.
+///
+/// Promisor and partial-clone config is rejected before identity and before
+/// any object command. `GIT_NO_LAZY_FETCH` is ignored by git before 2.44, so
+/// it is not the gate. A failed config read is 403.
 fn read_confined_git_blob(
     repo: &Path,
     roots: &[PathBuf],
     ceiling: &Path,
     show_spec: &str,
 ) -> std::result::Result<Vec<u8>, ConfinedBlobError> {
+    match core_engine::git_blob_repo_has_promisor(repo, ceiling) {
+        Ok(false) => {}
+        Ok(true) => {
+            warn!(
+                "Rejected git-blob for promisor or partial clone: {}",
+                repo.display()
+            );
+            return Err(ConfinedBlobError::Outside);
+        }
+        Err(error) => {
+            warn!("Rejected git-blob because repository config could not be read: {error}");
+            return Err(ConfinedBlobError::Outside);
+        }
+    }
     let identity = core_engine::resolve_git_repo_identity(repo, ceiling)
         .map_err(|error| git_failure_kind(&error, true))?;
     let mut common_dir = PathBuf::new();
@@ -1703,7 +1723,7 @@ mod tests {
 
         let (status, body) =
             git_blob_status_and_body(&repo, "HEAD", "s.txt", &roots(&[workspace])).await;
-        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(status, StatusCode::FORBIDDEN);
         assert!(!body_contains(&body, secret));
         assert!(!loose_object_exists(&repo, &blob));
         assert!(
@@ -1738,7 +1758,7 @@ mod tests {
 
         let (status, body) =
             git_blob_status_and_body(&repo, "HEAD", "s.txt", &roots(&[workspace])).await;
-        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(status, StatusCode::FORBIDDEN);
         assert!(!body_contains(&body, b"ext-secret-not-local"));
         assert!(!ext_marker.exists(), "ext:: command must not run");
         assert!(!ssh_marker.exists(), "core.sshCommand must not run");
@@ -1768,5 +1788,275 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, b"staged-note");
         assert!(!marker.exists(), "core.fsmonitor command must not run");
+    }
+
+    /// Real assertion lives in the child process, which does not export
+    /// `GIT_NO_LAZY_FETCH`. The suite also runs this test without the probe
+    /// env; that pass only checks the harness entry.
+    #[tokio::test]
+    async fn promisor_fetch_probe() {
+        if std::env::var("ATMOS_GIT_BLOB_PROMISOR_PROBE")
+            .ok()
+            .as_deref()
+            != Some("1")
+        {
+            return;
+        }
+        let repo = PathBuf::from(std::env::var("ATMOS_GIT_BLOB_PROBE_REPO").expect("probe repo"));
+        let root = PathBuf::from(std::env::var("ATMOS_GIT_BLOB_PROBE_ROOT").expect("probe root"));
+        let marker =
+            PathBuf::from(std::env::var("ATMOS_GIT_BLOB_PROBE_MARKER").expect("probe marker"));
+        let (status, _) = git_blob_status_and_body(&repo, "HEAD", "s.txt", &roots(&[root])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(!marker.exists(), "remote helper must not run");
+    }
+
+    fn shell_single_quote(path: &Path) -> String {
+        let text = path.to_str().expect("utf8 path");
+        assert!(!text.contains('\''), "path must not contain a single quote");
+        format!("'{text}'")
+    }
+
+    fn write_executable(path: &Path, body: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(path, body).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// Helpers that record a marker if git actually launches them.
+    /// Built-in `ftp` / `ftps` / `fd` live in git's exec path, ahead of `PATH`,
+    /// so the overlay replaces those names there.
+    fn install_marker_helpers(tree: &Path, marker: &Path) -> PathBuf {
+        let bin = tree.join("helpers");
+        std::fs::create_dir_all(&bin).unwrap();
+        let script = bin.join("marker-helper");
+        write_executable(
+            &script,
+            &format!("#!/bin/sh\ntouch {}\nexit 1\n", shell_single_quote(marker)),
+        );
+        let exec = tree.join("git-exec");
+        std::fs::create_dir_all(&exec).unwrap();
+        let real = std::process::Command::new("git")
+            .args(["--exec-path"])
+            .output()
+            .expect("git --exec-path");
+        assert!(real.status.success(), "git --exec-path failed");
+        let real_path = PathBuf::from(String::from_utf8(real.stdout).unwrap().trim());
+        for entry in std::fs::read_dir(&real_path).unwrap() {
+            let entry = entry.unwrap();
+            let link = exec.join(entry.file_name());
+            if link.symlink_metadata().is_err() {
+                symlink(entry.path(), &link).unwrap();
+            }
+        }
+        for name in [
+            "git-remote-ftp",
+            "git-remote-ftps",
+            "git-remote-fd",
+            "git-remote-foo",
+        ] {
+            let link = exec.join(name);
+            if link.symlink_metadata().is_ok() {
+                std::fs::remove_file(&link).unwrap();
+            }
+            symlink(&script, &link).unwrap();
+        }
+        exec
+    }
+
+    fn prepare_missing_blob_repo(label: &str) -> (TempTree, PathBuf, PathBuf) {
+        let tree = TempTree::new(label);
+        let outside = tree.path().join("outside");
+        init_repo(&outside);
+        commit_bytes(&outside, "s.txt", b"promisor-helper-secret");
+        let workspace = tree.path().join("ws");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let repo = workspace.join("repo");
+        repo_missing_blob(&repo, &outside);
+        (tree, repo, workspace)
+    }
+
+    async fn reject_promisor_without_lazy_fetch(repo: &Path, root: &Path, marker: &Path) {
+        let exec_path = install_marker_helpers(marker.parent().expect("marker parent"), marker);
+        let repo_for_child = repo.to_path_buf();
+        let root_for_child = root.to_path_buf();
+        let marker_for_child = marker.to_path_buf();
+        let output = tokio::task::spawn_blocking(move || {
+            let inherited = std::env::var("PATH").unwrap_or_default();
+            let path = format!("{}:{inherited}", exec_path.display());
+            std::process::Command::new(std::env::current_exe().expect("test executable"))
+                .env("ATMOS_GIT_BLOB_PROMISOR_PROBE", "1")
+                .env("ATMOS_GIT_BLOB_OMIT_NO_LAZY_FETCH", "1")
+                .env_remove("GIT_NO_LAZY_FETCH")
+                .env("ATMOS_GIT_BLOB_PROBE_REPO", &repo_for_child)
+                .env("ATMOS_GIT_BLOB_PROBE_ROOT", &root_for_child)
+                .env("ATMOS_GIT_BLOB_PROBE_MARKER", &marker_for_child)
+                .env("GIT_EXEC_PATH", &exec_path)
+                .env("PATH", path)
+                .args([
+                    "--exact",
+                    "--test-threads=1",
+                    "api::system::files::tests::promisor_fetch_probe",
+                ])
+                .output()
+                .expect("spawn promisor probe")
+        })
+        .await
+        .expect("probe join");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            output.status.success() && stdout.contains("promisor_fetch_probe"),
+            "probe status {:?}\nstdout {stdout}\nstderr {stderr}",
+            output.status.code()
+        );
+        assert!(!marker.exists(), "remote helper must not run");
+    }
+
+    #[tokio::test]
+    async fn rejects_promisor_ftp_without_lazy_fetch_env() {
+        let (tree, repo, workspace) = prepare_missing_blob_repo("git-promisor-ftp");
+        configure_promisor(&repo, "ftp://127.0.0.1:1/x");
+        git(&repo, &["config", "protocol.ftp.allow", "always"]);
+        let marker = tree.path().join("ftp-marker");
+        reject_promisor_without_lazy_fetch(&repo, &workspace, &marker).await;
+    }
+
+    #[tokio::test]
+    async fn rejects_promisor_ftps_without_lazy_fetch_env() {
+        let (tree, repo, workspace) = prepare_missing_blob_repo("git-promisor-ftps");
+        configure_promisor(&repo, "ftps://127.0.0.1:1/x");
+        git(&repo, &["config", "protocol.ftps.allow", "always"]);
+        let marker = tree.path().join("ftps-marker");
+        reject_promisor_without_lazy_fetch(&repo, &workspace, &marker).await;
+    }
+
+    #[tokio::test]
+    async fn rejects_promisor_fd_without_lazy_fetch_env() {
+        let (tree, repo, workspace) = prepare_missing_blob_repo("git-promisor-fd");
+        configure_promisor(&repo, "fd::99,99");
+        git(&repo, &["config", "protocol.fd.allow", "always"]);
+        let marker = tree.path().join("fd-marker");
+        reject_promisor_without_lazy_fetch(&repo, &workspace, &marker).await;
+    }
+
+    #[tokio::test]
+    async fn rejects_promisor_foo_helper_without_lazy_fetch_env() {
+        let (tree, repo, workspace) = prepare_missing_blob_repo("git-promisor-foo");
+        configure_promisor(&repo, "foo::bar");
+        git(&repo, &["config", "protocol.foo.allow", "always"]);
+        let marker = tree.path().join("foo-marker");
+        reject_promisor_without_lazy_fetch(&repo, &workspace, &marker).await;
+    }
+
+    #[tokio::test]
+    async fn rejects_partial_clone_extension_without_promisor_flag() {
+        let (tree, repo, workspace) = prepare_missing_blob_repo("git-partial-only");
+        git(&repo, &["config", "remote.origin.url", "foo::bar"]);
+        git(&repo, &["config", "protocol.foo.allow", "always"]);
+        git(&repo, &["config", "extensions.partialclone", "origin"]);
+        let marker = tree.path().join("partial-marker");
+        reject_promisor_without_lazy_fetch(&repo, &workspace, &marker).await;
+    }
+
+    #[tokio::test]
+    async fn rejects_promisor_set_only_through_include() {
+        let (tree, repo, workspace) = prepare_missing_blob_repo("git-promisor-include");
+        let extra = tree.path().join("extra-config");
+        std::fs::write(&extra, "[remote \"origin\"]\n\tpromisor = true\n").unwrap();
+        git(
+            &repo,
+            &[
+                "config",
+                "include.path",
+                extra.to_str().expect("include path"),
+            ],
+        );
+        git(&repo, &["config", "remote.origin.url", "foo::bar"]);
+        git(&repo, &["config", "protocol.foo.allow", "always"]);
+        let marker = tree.path().join("include-marker");
+        reject_promisor_without_lazy_fetch(&repo, &workspace, &marker).await;
+    }
+
+    #[tokio::test]
+    async fn rejects_promisor_set_only_through_include_if_on_worktree() {
+        let (tree, repo, workspace) = prepare_missing_blob_repo("git-promisor-includeif");
+        let extra = tree.path().join("extra-if");
+        std::fs::write(&extra, "[remote \"origin\"]\n\tpromisor = true\n").unwrap();
+        git(
+            &repo,
+            &[
+                "config",
+                "includeIf.gitdir:**.path",
+                extra.to_str().expect("includeIf path"),
+            ],
+        );
+        git(&repo, &["config", "remote.origin.url", "foo::bar"]);
+        git(&repo, &["config", "protocol.foo.allow", "always"]);
+        let worktree = workspace.join("wt");
+        git(
+            &repo,
+            &[
+                "worktree",
+                "add",
+                "--detach",
+                "--no-checkout",
+                worktree.to_str().expect("worktree path"),
+                "HEAD",
+            ],
+        );
+        let marker = tree.path().join("includeif-marker");
+        reject_promisor_without_lazy_fetch(&worktree, &workspace, &marker).await;
+    }
+
+    #[tokio::test]
+    async fn rejects_promisor_set_only_in_worktree_config() {
+        let (tree, repo, workspace) = prepare_missing_blob_repo("git-promisor-worktree");
+        git(&repo, &["config", "extensions.worktreeConfig", "true"]);
+        git(
+            &repo,
+            &["config", "--worktree", "remote.origin.promisor", "true"],
+        );
+        git(&repo, &["config", "remote.origin.url", "foo::bar"]);
+        git(&repo, &["config", "protocol.foo.allow", "always"]);
+        let marker = tree.path().join("worktree-marker");
+        reject_promisor_without_lazy_fetch(&repo, &workspace, &marker).await;
+    }
+
+    #[tokio::test]
+    async fn serves_git_blob_when_promisor_remote_is_false() {
+        let tree = TempTree::new("git-promisor-false");
+        let workspace = tree.path().join("ws");
+        let repo = workspace.join("repo");
+        init_repo(&repo);
+        commit_bytes(&repo, "hello.txt", b"not-a-promisor");
+        git(&repo, &["config", "remote.origin.url", "foo::bar"]);
+        git(&repo, &["config", "remote.origin.promisor", "false"]);
+        git(&repo, &["config", "protocol.foo.allow", "always"]);
+
+        let (status, body) =
+            git_blob_status_and_body(&repo, "HEAD", "hello.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, b"not-a-promisor");
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_when_repo_config_cannot_be_read() {
+        let tree = TempTree::new("git-config-bad");
+        let workspace = tree.path().join("ws");
+        let repo = workspace.join("repo");
+        init_repo(&repo);
+        commit_bytes(&repo, "hello.txt", b"still-local");
+        use std::io::Write;
+        let mut config = std::fs::OpenOptions::new()
+            .append(true)
+            .open(repo.join(".git").join("config"))
+            .unwrap();
+        writeln!(config, "[").unwrap();
+
+        let (status, body) =
+            git_blob_status_and_body(&repo, "HEAD", "hello.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_ne!(body, b"still-local");
     }
 }
