@@ -81,4 +81,22 @@ fn release_workflows_pass_untrusted_refs_through_env() {
             "{name} job filter dropped head_branch"
         );
     }
+
+    let homebrew = workflow_text("sync-homebrew-tap.yml");
+    let homebrew_runs = run_bodies(&homebrew);
+    for expression in [
+        "${{ steps.release.outputs.tag }}",
+        "${{ steps.release.outputs.version }}",
+    ] {
+        assert!(
+            !homebrew_runs.contains(expression),
+            "homebrew run body still interpolates {expression}"
+        );
+        assert!(
+            homebrew.contains(expression),
+            "homebrew dropped {expression}"
+        );
+    }
+    assert!(homebrew_runs.contains("\"$RELEASE_TAG\""));
+    assert!(homebrew_runs.contains("$RELEASE_VERSION"));
 }

@@ -104,11 +104,12 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           mkdir -p tap/Casks
           cd source
           node scripts/homebrew/generate-cask.mjs \
-            --tag "${{ steps.release.outputs.tag }}" \
+            --tag "$RELEASE_TAG" \
             --owner "${SOURCE_REPO%%/*}" \
             --repo "${SOURCE_REPO##*/}" \
             --token atmos \
@@ -166,6 +167,8 @@ jobs:
       - name: Commit and push tap update
         if: steps.release.outputs.skip != 'true'
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           cd homebrew-tap
 
@@ -180,5 +183,5 @@ jobs:
           fi
 
           git add README.md "${CASK_PATH}"
-          git commit -m "atmos ${{ steps.release.outputs.version }}"
+          git commit -m "atmos $RELEASE_VERSION"
           git push origin HEAD:main

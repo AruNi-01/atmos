@@ -265,7 +265,7 @@ None. Do not dispatch the release or Homebrew workflows from this PR.
 
 - S1–S9, S10–S17 — pass. `cargo test -p api --bin api`: 110 pass, 0 fail. Includes unset-token denial, loopback 200 / public 401, blank token, bind refusal, bearer and query match, query redaction (`s3cr3t-token-value` absent, `REDACTED` present), LAN trust, in-root serve, outside and sibling and `..` 403, symlink escape 403 without the secret, in-root symlink 200, relative 400 / missing 404 / directory 400, exact logo vs sibling, extra root 200, filesystem root `/` 403.
 - S18 — pass. `rg -n "/api/system/file"` matches only `apps/web` URL builders (`ProjectItem.tsx`, `use-project-logo-url.ts`, `AgentToolPathPreviewBody.tsx`, `agent-chat-file-links.ts`, `agent-composer-attachment.ts`, `resolve-blob-url.ts`, `FileViewer.tsx`, `md-live-media-plugin.tsx`, plus web tests). `apps/desktop`, `apps/desktop-electron`, `apps/mobile`, `apps/cli`, and `packages` have no matches. URL builders were not changed.
-- S19 — pass. `cargo test -p api --test workflow_shell_env`: 1 pass.
+- S19 — pass. `cargo test -p api --test workflow_shell_env`: 1 pass. The same check also rejects `${{ steps.release.outputs.tag }}` and `${{ steps.release.outputs.version }}` inside Homebrew `run:` bodies after CodeQL flagged the tag output.
 - S20 — pass. `package.json` `lint` is still `oxlint --max-warnings=455`.
 - `cargo clippy -p api --all-targets --all-features -- -D warnings` exit 0. `cargo fmt -p api` applied.
 - Draft PR CI (including CodeQL) recorded after the GitHub run finishes. `ios-simulator` may be skipped without the `ios-parity` label. Release workflows were not dispatched.

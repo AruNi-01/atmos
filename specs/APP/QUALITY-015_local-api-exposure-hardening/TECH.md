@@ -155,7 +155,9 @@ run: |
   TAG="$WORKFLOW_HEAD_BRANCH"    # workflow_run
 ```
 
-Job-level `if:` expressions stay as expressions. They are not shell. Other `${{ }}` inside those `run:` blocks (`github.event_name`, `github.event.release.tag_name`) are unchanged in this spec.
+Job-level `if:` expressions stay as expressions. They are not shell. Other `${{ }}` inside the resolve `run:` blocks (`github.event_name`, `github.event.release.tag_name`) stay as expressions.
+
+The Homebrew cask step and the tap commit also read the resolved tag and version from env (`RELEASE_TAG`, `RELEASE_VERSION`). Those outputs are derived from the workflow_run branch, so interpolating them inside `run:` is the same injection.
 
 ## Data model
 
