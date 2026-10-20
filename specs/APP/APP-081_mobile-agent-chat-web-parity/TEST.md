@@ -380,8 +380,19 @@ Marked only where the test file exists and the command above ran it.
 - **S34** — `composer-dock.test.ts` expand sequences (blur / model sheet / add sheet / one-line vs wrapped). Status `pass` once `cd apps/mobile && bun test src/features/agent-chat/composer-dock.test.ts` is green on this head.
 - **S35** — `composer-glass.test.ts`, `card-chrome.test.ts`, `glass-text-button.test.ts`, `glass-availability.test.ts`. Status `pass` on the same bun run.
 - **S36** — `not_run`. No iOS simulator or physical device in this environment. Visual Liquid Glass, 280 ms motion, and Reduce Transparency fallback are unspecified by screenshots here.
-- **Review P3 follow-up** — compact placeholder ellipsis is asserted as `ellipsizeMode` + `numberOfLines` + `pointerEvents` together; `CARD_TITLE` is derived from `agentChatCardHeadingMetrics`; `tool-body.tsx` imports the top-level `sentenceStatus` export from `./copy`. Covered by `composer-dock.test.ts`, `card-chrome.test.ts`, `agent-chat-markdown-chrome.test.ts`.
+- **Review P3 follow-up** — compact placeholder ellipsis is asserted as `ellipsizeMode` + `numberOfLines` + `pointerEvents` together; `CARD_TITLE` is derived from `agentChatCardHeadingMetrics`. `sentenceStatus` lives in `copy.ts` and is used by `goal-card.tsx` and `workflow-card.tsx`. `tool-body.tsx` uses `todoStatusKind`. Covered by `composer-dock.test.ts`, `card-chrome.test.ts`, `agent-chat-markdown-chrome.test.ts`, and `composer-cards.test.ts`.
 
 ### Scene lifecycle gate (QUALITY-011)
 
 The workflow no longer fails when `Info.plist` names a scene delegate. `script/verify-ios-scene-lifecycle.sh structural` requires `$(PRODUCT_MODULE_NAME).SceneDelegate` in the prebuild plist and `class SceneDelegate` in `AppDelegate.swift`. `built-plist` requires the built value `Atmos.SceneDelegate`. Parity preview still removes `expo-dev-client` and does not remove `UIApplicationSceneManifest`. The 2026-10-15 notes above describe the old missing-class black window; they are not the current gate.
+
+### Follow-up (2026-10-20, merge head `f53206927`)
+
+Linux commands on head `f53206927` (merge of `2b1f66b82` and `origin/main` `0884982f3`). No simulator was started.
+
+- `cd apps/mobile && bun test` → pass, exit 0. bun test v1.3.14: 631 pass, 0 fail, 3611 expect() calls, 140 files.
+- `cd apps/mobile && bun run typecheck` → pass, exit 0.
+- `cd packages/agent-transcript && bun test` → pass, exit 0. 54 pass, 0 fail, 377 expect() calls, 9 files.
+- `cd packages/agent-transcript && bun run typecheck` → pass, exit 0.
+- `bun scripts/agent-chat-parity/compare.ts` → pass, exit 0. Output: `13 fixtures match`. This does not close S3, S4, S6, S8, or S19. Those stay `not_run` until S31 produces web trees.
+- S10, S11, S21, S23, S30, S31, S33, and S36 stay `not_run`. S14 stays partial. S27 stays partial. S28 prose stays `not_run` (mobai-dev was not installed or run on this head). These commands are not a CI run on the closed PR head GitHub still records (`2b1f66b82`).
