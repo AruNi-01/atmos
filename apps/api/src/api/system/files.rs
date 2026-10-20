@@ -323,8 +323,10 @@ pub(crate) async fn serve_allowed_file(
 /// `GET /api/system/file`. A symlink target outside those roots is 403.
 /// Git will not search above the matched root. The discovered toplevel, git
 /// dir, and common dir must each canonicalize inside some directory root (not
-/// necessarily the same one). Exact project logo files are not git roots.
-/// Rev/path checks and the 8 MiB cap are unchanged.
+/// necessarily the same one). Alternate object stores named by
+/// `objects/info/alternates` must too, including nested files up to git's
+/// depth limit. Exact project logo files are not git roots. Rev/path checks
+/// and the 8 MiB cap are unchanged.
 #[allow(clippy::result_large_err)]
 pub async fn serve_git_blob(
     State(state): State<AppState>,
@@ -381,14 +383,19 @@ fn canonicalize_reported_git_path(repo: &Path, raw: &Path) -> std::io::Result<Pa
     std::fs::canonicalize(candidate)
 }
 
-/// Read a blob only when toplevel, git dir, and common dir each sit in some
-/// allowlist root.
+/// Git reads `info/alternates` while `depth <= 5` and ignores a deeper file.
+/// A file past this depth is 403 here instead of being ignored.
+const GIT_ALTERNATE_MAX_DEPTH: u32 = 5;
+
+/// Read a blob only when toplevel, git dir, common dir, and every alternate
+/// object store sit in some allowlist root.
 ///
 /// `ceiling` is the parent of the root that contained `repo`
 /// (`GIT_CEILING_DIRECTORIES`). That stops an ancestor walk. It does not stop
 /// git from following a `gitdir:` file, so a worktree can keep its git dir in
 /// a different allowlisted root. `roots` are already canonical, and filesystem
-/// roots are absent.
+/// roots are absent. Clearing `GIT_ALTERNATE_OBJECT_DIRECTORIES` does not stop
+/// git from reading `<common-dir>/objects/info/alternates`.
 fn read_confined_git_blob(
     repo: &Path,
     roots: &[PathBuf],
@@ -397,7 +404,11 @@ fn read_confined_git_blob(
 ) -> std::result::Result<Vec<u8>, ConfinedBlobError> {
     let identity = core_engine::resolve_git_repo_identity(repo, ceiling)
         .map_err(|error| git_failure_kind(&error, true))?;
-    for raw in [&identity.toplevel, &identity.git_dir, &identity.common_dir] {
+    let mut common_dir = PathBuf::new();
+    for (index, raw) in [&identity.toplevel, &identity.git_dir, &identity.common_dir]
+        .into_iter()
+        .enumerate()
+    {
         let canonical = canonicalize_reported_git_path(repo, raw).map_err(|error| {
             warn!("Failed to resolve git-blob identity path: {error}");
             ConfinedBlobError::Outside
@@ -409,9 +420,203 @@ fn read_confined_git_blob(
             );
             return Err(ConfinedBlobError::Outside);
         }
+        if index == 2 {
+            common_dir = canonical;
+        }
     }
+    validate_object_alternates(&common_dir, roots)?;
     core_engine::show_git_blob_bytes_with_ceiling(repo, show_spec, ceiling)
         .map_err(|error| git_failure_kind(&error, false))
+}
+
+fn validate_object_alternates(
+    common_dir: &Path,
+    roots: &[PathBuf],
+) -> Result<(), ConfinedBlobError> {
+    let objects = std::fs::canonicalize(common_dir.join("objects")).map_err(|error| {
+        warn!("Failed to resolve git-blob objects dir: {error}");
+        ConfinedBlobError::Outside
+    })?;
+    if !roots.iter().any(|root| objects.starts_with(root)) {
+        warn!(
+            "Rejected git-blob objects dir outside allowlist: {}",
+            objects.display()
+        );
+        return Err(ConfinedBlobError::Outside);
+    }
+    let mut stack = Vec::new();
+    let mut done = std::collections::HashSet::new();
+    walk_alternates(&objects, 0, roots, &mut stack, &mut done)
+}
+
+/// Follow `objects/info/alternates`. Relative entries are relative to `objects`.
+///
+/// `depth` matches git: the primary file is 0, and `depth > 5` is too deep.
+/// A path already on `stack` is a cycle. A path already in `done` was checked
+/// through another parent and is not an error.
+fn walk_alternates(
+    objects: &Path,
+    depth: u32,
+    roots: &[PathBuf],
+    stack: &mut Vec<PathBuf>,
+    done: &mut std::collections::HashSet<PathBuf>,
+) -> Result<(), ConfinedBlobError> {
+    // Repeat the confinement check next to the alternates read.
+    if !roots.iter().any(|root| objects.starts_with(root)) {
+        warn!(
+            "Rejected git-blob alternate outside allowlist: {}",
+            objects.display()
+        );
+        return Err(ConfinedBlobError::Outside);
+    }
+    if stack.iter().any(|seen| seen == objects) {
+        warn!("Rejected git-blob alternate cycle: {}", objects.display());
+        return Err(ConfinedBlobError::Outside);
+    }
+    if !done.insert(objects.to_path_buf()) {
+        return Ok(());
+    }
+    let file = objects.join("info").join("alternates");
+    if !file.exists() {
+        return Ok(());
+    }
+    if depth > GIT_ALTERNATE_MAX_DEPTH {
+        warn!(
+            "Rejected git-blob alternates nested past depth {GIT_ALTERNATE_MAX_DEPTH}: {}",
+            file.display()
+        );
+        return Err(ConfinedBlobError::Outside);
+    }
+    let bytes = std::fs::read(&file).map_err(|error| {
+        warn!("Failed to read git-blob alternates: {error}");
+        ConfinedBlobError::Outside
+    })?;
+    let text = String::from_utf8(bytes).map_err(|_| {
+        warn!("Rejected non-utf8 git-blob alternates file");
+        ConfinedBlobError::Outside
+    })?;
+    stack.push(objects.to_path_buf());
+    let result = (|| {
+        for line in text.split('\n') {
+            let entry = match parse_alternate_line(line) {
+                Ok(None) => continue,
+                Ok(Some(entry)) => entry,
+                Err(()) => {
+                    warn!("Rejected unparseable git-blob alternates line");
+                    return Err(ConfinedBlobError::Outside);
+                }
+            };
+            let candidate = if entry.is_absolute() {
+                entry
+            } else {
+                objects.join(entry)
+            };
+            let canonical = std::fs::canonicalize(&candidate).map_err(|error| {
+                warn!("Failed to canonicalize git-blob alternate: {error}");
+                ConfinedBlobError::Outside
+            })?;
+            if !canonical.is_dir() || !roots.iter().any(|root| canonical.starts_with(root)) {
+                warn!(
+                    "Rejected git-blob alternate outside allowlist: {}",
+                    canonical.display()
+                );
+                return Err(ConfinedBlobError::Outside);
+            }
+            walk_alternates(&canonical, depth + 1, roots, stack, done)?;
+        }
+        Ok(())
+    })();
+    stack.pop();
+    result
+}
+
+/// One alternates entry. `Ok(None)` skips a blank line or a `#` comment.
+///
+/// A line that starts with `"` uses git's C-style quoting. A broken quote does
+/// not fall back to the raw text.
+fn parse_alternate_line(line: &str) -> Result<Option<PathBuf>, ()> {
+    let line = line.strip_suffix('\r').unwrap_or(line);
+    if line.is_empty() || line.bytes().all(|byte| byte.is_ascii_whitespace()) {
+        return Ok(None);
+    }
+    if line.as_bytes()[0] == b'#' {
+        return Ok(None);
+    }
+    if line.as_bytes()[0] == b'"' {
+        let text = unquote_git_c_style(line)?;
+        if text.is_empty() {
+            return Ok(None);
+        }
+        if text.contains('\0') {
+            return Err(());
+        }
+        return Ok(Some(PathBuf::from(text)));
+    }
+    if line.contains('\0') {
+        return Err(());
+    }
+    Ok(Some(PathBuf::from(line)))
+}
+
+/// `git`'s `unquote_c_style`. Octal escapes are exactly three digits and the
+/// first digit is `0`–`3`. Trailing bytes after the closing quote are rejected.
+fn unquote_git_c_style(quoted: &str) -> Result<String, ()> {
+    let bytes = quoted.as_bytes();
+    if bytes.first() != Some(&b'"') {
+        return Err(());
+    }
+    let mut index = 1;
+    let mut out = Vec::new();
+    loop {
+        if index >= bytes.len() {
+            return Err(());
+        }
+        match bytes[index] {
+            b'"' => {
+                index += 1;
+                if index != bytes.len() {
+                    return Err(());
+                }
+                return String::from_utf8(out).map_err(|_| ());
+            }
+            b'\\' => {
+                index += 1;
+                if index >= bytes.len() {
+                    return Err(());
+                }
+                let ch = bytes[index];
+                index += 1;
+                let decoded = match ch {
+                    b'a' => 0x07,
+                    b'b' => 0x08,
+                    b'f' => 0x0c,
+                    b'n' => b'\n',
+                    b'r' => b'\r',
+                    b't' => b'\t',
+                    b'v' => 0x0b,
+                    b'\\' | b'"' => ch,
+                    b'0'..=b'3' => {
+                        if index + 1 >= bytes.len() {
+                            return Err(());
+                        }
+                        let digit1 = bytes[index];
+                        let digit2 = bytes[index + 1];
+                        if !(b'0'..=b'7').contains(&digit1) || !(b'0'..=b'7').contains(&digit2) {
+                            return Err(());
+                        }
+                        index += 2;
+                        ((ch - b'0') << 6) | ((digit1 - b'0') << 3) | (digit2 - b'0')
+                    }
+                    _ => return Err(()),
+                };
+                out.push(decoded);
+            }
+            byte => {
+                out.push(byte);
+                index += 1;
+            }
+        }
+    }
 }
 
 fn reject_git_blob_repo(canonical: &Path) -> Response {
@@ -1204,5 +1409,233 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    fn git_stdout(dir: &Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .output()
+            .expect("git command should run");
+        assert!(
+            output.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).expect("git stdout utf8")
+    }
+
+    fn shared_clone(parent: &Path, source: &Path, dest: &Path) {
+        git(
+            parent,
+            &[
+                "clone",
+                "--shared",
+                source.to_str().expect("clone source"),
+                dest.to_str().expect("clone dest"),
+            ],
+        );
+    }
+
+    fn objects_dir(repo: &Path) -> PathBuf {
+        repo.join(".git").join("objects")
+    }
+
+    /// Path of `target` relative to `base`, both absolute.
+    fn relative_from(base: &Path, target: &Path) -> PathBuf {
+        let base: Vec<_> = base.components().collect();
+        let target: Vec<_> = target.components().collect();
+        let common = base
+            .iter()
+            .zip(target.iter())
+            .take_while(|(left, right)| left == right)
+            .count();
+        let mut relative = PathBuf::new();
+        for _ in common..base.len() {
+            relative.push("..");
+        }
+        for component in &target[common..] {
+            relative.push(component);
+        }
+        relative
+    }
+
+    fn loose_object_exists(repo: &Path, oid: &str) -> bool {
+        let (prefix, rest) = oid.split_at(2);
+        objects_dir(repo).join(prefix).join(rest).exists()
+    }
+
+    #[test]
+    fn parses_git_alternate_quoting() {
+        assert_eq!(parse_alternate_line("").unwrap(), None);
+        assert_eq!(parse_alternate_line("   ").unwrap(), None);
+        assert_eq!(parse_alternate_line("# borrowed store").unwrap(), None);
+        assert_eq!(
+            parse_alternate_line("\"/tmp/a\\040b\"").unwrap(),
+            Some(PathBuf::from("/tmp/a b"))
+        );
+        assert!(parse_alternate_line("\"unterminated").is_err());
+        assert!(parse_alternate_line("\"\\41\"").is_err());
+        assert!(parse_alternate_line("\"ok\" junk").is_err());
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_alternate_outside_allowlist() {
+        let tree = TempTree::new("git-alt-out");
+        let outside = tree.path().join("outside");
+        init_repo(&outside);
+        let secret = b"alternate-escape-secret-9f3a";
+        commit_bytes(&outside, "s.txt", secret);
+        let workspace = tree.path().join("ws");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let main = workspace.join("main");
+        shared_clone(tree.path(), &outside, &main);
+
+        let (status, body) =
+            git_blob_status_and_body(&main, "HEAD", "s.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(!body_contains(&body, secret));
+    }
+
+    #[tokio::test]
+    async fn serves_git_blob_from_allowlisted_alternate() {
+        let tree = TempTree::new("git-alt-in");
+        let root = tree.path().join("root");
+        let alt = root.join("alt");
+        init_repo(&alt);
+        commit_bytes(&alt, "hello.txt", b"only-in-alternate");
+        let main = root.join("main");
+        shared_clone(&root, &alt, &main);
+
+        let oid = git_stdout(&alt, &["rev-parse", "HEAD:hello.txt"]);
+        let oid = oid.trim();
+        assert!(
+            !loose_object_exists(&main, oid),
+            "blob should live only in the alternate"
+        );
+        let pack_dir = objects_dir(&main).join("pack");
+        let copied_pack = pack_dir.exists()
+            && std::fs::read_dir(&pack_dir).is_ok_and(|entries| {
+                entries.filter_map(Result::ok).any(|entry| {
+                    matches!(
+                        entry.path().extension().and_then(|ext| ext.to_str()),
+                        Some("pack" | "idx")
+                    )
+                })
+            });
+        assert!(
+            !copied_pack,
+            "shared clone should not copy a pack into the borrower"
+        );
+
+        let relative = relative_from(&objects_dir(&main), &objects_dir(&alt));
+        std::fs::write(
+            objects_dir(&main).join("info").join("alternates"),
+            format!("\n# borrowed\n\"{}\"\n", relative.display()),
+        )
+        .unwrap();
+
+        let (status, body) =
+            git_blob_status_and_body(&main, "HEAD", "hello.txt", &roots(&[root])).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, b"only-in-alternate");
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_when_nested_alternate_is_outside_allowlist() {
+        let tree = TempTree::new("git-alt-nested");
+        let outside = tree.path().join("outside");
+        init_repo(&outside);
+        let secret = b"nested-alternate-secret-9f3a";
+        commit_bytes(&outside, "s.txt", secret);
+        let workspace = tree.path().join("ws");
+        let middle = workspace.join("middle");
+        std::fs::create_dir_all(&workspace).unwrap();
+        shared_clone(tree.path(), &outside, &middle);
+        let main = workspace.join("main");
+        shared_clone(&workspace, &middle, &main);
+
+        let (status, body) =
+            git_blob_status_and_body(&main, "HEAD", "s.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(!body_contains(&body, secret));
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_when_alternates_nesting_exceeds_git_depth() {
+        let tree = TempTree::new("git-alt-depth");
+        let workspace = tree.path().join("ws");
+        let repo = workspace.join("repo");
+        init_repo(&repo);
+        commit_bytes(&repo, "hello.txt", b"local-blob");
+
+        // Primary file is depth 0. chain/0 is depth 1, ..., chain/5 is depth 6.
+        // Git ignores a file at depth > 5. This request is 403 instead.
+        let mut previous = objects_dir(&repo);
+        for index in 0..=5 {
+            let objects = workspace.join("chain").join(index.to_string());
+            std::fs::create_dir_all(objects.join("info")).unwrap();
+            std::fs::write(
+                previous.join("info").join("alternates"),
+                format!("{}\n", objects.display()),
+            )
+            .unwrap();
+            previous = objects;
+        }
+        std::fs::create_dir_all(previous.join("info")).unwrap();
+        std::fs::write(previous.join("info").join("alternates"), "\n").unwrap();
+
+        let (status, body) =
+            git_blob_status_and_body(&repo, "HEAD", "hello.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_ne!(body, b"local-blob");
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_when_alternates_line_is_unparseable() {
+        let tree = TempTree::new("git-alt-quote");
+        let workspace = tree.path().join("ws");
+        let repo = workspace.join("repo");
+        init_repo(&repo);
+        commit_bytes(&repo, "hello.txt", b"local-blob");
+        std::fs::create_dir_all(objects_dir(&repo).join("info")).unwrap();
+        std::fs::write(
+            objects_dir(&repo).join("info").join("alternates"),
+            "\"unterminated\n",
+        )
+        .unwrap();
+
+        let (status, body) =
+            git_blob_status_and_body(&repo, "HEAD", "hello.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_ne!(body, b"local-blob");
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_when_alternates_form_a_cycle() {
+        let tree = TempTree::new("git-alt-cycle");
+        let workspace = tree.path().join("ws");
+        let repo = workspace.join("repo");
+        init_repo(&repo);
+        commit_bytes(&repo, "hello.txt", b"local-blob");
+        let objects = objects_dir(&repo);
+        let other = workspace.join("other-objects");
+        std::fs::create_dir_all(other.join("info")).unwrap();
+        std::fs::create_dir_all(objects.join("info")).unwrap();
+        std::fs::write(
+            objects.join("info").join("alternates"),
+            format!("{}\n", other.display()),
+        )
+        .unwrap();
+        std::fs::write(
+            other.join("info").join("alternates"),
+            format!("{}\n", objects.display()),
+        )
+        .unwrap();
+
+        let (status, body) =
+            git_blob_status_and_body(&repo, "HEAD", "hello.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_ne!(body, b"local-blob");
     }
 }
