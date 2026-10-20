@@ -321,8 +321,9 @@ pub(crate) async fn serve_allowed_file(
 ///
 /// `repo` is canonicalized and must sit inside the same directory roots as
 /// `GET /api/system/file`. A symlink target outside those roots is 403.
-/// Exact project logo files are not git roots. Rev/path checks and the 8 MiB
-/// cap are unchanged.
+/// Git will not search above the matched root, and both the discovered
+/// toplevel and git dir must canonicalize inside that same root. Exact project
+/// logo files are not git roots. Rev/path checks and the 8 MiB cap are unchanged.
 #[allow(clippy::result_large_err)]
 pub async fn serve_git_blob(
     State(state): State<AppState>,
@@ -340,6 +341,57 @@ pub async fn serve_git_blob(
         }
     };
     serve_allowed_git_blob(&query, &allowlist).await
+}
+
+enum ConfinedBlobError {
+    Outside,
+    Missing,
+    Exec,
+}
+
+fn git_failure_kind(
+    error: &core_engine::EngineError,
+    missing_is_outside: bool,
+) -> ConfinedBlobError {
+    if error.to_string().contains("Failed to execute git") {
+        ConfinedBlobError::Exec
+    } else if missing_is_outside {
+        ConfinedBlobError::Outside
+    } else {
+        ConfinedBlobError::Missing
+    }
+}
+
+/// Read a blob only when git's toplevel and git dir stay inside `root`.
+///
+/// `ceiling` is the parent of `root` (`GIT_CEILING_DIRECTORIES`), so git does
+/// not walk into an ancestor repository outside the allowlist.
+fn read_confined_git_blob(
+    repo: &Path,
+    root: &Path,
+    ceiling: &Path,
+    show_spec: &str,
+) -> std::result::Result<Vec<u8>, ConfinedBlobError> {
+    let identity = core_engine::resolve_git_repo_identity(repo, ceiling)
+        .map_err(|error| git_failure_kind(&error, true))?;
+    let toplevel = std::fs::canonicalize(&identity.toplevel).map_err(|error| {
+        warn!("Failed to resolve git-blob toplevel: {error}");
+        ConfinedBlobError::Outside
+    })?;
+    let git_dir = std::fs::canonicalize(&identity.git_dir).map_err(|error| {
+        warn!("Failed to resolve git-blob git dir: {error}");
+        ConfinedBlobError::Outside
+    })?;
+    if !toplevel.starts_with(root) || !git_dir.starts_with(root) {
+        warn!(
+            "Rejected git-blob identity outside allowlist: toplevel={} git_dir={}",
+            toplevel.display(),
+            git_dir.display()
+        );
+        return Err(ConfinedBlobError::Outside);
+    }
+    core_engine::show_git_blob_bytes_with_ceiling(repo, show_spec, ceiling)
+        .map_err(|error| git_failure_kind(&error, false))
 }
 
 fn reject_git_blob_repo(canonical: &Path) -> Response {
@@ -397,18 +449,29 @@ pub(crate) async fn serve_allowed_git_blob(
     {
         if repo_path.starts_with(&root) {
             // Git runs only on the canonical path that passed `starts_with`.
+            let Some(ceiling) = root.parent().map(Path::to_path_buf) else {
+                return Err(reject_git_blob_repo(repo_path));
+            };
             let repo_for_git = repo_path.to_path_buf();
+            let root_for_check = root.clone();
             let bytes = tokio::task::spawn_blocking(move || {
-                core_engine::show_git_blob_bytes(&repo_for_git, &show_spec)
+                read_confined_git_blob(&repo_for_git, &root_for_check, &ceiling, &show_spec)
             })
             .await
             .map_err(|e| {
                 warn!("git-blob join error: {e}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read blob").into_response()
             })?
-            .map_err(|e| {
-                warn!("git-blob show failed: {e}");
-                (StatusCode::NOT_FOUND, "Blob not found").into_response()
+            .map_err(|error| match error {
+                ConfinedBlobError::Outside => reject_git_blob_repo(&canonical),
+                ConfinedBlobError::Exec => {
+                    warn!("git-blob failed to execute git");
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read blob").into_response()
+                }
+                ConfinedBlobError::Missing => {
+                    warn!("git-blob show failed");
+                    (StatusCode::NOT_FOUND, "Blob not found").into_response()
+                }
             })?;
 
             if bytes.len() as u64 > GIT_BLOB_MAX_BYTES {
@@ -722,10 +785,16 @@ mod tests {
         init_repo(&repo);
         commit_bytes(&repo, "hello.txt", b"hello-from-repo");
 
-        let (status, body) =
-            git_blob_status_and_body(&repo, "HEAD", "hello.txt", &roots(&[workspace])).await;
+        let allow = roots(&[workspace]);
+        let (status, body) = git_blob_status_and_body(&repo, "HEAD", "hello.txt", &allow).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, b"hello-from-repo");
+        assert_eq!(
+            git_blob_response(&repo, "HEAD", "missing.txt", &allow)
+                .await
+                .status(),
+            StatusCode::NOT_FOUND
+        );
     }
 
     #[tokio::test]
@@ -932,5 +1001,66 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
         assert_eq!(body, b"Blob too large");
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_discovered_above_allowlist() {
+        let tree = TempTree::new("git-ceiling");
+        let home = tree.path().join("home");
+        init_repo(&home);
+        let secret = b"ancestor-repo-secret-9f3a";
+        commit_bytes(&home, "s.txt", secret);
+        let workspace = home.join("ws");
+        let sub = workspace.join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+
+        let (status, body) =
+            git_blob_status_and_body(&sub, "HEAD", "s.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(!body_contains(&body, secret));
+    }
+
+    #[tokio::test]
+    async fn rejects_git_blob_external_gitdir_file() {
+        let tree = TempTree::new("git-gitdir");
+        let outside = tree.path().join("outside");
+        init_repo(&outside);
+        let secret = b"gitdir-escape-secret-9f3a";
+        commit_bytes(&outside, "s.txt", secret);
+        let workspace = tree.path().join("ws");
+        let sub = workspace.join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+        let git_dir = outside.join(".git");
+        std::fs::write(sub.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
+
+        let (status, body) =
+            git_blob_status_and_body(&sub, "HEAD", "s.txt", &roots(&[workspace])).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(!body_contains(&body, secret));
+    }
+
+    #[tokio::test]
+    async fn serves_linked_worktree_whose_git_dir_stays_inside_root() {
+        let tree = TempTree::new("git-worktree");
+        let root = tree.path().join("root");
+        let repo = root.join("main");
+        init_repo(&repo);
+        commit_bytes(&repo, "hello.txt", b"worktree-blob");
+        let worktree = root.join("wt");
+        git(
+            &repo,
+            &[
+                "worktree",
+                "add",
+                "--detach",
+                worktree.to_str().expect("worktree path"),
+                "HEAD",
+            ],
+        );
+
+        let (status, body) =
+            git_blob_status_and_body(&worktree, "HEAD", "hello.txt", &roots(&[root])).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, b"worktree-blob");
     }
 }

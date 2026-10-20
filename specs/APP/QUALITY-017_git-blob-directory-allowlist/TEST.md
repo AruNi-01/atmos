@@ -25,26 +25,33 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 | M2. Unsafe rev, path, and index spec stay 400                            | S9           |
 | M2. A safe index spec on an allowed repo still returns the blob          | S10          |
 | M2. Blob larger than 8 MiB is 413                                        | S11          |
+| M1. Git does not discover an ancestor repo above the matched root        | S14          |
+| M1. A `.git` file with `gitdir:` outside the root is 403                 | S15          |
+| M1. A linked worktree whose git dir stays in that same root still serves | S16          |
+| M1. A missing blob in an allowed repo stays 404                          | S1           |
 | M3. File-serve allowlist behavior unchanged                              | S12          |
 | M3. Lint cap unchanged                                                   | S13          |
 
 ## Execution map
 
-| Scenario | Level     | Expected tool       | Target command / method                               | Fixture / data                                             | Signals                                    | Status |
-| -------- | --------- | ------------------- | ----------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------ | ------ |
-| S1       | Rust unit | `cargo test -p api` | `serves_git_blob_inside_allowlisted_directory`        | temp git repo; parent dir is the only root                 | 200 and committed bytes                    | pass   |
-| S2       | Rust unit | `cargo test -p api` | `serves_git_blob_when_repo_itself_is_the_root`        | temp git repo; the repo path is the root                   | 200 and committed bytes                    | pass   |
-| S3       | Rust unit | `cargo test -p api` | `rejects_git_blob_outside_allowlist`                  | second repo outside the root                               | 403; body has no secret bytes              | pass   |
-| S4       | Rust unit | `cargo test -p api` | `rejects_git_blob_dotdot_escape`                      | `root/../outside-repo`                                     | 403; body has no secret bytes              | pass   |
-| S5       | Rust unit | `cargo test -p api` | `rejects_git_blob_symlink_escape`                     | symlink inside root → outside repo                         | 403; body has no secret bytes              | pass   |
-| S6       | Rust unit | `cargo test -p api` | `serves_git_blob_symlink_inside_root`                 | symlink inside root → repo inside root                     | 200 and committed bytes                    | pass   |
-| S7       | Rust unit | `cargo test -p api` | `rejects_git_blob_sibling_prefix_and_filesystem_root` | `workspace-evil` repo; allowlist `/`                       | 403                                        | pass   |
-| S8       | Rust unit | `cargo test -p api` | `ignores_exact_logo_file_for_git_blob`                | repo path listed only in `exact_files`                     | 403                                        | pass   |
-| S9       | Rust unit | `cargo test -p api` | `rejects_unsafe_rev_and_path`                         | allowed repo; `--output=…`, `../x`, `:../x`, relative repo | 400                                        | pass   |
-| S10      | Rust unit | `cargo test -p api` | `serves_index_blob_inside_allowlist`                  | allowed repo; staged `:note.txt`                           | 200 and staged bytes                       | pass   |
-| S11      | Rust unit | `cargo test -p api` | `rejects_git_blob_over_size_cap`                      | allowed repo; file of 8 MiB + 1                            | 413 `Blob too large`; body is not the file | pass   |
-| S12      | Rust unit | `cargo test -p api` | existing `serve_allowed_file` tests                   | temp files from QUALITY-015                                | same 200 / 403 / 404 / 400 as before       | pass   |
-| S13      | Toolchain | shell               | read `package.json` `lint`                            | repo `package.json`                                        | script is `oxlint --max-warnings=455`      | pass   |
+| Scenario | Level     | Expected tool       | Target command / method                                  | Fixture / data                                             | Signals                                    | Status |
+| -------- | --------- | ------------------- | -------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------ | ------ |
+| S1       | Rust unit | `cargo test -p api` | `serves_git_blob_inside_allowlisted_directory`           | temp git repo; parent dir is the only root                 | 200 and committed bytes; missing path 404  | pass   |
+| S2       | Rust unit | `cargo test -p api` | `serves_git_blob_when_repo_itself_is_the_root`           | temp git repo; the repo path is the root                   | 200 and committed bytes                    | pass   |
+| S3       | Rust unit | `cargo test -p api` | `rejects_git_blob_outside_allowlist`                     | second repo outside the root                               | 403; body has no secret bytes              | pass   |
+| S4       | Rust unit | `cargo test -p api` | `rejects_git_blob_dotdot_escape`                         | `root/../outside-repo`                                     | 403; body has no secret bytes              | pass   |
+| S5       | Rust unit | `cargo test -p api` | `rejects_git_blob_symlink_escape`                        | symlink inside root → outside repo                         | 403; body has no secret bytes              | pass   |
+| S6       | Rust unit | `cargo test -p api` | `serves_git_blob_symlink_inside_root`                    | symlink inside root → repo inside root                     | 200 and committed bytes                    | pass   |
+| S7       | Rust unit | `cargo test -p api` | `rejects_git_blob_sibling_prefix_and_filesystem_root`    | `workspace-evil` repo; allowlist `/`                       | 403                                        | pass   |
+| S8       | Rust unit | `cargo test -p api` | `ignores_exact_logo_file_for_git_blob`                   | repo path listed only in `exact_files`                     | 403                                        | pass   |
+| S9       | Rust unit | `cargo test -p api` | `rejects_unsafe_rev_and_path`                            | allowed repo; `--output=…`, `../x`, `:../x`, relative repo | 400                                        | pass   |
+| S10      | Rust unit | `cargo test -p api` | `serves_index_blob_inside_allowlist`                     | allowed repo; staged `:note.txt`                           | 200 and staged bytes                       | pass   |
+| S11      | Rust unit | `cargo test -p api` | `rejects_git_blob_over_size_cap`                         | allowed repo; file of 8 MiB + 1                            | 413 `Blob too large`; body is not the file | pass   |
+| S12      | Rust unit | `cargo test -p api` | existing `serve_allowed_file` tests                      | temp files from QUALITY-015                                | same 200 / 403 / 404 / 400 as before       | pass   |
+| S13      | Toolchain | shell               | read `package.json` `lint`                               | repo `package.json`                                        | script is `oxlint --max-warnings=455`      | pass   |
+| S14      | Rust unit | `cargo test -p api` | `rejects_git_blob_discovered_above_allowlist`            | ancestor repo at `home`; request `home/ws/sub`; root `ws`  | 403; body has no secret bytes              | pass   |
+| S15      | Rust unit | `cargo test -p api` | `rejects_git_blob_external_gitdir_file`                  | `ws/sub/.git` is `gitdir:` to an outside repo              | 403; body has no secret bytes              | pass   |
+| S16      | Rust unit | `cargo test -p api` | `serves_linked_worktree_whose_git_dir_stays_inside_root` | main repo and linked worktree under one root               | 200 and committed bytes                    | pass   |
 
 ## Scenarios
 
@@ -53,7 +60,7 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - **Level**: Unit
 - **Given**: a git repo under `workspace/repo` with `hello.txt` committed, and the allowlist directory root is `workspace`.
 - **When**: `serve_allowed_git_blob` is called with `rev=HEAD` and `path=hello.txt`.
-- **Then**: status is 200 and the body is the committed bytes.
+- **Then**: status is 200 and the body is the committed bytes. The same repo with `path=missing.txt` is 404 `Blob not found`, not 403.
 - **Signals**: status and body.
 
 ### S2 — The repo path itself is the root
@@ -152,6 +159,30 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - **Then**: it is `oxlint --max-warnings=455`.
 - **Signals**: script text. Do not edit `.oxlintrc.jsonc` or the cap.
 
+### S14 — Ancestor repository above the allowlist
+
+- **Level**: Unit
+- **Given**: `home` is a git repo with a committed secret `s.txt`. `home/ws/sub` is not itself a repository. The only directory root is `home/ws`.
+- **When**: `repo` is `home/ws/sub` and `rev`/`path` name `HEAD:s.txt`.
+- **Then**: status is 403 and the body does not contain the secret bytes. Git's upward search stops at the parent of `home/ws` (`GIT_CEILING_DIRECTORIES`), so the ancestor repository is not read.
+- **Signals**: status and body.
+
+### S15 — `gitdir:` points outside the root
+
+- **Level**: Unit
+- **Given**: an outside git repo has a committed secret. `ws/sub/.git` is a file whose `gitdir:` line is that repo's `.git`. The only directory root is `ws`.
+- **When**: `repo` is `ws/sub` and `rev`/`path` name the secret.
+- **Then**: status is 403 and the body does not contain the secret bytes. `rev-parse --show-toplevel --absolute-git-dir` is canonicalized, the git dir is outside `ws`, and `cat-file` does not run.
+- **Signals**: status and body.
+
+### S16 — Linked worktree stays inside one root
+
+- **Level**: Unit
+- **Given**: a main repo and `git worktree add --detach` checkout are both under one directory root, so the worktree git dir (`<main>/.git/worktrees/<name>`) is inside that root.
+- **When**: `repo` is the worktree and `rev`/`path` name a committed file.
+- **Then**: status is 200 and the body is the committed bytes.
+- **Signals**: status and body.
+
 ## Regression checklist
 
 - [x] `serve_allowed_file` still 403s a symlink that leaves its root, and still 200s an in-root file.
@@ -159,6 +190,10 @@ The allowlist is a handler decision in `apps/api`. Rust tests on `serve_allowed_
 - [x] `GIT_BLOB_MAX_BYTES` is still `8 * 1024 * 1024`.
 - [x] `package.json` `lint` still passes `--max-warnings=455`.
 - [x] `resolve-blob-url.ts` is unchanged.
+- [x] An ancestor git repo above the matched root is 403 and its blob bytes are not returned.
+- [x] A `.git` file with `gitdir:` outside the matched root is 403 and its blob bytes are not returned.
+- [x] A linked worktree whose git dir stays inside the same matched root is still 200.
+- [x] A missing blob in an allowed repo is 404, not 403.
 
 ## Exploratory agent-browser checks
 
@@ -172,6 +207,9 @@ Omitted. This endpoint has no new screen, label, or client flow.
 - [x] S11 passes: over 8 MiB is 413.
 - [x] S12 passes: existing file-serve tests pass.
 - [x] S13 passes: oxlint cap is still 455.
+- [x] S14 passes: discovering a repository above the matched root is 403 and does not return the secret.
+- [x] S15 passes: `gitdir:` outside the matched root is 403 and does not return the secret.
+- [x] S16 passes: a linked worktree whose git dir stays in that root still returns the blob.
 - [x] No new REST route.
 - [x] Coverage Status names the commands that ran and any command that did not run.
 
@@ -185,15 +223,19 @@ None. The handler tests observe status and body without a browser.
 - The 500 path when `list_projects` fails. Git-blob calls the same `allowlist_for_state` as file serve; tests pass the allowlist in directly.
 - A live `git` binary other than the one on the test runner. Tests skip nothing when `git` is missing; they fail.
 - Windows symlink privileges. The symlink cases use `std::os::unix::fs::symlink`, same as the file-serve tests.
+- A linked worktree whose checkout is under one directory root and whose git dir is under another (workspaces checkout, project `.git`). That layout is 403 by the same-root identity check. Widening git-dir to a second directory root is a follow-up, not an allow case here.
+- `GIT_DIR` or `GIT_WORK_TREE` inherited from the API process environment. The handler sets `GIT_CEILING_DIRECTORIES` for the git subprocess; it does not clear operator env.
+- A `.git` file whose `gitdir:` stays inside the root while that git dir's `commondir` points at an object store outside the root. The check is `--show-toplevel` and `--absolute-git-dir` only.
 
 ## Coverage Status
 
 2026-10-20. Handler tests live in `apps/api/src/api/system/files.rs`.
 
-- S1–S12 — pass. `cargo test -p api` (126 unit tests, including every `api::system::files::tests` case, plus `workflow_shell_env`). Allowed repo, repo-as-root, outside path, `..`, symlink escape, in-root symlink, sibling prefix, filesystem root, exact logo file, unsafe rev/path, index spec, 8 MiB + 1, and the existing file-serve cases all passed.
+- S1–S12, S14–S16 — pass. `cargo test -p api --bin api` (129 unit tests, including every `api::system::files::tests` case). Allowed repo (missing blob stays 404), repo-as-root, outside path, `..`, symlink escape, in-root symlink, sibling prefix, filesystem root, exact logo file, unsafe rev/path, index spec, 8 MiB + 1, ancestor discovery (`rejects_git_blob_discovered_above_allowlist`), external `gitdir:` (`rejects_git_blob_external_gitdir_file`), in-root linked worktree (`serves_linked_worktree_whose_git_dir_stays_inside_root`), and the existing file-serve cases all passed.
+- `cargo test -p core-engine --lib show_git_blob` — pass (2). `show_git_blob_bytes` still rejects an option-like spec and still reads an index blob. Ceiling is not set on that path.
 - S13 — pass by inspection. `package.json` `lint` is still `oxlint --max-warnings=455`. `.oxlintrc.jsonc` was not edited.
-- `cargo clippy -p api --all-targets --all-features -- -D warnings` passed.
-- `cargo fmt -p api` was applied.
+- `cargo clippy -p core-engine -p api --all-targets --all-features -- -D warnings` passed.
+- `cargo fmt --all -- --check` passed.
 
 Not run locally:
 

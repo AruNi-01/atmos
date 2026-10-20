@@ -37,7 +37,10 @@ GET /api/system/git-blob
       canonicalize(repo)
       find_containing_directory_root
         canonicalize_directory_root + Path::starts_with
-      show_git_blob_bytes(canonical repo)
+      GIT_CEILING_DIRECTORIES = parent(matched root)
+      rev-parse --show-toplevel --absolute-git-dir
+        both canonical paths must stay in that same root
+      show_git_blob_bytes_with_ceiling
       8 MiB cap
 ```
 
@@ -71,8 +74,10 @@ For each configured root it canonicalizes the root, skips a root whose canonical
    - `path` must pass `is_safe_repo_relative_path`, else 400 `Invalid path`.
 3. `std::fs::canonicalize(repo)`. Failure → 403 `Repo is outside the allowed directories`. Do not run `git` on the raw query path.
 4. `find_containing_directory_root`. No match → 403 with the same message. Do not run `git`.
-5. On a match, require `path.starts_with(&root)` again in this function, then `spawn_blocking` → `core_engine::show_git_blob_bytes` with the **canonical** repo path. Join error → 500 `Failed to read blob`. Git error → 404 `Blob not found`.
-6. `bytes.len() > GIT_BLOB_MAX_BYTES` (8 × 1024 × 1024) → 413 `Blob too large`.
+5. On a match, require `path.starts_with(&root)` again in this function. The ceiling is `root.parent()` (the matched root always has a parent because filesystem roots are skipped). Every git subprocess for this request sets `GIT_CEILING_DIRECTORIES` to that parent, so git stops before entering it and cannot discover an ancestor repository.
+6. Still inside that branch, `resolve_git_repo_identity` runs `git rev-parse --show-toplevel --absolute-git-dir`. Both lines are canonicalized and must `starts_with` the same matched root. A failure to resolve an identity (including "not a git repository" after the ceiling stops the walk) is 403. A toplevel or git dir outside that root is 403, and `cat-file` does not run. This rejects a `.git` file whose `gitdir:` points outside the root.
+7. `show_git_blob_bytes_with_ceiling` then reads the blob with the same ceiling. Join error or a failure to execute `git` → 500 `Failed to read blob`. A repository whose identity is inside the root but whose blob is missing → 404 `Blob not found`.
+8. `bytes.len() > GIT_BLOB_MAX_BYTES` (8 × 1024 × 1024) → 413 `Blob too large`.
 
 Success headers stay `content-type`, `content-length`, and `cache-control: private, max-age=60`.
 
@@ -80,11 +85,11 @@ Directory roots are the QUALITY-015 set: each project's `main_file_path`, `GitEn
 
 ### `apps/api/AGENTS.md`
 
-The file-serve paragraph gains one sentence: git-blob uses those directory roots, canonicalizes `repo`, and rejects a symlink target outside them.
+The git-blob paragraph states that `repo` must stay inside those directory roots, that the git subprocess sets `GIT_CEILING_DIRECTORIES` to the parent of the matched root, and that `rev-parse --show-toplevel --absolute-git-dir` must canonicalize inside that same root. An ancestor repository or a `gitdir:` file that leaves the root is 403.
 
 ### Callers
 
-`apps/web/src/features/diff/lib/resolve-blob-url.ts` sends the project or worktree `repoPath`. Those paths are a project root or a directory under the workspaces base. The URL builder does not change. Desktop and mobile do not call this endpoint.
+`apps/web/src/features/diff/lib/resolve-blob-url.ts` sends the project or worktree `repoPath`. A project checkout is its own directory root, so its git dir stays inside that root. A linked worktree whose checkout is under the workspaces base and whose git dir is under the project checkout spans two roots and is 403 until a follow-up allows a git dir in a second directory root on the same allowlist. The URL builder does not change. Desktop and mobile do not call this endpoint.
 
 ## Data model
 
@@ -119,7 +124,11 @@ No new WebSocket message. No new REST route.
 - **Risk**: a diff preview whose `repo` is not under a project root, the workspaces base, the agent data dir, or `ATMOS_FILE_SERVE_ROOTS` now returns 403. The web caller passes a project or worktree path, which is in that set. An operator who pointed the preview at some other checkout adds that directory to `ATMOS_FILE_SERVE_ROOTS`.
 - **Tradeoff**: one helper plus a second `starts_with` at each sink, instead of a boolean wrapper that hides `starts_with` from the function that opens the file or runs `git`. The extra check keeps the CodeQL path-injection barrier next to the sink.
 - **Tradeoff**: exact logo files do not authorize git-blob. No current caller needs a logo path as `repo`.
-- **Residual**: canonicalize-then-`git` is still a TOCTOU window. The process `current_dir` is the canonical path that passed `starts_with`.
+- **Residual**: canonicalize-then-`git` is still a TOCTOU window. The process `current_dir` is the canonical path that passed `starts_with`, and the git subprocess also sets `GIT_CEILING_DIRECTORIES` to the parent of that root.
+- **Residual**: `current_dir` alone does not stop git from walking to an ancestor repository outside the allowlist (for example a dotfiles repo on `$HOME` when `repo` is a non-repo directory under `~/.atmos/data/workspaces`). The ceiling is the parent of the matched root, so that walk stops before leaving the root. If identity resolution still fails, the response is 403 and the blob is not read.
+- **Residual**: a `.git` file inside the root can still name an external object store with `gitdir:`. Ceiling does not block that pointer. Before `cat-file`, both `--show-toplevel` and `--absolute-git-dir` are canonicalized and must sit in the same matched root; otherwise the response is 403.
+- **Residual**: a linked worktree whose checkout is under one allowlist root and whose `absolute-git-dir` is under a different root (the usual Atmos layout: worktree under the workspaces base, git dir under the project checkout) is 403. A linked worktree whose git dir stays inside the same matched root is still served. Widening git-dir to any directory root on the same allowlist is a follow-up, not this fix.
+- **Residual**: the identity check is `--show-toplevel` and `--absolute-git-dir` only. A `.git` file whose git dir stays inside the root, while that git dir's `commondir` points at an object store outside the root, is not rejected by this check.
 - **If this breaks a preview**: add the checkout's parent to `ATMOS_FILE_SERVE_ROOTS`, or revert the allowlist check in `serve_allowed_git_blob`.
 
 ## Dependencies & compatibility

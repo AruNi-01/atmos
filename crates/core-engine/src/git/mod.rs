@@ -1,6 +1,6 @@
 //! Git operations for workspace management.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::error::{EngineError, Result};
@@ -27,23 +27,33 @@ pub(crate) use worktrees::is_linked_worktree;
 
 /// Run a git command in the given repo directory and return stdout on success.
 fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
-    let bytes = run_git_bytes(repo_path, args)?;
+    run_git_with_ceiling(repo_path, args, None)
+}
+
+fn run_git_with_ceiling(repo_path: &Path, args: &[&str], ceiling: Option<&Path>) -> Result<String> {
+    let bytes = run_git_bytes_with_ceiling(repo_path, args, ceiling)?;
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
 
 /// Run a git command and return raw stdout bytes on success.
-fn run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Vec<u8>> {
-    let output = Command::new("git")
-        .current_dir(repo_path)
-        .args(args)
-        .output()
-        .map_err(|e| {
-            EngineError::Git(format!(
-                "Failed to execute git {}: {}",
-                args.first().unwrap_or(&""),
-                e
-            ))
-        })?;
+fn run_git_bytes_with_ceiling(
+    repo_path: &Path,
+    args: &[&str],
+    ceiling: Option<&Path>,
+) -> Result<Vec<u8>> {
+    let mut command = Command::new("git");
+    command.current_dir(repo_path).args(args);
+    if let Some(ceiling) = ceiling {
+        // Git stops the upward repository search before entering this directory.
+        command.env("GIT_CEILING_DIRECTORIES", ceiling);
+    }
+    let output = command.output().map_err(|e| {
+        EngineError::Git(format!(
+            "Failed to execute git {}: {}",
+            args.first().unwrap_or(&""),
+            e
+        ))
+    })?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(EngineError::Git(format!(
@@ -83,21 +93,77 @@ fn try_run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Option<Vec<u8>>>
     }
 }
 
+/// Toplevel checkout and git directory from `rev-parse`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitRepoIdentity {
+    pub toplevel: PathBuf,
+    pub git_dir: PathBuf,
+}
+
+/// `rev-parse --show-toplevel --absolute-git-dir` with an upward-search ceiling.
+///
+/// `ceiling` is `GIT_CEILING_DIRECTORIES`. Git will not walk into that directory
+/// or above it while discovering a repository.
+pub fn resolve_git_repo_identity(repo_path: &Path, ceiling: &Path) -> Result<GitRepoIdentity> {
+    let text = run_git_with_ceiling(
+        repo_path,
+        &["rev-parse", "--show-toplevel", "--absolute-git-dir"],
+        Some(ceiling),
+    )?;
+    let mut lines = text.lines().map(str::trim).filter(|line| !line.is_empty());
+    let Some(toplevel) = lines.next() else {
+        return Err(EngineError::Git(
+            "git rev-parse returned no toplevel".to_string(),
+        ));
+    };
+    let Some(git_dir) = lines.next() else {
+        return Err(EngineError::Git(
+            "git rev-parse returned no git dir".to_string(),
+        ));
+    };
+    if lines.next().is_some() {
+        return Err(EngineError::Git(
+            "git rev-parse returned extra lines".to_string(),
+        ));
+    }
+    Ok(GitRepoIdentity {
+        toplevel: PathBuf::from(toplevel),
+        git_dir: PathBuf::from(git_dir),
+    })
+}
+
 /// Show a blob (`rev:path` or `:path`) as raw bytes.
 ///
 /// Resolves the object with `rev-parse` then reads via `cat-file blob` so the
 /// spec is never parsed as a `git show` option (e.g. `--output=...`).
 pub fn show_git_blob_bytes(repo_path: &Path, rev_path_spec: &str) -> Result<Vec<u8>> {
+    read_git_blob(repo_path, rev_path_spec, None)
+}
+
+/// Same as [`show_git_blob_bytes`], but git will not search above `ceiling`.
+pub fn show_git_blob_bytes_with_ceiling(
+    repo_path: &Path,
+    rev_path_spec: &str,
+    ceiling: &Path,
+) -> Result<Vec<u8>> {
+    read_git_blob(repo_path, rev_path_spec, Some(ceiling))
+}
+
+fn read_git_blob(repo_path: &Path, rev_path_spec: &str, ceiling: Option<&Path>) -> Result<Vec<u8>> {
     let spec = rev_path_spec.trim();
     if !is_safe_blob_show_spec(spec) {
         return Err(EngineError::Git("Invalid git blob show-spec".to_string()));
     }
-    let oid = run_git(repo_path, &["rev-parse", "--verify", "--quiet", spec])?;
+    let oid = run_git_with_ceiling(
+        repo_path,
+        &["rev-parse", "--verify", "--quiet", spec],
+        ceiling,
+    )?;
     let oid = oid.trim();
     if oid.is_empty() {
         return Err(EngineError::Git("Blob object not found".to_string()));
     }
-    run_git_bytes(repo_path, &["cat-file", "blob", oid])
+    run_git_bytes_with_ceiling(repo_path, &["cat-file", "blob", oid], ceiling)
 }
 
 fn is_safe_blob_show_spec(spec: &str) -> bool {
