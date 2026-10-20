@@ -35,8 +35,6 @@ import {
   retainComposerPasteChips,
   type ComposerPasteChip,
 } from "./composer-paste";
-import { composerRowVisible, scrollPillVisible } from "./stick";
-import { resolvedPillRowHeight } from "./transcript-pad";
 import {
   applyComposerPick,
   composerSuggestionList,
@@ -545,11 +543,7 @@ export function AgentChatThreadScreen({
   }
 
   const measuredCardHeight = lane.visible ? expandedCardHeight : 0;
-  const pillRowRendered = composerRowVisible(
-    scrollPillVisible(messages.length, stickToEnd),
-    pills.length,
-  );
-  const pillRowHeight = resolvedPillRowHeight(pillRowRendered, measuredPillRowHeight);
+  const pillRowHeight = measuredPillRowHeight;
 
   return (
     <>

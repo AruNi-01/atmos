@@ -13,6 +13,16 @@ export function transcriptPadShrinkEasing(): string {
   return `cubic-bezier(${TRANSCRIPT_PAD_SHRINK_BEZIER.join(", ")})`;
 }
 
+/**
+ * Offset that aligns the content bottom, including padding, with the viewport.
+ * Unknown sizes return 0. Callers that cannot tell that from a short list keep
+ * the list's own end scroll.
+ */
+export function transcriptContentEndOffset(contentHeight: number, viewportHeight: number): number {
+  if (contentHeight <= 0 || viewportHeight <= 0) return 0;
+  return Math.max(0, contentHeight - viewportHeight);
+}
+
 /** List bottom padding: base 40 plus the expanded card and the pill row. */
 export function transcriptListBottomPad(expandedCardHeight: number, pillRowHeight: number): number {
   const overlay = Math.max(0, expandedCardHeight) + Math.max(0, pillRowHeight);
