@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { parityFixtureById } from "@atmos/agent-transcript";
 import { orderedCardIds } from "./card-lane";
 import { composerCardsFromParity, parityPreviewLane } from "./parity-composer-cards";
+import { isRejectPermissionOption } from "./permission-actions";
 
 describe("composer cards from parity fixtures", () => {
   test("F12 exposes every card and preempts to permission", () => {
@@ -31,6 +32,12 @@ describe("composer cards from parity fixtures", () => {
     expect(cards.context).toMatchObject({ used: 2400, context_window: 16000 });
     expect(cards.permission?.description).toBe("Edit src/lib.ts");
     expect(cards.permission?.questions?.[0]?.prompt).toBe("Allow the edit?");
+    const options = cards.permission?.options ?? [];
+    expect(options.map((option) => option.name)).toEqual(["Allow", "Skip"]);
+    const skip = options.find((option) => option.option_id === "skip");
+    expect(skip?.name).toBe("Skip");
+    expect(skip ? isRejectPermissionOption(skip) : false).toBe(true);
+    expect(isRejectPermissionOption(options[0]!)).toBe(false);
   });
 
   test("F11 expands the pending permission and has no other pills", () => {

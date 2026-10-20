@@ -100,6 +100,10 @@
         {
           "option_id": "allow",
           "name": "Allow"
+        },
+        {
+          "option_id": "skip",
+          "name": "Skip"
         }
       ]
     }

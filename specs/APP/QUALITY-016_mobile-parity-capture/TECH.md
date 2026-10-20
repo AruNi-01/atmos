@@ -85,9 +85,15 @@ Two additions on top of QUALITY-010:
 
 `ios-simulator` still runs only on `workflow_dispatch` or a PR labeled `ios-parity`. A skipped job on a draft without that label is success.
 
+### D7. F12 renders Skip, and a PillTap miss fails the job
+
+F12's permission request includes a reject-class option next to Allow: `{ "option_id": "skip", "name": "Skip" }`. `isRejectPermissionOption` matches that id and name, so the existing glass chip renders `testID="agent-chat-permission-skip"`. Allow stays without a test id. The expected structural tree records the Skip option label. No second permission UI is added.
+
+`ios-capture.sh` used to continue after a PillTap miss (`A miss does not fail the job`, and callers that only echoed the failure). A miss now prints `PillTap missed:` and exits non-zero. That covers the scroll pill, the F12 card-pill pass (plan, queue, permission pill, Skip chip), the card-row swipe, and the composer field. Comments name the Skip chip on the permission card. They do not say Skip lives on a Questions card, and they do not say the F12 question has no options. Replay, pinned lane, and composer-state screenshots still do not fail the job.
+
 ## Risks
 
-- PillTap looks up `buttons["agent-chat-permission-skip"]`. The identifier is on the chip `View` that already has `accessibilityRole="button"`. Whether XCUITest classifies that `View` as a button is unverified here: there is no iOS Simulator in this environment, and the job stays opt-in. The Bun tests only lock the source strings.
+- PillTap looks up `buttons["agent-chat-permission-skip"]`. F12 now has the Skip option that renders that id. Whether XCUITest classifies the chip `View` as a button is still unverified here: there is no iOS Simulator in this environment, and the job stays opt-in. The Bun tests lock the fixture option, the source string, and that a miss is no longer swallowed.
 - `capture-parity-view.ts` calls `makeImageFromView` / `readPixels` on the installed Skia. The flat-fill patch is not applied. A uniform-frame shot can still log `[parity] motion flat`. That is a log, not a patch.
 - Slot width is pill width + 8, and the glass row already has `gap: 8`. APP-081 records that double gap. This spec does not change it.
 - `writeParityMotionPng` writes under the app Documents directory at capture time. It is not a repo path.
