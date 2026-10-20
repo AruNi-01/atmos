@@ -115,4 +115,31 @@ describe("AgentChatEventPump hydrate", () => {
     expect(pump.hydrating).toBe(true);
     expect(pump.finishHydrate(10, second)).toHaveLength(1);
   });
+
+  test("a later façade snapshot reuses the same floor and cannot recede", () => {
+    const pump = createAgentChatEventPump();
+    pump.startHydrate();
+    expect(pump.finishHydrate(50)).toEqual([]);
+    const resync = pump.startHydrate();
+    expect(pump.finishHydrate(20, resync)).toEqual([]);
+    const delayed = pump.ingest(
+      chatEvent(25, { type: "queue_updated", items: [] }, "unseen-after-resync"),
+    );
+    expect(delayed).toMatchObject({ action: "drop", reason: "stale_state" });
+  });
+
+  test("agent_chat_resync finishHydrate drains live events through the existing floor", () => {
+    const pump = createAgentChatEventPump();
+    pump.startHydrate();
+    expect(pump.finishHydrate(10)).toEqual([]);
+    const resync = pump.startHydrate();
+    const live = chatEvent(21, { type: "turn_started", turn_id: "t2" });
+    expect(pump.ingest(live).action).toBe("buffer");
+    expect(pump.finishHydrate(20, resync)).toEqual([{ action: "apply", event: live }]);
+    expect(pump.cursor).toBe(21);
+    expect(pump.ingest(live)).toMatchObject({
+      action: "drop",
+      reason: "duplicate_event_id",
+    });
+  });
 });

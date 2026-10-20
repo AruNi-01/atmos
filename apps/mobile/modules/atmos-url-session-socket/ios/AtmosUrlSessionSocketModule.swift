@@ -14,6 +14,17 @@ struct AtmosSocketEvent: Record {
   @Field var message: String = ""
 }
 
+enum AtmosSocketSendError: LocalizedError {
+  case notOpen
+
+  var errorDescription: String? {
+    switch self {
+    case .notOpen:
+      return "WebSocket is not open"
+    }
+  }
+}
+
 /// URLSession's delegate is an Objective-C protocol, so it cannot be the Expo shared object.
 final class AtmosSocketDelegate: NSObject, URLSessionWebSocketDelegate {
   weak var owner: AtmosUrlSessionSocket?
@@ -36,6 +47,8 @@ final class AtmosSocketDelegate: NSObject, URLSessionWebSocketDelegate {
 }
 
 final class AtmosUrlSessionSocket: SharedObject {
+  private static let maxMessageSize = 16 * 1024 * 1024
+
   private let stateLock = NSLock()
   private let delegate = AtmosSocketDelegate()
   private var session: URLSession?
@@ -58,6 +71,7 @@ final class AtmosUrlSessionSocket: SharedObject {
 
     let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
     let task = session.webSocketTask(with: url)
+    task.maximumMessageSize = Self.maxMessageSize
     stateLock.lock()
     self.session = session
     self.task = task
@@ -65,13 +79,40 @@ final class AtmosUrlSessionSocket: SharedObject {
     task.resume()
   }
 
-  func send(text: String) {
+  func send(text: String) throws {
     stateLock.lock()
     let task = self.task
     let isOpen = opened && !finished
     stateLock.unlock()
-    guard isOpen, let task else { return }
-    task.send(.string(text)) { _ in }
+    guard isOpen, let task else {
+      throw AtmosSocketSendError.notOpen
+    }
+    task.send(.string(text)) { [weak self] error in
+      guard let error else { return }
+      self?.emit(
+        event: "error",
+        payload: AtmosSocketEvent(message: error.localizedDescription)
+      )
+    }
+  }
+
+  func ping() {
+    stateLock.lock()
+    let task = self.task
+    let isOpen = opened && !finished
+    stateLock.unlock()
+    guard isOpen, let task else {
+      emit(event: "error", payload: AtmosSocketEvent(message: "WebSocket is not open"))
+      return
+    }
+    task.sendPing { [weak self] error in
+      guard let self else { return }
+      if let error {
+        self.emit(event: "error", payload: AtmosSocketEvent(message: error.localizedDescription))
+        return
+      }
+      self.emit(event: "pong", payload: AtmosSocketEvent())
+    }
   }
 
   func close(code: Int, reason: String) {
@@ -128,8 +169,18 @@ final class AtmosUrlSessionSocket: SharedObject {
           break
         }
         self.receiveNext(on: task)
-      case .failure:
-        break
+      case .failure(let error):
+        let rawCode = task.closeCode.rawValue
+        if rawCode == 0 {
+          // Close code is still invalid; urlSession(_:task:didCompleteWithError:) reports it.
+          return
+        }
+        let isNormal = rawCode == URLSessionWebSocketTask.CloseCode.normalClosure.rawValue
+        self.complete(
+          error: isNormal ? nil : error,
+          code: rawCode,
+          reason: error.localizedDescription
+        )
       }
     }
   }
@@ -177,7 +228,11 @@ public class AtmosUrlSessionSocketModule: Module {
       }
 
       Function("send") { (sock: AtmosUrlSessionSocket, text: String) in
-        sock.send(text: text)
+        try sock.send(text: text)
+      }
+
+      Function("ping") { (sock: AtmosUrlSessionSocket) in
+        sock.ping()
       }
 
       Function("close") { (sock: AtmosUrlSessionSocket, code: Int, reason: String) in

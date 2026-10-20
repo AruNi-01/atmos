@@ -32,4 +32,27 @@ describe("useAgentChatThread restore", () => {
     expect(getAt).toBeGreaterThan(-1);
     expect(subscribeAt).toBeGreaterThan(getAt);
   });
+
+  test("applies agent_chat_resync through EventGate finishHydrate", () => {
+    expect(thread).toContain("parseAgentChatResync");
+    expect(thread).toContain("resync.chat_id === chatId");
+    expect(thread).toContain("applyOpenThreadResync");
+    expect(thread).toContain("markOpenThreadOverflow");
+    expect(thread).toContain("applyAgentChatResync");
+    expect(thread).toContain("pump.finishHydrate(seq, generation)");
+    expect(thread).toContain("pump.startHydrate()");
+    expect(thread).toContain("prev === copy.sendFailed ? prev : null");
+    const resyncAt = thread.indexOf("parseAgentChatResync(message)");
+    const publishAt = thread.indexOf("applyOpenThreadResync({");
+    const facadeAt = thread.indexOf("facadeHydrateGen ?? pump.startHydrate()");
+    const finishAt = thread.indexOf("pump.finishHydrate(seq, generation)");
+    expect(resyncAt).toBeGreaterThan(-1);
+    expect(publishAt).toBeGreaterThan(resyncAt);
+    expect(facadeAt).toBeGreaterThan(publishAt);
+    expect(thread.indexOf("applySnapshot(snapshot, generation)", publishAt)).toBeGreaterThan(
+      publishAt,
+    );
+    expect(finishAt).toBeGreaterThan(-1);
+    expect(thread).not.toContain("if (!ready) return");
+  });
 });

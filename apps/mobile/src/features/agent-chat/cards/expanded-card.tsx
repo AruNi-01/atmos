@@ -1,12 +1,155 @@
 import type { ReactNode } from "react";
-import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
+import { ShieldIcon } from "@/ui/icons/lucide-native";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { COMPOSER_GLASS_WELL } from "../composer-glass";
+import { agentChatCardHeadingMetrics } from "../markdown-chrome";
 import { useReducedMotion } from "../motion/use-reduced-motion";
 
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
+
+/** Same gap for card blocks and chip wrap rows (web dock `gap-2` / 8pt). */
+export const CARD_GAP = 8;
+export const CARD_CHIP_GAP = 8;
+export const CARD_ICON_SIZE = 16;
+/** Web dock title: `text-sm font-medium` (14/500, line-height 20). */
+export const CARD_TITLE = {
+  fontSize: agentChatCardHeadingMetrics.fontSize,
+  fontWeight: agentChatCardHeadingMetrics.fontWeight,
+  lineHeight: agentChatCardHeadingMetrics.lineHeight,
+};
+export const CARD_BODY = { fontSize: 14, lineHeight: 20 };
+export const CARD_MONO = { fontFamily: "Menlo", fontSize: 13, lineHeight: 18 };
+/** Web background row `text-[11px] text-muted-foreground`. */
+export const CARD_META = { fontSize: 11, lineHeight: 14 };
+/** Web `text-sky-500` on AgentSessionOpCard. */
+export const SESSION_OP_SKY = "#0ea5e9";
+/** Matches title left edge (margin 18 + pad 14 = 32) and last-chip-to-bottom. */
+export const CARD_PAD_HORIZONTAL = 14;
+export const CARD_PAD_VERTICAL = 14;
+
+type CardHeaderIcon = typeof ShieldIcon;
+
+export function CardHeader({
+  count,
+  icon: Icon,
+  iconColor,
+  title,
+  titleColor,
+}: {
+  count?: string | number | null;
+  icon: CardHeaderIcon;
+  iconColor?: string;
+  title: string;
+  titleColor?: string;
+}) {
+  const theme = useMobileTheme();
+  const ink = iconColor ?? theme.colors.label;
+  const titleInk = titleColor ?? theme.colors.label;
+  const countText = count == null ? "" : String(count);
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerIcon}>
+        <Icon color={ink} size={CARD_ICON_SIZE} strokeWidth={2} />
+      </View>
+      <Text
+        style={{
+          color: titleInk,
+          flexGrow: 1,
+          flexShrink: 1,
+          fontSize: CARD_TITLE.fontSize,
+          fontWeight: CARD_TITLE.fontWeight,
+          includeFontPadding: false,
+          lineHeight: CARD_TITLE.lineHeight,
+        }}
+      >
+        {title}
+      </Text>
+      {countText.length > 0 ? (
+        <Text
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: CARD_BODY.fontSize,
+            includeFontPadding: false,
+            lineHeight: CARD_BODY.lineHeight,
+          }}
+        >
+          {countText}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+export function ChipRow({
+  children,
+  justify = "start",
+}: {
+  children: ReactNode;
+  justify?: "start" | "end";
+}) {
+  return (
+    <View style={[styles.chipRow, justify === "end" ? styles.chipRowEnd : null]}>{children}</View>
+  );
+}
+
+export function CardStatusBadge({ label }: { label: string }) {
+  const theme = useMobileTheme();
+  return (
+    <Text
+      style={{
+        backgroundColor: theme.colors.cardSubtle,
+        borderRadius: 6,
+        color: theme.colors.label,
+        fontSize: CARD_BODY.fontSize,
+        includeFontPadding: false,
+        lineHeight: CARD_BODY.lineHeight,
+        overflow: "hidden",
+        paddingHorizontal: 8,
+        textAlignVertical: "center",
+      }}
+    >
+      {label}
+    </Text>
+  );
+}
+
+export function CardStatusRow({ badge, text }: { badge: string; text?: string | null }) {
+  const theme = useMobileTheme();
+  return (
+    <View style={styles.statusRow}>
+      <CardStatusBadge label={badge} />
+      {text ? (
+        <Text
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: CARD_BODY.fontSize,
+            includeFontPadding: false,
+            lineHeight: CARD_BODY.lineHeight,
+          }}
+        >
+          {text}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+export function CardBulletRow({ text }: { text: string }) {
+  const theme = useMobileTheme();
+  const body = { color: theme.colors.secondaryLabel, ...CARD_BODY };
+  return (
+    <View style={styles.bulletRow}>
+      <Text style={body}>{"\u2022"}</Text>
+      <Text selectable style={[body, { flex: 1 }]}>
+        {text}
+      </Text>
+    </View>
+  );
+}
 
 export function ExpandedCard({
   children,
@@ -15,7 +158,6 @@ export function ExpandedCard({
   children: ReactNode;
   onHeight: (height: number) => void;
 }) {
-  const theme = useMobileTheme();
   const reduced = useReducedMotion();
   const { height } = useWindowDimensions();
   const maxHeight = Math.round(height * 0.4);
@@ -30,10 +172,9 @@ export function ExpandedCard({
       style={{ marginHorizontal: 18, maxHeight }}
     >
       <GlassPanel
-        fallbackStyle={{ backgroundColor: theme.colors.glassFallbackStrong }}
-        shadow={false}
+        {...COMPOSER_GLASS_WELL}
+        interactive={false}
         style={{ borderRadius: radii.card, maxHeight }}
-        tintColor={theme.colors.glassTint}
       >
         <ScrollView
           contentContainerStyle={styles.content}
@@ -50,10 +191,40 @@ export function ExpandedCard({
 
 const styles = StyleSheet.create({
   body: {
-    gap: 10,
+    gap: CARD_GAP,
+  },
+  bulletRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 8,
+    paddingLeft: 12,
+  },
+  chipRow: {
+    columnGap: CARD_CHIP_GAP,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    rowGap: CARD_CHIP_GAP,
+  },
+  chipRowEnd: {
+    justifyContent: "flex-end",
   },
   content: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: CARD_PAD_HORIZONTAL,
+    paddingVertical: CARD_PAD_VERTICAL,
+  },
+  header: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 8,
+  },
+  headerIcon: {
+    // First-line optical center: (CARD_TITLE.lineHeight - CARD_ICON_SIZE) / 2.
+    marginTop: 2,
+  },
+  statusRow: {
+    alignItems: "baseline",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
 });

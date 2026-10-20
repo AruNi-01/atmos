@@ -17,7 +17,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 | ---------------------------- | ----------------------- |
 | Q1 emission identity         | S1, S2, S3              |
 | Q2 state anti-rollback       | S4, S5, S6, S7, S8, S8b |
-| Q3 snapshot then incremental | S9, S10, S16            |
+| Q3 snapshot then incremental | S9, S10, S16, S19       |
 | Q4 gap catch_up / resync     | S11, S12, S12b          |
 | Q5 resync failure recovery   | S13, S14                |
 | Q6 mobile cursor resume      | S15, S16                |
@@ -47,6 +47,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 | S16      | Unit       | `bun test`    | thread source order                        | get before subscribe from `pump.cursor`; abandon on fail    | source strings              | planned |
 | S17      | Unit       | `bun test`    | web session source                         | `finishHydrate` index < subscribe; `shouldResyncFromServer` | `indexOf` order             | planned |
 | S18      | Regression | `bun test`    | web `agent-chat-events`                    | existing corpus                                             | pass                        | planned |
+| S19      | Unit       | `bun test`    | façade `agent_chat_resync`                 | finishHydrate / observeSnapshot; floor does not recede      | source + pump               | planned |
 
 ## Scenarios
 
@@ -138,6 +139,14 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 - **Then**: `eventPump.startHydrate` before get; `finishHydrate` before `subscribe(id, eventPump.cursor)`; `shouldResyncFromServer` on subscribe `last_event_seq`. Fold corpus still passes.
 - **Signals**: `indexOf` order; bun test pass.
 
+### S19 — Façade `agent_chat_resync` reuses the EventGate floor
+
+- **Level**: Unit
+- **Given**: QUALITY-012 `agent_chat_resync` after #324 (`ad35a233`) is on `main`.
+- **When**: the open-thread hook receives the façade message.
+- **Then**: it parses `chat_id`, publishes through `applyOpenThreadResync`, and `applySnapshot` calls `pump.finishHydrate(seq)` → `observeSnapshot`. A later lower seq cannot recede the floor. Live events buffered during that hydrate drain through the same gate.
+- **Signals**: hook source strings; `event-pump.test.ts` façade snapshot tests.
+
 ## Performance & load budgets
 
 - Gate admit is O(1) besides the id ring (cap 4096).
@@ -155,6 +164,7 @@ Deterministic Bun tests own the gate. Mobile and web hooks are exercised with th
 - [ ] Subscribe cursor is contiguous, not `maxRevision`.
 - [ ] `session_lifecycle` create/resume share one revision floor per `turn_id`.
 - [ ] No change under `apps/mobile/e2e` or agent-chat UI files besides the session hook/helpers.
+- [ ] `agent_chat_resync` raises the existing snapshot floor via `finishHydrate` / `observeSnapshot`.
 
 ## Exploratory agent-browser checks
 
@@ -185,25 +195,26 @@ Omitted. No new user-facing chrome.
 
 Implemented on `aarynlu/agent-chat-event-gate-1212`. iOS Simulator: **not run**.
 
-| Scenario | Status | Proof                                                                                         |
-| -------- | ------ | --------------------------------------------------------------------------------------------- |
-| S1       | pass   | `event-gate.test.ts` SessionStarted shared `event_id`                                         |
-| S2       | pass   | `event-gate.test.ts` + mobile `event-gate-probes.test.ts` `part_closed` then `turn_completed` |
-| S3       | pass   | Lagged replay tests in `event-gate.test.ts`                                                   |
-| S4–S7    | pass   | probe regressions in api-client and mobile fold                                               |
-| S8       | pass   | snapshot floor test; mobile delayed queue                                                     |
-| S8b      | pass   | `event-gate.test.ts` `observeSnapshot cannot lower the snapshot floor`                        |
-| S9–S10   | pass   | `event-pump.test.ts` hydrate + generation                                                     |
-| S11–S12  | pass   | catch_up / resync gap tests; next seq is not a gap                                            |
-| S12b     | pass   | `event-gate.test.ts` `live gap and shouldResyncFromServer share the ahead >= 32 boundary`     |
-| S13–S14  | pass   | `abandonHydrate` drain + live apply; `hydrate-recovery.test.ts`                               |
-| S15–S16  | pass   | `session-resume.test.ts`; `use-agent-chat-thread.test.ts`                                     |
-| S17–S18  | pass   | transcript-window structural order; `agent-chat-events` 73 pass                               |
+| Scenario | Status | Proof                                                                                                                                |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| S1       | pass   | `event-gate.test.ts` SessionStarted shared `event_id`                                                                                |
+| S2       | pass   | `event-gate.test.ts` + mobile `event-gate-probes.test.ts` `part_closed` then `turn_completed`                                        |
+| S3       | pass   | Lagged replay tests in `event-gate.test.ts`                                                                                          |
+| S4–S7    | pass   | probe regressions in api-client and mobile fold                                                                                      |
+| S8       | pass   | snapshot floor test; mobile delayed queue                                                                                            |
+| S8b      | pass   | `event-gate.test.ts` `observeSnapshot cannot lower the snapshot floor`                                                               |
+| S9–S10   | pass   | `event-pump.test.ts` hydrate + generation                                                                                            |
+| S11–S12  | pass   | catch_up / resync gap tests; next seq is not a gap                                                                                   |
+| S12b     | pass   | `event-gate.test.ts` `live gap and shouldResyncFromServer share the ahead >= 32 boundary`                                            |
+| S13–S14  | pass   | `abandonHydrate` drain + live apply; `hydrate-recovery.test.ts`                                                                      |
+| S15–S16  | pass   | `session-resume.test.ts`; `use-agent-chat-thread.test.ts`                                                                            |
+| S17–S18  | pass   | transcript-window structural order; `agent-chat-events` 73 pass                                                                      |
+| S19      | pass   | `use-agent-chat-thread.test.ts` `applies agent_chat_resync through EventGate finishHydrate`; `event-pump.test.ts` façade floor tests |
 
 Commands:
 
 ```bash
-bun run --filter @atmos/api-client test   # 65 pass
+bun run --filter @atmos/api-client test   # 82 pass
 bun test apps/mobile/src/features/agent-chat/{event-gate-probes,hydrate-recovery,session-resume,use-agent-chat-thread,fold-transcript,fold-cards,commit-buffer-wire}.test.ts
 bun test apps/web/src/features/agent/lib/__tests__/agent-chat-{events,stream-wiring,transcript-window}.test.ts
 bun run --filter @atmos/api-client typecheck

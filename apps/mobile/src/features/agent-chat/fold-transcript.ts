@@ -46,6 +46,13 @@ export type AppliedChatEvent = {
   backfill: BackfillRequest | null;
 };
 
+export const AGENT_CHAT_RESYNC_REPLAY_LIMIT = 256;
+
+export type AppliedChatResync = {
+  state: ChatTranscriptState;
+  backfills: BackfillRequest[];
+};
+
 type ToolEvent = Extract<
   AgentChatPayload,
   { type: "tool_call_started" | "tool_call_updated" | "tool_call_completed" | "tool_call_failed" }
@@ -131,6 +138,63 @@ export function createChatTranscript(
     commands: [],
     store: seedStore(normalized),
   };
+}
+
+export function transcriptFromAgentChatSnapshot(
+  chatId: string,
+  snapshot: AgentChatSnapshot,
+): ChatTranscriptState {
+  const state = createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta);
+  return {
+    ...state,
+    pendingPermission: snapshot.pending_permission ?? null,
+    pendingSessionOp: snapshot.pending_session_op ?? null,
+    queue: snapshot.queue ?? [],
+    runningTurnId: snapshot.running_turn_id ?? null,
+    commands: normalizeSlashCommands(snapshot.meta?.available_commands),
+  };
+}
+
+export function rememberChatEvent(
+  recent: AgentChatEvent[],
+  event: AgentChatEvent,
+  limit = AGENT_CHAT_RESYNC_REPLAY_LIMIT,
+): boolean {
+  recent.push(event);
+  const extra = recent.length - limit;
+  if (extra <= 0) return false;
+  recent.splice(0, extra);
+  return true;
+}
+
+export function pruneChatEvents(recent: AgentChatEvent[], after: number): void {
+  let write = 0;
+  for (const event of recent) {
+    if ((event.revision ?? 0) > after) {
+      recent[write] = event;
+      write += 1;
+    }
+  }
+  recent.length = write;
+}
+
+export function applyAgentChatResync(
+  chatId: string,
+  snapshot: AgentChatSnapshot,
+  recentEvents: ReadonlyArray<AgentChatEvent>,
+): AppliedChatResync {
+  let state = transcriptFromAgentChatSnapshot(chatId, snapshot);
+  const after = snapshot.meta?.last_event_seq ?? 0;
+  const backfills: BackfillRequest[] = [];
+  for (const event of recentEvents) {
+    if (!eventsForChat(event, chatId)) continue;
+    const revision = event.revision ?? 0;
+    if (revision <= after) continue;
+    const next = applyChatEvent(state, event);
+    state = next.state;
+    if (next.backfill) backfills.push(next.backfill);
+  }
+  return { state, backfills };
 }
 
 function mergeUsageSession(

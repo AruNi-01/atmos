@@ -15,11 +15,14 @@ export const DEFAULT_MOBILE_RECONNECT: ReconnectPolicy = {
   initialDelayMs: 500,
   maxDelayMs: 5_000,
   maxAttempts: 5,
-  exhausted: { type: "stop" },
+  exhausted: { type: "slow_retry", delayMs: 60_000 },
   reconnectOnCleanClose: false,
   reconnectBeforeOpen: true,
 };
 
 export const DEFAULT_WEB_REQUEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_MOBILE_REQUEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_MOBILE_HEARTBEAT_INTERVAL_MS = 20_000;
+export const DEFAULT_MOBILE_HEARTBEAT_TIMEOUT_MS = 10_000;
 export const DEFAULT_WEB_CONNECT_WAIT_MS = 15_000;
 export const DEFAULT_DESKTOP_CONNECT_WAIT_MS = 30_000;

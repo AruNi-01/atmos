@@ -1,4 +1,4 @@
-import type { AgentChatPayload } from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentChatEvent, AgentChatPayload } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   AGENT_CHAT_COMMIT_FLUSH_MS,
   classifyCommitCadence,
@@ -33,10 +33,23 @@ import {
   type AgentChatPumpIngest,
   type BackfillRequest,
 } from "@atmos/api-client/agent-chat";
+import { parseAgentChatResync } from "@/api/mobile-ws-transport";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { copy } from "./copy";
-import { applyChatEvent, createChatTranscript, type ChatTranscriptState } from "./fold-transcript";
+import {
+  applyOpenThreadResync,
+  markOpenThreadOverflow,
+  type OpenThreadResyncCtrl,
+} from "./open-thread-resync";
+import {
+  applyAgentChatResync,
+  applyChatEvent,
+  createChatTranscript,
+  pruneChatEvents,
+  rememberChatEvent,
+  type ChatTranscriptState,
+} from "./fold-transcript";
 import { agentChatEventFromMessage, eventsForChat } from "./foreign-event";
 import { nextAgentChatResyncDelayMs, shouldAbandonAgentChatHydrate } from "./hydrate-recovery";
 import { useReducedMotion } from "./motion/use-reduced-motion";
@@ -89,11 +102,19 @@ export function useAgentChatThread(chatId: string) {
     let resyncing = false;
     let failedResyncs = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let facadeHydrateGen: number | undefined;
     const clearResyncRetry = () => {
       if (retryTimer == null) return;
       clearTimeout(retryTimer);
       retryTimer = null;
     };
+    const resyncCtrl: OpenThreadResyncCtrl = {
+      overflowed: false,
+      overflowGen: 0,
+      resyncFetchGen: 0,
+      cancelled: false,
+    };
+    const recentEvents: AgentChatEvent[] = [];
     const inflight = new Set<string>();
     if (!isResume) {
       pumpRef.current = createAgentChatEventPump();
@@ -156,15 +177,11 @@ export function useAgentChatThread(chatId: string) {
       snapshot: Awaited<ReturnType<typeof wsActions.agentChatGet>>,
       generation?: number,
     ) => {
-      const state = {
-        ...createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta),
-        pendingPermission: snapshot.pending_permission ?? null,
-        pendingSessionOp: snapshot.pending_session_op ?? null,
-        queue: snapshot.queue ?? [],
-        runningTurnId: snapshot.running_turn_id ?? null,
-      };
-      transcriptRef.current = state;
+      const applied = applyAgentChatResync(chatId, snapshot, recentEvents);
+      transcriptRef.current = applied.state;
+      for (const request of applied.backfills) requestBackfill(request);
       const seq = snapshot.meta?.last_event_seq ?? 0;
+      pruneChatEvents(recentEvents, seq);
       for (const decision of pump.finishHydrate(seq, generation)) applyDecision(decision);
       setTranscript(transcriptRef.current);
     };
@@ -215,8 +232,33 @@ export function useAgentChatThread(chatId: string) {
     };
 
     const unsubscribeMessages = client.subscribeMessages((message) => {
+      const resync = parseAgentChatResync(message);
+      if (resync && resync.chat_id === chatId) {
+        void applyOpenThreadResync({
+          ctrl: resyncCtrl,
+          incoming: resync.snapshot,
+          fetchReplacement: async () => {
+            facadeHydrateGen = pump.startHydrate();
+            try {
+              return await wsActions.agentChatGet(client, { chat_id: chatId });
+            } catch (err) {
+              if (shouldAbandonAgentChatHydrate("error")) drainAbandonedHydrate(facadeHydrateGen);
+              facadeHydrateGen = undefined;
+              throw err;
+            }
+          },
+          publish: (snapshot) => {
+            const generation = facadeHydrateGen ?? pump.startHydrate();
+            facadeHydrateGen = undefined;
+            applySnapshot(snapshot, generation);
+            setError((prev) => (prev === copy.sendFailed ? prev : null));
+          },
+        });
+        return;
+      }
       const event = agentChatEventFromMessage(message);
       if (!event || !eventsForChat(event, chatId)) return;
+      if (rememberChatEvent(recentEvents, event)) markOpenThreadOverflow(resyncCtrl);
       const decision = pump.ingest(event);
       applyDecision(decision);
       if (decision.action === "apply" && decision.gap?.recommend === "resync") {
@@ -260,6 +302,7 @@ export function useAgentChatThread(chatId: string) {
 
     return () => {
       cancelled = true;
+      resyncCtrl.cancelled = true;
       clearResyncRetry();
       if (pump.hydrating) drainAbandonedHydrate();
       clearInterval(flushTimer);

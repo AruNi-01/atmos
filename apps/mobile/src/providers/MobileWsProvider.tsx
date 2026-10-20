@@ -1,9 +1,12 @@
 import type { PropsWithChildren } from "react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { AppState } from "react-native";
+import * as Network from "expo-network";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TerminalTitleUpdatedNotification } from "@atmos/api-types/ws/dto/events";
 import type { TerminalWorkspaceCandidate } from "@/api/types";
 import { MobileWsClient, type MobileWsState } from "@/api/mobile-ws-client";
+import { NetworkUpdateGate } from "@/api/mobile-ws-transport";
 import { applyServerTerminalTitle } from "@/features/terminal/terminal-selection";
 import { useSessionStore } from "@/stores/session-store";
 import { useTerminalStore } from "@/stores/terminal-store";
@@ -48,8 +51,12 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
       return undefined;
     }
 
-    const unsubscribe = client.subscribeState((nextState) => {
-      setWsState(nextState);
+    const applyBanner = (nextState: MobileWsState) => {
+      const alert = client.transportAlert;
+      if (alert) {
+        setDisconnectedReason(alert);
+        return;
+      }
       if (nextState === "closed" || nextState === "error") {
         const detail = client.lastFailure.trim();
         setDisconnectedReason(
@@ -62,6 +69,36 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
       } else if (nextState === "open") {
         setDisconnectedReason(null);
       }
+    };
+
+    const unsubscribe = client.subscribeState((nextState) => {
+      setWsState(nextState);
+      applyBanner(nextState);
+    });
+    const unsubscribeAlerts = client.subscribeAlerts(() => {
+      applyBanner(client.state);
+    });
+
+    const networkGate = new NetworkUpdateGate();
+    const pullNetwork = () => {
+      const id = networkGate.nextAsync();
+      void Network.getNetworkStateAsync()
+        .then((state) => {
+          if (!networkGate.isCurrent(id)) return;
+          client.setNetworkOnline(state.isConnected !== false);
+        })
+        .catch(() => undefined);
+    };
+
+    client.setForeground(AppState.currentState === "active");
+    pullNetwork();
+    const appSub = AppState.addEventListener("change", (status) => {
+      client.setForeground(status === "active");
+      if (status === "active") pullNetwork();
+    });
+    const netSub = Network.addNetworkStateListener((state) => {
+      networkGate.live();
+      client.setNetworkOnline(state.isConnected !== false);
     });
 
     client.connect();
@@ -83,7 +120,10 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
       );
     });
     return () => {
+      appSub.remove();
+      netSub.remove();
       unsubscribeTitles();
+      unsubscribeAlerts();
       unsubscribe();
       client.close();
     };

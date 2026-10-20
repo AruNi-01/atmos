@@ -64,11 +64,16 @@ type AgentComponents = {
   };
   plan: { title: string };
   messageQueue: { title: string };
-  backgroundCommands: { title: string };
-  subagentTasks: { title: string };
+  backgroundCommands: { title: string; runningCount: string; running: string };
+  subagentTasks: {
+    title: string;
+    runningCount: string;
+    progressCount: string;
+    allDone: string;
+  };
   grokGoal: { title: string };
-  grokWorkflow: { title: string };
-  contextWindow: { title: string };
+  grokWorkflow: { title: string; idleCount: string };
+  contextWindow: { title: string; percentFull: string; tokensSummary: string };
 };
 
 const en = JSON.parse(
@@ -107,6 +112,14 @@ describe("agent chat copy parity", () => {
     expect(copy.grokWorkflowTitle).toBe(components.grokWorkflow.title);
     expect(copy.grokWorkflowTitle).toBe("Research");
     expect(copy.contextWindowTitle).toBe(components.contextWindow.title);
+    expect(copy.backgroundRunningCount).toBe(components.backgroundCommands.runningCount);
+    expect(copy.backgroundRunning).toBe(components.backgroundCommands.running);
+    expect(copy.subagentRunningCount).toBe(components.subagentTasks.runningCount);
+    expect(copy.subagentProgressCount).toBe(components.subagentTasks.progressCount);
+    expect(copy.subagentAllDone).toBe(components.subagentTasks.allDone);
+    expect(copy.workflowIdleCount).toBe(components.grokWorkflow.idleCount);
+    expect(copy.contextPercentFull).toBe(components.contextWindow.percentFull);
+    expect(copy.contextTokensSummary).toBe(components.contextWindow.tokensSummary);
     expect(copy.pasteChip).toBe(chatPanel.paste.chip);
     expect(copy.pasteChip).toBe("Pasted: {count} lines");
   });

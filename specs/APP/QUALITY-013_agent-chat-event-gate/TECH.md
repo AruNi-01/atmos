@@ -216,3 +216,15 @@ Current code (keep Q4 above as the original decision):
 Files: `packages/api-client/src/agent-chat/event-gate.ts`, `event-gate.test.ts`. Verification: `bun run --filter @atmos/api-client test` (65 pass), including `live gap and shouldResyncFromServer share the ahead >= 32 boundary`.
 
 Merge order (original: **#324 then #325**). Clarification: #325 is not stacked on #324. After #324 is on `main`, merge `main` into #325 and route `agent_chat_resync` through `finishHydrate` / `observeSnapshot`. Do not add a second snapshot floor. `observeSnapshot` is monotonic (`seq > snapshotFloor` only).
+
+## Implementation Delta · 2026-10-20
+
+#324 squash-merged to `main` as `ad35a233`. #325 is based on that commit (merge `origin/main`, no rebase).
+
+`agent_chat_resync` (QUALITY-012 façade) now goes through the existing EventPump floor:
+
+1. `parseAgentChatResync` in `useAgentChatThread` (`subscribeMessages`).
+2. Overflow still uses `applyOpenThreadResync`; the replacement `agent_chat_get` calls `startHydrate` first.
+3. `publish` → `applySnapshot` → `pump.finishHydrate(seq)` → `EventGate.observeSnapshot`. Fold replay of the get race stays in `applyAgentChatResync` using that same `last_event_seq`; it is not a second gate floor.
+
+Merge-order copy: **#324 is already on main (`ad35a233`); #325 is based on it.**

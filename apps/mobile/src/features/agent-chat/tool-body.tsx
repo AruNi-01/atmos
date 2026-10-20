@@ -8,7 +8,7 @@ import {
   type ParsedToolResult,
   type ToolPresentation,
 } from "@atmos/agent-transcript";
-import { copy } from "./copy";
+import { copy, sentenceStatus } from "./copy";
 
 export const TOOL_BODY_LINE_CAP = 12;
 const DIFF_LINE_LIMIT = 120;
@@ -80,12 +80,6 @@ export function showToolRow(part: AgentPart, surface: "timeline" | "wait"): bool
 
 export function canOpenHttpUrl(url: string): boolean {
   return url.startsWith("https://") || url.startsWith("http://");
-}
-
-export function sentenceStatus(status: string): string {
-  const words = status.trim().replace(/[_-]+/g, " ").toLowerCase();
-  if (!words) return "";
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 export function splitToolLines(text: string): string[] {
