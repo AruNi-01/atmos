@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { WorkspaceSetupProgress } from "@/features/project/store/use-project-store";
 import {
   getWorkspaceSetupPopoverWidth,
+  isWorkspaceCreateReadyToEnter,
   isWorkspaceSetupBlocking,
   setupProgressUiEqual,
 } from "./workspace-setup";
@@ -69,5 +70,42 @@ describe("isWorkspaceSetupBlocking", () => {
         success: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("isWorkspaceCreateReadyToEnter", () => {
+  test("waits for a worktree result, including a missing progress snapshot", () => {
+    expect(isWorkspaceCreateReadyToEnter(null)).toBe(false);
+    expect(isWorkspaceCreateReadyToEnter(undefined)).toBe(false);
+    expect(
+      isWorkspaceCreateReadyToEnter({
+        workspaceId: "ws-1",
+        status: "creating",
+        stepKey: "create_worktree",
+        stepTitle: "Creating Workspace",
+        output: "",
+        success: true,
+      }),
+    ).toBe(false);
+    expect(
+      isWorkspaceCreateReadyToEnter({
+        workspaceId: "ws-1",
+        status: "error",
+        stepKey: "create_worktree",
+        stepTitle: "Creating Workspace",
+        output: "",
+        success: false,
+      }),
+    ).toBe(true);
+    expect(
+      isWorkspaceCreateReadyToEnter({
+        workspaceId: "ws-1",
+        status: "setting_up",
+        stepKey: "run_setup_script",
+        stepTitle: "Running Setup Script",
+        output: "",
+        success: true,
+      }),
+    ).toBe(true);
   });
 });

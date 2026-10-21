@@ -1,6 +1,57 @@
 export const SIDEBAR_ENTER_MS = 280;
 export const SIDEBAR_EXIT_MS = 210;
 export const SIDEBAR_EXIT_FALLBACK_MS = SIDEBAR_EXIT_MS + 80;
+const SIDEBAR_SCROLL_PIN_MS = SIDEBAR_ENTER_MS + 160;
+
+export type ScrollBox = { scrollLeft: number; scrollTop: number };
+export type ScrollMark = { box: ScrollBox; left: number; top: number };
+
+export function captureScrollChain(start: Element | null): ScrollMark[] {
+  const marks: ScrollMark[] = [];
+  const seen = new Set<ScrollBox>();
+  let node: Element | null = start;
+  while (node) {
+    if (!seen.has(node)) {
+      seen.add(node);
+      marks.push({ box: node, left: node.scrollLeft, top: node.scrollTop });
+    }
+    node = node.parentElement;
+  }
+  const scrolling = typeof document !== "undefined" ? document.scrollingElement : null;
+  if (scrolling && !seen.has(scrolling)) {
+    marks.push({ box: scrolling, left: scrolling.scrollLeft, top: scrolling.scrollTop });
+  }
+  return marks;
+}
+
+export function restoreScrollChain(marks: readonly ScrollMark[]): void {
+  for (const mark of marks) {
+    if (mark.box.scrollLeft !== mark.left) mark.box.scrollLeft = mark.left;
+    if (mark.box.scrollTop !== mark.top) mark.box.scrollTop = mark.top;
+  }
+}
+
+/**
+ * The drawer slides with translate3d. Focusing its search field while that
+ * pose is off-screen makes the browser scroll every overflow ancestor, which
+ * shifts the back button, menu, toolbar, and zoom, then clamps them back.
+ */
+function armSidebarScrollPin(root: HTMLElement): () => void {
+  if (typeof window === "undefined") return () => {};
+  const marks = captureScrollChain(root);
+  const restore = () => restoreScrollChain(marks);
+  window.addEventListener("scroll", restore, true);
+  root.addEventListener("focusin", restore, true);
+  const timer = window.setTimeout(() => {
+    window.removeEventListener("scroll", restore, true);
+    root.removeEventListener("focusin", restore, true);
+  }, SIDEBAR_SCROLL_PIN_MS);
+  return () => {
+    window.clearTimeout(timer);
+    window.removeEventListener("scroll", restore, true);
+    root.removeEventListener("focusin", restore, true);
+  };
+}
 
 export type SidebarTarget = { name: string; tab?: string; force?: boolean };
 
@@ -147,6 +198,13 @@ export function wrapToggleSidebar(api: SidebarApi, getRoot: () => HTMLElement | 
 export function observeSidebarExit(root: HTMLElement, getApi: () => SidebarApi | null): () => void {
   let snapshot: { node: HTMLElement; rect: Rect } | null = null;
   let liveExiting = false;
+  let sidebarOpen = false;
+  let stopScrollPin: (() => void) | null = null;
+
+  const pinScroll = () => {
+    stopScrollPin?.();
+    stopScrollPin = armSidebarScrollPin(root);
+  };
 
   const capture = () => {
     const el = root.querySelector<HTMLElement>(
@@ -189,9 +247,13 @@ export function observeSidebarExit(root: HTMLElement, getApi: () => SidebarApi |
       ".excalidraw .sidebar:not([data-pt-leaving='true'])",
     );
     if (live) {
+      if (!sidebarOpen) pinScroll();
+      sidebarOpen = true;
       capture();
       return;
     }
+    if (sidebarOpen) pinScroll();
+    sidebarOpen = false;
     if (liveExiting) return;
     if (!snapshot || snapshot.node.isConnected) return;
     if (snapshot.node.dataset.ptLeaving === "true") {
@@ -208,5 +270,6 @@ export function observeSidebarExit(root: HTMLElement, getApi: () => SidebarApi |
   return () => {
     root.removeEventListener("pointerdown", onPointerDown, true);
     observer.disconnect();
+    stopScrollPin?.();
   };
 }

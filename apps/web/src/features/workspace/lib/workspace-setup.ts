@@ -69,6 +69,15 @@ export function isWorkspaceSetupBlocking(
   return getWorkspaceSetupCurrentStepKey(progress) === "create_worktree";
 }
 
+/** Blocking creates wait until the worktree step has a result before entering. */
+export function isWorkspaceCreateReadyToEnter(
+  progress: WorkspaceSetupProgress | null | undefined,
+): boolean {
+  if (!progress) return false;
+  if (progress.status === "error" || progress.status === "completed") return true;
+  return !isWorkspaceSetupBlocking(progress);
+}
+
 export function setupProgressUiEqual(
   a: Record<string, WorkspaceSetupProgress>,
   b: Record<string, WorkspaceSetupProgress>,

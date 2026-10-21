@@ -3,7 +3,11 @@
 import { createTranslator } from "next-intl";
 import { v4 as uuidv4 } from "uuid";
 import type { TerminalLayoutDirection, TerminalLayoutNode } from "@/features/terminal/types/index";
-import { nextOscTitleAfterIncoming, resolveIncomingOscTitle } from "@atmos/shared/terminal";
+import {
+  isPathLikeTitle,
+  nextOscTitleAfterIncoming,
+  resolveIncomingOscTitle,
+} from "@atmos/shared/terminal";
 
 import type { TmuxWindow } from "@/api/rest-api";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types/index";
@@ -60,11 +64,10 @@ export function nextOscTitleFromIncoming(
 }
 
 /**
- * Fields a computer title snapshot should write.
- * Missing/empty values are omitted so callers keep the previous topic.
- * An empty `session_title` is not a clear — the PTY still has the OSC, and
- * wiping the pane is what made Agent Observer show "Terminal" until the
- * workspace was opened again.
+ * Fields present on a computer title snapshot.
+ * Missing/empty values are omitted. Callers that merge onto a live pane must
+ * use {@link mergeServerTerminalTitle} so a dynamic-title switch can clear
+ * the previous OSC topic.
  */
 export function titlesFromServerSnapshot(update: {
   dynamic_title?: string | null;
@@ -72,6 +75,42 @@ export function titlesFromServerSnapshot(update: {
 }): { dynamicTitle?: string; oscTitle?: string } {
   const dynamicTitle = normalizeStoredDynamicTitle(update.dynamic_title?.trim() || undefined);
   const oscTitle = update.session_title?.trim() || undefined;
+  return {
+    ...(dynamicTitle ? { dynamicTitle } : {}),
+    ...(oscTitle ? { oscTitle } : {}),
+  };
+}
+
+/**
+ * Apply one computer title snapshot onto the titles already shown.
+ *
+ * A switch from one real dynamic title to another replaces the whole label.
+ * An empty session topic on that update clears the previous OSC suffix: the
+ * shell returned to a directory, or the new command has not set its own topic.
+ * An idle directory with no session topic also clears, so a replay after exit
+ * does not keep the previous agent topic beside the path.
+ * Reattach that still carries a session topic keeps it.
+ *
+ * An empty session topic with the same command dynamic title, or the first
+ * command title a pane receives, is not a clear. Replays often have no topic
+ * yet while the PTY still has one; wiping it made Agent Observer show
+ * "Terminal" until the workspace was opened again.
+ */
+export function mergeServerTerminalTitle(
+  previous: { dynamicTitle?: string; oscTitle?: string },
+  update: { dynamic_title?: string | null; session_title?: string | null },
+): { dynamicTitle?: string; oscTitle?: string } {
+  const incomingDynamic = normalizeStoredDynamicTitle(update.dynamic_title?.trim() || undefined);
+  const incomingOsc = update.session_title?.trim() || undefined;
+  const previousDynamic = previous.dynamicTitle?.trim() || undefined;
+  const previousOsc = previous.oscTitle?.trim() || undefined;
+  const dynamicSwitched = Boolean(
+    incomingDynamic && previousDynamic && incomingDynamic !== previousDynamic,
+  );
+  const idleDirectory = Boolean(incomingDynamic && isPathLikeTitle(incomingDynamic));
+  const dynamicTitle = incomingDynamic ?? previousDynamic;
+  const oscTitle =
+    !incomingOsc && (dynamicSwitched || idleDirectory) ? undefined : (incomingOsc ?? previousOsc);
   return {
     ...(dynamicTitle ? { dynamicTitle } : {}),
     ...(oscTitle ? { oscTitle } : {}),

@@ -13,7 +13,11 @@ export interface WorkspaceCreateJob {
   originKey: string;
   phase: WorkspaceCreateJobPhase;
   createdAt: number;
-  /** Full New Workspace / Welcome create — block with the setup dialog, then jump. */
+  /**
+   * Welcome has no page under it, so creation stays on that page behind a
+   * dialog until the worktree exists, then enters. A New Workspace overlay on
+   * top of another view does not block.
+   */
   blocking: boolean;
 }
 
@@ -25,6 +29,15 @@ export function getWorkspaceCreateOriginKey(input: {
   if (input.workspaceId) return `workspace:${input.workspaceId}`;
   if (input.projectId) return `project:${input.projectId}`;
   return `view:${input.currentView}`;
+}
+
+/**
+ * The welcome route is the New Workspace page itself. Every other view
+ * (workspace, tasks, automations, …) is a layer under the overlay, so create
+ * can dismiss the overlay and continue in the header.
+ */
+export function workspaceCreateBlocksUntilWorktree(currentView: string): boolean {
+  return currentView === "welcome";
 }
 
 /** Auto-enter follows the newest create (`latestJobId`), never the first in a batch. */

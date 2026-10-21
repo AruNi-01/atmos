@@ -4,6 +4,7 @@ import {
   selectAutoOpenJob,
   selectAutoOpenWorkspaceId,
   useWorkspaceCreationStore,
+  workspaceCreateBlocksUntilWorktree,
   type WorkspaceCreateJob,
 } from "./workspace-creation-store";
 
@@ -44,6 +45,14 @@ describe("workspace create auto-open policy", () => {
         projectId: null,
       }),
     ).toBe("view:welcome");
+  });
+
+  test("blocks on the welcome page and not when another view sits under the overlay", () => {
+    expect(workspaceCreateBlocksUntilWorktree("welcome")).toBe(true);
+    expect(workspaceCreateBlocksUntilWorktree("workspace")).toBe(false);
+    expect(workspaceCreateBlocksUntilWorktree("tasks")).toBe(false);
+    expect(workspaceCreateBlocksUntilWorktree("automations")).toBe(false);
+    expect(workspaceCreateBlocksUntilWorktree("project")).toBe(false);
   });
 
   test("only auto-opens the latest enterable job from the same origin", () => {

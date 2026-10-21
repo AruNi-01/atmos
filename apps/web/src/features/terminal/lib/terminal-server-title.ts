@@ -1,14 +1,48 @@
 import type { TerminalTitleUpdatedNotification } from "@atmos/api-types/ws/dto/events";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
+  readCachedDynamicTitle,
+  readCachedOscTitle,
   writeCachedDynamicTitle,
   writeCachedOscTitle,
 } from "@/features/terminal/lib/terminal-dynamic-title-cache";
-import { titlesFromServerSnapshot } from "@/features/terminal/store/terminal-store-helpers";
+import { mergeServerTerminalTitle } from "@/features/terminal/store/terminal-store-helpers";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 
 function windowMatches(paneWindow: string, serverWindow: string): boolean {
   return paneWindow === serverWindow || paneWindow.endsWith(`__${serverWindow}`);
+}
+
+function matchingPaneTitles(
+  workspacePanes: Record<
+    string,
+    | Record<
+        string,
+        {
+          workspaceId?: string;
+          tmuxWindowName?: string;
+          label?: string;
+          dynamicTitle?: string;
+          oscTitle?: string;
+        }
+      >
+    | undefined
+  >,
+  update: TerminalTitleUpdatedNotification,
+): Array<{ dynamicTitle?: string; oscTitle?: string }> {
+  const workspaceId = update.workspace_id?.trim() ?? "";
+  const windowName = update.tmux_window_name?.trim() ?? "";
+  const found: Array<{ dynamicTitle?: string; oscTitle?: string }> = [];
+  for (const panes of Object.values(workspacePanes)) {
+    if (!panes) continue;
+    for (const pane of Object.values(panes)) {
+      if (pane.workspaceId !== workspaceId) continue;
+      const paneWindow = pane.tmuxWindowName || pane.label || "";
+      if (!windowMatches(paneWindow, windowName)) continue;
+      found.push({ dynamicTitle: pane.dynamicTitle, oscTitle: pane.oscTitle });
+    }
+  }
+  return found;
 }
 
 /** Apply one computer-owned title snapshot to every matching pane. */
@@ -17,12 +51,27 @@ export function applyServerTerminalTitle(update: TerminalTitleUpdatedNotificatio
   const windowName = update.tmux_window_name?.trim() ?? "";
   if (!workspaceId || !windowName) return;
 
-  const { dynamicTitle, oscTitle } = titlesFromServerSnapshot(update);
-  // Empty fields stay omitted. Writing them used to clear the cached topic
-  // and the live pane, so Observer showed "Terminal" until this workspace
-  // was opened and the PTY reported the OSC again.
-  if (dynamicTitle) writeCachedDynamicTitle(workspaceId, windowName, dynamicTitle);
-  if (oscTitle) writeCachedOscTitle(workspaceId, windowName, oscTitle);
+  const cachedPrevious = {
+    dynamicTitle: readCachedDynamicTitle(workspaceId, windowName),
+    oscTitle: readCachedOscTitle(workspaceId, windowName),
+  };
+  const livePanes = matchingPaneTitles(useTerminalStore.getState().workspacePanes, update);
+  // Prefer a pane that still has the previous command. The cache may already
+  // show the new path from an earlier partial write, and merging against that
+  // would keep the old OSC topic.
+  const cacheBase =
+    livePanes.find((pane) => {
+      const next = mergeServerTerminalTitle(pane, update);
+      return Boolean(pane.oscTitle) && !next.oscTitle;
+    }) ??
+    livePanes[0] ??
+    cachedPrevious;
+  const cached = mergeServerTerminalTitle(cacheBase, update);
+  // A dynamic-title switch with no session topic clears the cached OSC.
+  // A replay that does not change the dynamic title must not wipe a topic
+  // the PTY still has — that made Observer show "Terminal".
+  if (cached.dynamicTitle) writeCachedDynamicTitle(workspaceId, windowName, cached.dynamicTitle);
+  writeCachedOscTitle(workspaceId, windowName, cached.oscTitle);
 
   useTerminalStore.setState((state) => {
     let changed = false;
@@ -35,10 +84,13 @@ export function applyServerTerminalTitle(update: TerminalTitleUpdatedNotificatio
         if (pane.workspaceId !== workspaceId) continue;
         const paneWindow = pane.tmuxWindowName || pane.label || "";
         if (!windowMatches(paneWindow, windowName)) continue;
-        const nextDynamic = dynamicTitle ?? pane.dynamicTitle;
-        const nextOsc = oscTitle ?? pane.oscTitle;
-        if (pane.dynamicTitle === nextDynamic && pane.oscTitle === nextOsc) continue;
-        nextPanes[paneId] = { ...pane, dynamicTitle: nextDynamic, oscTitle: nextOsc };
+        const next = mergeServerTerminalTitle(pane, update);
+        if (pane.dynamicTitle === next.dynamicTitle && pane.oscTitle === next.oscTitle) continue;
+        nextPanes[paneId] = {
+          ...pane,
+          dynamicTitle: next.dynamicTitle,
+          oscTitle: next.oscTitle,
+        };
         scopeChanged = true;
       }
       if (!scopeChanged) continue;
