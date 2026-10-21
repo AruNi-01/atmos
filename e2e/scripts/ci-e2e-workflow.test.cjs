@@ -21,6 +21,16 @@ function extractConcurrency(source) {
   return match[1];
 }
 
+function jobBody(source, id) {
+  const start = source.search(new RegExp(`^  ${id}:\\s*$`, "m"));
+  if (start < 0) {
+    throw new Error(`missing job ${id}`);
+  }
+  const rest = source.slice(start);
+  const next = rest.slice(1).search(/^  [A-Za-z0-9_-]+:\s*$/m);
+  return next < 0 ? rest : rest.slice(0, next + 1);
+}
+
 describe("ci-e2e workflow concurrency (QUALITY-019)", () => {
   const root = blockBeforeJobs(workflow);
   const concurrency = extractConcurrency(root);
@@ -44,5 +54,60 @@ describe("ci-e2e workflow concurrency (QUALITY-019)", () => {
     const mergeSlice = workflow.slice(workflow.indexOf("name: Merge reports"));
     const mergeConcurrency = extractConcurrency(mergeSlice);
     expect(mergeConcurrency).toMatch(/cancel-in-progress:\s*false/);
+  });
+});
+
+describe("ci-e2e prebuilt API artifact (QUALITY-020)", () => {
+  const build = jobBody(workflow, "build");
+  const run = jobBody(workflow, "run");
+  const setupE2e = fs.readFileSync(
+    path.resolve(__dirname, "../../.github/actions/setup-e2e/action.yml"),
+    "utf8",
+  );
+  const justfile = fs.readFileSync(path.resolve(__dirname, "../../justfile"), "utf8");
+
+  test("build job compiles api once", () => {
+    expect(build).toContain("cargo build --bin api");
+    expect(build).toContain("Swatinem/rust-cache@v2");
+    expect(build).toMatch(/workspaces:\s*"\. -> target"/);
+    expect(build).toMatch(/cache-on-failure:\s*true/);
+  });
+
+  test("run shards need the build artifact and do not compile", () => {
+    expect(run).toMatch(/needs:\s*\[plan, build\]/);
+    expect(run).toContain("actions/download-artifact@v4");
+    expect(run).toContain("e2e-api-debug-bin");
+    expect(run).not.toContain("cargo build --bin api");
+    expect(run).not.toContain("cargo run --bin api");
+  });
+
+  test("artifact pack/restore keeps execute bits", () => {
+    expect(build).toMatch(/tar -C target\/debug -cvf api-bin\.tar api/);
+    expect(run).toMatch(/tar -C target\/debug -xvf/);
+    expect(run).toContain("chmod +x target/debug/api");
+    expect(run.indexOf("uses: ./.github/actions/setup-e2e")).toBeGreaterThan(-1);
+    expect(run.indexOf("Restore prebuilt API binary")).toBeGreaterThan(
+      run.indexOf("uses: ./.github/actions/setup-e2e"),
+    );
+  });
+
+  test("shards skip rust toolchain and rust-cache", () => {
+    expect(run).toContain("uses: ./.github/actions/setup-e2e");
+    expect(run).toMatch(/with-rust:\s*false/);
+    expect(run).not.toContain("dtolnay/rust-toolchain");
+    expect(run).not.toContain("Swatinem/rust-cache@v2");
+    expect(setupE2e).toMatch(/default:\s*"true"/);
+    const rustGuards = setupE2e.match(/inputs\.with-rust\s*==\s*'true'/g) ?? [];
+    expect(rustGuards).toHaveLength(2);
+    expect(setupE2e).toContain("dtolnay/rust-toolchain@stable");
+    expect(setupE2e).toContain("Swatinem/rust-cache@v2");
+    expect(setupE2e).toMatch(/workspaces:\s*"\. -> target"/);
+    expect(setupE2e).toMatch(/cache-on-failure:\s*true/);
+  });
+
+  test("run job exports ATMOS_API_BIN and justfile execs it", () => {
+    expect(run).toMatch(/ATMOS_API_BIN:\s*\$\{\{\s*github\.workspace\s*\}\}\/target\/debug\/api/);
+    expect(justfile).toContain('exec "${ATMOS_API_BIN}"');
+    expect(justfile).toContain("ATMOS_API_BIN is not executable");
   });
 });

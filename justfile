@@ -407,11 +407,21 @@ dev-api *args:
         export ATMOS_HUB_URL="https://hub.atmos.land"
     fi
 
+    api_args=(--cleanup-stale-clients "$cleanup_stale_clients")
     if [[ -n "$port" ]]; then
-        cargo run --bin api -- --port "$port" --cleanup-stale-clients "$cleanup_stale_clients"
-    else
-        cargo run --bin api -- --cleanup-stale-clients "$cleanup_stale_clients"
+        api_args=(--port "$port" "${api_args[@]}")
     fi
+
+    # CI E2E shards set ATMOS_API_BIN to a prebuilt target/debug/api (QUALITY-020).
+    if [[ -n "${ATMOS_API_BIN:-}" ]]; then
+        if [[ ! -x "${ATMOS_API_BIN}" ]]; then
+            echo "ATMOS_API_BIN is not executable: ${ATMOS_API_BIN}" >&2
+            exit 1
+        fi
+        exec "${ATMOS_API_BIN}" "${api_args[@]}"
+    fi
+
+    cargo run --bin api -- "${api_args[@]}"
 
 # Start Atmos Hub (Better Auth / devices / integrations; packages/hub wrangler dev)
 # Usage:
