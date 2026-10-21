@@ -28,6 +28,11 @@ export function formatComputerOnlineCount(
  * Offline selection is local, so the sheet can close immediately.
  * An online switch closes only after `createClientSession` succeeds.
  */
+/** Ignore a switch response that is not the Computer the user picked last. */
+export function shouldApplyComputerSwitch(pendingServerId: string | null, serverId: string) {
+  return pendingServerId === serverId;
+}
+
 export function runComputerSelection(input: {
   dismissSheet: () => void;
   online: boolean;

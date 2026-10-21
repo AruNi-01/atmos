@@ -115,6 +115,7 @@ describe("CameraPermissionStateView", () => {
   test("the sign-in crash fallback fills the sheet", () => {
     const html = markup(createElement(SignInCrashFallback));
     expect(html).toContain("could not be opened");
-    expect(html).toContain("Re-pair phone");
+    expect(html).toContain("try again");
+    expect(html).not.toContain("Re-pair phone");
   });
 });

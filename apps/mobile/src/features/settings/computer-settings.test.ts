@@ -11,6 +11,7 @@ import {
   activeSettingsComputers,
   formatComputerOnlineCount,
   runComputerSelection,
+  shouldApplyComputerSwitch,
 } from "./computer-settings";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -124,6 +125,15 @@ describe("computer list source", () => {
     const controller = readFileSync(join(here, "use-mobile-settings-controller.ts"), "utf8");
     expect(controller).toContain("runComputerSelection");
     expect(controller).toContain('router.dismissTo("/")');
-    expect(controller).toContain("switchComputer.mutate(computer.server_id, { onSuccess })");
+    expect(controller).toContain("shouldApplyComputerSwitch");
+    expect(controller).toContain("pendingSwitchId");
+  });
+});
+
+describe("shouldApplyComputerSwitch", () => {
+  test("keeps only the Computer that was picked last", () => {
+    expect(shouldApplyComputerSwitch("b", "a")).toBe(false);
+    expect(shouldApplyComputerSwitch("b", "b")).toBe(true);
+    expect(shouldApplyComputerSwitch(null, "b")).toBe(false);
   });
 });

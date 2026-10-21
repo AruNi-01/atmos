@@ -53,7 +53,7 @@ export function SignInCrashFallback() {
           textAlign: "center",
         }}
       >
-        Close the sheet and try Re-pair phone again.
+        Close the sheet and try again.
       </Text>
     </CameraSheetFallback>
   );

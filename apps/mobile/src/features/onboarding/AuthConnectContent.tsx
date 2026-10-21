@@ -240,6 +240,9 @@ export function AuthConnectContent({
         <Text style={[styles.productSlogan, { color: theme.colors.label, marginTop: 12 }]}>
           This phone is already paired.
         </Text>
+        <View style={{ alignSelf: "stretch", marginTop: 16 }}>
+          <InlineError message={auth.localError} />
+        </View>
       </View>
     );
   }

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Linking, StyleSheet, View } from "react-native";
+import { AppState, Linking, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import {
   CAMERA_PREVIEW_TIMEOUT_MS,
   cameraScannerModel,
+  shouldArmCameraPreviewTimer,
 } from "@/features/onboarding/camera-permission-state";
 import { CameraPermissionStateView } from "@/features/onboarding/CameraPermissionStateView";
 import { radii } from "@/theme/radii";
@@ -20,7 +21,7 @@ export function PairQrScanner({
   onScanned: (value: string) => void;
 }) {
   const theme = useMobileTheme();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, getPermission] = useCameraPermissions();
   const [locked, setLocked] = useState(false);
   const [ready, setReady] = useState(false);
   const [mountError, setMountError] = useState<string | null>(null);
@@ -50,10 +51,29 @@ export function PairQrScanner({
   }, [autoRequest, requestPermission]);
 
   useEffect(() => {
-    if (!permission?.granted || ready || mountError) return;
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next !== "active") return;
+      void getPermission().catch((error: unknown) => {
+        setMountError(error instanceof Error ? error.message : "Could not read camera access.");
+      });
+    });
+    return () => subscription.remove();
+  }, [getPermission]);
+
+  useEffect(() => {
+    if (
+      !shouldArmCameraPreviewTimer({
+        granted: Boolean(permission?.granted),
+        mountError,
+        ready,
+        timedOut,
+      })
+    ) {
+      return;
+    }
     const timer = setTimeout(() => setTimedOut(true), CAMERA_PREVIEW_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [mountError, permission?.granted, ready]);
+  }, [mountError, permission?.granted, ready, timedOut]);
 
   const retry = () => {
     setMountError(null);

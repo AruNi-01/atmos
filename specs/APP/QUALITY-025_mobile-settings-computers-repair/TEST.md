@@ -185,3 +185,4 @@ Run on 2026-10-21 in this workspace.
 - `bun --filter @atmos/mobile typecheck` exits 0. Two pre-existing diagnostics in `glass-text-button.test.ts` and `open-thread-resync.test.ts` were cleared in this change so the command can exit 0: a `react-dom/server` type comment, and `publish` callbacks that returned the `push` length.
 - `bun lint` (`oxlint --max-warnings=455`) exits 0. That run reported 434 warnings, under the unchanged cap.
 - S9 stays planned. This environment has no booted iOS simulator, so the screenshots were not taken and are not in git.
+- Review follow-up: a second camera attempt can arm the preview timer again; returning to the app re-reads camera permission; a new account does not keep the previous Computer session unless that Computer is still listed; a stale computer switch is ignored; the sign-in crash fallback no longer says Re-pair. Covered by `shouldArmCameraPreviewTimer`, `retainedServerIdAfterAuthMiss`, and `shouldApplyComputerSwitch`.

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import type { ComputerRow } from "@/api/types";
 import {
   activeSettingsComputers,
   runComputerSelection,
+  shouldApplyComputerSwitch,
 } from "@/features/settings/computer-settings";
 import { getRelayUrlSaveState } from "@/features/settings/relay-url-settings";
 import { useRelayClient } from "@/hooks/use-relay-client";
@@ -34,6 +35,7 @@ export function useMobileSettingsController() {
   const [registerCommand, setRegisterCommand] = useState<string | null>(null);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
   const [error, setError] = useState<string | null>(null);
+  const pendingSwitchId = useRef<string | null>(null);
 
   const computersQuery = useQuery({
     queryKey: ["computers", relayUrl, relayAuthRevision],
@@ -92,11 +94,14 @@ export function useMobileSettingsController() {
         .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
+      if (!shouldApplyComputerSwitch(pendingSwitchId.current, serverId)) return;
       adoptComputerSession(serverId, session);
       setError(null);
     },
-    onError: (nextError) =>
-      setError(nextError instanceof Error ? nextError.message : "Computer switch failed."),
+    onError: (nextError, serverId) => {
+      if (!shouldApplyComputerSwitch(pendingSwitchId.current, serverId)) return;
+      setError(nextError instanceof Error ? nextError.message : "Computer switch failed.");
+    },
   });
 
   const createRegisterCommand = useMutation({
@@ -162,14 +167,24 @@ export function useMobileSettingsController() {
   });
 
   const selectComputer = (computer: ComputerRow) => {
+    const serverId = computer.server_id;
+    pendingSwitchId.current = computer.online ? serverId : null;
     runComputerSelection({
       dismissSheet: () => {
+        if (computer.online && !shouldApplyComputerSwitch(pendingSwitchId.current, serverId)) {
+          return;
+        }
         router.dismissTo("/");
       },
       online: computer.online,
-      selectOffline: () => selectServer(computer.server_id),
+      selectOffline: () => selectServer(serverId),
       switchOnline: (onSuccess) => {
-        switchComputer.mutate(computer.server_id, { onSuccess });
+        switchComputer.mutate(serverId, {
+          onSuccess: () => {
+            if (!shouldApplyComputerSwitch(pendingSwitchId.current, serverId)) return;
+            onSuccess();
+          },
+        });
       },
     });
   };

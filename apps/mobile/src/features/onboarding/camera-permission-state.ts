@@ -19,6 +19,16 @@ export type CameraScannerModel =
 const PREVIEW_TIMEOUT_MESSAGE =
   "The camera preview did not start. Check that this device has a camera.";
 
+/** A new timer starts only for a fresh attempt. Retry clears `timedOut` so the next attempt can arm again. */
+export function shouldArmCameraPreviewTimer(input: {
+  granted: boolean;
+  mountError: string | null;
+  ready: boolean;
+  timedOut: boolean;
+}) {
+  return input.granted && !input.ready && input.mountError == null && !input.timedOut;
+}
+
 export function cameraScannerModel(input: {
   mountError: string | null;
   permission: CameraPermissionSnapshot;

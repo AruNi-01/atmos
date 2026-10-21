@@ -1,8 +1,24 @@
 // @ts-expect-error bun:test is available at runtime but not in the mobile tsconfig types
 import { describe, expect, test } from "bun:test";
-import { cameraScannerModel } from "./camera-permission-state";
+import { cameraScannerModel, shouldArmCameraPreviewTimer } from "./camera-permission-state";
 
 const granted = { canAskAgain: true, granted: true, status: "granted" };
+
+describe("shouldArmCameraPreviewTimer", () => {
+  const base = { granted: true, mountError: null, ready: false, timedOut: false };
+
+  test("arms again after a timeout is cleared for a second attempt", () => {
+    expect(shouldArmCameraPreviewTimer(base)).toBe(true);
+    expect(shouldArmCameraPreviewTimer({ ...base, timedOut: true })).toBe(false);
+    expect(shouldArmCameraPreviewTimer({ ...base, timedOut: false })).toBe(true);
+  });
+
+  test("does not arm once the preview is ready or the permission is missing", () => {
+    expect(shouldArmCameraPreviewTimer({ ...base, ready: true })).toBe(false);
+    expect(shouldArmCameraPreviewTimer({ ...base, granted: false })).toBe(false);
+    expect(shouldArmCameraPreviewTimer({ ...base, mountError: "failed" })).toBe(false);
+  });
+});
 
 describe("cameraScannerModel", () => {
   test("asks once while access is still undetermined", () => {
