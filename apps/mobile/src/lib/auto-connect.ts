@@ -23,10 +23,13 @@ export async function autoConnectAfterAuth(client: RelayClient): Promise<{
     return { computers: [], connectedServerId: null };
   }
 
+  const session = useSessionStore.getState();
+  // Drop the previous account's live socket before the new list returns.
+  session.setClientSession(null);
+  useComputerStore.getState().setComputers([]);
+
   const computers = await client.withDeviceCredential(token).listComputers();
   useComputerStore.getState().setComputers(computers);
-
-  const session = useSessionStore.getState();
   const target = getAutoConnectComputerId({
     activeClientSession: null,
     computers,
