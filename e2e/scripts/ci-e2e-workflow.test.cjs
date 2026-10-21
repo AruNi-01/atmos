@@ -91,8 +91,15 @@ describe("ci-e2e prebuilt API artifact (QUALITY-020)", () => {
     );
   });
 
-  test("shards still use setup-e2e rust-cache", () => {
+  test("shards skip rust toolchain and rust-cache", () => {
     expect(run).toContain("uses: ./.github/actions/setup-e2e");
+    expect(run).toMatch(/with-rust:\s*false/);
+    expect(run).not.toContain("dtolnay/rust-toolchain");
+    expect(run).not.toContain("Swatinem/rust-cache@v2");
+    expect(setupE2e).toMatch(/default:\s*"true"/);
+    const rustGuards = setupE2e.match(/inputs\.with-rust\s*==\s*'true'/g) ?? [];
+    expect(rustGuards).toHaveLength(2);
+    expect(setupE2e).toContain("dtolnay/rust-toolchain@stable");
     expect(setupE2e).toContain("Swatinem/rust-cache@v2");
     expect(setupE2e).toMatch(/workspaces:\s*"\. -> target"/);
     expect(setupE2e).toMatch(/cache-on-failure:\s*true/);

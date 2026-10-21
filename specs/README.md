@@ -181,6 +181,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **QUALITY-017**      | Git blob directory allowlist (`GET /api/system/git-blob` reuses the file-serve directory roots; `..` and symlink escape are 403)                                                                                           | `specs/APP/QUALITY-017_git-blob-directory-allowlist/` (`TECH.md`, `TEST.md`)                                                            |
 | **QUALITY-019**      | E2E concurrency preserves main (`cancel-in-progress` only on `pull_request`; `main` push queues on `github.ref`)                                                                                                           | `specs/APP/QUALITY-019_e2e-concurrency-preserve-main/` (`TECH.md`, `TEST.md`)                                                           |
 | **QUALITY-020**      | E2E prebuilt API artifact (`cargo build --bin api` once, tar/chmod, shards `exec` `ATMOS_API_BIN`)                                                                                                                         | `specs/APP/QUALITY-020_e2e-prebuilt-api-artifact/` (`TECH.md`, `TEST.md`)                                                               |
+
 ### Landing
 
 _Empty. Start the first spec from `Landing-001_xxx`._
