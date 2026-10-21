@@ -23,14 +23,14 @@ This is a workflow-concurrency contract. Proof is a Bun source assertion on `.gi
 
 ## Execution map
 
-| Scenario | Level  | Expected tool | Target command / method                         | Fixture / data | Signals                                                                                       | Status  |
-| -------- | ------ | ------------- | ----------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------- | ------- |
-| S1       | Unit   | Bun           | `bun test e2e/scripts/ci-e2e-workflow.test.cjs` | workflow YAML  | root `cancel-in-progress` is the `pull_request` expression                                    | pass    |
-| S2       | Unit   | Bun           | same                                            | workflow YAML  | group fallback is `github.ref`, not `github.run_id`                                           | pass    |
-| S3       | Review | File read     | inspect group key                               | workflow YAML  | PR number still in the group                                                                  | pass    |
-| S4       | Unit   | Bun           | same                                            | `merge` job    | `ci-e2e-pages-report` + `cancel-in-progress: false`                                           | pass    |
-| S5       | Review | File read     | `package.json` `lint`                           | repo root      | `--max-warnings=455`; no `EVIDENCE_PUSH` in this change                                       | pass    |
-| S6       | CI     | GitHub        | PR checks                                       | this PR        | `CI - JS` and `CI - E2E` run; backend/web/packages jobs are skipped by path filters if absent | pass    |
+| Scenario | Level  | Expected tool | Target command / method                         | Fixture / data | Signals                                                                                       | Status |
+| -------- | ------ | ------------- | ----------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------- | ------ |
+| S1       | Unit   | Bun           | `bun test e2e/scripts/ci-e2e-workflow.test.cjs` | workflow YAML  | root `cancel-in-progress` is the `pull_request` expression                                    | pass   |
+| S2       | Unit   | Bun           | same                                            | workflow YAML  | group fallback is `github.ref`, not `github.run_id`                                           | pass   |
+| S3       | Review | File read     | inspect group key                               | workflow YAML  | PR number still in the group                                                                  | pass   |
+| S4       | Unit   | Bun           | same                                            | `merge` job    | `ci-e2e-pages-report` + `cancel-in-progress: false`                                           | pass   |
+| S5       | Review | File read     | `package.json` `lint`                           | repo root      | `--max-warnings=455`; no `EVIDENCE_PUSH` in this change                                       | pass   |
+| S6       | CI     | GitHub        | PR checks                                       | this PR        | `CI - JS` and `CI - E2E` run; backend/web/packages jobs are skipped by path filters if absent | pass   |
 
 ## Scenarios
 
