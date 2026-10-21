@@ -63,6 +63,21 @@ function formatPeriodSide(text: string): string {
   return formatUtcMonthDay(trimmed) ?? trimmed;
 }
 
+const RANGE_ARROWS = ["→", "—", "–"] as const;
+
+function splitArrowRange(text: string): [string, string] | null {
+  for (const separator of RANGE_ARROWS) {
+    const index = text.indexOf(separator);
+    if (index <= 0) continue;
+    const left = text.slice(0, index).trim();
+    const right = text.slice(index + separator.length).trim();
+    if (!left || !right) continue;
+    if (RANGE_ARROWS.some((arrow) => right.includes(arrow))) continue;
+    return [left, right];
+  }
+  return null;
+}
+
 /**
  * Rewrite a quota billing window that still contains an ISO instant.
  * Factory month-day spans and Zed date-only ranges are returned unchanged.
@@ -74,8 +89,8 @@ export function formatQuotaBillingPeriod(value: string | null | undefined): stri
   if (!text) return null;
   if (!text.includes("T")) return text;
 
-  const arrow = text.split(/\s*(?:→|—|–)\s*/);
-  if (arrow.length === 2 && arrow[0] && arrow[1]) {
+  const arrow = splitArrowRange(text);
+  if (arrow) {
     return `${formatPeriodSide(arrow[0])} - ${formatPeriodSide(arrow[1])}`;
   }
 
