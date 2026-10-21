@@ -1,4 +1,4 @@
-# QUALITY-020. Advanced setup. Default setup must be switched off in
+# QUALITY-021. Advanced setup. Default setup must be switched off in
 # Settings → Code security before this workflow can upload SARIF.
 # No `run:` step: do not expand ${{ }} in a shell.
 

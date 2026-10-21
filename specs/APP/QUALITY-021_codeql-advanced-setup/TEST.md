@@ -1,6 +1,6 @@
-# TEST · QUALITY-020: CodeQL Advanced Setup
+# TEST · QUALITY-021: CodeQL Advanced Setup
 
-> Test Plan · how we verify the CodeQL workflow matches default-setup language coverage and the CI constraints in TECH QUALITY-020. No product behavior changes.
+> Test Plan · how we verify the CodeQL workflow matches default-setup language coverage and the CI constraints in TECH QUALITY-021. No product behavior changes.
 
 ## Test strategy
 
@@ -66,7 +66,7 @@ GitHub will run the new jobs on the pull request. Upload is expected to fail whi
 ### S3 — Docs-only pull request is ignored
 
 - **Level**: Review
-- **Given**: a pull request whose files are only `README.md`, `specs/APP/QUALITY-020_codeql-advanced-setup/TECH.md`, `docs/guide.md`, and `marketing/creative/projects/atmos-intro/poster.png`.
+- **Given**: a pull request whose files are only `README.md`, `specs/APP/QUALITY-021_codeql-advanced-setup/TECH.md`, `docs/guide.md`, and `marketing/creative/projects/atmos-intro/poster.png`.
 - **When**: GitHub evaluates `pull_request.paths-ignore`.
 - **Then**: every file matches, so the workflow does not start.
 - **Signals**: patterns `**/*.md`, `specs/**`, `docs/**`, and `**/*.png` are present. This scenario is not executed against a live pull request in this change; the live PR also edits the workflow, so CodeQL does start (S15).

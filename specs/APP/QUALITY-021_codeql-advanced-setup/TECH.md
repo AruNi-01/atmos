@@ -1,4 +1,4 @@
-# TECH · QUALITY-020: CodeQL Advanced Setup
+# TECH · QUALITY-021: CodeQL Advanced Setup
 
 > Technical Design · HOW. Quality spec. No BRAINSTORM or PRD. Replaces GitHub CodeQL default setup with `.github/workflows/codeql.yml`.
 
@@ -51,7 +51,7 @@ Parallel critical path is 20m 13s. Billed job time is about 35m 20s. Job logs ar
 
 The query suite is not in the check-run payload. This workflow does not set `queries:`, so CodeQL uses the action default suite. If the repository's default setup was switched to a non-default suite in the UI, that customization is not copied. Re-check open alerts after the first successful advanced upload.
 
-`QUALITY-019` is already used by open PR #341 (`specs/APP/QUALITY-019_e2e-concurrency-preserve-main/`). This spec takes the next free id, `QUALITY-020`. Quoted search for `"QUALITY-020"`, `"QUALITY-021"`, and `"QUALITY-022"` in open pull requests was empty at numbering time. Check open pull requests again immediately before opening this PR.
+`QUALITY-019` is open PR #341 (`specs/APP/QUALITY-019_e2e-concurrency-preserve-main/`). `QUALITY-020` is open PR #342 (E2E prebuilt API). This spec is `QUALITY-021`, the next id that quoted search did not find on an open pull request. Check open pull requests again immediately before opening this PR.
 
 ## Architecture overview
 
@@ -187,7 +187,7 @@ No `queries:` input. No config file under `.github/codeql`. No `upload: false`. 
 
 ## Dependencies and compatibility
 
-- Depends on spec: none. Id is `QUALITY-020` because open PR #341 holds `QUALITY-019`.
+- Depends on spec: none. Id is `QUALITY-021`. Open PRs #341 and #342 already hold `QUALITY-019` and `QUALITY-020`.
 - Blocks: none.
 - Does not change Atmos runtime, CLI, or API behavior.
 - External actions: `actions/checkout@v5`, `github/codeql-action/init@v4`, `github/codeql-action/analyze@v4`.
