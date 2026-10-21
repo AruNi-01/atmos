@@ -5,6 +5,7 @@ import {
   CAMERA_PREVIEW_TIMEOUT_MS,
   cameraScannerModel,
   shouldArmCameraPreviewTimer,
+  type CameraScannerModel,
 } from "@/features/onboarding/camera-permission-state";
 import { CameraPermissionStateView } from "@/features/onboarding/CameraPermissionStateView";
 import { radii } from "@/theme/radii";
@@ -16,9 +17,11 @@ const DARK_BEZEL = 3;
 export function PairQrScanner({
   disabled,
   onScanned,
+  onScannerKindChange,
 }: {
   disabled?: boolean;
   onScanned: (value: string) => void;
+  onScannerKindChange?: (kind: CameraScannerModel["kind"] | null) => void;
 }) {
   const theme = useMobileTheme();
   const [permission, requestPermission, getPermission] = useCameraPermissions();
@@ -59,6 +62,14 @@ export function PairQrScanner({
     });
     return () => subscription.remove();
   }, [getPermission]);
+
+  useEffect(() => {
+    onScannerKindChange?.(model.kind);
+  }, [model.kind, onScannerKindChange]);
+
+  useEffect(() => {
+    return () => onScannerKindChange?.(null);
+  }, [onScannerKindChange]);
 
   useEffect(() => {
     if (

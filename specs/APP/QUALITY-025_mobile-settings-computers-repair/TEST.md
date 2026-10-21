@@ -25,6 +25,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 | M3. Undetermined permission asks once                    | S5           |
 | M3. Denied with `canAskAgain` false opens Settings       | S5, S6       |
 | M3. Loading, denied, and error are visible and not black | S6           |
+| M3. Light pair dock is glass unless the preview is live  | S10          |
 | M3. Render throw shows the fallback                      | S6           |
 | M4. Test page, route, fixtures, and store are gone       | S7           |
 | M4. Parity `preview-chat` stays                          | S7           |
@@ -43,6 +44,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 | S7       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/test-page-removed.test.ts`         | repo files                                   | deleted paths absent; `preview-chat.tsx` present; Settings has no "Test page" | pass    |
 | S8       | Review        | `rg`          | root `package.json` script `lint`                                                         | repo                                         | value is `oxlint --max-warnings=455`                                          | pass    |
 | S9       | Manual        | iOS Simulator | steps below                                                                               | booted simulator, bundle `land.atmos.mobile` | light/dark shots of the row, the list, and Re-pair permission states          | planned |
+| S10      | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/onboarding/pair-dock-chrome.test.ts`        | scanner kind, theme, scanner open            | glass only for light + open + not `preview`; dark and closed stay inverted    | pass    |
 
 ## Scenarios
 
@@ -118,6 +120,14 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 - **Then**: the row reads `online/total` with a green online digit, rows have a check and no arrow, and Re-pair shows copy rather than a black sheet. The system permission alert is visible when the camera permission is reset.
 - **Signals**: screenshots kept outside the git repo.
 
+### S10 — Pair dock follows the theme until the camera is live
+
+- **Level**: Unit
+- **Given**: `pairScannerDockUsesThemeGlass` and the pair screen source.
+- **When**: the scanner is open in light theme with kind `loading`, `prompt`, `settings`, `starting`, `error`, or no kind yet, then with `preview`. The same kinds are checked in dark theme and with the scanner closed.
+- **Then**: light non-preview states use the theme glass dock. `preview`, dark theme, and a closed scanner keep the inverted dock. The glass branch is `GlassPanel` with `glassFallbackStrong`, `glassTint`, `glassBorder`, `secondaryLabel`, `label`, `cardSubtle`, `ctaFill`, and `ctaLabel`, and that branch has no hex color.
+- **Signals**: boolean result and source text.
+
 ## Regression checklist
 
 - Relay row and theme control on Settings still render.
@@ -128,6 +138,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 ## Acceptance criteria
 
 - [x] S1–S7 pass under `bun --filter @atmos/mobile test`.
+- [x] S10 passes under `bun --filter @atmos/mobile test`.
 - [x] `bun --filter @atmos/mobile typecheck` exits 0.
 - [x] oxlint on the touched files does not raise the repo warning cap above 455.
 - [x] S9 is recorded as manual. Shots are not committed.
@@ -167,6 +178,8 @@ xcrun simctl privacy booted reset camera land.atmos.mobile
 
 Then force-quit Atmos and open Re-pair phone again. The sheet shows copy ("Checking camera" or the allow / Settings guidance) and the system dialog when the status is not determined. Deny once to confirm the guidance and the Open Settings button. Repeat the three shots in dark appearance.
 
+In light appearance, the How to pair panel and Hide scanner match the sheet while permission is pending, denied, or the preview has not started. That panel turns dark only after the camera preview is live. Dark appearance keeps the elevated dock the whole time.
+
 ## Non-coverage
 
 - No automated tap on a real `CameraView`. The simulator has no reliable video device; TECH treats a missing `onCameraReady` as an error view, covered by S5.
@@ -186,3 +199,4 @@ Run on 2026-10-21 in this workspace.
 - `bun lint` (`oxlint --max-warnings=455`) exits 0. That run reported 434 warnings, under the unchanged cap.
 - S9 stays planned. This environment has no booted iOS simulator, so the screenshots were not taken and are not in git.
 - Review follow-up: a second camera attempt can arm the preview timer again; returning to the app re-reads camera permission; a new account does not keep the previous Computer session unless that Computer is still listed; a stale computer switch is ignored; the sign-in crash fallback no longer says Re-pair. Covered by `shouldArmCameraPreviewTimer`, `retainedServerIdAfterAuthMiss`, and `shouldApplyComputerSwitch`.
+- 2026-10-21 dock follow-up: S10 `pair-dock-chrome.test.ts` pass (light non-preview kinds use glass; `preview`, dark theme, and a closed scanner stay inverted; the glass branch names theme tokens and no hex). Full mobile suite: `bun --filter @atmos/mobile test` — 593 pass, 0 fail. `bun --filter @atmos/mobile typecheck` exits 0. `bun lint` (`oxlint --max-warnings=455`) exits 0 with 434 warnings. S9 stays planned.

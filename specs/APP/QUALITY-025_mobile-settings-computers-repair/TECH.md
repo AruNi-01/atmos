@@ -210,3 +210,9 @@ One mobile change. No flag. Ship the spec, then the app code, in that order.
 
 - Rename and revoke remain on `/settings/computer` with no in-app link from the list.
 - The sign-in route's `contentStyle` stays `#0a0a0b` in light mode so the dock's rounded corners match the dock. The body and every fallback paint `sheetBackground` over it.
+
+## Implementation Delta
+
+### 2026-10-21 — Light pair dock stays dark only while the camera preview is live
+
+Light-theme review shots showed the How to pair panel and Hide scanner painted `DOCK_LIGHT` (`#0a0a0b`) while the permission panel above them was already `sheetBackground`. `pairScannerDockUsesThemeGlass` keeps that inverted dock for dark theme, for the closed sign-in actions, and for scanner kind `preview`. `loading`, `prompt`, `settings`, `starting`, `error`, and a missing kind use `GlassPanel` with `glassFallbackStrong`, `glassTint`, `glassBorder`, `label`, `secondaryLabel`, `cardSubtle`, `ctaFill`, and `ctaLabel`. `PairQrScanner` reports `model.kind` and clears it on unmount. The sign-in `contentStyle` is unchanged. S10 covers the choice.
