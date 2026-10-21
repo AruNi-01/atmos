@@ -164,7 +164,11 @@ Verified 2026-10-21 (local, before GitHub Actions):
 - S8 — pass. `package.json` `lint` is `oxlint --max-warnings=455`. Diff does not mention `EVIDENCE_PUSH`.
 - S9 — pass. Draft PR `CI - E2E` https://github.com/AruNi-01/atmos/actions/runs/39528133219 conclusion `success`. Job `Build API` ran `cargo build --bin api` (compile 5.10 min). `E2E - specs` restored `api` from `api-bin.tar` (`ATMOS_API_BIN=/home/runner/work/atmos/atmos/target/debug/api`); Run suite log has no `cargo build --bin api`. `CI - JS` https://github.com/AruNi-01/atmos/actions/runs/39528133208 success (oxlint + oxfmt). Not triggered: `CI - Backend`, `CI - Web`, `CI - Packages` (path filters).
 
-P2 (skip Rust on shards) verified locally 2026-10-21 after rewriting S4: `bun test e2e/scripts/ci-e2e-workflow.test.cjs` still 8 pass. S9 GitHub Actions comparison vs `39530431470` pending this push.
+P2 (skip Rust on shards) verified 2026-10-21, head `931c04c67`:
+
+- Local: `bun test e2e/scripts/ci-e2e-workflow.test.cjs` still 8 pass after rewriting S4.
+- S9 — pass. `CI - E2E` https://github.com/AruNi-01/atmos/actions/runs/39534182493 conclusion `success` (wall 10.35 min). `CI - JS` https://github.com/AruNi-01/atmos/actions/runs/39534182508 success (oxlint + oxfmt). `E2E - specs` / `E2E - smoke-onboarding` logs: `dtolnay/rust-toolchain` and `Swatinem/rust-cache` `outcome=skipped;duration_ms=0`. No `cargo build` / `cargo run` on shards.
+- setup-e2e vs prebuilt-but-still-Rust run [39530431470](https://github.com/AruNi-01/atmos/actions/runs/39530431470): specs 79s → 51s (−28s); shards 56–102s → 45–55s. Nested rust-toolchain + rust-cache on 39530431470 was ~20–25s/分片.
 
 ```
 bun test e2e/scripts/ci-e2e-workflow.test.cjs

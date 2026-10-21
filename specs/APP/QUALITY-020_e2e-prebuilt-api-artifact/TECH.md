@@ -99,7 +99,9 @@ If a shard still invoked `cargo` / `rustc`, CI would fail after this change. Re-
 
 ### Wall-clock vs CPU-minutes
 
-On a recent successful `main` run ([39490340813](https://github.com/AruNi-01/atmos/actions/runs/39490340813)) each shard's `Build API server` step was ~1.5–2.0 min **in parallel**. A dedicated `build` job adds that compile **before** shards start, and removes it from each shard. CPU-minutes drop by roughly `(shard_count - 1) × compile`. Skipping Rust on shards saves the per-shard toolchain + rust-cache restore (about 20–25s on [39530431470](https://github.com/AruNi-01/atmos/actions/runs/39530431470), measured from nested `setup-e2e` steps). Wall-clock depends on the longest shard plus the sequential `build`; this spec does not promise a 21 → much-smaller p90. Measure after the PR run.
+On a recent successful `main` run ([39490340813](https://github.com/AruNi-01/atmos/actions/runs/39490340813)) each shard's `Build API server` step was ~1.5–2.0 min **in parallel**. A dedicated `build` job adds that compile **before** shards start, and removes it from each shard. CPU-minutes drop by roughly `(shard_count - 1) × compile`.
+
+Skipping Rust on shards: nested rust-toolchain + rust-cache on [39530431470](https://github.com/AruNi-01/atmos/actions/runs/39530431470) was ~20–25s/分片. After `with-rust: false` ([39534182493](https://github.com/AruNi-01/atmos/actions/runs/39534182493)) those steps are `skipped` / `duration_ms=0`. `setup-e2e` on `E2E - specs` went 79s → 51s (−28s). Composite `uses` still downloads the two action repos (~1s) even when skipped; rustup and cache restore do not run. Workflow wall-clock also depends on runner queue and merge-reports; do not treat the full 14.70 → 10.35 min drop as Rust-only.
 
 ## Rollout plan
 
