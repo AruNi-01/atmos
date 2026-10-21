@@ -6,6 +6,8 @@ import { Alert, Pressable, Text, View, type ImageSourcePropType } from "react-na
 import { wsActions } from "@/api/ws-actions";
 import { historyPlaceLabel, historyTimeLabel } from "@/features/agent-chat/list-rows";
 import { useAgentChatList } from "@/features/agent-chat/use-agent-chat-list";
+import { LIST_PAGE_SIZE, listWindow } from "@/features/lists/list-page";
+import { useListReveal } from "@/features/lists/use-list-window";
 import { MobileAgentIcon, mobileAgentMenuIcon } from "@/features/terminal/MobileAgentIcon";
 import { createMobileTerminalSessionId } from "@/features/terminal/terminal-selection";
 import type { MobileLaunchAgent } from "@/features/terminal/terminal-launch-agents";
@@ -42,45 +44,61 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
   const theme = useMobileTheme();
   const { client, state: wsState } = useMobileWs();
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
-  const chats = useAgentChatList(workspaceId);
+  const reveal = useListReveal("workspace-activity", workspaceId);
+  const chats = useAgentChatList(workspaceId, {
+    enabled: reveal.ready,
+    pageSize: LIST_PAGE_SIZE,
+  });
   const terminals = useQuery({
     queryKey: ["workspace-terminal-candidates", selectedServerId, workspaceId, wsState],
-    enabled: Boolean(client && wsState === "open" && workspaceId),
+    enabled: Boolean(reveal.ready && client && wsState === "open" && workspaceId),
     queryFn: () => {
       if (!client) return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
       return wsActions.terminalWorkspaceCandidates(client, { workspace_id: workspaceId });
     },
   });
-  const sessions = useAgentSessionStatusList();
+  const sessions = useAgentSessionStatusList({
+    enabled: reveal.ready,
+    contextId: workspaceId,
+    limit: LIST_PAGE_SIZE,
+  });
   const rowActions = useSessionRowActions();
   const [deleteRow, setDeleteRow] = useState<WorkspaceActivityRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const sessionSnapshots = sessions.sessions;
+  const sessionSnapshots = reveal.ready ? sessions.sessions : [];
   const archivedIds = new Set(rowActions.archivedIds);
-  const rows = workspaceActivityRows({
-    chats: chats.rows,
-    terminals: terminalActivityFromStatus({
-      candidates: terminals.data?.candidates ?? [],
-      placeLabel: historyPlaceLabel,
-      snapshots: sessionSnapshots,
-      workspaceId,
-    }),
-  }).filter(
-    (row) => !archivedIds.has(row.id) && !archivedIds.has(activityPinId(row, sessionSnapshots)),
-  );
+  const rows = reveal.ready
+    ? workspaceActivityRows({
+        chats: chats.rows,
+        terminals: terminalActivityFromStatus({
+          candidates: terminals.data?.candidates ?? [],
+          placeLabel: historyPlaceLabel,
+          snapshots: sessionSnapshots,
+          workspaceId,
+        }),
+      }).filter(
+        (row) => !archivedIds.has(row.id) && !archivedIds.has(activityPinId(row, sessionSnapshots)),
+      )
+    : [];
   const orderedRows = [
     ...rows.filter((row) => rowActions.pinnedIds.includes(activityPinId(row, sessionSnapshots))),
     ...rows.filter((row) => !rowActions.pinnedIds.includes(activityPinId(row, sessionSnapshots))),
   ];
-  const loading = chats.loading || sessions.isLoading;
-  const loadingMore = chats.isFetchingNextPage || sessions.isFetchingNextPage;
+  const visibleRows = listWindow(orderedRows, reveal.shown);
+  const sourceHasNext = chats.hasNextPage || sessions.hasNextPage;
+  const pageFailed = chats.isFetchNextPageError || sessions.isFetchNextPageError;
+  const loading = !reveal.ready || chats.loading || sessions.isLoading || terminals.isLoading;
+  const loadingMore = reveal.ready && (chats.isFetchingNextPage || sessions.isFetchingNextPage);
   const loadMoreSessions = () => {
+    if (!reveal.applyEnd(orderedRows.length, sourceHasNext)) return;
     chats.retryNextPage();
     sessions.retryNextPage();
   };
+  const fillWhenShort =
+    reveal.ready && !pageFailed && (orderedRows.length > reveal.shown || sourceHasNext);
   const addTerminal = useTerminalStore((state) => state.addEntry);
-  const launchAgents = useTerminalLaunchAgents(Boolean(workspaceId));
+  const launchAgents = useTerminalLaunchAgents(reveal.ready && Boolean(workspaceId));
   const openNewChat = () => {
     router.push({
       pathname: "/workspace/[workspaceId]/chat/new",
@@ -180,14 +198,14 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
               }),
         }}
       />
-      <AppScreen onEndReached={loadMoreSessions}>
+      <AppScreen fillWhenShort={fillWhenShort} onEndReached={loadMoreSessions}>
         <Section>
-          {loading && orderedRows.length === 0 ? (
+          {visibleRows.length === 0 && (loading || fillWhenShort) ? (
             <ListSkeleton />
-          ) : orderedRows.length === 0 ? (
+          ) : visibleRows.length === 0 ? (
             <EmptyState layout="section" message="Nothing here yet." title="No sessions" />
           ) : (
-            orderedRows.map((row, index) => {
+            visibleRows.map((row, index) => {
               const time = historyTimeLabel(row.updatedAt);
               const pinId = activityPinId(row, sessionSnapshots);
               const content = (

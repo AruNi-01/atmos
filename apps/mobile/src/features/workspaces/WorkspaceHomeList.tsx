@@ -17,6 +17,9 @@ import type {
   WorkspaceModel,
 } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
+import { pageBlocks, openItemCount, type PagedBlock } from "@/features/lists/list-page";
+import { markListNavigation } from "@/features/lists/list-navigation";
+import { useListWindow } from "@/features/lists/use-list-window";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import {
@@ -39,14 +42,25 @@ const SECTION_TITLE_SIZE = 17;
 const SECTION_CHEVRON_SIZE = 20;
 const SECTION_MOTION_MS = 220;
 
+type HomeBlock = PagedBlock<WorkspaceHomeEntry> & {
+  count?: number;
+  onToggle: () => void;
+  open: boolean;
+  title: string;
+};
+
 export function WorkspaceHomeList({
+  endRef,
   groups,
   isLoading = false,
+  onFillChange,
   projects,
   workspacesByProject,
 }: {
+  endRef?: { current: () => void };
   groups: GroupModel[];
   isLoading?: boolean;
+  onFillChange?: (fill: boolean) => void;
   projects: ProjectModel[];
   workspacesByProject: Record<string, WorkspaceModel[]>;
 }) {
@@ -59,6 +73,16 @@ export function WorkspaceHomeList({
   const recentExpanded = useWorkspaceHomeStore((state) => state.recentExpanded);
   const toggleRecent = useWorkspaceHomeStore((state) => state.toggleRecent);
   const actions = useWorkspaceRowActions();
+  const windowResetKey = [
+    grouping,
+    filters.groupIds.join(","),
+    filters.labelIds.join(","),
+    filters.priorities.join(","),
+    filters.projectIds.join(","),
+    filters.statuses.join(","),
+    filters.showAutomation ? "1" : "0",
+  ].join("|");
+  const { applyEnd, shown } = useListWindow(windowResetKey);
   const [deleteEntry, setDeleteEntry] = useState<WorkspaceHomeEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -80,7 +104,55 @@ export function WorkspaceHomeList({
       items: section.items.filter((item) => item.kind === "project" || !pinnedIds.has(item.id)),
     }))
     .filter((section) => section.items.some((item) => item.kind === "workspace"));
-  const openEntry = (entry: WorkspaceHomeEntry) => router.push(`/workspace/${entry.id}`);
+  const blocks: HomeBlock[] = [];
+  if (pinnedEntries.length > 0) {
+    blocks.push({
+      key: "pinned",
+      items: pinnedEntries,
+      keep: true,
+      open: true,
+      title: "Pinned",
+      onToggle: () => undefined,
+    });
+  }
+  if (recent.length > 0) {
+    blocks.push({
+      key: "recent",
+      items: recentExpanded ? recent : [],
+      keep: true,
+      open: recentExpanded,
+      title: "Recently",
+      onToggle: toggleRecent,
+    });
+  }
+  for (const section of sections) {
+    const workspaceCount = section.items.filter((item) => item.kind === "workspace").length;
+    const open = expanded[section.key] !== false;
+    blocks.push({
+      key: section.key,
+      items: open ? section.items : [],
+      keep: true,
+      open,
+      title: section.title,
+      count: workspaceCount > 0 ? workspaceCount : undefined,
+      onToggle: () => toggleExpanded(section.key),
+    });
+  }
+  const visibleBlocks = pageBlocks(blocks, shown);
+  const totalOpen = openItemCount(blocks);
+  useEffect(() => {
+    if (!endRef) return;
+    endRef.current = () => {
+      applyEnd(totalOpen, false);
+    };
+  }, [applyEnd, endRef, totalOpen]);
+  useEffect(() => {
+    onFillChange?.(totalOpen > shown);
+  }, [onFillChange, shown, totalOpen]);
+  const openEntry = (entry: WorkspaceHomeEntry) => {
+    markListNavigation("workspace-activity", entry.id);
+    router.push(`/workspace/${entry.id}`);
+  };
   const rowActions = {
     onArchive: (entry: WorkspaceHomeEntry) => {
       setActionError(null);
@@ -129,41 +201,18 @@ export function WorkspaceHomeList({
           {actionError}
         </Text>
       ) : null}
-      {pinnedEntries.length > 0 ? (
+      {visibleBlocks.map((block) => (
         <WorkspaceGroup
-          items={pinnedEntries}
+          count={block.count}
+          items={[...block.items]}
+          key={block.key}
           onOpen={openEntry}
-          onToggle={() => undefined}
-          open
-          title="Pinned"
+          onToggle={block.onToggle}
+          open={block.open}
+          title={block.title}
           {...rowActions}
         />
-      ) : null}
-      {recent.length > 0 ? (
-        <WorkspaceGroup
-          items={recent}
-          onOpen={openEntry}
-          onToggle={toggleRecent}
-          open={recentExpanded}
-          title="Recently"
-          {...rowActions}
-        />
-      ) : null}
-      {sections.map((section) => {
-        const workspaceCount = section.items.filter((item) => item.kind === "workspace").length;
-        return (
-          <WorkspaceGroup
-            count={workspaceCount > 0 ? workspaceCount : undefined}
-            items={section.items}
-            key={section.key}
-            onOpen={openEntry}
-            onToggle={() => toggleExpanded(section.key)}
-            open={expanded[section.key] !== false}
-            title={section.title}
-            {...rowActions}
-          />
-        );
-      })}
+      ))}
       <ExpoDrawer
         isPresented={deleteEntry != null}
         matchContents

@@ -102,8 +102,8 @@ export function useSessionRowActions() {
 
   const hideSession = useCallback(
     (sessionId: string) => {
-      queryClient.setQueryData<InfiniteData<AgentSessionStatusListResponse>>(
-        statusKey,
+      queryClient.setQueriesData<InfiniteData<AgentSessionStatusListResponse>>(
+        { queryKey: statusKey },
         (current) => {
           if (!current?.pages) return current;
           return {

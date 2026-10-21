@@ -24,7 +24,10 @@ import type {
   GithubPrPayload,
   WorkspaceSetupProgressNotification,
 } from "@/api/types";
-import type { AgentSessionStatusListResponse } from "@atmos/api-types/ws/dto/agent-status";
+import type {
+  AgentSessionStatusListRequest,
+  AgentSessionStatusListResponse,
+} from "@atmos/api-types/ws/dto/agent-status";
 import type { QuotaOverviewRequest } from "@atmos/api-types/ws/dto/quota";
 import type { TokenUsageOverviewRequest } from "@atmos/api-types/ws/dto/token-usage";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
@@ -185,11 +188,14 @@ export const wsActions = {
   codeAgentCustomGet(client: MobileWsClient) {
     return client.request("code_agent_custom_get");
   },
-  agentSessionStatusList(client: MobileWsClient, cursor: string | null = null) {
-    return client.request("agent_session_status_list", {
-      limit: 100,
-      cursor,
-    }) as Promise<AgentSessionStatusListResponse>;
+  agentSessionStatusList(
+    client: MobileWsClient,
+    body: AgentSessionStatusListRequest = { limit: 100, cursor: null },
+  ) {
+    return client.request(
+      "agent_session_status_list",
+      body,
+    ) as Promise<AgentSessionStatusListResponse>;
   },
   agentSessionArchive(client: MobileWsClient, sessionId: string) {
     return client.request("agent_session_archive", { session_id: sessionId });

@@ -4,6 +4,7 @@ import { useFocusEffect, useIsFocused } from "expo-router";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
 import type { TerminalWorkspaceCandidate } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
+import { LIST_PAGE_SIZE } from "@/features/lists/list-page";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import {
@@ -26,11 +27,13 @@ import {
   sessionWorkspaceSources,
   SESSION_BUCKETS,
   SESSION_BUCKET_LABEL,
+  type SessionBucket,
   type SessionInboxCandidate,
   type SessionInboxCard,
   type SessionWorkspaceRecord,
 } from "./session-inbox";
 import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
+import { agentSessionStatusQueryKey } from "./session-status-page";
 import { useAgentSessionStatusList } from "./use-agent-session-status-list";
 import { useSessionRowActions } from "./use-session-row-actions";
 
@@ -61,7 +64,18 @@ type PrTarget = {
   branch: string;
 };
 
-export function useSessionInbox() {
+const CANDIDATE_STALE_MS = 60_000;
+
+export type SessionInboxOptions = {
+  /** False skips joins and network work so the destination can paint a skeleton. */
+  active?: boolean;
+  /** Set on a bucket screen. Home omits it and keeps the unfiltered page of 100. */
+  groupKey?: SessionBucket | null;
+};
+
+export function useSessionInbox(options: SessionInboxOptions = {}) {
+  const active = options.active !== false;
+  const groupKey = options.groupKey ?? null;
   const queryClient = useQueryClient();
   const focused = useIsFocused();
   const { client, state: wsState } = useMobileWs();
@@ -71,7 +85,7 @@ export function useSessionInbox() {
 
   const bootstrapQuery = useQuery({
     queryKey: ["workspace-bootstrap", selectedServerId, wsState],
-    enabled: Boolean(client && connected),
+    enabled: Boolean(active && client && connected),
     queryFn: () => wsActions.projectWorkspaceBootstrap(client!),
   });
 
@@ -83,7 +97,8 @@ export function useSessionInbox() {
 
   const candidatesQuery = useQuery({
     queryKey: ["session-terminal-candidates", selectedServerId, workspaceKey],
-    enabled: Boolean(client && connected && focused && bootstrapQuery.isSuccess),
+    enabled: Boolean(active && client && connected && focused && bootstrapQuery.isSuccess),
+    staleTime: CANDIDATE_STALE_MS,
     queryFn: () => loadSessionCandidates(client!, sources.active),
   });
 
@@ -95,7 +110,7 @@ export function useSessionInbox() {
 
   const gitQuery = useQuery({
     queryKey: ["session-git-status", selectedServerId, gitKey],
-    enabled: Boolean(client && connected && focused && gitTargets.length > 0),
+    enabled: Boolean(active && client && connected && focused && gitTargets.length > 0),
     staleTime: 60_000,
     queryFn: () => loadSessionGitStatus(client!, gitTargets),
   });
@@ -108,38 +123,45 @@ export function useSessionInbox() {
 
   const prQuery = useQuery({
     queryKey: ["session-branch-prs", selectedServerId, prKey],
-    enabled: Boolean(client && connected && focused && prPlan.targets.length > 0),
+    enabled: Boolean(active && client && connected && focused && prPlan.targets.length > 0),
     staleTime: 60_000,
     queryFn: () => loadSessionBranchPrs(client!, prPlan.targets),
   });
 
-  const statusQuery = useAgentSessionStatusList();
+  const statusQuery = useAgentSessionStatusList(
+    groupKey ? { enabled: active, groupKey, limit: LIST_PAGE_SIZE } : { enabled: active },
+  );
 
   const chatTitleQuery = useQuery({
     queryKey: ["session-chat-titles", selectedServerId],
-    enabled: Boolean(client && connected && focused),
+    enabled: Boolean(active && client && connected && focused),
+    staleTime: CANDIDATE_STALE_MS,
     queryFn: () => loadSessionChatTitles(client!),
   });
 
   useFocusEffect(
     useCallback(() => {
-      if (!client || !connected) return;
+      if (!client || !connected || groupKey) return;
       void queryClient.invalidateQueries({
         queryKey: ["agent-session-status-list", selectedServerId],
       });
       void queryClient.invalidateQueries({
         queryKey: ["session-terminal-candidates", selectedServerId],
       });
-    }, [client, connected, queryClient, selectedServerId]),
+    }, [client, connected, groupKey, queryClient, selectedServerId]),
   );
 
   useEffect(() => {
-    if (!client || !focused || !connected) return;
+    if (!client || !focused || !connected || !active) return;
+    const statusKey = agentSessionStatusQueryKey({
+      serverId: selectedServerId,
+      groupKey,
+      limit: groupKey ? LIST_PAGE_SIZE : undefined,
+    });
     const unsubscribe = client.subscribeMessages((message) => {
       if (!isSessionInboxNotification(message)) return;
-      void queryClient.invalidateQueries({
-        queryKey: ["agent-session-status-list", selectedServerId],
-      });
+      void queryClient.invalidateQueries({ queryKey: statusKey });
+      if (groupKey) return;
       void queryClient.invalidateQueries({
         queryKey: ["session-terminal-candidates", selectedServerId],
       });
@@ -147,9 +169,16 @@ export function useSessionInbox() {
     return () => {
       unsubscribe();
     };
-  }, [client, connected, focused, queryClient, selectedServerId]);
+  }, [active, client, connected, focused, groupKey, queryClient, selectedServerId]);
 
   const model = useMemo(() => {
+    if (!active) {
+      return {
+        rows: [],
+        cards: sessionInboxCards([]),
+        recent: [],
+      };
+    }
     if (connected && (statusQuery.isLoading || bootstrapQuery.isLoading)) {
       return {
         rows: [],
@@ -201,6 +230,7 @@ export function useSessionInbox() {
       recent: recentSessionRows(rows),
     };
   }, [
+    active,
     candidatesQuery.data,
     candidatesQuery.isSuccess,
     connected,
@@ -246,9 +276,9 @@ export function useSessionInbox() {
     error,
     fetchNextPage: statusQuery.fetchNextPage,
     fetchNextPageFailed: statusQuery.isFetchNextPageError,
-    hasNextPage: statusQuery.hasNextPage,
+    hasNextPage: active && statusQuery.hasNextPage,
     isFetchingNextPage: statusQuery.isFetchingNextPage,
-    isLoading: connected && (statusQuery.isLoading || bootstrapQuery.isLoading),
+    isLoading: !active || (connected && (statusQuery.isLoading || bootstrapQuery.isLoading)),
     pageCount: statusQuery.pageCount,
     pinnedIds,
     refresh,

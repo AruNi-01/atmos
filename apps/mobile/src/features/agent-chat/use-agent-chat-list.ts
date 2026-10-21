@@ -15,19 +15,29 @@ function errorText(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export function useAgentChatList(scopeId: string) {
+export type AgentChatListOptions = {
+  /** False skips the fetch and does not flatten a warm cache. */
+  enabled?: boolean;
+  /** Defaults to `CHAT_LIST_PAGE_SIZE` (100) so title lookup still sees older chats. */
+  pageSize?: number;
+};
+
+export function useAgentChatList(scopeId: string, options: AgentChatListOptions = {}) {
+  const enabled = options.enabled !== false;
+  const pageSize = options.pageSize ?? CHAT_LIST_PAGE_SIZE;
   const { client, state: wsState } = useMobileWs();
   const connected = Boolean(client && wsState === "open");
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const bootstrapQuery = useQuery({
     queryKey: ["workspace-bootstrap", selectedServerId, wsState],
-    enabled: Boolean(client && wsState === "open"),
+    enabled: Boolean(enabled && client && wsState === "open"),
     queryFn: () => wsActions.projectWorkspaceBootstrap(client!),
   });
-  const scopeResult = bootstrapQuery.data ? resolveChatScope(bootstrapQuery.data, scopeId) : null;
+  const scopeResult =
+    enabled && bootstrapQuery.data ? resolveChatScope(bootstrapQuery.data, scopeId) : null;
   const listQuery = useInfiniteQuery({
-    queryKey: ["agent-chat-list", selectedServerId, scopeId, wsState],
-    enabled: Boolean(client && wsState === "open" && scopeResult?.ok),
+    queryKey: ["agent-chat-list", selectedServerId, scopeId, wsState, pageSize],
+    enabled: Boolean(enabled && client && wsState === "open" && scopeResult?.ok),
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) => {
       if (!client || !scopeResult?.ok) {
@@ -36,11 +46,11 @@ export function useAgentChatList(scopeId: string) {
       return wsActions.agentChatList(client, {
         ...scopeResult.scope,
         cursor: pageParam,
-        limit: CHAT_LIST_PAGE_SIZE,
+        limit: pageSize,
       }) as Promise<AgentChatListResponse>;
     },
     getNextPageParam: (lastPage, _pages, lastPageParam) =>
-      nextChatListCursor(lastPage.items ?? [], CHAT_LIST_PAGE_SIZE, lastPageParam),
+      nextChatListCursor(lastPage.items ?? [], pageSize, lastPageParam),
   });
   const fetchNextPage = useCallback(() => {
     if (!listQuery.hasNextPage || listQuery.isFetchingNextPage || listQuery.isFetchNextPageError)
@@ -56,34 +66,37 @@ export function useAgentChatList(scopeId: string) {
     if (!listQuery.hasNextPage || listQuery.isFetchingNextPage) return;
     void listQuery.fetchNextPage();
   }, [listQuery.fetchNextPage, listQuery.hasNextPage, listQuery.isFetchingNextPage]);
-  const chatItems = uniqueChatItems(
-    listQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
-  );
+  const chatItems = enabled
+    ? uniqueChatItems(listQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [])
+    : [];
 
   const loading =
-    connected && (bootstrapQuery.isLoading || Boolean(scopeResult?.ok && listQuery.isLoading));
-  const initialError = listQuery.isFetchNextPageError ? null : listQuery.error;
-  const error = connected
-    ? bootstrapQuery.error
-      ? errorText(bootstrapQuery.error, "Could not load chats.")
-      : scopeResult && !scopeResult.ok
-        ? scopeResult.error
-        : initialError
-          ? errorText(initialError, "Could not load chats.")
-          : null
-    : "Atmos mobile WebSocket is not connected";
+    !enabled ||
+    (connected && (bootstrapQuery.isLoading || Boolean(scopeResult?.ok && listQuery.isLoading)));
+  const initialError = enabled && !listQuery.isFetchNextPageError ? listQuery.error : null;
+  const error = !enabled
+    ? null
+    : connected
+      ? bootstrapQuery.error
+        ? errorText(bootstrapQuery.error, "Could not load chats.")
+        : scopeResult && !scopeResult.ok
+          ? scopeResult.error
+          : initialError
+            ? errorText(initialError, "Could not load chats.")
+            : null
+      : "Atmos mobile WebSocket is not connected";
 
   return {
-    rows: toChatListRows(chatItems),
+    rows: enabled ? toChatListRows(chatItems) : [],
     loading,
     error,
     refetch: listQuery.refetch,
     fetchNextPage,
     retryNextPage,
-    hasNextPage: Boolean(listQuery.hasNextPage),
-    isFetchingNextPage: listQuery.isFetchingNextPage,
-    isFetchNextPageError: listQuery.isFetchNextPageError,
-    pageCount: listQuery.data?.pages.length ?? 0,
+    hasNextPage: enabled && Boolean(listQuery.hasNextPage),
+    isFetchingNextPage: enabled && listQuery.isFetchingNextPage,
+    isFetchNextPageError: enabled && listQuery.isFetchNextPageError,
+    pageCount: enabled ? (listQuery.data?.pages.length ?? 0) : 0,
   };
 }
 

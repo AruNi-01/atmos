@@ -17,6 +17,7 @@ export function useTerminalLaunchAgents(active: boolean): MobileLaunchAgent[] {
   const [custom, setCustom] = useState<CodeAgentCustomEntry[] | null>(null);
 
   useEffect(() => {
+    if (!active) return;
     const key = terminalLaunchAgentCacheKey(selectedServerId);
     let cancelled = false;
     let fetched = false;

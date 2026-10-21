@@ -20,6 +20,9 @@ import {
 } from "@/ui/icons/lucide-native";
 import { type MobileThemeColors } from "@/theme/colors";
 import { openSessionDestination } from "@/features/agent-chat/navigation";
+import { listWindow } from "@/features/lists/list-page";
+import { markListNavigation } from "@/features/lists/list-navigation";
+import { useListReveal } from "@/features/lists/use-list-window";
 import {
   filterSessionRows,
   isSessionBucket,
@@ -54,12 +57,13 @@ export function SessionHomeScreen() {
     <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
       <SessionCardGrid
         cards={inbox.cards}
-        onPress={(bucket) =>
+        onPress={(bucket) => {
+          markListNavigation("session-bucket", bucket);
           router.push({
             pathname: "/(home)/session/[bucket]",
             params: { bucket },
-          })
-        }
+          });
+        }}
       />
       {inbox.isLoading && inbox.recent.length === 0 && inbox.pinnedIds.length === 0 ? (
         <Section label="Recent">
@@ -91,9 +95,13 @@ export function SessionHomeScreen() {
 
 export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) {
   const router = useRouter();
-  const inbox = useSessionInbox();
-  const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const parsed = bucket && isSessionBucket(bucket) ? bucket : null;
+  const reveal = useListReveal("session-bucket", parsed ?? "");
+  const inbox = useSessionInbox({
+    active: reveal.ready && parsed != null,
+    groupKey: parsed,
+  });
+  const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const rows = parsed
     ? orderPinnedRows(
         sortSessionRowsByRecency(filterSessionRows(inbox.rows, parsed)),
@@ -101,6 +109,15 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
         sessionPinId,
       )
     : [];
+  const visibleRows = listWindow(rows, reveal.shown);
+  const loadMore = () => {
+    if (reveal.applyEnd(rows.length, inbox.hasNextPage)) inbox.retryNextPage();
+  };
+  const fillWhenShort =
+    reveal.ready &&
+    parsed != null &&
+    !inbox.fetchNextPageFailed &&
+    (rows.length > reveal.shown || inbox.hasNextPage);
 
   if (!inbox.connected) {
     return (
@@ -110,22 +127,18 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     );
   }
 
-  const bucketCount = parsed ? (inbox.cards.find((card) => card.bucket === parsed)?.count ?? 0) : 0;
-  const fillWhenShort =
-    rows.length < bucketCount && inbox.hasNextPage && !inbox.fetchNextPageFailed;
-
   return (
     <AppScreen
       fillWhenShort={fillWhenShort}
-      onEndReached={inbox.retryNextPage}
+      onEndReached={loadMore}
       onRefresh={onRefresh}
       refreshing={refreshing}
     >
       {parsed ? (
         <Section>
-          {inbox.isLoading || (rows.length === 0 && fillWhenShort) ? (
+          {!reveal.ready || (visibleRows.length === 0 && (inbox.isLoading || fillWhenShort)) ? (
             <ListSkeleton />
-          ) : rows.length === 0 ? (
+          ) : visibleRows.length === 0 ? (
             <EmptyState layout="section" message="This list is empty." title="No sessions" />
           ) : (
             <SessionRowList
@@ -140,7 +153,7 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
               onPress={(row) => openSessionRow(router, row)}
               onTogglePin={inbox.togglePin}
               pinnedIds={inbox.pinnedIds}
-              rows={rows}
+              rows={visibleRows}
             />
           )}
         </Section>
