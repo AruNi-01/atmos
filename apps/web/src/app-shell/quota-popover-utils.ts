@@ -1,3 +1,5 @@
+import { formatQuotaBillingPeriod } from "@atmos/shared";
+
 import type { QuotaProviderResponse } from "@/api/ws-api";
 
 export type QuotaProviderOrderItem = {
@@ -472,7 +474,8 @@ export function extraSections(provider: QuotaProviderResponse) {
       title !== "core" &&
       title !== "managed computers" &&
       title !== "credits" &&
-      title !== "fetch pipeline"
+      title !== "fetch pipeline" &&
+      title !== "billing period"
     );
   });
 }
@@ -689,6 +692,17 @@ export function providerCreditsLabel(provider: QuotaProviderResponse): string | 
   return raw;
 }
 
+function billingPeriodSectionRange(provider: QuotaProviderResponse): string | null {
+  const section = provider.detail_sections.find(
+    (item) => item.title.trim().toLowerCase() === "billing period",
+  );
+  if (!section) return null;
+  const start = section.rows.find((row) => row.label.trim().toLowerCase() === "start")?.value;
+  const end = section.rows.find((row) => row.label.trim().toLowerCase() === "end")?.value;
+  if (start && end) return `${start} → ${end}`;
+  return start ?? end ?? null;
+}
+
 export function providerIdentity(
   provider: QuotaProviderResponse,
   notDetectedLabel = "Not detected",
@@ -703,10 +717,11 @@ export function providerIdentity(
   const rawPlan = rawPlanValue && !isPlaceholder(rawPlanValue) ? rawPlanValue : null;
   const genericAccount = rawAccount.trim().toLowerCase() === provider.label.trim().toLowerCase();
   const accountLabel = genericAccount && rawPlan ? rawPlan : rawAccount;
-  const periodLabel =
+  const periodLabel = formatQuotaBillingPeriod(
     firstRowValue(provider, "Usage", "Billing period") ??
-    firstRowValue(provider, "Account", "Period") ??
-    null;
+      firstRowValue(provider, "Account", "Period") ??
+      billingPeriodSectionRange(provider),
+  );
   const planLabel = rawPlan && rawPlan !== accountLabel ? rawPlan : null;
   return { accountLabel, planLabel, periodLabel };
 }

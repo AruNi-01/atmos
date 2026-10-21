@@ -32,6 +32,67 @@ export function getLocalTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+const UTC_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T/;
+
+function formatUtcMonthDay(instant: string): string | null {
+  const date = new Date(instant);
+  if (Number.isNaN(date.getTime())) return null;
+  const month = UTC_MONTHS[date.getUTCMonth()];
+  if (!month) return null;
+  return `${month} ${date.getUTCDate()}`;
+}
+
+function formatPeriodSide(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.includes("T")) return trimmed;
+  return formatUtcMonthDay(trimmed) ?? trimmed;
+}
+
+/**
+ * Rewrite a quota billing window that still contains an ISO instant.
+ * Factory month-day spans and Zed date-only ranges are returned unchanged.
+ * Ranges use UTC so the label matches the Rust `format_billing_span` output.
+ */
+export function formatQuotaBillingPeriod(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const text = value.trim();
+  if (!text) return null;
+  if (!text.includes("T")) return text;
+
+  const arrow = text.split(/\s*(?:→|—|–)\s*/);
+  if (arrow.length === 2 && arrow[0] && arrow[1]) {
+    return `${formatPeriodSide(arrow[0])} - ${formatPeriodSide(arrow[1])}`;
+  }
+
+  const hyphen = text.split(" - ");
+  if (
+    hyphen.length === 2 &&
+    hyphen[0] &&
+    hyphen[1] &&
+    ISO_INSTANT.test(hyphen[0].trim()) &&
+    ISO_INSTANT.test(hyphen[1].trim())
+  ) {
+    return `${formatPeriodSide(hyphen[0])} - ${formatPeriodSide(hyphen[1])}`;
+  }
+
+  return formatPeriodSide(text);
+}
+
 /**
  * Parse a UTC date string from backend into a TZDate in the user's local timezone.
  * Backend stores dates in UTC+0 format (e.g., "2026-01-20T10:00:00" or "2026-01-20 10:00:00")

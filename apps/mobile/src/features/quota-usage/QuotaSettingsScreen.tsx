@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
+import Animated, { LinearTransition, useReducedMotion } from "react-native-reanimated";
+import { sortQuotaProvidersForSwitchList } from "@atmos/shared";
 import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
 import { ProviderGlyph } from "@/ui/icons/provider-glyph";
@@ -24,6 +27,9 @@ export function QuotaSettingsScreen() {
     useQuotaOverview({
       fetch: false,
     });
+  const reducedMotion = useReducedMotion();
+  const orderedProviders = useMemo(() => sortQuotaProvidersForSwitchList(providers), [providers]);
+  const rowLayout = LinearTransition.duration(reducedMotion ? 1 : 280);
   const allOn = providers.length > 0 && providers.every((provider) => provider.switch_enabled);
   const errorMessage =
     overviewQuery.error instanceof Error ? overviewQuery.error.message : actionError;
@@ -31,14 +37,14 @@ export function QuotaSettingsScreen() {
   return (
     <AppScreen surface="sheet">
       <InlineError message={errorMessage} />
-      <Section label="Providers">
+      <Section clip={false} label="Providers">
         <QuotaSwitchRow
           onValueChange={(enabled) => toggleAll.mutate(enabled)}
           title="All providers"
           value={allOn}
         />
-        {providers.map((provider) => (
-          <View key={provider.id}>
+        {orderedProviders.map((provider) => (
+          <Animated.View collapsable={false} key={provider.id} layout={rowLayout}>
             <Separator />
             <QuotaSwitchRow
               leading={
@@ -48,7 +54,7 @@ export function QuotaSettingsScreen() {
               title={provider.label}
               value={provider.switch_enabled}
             />
-          </View>
+          </Animated.View>
         ))}
       </Section>
       <Section>

@@ -31,22 +31,22 @@
 
 ## Execution map
 
-`Status` stays `planned` until the named command has run. Update this table in the implementation commit.
+`Status` is `pass` after the named command ran. S13 stays manual.
 
 | Scenario | Level     | Expected tool               | Target command / method                                                          | Fixture / data                                   | Signals                                                                                        | Status  |
 | -------- | --------- | --------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ------- |
-| S1       | Rust unit | `cargo test -p quota-usage` | `usage_summary_maps_cursor_and_other_model_pools` plus the 12% saturated fixture | `apiPercentUsed` 12, `used` 40000, `limit` 40000 | value contains `12% used`; value does not contain `$`                                          | planned |
-| S2       | Rust unit | `cargo test -p quota-usage` | same module, matching-ratio case                                                 | `used` 4800, `limit` 40000, api 12               | no `$` on Other Models                                                                         | planned |
-| S3       | Rust unit | `cargo test -p quota-usage` | `usage_summary_reads_membership_and_plan_buckets` and on-demand assertions       | no auto/api percents; on-demand cents            | Included `$20.00 / $20.00`; On-Demand still has `$`                                            | planned |
-| S4       | Rust unit | `cargo test -p quota-usage` | Grok `map_credits_config` fixtures                                               | shared pool and omitted weekly RFC3339           | `Sep 4 - Sep 11`, `Sep 3 - Sep 10`; no section title `Billing period`                          | planned |
-| S5       | Bun unit  | `bun test`                  | `packages/shared/src/utils/quota-billing-period.test.ts`                         | ISO range, Factory span, Zed arrow               | ISO becomes month-day; the other two strings are unchanged                                     | planned |
-| S6       | Bun unit  | `bun test`                  | `apps/mobile/src/features/quota-usage/quota-rows.test.ts`                        | ISO section Start/End                            | period label `Sep 4 - Sep 11`; extra sections omit Billing period                              | planned |
-| S7       | Bun scan  | `bun test`                  | mobile quota source scan                                                         | `QuotaUsageScreen.tsx`                           | `%` sibling text; `flexShrink: 0` on the readout; NumberFlow format has no `%`                 | planned |
-| S8       | Bun scan  | `bun test`                  | same scan                                                                        | `QuotaUsageScreen.tsx`                           | one `heading.plan` (subtitle); expanded block has no second plan                               | planned |
-| S9       | Bun unit  | `bun test`                  | `packages/shared` provider-order test                                            | enabled, switch, saved order, label              | detected first, enabled switch first, then order, then label                                   | planned |
-| S10      | Bun scan  | `bun test`                  | mobile settings source scan                                                      | `QuotaSettingsScreen.tsx`                        | `title="All providers"` before the sorted map; `LinearTransition`; `clip={false}`              | planned |
-| S11      | Bun unit  | `bun test`                  | `apps/web/src/app-shell/__tests__/quota-billing-period.test.ts`                  | Grok-like section, Zed period                    | `periodLabel` formatted; extra sections drop the section; detail source has no Zed-only branch | planned |
-| S12      | Toolchain | shell                       | `bunx oxlint --max-warnings=455` and `package.json` script text                  | repo root                                        | command exits 0; script still `oxlint --max-warnings=455`                                      | planned |
+| S1       | Rust unit | `cargo test -p quota-usage` | `usage_summary_maps_cursor_and_other_model_pools` plus the 12% saturated fixture | `apiPercentUsed` 12, `used` 40000, `limit` 40000 | value contains `12% used`; value does not contain `$`                                          | pass    |
+| S2       | Rust unit | `cargo test -p quota-usage` | same module, matching-ratio case                                                 | `used` 4800, `limit` 40000, api 12               | no `$` on Other Models                                                                         | pass    |
+| S3       | Rust unit | `cargo test -p quota-usage` | `usage_summary_reads_membership_and_plan_buckets` and on-demand assertions       | no auto/api percents; on-demand cents            | Included `$20.00 / $20.00`; On-Demand still has `$`                                            | pass    |
+| S4       | Rust unit | `cargo test -p quota-usage` | Grok `map_credits_config` fixtures                                               | shared pool and omitted weekly RFC3339           | `Sep 4 - Sep 11`, `Sep 3 - Sep 10`; no section title `Billing period`                          | pass    |
+| S5       | Bun unit  | `bun test`                  | `packages/shared/src/utils/quota-billing-period.test.ts`                         | ISO range, Factory span, Zed arrow               | ISO becomes month-day; the other two strings are unchanged                                     | pass    |
+| S6       | Bun unit  | `bun test`                  | `apps/mobile/src/features/quota-usage/quota-rows.test.ts`                        | ISO section Start/End                            | period label `Sep 4 - Sep 11`; extra sections omit Billing period                              | pass    |
+| S7       | Bun scan  | `bun test`                  | mobile quota source scan                                                         | `QuotaUsageScreen.tsx`                           | `%` sibling text; `flexShrink: 0` on the readout; NumberFlow format has no `%`                 | pass    |
+| S8       | Bun scan  | `bun test`                  | same scan                                                                        | `QuotaUsageScreen.tsx`                           | one `heading.plan` (subtitle); expanded block has no second plan                               | pass    |
+| S9       | Bun unit  | `bun test`                  | `packages/shared` provider-order test                                            | enabled, switch, saved order, label              | detected first, enabled switch first, then order, then label                                   | pass    |
+| S10      | Bun scan  | `bun test`                  | mobile settings source scan                                                      | `QuotaSettingsScreen.tsx`                        | `title="All providers"` before the sorted map; `LinearTransition`; `clip={false}`              | pass    |
+| S11      | Bun unit  | `bun test`                  | `apps/web/src/app-shell/__tests__/quota-billing-period.test.ts`                  | Grok-like section, Zed period                    | `periodLabel` formatted; extra sections drop the section; detail source has no Zed-only branch | pass    |
+| S12      | Toolchain | shell                       | `bunx oxlint --max-warnings=455` and `package.json` script text                  | repo root                                        | command exits 0; script still `oxlint --max-warnings=455`                                      | pass    |
 | S13      | Manual    | iOS Simulator               | local capture by the developer                                                   | signed-in quota screen                           | not executed in this change                                                                    | planned |
 
 ## Scenarios
@@ -177,4 +177,16 @@
 
 ## Coverage Status
 
-Not run. Spec-only commit. The implementation commit fills this section after the commands above succeed.
+S1–S4 pass: `cargo test -p quota-usage --lib` (65 passed, including the Cursor pool tests and the Grok period fixtures).
+
+S5 and S9 pass: `bun test packages/shared/src/utils/quota-billing-period.test.ts packages/shared/src/utils/quota-provider-order.test.ts`.
+
+S6–S8 and S10 pass: `bun test apps/mobile/src/features/quota-usage/quota-rows.test.ts apps/mobile/src/features/quota-usage/quota-display.test.ts`.
+
+S11 pass: `bun test apps/web/src/app-shell/__tests__/quota-billing-period.test.ts`. The existing navbar sort tests in `quota-popover-provider-order.test.ts` and the quota metric presentation tests still pass. The provider-header source scan now matches the label and `{provider.label}` on adjacent lines; the order assertion is unchanged.
+
+S12 pass: `bun lint` (`oxlint --max-warnings=455`) exited 0. `package.json` `lint` is still `oxlint --max-warnings=455`. `cargo clippy -p quota-usage --all-targets -- -D warnings` exited 0. `bun --filter @atmos/shared typecheck` and `bun --filter web typecheck` exited 0.
+
+S13 stays planned. iOS Simulator screenshots are not part of this change.
+
+`bun --filter @atmos/mobile typecheck` still fails in `src/features/agent-chat/glass-text-button.test.ts` and `open-thread-resync.test.ts`. Those files are outside this change. No quota-usage file is in that error list. Mobile typecheck is not a CI job.

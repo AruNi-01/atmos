@@ -1,7 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
 import type { QuotaProviderResponse } from "@atmos/api-types/ws/dto/quota";
-import { creditsLabel, extraSections, usageRows } from "./quota-rows";
+import { billingPeriodLabel, creditsLabel, extraSections, usageRows } from "./quota-rows";
 
 function provider(partial: Partial<QuotaProviderResponse>): QuotaProviderResponse {
   return {
@@ -159,5 +159,46 @@ describe("quota usage rows", () => {
         }),
       ),
     ).toBe("110.00 CNY · 20 USD");
+  });
+
+  test("turns a raw billing-period section into the span under the account", () => {
+    const grok = provider({
+      id: "grok",
+      label: "Grok Build",
+      detail_sections: [
+        {
+          title: "Billing period",
+          rows: [
+            {
+              label: "Start",
+              value: "2026-09-04T22:17:47.739583+00:00",
+              tone: "muted",
+            },
+            {
+              label: "End",
+              value: "2026-09-11T22:17:47.739583+00:00",
+              tone: "muted",
+            },
+          ],
+        },
+      ],
+    });
+    expect(billingPeriodLabel(grok)).toBe("Sep 4 - Sep 11");
+    expect(extraSections(grok).map((section) => section.title)).not.toContain("Billing period");
+  });
+
+  test("keeps an Account Period that is already a month-day span", () => {
+    expect(
+      billingPeriodLabel(
+        provider({
+          detail_sections: [
+            {
+              title: "Account",
+              rows: [{ label: "Period", value: "Sep 4 - Sep 11", tone: "muted" }],
+            },
+          ],
+        }),
+      ),
+    ).toBe("Sep 4 - Sep 11");
   });
 });

@@ -23,6 +23,7 @@ import { useMeterWidth } from "@/features/usage/use-meter-width";
 import { UsageScroll } from "@/features/usage/usage-scroll";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
+  billingPeriodLabel,
   creditsLabel,
   extraSections,
   providerHeading,
@@ -266,6 +267,7 @@ function ProviderCard({
   const extras = extraSections(provider);
   const credits = creditsLabel(provider);
   const heading = providerHeading(provider);
+  const period = billingPeriodLabel(provider);
   const metric = rows[0] ?? null;
   return (
     <Animated.View
@@ -297,15 +299,13 @@ function ProviderCard({
           exiting={FadeOut.duration(120)}
           style={{ gap: 14 }}
         >
-          {heading.account || heading.plan ? (
+          {heading.account || period ? (
             <View style={{ alignItems: "flex-end" }}>
               {heading.account ? (
                 <Text style={{ color: theme.colors.label, fontSize: 13 }}>{heading.account}</Text>
               ) : null}
-              {heading.plan ? (
-                <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>
-                  {heading.plan}
-                </Text>
+              {period ? (
+                <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>{period}</Text>
               ) : null}
             </View>
           ) : null}
@@ -451,7 +451,12 @@ function UsageLine({ row, showGroup }: { row: UsageRow; showGroup: boolean }) {
 }
 
 function QuotaPercent({ style, value }: { style?: StyleProp<TextStyle>; value: number }) {
-  return <AnimatedMetric format={(next) => `${Math.round(next)}%`} style={style} value={value} />;
+  return (
+    <View style={styles.percentValue}>
+      <AnimatedMetric format={(next) => `${Math.round(next)}`} style={style} value={value} />
+      <Text style={style}>%</Text>
+    </View>
+  );
 }
 
 function PercentLabel({ label, percent }: { label: string; percent: number }) {
@@ -459,11 +464,13 @@ function PercentLabel({ label, percent }: { label: string; percent: number }) {
   const text = { color: theme.colors.label, fontSize: 13 };
   return (
     <View style={styles.percentLabel}>
-      <Text ellipsizeMode="tail" numberOfLines={1} style={[text, { flexShrink: 1 }]}>
+      <Text ellipsizeMode="tail" numberOfLines={1} style={[text, styles.percentName]}>
         {label} ·
       </Text>
-      <QuotaPercent style={text} value={percent} />
-      <Text style={text}>used</Text>
+      <View style={styles.percentReadout}>
+        <QuotaPercent style={text} value={percent} />
+        <Text style={text}>used</Text>
+      </View>
     </View>
   );
 }
@@ -522,6 +529,9 @@ const styles = StyleSheet.create({
   },
   metricLine: { alignItems: "center", flexDirection: "row", gap: 12 },
   percentLabel: { alignItems: "center", flex: 1, flexDirection: "row", gap: 4, minWidth: 0 },
+  percentName: { flexShrink: 1 },
+  percentReadout: { alignItems: "center", flexDirection: "row", flexShrink: 0, gap: 4 },
+  percentValue: { alignItems: "center", flexDirection: "row", flexShrink: 0 },
   row: { alignItems: "center", flexDirection: "row", gap: 10 },
   segmentItem: { alignItems: "center", flexDirection: "row", gap: 4 },
   segmentLegend: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 4 },
