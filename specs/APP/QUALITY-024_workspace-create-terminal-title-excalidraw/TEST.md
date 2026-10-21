@@ -40,27 +40,27 @@ The PR already added Bun and Rust unit tests plus source-scan tests. This plan m
 
 ## Execution map
 
-This table is the hand-off from plan to implementation/testing. `Status` is `planned` until the named command has been run in this spec pass.
+This table is the hand-off from plan to implementation/testing. `Status` is `pass` after the named command ran in this spec pass, and stays `planned` for gaps and manual checks.
 
 | Scenario | Level     | Expected tool | Target command / method                                                                 | Fixture / data                                               | Signals                                                                                                    | Status  |
 | -------- | --------- | ------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------- |
-| S1       | Bun unit  | `bun test`    | `workspace-creation-store.test.ts` `blocks on the welcome page…`                        | view strings                                                 | `welcome` true; `workspace`/`tasks`/`automations`/`project` false                                          | planned |
-| S2       | Bun scan  | `bun test`    | `workspace-status-popover.test.ts` `welcome worktree prep uses a dialog…`               | source of overlay / dialog / Welcome / sidebar               | `workspaceCreateBlocksUntilWorktree` in dialog+Welcome; sidebar has no `blocking: true`                    | planned |
-| S3       | Bun scan  | `bun test`    | same test as S2                                                                         | `WorkspaceSetupBlockingOverlay.tsx`, `PanelLayout`           | `DialogContent`; `workspaceCreationOverlay`; not `WorkspaceSetupProgressView`; overlay still mounted       | planned |
-| S4       | Bun scan  | `bun test`    | `workspace-status-popover.test.ts` header grouping test                                 | `use-workspace-create-auto-open.ts`                          | `isWorkspaceCreateReadyToEnter`; `enterImmediately`; `WORKSPACE_AUTO_ENTER_DELAY_MS`                       | planned |
-| S5       | Bun unit  | `bun test`    | `workspace-setup.test.ts` `isWorkspaceCreateReadyToEnter`                               | null / `creating`+`create_worktree` / `error` / `setting_up` | null false; creating false; error true; setting_up true                                                    | planned |
-| S6       | Bun scan  | `bun test`    | S2 source-scan                                                                          | `WelcomePage.tsx`                                            | `if (!blocksUntilWorktree) onClose?.()`                                                                    | planned |
-| S7       | Bun unit  | `bun test`    | `persist-dynamic-title.test.ts` `clears the OSC topic when the dynamic title switches…` | grok + topic → path, `session_title: null`                   | `{ dynamicTitle: ".../atmos/dewgong" }`                                                                    | planned |
-| S8       | Bun unit  | `bun test`    | `clears a topic when an idle directory is replayed without one`                         | same path + leftover topic                                   | OSC omitted                                                                                                | planned |
-| S9       | Bun unit  | `bun test`    | `keeps a topic when the same dynamic title is replayed without one`                     | grok → grok, `session_title: null`                           | OSC kept                                                                                                   | planned |
-| S10      | Bun unit  | `bun test`    | `keeps a topic on the first dynamic title`                                              | OSC only previous, incoming `grok`                           | both kept                                                                                                  | planned |
-| S11      | Bun unit  | `bun test`    | `keeps a topic when a switch still carries one`                                         | grok → path with `session_title`                             | new dynamic + new OSC                                                                                      | planned |
-| S12      | Rust unit | `cargo test`  | `-p core-service` `shell_command_switch_clears_topic_and_reattach_keeps_it`             | `reduce_title` Shim Shell/Reattach                           | `grok --always-approve`→`grok` keeps topic; Reattach `vim` keeps; Shell `ls` clears both                   | planned |
-| S13      | Rust unit | `cargo test`  | `-p core-service` `shell_cmd_end_clears_topic_and_reattach_keeps_it`                    | Reattach CMD_END then Shell CMD_END                          | Reattach keeps topic; Shell CMD_END `session_title` and `osc_title` are `None`                             | planned |
-| S14      | Bun scan  | `bun test`    | `sidebar-motion.test.ts` `chrome CSS and board wire the press and drawer motion`        | `excalidraw-theme.css`, `ExcalidrawBoard.tsx`                | `translate3d(100%, 0, 0)`; `backwards`; `width: 100% !important`; browse/search/skeleton; `overflow: clip` | planned |
-| S15      | Bun unit  | `bun test`    | `sidebar-motion.test.ts` `puts ancestor scroll back when the drawer focus shifts it`    | fake `{ scrollLeft, scrollTop }`                             | restored to 0; second restore is a no-op                                                                   | planned |
-| S16      | Bun scan  | `bun test`    | S14 motion source-scan                                                                  | `sidebar-motion.ts`                                          | `restoreScrollChain`; `armSidebarScrollPin`; existing `commitStyles` / `freezeOffscreen`                   | planned |
-| S17      | Review    | `rg`          | root `package.json` script `lint`                                                       | this branch                                                  | `oxlint --max-warnings=455`; no cap diff                                                                   | planned |
+| S1       | Bun unit  | `bun test`    | `workspace-creation-store.test.ts` `blocks on the welcome page…`                        | view strings                                                 | `welcome` true; `workspace`/`tasks`/`automations`/`project` false                                          | pass    |
+| S2       | Bun scan  | `bun test`    | `workspace-status-popover.test.ts` `welcome worktree prep uses a dialog…`               | source of overlay / dialog / Welcome / sidebar               | `workspaceCreateBlocksUntilWorktree` in dialog+Welcome; sidebar has no `blocking: true`                    | pass    |
+| S3       | Bun scan  | `bun test`    | same test as S2                                                                         | `WorkspaceSetupBlockingOverlay.tsx`, `PanelLayout`           | `DialogContent`; `workspaceCreationOverlay`; not `WorkspaceSetupProgressView`; overlay still mounted       | pass    |
+| S4       | Bun scan  | `bun test`    | `workspace-status-popover.test.ts` header grouping test                                 | `use-workspace-create-auto-open.ts`                          | `isWorkspaceCreateReadyToEnter`; `enterImmediately`; `WORKSPACE_AUTO_ENTER_DELAY_MS`                       | pass    |
+| S5       | Bun unit  | `bun test`    | `workspace-setup.test.ts` `isWorkspaceCreateReadyToEnter`                               | null / `creating`+`create_worktree` / `error` / `setting_up` | null false; creating false; error true; setting_up true                                                    | pass    |
+| S6       | Bun scan  | `bun test`    | S2 source-scan                                                                          | `WelcomePage.tsx`                                            | `if (!blocksUntilWorktree) onClose?.()`                                                                    | pass    |
+| S7       | Bun unit  | `bun test`    | `persist-dynamic-title.test.ts` `clears the OSC topic when the dynamic title switches…` | grok + topic → path, `session_title: null`                   | `{ dynamicTitle: ".../atmos/dewgong" }`                                                                    | pass    |
+| S8       | Bun unit  | `bun test`    | `clears a topic when an idle directory is replayed without one`                         | same path + leftover topic                                   | OSC omitted                                                                                                | pass    |
+| S9       | Bun unit  | `bun test`    | `keeps a topic when the same dynamic title is replayed without one`                     | grok → grok, `session_title: null`                           | OSC kept                                                                                                   | pass    |
+| S10      | Bun unit  | `bun test`    | `keeps a topic on the first dynamic title`                                              | OSC only previous, incoming `grok`                           | both kept                                                                                                  | pass    |
+| S11      | Bun unit  | `bun test`    | `keeps a topic when a switch still carries one`                                         | grok → path with `session_title`                             | new dynamic + new OSC                                                                                      | pass    |
+| S12      | Rust unit | `cargo test`  | `-p core-service` `shell_command_switch_clears_topic_and_reattach_keeps_it`             | `reduce_title` Shim Shell/Reattach                           | `grok --always-approve`→`grok` keeps topic; Reattach `vim` keeps; Shell `ls` clears both                   | pass    |
+| S13      | Rust unit | `cargo test`  | `-p core-service` `shell_cmd_end_clears_topic_and_reattach_keeps_it`                    | Reattach CMD_END then Shell CMD_END                          | Reattach keeps topic; Shell CMD_END `session_title` and `osc_title` are `None`                             | pass    |
+| S14      | Bun scan  | `bun test`    | `sidebar-motion.test.ts` `chrome CSS and board wire the press and drawer motion`        | `excalidraw-theme.css`, `ExcalidrawBoard.tsx`                | `translate3d(100%, 0, 0)`; `backwards`; `width: 100% !important`; browse/search/skeleton; `overflow: clip` | pass    |
+| S15      | Bun unit  | `bun test`    | `sidebar-motion.test.ts` `puts ancestor scroll back when the drawer focus shifts it`    | fake `{ scrollLeft, scrollTop }`                             | restored to 0; second restore is a no-op                                                                   | pass    |
+| S16      | Bun scan  | `bun test`    | S14 motion source-scan                                                                  | `sidebar-motion.ts`                                          | `restoreScrollChain`; `armSidebarScrollPin`; existing `commitStyles` / `freezeOffscreen`                   | pass    |
+| S17      | Review    | `rg`          | root `package.json` script `lint`                                                       | this branch                                                  | `oxlint --max-warnings=455`; no cap diff                                                                   | pass    |
 | S18      | Gap       | —             | none in this PR                                                                         | `status: "error"` while `blocking: true`                     | overlay hidden; auto-open not asserted                                                                     | planned |
 | S19      | Gap       | —             | `matchingPaneTitles` is not exported                                                    | live pane vs stale cache                                     | cache-base preference is comment-only in tests                                                             | planned |
 | S20      | Manual    | browser       | Welcome create; PTY command switch; PT Design library in dark                           | running web + API                                            | dialog copy; title label; drawer does not shove chrome                                                     | planned |
@@ -233,13 +233,13 @@ Not a new hot path. Drawer enter stays 280 ms (`SIDEBAR_ENTER_MS`). Scroll pin l
 
 ## Regression checklist
 
-- [ ] `package.json` lint cap is still 455.
-- [ ] Same-command `session_title: null` replay still keeps OSC (Observer `"Terminal"`).
-- [ ] Reattach CMD_START does not clear topic in `reduce_title`.
-- [ ] Welcome is the only `workspaceCreateBlocksUntilWorktree` true view in the unit table.
-- [ ] Overlay still has `data-workspace-setup-blocking-overlay`.
-- [ ] `titlesFromServerSnapshot` still exists for non-merge callers.
-- [ ] Excalidraw exit clone (`data-pt-leaving`) CSS is still present.
+- [x] `package.json` lint cap is still 455.
+- [x] Same-command `session_title: null` replay still keeps OSC (Observer `"Terminal"`).
+- [x] Reattach CMD_START does not clear topic in `reduce_title`.
+- [x] Welcome is the only `workspaceCreateBlocksUntilWorktree` true view in the unit table.
+- [x] Overlay still has `data-workspace-setup-blocking-overlay`.
+- [x] `titlesFromServerSnapshot` still exists for non-merge callers.
+- [x] Excalidraw exit clone (`data-pt-leaving`) CSS is still present.
 
 ## Exploratory agent-browser checks
 
@@ -253,11 +253,11 @@ Use after a UI verification pass. Load Agent Browser instructions first (`agent-
 
 ## Acceptance criteria
 
-- [ ] S1–S16 have a named automated command in the execution map.
-- [ ] S17: lint script is still `oxlint --max-warnings=455`.
-- [ ] S18–S20 remain documented gaps / manual; they do not block the spec-only commit.
-- [ ] This spec does not edit `apps/`, `crates/`, or `packages/` product files.
-- [ ] Coverage Status names commands that ran and commands that did not.
+- [x] S1–S16 have a named automated command in the execution map.
+- [x] S17: lint script is still `oxlint --max-warnings=455`.
+- [x] S18–S20 remain documented gaps / manual; they do not block the spec-only commit.
+- [x] This spec does not edit `apps/`, `crates/`, or `packages/` product files.
+- [x] Coverage Status names commands that ran and commands that did not.
 
 ## Manual verification steps
 
@@ -279,11 +279,16 @@ Use after a UI verification pass. Load Agent Browser instructions first (`agent-
 
 ## Coverage Status
 
-Spec authored 2026-10-21 against `git diff origin/main...HEAD` on `aarynlu/local-wip-workspace-terminal-title`. Execution map statuses are `planned` until the commands in that table run in this spec pass.
+2026-10-21, spec-only pass on `aarynlu/local-wip-workspace-terminal-title` after QUALITY-024 docs landed. Commands and remaining gaps:
 
-Not run at authoring time:
+- S1 — pass. `bun test apps/web/src/features/workspace/store/workspace-creation-store.test.ts` (10 pass), including `blocks on the welcome page and not when another view sits under the overlay`.
+- S2, S3, S4, S6 — pass. `bun test apps/web/src/app-shell/__tests__/workspace-status-popover.test.ts` (6 pass), including `welcome worktree prep uses a dialog and other views dismiss the overlay` and the header grouping scan of `isWorkspaceCreateReadyToEnter`.
+- S5 — pass. `bun test apps/web/src/features/workspace/lib/workspace-setup.test.ts` (6 pass), including `waits for a worktree result, including a missing progress snapshot`.
+- S7–S11 — pass. `bun test apps/web/src/features/terminal/store/__tests__/persist-dynamic-title.test.ts` (15 pass), including the five `mergeServerTerminalTitle` cases.
+- S12, S13 — pass. `cargo test -p core-service --lib clears_topic_and_reattach_keeps_it` (2 passed, 852 filtered): `shell_command_switch_clears_topic_and_reattach_keeps_it`, `shell_cmd_end_clears_topic_and_reattach_keeps_it`.
+- S14–S16 — pass. `bun test packages/pt-design/src/embed/sidebar-motion.test.ts` (3 pass).
+- S17 — pass by inspection. Root `package.json` `lint` is `oxlint --max-warnings=455`. This spec did not edit that script.
+- S18, S19 — still gaps (no new product tests in this spec-only pass). Status remains `planned`.
+- S20 / agent-browser / Playwright — not_run. No UI harness in this pass.
 
-- `bun test` on the listed web and pt-design files.
-- `cargo test -p core-service` `shell_command_switch_clears_topic_and_reattach_keeps_it` / `shell_cmd_end_clears_topic_and_reattach_keeps_it`.
-- agent-browser (S20 exploratory).
-- Playwright.
+Logs: `/opt/cursor/artifacts/quality-024-bun-tests.log`, `/opt/cursor/artifacts/quality-024-rust-tests.log`.
