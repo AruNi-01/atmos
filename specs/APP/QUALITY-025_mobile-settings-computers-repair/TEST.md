@@ -34,14 +34,14 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 
 | Scenario | Level         | Expected tool | Target command / method                                                                   | Fixture / data                               | Signals                                                                       | Status  |
 | -------- | ------------- | ------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------- | ------- |
-| S1       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/computer-settings.test.ts`         | online/total pairs                           | `1/2` fields, `1 of 2 online`, empty `None`                                   | planned |
-| S2       | Bun component | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/computer-online-count.test.ts`     | mocked theme `green`                         | online digit color equals `onlineStatusColor`                                 | planned |
-| S3       | Bun unit      | `bun test`    | `computer-settings.test.ts` plus a read of `ComputerPicker.tsx`                           | source text                                  | no `ChevronRightIcon`, no `onManage`                                          | planned |
-| S4       | Bun unit      | `bun test`    | `runComputerSelection` in `computer-settings.test.ts`                                     | online and offline fakes                     | offline dismisses immediately; online dismisses only from `onSuccess`         | planned |
-| S5       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/onboarding/camera-permission-state.test.ts` | permission snapshots                         | `prompt`+`autoRequest`, `settings`, `starting`, `error`                       | planned |
-| S6       | Bun component | `bun test`    | `bun --filter @atmos/mobile test src/features/onboarding/camera-permission-view.test.ts`  | loading, settings, error models              | visible copy; background is `sheetBackground`, not `#000000` or `#0a0a0b`     | planned |
-| S7       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/test-page-removed.test.ts`         | repo files                                   | deleted paths absent; `preview-chat.tsx` present; Settings has no "Test page" | planned |
-| S8       | Review        | `rg`          | root `package.json` script `lint`                                                         | repo                                         | value is `oxlint --max-warnings=455`                                          | planned |
+| S1       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/computer-settings.test.ts`         | online/total pairs                           | `1/2` fields, `1 of 2 online`, empty `None`                                   | pass    |
+| S2       | Bun component | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/computer-online-count.test.ts`     | mocked theme `green`                         | online digit color equals `onlineStatusColor`                                 | pass    |
+| S3       | Bun unit      | `bun test`    | `computer-settings.test.ts` plus a read of `ComputerPicker.tsx`                           | source text                                  | no `ChevronRightIcon`, no `onManage`                                          | pass    |
+| S4       | Bun unit      | `bun test`    | `runComputerSelection` in `computer-settings.test.ts`                                     | online and offline fakes                     | offline dismisses immediately; online dismisses only from `onSuccess`         | pass    |
+| S5       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/onboarding/camera-permission-state.test.ts` | permission snapshots                         | `prompt`+`autoRequest`, `settings`, `starting`, `error`                       | pass    |
+| S6       | Bun component | `bun test`    | `bun --filter @atmos/mobile test src/features/onboarding/camera-permission-view.test.ts`  | loading, settings, error models              | visible copy; background is `sheetBackground`, not `#000000` or `#0a0a0b`     | pass    |
+| S7       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/test-page-removed.test.ts`         | repo files                                   | deleted paths absent; `preview-chat.tsx` present; Settings has no "Test page" | pass    |
+| S8       | Review        | `rg`          | root `package.json` script `lint`                                                         | repo                                         | value is `oxlint --max-warnings=455`                                          | pass    |
 | S9       | Manual        | iOS Simulator | steps below                                                                               | booted simulator, bundle `land.atmos.mobile` | light/dark shots of the row, the list, and Re-pair permission states          | planned |
 
 ## Scenarios
@@ -127,10 +127,10 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 
 ## Acceptance criteria
 
-- [ ] S1–S7 pass under `bun --filter @atmos/mobile test`.
-- [ ] `bun --filter @atmos/mobile typecheck` exits 0.
-- [ ] oxlint on the touched files does not raise the repo warning cap above 455.
-- [ ] S9 is recorded as manual. Shots are not committed.
+- [x] S1–S7 pass under `bun --filter @atmos/mobile test`.
+- [x] `bun --filter @atmos/mobile typecheck` exits 0.
+- [x] oxlint on the touched files does not raise the repo warning cap above 455.
+- [x] S9 is recorded as manual. Shots are not committed.
 
 ## Manual verification steps
 
@@ -175,4 +175,13 @@ Then force-quit Atmos and open Re-pair phone again. The sheet shows copy ("Check
 
 ## Coverage Status
 
-Not run yet. Status column stays `planned` until the implementation test run.
+Run on 2026-10-21 in this workspace.
+
+- S1, S3, S4, S7: `bun --filter @atmos/mobile test` on `computer-settings.test.ts` and `test-page-removed.test.ts`. Pass. S7 also checks the lint script string for S8.
+- S2: `computer-online-count.test.ts`. Pass, including when the file runs after `glass-text-button.test.ts`.
+- S5: `camera-permission-state.test.ts`. Pass.
+- S6: `camera-permission-view.test.ts`. Pass. `renderToStaticMarkup` does not recover a thrown child, so the boundary case calls `getDerivedStateFromError` and `render`, then checks the markup.
+- Full mobile suite: `bun --filter @atmos/mobile test` — 584 pass, 0 fail.
+- `bun --filter @atmos/mobile typecheck` exits 0. Two pre-existing diagnostics in `glass-text-button.test.ts` and `open-thread-resync.test.ts` were cleared in this change so the command can exit 0: a `react-dom/server` type comment, and `publish` callbacks that returned the `push` length.
+- `bun lint` (`oxlint --max-warnings=455`) exits 0. That run reported 434 warnings, under the unchanged cap.
+- S9 stays planned. This environment has no booted iOS simulator, so the screenshots were not taken and are not in git.

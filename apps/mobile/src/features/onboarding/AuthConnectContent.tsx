@@ -12,12 +12,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PairQrScanner } from "@/features/onboarding/PairQrScanner";
+import { PairScannerErrorBoundary } from "@/features/onboarding/PairScannerErrorBoundary";
 import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
-import { AppScreen, InlineError } from "@/ui/layout/app-screen";
+import { InlineError } from "@/ui/layout/app-screen";
 import { QrCodeIcon } from "@/ui/icons/lucide-native";
 import { GithubMark, GoogleMark } from "@/ui/icons/oauth-marks";
 
@@ -222,11 +223,24 @@ export function AuthConnectContent({
     stepsOpacity,
   ]);
 
-  if (auth.hasDeviceCredential) {
+  if (auth.hasDeviceCredential && !initialScannerOpen) {
     return (
-      <AppScreen surface={isSheet ? "sheet" : "screen"}>
+      <View
+        style={[
+          styles.root,
+          {
+            alignItems: "center",
+            backgroundColor: isSheet ? theme.colors.sheetBackground : theme.colors.background,
+            justifyContent: "center",
+            paddingHorizontal: 24,
+          },
+        ]}
+      >
         <ActivityIndicator color={theme.colors.secondaryLabel} />
-      </AppScreen>
+        <Text style={[styles.productSlogan, { color: theme.colors.label, marginTop: 12 }]}>
+          This phone is already paired.
+        </Text>
+      </View>
     );
   }
 
@@ -301,18 +315,20 @@ export function AuthConnectContent({
               ]}
             >
               <View style={[styles.scannerWrap, { width: cameraSize, height: cameraSize }]}>
-                <PairQrScanner
-                  disabled={auth.busy || !scannerOpen}
-                  onScanned={(value) => {
-                    setScannerOpen(false);
-                    // Stop the capture session before the claim. iOS reports
-                    // "The network connection was lost" if fetch starts while
-                    // the camera is still running.
-                    setTimeout(() => {
-                      auth.claimPair.mutate(value);
-                    }, 450);
-                  }}
-                />
+                <PairScannerErrorBoundary>
+                  <PairQrScanner
+                    disabled={auth.busy || !scannerOpen}
+                    onScanned={(value) => {
+                      setScannerOpen(false);
+                      // Stop the capture session before the claim. iOS reports
+                      // "The network connection was lost" if fetch starts while
+                      // the camera is still running.
+                      setTimeout(() => {
+                        auth.claimPair.mutate(value);
+                      }, 450);
+                    }}
+                  />
+                </PairScannerErrorBoundary>
               </View>
             </Animated.View>
           ) : null}

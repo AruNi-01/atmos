@@ -3,7 +3,10 @@ import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ComputerRow } from "@/api/types";
-import { activeSettingsComputers } from "@/features/settings/computer-settings";
+import {
+  activeSettingsComputers,
+  runComputerSelection,
+} from "@/features/settings/computer-settings";
 import { getRelayUrlSaveState } from "@/features/settings/relay-url-settings";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential, signOutThisPhone } from "@/lib/device-credential";
@@ -159,11 +162,16 @@ export function useMobileSettingsController() {
   });
 
   const selectComputer = (computer: ComputerRow) => {
-    if (computer.online) {
-      switchComputer.mutate(computer.server_id);
-      return;
-    }
-    selectServer(computer.server_id);
+    runComputerSelection({
+      dismissSheet: () => {
+        router.dismissTo("/");
+      },
+      online: computer.online,
+      selectOffline: () => selectServer(computer.server_id),
+      switchOnline: (onSuccess) => {
+        switchComputer.mutate(computer.server_id, { onSuccess });
+      },
+    });
   };
 
   const confirmRevokeComputer = (serverId: string) => {

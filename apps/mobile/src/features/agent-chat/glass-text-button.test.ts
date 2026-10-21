@@ -1,6 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in the mobile tsconfig types
 import { describe, expect, mock, test } from "bun:test";
 import { createElement, type ReactNode } from "react";
+// @ts-expect-error react-dom server types are not installed for the mobile app
 import { renderToStaticMarkup } from "react-dom/server";
 
 const captured: Array<{
@@ -11,21 +12,66 @@ const captured: Array<{
 }> = [];
 const platform = { OS: "ios" };
 
+function flatStyle(style: unknown): Record<string, unknown> {
+  if (Array.isArray(style)) return Object.assign({}, ...style.map(flatStyle));
+  if (style && typeof style === "object") return style as Record<string, unknown>;
+  return {};
+}
+
 mock.module("react-native", () => ({
   AccessibilityInfo: {
     addEventListener: () => ({ remove: () => undefined }),
   },
   Platform: platform,
-  View: ({
+  Pressable: ({ children, style }: { children?: ReactNode; style?: unknown }) =>
+    createElement(
+      "button",
+      { "data-bg": flatStyle(style).backgroundColor, type: "button" },
+      children,
+    ),
+  StyleSheet: {
+    absoluteFill: {},
+    create: <T>(styles: T) => styles,
+    hairlineWidth: 1,
+  },
+  Text: ({
+    accessibilityLabel,
     children,
-    accessibilityState,
+    style,
   }: {
+    accessibilityLabel?: string;
     children?: ReactNode;
+    style?: unknown;
+  }) =>
+    createElement(
+      "span",
+      {
+        "data-accessibility-label": accessibilityLabel,
+        "data-color": flatStyle(style).color,
+      },
+      children,
+    ),
+  View: ({
+    accessibilityLabel,
+    accessibilityState,
+    children,
+    style,
+    testID,
+  }: {
+    accessibilityLabel?: string;
     accessibilityState?: { disabled?: boolean };
+    children?: ReactNode;
+    style?: unknown;
+    testID?: string;
   }) =>
     createElement(
       "div",
-      { "data-disabled": accessibilityState?.disabled ? "true" : undefined },
+      {
+        "aria-label": accessibilityLabel,
+        "data-bg": flatStyle(style).backgroundColor,
+        "data-disabled": accessibilityState?.disabled ? "true" : undefined,
+        "data-testid": testID,
+      },
       children,
     ),
 }));
@@ -34,10 +80,13 @@ mock.module("@/theme/theme-store", () => ({
   useMobileTheme: () => ({
     colorScheme: "light",
     colors: {
+      card: "#ffffff",
       control: "#f8f8f9",
+      green: "#16a34a",
       label: "#111111",
       red: "#ff3b30",
       secondaryLabel: "#52525b",
+      sheetBackground: "#f8f8f9",
       tertiaryLabel: "#8e8e93",
     },
   }),
