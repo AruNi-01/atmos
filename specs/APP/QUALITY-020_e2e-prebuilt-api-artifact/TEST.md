@@ -158,7 +158,7 @@ Verified 2026-10-21 (local, before GitHub Actions):
 - S1–S5, S7 — pass. `bun test e2e/scripts/ci-e2e-workflow.test.cjs` → 8 pass (3 QUALITY-019 + 5 QUALITY-020).
 - S6 — pass. `ATMOS_API_BIN=/bin/true just dev-api --port 1` exit 0. `ATMOS_API_BIN=/nonexistent-atmos-api just dev-api --port 1` exit 1 with `ATMOS_API_BIN is not executable`.
 - S8 — pass. `package.json` `lint` is `oxlint --max-warnings=455`. Diff does not mention `EVIDENCE_PUSH`.
-- S9 — pending GitHub Actions on the draft PR.
+- S9 — pass. Draft PR `CI - E2E` https://github.com/AruNi-01/atmos/actions/runs/39528133219 conclusion `success`. Job `Build API` ran `cargo build --bin api` (compile 5.10 min). `E2E - specs` restored `api` from `api-bin.tar` (`ATMOS_API_BIN=/home/runner/work/atmos/atmos/target/debug/api`); Run suite log has no `cargo build --bin api`. `CI - JS` https://github.com/AruNi-01/atmos/actions/runs/39528133208 success (oxlint + oxfmt). Not triggered: `CI - Backend`, `CI - Web`, `CI - Packages` (path filters).
 
 ```
 bun test e2e/scripts/ci-e2e-workflow.test.cjs
