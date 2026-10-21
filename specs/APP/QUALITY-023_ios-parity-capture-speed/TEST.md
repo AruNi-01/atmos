@@ -25,15 +25,15 @@ Deterministic locks are Bun tests that read the workflow YAML, `ios-capture.sh`,
 
 | Scenario | Level     | Expected tool | Target command / method                                  | Fixture / data                      | Signals                                                                 | Status  |
 | -------- | --------- | ------------- | -------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------- | ------- |
-| S1       | Unit      | `bun test`    | `parity-cycle.test.ts`, `parity-motion-fixtures.test.ts` | F1–F13 cycle, capture script        | 26 frames; 26 PNG check; RECORD ids F4/F12/F13                          | planned |
-| S2       | Unit      | `bun test`    | `parity-motion-fixtures.test.ts`                         | `ios-capture.sh`, PillTap           | `PillTap missed:`; no `A miss does not fail the job`; `--seconds 720`   | planned |
-| S3       | Unit      | `bun test`    | `apps/mobile/script/ios-parity-capture.test.ts`          | workflow + script                   | `PARITY_SHARD`; matrix `stills` `motion`; job `ios-build`               | planned |
-| S4       | Unit      | `bun test`    | same + `parity-cycle.test.ts`                            | preview + script                    | `parityPaintedLine`; script has no `sleep 15`; waits `[parity] painted` | planned |
-| S5       | Unit      | `bun test`    | `ios-parity-capture.test.ts`                             | workflow + script                   | `build-for-testing`; `PILL_TAP_ACTION`; `test-without-building`         | planned |
-| S6       | Unit      | `bun test`    | same                                                     | workflow                            | no `printf` to `.env` / `.xcode.env.local`; step `env:` has the flag    | planned |
-| S7       | Unit      | `bun test`    | `evidence-safety.test.ts`, `ios-parity-capture.test.ts`  | workflow                            | label gate; structural has no `ios-parity`; no `EVIDENCE_PUSH`          | planned |
-| S8       | Toolchain | shell         | `bun lint`                                               | `package.json`                      | `--max-warnings=455`                                                    | planned |
-| S9       | Review    | spec          | TECH.md                                                  | run 39530230224                     | attempt 1 39m19s / attempt 2 52m24s                                     | planned |
+| S1       | Unit      | `bun test`    | `parity-cycle.test.ts`, `parity-motion-fixtures.test.ts` | F1–F13 cycle, capture script        | 26 frames; 26 PNG check; RECORD ids F4/F12/F13                          | pass    |
+| S2       | Unit      | `bun test`    | `parity-motion-fixtures.test.ts`                         | `ios-capture.sh`, PillTap           | `PillTap missed:`; no `A miss does not fail the job`; `--seconds 720`   | pass    |
+| S3       | Unit      | `bun test`    | `apps/mobile/script/ios-parity-capture.test.ts`          | workflow + script                   | `PARITY_SHARD`; matrix `stills` `motion`; job `ios-build`               | pass    |
+| S4       | Unit      | `bun test`    | same + `parity-cycle.test.ts`                            | preview + script                    | `parityPaintedLine`; script has no `sleep 15`; waits `[parity] painted` | pass    |
+| S5       | Unit      | `bun test`    | `ios-parity-capture.test.ts`                             | workflow + script                   | `build-for-testing`; `PILL_TAP_ACTION`; `test-without-building`         | pass    |
+| S6       | Unit      | `bun test`    | same                                                     | workflow                            | no `printf` to `.env` / `.xcode.env.local`; step `env:` has the flag    | pass    |
+| S7       | Unit      | `bun test`    | `evidence-safety.test.ts`, `ios-parity-capture.test.ts`  | workflow                            | label gate; structural has no `ios-parity`; no `EVIDENCE_PUSH`          | pass    |
+| S8       | Toolchain | shell         | `bun lint`                                               | `package.json`                      | `--max-warnings=455`                                                    | pass    |
+| S9       | Review    | spec          | TECH.md                                                  | run 39530230224                     | attempt 1 39m19s / attempt 2 52m24s                                     | pass    |
 | S10      | E2E       | GHA           | `ios-simulator`                                          | `ios-parity` label (not added here) | skipped without label; after a labeled run, stills+motion < 18 min wall | not_run |
 
 ## Scenarios
@@ -127,14 +127,14 @@ Deterministic locks are Bun tests that read the workflow YAML, `ios-capture.sh`,
 
 ## Regression checklist
 
-- [ ] 26 distinct fixture PNGs still required.
-- [ ] PillTap miss still non-zero.
-- [ ] `ConnectHardwareKeyboard -bool false` still before boot.
-- [ ] `ios-simulator` still label/dispatch gated.
-- [ ] No `.env` / `.xcode.env.local` preview flag writes.
-- [ ] No `EVIDENCE_PUSH`.
-- [ ] `main.jsbundle` greps for inlined preview still in `ios-build`.
-- [ ] oxlint `--max-warnings=455`.
+- [x] 26 distinct fixture PNGs still required.
+- [x] PillTap miss still non-zero.
+- [x] `ConnectHardwareKeyboard -bool false` still before boot.
+- [x] `ios-simulator` still label/dispatch gated.
+- [x] No `.env` / `.xcode.env.local` preview flag writes.
+- [x] No `EVIDENCE_PUSH`.
+- [x] `main.jsbundle` greps for inlined preview still in `ios-build`.
+- [x] oxlint `--max-warnings=455`.
 
 ## Exploratory agent-browser checks
 
@@ -142,10 +142,10 @@ Omitted. No web UI.
 
 ## Acceptance criteria
 
-- [ ] S1–S8 pass at the declared level.
-- [ ] This PR does not add the `ios-parity` label.
+- [x] S1–S8 pass at the declared level.
+- [x] This PR does not add the `ios-parity` label.
 - [ ] Non-iOS CI on the PR is green (`CI - JS` oxlint/oxfmt, `structural`).
-- [ ] S10 remains `not_run` until someone else labels.
+- [x] S10 remains `not_run` until someone else labels.
 
 ## Manual verification steps
 
@@ -161,4 +161,17 @@ Omitted. No web UI.
 
 ## Coverage Status
 
-> Filled after implementation by the test-run pass.
+| Scenario | Status  | Evidence                                                                                                                                                                                    |
+| -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1       | pass    | `apps/mobile` `bun test`: 573 pass / 0 fail, including `parity-cycle.test.ts` (26 frames + `parityPaintedLine`) and `parity-motion-fixtures.test.ts` (26 PNG check, live `recordVideo` ids) |
+| S2       | pass    | same motion-fixture lock: `PillTap missed:`, `continueAfterFailure = false`, `--seconds 720`; capture has no `A miss does not fail the job`                                                 |
+| S3       | pass    | `script/ios-parity-capture.test.ts`: `PARITY_SHARD` default `all`, matrix `[stills, motion]`, job `ios-build`, merge artifact `ios-parity`                                                  |
+| S4       | pass    | preview logs `parityPaintedLine` after 600ms stable / 8s fallback; capture waits `[parity] painted` and has no `sleep 15`                                                                   |
+| S5       | pass    | workflow `build-for-testing` gated on motion shard; capture `PILL_TAP_ACTION=test-without-building` on that shard                                                                           |
+| S6       | pass    | no `printf` into `.env` / `.xcode.env.local`; flag is step `env:` on prebuild, xcodebuild, and ubuntu export                                                                                |
+| S7       | pass    | `evidence-safety.test.ts` structural slice ends at `ios-build:`; label / dispatch still on macos jobs; no `EVIDENCE_PUSH`                                                                   |
+| S8       | pass    | `package.json` `"lint": "oxlint --max-warnings=455"`; `bun lint` exit 0 (452 warnings)                                                                                                      |
+| S9       | pass    | TECH.md tables for run `39530230224` attempt 1 39m19s / attempt 2 52m24s                                                                                                                    |
+| S10      | not_run | this agent did not add `ios-parity`; Linux has no Simulator                                                                                                                                 |
+
+Also: `bash -n` on `ios-capture.sh` and `ios-boot-simulator.sh`; Python self-tests (`mp4-duration`, `run-until-line`, `png-flat`); `bun --filter @atmos/agent-transcript test` 38 pass; `bun scripts/agent-chat-parity/compare.ts` → `13 fixtures match`.
