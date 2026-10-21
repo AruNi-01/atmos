@@ -71,6 +71,9 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     );
     expect(capture).toContain("PillTap missed:");
     expect(capture).not.toContain("A miss does not fail the job");
+    expect(capture).toContain("install_pill_runner");
+    expect(capture).toContain("installing or uninstalling");
+    expect(capture).toContain("pill tap ${test_id} runner busy");
   });
 
   test("preview flag is step env only", () => {

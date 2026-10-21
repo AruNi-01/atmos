@@ -276,29 +276,76 @@ if len(booted) == 1:
 '
 }
 
+install_pill_runner() {
+  local runner="" candidate
+  shopt -s nullglob
+  for candidate in "$PILL_TAP_DERIVED"/Build/Products/*/*Runner.app; do
+    [[ -d "$candidate" ]] || continue
+    runner="$candidate"
+    break
+  done
+  shopt -u nullglob
+  if [[ -z "$runner" ]]; then
+    echo "no prebuilt PillTap runner under ${PILL_TAP_DERIVED}"
+    return 0
+  fi
+  echo "installing PillTap runner ${runner}"
+  xcrun simctl install booted "$runner" || true
+}
+
+settle_pill_runner() {
+  xcrun simctl terminate booted land.atmos.pill-tap.uitests.xctrunner >/dev/null 2>&1 || true
+  sleep 2
+}
+
 run_pill_tap() {
   local test_id="$1"
-  local udid
+  local udid attempt=1 status=1 log
   udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "pill tap ${test_id} has no single booted simulator" >&2
     return 1
   fi
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild "$PILL_TAP_ACTION" \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath "$PILL_TAP_DERIVED" \
-    -only-testing:PillTapUITests/PillTapUITests/${test_id} \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  log="$(mktemp)"
+  while (( attempt <= 3 )); do
+    settle_pill_runner
+    set +e
+    python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
+      --seconds 720 \
+      --grace 20 \
+      --needle "Test Suite 'Selected tests' passed" \
+      -- \
+      xcodebuild "$PILL_TAP_ACTION" \
+      -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+      -scheme PillTap \
+      -sdk iphonesimulator \
+      -destination "platform=iOS Simulator,id=${udid}" \
+      -derivedDataPath "$PILL_TAP_DERIVED" \
+      -only-testing:PillTapUITests/PillTapUITests/${test_id} \
+      -parallel-testing-enabled NO \
+      CODE_SIGNING_ALLOWED=NO \
+      CODE_SIGNING_REQUIRED=NO >"$log" 2>&1
+    status=$?
+    set -e
+    cat "$log"
+    if [[ "$status" -eq 0 ]]; then
+      rm -f "$log"
+      return 0
+    fi
+    # Run 39554572933: test-without-building hit SpringBoard Busy while the
+    # previous xctrunner was still installing or uninstalling. Retry that.
+    # Real XCTAssert misses still fail the script.
+    if grep -q 'installing or uninstalling\|Simulator device failed to launch land.atmos.pill-tap' "$log"; then
+      echo "pill tap ${test_id} runner busy (attempt ${attempt})"
+      attempt=$((attempt + 1))
+      sleep 5
+      continue
+    fi
+    rm -f "$log"
+    return 1
+  done
+  rm -f "$log"
+  return 1
 }
 
 start_parity_stream() {
@@ -1168,6 +1215,7 @@ capture_tail_return() {
 
 if shard_motion; then
 phase "motion start"
+install_pill_runner
 capture_tail_away
 capture_tail_return || echo "f13 tail return capture failed" >&2
 capture_stream_motion
