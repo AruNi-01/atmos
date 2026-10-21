@@ -5,6 +5,10 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use infra::jobs::{JobId, LocalScheduler};
 
+use crate::refresh::{
+    persist_provider_order, persist_provider_switch, provider_order_snapshot,
+    provider_switch_enabled,
+};
 use crate::{
     AuthState, AuthStateStatus, FetchState, FetchStateStatus, ProviderDescriptor, ProviderError,
     ProviderKind, ProviderStatus, QuotaProvider, QuotaSummary, QuotaUsageService,
@@ -378,6 +382,12 @@ async fn set_provider_order_is_shared_on_later_overviews() {
         updated.provider_order,
         vec!["second".to_string(), "first".to_string()]
     );
+    assert_eq!(updated.provider_order_revision, 1);
+
+    let same = service
+        .set_provider_order(vec!["second".to_string(), "first".to_string()])
+        .await;
+    assert_eq!(same.provider_order_revision, 1);
 
     let _ = service.set_provider_switch("first", true).await;
     let again = service.get_overview(false, None).await;
@@ -385,6 +395,38 @@ async fn set_provider_order_is_shared_on_later_overviews() {
         again.provider_order,
         vec!["second".to_string(), "first".to_string()]
     );
+    assert_eq!(again.provider_order_revision, 1);
+
+    let reordered = service
+        .set_provider_order(vec!["first".to_string(), "second".to_string()])
+        .await;
+    assert_eq!(
+        reordered.provider_order,
+        vec!["first".to_string(), "second".to_string()]
+    );
+    assert_eq!(reordered.provider_order_revision, 2);
+}
+
+#[test]
+fn provider_state_order_writes_keep_the_switch_and_revision() {
+    let _iso = IsolatedQuotaDir::enter();
+    persist_provider_switch("cursor", true);
+    let mut handles = Vec::new();
+    for i in 0..4 {
+        handles.push(std::thread::spawn(move || {
+            for n in 0..25 {
+                persist_provider_order(&[format!("p{i}-{n}")]);
+            }
+        }));
+    }
+    for handle in handles {
+        handle.join().expect("order writer");
+    }
+    assert!(provider_switch_enabled("cursor"));
+    let (order, revision) = provider_order_snapshot();
+    assert_eq!(revision, 100);
+    assert_eq!(order.len(), 1);
+    assert!(order[0].starts_with('p'));
 }
 
 #[tokio::test(flavor = "current_thread")]

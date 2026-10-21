@@ -23,7 +23,7 @@
 | Mobile hides the Billing period section and shows the span under the account    | S6           |
 | Mobile percent `%` is not a NumberFlow suffix and does not shrink               | S7           |
 | Mobile does not repeat the plan under the email                                 | S8           |
-| Switch list order is switch-on, then shared `provider_order`, then label        | S9, S14      |
+| Switch list order is switch-on, then shared `provider_order`, then label        | S9, S14, S15 |
 | `All providers` stays fixed; rows use `LinearTransition`; section does not clip | S10          |
 | Web shows `periodLabel` for every provider and drops the Zed-only left block    | S11          |
 | oxlint cap 455                                                                  | S12          |
@@ -49,6 +49,7 @@
 | S12      | Toolchain  | shell                       | `bunx oxlint --max-warnings=455` and `package.json` script text                  | repo root                                        | command exits 0; script still `oxlint --max-warnings=455`                                      | pass    |
 | S13      | Manual     | iOS Simulator               | local capture by the developer                                                   | signed-in quota screen                           | not executed in this change                                                                    | planned |
 | S14      | Rust + Bun | `cargo test`, `bun test`    | `set_provider_order_is_shared_on_later_overviews` and web order helpers          | saved ids, empty orders, new provider            | Computer order round-trips; web uploads a browser order only when the Computer order is empty  | pass    |
+| S15      | Rust + Bun | `cargo test`, `bun test`    | revision, file lock, `applyQuotaOverviewUpdated`                                 | stale overview, in-flight drag, concurrent saves | lower revision and an in-flight drag do not roll the order back; order writes keep the switch  | pass    |
 
 ## Scenarios
 
@@ -164,6 +165,14 @@
 - **Then**: the overview keeps that order across a later switch write, duplicates and empty ids dropped. Web uploads the browser order only while the Computer order is empty, and does not invent an order when both are empty. Mobile settings pass `provider_order` into the shared sort.
 - **Signals**: `QuotaOverview.provider_order`, helper return value, settings source.
 
+### S15 — Provider order revision and file writes
+
+- **Level**: Rust unit and Bun unit
+- **Given**: a saved order at revision 2, a published overview at revision 1, and an optimistic drag whose request is still in flight.
+- **When**: `quota_overview_updated` is applied, `set_provider_order` repeats the same ids, and several threads write orders after a switch is saved.
+- **Then**: the cached order stays at revision 2. The same id list does not bump the revision. A different list bumps it, and a later switch keeps that revision. Concurrent order writes leave the switch on and the revision equal to the number of distinct order writes. `setProviderOrder` sends with the computer scope captured before the connect wait.
+- **Signals**: `provider_order_revision`, `applyQuotaOverviewUpdated` cache, `provider_switch_enabled`, `wsRequestForComputerScope`.
+
 ## Regression checklist
 
 - Navbar `sortQuotaProvidersBySwitchAndOrder` tests still pass and are not retargeted at the new comparator.
@@ -173,7 +182,7 @@
 
 ## Acceptance criteria
 
-- S1–S12 and S14 are `pass` with the commands in the execution map.
+- S1–S12, S14, and S15 are `pass` with the commands in the execution map.
 - S13 stays `planned` / manual.
 - No force-push, no merge, and no `ios-parity` label are part of the change.
 
@@ -182,17 +191,17 @@
 - Live Cursor HTTP. Tests use fixtures.
 - iOS Simulator pixels (S13).
 - Token-usage `NumberFlow` suffix behavior.
-- Live drag on a signed-in web popover. The upload decision is covered by `nextSharedQuotaProviderOrder`.
+- Live drag on a signed-in web popover. The upload decision is covered by `nextSharedQuotaProviderOrder`. Stale overview application is covered by `applyQuotaOverviewUpdated`.
 
 ## Coverage Status
 
-S1–S4 and S14 pass: `cargo test -p quota-usage --lib` (66 passed, including `set_provider_order_is_shared_on_later_overviews`, the Cursor pool tests, and the Grok period fixtures). `cargo check -p api` exited 0. `cargo clippy -p quota-usage --all-targets -- -D warnings` exited 0.
+S1–S4, S14, and S15 pass: `cargo test -p quota-usage --lib` (67 passed, including `set_provider_order_is_shared_on_later_overviews` and `provider_state_order_writes_keep_the_switch_and_revision`). `cargo clippy -p quota-usage --all-targets --all-features -- -D warnings` exited 0.
 
-S5, S6, S9, S11, and S14 pass: `bun test` on `packages/shared/src/utils/quota-billing-period.test.ts`, `quota-provider-order.test.ts`, `apps/mobile/src/features/quota-usage/quota-rows.test.ts`, `quota-display.test.ts`, `apps/web/src/app-shell/__tests__/quota-billing-period.test.ts`, `quota-popover-provider-order.test.ts`, and `apps/web/src/api/query/__tests__/quota-query-events.test.ts` (40 passed). Single boundaries are `Until` / `Since`. Non-ISO text is unchanged.
+S5, S6, S9, S11, S14, and S15 pass: `bun test` on those quota files (63 passed), including `quota-query-events.test.ts` and `quota-usage-api.test.ts`. Stale revisions and in-flight drags keep the newer order. Single boundaries are `Until` / `Since`. Non-ISO text is unchanged.
 
 S7, S8, and S10 pass in the mobile source scan above. Settings passes `overview.provider_order` into the shared sort.
 
-S12 pass: `bun lint` (`oxlint --max-warnings=455`) exited 0 with 452 warnings. `package.json` `lint` is still `oxlint --max-warnings=455`. `bun --filter @atmos/shared typecheck`, `bun --filter @atmos/api-types typecheck`, and `bun --filter web typecheck` exited 0. `@atmos/api-types` tests passed, including the action fixture match.
+S12 pass: `bun lint` (`oxlint --max-warnings=455`) exited 0 with 452 warnings. `package.json` `lint` is still `oxlint --max-warnings=455`. `bun --filter @atmos/api-types typecheck` and `bun --filter web typecheck` exited 0.
 
 S13 stays planned. iOS Simulator screenshots are not part of this change.
 

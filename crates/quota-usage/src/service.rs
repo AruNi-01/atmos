@@ -109,6 +109,7 @@ impl QuotaUsageService {
                     partial_failures: vec![],
                     auto_refresh: AutoRefreshConfig::default(),
                     provider_order: Vec::new(),
+                    provider_order_revision: 0,
                 })
         } else {
             self.refresh_overview(cached_previous.clone()).await
@@ -546,6 +547,7 @@ impl QuotaUsageService {
             partial_failures: issues,
             auto_refresh: AutoRefreshConfig::default(),
             provider_order: Vec::new(),
+            provider_order_revision: 0,
         };
 
         // A failed live fetch must not persist as a successful refresh, or the
@@ -580,6 +582,7 @@ impl QuotaUsageService {
                     }],
                     auto_refresh: AutoRefreshConfig::default(),
                     provider_order: Vec::new(),
+                    provider_order_revision: 0,
                 });
         };
 
@@ -592,6 +595,7 @@ impl QuotaUsageService {
                 partial_failures: vec![],
                 auto_refresh: AutoRefreshConfig::default(),
                 provider_order: Vec::new(),
+                provider_order_revision: 0,
             });
 
         if overview.providers.is_empty() {

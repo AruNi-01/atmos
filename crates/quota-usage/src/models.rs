@@ -175,6 +175,9 @@ pub struct QuotaOverview {
     /// Saved switch-list order. Empty means label order inside each switch group.
     #[serde(default)]
     pub provider_order: Vec<String>,
+    /// Increments when `provider_order` changes. Clients drop snapshots with a lower value.
+    #[serde(default)]
+    pub provider_order_revision: u64,
 }
 #[derive(Debug, Error)]
 pub enum ProviderError {

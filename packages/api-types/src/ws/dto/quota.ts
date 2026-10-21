@@ -160,4 +160,9 @@ export type QuotaOverviewResponse = {
   auto_refresh: QuotaAutoRefreshResponse;
   /** Empty means label order inside each switch group. */
   provider_order: string[];
+  /**
+   * Monotonic generation of `provider_order`. A snapshot with a lower value
+   * must not replace a newer order. Missing on older Computers, treated as 0.
+   */
+  provider_order_revision?: number;
 };

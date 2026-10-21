@@ -39,7 +39,12 @@ import {
   restrictToParentElement,
 } from "@workspace/ui";
 
+import { getComputerQueryScope } from "@/api/query/query-scope";
 import { quotaUsageApi, type QuotaAggregateResponse } from "@/api/ws-api";
+import {
+  beginQuotaProviderOrderWrite,
+  endQuotaProviderOrderWrite,
+} from "@/features/quota-usage/lib/quota-query-events";
 import {
   useQuotaOverviewCache,
   useQuotaOverviewQuery,
@@ -342,21 +347,28 @@ export function QuotaPopover({
         writeOverviewCache({ ...cached, provider_order: next });
       }
       if (!dataEnabled) return;
+      const scope = getComputerQueryScope();
       const seq = ++providerOrderWrite.current;
-      void quotaUsageApi.setProviderOrder(next).then(
-        (updated) => {
-          if (providerOrderWrite.current !== seq) return;
-          writeOverviewCache(updated);
-        },
-        () => {
-          if (providerOrderWrite.current !== seq) return;
-          failedProviderOrder.current = JSON.stringify(next);
-          const latest = getOverview();
-          if (latest && sameProviderOrder(latest.provider_order ?? [], next)) {
-            writeOverviewCache({ ...latest, provider_order: previousServer });
-          }
-        },
-      );
+      beginQuotaProviderOrderWrite(scope);
+      void quotaUsageApi
+        .setProviderOrder(next)
+        .then(
+          (updated) => {
+            if (providerOrderWrite.current !== seq) return;
+            writeOverviewCache(updated);
+          },
+          () => {
+            if (providerOrderWrite.current !== seq) return;
+            failedProviderOrder.current = JSON.stringify(next);
+            const latest = getOverview();
+            if (latest && sameProviderOrder(latest.provider_order ?? [], next)) {
+              writeOverviewCache({ ...latest, provider_order: previousServer });
+            }
+          },
+        )
+        .finally(() => {
+          endQuotaProviderOrderWrite(scope);
+        });
     },
     [dataEnabled, getOverview, overview, setLocalProviderOrder, writeOverviewCache],
   );

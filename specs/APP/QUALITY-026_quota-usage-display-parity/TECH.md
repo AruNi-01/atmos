@@ -61,7 +61,11 @@ The web aggregate sheet (`AggregateDetail` → `sortQuotaProvidersForSwitchList`
 
 `enabled` is not a sort key. `All providers` stays the first row and is outside the animated list.
 
-`providerOrder` is not browser-local anymore for the shared list. `provider_state.json` stores `provider_order`. `QuotaOverview.provider_order` returns it. `quota_set_provider_order` writes it. Web still keeps the previous localStorage order as a one-shot migration: when the Computer order is empty and the browser order is not, web uploads the browser order. A drag writes the same array. Mobile passes `overview.provider_order` into the shared sort. An empty order on both sides leaves label order inside each switch group, so the two clients match without inventing a sequence.
+`providerOrder` is not browser-local anymore for the shared list. `provider_state.json` stores `provider_order` and `provider_order_revision`. `QuotaOverview` returns both. `quota_set_provider_order` writes the order and increments the revision only when the normalized id list changes. A switch or refresh save keeps the current revision. Web still keeps the previous localStorage order as a one-shot migration: when the Computer order is empty and the browser order is not, web uploads the browser order. A drag writes the same array. Mobile passes `overview.provider_order` into the shared sort. An empty order on both sides leaves label order inside each switch group, so the two clients match without inventing a sequence.
+
+Every load and save of `provider_state.json` in this process takes one mutex for the whole read-modify-write. An order save cannot write back a switch value it read before that switch was saved.
+
+`quota_overview_updated` can arrive after a newer drag. `applyQuotaOverviewUpdated` keeps the cached order when the incoming `provider_order_revision` is lower. While a drag request is in flight, it also keeps the optimistic order, because that order is newer than any revision already in the cache. The request response for the latest drag writes the server snapshot, including the new revision. `setProviderOrder` captures `getComputerQueryScope()` and sends with `wsRequestForComputerScope`, so the connect wait cannot deliver the order to a Computer the user switched to. Other quota mutations still use `wsRequest`.
 
 Mobile percent: stop passing `%` through `AnimatedMetric` / `flowParts`. Token-usage NumberFlow stays as it is.
 
@@ -123,6 +127,7 @@ Web percent headings stay plain text (`QuotaMetricUsage`). No width change.
 
 - A Computer that still returns the raw Grok section depends on the client formatter. Rust-only tests do not cover that payload; Bun tests do.
 - A browser that already saved a drag order uploads it the next time that web client loads an empty Computer order. Until that upload, mobile still sees `[]` and uses label order inside each switch group.
+- The provider-state mutex is in-process. Two API processes writing the same file can still interleave. Desktop and the local API run one quota service.
 - iOS Simulator screenshots are out of this change. Layout of the percent suffix is covered by a source scan plus the flex rules above, not by a device capture in CI.
 
 ## Follow-ups
