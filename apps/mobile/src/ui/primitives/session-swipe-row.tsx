@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   Easing,
@@ -267,6 +267,10 @@ export function SessionSwipeRow({
     };
   });
 
+  const activates = onPress != null || revealed;
+  const onAccessibilityAction = (event: AccessibilityActionEvent) => {
+    if (event.nativeEvent.actionName === "activate") onTap();
+  };
   const runAction = (action: (() => void) | undefined) => {
     if (!action) return;
     settle(0);
@@ -336,10 +340,12 @@ export function SessionSwipeRow({
       </View>
       <GestureDetector gesture={gesture}>
         <Reanimated.View
-          accessible
-          accessibilityRole="button"
-          accessibilityState={{ expanded: revealed }}
-          onAccessibilityTap={onTap}
+          accessibilityActions={activates ? [{ name: "activate" }] : undefined}
+          accessibilityRole={activates ? "button" : undefined}
+          accessibilityState={activates ? { expanded: revealed } : undefined}
+          accessible={activates}
+          onAccessibilityAction={activates ? onAccessibilityAction : undefined}
+          onAccessibilityTap={activates ? onTap : undefined}
           style={[{ borderCurve: "continuous", overflow: "hidden", zIndex: 1 }, cardStyle]}
         >
           {children}

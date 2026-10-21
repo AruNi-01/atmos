@@ -24,18 +24,18 @@ The rules are pure functions on the mobile client. Bun tests lock them. There is
 
 ## Execution map
 
-| Scenario | Level    | Expected tool | Target command / method                                                 | Fixture / data                                | Signals                                                                      | Status  |
-| -------- | -------- | ------------- | ----------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------- | ------- |
-| S1       | Bun test | `bun test`    | `apps/mobile/src/ui/primitives/swipe-row-press.test.ts`                 | horizontal samples and revealed flags         | `navigate` only for a tap that is not revealed                               | planned |
-| S2       | Bun test | `bun test`    | same file, pan cases                                                    | pan kind, including a small final translation | action is `ignore`                                                           | planned |
-| S3       | Bun test | `bun test`    | same file, revealed tap                                                 | `revealed: true`, kind `tap`                  | action is `close`                                                            | planned |
-| S4       | Bun test | `bun test`    | `apps/mobile/src/features/workspaces/workspace-row-subtitle.test.ts`    | workspace entry with `projectName`            | subtitle is the project name                                                 | planned |
-| S5       | Bun test | `bun test`    | same file                                                               | `kind: "project"`                             | subtitle is `Project`                                                        | planned |
-| S6       | Bun test | `bun test`    | same file                                                               | branch plus uncommitted count                 | `feat · +2`; clean branch has no `+0`                                        | planned |
-| S7       | Bun test | `bun test`    | same file                                                               | project branch, then count fallback           | `Project · main`; `Project · 2 workspaces`; empty project stays `Project`    | planned |
-| S8       | Bun test | `bun test`    | `apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts` | expanded project section, duplicate paths     | one path list; collapsed sections omitted; non-project grouping returns none | planned |
-| S9       | Bun test | `bun test`    | `swipe-row-press.test.ts` chrome cases                                  | `lightColors` and `darkColors`                | open well differs from the card in both schemes; closed radius is 0          | planned |
-| S10      | Review   | `rg`          | root `package.json` script `lint`                                       | this branch                                   | `oxlint --max-warnings=455`                                                  | planned |
+| Scenario | Level    | Expected tool | Target command / method                                                 | Fixture / data                                | Signals                                                                      | Status |
+| -------- | -------- | ------------- | ----------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------- | ------ |
+| S1       | Bun test | `bun test`    | `apps/mobile/src/ui/primitives/swipe-row-press.test.ts`                 | horizontal samples and revealed flags         | `navigate` only for a tap that is not revealed                               | pass   |
+| S2       | Bun test | `bun test`    | same file, pan cases                                                    | pan kind, including a small final translation | action is `ignore`                                                           | pass   |
+| S3       | Bun test | `bun test`    | same file, revealed tap                                                 | `revealed: true`, kind `tap`                  | action is `close`                                                            | pass   |
+| S4       | Bun test | `bun test`    | `apps/mobile/src/features/workspaces/workspace-row-subtitle.test.ts`    | workspace entry with `projectName`            | subtitle is the project name                                                 | pass   |
+| S5       | Bun test | `bun test`    | same file                                                               | `kind: "project"`                             | subtitle is `Project`                                                        | pass   |
+| S6       | Bun test | `bun test`    | same file                                                               | branch plus uncommitted count                 | `feat · +2`; clean branch has no `+0`                                        | pass   |
+| S7       | Bun test | `bun test`    | same file                                                               | project branch, then count fallback           | `Project · main`; `Project · 2 workspaces`; empty project stays `Project`    | pass   |
+| S8       | Bun test | `bun test`    | `apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts` | expanded project section, duplicate paths     | one path list; collapsed sections omitted; non-project grouping returns none | pass   |
+| S9       | Bun test | `bun test`    | `swipe-row-press.test.ts` chrome cases                                  | `lightColors` and `darkColors`                | open well differs from the card in both schemes; closed radius is 0          | pass   |
+| S10      | Review   | `rg`          | root `package.json` script `lint`                                       | this branch                                   | `oxlint --max-warnings=455`                                                  | pass   |
 
 ## Scenarios
 
@@ -51,7 +51,7 @@ The rules are pure functions on the mobile client. Bun tests lock them. There is
 
 - **Level**: Bun test
 - **Given**: a closed row.
-- **When**: horizontal movement is greater than the slop, the movement is negative, or the gesture kind is `pan` even if the final translation is back under the slop.
+- **When**: absolute horizontal movement is greater than the slop, or the gesture kind is `pan` even if the final translation is back under the slop.
 - **Then**: the action is `ignore`.
 - **Signals**: return value `ignore` for `+11`, `-40`, and `kind: "pan"` with horizontal `0`.
 

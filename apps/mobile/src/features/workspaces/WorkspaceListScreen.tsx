@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { activeComputers } from "@atmos/relay-client";
 import { Button, Host } from "@expo/ui";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
@@ -66,6 +66,7 @@ export function WorkspaceListScreen() {
   const adoptComputerSession = useSessionStore((state) => state.adoptComputerSession);
   const setComputers = useComputerStore((state) => state.setComputers);
   const lastAutoSessionAttemptRef = useRef<string | null>(null);
+  const queryClient = useQueryClient();
 
   const computersQuery = useQuery({
     queryKey: ["computers", relayUrl, relayAuthRevision],
@@ -136,11 +137,15 @@ export function WorkspaceListScreen() {
   const refreshWorkspaces = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([computersQuery.refetch(), bootstrapQuery.refetch()]);
+      await Promise.all([
+        computersQuery.refetch(),
+        bootstrapQuery.refetch(),
+        queryClient.invalidateQueries({ queryKey: ["workspace-list-git-status"] }),
+      ]);
     } finally {
       setRefreshing(false);
     }
-  }, [bootstrapQuery, computersQuery]);
+  }, [bootstrapQuery, computersQuery, queryClient]);
 
   const cachedComputerId =
     sessionHydrated && computersQuery.isSuccess

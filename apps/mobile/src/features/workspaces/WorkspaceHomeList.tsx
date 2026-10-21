@@ -452,7 +452,7 @@ function WorkspaceGroup({
               const row = (
                 <Row
                   onPress={swipeable ? undefined : () => onOpen(item)}
-                  showDisclosure={swipeable}
+                  showDisclosure={swipeable ? true : undefined}
                   subtitle={subtitleFor?.(item)}
                   subtitleNumberOfLines={subtitleNumberOfLines}
                   title={item.title}
