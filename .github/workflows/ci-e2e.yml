@@ -181,12 +181,53 @@ jobs:
           SPECS: ${{ steps.changes.outputs.specs }}
         run: node e2e/scripts/plan-ci-suites.cjs
 
-  run:
-    name: E2E - ${{ matrix.suite }}
+  build:
+    name: Build API
     needs: plan
     if: needs.plan.outputs.should_run == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      # Same Swatinem/rust-cache settings as .github/actions/setup-e2e.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          cache-on-failure: true
+
+      - name: Build API server
+        run: cargo build --bin api
+
+      # upload-artifact drops execute bits; pack a tar so shards restore a real binary.
+      - name: Pack API binary
+        run: |
+          set -euo pipefail
+          test -x target/debug/api
+          tar -C target/debug -cvf api-bin.tar api
+
+      - name: Upload API binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-api-debug-bin
+          path: api-bin.tar
+          if-no-files-found: error
+          retention-days: 2
+
+  run:
+    name: E2E - ${{ matrix.suite }}
+    needs: [plan, build]
+    if: needs.plan.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      ATMOS_API_BIN: ${{ github.workspace }}/target/debug/api
     strategy:
       fail-fast: false
       matrix:
@@ -196,8 +237,25 @@ jobs:
 
       - uses: ./.github/actions/setup-e2e
 
-      - name: Build API server
-        run: cargo build --bin api
+      - name: Download prebuilt API
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-api-debug-bin
+          path: ${{ runner.temp }}/e2e-api-bin
+
+      - name: Restore prebuilt API binary
+        env:
+          API_TAR: ${{ runner.temp }}/e2e-api-bin/api-bin.tar
+        run: |
+          set -euo pipefail
+          mkdir -p target/debug
+          tar -C target/debug -xvf "$API_TAR"
+          chmod +x target/debug/api
+          if [ ! -x "${ATMOS_API_BIN}" ]; then
+            echo "Prebuilt API is not executable: ${ATMOS_API_BIN}" >&2
+            ls -l target/debug/api >&2 || true
+            exit 1
+          fi
 
       - name: Run suite
         working-directory: e2e
