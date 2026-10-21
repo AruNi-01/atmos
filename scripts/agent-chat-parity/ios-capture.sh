@@ -13,8 +13,10 @@
 # miss exits non-zero.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
-# and does not arm the in-app carousel. A JS timer in one process stopped
+# then `[parity] painted F# <theme> #0` when transcript height is stable.
+# It does not arm the in-app carousel. A JS timer in one process stopped
 # after about 12 minutes (runs 38823255381, 38831101582, 38837550765).
+# PARITY_SHARD=all|stills|motion (default all). CI splits stills and motion.
 # This script does not call simctl openurl.
 # Requires a booted iOS Simulator with land.atmos.mobile already installed.
 # macOS runner only. Do not run this on Linux.
@@ -23,8 +25,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT="${PARITY_PHONE_OUT:-$ROOT/artifacts/phone}"
 BUNDLE_ID="land.atmos.mobile"
-RECORD_SECONDS=8
+RECORD_SECONDS="${RECORD_SECONDS:-4}"
 RECORD_IDS=(F4 F12 F13)
+PARITY_SHARD="${PARITY_SHARD:-all}"
+PILL_TAP_ACTION="${PILL_TAP_ACTION:-test}"
+PILL_TAP_DERIVED="${PILL_TAP_DERIVED:-/tmp/pill-tap-derived}"
+
+shard_stills() { [[ "$PARITY_SHARD" == "all" || "$PARITY_SHARD" == "stills" ]]; }
+shard_motion() { [[ "$PARITY_SHARD" == "all" || "$PARITY_SHARD" == "motion" ]]; }
+
+phase() {
+  echo "[capture $(date -u +%H:%M:%S)] $*"
+}
 # Empty scene window through run 38769715486.
 black_scene="fbcb6a8c2222c51b2c61b122762b964463322680781a5457888a05fee632c0b6"
 # Pair screen on run 38789917018, before the preview redirect.
@@ -105,9 +117,8 @@ launch_frame() {
   local id="$1"
   local theme="$2"
   local suffix="${3:-}"
+  local waited=0
   stop_console
-  xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
-  sleep 1
   if [[ -n "$suffix" ]]; then
     CURRENT_LOG="$OUT/console-${id}-${theme}-${suffix}.log"
   else
@@ -116,7 +127,13 @@ launch_frame() {
   : >"$CURRENT_LOG"
   xcrun simctl launch --console-pty --terminate-running-process booted "$BUNDLE_ID" >"$CURRENT_LOG" 2>&1 &
   console_pid=$!
-  sleep 2
+  while (( waited < 10 )); do
+    if kill -0 "$console_pid" 2>/dev/null; then
+      break
+    fi
+    sleep 0.2
+    waited=$((waited + 1))
+  done
   if ! kill -0 "$console_pid" 2>/dev/null; then
     echo "console launch exited early for ${id} ${theme}; retrying without a pty" >&2
     xcrun simctl launch booted "$BUNDLE_ID" || true
@@ -188,10 +205,10 @@ log_has() {
 }
 
 refresh_parity_show() {
-  # Run 38985042070: the module line was in the first show. The ready line was
-  # in that same output, 169ms later. The next show used --last 3m and started
-  # after that line had aged out, so F1 failed with no tail frames.
-  run_bounded 45 xcrun simctl spawn booted log show --last 10m --info --debug --style compact \
+  # Run 39530230224 attempt 2: a 45s `log show --last 10m` blocked every frame
+  # after 4s. The JS ready line was already in os_log. Keep this as a late
+  # fallback; the pty log stream is the primary wait.
+  run_bounded 8 xcrun simctl spawn booted log show --last 30s --info --debug --style compact \
     --predicate 'eventMessage CONTAINS "[parity]"' \
     >"$OUT/device-log-fallback.txt" 2>&1 || true
 }
@@ -227,7 +244,7 @@ wait_for_line() {
   local needle="$1"
   local timeout="$2"
   local deadline=$((SECONDS + timeout))
-  local next_show=$((SECONDS + 4))
+  local next_show=$((SECONDS + 12))
   while (( SECONDS < deadline )); do
     if log_has "$needle"; then
       return 0
@@ -238,15 +255,95 @@ wait_for_line() {
         echo "found ${needle} via log show"
         return 0
       fi
-      if [[ -f "$OUT/parity-stream.log" ]] && grep -F -q '[parity]' "$OUT/parity-stream.log"; then
-        next_show=$((SECONDS + 15))
-      else
-        next_show=$((SECONDS + 5))
-      fi
+      next_show=$((SECONDS + 15))
     fi
-    sleep 0.5
+    sleep 0.2
   done
   return 1
+}
+
+booted_udid() {
+  xcrun simctl list devices booted -j | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+booted = []
+for devices in data.get("devices", {}).values():
+    for device in devices:
+        if device.get("state") == "Booted" and device.get("udid"):
+            booted.append(device["udid"])
+if len(booted) == 1:
+    print(booted[0])
+'
+}
+
+run_pill_tap() {
+  local test_id="$1"
+  local udid
+  udid="$(booted_udid)"
+  if [[ -z "$udid" ]]; then
+    echo "pill tap ${test_id} has no single booted simulator" >&2
+    return 1
+  fi
+  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
+    --seconds 720 \
+    --grace 20 \
+    --needle "Test Suite 'Selected tests' passed" \
+    -- \
+    xcodebuild "$PILL_TAP_ACTION" \
+    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+    -scheme PillTap \
+    -sdk iphonesimulator \
+    -destination "platform=iOS Simulator,id=${udid}" \
+    -derivedDataPath "$PILL_TAP_DERIVED" \
+    -only-testing:PillTapUITests/PillTapUITests/${test_id} \
+    -parallel-testing-enabled NO \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO
+}
+
+start_parity_stream() {
+  python3 - "$OUT/parity-stream.log" <<'PY' &
+import os
+import pty
+import sys
+
+path = sys.argv[1]
+cmd = [
+    "xcrun",
+    "simctl",
+    "spawn",
+    "booted",
+    "log",
+    "stream",
+    "--level",
+    "debug",
+    "--style",
+    "compact",
+    "--predicate",
+    'eventMessage CONTAINS "[parity]"',
+]
+master, slave = pty.openpty()
+pid = os.fork()
+if pid == 0:
+    os.close(master)
+    os.dup2(slave, 1)
+    os.dup2(slave, 2)
+    os.close(slave)
+    os.execvp(cmd[0], cmd)
+os.close(slave)
+with open(path, "wb", buffering=0) as out:
+    while True:
+        try:
+            chunk = os.read(master, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        out.write(chunk)
+        out.flush()
+os.waitpid(pid, 0)
+PY
+  stream_pid=$!
 }
 
 tail_log_path() {
@@ -645,37 +742,13 @@ capture_f12_lane() {
 # screenshots.
 tap_card_pills() {
   local udid
-  udid="$(xcrun simctl list devices booted -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-booted = []
-for devices in data.get("devices", {}).values():
-    for device in devices:
-        if device.get("state") == "Booted" and device.get("udid"):
-            booted.append(device["udid"])
-if len(booted) == 1:
-    print(booted[0])
-')"
+  udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "card pill tap has no single booted simulator" >&2
     return 1
   fi
   echo "tapping agent-chat-card-pill-plan on ${udid}"
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild test \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath /tmp/pill-tap-derived \
-    -only-testing:PillTapUITests/PillTapUITests/testTapCardPills \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  run_pill_tap testTapCardPills
 }
 
 capture_f12_pill_taps() {
@@ -709,37 +782,13 @@ capture_f12_pill_taps() {
 # does not take simctl screenshots.
 tap_card_row() {
   local udid
-  udid="$(xcrun simctl list devices booted -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-booted = []
-for devices in data.get("devices", {}).values():
-    for device in devices:
-        if device.get("state") == "Booted" and device.get("udid"):
-            booted.append(device["udid"])
-if len(booted) == 1:
-    print(booted[0])
-')"
+  udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "card row swipe has no single booted simulator" >&2
     return 1
   fi
   echo "swiping agent-chat-card-pill-scroller on ${udid}"
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild test \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath /tmp/pill-tap-derived \
-    -only-testing:PillTapUITests/PillTapUITests/testSwipeCardPills \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  run_pill_tap testSwipeCardPills
 }
 
 capture_f12_card_row() {
@@ -786,37 +835,13 @@ capture_composer_states() {
 # recordVideo stays open and this pass does not take simctl screenshots.
 tap_composer() {
   local udid
-  udid="$(xcrun simctl list devices booted -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-booted = []
-for devices in data.get("devices", {}).values():
-    for device in devices:
-        if device.get("state") == "Booted" and device.get("udid"):
-            booted.append(device["udid"])
-if len(booted) == 1:
-    print(booted[0])
-')"
+  udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "composer tap has no single booted simulator" >&2
     return 1
   fi
   echo "tapping agent-chat-composer-input on ${udid}"
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild test \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath /tmp/pill-tap-derived \
-    -only-testing:PillTapUITests/PillTapUITests/testTapComposerField \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  run_pill_tap testTapComposerField
 }
 
 capture_composer_keyboard() {
@@ -874,9 +899,15 @@ take_screenshot() {
   run_bounded 240 xcrun simctl io booted screenshot "$1"
 }
 
+if ! shard_stills && ! shard_motion; then
+  echo "PARITY_SHARD must be all, stills, or motion (got ${PARITY_SHARD})" >&2
+  exit 1
+fi
+phase "shard ${PARITY_SHARD} pill=${PILL_TAP_ACTION} record=${RECORD_SECONDS}s"
+
 # simctl screenshots stay black unless Simulator.app owns the framebuffer.
 open -a Simulator || true
-sleep 2
+sleep 1
 
 # Prove the framebuffer before the app covers Springboard. The known black
 # scene hash is the empty app window, not a generic dark home screen.
@@ -903,10 +934,9 @@ if [[ "$spring_hash" == "$black_scene" ]]; then
 fi
 
 echo "streaming [parity] logs"
-xcrun simctl spawn booted log stream --level debug --style compact \
-  --predicate 'eventMessage CONTAINS "[parity]"' >"$OUT/parity-stream.log" 2>&1 &
-stream_pid=$!
+start_parity_stream
 
+if shard_stills; then
 frame_rows="$(mktemp)"
 if ! (cd "$ROOT" && bun -e '
 import { parityCycleFrames, parityReadyLine } from "./apps/mobile/src/features/agent-chat/parity-cycle.ts";
@@ -946,10 +976,10 @@ for row in "${rows[@]}"; do
       dump_runtime_logs
       exit 1
     fi
-    # Run 38877961991 wrote F1-light about 6s after ready, before the
-    # markdown body was on screen. The composer alone kept it under 95%
-    # one color. Wait, then shoot.
-    sleep 15
+    echo "wait [parity] painted ${id} ${theme}"
+    if ! wait_for_line "[parity] painted ${id} ${theme}" 25; then
+      echo "no painted line for ${id} ${theme}; shooting after ready"
+    fi
     flat_attempt=1
     accepted=0
     while true; do
@@ -1019,7 +1049,7 @@ for row in "${rows[@]}"; do
   fi
   if [[ "$id" == "F1" && "$theme" == "light" ]]; then
     cp "$OUT/${id}-${theme}.png" "$OUT/default-route.png"
-    run_bounded 60 xcrun simctl spawn booted log show --last 3m --info --style compact \
+    run_bounded 15 xcrun simctl spawn booted log show --last 3m --info --style compact \
       --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
       >"$OUT/device-log-after-warmup.txt" 2>&1 || true
     grep -E '\[parity\]|RCTFatal|JavaScript|topLoad|instanceHandle|Error' "$OUT/device-log-after-warmup.txt" | tail -n 40 >&2 || true
@@ -1066,22 +1096,14 @@ if dupes:
     sys.exit(1)
 print(f"{len(files)} distinct fixture screenshots")
 PY
+phase "stills complete"
+fi
 
 # After the hold gate, tap the scroll pill. A PillTap miss exits non-zero.
 # The preview logs `[parity] pill awaiting tap` and does not call the handler.
 tap_scroll_pill() {
   local udid
-  udid="$(xcrun simctl list devices booted -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-booted = []
-for devices in data.get("devices", {}).values():
-    for device in devices:
-        if device.get("state") == "Booted" and device.get("udid"):
-            booted.append(device["udid"])
-if len(booted) == 1:
-    print(booted[0])
-')"
+  udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "scroll pill tap has no single booted simulator" >&2
     return 1
@@ -1089,21 +1111,7 @@ if len(booted) == 1:
   echo "tapping agent-chat-scroll-pill on ${udid}"
   # Run 39131560794 printed the suite passed line, then xcodebuild stayed open
   # until the 360s SIGKILL. Stop once the suite has passed.
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild test \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath /tmp/pill-tap-derived \
-    -only-testing:PillTapUITests/PillTapUITests/testTapScrollPill \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  run_pill_tap testTapScrollPill
 }
 
 capture_tail_return() {
@@ -1158,6 +1166,8 @@ capture_tail_return() {
   rm -rf "$frames"
 }
 
+if shard_motion; then
+phase "motion start"
 capture_tail_away
 capture_tail_return || echo "f13 tail return capture failed" >&2
 capture_stream_motion
@@ -1168,6 +1178,8 @@ capture_f12_card_row light
 capture_f12_card_row dark
 capture_composer_states || echo "composer states capture failed" >&2
 capture_composer_keyboard
+phase "motion complete"
+fi
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
 # honest. It does not show reveal, tree draw-in, or a pill swap.
@@ -1205,9 +1217,11 @@ PY
   fi
 }
 
+if shard_stills; then
 for id in "${RECORD_IDS[@]}"; do
   record_still "$id"
 done
+fi
 
 # The log stream and console pty outlive this script. Leave them. The job
 # tears the step down, and killing by name would hit unrelated processes.

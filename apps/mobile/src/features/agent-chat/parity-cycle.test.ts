@@ -8,6 +8,7 @@ import {
   parseParityDiskFrame,
   parityCycleFrames,
   parityPinnedFrame,
+  parityPaintedLine,
   parityReadyLine,
   parityTailOwned,
 } from "./parity-cycle";
@@ -22,6 +23,10 @@ describe("parity cycle", () => {
     expect(frames.at(-1)).toEqual({ id: "F13", theme: "dark" });
     expect(parityReadyLine(frames[0]!, 0)).toBe("[parity] ready F1 light #0");
     expect(parityReadyLine(frames.at(-1)!, frames.length - 1)).toBe("[parity] ready F13 dark #25");
+    expect(parityPaintedLine(frames[0]!, 0)).toBe("[parity] painted F1 light #0");
+    expect(parityPaintedLine(frames.at(-1)!, frames.length - 1)).toBe(
+      "[parity] painted F13 dark #25",
+    );
   });
 
   test("holds each frame longer than a stalled simulator screenshot", () => {

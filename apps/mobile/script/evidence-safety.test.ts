@@ -134,10 +134,12 @@ describe("evidence skill and ios parity workflow", () => {
     expect(workflow).toContain("contains(github.event.pull_request.labels.*.name, 'ios-parity')");
     const structural = workflow.slice(
       workflow.indexOf("structural:"),
-      workflow.indexOf("ios-simulator:"),
+      workflow.indexOf("ios-build:"),
     );
     expect(structural).not.toContain("ios-parity");
     expect(structural).not.toContain("workflow_dispatch");
+    expect(workflow).toContain("ios-build:");
+    expect(workflow).toContain("ios-simulator:");
   });
 });
 
