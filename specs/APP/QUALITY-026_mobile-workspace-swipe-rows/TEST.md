@@ -1,6 +1,6 @@
-# TEST · QUALITY-025: Mobile Workspace Swipe Rows
+# TEST · QUALITY-026: Mobile Workspace Swipe Rows
 
-> Test Plan · how we verify swipe taps, Recently subtitles, and project-group detail. References TECH QUALITY-025.
+> Test Plan · how we verify swipe taps, Recently subtitles, and project-group detail. References TECH QUALITY-026.
 
 ## Test strategy
 
@@ -165,4 +165,19 @@ iOS Simulator, signed in, Computer connected, at least one Project with a worksp
 
 ## Coverage Status
 
-> Filled after implementation by the test run.
+_Last run: 2026-10-21._
+
+- S1 — ✅ `apps/mobile/src/ui/primitives/swipe-row-press.test.ts` `a stationary tap navigates`
+- S2 — ✅ same file, `horizontal movement and a finished pan do not navigate`
+- S3 — ✅ same file, `a tap on an open row only closes it`
+- S4 — ✅ `apps/mobile/src/features/workspaces/workspace-row-subtitle.test.ts` `recent workspace shows its project name`
+- S5 — ✅ same file, `a project row in Recently says Project`
+- S6 — ✅ same file, `project-group workspace line shows branch and a positive change count`
+- S7 — ✅ same file, `project-group project line prefers the current branch, then the workspace count`
+- S8 — ✅ `apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts`
+- S9 — ✅ `swipe-row-press.test.ts` `an open row is a rounded card on a different fill in light and dark`
+- S10 — ✅ root `package.json` `lint` is `oxlint --max-warnings=455`. `bunx oxlint --max-warnings=455` exited 0 on this tree.
+- Command: `bun test apps/mobile/src/ui/primitives/swipe-row-press.test.ts apps/mobile/src/features/workspaces/workspace-row-subtitle.test.ts apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts` — 12 pass, 0 fail.
+- `bun --filter @atmos/mobile typecheck` — fails on pre-existing `apps/mobile/src/features/agent-chat/glass-text-button.test.ts` and `open-thread-resync.test.ts`. No diagnostic in the QUALITY-026 files.
+- Exploratory agent-browser — not_run. Expo native screen; no mobile workspace session for agent-browser.
+- iOS Simulator manual steps — not run. This environment is Linux and has no iOS Simulator.

@@ -1,4 +1,4 @@
-# TECH · QUALITY-025: Mobile Workspace Swipe Rows
+# TECH · QUALITY-026: Mobile Workspace Swipe Rows
 
 > Technical Design · HOW. Mobile (Expo / React Native) workspace-list swipe behavior, Recently subtitles, and project-group row detail. No BRAINSTORM or PRD: the behavior is fixed by the task, and this file is the contract.
 
@@ -24,13 +24,12 @@ Out of scope:
 
 ## Number
 
-`QUALITY-025` is the next free id after this check:
+`QUALITY-026` is the next free id when the PR opens:
 
-- `origin/main` at authoring time already contains `QUALITY-001`–`QUALITY-021` and `QUALITY-024`.
-- Open PRs reserve `QUALITY-022` (`#343`) and `QUALITY-023` (`#346`).
-- `019`–`024` are skipped even where they are still only on a branch.
-
-Re-check `git ls-tree origin/main:specs/APP` and `gh pr list --state open` before opening the PR. If `025` is taken, move this directory and the README row to the next free id. Do not rename a number that has already been pushed.
+- `origin/main` contains `QUALITY-001`–`QUALITY-021` and `QUALITY-024`.
+- Open PRs reserve `QUALITY-022` (`#343`), `QUALITY-023` (`#346`), and `QUALITY-025` (`#350`, mobile Settings).
+- `019`–`024` stay skipped.
+- This branch first pushed the spec as `QUALITY-025`. `#350` took that id before the implementation PR opened, so the directory moved here. The first spec commit stays in history. No rebase.
 
 ## Architecture
 
