@@ -14,20 +14,21 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 
 ## Coverage map
 
-| Requirement                                                       | Scenario IDs |
-| ----------------------------------------------------------------- | ------------ |
-| Exact `ios-gen` cache of `apps/mobile/ios`; no restore-keys       | S1, S2       |
-| Miss path runs prebuild + `pod install`; hit skips both           | S1           |
-| CocoaPods home cache only on miss                                 | S1           |
-| No DerivedData cache / mtime pin / prune-before-save              | S3           |
-| Key includes os, Xcode, `patches/**`, workflow YAML; no PR scope  | S2, S11      |
-| Clean local `-derivedDataPath` + CompileC count, no Actions cache | S3           |
-| ios-gen save after successful `xcodebuild`; not `main`-only       | S4           |
-| Trigger stays dispatch or `ios-parity` label                      | S5           |
-| Cache stays on `ios-build`; motion `needs` stills                 | S10          |
-| No `push:` trigger; oxlint cap stays 455                          | S5, S6       |
-| actionlint                                                        | S7           |
-| Miss vs hit wall time (ios-gen skip ~2 min)                       | S8           |
+| Requirement                                                        | Scenario IDs |
+| ------------------------------------------------------------------ | ------------ |
+| Exact `ios-gen` cache of `apps/mobile/ios`; no restore-keys        | S1, S2       |
+| Miss path runs prebuild + `pod install`; hit skips both            | S1           |
+| CocoaPods home cache only on miss                                  | S1           |
+| No DerivedData cache / mtime pin / prune-before-save               | S3           |
+| Key includes os, Xcode, `patches/**`, workflow YAML; no PR scope   | S2, S11      |
+| Clean local `-derivedDataPath` + CompileC count, no Actions cache  | S3           |
+| ios-gen save after successful `xcodebuild`; PR save not main-gated | S4           |
+| `workflow_dispatch` on `main` can save; GHA cache is ref-isolated  | S12          |
+| Trigger stays dispatch or `ios-parity` label                       | S5           |
+| Cache stays on `ios-build`; motion `needs` stills                  | S10          |
+| No `push:` trigger; oxlint cap stays 455                           | S5, S6       |
+| actionlint                                                         | S7           |
+| Miss vs hit wall time (ios-gen skip ~2 min)                        | S8           |
 
 ## Execution map
 
@@ -36,7 +37,8 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 | S1       | Unit      | `bun test`     | `apps/mobile/script/ios-parity-ci-cache.test.ts`        | workflow YAML                  | ios-gen restore/save; prebuild/pod `if` cache-hit != true                                              | pass   |
 | S2       | Unit      | `bun test`     | same                                                    | workflow YAML                  | exact key fragments; ios-gen has no restore-keys; no PR scope in key                                   | pass   |
 | S3       | Unit      | `bun test`     | same                                                    | workflow YAML                  | no `ios-dd-` / mtime pin; summary has ios-gen + CompileC only for caches we keep                       | pass   |
-| S4       | Unit      | `bun test`     | same                                                    | workflow YAML                  | ios-gen / podhome save after `xcodebuild`; `xcodebuild.conclusion == success`; not `main`-only         | pass   |
+| S4       | Unit      | `bun test`     | same                                                    | workflow YAML                  | ios-gen / podhome save after `xcodebuild`; `xcodebuild.conclusion == success`; save not `main`-gated   | pass   |
+| S12      | Unit      | `bun test`     | same                                                    | workflow YAML                  | `ios-build` `if` includes `workflow_dispatch` with no `github.ref` extra gate; no `push:`              | pass   |
 | S11      | Unit      | `bun test`     | same                                                    | workflow YAML                  | `hashFiles` includes `patches/**` and `ci-mobile-ios-parity.yml`                                       | pass   |
 | S5       | Unit      | `bun test`     | same + existing evidence-safety workflow test           | workflow YAML                  | `on:` has no `push:`; macOS jobs `if` is dispatch or label; structural has no label `if`               | pass   |
 | S10      | Unit      | `bun test`     | same                                                    | workflow YAML                  | cache steps only on `ios-build`; stills `needs: ios-build`; motion `needs: [ios-build, ios-simulator]` | pass   |
@@ -81,8 +83,19 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 - **Level**: Unit
 - **Given**: save and build steps.
 - **When**: the test compares character offsets and `if:`.
-- **Then**: Save CocoaPods download cache and Save generated iOS tree appear after `Build Release simulator app`. Both require `steps.xcodebuild.conclusion == 'success'` and miss-path `cache-hit != 'true'`. Save is not gated on `github.ref == 'refs/heads/main'`. No `push:` trigger.
+- **Then**: Save CocoaPods download cache and Save generated iOS tree appear after `Build Release simulator app`. Both require `steps.xcodebuild.conclusion == 'success'` and miss-path `cache-hit != 'true'`. Save is **not** gated on `github.ref == 'refs/heads/main'`: a labeled PR Re-run must still be able to write `refs/pull/<n>/merge`. That copy is **not** readable by other PRs or `main`. No `push:` trigger.
 - **Signals**: index order; save `if:` strings.
+
+### S12 — Dispatch on main seeds the base cache
+
+- **Level**: Unit
+- **Given**: GitHub Actions cache is isolated by ref. A PR restore may read only its own `refs/pull/<n>/merge` cache and the base (`main`) cache.
+- **When**: the test reads `on:` and the `ios-build` job `if:` / save `if:`.
+- **Then**:
+  - `on:` includes `workflow_dispatch:` and has no `push:`.
+  - `ios-build` `if:` includes `github.event_name == 'workflow_dispatch'` and does not add a `github.ref` / `refs/heads/main` extra gate, so a dispatch with branch `main` reaches save.
+  - Save `if:` is miss + `xcodebuild` success only (same as S4).
+- **Signals**: job `if:` and `on:` substring checks.
 
 ### S11 — patches and workflow in the key
 
@@ -123,7 +136,7 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 - **When**: run [39550057846](https://github.com/AruNi-01/atmos/actions/runs/39550057846) attempt 1 (miss) then attempt 2 (Re-run).
 - **Then**:
   - Attempt 1: ios-gen miss; Prebuild 7s; Install CocoaPods 1m46s; CompileC 1404; Build 29m21s.
-  - Attempt 2: ios-gen exact hit; Prebuild and Install CocoaPods **skipped** (~2 min saved vs miss-path generate). CompileC still 1404 (DerivedData incremental did not work). Restore DerivedData + mtime pin cost 1.5–3.5 min extra; those steps are now removed.
+  - Attempt 2: ios-gen exact hit on the **same PR Re-run** (`refs/pull/<n>/merge`), not a different PR. Prebuild and Install CocoaPods **skipped** (~2 min saved vs miss-path generate). CompileC still 1404 (DerivedData incremental did not work). Restore DerivedData + mtime pin cost 1.5–3.5 min extra; those steps are now removed.
 - **Signals**: Actions UI step times. **pass** for the ios-gen skip; DerivedData dropped by Eng Manager decision.
 
 ### S10 — Cache stays on ios-build
@@ -159,14 +172,14 @@ Not used. Workflow YAML only.
 
 - [x] TECH key design is implemented in the workflow
 - [x] Label gate and `on:` triggers are unchanged
-- [x] Bun tests for S1–S6, S9–S11 pass
+- [x] Bun tests for S1–S6, S9–S12 pass
 - [x] actionlint has no new real errors (S7)
 - [x] S8 recorded: ios-gen skip ~2 min; DerivedData dropped after CompileC 1404/1404
 
 ## Manual verification steps
 
 1. Do not add or remove `ios-parity` from this work.
-2. After this drop-DerivedData SHA: a labeled Re-run should skip prebuild/pod on ios-gen hit and must not restore or save DerivedData.
+2. After merge: `workflow_dispatch` on branch `main` once to seed the base ios-gen cache. A labeled PR with the same native hash should restore that copy. A PR Re-run after that PR's own miss+save hits `refs/pull/<n>/merge` only. After a native-recipe change merges, dispatch on `main` again.
 
 ## Non-coverage
 
@@ -179,7 +192,7 @@ Not used. Workflow YAML only.
 
 Implementation pass (Linux agent, no Simulator):
 
-- S1–S6, S9–S11 — pass after P2: `patches/**` + workflow file in ios-gen key, save after `xcodebuild` success, no per-PR scope. Cache YAML lives on `ios-build`. `package.json` `lint` is still `oxlint --max-warnings=455`.
+- S1–S6, S9–S12 — pass. Occupancy is Actions ref isolation (`refs/pull/<n>/merge` vs `main`), not “one copy per native recipe across PRs”. `workflow_dispatch` on `main` seeds the base cache; YAML already reaches save on that path. `package.json` `lint` is still `oxlint --max-warnings=455`.
 - S7 — pass. `actionlint` v1.7.12 on `.github/workflows/ci-mobile-ios-parity.yml` exit 0.
 - S8 — pass as data: old baseline [39530230224](https://github.com/AruNi-01/atmos/actions/runs/39530230224) Pods-only (Build 27m miss / 49m hit, CompileC 1402 / 1322, pod install ~2m20s both). Retest [39550057846](https://github.com/AruNi-01/atmos/actions/runs/39550057846) ios-gen skip (~2 min) but DerivedData CompileC 1404 / 1404; restore + mtime extra 1.5–3.5 min. DerivedData cache removed.
 - Numbering: QUALITY-020 (#342), QUALITY-021 (#344), QUALITY-023 (#346, `704d16525`), QUALITY-024 (#348) are on `main`. This spec is QUALITY-022.

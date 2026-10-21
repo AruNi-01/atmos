@@ -102,7 +102,7 @@ flowchart TD
 
 Xcode version (from the Xcode step, env in / shell out — QUALITY-015): `xcodebuild -version` awk `NR==1 $2` + `NR==2 $3` → `26.5-17F42`. Spaces never enter the key.
 
-The Select Xcode step may still write a diagnostic `scope=` (`pr-<n>` / `ref-…`) into the job summary. **Scope is not part of the cache key** (occupancy, below).
+The Select Xcode step may still write a diagnostic `scope=` (`pr-<n>` / `ref-…`) into the job summary. **Scope is not part of the cache key.** GitHub Actions already isolates cache entries by the writing ref (occupancy, below).
 
 `hashFiles` for `ios-gen` runs **after** `exclude-dev-client.js` mutates `apps/mobile/package.json`.
 
@@ -138,24 +138,44 @@ Restore stays before prebuild. Save is **after** `xcodebuild` succeeds (`steps.x
 
 Saving after `pod install` alone would cache a tree that then failed to compile. The packed `Atmos.app` is the proof the generated tree is usable.
 
-### Occupancy (10 GB) — do not key by PR, do not add `push:`
+### Occupancy (10 GB) — Actions cache is isolated by ref
 
 GitHub Actions cache is 10 GB per repo, LRU. `apps/mobile/ios` is about 500 MB.
 
-**Rejected:** `scope=pr-<number>` in the ios-gen key. That stored one copy per labeled PR of the same native tree. Twenty concurrent PRs would fill the cap even when every PR hashed the same inputs.
+**Ref isolation (Actions, not the key string).** A save is stored under the ref that ran the job. A `pull_request` save lives at `refs/pull/<n>/merge`. Other PRs and `main` cannot restore it. A PR restore may read only:
 
-**Rejected:** save only on `main` (`push`) and let PRs only restore. That would require a new `push: branches: [main]` trigger so anything ever writes the cache. `ios-build` is ~17–30 min of `macos-26` (QUALITY-023 run 39570872781: 17m28s). Running it on every mobile path push to `main` is a new always-on cost. Native-changing PRs would also never hit on Re-run (the measured ~2 min skip). This workflow stays label / `workflow_dispatch` only.
+1. that PR's own cache (`refs/pull/<n>/merge`)
+2. the base branch cache (`main`)
 
-**Chosen:** one ios-gen key per `(runner.os, Xcode version, input hash)`. Labeled PRs and `workflow_dispatch` may **restore and, on miss + successful `xcodebuild`, save**. Copies equal unique native recipes, not PR count. Writes are rare (`ios-parity` label). LRU drops older hashes. `podhome` was already shared (no PR scope).
+Dropping `scope=pr-<n>` from the ios-gen **key** therefore does **not** let PR A read PR B. Occupancy is still about **one ~500 MB copy per ref that has saved** (each labeled PR that missed, plus `main` after a dispatch), i.e. ≈ labeled-PR count × 500 MB, not one copy per unique native hash across the repo.
+
+**Rejected:** `scope=pr-<number>` in the key. Actions already isolates by ref. A PR-specific suffix only makes that PR's restore miss the base (`main`) copy as well.
+
+**Rejected:** `push: branches: [main]` so every mobile merge writes the cache. `ios-build` is ~17–30 min of `macos-26` (QUALITY-023 run 39570872781: 17m28s). This workflow stays label / `workflow_dispatch` only.
+
+**Chosen:** seed the copy every PR can restore from with a **`workflow_dispatch` on `main`**. Existing YAML already reaches save on that path (no extra `if:`):
+
+- `on.workflow_dispatch` has no branch filter. Dispatch the workflow with branch `main`.
+- `ios-build` `if:` includes `github.event_name == 'workflow_dispatch'` (no `github.ref` extra gate).
+- Save runs on miss + `steps.xcodebuild.conclusion == 'success'`. It is **not** gated to `refs/heads/main`, so a labeled PR Re-run can still save into `refs/pull/<n>/merge`.
+
+Who can use which save:
+
+| Writer                              | Stored under          | Who can restore                                  |
+| ----------------------------------- | --------------------- | ------------------------------------------------ |
+| `workflow_dispatch` on `main`       | `refs/heads/main`     | every PR (base) and later `main` / dispatch runs |
+| labeled PR, miss + successful build | `refs/pull/<n>/merge` | **only that PR's Re-run**                        |
+
+After a native-recipe change merges to `main`, run `workflow_dispatch` on `main` again so the new key exists on the base ref. Until then, labeled PRs miss the base copy (they may still hit their own Re-run cache).
 
 ### Invalidation
 
-| Change                                                                    | ios-gen exact          |
-| ------------------------------------------------------------------------- | ---------------------- |
-| Xcode / runner OS                                                         | miss                   |
-| `bun.lock` / package.json / app config / plugins / modules / `patches/**` | miss                   |
-| Prebuild / `pod install` commands in `ci-mobile-ios-parity.yml`           | miss                   |
-| JS/TS only, same native inputs and same generate steps                    | hit, skip prebuild+pod |
+| Change                                                                    | ios-gen exact                                   |
+| ------------------------------------------------------------------------- | ----------------------------------------------- |
+| Xcode / runner OS                                                         | miss                                            |
+| `bun.lock` / package.json / app config / plugins / modules / `patches/**` | miss                                            |
+| Prebuild / `pod install` commands in `ci-mobile-ios-parity.yml`           | miss                                            |
+| JS/TS only, same native inputs and same generate steps                    | hit if `main` or this PR already saved that key |
 
 The `ios-build` job summary records ios-gen / cocoapods-home `cache-hit` + `cache-matched-key` and the `CompileC` count. No DerivedData cache lines. No hostname.
 
@@ -181,9 +201,11 @@ No `push:` trigger. This work does not add or remove the `ios-parity` label. Mot
 
 The Eng Manager applies `ios-parity` when needed (this change does not). Then:
 
-1. First `ios-build` on a SHA whose native hash is new: `ios-gen cache-hit` is not true. `Prebuild iOS` and `Install CocoaPods` run. Save runs only if `xcodebuild` succeeds.
-2. **Re-run jobs** on the **same SHA** (or another labeled PR with the same native hash). Expect ios-gen exact hit, skipped prebuild/pod install, about 2 minutes saved. `CompileC` stays a full rebuild (~1400); that is expected without DerivedData.
-3. The `ios-build` job summary has ios-gen hit flags and CompileC. No hostname.
+1. **Seed `main`:** Actions → CI - Mobile iOS parity → Run workflow → branch `main`. `ios-build` misses, generates, `xcodebuild` succeeds, save writes under `refs/heads/main`.
+2. **Labeled PR with the same native hash:** restore from base (`main`) → ios-gen hit, skip prebuild/pod, about 2 minutes saved vs generate. `CompileC` stays a full rebuild (~1400).
+3. **Same PR Re-run** after that PR itself missed and saved: hit from `refs/pull/<n>/merge`. Another PR cannot read this copy.
+4. After a native-recipe change merges to `main`, dispatch on `main` again. Until that runs, new PRs miss the base copy.
+5. The `ios-build` job summary has ios-gen hit flags and CompileC. No hostname.
 
 ## Affected files
 
@@ -196,7 +218,7 @@ The Eng Manager applies `ios-parity` when needed (this change does not). Then:
 ## Risks & tradeoffs
 
 - **Stale `ios/` on a missed input.** If a prebuild input is not in `hashFiles`, an exact hit skips prebuild and ships an old native tree. The glob covers `package.json`, app config, plugins, modules, `patches/**`, `bun.lock`, `exclude-dev-client.js`, and this workflow YAML. Add to that list when a new native input appears.
-- **10 GB repo cache cap.** One ~500 MB entry per unique native recipe, not per PR. A failed save is a warning; the job still continues.
+- **10 GB repo cache cap.** Actions isolates by ref, so occupancy ≈ (labeled PRs that have saved + `main`) × ~500 MB. A failed save is a warning; the job still continues. Seed `main` via `workflow_dispatch` so JS-only PRs restore the base copy instead of each writing their own.
 - **Workflow-file hash noise.** Comment-only edits to `ci-mobile-ios-parity.yml` miss ios-gen. Accepted vs a forgettable salt.
 - **QUALITY-015.** No `${{ github.event.* }}` inside `run:` bodies. Skip / save gates use `steps.*.outputs.*` in `if:`.
 
@@ -205,7 +227,7 @@ The Eng Manager applies `ios-parity` when needed (this change does not). Then:
 1. Register QUALITY-022 and this TECH/TEST.
 2. Workflow + bun tests.
 3. Draft PR; `structural` and non-iOS CI must be green.
-4. Eng Manager labels / re-runs `ios-parity` to measure ios-gen miss vs hit. This PR does not change that label.
+4. After merge: `workflow_dispatch` on `main` once to seed the base cache. Eng Manager labels / re-runs `ios-parity` on PRs. This PR does not change that label.
 
 ## Follow-ups
 

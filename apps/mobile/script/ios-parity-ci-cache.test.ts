@@ -155,13 +155,19 @@ describe("QUALITY-022 ios-build caches", () => {
     expect(iosSave).toContain(".github/workflows/ci-mobile-ios-parity.yml");
   });
 
-  test("ios-gen key is not per-PR and save is not main-only", () => {
+  test("workflow_dispatch on main can save; PR save is not gated to main", () => {
+    expect(onBlock).toContain("workflow_dispatch:");
+    expect(onBlock).not.toMatch(/^\s*push:/m);
+    const iosBuildIf = iosBuild.slice(0, iosBuild.indexOf("steps:"));
+    expect(iosBuildIf).toContain("github.event_name == 'workflow_dispatch'");
+    expect(iosBuildIf).not.toContain("refs/heads/main");
+    expect(iosBuildIf).not.toContain("github.ref");
+    expect(iosSave).not.toContain("refs/heads/main");
+    expect(podhomeSave).not.toContain("refs/heads/main");
+    expect(iosSave).toContain(saveAfterBuildIf);
     expect(iosRestore).not.toContain("steps.xcode.outputs.scope");
     expect(iosSave).not.toContain("steps.xcode.outputs.scope");
     expect(iosGenKey).not.toContain("steps.xcode.outputs.scope");
-    expect(iosSave).not.toContain("refs/heads/main");
-    expect(podhomeSave).not.toContain("refs/heads/main");
-    expect(onBlock).not.toMatch(/^\s*push:/m);
   });
 
   test("ios-gen save runs after successful xcodebuild", () => {
