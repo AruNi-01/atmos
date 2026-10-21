@@ -23,14 +23,14 @@ This is a workflow-concurrency contract. Proof is a Bun source assertion on `.gi
 
 ## Execution map
 
-| Scenario | Level  | Expected tool | Target command / method                         | Fixture / data | Signals                                                                                       | Status  |
-| -------- | ------ | ------------- | ----------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------- | ------- |
-| S1       | Unit   | Bun           | `bun test e2e/scripts/ci-e2e-workflow.test.cjs` | workflow YAML  | root `cancel-in-progress` is the `pull_request` expression                                    | pass    |
-| S2       | Unit   | Bun           | same                                            | workflow YAML  | group fallback is `github.ref`, not `github.run_id`                                           | pass    |
-| S3       | Review | File read     | inspect group key                               | workflow YAML  | PR number still in the group                                                                  | pass    |
-| S4       | Unit   | Bun           | same                                            | `merge` job    | `ci-e2e-pages-report` + `cancel-in-progress: false`                                           | pass    |
-| S5       | Review | File read     | `package.json` `lint`                           | repo root      | `--max-warnings=455`; no `EVIDENCE_PUSH` in this change                                       | pass    |
-| S6       | CI     | GitHub        | PR checks                                       | this PR        | `CI - JS` and `CI - E2E` run; backend/web/packages jobs are skipped by path filters if absent | planned |
+| Scenario | Level  | Expected tool | Target command / method                         | Fixture / data | Signals                                                                                       | Status |
+| -------- | ------ | ------------- | ----------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------- | ------ |
+| S1       | Unit   | Bun           | `bun test e2e/scripts/ci-e2e-workflow.test.cjs` | workflow YAML  | root `cancel-in-progress` is the `pull_request` expression                                    | pass   |
+| S2       | Unit   | Bun           | same                                            | workflow YAML  | group fallback is `github.ref`, not `github.run_id`                                           | pass   |
+| S3       | Review | File read     | inspect group key                               | workflow YAML  | PR number still in the group                                                                  | pass   |
+| S4       | Unit   | Bun           | same                                            | `merge` job    | `ci-e2e-pages-report` + `cancel-in-progress: false`                                           | pass   |
+| S5       | Review | File read     | `package.json` `lint`                           | repo root      | `--max-warnings=455`; no `EVIDENCE_PUSH` in this change                                       | pass   |
+| S6       | CI     | GitHub        | PR checks                                       | this PR        | `CI - JS` and `CI - E2E` run; backend/web/packages jobs are skipped by path filters if absent | pass   |
 
 ## Scenarios
 
@@ -125,7 +125,7 @@ Verified 2026-10-21 (local, before GitHub Actions):
 - S1, S2, S4 — pass. `bun test e2e/scripts/ci-e2e-workflow.test.cjs` → 3 pass.
 - S3 — pass by inspection. Workflow-level group is `ci-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}`.
 - S5 — pass. `package.json` `lint` is `oxlint --max-warnings=455`. Diff does not mention `EVIDENCE_PUSH`. `bunx oxlint e2e/scripts/ci-e2e-workflow.test.cjs` and `bunx oxfmt --check` on the spec + test paths exited 0.
-- S6 — pending GitHub Actions on the draft PR.
+- S6 — pass. Draft PR `CI - JS` https://github.com/AruNi-01/atmos/actions/runs/39527675341 success (oxlint + oxfmt). `CI - E2E` https://github.com/AruNi-01/atmos/actions/runs/39527675237 success (13.45 min wall). Not triggered: `CI - Backend`, `CI - Web`, `CI - Packages` (path filters). CodeQL also ran and passed (not part of this spec).
 
 ```
 bun test e2e/scripts/ci-e2e-workflow.test.cjs

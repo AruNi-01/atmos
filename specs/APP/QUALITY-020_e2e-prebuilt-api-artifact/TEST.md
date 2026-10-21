@@ -25,17 +25,17 @@ Workflow YAML plus `justfile` source contracts, a tiny `ATMOS_API_BIN` smoke on 
 
 ## Execution map
 
-| Scenario | Level  | Expected tool | Target command / method                         | Fixture / data    | Signals                                                                              | Status  |
-| -------- | ------ | ------------- | ----------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------ | ------- |
-| S1       | Unit   | Bun           | `bun test e2e/scripts/ci-e2e-workflow.test.cjs` | workflow YAML     | `build` job contains `cargo build --bin api`; `run` job does not                     | pass    |
-| S2       | Unit   | Bun           | same                                            | workflow YAML     | `run` `needs: [plan, build]`; `download-artifact` name `e2e-api-debug-bin`           | pass    |
-| S3       | Unit   | Bun           | same                                            | workflow YAML     | `tar` pack/extract and `chmod +x`                                                    | pass    |
-| S4       | Unit   | Bun           | same                                            | workflow + action | `Swatinem/rust-cache@v2` with `. -> target` and `cache-on-failure: true` on `build`  | pass    |
-| S5       | Unit   | Bun           | same                                            | workflow YAML     | job-level `ATMOS_API_BIN` points at `target/debug/api`                               | pass    |
-| S6       | Script | just          | `ATMOS_API_BIN=/bin/true just dev-api --port 1` | no cargo          | exits 0; a missing path prints `not executable` and exits non-zero                   | pass    |
-| S7       | Unit   | Bun           | same                                            | workflow YAML     | QUALITY-019 `cancel-in-progress` expression still present                            | pass    |
-| S8       | Review | File read     | `package.json`                                  | repo root         | `--max-warnings=455`; diff has no `EVIDENCE_PUSH`                                    | pass    |
-| S9       | CI     | GitHub        | PR `CI - E2E`                                   | this PR           | `Build API` has the compile step; shard logs have Restore / no per-shard cargo build | planned |
+| Scenario | Level  | Expected tool | Target command / method                         | Fixture / data    | Signals                                                                              | Status |
+| -------- | ------ | ------------- | ----------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------ | ------ |
+| S1       | Unit   | Bun           | `bun test e2e/scripts/ci-e2e-workflow.test.cjs` | workflow YAML     | `build` job contains `cargo build --bin api`; `run` job does not                     | pass   |
+| S2       | Unit   | Bun           | same                                            | workflow YAML     | `run` `needs: [plan, build]`; `download-artifact` name `e2e-api-debug-bin`           | pass   |
+| S3       | Unit   | Bun           | same                                            | workflow YAML     | `tar` pack/extract and `chmod +x`                                                    | pass   |
+| S4       | Unit   | Bun           | same                                            | workflow + action | `Swatinem/rust-cache@v2` with `. -> target` and `cache-on-failure: true` on `build`  | pass   |
+| S5       | Unit   | Bun           | same                                            | workflow YAML     | job-level `ATMOS_API_BIN` points at `target/debug/api`                               | pass   |
+| S6       | Script | just          | `ATMOS_API_BIN=/bin/true just dev-api --port 1` | no cargo          | exits 0; a missing path prints `not executable` and exits non-zero                   | pass   |
+| S7       | Unit   | Bun           | same                                            | workflow YAML     | QUALITY-019 `cancel-in-progress` expression still present                            | pass   |
+| S8       | Review | File read     | `package.json`                                  | repo root         | `--max-warnings=455`; diff has no `EVIDENCE_PUSH`                                    | pass   |
+| S9       | CI     | GitHub        | PR `CI - E2E`                                   | this PR           | `Build API` has the compile step; shard logs have Restore / no per-shard cargo build | pass   |
 
 ## Scenarios
 
