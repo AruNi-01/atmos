@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
@@ -78,6 +79,62 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(capture).toContain("PillTap destination missing:");
     expect(capture).toContain("wait_for_xcode_destination");
     expect(capture).toContain('wait_for_since "[parity] pill awaiting tap"');
+    expect(capture).toContain("terminate_app");
+    expect(capture).toContain("log-mark-epoch.txt");
+    expect(capture).toContain("log_show_has_since");
+    expect(capture).toContain('launch_frame "f13-tail" "light" "return"');
+    const hasSince = capture.slice(
+      capture.indexOf("log_has_since()"),
+      capture.indexOf("\nlog_has()"),
+    );
+    expect(hasSince).not.toContain("device-log-fallback.txt");
+    const sinceFn = capture.slice(
+      capture.indexOf("wait_for_since()"),
+      capture.indexOf("wait_for_line()"),
+    );
+    expect(sinceFn).toContain("refresh_parity_show");
+    expect(sinceFn).toContain("log_show_has_since");
+  });
+
+  test("log show since filter keeps new lines and drops old ones", () => {
+    const start = capture.indexOf("log_show_has_since()");
+    const pyStart = capture.indexOf("import re\n", start);
+    const pyEnd = capture.indexOf("\nPY\n", pyStart);
+    const py = capture.slice(pyStart, pyEnd);
+    expect(py).toContain("min_ts");
+    const dir = mkdtempSync(join(tmpdir(), "parity-log-show-"));
+    const logPath = join(dir, "device-log-fallback.txt");
+    writeFileSync(
+      logPath,
+      [
+        "2026-10-21 11:14:01.000000+0000  0x1  Atmos  [parity] preview-chat module",
+        "2026-10-21 11:15:31.000000+0000  0x2  Atmos  [parity] preview-chat module",
+      ].join("\n"),
+    );
+    const utcEpoch = (hour: number, minute: number, second: number) => {
+      const result = spawnSync(
+        "python3",
+        [
+          "-c",
+          `from datetime import datetime, timezone; print(int(datetime(2026,10,21,${hour},${minute},${second},tzinfo=timezone.utc).timestamp()))`,
+        ],
+        { encoding: "utf8" },
+      );
+      expect(result.status, result.stderr).toBe(0);
+      return result.stdout.trim();
+    };
+    const keepReturn = spawnSync(
+      "python3",
+      ["-c", py, logPath, "[parity] preview-chat module", utcEpoch(11, 14, 20)],
+      { encoding: "utf8" },
+    );
+    expect(keepReturn.status, keepReturn.stderr).toBe(0);
+    const afterBoth = spawnSync(
+      "python3",
+      ["-c", py, logPath, "[parity] preview-chat module", utcEpoch(11, 15, 40)],
+      { encoding: "utf8" },
+    );
+    expect(afterBoth.status, afterBoth.stderr).toBe(1);
   });
 
   test("motion PillTap uses the booted UDID after boot, not a generic overlap", () => {

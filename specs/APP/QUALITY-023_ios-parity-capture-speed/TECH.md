@@ -143,18 +143,19 @@ A destination that xcodebuild cannot see is `PillTap destination missing:` and s
 
 ### D7. Motion waits are per-launch
 
-`capture_tail_return` (and the other motion relaunches) use `wait_for_since` after a `log_mark`, same as stills. `wait_for_line` matching the away launch's `[parity] preview-chat module` would let the return pass proceed before this launch painted.
+`capture_tail_return` (and the other motion relaunches) use `wait_for_since` after a `log_mark`, same as stills. `wait_for_line` matching the away launch's `[parity] preview-chat module` would let the return pass proceed before this launch painted. `launch_frame` terminates Atmos until `simctl terminate` is a no-op, then stamps `log-mark-epoch.txt`. `wait_for_since` may poll `log show --last 30s` after 12s, but only lines at or after that epoch count — leftover fallback files and the previous stills frame must not match.
 
 ## Motion / PillTap instability (root cause)
 
-Two of the last three labeled motion shards failed, at different surfaces of the same race:
+Labeled motion failed on more than one surface of the same capture path. Root cause is in this table; two-round timings stay `待两轮实测` until the head that contains this paragraph is green twice (report clocks in chat / to Eng Manager — do not push a docs-only fill).
 
-| Run           | Head        | Motion        | What the log actually said                                                                                                                                                                                   |
-| ------------- | ----------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `39554572933` | `5d38f5c97` | fail          | SpringBoard Busy while xctrunner installing/uninstalling (`testSwipeCardPills`)                                                                                                                              |
-| `39561423684` | `11a2f44b0` | pass (32m53s) | stills failed on a stale painted line; motion itself green                                                                                                                                                   |
-| `39570872781` | `ae64d00da` | pass (30m08s) | both shards green                                                                                                                                                                                            |
-| `39578448510` | `a8edae21c` | fail          | `testTapScrollPill` reported `PillTap missed: scroll pill tap failed`; xcodebuild then `Unable to find a device matching … id:E839A11B-…`. Available destinations: My Mac + two placeholders. No simulators. |
+| Run           | Head        | Motion        | What the log actually said                                                                                                                                                                                                                                                                                                              |
+| ------------- | ----------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `39554572933` | `5d38f5c97` | fail          | SpringBoard Busy while xctrunner installing/uninstalling (`testSwipeCardPills`)                                                                                                                                                                                                                                                         |
+| `39561423684` | `11a2f44b0` | pass (32m53s) | stills failed on a stale painted line; motion itself green                                                                                                                                                                                                                                                                              |
+| `39570872781` | `ae64d00da` | pass (30m08s) | both shards green                                                                                                                                                                                                                                                                                                                       |
+| `39578448510` | `a8edae21c` | fail          | `testTapScrollPill` reported `PillTap missed: scroll pill tap failed`; xcodebuild then `Unable to find a device matching … id:E839A11B-…`. Available destinations: My Mac + two placeholders. No simulators.                                                                                                                            |
+| `39585289841` | `701c626b1` | fail          | Destination fix held: `build-for-testing` for `E839A11B` in 32s. Return launch 11:14:12Z; away process Atmos[7563] still logging at 11:14:01Z; new Atmos[11020] still registering Expo modules at 11:15:30Z; `wait_for_since` had no log-show fallback and 90s elapsed with an empty console-pty → `f13 tail return missed the module`. |
 
 Not a cross-shard resource fight: stills and motion are separate `macos-26` VMs. `simctl` still took screenshots of `E839A11B` at 10:17Z. xcodebuild, started for `test-without-building` after a generic `build-for-testing` that overlapped boot, saw zero devices.
 
@@ -166,14 +167,21 @@ Sequence on the failing motion job (`39578448510`):
 4. Return launch used `wait_for_line` for `[parity] preview-chat module` (already in the stream from the away launch). The 18s to tap is therefore not proof the return frame was the one xcodebuild attached to.
 5. `test-without-building -destination id=E839A11B` resolves destinations from the generic build's empty list and fails. The script labeled that a PillTap miss.
 
-Fix: boot → pin UDID → `build-for-testing` for that id → `test-without-building` for that id. Wait until `xcodebuild -showdestinations` lists the UDID before the first tap. No xctrunner pre-install. Motion relaunches wait `wait_for_since`. Do not retry XCTAssert misses or destination loss; only Busy.
+Sequence on the failing motion job (`39585289841`), after the destination fix:
 
-Two consecutive full iOS greens on the head that contains this paragraph are the gate. Fill the table when those runs finish (a later docs-only push would change the head, so record them on the same commit when possible; otherwise re-run both on the docs head).
+1. Destination held: `build-for-testing` for `E839A11B` finished in 32s; xcodebuild saw the Booted sim.
+2. f13-tail away process Atmos[7563] was still logging at 11:14:01Z.
+3. Return `simctl launch --console-pty --terminate-running-process` at 11:14:12Z started Atmos[11020] while 7563 had not yet gone idle. console-pty for the return launch stayed empty.
+4. `wait_for_since` only watched the empty pty + stream-after-mark. No `log show` fallback. At 11:15:30Z the new process was still registering Expo modules. 90s elapsed → `f13 tail return missed the module` (not a destination miss, not an XCTAssert miss).
 
-| Round | Run                  | ios-build | stills | motion | ios-parity | workflow |
-| ----- | -------------------- | --------- | ------ | ------ | ---------- | -------- |
-| 1     | TBD                  | TBD       | TBD    | TBD    | TBD        | TBD      |
-| 2     | TBD (`gh run rerun`) | TBD       | TBD    | TBD    | TBD        | TBD      |
+Fix: boot → pin UDID → `build-for-testing` for that id → `test-without-building` for that id. Wait until `xcodebuild -showdestinations` lists the UDID before the first tap. No xctrunner pre-install. `launch_frame` terminates Atmos until `simctl terminate` is a no-op, then uses a per-launch console log and stamps `log-mark-epoch.txt`. `wait_for_since` also polls `log show --last 30s` after 12s, accepting only lines at/after that epoch, so an empty console-pty can still see `[parity] preview-chat module` without matching the previous frame. Motion relaunches wait `wait_for_since`. Do not retry XCTAssert misses or destination loss; only Busy. Missed module on return still exits 1.
+
+Two consecutive full iOS greens (`ios-build`, stills, motion, `ios-parity`) on the head that contains this paragraph are the gate. Round 2 is `gh run rerun` of round 1. Timing cells stay `待两轮实测` — do not push a docs-only update after the runs; report run ids and clocks in chat for Eng Manager.
+
+| Round | Run                          | ios-build  | stills     | motion     | ios-parity | workflow   |
+| ----- | ---------------------------- | ---------- | ---------- | ---------- | ---------- | ---------- |
+| 1     | 待两轮实测                   | 待两轮实测 | 待两轮实测 | 待两轮实测 | 待两轮实测 | 待两轮实测 |
+| 2     | 待两轮实测（`gh run rerun`） | 待两轮实测 | 待两轮实测 | 待两轮实测 | 待两轮实测 | 待两轮实测 |
 
 ### D5. Preview flag stays in the command environment
 

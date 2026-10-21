@@ -113,12 +113,32 @@ copy_motion_shots() {
   echo "copied ${count} parity motion pngs to ${dest}"
 }
 
+# Run 39585289841: return launch at 11:14:12Z while Atmos[7563] from the
+# away pass was still logging at 11:14:01Z. console-pty was empty; native
+# modules for Atmos[11020] were still registering at 11:15:30Z, past the
+# 90s module wait. Stop the previous process until terminate is a no-op.
+terminate_app() {
+  local deadline=$((SECONDS + 20))
+  while (( SECONDS < deadline )); do
+    if ! xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.3
+  done
+  echo "Atmos still running after terminate wait" >&2
+}
+
 launch_frame() {
   local id="$1"
   local theme="$2"
   local suffix="${3:-}"
   local waited=0
   stop_console
+  terminate_app
+  # Epoch after the previous process is gone. wait_for_since log-show
+  # ignores os_log lines older than this so stills cannot match the
+  # previous frame's painted line (run 39561423684).
+  date +%s >"$OUT/log-mark-epoch.txt"
   if [[ -n "$suffix" ]]; then
     CURRENT_LOG="$OUT/console-${id}-${theme}-${suffix}.log"
   else
@@ -169,7 +189,9 @@ log_mark() {
 }
 
 # Lines already in the stream belong to an earlier launch. Replay start and
-# replay done are only counted after this mark.
+# replay done are only counted after this mark. Do not grep
+# device-log-fallback.txt here: that file is leftover from the previous
+# wait and would match the last frame's painted/module lines.
 log_has_since() {
   local needle="$1"
   local mark="$2"
@@ -213,6 +235,43 @@ refresh_parity_show() {
     >"$OUT/device-log-fallback.txt" 2>&1 || true
 }
 
+# compact: 2026-10-21 11:15:30.123456+0000  ... [parity] ...
+# --last 30s still contains the previous stills frame. Keep lines at/after
+# the epoch written by launch_frame.
+log_show_has_since() {
+  local needle="$1"
+  local epoch
+  epoch="$(tr -d '[:space:]' <"$OUT/log-mark-epoch.txt" 2>/dev/null || true)"
+  [[ -f "$OUT/device-log-fallback.txt" && -n "$epoch" ]] || return 1
+  python3 - "$OUT/device-log-fallback.txt" "$needle" "$epoch" <<'PY'
+import re
+import sys
+from datetime import datetime, timedelta, timezone
+
+path, needle, epoch = sys.argv[1], sys.argv[2], int(sys.argv[3])
+rx = re.compile(
+    r"(?P<dt>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?:\.\d+)?"
+    r"(?P<tz>[+-]\d{2}):?(?P<tzm>\d{2})?"
+)
+min_ts = epoch - 2
+with open(path, encoding="utf-8", errors="replace") as handle:
+    for line in handle:
+        if needle not in line:
+            continue
+        match = rx.search(line)
+        if not match:
+            continue
+        tz_h = int(match.group("tz"))
+        tz_m = int(match.group("tzm") or 0)
+        sign = 1 if tz_h >= 0 else -1
+        tz = timezone(timedelta(hours=tz_h, minutes=sign * abs(tz_m)))
+        ts = datetime.strptime(match.group("dt"), "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz).timestamp()
+        if ts >= min_ts:
+            sys.exit(0)
+sys.exit(1)
+PY
+}
+
 screen_record_alive() {
   local pid
   pid="$(tr -d '[:space:]' <"$1" 2>/dev/null || true)"
@@ -227,6 +286,7 @@ wait_for_since() {
   local mark="$3"
   local pidfile="${4:-}"
   local deadline=$((SECONDS + timeout))
+  local next_show=$((SECONDS + 12))
   while (( SECONDS < deadline )); do
     if log_has_since "$needle" "$mark"; then
       return 0
@@ -234,6 +294,14 @@ wait_for_since() {
     if [[ -n "$pidfile" && -s "$pidfile" ]] && ! screen_record_alive "$pidfile"; then
       echo "screen record exited before ${needle}" >&2
       return 2
+    fi
+    if (( SECONDS >= next_show )); then
+      refresh_parity_show
+      if log_has_since "$needle" "$mark" || log_show_has_since "$needle"; then
+        echo "found ${needle} via log show"
+        return 0
+      fi
+      next_show=$((SECONDS + 15))
     fi
     sleep 0.5
   done
@@ -1221,7 +1289,7 @@ capture_tail_return() {
   mark="$(log_mark)"
   write_frame_file "f13-tail" "light" "away" "" "" "" "return"
   echo "launch f13-tail light away return"
-  launch_frame "f13-tail" "light"
+  launch_frame "f13-tail" "light" "return"
   if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "f13 tail return missed the module" >&2
     dump_runtime_logs

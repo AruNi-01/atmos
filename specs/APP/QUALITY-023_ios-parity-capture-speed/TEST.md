@@ -36,7 +36,7 @@ Deterministic locks are Bun tests that read the workflow YAML, `ios-capture.sh`,
 | S8       | Toolchain | shell            | `bun lint`                                               | `package.json`                      | `--max-warnings=455`                                                    | pass   |
 | S9       | Review    | spec             | TECH.md                                                  | run 39530230224                     | attempt 1 39m19s / attempt 2 52m24s                                     | pass   |
 | S10      | E2E       | GHA              | `ios-simulator`                                          | `ios-parity` label (not added here) | labeled run `39570872781` stills+motion+merge success; job wall 55m10s  | pass   |
-| S11      | Unit+E2E  | `bun test` + GHA | `ios-parity-capture.test.ts` then two iOS runs           | workflow + capture                  | no `pill_pid`; `PARITY_UDID`; destination missing ≠ miss; two greens    | pass   |
+| S11      | Unit+E2E  | `bun test` + GHA | `ios-parity-capture.test.ts` then two iOS runs           | workflow + capture                  | no `pill_pid`; `PARITY_UDID`; terminate+epoch log-show; two greens      | pass   |
 
 ## Scenarios
 
@@ -123,10 +123,10 @@ Deterministic locks are Bun tests that read the workflow YAML, `ios-capture.sh`,
 ### S11 — Motion destination is the booted UDID
 
 - **Level**: Unit + E2E
-- **Given**: the Busy fail (`39554572933`) and the destination-empty fail (`39578448510`).
+- **Given**: the Busy fail (`39554572933`), the destination-empty fail (`39578448510`), and the return-relaunch miss (`39585289841`: away Atmos still logging, empty console-pty, 90s module wait).
 - **When**: tests read the workflow and capture script, then two consecutive labeled iOS runs execute on this head.
-- **Then**: no background `build-for-testing` (`pill_pid`). `PARITY_UDID` is exported from boot. Capture waits `wait_for_since` for `[parity] pill awaiting tap`. XCTAssert miss still prints `PillTap missed:` and exits 1. Destination loss prints `PillTap destination missing:` and also exits 1. No blind retry of a miss.
-- **Signals**: `ios-parity-capture.test.ts`; two GHA runs with `ios-build`, stills, motion, `ios-parity` all success. The second run is `gh run rerun` of the first.
+- **Then**: no background `build-for-testing` (`pill_pid`). `PARITY_UDID` is exported from boot. `launch_frame` terminates until no-op and stamps `log-mark-epoch.txt`. `wait_for_since` may use `log show` but only lines at/after that epoch. Capture waits `wait_for_since` for `[parity] pill awaiting tap`. XCTAssert miss still prints `PillTap missed:` and exits 1. Destination loss prints `PillTap destination missing:` and also exits 1. Missed module on return still exits 1. No blind retry of a miss.
+- **Signals**: `ios-parity-capture.test.ts`; two GHA runs with `ios-build`, stills, motion, `ios-parity` all success. The second run is `gh run rerun` of the first. TECH timing table stays `待两轮实测` (report clocks in chat, do not docs-push).
 
 ## Performance & load budgets
 
@@ -188,6 +188,6 @@ Omitted. No web UI.
 | S8       | pass   | `package.json` `"lint": "oxlint --max-warnings=455"`; `bun lint` exit 0 (452 warnings)                                                                                                                                                                                                                 |
 | S9       | pass   | TECH.md tables for run `39530230224` attempt 1 39m19s / attempt 2 52m24s                                                                                                                                                                                                                               |
 | S10      | pass   | labeled run [`39570872781`](https://github.com/AruNi-01/atmos/actions/runs/39570872781) (label by `AruNi-01`, not this agent): workflow 55m10s success; `ios-build` 17m28s; stills capture 11m55s; motion capture 30m08s; merge `ios-parity` 12s. Combined capture ≤18 min not hit (motion/xctrunner). |
-| S11      | pass   | unit lock: no `pill_pid`, `PARITY_UDID`, `PillTap destination missing:`, `wait_for_since` on pill awaiting tap. Two consecutive iOS greens on this head: see TECH D7 table (filled after the runs).                                                                                                    |
+| S11      | pass   | unit lock: no `pill_pid`, `PARITY_UDID`, `terminate_app`, epoch-filtered `log show`, `PillTap destination missing:`, `wait_for_since` on pill awaiting tap. Two consecutive iOS greens on this head: TECH table `待两轮实测`.                                                                          |
 
 Also: `bash -n` on `ios-capture.sh` and `ios-boot-simulator.sh`; Python self-tests (`mp4-duration`, `run-until-line`, `png-flat`); `bun --filter @atmos/agent-transcript test` 38 pass; `bun scripts/agent-chat-parity/compare.ts` → `13 fixtures match`.
