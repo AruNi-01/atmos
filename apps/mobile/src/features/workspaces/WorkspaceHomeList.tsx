@@ -17,7 +17,12 @@ import type {
   WorkspaceModel,
 } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
-import { pageBlocks, openItemCount, type PagedBlock } from "@/features/lists/list-page";
+import {
+  mountedItemCount,
+  pageBlocks,
+  openItemCount,
+  type PagedBlock,
+} from "@/features/lists/list-page";
 import { markListNavigation } from "@/features/lists/list-navigation";
 import { useListWindow } from "@/features/lists/use-list-window";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -84,12 +89,12 @@ export function WorkspaceHomeList({
     filters.showAutomation ? "1" : "0",
   ].join("|");
   const { applyEnd, shown } = useListWindow(windowResetKey);
-  const [closingKeys, setClosingKeys] = useState<ReadonlySet<string>>(() => new Set());
-  const holdRowsWhileClosing = (key: string) => {
-    setClosingKeys((current) => {
-      if (current.has(key)) return current;
-      const next = new Set(current);
-      next.add(key);
+  const [closingCounts, setClosingCounts] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const holdRowsWhileClosing = (key: string, count: number) => {
+    setClosingCounts((current) => {
+      if (current.get(key) === count) return current;
+      const next = new Map(current);
+      next.set(key, count);
       return next;
     });
     const pending = sectionCloseTimers.get(key);
@@ -98,9 +103,9 @@ export function WorkspaceHomeList({
       key,
       setTimeout(() => {
         sectionCloseTimers.delete(key);
-        setClosingKeys((current) => {
+        setClosingCounts((current) => {
           if (!current.has(key)) return current;
-          const next = new Set(current);
+          const next = new Map(current);
           next.delete(key);
           return next;
         });
@@ -146,15 +151,18 @@ export function WorkspaceHomeList({
     });
   }
   if (recent.length > 0) {
+    const recentHeld = closingCounts.get("recent");
     blocks.push({
       key: "recent",
-      items: recentExpanded || closingKeys.has("recent") ? recent : [],
+      items: recentExpanded ? recent : recentHeld === undefined ? [] : recent.slice(0, recentHeld),
       keep: true,
       closed: !recentExpanded,
       open: recentExpanded,
       title: "Recently",
       onToggle: () => {
-        if (recentExpanded) holdRowsWhileClosing("recent");
+        if (recentExpanded) {
+          holdRowsWhileClosing("recent", mountedItemCount(blocks, shown, "recent"));
+        }
         toggleRecent();
       },
     });
@@ -162,16 +170,19 @@ export function WorkspaceHomeList({
   for (const section of sections) {
     const workspaceCount = section.items.filter((item) => item.kind === "workspace").length;
     const open = expanded[section.key] !== false;
+    const held = closingCounts.get(section.key);
     blocks.push({
       key: section.key,
-      items: open || closingKeys.has(section.key) ? section.items : [],
+      items: open ? section.items : held === undefined ? [] : section.items.slice(0, held),
       keep: true,
       closed: !open,
       open,
       title: section.title,
       count: workspaceCount > 0 ? workspaceCount : undefined,
       onToggle: () => {
-        if (open) holdRowsWhileClosing(section.key);
+        if (open) {
+          holdRowsWhileClosing(section.key, mountedItemCount(blocks, shown, section.key));
+        }
         toggleExpanded(section.key);
       },
     });

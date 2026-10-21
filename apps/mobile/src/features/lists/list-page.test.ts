@@ -4,6 +4,7 @@ import {
   LIST_PAGE_SIZE,
   listWindow,
   nextListWindow,
+  mountedItemCount,
   openItemCount,
   pageBlocks,
   reconcileListWindow,
@@ -93,6 +94,25 @@ describe("pageBlocks", () => {
         { key: "closing", items: ["c", "d", "e"], closed: true },
       ]),
     ).toBe(2);
+  });
+
+  test("a closing block keeps only the rows that were already mounted", () => {
+    const openBlocks = [
+      { key: "recent", items: ["r1", "r2"], keep: true },
+      { key: "group", items: Array.from({ length: 200 }, (_, index) => `g${index}`), keep: true },
+    ];
+    const held = mountedItemCount(openBlocks, LIST_PAGE_SIZE, "group");
+    expect(held).toBe(LIST_PAGE_SIZE - 2);
+    const closing = pageBlocks(
+      openBlocks.map((block) =>
+        block.key === "group"
+          ? { ...block, items: block.items.slice(0, held), closed: true }
+          : block,
+      ),
+      LIST_PAGE_SIZE,
+    );
+    expect(closing.find((block) => block.key === "group")?.items).toHaveLength(held);
+    expect(openItemCount(closing)).toBe(2);
   });
 });
 

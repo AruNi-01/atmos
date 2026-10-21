@@ -106,7 +106,7 @@ Query keys:
 
 ### Workspace home
 
-`project_workspace_bootstrap` has no cursor. Web and `resolveChatScope` need the full map, so this spec does not page that action. The home list computes the filtered entries, mounts 20 open rows (`pageBlocks`), and reveals 20 more on scroll or when `fillWhenShort` says the viewport is not filled. A section that is already closed keeps its header and passes no row children. A section that is closing keeps its rows for the 220ms animation, then unmounts them. Closed sections do not spend the 20-row window. A section count stays the full workspace count, not the sliced length. Open sections past the window stay unmounted, including their headers, until the window reaches them.
+`project_workspace_bootstrap` has no cursor. Web and `resolveChatScope` need the full map, so this spec does not page that action. The home list computes the filtered entries, mounts 20 open rows (`pageBlocks`), and reveals 20 more on scroll or when `fillWhenShort` says the viewport is not filled. A section that is already closed keeps its header and passes no row children. A section that is closing keeps only the rows already mounted (`mountedItemCount`) for the 220ms animation, then unmounts them. Closed sections do not spend the 20-row window. A section count stays the full workspace count, not the sliced length. Open sections past the window stay unmounted, including their headers, until the window reaches them.
 
 ### Chat history
 

@@ -7,8 +7,9 @@ export type PagedBlock<T> = {
   /** Collapsed header. Emitted even when it has no row children. */
   keep?: boolean;
   /**
-   * Closed section. The header (and any rows still mounted for the close
-   * animation) stays, but those rows do not spend the window.
+   * Closed section. The header stays. Rows the caller still passes — only the
+   * slice that was already mounted — stay for the close animation and do not
+   * spend the window.
    */
   closed?: boolean;
 };
@@ -61,6 +62,15 @@ export function pageBlocks<T, B extends PagedBlock<T>>(blocks: readonly B[], sho
     visible.push({ ...block, items });
   }
   return visible;
+}
+
+/** How many rows of `key` are mounted at `shown`. A close animation keeps this slice. */
+export function mountedItemCount<T>(
+  blocks: readonly PagedBlock<T>[],
+  shown: number,
+  key: string,
+): number {
+  return pageBlocks(blocks, shown).find((block) => block.key === key)?.items.length ?? 0;
 }
 
 export function nextListWindow(input: {
