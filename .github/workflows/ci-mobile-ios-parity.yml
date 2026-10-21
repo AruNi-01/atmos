@@ -1,9 +1,11 @@
 name: CI - Mobile iOS parity
 
 # structural runs on matching pull requests.
-# ios-build + ios-simulator (stills ∥ motion) are the heavy macOS jobs.
+# ios-build + ios-simulator (stills) + ios-simulator-motion are the heavy macOS jobs.
 # They run on workflow_dispatch, or when the PR has the label ios-parity.
-# QUALITY-023 splits capture so stills and motion overlap after one app build.
+# QUALITY-023: stills stays parallel after ios-build. Motion is serial after
+# stills. Eng Manager stopped PillTap destination-preflight fixes (three
+# rounds of false fails while the sim was Booted).
 # Branch protection was checked before making that job opt-in (QUALITY-010):
 # classic protection is 403 for this token, rulesets are empty, and merged
 # PRs that do not touch these paths (#318, #312) merged without ios-simulator,
@@ -307,17 +309,13 @@ jobs:
           retention-days: 2
 
   ios-simulator:
-    name: ios-simulator (${{ matrix.shard }})
+    name: ios-simulator (stills)
     needs: ios-build
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ios-parity'))
     runs-on: macos-26
     timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [stills, motion]
     env:
       LANG: en_US.UTF-8
     steps:
@@ -349,18 +347,11 @@ jobs:
           name: simulator-app
           path: ${{ runner.temp }}/simulator-app
 
-      - name: Select Xcode, boot simulator, and prebuild PillTap
-        env:
-          PARITY_SHARD: ${{ matrix.shard }}
+      - name: Select Xcode and boot simulator
         run: |
           set -euo pipefail
           mkdir -p artifacts
           bash scripts/agent-chat-parity/ios-boot-simulator.sh setup
-          # Run 39578448510: build-for-testing with generic destination while
-          # CoreSimulatorService was restarting and no device was Booted left
-          # xcodebuild's destination list empty. test-without-building then
-          # could not see UDID E839A11B (only placeholders). Boot first, then
-          # build PillTap for that same id. Do not overlap the two.
           bash scripts/agent-chat-parity/ios-boot-simulator.sh boot | tee artifacts/boot.log
           udid="$(sed -n 's/^udid: //p' artifacts/boot.log | tail -n 1 | tr -d '[:space:]')"
           if [[ -z "$udid" ]]; then
@@ -370,24 +361,10 @@ jobs:
           fi
           echo "PARITY_UDID=${udid}" >> "$GITHUB_ENV"
           echo "pinned simulator ${udid}"
-          if [[ "$PARITY_SHARD" == "motion" ]]; then
-            xcodebuild build-for-testing \
-              -project scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj \
-              -scheme PillTap \
-              -sdk iphonesimulator \
-              -destination "platform=iOS Simulator,id=${udid}" \
-              -derivedDataPath /tmp/pill-tap-derived \
-              -parallel-testing-enabled NO \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO
-            echo "PillTap build-for-testing ok for ${udid}"
-          fi
 
       - name: Install, launch, and capture
         env:
-          PARITY_SHARD: ${{ matrix.shard }}
-          PILL_TAP_ACTION: ${{ matrix.shard == 'motion' && 'test-without-building' || 'test' }}
-          PILL_TAP_DERIVED: /tmp/pill-tap-derived
+          PARITY_SHARD: stills
         run: |
           set -euo pipefail
           mkdir -p artifacts/app artifacts/phone
@@ -412,13 +389,13 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           {
-            echo "# iOS parity capture (${{ matrix.shard }})"
+            echo "# iOS parity capture (stills)"
             echo
             echo "- xcode-select: $(xcode-select -p)"
             echo "- xcodebuild:"
             xcodebuild -version | sed 's/^/  /'
             echo "- simulator device: iPhone 17 Pro"
-            echo "- shard: ${{ matrix.shard }}"
+            echo "- shard: stills"
             echo "- Phone PNGs in this artifact are iOS Simulator frames."
             echo "- react-native-web comparison PNGs, when the ubuntu job finishes, are artifact parity-rn-web. They are not iOS and not Next."
             echo "- S31 Next.js web PNGs were not produced."
@@ -428,7 +405,117 @@ jobs:
         if: always() && !cancelled()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-parity-${{ matrix.shard }}
+          name: ios-parity-stills
+          path: |
+            artifacts/phone
+            artifacts/summary.md
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-simulator-motion:
+    # Serial after stills. Do not overlap motion PillTap with the stills VM, and
+    # do not prebuild / test-without-building: three labeled rounds of
+    # wait_for_xcode_destination false-failed while simctl showed the UDID Booted
+    # (39578448510, 39591952360 attempt 2, 39610161253). Eng Manager stopped
+    # further PillTap destination-preflight work. Capture uses serial
+    # `xcodebuild test` (script default).
+    name: ios-simulator (motion)
+    needs: [ios-build, ios-simulator]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ios-parity'))
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      LANG: en_US.UTF-8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if bun install --frozen-lockfile; then
+              exit 0
+            fi
+            echo "bun install failed (attempt ${attempt})"
+            sleep 15
+          done
+          exit 1
+
+      - name: Download simulator app
+        uses: actions/download-artifact@v4
+        with:
+          name: simulator-app
+          path: ${{ runner.temp }}/simulator-app
+
+      - name: Select Xcode and boot simulator
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          bash scripts/agent-chat-parity/ios-boot-simulator.sh setup
+          bash scripts/agent-chat-parity/ios-boot-simulator.sh boot | tee artifacts/boot.log
+          udid="$(sed -n 's/^udid: //p' artifacts/boot.log | tail -n 1 | tr -d '[:space:]')"
+          if [[ -z "$udid" ]]; then
+            echo "boot did not print udid" >&2
+            cat artifacts/boot.log >&2 || true
+            exit 1
+          fi
+          echo "PARITY_UDID=${udid}" >> "$GITHUB_ENV"
+          echo "pinned simulator ${udid}"
+
+      - name: Install, launch, and capture
+        env:
+          PARITY_SHARD: motion
+          PILL_TAP_ACTION: test
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/app artifacts/phone
+          tar -C artifacts/app -xf "$RUNNER_TEMP/simulator-app/Atmos.app.tar"
+          app=""
+          for candidate in artifacts/app/*.app; do
+            [[ -d "$candidate" ]] || continue
+            app="$candidate"
+            break
+          done
+          if [[ -z "$app" || ! -d "$app" ]]; then
+            echo "unpacked Atmos.app missing" >&2
+            ls -la artifacts/app >&2 || true
+            exit 1
+          fi
+          echo "app: ${app}"
+          xcrun simctl install booted "$app"
+          bash scripts/agent-chat-parity/ios-capture.sh
+
+      - name: Write summary
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          {
+            echo "# iOS parity capture (motion)"
+            echo
+            echo "- xcode-select: $(xcode-select -p)"
+            echo "- xcodebuild:"
+            xcodebuild -version | sed 's/^/  /'
+            echo "- simulator device: iPhone 17 Pro"
+            echo "- shard: motion"
+            echo "- PillTap: serial xcodebuild test (no destination preflight)"
+            echo "- Phone PNGs in this artifact are iOS Simulator frames."
+            echo "- react-native-web comparison PNGs, when the ubuntu job finishes, are artifact parity-rn-web. They are not iOS and not Next."
+            echo "- S31 Next.js web PNGs were not produced."
+          } > artifacts/summary.md
+
+      - name: Upload ios-parity shard
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-parity-motion
           path: |
             artifacts/phone
             artifacts/summary.md
@@ -437,7 +524,7 @@ jobs:
 
   ios-parity:
     name: ios-parity
-    needs: ios-simulator
+    needs: [ios-simulator, ios-simulator-motion]
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ios-parity'))

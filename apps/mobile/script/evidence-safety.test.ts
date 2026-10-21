@@ -140,6 +140,7 @@ describe("evidence skill and ios parity workflow", () => {
     expect(structural).not.toContain("workflow_dispatch");
     expect(workflow).toContain("ios-build:");
     expect(workflow).toContain("ios-simulator:");
+    expect(workflow).toContain("ios-simulator-motion:");
   });
 });
 

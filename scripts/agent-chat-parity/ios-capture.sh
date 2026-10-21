@@ -360,58 +360,6 @@ if len(booted) == 1:
 '
 }
 
-# Run 39591952360 attempt 2: wait_for_xcode_destination polled
-# `xcodebuild -showdestinations 2>/dev/null | grep` for 60s and failed, then
-# the unpiped dump listed `id:E839A11B-…` and simctl showed it Booted. Piped
-# stdout is empty; the destination table is on stderr. Capture both, bound
-# the query so one hang cannot eat the whole wait.
-xcode_sees_udid() {
-  local udid="$1"
-  python3 - "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" "$udid" <<'PY'
-import subprocess
-import sys
-
-project, udid = sys.argv[1], sys.argv[2]
-cmd = [
-    "xcodebuild",
-    "-project",
-    project,
-    "-scheme",
-    "PillTap",
-    "-showdestinations",
-]
-proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-try:
-    out, _ = proc.communicate(timeout=20)
-except subprocess.TimeoutExpired:
-    proc.kill()
-    proc.communicate()
-    sys.exit(1)
-if not out:
-    sys.exit(1)
-sys.exit(0 if f"id:{udid}" in out or f"id: {udid}" in out else 1)
-PY
-}
-
-wait_for_xcode_destination() {
-  local udid="$1"
-  local deadline=$((SECONDS + 60))
-  while (( SECONDS < deadline )); do
-    if xcode_sees_udid "$udid"; then
-      echo "xcodebuild sees ${udid}"
-      return 0
-    fi
-    sleep 2
-  done
-  echo "PillTap destination missing: xcodebuild cannot see ${udid}" >&2
-  xcodebuild \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -showdestinations 2>&1 >&2 || true
-  xcrun simctl list devices booted >&2 || true
-  return 1
-}
-
 settle_pill_runner() {
   xcrun simctl terminate booted land.atmos.pill-tap.uitests.xctrunner >/dev/null 2>&1 || true
 }
@@ -425,9 +373,11 @@ run_pill_tap() {
     xcrun simctl list devices booted >&2 || true
     return 1
   fi
-  if ! wait_for_xcode_destination "$udid"; then
-    return 1
-  fi
+  # Eng Manager 2026-10-21: stop PillTap destination preflight. Three labeled
+  # rounds (39578448510, 39591952360 a2, 39610161253) failed wait_for_xcode_destination
+  # while simctl listed the UDID Booted and the unpiped showdestinations dump
+  # already had id:$UDID. Serial `xcodebuild test` (PILL_TAP_ACTION default)
+  # compiles and attaches in one step; Unable to find is still destination missing.
   log="$(mktemp)"
   while (( attempt <= 3 )); do
     settle_pill_runner

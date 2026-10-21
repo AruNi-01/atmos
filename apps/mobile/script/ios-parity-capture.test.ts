@@ -46,11 +46,21 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(capture).toContain("capture_tail_away");
     expect(capture).toContain("capture_f12_pill_taps");
     expect(capture).toContain("capture_composer_keyboard");
-    expect(workflow).toContain("shard: [stills, motion]");
+    expect(workflow).not.toContain("shard: [stills, motion]");
     expect(workflow).toContain("ios-build:");
-    expect(workflow).toContain("PARITY_SHARD: ${{ matrix.shard }}");
-    expect(workflow).toContain("name: ios-parity-${{ matrix.shard }}");
+    expect(workflow).toContain("ios-simulator:");
+    expect(workflow).toContain("ios-simulator-motion:");
+    expect(sliceJob("ios-simulator")).toContain("PARITY_SHARD: stills");
+    expect(sliceJob("ios-simulator")).toContain("needs: ios-build");
+    expect(sliceJob("ios-simulator")).not.toContain("PILL_TAP_ACTION");
+    expect(sliceJob("ios-simulator-motion")).toContain("PARITY_SHARD: motion");
+    expect(sliceJob("ios-simulator-motion")).toContain("needs: [ios-build, ios-simulator]");
+    expect(workflow).toContain("name: ios-parity-stills");
+    expect(workflow).toContain("name: ios-parity-motion");
     expect(workflow).toContain("name: ios-parity");
+    expect(sliceJob("ios-parity")).toContain("needs: [ios-simulator, ios-simulator-motion]");
+    expect(sliceJob("ios-simulator")).not.toContain("strategy:");
+    expect(sliceJob("ios-simulator-motion")).not.toContain("strategy:");
   });
 
   test("paint wait replaces the 15s fixture sleep", () => {
@@ -62,14 +72,12 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(capture).not.toContain("sleep 15");
   });
 
-  test("PillTap is prebuilt on the motion shard", () => {
+  test("PillTap is serial xcodebuild test without destination preflight", () => {
     expect(capture).toContain('PILL_TAP_ACTION="${PILL_TAP_ACTION:-test}"');
     expect(capture).toContain('xcodebuild "$PILL_TAP_ACTION"');
-    expect(workflow).toContain("build-for-testing");
-    expect(workflow).toContain('"$PARITY_SHARD" == "motion"');
-    expect(workflow).toContain(
-      "PILL_TAP_ACTION: ${{ matrix.shard == 'motion' && 'test-without-building' || 'test' }}",
-    );
+    expect(workflow).not.toContain("xcodebuild build-for-testing");
+    expect(workflow).not.toContain("PILL_TAP_ACTION: test-without-building");
+    expect(sliceJob("ios-simulator-motion")).toContain("PILL_TAP_ACTION: test");
     expect(capture).toContain("PillTap missed:");
     expect(capture).not.toContain("A miss does not fail the job");
     expect(capture).toContain("installing or uninstalling");
@@ -77,13 +85,8 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(capture).toContain('wait_for_since "$needle" 120 "$mark"');
     expect(capture).not.toContain("install_pill_runner");
     expect(capture).toContain("PillTap destination missing:");
-    expect(capture).toContain("wait_for_xcode_destination");
-    const sees = capture.slice(
-      capture.indexOf("xcode_sees_udid()"),
-      capture.indexOf("wait_for_xcode_destination()"),
-    );
-    expect(sees).toContain("stderr=subprocess.STDOUT");
-    expect(sees).not.toContain("2>/dev/null");
+    expect(capture).not.toContain("wait_for_xcode_destination()");
+    expect(capture).not.toContain("xcode_sees_udid");
     expect(capture).toContain('wait_for_since "[parity] pill awaiting tap"');
     expect(capture).toContain("terminate_app");
     expect(capture).toContain("log-mark-epoch.txt");
@@ -144,11 +147,15 @@ describe("QUALITY-023 iOS parity capture speed", () => {
   });
 
   test("motion PillTap uses the booted UDID after boot, not a generic overlap", () => {
-    const simJob = sliceJob("ios-simulator");
-    expect(simJob).toContain("PARITY_UDID");
-    expect(simJob).toContain("platform=iOS Simulator,id=${udid}");
-    expect(simJob).not.toContain("pill_pid");
-    expect(simJob).not.toContain("pill-tap-build.log");
+    const stillsJob = sliceJob("ios-simulator");
+    const motionJob = sliceJob("ios-simulator-motion");
+    expect(stillsJob).toContain("PARITY_UDID");
+    expect(motionJob).toContain("PARITY_UDID");
+    expect(capture).toContain('-destination "platform=iOS Simulator,id=${udid}"');
+    expect(stillsJob).not.toContain("pill_pid");
+    expect(motionJob).not.toContain("pill_pid");
+    expect(stillsJob).not.toContain("pill-tap-build.log");
+    expect(motionJob).not.toContain("pill-tap-build.log");
     expect(sliceJob("ios-build")).toContain("generic/platform=iOS Simulator");
   });
 
@@ -157,13 +164,17 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(workflow).not.toContain(".xcode.env.local");
     expect(workflow).not.toContain("> .env");
     const buildJob = sliceJob("ios-build");
-    const simJob = sliceJob("ios-simulator");
+    const stillsJob = sliceJob("ios-simulator");
+    const motionJob = sliceJob("ios-simulator-motion");
     const buildJobEnv = buildJob.slice(0, buildJob.indexOf("steps:"));
-    const simJobEnv = simJob.slice(0, simJob.indexOf("steps:"));
+    const stillsJobEnv = stillsJob.slice(0, stillsJob.indexOf("steps:"));
+    const motionJobEnv = motionJob.slice(0, motionJob.indexOf("steps:"));
     expect(buildJobEnv).not.toContain("EXPO_PUBLIC_PARITY_PREVIEW");
-    expect(simJobEnv).not.toContain("EXPO_PUBLIC_PARITY_PREVIEW");
+    expect(stillsJobEnv).not.toContain("EXPO_PUBLIC_PARITY_PREVIEW");
+    expect(motionJobEnv).not.toContain("EXPO_PUBLIC_PARITY_PREVIEW");
     expect(buildJob).toContain('EXPO_PUBLIC_PARITY_PREVIEW: "1"');
-    expect(simJob).not.toContain("EXPO_PUBLIC_PARITY_PREVIEW");
+    expect(stillsJob).not.toContain("EXPO_PUBLIC_PARITY_PREVIEW");
+    expect(motionJob).not.toContain("EXPO_PUBLIC_PARITY_PREVIEW");
     expect(workflow).toContain('EXPO_PUBLIC_PARITY_PREVIEW: "1"');
   });
 
@@ -179,6 +190,7 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(sliceJob("ios-build")).toContain("oven-sh/setup-bun@v2");
     expect(sliceJob("ios-build")).not.toContain("./.github/actions/setup-bun");
     expect(sliceJob("ios-simulator")).toContain("oven-sh/setup-bun@v2");
+    expect(sliceJob("ios-simulator-motion")).toContain("oven-sh/setup-bun@v2");
     expect(sliceJob("structural")).toContain("./.github/actions/setup-bun");
     const structural = sliceJob("structural");
     expect(structural).not.toContain("ios-parity");
