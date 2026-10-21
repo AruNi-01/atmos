@@ -42,19 +42,22 @@ export function useAgentChatList(scopeId: string) {
     getNextPageParam: (lastPage, _pages, lastPageParam) =>
       nextChatListCursor(lastPage.items ?? [], CHAT_LIST_PAGE_SIZE, lastPageParam),
   });
-  const fetchNextPage = useCallback(() => {
-    if (!listQuery.hasNextPage || listQuery.isFetchingNextPage || listQuery.isFetchNextPageError)
-      return;
+  const fetchNextPage = useCallback((): boolean => {
+    if (!listQuery.hasNextPage || listQuery.isFetchingNextPage || listQuery.isFetchNextPageError) {
+      return false;
+    }
     void listQuery.fetchNextPage();
+    return true;
   }, [
     listQuery.fetchNextPage,
     listQuery.hasNextPage,
     listQuery.isFetchNextPageError,
     listQuery.isFetchingNextPage,
   ]);
-  const retryNextPage = useCallback(() => {
-    if (!listQuery.hasNextPage || listQuery.isFetchingNextPage) return;
+  const retryNextPage = useCallback((): boolean => {
+    if (!listQuery.hasNextPage || listQuery.isFetchingNextPage) return false;
     void listQuery.fetchNextPage();
+    return true;
   }, [listQuery.fetchNextPage, listQuery.hasNextPage, listQuery.isFetchingNextPage]);
   const chatItems = uniqueChatItems(
     listQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],

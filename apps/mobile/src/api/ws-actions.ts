@@ -28,6 +28,7 @@ import type { AgentSessionStatusListResponse } from "@atmos/api-types/ws/dto/age
 import type { QuotaOverviewRequest } from "@atmos/api-types/ws/dto/quota";
 import type { TokenUsageOverviewRequest } from "@atmos/api-types/ws/dto/token-usage";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
+import { AGENT_SESSION_STATUS_PAGE_SIZE } from "@/api/session-status-page";
 
 const QUOTA_ACTION_TIMEOUT_MS = 15_000;
 
@@ -187,7 +188,7 @@ export const wsActions = {
   },
   agentSessionStatusList(client: MobileWsClient, cursor: string | null = null) {
     return client.request("agent_session_status_list", {
-      limit: 100,
+      limit: AGENT_SESSION_STATUS_PAGE_SIZE,
       cursor,
     }) as Promise<AgentSessionStatusListResponse>;
   },

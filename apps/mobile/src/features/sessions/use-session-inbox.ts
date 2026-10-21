@@ -24,15 +24,22 @@ import {
   recentSessionRows,
   sessionInboxCards,
   sessionWorkspaceSources,
+  snapshotsForBucket,
   SESSION_BUCKETS,
   SESSION_BUCKET_LABEL,
+  type SessionBucket,
   type SessionInboxCandidate,
   type SessionInboxCard,
   type SessionWorkspaceRecord,
 } from "./session-inbox";
-import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
+import {
+  sessionInboxLoadsEnrichment,
+  sessionInboxRefreshesOnFocus,
+  type SessionInboxSurface,
+} from "./session-inbox-surface";
 import { useAgentSessionStatusList } from "./use-agent-session-status-list";
 import { useSessionRowActions } from "./use-session-row-actions";
+import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
 
 const SESSION_STATUS_EVENTS = new Set([
   "agent_status_changed",
@@ -61,7 +68,14 @@ type PrTarget = {
   branch: string;
 };
 
-export function useSessionInbox() {
+export function useSessionInbox(options?: {
+  surface?: SessionInboxSurface;
+  bucket?: SessionBucket | null;
+}) {
+  const surface = options?.surface ?? "home";
+  const bucket = options?.bucket ?? null;
+  const loadsEnrichment = sessionInboxLoadsEnrichment(surface);
+  const refreshOnFocus = sessionInboxRefreshesOnFocus(surface);
   const queryClient = useQueryClient();
   const focused = useIsFocused();
   const { client, state: wsState } = useMobileWs();
@@ -83,7 +97,7 @@ export function useSessionInbox() {
 
   const candidatesQuery = useQuery({
     queryKey: ["session-terminal-candidates", selectedServerId, workspaceKey],
-    enabled: Boolean(client && connected && focused && bootstrapQuery.isSuccess),
+    enabled: loadsEnrichment && Boolean(client && connected && focused && bootstrapQuery.isSuccess),
     queryFn: () => loadSessionCandidates(client!, sources.active),
   });
 
@@ -95,7 +109,7 @@ export function useSessionInbox() {
 
   const gitQuery = useQuery({
     queryKey: ["session-git-status", selectedServerId, gitKey],
-    enabled: Boolean(client && connected && focused && gitTargets.length > 0),
+    enabled: loadsEnrichment && Boolean(client && connected && focused && gitTargets.length > 0),
     staleTime: 60_000,
     queryFn: () => loadSessionGitStatus(client!, gitTargets),
   });
@@ -108,7 +122,8 @@ export function useSessionInbox() {
 
   const prQuery = useQuery({
     queryKey: ["session-branch-prs", selectedServerId, prKey],
-    enabled: Boolean(client && connected && focused && prPlan.targets.length > 0),
+    enabled:
+      loadsEnrichment && Boolean(client && connected && focused && prPlan.targets.length > 0),
     staleTime: 60_000,
     queryFn: () => loadSessionBranchPrs(client!, prPlan.targets),
   });
@@ -117,20 +132,20 @@ export function useSessionInbox() {
 
   const chatTitleQuery = useQuery({
     queryKey: ["session-chat-titles", selectedServerId],
-    enabled: Boolean(client && connected && focused),
+    enabled: loadsEnrichment && Boolean(client && connected && focused),
     queryFn: () => loadSessionChatTitles(client!),
   });
 
   useFocusEffect(
     useCallback(() => {
-      if (!client || !connected) return;
+      if (!refreshOnFocus || !client || !connected) return;
       void queryClient.invalidateQueries({
         queryKey: ["agent-session-status-list", selectedServerId],
       });
       void queryClient.invalidateQueries({
         queryKey: ["session-terminal-candidates", selectedServerId],
       });
-    }, [client, connected, queryClient, selectedServerId]),
+    }, [client, connected, queryClient, refreshOnFocus, selectedServerId]),
   );
 
   useEffect(() => {
@@ -180,14 +195,20 @@ export function useSessionInbox() {
       }
     }
 
+    const snapshots =
+      surface === "bucket"
+        ? bucket
+          ? snapshotsForBucket(statusQuery.sessions, bucket)
+          : []
+        : statusQuery.sessions;
     const joined = joinSessionRows({
       candidates,
-      snapshots: statusQuery.sessions,
+      snapshots,
       workspaces: sources.active,
       projects: sources.projects,
       archivedWorkspaceIds: sources.archivedIds,
       chatTitles: chatTitleQuery.data,
-      chatTitlesPending: !chatTitleQuery.isSuccess,
+      chatTitlesPending: loadsEnrichment && !chatTitleQuery.isSuccess,
     });
     const prByWorkspace = prStateByWorkspace(sources.active, prPlan.byWorkspaceId, prQuery.data);
     const rows = joined.map((row) => ({
@@ -201,18 +222,21 @@ export function useSessionInbox() {
       recent: recentSessionRows(rows),
     };
   }, [
+    bootstrapQuery.isLoading,
+    bucket,
     candidatesQuery.data,
     candidatesQuery.isSuccess,
+    chatTitleQuery.data,
+    chatTitleQuery.isSuccess,
     connected,
-    bootstrapQuery.isPending,
+    loadsEnrichment,
     prPlan.byWorkspaceId,
     prQuery.data,
     sources,
-    chatTitleQuery.data,
-    chatTitleQuery.isSuccess,
     statusQuery.counts,
     statusQuery.isLoading,
     statusQuery.sessions,
+    surface,
   ]);
 
   const statusError = statusQuery.isFetchNextPageError ? null : statusQuery.error;

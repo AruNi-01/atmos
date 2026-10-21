@@ -6,6 +6,12 @@ function page(count: number, prefix = "chat") {
   return Array.from({ length: count }, (_, index) => ({ id: `${prefix}-${index + 1}` }));
 }
 
+describe("chat list page size", () => {
+  test("stays on the web chat index page of 100", () => {
+    expect(CHAT_LIST_PAGE_SIZE).toBe(100);
+  });
+});
+
 describe("next chat list cursor", () => {
   test("a short page is the last page", () => {
     expect(nextChatListCursor(page(3), CHAT_LIST_PAGE_SIZE, null)).toBeUndefined();

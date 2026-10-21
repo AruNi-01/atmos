@@ -1,13 +1,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import {
-  AppScreen,
-  EmptyState,
-  InlineError,
-  ListLoadMoreFooter,
-  Section,
-} from "@/ui/layout/app-screen";
+import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
@@ -20,6 +14,9 @@ import {
 } from "@/ui/icons/lucide-native";
 import { type MobileThemeColors } from "@/theme/colors";
 import { openSessionDestination } from "@/features/agent-chat/navigation";
+import { FilteredListFooter } from "./filtered-list-footer";
+import { openSessionBucketHref } from "./list-navigation";
+import { useFilteredListWindow } from "./use-filtered-list-window";
 import {
   filterSessionRows,
   isSessionBucket,
@@ -54,12 +51,9 @@ export function SessionHomeScreen() {
     <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
       <SessionCardGrid
         cards={inbox.cards}
-        onPress={(bucket) =>
-          router.push({
-            pathname: "/(home)/session/[bucket]",
-            params: { bucket },
-          })
-        }
+        onPress={(bucket) => {
+          router.push(openSessionBucketHref(bucket));
+        }}
       />
       {inbox.isLoading && inbox.recent.length === 0 && inbox.pinnedIds.length === 0 ? (
         <Section label="Recent">
@@ -90,17 +84,34 @@ export function SessionHomeScreen() {
 }
 
 export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) {
-  const router = useRouter();
-  const inbox = useSessionInbox();
-  const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const parsed = bucket && isSessionBucket(bucket) ? bucket : null;
-  const rows = parsed
+  return <SessionBucketBody bucket={parsed} key={parsed ?? "unknown"} />;
+}
+
+function SessionBucketBody({ bucket }: { bucket: SessionBucket | null }) {
+  const router = useRouter();
+  const inbox = useSessionInbox({ surface: "bucket", bucket });
+  const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
+  const ordered = bucket
     ? orderPinnedRows(
-        sortSessionRowsByRecency(filterSessionRows(inbox.rows, parsed)),
+        sortSessionRowsByRecency(filterSessionRows(inbox.rows, bucket)),
         inbox.pinnedIds,
         sessionPinId,
       )
     : [];
+  const { fetchNextPage, retryNextPage } = inbox;
+  const fetchNext = useCallback((): boolean => fetchNextPage(), [fetchNextPage]);
+  const retryNext = useCallback((): boolean => retryNextPage(), [retryNextPage]);
+  const list = useFilteredListWindow({
+    fetchFailed: inbox.connected && inbox.fetchNextPageFailed,
+    fetchNext,
+    fetching: inbox.connected && inbox.isFetchingNextPage,
+    filterKey: bucket ?? "unknown",
+    hasNextServerPage: Boolean(bucket) && inbox.connected && inbox.hasNextPage,
+    pending: Boolean(bucket) && inbox.connected && inbox.isLoading,
+    retryNext,
+    rows: bucket && inbox.connected ? ordered : [],
+  });
 
   if (!inbox.connected) {
     return (
@@ -110,24 +121,15 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     );
   }
 
-  const bucketCount = parsed ? (inbox.cards.find((card) => card.bucket === parsed)?.count ?? 0) : 0;
-  const fillWhenShort =
-    rows.length < bucketCount && inbox.hasNextPage && !inbox.fetchNextPageFailed;
-
   return (
-    <AppScreen
-      fillWhenShort={fillWhenShort}
-      onEndReached={inbox.retryNextPage}
-      onRefresh={onRefresh}
-      refreshing={refreshing}
-    >
-      {parsed ? (
+    <AppScreen onEndReached={list.onEndReached} onRefresh={onRefresh} refreshing={refreshing}>
+      {bucket ? (
         <Section>
-          {inbox.isLoading || (rows.length === 0 && fillWhenShort) ? (
+          {list.frame.mode === "skeleton" ? (
             <ListSkeleton />
-          ) : rows.length === 0 ? (
+          ) : list.frame.mode === "empty" && list.status !== "error" ? (
             <EmptyState layout="section" message="This list is empty." title="No sessions" />
-          ) : (
+          ) : list.frame.mode === "rows" ? (
             <SessionRowList
               onArchiveChat={(row) =>
                 row.chatId ? inbox.archiveChat(sessionPinId(row), row.chatId) : Promise.resolve()
@@ -140,14 +142,14 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
               onPress={(row) => openSessionRow(router, row)}
               onTogglePin={inbox.togglePin}
               pinnedIds={inbox.pinnedIds}
-              rows={rows}
+              rows={list.frame.rows}
             />
-          )}
+          ) : null}
         </Section>
       ) : (
         <EmptyState message="This session list is not available." title="Unknown list" />
       )}
-      <ListLoadMoreFooter loading={inbox.isFetchingNextPage} />
+      <FilteredListFooter onRetry={list.retry} status={list.status} />
       <InlineError message={inbox.error} />
     </AppScreen>
   );

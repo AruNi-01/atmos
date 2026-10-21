@@ -303,6 +303,18 @@ export function filterSessionRows(
   return rows.filter((row) => row.bucket === bucket);
 }
 
+/** Same bucket rule as `asBucket`: an unknown group key is done. */
+export function snapshotMatchesBucket(groupKey: string, bucket: SessionBucket): boolean {
+  return (isSessionBucket(groupKey) ? groupKey : "done") === bucket;
+}
+
+export function snapshotsForBucket<T extends { group_key: string }>(
+  snapshots: readonly T[],
+  bucket: SessionBucket,
+): T[] {
+  return snapshots.filter((snapshot) => snapshotMatchesBucket(snapshot.group_key, bucket));
+}
+
 /** Newest activity first. Ties break on id so a page stays in one order. */
 export function sortSessionRowsByRecency(rows: readonly SessionInboxRow[]): SessionInboxRow[] {
   return [...rows].sort((left, right) => {

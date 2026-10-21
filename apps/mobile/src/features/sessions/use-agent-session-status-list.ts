@@ -32,23 +32,24 @@ export function useAgentSessionStatusList() {
 
   const nextPageLock = useRef(false);
   const loadNextPage = useCallback(
-    (allowError: boolean) => {
-      if (nextPageLock.current || !query.hasNextPage || query.isFetchingNextPage) return;
-      if (!allowError && query.isFetchNextPageError) return;
+    (allowError: boolean): boolean => {
+      if (nextPageLock.current || !query.hasNextPage || query.isFetchingNextPage) return false;
+      if (!allowError && query.isFetchNextPageError) return false;
       nextPageLock.current = true;
       void query.fetchNextPage().finally(() => {
         nextPageLock.current = false;
       });
+      return true;
     },
     [query.fetchNextPage, query.hasNextPage, query.isFetchNextPageError, query.isFetchingNextPage],
   );
 
-  const fetchNextPage = useCallback(() => {
-    loadNextPage(false);
+  const fetchNextPage = useCallback((): boolean => {
+    return loadNextPage(false);
   }, [loadNextPage]);
 
-  const retryNextPage = useCallback(() => {
-    loadNextPage(true);
+  const retryNextPage = useCallback((): boolean => {
+    return loadNextPage(true);
   }, [loadNextPage]);
 
   const pages = query.data?.pages;

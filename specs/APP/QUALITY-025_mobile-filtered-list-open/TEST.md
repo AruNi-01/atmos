@@ -42,24 +42,24 @@ No test is skipped. The oxlint warning cap is not raised.
 
 ## Execution map
 
-`Status` stays `planned` until the named command has run for this spec. Manual stays `planned`.
+`Status` is `pass` after the named command ran for this spec. S15 stays `planned`.
 
 | Scenario | Level           | Expected tool   | Target command / method                                                           | Fixture / data                                                                    | Signals                                                                                                                 | Status  |
 | -------- | --------------- | --------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
-| S1       | Bun unit        | `bun test`      | `list-navigation.test.ts`                                                         | bucket `done`; workspace `ws-1`                                                   | plain object href; `not.toBeInstanceOf(Promise)`                                                                        | planned |
-| S2       | Bun scan        | `bun test`      | `list-navigation.test.ts` reads `SessionInboxScreen.tsx`, `WorkspaceHomeList.tsx` | source                                                                            | `openSessionBucketHref` / `openWorkspaceEntryHref`; no `await router.push`; no `await openSession`                      | planned |
-| S3       | Bun unit        | `bun test`      | `filtered-list-page.test.ts` or `session-inbox-surface` cases                     | `"home"` / `"bucket"`                                                             | enrichment and focus refresh true only for home                                                                         | planned |
-| S4       | Bun scan        | `bun test`      | same file reads `use-session-inbox.ts`, `SessionInboxScreen.tsx`                  | source                                                                            | `sessionInboxRefreshesOnFocus`; `sessionInboxLoadsEnrichment`; `snapshotsForBucket`; bucket file has no `fillWhenShort` | planned |
-| S5       | Bun unit        | `bun test`      | `session-inbox.test.ts` `snapshotsForBucket`                                      | mixed `group_key`, including `"other"`                                            | only the bucket; `"other"` is in `done`                                                                                 | planned |
-| S6       | Bun unit        | `bun test`      | `filteredListFirstFrame`                                                          | 0 rows pending; 0 rows failed; 500 cached rows, visible 20                        | skeleton; empty; 20 rows, mode `rows`                                                                                   | planned |
-| S7       | Bun unit        | `bun test`      | `filteredListShouldFetch`                                                         | loaded 0/19/20, visible 20/40, fetching, failed, no next                          | fetch only while the first UI page is short                                                                             | planned |
-| S8       | Bun unit        | `bun test`      | `advanceFilteredList`                                                             | visible 20 loaded 100; visible 100 loaded 100 with next; at end; fetching; failed | +20 and no fetch; fetch and same visible; no-op; ignore                                                                 | planned |
-| S9       | Bun unit        | `bun test`      | `filteredListStatus`, `retryFilteredListFetch`                                    | `fetchFailed`; retry result                                                       | status `error`; retry returns `fetch: true`                                                                             | planned |
-| S10      | Bun unit        | `bun test`      | `beginFilteredListFetch`, `settleFilteredListFetch`                               | second call while requesting; settle without `sawFetching`; settle after fetching | second `fetch: false`; requesting clears                                                                                | planned |
-| S11      | Bun unit        | `bun test`      | `visibleCountAfterServerPage`                                                     | 0→15 auto-fill; visible 100, previous 100, loaded 180                             | visible stays 20; visible becomes 120                                                                                   | planned |
-| S12      | Bun unit        | `bun test`      | `syncFilteredListFilter`                                                          | same key; key `done` → `running`                                                  | same object; visible 20                                                                                                 | planned |
-| S13      | Bun unit + scan | `bun test`      | `session-status-page.ts`, `ws-actions.ts`, `chat-list-page.test.ts`               | constants                                                                         | both page sizes are 100; status action uses the constant; no `limit: 20` on that action                                 | planned |
-| S14      | Review          | `rg` / `oxlint` | root `package.json` script `lint`; `bunx oxlint --max-warnings=455`               | repo                                                                              | script text unchanged; oxlint exit 0                                                                                    | planned |
+| S1       | Bun unit        | `bun test`      | `list-navigation.test.ts`                                                         | bucket `done`; workspace `ws-1`                                                   | plain object href; `not.toBeInstanceOf(Promise)`                                                                        | pass    |
+| S2       | Bun scan        | `bun test`      | `list-navigation.test.ts` reads `SessionInboxScreen.tsx`, `WorkspaceHomeList.tsx` | source                                                                            | `openSessionBucketHref` / `openWorkspaceEntryHref`; no `await router.push`; no `await openSession`                      | pass    |
+| S3       | Bun unit        | `bun test`      | `filtered-list-page.test.ts` or `session-inbox-surface` cases                     | `"home"` / `"bucket"`                                                             | enrichment and focus refresh true only for home                                                                         | pass    |
+| S4       | Bun scan        | `bun test`      | same file reads `use-session-inbox.ts`, `SessionInboxScreen.tsx`                  | source                                                                            | `sessionInboxRefreshesOnFocus`; `sessionInboxLoadsEnrichment`; `snapshotsForBucket`; bucket file has no `fillWhenShort` | pass    |
+| S5       | Bun unit        | `bun test`      | `session-inbox.test.ts` `snapshotsForBucket`                                      | mixed `group_key`, including `"other"`                                            | only the bucket; `"other"` is in `done`                                                                                 | pass    |
+| S6       | Bun unit        | `bun test`      | `filteredListFirstFrame`                                                          | 0 rows pending; 0 rows failed; 500 cached rows, visible 20                        | skeleton; empty; 20 rows, mode `rows`                                                                                   | pass    |
+| S7       | Bun unit        | `bun test`      | `filteredListShouldFetch`                                                         | loaded 0/19/20, visible 20/40, fetching, failed, no next                          | fetch only while the first UI page is short                                                                             | pass    |
+| S8       | Bun unit        | `bun test`      | `advanceFilteredList`                                                             | visible 20 loaded 100; visible 100 loaded 100 with next; at end; fetching; failed | +20 and no fetch; fetch and same visible; no-op; ignore                                                                 | pass    |
+| S9       | Bun unit        | `bun test`      | `filteredListStatus`, `retryFilteredListFetch`                                    | `fetchFailed`; retry result                                                       | status `error`; retry returns `fetch: true`                                                                             | pass    |
+| S10      | Bun unit        | `bun test`      | `beginFilteredListFetch`, `settleFilteredListFetch`                               | second call while requesting; settle without `sawFetching`; settle after fetching | second `fetch: false`; requesting clears                                                                                | pass    |
+| S11      | Bun unit        | `bun test`      | `visibleCountAfterServerPage`                                                     | 0→15 auto-fill; visible 100, previous 100, loaded 180                             | visible stays 20; visible becomes 120                                                                                   | pass    |
+| S12      | Bun unit        | `bun test`      | `syncFilteredListFilter`                                                          | same key; key `done` → `running`                                                  | same object; visible 20                                                                                                 | pass    |
+| S13      | Bun unit + scan | `bun test`      | `session-status-page.ts`, `ws-actions.ts`, `chat-list-page.test.ts`               | constants                                                                         | both page sizes are 100; status action uses the constant; no `limit: 20` on that action                                 | pass    |
+| S14      | Review          | `rg` / `oxlint` | root `package.json` script `lint`; `bunx oxlint --max-warnings=455`               | repo                                                                              | script text unchanged; oxlint exit 0                                                                                    | pass    |
 | S15      | Manual          | iOS simulator   | tap Session cards and a Workspace row                                             | cold cache and warm cache                                                         | push is not held for data; skeleton or 20 rows; scroll loads; Try again; switching card resets                          | planned |
 
 ## Scenarios
@@ -224,4 +224,27 @@ Not applicable. These screens are Expo / React Native. S15 is the manual substit
 
 ## Coverage Status
 
-Pending implementation. S1–S14 are `planned`. S15 is manual and stays `planned`.
+Ran on this branch after the implementation commit's code was in the tree.
+
+- `bun test apps/mobile/src/features/sessions/filtered-list-page.test.ts apps/mobile/src/features/sessions/list-navigation.test.ts apps/mobile/src/features/sessions/session-inbox.test.ts apps/mobile/src/features/agent-chat/chat-list-page.test.ts` — 39 pass.
+- `bun test` in `apps/mobile` — 587 pass, 0 fail.
+- `bunx oxlint --max-warnings=455` — exit 0. `package.json` `lint` is still `oxlint --max-warnings=455`.
+- `bun --filter @atmos/mobile typecheck` — no errors in the files this spec changes. Two pre-existing errors remain outside this diff: `react-dom/server` has no declaration in `glass-text-button.test.ts`, and `open-thread-resync.test.ts` passes `Array.push` (returns `number`) to `publish` typed `boolean | void`. Mobile CI does not run `tsc`.
+
+| Scenario | Status                                       |
+| -------- | -------------------------------------------- |
+| S1       | pass                                         |
+| S2       | pass                                         |
+| S3       | pass                                         |
+| S4       | pass                                         |
+| S5       | pass                                         |
+| S6       | pass                                         |
+| S7       | pass                                         |
+| S8       | pass                                         |
+| S9       | pass                                         |
+| S10      | pass                                         |
+| S11      | pass                                         |
+| S12      | pass                                         |
+| S13      | pass                                         |
+| S14      | pass                                         |
+| S15      | planned (manual iOS simulator; not run here) |

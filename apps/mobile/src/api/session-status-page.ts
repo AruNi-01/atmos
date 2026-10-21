@@ -1,0 +1,2 @@
+/** Matches web `SESSION_PAGE_SIZE` and server `AGENT_SESSION_PAGE_LIMIT`. */
+export const AGENT_SESSION_STATUS_PAGE_SIZE = 100;

@@ -5,6 +5,7 @@ import {
   filterSessionRows,
   orderPinnedRows,
   sortSessionRowsByRecency,
+  snapshotsForBucket,
   type SessionInboxCandidate,
   type SessionInboxSnapshot,
 } from "./session-inbox";
@@ -412,5 +413,23 @@ describe("session inbox", () => {
     expect(
       orderPinnedRows(rows, ["c", "a", "missing"], (row) => row.id).map((row) => row.id),
     ).toEqual(["c", "a", "b"]);
+  });
+});
+
+describe("snapshotsForBucket", () => {
+  test("keeps the bucket and treats an unknown group key as done", () => {
+    const snapshots = [
+      snapshot({ session_id: "perm", group_key: "permission" }),
+      snapshot({ session_id: "done", group_key: "done" }),
+      snapshot({ session_id: "other", group_key: "other" }),
+    ];
+
+    expect(snapshotsForBucket(snapshots, "done").map((item) => item.session_id)).toEqual([
+      "done",
+      "other",
+    ]);
+    expect(snapshotsForBucket(snapshots, "permission").map((item) => item.session_id)).toEqual([
+      "perm",
+    ]);
   });
 });

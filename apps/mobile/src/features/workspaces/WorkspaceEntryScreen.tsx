@@ -1,6 +1,6 @@
 import { Stack, useRouter, type NativeStackHeaderItem } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Pressable, Text, View, type ImageSourcePropType } from "react-native";
 import { wsActions } from "@/api/ws-actions";
@@ -16,13 +16,7 @@ import { useTerminalStore } from "@/stores/terminal-store";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronLeftIcon, PlusIcon } from "@/ui/icons/lucide-native";
-import {
-  AppScreen,
-  EmptyState,
-  InlineError,
-  ListLoadMoreFooter,
-  Section,
-} from "@/ui/layout/app-screen";
+import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
@@ -31,6 +25,8 @@ import { SessionDeletePicker } from "@/features/sessions/session-delete-picker";
 import { useSessionRowActions } from "@/features/sessions/use-session-row-actions";
 import type { SessionDeleteChoice } from "@/features/sessions/session-row-actions";
 import { useAgentSessionStatusList } from "@/features/sessions/use-agent-session-status-list";
+import { FilteredListFooter } from "@/features/sessions/filtered-list-footer";
+import { useFilteredListWindow } from "@/features/sessions/use-filtered-list-window";
 import {
   terminalActivityFromStatus,
   workspaceActivityRows,
@@ -73,12 +69,35 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
     ...rows.filter((row) => rowActions.pinnedIds.includes(activityPinId(row, sessionSnapshots))),
     ...rows.filter((row) => !rowActions.pinnedIds.includes(activityPinId(row, sessionSnapshots))),
   ];
-  const loading = chats.loading || sessions.isLoading;
-  const loadingMore = chats.isFetchingNextPage || sessions.isFetchingNextPage;
-  const loadMoreSessions = () => {
-    chats.retryNextPage();
-    sessions.retryNextPage();
-  };
+  const loading = (chats.loading || sessions.isLoading) && orderedRows.length === 0;
+  const fetchFailed = chats.isFetchNextPageError || sessions.isFetchNextPageError;
+  const fetching = chats.isFetchingNextPage || sessions.isFetchingNextPage;
+  const chatHasNextPage = chats.hasNextPage;
+  const sessionHasNextPage = sessions.hasNextPage;
+  const fetchChatNextPage = chats.fetchNextPage;
+  const fetchSessionNextPage = sessions.fetchNextPage;
+  const retryChatNextPage = chats.retryNextPage;
+  const retrySessionNextPage = sessions.retryNextPage;
+  const fetchNext = useCallback((): boolean => {
+    const chatsStarted = chatHasNextPage ? fetchChatNextPage() : false;
+    const sessionsStarted = sessionHasNextPage ? fetchSessionNextPage() : false;
+    return chatsStarted || sessionsStarted;
+  }, [chatHasNextPage, fetchChatNextPage, fetchSessionNextPage, sessionHasNextPage]);
+  const retryNext = useCallback((): boolean => {
+    const chatsStarted = chatHasNextPage ? retryChatNextPage() : false;
+    const sessionsStarted = sessionHasNextPage ? retrySessionNextPage() : false;
+    return chatsStarted || sessionsStarted;
+  }, [chatHasNextPage, retryChatNextPage, retrySessionNextPage, sessionHasNextPage]);
+  const list = useFilteredListWindow({
+    fetchFailed,
+    fetchNext,
+    fetching,
+    filterKey: workspaceId,
+    hasNextServerPage: chats.hasNextPage || sessions.hasNextPage,
+    pending: loading,
+    retryNext,
+    rows: orderedRows,
+  });
   const addTerminal = useTerminalStore((state) => state.addEntry);
   const launchAgents = useTerminalLaunchAgents(Boolean(workspaceId));
   const openNewChat = () => {
@@ -180,14 +199,14 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
               }),
         }}
       />
-      <AppScreen onEndReached={loadMoreSessions}>
+      <AppScreen onEndReached={list.onEndReached}>
         <Section>
-          {loading && orderedRows.length === 0 ? (
+          {list.frame.mode === "skeleton" ? (
             <ListSkeleton />
-          ) : orderedRows.length === 0 ? (
+          ) : list.frame.mode === "empty" && list.status !== "error" ? (
             <EmptyState layout="section" message="Nothing here yet." title="No sessions" />
-          ) : (
-            orderedRows.map((row, index) => {
+          ) : list.frame.mode === "rows" ? (
+            list.frame.rows.map((row, index) => {
               const time = historyTimeLabel(row.updatedAt);
               const pinId = activityPinId(row, sessionSnapshots);
               const content = (
@@ -237,9 +256,9 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
                 </View>
               );
             })
-          )}
+          ) : null}
         </Section>
-        <ListLoadMoreFooter loading={loadingMore} />
+        <FilteredListFooter onRetry={list.retry} status={list.status} />
         {actionError ? (
           <Text style={{ color: theme.colors.red, fontSize: 13 }}>{actionError}</Text>
         ) : null}

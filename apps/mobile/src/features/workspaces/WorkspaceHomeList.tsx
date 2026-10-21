@@ -25,6 +25,7 @@ import {
   visibleWorkspaceEntries,
   type WorkspaceHomeEntry,
 } from "@/features/workspaces/workspace-home-list";
+import { openWorkspaceEntryHref } from "@/features/sessions/list-navigation";
 import { useWorkspaceHomeStore } from "@/stores/workspace-home-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -80,7 +81,9 @@ export function WorkspaceHomeList({
       items: section.items.filter((item) => item.kind === "project" || !pinnedIds.has(item.id)),
     }))
     .filter((section) => section.items.some((item) => item.kind === "workspace"));
-  const openEntry = (entry: WorkspaceHomeEntry) => router.push(`/workspace/${entry.id}`);
+  const openEntry = (entry: WorkspaceHomeEntry) => {
+    router.push(openWorkspaceEntryHref(entry.id));
+  };
   const rowActions = {
     onArchive: (entry: WorkspaceHomeEntry) => {
       setActionError(null);

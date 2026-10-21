@@ -217,19 +217,21 @@ export function retryFilteredListFetch(): {
 
 Rules:
 
-- `syncFilteredListFilter` returns the same object when the key matches. A new key sets `visibleCount` to 20. The hook writes this into a ref during render. It does not call `setState` during render (`react/set-state-in-render` is error). The screen also sets `key` to the bucket or workspace id so a param change remounts.
+- `syncFilteredListFilter` returns the same object when the key matches. A new key sets `visibleCount` to 20. `reduceFilteredListWindow` applies that reset and `visibleCountAfterServerPage`. The hook stores the result in React state. When the reducer returns a new object, the hook calls `setState` during that render so the same paint uses the new window. That adjustment is the path `react/set-state-in-render` allows; the hook does not read or write a ref during render (`react/refs` is a warning on mobile, and the oxlint cap has no spare warnings). The screen also sets `key` to the bucket or workspace id so a param change remounts.
 - `filteredListFirstFrame`: zero rows and not `fetchFailed`, and (`pending` or `hasNextServerPage`) → `{ mode: "skeleton", rows: [] }`. Zero rows otherwise → `empty`. Otherwise `rows.slice(0, visibleCount)`. A warm cache of 500 rows with `visibleCount === 20` returns 20 rows and mode `rows`, never a skeleton and never the full array.
 - `filteredListStatus`: `fetchFailed` → `error` (wins over the spinner). Else zero loaded and (`pending` or `hasNextServerPage`) → `loading`. Else `fetching` and `visibleCount >= loadedCount` and `hasNextServerPage` → `loading-more`. Else `loadedCount <= visibleCount` and no next server page → `end`. Else `ready`.
 - `filteredListShouldFetch` is the post-paint auto-fill for the **first** UI page only. False when `fetching`, `fetchFailed`, or there is no next server page. Otherwise true when `loadedCount < min(visibleCount, 20)`. A sparse bucket keeps asking for the next server page of 100 until 20 filtered rows exist or the server ends. It does not expand the window past 20 by itself.
 - `advanceFilteredList` is the end-reached decision. `fetching` or `fetchFailed` → ignore (`fetch: false`, same `visibleCount`). `visibleCount < loadedCount` → reveal `min(visibleCount + 20, loadedCount)` and do not fetch. Else if `hasNextServerPage` → same `visibleCount`, `fetch: true`. Else no-op (end). One call reveals at most 20 more rows.
 - `visibleCountAfterServerPage` grows the window only when a new server page arrived **and** the user had already consumed a full previous page (`previousLoadedCount >= 20` and `visibleCount >= previousLoadedCount`). The bump is `+20`, capped by `loadedCount`. An auto-fill from 0 loaded rows to N does not move `visibleCount`.
 - `beginFilteredListFetch` returns `fetch: false` when `requesting`, `fetching`, `fetchFailed`, or there is no next page. Otherwise `{ requesting: true, fetch: true }`.
-- `settleFilteredListFetch`: `fetching === true` records `sawFetching`. When fetching is false, a `requesting` flag clears whether or not fetching was observed (a no-op `fetchNextPage` must not stick). Idle state stays idle.
+- `settleFilteredListFetch`: `fetching === true` records `sawFetching`. When fetching is false after `sawFetching`, the latch clears. A no-op (`fetchNext` returned false) also clears, including when fetching was never observed, so a rejected start does not stick. Idle state stays idle. The hook does not clear a latch that has not seen `fetching` yet; that request is still in flight.
 - `retryFilteredListFetch` returns `{ requesting: true, sawFetching: false, fetch: true }`. The Try again control uses this path so a failed page can be asked for again. End-reached does not.
 
 **`apps/mobile/src/features/sessions/use-filtered-list-window.ts`**
 
-Thin hook. Owns the filter ref, the previous loaded count, and `{ requesting, sawFetching }`. `onEndReached` applies `advanceFilteredList` and, when `fetch` is true, `beginFilteredListFetch` then `fetchNext`. An effect applies `filteredListShouldFetch` the same way (first page only). Another effect applies `settleFilteredListFetch` when `fetching` changes, and `visibleCountAfterServerPage` when `loadedCount` changes. `retry` applies `retryFilteredListFetch` and calls `fetchNext` even though `fetchFailed` is still true. `visibleCount` updates from events go through `setState` in those handlers and effects, not during render.
+Thin hook. Owns the window state (`filterKey`, `visibleCount`, `previousLoadedCount`) and a fetch latch ref `{ requesting, sawFetching }`. The latch ref is touched only from effects and press handlers. `fetchNext` and `retryNext` return `boolean`: `true` when a request started.
+
+`onEndReached` applies `advanceFilteredList`. A larger `visibleCount` is `setState` from that handler. When `fetch` is true, `beginFilteredListFetch` then `fetchNext`. An effect applies `filteredListShouldFetch` the same way (first page only) and calls `settleFilteredListFetch` when `fetching` is true, or when it falls after `sawFetching`. `retry` applies `retryFilteredListFetch` and calls `retryNext` even though `fetchFailed` is still true. No effect calls `setState` (`react/set-state-in-effect` is a warning on mobile).
 
 The hook does not import React Native, so the pager tests stay on the pure module.
 
@@ -255,7 +257,8 @@ First frame from `filteredListFirstFrame`:
 - `hasNextServerPage` = `chats.hasNextPage || sessions.hasNextPage`
 - `fetching` = `chats.isFetchingNextPage || sessions.isFetchingNextPage`
 - `fetchFailed` = `chats.isFetchNextPageError || sessions.isFetchNextPageError`
-- `fetchNext` calls each list's `fetchNextPage` (each returns immediately when it has no next page)
+- `fetchNext` calls each list's `fetchNextPage` and returns whether either call started a request (each returns `false` when it has no next page, is already fetching, or — for `fetchNextPage` — the previous page failed)
+- `retryNext` calls each list's `retryNextPage` the same way, including after a next-page error
 - `retry` calls each list's `retryNextPage`
 
 The first frame uses the same skeleton / empty / slice rule. `onEndReached` is the window, not a direct `retryNextPage`. Next-page errors that those hooks currently hide become the footer `Try again`. Initial errors stay on `InlineError`.
