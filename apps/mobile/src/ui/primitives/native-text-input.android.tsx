@@ -57,6 +57,7 @@ export function NativeTextInput({
   autoCorrect,
   defaultValue,
   editable,
+  framed = true,
   keyboardType,
   maxLength,
   minHeight = 56,
@@ -75,7 +76,7 @@ export function NativeTextInput({
   const theme = useMobileTheme();
   const nativeValue = useNativeState(value ?? defaultValue ?? "");
   const resolvedPlaceholderColor = placeholderTextColor ?? theme.colors.secondaryLabel;
-  const textFieldColors = getTextFieldColors(theme.colors);
+  const textFieldColors = getTextFieldColors(theme.colors, framed);
 
   useEffect(() => {
     if (value !== undefined && nativeValue.value !== value) {
@@ -169,21 +170,21 @@ const controlCornerRadii = {
   topStart: radii.control,
 };
 
-function getTextFieldColors(themeColors: MobileThemeColors) {
+function getTextFieldColors(themeColors: MobileThemeColors, framed: boolean) {
   return {
     cursorColor: themeColors.accent,
-    disabledContainerColor: themeColors.controlDisabled,
-    disabledIndicatorColor: themeColors.separator,
+    disabledContainerColor: framed ? themeColors.controlDisabled : "transparent",
+    disabledIndicatorColor: framed ? themeColors.separator : "transparent",
     disabledLabelColor: themeColors.tertiaryLabel,
     disabledPlaceholderColor: themeColors.tertiaryLabel,
     disabledTextColor: themeColors.tertiaryLabel,
-    focusedContainerColor: themeColors.control,
-    focusedIndicatorColor: themeColors.controlBorder,
+    focusedContainerColor: framed ? themeColors.control : "transparent",
+    focusedIndicatorColor: framed ? themeColors.controlBorder : "transparent",
     focusedLabelColor: themeColors.label,
     focusedPlaceholderColor: themeColors.secondaryLabel,
     focusedTextColor: themeColors.label,
-    unfocusedContainerColor: themeColors.control,
-    unfocusedIndicatorColor: themeColors.controlBorder,
+    unfocusedContainerColor: framed ? themeColors.control : "transparent",
+    unfocusedIndicatorColor: framed ? themeColors.controlBorder : "transparent",
     unfocusedLabelColor: themeColors.secondaryLabel,
     unfocusedPlaceholderColor: themeColors.secondaryLabel,
     unfocusedTextColor: themeColors.label,

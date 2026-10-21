@@ -119,6 +119,7 @@ Spec: [specs/APP/APP-077_mobile-terminal-main-path](../../specs/APP/APP-077_mobi
 - For navigation/header/title work, follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md).
 - Smoke iOS and Android native builds through the `just mobile-ios*` / `just mobile-android` recipes before claiming platform readiness. The iOS recipes keep Debug/Release prebuilt RN cores from sharing one output tree.
 - Keep Relay URL overrides and token switching out of this dogfood cut (APP-077); restore later via a slim settings sheet if needed.
+- Token usage Computer scope follows [APP-082](../../specs/APP/APP-082_mobile-token-usage/TECH.md). The connected Computer uses the open `/ws` `token_usage_overview_get`. Another Computer or All opens a short-lived Relay client session (`clientKind: "mobile"`) and sends that same action. Do not add a usage REST API.
 
 ---
 

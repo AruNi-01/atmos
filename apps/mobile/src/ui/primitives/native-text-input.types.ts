@@ -5,6 +5,8 @@ export type NativeTextInputProps = Omit<
   "defaultValue" | "style" | "textStyle" | "value"
 > & {
   defaultValue?: string;
+  /** Draw the control's own border. Publish fields pass false and draw the border outside. */
+  framed?: boolean;
   minHeight?: number;
   style?: ExpoTextInputProps["style"];
   textStyle?: ExpoTextInputProps["textStyle"];

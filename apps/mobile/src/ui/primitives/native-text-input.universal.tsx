@@ -7,6 +7,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeTextInputProps } from "./native-text-input.types";
 
 export function NativeTextInput({
+  framed = true,
   minHeight = 56,
   onChangeText,
   placeholderTextColor,
@@ -47,14 +48,18 @@ export function NativeTextInput({
 
   return (
     <View
-      style={[
-        styles.inputFrame,
-        {
-          backgroundColor: controlBackground,
-          borderColor: theme.colors.controlBorder,
-          minHeight,
-        },
-      ]}
+      style={
+        framed
+          ? [
+              styles.inputFrame,
+              {
+                backgroundColor: controlBackground,
+                borderColor: theme.colors.controlBorder,
+                minHeight,
+              },
+            ]
+          : { minHeight, width: "100%" }
+      }
     >
       <Host colorScheme={theme.colorScheme} style={{ minHeight, width: "100%" }}>
         <ExpoTextInput

@@ -1,19 +1,18 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Host } from "@expo/ui";
-import { Button, HStack, Spacer } from "@expo/ui/swift-ui";
-import { buttonStyle, controlSize, disabled } from "@expo/ui/swift-ui/modifiers";
-import {
-  hubDeleteUsagePage,
-  hubGetUsagePage,
-  hubPutUsagePage,
-  type UsageVisibility,
-} from "@atmos/hub-client";
+import { hubDeleteUsagePage, hubGetUsagePage, hubPutUsagePage } from "@atmos/hub-client";
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
 import { releaseUsageImage, type UsageShot } from "@/features/token-usage/capture-usage-image";
 import { UsageShareGenerating } from "@/features/token-usage/share-generating";
 import { formatCompactNumber, formatCurrencyCompact } from "@/features/token-usage/format";
+import {
+  isUsagePageLive,
+  normalizePublishHandle,
+  publishPrimaryDisabled,
+  publishPrimaryLabel,
+  type PublishVisibility,
+} from "@/features/token-usage/publish-form";
 import { saveUsageCardImage } from "@/features/token-usage/save-usage-card";
 import { mapOverviewToSharePayload } from "@/features/token-usage/share-payload";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -22,6 +21,7 @@ import { DownloadIcon } from "@/ui/icons/lucide-native";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { NativeSegmentedControl } from "@/ui/primitives/native-segmented-control";
+import { NativeSwitch } from "@/ui/primitives/native-controls";
 import { NativeTextInput } from "@/ui/primitives/native-text-input";
 
 const SITE = "https://atmos.land";
@@ -274,20 +274,24 @@ function PublishPane({
   });
   const page = pageQuery.data ?? null;
   const [handle, setHandle] = useState(page?.handle ?? "");
-  const [visibility, setVisibility] = useState<Exclude<UsageVisibility, "off">>(
+  const [visibility, setVisibility] = useState<PublishVisibility>(
     page?.visibility === "public" ? "public" : "unlisted",
   );
+  const [github, setGithub] = useState(page?.github_username ?? "");
+  const [x, setX] = useState(page?.x_username ?? "");
   const [error, setError] = useState<string | null>(null);
   const claimed = Boolean(page?.handle_claimed && page.handle);
-  const live = page?.visibility === "public" || page?.visibility === "unlisted";
+  const live = isUsagePageLive(page?.visibility);
   const publish = useMutation({
     mutationFn: async () => {
       if (!overview) throw new Error("No usage to publish");
       return hubPutUsagePage({
-        handle: claimed ? undefined : handle.trim().replace(/^@+/, ""),
+        github_username: github.trim(),
+        handle: claimed ? undefined : normalizePublishHandle(handle),
         include_cost: true,
         snapshot: mapOverviewToSharePayload(overview, true),
         visibility,
+        x_username: x.trim(),
       });
     },
     onSuccess: async () => {
@@ -305,72 +309,219 @@ function PublishPane({
       onDone();
     },
   });
-  const slug = page?.handle || handle.trim().replace(/^@+/, "");
+  const slug = page?.handle || normalizePublishHandle(handle);
   const url = page?.url ?? (slug ? `${SITE}/tok/@${slug}` : null);
+  const busy = publish.isPending || turnOff.isPending;
+  const primaryDisabled = publishPrimaryDisabled({
+    busy,
+    claimed,
+    draft: { github, handle, visibility, x },
+    hasOverview: overview != null,
+    live,
+    saved: page
+      ? {
+          github: page.github_username,
+          handle: page.handle,
+          handleClaimed: page.handle_claimed,
+          visibility: page.visibility,
+          x: page.x_username,
+        }
+      : null,
+  });
+  const primaryLabel = publish.isPending
+    ? live
+      ? "Updating…"
+      : "Publishing…"
+    : publishPrimaryLabel(live);
 
   useEffect(() => {
-    if (page?.handle) setHandle(page.handle);
-  }, [page?.handle]);
+    if (!page) return;
+    setHandle(page.handle ?? "");
+    setVisibility(page.visibility === "public" ? "public" : "unlisted");
+    setGithub(page.github_username ?? "");
+    setX(page.x_username ?? "");
+  }, [page]);
 
   return (
-    <View style={styles.pane}>
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>Handle</Text>
-      <NativeTextInput
-        editable={!claimed && !publish.isPending}
-        onChangeText={setHandle}
-        placeholder="builder"
-        value={handle}
-      />
-      <NativeSegmentedControl
-        onValueChange={setVisibility}
-        options={[
-          { label: "Public", value: "public" },
-          { label: "Unlisted", value: "unlisted" },
-        ]}
-        selectedValue={visibility}
-      />
-      {url ? (
-        <Pressable onPress={() => void Linking.openURL(url)}>
-          <Text style={{ color: theme.colors.label }}>{url.replace("https://", "")}</Text>
-        </Pressable>
-      ) : null}
-      {error ? <Text style={{ color: theme.colors.red }}>{error}</Text> : null}
-      <Host
-        colorScheme={theme.colorScheme}
-        matchContents={{ vertical: true }}
-        style={{ width: "100%" }}
-      >
-        <HStack alignment="center" spacing={8}>
-          {live ? (
-            <Button
-              label={turnOff.isPending ? "Turning off…" : "Turn off"}
-              modifiers={[
-                buttonStyle("glass"),
-                controlSize("regular"),
-                disabled(turnOff.isPending),
-              ]}
-              onPress={turnOff.isPending ? undefined : () => turnOff.mutate()}
-            />
-          ) : null}
-          <Spacer />
-          <Button
-            label={publish.isPending ? "Publishing…" : live ? "Update" : "Publish"}
-            modifiers={[
-              buttonStyle("glass"),
-              controlSize("regular"),
-              disabled(publish.isPending || !overview),
-            ]}
-            onPress={publish.isPending || !overview ? undefined : () => publish.mutate()}
+    <GlassPanel shadow={false} style={styles.publishCard}>
+      <View style={styles.pane}>
+        <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Handle</Text>
+        <PrefixedField
+          accessibilityLabel="Handle"
+          editable={!claimed && !busy}
+          onChangeText={setHandle}
+          placeholder="builder"
+          prefix="atmos.land/tok/ @"
+          value={handle}
+        />
+        {url ? (
+          <Pressable
+            accessibilityLabel="Open published page"
+            onPress={() => void Linking.openURL(url)}
+          >
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>
+              {url.replace("https://", "")}
+            </Text>
+          </Pressable>
+        ) : null}
+        <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Links</Text>
+        <PrefixedField
+          accessibilityLabel="X username"
+          editable={!busy}
+          onChangeText={setX}
+          placeholder="username"
+          prefix="x.com/"
+          value={x}
+        />
+        <PrefixedField
+          accessibilityLabel="GitHub username"
+          editable={!busy}
+          onChangeText={setGithub}
+          placeholder="username"
+          prefix="github.com/"
+          value={github}
+        />
+        <View style={styles.publicRow}>
+          <Text style={{ color: theme.colors.label, flex: 1, fontSize: 15, fontWeight: "600" }}>
+            Public
+          </Text>
+          <NativeSwitch
+            disabled={busy}
+            onValueChange={(checked) => setVisibility(checked ? "public" : "unlisted")}
+            value={visibility === "public"}
           />
-        </HStack>
-      </Host>
+        </View>
+        {error ? <Text style={{ color: theme.colors.red, fontSize: 13 }}>{error}</Text> : null}
+        <View style={styles.publishActions}>
+          {live ? (
+            <Pressable
+              accessibilityLabel="Turn off"
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={() => turnOff.mutate()}
+              style={styles.turnOff}
+            >
+              <Text
+                style={{
+                  color: busy ? theme.colors.tertiaryLabel : theme.colors.red,
+                  fontSize: 15,
+                  fontWeight: "600",
+                }}
+              >
+                {turnOff.isPending ? "Turning off…" : "Turn off"}
+              </Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
+          <Pressable
+            accessibilityLabel={primaryLabel}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: primaryDisabled }}
+            disabled={primaryDisabled}
+            onPress={() => publish.mutate()}
+            style={[
+              styles.publishButton,
+              {
+                backgroundColor: primaryDisabled
+                  ? theme.colors.controlSecondary
+                  : theme.colors.primary,
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: primaryDisabled ? theme.colors.tertiaryLabel : theme.colors.labelInverse,
+                fontSize: 15,
+                fontWeight: "600",
+              }}
+            >
+              {primaryLabel}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </GlassPanel>
+  );
+}
+
+function PrefixedField({
+  accessibilityLabel,
+  editable,
+  onChangeText,
+  placeholder,
+  prefix,
+  value,
+}: {
+  accessibilityLabel: string;
+  editable: boolean;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  prefix: string;
+  value: string;
+}) {
+  const theme = useMobileTheme();
+  return (
+    <View
+      accessibilityLabel={accessibilityLabel}
+      style={[
+        styles.prefixed,
+        { backgroundColor: theme.colors.control, borderColor: theme.colors.controlBorder },
+      ]}
+    >
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>{prefix}</Text>
+      <View style={styles.prefixInput}>
+        <NativeTextInput
+          editable={editable}
+          framed={false}
+          minHeight={40}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          style={styles.prefixField}
+          value={value}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   actions: { alignItems: "center", flexDirection: "row", flexShrink: 0, flexWrap: "wrap", gap: 8 },
-  pane: { alignSelf: "stretch", flexShrink: 0, gap: 12, marginTop: 12, width: "100%" },
+  pane: { alignSelf: "stretch", flexShrink: 0, gap: 10, width: "100%" },
+  fieldLabel: { fontSize: 13, fontWeight: "600" },
+  prefixed: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    minHeight: 44,
+    overflow: "visible",
+    paddingLeft: 12,
+  },
+  prefixInput: { flex: 1, minWidth: 0 },
+  prefixField: { paddingHorizontal: 8, paddingVertical: 8 },
+  publicRow: { alignItems: "center", flexDirection: "row", minHeight: 44 },
+  publishCard: {
+    alignSelf: "stretch",
+    borderRadius: 16,
+    marginTop: 12,
+    padding: 14,
+    width: "100%",
+  },
+  publishActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  publishButton: {
+    alignItems: "center",
+    borderRadius: 12,
+    justifyContent: "center",
+    minHeight: 40,
+    paddingHorizontal: 16,
+  },
+  turnOff: { justifyContent: "center", minHeight: 40, paddingRight: 12 },
   sheet: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
   tabs: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
   preview: {
