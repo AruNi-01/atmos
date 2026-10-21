@@ -1,8 +1,11 @@
 name: CI - Mobile iOS parity
 
 # structural runs on matching pull requests.
-# ios-simulator is the heavy macOS job (about 1–3 hours). It runs on
-# workflow_dispatch, or when the PR has the label ios-parity.
+# ios-build + ios-simulator (stills) + ios-simulator-motion are the heavy macOS jobs.
+# They run on workflow_dispatch, or when the PR has the label ios-parity.
+# QUALITY-023: stills stays parallel after ios-build. Motion is serial after
+# stills. Eng Manager stopped PillTap destination-preflight fixes (three
+# rounds of false fails while the sim was Booted).
 # Branch protection was checked before making that job opt-in (QUALITY-010):
 # classic protection is 403 for this token, rulesets are empty, and merged
 # PRs that do not touch these paths (#318, #312) merged without ios-simulator,
@@ -41,6 +44,11 @@ jobs:
 
       - name: Screenshot flatness self-test
         run: python3 scripts/agent-chat-parity/png-flat.py --self-test
+
+      - name: Capture script syntax
+        run: |
+          bash -n scripts/agent-chat-parity/ios-capture.sh
+          bash -n scripts/agent-chat-parity/ios-boot-simulator.sh
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
@@ -106,28 +114,32 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  ios-simulator:
-    name: ios-simulator
+  ios-build:
+    name: ios-build
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ios-parity'))
     runs-on: macos-26
-    timeout-minutes: 180
+    timeout-minutes: 90
     env:
-      EXPO_PUBLIC_PARITY_PREVIEW: "1"
       LANG: en_US.UTF-8
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Setup Bun
-        uses: ./.github/actions/setup-bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
 
       - name: Install dependencies
         run: |
           set -euo pipefail
-          # react-native-skia-apple-ios tarball extraction has failed once on a
-          # warm runner (run 38803926761). Retry the same frozen install.
+          # The composite setup-bun action already runs bun install, so a
+          # following retry loop never saw the first failure. Run 39549706152
+          # lost the macos runner during that composite step. Install here
+          # so the skia-extract retry (run 38803926761) actually wraps the
+          # first install.
           for attempt in 1 2 3; do
             if bun install --frozen-lockfile; then
               exit 0
@@ -137,109 +149,25 @@ jobs:
           done
           exit 1
 
-      - name: Select Xcode 26.5 and boot iPhone 17 Pro
+      - name: Select Xcode 26.5
         run: |
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.5.app
-          # simctl screenshots stay black unless the simulator service starts
-          # with the software framebuffer. The service is already running on
-          # the runner image, so write the default and restart it before boot.
-          defaults write com.apple.CoreSimulator.IndigoFramebufferServices FramebufferRendererHint -integer 3
-          killall -9 com.apple.CoreSimulator.CoreSimulatorService || true
-          sleep 2
           echo "xcode-select: $(xcode-select -p)"
           xcodebuild -version
-          echo "----- xcrun simctl list -----"
-          xcrun simctl list
 
-          if ! parsed="$(python3 - << 'PY'
-          import json, subprocess, sys
-
-          def run(args):
-              return subprocess.check_output(args, text=True)
-
-          devices = json.loads(run(["xcrun", "simctl", "list", "devices", "available", "-j"]))
-          runtimes = json.loads(run(["xcrun", "simctl", "list", "runtimes", "-j"]))
-          runtime_id = ""
-          for runtime in runtimes.get("runtimes", []):
-              version = str(runtime.get("version", ""))
-              name = str(runtime.get("name", ""))
-              identifier = str(runtime.get("identifier", ""))
-              if runtime.get("isAvailable") and (
-                  version == "26.5" or name == "iOS 26.5" or identifier.endswith("iOS-26-5")
-              ):
-                  runtime_id = identifier
-                  break
-          if not runtime_id:
-              print("iOS 26.5 simulator runtime is not installed", file=sys.stderr)
-              sys.exit(2)
-
-          bucket = devices.get("devices", {})
-          runtime_devices = bucket.get(runtime_id, [])
-          if not runtime_devices:
-              for key, value in bucket.items():
-                  if "iOS-26-5" in key:
-                      runtime_id = key
-                      runtime_devices = value
-                      break
-
-          udid = ""
-          for device in runtime_devices:
-              if device.get("name") == "iPhone 17 Pro" and device.get("isAvailable", True):
-                  udid = str(device.get("udid", ""))
-                  break
-          print(runtime_id)
-          print(udid)
-          PY
-          )"; then
-            echo "Simulator pin failed. Full simctl list follows."
-            xcrun simctl list
-            exit 1
-          fi
-
-          runtime_id="$(printf '%s\n' "$parsed" | sed -n '1p')"
-          udid="$(printf '%s\n' "$parsed" | sed -n '2p')"
-          echo "runtime: ${runtime_id}"
-          if [[ -z "$udid" ]]; then
-            echo "Creating iPhone 17 Pro on ${runtime_id}"
-            if ! udid="$(xcrun simctl create "iPhone 17 Pro" "iPhone 17 Pro" "$runtime_id")"; then
-              echo "Could not create iPhone 17 Pro. Full simctl list follows."
-              xcrun simctl list
-              exit 1
-            fi
-            udid="$(printf '%s' "$udid" | tr -d '[:space:]')"
-          fi
-          echo "udid: ${udid}"
-
-          # A connected hardware keyboard hides the software keyboard, so a
-          # composer tap cannot show it. Write this before the simulator boots.
-          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
-
-          boot_status=0
-          xcrun simctl boot "$udid" || boot_status=$?
-          if [[ "$boot_status" -ne 0 ]]; then
-            echo "simctl boot exited ${boot_status}; waiting for bootstatus"
-          fi
-          if ! xcrun simctl bootstatus "$udid" -b; then
-            echo "Simulator did not boot. Full simctl list follows."
-            xcrun simctl list
-            exit 1
-          fi
-          xcrun simctl status_bar booted override --time "9:41" --batteryState charged --batteryLevel 100
-
-      - name: Bake preview flag and prebuild iOS
+      - name: Prebuild iOS
         working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_PARITY_PREVIEW: "1"
         run: |
           set -euo pipefail
-          printf 'EXPO_PUBLIC_PARITY_PREVIEW=1\n' > .env
           # Pod install reads expo.autolinking.exclude from this package.json,
           # not from app.config.js.
           bun ../../scripts/agent-chat-parity/exclude-dev-client.js package.json
           node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-client")) process.exit(1)'
           bunx expo prebuild -p ios --no-install
           node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-launcher")) { console.error("prebuild dropped the dev-client exclude"); process.exit(1) }'
-          # The Xcode bundle phase sources this file before Expo inlines EXPO_PUBLIC_*.
-          printf 'export EXPO_PUBLIC_PARITY_PREVIEW=1\n' > ios/.xcode.env.local
           info_plist="$(find ios -name Info.plist -path '*Atmos/Info.plist' -print -quit)"
           if [[ -z "$info_plist" ]]; then
             echo "Atmos Info.plist missing after prebuild" >&2
@@ -263,6 +191,8 @@ jobs:
           echo "expo-dev-client is not in Podfile.lock"
 
       - name: Build Release simulator app
+        env:
+          EXPO_PUBLIC_PARITY_PREVIEW: "1"
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -317,7 +247,7 @@ jobs:
             exit 1
           fi
           echo "scheme: ${scheme}"
-          echo "destination: platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5"
+          echo "destination: generic/platform=iOS Simulator"
 
           derived="$GITHUB_WORKSPACE/artifacts/derived"
           rm -rf "$derived"
@@ -326,7 +256,7 @@ jobs:
             -scheme "$scheme" \
             -configuration Release \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" \
+            -destination "generic/platform=iOS Simulator" \
             -derivedDataPath "$derived" \
             build
 
@@ -366,12 +296,91 @@ jobs:
           echo "RCTNewArchEnabled=$(plutil -extract RCTNewArchEnabled raw -o - "$app/Info.plist" 2>/dev/null || echo absent)"
           # Same rule on the built plist: Atmos.SceneDelegate must be present.
           bash apps/mobile/script/verify-ios-scene-lifecycle.sh built-plist "$app/Info.plist"
-          printf '%s\n' "$app" > "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/pack"
+          tar -C "$(dirname "$app")" -cf "$GITHUB_WORKSPACE/artifacts/pack/Atmos.app.tar" "$(basename "$app")"
+          echo "packed $(basename "$app") from ${app}"
 
-      - name: Install, launch, and capture
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-app
+          path: artifacts/pack/Atmos.app.tar
+          if-no-files-found: error
+          retention-days: 2
+
+  ios-simulator:
+    name: ios-simulator (stills)
+    needs: ios-build
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ios-parity'))
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      LANG: en_US.UTF-8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
         run: |
           set -euo pipefail
-          app="$(cat "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt")"
+          # Same as ios-build: do not wrap bun install inside the composite
+          # action, or the skia-extract retry never sees the first failure.
+          for attempt in 1 2 3; do
+            if bun install --frozen-lockfile; then
+              exit 0
+            fi
+            echo "bun install failed (attempt ${attempt})"
+            sleep 15
+          done
+          exit 1
+
+      - name: Download simulator app
+        uses: actions/download-artifact@v4
+        with:
+          name: simulator-app
+          path: ${{ runner.temp }}/simulator-app
+
+      - name: Select Xcode and boot simulator
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          bash scripts/agent-chat-parity/ios-boot-simulator.sh setup
+          bash scripts/agent-chat-parity/ios-boot-simulator.sh boot | tee artifacts/boot.log
+          udid="$(sed -n 's/^udid: //p' artifacts/boot.log | tail -n 1 | tr -d '[:space:]')"
+          if [[ -z "$udid" ]]; then
+            echo "boot did not print udid" >&2
+            cat artifacts/boot.log >&2 || true
+            exit 1
+          fi
+          echo "PARITY_UDID=${udid}" >> "$GITHUB_ENV"
+          echo "pinned simulator ${udid}"
+
+      - name: Install, launch, and capture
+        env:
+          PARITY_SHARD: stills
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/app artifacts/phone
+          tar -C artifacts/app -xf "$RUNNER_TEMP/simulator-app/Atmos.app.tar"
+          app=""
+          for candidate in artifacts/app/*.app; do
+            [[ -d "$candidate" ]] || continue
+            app="$candidate"
+            break
+          done
+          if [[ -z "$app" || ! -d "$app" ]]; then
+            echo "unpacked Atmos.app missing" >&2
+            ls -la artifacts/app >&2 || true
+            exit 1
+          fi
+          echo "app: ${app}"
           xcrun simctl install booted "$app"
           bash scripts/agent-chat-parity/ios-capture.sh
 
@@ -380,12 +389,193 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           {
-            echo "# iOS parity capture"
+            echo "# iOS parity capture (stills)"
             echo
             echo "- xcode-select: $(xcode-select -p)"
             echo "- xcodebuild:"
             xcodebuild -version | sed 's/^/  /'
             echo "- simulator device: iPhone 17 Pro"
+            echo "- shard: stills"
+            echo "- Phone PNGs in this artifact are iOS Simulator frames."
+            echo "- react-native-web comparison PNGs, when the ubuntu job finishes, are artifact parity-rn-web. They are not iOS and not Next."
+            echo "- S31 Next.js web PNGs were not produced."
+          } > artifacts/summary.md
+
+      - name: Upload ios-parity shard
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-parity-stills
+          path: |
+            artifacts/phone
+            artifacts/summary.md
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-simulator-motion:
+    # Serial after stills. Do not overlap motion PillTap with the stills VM, and
+    # do not prebuild / test-without-building: three labeled rounds of
+    # wait_for_xcode_destination false-failed while simctl showed the UDID Booted
+    # (39578448510, 39591952360 attempt 2, 39610161253). Eng Manager stopped
+    # further PillTap destination-preflight work. Capture uses serial
+    # `xcodebuild test` (script default).
+    name: ios-simulator (motion)
+    needs: [ios-build, ios-simulator]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ios-parity'))
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      LANG: en_US.UTF-8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if bun install --frozen-lockfile; then
+              exit 0
+            fi
+            echo "bun install failed (attempt ${attempt})"
+            sleep 15
+          done
+          exit 1
+
+      - name: Download simulator app
+        uses: actions/download-artifact@v4
+        with:
+          name: simulator-app
+          path: ${{ runner.temp }}/simulator-app
+
+      - name: Select Xcode and boot simulator
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          bash scripts/agent-chat-parity/ios-boot-simulator.sh setup
+          bash scripts/agent-chat-parity/ios-boot-simulator.sh boot | tee artifacts/boot.log
+          udid="$(sed -n 's/^udid: //p' artifacts/boot.log | tail -n 1 | tr -d '[:space:]')"
+          if [[ -z "$udid" ]]; then
+            echo "boot did not print udid" >&2
+            cat artifacts/boot.log >&2 || true
+            exit 1
+          fi
+          echo "PARITY_UDID=${udid}" >> "$GITHUB_ENV"
+          echo "pinned simulator ${udid}"
+
+      - name: Install, launch, and capture
+        env:
+          PARITY_SHARD: motion
+          PILL_TAP_ACTION: test
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/app artifacts/phone
+          tar -C artifacts/app -xf "$RUNNER_TEMP/simulator-app/Atmos.app.tar"
+          app=""
+          for candidate in artifacts/app/*.app; do
+            [[ -d "$candidate" ]] || continue
+            app="$candidate"
+            break
+          done
+          if [[ -z "$app" || ! -d "$app" ]]; then
+            echo "unpacked Atmos.app missing" >&2
+            ls -la artifacts/app >&2 || true
+            exit 1
+          fi
+          echo "app: ${app}"
+          xcrun simctl install booted "$app"
+          bash scripts/agent-chat-parity/ios-capture.sh
+
+      - name: Write summary
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          {
+            echo "# iOS parity capture (motion)"
+            echo
+            echo "- xcode-select: $(xcode-select -p)"
+            echo "- xcodebuild:"
+            xcodebuild -version | sed 's/^/  /'
+            echo "- simulator device: iPhone 17 Pro"
+            echo "- shard: motion"
+            echo "- PillTap: serial xcodebuild test (no destination preflight)"
+            echo "- Phone PNGs in this artifact are iOS Simulator frames."
+            echo "- react-native-web comparison PNGs, when the ubuntu job finishes, are artifact parity-rn-web. They are not iOS and not Next."
+            echo "- S31 Next.js web PNGs were not produced."
+          } > artifacts/summary.md
+
+      - name: Upload ios-parity shard
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-parity-motion
+          path: |
+            artifacts/phone
+            artifacts/summary.md
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-parity:
+    name: ios-parity
+    needs: [ios-simulator, ios-simulator-motion]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ios-parity'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download stills
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-parity-stills
+          path: shards/stills
+
+      - name: Download motion
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-parity-motion
+          path: shards/motion
+
+      - name: Merge phone trees
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/phone
+          stills=""
+          motion=""
+          if [[ -d shards/stills/artifacts/phone ]]; then
+            stills="shards/stills/artifacts/phone"
+          elif [[ -d shards/stills/phone ]]; then
+            stills="shards/stills/phone"
+          else
+            stills="shards/stills"
+          fi
+          if [[ -d shards/motion/artifacts/phone ]]; then
+            motion="shards/motion/artifacts/phone"
+          elif [[ -d shards/motion/phone ]]; then
+            motion="shards/motion/phone"
+          else
+            motion="shards/motion"
+          fi
+          cp -a "$stills"/. artifacts/phone/
+          cp -a "$motion"/. artifacts/phone/
+          python3 - << 'PY'
+          from pathlib import Path
+          out = Path("artifacts/phone")
+          files = sorted(out.glob("F*-*.png"))
+          if len(files) != 26:
+              raise SystemExit(f"expected 26 fixture screenshots, found {len(files)}")
+          print(f"{len(files)} fixture screenshots after merge")
+          PY
+          {
+            echo "# iOS parity capture"
+            echo
+            echo "- shards: stills + motion"
             echo "- Phone PNGs in this artifact are iOS Simulator frames."
             echo "- react-native-web comparison PNGs, when the ubuntu job finishes, are artifact parity-rn-web. They are not iOS and not Next."
             echo "- S31 Next.js web PNGs were not produced."

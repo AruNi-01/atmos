@@ -13,8 +13,10 @@
 # miss exits non-zero.
 # Each frame is its own launch. This script writes Documents/parity-frame.json
 # first. The preview reads that file, logs `[parity] ready F# <theme> #0`,
-# and does not arm the in-app carousel. A JS timer in one process stopped
+# then `[parity] painted F# <theme> #0` when transcript height is stable.
+# It does not arm the in-app carousel. A JS timer in one process stopped
 # after about 12 minutes (runs 38823255381, 38831101582, 38837550765).
+# PARITY_SHARD=all|stills|motion (default all). CI splits stills and motion.
 # This script does not call simctl openurl.
 # Requires a booted iOS Simulator with land.atmos.mobile already installed.
 # macOS runner only. Do not run this on Linux.
@@ -23,8 +25,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT="${PARITY_PHONE_OUT:-$ROOT/artifacts/phone}"
 BUNDLE_ID="land.atmos.mobile"
-RECORD_SECONDS=8
+RECORD_SECONDS="${RECORD_SECONDS:-4}"
 RECORD_IDS=(F4 F12 F13)
+PARITY_SHARD="${PARITY_SHARD:-all}"
+PILL_TAP_ACTION="${PILL_TAP_ACTION:-test}"
+PILL_TAP_DERIVED="${PILL_TAP_DERIVED:-/tmp/pill-tap-derived}"
+
+shard_stills() { [[ "$PARITY_SHARD" == "all" || "$PARITY_SHARD" == "stills" ]]; }
+shard_motion() { [[ "$PARITY_SHARD" == "all" || "$PARITY_SHARD" == "motion" ]]; }
+
+phase() {
+  echo "[capture $(date -u +%H:%M:%S)] $*"
+}
 # Empty scene window through run 38769715486.
 black_scene="fbcb6a8c2222c51b2c61b122762b964463322680781a5457888a05fee632c0b6"
 # Pair screen on run 38789917018, before the preview redirect.
@@ -101,13 +113,32 @@ copy_motion_shots() {
   echo "copied ${count} parity motion pngs to ${dest}"
 }
 
+# Run 39585289841: return launch at 11:14:12Z while Atmos[7563] from the
+# away pass was still logging at 11:14:01Z. console-pty was empty; native
+# modules for Atmos[11020] were still registering at 11:15:30Z, past the
+# 90s module wait. Stop the previous process until terminate is a no-op.
+terminate_app() {
+  local deadline=$((SECONDS + 20))
+  while (( SECONDS < deadline )); do
+    if ! xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.3
+  done
+  echo "Atmos still running after terminate wait" >&2
+}
+
 launch_frame() {
   local id="$1"
   local theme="$2"
   local suffix="${3:-}"
+  local waited=0
   stop_console
-  xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
-  sleep 1
+  terminate_app
+  # Epoch after the previous process is gone. wait_for_since log-show
+  # ignores os_log lines older than this so stills cannot match the
+  # previous frame's painted line (run 39561423684).
+  date +%s >"$OUT/log-mark-epoch.txt"
   if [[ -n "$suffix" ]]; then
     CURRENT_LOG="$OUT/console-${id}-${theme}-${suffix}.log"
   else
@@ -116,7 +147,13 @@ launch_frame() {
   : >"$CURRENT_LOG"
   xcrun simctl launch --console-pty --terminate-running-process booted "$BUNDLE_ID" >"$CURRENT_LOG" 2>&1 &
   console_pid=$!
-  sleep 2
+  while (( waited < 10 )); do
+    if kill -0 "$console_pid" 2>/dev/null; then
+      break
+    fi
+    sleep 0.2
+    waited=$((waited + 1))
+  done
   if ! kill -0 "$console_pid" 2>/dev/null; then
     echo "console launch exited early for ${id} ${theme}; retrying without a pty" >&2
     xcrun simctl launch booted "$BUNDLE_ID" || true
@@ -152,7 +189,9 @@ log_mark() {
 }
 
 # Lines already in the stream belong to an earlier launch. Replay start and
-# replay done are only counted after this mark.
+# replay done are only counted after this mark. Do not grep
+# device-log-fallback.txt here: that file is leftover from the previous
+# wait and would match the last frame's painted/module lines.
 log_has_since() {
   local needle="$1"
   local mark="$2"
@@ -188,12 +227,49 @@ log_has() {
 }
 
 refresh_parity_show() {
-  # Run 38985042070: the module line was in the first show. The ready line was
-  # in that same output, 169ms later. The next show used --last 3m and started
-  # after that line had aged out, so F1 failed with no tail frames.
-  run_bounded 45 xcrun simctl spawn booted log show --last 10m --info --debug --style compact \
+  # Run 39530230224 attempt 2: a 45s `log show --last 10m` blocked every frame
+  # after 4s. The JS ready line was already in os_log. Keep this as a late
+  # fallback; the pty log stream is the primary wait.
+  run_bounded 8 xcrun simctl spawn booted log show --last 30s --info --debug --style compact \
     --predicate 'eventMessage CONTAINS "[parity]"' \
     >"$OUT/device-log-fallback.txt" 2>&1 || true
+}
+
+# compact: 2026-10-21 11:15:30.123456+0000  ... [parity] ...
+# --last 30s still contains the previous stills frame. Keep lines at/after
+# the epoch written by launch_frame.
+log_show_has_since() {
+  local needle="$1"
+  local epoch
+  epoch="$(tr -d '[:space:]' <"$OUT/log-mark-epoch.txt" 2>/dev/null || true)"
+  [[ -f "$OUT/device-log-fallback.txt" && -n "$epoch" ]] || return 1
+  python3 - "$OUT/device-log-fallback.txt" "$needle" "$epoch" <<'PY'
+import re
+import sys
+from datetime import datetime, timedelta, timezone
+
+path, needle, epoch = sys.argv[1], sys.argv[2], int(sys.argv[3])
+rx = re.compile(
+    r"(?P<dt>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?:\.\d+)?"
+    r"(?P<tz>[+-]\d{2}):?(?P<tzm>\d{2})?"
+)
+min_ts = epoch - 2
+with open(path, encoding="utf-8", errors="replace") as handle:
+    for line in handle:
+        if needle not in line:
+            continue
+        match = rx.search(line)
+        if not match:
+            continue
+        tz_h = int(match.group("tz"))
+        tz_m = int(match.group("tzm") or 0)
+        sign = 1 if tz_h >= 0 else -1
+        tz = timezone(timedelta(hours=tz_h, minutes=sign * abs(tz_m)))
+        ts = datetime.strptime(match.group("dt"), "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz).timestamp()
+        if ts >= min_ts:
+            sys.exit(0)
+sys.exit(1)
+PY
 }
 
 screen_record_alive() {
@@ -210,6 +286,7 @@ wait_for_since() {
   local mark="$3"
   local pidfile="${4:-}"
   local deadline=$((SECONDS + timeout))
+  local next_show=$((SECONDS + 12))
   while (( SECONDS < deadline )); do
     if log_has_since "$needle" "$mark"; then
       return 0
@@ -217,6 +294,14 @@ wait_for_since() {
     if [[ -n "$pidfile" && -s "$pidfile" ]] && ! screen_record_alive "$pidfile"; then
       echo "screen record exited before ${needle}" >&2
       return 2
+    fi
+    if (( SECONDS >= next_show )); then
+      refresh_parity_show
+      if log_has_since "$needle" "$mark" || log_show_has_since "$needle"; then
+        echo "found ${needle} via log show"
+        return 0
+      fi
+      next_show=$((SECONDS + 15))
     fi
     sleep 0.5
   done
@@ -227,7 +312,7 @@ wait_for_line() {
   local needle="$1"
   local timeout="$2"
   local deadline=$((SECONDS + timeout))
-  local next_show=$((SECONDS + 4))
+  local next_show=$((SECONDS + 12))
   while (( SECONDS < deadline )); do
     if log_has "$needle"; then
       return 0
@@ -238,15 +323,165 @@ wait_for_line() {
         echo "found ${needle} via log show"
         return 0
       fi
-      if [[ -f "$OUT/parity-stream.log" ]] && grep -F -q '[parity]' "$OUT/parity-stream.log"; then
-        next_show=$((SECONDS + 15))
-      else
-        next_show=$((SECONDS + 5))
-      fi
+      next_show=$((SECONDS + 15))
     fi
-    sleep 0.5
+    sleep 0.2
   done
   return 1
+}
+
+booted_udid() {
+  # Prefer the UDID the boot step pinned. Do not silently switch to another
+  # leftover iPhone 17 Pro (the runner image had three in run 39578448510).
+  if [[ -n "${PARITY_UDID:-}" ]]; then
+    xcrun simctl list devices booted -j | PARITY_UDID="$PARITY_UDID" python3 -c '
+import json, os, sys
+want = os.environ["PARITY_UDID"].strip()
+data = json.load(sys.stdin)
+for devices in data.get("devices", {}).values():
+    for device in devices:
+        if device.get("udid") == want and device.get("state") == "Booted":
+            print(want)
+            sys.exit(0)
+sys.exit(1)
+'
+    return
+  fi
+  xcrun simctl list devices booted -j | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+booted = []
+for devices in data.get("devices", {}).values():
+    for device in devices:
+        if device.get("state") == "Booted" and device.get("udid"):
+            booted.append(device["udid"])
+if len(booted) == 1:
+    print(booted[0])
+'
+}
+
+settle_pill_runner() {
+  xcrun simctl terminate booted land.atmos.pill-tap.uitests.xctrunner >/dev/null 2>&1 || true
+}
+
+run_pill_tap() {
+  local test_id="$1"
+  local udid attempt=1 status=1 log
+  udid="$(booted_udid)"
+  if [[ -z "$udid" ]]; then
+    echo "pill tap ${test_id} has no pinned booted simulator" >&2
+    xcrun simctl list devices booted >&2 || true
+    return 1
+  fi
+  # Eng Manager 2026-10-21: stop PillTap destination preflight. Three labeled
+  # rounds (39578448510, 39591952360 a2, 39610161253) failed wait_for_xcode_destination
+  # while simctl listed the UDID Booted and the unpiped showdestinations dump
+  # already had id:$UDID. Serial `xcodebuild test` (PILL_TAP_ACTION default)
+  # compiles and attaches in one step; Unable to find is still destination missing.
+  log="$(mktemp)"
+  while (( attempt <= 3 )); do
+    settle_pill_runner
+    set +e
+    python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
+      --seconds 720 \
+      --grace 20 \
+      --needle "Test Suite 'Selected tests' passed" \
+      -- \
+      xcodebuild "$PILL_TAP_ACTION" \
+      -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+      -scheme PillTap \
+      -sdk iphonesimulator \
+      -destination "platform=iOS Simulator,id=${udid}" \
+      -derivedDataPath "$PILL_TAP_DERIVED" \
+      -only-testing:PillTapUITests/PillTapUITests/${test_id} \
+      -parallel-testing-enabled NO \
+      CODE_SIGNING_ALLOWED=NO \
+      CODE_SIGNING_REQUIRED=NO >"$log" 2>&1
+    status=$?
+    set -e
+    cat "$log"
+    if [[ "$status" -eq 0 ]]; then
+      rm -f "$log"
+      return 0
+    fi
+    # Run 39578448510: xcodebuild listed only placeholders. That is a
+    # destination failure, not an XCTAssert miss. Do not retry it as a tap.
+    if grep -q 'Unable to find a device matching the provided destination' "$log"; then
+      echo "PillTap destination missing: ${udid}" >&2
+      rm -f "$log"
+      return 1
+    fi
+    # Run 39554572933: test-without-building hit SpringBoard Busy while the
+    # previous xctrunner was still installing or uninstalling. Retry that.
+    # Real XCTAssert misses still fail the script.
+    if grep -q 'installing or uninstalling\|Simulator device failed to launch land.atmos.pill-tap' "$log"; then
+      echo "pill tap ${test_id} runner busy (attempt ${attempt})"
+      attempt=$((attempt + 1))
+      sleep 5
+      continue
+    fi
+    rm -f "$log"
+    return 1
+  done
+  rm -f "$log"
+  return 1
+}
+
+fail_pill_log() {
+  local log="$1"
+  local what="$2"
+  if grep -q 'PillTap destination missing:' "$log"; then
+    echo "PillTap destination missing: ${what}" >&2
+  else
+    echo "PillTap missed: ${what}" >&2
+  fi
+  tail -n 80 "$log" >&2 || true
+  exit 1
+}
+
+start_parity_stream() {
+  python3 - "$OUT/parity-stream.log" <<'PY' &
+import os
+import pty
+import sys
+
+path = sys.argv[1]
+cmd = [
+    "xcrun",
+    "simctl",
+    "spawn",
+    "booted",
+    "log",
+    "stream",
+    "--level",
+    "debug",
+    "--style",
+    "compact",
+    "--predicate",
+    'eventMessage CONTAINS "[parity]"',
+]
+master, slave = pty.openpty()
+pid = os.fork()
+if pid == 0:
+    os.close(master)
+    os.dup2(slave, 1)
+    os.dup2(slave, 2)
+    os.close(slave)
+    os.execvp(cmd[0], cmd)
+os.close(slave)
+with open(path, "wb", buffering=0) as out:
+    while True:
+        try:
+            chunk = os.read(master, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        out.write(chunk)
+        out.flush()
+os.waitpid(pid, 0)
+PY
+  stream_pid=$!
 }
 
 tail_log_path() {
@@ -317,15 +552,17 @@ PY
 capture_tail_away() {
   local id="f13-tail"
   local theme="light"
+  local mark
+  mark="$(log_mark)"
   write_frame_file "$id" "$theme" "away"
   echo "launch ${id} ${theme} away"
   launch_frame "$id" "$theme"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
+  if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "missing [parity] preview-chat module for ${id}" >&2
     dump_runtime_logs
     exit 1
   fi
-  if ! wait_for_line "[parity] ready f13-tail light #0" 120; then
+  if ! wait_for_since "[parity] ready f13-tail light #0" 120 "$mark"; then
     echo "missing [parity] ready f13-tail light #0" >&2
     dump_runtime_logs
     exit 1
@@ -358,15 +595,17 @@ capture_tail_away() {
 capture_stream_motion() {
   local id="stream-tools"
   local theme="light"
+  local mark
+  mark="$(log_mark)"
   write_frame_file "$id" "$theme"
   echo "launch ${id} ${theme}"
   launch_frame "$id" "$theme"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
+  if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "missing [parity] preview-chat module for ${id}" >&2
     dump_runtime_logs
     exit 1
   fi
-  if ! wait_for_line "[parity] ready stream-tools light #0" 120; then
+  if ! wait_for_since "[parity] ready stream-tools light #0" 120 "$mark"; then
     echo "missing [parity] ready stream-tools light #0" >&2
     dump_runtime_logs
     exit 1
@@ -433,15 +672,16 @@ capture_pinned_steps() {
   local kind="$9"
   local dest="${10}"
   local prefix="${11}"
-  local shots ms png frames index shot video duration
+  local shots ms png frames index shot video duration mark
+  mark="$(log_mark)"
   write_frame_file "$id" "$theme" "$scroll" "$motion" "$replay" "$lane" "$pill" "$composer" "0"
   echo "launch ${id} ${theme} ${kind} hold"
   launch_frame "$id" "$theme"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
+  if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "${kind} missed the module" >&2
     return 0
   fi
-  if ! wait_for_line "[parity] ${kind} shots " 60; then
+  if ! wait_for_since "[parity] ${kind} shots " 60 "$mark"; then
     echo "${kind} did not publish shots" >&2
     dump_runtime_logs || true
     return 0
@@ -453,8 +693,9 @@ capture_pinned_steps() {
   echo "${kind} shots ${shots}"
   mkdir -p "$dest"
   for ms in $shots; do
+    mark="$(log_mark)"
     write_frame_file "$id" "$theme" "$scroll" "$motion" "$replay" "$lane" "$pill" "$composer" "$ms"
-    if ! wait_for_line "[parity] ${kind} held ${ms}" 45; then
+    if ! wait_for_since "[parity] ${kind} held ${ms}" 45 "$mark"; then
       echo "${kind} missed hold ${ms}" >&2
       continue
     fi
@@ -645,37 +886,13 @@ capture_f12_lane() {
 # screenshots.
 tap_card_pills() {
   local udid
-  udid="$(xcrun simctl list devices booted -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-booted = []
-for devices in data.get("devices", {}).values():
-    for device in devices:
-        if device.get("state") == "Booted" and device.get("udid"):
-            booted.append(device["udid"])
-if len(booted) == 1:
-    print(booted[0])
-')"
+  udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "card pill tap has no single booted simulator" >&2
     return 1
   fi
   echo "tapping agent-chat-card-pill-plan on ${udid}"
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild test \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath /tmp/pill-tap-derived \
-    -only-testing:PillTapUITests/PillTapUITests/testTapCardPills \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  run_pill_tap testTapCardPills
 }
 
 capture_f12_pill_taps() {
@@ -693,10 +910,8 @@ capture_f12_pill_taps() {
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "f12 pill recorder open"
   if ! tap_card_pills >"$OUT/f12-pill-tap.log" 2>&1; then
-    echo "PillTap missed: f12 card pill tap failed" >&2
-    tail -n 40 "$OUT/f12-pill-tap.log" >&2 || true
     stop_screen_record "$pidfile" || true
-    exit 1
+    fail_pill_log "$OUT/f12-pill-tap.log" "f12 card pill tap failed"
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -709,37 +924,13 @@ capture_f12_pill_taps() {
 # does not take simctl screenshots.
 tap_card_row() {
   local udid
-  udid="$(xcrun simctl list devices booted -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-booted = []
-for devices in data.get("devices", {}).values():
-    for device in devices:
-        if device.get("state") == "Booted" and device.get("udid"):
-            booted.append(device["udid"])
-if len(booted) == 1:
-    print(booted[0])
-')"
+  udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "card row swipe has no single booted simulator" >&2
     return 1
   fi
   echo "swiping agent-chat-card-pill-scroller on ${udid}"
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild test \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath /tmp/pill-tap-derived \
-    -only-testing:PillTapUITests/PillTapUITests/testSwipeCardPills \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  run_pill_tap testSwipeCardPills
 }
 
 capture_f12_card_row() {
@@ -766,10 +957,8 @@ capture_f12_card_row() {
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "f12 card row ${theme} recorder open"
   if ! tap_card_row >"$taplog" 2>&1; then
-    echo "PillTap missed: f12 card row ${theme} swipe failed" >&2
-    tail -n 40 "$taplog" >&2 || true
     stop_screen_record "$pidfile" || true
-    exit 1
+    fail_pill_log "$taplog" "f12 card row ${theme} swipe failed"
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -786,37 +975,13 @@ capture_composer_states() {
 # recordVideo stays open and this pass does not take simctl screenshots.
 tap_composer() {
   local udid
-  udid="$(xcrun simctl list devices booted -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-booted = []
-for devices in data.get("devices", {}).values():
-    for device in devices:
-        if device.get("state") == "Booted" and device.get("udid"):
-            booted.append(device["udid"])
-if len(booted) == 1:
-    print(booted[0])
-')"
+  udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "composer tap has no single booted simulator" >&2
     return 1
   fi
   echo "tapping agent-chat-composer-input on ${udid}"
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild test \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath /tmp/pill-tap-derived \
-    -only-testing:PillTapUITests/PillTapUITests/testTapComposerField \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  run_pill_tap testTapComposerField
 }
 
 capture_composer_keyboard() {
@@ -834,10 +999,8 @@ capture_composer_keyboard() {
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "composer keyboard recorder open"
   if ! tap_composer >"$OUT/composer-keyboard.log" 2>&1; then
-    echo "PillTap missed: composer keyboard tap failed" >&2
-    tail -n 40 "$OUT/composer-keyboard.log" >&2 || true
     stop_screen_record "$pidfile" || true
-    exit 1
+    fail_pill_log "$OUT/composer-keyboard.log" "composer keyboard tap failed"
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -874,9 +1037,15 @@ take_screenshot() {
   run_bounded 240 xcrun simctl io booted screenshot "$1"
 }
 
+if ! shard_stills && ! shard_motion; then
+  echo "PARITY_SHARD must be all, stills, or motion (got ${PARITY_SHARD})" >&2
+  exit 1
+fi
+phase "shard ${PARITY_SHARD} pill=${PILL_TAP_ACTION} record=${RECORD_SECONDS}s"
+
 # simctl screenshots stay black unless Simulator.app owns the framebuffer.
 open -a Simulator || true
-sleep 2
+sleep 1
 
 # Prove the framebuffer before the app covers Springboard. The known black
 # scene hash is the empty app window, not a generic dark home screen.
@@ -903,10 +1072,9 @@ if [[ "$spring_hash" == "$black_scene" ]]; then
 fi
 
 echo "streaming [parity] logs"
-xcrun simctl spawn booted log stream --level debug --style compact \
-  --predicate 'eventMessage CONTAINS "[parity]"' >"$OUT/parity-stream.log" 2>&1 &
-stream_pid=$!
+start_parity_stream
 
+if shard_stills; then
 frame_rows="$(mktemp)"
 if ! (cd "$ROOT" && bun -e '
 import { parityCycleFrames, parityReadyLine } from "./apps/mobile/src/features/agent-chat/parity-cycle.ts";
@@ -934,22 +1102,25 @@ for row in "${rows[@]}"; do
     xcrun simctl ui booted appearance "$theme"
     write_frame_file "$id" "$theme"
     echo "launch ${id} ${theme}"
+    # Run 39561423684: F4-light retries matched the previous launch's
+    # painted line in the cumulative stream and shot Springboard.
+    mark="$(log_mark)"
     launch_frame "$id" "$theme"
-    if ! wait_for_line "[parity] preview-chat module" 90; then
+    if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
       echo "missing [parity] preview-chat module for ${id} ${theme}" >&2
       dump_runtime_logs
       exit 1
     fi
     echo "wait ${needle}"
-    if ! wait_for_line "$needle" 120; then
+    if ! wait_for_since "$needle" 120 "$mark"; then
       echo "missing ${needle}" >&2
       dump_runtime_logs
       exit 1
     fi
-    # Run 38877961991 wrote F1-light about 6s after ready, before the
-    # markdown body was on screen. The composer alone kept it under 95%
-    # one color. Wait, then shoot.
-    sleep 15
+    echo "wait [parity] painted ${id} ${theme}"
+    if ! wait_for_since "[parity] painted ${id} ${theme}" 25 "$mark"; then
+      echo "no painted line for ${id} ${theme}; shooting after ready"
+    fi
     flat_attempt=1
     accepted=0
     while true; do
@@ -970,7 +1141,7 @@ for row in "${rows[@]}"; do
           fi
         fi
       fi
-      if (( flat_attempt >= 3 )); then
+      if (( flat_attempt >= 6 )); then
         break
       fi
       # Home screen means this process is not showing the preview.
@@ -992,6 +1163,8 @@ for row in "${rows[@]}"; do
     if [[ "$accepted" == "1" ]]; then
       break
     fi
+    xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
+    sleep 2
     if (( frame_attempt >= 3 )); then
       if [[ "$shot_status" != "0" && "$shot_status" != "9" ]]; then
         echo "screenshot ${id}-${theme} timed out" >&2
@@ -1019,7 +1192,7 @@ for row in "${rows[@]}"; do
   fi
   if [[ "$id" == "F1" && "$theme" == "light" ]]; then
     cp "$OUT/${id}-${theme}.png" "$OUT/default-route.png"
-    run_bounded 60 xcrun simctl spawn booted log show --last 3m --info --style compact \
+    run_bounded 15 xcrun simctl spawn booted log show --last 3m --info --style compact \
       --predicate 'processImagePath CONTAINS "Atmos" OR subsystem CONTAINS "com.facebook.react" OR eventMessage CONTAINS "[parity]" OR eventMessage CONTAINS "RCTFatal" OR eventMessage CONTAINS "JavaScript"' \
       >"$OUT/device-log-after-warmup.txt" 2>&1 || true
     grep -E '\[parity\]|RCTFatal|JavaScript|topLoad|instanceHandle|Error' "$OUT/device-log-after-warmup.txt" | tail -n 40 >&2 || true
@@ -1066,22 +1239,14 @@ if dupes:
     sys.exit(1)
 print(f"{len(files)} distinct fixture screenshots")
 PY
+phase "stills complete"
+fi
 
 # After the hold gate, tap the scroll pill. A PillTap miss exits non-zero.
 # The preview logs `[parity] pill awaiting tap` and does not call the handler.
 tap_scroll_pill() {
   local udid
-  udid="$(xcrun simctl list devices booted -j | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-booted = []
-for devices in data.get("devices", {}).values():
-    for device in devices:
-        if device.get("state") == "Booted" and device.get("udid"):
-            booted.append(device["udid"])
-if len(booted) == 1:
-    print(booted[0])
-')"
+  udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
     echo "scroll pill tap has no single booted simulator" >&2
     return 1
@@ -1089,47 +1254,33 @@ if len(booted) == 1:
   echo "tapping agent-chat-scroll-pill on ${udid}"
   # Run 39131560794 printed the suite passed line, then xcodebuild stayed open
   # until the 360s SIGKILL. Stop once the suite has passed.
-  python3 "$ROOT/scripts/agent-chat-parity/run-until-line.py" \
-    --seconds 720 \
-    --grace 20 \
-    --needle "Test Suite 'Selected tests' passed" \
-    -- \
-    xcodebuild test \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -sdk iphonesimulator \
-    -destination "platform=iOS Simulator,id=${udid}" \
-    -derivedDataPath /tmp/pill-tap-derived \
-    -only-testing:PillTapUITests/PillTapUITests/testTapScrollPill \
-    -parallel-testing-enabled NO \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
+  run_pill_tap testTapScrollPill
 }
 
 capture_tail_return() {
-  local dest frames video duration index shot
+  local dest frames video duration index shot mark
   dest="$OUT/f13-tail-return"
   clear_motion_shots || true
+  mark="$(log_mark)"
   write_frame_file "f13-tail" "light" "away" "" "" "" "return"
   echo "launch f13-tail light away return"
-  launch_frame "f13-tail" "light"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
+  launch_frame "f13-tail" "light" "return"
+  if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "f13 tail return missed the module" >&2
-    return 0
+    dump_runtime_logs
+    exit 1
   fi
-  if ! wait_for_line "[parity] pill awaiting tap" 90; then
-    echo "f13 tail return never offered the pill" >&2
+  if ! wait_for_since "[parity] pill awaiting tap" 90 "$mark"; then
+    echo "PillTap missed: f13 tail return never offered the pill" >&2
     dump_runtime_logs || true
     copy_motion_shots "$dest" || true
-    return 0
+    exit 1
   fi
   echo "tapping the scroll pill" >&2
   if ! tap_scroll_pill >"$OUT/pill-tap.log" 2>&1; then
-    echo "PillTap missed: scroll pill tap failed" >&2
-    tail -n 80 "$OUT/pill-tap.log" >&2 || true
-    exit 1
+    fail_pill_log "$OUT/pill-tap.log" "scroll pill tap failed"
   fi
-  if ! wait_for_line "[parity] tail returned" 60; then
+  if ! wait_for_since "[parity] tail returned" 60 "$mark"; then
     echo "f13 tail return did not land" >&2
     dump_runtime_logs || true
     copy_motion_shots "$dest" || true
@@ -1158,6 +1309,8 @@ capture_tail_return() {
   rm -rf "$frames"
 }
 
+if shard_motion; then
+phase "motion start"
 capture_tail_away
 capture_tail_return || echo "f13 tail return capture failed" >&2
 capture_stream_motion
@@ -1168,6 +1321,8 @@ capture_f12_card_row light
 capture_f12_card_row dark
 capture_composer_states || echo "composer states capture failed" >&2
 capture_composer_keyboard
+phase "motion complete"
+fi
 
 # Still frames. The movie lasts RECORD_SECONDS so the duration gate stays
 # honest. It does not show reveal, tree draw-in, or a pill swap.
@@ -1205,9 +1360,11 @@ PY
   fi
 }
 
+if shard_stills; then
 for id in "${RECORD_IDS[@]}"; do
   record_still "$id"
 done
+fi
 
 # The log stream and console pty outlive this script. Leave them. The job
 # tears the step down, and killing by name would hit unrelated processes.
