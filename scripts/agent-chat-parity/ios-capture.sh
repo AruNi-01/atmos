@@ -1011,20 +1011,23 @@ for row in "${rows[@]}"; do
     xcrun simctl ui booted appearance "$theme"
     write_frame_file "$id" "$theme"
     echo "launch ${id} ${theme}"
+    # Run 39561423684: F4-light retries matched the previous launch's
+    # painted line in the cumulative stream and shot Springboard.
+    mark="$(log_mark)"
     launch_frame "$id" "$theme"
-    if ! wait_for_line "[parity] preview-chat module" 90; then
+    if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
       echo "missing [parity] preview-chat module for ${id} ${theme}" >&2
       dump_runtime_logs
       exit 1
     fi
     echo "wait ${needle}"
-    if ! wait_for_line "$needle" 120; then
+    if ! wait_for_since "$needle" 120 "$mark"; then
       echo "missing ${needle}" >&2
       dump_runtime_logs
       exit 1
     fi
     echo "wait [parity] painted ${id} ${theme}"
-    if ! wait_for_line "[parity] painted ${id} ${theme}" 25; then
+    if ! wait_for_since "[parity] painted ${id} ${theme}" 25 "$mark"; then
       echo "no painted line for ${id} ${theme}; shooting after ready"
     fi
     flat_attempt=1
@@ -1047,7 +1050,7 @@ for row in "${rows[@]}"; do
           fi
         fi
       fi
-      if (( flat_attempt >= 3 )); then
+      if (( flat_attempt >= 6 )); then
         break
       fi
       # Home screen means this process is not showing the preview.
@@ -1069,6 +1072,8 @@ for row in "${rows[@]}"; do
     if [[ "$accepted" == "1" ]]; then
       break
     fi
+    xcrun simctl terminate booted "$BUNDLE_ID" >/dev/null 2>&1 || true
+    sleep 2
     if (( frame_attempt >= 3 )); then
       if [[ "$shot_status" != "0" && "$shot_status" != "9" ]]; then
         echo "screenshot ${id}-${theme} timed out" >&2

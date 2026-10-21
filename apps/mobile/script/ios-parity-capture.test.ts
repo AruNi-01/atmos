@@ -57,7 +57,7 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(preview).toContain("parityPaintedLine");
     expect(preview).toContain("setTimeout(notePainted, 600)");
     expect(preview).toContain("setTimeout(notePainted, 8_000)");
-    expect(capture).toContain('wait_for_line "[parity] painted ${id} ${theme}"');
+    expect(capture).toContain('wait_for_since "[parity] painted ${id} ${theme}"');
     expect(capture).not.toContain("sleep 15");
   });
 
@@ -74,6 +74,7 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(capture).toContain("install_pill_runner");
     expect(capture).toContain("installing or uninstalling");
     expect(capture).toContain("pill tap ${test_id} runner busy");
+    expect(capture).toContain('wait_for_since "$needle" 120 "$mark"');
   });
 
   test("preview flag is step env only", () => {
