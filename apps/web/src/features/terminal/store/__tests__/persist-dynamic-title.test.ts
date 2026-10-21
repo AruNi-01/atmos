@@ -11,6 +11,7 @@ import {
 } from "../../lib/terminal-dynamic-title-cache";
 import {
   buildPersistedTerminalWorkspaceLayout,
+  mergeServerTerminalTitle,
   normalizeStoredDynamicTitle,
   titlesFromServerSnapshot,
 } from "../terminal-store-helpers";
@@ -225,6 +226,65 @@ describe("setDynamicTitle", () => {
     ).toEqual({
       oscTitle: "Start subagent to explore the project",
       dynamicTitle: "grok",
+    });
+  });
+});
+
+describe("mergeServerTerminalTitle", () => {
+  it("clears the OSC topic when the dynamic title switches and no new topic arrives", () => {
+    expect(
+      mergeServerTerminalTitle(
+        { dynamicTitle: "grok", oscTitle: "Introduce and overview the project" },
+        { dynamic_title: ".../atmos/dewgong", session_title: null },
+      ),
+    ).toEqual({ dynamicTitle: ".../atmos/dewgong" });
+  });
+
+  it("clears a topic when an idle directory is replayed without one", () => {
+    expect(
+      mergeServerTerminalTitle(
+        {
+          dynamicTitle: ".../atmos/dewgong",
+          oscTitle: "Introduce and overview the project",
+        },
+        { dynamic_title: ".../atmos/dewgong", session_title: null },
+      ),
+    ).toEqual({ dynamicTitle: ".../atmos/dewgong" });
+  });
+
+  it("keeps a topic when the same dynamic title is replayed without one", () => {
+    expect(
+      mergeServerTerminalTitle(
+        { dynamicTitle: "grok", oscTitle: "Introduce and overview the project" },
+        { dynamic_title: "grok", session_title: null },
+      ),
+    ).toEqual({
+      dynamicTitle: "grok",
+      oscTitle: "Introduce and overview the project",
+    });
+  });
+
+  it("keeps a topic on the first dynamic title", () => {
+    expect(
+      mergeServerTerminalTitle(
+        { oscTitle: "Introduce and overview the project" },
+        { dynamic_title: "grok", session_title: null },
+      ),
+    ).toEqual({
+      dynamicTitle: "grok",
+      oscTitle: "Introduce and overview the project",
+    });
+  });
+
+  it("keeps a topic when a switch still carries one", () => {
+    expect(
+      mergeServerTerminalTitle(
+        { dynamicTitle: "grok", oscTitle: "Introduce and overview the project" },
+        { dynamic_title: ".../atmos/dewgong", session_title: "debugging auth" },
+      ),
+    ).toEqual({
+      dynamicTitle: ".../atmos/dewgong",
+      oscTitle: "debugging auth",
     });
   });
 });

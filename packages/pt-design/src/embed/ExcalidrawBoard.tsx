@@ -703,7 +703,7 @@ export default function ExcalidrawBoard({
         minHeight: 320,
         background: viewBackgroundColor,
         position: "relative",
-        overflow: "hidden",
+        overflow: "clip",
       }}
     >
       <Excalidraw

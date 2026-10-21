@@ -61,6 +61,7 @@ import {
 import {
   getWorkspaceCreateOriginKey,
   useWorkspaceCreationStore,
+  workspaceCreateBlocksUntilWorktree,
 } from "@/features/workspace/store/workspace-creation-store";
 import { useTaskWorkspaceDraftStore } from "@/features/task/store/task-workspace-draft-store";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -902,10 +903,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       workspaceId: routeWorkspaceId,
       projectId: routeProjectId,
     });
+    const blocksUntilWorktree = workspaceCreateBlocksUntilWorktree(currentView);
     const jobId = startCreating({
       originKey,
       label: name.trim() || null,
-      blocking: true,
+      blocking: blocksUntilWorktree,
     });
 
     try {
@@ -1023,6 +1025,9 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
       keepGlobalLoading = true;
       bindWorkspace(jobId, workspaceId, finalDisplayName || null);
+      // Automation, tasks, and an open workspace already sit under this overlay.
+      // Drop back to that page and let the header track setup.
+      if (!blocksUntilWorktree) onClose?.();
       // Clean up composer + attachments after successful create.
       clearAttachments();
       composerRef.current?.clear();

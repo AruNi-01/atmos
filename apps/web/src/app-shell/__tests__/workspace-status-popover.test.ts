@@ -47,7 +47,7 @@ describe("workspace create overlay", () => {
     expect(header).toContain("HeaderWorkspaceJobs");
   });
 
-  test("new workspace worktree prep uses a center-stage blocking overlay", () => {
+  test("welcome worktree prep uses a dialog and other views dismiss the overlay", () => {
     const panel = readFileSync(join(import.meta.dir, "../PanelLayout.tsx"), "utf8");
     const overlay = readFileSync(
       join(import.meta.dir, "../WorkspaceSetupBlockingOverlay.tsx"),
@@ -64,10 +64,13 @@ describe("workspace create overlay", () => {
     const sidebar = readFileSync(join(import.meta.dir, "../LeftSidebar.tsx"), "utf8");
 
     expect(panel).toContain("WorkspaceSetupBlockingOverlay");
-    expect(overlay).toContain("isWorkspaceSetupBlocking");
+    expect(overlay).toContain("DialogContent");
+    expect(overlay).toContain("workspaceCreationOverlay");
     expect(overlay).toContain("blockingJob");
-    expect(dialog).toContain("blocking: true");
-    expect(welcome).toContain("blocking: true");
+    expect(overlay).not.toContain("WorkspaceSetupProgressView");
+    expect(dialog).toContain("workspaceCreateBlocksUntilWorktree");
+    expect(welcome).toContain("workspaceCreateBlocksUntilWorktree");
+    expect(welcome).toContain("if (!blocksUntilWorktree) onClose?.()");
     expect(sidebar).not.toContain("blocking: true");
   });
 });
@@ -113,6 +116,7 @@ describe("header workspace setup grouping", () => {
     expect(source).toContain("cancelAutoOpen");
     expect(hook).toContain("WORKSPACE_AUTO_ENTER_DELAY_MS");
     expect(hook).toContain("enterImmediately");
+    expect(hook).toContain("isWorkspaceCreateReadyToEnter");
     expect(hook).toContain("paused:");
     expect(hook).toContain("usePausedDeadlineCountdown");
     expect(countdown).toContain("setInterval");

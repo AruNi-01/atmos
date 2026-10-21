@@ -36,6 +36,7 @@ import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   getWorkspaceCreateOriginKey,
   useWorkspaceCreationStore,
+  workspaceCreateBlocksUntilWorktree,
 } from "@/features/workspace/store/workspace-creation-store";
 import {
   ISSUE_CACHE_TTL_MS,
@@ -626,7 +627,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     const jobId = startCreating({
       originKey,
       label: name.trim() || null,
-      blocking: true,
+      blocking: workspaceCreateBlocksUntilWorktree(currentView),
     });
     try {
       const finalDisplayName = prPreview

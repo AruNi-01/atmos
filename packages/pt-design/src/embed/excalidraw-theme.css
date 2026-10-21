@@ -7,6 +7,8 @@
 */
 
 .excalidraw {
+  /* Clip the sliding drawer. `hidden` still accepts focus scroll and shifts chrome. */
+  overflow: clip;
   --default-bg-color: var(--background, #ffffff);
   --island-bg-color: var(--card, #ffffff);
   --popup-bg-color: var(--popover, var(--card, #ffffff));
@@ -354,7 +356,17 @@
   box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
   overflow: hidden;
   transform-origin: right center;
-  animation: pt-design-drawer-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* `backwards` paints the off-screen pose on the first frame, so the sheet
+     does not pop in, jump away, then slide back. */
+  animation: pt-design-drawer-in 280ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
+
+/* Search forces a docked sidebar and shrinks this wrapper for one frame.
+   The drawer is an overlay, so the toolbar, menu, and zoom stay put. */
+.excalidraw .layer-ui__wrapper,
+.excalidraw .layer-ui__wrapper.animate {
+  width: 100% !important;
+  transition: none !important;
 }
 
 .excalidraw .sidebar[data-pt-leaving="true"],
@@ -490,6 +502,62 @@ html[lang^="zh"]
   .sidebar-triggers
   .sidebar-tab-trigger:nth-child(2)::after {
   content: "素材库";
+}
+
+/* Editor theme stays light, so Excalidraw's `.theme--dark` text colors never
+   apply. Primary is remapped to the light foreground, which painted the
+   browse link and the search field as light-on-light. */
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw a.library-menu-browse-button,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw a.library-menu-browse-button:hover,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw a.library-menu-browse-button:active {
+  background-color: var(--foreground, #fafafa);
+  color: var(--background, #09090b);
+}
+
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .layer-ui__search-header
+  .ExcTextField__input {
+  background-color: var(--color-surface-low, #18181b);
+  border: 1px solid var(--input-border-color, rgba(255, 255, 255, 0.14));
+  color-scheme: dark;
+}
+
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .layer-ui__search-header
+  .ExcTextField
+  svg {
+  color: var(--muted-foreground, #a1a1aa);
+}
+
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .layer-ui__search-header
+  .ExcTextField__input
+  input {
+  color: var(--text-primary-color, #fafafa);
+  caret-color: var(--text-primary-color, #fafafa);
+  background: transparent;
+}
+
+[data-testid="pt-design-board"][data-theme="dark"]
+  .excalidraw
+  .layer-ui__search-header
+  .ExcTextField__input
+  input::placeholder {
+  color: var(--muted-foreground, #a1a1aa);
+  opacity: 1;
+}
+
+/* Loading tiles use light gray tokens unless `.theme--dark` is set. */
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .library-unit--skeleton {
+  background-image: linear-gradient(
+    -45deg,
+    var(--color-surface-high, #3f3f46),
+    var(--color-surface-low, #18181b),
+    var(--color-surface-high, #3f3f46)
+  );
 }
 
 .excalidraw .pt-design-catalog-sidebar .sidebar-tab-trigger {
@@ -1332,12 +1400,10 @@ html[lang^="zh"]
 
 @keyframes pt-design-drawer-in {
   from {
-    opacity: 0.72;
-    transform: translateX(100%);
+    transform: translate3d(100%, 0, 0);
   }
   to {
-    opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
