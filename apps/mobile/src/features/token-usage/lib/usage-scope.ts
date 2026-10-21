@@ -1,6 +1,5 @@
 import {
   ALL_COMPUTERS_VALUE,
-  currentUniqueComputer,
   type UniqueComputer,
 } from "@/features/token-usage/lib/unique-computers";
 
@@ -9,17 +8,23 @@ export function resolveUsageScope(input: {
   selection: string | null;
   showSelect: boolean;
 }) {
-  const current = currentUniqueComputer(input.devices);
+  const current = input.devices.find((device) => device.isCurrent) ?? null;
   const selectionValid =
     input.selection === ALL_COMPUTERS_VALUE ||
     (input.selection != null && input.devices.some((device) => device.key === input.selection));
-  const selectedKey = selectionValid ? input.selection! : (current?.key ?? ALL_COMPUTERS_VALUE);
+  // The connected computer stays selected when it is missing from the list.
+  // Do not substitute All, and do not substitute whichever row is first.
+  const selectedKey = selectionValid ? input.selection! : (current?.key ?? null);
   const isAll = input.showSelect && selectedKey === ALL_COMPUTERS_VALUE;
-  const selectedDevice = input.devices.find((device) => device.key === selectedKey) ?? null;
-  const isCurrentScope = !input.showSelect || selectedDevice?.isCurrent === true;
+  const selectedDevice =
+    selectedKey == null
+      ? null
+      : (input.devices.find((device) => device.key === selectedKey) ?? null);
+  const isCurrentScope =
+    !input.showSelect || selectedDevice?.isCurrent === true || selectedKey === null;
   const scopedUsageKey = isAll
     ? `${ALL_COMPUTERS_VALUE}:${[...input.devices.map((device) => device.key)].sort().join(",")}`
-    : selectedKey;
+    : (selectedKey ?? "current");
   return {
     isAll,
     isCurrentScope,

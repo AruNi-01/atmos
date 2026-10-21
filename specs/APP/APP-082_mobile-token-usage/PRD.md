@@ -28,7 +28,7 @@ Messages、Active days、Estimated cost、Total tokens 的数字完整可见，�
 ### M5 Computer 范围
 
 - 已登录且去重后至少两台 Computer 时，左上角按钮组最左边出现 Computer 菜单。
-- 菜单第一项是 All，其余是各台 Computer。默认是当前连接的那台，不是 All。
+- 菜单第一项是 All，其余是各台 Computer。默认是当前连接的那台，不是 All。当前连接的机器不在列表里时，仍然看当前连接，不改选 All，也不改选列表里的第一台。
 - 当前机继续走已经连接的 `/ws`。另一台或 All 复用 web 的数据接口：Relay `createClientSession`（`clientKind: "mobile"`）后发送 `token_usage_overview_get`（`refresh: true`，`try_cookies: false`）。All 并发最多 3 路，合并规则与 web 相同（含 cursor / trae / warp 账号级去重）。
 - All 有未到达的 Computer 时，页面写出这些警告。一台都到不了时显示错误，不展示空的成功页。
 - 不够两台或未登录时不显示这个按钮。当前机的用量行为保持不变。

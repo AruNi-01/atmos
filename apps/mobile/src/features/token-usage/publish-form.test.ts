@@ -2,6 +2,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   normalizePublishHandle,
+  publishBaselineFromPage,
+  publishDraftDirty,
+  publishFormAfterPage,
+  publishFormAfterSave,
   publishPrimaryDisabled,
   publishPrimaryLabel,
   type PublishDraft,
@@ -120,6 +124,73 @@ describe("publishPrimaryDisabled", () => {
         saved,
       }),
     ).toBe(true);
+  });
+
+  test("keeps an edited draft when a later page arrives", () => {
+    const baseline = publishBaselineFromPage({
+      github_username: "atmos",
+      handle: "builder",
+      handle_claimed: false,
+      visibility: "unlisted",
+      x_username: "atmos",
+    });
+    const edited = { ...baseline.draft, x: "changed" };
+    const refetched = publishFormAfterPage(
+      { baseline, draft: edited },
+      {
+        github_username: "someone-else",
+        handle: "builder",
+        handle_claimed: false,
+        visibility: "public",
+        x_username: "atmos",
+      },
+    );
+    expect(refetched.draft).toEqual(edited);
+    expect(refetched.baseline).toBe(baseline);
+  });
+
+  test("copies a refetched page when nothing was edited", () => {
+    const baseline = publishBaselineFromPage({
+      github_username: "",
+      handle: "builder",
+      handle_claimed: true,
+      visibility: "unlisted",
+      x_username: "",
+    });
+    const refetched = publishFormAfterPage(
+      { baseline, draft: baseline.draft },
+      {
+        github_username: "atmos",
+        handle: "builder",
+        handle_claimed: true,
+        visibility: "public",
+        x_username: "atmos",
+      },
+    );
+    expect(refetched.draft).toEqual({
+      github: "atmos",
+      handle: "builder",
+      visibility: "public",
+      x: "atmos",
+    });
+  });
+
+  test("treats a saved draft as clean so the next page can replace it", () => {
+    const baseline = publishBaselineFromPage(null);
+    const submitted: PublishDraft = {
+      github: "atmos",
+      handle: "builder",
+      visibility: "public",
+      x: "",
+    };
+    const saved = publishFormAfterSave({ baseline, draft: submitted }, submitted);
+    expect(publishDraftDirty(saved.draft, saved.baseline)).toBe(false);
+    const edited = publishFormAfterSave(
+      { baseline, draft: { ...submitted, x: "later" } },
+      submitted,
+    );
+    expect(edited.draft.x).toBe("later");
+    expect(edited.baseline).toBe(baseline);
   });
 
   test("stays disabled while busy or without an overview", () => {

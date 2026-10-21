@@ -25,7 +25,7 @@ Mobile 不 import `apps/web`。`unique-computers.ts`、`cloud-api-clients.ts`、
 
 设备列表复用首页的 query key `["computers", relayUrl, relayAuthRevision]` 和 `listComputers()`。去重调用 `uniqueComputers(rows, null, selectedServerId)`。Mobile 没有 loopback 本机身份，第二个参数是 `null`。
 
-`shouldShowComputerSelect`：已登录且去重数量 ≥ 2。默认选中 `isCurrent` 的那台。选择状态只放在这一屏的 `useState`，不写存储。
+`shouldShowComputerSelect`：已登录且去重数量 ≥ 2。默认选中 `isCurrent` 的那台。列表里没有 `isCurrent` 时，`resolveUsageScope` 保持当前连接（`isCurrentScope`），`selectedKey` 为 null，不回落到 `all`，也不回落到 `devices[0]`。选择状态只放在这一屏的 `useState`，不写存储。
 
 All 的 `partial_warnings` 显示在页面上。非当前范围的失败文案固定为英文短句，不把 socket 内部错误直接铺开。
 
@@ -47,7 +47,9 @@ Agent 图标着色从 `MobileAgentIcon` 抽到 `agent-glyph-tint.ts`。Popover �
 
 `NativeTextInput` 增加 `framed`，默认 `true`。Publish 的前缀行自己画 1px 四边边框，输入框 `framed={false}`，避免 SwiftUI Host 盖住顶边。Android 在 `framed={false}` 时把描边色设为透明。
 
-布局放在现有 `GlassPanel` 里：Handle（`atmos.land/tok/ @`）、Links（`x.com/`、`github.com/`）、Public 开关、右侧实心主按钮、左侧红色文字 Turn off。主按钮禁用时用 `controlSecondary` 底和 `tertiaryLabel` 字。提交仍走 `hubPutUsagePage` / `hubDeleteUsagePage`，并带上 github / x。
+布局放在现有 `GlassPanel` 里：Handle（`atmos.land/tok/@`）、Links（`x.com/`、`github.com/`）、Public 开关、右侧实心主按钮、左侧红色文字 Turn off。主按钮禁用时用 `controlSecondary` 底和 `tertiaryLabel` 字。提交仍走 `hubPutUsagePage` / `hubDeleteUsagePage`，并带上 github / x。
+
+后台重新拿到 usage page 时，只有草稿相对上次写入表单的快照没有改动，才覆盖 Handle、visibility、GitHub、X。有未保存改动时保留草稿。保存成功后，把刚提交的草稿记成新的干净快照，下一次页面数据仍可以写入。规则在 `publishFormAfterPage` / `publishFormAfterSave`。
 
 ### 选择器（M5）
 

@@ -15,6 +15,25 @@ export type PublishSaved = {
   x: string | null;
 } | null;
 
+/** Server page fields the Publish form can copy. Null is the empty page. */
+export type PublishPageSource = {
+  github_username: string | null;
+  handle: string | null;
+  handle_claimed: boolean;
+  visibility: string | null;
+  x_username: string | null;
+} | null;
+
+export type PublishBaseline = {
+  claimed: boolean;
+  draft: PublishDraft;
+};
+
+export type PublishFormSync = {
+  baseline: PublishBaseline;
+  draft: PublishDraft;
+};
+
 export function normalizePublishHandle(raw: string) {
   return raw.trim().replace(/^@+/, "");
 }
@@ -48,4 +67,50 @@ export function publishPrimaryDisabled(input: {
   const githubDirty = input.draft.github.trim() !== (input.saved?.github ?? "").trim();
   const xDirty = input.draft.x.trim() !== (input.saved?.x ?? "").trim();
   return !(handleDirty || visibilityDirty || githubDirty || xDirty);
+}
+
+export function publishBaselineFromPage(page: PublishPageSource): PublishBaseline {
+  return {
+    claimed: Boolean(page?.handle_claimed && page.handle),
+    draft: {
+      github: page?.github_username ?? "",
+      handle: page?.handle ?? "",
+      visibility: page?.visibility === "public" ? "public" : "unlisted",
+      x: page?.x_username ?? "",
+    },
+  };
+}
+
+/** True when the draft differs from the last snapshot copied into the form. */
+export function publishDraftDirty(draft: PublishDraft, baseline: PublishBaseline) {
+  const handleDirty =
+    !baseline.claimed &&
+    normalizePublishHandle(draft.handle) !== normalizePublishHandle(baseline.draft.handle);
+  const visibilityDirty = draft.visibility !== baseline.draft.visibility;
+  const githubDirty = draft.github.trim() !== baseline.draft.github.trim();
+  const xDirty = draft.x.trim() !== baseline.draft.x.trim();
+  return handleDirty || visibilityDirty || githubDirty || xDirty;
+}
+
+/**
+ * Copy a refetched page into the form only when the user has not edited
+ * since the last applied snapshot.
+ */
+export function publishFormAfterPage(
+  form: PublishFormSync,
+  page: PublishPageSource,
+): PublishFormSync {
+  if (publishDraftDirty(form.draft, form.baseline)) return form;
+  const incoming = publishBaselineFromPage(page);
+  return { baseline: incoming, draft: incoming.draft };
+}
+
+/** After a successful save, the submitted draft is the new clean snapshot. */
+export function publishFormAfterSave(
+  form: PublishFormSync,
+  submitted: PublishDraft,
+): PublishFormSync {
+  const submittedBaseline: PublishBaseline = { claimed: form.baseline.claimed, draft: submitted };
+  if (publishDraftDirty(form.draft, submittedBaseline)) return form;
+  return { baseline: submittedBaseline, draft: form.draft };
 }

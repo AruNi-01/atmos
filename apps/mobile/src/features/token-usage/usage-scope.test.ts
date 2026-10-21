@@ -56,6 +56,34 @@ describe("resolveUsageScope", () => {
     expect(scope.isCurrentScope).toBe(true);
   });
 
+  test("stays on the connected computer when it is missing from the list", () => {
+    const scope = resolveUsageScope({
+      devices: [
+        { ...other, isCurrent: false },
+        { ...current, isCurrent: false },
+      ],
+      selection: null,
+      showSelect: true,
+    });
+    expect(scope.isAll).toBe(false);
+    expect(scope.isCurrentScope).toBe(true);
+    expect(scope.selectedKey).toBeNull();
+    expect(scope.selectedDevice).toBeNull();
+  });
+
+  test("still honors All after the connected computer is missing", () => {
+    const scope = resolveUsageScope({
+      devices: [
+        { ...other, isCurrent: false },
+        { ...current, isCurrent: false },
+      ],
+      selection: ALL_COMPUTERS_VALUE,
+      showSelect: true,
+    });
+    expect(scope.isAll).toBe(true);
+    expect(scope.isCurrentScope).toBe(false);
+  });
+
   test("hides the menu by treating the page as the connected computer", () => {
     const scope = resolveUsageScope({
       devices: [current],

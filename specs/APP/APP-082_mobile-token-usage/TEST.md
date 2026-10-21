@@ -69,6 +69,10 @@
 - Then 主按钮可用
 - When claimed 后只改草稿里的 handle
 - Then 主按钮仍禁用
+- When 草稿相对上次写入表单的快照有改动，随后又拉到新的 usage page
+- Then 草稿保持不动
+- When 草稿没有改动
+- Then 用新的 usage page 覆盖表单
 - Signals：`publish-form.test.ts`
 
 ### S5 Publish 外观
@@ -89,6 +93,10 @@
 - Then 回到当前 Computer
 - When 未登录或不足两台
 - Then 不显示选择器，范围视为当前机
+- When 当前连接的机器不在列表里，且还没有手动选择
+- Then 不是 All，也不是列表第一台；`isCurrentScope` 为真，`selectedKey` 为 null
+- When 这种情况下再点 All
+- Then `isAll` 为真
 - Signals：`usage-scope.test.ts`、`unique-computers.test.ts`、`shouldShowComputerSelect`
 
 ### S7 拉取与合并
@@ -177,6 +185,8 @@
 `bun scripts/agent-chat-parity/compare.ts`：13 fixtures match。
 
 `bun --filter @atmos/mobile typecheck` 退出码 1。错误只在既有文件：`src/features/agent-chat/glass-text-button.test.ts`（TS7016，`react-dom/server` 无声明）和 `src/features/agent-chat/open-thread-resync.test.ts`（TS2322，`number` 不能赋给 `void | boolean`）。本次 Token usage 文件没有类型错误。CI 不跑 mobile typecheck。
+
+2026-10-21 自审修复后再跑：`publish-form.test.ts` 与 `usage-scope.test.ts` 共 17 pass，0 fail。覆盖未保存草稿不被覆盖，以及当前机不在列表时不选 All。
 
 agent-browser：未运行。
 

@@ -9,9 +9,13 @@ import { formatCompactNumber, formatCurrencyCompact } from "@/features/token-usa
 import {
   isUsagePageLive,
   normalizePublishHandle,
+  publishBaselineFromPage,
+  publishFormAfterPage,
+  publishFormAfterSave,
   publishPrimaryDisabled,
   publishPrimaryLabel,
-  type PublishVisibility,
+  type PublishDraft,
+  type PublishFormSync,
 } from "@/features/token-usage/publish-form";
 import { saveUsageCardImage } from "@/features/token-usage/save-usage-card";
 import { mapOverviewToSharePayload } from "@/features/token-usage/share-payload";
@@ -273,12 +277,20 @@ function PublishPane({
     queryFn: () => hubGetUsagePage(),
   });
   const page = pageQuery.data ?? null;
-  const [handle, setHandle] = useState(page?.handle ?? "");
-  const [visibility, setVisibility] = useState<PublishVisibility>(
-    page?.visibility === "public" ? "public" : "unlisted",
-  );
-  const [github, setGithub] = useState(page?.github_username ?? "");
-  const [x, setX] = useState(page?.x_username ?? "");
+  const [publishForm, setPublishForm] = useState<PublishFormSync & { page: typeof page }>(() => {
+    const baseline = publishBaselineFromPage(page);
+    return { baseline, draft: baseline.draft, page };
+  });
+  if (publishForm.page !== page) {
+    const next = publishFormAfterPage(publishForm, page);
+    setPublishForm({ ...next, page });
+  }
+  const shownForm =
+    publishForm.page === page ? publishForm : { ...publishFormAfterPage(publishForm, page), page };
+  const { github, handle, visibility, x } = shownForm.draft;
+  const setDraft = (patch: Partial<PublishDraft>) => {
+    setPublishForm((current) => ({ ...current, draft: { ...current.draft, ...patch } }));
+  };
   const [error, setError] = useState<string | null>(null);
   const claimed = Boolean(page?.handle_claimed && page.handle);
   const live = isUsagePageLive(page?.visibility);
@@ -296,6 +308,11 @@ function PublishPane({
     },
     onSuccess: async () => {
       setError(null);
+      const submitted: PublishDraft = { github, handle, visibility, x };
+      setPublishForm((current) => ({
+        ...publishFormAfterSave(current, submitted),
+        page: current.page,
+      }));
       await queryClient.invalidateQueries({ queryKey: ["hub", "usage-page"] });
     },
     onError: (reason: unknown) => {
@@ -334,14 +351,6 @@ function PublishPane({
       : "Publishing…"
     : publishPrimaryLabel(live);
 
-  useEffect(() => {
-    if (!page) return;
-    setHandle(page.handle ?? "");
-    setVisibility(page.visibility === "public" ? "public" : "unlisted");
-    setGithub(page.github_username ?? "");
-    setX(page.x_username ?? "");
-  }, [page]);
-
   return (
     <GlassPanel shadow={false} style={styles.publishCard}>
       <View style={styles.pane}>
@@ -349,9 +358,9 @@ function PublishPane({
         <PrefixedField
           accessibilityLabel="Handle"
           editable={!claimed && !busy}
-          onChangeText={setHandle}
+          onChangeText={(value) => setDraft({ handle: value })}
           placeholder="builder"
-          prefix="atmos.land/tok/ @"
+          prefix="atmos.land/tok/@"
           value={handle}
         />
         {url ? (
@@ -368,7 +377,7 @@ function PublishPane({
         <PrefixedField
           accessibilityLabel="X username"
           editable={!busy}
-          onChangeText={setX}
+          onChangeText={(value) => setDraft({ x: value })}
           placeholder="username"
           prefix="x.com/"
           value={x}
@@ -376,7 +385,7 @@ function PublishPane({
         <PrefixedField
           accessibilityLabel="GitHub username"
           editable={!busy}
-          onChangeText={setGithub}
+          onChangeText={(value) => setDraft({ github: value })}
           placeholder="username"
           prefix="github.com/"
           value={github}
@@ -387,7 +396,7 @@ function PublishPane({
           </Text>
           <NativeSwitch
             disabled={busy}
-            onValueChange={(checked) => setVisibility(checked ? "public" : "unlisted")}
+            onValueChange={(checked) => setDraft({ visibility: checked ? "public" : "unlisted" })}
             value={visibility === "public"}
           />
         </View>
