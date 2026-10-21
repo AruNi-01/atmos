@@ -3,7 +3,10 @@ name: CI - Mobile iOS parity
 # structural runs on matching pull requests.
 # ios-simulator is the heavy macOS job (about 1–3 hours). It runs on
 # workflow_dispatch, or when the PR has the label ios-parity.
-# QUALITY-022 caches CocoaPods and Xcode DerivedData inside that job only.
+# QUALITY-022 caches the generated ios/ tree (skip prebuild + pod install on
+# exact hit) and Xcode DerivedData. Prefix restore-keys are not used for those
+# two trees: run 39530230224 showed an exact DerivedData hit plus a full
+# rebuild (49m vs 27m cold) because prebuild/pod install rewrote sources.
 # Branch protection was checked before making that job opt-in (QUALITY-010):
 # classic protection is 403 for this token, rulesets are empty, and merged
 # PRs that do not touch these paths (#318, #312) merged without ios-simulator,
@@ -249,7 +252,7 @@ jobs:
           fi
           xcrun simctl status_bar booted override --time "9:41" --batteryState charged --batteryLevel 100
 
-      - name: Bake preview flag and prebuild iOS
+      - name: Bake preview flag
         working-directory: apps/mobile
         run: |
           set -euo pipefail
@@ -258,37 +261,39 @@ jobs:
           # not from app.config.js.
           bun ../../scripts/agent-chat-parity/exclude-dev-client.js package.json
           node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-client")) process.exit(1)'
-          bunx expo prebuild -p ios --no-install
-          node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-launcher")) { console.error("prebuild dropped the dev-client exclude"); process.exit(1) }'
-          # The Xcode bundle phase sources this file before Expo inlines EXPO_PUBLIC_*.
-          printf 'export EXPO_PUBLIC_PARITY_PREVIEW=1\n' > ios/.xcode.env.local
-          info_plist="$(find ios -name Info.plist -path '*Atmos/Info.plist' -print -quit)"
-          if [[ -z "$info_plist" ]]; then
-            echo "Atmos Info.plist missing after prebuild" >&2
-            find ios -name Info.plist >&2 || true
-            exit 1
-          fi
-          # QUALITY-011 requires Atmos.SceneDelegate. Do not restore the gate that
-          # failed whenever Info.plist contained UISceneDelegateClassName.
-          bash script/verify-ios-scene-lifecycle.sh structural
 
-      # QUALITY-022: restore after prebuild so expo does not wipe ios/Pods.
-      # Podfile.lock is gitignored; this key uses the generated Podfile + bun.lock.
-      - name: Restore CocoaPods cache
-        id: cocoapods-restore
+      # QUALITY-022: cache the whole generated ios/ tree (Pods, lock, workspace,
+      # pbxproj). Exact hit skips prebuild and pod install. No restore-keys:
+      # a prefix tree plus a later prebuild mixes files. Hash inputs after the
+      # exclude-dev-client mutation of package.json.
+      - name: Restore generated iOS tree
+        id: ios-restore
         uses: actions/cache/restore@v4
         with:
-          path: |
-            apps/mobile/ios/Pods
-            ~/Library/Caches/CocoaPods
-          key: ios-pods-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/mobile/ios/Podfile') }}
+          path: apps/mobile/ios
+          key: ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js') }}
+
+      - name: Restore CocoaPods download cache
+        if: success() && steps.ios-restore.outputs.cache-hit != 'true'
+        id: podhome-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock') }}
           restore-keys: |
-            ios-pods-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-
-            ios-pods-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-
-            ios-pods-${{ runner.os }}-${{ steps.xcode.outputs.version }}-
-            ios-pods-${{ runner.os }}-
+            ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-
+            ios-podhome-${{ runner.os }}-
+
+      - name: Prebuild iOS
+        if: success() && steps.ios-restore.outputs.cache-hit != 'true'
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          bunx expo prebuild -p ios --no-install
+          node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-launcher")) { console.error("prebuild dropped the dev-client exclude"); process.exit(1) }'
 
       - name: Install CocoaPods
+        if: success() && steps.ios-restore.outputs.cache-hit != 'true'
         id: pod-install
         working-directory: apps/mobile/ios
         run: |
@@ -301,27 +306,85 @@ jobs:
           fi
           echo "expo-dev-client is not in Podfile.lock"
 
-      - name: Save CocoaPods cache
-        if: always() && !cancelled() && steps.pod-install.conclusion == 'success'
+      - name: Save CocoaPods download cache
+        if: always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.pod-install.conclusion == 'success'
         uses: actions/cache/save@v4
         with:
-          path: |
-            apps/mobile/ios/Pods
-            ~/Library/Caches/CocoaPods
-          key: ios-pods-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/mobile/ios/Podfile') }}
+          path: ~/Library/Caches/CocoaPods
+          key: ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock') }}
 
-      # QUALITY-022: Podfile.lock exists after pod install; include its hash here.
+      - name: Save generated iOS tree
+        if: always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.pod-install.conclusion == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: apps/mobile/ios
+          key: ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js') }}
+
+      - name: Verify generated iOS tree
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-launcher")) { console.error("dev-client exclude missing after iOS tree restore"); process.exit(1) }'
+          # The Xcode bundle phase sources this file before Expo inlines EXPO_PUBLIC_*.
+          printf 'export EXPO_PUBLIC_PARITY_PREVIEW=1\n' > ios/.xcode.env.local
+          info_plist="$(find ios -name Info.plist -path '*Atmos/Info.plist' -print -quit)"
+          if [[ -z "$info_plist" ]]; then
+            echo "Atmos Info.plist missing" >&2
+            find ios -name Info.plist >&2 || true
+            exit 1
+          fi
+          # QUALITY-011 requires Atmos.SceneDelegate. Do not restore the gate that
+          # failed whenever Info.plist contained UISceneDelegateClassName.
+          bash script/verify-ios-scene-lifecycle.sh structural
+          if [[ ! -f ios/Podfile.lock ]]; then
+            echo "Podfile.lock missing" >&2
+            exit 1
+          fi
+          if grep -E -q 'expo-dev-launcher|expo-dev-menu|expo-dev-client' ios/Podfile.lock; then
+            echo "parity prebuild still linked expo-dev-client" >&2
+            exit 1
+          fi
+          echo "generated iOS tree is ready"
+
+      # QUALITY-022: exact key only. restore-keys pulled in a 1.5 GB tree that
+      # still fully recompiled (run 39530230224 attempt 2).
       - name: Restore DerivedData cache
         id: deriveddata-restore
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.DERIVED_DATA }}
           key: ios-dd-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/mobile/ios/Podfile.lock') }}
-          restore-keys: |
-            ios-dd-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-
-            ios-dd-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-
-            ios-dd-${{ runner.os }}-${{ steps.xcode.outputs.version }}-
-            ios-dd-${{ runner.os }}-
+
+      - name: Normalize native input mtimes for incremental xcodebuild
+        if: success() && steps.deriveddata-restore.outputs.cache-hit == 'true'
+        run: |
+          set -euo pipefail
+          # Checkout and bun install stamp files with "now". Clang then treats
+          # every translation unit as newer than the restored .o files.
+          python3 - << 'PY'
+          import os
+          ref = os.stat("bun.lock")
+          times = (ref.st_atime, ref.st_mtime)
+          roots = (
+              "node_modules",
+              "apps/mobile/node_modules",
+              "apps/mobile/ios",
+              "apps/mobile/modules",
+          )
+          updated = 0
+          for root in roots:
+              if not os.path.isdir(root):
+                  continue
+              for dirpath, _dirnames, filenames in os.walk(root):
+                  for name in filenames:
+                      path = os.path.join(dirpath, name)
+                      try:
+                          os.utime(path, times)
+                          updated += 1
+                      except OSError:
+                          pass
+          print(f"pinned {updated} native-input mtimes to bun.lock")
+          PY
 
       - name: Build Release simulator app
         id: xcodebuild
@@ -391,7 +454,11 @@ jobs:
             -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" \
             -derivedDataPath "$derived" \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            build
+            build \
+            2>&1 | tee /tmp/atmos-xcodebuild.log
+          compilec="$(grep -c 'CompileC ' /tmp/atmos-xcodebuild.log || true)"
+          echo "compilec=${compilec}" >> "$GITHUB_OUTPUT"
+          echo "CompileC count: ${compilec}"
 
           app="$derived/Build/Products/Release-iphonesimulator/Atmos.app"
           if [[ ! -d "$app" ]]; then
@@ -454,10 +521,13 @@ jobs:
       - name: Write summary
         if: always() && !cancelled()
         env:
-          PODS_HIT: ${{ steps.cocoapods-restore.outputs.cache-hit }}
-          PODS_KEY: ${{ steps.cocoapods-restore.outputs.cache-matched-key }}
+          IOS_HIT: ${{ steps.ios-restore.outputs.cache-hit }}
+          IOS_KEY: ${{ steps.ios-restore.outputs.cache-matched-key }}
+          PODHOME_HIT: ${{ steps.podhome-restore.outputs.cache-hit }}
+          PODHOME_KEY: ${{ steps.podhome-restore.outputs.cache-matched-key }}
           DD_HIT: ${{ steps.deriveddata-restore.outputs.cache-hit }}
           DD_KEY: ${{ steps.deriveddata-restore.outputs.cache-matched-key }}
+          COMPILEC: ${{ steps.xcodebuild.outputs.compilec }}
           XCODE_CACHE_VERSION: ${{ steps.xcode.outputs.version }}
           CACHE_SCOPE: ${{ steps.xcode.outputs.scope }}
         run: |
@@ -472,10 +542,13 @@ jobs:
             echo "- simulator device: iPhone 17 Pro"
             echo "- cache xcode version: ${XCODE_CACHE_VERSION}"
             echo "- cache scope: ${CACHE_SCOPE}"
-            echo "- cocoapods cache-hit: ${PODS_HIT}"
-            echo "- cocoapods cache-matched-key: ${PODS_KEY}"
+            echo "- ios-gen cache-hit: ${IOS_HIT}"
+            echo "- ios-gen cache-matched-key: ${IOS_KEY}"
+            echo "- cocoapods-home cache-hit: ${PODHOME_HIT}"
+            echo "- cocoapods-home cache-matched-key: ${PODHOME_KEY}"
             echo "- deriveddata cache-hit: ${DD_HIT}"
             echo "- deriveddata cache-matched-key: ${DD_KEY}"
+            echo "- CompileC count: ${COMPILEC}"
             echo "- Phone PNGs in this artifact are iOS Simulator frames."
             echo "- react-native-web comparison PNGs, when the ubuntu job finishes, are artifact parity-rn-web. They are not iOS and not Next."
             echo "- S31 Next.js web PNGs were not produced."
