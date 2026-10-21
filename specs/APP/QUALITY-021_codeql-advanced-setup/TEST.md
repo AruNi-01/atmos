@@ -16,22 +16,22 @@ GitHub will run the new jobs on the pull request. Upload is expected to fail whi
 
 ## Coverage map
 
-| Requirement                                                                                     | Scenario IDs |
-| ----------------------------------------------------------------------------------------------- | ------------ |
-| Same five languages as default setup                                                            | S1           |
-| Rust and JavaScript/TypeScript `build-mode: none`; Python and Actions `none`; C/C++ `autobuild` | S2           |
-| Pull requests skip docs and static resources                                                    | S3, S4       |
-| Unfiltered scans only on push to `main` and the weekly schedule                                 | S5           |
-| Least permissions, including `security-events: write`                                           | S6           |
-| Concurrency cancels the previous run                                                            | S7           |
-| No `${{ }}` inside `run:`                                                                       | S8           |
-| Action majors match repo style                                                                  | S9           |
-| actionlint accepts the file                                                                     | S10          |
-| Existing workflow shell scan still passes                                                       | S11          |
-| oxlint cap stays 455                                                                            | S12          |
-| Default setup is not disabled by this change                                                    | S13          |
-| Check name and SARIF category stay per language                                                 | S14          |
-| Upload failure while default setup is on is expected, and other CI is not                       | S15          |
+| Requirement                                                                       | Scenario IDs |
+| --------------------------------------------------------------------------------- | ------------ |
+| Same five languages as default setup                                              | S1           |
+| All five languages use `build-mode: none`, including C/C++ after autobuild failed | S2           |
+| Pull requests skip docs and static resources                                      | S3, S4       |
+| Unfiltered scans only on push to `main` and the weekly schedule                   | S5           |
+| Least permissions, including `security-events: write`                             | S6           |
+| Concurrency cancels the previous run                                              | S7           |
+| No `${{ }}` inside `run:`                                                         | S8           |
+| Action majors match repo style                                                    | S9           |
+| actionlint accepts the file                                                       | S10          |
+| Existing workflow shell scan still passes                                         | S11          |
+| oxlint cap stays 455                                                              | S12          |
+| Default setup is not disabled by this change                                      | S13          |
+| Check name and SARIF category stay per language                                   | S14          |
+| Upload failure while default setup is on is expected, and other CI is not         | S15          |
 
 ## Execution map
 
@@ -58,10 +58,10 @@ GitHub will run the new jobs on the pull request. Upload is expected to fail whi
 ### S2 — Build modes
 
 - **Level**: Review
-- **Given**: TECH requires `none` for Rust and JavaScript/TypeScript, and the suitable mode for the other detected languages.
+- **Given**: Rust and JavaScript/TypeScript must be `none`. Python and Actions have no build. C/C++ `autobuild` failed on the first PR run.
 - **When**: each row's `build-mode` is read.
-- **Then**: `actions`, `javascript-typescript`, `python`, and `rust` are `none`. `c-cpp` is `autobuild`.
-- **Signals**: `build-mode` on each include row.
+- **Then**: `actions`, `c-cpp`, `javascript-typescript`, `python`, and `rust` are all `none`.
+- **Signals**: `build-mode: none` on each include row. The failed run's C/C++ annotation names `autobuild.sh` exit 2, which is why that row is not `autobuild`.
 
 ### S3 — Docs-only pull request is ignored
 
@@ -178,7 +178,7 @@ GitHub will run the new jobs on the pull request. Upload is expected to fail whi
 ## Performance and load budgets
 
 - Docs-only and asset-only pull requests do not start the five jobs. That removes the measured CodeQL block from those PRs: about 20m 13s parallel, about 35m 20s billed, on the audited `main` run.
-- On code changes, Rust no longer autobuilds. The Rust job is today's critical path (20m 13s, including Autobuild). `build-mode: none` removes the compile. The remaining extract-and-query time is not estimated here; job logs were not readable. JavaScript analysis (~10m) still runs. C/C++, Python, and Actions stay around their current one to two minutes.
+- On code changes, no language autobuilds. The Rust job is today's critical path (20m 13s, including Autobuild). `build-mode: none` removes the compile. The remaining extract-and-query time is not estimated here. JavaScript analysis (~10m) still runs. C/C++, Python, and Actions stay short; C/C++ `none` should be in that same range, without `autobuild.sh`.
 - The savings do not appear on this PR. Default setup keeps running, and the new matrix is additional until Settings is switched.
 
 ## Regression checklist
@@ -228,7 +228,7 @@ A repository admin does these. This change must not.
 
 Local checks, 2026-10-21, before the pull request CI run:
 
-- S1–S9, S12, S14 — pass by reading `.github/workflows/codeql.yml` and root `package.json`. Matrix build modes: `actions`/`javascript-typescript`/`python`/`rust` = `none`, `c-cpp` = `autobuild`. Lint script is `oxlint --max-warnings=455`. No `run:` key. `paths-ignore` is only under `pull_request`.
+- S1–S9, S12, S14 — pass by reading `.github/workflows/codeql.yml` and root `package.json`. Every matrix `build-mode` is `none`. Lint script is `oxlint --max-warnings=455`. No `run:` key. `paths-ignore` is only under `pull_request`.
 - S10 — pass. `actionlint` 1.7.12 on `.github/workflows/codeql.yml` exited 0 with no findings.
 - S11 — pass. `cargo test -p api --test workflow_shell_env`: `release_workflows_pass_untrusted_refs_through_env` ok. 1 passed.
 - S13 — the branch diff is the workflow, this spec, and the README row. No settings API.

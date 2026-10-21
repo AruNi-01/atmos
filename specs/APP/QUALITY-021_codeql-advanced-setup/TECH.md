@@ -22,7 +22,7 @@ Default setup and advanced setup cannot upload at the same time. This PR leaves 
 | Configuration               | Default setup, workflow path `dynamic/github-code-scanning/codeql` | `.github/workflows/codeql.yml`                                                |
 | Languages                   | `actions`, `c-cpp`, `javascript-typescript`, `python`, `rust`      | Same five, one job each                                                       |
 | Rust / JS build             | Default setup runs an Autobuild step                               | `build-mode: none`                                                            |
-| C/C++ build                 | Default setup Autobuild, ~90s                                      | `build-mode: autobuild`                                                       |
+| C/C++ build                 | Default setup shows an Autobuild step, ~90s                        | `build-mode: none`                                                            |
 | Python / Actions            | Interpreted; Autobuild step is a fast no-op                        | `build-mode: none`                                                            |
 | Docs-only PRs               | CodeQL still runs                                                  | `pull_request` `paths-ignore` skips the workflow                              |
 | Push to `main`, weekly cron | Full language matrix                                               | Same matrix, no path filter                                                   |
@@ -108,15 +108,21 @@ Not ignored: `**/*.json`, `**/*.mjs`, `**/*.yml`, `apps/docs` source that is not
 
 `strategy.fail-fast` is `false`. One language failing upload must not cancel the others.
 
-| `language`              | `build-mode` | Why                                                                                                                                                 |
-| ----------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `actions`               | `none`       | Only supported mode                                                                                                                                 |
-| `javascript-typescript` | `none`       | Required. Interpreted. Default setup's Autobuild step does not compile it                                                                           |
-| `python`                | `none`       | Interpreted. Same reason                                                                                                                            |
-| `rust`                  | `none`       | Required. Skips the Cargo autobuild that makes the Rust job the 20 minute critical path                                                             |
-| `c-cpp`                 | `autobuild`  | Compiled language. Default setup's C/C++ Autobuild already succeeds in ~90s, so it is not the cost. `none` would drop build-dependent C/C++ queries |
+| `language`              | `build-mode` | Why                                                                                     |
+| ----------------------- | ------------ | --------------------------------------------------------------------------------------- |
+| `actions`               | `none`       | Only supported mode                                                                     |
+| `javascript-typescript` | `none`       | Required. Interpreted. Default setup's Autobuild step does not compile it               |
+| `python`                | `none`       | Interpreted. Same reason                                                                |
+| `rust`                  | `none`       | Required. Skips the Cargo autobuild that makes the Rust job the 20 minute critical path |
+| `c-cpp`                 | `none`       | No top-level C build. Advanced `autobuild` fails; see the note under this table         |
 
-There is no manual build step. The matrix never sets `build-mode: manual`. A `run:` block is omitted on purpose so the file cannot interpolate `${{ }}` into a shell. If C/C++ autobuild later fails with "unable to automatically build", switch that row to `none` (the sources have no single build entrypoint) or add a manual build that reads only shell variables, not `${{ }}` inside `run:`.
+There is no manual build step and no `run:` step. The matrix never sets `build-mode: manual`, so the file cannot interpolate `${{ }}` into a shell.
+
+C/C++ was first set to `autobuild` because default setup's C/C++ job succeeds in about 90s and shows an Autobuild step. On PR #344 run [39528283378](https://github.com/AruNi-01/atmos/actions/runs/39528283378), advanced `build-mode: autobuild` failed before upload:
+
+`Exit status 1 from command: .../cpp/tools/autobuild.sh` and "We were unable to automatically build your code."
+
+The native sources are Electron addons and vendored headers, not a Makefile CodeQL can trace. `none` is the build mode that still extracts them. Build-dependent C/C++ queries will see less than a traced build. A manual compile is not added: there is no single build entrypoint, and a `run:` step is the injection surface this workflow avoids.
 
 Job name is `Analyze (${{ matrix.language }})`. The check run name stays `Analyze (rust)`, `Analyze (javascript-typescript)`, `Analyze (c-cpp)`, `Analyze (python)`, and `Analyze (actions)`.
 
@@ -178,7 +184,7 @@ No `queries:` input. No config file under `.github/codeql`. No `upload: false`. 
 - **Expected failure**: with default setup still enabled, advanced upload fails. GitHub reports this as default setup already being enabled (wording is the product's, typically that CodeQL default setup must be disabled before advanced results upload). This PR will be red on the new workflow until step 3 of the rollout. That is not a workflow bug.
 - **Double cost until the switch**: default setup keeps running. This PR adds a second CodeQL matrix. Minutes go up until default setup is off. The 18% savings starts after the switch, not on this PR.
 - **Rust `none`**: skips Cargo. Some Rust queries that need a traced build return fewer results than Autobuild. Chosen because the Rust Autobuild job is the CodeQL critical path (~20m) and the task requires `none`.
-- **C/C++ `autobuild`**: keeps build-traced queries for a job that is already ~90s. If autobuild starts failing or starts compiling the Rust workspace, switch that one row to `none`.
+- **C/C++ `none`**: advanced `autobuild` cannot build this tree (PR #344, `autobuild.sh` exit 2). `none` still scans the sources. Queries that need a traced C build return less. Default setup's fast green C/C++ job is not the same strict autobuild.
 - **Query suite**: not readable via the 403 configuration endpoint. Omitted `queries:` means the action default. A UI-selected `security-extended` suite would not carry over automatically.
 - **paths-ignore and required checks**: if a workflow is skipped because every file matched `paths-ignore`, GitHub does not report the check. A required `Analyze (rust)` (and the other four) can sit pending and block a docs-only pull request. Confirm branch protection after rollout. The mitigation, if that happens, is a follow-up that always emits a passing check for ignored path sets. This spec uses `paths-ignore` as requested and does not add that extra job.
 - **Same job name while both setups run**: two check runs can share `Analyze (rust)`. One success (default setup) and one failure (this workflow) make that context red. Draft PR only.
@@ -195,4 +201,4 @@ No `queries:` input. No config file under `.github/codeql`. No `upload: false`. 
 
 ## Open questions
 
-None. C/C++ stays on `autobuild` for the reason in the matrix table. Default setup stays enabled until a person changes repository settings.
+None. Every language in the matrix uses `build-mode: none`. Default setup stays enabled until a person changes repository settings.
