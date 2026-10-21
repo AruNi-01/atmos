@@ -1,13 +1,21 @@
 name: Setup E2E
-description: Install Atmos E2E runtime dependencies (Bun, Rust, just, Playwright browsers)
+description: Install Atmos E2E runtime dependencies (Bun, just, Playwright browsers; Rust optional)
+
+inputs:
+  with-rust:
+    description: Install rust-toolchain and rust-cache. E2E shards that exec a prebuilt api should pass false.
+    required: false
+    default: "true"
 
 runs:
   using: composite
   steps:
     - name: Install Rust (stable)
+      if: ${{ inputs.with-rust == 'true' }}
       uses: dtolnay/rust-toolchain@stable
 
     - name: Cache Rust dependencies
+      if: ${{ inputs.with-rust == 'true' }}
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: ". -> target"
