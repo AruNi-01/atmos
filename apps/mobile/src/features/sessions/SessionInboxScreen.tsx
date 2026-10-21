@@ -100,8 +100,8 @@ function SessionBucketBody({ bucket }: { bucket: SessionBucket | null }) {
       )
     : [];
   const { fetchNextPage, retryNextPage } = inbox;
-  const fetchNext = useCallback((): boolean => fetchNextPage(), [fetchNextPage]);
-  const retryNext = useCallback((): boolean => retryNextPage(), [retryNextPage]);
+  const fetchNext = useCallback(() => fetchNextPage(), [fetchNextPage]);
+  const retryNext = useCallback(() => retryNextPage(), [retryNextPage]);
   const list = useFilteredListWindow({
     fetchFailed: inbox.connected && inbox.fetchNextPageFailed,
     fetchNext,

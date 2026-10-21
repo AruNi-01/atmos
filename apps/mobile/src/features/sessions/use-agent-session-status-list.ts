@@ -32,23 +32,30 @@ export function useAgentSessionStatusList() {
 
   const nextPageLock = useRef(false);
   const loadNextPage = useCallback(
-    (allowError: boolean): boolean => {
-      if (nextPageLock.current || !query.hasNextPage || query.isFetchingNextPage) return false;
-      if (!allowError && query.isFetchNextPageError) return false;
+    (allowError: boolean): Promise<boolean> => {
+      if (nextPageLock.current || !query.hasNextPage || query.isFetchingNextPage) {
+        return Promise.resolve(false);
+      }
+      if (!allowError && query.isFetchNextPageError) return Promise.resolve(false);
       nextPageLock.current = true;
-      void query.fetchNextPage().finally(() => {
-        nextPageLock.current = false;
-      });
-      return true;
+      return query
+        .fetchNextPage()
+        .then(
+          () => true,
+          () => true,
+        )
+        .finally(() => {
+          nextPageLock.current = false;
+        });
     },
     [query.fetchNextPage, query.hasNextPage, query.isFetchNextPageError, query.isFetchingNextPage],
   );
 
-  const fetchNextPage = useCallback((): boolean => {
+  const fetchNextPage = useCallback((): Promise<boolean> => {
     return loadNextPage(false);
   }, [loadNextPage]);
 
-  const retryNextPage = useCallback((): boolean => {
+  const retryNextPage = useCallback((): Promise<boolean> => {
     return loadNextPage(true);
   }, [loadNextPage]);
 

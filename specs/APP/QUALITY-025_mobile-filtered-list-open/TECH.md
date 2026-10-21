@@ -21,19 +21,19 @@ Id selection: `origin/main` at the time of writing has QUALITY-001…021 and QUA
 
 ## Quality target
 
-| Item                          | Before                                                                                                                                                                                         | After                                                                                                                           |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Session card `onPress`        | Sync `router.push`, then the bucket screen invalidates status + terminal candidates on focus and mounts every matching row                                                                     | Sync `router.push(openSessionBucketHref(bucket))`. Bucket surface does not invalidate on focus and does not start enrichment    |
-| Workspace row `onPress`       | Sync `router.push`, then `WorkspaceEntryScreen` mounts every merged activity row                                                                                                               | Sync `router.push(openWorkspaceEntryHref(id))`. First paint mounts at most 20 rows                                              |
-| Data not ready                | Bucket replaces the list with `ListSkeleton` while `fillWhenShort` chains server pages during the transition. Workspace shows a skeleton only when the cache is empty, otherwise the full list | Skeleton when the filtered cache is empty and a fill is still in flight. Cached rows paint immediately, sliced to the UI window |
-| `fillWhenShort` on the bucket | `true` while `rows.length < bucketCount && hasNextPage && !fetchNextPageFailed`, including `rows.length === 0`                                                                                 | Bucket does not pass `fillWhenShort`. The `AppScreen` prop stays for its existing scroll helper                                 |
-| UI page                       | Entire filtered array                                                                                                                                                                          | `FILTERED_LIST_PAGE_SIZE = 20`. Next 20 on end-reached. Reset to 20 when the bucket or workspace id changes                     |
-| Server status page            | `limit: 100` literal in `ws-actions.ts`                                                                                                                                                        | Same 100 via `AGENT_SESSION_STATUS_PAGE_SIZE`. Web `SESSION_PAGE_SIZE` is 100. Server `AGENT_SESSION_PAGE_LIMIT` stays 100      |
-| Server chat page              | `CHAT_LIST_PAGE_SIZE = 100`                                                                                                                                                                    | Unchanged. Web `AGENT_CHAT_SESSIONS_PAGE_LIMIT` is 100                                                                          |
-| Next-page failure             | Swallowed (`isFetchNextPageError` nulls the row error). End-reached calls `retryNextPage`                                                                                                      | Status `error`, explicit `Try again`. End-reached does not auto-retry                                                           |
-| Duplicate end events          | Status list has `nextPageLock`. Chat `fetchNextPage` returns early. Bucket `fillWhenShort` can still re-enter from layout                                                                      | `beginFilteredListFetch` / `settleFilteredListFetch` ignore a second call until the in-flight fetch settles                     |
-| End of list                   | Footer spinner while `isFetchingNextPage`                                                                                                                                                      | Status `end`. Further end events are a no-op                                                                                    |
-| oxlint cap                    | `oxlint --max-warnings=455`                                                                                                                                                                    | Unchanged                                                                                                                       |
+| Item                          | Before                                                                                                                                                                                         | After                                                                                                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Session card `onPress`        | Sync `router.push`, then the bucket screen invalidates status + terminal candidates on focus and mounts every matching row                                                                     | Sync `router.push(openSessionBucketHref(bucket))`. Bucket surface does not invalidate on focus. Git, PR, and chat titles stay off. Terminal candidates load after paint |
+| Workspace row `onPress`       | Sync `router.push`, then `WorkspaceEntryScreen` mounts every merged activity row                                                                                                               | Sync `router.push(openWorkspaceEntryHref(id))`. First paint mounts at most 20 rows                                                                                      |
+| Data not ready                | Bucket replaces the list with `ListSkeleton` while `fillWhenShort` chains server pages during the transition. Workspace shows a skeleton only when the cache is empty, otherwise the full list | Skeleton when the filtered cache is empty and a fill is still in flight. Cached rows paint immediately, sliced to the UI window                                         |
+| `fillWhenShort` on the bucket | `true` while `rows.length < bucketCount && hasNextPage && !fetchNextPageFailed`, including `rows.length === 0`                                                                                 | Bucket does not pass `fillWhenShort`. The `AppScreen` prop stays for its existing scroll helper                                                                         |
+| UI page                       | Entire filtered array                                                                                                                                                                          | `FILTERED_LIST_PAGE_SIZE = 20`. Next 20 on end-reached. Reset to 20 when the bucket or workspace id changes                                                             |
+| Server status page            | `limit: 100` literal in `ws-actions.ts`                                                                                                                                                        | Same 100 via `AGENT_SESSION_STATUS_PAGE_SIZE`. Web `SESSION_PAGE_SIZE` is 100. Server `AGENT_SESSION_PAGE_LIMIT` stays 100                                              |
+| Server chat page              | `CHAT_LIST_PAGE_SIZE = 100`                                                                                                                                                                    | Unchanged. Web `AGENT_CHAT_SESSIONS_PAGE_LIMIT` is 100                                                                                                                  |
+| Next-page failure             | Swallowed (`isFetchNextPageError` nulls the row error). End-reached calls `retryNextPage`                                                                                                      | Status `error`, explicit `Try again`. End-reached does not auto-retry                                                                                                   |
+| Duplicate end events          | Status list has `nextPageLock`. Chat `fetchNextPage` returns early. Bucket `fillWhenShort` can still re-enter from layout                                                                      | `beginFilteredListFetch` ignores a second call while `requesting`. `releaseFilteredListFetch` runs from the request promise, not from a `fetching` render               |
+| End of list                   | Footer spinner while `isFetchingNextPage`                                                                                                                                                      | Status `end`. Further end events are a no-op                                                                                                                            |
+| oxlint cap                    | `oxlint --max-warnings=455`                                                                                                                                                                    | Unchanged                                                                                                                                                               |
 
 ## Root cause
 
@@ -66,13 +66,14 @@ Session card press
     SessionBucketScreen
       useSessionInbox({ surface: "bucket", bucket })
         refreshesOnFocus === false       // no invalidate
-        loadsEnrichment === false        // candidates / git / PR / chat titles stay disabled
+        loadsEnrichment === false        // git / PR / chat titles stay disabled
+        useBucketCandidateLoad           // terminal candidates after paint, again when bucket session ids change
         snapshotsForBucket before join   // unknown group_key maps to done, same as asBucket
       useFilteredListWindow(filterKey = bucket)
         first frame: skeleton | empty | rows.slice(0, visibleCount)   // visibleCount starts at 20
         auto-fetch only while loaded < min(visible, 20)
         end-reached: reveal +20 from cache, or one server page, or end
-        filter change: visibleCount = 20 on that render (ref write, no setState)
+        filter change: visibleCount = 20 on that render
 
 Workspace row press
   openWorkspaceEntryHref(id)
@@ -124,12 +125,12 @@ Both are `true` only for `"home"`.
 Bucket:
 
 - `useFocusEffect` still runs (hooks order). The body returns immediately when `sessionInboxRefreshesOnFocus` is false, so it does not invalidate the status list or the candidate query.
-- Candidate, git, PR, and chat-title queries set `enabled` only when `sessionInboxLoadsEnrichment` is true (and their existing connection / target checks). `enabled: false` still reads cache.
+- Git, PR, and chat-title queries set `enabled` only when `sessionInboxLoadsEnrichment` is true (and their existing connection / target checks). The candidate `useQuery` stays on that same flag, so the opening commit does not call `loadSessionCandidates`. `enabled: false` still reads cache and still observes `fetchQuery` writes.
 - The status infinite query stays enabled. Paging and live rows need it. Its query key stays `["agent-session-status-list", selectedServerId]`. Page size stays 100. Workspace entry and session home share this cache; do not shrink it to 20.
 - Snapshots passed to `joinSessionRows` are `snapshotsForBucket(sessions, bucket)` when `surface === "bucket"` and the bucket is known. An unknown bucket joins nothing.
 - `chatTitlesPending` is true only when enrichment is enabled and the chat-title query has not succeeded. A bucket with enrichment off does not keep rows in a pending-title skeleton.
-- The notification subscription stays. It runs in `useEffect` after paint. Invalidating a disabled candidate query does not fetch. Invalidating the status list on a real notification is a live update, not the tap.
-- Pull-to-refresh still calls `refresh()`, which invalidates on either surface.
+- The notification subscription stays. It runs in `useEffect` after paint. It invalidates the status list. Home also invalidates the candidate query. The bucket does not: a disabled candidate query would not refetch. `useBucketCandidateLoad` fetches after paint when `sessionKey` (the bucket's `session_id`s) or `reloadKey` (the workspace set) is non-empty, and again when either changes. That is how a terminal that appears while the bucket stays open gets a title other than the raw session id. `fetchQuery` uses `staleTime: 0` so the shared 15s cache does not skip that reload. The opening render does not call it.
+- Pull-to-refresh still calls `refresh()`. Home invalidates candidates. The bucket `fetchQuery`s them, because invalidate would not run a disabled query.
 - The memo's loading dependency matches the loading read (`bootstrapQuery.isLoading`). Home behavior stays the early empty model while status or bootstrap is loading.
 
 **`apps/mobile/src/features/sessions/session-inbox.ts`**
@@ -198,19 +199,20 @@ export function visibleCountAfterServerPage(input: {
   loadedCount: number;
 }): number;
 
+export type FilteredListFetchLatch = { requesting: boolean; generation: number };
+
 export function beginFilteredListFetch(
-  state: { requesting: boolean },
+  latch: FilteredListFetchLatch,
   input: { fetching: boolean; fetchFailed: boolean; hasNextServerPage: boolean },
-): { requesting: boolean; fetch: boolean };
+): { latch: FilteredListFetchLatch; fetch: boolean };
 
-export function settleFilteredListFetch(
-  state: { requesting: boolean; sawFetching: boolean },
-  fetching: boolean,
-): { requesting: boolean; sawFetching: boolean };
+export function releaseFilteredListFetch(
+  latch: FilteredListFetchLatch,
+  generation: number,
+): FilteredListFetchLatch;
 
-export function retryFilteredListFetch(): {
-  requesting: boolean;
-  sawFetching: boolean;
+export function retryFilteredListFetch(latch: FilteredListFetchLatch): {
+  latch: FilteredListFetchLatch;
   fetch: true;
 };
 ```
@@ -223,17 +225,17 @@ Rules:
 - `filteredListShouldFetch` is the post-paint auto-fill for the **first** UI page only. False when `fetching`, `fetchFailed`, or there is no next server page. Otherwise true when `loadedCount < min(visibleCount, 20)`. A sparse bucket keeps asking for the next server page of 100 until 20 filtered rows exist or the server ends. It does not expand the window past 20 by itself.
 - `advanceFilteredList` is the end-reached decision. `fetching` or `fetchFailed` → ignore (`fetch: false`, same `visibleCount`). `visibleCount < loadedCount` → reveal `min(visibleCount + 20, loadedCount)` and do not fetch. Else if `hasNextServerPage` → same `visibleCount`, `fetch: true`. Else no-op (end). One call reveals at most 20 more rows.
 - `visibleCountAfterServerPage` grows the window only when a new server page arrived **and** the user had already consumed a full previous page (`previousLoadedCount >= 20` and `visibleCount >= previousLoadedCount`). The bump is `+20`, capped by `loadedCount`. An auto-fill from 0 loaded rows to N does not move `visibleCount`.
-- `beginFilteredListFetch` returns `fetch: false` when `requesting`, `fetching`, `fetchFailed`, or there is no next page. Otherwise `{ requesting: true, fetch: true }`.
-- `settleFilteredListFetch`: `fetching === true` records `sawFetching`. When fetching is false after `sawFetching`, the latch clears. A no-op (`fetchNext` returned false) also clears, including when fetching was never observed, so a rejected start does not stick. Idle state stays idle. The hook does not clear a latch that has not seen `fetching` yet; that request is still in flight.
-- `retryFilteredListFetch` returns `{ requesting: true, sawFetching: false, fetch: true }`. The Try again control uses this path so a failed page can be asked for again. End-reached does not.
+- `beginFilteredListFetch` returns `fetch: false` when `requesting`, `fetching`, `fetchFailed`, or there is no next page. Otherwise it returns a new latch `{ requesting: true, generation: previous + 1 }` and `fetch: true`.
+- `releaseFilteredListFetch` clears `requesting` when `generation` is still the latch's generation. A stale settle returns the same latch. It does not take a `fetching` flag. Waiting for a render where `fetching` became true left the latch stuck when a fast request committed only the settled update.
+- `retryFilteredListFetch` returns `{ latch: { requesting: true, generation: previous + 1 }, fetch: true }`. The Try again control uses this path so a failed page can be asked for again. End-reached does not.
 
 **`apps/mobile/src/features/sessions/use-filtered-list-window.ts`**
 
-Thin hook. Owns the window state (`filterKey`, `visibleCount`, `previousLoadedCount`) and a fetch latch ref `{ requesting, sawFetching }`. The latch ref is touched only from effects and press handlers. `fetchNext` and `retryNext` return `boolean`: `true` when a request started.
+Thin hook. Owns the window state (`filterKey`, `visibleCount`, `previousLoadedCount`) and a fetch latch ref `{ requesting, generation }`. The latch ref is touched only from effects, press handlers, and the request promise's `finally`. `fetchNext` and `retryNext` return `boolean | Promise<boolean>`. Status and chat `fetchNextPage` / `retryNextPage` return the react-query promise (`false` when the call does not start). The workspace screen waits for both promises with `Promise.all`.
 
-`onEndReached` applies `advanceFilteredList`. A larger `visibleCount` is `setState` from that handler. When `fetch` is true, `beginFilteredListFetch` then `fetchNext`. An effect applies `filteredListShouldFetch` the same way (first page only) and calls `settleFilteredListFetch` when `fetching` is true, or when it falls after `sawFetching`. `retry` applies `retryFilteredListFetch` and calls `retryNext` even though `fetchFailed` is still true. No effect calls `setState` (`react/set-state-in-effect` is a warning on mobile).
+`onEndReached` applies `advanceFilteredList`. A larger `visibleCount` is `setState` from that handler. When `fetch` is true, `beginFilteredListFetch` then `fetchNext`. The promise `finally` calls `releaseFilteredListFetch` for that generation even if `fetching` never rendered `true`. An effect applies `filteredListShouldFetch` (first page only) through the same start path. If that effect already ran while the latch was held, the `finally` starts one more fill when the list is still short. `retry` applies `retryFilteredListFetch` and calls `retryNext` even though `fetchFailed` is still true. No effect calls `setState` (`react/set-state-in-effect` is a warning on mobile).
 
-The hook does not import React Native, so the pager tests stay on the pure module.
+The hook does not import React Native. Pager decisions stay on the pure module. Hook render tests mount this hook and `useBucketCandidateLoad` with `react-dom` and `happy-dom`.
 
 ### Bucket screen
 
@@ -247,7 +249,7 @@ First frame from `filteredListFirstFrame`:
 
 `onEndReached` is the window's `onEndReached`, not `retryNextPage`. Footer is `FilteredListFooter`: `loading-more` shows `ListLoadMoreFooter`; `error` shows a `Pressable` labeled `Try again` (sentence case, not a CSS uppercase label). Initial load errors still use `InlineError` for the inbox `error` string. A next-page failure is the footer, not a second automatic request.
 
-`inbox.fetchNextPage` is what the window calls for the next status page. The existing `nextPageLock` in `use-agent-session-status-list.ts` stays. The window flag covers the gap before `isFetchingNextPage` flips, and the chat list, which has no lock.
+`inbox.fetchNextPage` is what the window calls for the next status page. The existing `nextPageLock` in `use-agent-session-status-list.ts` stays and clears in that promise's `finally`. The window latch covers the same interval without watching a loading render, including the chat list, which has no lock of its own.
 
 ### Workspace entry
 
@@ -257,7 +259,7 @@ First frame from `filteredListFirstFrame`:
 - `hasNextServerPage` = `chats.hasNextPage || sessions.hasNextPage`
 - `fetching` = `chats.isFetchingNextPage || sessions.isFetchingNextPage`
 - `fetchFailed` = `chats.isFetchNextPageError || sessions.isFetchNextPageError`
-- `fetchNext` calls each list's `fetchNextPage` and returns whether either call started a request (each returns `false` when it has no next page, is already fetching, or — for `fetchNextPage` — the previous page failed)
+- `fetchNext` calls each list's `fetchNextPage` and resolves `true` when either call started a request (each resolves `false` when it has no next page, is already fetching, or — for `fetchNextPage` — the previous page failed)
 - `retryNext` calls each list's `retryNextPage` the same way, including after a next-page error
 - `retry` calls each list's `retryNextPage`
 
@@ -288,7 +290,7 @@ Web `WORKSPACE_LIST_PAGE_SIZE` (10) is a web sidebar window. It is not the mobil
 
 ## Risks
 
-- Bucket terminal titles and PR chips come from cache or from the snapshot. A deep link that never opened Session home will not fan out candidates, git, or PRs on the bucket. Pull-to-refresh still invalidates. Home still enriches when it is focused.
+- Bucket git, PR, and chat-title fan-out stay off, including on a deep link. Terminal candidates load after the first paint, so a bucket that never opened Session home still picks up titles without holding the push. Until that fetch returns, a row can show the session-id fallback. Home still enriches when it is focused.
 - A dense bucket still joins every loaded snapshot in that bucket (a server page is up to 100, and older pages append). The mounted tree is the 20-row window. Joining a later page happens after the fetch, not instead of the first paint.
 - Shared status cache: a bucket auto-fill appends global pages. Session home and other workspace entries observe those pages. Page size stays 100 so their cursors stay aligned with web.
 - `fillWhenShort` remains on `AppScreen`. Only the bucket used it. Leaving the prop avoids a behavior change in the scroll helper tests.
@@ -298,11 +300,13 @@ Web `WORKSPACE_LIST_PAGE_SIZE` (10) is a web sidebar window. It is not the mobil
 - iOS simulator check of the tap, the skeleton, and the 20-row footer. Not part of this change's automated gate.
 - Virtualizing the window if a single row's mount cost is still visible at 20. Not required to remove the full-catalog first frame.
 - A server `group_key` filter would shrink sparse-bucket auto-fill. Web does not send one. This spec does not add it.
+- Workspace entry still merges two newest-first cursors with `workspaceActivityRows` (`agent_chat_list` for that workspace, and the shared global status pages filtered to that workspace) and sorts by `updatedAt`. A later page of either cursor can insert a row above one already taken from the other, so the merged list is not a stable prefix. A correct bound would hide a loaded row until the other cursor's oldest loaded record is at least as old. On the terminal side that bound is the oldest global status snapshot, not the oldest row in this workspace, so filling 20 stable rows can walk status pages that belong to other workspaces. Pins pulled to the top would also need an exception or a loaded pin past the bound would disappear. That behavior change is left for a separate follow-up. This spec does not change the merge.
 
 ## Verification commands
 
 ```bash
 bun test apps/mobile/src/features/sessions/filtered-list-page.test.ts \
+  apps/mobile/src/features/sessions/filtered-list-hooks.test.tsx \
   apps/mobile/src/features/sessions/list-navigation.test.ts \
   apps/mobile/src/features/sessions/session-inbox.test.ts \
   apps/mobile/src/features/agent-chat/chat-list-page.test.ts

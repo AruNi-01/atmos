@@ -16,8 +16,8 @@ import {
   filteredListShouldFetch,
   filteredListStatus,
   reduceFilteredListWindow,
+  releaseFilteredListFetch,
   retryFilteredListFetch,
-  settleFilteredListFetch,
   syncFilteredListFilter,
   visibleCountAfterServerPage,
 } from "./filtered-list-page";
@@ -166,34 +166,39 @@ describe("filtered list failure", () => {
         visibleCount: 20,
       }),
     ).toBe("error");
-    expect(retryFilteredListFetch()).toEqual({
-      requesting: true,
-      sawFetching: false,
+    expect(retryFilteredListFetch({ requesting: false, generation: 4 })).toEqual({
+      latch: { requesting: true, generation: 5 },
       fetch: true,
     });
   });
 });
 
 describe("filtered list duplicate fetch", () => {
-  test("a second begin is dropped and settle clears a no-op", () => {
-    const first = beginFilteredListFetch(
-      { requesting: false },
-      { fetchFailed: false, fetching: false, hasNextServerPage: true },
-    );
-    const second = beginFilteredListFetch(
-      { requesting: first.requesting },
-      { fetchFailed: false, fetching: false, hasNextServerPage: true },
-    );
-    expect(first).toEqual({ requesting: true, fetch: true });
-    expect(second).toEqual({ requesting: true, fetch: false });
+  test("a second begin is dropped and release ignores a loading render", () => {
+    const idle = { requesting: false, generation: 0 };
+    const first = beginFilteredListFetch(idle, {
+      fetchFailed: false,
+      fetching: false,
+      hasNextServerPage: true,
+    });
+    const second = beginFilteredListFetch(first.latch, {
+      fetchFailed: false,
+      fetching: false,
+      hasNextServerPage: true,
+    });
+    expect(first).toEqual({ latch: { requesting: true, generation: 1 }, fetch: true });
+    expect(second).toEqual({ latch: first.latch, fetch: false });
 
-    const missed = settleFilteredListFetch({ requesting: true, sawFetching: false }, false);
-    const afterFlight = settleFilteredListFetch(
-      settleFilteredListFetch({ requesting: true, sawFetching: false }, true),
-      false,
-    );
-    expect(missed).toEqual({ requesting: false, sawFetching: false });
-    expect(afterFlight).toEqual({ requesting: false, sawFetching: false });
+    const released = releaseFilteredListFetch(first.latch, first.latch.generation);
+    expect(released).toEqual({ requesting: false, generation: 1 });
+
+    const newer = beginFilteredListFetch(released, {
+      fetchFailed: false,
+      fetching: false,
+      hasNextServerPage: true,
+    });
+    expect(releaseFilteredListFetch(newer.latch, first.latch.generation)).toBe(newer.latch);
+    expect(newer.latch.requesting).toBe(true);
   });
 });
 

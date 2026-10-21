@@ -78,15 +78,17 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
   const fetchSessionNextPage = sessions.fetchNextPage;
   const retryChatNextPage = chats.retryNextPage;
   const retrySessionNextPage = sessions.retryNextPage;
-  const fetchNext = useCallback((): boolean => {
-    const chatsStarted = chatHasNextPage ? fetchChatNextPage() : false;
-    const sessionsStarted = sessionHasNextPage ? fetchSessionNextPage() : false;
-    return chatsStarted || sessionsStarted;
+  const fetchNext = useCallback((): Promise<boolean> => {
+    return Promise.all([
+      chatHasNextPage ? fetchChatNextPage() : Promise.resolve(false),
+      sessionHasNextPage ? fetchSessionNextPage() : Promise.resolve(false),
+    ]).then(([chatStarted, sessionStarted]) => chatStarted || sessionStarted);
   }, [chatHasNextPage, fetchChatNextPage, fetchSessionNextPage, sessionHasNextPage]);
-  const retryNext = useCallback((): boolean => {
-    const chatsStarted = chatHasNextPage ? retryChatNextPage() : false;
-    const sessionsStarted = sessionHasNextPage ? retrySessionNextPage() : false;
-    return chatsStarted || sessionsStarted;
+  const retryNext = useCallback((): Promise<boolean> => {
+    return Promise.all([
+      chatHasNextPage ? retryChatNextPage() : Promise.resolve(false),
+      sessionHasNextPage ? retrySessionNextPage() : Promise.resolve(false),
+    ]).then(([chatStarted, sessionStarted]) => chatStarted || sessionStarted);
   }, [chatHasNextPage, retryChatNextPage, retrySessionNextPage, sessionHasNextPage]);
   const list = useFilteredListWindow({
     fetchFailed,

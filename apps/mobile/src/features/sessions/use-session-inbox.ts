@@ -37,6 +37,7 @@ import {
   sessionInboxRefreshesOnFocus,
   type SessionInboxSurface,
 } from "./session-inbox-surface";
+import { useBucketCandidateLoad } from "./use-bucket-candidate-load";
 import { useAgentSessionStatusList } from "./use-agent-session-status-list";
 import { useSessionRowActions } from "./use-session-row-actions";
 import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
@@ -130,6 +131,37 @@ export function useSessionInbox(options?: {
 
   const statusQuery = useAgentSessionStatusList();
 
+  const bucketSessionKey = useMemo(() => {
+    if (surface !== "bucket" || !bucket) return "";
+    return snapshotsForBucket(statusQuery.sessions, bucket)
+      .map((snapshot) => snapshot.session_id)
+      .join("\n");
+  }, [bucket, statusQuery.sessions, surface]);
+
+  const reloadBucketCandidates = useCallback(() => {
+    if (!client) return Promise.resolve();
+    // The shared client keeps candidates fresh for 15s. A new terminal in this
+    // bucket must reload even when that cache is still fresh. staleTime 0 here
+    // does not run during the opening render; the effect below starts it.
+    return queryClient.fetchQuery({
+      queryKey: ["session-terminal-candidates", selectedServerId, workspaceKey],
+      staleTime: 0,
+      queryFn: () => loadSessionCandidates(client, sources.active),
+    });
+  }, [client, queryClient, selectedServerId, sources, workspaceKey]);
+
+  const loadBucketCandidates = useCallback(() => {
+    void reloadBucketCandidates();
+  }, [reloadBucketCandidates]);
+
+  useBucketCandidateLoad({
+    load: loadBucketCandidates,
+    ready: Boolean(client && connected && bootstrapQuery.isSuccess),
+    reloadKey: workspaceKey,
+    sessionKey: bucketSessionKey,
+    surface,
+  });
+
   const chatTitleQuery = useQuery({
     queryKey: ["session-chat-titles", selectedServerId],
     enabled: loadsEnrichment && Boolean(client && connected && focused),
@@ -155,14 +187,19 @@ export function useSessionInbox(options?: {
       void queryClient.invalidateQueries({
         queryKey: ["agent-session-status-list", selectedServerId],
       });
-      void queryClient.invalidateQueries({
-        queryKey: ["session-terminal-candidates", selectedServerId],
-      });
+      // Home refetches the enabled candidate query. The bucket query stays
+      // disabled, so invalidating it does not fetch. The bucket reloads when
+      // its session ids change after this status refresh.
+      if (surface === "home") {
+        void queryClient.invalidateQueries({
+          queryKey: ["session-terminal-candidates", selectedServerId],
+        });
+      }
     });
     return () => {
       unsubscribe();
     };
-  }, [client, connected, focused, queryClient, selectedServerId]);
+  }, [client, connected, focused, queryClient, selectedServerId, surface]);
 
   const model = useMemo(() => {
     if (connected && (statusQuery.isLoading || bootstrapQuery.isLoading)) {
@@ -251,17 +288,21 @@ export function useSessionInbox(options?: {
 
   const refresh = useCallback(async () => {
     if (!client || !connected) return;
+    const candidates =
+      surface === "bucket"
+        ? reloadBucketCandidates()
+        : queryClient.invalidateQueries({
+            queryKey: ["session-terminal-candidates", selectedServerId],
+          });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["agent-session-status-list", selectedServerId] }),
-      queryClient.invalidateQueries({
-        queryKey: ["session-terminal-candidates", selectedServerId],
-      }),
+      candidates,
       queryClient.invalidateQueries({ queryKey: ["session-git-status", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["session-branch-prs", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["workspace-sidebar-sessions", selectedServerId] }),
     ]);
-  }, [client, connected, queryClient, selectedServerId]);
+  }, [client, connected, queryClient, reloadBucketCandidates, selectedServerId, surface]);
 
   return {
     archiveChat,

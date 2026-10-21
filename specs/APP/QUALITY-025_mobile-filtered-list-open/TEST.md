@@ -4,7 +4,7 @@
 
 ## Test strategy
 
-The hitch and the window are pure decisions plus a source scan of the call sites. Bun tests do not mount React Native.
+The hitch and the window are pure decisions, a source scan of the call sites, and hook render tests. Hook tests mount `useFilteredListWindow` and `useBucketCandidateLoad` with `react-dom` and `happy-dom`. They do not mount React Native.
 
 - **Bun unit**: href builders, inbox surface flags, `snapshotsForBucket`, and every pager transition (first frame, auto-fill, advance, server-page bump, duplicate guard, retry, filter reset).
 - **Bun source-scan**: card and workspace presses call the href helper with no `await`; the bucket screen does not pass `fillWhenShort`; the inbox hook gates focus refresh and enrichment; `ws-actions` sends `AGENT_SESSION_STATUS_PAGE_SIZE`; chat page size stays 100.
@@ -17,28 +17,29 @@ No test is skipped. The oxlint warning cap is not raised.
 
 ## Coverage map
 
-| TECH item                                                                              | Scenario IDs |
-| -------------------------------------------------------------------------------------- | ------------ |
-| Card press returns a plain href and does not await                                     | S1, S2       |
-| Workspace row press returns a plain href and does not await                            | S1, S2       |
-| Bucket does not refresh on focus or load enrichment                                    | S3, S4       |
-| Snapshots are filtered before join; unknown `group_key` is done                        | S5           |
-| First frame is a skeleton when nothing is loaded and a fill is outstanding             | S6           |
-| First frame mounts at most 20 cached rows                                              | S6           |
-| Failed first page is empty plus error, not a stuck skeleton                            | S6, S9       |
-| Auto-fill fetches only until 20 filtered rows                                          | S7           |
-| End-reached reveals the next 20 from cache, or one server fetch, or nothing at the end | S8           |
-| In-flight and failed fetches ignore another end event                                  | S8, S10      |
-| A new server page does not grow the window during auto-fill                            | S11          |
-| A consumed page grows by 20 when the next server page arrives                          | S11          |
-| Filter change resets the window to 20                                                  | S12          |
-| Duplicate `fetchNext` is ignored until the fetch settles, including a no-op            | S10          |
-| Try again is allowed after `fetchFailed`                                               | S9           |
-| Bucket screen does not pass `fillWhenShort`                                            | S4           |
-| Status request limit stays 100, not 20                                                 | S13          |
-| Chat list page size stays 100                                                          | S13          |
-| oxlint cap 455                                                                         | S14          |
-| Live iOS tap, skeleton, scroll, retry                                                  | S15 (manual) |
+| TECH item                                                                                           | Scenario IDs |
+| --------------------------------------------------------------------------------------------------- | ------------ |
+| Card press returns a plain href and does not await                                                  | S1, S2       |
+| Workspace row press returns a plain href and does not await                                         | S1, S2       |
+| Bucket does not refresh on focus or load enrichment                                                 | S3, S4       |
+| Snapshots are filtered before join; unknown `group_key` is done                                     | S5           |
+| First frame is a skeleton when nothing is loaded and a fill is outstanding                          | S6           |
+| First frame mounts at most 20 cached rows                                                           | S6           |
+| Failed first page is empty plus error, not a stuck skeleton                                         | S6, S9       |
+| Auto-fill fetches only until 20 filtered rows                                                       | S7           |
+| End-reached reveals the next 20 from cache, or one server fetch, or nothing at the end              | S8           |
+| In-flight and failed fetches ignore another end event                                               | S8, S10      |
+| A new server page does not grow the window during auto-fill                                         | S11          |
+| A consumed page grows by 20 when the next server page arrives                                       | S11          |
+| Filter change resets the window to 20                                                               | S12          |
+| Duplicate `fetchNext` is ignored until the request promise settles, with no loading render required | S10, S17     |
+| Bucket terminal candidates load after the opening render, and again when sessions change            | S16          |
+| Try again is allowed after `fetchFailed`                                                            | S9           |
+| Bucket screen does not pass `fillWhenShort`                                                         | S4           |
+| Status request limit stays 100, not 20                                                              | S13          |
+| Chat list page size stays 100                                                                       | S13          |
+| oxlint cap 455                                                                                      | S14          |
+| Live iOS tap, skeleton, scroll, retry                                                               | S15 (manual) |
 
 ## Execution map
 
@@ -55,12 +56,14 @@ No test is skipped. The oxlint warning cap is not raised.
 | S7       | Bun unit        | `bun test`      | `filteredListShouldFetch`                                                         | loaded 0/19/20, visible 20/40, fetching, failed, no next                          | fetch only while the first UI page is short                                                                             | pass    |
 | S8       | Bun unit        | `bun test`      | `advanceFilteredList`                                                             | visible 20 loaded 100; visible 100 loaded 100 with next; at end; fetching; failed | +20 and no fetch; fetch and same visible; no-op; ignore                                                                 | pass    |
 | S9       | Bun unit        | `bun test`      | `filteredListStatus`, `retryFilteredListFetch`                                    | `fetchFailed`; retry result                                                       | status `error`; retry returns `fetch: true`                                                                             | pass    |
-| S10      | Bun unit        | `bun test`      | `beginFilteredListFetch`, `settleFilteredListFetch`                               | second call while requesting; settle without `sawFetching`; settle after fetching | second `fetch: false`; requesting clears                                                                                | pass    |
+| S10      | Bun unit        | `bun test`      | `beginFilteredListFetch`, `releaseFilteredListFetch`                              | second call while requesting; release of the current generation; stale generation | second `fetch: false`; current generation clears; older generation does not                                             | pass    |
 | S11      | Bun unit        | `bun test`      | `visibleCountAfterServerPage`                                                     | 0→15 auto-fill; visible 100, previous 100, loaded 180                             | visible stays 20; visible becomes 120                                                                                   | pass    |
 | S12      | Bun unit        | `bun test`      | `syncFilteredListFilter`                                                          | same key; key `done` → `running`                                                  | same object; visible 20                                                                                                 | pass    |
 | S13      | Bun unit + scan | `bun test`      | `session-status-page.ts`, `ws-actions.ts`, `chat-list-page.test.ts`               | constants                                                                         | both page sizes are 100; status action uses the constant; no `limit: 20` on that action                                 | pass    |
 | S14      | Review          | `rg` / `oxlint` | root `package.json` script `lint`; `bunx oxlint --max-warnings=455`               | repo                                                                              | script text unchanged; oxlint exit 0                                                                                    | pass    |
 | S15      | Manual          | iOS simulator   | tap Session cards and a Workspace row                                             | cold cache and warm cache                                                         | push is not held for data; skeleton or 20 rows; scroll loads; Try again; switching card resets                          | planned |
+| S16      | Bun render      | `bun test`      | `filtered-list-hooks.test.tsx` `useBucketCandidateLoad`                           | bucket with a session key; same key again; a new session id; home; empty key      | opening render does not load; effect loads once; new id loads again; home and empty key do not                          | pass    |
+| S17      | Bun render      | `bun test`      | `filtered-list-hooks.test.tsx` `useFilteredListWindow`                            | `fetching` stays false; resolved promise; pending promise then a shorter list     | second end-reached fetches; in-flight second end-reached does not; settle then fills a short list                       | pass    |
 
 ## Scenarios
 
@@ -133,16 +136,16 @@ No test is skipped. The oxlint warning cap is not raised.
 - **Level**: Unit
 - **Given**: `filteredListStatus` and `retryFilteredListFetch`.
 - **When**: `fetchFailed` is true with loaded rows, and retry is called.
-- **Then**: status is `error`. Retry returns `fetch: true` and `requesting: true`.
+- **Then**: status is `error`. Retry returns `fetch: true` and a latch with `requesting: true`.
 - **Signals**: status string and the retry object.
 
 ### S10 — A second fetch is dropped
 
 - **Level**: Unit
-- **Given**: `beginFilteredListFetch` and `settleFilteredListFetch`.
-- **When**: begin succeeds, begin is called again while `requesting`; settle runs with `fetching` false before `sawFetching`; settle runs after `fetching` was true.
-- **Then**: the second begin has `fetch: false`. Both settles set `requesting` false.
-- **Signals**: `fetch` and `requesting`.
+- **Given**: `beginFilteredListFetch` and `releaseFilteredListFetch`.
+- **When**: begin succeeds, begin is called again while `requesting`; release runs for that generation; a newer generation is released with the older generation.
+- **Then**: the second begin has `fetch: false`. The matching generation clears `requesting`. The stale generation leaves the newer latch requesting.
+- **Signals**: `fetch` and `requesting`. Release does not take a `fetching` flag.
 
 ### S11 — Server pages do not unroll the first screen
 
@@ -184,6 +187,22 @@ No test is skipped. The oxlint warning cap is not raised.
 - **Then**: the push is not held for the network; a skeleton shows when the cache is empty; at most 20 rows show on the first paint; the next page loads at the bottom; the end does not spin; Try again retries; a different card starts at 20 again.
 - **Signals**: observation. Not executed in CI.
 
+### S16 — Bucket candidates wait for paint
+
+- **Level**: Hook render
+- **Given**: `useBucketCandidateLoad` mounted with `react-dom`.
+- **When**: the surface is `bucket`, ready, with session key `term-a`; the same props render again; the key gains `term-b`; the surface is `home`; the bucket key is empty.
+- **Then**: the opening render records zero loads and the effect loads once. The repeat render does not load. The new key loads once more, and that render itself does not. Home and an empty key do not load.
+- **Signals**: a counter incremented only by `load`, sampled at the end of render and after `act`.
+
+### S17 — The page latch does not wait for a loading render
+
+- **Level**: Hook render
+- **Given**: `useFilteredListWindow` with `fetching` held false and another server page.
+- **When**: end-reached runs twice around a `fetchNext` that resolves `true` immediately; separately, end-reached starts a promise, a second end-reached runs, the row count drops below 20, then the promise resolves.
+- **Then**: the resolved request allows the next end-reached. The pending request ignores the second end-reached. After it settles, the short list starts one more fetch.
+- **Signals**: `fetchNext` call count. `fetching` is never set true.
+
 ## Exploratory agent-browser checks
 
 Not applicable. These screens are Expo / React Native. S15 is the manual substitute.
@@ -202,9 +221,10 @@ Not applicable. These screens are Expo / React Native. S15 is the manual substit
 ## Acceptance criteria
 
 - Tapping a Workspace row or a Session card calls `router.push` on a plain href in the same turn. The destination's first commit is a skeleton or at most 20 rows. Nothing on that path awaits a fetch before `push`.
-- The destination list pages 20 rows. Reaching the end loads the next page. Loading, end, error + Try again, duplicate end events, and a filter change are covered by S6–S12.
+- The destination list pages 20 rows. Reaching the end loads the next page. Loading, end, error + Try again, duplicate end events, and a filter change are covered by S6–S12 and S17.
+- A bucket does not load terminal candidates during the opening render. It loads them after paint, and again when the sessions in that bucket change (S16). Git, PR, and chat titles stay off the bucket.
 - Server and chat page parameters match the web limits (100 + cursor). Chat behavior otherwise stays as it is.
-- S1–S14 have run and are `pass` in Coverage Status, except S15 which stays a manual gap.
+- S1–S14, S16, and S17 have run and are `pass` in Coverage Status. S15 stays a manual gap.
 - `bunx oxlint --max-warnings=455` exits 0 and the cap in `package.json` is unchanged.
 - CI on the PR is green, or a failure is an unrelated known flake called out in the PR. Tests are not skipped to get there.
 
@@ -221,15 +241,16 @@ Not applicable. These screens are Expo / React Native. S15 is the manual substit
 - Web sidebar pagination.
 - Server-side filtering by `group_key`.
 - Virtualization below the 20-row window.
+- A stable merge of the workspace chat cursor and the global status cursor (TECH follow-up). The current sort is unchanged.
 
 ## Coverage Status
 
-Ran on this branch after the implementation commit's code was in the tree.
+Ran on this branch after the review-fix code was in the tree.
 
-- `bun test apps/mobile/src/features/sessions/filtered-list-page.test.ts apps/mobile/src/features/sessions/list-navigation.test.ts apps/mobile/src/features/sessions/session-inbox.test.ts apps/mobile/src/features/agent-chat/chat-list-page.test.ts` — 39 pass.
-- `bun test` in `apps/mobile` — 587 pass, 0 fail.
-- `bunx oxlint --max-warnings=455` — exit 0. `package.json` `lint` is still `oxlint --max-warnings=455`.
-- `bun --filter @atmos/mobile typecheck` — no errors in the files this spec changes. Two pre-existing errors remain outside this diff: `react-dom/server` has no declaration in `glass-text-button.test.ts`, and `open-thread-resync.test.ts` passes `Array.push` (returns `number`) to `publish` typed `boolean | void`. Mobile CI does not run `tsc`.
+- `bun test apps/mobile/src/features/sessions/filtered-list-page.test.ts apps/mobile/src/features/sessions/filtered-list-hooks.test.tsx apps/mobile/src/features/sessions/list-navigation.test.ts apps/mobile/src/features/sessions/session-inbox.test.ts apps/mobile/src/features/agent-chat/chat-list-page.test.ts` — 43 pass.
+- `bun test` in `apps/mobile` — 591 pass, 0 fail.
+- `bunx oxlint --max-warnings=455` — exit 0. Root `package.json` `lint` is still `oxlint --max-warnings=455`.
+- `bun --filter @atmos/mobile typecheck` — no errors in the production files or `filtered-list-hooks.test.tsx`. `open-thread-resync.test.ts` still passes `Array.push` (returns `number`) to `publish` typed `boolean | void`. This environment also reports unused `@ts-expect-error` on `bun:test` / `node:` imports in many untouched mobile tests, including the two pager tests. Mobile CI does not run `tsc`.
 
 | Scenario | Status                                       |
 | -------- | -------------------------------------------- |
@@ -248,3 +269,5 @@ Ran on this branch after the implementation commit's code was in the tree.
 | S13      | pass                                         |
 | S14      | pass                                         |
 | S15      | planned (manual iOS simulator; not run here) |
+| S16      | pass                                         |
+| S17      | pass                                         |

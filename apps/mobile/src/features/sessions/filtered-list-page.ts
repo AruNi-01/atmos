@@ -131,29 +131,43 @@ export function visibleCountAfterServerPage(input: {
   return Math.min(input.visibleCount + FILTERED_LIST_PAGE_SIZE, input.loadedCount);
 }
 
+export type FilteredListFetchLatch = {
+  requesting: boolean;
+  generation: number;
+};
+
 export function beginFilteredListFetch(
-  state: { requesting: boolean },
+  latch: FilteredListFetchLatch,
   input: { fetching: boolean; fetchFailed: boolean; hasNextServerPage: boolean },
-): { requesting: boolean; fetch: boolean } {
-  if (state.requesting || input.fetching || input.fetchFailed || !input.hasNextServerPage) {
-    return { requesting: state.requesting, fetch: false };
+): { latch: FilteredListFetchLatch; fetch: boolean } {
+  if (latch.requesting || input.fetching || input.fetchFailed || !input.hasNextServerPage) {
+    return { latch, fetch: false };
   }
-  return { requesting: true, fetch: true };
+  return {
+    latch: { requesting: true, generation: latch.generation + 1 },
+    fetch: true,
+  };
 }
 
-export function settleFilteredListFetch(
-  state: { requesting: boolean; sawFetching: boolean },
-  fetching: boolean,
-): { requesting: boolean; sawFetching: boolean } {
-  if (fetching) return { requesting: state.requesting, sawFetching: true };
-  if (!state.requesting && !state.sawFetching) return state;
-  return { requesting: false, sawFetching: false };
+/**
+ * Drops the latch when `generation` is still the in-flight request.
+ * An older settle must not clear a newer one. This does not look at a
+ * loading render: the caller runs it from the request promise.
+ */
+export function releaseFilteredListFetch(
+  latch: FilteredListFetchLatch,
+  generation: number,
+): FilteredListFetchLatch {
+  if (latch.generation !== generation || !latch.requesting) return latch;
+  return { requesting: false, generation: latch.generation };
 }
 
-export function retryFilteredListFetch(): {
-  requesting: true;
-  sawFetching: false;
+export function retryFilteredListFetch(latch: FilteredListFetchLatch): {
+  latch: FilteredListFetchLatch;
   fetch: true;
 } {
-  return { requesting: true, sawFetching: false, fetch: true };
+  return {
+    latch: { requesting: true, generation: latch.generation + 1 },
+    fetch: true,
+  };
 }

@@ -54,15 +54,17 @@ describe("presses do not await navigation", () => {
     expect(inbox).toContain("sessionInboxRefreshesOnFocus");
     expect(inbox).toContain("sessionInboxLoadsEnrichment");
     expect(inbox).toContain("snapshotsForBucket");
+    expect(inbox).toContain("useBucketCandidateLoad");
   });
 
-  test("the window hook uses the pager guards", () => {
+  test("the window hook releases the latch from the request, not a loading render", () => {
     const source = readFileSync(join(here, "use-filtered-list-window.ts"), "utf8");
     expect(source).toContain("beginFilteredListFetch");
-    expect(source).toContain("settleFilteredListFetch");
+    expect(source).toContain("releaseFilteredListFetch");
     expect(source).toContain("retryFilteredListFetch");
     expect(source).toContain("filteredListShouldFetch");
     expect(source).toContain("advanceFilteredList");
     expect(source).toContain("reduceFilteredListWindow");
+    expect(source).not.toContain("sawFetching");
   });
 });

@@ -7,17 +7,27 @@ import {
   filteredListShouldFetch,
   filteredListStatus,
   reduceFilteredListWindow,
+  releaseFilteredListFetch,
   retryFilteredListFetch,
-  settleFilteredListFetch,
+  type FilteredListFetchLatch,
   type FilteredListWindowState,
 } from "./filtered-list-page";
 
-type FetchFlags = { requesting: boolean; sawFetching: boolean };
+type PageRequest = () => boolean | Promise<boolean>;
+
+type FetchSnapshot = {
+  fetchFailed: boolean;
+  fetching: boolean;
+  hasNextServerPage: boolean;
+  loadedCount: number;
+  visibleCount: number;
+};
 
 /**
  * UI window of 20 rows. Filter changes and server-page growth update state
- * during render. Fetch bookkeeping stays in a ref that effects and presses
- * touch, so the first paint is not an effect setState.
+ * during render. The in-flight latch lives in a ref. It is taken when a page
+ * request starts and released when that request's promise settles, so a fast
+ * response that never paints `fetching` still unlocks the next page.
  */
 export function useFilteredListWindow<T>(input: {
   filterKey: string;
@@ -26,8 +36,8 @@ export function useFilteredListWindow<T>(input: {
   hasNextServerPage: boolean;
   fetching: boolean;
   fetchFailed: boolean;
-  fetchNext: () => boolean;
-  retryNext: () => boolean;
+  fetchNext: PageRequest;
+  retryNext: PageRequest;
 }) {
   const loadedCount = input.rows.length;
   const [windowState, setWindowState] = useState<FilteredListWindowState>(() => ({
@@ -42,9 +52,54 @@ export function useFilteredListWindow<T>(input: {
   if (reduced !== windowState) setWindowState(reduced);
   const visibleCount = reduced.visibleCount;
 
-  const fetchStateRef = useRef<FetchFlags>({ requesting: false, sawFetching: false });
-  const fetchNextRef = useRef(input.fetchNext);
-  const retryNextRef = useRef(input.retryNext);
+  const fetchStateRef = useRef<FilteredListFetchLatch>({ requesting: false, generation: 0 });
+  const effectEpochRef = useRef(0);
+  const latestRef = useRef<FetchSnapshot>({
+    fetchFailed: false,
+    fetching: false,
+    hasNextServerPage: false,
+    loadedCount: 0,
+    visibleCount: FILTERED_LIST_PAGE_SIZE,
+  });
+  const fetchNextRef = useRef<PageRequest>(input.fetchNext);
+  const retryNextRef = useRef<PageRequest>(input.retryNext);
+  const startRequestRef = useRef<(latch: FilteredListFetchLatch, request: PageRequest) => void>(
+    () => undefined,
+  );
+
+  const startRequest = useCallback((latch: FilteredListFetchLatch, request: PageRequest) => {
+    const epoch = effectEpochRef.current;
+    let started: boolean | Promise<boolean>;
+    try {
+      started = request();
+    } catch {
+      fetchStateRef.current = releaseFilteredListFetch(latch, latch.generation);
+      return;
+    }
+    void Promise.resolve(started)
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+      .finally(() => {
+        const current = fetchStateRef.current;
+        if (current.generation !== latch.generation) return;
+        fetchStateRef.current = releaseFilteredListFetch(current, latch.generation);
+        // A render may have already run the fill effect while this request
+        // was still latched. Props will not change again, so continue once.
+        if (effectEpochRef.current === epoch) return;
+        const latest = latestRef.current;
+        if (!filteredListShouldFetch(latest)) return;
+        const begun = beginFilteredListFetch(fetchStateRef.current, latest);
+        if (!begun.fetch) return;
+        fetchStateRef.current = begun.latch;
+        startRequestRef.current(begun.latch, () => fetchNextRef.current());
+      });
+  }, []);
+
+  useEffect(() => {
+    startRequestRef.current = startRequest;
+  }, [startRequest]);
 
   useEffect(() => {
     fetchNextRef.current = input.fetchNext;
@@ -54,43 +109,15 @@ export function useFilteredListWindow<T>(input: {
   const { fetchFailed, fetching, hasNextServerPage } = input;
 
   useEffect(() => {
-    if (fetching) {
-      fetchStateRef.current = settleFilteredListFetch(fetchStateRef.current, true);
-      return;
-    }
-    // A request that has not flipped `fetching` yet must stay latched. Clearing
-    // it here would start a second page before the first one is visible.
-    if (fetchStateRef.current.sawFetching) {
-      fetchStateRef.current = settleFilteredListFetch(fetchStateRef.current, false);
-    }
-    if (
-      !filteredListShouldFetch({
-        fetchFailed,
-        fetching,
-        hasNextServerPage,
-        loadedCount,
-        visibleCount,
-      })
-    ) {
-      return;
-    }
-    const begun = beginFilteredListFetch(fetchStateRef.current, {
-      fetchFailed,
-      fetching,
-      hasNextServerPage,
-    });
-    fetchStateRef.current = {
-      requesting: begun.requesting,
-      sawFetching: fetchStateRef.current.sawFetching,
-    };
+    effectEpochRef.current += 1;
+    const latest = { fetchFailed, fetching, hasNextServerPage, loadedCount, visibleCount };
+    latestRef.current = latest;
+    if (!filteredListShouldFetch(latest)) return;
+    const begun = beginFilteredListFetch(fetchStateRef.current, latest);
     if (!begun.fetch) return;
-    if (!fetchNextRef.current()) {
-      fetchStateRef.current = settleFilteredListFetch(
-        { requesting: true, sawFetching: false },
-        false,
-      );
-    }
-  }, [fetchFailed, fetching, hasNextServerPage, loadedCount, visibleCount]);
+    fetchStateRef.current = begun.latch;
+    startRequest(begun.latch, () => fetchNextRef.current());
+  }, [fetchFailed, fetching, hasNextServerPage, loadedCount, startRequest, visibleCount]);
 
   const onEndReached = useCallback(() => {
     const decision = advanceFilteredList({
@@ -113,30 +140,17 @@ export function useFilteredListWindow<T>(input: {
       fetching,
       hasNextServerPage,
     });
-    fetchStateRef.current = {
-      requesting: begun.requesting,
-      sawFetching: fetchStateRef.current.sawFetching,
-    };
     if (!begun.fetch) return;
-    if (!fetchNextRef.current()) {
-      fetchStateRef.current = settleFilteredListFetch(
-        { requesting: true, sawFetching: false },
-        false,
-      );
-    }
-  }, [fetchFailed, fetching, hasNextServerPage, loadedCount, visibleCount]);
+    fetchStateRef.current = begun.latch;
+    startRequest(begun.latch, () => fetchNextRef.current());
+  }, [fetchFailed, fetching, hasNextServerPage, loadedCount, startRequest, visibleCount]);
 
   const retry = useCallback(() => {
     if (fetchStateRef.current.requesting || fetching) return;
-    const next = retryFilteredListFetch();
-    fetchStateRef.current = { requesting: next.requesting, sawFetching: next.sawFetching };
-    if (!retryNextRef.current()) {
-      fetchStateRef.current = settleFilteredListFetch(
-        { requesting: true, sawFetching: false },
-        false,
-      );
-    }
-  }, [fetching]);
+    const next = retryFilteredListFetch(fetchStateRef.current);
+    fetchStateRef.current = next.latch;
+    startRequest(next.latch, () => retryNextRef.current());
+  }, [fetching, startRequest]);
 
   const frame = filteredListFirstFrame({
     fetchFailed,
