@@ -54,6 +54,35 @@ Attempt 2 is the same script on a slower runner: almost every ready line printed
 
 Sum is not additive with the matrix (stills time is hidden behind motion). Combined capture wall target: **≤ 18 min** vs 39–52 min. Job wall target: **≤ 55 min** vs 1h16m–1h52m, dominated by `ios-build`.
 
+### Measured (labeled run `39570872781`, head `ae64d00da`)
+
+Workflow **success**, wall **55m10s** (08:39:01–09:34:11Z). Hits the ≤55 min job target. Combined capture wall (max of the two capture steps) is **30m08s**, not the ≤18 min stretch target — motion/xctrunner is still the long pole.
+
+| Job / step                     | Clock              | Duration   | vs this spec                                      |
+| ------------------------------ | ------------------ | ---------- | ------------------------------------------------- |
+| `ios-build`                    | 08:39:03–08:56:31Z | **17m28s** | under 35 min                                      |
+| `xcodebuild` inside build      | 08:41:04–08:56:19Z | 15m15s     | no simulator boot                                 |
+| `ios-simulator (stills)` job   | 08:56:34–09:16:36Z | ~20m       | overlapped with motion                            |
+| stills capture                 | 09:04:03–09:15:58Z | **11m55s** | hits TECH ≤12 min; TEST ≤10 min after boot missed |
+| stills boot                    | 08:58:54–09:04:03Z | ~5m        |                                                   |
+| `ios-simulator (motion)` job   | 08:56:35–09:33:56Z | ~37m       | wall driver after build                           |
+| motion capture                 | 09:03:13–09:33:21Z | **30m08s** | above TECH ≤18 min / TEST ≤14 min after boot      |
+| motion boot + PillTap prebuild | 08:58:22–09:03:13Z | ~5m        |                                                   |
+| `ios-parity` merge             | 09:33:59–09:34:11Z | 12s        | success                                           |
+
+Earlier labeled attempts on this PR: `39554572933` stills capture 14m42s green / motion SpringBoard Busy; `39561423684` motion capture 32m53s green / stills F4 home-screen (old painted line). Both are fixed on this head.
+
+### Measured savings vs run `39530230224`
+
+| Item              | Attempt 1 | Attempt 2 | Measured (`39570872781`) | Saved vs att. 1              | Saved vs att. 2 | Why it moved                                                                                                   |
+| ----------------- | --------- | --------- | ------------------------ | ---------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| Workflow wall     | 1h15m56s  | 1h51m51s  | **55m10s**               | **~21 min**                  | **~57 min**     | `ios-build` 17m then max(stills 20m, motion 37m). Stills no longer serial behind PillTap                       |
+| Capture wall      | 39m19s    | 52m24s    | **30m08s** (motion)      | **~9 min**                   | **~22 min**     | Matrix hides stills. Motion is now the capture wall                                                            |
+| 26 fixture stills | ~18 min   | ~23 min   | **11m55s**               | **~6 min**                   | **~11 min**     | No `sleep 15`; pty `log stream`; `[parity] painted`. Overlapped, so this does not add to workflow wall         |
+| First PillTap     | 6m51s     | 9m03s     | overlapped with boot     | **~5–7 min** off serial path | same            | `build-for-testing` during boot; capture is `test-without-building`. Remainder is xctrunner + live recordVideo |
+
+`RECORD_SECONDS` 8→4 is a small mux save (~0–1 min). Preview flag / label gate / evidence policy are correctness, not time.
+
 ## Architecture overview
 
 ```
