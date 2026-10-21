@@ -46,7 +46,7 @@ const buildStep = sectionBetween(
   "      - name: Prune DerivedData before cache save\n",
 );
 
-describe("QUALITY-020 ios-simulator caches", () => {
+describe("QUALITY-022 ios-simulator caches", () => {
   test("CocoaPods restore and save cover Pods and the CocoaPods cache dir", () => {
     for (const block of [cocoapodsRestore, cocoapodsSave]) {
       expect(block).toContain("actions/cache/");

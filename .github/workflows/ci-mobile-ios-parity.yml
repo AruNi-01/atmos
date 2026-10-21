@@ -3,7 +3,7 @@ name: CI - Mobile iOS parity
 # structural runs on matching pull requests.
 # ios-simulator is the heavy macOS job (about 1–3 hours). It runs on
 # workflow_dispatch, or when the PR has the label ios-parity.
-# QUALITY-020 caches CocoaPods and Xcode DerivedData inside that job only.
+# QUALITY-022 caches CocoaPods and Xcode DerivedData inside that job only.
 # Branch protection was checked before making that job opt-in (QUALITY-010):
 # classic protection is 403 for this token, rulesets are empty, and merged
 # PRs that do not touch these paths (#318, #312) merged without ios-simulator,
@@ -272,7 +272,7 @@ jobs:
           # failed whenever Info.plist contained UISceneDelegateClassName.
           bash script/verify-ios-scene-lifecycle.sh structural
 
-      # QUALITY-020: restore after prebuild so expo does not wipe ios/Pods.
+      # QUALITY-022: restore after prebuild so expo does not wipe ios/Pods.
       # Podfile.lock is gitignored; this key uses the generated Podfile + bun.lock.
       - name: Restore CocoaPods cache
         id: cocoapods-restore
@@ -310,7 +310,7 @@ jobs:
             ~/Library/Caches/CocoaPods
           key: ios-pods-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/mobile/ios/Podfile') }}
 
-      # QUALITY-020: Podfile.lock exists after pod install; include its hash here.
+      # QUALITY-022: Podfile.lock exists after pod install; include its hash here.
       - name: Restore DerivedData cache
         id: deriveddata-restore
         uses: actions/cache/restore@v4

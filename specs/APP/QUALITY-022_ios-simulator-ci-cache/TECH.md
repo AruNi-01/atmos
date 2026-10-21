@@ -1,4 +1,4 @@
-# TECH · QUALITY-020: iOS Simulator CI Cache
+# TECH · QUALITY-022: iOS Simulator CI Cache
 
 > Technical Design · HOW. Speeds up the `ios-simulator` job in `.github/workflows/ci-mobile-ios-parity.yml` with CocoaPods and Xcode DerivedData caches. No BRAINSTORM or PRD (quality spec). The `ios-parity` label gate from [QUALITY-010](../QUALITY-010_audit-safety-hardening/TECH.md) stays.
 
@@ -12,7 +12,7 @@
 
 This spec caches the two expensive trees. It does not change triggers, does not add the `ios-parity` label, does not raise `oxlint --max-warnings=455`, and does not commit screenshots, evidence files, or hostnames.
 
-Numbering: `origin/main` last published `QUALITY-018`. Concurrent draft [PR #341](https://github.com/AruNi-01/atmos/pull/341) registered **QUALITY-019** for E2E concurrency, so this spec is **QUALITY-020**.
+Numbering: `origin/main` last published **QUALITY-020** (E2E prebuilt API artifact, #342). Concurrent draft [PR #344](https://github.com/AruNi-01/atmos/pull/344) registered **QUALITY-021** for CodeQL advanced config, so this spec is **QUALITY-022**.
 
 Out of scope:
 
@@ -181,7 +181,7 @@ Write `cache-hit` and `cache-matched-key` into `artifacts/summary.md` (no hostna
 | ----- | -------------------------------------------------------------------------------------- |
 | CI    | `.github/workflows/ci-mobile-ios-parity.yml`                                           |
 | Tests | `apps/mobile/script/ios-parity-ci-cache.test.ts` (picked up by `apps/mobile` bun test) |
-| Spec  | this directory, `specs/README.md` row **QUALITY-020**                                  |
+| Spec  | this directory, `specs/README.md` row **QUALITY-022**                                  |
 
 ## Risks & tradeoffs
 
@@ -193,7 +193,7 @@ Write `cache-hit` and `cache-matched-key` into `artifacts/summary.md` (no hostna
 
 ## Rollout
 
-1. Register QUALITY-020 and this TECH/TEST.
+1. Register QUALITY-022 and this TECH/TEST.
 2. Workflow + bun tests.
 3. Draft PR; `structural` and non-iOS CI must be green.
 4. Eng Manager labels `ios-parity` when they want miss vs hit numbers.

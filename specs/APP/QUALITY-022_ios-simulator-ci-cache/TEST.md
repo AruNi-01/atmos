@@ -1,6 +1,6 @@
-# TEST · QUALITY-020: iOS Simulator CI Cache
+# TEST · QUALITY-022: iOS Simulator CI Cache
 
-> Test Plan · how we verify CocoaPods + DerivedData caching on `ios-simulator` without changing the `ios-parity` label gate. References TECH QUALITY-020.
+> Test Plan · how we verify CocoaPods + DerivedData caching on `ios-simulator` without changing the `ios-parity` label gate. References TECH QUALITY-022.
 
 ## Test strategy
 
@@ -163,4 +163,4 @@ Implementation pass (Linux agent, no Simulator):
 - S5 live — pass on unlabeled PR #343: `ios-simulator` **skipped**, `structural` green.
 - S7 — pass. `actionlint` v1.7.12 on `.github/workflows/ci-mobile-ios-parity.yml` exit 0 (no `macos-26` diagnostic).
 - S8 — `not_run`. Requires the Eng Manager `ios-parity` label; this change does not apply it. First labeled run builds the cache; Actions “Re-run jobs” on the same SHA is the hit. Compare job duration and the `Install CocoaPods` / `Build Release simulator app` steps. `artifacts/summary.md` records `cache-hit` and `cache-matched-key`.
-- Numbering: QUALITY-019 is the concurrent E2E concurrency draft (#341). This spec is QUALITY-020.
+- Numbering: QUALITY-020 is E2E prebuilt API artifact (#342, on `main`). QUALITY-021 is the concurrent CodeQL draft (#344). This spec is QUALITY-022.
