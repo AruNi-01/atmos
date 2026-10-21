@@ -1,51 +1,17 @@
 // @ts-expect-error bun:test is available at runtime but not in the mobile tsconfig types
-import { describe, expect, mock, test } from "bun:test";
-import { createElement, type ReactNode } from "react";
+import { describe, expect, test } from "bun:test";
+import { createElement } from "react";
 // @ts-expect-error react-dom server types are not installed for the mobile app
 import { renderToStaticMarkup } from "react-dom/server";
 import { onlineStatusColor } from "@/features/computers/online-status-color";
-
-const colors = {
-  green: "#16a34a",
-  secondaryLabel: "#52525b",
-};
-
-function flatStyle(style: unknown): Record<string, unknown> {
-  if (Array.isArray(style)) return Object.assign({}, ...style.map(flatStyle));
-  if (style && typeof style === "object") return style as Record<string, unknown>;
-  return {};
-}
-
-mock.module("react-native", () => ({
-  Text: ({
-    accessibilityLabel,
-    children,
-    style,
-  }: {
-    accessibilityLabel?: string;
-    children?: ReactNode;
-    style?: unknown;
-  }) =>
-    createElement(
-      "span",
-      {
-        "data-accessibility-label": accessibilityLabel,
-        "data-color": flatStyle(style).color,
-      },
-      children,
-    ),
-}));
-
-mock.module("@/theme/theme-store", () => ({
-  useMobileTheme: () => ({ colors }),
-}));
+import { mobileRenderColors } from "@/test-support/mobile-render-mock";
 
 const { ComputerOnlineCount } = await import("./ComputerOnlineCount");
 
 describe("ComputerOnlineCount", () => {
   test("paints the online digit with the Online status token", () => {
     const html = renderToStaticMarkup(createElement(ComputerOnlineCount, { online: 1, total: 2 }));
-    const green = onlineStatusColor(colors);
+    const green = onlineStatusColor(mobileRenderColors);
     expect(html).toContain(`data-color="${green}"`);
     expect(html).toContain(">1<");
     expect(html).toContain(">/2<");
@@ -57,6 +23,6 @@ describe("ComputerOnlineCount", () => {
     const html = renderToStaticMarkup(createElement(ComputerOnlineCount, { online: 0, total: 0 }));
     expect(html).toContain(">None<");
     expect(html).toContain('data-accessibility-label="No computers"');
-    expect(html).not.toContain(onlineStatusColor(colors));
+    expect(html).not.toContain(onlineStatusColor(mobileRenderColors));
   });
 });

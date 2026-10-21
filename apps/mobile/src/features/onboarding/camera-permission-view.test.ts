@@ -1,63 +1,11 @@
 // @ts-expect-error bun:test is available at runtime but not in the mobile tsconfig types
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { createElement, type ReactNode } from "react";
 // @ts-expect-error react-dom server types are not installed for the mobile app
 import { renderToStaticMarkup } from "react-dom/server";
+import { mobileRenderColors } from "@/test-support/mobile-render-mock";
 
-const SHEET = "#f8f8f9";
-
-function flatStyle(style: unknown): Record<string, unknown> {
-  if (Array.isArray(style)) return Object.assign({}, ...style.map(flatStyle));
-  if (style && typeof style === "object") return style as Record<string, unknown>;
-  return {};
-}
-
-mock.module("react-native", () => ({
-  Pressable: ({ children, style }: { children?: ReactNode; style?: unknown }) =>
-    createElement(
-      "button",
-      { "data-bg": flatStyle(style).backgroundColor, type: "button" },
-      children,
-    ),
-  StyleSheet: {
-    absoluteFill: {},
-    create: <T>(styles: T) => styles,
-    hairlineWidth: 1,
-  },
-  Text: ({ children, style }: { children?: ReactNode; style?: unknown }) =>
-    createElement("span", { "data-color": flatStyle(style).color }, children),
-  View: ({
-    accessibilityLabel,
-    children,
-    style,
-    testID,
-  }: {
-    accessibilityLabel?: string;
-    children?: ReactNode;
-    style?: unknown;
-    testID?: string;
-  }) =>
-    createElement(
-      "div",
-      {
-        "aria-label": accessibilityLabel,
-        "data-bg": flatStyle(style).backgroundColor,
-        "data-testid": testID,
-      },
-      children,
-    ),
-}));
-
-mock.module("@/theme/theme-store", () => ({
-  useMobileTheme: () => ({
-    colors: {
-      card: "#ffffff",
-      label: "#111111",
-      secondaryLabel: "#52525b",
-      sheetBackground: SHEET,
-    },
-  }),
-}));
+const SHEET = mobileRenderColors.sheetBackground;
 
 const { CameraPermissionStateView } = await import("./CameraPermissionStateView");
 const { PairScannerErrorBoundary, SignInCrashFallback } =
