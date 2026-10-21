@@ -38,6 +38,20 @@ export function agentSessionStatusListInput(input: {
   return body;
 }
 
+/** Drop one session from every loaded page. Used by `setQueriesData` on the status prefix. */
+export function omitSessionFromStatusPages<
+  T extends { pages?: { sessions: { session_id: string }[] }[] },
+>(current: T | undefined, sessionId: string): T | undefined {
+  if (!current?.pages) return current;
+  return {
+    ...current,
+    pages: current.pages.map((page) => ({
+      ...page,
+      sessions: page.sessions.filter((session) => session.session_id !== sessionId),
+    })),
+  };
+}
+
 function nonempty(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? "";
   return trimmed.length > 0 ? trimmed : null;

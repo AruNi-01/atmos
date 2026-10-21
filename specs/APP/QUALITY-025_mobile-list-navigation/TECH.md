@@ -1,6 +1,8 @@
 # TECH · QUALITY-025: Mobile list navigation
 
 > Technical design. Workspace rows and Session cards stutter because the destination's first React commit joins and mounts the whole list. This spec makes that first frame a skeleton, then pages the filtered lists at 20 rows.
+>
+> Zone: QUALITY-025 is the next free QUALITY id, with `TECH.md` and `TEST.md` only. The task asked for that shape for the navigation hitch and the paging that removes it, rather than a four-file `APP-NNN` feature.
 
 ## Quality target
 
@@ -51,13 +53,13 @@ TanStack Query starts fetches in effects, after paint. The stutter is the synchr
 3. `requestAnimationFrame` then marks the screen ready. Queries, joins, and `useTerminalLaunchAgents` I/O start on that following commit.
 4. Changing `resetKey` (workspace id or bucket) makes the screen not-ready again without a render-time `setState`. Ready state lives in a module store read with `useSyncExternalStore`, so the hook does not call `setState` inside an effect (mobile oxlint warns on that, and the warning cap has no room).
 
-A deep link with no mark still defers the fetch. `reportListFirstFrame` returns null and leaves any other target's mark in place.
+A deep link with no mark still defers the fetch. `reportListFirstFrame` returns null and leaves any other target's mark in place. A mark older than 3 seconds is dropped. A mark whose `detail` does not match the destination `resetKey` is left in place.
 
 `useTerminalLaunchAgents(false)` returns before `setState` and before AsyncStorage.
 
 Session home does not use the reveal hook. Deferring it would flash a skeleton over data the user is already looking at. Its focus invalidation stays, so popping back to home refreshes the inbox.
 
-The bucket passes `useSessionInbox({ active: reveal.ready, groupKey })`. While inactive, the join returns no rows and `isLoading` stays true (skeleton, not the empty state). The bucket focus effect does not invalidate the global list. Its notification subscription is off until active, and then it invalidates only the filtered status key. Home still invalidates the unfiltered prefix.
+The bucket passes `useSessionInbox({ active: reveal.ready, groupKey })`. While inactive, the join returns no rows and `isLoading` stays true (skeleton, not the empty state). The bucket focus effect and pull-to-refresh invalidate only that bucket's filtered status key, including when the screen regains focus after a session is opened. They do not invalidate the unfiltered prefix, so the still-mounted home inbox does not refetch. Its notification subscription is off until active, and then it invalidates only the filtered status key. Home focus and home pull-to-refresh still invalidate the unfiltered prefix.
 
 `session-terminal-candidates` and `session-chat-titles` use `staleTime: 60_000`, matching the git and PR queries. Opening a bucket does not restart the all-workspace candidate fan-out or the 20×100 title loop when home already loaded them. Bootstrap `staleTime` is unchanged.
 
@@ -76,13 +78,13 @@ The bucket passes `useSessionInbox({ active: reveal.ready, groupKey })`. While i
 
 `fillWhenShort` on `AppScreen` still fills a short viewport. The armed flag in `sessionListShouldRequestNextPage` does not chain-fetch while the user sits at the bottom of a tall list. Screens must not drain pages by comparing `rows.length` to a bucket count.
 
-The reveal window resets to 20 when the workspace home filters or grouping change. The reset is derived (`state.key !== resetKey` → show 20) so the first render of a new filter is not the previous window.
+The reveal window resets to 20 when the workspace home filters or grouping change, including a return to a previous filter. `reconcileListWindow` stores that new page on the render where the key changes, so the previous key's expanded window is not restored.
 
 ### Session buckets
 
 `agent_session_status_list` gains optional `group_key` and `context_id`.
 
-- Blank or missing means today's list.
+- Blank or missing means the unfiltered live catalog. There is no date filter.
 - `group_key` is `permission`, `attention`, `running`, or `done`. `idle` is an alias of `done`. Any other non-blank value returns an empty page, not the full list.
 - `context_id` is an exact workspace id. Sessions with an empty `context_id` are not in that page.
 - The server still materializes the live set, then filters, then pages. `limit` stays clamped to 1…100. Missing or zero still means 100.
@@ -104,7 +106,7 @@ Query keys:
 
 ### Workspace home
 
-`project_workspace_bootstrap` has no cursor. Web and `resolveChatScope` need the full map, so this spec does not page that action. The home list computes the filtered entries, mounts 20 open rows (`pageBlocks`), and reveals 20 more on scroll or when `fillWhenShort` says the viewport is not filled. Collapsed sections keep their header and pass no row children, so a closed group does not mount swipe rows. A section count stays the full workspace count, not the sliced length. Open sections past the window stay unmounted, including their headers, until the window reaches them.
+`project_workspace_bootstrap` has no cursor. Web and `resolveChatScope` need the full map, so this spec does not page that action. The home list computes the filtered entries, mounts 20 open rows (`pageBlocks`), and reveals 20 more on scroll or when `fillWhenShort` says the viewport is not filled. A section that is already closed keeps its header and passes no row children. A section that is closing keeps its rows for the 220ms animation, then unmounts them. Closed sections do not spend the 20-row window. A section count stays the full workspace count, not the sliced length. Open sections past the window stay unmounted, including their headers, until the window reaches them.
 
 ### Chat history
 

@@ -10,9 +10,13 @@ type PendingMark = {
   startedAt: number;
 };
 
+/** A push that never paints should not inflate a later same-target measurement. */
+const MARK_TTL_MS = 3_000;
+
 let pending: PendingMark | null = null;
 let lastSample: ListNavSample | null = null;
 let sink: ((line: string) => void) | null = null;
+let clock = defaultNow;
 
 function isDevLogEnabled() {
   const globalDev = (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__;
@@ -20,11 +24,15 @@ function isDevLogEnabled() {
   return typeof __DEV__ !== "undefined" && __DEV__;
 }
 
-function now() {
+function defaultNow() {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
     return performance.now();
   }
   return Date.now();
+}
+
+function now() {
+  return clock();
 }
 
 /** Call immediately before `router.push`. */
@@ -37,12 +45,14 @@ export function markListNavigation(target: string, detail?: string) {
  * place so a stale screen cannot consume it. Returns null when there is no
  * matching mark (deep link).
  */
-export function reportListFirstFrame(target: string): number | null {
+export function reportListFirstFrame(target: string, detail?: string): number | null {
+  if (pending && now() - pending.startedAt > MARK_TTL_MS) pending = null;
   if (!pending || pending.target !== target) return null;
+  if (pending.detail && detail && pending.detail !== detail) return null;
   const ms = Math.max(0, now() - pending.startedAt);
-  const detail = pending.detail;
+  const markedDetail = pending.detail;
   pending = null;
-  const sample: ListNavSample = { target, ms, detail };
+  const sample: ListNavSample = { target, ms, detail: markedDetail };
   lastSample = sample;
   const line = formatListNavLine(sample);
   if (sink) sink(line);
@@ -65,8 +75,13 @@ export function lastListNavSample(): ListNavSample | null {
   return lastSample;
 }
 
+export function setListNavClockForTests(next: (() => number) | null) {
+  clock = next ?? defaultNow;
+}
+
 export function resetListNavForTests() {
   pending = null;
   lastSample = null;
   sink = null;
+  clock = defaultNow;
 }

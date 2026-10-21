@@ -6,6 +6,7 @@ import {
   markListNavigation,
   reportListFirstFrame,
   resetListNavForTests,
+  setListNavClockForTests,
   setListNavSink,
 } from "./list-navigation";
 
@@ -51,5 +52,16 @@ describe("list navigation timing", () => {
       devGlobal.__DEV__ = previous;
       resetListNavForTests();
     }
+  });
+
+  test("an expired or mismatched detail does not consume the mark", () => {
+    resetListNavForTests();
+    setListNavClockForTests(() => 1_000);
+    markListNavigation("session-bucket", "running");
+    expect(reportListFirstFrame("session-bucket", "done")).toBeNull();
+    setListNavClockForTests(() => 1_000 + 3_001);
+    expect(reportListFirstFrame("session-bucket", "running")).toBeNull();
+    expect(lastListNavSample()).toBeNull();
+    resetListNavForTests();
   });
 });

@@ -1,6 +1,13 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import { LIST_PAGE_SIZE, listWindow, nextListWindow, pageBlocks } from "./list-page";
+import {
+  LIST_PAGE_SIZE,
+  listWindow,
+  nextListWindow,
+  openItemCount,
+  pageBlocks,
+  reconcileListWindow,
+} from "./list-page";
 
 describe("nextListWindow", () => {
   test("reveals loaded rows before fetching", () => {
@@ -65,5 +72,40 @@ describe("pageBlocks", () => {
       { key: "b", items: ["b1"] },
     ]);
     expect(listWindow(["a1", "a2", "b1", "b2"], 3)).toEqual(["a1", "a2", "b1"]);
+  });
+
+  test("a closed block keeps rows for the animation and does not spend the window", () => {
+    const visible = pageBlocks(
+      [
+        { key: "open", items: ["a", "b"] },
+        { key: "closing", items: ["c", "d", "e"], closed: true, keep: true },
+        { key: "later", items: ["f"], keep: true },
+      ],
+      2,
+    );
+    expect(visible.map((block) => [block.key, [...block.items]])).toEqual([
+      ["open", ["a", "b"]],
+      ["closing", ["c", "d", "e"]],
+    ]);
+    expect(
+      openItemCount([
+        { key: "open", items: ["a", "b"] },
+        { key: "closing", items: ["c", "d", "e"], closed: true },
+      ]),
+    ).toBe(2);
+  });
+});
+
+describe("reconcileListWindow", () => {
+  test("returning to a previous key starts at one page", () => {
+    const first = reconcileListWindow(undefined, "filters-a");
+    const grown = { key: first.key, shown: 40 };
+    const other = reconcileListWindow(grown, "filters-b");
+    expect(other).toEqual({ key: "filters-b", shown: LIST_PAGE_SIZE });
+    expect(reconcileListWindow(other, "filters-a")).toEqual({
+      key: "filters-a",
+      shown: LIST_PAGE_SIZE,
+    });
+    expect(reconcileListWindow(grown, "filters-a")).toBe(grown);
   });
 });

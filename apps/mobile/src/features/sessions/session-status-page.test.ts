@@ -5,6 +5,7 @@ import {
   UNFILTERED_SESSION_PAGE_LIMIT,
   agentSessionStatusListInput,
   agentSessionStatusQueryKey,
+  omitSessionFromStatusPages,
 } from "./session-status-page";
 
 const SERVER = "computer-1";
@@ -44,5 +45,23 @@ describe("agent session status page", () => {
       group_key: "running",
       context_id: "ws-1",
     });
+    const filtered = agentSessionStatusQueryKey({ serverId: SERVER, groupKey: "running" });
+    expect(filtered.slice(0, 2)).toEqual(agentSessionStatusQueryKey({ serverId: SERVER }));
+  });
+
+  test("hiding a session drops it from a filtered page", () => {
+    const page = omitSessionFromStatusPages(
+      {
+        pages: [
+          {
+            sessions: [{ session_id: "keep" }, { session_id: "drop" }],
+            next_cursor: null,
+          },
+        ],
+      },
+      "drop",
+    );
+    expect(page?.pages[0]?.sessions.map((session) => session.session_id)).toEqual(["keep"]);
+    expect(omitSessionFromStatusPages(undefined, "drop")).toBeUndefined();
   });
 });

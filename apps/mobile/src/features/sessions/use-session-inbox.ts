@@ -141,7 +141,17 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
 
   useFocusEffect(
     useCallback(() => {
-      if (!client || !connected || groupKey) return;
+      if (!client || !connected) return;
+      if (groupKey) {
+        void queryClient.invalidateQueries({
+          queryKey: agentSessionStatusQueryKey({
+            serverId: selectedServerId,
+            groupKey,
+            limit: LIST_PAGE_SIZE,
+          }),
+        });
+        return;
+      }
       void queryClient.invalidateQueries({
         queryKey: ["agent-session-status-list", selectedServerId],
       });
@@ -257,9 +267,14 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
 
   const refresh = useCallback(async () => {
     if (!client || !connected) return;
+    const statusKey = agentSessionStatusQueryKey({
+      serverId: selectedServerId,
+      groupKey,
+      limit: groupKey ? LIST_PAGE_SIZE : undefined,
+    });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
-      queryClient.invalidateQueries({ queryKey: ["agent-session-status-list", selectedServerId] }),
+      queryClient.invalidateQueries({ queryKey: statusKey }),
       queryClient.invalidateQueries({
         queryKey: ["session-terminal-candidates", selectedServerId],
       }),
@@ -267,7 +282,7 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
       queryClient.invalidateQueries({ queryKey: ["session-branch-prs", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["workspace-sidebar-sessions", selectedServerId] }),
     ]);
-  }, [client, connected, queryClient, selectedServerId]);
+  }, [client, connected, groupKey, queryClient, selectedServerId]);
 
   return {
     archiveChat,

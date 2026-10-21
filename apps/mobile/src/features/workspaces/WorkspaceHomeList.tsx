@@ -41,6 +41,7 @@ import { Row, Separator } from "@/ui/layout/row";
 const SECTION_TITLE_SIZE = 17;
 const SECTION_CHEVRON_SIZE = 20;
 const SECTION_MOTION_MS = 220;
+const sectionCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 type HomeBlock = PagedBlock<WorkspaceHomeEntry> & {
   count?: number;
@@ -83,6 +84,35 @@ export function WorkspaceHomeList({
     filters.showAutomation ? "1" : "0",
   ].join("|");
   const { applyEnd, shown } = useListWindow(windowResetKey);
+  const [closingKeys, setClosingKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const holdRowsWhileClosing = (key: string) => {
+    setClosingKeys((current) => {
+      if (current.has(key)) return current;
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+    const pending = sectionCloseTimers.get(key);
+    if (pending) clearTimeout(pending);
+    sectionCloseTimers.set(
+      key,
+      setTimeout(() => {
+        sectionCloseTimers.delete(key);
+        setClosingKeys((current) => {
+          if (!current.has(key)) return current;
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }, SECTION_MOTION_MS),
+    );
+  };
+  useEffect(() => {
+    return () => {
+      for (const timer of sectionCloseTimers.values()) clearTimeout(timer);
+      sectionCloseTimers.clear();
+    };
+  }, []);
   const [deleteEntry, setDeleteEntry] = useState<WorkspaceHomeEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -118,11 +148,15 @@ export function WorkspaceHomeList({
   if (recent.length > 0) {
     blocks.push({
       key: "recent",
-      items: recentExpanded ? recent : [],
+      items: recentExpanded || closingKeys.has("recent") ? recent : [],
       keep: true,
+      closed: !recentExpanded,
       open: recentExpanded,
       title: "Recently",
-      onToggle: toggleRecent,
+      onToggle: () => {
+        if (recentExpanded) holdRowsWhileClosing("recent");
+        toggleRecent();
+      },
     });
   }
   for (const section of sections) {
@@ -130,12 +164,16 @@ export function WorkspaceHomeList({
     const open = expanded[section.key] !== false;
     blocks.push({
       key: section.key,
-      items: open ? section.items : [],
+      items: open || closingKeys.has(section.key) ? section.items : [],
       keep: true,
+      closed: !open,
       open,
       title: section.title,
       count: workspaceCount > 0 ? workspaceCount : undefined,
-      onToggle: () => toggleExpanded(section.key),
+      onToggle: () => {
+        if (open) holdRowsWhileClosing(section.key);
+        toggleExpanded(section.key);
+      },
     });
   }
   const visibleBlocks = pageBlocks(blocks, shown);
