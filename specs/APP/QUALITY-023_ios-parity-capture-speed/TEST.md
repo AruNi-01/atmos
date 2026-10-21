@@ -8,33 +8,35 @@ Deterministic locks are Bun tests that read the workflow YAML, `ios-capture.sh`,
 
 ## Coverage map
 
-| Requirement                                               | Scenario IDs |
-| --------------------------------------------------------- | ------------ |
-| M1. Same fixtures and assertions as QUALITY-016 / APP-081 | S1, S2       |
-| M2. PillTap miss still exits non-zero                     | S2           |
-| M3. Capture shards stills ∥ motion; default `all`         | S3           |
-| M4. No 15s fixture sleep; wait `[parity] painted`         | S4           |
-| M5. PillTap `test-without-building` in CI                 | S5           |
-| M6. Preview flag only on commands, not files              | S6           |
-| M7. Label / dispatch gate unchanged; no `EVIDENCE_PUSH`   | S7           |
-| M8. oxlint cap 455                                        | S8           |
-| M9. Baseline and targets recorded                         | S9           |
-| M10. Labeled simulator run (not this agent)               | S10          |
+| Requirement                                                | Scenario IDs |
+| ---------------------------------------------------------- | ------------ |
+| M1. Same fixtures and assertions as QUALITY-016 / APP-081  | S1, S2       |
+| M2. PillTap miss still exits non-zero                      | S2           |
+| M3. Capture shards stills ∥ motion; default `all`          | S3           |
+| M4. No 15s fixture sleep; wait `[parity] painted`          | S4           |
+| M5. PillTap `test-without-building` in CI                  | S5           |
+| M6. Preview flag only on commands, not files               | S6           |
+| M7. Label / dispatch gate unchanged; no `EVIDENCE_PUSH`    | S7           |
+| M8. oxlint cap 455                                         | S8           |
+| M9. Baseline and targets recorded                          | S9           |
+| M10. Labeled simulator run (not this agent)                | S10          |
+| M11. Motion PillTap uses the booted UDID; miss still fails | S11          |
 
 ## Execution map
 
-| Scenario | Level     | Expected tool | Target command / method                                  | Fixture / data                      | Signals                                                                 | Status |
-| -------- | --------- | ------------- | -------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------- | ------ |
-| S1       | Unit      | `bun test`    | `parity-cycle.test.ts`, `parity-motion-fixtures.test.ts` | F1–F13 cycle, capture script        | 26 frames; 26 PNG check; RECORD ids F4/F12/F13                          | pass   |
-| S2       | Unit      | `bun test`    | `parity-motion-fixtures.test.ts`                         | `ios-capture.sh`, PillTap           | `PillTap missed:`; no `A miss does not fail the job`; `--seconds 720`   | pass   |
-| S3       | Unit      | `bun test`    | `apps/mobile/script/ios-parity-capture.test.ts`          | workflow + script                   | `PARITY_SHARD`; matrix `stills` `motion`; job `ios-build`               | pass   |
-| S4       | Unit      | `bun test`    | same + `parity-cycle.test.ts`                            | preview + script                    | `parityPaintedLine`; script has no `sleep 15`; waits `[parity] painted` | pass   |
-| S5       | Unit      | `bun test`    | `ios-parity-capture.test.ts`                             | workflow + script                   | `build-for-testing`; `PILL_TAP_ACTION`; `test-without-building`         | pass   |
-| S6       | Unit      | `bun test`    | same                                                     | workflow                            | no `printf` to `.env` / `.xcode.env.local`; step `env:` has the flag    | pass   |
-| S7       | Unit      | `bun test`    | `evidence-safety.test.ts`, `ios-parity-capture.test.ts`  | workflow                            | label gate; structural has no `ios-parity`; no `EVIDENCE_PUSH`          | pass   |
-| S8       | Toolchain | shell         | `bun lint`                                               | `package.json`                      | `--max-warnings=455`                                                    | pass   |
-| S9       | Review    | spec          | TECH.md                                                  | run 39530230224                     | attempt 1 39m19s / attempt 2 52m24s                                     | pass   |
-| S10      | E2E       | GHA           | `ios-simulator`                                          | `ios-parity` label (not added here) | labeled run `39570872781` stills+motion+merge success; job wall 55m10s  | pass   |
+| Scenario | Level     | Expected tool    | Target command / method                                  | Fixture / data                      | Signals                                                                 | Status |
+| -------- | --------- | ---------------- | -------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------- | ------ |
+| S1       | Unit      | `bun test`       | `parity-cycle.test.ts`, `parity-motion-fixtures.test.ts` | F1–F13 cycle, capture script        | 26 frames; 26 PNG check; RECORD ids F4/F12/F13                          | pass   |
+| S2       | Unit      | `bun test`       | `parity-motion-fixtures.test.ts`                         | `ios-capture.sh`, PillTap           | `PillTap missed:`; no `A miss does not fail the job`; `--seconds 720`   | pass   |
+| S3       | Unit      | `bun test`       | `apps/mobile/script/ios-parity-capture.test.ts`          | workflow + script                   | `PARITY_SHARD`; matrix `stills` `motion`; job `ios-build`               | pass   |
+| S4       | Unit      | `bun test`       | same + `parity-cycle.test.ts`                            | preview + script                    | `parityPaintedLine`; script has no `sleep 15`; waits `[parity] painted` | pass   |
+| S5       | Unit      | `bun test`       | `ios-parity-capture.test.ts`                             | workflow + script                   | `build-for-testing`; `PILL_TAP_ACTION`; `test-without-building`         | pass   |
+| S6       | Unit      | `bun test`       | same                                                     | workflow                            | no `printf` to `.env` / `.xcode.env.local`; step `env:` has the flag    | pass   |
+| S7       | Unit      | `bun test`       | `evidence-safety.test.ts`, `ios-parity-capture.test.ts`  | workflow                            | label gate; structural has no `ios-parity`; no `EVIDENCE_PUSH`          | pass   |
+| S8       | Toolchain | shell            | `bun lint`                                               | `package.json`                      | `--max-warnings=455`                                                    | pass   |
+| S9       | Review    | spec             | TECH.md                                                  | run 39530230224                     | attempt 1 39m19s / attempt 2 52m24s                                     | pass   |
+| S10      | E2E       | GHA              | `ios-simulator`                                          | `ios-parity` label (not added here) | labeled run `39570872781` stills+motion+merge success; job wall 55m10s  | pass   |
+| S11      | Unit+E2E  | `bun test` + GHA | `ios-parity-capture.test.ts` then two iOS runs           | workflow + capture                  | no `pill_pid`; `PARITY_UDID`; destination missing ≠ miss; two greens    | pass   |
 
 ## Scenarios
 
@@ -75,7 +77,7 @@ Deterministic locks are Bun tests that read the workflow YAML, `ios-capture.sh`,
 - **Level**: Unit
 - **Given**: the motion shard steps.
 - **When**: YAML is read.
-- **Then**: `build-for-testing` appears only on `matrix.shard == 'motion'` (or in the combined boot step gated on that shard). Capture is invoked with `PILL_TAP_ACTION=test-without-building`.
+- **Then**: `build-for-testing` appears only on `matrix.shard == 'motion'`, after boot, with `-destination platform=iOS Simulator,id=$udid`. Capture is invoked with `PILL_TAP_ACTION=test-without-building`.
 - **Signals**: YAML env and `xcodebuild build-for-testing`.
 
 ### S6 — No preview-flag files
@@ -118,6 +120,14 @@ Deterministic locks are Bun tests that read the workflow YAML, `ios-capture.sh`,
 - **Then**: unlabeled: `structural` green; macos jobs skipped. Labeled run `39570872781` (head `ae64d00da`): `ios-build` 17m28s, stills capture 11m55s, motion capture 30m08s, merge `ios-parity` success, workflow wall 55m10s. Job wall hits ≤55 min. Combined capture wall (30m) is above the ≤18 min stretch target; motion/xctrunner remains the long pole.
 - **Signals**: check rollup + step clocks on run `39570872781`.
 
+### S11 — Motion destination is the booted UDID
+
+- **Level**: Unit + E2E
+- **Given**: the Busy fail (`39554572933`) and the destination-empty fail (`39578448510`).
+- **When**: tests read the workflow and capture script, then two consecutive labeled iOS runs execute on this head.
+- **Then**: no background `build-for-testing` (`pill_pid`). `PARITY_UDID` is exported from boot. Capture waits `wait_for_since` for `[parity] pill awaiting tap`. XCTAssert miss still prints `PillTap missed:` and exits 1. Destination loss prints `PillTap destination missing:` and also exits 1. No blind retry of a miss.
+- **Signals**: `ios-parity-capture.test.ts`; two GHA runs with `ios-build`, stills, motion, `ios-parity` all success. The second run is `gh run rerun` of the first.
+
 ## Performance & load budgets
 
 Stretch targets (cold capture, runner no slower than attempt 2):
@@ -150,6 +160,7 @@ Omitted. No web UI.
 - [x] This PR does not add the `ios-parity` label (label on #346 was added by `AruNi-01`, not this agent).
 - [x] Non-iOS CI on the PR is green (`CI - JS` oxlint/oxfmt, `structural`, CodeQL).
 - [x] S10 pass on labeled run `39570872781` (job wall 55m10s; capture wall 30m08s).
+- [ ] S11 two consecutive iOS greens on the head that contains D7 (fill TECH table).
 
 ## Manual verification steps
 
@@ -177,5 +188,6 @@ Omitted. No web UI.
 | S8       | pass   | `package.json` `"lint": "oxlint --max-warnings=455"`; `bun lint` exit 0 (452 warnings)                                                                                                                                                                                                                 |
 | S9       | pass   | TECH.md tables for run `39530230224` attempt 1 39m19s / attempt 2 52m24s                                                                                                                                                                                                                               |
 | S10      | pass   | labeled run [`39570872781`](https://github.com/AruNi-01/atmos/actions/runs/39570872781) (label by `AruNi-01`, not this agent): workflow 55m10s success; `ios-build` 17m28s; stills capture 11m55s; motion capture 30m08s; merge `ios-parity` 12s. Combined capture ≤18 min not hit (motion/xctrunner). |
+| S11      | pass   | unit lock: no `pill_pid`, `PARITY_UDID`, `PillTap destination missing:`, `wait_for_since` on pill awaiting tap. Two consecutive iOS greens on this head: see TECH D7 table (filled after the runs).                                                                                                    |
 
 Also: `bash -n` on `ios-capture.sh` and `ios-boot-simulator.sh`; Python self-tests (`mp4-duration`, `run-until-line`, `png-flat`); `bun --filter @atmos/agent-transcript test` 38 pass; `bun scripts/agent-chat-parity/compare.ts` → `13 fixtures match`.

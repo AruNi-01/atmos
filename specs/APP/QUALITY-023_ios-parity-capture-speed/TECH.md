@@ -17,7 +17,7 @@ Baseline is GitHub Actions run `39530230224` on `macos-26` / Xcode 26.5 / iPhone
 | Job wall                            | 1h15m56s (01:57:03–03:12:59Z)                     | 1h51m51s (03:13:36–05:05:27Z)   | Build then two capture shards. Wall ≈ `ios-build` + max(stills, motion). Target ≤ **55 min** on a cold capture, ≤ **50 min** when `ios-build` stays ~30 min |
 | Capture step                        | **39m19s** (02:33:09–03:12:28Z)                   | **52m24s** (04:12:22–05:04:46Z) | No single 40–50 min step. Stills target ≤ **12 min**. Motion target ≤ **18 min** including boot                                                             |
 | 26 fixture stills                   | ~18 min (02:34:29–02:52:19Z)                      | ~23 min (04:13:23–04:36:27Z)    | ≤ **10 min**. Drop the 15s post-ready sleep; wait `[parity] painted`; do not block on `log show --last 10m`                                                 |
-| First PillTap (`testTapScrollPill`) | 6m51s (02:53:25–03:00:16Z)                        | 9m03s (04:38:38–04:47:41Z)      | `build-for-testing` overlaps simulator boot. Capture uses `test-without-building`. Target ≤ **90s** for that tap                                            |
+| First PillTap (`testTapScrollPill`) | 6m51s (02:53:25–03:00:16Z)                        | 9m03s (04:38:38–04:47:41Z)      | `build-for-testing` after boot, same UDID. Capture uses `test-without-building`. Target ≤ **90s** for that tap                                              |
 | `RECORD_SECONDS` still mux          | 8s movies from one PNG                            | same                            | 4s (duration gate remains ≥ 3s). Live `recordVideo` still runs for the motion passes that need it                                                           |
 | `EXPO_PUBLIC_PARITY_PREVIEW=1`      | Job `env:` plus `.env` and `ios/.xcode.env.local` | same on that branch             | Command / step `env:` only. No preview-flag files                                                                                                           |
 | Trigger                             | `workflow_dispatch` or PR label `ios-parity`      | same                            | Unchanged                                                                                                                                                   |
@@ -47,7 +47,7 @@ Attempt 2 is the same script on a slower runner: almost every ready line printed
 | ------------------------------------------------------------------- | ------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Line-buffered `log stream` + delay `log show`                       | ~3–5 min                                   | ~6–8 min        | Attempt 2 F1: JS ready at 04:13:35Z, `log show` returned 04:14:02Z. Most frames then wait 15–30s in `log show --last 10m` (bounded 45s) instead of the stream file |
 | Replace `sleep 15` with `[parity] painted`                          | ~5–6 min                                   | ~5–6 min        | 26 × 15s = 6.5 min guaranteed. Run 38877961991 was too early at 6s; painted waits until transcript content height is stable, with an 8s fallback                   |
-| PillTap `build-for-testing` during boot                             | ~5–6 min                                   | ~7–8 min        | First `xcodebuild test` compiles host + XCTest. Later taps on the same derived data were 0.5–2.5 min                                                               |
+| PillTap `build-for-testing` after boot                              | ~5–6 min                                   | ~7–8 min        | First `xcodebuild test` compiles host + XCTest. Overlapping that compile with boot raced CoreSimulator (run 39578448510). Serialize.                               |
 | Matrix `stills` ∥ `motion`                                          | ~18 min of stills overlap the motion shard | ~23 min overlap | Two `macos-26` jobs after one `ios-build`. Wall is max(shard), not sum                                                                                             |
 | `RECORD_SECONDS` 8 → 4; skip live record when the pass is still mux | ~0–1 min                                   | ~0–1 min        | Mux is CPU. Live `recordVideo` stays on F4 replay, F12 pills, F12/F13 card rows, composer keyboard                                                                 |
 | Build without booting the simulator                                 | 0 capture / ~4 min job                     | same            | Attempt 1 boot was 3m38s before prebuild. Capture shards boot in parallel with each other, not in front of `xcodebuild`                                            |
@@ -74,12 +74,12 @@ Earlier labeled attempts on this PR: `39554572933` stills capture 14m42s green /
 
 ### Measured savings vs run `39530230224`
 
-| Item              | Attempt 1 | Attempt 2 | Measured (`39570872781`) | Saved vs att. 1              | Saved vs att. 2 | Why it moved                                                                                                   |
-| ----------------- | --------- | --------- | ------------------------ | ---------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------- |
-| Workflow wall     | 1h15m56s  | 1h51m51s  | **55m10s**               | **~21 min**                  | **~57 min**     | `ios-build` 17m then max(stills 20m, motion 37m). Stills no longer serial behind PillTap                       |
-| Capture wall      | 39m19s    | 52m24s    | **30m08s** (motion)      | **~9 min**                   | **~22 min**     | Matrix hides stills. Motion is now the capture wall                                                            |
-| 26 fixture stills | ~18 min   | ~23 min   | **11m55s**               | **~6 min**                   | **~11 min**     | No `sleep 15`; pty `log stream`; `[parity] painted`. Overlapped, so this does not add to workflow wall         |
-| First PillTap     | 6m51s     | 9m03s     | overlapped with boot     | **~5–7 min** off serial path | same            | `build-for-testing` during boot; capture is `test-without-building`. Remainder is xctrunner + live recordVideo |
+| Item              | Attempt 1 | Attempt 2 | Measured (`39570872781`) | Saved vs att. 1          | Saved vs att. 2 | Why it moved                                                                                                  |
+| ----------------- | --------- | --------- | ------------------------ | ------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------- |
+| Workflow wall     | 1h15m56s  | 1h51m51s  | **55m10s**               | **~21 min**              | **~57 min**     | `ios-build` 17m then max(stills 20m, motion 37m). Stills no longer serial behind PillTap                      |
+| Capture wall      | 39m19s    | 52m24s    | **30m08s** (motion)      | **~9 min**               | **~22 min**     | Matrix hides stills. Motion is now the capture wall                                                           |
+| 26 fixture stills | ~18 min   | ~23 min   | **11m55s**               | **~6 min**               | **~11 min**     | No `sleep 15`; pty `log stream`; `[parity] painted`. Overlapped, so this does not add to workflow wall        |
+| First PillTap     | 6m51s     | 9m03s     | after boot, same UDID    | compile off the tap path | same            | `build-for-testing` after boot; capture is `test-without-building`. Remainder is xctrunner + live recordVideo |
 
 `RECORD_SECONDS` 8→4 is a small mux save (~0–1 min). Preview flag / label gate / evidence policy are correctness, not time.
 
@@ -97,8 +97,8 @@ ios-build (macos-26, label / dispatch only)
   tar Atmos.app → artifact simulator-app
 
 ios-simulator [stills | motion]  (macos-26, needs ios-build)
-  download app, boot iPhone 17 Pro
-  motion: xcodebuild build-for-testing PillTap ∥ boot
+  download app, boot iPhone 17 Pro, export PARITY_UDID
+  motion: xcodebuild build-for-testing PillTap for that UDID (after boot, not overlapping)
   PARITY_SHARD=… PILL_TAP_ACTION=test-without-building ios-capture.sh
   artifact ios-parity-<shard>
 
@@ -135,9 +135,45 @@ Both shards install the same Release `.app`. Neither drops a fixture or a PillTa
 
 Run 39530230224 attempt 2 shows JS `[parity] ready` in `os_log` a few seconds after launch, while the script sits in `run_bounded 45 log show --last 10m`. Redirected `log stream` is block-buffered. Capture starts the stream on a pty and copies lines with flush. `log show` is a fallback after 12s, `--last 30s`, 8s bound.
 
-### D4. PillTap is compiled once
+### D4. PillTap is compiled once, after the simulator is Booted
 
-Motion shard: `xcodebuild build-for-testing` of `scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj` overlaps `ios-boot-simulator.sh`. Capture calls `xcodebuild test-without-building` with the same `-derivedDataPath`. Local default remains `test` so a laptop without a prior build still works.
+Motion shard: boot iPhone 17 Pro first, pin `PARITY_UDID`, then `xcodebuild build-for-testing` of `scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj` with `-destination platform=iOS Simulator,id=$PARITY_UDID`. Capture calls `xcodebuild test-without-building` with the same id and `-derivedDataPath`. Do not overlap build-for-testing with `killall CoreSimulatorService` / `simctl boot`. Do not `simctl install` the xctrunner before the first test (that double-install raced SpringBoard). Local default remains `test` so a laptop without a prior build still works.
+
+A destination that xcodebuild cannot see is `PillTap destination missing:` and still exits 1. An XCTAssert miss is still `PillTap missed:` and still exits 1. Busy (`installing or uninstalling`) is the only targeted retry.
+
+### D7. Motion waits are per-launch
+
+`capture_tail_return` (and the other motion relaunches) use `wait_for_since` after a `log_mark`, same as stills. `wait_for_line` matching the away launch's `[parity] preview-chat module` would let the return pass proceed before this launch painted.
+
+## Motion / PillTap instability (root cause)
+
+Two of the last three labeled motion shards failed, at different surfaces of the same race:
+
+| Run           | Head        | Motion        | What the log actually said                                                                                                                                                                                   |
+| ------------- | ----------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `39554572933` | `5d38f5c97` | fail          | SpringBoard Busy while xctrunner installing/uninstalling (`testSwipeCardPills`)                                                                                                                              |
+| `39561423684` | `11a2f44b0` | pass (32m53s) | stills failed on a stale painted line; motion itself green                                                                                                                                                   |
+| `39570872781` | `ae64d00da` | pass (30m08s) | both shards green                                                                                                                                                                                            |
+| `39578448510` | `a8edae21c` | fail          | `testTapScrollPill` reported `PillTap missed: scroll pill tap failed`; xcodebuild then `Unable to find a device matching … id:E839A11B-…`. Available destinations: My Mac + two placeholders. No simulators. |
+
+Not a cross-shard resource fight: stills and motion are separate `macos-26` VMs. `simctl` still took screenshots of `E839A11B` at 10:17Z. xcodebuild, started for `test-without-building` after a generic `build-for-testing` that overlapped boot, saw zero devices.
+
+Sequence on the failing motion job (`39578448510`):
+
+1. `ios-boot-simulator.sh setup` kills `CoreSimulatorService` (framebuffer hint).
+2. `build-for-testing -destination generic/platform=iOS Simulator` starts immediately. Boot is not done until 10:13:18Z; the generic build is already ~4 minutes in with no Booted device. The runner image listed three Shutdown `iPhone 17 Pro` devices.
+3. Capture `simctl install`s the prebuilt xctrunner, then `test-without-building` installs it again → Busy on an earlier run.
+4. Return launch used `wait_for_line` for `[parity] preview-chat module` (already in the stream from the away launch). The 18s to tap is therefore not proof the return frame was the one xcodebuild attached to.
+5. `test-without-building -destination id=E839A11B` resolves destinations from the generic build's empty list and fails. The script labeled that a PillTap miss.
+
+Fix: boot → pin UDID → `build-for-testing` for that id → `test-without-building` for that id. Wait until `xcodebuild -showdestinations` lists the UDID before the first tap. No xctrunner pre-install. Motion relaunches wait `wait_for_since`. Do not retry XCTAssert misses or destination loss; only Busy.
+
+Two consecutive full iOS greens on the head that contains this paragraph are the gate. Fill the table when those runs finish (a later docs-only push would change the head, so record them on the same commit when possible; otherwise re-run both on the docs head).
+
+| Round | Run                  | ios-build | stills | motion | ios-parity | workflow |
+| ----- | -------------------- | --------- | ------ | ------ | ---------- | -------- |
+| 1     | TBD                  | TBD       | TBD    | TBD    | TBD        | TBD      |
+| 2     | TBD (`gh run rerun`) | TBD       | TBD    | TBD    | TBD        | TBD      |
 
 ### D5. Preview flag stays in the command environment
 
@@ -160,7 +196,7 @@ The ubuntu `Export parity preview for web` step already uses step `env:` only. L
 ## Risks & tradeoffs
 
 - **Risk**: painted at 8s is still early on a loaded runner. Mitigation: png-flat retries (unchanged) still reject a 95%+ flat background; distinct-hash gate still requires 26 different PNGs.
-- **Risk**: `test-without-building` destination mismatch. Mitigation: motion shard builds for `generic/platform=iOS Simulator` and tests with the booted UDID; failure is a red shard, not a swallowed miss.
+- **Risk**: `test-without-building` destination mismatch. Mitigation: motion shard boots first, then `build-for-testing` and `test-without-building` both use `id=$PARITY_UDID`. Destination loss exits 1 as `PillTap destination missing:`, not as a tap miss.
 - **Risk**: two macos capture jobs cost extra minutes. Mitigation: they skip `xcodebuild` of Atmos.app. Billable time should drop because stills no longer sit behind a 7–9 min cold PillTap on the same runner.
 - **Risk**: #343 edits the same workflow (CocoaPods / DerivedData cache). Merge conflict is expected; this branch is based on `origin/main` (QUALITY-020 E2E artifact). Do not rebase onto #343.
 - **Tradeoff**: still mux movies stay (4s, not 8s) so `F4.mov` / `F12.mov` / `F13.mov` remain in the artifact. Live recordings already cover motion.

@@ -263,6 +263,22 @@ wait_for_line() {
 }
 
 booted_udid() {
+  # Prefer the UDID the boot step pinned. Do not silently switch to another
+  # leftover iPhone 17 Pro (the runner image had three in run 39578448510).
+  if [[ -n "${PARITY_UDID:-}" ]]; then
+    xcrun simctl list devices booted -j | PARITY_UDID="$PARITY_UDID" python3 -c '
+import json, os, sys
+want = os.environ["PARITY_UDID"].strip()
+data = json.load(sys.stdin)
+for devices in data.get("devices", {}).values():
+    for device in devices:
+        if device.get("udid") == want and device.get("state") == "Booted":
+            print(want)
+            sys.exit(0)
+sys.exit(1)
+'
+    return
+  fi
   xcrun simctl list devices booted -j | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
@@ -276,26 +292,35 @@ if len(booted) == 1:
 '
 }
 
-install_pill_runner() {
-  local runner="" candidate
-  shopt -s nullglob
-  for candidate in "$PILL_TAP_DERIVED"/Build/Products/*/*Runner.app; do
-    [[ -d "$candidate" ]] || continue
-    runner="$candidate"
-    break
+xcode_sees_udid() {
+  local udid="$1"
+  xcodebuild \
+    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+    -scheme PillTap \
+    -showdestinations 2>/dev/null | grep -E "id: ?${udid}" >/dev/null
+}
+
+wait_for_xcode_destination() {
+  local udid="$1"
+  local deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    if xcode_sees_udid "$udid"; then
+      echo "xcodebuild sees ${udid}"
+      return 0
+    fi
+    sleep 2
   done
-  shopt -u nullglob
-  if [[ -z "$runner" ]]; then
-    echo "no prebuilt PillTap runner under ${PILL_TAP_DERIVED}"
-    return 0
-  fi
-  echo "installing PillTap runner ${runner}"
-  xcrun simctl install booted "$runner" || true
+  echo "PillTap destination missing: xcodebuild cannot see ${udid}" >&2
+  xcodebuild \
+    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
+    -scheme PillTap \
+    -showdestinations >&2 || true
+  xcrun simctl list devices booted >&2 || true
+  return 1
 }
 
 settle_pill_runner() {
   xcrun simctl terminate booted land.atmos.pill-tap.uitests.xctrunner >/dev/null 2>&1 || true
-  sleep 2
 }
 
 run_pill_tap() {
@@ -303,7 +328,11 @@ run_pill_tap() {
   local udid attempt=1 status=1 log
   udid="$(booted_udid)"
   if [[ -z "$udid" ]]; then
-    echo "pill tap ${test_id} has no single booted simulator" >&2
+    echo "pill tap ${test_id} has no pinned booted simulator" >&2
+    xcrun simctl list devices booted >&2 || true
+    return 1
+  fi
+  if ! wait_for_xcode_destination "$udid"; then
     return 1
   fi
   log="$(mktemp)"
@@ -332,6 +361,13 @@ run_pill_tap() {
       rm -f "$log"
       return 0
     fi
+    # Run 39578448510: xcodebuild listed only placeholders. That is a
+    # destination failure, not an XCTAssert miss. Do not retry it as a tap.
+    if grep -q 'Unable to find a device matching the provided destination' "$log"; then
+      echo "PillTap destination missing: ${udid}" >&2
+      rm -f "$log"
+      return 1
+    fi
     # Run 39554572933: test-without-building hit SpringBoard Busy while the
     # previous xctrunner was still installing or uninstalling. Retry that.
     # Real XCTAssert misses still fail the script.
@@ -346,6 +382,18 @@ run_pill_tap() {
   done
   rm -f "$log"
   return 1
+}
+
+fail_pill_log() {
+  local log="$1"
+  local what="$2"
+  if grep -q 'PillTap destination missing:' "$log"; then
+    echo "PillTap destination missing: ${what}" >&2
+  else
+    echo "PillTap missed: ${what}" >&2
+  fi
+  tail -n 80 "$log" >&2 || true
+  exit 1
 }
 
 start_parity_stream() {
@@ -461,15 +509,17 @@ PY
 capture_tail_away() {
   local id="f13-tail"
   local theme="light"
+  local mark
+  mark="$(log_mark)"
   write_frame_file "$id" "$theme" "away"
   echo "launch ${id} ${theme} away"
   launch_frame "$id" "$theme"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
+  if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "missing [parity] preview-chat module for ${id}" >&2
     dump_runtime_logs
     exit 1
   fi
-  if ! wait_for_line "[parity] ready f13-tail light #0" 120; then
+  if ! wait_for_since "[parity] ready f13-tail light #0" 120 "$mark"; then
     echo "missing [parity] ready f13-tail light #0" >&2
     dump_runtime_logs
     exit 1
@@ -502,15 +552,17 @@ capture_tail_away() {
 capture_stream_motion() {
   local id="stream-tools"
   local theme="light"
+  local mark
+  mark="$(log_mark)"
   write_frame_file "$id" "$theme"
   echo "launch ${id} ${theme}"
   launch_frame "$id" "$theme"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
+  if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "missing [parity] preview-chat module for ${id}" >&2
     dump_runtime_logs
     exit 1
   fi
-  if ! wait_for_line "[parity] ready stream-tools light #0" 120; then
+  if ! wait_for_since "[parity] ready stream-tools light #0" 120 "$mark"; then
     echo "missing [parity] ready stream-tools light #0" >&2
     dump_runtime_logs
     exit 1
@@ -577,15 +629,16 @@ capture_pinned_steps() {
   local kind="$9"
   local dest="${10}"
   local prefix="${11}"
-  local shots ms png frames index shot video duration
+  local shots ms png frames index shot video duration mark
+  mark="$(log_mark)"
   write_frame_file "$id" "$theme" "$scroll" "$motion" "$replay" "$lane" "$pill" "$composer" "0"
   echo "launch ${id} ${theme} ${kind} hold"
   launch_frame "$id" "$theme"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
+  if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "${kind} missed the module" >&2
     return 0
   fi
-  if ! wait_for_line "[parity] ${kind} shots " 60; then
+  if ! wait_for_since "[parity] ${kind} shots " 60 "$mark"; then
     echo "${kind} did not publish shots" >&2
     dump_runtime_logs || true
     return 0
@@ -597,8 +650,9 @@ capture_pinned_steps() {
   echo "${kind} shots ${shots}"
   mkdir -p "$dest"
   for ms in $shots; do
+    mark="$(log_mark)"
     write_frame_file "$id" "$theme" "$scroll" "$motion" "$replay" "$lane" "$pill" "$composer" "$ms"
-    if ! wait_for_line "[parity] ${kind} held ${ms}" 45; then
+    if ! wait_for_since "[parity] ${kind} held ${ms}" 45 "$mark"; then
       echo "${kind} missed hold ${ms}" >&2
       continue
     fi
@@ -813,10 +867,8 @@ capture_f12_pill_taps() {
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "f12 pill recorder open"
   if ! tap_card_pills >"$OUT/f12-pill-tap.log" 2>&1; then
-    echo "PillTap missed: f12 card pill tap failed" >&2
-    tail -n 40 "$OUT/f12-pill-tap.log" >&2 || true
     stop_screen_record "$pidfile" || true
-    exit 1
+    fail_pill_log "$OUT/f12-pill-tap.log" "f12 card pill tap failed"
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -862,10 +914,8 @@ capture_f12_card_row() {
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "f12 card row ${theme} recorder open"
   if ! tap_card_row >"$taplog" 2>&1; then
-    echo "PillTap missed: f12 card row ${theme} swipe failed" >&2
-    tail -n 40 "$taplog" >&2 || true
     stop_screen_record "$pidfile" || true
-    exit 1
+    fail_pill_log "$taplog" "f12 card row ${theme} swipe failed"
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -906,10 +956,8 @@ capture_composer_keyboard() {
   start_screen_record "$video" "$pidfile" "$errlog"
   echo "composer keyboard recorder open"
   if ! tap_composer >"$OUT/composer-keyboard.log" 2>&1; then
-    echo "PillTap missed: composer keyboard tap failed" >&2
-    tail -n 40 "$OUT/composer-keyboard.log" >&2 || true
     stop_screen_record "$pidfile" || true
-    exit 1
+    fail_pill_log "$OUT/composer-keyboard.log" "composer keyboard tap failed"
   fi
   sleep 0.5
   stop_screen_record "$pidfile" || true
@@ -1167,29 +1215,29 @@ tap_scroll_pill() {
 }
 
 capture_tail_return() {
-  local dest frames video duration index shot
+  local dest frames video duration index shot mark
   dest="$OUT/f13-tail-return"
   clear_motion_shots || true
+  mark="$(log_mark)"
   write_frame_file "f13-tail" "light" "away" "" "" "" "return"
   echo "launch f13-tail light away return"
   launch_frame "f13-tail" "light"
-  if ! wait_for_line "[parity] preview-chat module" 90; then
+  if ! wait_for_since "[parity] preview-chat module" 90 "$mark"; then
     echo "f13 tail return missed the module" >&2
-    return 0
+    dump_runtime_logs
+    exit 1
   fi
-  if ! wait_for_line "[parity] pill awaiting tap" 90; then
-    echo "f13 tail return never offered the pill" >&2
+  if ! wait_for_since "[parity] pill awaiting tap" 90 "$mark"; then
+    echo "PillTap missed: f13 tail return never offered the pill" >&2
     dump_runtime_logs || true
     copy_motion_shots "$dest" || true
-    return 0
+    exit 1
   fi
   echo "tapping the scroll pill" >&2
   if ! tap_scroll_pill >"$OUT/pill-tap.log" 2>&1; then
-    echo "PillTap missed: scroll pill tap failed" >&2
-    tail -n 80 "$OUT/pill-tap.log" >&2 || true
-    exit 1
+    fail_pill_log "$OUT/pill-tap.log" "scroll pill tap failed"
   fi
-  if ! wait_for_line "[parity] tail returned" 60; then
+  if ! wait_for_since "[parity] tail returned" 60 "$mark"; then
     echo "f13 tail return did not land" >&2
     dump_runtime_logs || true
     copy_motion_shots "$dest" || true
@@ -1220,7 +1268,6 @@ capture_tail_return() {
 
 if shard_motion; then
 phase "motion start"
-install_pill_runner
 capture_tail_away
 capture_tail_return || echo "f13 tail return capture failed" >&2
 capture_stream_motion

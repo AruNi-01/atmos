@@ -71,10 +71,22 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     );
     expect(capture).toContain("PillTap missed:");
     expect(capture).not.toContain("A miss does not fail the job");
-    expect(capture).toContain("install_pill_runner");
     expect(capture).toContain("installing or uninstalling");
     expect(capture).toContain("pill tap ${test_id} runner busy");
     expect(capture).toContain('wait_for_since "$needle" 120 "$mark"');
+    expect(capture).not.toContain("install_pill_runner");
+    expect(capture).toContain("PillTap destination missing:");
+    expect(capture).toContain("wait_for_xcode_destination");
+    expect(capture).toContain('wait_for_since "[parity] pill awaiting tap"');
+  });
+
+  test("motion PillTap uses the booted UDID after boot, not a generic overlap", () => {
+    const simJob = sliceJob("ios-simulator");
+    expect(simJob).toContain("PARITY_UDID");
+    expect(simJob).toContain("platform=iOS Simulator,id=${udid}");
+    expect(simJob).not.toContain("pill_pid");
+    expect(simJob).not.toContain("pill-tap-build.log");
+    expect(sliceJob("ios-build")).toContain("generic/platform=iOS Simulator");
   });
 
   test("preview flag is step env only", () => {

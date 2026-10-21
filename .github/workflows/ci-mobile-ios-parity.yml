@@ -356,28 +356,31 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           bash scripts/agent-chat-parity/ios-boot-simulator.sh setup
-          pill_pid=""
+          # Run 39578448510: build-for-testing with generic destination while
+          # CoreSimulatorService was restarting and no device was Booted left
+          # xcodebuild's destination list empty. test-without-building then
+          # could not see UDID E839A11B (only placeholders). Boot first, then
+          # build PillTap for that same id. Do not overlap the two.
+          bash scripts/agent-chat-parity/ios-boot-simulator.sh boot | tee artifacts/boot.log
+          udid="$(sed -n 's/^udid: //p' artifacts/boot.log | tail -n 1 | tr -d '[:space:]')"
+          if [[ -z "$udid" ]]; then
+            echo "boot did not print udid" >&2
+            cat artifacts/boot.log >&2 || true
+            exit 1
+          fi
+          echo "PARITY_UDID=${udid}" >> "$GITHUB_ENV"
+          echo "pinned simulator ${udid}"
           if [[ "$PARITY_SHARD" == "motion" ]]; then
             xcodebuild build-for-testing \
               -project scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj \
               -scheme PillTap \
               -sdk iphonesimulator \
-              -destination "generic/platform=iOS Simulator" \
+              -destination "platform=iOS Simulator,id=${udid}" \
               -derivedDataPath /tmp/pill-tap-derived \
               -parallel-testing-enabled NO \
               CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO \
-              > artifacts/pill-tap-build.log 2>&1 &
-            pill_pid=$!
-          fi
-          bash scripts/agent-chat-parity/ios-boot-simulator.sh boot
-          if [[ -n "$pill_pid" ]]; then
-            if ! wait "$pill_pid"; then
-              echo "PillTap build-for-testing failed" >&2
-              tail -n 120 artifacts/pill-tap-build.log >&2 || true
-              exit 1
-            fi
-            echo "PillTap build-for-testing ok"
+              CODE_SIGNING_REQUIRED=NO
+            echo "PillTap build-for-testing ok for ${udid}"
           fi
 
       - name: Install, launch, and capture
