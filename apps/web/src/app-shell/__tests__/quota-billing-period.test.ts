@@ -46,6 +46,33 @@ describe("quota billing period", () => {
     expect(extraSections(grok).map((section) => section.title)).not.toContain("Billing period");
   });
 
+  test("keeps Since and Until for a one-sided Billing period section", () => {
+    expect(
+      providerIdentity(
+        provider({
+          detail_sections: [
+            {
+              title: "Billing period",
+              rows: [{ label: "End", value: "2026-09-11T00:00:00Z", tone: "muted" }],
+            },
+          ],
+        }),
+      ).periodLabel,
+    ).toBe("Until Sep 11");
+    expect(
+      providerIdentity(
+        provider({
+          detail_sections: [
+            {
+              title: "Billing period",
+              rows: [{ label: "Start", value: "2026-09-04T00:00:00Z", tone: "muted" }],
+            },
+          ],
+        }),
+      ).periodLabel,
+    ).toBe("Since Sep 4");
+  });
+
   test("leaves a Zed date-only billing period unchanged", () => {
     const zed = provider({
       id: "zed",

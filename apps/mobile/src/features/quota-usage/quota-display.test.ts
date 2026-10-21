@@ -32,7 +32,10 @@ describe("quota usage display source", () => {
     const sortedRows = providersSection.indexOf("orderedProviders.map");
     expect(allProviders).toBeGreaterThan(-1);
     expect(sortedRows).toBeGreaterThan(allProviders);
-    expect(settingsScreen).toContain("sortQuotaProvidersForSwitchList");
+    expect(settingsScreen).toContain(
+      "sortQuotaProvidersForSwitchList(providers, providerOrder ?? [])",
+    );
+    expect(settingsScreen).toContain("provider_order");
     expect(settingsScreen).toContain("LinearTransition");
     expect(settingsScreen).toContain("clip={false}");
     expect(settingsScreen).toContain("collapsable={false}");

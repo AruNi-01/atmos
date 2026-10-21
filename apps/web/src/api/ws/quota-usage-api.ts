@@ -159,6 +159,14 @@ export const quotaUsageApi = {
     return overview;
   },
 
+  /**
+   * Does not emit `quota_overview_updated`. The caller writes the response so an
+   * older drag cannot replace a newer one.
+   */
+  setProviderOrder: async (providerOrder: string[]): Promise<QuotaOverviewResponse> => {
+    return wsRequest("quota_set_provider_order", { provider_order: providerOrder }, 45_000);
+  },
+
   setAutoRefresh: async (intervalMinutes?: number | null): Promise<QuotaOverviewResponse> => {
     const overview = await wsRequest(
       "quota_set_auto_refresh",

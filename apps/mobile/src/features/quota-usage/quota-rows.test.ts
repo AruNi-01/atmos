@@ -187,6 +187,33 @@ describe("quota usage rows", () => {
     expect(extraSections(grok).map((section) => section.title)).not.toContain("Billing period");
   });
 
+  test("keeps Since and Until when a billing section has one boundary", () => {
+    expect(
+      billingPeriodLabel(
+        provider({
+          detail_sections: [
+            {
+              title: "Billing period",
+              rows: [{ label: "End", value: "2026-09-11T00:00:00Z", tone: "muted" }],
+            },
+          ],
+        }),
+      ),
+    ).toBe("Until Sep 11");
+    expect(
+      billingPeriodLabel(
+        provider({
+          detail_sections: [
+            {
+              title: "Billing period",
+              rows: [{ label: "Start", value: "2026-09-04T00:00:00Z", tone: "muted" }],
+            },
+          ],
+        }),
+      ),
+    ).toBe("Since Sep 4");
+  });
+
   test("keeps an Account Period that is already a month-day span", () => {
     expect(
       billingPeriodLabel(

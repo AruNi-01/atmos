@@ -34,22 +34,34 @@ On-demand cents stay on the On-Demand row. The legacy single-pool path (no `auto
 
 ## Quality target
 
-| Item                          | Before                                                                                          | After                                                                                                                                                                                                |
-| ----------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mobile percent readout        | NumberFlow suffix `%` is clipped (`26%` reads as `26`)                                          | Integer animates in NumberFlow; `%` and `used` are sibling `Text` with `flexShrink: 0`. The name ellipsizes.                                                                                         |
-| Plan under the email          | Mobile expanded identity repeats `heading.plan` under `heading.account`                         | Plan stays as the subtitle under the provider name. The line under the email is removed. Web single-view plan (once, under the account) stays.                                                       |
-| Other Models dollars          | `"12% used · $400.00 / $400.00"` from saturated allowance cents                                 | `"12% used"` only, on web and mobile, because both render the Rust row.                                                                                                                              |
-| On-Demand and legacy Included | Real cents                                                                                      | Unchanged.                                                                                                                                                                                           |
-| Grok billing period           | Section `Billing period` with raw RFC3339 Start / End                                           | Account row `Period` = UTC month-day span (`Sep 4 - Sep 11`). The raw section is not emitted.                                                                                                        |
-| Client leftover ISO           | Web and mobile print the section as returned                                                    | Shared formatter rewrites only strings that contain `T`. Factory `Sep 4 - Sep 11` and Zed `YYYY-MM-DD → YYYY-MM-DD` stay. The section is hidden once the span is the period label under the account. |
-| Provider switch list          | Mobile uses API order. Web aggregate sorts detected, then switch, then saved order, then label. | One shared comparator. Mobile passes an empty saved order (alphabetical inside each group). `All providers` stays the first row and is outside the animated list.                                    |
-| Reorder animation             | Hard jump                                                                                       | `LinearTransition` on each provider row. Reduced motion uses duration `1`. The Providers section does not clip overflow.                                                                             |
+| Item                          | Before                                                                                          | After                                                                                                                                                                                                                                                                     |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mobile percent readout        | NumberFlow suffix `%` is clipped (`26%` reads as `26`)                                          | Integer animates in NumberFlow; `%` and `used` are sibling `Text` with `flexShrink: 0`. The name ellipsizes.                                                                                                                                                              |
+| Plan under the email          | Mobile expanded identity repeats `heading.plan` under `heading.account`                         | Plan stays as the subtitle under the provider name. The line under the email is removed. Web single-view plan (once, under the account) stays.                                                                                                                            |
+| Other Models dollars          | `"12% used · $400.00 / $400.00"` from saturated allowance cents                                 | `"12% used"` only, on web and mobile, because both render the Rust row.                                                                                                                                                                                                   |
+| On-Demand and legacy Included | Real cents                                                                                      | Unchanged.                                                                                                                                                                                                                                                                |
+| Grok billing period           | Section `Billing period` with raw RFC3339 Start / End                                           | Account row `Period` = UTC month-day span (`Sep 4 - Sep 11`). The raw section is not emitted.                                                                                                                                                                             |
+| Client leftover ISO           | Web and mobile print the section as returned                                                    | Shared formatter rewrites a string only when it, or both sides of a range, match a full ISO instant. Factory `Sep 4 - Sep 11` and Zed `YYYY-MM-DD → YYYY-MM-DD` stay. A missing offset is UTC. The section is hidden once the span is the period label under the account. |
+| Provider switch list          | Mobile uses API order. Web aggregate sorts detected, then switch, then saved order, then label. | Switch-on first, then the shared Computer `provider_order`, then label. `enabled` is not a key. `All providers` stays the first row and is outside the animated list.                                                                                                     |
+| Reorder animation             | Hard jump                                                                                       | `LinearTransition` on each provider row. Reduced motion uses duration `1`. The Providers section does not clip overflow.                                                                                                                                                  |
 
 ## Decision
 
 Correct the Cursor meters in Rust so both clients stay in sync. Format the Grok span in Rust to match Factory's web period (`format_short_date`: UTC month + day, no year, space-hyphen-space), and keep a client formatter for Computers that still return the old section. Do not reformat Zed's date-only arrow string into month-day.
 
-Share the aggregate switch sort. Leave `sortQuotaProvidersBySwitchAndOrder` (navbar, switch-only) unchanged.
+Share the aggregate switch sort. Leave `sortQuotaProvidersBySwitchAndOrder` (navbar) unchanged: it already sorts switch-on, then saved order, then label.
+
+### Switch-list order
+
+The web aggregate sheet (`AggregateDetail` → `sortQuotaProvidersForSwitchList`) previously sorted `enabled` (detected) first, then `switch_enabled`, then saved `providerOrder`, then label. The navbar comparator does not use `enabled`. The requirement's "turned on" means the switch (`switch_enabled`), not detection. Both the web sheet and mobile settings now use one rule:
+
+1. `switch_enabled` first
+2. saved `providerOrder` index (missing ids sort after known ids)
+3. `label.localeCompare`
+
+`enabled` is not a sort key. `All providers` stays the first row and is outside the animated list.
+
+`providerOrder` is not browser-local anymore for the shared list. `provider_state.json` stores `provider_order`. `QuotaOverview.provider_order` returns it. `quota_set_provider_order` writes it. Web still keeps the previous localStorage order as a one-shot migration: when the Computer order is empty and the browser order is not, web uploads the browser order. A drag writes the same array. Mobile passes `overview.provider_order` into the shared sort. An empty order on both sides leaves label order inside each switch group, so the two clients match without inventing a sequence.
 
 Mobile percent: stop passing `%` through `AnimatedMetric` / `flowParts`. Token-usage NumberFlow stays as it is.
 
@@ -76,16 +88,9 @@ pub(crate) fn format_billing_span(start: Option<u64>, end: Option<u64>) -> Optio
 
 ### `packages/shared`
 
-`formatQuotaBillingPeriod` in `packages/shared/src/utils/time.ts`, re-exported from `utils/index.ts`. UTC (`getUTCMonth` / `getUTCDate`). Rewrite only when the string contains `T`. Split ranges on `→` / `—` / `–`, or on `-` only when both sides match `^\d{4}-\d{2}-\d{2}T`.
+`formatQuotaBillingPeriod` in `packages/shared/src/utils/time.ts`, re-exported from `utils/index.ts`. UTC (`getUTCMonth` / `getUTCDate`). Rewrite a side only when it matches a full ISO instant: date, `T`, time, optional fraction, optional `Z` or numeric offset. Do not use `includes("T")`. A timestamp with no offset is formatted as UTC (`…Z` before `new Date`). Split ranges on `→` / `—` / `–` with `indexOf` (no `\s*` regex), or on `-` only when both sides match that instant. Anything else, including `Thu Sep 4 2026` and `Tokens 1200`, is returned unchanged. `formatQuotaBillingBounds` turns a missing start into `Until {end}` and a missing end into `Since {start}`, matching `format_billing_span`. Mobile `billingPeriodLabel` and web `billingPeriodSectionRange` use it for a Billing period section.
 
-`sortQuotaProvidersForSwitchList` in `packages/shared/src/utils/quota-provider-order.ts`:
-
-1. `enabled` (detected) first
-2. `switch_enabled` first
-3. saved `providerOrder` index (missing ids sort after known ids)
-4. `label.localeCompare`
-
-Default `providerOrder` is `[]`. JS `Array#sort` is stable. This matches `AggregateDetail` in `quota-popover-detail.tsx`. It does not match the navbar comparator.
+`sortQuotaProvidersForSwitchList` in `packages/shared/src/utils/quota-provider-order.ts` uses the switch-first rule in the decision above. Default `providerOrder` is `[]`. JS `Array#sort` is stable. `AggregateDetail` and `QuotaSettingsScreen` both call it with the Computer order.
 
 ### Mobile
 
@@ -93,7 +98,7 @@ Default `providerOrder` is `[]`. JS `Array#sort` is stable. This matches `Aggreg
 
 `quota-rows.ts`: `HIDDEN_EXTRA` includes `"billing period"`. `billingPeriodLabel` reads Account `Period`, else Usage `Billing period`, else a `Billing period` section Start/End pair, then runs `formatQuotaBillingPeriod`.
 
-`QuotaSettingsScreen.tsx`: `All providers` stays the first child of the Providers section and is not inside the animated list. Remaining rows use `sortQuotaProvidersForSwitchList(providers)` (empty saved order). Each row is an `Animated.View` keyed by `provider.id` with `layout={LinearTransition.duration(reduced ? 1 : 280)}` and `collapsable={false}`. `useReducedMotion` comes from `react-native-reanimated`. The Providers `Section` gets `clip={false}` so layout animation is not clipped by `overflow: hidden`.
+`QuotaSettingsScreen.tsx`: `All providers` stays the first child of the Providers section and is not inside the animated list. Remaining rows use `sortQuotaProvidersForSwitchList(providers, overview.provider_order)`. Each row is an `Animated.View` keyed by `provider.id` with `layout={LinearTransition.duration(reduced ? 1 : 280)}` and `collapsable={false}`. `useReducedMotion` comes from `react-native-reanimated`. The Providers `Section` gets `clip={false}` so layout animation is not clipped by `overflow: hidden`.
 
 ### Web
 
@@ -117,7 +122,7 @@ Web percent headings stay plain text (`QuotaMetricUsage`). No width change.
 ## Risks
 
 - A Computer that still returns the raw Grok section depends on the client formatter. Rust-only tests do not cover that payload; Bun tests do.
-- Mobile has no saved drag order. Alphabetical order inside a group matches a web client whose `providerOrder` is empty. A web client with a saved order can differ, which is the existing web behavior.
+- A browser that already saved a drag order uploads it the next time that web client loads an empty Computer order. Until that upload, mobile still sees `[]` and uses label order inside each switch group.
 - iOS Simulator screenshots are out of this change. Layout of the percent suffix is covered by a source scan plus the flex rules above, not by a device capture in CI.
 
 ## Follow-ups

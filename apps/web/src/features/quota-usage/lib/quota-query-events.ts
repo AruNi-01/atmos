@@ -15,7 +15,8 @@ export function isQuotaOverviewResponse(data: unknown): data is QuotaOverviewRes
     typeof value.all === "object" &&
     Array.isArray(value.partial_failures) &&
     value.auto_refresh !== null &&
-    typeof value.auto_refresh === "object"
+    typeof value.auto_refresh === "object" &&
+    (value.provider_order == null || Array.isArray(value.provider_order))
   );
 }
 

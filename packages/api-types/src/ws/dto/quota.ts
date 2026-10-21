@@ -43,6 +43,10 @@ export type QuotaAutoRefreshRequest = {
   interval_minutes?: number | null;
 };
 
+export type QuotaProviderOrderRequest = {
+  provider_order: string[];
+};
+
 export type QuotaDetailRowTone = "default" | "muted" | "success" | "warning" | "danger";
 export type QuotaProviderKind = "cli" | "desktop" | "api" | "hybrid";
 export type QuotaAuthStateStatus = "detected" | "missing" | "unsupported";
@@ -154,4 +158,6 @@ export type QuotaOverviewResponse = {
   generated_at: number;
   partial_failures: QuotaFetchIssueResponse[];
   auto_refresh: QuotaAutoRefreshResponse;
+  /** Empty means label order inside each switch group. */
+  provider_order: string[];
 };

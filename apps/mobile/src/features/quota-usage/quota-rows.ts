@@ -1,4 +1,4 @@
-import { formatQuotaBillingPeriod } from "@atmos/shared";
+import { formatQuotaBillingBounds, formatQuotaBillingPeriod } from "@atmos/shared";
 import type { QuotaProviderResponse } from "@atmos/api-types/ws/dto/quota";
 
 export type UsageSegment = { label: string; percent: number };
@@ -180,8 +180,7 @@ export function billingPeriodLabel(provider: QuotaProviderResponse): string | nu
   if (!section) return null;
   const start = section.rows.find((row) => row.label.trim().toLowerCase() === "start")?.value;
   const end = section.rows.find((row) => row.label.trim().toLowerCase() === "end")?.value;
-  if (start && end) return formatQuotaBillingPeriod(`${start} → ${end}`);
-  return formatQuotaBillingPeriod(start ?? end);
+  return formatQuotaBillingBounds(start, end);
 }
 
 export function providerHeading(provider: QuotaProviderResponse): {

@@ -40,6 +40,8 @@ pub(crate) struct ProviderStateFile {
     providers: BTreeMap<String, ProviderStateEntry>,
     #[serde(default)]
     auto_refresh_interval_minutes: Option<u64>,
+    #[serde(default)]
+    provider_order: Vec<String>,
 }
 
 fn provider_state_path() -> Option<PathBuf> {
@@ -84,6 +86,7 @@ fn load_provider_state() -> ProviderStateFile {
                         })
                         .collect(),
                     auto_refresh_interval_minutes: None,
+                    provider_order: Vec::new(),
                 };
             }
         }
@@ -114,6 +117,17 @@ pub(crate) fn provider_switch_enabled(provider_id: &str) -> bool {
 
 pub(crate) fn load_auto_refresh_interval_minutes() -> Option<u64> {
     load_provider_state().auto_refresh_interval_minutes
+}
+
+pub(crate) fn persist_provider_order(provider_order: &[String]) {
+    let mut state = load_provider_state();
+    let mut seen = std::collections::HashSet::new();
+    state.provider_order = provider_order
+        .iter()
+        .filter(|id| !id.is_empty() && seen.insert((*id).clone()))
+        .cloned()
+        .collect();
+    save_provider_state(&state);
 }
 
 pub(crate) fn persist_auto_refresh_interval_minutes(interval_minutes: Option<u64>) {
@@ -219,6 +233,7 @@ pub(crate) fn apply_provider_state(mut overview: QuotaOverview) -> QuotaOverview
         }
     }
 
+    overview.provider_order = state.provider_order;
     overview
 }
 

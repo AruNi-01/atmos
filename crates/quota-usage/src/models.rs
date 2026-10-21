@@ -172,6 +172,9 @@ pub struct QuotaOverview {
     pub partial_failures: Vec<QuotaFetchIssue>,
     #[serde(default)]
     pub auto_refresh: AutoRefreshConfig,
+    /// Saved switch-list order. Empty means label order inside each switch group.
+    #[serde(default)]
+    pub provider_order: Vec<String>,
 }
 #[derive(Debug, Error)]
 pub enum ProviderError {

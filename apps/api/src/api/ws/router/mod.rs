@@ -588,6 +588,10 @@ impl WsMessageService {
                 self.handle_quota_set_auto_refresh(parse_request(request.data)?)
                     .await
             }
+            WsAction::QuotaSetProviderOrder => {
+                self.handle_quota_set_provider_order(parse_request(request.data)?)
+                    .await
+            }
             WsAction::TokenUsageOverviewGet => {
                 self.handle_token_usage_overview_get(parse_request(request.data)?)
                     .await

@@ -31,12 +31,15 @@ function sampleOverview(generatedAt = 1_700_000_000): QuotaOverviewResponse {
     },
     partial_failures: [],
     auto_refresh: { interval_minutes: null },
+    provider_order: [],
   };
 }
 
 describe("quota-query-events applyQuotaOverviewUpdated", () => {
   test("isQuotaOverviewResponse accepts complete payloads only", () => {
     expect(isQuotaOverviewResponse(sampleOverview())).toBe(true);
+    expect(isQuotaOverviewResponse({ ...sampleOverview(), provider_order: undefined })).toBe(true);
+    expect(isQuotaOverviewResponse({ ...sampleOverview(), provider_order: "cursor" })).toBe(false);
     expect(isQuotaOverviewResponse(null)).toBe(false);
     expect(isQuotaOverviewResponse({ generated_at: 1, providers: [] })).toBe(false);
     expect(

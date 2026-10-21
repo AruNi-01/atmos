@@ -349,6 +349,45 @@ async fn attach_jobs_registers_and_cancels_auto_refresh() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn set_provider_order_is_shared_on_later_overviews() {
+    let _iso = IsolatedQuotaDir::enter();
+    let service = QuotaUsageService::new(vec![
+        Arc::new(MockProvider {
+            id: "first",
+            label: "First",
+            latency: Duration::from_millis(1),
+            timeout: Duration::from_millis(500),
+        }),
+        Arc::new(MockProvider {
+            id: "second",
+            label: "Second",
+            latency: Duration::from_millis(1),
+            timeout: Duration::from_millis(500),
+        }),
+    ]);
+
+    let updated = service
+        .set_provider_order(vec![
+            "second".to_string(),
+            "first".to_string(),
+            "second".to_string(),
+            String::new(),
+        ])
+        .await;
+    assert_eq!(
+        updated.provider_order,
+        vec!["second".to_string(), "first".to_string()]
+    );
+
+    let _ = service.set_provider_switch("first", true).await;
+    let again = service.get_overview(false, None).await;
+    assert_eq!(
+        again.provider_order,
+        vec!["second".to_string(), "first".to_string()]
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn failed_live_refresh_keeps_previous_numbers_and_records_partial_failure() {
     let _iso = IsolatedQuotaDir::enter();
     let collect_count = Arc::new(AtomicUsize::new(0));

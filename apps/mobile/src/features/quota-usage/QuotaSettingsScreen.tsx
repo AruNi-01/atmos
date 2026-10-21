@@ -28,7 +28,11 @@ export function QuotaSettingsScreen() {
       fetch: false,
     });
   const reducedMotion = useReducedMotion();
-  const orderedProviders = useMemo(() => sortQuotaProvidersForSwitchList(providers), [providers]);
+  const providerOrder = overview?.provider_order;
+  const orderedProviders = useMemo(
+    () => sortQuotaProvidersForSwitchList(providers, providerOrder ?? []),
+    [providerOrder, providers],
+  );
   const rowLayout = LinearTransition.duration(reducedMotion ? 1 : 280);
   const allOn = providers.length > 0 && providers.every((provider) => provider.switch_enabled);
   const errorMessage =
