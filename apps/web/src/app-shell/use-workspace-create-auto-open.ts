@@ -11,6 +11,7 @@ import {
   useWorkspaceCreationStore,
 } from "@/features/workspace/store/workspace-creation-store";
 import {
+  isWorkspaceCreateReadyToEnter,
   isWorkspaceSetupBlocking,
   setupProgressUiEqual,
 } from "@/features/workspace/lib/workspace-setup";
@@ -45,9 +46,20 @@ export function useWorkspaceCreateAutoOpen(input: {
         autoOpenedWorkspaceId,
         currentOriginKey,
         currentWorkspaceId: workspaceId,
-        isEnterable: (id) => !isWorkspaceSetupBlocking(setupProgress[id]),
+        isEnterable: (id) =>
+          enterImmediately
+            ? isWorkspaceCreateReadyToEnter(setupProgress[id])
+            : !isWorkspaceSetupBlocking(setupProgress[id]),
       }),
-    [autoOpenedWorkspaceId, currentOriginKey, jobs, latestJobId, setupProgress, workspaceId],
+    [
+      autoOpenedWorkspaceId,
+      currentOriginKey,
+      enterImmediately,
+      jobs,
+      latestJobId,
+      setupProgress,
+      workspaceId,
+    ],
   );
 
   const countdown = usePausedDeadlineCountdown({

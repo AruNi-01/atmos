@@ -405,6 +405,8 @@ export const AgentChatTranscript = forwardRef<
     onStickChange?: (next: TranscriptStick) => void;
     /** Real scroll offsets. The stick callback can lag behind `viewRef` during a jump. */
     onViewport?: (next: TranscriptStick) => void;
+    /** Capture-only. Preview waits for content height before logging `[parity] painted`. */
+    onContentSizeChange?: (width: number, height: number) => void;
     pillRowHeight?: number;
     stickToken?: number;
     streaming?: boolean;
@@ -416,6 +418,7 @@ export const AgentChatTranscript = forwardRef<
     messages,
     onStickChange,
     onViewport,
+    onContentSizeChange: onContentSizeChangeProp,
     pillRowHeight = 0,
     stickToken = 0,
     streaming = false,
@@ -449,6 +452,7 @@ export const AgentChatTranscript = forwardRef<
   const rowsRef = useRef<AgentMessage[]>([]);
   const onStickChangeRef = useRef(onStickChange);
   const onViewportRef = useRef(onViewport);
+  const onContentSizeChangePropRef = useRef(onContentSizeChangeProp);
   const [stickToEnd, setStickToEnd] = useState(initialStickState.stickToEnd);
   const [topFade, setTopFade] = useState(false);
   const paddingBottom = useTranscriptBottomPad(expandedCardHeight, pillRowHeight);
@@ -799,7 +803,8 @@ export const AgentChatTranscript = forwardRef<
   );
 
   const onContentSizeChange = useCallback(
-    (_width: number, height: number) => {
+    (width: number, height: number) => {
+      onContentSizeChangePropRef.current?.(width, height);
       if (height <= 0) return;
       contentHeightRef.current = height;
       stickRef.current = reduceStick(stickRef.current, { type: "content_growth" });
@@ -841,13 +846,14 @@ export const AgentChatTranscript = forwardRef<
   useLayoutEffect(() => {
     onStickChangeRef.current = onStickChange;
     onViewportRef.current = onViewport;
+    onContentSizeChangePropRef.current = onContentSizeChangeProp;
     rowsRef.current = rows;
     rowCountRef.current = rows.length;
     if (measurementsRef.current.length > rows.length) {
       measurementsRef.current.length = rows.length;
     }
     publishBelow();
-  }, [onStickChange, onViewport, publishBelow, rows]);
+  }, [onContentSizeChangeProp, onStickChange, onViewport, publishBelow, rows]);
 
   useEffect(() => {
     return () => {

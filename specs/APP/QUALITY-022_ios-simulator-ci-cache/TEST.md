@@ -1,12 +1,12 @@
 # TEST · QUALITY-022: iOS Simulator CI Cache
 
-> Test Plan · how we verify generated-`ios/` caching on `ios-simulator` without changing the `ios-parity` label gate. References TECH QUALITY-022.
+> Test Plan · how we verify generated-`ios/` caching on `ios-build` without changing the `ios-parity` label gate. References TECH QUALITY-022. Job graph is QUALITY-023.
 
 ## Test strategy
 
 This is a workflow change. There is no iOS Simulator on the Linux agent, so the heavy job is not executed here.
 
-- **Bun tests** in `apps/mobile` (the `structural` job already runs `bun test` there) lock YAML: trigger, ios-gen skip gates, no DerivedData cache, lint cap.
+- **Bun tests** in `apps/mobile` (the `structural` job already runs `bun test` there) lock YAML: trigger, ios-gen skip gates on `ios-build`, QUALITY-023 `needs`, no DerivedData cache, lint cap.
 - **actionlint** on the workflow file when the binary is available.
 - **Toolchain:** `bun lint` stays `oxlint --max-warnings=455`. `oxfmt` on changed paths.
 - **Manual:** labeled miss vs hit on `macos-26`. This work must not add or remove the `ios-parity` label.
@@ -21,9 +21,10 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 | CocoaPods home cache only on miss                           | S1           |
 | No DerivedData cache / mtime pin / prune-before-save        | S3           |
 | Key includes os, Xcode version, scope, input hashes         | S2           |
-| Local `-derivedDataPath` + CompileC count, no Actions cache | S3           |
+| Clean local `-derivedDataPath` + CompileC count, no Actions cache | S3     |
 | ios-gen save not gated on `main`                            | S4           |
 | Trigger stays dispatch or `ios-parity` label                | S5           |
+| Cache stays on `ios-build`; motion `needs` stills           | S10          |
 | No `push:` trigger; oxlint cap stays 455                    | S5, S6       |
 | actionlint                                                  | S7           |
 | Miss vs hit wall time (ios-gen skip ~2 min)                 | S8           |
@@ -36,7 +37,8 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 | S2       | Unit      | `bun test`     | same                                                    | workflow YAML                  | exact key fragments; ios-gen has no restore-keys                                            | pass   |
 | S3       | Unit      | `bun test`     | same                                                    | workflow YAML                  | no `ios-dd-` / mtime pin; summary has ios-gen + CompileC only for caches we keep            | pass   |
 | S4       | Unit      | `bun test`     | same                                                    | workflow YAML                  | ios-gen save before build; not `main`-only                                                  | pass   |
-| S5       | Unit      | `bun test`     | same + existing evidence-safety workflow test           | workflow YAML                  | `on:` has no `push:`; ios-simulator `if` is dispatch or label; structural has no label `if` | pass   |
+| S5       | Unit      | `bun test`     | same + existing evidence-safety workflow test           | workflow YAML                  | `on:` has no `push:`; macOS jobs `if` is dispatch or label; structural has no label `if`    | pass   |
+| S10      | Unit      | `bun test`     | same                                                    | workflow YAML                  | cache steps only on `ios-build`; stills `needs: ios-build`; motion `needs: [ios-build, ios-simulator]` | pass   |
 | S6       | Toolchain | shell          | `package.json` `lint` script                            | repo root                      | `oxlint --max-warnings=455`                                                                 | pass   |
 | S7       | Toolchain | actionlint     | `actionlint .github/workflows/ci-mobile-ios-parity.yml` | workflow YAML                  | exit 0, or documented ignore for unknown `macos-26` only                                    | pass   |
 | S8       | Manual    | GitHub Actions | labeled miss, then Re-run                               | Eng Manager `ios-parity` label | ios-gen miss then exact hit; prebuild/pod skipped on hit                                    | pass   |
@@ -48,7 +50,7 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 
 - **Level**: Unit
 - **Given**: `.github/workflows/ci-mobile-ios-parity.yml`.
-- **When**: the bun test reads the `ios-simulator` job.
+- **When**: the bun test reads the `ios-build` job.
 - **Then**: Restore/save path is `apps/mobile/ios`. Prebuild, `pod install`, and CocoaPods home restore are gated on `steps.ios-restore.outputs.cache-hit != 'true'`. Verify step always exists. Actions are `actions/cache/restore@v4` and `actions/cache/save@v4`.
 - **Signals**: string assertions on the job slice.
 
@@ -67,9 +69,9 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 ### S3 — No DerivedData cache
 
 - **Level**: Unit
-- **Given**: the ios-simulator job.
+- **Given**: the `ios-build` job.
 - **When**: the test reads it.
-- **Then**: there is no `ios-dd-` key, no Restore/Save DerivedData cache steps, no mtime pin, no prune-before-save. `summary.md` writes ios-gen hit and CompileC count, not `deriveddata cache-hit`. `xcodebuild` still uses local `-derivedDataPath` / `DERIVED_DATA` and `COMPILER_INDEX_STORE_ENABLE=NO`.
+- **Then**: there is no `ios-dd-` key, no Restore/Save DerivedData cache steps, no mtime pin, no prune-before-save. The build job summary writes ios-gen hit and CompileC count, not `deriveddata cache-hit`. `xcodebuild` uses a clean local `-derivedDataPath` (`rm -rf`) and `COMPILER_INDEX_STORE_ENABLE=NO`.
 - **Signals**: absence of cache steps; presence of local derived path.
 
 ### S4 — ios-gen save timing
@@ -85,7 +87,7 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 - **Level**: Unit
 - **Given**: the workflow `on:` block and job `if:`.
 - **When**: the test reads them.
-- **Then**: `on:` is only `workflow_dispatch` and `pull_request` (no `push:`). `pull_request.types` still include `labeled` / `unlabeled`. `ios-simulator` `if` still requires `workflow_dispatch` or label `ios-parity`. `structural` has no such `if`. Concurrency group is unchanged.
+- **Then**: `on:` is only `workflow_dispatch` and `pull_request` (no `push:`). `pull_request.types` still include `labeled` / `unlabeled`. `ios-build`, stills, and motion `if` still require `workflow_dispatch` or label `ios-parity`. `structural` has no such `if`. Concurrency group is unchanged.
 - **Signals**: existing QUALITY-010 test plus the new file.
 
 ### S6 — Lint cap
@@ -114,6 +116,14 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
   - Attempt 2: ios-gen exact hit; Prebuild and Install CocoaPods **skipped** (~2 min saved vs miss-path generate). CompileC still 1404 (DerivedData incremental did not work). Restore DerivedData + mtime pin cost 1.5–3.5 min extra; those steps are now removed.
 - **Signals**: Actions UI step times. **pass** for the ios-gen skip; DerivedData dropped by Eng Manager decision.
 
+### S10 — Cache stays on ios-build
+
+- **Level**: Unit
+- **Given**: the QUALITY-023 job graph.
+- **When**: the test slices `ios-build`, `ios-simulator`, and `ios-simulator-motion`.
+- **Then**: ios-gen restore/save exist only on `ios-build`. Stills `needs: ios-build`. Motion `needs: [ios-build, ios-simulator]`. `ios-build` does not boot the simulator and does not write `.env` / `.xcode.env.local`.
+- **Signals**: job-slice substring checks.
+
 ### S9 — Mobile bun tests still pass
 
 - **Level**: Unit
@@ -128,7 +138,7 @@ Not used. Workflow YAML only.
 
 ## Regression checklist
 
-- [x] `ios-simulator` still skipped without `ios-parity` (YAML lock)
+- [x] `ios-build` / stills / motion still skipped without `ios-parity` (YAML lock)
 - [x] `structural` still runs on matching PRs
 - [x] Capture, SceneDelegate, and `main.jsbundle` gates unchanged
 - [x] `oxlint --max-warnings=455` unchanged
@@ -159,7 +169,7 @@ Not used. Workflow YAML only.
 
 Implementation pass (Linux agent, no Simulator):
 
-- S1–S6, S9 — pass. `cd apps/mobile && bun test` → 575 pass / 0 fail, including `script/ios-parity-ci-cache.test.ts` (8). `package.json` `lint` is still `oxlint --max-warnings=455`.
+- S1–S6, S9, S10 — pass after merging QUALITY-023 (`704d16525`). Cache YAML lives on `ios-build`. `package.json` `lint` is still `oxlint --max-warnings=455`.
 - S7 — pass. `actionlint` v1.7.12 on `.github/workflows/ci-mobile-ios-parity.yml` exit 0.
 - S8 — pass as data: old baseline [39530230224](https://github.com/AruNi-01/atmos/actions/runs/39530230224) Pods-only (Build 27m miss / 49m hit, CompileC 1402 / 1322, pod install ~2m20s both). Retest [39550057846](https://github.com/AruNi-01/atmos/actions/runs/39550057846) ios-gen skip (~2 min) but DerivedData CompileC 1404 / 1404; restore + mtime extra 1.5–3.5 min. DerivedData cache removed.
-- Numbering: QUALITY-020 is E2E prebuilt (#342, on `main`). QUALITY-021 is CodeQL (#344). QUALITY-023 is capture split (#346). This spec is QUALITY-022.
+- Numbering: QUALITY-020 (#342), QUALITY-021 (#344), QUALITY-023 (#346, `704d16525`), QUALITY-024 (#348) are on `main`. This spec is QUALITY-022.

@@ -266,6 +266,18 @@ fn reduce_title(
                     }
                 };
                 if allow && !command.is_empty() && !is_tmux_index(&command) {
+                    // A new shell command replaces the whole title. The previous
+                    // process's OSC topic must not sit beside the new command.
+                    // Reattach injects keep the topic so refresh does not wipe it.
+                    if kind == ShimKind::Shell
+                        && current
+                            .dynamic_title
+                            .as_deref()
+                            .is_some_and(|previous| previous != command)
+                    {
+                        current.osc_title = None;
+                        current.session_title = None;
+                    }
                     current.dynamic_title = Some(command);
                 }
             } else {
@@ -857,6 +869,79 @@ mod tests {
         );
         assert_eq!(current.session_title, None);
         assert_eq!(current.dynamic_title.as_deref(), Some(".../proj/app"));
+        assert_eq!(current.osc_title, None);
+    }
+
+    #[test]
+    fn shell_command_switch_clears_topic_and_reattach_keeps_it() {
+        let mut current = reduce_title(
+            TerminalTitleUpdate {
+                workspace_id: "ws".into(),
+                tmux_window_name: "3".into(),
+                tmux_window_index: None,
+                session_id: "sess".into(),
+                osc_title: None,
+                dynamic_title: None,
+                session_title: None,
+            },
+            &identity(),
+            OscHit::Shim {
+                kind: ShimKind::Shell,
+                start: true,
+                payload: "grok --always-approve".into(),
+            },
+        );
+        current = reduce_title(
+            current,
+            &identity(),
+            OscHit::WindowTitle("Introduce and overview the project - grok".into()),
+        );
+        assert_eq!(
+            current.session_title.as_deref(),
+            Some("Introduce and overview the project")
+        );
+
+        current = reduce_title(
+            current,
+            &identity(),
+            OscHit::Shim {
+                kind: ShimKind::Shell,
+                start: true,
+                payload: "grok".into(),
+            },
+        );
+        assert_eq!(
+            current.session_title.as_deref(),
+            Some("Introduce and overview the project")
+        );
+
+        current = reduce_title(
+            current,
+            &identity(),
+            OscHit::Shim {
+                kind: ShimKind::Reattach,
+                start: true,
+                payload: "vim".into(),
+            },
+        );
+        assert_eq!(
+            current.session_title.as_deref(),
+            Some("Introduce and overview the project")
+        );
+        assert_eq!(current.dynamic_title.as_deref(), Some("vim"));
+
+        current = reduce_title(
+            current,
+            &identity(),
+            OscHit::Shim {
+                kind: ShimKind::Shell,
+                start: true,
+                payload: "ls".into(),
+            },
+        );
+        assert_eq!(current.session_title, None);
+        assert_eq!(current.osc_title, None);
+        assert_eq!(current.dynamic_title.as_deref(), Some("ls"));
     }
 
     #[test]

@@ -1,25 +1,26 @@
 # TECH · QUALITY-022: iOS Simulator CI Cache
 
-> Technical Design · HOW. Speeds up the `ios-simulator` job in `.github/workflows/ci-mobile-ios-parity.yml` by caching the generated `ios/` tree so `expo prebuild` and `pod install` can be skipped on an exact hit. CocoaPods downloads are cached on the miss path. Xcode DerivedData is **not** cached. No BRAINSTORM or PRD (quality spec). The `ios-parity` label gate from [QUALITY-010](../QUALITY-010_audit-safety-hardening/TECH.md) stays.
+> Technical Design · HOW. Speeds up `ios-build` in `.github/workflows/ci-mobile-ios-parity.yml` by caching the generated `ios/` tree so `expo prebuild` and `pod install` can be skipped on an exact hit. CocoaPods downloads are cached on the miss path. Xcode DerivedData is **not** cached. No BRAINSTORM or PRD (quality spec). The `ios-parity` label gate from [QUALITY-010](../QUALITY-010_audit-safety-hardening/TECH.md) stays. Job graph is [QUALITY-023](../QUALITY-023_ios-parity-capture-speed/TECH.md): stills parallel after `ios-build`, motion serial after stills.
 
 ## Scope summary
 
-`ios-simulator` on `macos-26` is about half of Atmos CI wall time (often 50–180 minutes). `ios/` is gitignored, so every run used to:
+`ios-build` on `macos-26` regenerates gitignored `ios/` on every miss:
 
 1. Regenerate `apps/mobile/ios` with `expo prebuild --no-install`.
 2. Run `pod install` (codegen + generate Pods project + integrate the app).
-3. Run a clean `xcodebuild`.
+3. Run a clean `xcodebuild` (`generic/platform=iOS Simulator`) and pack `Atmos.app`.
 
-Numbering: `origin/main` last published **QUALITY-020** (E2E prebuilt API artifact, #342). Concurrent drafts: [PR #344](https://github.com/AruNi-01/atmos/pull/344) is **QUALITY-021** (CodeQL), [PR #346](https://github.com/AruNi-01/atmos/pull/346) is **QUALITY-023** (split iOS capture). This spec is **QUALITY-022**.
+Numbering: `origin/main` has **QUALITY-020** (#342), **QUALITY-021** (#344), **QUALITY-023** (#346, `704d16525`), **QUALITY-024** (#348). This spec is **QUALITY-022**. Cache steps live on `ios-build`, not on the stills/motion capture jobs.
 
-This spec does not change triggers, does not add or remove the `ios-parity` label, does not raise `oxlint --max-warnings=455`, does not merge `main`, and does not commit screenshots, evidence files, or hostnames. `assert_cold_launch` flakiness is out of scope.
+This spec does not change triggers, does not add or remove the `ios-parity` label, does not raise `oxlint --max-warnings=455`, and does not commit screenshots, evidence files, or hostnames. `assert_cold_launch` flakiness is out of scope.
 
 Out of scope:
 
-- Speeding up the ubuntu `structural` job or the capture half of `ios-simulator`.
+- Speeding up ubuntu `structural` or the stills/motion capture jobs ([QUALITY-023](../QUALITY-023_ios-parity-capture-speed/TECH.md)).
 - Bundling or caching `~/.atmos`, simulators, Xcode.app, or DerivedData.
-- Making `ios-simulator` required, or running it on every push.
+- Making `ios-build` / capture jobs required, or running them on every push.
 - ccache / sccache.
+- Writing `EXPO_PUBLIC_PARITY_PREVIEW` into `.env` or `ios/.xcode.env.local` (QUALITY-023: step `env:` only).
 
 ## Decision: keep ios-gen, drop DerivedData
 
@@ -61,22 +62,27 @@ ios-gen hit skipped prebuild and `pod install` and saved about **2 minutes**. De
 | Generated `ios/`    | Exact-key cache of `apps/mobile/ios`. Hit **skips** prebuild and `pod install`. No `restore-keys`. |
 | CocoaPods downloads | `~/Library/Caches/CocoaPods` only on the miss path (prefix fallback allowed)                       |
 | Xcode DerivedData   | **Not cached.** Local `-derivedDataPath artifacts/derived` only.                                   |
-| Trigger             | Unchanged: `workflow_dispatch` or PR label `ios-parity`                                            |
+| Trigger             | Unchanged: `workflow_dispatch` or PR label `ios-parity` (all macOS jobs + ubuntu merge)            |
 
 ## Architecture overview
 
 ```
-ios-simulator (macos-26, still label-gated)
-  checkout → bun install
-  xcode-select Xcode 26.5; record version + scope
-  boot iPhone 17 Pro (unchanged)
-  bake .env + exclude-dev-client (mutates package.json)
+ios-build (macos-26, label / dispatch)
+  checkout → bun install (oven-sh/setup-bun@v2)
+  xcode-select Xcode 26.5; record version + scope (no simulator boot)
+  exclude-dev-client (mutates package.json before hashFiles)
   restore ios-gen-*                  → apps/mobile/ios
   miss: restore ios-podhome-* ; prebuild ; pod install ; save both
   hit: skip prebuild and pod install
-  verify tree (Info.plist, SceneDelegate, Podfile.lock, .xcode.env.local)
-  xcodebuild -derivedDataPath artifacts/derived  COMPILER_INDEX_STORE_ENABLE=NO
-  simctl install + ios-capture.sh    → unchanged
+  verify tree (Info.plist, SceneDelegate, Podfile.lock)
+  EXPO_PUBLIC_PARITY_PREVIEW=1 xcodebuild generic iOS Simulator
+    -derivedDataPath artifacts/derived  COMPILER_INDEX_STORE_ENABLE=NO
+    rm -rf derived first (not cached)
+  tar Atmos.app → artifact simulator-app
+
+ios-simulator (stills)  needs: ios-build
+ios-simulator-motion    needs: [ios-build, ios-simulator]
+ios-parity              needs: [ios-simulator, ios-simulator-motion]
 ```
 
 ```mermaid
@@ -86,8 +92,9 @@ flowchart TD
   prebuild --> iosSave["save ios-gen-*"]
   iosRestore -->|hit| verify["verify ios tree"]
   iosSave --> verify
-  verify --> xcodebuild["xcodebuild"]
-  xcodebuild --> capture["install / launch / capture"]
+  verify --> xcodebuild["xcodebuild generic + pack app"]
+  xcodebuild --> stills["ios-simulator stills"]
+  xcodebuild --> motion["ios-simulator-motion after stills"]
 ```
 
 ## Cache key design
@@ -135,7 +142,7 @@ ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('b
 
 `summary.md` records ios-gen / cocoapods-home `cache-hit` + `cache-matched-key` and the `CompileC` count. No DerivedData cache lines. No hostname.
 
-`xcodebuild` still uses `-derivedDataPath "$DERIVED_DATA"` with `COMPILER_INDEX_STORE_ENABLE=NO` so the job writes a local tree; that directory is not saved to Actions cache.
+`xcodebuild` uses a clean `-derivedDataPath artifacts/derived` (`rm -rf` first) with `COMPILER_INDEX_STORE_ENABLE=NO`. That directory is not saved to Actions cache. Destination is QUALITY-023's `generic/platform=iOS Simulator`. Preview flag is step `env:` only.
 
 ## Trigger (must not change)
 
@@ -145,21 +152,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
-ios-simulator:
+ios-build / ios-simulator / ios-simulator-motion / ios-parity:
   if: >-
     github.event_name == 'workflow_dispatch' ||
     (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ios-parity'))
 ```
 
-No `push:` trigger. This work does not add or remove the `ios-parity` label.
+No `push:` trigger. This work does not add or remove the `ios-parity` label. Motion keeps `needs: [ios-build, ios-simulator]`.
 
 ## How to get miss vs hit timings
 
 The Eng Manager applies `ios-parity` when needed (this change does not). Then:
 
-1. First `ios-simulator` on a SHA with this design: `ios-gen cache-hit` is not true. `Prebuild iOS` and `Install CocoaPods` run.
+1. First `ios-build` on a SHA with this design: `ios-gen cache-hit` is not true. `Prebuild iOS` and `Install CocoaPods` run.
 2. After that run finishes the ios-gen save, **Re-run jobs** on the **same SHA**. Expect ios-gen exact hit, skipped prebuild/pod install, about 2 minutes saved. `CompileC` stays a full rebuild (~1400); that is expected without DerivedData.
-3. `summary.md` has ios-gen hit flags and CompileC. No hostname.
+3. The `ios-build` job summary has ios-gen hit flags and CompileC. No hostname.
 
 ## Affected files
 
@@ -185,4 +192,4 @@ The Eng Manager applies `ios-parity` when needed (this change does not). Then:
 ## Follow-ups
 
 - ccache only if a later spec wants native incremental without DerivedData.
-- Capture-step wall time is QUALITY-023 (#346), not this spec.
+- Capture-step wall time is QUALITY-023 (#346, on `main` as `704d16525`). This spec only caches `ios-build`.
