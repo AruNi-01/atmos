@@ -65,6 +65,15 @@ type PrTarget = {
 };
 
 const CANDIDATE_STALE_MS = 60_000;
+const INACTIVE_SOURCES: {
+  active: SessionWorkspaceRecord[];
+  archivedIds: string[];
+  projects: SessionInboxProject[];
+} = { active: [], archivedIds: [], projects: [] };
+const INACTIVE_PR_PLAN: { targets: PrTarget[]; byWorkspaceId: Map<string, string> } = {
+  targets: [],
+  byWorkspaceId: new Map(),
+};
 
 export type SessionInboxOptions = {
   /** False skips joins and network work so the destination can paint a skeleton. */
@@ -90,8 +99,8 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
   });
 
   const sources = useMemo(
-    () => sessionWorkspaceSources(bootstrapQuery.data),
-    [bootstrapQuery.data],
+    () => (active ? sessionWorkspaceSources(bootstrapQuery.data) : INACTIVE_SOURCES),
+    [active, bootstrapQuery.data],
   );
   const workspaceKey = sources.active.map((workspace) => workspace.id).join("\n");
 
@@ -103,8 +112,11 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
   });
 
   const gitTargets = useMemo(
-    () => sources.active.filter((workspace) => !workspace.githubOwner || !workspace.githubRepo),
-    [sources.active],
+    () =>
+      active
+        ? sources.active.filter((workspace) => !workspace.githubOwner || !workspace.githubRepo)
+        : [],
+    [active, sources.active],
   );
   const gitKey = gitTargets.map((workspace) => `${workspace.id}:${workspace.localPath}`).join("\n");
 
@@ -116,8 +128,8 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
   });
 
   const prPlan = useMemo(
-    () => buildPrTargets(sources.active, gitQuery.data),
-    [gitQuery.data, sources.active],
+    () => (active ? buildPrTargets(sources.active, gitQuery.data) : INACTIVE_PR_PLAN),
+    [active, gitQuery.data, sources.active],
   );
   const prKey = prPlan.targets.map((target) => target.id).join("\n");
 

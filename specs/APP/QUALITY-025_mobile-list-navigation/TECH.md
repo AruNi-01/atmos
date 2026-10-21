@@ -59,7 +59,7 @@ A deep link with no mark still defers the fetch. `reportListFirstFrame` returns 
 
 Session home does not use the reveal hook. Deferring it would flash a skeleton over data the user is already looking at. Its focus invalidation stays, so popping back to home refreshes the inbox.
 
-The bucket passes `useSessionInbox({ active: reveal.ready, groupKey })`. While inactive, the join returns no rows and `isLoading` stays true (skeleton, not the empty state). The bucket focus effect and pull-to-refresh invalidate only that bucket's filtered status key, including when the screen regains focus after a session is opened. They do not invalidate the unfiltered prefix, so the still-mounted home inbox does not refetch. Its notification subscription is off until active, and then it invalidates only the filtered status key. Home focus and home pull-to-refresh still invalidate the unfiltered prefix.
+The bucket passes `useSessionInbox({ active: reveal.ready, groupKey })`. While inactive, the join returns no rows, `sessionWorkspaceSources` / git targets / PR targets stay empty, and `isLoading` stays true (skeleton, not the empty state). A disabled status query still has the warm bootstrap in its cache, so those builders must not read it on the skeleton frame. The bucket focus effect and pull-to-refresh invalidate only that bucket's filtered status key, including when the screen regains focus after a session is opened. They do not invalidate the unfiltered prefix, so the still-mounted home inbox does not refetch. Its notification subscription is off until active, and then it invalidates only the filtered status key. Home focus and home pull-to-refresh still invalidate the unfiltered prefix.
 
 `session-terminal-candidates` and `session-chat-titles` use `staleTime: 60_000`, matching the git and PR queries. Opening a bucket does not restart the all-workspace candidate fan-out or the 20×100 title loop when home already loaded them. Bootstrap `staleTime` is unchanged.
 
@@ -148,6 +148,16 @@ No new REST route. No new `WsAction`. `@atmos/api-types` adds the two optional f
 - Empty-`context_id` terminals can disappear from a workspace activity list. Loading the unfiltered catalog to recover them brings the hitch back.
 - Chat and terminal cursors are independent. The merged order is the order of rows loaded so far.
 - `useSyncExternalStore` ready tokens are cleared when the reveal effect cleans up. React Strict Mode reports the mark once (the first effect consumes it) and the second frame still marks the screen ready.
+
+## Audit
+
+The hitch is the destination's first commit, not a request before `router.push`. Read `WorkspaceEntryScreen`, `SessionBucketScreen`, and `useSessionInbox`: a warm cache joins and mounts every row in that commit, and the bucket used to invalidate the unfiltered status prefix from its focus effect. There is no repo-wide line-count command for this change. The executable checks are the unit commands in `TEST.md`.
+
+## Follow-ups
+
+- iOS Simulator timing stays manual (`just dev-mobile`, then `just mobile-ios`).
+- Terminals with an empty `context_id` stay off the workspace-filtered page.
+- A filtered page that the client then drops entirely can stall `fillWhenShort` when the content height does not change.
 
 ## Verification
 
