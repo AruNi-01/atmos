@@ -231,8 +231,11 @@ Local checks, 2026-10-21, before the pull request CI run:
 - S1–S9, S12, S14 — pass by reading `.github/workflows/codeql.yml` and root `package.json`. Every matrix `build-mode` is `none`. Lint script is `oxlint --max-warnings=455`. No `run:` key. `paths-ignore` is only under `pull_request`.
 - S10 — pass. `actionlint` 1.7.12 on `.github/workflows/codeql.yml` exited 0 with no findings.
 - S11 — pass. `cargo test -p api --test workflow_shell_env`: `release_workflows_pass_untrusted_refs_through_env` ok. 1 passed.
-- S13 — the branch diff is the workflow, this spec, and the README row. No settings API.
-- S15 — waiting on the pull request checks. Advanced-setup upload is expected to fail while default setup stays enabled.
-- `bunx oxfmt` on `specs/README.md`, `TECH.md`, and `TEST.md` made no extra formatting edits beyond the README row.
+- S13 — the branch diff is the workflow, this spec, and the README row. No settings API. Default setup was not disabled.
+- S15 — pass as the expected upload failure. Advanced run [39528726357](https://github.com/AruNi-01/atmos/actions/runs/39528726357) on `4b407908a` (`build-mode: none` for all five). Every job failed only while uploading SARIF: `CodeQL analyses from advanced configurations cannot be processed when the default setup is enabled`. Durations: rust 17m 08s, javascript-typescript 4m 46s, c-cpp 1m 07s, python 1m 03s, actions 58s. Wall clock is the rust job.
+- Earlier advanced run [39528283378](https://github.com/AruNi-01/atmos/actions/runs/39528283378) on `5589b85f3` is not the result above. `c-cpp` `autobuild` died in `autobuild.sh` (exit 2) before that upload error. `actions` and `python` on that run already failed only at upload. The matrix row was changed to `none` after that.
+- Default setup on the same tip `4b407908a`, run [39528721185](https://github.com/AruNi-01/atmos/actions/runs/39528721185), succeeded. Rust 14m 16s, javascript-typescript 2m 50s, c-cpp 1m 25s, actions 1m 06s, python 1m 06s.
+- `CI - JS` run [39528726250](https://github.com/AruNi-01/atmos/actions/runs/39528726250): `oxlint` and `oxfmt` succeeded.
+- This coverage commit only touches spec markdown. `pull_request` `paths-ignore` skips `.github/workflows/codeql.yml` for it. The advanced-setup evidence stays the run on `4b407908a`, whose workflow file matches this commit.
 
 S3 is not executed as its own pull request. S16 is the concurrency reading in S7.
