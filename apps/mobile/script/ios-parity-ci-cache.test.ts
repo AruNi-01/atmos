@@ -53,11 +53,6 @@ const iosRestore = sectionBetween(
   "      - name: Restore generated iOS tree\n",
   "      - name: Restore CocoaPods download cache\n",
 );
-const iosSave = sectionBetween(
-  iosBuild,
-  "      - name: Save generated iOS tree\n",
-  "      - name: Verify generated iOS tree\n",
-);
 const podhomeRestore = sectionBetween(
   iosBuild,
   "      - name: Restore CocoaPods download cache\n",
@@ -71,11 +66,21 @@ const prebuild = sectionBetween(
 const podInstall = sectionBetween(
   iosBuild,
   "      - name: Install CocoaPods\n",
-  "      - name: Save CocoaPods download cache\n",
+  "      - name: Verify generated iOS tree\n",
 );
 const buildStep = sectionBetween(
   iosBuild,
   "      - name: Build Release simulator app\n",
+  "      - name: Save CocoaPods download cache\n",
+);
+const podhomeSave = sectionBetween(
+  iosBuild,
+  "      - name: Save CocoaPods download cache\n",
+  "      - name: Save generated iOS tree\n",
+);
+const iosSave = sectionBetween(
+  iosBuild,
+  "      - name: Save generated iOS tree\n",
   "      - name: Write summary\n",
 );
 const summaryStep = sectionBetween(
@@ -85,7 +90,10 @@ const summaryStep = sectionBetween(
 );
 
 const iosGenKey =
-  "ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js') }}";
+  "ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js', 'patches/**', '.github/workflows/ci-mobile-ios-parity.yml') }}";
+
+const saveAfterBuildIf =
+  "always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.xcodebuild.conclusion == 'success'";
 
 describe("QUALITY-022 ios-build caches", () => {
   test("exact ios-gen hit skips prebuild and pod install", () => {
@@ -110,6 +118,7 @@ describe("QUALITY-022 ios-build caches", () => {
       "ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-",
       "ios-podhome-${{ runner.os }}-",
     ]);
+    expect(podhomeSave).toContain(saveAfterBuildIf);
     expect(iosBuild).not.toContain("ios-pods-");
   });
 
@@ -134,24 +143,40 @@ describe("QUALITY-022 ios-build caches", () => {
     expect(buildStep).toContain("generic/platform=iOS Simulator");
   });
 
-  test("cache keys include os, Xcode version, scope, and input hashes", () => {
+  test("cache keys include os, Xcode version, patches, and the workflow file", () => {
     expect(iosBuild).toContain("id: xcode");
     expect(iosBuild).toContain('echo "version=${xcode_version}" >> "$GITHUB_OUTPUT"');
     expect(iosBuild).toContain("xcodebuild -version");
-    expect(iosBuild).toContain('[[ "${PR_NUMBER}" =~ ^[0-9]+$ ]]');
-    expect(iosBuild).toContain('echo "scope=pr-${PR_NUMBER}" >> "$GITHUB_OUTPUT"');
-    expect(iosBuild).toContain('echo "scope=ref-${sanitized}" >> "$GITHUB_OUTPUT"');
+    expect(iosGenKey).toContain("patches/**");
+    expect(iosGenKey).toContain(".github/workflows/ci-mobile-ios-parity.yml");
+    expect(iosRestore).toContain("patches/**");
+    expect(iosRestore).toContain(".github/workflows/ci-mobile-ios-parity.yml");
+    expect(iosSave).toContain("patches/**");
+    expect(iosSave).toContain(".github/workflows/ci-mobile-ios-parity.yml");
   });
 
-  test("ios-gen save is not restricted to main", () => {
-    const xcodebuildAt = iosBuild.indexOf("      - name: Build Release simulator app\n");
-    const uploadAt = iosBuild.indexOf("      - name: Upload simulator app\n");
-    const iosSaveAt = iosBuild.indexOf("      - name: Save generated iOS tree\n");
-    expect(xcodebuildAt).toBeGreaterThan(-1);
-    expect(iosSaveAt).toBeGreaterThan(-1);
-    expect(iosSaveAt).toBeLessThan(xcodebuildAt);
-    expect(uploadAt).toBeGreaterThan(xcodebuildAt);
+  test("ios-gen key is not per-PR and save is not main-only", () => {
+    expect(iosRestore).not.toContain("steps.xcode.outputs.scope");
+    expect(iosSave).not.toContain("steps.xcode.outputs.scope");
+    expect(iosGenKey).not.toContain("steps.xcode.outputs.scope");
     expect(iosSave).not.toContain("refs/heads/main");
+    expect(podhomeSave).not.toContain("refs/heads/main");
+    expect(onBlock).not.toMatch(/^\s*push:/m);
+  });
+
+  test("ios-gen save runs after successful xcodebuild", () => {
+    const xcodebuildAt = iosBuild.indexOf("      - name: Build Release simulator app\n");
+    const podhomeSaveAt = iosBuild.indexOf("      - name: Save CocoaPods download cache\n");
+    const iosSaveAt = iosBuild.indexOf("      - name: Save generated iOS tree\n");
+    const summaryAt = iosBuild.indexOf("      - name: Write summary\n");
+    expect(xcodebuildAt).toBeGreaterThan(-1);
+    expect(podhomeSaveAt).toBeGreaterThan(xcodebuildAt);
+    expect(iosSaveAt).toBeGreaterThan(podhomeSaveAt);
+    expect(summaryAt).toBeGreaterThan(iosSaveAt);
+    expect(iosSave).toContain(saveAfterBuildIf);
+    expect(podhomeSave).toContain(saveAfterBuildIf);
+    expect(iosSave).toContain("steps.xcodebuild.conclusion == 'success'");
+    expect(podhomeSave).toContain("steps.xcodebuild.conclusion == 'success'");
   });
 
   test("macos jobs stay opt-in; this workflow has no push trigger", () => {

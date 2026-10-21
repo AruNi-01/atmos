@@ -69,15 +69,16 @@ ios-gen hit skipped prebuild and `pod install` and saved about **2 minutes**. De
 ```
 ios-build (macos-26, label / dispatch)
   checkout → bun install (oven-sh/setup-bun@v2)
-  xcode-select Xcode 26.5; record version + scope (no simulator boot)
+  xcode-select Xcode 26.5; record version (no simulator boot)
   exclude-dev-client (mutates package.json before hashFiles)
   restore ios-gen-*                  → apps/mobile/ios
-  miss: restore ios-podhome-* ; prebuild ; pod install ; save both
+  miss: restore ios-podhome-* ; prebuild ; pod install
   hit: skip prebuild and pod install
   verify tree (Info.plist, SceneDelegate, Podfile.lock)
   EXPO_PUBLIC_PARITY_PREVIEW=1 xcodebuild generic iOS Simulator
     -derivedDataPath artifacts/derived  COMPILER_INDEX_STORE_ENABLE=NO
     rm -rf derived first (not cached)
+  miss + xcodebuild success: save ios-podhome-* then ios-gen-*
   tar Atmos.app → artifact simulator-app
 
 ios-simulator (stills)  needs: ios-build
@@ -89,24 +90,19 @@ ios-parity              needs: [ios-simulator, ios-simulator-motion]
 flowchart TD
   bake["exclude-dev-client"] --> iosRestore["restore ios-gen-* exact"]
   iosRestore -->|miss| prebuild["expo prebuild + pod install"]
-  prebuild --> iosSave["save ios-gen-*"]
   iosRestore -->|hit| verify["verify ios tree"]
-  iosSave --> verify
+  prebuild --> verify
   verify --> xcodebuild["xcodebuild generic + pack app"]
+  xcodebuild -->|miss and success| iosSave["save ios-gen-*"]
   xcodebuild --> stills["ios-simulator stills"]
   xcodebuild --> motion["ios-simulator-motion after stills"]
 ```
 
 ## Cache key design
 
-Scope (from the Xcode step, env in / shell out — QUALITY-015):
+Xcode version (from the Xcode step, env in / shell out — QUALITY-015): `xcodebuild -version` awk `NR==1 $2` + `NR==2 $3` → `26.5-17F42`. Spaces never enter the key.
 
-| Event               | `steps.xcode.outputs.scope`     |
-| ------------------- | ------------------------------- |
-| `pull_request`      | `pr-<number>`                   |
-| `workflow_dispatch` | `ref-<ref_name>` with `/` → `-` |
-
-Xcode version: `xcodebuild -version` awk `NR==1 $2` + `NR==2 $3` → `26.5-17F42`. Spaces never enter the key.
+The Select Xcode step may still write a diagnostic `scope=` (`pr-<n>` / `ref-…`) into the job summary. **Scope is not part of the cache key** (occupancy, below).
 
 `hashFiles` for `ios-gen` runs **after** `exclude-dev-client.js` mutates `apps/mobile/package.json`.
 
@@ -117,10 +113,14 @@ Path: `apps/mobile/ios` (Pods, `Podfile`, `Podfile.lock`, xcworkspace, pbxproj, 
 Exact key:
 
 ```text
-ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js') }}
+ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js', 'patches/**', '.github/workflows/ci-mobile-ios-parity.yml') }}
 ```
 
 No `restore-keys`. `outputs.cache-hit == 'true'` is the only skip gate for prebuild / `pod install`.
+
+`patches/**` is a prebuild input: root `package.json` `patchedDependencies` rewrites native modules (Skia, number-flow, enriched-markdown). Omitting it would restore a tree built against old patches.
+
+The workflow file is in `hashFiles` so a change to the Prebuild / Install CocoaPods commands (or to exclude-dev-client / verify gates in this YAML) misses. An explicit `v1` salt was rejected: it is easy to forget to bump when those steps change. Tradeoff: comment-only YAML edits also miss. Prefer a false miss over a stale `ios/` tree.
 
 ### CocoaPods download cache (miss path only)
 
@@ -132,15 +132,32 @@ ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('b
 
 `restore-keys`: xcode prefix, then `runner.os`. This only speeds a cold `pod install`.
 
+### Save timing
+
+Restore stays before prebuild. Save is **after** `xcodebuild` succeeds (`steps.xcodebuild.conclusion == 'success'`), still skipped on an exact ios-gen hit and on cancel.
+
+Saving after `pod install` alone would cache a tree that then failed to compile. The packed `Atmos.app` is the proof the generated tree is usable.
+
+### Occupancy (10 GB) — do not key by PR, do not add `push:`
+
+GitHub Actions cache is 10 GB per repo, LRU. `apps/mobile/ios` is about 500 MB.
+
+**Rejected:** `scope=pr-<number>` in the ios-gen key. That stored one copy per labeled PR of the same native tree. Twenty concurrent PRs would fill the cap even when every PR hashed the same inputs.
+
+**Rejected:** save only on `main` (`push`) and let PRs only restore. That would require a new `push: branches: [main]` trigger so anything ever writes the cache. `ios-build` is ~17–30 min of `macos-26` (QUALITY-023 run 39570872781: 17m28s). Running it on every mobile path push to `main` is a new always-on cost. Native-changing PRs would also never hit on Re-run (the measured ~2 min skip). This workflow stays label / `workflow_dispatch` only.
+
+**Chosen:** one ios-gen key per `(runner.os, Xcode version, input hash)`. Labeled PRs and `workflow_dispatch` may **restore and, on miss + successful `xcodebuild`, save**. Copies equal unique native recipes, not PR count. Writes are rare (`ios-parity` label). LRU drops older hashes. `podhome` was already shared (no PR scope).
+
 ### Invalidation
 
-| Change                                                     | ios-gen exact          |
-| ---------------------------------------------------------- | ---------------------- |
-| Xcode / runner OS / other PR                               | miss                   |
-| `bun.lock` / package.json / app config / plugins / modules | miss                   |
-| JS/TS only, same native inputs                             | hit, skip prebuild+pod |
+| Change                                                                    | ios-gen exact          |
+| ------------------------------------------------------------------------- | ---------------------- |
+| Xcode / runner OS                                                         | miss                   |
+| `bun.lock` / package.json / app config / plugins / modules / `patches/**` | miss                   |
+| Prebuild / `pod install` commands in `ci-mobile-ios-parity.yml`           | miss                   |
+| JS/TS only, same native inputs and same generate steps                    | hit, skip prebuild+pod |
 
-`summary.md` records ios-gen / cocoapods-home `cache-hit` + `cache-matched-key` and the `CompileC` count. No DerivedData cache lines. No hostname.
+The `ios-build` job summary records ios-gen / cocoapods-home `cache-hit` + `cache-matched-key` and the `CompileC` count. No DerivedData cache lines. No hostname.
 
 `xcodebuild` uses a clean `-derivedDataPath artifacts/derived` (`rm -rf` first) with `COMPILER_INDEX_STORE_ENABLE=NO`. That directory is not saved to Actions cache. Destination is QUALITY-023's `generic/platform=iOS Simulator`. Preview flag is step `env:` only.
 
@@ -164,8 +181,8 @@ No `push:` trigger. This work does not add or remove the `ios-parity` label. Mot
 
 The Eng Manager applies `ios-parity` when needed (this change does not). Then:
 
-1. First `ios-build` on a SHA with this design: `ios-gen cache-hit` is not true. `Prebuild iOS` and `Install CocoaPods` run.
-2. After that run finishes the ios-gen save, **Re-run jobs** on the **same SHA**. Expect ios-gen exact hit, skipped prebuild/pod install, about 2 minutes saved. `CompileC` stays a full rebuild (~1400); that is expected without DerivedData.
+1. First `ios-build` on a SHA whose native hash is new: `ios-gen cache-hit` is not true. `Prebuild iOS` and `Install CocoaPods` run. Save runs only if `xcodebuild` succeeds.
+2. **Re-run jobs** on the **same SHA** (or another labeled PR with the same native hash). Expect ios-gen exact hit, skipped prebuild/pod install, about 2 minutes saved. `CompileC` stays a full rebuild (~1400); that is expected without DerivedData.
 3. The `ios-build` job summary has ios-gen hit flags and CompileC. No hostname.
 
 ## Affected files
@@ -178,9 +195,10 @@ The Eng Manager applies `ios-parity` when needed (this change does not). Then:
 
 ## Risks & tradeoffs
 
-- **Stale `ios/` on a missed input.** If a prebuild input is not in `hashFiles`, an exact hit skips prebuild and ships an old native tree. The glob covers `package.json`, app config, plugins, modules, `bun.lock`, and `exclude-dev-client.js`. Add to that list when a new native input appears.
-- **10 GB repo cache cap.** `ios/` is about 500 MB. A failed save is a warning; the job still continues.
-- **QUALITY-015.** No `${{ github.event.* }}` inside `run:` bodies. Skip gates use `steps.*.outputs.cache-hit` in `if:`.
+- **Stale `ios/` on a missed input.** If a prebuild input is not in `hashFiles`, an exact hit skips prebuild and ships an old native tree. The glob covers `package.json`, app config, plugins, modules, `patches/**`, `bun.lock`, `exclude-dev-client.js`, and this workflow YAML. Add to that list when a new native input appears.
+- **10 GB repo cache cap.** One ~500 MB entry per unique native recipe, not per PR. A failed save is a warning; the job still continues.
+- **Workflow-file hash noise.** Comment-only edits to `ci-mobile-ios-parity.yml` miss ios-gen. Accepted vs a forgettable salt.
+- **QUALITY-015.** No `${{ github.event.* }}` inside `run:` bodies. Skip / save gates use `steps.*.outputs.*` in `if:`.
 
 ## Rollout
 

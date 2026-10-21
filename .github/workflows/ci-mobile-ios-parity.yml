@@ -192,13 +192,15 @@ jobs:
       # QUALITY-022: cache the whole generated ios/ tree (Pods, lock, workspace,
       # pbxproj). Exact hit skips prebuild and pod install. No restore-keys:
       # a prefix tree plus a later prebuild mixes files. Hash inputs after the
-      # exclude-dev-client mutation of package.json.
+      # exclude-dev-client mutation of package.json. Key is shared (no PR
+      # scope): os + Xcode + native inputs + this workflow (prebuild/pod
+      # commands) + patches/**. Save is after xcodebuild succeeds.
       - name: Restore generated iOS tree
         id: ios-restore
         uses: actions/cache/restore@v4
         with:
           path: apps/mobile/ios
-          key: ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js') }}
+          key: ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js', 'patches/**', '.github/workflows/ci-mobile-ios-parity.yml') }}
 
       - name: Restore CocoaPods download cache
         if: success() && steps.ios-restore.outputs.cache-hit != 'true'
@@ -234,20 +236,6 @@ jobs:
             exit 1
           fi
           echo "expo-dev-client is not in Podfile.lock"
-
-      - name: Save CocoaPods download cache
-        if: always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.pod-install.conclusion == 'success'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/Library/Caches/CocoaPods
-          key: ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock') }}
-
-      - name: Save generated iOS tree
-        if: always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.pod-install.conclusion == 'success'
-        uses: actions/cache/save@v4
-        with:
-          path: apps/mobile/ios
-          key: ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js') }}
 
       - name: Verify generated iOS tree
         working-directory: apps/mobile
@@ -388,6 +376,20 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/artifacts/pack"
           tar -C "$(dirname "$app")" -cf "$GITHUB_WORKSPACE/artifacts/pack/Atmos.app.tar" "$(basename "$app")"
           echo "packed $(basename "$app") from ${app}"
+
+      - name: Save CocoaPods download cache
+        if: always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.xcodebuild.conclusion == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock') }}
+
+      - name: Save generated iOS tree
+        if: always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.xcodebuild.conclusion == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: apps/mobile/ios
+          key: ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js', 'patches/**', '.github/workflows/ci-mobile-ios-parity.yml') }}
 
       - name: Write summary
         if: always() && !cancelled()
