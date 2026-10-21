@@ -14,35 +14,35 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 
 ## Coverage map
 
-| Requirement                                                 | Scenario IDs |
-| ----------------------------------------------------------- | ------------ |
-| Exact `ios-gen` cache of `apps/mobile/ios`; no restore-keys | S1, S2       |
-| Miss path runs prebuild + `pod install`; hit skips both     | S1           |
-| CocoaPods home cache only on miss                           | S1           |
-| No DerivedData cache / mtime pin / prune-before-save        | S3           |
-| Key includes os, Xcode version, scope, input hashes         | S2           |
-| Clean local `-derivedDataPath` + CompileC count, no Actions cache | S3     |
-| ios-gen save not gated on `main`                            | S4           |
-| Trigger stays dispatch or `ios-parity` label                | S5           |
-| Cache stays on `ios-build`; motion `needs` stills           | S10          |
-| No `push:` trigger; oxlint cap stays 455                    | S5, S6       |
-| actionlint                                                  | S7           |
-| Miss vs hit wall time (ios-gen skip ~2 min)                 | S8           |
+| Requirement                                                       | Scenario IDs |
+| ----------------------------------------------------------------- | ------------ |
+| Exact `ios-gen` cache of `apps/mobile/ios`; no restore-keys       | S1, S2       |
+| Miss path runs prebuild + `pod install`; hit skips both           | S1           |
+| CocoaPods home cache only on miss                                 | S1           |
+| No DerivedData cache / mtime pin / prune-before-save              | S3           |
+| Key includes os, Xcode version, scope, input hashes               | S2           |
+| Clean local `-derivedDataPath` + CompileC count, no Actions cache | S3           |
+| ios-gen save not gated on `main`                                  | S4           |
+| Trigger stays dispatch or `ios-parity` label                      | S5           |
+| Cache stays on `ios-build`; motion `needs` stills                 | S10          |
+| No `push:` trigger; oxlint cap stays 455                          | S5, S6       |
+| actionlint                                                        | S7           |
+| Miss vs hit wall time (ios-gen skip ~2 min)                       | S8           |
 
 ## Execution map
 
-| Scenario | Level     | Expected tool  | Target command / method                                 | Fixture / data                 | Signals                                                                                     | Status |
-| -------- | --------- | -------------- | ------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- | ------ |
-| S1       | Unit      | `bun test`     | `apps/mobile/script/ios-parity-ci-cache.test.ts`        | workflow YAML                  | ios-gen restore/save; prebuild/pod `if` cache-hit != true                                   | pass   |
-| S2       | Unit      | `bun test`     | same                                                    | workflow YAML                  | exact key fragments; ios-gen has no restore-keys                                            | pass   |
-| S3       | Unit      | `bun test`     | same                                                    | workflow YAML                  | no `ios-dd-` / mtime pin; summary has ios-gen + CompileC only for caches we keep            | pass   |
-| S4       | Unit      | `bun test`     | same                                                    | workflow YAML                  | ios-gen save before build; not `main`-only                                                  | pass   |
-| S5       | Unit      | `bun test`     | same + existing evidence-safety workflow test           | workflow YAML                  | `on:` has no `push:`; macOS jobs `if` is dispatch or label; structural has no label `if`    | pass   |
+| Scenario | Level     | Expected tool  | Target command / method                                 | Fixture / data                 | Signals                                                                                                | Status |
+| -------- | --------- | -------------- | ------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ | ------ |
+| S1       | Unit      | `bun test`     | `apps/mobile/script/ios-parity-ci-cache.test.ts`        | workflow YAML                  | ios-gen restore/save; prebuild/pod `if` cache-hit != true                                              | pass   |
+| S2       | Unit      | `bun test`     | same                                                    | workflow YAML                  | exact key fragments; ios-gen has no restore-keys                                                       | pass   |
+| S3       | Unit      | `bun test`     | same                                                    | workflow YAML                  | no `ios-dd-` / mtime pin; summary has ios-gen + CompileC only for caches we keep                       | pass   |
+| S4       | Unit      | `bun test`     | same                                                    | workflow YAML                  | ios-gen save before build; not `main`-only                                                             | pass   |
+| S5       | Unit      | `bun test`     | same + existing evidence-safety workflow test           | workflow YAML                  | `on:` has no `push:`; macOS jobs `if` is dispatch or label; structural has no label `if`               | pass   |
 | S10      | Unit      | `bun test`     | same                                                    | workflow YAML                  | cache steps only on `ios-build`; stills `needs: ios-build`; motion `needs: [ios-build, ios-simulator]` | pass   |
-| S6       | Toolchain | shell          | `package.json` `lint` script                            | repo root                      | `oxlint --max-warnings=455`                                                                 | pass   |
-| S7       | Toolchain | actionlint     | `actionlint .github/workflows/ci-mobile-ios-parity.yml` | workflow YAML                  | exit 0, or documented ignore for unknown `macos-26` only                                    | pass   |
-| S8       | Manual    | GitHub Actions | labeled miss, then Re-run                               | Eng Manager `ios-parity` label | ios-gen miss then exact hit; prebuild/pod skipped on hit                                    | pass   |
-| S9       | Unit      | `bun test`     | `apps/mobile` bun test                                  | mobile tests                   | existing evidence-safety + cache tests pass                                                 | pass   |
+| S6       | Toolchain | shell          | `package.json` `lint` script                            | repo root                      | `oxlint --max-warnings=455`                                                                            | pass   |
+| S7       | Toolchain | actionlint     | `actionlint .github/workflows/ci-mobile-ios-parity.yml` | workflow YAML                  | exit 0, or documented ignore for unknown `macos-26` only                                               | pass   |
+| S8       | Manual    | GitHub Actions | labeled miss, then Re-run                               | Eng Manager `ios-parity` label | ios-gen miss then exact hit; prebuild/pod skipped on hit                                               | pass   |
+| S9       | Unit      | `bun test`     | `apps/mobile` bun test                                  | mobile tests                   | existing evidence-safety + cache tests pass                                                            | pass   |
 
 ## Scenarios
 
