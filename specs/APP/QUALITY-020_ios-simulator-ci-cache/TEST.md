@@ -141,7 +141,7 @@ Not used. Workflow YAML only.
 - [x] Label gate and `on:` triggers are unchanged
 - [x] Bun tests for S1–S6 and S9 pass
 - [x] actionlint has no new real errors (S7)
-- [ ] Non-iOS CI is green (filled after the draft PR checks)
+- [x] Non-iOS CI is green (`CI - JS` oxlint/oxfmt, `structural`; `ios-simulator` skipped). CodeQL rust was still in progress at the last poll and does not touch this YAML.
 - [x] S8 is documented as the Eng Manager re-run; this PR does not add the label
 
 ## Manual verification steps
@@ -159,7 +159,8 @@ Not used. Workflow YAML only.
 
 Implementation pass (Linux agent, no Simulator):
 
-- S1–S6, S9 — pass. `cd apps/mobile && bun test` → 574 pass / 0 fail, including `script/ios-parity-ci-cache.test.ts` (7) and `script/evidence-safety.test.ts`. `package.json` `lint` is still `oxlint --max-warnings=455`. `bun lint` exit 0.
+- S1–S6, S9 — pass. `cd apps/mobile && bun test` → 574 pass / 0 fail, including `script/ios-parity-ci-cache.test.ts` (7) and `script/evidence-safety.test.ts`. `package.json` `lint` is still `oxlint --max-warnings=455`. `bun lint` exit 0. GitHub: [CI - JS](https://github.com/AruNi-01/atmos/actions/runs/39528181332) oxlint/oxfmt success; [CI - Mobile iOS parity](https://github.com/AruNi-01/atmos/actions/runs/39528181368) `structural` success.
+- S5 live — pass on unlabeled PR #343: `ios-simulator` **skipped**, `structural` green.
 - S7 — pass. `actionlint` v1.7.12 on `.github/workflows/ci-mobile-ios-parity.yml` exit 0 (no `macos-26` diagnostic).
 - S8 — `not_run`. Requires the Eng Manager `ios-parity` label; this change does not apply it. First labeled run builds the cache; Actions “Re-run jobs” on the same SHA is the hit. Compare job duration and the `Install CocoaPods` / `Build Release simulator app` steps. `artifacts/summary.md` records `cache-hit` and `cache-matched-key`.
 - Numbering: QUALITY-019 is the concurrent E2E concurrency draft (#341). This spec is QUALITY-020.
