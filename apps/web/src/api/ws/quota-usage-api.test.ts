@@ -18,6 +18,6 @@ describe("setProviderOrder", () => {
       "utf8",
     );
     expect(source).toContain("beginQuotaProviderOrderWrite(scope)");
-    expect(source).toContain("endQuotaProviderOrderWrite(scope)");
+    expect(source).toContain("finishQuotaProviderOrderWrite(getAtmosWebQueryClient(), scope)");
   });
 });

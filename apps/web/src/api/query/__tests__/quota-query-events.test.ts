@@ -5,7 +5,7 @@ import type { QuotaOverviewResponse } from "@/api/ws/quota-usage-api";
 import {
   applyQuotaOverviewUpdated,
   beginQuotaProviderOrderWrite,
-  endQuotaProviderOrderWrite,
+  finishQuotaProviderOrderWrite,
   isQuotaOverviewResponse,
 } from "@/features/quota-usage/lib/quota-query-events";
 import { createAtmosWebQueryClient } from "@/providers/app/query-client";
@@ -149,15 +149,118 @@ describe("quota-query-events applyQuotaOverviewUpdated", () => {
       client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order_revision,
     ).toBe(1);
 
-    endQuotaProviderOrderWrite(dragScope);
-    applyQuotaOverviewUpdated(client, dragScope, {
-      ...sampleOverview(8),
-      provider_order: ["factory", "zed"],
-      provider_order_revision: 3,
-    });
+    finishQuotaProviderOrderWrite(client, dragScope);
     expect(client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order).toEqual(
       ["factory", "zed"],
     );
+    expect(
+      client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order_revision,
+    ).toBe(3);
+  });
+
+  test("a failed drag keeps a newer order that arrived while the save was pending", () => {
+    const client = createAtmosWebQueryClient();
+    const dragScope = { ...scope, connectionEpoch: 8 };
+    const dragKey = queryKeys.computer.quotaOverview(dragScope);
+    const previous = {
+      ...sampleOverview(1),
+      provider_order: ["cursor", "grok"],
+      provider_order_revision: 1,
+    };
+    client.setQueryData(dragKey, {
+      ...previous,
+      provider_order: ["grok", "cursor"],
+    });
+    beginQuotaProviderOrderWrite(dragScope);
+
+    applyQuotaOverviewUpdated(client, dragScope, {
+      ...sampleOverview(2),
+      provider_order: ["zed", "cursor"],
+      provider_order_revision: 2,
+    });
+    applyQuotaOverviewUpdated(client, dragScope, {
+      ...sampleOverview(6),
+      provider_order: ["factory", "zed"],
+      provider_order_revision: 4,
+    });
+    expect(client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order).toEqual(
+      ["grok", "cursor"],
+    );
+
+    client.setQueryData(dragKey, {
+      ...sampleOverview(6),
+      provider_order: previous.provider_order,
+      provider_order_revision: previous.provider_order_revision,
+    });
+    finishQuotaProviderOrderWrite(client, dragScope);
+
+    expect(client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)).toMatchObject({
+      generated_at: 6,
+      provider_order: ["factory", "zed"],
+      provider_order_revision: 4,
+    });
+  });
+
+  test("a settled drag does not roll back to an older order seen while it was pending", () => {
+    const client = createAtmosWebQueryClient();
+    const dragScope = { ...scope, connectionEpoch: 9 };
+    const dragKey = queryKeys.computer.quotaOverview(dragScope);
+    client.setQueryData(dragKey, {
+      ...sampleOverview(1),
+      provider_order: ["zed", "factory"],
+      provider_order_revision: 1,
+    });
+    beginQuotaProviderOrderWrite(dragScope);
+    applyQuotaOverviewUpdated(client, dragScope, {
+      ...sampleOverview(3),
+      provider_order: ["factory", "zed"],
+      provider_order_revision: 4,
+    });
+    client.setQueryData(dragKey, {
+      ...sampleOverview(5),
+      provider_order: ["grok", "cursor"],
+      provider_order_revision: 5,
+    });
+
+    finishQuotaProviderOrderWrite(client, dragScope);
+
+    expect(client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order).toEqual(
+      ["grok", "cursor"],
+    );
+    expect(
+      client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order_revision,
+    ).toBe(5);
+  });
+
+  test("overlapping drags apply the deferred order only after the last write finishes", () => {
+    const client = createAtmosWebQueryClient();
+    const dragScope = { ...scope, connectionEpoch: 10 };
+    const dragKey = queryKeys.computer.quotaOverview(dragScope);
+    client.setQueryData(dragKey, {
+      ...sampleOverview(1),
+      provider_order: ["cursor", "grok"],
+      provider_order_revision: 1,
+    });
+    beginQuotaProviderOrderWrite(dragScope);
+    beginQuotaProviderOrderWrite(dragScope);
+    applyQuotaOverviewUpdated(client, dragScope, {
+      ...sampleOverview(4),
+      provider_order: ["grok", "cursor"],
+      provider_order_revision: 4,
+    });
+
+    finishQuotaProviderOrderWrite(client, dragScope);
+    expect(client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order).toEqual(
+      ["cursor", "grok"],
+    );
+
+    finishQuotaProviderOrderWrite(client, dragScope);
+    expect(client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order).toEqual(
+      ["grok", "cursor"],
+    );
+    expect(
+      client.getQueryData<ReturnType<typeof sampleOverview>>(dragKey)?.provider_order_revision,
+    ).toBe(4);
   });
 
   test("applyQuotaOverviewUpdated rejects partial payloads", () => {

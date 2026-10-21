@@ -43,8 +43,9 @@ import { getComputerQueryScope } from "@/api/query/query-scope";
 import { quotaUsageApi, type QuotaAggregateResponse } from "@/api/ws-api";
 import {
   beginQuotaProviderOrderWrite,
-  endQuotaProviderOrderWrite,
+  finishQuotaProviderOrderWrite,
 } from "@/features/quota-usage/lib/quota-query-events";
+import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import {
   useQuotaOverviewCache,
   useQuotaOverviewQuery,
@@ -367,7 +368,7 @@ export function QuotaPopover({
           },
         )
         .finally(() => {
-          endQuotaProviderOrderWrite(scope);
+          finishQuotaProviderOrderWrite(getAtmosWebQueryClient(), scope);
         });
     },
     [dataEnabled, getOverview, overview, setLocalProviderOrder, writeOverviewCache],
