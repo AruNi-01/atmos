@@ -97,6 +97,10 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(workflow).toContain("ios-boot-simulator.sh setup");
     expect(workflow).toContain("ios-boot-simulator.sh boot");
     expect(workflow).toContain("generic/platform=iOS Simulator");
+    expect(sliceJob("ios-build")).toContain("oven-sh/setup-bun@v2");
+    expect(sliceJob("ios-build")).not.toContain("./.github/actions/setup-bun");
+    expect(sliceJob("ios-simulator")).toContain("oven-sh/setup-bun@v2");
+    expect(sliceJob("structural")).toContain("./.github/actions/setup-bun");
     const structural = sliceJob("structural");
     expect(structural).not.toContain("ios-parity");
     expect(structural).not.toContain("workflow_dispatch");
