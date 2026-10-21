@@ -1,48 +1,46 @@
 # TEST · QUALITY-022: iOS Simulator CI Cache
 
-> Test Plan · how we verify generated-`ios/` + DerivedData caching on `ios-simulator` without changing the `ios-parity` label gate. References TECH QUALITY-022.
+> Test Plan · how we verify generated-`ios/` caching on `ios-simulator` without changing the `ios-parity` label gate. References TECH QUALITY-022.
 
 ## Test strategy
 
 This is a workflow change. There is no iOS Simulator on the Linux agent, so the heavy job is not executed here.
 
-- **Bun tests** in `apps/mobile` (the `structural` job already runs `bun test` there) lock YAML: trigger, keys, skip gates, `-derivedDataPath`, no `rm -rf` of DerivedData, save-before-capture, lint cap.
+- **Bun tests** in `apps/mobile` (the `structural` job already runs `bun test` there) lock YAML: trigger, ios-gen skip gates, no DerivedData cache, lint cap.
 - **actionlint** on the workflow file when the binary is available.
 - **Toolchain:** `bun lint` stays `oxlint --max-warnings=455`. `oxfmt` on changed paths.
-- **Manual / not_run:** real `macos-26` miss vs hit timings. Requires the Eng Manager `ios-parity` label. This work must not add or remove that label.
+- **Manual:** labeled miss vs hit on `macos-26`. This work must not add or remove the `ios-parity` label.
 - **Exploratory agent-browser:** omitted. No product UI.
 
 ## Coverage map
 
-| Requirement                                                     | Scenario IDs |
-| --------------------------------------------------------------- | ------------ |
-| Exact `ios-gen` cache of `apps/mobile/ios`; no restore-keys     | S1, S2       |
-| Miss path runs prebuild + `pod install`; hit skips both         | S1           |
-| CocoaPods home cache only on miss                               | S1           |
-| DerivedData exact cache of `artifacts/derived`; no restore-keys | S2, S3       |
-| Key includes os, Xcode version, scope, input hashes             | S2           |
-| Exact DerivedData hit pins native input mtimes                  | S3           |
-| `-derivedDataPath` matches the cache path                       | S3           |
-| Size: no index store; prune Logs/Index before save              | S4           |
-| Save after generate/xcodebuild, before capture                  | S4           |
-| Trigger stays dispatch or `ios-parity` label                    | S5           |
-| No `push:` trigger; oxlint cap stays 455                        | S5, S6       |
-| actionlint                                                      | S7           |
-| Miss vs hit wall time + CompileC count                          | S8           |
+| Requirement                                                 | Scenario IDs |
+| ----------------------------------------------------------- | ------------ |
+| Exact `ios-gen` cache of `apps/mobile/ios`; no restore-keys | S1, S2       |
+| Miss path runs prebuild + `pod install`; hit skips both     | S1           |
+| CocoaPods home cache only on miss                           | S1           |
+| No DerivedData cache / mtime pin / prune-before-save        | S3           |
+| Key includes os, Xcode version, scope, input hashes         | S2           |
+| Local `-derivedDataPath` + CompileC count, no Actions cache | S3           |
+| ios-gen save not gated on `main`                            | S4           |
+| Trigger stays dispatch or `ios-parity` label                | S5           |
+| No `push:` trigger; oxlint cap stays 455                    | S5, S6       |
+| actionlint                                                  | S7           |
+| Miss vs hit wall time (ios-gen skip ~2 min)                 | S8           |
 
 ## Execution map
 
-| Scenario | Level     | Expected tool  | Target command / method                                 | Fixture / data                 | Signals                                                                                     | Status  |
-| -------- | --------- | -------------- | ------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- | ------- |
-| S1       | Unit      | `bun test`     | `apps/mobile/script/ios-parity-ci-cache.test.ts`        | workflow YAML                  | ios-gen restore/save; prebuild/pod `if` cache-hit != true                                   | pass    |
-| S2       | Unit      | `bun test`     | same                                                    | workflow YAML                  | exact key fragments; ios-gen/dd have no restore-keys                                        | pass    |
-| S3       | Unit      | `bun test`     | same                                                    | workflow YAML                  | `DERIVED_DATA` / `-derivedDataPath`; mtime pin gated on dd cache-hit                        | pass    |
-| S4       | Unit      | `bun test`     | same                                                    | workflow YAML                  | `COMPILER_INDEX_STORE_ENABLE=NO`; prune Logs/Index; save steps before capture               | pass    |
-| S5       | Unit      | `bun test`     | same + existing evidence-safety workflow test           | workflow YAML                  | `on:` has no `push:`; ios-simulator `if` is dispatch or label; structural has no label `if` | pass    |
-| S6       | Toolchain | shell          | `package.json` `lint` script                            | repo root                      | `oxlint --max-warnings=455`                                                                 | pass    |
-| S7       | Toolchain | actionlint     | `actionlint .github/workflows/ci-mobile-ios-parity.yml` | workflow YAML                  | exit 0, or documented ignore for unknown `macos-26` only                                    | pass    |
-| S8       | Manual    | GitHub Actions | first labeled run, then Re-run                          | Eng Manager `ios-parity` label | miss then exact hit; CompileC drops; prebuild/pod skipped on hit                            | not_run |
-| S9       | Unit      | `bun test`     | `apps/mobile` bun test                                  | mobile tests                   | existing evidence-safety + new cache tests pass                                             | pass    |
+| Scenario | Level     | Expected tool  | Target command / method                                 | Fixture / data                 | Signals                                                                                     | Status |
+| -------- | --------- | -------------- | ------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- | ------ |
+| S1       | Unit      | `bun test`     | `apps/mobile/script/ios-parity-ci-cache.test.ts`        | workflow YAML                  | ios-gen restore/save; prebuild/pod `if` cache-hit != true                                   | pass   |
+| S2       | Unit      | `bun test`     | same                                                    | workflow YAML                  | exact key fragments; ios-gen has no restore-keys                                            | pass   |
+| S3       | Unit      | `bun test`     | same                                                    | workflow YAML                  | no `ios-dd-` / mtime pin; summary has ios-gen + CompileC only for caches we keep            | pass   |
+| S4       | Unit      | `bun test`     | same                                                    | workflow YAML                  | ios-gen save before build; not `main`-only                                                  | pass   |
+| S5       | Unit      | `bun test`     | same + existing evidence-safety workflow test           | workflow YAML                  | `on:` has no `push:`; ios-simulator `if` is dispatch or label; structural has no label `if` | pass   |
+| S6       | Toolchain | shell          | `package.json` `lint` script                            | repo root                      | `oxlint --max-warnings=455`                                                                 | pass   |
+| S7       | Toolchain | actionlint     | `actionlint .github/workflows/ci-mobile-ios-parity.yml` | workflow YAML                  | exit 0, or documented ignore for unknown `macos-26` only                                    | pass   |
+| S8       | Manual    | GitHub Actions | labeled miss, then Re-run                               | Eng Manager `ios-parity` label | ios-gen miss then exact hit; prebuild/pod skipped on hit                                    | pass   |
+| S9       | Unit      | `bun test`     | `apps/mobile` bun test                                  | mobile tests                   | existing evidence-safety + cache tests pass                                                 | pass   |
 
 ## Scenarios
 
@@ -61,26 +59,25 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 - **When**: the test reads cache `key` / `restore-keys`.
 - **Then**:
   - ios-gen exact key hashes `bun.lock`, `apps/mobile/package.json`, `app.config.js`, `app.json`, `plugins/**`, `modules/**`, and `exclude-dev-client.js`, plus os / Xcode version / scope.
-  - DerivedData exact key hashes `bun.lock` and `apps/mobile/ios/Podfile.lock`.
-  - ios-gen and DerivedData blocks contain **no** `restore-keys:`.
+  - ios-gen contains **no** `restore-keys:`.
   - CocoaPods home `restore-keys` are xcode then os prefixes.
   - The Xcode step writes `version=` from `xcodebuild -version` to `GITHUB_OUTPUT`.
 - **Signals**: ordered substring checks.
 
-### S3 — DerivedData path, no wipe, mtime pin
+### S3 — No DerivedData cache
 
 - **Level**: Unit
-- **Given**: the build and mtime steps.
-- **When**: the test reads them.
-- **Then**: `xcodebuild` passes `-derivedDataPath` using `DERIVED_DATA` / `artifacts/derived`. No `rm -rf` of that tree before build. Mtime pin runs only when `steps.deriveddata-restore.outputs.cache-hit == 'true'` and `os.utime`s files under `node_modules` and `apps/mobile/ios` to `bun.lock`.
-- **Signals**: absence of the wipe; presence of the pin gate.
+- **Given**: the ios-simulator job.
+- **When**: the test reads it.
+- **Then**: there is no `ios-dd-` key, no Restore/Save DerivedData cache steps, no mtime pin, no prune-before-save. `summary.md` writes ios-gen hit and CompileC count, not `deriveddata cache-hit`. `xcodebuild` still uses local `-derivedDataPath` / `DERIVED_DATA` and `COMPILER_INDEX_STORE_ENABLE=NO`.
+- **Signals**: absence of cache steps; presence of local derived path.
 
-### S4 — Size and save timing
+### S4 — ios-gen save timing
 
 - **Level**: Unit
-- **Given**: build, prune, save, and capture steps.
+- **Given**: save and build steps.
 - **When**: the test compares character offsets.
-- **Then**: `COMPILER_INDEX_STORE_ENABLE=NO` is on the `xcodebuild` invocation. Prune removes `Logs` and `Index.noindex`. DerivedData save appears after `xcodebuild` and before `Install, launch, and capture`. Save is not gated on `github.ref == 'refs/heads/main'` only.
+- **Then**: Save generated iOS tree appears after `pod install` and before `xcodebuild`. Save is not gated on `github.ref == 'refs/heads/main'` only.
 - **Signals**: index order; forbidden `main`-only save guard.
 
 ### S5 — Trigger unchanged
@@ -110,18 +107,17 @@ This is a workflow change. There is no iOS Simulator on the Linux agent, so the 
 ### S8 — Miss then hit (manual, labeled)
 
 - **Level**: Manual
-- **Given**: a SHA that includes this cache design, with `ios-parity` applied by the Eng Manager (this work does not change the label).
-- **When**: the first `ios-simulator` run completes at least through DerivedData save; then the same job is re-run.
+- **Given**: SHA `e2f88b00a` with ios-gen skip, labeled by Eng Manager.
+- **When**: run [39550057846](https://github.com/AruNi-01/atmos/actions/runs/39550057846) attempt 1 (miss) then attempt 2 (Re-run).
 - **Then**:
-  - First run: `ios-gen cache-hit` and `deriveddata cache-hit` are not true. `Prebuild iOS` and `Install CocoaPods` run. `CompileC count` is the cold baseline (~1400 on run 39530230224).
-  - Second run (same SHA): both exact hits. Prebuild and `pod install` are skipped. `Normalize native input mtimes` ran. `CompileC count` is far below the baseline. `Build Release simulator app` is shorter than the cold 27m (and must not regress toward the 49m hit of run 39530230224).
-  - `summary.md` has the hit flags and CompileC count. No hostname.
-- **Signals**: Actions UI step times; artifact `summary.md`. **not_run** until a labeled re-run of this SHA.
+  - Attempt 1: ios-gen miss; Prebuild 7s; Install CocoaPods 1m46s; CompileC 1404; Build 29m21s.
+  - Attempt 2: ios-gen exact hit; Prebuild and Install CocoaPods **skipped** (~2 min saved vs miss-path generate). CompileC still 1404 (DerivedData incremental did not work). Restore DerivedData + mtime pin cost 1.5–3.5 min extra; those steps are now removed.
+- **Signals**: Actions UI step times. **pass** for the ios-gen skip; DerivedData dropped by Eng Manager decision.
 
 ### S9 — Mobile bun tests still pass
 
 - **Level**: Unit
-- **Given**: the new test file and QUALITY-010 evidence-safety workflow assertions.
+- **Given**: the cache test file and QUALITY-010 evidence-safety workflow assertions.
 - **When**: `bun test` runs in `apps/mobile`.
 - **Then**: exit 0.
 - **Signals**: bun summary.
@@ -134,10 +130,10 @@ Not used. Workflow YAML only.
 
 - [x] `ios-simulator` still skipped without `ios-parity` (YAML lock)
 - [x] `structural` still runs on matching PRs
-- [x] `-derivedDataPath` still `artifacts/derived`
 - [x] Capture, SceneDelegate, and `main.jsbundle` gates unchanged
 - [x] `oxlint --max-warnings=455` unchanged
 - [x] No screenshots / hostnames committed
+- [x] `assert_cold_launch` not changed in this PR
 
 ## Acceptance criteria
 
@@ -145,24 +141,25 @@ Not used. Workflow YAML only.
 - [x] Label gate and `on:` triggers are unchanged
 - [x] Bun tests for S1–S6 and S9 pass
 - [x] actionlint has no new real errors (S7)
-- [ ] S8 is documented as the Eng Manager re-run; this PR does not add or remove the label
+- [x] S8 recorded: ios-gen skip ~2 min; DerivedData dropped after CompileC 1404/1404
 
 ## Manual verification steps
 
 1. Do not add or remove `ios-parity` from this work.
-2. On a labeled SHA: record miss vs Re-run hit as in S8 (`ios-gen` skip, CompileC drop, build duration). First labeled run after this change is a miss because the keys changed (`ios-gen-*`, exact `ios-dd-*`).
+2. After this drop-DerivedData SHA: a labeled Re-run should skip prebuild/pod on ios-gen hit and must not restore or save DerivedData.
 
 ## Non-coverage
 
 - Simulator framebuffer / black-window (QUALITY-016 / APP-081).
 - Hermes Settings crash (QUALITY-010).
-- Capture-step wall time (about 40–50 minutes on run 39530230224; not a cache target).
+- `assert_cold_launch` flake (do not fix here).
+- Capture-step wall time (QUALITY-023 / #346).
 
 ## Coverage Status
 
 Implementation pass (Linux agent, no Simulator):
 
-- S1–S6, S9 — pass. `cd apps/mobile && bun test` → 575 pass / 0 fail, including `script/ios-parity-ci-cache.test.ts` (8) and `script/evidence-safety.test.ts`. `package.json` `lint` is still `oxlint --max-warnings=455`.
+- S1–S6, S9 — pass. `cd apps/mobile && bun test` → 575 pass / 0 fail, including `script/ios-parity-ci-cache.test.ts` (8). `package.json` `lint` is still `oxlint --max-warnings=455`.
 - S7 — pass. `actionlint` v1.7.12 on `.github/workflows/ci-mobile-ios-parity.yml` exit 0.
-- S8 — `not_run`. Run 39530230224 already showed Pods-only + DerivedData restore **without** skipping prebuild/pod install: Build 27m miss vs 49m exact hit, CompileC 1402 vs 1322. This revision changes the design; needs a new labeled miss + Re-run.
-- Numbering: QUALITY-020 is E2E prebuilt API artifact (#342, on `main`). QUALITY-021 is the concurrent CodeQL draft (#344). This spec is QUALITY-022.
+- S8 — pass as data: old baseline [39530230224](https://github.com/AruNi-01/atmos/actions/runs/39530230224) Pods-only (Build 27m miss / 49m hit, CompileC 1402 / 1322, pod install ~2m20s both). Retest [39550057846](https://github.com/AruNi-01/atmos/actions/runs/39550057846) ios-gen skip (~2 min) but DerivedData CompileC 1404 / 1404; restore + mtime extra 1.5–3.5 min. DerivedData cache removed.
+- Numbering: QUALITY-020 is E2E prebuilt (#342, on `main`). QUALITY-021 is CodeQL (#344). QUALITY-023 is capture split (#346). This spec is QUALITY-022.

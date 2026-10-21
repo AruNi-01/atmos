@@ -4,9 +4,9 @@ name: CI - Mobile iOS parity
 # ios-simulator is the heavy macOS job (about 1–3 hours). It runs on
 # workflow_dispatch, or when the PR has the label ios-parity.
 # QUALITY-022 caches the generated ios/ tree (skip prebuild + pod install on
-# exact hit) and Xcode DerivedData. Prefix restore-keys are not used for those
-# two trees: run 39530230224 showed an exact DerivedData hit plus a full
-# rebuild (49m vs 27m cold) because prebuild/pod install rewrote sources.
+# exact hit) and CocoaPods downloads on the miss path. DerivedData is not
+# cached: run 39550057846 CompileC was 1404 on miss and hit; restore + mtime
+# pin added 1.5–3.5 minutes with no incremental compile.
 # Branch protection was checked before making that job opt-in (QUALITY-010):
 # classic protection is 403 for this token, rulesets are empty, and merged
 # PRs that do not touch these paths (#318, #312) merged without ios-simulator,
@@ -346,46 +346,6 @@ jobs:
           fi
           echo "generated iOS tree is ready"
 
-      # QUALITY-022: exact key only. restore-keys pulled in a 1.5 GB tree that
-      # still fully recompiled (run 39530230224 attempt 2).
-      - name: Restore DerivedData cache
-        id: deriveddata-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ env.DERIVED_DATA }}
-          key: ios-dd-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/mobile/ios/Podfile.lock') }}
-
-      - name: Normalize native input mtimes for incremental xcodebuild
-        if: success() && steps.deriveddata-restore.outputs.cache-hit == 'true'
-        run: |
-          set -euo pipefail
-          # Checkout and bun install stamp files with "now". Clang then treats
-          # every translation unit as newer than the restored .o files.
-          python3 - << 'PY'
-          import os
-          ref = os.stat("bun.lock")
-          times = (ref.st_atime, ref.st_mtime)
-          roots = (
-              "node_modules",
-              "apps/mobile/node_modules",
-              "apps/mobile/ios",
-              "apps/mobile/modules",
-          )
-          updated = 0
-          for root in roots:
-              if not os.path.isdir(root):
-                  continue
-              for dirpath, _dirnames, filenames in os.walk(root):
-                  for name in filenames:
-                      path = os.path.join(dirpath, name)
-                      try:
-                          os.utime(path, times)
-                          updated += 1
-                      except OSError:
-                          pass
-          print(f"pinned {updated} native-input mtimes to bun.lock")
-          PY
-
       - name: Build Release simulator app
         id: xcodebuild
         run: |
@@ -498,19 +458,6 @@ jobs:
           bash apps/mobile/script/verify-ios-scene-lifecycle.sh built-plist "$app/Info.plist"
           printf '%s\n' "$app" > "$GITHUB_WORKSPACE/artifacts/simulator-app-path.txt"
 
-      - name: Prune DerivedData before cache save
-        if: success() && !cancelled()
-        run: |
-          set -euo pipefail
-          rm -rf "${DERIVED_DATA}/Logs" "${DERIVED_DATA}/Index.noindex"
-
-      - name: Save DerivedData cache
-        if: success() && !cancelled() && steps.xcodebuild.conclusion == 'success'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ env.DERIVED_DATA }}
-          key: ios-dd-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/mobile/ios/Podfile.lock') }}
-
       - name: Install, launch, and capture
         run: |
           set -euo pipefail
@@ -525,8 +472,6 @@ jobs:
           IOS_KEY: ${{ steps.ios-restore.outputs.cache-matched-key }}
           PODHOME_HIT: ${{ steps.podhome-restore.outputs.cache-hit }}
           PODHOME_KEY: ${{ steps.podhome-restore.outputs.cache-matched-key }}
-          DD_HIT: ${{ steps.deriveddata-restore.outputs.cache-hit }}
-          DD_KEY: ${{ steps.deriveddata-restore.outputs.cache-matched-key }}
           COMPILEC: ${{ steps.xcodebuild.outputs.compilec }}
           XCODE_CACHE_VERSION: ${{ steps.xcode.outputs.version }}
           CACHE_SCOPE: ${{ steps.xcode.outputs.scope }}
@@ -546,8 +491,6 @@ jobs:
             echo "- ios-gen cache-matched-key: ${IOS_KEY}"
             echo "- cocoapods-home cache-hit: ${PODHOME_HIT}"
             echo "- cocoapods-home cache-matched-key: ${PODHOME_KEY}"
-            echo "- deriveddata cache-hit: ${DD_HIT}"
-            echo "- deriveddata cache-matched-key: ${DD_KEY}"
             echo "- CompileC count: ${COMPILEC}"
             echo "- Phone PNGs in this artifact are iOS Simulator frames."
             echo "- react-native-web comparison PNGs, when the ubuntu job finishes, are artifact parity-rn-web. They are not iOS and not Next."

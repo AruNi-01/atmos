@@ -63,31 +63,19 @@ const podInstall = sectionBetween(
   "      - name: Install CocoaPods\n",
   "      - name: Save CocoaPods download cache\n",
 );
-const deriveddataRestore = sectionBetween(
-  iosSimulator,
-  "      - name: Restore DerivedData cache\n",
-  "      - name: Normalize native input mtimes for incremental xcodebuild\n",
-);
-const deriveddataSave = sectionBetween(
-  iosSimulator,
-  "      - name: Save DerivedData cache\n",
-  "      - name: Install, launch, and capture\n",
-);
 const buildStep = sectionBetween(
   iosSimulator,
   "      - name: Build Release simulator app\n",
-  "      - name: Prune DerivedData before cache save\n",
+  "      - name: Install, launch, and capture\n",
 );
-const mtimeStep = sectionBetween(
+const summaryStep = sectionBetween(
   iosSimulator,
-  "      - name: Normalize native input mtimes for incremental xcodebuild\n",
-  "      - name: Build Release simulator app\n",
+  "      - name: Write summary\n",
+  "      - name: Upload ios-parity\n",
 );
 
 const iosGenKey =
   "ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js') }}";
-const ddKey =
-  "ios-dd-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.scope }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/mobile/ios/Podfile.lock') }}";
 
 describe("QUALITY-022 ios-simulator caches", () => {
   test("exact ios-gen hit skips prebuild and pod install", () => {
@@ -115,18 +103,25 @@ describe("QUALITY-022 ios-simulator caches", () => {
     expect(iosSimulator).not.toContain("ios-pods-");
   });
 
-  test("DerivedData is exact-key only and shares -derivedDataPath", () => {
+  test("DerivedData is not cached", () => {
+    expect(iosSimulator).not.toContain("ios-dd-");
+    expect(iosSimulator).not.toContain("deriveddata-restore");
+    expect(iosSimulator).not.toContain("Restore DerivedData cache");
+    expect(iosSimulator).not.toContain("Save DerivedData cache");
+    expect(iosSimulator).not.toContain("Normalize native input mtimes");
+    expect(iosSimulator).not.toContain("Prune DerivedData before cache save");
+    expect(summaryStep).not.toContain("deriveddata cache-hit");
+    expect(summaryStep).toContain("ios-gen cache-hit");
+    expect(summaryStep).toContain("CompileC count");
+  });
+
+  test("xcodebuild still writes a local derived path and counts CompileC", () => {
     expect(iosSimulator).toContain("DERIVED_DATA: ${{ github.workspace }}/artifacts/derived");
-    expect(deriveddataRestore).toContain("actions/cache/restore@v4");
-    expect(deriveddataRestore).toContain("path: ${{ env.DERIVED_DATA }}");
-    expect(deriveddataRestore).toContain(`key: ${ddKey}`);
-    expect(deriveddataRestore).not.toContain("restore-keys:");
-    expect(deriveddataSave).toContain("actions/cache/save@v4");
-    expect(deriveddataSave).toContain("path: ${{ env.DERIVED_DATA }}");
-    expect(deriveddataSave).toContain(`key: ${ddKey}`);
     expect(buildStep).toContain("-derivedDataPath");
     expect(buildStep).toContain('derived="${DERIVED_DATA:-$GITHUB_WORKSPACE/artifacts/derived}"');
-    expect(buildStep).not.toContain('rm -rf "$derived"');
+    expect(buildStep).toContain("COMPILER_INDEX_STORE_ENABLE=NO");
+    expect(buildStep).toContain('echo "compilec=${compilec}" >> "$GITHUB_OUTPUT"');
+    expect(iosSimulator).not.toContain('rm -rf "$derived"');
     expect(iosSimulator).not.toContain('rm -rf "$DERIVED_DATA"');
   });
 
@@ -139,26 +134,14 @@ describe("QUALITY-022 ios-simulator caches", () => {
     expect(iosSimulator).toContain('echo "scope=ref-${sanitized}" >> "$GITHUB_OUTPUT"');
   });
 
-  test("exact DerivedData hit pins native input mtimes to bun.lock", () => {
-    expect(mtimeStep).toContain("steps.deriveddata-restore.outputs.cache-hit == 'true'");
-    expect(mtimeStep).toContain("os.utime(path, times)");
-    expect(mtimeStep).toContain('os.stat("bun.lock")');
-    expect(mtimeStep).toContain("apps/mobile/ios");
-    expect(mtimeStep).toContain("node_modules");
-  });
-
-  test("DerivedData is pruned and saved before capture", () => {
-    expect(buildStep).toContain("COMPILER_INDEX_STORE_ENABLE=NO");
-    expect(iosSimulator).toContain('rm -rf "${DERIVED_DATA}/Logs" "${DERIVED_DATA}/Index.noindex"');
+  test("ios-gen save is not restricted to main", () => {
     const xcodebuildAt = iosSimulator.indexOf("      - name: Build Release simulator app\n");
-    const pruneAt = iosSimulator.indexOf("      - name: Prune DerivedData before cache save\n");
-    const ddSaveAt = iosSimulator.indexOf("      - name: Save DerivedData cache\n");
     const captureAt = iosSimulator.indexOf("      - name: Install, launch, and capture\n");
+    const iosSaveAt = iosSimulator.indexOf("      - name: Save generated iOS tree\n");
     expect(xcodebuildAt).toBeGreaterThan(-1);
-    expect(pruneAt).toBeGreaterThan(xcodebuildAt);
-    expect(ddSaveAt).toBeGreaterThan(pruneAt);
-    expect(captureAt).toBeGreaterThan(ddSaveAt);
-    expect(deriveddataSave).not.toContain("refs/heads/main");
+    expect(iosSaveAt).toBeGreaterThan(-1);
+    expect(iosSaveAt).toBeLessThan(xcodebuildAt);
+    expect(captureAt).toBeGreaterThan(xcodebuildAt);
     expect(iosSave).not.toContain("refs/heads/main");
   });
 
