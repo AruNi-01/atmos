@@ -125,7 +125,7 @@ Verified 2026-10-21 (local, before GitHub Actions):
 - S1, S2, S4 — pass. `bun test e2e/scripts/ci-e2e-workflow.test.cjs` → 3 pass.
 - S3 — pass by inspection. Workflow-level group is `ci-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}`.
 - S5 — pass. `package.json` `lint` is `oxlint --max-warnings=455`. Diff does not mention `EVIDENCE_PUSH`. `bunx oxlint e2e/scripts/ci-e2e-workflow.test.cjs` and `bunx oxfmt --check` on the spec + test paths exited 0.
-- S6 — pending GitHub Actions on the draft PR.
+- S6 — pass. Draft PR `CI - JS` https://github.com/AruNi-01/atmos/actions/runs/39527675341 success (oxlint + oxfmt). `CI - E2E` https://github.com/AruNi-01/atmos/actions/runs/39527675237 success (13.45 min wall). Not triggered: `CI - Backend`, `CI - Web`, `CI - Packages` (path filters). CodeQL also ran and passed (not part of this spec).
 
 ```
 bun test e2e/scripts/ci-e2e-workflow.test.cjs
