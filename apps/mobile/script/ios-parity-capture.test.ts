@@ -78,6 +78,12 @@ describe("QUALITY-023 iOS parity capture speed", () => {
     expect(capture).not.toContain("install_pill_runner");
     expect(capture).toContain("PillTap destination missing:");
     expect(capture).toContain("wait_for_xcode_destination");
+    const sees = capture.slice(
+      capture.indexOf("xcode_sees_udid()"),
+      capture.indexOf("wait_for_xcode_destination()"),
+    );
+    expect(sees).toContain("stderr=subprocess.STDOUT");
+    expect(sees).not.toContain("2>/dev/null");
     expect(capture).toContain('wait_for_since "[parity] pill awaiting tap"');
     expect(capture).toContain("terminate_app");
     expect(capture).toContain("log-mark-epoch.txt");

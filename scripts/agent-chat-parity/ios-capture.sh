@@ -360,12 +360,37 @@ if len(booted) == 1:
 '
 }
 
+# Run 39591952360 attempt 2: wait_for_xcode_destination polled
+# `xcodebuild -showdestinations 2>/dev/null | grep` for 60s and failed, then
+# the unpiped dump listed `id:E839A11B-…` and simctl showed it Booted. Piped
+# stdout is empty; the destination table is on stderr. Capture both, bound
+# the query so one hang cannot eat the whole wait.
 xcode_sees_udid() {
   local udid="$1"
-  xcodebuild \
-    -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
-    -scheme PillTap \
-    -showdestinations 2>/dev/null | grep -E "id: ?${udid}" >/dev/null
+  python3 - "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" "$udid" <<'PY'
+import subprocess
+import sys
+
+project, udid = sys.argv[1], sys.argv[2]
+cmd = [
+    "xcodebuild",
+    "-project",
+    project,
+    "-scheme",
+    "PillTap",
+    "-showdestinations",
+]
+proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+try:
+    out, _ = proc.communicate(timeout=20)
+except subprocess.TimeoutExpired:
+    proc.kill()
+    proc.communicate()
+    sys.exit(1)
+if not out:
+    sys.exit(1)
+sys.exit(0 if f"id:{udid}" in out or f"id: {udid}" in out else 1)
+PY
 }
 
 wait_for_xcode_destination() {
@@ -382,7 +407,7 @@ wait_for_xcode_destination() {
   xcodebuild \
     -project "$ROOT/scripts/agent-chat-parity/pill-tap/PillTap.xcodeproj" \
     -scheme PillTap \
-    -showdestinations >&2 || true
+    -showdestinations 2>&1 >&2 || true
   xcrun simctl list devices booted >&2 || true
   return 1
 }

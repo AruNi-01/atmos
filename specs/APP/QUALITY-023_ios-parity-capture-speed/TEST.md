@@ -123,9 +123,9 @@ Deterministic locks are Bun tests that read the workflow YAML, `ios-capture.sh`,
 ### S11 — Motion destination is the booted UDID
 
 - **Level**: Unit + E2E
-- **Given**: the Busy fail (`39554572933`), the destination-empty fail (`39578448510`), and the return-relaunch miss (`39585289841`: away Atmos still logging, empty console-pty, 90s module wait).
+- **Given**: the Busy fail (`39554572933`), the destination-empty fail (`39578448510`), the return-relaunch miss (`39585289841`: away Atmos still logging, empty console-pty, 90s module wait), and the showdestinations-pipe miss (`39591952360` attempt 2: stderr table, sim still Booted).
 - **When**: tests read the workflow and capture script, then two consecutive labeled iOS runs execute on this head.
-- **Then**: no background `build-for-testing` (`pill_pid`). `PARITY_UDID` is exported from boot. `launch_frame` terminates until no-op and stamps `log-mark-epoch.txt`. `wait_for_since` may use `log show` but only lines at/after that epoch. Capture waits `wait_for_since` for `[parity] pill awaiting tap`. XCTAssert miss still prints `PillTap missed:` and exits 1. Destination loss prints `PillTap destination missing:` and also exits 1. Missed module on return still exits 1. No blind retry of a miss.
+- **Then**: no background `build-for-testing` (`pill_pid`). `PARITY_UDID` is exported from boot. `xcode_sees_udid` reads `showdestinations` stdout+stderr (not `2>/dev/null | grep`). `launch_frame` terminates until no-op and stamps `log-mark-epoch.txt`. `wait_for_since` may use `log show` but only lines at/after that epoch. Capture waits `wait_for_since` for `[parity] pill awaiting tap`. XCTAssert miss still prints `PillTap missed:` and exits 1. Destination loss prints `PillTap destination missing:` and also exits 1. Missed module on return still exits 1. No blind retry of a miss.
 - **Signals**: `ios-parity-capture.test.ts`; two GHA runs with `ios-build`, stills, motion, `ios-parity` all success. The second run is `gh run rerun` of the first. TECH timing table stays `待两轮实测` (report clocks in chat, do not docs-push).
 
 ## Performance & load budgets
