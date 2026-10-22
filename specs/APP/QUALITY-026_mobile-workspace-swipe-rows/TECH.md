@@ -9,7 +9,7 @@ Addresses four mobile list behaviors. No new WebSocket action, REST route, or se
 1. **Swipe does not navigate.** A row that can reveal leading or trailing actions opens its destination only on a tap whose horizontal movement stays within the tap slop. Any horizontal pan, including the frame when the finger lifts, does not navigate. A tap while the actions are revealed only closes the row. This covers every list that mounts `SessionSwipeRow`, including the Session list.
 2. **Recently subtitles.** Each Recently row shows the Project it belongs to. A row whose own kind is `project` shows the same `Project` label the grouped project row already uses.
 3. **Project-group detail.** Workspace rows under the Project grouping show one short secondary line taken from fields the web workspace list already renders: the workspace branch from bootstrap, plus the uncommitted count from `git_get_status_batch` when it is greater than zero. Project rows add one short token from the same batch (`current_branch` of `main_file_path`) or, until that branch exists, the workspace count already in the bootstrap payload. Other groupings stay title-only.
-4. **Open row is its own card.** After a swipe settles open, the row content is a rounded card on its own fill, and the action buttons sit on the page background behind that card. Light and dark both use the existing theme tokens.
+4. **Open row matches the Messages trailing cap.** After a left swipe settles, only the trailing corners are largely rounded, the leading edge is square and flush with the screen, and the row has no stroke. Only that row changes fill. The button bay keeps the same list fill as the rows above and below. The separators directly above and below the moving row hide until it closes. Light and dark both use theme tokens.
 
 Out of scope:
 
@@ -37,7 +37,7 @@ Out of scope:
 WorkspaceHomeList / WorkspaceEntryScreen / SessionRowList
   └─ SessionSwipeRow          one implementation, iOS and Android
         ├─ swipe-row-press    tap vs pan vs revealed
-        └─ card chrome        page well + rounded card + circular actions
+        └─ open chrome        transparent well + trailing cap + circular actions
 WorkspaceHomeList (grouping === "project", section expanded)
   └─ git_get_status_batch     existing WsContract action
         └─ workspace-row-subtitle / workspace-list-git-status
@@ -101,16 +101,23 @@ Paths are collected only for expanded project-group sections (`expanded[key] !==
 
 Unpushed count, base branch, path, labels, priority, and PR chips stay off the row.
 
-### D4. Open swipe row is a separate card
+### D4. Open swipe row is a trailing cap on the page
 
-`swipeRowOpenChrome(revealed, colors)`:
+`swipeRowOpenChrome(revealed, colors)` and `swipeRowCardFrame(offset)`:
 
-- Closed: radius `0`, card fill `colors.cardElevated` (the `backgroundColor` prop), well `transparent`, so the row stays flush inside `Section`.
-- Open: radius `radii.cardNested` (18), card fill unchanged, well `colors.background`. Buttons are circular, sit in the well, and are painted under the card (`zIndex`).
+- Swipe sections pass `clip={false}`. The row wrapper keeps `overflow: visible`, so the outer edge can cross the section and sit on the screen edge. `SWIPE_ROW_SCREEN_BLEED` is `spacing.screenX` (18). Closed rows do not paint their own fill (`transparent`), so the section's `cardElevated` and its corner radius stay intact.
+- Closed: every corner radius `0`, horizontal margins `0`, well `transparent`, `borderWidth` `0`.
+- Left swipe: `marginRight` equals the reveal, so the trailing edge opens the action bay. `marginLeft` moves toward the screen and clamps at `-SWIPE_ROW_SCREEN_BLEED`, so the leading edge is square and flush with the screen instead of carrying the title off it. Only the trailing corners grow to `radii.control` (28). No vertical inset. `borderWidth` stays `0`. While the reveal is still within the screen padding, `marginLeft + marginRight` is `0`. Past that, the row gets narrower on the action side.
+- Right swipe (pin) mirrors that: only the leading corners round, and the trailing edge stops at the right screen edge.
+- Open row fill is `colors.secondaryBackground`. Dark `#3a3a3c` is one step lighter than the list card `cardElevated` (`#2c2c2e`). Light list rows are already `#ffffff`, so the open row uses `#f2f2f7` (a light gray) instead of a brighter white. It is not `cardElevated` and not the page `background`.
+- The button bay paints nothing (`wellBackground` stays `transparent`). The section's `cardElevated` shows through, which is the same fill as the rows above and below. It is not a second page-colored band.
+- While `Math.abs(offset) > 0.5`, `onRevealedChange(true)` tells the list to hide the separator before that row and the separator before the next row (`hiddenSwipeSeparatorIndexes`). Both come back when the offset returns. This is display state. It does not change tap versus pan.
+- Buttons stay circular and vertically centered in the bay. `SWIPE_ROW_BUTTON_EDGE` (16) is the gap between the cap and the first button, and the inset after the last button. Archive is `colors.swipeArchive` (`#d97706`), delete is `colors.swipeDelete` (`#dc2626`), pin is `colors.swipePin` (`#2563eb`), and the icon is `colors.ctaLabel`. The row component has no hex literals.
+- Full-swipe stays off: the row snaps open or shut, it does not fire the action on a long drag. Tap and pan decisions are unchanged (D1).
 
-Light well `#f4f4f6` against card `#ffffff`. Dark well `#000000` against card `#2c2c2e`. The component reads those tokens from `useMobileTheme()` and the row's `backgroundColor`. Both schemes already differ; the helper returns `transparent` when closed so a closed row does not paint a second fill.
+System swipe actions are not this chrome. SwiftUI `List` `.swipeActions`, UIKit `UISwipeActionsConfiguration`, and `@expo/ui` `SwipeActions` (SDK 56, a host for the same SwiftUI modifier) all draw full-height rectangular action slabs. On iOS 26 those slabs also show the action title next to the icon unless the label style is icon-only. The Messages app on iOS 26 replaced those slabs with round buttons on the list fill ([AppleInsider, Messages iOS 26 vs iOS 18](https://appleinsider.com/inside/ios-26/vs/messages-ios-26-vs-ios-18-playful-useful-changes)); that treatment is not a public `swipeActions` style. Apple DTS has said a circular control has to be a custom drag, and private `UISwipeActionPullView` swizzling is not a supported API. `@expo/ui` `SwipeActions` also only applies inside a SwiftUI `List` hosted by `Host`. These lists are React Native rows (subtitles, pin, archive, delete, pagination, and the tap-versus-pan rule) inside an `AppScreen` scroll view. Moving them into a SwiftUI `List` would replace that structure and would still get the rectangular slabs. The shared row stays.
 
-The card grows the reveal gutter with vertical inset and corner radius while the finger moves, and settles with the action width as the trailing or leading margin so all four corners stay inside the row. `Section` keeps clipping. Action buttons use the existing pin / archive / delete colors. Full-swipe stays off: the row snaps open or shut, it does not fire the action on a long drag.
+Revision (2026-10-22): the first landing used a four-corner `radii.cardNested` card, inset on every side, still filled with `cardElevated`. That read as a bordered card on the same fill as the other rows. The next pass clamped the leading edge at the screen padding and painted the button bay with the page color. The page-colored bay was a separate band. This section leaves the bay transparent and hides the two adjacent separators while the row is open. Gesture classification did not change.
 
 ### D5. One swipe implementation
 
