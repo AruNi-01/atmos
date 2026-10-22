@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -11,20 +11,27 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { CameraScannerModel } from "@/features/onboarding/camera-permission-state";
 import { PairQrScanner } from "@/features/onboarding/PairQrScanner";
+import { PairScannerErrorBoundary } from "@/features/onboarding/PairScannerErrorBoundary";
+import { pairScannerDockUsesThemeGlass } from "@/features/onboarding/pair-dock-chrome";
 import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
-import { AppScreen, InlineError } from "@/ui/layout/app-screen";
+import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { InlineError } from "@/ui/layout/app-screen";
 import { QrCodeIcon } from "@/ui/icons/lucide-native";
 import { GithubMark, GoogleMark } from "@/ui/icons/oauth-marks";
 
 const PRODUCT_NAME = "Atmos";
 const PRODUCT_SLOGAN = "Pair this phone with your Computer.";
 
-/** Light: near-black dock on light page. Dark: elevated card on pure black page. */
+/**
+ * Inverted dock for the closed sign-in actions, dark theme, and a live camera
+ * preview. Light theme uses GlassPanel until that preview is actually showing.
+ */
 const DOCK_LIGHT = "#0a0a0b";
 
 const SCAN_STEPS = [
@@ -65,6 +72,10 @@ export function AuthConnectContent({
   const auth = useAuthSignIn({ onAuthenticated });
   const [scannerOpen, setScannerOpen] = useState(initialScannerOpen);
   const [scannerMounted, setScannerMounted] = useState(initialScannerOpen);
+  const [cameraKind, setCameraKind] = useState<CameraScannerModel["kind"] | null>(null);
+  const onScannerKindChange = useCallback((kind: CameraScannerModel["kind"] | null) => {
+    setCameraKind(kind);
+  }, []);
   const isSheet = presentation === "sheet";
 
   const brandOpacity = useRef(new Animated.Value(initialScannerOpen ? 0 : 1)).current;
@@ -222,11 +233,27 @@ export function AuthConnectContent({
     stepsOpacity,
   ]);
 
-  if (auth.hasDeviceCredential) {
+  if (auth.hasDeviceCredential && !initialScannerOpen) {
     return (
-      <AppScreen surface={isSheet ? "sheet" : "screen"}>
+      <View
+        style={[
+          styles.root,
+          {
+            alignItems: "center",
+            backgroundColor: isSheet ? theme.colors.sheetBackground : theme.colors.background,
+            justifyContent: "center",
+            paddingHorizontal: 24,
+          },
+        ]}
+      >
         <ActivityIndicator color={theme.colors.secondaryLabel} />
-      </AppScreen>
+        <Text style={[styles.productSlogan, { color: theme.colors.label, marginTop: 12 }]}>
+          This phone is already paired.
+        </Text>
+        <View style={{ alignSelf: "stretch", marginTop: 16 }}>
+          <InlineError message={auth.localError} />
+        </View>
+      </View>
     );
   }
 
@@ -234,15 +261,101 @@ export function AuthConnectContent({
   const dockStackHeight = scannerOpen ? 236 : 186;
   const dockHeight = 18 + dockStackHeight + dockPadBottom;
   const signingIn = auth.signIn.isPending || auth.busy;
-  // Page / dock stay inverted relative to each other (light page + dark dock,
-  // dark page + elevated dock) so the rounded dock never melts into the page.
+  // Closed sign-in actions, dark theme, and a live preview keep the inverted
+  // dock. Light theme follows the sheet with the glass dock until the feed is up.
   const heroBackground = isSheet ? theme.colors.sheetBackground : theme.colors.background;
+  const themeGlass = pairScannerDockUsesThemeGlass({
+    cameraKind,
+    isDark: theme.isDark,
+    scannerOpen,
+  });
   const dockColor = theme.isDark ? theme.colors.cardElevated : DOCK_LIGHT;
   const dockSecondaryButton = theme.isDark ? "#48484a" : "#3a3a3c";
   const dockTertiaryButton = theme.isDark ? "#3a3a3c" : "#2c2c2e";
   const dockLabel = theme.isDark ? theme.colors.label : "#f5f5f7";
   const dockMuted = theme.isDark ? theme.colors.secondaryLabel : "rgba(245, 245, 247, 0.55)";
   const dockBadgeBg = theme.isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(255, 255, 255, 0.12)";
+  const stepsTitleColor = themeGlass ? theme.colors.secondaryLabel : dockMuted;
+  const stepsTextColor = themeGlass ? theme.colors.label : dockLabel;
+  const stepsBadgeBackground = themeGlass ? theme.colors.cardSubtle : dockBadgeBg;
+  const hideScannerBackground = themeGlass ? theme.colors.ctaFill : "#ffffff";
+  const hideScannerLabelColor = themeGlass ? theme.colors.ctaLabel : "#0a0a0b";
+  const dockStack = (
+    <View style={[styles.dockStack, { height: dockStackHeight }]}>
+      <Animated.View
+        pointerEvents={scannerOpen ? "none" : "auto"}
+        style={[styles.dockLayer, { opacity: authDockOpacity }]}
+      >
+        <View style={styles.dockButtons}>
+          <DockButton
+            backgroundColor="#ffffff"
+            disabled={auth.busy}
+            labelColor="#0a0a0b"
+            label="Scan QR"
+            leading={<QrCodeIcon color="#0a0a0b" size={20} strokeWidth={2.2} />}
+            onPress={() => {
+              auth.setLocalError(null);
+              setScannerOpen(true);
+            }}
+          />
+          <DockButton
+            backgroundColor={dockSecondaryButton}
+            disabled={signingIn}
+            labelColor={dockLabel}
+            label={signingIn ? "Signing in..." : "Continue with GitHub"}
+            leading={<GithubMark color={dockLabel} size={20} />}
+            loading={auth.signIn.isPending}
+            onPress={() => auth.signIn.mutate("github")}
+          />
+          <DockButton
+            backgroundColor={dockTertiaryButton}
+            disabled={signingIn}
+            labelColor={dockLabel}
+            label={signingIn ? "Signing in..." : "Continue with Google"}
+            leading={<GoogleMark size={20} />}
+            loading={auth.signIn.isPending}
+            onPress={() => auth.signIn.mutate("google")}
+          />
+        </View>
+      </Animated.View>
+
+      <Animated.View
+        pointerEvents={scannerOpen ? "auto" : "none"}
+        style={[styles.dockLayer, { opacity: stepsOpacity }]}
+      >
+        <View style={styles.stepsBlock}>
+          <Text style={[styles.stepsTitle, { color: stepsTitleColor }]}>How to pair</Text>
+          {SCAN_STEPS.map((step, index) => (
+            <Animated.View
+              key={step}
+              style={[
+                styles.stepRow,
+                {
+                  opacity: stepAnims[index]?.opacity,
+                  transform: [{ translateY: stepAnims[index]?.translateY ?? 0 }],
+                },
+              ]}
+            >
+              <View style={[styles.stepBadge, { backgroundColor: stepsBadgeBackground }]}>
+                <Text style={[styles.stepBadgeText, { color: stepsTextColor }]}>{index + 1}</Text>
+              </View>
+              <Text numberOfLines={1} style={[styles.stepText, { color: stepsTextColor }]}>
+                {step}
+              </Text>
+            </Animated.View>
+          ))}
+          <DockButton
+            backgroundColor={hideScannerBackground}
+            disabled={auth.busy}
+            labelColor={hideScannerLabelColor}
+            label="Hide scanner"
+            leading={<QrCodeIcon color={hideScannerLabelColor} size={20} strokeWidth={2.2} />}
+            onPress={() => setScannerOpen(false)}
+          />
+        </View>
+      </Animated.View>
+    </View>
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: heroBackground }]}>
@@ -301,18 +414,21 @@ export function AuthConnectContent({
               ]}
             >
               <View style={[styles.scannerWrap, { width: cameraSize, height: cameraSize }]}>
-                <PairQrScanner
-                  disabled={auth.busy || !scannerOpen}
-                  onScanned={(value) => {
-                    setScannerOpen(false);
-                    // Stop the capture session before the claim. iOS reports
-                    // "The network connection was lost" if fetch starts while
-                    // the camera is still running.
-                    setTimeout(() => {
-                      auth.claimPair.mutate(value);
-                    }, 450);
-                  }}
-                />
+                <PairScannerErrorBoundary>
+                  <PairQrScanner
+                    disabled={auth.busy || !scannerOpen}
+                    onScannerKindChange={onScannerKindChange}
+                    onScanned={(value) => {
+                      setScannerOpen(false);
+                      // Stop the capture session before the claim. iOS reports
+                      // "The network connection was lost" if fetch starts while
+                      // the camera is still running.
+                      setTimeout(() => {
+                        auth.claimPair.mutate(value);
+                      }, 450);
+                    }}
+                  />
+                </PairScannerErrorBoundary>
               </View>
             </Animated.View>
           ) : null}
@@ -333,90 +449,42 @@ export function AuthConnectContent({
         </View>
       </View>
 
-      <View
-        style={[
-          styles.dock,
-          {
-            backgroundColor: dockColor,
-            paddingBottom: dockPadBottom,
-          },
-        ]}
-      >
-        <View style={[styles.dockStack, { height: dockStackHeight }]}>
-          <Animated.View
-            pointerEvents={scannerOpen ? "none" : "auto"}
-            style={[styles.dockLayer, { opacity: authDockOpacity }]}
-          >
-            <View style={styles.dockButtons}>
-              <DockButton
-                backgroundColor="#ffffff"
-                disabled={auth.busy}
-                labelColor="#0a0a0b"
-                label="Scan QR"
-                leading={<QrCodeIcon color="#0a0a0b" size={20} strokeWidth={2.2} />}
-                onPress={() => {
-                  auth.setLocalError(null);
-                  setScannerOpen(true);
-                }}
-              />
-              <DockButton
-                backgroundColor={dockSecondaryButton}
-                disabled={signingIn}
-                labelColor={dockLabel}
-                label={signingIn ? "Signing in..." : "Continue with GitHub"}
-                leading={<GithubMark color={dockLabel} size={20} />}
-                loading={auth.signIn.isPending}
-                onPress={() => auth.signIn.mutate("github")}
-              />
-              <DockButton
-                backgroundColor={dockTertiaryButton}
-                disabled={signingIn}
-                labelColor={dockLabel}
-                label={signingIn ? "Signing in..." : "Continue with Google"}
-                leading={<GoogleMark size={20} />}
-                loading={auth.signIn.isPending}
-                onPress={() => auth.signIn.mutate("google")}
-              />
-            </View>
-          </Animated.View>
-
-          <Animated.View
-            pointerEvents={scannerOpen ? "auto" : "none"}
-            style={[styles.dockLayer, { opacity: stepsOpacity }]}
-          >
-            <View style={styles.stepsBlock}>
-              <Text style={[styles.stepsTitle, { color: dockMuted }]}>How to pair</Text>
-              {SCAN_STEPS.map((step, index) => (
-                <Animated.View
-                  key={step}
-                  style={[
-                    styles.stepRow,
-                    {
-                      opacity: stepAnims[index]?.opacity,
-                      transform: [{ translateY: stepAnims[index]?.translateY ?? 0 }],
-                    },
-                  ]}
-                >
-                  <View style={[styles.stepBadge, { backgroundColor: dockBadgeBg }]}>
-                    <Text style={[styles.stepBadgeText, { color: dockLabel }]}>{index + 1}</Text>
-                  </View>
-                  <Text numberOfLines={1} style={[styles.stepText, { color: dockLabel }]}>
-                    {step}
-                  </Text>
-                </Animated.View>
-              ))}
-              <DockButton
-                backgroundColor="#ffffff"
-                disabled={auth.busy}
-                labelColor="#0a0a0b"
-                label="Hide scanner"
-                leading={<QrCodeIcon color="#0a0a0b" size={20} strokeWidth={2.2} />}
-                onPress={() => setScannerOpen(false)}
-              />
-            </View>
-          </Animated.View>
+      {themeGlass ? (
+        <GlassPanel
+          fallbackStyle={{ backgroundColor: theme.colors.glassFallbackStrong }}
+          glassEffectStyle={{ style: "regular", animate: true }}
+          shadow={false}
+          style={[
+            styles.dock,
+            {
+              backgroundColor: theme.colors.glassFallbackStrong,
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0,
+              borderBottomWidth: 0,
+              borderLeftWidth: 0,
+              borderRightWidth: 0,
+              borderTopColor: theme.colors.glassBorder,
+              borderTopWidth: StyleSheet.hairlineWidth,
+              paddingBottom: dockPadBottom,
+            },
+          ]}
+          tintColor={theme.colors.glassTint}
+        >
+          {dockStack}
+        </GlassPanel>
+      ) : (
+        <View
+          style={[
+            styles.dock,
+            {
+              backgroundColor: dockColor,
+              paddingBottom: dockPadBottom,
+            },
+          ]}
+        >
+          {dockStack}
         </View>
-      </View>
+      )}
     </View>
   );
 }

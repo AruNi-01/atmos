@@ -1,9 +1,7 @@
-import { Button, Host } from "@expo/ui";
-import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import type { ComputerRow } from "@/api/types";
-import { PreviewModeSwitch } from "@/features/preview/PreviewModeSwitch";
+import { Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { ComputerOnlineCount } from "@/features/settings/ComputerOnlineCount";
+import { formatComputerOnlineCount } from "@/features/settings/computer-settings";
 import { useHubProfile } from "@/features/settings/use-hub-profile";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
 import {
@@ -12,40 +10,33 @@ import {
   SettingsProfileRow,
   shortRelayHost,
 } from "@/features/settings/settings-shared";
-import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
 import {
   themePreferenceOptions,
   useMobileTheme,
   type MobileThemePreference,
 } from "@/theme/theme-store";
-import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { Row, Separator } from "@/ui/layout/row";
+import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
+import { Separator } from "@/ui/layout/row";
 import { LaptopIcon, LinkIcon, QrCodeIcon, SunMoonIcon } from "@/ui/icons/lucide-native";
-import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import {
-  expoUiButtonHostStyle,
-  expoUiPrimaryStyle,
-  expoUiSecondaryStyle,
-} from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
+import { NativeSegmentedControl } from "@/ui/primitives/native-controls";
 
 export function SettingsIndexScreen() {
   const router = useRouter();
   const theme = useMobileTheme();
   const settings = useMobileSettingsController();
   const profile = useHubProfile(settings.hasDeviceCredential);
-  const onlineCount = settings.activeComputers.filter((c) => c.online).length;
-  const computersMeta =
-    settings.activeComputers.length === 0
-      ? "None"
-      : `${settings.activeComputers.length}${onlineCount > 0 ? ` · ${onlineCount} online` : ""}`;
+  const onlineCount = settings.activeComputers.filter((computer) => computer.online).length;
+  const computerCount = formatComputerOnlineCount(onlineCount, settings.activeComputers.length);
 
   const openSignIn = () => {
     router.dismissTo("/");
     router.push("/sign-in");
+  };
+
+  const openRepair = () => {
+    router.dismissTo("/");
+    router.push({ pathname: "/sign-in", params: { mode: "scan" } });
   };
 
   return (
@@ -71,12 +62,17 @@ export function SettingsIndexScreen() {
         <Separator />
         <SettingsListRow
           Icon={LaptopIcon}
+          meta={
+            computerCount.kind === "ratio" ? (
+              <ComputerOnlineCount online={computerCount.online} total={computerCount.total} />
+            ) : undefined
+          }
           title="My Computers"
-          value={computersMeta}
+          value={computerCount.kind === "empty" ? computerCount.label : undefined}
           onPress={() => router.push("/settings/computers")}
         />
         <Separator />
-        <SettingsListRow Icon={QrCodeIcon} title="Re-pair phone" onPress={openSignIn} />
+        <SettingsListRow Icon={QrCodeIcon} title="Re-pair phone" onPress={openRepair} />
       </Section>
 
       <Section label="Preferences">
@@ -93,13 +89,7 @@ export function SettingsIndexScreen() {
         </View>
       </Section>
 
-      <Section label="Developer">
-        <PreviewModeSwitch />
-      </Section>
-
       <InlineError message={settings.error} />
     </AppScreen>
   );
 }
-
-/** Sparse form: fields + one Save action (Grok form density). */
