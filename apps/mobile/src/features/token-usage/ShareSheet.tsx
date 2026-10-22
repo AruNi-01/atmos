@@ -25,7 +25,7 @@ import { FacebookMark, RedditMark, ThreadsMark, XMark } from "@/features/token-u
 import { radii } from "@/theme/radii";
 import { DownloadIcon } from "@/ui/icons/lucide-native";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
+import { expoUiButtonStretchModifiersFor } from "@/ui/primitives/expo-ui-button-modifiers";
 import {
   expoUiButtonHostStyle,
   expoUiDangerStyle,
@@ -471,9 +471,8 @@ function StretchPublishButton({
       <Button
         disabled={disabled}
         label={label}
-        modifiers={expoUiButtonStretchModifiers}
+        modifiers={expoUiButtonStretchModifiersFor(look.variant)}
         onPress={onPress}
-        style={look.style}
         variant={look.variant}
       />
     </Host>

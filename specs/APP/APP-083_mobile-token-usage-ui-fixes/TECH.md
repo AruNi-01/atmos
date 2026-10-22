@@ -27,6 +27,7 @@ TokenUsageScreen
 
 charts.tsx
   → y-axis overlay stops above the x-label band
+  → windowed slices keep the y-axis column (no -PLOT_X crop)
   → bar tap + persist tip
   → popover tintColor = series color
 
@@ -42,7 +43,7 @@ MobileAgentIcon
 
 - Remove the wrapping `GlassPanel` (`styles.publishCard`). Pane children sit on the drawer sheet.
 - `PrefixedField` wraps prefix + `NativeTextInput framed={false}` in `GlassPanel` with `borderRadius: radii.pill` and `shadow={false}`. Do not draw a second control border.
-- Primary: `expoUiPrimaryStyle` + Host `style={expoUiButtonHostStyle}` (width 100%) + Button `modifiers={expoUiButtonStretchModifiers}`. `variant="filled"`. Label `Publish` / `Update` / pending copy from APP-082. Full width, min height 52. Never `variant="text"` and never `matchContents` without a stretch frame. `frame.maxWidth` must be a JSON-safe finite number (`EXPO_UI_FRAME_INFINITY`); `Number.POSITIVE_INFINITY` becomes `null` on the RN bridge so filled `borderedProminent` stays a hugging capsule while outlined still expands.
+- Primary: `expoUiPrimaryStyle` + Host `style={expoUiButtonHostStyle}` (width 100%) + Button `modifiers={expoUiButtonStretchModifiersFor("filled")}`. `variant="filled"`. Label `Publish` / `Update` / pending copy from APP-082. Full width, min height 52. Never `variant="text"` and never `matchContents` without a stretch frame. `frame.maxWidth` must be a JSON-safe finite number (`EXPO_UI_FRAME_INFINITY`); `Number.POSITIVE_INFINITY` becomes `null` on the RN bridge. Universal Button prepends `buttonStyle`, so `frame(maxWidth:)` with default `alignment: center` leaves filled `borderedProminent` as a short centered capsule inside a wide Host (outlined `bordered` still looks full-width). Stretch helpers put `frame` + `buttonBorderShape("roundedRectangle")` then `buttonStyle` last, and must not pass `style.height` (Expo `FrameModifier` ignores `maxWidth` when `height` is set).
 - Turn off: only when live; **below** the primary; `expoUiDangerStyle` + the same stretch Host. Not a trailing compact control.
 - `publishActions` is a vertical stack (`gap`, `width: "100%"`), not `space-between` row.
 - Public `NativeSwitch` stays the only switch.
@@ -93,9 +94,13 @@ For `UsageStackedChart`:
 
 ### X-axis clip (M9)
 
-Chart-kit x labels use `textAnchor: "middle"` at the data-point x. `ChartViewport` pinned a full-height y-axis overlay of width `axisWidth`, so the leftmost month is centred on that clip edge (`"Nov"` → `"No"`, `"Feb"` → `"eb"`). A scroll-content `CHART_X_LABEL_INSET` plus `placeEnd(contentWidth - viewport + inset)` cancelled itself: when the series fits, offset becomes `+inset` and the first label sits on the overlay edge again. iOS also clips negative `marginLeft` on `UIScrollView`.
+Chart-kit x labels use `textAnchor: "middle"` at the data-point x (plot origin ≈ overlay right edge). Three things stacked to clip `"Nov"` / `"Feb"` to `"No"` / `"eb"`:
 
-Fix: make the overlay cover only the plot (`overlayPlotHeight = height - CHART_X_LABEL_BAND`) so centred labels can extend into the y-axis gutter. Give the chart `ScrollView` the full host width (no `marginLeft: axisWidth`, no negative content shift). `placeEnd` uses `scrollEndOffset(contentWidth, viewport)` with no extra inset. Gesture `chartX` is `event.x + offset`. Hide y-axis labels on the scrolling growth chart so ticks are not duplicated. Overlay width stays `axisWidth`.
+1. Label anchor / `textAlign` center at the first plot x.
+2. Clipping container: the windowed growth slice used `left: span*gap + PLOT_X` and `marginLeft: -PLOT_X`, so the first label sat at wrapper x=0. iOS clips that overflow even with `overflow: "visible"`. The full-height y-axis overlay then painted over the remaining gutter.
+3. Scroll content offset: `CHART_X_LABEL_INSET` plus `placeEnd(... + inset)` cancelled itself (fitting series lands at offset `+inset`, first label back on the overlay edge).
+
+Fix: overlay covers only the plot (`overlayPlotHeight = height - CHART_X_LABEL_BAND`). Windowed slices keep the y-axis column (`windowedSliceFrame`, no `-PLOT_X` crop). `ScrollView` is full host width. `placeEnd` uses `scrollEndOffset(contentWidth, viewport)` with no extra inset. Gesture `chartX` is `event.x + offset`. Hide y-axis labels on the scrolling growth chart. Overlay width stays `axisWidth`.
 
 Helpers live in `chart-geometry.ts` with bun tests.
 
@@ -113,6 +118,11 @@ No new types on the wire. Local helpers only:
 function glyphSurfaceKey(colorScheme: string, tint: string | undefined): string;
 function chartXFromGesture(eventX: number, offset: number): number;
 function overlayPlotHeight(chartHeight: number, labelBand: number): number;
+function windowedSliceFrame(
+  spanStart: number,
+  step: number,
+  drawnWidth: number,
+): { left: number; width: number };
 function displayedOverview<T>(active: T | null | undefined, previous: T | null): T | null;
 ```
 

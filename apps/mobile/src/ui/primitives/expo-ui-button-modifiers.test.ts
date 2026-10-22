@@ -20,4 +20,13 @@ describe("expo UI stretch frame", () => {
     expect(source).toContain("maxWidth: EXPO_UI_FRAME_INFINITY");
     expect(source).not.toContain("maxWidth: Number.POSITIVE_INFINITY");
   });
+
+  test("filled stretch applies frame then roundedRectangle then buttonStyle", () => {
+    expect(source).toContain('alignment: "leading"');
+    expect(source).toContain('buttonBorderShape("roundedRectangle")');
+    expect(source).toContain("export function expoUiButtonStretchModifiersFor");
+    const helper = source.slice(source.indexOf("export function expoUiButtonStretchModifiersFor"));
+    expect(helper).toContain("buttonStyle(VARIANT_BUTTON_STYLE[variant])");
+    expect(helper.indexOf("...stretch")).toBeLessThan(helper.indexOf("buttonStyle("));
+  });
 });

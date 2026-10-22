@@ -46,7 +46,7 @@ describe("Publish sheet structure", () => {
 
   test("primary and Turn off are stacked stretch Host buttons", () => {
     expect(source).toContain("expoUiButtonHostStyle");
-    expect(source).toContain("expoUiButtonStretchModifiers");
+    expect(source).toContain("expoUiButtonStretchModifiersFor");
     expect(source).toContain("expoUiPrimaryStyle");
     expect(source).toContain("expoUiDangerStyle");
     expect(source).toContain("variant={look.variant}");
@@ -56,7 +56,10 @@ describe("Publish sheet structure", () => {
     expect(source).not.toMatch(/publishActions:\s*\{[^}]*flexDirection:\s*"row"/);
     const stretch = source.slice(source.indexOf("function StretchPublishButton"));
     expect(stretch).toContain("style={expoUiButtonHostStyle}");
-    expect(stretch).toMatch(/<Button[\s\S]*modifiers=\{expoUiButtonStretchModifiers\}/);
+    expect(stretch).toMatch(
+      /<Button[\s\S]*modifiers=\{expoUiButtonStretchModifiersFor\(look\.variant\)\}/,
+    );
+    expect(stretch).not.toContain("style={look.style}");
   });
 
   test("Turn off is below the primary and Public is the only switch", () => {

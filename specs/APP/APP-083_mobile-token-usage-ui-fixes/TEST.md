@@ -35,7 +35,7 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 | S5       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/terminal/agent-glyph-tint.test.ts`      | cursor/codex/droid + colorScheme      | `glyphSurfaceKey` changes with scheme; Image uses it                          | planned |
 | S6       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-popover-mark.test.ts` | `charts.tsx` source + helper          | Popover agent mark passes series `tintColor`                                  | planned |
 | S7       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`        | bar vs growth open mode               | Bar opens on tap and persists; growth still hold                              | planned |
-| S8       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`     | overlay band + first-label gutter     | Overlay leaves x-label band open; placeEnd has no extra inset                 | planned |
+| S8       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`     | overlay band + first-label gutter     | Overlay leaves x-label band open; crop at plot origin still clips; no inset   | planned |
 | S9       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts` | `TokenUsageScreen.tsx` source         | No `scrollTo(y:0)`; keep previous overview; reset selectedDate                | planned |
 | S10      | Manual   | iOS simulator | Token usage + Share Publish, both themes                                         | two computers, light and dark         | Visual acceptance for M1–M10                                                  | planned |
 | S11      | Lint     | oxlint/oxfmt  | `bunx oxlint --fix` and `bunx oxfmt` on touched files; `bun lint` cap 455        | changed paths                         | lint/format clean                                                             | planned |
@@ -103,7 +103,7 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 - **Level**: Bun test
 - **Given**: a centred month label at the y-axis overlay edge
 - **When**: the overlay covers the label band vs leaves it open
-- **Then**: covering clips the label; leaving the band open keeps a 24px-wide centred `"Nov"` fully visible; `placeEnd` of a fitting series is offset 0, not `+inset`
+- **Then**: covering clips the label; leaving the band open keeps a 24px-wide centred `"Nov"` fully visible unless the slice is cropped at the plot origin; `placeEnd` of a fitting series is offset 0, not `+inset`
 - **Signals**: `chart-geometry.test.ts`
 
 ### S9 — Large title on All
