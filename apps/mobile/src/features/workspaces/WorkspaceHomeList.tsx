@@ -41,7 +41,8 @@ import { ChevronDownIcon } from "@/ui/icons/lucide-native";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
-import { SessionSwipeRow } from "@/ui/primitives/session-swipe-row";
+import { SessionSwipeRow, useOpenSwipeRows } from "@/ui/primitives/session-swipe-row";
+import { hiddenSwipeSeparatorIndexes } from "@/ui/primitives/swipe-row-press";
 import { Row, Separator } from "@/ui/layout/row";
 
 const SECTION_TITLE_SIZE = 17;
@@ -375,6 +376,12 @@ function WorkspaceGroup({
 }) {
   const theme = useMobileTheme();
   const reducedMotion = useReducedMotion() === true;
+  const { openIds, setOpen } = useOpenSwipeRows();
+  const hiddenSeparators = new Set(
+    hiddenSwipeSeparatorIndexes(
+      items.flatMap((item, index) => (openIds.includes(`${item.kind}:${item.id}`) ? [index] : [])),
+    ),
+  );
   const rotation = useRef(new Animated.Value(open ? 1 : 0)).current;
 
   useEffect(() => {
@@ -457,10 +464,11 @@ function WorkspaceGroup({
               );
               return (
                 <View key={`${item.kind}:${item.id}`}>
-                  {index > 0 ? <Separator /> : null}
+                  {index > 0 && !hiddenSeparators.has(index) ? <Separator /> : null}
                   {swipeable ? (
                     <SessionSwipeRow
                       onArchive={() => onArchive(item)}
+                      onRevealedChange={(open) => setOpen(`${item.kind}:${item.id}`, open)}
                       onDelete={() => onDelete(item)}
                       onPin={() => onTogglePin(item)}
                       onPress={() => onOpen(item)}

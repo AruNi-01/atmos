@@ -8,6 +8,7 @@ import { spacing } from "@/theme/spacing";
 import {
   applySwipeRowTouch,
   resolveSwipeRowTouch,
+  hiddenSwipeSeparatorIndexes,
   SWIPE_ROW_BUTTON_EDGE,
   SWIPE_ROW_SCREEN_BLEED,
   SWIPE_ROW_TRAILING_RADIUS,
@@ -108,13 +109,13 @@ describe("swipe row press", () => {
     expect(pin.marginRight).toBe(-spacing.screenX);
   });
 
-  test("an open row uses a different fill from the page and from other rows", () => {
+  test("an open row uses a different fill and leaves the button bay on the list fill", () => {
     for (const colors of [lightColors, darkColors]) {
       const open = swipeRowOpenChrome(true, colors);
       expect(open.cardBackground).toBe(colors.secondaryBackground);
-      expect(open.wellBackground).toBe(colors.background);
-      expect(open.cardBackground).not.toBe(open.wellBackground);
+      expect(open.wellBackground).toBe("transparent");
       expect(open.cardBackground).not.toBe(colors.cardElevated);
+      expect(open.cardBackground).not.toBe(colors.background);
       expect(open.borderWidth).toBe(0);
       expect(open.radiusTopRight).toBe(radii.control);
       expect(open.radiusBottomRight).toBe(radii.control);
@@ -125,6 +126,7 @@ describe("swipe row press", () => {
       expect(colors.secondaryBackground).not.toBe(colors.background);
       expect(colors.secondaryBackground).not.toBe(colors.cardElevated);
     }
+    expect(rgbSum(darkColors.secondaryBackground)).toBeGreaterThan(rgbSum(darkColors.cardElevated));
 
     const closed = swipeRowOpenChrome(false, lightColors);
     expect(closed.radiusTopLeft).toBe(0);
@@ -138,6 +140,14 @@ describe("swipe row press", () => {
     expect(closed.borderWidth).toBe(0);
   });
 
+  test("an open row hides the separators above and below it", () => {
+    expect(hiddenSwipeSeparatorIndexes([])).toEqual([]);
+    expect(hiddenSwipeSeparatorIndexes([-1])).toEqual([]);
+    expect(hiddenSwipeSeparatorIndexes([0])).toEqual([0, 1]);
+    expect(hiddenSwipeSeparatorIndexes([2])).toEqual([2, 3]);
+    expect(hiddenSwipeSeparatorIndexes([1, 3])).toEqual([1, 2, 3, 4]);
+  });
+
   test("the swipe row does not hardcode colors", () => {
     const source = readFileSync(new URL("./session-swipe-row.tsx", import.meta.url), "utf8");
     expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
@@ -146,6 +156,15 @@ describe("swipe row press", () => {
     expect(source).toContain("theme.colors.swipeDelete");
     expect(source).toContain("theme.colors.swipePin");
     expect(source).toContain("theme.colors.ctaLabel");
-    expect(source).toContain("theme.colors.background");
+    expect(source).not.toContain("theme.colors.background");
+    expect(source).toContain("onRevealedChange");
   });
 });
+
+function rgbSum(hex: string) {
+  return (
+    Number.parseInt(hex.slice(1, 3), 16) +
+    Number.parseInt(hex.slice(3, 5), 16) +
+    Number.parseInt(hex.slice(5, 7), 16)
+  );
+}

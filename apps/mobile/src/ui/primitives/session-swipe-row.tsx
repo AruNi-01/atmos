@@ -3,6 +3,7 @@ import { Pressable, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   Easing,
+  useAnimatedReaction,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -16,7 +17,6 @@ import {
   SWIPE_ROW_BUTTON_EDGE,
   swipeRowCardFrame,
   swipeRowGestureConfig,
-  swipeRowWellColor,
 } from "@/ui/primitives/swipe-row-press";
 import type { SessionSwipeRowProps } from "./session-swipe-row.types";
 
@@ -89,6 +89,7 @@ export function SessionSwipeRow({
   onDelete,
   onPin,
   onPress,
+  onRevealedChange,
   pinLabel,
 }: SessionSwipeRowProps) {
   const theme = useMobileTheme();
@@ -100,7 +101,6 @@ export function SessionSwipeRow({
   const dragStart = useSharedValue(0);
   const leadingW = useSharedValue(leadingWidth);
   const trailingW = useSharedValue(trailingWidth);
-  const wellColor = useSharedValue(theme.colors.background);
   const openColor = useSharedValue(theme.colors.secondaryBackground);
   const revealedRef = useRef(false);
   const panActiveRef = useRef(false);
@@ -111,22 +111,20 @@ export function SessionSwipeRow({
   const onPinRef = useRef(onPin);
   const onArchiveRef = useRef(onArchive);
   const onDeleteRef = useRef(onDelete);
+  const onRevealedChangeRef = useRef(onRevealedChange);
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     leadingW.set(leadingWidth);
     trailingW.set(trailingWidth);
-    wellColor.set(theme.colors.background);
     openColor.set(theme.colors.secondaryBackground);
   }, [
     leadingW,
     leadingWidth,
     openColor,
-    theme.colors.background,
     theme.colors.secondaryBackground,
     trailingW,
     trailingWidth,
-    wellColor,
   ]);
 
   const commitRevealed = useCallback((open: boolean) => {
@@ -213,15 +211,40 @@ export function SessionSwipeRow({
     onPinRef.current = onPin;
     onArchiveRef.current = onArchive;
     onDeleteRef.current = onDelete;
+    onRevealedChangeRef.current = onRevealedChange;
     rowHandlers.set(rowId, { onPanFinalize, onPanStart, onTap });
     return () => {
       rowHandlers.delete(rowId);
     };
-  }, [onArchive, onDelete, onPanFinalize, onPanStart, onPin, onPress, onTap, rowId]);
+  }, [
+    onArchive,
+    onDelete,
+    onPanFinalize,
+    onPanStart,
+    onPin,
+    onPress,
+    onRevealedChange,
+    onTap,
+    rowId,
+  ]);
+
+  const reportRevealed = useCallback((open: boolean) => {
+    onRevealedChangeRef.current?.(open);
+  }, []);
+
+  useAnimatedReaction(
+    () => Math.abs(offset.get()) > 0.5,
+    (open, previous) => {
+      if (previous == null || open === previous) return;
+      scheduleOnRN(reportRevealed, open);
+    },
+    [offset, reportRevealed],
+  );
 
   useEffect(
     () => () => {
       if (suppressTimer.current) clearTimeout(suppressTimer.current);
+      onRevealedChangeRef.current?.(false);
     },
     [],
   );
@@ -253,9 +276,6 @@ export function SessionSwipeRow({
     return Gesture.Exclusive(pan, tap);
   }, [dragStart, leadingW, offset, rowId, trailingW]);
 
-  const wellStyle = useAnimatedStyle(() => ({
-    backgroundColor: swipeRowWellColor(offset.get(), wellColor.get()),
-  }));
   const cardStyle = useAnimatedStyle(() => {
     const frame = swipeRowCardFrame(offset.get());
     const moving = Math.abs(offset.get()) > 0.5;
@@ -287,9 +307,9 @@ export function SessionSwipeRow({
 
   return (
     <View pointerEvents="box-none" style={{ overflow: "visible" }}>
-      <Reanimated.View
+      <View
         pointerEvents="box-none"
-        style={[{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }, wellStyle]}
+        style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
       >
         <View
           accessibilityElementsHidden={!revealed}
@@ -352,7 +372,7 @@ export function SessionSwipeRow({
             </View>
           ) : null}
         </View>
-      </Reanimated.View>
+      </View>
       <GestureDetector gesture={gesture}>
         <Reanimated.View
           accessibilityActions={activates ? [{ name: "activate" }] : undefined}
@@ -368,6 +388,17 @@ export function SessionSwipeRow({
       </GestureDetector>
     </View>
   );
+}
+
+export function useOpenSwipeRows() {
+  const [openIds, setOpenIds] = useState<readonly string[]>([]);
+  const setOpen = useCallback((id: string, open: boolean) => {
+    setOpenIds((current) => {
+      const without = current.filter((item) => item !== id);
+      return open ? [...without, id] : without;
+    });
+  }, []);
+  return { openIds, setOpen };
 }
 
 export type { SessionSwipeRowProps } from "./session-swipe-row.types";

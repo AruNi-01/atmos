@@ -101,20 +101,24 @@ export function swipeRowCardFrame(offset: number) {
   };
 }
 
-export function swipeRowWellColor(offset: number, background: string) {
-  "worklet";
-  return Math.abs(offset) > 0.5 ? background : "transparent";
+/** Separators above and below each open row. `separatorIndex` is the line before that row. */
+export function hiddenSwipeSeparatorIndexes(openIndexes: readonly number[]): number[] {
+  const hidden = new Set<number>();
+  for (const index of openIndexes) {
+    if (index < 0) continue;
+    hidden.add(index);
+    hidden.add(index + 1);
+  }
+  return [...hidden].sort((left, right) => left - right);
 }
 
-export function swipeRowOpenChrome(
-  revealed: boolean,
-  colors: { background: string; secondaryBackground: string },
-) {
+export function swipeRowOpenChrome(revealed: boolean, colors: { secondaryBackground: string }) {
   const offset = revealed ? -SWIPE_ROW_OPEN_DISTANCE : 0;
   const frame = swipeRowCardFrame(offset);
   return {
     ...frame,
     cardBackground: revealed ? colors.secondaryBackground : "transparent",
-    wellBackground: swipeRowWellColor(offset, colors.background),
+    // The button bay stays unpainted so the section's list fill shows through.
+    wellBackground: "transparent" as const,
   };
 }

@@ -22,8 +22,11 @@ export const workflowStatusColors = {
 
 export const lightColors = {
   background: "#f4f4f6",
-  /** Open swipe row. A gray distinct from white list rows and from the page. */
-  secondaryBackground: "#e5e5ea",
+  /**
+   * Open swipe row. Light list rows are already white, so this is a light gray
+   * step rather than a brighter white. Dark is a step lighter than `cardElevated`.
+   */
+  secondaryBackground: "#f2f2f7",
   sheetBackground: "#f8f8f9",
   card: "#ffffff",
   cardElevated: "#ffffff",
@@ -73,8 +76,8 @@ export const lightColors = {
 
 export const darkColors: MobileThemeColors = {
   background: "#000000",
-  /** Open swipe row. iOS secondarySystemBackground: a step lighter than the black page. */
-  secondaryBackground: "#1c1c1e",
+  /** Open swipe row. One step lighter than the dark list card (`cardElevated`). */
+  secondaryBackground: "#3a3a3c",
   sheetBackground: "#1c1c1e",
   card: "#2c2c2e",
   cardElevated: "#2c2c2e",

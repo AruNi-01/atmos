@@ -7,7 +7,8 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { TitleSkeleton } from "@/ui/primitives/list-skeleton";
-import { SessionSwipeRow } from "@/ui/primitives/session-swipe-row";
+import { SessionSwipeRow, useOpenSwipeRows } from "@/ui/primitives/session-swipe-row";
+import { hiddenSwipeSeparatorIndexes } from "@/ui/primitives/swipe-row-press";
 import { SessionDeletePicker } from "./session-delete-picker";
 import { sessionPinId, type SessionInboxRow } from "./session-inbox";
 import { type SessionDeleteChoice } from "./session-row-actions";
@@ -38,6 +39,12 @@ export function SessionRowList({
 }) {
   const theme = useMobileTheme();
   const palette = colors ?? theme.colors;
+  const { openIds, setOpen } = useOpenSwipeRows();
+  const hiddenSeparators = new Set(
+    hiddenSwipeSeparatorIndexes(
+      rows.flatMap((row, index) => (openIds.includes(row.id) ? [index] : [])),
+    ),
+  );
   const pinned = new Set(pinnedIds ?? []);
   const [deleteRow, setDeleteRow] = useState<SessionInboxRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -76,7 +83,7 @@ export function SessionRowList({
         );
         return (
           <View key={row.id}>
-            {index > 0 ? (
+            {index > 0 && !hiddenSeparators.has(index) ? (
               <View
                 style={{
                   backgroundColor: palette.separator,
@@ -87,6 +94,7 @@ export function SessionRowList({
             ) : null}
             {swipeEnabled && onTogglePin ? (
               <SessionSwipeRow
+                onRevealedChange={(open) => setOpen(row.id, open)}
                 onArchive={
                   canManageChat && onArchiveChat
                     ? () => {

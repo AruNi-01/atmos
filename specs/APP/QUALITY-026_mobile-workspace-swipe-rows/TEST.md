@@ -19,23 +19,24 @@ The rules are pure functions on the mobile client. Bun tests lock them. There is
 | M1 swipe does not navigate                      | S1, S2, S3   |
 | M2 Recently subtitle                            | S4, S5       |
 | M3 project-group detail from existing git batch | S6, S7, S8   |
-| M4 open row trailing cap, light and dark        | S9           |
+| M4 open row trailing cap, light and dark        | S9, S11      |
 | Lint cap unchanged                              | S10          |
 
 ## Execution map
 
-| Scenario | Level    | Expected tool | Target command / method                                                 | Fixture / data                                | Signals                                                                               | Status |
-| -------- | -------- | ------------- | ----------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------- | ------ |
-| S1       | Bun test | `bun test`    | `apps/mobile/src/ui/primitives/swipe-row-press.test.ts`                 | horizontal samples and revealed flags         | `navigate` only for a tap that is not revealed                                        | pass   |
-| S2       | Bun test | `bun test`    | same file, pan cases                                                    | pan kind, including a small final translation | action is `ignore`                                                                    | pass   |
-| S3       | Bun test | `bun test`    | same file, revealed tap                                                 | `revealed: true`, kind `tap`                  | action is `close`                                                                     | pass   |
-| S4       | Bun test | `bun test`    | `apps/mobile/src/features/workspaces/workspace-row-subtitle.test.ts`    | workspace entry with `projectName`            | subtitle is the project name                                                          | pass   |
-| S5       | Bun test | `bun test`    | same file                                                               | `kind: "project"`                             | subtitle is `Project`                                                                 | pass   |
-| S6       | Bun test | `bun test`    | same file                                                               | branch plus uncommitted count                 | `feat · +2`; clean branch has no `+0`                                                 | pass   |
-| S7       | Bun test | `bun test`    | same file                                                               | project branch, then count fallback           | `Project · main`; `Project · 2 workspaces`; empty project stays `Project`             | pass   |
-| S8       | Bun test | `bun test`    | `apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts` | expanded project section, duplicate paths     | one path list; collapsed sections omitted; non-project grouping returns none          | pass   |
-| S9       | Bun test | `bun test`    | `swipe-row-press.test.ts` chrome cases                                  | `lightColors` and `darkColors`                | trailing-only radius; open fill is `secondaryBackground`; well is the page; no border | pass   |
-| S10      | Review   | `rg`          | root `package.json` script `lint`                                       | this branch                                   | `oxlint --max-warnings=455`                                                           | pass   |
+| Scenario | Level    | Expected tool | Target command / method                                                 | Fixture / data                                | Signals                                                                                     | Status |
+| -------- | -------- | ------------- | ----------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------- | ------ |
+| S1       | Bun test | `bun test`    | `apps/mobile/src/ui/primitives/swipe-row-press.test.ts`                 | horizontal samples and revealed flags         | `navigate` only for a tap that is not revealed                                              | pass   |
+| S2       | Bun test | `bun test`    | same file, pan cases                                                    | pan kind, including a small final translation | action is `ignore`                                                                          | pass   |
+| S3       | Bun test | `bun test`    | same file, revealed tap                                                 | `revealed: true`, kind `tap`                  | action is `close`                                                                           | pass   |
+| S4       | Bun test | `bun test`    | `apps/mobile/src/features/workspaces/workspace-row-subtitle.test.ts`    | workspace entry with `projectName`            | subtitle is the project name                                                                | pass   |
+| S5       | Bun test | `bun test`    | same file                                                               | `kind: "project"`                             | subtitle is `Project`                                                                       | pass   |
+| S6       | Bun test | `bun test`    | same file                                                               | branch plus uncommitted count                 | `feat · +2`; clean branch has no `+0`                                                       | pass   |
+| S7       | Bun test | `bun test`    | same file                                                               | project branch, then count fallback           | `Project · main`; `Project · 2 workspaces`; empty project stays `Project`                   | pass   |
+| S8       | Bun test | `bun test`    | `apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts` | expanded project section, duplicate paths     | one path list; collapsed sections omitted; non-project grouping returns none                | pass   |
+| S9       | Bun test | `bun test`    | `swipe-row-press.test.ts` chrome cases                                  | `lightColors` and `darkColors`                | trailing-only radius; open fill is `secondaryBackground`; well stays transparent; no border | pass   |
+| S10      | Review   | `rg`          | root `package.json` script `lint`                                       | this branch                                   | `oxlint --max-warnings=455`                                                                 | pass   |
+| S11      | Bun test | `bun test`    | same file, `hiddenSwipeSeparatorIndexes`                                | open row indexes                              | the separator before the row and the next separator are hidden                              | pass   |
 
 ## Scenarios
 
@@ -108,8 +109,16 @@ The rules are pure functions on the mobile client. Bun tests lock them. There is
 - **Level**: Bun test
 - **Given**: `lightColors` and `darkColors`, and a left shift of 120.
 - **When**: the frame and chrome are resolved for open and closed.
-- **Then**: a left shift of 120 rounds only the trailing corners to `radii.control`, leaves the leading corners square, clamps `marginLeft` at `-spacing.screenX`, sets `marginRight` to 120, and sets `borderWidth` 0. A shift of exactly the screen padding still has `marginLeft + marginRight` equal to 0. The open fill is `secondaryBackground`, which differs from both `background` and `cardElevated`. The well is `background`. A right shift rounds only the leading corners and clamps the trailing margin at the screen padding. Closed radii are 0, both horizontal margins are 0, and the well and the row fill are `transparent`. The row component source has no hex color.
+- **Then**: a left shift of 120 rounds only the trailing corners to `radii.control`, leaves the leading corners square, clamps `marginLeft` at `-spacing.screenX`, sets `marginRight` to 120, and sets `borderWidth` 0. A shift of exactly the screen padding still has `marginLeft + marginRight` equal to 0. The open fill is `secondaryBackground`, which differs from both `background` and `cardElevated`. In dark mode that fill is lighter than `cardElevated`. The well stays `transparent` while open and while closed, so the list fill shows through the button bay. A right shift rounds only the leading corners and clamps the trailing margin at the screen padding. Closed radii are 0, both horizontal margins are 0, and the row fill is `transparent`. The row component source has no hex color and does not paint `theme.colors.background`.
 - **Signals**: `swipeRowCardFrame`, `swipeRowOpenChrome`, and `session-swipe-row.tsx`.
+
+### S11 — Open row hides both adjacent separators
+
+- **Level**: Bun test
+- **Given**: separator indexes, where index `i` is the line before row `i`.
+- **When**: one or more row indexes are open.
+- **Then**: the separator before each open row and the separator before the next row are hidden. A negative index hides nothing. An empty open set hides nothing.
+- **Signals**: `hiddenSwipeSeparatorIndexes`.
 
 ### S10 — Lint cap stays 455
 
@@ -139,7 +148,7 @@ Not run. The surface is the Expo native app, not the web app. `agent-browser` ha
 
 ## Acceptance criteria
 
-- [ ] S1–S9 have a passing bun test named in Coverage Status.
+- [ ] S1–S9 and S11 have a passing bun test named in Coverage Status.
 - [ ] S10 stays `oxlint --max-warnings=455`.
 - [ ] No new `WsAction` and no REST route.
 - [ ] `bun --filter @atmos/mobile typecheck` passes.
@@ -151,7 +160,7 @@ iOS Simulator, signed in, Computer connected, at least one Project with a worksp
 
 1. Open the Workspace tab (grid icon). Pull to the Recently header. Each workspace line under it shows the project name. Confirm a grouped project row still says `Project`, with a branch or a workspace count when the batch returns.
 2. In a Project section, confirm a workspace line shows its branch. If the worktree has uncommitted files, the same line includes `+N`.
-3. Swipe a workspace row left until the buttons settle. The left edge of the row is square and flush with the screen. The title stays readable. Only the right corners are largely rounded. The row has no stroke. Its fill is a gray that is not the other rows' fill and not the page fill. The circular archive and delete buttons sit on the page fill, with a gap between the cap and the buttons. Repeat in dark mode: the row is a gray slightly lighter than the black page, and the buttons stay on that black page.
+3. Swipe a workspace row left until the buttons settle. The left edge of the row is square and flush with the screen. The title stays readable. Only the right corners are largely rounded. The row has no stroke. Its fill differs from the rows above and below. The hairline above that row and the hairline below it disappear, and both return when the row closes. The circular archive and delete buttons are vertically centered on the same fill as those neighboring rows, with a gap between the cap and the buttons. Repeat in dark mode: the open row is a gray slightly lighter than the other rows, and the button area is not a separate black band.
 4. While the row is open, tap the card. It closes and the workspace does not open. Swipe and lift. The workspace does not open. Tap the closed row with no sideways movement. The workspace opens.
 5. Open the Session tab and repeat step 4 on a session row. The session does not open on a swipe or on a tap of an open row.
 6. Open a workspace, then repeat step 4 on a session row inside that workspace.
@@ -175,10 +184,10 @@ _Last run: 2026-10-22._
 - S6 — ✅ same file, `project-group workspace line shows branch and a positive change count`
 - S7 — ✅ same file, `project-group project line prefers the current branch, then the workspace count`
 - S8 — ✅ `apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts`
-- S9 — ✅ same swipe file, `a left swipe rounds only the trailing corners and stops at the screen edge` and `an open row uses a different fill from the page and from other rows` (revised 2026-10-22: trailing cap, leading edge clamped at the screen padding). `the swipe row does not hardcode colors` locks the row source to theme tokens.
+- S9 — ✅ same swipe file, `a left swipe rounds only the trailing corners and stops at the screen edge` and `an open row uses a different fill and leaves the button bay on the list fill` (revised 2026-10-22: transparent well, dark fill lighter than `cardElevated`). `the swipe row does not hardcode colors` locks the row source to theme tokens.
 - S10 — ✅ root `package.json` `lint` is `oxlint --max-warnings=455`. `bunx oxlint --max-warnings=455` exited 0 (433 warnings).
-- Command: `bun test apps/mobile/src/ui/primitives/swipe-row-press.test.ts apps/mobile/src/features/workspaces/workspace-row-subtitle.test.ts apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts` — 14 pass, 0 fail.
-- `bun test apps/mobile/src/theme/css-variables.test.ts` — 5 pass, 0 fail.
+- S11 — ✅ same swipe file, `an open row hides the separators above and below it`.
+- Command: `bun test apps/mobile/src/ui/primitives/swipe-row-press.test.ts apps/mobile/src/features/workspaces/workspace-row-subtitle.test.ts apps/mobile/src/features/workspaces/workspace-list-git-status.test.ts apps/mobile/src/theme/css-variables.test.ts` — 20 pass, 0 fail.
 - `bun --filter @atmos/mobile typecheck` — exit 0.
 - Exploratory agent-browser — not_run. Expo native screen; no mobile workspace session for agent-browser.
 - iOS Simulator manual steps — not run. This environment is Linux and has no iOS Simulator.
