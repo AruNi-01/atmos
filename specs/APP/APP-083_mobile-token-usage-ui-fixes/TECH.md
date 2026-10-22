@@ -23,10 +23,10 @@ ShareSheet PublishPane
 
 TokenUsageScreen
   → reserved heatmap height, no card LinearTransition
-  → scrollTo(0) on Computer / All change
+  → keep previous overview on Computer / All change; do not scrollTo(y:0)
 
 charts.tsx
-  → x-label inset in ChartViewport
+  → y-axis overlay stops above the x-label band
   → bar tap + persist tip
   → popover tintColor = series color
 
@@ -42,7 +42,7 @@ MobileAgentIcon
 
 - Remove the wrapping `GlassPanel` (`styles.publishCard`). Pane children sit on the drawer sheet.
 - `PrefixedField` wraps prefix + `NativeTextInput framed={false}` in `GlassPanel` with `borderRadius: radii.pill` and `shadow={false}`. Do not draw a second control border.
-- Primary: `expoUiPrimaryStyle` + `expoUiButtonHostStyle` + `expoUiButtonStretchModifiers`. `variant="filled"`. Label `Publish` / `Update` / pending copy from APP-082. Full width, min height 52. Never `variant="text"` and never `matchContents` without a stretch frame.
+- Primary: `expoUiPrimaryStyle` + Host `style={expoUiButtonHostStyle}` (width 100%) + Button `modifiers={expoUiButtonStretchModifiers}`. `variant="filled"`. Label `Publish` / `Update` / pending copy from APP-082. Full width, min height 52. Never `variant="text"` and never `matchContents` without a stretch frame. `frame.maxWidth` must be a JSON-safe finite number (`EXPO_UI_FRAME_INFINITY`); `Number.POSITIVE_INFINITY` becomes `null` on the RN bridge so filled `borderedProminent` stays a hugging capsule while outlined still expands.
 - Turn off: only when live; **below** the primary; `expoUiDangerStyle` + the same stretch Host. Not a trailing compact control.
 - `publishActions` is a vertical stack (`gap`, `width: "100%"`), not `space-between` row.
 - Public `NativeSwitch` stays the only switch.
@@ -89,23 +89,21 @@ For `UsageStackedChart`:
 - Add `Gesture.Tap()` (`maxDistance` small enough not to steal horizontal scroll).
 - Persist the tip on release (tap and long-press scrub). Series change still clears it.
 - Horizontal scroll (`onScrollBeginDrag`) clears a persisted stacked tip so the indicator does not sit on a different bar.
-- Keep `columnIndicatorLine` / `columnIndicatorColor` while the tip is open.
+- Keep `columnIndicatorLine` / `columnIndicatorColor` while the tip is open. Indicator x is the bar centre in host coordinates (`columnIndicatorHostX`), not the slot boundary between months.
 
 ### X-axis clip (M9)
 
-`ChartViewport` pins a y-axis overlay of width `axisWidth` and shifts scroll content by `-axisWidth`. The first x label is centered on the first point at that edge; half of `"Nov"` / `"Feb"` is clipped (`"No"`, `"eb"`).
+Chart-kit x labels use `textAnchor: "middle"` at the data-point x. `ChartViewport` pinned a full-height y-axis overlay of width `axisWidth`, so the leftmost month is centred on that clip edge (`"Nov"` → `"No"`, `"Feb"` → `"eb"`). A scroll-content `CHART_X_LABEL_INSET` plus `placeEnd(contentWidth - viewport + inset)` cancelled itself: when the series fits, offset becomes `+inset` and the first label sits on the overlay edge again. iOS also clips negative `marginLeft` on `UIScrollView`.
 
-Inset scroll content by `CHART_X_LABEL_INSET` (~20pt): content `marginLeft = -(axisWidth - inset)` so the first label sits fully inside the scroll view. Hide y-axis labels on the **scrolling** growth chart (`showYAxisLabels={false}`) so ticks are not duplicated in the inset. Overlay width stays `axisWidth`. Gesture `chartX` subtracts the same inset so hit-testing still matches. `placeEnd` uses `scrollEndOffset` (`contentWidth - viewport + inset`) so the last point lands in the viewport.
+Fix: make the overlay cover only the plot (`overlayPlotHeight = height - CHART_X_LABEL_BAND`) so centred labels can extend into the y-axis gutter. Give the chart `ScrollView` the full host width (no `marginLeft: axisWidth`, no negative content shift). `placeEnd` uses `scrollEndOffset(contentWidth, viewport)` with no extra inset. Gesture `chartX` is `event.x + offset`. Hide y-axis labels on the scrolling growth chart so ticks are not duplicated. Overlay width stays `axisWidth`.
 
-Helpers live in a small `chart-geometry.ts` (or equivalent) with bun tests.
+Helpers live in `chart-geometry.ts` with bun tests.
 
 ### Large title (M10)
 
-Switching to All swaps `activeQuery`; `overview` becomes null then a taller page. iOS large title + `contentInsetAdjustmentBehavior="automatic"` can keep a stale offset so the title sits under `unstable_headerLeftItems`.
+Switching Computer / All swaps `activeQuery`. `overview = activeQuery.data ?? null` flashes zeros and shrinks the page. `scrollTo({ y: 0 })` on that identity change is the compact-header origin under iOS large title + `contentInsetAdjustmentBehavior="automatic"`, so the large title collapses (~300pt).
 
-<!-- updated 2026-10-22: reset selectedDate during render to avoid setState-in-effect -->
-
-On Computer / All identity change (`selectedKey`), reset `selectedDate` during render (previous-key state, not an effect) and `scrollTo({ y: 0, animated: false })` on `usageScrollRef`. Do not remount the `Stack.Screen` header while the sheet is closed.
+On Computer / All identity change (`selectedKey`), reset `selectedDate` during render (previous-key state, not an effect). Do **not** `scrollTo({ y: 0 })`. Keep the previous overview while the next query is pending (`displayedOverview`). Do not remount the `Stack.Screen` header while the sheet is closed.
 
 ## Data model
 
@@ -113,8 +111,9 @@ No new types on the wire. Local helpers only:
 
 ```ts
 function glyphSurfaceKey(colorScheme: string, tint: string | undefined): string;
-function chartXFromGesture(eventX: number, offset: number, labelInset: number): number;
-function scrollContentShift(axisWidth: number, inset: number): number;
+function chartXFromGesture(eventX: number, offset: number): number;
+function overlayPlotHeight(chartHeight: number, labelBand: number): number;
+function displayedOverview<T>(active: T | null | undefined, previous: T | null): T | null;
 ```
 
 ## Transport

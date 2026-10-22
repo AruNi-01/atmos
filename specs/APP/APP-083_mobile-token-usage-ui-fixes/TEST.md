@@ -35,8 +35,8 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 | S5       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/terminal/agent-glyph-tint.test.ts`      | cursor/codex/droid + colorScheme      | `glyphSurfaceKey` changes with scheme; Image uses it                          | planned |
 | S6       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-popover-mark.test.ts` | `charts.tsx` source + helper          | Popover agent mark passes series `tintColor`                                  | planned |
 | S7       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`        | bar vs growth open mode               | Bar opens on tap and persists; growth still hold                              | planned |
-| S8       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`     | axis width + inset                    | First-label inset; gesture chartX subtracts inset                             | planned |
-| S9       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts` | `TokenUsageScreen.tsx` source         | `scrollTo` on Computer / All identity change                                  | planned |
+| S8       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`     | overlay band + first-label gutter     | Overlay leaves x-label band open; placeEnd has no extra inset                 | planned |
+| S9       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts` | `TokenUsageScreen.tsx` source         | No `scrollTo(y:0)`; keep previous overview; reset selectedDate                | planned |
 | S10      | Manual   | iOS simulator | Token usage + Share Publish, both themes                                         | two computers, light and dark         | Visual acceptance for M1–M10                                                  | planned |
 | S11      | Lint     | oxlint/oxfmt  | `bunx oxlint --fix` and `bunx oxfmt` on touched files; `bun lint` cap 455        | changed paths                         | lint/format clean                                                             | planned |
 
@@ -98,21 +98,21 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 - **Then**: stacked tap opens and persists; growth tap does not persist; stacked source includes `Gesture.Tap`
 - **Signals**: `chart-press.test.ts`
 
-### S8 — First x-axis label inset
+### S8 — First x-axis label band
 
 - **Level**: Bun test
-- **Given**: axis width 66 and inset 20
-- **When**: compute content shift and gesture chartX
-- **Then**: shift is 46; a host x at the first point maps back to plot origin; a 24px-wide centered first label sits fully in the scroll view
+- **Given**: a centred month label at the y-axis overlay edge
+- **When**: the overlay covers the label band vs leaves it open
+- **Then**: covering clips the label; leaving the band open keeps a 24px-wide centred `"Nov"` fully visible; `placeEnd` of a fitting series is offset 0, not `+inset`
 - **Signals**: `chart-geometry.test.ts`
 
-### S9 — Scroll reset on All
+### S9 — Large title on All
 
 - **Level**: Bun test (source contract)
 - **Given**: Token usage screen
 - **When**: Computer / All identity changes
-- **Then**: the screen calls `scrollTo` with `y: 0` and clears `selectedDate`
-- **Signals**: `usage-scroll-reset.test.ts`. Simulator large-title is S10.
+- **Then**: `selectedDate` clears; the screen does not `scrollTo({ y: 0 })`; the overview hook keeps the previous payload while the next query is pending
+- **Signals**: `usage-scroll-reset.test.ts`, `usage-displayed-overview.test.ts`. Simulator large-title is S10.
 
 ### S10 — iOS simulator (manual)
 
@@ -179,8 +179,8 @@ This environment: 未运行.
 - S6 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-popover-mark.test.ts`
 - S7 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`
 - S8 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`
-- S9 — ✅ `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts`
+- S9 — ✅ `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts src/features/token-usage/usage-displayed-overview.test.ts`
 - S10 — 未运行 (this environment has no iOS simulator)
-- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts` (86 pass)
+- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts src/ui/primitives/expo-ui-button-modifiers.test.ts` (97 pass)
 
 Regression: `cd apps/mobile && bun test src/features/token-usage` green. iOS simulator visual acceptance remains 未运行.

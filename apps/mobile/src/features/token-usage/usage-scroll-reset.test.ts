@@ -11,14 +11,22 @@ const screen = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "TokenUsageScreen.tsx"),
   "utf8",
 );
+const hook = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "use-token-usage-overview.ts"),
+  "utf8",
+);
 
 describe("usage scroll reset", () => {
-  test("Computer / All identity change resets scroll and heatmap selection", () => {
+  test("Computer / All identity change resets heatmap selection without collapsing the large title", () => {
     expect(screen).toContain("usageScopeKey");
     expect(screen).toContain("setSelectedDate(null)");
-    expect(screen).toContain("usageScrollRef.current?.scrollTo({ animated: false, y: 0 })");
-    expect(screen).toMatch(
-      /useEffect\(\(\) => \{\s*usageScrollRef\.current\?\.scrollTo\(\{ animated: false, y: 0 \}\);\s*\}, \[selectedKey\]\);/,
-    );
+    expect(screen).not.toContain("usageScrollRef.current?.scrollTo({ animated: false, y: 0 })");
+    expect(screen).not.toMatch(/scrollTo\(\{\s*animated: false,\s*y:\s*0\s*\}\)/);
+  });
+
+  test("the overview hook keeps the previous payload while the next Computer loads", () => {
+    expect(hook).toContain("displayedOverview(activeQuery.data, heldOverview)");
+    expect(hook).toContain("if (activeQuery.data && heldOverview !== activeQuery.data)");
+    expect(hook).toContain("setHeldOverview(activeQuery.data)");
   });
 });

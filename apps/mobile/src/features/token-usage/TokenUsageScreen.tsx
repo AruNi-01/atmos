@@ -1,12 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as RNImage, Pressable, StyleSheet, Text, View, type ScrollView } from "react-native";
 import { Host } from "@expo/ui";
@@ -177,9 +169,6 @@ export function TokenUsageScreen() {
     setUsageScopeKey(selectedKey);
     setSelectedDate(null);
   }
-  useEffect(() => {
-    usageScrollRef.current?.scrollTo({ animated: false, y: 0 });
-  }, [selectedKey]);
   const detailEnter = useMemo(
     () =>
       reducedMotion

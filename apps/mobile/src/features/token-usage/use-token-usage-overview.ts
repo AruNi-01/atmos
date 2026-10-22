@@ -17,6 +17,7 @@ import {
   resolveUsageScope,
   tokenUsageDisplayedError,
 } from "@/features/token-usage/lib/usage-scope";
+import { displayedOverview } from "@/features/token-usage/usage-displayed-overview";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -114,7 +115,11 @@ export function useTokenUsageOverview() {
   });
 
   const activeQuery = scope.isCurrentScope ? currentQuery : scopedQuery;
-  const overview = activeQuery.data ?? null;
+  const [heldOverview, setHeldOverview] = useState<TokenUsageOverviewResponse | null>(null);
+  if (activeQuery.data && heldOverview !== activeQuery.data) {
+    setHeldOverview(activeQuery.data);
+  }
+  const overview = displayedOverview(activeQuery.data, heldOverview);
 
   const refresh = useMutation({
     mutationFn: async (input: {
