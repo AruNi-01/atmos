@@ -16,7 +16,8 @@ use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     build_percent_usage_summary, decode_jwt_payload, format_reset_relative_text,
-    load_factory_session_cookie_source, parse_offset_datetime, round_metric, unix_now,
+    format_utc_month_day, load_factory_session_cookie_source, parse_offset_datetime, round_metric,
+    unix_now,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -642,34 +643,13 @@ fn build_factory_period_label(auth: &FactoryAuthResponse) -> Option<String> {
     match (start, end) {
         (Some(start), Some(end)) => Some(format!(
             "{} - {}",
-            format_short_date(start),
-            format_short_date(end)
+            format_utc_month_day(start),
+            format_utc_month_day(end)
         )),
-        (None, Some(end)) => Some(format!("Until {}", format_short_date(end))),
-        (Some(start), None) => Some(format!("Since {}", format_short_date(start))),
+        (None, Some(end)) => Some(format!("Until {}", format_utc_month_day(end))),
+        (Some(start), None) => Some(format!("Since {}", format_utc_month_day(start))),
         (None, None) => None,
     }
-}
-
-fn format_short_date(timestamp: u64) -> String {
-    let Some(date) = time::OffsetDateTime::from_unix_timestamp(timestamp as i64).ok() else {
-        return timestamp.to_string();
-    };
-    let month = match date.month() {
-        time::Month::January => "Jan",
-        time::Month::February => "Feb",
-        time::Month::March => "Mar",
-        time::Month::April => "Apr",
-        time::Month::May => "May",
-        time::Month::June => "Jun",
-        time::Month::July => "Jul",
-        time::Month::August => "Aug",
-        time::Month::September => "Sep",
-        time::Month::October => "Oct",
-        time::Month::November => "Nov",
-        time::Month::December => "Dec",
-    };
-    format!("{month} {}", date.day())
 }
 
 fn factory_bearer_from_cookie_header(cookie_header: &str) -> Option<String> {

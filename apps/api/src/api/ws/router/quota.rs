@@ -6,8 +6,8 @@ use super::{
     QuotaAddProviderApiKeyRequest, QuotaAllProvidersSwitchRequest,
     QuotaApplyProviderVisibilityRequest, QuotaAutoRefreshRequest, QuotaDeleteProviderApiKeyRequest,
     QuotaOverviewRequest, QuotaProviderFooterCarouselRequest, QuotaProviderManualSetupRequest,
-    QuotaProviderSwitchRequest, TokenUsageBrowserCookieConsentRequest, TokenUsageOverviewRequest,
-    WsMessageService,
+    QuotaProviderOrderRequest, QuotaProviderSwitchRequest, TokenUsageBrowserCookieConsentRequest,
+    TokenUsageOverviewRequest, WsMessageService,
 };
 
 const DEEPSEEK_QUOTA_PROVIDER_ID: &str = "deepseek";
@@ -149,6 +149,17 @@ impl WsMessageService {
             .set_browser_cookie_consent(&req.provider_id, req.granted)
             .await
             .map_err(|error| ServiceError::Processing(error.to_string()))?;
+        Ok(json!(overview))
+    }
+
+    pub(super) async fn handle_quota_set_provider_order(
+        &self,
+        req: QuotaProviderOrderRequest,
+    ) -> Result<Value> {
+        let overview = self
+            .quota_usage_service
+            .set_provider_order(req.provider_order)
+            .await;
         Ok(json!(overview))
     }
 

@@ -169,6 +169,41 @@ pub(crate) fn parse_offset_datetime(text: &str) -> Option<OffsetDateTime> {
     OffsetDateTime::parse(text, &Rfc3339).ok()
 }
 
+pub(crate) fn format_utc_month_day(timestamp: u64) -> String {
+    let Some(date) = OffsetDateTime::from_unix_timestamp(timestamp as i64).ok() else {
+        return timestamp.to_string();
+    };
+    let month = match date.month() {
+        time::Month::January => "Jan",
+        time::Month::February => "Feb",
+        time::Month::March => "Mar",
+        time::Month::April => "Apr",
+        time::Month::May => "May",
+        time::Month::June => "Jun",
+        time::Month::July => "Jul",
+        time::Month::August => "Aug",
+        time::Month::September => "Sep",
+        time::Month::October => "Oct",
+        time::Month::November => "Nov",
+        time::Month::December => "Dec",
+    };
+    format!("{month} {}", date.day())
+}
+
+/// UTC month-day span. Matches Factory's web period (`Sep 4 - Sep 11`).
+pub(crate) fn format_billing_span(start: Option<u64>, end: Option<u64>) -> Option<String> {
+    match (start, end) {
+        (Some(start), Some(end)) => Some(format!(
+            "{} - {}",
+            format_utc_month_day(start),
+            format_utc_month_day(end)
+        )),
+        (None, Some(end)) => Some(format!("Until {}", format_utc_month_day(end))),
+        (Some(start), None) => Some(format!("Since {}", format_utc_month_day(start))),
+        (None, None) => None,
+    }
+}
+
 pub(crate) fn format_reset_relative_text(reset_at: Option<u64>) -> String {
     let Some(reset_at) = reset_at else {
         return "Reset unknown".to_string();

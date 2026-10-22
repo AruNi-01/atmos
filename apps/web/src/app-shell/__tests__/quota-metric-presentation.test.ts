@@ -478,9 +478,10 @@ describe("quota popover factory chrome", () => {
   test("factory mode tabs sit above usage rows, not above the provider header", () => {
     const detail = readFileSync(join(import.meta.dir, "../quota-popover-detail.tsx"), "utf8");
     const providerDetail = detail.slice(detail.indexOf("export function ProviderDetail"));
-    const headerLabel = providerDetail.indexOf(
-      'className="text-sm font-semibold tracking-tight text-foreground">{provider.label}',
+    const headerClass = providerDetail.indexOf(
+      'className="text-sm font-semibold tracking-tight text-foreground"',
     );
+    const headerLabel = providerDetail.indexOf("{provider.label}", headerClass);
     const tabs = providerDetail.indexOf("<QuotaUsageModeTabs");
     const firstMetric = providerDetail.indexOf("{visibleMetrics.map");
     expect(headerLabel).toBeGreaterThan(-1);

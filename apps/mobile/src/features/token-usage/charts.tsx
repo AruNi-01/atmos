@@ -23,6 +23,7 @@ import { AreaChart, BarChart, ContributionGraph } from "react-native-chart-kit/v
 import Svg, { Circle, Line, Rect } from "react-native-svg";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
+import { columnIndicatorColor, columnIndicatorLine } from "@/features/token-usage/column-indicator";
 import type { UsageDimension, HeatmapWeek } from "@/features/token-usage/model";
 import { UsageModelIcon } from "@/features/token-usage/UsageModelIcon";
 import { BotIcon } from "@/ui/icons/lucide-native";
@@ -871,6 +872,7 @@ export function UsageStackedChart({
   formatValue,
   height,
   ids,
+  isDark,
   labels,
   labelColor,
   names,
@@ -884,6 +886,7 @@ export function UsageStackedChart({
   formatValue: (value: number) => string;
   height: number;
   ids: string[];
+  isDark: boolean;
   labels: string[];
   labelColor: string;
   names: string[];
@@ -1064,7 +1067,15 @@ export function UsageStackedChart({
       contentWidth={contentWidth}
       height={height}
       overlay={
-        tip ? <ColumnTipView chartWidth={width} formatValue={formatValue} tip={tip} /> : null
+        tip ? (
+          <ColumnTipView
+            chartHeight={height}
+            chartWidth={width}
+            formatValue={formatValue}
+            isDark={isDark}
+            tip={tip}
+          />
+        ) : null
       }
       scroll={scroll}
       width={width}
@@ -1132,7 +1143,7 @@ function seriesMark(
   if (dimension === "model")
     return <UsageModelIcon color={color} modelId={id} providerId={providers?.get(id)} size={12} />;
   if (id === "other") return <BotIcon color={color} size={12} />;
-  return <MobileAgentIcon agentId={id} size={12} />;
+  return <MobileAgentIcon agentId={id} onDark size={12} />;
 }
 
 type PointTip = { index: number; label: string; value: number; x: number; y: number };
@@ -1179,12 +1190,16 @@ function PointTipView({
 }
 
 function ColumnTipView({
+  chartHeight,
   chartWidth,
   formatValue,
+  isDark,
   tip,
 }: {
+  chartHeight: number;
   chartWidth: number;
   formatValue: (value: number) => string;
+  isDark: boolean;
   tip: ColumnTip;
 }) {
   const [size, setSize] = useState({ height: 0, width: 0 });
@@ -1193,17 +1208,17 @@ function ColumnTipView({
     Math.max(8, chartWidth - size.width - 8),
   );
   const top = Math.max(4, tip.y - size.height - 12);
+  const indicator = columnIndicatorLine({ height: chartHeight, x: tip.x });
   return (
     <>
       <Svg height="100%" pointerEvents="none" style={StyleSheet.absoluteFill} width="100%">
         <Line
-          stroke="rgba(255,255,255,0.85)"
-          strokeDasharray="3 4"
+          stroke={columnIndicatorColor(isDark)}
           strokeWidth={1}
-          x1={tip.x}
-          x2={tip.x}
-          y1={size.height > 0 ? top + size.height : tip.y}
-          y2={tip.y}
+          x1={indicator.x1}
+          x2={indicator.x2}
+          y1={indicator.y1}
+          y2={indicator.y2}
         />
       </Svg>
       <View

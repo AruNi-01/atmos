@@ -1,3 +1,5 @@
+import { formatQuotaBillingBounds, formatQuotaBillingPeriod } from "@atmos/shared";
+
 import type { QuotaProviderResponse } from "@/api/ws-api";
 
 export type QuotaProviderOrderItem = {
@@ -27,6 +29,58 @@ export function partitionQuotaProviderIdsBySwitch(
     else off.push(id);
   }
   return [...on, ...off];
+}
+
+export function sameProviderOrder(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+/** Drop ids that disappeared and append newly seen providers, preserving saved order. */
+export function normalizeQuotaProviderOrder(
+  order: readonly string[],
+  providerIds: readonly string[],
+): string[] {
+  const known = new Set(providerIds);
+  const filtered: string[] = [];
+  const seen = new Set<string>();
+  for (const id of order) {
+    if (!known.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    filtered.push(id);
+  }
+  return [...filtered, ...providerIds.filter((id) => !seen.has(id))];
+}
+
+/** A non-empty Computer order wins. Otherwise the browser's saved order. */
+export function quotaProviderOrderForDisplay(
+  serverOrder: string[] | null | undefined,
+  localOrder: string[],
+): string[] {
+  if (serverOrder && serverOrder.length > 0) return serverOrder;
+  return localOrder;
+}
+
+/**
+ * Order to upload so mobile sees the same within-group sequence as web.
+ * Returns null when the Computer order should stay as it is, including when
+ * both sides are empty (label order inside each switch group).
+ */
+export function nextSharedQuotaProviderOrder(input: {
+  serverOrder: readonly string[];
+  localOrder: readonly string[];
+  providerIds: readonly string[];
+}): string[] | null {
+  const { serverOrder, localOrder, providerIds } = input;
+  if (providerIds.length === 0) return null;
+  if (serverOrder.length === 0) {
+    if (localOrder.length === 0) return null;
+    const next = normalizeQuotaProviderOrder(localOrder, providerIds);
+    if (next.length === 0 || sameProviderOrder(serverOrder, next)) return null;
+    return next;
+  }
+  const next = normalizeQuotaProviderOrder(serverOrder, providerIds);
+  if (sameProviderOrder(serverOrder, next)) return null;
+  return next;
 }
 
 export function sortQuotaProvidersBySwitchAndOrder<T extends QuotaProviderOrderItem>(
@@ -472,7 +526,8 @@ export function extraSections(provider: QuotaProviderResponse) {
       title !== "core" &&
       title !== "managed computers" &&
       title !== "credits" &&
-      title !== "fetch pipeline"
+      title !== "fetch pipeline" &&
+      title !== "billing period"
     );
   });
 }
@@ -689,6 +744,16 @@ export function providerCreditsLabel(provider: QuotaProviderResponse): string | 
   return raw;
 }
 
+function billingPeriodSectionRange(provider: QuotaProviderResponse): string | null {
+  const section = provider.detail_sections.find(
+    (item) => item.title.trim().toLowerCase() === "billing period",
+  );
+  if (!section) return null;
+  const start = section.rows.find((row) => row.label.trim().toLowerCase() === "start")?.value;
+  const end = section.rows.find((row) => row.label.trim().toLowerCase() === "end")?.value;
+  return formatQuotaBillingBounds(start, end);
+}
+
 export function providerIdentity(
   provider: QuotaProviderResponse,
   notDetectedLabel = "Not detected",
@@ -703,10 +768,23 @@ export function providerIdentity(
   const rawPlan = rawPlanValue && !isPlaceholder(rawPlanValue) ? rawPlanValue : null;
   const genericAccount = rawAccount.trim().toLowerCase() === provider.label.trim().toLowerCase();
   const accountLabel = genericAccount && rawPlan ? rawPlan : rawAccount;
-  const periodLabel =
+  const periodLabel = formatQuotaBillingPeriod(
     firstRowValue(provider, "Usage", "Billing period") ??
-    firstRowValue(provider, "Account", "Period") ??
-    null;
+      firstRowValue(provider, "Account", "Period") ??
+      billingPeriodSectionRange(provider),
+  );
   const planLabel = rawPlan && rawPlan !== accountLabel ? rawPlan : null;
   return { accountLabel, planLabel, periodLabel };
+}
+
+/** Right-hand identity lines: account, then plan, then billing period. */
+export function providerIdentityRows(
+  provider: QuotaProviderResponse,
+  notDetectedLabel = "Not detected",
+): string[] {
+  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, notDetectedLabel);
+  const rows = [accountLabel];
+  if (planLabel) rows.push(planLabel);
+  if (periodLabel) rows.push(periodLabel);
+  return rows;
 }

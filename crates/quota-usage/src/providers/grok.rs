@@ -14,8 +14,8 @@ use crate::constants::GROK_BILLING_CREDITS_URL;
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
-    build_percent_usage_summary, expand_home, format_reset_relative_text, parse_offset_datetime,
-    round_metric, unix_now,
+    build_percent_usage_summary, expand_home, format_billing_span, format_reset_relative_text,
+    parse_offset_datetime, round_metric, unix_now,
 };
 
 const OIDC_SCOPE_PREFIX: &str = "https://auth.x.ai::";
@@ -212,6 +212,16 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
             tone: RowTone::Default,
         });
     }
+    if let Some(period) = format_billing_span(
+        period_start.and_then(parse_rfc3339_unix),
+        period_end.and_then(parse_rfc3339_unix),
+    ) {
+        account_rows.push(DetailRow {
+            label: "Period".to_string(),
+            value: period,
+            tone: RowTone::Muted,
+        });
+    }
     if let Some(team_id) = auth.team_id.clone() {
         account_rows.push(DetailRow {
             label: "Team".to_string(),
@@ -227,7 +237,7 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
         });
     }
 
-    let mut detail_sections = vec![
+    let detail_sections = vec![
         DetailSection {
             title: "Account".to_string(),
             rows: account_rows,
@@ -237,24 +247,6 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
             rows: usage_rows,
         },
     ];
-
-    if let (Some(start), Some(end)) = (period_start, period_end) {
-        detail_sections.push(DetailSection {
-            title: "Billing period".to_string(),
-            rows: vec![
-                DetailRow {
-                    label: "Start".to_string(),
-                    value: start.to_string(),
-                    tone: RowTone::Muted,
-                },
-                DetailRow {
-                    label: "End".to_string(),
-                    value: end.to_string(),
-                    tone: RowTone::Muted,
-                },
-            ],
-        });
-    }
 
     LiveFetchResult {
         plan_label,
@@ -698,6 +690,21 @@ mod tests {
         assert_eq!(usage.rows[1].value, "5% used");
         assert_eq!(usage.rows[2].value, "1% used");
         assert_eq!(usage.rows[3].value, "Disabled");
+        let account = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Account")
+            .expect("account");
+        let period = account
+            .rows
+            .iter()
+            .find(|row| row.label == "Period")
+            .expect("period");
+        assert_eq!(period.value, "Sep 4 - Sep 11");
+        assert!(result
+            .detail_sections
+            .iter()
+            .all(|section| section.title != "Billing period"));
     }
 
     #[test]
@@ -820,6 +827,21 @@ mod tests {
             .rows
             .iter()
             .any(|row| row.label == "Extra usage" && row.value == "Disabled"));
+        let account = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Account")
+            .expect("account");
+        let period = account
+            .rows
+            .iter()
+            .find(|row| row.label == "Period")
+            .expect("period");
+        assert_eq!(period.value, "Sep 3 - Sep 10");
+        assert!(result
+            .detail_sections
+            .iter()
+            .all(|section| section.title != "Billing period"));
     }
 
     #[test]

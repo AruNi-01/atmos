@@ -25,6 +25,54 @@ enum AtmosSocketSendError: LocalizedError {
   }
 }
 
+/// Session for Computer/terminal WebSockets.
+///
+/// Do not use `URLSessionConfiguration.default`. When
+/// `EX_DEV_CLIENT_NETWORK_INSPECTOR` is true, expo-dev-launcher swizzles that
+/// getter and prepends `ExpoRequestInterceptorProtocol`. The interceptor
+/// replays the handshake as a data task and swallows HTTP 101 Switching Protocols,
+/// after which `URLSessionWebSocketTask` fails with `NSURLErrorDomain -1005`.
+/// Release is unaffected because the interceptor is compiled out.
+/// Use `ephemeral` and strip inspector protocol classes. Do not fall back to
+/// `URLSessionConfiguration()`: after the filter a remaining-inspector check
+/// is always false, and `init()` has been deprecated since iOS 13.
+private enum AtmosRelayWebSocketSession {
+  static func configuration() -> URLSessionConfiguration {
+    let config = URLSessionConfiguration.ephemeral
+    applySharedDefaultTransportSettings(to: config)
+    stripExpoNetworkInspectorProtocols(from: config)
+    return config
+  }
+
+  /// Copy timeout, cookie, and header settings from `.default` so the
+  /// handshake matches the previous session. Do not copy `protocolClasses`:
+  /// that array is where the Expo inspector lives.
+  private static func applySharedDefaultTransportSettings(to config: URLSessionConfiguration) {
+    let shared = URLSessionConfiguration.default
+    config.timeoutIntervalForRequest = shared.timeoutIntervalForRequest
+    config.timeoutIntervalForResource = shared.timeoutIntervalForResource
+    config.waitsForConnectivity = shared.waitsForConnectivity
+    config.httpCookieAcceptPolicy = shared.httpCookieAcceptPolicy
+    config.httpShouldSetCookies = shared.httpShouldSetCookies
+    config.httpCookieStorage = shared.httpCookieStorage
+    config.httpAdditionalHeaders = shared.httpAdditionalHeaders
+  }
+
+  private static func stripExpoNetworkInspectorProtocols(from config: URLSessionConfiguration) {
+    guard let classes = config.protocolClasses else { return }
+    config.protocolClasses = classes.filter { !isExpoNetworkInspectorProtocol($0) }
+  }
+
+  private static func isExpoNetworkInspectorProtocol(_ cls: AnyClass) -> Bool {
+    let name = NSStringFromClass(cls)
+    if name == "EXRequestInterceptorProtocol" || name == "ExpoRequestInterceptorProtocol" {
+      return true
+    }
+    return name.hasSuffix(".ExpoRequestInterceptorProtocol")
+      || name.hasSuffix(".EXRequestInterceptorProtocol")
+  }
+}
+
 /// URLSession's delegate is an Objective-C protocol, so it cannot be the Expo shared object.
 final class AtmosSocketDelegate: NSObject, URLSessionWebSocketDelegate {
   weak var owner: AtmosUrlSessionSocket?
@@ -69,7 +117,11 @@ final class AtmosUrlSessionSocket: SharedObject {
       return
     }
 
-    let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+    let session = URLSession(
+      configuration: AtmosRelayWebSocketSession.configuration(),
+      delegate: delegate,
+      delegateQueue: nil
+    )
     let task = session.webSocketTask(with: url)
     task.maximumMessageSize = Self.maxMessageSize
     stateLock.lock()
