@@ -6,6 +6,10 @@ name: CI - Mobile iOS parity
 # QUALITY-023: stills stays parallel after ios-build. Motion is serial after
 # stills. Eng Manager stopped PillTap destination-preflight fixes (three
 # rounds of false fails while the sim was Booted).
+# QUALITY-022: ios-build caches the generated ios/ tree (skip prebuild + pod
+# install on exact hit) and CocoaPods downloads on the miss path. DerivedData
+# is not cached: run 39550057846 CompileC was 1404 on miss and hit; restore +
+# mtime pin added 1.5–3.5 minutes with no incremental compile.
 # Branch protection was checked before making that job opt-in (QUALITY-010):
 # classic protection is 403 for this token, rulesets are empty, and merged
 # PRs that do not touch these paths (#318, #312) merged without ios-simulator,
@@ -150,35 +154,78 @@ jobs:
           exit 1
 
       - name: Select Xcode 26.5
+        id: xcode
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_26.5.app
           echo "xcode-select: $(xcode-select -p)"
           xcodebuild -version
+          xcode_version="$(xcodebuild -version | awk 'NR==1 {v=$2} NR==2 {b=$3} END {printf "%s-%s", v, b}')"
+          if [[ -z "$xcode_version" || "$xcode_version" == "-" ]]; then
+            echo "could not parse xcodebuild -version" >&2
+            xcodebuild -version >&2
+            exit 1
+          fi
+          echo "version=${xcode_version}" >> "$GITHUB_OUTPUT"
+          echo "xcode cache version: ${xcode_version}"
+          if [[ "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            echo "scope=pr-${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "cache scope: pr-${PR_NUMBER}"
+          else
+            sanitized="${REF_NAME//\//-}"
+            echo "scope=ref-${sanitized}" >> "$GITHUB_OUTPUT"
+            echo "cache scope: ref-${sanitized}"
+          fi
+
+      - name: Exclude expo-dev-client
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          # Pod install reads expo.autolinking.exclude from this package.json,
+          # not from app.config.js. Mutate before ios-gen hashFiles.
+          bun ../../scripts/agent-chat-parity/exclude-dev-client.js package.json
+          node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-client")) process.exit(1)'
+
+      # QUALITY-022: cache the whole generated ios/ tree (Pods, lock, workspace,
+      # pbxproj). Exact hit skips prebuild and pod install. No restore-keys:
+      # a prefix tree plus a later prebuild mixes files. Hash inputs after the
+      # exclude-dev-client mutation of package.json. Key is shared (no PR
+      # scope): os + Xcode + native inputs + this workflow (prebuild/pod
+      # commands) + patches/**. Save is after xcodebuild succeeds.
+      - name: Restore generated iOS tree
+        id: ios-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: apps/mobile/ios
+          key: ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js', 'patches/**', '.github/workflows/ci-mobile-ios-parity.yml') }}
+
+      - name: Restore CocoaPods download cache
+        if: success() && steps.ios-restore.outputs.cache-hit != 'true'
+        id: podhome-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-
+            ios-podhome-${{ runner.os }}-
 
       - name: Prebuild iOS
+        if: success() && steps.ios-restore.outputs.cache-hit != 'true'
         working-directory: apps/mobile
         env:
           EXPO_PUBLIC_PARITY_PREVIEW: "1"
         run: |
           set -euo pipefail
-          # Pod install reads expo.autolinking.exclude from this package.json,
-          # not from app.config.js.
-          bun ../../scripts/agent-chat-parity/exclude-dev-client.js package.json
-          node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-client")) process.exit(1)'
           bunx expo prebuild -p ios --no-install
           node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-launcher")) { console.error("prebuild dropped the dev-client exclude"); process.exit(1) }'
-          info_plist="$(find ios -name Info.plist -path '*Atmos/Info.plist' -print -quit)"
-          if [[ -z "$info_plist" ]]; then
-            echo "Atmos Info.plist missing after prebuild" >&2
-            find ios -name Info.plist >&2 || true
-            exit 1
-          fi
-          # QUALITY-011 requires Atmos.SceneDelegate. Do not restore the gate that
-          # failed whenever Info.plist contained UISceneDelegateClassName.
-          bash script/verify-ios-scene-lifecycle.sh structural
 
       - name: Install CocoaPods
+        if: success() && steps.ios-restore.outputs.cache-hit != 'true'
+        id: pod-install
         working-directory: apps/mobile/ios
         run: |
           set -euo pipefail
@@ -190,7 +237,32 @@ jobs:
           fi
           echo "expo-dev-client is not in Podfile.lock"
 
+      - name: Verify generated iOS tree
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          node -e 'const e=require("./package.json").expo.autolinking.exclude; if (!e.includes("expo-dev-launcher")) { console.error("dev-client exclude missing after iOS tree restore"); process.exit(1) }'
+          info_plist="$(find ios -name Info.plist -path '*Atmos/Info.plist' -print -quit)"
+          if [[ -z "$info_plist" ]]; then
+            echo "Atmos Info.plist missing" >&2
+            find ios -name Info.plist >&2 || true
+            exit 1
+          fi
+          # QUALITY-011 requires Atmos.SceneDelegate. Do not restore the gate that
+          # failed whenever Info.plist contained UISceneDelegateClassName.
+          bash script/verify-ios-scene-lifecycle.sh structural
+          if [[ ! -f ios/Podfile.lock ]]; then
+            echo "Podfile.lock missing" >&2
+            exit 1
+          fi
+          if grep -E -q 'expo-dev-launcher|expo-dev-menu|expo-dev-client' ios/Podfile.lock; then
+            echo "parity prebuild still linked expo-dev-client" >&2
+            exit 1
+          fi
+          echo "generated iOS tree is ready"
+
       - name: Build Release simulator app
+        id: xcodebuild
         env:
           EXPO_PUBLIC_PARITY_PREVIEW: "1"
         run: |
@@ -258,7 +330,12 @@ jobs:
             -sdk iphonesimulator \
             -destination "generic/platform=iOS Simulator" \
             -derivedDataPath "$derived" \
-            build
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build \
+            2>&1 | tee /tmp/atmos-xcodebuild.log
+          compilec="$(grep -c 'CompileC ' /tmp/atmos-xcodebuild.log || true)"
+          echo "compilec=${compilec}" >> "$GITHUB_OUTPUT"
+          echo "CompileC count: ${compilec}"
 
           app="$derived/Build/Products/Release-iphonesimulator/Atmos.app"
           if [[ ! -d "$app" ]]; then
@@ -299,6 +376,47 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/artifacts/pack"
           tar -C "$(dirname "$app")" -cf "$GITHUB_WORKSPACE/artifacts/pack/Atmos.app.tar" "$(basename "$app")"
           echo "packed $(basename "$app") from ${app}"
+
+      - name: Save CocoaPods download cache
+        if: always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.xcodebuild.conclusion == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: ios-podhome-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock') }}
+
+      - name: Save generated iOS tree
+        if: always() && !cancelled() && steps.ios-restore.outputs.cache-hit != 'true' && steps.xcodebuild.conclusion == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: apps/mobile/ios
+          key: ios-gen-${{ runner.os }}-${{ steps.xcode.outputs.version }}-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/app.config.js', 'apps/mobile/app.json', 'apps/mobile/plugins/**', 'apps/mobile/modules/**', 'scripts/agent-chat-parity/exclude-dev-client.js', 'patches/**', '.github/workflows/ci-mobile-ios-parity.yml') }}
+
+      - name: Write summary
+        if: always() && !cancelled()
+        env:
+          IOS_HIT: ${{ steps.ios-restore.outputs.cache-hit }}
+          IOS_KEY: ${{ steps.ios-restore.outputs.cache-matched-key }}
+          PODHOME_HIT: ${{ steps.podhome-restore.outputs.cache-hit }}
+          PODHOME_KEY: ${{ steps.podhome-restore.outputs.cache-matched-key }}
+          COMPILEC: ${{ steps.xcodebuild.outputs.compilec }}
+          XCODE_CACHE_VERSION: ${{ steps.xcode.outputs.version }}
+          CACHE_SCOPE: ${{ steps.xcode.outputs.scope }}
+        run: |
+          set -euo pipefail
+          {
+            echo "# iOS parity build"
+            echo
+            echo "- xcode-select: $(xcode-select -p)"
+            echo "- xcodebuild:"
+            xcodebuild -version | sed 's/^/  /'
+            echo "- cache xcode version: ${XCODE_CACHE_VERSION}"
+            echo "- cache scope: ${CACHE_SCOPE}"
+            echo "- ios-gen cache-hit: ${IOS_HIT}"
+            echo "- ios-gen cache-matched-key: ${IOS_KEY}"
+            echo "- cocoapods-home cache-hit: ${PODHOME_HIT}"
+            echo "- cocoapods-home cache-matched-key: ${PODHOME_KEY}"
+            echo "- CompileC count: ${COMPILEC}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload simulator app
         uses: actions/upload-artifact@v4
