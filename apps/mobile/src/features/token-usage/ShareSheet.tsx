@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Host } from "@expo/ui";
+import { Text as SwiftUIText } from "@expo/ui/swift-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hubDeleteUsagePage, hubGetUsagePage, hubPutUsagePage } from "@atmos/hub-client";
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
@@ -22,8 +23,19 @@ import { saveUsageCardImage } from "@/features/token-usage/save-usage-card";
 import { mapOverviewToSharePayload } from "@/features/token-usage/share-payload";
 import { useMobileTheme } from "@/theme/theme-store";
 import { FacebookMark, RedditMark, ThreadsMark, XMark } from "@/features/token-usage/social-icons";
+import { radii } from "@/theme/radii";
 import { DownloadIcon } from "@/ui/icons/lucide-native";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
+import {
+  expoUiButtonLabelStretchModifiers,
+  expoUiButtonStretchModifiersFor,
+} from "@/ui/primitives/expo-ui-button-modifiers";
+import {
+  expoUiButtonHostStyle,
+  expoUiDangerStyle,
+  expoUiPrimaryStyle,
+  type ExpoUiButtonLook,
+} from "@/ui/primitives/expo-ui-button-styles";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { NativeSegmentedControl } from "@/ui/primitives/native-segmented-control";
 import { NativeSwitch } from "@/ui/primitives/native-controls";
@@ -365,94 +377,121 @@ function PublishPane({
       : "Publishing…"
     : publishPrimaryLabel(live);
 
+  const primaryLook = expoUiPrimaryStyle(theme.colors, primaryDisabled);
+  const turnOffLook = expoUiDangerStyle(theme.colors, busy);
+
   return (
-    <GlassPanel shadow={false} style={styles.publishCard}>
-      <View style={styles.pane}>
-        <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Handle</Text>
-        <PrefixedField
-          accessibilityLabel="Handle"
-          editable={!claimed && !fieldsLocked}
-          onChangeText={(value) => setDraft({ handle: value })}
-          placeholder="builder"
-          prefix="atmos.land/tok/@"
-          value={handle}
-        />
-        {url ? (
-          <Pressable
-            accessibilityLabel="Open published page"
-            onPress={() => void Linking.openURL(url)}
-          >
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>
-              {url.replace("https://", "")}
-            </Text>
-          </Pressable>
-        ) : null}
-        <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Links</Text>
-        <PrefixedField
-          accessibilityLabel="X username"
-          editable={!fieldsLocked}
-          onChangeText={(value) => setDraft({ x: value })}
-          placeholder="username"
-          prefix="x.com/"
-          value={x}
-        />
-        <PrefixedField
-          accessibilityLabel="GitHub username"
-          editable={!fieldsLocked}
-          onChangeText={(value) => setDraft({ github: value })}
-          placeholder="username"
-          prefix="github.com/"
-          value={github}
-        />
-        <View style={styles.publicRow}>
-          <Text style={{ color: theme.colors.label, flex: 1, fontSize: 15, fontWeight: "600" }}>
-            Public
+    <View style={[styles.pane, styles.publishPane]}>
+      <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Handle</Text>
+      <PrefixedField
+        accessibilityLabel="Handle"
+        editable={!claimed && !fieldsLocked}
+        onChangeText={(value) => setDraft({ handle: value })}
+        placeholder="builder"
+        prefix="atmos.land/tok/@"
+        value={handle}
+      />
+      {url ? (
+        <Pressable
+          accessibilityLabel="Open published page"
+          onPress={() => void Linking.openURL(url)}
+        >
+          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>
+            {url.replace("https://", "")}
           </Text>
-          <NativeSwitch
-            disabled={fieldsLocked}
-            onValueChange={(checked) => setDraft({ visibility: checked ? "public" : "unlisted" })}
-            value={visibility === "public"}
-          />
-        </View>
-        {(error ?? pageLoadError(pageQuery.error, pageQuery.isError)) ? (
-          <Text style={{ color: theme.colors.red, fontSize: 13 }}>
-            {error ?? pageLoadError(pageQuery.error, pageQuery.isError)}
-          </Text>
-        ) : null}
-        <View style={styles.publishActions}>
-          {live ? (
-            <Host
-              colorScheme={theme.colorScheme}
-              matchContents={{ vertical: true }}
-              seedColor={busy ? theme.colors.tertiaryLabel : theme.colors.red}
-            >
-              <Button
-                disabled={busy}
-                label={turnOff.isPending ? "Turning off…" : "Turn off"}
-                onPress={busy ? undefined : () => turnOff.mutate()}
-                style={{ height: 40 }}
-                variant="text"
-              />
-            </Host>
-          ) : (
-            <View />
-          )}
-          <Host
-            colorScheme={theme.colorScheme}
-            matchContents={{ vertical: true }}
-            seedColor={primaryDisabled ? theme.colors.tertiaryLabel : theme.colors.primary}
-          >
-            <Button
-              disabled={primaryDisabled}
-              label={primaryLabel}
-              onPress={primaryDisabled ? undefined : () => publish.mutate()}
-              style={{ height: 40 }}
-              variant="filled"
-            />
-          </Host>
-        </View>
+        </Pressable>
+      ) : null}
+      <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Links</Text>
+      <PrefixedField
+        accessibilityLabel="X username"
+        editable={!fieldsLocked}
+        onChangeText={(value) => setDraft({ x: value })}
+        placeholder="username"
+        prefix="x.com/"
+        value={x}
+      />
+      <PrefixedField
+        accessibilityLabel="GitHub username"
+        editable={!fieldsLocked}
+        onChangeText={(value) => setDraft({ github: value })}
+        placeholder="username"
+        prefix="github.com/"
+        value={github}
+      />
+      <View style={styles.publicRow}>
+        <Text style={{ color: theme.colors.label, flex: 1, fontSize: 15, fontWeight: "600" }}>
+          Public
+        </Text>
+        <NativeSwitch
+          disabled={fieldsLocked}
+          onValueChange={(checked) => setDraft({ visibility: checked ? "public" : "unlisted" })}
+          value={visibility === "public"}
+        />
       </View>
-    </GlassPanel>
+      {(error ?? pageLoadError(pageQuery.error, pageQuery.isError)) ? (
+        <Text style={{ color: theme.colors.red, fontSize: 13 }}>
+          {error ?? pageLoadError(pageQuery.error, pageQuery.isError)}
+        </Text>
+      ) : null}
+      <View style={styles.publishActions}>
+        <StretchPublishButton
+          disabled={primaryDisabled}
+          label={primaryLabel}
+          look={primaryLook}
+          onPress={primaryDisabled ? undefined : () => publish.mutate()}
+        />
+        {live ? (
+          <StretchPublishButton
+            disabled={busy}
+            label={turnOff.isPending ? "Turning off…" : "Turn off"}
+            look={turnOffLook}
+            onPress={busy ? undefined : () => turnOff.mutate()}
+          />
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function StretchPublishButton({
+  disabled,
+  label,
+  look,
+  onPress,
+}: {
+  disabled: boolean;
+  label: string;
+  look: ExpoUiButtonLook;
+  onPress?: () => void;
+}) {
+  const theme = useMobileTheme();
+  const labelStretch = expoUiButtonLabelStretchModifiers;
+  return (
+    <Host
+      colorScheme={theme.colorScheme}
+      matchContents={{ vertical: true }}
+      seedColor={look.seedColor}
+      style={expoUiButtonHostStyle}
+    >
+      {labelStretch ? (
+        <Button
+          disabled={disabled}
+          modifiers={expoUiButtonStretchModifiersFor(look.variant)}
+          onPress={onPress}
+          variant={look.variant}
+        >
+          <SwiftUIText modifiers={labelStretch}>{label}</SwiftUIText>
+        </Button>
+      ) : (
+        <Button
+          disabled={disabled}
+          label={label}
+          modifiers={expoUiButtonStretchModifiersFor(look.variant)}
+          onPress={onPress}
+          variant={look.variant}
+        />
+      )}
+    </Host>
   );
 }
 
@@ -473,12 +512,7 @@ function PrefixedField({
 }) {
   const theme = useMobileTheme();
   return (
-    <View
-      style={[
-        styles.prefixed,
-        { backgroundColor: theme.colors.control, borderColor: theme.colors.controlBorder },
-      ]}
-    >
+    <GlassPanel shadow={false} style={styles.prefixed}>
       <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>{prefix}</Text>
       <View style={styles.prefixInput}>
         <NativeTextInput
@@ -492,7 +526,7 @@ function PrefixedField({
           value={value}
         />
       </View>
-    </View>
+    </GlassPanel>
   );
 }
 
@@ -502,28 +536,20 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 13, fontWeight: "600" },
   prefixed: {
     alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: radii.pill,
     flexDirection: "row",
     minHeight: 44,
-    overflow: "visible",
     paddingLeft: 12,
+    paddingRight: 4,
   },
   prefixInput: { flex: 1, minWidth: 0 },
   prefixField: { paddingHorizontal: 8, paddingVertical: 8 },
   publicRow: { alignItems: "center", flexDirection: "row", minHeight: 44 },
-  publishCard: {
-    alignSelf: "stretch",
-    borderRadius: 16,
-    marginTop: 12,
-    padding: 14,
-    width: "100%",
-  },
+  publishPane: { marginTop: 12 },
   publishActions: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 10,
     marginTop: 4,
+    width: "100%",
   },
   sheet: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
   tabs: { alignSelf: "stretch", flexShrink: 0, width: "100%" },

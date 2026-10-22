@@ -76,3 +76,8 @@ export function glyphTint(agentId: string, iconName: string, isDark: boolean, la
   if (matchesGlyph(agentId, iconName, LIGHT_GLYPHS)) return isDark ? undefined : label;
   return undefined;
 }
+
+/** RN Image does not always apply a new tintColor to the same asset. Remount on this key. */
+export function glyphSurfaceKey(colorScheme: string, tint: string | undefined) {
+  return `${colorScheme}:${tint ?? "none"}`;
+}

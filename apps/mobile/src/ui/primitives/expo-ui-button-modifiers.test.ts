@@ -1,0 +1,40 @@
+// @ts-expect-error bun:test is available at runtime but not in tsconfig types
+import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
+
+const source = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "expo-ui-button-modifiers.ts"),
+  "utf8",
+);
+
+describe("expo UI stretch frame", () => {
+  test("maxWidth survives JSON unlike Number.POSITIVE_INFINITY", () => {
+    expect(JSON.stringify({ maxWidth: Number.POSITIVE_INFINITY })).toBe('{"maxWidth":null}');
+    expect(JSON.parse(JSON.stringify({ maxWidth: 1_000_000 }))).toEqual({ maxWidth: 1_000_000 });
+    expect(source).toContain("export const EXPO_UI_FRAME_INFINITY = 1_000_000");
+    expect(source).toContain("maxWidth: EXPO_UI_FRAME_INFINITY");
+    expect(source).not.toContain("maxWidth: Number.POSITIVE_INFINITY");
+  });
+
+  test("filled stretch applies frame then roundedRectangle then buttonStyle", () => {
+    expect(source).toContain('alignment: "leading"');
+    expect(source).toContain('buttonBorderShape("roundedRectangle")');
+    expect(source).toContain("export function expoUiButtonStretchModifiersFor");
+    const helper = source.slice(source.indexOf("export function expoUiButtonStretchModifiersFor"));
+    expect(helper).toContain("fixedSize({ horizontal: false })");
+    expect(helper).toContain("buttonStyle(VARIANT_BUTTON_STYLE[variant])");
+    expect(helper.indexOf("...stretch")).toBeLessThan(helper.indexOf("buttonStyle("));
+  });
+
+  test("the label stretch frame is what filled chrome actually fills", () => {
+    expect(source).toContain("export const expoUiButtonLabelStretchModifiers");
+    const label = source.slice(source.indexOf("export const expoUiButtonLabelStretchModifiers"));
+    expect(label).toContain("maxWidth: EXPO_UI_FRAME_INFINITY");
+    expect(label).toContain('alignment: "center"');
+  });
+});

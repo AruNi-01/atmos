@@ -11,7 +11,6 @@ import Animated, {
   FadeInDown,
   FadeOut,
   FadeOutDown,
-  LinearTransition,
   useReducedMotion,
   useSharedValue,
 } from "react-native-reanimated";
@@ -19,6 +18,7 @@ import type { SFSymbol } from "sf-symbols-typescript";
 import type { DailyTokenUsageResponse } from "@atmos/api-types/ws/dto/token-usage";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
 import {
+  HEATMAP_PLOT_HEIGHT,
   ScrollableChart,
   UsageGrowthChart,
   UsageHeatmap,
@@ -82,7 +82,6 @@ const MIX_LABEL = {
   reasoning: "Reasoning",
 } as const;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
-const EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);
 
 const METRIC_SYMBOL = { tokens: "centsign.circle", cost: "dollarsign" } as const satisfies Record<
   UsageMetric,
@@ -109,6 +108,7 @@ export function TokenUsageScreen() {
     isPending,
     missedWarnings,
     overview,
+    publishOverview,
     refreshing,
     reload,
     selectedKey,
@@ -165,10 +165,11 @@ export function TokenUsageScreen() {
     if (uri) requestAnimationFrame(() => releaseUsageImage(uri));
   }, []);
   const reducedMotion = useReducedMotion();
-  const heatmapLayout = useMemo(
-    () => LinearTransition.duration(reducedMotion ? 1 : 240).easing(EASE_IN_OUT),
-    [reducedMotion],
-  );
+  const [usageScopeKey, setUsageScopeKey] = useState(selectedKey);
+  if (usageScopeKey !== selectedKey) {
+    setUsageScopeKey(selectedKey);
+    setSelectedDate(null);
+  }
   const detailEnter = useMemo(
     () =>
       reducedMotion
@@ -422,7 +423,7 @@ export function TokenUsageScreen() {
           <UsageScroll
             contentRef={usageContentRef}
             onRefresh={reload}
-            refreshing={refreshing || (isFetching && overview == null)}
+            refreshing={refreshing}
             scrollRef={usageScrollRef}
             shift={captureShift}
           >
@@ -574,9 +575,8 @@ export function TokenUsageScreen() {
                 />
               ) : null}
             </View>
-            <Animated.View
+            <View
               collapsable={false}
-              layout={heatmapLayout}
               style={[
                 styles.heatmapCard,
                 { backgroundColor: heatmapSurface, borderColor: theme.colors.separator },
@@ -585,6 +585,7 @@ export function TokenUsageScreen() {
               <View style={styles.heatmapClip}>
                 <View
                   style={{
+                    minHeight: HEATMAP_PLOT_HEIGHT,
                     paddingBottom: openDetail ? 8 : 14,
                     paddingHorizontal: 14,
                     paddingTop: 14,
@@ -609,7 +610,7 @@ export function TokenUsageScreen() {
                   </Animated.View>
                 ) : null}
               </View>
-            </Animated.View>
+            </View>
             <NativeSegmentedControl
               onValueChange={setResolution}
               options={[
@@ -627,6 +628,7 @@ export function TokenUsageScreen() {
                   height={220}
                   labelColor={theme.colors.secondaryLabel}
                   labels={series.map((point) => point.label)}
+                  resetKey={usageScopeKey}
                   values={series.map((point) => point.value)}
                   width={width}
                 />
@@ -646,6 +648,7 @@ export function TokenUsageScreen() {
                   labels={bars.bars.map((bar) => bar.label)}
                   names={bars.labels}
                   providers={modelProviders}
+                  resetKey={usageScopeKey}
                   series={bars.bars.map((bar) => bar.segments)}
                   width={width}
                 />
@@ -690,7 +693,7 @@ export function TokenUsageScreen() {
         capture={captureUsage}
         onDismiss={closeShare}
         open={shareOpen}
-        overview={overview}
+        overview={publishOverview}
         totalCost={overview?.summary.total_cost_usd ?? null}
         totalTokens={overview?.summary.total_tokens ?? 0}
       />

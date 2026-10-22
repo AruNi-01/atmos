@@ -17,6 +17,11 @@ import {
   resolveUsageScope,
   tokenUsageDisplayedError,
 } from "@/features/token-usage/lib/usage-scope";
+import {
+  displayedOverview,
+  publishOverview,
+} from "@/features/token-usage/usage-displayed-overview";
+import { usageRefreshControlRefreshing } from "@/features/token-usage/usage-refresh-control";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -114,7 +119,17 @@ export function useTokenUsageOverview() {
   });
 
   const activeQuery = scope.isCurrentScope ? currentQuery : scopedQuery;
-  const overview = activeQuery.data ?? null;
+  const [heldOverview, setHeldOverview] = useState<TokenUsageOverviewResponse | null>(null);
+  if (activeQuery.data && heldOverview !== activeQuery.data) {
+    setHeldOverview(activeQuery.data);
+  }
+  const overview = displayedOverview({
+    active: activeQuery.data,
+    failed: activeQuery.isError,
+    pending: activeQuery.isPending,
+    previous: heldOverview,
+  });
+  const confirmedOverview = publishOverview(activeQuery.data);
 
   const refresh = useMutation({
     mutationFn: async (input: {
@@ -192,7 +207,8 @@ export function useTokenUsageOverview() {
     isPending: activeQuery.isPending,
     missedWarnings,
     overview,
-    refreshing: refresh.isPending || activeQuery.isRefetching,
+    publishOverview: confirmedOverview,
+    refreshing: usageRefreshControlRefreshing({ pullPending: refresh.isPending }),
     reload,
     selectedKey: scope.selectedKey,
     setUsageSelection,
