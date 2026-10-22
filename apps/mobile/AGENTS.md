@@ -111,6 +111,7 @@ Spec: [specs/APP/APP-077_mobile-terminal-main-path](../../specs/APP/APP-077_mobi
 - Expose commit history, PR panels, notes/TODO/review panels, AI commit generation, discard, or chunk-level patch controls in the M1 mobile Git surface.
 - Log device credentials, `client_token`, register tokens, or Relay/server secrets.
 - Re-declare `WsAction` or a pending-map kernel. Use `@atmos/api-types` + `@atmos/api-client`.
+- Open `AtmosUrlSessionSocket` with `URLSessionConfiguration.default`. Debug `expo-dev-launcher` intercepts that factory and swallows the 101 upgrade. Spec: [QUALITY-027](../../specs/APP/QUALITY-027_ios-url-session-socket-inspector/TECH.md).
 
 ### ALWAYS
 
