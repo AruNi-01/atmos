@@ -85,12 +85,17 @@ describe("parity composer capture steps", () => {
       join(here, "../../../../../.github/workflows/ci-mobile-ios-parity.yml"),
       "utf8",
     );
+    const boot = readFileSync(
+      join(here, "../../../../../scripts/agent-chat-parity/ios-boot-simulator.sh"),
+      "utf8",
+    );
     expect(tap).toContain("func testTapComposerField()");
     expect(tap).toContain('textViews["agent-chat-composer-input"]');
     expect(tap).toContain("keyboards.firstMatch");
     expect(capture).toContain("testTapComposerField");
     expect(capture).toContain("composer-keyboard.mov");
     expect(capture).toContain("capture_composer_keyboard");
-    expect(workflow).toContain("ConnectHardwareKeyboard -bool false");
+    expect(workflow).toContain("ios-boot-simulator.sh");
+    expect(boot).toContain("ConnectHardwareKeyboard -bool false");
   });
 });
