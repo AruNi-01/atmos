@@ -30,5 +30,6 @@ describe("column indicator", () => {
     expect(columnIndicatorHostX(apr)).toBe(147);
     expect(marCenter).not.toBe(gap);
     expect(columnIndicatorHostX({ ...mar, offset: 20 })).toBe(91);
+    expect(columnIndicatorHostX({ ...mar, axisWidth: 48 })).toBe(159);
   });
 });
