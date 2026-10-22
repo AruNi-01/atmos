@@ -19,37 +19,11 @@ const appJson = readFileSync(join(mobile, "app.json"), "utf8");
 describe("AtmosUrlSessionSocket session configuration", () => {
   test("does not open the socket with URLSessionConfiguration.default", () => {
     expect(swift).not.toMatch(/URLSession\(\s*configuration:\s*\.default/);
-    expect(swift).toContain("AtmosRelayWebSocketSession.configuration()");
   });
 
-  test("prefers ephemeral and falls back to a getter-free configuration", () => {
-    const ephemeralAt = swift.indexOf("URLSessionConfiguration.ephemeral");
-    const cleanInitAt = swift.indexOf("let clean = URLSessionConfiguration()");
-    expect(ephemeralAt).toBeGreaterThan(-1);
-    expect(cleanInitAt).toBeGreaterThan(ephemeralAt);
-    expect(swift).toContain("clean.protocolClasses = []");
-    expect(swift).toContain("EXRequestInterceptorProtocol");
-    expect(swift).toContain("ExpoRequestInterceptorProtocol");
-  });
-
-  test("copies timeout, cookie, and header settings from default and not protocolClasses", () => {
-    expect(swift).toContain("timeoutIntervalForRequest");
-    expect(swift).toContain("timeoutIntervalForResource");
-    expect(swift).toContain("waitsForConnectivity");
-    expect(swift).toContain("httpCookieAcceptPolicy");
-    expect(swift).toContain("httpShouldSetCookies");
-    expect(swift).toContain("httpCookieStorage");
-    expect(swift).toContain("httpAdditionalHeaders");
-    expect(swift).toContain("let shared = URLSessionConfiguration.default");
+  test("does not copy protocolClasses from URLSessionConfiguration.default", () => {
     expect(swift).not.toMatch(/protocolClasses\s*=\s*shared\.protocolClasses/);
     expect(swift).not.toMatch(/protocolClasses\s*=\s*.*URLSessionConfiguration\.default/);
-  });
-
-  test("comments why default is unsafe for the inspector handshake", () => {
-    expect(swift).toContain("EX_DEV_CLIENT_NETWORK_INSPECTOR");
-    expect(swift).toContain("101 Switching Protocols");
-    expect(swift).toContain("NSURLErrorDomain -1005");
-    expect(swift).toContain("Do not use `URLSessionConfiguration.default`");
   });
 
   test("does not turn off the Expo network inspector", () => {

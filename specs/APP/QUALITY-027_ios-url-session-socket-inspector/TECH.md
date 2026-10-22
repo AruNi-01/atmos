@@ -9,7 +9,7 @@ Keep `AtmosUrlSessionSocket` on URLSession (Happy Eyeballs, QUALITY-012 ping) bu
 Addresses:
 
 - **R1.** The socket session is not built from `URLSessionConfiguration.default`.
-- **R2.** Prefer `URLSessionConfiguration.ephemeral`. If that factory is also intercepted, allocate a configuration that did not go through those class getters and strip Expo inspector `URLProtocol` classes.
+- **R2.** Use `URLSessionConfiguration.ephemeral`, copy the shared timeout/cookie/header settings, then strip Expo inspector `URLProtocol` classes. Do not allocate `URLSessionConfiguration()`: after that filter a remaining-inspector check is always false, and `init()` has been deprecated since iOS 13.
 - **R3.** Timeout, cookie, and header settings stay aligned with the previous `.default` session.
 - **R4.** Do not disable the inspector, do not change `EX_DEV_CLIENT_NETWORK_INSPECTOR`, and do not switch the transport off URLSession.
 
@@ -29,7 +29,7 @@ Id selection: `origin/main` has QUALITY-001…024. Open PRs already hold QUALITY
 | Surface                                       | Before                                          | After                                                                                 |
 | --------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Debug + inspector, Computer/terminal WS       | `NSURLErrorDomain -1005` after 101 is swallowed | Handshake completes; socket opens                                                     |
-| `URLSession` configuration factory            | `.default`                                      | `.ephemeral`, then a getter-free config if inspector protocols are still present      |
+| `URLSession` configuration factory            | `.default`                                      | `.ephemeral`, then strip Expo inspector `URLProtocol` classes                         |
 | Timeout / cookie / extra headers              | Implicit `.default` values                      | Copied from `.default` onto the unintercepted config; `protocolClasses` is not copied |
 | Inspector / `EX_DEV_CLIENT_NETWORK_INSPECTOR` | Left on; the bug is that it breaks WS           | Left on. The fix is the session config, not turning the inspector off                 |
 | Release                                       | Already works                                   | Unchanged                                                                             |
@@ -54,7 +54,7 @@ That protocol:
 
 The interceptor is compiled out of Release, so TestFlight / parity Release builds never hit this path.
 
-`URLSessionConfiguration.ephemeral` is **not** swizzled today (only the `default` getter is). A future inspector that also replaces `ephemeral` must not bring the bug back.
+`URLSessionConfiguration.ephemeral` is **not** swizzled today (only the `default` getter is). If a later inspector also prepends its `URLProtocol` on `ephemeral`, `stripExpoNetworkInspectorProtocols` still drops those named classes. There is no `URLSessionConfiguration()` fallback.
 
 ## Decision
 
@@ -83,9 +83,6 @@ AtmosRelayWebSocketSession.configuration()
   2. copy timeout / cookie / headers from .default
      (do not copy protocolClasses)
   3. strip Expo inspector URLProtocol classes
-  4. if they remain: URLSessionConfiguration()  // not the swizzled getters
-     copy the same settings; strip again;
-     if they remain: protocolClasses = []
         │
         ▼
 URLSession(configuration:delegate:delegateQueue:)
@@ -118,9 +115,8 @@ URLSession(configuration: AtmosRelayWebSocketSession.configuration(), ...)
    - `httpShouldSetCookies`
    - `httpCookieStorage` (shared jar, not ephemeral's private store)
    - `httpAdditionalHeaders`
-3. Do **not** copy `protocolClasses`, `urlCache`, or any Expo type. Cache is unused for this upgrade.
-4. Drop protocol classes whose ObjC/Swift name is `EXRequestInterceptorProtocol`, `ExpoRequestInterceptorProtocol`, or a module-qualified suffix of either.
-5. If an inspector class is still present, allocate `URLSessionConfiguration()` (NSObject `init`, not the class getters Expo swizzles), repeat steps 2–4, and if needed set `protocolClasses = []` so only system URL loading protocols remain.
+3. Do **not** copy `protocolClasses` (that is the Expo inspector list). Also do **not** copy `urlCredentialStorage`, `urlCache`, or `requestCachePolicy`: WS auth is the token query on the URL, and the upgrade handshake does not use the URL cache.
+4. Drop protocol classes whose ObjC/Swift name is `EXRequestInterceptorProtocol`, `ExpoRequestInterceptorProtocol`, or a module-qualified suffix of either. That is the last step; `configuration()` then returns. Do not allocate `URLSessionConfiguration()`: after the filter a remaining-inspector check is always false, and `init()` has been deprecated since iOS 13.
 
 Comment in code, not only in this spec: **why `.default` is unsafe** (inspector, 101, `-1005`, Release unaffected).
 
@@ -138,14 +134,16 @@ One NEVER bullet in `apps/mobile/AGENTS.md`: do not open this socket with `URLSe
 
 The current `connect` path sets no custom timeouts, cookies, or headers on the session. Auth is the `client_token` (or equivalent) query on the `wss` URL, not a session `Authorization` header. Copying the listed `.default` properties keeps any process-wide cookie jar, extra headers, and timeouts that REST already uses.
 
-| Property                     | `.default` (current)    | New config                                           |
-| ---------------------------- | ----------------------- | ---------------------------------------------------- |
-| `timeoutIntervalForRequest`  | system default (60s)    | copied from `.default`                               |
-| `timeoutIntervalForResource` | system default (7 days) | copied from `.default`                               |
-| `waitsForConnectivity`       | `false`                 | copied from `.default`                               |
-| cookies                      | shared storage          | same shared storage, not ephemeral's private jar     |
-| `httpAdditionalHeaders`      | usually `nil`           | copied from `.default`                               |
-| `protocolClasses`            | swizzled in Debug       | ephemeral / stripped / empty — never the interceptor |
+| Property                          | `.default` (current)    | New config                                           |
+| --------------------------------- | ----------------------- | ---------------------------------------------------- |
+| `timeoutIntervalForRequest`       | system default (60s)    | copied from `.default`                               |
+| `timeoutIntervalForResource`      | system default (7 days) | copied from `.default`                               |
+| `waitsForConnectivity`            | `false`                 | copied from `.default`                               |
+| cookies                           | shared storage          | same shared storage, not ephemeral's private jar     |
+| `httpAdditionalHeaders`           | usually `nil`           | copied from `.default`                               |
+| `protocolClasses`                 | swizzled in Debug       | ephemeral, then strip named Expo inspector classes   |
+| `urlCredentialStorage`            | shared                  | not copied — WS auth is the URL query, not TLS/basic |
+| `urlCache` / `requestCachePolicy` | shared / default        | not copied — the upgrade handshake does not cache    |
 
 ## Rollout plan
 
@@ -156,7 +154,7 @@ The current `connect` path sets no custom timeouts, cookies, or headers on the s
 
 ## Risks & tradeoffs
 
-- **Risk:** A future Expo build swizzles `ephemeral` the same way as `default`. The strip + `URLSessionConfiguration()` fallback is the mitigation. If `init` ever called the swizzled getter internally, `protocolClasses = []` still removes extra protocols.
+- **Risk:** A future Expo build swizzles `ephemeral` the same way as `default`. Mitigation is still `stripExpoNetworkInspectorProtocols` on that object. A post-filter `contains` check would always be false, so there is no second factory. `URLSessionConfiguration()` is not used: `init()` has been deprecated since iOS 13.
 - **Risk:** Copying `httpCookieStorage` from `.default` still reads the swizzled getter. That only copies scalar/storage properties; it must not assign `protocolClasses`.
 - **Tradeoff:** Debug REST `fetch` keeps using `.default` and stays visible in the inspector. Only Computer/terminal WebSockets skip it. Inspecting those sockets in Metro is out of scope.
 - **If this breaks in production:** Release never used the interceptor. Reverting the Swift helper restores `.default` (and the Debug bug).

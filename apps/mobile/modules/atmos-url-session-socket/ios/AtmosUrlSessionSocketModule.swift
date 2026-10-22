@@ -32,24 +32,15 @@ enum AtmosSocketSendError: LocalizedError {
 /// getter and prepends `ExpoRequestInterceptorProtocol`. The interceptor
 /// replays the handshake as a data task and swallows HTTP 101 Switching Protocols,
 /// after which `URLSessionWebSocketTask` fails with `NSURLErrorDomain -1005`.
-/// Release is unaffected because the interceptor is
-/// compiled out. `ephemeral` is not swizzled today; if a future inspector
-/// also replaces it, allocate a configuration that does not go through those
-/// class getters and drop inspector `URLProtocol` classes.
+/// Release is unaffected because the interceptor is compiled out.
+/// Use `ephemeral` and strip inspector protocol classes. Do not fall back to
+/// `URLSessionConfiguration()`: after the filter a remaining-inspector check
+/// is always false, and `init()` has been deprecated since iOS 13.
 private enum AtmosRelayWebSocketSession {
   static func configuration() -> URLSessionConfiguration {
     let config = URLSessionConfiguration.ephemeral
     applySharedDefaultTransportSettings(to: config)
     stripExpoNetworkInspectorProtocols(from: config)
-    if containsExpoNetworkInspectorProtocol(config) {
-      let clean = URLSessionConfiguration()
-      applySharedDefaultTransportSettings(to: clean)
-      stripExpoNetworkInspectorProtocols(from: clean)
-      if containsExpoNetworkInspectorProtocol(clean) {
-        clean.protocolClasses = []
-      }
-      return clean
-    }
     return config
   }
 
@@ -70,12 +61,6 @@ private enum AtmosRelayWebSocketSession {
   private static func stripExpoNetworkInspectorProtocols(from config: URLSessionConfiguration) {
     guard let classes = config.protocolClasses else { return }
     config.protocolClasses = classes.filter { !isExpoNetworkInspectorProtocol($0) }
-  }
-
-  private static func containsExpoNetworkInspectorProtocol(_ config: URLSessionConfiguration)
-    -> Bool
-  {
-    config.protocolClasses?.contains(where: isExpoNetworkInspectorProtocol) ?? false
   }
 
   private static func isExpoNetworkInspectorProtocol(_ cls: AnyClass) -> Bool {

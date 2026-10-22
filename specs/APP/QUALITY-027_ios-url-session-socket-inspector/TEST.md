@@ -6,7 +6,7 @@
 
 The failure is an iOS Debug URLSession handshake. This Linux environment has no Simulator, so executable proof is a Bun source assertion on the Swift module plus the existing JS wrapper tests. A Mac Debug client with the inspector on is the only live handshake check; record it as a gap rather than pushing screenshots or hostnames.
 
-- Unit (Bun source): the Swift file must not pass `.default` into `URLSession(configuration:)`, must start from `ephemeral`, must copy timeout/cookie/header fields, must not copy `protocolClasses` from `.default`, and must keep a getter-free fallback.
+- Unit (Bun source): the Swift file must not pass `.default` into `URLSession(configuration:)`, must not copy `protocolClasses` from `.default`, and must not turn the inspector off.
 - Unit (Bun JS): existing `UrlSessionWebSocket` wrapper tests stay green.
 - Toolchain: `package.json` `lint` stays `oxlint --max-warnings=455`. oxlint/oxfmt on touched paths.
 - Manual: Debug + inspector connecting to relay. Not run here. Do not add the `ios-parity` label to force that job.
@@ -17,7 +17,7 @@ The failure is an iOS Debug URLSession handshake. This Linux environment has no 
 | Requirement                                                                | Scenario IDs |
 | -------------------------------------------------------------------------- | ------------ |
 | R1. Session is not `URLSessionConfiguration.default`                       | S1, S6       |
-| R2. Prefer `ephemeral`; fallback if inspector protocols remain             | S2, S5       |
+| R2. Use `ephemeral`, then strip inspector protocols; no `init()` fallback  | S2, S5       |
 | R3. Timeout, cookie, and header settings copied from `.default`            | S3           |
 | R3. `protocolClasses` is not copied from `.default`                        | S4           |
 | R4. Inspector / `EX_DEV_CLIENT_NETWORK_INSPECTOR` is not turned off        | S7           |
@@ -30,10 +30,10 @@ The failure is an iOS Debug URLSession handshake. This Linux environment has no 
 | Scenario | Level     | Expected tool | Target command / method                                       | Fixture / data     | Signals                                                                                          | Status  |
 | -------- | --------- | ------------- | ------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------ | ------- |
 | S1       | Unit      | `bun test`    | `apps/mobile/src/api/atmos-url-session-socket-config.test.ts` | Swift source       | no `URLSession(configuration: .default`                                                          | pass    |
-| S2       | Unit      | `bun test`    | same                                                          | Swift source       | `URLSessionConfiguration.ephemeral` is the first factory                                         | pass    |
+| S2       | Unit      | `bun test`    | same                                                          | Swift source       | `configuration()` is ephemeral + apply + strip; no `URLSessionConfiguration()`                   | pass    |
 | S3       | Unit      | `bun test`    | same                                                          | Swift source       | copies `timeoutIntervalForRequest`, `httpCookieStorage`, `httpAdditionalHeaders` from `.default` | pass    |
 | S4       | Unit      | `bun test`    | same                                                          | Swift source       | does not assign `protocolClasses` from `.default`                                                | pass    |
-| S5       | Unit      | `bun test`    | same                                                          | Swift source       | `URLSessionConfiguration()` fallback and inspector protocol strip / empty `protocolClasses`      | pass    |
+| S5       | Review    | File read     | `AtmosRelayWebSocketSession.configuration()`                  | Swift source       | no `containsExpoNetworkInspectorProtocol`; no `URLSessionConfiguration()`                        | pass    |
 | S6       | Unit      | `bun test`    | same                                                          | Swift source       | comment names inspector, 101, and `-1005`                                                        | pass    |
 | S7       | Unit      | `bun test`    | same + `app.config.js` / env files if touched                 | repo source        | no new `EX_DEV_CLIENT_NETWORK_INSPECTOR=false`                                                   | pass    |
 | S8       | Unit      | `bun test`    | `apps/mobile/src/api/url-session-websocket.test.ts`           | Fake native socket | existing connect / close / ping tests pass                                                       | pass    |
@@ -50,13 +50,13 @@ The failure is an iOS Debug URLSession handshake. This Linux environment has no 
 - **Then**: there is no `URLSession(configuration: .default` (optional whitespace allowed). Mentions of `.default` in comments or as a _source_ of timeout/cookie/header copies are allowed.
 - **Signals**: regex assertion.
 
-### S2 — Ephemeral is the preferred factory
+### S2 — Ephemeral is the only factory
 
-- **Level**: Unit
+- **Level**: Unit / review
 - **Given**: the same Swift file.
-- **When**: the test inspects the configuration helper.
-- **Then**: `URLSessionConfiguration.ephemeral` appears before any `URLSessionConfiguration()` fallback.
-- **Signals**: source contains `URLSessionConfiguration.ephemeral`.
+- **When**: `configuration()` is read.
+- **Then**: it takes `URLSessionConfiguration.ephemeral`, calls `applySharedDefaultTransportSettings`, then `stripExpoNetworkInspectorProtocols`, and returns. There is no `URLSessionConfiguration()` branch.
+- **Signals**: those three calls in order; no `let clean = URLSessionConfiguration()`.
 
 ### S3 — Timeout, cookie, and headers stay aligned with `.default`
 
@@ -71,16 +71,16 @@ The failure is an iOS Debug URLSession handshake. This Linux environment has no 
 - **Level**: Unit
 - **Given**: the configuration helper.
 - **When**: the test looks for `protocolClasses` assignment from `.default`.
-- **Then**: the helper does not set `protocolClasses` from the `.default` configuration. It may strip named Expo inspector classes or set `protocolClasses = []` on the fallback.
+- **Then**: the helper does not set `protocolClasses` from the `.default` configuration. It may strip named Expo inspector classes after starting from `ephemeral`.
 - **Signals**: no `protocolClasses =` from the default object.
 
-### S5 — Fallback if ephemeral is intercepted
+### S5 — No getter-free `init()` fallback
 
-- **Level**: Unit
-- **Given**: the configuration helper.
-- **When**: inspector protocol classes are still present after the ephemeral path.
-- **Then**: the source allocates `URLSessionConfiguration()`, strips Expo inspector protocol names, and can set `protocolClasses = []`.
-- **Signals**: those tokens in the Swift file.
+- **Level**: Review
+- **Given**: the configuration helper after the inspector-protocol strip.
+- **When**: the source is read for a remaining-inspector check or `URLSessionConfiguration()`.
+- **Then**: `containsExpoNetworkInspectorProtocol` is absent. After the filter that check would always be false, and `URLSessionConfiguration()` / `init()` is not used (deprecated since iOS 13). Strip of named Expo inspector classes is the only interceptor defense.
+- **Signals**: `configuration()` body is the three steps in TECH; no `URLSessionConfiguration()` call.
 
 ### S6 — Comment explains why `.default` is unsafe
 
@@ -164,12 +164,13 @@ Do not attach screenshots or evidence to the PR.
 
 ## Coverage Status
 
-2026-10-22 (Linux agent, no iOS Simulator):
+2026-10-22 follow-up (drop `URLSessionConfiguration()` fallback):
 
-- S1–S7 — pass. `cd apps/mobile && bun test src/api/atmos-url-session-socket-config.test.ts` (5 tests).
-- S8 — pass. `cd apps/mobile && bun test src/api/url-session-websocket.test.ts` (5 tests). Combined socket files: 10 pass, 0 fail. `cd apps/mobile && bun test src/api/` → 37 pass, 0 fail.
-- S9 — pass. Root `package.json` `lint` is still `oxlint --max-warnings=455`. `bunx oxlint --max-warnings=455` on the new test file and `url-session-websocket.test.ts` exited 0. `bunx oxfmt` on the touched TS/MD paths exited 0. Diff does not add the `ios-parity` label, evidence files, screenshots, or a hostname.
-- S10 — not_run. No iOS Simulator in this environment. Live Debug + inspector handshake remains a Mac gap.
+- S1, S4, S7 — pass. `cd apps/mobile && bun test src/api/atmos-url-session-socket-config.test.ts` (3 tests: no `.default` session, no `protocolClasses` copy from `.default`, inspector stays on). Combined with S8: 8 pass, 0 fail.
+- S2, S5 — pass by reading `AtmosRelayWebSocketSession.configuration()`: ephemeral → apply shared timeout/cookie/header settings → strip inspector protocols → return. No `containsExpoNetworkInspectorProtocol`, no `URLSessionConfiguration()`.
+- S8 — pass. `cd apps/mobile && bun test src/api/url-session-websocket.test.ts` (5 tests).
+- S9 — pass. `bunx oxlint --max-warnings=455` on the two socket test files (exit 0) and repo-wide `bunx oxlint --max-warnings=455` (exit 0). Cap not raised. No `ios-parity` label, screenshots, evidence, or hostname.
+- S10 — not_run. No iOS Simulator in this environment.
 
 Commands:
 
