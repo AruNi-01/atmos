@@ -26,19 +26,19 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 
 ## Execution map
 
-| Scenario | Level      | Expected tool | Target command / method                                                                                          | Fixture / data                         | Signals                                                                                          | Status  |
-| -------- | ---------- | ------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------ | ------- |
-| S1       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/publish-sheet.test.ts`                                      | `ShareSheet.tsx` source                | No outer publish card; GlassPanel + pill fields; stacked stretch Host buttons                    | planned |
-| S2       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/publish-form.test.ts`                                       | existing publish fixtures              | Primary label Publish/Update; disabled when unchanged                                            | planned |
-| S3       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/ui/primitives/native-switch-tint.test.ts`                                        | theme color tokens                     | Switch seed is green, not label                                                                  | planned |
-| S4       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/heatmap-layout.test.ts`                                     | `TokenUsageScreen.tsx` / `charts.tsx`  | No card LinearTransition; reserved plot height; empty heatmap keeps height                       | planned |
-| S5       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/features/terminal/agent-glyph-tint.test.ts`                                       | cursor/codex/droid + colorScheme       | `glyphSurfaceKey` changes with scheme; Image uses it                                             | planned |
-| S6       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-popover-mark.test.ts`                                  | `charts.tsx` source + helper           | Popover agent mark passes series `tintColor`                                                     | planned |
-| S7       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`                                         | bar vs growth open mode                | Bar opens on tap and persists; growth still hold                                                 | planned |
-| S8       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`                                      | axis width + inset                     | First-label inset; gesture chartX subtracts inset                                                | planned |
-| S9       | Bun test   | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts`                                  | `TokenUsageScreen.tsx` source          | `scrollTo` on Computer / All identity change                                                     | planned |
-| S10      | Manual     | iOS simulator | Token usage + Share Publish, both themes                                                                         | two computers, light and dark          | Visual acceptance for M1–M10                                                                     | planned |
-| S11      | Lint       | oxlint/oxfmt  | `bunx oxlint --fix` and `bunx oxfmt` on touched files; `bun lint` cap 455                                        | changed paths                          | lint/format clean                                                                                | planned |
+| Scenario | Level    | Expected tool | Target command / method                                                          | Fixture / data                        | Signals                                                                       | Status  |
+| -------- | -------- | ------------- | -------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------- | ------- |
+| S1       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/publish-sheet.test.ts`      | `ShareSheet.tsx` source               | No outer publish card; GlassPanel + pill fields; stacked stretch Host buttons | planned |
+| S2       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/publish-form.test.ts`       | existing publish fixtures             | Primary label Publish/Update; disabled when unchanged                         | planned |
+| S3       | Bun test | `bun test`    | `cd apps/mobile && bun test src/ui/primitives/native-switch-tint.test.ts`        | theme color tokens                    | Switch seed is green, not label                                               | planned |
+| S4       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/heatmap-layout.test.ts`     | `TokenUsageScreen.tsx` / `charts.tsx` | No card LinearTransition; reserved plot height; empty heatmap keeps height    | planned |
+| S5       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/terminal/agent-glyph-tint.test.ts`      | cursor/codex/droid + colorScheme      | `glyphSurfaceKey` changes with scheme; Image uses it                          | planned |
+| S6       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-popover-mark.test.ts` | `charts.tsx` source + helper          | Popover agent mark passes series `tintColor`                                  | planned |
+| S7       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`        | bar vs growth open mode               | Bar opens on tap and persists; growth still hold                              | planned |
+| S8       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`     | axis width + inset                    | First-label inset; gesture chartX subtracts inset                             | planned |
+| S9       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts` | `TokenUsageScreen.tsx` source         | `scrollTo` on Computer / All identity change                                  | planned |
+| S10      | Manual   | iOS simulator | Token usage + Share Publish, both themes                                         | two computers, light and dark         | Visual acceptance for M1–M10                                                  | planned |
+| S11      | Lint     | oxlint/oxfmt  | `bunx oxlint --fix` and `bunx oxfmt` on touched files; `bun lint` cap 455        | changed paths                         | lint/format clean                                                             | planned |
 
 ## Scenarios
 
@@ -171,4 +171,16 @@ This environment: 未运行.
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`.
+- S1 — ✅ `cd apps/mobile && bun test src/features/token-usage/publish-sheet.test.ts`
+- S2 — ✅ `cd apps/mobile && bun test src/features/token-usage/publish-form.test.ts`
+- S3 — ✅ `cd apps/mobile && bun test src/ui/primitives/native-switch-tint.test.ts`
+- S4 — ✅ `cd apps/mobile && bun test src/features/token-usage/heatmap-layout.test.ts`
+- S5 — ✅ `cd apps/mobile && bun test src/features/terminal/agent-glyph-tint.test.ts`
+- S6 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-popover-mark.test.ts`
+- S7 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`
+- S8 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`
+- S9 — ✅ `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts`
+- S10 — 未运行 (this environment has no iOS simulator)
+- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts` (86 pass)
+
+Regression: `cd apps/mobile && bun test src/features/token-usage` green. iOS simulator visual acceptance remains 未运行.
