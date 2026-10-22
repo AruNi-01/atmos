@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Linking, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import {
   CAMERA_PREVIEW_TIMEOUT_MS,
   cameraScannerModel,
   shouldArmCameraPreviewTimer,
+  shouldRequestSystemCameraPermission,
   type CameraScannerModel,
 } from "@/features/onboarding/camera-permission-state";
 import { CameraPermissionStateView } from "@/features/onboarding/CameraPermissionStateView";
@@ -29,29 +30,40 @@ export function PairQrScanner({
   const [ready, setReady] = useState(false);
   const [mountError, setMountError] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
-  const asked = useRef(false);
+  const requestedThisOpen = useRef(false);
+  const permissionSnapshot = useMemo(
+    () =>
+      permission
+        ? {
+            canAskAgain: permission.canAskAgain,
+            granted: permission.granted,
+            status: permission.status,
+          }
+        : null,
+    [permission],
+  );
 
   const model = cameraScannerModel({
     mountError,
-    permission: permission
-      ? {
-          canAskAgain: permission.canAskAgain,
-          granted: permission.granted,
-          status: permission.status,
-        }
-      : null,
+    permission: permissionSnapshot,
     ready,
     timedOut,
   });
-  const autoRequest = model.kind === "prompt" && model.autoRequest;
 
   useEffect(() => {
-    if (!autoRequest || asked.current) return;
-    asked.current = true;
+    if (
+      !shouldRequestSystemCameraPermission({
+        permission: permissionSnapshot,
+        requestedThisOpen: requestedThisOpen.current,
+      })
+    ) {
+      return;
+    }
+    requestedThisOpen.current = true;
     void requestPermission().catch((error: unknown) => {
       setMountError(error instanceof Error ? error.message : "Could not request camera access.");
     });
-  }, [autoRequest, requestPermission]);
+  }, [permissionSnapshot, requestPermission]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (next) => {
@@ -90,6 +102,21 @@ export function PairQrScanner({
     setMountError(null);
     setReady(false);
     setTimedOut(false);
+    // The auto-request view has no Allow button. An explicit Try again may ask
+    // the system once more while access is still undetermined. The effect above
+    // still requests at most once per open.
+    if (
+      !shouldRequestSystemCameraPermission({
+        permission: permissionSnapshot,
+        requestedThisOpen: false,
+      })
+    ) {
+      return;
+    }
+    requestedThisOpen.current = true;
+    void requestPermission().catch((error: unknown) => {
+      setMountError(error instanceof Error ? error.message : "Could not request camera access.");
+    });
   };
 
   if (model.kind !== "preview" && model.kind !== "starting") {

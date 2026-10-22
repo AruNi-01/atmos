@@ -19,6 +19,21 @@ export type CameraScannerModel =
 const PREVIEW_TIMEOUT_MESSAGE =
   "The camera preview did not start. Check that this device has a camera.";
 
+/**
+ * Ask the OS once per scanner open while access is still undetermined.
+ * A denial that cannot be asked again, a grant, and a second call in the same
+ * open do not request. That keeps the system dialog from looping.
+ */
+export function shouldRequestSystemCameraPermission(input: {
+  permission: CameraPermissionSnapshot;
+  requestedThisOpen: boolean;
+}): boolean {
+  if (input.requestedThisOpen) return false;
+  const permission = input.permission;
+  if (!permission || permission.granted || !permission.canAskAgain) return false;
+  return (permission.status ?? "undetermined") === "undetermined";
+}
+
 /** A new timer starts only for a fresh attempt. Retry clears `timedOut` so the next attempt can arm again. */
 export function shouldArmCameraPreviewTimer(input: {
   granted: boolean;
@@ -41,8 +56,13 @@ export function cameraScannerModel(input: {
   if (!input.permission) return { kind: "loading" };
   if (!input.permission.granted) {
     if (!input.permission.canAskAgain) return { kind: "settings" };
-    const status = input.permission.status ?? "undetermined";
-    return { autoRequest: status === "undetermined", kind: "prompt" };
+    return {
+      autoRequest: shouldRequestSystemCameraPermission({
+        permission: input.permission,
+        requestedThisOpen: false,
+      }),
+      kind: "prompt",
+    };
   }
   if (input.timedOut) return { kind: "error", message: PREVIEW_TIMEOUT_MESSAGE };
   if (!input.ready) return { kind: "starting" };

@@ -22,7 +22,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 | M1. Empty list stays "None"                              | S1           |
 | M2. Row has a check and no arrow                         | S3           |
 | M2. Selection dismisses the sheet after it commits       | S4           |
-| M3. Undetermined permission asks once                    | S5           |
+| M3. Undetermined permission asks the system once         | S5, S11      |
 | M3. Denied with `canAskAgain` false opens Settings       | S5, S6       |
 | M3. Loading, denied, and error are visible and not black | S6           |
 | M3. Light pair dock is glass unless the preview is live  | S10          |
@@ -45,6 +45,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 | S8       | Review        | `rg`          | root `package.json` script `lint`                                                         | repo                                         | value is `oxlint --max-warnings=455`                                          | pass    |
 | S9       | Manual        | iOS Simulator | steps below                                                                               | booted simulator, bundle `land.atmos.mobile` | light/dark shots of the row, the list, and Re-pair permission states          | planned |
 | S10      | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/onboarding/pair-dock-chrome.test.ts`        | scanner kind, theme, scanner open            | glass only for light + open + not `preview`; dark and closed stay inverted    | pass    |
+| S11      | Bun unit      | `bun test`    | `camera-permission-state.test.ts` and `camera-permission-view.test.ts`                    | undetermined, denied, already requested      | system ask once; no in-app required screen; permanent denial keeps Settings   | pass    |
 
 ## Scenarios
 
@@ -128,6 +129,14 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 - **Then**: light non-preview states use the theme glass dock. `preview`, dark theme, and a closed scanner keep the inverted dock. The glass branch is `GlassPanel` with `glassFallbackStrong`, `glassTint`, `glassBorder`, `secondaryLabel`, `label`, `cardSubtle`, `ctaFill`, and `ctaLabel`, and that branch has no hex color.
 - **Signals**: boolean result and source text.
 
+### S11 — Undetermined permission opens the system prompt directly
+
+- **Level**: Unit
+- **Given**: `shouldRequestSystemCameraPermission` and `CameraPermissionStateView`.
+- **When**: permission is undetermined or missing a status and `canAskAgain` is true, then the same snapshot is marked requested this open. Also when it is granted, null, denied with `canAskAgain` false, or denied with `canAskAgain` true.
+- **Then**: only the first undetermined case requests. The auto-request view shows "Checking camera" and does not show "Camera access is required" or "Allow camera". A denial that can still be asked keeps that allow button for a later tap. A permanent denial stays on Open Settings. Try again asks again only while the status is still undetermined.
+- **Signals**: boolean result and rendered text.
+
 ## Regression checklist
 
 - Relay row and theme control on Settings still render.
@@ -139,6 +148,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 
 - [x] S1–S7 pass under `bun --filter @atmos/mobile test`.
 - [x] S10 passes under `bun --filter @atmos/mobile test`.
+- [x] S11 passes under `bun --filter @atmos/mobile test`.
 - [x] `bun --filter @atmos/mobile typecheck` exits 0.
 - [x] oxlint on the touched files does not raise the repo warning cap above 455.
 - [x] S9 is recorded as manual. Shots are not committed.
@@ -180,6 +190,8 @@ Then force-quit Atmos and open Re-pair phone again. The sheet shows copy ("Check
 
 In light appearance, the How to pair panel and Hide scanner match the sheet while permission is pending, denied, or the preview has not started. That panel turns dark only after the camera preview is live. Dark appearance keeps the elevated dock the whole time.
 
+When camera permission is still undetermined, Re-pair shows the iOS system prompt without an in-app "Camera access is required" step or an Allow button. After a denial that cannot be asked again, the sheet shows "Camera access is off" and Open Settings.
+
 ## Non-coverage
 
 - No automated tap on a real `CameraView`. The simulator has no reliable video device; TECH treats a missing `onCameraReady` as an error view, covered by S5.
@@ -200,3 +212,4 @@ Run on 2026-10-21 in this workspace.
 - S9 stays planned. This environment has no booted iOS simulator, so the screenshots were not taken and are not in git.
 - Review follow-up: a second camera attempt can arm the preview timer again; returning to the app re-reads camera permission; a new account does not keep the previous Computer session unless that Computer is still listed; a stale computer switch is ignored; the sign-in crash fallback no longer says Re-pair. Covered by `shouldArmCameraPreviewTimer`, `retainedServerIdAfterAuthMiss`, and `shouldApplyComputerSwitch`.
 - 2026-10-21 dock follow-up: S10 `pair-dock-chrome.test.ts` pass (light non-preview kinds use glass; `preview`, dark theme, and a closed scanner stay inverted; the glass branch names theme tokens and no hex). Render tests share `mobile-render-mock.ts`, because the first `mock.module("react-native")` in a process is the one every later file sees. Full mobile suite: `bun --filter @atmos/mobile test` — 594 pass, 0 fail. `bun --filter @atmos/mobile typecheck` exits 0. `bun lint` (`oxlint --max-warnings=455`) exits 0 with 434 warnings. S9 stays planned.
+- 2026-10-22 permission follow-up: S11. Undetermined access, including a missing status, with `canAskAgain` requests once per scanner open. That view renders "Checking camera" and does not render "Camera access is required" or "Allow camera". A denial that can still be asked keeps Allow camera. `canAskAgain` false stays on Open Settings. Full mobile suite: `bun --filter @atmos/mobile test` — 599 pass, 0 fail. `bun --filter @atmos/mobile typecheck` exits 0. `bun lint` (`oxlint --max-warnings=455`) exits 0 with 434 warnings. S9 stays planned.

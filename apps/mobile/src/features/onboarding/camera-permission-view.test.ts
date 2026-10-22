@@ -47,6 +47,29 @@ describe("CameraPermissionStateView", () => {
     expect(error).toContain("Try again");
   });
 
+  test("an undetermined permission does not show the in-app allow step", () => {
+    const html = markup(
+      createElement(CameraPermissionStateView, {
+        model: { autoRequest: true, kind: "prompt" },
+        onAllow: () => undefined,
+      }),
+    );
+    expect(html).toContain("Checking camera");
+    expect(html).not.toContain("Camera access is required");
+    expect(html).not.toContain("Allow camera");
+  });
+
+  test("a denial that can still be asked keeps the allow button", () => {
+    const html = markup(
+      createElement(CameraPermissionStateView, {
+        model: { autoRequest: false, kind: "prompt" },
+        onAllow: () => undefined,
+      }),
+    );
+    expect(html).toContain("Camera access is required");
+    expect(html).toContain("Allow camera");
+  });
+
   test("a render throw becomes the visible camera fallback", () => {
     const error = new Error("camera exploded");
     const state = PairScannerErrorBoundary.getDerivedStateFromError(error);

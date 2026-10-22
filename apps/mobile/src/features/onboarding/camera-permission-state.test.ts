@@ -1,6 +1,18 @@
 // @ts-expect-error bun:test is available at runtime but not in the mobile tsconfig types
 import { describe, expect, test } from "bun:test";
-import { cameraScannerModel, shouldArmCameraPreviewTimer } from "./camera-permission-state";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { dirname, join } from "node:path";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { fileURLToPath } from "node:url";
+import {
+  cameraScannerModel,
+  shouldArmCameraPreviewTimer,
+  shouldRequestSystemCameraPermission,
+} from "./camera-permission-state";
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 const granted = { canAskAgain: true, granted: true, status: "granted" };
 
@@ -17,6 +29,74 @@ describe("shouldArmCameraPreviewTimer", () => {
     expect(shouldArmCameraPreviewTimer({ ...base, ready: true })).toBe(false);
     expect(shouldArmCameraPreviewTimer({ ...base, granted: false })).toBe(false);
     expect(shouldArmCameraPreviewTimer({ ...base, mountError: "failed" })).toBe(false);
+  });
+});
+
+describe("shouldRequestSystemCameraPermission", () => {
+  const undetermined = { canAskAgain: true, granted: false, status: "undetermined" };
+
+  test("asks the system once when access is still undetermined", () => {
+    expect(
+      shouldRequestSystemCameraPermission({
+        permission: undetermined,
+        requestedThisOpen: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRequestSystemCameraPermission({
+        permission: { canAskAgain: true, granted: false },
+        requestedThisOpen: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRequestSystemCameraPermission({
+        permission: undetermined,
+        requestedThisOpen: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("does not ask again after a grant, a permanent denial, or a denial the app can still ask later", () => {
+    expect(
+      shouldRequestSystemCameraPermission({
+        permission: null,
+        requestedThisOpen: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRequestSystemCameraPermission({
+        permission: { canAskAgain: true, granted: true, status: "granted" },
+        requestedThisOpen: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRequestSystemCameraPermission({
+        permission: { canAskAgain: false, granted: false, status: "denied" },
+        requestedThisOpen: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRequestSystemCameraPermission({
+        permission: { canAskAgain: true, granted: false, status: "denied" },
+        requestedThisOpen: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("the scanner asks through that guard before any in-app allow button", () => {
+    const source = readFileSync(join(here, "PairQrScanner.tsx"), "utf8");
+    const effect = source.slice(
+      source.indexOf("shouldRequestSystemCameraPermission"),
+      source.indexOf("requestPermission()"),
+    );
+    expect(effect).toContain("requestedThisOpen.current = true");
+    expect(source).not.toContain("asked.current");
+    const retry = source.slice(
+      source.indexOf("const retry"),
+      source.indexOf('model.kind !== "preview"'),
+    );
+    expect(retry).toContain("requestedThisOpen: false");
+    expect(retry).toContain("requestPermission()");
   });
 });
 

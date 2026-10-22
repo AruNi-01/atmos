@@ -18,13 +18,17 @@ export function CameraPermissionStateView({
   onRetry?: () => void;
 }) {
   const theme = useMobileTheme();
-  const copy = copyFor(model);
+  // Undetermined access asks the OS immediately. The in-app pitch would sit
+  // behind that system dialog and ask for a second tap.
+  const shown: VisibleModel =
+    model.kind === "prompt" && model.autoRequest ? { kind: "loading" } : model;
+  const copy = copyFor(shown);
   const action =
-    model.kind === "prompt"
+    shown.kind === "prompt"
       ? { label: "Allow camera", onPress: onAllow }
-      : model.kind === "settings"
+      : shown.kind === "settings"
         ? { label: "Open Settings", onPress: onOpenSettings }
-        : model.kind === "error"
+        : shown.kind === "error"
           ? { label: "Try again", onPress: onRetry }
           : null;
 
