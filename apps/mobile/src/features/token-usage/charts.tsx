@@ -236,11 +236,9 @@ function useHoldScroll({
       pinnedOffset.current = null;
       userScrolled.current = true;
       zoomingRef.current = true;
-      if (holding.current) {
-        holding.current = false;
-        setLocked(false);
-        handlers.current.onRelease();
-      }
+      holding.current = false;
+      setLocked(false);
+      handlers.current.onRelease();
       scrollRef.current?.setNativeProps({ scrollEnabled: false });
       setZooming(true);
     },

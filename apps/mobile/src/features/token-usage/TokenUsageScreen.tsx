@@ -108,6 +108,7 @@ export function TokenUsageScreen() {
     isPending,
     missedWarnings,
     overview,
+    publishOverview,
     refreshing,
     reload,
     selectedKey,
@@ -690,7 +691,7 @@ export function TokenUsageScreen() {
         capture={captureUsage}
         onDismiss={closeShare}
         open={shareOpen}
-        overview={overview}
+        overview={publishOverview}
         totalCost={overview?.summary.total_cost_usd ?? null}
         totalTokens={overview?.summary.total_tokens ?? 0}
       />

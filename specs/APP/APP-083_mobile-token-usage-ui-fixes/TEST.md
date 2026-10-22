@@ -47,7 +47,7 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 - **Level**: Bun test (source contract)
 - **Given**: `ShareSheet.tsx` Publish pane
 - **When**: inspect the source
-- **Then**: there is no wrapping `styles.publishCard` GlassPanel; `PrefixedField` uses `GlassPanel` and `radii.pill`; primary and Turn off use `expoUiButtonHostStyle` and `expoUiButtonStretchModifiers`; Turn off is rendered after the primary, not in a `space-between` row; `NativeSwitch` appears once
+- **Then**: there is no wrapping `styles.publishCard` GlassPanel; `PrefixedField` uses `GlassPanel` and `radii.pill`; primary and Turn off use `expoUiButtonHostStyle`, `expoUiButtonStretchModifiersFor`, and iOS label `expoUiButtonLabelStretchModifiers`; Turn off is rendered after the primary, not in a `space-between` row; `NativeSwitch` appears once
 - **Signals**: `publish-sheet.test.ts`
 
 ### S2 — Publish disable rules unchanged
@@ -111,7 +111,7 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 - **Level**: Bun test (source contract)
 - **Given**: Token usage screen
 - **When**: Computer / All identity changes
-- **Then**: `selectedDate` clears; the screen does not `scrollTo({ y: 0 })`; the overview hook keeps the previous payload while the next query is pending
+- **Then**: `selectedDate` clears; the screen does not `scrollTo({ y: 0 })`; the overview hook keeps the previous payload for display while the next query is pending; a failed query drops the fallback; `ShareSheet` receives `publishOverview` (active query data only)
 - **Signals**: `usage-scroll-reset.test.ts`, `usage-displayed-overview.test.ts`. Simulator large-title is S10.
 
 ### S10 — iOS simulator (manual)
@@ -181,6 +181,6 @@ This environment: 未运行.
 - S8 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`
 - S9 — ✅ `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts src/features/token-usage/usage-displayed-overview.test.ts`
 - S10 — 未运行 (this environment has no iOS simulator)
-- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts src/ui/primitives/expo-ui-button-modifiers.test.ts` (97 pass)
+- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts src/ui/primitives/expo-ui-button-modifiers.test.ts` (100 pass)
 
 Regression: `cd apps/mobile && bun test src/features/token-usage` green. iOS simulator visual acceptance remains 未运行.

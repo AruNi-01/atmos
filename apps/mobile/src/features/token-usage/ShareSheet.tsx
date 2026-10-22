@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Host } from "@expo/ui";
+import { Text as SwiftUIText } from "@expo/ui/swift-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hubDeleteUsagePage, hubGetUsagePage, hubPutUsagePage } from "@atmos/hub-client";
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
@@ -25,7 +26,10 @@ import { FacebookMark, RedditMark, ThreadsMark, XMark } from "@/features/token-u
 import { radii } from "@/theme/radii";
 import { DownloadIcon } from "@/ui/icons/lucide-native";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
-import { expoUiButtonStretchModifiersFor } from "@/ui/primitives/expo-ui-button-modifiers";
+import {
+  expoUiButtonLabelStretchModifiers,
+  expoUiButtonStretchModifiersFor,
+} from "@/ui/primitives/expo-ui-button-modifiers";
 import {
   expoUiButtonHostStyle,
   expoUiDangerStyle,
@@ -461,6 +465,7 @@ function StretchPublishButton({
   onPress?: () => void;
 }) {
   const theme = useMobileTheme();
+  const labelStretch = expoUiButtonLabelStretchModifiers;
   return (
     <Host
       colorScheme={theme.colorScheme}
@@ -468,13 +473,24 @@ function StretchPublishButton({
       seedColor={look.seedColor}
       style={expoUiButtonHostStyle}
     >
-      <Button
-        disabled={disabled}
-        label={label}
-        modifiers={expoUiButtonStretchModifiersFor(look.variant)}
-        onPress={onPress}
-        variant={look.variant}
-      />
+      {labelStretch ? (
+        <Button
+          disabled={disabled}
+          modifiers={expoUiButtonStretchModifiersFor(look.variant)}
+          onPress={onPress}
+          variant={look.variant}
+        >
+          <SwiftUIText modifiers={labelStretch}>{label}</SwiftUIText>
+        </Button>
+      ) : (
+        <Button
+          disabled={disabled}
+          label={label}
+          modifiers={expoUiButtonStretchModifiersFor(look.variant)}
+          onPress={onPress}
+          variant={look.variant}
+        />
+      )}
     </Host>
   );
 }

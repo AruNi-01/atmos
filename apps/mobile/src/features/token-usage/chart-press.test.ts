@@ -40,6 +40,17 @@ describe("chart press policy", () => {
     expect(charts).not.toContain("labelInset");
   });
 
+  test("pinch begin always releases a persisted stacked tip", () => {
+    const start = charts.indexOf("onBegin(token) {");
+    const pinchBegin = charts.slice(
+      start,
+      charts.indexOf("onCommit(next, anchor, focal, token)", start),
+    );
+    expect(start).toBeGreaterThan(-1);
+    expect(pinchBegin).toContain("handlers.current.onRelease()");
+    expect(pinchBegin).not.toContain("if (holding.current)");
+  });
+
   test("the y-axis overlay stops above the x-label band and slices are not cropped at the plot origin", () => {
     expect(charts).toContain("overlayPlotHeight(height, CHART_X_LABEL_BAND)");
     expect(charts).toContain("columnIndicatorHostX");

@@ -26,7 +26,15 @@ describe("expo UI stretch frame", () => {
     expect(source).toContain('buttonBorderShape("roundedRectangle")');
     expect(source).toContain("export function expoUiButtonStretchModifiersFor");
     const helper = source.slice(source.indexOf("export function expoUiButtonStretchModifiersFor"));
+    expect(helper).toContain("fixedSize({ horizontal: false })");
     expect(helper).toContain("buttonStyle(VARIANT_BUTTON_STYLE[variant])");
     expect(helper.indexOf("...stretch")).toBeLessThan(helper.indexOf("buttonStyle("));
+  });
+
+  test("the label stretch frame is what filled chrome actually fills", () => {
+    expect(source).toContain("export const expoUiButtonLabelStretchModifiers");
+    const label = source.slice(source.indexOf("export const expoUiButtonLabelStretchModifiers"));
+    expect(label).toContain("maxWidth: EXPO_UI_FRAME_INFINITY");
+    expect(label).toContain('alignment: "center"');
   });
 });

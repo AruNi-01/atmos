@@ -56,6 +56,8 @@ describe("Publish sheet structure", () => {
     expect(source).not.toMatch(/publishActions:\s*\{[^}]*flexDirection:\s*"row"/);
     const stretch = source.slice(source.indexOf("function StretchPublishButton"));
     expect(stretch).toContain("style={expoUiButtonHostStyle}");
+    expect(stretch).toContain("expoUiButtonLabelStretchModifiers");
+    expect(stretch).toContain("<SwiftUIText modifiers={labelStretch}>{label}</SwiftUIText>");
     expect(stretch).toMatch(
       /<Button[\s\S]*modifiers=\{expoUiButtonStretchModifiersFor\(look\.variant\)\}/,
     );

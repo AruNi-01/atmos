@@ -28,12 +28,15 @@ const largeSizeStyle: UniversalStyle = {
  * | disabled  | same       | `tertiaryLabel`  |
  *
  * Stretch width at the call site with `expoUiButtonHostStyle` +
- * Button `modifiers={expoUiButtonStretchModifiersFor(variant)}`
- * (see `expo-ui-button-modifiers.ts`). Use a JSON-safe maxWidth;
- * `Number.POSITIVE_INFINITY` does not reach SwiftUI. Put `buttonStyle` after
- * `frame` so filled `borderedProminent` fills the Host, not a centered capsule.
- * Do not pass `style.height` on that Button (`FrameModifier` ignores maxWidth
- * when height is set). Never layer custom fill/stroke on `filled`/`outlined`.
+ * Button `modifiers={expoUiButtonStretchModifiersFor(variant)}` and, on iOS,
+ * a framed SwiftUI `Text` child (`expoUiButtonLabelStretchModifiers`).
+ * `Number.POSITIVE_INFINITY` does not reach SwiftUI. A Button-level
+ * `frame(maxWidth:)` only sizes the layout slot; filled `borderedProminent`
+ * still hugs the label and looks like a short capsule (outlined `bordered`
+ * paints the slot, so Turn off looked full-width). Frame the label, put
+ * `buttonStyle` after `frame`, and do not pass `style.height` (`FrameModifier`
+ * ignores maxWidth when height is set). Never layer custom fill/stroke on
+ * `filled`/`outlined`.
  */
 export function expoUiPrimaryStyle(colors: MobileThemeColors, disabled = false): ExpoUiButtonLook {
   return {

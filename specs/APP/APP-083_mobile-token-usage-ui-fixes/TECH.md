@@ -43,7 +43,7 @@ MobileAgentIcon
 
 - Remove the wrapping `GlassPanel` (`styles.publishCard`). Pane children sit on the drawer sheet.
 - `PrefixedField` wraps prefix + `NativeTextInput framed={false}` in `GlassPanel` with `borderRadius: radii.pill` and `shadow={false}`. Do not draw a second control border.
-- Primary: `expoUiPrimaryStyle` + Host `style={expoUiButtonHostStyle}` (width 100%) + Button `modifiers={expoUiButtonStretchModifiersFor("filled")}`. `variant="filled"`. Label `Publish` / `Update` / pending copy from APP-082. Full width, min height 52. Never `variant="text"` and never `matchContents` without a stretch frame. `frame.maxWidth` must be a JSON-safe finite number (`EXPO_UI_FRAME_INFINITY`); `Number.POSITIVE_INFINITY` becomes `null` on the RN bridge. Universal Button prepends `buttonStyle`, so `frame(maxWidth:)` with default `alignment: center` leaves filled `borderedProminent` as a short centered capsule inside a wide Host (outlined `bordered` still looks full-width). Stretch helpers put `frame` + `buttonBorderShape("roundedRectangle")` then `buttonStyle` last, and must not pass `style.height` (Expo `FrameModifier` ignores `maxWidth` when `height` is set).
+- Primary: `expoUiPrimaryStyle` + Host `style={expoUiButtonHostStyle}` (width 100%) + Button `modifiers={expoUiButtonStretchModifiersFor("filled")}` + iOS SwiftUI `Text` child with `expoUiButtonLabelStretchModifiers`. `variant="filled"`. Label `Publish` / `Update` / pending copy from APP-082. Full width, min height 52. Never `variant="text"` and never `matchContents` without a stretch frame. `frame.maxWidth` must be a JSON-safe finite number (`EXPO_UI_FRAME_INFINITY`); `Number.POSITIVE_INFINITY` becomes `null` on the RN bridge. A Button-level `frame(maxWidth:)` only sizes the Host slot; filled `borderedProminent` sizes chrome to the label, so Update/Publish stayed a short centered capsule while outlined Turn off already painted the slot. Frame the label (`Text` + `maxWidth`), put `fixedSize(horizontal: false)` then `buttonStyle` last, and do not pass `style.height` (Expo `FrameModifier` ignores `maxWidth` when `height` is set).
 - Turn off: only when live; **below** the primary; `expoUiDangerStyle` + the same stretch Host. Not a trailing compact control.
 - `publishActions` is a vertical stack (`gap`, `width: "100%"`), not `space-between` row.
 - Public `NativeSwitch` stays the only switch.
@@ -108,7 +108,7 @@ Helpers live in `chart-geometry.ts` with bun tests.
 
 Switching Computer / All swaps `activeQuery`. `overview = activeQuery.data ?? null` flashes zeros and shrinks the page. `scrollTo({ y: 0 })` on that identity change is the compact-header origin under iOS large title + `contentInsetAdjustmentBehavior="automatic"`, so the large title collapses (~300pt).
 
-On Computer / All identity change (`selectedKey`), reset `selectedDate` during render (previous-key state, not an effect). Do **not** `scrollTo({ y: 0 })`. Keep the previous overview while the next query is pending (`displayedOverview`). Do not remount the `Stack.Screen` header while the sheet is closed.
+On Computer / All identity change (`selectedKey`), reset `selectedDate` during render (previous-key state, not an effect). Do **not** `scrollTo({ y: 0 })`. Keep the previous overview for **display** while the next query is pending (`displayedOverview`). Drop that fallback when the active query fails. Pass only `publishOverview(activeQuery.data)` into `ShareSheet` so Publish cannot snapshot another Computer. Do not remount the `Stack.Screen` header while the sheet is closed. Pinch `onBegin` always calls `onRelease()` so a persisted stacked tip does not ride the zoom.
 
 ## Data model
 
@@ -123,7 +123,13 @@ function windowedSliceFrame(
   step: number,
   drawnWidth: number,
 ): { left: number; width: number };
-function displayedOverview<T>(active: T | null | undefined, previous: T | null): T | null;
+function displayedOverview<T>(input: {
+  active: T | null | undefined;
+  failed: boolean;
+  pending: boolean;
+  previous: T | null;
+}): T | null;
+function publishOverview<T>(active: T | null | undefined): T | null;
 ```
 
 ## Transport

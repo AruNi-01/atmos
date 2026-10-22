@@ -22,10 +22,14 @@ describe("usage scroll reset", () => {
     expect(screen).toContain("setSelectedDate(null)");
     expect(screen).not.toContain("usageScrollRef.current?.scrollTo({ animated: false, y: 0 })");
     expect(screen).not.toMatch(/scrollTo\(\{\s*animated: false,\s*y:\s*0\s*\}\)/);
+    expect(screen).toContain("overview={publishOverview}");
   });
 
   test("the overview hook keeps the previous payload while the next Computer loads", () => {
-    expect(hook).toContain("displayedOverview(activeQuery.data, heldOverview)");
+    expect(hook).toContain("pending: activeQuery.isPending");
+    expect(hook).toContain("failed: activeQuery.isError");
+    expect(hook).toContain("previous: heldOverview");
+    expect(hook).toContain("publishOverview(activeQuery.data)");
     expect(hook).toContain("if (activeQuery.data && heldOverview !== activeQuery.data)");
     expect(hook).toContain("setHeldOverview(activeQuery.data)");
   });
