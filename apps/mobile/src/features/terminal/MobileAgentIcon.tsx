@@ -1,4 +1,11 @@
 import { Image, type ImageSourcePropType, StyleSheet, View } from "react-native";
+import {
+  AGENT_ICON_REMAP,
+  DARK_GLYPHS,
+  glyphTint,
+  LIGHT_GLYPHS,
+  matchesGlyph,
+} from "@/features/terminal/agent-glyph-tint";
 import { useMobileTheme } from "@/theme/theme-store";
 import { BotIcon } from "@/ui/icons/lucide-native";
 
@@ -25,64 +32,6 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   roocode: ["roo"],
   workbuddy: ["codebuddy-code"],
 };
-
-const AGENT_ICON_REMAP: Record<string, string> = {
-  "amp-acp": "amp",
-  "antigravity-cli": "antigravity",
-  augment: "auggie",
-  claude: "claude-code",
-  codebuddy: "codebuddy-code",
-  commandcode: "command-code",
-  "devin-cli": "devin",
-  "devin-desktop": "devin",
-  grok: "grok-build",
-  hermes: "hermes-agent",
-  kilocode: "kilo",
-  kiro: "kiro-cli",
-  openclaw: "openclaw",
-  qwen: "qwen-code",
-  roocode: "roo",
-  workbuddy: "codebuddy-code",
-};
-
-/**
- * White line icons. Light mode tints them to the label color, matching web's
- * `invert` on local agent SVGs. Dark mode leaves them white.
- */
-const LIGHT_GLYPHS = new Set([
-  "amp",
-  "antigravity",
-  "auggie",
-  "claude-acp",
-  "claude-code",
-  "claude-code-acp",
-  "codebuddy-code",
-  "codex",
-  "codex-acp",
-  "command-code",
-  "copilot",
-  "corust-agent",
-  "cursor",
-  "droid",
-  "factory-droid",
-  "gemini",
-  "github-copilot",
-  "goose",
-  "kilo",
-  "kimi",
-  "kiro-cli",
-  "mistral-vibe",
-  "opencode",
-  "qoder",
-  "qwen-code",
-  "roo",
-  "stakpak",
-  "trae",
-  "windsurf",
-]);
-
-/** Black line icons. Dark mode tints them light; light mode keeps them black. */
-const DARK_GLYPHS = new Set(["cline", "devin", "grok", "grok-build", "junie", "junie-acp"]);
 
 const AGENT_ICON_ASSETS: Record<string, ImageSourcePropType> = {
   amp: require("../../../assets/agents/amp.png"),
@@ -161,11 +110,14 @@ export function mobileAgentMenuIcon(agentId: string):
 export function MobileAgentIcon({
   agentId,
   iconUrl,
+  onDark = false,
   size = 18,
   tintColor,
 }: {
   agentId: string;
   iconUrl?: string | null;
+  /** Popover sits on a dark gray bubble. Tint as a dark surface even in light theme. */
+  onDark?: boolean;
   size?: number;
   /** Series color for chart legends. Omit it to keep the theme glyph tint. */
   tintColor?: string;
@@ -174,6 +126,7 @@ export function MobileAgentIcon({
   const iconName = resolveAgentIconName(agentId);
   const source = iconName ? AGENT_ICON_ASSETS[iconName] : undefined;
   const remote = iconUrl?.trim() ?? "";
+  const surfaceLabel = onDark ? "#ffffff" : theme.colors.label;
 
   if (!source && remote.length > 0) {
     return (
@@ -188,13 +141,18 @@ export function MobileAgentIcon({
   if (!source) {
     return (
       <View style={[styles.fallback, { height: size, width: size }]}>
-        <BotIcon color={theme.colors.secondaryLabel} size={size} strokeWidth={2.4} />
+        <BotIcon
+          color={onDark ? "#ffffff" : theme.colors.secondaryLabel}
+          size={size}
+          strokeWidth={2.4}
+        />
       </View>
     );
   }
 
   const resolvedIconName = iconName ?? agentId;
-  const tint = tintColor ?? glyphTint(agentId, resolvedIconName, theme.isDark, theme.colors.label);
+  const tint =
+    tintColor ?? glyphTint(agentId, resolvedIconName, onDark || theme.isDark, surfaceLabel);
 
   return (
     <Image
@@ -211,18 +169,6 @@ function resolveAgentIconName(agentId: string) {
 
   const aliases = AGENT_ICON_ALIASES[agentId] ?? [];
   return aliases.find((alias) => AGENT_ICON_ASSETS[alias]);
-}
-
-function matchesGlyph(agentId: string, iconName: string, glyphs: Set<string>) {
-  if (glyphs.has(iconName) || glyphs.has(agentId)) return true;
-  const remapped = AGENT_ICON_REMAP[agentId];
-  return Boolean(remapped && glyphs.has(remapped));
-}
-
-function glyphTint(agentId: string, iconName: string, isDark: boolean, label: string) {
-  if (matchesGlyph(agentId, iconName, DARK_GLYPHS)) return isDark ? label : undefined;
-  if (matchesGlyph(agentId, iconName, LIGHT_GLYPHS)) return isDark ? undefined : label;
-  return undefined;
 }
 
 const styles = StyleSheet.create({

@@ -303,12 +303,13 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
             None,
             reset_at,
         );
+        // includedSpend/limit is the nominal allowance, not the Other Models meter.
         push_pool_row(
             &mut usage_rows,
             "Other Models",
             other_models_percent,
-            other_models_used,
-            other_models_limit,
+            None,
+            None,
             reset_at,
         );
     } else if let Some(percent) = included_percent {
@@ -434,7 +435,9 @@ fn build_result_from_summary(
         .and_then(|u| u.plan.as_ref());
 
     // Spending dashboard: autoPercentUsed = Cursor Models, apiPercentUsed = Other Models.
-    // plan.used/limit is the Other Models dollar cap — not a combined included pool.
+    // plan.used/limit is the nominal included allowance in cents. On two-pool billing
+    // that pair often saturates (used == limit) while apiPercentUsed stays low, so
+    // pool rows are percent-only. Legacy single-pool still prints those cents.
     // breakdown.bonus is first-party spend, not a second quota.
     let cursor_models_percent = plan
         .and_then(|p| p.auto_percent_used)
@@ -498,12 +501,13 @@ fn build_result_from_summary(
             None,
             reset_at,
         );
+        // plan.used/limit is not the Other Models dollar cap. See QUALITY-029.
         push_pool_row(
             &mut usage_rows,
             "Other Models",
             other_models_percent,
-            other_models_used,
-            other_models_limit,
+            None,
+            None,
             reset_at,
         );
     } else {
@@ -1163,8 +1167,26 @@ mod tests {
             .iter()
             .find(|section| section.title == "Usage")
             .expect("usage");
-        assert!(usage.rows.iter().any(|row| row.label == "Included usage"));
-        assert!(usage.rows.iter().any(|row| row.label == "On-Demand"));
+        let included = usage
+            .rows
+            .iter()
+            .find(|row| row.label == "Included usage")
+            .expect("included");
+        assert!(
+            included.value.contains("$20.00 / $20.00"),
+            "legacy included usage keeps allowance cents: {}",
+            included.value
+        );
+        let on_demand = usage
+            .rows
+            .iter()
+            .find(|row| row.label == "On-Demand")
+            .expect("on-demand");
+        assert!(
+            on_demand.value.contains("$596.40 / $2,000.00"),
+            "on-demand keeps cents: {}",
+            on_demand.value
+        );
     }
 
     #[test]
@@ -1216,7 +1238,11 @@ mod tests {
         assert!(usage.rows[0].value.contains("72% used"));
         assert!(!usage.rows[0].value.contains("$"));
         assert!(usage.rows[1].value.contains("100% used"));
-        assert!(usage.rows[1].value.contains("$400.00 / $400.00"));
+        assert!(
+            !usage.rows[1].value.contains('$'),
+            "saturated allowance cents are not Other Models dollars: {}",
+            usage.rows[1].value
+        );
         assert!(usage.rows[2].value.contains("0% used"));
         assert_eq!(usage.rows[3].value, "Disabled");
         assert!(
@@ -1230,6 +1256,65 @@ mod tests {
             .as_ref()
             .and_then(|summary| summary.percent);
         assert_eq!(percent, Some(72.19));
+    }
+
+    fn other_models_row(api_percent: &str, used: i64, limit: i64) -> String {
+        let summary: CursorQuotaSummaryResponse = serde_json::from_str(&format!(
+            r#"{{
+              "membershipType": "ultra",
+              "individualUsage": {{
+                "plan": {{
+                  "used": {used},
+                  "limit": {limit},
+                  "autoPercentUsed": 4,
+                  "apiPercentUsed": {api_percent}
+                }}
+              }}
+            }}"#
+        ))
+        .expect("summary");
+        let result = build_result_from_summary(
+            &CursorAuth {
+                access_token: LIVE_JWT.to_string(),
+                email: Some("dev@example.com".to_string()),
+                membership_type: Some("ultra".to_string()),
+                team_id: None,
+            },
+            summary,
+            CursorDashboardExtras::default(),
+        )
+        .expect("result");
+        result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Usage")
+            .expect("usage")
+            .rows
+            .iter()
+            .find(|row| row.label == "Other Models")
+            .expect("other models")
+            .value
+            .clone()
+    }
+
+    #[test]
+    fn other_models_percent_does_not_print_saturated_allowance_cents() {
+        let value = other_models_row("12", 40000, 40000);
+        assert!(value.contains("12% used"), "expected 12% used, got {value}");
+        assert!(
+            !value.contains('$'),
+            "allowance cents must not sit beside apiPercentUsed: {value}"
+        );
+    }
+
+    #[test]
+    fn other_models_percent_does_not_print_a_matching_allowance_ratio() {
+        let value = other_models_row("12", 4800, 40000);
+        assert!(value.contains("12% used"), "expected 12% used, got {value}");
+        assert!(
+            !value.contains('$'),
+            "a matching cents ratio is still a different meter: {value}"
+        );
     }
 
     #[test]

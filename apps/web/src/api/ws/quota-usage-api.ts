@@ -1,6 +1,7 @@
 "use client";
 
-import { wsRequest } from "@/api/ws/request";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { wsRequest, wsRequestForComputerScope } from "@/api/ws/request";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import type { QuotaOverviewResponse } from "@atmos/api-types/ws/dto/quota";
 
@@ -157,6 +158,21 @@ export const quotaUsageApi = {
     );
     emitQuotaOverviewUpdated(overview);
     return overview;
+  },
+
+  /**
+   * Does not emit `quota_overview_updated`. The caller writes the response so an
+   * older drag cannot replace a newer one. The scope is captured before the
+   * connect wait so a computer switch cannot save this order on another machine.
+   */
+  setProviderOrder: async (providerOrder: string[]): Promise<QuotaOverviewResponse> => {
+    const scope = getComputerQueryScope();
+    return wsRequestForComputerScope(
+      scope,
+      "quota_set_provider_order",
+      { provider_order: providerOrder },
+      45_000,
+    );
   },
 
   setAutoRefresh: async (intervalMinutes?: number | null): Promise<QuotaOverviewResponse> => {

@@ -14,8 +14,9 @@ use crate::models::{
 use crate::refresh::{
     apply_provider_state, load_auto_refresh_interval_minutes, persist_all_provider_switch,
     persist_auto_refresh_interval_minutes, persist_provider_footer_carousel_show,
-    persist_provider_state_for_overview, persist_provider_state_for_provider,
-    persist_provider_switch, persist_provider_visibility_batch, provider_switch_enabled,
+    persist_provider_order, persist_provider_state_for_overview,
+    persist_provider_state_for_provider, persist_provider_switch,
+    persist_provider_visibility_batch, provider_switch_enabled,
 };
 use crate::runtime::{default_providers, error_status, QuotaProvider};
 use crate::support::{round_metric, unix_now};
@@ -107,6 +108,8 @@ impl QuotaUsageService {
                     generated_at: unix_now(),
                     partial_failures: vec![],
                     auto_refresh: AutoRefreshConfig::default(),
+                    provider_order: Vec::new(),
+                    provider_order_revision: 0,
                 })
         } else {
             self.refresh_overview(cached_previous.clone()).await
@@ -178,6 +181,27 @@ impl QuotaUsageService {
             fetched_at: unix_now(),
             overview: overview.clone(),
         });
+        overview
+    }
+
+    pub async fn set_provider_order(&self, provider_order: Vec<String>) -> QuotaOverview {
+        persist_provider_order(&provider_order);
+
+        let overview = if let Some(cached) = self.cache.read().await.clone() {
+            cached.overview
+        } else {
+            self.refresh_overview(None).await
+        };
+
+        let overview = self
+            .with_auto_refresh_config(apply_provider_state_and_rebuild(overview))
+            .await;
+        let mut cache = self.cache.write().await;
+        *cache = Some(CachedOverview {
+            fetched_at: unix_now(),
+            overview: overview.clone(),
+        });
+        self.publish_overview_update(&overview);
         overview
     }
 
@@ -522,6 +546,8 @@ impl QuotaUsageService {
             generated_at: unix_now(),
             partial_failures: issues,
             auto_refresh: AutoRefreshConfig::default(),
+            provider_order: Vec::new(),
+            provider_order_revision: 0,
         };
 
         // A failed live fetch must not persist as a successful refresh, or the
@@ -555,6 +581,8 @@ impl QuotaUsageService {
                         message: "Unknown usage provider".to_string(),
                     }],
                     auto_refresh: AutoRefreshConfig::default(),
+                    provider_order: Vec::new(),
+                    provider_order_revision: 0,
                 });
         };
 
@@ -566,6 +594,8 @@ impl QuotaUsageService {
                 generated_at: unix_now(),
                 partial_failures: vec![],
                 auto_refresh: AutoRefreshConfig::default(),
+                provider_order: Vec::new(),
+                provider_order_revision: 0,
             });
 
         if overview.providers.is_empty() {

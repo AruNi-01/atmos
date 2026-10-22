@@ -15,7 +15,7 @@ type AnyProps = {
   [key: string]: unknown;
 };
 
-/** Web stand-in for `@expo/ui` so Expo web can render the Test page without native modules. */
+/** Web stand-in for `@expo/ui` so Expo web can render without native modules. */
 export function Host({ children, style }: AnyProps) {
   return <View style={style}>{children}</View>;
 }

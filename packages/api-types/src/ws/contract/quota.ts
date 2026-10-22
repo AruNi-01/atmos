@@ -7,6 +7,7 @@ import type {
   QuotaOverviewRequest,
   QuotaOverviewResponse,
   QuotaProviderManualSetupRequest,
+  QuotaProviderOrderRequest,
   QuotaProviderSwitchRequest,
 } from "../dto/quota";
 
@@ -45,6 +46,10 @@ export type QuotaContract = {
   };
   quota_set_auto_refresh: {
     input: QuotaAutoRefreshRequest;
+    output: QuotaOverviewResponse;
+  };
+  quota_set_provider_order: {
+    input: QuotaProviderOrderRequest;
     output: QuotaOverviewResponse;
   };
 };

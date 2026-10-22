@@ -5,6 +5,10 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use infra::jobs::{JobId, LocalScheduler};
 
+use crate::refresh::{
+    persist_provider_order, persist_provider_switch, provider_order_snapshot,
+    provider_switch_enabled,
+};
 use crate::{
     AuthState, AuthStateStatus, FetchState, FetchStateStatus, ProviderDescriptor, ProviderError,
     ProviderKind, ProviderStatus, QuotaProvider, QuotaSummary, QuotaUsageService,
@@ -346,6 +350,103 @@ async fn attach_jobs_registers_and_cancels_auto_refresh() {
     assert!(!jobs.is_registered(&job_id).await);
 
     jobs.shutdown().await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn set_provider_order_is_shared_on_later_overviews() {
+    let _iso = IsolatedQuotaDir::enter();
+    let service = QuotaUsageService::new(vec![
+        Arc::new(MockProvider {
+            id: "first",
+            label: "First",
+            latency: Duration::from_millis(1),
+            timeout: Duration::from_millis(500),
+        }),
+        Arc::new(MockProvider {
+            id: "second",
+            label: "Second",
+            latency: Duration::from_millis(1),
+            timeout: Duration::from_millis(500),
+        }),
+    ]);
+
+    let updated = service
+        .set_provider_order(vec![
+            "second".to_string(),
+            "first".to_string(),
+            "second".to_string(),
+            String::new(),
+        ])
+        .await;
+    assert_eq!(
+        updated.provider_order,
+        vec!["second".to_string(), "first".to_string()]
+    );
+    assert_eq!(updated.provider_order_revision, 1);
+
+    let same = service
+        .set_provider_order(vec!["second".to_string(), "first".to_string()])
+        .await;
+    assert_eq!(same.provider_order_revision, 1);
+
+    let _ = service.set_provider_switch("first", true).await;
+    let again = service.get_overview(false, None).await;
+    assert_eq!(
+        again.provider_order,
+        vec!["second".to_string(), "first".to_string()]
+    );
+    assert_eq!(again.provider_order_revision, 1);
+
+    let reordered = service
+        .set_provider_order(vec!["first".to_string(), "second".to_string()])
+        .await;
+    assert_eq!(
+        reordered.provider_order,
+        vec!["first".to_string(), "second".to_string()]
+    );
+    assert_eq!(reordered.provider_order_revision, 2);
+}
+
+#[test]
+fn provider_state_order_writes_keep_the_switch_and_revision() {
+    let _iso = IsolatedQuotaDir::enter();
+    persist_provider_switch("cursor", true);
+    let mut handles = Vec::new();
+    for i in 0..4 {
+        handles.push(std::thread::spawn(move || {
+            for n in 0..25 {
+                persist_provider_order(&[format!("p{i}-{n}")]);
+            }
+        }));
+    }
+    for handle in handles {
+        handle.join().expect("order writer");
+    }
+    assert!(provider_switch_enabled("cursor"));
+    let (order, revision) = provider_order_snapshot();
+    assert_eq!(revision, 100);
+    assert_eq!(order.len(), 1);
+    assert!(order[0].starts_with('p'));
+}
+
+#[test]
+fn provider_state_save_reads_back_and_leaves_no_tmp() {
+    let iso = IsolatedQuotaDir::enter();
+    persist_provider_switch("cursor", true);
+    let path = iso.path.join("provider_state.json");
+    let raw = std::fs::read_to_string(&path).expect("provider state");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("json");
+    assert_eq!(parsed["providers"]["cursor"]["switch"], true);
+    assert!(provider_switch_enabled("cursor"));
+    let tmp_left = std::fs::read_dir(&iso.path)
+        .expect("quota dir")
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"));
+    assert!(
+        !tmp_left,
+        "atomic save left a tmp file in {}",
+        iso.path.display()
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]
