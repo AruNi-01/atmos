@@ -73,6 +73,22 @@ export function mountedItemCount<T>(
   return pageBlocks(blocks, shown).find((block) => block.key === key)?.items.length ?? 0;
 }
 
+export type ListFooterState = "hidden" | "loading" | "error";
+
+/**
+ * Spinner while the next page is in flight. A failed next page asks for a
+ * retry. The first-page skeleton, a ready list, and the end of the list stay
+ * empty here — the screen already has a skeleton or an inline error for those.
+ */
+export function listFooterState(input: {
+  fetching: boolean;
+  fetchFailed: boolean;
+}): ListFooterState {
+  if (input.fetching) return "loading";
+  if (input.fetchFailed) return "error";
+  return "hidden";
+}
+
 export function nextListWindow(input: {
   shown: number;
   loaded: number;

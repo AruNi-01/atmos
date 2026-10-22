@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type {
   AgentChatIndexEntry,
@@ -52,20 +52,31 @@ export function useAgentChatList(scopeId: string, options: AgentChatListOptions 
     getNextPageParam: (lastPage, _pages, lastPageParam) =>
       nextChatListCursor(lastPage.items ?? [], pageSize, lastPageParam),
   });
+  const nextPageLock = useRef(false);
+  const loadNextPage = useCallback(
+    (allowError: boolean) => {
+      if (
+        !enabled ||
+        nextPageLock.current ||
+        !listQuery.hasNextPage ||
+        listQuery.isFetchingNextPage
+      ) {
+        return;
+      }
+      if (!allowError && listQuery.isFetchNextPageError) return;
+      nextPageLock.current = true;
+      void listQuery.fetchNextPage().finally(() => {
+        nextPageLock.current = false;
+      });
+    },
+    [enabled, listQuery],
+  );
   const fetchNextPage = useCallback(() => {
-    if (!listQuery.hasNextPage || listQuery.isFetchingNextPage || listQuery.isFetchNextPageError)
-      return;
-    void listQuery.fetchNextPage();
-  }, [
-    listQuery.fetchNextPage,
-    listQuery.hasNextPage,
-    listQuery.isFetchNextPageError,
-    listQuery.isFetchingNextPage,
-  ]);
+    loadNextPage(false);
+  }, [loadNextPage]);
   const retryNextPage = useCallback(() => {
-    if (!listQuery.hasNextPage || listQuery.isFetchingNextPage) return;
-    void listQuery.fetchNextPage();
-  }, [listQuery.fetchNextPage, listQuery.hasNextPage, listQuery.isFetchingNextPage]);
+    loadNextPage(true);
+  }, [loadNextPage]);
   const chatItems = enabled
     ? uniqueChatItems(listQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [])
     : [];

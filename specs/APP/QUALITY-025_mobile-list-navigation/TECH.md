@@ -63,6 +63,8 @@ The bucket passes `useSessionInbox({ active: reveal.ready, groupKey })`. While i
 
 `session-terminal-candidates` and `session-chat-titles` use `staleTime: 60_000`, matching the git and PR queries. Opening a bucket does not restart the all-workspace candidate fan-out or the 20×100 title loop when home already loaded them. Bootstrap `staleTime` is unchanged.
 
+The bucket does not enable that home candidate query. After the screen is ready and the bucket has at least one session id, an effect loads candidates. The effect runs after paint, so the opening commit does not call it. The first load keeps the 60s fresh window. A later change to that session-id set uses `staleTime: 0`, so a new terminal reloads while the shared cache is still fresh. An empty bucket does not load candidates. Home still uses its own query. Git, PR, and chat-title queries stay enabled once the bucket is ready; a cold bucket still needs those labels, and a warm cache does not refetch them.
+
 ## Pagination
 
 `LIST_PAGE_SIZE` is 20.
@@ -77,6 +79,8 @@ The bucket passes `useSessionInbox({ active: reveal.ready, groupKey })`. While i
 | No next page                        | Stay                                                                         |
 
 `fillWhenShort` on `AppScreen` still fills a short viewport. The armed flag in `sessionListShouldRequestNextPage` does not chain-fetch while the user sits at the bottom of a tall list. Screens must not drain pages by comparing `rows.length` to a bucket count.
+
+The load-more footer is a spinner while the next page is in flight. A failed next page shows “Could not load more.” and Try again, which calls `retryNextPage` without growing the window. The end of the list leaves the footer empty. The first-page skeleton and the first-page `InlineError` stay where they are. Chat history uses the same in-flight lock as the status list. The lock is taken before `fetchNextPage` and released when that promise settles, so a second end event before `isFetchingNextPage` paints does not start another page, and a fast success does not leave the lock stuck.
 
 The reveal window resets to 20 when the workspace home filters or grouping change, including a return to a previous filter. `reconcileListWindow` stores that new page on the render where the key changes, so the previous key's expanded window is not restored.
 

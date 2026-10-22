@@ -6,7 +6,7 @@ import { wsActions } from "@/api/ws-actions";
 import { copy } from "@/features/agent-chat/copy";
 import { historyTimeLabel, type ChatListRow } from "@/features/agent-chat/list-rows";
 import { useAgentChatList } from "@/features/agent-chat/use-agent-chat-list";
-import { LIST_PAGE_SIZE, listWindow } from "@/features/lists/list-page";
+import { LIST_PAGE_SIZE, listFooterState, listWindow } from "@/features/lists/list-page";
 import { useListReveal } from "@/features/lists/use-list-window";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -127,7 +127,13 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
             )}
           </Section>
         ) : null}
-        <ListLoadMoreFooter loading={list.isFetchingNextPage} />
+        <ListLoadMoreFooter
+          onRetry={list.retryNextPage}
+          state={listFooterState({
+            fetching: list.isFetchingNextPage,
+            fetchFailed: list.isFetchNextPageError,
+          })}
+        />
         <InlineError message={list.error} />
         {renaming ? (
           <View style={{ gap: 12, padding: 18 }}>

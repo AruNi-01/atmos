@@ -3,12 +3,22 @@ import { describe, expect, test } from "bun:test";
 import {
   LIST_PAGE_SIZE,
   listWindow,
+  listFooterState,
   nextListWindow,
   mountedItemCount,
   openItemCount,
   pageBlocks,
   reconcileListWindow,
 } from "./list-page";
+
+describe("listFooterState", () => {
+  test("a failed next page is an error, and loading hides it", () => {
+    expect(listFooterState({ fetching: false, fetchFailed: false })).toBe("hidden");
+    expect(listFooterState({ fetching: true, fetchFailed: false })).toBe("loading");
+    expect(listFooterState({ fetching: false, fetchFailed: true })).toBe("error");
+    expect(listFooterState({ fetching: true, fetchFailed: true })).toBe("loading");
+  });
+});
 
 describe("nextListWindow", () => {
   test("reveals loaded rows before fetching", () => {

@@ -6,7 +6,7 @@ import { Alert, Pressable, Text, View, type ImageSourcePropType } from "react-na
 import { wsActions } from "@/api/ws-actions";
 import { historyPlaceLabel, historyTimeLabel } from "@/features/agent-chat/list-rows";
 import { useAgentChatList } from "@/features/agent-chat/use-agent-chat-list";
-import { LIST_PAGE_SIZE, listWindow } from "@/features/lists/list-page";
+import { LIST_PAGE_SIZE, listFooterState, listWindow } from "@/features/lists/list-page";
 import { useListReveal } from "@/features/lists/use-list-window";
 import { MobileAgentIcon, mobileAgentMenuIcon } from "@/features/terminal/MobileAgentIcon";
 import { createMobileTerminalSessionId } from "@/features/terminal/terminal-selection";
@@ -257,7 +257,13 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
             })
           )}
         </Section>
-        <ListLoadMoreFooter loading={loadingMore} />
+        <ListLoadMoreFooter
+          onRetry={() => {
+            chats.retryNextPage();
+            sessions.retryNextPage();
+          }}
+          state={listFooterState({ fetching: loadingMore, fetchFailed: pageFailed })}
+        />
         {actionError ? (
           <Text style={{ color: theme.colors.red, fontSize: 13 }}>{actionError}</Text>
         ) : null}

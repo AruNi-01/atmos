@@ -20,7 +20,7 @@ import {
 } from "@/ui/icons/lucide-native";
 import { type MobileThemeColors } from "@/theme/colors";
 import { openSessionDestination } from "@/features/agent-chat/navigation";
-import { listWindow } from "@/features/lists/list-page";
+import { listFooterState, listWindow } from "@/features/lists/list-page";
 import { markListNavigation } from "@/features/lists/list-navigation";
 import { useListReveal } from "@/features/lists/use-list-window";
 import {
@@ -160,7 +160,13 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
       ) : (
         <EmptyState message="This session list is not available." title="Unknown list" />
       )}
-      <ListLoadMoreFooter loading={inbox.isFetchingNextPage} />
+      <ListLoadMoreFooter
+        onRetry={inbox.retryNextPage}
+        state={listFooterState({
+          fetching: inbox.isFetchingNextPage,
+          fetchFailed: inbox.fetchNextPageFailed,
+        })}
+      />
       <InlineError message={inbox.error} />
     </AppScreen>
   );

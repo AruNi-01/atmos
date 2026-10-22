@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useIsFocused } from "expo-router";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
@@ -36,6 +36,11 @@ import {
 import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
 import { agentSessionStatusQueryKey } from "./session-status-page";
 import { useAgentSessionStatusList } from "./use-agent-session-status-list";
+import {
+  bucketCandidateSessionKey,
+  bucketCandidateStaleTime,
+  useBucketCandidateLoad,
+} from "./use-bucket-candidate-load";
 import { useSessionRowActions } from "./use-session-row-actions";
 
 const SESSION_STATUS_EVENTS = new Set([
@@ -107,7 +112,9 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
 
   const candidatesQuery = useQuery({
     queryKey: ["session-terminal-candidates", selectedServerId, workspaceKey],
-    enabled: Boolean(active && client && connected && focused && bootstrapQuery.isSuccess),
+    enabled: Boolean(
+      active && groupKey == null && client && connected && focused && bootstrapQuery.isSuccess,
+    ),
     staleTime: CANDIDATE_STALE_MS,
     queryFn: () => loadSessionCandidates(client!, sources.active),
   });
@@ -144,6 +151,44 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
   const statusQuery = useAgentSessionStatusList(
     groupKey ? { enabled: active, groupKey, limit: LIST_PAGE_SIZE } : { enabled: active },
   );
+  const bucketSessionKey = useMemo(
+    () =>
+      bucketCandidateSessionKey(
+        groupKey != null,
+        statusQuery.sessions.map((session) => session.session_id),
+      ),
+    [groupKey, statusQuery.sessions],
+  );
+  const loadedBucketSessionKey = useRef("");
+  const loadBucketCandidates = useCallback(() => {
+    if (!client || groupKey == null) return;
+    const staleTime = bucketCandidateStaleTime({
+      freshMs: CANDIDATE_STALE_MS,
+      previousSessionKey: loadedBucketSessionKey.current,
+      sessionKey: bucketSessionKey,
+    });
+    loadedBucketSessionKey.current = bucketSessionKey;
+    void queryClient.fetchQuery({
+      queryKey: ["session-terminal-candidates", selectedServerId, workspaceKey],
+      staleTime,
+      queryFn: () => loadSessionCandidates(client, sources.active),
+    });
+  }, [
+    bucketSessionKey,
+    client,
+    groupKey,
+    queryClient,
+    selectedServerId,
+    sources.active,
+    workspaceKey,
+  ]);
+  useBucketCandidateLoad({
+    isBucket: groupKey != null,
+    load: loadBucketCandidates,
+    ready: Boolean(active && client && connected && bootstrapQuery.isSuccess),
+    reloadKey: workspaceKey,
+    sessionKey: bucketSessionKey,
+  });
 
   const chatTitleQuery = useQuery({
     queryKey: ["session-chat-titles", selectedServerId],
