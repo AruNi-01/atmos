@@ -51,6 +51,7 @@ import {
   parityClockIndex,
   parityCycleFrames,
   parityOwnerIs,
+  parityPaintedLine,
   parityPinnedFrame,
   parityReadyLine,
   parityTailOwned,
@@ -206,6 +207,9 @@ export function PreviewChatScreen() {
   const tailReturnLoggedRef = useRef(false);
   const tailAwaitLoggedRef = useRef(false);
   const tailStepRef = useRef(0);
+  const paintedTokenRef = useRef("");
+  const paintStableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paintFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const showNames =
       Platform.OS === "ios"
@@ -288,14 +292,68 @@ export function PreviewChatScreen() {
     return () => setParityPreviewThemeOverride(null);
   }, []);
 
+  const notePainted = useCallback(() => {
+    const token = `${frame.id}:${frame.theme}:${pinned ? "pin" : index}`;
+    if (paintedTokenRef.current === token) return;
+    paintedTokenRef.current = token;
+    if (paintStableTimerRef.current) {
+      clearTimeout(paintStableTimerRef.current);
+      paintStableTimerRef.current = null;
+    }
+    if (paintFallbackTimerRef.current) {
+      clearTimeout(paintFallbackTimerRef.current);
+      paintFallbackTimerRef.current = null;
+    }
+    console.error(parityPaintedLine(frame, pinned ? 0 : index));
+  }, [frame, index, pinned]);
+
+  const onTranscriptContentSize = useCallback(
+    (_width: number, height: number) => {
+      if (height < 80) return;
+      if (paintStableTimerRef.current) clearTimeout(paintStableTimerRef.current);
+      paintStableTimerRef.current = setTimeout(notePainted, 600);
+    },
+    [notePainted],
+  );
+
+  useEffect(() => {
+    paintedTokenRef.current = "";
+    if (paintStableTimerRef.current) {
+      clearTimeout(paintStableTimerRef.current);
+      paintStableTimerRef.current = null;
+    }
+    if (paintFallbackTimerRef.current) {
+      clearTimeout(paintFallbackTimerRef.current);
+      paintFallbackTimerRef.current = null;
+    }
+    return () => {
+      if (paintStableTimerRef.current) {
+        clearTimeout(paintStableTimerRef.current);
+        paintStableTimerRef.current = null;
+      }
+      if (paintFallbackTimerRef.current) {
+        clearTimeout(paintFallbackTimerRef.current);
+        paintFallbackTimerRef.current = null;
+      }
+    };
+  }, [frame.id, frame.theme, index, pinned]);
+
   useEffect(() => {
     if (preview?.colorScheme !== frame.theme) return;
     const token = `${frame.id}:${frame.theme}:${pinned ? "pin" : index}`;
     if (!claimParityReady(token)) return;
     console.error(parityReadyLine(frame, pinned ? 0 : index));
-    if (pinned || index >= frames.length - 1) return;
+    paintFallbackTimerRef.current = setTimeout(notePainted, 8_000);
+    if (pinned || index >= frames.length - 1) {
+      return () => {
+        if (paintFallbackTimerRef.current) clearTimeout(paintFallbackTimerRef.current);
+      };
+    }
     armParityClock(frames.length);
-  }, [frame, frames.length, index, pinned, preview]);
+    return () => {
+      if (paintFallbackTimerRef.current) clearTimeout(paintFallbackTimerRef.current);
+    };
+  }, [frame, frames.length, index, notePainted, pinned, preview]);
 
   const motion = parityMotionKind(frame.id);
   const streamStep = useParityClock(motion === "stream");
@@ -683,6 +741,7 @@ export function PreviewChatScreen() {
               ref={transcriptRef}
               expandedCardHeight={lane.visible ? cardHeight : 0}
               messages={messages}
+              onContentSizeChange={onTranscriptContentSize}
               onStickChange={liveTail ? onStickChange : undefined}
               onViewport={pillReturn ? onViewport : undefined}
               pillRowHeight={pillRowHeight}
