@@ -37,15 +37,15 @@
 | -------- | ---------- | --------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
 | S1       | Rust unit  | `cargo test -p quota-usage` | `usage_summary_maps_cursor_and_other_model_pools` plus the 12% saturated fixture | `apiPercentUsed` 12, `used` 40000, `limit` 40000 | value contains `12% used`; value does not contain `$`                                                                                      | pass    |
 | S2       | Rust unit  | `cargo test -p quota-usage` | same module, matching-ratio case                                                 | `used` 4800, `limit` 40000, api 12               | no `$` on Other Models                                                                                                                     | pass    |
-| S3       | Rust unit  | `cargo test -p quota-usage` | `usage_summary_reads_membership_and_plan_buckets` and on-demand assertions       | no auto/api percents; on-demand cents            | Included `$20.00 / $20.00`; On-Demand still has `$`                                                                                        | pass    |
+| S3       | Rust unit  | `cargo test -p quota-usage` | `usage_summary_reads_membership_and_plan_buckets` and on-demand assertions       | no auto/api percents; on-demand cents            | Included `$20.00 / $20.00`; On-Demand contains `$596.40 / $2,000.00`                                                                       | pass    |
 | S4       | Rust unit  | `cargo test -p quota-usage` | Grok `map_credits_config` fixtures                                               | shared pool and omitted weekly RFC3339           | `Sep 4 - Sep 11`, `Sep 3 - Sep 10`; no section title `Billing period`                                                                      | pass    |
 | S5       | Bun unit   | `bun test`                  | `packages/shared/src/utils/quota-billing-period.test.ts`                         | ISO range, Factory span, Zed arrow, non-ISO text | ISO becomes month-day; Factory, Zed, and non-ISO text stay; unzoned instant is UTC                                                         | pass    |
 | S6       | Bun unit   | `bun test`                  | `apps/mobile/src/features/quota-usage/quota-rows.test.ts`                        | ISO section Start/End                            | period label `Sep 4 - Sep 11`; extra sections omit Billing period                                                                          | pass    |
-| S7       | Bun scan   | `bun test`                  | mobile quota source scan                                                         | `QuotaUsageScreen.tsx`                           | `%` sibling text; `flexShrink: 0` on the readout; NumberFlow format has no `%`                                                             | pass    |
+| S7       | Bun scan   | `bun test`                  | mobile quota source scan                                                         | `QuotaUsageScreen.tsx` `percentReadout`          | `%` sibling text; `flexShrink: 0` inside `percentReadout` only. Unclipped pixels are confirmed by S13                                      | pass    |
 | S8       | Bun scan   | `bun test`                  | same scan                                                                        | `QuotaUsageScreen.tsx`                           | one `heading.plan` (subtitle); expanded block has no second plan                                                                           | pass    |
 | S9       | Bun unit   | `bun test`                  | `packages/shared` provider-order test                                            | switch, saved order, label                       | switch-on first, then order, then label; a saved index does not cross the switch group                                                     | pass    |
 | S10      | Bun scan   | `bun test`                  | mobile settings source scan                                                      | `QuotaSettingsScreen.tsx`                        | `title="All providers"` before the sorted map; `LinearTransition`; `clip={false}`                                                          | pass    |
-| S11      | Bun unit   | `bun test`                  | `apps/web/src/app-shell/__tests__/quota-billing-period.test.ts`                  | Grok-like section, Zed period                    | `periodLabel` formatted; extra sections drop the section; detail source has no Zed-only branch                                             | pass    |
+| S11      | Bun unit   | `bun test`                  | `apps/web/src/app-shell/__tests__/quota-billing-period.test.ts`                  | zed, cursor, grok, factory fixtures              | `providerIdentityRows` includes the period; detail source has no Zed-only branch; switch-on, then order, then label                        | pass    |
 | S12      | Toolchain  | shell                       | `bunx oxlint --max-warnings=455` and `package.json` script text                  | repo root                                        | command exits 0; script still `oxlint --max-warnings=455`                                                                                  | pass    |
 | S13      | Manual     | iOS Simulator               | local capture by the developer                                                   | signed-in quota screen                           | not executed in this change                                                                                                                | planned |
 | S14      | Rust + Bun | `cargo test`, `bun test`    | `set_provider_order_is_shared_on_later_overviews` and web order helpers          | saved ids, empty orders, new provider            | Computer order round-trips; web uploads a browser order only when the Computer order is empty                                              | pass    |
@@ -74,7 +74,7 @@
 - **Level**: Rust unit
 - **Given**: a summary with no `autoPercentUsed` / `apiPercentUsed`, `used` 2000, `limit` 2000, plus an on-demand bucket with cents.
 - **When**: the result is built.
-- **Then**: Included usage contains `$20.00 / $20.00`. On-Demand still contains a dollar amount.
+- **Then**: Included usage contains `$20.00 / $20.00`. On-Demand contains `$596.40 / $2,000.00` (`format_usd` inserts the thousands separator).
 - **Signals**: row values.
 
 ### S4 — Grok period matches the Factory month-day span
@@ -106,8 +106,8 @@
 - **Level**: Bun source-scan
 - **Given**: `QuotaUsageScreen.tsx`.
 - **When**: the scan runs.
-- **Then**: the quota format callback does not include `%`; a sibling renders `%`; the readout style sets `flexShrink: 0`.
-- **Signals**: source substrings.
+- **Then**: the quota format callback does not include `%`; a sibling renders `%`; `percentReadout` sets `flexShrink: 0`. The scan checks that style object only. Whether the suffix is actually unclipped is confirmed by the S13 simulator screenshot.
+- **Signals**: `percentReadout` style object.
 
 ### S8 — Plan is not repeated under the email
 
@@ -136,10 +136,10 @@
 ### S11 — Web period is under the account for every provider
 
 - **Level**: Bun unit and source-scan
-- **Given**: a provider with a `Billing period` section of ISO Start/End, and `ProviderDetail` source.
-- **When**: `providerIdentity` and `extraSections` run, and the detail source is scanned.
-- **Then**: `periodLabel` is the month-day span. Extra sections omit `Billing period`. `ProviderDetail` does not branch on `provider.id === "zed"` for the period.
-- **Signals**: helper output and source substrings.
+- **Given**: zed, cursor, grok, and factory fixtures that each carry a billing period, and `ProviderDetail` source.
+- **When**: `providerIdentityRows` runs, `sortQuotaProvidersForSwitchList` runs, and the detail source is scanned.
+- **Then**: each identity list ends with that provider's period, after the account and plan. Switch-on providers come first, then `provider_order`, then label. `ProviderDetail` does not branch on `provider.id === "zed"`.
+- **Signals**: `providerIdentityRows`, sorted ids, source substrings.
 
 ### S12 — Lint cap
 
@@ -195,13 +195,13 @@
 
 ## Coverage Status
 
-S1–S4, S14, and S15 pass: `cargo test -p quota-usage --lib` (67 passed, including `set_provider_order_is_shared_on_later_overviews` and `provider_state_order_writes_keep_the_switch_and_revision`). `cargo clippy -p quota-usage --all-targets --all-features -- -D warnings` exited 0.
+S1–S4, S14, and S15 pass: `cargo test -p quota-usage` (68 passed, 0 doctests). That run includes `usage_summary_reads_membership_and_plan_buckets`, `set_provider_order_is_shared_on_later_overviews`, `provider_state_order_writes_keep_the_switch_and_revision`, and `provider_state_save_reads_back_and_leaves_no_tmp`. `cargo clippy -p quota-usage --all-targets --all-features -- -D warnings` exited 0.
 
-S5, S6, S9, S11, S14, and S15 pass: `bun test` on those quota files (66 passed), including `quota-query-events.test.ts` and `quota-usage-api.test.ts`. Stale revisions stay put. An in-flight drag keeps its optimistic order, then applies the newest revision seen during the wait when the write settles, unless the cache is already newer. Single boundaries are `Until` / `Since`. Non-ISO text is unchanged.
+S5, S6, S9, S11, S14, and S15 pass: `bun test` on those quota files (67 passed), including `quota-billing-period.test.ts`, `quota-display.test.ts`, `quota-query-events.test.ts`, and `quota-usage-api.test.ts`. Identity rows for zed, cursor, grok, and factory include the period. On-Demand asserts `$596.40 / $2,000.00`. Stale revisions stay put. An in-flight drag keeps its optimistic order, then applies the newest revision seen during the wait when the write settles, unless the cache is already newer. Single boundaries are `Until` / `Since`. Non-ISO text is unchanged.
 
-S7, S8, and S10 pass in the mobile source scan above. Settings passes `overview.provider_order` into the shared sort.
+S7, S8, and S10 pass in the mobile source scan above. S7 checks `flexShrink: 0` only inside `percentReadout`. Whether that suffix is unclipped stays with the S13 simulator screenshot. Settings passes `overview.provider_order` into the shared sort.
 
-S12 pass: `bun lint` (`oxlint --max-warnings=455`) exited 0 with 452 warnings. `package.json` `lint` is still `oxlint --max-warnings=455`. `bun --filter @atmos/api-types typecheck` and `bun --filter web typecheck` exited 0.
+S12 pass: `bun lint` (`oxlint --max-warnings=455`) exited 0 with 452 warnings. `package.json` `lint` is still `oxlint --max-warnings=455`.
 
 S13 stays planned. iOS Simulator screenshots are not part of this change.
 

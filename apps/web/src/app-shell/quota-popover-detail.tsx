@@ -27,6 +27,7 @@ import {
   metricGroupLabel,
   providerCreditsLabel,
   providerIdentity,
+  providerIdentityRows,
   quotaMetrics,
   sectionHeaderValue,
   visibleSectionRows,
@@ -481,10 +482,7 @@ export function ProviderDetail({
   isSwitching: boolean;
 }) {
   const t = useTranslations("appShell.usagePopover");
-  const { accountLabel, planLabel, periodLabel } = providerIdentity(
-    provider,
-    t("detail.notDetected"),
-  );
+  const identityRows = providerIdentityRows(provider, t("detail.notDetected"));
   const metrics = quotaMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
@@ -516,11 +514,16 @@ export function ProviderDetail({
             <UsagePortalLink providerId={provider.id} region={providerRegion} className="mt-1" />
           </div>
           <div className="text-right">
-            <div className="text-xs text-foreground">{accountLabel}</div>
-            {planLabel ? <div className="mt-1 text-xs text-foreground/90">{planLabel}</div> : null}
-            {periodLabel ? (
-              <div className="mt-1 text-xs text-foreground/90">{periodLabel}</div>
-            ) : null}
+            {identityRows.map((row, index) => (
+              <div
+                key={`${index}:${row}`}
+                className={
+                  index === 0 ? "text-xs text-foreground" : "mt-1 text-xs text-foreground/90"
+                }
+              >
+                {row}
+              </div>
+            ))}
           </div>
         </div>
       </div>

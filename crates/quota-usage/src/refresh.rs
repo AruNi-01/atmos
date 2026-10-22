@@ -111,11 +111,21 @@ fn save_provider_state_unlocked(state: &ProviderStateFile) {
     let Some(path) = provider_state_path() else {
         return;
     };
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    let _ = fs::create_dir_all(parent);
+    let Ok(contents) = serde_json::to_string_pretty(state) else {
+        return;
+    };
+    // Same directory, then rename, so a crash mid-write cannot truncate the live file.
+    let tmp = parent.join(format!("provider_state.json.{}.tmp", std::process::id()));
+    if fs::write(&tmp, contents).is_err() {
+        let _ = fs::remove_file(&tmp);
+        return;
     }
-    if let Ok(contents) = serde_json::to_string_pretty(state) {
-        let _ = fs::write(path, contents);
+    if fs::rename(&tmp, &path).is_err() {
+        let _ = fs::remove_file(&tmp);
     }
 }
 

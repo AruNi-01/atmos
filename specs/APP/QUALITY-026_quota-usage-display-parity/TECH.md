@@ -2,6 +2,10 @@
 
 > Technical Design · HOW. Aligns the mobile quota usage screen with the web popover, and corrects the Cursor Other Models meter at the source both clients render. No BRAINSTORM or PRD (quality spec).
 
+## Why QUALITY
+
+This stays `QUALITY-026`. The work fixes defects on screens that already shipped and lines the mobile quota screen up with web: a clipped percent suffix, a plan repeated under the email, Cursor Other Models percent and dollar amounts that describe different meters, and a Grok billing window printed as raw RFC3339. It does not add a product surface. The switch list uses the Computer `provider_order` quota usage already stores. `specs/AGENTS.md` does not rename or renumber a published spec, so the directory stays `specs/APP/QUALITY-026_quota-usage-display-parity/`.
+
 ## Scope summary
 
 The mobile quota usage screen (`apps/mobile`) clips the percent suffix, repeats the subscription plan under the account email, shows a Cursor Other Models row whose percent and dollar amounts contradict each other, prints Grok billing windows as raw RFC3339, and reorders provider switches without the web comparator or a layout animation. Web shares the Cursor row string and the raw Grok section, so those two defects are fixed for both clients. The percent clip and the duplicated plan line are mobile-only.
@@ -47,7 +51,7 @@ On-demand cents stay on the On-Demand row. The legacy single-pool path (no `auto
 
 ## Decision
 
-Correct the Cursor meters in Rust so both clients stay in sync. Format the Grok span in Rust to match Factory's web period (`format_short_date`: UTC month + day, no year, space-hyphen-space), and keep a client formatter for Computers that still return the old section. Do not reformat Zed's date-only arrow string into month-day.
+Correct the Cursor meters in Rust so both clients stay in sync. Format the Grok span in Rust to match Factory's web period (`format_utc_month_day`: UTC month + day, no year, space-hyphen-space), and keep a client formatter for Computers that still return the old section. Do not reformat Zed's date-only arrow string into month-day.
 
 Share the aggregate switch sort. Leave `sortQuotaProvidersBySwitchAndOrder` (navbar) unchanged: it already sorts switch-on, then saved order, then label.
 
@@ -63,7 +67,7 @@ The web aggregate sheet (`AggregateDetail` → `sortQuotaProvidersForSwitchList`
 
 `providerOrder` is not browser-local anymore for the shared list. `provider_state.json` stores `provider_order` and `provider_order_revision`. `QuotaOverview` returns both. `quota_set_provider_order` writes the order and increments the revision only when the normalized id list changes. A switch or refresh save keeps the current revision. Web still keeps the previous localStorage order as a one-shot migration: when the Computer order is empty and the browser order is not, web uploads the browser order. A drag writes the same array. Mobile passes `overview.provider_order` into the shared sort. An empty order on both sides leaves label order inside each switch group, so the two clients match without inventing a sequence.
 
-Every load and save of `provider_state.json` in this process takes one mutex for the whole read-modify-write. An order save cannot write back a switch value it read before that switch was saved.
+Every load and save of `provider_state.json` in this process takes one mutex for the whole read-modify-write. An order save cannot write back a switch value it read before that switch was saved. The save writes `provider_state.json.<pid>.tmp` in the same directory and renames it over the live file, so a crash mid-write leaves the previous file in place.
 
 `quota_overview_updated` can arrive after a newer drag. `applyQuotaOverviewUpdated` keeps the cached order when the incoming `provider_order_revision` is lower. While a drag request is in flight, it also keeps the optimistic order, because that order is newer than any revision already in the cache. The highest revision seen during that wait is remembered. When the last in-flight write settles, that revision replaces the cached order only if it is still newer: a failed drag picks up another browser's save, and a successful response that is already newer stays in place. The request response for the latest drag writes the server snapshot, including the new revision, before that settle step. `setProviderOrder` captures `getComputerQueryScope()` and sends with `wsRequestForComputerScope`, so the connect wait cannot deliver the order to a Computer the user switched to. Other quota mutations still use `wsRequest`.
 
@@ -84,7 +88,7 @@ pub(crate) fn format_utc_month_day(timestamp: u64) -> String
 pub(crate) fn format_billing_span(start: Option<u64>, end: Option<u64>) -> Option<String>
 ```
 
-`Some/Some` → `"{start} - {end}"`. `None/Some` → `"Until {end}"`. `Some/None` → `"Since {start}"`. `None/None` → `None`. Use `OffsetDateTime::from_unix_timestamp` and the same month abbreviations as Factory. Do not refactor Factory's private `format_short_date`.
+`Some/Some` → `"{start} - {end}"`. `None/Some` → `"Until {end}"`. `Some/None` → `"Since {start}"`. `None/None` → `None`. Use `OffsetDateTime::from_unix_timestamp` and the same month abbreviations as Factory. Factory's period label calls `format_utc_month_day`.
 
 ### `crates/quota-usage/src/providers/grok.rs`
 
@@ -108,11 +112,11 @@ pub(crate) fn format_billing_span(start: Option<u64>, end: Option<u64>) -> Optio
 
 `AggregateDetail` calls `sortQuotaProvidersForSwitchList(providers, providerOrder)`.
 
-`providerIdentity` wraps the period with `formatQuotaBillingPeriod` and, when no Usage/Account period exists, synthesizes one from a `Billing period` section Start/End.
+`providerIdentity` wraps the period with `formatQuotaBillingPeriod` and, when no Usage/Account period exists, synthesizes one from a `Billing period` section Start/End. `providerIdentityRows` returns that account, then the plan when it differs from the account, then the period.
 
 `extraSections` drops a section whose title is `billing period`. Remaining ISO values still pass through the formatter.
 
-`ProviderDetail` shows `periodLabel` under the account for every provider and removes the Zed-only left-hand period block so Zed is not shown twice. Web aggregate `DetectedProviderDetails` already shows `periodLabel` under the account.
+`ProviderDetail` renders `providerIdentityRows` for every provider and removes the Zed-only left-hand period block so Zed is not shown twice. Web aggregate `DetectedProviderDetails` already shows `periodLabel` under the account.
 
 Web percent headings stay plain text (`QuotaMetricUsage`). No width change.
 

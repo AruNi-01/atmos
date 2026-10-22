@@ -1183,7 +1183,7 @@ mod tests {
             .find(|row| row.label == "On-Demand")
             .expect("on-demand");
         assert!(
-            on_demand.value.contains('$'),
+            on_demand.value.contains("$596.40 / $2,000.00"),
             "on-demand keeps cents: {}",
             on_demand.value
         );

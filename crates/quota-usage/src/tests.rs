@@ -429,6 +429,26 @@ fn provider_state_order_writes_keep_the_switch_and_revision() {
     assert!(order[0].starts_with('p'));
 }
 
+#[test]
+fn provider_state_save_reads_back_and_leaves_no_tmp() {
+    let iso = IsolatedQuotaDir::enter();
+    persist_provider_switch("cursor", true);
+    let path = iso.path.join("provider_state.json");
+    let raw = std::fs::read_to_string(&path).expect("provider state");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("json");
+    assert_eq!(parsed["providers"]["cursor"]["switch"], true);
+    assert!(provider_switch_enabled("cursor"));
+    let tmp_left = std::fs::read_dir(&iso.path)
+        .expect("quota dir")
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"));
+    assert!(
+        !tmp_left,
+        "atomic save left a tmp file in {}",
+        iso.path.display()
+    );
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn failed_live_refresh_keeps_previous_numbers_and_records_partial_failure() {
     let _iso = IsolatedQuotaDir::enter();

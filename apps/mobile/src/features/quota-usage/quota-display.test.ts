@@ -16,8 +16,8 @@ describe("quota usage display source", () => {
     expect(usageScreen).toContain("format={(next) => `${Math.round(next)}`}");
     expect(usageScreen).not.toContain("format={(next) => `${Math.round(next)}%`}");
     expect(usageScreen).toContain("<Text style={style}>%</Text>");
-    expect(usageScreen).toContain("flexShrink: 0");
-    expect(usageScreen).toContain("percentReadout");
+    const readout = usageScreen.match(/percentReadout:\s*\{[^}]*\}/);
+    expect(readout?.[0]).toContain("flexShrink: 0");
   });
 
   test("shows the plan once, under the provider name", () => {

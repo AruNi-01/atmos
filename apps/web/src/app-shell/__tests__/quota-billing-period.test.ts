@@ -1,8 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { sortQuotaProvidersForSwitchList } from "@atmos/shared";
 import type { QuotaProviderResponse } from "@/api/ws-api";
-import { extraSections, providerIdentity } from "@/app-shell/quota-popover-utils";
+import {
+  extraSections,
+  providerIdentity,
+  providerIdentityRows,
+} from "@/app-shell/quota-popover-utils";
 
 function provider(partial: Partial<QuotaProviderResponse>): QuotaProviderResponse {
   return {
@@ -90,7 +95,109 @@ describe("quota billing period", () => {
   test("shows the period under the account for every provider", () => {
     const detail = readFileSync(join(import.meta.dir, "../quota-popover-detail.tsx"), "utf8");
     expect(detail).not.toContain('provider.id === "zed"');
-    expect(detail).toContain("sortQuotaProvidersForSwitchList");
-    expect(detail).toContain("{periodLabel ? (");
+
+    const periodRow = (label: string, value: string) => ({
+      label,
+      value,
+      tone: "default" as const,
+    });
+    const cases = [
+      {
+        id: "zed",
+        label: "Zed",
+        account: "zed@example.com",
+        plan: "Pro",
+        period: "2026-03-16 → 2026-03-30",
+        detail_sections: [
+          {
+            title: "Account",
+            rows: [periodRow("Account", "zed@example.com"), periodRow("Plan", "Pro")],
+          },
+          {
+            title: "Usage",
+            rows: [periodRow("Billing period", "2026-03-16 → 2026-03-30")],
+          },
+        ],
+      },
+      {
+        id: "cursor",
+        label: "Cursor",
+        account: "dev@example.com",
+        plan: "Pro",
+        period: "Sep 4 - Sep 11",
+        detail_sections: [
+          {
+            title: "Account",
+            rows: [
+              periodRow("Account", "dev@example.com"),
+              periodRow("Plan", "Pro"),
+              periodRow("Period", "Sep 4 - Sep 11"),
+            ],
+          },
+        ],
+      },
+      {
+        id: "grok",
+        label: "Grok Build",
+        account: "user@example.com",
+        plan: "Super",
+        period: "Sep 4 - Sep 11",
+        detail_sections: [
+          {
+            title: "Account",
+            rows: [periodRow("Account", "user@example.com"), periodRow("Plan", "Super")],
+          },
+          {
+            title: "Billing period",
+            rows: [
+              periodRow("Start", "2026-09-04T22:17:47.739583+00:00"),
+              periodRow("End", "2026-09-11T22:17:47.739583+00:00"),
+            ],
+          },
+        ],
+      },
+      {
+        id: "factory",
+        label: "Factory",
+        account: "factory@example.com",
+        plan: "Factory Pro",
+        period: "Sep 4 - Sep 11",
+        detail_sections: [
+          {
+            title: "Account",
+            rows: [
+              periodRow("Account", "factory@example.com"),
+              periodRow("Plan", "Factory Pro"),
+              periodRow("Period", "Sep 4 - Sep 11"),
+            ],
+          },
+        ],
+      },
+    ];
+
+    for (const item of cases) {
+      expect(
+        providerIdentityRows(
+          provider({
+            id: item.id,
+            label: item.label,
+            detail_sections: item.detail_sections,
+          }),
+        ),
+      ).toEqual([item.account, item.plan, item.period]);
+    }
+  });
+
+  test("sorts switch-on providers, then saved order, then label", () => {
+    const sorted = sortQuotaProvidersForSwitchList(
+      [
+        { id: "zed", label: "Zed", switch_enabled: false },
+        { id: "cursor", label: "Cursor", switch_enabled: true },
+        { id: "factory", label: "Factory", switch_enabled: true },
+        { id: "grok", label: "Grok", switch_enabled: true },
+      ],
+      ["zed", "grok", "factory"],
+    );
+    expect(sorted.map((item) => item.id)).toEqual(["grok", "factory", "cursor", "zed"]);
   });
 });

@@ -776,3 +776,15 @@ export function providerIdentity(
   const planLabel = rawPlan && rawPlan !== accountLabel ? rawPlan : null;
   return { accountLabel, planLabel, periodLabel };
 }
+
+/** Right-hand identity lines: account, then plan, then billing period. */
+export function providerIdentityRows(
+  provider: QuotaProviderResponse,
+  notDetectedLabel = "Not detected",
+): string[] {
+  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, notDetectedLabel);
+  const rows = [accountLabel];
+  if (planLabel) rows.push(planLabel);
+  if (periodLabel) rows.push(periodLabel);
+  return rows;
+}
