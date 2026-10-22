@@ -24,7 +24,7 @@ export function ComputerOnlineCount({ online, total }: { online: number; total: 
       style={[typography.rowMeta, { color: theme.colors.secondaryLabel, maxWidth: "42%" }]}
     >
       <Text style={{ color: onlineStatusColor(theme.colors) }}>{summary.online}</Text>
-      <Text>/{summary.total}</Text>
+      <Text>{` / ${summary.total}`}</Text>
     </Text>
   );
 }
