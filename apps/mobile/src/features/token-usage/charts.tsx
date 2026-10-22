@@ -301,10 +301,11 @@ function useHoldScroll({
       .runOnJS(true)
       .maxDistance(12)
       .cancelsTouchesInView(false)
+      .simultaneousWithExternalGesture(native)
       .onEnd((event) => {
         handlers.current.onHold(chartXFromGesture(event.x, offsetRef.current, labelInset));
       });
-  }, [labelInset, open]);
+  }, [labelInset, native, open]);
   const pinch = useMemo(
     () =>
       Gesture.Pinch()
