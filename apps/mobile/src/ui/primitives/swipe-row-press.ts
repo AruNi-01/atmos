@@ -101,7 +101,7 @@ export function swipeRowCardFrame(offset: number) {
   };
 }
 
-/** Separators above and below each open row. `separatorIndex` is the line before that row. */
+/** Separators above and below each open row. `separatorIndex` is the line before that row. Hiding them does not change tap versus pan. */
 export function hiddenSwipeSeparatorIndexes(openIndexes: readonly number[]): number[] {
   const hidden = new Set<number>();
   for (const index of openIndexes) {
