@@ -1,4 +1,12 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as RNImage, Pressable, StyleSheet, Text, View, type ScrollView } from "react-native";
 import { Host } from "@expo/ui";
@@ -11,7 +19,6 @@ import Animated, {
   FadeInDown,
   FadeOut,
   FadeOutDown,
-  LinearTransition,
   useReducedMotion,
   useSharedValue,
 } from "react-native-reanimated";
@@ -19,6 +26,7 @@ import type { SFSymbol } from "sf-symbols-typescript";
 import type { DailyTokenUsageResponse } from "@atmos/api-types/ws/dto/token-usage";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
 import {
+  HEATMAP_PLOT_HEIGHT,
   ScrollableChart,
   UsageGrowthChart,
   UsageHeatmap,
@@ -82,7 +90,6 @@ const MIX_LABEL = {
   reasoning: "Reasoning",
 } as const;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
-const EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);
 
 const METRIC_SYMBOL = { tokens: "centsign.circle", cost: "dollarsign" } as const satisfies Record<
   UsageMetric,
@@ -165,10 +172,14 @@ export function TokenUsageScreen() {
     if (uri) requestAnimationFrame(() => releaseUsageImage(uri));
   }, []);
   const reducedMotion = useReducedMotion();
-  const heatmapLayout = useMemo(
-    () => LinearTransition.duration(reducedMotion ? 1 : 240).easing(EASE_IN_OUT),
-    [reducedMotion],
-  );
+  const [usageScopeKey, setUsageScopeKey] = useState(selectedKey);
+  if (usageScopeKey !== selectedKey) {
+    setUsageScopeKey(selectedKey);
+    setSelectedDate(null);
+  }
+  useEffect(() => {
+    usageScrollRef.current?.scrollTo({ animated: false, y: 0 });
+  }, [selectedKey]);
   const detailEnter = useMemo(
     () =>
       reducedMotion
@@ -574,9 +585,8 @@ export function TokenUsageScreen() {
                 />
               ) : null}
             </View>
-            <Animated.View
+            <View
               collapsable={false}
-              layout={heatmapLayout}
               style={[
                 styles.heatmapCard,
                 { backgroundColor: heatmapSurface, borderColor: theme.colors.separator },
@@ -585,6 +595,7 @@ export function TokenUsageScreen() {
               <View style={styles.heatmapClip}>
                 <View
                   style={{
+                    minHeight: HEATMAP_PLOT_HEIGHT,
                     paddingBottom: openDetail ? 8 : 14,
                     paddingHorizontal: 14,
                     paddingTop: 14,
@@ -609,7 +620,7 @@ export function TokenUsageScreen() {
                   </Animated.View>
                 ) : null}
               </View>
-            </Animated.View>
+            </View>
             <NativeSegmentedControl
               onValueChange={setResolution}
               options={[

@@ -102,7 +102,9 @@ Helpers live in a small `chart-geometry.ts` (or equivalent) with bun tests.
 
 Switching to All swaps `activeQuery`; `overview` becomes null then a taller page. iOS large title + `contentInsetAdjustmentBehavior="automatic"` can keep a stale offset so the title sits under `unstable_headerLeftItems`.
 
-On Computer / All identity change, `scrollTo({ y: 0, animated: false })` on `usageScrollRef`. Do not remount the `Stack.Screen` header while the sheet is closed.
+<!-- updated 2026-10-22: reset selectedDate during render to avoid setState-in-effect -->
+
+On Computer / All identity change (`selectedKey`), reset `selectedDate` during render (previous-key state, not an effect) and `scrollTo({ y: 0, animated: false })` on `usageScrollRef`. Do not remount the `Stack.Screen` header while the sheet is closed.
 
 ## Data model
 

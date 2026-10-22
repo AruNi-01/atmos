@@ -2,6 +2,7 @@ import { Image, type ImageSourcePropType, StyleSheet, View } from "react-native"
 import {
   AGENT_ICON_REMAP,
   DARK_GLYPHS,
+  glyphSurfaceKey,
   glyphTint,
   LIGHT_GLYPHS,
   matchesGlyph,
@@ -157,6 +158,7 @@ export function MobileAgentIcon({
   return (
     <Image
       accessibilityIgnoresInvertColors
+      key={glyphSurfaceKey(onDark ? "dark" : theme.colorScheme, tint)}
       source={source}
       style={[styles.icon, { height: size, width: size }, tint ? { tintColor: tint } : null]}
     />

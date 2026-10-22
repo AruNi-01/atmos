@@ -23,6 +23,20 @@ import { AreaChart, BarChart, ContributionGraph } from "react-native-chart-kit/v
 import Svg, { Circle, Line, Rect } from "react-native-svg";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
+import {
+  CHART_X_LABEL_INSET,
+  chartXFromGesture,
+  scrollContentShift,
+} from "@/features/token-usage/chart-geometry";
+import { popoverSeriesTint } from "@/features/token-usage/chart-popover-mark";
+import {
+  CHART_HOLD_MS,
+  chartOpensOnTap,
+  chartTipPersistsOnRelease,
+  GROWTH_CHART_TIP,
+  STACKED_CHART_TIP,
+  type ChartTipOpen,
+} from "@/features/token-usage/chart-press";
 import { columnIndicatorColor, columnIndicatorLine } from "@/features/token-usage/column-indicator";
 import type { UsageDimension, HeatmapWeek } from "@/features/token-usage/model";
 import { UsageModelIcon } from "@/features/token-usage/UsageModelIcon";
@@ -36,14 +50,13 @@ const STEP = CELL + GAP;
 const HEATMAP_LABEL_LANE = 72;
 /** Library month lane plus seven cells. Extra height is an empty band under the grid. */
 const MONTH_LABEL_HEIGHT = 18;
-const HEATMAP_HEIGHT = MONTH_LABEL_HEIGHT + 7 * STEP - GAP;
+export const HEATMAP_PLOT_HEIGHT = MONTH_LABEL_HEIGHT + 7 * STEP - GAP;
 const NO_INSET = { bottom: 0, left: 0, right: 0, top: 0 };
 /** Matches the chart's left padding: 10 base + label width + 8 gap. Right base is 18. */
 const Y_LABEL_WIDTH = 48;
 const PLOT_X = 10 + Y_LABEL_WIDTH + 8;
 const PLOT_RIGHT = 18;
 const POINT_GAP = 32;
-const HOLD_MS = 260;
 /** Fits compact values such as `-$999.9T`, so a finished roll does not resize the popover. */
 const TIP_VALUE_SLOT = 100;
 /** Horizontal spacing relative to the default gap. Pinch cannot pass these. */
@@ -125,9 +138,11 @@ export function ScrollableChart({
 type HoldScroll = {
   axis: number;
   baseGap: number;
+  labelInset?: number;
   onHold: (chartX: number) => void;
   onMove: (chartX: number) => void;
   onRelease: () => void;
+  open?: ChartTipOpen;
   seriesKey: string;
 };
 
@@ -140,7 +155,16 @@ type HoldScroll = {
  * responder makes UIScrollView toggle its own pan off and on, which drops the
  * rest of that touch and never delivers the next one.
  */
-function useHoldScroll({ axis, baseGap, onHold, onMove, onRelease, seriesKey }: HoldScroll) {
+function useHoldScroll({
+  axis,
+  baseGap,
+  labelInset = CHART_X_LABEL_INSET,
+  onHold,
+  onMove,
+  onRelease,
+  open = GROWTH_CHART_TIP,
+  seriesKey,
+}: HoldScroll) {
   const handlers = useRef({ onHold, onMove, onRelease });
   handlers.current = { onHold, onMove, onRelease };
   const hostRef = useRef<View>(null);
@@ -247,12 +271,12 @@ function useHoldScroll({ axis, baseGap, onHold, onMove, onRelease, seriesKey }: 
       holding.current = false;
       scrollRef.current?.setNativeProps({ scrollEnabled: true });
       setLock(false);
-      handlers.current.onRelease();
+      if (!chartTipPersistsOnRelease(open)) handlers.current.onRelease();
     };
     return Gesture.Pan()
       .runOnJS(true)
       .maxPointers(1)
-      .activateAfterLongPress(HOLD_MS)
+      .activateAfterLongPress(CHART_HOLD_MS)
       .cancelsTouchesInView(false)
       .shouldCancelWhenOutside(false)
       .simultaneousWithExternalGesture(native)
@@ -261,16 +285,26 @@ function useHoldScroll({ axis, baseGap, onHold, onMove, onRelease, seriesKey }: 
         holdOffset.current = offsetRef.current;
         scrollRef.current?.setNativeProps({ scrollEnabled: false });
         setLock(true);
-        handlers.current.onHold(event.x + holdOffset.current);
+        handlers.current.onHold(chartXFromGesture(event.x, holdOffset.current, labelInset));
       })
       .onUpdate((event) => {
         if (!holding.current) return;
-        handlers.current.onMove(event.x + holdOffset.current);
+        handlers.current.onMove(chartXFromGesture(event.x, holdOffset.current, labelInset));
       })
       .onFinalize(() => {
         unlock();
       });
-  }, [native]);
+  }, [labelInset, native, open]);
+  const tap = useMemo(() => {
+    if (!chartOpensOnTap(open)) return null;
+    return Gesture.Tap()
+      .runOnJS(true)
+      .maxDistance(12)
+      .cancelsTouchesInView(false)
+      .onEnd((event) => {
+        handlers.current.onHold(chartXFromGesture(event.x, offsetRef.current, labelInset));
+      });
+  }, [labelInset, open]);
   const pinch = useMemo(
     () =>
       Gesture.Pinch()
@@ -316,7 +350,13 @@ function useHoldScroll({ axis, baseGap, onHold, onMove, onRelease, seriesKey }: 
       scaleSv,
     ],
   );
-  const gesture = useMemo(() => Gesture.Simultaneous(pan, pinch), [pan, pinch]);
+  const gesture = useMemo(
+    () =>
+      tap
+        ? Gesture.Simultaneous(Gesture.Exclusive(pan, tap), pinch)
+        : Gesture.Simultaneous(pan, pinch),
+    [pan, pinch, tap],
+  );
   useAnimatedReaction(
     () => Math.round(scaleSv.get() / ZOOM_STEP),
     (step, previous) => {
@@ -419,8 +459,9 @@ function ChartViewport({
   scroll: ReturnType<typeof useHoldScroll>;
   width: number;
 }) {
+  const shift = scrollContentShift(axisWidth);
   const lane = Math.max(0, width - axisWidth);
-  const content = Math.max(lane, contentWidth - axisWidth);
+  const content = Math.max(lane, contentWidth - shift);
   return (
     <GestureDetector gesture={scroll.gesture}>
       <View collapsable={false} ref={scroll.hostRef} style={{ height, width }}>
@@ -455,7 +496,7 @@ function ChartViewport({
             <View
               collapsable={false}
               pointerEvents="none"
-              style={{ height, marginLeft: -axisWidth, width: contentWidth }}
+              style={{ height, marginLeft: -shift, width: contentWidth }}
             >
               {children}
             </View>
@@ -768,6 +809,7 @@ export function UsageGrowthChart({
       series={[{ color, label: "Usage", yKey: "value" }]}
       showDots={false}
       showVerticalGridLines={false}
+      showYAxisLabels={false}
       testID="token-usage-growth"
       theme={theme}
       tooltip={false}
@@ -934,6 +976,7 @@ export function UsageStackedChart({
     onHold: (chartX) => selectRef.current(chartX),
     onMove: (chartX) => selectRef.current(chartX),
     onRelease: () => setTip(null),
+    open: STACKED_CHART_TIP,
     seriesKey,
   });
   const slot = BAR_SLOT * scroll.scale;
@@ -1143,7 +1186,7 @@ function seriesMark(
   if (dimension === "model")
     return <UsageModelIcon color={color} modelId={id} providerId={providers?.get(id)} size={12} />;
   if (id === "other") return <BotIcon color={color} size={12} />;
-  return <MobileAgentIcon agentId={id} onDark size={12} />;
+  return <MobileAgentIcon agentId={id} onDark size={12} tintColor={popoverSeriesTint(color)} />;
 }
 
 type PointTip = { index: number; label: string; value: number; x: number; y: number };
@@ -1486,7 +1529,9 @@ export function UsageHeatmap({
     return () => cancelAnimationFrame(frame);
   }, [placeLatest]);
   const slot = selectedDate ? cellSlot(selectedDate) : null;
-  if (!end || values.length === 0) return null;
+  if (!end || values.length === 0) {
+    return <View style={styles.heatmapPlot} />;
+  }
   return (
     <View
       onLayout={(event) => {
@@ -1509,9 +1554,9 @@ export function UsageHeatmap({
           }}
           ref={scrollRef}
           showsHorizontalScrollIndicator={false}
-          style={{ height: HEATMAP_HEIGHT, width: plotWidth }}
+          style={{ height: HEATMAP_PLOT_HEIGHT, width: plotWidth }}
         >
-          <View style={{ height: HEATMAP_HEIGHT, width: chartWidth }}>
+          <View style={{ height: HEATMAP_PLOT_HEIGHT, width: chartWidth }}>
             <ContributionGraph
               accessibilityLabel="Usage by day"
               activeCell={false}
@@ -1526,7 +1571,7 @@ export function UsageHeatmap({
               getMonthLabel={(_month, date) => date.toLocaleDateString("en-US", { month: "short" })}
               getWeekdayLabel={weekdayLabel}
               gutterSize={GAP}
-              height={HEATMAP_HEIGHT}
+              height={HEATMAP_PLOT_HEIGHT}
               interaction={{ mode: "tap" }}
               numDays={values.length}
               onDayPress={(event) => {
@@ -1550,7 +1595,7 @@ export function UsageHeatmap({
             />
             {slot ? (
               <Svg
-                height={HEATMAP_HEIGHT}
+                height={HEATMAP_PLOT_HEIGHT}
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
                 width={chartWidth}
@@ -1570,7 +1615,13 @@ export function UsageHeatmap({
 }
 
 const styles = StyleSheet.create({
-  heatmapPlot: { alignSelf: "stretch", minWidth: 0, overflow: "hidden", width: "100%" },
+  heatmapPlot: {
+    alignSelf: "stretch",
+    minHeight: HEATMAP_PLOT_HEIGHT,
+    minWidth: 0,
+    overflow: "hidden",
+    width: "100%",
+  },
   tip: {
     backgroundColor: BUBBLE.backgroundColor,
     borderRadius: BUBBLE.borderRadius,
