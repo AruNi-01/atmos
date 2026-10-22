@@ -101,9 +101,9 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 ### S8 — First x-axis label band
 
 - **Level**: Bun test
-- **Given**: a centred month label at the y-axis overlay edge
-- **When**: the overlay covers the label band vs leaves it open
-- **Then**: covering clips the label; leaving the band open keeps a 24px-wide centred `"Nov"` fully visible unless the slice is cropped at the plot origin; `placeEnd` of a fitting series is offset 0, not `+inset`; the growth plot sits beside the y-axis so Nov/Dec cannot land in the gutter left of January, and `edgeLabelPolicy` is `show`
+- **Given**: growth points and stacked bars with month labels
+- **When**: compute label x from `growthPointX` / `barLabelX`
+- **Then**: the first growth label is centred on its data point and fully visible at clip x=0 (the dummy y-label pad keeps plot.x past half a month; a centred label at x=0 is clipped, start-align is the fallback); later growth labels stay centred on their points; every bar label x equals that bar's centre, including index 0, and consecutive labels are one slot apart (not shifted by one bar); growth and stacked charts sit beside the y-axis and hide chart-kit x labels
 - **Signals**: `chart-geometry.test.ts`, `chart-press.test.ts`
 
 ### S9 — Large title on All

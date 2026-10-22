@@ -182,3 +182,9 @@ Unchanged. No new secrets. Do not commit screenshots that include handles or usa
 ## Open questions
 
 - None. iOS simulator sign-off is the user’s follow-up (未运行 here).
+
+## Post-implementation update (M9 follow-up)
+
+On `5a199bed` the growth chart still clipped the first month to `"n"`: chart-kit `textAnchor: "middle"` at the first point overflows left, and iOS UIView clips that overflow. Opening the bar overlay label band made `"Jan"` readable but parked it in the y-axis gutter; the first visible bar was February.
+
+Follow-up: hide chart-kit x labels and draw them from `chart-geometry.ts`. Growth uses a dummy `yAxisLabelWidth` pad so the first centred label sits fully inside the plot (iOS UIView clips overflow). If that pad is missing, `growthLabelAlign(0)` falls back to start-align. Both charts use `axisPlacement="start"`. Bar labels use `barLabelX` = bar centre for every index, including 0.

@@ -24,15 +24,31 @@ import Svg, { Circle, Line, Rect } from "react-native-svg";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
 import {
+  BAR_KIT_RIGHT,
   CHART_PLOT_BASE_LEFT,
   CHART_X_LABEL_BAND,
+  CHART_X_LABEL_FONT,
+  GROWTH_PLOT_LEFT,
+  GROWTH_Y_LABEL_PAD,
+  barBandStep,
+  barContentWidth as barPlotContentWidth,
+  barLabelAlign,
+  barLabelX,
+  barSliceWidth as barPlotSliceWidth,
   chartXFromGesture,
   growthContentWidth as growthPlotContentWidth,
+  growthLabelAlign,
   growthPlotWidth,
+  growthPointStep,
+  growthPointX,
   growthSliceWidth as growthPlotSliceWidth,
   overlayPlotHeight,
   scrollEndOffset,
+  visibleXLabelIndexes,
   windowedSliceFrame,
+  xLabelFrame,
+  xLabelWidth,
+  type XLabelAlign,
 } from "@/features/token-usage/chart-geometry";
 import { popoverSeriesTint } from "@/features/token-usage/chart-popover-mark";
 import {
@@ -97,18 +113,12 @@ function zoomOffset(
 /** On-screen move. Ease in and out so the border leaves one cell and settles into the next. */
 const SELECTION_EASE = Easing.bezier(0.77, 0, 0.175, 1);
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
-/** Bar chart layout constants from chart-kit, used only to line the pinned axis up with the bars. */
+/** Bar chart y-label width estimate. Matches chart-kit `measureBarChartText`. */
 const BAR_BASE_LEFT = 10;
-const BAR_RIGHT = 14;
 const BAR_LABEL_GAP = 8;
 const BAR_LABEL_FONT = 11;
 const BAR_LABEL_FACTOR = 0.56;
-const BAR_PADDING_INNER = 0.12;
-const BAR_PADDING_OUTER = 0.08;
-const BAR_WIDTH_RATIO = 0.72;
 const BAR_SLOT = 36;
-const BAR_BAND = 1 - BAR_PADDING_INNER;
-const BAR_PLOT_OFFSET = BAR_PADDING_OUTER + (BAR_BAND * (1 - BAR_WIDTH_RATIO)) / 2;
 const WEEKDAY_LANE = 28;
 const SERIES = ["s0", "s1", "s2", "s3", "s4", "s5"] as const;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -588,12 +598,59 @@ function chartTheme(labelColor: string, series: string[]) {
   };
 }
 
+function ChartXLabels({
+  alignAt,
+  color,
+  count,
+  labels,
+  xAt,
+}: {
+  alignAt: (index: number) => XLabelAlign;
+  color: string;
+  count: number;
+  labels: string[];
+  xAt: (index: number) => number;
+}) {
+  const indexes = visibleXLabelIndexes({
+    alignAt,
+    count,
+    widthAt: (index) => xLabelWidth(labels[index] ?? ""),
+    xAt,
+  });
+  return (
+    <View pointerEvents="none" style={styles.xLabels}>
+      {indexes.map((index) => {
+        const text = labels[index] ?? "";
+        const align = alignAt(index);
+        const frame = xLabelFrame(xAt(index), align, xLabelWidth(text));
+        return (
+          <Text
+            key={`${text}:${index}`}
+            numberOfLines={1}
+            style={[
+              styles.xLabel,
+              {
+                color,
+                left: frame.left,
+                textAlign: align === "start" ? "left" : "center",
+                width: frame.width,
+              },
+            ]}
+          >
+            {text}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
 function growthContentWidth(plotWidth: number, count: number, gap: number) {
-  return growthPlotContentWidth(plotWidth, count, gap, CHART_PLOT_BASE_LEFT, PLOT_RIGHT);
+  return growthPlotContentWidth(plotWidth, count, gap, GROWTH_PLOT_LEFT, PLOT_RIGHT);
 }
 
 function growthSliceWidth(count: number, gap: number) {
-  return growthPlotSliceWidth(count, gap, CHART_PLOT_BASE_LEFT, PLOT_RIGHT);
+  return growthPlotSliceWidth(count, gap, GROWTH_PLOT_LEFT, PLOT_RIGHT);
 }
 
 const SPAN_OVERSCAN = 24;
@@ -718,7 +775,7 @@ export function UsageGrowthChart({
   height: number;
   labels: string[];
   labelColor: string;
-  resetKey?: string;
+  resetKey?: string | null;
   values: number[];
   width: number;
 }) {
@@ -739,7 +796,7 @@ export function UsageGrowthChart({
   const selectRef = useRef<(chartX: number) => void>(() => {});
   const plotWidth = growthPlotWidth(width, PLOT_X);
   const scroll = useHoldScroll({
-    axis: PLOT_X + CHART_PLOT_BASE_LEFT,
+    axis: PLOT_X + GROWTH_PLOT_LEFT,
     baseGap: POINT_GAP,
     onHold: (chartX) => selectRef.current(chartX - PLOT_X),
     onMove: (chartX) => selectRef.current(chartX - PLOT_X),
@@ -753,6 +810,7 @@ export function UsageGrowthChart({
   });
   const gap = POINT_GAP * scroll.scale;
   const contentWidth = growthContentWidth(plotWidth, count, gap);
+  const pointStep = growthPointStep(count, contentWidth);
   contentWidthRef.current = contentWidth;
   const publishTip = useCallback((next: PointTip) => {
     const current = tipRef.current;
@@ -771,7 +829,7 @@ export function UsageGrowthChart({
   const selectAt = useCallback(
     (chartX: number) => {
       const series = pointsRef.current;
-      const next = pointIndexAt(chartX, contentWidthRef.current, series.length);
+      const next = pointIndexAt(chartX, contentWidthRef.current, series.length, GROWTH_PLOT_LEFT);
       const point = series[next];
       if (!point) return;
       setSelected((current) => (current === next ? current : next));
@@ -781,11 +839,11 @@ export function UsageGrowthChart({
         index: next,
         label: point.label,
         value: point.value,
-        x: PLOT_X + CHART_PLOT_BASE_LEFT + next * gap - scroll.offsetRef.current,
+        x: PLOT_X + growthPointX(next, GROWTH_PLOT_LEFT, pointStep) - scroll.offsetRef.current,
         y: previous?.y ?? 36,
       });
     },
-    [gap, publishTip, scroll.offsetRef],
+    [pointStep, publishTip, scroll.offsetRef],
   );
   selectRef.current = selectAt;
   const anchor = scroll.zoomAnchor.current;
@@ -793,7 +851,7 @@ export function UsageGrowthChart({
     scroll.offsetRef.current = zoomOffset(
       anchor,
       gap,
-      PLOT_X + CHART_PLOT_BASE_LEFT,
+      PLOT_X + GROWTH_PLOT_LEFT,
       contentWidth,
       plotWidth,
     );
@@ -813,6 +871,7 @@ export function UsageGrowthChart({
     scroll.scrollTo(scroll.offsetRef.current);
   }, [gap, scroll.scrollTo, scroll.zoomAnchor, scroll.zoomTick]);
   if (count === 0) return null;
+  const plotHeight = overlayPlotHeight(height);
   const domain = { max: Math.max(peak, 1), min: 0, nice: true } as const;
   const theme = chartTheme(labelColor, [color]);
   const drawn = windowed ? points.slice(span.start, span.end) : points;
@@ -830,11 +889,10 @@ export function UsageGrowthChart({
       curve="monotone"
       data={drawn}
       decimation={false}
-      edgeLabelPolicy="show"
-      formatYLabel={formatValue}
-      height={height}
+      formatYLabel={() => ""}
+      height={plotHeight}
       interaction="none"
-      labelStrategy="auto"
+      labelStrategy="hide"
       legend={false}
       renderActiveDot={({ dataIndex, point }) => {
         const index = span.start + dataIndex;
@@ -868,13 +926,12 @@ export function UsageGrowthChart({
       series={[{ color, label: "Usage", yKey: "value" }]}
       showDots={false}
       showVerticalGridLines={false}
-      showYAxisLabels={false}
       testID="token-usage-growth"
       theme={theme}
       tooltip={false}
       width={drawnWidth}
       xKey="label"
-      yAxisLabelWidth={0}
+      yAxisLabelWidth={GROWTH_Y_LABEL_PAD}
       yDomain={domain}
     />
   );
@@ -887,10 +944,10 @@ export function UsageGrowthChart({
             { label: points[0]?.label ?? "", value: 0 },
             { label: points[count - 1]?.label ?? "", value: peak },
           ]}
-          edgeLabelPolicy="show"
           formatYLabel={formatValue}
-          height={height}
+          height={plotHeight}
           interaction="none"
+          labelStrategy="hide"
           legend={false}
           series={[{ color, label: "Usage", yKey: "value" }]}
           showDots={false}
@@ -898,7 +955,7 @@ export function UsageGrowthChart({
           showVerticalGridLines={false}
           theme={theme}
           tooltip={false}
-          width={width}
+          width={PLOT_X}
           xKey="label"
           yAxisLabelWidth={Y_LABEL_WIDTH}
           yDomain={domain}
@@ -916,7 +973,7 @@ export function UsageGrowthChart({
       {windowed ? (
         <View
           style={{
-            height,
+            height: plotHeight,
             ...windowedSliceFrame(span.start, gap, drawnWidth),
             overflow: "visible",
             position: "absolute",
@@ -925,8 +982,15 @@ export function UsageGrowthChart({
           {plot}
         </View>
       ) : (
-        plot
+        <View style={{ height: plotHeight, width: contentWidth }}>{plot}</View>
       )}
+      <ChartXLabels
+        alignAt={growthLabelAlign}
+        color={labelColor}
+        count={count}
+        labels={labels}
+        xAt={(index) => growthPointX(index, GROWTH_PLOT_LEFT, pointStep)}
+      />
     </ChartViewport>
   );
 }
@@ -956,15 +1020,12 @@ function barAxisEstimate(format: (value: number) => string, peak: number) {
   return BAR_BASE_LEFT + widest * BAR_LABEL_FONT * BAR_LABEL_FACTOR + BAR_LABEL_GAP;
 }
 
-function barContentWidth(width: number, count: number, axisWidth: number, slot: number) {
-  if (count <= 1) return width;
-  const plot = slot * (count - BAR_PADDING_INNER + BAR_PADDING_OUTER * 2);
-  return Math.max(width, axisWidth + plot + BAR_RIGHT);
+function barContentWidth(plotWidth: number, count: number, slot: number) {
+  return barPlotContentWidth(plotWidth, count, slot, CHART_PLOT_BASE_LEFT, BAR_KIT_RIGHT);
 }
 
-function barSliceWidth(count: number, axisWidth: number, slot: number) {
-  const plot = slot * (Math.max(count, 1) - BAR_PADDING_INNER + BAR_PADDING_OUTER * 2);
-  return axisWidth + plot + BAR_RIGHT;
+function barSliceWidth(count: number, slot: number) {
+  return barPlotSliceWidth(count, slot, CHART_PLOT_BASE_LEFT, BAR_KIT_RIGHT);
 }
 
 export function UsageStackedChart({
@@ -994,7 +1055,7 @@ export function UsageStackedChart({
   labelColor: string;
   names: string[];
   providers?: ReadonlyMap<string, string>;
-  resetKey?: string;
+  resetKey?: string | null;
   series: number[][];
   width: number;
 }) {
@@ -1021,8 +1082,7 @@ export function UsageStackedChart({
     return max;
   }, [rows, segmentCount]);
   const estimate = useMemo(() => barAxisEstimate(formatValue, peak), [formatValue, peak]);
-  const [measuredAxis, setMeasuredAxis] = useState<number | null>(null);
-  const axisWidth = measuredAxis ?? estimate;
+  const axisWidth = estimate;
   const seriesKey = chartTipResetSignature({
     labels,
     resetKey,
@@ -1035,22 +1095,32 @@ export function UsageStackedChart({
   rowsRef.current = rows;
   const [tip, setTip] = useState<ColumnTip | null>(null);
   const selectRef = useRef<(chartX: number) => void>(() => {});
+  const plotWidth = growthPlotWidth(width, axisWidth);
   const scroll = useHoldScroll({
-    axis: axisWidth,
+    axis: axisWidth + CHART_PLOT_BASE_LEFT,
     baseGap: BAR_SLOT,
-    onHold: (chartX) => selectRef.current(chartX),
-    onMove: (chartX) => selectRef.current(chartX),
+    onHold: (chartX) => selectRef.current(chartX - axisWidth),
+    onMove: (chartX) => selectRef.current(chartX - axisWidth),
     onRelease: () => setTip(null),
     open: STACKED_CHART_TIP,
     seriesKey,
   });
   const slot = BAR_SLOT * scroll.scale;
-  const contentWidth = barContentWidth(width, count, estimate, slot);
+  const contentWidth = barContentWidth(plotWidth, count, slot);
+  const bandStep = barBandStep(count, contentWidth);
   contentWidthRef.current = contentWidth;
   const anchor = scroll.zoomAnchor.current;
-  if (anchor) scroll.offsetRef.current = zoomOffset(anchor, slot, axisWidth, contentWidth, width);
-  const windowed = contentWidth > width + 1;
-  const span = useDrawnSpan(scroll, count, width, axisWidth, slot, windowed);
+  if (anchor) {
+    scroll.offsetRef.current = zoomOffset(
+      anchor,
+      slot,
+      axisWidth + CHART_PLOT_BASE_LEFT,
+      contentWidth,
+      plotWidth,
+    );
+  }
+  const windowed = contentWidth > plotWidth + 1;
+  const span = useDrawnSpan(scroll, count, plotWidth, 0, slot, windowed);
   const selectAt = useCallback(
     (chartX: number) => {
       const frame = columnAt(chartX, frames.current);
@@ -1074,6 +1144,7 @@ export function UsageStackedChart({
         rows: nextRows,
         title: row.label,
         x: columnIndicatorHostX({
+          axisWidth,
           offset: scroll.offsetRef.current,
           width: frame.width,
           x: frame.x,
@@ -1082,25 +1153,28 @@ export function UsageStackedChart({
       };
       setTip((current) => (sameColumnTip(current, next) ? current : next));
     },
-    [dimension, ids, labelColor, names, paint, providers, scroll.offsetRef, segmentCount],
+    [
+      axisWidth,
+      dimension,
+      ids,
+      labelColor,
+      names,
+      paint,
+      providers,
+      scroll.offsetRef,
+      segmentCount,
+    ],
   );
   selectRef.current = selectAt;
   useLayoutEffect(() => {
     scroll.userScrolled.current = false;
     setTip(null);
-    scroll.placeEnd(contentWidthRef.current, width);
-  }, [scroll.placeEnd, scroll.userScrolled, seriesKey, width]);
+    scroll.placeEnd(contentWidthRef.current, plotWidth);
+  }, [plotWidth, scroll.placeEnd, scroll.userScrolled, seriesKey]);
   useLayoutEffect(() => {
     if (!scroll.zoomAnchor.current) return;
     scroll.scrollTo(scroll.offsetRef.current);
   }, [scroll.scrollTo, scroll.zoomAnchor, scroll.zoomTick, slot]);
-  useEffect(() => {
-    const left = barPlotLeft(frames.current);
-    if (left === null) return;
-    setMeasuredAxis((current) =>
-      current !== null && Math.abs(current - left) < 0.5 ? current : left,
-    );
-  });
   const frameKey = `${span.start}:${span.end}:${count}:${slot}`;
   if (frameKeyRef.current !== frameKey) {
     frameKeyRef.current = frameKey;
@@ -1110,7 +1184,7 @@ export function UsageStackedChart({
   const domain = { max: Math.max(peak, 1), min: 0, nice: true } as const;
   const theme = chartTheme(labelColor, paint);
   const drawn = windowed ? rows.slice(span.start, span.end) : rows;
-  const drawnWidth = windowed ? barSliceWidth(drawn.length, estimate, slot) : contentWidth;
+  const drawnWidth = windowed ? barSliceWidth(drawn.length, slot) : contentWidth;
   const axisRows = [
     { label: rows[0]?.label ?? "", s0: 0, s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 },
     { label: rows[count - 1]?.label ?? "", s0: 0, s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 },
@@ -1126,10 +1200,9 @@ export function UsageStackedChart({
       accessibilityLabel={dimension === "model" ? "Usage by model" : "Usage by agent"}
       barRadius={4}
       data={drawn}
-      formatYLabel={formatValue}
+      formatYLabel={() => ""}
       height={height}
       interaction="none"
-      labelStrategy="auto"
       legend={false}
       mode="stacked"
       renderBar={({ bar, fill, radius }) => {
@@ -1146,6 +1219,7 @@ export function UsageStackedChart({
         );
       }}
       series={barSeries}
+      showXAxisLabels={false}
       showYAxisLabels={false}
       testID="token-usage-stacked"
       theme={theme}
@@ -1167,13 +1241,15 @@ export function UsageStackedChart({
           mode="stacked"
           series={barSeries}
           showHorizontalGridLines={false}
+          showXAxisLabels={false}
           theme={theme}
           tooltip={false}
-          width={width}
+          width={axisWidth}
           xKey="label"
           yDomain={domain}
         />
       }
+      axisPlacement="start"
       axisWidth={axisWidth}
       backgroundColor={backgroundColor}
       contentWidth={contentWidth}
@@ -1206,6 +1282,13 @@ export function UsageStackedChart({
       ) : (
         bars
       )}
+      <ChartXLabels
+        alignAt={barLabelAlign}
+        color={labelColor}
+        count={count}
+        labels={labels}
+        xAt={(index) => barLabelX(index, CHART_PLOT_BASE_LEFT, bandStep)}
+      />
     </ChartViewport>
   );
 }
@@ -1213,23 +1296,6 @@ export function UsageStackedChart({
 type ColumnFrame = { index: number; width: number; x: number; y: number };
 type ColumnTipRow = { amount: number; color: string; icon: ReactNode; key: string; name: string };
 type ColumnTip = { index: number; rows: ColumnTipRow[]; title: string; x: number; y: number };
-
-function barPlotLeft(frames: Map<number, ColumnFrame>) {
-  let first: ColumnFrame | null = null;
-  let second: ColumnFrame | null = null;
-  for (const frame of frames.values()) {
-    if (!first || frame.index < first.index) {
-      second = first;
-      first = frame;
-    } else if (!second || frame.index < second.index) {
-      second = frame;
-    }
-  }
-  if (!first || !second || second.index !== first.index + 1) return null;
-  const step = second.x - first.x;
-  if (step <= 1) return null;
-  return first.x - step * BAR_PLOT_OFFSET - first.index * step;
-}
 
 function columnAt(x: number, frames: Map<number, ColumnFrame>) {
   let nearest: ColumnFrame | null = null;
@@ -1697,6 +1763,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
     overflow: "hidden",
     width: "100%",
+  },
+  xLabel: { fontSize: CHART_X_LABEL_FONT, position: "absolute", top: 6 },
+  xLabels: {
+    bottom: 0,
+    height: CHART_X_LABEL_BAND,
+    left: 0,
+    position: "absolute",
+    right: 0,
   },
   tip: {
     backgroundColor: BUBBLE.backgroundColor,

@@ -20,7 +20,7 @@ export function chartOpensOnTap(open: ChartTipOpen) {
  */
 export function chartTipResetSignature(input: {
   labels: readonly string[];
-  resetKey?: string;
+  resetKey?: string | null;
   values: readonly number[];
 }) {
   const count = input.labels.length;

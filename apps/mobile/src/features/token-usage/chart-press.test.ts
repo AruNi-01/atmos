@@ -74,15 +74,28 @@ describe("chart press policy", () => {
     expect(charts).not.toContain("CHART_X_LABEL_INSET");
   });
 
-  test("the growth chart sits beside the y-axis and keeps labels on their points", () => {
+  test("the growth chart sits beside the y-axis and places custom labels on each point", () => {
     const growth = charts.slice(
       charts.indexOf("export function UsageGrowthChart"),
       charts.indexOf("export function UsageStackedChart"),
     );
     expect(growth).toContain('axisPlacement="start"');
-    expect(growth).toContain('edgeLabelPolicy="show"');
-    expect(growth).toContain("yAxisLabelWidth={0}");
+    expect(growth).toContain('labelStrategy="hide"');
+    expect(growth).toContain("yAxisLabelWidth={GROWTH_Y_LABEL_PAD}");
+    expect(growth).toContain("growthLabelAlign");
+    expect(growth).toContain("growthPointX");
+    expect(growth).toContain("GROWTH_PLOT_LEFT");
     expect(growth).not.toContain('edgeLabelPolicy="shift"');
+    expect(growth).not.toContain("showYAxisLabels");
     expect(charts).toContain("CHART_X_LABEL_BAND");
+  });
+
+  test("the stacked chart sits beside the y-axis and labels each bar at its centre", () => {
+    const stacked = charts.slice(charts.indexOf("export function UsageStackedChart"));
+    expect(stacked).toContain('axisPlacement="start"');
+    expect(stacked).toContain("showXAxisLabels={false}");
+    expect(stacked).toContain("barLabelX");
+    expect(stacked).toContain("barBandStep");
+    expect(stacked).not.toContain("barPlotLeft");
   });
 });
