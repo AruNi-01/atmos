@@ -101,3 +101,11 @@ Given no connected Computer, When the homepage Test page switch is turned on, Th
 - **S13** mock fixtures: `bun --filter @atmos/mobile test src/features/preview/preview-fixtures.test.ts` — pass (same-name windows stay siblings).
 - **S1–S5, S7–S12** remaining bun tests + typecheck: `bun --filter @atmos/mobile typecheck` pass; `bun --filter @atmos/mobile test` 55 pass / 0 fail (git/import/settings suites removed with those screens).
 - **Overlay split**: pending simulator — group list is `ExpoDrawer` (`@expo/ui` BottomSheet); account / workspace / Ctrl / Move / Agent are `IosPopover` (`expo-ios-popover` on iOS, RN modal on Android). Web group list uses a modal sheet fallback.
+
+## Implementation Delta
+
+2026-10-21 · QUALITY-025 removed the Developer test page this scenario described.
+
+- Reason: Settings no longer offers "Preview terminals without a Computer". The `/preview` route, `preview-fixtures.test.ts`, and the preview store were deleted. Parity capture stays on `/preview-chat`.
+- The S13 row and the scenario text above stay as the historical plan. Do not restore the deleted page.
+- Verification moved to `specs/APP/QUALITY-025_mobile-settings-computers-repair/TEST.md` S7.

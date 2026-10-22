@@ -211,7 +211,6 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
               const content = (
                 <Row
                   leading={<MobileAgentIcon agentId={row.agentId ?? ""} size={18} />}
-                  onPress={() => openRow(row)}
                   subtitle={row.subtitle}
                   title={row.title}
                 >
@@ -248,6 +247,7 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
                     }
                     onDelete={row.kind === "chat" ? () => setDeleteRow(row) : undefined}
                     onPin={() => rowActions.togglePin(pinId)}
+                    onPress={() => openRow(row)}
                     pinLabel={rowActions.pinnedIds.includes(pinId) ? "Unpin" : "Pin"}
                   >
                     {content}
