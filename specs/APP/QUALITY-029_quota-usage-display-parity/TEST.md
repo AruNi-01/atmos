@@ -1,4 +1,4 @@
-# TEST · QUALITY-026: Quota Usage Display Parity
+# TEST · QUALITY-029: Quota Usage Display Parity
 
 > Test Plan · how we verify the quota display fixes in [TECH.md](./TECH.md). Quality spec. No PRD. Coverage is keyed to the TECH quality table.
 

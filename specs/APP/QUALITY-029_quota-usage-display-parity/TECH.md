@@ -1,10 +1,10 @@
-# TECH · QUALITY-026: Quota Usage Display Parity
+# TECH · QUALITY-029: Quota Usage Display Parity
 
 > Technical Design · HOW. Aligns the mobile quota usage screen with the web popover, and corrects the Cursor Other Models meter at the source both clients render. No BRAINSTORM or PRD (quality spec).
 
 ## Why QUALITY
 
-This stays `QUALITY-026`. The work fixes defects on screens that already shipped and lines the mobile quota screen up with web: a clipped percent suffix, a plan repeated under the email, Cursor Other Models percent and dollar amounts that describe different meters, and a Grok billing window printed as raw RFC3339. It does not add a product surface. The switch list uses the Computer `provider_order` quota usage already stores. `specs/AGENTS.md` does not rename or renumber a published spec, so the directory stays `specs/APP/QUALITY-026_quota-usage-display-parity/`.
+This is `QUALITY-029`. The work fixes defects on screens that already shipped and lines the mobile quota screen up with web: a clipped percent suffix, a plan repeated under the email, Cursor Other Models percent and dollar amounts that describe different meters, and a Grok billing window printed as raw RFC3339. It does not add a product surface. The switch list uses the Computer `provider_order` quota usage already stores. `QUALITY-026` on main is mobile workspace swipe rows. Open pull requests hold `QUALITY-027` (#356) and `QUALITY-028` (#354), so this directory is `specs/APP/QUALITY-029_quota-usage-display-parity/`.
 
 ## Scope summary
 
