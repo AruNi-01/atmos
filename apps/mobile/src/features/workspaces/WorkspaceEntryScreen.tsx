@@ -181,7 +181,7 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
         }}
       />
       <AppScreen onEndReached={loadMoreSessions}>
-        <Section>
+        <Section clip={false}>
           {loading && orderedRows.length === 0 ? (
             <ListSkeleton />
           ) : orderedRows.length === 0 ? (
@@ -212,7 +212,6 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
                 <View key={`${row.kind}:${row.id}`}>
                   {index > 0 ? <Separator /> : null}
                   <SessionSwipeRow
-                    backgroundColor={theme.colors.cardElevated}
                     onArchive={
                       row.kind === "chat"
                         ? () => {

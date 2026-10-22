@@ -87,7 +87,6 @@ export function SessionRowList({
             ) : null}
             {swipeEnabled && onTogglePin ? (
               <SessionSwipeRow
-                backgroundColor={palette.cardElevated}
                 onArchive={
                   canManageChat && onArchiveChat
                     ? () => {

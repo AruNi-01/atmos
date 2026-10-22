@@ -1,13 +1,22 @@
 import { radii } from "@/theme/radii";
+import { spacing } from "@/theme/spacing";
 
 /** Movement at or below this distance is a tap. Anything farther is a pan. */
 export const SWIPE_TAP_SLOP_PX = 10;
 
-export const SWIPE_ROW_OPEN_RADIUS = radii.cardNested;
-export const SWIPE_ROW_OPEN_INSET = 8;
-export const SWIPE_ROW_OPEN_GAP = 6;
+/**
+ * Screen padding. Past this distance the outer edge stays flush with the screen
+ * and the row shrinks on the action side, so a short title is not carried off.
+ */
+export const SWIPE_ROW_SCREEN_BLEED = spacing.screenX;
 
-/** Drag distance at which the open card reaches its full corner radius. */
+/** Trailing (or leading) corner once the row is open. Large enough to read as a capsule end. */
+export const SWIPE_ROW_TRAILING_RADIUS = radii.control;
+
+/** Gap between the rounded cap and the first circular action, and between the last action and the screen edge of the button bay. */
+export const SWIPE_ROW_BUTTON_EDGE = 16;
+
+/** Drag distance at which the open corner reaches its full radius. */
 export const SWIPE_ROW_OPEN_DISTANCE = 24;
 
 export const swipeRowGestureConfig = {
@@ -65,13 +74,30 @@ export function swipeRowCardFrame(offset: number) {
   "worklet";
   const distance = Math.abs(offset);
   const progress = Math.min(distance / SWIPE_ROW_OPEN_DISTANCE, 1);
-  const inset = distance > 0 ? SWIPE_ROW_OPEN_INSET * progress : 0;
+  const trailing = offset < 0 ? SWIPE_ROW_TRAILING_RADIUS * progress : 0;
+  const leading = offset > 0 ? SWIPE_ROW_TRAILING_RADIUS * progress : 0;
+  // Clamp the outer edge at the screen. A full-width shift hides short titles.
+  const reveal = offset === 0 ? 0 : distance;
+  const edge = Math.min(reveal, SWIPE_ROW_SCREEN_BLEED);
+  let marginLeft = 0;
+  let marginRight = 0;
+  if (offset < 0) {
+    marginLeft = -edge;
+    marginRight = reveal;
+  } else if (offset > 0) {
+    marginLeft = reveal;
+    marginRight = -edge;
+  }
   return {
-    marginBottom: SWIPE_ROW_OPEN_GAP * progress,
-    marginLeft: Math.max(offset, 0) + inset,
-    marginRight: Math.max(-offset, 0) + inset,
-    marginTop: SWIPE_ROW_OPEN_GAP * progress,
-    radius: SWIPE_ROW_OPEN_RADIUS * progress,
+    borderWidth: 0,
+    marginBottom: 0,
+    marginLeft,
+    marginRight,
+    marginTop: 0,
+    radiusBottomLeft: leading,
+    radiusBottomRight: trailing,
+    radiusTopLeft: leading,
+    radiusTopRight: trailing,
   };
 }
 
@@ -82,13 +108,13 @@ export function swipeRowWellColor(offset: number, background: string) {
 
 export function swipeRowOpenChrome(
   revealed: boolean,
-  colors: { background: string; cardElevated: string },
+  colors: { background: string; secondaryBackground: string },
 ) {
   const offset = revealed ? -SWIPE_ROW_OPEN_DISTANCE : 0;
   const frame = swipeRowCardFrame(offset);
   return {
-    cardBackground: colors.cardElevated,
-    radius: frame.radius,
+    ...frame,
+    cardBackground: revealed ? colors.secondaryBackground : "transparent",
     wellBackground: swipeRowWellColor(offset, colors.background),
   };
 }

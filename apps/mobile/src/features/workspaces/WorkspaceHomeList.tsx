@@ -152,7 +152,6 @@ export function WorkspaceHomeList({
         setActionError(error instanceof Error ? error.message : "Could not pin this workspace.");
       });
     },
-    surfaceColor: theme.colors.cardElevated,
   };
 
   if (isLoading && entries.length === 0) {
@@ -360,7 +359,6 @@ function WorkspaceGroup({
   open,
   subtitleFor,
   subtitleNumberOfLines,
-  surfaceColor,
   title,
 }: {
   count?: number;
@@ -373,7 +371,6 @@ function WorkspaceGroup({
   open: boolean;
   subtitleFor?: (item: WorkspaceHomeEntry) => string | undefined;
   subtitleNumberOfLines?: number;
-  surfaceColor: string;
   title: string;
 }) {
   const theme = useMobileTheme();
@@ -446,7 +443,7 @@ function WorkspaceGroup({
       </Pressable>
       <CollapsibleRows open={open}>
         <View style={{ paddingTop: spacing.sectionLabelGap }}>
-          <Section>
+          <Section clip={false}>
             {items.map((item, index) => {
               const swipeable = item.kind === "workspace";
               const row = (
@@ -463,7 +460,6 @@ function WorkspaceGroup({
                   {index > 0 ? <Separator /> : null}
                   {swipeable ? (
                     <SessionSwipeRow
-                      backgroundColor={surfaceColor}
                       onArchive={() => onArchive(item)}
                       onDelete={() => onDelete(item)}
                       onPin={() => onTogglePin(item)}

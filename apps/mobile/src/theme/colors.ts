@@ -22,6 +22,8 @@ export const workflowStatusColors = {
 
 export const lightColors = {
   background: "#f4f4f6",
+  /** Open swipe row. A gray distinct from white list rows and from the page. */
+  secondaryBackground: "#e5e5ea",
   sheetBackground: "#f8f8f9",
   card: "#ffffff",
   cardElevated: "#ffffff",
@@ -56,6 +58,10 @@ export const lightColors = {
   red: "#dc2626",
   redSurface: "rgba(220, 38, 38, 0.10)",
   redBorder: "rgba(220, 38, 38, 0.22)",
+  /** Circular swipe actions. Same saturated fills in both schemes. */
+  swipeArchive: "#d97706",
+  swipeDelete: "#dc2626",
+  swipePin: "#2563eb",
   yellow: "#a16207",
   yellowSurface: "rgba(161, 98, 7, 0.10)",
   yellowBorder: "rgba(161, 98, 7, 0.22)",
@@ -67,6 +73,8 @@ export const lightColors = {
 
 export const darkColors: MobileThemeColors = {
   background: "#000000",
+  /** Open swipe row. iOS secondarySystemBackground: a step lighter than the black page. */
+  secondaryBackground: "#1c1c1e",
   sheetBackground: "#1c1c1e",
   card: "#2c2c2e",
   cardElevated: "#2c2c2e",
@@ -101,6 +109,10 @@ export const darkColors: MobileThemeColors = {
   red: "#f87171",
   redSurface: "rgba(248, 113, 113, 0.10)",
   redBorder: "rgba(248, 113, 113, 0.22)",
+  /** Circular swipe actions. Same saturated fills in both schemes. */
+  swipeArchive: "#d97706",
+  swipeDelete: "#dc2626",
+  swipePin: "#2563eb",
   yellow: "#facc15",
   yellowSurface: "rgba(250, 204, 21, 0.14)",
   yellowBorder: "rgba(250, 204, 21, 0.28)",
