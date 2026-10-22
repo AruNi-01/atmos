@@ -4,7 +4,11 @@ export type NativeTextInputProps = Omit<
   ExpoTextInputProps,
   "defaultValue" | "style" | "textStyle" | "value"
 > & {
+  /** Names the field itself. A parent view label does not reach the native input. */
+  accessibilityLabel?: string;
   defaultValue?: string;
+  /** Draw the control's own border. Publish fields pass false and draw the border outside. */
+  framed?: boolean;
   minHeight?: number;
   style?: ExpoTextInputProps["style"];
   textStyle?: ExpoTextInputProps["textStyle"];

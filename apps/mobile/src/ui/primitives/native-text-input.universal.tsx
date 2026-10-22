@@ -2,12 +2,16 @@ import { useCallback, useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { Host, TextInput as ExpoTextInput, useNativeState } from "@expo/ui";
 import type { TextInputProps as ExpoTextInputProps } from "@expo/ui";
+import { accessibilityLabel as accessibilityLabelModifier } from "@expo/ui/swift-ui/modifiers";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeTextInputProps } from "./native-text-input.types";
 
 export function NativeTextInput({
+  accessibilityLabel,
+  framed = true,
   minHeight = 56,
+  modifiers,
   onChangeText,
   placeholderTextColor,
   style,
@@ -30,6 +34,9 @@ export function NativeTextInput({
   ]) as ExpoTextInputProps["textStyle"];
   const resolvedPlaceholderColor = placeholderTextColor ?? theme.colors.secondaryLabel;
   const controlBackground = theme.colors.control;
+  const inputModifiers = accessibilityLabel
+    ? [accessibilityLabelModifier(accessibilityLabel), ...(modifiers ?? [])]
+    : modifiers;
 
   useEffect(() => {
     if (value !== undefined && nativeValue.value !== value) {
@@ -47,19 +54,24 @@ export function NativeTextInput({
 
   return (
     <View
-      style={[
-        styles.inputFrame,
-        {
-          backgroundColor: controlBackground,
-          borderColor: theme.colors.controlBorder,
-          minHeight,
-        },
-      ]}
+      style={
+        framed
+          ? [
+              styles.inputFrame,
+              {
+                backgroundColor: controlBackground,
+                borderColor: theme.colors.controlBorder,
+                minHeight,
+              },
+            ]
+          : { minHeight, width: "100%" }
+      }
     >
       <Host colorScheme={theme.colorScheme} style={{ minHeight, width: "100%" }}>
         <ExpoTextInput
           {...(props as ExpoTextInputProps)}
           cursorColor={theme.colors.accent}
+          modifiers={inputModifiers}
           onChangeText={handleChangeText}
           placeholderTextColor={resolvedPlaceholderColor}
           selectionColor={theme.colors.selection}
