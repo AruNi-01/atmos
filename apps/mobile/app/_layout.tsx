@@ -169,12 +169,6 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
-                name="preview"
-                options={{
-                  headerBackButtonDisplayMode: "minimal",
-                }}
-              />
-              <Stack.Screen
                 name="preview-chat"
                 options={{ headerShown: false, scrollEdgeEffects: hiddenScrollEdgeEffects }}
               />

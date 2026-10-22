@@ -22,7 +22,9 @@ describe("applyOpenThreadResync", () => {
         fetched += 1;
         return "replacement";
       },
-      publish: (snapshot) => published.push(snapshot),
+      publish: (snapshot) => {
+        published.push(snapshot);
+      },
     });
     expect(result).toBe("applied-incoming");
     expect(published).toEqual(["incoming"]);
@@ -39,7 +41,9 @@ describe("applyOpenThreadResync", () => {
       fetchReplacement: async () => {
         throw new Error("get failed");
       },
-      publish: (snapshot) => published.push(snapshot),
+      publish: (snapshot) => {
+        published.push(snapshot);
+      },
     });
     expect(result).toBe("held");
     expect(published).toEqual([]);
@@ -53,7 +57,9 @@ describe("applyOpenThreadResync", () => {
       ctrl: state,
       incoming: "incoming",
       fetchReplacement: async () => "replacement",
-      publish: (snapshot) => published.push(snapshot),
+      publish: (snapshot) => {
+        published.push(snapshot);
+      },
     });
     expect(result).toBe("applied-replacement");
     expect(published).toEqual(["replacement"]);
@@ -71,14 +77,18 @@ describe("applyOpenThreadResync", () => {
         new Promise<string>((resolve) => {
           releaseFirst = resolve;
         }),
-      publish: (snapshot) => published.push(snapshot),
+      publish: (snapshot) => {
+        published.push(snapshot);
+      },
     });
     await Promise.resolve();
     const second = applyOpenThreadResync({
       ctrl: state,
       incoming: "incoming-2",
       fetchReplacement: async () => "replacement-2",
-      publish: (snapshot) => published.push(snapshot),
+      publish: (snapshot) => {
+        published.push(snapshot);
+      },
     });
     expect(await second).toBe("applied-replacement");
     releaseFirst("replacement-1");
@@ -98,7 +108,9 @@ describe("applyOpenThreadResync", () => {
         new Promise<string>((resolve) => {
           release = resolve;
         }),
-      publish: (snapshot) => published.push(snapshot),
+      publish: (snapshot) => {
+        published.push(snapshot);
+      },
     });
     await Promise.resolve();
     markOpenThreadOverflow(state);
@@ -153,7 +165,9 @@ describe("applyOpenThreadResync", () => {
         new Promise<string>((resolve) => {
           release = resolve;
         }),
-      publish: (snapshot) => published.push(snapshot),
+      publish: (snapshot) => {
+        published.push(snapshot);
+      },
     });
     await Promise.resolve();
     state.cancelled = true;

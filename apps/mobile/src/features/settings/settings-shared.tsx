@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import type { ReactNode } from "react";
 import type { ComputerRow } from "@/api/types";
+import { onlineStatusColor } from "@/features/computers/online-status-color";
 import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -93,12 +94,14 @@ export function SettingsProfileRow({
 
 export function SettingsListRow({
   Icon,
+  meta,
   title,
   value,
   onPress,
   destructive = false,
 }: {
   Icon: LucideIcon;
+  meta?: ReactNode;
   title: string;
   value?: string;
   onPress?: () => void;
@@ -131,7 +134,9 @@ export function SettingsListRow({
       >
         {title}
       </Text>
-      {value ? (
+      {meta ? (
+        meta
+      ) : value ? (
         <Text
           numberOfLines={1}
           style={[typography.rowMeta, { color: theme.colors.secondaryLabel, maxWidth: "42%" }]}
@@ -252,7 +257,7 @@ export function ComputerListRow({
 
 export function ComputerStatusIndicator({ online }: { online: boolean }) {
   const theme = useMobileTheme();
-  const statusColor = online ? theme.colors.green : theme.colors.secondaryLabel;
+  const statusColor = online ? onlineStatusColor(theme.colors) : theme.colors.secondaryLabel;
   const StatusIcon = online ? WifiIcon : WifiOffIcon;
 
   return (

@@ -1,7 +1,9 @@
 // @ts-expect-error bun:test is available at runtime but not in the mobile tsconfig types
 import { describe, expect, mock, test } from "bun:test";
 import { createElement, type ReactNode } from "react";
+// @ts-expect-error react-dom server types are not installed for the mobile app
 import { renderToStaticMarkup } from "react-dom/server";
+import "@/test-support/mobile-render-mock";
 
 const captured: Array<{
   label?: string;
@@ -9,39 +11,6 @@ const captured: Array<{
   onPress?: unknown;
   role?: string;
 }> = [];
-const platform = { OS: "ios" };
-
-mock.module("react-native", () => ({
-  AccessibilityInfo: {
-    addEventListener: () => ({ remove: () => undefined }),
-  },
-  Platform: platform,
-  View: ({
-    children,
-    accessibilityState,
-  }: {
-    children?: ReactNode;
-    accessibilityState?: { disabled?: boolean };
-  }) =>
-    createElement(
-      "div",
-      { "data-disabled": accessibilityState?.disabled ? "true" : undefined },
-      children,
-    ),
-}));
-
-mock.module("@/theme/theme-store", () => ({
-  useMobileTheme: () => ({
-    colorScheme: "light",
-    colors: {
-      control: "#f8f8f9",
-      label: "#111111",
-      red: "#ff3b30",
-      secondaryLabel: "#52525b",
-      tertiaryLabel: "#8e8e93",
-    },
-  }),
-}));
 
 mock.module("expo-glass-effect", () => ({
   isGlassEffectAPIAvailable: () => true,
@@ -185,7 +154,6 @@ describe("iosGlassChipModifiers", () => {
 
 describe("GlassTextButton render", () => {
   test("renders the iOS chip with disabled=true without throwing (prop must not shadow modifiers)", () => {
-    platform.OS = "ios";
     captured.length = 0;
     const html = renderToStaticMarkup(
       createElement(GlassTextButton, {
@@ -205,7 +173,6 @@ describe("GlassTextButton render", () => {
   });
 
   test("iOS chips pass the role prop through to the Button", () => {
-    platform.OS = "ios";
     captured.length = 0;
     renderToStaticMarkup(
       createElement(GlassTextButton, {
@@ -220,7 +187,6 @@ describe("GlassTextButton render", () => {
   });
 
   test("iOS chips default role to default when omitted", () => {
-    platform.OS = "ios";
     captured.length = 0;
     const html = renderToStaticMarkup(
       createElement(GlassTextButton, {
@@ -234,7 +200,6 @@ describe("GlassTextButton render", () => {
   });
 
   test("GlassActionButtons still calls the disabled modifier, not a shadowed prop", () => {
-    platform.OS = "ios";
     captured.length = 0;
     const html = renderToStaticMarkup(
       createElement(GlassActionButtons, {
