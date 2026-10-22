@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing as RnEasing, Pressable, Text, View } from "react-native";
 import Reanimated, {
   Easing,
@@ -19,12 +19,21 @@ import type {
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
+import { collectProjectGroupStatusPaths } from "@/features/workspaces/workspace-list-git-status";
 import {
   groupWorkspaceEntries,
   recentWorkspaceEntries,
   visibleWorkspaceEntries,
   type WorkspaceHomeEntry,
+  type WorkspaceHomeSection,
 } from "@/features/workspaces/workspace-home-list";
+import {
+  PROJECT_ROW_LABEL,
+  projectGroupProjectSubtitle,
+  projectGroupWorkspaceSubtitle,
+  recentEntrySubtitle,
+} from "@/features/workspaces/workspace-row-subtitle";
+import { useWorkspaceListGitStatus } from "@/features/workspaces/use-workspace-list-git-status";
 import { useWorkspaceHomeStore } from "@/stores/workspace-home-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -80,7 +89,53 @@ export function WorkspaceHomeList({
       items: section.items.filter((item) => item.kind === "project" || !pinnedIds.has(item.id)),
     }))
     .filter((section) => section.items.some((item) => item.kind === "workspace"));
+  const projectById = useMemo(
+    () => new Map(projects.map((project) => [project.guid, project])),
+    [projects],
+  );
+  const workspaceById = useMemo(() => {
+    const map = new Map<string, WorkspaceModel>();
+    for (const list of Object.values(workspacesByProject)) {
+      for (const workspace of list) map.set(workspace.guid, workspace);
+    }
+    return map;
+  }, [workspacesByProject]);
+  const gitStatusPaths = useMemo(
+    () =>
+      collectProjectGroupStatusPaths({
+        expanded,
+        grouping,
+        projectPathById: new Map(projects.map((project) => [project.guid, project.main_file_path])),
+        sections,
+        workspacePathById: new Map(
+          [...workspaceById].map(([id, workspace]) => [id, workspace.local_path]),
+        ),
+      }),
+    [expanded, grouping, projects, sections, workspaceById],
+  );
+  const gitStatusByPath = useWorkspaceListGitStatus(gitStatusPaths);
   const openEntry = (entry: WorkspaceHomeEntry) => router.push(`/workspace/${entry.id}`);
+  const subtitleForGroup =
+    (section: WorkspaceHomeSection) =>
+    (item: WorkspaceHomeEntry): string | undefined => {
+      if (grouping !== "project") {
+        return item.kind === "project" ? PROJECT_ROW_LABEL : undefined;
+      }
+      const workspaceCount = section.items.filter((entry) => entry.kind === "workspace").length;
+      if (item.kind === "project") {
+        const path = projectById.get(item.id)?.main_file_path.trim() ?? "";
+        return projectGroupProjectSubtitle({
+          currentBranch: path ? gitStatusByPath.get(path)?.branch : null,
+          workspaceCount,
+        });
+      }
+      const workspace = workspaceById.get(item.id);
+      const path = workspace?.local_path.trim() ?? "";
+      return projectGroupWorkspaceSubtitle({
+        branch: workspace?.branch ?? "",
+        uncommitted: path ? gitStatusByPath.get(path)?.uncommitted : undefined,
+      });
+    };
   const rowActions = {
     onArchive: (entry: WorkspaceHomeEntry) => {
       setActionError(null);
@@ -145,6 +200,8 @@ export function WorkspaceHomeList({
           onOpen={openEntry}
           onToggle={toggleRecent}
           open={recentExpanded}
+          subtitleFor={recentEntrySubtitle}
+          subtitleNumberOfLines={1}
           title="Recently"
           {...rowActions}
         />
@@ -159,6 +216,8 @@ export function WorkspaceHomeList({
             onOpen={openEntry}
             onToggle={() => toggleExpanded(section.key)}
             open={expanded[section.key] !== false}
+            subtitleFor={subtitleForGroup(section)}
+            subtitleNumberOfLines={1}
             title={section.title}
             {...rowActions}
           />
@@ -299,6 +358,8 @@ function WorkspaceGroup({
   onToggle,
   onTogglePin,
   open,
+  subtitleFor,
+  subtitleNumberOfLines,
   surfaceColor,
   title,
 }: {
@@ -310,6 +371,8 @@ function WorkspaceGroup({
   onToggle: () => void;
   onTogglePin: (entry: WorkspaceHomeEntry) => void;
   open: boolean;
+  subtitleFor?: (item: WorkspaceHomeEntry) => string | undefined;
+  subtitleNumberOfLines?: number;
   surfaceColor: string;
   title: string;
 }) {
@@ -385,22 +448,26 @@ function WorkspaceGroup({
         <View style={{ paddingTop: spacing.sectionLabelGap }}>
           <Section>
             {items.map((item, index) => {
+              const swipeable = item.kind === "workspace";
               const row = (
                 <Row
-                  onPress={() => onOpen(item)}
-                  subtitle={item.kind === "project" ? "Project" : undefined}
+                  onPress={swipeable ? undefined : () => onOpen(item)}
+                  showDisclosure={swipeable ? true : undefined}
+                  subtitle={subtitleFor?.(item)}
+                  subtitleNumberOfLines={subtitleNumberOfLines}
                   title={item.title}
                 />
               );
               return (
                 <View key={`${item.kind}:${item.id}`}>
                   {index > 0 ? <Separator /> : null}
-                  {item.kind === "workspace" ? (
+                  {swipeable ? (
                     <SessionSwipeRow
                       backgroundColor={surfaceColor}
                       onArchive={() => onArchive(item)}
                       onDelete={() => onDelete(item)}
                       onPin={() => onTogglePin(item)}
+                      onPress={() => onOpen(item)}
                       pinLabel={item.pinned ? "Unpin" : "Pin"}
                     >
                       {row}

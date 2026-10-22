@@ -8,17 +8,22 @@ export function Row({
   leading,
   title,
   subtitle,
+  subtitleNumberOfLines = 2,
   meta,
   onLongPress,
   onPress,
+  showDisclosure,
   children,
 }: {
   leading?: ReactNode;
   title: string;
   subtitle?: string;
+  subtitleNumberOfLines?: number;
   meta?: string;
   onLongPress?: () => void;
   onPress?: () => void;
+  /** Keeps the disclosure mark when a parent swipe row owns the press. */
+  showDisclosure?: boolean;
   children?: ReactNode;
 }) {
   const theme = useMobileTheme();
@@ -47,7 +52,7 @@ export function Row({
           {title}
         </Text>
         {children}
-        {onPress && !children ? (
+        {(showDisclosure ?? Boolean(onPress && !children)) ? (
           <Text
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
@@ -75,7 +80,7 @@ export function Row({
       ) : null}
       {subtitle ? (
         <Text
-          numberOfLines={2}
+          numberOfLines={subtitleNumberOfLines}
           style={[
             typography.rowSubtitle,
             { color: theme.colors.secondaryLabel, paddingLeft: leading ? 28 : 0 },

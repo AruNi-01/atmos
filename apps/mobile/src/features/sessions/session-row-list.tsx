@@ -61,15 +61,15 @@ export function SessionRowList({
       {rows.map((row, index) => {
         const sessionId = sessionPinId(row);
         const canManageChat = row.kind === "chat" && Boolean(row.chatId);
+        const openRow =
+          onPress && (row.workspaceId || row.projectId || row.terminalCandidateId)
+            ? () => onPress(row)
+            : undefined;
         const content = (
           <SessionRow
             colors={palette}
             omitPlace={omitPlace}
-            onPress={
-              onPress && (row.workspaceId || row.projectId || row.terminalCandidateId)
-                ? () => onPress(row)
-                : undefined
-            }
+            onPress={swipeEnabled ? undefined : openRow}
             pinned={pinned.has(sessionId)}
             row={row}
           />
@@ -106,6 +106,7 @@ export function SessionRowList({
                     : undefined
                 }
                 onPin={() => onTogglePin(sessionId)}
+                onPress={openRow}
                 pinLabel={pinned.has(sessionId) ? "Unpin" : "Pin"}
               >
                 {content}

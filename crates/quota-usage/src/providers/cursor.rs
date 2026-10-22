@@ -501,7 +501,7 @@ fn build_result_from_summary(
             None,
             reset_at,
         );
-        // plan.used/limit is not the Other Models dollar cap. See QUALITY-026.
+        // plan.used/limit is not the Other Models dollar cap. See QUALITY-029.
         push_pool_row(
             &mut usage_rows,
             "Other Models",

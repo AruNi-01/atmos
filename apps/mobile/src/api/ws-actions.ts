@@ -134,6 +134,9 @@ export const wsActions = {
   gitGetStatus(client: MobileWsClient, path: string) {
     return client.request("git_get_status", { path });
   },
+  gitGetStatuses(client: MobileWsClient, paths: string[]) {
+    return client.request("git_get_status_batch", { paths });
+  },
   gitChangedFiles(
     client: MobileWsClient,
     path: string,
