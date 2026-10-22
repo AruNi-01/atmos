@@ -122,7 +122,7 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
       refreshing={refreshing}
     >
       {parsed ? (
-        <Section>
+        <Section clip={false}>
           {inbox.isLoading || (rows.length === 0 && fillWhenShort) ? (
             <ListSkeleton />
           ) : rows.length === 0 ? (
@@ -190,12 +190,12 @@ function SessionHomeLists({
   return (
     <>
       {pinnedRows.length > 0 ? (
-        <Section label="Pinned">
+        <Section clip={false} label="Pinned">
           <SessionRowList onPress={onPress} rows={pinnedRows} {...rowActions} />
         </Section>
       ) : null}
       {recentRows.length > 0 ? (
-        <Section label="Recent">
+        <Section clip={false} label="Recent">
           <SessionRowList onPress={onPress} rows={recentRows} {...rowActions} />
         </Section>
       ) : null}

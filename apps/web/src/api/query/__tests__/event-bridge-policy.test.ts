@@ -64,6 +64,7 @@ function makeQuotaOverview(ts = 1_700_000_000): QuotaOverviewResponse {
     },
     partial_failures: [],
     auto_refresh: { interval_minutes: null },
+    provider_order: [],
   };
 }
 

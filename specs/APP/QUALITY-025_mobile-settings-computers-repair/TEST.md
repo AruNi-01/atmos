@@ -16,7 +16,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 
 | Requirement                                              | Scenario IDs |
 | -------------------------------------------------------- | ------------ |
-| M1. Meta is `online/total`                               | S1           |
+| M1. Meta is `online / total`                             | S1           |
 | M1. Online digit uses `onlineStatusColor`                | S2           |
 | M1. Accessibility label keeps "online"                   | S1           |
 | M1. Empty list stays "None"                              | S1           |
@@ -35,7 +35,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 
 | Scenario | Level         | Expected tool | Target command / method                                                                   | Fixture / data                               | Signals                                                                       | Status  |
 | -------- | ------------- | ------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------- | ------- |
-| S1       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/computer-settings.test.ts`         | online/total pairs                           | `1/2` fields, `1 of 2 online`, empty `None`                                   | pass    |
+| S1       | Bun unit      | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/computer-settings.test.ts`         | online/total pairs                           | `1 / 2` fields, `1 of 2 online`, empty `None`                                 | pass    |
 | S2       | Bun component | `bun test`    | `bun --filter @atmos/mobile test src/features/settings/computer-online-count.test.ts`     | mocked theme `green`                         | online digit color equals `onlineStatusColor`                                 | pass    |
 | S3       | Bun unit      | `bun test`    | `computer-settings.test.ts` plus a read of `ComputerPicker.tsx`                           | source text                                  | no `ChevronRightIcon`, no `onManage`                                          | pass    |
 | S4       | Bun unit      | `bun test`    | `runComputerSelection` in `computer-settings.test.ts`                                     | online and offline fakes                     | offline dismisses immediately; online dismisses only from `onSuccess`         | pass    |
@@ -54,14 +54,14 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 - **Level**: Unit
 - **Given**: 1 online of 2 computers, 2 online of 2, 0 online of 2, and 0 computers.
 - **When**: `formatComputerOnlineCount` runs.
-- **Then**: the ratio cases expose `online` and `total` for the `1/2` and `2/2` text, and accessibility labels `1 of 2 online`, `2 of 2 online`, and `0 of 2 online`. Zero computers is `None` / `No computers`.
+- **Then**: the ratio cases expose `online` and `total` for the `1 / 2` and `2 / 2` text, and accessibility labels `1 of 2 online`, `2 of 2 online`, and `0 of 2 online`. Zero computers is `None` / `No computers`.
 - **Signals**: returned fields.
 
 ### S2 — Online digit reuses the Online status color
 
 - **Level**: Component
 - **Given**: a theme whose `green` is the Online status token.
-- **When**: `ComputerOnlineCount` renders `1/2`.
+- **When**: `ComputerOnlineCount` renders `1 / 2`.
 - **Then**: the online digit's color equals `onlineStatusColor(theme.colors)`, and the total digit does not.
 - **Signals**: rendered color attribute and accessibility label `1 of 2 online`.
 
@@ -118,7 +118,7 @@ The behaviors are mobile view-model decisions and a few React trees. Bun tests c
 - **Level**: Manual
 - **Given**: a booted iOS simulator and a dev-client build of `apps/mobile`.
 - **When**: the maintainer captures light and dark frames of the Settings row, the My Computers list, and Re-pair in the not-yet-determined permission state.
-- **Then**: the row reads `online/total` with a green online digit, rows have a check and no arrow, and Re-pair shows copy rather than a black sheet. The system permission alert is visible when the camera permission is reset.
+- **Then**: the row reads `online / total` with a green online digit, rows have a check and no arrow, and Re-pair shows copy rather than a black sheet. The system permission alert is visible when the camera permission is reset.
 - **Signals**: screenshots kept outside the git repo.
 
 ### S10 — Pair dock follows the theme until the camera is live
@@ -176,7 +176,7 @@ xcrun simctl ui booted appearance dark
 
 Capture, outside the repo (do not `git add` the PNGs):
 
-1. Settings, Computer section, My Computers row (`1/2` or `2/2`).
+1. Settings, Computer section, My Computers row (`1 / 2` or `2 / 2`).
 2. My Computers list: selected row has a check, other rows have no chevron. Tap a computer and confirm the sheet returns to Workspace.
 3. Settings → Re-pair phone.
 

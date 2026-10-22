@@ -43,6 +43,10 @@ export type QuotaAutoRefreshRequest = {
   interval_minutes?: number | null;
 };
 
+export type QuotaProviderOrderRequest = {
+  provider_order: string[];
+};
+
 export type QuotaDetailRowTone = "default" | "muted" | "success" | "warning" | "danger";
 export type QuotaProviderKind = "cli" | "desktop" | "api" | "hybrid";
 export type QuotaAuthStateStatus = "detected" | "missing" | "unsupported";
@@ -154,4 +158,11 @@ export type QuotaOverviewResponse = {
   generated_at: number;
   partial_failures: QuotaFetchIssueResponse[];
   auto_refresh: QuotaAutoRefreshResponse;
+  /** Empty means label order inside each switch group. */
+  provider_order: string[];
+  /**
+   * Monotonic generation of `provider_order`. A snapshot with a lower value
+   * must not replace a newer order. Missing on older Computers, treated as 0.
+   */
+  provider_order_revision?: number;
 };

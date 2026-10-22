@@ -14,9 +14,9 @@ describe("ComputerOnlineCount", () => {
     const green = onlineStatusColor(mobileRenderColors);
     expect(html).toContain(`data-color="${green}"`);
     expect(html).toContain(">1<");
-    expect(html).toContain(">/2<");
+    expect(html).toContain("> / 2<");
     expect(html).toContain('data-accessibility-label="1 of 2 online"');
-    expect(html).not.toContain('data-color="' + green + '">/2');
+    expect(html).not.toContain('data-color="' + green + '"> / 2');
   });
 
   test("renders None when there are no computers", () => {
