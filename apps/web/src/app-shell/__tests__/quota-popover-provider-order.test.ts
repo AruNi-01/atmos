@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  nextSharedQuotaProviderOrder,
+  normalizeQuotaProviderOrder,
   partitionQuotaProviderIdsBySwitch,
+  quotaProviderOrderForDisplay,
   reorderQuotaProvidersKeepingEnabledFirst,
   sortQuotaProvidersBySwitchAndOrder,
 } from "@/app-shell/quota-popover-utils";
@@ -82,6 +85,50 @@ describe("reorderQuotaProvidersKeepingEnabledFirst", () => {
     );
 
     expect(next).toEqual(["codex", "gemini", "claude"]);
+  });
+});
+
+describe("shared provider order", () => {
+  test("prefers a non-empty Computer order", () => {
+    expect(quotaProviderOrderForDisplay(["zed", "cursor"], ["cursor"])).toEqual(["zed", "cursor"]);
+    expect(quotaProviderOrderForDisplay([], ["cursor", "zed"])).toEqual(["cursor", "zed"]);
+  });
+
+  test("appends new providers without duplicating saved ids", () => {
+    expect(normalizeQuotaProviderOrder(["zed", "zed", "missing"], ["cursor", "zed"])).toEqual([
+      "zed",
+      "cursor",
+    ]);
+  });
+
+  test("uploads a saved browser order when the Computer order is empty", () => {
+    expect(
+      nextSharedQuotaProviderOrder({
+        serverOrder: [],
+        localOrder: ["zed", "cursor"],
+        providerIds: ["cursor", "factory", "zed"],
+      }),
+    ).toEqual(["zed", "cursor", "factory"]);
+  });
+
+  test("leaves an empty Computer order empty when the browser has no order", () => {
+    expect(
+      nextSharedQuotaProviderOrder({
+        serverOrder: [],
+        localOrder: [],
+        providerIds: ["cursor", "zed"],
+      }),
+    ).toBeNull();
+  });
+
+  test("persists a new provider onto an existing Computer order", () => {
+    expect(
+      nextSharedQuotaProviderOrder({
+        serverOrder: ["factory", "cursor"],
+        localOrder: ["cursor"],
+        providerIds: ["cursor", "factory", "grok"],
+      }),
+    ).toEqual(["factory", "cursor", "grok"]);
   });
 });
 

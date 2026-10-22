@@ -79,17 +79,18 @@ fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::
     Ok(())
 }
 
+/// `paths` and `cursor_sync` tests both write `ATMOS_TOKEN_USAGE_DIR`.
+/// Separate mutexes let those writes interleave inside one test binary.
+#[cfg(test)]
+pub(crate) static TOKEN_USAGE_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    /// Serialize env mutation in tests.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn data_dir_honors_override() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = TOKEN_USAGE_ENV_LOCK.lock().unwrap();
         let prev = std::env::var_os("ATMOS_TOKEN_USAGE_DIR");
         let dir = std::env::temp_dir().join(format!(
             "atmos-token-usage-override-{}-{}",

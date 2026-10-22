@@ -1,3 +1,4 @@
+import { formatQuotaBillingBounds, formatQuotaBillingPeriod } from "@atmos/shared";
 import type { QuotaProviderResponse } from "@atmos/api-types/ws/dto/quota";
 
 export type UsageSegment = { label: string; percent: number };
@@ -37,6 +38,7 @@ const HIDDEN_EXTRA = new Set([
   "managed computers",
   "credits",
   "fetch pipeline",
+  "billing period",
 ]);
 
 function extractPercent(text: string): number | null {
@@ -158,7 +160,7 @@ export function extraSections(provider: QuotaProviderResponse): ExtraSection[] {
           return {
             key: `${section.title}:${row.label}`,
             label: row.label,
-            value,
+            value: formatQuotaBillingPeriod(value) ?? value,
             percent: extractPercent(row.value),
             resetText,
           };
@@ -166,6 +168,19 @@ export function extraSections(provider: QuotaProviderResponse): ExtraSection[] {
       return { title: section.title, headerValue: total, rows };
     })
     .filter((section) => section.rows.length > 0 || section.headerValue);
+}
+
+export function billingPeriodLabel(provider: QuotaProviderResponse): string | null {
+  const direct =
+    firstRow(provider, "Account", "Period") ?? firstRow(provider, "Usage", "Billing period");
+  if (direct) return formatQuotaBillingPeriod(direct);
+  const section = provider.detail_sections.find(
+    (item) => item.title.trim().toLowerCase() === "billing period",
+  );
+  if (!section) return null;
+  const start = section.rows.find((row) => row.label.trim().toLowerCase() === "start")?.value;
+  const end = section.rows.find((row) => row.label.trim().toLowerCase() === "end")?.value;
+  return formatQuotaBillingBounds(start, end);
 }
 
 export function providerHeading(provider: QuotaProviderResponse): {

@@ -431,12 +431,9 @@ mod tests {
     use super::*;
     use std::env;
     use std::path::Path;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn with_usage_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
-        let _guard = ENV_LOCK.lock().expect("env lock");
+        let _guard = crate::paths::TOKEN_USAGE_ENV_LOCK.lock().expect("env lock");
         let prev_usage = env::var_os("ATMOS_TOKEN_USAGE_DIR");
         let prev_access = env::var_os("ATMOS_PERMISSION_ACCESS_DIR");
         let dir = std::env::temp_dir().join(format!(
