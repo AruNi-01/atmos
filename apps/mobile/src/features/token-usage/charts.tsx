@@ -28,6 +28,7 @@ import {
   chartXFromGesture,
   overlayPlotHeight,
   scrollEndOffset,
+  windowedSliceFrame,
 } from "@/features/token-usage/chart-geometry";
 import { popoverSeriesTint } from "@/features/token-usage/chart-popover-mark";
 import {
@@ -855,13 +856,12 @@ export function UsageGrowthChart({
         <View
           style={{
             height,
-            left: span.start * gap + PLOT_X,
+            ...windowedSliceFrame(span.start, gap, drawnWidth),
             overflow: "visible",
             position: "absolute",
-            width: Math.max(0, drawnWidth - PLOT_X),
           }}
         >
-          <View style={{ height, marginLeft: -PLOT_X, width: drawnWidth }}>{plot}</View>
+          {plot}
         </View>
       ) : (
         plot
@@ -1127,7 +1127,14 @@ export function UsageStackedChart({
       width={width}
     >
       {windowed ? (
-        <View style={{ height, left: span.start * slot, position: "absolute", width: drawnWidth }}>
+        <View
+          style={{
+            height,
+            ...windowedSliceFrame(span.start, slot, drawnWidth),
+            overflow: "visible",
+            position: "absolute",
+          }}
+        >
           {bars}
         </View>
       ) : (

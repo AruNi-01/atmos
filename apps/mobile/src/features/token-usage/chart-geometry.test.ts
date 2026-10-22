@@ -7,6 +7,7 @@ import {
   firstAxisLabelFullyVisible,
   overlayPlotHeight,
   scrollEndOffset,
+  windowedSliceFrame,
 } from "./chart-geometry";
 
 describe("chart x-axis label band", () => {
@@ -29,6 +30,23 @@ describe("chart x-axis label band", () => {
         overlayCoversLabelBand: true,
       }),
     ).toBe(false);
+  });
+
+  test("cropping the slice at the plot origin clips Nov/Feb even when the overlay is short", () => {
+    expect(
+      firstAxisLabelFullyVisible({
+        anchorX: 66,
+        axisWidth: 66,
+        labelHalf: CHART_X_LABEL_HALF,
+        overlayCoversLabelBand: false,
+        plotCroppedAtAxis: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("a windowed slice keeps the y-axis column so a centered first label is not at x=0", () => {
+    expect(windowedSliceFrame(0, 32, 400)).toEqual({ left: 0, width: 400 });
+    expect(windowedSliceFrame(3, 32, 280)).toEqual({ left: 96, width: 280 });
   });
 
   test("gesture chartX is host x plus scroll offset", () => {

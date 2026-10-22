@@ -40,9 +40,11 @@ describe("chart press policy", () => {
     expect(charts).not.toContain("labelInset");
   });
 
-  test("the y-axis overlay stops above the x-label band and the scroll view is full width", () => {
+  test("the y-axis overlay stops above the x-label band and slices are not cropped at the plot origin", () => {
     expect(charts).toContain("overlayPlotHeight(height, CHART_X_LABEL_BAND)");
     expect(charts).toContain("columnIndicatorHostX");
+    expect(charts).toContain("windowedSliceFrame");
+    expect(charts).not.toContain("marginLeft: -PLOT_X");
     expect(charts).not.toContain("marginLeft: -shift");
     expect(charts).not.toContain("scrollContentShift");
     expect(charts).not.toContain("CHART_X_LABEL_INSET");
