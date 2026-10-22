@@ -59,6 +59,11 @@ export function parityReadyLine(frame: ParityFrame, seq: number): string {
   return `[parity] ready ${frame.id} ${frame.theme} #${seq}`;
 }
 
+/** Transcript content has been stable (or the 8s fallback fired). Capture screenshots after this. */
+export function parityPaintedLine(frame: ParityFrame, seq: number): string {
+  return `[parity] painted ${frame.id} ${frame.theme} #${seq}`;
+}
+
 /** A fixture query pins one frame and disables the carousel. */
 export function parityPinnedFrame(
   fixture: string,
