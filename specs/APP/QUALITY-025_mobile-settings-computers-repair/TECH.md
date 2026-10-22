@@ -8,7 +8,7 @@ Settings on the phone shows a duplicated computer count, a computers list that d
 
 In scope:
 
-1. My Computers meta is `online/total` (for example `1/2`, or `2/2` when every computer is online). The online number uses the same color token as the Online status on the computers list. The visible string does not say "online". The accessibility label still reads the counts, for example `1 of 2 online`.
+1. My Computers meta is `online / total` (for example `1 / 2`, or `2 / 2` when every computer is online). The online number uses the same color token as the Online status on the computers list. The visible string does not say "online". The accessibility label still reads the counts, for example `1 of 2 online`.
 2. Each computer row keeps a check on the selected computer and drops the trailing arrow. Tapping a row selects that computer and dismisses the settings sheet back to the home screen after the selection is committed.
 3. Re-pair shows a visible sheet for loading, the system permission prompt, a denied state that opens Settings, and a camera failure. None of those states is a black sheet. An error boundary covers a render crash.
 4. Remove the Developer Test page and every mock, route, store, and test that exists only for it.
@@ -67,7 +67,7 @@ Once Re-pair opens the scanner, the current scanner still fails the acceptance b
 
 | Item                                  | Before                                         | After                                         |
 | ------------------------------------- | ---------------------------------------------- | --------------------------------------------- |
-| My Computers meta                     | `2 · 2 online` (count repeated)                | `2/2`, online count in `onlineStatusColor`    |
+| My Computers meta                     | `2 · 2 online` (count repeated)                | `2 / 2`, online count in `onlineStatusColor`  |
 | Accessibility                         | The visible "online" word                      | `2 of 2 online` on the count                  |
 | Computer row                          | Check plus a chevron into `/settings/computer` | Check only                                    |
 | After select                          | Sheet stays on the list                        | `dismissTo("/")` after the selection commits  |
@@ -121,7 +121,7 @@ export function onlineStatusColor(colors: { green: string }) {
 }
 ```
 
-Call sites: the Online / Offline label in `ComputerPicker` (the computers list), `ComputerStatusIndicator`, and `ComputerOnlineCount`. The online digit uses this helper. The slash and the total stay `theme.colors.secondaryLabel`.
+Call sites: the Online / Offline label in `ComputerPicker` (the computers list), `ComputerStatusIndicator`, and `ComputerOnlineCount`. The online digit uses this helper. The `/` separator (one space on each side of the slash) and the total stay `theme.colors.secondaryLabel`.
 
 ### `apps/mobile/src/features/settings/SettingsIndexScreen.tsx`
 
