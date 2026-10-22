@@ -73,4 +73,16 @@ describe("chart press policy", () => {
     expect(charts).not.toContain("scrollContentShift");
     expect(charts).not.toContain("CHART_X_LABEL_INSET");
   });
+
+  test("the growth chart sits beside the y-axis and keeps labels on their points", () => {
+    const growth = charts.slice(
+      charts.indexOf("export function UsageGrowthChart"),
+      charts.indexOf("export function UsageStackedChart"),
+    );
+    expect(growth).toContain('axisPlacement="start"');
+    expect(growth).toContain('edgeLabelPolicy="show"');
+    expect(growth).toContain("yAxisLabelWidth={0}");
+    expect(growth).not.toContain('edgeLabelPolicy="shift"');
+    expect(charts).toContain("CHART_X_LABEL_BAND");
+  });
 });
