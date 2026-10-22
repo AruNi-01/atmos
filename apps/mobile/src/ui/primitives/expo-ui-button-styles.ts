@@ -28,7 +28,9 @@ const largeSizeStyle: UniversalStyle = {
  * | disabled  | same       | `tertiaryLabel`  |
  *
  * Stretch width at the call site with `expoUiButtonHostStyle` +
- * `expoUiButtonStretchModifiers` (see `expo-ui-button-modifiers.ts`).
+ * Button `modifiers={expoUiButtonStretchModifiers}`
+ * (see `expo-ui-button-modifiers.ts`). Use a JSON-safe maxWidth;
+ * `Number.POSITIVE_INFINITY` does not reach SwiftUI.
  * Never layer custom fill/stroke on `filled`/`outlined` (double chrome on iOS).
  */
 export function expoUiPrimaryStyle(colors: MobileThemeColors, disabled = false): ExpoUiButtonLook {

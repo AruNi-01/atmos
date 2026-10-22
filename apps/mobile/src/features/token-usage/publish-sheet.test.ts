@@ -54,6 +54,9 @@ describe("Publish sheet structure", () => {
     expect(source).toMatch(/publishActions:\s*\{[^}]*gap:\s*10/);
     expect(source).not.toMatch(/publishActions:\s*\{[^}]*space-between/);
     expect(source).not.toMatch(/publishActions:\s*\{[^}]*flexDirection:\s*"row"/);
+    const stretch = source.slice(source.indexOf("function StretchPublishButton"));
+    expect(stretch).toContain("style={expoUiButtonHostStyle}");
+    expect(stretch).toMatch(/<Button[\s\S]*modifiers=\{expoUiButtonStretchModifiers\}/);
   });
 
   test("Turn off is below the primary and Public is the only switch", () => {
