@@ -38,6 +38,11 @@ export function normalizePublishHandle(raw: string) {
   return raw.trim().replace(/^@+/, "");
 }
 
+/** Hub `validateHandle`: lowercase, 3–24 chars, letters, digits, underscore. */
+export function isPublishHandleValid(raw: string) {
+  return /^[a-z0-9_]{3,24}$/.test(normalizePublishHandle(raw).toLowerCase());
+}
+
 export function isUsagePageLive(visibility: string | null | undefined) {
   return visibility === "public" || visibility === "unlisted";
 }
@@ -53,16 +58,17 @@ export function publishPrimaryDisabled(input: {
   draft: PublishDraft;
   hasOverview: boolean;
   live: boolean;
+  /** False until the saved usage page request succeeds, including a null page. */
+  pageLoaded: boolean;
   saved: PublishSaved;
 }) {
-  if (input.busy || !input.hasOverview) return true;
-  const handle = normalizePublishHandle(input.draft.handle);
-  if (!input.claimed && handle.length < 3) return true;
+  if (input.busy || !input.hasOverview || !input.pageLoaded) return true;
+  if (!input.claimed && !isPublishHandleValid(input.draft.handle)) return true;
   if (!input.live) return false;
 
   const savedHandle = normalizePublishHandle(input.saved?.handle ?? "");
   const savedVisibility = input.saved?.visibility === "public" ? "public" : "unlisted";
-  const handleDirty = !input.claimed && handle !== savedHandle;
+  const handleDirty = !input.claimed && normalizePublishHandle(input.draft.handle) !== savedHandle;
   const visibilityDirty = input.draft.visibility !== savedVisibility;
   const githubDirty = input.draft.github.trim() !== (input.saved?.github ?? "").trim();
   const xDirty = input.draft.x.trim() !== (input.saved?.x ?? "").trim();

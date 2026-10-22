@@ -5,8 +5,7 @@ import { createRelayClient } from "@atmos/relay-client";
 import { preferredComputerWebSocket } from "@/api/url-session-websocket";
 import {
   fetchRemoteTokenUsageOverview,
-  REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS,
-  REMOTE_TOKEN_USAGE_REQUEST_TIMEOUT_MS,
+  remoteTokenUsageSessionOptions,
   type RemoteTokenUsageSession,
 } from "@/features/token-usage/lib/fetch-remote-token-usage";
 import { requireDeviceCredential } from "@/lib/device-credential";
@@ -17,9 +16,7 @@ export function openMobileRemoteTokenUsageSession(wsUrl: string): RemoteTokenUsa
     platform: {
       createWebSocket: (url: string) => preferredComputerWebSocket(url) as unknown as WebSocketLike,
     },
-    reconnect: { enabled: false, maxAttempts: 0, exhausted: { type: "stop" } },
-    requestTimeoutMs: REMOTE_TOKEN_USAGE_REQUEST_TIMEOUT_MS,
-    connectWaitMs: REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS,
+    ...remoteTokenUsageSessionOptions(),
   });
 }
 

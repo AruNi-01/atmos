@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import type { KeyboardTypeOptions, ReturnKeyTypeOptions } from "react-native";
+import { View, type KeyboardTypeOptions, type ReturnKeyTypeOptions } from "react-native";
 import { Host, OutlinedTextField, Shape, Text, useNativeState } from "@expo/ui/jetpack-compose";
 import { fillMaxWidth, height } from "@expo/ui/jetpack-compose/modifiers";
 import { radii, type MobileThemeColors } from "@/theme/colors";
@@ -53,6 +53,7 @@ function mapCapitalization(value: NativeTextInputProps["autoCapitalize"]) {
 }
 
 export function NativeTextInput({
+  accessibilityLabel,
   autoCapitalize,
   autoCorrect,
   defaultValue,
@@ -111,55 +112,57 @@ export function NativeTextInput({
   );
 
   return (
-    <Host
-      colorScheme={theme.colorScheme}
-      matchContents={{ vertical: true }}
-      seedColor={theme.colors.label}
-      style={{ width: "100%" }}
-    >
-      <OutlinedTextField
-        colors={textFieldColors}
-        enabled={editable !== false}
-        keyboardActions={{
-          onDone: handleSubmit,
-          onGo: handleSubmit,
-          onNext: handleSubmit,
-          onPrevious: handleSubmit,
-          onSearch: handleSubmit,
-          onSend: handleSubmit,
-        }}
-        keyboardOptions={{
-          autoCorrectEnabled: autoCorrect,
-          capitalization: mapCapitalization(autoCapitalize),
-          imeAction: mapReturnKeyType(returnKeyType),
-          keyboardType: secureTextEntry ? "password" : mapKeyboardType(keyboardType),
-        }}
-        maxLength={maxLength}
-        maxLines={multiline ? numberOfLines : undefined}
-        minLines={multiline ? numberOfLines : undefined}
-        modifiers={[fillMaxWidth(), height(minHeight)]}
-        onFocusChanged={handleFocusChanged}
-        onValueChange={handleValueChange}
-        shape={Shape.RoundedCorner({ cornerRadii: controlCornerRadii })}
-        singleLine={!multiline}
-        textSelectionColors={{
-          backgroundColor: theme.colors.selection,
-          handleColor: theme.colors.accent,
-        }}
-        textStyle={{
-          color: theme.colors.label,
-          fontSize: 16,
-        }}
-        value={nativeValue}
-        visualTransformation={secureTextEntry ? "password" : "none"}
+    <View accessibilityLabel={accessibilityLabel} style={{ width: "100%" }}>
+      <Host
+        colorScheme={theme.colorScheme}
+        matchContents={{ vertical: true }}
+        seedColor={theme.colors.label}
+        style={{ width: "100%" }}
       >
-        {placeholder ? (
-          <OutlinedTextField.Placeholder>
-            <Text color={String(resolvedPlaceholderColor)}>{placeholder}</Text>
-          </OutlinedTextField.Placeholder>
-        ) : null}
-      </OutlinedTextField>
-    </Host>
+        <OutlinedTextField
+          colors={textFieldColors}
+          enabled={editable !== false}
+          keyboardActions={{
+            onDone: handleSubmit,
+            onGo: handleSubmit,
+            onNext: handleSubmit,
+            onPrevious: handleSubmit,
+            onSearch: handleSubmit,
+            onSend: handleSubmit,
+          }}
+          keyboardOptions={{
+            autoCorrectEnabled: autoCorrect,
+            capitalization: mapCapitalization(autoCapitalize),
+            imeAction: mapReturnKeyType(returnKeyType),
+            keyboardType: secureTextEntry ? "password" : mapKeyboardType(keyboardType),
+          }}
+          maxLength={maxLength}
+          maxLines={multiline ? numberOfLines : undefined}
+          minLines={multiline ? numberOfLines : undefined}
+          modifiers={[fillMaxWidth(), height(minHeight)]}
+          onFocusChanged={handleFocusChanged}
+          onValueChange={handleValueChange}
+          shape={Shape.RoundedCorner({ cornerRadii: controlCornerRadii })}
+          singleLine={!multiline}
+          textSelectionColors={{
+            backgroundColor: theme.colors.selection,
+            handleColor: theme.colors.accent,
+          }}
+          textStyle={{
+            color: theme.colors.label,
+            fontSize: 16,
+          }}
+          value={nativeValue}
+          visualTransformation={secureTextEntry ? "password" : "none"}
+        >
+          {placeholder ? (
+            <OutlinedTextField.Placeholder>
+              <Text color={String(resolvedPlaceholderColor)}>{placeholder}</Text>
+            </OutlinedTextField.Placeholder>
+          ) : null}
+        </OutlinedTextField>
+      </Host>
+    </View>
   );
 }
 

@@ -2,7 +2,10 @@
 import { describe, expect, it } from "bun:test";
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
 import { fetchAllComputersTokenUsage } from "@/features/token-usage/lib/fetch-all-token-usage";
-import { fetchRemoteTokenUsageOverview } from "@/features/token-usage/lib/fetch-remote-token-usage";
+import {
+  fetchRemoteTokenUsageOverview,
+  remoteTokenUsageSessionOptions,
+} from "@/features/token-usage/lib/fetch-remote-token-usage";
 import type { UniqueComputer } from "@/features/token-usage/lib/unique-computers";
 
 function overview(total: number): TokenUsageOverviewResponse {
@@ -57,6 +60,14 @@ const vps: UniqueComputer = {
 };
 
 describe("fetchRemoteTokenUsageOverview", () => {
+  it("keeps the relay handshake open for 15 seconds", () => {
+    expect(remoteTokenUsageSessionOptions()).toMatchObject({
+      connectWaitMs: 15_000,
+      handshakeTimeoutMs: 15_000,
+      requestTimeoutMs: 60_000,
+    });
+  });
+
   it("requests a refresh without cookies and disconnects", async () => {
     const requests: unknown[] = [];
     let disconnected = false;

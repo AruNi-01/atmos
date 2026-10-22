@@ -55,7 +55,15 @@ export const LIGHT_GLYPHS = new Set([
   "windsurf",
 ]);
 
-export const DARK_GLYPHS = new Set(["cline", "devin", "grok", "grok-build", "junie", "junie-acp"]);
+export const DARK_GLYPHS = new Set([
+  "cline",
+  "devin",
+  "grok",
+  "grok-build",
+  "junie",
+  "junie-acp",
+  "pi",
+]);
 
 export function matchesGlyph(agentId: string, iconName: string, glyphs: Set<string>) {
   if (glyphs.has(iconName) || glyphs.has(agentId)) return true;

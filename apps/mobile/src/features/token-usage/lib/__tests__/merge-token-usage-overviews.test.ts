@@ -56,16 +56,17 @@ describe("mergeTokenUsageOverviews", () => {
   it("sums tokens and unions active days", () => {
     const merged = mergeTokenUsageOverviews([
       overview({
-        total_tokens: 100,
+        total_tokens: 20,
         days: ["2026-01-01", "2026-01-02"],
         active_days: 2,
       }),
       overview({
-        total_tokens: 50,
+        total_tokens: 20,
         days: ["2026-01-02", "2026-01-03"],
         active_days: 2,
       }),
     ]);
+    expect(merged.by_day.find((day) => day.date === "2026-01-02")?.total_tokens).toBe(20);
     expect(merged.summary.total_tokens).toBe(40);
     expect(merged.by_day.map((d) => d.date)).toEqual(["2026-01-01", "2026-01-02", "2026-01-03"]);
     expect(merged.summary.active_days).toBe(3);

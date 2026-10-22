@@ -26,6 +26,7 @@ import {
 } from "@/features/token-usage/charts";
 import { formatCurrencyDetailed, formatMetric, formatPercent } from "@/features/token-usage/format";
 import { ALL_COMPUTERS_VALUE } from "@/features/token-usage/lib/unique-computers";
+import { showUsageConnectNotice } from "@/features/token-usage/lib/usage-scope";
 import { METRIC_TWEEN_MS } from "@/features/token-usage/tween-series";
 import {
   buildHeatmap,
@@ -425,7 +426,7 @@ export function TokenUsageScreen() {
             scrollRef={usageScrollRef}
             shift={captureShift}
           >
-            {!connected ? (
+            {showUsageConnectNotice(isCurrentScope, connected) ? (
               <Text style={{ color: theme.colors.secondaryLabel }}>
                 Connect to a Computer to see token usage.
               </Text>

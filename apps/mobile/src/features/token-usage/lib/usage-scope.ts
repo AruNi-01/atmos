@@ -35,6 +35,45 @@ export function resolveUsageScope(input: {
   };
 }
 
+export function showUsageConnectNotice(isCurrentScope: boolean, connected: boolean) {
+  return isCurrentScope && !connected;
+}
+
+export function tokenUsageDisplayedError(input: {
+  queryError: unknown;
+  refreshError: unknown;
+  refreshApplies: boolean;
+  scope: { isAll: boolean; isCurrentScope: boolean };
+}) {
+  const error =
+    input.refreshApplies && input.refreshError != null ? input.refreshError : input.queryError;
+  return tokenUsageScopeErrorMessage(error, input.scope);
+}
+
+export function refreshFailureApplies(input: {
+  currentRelayAuthRevision: number;
+  currentRelayUrl: string;
+  currentScopeKey: string;
+  currentWsUrl: string | null;
+  isCurrentScope: boolean;
+  refresh: {
+    isCurrentScope: boolean;
+    relayAuthRevision: number;
+    relayUrl: string;
+    scopeKey: string;
+    wsUrl: string | null;
+  } | null;
+}) {
+  const refresh = input.refresh;
+  if (!refresh) return false;
+  if (refresh.relayUrl !== input.currentRelayUrl) return false;
+  if (refresh.relayAuthRevision !== input.currentRelayAuthRevision) return false;
+  if (input.isCurrentScope) {
+    return refresh.isCurrentScope && refresh.wsUrl === input.currentWsUrl;
+  }
+  return !refresh.isCurrentScope && refresh.scopeKey === input.currentScopeKey;
+}
+
 export function tokenUsageScopeErrorMessage(
   error: unknown,
   scope: { isAll: boolean; isCurrentScope: boolean },

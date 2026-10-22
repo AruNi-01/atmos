@@ -52,6 +52,9 @@ describe("uniqueComputers", () => {
     expect(devices[0]?.serverId).toBe("new");
     expect(devices[0]?.isCurrent).toBe(true);
     expect(allComputersFetchTargets(devices)).toHaveLength(1);
+    expect(allComputersFetchTargets([...devices, ...devices]).map((device) => device.key)).toEqual([
+      `app:${APP_A}`,
+    ]);
   });
 
   it("appends an unregistered local computer", () => {

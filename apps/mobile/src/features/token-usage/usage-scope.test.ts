@@ -6,7 +6,10 @@ import {
 } from "@/features/token-usage/lib/unique-computers";
 import {
   missedComputerWarning,
+  refreshFailureApplies,
   resolveUsageScope,
+  showUsageConnectNotice,
+  tokenUsageDisplayedError,
   tokenUsageScopeErrorMessage,
 } from "@/features/token-usage/lib/usage-scope";
 
@@ -120,5 +123,83 @@ describe("tokenUsageScopeErrorMessage", () => {
       }),
     ).toBe("Could not reach any Computer.");
     expect(missedComputerWarning("Travel")).toBe("Could not reach Travel");
+  });
+});
+
+describe("showUsageConnectNotice", () => {
+  test("shows only while the current computer is disconnected", () => {
+    expect(showUsageConnectNotice(true, false)).toBe(true);
+    expect(showUsageConnectNotice(true, true)).toBe(false);
+    expect(showUsageConnectNotice(false, false)).toBe(false);
+  });
+});
+
+describe("tokenUsageDisplayedError", () => {
+  const current = {
+    currentRelayAuthRevision: 2,
+    currentRelayUrl: "https://relay.example",
+    currentScopeKey: "app:aa",
+    currentWsUrl: "wss://computer.example/ws",
+    isCurrentScope: true,
+  };
+
+  test("shows a refresh failure for the same connection", () => {
+    expect(
+      refreshFailureApplies({
+        ...current,
+        refresh: {
+          isCurrentScope: true,
+          relayAuthRevision: 2,
+          relayUrl: "https://relay.example",
+          scopeKey: "app:aa",
+          wsUrl: "wss://computer.example/ws",
+        },
+      }),
+    ).toBe(true);
+    expect(
+      tokenUsageDisplayedError({
+        queryError: null,
+        refreshApplies: true,
+        refreshError: new Error("refresh failed"),
+        scope: { isAll: false, isCurrentScope: true },
+      }),
+    ).toBe("refresh failed");
+  });
+
+  test("hides a refresh failure after the relay or scope changes", () => {
+    expect(
+      refreshFailureApplies({
+        ...current,
+        refresh: {
+          isCurrentScope: true,
+          relayAuthRevision: 1,
+          relayUrl: "https://relay.example",
+          scopeKey: "app:aa",
+          wsUrl: "wss://computer.example/ws",
+        },
+      }),
+    ).toBe(false);
+    expect(
+      refreshFailureApplies({
+        ...current,
+        isCurrentScope: false,
+        currentScopeKey: "all:app:aa",
+        refresh: {
+          isCurrentScope: false,
+          relayAuthRevision: 2,
+          relayUrl: "https://relay.example",
+          scopeKey: "all:app:bb",
+          wsUrl: null,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      tokenUsageDisplayedError({
+        queryError: new Error("socket closed"),
+        refreshApplies: false,
+        refreshError: new Error("refresh failed"),
+        scope: { isAll: false, isCurrentScope: true },
+      }),
+    ).toBe("socket closed");
   });
 });

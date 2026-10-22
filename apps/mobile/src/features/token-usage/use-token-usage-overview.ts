@@ -13,8 +13,9 @@ import {
 } from "@/features/token-usage/lib/unique-computers";
 import {
   missedComputerWarning,
+  refreshFailureApplies,
   resolveUsageScope,
-  tokenUsageScopeErrorMessage,
+  tokenUsageDisplayedError,
 } from "@/features/token-usage/lib/usage-scope";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential } from "@/lib/device-credential";
@@ -91,7 +92,13 @@ export function useTokenUsageOverview() {
 
   const connected = state === "open" && client != null;
   const currentKey = ["token-usage-overview", wsUrl] as const;
-  const scopedKey = ["token-usage-overview", "scope", scope.scopedUsageKey] as const;
+  const scopedKey = [
+    "token-usage-overview",
+    "scope",
+    relayUrl,
+    relayAuthRevision,
+    scope.scopedUsageKey,
+  ] as const;
 
   const currentQuery = useQuery({
     enabled: connected && scope.isCurrentScope,
@@ -114,12 +121,20 @@ export function useTokenUsageOverview() {
       client: MobileWsClient | null;
       devices: UniqueComputer[];
       relay: Relay;
+      relayAuthRevision: number;
+      relayUrl: string;
       scope: UsageScope;
       wsUrl: string | null;
     }): Promise<TokenUsageOverviewResponse> => {
       const key = input.scope.isCurrentScope
         ? (["token-usage-overview", input.wsUrl] as const)
-        : (["token-usage-overview", "scope", input.scope.scopedUsageKey] as const);
+        : ([
+            "token-usage-overview",
+            "scope",
+            input.relayUrl,
+            input.relayAuthRevision,
+            input.scope.scopedUsageKey,
+          ] as const);
       const next = input.scope.isCurrentScope
         ? await loadCurrent(input.client, true)
         : await loadScoped(input);
@@ -130,7 +145,15 @@ export function useTokenUsageOverview() {
 
   const reload = () => {
     if (scope.isCurrentScope && !connected) return;
-    refresh.mutate({ client, devices, relay, scope, wsUrl });
+    refresh.mutate({
+      client,
+      devices,
+      relay,
+      relayAuthRevision,
+      relayUrl,
+      scope,
+      wsUrl,
+    });
   };
 
   const missedWarnings =
@@ -142,7 +165,27 @@ export function useTokenUsageOverview() {
     connected,
     connectionState: state,
     devices,
-    errorMessage: tokenUsageScopeErrorMessage(activeQuery.error, scope),
+    errorMessage: tokenUsageDisplayedError({
+      queryError: activeQuery.error,
+      refreshApplies: refreshFailureApplies({
+        currentRelayAuthRevision: relayAuthRevision,
+        currentRelayUrl: relayUrl,
+        currentScopeKey: scope.scopedUsageKey,
+        currentWsUrl: wsUrl,
+        isCurrentScope: scope.isCurrentScope,
+        refresh: refresh.variables
+          ? {
+              isCurrentScope: refresh.variables.scope.isCurrentScope,
+              relayAuthRevision: refresh.variables.relayAuthRevision,
+              relayUrl: refresh.variables.relayUrl,
+              scopeKey: refresh.variables.scope.scopedUsageKey,
+              wsUrl: refresh.variables.wsUrl,
+            }
+          : null,
+      }),
+      refreshError: refresh.error,
+      scope,
+    }),
     isAll: scope.isAll,
     isCurrentScope: scope.isCurrentScope,
     isFetching: activeQuery.isFetching,

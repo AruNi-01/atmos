@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button, Host } from "@expo/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hubDeleteUsagePage, hubGetUsagePage, hubPutUsagePage } from "@atmos/hub-client";
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
@@ -263,6 +264,13 @@ function Social({ icon, label, onPress }: { icon: ReactNode; label: string; onPr
   );
 }
 
+function pageLoadError(error: unknown, isError: boolean) {
+  if (!isError) return null;
+  return error instanceof Error && error.message.trim().length > 0
+    ? error.message
+    : "Could not load the published page";
+}
+
 function PublishPane({
   onDone,
   overview,
@@ -325,16 +333,22 @@ function PublishPane({
       await queryClient.invalidateQueries({ queryKey: ["hub", "usage-page"] });
       onDone();
     },
+    onError: (reason: unknown) => {
+      setError(reason instanceof Error ? reason.message : "Could not turn off this page");
+    },
   });
   const slug = page?.handle || normalizePublishHandle(handle);
   const url = page?.url ?? (slug ? `${SITE}/tok/@${slug}` : null);
+  const pageLoaded = pageQuery.isSuccess;
   const busy = publish.isPending || turnOff.isPending;
+  const fieldsLocked = busy || !pageLoaded;
   const primaryDisabled = publishPrimaryDisabled({
     busy,
     claimed,
     draft: { github, handle, visibility, x },
     hasOverview: overview != null,
     live,
+    pageLoaded,
     saved: page
       ? {
           github: page.github_username,
@@ -357,7 +371,7 @@ function PublishPane({
         <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Handle</Text>
         <PrefixedField
           accessibilityLabel="Handle"
-          editable={!claimed && !busy}
+          editable={!claimed && !fieldsLocked}
           onChangeText={(value) => setDraft({ handle: value })}
           placeholder="builder"
           prefix="atmos.land/tok/@"
@@ -376,7 +390,7 @@ function PublishPane({
         <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Links</Text>
         <PrefixedField
           accessibilityLabel="X username"
-          editable={!busy}
+          editable={!fieldsLocked}
           onChangeText={(value) => setDraft({ x: value })}
           placeholder="username"
           prefix="x.com/"
@@ -384,7 +398,7 @@ function PublishPane({
         />
         <PrefixedField
           accessibilityLabel="GitHub username"
-          editable={!busy}
+          editable={!fieldsLocked}
           onChangeText={(value) => setDraft({ github: value })}
           placeholder="username"
           prefix="github.com/"
@@ -395,59 +409,47 @@ function PublishPane({
             Public
           </Text>
           <NativeSwitch
-            disabled={busy}
+            disabled={fieldsLocked}
             onValueChange={(checked) => setDraft({ visibility: checked ? "public" : "unlisted" })}
             value={visibility === "public"}
           />
         </View>
-        {error ? <Text style={{ color: theme.colors.red, fontSize: 13 }}>{error}</Text> : null}
+        {(error ?? pageLoadError(pageQuery.error, pageQuery.isError)) ? (
+          <Text style={{ color: theme.colors.red, fontSize: 13 }}>
+            {error ?? pageLoadError(pageQuery.error, pageQuery.isError)}
+          </Text>
+        ) : null}
         <View style={styles.publishActions}>
           {live ? (
-            <Pressable
-              accessibilityLabel="Turn off"
-              accessibilityRole="button"
-              disabled={busy}
-              onPress={() => turnOff.mutate()}
-              style={styles.turnOff}
+            <Host
+              colorScheme={theme.colorScheme}
+              matchContents={{ vertical: true }}
+              seedColor={busy ? theme.colors.tertiaryLabel : theme.colors.red}
             >
-              <Text
-                style={{
-                  color: busy ? theme.colors.tertiaryLabel : theme.colors.red,
-                  fontSize: 15,
-                  fontWeight: "600",
-                }}
-              >
-                {turnOff.isPending ? "Turning off…" : "Turn off"}
-              </Text>
-            </Pressable>
+              <Button
+                disabled={busy}
+                label={turnOff.isPending ? "Turning off…" : "Turn off"}
+                onPress={busy ? undefined : () => turnOff.mutate()}
+                style={{ height: 40 }}
+                variant="text"
+              />
+            </Host>
           ) : (
             <View />
           )}
-          <Pressable
-            accessibilityLabel={primaryLabel}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: primaryDisabled }}
-            disabled={primaryDisabled}
-            onPress={() => publish.mutate()}
-            style={[
-              styles.publishButton,
-              {
-                backgroundColor: primaryDisabled
-                  ? theme.colors.controlSecondary
-                  : theme.colors.primary,
-              },
-            ]}
+          <Host
+            colorScheme={theme.colorScheme}
+            matchContents={{ vertical: true }}
+            seedColor={primaryDisabled ? theme.colors.tertiaryLabel : theme.colors.primary}
           >
-            <Text
-              style={{
-                color: primaryDisabled ? theme.colors.tertiaryLabel : theme.colors.labelInverse,
-                fontSize: 15,
-                fontWeight: "600",
-              }}
-            >
-              {primaryLabel}
-            </Text>
-          </Pressable>
+            <Button
+              disabled={primaryDisabled}
+              label={primaryLabel}
+              onPress={primaryDisabled ? undefined : () => publish.mutate()}
+              style={{ height: 40 }}
+              variant="filled"
+            />
+          </Host>
         </View>
       </View>
     </GlassPanel>
@@ -472,7 +474,6 @@ function PrefixedField({
   const theme = useMobileTheme();
   return (
     <View
-      accessibilityLabel={accessibilityLabel}
       style={[
         styles.prefixed,
         { backgroundColor: theme.colors.control, borderColor: theme.colors.controlBorder },
@@ -481,6 +482,7 @@ function PrefixedField({
       <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>{prefix}</Text>
       <View style={styles.prefixInput}>
         <NativeTextInput
+          accessibilityLabel={accessibilityLabel}
           editable={editable}
           framed={false}
           minHeight={40}
@@ -523,14 +525,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 4,
   },
-  publishButton: {
-    alignItems: "center",
-    borderRadius: 12,
-    justifyContent: "center",
-    minHeight: 40,
-    paddingHorizontal: 16,
-  },
-  turnOff: { justifyContent: "center", minHeight: 40, paddingRight: 12 },
   sheet: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
   tabs: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
   preview: {

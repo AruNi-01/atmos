@@ -25,7 +25,7 @@ Mobile 不 import `apps/web`。`unique-computers.ts`、`cloud-api-clients.ts`、
 
 设备列表复用首页的 query key `["computers", relayUrl, relayAuthRevision]` 和 `listComputers()`。去重调用 `uniqueComputers(rows, null, selectedServerId)`。Mobile 没有 loopback 本机身份，第二个参数是 `null`。
 
-`shouldShowComputerSelect`：已登录且去重数量 ≥ 2。默认选中 `isCurrent` 的那台。列表里没有 `isCurrent` 时，`resolveUsageScope` 保持当前连接（`isCurrentScope`），`selectedKey` 为 null，不回落到 `all`，也不回落到 `devices[0]`。选择状态只放在这一屏的 `useState`，不写存储。
+`shouldShowComputerSelect`：已登录且去重数量 ≥ 2。默认选中 `isCurrent` 的那台。选择状态只放在这一屏的 `useState`，不写存储。
 
 All 的 `partial_warnings` 显示在页面上。非当前范围的失败文案固定为英文短句，不把 socket 内部错误直接铺开。
 
@@ -71,3 +71,15 @@ oxlint 上限保持 455。不提交截图。iOS 模拟器不在本环境运行�
 - 短连接失败时，单台范围只显示固定英文错误，详细原因在日志里没有额外上报。
 - 四张卡失去数字滚动。页首总数仍滚动。
 - `framed={false}` 只给 Publish 用。其它输入框仍走原来的描边。
+
+## Implementation Delta
+
+2026-10-22，review 修复。正文里的选择器句子恢复为原来的默认规则，缺席行为记在这里。
+
+- 列表里没有 `isCurrent` 时，`resolveUsageScope` 保持当前连接（`isCurrentScope`），`selectedKey` 为 null，不回落到 `all`，也不回落到 `devices[0]`。
+- 远程短连接传入 `handshakeTimeoutMs: 15_000`。不传时 `createWsSession` 会在 `min(connectWait, 3s)` 停下。
+- Publish 在 usage page 请求成功前禁用输入、开关和主按钮。成功且数据为 null 才允许用空链接发布。Handle 先转小写，再匹配 `^[a-z0-9_]{3,24}$`。主按钮是 Expo UI `Host` + `Button`（`filled`，禁用时 seed 为 `tertiaryLabel`）。Turn off 是 `variant="text"`、红色 seed，失败写到同一条错误。前缀输入的 `accessibilityLabel` 挂在输入框上。
+- 刷新失败进入页面错误，并且只在同一 relay URL、auth revision 和当前范围身份下显示。范围 query key 带上 `relayUrl` 和 `relayAuthRevision`。
+- “Connect to a Computer” 只在当前连接范围且未连接时出现。
+- `pi` 加入 `DARK_GLYPHS`。
+- `bun --filter @atmos/mobile typecheck` 仍会失败。错误在既有文件 `src/features/agent-chat/glass-text-button.test.ts`（TS7016）和 `src/features/agent-chat/open-thread-resync.test.ts`（TS2322）。本次 Token usage 文件不在其中。CI 不跑 mobile typecheck。

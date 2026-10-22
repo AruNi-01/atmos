@@ -14,6 +14,7 @@ describe("glyphTint", () => {
   test("paints black line art white on a dark popover", () => {
     expect(glyphTint("cline", "cline", true, ON_DARK)).toBe(ON_DARK);
     expect(glyphTint("grok", "grok-build", true, ON_DARK)).toBe(ON_DARK);
+    expect(glyphTint("pi", "pi", true, ON_DARK)).toBe(ON_DARK);
   });
 
   test("still inverts white line art on a light surface", () => {

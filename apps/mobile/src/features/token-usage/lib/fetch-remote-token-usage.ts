@@ -2,6 +2,20 @@ import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-u
 
 export const REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS = 15_000;
 export const REMOTE_TOKEN_USAGE_REQUEST_TIMEOUT_MS = 60_000;
+/**
+ * Same 15s cap as the mobile workbench socket. `createWsSession` otherwise
+ * stops the relay upgrade at min(connectWait, 3s).
+ */
+export const REMOTE_TOKEN_USAGE_HANDSHAKE_TIMEOUT_MS = 15_000;
+
+export function remoteTokenUsageSessionOptions() {
+  return {
+    connectWaitMs: REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS,
+    handshakeTimeoutMs: REMOTE_TOKEN_USAGE_HANDSHAKE_TIMEOUT_MS,
+    reconnect: { enabled: false, maxAttempts: 0, exhausted: { type: "stop" as const } },
+    requestTimeoutMs: REMOTE_TOKEN_USAGE_REQUEST_TIMEOUT_MS,
+  };
+}
 
 export type RemoteTokenUsageSession = {
   connect: () => Promise<void>;

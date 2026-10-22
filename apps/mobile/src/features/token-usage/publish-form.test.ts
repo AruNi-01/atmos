@@ -32,13 +32,14 @@ describe("publishPrimaryDisabled", () => {
     expect(normalizePublishHandle("  @builder  ")).toBe("builder");
   });
 
-  test("blocks publish until the handle is long enough", () => {
+  test("blocks publish until the handle matches the hub charset", () => {
     expect(
       publishPrimaryDisabled({
         busy: false,
         claimed: false,
         draft: { ...draft, handle: "ab" },
         hasOverview: true,
+        pageLoaded: true,
         live: false,
         saved: null,
       }),
@@ -49,11 +50,70 @@ describe("publishPrimaryDisabled", () => {
         claimed: false,
         draft: { ...draft, handle: "@abc" },
         hasOverview: true,
+        pageLoaded: true,
+        live: false,
+        saved: null,
+      }),
+    ).toBe(false);
+    expect(
+      publishPrimaryDisabled({
+        busy: false,
+        claimed: false,
+        draft: { ...draft, handle: "bad-name" },
+        hasOverview: true,
+        pageLoaded: true,
+        live: false,
+        saved: null,
+      }),
+    ).toBe(true);
+    expect(
+      publishPrimaryDisabled({
+        busy: false,
+        claimed: false,
+        draft: { ...draft, handle: "has space" },
+        hasOverview: true,
+        pageLoaded: true,
+        live: false,
+        saved: null,
+      }),
+    ).toBe(true);
+    expect(
+      publishPrimaryDisabled({
+        busy: false,
+        claimed: false,
+        draft: { ...draft, handle: "a".repeat(25) },
+        hasOverview: true,
+        pageLoaded: true,
+        live: false,
+        saved: null,
+      }),
+    ).toBe(true);
+    expect(
+      publishPrimaryDisabled({
+        busy: false,
+        claimed: false,
+        draft: { ...draft, handle: "a".repeat(24) },
+        hasOverview: true,
+        pageLoaded: true,
         live: false,
         saved: null,
       }),
     ).toBe(false);
     expect(publishPrimaryLabel(false)).toBe("Publish");
+  });
+
+  test("stays disabled until the saved page request succeeds", () => {
+    expect(
+      publishPrimaryDisabled({
+        busy: false,
+        claimed: false,
+        draft,
+        hasOverview: true,
+        pageLoaded: false,
+        live: false,
+        saved: null,
+      }),
+    ).toBe(true);
   });
 
   test("disables update when nothing changed", () => {
@@ -63,6 +123,7 @@ describe("publishPrimaryDisabled", () => {
         claimed: true,
         draft,
         hasOverview: true,
+        pageLoaded: true,
         live: true,
         saved,
       }),
@@ -77,6 +138,7 @@ describe("publishPrimaryDisabled", () => {
         claimed: true,
         draft: { ...draft, visibility: "public" },
         hasOverview: true,
+        pageLoaded: true,
         live: true,
         saved,
       }),
@@ -87,6 +149,7 @@ describe("publishPrimaryDisabled", () => {
         claimed: true,
         draft: { ...draft, github: "atmos" },
         hasOverview: true,
+        pageLoaded: true,
         live: true,
         saved,
       }),
@@ -97,6 +160,7 @@ describe("publishPrimaryDisabled", () => {
         claimed: true,
         draft: { ...draft, x: "atmos" },
         hasOverview: true,
+        pageLoaded: true,
         live: true,
         saved,
       }),
@@ -107,6 +171,7 @@ describe("publishPrimaryDisabled", () => {
         claimed: false,
         draft: { ...draft, handle: "other" },
         hasOverview: true,
+        pageLoaded: true,
         live: true,
         saved: { ...saved!, handleClaimed: false },
       }),
@@ -120,6 +185,7 @@ describe("publishPrimaryDisabled", () => {
         claimed: true,
         draft: { ...draft, handle: "other" },
         hasOverview: true,
+        pageLoaded: true,
         live: true,
         saved,
       }),
@@ -185,6 +251,19 @@ describe("publishPrimaryDisabled", () => {
     };
     const saved = publishFormAfterSave({ baseline, draft: submitted }, submitted);
     expect(publishDraftDirty(saved.draft, saved.baseline)).toBe(false);
+    const replaced = publishFormAfterPage(saved, {
+      github_username: "next",
+      handle: "builder",
+      handle_claimed: false,
+      visibility: "unlisted",
+      x_username: "next",
+    });
+    expect(replaced.draft).toEqual({
+      github: "next",
+      handle: "builder",
+      visibility: "unlisted",
+      x: "next",
+    });
     const edited = publishFormAfterSave(
       { baseline, draft: { ...submitted, x: "later" } },
       submitted,
@@ -200,6 +279,7 @@ describe("publishPrimaryDisabled", () => {
         claimed: false,
         draft,
         hasOverview: true,
+        pageLoaded: true,
         live: false,
         saved: null,
       }),
@@ -210,6 +290,7 @@ describe("publishPrimaryDisabled", () => {
         claimed: false,
         draft,
         hasOverview: false,
+        pageLoaded: true,
         live: false,
         saved: null,
       }),
