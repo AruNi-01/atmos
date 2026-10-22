@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { autoConnectAfterAuth } from "@/lib/auto-connect";
 import { requireDeviceCredential } from "@/lib/device-credential";
@@ -15,6 +15,7 @@ type UseAuthSignInOptions = {
 
 export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const client = useRelayClient();
   const setDeviceCredentialLoaded = useSessionStore((state) => state.setDeviceCredentialLoaded);
   const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
@@ -27,6 +28,7 @@ export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
 
   const finishAuth = useCallback(async () => {
     setDeviceCredentialLoaded(true);
+    queryClient.removeQueries({ queryKey: ["computers"] });
     const result = await autoConnectAfterAuth(client);
     setComputers(result.computers);
     setLocalError(null);
@@ -35,7 +37,7 @@ export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
       return;
     }
     router.replace("/");
-  }, [client, onAuthenticated, router, setComputers, setDeviceCredentialLoaded]);
+  }, [client, onAuthenticated, queryClient, router, setComputers, setDeviceCredentialLoaded]);
 
   const signIn = useMutation({
     mutationFn: async (provider: HubSocialProvider) => {

@@ -1,6 +1,10 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { LoginSheet } from "@/features/onboarding/LoginSheet";
+import {
+  PairScannerErrorBoundary,
+  SignInCrashFallback,
+} from "@/features/onboarding/PairScannerErrorBoundary";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export default function SignInRoute() {
@@ -31,7 +35,9 @@ export default function SignInRoute() {
           },
         }}
       />
-      <LoginSheet initialScannerOpen={mode === "scan"} onAuthenticated={close} />
+      <PairScannerErrorBoundary fallback={() => <SignInCrashFallback />}>
+        <LoginSheet initialScannerOpen={mode === "scan"} onAuthenticated={close} />
+      </PairScannerErrorBoundary>
     </View>
   );
 }

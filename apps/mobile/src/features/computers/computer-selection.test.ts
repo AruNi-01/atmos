@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { ComputerRow } from "@/api/types";
 import {
   getAutoConnectComputerId,
+  retainedServerIdAfterAuthMiss,
   selectableOnlineComputers,
 } from "@/features/computers/computer-selection";
 
@@ -87,6 +88,13 @@ describe("computer auto selection", () => {
         selectedServerId: null,
       }),
     ).toBeNull();
+  });
+
+  test("drops a previous account's Computer when the new account does not list it", () => {
+    expect(retainedServerIdAfterAuthMiss([], "old")).toBeNull();
+    expect(retainedServerIdAfterAuthMiss([{ server_id: "other" }], "old")).toBeNull();
+    expect(retainedServerIdAfterAuthMiss([{ server_id: "kept" }], "kept")).toBe("kept");
+    expect(retainedServerIdAfterAuthMiss([{ server_id: "kept" }], null)).toBeNull();
   });
 
   test("ignores revoked computers", () => {

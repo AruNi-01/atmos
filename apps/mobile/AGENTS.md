@@ -31,8 +31,7 @@ apps/mobile/
 │   ├── sign-in.tsx          # Scan / OAuth form sheet
 │   ├── workspaces.tsx
 │   ├── create-workspace.tsx
-│   ├── workspace/[workspaceId].tsx
-│   └── preview.tsx              # Mock terminal path (no Computer)
+│   └── workspace/[workspaceId].tsx
 ├── src/
 │   ├── api/                 # Mobile-owned Relay/relay/WS clients
 │   ├── features/            # Product screens: onboarding, workspaces, terminal, computers
