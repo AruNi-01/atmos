@@ -95,7 +95,7 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 - **Level**: Bun test
 - **Given**: growth vs stacked press policy
 - **When**: tap vs long-press-end
-- **Then**: stacked tap opens and persists; growth tap does not persist; stacked source includes `Gesture.Tap`
+- **Then**: stacked tap opens and persists; growth tap does not persist; stacked source includes `Gesture.Tap`; `chartTipResetSignature` changes when values or Computer `resetKey` change even if count / labels / peak match
 - **Signals**: `chart-press.test.ts`
 
 ### S8 — First x-axis label band
@@ -181,6 +181,6 @@ This environment: 未运行.
 - S8 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`
 - S9 — ✅ `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts src/features/token-usage/usage-displayed-overview.test.ts`
 - S10 — 未运行 (this environment has no iOS simulator)
-- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts src/ui/primitives/expo-ui-button-modifiers.test.ts` (100 pass)
+- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts src/ui/primitives/expo-ui-button-modifiers.test.ts` (101 pass)
 
 Regression: `cd apps/mobile && bun test src/features/token-usage` green. iOS simulator visual acceptance remains 未运行.

@@ -23,6 +23,7 @@ describe("usage scroll reset", () => {
     expect(screen).not.toContain("usageScrollRef.current?.scrollTo({ animated: false, y: 0 })");
     expect(screen).not.toMatch(/scrollTo\(\{\s*animated: false,\s*y:\s*0\s*\}\)/);
     expect(screen).toContain("overview={publishOverview}");
+    expect(screen).toContain("resetKey={usageScopeKey}");
   });
 
   test("the overview hook keeps the previous payload while the next Computer loads", () => {

@@ -35,6 +35,7 @@ import {
   CHART_HOLD_MS,
   chartOpensOnTap,
   chartTipPersistsOnRelease,
+  chartTipResetSignature,
   GROWTH_CHART_TIP,
   STACKED_CHART_TIP,
   type ChartTipOpen,
@@ -657,6 +658,7 @@ export function UsageGrowthChart({
   height,
   labels,
   labelColor,
+  resetKey,
   values,
   width,
 }: {
@@ -666,6 +668,7 @@ export function UsageGrowthChart({
   height: number;
   labels: string[];
   labelColor: string;
+  resetKey?: string;
   values: number[];
   width: number;
 }) {
@@ -675,8 +678,7 @@ export function UsageGrowthChart({
   );
   const count = points.length;
   const peak = useMemo(() => values.reduce((max, value) => Math.max(max, value), 0), [values]);
-  const seriesKey = `${count}:${labels[0] ?? ""}:${labels[count - 1] ?? ""}`;
-  const signature = `${seriesKey}:${peak}`;
+  const seriesKey = chartTipResetSignature({ labels, resetKey, values });
   const contentWidthRef = useRef(width);
   const pointsRef = useRef(points);
   pointsRef.current = points;
@@ -746,7 +748,7 @@ export function UsageGrowthChart({
     setTip(null);
     setSelected(null);
     scroll.placeEnd(contentWidthRef.current, width);
-  }, [scroll.placeEnd, scroll.userScrolled, signature, width]);
+  }, [scroll.placeEnd, scroll.userScrolled, seriesKey, width]);
   useLayoutEffect(() => {
     if (!scroll.zoomAnchor.current) return;
     scroll.scrollTo(scroll.offsetRef.current);
@@ -916,6 +918,7 @@ export function UsageStackedChart({
   labelColor,
   names,
   providers,
+  resetKey,
   series,
   width,
 }: {
@@ -930,6 +933,7 @@ export function UsageStackedChart({
   labelColor: string;
   names: string[];
   providers?: ReadonlyMap<string, string>;
+  resetKey?: string;
   series: number[][];
   width: number;
 }) {
@@ -958,8 +962,11 @@ export function UsageStackedChart({
   const estimate = useMemo(() => barAxisEstimate(formatValue, peak), [formatValue, peak]);
   const [measuredAxis, setMeasuredAxis] = useState<number | null>(null);
   const axisWidth = measuredAxis ?? estimate;
-  const seriesKey = `${count}:${labels[0] ?? ""}:${labels[count - 1] ?? ""}`;
-  const signature = `${seriesKey}:${peak}:${formatValue(peak)}`;
+  const seriesKey = chartTipResetSignature({
+    labels,
+    resetKey,
+    values: series.flat(),
+  });
   const contentWidthRef = useRef(width);
   const frames = useRef(new Map<number, ColumnFrame>());
   const frameKeyRef = useRef("");
@@ -1021,7 +1028,7 @@ export function UsageStackedChart({
     scroll.userScrolled.current = false;
     setTip(null);
     scroll.placeEnd(contentWidthRef.current, width);
-  }, [scroll.placeEnd, scroll.userScrolled, signature, width]);
+  }, [scroll.placeEnd, scroll.userScrolled, seriesKey, width]);
   useLayoutEffect(() => {
     if (!scroll.zoomAnchor.current) return;
     scroll.scrollTo(scroll.offsetRef.current);

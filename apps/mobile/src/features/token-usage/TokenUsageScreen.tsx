@@ -628,6 +628,7 @@ export function TokenUsageScreen() {
                   height={220}
                   labelColor={theme.colors.secondaryLabel}
                   labels={series.map((point) => point.label)}
+                  resetKey={usageScopeKey}
                   values={series.map((point) => point.value)}
                   width={width}
                 />
@@ -647,6 +648,7 @@ export function TokenUsageScreen() {
                   labels={bars.bars.map((bar) => bar.label)}
                   names={bars.labels}
                   providers={modelProviders}
+                  resetKey={usageScopeKey}
                   series={bars.bars.map((bar) => bar.segments)}
                   width={width}
                 />

@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   chartOpensOnTap,
   chartTipPersistsOnRelease,
+  chartTipResetSignature,
   GROWTH_CHART_TIP,
   STACKED_CHART_TIP,
 } from "./chart-press";
@@ -38,6 +39,18 @@ describe("chart press policy", () => {
     expect(charts).toContain("if (chartTipPersistsOnRelease(open)) handlers.current.onRelease()");
     expect(charts).toContain("scrollEndOffset(contentWidth, viewport)");
     expect(charts).not.toContain("labelInset");
+  });
+
+  test("scope or series values reset the tip even when count, labels, and peak match", () => {
+    const labels = ["Mar", "Apr", "May"];
+    const sameShape = { labels, values: [1, 4, 2] };
+    const otherValues = { labels, values: [2, 4, 1] };
+    expect(chartTipResetSignature(sameShape)).not.toBe(chartTipResetSignature(otherValues));
+    expect(chartTipResetSignature({ ...sameShape, resetKey: "all" })).not.toBe(
+      chartTipResetSignature({ ...sameShape, resetKey: "computer-a" }),
+    );
+    expect(charts).toContain("chartTipResetSignature");
+    expect(charts).not.toContain('`${count}:${labels[0] ?? ""}:${labels[count - 1] ?? ""}`');
   });
 
   test("pinch begin always releases a persisted stacked tip", () => {

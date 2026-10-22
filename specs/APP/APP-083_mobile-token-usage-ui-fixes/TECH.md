@@ -88,7 +88,7 @@ Pass `tintColor={seriesColor}` (the stacked series color). `UsageModelIcon` alre
 For `UsageStackedChart`:
 
 - Add `Gesture.Tap()` (`maxDistance` small enough not to steal horizontal scroll).
-- Persist the tip on release (tap and long-press scrub). Series change still clears it.
+- Persist the tip on release (tap and long-press scrub). Clear it when Computer / All (`resetKey={usageScopeKey}`) or the series values change via `chartTipResetSignature`. Do not key the reset only on bar count / first-last labels / peak — two Computers can share that shape. Independent of persist-on-release.
 - Horizontal scroll (`onScrollBeginDrag`) clears a persisted stacked tip so the indicator does not sit on a different bar.
 - Keep `columnIndicatorLine` / `columnIndicatorColor` while the tip is open. Indicator x is the bar centre in host coordinates (`columnIndicatorHostX`), not the slot boundary between months.
 
@@ -130,6 +130,11 @@ function displayedOverview<T>(input: {
   previous: T | null;
 }): T | null;
 function publishOverview<T>(active: T | null | undefined): T | null;
+function chartTipResetSignature(input: {
+  labels: readonly string[];
+  resetKey?: string;
+  values: readonly number[];
+}): string;
 ```
 
 ## Transport
