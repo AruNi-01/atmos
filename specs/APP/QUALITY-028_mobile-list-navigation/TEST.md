@@ -1,6 +1,6 @@
-# TEST · QUALITY-025: Mobile list navigation
+# TEST · QUALITY-028: Mobile list navigation
 
-> Test plan for the navigation skeleton, filtered session pages, and 20-row windows. References TECH QUALITY-025. Coverage Status is filled after the commands actually run.
+> Test plan for the navigation skeleton, filtered session pages, and 20-row windows. References TECH QUALITY-028. Coverage Status is filled after the commands actually run.
 
 ## Test strategy
 

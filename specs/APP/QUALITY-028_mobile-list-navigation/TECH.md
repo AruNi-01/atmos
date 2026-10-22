@@ -1,8 +1,12 @@
-# TECH · QUALITY-025: Mobile list navigation
+# TECH · QUALITY-028: Mobile list navigation
 
 > Technical design. Workspace rows and Session cards stutter because the destination's first React commit joins and mounts the whole list. This spec makes that first frame a skeleton, then pages the filtered lists at 20 rows.
 >
-> Zone: QUALITY-025 is the next free QUALITY id, with `TECH.md` and `TEST.md` only. The task asked for that shape for the navigation hitch and the paging that removes it, rather than a four-file `APP-NNN` feature.
+> Zone: QUALITY-028, with `TECH.md` and `TEST.md` only. The task asked for that shape for the navigation hitch and the paging that removes it, rather than a four-file `APP-NNN` feature.
+
+## Number
+
+`QUALITY-028` is the next free id. `main` already publishes `QUALITY-025` (Settings computers and Re-pair) and `QUALITY-026` (workspace swipe rows). Open PR #356 reserves `QUALITY-027`. Open PR #352 also uses `QUALITY-026` for quota display, so 026 stays skipped. This branch first used `QUALITY-025`. That id is published, so the directory moved here. No rebase.
 
 ## Quality target
 
