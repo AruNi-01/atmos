@@ -26,7 +26,8 @@ TokenUsageScreen
   → keep previous overview on Computer / All change; do not scrollTo(y:0)
 
 charts.tsx
-  → y-axis overlay stops above the x-label band
+  → y-axis overlay stops above the x-label band (bars)
+  → growth y-axis sits beside the plot (`axisPlacement="start"`)
   → windowed slices keep the y-axis column (no -PLOT_X crop)
   → bar tap + persist tip
   → popover tintColor = series color
@@ -100,7 +101,9 @@ Chart-kit x labels use `textAnchor: "middle"` at the data-point x (plot origin �
 2. Clipping container: the windowed growth slice used `left: span*gap + PLOT_X` and `marginLeft: -PLOT_X`, so the first label sat at wrapper x=0. iOS clips that overflow even with `overflow: "visible"`. The full-height y-axis overlay then painted over the remaining gutter.
 3. Scroll content offset: `CHART_X_LABEL_INSET` plus `placeEnd(... + inset)` cancelled itself (fitting series lands at offset `+inset`, first label back on the overlay edge).
 
-Fix: overlay covers only the plot (`overlayPlotHeight = height - CHART_X_LABEL_BAND`). Windowed slices keep the y-axis column (`windowedSliceFrame`, no `-PLOT_X` crop). `ScrollView` is full host width. `placeEnd` uses `scrollEndOffset(contentWidth, viewport)` with no extra inset. Gesture `chartX` is `event.x + offset`. Hide y-axis labels on the scrolling growth chart. Overlay width stays `axisWidth`.
+Bar charts keep that overlay (plot only). The growth chart cannot: `placeEnd` puts Nov/Dec under the y-axis while the visible polyline starts at January, so those labels sit in the open gutter (`"v"` / `"Dec"` left of Jan) and `edgeLabelPolicy="shift"` pulls them off their points.
+
+Growth fix: pin the y-axis beside the plot (`axisPlacement="start"`), scroll only the plot (`yAxisLabelWidth={0}`, `edgeLabelPolicy="show"`), and mask the axis column's x-label band. `placeEnd` uses the plot viewport (`width - axisWidth`). Windowed slices still use `windowedSliceFrame` with no `-PLOT_X` crop.
 
 Helpers live in `chart-geometry.ts` with bun tests.
 
@@ -108,7 +111,7 @@ Helpers live in `chart-geometry.ts` with bun tests.
 
 Switching Computer / All swaps `activeQuery`. `overview = activeQuery.data ?? null` flashes zeros and shrinks the page. `scrollTo({ y: 0 })` on that identity change is the compact-header origin under iOS large title + `contentInsetAdjustmentBehavior="automatic"`, so the large title collapses (~300pt).
 
-On Computer / All identity change (`selectedKey`), reset `selectedDate` during render (previous-key state, not an effect). Do **not** `scrollTo({ y: 0 })`. Keep the previous overview for **display** while the next query is pending (`displayedOverview`). Drop that fallback when the active query fails. Pass only `publishOverview(activeQuery.data)` into `ShareSheet` so Publish cannot snapshot another Computer. Do not remount the `Stack.Screen` header while the sheet is closed. Pinch `onBegin` always calls `onRelease()` so a persisted stacked tip does not ride the zoom.
+On Computer / All identity change (`selectedKey`), reset `selectedDate` during render (previous-key state, not an effect). Do **not** `scrollTo({ y: 0 })`. Keep the previous overview for **display** while the next query is pending (`displayedOverview`). Drop that fallback when the active query fails. Pass only `publishOverview(activeQuery.data)` into `ShareSheet` so Publish cannot snapshot another Computer. Do not remount the `Stack.Screen` header while the sheet is closed. Pinch `onBegin` always calls `onRelease()` so a persisted stacked tip does not ride the zoom. `RefreshControl.refreshing` is only the explicit pull mutation (`usageRefreshControlRefreshing`); `isRefetching` / `isFetching` must not shove the page down on a Computer / All switch.
 
 ## Data model
 
@@ -123,6 +126,14 @@ function windowedSliceFrame(
   step: number,
   drawnWidth: number,
 ): { left: number; width: number };
+function growthPointHostX(input: {
+  axisWidth: number;
+  index: number;
+  offset: number;
+  plotLeft: number;
+  step: number;
+}): number;
+function usageRefreshControlRefreshing(input: { pullPending: boolean }): boolean;
 function displayedOverview<T>(input: {
   active: T | null | undefined;
   failed: boolean;

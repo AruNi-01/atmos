@@ -21,6 +21,7 @@ import {
   displayedOverview,
   publishOverview,
 } from "@/features/token-usage/usage-displayed-overview";
+import { usageRefreshControlRefreshing } from "@/features/token-usage/usage-refresh-control";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -207,7 +208,7 @@ export function useTokenUsageOverview() {
     missedWarnings,
     overview,
     publishOverview: confirmedOverview,
-    refreshing: refresh.isPending || activeQuery.isRefetching,
+    refreshing: usageRefreshControlRefreshing({ pullPending: refresh.isPending }),
     reload,
     selectedKey: scope.selectedKey,
     setUsageSelection,

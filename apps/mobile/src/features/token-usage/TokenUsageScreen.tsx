@@ -423,7 +423,7 @@ export function TokenUsageScreen() {
           <UsageScroll
             contentRef={usageContentRef}
             onRefresh={reload}
-            refreshing={refreshing || (isFetching && overview == null)}
+            refreshing={refreshing}
             scrollRef={usageScrollRef}
             shift={captureShift}
           >

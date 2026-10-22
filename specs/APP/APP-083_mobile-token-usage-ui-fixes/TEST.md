@@ -103,16 +103,16 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 - **Level**: Bun test
 - **Given**: a centred month label at the y-axis overlay edge
 - **When**: the overlay covers the label band vs leaves it open
-- **Then**: covering clips the label; leaving the band open keeps a 24px-wide centred `"Nov"` fully visible unless the slice is cropped at the plot origin; `placeEnd` of a fitting series is offset 0, not `+inset`
-- **Signals**: `chart-geometry.test.ts`
+- **Then**: covering clips the label; leaving the band open keeps a 24px-wide centred `"Nov"` fully visible unless the slice is cropped at the plot origin; `placeEnd` of a fitting series is offset 0, not `+inset`; the growth plot sits beside the y-axis so Nov/Dec cannot land in the gutter left of January, and `edgeLabelPolicy` is `show`
+- **Signals**: `chart-geometry.test.ts`, `chart-press.test.ts`
 
 ### S9 — Large title on All
 
 - **Level**: Bun test (source contract)
 - **Given**: Token usage screen
 - **When**: Computer / All identity changes
-- **Then**: `selectedDate` clears; the screen does not `scrollTo({ y: 0 })`; the overview hook keeps the previous payload for display while the next query is pending; a failed query drops the fallback; `ShareSheet` receives `publishOverview` (active query data only)
-- **Signals**: `usage-scroll-reset.test.ts`, `usage-displayed-overview.test.ts`. Simulator large-title is S10.
+- **Then**: `selectedDate` clears; the screen does not `scrollTo({ y: 0 })`; the overview hook keeps the previous payload for display while the next query is pending; a failed query drops the fallback; `ShareSheet` receives `publishOverview` (active query data only); RefreshControl `refreshing` is only the pull mutation, not `isRefetching` / `isFetching`
+- **Signals**: `usage-scroll-reset.test.ts`, `usage-displayed-overview.test.ts`, `usage-refresh-control.test.ts`. Simulator large-title is S10.
 
 ### S10 — iOS simulator (manual)
 
@@ -178,9 +178,9 @@ This environment: 未运行.
 - S5 — ✅ `cd apps/mobile && bun test src/features/terminal/agent-glyph-tint.test.ts`
 - S6 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-popover-mark.test.ts`
 - S7 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`
-- S8 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`
-- S9 — ✅ `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts src/features/token-usage/usage-displayed-overview.test.ts`
+- S8 — ✅ `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts src/features/token-usage/chart-press.test.ts`
+- S9 — ✅ `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts src/features/token-usage/usage-displayed-overview.test.ts src/features/token-usage/usage-refresh-control.test.ts`
 - S10 — 未运行 (this environment has no iOS simulator)
-- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts src/ui/primitives/expo-ui-button-modifiers.test.ts` (101 pass)
+- S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts src/ui/primitives/expo-ui-button-modifiers.test.ts` (106 pass)
 
 Regression: `cd apps/mobile && bun test src/features/token-usage` green. iOS simulator visual acceptance remains 未运行.

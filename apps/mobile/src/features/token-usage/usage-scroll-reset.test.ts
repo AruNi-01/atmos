@@ -34,4 +34,11 @@ describe("usage scroll reset", () => {
     expect(hook).toContain("if (activeQuery.data && heldOverview !== activeQuery.data)");
     expect(hook).toContain("setHeldOverview(activeQuery.data)");
   });
+
+  test("switching Computer / All does not turn on RefreshControl", () => {
+    expect(hook).toContain("usageRefreshControlRefreshing({ pullPending: refresh.isPending })");
+    expect(hook).not.toContain("activeQuery.isRefetching");
+    expect(screen).toContain("refreshing={refreshing}");
+    expect(screen).not.toContain("isFetching && overview == null");
+  });
 });
