@@ -30,9 +30,9 @@ enum AtmosSocketSendError: LocalizedError {
 /// Do not use `URLSessionConfiguration.default`. When
 /// `EX_DEV_CLIENT_NETWORK_INSPECTOR` is true, expo-dev-launcher swizzles that
 /// getter and prepends `ExpoRequestInterceptorProtocol`. The interceptor
-/// replays the handshake as a data task and swallows HTTP 101 Switching
-/// Protocols, after which `URLSessionWebSocketTask` fails with
-/// `NSURLErrorDomain -1005`. Release is unaffected because the interceptor is
+/// replays the handshake as a data task and swallows HTTP 101 Switching Protocols,
+/// after which `URLSessionWebSocketTask` fails with `NSURLErrorDomain -1005`.
+/// Release is unaffected because the interceptor is
 /// compiled out. `ephemeral` is not swizzled today; if a future inspector
 /// also replaces it, allocate a configuration that does not go through those
 /// class getters and drop inspector `URLProtocol` classes.

@@ -27,18 +27,18 @@ The failure is an iOS Debug URLSession handshake. This Linux environment has no 
 
 ## Execution map
 
-| Scenario | Level     | Expected tool | Target command / method                                                      | Fixture / data     | Signals                                                                                          | Status  |
-| -------- | --------- | ------------- | ---------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------ | ------- |
-| S1       | Unit      | `bun test`    | `apps/mobile/src/api/url-session-websocket.test.ts` or colocated module test | Swift source       | no `URLSession(configuration: .default`                                                          | planned |
-| S2       | Unit      | `bun test`    | same                                                                         | Swift source       | `URLSessionConfiguration.ephemeral` is the first factory                                         | planned |
-| S3       | Unit      | `bun test`    | same                                                                         | Swift source       | copies `timeoutIntervalForRequest`, `httpCookieStorage`, `httpAdditionalHeaders` from `.default` | planned |
-| S4       | Unit      | `bun test`    | same                                                                         | Swift source       | does not assign `protocolClasses` from `.default`                                                | planned |
-| S5       | Unit      | `bun test`    | same                                                                         | Swift source       | `URLSessionConfiguration()` fallback and inspector protocol strip / empty `protocolClasses`      | planned |
-| S6       | Unit      | `bun test`    | same                                                                         | Swift source       | comment names inspector, 101, and `-1005`                                                        | planned |
-| S7       | Unit      | `bun test`    | same + `app.config.js` / env files if touched                                | repo source        | no new `EX_DEV_CLIENT_NETWORK_INSPECTOR=false`                                                   | planned |
-| S8       | Unit      | `bun test`    | `apps/mobile/src/api/url-session-websocket.test.ts`                          | Fake native socket | existing connect / close / ping tests pass                                                       | planned |
-| S9       | Toolchain | shell         | read `package.json` `lint`; oxlint/oxfmt on touched paths                    | repo root          | `--max-warnings=455`; no `ios-parity` label change                                               | planned |
-| S10      | Manual    | Simulator     | Debug client, inspector on, connect Computer/terminal WS                     | Mac + relay        | open event; not `-1005`. **not run** on Linux                                                    | planned |
+| Scenario | Level     | Expected tool | Target command / method                                       | Fixture / data     | Signals                                                                                          | Status  |
+| -------- | --------- | ------------- | ------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------ | ------- |
+| S1       | Unit      | `bun test`    | `apps/mobile/src/api/atmos-url-session-socket-config.test.ts` | Swift source       | no `URLSession(configuration: .default`                                                          | pass    |
+| S2       | Unit      | `bun test`    | same                                                          | Swift source       | `URLSessionConfiguration.ephemeral` is the first factory                                         | pass    |
+| S3       | Unit      | `bun test`    | same                                                          | Swift source       | copies `timeoutIntervalForRequest`, `httpCookieStorage`, `httpAdditionalHeaders` from `.default` | pass    |
+| S4       | Unit      | `bun test`    | same                                                          | Swift source       | does not assign `protocolClasses` from `.default`                                                | pass    |
+| S5       | Unit      | `bun test`    | same                                                          | Swift source       | `URLSessionConfiguration()` fallback and inspector protocol strip / empty `protocolClasses`      | pass    |
+| S6       | Unit      | `bun test`    | same                                                          | Swift source       | comment names inspector, 101, and `-1005`                                                        | pass    |
+| S7       | Unit      | `bun test`    | same + `app.config.js` / env files if touched                 | repo source        | no new `EX_DEV_CLIENT_NETWORK_INSPECTOR=false`                                                   | pass    |
+| S8       | Unit      | `bun test`    | `apps/mobile/src/api/url-session-websocket.test.ts`           | Fake native socket | existing connect / close / ping tests pass                                                       | pass    |
+| S9       | Toolchain | shell         | read `package.json` `lint`; oxlint/oxfmt on touched paths     | repo root          | `--max-warnings=455`; no `ios-parity` label change                                               | pass    |
+| S10      | Manual    | Simulator     | Debug client, inspector on, connect Computer/terminal WS      | Mac + relay        | open event; not `-1005`. **not run** on Linux                                                    | not_run |
 
 ## Scenarios
 
@@ -129,11 +129,11 @@ Unchanged. Handshake still uses one URLSession WebSocket per Computer/terminal c
 
 ## Regression checklist
 
-- [ ] `AtmosUrlSessionSocket` does not call `URLSession(configuration: .default`.
-- [ ] QUALITY-012 ping, 16 MiB cap, and close-code deferral are still in the same file.
-- [ ] Debug REST `fetch` can still use `.default` (inspector remains for HTTP).
-- [ ] `package.json` lint cap stays 455.
-- [ ] No `ios-parity` label, evidence push, or hostname in the change.
+- [x] `AtmosUrlSessionSocket` does not call `URLSession(configuration: .default`.
+- [x] QUALITY-012 ping, 16 MiB cap, and close-code deferral are still in the same file.
+- [x] Debug REST `fetch` can still use `.default` (inspector remains for HTTP).
+- [x] `package.json` lint cap stays 455.
+- [x] No `ios-parity` label, evidence push, or hostname in the change.
 
 ## Exploratory agent-browser checks
 
@@ -141,11 +141,11 @@ Omitted. Native iOS module; no web route.
 
 ## Acceptance criteria
 
-- [ ] S1–S8 pass at the declared Bun/source level.
-- [ ] S9: lint script is still `--max-warnings=455`.
-- [ ] S10 is either run on a Mac or recorded `not_run` with the Simulator reason.
-- [ ] Inspector is not disabled as a workaround.
-- [ ] Coverage Status lists the exact commands after implementation.
+- [x] S1–S8 pass at the declared Bun/source level.
+- [x] S9: lint script is still `--max-warnings=455`.
+- [x] S10 is either run on a Mac or recorded `not_run` with the Simulator reason.
+- [x] Inspector is not disabled as a workaround.
+- [x] Coverage Status lists the exact commands after implementation.
 
 ## Manual verification steps
 
@@ -164,4 +164,16 @@ Do not attach screenshots or evidence to the PR.
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`. Include exact automated tests, commands, and remaining gaps.
+2026-10-22 (Linux agent, no iOS Simulator):
+
+- S1–S7 — pass. `cd apps/mobile && bun test src/api/atmos-url-session-socket-config.test.ts` (5 tests).
+- S8 — pass. `cd apps/mobile && bun test src/api/url-session-websocket.test.ts` (5 tests). Combined socket files: 10 pass, 0 fail. `cd apps/mobile && bun test src/api/` → 37 pass, 0 fail.
+- S9 — pass. Root `package.json` `lint` is still `oxlint --max-warnings=455`. `bunx oxlint --max-warnings=455` on the new test file and `url-session-websocket.test.ts` exited 0. `bunx oxfmt` on the touched TS/MD paths exited 0. Diff does not add the `ios-parity` label, evidence files, screenshots, or a hostname.
+- S10 — not_run. No iOS Simulator in this environment. Live Debug + inspector handshake remains a Mac gap.
+
+Commands:
+
+```bash
+cd apps/mobile && bun test src/api/atmos-url-session-socket-config.test.ts src/api/url-session-websocket.test.ts
+bunx oxlint --max-warnings=455 apps/mobile/src/api/atmos-url-session-socket-config.test.ts apps/mobile/src/api/url-session-websocket.test.ts
+```
