@@ -194,9 +194,9 @@ iOS 模拟器手动步骤（长按竖线、四张卡数字、Publish 顶边与�
 
 2026-10-22，review 修复后再跑。上面的 42 pass 是这次修复之前的 8 文件结果。
 
-上述 S1、S2、S4、S6、S7 一次跑完：`cd apps/mobile && bun test` 指向这 8 个文件，52 pass，0 fail。
+上述 S1、S2、S4、S6、S7 一次跑完：`cd apps/mobile && bun test` 指向这 8 个文件，54 pass，0 fail。
 
-全量：`cd apps/mobile && bun test`，619 pass，0 fail，130 files。
+全量：`cd apps/mobile && bun test`，621 pass，0 fail，130 files。
 
 `bun lint`（`oxlint --max-warnings=455`，上限未改）退出码 0。
 

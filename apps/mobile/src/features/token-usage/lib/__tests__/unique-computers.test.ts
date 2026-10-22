@@ -1,5 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
 import type { ComputerRow } from "@atmos/relay-client";
 import {
   ALL_COMPUTERS_VALUE,
@@ -52,9 +53,30 @@ describe("uniqueComputers", () => {
     expect(devices[0]?.serverId).toBe("new");
     expect(devices[0]?.isCurrent).toBe(true);
     expect(allComputersFetchTargets(devices)).toHaveLength(1);
-    expect(allComputersFetchTargets([...devices, ...devices]).map((device) => device.key)).toEqual([
+  });
+
+  it("drops a repeated device key from all-computers targets", () => {
+    const device = {
+      isCurrent: true,
+      key: `app:${APP_A}` as const,
+      label: "Studio",
+      serverId: "new",
+    };
+    expect(allComputersFetchTargets([device, device]).map((item) => item.key)).toEqual([
       `app:${APP_A}`,
     ]);
+  });
+
+  it("matches the web unique-computers copy", () => {
+    const web = readFileSync(
+      new URL(
+        "../../../../../../web/src/features/token-usage/lib/unique-computers.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const mobile = readFileSync(new URL("../unique-computers.ts", import.meta.url), "utf8");
+    expect(mobile).toBe(web);
   });
 
   it("appends an unregistered local computer", () => {
