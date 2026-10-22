@@ -39,7 +39,7 @@ No Playwright journey. `apps/mobile/e2e` is not the proof for this change.
 | S3       | Unit      | Bun       | `bun test src/features/sessions/session-status-page.test.ts` in `apps/mobile` | short key for limit 100; long key and body for a bucket        | pass    |
 | S4       | Unit      | Bun       | `bun test src/features/lists/list-navigation.test.ts` in `apps/mobile`        | one log line; other target does not clear the mark             | pass    |
 | S5       | Unit      | Cargo     | `cargo test -p core-service page_agent_sessions_filters -- --test-threads=8`  | filtered page, catalog total, empty unknown group, idle alias  | pass    |
-| S6       | Toolchain | bun/oxc   | `bun --filter @atmos/mobile typecheck`; oxlint and oxfmt on touched paths     | no new oxlint warnings; cap stays 455; typecheck gap recorded  | partial |
+| S6       | Toolchain | bun/oxc   | `bun --filter @atmos/mobile typecheck`; oxlint and oxfmt on touched paths     | typecheck exits 0; no new oxlint warnings; cap stays 455       | pass    |
 | S7       | Manual    | Simulator | `just dev-mobile` then `just mobile-ios`                                      | Metro/Xcode shows `[list-nav] click-to-first-frame`            | not run |
 
 ## Scenarios
@@ -89,7 +89,7 @@ No Playwright journey. `apps/mobile/e2e` is not the proof for this change.
 - **Level**: Toolchain
 - **Given**: the touched mobile and Rust files.
 - **When**: mobile typecheck, oxlint, and oxfmt run on those paths, and the Rust paging test compiles.
-- **Then**: oxlint adds no warning on touched files, and `package.json` lint script still says `--max-warnings=455`. Package typecheck may still fail in files this change does not touch; those stay out of scope.
+- **Then**: `bun --filter @atmos/mobile typecheck` exits 0. oxlint adds no warning on touched files, and `package.json` lint script still says `--max-warnings=455`.
 - **Signals**: command exit codes.
 
 ### S7 — iOS Simulator
@@ -128,14 +128,14 @@ Not used. This change is Expo mobile, and the Linux agent has no iOS Simulator. 
 
 Recorded on `aarynlu/mobile-list-nav-pagination-0419` (Linux cloud agent, no iOS Simulator).
 
-| Scenario | Status  | Evidence                                                                                                                                                                                                                                                                        |
-| -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S1       | pass    | `nextListWindow` reveal, grow-and-fetch, shrink-and-fetch, and stay cases in `list-page.test.ts`                                                                                                                                                                                |
-| S2       | pass    | `pageBlocks` keeps a collapsed header and omits a later open block                                                                                                                                                                                                              |
-| S3       | pass    | `session-status-page.test.ts`: unfiltered key is `["agent-session-status-list", serverId]`; filtered key and body include group, context, and 20                                                                                                                                |
-| S4       | pass    | `list-navigation.test.ts`: mismatched target leaves the mark; matching target writes one `[list-nav] click-to-first-frame` line                                                                                                                                                 |
-| S5       | pass    | `cargo test -p core-service page_agent_sessions_filters -- --test-threads=8` — 1 passed                                                                                                                                                                                         |
-| S6       | partial | Lint, format, and clippy passed. `bun --filter @atmos/mobile typecheck` still exits 1 in untouched `glass-text-button.test.ts` (TS7016) and `open-thread-resync.test.ts` (TS2322), so the scenario is not a full pass. `package.json` lint script remains `--max-warnings=455`. |
-| S7       | not run | This environment has no iOS Simulator. Commands: `bun install` if needed, `just dev-mobile`, then `just mobile-ios`. Read `[list-nav] click-to-first-frame` in the Metro or Xcode console on a dev build.                                                                       |
+| Scenario | Status  | Evidence                                                                                                                                                                                                                                                       |
+| -------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1       | pass    | `nextListWindow` reveal, grow-and-fetch, shrink-and-fetch, and stay cases in `list-page.test.ts`                                                                                                                                                               |
+| S2       | pass    | `pageBlocks` keeps a collapsed header and omits a later open block                                                                                                                                                                                             |
+| S3       | pass    | `session-status-page.test.ts`: unfiltered key is `["agent-session-status-list", serverId]`; filtered key and body include group, context, and 20                                                                                                               |
+| S4       | pass    | `list-navigation.test.ts`: mismatched target leaves the mark; matching target writes one `[list-nav] click-to-first-frame` line                                                                                                                                |
+| S5       | pass    | `cargo test -p core-service page_agent_sessions_filters -- --test-threads=8` — 1 passed                                                                                                                                                                        |
+| S6       | pass    | `bun --filter @atmos/mobile typecheck` exits 0. `react-dom-server.d.ts` declares `react-dom/server`, and `open-thread-resync.test.ts` publish callbacks return void. Lint, format, and clippy passed. `package.json` lint script remains `--max-warnings=455`. |
+| S7       | not run | This environment has no iOS Simulator. Commands: `bun install` if needed, `just dev-mobile`, then `just mobile-ios`. Read `[list-nav] click-to-first-frame` in the Metro or Xcode console on a dev build.                                                      |
 
 `bun test` in `apps/mobile` for `list-page`, `list-navigation`, `session-status-page`, `session-inbox`, `chat-list-page`, and `session-row-actions` covers the window reset (`reconcileListWindow`), closed blocks that keep only the already-mounted rows (`mountedItemCount`) without spending the window, mark expiry and detail mismatch, and `omitSessionFromStatusPages`. The filtered status key starts with the unfiltered prefix, which is what `setQueriesData` matches.

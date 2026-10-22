@@ -55,7 +55,7 @@ TanStack Query starts fetches in effects, after paint. The stutter is the synchr
 
 A deep link with no mark still defers the fetch. `reportListFirstFrame` returns null and leaves any other target's mark in place. A mark older than 3 seconds is dropped. A mark whose `detail` does not match the destination `resetKey` is left in place.
 
-`useTerminalLaunchAgents(false)` returns before `setState` and before AsyncStorage.
+`useTerminalLaunchAgents(false)` returns before `setState` and before AsyncStorage. The rendered list uses a cache only when its `serverId` matches the selected Computer, so a server switch while the hook is inactive does not show the previous Computer's agents on the first active frame.
 
 Session home does not use the reveal hook. Deferring it would flash a skeleton over data the user is already looking at. Its focus invalidation stays, so popping back to home refreshes the inbox.
 

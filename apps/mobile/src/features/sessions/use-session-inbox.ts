@@ -30,6 +30,7 @@ import {
   type SessionBucket,
   type SessionInboxCandidate,
   type SessionInboxCard,
+  type SessionInboxProject,
   type SessionWorkspaceRecord,
 } from "./session-inbox";
 import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
