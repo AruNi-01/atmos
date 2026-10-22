@@ -33,4 +33,9 @@ describe("chart press policy", () => {
     );
     expect(growth).not.toContain("STACKED_CHART_TIP");
   });
+
+  test("horizontal drag clears a persisted stacked tip; end placement uses inset", () => {
+    expect(charts).toContain("if (chartTipPersistsOnRelease(open)) handlers.current.onRelease()");
+    expect(charts).toContain("scrollEndOffset(contentWidth, viewport, labelInset)");
+  });
 });

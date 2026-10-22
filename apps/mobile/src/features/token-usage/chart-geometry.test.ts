@@ -5,6 +5,7 @@ import {
   chartXFromGesture,
   firstAxisLabelFullyVisible,
   scrollContentShift,
+  scrollEndOffset,
 } from "./chart-geometry";
 
 describe("chart x-axis inset", () => {
@@ -21,5 +22,19 @@ describe("chart x-axis inset", () => {
     const firstPointHostX = axisWidth + inset;
     expect(chartXFromGesture(firstPointHostX, 0, inset)).toBe(axisWidth);
     expect(chartXFromGesture(axisWidth, 12, inset)).toBe(axisWidth + 12 - inset);
+  });
+
+  test("end placement includes the label inset extra travel", () => {
+    const axisWidth = 66;
+    const inset = 20;
+    const viewport = 400;
+    const contentWidth = 500;
+    const shift = scrollContentShift(axisWidth, inset);
+    const lane = viewport - axisWidth;
+    const scrollContent = contentWidth - shift;
+    expect(scrollEndOffset(contentWidth, viewport, inset)).toBe(scrollContent - lane);
+    expect(scrollEndOffset(contentWidth, viewport, inset)).toBe(contentWidth - viewport + inset);
+    expect(scrollEndOffset(viewport, viewport, inset)).toBe(inset);
+    expect(scrollEndOffset(100, viewport, inset)).toBe(0);
   });
 });

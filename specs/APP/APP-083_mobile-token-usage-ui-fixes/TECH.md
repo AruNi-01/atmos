@@ -88,13 +88,14 @@ For `UsageStackedChart`:
 
 - Add `Gesture.Tap()` (`maxDistance` small enough not to steal horizontal scroll).
 - Persist the tip on release (tap and long-press scrub). Series change still clears it.
+- Horizontal scroll (`onScrollBeginDrag`) clears a persisted stacked tip so the indicator does not sit on a different bar.
 - Keep `columnIndicatorLine` / `columnIndicatorColor` while the tip is open.
 
 ### X-axis clip (M9)
 
 `ChartViewport` pins a y-axis overlay of width `axisWidth` and shifts scroll content by `-axisWidth`. The first x label is centered on the first point at that edge; half of `"Nov"` / `"Feb"` is clipped (`"No"`, `"eb"`).
 
-Inset scroll content by `CHART_X_LABEL_INSET` (~20pt): content `marginLeft = -(axisWidth - inset)` so the first label sits fully inside the scroll view. Hide y-axis labels on the **scrolling** growth chart (`showYAxisLabels={false}`) so ticks are not duplicated in the inset. Overlay width stays `axisWidth`. Gesture `chartX` subtracts the same inset so hit-testing still matches.
+Inset scroll content by `CHART_X_LABEL_INSET` (~20pt): content `marginLeft = -(axisWidth - inset)` so the first label sits fully inside the scroll view. Hide y-axis labels on the **scrolling** growth chart (`showYAxisLabels={false}`) so ticks are not duplicated in the inset. Overlay width stays `axisWidth`. Gesture `chartX` subtracts the same inset so hit-testing still matches. `placeEnd` uses `scrollEndOffset` (`contentWidth - viewport + inset`) so the last point lands in the viewport.
 
 Helpers live in a small `chart-geometry.ts` (or equivalent) with bun tests.
 

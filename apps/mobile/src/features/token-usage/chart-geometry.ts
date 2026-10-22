@@ -16,3 +16,12 @@ export function chartXFromGesture(
 export function firstAxisLabelFullyVisible(input: { inset: number; labelWidth: number }) {
   return input.inset >= input.labelWidth / 2;
 }
+
+/** Max x offset after the y-axis overlay and first-label inset. */
+export function scrollEndOffset(
+  contentWidth: number,
+  viewport: number,
+  inset: number = CHART_X_LABEL_INSET,
+) {
+  return Math.max(0, contentWidth - viewport + inset);
+}

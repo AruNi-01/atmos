@@ -27,6 +27,7 @@ import {
   CHART_X_LABEL_INSET,
   chartXFromGesture,
   scrollContentShift,
+  scrollEndOffset,
 } from "@/features/token-usage/chart-geometry";
 import { popoverSeriesTint } from "@/features/token-usage/chart-popover-mark";
 import {
@@ -378,20 +379,21 @@ function useHoldScroll({
   const placeEnd = useCallback(
     (contentWidth: number, viewport: number) => {
       zoomAnchor.current = null;
-      const x = Math.max(0, contentWidth - viewport);
+      const x = scrollEndOffset(contentWidth, viewport, labelInset);
       offsetRef.current = x;
       offsetSv.set(x);
       pinnedOffset.current = x;
       scrollRef.current?.scrollTo({ animated: false, x });
     },
-    [offsetSv],
+    [labelInset, offsetSv],
   );
   const noteDrag = useCallback(() => {
     if (holding.current || zoomingRef.current) return;
     userScrolled.current = true;
     pinnedOffset.current = null;
     zoomAnchor.current = null;
-  }, []);
+    if (chartTipPersistsOnRelease(open)) handlers.current.onRelease();
+  }, [open]);
   const onScroll = useCallback(
     (x: number) => {
       if (holding.current) {
