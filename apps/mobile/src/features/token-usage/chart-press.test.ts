@@ -34,8 +34,17 @@ describe("chart press policy", () => {
     expect(growth).not.toContain("STACKED_CHART_TIP");
   });
 
-  test("horizontal drag clears a persisted stacked tip; end placement uses inset", () => {
+  test("horizontal drag clears a persisted stacked tip; end placement does not add inset", () => {
     expect(charts).toContain("if (chartTipPersistsOnRelease(open)) handlers.current.onRelease()");
-    expect(charts).toContain("scrollEndOffset(contentWidth, viewport, labelInset)");
+    expect(charts).toContain("scrollEndOffset(contentWidth, viewport)");
+    expect(charts).not.toContain("labelInset");
+  });
+
+  test("the y-axis overlay stops above the x-label band and the scroll view is full width", () => {
+    expect(charts).toContain("overlayPlotHeight(height, CHART_X_LABEL_BAND)");
+    expect(charts).toContain("columnIndicatorHostX");
+    expect(charts).not.toContain("marginLeft: -shift");
+    expect(charts).not.toContain("scrollContentShift");
+    expect(charts).not.toContain("CHART_X_LABEL_INSET");
   });
 });

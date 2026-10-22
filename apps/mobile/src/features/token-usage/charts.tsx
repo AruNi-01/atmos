@@ -24,9 +24,9 @@ import Svg, { Circle, Line, Rect } from "react-native-svg";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
 import {
-  CHART_X_LABEL_INSET,
+  CHART_X_LABEL_BAND,
   chartXFromGesture,
-  scrollContentShift,
+  overlayPlotHeight,
   scrollEndOffset,
 } from "@/features/token-usage/chart-geometry";
 import { popoverSeriesTint } from "@/features/token-usage/chart-popover-mark";
@@ -38,7 +38,11 @@ import {
   STACKED_CHART_TIP,
   type ChartTipOpen,
 } from "@/features/token-usage/chart-press";
-import { columnIndicatorColor, columnIndicatorLine } from "@/features/token-usage/column-indicator";
+import {
+  columnIndicatorColor,
+  columnIndicatorHostX,
+  columnIndicatorLine,
+} from "@/features/token-usage/column-indicator";
 import type { UsageDimension, HeatmapWeek } from "@/features/token-usage/model";
 import { UsageModelIcon } from "@/features/token-usage/UsageModelIcon";
 import { BotIcon } from "@/ui/icons/lucide-native";
@@ -139,7 +143,6 @@ export function ScrollableChart({
 type HoldScroll = {
   axis: number;
   baseGap: number;
-  labelInset?: number;
   onHold: (chartX: number) => void;
   onMove: (chartX: number) => void;
   onRelease: () => void;
@@ -159,7 +162,6 @@ type HoldScroll = {
 function useHoldScroll({
   axis,
   baseGap,
-  labelInset = CHART_X_LABEL_INSET,
   onHold,
   onMove,
   onRelease,
@@ -286,16 +288,16 @@ function useHoldScroll({
         holdOffset.current = offsetRef.current;
         scrollRef.current?.setNativeProps({ scrollEnabled: false });
         setLock(true);
-        handlers.current.onHold(chartXFromGesture(event.x, holdOffset.current, labelInset));
+        handlers.current.onHold(chartXFromGesture(event.x, holdOffset.current));
       })
       .onUpdate((event) => {
         if (!holding.current) return;
-        handlers.current.onMove(chartXFromGesture(event.x, holdOffset.current, labelInset));
+        handlers.current.onMove(chartXFromGesture(event.x, holdOffset.current));
       })
       .onFinalize(() => {
         unlock();
       });
-  }, [labelInset, native, open]);
+  }, [native, open]);
   const tap = useMemo(() => {
     if (!chartOpensOnTap(open)) return null;
     return Gesture.Tap()
@@ -304,9 +306,9 @@ function useHoldScroll({
       .cancelsTouchesInView(false)
       .simultaneousWithExternalGesture(native)
       .onEnd((event) => {
-        handlers.current.onHold(chartXFromGesture(event.x, offsetRef.current, labelInset));
+        handlers.current.onHold(chartXFromGesture(event.x, offsetRef.current));
       });
-  }, [labelInset, native, open]);
+  }, [native, open]);
   const pinch = useMemo(
     () =>
       Gesture.Pinch()
@@ -379,13 +381,13 @@ function useHoldScroll({
   const placeEnd = useCallback(
     (contentWidth: number, viewport: number) => {
       zoomAnchor.current = null;
-      const x = scrollEndOffset(contentWidth, viewport, labelInset);
+      const x = scrollEndOffset(contentWidth, viewport);
       offsetRef.current = x;
       offsetSv.set(x);
       pinnedOffset.current = x;
       scrollRef.current?.scrollTo({ animated: false, x });
     },
-    [labelInset, offsetSv],
+    [offsetSv],
   );
   const noteDrag = useCallback(() => {
     if (holding.current || zoomingRef.current) return;
@@ -462,9 +464,7 @@ function ChartViewport({
   scroll: ReturnType<typeof useHoldScroll>;
   width: number;
 }) {
-  const shift = scrollContentShift(axisWidth);
-  const lane = Math.max(0, width - axisWidth);
-  const content = Math.max(lane, contentWidth - shift);
+  const content = Math.max(width, contentWidth);
   return (
     <GestureDetector gesture={scroll.gesture}>
       <View collapsable={false} ref={scroll.hostRef} style={{ height, width }}>
@@ -494,13 +494,9 @@ function ChartViewport({
             scrollEnabled={!scroll.locked && !scroll.zooming}
             scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
-            style={{ height, marginLeft: axisWidth, width: lane }}
+            style={{ height, width }}
           >
-            <View
-              collapsable={false}
-              pointerEvents="none"
-              style={{ height, marginLeft: -shift, width: contentWidth }}
-            >
+            <View collapsable={false} pointerEvents="none" style={{ height, width: contentWidth }}>
               {children}
             </View>
           </ScrollView>
@@ -509,7 +505,7 @@ function ChartViewport({
           pointerEvents="none"
           style={{
             backgroundColor,
-            height,
+            height: overlayPlotHeight(height, CHART_X_LABEL_BAND),
             left: 0,
             overflow: "hidden",
             position: "absolute",
@@ -860,7 +856,7 @@ export function UsageGrowthChart({
           style={{
             height,
             left: span.start * gap + PLOT_X,
-            overflow: "hidden",
+            overflow: "visible",
             position: "absolute",
             width: Math.max(0, drawnWidth - PLOT_X),
           }}
@@ -1011,7 +1007,11 @@ export function UsageStackedChart({
         index: frame.index,
         rows: nextRows,
         title: row.label,
-        x: frame.x + frame.width / 2 - scroll.offsetRef.current,
+        x: columnIndicatorHostX({
+          offset: scroll.offsetRef.current,
+          width: frame.width,
+          x: frame.x,
+        }),
         y: frame.y,
       };
       setTip((current) => (sameColumnTip(current, next) ? current : next));
